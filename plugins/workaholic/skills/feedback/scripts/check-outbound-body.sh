@@ -1,21 +1,32 @@
 #!/bin/sh -eu
-# Submit a confirmed, masked request as a ticket to ANOTHER repository.
+# Refuse a body bound for ANOTHER repository that still names THIS one.
 #
-# Usage: submit-request.sh <target-repo-root> <ticket-filename> <body-file>
+# Usage: check-outbound-body.sh <body-file>
+# Emits JSON: { ok: true } or { ok: false, error }.
 #
-# This is the ONLY sanctioned writer of a cross-repository artifact. Everything else is
-# refused by hooks/guard-repo-confinement.sh. That guard watches the Write/Edit tools and
-# does not see a script like this one — which is the point: the casual path is closed and
-# the deliberate path runs here, where the caller has already shown the developer exactly
-# what will be submitted and had them confirm it.
+# This is a MECHANICAL BACKSTOP, not assurance. It knows only this repository's own
+# name, its `owner/name` remote form, every form of its clone URL, and its absolute
+# path — the things that are always mechanically knowable. It cannot know a customer's
+# vocabulary; that is what the developer's verbatim confirmation is for, and a pass
+# here means nothing beyond "our own name is absent".
 #
-# This script does NOT mask and does NOT judge. By the time it runs, the body is already
-# masked and confirmed. It refuses only the mechanical mistakes: a target that is not a
-# repo, a body that is empty, a filename that is not ticket-shaped, and — as a last
-# backstop, not a substitute for the confirmation — a body still carrying this repo's own
-# name or path.
+# IT MATCHES AN IDENTIFIER, NOT A SUBSTRING (2026-08-02). The bare-name test used to be
+# a case-insensitive plain `grep -F`, which refuses any body where this repo's basename
+# appears anywhere at all — including inside a directory name belonging to the TARGET
+# repo. A repo whose basename is an ordinary English word therefore could not raise any
+# ask that listed paths on either side (`docs/<name>-reports/x.md -> docs/site-<name>/x.md`),
+# and since the path list WAS the ask there was nothing to remove: the refusal was
+# unconditional and its instruction ("mask it") named an action that did not exist.
+# Worse, it fired AFTER the developer had already confirmed destination and body
+# verbatim — this backstop is the one place a legitimate ask can be refused past the
+# human gate, so its false-positive rate is a usability property and not only a safety
+# one.
 #
-# Emits JSON: { ok, path } or { ok: false, error }.
+# The narrowing is about ADJACENCY, never about dropping checks. The `owner/name` remote
+# form and the clone URL are matched exactly; the absolute-path test is exact and carries
+# the real weight; and the bare name still refuses a standalone mention, declining only
+# when it is glued to a neighbouring identifier character. Every refusal names the matched
+# text and its line, so the next false positive is diagnosable rather than mysterious.
 
 set -eu
 
@@ -27,48 +38,12 @@ emit_err() {
     exit 0
 }
 
-target="${1:-}"
-filename="${2:-}"
-body_file="${3:-}"
-
-[ -n "$target" ]    || emit_err "no target repo given"
-[ -n "$filename" ]  || emit_err "no filename given"
+body_file="${1:-}"
 [ -n "$body_file" ] || emit_err "no body file given"
 [ -f "$body_file" ] || emit_err "body file not found: ${body_file}"
-[ -s "$body_file" ] || emit_err "body is empty — nothing to submit"
-
-printf '%s' "$filename" | grep -qE '^[0-9]{14}-[a-z0-9-]+\.md$' \
-    || emit_err "filename must be YYYYMMDDHHmmss-kebab-slug.md, got: ${filename}"
-
-git -C "$target" rev-parse --show-toplevel >/dev/null 2>&1 || emit_err "not a git repository: ${target}"
-target_root="$(git -C "$target" rev-parse --show-toplevel)"
+[ -s "$body_file" ] || emit_err "body is empty — nothing to send"
 
 SOURCE_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-[ "$target_root" != "$SOURCE_ROOT" ] || emit_err "target is this repository — use /ticket, not /request"
-
-# Last backstop. Deterministic, and deliberately narrow: it knows only this repo's own
-# name, remote and path, which are the things always mechanically knowable. It cannot know
-# a customer's vocabulary — that is what the confirmation is for, and a pass here means
-# nothing beyond "our own name is absent".
-#
-# IT MATCHES AN IDENTIFIER, NOT A SUBSTRING (2026-08-02). The bare-name test used to be a
-# case-insensitive plain `grep -F`, which refuses any body where this repo's basename
-# appears anywhere at all — including inside a directory name belonging to the TARGET repo.
-# A repo whose basename is an ordinary English word therefore could not submit a request
-# that listed paths on either side (`docs/<name>-reports/x.md -> docs/site-<name>/x.md`),
-# and since the path list WAS the ticket there was nothing to remove: the refusal was
-# unconditional and its instruction ("mask it") could not be followed. Worse, it fired
-# AFTER the developer had already confirmed destination and body verbatim — this backstop
-# is the one place a legitimate request can be refused past the human gate, so its
-# false-positive rate is a usability property and not only a safety one.
-#
-# The narrowing is about ADJACENCY, never about dropping checks. The two forms an actual
-# reference takes — the `owner/name` remote form and the clone URL — are matched exactly
-# and are new; the absolute-path test is untouched (an exact match with no false-positive
-# mode, and the check that carries the real weight); and the bare name still refuses a
-# standalone mention, declining only when it is glued to a neighbouring identifier
-# character. Every refusal now names the matched text and its line, so the next false
-# positive is diagnosable rather than mysterious.
 source_name="$(basename -- "$SOURCE_ROOT")"
 
 # The first `grep -n` hit for a pattern, or empty. `|| true` because grep exits 1 on no
@@ -79,9 +54,6 @@ first_ere()   { grep -n -i -E -- "$1" "$2" 2>/dev/null | head -1 || true; }
 # "<line>: <text>" from a `grep -n` hit, trimmed so the message stays one line.
 cite() { printf '%s' "$1" | cut -c1-160 | tr -d '"\\' ; }
 
-# The clone URL and the `owner/name` it implies. Both absent outside a repo with an
-# origin, in which case those two checks simply do not apply.
-#
 # EVERY FORM OF THE URL IS CHECKED, NOT JUST ONE. git rewrites remote URLs through
 # insteadOf rules, so `git remote get-url` and `git config --get remote.origin.url` can
 # name the same repository differently (see lib/remote-url.sh). A developer pastes
@@ -96,13 +68,12 @@ cite() { printf '%s' "$1" | cut -c1-160 | tr -d '"\\' ; }
 # it while naming the wrong thing to mask. Widening a backstop is the conservative
 # direction: the cost of an extra form is one more grep, and the cost of a missing one is
 # a check that reads as passing.
-source_slug=""
 source_forms="$(remote_url_forms "$SOURCE_ROOT")"
 
 # TWO PASSES, URLS BEFORE SLUGS, AND THE ORDER IS LOAD-BEARING. Every clone URL contains
 # its own `owner/name`, so a single interleaved pass would let form A's slug rule fire on a
 # body carrying form B's full URL — refusing correctly but naming the wrong thing to mask,
-# which is the exact defect this change exists to fix. The most specific rule must be
+# which is the exact defect the widening exists to fix. The most specific rule must be
 # exhausted across all forms before the more general one is tried.
 #
 # Both passes run in THIS shell, never behind a pipe: emit_err exits, and an exit inside a
@@ -132,7 +103,6 @@ for form in $source_forms; do
     slug="$(printf '%s' "$form" | sed -e 's#\.git$##' -e 's#^.*[:/]\([^/][^/]*\)/\([^/][^/]*\)$#\1/\2#')"
     case "$slug" in
         */*)
-            [ -n "$source_slug" ] || source_slug="$slug"
             hit="$(first_fixed "$slug" "$body_file")"
             [ -z "$hit" ] || emit_err "body still names this repository as '${slug}' at line $(cite "$hit") — mask it and re-confirm"
             ;;
@@ -152,14 +122,4 @@ name_re="$(printf '%s' "$source_name" | sed -e 's/[][\\.^$*+?(){}|/-]/\\&/g')"
 hit="$(first_ere "(^|[^A-Za-z0-9_/-])${name_re}([^A-Za-z0-9_/-]|\$)" "$body_file")"
 [ -z "$hit" ] || emit_err "body still names this repository ('${source_name}') at line $(cite "$hit") — mask it and re-confirm"
 
-user_slug="$(git -C "$target_root" config user.email 2>/dev/null | tr '@.' '--' || echo "")"
-[ -n "$user_slug" ] || user_slug="$(git config user.email 2>/dev/null | tr '@.' '--' || echo unknown)"
-
-dest_dir="${target_root}/.workaholic/tickets/todo/${user_slug}"
-dest="${dest_dir}/${filename}"
-[ -e "$dest" ] && emit_err "already exists: ${dest}"
-
-mkdir -p "$dest_dir"
-cp -- "$body_file" "$dest"
-
-printf '{"ok": true, "path": "%s"}\n' "$dest"
+printf '{"ok": true}\n'

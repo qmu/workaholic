@@ -17,7 +17,15 @@ skills:
 
 This command is a **thin orchestration** layer over the preloaded `workaholic:feedback` skill. A feedback is one **immutable record** of inbound project context — the raw material later planning reads (see the skill for the concept, schema, and immutability rule). This command captures one record; it never proposes work, edits an existing record, or restates the skill's rules.
 
-## Workflow
+## Route first: is this repository the destination?
+
+**Cross-repo mode fires only when `$ARGUMENT` names another repository** — an `owner/name`, a GitHub URL, or an explicit "to \<repo\>" / "against \<repo\>" / "ask \<repo\> to…". Anything else, including a bare `/fb`, is the in-repo record below, **unchanged**. When the input merely *mentions* another repository without addressing it, that is an in-repo record about that repository; ask nothing and record it here.
+
+When it does name a destination, run the `workaholic:feedback` skill's **Crossing a repository boundary** section end to end (§4, steps 1-8) instead of the workflow below. The crossing carrier is a **GitHub issue on the target**; nothing is written into any checkout of it, and no feedback record is written here — the ask belongs to the target's stream, and its `[Propose]` routine ingests the issue like any other inbound report.
+
+**The one rule the cross-repo mode exists to enforce:** the single `AskUserQuestion` — showing the developer the destination (with **visibility**) and the exact title and body they are about to send — **cannot be skipped.** Not for a body that looks clean, not on a re-run, not because approval was given earlier in the session. Show the text verbatim. Masking is a **judgement**, not a pattern match: the terms that have actually leaked were a component name, a document filename, a mail label, a hostname and cloud resource names, none of them enumerable in advance. The scan in step 5 and the identifier backstop in step 6 sit **beneath** that judgement and catch only what someone already wrote down; a pass from either is not permission to skip step 4. If you find yourself reasoning that the confirmation is unnecessary this time, that is the failure mode, not an optimisation.
+
+## Workflow — the in-repo record (bare `/fb`, and every input that names no other repository)
 
 1. **Gather the content.** `$ARGUMENT`, when present, is the feedback (or names what to capture from the conversation); when absent, the feedback is the conclusion/instruction the current conversation just reached. Write the body **faithfully in the contributor's own words** — an excerpt, an instruction, a conclusion. Summarize for length, never editorialize.
 

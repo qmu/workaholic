@@ -53,11 +53,10 @@ The `plugins/workaholic` source stays Claude-Code-only (`metadata.internal: true
 | Command    | What it does                                          |
 | ---------- | ----------------------------------------------------- |
 | `/ticket`  | Plan a change with context and steps, then **publish it onto a `work-*` branch behind a pull request**; merging that PR is what queues it for the next `/drive` tick — run it from any branch, mid-edit; your own checkout and its uncommitted work are left untouched, and nothing is branched from it (bare `/ticket` or `/ticket summary` reports your assigned todo tickets instead) |
-| `/request` | Submit a ticket to **another** repository — the only sanctioned way to cross a repo boundary. Masks this project's customer context and requires you to confirm the destination and the exact body, verbatim, in one non-skippable confirmation |
 | `/drive`   | **The sole executor.** Fast-forwards its checkout to the base first — artifacts live on `main`, so a runner that skipped this would survey a stale queue and report it confidently — then surveys what is claimable (the active missions you may take + your unclaimed backlog), partitions it into **PR-units** — "what deserves one merge" — claims each on a pushed branch, implements it in the claim's own worktree, opens its PR via `/report`'s seam, and routes it by the unit's recorded **merge policy**: `auto` ships through the full deploy-and-confirm-then-merge doctrine and cleans the claim up, anything else stops at the PR and posts its URL to Slack (a policy nobody recorded counts as review). Then it accounts for the run: a reconciliation line plus an **honest derived terminal token** — `ok` only when every claimed unit reached its routed end *and* a fresh survey offers nothing claimable, else `pending`, which is what a caller-side loop like `/goal /drive ok` waits on. **It never asks anything** — the same run, interactively or on a 5-minute cron (`docs/drive-loop-runbook.md`); `/drive night` is a synonym. Approval is not a per-ticket prompt: it was given where the work was decided — a human merged the pull request that published the mission or ticket, and the `merge_policy` recorded on it at creation says whether its completed units may merge unattended. Work is coordinated by the **claim protocol** — every runner reads the claims in flight from the unmerged remote branches, so two runners (or two machines) never pick the same work. There is no lock file and no server; the repository itself is the coordination medium |
 | `/commit`  | Commit the working changes with a policy-conformant message (for small non-ticketed changes; ticketed work belongs to `/drive`) |
 | `/propose` | Judge the ask in hand and emit, in **one** pull request, the feedback record together with what it warrants — a **mission with its ticket set** when the direction decomposes, **one loose backlog ticket** when it is atomic, or **the record alone** when it is neither. The repository's own state constrains the judgment; merging that pull request approves record and proposal at once. Runs unattended in the `[Propose]` routine's session, on the reported ask rather than on a clock |
-| `/fb` | Register one **immutable** record into the feedback stream — a design conclusion, an instruction, a development-born concern, or customer material. Resolution is a new record naming the old one via `supersedes`, never an edit. Named `/fb` because Claude Code ships a built-in `/feedback` (which sends feedback to Anthropic); **only the trigger is abbreviated** — the artifact, the skill, and the stream keep the full word |
+| `/fb` | Register one **immutable** record into the feedback stream — a design conclusion, an instruction, a development-born concern, or customer material. Resolution is a new record naming the old one via `supersedes`, never an edit. Named `/fb` because Claude Code ships a built-in `/feedback` (which sends feedback to Anthropic); **only the trigger is abbreviated** — the artifact, the skill, and the stream keep the full word. Given a target repository (`/fb <the ask> to <owner/name>`) it instead **crosses the boundary**: it composes the ask in the target's vocabulary and opens it as a GitHub **issue** there — the only sanctioned way to raise work against another repository, writing into no checkout of it, and requiring you to confirm the destination and the exact body, verbatim, in one non-skippable confirmation |
 | `/report`  | Context-aware: generate the branch story and create the PR (warns on the branch-safety scan — credentials/oversize/leakage) |
 | `/ship`    | Context-aware: deploy, verify, merge the PR, and publish the GitHub Release (blocks pre-merge on the branch-safety scan; secrets are non-overridable) |
 | `/mission` | Plan an **optional, epic-equivalent grouping** — a bounded batch of **two or more** tickets an agent fleet drives together, typically overnight (never a required parent; single tickets drive fine without one, and one unit of work is a ticket rather than a mission — under two tickets a mission is not published at all): create one (asks the one human ruling — whether the mission's completed units may merge automatically — interrogates you to a drive-ready state, then **publishes onto a `work-*` branch behind a pull request, in one commit**, the mission statement and the **whole** ordered ticket set it emitted; **merging that pull request is the approval**, so there is no `approve` subcommand, and it creates no worktree — a worktree is claim-born, made when `/drive` takes the mission as a PR-unit), **replan** an in-flight one (a free-form instruction referencing it, no subcommand: re-enters the interrogation scoped to what changed and emits delta tickets the same way), show the **developer-centric roadmap** (bare `/mission`: full treatment — progress, next step, recent movement — for your and unclaimed active missions, one-liners for colleagues' and archived ones; the former `summary` mode is folded into this view), or close one (achieved / abandoned / **carried** — done as framed, with the unmet criteria appended to an existing successor mission) into the archive area (the archive move only — a mission's worktree belongs to the claim that made it, and is torn down at ship or by an explicit claim release). When a mission's **direction changes** mid-flight, **reorganize-and-carry** is the encouraged move — replan to drop the now-moot criteria, then close it `carried --successor <slug>` onto an existing successor — over grinding to `achieved` or `abandoned` |
@@ -295,7 +294,6 @@ Every command communicates with the others **only through the documents it write
 flowchart LR
   %% ---------- commands (blue) ----------
   ticket(["/ticket"])
-  request(["/request"])
   mission(["/mission"])
   propose(["/propose"])
   feedback(["/fb"])
@@ -320,7 +318,7 @@ flowchart LR
   DEP["deployments/"]
 
   %% ---------- artifacts that land outside .workaholic/ (grey, dashed border) ----------
-  EXT["ticket in ANOTHER repo"]
+  EXT["issue in ANOTHER repo"]
   PDF["PDF report"]
   WT["git commit"]
   CFG["CLAUDE.md + hooks wiring"]
@@ -329,7 +327,7 @@ flowchart LR
   %% ========== generation: solid arrow = writes ==========
   ticket --> TODO
   ticket --> ICE
-  request --> EXT
+  feedback --> EXT
   mission --> MIS
   mission --> TODO
   propose --> MIS
@@ -376,7 +374,7 @@ flowchart LR
   classDef cmd fill:#dbeafe,stroke:#1e40af,stroke-width:1.5px,color:#1e3a8a;
   classDef art fill:#f3f4f6,stroke:#6b7280,color:#111827;
   classDef ext fill:#f3f4f6,stroke:#9aa0aa,stroke-dasharray:4 3,color:#374151;
-  class ticket,request,mission,propose,feedback,drive,report,ship,catch,commit,explain,workaholify,setuproutines cmd;
+  class ticket,mission,propose,feedback,drive,report,ship,catch,commit,explain,workaholify,setuproutines cmd;
   class TODO,ICE,ARCH,ABD,MIS,STORY,FBK,REL,DEP art;
   class EXT,PDF,WT,CFG,ROUT ext;
 ```
@@ -384,7 +382,7 @@ flowchart LR
 Reading the map:
 
 - **Solid arrow** = the command *generates* that artifact. **Dashed arrow** = the command *reads / refers to* it. `rolls` = the command updates a named mission's `## Changelog` and `## Acceptance` checklist (via the `mission:` relation any ticket/story/concern carries).
-- **Node style tells the kind apart.** Rounded **blue** = the thirteen commands; rectangular **grey** = the artifacts they generate. A **dashed grey border** marks the artifacts that land *outside* `.workaholic/` — a cross-repo ticket via `/request`, a printed PDF via `/explain`, a plain working-tree commit via `/commit`, repo wiring via `/workaholify`, and the scheduled routines `/setup-routines` reads out of the Claude Code Web account.
+- **Node style tells the kind apart.** Rounded **blue** = the twelve commands; rectangular **grey** = the artifacts they generate. A **dashed grey border** marks the artifacts that land *outside* `.workaholic/` — a cross-repo issue via `/fb`, a printed PDF via `/explain`, a plain working-tree commit via `/commit`, repo wiring via `/workaholify`, and the scheduled routines `/setup-routines` reads out of the Claude Code Web account.
 - **`/mission` and `/drive` are the two poles.** `/mission` writes `missions/…` and the kickoff/delta tickets into `tickets/todo/` (with `/propose` proposing missions and loose tickets upstream of it); `/drive` reads the mission set and each worktree's `todo/`, drains them to `tickets/archive/`, and rolls each mission it advances — in parallel across every claim it holds.
 - **The ticket is the spine.** `/ticket`, `/mission`, and `/propose` (a mission's ticket set, or one loose ticket) all *fill* `tickets/todo/`; **`/drive` alone** drains it to `tickets/archive/`. Everything downstream reads the archive.
 - **The feedback stream is the only loop.** `/ship` extracts a shipped story's section-6 concerns into `feedbacks/` as `kind: concern` records; the *next* `/report` re-reads the open set (records nobody superseded) and, for each one this branch resolved, appends a superseding record. Every record is written once and becomes permanent history — the "loop" is reading, never rewriting.

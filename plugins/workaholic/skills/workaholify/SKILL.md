@@ -195,5 +195,5 @@ That failure class has already cost this project twice: a survey concluded "no r
 
 ### What the command does with all this
 
-Report the state, then **show the developer the rendered prompt and get an explicit confirmation before any `create` or `update`**. A routine is a standing, outward-facing process that will act on this repository unattended; that is the same class of commitment as `/request` crossing a repository boundary, and it gets the same treatment — the verbatim body, confirmed, every time. `environment_id` is an account-level fact with more than one valid answer, so it is asked rather than guessed.
+Report the state, then **show the developer the rendered prompt and get an explicit confirmation before any `create` or `update`**. A routine is a standing, outward-facing process that will act on this repository unattended; that is the same class of commitment as `/fb` crossing a repository boundary, and it gets the same treatment — the verbatim body, confirmed, every time. `environment_id` is an account-level fact with more than one valid answer, so it is asked rather than guessed.
 

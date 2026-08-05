@@ -9,6 +9,7 @@ category: Changed
 depends_on:
 mission:
 merge_policy: review
+claim: work-20260805-002946
 ---
 
 # release-claim.sh half-releases a unit where the runner may push but not delete a branch

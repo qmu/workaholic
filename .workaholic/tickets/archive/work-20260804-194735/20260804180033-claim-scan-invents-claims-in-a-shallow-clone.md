@@ -9,6 +9,7 @@ category: Changed
 depends_on:
 mission:
 merge_policy: review
+claim: work-20260804-194735
 ---
 
 # The claim scan reports merged branches as in-flight claims in a shallow clone

@@ -11,13 +11,20 @@
 # Usage: list-claims.sh
 # Env:   WORKAHOLIC_CLAIM_STALE_HOURS -- staleness threshold in hours (default 24)
 #        WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES -- liveness window (default 30)
-# Output: {"fetched": bool, "stale_hours": N, "heartbeat_stale_minutes": N,
-#          "base": "<ref>", "claims": [
+# Output: {"fetched": bool, "shallow": bool, "stale_hours": N,
+#          "heartbeat_stale_minutes": N, "base": "<ref>", "claims": [
 #            {"unit": "...", "branch": "work-...", "artifacts": ["..."],
 #             "last_commit_at": "2026-...", "stale": false, "author": "...",
 #             "resumable": false, "resume_reason": "claim_active"}, ...]}
 # `resume_reason` is never empty: `heartbeat_lapsed` (resumable), `claim_active`,
-# `foreign_identity`, `identity_unresolved`, or `queue_drained`.
+# `foreign_identity`, `identity_unresolved`, `shallow_history`, or `queue_drained`.
+#
+# `shallow: true` means this clone's history is TRUNCATED, so "is this branch merged"
+# was not answerable for every branch. lib/claims.sh deepens a shallow clone before
+# scanning, so this can only stay true when origin is unreachable -- and then a claim
+# may be a merged unit this reader cannot tell apart from a live one. Claims are still
+# listed (over-reporting makes a runner wait; under-reporting double-picks work), but
+# no `resumable` verdict is offered for an unprovable branch.
 #
 # `fetched: false` means origin could not be reached and the answer comes from the
 # last-known remote-tracking refs. That is a DEGRADED read, not a failure: the
@@ -65,6 +72,9 @@ case "$heartbeat_minutes" in
 esac
 
 fetched=$(claims_fetch)
+# AFTER the fetch: claims_fetch deepens when it can, so this reports the state the scan
+# below actually ran against rather than the one the container started in.
+shallow=$(claims_shallow)
 base=$(claims_base)
 
 claims=""
@@ -92,5 +102,5 @@ $rows
 EOF
 fi
 
-printf '{"fetched": %s, "stale_hours": %s, "heartbeat_stale_minutes": %s, "base": "%s", "claims": [%s]}\n' \
-    "$fetched" "$stale_hours" "$heartbeat_minutes" "$base" "$claims"
+printf '{"fetched": %s, "shallow": %s, "stale_hours": %s, "heartbeat_stale_minutes": %s, "base": "%s", "claims": [%s]}\n' \
+    "$fetched" "$shallow" "$stale_hours" "$heartbeat_minutes" "$base" "$claims"

@@ -3,12 +3,13 @@ created_at: 2026-08-04T16:09:21+00:00
 author: a@qmu.jp
 type: bugfix
 layer: [Infrastructure]
-effort:
+effort: 1h
 commit_hash:
 category: Changed
 depends_on:
 mission:
 merge_policy: review
+claim: work-20260804-194806
 ---
 
 # The smoke suite is red under a git insteadOf rewrite, so the cloud runner cannot trust its own gate
@@ -147,3 +148,51 @@ All four criteria hold, and the suite is green both with and without the rewrite
   driven by a *configured* fixture rather than by the ambient environment, so it runs everywhere.
 - Found by the hourly unattended `/drive` runner while checking whether a CI failure was its own.
   CI was green; the local suite was not, and the difference is the finding.
+
+## Final Report
+
+Fixed at the **script** layer, not the test layer, and the ruling the ticket asked for
+(*Implementation Steps* 2) is recorded here: `resolve-target.sh` was returning a
+locally-rewritten URL as the destination a human confirms in `/request`, which no colleague
+can clone and which also silently degraded `visibility` to `unknown` (its sed strips only
+the `github.com` forms, so the slug stayed a full URL and the `gh api` call failed). That is
+a real defect independent of any test, so hardening the assertions alone was rejected — it
+would have pinned the wrong behaviour as correct.
+
+New `skills/request/scripts/lib/remote-url.sh` is the single answer to "what URL does this
+repository's origin have", exposing both forms because the right one depends on the
+question: `remote_url_configured` (what the repo records — what a colleague clones) for
+`resolve-target.sh`, and `remote_url_forms` (every form) for `submit-request.sh`, whose
+backstop must match whichever form a developer pasted.
+
+**The premise in the Overview above was measured wrong, and the correction matters.** The
+ticket recorded 3 failures from one cause. At drive time the baseline was **2176 passed, 1
+failed**: the container's git config had changed mid-session and the proxy rule
+(`url.http://local_proxy@…/git/.insteadOf https://github.com/`) was gone, so the two
+`resolve-target` failures no longer reproduced. The surviving failure came from a *different*
+rule — `url.https://github.com/.insteadOf git@github.com:`, injected through the
+`GIT_CONFIG_COUNT`/`KEY`/`VALUE` environment triple, which is why `git config --global --list`
+showed nothing while `--get-regexp` did. Two rewrite rules, two provisionings, one class.
+The fix covers the class rather than either instance, which is why it still holds now that
+only one of them is present.
+
+The surviving failure was **not** an assertion quibble: `submit-request.sh` compared the body
+against only the rewritten URL, so a body containing this repository's literal clone URL fell
+through the clone-URL rule entirely and was refused by the unrelated `owner/name` rule —
+naming the wrong thing to mask, past a human gate that had already confirmed the body
+verbatim. The two rules are now applied in two passes, **all clone-URL forms before any
+slug**, because every clone URL contains its own slug and a single interleaved pass
+reintroduces exactly that mis-attribution.
+
+Verification: suite **2187 passed / 0 failed** (baseline 2176/1 — ten new cases plus the one
+fixed). The new `testRequestUnderUrlRewrite` configures the rewrite in the fixture rather
+than sensing the ambient environment, so it runs identically on a CI runner that has no
+rewrite — the coverage gap that let this survive. Its bite was checked by reverting
+`remote_url_forms` to the effective-URL-only behaviour: the clone-URL body went straight back
+to reporting the `owner/name` rule, and restoring the fix returned the correct rule. Also
+clean: `build.mjs` (no `outputs/` diff — `request` is not in the bundle closure),
+`verify.mjs`, `validate-metadata.mjs`, `layout-doctor` `conforming: true`.
+
+Docs updated in the same commit: `CLAUDE.md`'s *Repository confinement* section and
+`skills/request/SKILL.md` §6 both said the backstop knows "its clone URL", singular; both now
+state that a repository's origin URL is not one string and why the rule order is load-bearing.

@@ -19,6 +19,9 @@
 
 set -eu
 
+SCRIPT_DIR="$(cd -- "$(dirname -- "$0")" && pwd -P)"
+. "${SCRIPT_DIR}/lib/remote-url.sh"
+
 emit_err() {
     printf '{"ok": false, "error": "%s"}\n' "$1"
     exit 0
@@ -78,25 +81,66 @@ cite() { printf '%s' "$1" | cut -c1-160 | tr -d '"\\' ; }
 
 # The clone URL and the `owner/name` it implies. Both absent outside a repo with an
 # origin, in which case those two checks simply do not apply.
-source_remote="$(git -C "$SOURCE_ROOT" remote get-url origin 2>/dev/null || true)"
+#
+# EVERY FORM OF THE URL IS CHECKED, NOT JUST ONE. git rewrites remote URLs through
+# insteadOf rules, so `git remote get-url` and `git config --get remote.origin.url` can
+# name the same repository differently (see lib/remote-url.sh). A developer pastes
+# whichever form their tooling showed them — GitHub's UI gives the canonical one, their
+# shell gives the rewritten one — so matching a single form is a backstop that silently
+# stops firing under a rewrite.
+#
+# That was measured, not imagined. In the container the hourly runner uses, the injected
+# `url.https://github.com/.insteadOf = git@github.com:` rule meant a body containing this
+# repository's literal `git@github.com:owner/repo.git` clone URL did NOT match the
+# clone-URL rule at all; it fell through to the unrelated `owner/name` rule, which refused
+# it while naming the wrong thing to mask. Widening a backstop is the conservative
+# direction: the cost of an extra form is one more grep, and the cost of a missing one is
+# a check that reads as passing.
 source_slug=""
-if [ -n "$source_remote" ]; then
-    source_slug="$(printf '%s' "$source_remote" | sed -e 's#\.git$##' -e 's#^.*[:/]\([^/][^/]*\)/\([^/][^/]*\)$#\1/\2#')"
-    case "$source_slug" in
-        */*) ;;
-        *) source_slug="" ;;
-    esac
-fi
+source_forms="$(remote_url_forms "$SOURCE_ROOT")"
 
-if [ -n "$source_remote" ]; then
-    hit="$(first_fixed "$source_remote" "$body_file")"
+# TWO PASSES, URLS BEFORE SLUGS, AND THE ORDER IS LOAD-BEARING. Every clone URL contains
+# its own `owner/name`, so a single interleaved pass would let form A's slug rule fire on a
+# body carrying form B's full URL — refusing correctly but naming the wrong thing to mask,
+# which is the exact defect this change exists to fix. The most specific rule must be
+# exhausted across all forms before the more general one is tried.
+#
+# Both passes run in THIS shell, never behind a pipe: emit_err exits, and an exit inside a
+# subshell would leave the script running past a refusal it had already printed. IFS is
+# pinned to newline because `remote_url_forms` emits one URL per line.
+old_ifs="$IFS"
+
+IFS='
+'
+for form in $source_forms; do
+    IFS="$old_ifs"
+    [ -n "$form" ] || { IFS='
+'; continue; }
+    hit="$(first_fixed "$form" "$body_file")"
     [ -z "$hit" ] || emit_err "body still contains this repository's clone URL at line $(cite "$hit") — mask it and re-confirm"
-fi
+    IFS='
+'
+done
+IFS="$old_ifs"
 
-if [ -n "$source_slug" ]; then
-    hit="$(first_fixed "$source_slug" "$body_file")"
-    [ -z "$hit" ] || emit_err "body still names this repository as '${source_slug}' at line $(cite "$hit") — mask it and re-confirm"
-fi
+# The `owner/name` each form implies. Distinct URL forms of one repository normally imply
+# the SAME slug, so the repeated check is a no-op rather than a second rule.
+IFS='
+'
+for form in $source_forms; do
+    IFS="$old_ifs"
+    slug="$(printf '%s' "$form" | sed -e 's#\.git$##' -e 's#^.*[:/]\([^/][^/]*\)/\([^/][^/]*\)$#\1/\2#')"
+    case "$slug" in
+        */*)
+            [ -n "$source_slug" ] || source_slug="$slug"
+            hit="$(first_fixed "$slug" "$body_file")"
+            [ -z "$hit" ] || emit_err "body still names this repository as '${slug}' at line $(cite "$hit") — mask it and re-confirm"
+            ;;
+    esac
+    IFS='
+'
+done
+IFS="$old_ifs"
 
 hit="$(first_fixed "$SOURCE_ROOT" "$body_file")"
 [ -z "$hit" ] || emit_err "body still contains this repository's path at line $(cite "$hit") — mask it and re-confirm"

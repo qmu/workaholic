@@ -11,6 +11,9 @@
 
 set -eu
 
+SCRIPT_DIR="$(cd -- "$(dirname -- "$0")" && pwd -P)"
+. "${SCRIPT_DIR}/lib/remote-url.sh"
+
 emit_err() {
     printf '{"ok": false, "error": "%s"}\n' "$1"
     exit 0
@@ -45,7 +48,17 @@ if [ "$target_root" = "$SOURCE_ROOT" ]; then
 fi
 
 name="$(basename -- "$target_root")"
-remote="$(git -C "$target_root" remote get-url origin 2>/dev/null || echo "")"
+
+# THE CONFIGURED URL, NOT THE REWRITTEN ONE. This value is shown to the developer as the
+# destination they confirm, so it must be the URL a colleague would clone -- not whatever
+# an insteadOf rule rewrites it to locally. Under the rewrite the Claude Code on the web
+# container carried on 2026-08-04, `git remote get-url` answered
+# `http://local_proxy@127.0.0.1:.../git/qmu/qfs`, which is a destination nobody outside
+# that container can reach and which also defeats the `visibility` lookup below (its sed
+# strips only the github.com forms, so the slug stayed a full URL and `gh api` failed to
+# `unknown`). See lib/remote-url.sh for why the two forms exist.
+remote="$(remote_url_configured "$target_root")"
+[ -n "$remote" ] || remote="$(remote_url_effective "$target_root")"
 
 visibility=unknown
 if [ -n "$remote" ] && command -v gh >/dev/null 2>&1; then

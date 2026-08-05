@@ -1,0 +1,303 @@
+#!/usr/bin/env node
+// Build self-contained, cross-agent-portable skill folders from the DRY core source.
+//
+// Claude Code uses the source skills directly (resolving ${CLAUDE_PLUGIN_ROOT}).
+// Other agents (Codex, OpenCode, ...) cannot expand that token and install each skill
+// as an isolated folder, so this tool materializes a self-contained copy of each
+// target workflow skill: its SKILL.md plus the full scripts/ of every skill in its
+// cross-skill dependency closure, with all script references rewritten to
+// skill-root-relative paths.
+//
+// Topology:
+//   plugins/                  authored source of truth (Claude reads it directly)
+//   outputs/workflows/        committed, generated portable plugin (one neutral dir serves
+//                             Codex + OpenCode + other agents via their respective manifests)
+//   outputs/okf/              committed, generated OKF v0.1 knowledge bundle (Open Knowledge
+//                             Format) of the four pillars' policy hard copies (see okf.mjs)
+//
+// The self-contained skills are assembled in a throwaway scratch dir (never committed),
+// then copied into outputs/workflows. outputs/ is committed because Codex
+// (.agents/plugins/marketplace.json) and the skills CLI (.claude-plugin/marketplace.json)
+// install by reading paths out of the repo, so the artifacts must be present at install time.
+//
+// Reference rewrites (per built skill):
+//   SKILL.md:  ${CLAUDE_PLUGIN_ROOT}/skills/<x>/scripts/  ->  <x>/scripts/
+//   scripts:   ${SCRIPT_DIR}/../../<x>/scripts/                    ->  unchanged
+// (intra-skill same-dir refs like ${SCRIPT_DIR}/update.sh are preserved because each
+//  closure skill's whole scripts/ dir is copied intact.)
+
+import { readFileSync, writeFileSync, rmSync, mkdirSync, cpSync, existsSync, readdirSync, statSync, mkdtempSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { tmpdir } from "node:os";
+import { generatePolicyIndex, POLICY_INDEX_REL } from "./policy-index.mjs";
+import { generateOkfBundle, OKF_BUNDLE_REL } from "./okf.mjs";
+import { SKILL_REF, SCRIPT_CROSS_REF, UNRESOLVED_PLUGIN_ROOT_PATH } from "./script-ref-patterns.mjs";
+
+const REPO_ROOT = resolve(fileURLToPath(import.meta.url), "../../..");
+const CORE_SKILLS = join(REPO_ROOT, "plugins/workaholic/skills");
+const OUTPUTS_ROOT = join(REPO_ROOT, "outputs");          // committed generated output
+const MARKETPLACE = join(REPO_ROOT, ".claude-plugin/marketplace.json");
+// One neutral portable plugin serves every non-Claude agent: Codex reads its co-located
+// .codex-plugin/plugin.json; OpenCode + Cursor + 40 others get it via the skills CLI
+// scanning .claude-plugin/marketplace.json. Both manifests point at this dir.
+const WORKFLOWS_PLUGIN = join(OUTPUTS_ROOT, "workflows"); // outputs/workflows
+
+// Self-contained skills are built here, then copied into each agent plugin. Throwaway:
+// removed after a full build; left in place (and its path printed) for partial dev builds.
+const SCRATCH = mkdtempSync(join(tmpdir(), "workaholic-skills-"));
+
+const DEFAULT_TARGETS = ["create-ticket", "drive", "report", "ship", "catch", "mission"];
+// review-sections / write-release-note are pure prose (no scripts) but are skill-preload
+// dependencies of report, so they ship as their own skills alongside the workflows.
+const EXTRA_SKILLS = ["review-sections", "write-release-note"];
+
+// SKILL_REF and SCRIPT_CROSS_REF are imported from ./script-ref-patterns.mjs so the
+// build and verify.mjs's source lint share one definition of the detectable forms.
+
+function readText(p) { return readFileSync(p, "utf8"); }
+
+// Look up a plugin's version from the Claude marketplace manifest, which is the
+// single source of truth for all cross-agent plugin versions. The release flow
+// bumps that file; every generated/duplicated manifest derives from it.
+function lookupVersion(pluginName) {
+  const mkt = JSON.parse(readText(MARKETPLACE));
+  const entry = (mkt.plugins || []).find((p) => p.name === pluginName);
+  if (!entry || !entry.version) throw new Error(`No version for plugin '${pluginName}' in .claude-plugin/marketplace.json`);
+  return entry.version;
+}
+
+// Collect the cross-skill closure for a target: every skill whose scripts/ is reached
+// from the target's SKILL.md or transitively from copied scripts.
+function computeClosure(target) {
+  const closure = new Set([target]);
+  const queue = [target];
+  while (queue.length) {
+    const skill = queue.shift();
+    const skillDir = join(CORE_SKILLS, skill);
+    const sources = [];
+    const md = join(skillDir, "SKILL.md");
+    if (existsSync(md)) sources.push(readText(md));
+    // A companion reference/ file documents the same script paths the SKILL.md does,
+    // so a cross-skill reference can appear there too and must pull that skill into
+    // the closure -- otherwise the built bundle would rewrite the path and copy no
+    // scripts for it, and neither the leftover-token scan nor verify.mjs's SKILL.md
+    // check would notice.
+    const refSrc = join(skillDir, "reference");
+    if (existsSync(refSrc)) {
+      for (const f of readdirSync(refSrc)) {
+        const fp = join(refSrc, f);
+        if (statSync(fp).isFile()) sources.push(readText(fp));
+      }
+    }
+    const scriptsDir = join(skillDir, "scripts");
+    if (existsSync(scriptsDir)) {
+      for (const f of readdirSync(scriptsDir)) {
+        const fp = join(scriptsDir, f);
+        if (statSync(fp).isFile()) sources.push(readText(fp));
+      }
+    }
+    for (const text of sources) {
+      for (const re of [SKILL_REF, SCRIPT_CROSS_REF]) {
+        re.lastIndex = 0;
+        let m;
+        while ((m = re.exec(text))) {
+          const dep = m[1];
+          if (!closure.has(dep)) { closure.add(dep); queue.push(dep); }
+        }
+      }
+    }
+  }
+  return closure;
+}
+
+// Build one self-contained target skill into the scratch dir.
+function buildTarget(target) {
+  const srcDir = join(CORE_SKILLS, target);
+  if (!existsSync(join(srcDir, "SKILL.md"))) throw new Error(`No SKILL.md for target '${target}'`);
+  const closure = computeClosure(target);
+  const outDir = join(SCRATCH, target);
+  rmSync(outDir, { recursive: true, force: true });
+  mkdirSync(outDir, { recursive: true });
+
+  // SKILL.md (rewrite plugin-root script refs to skill-root-relative)
+  const md = readText(join(srcDir, "SKILL.md")).replace(SKILL_REF, "$1/scripts/");
+  writeFileSync(join(outDir, "SKILL.md"), md);
+
+  // A target skill's OWN companion markdown -- a `reference/` dir holding detail the
+  // SKILL.md links to rather than carries (see mission/reference/). Without this the
+  // built bundle would ship a SKILL.md whose links 404, which is not self-contained
+  // in any useful sense even though every SCRIPT reference resolved. Copied with the
+  // same SKILL_REF rewrite, because a reference file documents the same script paths
+  // the skill does; `verify.mjs` asserts the links resolve in the built bundle.
+  const refDir = join(srcDir, "reference");
+  if (existsSync(refDir)) {
+    const dRef = join(outDir, "reference");
+    cpSync(refDir, dRef, { recursive: true });
+    for (const f of readdirSync(dRef)) {
+      const fp = join(dRef, f);
+      if (!statSync(fp).isFile()) continue;
+      // `../` because a reference file sits one level BELOW the skill root that
+      // SKILL.md's rewritten `<x>/scripts/` form is relative to.
+      writeFileSync(fp, readText(fp).replace(SKILL_REF, "../$1/scripts/"));
+    }
+  }
+
+  // Copy each closure skill's scripts/ and rewrite cross-skill refs inside them.
+  for (const skill of closure) {
+    const sScripts = join(CORE_SKILLS, skill, "scripts");
+    if (!existsSync(sScripts)) continue;
+    const dScripts = join(outDir, skill, "scripts");
+    cpSync(sScripts, dScripts, { recursive: true });
+    for (const f of readdirSync(dScripts)) {
+      const fp = join(dScripts, f);
+      if (!statSync(fp).isFile()) continue;
+      const rewritten = readText(fp).replace(SCRIPT_CROSS_REF, "${SCRIPT_DIR}/../../$1/scripts/");
+      writeFileSync(fp, rewritten);
+    }
+  }
+
+  // Fail loudly if any unresolved plugin-root PATH survived. A bare read of the
+  // variable is a different construct and is allowed through — see
+  // UNRESOLVED_PLUGIN_ROOT_PATH for why the distinction is the trailing slash.
+  const leftovers = [];
+  const scan = (p) => {
+    for (const e of readdirSync(p)) {
+      const fp = join(p, e);
+      if (statSync(fp).isDirectory()) scan(fp);
+      else if (UNRESOLVED_PLUGIN_ROOT_PATH.test(readText(fp))) leftovers.push(fp);
+    }
+  };
+  scan(outDir);
+  return { target, closure: [...closure].sort(), outDir, leftovers };
+}
+
+// Turn a built SKILL.md into its public, agent-neutral form:
+// - drop Claude-only frontmatter: `metadata.internal`, `user-invocable`, and the
+//   `skills:` preload list (those preloads declare Claude-Code skill dependencies
+//   that do not exist on other agents; the scripts they provide are already bundled).
+// - strip `core:`/`standards:`/`work:` namespace prefixes so references to co-installed
+//   skills (e.g. `core:review-sections` -> `review-sections`, `standards:policies`
+//   -> `policies`) resolve by bare name.
+// - substitute Claude-Code mechanism wording with agent-neutral equivalents. The
+//   substitutions only affect the public copies; source skills retain Claude
+//   wording because Claude Code reads them directly. The mappings are the same
+//   ones each skill's "Agent Compatibility" preamble already documents inline.
+const PUBLIC_SUBSTITUTIONS = [
+  // Drop `model: "opus|haiku|sonnet"` annotations entirely — those are
+  // Claude-Code-only routing hints and noise on other agents. Handles
+  // `( ... )` parenthetical, `, ... ,` mid-sentence, and bare backtick forms.
+  [/ \(`model: "(?:opus|haiku|sonnet)"`\)/g, ""],
+  [/, `model: "(?:opus|haiku|sonnet)"`,/g, ","],
+  [/`model: "(?:opus|haiku|sonnet)"`/g, ""],
+  // `subagent_type: "general-purpose"` subagent (variants) -> "parallel worker"
+  [/`subagent_type: "general-purpose"` subagent/g, "parallel worker"],
+  [/`subagent_type: "general-purpose"`/g, "parallel worker"],
+  [/`general-purpose` subagents?/g, "parallel workers"],
+  [/\bgeneral-purpose subagents?\b/g, "parallel workers"],
+  // `AskUserQuestion` variants -> agent-neutral selection prompt
+  [/`AskUserQuestion` with selectable options/g, "the agent's selection prompt"],
+  [/`AskUserQuestion` with selectable `options`/g, "the agent's selection prompt"],
+  [/via `AskUserQuestion`/g, "via the agent's selection prompt"],
+  [/using `AskUserQuestion`/g, "using the agent's selection prompt"],
+  [/use `AskUserQuestion`/g, "use the agent's selection prompt"],
+  [/`AskUserQuestion`/g, "the agent's selection prompt"],
+  [/\bAskUserQuestion\b/g, "the agent's selection prompt"],
+];
+
+function publicizeSkillMd(p) {
+  let md = readText(p);
+  // remove the whole `skills:` block (key line + indented `- ...` items)
+  md = md.replace(/^skills:\n(?:[ \t]+-.*\n)*/m, "");
+  // remove metadata.internal (and an emptied metadata: key), and user-invocable
+  md = md.replace(/^metadata:\n(?:[ \t]+.*\n)*/m, (block) =>
+    block.replace(/^[ \t]+internal:.*\n/m, "")).replace(/^metadata:\n(?=\S|---)/m, "");
+  md = md.replace(/^user-invocable:.*\n/m, "");
+  // strip namespaced skill prefixes -> bare names
+  md = md.replace(/\b(?:core|standards|work|workaholic):([a-z][a-z0-9-]*)/g, "$1");
+  // mechanism wording substitutions (Claude-only -> agent-neutral)
+  for (const [pat, repl] of PUBLIC_SUBSTITUTIONS) md = md.replace(pat, repl);
+  writeFileSync(p, md);
+}
+
+// Assemble the committed portable workflows plugin (outputs/workflows) from built scratch
+// skills. It carries a .codex-plugin/plugin.json for Codex; the skills CLI ignores that
+// and scans only skills/, so the same dir serves Codex, OpenCode, and other agents.
+function assembleWorkflowsPlugin(builtTargets) {
+  // Orphan-cleanup guarantee: wipe the entire generated plugin before reassembly so
+  // a renamed or removed source script leaves NO stale artifact behind. This whole-tree
+  // rebuild is the only thing that prevents orphans — keep it. (Without it, build.mjs
+  // would write the new name but never delete the old one, and the committed outputs/
+  // would drift until manually cleaned; the Outputs Freshness CI is the backstop that
+  // catches any such drift.) outputs/ holds only this generated plugin, so the wipe is
+  // scoped to build-owned paths and touches nothing hand-authored.
+  rmSync(WORKFLOWS_PLUGIN, { recursive: true, force: true });
+  mkdirSync(join(WORKFLOWS_PLUGIN, ".codex-plugin"), { recursive: true });
+  const skillsOut = join(WORKFLOWS_PLUGIN, "skills");
+  mkdirSync(skillsOut, { recursive: true });
+
+  // workflow skills come from scratch (self-contained); extras are pure prose from source.
+  for (const name of builtTargets) cpSync(join(SCRATCH, name), join(skillsOut, name), { recursive: true });
+  for (const name of EXTRA_SKILLS) cpSync(join(CORE_SKILLS, name), join(skillsOut, name), { recursive: true });
+  // publicize every shipped SKILL.md, and every companion reference/ file beside it:
+  // a reference file carries the same `workaholic:` namespace prefixes and
+  // Claude-mechanism wording, and it ships to the same non-Claude agents.
+  for (const name of [...builtTargets, ...EXTRA_SKILLS]) {
+    publicizeSkillMd(join(skillsOut, name, "SKILL.md"));
+    const refOut = join(skillsOut, name, "reference");
+    if (!existsSync(refOut)) continue;
+    for (const f of readdirSync(refOut)) {
+      const fp = join(refOut, f);
+      if (statSync(fp).isFile() && f.endsWith(".md")) publicizeSkillMd(fp);
+    }
+  }
+
+  const manifest = {
+    name: "workflows",
+    version: lookupVersion("workflows"),
+    description: "Ticket-driven development workflows (create-ticket, drive, report, ship, catch, mission) as agent-neutral skills.",
+    author: { name: "tamurayoshiya", email: "a@qmu.jp" },
+    repository: "https://github.com/qmu/workaholic",
+    license: "MIT",
+    keywords: ["workflow", "tickets", "tdd", "code-review", "release"],
+    skills: "./skills/",
+  };
+  writeFileSync(join(WORKFLOWS_PLUGIN, ".codex-plugin", "plugin.json"), JSON.stringify(manifest, null, 2) + "\n");
+}
+
+const argTargets = process.argv.slice(2);
+const targets = argTargets.length ? argTargets : DEFAULT_TARGETS;
+let failed = false;
+for (const t of targets) {
+  const r = buildTarget(t);
+  console.log(`built ${t}: closure=[${r.closure.join(", ")}]`);
+  if (r.leftovers.length) {
+    failed = true;
+    console.error(`  ERROR unresolved \${CLAUDE_PLUGIN_ROOT}/ path in: ${r.leftovers.join(", ")}`);
+  }
+}
+if (failed) process.exit(1);
+
+// Assemble the committed per-agent plugins only on a full default build, then clean up.
+if (!argTargets.length) {
+  assembleWorkflowsPlugin(DEFAULT_TARGETS);
+  console.log(`assembled workflows plugin -> ${WORKFLOWS_PLUGIN.replace(REPO_ROOT + "/", "")} (skills: ${[...DEFAULT_TARGETS, ...EXTRA_SKILLS].join(", ")})`);
+  // Regenerate the always-loaded policy index (Claude-Code-only; committed under
+  // plugins/, read at runtime by hooks/policy-lens.sh). Not part of outputs/.
+  writeFileSync(join(REPO_ROOT, POLICY_INDEX_REL), generatePolicyIndex(REPO_ROOT));
+  console.log(`generated policy index -> ${POLICY_INDEX_REL}`);
+  // Regenerate the OKF knowledge bundle. Same whole-tree wipe-and-rewrite as the
+  // workflows plugin so a removed/renamed policy leaves no stale concept behind.
+  const okfRoot = join(REPO_ROOT, OKF_BUNDLE_REL);
+  rmSync(okfRoot, { recursive: true, force: true });
+  const okfFiles = generateOkfBundle(REPO_ROOT);
+  for (const [rel, content] of okfFiles) {
+    mkdirSync(dirname(join(okfRoot, rel)), { recursive: true });
+    writeFileSync(join(okfRoot, rel), content);
+  }
+  console.log(`generated OKF bundle -> ${OKF_BUNDLE_REL} (${okfFiles.size - 1} concepts + index.md)`);
+  rmSync(SCRATCH, { recursive: true, force: true });
+} else {
+  // partial dev build: leave scratch in place for inspection
+  console.log(`scratch (inspect): ${SCRATCH}`);
+}

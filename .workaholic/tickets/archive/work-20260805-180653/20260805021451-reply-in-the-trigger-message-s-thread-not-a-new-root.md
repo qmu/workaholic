@@ -5,7 +5,7 @@ type: enhancement
 layer: [Config]
 effort:
 commit_hash:
-category:
+category: Changed
 depends_on:
 feedback: [20260805021414-propose-roots-a-new-slack-thread-even-when-the-trigger-message-already-is-the-item-s-thread.md]
 merge_policy:

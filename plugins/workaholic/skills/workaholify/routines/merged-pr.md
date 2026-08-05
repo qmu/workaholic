@@ -36,7 +36,9 @@ correct, which is why it survived until a productive drive loop merged twice in 
 
 Announce **exactly one** merged pull request: the one whose merge started this session.
 
-First derive its **feedback key** — the filename stem of the feedback record the merged work traces to. It is in the repository, not in Slack: the PR's own diff when the PR published the record, or the `feedback:` field of the mission the PR's tickets name. Then search the channel `dev-[project name]` for `` fb:<stem> `` and reply **in that thread**, in the format below.
+Route it by the three ordered cases in the `workaholify` SKILL, *One thread per feedback item*: reply in this run's own trigger message's thread when one can be identified, otherwise find the item's thread by its key, otherwise post a new root. This routine fires on a merge rather than on a Slack message, so the first case will usually not apply — it is stated because any event that does carry a trigger message must behave the same way everywhere.
+
+For the key search, first derive the **feedback key** — the filename stem of the feedback record the merged work traces to. It is in the repository, not in Slack: the PR's own diff when the PR published the record, or the `feedback:` field of the mission the PR's tickets name. Then search the channel `dev-[project name]` for `` fb:<stem> `` and reply **in that thread**, in the format below.
 
 -----------
 🟣 Proposal merged by <@U…> - [#123 Issue Title](https://github.com/org-name/repo-name/pull/123)

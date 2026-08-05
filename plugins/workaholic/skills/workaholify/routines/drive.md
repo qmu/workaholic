@@ -90,7 +90,7 @@ Let /drive work under its own failure contract -- every ticket ends as exactly o
 
 **Announce only the pull request THIS session just opened**, and only once.
 
-**Where it lands depends on whether the unit traces to a feedback item.** Derive the unit's feedback key from the repository — the `feedback:` field of the mission the unit drove, or of the mission its batched tickets name. With a key, search `dev-{repo_name}` for `` fb:<stem> `` and post **in that thread**; with no key, or no thread found, post a new root carrying the key (see the `workaholify` skill, *One thread per feedback item* — the model, the key and the fallback are stated there once and not repeated here). Choose the line by outcome:
+**Where it lands follows the three ordered cases** in the `workaholify` skill, *One thread per feedback item* (stated there once and not repeated here): this run's own trigger message's thread when one can be identified — a cron tick has none, so this case is normally skipped here — otherwise the item's thread found by its key, otherwise a new root carrying that key. Derive the unit's feedback key from the repository: the `feedback:` field of the mission the unit drove, or of the mission its batched tickets name. Choose the line by outcome:
 
 ------------
 🟢 Merge Requested for <@U…> - [#123 Issue Title]({repo}/pull/123)
@@ -111,7 +111,7 @@ That makes the pushed branch the sole surviving copy -- the worktree dies with t
 
 1. Commit and **push** everything on the claim branch, partial work included. Nothing may remain only in this sandbox.
 2. Open or update the unit's PR even when the work is incomplete, and lead its body with a `## Handoff` section: what is done, what is not, the exact next step, and any failing command with its raw output.
-3. Post to `dev-{repo_name}`, **in the unit's feedback thread** when it has one, exactly as §4 routes its outcome lines:
+3. Post to `dev-{repo_name}`, routed exactly as §4 routes its outcome lines — the same three ordered cases, ending in a keyed new root when neither a trigger message nor the item's thread can be found:
 
 ------------
 🟡 Handoff <@U…> - [#123 Issue Title]({repo}/pull/123)

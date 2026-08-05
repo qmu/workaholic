@@ -4799,6 +4799,99 @@ function testCatchupMain() {
   }
 }
 
+// ---------- drive claim protocol: truncated history (shallow clone) ----------
+// THE ONE CONDITION THE PRODUCTION RUNNER ALWAYS STARTS IN, AND NO FIXTURE HAD.
+// `claims_scan` decides in-flight-ness with `git rev-list --count base..ref`, which is
+// meaningful only when the merge base is inside the clone. Every other fixture here is a
+// complete clone, so the whole suite passed while the cloud runner -- whose container
+// clones shallow -- was offered a merged, shipped unit for takeover.
+//
+// Local clones ignore --depth unless the source is a file:// URL, so these use one.
+function testClaimScanShallowClone() {
+  const { origin, A, B } = makeClaimFixture();
+  const LIST = `${POSIX_SH} ${SCRIPTS.listClaims}`;
+  const CLAIM = `${POSIX_SH} ${SCRIPTS.claim}`;
+  const shallows = [];
+  const shallowClone = (depth = 1) => {
+    const s = mkdtempSync(join(tmpdir(), "wh-claim-shallow-"));
+    // --no-single-branch: --depth alone also implies --single-branch, which would hide
+    // the very refs the scan reads. Production clones carry every branch with TRUNCATED
+    // history, which is exactly this shape.
+    execSync(`git clone -q --depth ${depth} --no-single-branch file://${origin} .`, { cwd: s });
+    execSync(`git config user.email test@example.com && git config user.name Test && git config commit.gpgsign false`, { cwd: s });
+    shallows.push(s);
+    return s;
+  };
+  try {
+    // A claims m1 and that unit then SHIPS: its branch merges into main and is left
+    // undeleted, exactly like the ~180 merged-but-undeleted branches in the real repo.
+    const shipped = JSON.parse(run(A, `${CLAIM} mission m1`).stdout);
+    // --no-ff on purpose: a PR merge creates a MERGE COMMIT, so the branch tip becomes an
+    // ancestor of main rather than main itself. A fast-forward would make the two refs the
+    // same commit, which every clone reports as 0 ahead -- the defect would not reproduce.
+    execSync(`git fetch -q origin && git merge -q --no-ff --no-edit origin/${shipped.branch} && git push -q origin main`, { cwd: A });
+    tickSecond();
+    // ...and a second unit stays genuinely in flight.
+    const live = JSON.parse(run(A, `${CLAIM} batch .workaholic/tickets/todo/${TEST_SLUG}/20260729000001-t1.md`).stdout);
+
+    // ---- Baseline: a COMPLETE clone gets both answers right. ----
+    const full = JSON.parse(run(A, LIST).stdout);
+    assertEq("a complete clone reports the merged unit as released", full.shallow, false);
+    assertEq("a complete clone lists only the unit still in flight",
+      full.claims.map((c) => c.unit), [live.unit]);
+
+    // ---- Gate 1: shallow + reachable origin -> the reader REPAIRS, not degrades. ----
+    const s1 = shallowClone();
+    assertEq("the fixture clone really is shallow",
+      execSync("git rev-parse --is-shallow-repository", { cwd: s1, encoding: "utf8" }).trim(), "true");
+    // Without deepening, the merged branch counts as ahead and reads as a live claim.
+    const naive = execSync(`git fetch -q origin && git rev-list --count origin/main..origin/${shipped.branch}`,
+      { cwd: s1, encoding: "utf8" }).trim();
+    assertTrue("truncated history really does miscount a merged branch as ahead",
+      Number(naive) > 0, `ahead=${naive} -- fixture no longer reproduces the defect`);
+
+    const r1 = JSON.parse(run(s1, LIST).stdout);
+    assertEq("the scan deepened the clone rather than answering from truncated history",
+      r1.shallow, false);
+    assertEq("a merged, shipped unit is NOT reported as a claim in a shallow clone",
+      r1.claims.map((c) => c.unit), [live.unit]);
+    assertTrue("and the clone is left complete for every later read",
+      execSync("git rev-parse --is-shallow-repository", { cwd: s1, encoding: "utf8" }).trim() === "false");
+
+    // Gate 4: the genuine claim survives the repair -- correctness is not bought by
+    // blinding the reader. Heartbeat forced lapsed so the verdict is actually exercised.
+    const lapsed = { WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES: "0" };
+    const r1b = JSON.parse(run(s1, LIST, { env: lapsed }).stdout);
+    const liveRow = r1b.claims.find((c) => c.unit === live.unit);
+    assertEq("a genuinely unmerged claim is still resumable after deepening",
+      { r: liveRow.resumable, why: liveRow.resume_reason }, { r: true, why: "heartbeat_lapsed" });
+
+    // ---- Gate 2: shallow + UNREACHABLE origin -> degrade loudly, never invent. ----
+    const s2 = shallowClone();
+    execSync("git remote set-url origin file:///nonexistent-workaholic-origin", { cwd: s2 });
+    const r2 = JSON.parse(run(s2, LIST, { env: lapsed }).stdout);
+    assertEq("an unreachable origin cannot repair the clone, and says so",
+      { f: r2.fetched, s: r2.shallow }, { f: false, s: true });
+    assertTrue("no claim is offered for resumption over truncated history",
+      r2.claims.every((c) => c.resumable === false), JSON.stringify(r2.claims));
+    assertTrue("and the reason blames the input, not the unit",
+      r2.claims.length > 0 && r2.claims.every((c) => c.resume_reason === "shallow_history"),
+      JSON.stringify(r2.claims.map((c) => [c.unit, c.resume_reason])));
+    // The merged unit is still LISTED here -- over-reporting a claim makes a runner wait,
+    // under-reporting it double-picks work. Suppression is of the VERDICT, not the row.
+    assertTrue("the claim is still listed, since over-reporting is the safe direction",
+      r2.claims.some((c) => c.unit === shipped.unit), JSON.stringify(r2.claims.map((c) => c.unit)));
+
+    // ---- The survey carries the same fact, because it is what forbids `ok`. ----
+    const p2 = JSON.parse(run(s2, `${POSIX_SH} ${SCRIPTS.planUnits}`, { env: lapsed }).stdout);
+    assertEq("plan-units reports truncated history as a property of the survey", p2.shallow, true);
+    assertEq("and offers nothing for resumption on the strength of it", p2.resumable, []);
+  } finally {
+    cleanup(origin); cleanup(A); cleanup(B);
+    for (const s of shallows) cleanup(s);
+  }
+}
+
 // ---------- report/apply-deferred-concern-verdicts.sh (Bug 1: accept object + array) ----------
 function testApplyVerdicts() {
   // {"verdicts":[...]} object form must write a superseding record for a resolved concern.
@@ -11028,6 +11121,7 @@ const tests = [
   ["report/create-or-update.sh takes the update path for an existing PR", testCreateOrUpdatePaths],
   ["branching/cut-release-branch.sh (the release/* staging tier)", testCutReleaseBranch],
   ["ship: a release branch's durable record answers what shipped, and when", testReleaseRecord],
+  ["drive claim protocol: truncated history never invents a claim", testClaimScanShallowClone],
 ];
 
 for (const [label, fn] of tests) {

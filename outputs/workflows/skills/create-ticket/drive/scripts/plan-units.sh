@@ -4,7 +4,7 @@
 #
 # Usage: plan-units.sh
 # Output: JSON
-#   {"fetched": bool, "base": "<ref>",
+#   {"fetched": bool, "shallow": bool, "base": "<ref>",
 #    "surveyed_sha": "<sha of the checkout's HEAD>", "base_sha": "<sha of <base>>",
 #    "current": bool,
 #    "user_slug": "<the surveyed developer's queue slug, "" when unresolvable>",
@@ -145,6 +145,9 @@ doc_title() {
 
 # --- the claims in flight -----------------------------------------------------
 FETCHED=$(claims_fetch)
+# Read AFTER the fetch, which deepens when it can: this must describe the history the
+# scan below actually saw, not the one the container was cloned with.
+SHALLOW=$(claims_shallow)
 BASE=$(claims_base)
 ROWS=$(claims_scan "$BASE")
 
@@ -395,6 +398,6 @@ for t in $TODO_LIST; do
     b_sep=", "
 done
 
-printf '{"fetched": %s, "base": "%s", "surveyed_sha": "%s", "base_sha": "%s", "current": %s, "user_slug": "%s", "backlog_error": "%s", "claimed": [%s], "resumable": [%s], "missions": [%s], "backlog": [%s], "excluded": [%s]}\n' \
-    "$FETCHED" "$BASE" "$SURVEYED_SHA" "$BASE_SHA" "$CURRENT" "$(json_escape "$USER_SLUG")" "$BACKLOG_ERROR" \
+printf '{"fetched": %s, "shallow": %s, "base": "%s", "surveyed_sha": "%s", "base_sha": "%s", "current": %s, "user_slug": "%s", "backlog_error": "%s", "claimed": [%s], "resumable": [%s], "missions": [%s], "backlog": [%s], "excluded": [%s]}\n' \
+    "$FETCHED" "$SHALLOW" "$BASE" "$SURVEYED_SHA" "$BASE_SHA" "$CURRENT" "$(json_escape "$USER_SLUG")" "$BACKLOG_ERROR" \
     "$CLAIMED_JSON" "$RESUMABLE" "$MISSIONS" "$BACKLOG" "$EXCLUDED"

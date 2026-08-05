@@ -17,7 +17,7 @@ import { cpSync, mkdtempSync, rmSync, writeFileSync, readFileSync, mkdirSync, ex
 import { execSync } from "node:child_process";
 import { join, resolve, dirname, basename } from "node:path";
 import { tmpdir } from "node:os";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const REPO_ROOT = resolve(fileURLToPath(import.meta.url), "../..");
 const SCRIPTS = {
@@ -7875,6 +7875,40 @@ function testCheckDeps() {
   } finally { cleanup(dir); }
 }
 
+// A PLUGIN-ROOT PATH IS A DEFECT IN A BUILT ARTIFACT; A BARE READ OF THE VARIABLE IS NOT.
+// The build's leftover scan was a plain substring test until 2026-08-05 and could not
+// tell them apart, so check.sh's `${CLAUDE_PLUGIN_ROOT:-}` — the read that learns what
+// the harness bound, which must come from OUTSIDE the plugin to be worth anything — was
+// rejected as an unresolved path. The distinguishing syntax is the trailing slash.
+async function testPluginRootPathVsRead() {
+  const { UNRESOLVED_PLUGIN_ROOT_PATH } =
+    await import(pathToFileURL(join(REPO_ROOT, "scripts/build-plugins/script-ref-patterns.mjs")).href);
+
+  for (const [label, text] of [
+    ["a SKILL.md-style script path", 'bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/git-context.sh'],
+    ["a bare plugin-root path", '"${CLAUDE_PLUGIN_ROOT}/hooks/hooks.json"'],
+  ]) {
+    assertTrue(`${label} is still rejected`, UNRESOLVED_PLUGIN_ROOT_PATH.test(text), text);
+  }
+
+  for (const [label, text] of [
+    ["a default-valued read", 'loaded_root="${CLAUDE_PLUGIN_ROOT:-}"'],
+    ["an unbraced read", 'root=$CLAUDE_PLUGIN_ROOT'],
+    ["a prose mention", "# the loaded version comes from ${CLAUDE_PLUGIN_ROOT}, not this file's location"],
+  ]) {
+    assertTrue(`${label} is allowed through`, !UNRESOLVED_PLUGIN_ROOT_PATH.test(text), text);
+  }
+
+  // The end-to-end consequence: the read reaches the generated bundle, because on an
+  // agent that sets nothing it yields empty and the registry axis stays silent — the
+  // designed behavior, not a degradation.
+  const bundled = join(REPO_ROOT, "outputs/workflows/skills/drive/check-deps/scripts/check.sh");
+  assertTrue("the bundled check.sh keeps its plugin-root read",
+    existsSync(bundled) && readFileSync(bundled, "utf8").includes('"${CLAUDE_PLUGIN_ROOT:-}"'));
+  assertTrue("...and carries no plugin-root PATH",
+    !UNRESOLVED_PLUGIN_ROOT_PATH.test(readFileSync(bundled, "utf8")));
+}
+
 // THE REPORTER MUST NOT BE THE THING IT REPORTS ON. A session can bind a SUPERSEDED
 // plugin cache directory — `plugin update` unpacks the new version beside the old and
 // deletes neither — and the old build's survey then answers wrongly with full
@@ -11329,6 +11363,7 @@ const tests = [
   ["hooks/guard-askuserquestion-label.sh", testGuardAskUserQuestionLabel],
   ["workaholify/audit-claude-md.sh", testAuditClaudeMd],
   ["hooks/guard-working-directory.sh", testGuardWorkingDirectory],
+  ["build: a plugin-root PATH is a defect, a bare read is not", testPluginRootPathVsRead],
   ["check-deps/check.sh", testCheckDeps],
   ["check-deps: a superseded plugin binding is a stop, not a warning", testCheckDepsRegistryDrift],
   ["catch/scan-window.sh buckets+branches", testScanWindowBuckets],
@@ -11394,9 +11429,14 @@ const tests = [
   ["drive claim protocol: truncated history never invents a claim", testClaimScanShallowClone],
 ];
 
+// `await` matters even though almost every test is synchronous: without it an async
+// test's assertions run AFTER this loop finishes counting, so it contributes zero
+// passes, zero failures, and no output — a test that silently does not run, which is
+// strictly worse than one that fails. (Measured 2026-08-05, on the first async test.)
+// Top-level await is available here because this is an ES module.
 for (const [label, fn] of tests) {
   console.log(`\n# ${label}`);
-  try { fn(); }
+  try { await fn(); }
   catch (e) { fail(label, e.stack || String(e)); }
 }
 

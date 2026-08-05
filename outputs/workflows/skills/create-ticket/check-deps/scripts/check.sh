@@ -27,6 +27,40 @@
 # drift actually bites: sync-main.sh terminates the run on the dirty tree a bad
 # migration leaves. So `ok` stays true and the caller reports the drift.
 #
+# THE SECOND DRIFT AXIS: LOADED vs REGISTRY (2026-08-05). The paragraph above was
+# written when the only known drift was loaded-vs-checkout, and it left a blind spot in
+# exactly the case it was designed for. A session can bind ${CLAUDE_PLUGIN_ROOT} to a
+# SUPERSEDED cache directory: `plugin update` unpacks the new version beside the old one
+# and does not delete the old one, so both exist and an already-bound session keeps the
+# one it has. The SessionStart bootstrap cannot help -- it is decided that it never
+# refreshes a running session.
+#
+# Measured on the 2026-08-04T22:58Z hourly tick: the registry recorded 1.0.129, updated
+# ~85 seconds before the session's first commit, and the session nonetheless ran 1.0.112.
+# That version's claims.sh predates the rename-following resolution and the
+# `queue_drained` verdict, so the survey called five already-driven tickets fresh backlog
+# and the tick CLAIMED one of them -- a double-pick reaching a pushed ref, which is the
+# precise failure the claim protocol exists to prevent. It was caught only because the
+# runner cross-checked by hand.
+#
+# THE REPORTER MUST NOT BE THE THING IT REPORTS ON, so neither operand is plugin content:
+# the loaded version comes from ${CLAUDE_PLUGIN_ROOT} (what this session actually bound)
+# and the wanted version from ~/.claude/plugins/installed_plugins.json (what the harness
+# installed). Both are environment facts, so the comparison is as trustworthy as the
+# reader's own age allows.
+#
+# Note what changed and why it matters: `version` used to be read from the manifest
+# beside THIS SCRIPT, which answers "where is this file" and not "what did the session
+# load". Running check.sh from a checkout while the session ran a stale cache reported a
+# confident, matching pair -- the reporter agreeing with itself. When
+# ${CLAUDE_PLUGIN_ROOT} is set it is now authoritative for `version`.
+#
+# UNLIKE checkout drift, THIS ONE IS A STOP, not a warning (see drive/SKILL.md §1). The
+# distinction is what the drift can do: a checkout that moved means the run may be
+# missing a fix, while a superseded binding silently changes the SURVEY'S ANSWER, and the
+# run's next action on that answer is a push. `ok` stays true here -- this script is a
+# diagnostic and does not decide the run's fate -- but the caller must refuse to survey.
+#
 # KNOWN LIMIT: checkout_version is read from the checkout as it is RIGHT NOW, and
 # /drive runs this before sync-main.sh fast-forwards. A runner whose clone is itself
 # behind the base therefore compares against a stale wanted-version and can agree
@@ -54,6 +88,15 @@ set -eu
 # so three parent hops reach it.
 script_dir=$(cd -- "$(dirname -- "$0")" && pwd)
 root=$(cd -- "${script_dir}/../../.." && pwd)
+
+# ...EXCEPT when the harness tells us what it actually bound. The script's own location
+# answers "where is this file", which is a different question from "what is this session
+# running", and the two diverge in precisely the case worth catching.
+loaded_root="${CLAUDE_PLUGIN_ROOT:-}"
+if [ -n "$loaded_root" ] && [ -d "$loaded_root" ]; then
+  root="$loaded_root"
+fi
+
 manifest="${root}/.claude-plugin/plugin.json"
 hooks="${root}/hooks/hooks.json"
 
@@ -85,6 +128,39 @@ else
   version_drift=false
 fi
 
+# --- Loaded vs registry -------------------------------------------------------------
+# Only meaningful when the harness bound a plugin root. Without one (a non-Claude agent,
+# the generated bundle, a direct checkout invocation) there is no "what the session
+# loaded" to compare, so the whole axis stays silent rather than inventing a verdict.
+registry_version=""
+registry_unreadable=false
+loaded_version_behind_registry=false
+
+if [ -n "$loaded_root" ]; then
+  registry="${CLAUDE_PLUGIN_REGISTRY:-${HOME}/.claude/plugins/installed_plugins.json}"
+  if [ -f "$registry" ]; then
+    # The scope array can hold more than one install; take the newest version present,
+    # because that is what an update would have left and what the session ought to bind.
+    registry_version=$(jq -r '
+        (.plugins["workaholic@workaholic"] // [])
+        | map(.version // empty) | max // ""
+      ' "$registry" 2>/dev/null || printf '')
+    [ -n "$registry_version" ] || registry_unreadable=true
+  else
+    registry_unreadable=true
+  fi
+
+  # "Behind" is ordered, not merely different: a loaded version AHEAD of the registry is
+  # a developer running a local build, which is deliberate and must not be reported as
+  # the failure this exists to catch.
+  if [ "$registry_unreadable" = false ] && [ "$version" != "$registry_version" ]; then
+    older=$(printf '%s\n%s\n' "$version" "$registry_version" | sort -V 2>/dev/null | head -n 1)
+    if [ "$older" = "$version" ]; then
+      loaded_version_behind_registry=true
+    fi
+  fi
+fi
+
 # Assert the three PreToolUse Bash guards are registered in the loaded hooks.json.
 expected="guard-ticket-structure.sh guard-git-commit.sh guard-git-branch.sh"
 missing=""
@@ -109,5 +185,6 @@ fi
 # Emit missing_guards as a JSON array (jq handles quoting; empty -> []).
 missing_json=$(printf '%s\n' $missing | jq -R . | jq -sc 'map(select(length > 0))')
 
-printf '{"ok": true, "version": "%s", "checkout_version": "%s", "version_drift": %s, "guards_present": %s, "missing_guards": %s}\n' \
-  "$version" "$checkout_version" "$version_drift" "$guards_present" "$missing_json"
+printf '{"ok": true, "version": "%s", "checkout_version": "%s", "version_drift": %s, "registry_version": "%s", "registry_unreadable": %s, "loaded_version_behind_registry": %s, "guards_present": %s, "missing_guards": %s}\n' \
+  "$version" "$checkout_version" "$version_drift" "$registry_version" "$registry_unreadable" \
+  "$loaded_version_behind_registry" "$guards_present" "$missing_json"

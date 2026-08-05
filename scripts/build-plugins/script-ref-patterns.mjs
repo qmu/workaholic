@@ -24,3 +24,20 @@ export const ANY_SKILL_SCRIPT = /(?:skills\/[a-z-]+\/scripts(?=\/|["'\s])|\$\{SC
 // The exact source forms that are build-detectable.
 export const SKILL_MD_PREFIX = /\$\{CLAUDE_PLUGIN_ROOT\}\/$/; // SKILL.md
 export const SCRIPT_PREFIX = /\$\{SCRIPT_DIR\}\/\.\.\/\.\.\/[a-z-]+\/scripts(?:\/|$)/; // *.sh
+
+// An UNRESOLVED PLUGIN-ROOT PATH in a built artifact — what build.mjs and verify.mjs
+// fail on. Note the trailing `/`: the token is only a defect when it is being used to
+// BUILD A PATH, because that is the thing that cannot resolve outside Claude Code.
+//
+// A bare read of the variable is a different construct and is legitimate in a built
+// script. `check-deps/scripts/check.sh` reads `${CLAUDE_PLUGIN_ROOT:-}` to learn what
+// the harness actually bound — the whole point being that the answer must come from
+// outside the plugin — and on an agent that sets nothing the read yields empty and the
+// check stays silent, which is the designed behavior rather than a degradation.
+//
+// The check was a plain substring test until 2026-08-05, which could not tell a path
+// from a read and rejected the read. Do not widen it back: an occurrence with no
+// trailing `/` cannot produce a broken path, so it is outside what this guard exists to
+// catch, and matching it only pushes authors into spelling the variable oddly to evade
+// the scan — a landmine for whoever writes the next one.
+export const UNRESOLVED_PLUGIN_ROOT_PATH = /\$\{CLAUDE_PLUGIN_ROOT\}\//;

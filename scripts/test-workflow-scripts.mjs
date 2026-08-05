@@ -93,6 +93,9 @@ const SCRIPTS = {
   guardRepoConfinement: join(REPO_ROOT, "plugins/workaholic/hooks/guard-repo-confinement.sh"),
   resolveTarget: join(REPO_ROOT, "plugins/workaholic/skills/request/scripts/resolve-target.sh"),
   submitRequest: join(REPO_ROOT, "plugins/workaholic/skills/request/scripts/submit-request.sh"),
+  checkOutboundBody: join(REPO_ROOT, "plugins/workaholic/skills/request/scripts/check-outbound-body.sh"),
+  scanOutboundBody: join(REPO_ROOT, "plugins/workaholic/skills/feedback/scripts/scan-outbound-body.sh"),
+  openIssue: join(REPO_ROOT, "plugins/workaholic/skills/feedback/scripts/open-issue.sh"),
   guardAskLabel: join(REPO_ROOT, "plugins/workaholic/hooks/guard-askuserquestion-label.sh"),
   guardWorkingDir: join(REPO_ROOT, "plugins/workaholic/hooks/guard-working-directory.sh"),
   auditClaudeMd: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/audit-claude-md.sh"),
@@ -7457,6 +7460,205 @@ function testRequestUnderUrlRewrite() {
   }
 }
 
+// ---------- /fb's cross-repository issue mode ----------
+// The boundary crossing is a GitHub ISSUE on the target, not a file written into anyone's
+// checkout (FB 20260805101319). Three mechanics are pinned here because the flow's real
+// control — the developer reading the body verbatim — is not testable:
+//
+//   1. TARGET RESOLUTION FORMS. `gh issue create -R` needs `owner/name`, and the target
+//      need not be cloned on this disk, so a slug and both GitHub URL spellings must
+//      resolve as well as a path. A DIRECTORY STILL WINS, because guessing across that
+//      ambiguity is the "never guess a target" failure.
+//   2. THE ISSUE-CREATE CALL SHAPE, against a mocked `gh`. Nothing here may open a real
+//      issue anywhere; the feature ships dormant until a human uses it.
+//   3. THE FOUR REAL LEAKED SENTENCES STILL PASS UNFLAGGED. Ported from the retired
+//      submit-request suite, and asserted rather than lamented — read the crossing
+//      section's §1 before "fixing" it.
+function testFbCrossRepoIssueMode() {
+  const tmp = mkdtempSync(join(tmpdir(), "fb-cross-"));
+  const src = join(tmp, "source-repo");
+  const tgt = join(tmp, "target-repo");
+  const git = (cwd, args) => execSync(`git ${args}`, { cwd, stdio: "ignore" });
+  for (const r of [src, tgt]) {
+    mkdirSync(r, { recursive: true });
+    git(r, "init -q");
+    git(r, "config user.email a@qmu.jp");
+    git(r, "config user.name t");
+    writeFileSync(join(r, "a.md"), "x\n");
+    git(r, "add -A");
+    git(r, "-c commit.gpgsign=false commit -qm base");
+  }
+  git(src, "remote add origin git@github.com:acme-org/source-repo.git");
+  git(tgt, "remote add origin git@github.com:other-org/target-repo.git");
+
+  // `gh` is MOCKED, always. A stub earlier on PATH records its argv and prints an issue
+  // URL, so the call shape is asserted without any network and without the possibility of
+  // opening an issue on a real repository.
+  const bin = join(tmp, "bin");
+  mkdirSync(bin, { recursive: true });
+  const ghLog = join(tmp, "gh-argv.txt");
+  const writeGh = (bodyLines) => {
+    const p = join(bin, "gh");
+    writeFileSync(p, `#!/bin/sh\n: > "${ghLog}"\nfor a in "$@"; do printf '%s\\n' "$a" >> "${ghLog}"; done\n${bodyLines}\n`);
+    chmodSync(p, 0o755);
+  };
+  const env = { ...process.env, PATH: `${bin}:${process.env.PATH}` };
+  const json = (cwd, script, args, extraEnv) => {
+    try {
+      return JSON.parse(execSync(`${POSIX_SH} ${script} ${args}`, {
+        cwd, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"], env: extraEnv || env,
+      }));
+    } catch (e) { return { ok: false, error: `threw: ${e.status}` }; }
+  };
+  const q = (s) => `"${s}"`;
+  const body = (n, text) => { const p = join(tmp, n); writeFileSync(p, text); return p; };
+
+  try {
+    // ---- 1. target resolution forms ----
+    // A slug alone resolves: the ask is an issue, so a checkout of the target is not
+    // needed and requiring one would limit a developer to repositories they happen to
+    // have cloned.
+    writeGh(`printf 'private\\n'`);
+    const bySlug = json(src, SCRIPTS.resolveTarget, q("other-org/target-repo"));
+    assertEq("resolve-target resolves a bare owner/name", bySlug.ok, true);
+    // `visibility` is an ENUM, never a payload. `gh api` prints its error body to STDOUT
+    // with a non-zero status, so the earlier `|| echo unknown` form emitted
+    // `{"message":"Not Found",...}unknown` into this field and made the whole envelope
+    // unparseable — a lookup failure surfacing as a crash, on the one field the
+    // developer's confirmation shows.
+    assertTrue("visibility is one of the three answers, whatever gh printed",
+      ["public", "private", "internal", "unknown"].includes(bySlug.visibility), String(bySlug.visibility));
+    assertEq("and reports it as the slug", bySlug.slug, "other-org/target-repo");
+    assertEq("with no local path, because the target need not be cloned", bySlug.path, "");
+    assertEq("and a canonical remote a human can open", bySlug.remote, "https://github.com/other-org/target-repo");
+
+    for (const [label, form] of [
+      ["https URL", "https://github.com/other-org/target-repo"],
+      ["https URL with .git", "https://github.com/other-org/target-repo.git"],
+      ["ssh clone URL", "git@github.com:other-org/target-repo.git"],
+    ]) {
+      const r = json(src, SCRIPTS.resolveTarget, q(form));
+      assertEq(`resolve-target resolves a ${label}`, r.ok, true);
+      assertEq(`and normalizes the ${label} to owner/name`, r.slug, "other-org/target-repo");
+    }
+
+    // A DIRECTORY STILL WINS, and a local target still reports its slug so the same
+    // caller can address it with `gh issue create -R`.
+    const byPath = json(src, SCRIPTS.resolveTarget, q(tgt));
+    assertEq("a real directory still resolves as a checkout", byPath.path, tgt);
+    assertEq("and a local checkout reports its slug too", byPath.slug, "other-org/target-repo");
+
+    // Refusals: still no guessing. A non-slug, non-directory argument is an error, and
+    // this repository is never a crossing target.
+    assertEq("resolve-target still refuses a missing dir", json(src, SCRIPTS.resolveTarget, q(join(tmp, "nope"))).ok, false);
+    const selfSlug = json(src, SCRIPTS.resolveTarget, q("acme-org/source-repo"));
+    assertEq("resolve-target refuses this repository by slug", selfSlug.ok, false);
+    assertTrue("and routes it to /ticket", /\/ticket/.test(selfSlug.error || ""), selfSlug.error);
+
+    // ---- 2. the issue-create call shape ----
+    const askBody = body("ask.md", "The parser drops a trailing newline on CRLF input.\n");
+    writeGh(`printf 'https://github.com/other-org/target-repo/issues/42\\n'`);
+    const opened = json(src, SCRIPTS.openIssue, `"other-org/target-repo" "Parser drops a trailing newline" ${q(askBody)}`);
+    assertEq("open-issue reports ok", opened.ok, true);
+    assertEq("and returns the issue URL gh printed", opened.url, "https://github.com/other-org/target-repo/issues/42");
+    assertEq("the call is `issue create` against the resolved repo",
+      readFileSync(ghLog, "utf8").trim().split("\n").slice(0, 4).join(" "),
+      "issue create -R other-org/target-repo");
+    const argv = readFileSync(ghLog, "utf8").trim().split("\n");
+    assertTrue("the title is passed with --title",
+      argv[argv.indexOf("--title") + 1] === "Parser drops a trailing newline", argv.join(" "));
+    assertEq("and the body is passed by FILE, never inline on the command line",
+      argv[argv.indexOf("--body-file") + 1], askBody);
+
+    // A refusal from the target is reported verbatim, never worked around: issues
+    // disabled, or no access for this identity, is the target's own decision.
+    writeGh(`printf 'GraphQL: Issues are disabled for this repository\\n' >&2\nexit 1`);
+    const refused = json(src, SCRIPTS.openIssue, `"other-org/target-repo" "T" ${q(askBody)}`);
+    assertEq("a gh refusal is reported as a failure", refused.ok, false);
+    assertTrue("and carries gh's own words", /Issues are disabled/.test(refused.error || ""), refused.error);
+
+    writeGh(`printf 'https://github.com/x/y/issues/1\\n'`);
+    assertEq("open-issue refuses a target that is not owner/name",
+      json(src, SCRIPTS.openIssue, `"not-a-slug" "T" ${q(askBody)}`).ok, false);
+    assertEq("open-issue refuses an empty body",
+      json(src, SCRIPTS.openIssue, `"other-org/target-repo" "T" ${q(body("empty.md", ""))}`).ok, false);
+    assertEq("open-issue refuses when gh is absent",
+      json(src, SCRIPTS.openIssue, `"other-org/target-repo" "T" ${q(askBody)}`,
+        { ...process.env, PATH: join(tmp, "no-such-bin") }).ok, false);
+
+    // ---- 3. the mechanical backstop, at its own entry point ----
+    const named = body("named.md", `A ticket that still says ${basename(src)} in the text.\n`);
+    const standalone = json(src, SCRIPTS.checkOutboundBody, q(named));
+    assertEq("check-outbound-body refuses a standalone mention of this repo", standalone.ok, false);
+    assertTrue("and names the matched text and its line",
+      /at line \d+:/.test(standalone.error || "") && standalone.error.includes(basename(src)), standalone.error);
+
+    const seg = body("segments.md",
+      `docs/${basename(src)}-reports/foo.md -> docs/site-${basename(src)}/foo.md\n`);
+    assertEq("an identifier, not a substring: embedded path segments pass",
+      json(src, SCRIPTS.checkOutboundBody, q(seg)).ok, true);
+
+    const url = body("url.md", `Clone git@github.com:acme-org/${basename(src)}.git first.\n`);
+    const urlR = json(src, SCRIPTS.checkOutboundBody, q(url));
+    assertEq("the clone URL is refused", urlR.ok, false);
+    assertTrue("and reported as the clone URL", /clone URL at line \d+:/.test(urlR.error || ""), urlR.error);
+
+    const abs = body("abs.md", `See ${src}/docs for details.\n`);
+    assertTrue("the absolute path is refused as the path check",
+      /repository's path at line \d+:/.test(json(src, SCRIPTS.checkOutboundBody, q(abs)).error || ""), "path rule");
+
+    // THE POINT, PORTED VERBATIM FROM THE RETIRED submit-request SUITE. Real leaked
+    // sentences from the incident carry no reference to this repo, so the mechanical
+    // backstop cannot see them and passes them without complaint. This is asserted, not
+    // lamented: it is why the developer confirmation in the crossing flow is
+    // non-skippable. If a future change makes these fail here, the confirmation has
+    // probably been quietly demoted to a pattern match — read the feedback skill's
+    // *Crossing a repository boundary* §1 first.
+    const realLeaks = [
+      "The house tsconfig lives at packages/realestate-mcp/tsconfig.json.",
+      "Repro moved seiho-target-matrix.pdf (798.1KB) into /My Drive.",
+      'The fixture uses the mail label "HSS-sama" as a user label.',
+      "Port 5173 collides with poc-host.example.dev on this host.",
+    ];
+    realLeaks.forEach((text, i) => {
+      const p = body(`leak-${i}.md`, `${text}\n`);
+      assertEq(`the backstop cannot detect leak #${i + 1} (by design — the human gate does)`,
+        json(src, SCRIPTS.checkOutboundBody, q(p)).ok, true);
+    });
+
+    // ---- 4. the second layer: the release scan's rules over one composed body ----
+    // Not `scan-branch-safety.sh`: that answers "what is this BRANCH about to publish",
+    // and a crossing body is committed nowhere, so pointing it here would report a
+    // verdict about the caller's unrelated working branch.
+    const cleanScan = JSON.parse(execSync(
+      `${POSIX_SH} ${SCRIPTS.scanOutboundBody} ${q(body("cs.md", "The parser drops a trailing newline.\n"))}`,
+      { cwd: src, encoding: "utf8" }));
+    assertEq("scan-outbound-body passes a clean body", cleanScan.verdict, "pass");
+    assertEq("with no findings", cleanScan.findings.length, 0);
+
+    const secretBody = body("secret.md", 'api_key = "AKIAIOSFODNN7EXAMPLE"\n');
+    const secretScan = JSON.parse(execSync(
+      `${POSIX_SH} ${SCRIPTS.scanOutboundBody} ${q(secretBody)}`, { cwd: src, encoding: "utf8" }));
+    assertEq("a credential shape blocks", secretScan.verdict, "block");
+    assertEq("at the hard severity, which the flow may never override", secretScan.findings[0].severity, "hard");
+    assertTrue("and the evidence is redacted rather than echoed",
+      secretScan.findings[0].evidence === "<redacted>", JSON.stringify(secretScan.findings[0]));
+
+    // The leak rule is denylist-only, exactly as the branch scan is: absent file means
+    // the check does nothing at all, which is the state of most repositories.
+    mkdirSync(join(src, ".workaholic"), { recursive: true });
+    writeFileSync(join(src, ".workaholic/leak-denylist"), "# a comment\nProject Kestrel\n");
+    const leakScan = JSON.parse(execSync(
+      `${POSIX_SH} ${SCRIPTS.scanOutboundBody} ${q(body("leaky.md", "Same failure as Project Kestrel had.\n"))}`,
+      { cwd: src, encoding: "utf8" }));
+    assertEq("a listed term blocks", leakScan.verdict, "block");
+    assertEq("at the confirm severity, which is fix-or-record-an-override", leakScan.findings[0].severity, "confirm");
+    assertEq("and cites the line it matched", leakScan.findings[0].line, 1);
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
 // ---------- commit/commit.sh refuses flag-shaped titles ----------
 // `--help` used to fall through the flag loop, become the title, and COMMIT with
 // the message `--help` — the one input a user types to avoid doing something was
@@ -11504,6 +11706,7 @@ const tests = [
   ["commit/commit.sh flag guard", testCommitFlagGuard],
   ["request/scripts", testRequestScripts],
   ["request/scripts under a git insteadOf URL rewrite", testRequestUnderUrlRewrite],
+  ["/fb's cross-repository issue mode", testFbCrossRepoIssueMode],
   ["hooks/guard-askuserquestion-label.sh", testGuardAskUserQuestionLabel],
   ["workaholify/audit-claude-md.sh", testAuditClaudeMd],
   ["hooks/guard-working-directory.sh", testGuardWorkingDirectory],

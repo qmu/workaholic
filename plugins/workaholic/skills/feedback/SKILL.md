@@ -121,6 +121,147 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/feedback/scripts/list.sh
 
 JSON array `[{path, title, kind, source, created_at, author, supersedes}]`, newest first. Emits `[]` when the area does not exist. Pure read.
 
+## Crossing a repository boundary
+
+Everything above records feedback **here**. This section is the one sanctioned way to send
+an ask to a **different** repository, and the carrier is a **GitHub issue on the target** —
+never a file written into anyone's checkout. Every other route out of this repo is refused
+by `hooks/guard-repo-confinement.sh`, and this exists so the rule in `rules/general.md`
+("Never modify another repository") never has to be broken to raise legitimate work
+elsewhere.
+
+**Why an issue.** The crossing becomes an artifact the target's owners see natively, in the
+place they already read: the target's own `[Propose]` routine ingests it exactly like any
+other inbound report, so the recording and the proposal judgment happen inside the
+**target's** loop rather than ours. Nothing is written into the target's tree, so there is
+nothing for its owners to discover in a `git status` they did not expect.
+
+### 1. The masking step is a judgement, not a matcher
+
+Read this before implementing anything here.
+
+A leak is not a string on a list. The terms that have actually escaped from this
+organisation into public repositories were a private component name, a document filename
+with its byte size, a mail label carrying an honorific, a `.dev` hostname, and cloud
+resource names. **None existed as a term to list before the moment it leaked.** No
+denylist, regex, or scan can recognise them — the `leak` rule matches only terms someone
+already wrote down, and a fresh term is by definition not among them.
+
+So the control is you, reading the body and deciding. The scripts here handle mechanics
+(resolve a target, refuse an empty body, refuse a body still naming *this* repo). They do
+not decide what is safe. Nothing here should ever grow into "the masker" — if a future
+change makes the confirmation feel redundant, the change is wrong.
+
+### 2. What to mask
+
+Everything that grounds the ask in *this* project's concrete reality:
+
+| category | examples of what to remove |
+| --- | --- |
+| identity | this repo's name; any client/customer name; a project codename |
+| location | filesystem paths; `../sibling/` references; repo URLs |
+| structure | internal component/package names; directory layouts; CI workflow names |
+| artifacts | real document filenames, sheet names, folder names — and their sizes |
+| systems | hostnames (including ours), cloud resource names, account IDs, database and bucket names |
+| people | mailbox labels, workspace names, channel names, ticket/PR numbers from elsewhere |
+
+**The test that works:** would a reader of the target repo — who knows nothing about our
+clients — learn something about them from this body? If yes, it is not masked.
+
+**The second test:** replace the detail with a placeholder and re-read. If the ask still
+makes its point, the detail was never load-bearing and should not have been there. This is
+nearly always the case. Concrete grounding is a habit, not a requirement.
+
+### 3. Compose in the target's vocabulary — do not carry ours at all
+
+Masking is compose-then-remove, and removal can be forgotten. The stronger shape is to
+build the ask from the **target** repo's own vocabulary plus synthetic placeholders, so
+there is nothing to remove. Reach for that first; fall back to masking only when the ask
+genuinely cannot be expressed in the target's own terms.
+
+The issue title is the **target's** too: no `[Proposal]`/`[Request]` prefix of ours belongs
+on it. What the target's routine does with the issue is the target's loop's business, and a
+prefix that means something in our vocabulary reads as noise — or worse, as a category — in
+theirs.
+
+If a masking miss is ever observed in practice, treat it as a signal to make the synthetic
+shape mandatory rather than as an isolated mistake.
+
+### 4. Workflow
+
+The command owns every `AskUserQuestion` (one-level fan-out; subagents cannot prompt).
+
+1. **Resolve the target.**
+   ```bash
+   bash ${CLAUDE_PLUGIN_ROOT}/skills/request/scripts/resolve-target.sh <owner/name-or-url-or-path>
+   ```
+   Returns `{ok, path, name, slug, remote, visibility, user_slug, todo_dir, source_repo}`.
+   The target need not be on this disk — an `owner/name` or a GitHub URL resolves with
+   `path` empty. On `ok: false`, show `error` and stop. **Never guess a target.**
+
+2. **Compose the body** in the target's vocabulary (§3), as prose a maintainer there can
+   act on: what is wrong or wanted, what they would observe, what would make it done.
+
+3. **Mask it** per §2.
+
+4. **Confirm — one prompt, and the only one. This confirmation cannot be skipped.** In a
+   single `AskUserQuestion`, show the developer **both** the destination — `slug`, `remote`,
+   and **`visibility`** — **and** the title and body verbatim, as they will be sent, and ask
+   them to confirm the two together. Not a summary, not a diff, not "I have masked it" — the
+   actual text. There is no fast path: not for a body that looks clean, not for a re-run, not
+   because the developer approved something earlier in the session. There is **exactly one**
+   confirmation, identical for every visibility combination (public→private,
+   private→public, public→public, private→private): visibility is **shown** as a material
+   fact — opening an issue on a public repo is a different decision from a private one — but
+   it is never a second prompt. The destination is folded into the body confirmation
+   precisely so the surviving gate stays the one that matters: the verbatim body. An
+   optional confirmation is a convention, and a convention is exactly what failed here.
+
+   Prefix the prompt body with `[<project label>]` (`gather/scripts/project-label.sh`;
+   `hooks/guard-askuserquestion-label.sh` blocks otherwise) and name **both** repositories —
+   the developer is deciding about a boundary, so both sides must be on screen.
+
+5. **Scan it** as an independent second layer:
+   ```bash
+   bash ${CLAUDE_PLUGIN_ROOT}/skills/feedback/scripts/scan-outbound-body.sh <body-file>
+   ```
+   A `secret` finding **hard-stops** — never overridden, never sent. A `leak` finding is
+   fixed, or overridden with the reason recorded in the session, exactly as `/ship` words
+   it. A `pass` means only "nothing listed was found"; it is underneath the judgement in
+   §1, never instead of it.
+
+6. **Let the mechanical backstop have the last word.**
+   ```bash
+   bash ${CLAUDE_PLUGIN_ROOT}/skills/request/scripts/check-outbound-body.sh <body-file>
+   ```
+   Refuses a body still carrying this repository's own name as a standalone identifier, its
+   `owner/name` remote form, any form of its clone URL, or its absolute path — citing the
+   matched text and its line. It matches an **identifier, not a substring**, so a path
+   segment that merely embeds our name (including a directory belonging to the *target*)
+   passes. On a refusal, mask and **re-confirm from step 4** — a body that changed after the
+   developer read it has not been confirmed.
+
+7. **Send it.**
+   ```bash
+   bash ${CLAUDE_PLUGIN_ROOT}/skills/feedback/scripts/open-issue.sh <owner/name> "<title>" <body-file>
+   ```
+   Returns `{ok, url, slug}`. A refusal from `gh` — issues disabled, no access for this
+   identity — is reported **verbatim and never worked around**: it is the target's own
+   decision about its boundary.
+
+8. **Report** the issue URL in one line, and say that the target's loop takes it from here.
+   Do not follow it, do not comment on it, and do not commit anything in the target.
+
+### 5. Limits, stated plainly
+
+- `guard-repo-confinement.sh` watches the Write/Edit tools. It sees neither a shell redirect
+  from Bash nor an API call `gh` makes — which is the point: the casual path is closed and
+  the deliberate path runs through a script, where the developer has already been shown
+  exactly what will be sent. The threat model is an agent doing the natural thing, not one
+  evading a gate.
+- `check-outbound-body.sh` knows only this repo's own name, its `owner/name` remote form,
+  every form of its clone URL, and its absolute path. Everything else rests on §1 and §4.4.
+
 ## Agent Compatibility
 
 This skill works on any Agent-Skills-compatible agent; all logic lives in the bundled POSIX scripts, which run identically everywhere.

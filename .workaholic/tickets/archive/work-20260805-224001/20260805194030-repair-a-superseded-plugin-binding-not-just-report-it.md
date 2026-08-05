@@ -3,9 +3,9 @@ created_at: 2026-08-05T19:40:30+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
+effort: 1h
 commit_hash:
-category:
+category: Changed
 depends_on:
 feedback: [20260805191634-a-persistent-drive-failure-goes-silent-for-a-day-under-the-alert-dedup-cool-down.md]
 merge_policy:
@@ -117,3 +117,44 @@ before any mechanism is chosen: **the next tick must bind the current version**,
 - **The companion ticket is what makes the interim safe**: while this is unrepaired, a
   persisting failure must stop reading as a healthy idle tick. Neither ticket depends on the
   other landing first.
+
+## Final Report
+
+Completed as the ticket's step 5 anticipated: **no safe repair exists inside the plugin**,
+and the finding is recorded with its evidence rather than a workaround shipped. The origin
+was observed, not inferred, and the obvious candidate repair was investigated and rejected
+on the evidence.
+
+**One acceptance criterion cannot be met as written**, and the reason is a separate defect
+rather than this work: the ticket asks that `check.sh` report
+`loaded_version_behind_registry: false` **with a non-empty `registry_version`**. It reports
+an empty one, because the whole registry axis is computed only when `${CLAUDE_PLUGIN_ROOT}`
+is present in the shell environment — and it never is, since the harness expands that token
+inside plugin markdown at load time rather than exporting it. Minted as
+`20260805225604-make-the-superseded-binding-gate-reachable.md`; the silence is a decided,
+test-pinned behavior, so re-deciding it does not belong in a change about repair.
+
+### Discovered Insights
+
+- **Insight**: The superseded binding is **not a wrong choice among directories**.
+  `~/.claude/plugins/cache/workaholic/workaholic/` holds 25 version directories side by
+  side (1.0.100 … 1.0.133) while `installed_plugins.json` carries exactly **one** entry,
+  naming 1.0.133. The registry is never ambiguous; the session binds whatever it named **at
+  startup**, which is strictly before the SessionStart hook can run.
+  **Context**: This kills the obvious repair. Sweeping superseded directories would fix
+  nothing and would be actively unsafe — a running session is bound to a directory that
+  becomes "superseded" the instant an update lands, which is the precise failure the
+  no-mid-session-refresh rule exists to prevent.
+
+- **Insight**: The condition **does not self-heal on a cloud runner**, because every tick is
+  a fresh container off the same image: the baked-in install is stale again, the hook
+  updates the registry again, and the session is behind again. That is why four consecutive
+  ticks stopped rather than one.
+  **Context**: The runbook's advice — "the repair is a fresh session" — is true locally and
+  wrong for the hourly loop. Corrected in the same commit.
+
+- **Insight**: What would actually fix it is outside the plugin's boundary: a container
+  image whose baked install is not behind, or a harness that rebinds after SessionStart.
+  The binding, the cache layout and the registry are all the harness's.
+  **Context**: Recorded as an ask rather than worked around. A workaround that half-works
+  and is trusted as though it worked is worse than the detected, unrepaired condition.

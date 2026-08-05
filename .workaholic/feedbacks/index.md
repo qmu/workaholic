@@ -403,6 +403,7 @@
 * [Resolved: README.md still describes the retired `/mission approve` flow](20260804213426-resolved-readme-md-still-describes-the-retired.md)
 * [The two routine-command entrances are deliberate](20260804215532-the-two-routine-command-entrances-are-deliberate.md)
 * [Propose at the capture seam, not from a merged-main window](20260804221328-propose-at-the-capture-seam-not-from-a-merged-main-window.md)
+* [[Propose] roots a new Slack thread even when the trigger message already is the item's thread](20260805021414-propose-roots-a-new-slack-thread-even-when-the-trigger-message-already-is-the-item-s-thread.md)
 * [An aborted catch-up discards the append resolutions it computed](20260805044712-an-aborted-catch-up-discards-the.md)
 * [merge-pr.sh cannot be exercised end to end hermetically](20260805044712-merge-pr-sh-cannot-be-exercised.md)
 * [The append-shape scope is bounded by path, deliberately](20260805044712-the-append-shape-scope-is-bounded.md)

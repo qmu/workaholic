@@ -9,6 +9,7 @@ category:
 depends_on:
 mission:
 merge_policy:
+claim: work-20260805-002631
 ---
 
 # The branch-safety scan re-flags already-merged content when the build copies a file to a new bundle path

@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260805-221704
 ---
 
 # Drive on a merged proposal, and report it in that proposal's thread

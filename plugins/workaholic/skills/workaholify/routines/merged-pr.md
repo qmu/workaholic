@@ -39,7 +39,7 @@ Announce **exactly one** merged pull request: the one whose merge started this s
 First derive its **feedback key** — the filename stem of the feedback record the merged work traces to. It is in the repository, not in Slack: the PR's own diff when the PR published the record, or the `feedback:` field of the mission the PR's tickets name. Then search the channel `dev-[project name]` for `` fb:<stem> `` and reply **in that thread**, in the format below.
 
 -----------
-🟣 Proposal merged by @<developer> - [#123 Issue Title](https://github.com/org-name/repo-name/pull/123)
+🟣 Proposal merged by <@U…> - [#123 Issue Title](https://github.com/org-name/repo-name/pull/123)
 `from-branch` → `to-branch`, one sentence, max 40 words, what the PR does only.
 <session URL>
 
@@ -51,4 +51,5 @@ Rules, in order of precedence:
 2. **If you cannot identify which merge started this session, post nothing and stop.** Silence is the correct failure mode for a notification. Do not fall back to "announce whatever merged most recently": that fallback is exactly the defect this rule exists to prevent, and it produces a message that looks right while being unrelated to the event.
 3. Never re-announce a pull request that already has a merge notification in the channel — in a thread or at top level. Check the recent channel history before posting.
 4. **Slack is the only notification surface.** Post to the channel and send no mobile or push notification. This routine's one postable event is the merge that started it — a merge is exactly the class of event a developer must stay aware of (`workaholify` skill, *Slack is the only surface*).
-5. **A missing key is not a reason to stay silent, and never a reason to post keyless.** If the merge traces to no feedback record, or the record's thread cannot be found, post a **new root** carrying `` `fb:<stem>` `` (or, with genuinely no record, the merged PR's own `#<number>` as the key) and put this message in it. Rule 2 governs *which merge*; this rule governs *where it lands*, and the two must not be confused — a merge you identified always gets posted somewhere attributable.
+5. **`<@U…>` is a real mention, not a placeholder.** Resolve the merging user to their Slack user id — through the email git records for them, since a GitHub login is not a Slack handle — and write the token; fall back to the plain name only when it cannot be resolved, and never let resolution delay the post (`workaholify` skill, *Naming a person means mentioning them*).
+6. **A missing key is not a reason to stay silent, and never a reason to post keyless.** If the merge traces to no feedback record, or the record's thread cannot be found, post a **new root** carrying `` `fb:<stem>` `` (or, with genuinely no record, the merged PR's own `#<number>` as the key) and put this message in it. Rule 2 governs *which merge*; this rule governs *where it lands*, and the two must not be confused — a merge you identified always gets posted somewhere attributable.

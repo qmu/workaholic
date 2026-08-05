@@ -93,13 +93,15 @@ Let /drive work under its own failure contract -- every ticket ends as exactly o
 **Where it lands depends on whether the unit traces to a feedback item.** Derive the unit's feedback key from the repository — the `feedback:` field of the mission the unit drove, or of the mission its batched tickets name. With a key, search `dev-{repo_name}` for `` fb:<stem> `` and post **in that thread**; with no key, or no thread found, post a new root carrying the key (see the `workaholify` skill, *One thread per feedback item* — the model, the key and the fallback are stated there once and not repeated here). Choose the line by outcome:
 
 ------------
-🟢 Merge Requested for @<developer> - [#123 Issue Title]({repo}/pull/123)
+🟢 Merge Requested for <@U…> - [#123 Issue Title]({repo}/pull/123)
 `from-branch` → `to-branch`, one sentence, max 40 words, what the PR does only.
 <session URL>
 
 ------------
 
-`review` (and absent) routes here. Use **🚀 Auto Merge by Claude** in the same shape when the unit's recorded `merge_policy` was `auto` and `/ship` merged it, and **🟣 Merged by @<developer>** when a human merged it during this run. The distinction is the point: a developer scanning the thread must be able to tell what merged without approval from what a person approved.
+`review` (and absent) routes here. Use **🚀 Auto Merge by Claude** in the same shape when the unit's recorded `merge_policy` was `auto` and `/ship` merged it, and **🟣 Merged by `<@U…>`** when a human merged it during this run. The distinction is the point: a developer scanning the thread must be able to tell what merged without approval from what a person approved — which is also why the auto line names no person and carries no mention token.
+
+`<@U…>` is a **real mention, not a placeholder to fill with a name**: resolve the person to their Slack user id and write the token, falling back to the plain name only when it cannot be resolved, and never letting resolution delay a post (`workaholify` skill, *Naming a person means mentioning them*).
 
 ## 5. Hand off everything unfinished -- mandatory
 
@@ -112,7 +114,7 @@ That makes the pushed branch the sole surviving copy -- the worktree dies with t
 3. Post to `dev-{repo_name}`, **in the unit's feedback thread** when it has one, exactly as §4 routes its outcome lines:
 
 ------------
-🟡 Handoff @<developer> - [#123 Issue Title]({repo}/pull/123)
+🟡 Handoff <@U…> - [#123 Issue Title]({repo}/pull/123)
 The next tick resumes it automatically; `git fetch && git checkout <branch>` to take it sooner. One sentence, max 25 words, what remains only.
 <session URL>
 ------------

@@ -48,12 +48,13 @@ in both and the next editor should not have to work out which case they are in.
 - Post the **thread root** to Slack channel `dev-[repo name]` in the format below, as a top-level message. Announce **only the pull request you just created in this session**, exactly once; never announce another session's PR, and post nothing if you created none:
 
 ------------
-🟢 Proposed to @<developer> - [#123 [Proposal] Issue Title](https://github.com/org-name/repo-name/pull/123)
+🟢 Proposed to <@U…> - [#123 [Proposal] Issue Title](https://github.com/org-name/repo-name/pull/123)
 One sentence, max 40 words, what the ask is — and, when the PR carries work, what it proposes.
 `fb:<feedback-record-filename-stem>` · <session URL>
 
 ------------
 
+- `<@U…>` is a **real mention**, not a placeholder to fill with a name: resolve the developer to their Slack user id and write the token, falling back to the plain name only when it cannot be resolved (`workaholify` skill, *Naming a person means mentioning them*).
 - The `` fb:<stem> `` line is **not decoration**: it is the key every later routine searches for to find this thread. Write the feedback record's filename stem exactly, with no path and no `.md`. A root posted without it strands the item — every subsequent event becomes an unattributable top-level line.
 - Append the session URL on the same line. If it is not discoverable in this session, post the line without it rather than not posting.
 - **Slack is the only notification surface.** Post to the channel and send no mobile or push notification of any kind.

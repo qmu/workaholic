@@ -102,6 +102,18 @@ Keeping the prompt as readable markdown rather than an embedded JSON string is d
 
 This model governs **what a post says and where it lands, and nothing else** — it changes no survey, no claim, and nothing `/drive` picks or implements.
 
+### Naming a person means mentioning them (decided 2026-08-05)
+
+**A post that names a developer resolves them to a Slack user id and writes the mention token `<@U…>`.** Plain `@name` is inert text: Slack notifies on the token and on nothing else, so five message formats across the three templates appeared to call someone out while pinging nobody. A notification's job is to reach the person it names (`workaholic:design` / UX); one that names them without reaching them is a notification that did not happen.
+
+**How a session resolves it.** Look the person up through the Slack connector the routine already loads — `slack_search_users` on the identity the session has in hand, `slack_read_user_profile` to confirm the match — and write the resulting `<@U…>` where the format shows it. **Email is the reliable key**; a GitHub login is *not* a Slack handle and must not be passed off as one, so when a session holds only a login it resolves the person through the email git records for them (the merge or claim commit's author) and searches on that. A display-name search is the last resort, and a match it cannot confirm is not a match.
+
+**The fallback is non-blocking, with the same precedence the session-URL rule already sets.** When the id cannot be resolved, **post the line with the plain name** rather than not posting: a missing ping costs a nudge, a missing post costs the event. Nothing about resolution may block, delay, or retry-loop a post.
+
+Which identity each routine starts from: `[Consent]` and `[Drive]`'s merge lines hold the **merging** user, `[Propose]` holds the repository's developer, and `[Drive]`'s handoff line names **whoever the unit is handed to**. The `🚀 Auto Merge by Claude` line names no person and carries no token.
+
+Stated once here; the templates carry the token in their formats and point back at this rule rather than restating it.
+
 ### Slack is the only surface, and an event earns its post (decided 2026-08-04)
 
 **One surface.** A routine notifies through the repository's `dev-<repo_name>` Slack channel and nowhere else. Every template says so in its own prompt, because the instruction has to reach the session that would otherwise reach for a push tool: *post to Slack only; send no mobile or push notification.*

@@ -5,7 +5,7 @@ type: bugfix
 layer: [Config]
 effort:
 commit_hash:
-category:
+category: Changed
 depends_on:
 feedback: [20260805020401-routine-slack-posts-name-the-developer-as-inert-text-so-nobody-is-notified.md]
 merge_policy:

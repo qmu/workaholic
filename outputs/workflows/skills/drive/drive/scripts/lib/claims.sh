@@ -138,8 +138,14 @@
 # after a day is not a recovery path, which is why the heartbeat threshold is in minutes.
 #
 # `resume_reason` always answers "why is it in this state", and is NEVER empty (see the
-# no-empty-field rule below): `heartbeat_lapsed` when resumable, else `claim_active`,
-# `foreign_identity`, `identity_unresolved`, `shallow_history`, or `queue_drained`.
+# no-empty-field rule below): `heartbeat_lapsed` or `parked_with_pr` when resumable, else
+# `claim_active`, `foreign_identity`, `identity_unresolved`, `shallow_history`, or
+# `queue_drained`.
+# `parked_with_pr` splits the RESUMABLE case in two: a unit that reached its PR (its story
+# file is committed at the branch tip) and merely has follow-up work, versus a run that
+# died mid-drive. Both MAY be taken over; only the latter is a MANDATORY takeover, because
+# forcing the parked one ahead of fresh work is what made an attended run spend its first
+# forty minutes reopening a pull request the developer considered finished.
 # `shallow_history` is the one that blames the INPUT rather than the unit: the clone
 # cannot see far enough to say whether the branch is merged, so no verdict is offered.
 # `queue_drained` gets its
@@ -342,6 +348,27 @@ claims_has_work() {
     printf 'false'
 }
 
+# Did this unit already REPORT -- i.e. reach the story+PR seam? $1 = branch ref,
+# $2 = the short branch name. Echoes true|false.
+#
+# `/report` commits `.workaholic/stories/<branch>.md` as part of opening the pull request,
+# so that file at the branch tip is durable, offline evidence that the unit got as far as a
+# PR. That matters because "parked at its PR, waiting for a human" and "died mid-drive" are
+# the same shape to every other signal: a `review` unit stops at its PR by design, its
+# branch stays unmerged, its tip stops advancing, and its heartbeat lapses exactly like an
+# abandoned run's. When such a unit still has follow-up tickets in todo/ on its branch it is
+# genuinely resumable -- but reopening it reads to the operator as redoing finished work,
+# which is what happened on an attended run (the developer interrupted twice to ask "there
+# is already a PR -- what are you doing?").
+#
+# The STORY FILE is the signal rather than a `gh pr view` call, deliberately: the whole
+# resumability verdict is offline-capable by construction, and one network call per claim
+# would make the reader fail differently depending on connectivity -- the property this
+# library spends its longest comment defending.
+claims_has_story() {
+    git cat-file -e "${1}:.workaholic/stories/${2}.md" 2>/dev/null && printf 'true' || printf 'false'
+}
+
 # Scan the remote branches for claims. $1 = base ref (from claims_base).
 claims_scan() {
     _cs_base="${1:-}"
@@ -494,6 +521,13 @@ claims_scan() {
         elif [ "$(claims_has_work "$_cs_ref" "$_cs_artifacts_tip")" = "false" ]; then
             _cs_resumable=false
             _cs_reason=queue_drained
+        elif [ "$(claims_has_story "$_cs_ref" "$_cs_branch")" = "true" ]; then
+            # Resumable, but PARKED rather than dead: it reported and opened a PR, and the
+            # follow-up tickets on its branch are why it still has work. Taking it over is
+            # legitimate; being FORCED to take it over ahead of fresh work is not, so the
+            # reason is distinct and /drive treats it as reportable rather than mandatory.
+            _cs_resumable=true
+            _cs_reason=parked_with_pr
         else
             _cs_resumable=true
             _cs_reason=heartbeat_lapsed

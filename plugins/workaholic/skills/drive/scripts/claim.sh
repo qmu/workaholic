@@ -5,7 +5,19 @@
 #   claim.sh batch <ticket-file>...    -- claim one batch of backlog tickets
 #                                         (unit id = batch-<YYYYMMDDHHMMSS>, minted here)
 #   claim.sh resume <unit-id>          -- TAKE OVER an existing claim whose run stopped,
-#                                         continuing from its pushed branch tip
+#                                         continuing from its pushed branch tip. It ADOPTS
+#                                         this machine's existing .worktrees/<unit>/ when
+#                                         that worktree is on the claim's branch at the
+#                                         tip the resumability decision observed, and only
+#                                         creates one otherwise. Same-machine resume is the
+#                                         common case and used to fail outright there
+#                                         (`worktree_creation_failed`), which forced runs to
+#                                         hand-roll the takeover. It reports
+#                                         `adopted_worktree` so the caller can see which
+#                                         path ran, and `resume_reason` so an operator can
+#                                         see WHY the unit was offered -- notably
+#                                         `parked_with_pr`, a unit that reported and opened
+#                                         its PR rather than one that died mid-drive.
 #
 # One unit <-> one branch <-> one worktree <-> one PR. The sequence is fixed:
 #   1. fetch origin (a claim that cannot be pushed is not a claim -- see below);
@@ -140,19 +152,43 @@ if [ "$kind" = "resume" ]; then
     # and the non-fast-forward push rejection remains as the second layer.
     r_observed_tip=$(git rev-parse --verify --quiet "refs/remotes/origin/${r_branch}^{commit}" 2>/dev/null || true)
 
-    if create_out=$(sh "${SCRIPT_DIR}/../../branching/scripts/create-mission-worktree.sh" --branch "$r_branch" "$unit"); then
-        :
+    # ADOPT THE WORKTREE THIS MACHINE ALREADY HAS, rather than failing through the creator.
+    # Resumption's narrow, safe case is "your own claim, on your own machine" -- and that is
+    # exactly the case where `.worktrees/<unit>/` still exists, so the creator refused with
+    # `worktree already exists` and resume returned `worktree_creation_failed` EVERY time.
+    # The observed cost was a run hand-rolling the takeover (the empty commit, the push, the
+    # notifier) by replicating this script's internals, which is the failure the sanctioned
+    # scripts exist to prevent.
+    #
+    # Adoption is gated on the SAME pin the race check uses: the existing worktree must be on
+    # the claim's branch and its HEAD must equal the tip the resumability decision observed.
+    # A worktree sitting on some other commit is not the thing that was judged resumable, so
+    # it falls through to the creator and fails loudly rather than being driven silently.
+    r_adopted=false
+    r_existing="${repo_root}/.worktrees/${unit}"
+    if [ -n "$r_observed_tip" ] && [ -d "$r_existing" ] \
+        && [ "$(git -C "$r_existing" rev-parse --abbrev-ref HEAD 2>/dev/null || true)" = "$r_branch" ] \
+        && [ "$(git -C "$r_existing" rev-parse HEAD 2>/dev/null || true)" = "$r_observed_tip" ]; then
+        r_adopted=true
+        worktree_path="$r_existing"
+        branch="$r_branch"
+    elif create_out=$(sh "${SCRIPT_DIR}/../../branching/scripts/create-mission-worktree.sh" --branch "$r_branch" "$unit"); then
+        worktree_path=$(printf '%s' "$create_out" | sed -n 's/.*"worktree_path":[ ]*"\([^"]*\)".*/\1/p')
+        branch=$(printf '%s' "$create_out" | sed -n 's/.*"branch":[ ]*"\([^"]*\)".*/\1/p')
     else
         fail "worktree_creation_failed" ', "unit": "'"${unit}"'", "branch": "'"${r_branch}"'", "detail": "see the creator'"'"'s error above"'
     fi
-    worktree_path=$(printf '%s' "$create_out" | sed -n 's/.*"worktree_path":[ ]*"\([^"]*\)".*/\1/p')
-    branch=$(printf '%s' "$create_out" | sed -n 's/.*"branch":[ ]*"\([^"]*\)".*/\1/p')
     if [ -z "$worktree_path" ] || [ -z "$branch" ]; then
         fail "worktree_creation_failed" ', "detail": "could not read worktree_path/branch from the creator"'
     fi
 
+    # AN ABORT MAY ONLY DESTROY WHAT THIS INVOCATION CREATED. Tearing down an ADOPTED
+    # worktree would delete local state this run did not make -- including a developer's
+    # uncommitted work in it -- to report a race it merely lost.
     abort_resume() {
-        ( cd "$repo_root" && sh "${SCRIPT_DIR}/../../branching/scripts/cleanup-mission-worktree.sh" "$unit" ) >/dev/null 2>&1 || true
+        if [ "$r_adopted" != "true" ]; then
+            ( cd "$repo_root" && sh "${SCRIPT_DIR}/../../branching/scripts/cleanup-mission-worktree.sh" "$unit" ) >/dev/null 2>&1 || true
+        fi
         fail "$1" "${2:-}"
     }
 
@@ -194,8 +230,8 @@ if [ "$kind" = "resume" ]; then
     r_announce_reason=$(printf '%s' "$r_out" | sed -n 's/.*"reason": *"\([^"]*\)".*/\1/p')
     [ -n "$r_out" ] || r_announce_reason="notifier_failed"
 
-    printf '{"claimed": true, "resumed": true, "unit": "%s", "branch": "%s", "worktree_path": "%s", "announced": %s, "announce_reason": "%s", "artifacts": [' \
-        "$unit" "$branch" "$worktree_path" "$r_announced" "$r_announce_reason"
+    printf '{"claimed": true, "resumed": true, "unit": "%s", "branch": "%s", "worktree_path": "%s", "adopted_worktree": %s, "resume_reason": "%s", "announced": %s, "announce_reason": "%s", "artifacts": [' \
+        "$unit" "$branch" "$worktree_path" "$r_adopted" "$r_reason" "$r_announced" "$r_announce_reason"
     sep=""
     old_ifs="$IFS"
     IFS=','

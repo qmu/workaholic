@@ -16,6 +16,7 @@ gate_type:
 gate_target:
 gate_assert:
 feedback: [20260805101319-retire-request-cross-repo-asks-become-fb-issues-on-the-target.md]
+claim: work-20260805-101736
 ---
 
 # Cross the repo boundary as an issue

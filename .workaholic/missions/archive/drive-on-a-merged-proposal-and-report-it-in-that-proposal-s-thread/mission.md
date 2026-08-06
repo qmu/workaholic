@@ -2,7 +2,7 @@
 type: Mission
 title: Drive on a merged proposal, and report it in that proposal's thread
 slug: drive-on-a-merged-proposal-and-report-it-in-that-proposal-s-thread
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-05T13:04:17+00:00
 author: a@qmu.jp
@@ -55,3 +55,4 @@ thread, without going looking for it.
 - 2026-08-05 — run recorded (+0.7h) — 20260805-221704
 - 2026-08-06 — ticket archived — 20260805223514-stand-up-an-invoker-for-the-unscheduled-routines.md
 - 2026-08-06 — run recorded (+0.4h) — 20260806-152604
+- 2026-08-06 — mission achieved — mission.md

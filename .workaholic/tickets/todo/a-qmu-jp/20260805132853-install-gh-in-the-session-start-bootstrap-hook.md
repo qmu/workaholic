@@ -9,6 +9,7 @@ category:
 depends_on:
 feedback: [20260805132840-install-gh-in-the-web-container-via-the-session-start-hook.md]
 merge_policy:
+claim: work-20260806-150951
 ---
 
 # Install gh in the session-start bootstrap hook

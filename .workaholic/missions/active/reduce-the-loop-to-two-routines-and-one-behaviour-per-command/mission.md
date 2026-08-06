@@ -10,7 +10,7 @@ assignees: []
 assignee:
 predicted_hours:
 actual_hours:
-feedback: [20260806183556-two-routines-one-behaviour-per-command.md]
+feedback: [20260806183556-two-routines-one-behaviour-per-command.md, 20260806184651-ownership-is-a-field-not-a-directory.md]
 tickets: []
 stories: []
 gate_type:
@@ -46,6 +46,8 @@ subcommands anywhere, and `/drive` is again the interactive command it used to b
       request titles, and the notification target carried in the pull request body. (#20260806183638-shape-propose-and-implement-for-the-routine-chain.md)
 - [ ] No command in the plugin takes a subcommand; each takes arguments and has one
       behaviour, with the setup sheets and docs matching. (#20260806183638-abolish-subcommands-across-every-command.md)
+- [ ] "Who" rides the artifacts rather than each container's git config: ownership is a
+      field, and a runner with no identity reads the queue instead of reporting it empty. (#20260806184521-carry-ownership-as-a-field-not-as-a-directory.md)
 
 ## Changelog
 

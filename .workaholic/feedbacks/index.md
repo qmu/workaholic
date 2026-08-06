@@ -422,4 +422,5 @@
 * [A ticket is claimable without a merge — merge-approval is mission doctrine](20260806113420-a-ticket-is-claimable-without-a-merge-merge-approval-is-mission-doctrine.md)
 * [Routine setup is a human act the plugin makes cheap](20260806143907-routine-setup-is-a-human-act-the-plugin-makes-cheap.md)
 * [Two routines, one behaviour per command](20260806183556-two-routines-one-behaviour-per-command.md)
+* [Ownership is a field, not a directory](20260806184651-ownership-is-a-field-not-a-directory.md)
 <!-- okf:generated:end -->

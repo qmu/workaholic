@@ -2,10 +2,10 @@
 # Scaffold a PROPOSED TICKET — the second half of a proposal. The batch fills the
 # sections; this script owns the filename, the frontmatter, and the relations.
 #
-#   scaffold-proposed-ticket.sh "<title>" <mission-slug> [type] [layer]
-#   scaffold-proposed-ticket.sh "<title>" --loose [type] [layer] --feedback <record>...
+#   scaffold-proposed-ticket.sh "<title>" <mission-slug> [type] [layer] [--assignee <email>]
+#   scaffold-proposed-ticket.sh "<title>" --loose [type] [layer] --feedback <record>... [--assignee <email>]
 #
-# Output: JSON {created, path, slug[, mission][, feedback][, reason]}
+# Output: JSON {created, path, slug, assignees[, mission][, feedback][, reason]}
 #   reasons: no_title | no_mission | mission_missing | no_feedback | exists
 #
 # TWO FORMS, BECAUSE THE WORK HAS TWO SHAPES. A direction that decomposes into two
@@ -48,6 +48,18 @@
 # output may merge unattended. Whoever reviews the proposal's pull request records
 # the policy deliberately if `auto` is wanted (K2).
 #
+# `assignees` IS NOT THE SAME KIND OF BLANK (P6, 2026-08-06). merge_policy is empty
+# because the proposer lacks the AUTHORITY to fill it; `assignees` was empty because
+# nothing passed it, which is a different thing and was a measured hole. The routine
+# that starts this run fires on an issue ASSIGNED TO A PERSON, so the owner is known
+# at the trigger — and leaving it out meant every proposal-born artifact was
+# unowned, therefore claimable by EVERY developer's runner, therefore raced for,
+# with whose push landed first deciding whose job it was. The claim protocol stopped
+# the double-drive; nothing could decide the ownership, because nothing in the data
+# said. So `--assignee <email>` writes `assignees: [<email>]`, and its absence still
+# writes an empty field — team-owned, claimable by anyone, which is the honest
+# reading when no person was named.
+#
 # THE MANDATORY BODY SECTIONS ARE WRITTEN AS HEADINGS WITH PLACEHOLDER GUIDANCE,
 # not omitted for the caller to remember. `hooks/validate-ticket.sh` rejects a
 # ticket in the todo queue whose `## Policies` or `## Quality Gate` is absent or
@@ -68,16 +80,28 @@ if [ "$MISSION_SLUG" = "--loose" ]; then
   MISSION_SLUG=""
 fi
 
-# What remains is [type] [layer] and, after --feedback, the record filenames.
+# What remains is [type] [layer], --assignee <email>, and, after --feedback, the
+# record filenames. --feedback consumes to the end, so --assignee is read inside
+# that loop too rather than being unreachable after it.
 TYPE="enhancement"
 LAYER="Config"
 FEEDBACK=""
+ASSIGNEE=""
 POS=0
 while [ "$#" -gt 0 ]; do
   case "$1" in
+    --assignee)
+      ASSIGNEE="${2:-}"
+      shift 2 || shift
+      ;;
     --feedback)
       shift
       while [ "$#" -gt 0 ]; do
+        if [ "$1" = "--assignee" ]; then
+          ASSIGNEE="${2:-}"
+          shift 2 || shift
+          continue
+        fi
         if [ -n "$1" ]; then
           FEEDBACK="${FEEDBACK}${FEEDBACK:+, }$1"
         fi
@@ -130,6 +154,12 @@ SLUG=$(sh "${MISSION_SCRIPTS}/slug.sh" "$TITLE")
 # not its directory. A proposal is deliberately UNOWNED — `/propose` emits work
 # nobody has taken on yet, and an unowned artifact is claimable by anyone, which is
 # the same reading its empty `merge_policy` already gets.
+# Empty means team-owned; `[<email>]` names the person the trigger assigned.
+ASSIGNEES_VALUE=""
+if [ -n "$ASSIGNEE" ]; then
+  ASSIGNEES_VALUE="[${ASSIGNEE}]"
+fi
+
 TICKET_DIR=".workaholic/tickets/todo"
 TICKET_PATH="${TICKET_DIR}/${STAMP}-${SLUG}.md"
 
@@ -154,7 +184,7 @@ cat > "$TICKET_PATH" <<EOTICKET
 ---
 created_at: ${CREATED_AT}
 author: ${AUTHOR}
-assignees:
+assignees: ${ASSIGNEES_VALUE}
 type: ${TYPE}
 layer: [${LAYER}]
 effort:
@@ -221,5 +251,5 @@ if [ "$LOOSE" = "1" ]; then
   LOOSE_JSON=true
 fi
 
-printf '{"created": true, "path": "%s", "slug": "%s", "mission": "%s", "feedback": "%s", "loose": %s}\n' \
-  "$TICKET_PATH" "$SLUG" "$MISSION_SLUG" "$FEEDBACK" "$LOOSE_JSON"
+printf '{"created": true, "path": "%s", "slug": "%s", "mission": "%s", "feedback": "%s", "assignees": "%s", "loose": %s}\n' \
+  "$TICKET_PATH" "$SLUG" "$MISSION_SLUG" "$FEEDBACK" "$ASSIGNEE" "$LOOSE_JSON"

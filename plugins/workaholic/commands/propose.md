@@ -34,18 +34,18 @@ skills:
 6. **Judge** the ask against the skill's **judgment bar**, with the step-4 state in hand, and **decide the form** (skill: *The form follows the work's shape*): a direction that decomposes into **two or more** units is a mission with its ticket set (steps 7 and 8); an **atomic** one is a **single loose ticket** (step 8's loose form, no mission); one that is neither is **record-only**. Never dress an atomic ask as a one-ticket mission, and never reach for the loose form to publish something that should have been decomposed. When unsure, record-only — and name what made you unsure in step 9's PR body.
 
 7. **Draft the mission** (mission form only), in the publish tree:
-   - `bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/scaffold-draft.sh "<title>" <feedback-filename>...` — the filename from step 3.
+   - `bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/scaffold-draft.sh "<title>" --assignee <the triggering issue's assignee> <feedback-filename>...` — the filename from step 3. **Omit `--assignee` when no person was assigned** (the mission is then team-owned); never substitute the running identity.
    - Fill `## Goal` / `## Scope` / `## Experience` and a **proposed** `## Acceptance` sketch from the ask (Edit on the scaffold; clearly provisional — whoever reviews the pull request interrogates it to drive-ready via `/mission <instruction>`). Never touch `status` and never seed `assignees` or `merge_policy`.
 
 8. **Emit the tickets**, in the publish tree.
 
    For a **mission** proposal, emit its whole set — **two or more, always**; a set of one is not a mission:
-   - `bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/scaffold-proposed-ticket.sh "<title>" <mission-slug> [type] [layer]`, once per ticket, in the order they would be driven.
+   - `bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/scaffold-proposed-ticket.sh "<title>" <mission-slug> [type] [layer] --assignee <the same assignee>`, once per ticket, in the order they would be driven. The owner enters once at the trigger and rides every artifact this run emits (P6).
    - Then stamp the links: `bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/link-acceptance.sh <slug> <item-selector> <ticket-filename>` once per acceptance item the set satisfies — the pairing you decided in step 6, never inferred.
    - Then the floor: `bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/check-floor.sh <slug>`. A non-zero exit means this is **not** published as a mission — fall back to a loose ticket or to record-only, and report the script's `alternative`.
 
    For an **atomic** direction, emit exactly one loose ticket instead — no mission, no wrapper:
-   - `bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/scaffold-proposed-ticket.sh "<title>" --loose [type] [layer] --feedback <record>...`
+   - `bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/scaffold-proposed-ticket.sh "<title>" --loose [type] [layer] --feedback <record>... --assignee <the same assignee>`
    - The `--feedback` refs are **mandatory** here (`no_feedback` otherwise): with no mission to hold the relation, they are the only record of what the ticket answers.
 
    Either way, fill each ticket's Overview, Key Files, Implementation Steps, and the provisional Quality Gate, and leave `merge_policy` empty (absent reads as `review`).

@@ -12187,6 +12187,8 @@ const tests = [
   ["the routine chain hands off its notification target in the PR body (P4)", testNotifyTargetHandoff],
   ["the notify-target contract is stated on both halves of the chain (P4)", testNotifyTargetContract],
   ["one behaviour per command: no dispatch on a literal first word (P5)", testNoSubcommands],
+  ["a proposal carries its owner from the trigger (P6)", testProposalOwnershipChain],
+  ["the proposal ownership chain is stated end to end (P6)", testProposalOwnershipContract],
   ["branching close-publish-tree: closes after either publish path, still guards the unpushed one", testClosePublishTreeReachability],
   ["workaholify routines: one template set, applied per repository, drift named per field", testWorkaholifyRoutines],
   ["routine announcements: exactly one subject, or nothing at all", testRoutineAnnouncementScoping],
@@ -12458,6 +12460,97 @@ function testNoSubcommands() {
     && /Bare-versus-argument is a scope, not a mode/.test(claudeMd));
   assertTrue("and names the one fork deliberately kept, with its reason",
     /`\/fb`'s cross-repository mode is kept/.test(claudeMd) && /never on a first word/.test(claudeMd));
+}
+
+// ---------- ownership rides the chain from the trigger (P6, 2026-08-06) ----------
+// The [Propose] routine fires on an issue ASSIGNED TO A PERSON, so the owner is known
+// before any artifact exists. Until P6 nothing carried it: every proposal-born artifact
+// was written unowned, which correctly means "claimable by anyone" -- so with several
+// developers on a repository, EVERY runner judged the work claimable and raced for it,
+// and whose job it was got decided by whose push landed first. The claim protocol
+// prevented the double-drive; it could not decide the ownership, because nothing in the
+// data said.
+//
+// The empty case is deliberately KEPT: an issue with no assignee yields a team-owned
+// artifact. What is forbidden is falling back to the RUNNING identity, which would
+// assign work to whichever container happened to execute the batch -- the exact
+// re-derivation the chain exists to remove.
+function testProposalOwnershipChain() {
+  const dir = makeRepo("main");
+  const DRAFT = `${POSIX_SH} ${SCRIPTS.proposeScaffoldDraft}`;
+  const TICKET = `${POSIX_SH} ${SCRIPTS.scaffoldProposedTicket}`;
+  const OWNS = `${POSIX_SH} ${SCRIPTS.owns}`;
+  const ME = "test@example.com", OTHER = "other@example.com";
+  try {
+    mkdirSync(join(dir, ".workaholic/feedbacks"), { recursive: true });
+    writeFileSync(join(dir, ".workaholic/feedbacks/20260806000000-ask.md"),
+      "---\ntype: Feedback\nkind: instruction\nsource: slack\n---\n\n# Ask\n");
+    const REC = "20260806000000-ask.md";
+
+    // ---- the mission half ----
+    const m = JSON.parse(run(dir, `${DRAFT} "Owned proposal" --assignee ${OTHER} ${REC}`).stdout);
+    assertEq("the mission scaffold reports the owner it stamped", m.assignees, OTHER);
+    assertTrue("and writes it into the mission's assignees",
+      /^assignees: \[other@example\.com\]$/m.test(readFileSync(join(dir, m.path), "utf8")));
+
+    const mu = JSON.parse(run(dir, `${DRAFT} "Unowned proposal" ${REC}`).stdout);
+    assertTrue("with no assignee the mission stays team-owned",
+      /^assignees: \[\]$/m.test(readFileSync(join(dir, mu.path), "utf8")));
+    // The running identity must NOT leak in as a fallback.
+    assertEq("and the running identity is not substituted",
+      run(dir, `${OWNS} ${mu.path} ${ME}`).stdout.trim(), "unowned");
+
+    // ---- the ticket half, both forms ----
+    const t = JSON.parse(run(dir, `${TICKET} "Owned step" ${m.slug} enhancement Config --assignee ${OTHER}`).stdout);
+    assertEq("the ticket scaffold reports the owner it stamped", t.assignees, OTHER);
+    assertTrue("and writes it into the ticket's assignees",
+      /^assignees: \[other@example\.com\]$/m.test(readFileSync(join(dir, t.path), "utf8")));
+
+    // --feedback consumes to the end of the argument list, so --assignee has to be
+    // readable INSIDE that loop or the loose form silently drops it.
+    const l = JSON.parse(run(dir,
+      `${TICKET} "Loose owned step" --loose bugfix Config --feedback ${REC} --assignee ${OTHER}`).stdout);
+    assertEq("the loose form reads --assignee after --feedback", l.assignees, OTHER);
+    assertTrue("and does not swallow it as a feedback ref",
+      !/--assignee|other@example\.com/.test(l.feedback), l.feedback);
+
+    // ---- what the survey then does with it: the point of the whole chain ----
+    assertEq("the owner's runner sees the ticket as theirs",
+      run(dir, `${OWNS} ${t.path} ${OTHER}`).stdout.trim(), "mine");
+    assertEq("and every other developer's runner sees it as someone else's",
+      run(dir, `${OWNS} ${t.path} ${ME}`).stdout.trim(), "other");
+
+    const tu = JSON.parse(run(dir, `${TICKET} "Unowned step" ${mu.slug} enhancement Config`).stdout);
+    assertEq("an unassigned proposal is still claimable by anyone",
+      run(dir, `${OWNS} ${tu.path} ${ME}`).stdout.trim(), "unowned");
+  } finally { cleanup(dir); }
+}
+
+// The chain is prose in three places plus a trigger declaration, and the trigger is a
+// UI setting nothing in the plugin can read -- so the pins are what keep the two halves
+// (filter bounds the cost, data decides the ownership) from drifting apart.
+function testProposalOwnershipContract() {
+  const propose = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/propose/SKILL.md"), "utf8");
+  const cmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/propose.md"), "utf8");
+  const wh = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/SKILL.md"), "utf8");
+  const impl = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines/implement.md"), "utf8");
+  const fb = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines/fb.md"), "utf8");
+
+  assertTrue("the propose skill states that the owner enters at the trigger",
+    /enters once, at the trigger/.test(propose) && /--assignee/.test(propose));
+  assertTrue("and forbids falling back to the running identity",
+    /Do not fall back to the running identity/.test(propose));
+  assertTrue("the propose command passes the assignee to both scaffolds",
+    (cmd.match(/--assignee/g) || []).length >= 3);
+  assertTrue("the [Propose] prompt reads the issue's assignee and hands it on",
+    /\*\*assignee\*\*/.test(fb) && /that assignee in hand/.test(fb));
+  assertTrue("the [Implement] trigger is narrowed to the developer's own proposals",
+    /author = the developer/.test(impl));
+  assertTrue("and the template says the filter is the cost half, not the correctness half",
+    /cost\*\* half of the fix/.test(impl) && /owned_by_other/.test(impl));
+  assertTrue("the workaholify SKILL states both mechanisms and which one is load-bearing",
+    /The filter bounds the cost/.test(wh) && /The data decides the ownership/.test(wh)
+    && /Ownership is the load-bearing half/.test(wh));
 }
 
 // close-publish-tree.sh asks "is this tip pushed ANYWHERE?", not "did it reach the

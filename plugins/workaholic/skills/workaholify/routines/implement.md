@@ -5,7 +5,7 @@ name: "[Implement] {repo_name}"
 trigger: github-pr-merged
 trigger_kind: github
 trigger_event: pull_request.closed
-trigger_filters: is merged = true; title contains [Proposal]
+trigger_filters: is merged = true; title contains [Proposal]; author = the developer
 model: claude-opus-5
 allowed_tools: [Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch]
 mcp: [Slack]
@@ -16,6 +16,16 @@ mcp: [Slack]
 **Fires when a proposal's pull request merges**: the merge that queues the work is the
 event that starts the run that drains it. The wiring is set in the routines UI; the
 `trigger_*` keys declare the design, not a stored field.
+
+**`author = the developer` is part of that trigger, and it is not cosmetic** (P6,
+2026-08-06). Without it every developer's `[Implement]` fires on *anyone's* merged
+proposal, so N developers means N sessions per merge and N-1 of them do nothing.
+The filter is the **cost** half of the fix. The **correctness** half is elsewhere and
+does not depend on it: a proposal now carries the triggering issue's assignee as its
+`assignees`, so a runner that fires anyway surveys, finds the work is someone else's
+(`owned_by_other`), takes nothing, and ends `ok`. Both halves matter — the filter
+alone would be a UI setting nothing verifies, and ownership alone would leave a pile
+of empty sessions.
 
 **Four lines, and every one of them is something the plugin cannot know.** A developer
 configures this by hand, once per project, so every field is a cost that multiplies by

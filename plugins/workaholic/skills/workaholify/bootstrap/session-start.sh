@@ -73,6 +73,35 @@
 # never block a session on the network. /drive's own sync-main.sh fast-forwards the
 # checkout a moment later, so the mismatch becomes visible to check-deps on that tick.
 #
+# WHY THE SUPERSEDED BINDING IS NOT REPAIRABLE FROM HERE, MEASURED (2026-08-05). The
+# obvious candidate repair -- sweep the superseded version directories `plugin update`
+# leaves behind -- was investigated and is the WRONG repair, because it misreads where the
+# stale binding comes from. Observed on this machine:
+# `~/.claude/plugins/cache/workaholic/workaholic/` holds 25 version directories side by
+# side (1.0.100 … 1.0.133) while `installed_plugins.json` carries exactly ONE entry for
+# the plugin, naming 1.0.133. So the registry is never ambiguous and a session never
+# "picks the wrong directory": it binds whatever the registry named AT STARTUP, which is
+# strictly before this hook can run. When a container's baked-in image is behind, the
+# session binds the stale build, this hook then updates the registry to the current one,
+# and check.sh correctly reports `loaded_version_behind_registry` for the rest of that
+# session's life -- the update landed ~85s before the 2026-08-04T22:58Z session's first
+# commit, which is exactly this ordering.
+#
+# Two consequences, and the second is the outage. Deleting superseded directories would
+# repair nothing (the binding was not a choice among them) and would be actively unsafe,
+# since a running session is bound to a directory that becomes "superseded" the instant an
+# update lands -- the precise failure the no-mid-session-refresh rule above exists to
+# prevent. And because every tick is a FRESH container off the same image, a stale image
+# reproduces the condition every hour rather than self-healing: four consecutive ticks on
+# 2026-08-05 stopped at /drive's §1 gate with a claimable queue.
+#
+# So there is no safe repair inside the plugin, and that is the recorded outcome rather
+# than a gap. The binding, the cache layout and the registry are all the harness's; a
+# plugin editing any of them is reaching outside its own boundary. What would actually fix
+# it is a container image whose baked install is not behind, or a harness that rebinds
+# after SessionStart -- an ask, not a workaround. The gate stays exactly as it is: the
+# condition is detected correctly, and detecting it is not the bug.
+#
 # HOME IS RESPECTED, NOT IMPOSED (`: "${HOME:=/root}"`): hardcoding /root breaks the moment
 # the hook runs as a non-root user, whose ~/.claude would be unwritable.
 #

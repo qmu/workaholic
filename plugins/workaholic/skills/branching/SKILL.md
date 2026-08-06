@@ -252,6 +252,7 @@ A **publish tree** is a checkout of `origin/main` that is independent of the cal
 bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/open-publish-tree.sh [base]
 # write the artifact under <path>/…
 bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/publish-tree-pr.sh <title> <why> <changes> <concerns> <insights> <verify> [files...]
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/read-notify-target.sh <pr-number-or-url>
 bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/close-publish-tree.sh [base]
 ```
 
@@ -263,6 +264,8 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/close-publish-tree.sh [base]
 | ------ | ----------- | ---------- |
 | `publish-tree-pr.sh` | a fresh `work-*` branch + an open pull request | **Every artifact a person should see land**: feedback, missions, tickets. The project standard — the *merge* is the event that can be announced, and a commit pushed straight to the base produces no such event. |
 | `publish-tree-commit.sh` | the base branch directly | Only seams **already downstream of a merge**, where a second pull request would be circular — concern extraction at ship time is the case. |
+
+**Two env vars shape the pull request, and both are env vars because the positionals belong to `commit.sh` and end in an open-ended `[files...]`** (P4, 2026-08-06). `WORKAHOLIC_PR_TITLE` gives the pull request a title distinct from the commit subject — the two are different surfaces with different rules, and conflating them was a live defect: `check-subject.sh` forbids a `[bracket]` prefix, so `/propose`'s documented `[Proposal]` title could only be written by failing the commit gate. Unset, the title is the subject, which is what every other caller gets. `WORKAHOLIC_NOTIFY_TARGET` adds one machine-readable `Notify-Thread: <url>` line to the body, read back by **`read-notify-target.sh`** — `{"found": true, "target": …}`, or `found: false` with `absent` (the documented fallback to a thread search), `no_gh`, `unreadable`, `no_ref`. Unset omits the line entirely; an empty one would read as a target resolving to nothing.
 
 **publish-tree-pr** pushes `publish-main:refs/heads/work-YYYYMMDD-HHMMSS`, then opens the PR. Output: `{"ok": true, "sha": "<sha>", "branch": "work-…", "pr_url": "<url>", "base": "<base>"}`. Refusals: `no_publish_tree`, `nothing_to_commit`, `commit_failed`, `branch_collision`, `push_failed`, `no_gh`, `pr_failed`. **`pr_failed` and `no_gh` still report `branch` and `sha`, because the artifact IS pushed** — recover by opening the PR by hand, never by re-publishing, which duplicates the artifact.
 

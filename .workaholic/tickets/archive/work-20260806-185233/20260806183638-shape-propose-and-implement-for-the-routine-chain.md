@@ -4,9 +4,9 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 type: enhancement
 layer: [Config]
-effort:
+effort: 2h
 commit_hash:
-category:
+category: Changed
 depends_on:
 mission: reduce-the-loop-to-two-routines-and-one-behaviour-per-command
 merge_policy:
@@ -76,3 +76,39 @@ the step that put a reply in the wrong place on 2026-08-05.
 
 - A Slack thread URL in a public pull request body is a workspace-internal link; harmless,
   but worth stating rather than discovering.
+
+## Final Report
+
+Development completed as planned. `/propose` writes `Notify-Thread: <url>` into the
+pull request body and prefixes the **title** with `[Proposal]`; `/implement` reads the
+target back through `branching/scripts/read-notify-target.sh` and replies there, with
+the existing `fb:<stem>` search kept as the documented fallback.
+
+### Discovered Insights
+
+- **Insight**: The `[Proposal]` prefix could not actually be written before this
+  change. `publish-tree-pr.sh` passed one string to both `gh pr create --title`
+  and `commit.sh`, and `commit/scripts/check-subject.sh` forbids a `[bracket]`
+  prefix outright — so a proposal that honoured its own documented contract died
+  at `commit_failed` before any pull request existed. The contract had been prose
+  for a day and was never exercised; the test that exercised it is what found it.
+  **Context**: `WORKAHOLIC_PR_TITLE` separates the two surfaces and falls back to
+  the subject, so no other caller changes. A future edit that re-merges them
+  reintroduces the contradiction silently — the pin asserts the subject keeps the
+  project rule while the title carries the prefix.
+- **Insight**: Both new inputs are **env vars, not positionals**, and the reason
+  is structural: `publish-tree-pr.sh`'s positionals belong to `commit.sh` and end
+  in an open-ended `[files...]`, so a seventh positional could not be told from a
+  filename.
+  **Context**: Any further per-publication input has the same constraint.
+- **Insight**: `absent` had to be a distinct reason from `no_gh`/`unreadable`.
+  It is the **fallback signal** — every pull request opened before this change
+  carries no line — whereas the other two mean the question could not be asked at
+  all. Collapsing them would send a caller looking for a broken tool instead of
+  falling back to the search.
+  **Context**: The same distinction the ownership work made between `other` and
+  `unresolved`, in a different place: a conservative action shared by two states
+  is not a reason to report them as one.
+- **Insight**: The thread-routing rule became **four** ordered cases, with the
+  carried target above the search. Placing it below would have made the writer's
+  own known fact lose to a guess.

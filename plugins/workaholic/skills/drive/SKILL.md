@@ -156,6 +156,14 @@ The claim creates `.worktrees/<unit-id>/`. **All of the unit's work happens ther
 bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/unit-feedback-stems.sh <artifact>...
 ```
 
+**When the run was started by a merged pull request, that pull request names the thread.** Read it back before searching for one:
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/read-notify-target.sh <pr-number-or-url>
+```
+
+`found: true` gives the target verbatim and the run replies there — no `fb:<stem>` search, and no guess. `found: false` with `reason: "absent"` is the **documented fallback**: fall through to the stems below and the thread rules in `workaholic:workaholify`. `no_gh` / `unreadable` mean the question could not be asked at all, which is a different fact and worth reporting as one. The line exists because re-deriving the thread by search is what put a reply in the wrong place on 2026-08-05 (P4).
+
 Pass the mission's `mission.md` for a mission unit and the ticket files for a batch (a mission whose own `feedback:` is empty resolves through its queued tickets); it reports the deduped stems, and `count: 0` for a unit that traces to no record. The routing, the several-stems rule, the keyless fallback (`unit:<unit-id>`), and the one-start-one-finish shape are stated once in `workaholic:workaholify` (*One thread per feedback item* → *Which thread a `/drive` unit's posts land in*) and are not restated here. **Per unit, never per run**: "a run started" names no item, so it has no thread to land in — which is exactly why that announcement used to be a top-level line. The post is made through the session's Slack connector, is never load-bearing, and a failure to post changes nothing about the claim.
 
 **Claiming also announces on the bot surface, and the two are different things.** `claim.sh` posts one line to Slack after its push succeeds — the unit id, the branch, the member count — and reports the outcome as `announced` / `announce_reason` in its JSON. This is the operator's first signal that a run started: before it existed the first human-visible artifact was the PR at step 5, leaving a window of tens of minutes in which a working fleet and a dead one looked identical. **The notice is never load-bearing**: a missing token, an unreachable Slack, or an outright broken notifier leaves the claim intact and the run unchanged, and only a *successful* claim announces — a refusal announces nothing. Report `announced: false` in the run report rather than treating it as a failure.

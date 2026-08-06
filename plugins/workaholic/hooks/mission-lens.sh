@@ -106,11 +106,11 @@ for f in "$ACTIVE_DIR"/*/mission.md; do
         *) continue ;;
     esac
     # Mine, or unclaimed. Someone else's stays silent. Ownership is DERIVED through
-    # mission-owners.sh (the mission's own `assignees`, legacy fallback to its singular
+    # gather/owners.sh (the mission's own `assignees`, legacy fallback to its singular
     # `assignee`) — never parsed inline — so the shape lives in one place. A mission
     # may be co-owned, so "mine" means $ME is AMONG the owners; no owners at all means
     # unclaimed (surfaced as claimable). ($ME is non-empty, guarded above.)
-    owners=$(sh "${PLUGIN_ROOT}/skills/mission/scripts/mission-owners.sh" "$f" 2>/dev/null || true)
+    owners=$(sh "${PLUGIN_ROOT}/skills/gather/scripts/owners.sh" "$f" 2>/dev/null || true)
     if [ -n "$owners" ] && ! printf '%s\n' "$owners" | grep -Fxq "$ME"; then
         continue
     fi

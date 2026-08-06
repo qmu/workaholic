@@ -11,7 +11,7 @@
 # WHY THIS IS PART OF WIRING A REPOSITORY TO THE STANDARDS. A Claude Code Web routine runs
 # in a fresh, ephemeral container. `enabledPlugins` in `.claude/settings.json` is not
 # enough there -- the plugin is not fetched or installed automatically -- so without this
-# hook every cloud routine stops at its own precondition. The [Drive] prompt says it in as
+# hook every cloud routine stops at its own precondition. The [Implement] prompt says it in as
 # many words: "the workaholic plugin must be loaded ... if it is not, post the failure and
 # stop." An unbootstrapped repository therefore schedules its routines, fires them on
 # time, and does nothing, which reads as healthy from the routines list and from git.

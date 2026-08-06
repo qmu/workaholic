@@ -1,6 +1,6 @@
 ---
 name: drive
-description: Use when the user runs `/drive`, asks to "implement the queued tickets", "work through the todo list", or "drive the backlog". Surveys the claimable missions and the unclaimed backlog, partitions them into PR-units, claims each unit on a pushed branch, implements it in the claim's own worktree, reports, and routes it by the unit's effective merge policy — identically in an interactive session and on the every-5-minutes routine.
+description: Use when the user runs `/drive` or `/implement`, asks to "implement the queued tickets", "work through the todo list", or "drive the backlog". Surveys the claimable missions and the unclaimed backlog, partitions them into PR-units, claims each unit on a pushed branch, implements it in the claim's own worktree, reports, and routes it by the unit's effective merge policy — identically in an interactive session and on the routine.
 skills:
   - commit
   - system-safety
@@ -15,16 +15,23 @@ metadata:
 
 # Drive
 
-`/drive` is the project's **sole executor**. One command picks the work up, whether a developer typed it or a cron tick invoked it, and behaves the same either way: it surveys what is claimable, partitions it into units that each deserve one merge, claims each unit on a pushed branch, implements it in that claim's worktree, reports it as a PR, and routes it by the merge policy the artifacts already recorded.
+This skill is the project's **execution knowledge**, and it has **two entry points that share every step below §2**: it surveys what is claimable, partitions it into units that each deserve one merge, claims each unit on a pushed branch, implements it in that claim's worktree, reports it as a PR, and routes it by the merge policy the artifacts already recorded.
 
-**There is one prompt in the whole run, and only when a person is there to answer it** (`docs/loop-engineering-workflow.md` G1–G2, amended by O1 on 2026-08-05). The **attended** form — a developer typing `/drive` — asks *which* units to take when the survey offers more than one (§2), and asks nothing else at any step. The **unattended** form — `/drive auto`, which the `[Drive]` routine and every caller-side loop invoke by name — keeps the zero-prompt path exactly. Neither form confirms a partition, and neither asks per ticket: approval moved to where the work was decided (see *Where the per-ticket approval prompt went*), and what the attended form recovers is not approval but the *choice among peers*.
+**One command, one behaviour** (`docs/loop-engineering-workflow.md` G1–G2, amended by O1 on 2026-08-05 and superseded by P1 on 2026-08-06). O1 gave `/drive` two invocation forms distinguished by a first word (`auto`/`night`), which is a second command wearing one name — the shape P1 abolishes across the whole surface. The two behaviours are now two commands:
+
+| Command | Attendance | Who invokes it |
+| ------- | ---------- | -------------- |
+| **`/drive [<unit>]`** | **Attended.** Asks *which* units to take when the survey offers more than one (§2), and asks nothing else at any step. | A developer at a terminal. |
+| **`/implement [<unit>]`** | **Unattended.** Issues no `AskUserQuestion` anywhere, at any step. | The `[Implement]` routine and every caller-side loop (`/goal /implement ok`). |
+
+Attendance is a property of **which command was invoked**, never of a TTY, an environment variable, or a guess: a wrong inference either parks a routine tick on a prompt nobody will answer or silently strips the developer's choice, and neither failure is visible from the far side. The optional argument narrows the run to one named unit; it is a **scope**, not a mode — the behaviour is identical with and without it, and neither command ever confirms a partition or asks per ticket. Approval moved to where the work was decided (see *Where the per-ticket approval prompt went*); what the attended entry point recovers is not approval but the *choice among peers*.
 
 ## Agent Compatibility
 
-This skill works on any Agent-Skills-compatible agent. **The attended selection (§2) is the run's only interaction point**, so an agent with no question mechanism runs the unattended shape and loses the choice, nothing else; everything below §2 is mechanism-free:
+This skill works on any Agent-Skills-compatible agent. **The attended selection (§2) is the run's only interaction point**, so an agent with no question mechanism runs `/implement`'s shape and loses the choice, nothing else; everything below §2 is mechanism-free:
 
 - **Parallel fan-out** — a run may drive several claimed units at once by spawning one `general-purpose` subagent per unit worktree. On other agents (and by default), drive the claimed units **sequentially**; the outcome is identical. Real throughput comes from the claim protocol rather than from in-run fan-out: several runners, or several ticks, take different units and never collide.
-- The two forms are **one shape below §2**: same survey, same claim, same drive, same routing, same token. `/drive night` is a synonym of `/drive auto` retained for muscle memory.
+- The two entry points are **one shape below §2**: same survey, same claim, same drive, same routing, same token.
 
 ## The Unified Run
 
@@ -58,7 +65,14 @@ Then **freshen the checkout before reading it** (decision J3):
 bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/sync-main.sh
 ```
 
-Artifacts are published to `main` (J1) but the survey reads *this working tree*, and nothing else in the run fast-forwards it — `claims_fetch` updates remote-tracking refs only. A runner behind `origin/main` therefore surveys yesterday's queue and reports it confidently, which on a five-minute tick looks healthy and does nothing. The step runs identically interactively and on cron: one code path. Each `ok: false` is a reported decision, never a prompt — `commands/drive.md` step 0 holds the table; `not_on_main`, `dirty_workspace` and `diverged` terminate `pending`, while `no_origin` and `origin_unreachable` survey locally and forbid `ok`.
+Artifacts are published to `main` (J1) but the survey reads *this working tree*, and nothing else in the run fast-forwards it — `claims_fetch` updates remote-tracking refs only. A runner behind `origin/main` therefore surveys yesterday's queue and reports it confidently, which on a five-minute tick looks healthy and does nothing. The step runs identically through both entry points: one code path. **Each `ok: false` is a reported decision, never a prompt** — including in the attended entry point, because none of these is a choice among peers:
+
+| reason | what the run does |
+| ------ | ----------------- |
+| `no_origin` | Survey the local tree, **say so**, and continue. The terminal token may not be `ok`: a survey that could not consult the remote has not established that nothing claimable remains. |
+| `not_on_main` / `dirty_workspace` | The runner is not in a surveyable state. Report the reason and **terminate `pending`** — never silently survey a branch. |
+| `origin_unreachable` | Like `no_origin`: survey locally, say so, and the token may not be `ok`. |
+| `diverged` | A human's decision (the `detail` says `local_ahead` or `both_diverged`). Report and **terminate `pending`**. Never merge or reset. |
 
 Then survey what is claimable:
 
@@ -75,9 +89,17 @@ Emits `{fetched, shallow, base, surveyed_sha, base_sha, current, user_slug, back
 
 Both tiers stay a *takeover*, never a fresh claim: the unit is already claimed, and resuming continues from the pushed branch tip.
 
-**Missions are offered by ownership.** A mission is claimable when the runner's `git config user.email` is among its owners, or when it has no owners at all (team-owned = claimable); one owned solely by others is dropped as `owned_by_other`. Ownership resolves through `mission/scripts/mission-owners.sh` — the same oracle the mission lens, `list.sh`'s `relation`, `summary.sh` and `ship`'s concern lane read — so the queue a runner drains and the roadmap a developer is shown cannot disagree about whose work it is.
+**Every artifact is offered by ownership — a ticket exactly as a mission.** An artifact is claimable when the runner's `git config user.email` is among its owners, or when it has no owners at all (team-owned = claimable); one owned solely by others is dropped as `owned_by_other`. Ownership resolves through `gather/scripts/owns.sh` over `gather/scripts/owners.sh` — the same oracle the mission lens, `list.sh`'s `relation`, `summary.sh`, `/ticket`'s summary and `ship`'s concern lane read — so the queue a runner drains and the roadmap a developer is shown cannot disagree about whose work it is. A **ticket** joined this rule on 2026-08-06 (P2): its owner used to be its directory (`todo/<user-slug>/`), which is why the survey used to fail by *not finding a queue* rather than by *not knowing whose it was*.
 
-**An unreadable backlog is not an empty one.** `backlog_error` is `""` when the queue was genuinely read, and names the reason otherwise: `identity_unresolved` (no `git config user.email`, so there is no `todo/<user>/` to name — nothing at all is known about the backlog) or `unreadable`. `user_slug` reports *whose* queue was surveyed, empty when unresolvable. A non-empty `backlog_error` **forbids `ok`** (§7), exactly as `current: false` does: a run that never learned the queue's contents has established nothing about it. This is a property of the survey, not of an artifact, which is why it is a top-level key rather than an `excluded[]` entry — `excluded[]` names items the survey *saw and dropped*.
+**An unreadable backlog is not an empty one, and an unidentified runner no longer produces one.** Three fields keep the states apart, and they are top-level keys rather than `excluded[]` entries because `excluded[]` names items the survey *saw and dropped*:
+
+| field | what it means |
+| ----- | ------------- |
+| `backlog_error` | `""` when the queue was read; `unreadable` otherwise. **Forbids `ok`** (§7) exactly as `current: false` does — a run that never learned the queue's contents has established nothing about it. |
+| `backlog_size` | how many tickets the queue holds before any filtering. This is what makes *nothing for me* and *nothing at all* distinguishable from outside. |
+| `owner_unresolved` | the queue **was** read and this runner has no identity to judge ownership against. Unowned artifacts are still offered; every owned one is excluded as `owner_unresolved`. It **forbids `ok`** but does **not** terminate the run — the survey is honest and the unowned half is genuinely actionable. |
+
+`identity_unresolved` is gone from this vocabulary with the per-user directory that produced it (P2, 2026-08-06). Under the old layout there was no `todo/<user>/` to open without a `git config user.email`, so an unidentified runner reported an *empty backlog over a full queue* — the failure that made ownership-as-path worth removing. Claiming still needs an identity and still fails loudly without one: that question is "is this my own run", which is the claim protocol's, and it is deliberately unchanged.
 
 **Truncated history is the third thing that forbids `ok`.** `shallow` reports whether this clone could answer "which branches reached the base at all" — a different axis from `current`, which asks only whether the checkout saw the base's latest commit, and a survey can fail either independently. The shared reader *deepens* a shallow clone before scanning, so `shallow: true` survives only when origin is unreachable; a claim scan computed over truncated history has established nothing about what remains claimable, so it terminates `pending` (§7). See *Claims* for the measurement.
 
@@ -98,11 +120,11 @@ A **PR-unit** is one merge: one unit ↔ one claim ↔ one branch ↔ one worktr
 
 **Never mix merge policies to force a route.** Batching an `auto` ticket with a `review` one does not make the review ticket merge; it makes the auto ticket wait (§6). Policy is not a grouping input — group on relatedness and let the route fall out.
 
-**Report the partition in full, always.** State each unit, its members, and the reason it is one unit — the *composition* is never asked in either form. On the unattended path that report is the whole of this step: the run drives every unit it can claim, and the same text goes to the log on a cron tick.
+**Report the partition in full, always.** State each unit, its members, and the reason it is one unit — the *composition* is never asked through either entry point. Under `/implement` that report is the whole of this step: the run drives every unit it can claim, and the same text goes to the log on a routine tick.
 
 #### The choice among units is the operator's, when one is present
 
-When a developer typed `/drive` (the attended form) **and** the partition offers **more than one** claimable or resumable target, ask once:
+When a developer typed `/drive` **and** the partition offers **more than one** claimable or resumable target, ask once:
 
 - **one** `AskUserQuestion` with `multiSelect: true`, at most once per run — never one question per unit, and never a second round;
 - **one option per unit**: its id, its kind (mission / batch / resumed claim), and a one-line summary of what it contains — a mission's goal or next unchecked acceptance item, a batch's ticket titles;
@@ -111,7 +133,7 @@ When a developer typed `/drive` (the attended form) **and** the partition offers
 
 Drive the selected units **in the order selected**, then continue at §3 unchanged. Report every unselected unit as `deferred_by_operator` (§7): it was never claimed, so it stays claimable and **forbids `ok`**. Selecting nothing is a legitimate answer — nothing is driven, every unit is reported deferred, and the run ends `pending`.
 
-**Ask nothing when there is nothing to choose**: a single target, an invocation that already names a unit ("drive the `<slug>` mission"), or the unattended form. A prompt whose answer is foregone is the interaction `rules/interaction.md` forbids.
+**Ask nothing when there is nothing to choose**: a single target, an invocation whose argument already names a unit, or `/implement`. A prompt whose answer is foregone is the interaction `rules/interaction.md` forbids — which is why `/drive` keeps this carve-out rather than confirming unconditionally: "drive the one claimable unit?" is a question whose first option could honestly be labelled *(Recommended)*.
 
 **Why the choice is asked and the composition still is not.** Composing a unit is derivation over signals the run has already read — the same subsystem, a `depends_on` chain — and a person reading the queue is not better placed to do it. Choosing *among* peer units is a statement about what matters today, and only the person present holds it. Measured 2026-08-05: an attended run spent its first ~40 minutes reopening a parked pull request its `resumable[]` ordering ranked first, while the developer's actual work in progress waited and they interrupted twice to ask why. The ordering fix (`parked_with_pr`, §1) narrowed the heuristic; this hands the decision to the person rather than tuning the heuristic again.
 
@@ -133,6 +155,14 @@ The claim creates `.worktrees/<unit-id>/`. **All of the unit's work happens ther
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/unit-feedback-stems.sh <artifact>...
 ```
+
+**When the run was started by a merged pull request, that pull request names the thread.** Read it back before searching for one:
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/read-notify-target.sh <pr-number-or-url>
+```
+
+`found: true` gives the target verbatim and the run replies there — no `fb:<stem>` search, and no guess. `found: false` with `reason: "absent"` is the **documented fallback**: fall through to the stems below and the thread rules in `workaholic:workaholify`. `no_gh` / `unreadable` mean the question could not be asked at all, which is a different fact and worth reporting as one. The line exists because re-deriving the thread by search is what put a reply in the wrong place on 2026-08-05 (P4).
 
 Pass the mission's `mission.md` for a mission unit and the ticket files for a batch (a mission whose own `feedback:` is empty resolves through its queued tickets); it reports the deduped stems, and `count: 0` for a unit that traces to no record. The routing, the several-stems rule, the keyless fallback (`unit:<unit-id>`), and the one-start-one-finish shape are stated once in `workaholic:workaholify` (*One thread per feedback item* → *Which thread a `/drive` unit's posts land in*) and are not restated here. **Per unit, never per run**: "a run started" names no item, so it has no thread to land in — which is exactly why that announcement used to be a top-level line. The post is made through the session's Slack connector, is never load-bearing, and a failure to post changes nothing about the claim.
 
@@ -202,7 +232,7 @@ The notifier is never load-bearing: without a token it records `{"notified": fal
 
 **`auto` → ship it** through `workaholic:ship`'s Ship Flow with no prompts (ship's *Unattended routing* section factors each interactive seam), which means the full evidence-gated doctrine and not a shortcut around it: catch up with `main`, prove the deploy contract, confirm in production, record the evidence, **then** merge, then release and extract concerns.
 
-**An unattended run never overrides a gate.** `auto` means "no *approval* needed"; it never means "no *gate* applies". So:
+**The run never overrides a gate — through either entry point.** `auto` means "no *approval* needed"; it never means "no *gate* applies", and `/drive` does not recover the override just because a developer is present: the run's one prompt is the §2 choice among units, and everything below it is identical to `/implement`. So:
 
 | Gate outcome on an `auto` unit | What the run does |
 | ------------------------------ | ----------------- |
@@ -241,7 +271,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/land-unit.sh <unit-id> --develop
 | `headless_context` | `CLAUDE_CODE_REMOTE=true` (the container every routine tick runs in), a non-empty `CI`, or `WORKAHOLIC_HEADLESS=1`. Checked **first** and **not overridable by any flag** — a provably unattended caller must not be able to talk its way past it. |
 | `no_developer_instruction` | `--developer-present` was not passed. It is the instruction, **not a proof**: no script an agent runs can demonstrate a human was in the room, and this is not sold as doing so. What it buys is that the route is never taken by *omission* — an unattended caller has to state a falsehood, which this command's own contract forbids. |
 
-**`/drive` never calls it.** The unified run has no interaction point, so it has no instruction to act on; the route exists for a developer typing it in a session. The remaining refusals are facts, not judgments: `not_claimed`, `worktree_missing`, `dirty_worktree`, `no_origin`/`origin_unreachable`, `catchup_conflict` (naming the conflict class), `diverged`.
+**Neither entry point calls it.** The run's only interaction point is the §2 choice *among units*, so it never receives an instruction to land one; the route exists for a developer typing it in a session. The remaining refusals are facts, not judgments: `not_claimed`, `worktree_missing`, `dirty_worktree`, `no_origin`/`origin_unreachable`, `catchup_conflict` (naming the conflict class), `diverged`.
 
 **The gates apply unchanged.** A `secret` finding refuses with no override, exactly as everywhere else. `size`/`leak` are the tier a developer may override interactively, so they refuse unless `--override-scan` is passed — and the output reports `scan_verdict: "overridden"`, so the ruling is never silent.
 
@@ -308,7 +338,7 @@ The token is **derived, never self-asserted**:
 | The claim scan ran over **truncated history** (`shallow: true` — a shallow clone whose origin was unreachable, so merged branches cannot be told from live ones) | `pending` |
 | Nothing was claimable at all and nothing is in flight, over a **current** survey that read the backlog | `ok` |
 
-"I stopped" is not "it's done": a blocked unit is `pending`, not `ok`. This is verbatim the contract a caller-side loop such as `/goal /drive auto ok` waits on (decision I4 — `/goal` is a harness feature, not a command of this plugin; the token is the whole contract). A confident `ok` over an incomplete run is the masked failure `workaholic:implementation` / `observability` forbids, which is why the reconciliation line always precedes it: the outcome must be graspable from outside without a debugger.
+"I stopped" is not "it's done": a blocked unit is `pending`, not `ok`. This is verbatim the contract a caller-side loop such as `/goal /implement ok` waits on (decision I4 — `/goal` is a harness feature, not a command of this plugin; the token is the whole contract). A confident `ok` over an incomplete run is the masked failure `workaholic:implementation` / `observability` forbids, which is why the reconciliation line always precedes it: the outcome must be graspable from outside without a debugger.
 
 ## The failure contract
 
@@ -356,7 +386,7 @@ The boundary decides everything, so hold it exactly:
 
 **Mint only for an observed problem — never a passing thought.** A ticket per speculative improvement turns the queue into a diary and buries the real ones, which is worse than a report paragraph because it looks like a plan. The threshold: the run **actually hit** it. A refactor idea, a "we might also want", a thing you noticed but did not run into — **not a ticket**.
 
-The minted ticket goes through the sanctioned path: the `create-ticket` structure, written to `todo/<user>/`, with its mandatory `## Policies` and `## Quality Gate` (`validate-ticket.sh` rejects it otherwise), and it inherits the provoking ticket's `mission:` relation (read via `mission/scripts/read-relation.sh`, never re-parsed). **Report every minted ticket** as its own line: what was found, which ticket provoked it, and the new filename — a run that quietly mints tickets is a run that quietly changes the plan.
+The minted ticket goes through the sanctioned path: the `create-ticket` structure, written to `todo/`, with its mandatory `## Policies` and `## Quality Gate` (`validate-ticket.sh` rejects it otherwise), and it inherits the provoking ticket's `mission:` relation (read via `mission/scripts/read-relation.sh`, never re-parsed). **Report every minted ticket** as its own line: what was found, which ticket provoked it, and the new filename — a run that quietly mints tickets is a run that quietly changes the plan.
 
 **Do not append an acceptance item to the mission for a minted ticket.** `## Acceptance` is the plan the developer agreed to, and its `checked ÷ total` is the mission's progress; auto-appending would move the goalposts so that every minted ticket lowers completion against criteria nobody accepted — a mission could recede as it works. Promoting a minted ticket into the definition of done is the developer's call. (Consequence, accepted knowingly: a mission's ticket set can drift from its `## Acceptance`. That is the honest state — the queue reflects reality, the acceptance list reflects the agreement.)
 
@@ -390,7 +420,7 @@ State the model before the scripts, because the scripts only implement it:
   - **Something left to drive.** At least one of the unit's tickets must still be undriven *on that branch* — under `.workaholic/tickets/todo/` at the tip (for a mission unit: at least one ticket at the tip still names the mission). Without this the verdict cannot tell a run that **died** from a unit that **finished**: a `review` unit stops at its PR by design, its branch correctly stays unmerged, so its tip stops advancing and its heartbeat lapses exactly like an abandoned one. Measured hours after resumption shipped, the hourly runner re-took one such unit three times and only the first pass did any work — the other two added an empty `Resume` commit to a branch a human was reviewing. It does not terminate; a review PR can sit for days. Such a unit reports `queue_drained` and is excluded as `claimed_reported`.
   - **Complete history, or no verdict at all.** "Unmerged" is `git rev-list --count <base>..<ref>`, which cannot be reduced across a shallow graft — so in a **shallow clone** a fully merged branch still counts as ahead and the scan reports a unit that shipped days ago. Measured 2026-08-04 on the cloud runner, whose container always clones shallow: a branch merged as PR #109 counted **154** ahead while shallow and **0** after `--unshallow`, and was offered as `resumable` past *both* gates above — the identity matched because this runner had claimed it, and the heartbeat had lapsed precisely because the work finished. So the reader **repairs first**: `claims_fetch` deepens a shallow clone before anything reads ancestry (a plain `git fetch --prune` never does). When origin is unreachable and it cannot, it **degrades loudly**: `shallow: true` goes out to both consumers and the branch reports `resumable: false` with reason `shallow_history`, because an unanswerable question must not render as `heartbeat_lapsed`. The claim is still *listed* — over-reporting makes a runner wait, under-reporting double-picks work — so the **verdict** is suppressed, never the row.
   - **Same identity only.** The claim commit's author must be this runner's `git config user.email`. The principle (developer, 2026-08-01): *a pushed claim is the loop's work* — merging to `main` means the runner implemented it, and work you mean to keep in your own hands should never have been pushed as a claim. A colleague's claim is `foreign_identity` and untouchable at any age; an unresolvable identity resumes nothing. **Note the consequence**: a runner configured with a developer's email inherits that developer's claims. That is the intended reading of "the runner is `a@qmu.jp`" — but it means a *shared* identity across people would let one person's runner take another's work, so never configure one.
-- **Worktree lifecycle.** A worktree is **claim-born and ship-torn**: `claim.sh` creates `.worktrees/<unit-id>/`, and it is removed when the unit ships (§6) or when its claim is released. `/mission close` no longer tears worktrees down — a lingering worktree is an in-flight or stale *claim*, which is the reader's business.
+- **Worktree lifecycle.** A worktree is **claim-born and ship-torn**: `claim.sh` creates `.worktrees/<unit-id>/`, and it is removed when the unit ships (§6) or when its claim is released. `/mission-close` no longer tears worktrees down — a lingering worktree is an in-flight or stale *claim*, which is the reader's business.
 
 **The reader degrades offline; the writer does not.** With origin unreachable, `list-claims.sh` reports `fetched: false` and answers from the last-known remote-tracking refs, while `claim.sh` refuses to claim at all. The asymmetry is deliberate: a stale reader over-reports claims, which merely makes a runner wait, but a claim nobody else can see is not a claim, and driving on one is the double-pick the protocol exists to prevent.
 
@@ -468,13 +498,13 @@ Handle missing metadata gracefully: absent fields mean normal priority, and an e
 
 On Claude Code this ordering may be delegated to a `general-purpose` subagent (preloading `workaholic:drive`, returning `{tickets[], tiers{}, cycle_warning}`); inline is equally correct and is the default elsewhere. That subagent issues no `AskUserQuestion` — no subagent can, and nothing in this run below §2 does.
 
-**Sweep strays first**, so root-level tickets are routed even when `/drive` runs before any `/ticket`:
+**Converge the queue layout first**, so a checkout still carrying per-user ticket directories flattens before anything reads or writes it:
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/create-ticket/scripts/sweep-todo.sh
+bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/migrate-todo-owners.sh
 ```
 
-The sweep routes each root-level `todo/*.md` into `todo/<author-slug>/` by the stray's own `author:` frontmatter, git-staging each move (these staged moves ride into the next archive commit, which runs `git add -A`). It never moves a ticket to the icebox.
+It moves any `todo/<user-slug>/X.md` to `todo/X.md`, stamping `assignees` from the directory it came from, and git-stages each move (these staged moves ride into the next archive commit, which runs `git add -A`). It never moves a ticket to the icebox and never touches `archive/`. Nothing depends on it having run — every reader tolerates both layouts — so it converges the tree rather than gating it. It replaced `sweep-todo.sh`, which routed strays the other way.
 
 ### The icebox is developer-curated
 
@@ -520,7 +550,7 @@ If no Patches section exists, skip to step 3.
 
 #### 3. Implement the Ticket
 
-- **Load the policy lens first (when the standards plugin is installed).** `/drive` preloads `workaholic:design`, `workaholic:implementation`, and `workaholic:operation`, so the three index `SKILL.md` files are in context. Before writing code, open every policy hard copy the ticket's **`## Policies`** section lists — that recorded list (synced from qmu.co.jp) is authoritative for which policies this implementation answers to. Read each `policies/<slug>.md` it names. If a ticket predates the `## Policies` section (it is absent or empty), fall back to deriving the set from the ticket's `layer` field via the Policy Lens mapping: UX → `workaholic:design` plus `workaholic:implementation`, Domain/DB → `workaholic:implementation`, Infrastructure → `workaholic:implementation` plus `workaholic:operation`, Config → the skill whose policies the config touches. Either way, judge the change's **design** (interaction and behavior), **implementation** (code structure and correctness), and **operation** (delivery, runtime, and recovery) against each applicable policy's Goal (目標), Responsibility (責務), and Practices (実践). If the standards plugin is not installed, proceed without it.
+- **Load the policy lens first (when the standards plugin is installed).** Both entry points preload `workaholic:design`, `workaholic:implementation`, and `workaholic:operation`, so the three index `SKILL.md` files are in context. Before writing code, open every policy hard copy the ticket's **`## Policies`** section lists — that recorded list (synced from qmu.co.jp) is authoritative for which policies this implementation answers to. Read each `policies/<slug>.md` it names. If a ticket predates the `## Policies` section (it is absent or empty), fall back to deriving the set from the ticket's `layer` field via the Policy Lens mapping: UX → `workaholic:design` plus `workaholic:implementation`, Domain/DB → `workaholic:implementation`, Infrastructure → `workaholic:implementation` plus `workaholic:operation`, Config → the skill whose policies the config touches. Either way, judge the change's **design** (interaction and behavior), **implementation** (code structure and correctness), and **operation** (delivery, runtime, and recovery) against each applicable policy's Goal (目標), Responsibility (責務), and Practices (実践). If the standards plugin is not installed, proceed without it.
 - Follow the implementation steps in the ticket
 - Use existing patterns and conventions in the codebase
 - For areas where patches applied, verify and adjust as needed
@@ -742,7 +772,7 @@ Update when: After implementation, before archiving.
 
 #### merge_policy
 
-**Recorded at ticket creation, read at route time — never written here.** `auto` lets the unit this ticket lands in merge without a human; anything else, including absence, routes to a PR (§6). `/drive` reads it through `effective-policy.sh` and never edits it: changing a ticket's merge policy mid-run would let the run grant itself permission to merge.
+**Recorded at ticket creation, read at route time — never written here.** `auto` lets the unit this ticket lands in merge without a human; anything else, including absence, routes to a PR (§6). The run reads it through `effective-policy.sh` and never edits it: changing a ticket's merge policy mid-run would let the run grant itself permission to merge.
 
 #### category
 

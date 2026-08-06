@@ -11,7 +11,7 @@
 # explicitly, before the session's skill registry is built. A local session keeps a
 # persistent ~/.claude, so this is a no-op outside the web.
 #
-# WITHOUT IT, EVERY CLOUD ROUTINE STOPS AT ITS OWN PRECONDITION. The [Drive] routine's
+# WITHOUT IT, EVERY CLOUD ROUTINE STOPS AT ITS OWN PRECONDITION. The [Implement] routine's
 # prompt says "the workaholic plugin must be loaded ... if it is not, post the failure and
 # stop" -- so an unbootstrapped repository schedules the routine, fires it on time, and
 # does nothing, which looks healthy from the routines list.

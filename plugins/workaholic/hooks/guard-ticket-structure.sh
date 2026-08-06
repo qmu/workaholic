@@ -4,8 +4,8 @@
 #
 # Why this exists: validate-ticket.sh is a PostToolUse(Write|Edit) hook, so it
 # only sees files written through the Write/Edit tools. The real-world drift —
-# an invented tickets/done/ directory, and archives nested inside
-# tickets/todo/<user>/archive/ — was produced by `mv` (hand-runs and a stale
+# an invented tickets/done/ directory, and archives nested inside a
+# tickets/todo/ subdirectory — was produced by `mv` (hand-runs and a stale
 # archive.sh), which Write/Edit guards never observe. This guard inspects the
 # raw Bash command string for literal non-canonical tickets paths and blocks
 # them before they run.
@@ -14,7 +14,7 @@
 # mutating command are judged. If a destination is a shell variable or glob
 # (e.g. archive.sh's `mv "$TICKET" "$ARCHIVE_DIR/"`), it cannot be resolved here
 # and is left alone — the script that owns it is responsible, and the
-# Write/Edit guard plus the per-user create-ticket flow cover the rest.
+# Write/Edit guard plus the create-ticket flow cover the rest.
 #
 # Exit codes: 0 = allow / not applicable, 2 = block (feeds the message back).
 
@@ -73,8 +73,10 @@ for p in $paths; do
       ;;
   esac
 
-  # No 'archive' nested under todo/ — archives belong at archive/<branch>/,
-  # never at todo/<user>/archive/ (the stale-archive.sh signature).
+  # No 'archive' nested under todo/ — archives belong at archive/<branch>/, never
+  # under a todo/ subdirectory (the stale-archive.sh signature). The pattern still
+  # names a subdirectory because a checkout not yet through the living migration
+  # can still hold `todo/<user>/`, and that is exactly where the defect appeared.
   case "/$rel/" in
     /todo/*/archive/*)
       bad="${bad}
@@ -90,7 +92,7 @@ if [ -n "$bad" ]; then
   echo "Error: refusing to place a ticket in a non-canonical location under .workaholic/tickets/." >&2
   echo "Offending path(s):${bad}" >&2
   echo "" >&2
-  echo "Canonical layout: todo/<user>/  icebox/  abandoned/  archive/<branch>/" >&2
+  echo "Canonical layout: todo/  icebox/  abandoned/  archive/<branch>/" >&2
   echo "To complete a ticket, run /drive (its archive.sh moves it to archive/<branch>/)" >&2
   echo "rather than moving it by hand into an invented directory such as done/." >&2
   print_skill_reference

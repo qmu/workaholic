@@ -129,7 +129,7 @@ merge_policy:           # auto | review — the orthogonal merge axis (G5), reco
 carried_from:           # only on a successor: the slug of the mission whose remainder it inherited
 created_at: <ISO-8601>
 author: <email>
-assignees: [<email>]    # the mission's OWNERS (plural — a mission can be co-owned). Creator-seeded by create.sh; empty = team-owned/claimable, and NEVER a floor (K2). Read ONLY via mission-owners.sh
+assignees: [<email>]    # the mission's OWNERS (plural — a mission can be co-owned). Creator-seeded by create.sh; empty = team-owned/claimable, and NEVER a floor (K2). Read ONLY via gather/scripts/owners.sh
 assignee: <email>       # LEGACY FALLBACK only (missions predating `assignees`). Empty on new missions; never read directly
 predicted_hours:        # decimal agent-hours, stamped ONCE at creation from archived-mission trend (predict-duration.sh); empty when basis 0
 actual_hours:           # decimal agent-hours accumulated by /drive across runs (record-run-hours.sh is its only writer); empty until a run records
@@ -176,7 +176,7 @@ A mission carries **no `## Reflection` section**. The per-run reflection channel
 
 - **Quality gate** (`gate_*`) — optional and normally empty, with the record of why it was demoted.
 - **Drivability** — what being in the active area asserts, and the alternatives rejected with `draft`.
-- **Ownership** — the `mission-owners.sh` oracle, its legacy fallback, and the redefinition record.
+- **Ownership** — the `gather/scripts/owners.sh` oracle, its legacy fallback, and the redefinition record.
 - **Duration** — how `predicted_hours` is derived once and `actual_hours` accumulated, and why the actual covers mission units only.
 - **Acceptance-checklist convention** — the `(#<filename>)` marker, **the link contract** (item-scoped, stamped at emission, unlinked-is-reported) with the alternatives it rejected, and the measured reason an unchecked item is a heading rather than a specification.
 - **Changelog line format** — the dated append-only line and its idempotent event id.
@@ -291,11 +291,11 @@ Read every figure through those scripts (`workaholic:implementation` / `domain-l
 
 | seam | when |
 | --- | --- |
-| `/mission close` | before asking for the outcome, and again on a carry (what moved to the successor). |
+| `/mission-close` | before asking for the outcome, and again on a carry (what moved to the successor). |
 | `/drive` | in the run report, for each mission unit the run left unfinished — the position a later run or a reader picks the work up from. Say nothing for a batch unit whose tickets carry no `mission:` relation — never fabricate a mission-shaped frame around unrelated work. |
 | `/report`, `/ship` | **not** stated — recorded decision, below. |
 
-`/report` and `/ship` roll missions but do **not** carry this report. Their audience is the PR reviewer, and the story's own sections already say what landed; adding mission position there would duplicate `/catch` and the lens for a reader who did not ask. The report exists for **continuity across a session boundary** — that is `/mission close` and an unfinished `/drive` unit, where the context is otherwise lost. Decided rather than defaulted; revisit if a reviewer ever has to ask "which mission is this?".
+`/report` and `/ship` roll missions but do **not** carry this report. Their audience is the PR reviewer, and the story's own sections already say what landed; adding mission position there would duplicate `/catch` and the lens for a reader who did not ask. The report exists for **continuity across a session boundary** — that is `/mission-close` and an unfinished `/drive` unit, where the context is otherwise lost. Decided rather than defaulted; revisit if a reviewer ever has to ask "which mission is this?".
 
 The dedicated hand-off command that once owned the first row is retired (`docs/loop-engineering-workflow.md` decision I5): in-flight state now lives on the **claim branch** by construction — the next run re-claims the unit with `claim.sh resume <unit-id>` and continues from the pushed work — so a resumption ticket written by hand would restate what the branch already holds. Resumption is scoped to the claim's **own** identity and fires once its heartbeat lapses; a colleague's claim is never taken over (`workaholic:drive`, *Claims*).
 
@@ -321,8 +321,6 @@ Every script lives at `${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/<name>`. **T
 | `gate.sh` | Read the optional `gate_*` declaration and resolve the worktree ports it is checked against (`valid` vs `driveable`) |
 | `drive-authorized.sh` | Per-ticket authorization answer; conservative across a many-valued `mission:` relation |
 | `read-relation.sh` | The single reader of an artifact's `mission:` relation (list or bare form) |
-| `mission-owners.sh` | The single ownership oracle — `assignees`, then the legacy `assignee` |
-| `read-assignees.sh` | The single parser of the `assignees` field shape |
 | `append-changelog.sh` | The single changelog writer; idempotent on its (event, artifact) pair |
 | `link-acceptance.sh` | The only writer of an acceptance item's `(#<filename>)` link; the caller names the pair, nothing is inferred |
 | `unlinked-acceptance.sh` | Name the unchecked items no artifact can tick — the audit half of the link contract |
@@ -346,7 +344,7 @@ A mission's `.worktrees/<slug>/` worktree belongs to the **claim**, not to the m
 
 **`create-mission-worktree.sh` keeps its name, and the name is now a slight misnomer.** After J1 its only caller is `claim.sh`, and what it creates is a **claim** worktree keyed on a unit id — a mission slug being just one kind of unit id (a batch id is the other). It was **not** renamed to `create-claim-worktree.sh`: the script ships in the generated `outputs/workflows` bundle, so the name is public API to cross-agent consumers, and a rename would touch `claim.sh`, the tests, several documents, and the generated closure for no behavioural gain. The cheaper honest fix is this sentence plus the script's own header, which states it is claim-side only. Read every remaining "mission worktree" in this skill as "the claim worktree of a mission unit".
 
-**So `close.sh` and `/mission close` keep only the archive move.** Closing a mission is a statement about the *record* — this goal is reached, abandoned, or carried — and it says nothing about whether a worktree is still in use. A worktree still standing at close time is an in-flight or stale **claim**, which the claim reader already surfaces and a human already decides about; having `close` tear it down instead made a bookkeeping action quietly destructive, and hid the one signal (`list-claims.sh`) that says whether anyone is still working there. `cleanup-mission-worktree.sh` is unchanged and still the sanctioned cleaner — it is now called from the claim-release and ship paths rather than from close.
+**So `close.sh` and `/mission-close` keep only the archive move.** Closing a mission is a statement about the *record* — this goal is reached, abandoned, or carried — and it says nothing about whether a worktree is still in use. A worktree still standing at close time is an in-flight or stale **claim**, which the claim reader already surfaces and a human already decides about; having `close` tear it down instead made a bookkeeping action quietly destructive, and hid the one signal (`list-claims.sh`) that says whether anyone is still working there. `cleanup-mission-worktree.sh` is unchanged and still the sanctioned cleaner — it is now called from the claim-release and ship paths rather than from close.
 
 ### Outcomes
 
@@ -411,7 +409,7 @@ Separately from the mutating seams above, a workflow may **read** missions witho
 
 The **mission lens** (`hooks/mission-lens.sh`) is the other read-only consumer, and an always-on one. On every `UserPromptSubmit` it injects a model-visible `additionalContext` line, and on every `Stop` a user-visible `systemMessage`, naming each **active** mission that passes all three of its gates, with derived `checked/total` and the next unchecked acceptance item (via `progress.sh` + `next-acceptance.sh`):
 
-1. **ownership** — the current `git config user.email` is among the mission's owners (`mission-owners.sh` — the mission's own `assignees` first, then the legacy `assignee`), or the mission is unowned (surfaced as claimable). Only a mission owned solely by others stays silent.
+1. **ownership** — the current `git config user.email` is among the mission's owners (`gather/scripts/owners.sh` — the mission's own `assignees` first, then the legacy `assignee`), or the mission is unowned (surfaced as claimable). Only a mission owned solely by others stays silent.
 2. **location** — worktree focus: inside a mission's own `.worktrees/<slug>`, only that mission; inside a worktree that owns **no** mission (a `/drive` worktree), nothing at all; in the main tree, only missions that own no worktree.
 3. **signal** — the mission has at least one acceptance criterion. A mission whose `## Acceptance` is empty would render as `0/0` with no next step — a technical condition with nothing to act on — so it stays silent.
 

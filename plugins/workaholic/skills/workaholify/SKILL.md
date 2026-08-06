@@ -146,7 +146,7 @@ The next run resumes it automatically; `git fetch && git checkout <branch>` to t
 <session URL>
 ```
 
-**🟢 Proposed is the `[Propose]` routine's thread root** — its `` `fb:<stem>` `` line is the key every later reply searches for, so it is never dropped. A merge uses the 🟢 Merge-Requested shape with its line swapped for the actor: **🚀 Auto Merge by Claude** when the unit's recorded `merge_policy` was `auto` and `/ship` merged it, **🟣 Merged by `<@U…>`** when a human merged it during the run. That distinction is the point — a developer scanning the thread must be able to tell what merged without approval from what a person approved — and it is why the auto line names no person.
+**🟢 Proposed is the `[Propose]` routine's thread root** — its `` `fb:<stem>` `` line is the key every later reply searches for, so it is never dropped. The root announces only the pull request you just created in this session, exactly once — post nothing if you created none, and never announce another session's work. A merge uses the 🟢 Merge-Requested shape with its line swapped for the actor: **🚀 Auto Merge by Claude** when the unit's recorded `merge_policy` was `auto` and `/ship` merged it, **🟣 Merged by `<@U…>`** when a human merged it during the run. That distinction is the point — a developer scanning the thread must be able to tell what merged without approval from what a person approved — and it is why the auto line names no person.
 
 ### One thread per feedback item — the notification model (decided 2026-08-04)
 

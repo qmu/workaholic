@@ -12947,6 +12947,7 @@ function testRoutineAnnouncementScoping() {
   // old wording verbatim, so checking the whole file flags the explanation as the bug.
   const prompt = (f) => { const b = read(f); const i = b.indexOf("## Prompt"); return i < 0 ? b : b.slice(i); };
   const merged = prompt("merged-pr.md"), fb = prompt("fb.md"), drive = prompt("drive.md");
+  const wh = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/SKILL.md"), "utf8");
 
   // The subject must be identified. "about the pull request" with no antecedent is the
   // exact wording that produced the duplicates.
@@ -12972,8 +12973,11 @@ function testRoutineAnnouncementScoping() {
 
   // The other two announce their OWN output, so they have no ambiguity -- but say so,
   // because "the pull request" reads identically in all three.
-  assertTrue("fb announces only the PR this session created",
-    /only the pull request you just created in this session/i.test(fb), "fb scoping missing");
+  // The fb template is a PURE POINTER since 2026-08-06 (second slimming, developer's
+  // ruling): every announcement rule lives in the skills, and the template only defers.
+  // These assertions therefore grep the OWNING skill, and one pin holds the deferral.
+  assertTrue("the Proposed root announces only the posting session's own PR",
+    /only the pull request you just created in this session/i.test(wh), "proposed scoping missing from workaholify SKILL");
   assertTrue("drive announces only the PR this session opened",
     /only the pull request THIS session just opened/i.test(drive), "drive scoping missing");
   assertTrue("drive forbids reporting activity it did not produce",
@@ -12981,10 +12985,13 @@ function testRoutineAnnouncementScoping() {
   // `fb` IS the propose entrance since the batch template was retired (2026-08-04), and its
   // one postable event is the pull request it just opened — which is why the two clauses
   // the retired [Propose Batch] template carried are asserted here instead.
-  assertTrue("fb posts nothing when it opened no pull request",
-    /post nothing if you created none/i.test(fb), "post-nothing rule missing");
-  assertTrue("and it never opens a second pull request for the proposal",
-    /Never open a second pull request/i.test(fb), "one-PR rule missing");
+  assertTrue("and a session that opened no pull request posts nothing",
+    /post nothing if you created none/i.test(wh), "post-nothing rule missing from workaholify SKILL");
+  const proposeSkill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/propose/SKILL.md"), "utf8");
+  assertTrue("the one-PR rule lives in the propose skill",
+    /never as two pull requests/i.test(proposeSkill), "one-PR rule missing from propose SKILL");
+  assertTrue("and the fb template defers to the skills instead of restating them",
+    /Follow them, not this prompt/.test(fb), "fb deferral missing");
 
   // NO "Attention" BLOCK IN ANY ANNOUNCEMENT (developer's ruling, 2026-08-01). The
   // conditional concern block is gone from both the PR-opened and PR-merged formats; a
@@ -13007,7 +13014,6 @@ function testRoutineAnnouncementScoping() {
   // notification policy every routine shares rather than drive procedure. The template now
   // names the rule and defers, which the last assertion here pins — a pointer that stops
   // pointing is the one way this relocation could silently lose the rule.
-  const wh = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/SKILL.md"), "utf8");
   assertTrue("the skill defines a stable failure signature",
     /failure signature/i.test(wh) && /stable across ticks/i.test(wh), "signature rule missing");
   assertTrue("and forbids volatile detail in it, which would defeat suppression",

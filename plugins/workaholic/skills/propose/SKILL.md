@@ -49,6 +49,17 @@ A mission with a provisional acceptance sketch and no ticket set is a title and 
 
 **Set it through `WORKAHOLIC_PR_TITLE`, not through the commit subject.** The two are different surfaces with different rules, and conflating them was a live defect (fixed P4, 2026-08-06): `commit/scripts/check-subject.sh` forbids a `[bracket]` prefix outright, so passing `[Proposal] …` as `publish-tree-pr.sh`'s positional title made the publish fail at `commit_failed` before any pull request existed — the prefix this skill documents could not be written. The commit subject keeps the project's own rule (present tense, ≤50 chars, no prefix); the pull request title carries the prefix; `publish-tree-pr.sh` falls back to the subject when the env var is unset, so every other caller is unaffected.
 
+**"Who" enters once, at the trigger, and rides the artifacts from there** (P6, 2026-08-06). The `[Propose]` routine fires on a GitHub issue **assigned to a person**, so the owner is known before any artifact exists. Pass it down:
+
+```bash
+scaffold-draft.sh "<title>" --assignee <email> <feedback-record>...
+scaffold-proposed-ticket.sh "<title>" <mission-slug> [type] [layer] --assignee <email>
+```
+
+Both write `assignees: [<email>]`; both write an **empty** field when no assignee is given, which means team-owned and claimable by anyone. That empty case is a real state and stays available — but it is the wrong *default* for the routine chain, and leaving it as the only behaviour was a measured hole: every proposal-born artifact was unowned, so **every** developer's runner judged it claimable, and whose job it was got decided by whose push landed first. The claim protocol stopped the double-drive; nothing could decide the ownership, because nothing in the data said (`gather/scripts/owns.sh` correctly answered `unowned` for everyone).
+
+**Do not fall back to the running identity.** With no assignee in hand, write the field empty. Stamping whoever happens to be running the batch is the "re-derive it from each container's git config" the whole chain exists to remove, and it would silently assign work to a runner rather than to a person.
+
 **The pull request's body carries the notification target** (P4, 2026-08-06). Export `WORKAHOLIC_NOTIFY_TARGET` before calling `publish-tree-pr.sh` and it writes one machine-readable line into the body:
 
 ```

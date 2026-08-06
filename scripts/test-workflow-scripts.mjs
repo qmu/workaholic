@@ -12543,7 +12543,8 @@ function testProposalOwnershipContract() {
   assertTrue("the propose command passes the assignee to both scaffolds",
     (cmd.match(/--assignee/g) || []).length >= 3);
   assertTrue("the [Propose] prompt reads the issue's assignee and hands it on",
-    /\*\*assignee\*\*/.test(fb) && /that assignee in hand/.test(fb));
+    /its assignee/.test(fb) && /that assignee in hand/.test(fb)
+    && /the assignee owns whatever gets emitted/.test(fb));
   assertTrue("the [Implement] trigger is narrowed to the developer's own proposals",
     /author = the developer/.test(impl));
   assertTrue("and the template says the filter is the cost half, not the correctness half",
@@ -13134,16 +13135,18 @@ function testWorkaholifyRoutines() {
     const drive = JSON.parse(run(dir, `${RENDER} implement ${WH}`).stdout);
     assertEq("the routine name uses the BARE repo name, as the live routines do",
       drive.name, "[Implement] workaholic");
-    assertTrue("{repo_slug} renders org/repo in the prompt's prose",
-      drive.prompt.includes("runner for qmu/workaholic"), drive.prompt.slice(0, 200));
-    assertTrue("{repo_name} renders the dev-<name> Slack channel",
-      drive.prompt.includes("dev-workaholic"), "missing channel");
-    // The `#123` example left the template with the post formats on 2026-08-05 (they live
-    // in the workaholify SKILL now), so the prompt names the shape of the link rather than
-    // an instance of it. The property is unchanged: {repo} must still reach the prompt, or
-    // a routine would bake an unfollowable PR URL into every post.
-    assertTrue("{repo} renders the full URL in the PR links",
-      drive.prompt.includes(`${WH}/pull/`), "missing pull link");
+    // P7 (2026-08-06): a PROMPT names no repository and carries no substitution -- it is
+    // byte-identical in every project, which is what "paste four lines into each" means.
+    // The routine's NAME still identifies the repository, because that is a UI field a
+    // routines list has to disambiguate.
+    const raw = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines/implement.md"), "utf8");
+    const rawPrompt = raw.slice(raw.indexOf("## Prompt"));
+    assertTrue("the template's prompt carries no substitution at all",
+      !/\{repo(_name|_slug)?\}/.test(rawPrompt), rawPrompt.slice(0, 300));
+    assertEq("so rendering leaves the prompt byte-identical",
+      drive.prompt.trim(), rawPrompt.replace(/^## Prompt\n+/, "").trim());
+    assertTrue("and it names no repository",
+      !/qmu|workaholic\//.test(drive.prompt), drive.prompt.slice(0, 200));
     assertTrue("no placeholder survives rendering", !/\{repo(_name|_slug)?\}/.test(drive.prompt), drive.prompt);
 
     const fb = JSON.parse(run(dir, `${RENDER} fb ${WH}`).stdout);
@@ -13305,7 +13308,7 @@ function testRoutineAnnouncementScoping() {
   // A prompt may not defer the one thing that IS its output contract.
   for (const [name, body] of [["fb", fb], ["implement", implement]]) {
     assertTrue(`the ${name} prompt carries its channel inline`,
-      /dev-\{repo_name\}/.test(body), body.slice(0, 400));
+      /dev-<repo>/.test(body), body.slice(0, 400));
     assertTrue(`the ${name} prompt carries its post shape inline`,
       /🟠/.test(body) && /(🟢|🚀|🟡|🔴)/.test(body), body.slice(0, 400));
   }

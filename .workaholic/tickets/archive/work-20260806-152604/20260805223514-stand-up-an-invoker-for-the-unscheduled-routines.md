@@ -3,9 +3,9 @@ created_at: 2026-08-05T22:35:14+09:00
 author: a@qmu.jp
 type: bugfix
 layer: [Infrastructure]
-effort:
+effort: 0.5h
 commit_hash:
-category:
+category: Changed
 depends_on:
 mission: drive-on-a-merged-proposal-and-report-it-in-that-proposal-s-thread
 feedback: [20260805130407-trigger-the-drive-routine-on-a-merged-proposal-and-report-start-and-completion-in-its-thread.md]
@@ -114,3 +114,39 @@ start one deliberately, or what to check when one does not run.
   rests on, so the next reader can check it rather than inherit it.
 - The developer answered step 1 unprompted (above). Do not re-ask it; the remaining work
   is verification, observability, and the misconfiguration list.
+
+## Final Report
+
+Development completed as planned, and step 1 needed no investigation: the developer's
+answer arrived first and the product documentation confirmed the mechanism the same day.
+
+**What the repository now states**, with its evidence: a routine fires on a schedule, an
+API call, or a **GitHub event** (Pull request / Release, AND-combined filters including
+`is merged`), and *GitHub triggers are configured from the web UI only* — the record
+carries no event field, so the wiring is unreadable, unwritable and unverifiable from a
+session. The per-template design is recorded beside it: `[Propose]` on an assigned issue
+opening, `[Drive]` on a proposal's pull request merging, `[Consent]` on the merge
+announcement — one event, one owner.
+
+**Acceptance item 2 is answered by its second branch, and had to be.** "Has this routine
+run, and when" is *not* answerable from the account for the routines that matter: measured
+2026-08-06, `last_fired_at` is populated for a cron fire (`[Drive]`'s 02:56Z tick) and
+**absent for a GitHub-triggered one** (`[Propose] workaholic` turned issue #266 into PR
+#267 at 03:23Z with no key). The repository now says so plainly, and directs a reader to
+what the routine produced instead. Item 3 holds: no surviving claim rests on the field's
+presence or absence — the three remaining mentions all describe the retraction itself.
+
+### Discovered Insights
+
+- **Insight**: `last_fired_at` is trigger-kind-dependent, not routine-dependent. A cron
+  fire records it; a GitHub fire does not. That asymmetry is why two sessions on two days
+  drew opposite wrong conclusions from the same field.
+  **Context**: Any future "is the fleet alive" check must read produced artifacts, not the
+  account — the account cannot answer it for event-triggered routines at all.
+
+- **Insight**: The whole `/setup-routines` reporting question this ticket's steps 3-4
+  aimed at is **retired**, not answered: PR #270 queued the mission that replaces the
+  report with copy-paste setup sheets. Writing observability into a surface being deleted
+  would have been wasted work.
+  **Context**: A ticket rewritten twice in one day still needed a third read against what
+  had landed since — the queue moves faster than a ticket's own framing.

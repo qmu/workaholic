@@ -82,9 +82,11 @@ The templates live in **this skill** (`routines/*.md`), not in any repository's 
 | `merged-pr` | invoked | A merge is announced to `dev-<repo>` |
 | `drive` | github-pr-merged | A merged proposal starts the unattended drive runner (still a pilot) |
 
-#### What a routine can be triggered by — and what "event" actually means (measured 2026-08-05)
+#### What a routine can be triggered by — the settled answer (documented + measured, 2026-08-06)
 
-**A routine cannot subscribe to a repository event.** Read back over the whole live account (`RemoteTrigger list`, 20 routines), a routine record's entire trigger surface is three fields and nothing else:
+**A routine can be triggered three ways: a schedule, an API call, or a GitHub event — and the GitHub one is configurable only in the web UI.** That is the product's own documentation ([Routines](https://code.claude.com/docs/en/routines), *Add a GitHub trigger*: "GitHub triggers are configured from the web UI only"). Supported event categories are **Pull request** and **Release**, each narrowable by filters (author, title, body, base/head branch, labels, is-draft, **is-merged**) combined with AND; `matches regex` tests the whole value, so substring matching wants `contains`. An API trigger's token is likewise **generated in the UI only** — "The CLI cannot currently create or revoke tokens" — and fires `POST /v1/claude_code/routines/<id>/fire` with an optional `text` payload.
+
+**None of that is visible in a routine record.** Read back over the live account, the record's trigger surface is three fields and nothing else:
 
 | Field | What fires the routine |
 | ----- | ---------------------- |
@@ -92,9 +94,13 @@ The templates live in **this skill** (`routines/*.md`), not in any repository's 
 | `run_once_at` | one scheduled time |
 | `api_token_hint` / `api_token_created_at` | **an external caller** POSTing `/v1/code/triggers/<id>/run` with that token |
 
-There is **no event-subscription field of any kind** — nothing naming a pull request, a merge, a push, a repository or a webhook. So `trigger: event` in a template never meant "this routine watches an event": the wiring that starts an unscheduled routine lives **outside the record**, in the GitHub integration, and the record cannot be read for it. A template's `trigger:` therefore states the **designed** trigger for the drift report and the reader — `github-issue-assigned` for `[Propose]` — not a field the API stores.
+There is **no event-subscription field of any kind** — nothing naming a pull request, a merge, a push, a repository or a webhook — so the GitHub wiring is unreadable, unwritable and unverifiable from a session. A template's `trigger:` therefore states the **designed** trigger for the reader — not a field the API stores.
 
-**What invokes them is now stated by the developer, and it is neither a clock nor a merge** (2026-08-06): **`[Propose]` fires when a GitHub issue assigned to the developer is opened.** That is the whole design; the wiring lives in the GitHub integration, outside the routine record. Two prior readings of the account got this wrong in opposite directions, and both failed the same way — by treating the record as able to answer a question it does not carry. First an absent `last_fired_at` was read as "never fired" (retracted: a web session did the `[Propose]` job for issue #260 → PR #261 on 2026-08-05 with the key absent throughout — the field cannot distinguish "never ran" from "ran ten minutes ago"). Then the absent event field was read as "no event path exists". Neither field answers it; the design does.
+**"Has this routine ever run?" is unanswerable for exactly the routines that matter.** `last_fired_at` is populated for a **cron** fire (`[Drive]`'s 2026-08-06T02:56Z tick recorded one) and **absent for a GitHub-triggered fire** — `[Propose] workaholic` turned issue #266 into PR #267 at 03:23Z that same morning and its record still carries no such key. So the field distinguishes nothing for a GitHub-triggered routine, and **no claim may rest on its presence or absence**; a reader who needs to know whether one ran looks at what it produced (an issue, a pull request, a channel post), never at the account.
+
+**The designed wiring, per template** (the developer's instruction, 2026-08-06): `[Propose]` fires when **a GitHub issue assigned to the developer is opened**; `[Drive]` fires when **a proposal's pull request merges** (Pull request → closed, filtered `is merged: true` and title contains `[Proposal]`); `[Consent]` owns the **merged-pull-request** announcement. One event, one owner.
+
+Two prior readings of the account got this wrong in opposite directions, and both failed the same way — by treating the record as able to answer a question it does not carry. First an absent `last_fired_at` was read as "never fired". Then the absent event field was read as "no event path exists". Neither field answers it; the documentation and the design do.
 
 **A `[Propose]` routine observed firing on a merged pull request is misconfigured.** The merge is `[Consent]`'s event, and one event has one owner. Repairing a live routine's trigger is a **human act in the routines UI**: the trigger wiring is invisible to `RemoteTrigger list` and unreachable by it, so neither the drift report nor `/setup-routines` can see or fix it — they cover the prompt, model, schedule, `enabled` and the Slack connector, and the trigger only through the template's declared intent.
 

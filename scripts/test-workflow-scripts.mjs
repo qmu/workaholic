@@ -12645,10 +12645,11 @@ function testWorkaholifyRoutines() {
     assertTrue("no placeholder survives rendering", !/\{repo(_name|_slug)?\}/.test(drive.prompt), drive.prompt);
 
     const fb = JSON.parse(run(dir, `${RENDER} fb ${WH}`).stdout);
-    // `invoked`, not `event`: measured 2026-08-05, a routine record has no event
-    // subscription of any kind -- an unscheduled routine waits for an external caller to
-    // POST /run. The word is the whole finding, so it is pinned.
-    assertEq("the fb routine carries no schedule and waits to be invoked", [fb.trigger, fb.cron_expression], ["invoked", ""]);
+    // The template's trigger states the DESIGNED trigger (the record stores no such
+    // field): [Propose] fires on a GitHub issue assigned to the developer -- never a
+    // schedule, never a merge (developer's instruction, 2026-08-06). The word is the
+    // design, so it is pinned.
+    assertEq("the fb routine declares the assigned-issue trigger, no schedule", [fb.trigger, fb.cron_expression], ["github-issue-assigned", ""]);
     assertEq("an unknown template is refused by name",
       JSON.parse(run(dir, `${RENDER} no-such ${WH}`).stdout).error, "unknown_template");
 
@@ -13098,8 +13099,8 @@ function testSetupRoutinesListing() {
         ({ template, status, trigger, schedule, target_repo, enabled }))(byName(drive.name)),
       { template: "drive", status: "current", trigger: "cron", schedule: "56 * * * *",
         target_repo: WH, enabled: true });
-    assertEq("an unscheduled routine reports no schedule rather than a fake one",
-      [byName(fb.name).trigger, byName(fb.name).schedule], ["invoked", null]);
+    assertEq("an unscheduled routine reports its designed trigger and no schedule",
+      [byName(fb.name).trigger, byName(fb.name).schedule], ["github-issue-assigned", null]);
     // DRIFT IS PER FIELD, carried through from the comparison rather than flattened.
     assertEq("a drifted routine names the field that drifted",
       [byName(fb.name).status, byName(fb.name).drift],

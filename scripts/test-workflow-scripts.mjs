@@ -13115,6 +13115,12 @@ function testSetupRoutinesListing() {
         target_repo: WH, enabled: true });
     assertEq("an unscheduled routine reports its designed trigger and no schedule",
       [byName(fb.name).trigger, byName(fb.name).schedule], ["github-issue-assigned", null]);
+    // `trigger` is the TEMPLATE'S declaration; live wiring is not exposed by the API
+    // (measured 2026-08-06: a merge-wired [Propose] read as github-issue-assigned here).
+    // The qualifier travels in the data so no renderer can drop it.
+    assertEq("every trigger value is marked as template-declared, never live wiring",
+      [populated.trigger_readable, ...populated.routines.map((r) => r.trigger_source)],
+      [false, ...populated.routines.map(() => "template_declared")]);
     // DRIFT IS PER FIELD, carried through from the comparison rather than flattened.
     assertEq("a drifted routine names the field that drifted",
       [byName(fb.name).status, byName(fb.name).drift],

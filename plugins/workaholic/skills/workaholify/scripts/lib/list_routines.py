@@ -98,7 +98,13 @@ def main():
             "name": p["name"],
             "template": p["id"],
             "status": "drifted" if p["drift"] else "current",
+            # `trigger` is what the TEMPLATE declares, not what the account is wired to:
+            # the API exposes no trigger field, so live wiring is unreadable here. The
+            # qualifier travels in the data so no renderer can print the value without
+            # it (measured 2026-08-06: a [Propose] wired to fire on merges read as
+            # `github-issue-assigned`, and only a manual UI check showed the mismatch).
             "trigger": p["trigger"],
+            "trigger_source": "template_declared",
             "schedule": p["schedule"] or None,
             "target_repo": p["target_repo"],
             "enabled": p["enabled"],
@@ -116,6 +122,7 @@ def main():
             # subscription at all, so such a routine simply waits to be invoked
             # (workaholify SKILL, *What a routine can be triggered by*).
             "trigger": "cron" if u["schedule"] else "invoked",
+            "trigger_source": "template_declared",
             "schedule": u["schedule"] or None,
             "target_repo": u["target_repo"],
             "enabled": u["enabled"],
@@ -132,6 +139,7 @@ def main():
         "repo": repo,
         "repo_name": repo_name,
         "checked": True,
+        "trigger_readable": False,
         "template_set_version": template_set_version(script_dir),
         "total_live": cmp_json["total_live"],
         "routines": routines,

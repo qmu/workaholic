@@ -3,9 +3,9 @@ created_at: 2026-08-06T03:21:28+00:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
+effort: 0.5h
 commit_hash:
-category:
+category: Changed
 depends_on:
 feedback: [20260806032120-the-setup-routines-report-presents-a-template-declared-trigger-as-if-it-were-live-wiring.md]
 merge_policy:
@@ -125,3 +125,22 @@ it, and mark the value so the note cannot drift away from what it qualifies.
   report stops implying the question was answered.
 - `trigger_readable: false` is a constant today. If the API ever exposes the wiring, this field
   is where that becomes a real probe, and the note becomes conditional on it.
+
+## Final Report
+
+Development completed as planned: the qualifier travels in the data (`trigger_source:
+"template_declared"` per row, top-level `trigger_readable: false`), step 4 reports the
+trigger as the template's declaration with the standing UI note, and the SKILL §5 and
+CLAUDE.md rows agree. Note the interim nature: the queued setup-sheet mission retires
+this report entirely; until that lands, this keeps it truthful.
+
+### Discovered Insights
+
+- **Insight**: `main`'s `CLAUDE.md` carried a live conflict-resolution defect since PR
+  #263 — a stray `<<<<<<< HEAD` at line 245 and the **entire `/setup-routines` table row
+  deleted** — introduced by an off-by-one in a hand-scripted resolution (0-based list
+  slice over 1-based line numbers consumed one extra line and left the marker). Restored
+  here from `56f9d3af` because step 4 requires editing that very row.
+  **Context**: Seven merges passed over it; CI validates nothing about CLAUDE.md content.
+  A hand-scripted conflict resolution that slices by index should assert the exact text
+  of every line it consumes, not just the ones it keeps.

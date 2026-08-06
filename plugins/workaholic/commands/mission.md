@@ -17,21 +17,13 @@ skills:
 
 This command (main agent) runs the preloaded `workaholic:mission` skill. A **mission** is a first-class knowledge artifact: an **optional, epic-equivalent grouping** — a bounded, information-rich batch of tickets an agent fleet drives together (typically overnight), never a required parent of any ticket — and deliberately not a generic "epic/milestone" (see the skill's opening section and its **Granularity** record). It lives at `.workaholic/missions/active/<slug>/mission.md` while in progress, and moves to `.workaholic/missions/archive/<slug>/mission.md` when ended (see the skill's Allowed Location section).
 
-`$ARGUMENT` selects the mode — by **content**, not by subcommand (`workaholic:design` / `modeless-design`: the argument's meaning routes the flow, mirroring `/report`/`/ship` context-awareness). Match the retired literals `summary` and `approve` **first** (short deprecation notes, below — neither is ever a mission title), then the `close` and empty branches. Any other non-empty argument is judged against the existing missions (see *Referencing an existing mission*, below): a clear reference to an in-flight mission routes to the **replan flow**, an ambiguous argument is **asked**, and an argument referencing nothing is a **title** for the create flow.
+**No word of `$ARGUMENT` is a subcommand** (P5, 2026-08-06). The argument is *what mission you mean*, and nothing else: it is judged against the existing missions (see *Referencing an existing mission*, below) — a clear reference to an in-flight mission routes to the **replan flow**, an ambiguous argument is **asked**, and an argument referencing nothing is a **title** for the create flow. Content routes the flow (`workaholic:design` / `modeless-design`), the same way `/report` and `/ship` read their context.
 
-## `summary` — retired (developer decision, 2026-07-22)
-
-The `summary` mode is **retired**: the bare `/mission` view (below) is developer-centric, so a separate my-business-only mode would differ only by hiding others' missions — a near-duplicate (one concept, one word). When `$ARGUMENT` is exactly `summary`, do not create anything and do not treat it as a title: tell the user the mode was folded into bare `/mission` and render the bare view instead. (`mission/scripts/summary.sh` remains — it is the canonical statement of the shared assignee gate the mission lens and `/drive`'s survey answer to; only the command mode is gone.)
-
-## `approve <slug>` — retired 2026-07-31
-
-The subcommand and its script are **gone** (`docs/loop-engineering-workflow.md` K1/K2). **Merging a mission's pull request is its approval**: since J4 every mission arrives behind a PR, so `approve` gated the same content a second time and required a manual command to undo the first gate. There is nothing left to flip — a mission on `main` is claimable as soon as it has a plan and a ticket queue.
-
-When `$ARGUMENT` starts with `approve`, do not create anything and do not treat it as a title. Say the mode was retired, name what replaced it (merge the mission's pull request; if it is already on `main` it is already claimable), and then render the **Mission Position Report** for the named mission — that is what the developer was actually reaching for. If its `ready_reason` is `no_plan`, route to the **replan flow** below; that is now the only path from a thin mission to drive-ready.
+Three literal words used to be intercepted here and none is any more. `summary` (retired 2026-07-22) and `approve` (retired 2026-07-31) kept deprecation stubs that were themselves the fork — the modes were already gone, so the stubs bought a courtesy message at the price of two words no mission may be titled. **Ending a mission moved to its own command, `/mission-close <slug>`**, which keeps `close.sh` the single writer of an end state; that property was the reason it could not simply be dropped. A bare `/mission` still opens the planning session below — that is a *scope* (no mission named, so all of yours) rather than a mode selected by a word, which is the distinction P5 draws.
 
 ## Referencing an existing mission — replan
 
-A non-`summary`, non-`close`, non-empty argument may be an instruction **about a mission that already exists** — "extend the alpha mission to cover exports", "〜のミッションの受け入れ基準を見直す", or just an existing slug or title. That routes to a **replan** of that mission, not to creating a duplicate. The judgment is yours (natural-language understanding is the main agent's job — a resolver script cannot read "〜する感じに", and an instruction must never silently become a garbage mission title), but the **criteria are fixed and written here** so a routing decision can be audited afterwards.
+A non-empty argument may be an instruction **about a mission that already exists** — "extend the alpha mission to cover exports", "〜のミッションの受け入れ基準を見直す", or just an existing slug or title. That routes to a **replan** of that mission, not to creating a duplicate. The judgment is yours (natural-language understanding is the main agent's job — a resolver script cannot read "〜する感じに", and an instruction must never silently become a garbage mission title), but the **criteria are fixed and written here** so a routing decision can be audited afterwards.
 
 **1. Judge the reference.** Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/list.sh` and compare the argument against every mission's `slug` and `title`. The argument **references** a mission when any of these hold:
 
@@ -176,35 +168,3 @@ For each gap (or when the developer says the plan feels thin), open a short **di
 ### Step 5 — Execution hand-off: `/goal /implement ok`
 
 End by recommending **`/goal /implement ok`** as the way to execute the readied missions — long, unattended, at any hour. Running it from this root worktree is unambiguous now that the drive skill is the sole executor: it surveys the unclaimed missions, claims each as a PR-unit, and drives it in the claim's own worktree, so there is nothing to point it at by hand. The `ok` token is what makes it loopable — `/implement` emits it only when every unit it claimed genuinely reached its routed end (`workaholic:drive` §7).
-
-## `close <slug>` — end a mission
-
-When `$ARGUMENT` starts with `close`, end the named mission.
-
-**State where the mission stands first — always, before asking anything.** Give the **Mission Position Report** (defined once in `workaholic:mission`; do not restate it here), plus — when carrying — exactly what would move to the successor. A mission is the unit the developer reasons in; ending one without saying where it stands asks them to decide blind.
-
-If the outcome is not stated in the argument, ask with `AskUserQuestion` (prefix the `question` body with the `[<project label>]` from `bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/project-label.sh`) — the outcome is **three-way**:
-
-- **achieved** — the goal was reached.
-- **abandoned** — ended without reaching it, and the remainder is not worth doing.
-- **carried** — done **as framed**, with the remainder still worth doing: it becomes a successor mission that inherits the unmet criteria. Requires a successor (a title to mint one, or an existing slug).
-
-If the mission's `## Acceptance` progress is not `total/total`, say so in the question body — unfinished criteria mean `abandoned` **or** `carried`, and the difference is whether the remainder is still worth doing. Do not let `carried` become a way to avoid saying `abandoned`: a successor nobody drives is an abandoned mission with a longer name. The developer decides.
-
-Then run the shared mutator (never hand-edit `status:` or `mv` the directory):
-
-```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/close.sh "<slug>" <achieved|abandoned|carried> \
-  [--successor-title "<title>" | --successor <slug>]
-```
-
-Run it **inside a publish tree** (`open-publish-tree.sh`, then `( cd <publish_path> && … )`) and publish the result with subject `Close mission <slug>`, closing the tree afterwards. The archive move is a mission write like any other; leaving it on the caller's checkout would reintroduce exactly the invisibility this model removes.
-
-The script flips `status`, appends a closing `## Changelog` line, moves the mission dir to `.workaholic/missions/archive/<slug>/`, refreshes the OKF indexes, and git-stages. Report the JSON result:
-
-- `closed: true` with `status: "carried"` — the JSON carries `successor` and `successor_path`. **Report where the mission landed and what carried**: the predecessor's final `checked/total`, the successor's slug and its computed progress (`0/<n unmet>`, from `progress.sh` — never a carried-across number), and the unmet criteria that moved. Say plainly how far a fresh session could take the successor from here: its Goal, Scope and gate came along, so the successor is drive-ready once it has tickets. The successor gets **no worktree** from the predecessor (see the skill's *Outcomes*); it is fleshed out through the **replan flow** — `/mission <instruction referencing the successor>` emits its tickets (the create flow dead-ends on the successor's existing `mission.md`) — so say so rather than letting the developer assume in-flight state carried.
-- `closed: true` — tell the user the mission is ended, its final status, and its archived path.
-- `closed: false` with `reason: "already_closed"` — the mission was already archived with that status; nothing changed.
-- `closed: false` with `reason: "not_found"` — no such mission; run `list.sh` and show the available slugs.
-
-**Close touches no worktree.** Worktrees are **claim-born and ship-torn** (`docs/loop-engineering-workflow.md` I6; the doctrine is stated once in `workaholic:mission`'s *Worktree lifecycle* and `workaholic:drive`'s *Claims*): a runner's `claim.sh` creates one and ship — or an explicit `release-claim.sh` — removes it. If `.worktrees/<slug>` is still standing after a close, that is an in-flight or stale **claim**, which `list-claims.sh` surfaces and a human decides about; say so rather than removing it here. Closing a mission is a statement about the record, and a bookkeeping action must not double as a destructive one.

@@ -25,15 +25,17 @@ This command (main agent) runs the `workaholic:create-ticket` **Workflow** direc
 
 ## Instructions
 
-### Summary mode (bare `/ticket` or `/ticket summary`)
+### With no argument — report the queue
 
-If `$ARGUMENT` is **empty** or exactly `summary`, do **not** create a ticket. Run the read-only assigned-ticket summary and stop (this respects the create-only guardrail — it writes nothing):
+If `$ARGUMENT` is **empty**, do **not** create a ticket. Run the read-only queue summary and stop (this respects the create-only guardrail — it writes nothing):
+
+The literal `summary` was a second way to reach this and is **retired** (P5, 2026-08-06): a behaviour selected by the first word of an argument is a second command wearing one name, and `summary` was also a word no ticket could be described with. Bare `/ticket` is the surviving way in — a *scope* (no description given, so nothing to write) rather than a mode selected by a word. `/ticket summary` now writes a ticket about the word "summary", which is what any other undescribed argument does.
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/create-ticket/scripts/summary.sh
 ```
 
-Present the returned JSON as a readable list of the tickets in `todo/` this developer owns (plus the unowned, claimable ones) — one line per ticket showing its title, `type`, `layer`, and any `depends_on` — or tell the user their queue is empty and that `/ticket "<description>"` writes a new one. Do not run the discovery workflow, worktree guard, or any AskUserQuestion in this mode. For any other `$ARGUMENT`, continue with ticket creation below.
+Present the returned JSON as a readable list of the tickets in `todo/` this developer owns (plus the unowned, claimable ones) — one line per ticket showing its title, `type`, `layer`, and any `depends_on` — or tell the user their queue is empty and that `/ticket "<description>"` writes a new one. Do not run the discovery workflow, worktree guard, or any AskUserQuestion here. With any non-empty `$ARGUMENT`, continue with ticket creation below.
 
 ### Pre-check: Dependencies
 

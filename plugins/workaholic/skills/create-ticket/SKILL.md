@@ -25,7 +25,7 @@ This skill works on any Agent-Skills-compatible agent. The two Claude-Code mecha
 
 ## Summary Mode
 
-`/ticket` has a read-only **summary** mode, triggered by a bare invocation (empty `$ARGUMENT`) or the explicit argument `summary`. It reports the current user's assigned todo tickets and creates nothing — the discovery workflow and every AskUserQuestion are skipped.
+**With no argument, `/ticket` reports the queue instead of writing to it.** A bare invocation (empty `$ARGUMENT`) lists the tickets this developer owns plus the unowned, claimable ones, and creates nothing — the discovery workflow and every AskUserQuestion are skipped. The explicit `summary` argument reached the same place until P5 (2026-08-06) and is **retired**: a behaviour selected by the first word of an argument is a second command wearing one name, and it also reserved a word no ticket could be described with.
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/create-ticket/scripts/summary.sh

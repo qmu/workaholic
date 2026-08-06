@@ -78,7 +78,7 @@ The templates live in **this skill** (`routines/*.md`), not in any repository's 
 
 | Template | Trigger | What it does |
 | -------- | ------- | ------------ |
-| `fb` | invoked | A reported issue becomes a `/fb` record and a PR |
+| `fb` | github-issue-assigned | An issue assigned to the developer becomes a `/fb` record and a PR |
 | `merged-pr` | invoked | A merge is announced to `dev-<repo>` |
 | `drive` | cron `56 * * * *` | The hourly unattended drive runner (still a pilot) |
 
@@ -92,11 +92,11 @@ The templates live in **this skill** (`routines/*.md`), not in any repository's 
 | `run_once_at` | one scheduled time |
 | `api_token_hint` / `api_token_created_at` | **an external caller** POSTing `/v1/code/triggers/<id>/run` with that token |
 
-There is **no event-subscription field of any kind** — nothing naming a pull request, a merge, a push, a repository or a webhook. So `trigger: event` in a template has never meant "this routine watches an event". It means the routine carries no schedule and **waits to be invoked** by something outside the account. The templates now say `invoked`, which is what the API supports.
+There is **no event-subscription field of any kind** — nothing naming a pull request, a merge, a push, a repository or a webhook. So `trigger: event` in a template never meant "this routine watches an event": the wiring that starts an unscheduled routine lives **outside the record**, in the GitHub integration, and the record cannot be read for it. A template's `trigger:` therefore states the **designed** trigger for the drift report and the reader — `github-issue-assigned` for `[Propose]` — not a field the API stores.
 
-**How they are invoked is unknown, and `last_fired_at` cannot answer it** (corrected 2026-08-06; the claim this replaces was wrong and reached `main`). Every `[Consent]` (8 repositories) and every `[Propose]` (7) carries an empty `cron_expression`, no `run_once_at`, **no API token**, and **no `last_fired_at` key at all** — and the first version of this paragraph read that absence as proof that none had ever fired. It is not proof. On 2026-08-05 a Claude Code **web container** session ran against this repository between 13:20Z and 13:32Z, turned issue #260 into a feedback record, opened PR #261 and posted to `dev-workaholic` — the `[Propose]` routine's exact job, at a moment when that routine was the only one of its kind here and was `enabled` — and its `last_fired_at` stayed absent throughout. Whether the routine fired or a web session was started some other way, **the key's absence tells you nothing either way**, and a field that cannot distinguish "never ran" from "ran ten minutes ago" must not be read as if it could.
+**What invokes them is now stated by the developer, and it is neither a clock nor a merge** (2026-08-06): **`[Propose]` fires when a GitHub issue assigned to the developer is opened.** That is the whole design; the wiring lives in the GitHub integration, outside the routine record. Two prior readings of the account got this wrong in opposite directions, and both failed the same way — by treating the record as able to answer a question it does not carry. First an absent `last_fired_at` was read as "never fired" (retracted: a web session did the `[Propose]` job for issue #260 → PR #261 on 2026-08-05 with the key absent throughout — the field cannot distinguish "never ran" from "ran ten minutes ago"). Then the absent event field was read as "no event path exists". Neither field answers it; the design does.
 
-What survives the correction is only what was actually observed in the record: there is **no event-subscription field**, so nothing in the record explains how an unscheduled routine comes to run. The inference drawn from that — *therefore nothing can invoke them* — did not survive, and the mechanism is an open question rather than a settled absence.
+**A `[Propose]` routine observed firing on a merged pull request is misconfigured.** The merge is `[Consent]`'s event, and one event has one owner. Repairing a live routine's trigger is a **human act in the routines UI**: the trigger wiring is invisible to `RemoteTrigger list` and unreachable by it, so neither the drift report nor `/setup-routines` can see or fix it — they cover the prompt, model, schedule, `enabled` and the Slack connector, and the trigger only through the template's declared intent.
 
 **The consequence for scheduling.** `[Drive]` keeps its cron, and the reason that matters is the one independent of all this: handoff resumption, a claim whose heartbeat lapsed, and any ticket `/ticket` wrote rather than a proposal have **no merge event to key on at all**, so a clock is required whatever the event path turns out to be. The retracted claim had made the clock look like the *only* path; it is not known to be, and the decision never rested on that.
 
@@ -127,6 +127,10 @@ The orange/green/yellow/purple/rocket posts announce events the session itself p
 **The shapes of the runner's posts**, so a template names its postable events without restating how each line looks. `<@U…>` follows the mention rule below; `{repo_name}` and `{repo}` are the routine's own substitutions.
 
 ```
+🟢 Proposed to <@U…> - [#123 [Proposal] Issue Title]({repo}/pull/123)
+One sentence, max 40 words, what the ask is — and, when the PR carries work, what it proposes.
+`fb:<stem>` · <session URL>
+
 🔴 drive blocked - `<signature>`
 One sentence, max 25 words, what failed and what a human must do.
 
@@ -142,7 +146,7 @@ The next run resumes it automatically; `git fetch && git checkout <branch>` to t
 <session URL>
 ```
 
-A merge uses the 🟢 shape with its line swapped for the actor: **🚀 Auto Merge by Claude** when the unit's recorded `merge_policy` was `auto` and `/ship` merged it, **🟣 Merged by `<@U…>`** when a human merged it during the run. That distinction is the point — a developer scanning the thread must be able to tell what merged without approval from what a person approved — and it is why the auto line names no person.
+**🟢 Proposed is the `[Propose]` routine's thread root** — its `` `fb:<stem>` `` line is the key every later reply searches for, so it is never dropped. A merge uses the 🟢 Merge-Requested shape with its line swapped for the actor: **🚀 Auto Merge by Claude** when the unit's recorded `merge_policy` was `auto` and `/ship` merged it, **🟣 Merged by `<@U…>`** when a human merged it during the run. That distinction is the point — a developer scanning the thread must be able to tell what merged without approval from what a person approved — and it is why the auto line names no person.
 
 ### One thread per feedback item — the notification model (decided 2026-08-04)
 

@@ -16,6 +16,15 @@ merge_policy:
 
 ## Overview
 
+**Answered by the developer, 2026-08-06, before any session investigated**: `[Propose]`
+fires when **a GitHub issue assigned to them is opened** — the wiring lives in the GitHub
+integration, outside the routine record. What remains of this ticket is narrower than
+either of its earlier framings: **verify** that wiring exists per repository, make "has
+this routine run, and when" **observable** to a reader, and list — for a human to fix in
+the routines UI, since the trigger wiring is invisible to `RemoteTrigger` — any `[Propose]`
+routine configured to fire on a **merge**, which the developer has already observed
+elsewhere in the fleet and ruled a misconfiguration (a merge is `[Consent]`'s event).
+
 **Rewritten 2026-08-06.** This ticket was minted the previous evening as *Stand up an
 invoker for the unscheduled routines*, on the premise that `[Propose]` and `[Consent]`
 have never fired because nothing invokes them. **The premise was wrong**, and the ticket
@@ -103,4 +112,5 @@ start one deliberately, or what to check when one does not run.
   a measurement, the conclusion was written into six documents and a ticket, and it was
   contradicted within a day. Whatever this ticket concludes must name the observation it
   rests on, so the next reader can check it rather than inherit it.
-- The developer's answer to step 1 may close this in minutes. Ask before investigating.
+- The developer answered step 1 unprompted (above). Do not re-ask it; the remaining work
+  is verification, observability, and the misconfiguration list.

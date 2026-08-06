@@ -3,9 +3,9 @@ created_at: 2026-08-06T14:40:06+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
+effort: 1h
 commit_hash:
-category:
+category: Changed
 depends_on: 20260806144006-render-copy-paste-setup-sheets-from-structured-trigger-declarations.md
 mission: retire-routine-management-into-a-setup-sheet
 merge_policy:
@@ -85,3 +85,33 @@ correct every document that presents it as the management path.
   bar for acts that remain — it removes the acts.
 - `check-slack-channel.sh` stays: the sheet tells the developer to have `dev-<repo>`
   ready, and the probe's honest `checked: false` contract is still the right shape.
+
+## Final Report
+
+Development completed as planned, landing after the sheet ticket so the command never had
+a gap. Seven files deleted (`plan-routine-change.sh`, `authorize-routine-change.sh`,
+`compare-routines.sh`, `list-routines.sh`, and the three `lib/` modules), with their two
+test sections removed and the third trimmed to the half that survives (templates,
+rendering, the setup sheet). A repo-wide sweep for the retired names now returns **zero**
+hits outside the sentences that record the retirement itself.
+
+### Discovered Insights
+
+- **Insight**: The retirement reached further than the seven files. `/workaholify` step 4
+  surveyed the account and step 5 offered to create routines; `docs/proposal-loop-runbook.md`
+  §3 described the digest gate as the provisioning path; and two *analogies* pointed at
+  `authorize-routine-change.sh` as the canonical "this cannot prove a human was present"
+  example — one of them inside `land-unit.sh`'s own header, a script in the drive critical
+  path. A deletion that stopped at the scripts would have left four documents describing a
+  flow that no longer exists.
+  **Context**: The analogy case is the easy one to miss: it is not a *caller*, so it does
+  not break anything — it just sends the next reader to a file that is gone. Grepping for
+  the script names, not just for callers, is what caught it.
+
+- **Insight**: The digest gate's *reasoning* was worth preserving even though the gate is
+  gone: it closed substitution and batching, which is why the bar is not weakened by the
+  deletion — the acts it gated no longer exist. That distinction is recorded in the SKILL
+  beside the retirement, so a future reader does not restore the machinery to recover the
+  principle.
+  **Context**: Deleting a measured answer without recording what it answered is how the
+  same defect gets re-fixed a third time.

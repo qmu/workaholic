@@ -230,7 +230,7 @@ bash drive/scripts/land-unit.sh <unit-id> --developer-present [--override-scan]
 | Refusal | When |
 | ------- | ---- |
 | `headless_context` | `CLAUDE_CODE_REMOTE=true` (the container every routine tick runs in), a non-empty `CI`, or `WORKAHOLIC_HEADLESS=1`. Checked **first** and **not overridable by any flag** — a provably unattended caller must not be able to talk its way past it. |
-| `no_developer_instruction` | `--developer-present` was not passed. It is the instruction, **not a proof**: like `authorize-routine-change.sh` this cannot demonstrate a human was in the room and is not sold as doing so. What it buys is that the route is never taken by *omission* — an unattended caller has to state a falsehood, which this command's own contract forbids. |
+| `no_developer_instruction` | `--developer-present` was not passed. It is the instruction, **not a proof**: no script an agent runs can demonstrate a human was in the room, and this is not sold as doing so. What it buys is that the route is never taken by *omission* — an unattended caller has to state a falsehood, which this command's own contract forbids. |
 
 **`/drive` never calls it.** The unified run has no interaction point, so it has no instruction to act on; the route exists for a developer typing it in a session. The remaining refusals are facts, not judgments: `not_claimed`, `worktree_missing`, `dirty_worktree`, `no_origin`/`origin_unreachable`, `catchup_conflict` (naming the conflict class), `diverged`.
 

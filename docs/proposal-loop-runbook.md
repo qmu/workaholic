@@ -40,9 +40,9 @@ Both unset is valid: the loop runs identically and records
 **Two notification paths, and they do not overlap.** `notify-slack.sh` is the
 bot-token path a shell or CLI invocation uses, configured here. The `[Propose]`
 routine posts the item's **thread root** through the **account's Slack
-connector** instead — its cloud container carries no env file — so a routine that
-lacks that connector is reported as drift by `compare-routines.sh`. Neither path
-is load-bearing: a proposal that opened its pull request is a success whether or
+connector** instead — its cloud container carries no env file — so the connector
+must be selected when the routine is created, and nothing in the plugin can
+verify that it was. Neither path is load-bearing: a proposal that opened its pull request is a success whether or
 not anyone was told.
 
 ## 3. Schedule the routine
@@ -63,13 +63,12 @@ Provision it from an interactive session in the repository:
 /workaholify             # the same survey inside the full standards pass
 ```
 
-Either command renders the template, shows you the **full prompt and schedule**,
-and creates the routine only after you confirm that exact content — one routine
-at a time, never batched. That bar is enforced in code
-(`plan-routine-change.sh` stamps a `confirm_digest`;
-`authorize-routine-change.sh` refuses a tampered plan or a mismatched digest),
-because a routine is a standing outward-facing process acting on the repository
-unattended.
+Either command renders a **copy-paste setup sheet** — the name, model, repository,
+the prompt verbatim, and the web-UI steps for the trigger — and you create the
+routine yourself at <https://claude.ai/code/routines>. The plugin does not create
+it: a routine's GitHub trigger is configurable in the web UI only, and the API
+record carries no event field, so the wiring can be neither set nor verified from
+a session.
 
 Two things the routine needs before it can work:
 

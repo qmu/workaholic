@@ -8272,8 +8272,26 @@ function testCheckDepsRegistryDrift() {
     r = JSON.parse(run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.checkDeps}`,
       { env: { ...process.env, CLAUDE_PLUGIN_REGISTRY: registry, CLAUDE_PLUGIN_ROOT: "" } }).stdout);
     assertEq("no plugin root means no registry verdict at all",
-      { rv: r.registry_version, behind: r.loaded_version_behind_registry, unread: r.registry_unreadable },
-      { rv: "", behind: false, unread: false });
+      { rv: r.registry_version, behind: r.loaded_version_behind_registry, unread: r.registry_unreadable, src: r.loaded_root_source },
+      { rv: "", behind: false, unread: false, src: "none" });
+
+    // THE ENV VAR IS NOT HOW THE SANCTIONED CALLER ARRIVES (2026-08-06). The harness
+    // expands ${CLAUDE_PLUGIN_ROOT} in plugin markdown — a literal path, not an export —
+    // so a LOCAL /drive step 0 reached this script with no variable at all and the one
+    // pre-flight stop never fired locally. When the script's own resolved path sits
+    // inside the plugin cache, that path IS the binding: the caller got there through
+    // the expanded token. CLAUDE_PLUGIN_CACHE is the test seam for the cache prefix.
+    const cacheScripts = join(oldRoot, "skills/check-deps/scripts");
+    mkdirSync(cacheScripts, { recursive: true });
+    writeFileSync(join(cacheScripts, "check.sh"), readFileSync(SCRIPTS.checkDeps, "utf8"));
+    r = JSON.parse(run(dir, `${POSIX_SH} ${join(cacheScripts, "check.sh")}`,
+      { env: { ...process.env, CLAUDE_PLUGIN_ROOT: "", CLAUDE_PLUGIN_CACHE: join(dir, "cache"), CLAUDE_PLUGIN_REGISTRY: registry } }).stdout);
+    assertEq("a cache-path invocation with no env var still gets the verdict",
+      { v: r.version, src: r.loaded_root_source, behind: r.loaded_version_behind_registry },
+      { v: "1.0.112", src: "cache_path", behind: true });
+    // A checkout invocation is NOT under the cache prefix, so the silence above is
+    // preserved for exactly the callers that must never be accused: bundle, non-Claude
+    // agent, developer running an old checkout by hand.
 
     // GATE 1's real point: a check.sh OLD ENOUGH TO PREDATE THE FIELD must not read as
     // healthy. This fixture is the pre-fix reporter verbatim — it emits neither field —

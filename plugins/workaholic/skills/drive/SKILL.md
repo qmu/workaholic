@@ -89,9 +89,17 @@ Emits `{fetched, shallow, base, surveyed_sha, base_sha, current, user_slug, back
 
 Both tiers stay a *takeover*, never a fresh claim: the unit is already claimed, and resuming continues from the pushed branch tip.
 
-**Missions are offered by ownership.** A mission is claimable when the runner's `git config user.email` is among its owners, or when it has no owners at all (team-owned = claimable); one owned solely by others is dropped as `owned_by_other`. Ownership resolves through `mission/scripts/mission-owners.sh` — the same oracle the mission lens, `list.sh`'s `relation`, `summary.sh` and `ship`'s concern lane read — so the queue a runner drains and the roadmap a developer is shown cannot disagree about whose work it is.
+**Every artifact is offered by ownership — a ticket exactly as a mission.** An artifact is claimable when the runner's `git config user.email` is among its owners, or when it has no owners at all (team-owned = claimable); one owned solely by others is dropped as `owned_by_other`. Ownership resolves through `gather/scripts/owns.sh` over `gather/scripts/owners.sh` — the same oracle the mission lens, `list.sh`'s `relation`, `summary.sh`, `/ticket`'s summary and `ship`'s concern lane read — so the queue a runner drains and the roadmap a developer is shown cannot disagree about whose work it is. A **ticket** joined this rule on 2026-08-06 (P2): its owner used to be its directory (`todo/<user-slug>/`), which is why the survey used to fail by *not finding a queue* rather than by *not knowing whose it was*.
 
-**An unreadable backlog is not an empty one.** `backlog_error` is `""` when the queue was genuinely read, and names the reason otherwise: `identity_unresolved` (no `git config user.email`, so there is no `todo/<user>/` to name — nothing at all is known about the backlog) or `unreadable`. `user_slug` reports *whose* queue was surveyed, empty when unresolvable. A non-empty `backlog_error` **forbids `ok`** (§7), exactly as `current: false` does: a run that never learned the queue's contents has established nothing about it. This is a property of the survey, not of an artifact, which is why it is a top-level key rather than an `excluded[]` entry — `excluded[]` names items the survey *saw and dropped*.
+**An unreadable backlog is not an empty one, and an unidentified runner no longer produces one.** Three fields keep the states apart, and they are top-level keys rather than `excluded[]` entries because `excluded[]` names items the survey *saw and dropped*:
+
+| field | what it means |
+| ----- | ------------- |
+| `backlog_error` | `""` when the queue was read; `unreadable` otherwise. **Forbids `ok`** (§7) exactly as `current: false` does — a run that never learned the queue's contents has established nothing about it. |
+| `backlog_size` | how many tickets the queue holds before any filtering. This is what makes *nothing for me* and *nothing at all* distinguishable from outside. |
+| `owner_unresolved` | the queue **was** read and this runner has no identity to judge ownership against. Unowned artifacts are still offered; every owned one is excluded as `owner_unresolved`. It **forbids `ok`** but does **not** terminate the run — the survey is honest and the unowned half is genuinely actionable. |
+
+`identity_unresolved` is gone from this vocabulary with the per-user directory that produced it (P2, 2026-08-06). Under the old layout there was no `todo/<user>/` to open without a `git config user.email`, so an unidentified runner reported an *empty backlog over a full queue* — the failure that made ownership-as-path worth removing. Claiming still needs an identity and still fails loudly without one: that question is "is this my own run", which is the claim protocol's, and it is deliberately unchanged.
 
 **Truncated history is the third thing that forbids `ok`.** `shallow` reports whether this clone could answer "which branches reached the base at all" — a different axis from `current`, which asks only whether the checkout saw the base's latest commit, and a survey can fail either independently. The shared reader *deepens* a shallow clone before scanning, so `shallow: true` survives only when origin is unreachable; a claim scan computed over truncated history has established nothing about what remains claimable, so it terminates `pending` (§7). See *Claims* for the measurement.
 
@@ -370,7 +378,7 @@ The boundary decides everything, so hold it exactly:
 
 **Mint only for an observed problem — never a passing thought.** A ticket per speculative improvement turns the queue into a diary and buries the real ones, which is worse than a report paragraph because it looks like a plan. The threshold: the run **actually hit** it. A refactor idea, a "we might also want", a thing you noticed but did not run into — **not a ticket**.
 
-The minted ticket goes through the sanctioned path: the `create-ticket` structure, written to `todo/<user>/`, with its mandatory `## Policies` and `## Quality Gate` (`validate-ticket.sh` rejects it otherwise), and it inherits the provoking ticket's `mission:` relation (read via `mission/scripts/read-relation.sh`, never re-parsed). **Report every minted ticket** as its own line: what was found, which ticket provoked it, and the new filename — a run that quietly mints tickets is a run that quietly changes the plan.
+The minted ticket goes through the sanctioned path: the `create-ticket` structure, written to `todo/`, with its mandatory `## Policies` and `## Quality Gate` (`validate-ticket.sh` rejects it otherwise), and it inherits the provoking ticket's `mission:` relation (read via `mission/scripts/read-relation.sh`, never re-parsed). **Report every minted ticket** as its own line: what was found, which ticket provoked it, and the new filename — a run that quietly mints tickets is a run that quietly changes the plan.
 
 **Do not append an acceptance item to the mission for a minted ticket.** `## Acceptance` is the plan the developer agreed to, and its `checked ÷ total` is the mission's progress; auto-appending would move the goalposts so that every minted ticket lowers completion against criteria nobody accepted — a mission could recede as it works. Promoting a minted ticket into the definition of done is the developer's call. (Consequence, accepted knowingly: a mission's ticket set can drift from its `## Acceptance`. That is the honest state — the queue reflects reality, the acceptance list reflects the agreement.)
 
@@ -482,13 +490,13 @@ Handle missing metadata gracefully: absent fields mean normal priority, and an e
 
 On Claude Code this ordering may be delegated to a `general-purpose` subagent (preloading `workaholic:drive`, returning `{tickets[], tiers{}, cycle_warning}`); inline is equally correct and is the default elsewhere. That subagent issues no `AskUserQuestion` — no subagent can, and nothing in this run below §2 does.
 
-**Sweep strays first**, so root-level tickets are routed even when `/drive` runs before any `/ticket`:
+**Converge the queue layout first**, so a checkout still carrying per-user ticket directories flattens before anything reads or writes it:
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/create-ticket/scripts/sweep-todo.sh
+bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/migrate-todo-owners.sh
 ```
 
-The sweep routes each root-level `todo/*.md` into `todo/<author-slug>/` by the stray's own `author:` frontmatter, git-staging each move (these staged moves ride into the next archive commit, which runs `git add -A`). It never moves a ticket to the icebox.
+It moves any `todo/<user-slug>/X.md` to `todo/X.md`, stamping `assignees` from the directory it came from, and git-stages each move (these staged moves ride into the next archive commit, which runs `git add -A`). It never moves a ticket to the icebox and never touches `archive/`. Nothing depends on it having run — every reader tolerates both layouts — so it converges the tree rather than gating it. It replaced `sweep-todo.sh`, which routed strays the other way.
 
 ### The icebox is developer-curated
 

@@ -17,26 +17,28 @@ mcp: [Slack]
 the GitHub integration, outside the routine record, which carries no trigger field
 (`workaholify` SKILL, *What a routine can be triggered by*).
 
-**Four lines, identical in every repository.** A developer configures this by hand, once
-per project, so the prompt must be one text they paste everywhere — **no substitutions,
-no repository name** (P3, amended by P7, 2026-08-06). The session already knows which
-repository it is in; naming it in the prompt made every project's copy different, which
-is the per-project cost the reduction exists to remove.
+**The prompt is the developer's own four lines, rendered into English** (P3, 2026-08-06;
+the source is the ruling recorded as feedback `20260806183556`). It says only: read the
+notification target and the payload out of the triggering artifact, tell the target — in
+the payload's own language — that work has started, run the one command, and post the
+result in the given format.
 
-What the four lines carry is only what the plugin cannot know: the environment (what
-started the session, that nobody is present), the payload to read the ask out of, the one
-command, and **the channel and post shape** — the one thing a routine cannot defer,
-because it *is* the routine's output contract. Everything else has a home:
-`workaholic:propose` owns the judgment, the single pull request and the `[Proposal]`
-prefix; `workaholic:feedback` owns the record; the `workaholify` SKILL owns every
-notification rule; the always-loaded `rules/` own the standing prohibitions.
+**Nothing else, and the omissions are the point.** No plugin gate, no procedure, no rule
+a skill already owns: `workaholic:propose` owns the judgment, the single pull request and
+the `[Proposal]` prefix; `workaholic:feedback` owns the record; the `workaholify` SKILL
+owns every notification rule; the always-loaded `rules/` own the standing prohibitions.
+The routine is also unattended by virtue of running `/propose`, which prompts at no step,
+so the prompt does not restate that either.
+
+**The notification target comes from the Issue**, not from a channel name in the prompt —
+which is why no repository is named here and the same four lines paste into every
+project. `{repo}` in the format line is the developer's own placeholder for the pull
+request link.
 
 ## Prompt
 
-You are the [Propose] runner for this repository — an isolated cloud session started because a GitHub issue was assigned. No human is here: never ask a question, never wait for input, never use AskUserQuestion.
+- Read the notification target (Slack Thread URL) and the feedback (FB) from the Issue
+- Notify the target, in the same language as the FB, that consideration has started
+- After running `/propose [FB]`, notify the target in the following format
 
-Read the ask out of that issue: its title, its body, its assignee, and any thread it names.
-
-Run `/propose` with that ask and that assignee in hand — the assignee owns whatever gets emitted — and let the loaded skills own everything else.
-
-Post to Slack `dev-<repo>` and nowhere else, in the issue's own language: one 🟠 line when you start, naming the ask and linking the issue; then in that thread 🟢 Proposed, the pull request link, one sentence of at most 40 words, and the session URL.
+<@U…> 📐 [#123 Title]({repo}/pull/123)

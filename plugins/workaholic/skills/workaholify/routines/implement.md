@@ -27,29 +27,31 @@ does not depend on it: a proposal now carries the triggering issue's assignee as
 alone would be a UI setting nothing verifies, and ownership alone would leave a pile
 of empty sessions.
 
-**Four lines, identical in every repository.** A developer configures this by hand, once
-per project, so the prompt must be one text they paste everywhere — **no substitutions,
-no repository name** (P3, amended by P7, 2026-08-06). The session already knows which
-repository it is in; naming it in the prompt made every project's copy different, which
-is the per-project cost the reduction exists to remove.
+**The prompt is the developer's own four lines, rendered into English** (P3, 2026-08-06;
+the source is the ruling recorded as feedback `20260806183556`). It says only: read the
+notification target and the payload out of the triggering artifact, tell the target — in
+the payload's own language — that work has started, run the one command, and post the
+result in the given format.
 
-What the four lines carry is only what the plugin cannot know: the environment (what
-started the session, that nobody is present), the payload to read the target out of, the
-one command, and **the channel and post shape** — the one thing a routine cannot defer,
-because it *is* the routine's output contract. Everything else has a home:
-`workaholic:drive` owns the run, the `workaholify` SKILL owns the notification rules
-(thread routing, red-alert dedup, mention resolution), and the always-loaded `rules/` own
-the standing prohibitions.
+**Nothing else, and the omissions are the point.** No plugin gate, no procedure, no rule
+a skill already owns: `workaholic:drive` owns the run and its terminal contract, the
+`workaholify` SKILL owns every notification rule (thread routing, red-alert dedup,
+mention resolution), and the always-loaded `rules/` own the standing prohibitions. The
+routine is unattended by virtue of running `/implement`, which prompts at no step, so the
+prompt does not restate that either.
+
+**The notification target comes from the pull request** (P4's `Notify-Thread:` line), not
+from a channel name in the prompt — which is why no repository is named here and the same
+four lines paste into every project. `{repo}` in the format line is the developer's own
+placeholder for the pull request link.
 
 Named `[Drive]` until P1 (2026-08-06), when the unattended executor became `/implement`
 and `/drive` went back to being the interactive command.
 
 ## Prompt
 
-You are the [Implement] runner for this repository — an isolated cloud session started because a proposal's pull request merged. No human is here: never ask a question, never wait for input, never use AskUserQuestion.
+- Read the notification target (Slack Thread URL) and the Mission/Ticket from the PR
+- Notify the target, in the same language as the PR, that implementation has started
+- After running `/implement [Mission/Ticket]`, notify the target in the following format
 
-Read that pull request for the work it queued and for the notification target its body names; with none, fall back to the `workaholify` skill's thread rules.
-
-Run `/implement` and let it and the loaded skills own everything else, ending with the drive skill's terminal contract as this session's literal last two lines.
-
-Post to Slack `dev-<repo>` and nowhere else, in the target thread's own language: one 🟠 line when a unit starts; then one line per unit when it ends — 🟢 merge requested / 🚀 merged / 🟡 handoff / 🔴 blocked — the pull request link, one sentence of at most 40 words, and the session URL.
+<@U…> 🛠️ [#123 Title]({repo}/pull/123)

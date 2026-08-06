@@ -48,11 +48,12 @@ not anyone was told.
 ## 3. Schedule the routine
 
 The loop runs **in the repository**, in an isolated cloud session started by the
-`[Propose]` routine. It carries **no cron and waits to be invoked** — and *invoked* is
-literal: a routine record has no event-subscription field, so nothing fires this one
-until an external caller POSTs its `/run` (`skills/workaholify/SKILL.md`, *What a routine
-can be triggered by*; measured 2026-08-05, no `[Propose]` routine has ever fired). Given
-an invoker, it runs on the inbound
+`[Propose]` routine. It carries **no cron and is invoked** — and the record does not say
+by what: a routine has no event-subscription field, so how an unscheduled one comes to run
+is not answerable from it (`skills/workaholify/SKILL.md`, *What a routine can be triggered
+by*). A claim that no `[Propose]` routine had ever fired stood here for one day and was
+retracted on 2026-08-06; it rested on an absent `last_fired_at`, and a web session did
+this routine's job on 2026-08-05 with the key still absent. It runs on the inbound
 report, which is also the moment its judgment has the most context available.
 Its prompt is the shipped template
 `plugins/workaholic/skills/workaholify/routines/fb.md` (template id `fb`).

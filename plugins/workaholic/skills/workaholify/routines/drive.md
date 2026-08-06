@@ -11,23 +11,30 @@ mcp: [Slack]
 
 # [Drive] — the hourly unattended drive runner
 
-The **only** scheduled template, and — measured 2026-08-05 — the only one of the three
-that any trigger has ever fired. `[Propose]` and `[Consent]` carry no schedule and wait to
-be invoked, and nothing invokes them; the `[Propose Batch]` that briefly shared this line
-was retired on 2026-08-04 (`docs/proposal-loop-runbook.md` §7). It runs `/drive` in an
+The **only** scheduled template: `[Propose]` and `[Consent]` carry no schedule and are
+invoked by something outside the routine record, which does not say what. (An earlier
+version of this line claimed those two had never fired at all; that was read off an absent
+`last_fired_at` and is retracted — `workaholify` SKILL, *What a routine can be triggered
+by*.) The `[Propose Batch]` that briefly shared this line was retired on 2026-08-04
+(`docs/proposal-loop-runbook.md` §7). It runs `/drive` in an
 isolated cloud session every hour at :56 UTC. Still marked `(pilot)` in its name.
 
 **Why the clock, and not a merge event** (decided 2026-08-05, from the ask that this
 routine start when a proposal's pull request merges). A routine record has no
 event-subscription field at all — its whole trigger surface is `cron_expression`,
 `run_once_at`, and an API token letting an external caller POST `/run` (`workaholify`
-SKILL, *What a routine can be triggered by*). So there is no merge to key on, and the
-`[Consent]` template — whose subject already *is* a merged pull request — keeps ownership
-of that event rather than this one growing a second watcher of it. Starting a drive run
-from a merge needs an **invoker**, not a second routine, and standing one up is a human
-act. The clock also covers three things no merge event ever will: resuming a handoff,
+SKILL, *What a routine can be triggered by*). So there is no merge for **this template's
+frontmatter** to key on, and the `[Consent]` template — whose subject already *is* a
+merged pull request — keeps ownership of that event rather than this one growing a second
+watcher of it. Starting a drive run from a merge means arranging an **invoker**, not
+adding a second routine on the same event, and standing one up is a human act.
+
+**The decision does not rest on the trigger surface, which is why it survived a correction
+to it.** The clock covers three things no merge event ever will: resuming a handoff,
 taking back a claim whose heartbeat lapsed, and driving a ticket `/ticket` wrote rather
-than a proposal. Do not re-open this by swapping the trigger; the trigger is not there.
+than a proposal. That reason alone settles it. What was retracted on 2026-08-06 is the
+companion claim that the unscheduled routines never fire at all — read off an absent
+`last_fired_at`, and contradicted the next day.
 
 Its Slack posts name a unit or a PR the session itself just produced, so it has no
 "which one?" ambiguity — unlike `merged-pr`, whose subject is an external event.

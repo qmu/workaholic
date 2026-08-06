@@ -101,34 +101,21 @@ installed CLI):
   or removal is confirmed verbatim, one routine at a time, in an interactive
   session (`skills/workaholify/SKILL.md` §5).
 
-### Why a clock at all, and not a merge event (decided 2026-08-05)
+### The cloud routine is merge-triggered; the clock in this runbook is the fallback (2026-08-06)
 
-The natural ask is that the loop start **when a proposal's pull request merges** rather
-than on a timer. It cannot, and the reason is a capability rather than a preference: a
-Claude Code Web routine record has **no event-subscription field**. Read back over the
-whole live account, its entire trigger surface is `cron_expression`, `run_once_at`, and an
-API token letting an external caller POST `/v1/code/triggers/<id>/run` — nothing that
-names a repository, a pull request or a merge (`skills/workaholify/SKILL.md`, *What a
-routine can be triggered by*). The `[Propose]` and `[Consent]` templates read as
-"event-driven" only in the sense that they carry no schedule and are invoked from
-somewhere the record does not name. **A stronger claim was made here on 2026-08-05 and
-retracted on 2026-08-06**: that neither had ever fired, read off an absent
-`last_fired_at`. A web session did that routine's exact job the same afternoon with the
-key still absent, so the key distinguishes nothing and the mechanism is an open question.
+The `[Drive]` cloud routine now **fires when a proposal's pull request merges** — the
+developer's original ask. Two earlier versions of this section argued for a clock, first
+from "a merge trigger does not exist" (retracted: the trigger wiring lives in the
+routines UI, invisible to the API record both readings relied on) and then from the
+recovery argument. The recovery argument is answered by the survey itself: a
+merge-started `/drive auto` offers everything claimable — a handoff to resume, a lapsed
+claim, backlog `/ticket` wrote — not only the merged proposal's work, so the leftovers
+ride the next merge. The server cron this runbook documents remains the **fallback
+shape** for a machine-local loop, and standing it up stays a developer's act.
 
-So the clock's justification is the one below, not the state of the event path. Both
-reasons hold whether or not an invoker exists — which is a standing outward-facing process
-and therefore a human act to stand up:
-
-- **The merge event does not cover the loop's own recovery.** Resuming a handoff and
-  taking back a claim whose heartbeat lapsed are timer work by construction: nothing
-  merges when a runner dies.
-- **Not every ticket comes from a proposal.** Anything `/ticket` wrote has no merge event
-  to key on, and would sit in the queue indefinitely.
-
-The announcement half of the same ask is settled separately and does not need a trigger:
-a drive run posts its own start and finish into the feedback item's thread (§5, and
-`skills/workaholify/SKILL.md`, *One thread per feedback item*).
+The announcement half is unchanged: a drive run posts its own start and finish into the
+feedback item's thread (§5, and `skills/workaholify/SKILL.md`, *One thread per feedback
+item*).
 
 ## 4. What feeds the loop
 

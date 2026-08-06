@@ -34,10 +34,19 @@ variable — so every sanctioned invocation lands in the silent branch:
  "loaded_version_behind_registry": false, …}
 ```
 
-`/drive` §1 reads that as "no drift" and surveys. So the one **stop** in the run's
-pre-flight — the gate added on 2026-08-05 after a superseded binding made a tick claim an
-already-driven ticket — cannot fire through the path it was built for. The 2026-08-04
-incident it was written from was itself caught by a hand cross-check, not by this field.
+`/drive` §1 reads that as "no drift" and surveys.
+
+**Narrowed 2026-08-06 by evidence from the cloud runner: the gate is LOCAL-ONLY broken.**
+Step 1 below asked for exactly this measurement and it arrived on its own. At 02:59 JST the
+hourly `[Drive]` routine posted `🔴 drive blocked - stale-plugin-binding: loaded cache dir
+behind registry — Session bound plugin cache v1.0.112 while the registry records v1.0.133;
+terminated before surveying to avoid a double-pick`. So in the Claude Code Web container
+`CLAUDE_PLUGIN_ROOT` **is** present in a Bash tool call's environment, the axis computes,
+and the stop fires as designed — including on the very condition it was written for. The
+defect is confined to a **local** session, where a developer running `/drive` gets a
+silently unguarded pre-flight. That is still worth fixing (a local `/drive` writes to the
+same pushed refs a cloud tick does), but it is one environment rather than every one, and
+the fix must not disturb the path that demonstrably works.
 
 **The silence is a decided behavior, which is why this is a ticket and not a patch.**
 `test-workflow-scripts.mjs` pins it ("no plugin root means no registry verdict at all"),
@@ -65,9 +74,9 @@ other side, and it belongs in its own change rather than riding into one about r
 
 ## Implementation Steps
 
-1. **Confirm the measurement on the cloud runner too**, not only locally: dump the
-   environment of a Bash tool call in a routine session and record whether
-   `CLAUDE_PLUGIN_ROOT` is present. The fix differs if it is present there.
+1. ~~Confirm the measurement on the cloud runner.~~ **Answered 2026-08-06**: it is
+   present there — the hourly `[Drive]` tick fired this exact gate at 02:59 JST. Scope the
+   fix to the local path and leave the cloud path untouched.
 2. **Decide what stands in for the binding when the variable is absent.** The strongest
    candidate is the script's own resolved path: `/drive` invokes check.sh through a path
    the harness produced by expanding `${CLAUDE_PLUGIN_ROOT}`, so in that invocation the
@@ -115,6 +124,7 @@ other side, and it belongs in its own change rather than riding into one about r
   itself (recorded in `bootstrap/session-start.sh`'s header). A reachable gate on an
   unrepairable condition is exactly why the threaded-reply alert rule shipped alongside:
   the run stops, and the operator has to be able to see that it kept stopping.
-- If step 1 finds the variable *is* present in the cloud container, the defect is narrower
-  — local sessions only — and the fix may be a documentation correction plus a narrower
-  assertion. Do not assume the local measurement generalizes.
+- Step 1's branch is settled: the variable **is** present in the cloud container, so this
+  is local-only. The remaining question is whether a local session should be guarded by
+  standing in the script's own resolved path for the binding, or whether the honest answer
+  is that a local `/drive` simply reports `registry_version: ""` and says why.

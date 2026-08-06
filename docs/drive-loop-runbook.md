@@ -110,12 +110,14 @@ whole live account, its entire trigger surface is `cron_expression`, `run_once_a
 API token letting an external caller POST `/v1/code/triggers/<id>/run` — nothing that
 names a repository, a pull request or a merge (`skills/workaholify/SKILL.md`, *What a
 routine can be triggered by*). The `[Propose]` and `[Consent]` templates read as
-"event-driven" only in the sense that they carry no schedule and wait to be invoked, and
-**nothing invokes them**: measured 2026-08-05, no routine of either kind has fired once
-since 2026-07-31.
+"event-driven" only in the sense that they carry no schedule and are invoked from
+somewhere the record does not name. **A stronger claim was made here on 2026-08-05 and
+retracted on 2026-08-06**: that neither had ever fired, read off an absent
+`last_fired_at`. A web session did that routine's exact job the same afternoon with the
+key still absent, so the key distinguishes nothing and the mechanism is an open question.
 
-So a clock is not a floor beneath an event path here; it is the only path. Two further
-reasons keep it even after an invoker exists — which is a standing outward-facing process
+So the clock's justification is the one below, not the state of the event path. Both
+reasons hold whether or not an invoker exists — which is a standing outward-facing process
 and therefore a human act to stand up:
 
 - **The merge event does not cover the loop's own recovery.** Resuming a handoff and

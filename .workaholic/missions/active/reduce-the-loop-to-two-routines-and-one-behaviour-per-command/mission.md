@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: []
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 3.5
 feedback: [20260806183556-two-routines-one-behaviour-per-command.md, 20260806184651-ownership-is-a-field-not-a-directory.md]
 tickets: []
 stories: []
@@ -58,3 +58,4 @@ subcommands anywhere, and `/drive` is again the interactive command it used to b
 - 2026-08-06 — ticket archived — 20260806183638-cut-the-two-routine-templates-to-four-lines-and-retire-consent.md
 - 2026-08-06 — ticket archived — 20260806183638-shape-propose-and-implement-for-the-routine-chain.md
 - 2026-08-06 — ticket archived — 20260806183638-abolish-subcommands-across-every-command.md
+- 2026-08-06 — run recorded (+3.5h) — 20260806-185233

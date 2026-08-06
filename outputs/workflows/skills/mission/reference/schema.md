@@ -40,14 +40,14 @@ Read it with `drive-authorized.sh` — never by grepping the field yourself.
 
 Redefinition record, so the moves are not re-litigated: ownership lived on the mission (`assignee`, singular) → moved to the strategy's `assignees` (2026-07-24 — "a direction is what a set of people own") → **returned to the mission, plural, 2026-07-28**: the loop-engineering reorganization retired the strategy layer (direction now accretes in the feedback stream — `docs/loop-engineering-workflow.md` decisions B3/B4), and in the team + AI-proposal model whoever takes a mission on, not the owner of a direction, is who answers for it. The single-oracle design is what made both moves cheap; the living migration (`migrate-strategies.sh`) folded strategy assignees down into their missions so the strategy hop could go without orphaning anything.
 
-Read a mission's owner(s) **only** through `mission/scripts/mission-owners.sh` — never by grepping `assignee` or `assignees`. It is the single ownership oracle; first non-empty tier wins:
+Read a mission's owner(s) **only** through `gather/scripts/owners.sh` — never by grepping `assignee` or `assignees`. It is the single ownership oracle; first non-empty tier wins:
 
-1. the mission's own `assignees` (via `mission/scripts/read-assignees.sh`, the single parser of the field shape — list and bare forms);
+1. the mission's own `assignees` (via `gather/scripts/read-assignees.sh`, the single parser of the field shape — list and bare forms);
 2. **legacy fallback**: the mission's own singular `assignee`, so missions predating the plural field are never orphaned.
 
 Prints one owner per line; **empty output means unowned** — unclaimed work, surfaced to everyone as claimable. A mission may be **co-owned**; "mine" means the caller is **among** the owners, not the sole one.
 
-**Not somebody else's, not exactly mine.** `summary.sh`, the **mission lens**, `list.sh`'s `relation`, and `/drive`'s survey all gate on "is this mission my business" — the caller is among the owners (mine, shown first), or there are no owners (unassigned, shown as claimable, after your own); a mission owned only by others stays silent. All four read through `mission-owners.sh`, so the gate is defined once.
+**Not somebody else's, not exactly mine.** `summary.sh`, the **mission lens**, `list.sh`'s `relation`, and `/drive`'s survey all gate on "is this mission my business" — the caller is among the owners (mine, shown first), or there are no owners (unassigned, shown as claimable, after your own); a mission owned only by others stays silent. All four read through `gather/scripts/owners.sh`, so the gate is defined once.
 
 **Claiming a mission = a one-line edit to that mission** — add yourself to its `assignees`. The claim is mission-local: it commits you to this plan and nothing else.
 

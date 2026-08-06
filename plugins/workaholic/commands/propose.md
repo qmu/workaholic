@@ -17,6 +17,8 @@ skills:
 
 **This command proposes from what is in hand** (`workaholic:propose` — read its *Propose at the capture seam* section first): the ask this session received and the feedback record it wrote from it. It reads nothing from a window and keeps no cursor; the repository's own state is a constraint it reads from the base. It is **unattended by contract** — it never issues `AskUserQuestion`, and every abort reports a machine-readable reason.
 
+**Act only on an ask that is yours** (P8). When the ask came from a GitHub issue carrying an **assignee**, compare it against this session's own GitHub identity (`gh api user`); if they differ, report `{"proposed": 0, "reason": "not_mine"}` and stop without writing anything. An unassigned issue, or no issue at all, proceeds as normal. Every developer's `[Propose]` routine fires on every assigned issue — the routines UI has no assignee filter — so without this each of them opens a pull request for the same issue.
+
 **What "in hand" means.** Any of: an ask given as this command's argument, a feedback record this session just wrote, or a record named explicitly by the caller. With **none** of those, report `{"proposed": 0, "reason": "nothing_in_hand"}` and stop — there is nothing to judge, and sweeping the repository for something to propose is exactly the design the 2026-08-04 ruling retired.
 
 ## Workflow
@@ -34,23 +36,23 @@ skills:
 6. **Judge** the ask against the skill's **judgment bar**, with the step-4 state in hand, and **decide the form** (skill: *The form follows the work's shape*): a direction that decomposes into **two or more** units is a mission with its ticket set (steps 7 and 8); an **atomic** one is a **single loose ticket** (step 8's loose form, no mission); one that is neither is **record-only**. Never dress an atomic ask as a one-ticket mission, and never reach for the loose form to publish something that should have been decomposed. When unsure, record-only — and name what made you unsure in step 9's PR body.
 
 7. **Draft the mission** (mission form only), in the publish tree:
-   - `bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/scaffold-draft.sh "<title>" <feedback-filename>...` — the filename from step 3.
+   - `bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/scaffold-draft.sh "<title>" --assignee <the triggering issue's assignee> <feedback-filename>...` — the filename from step 3. **Omit `--assignee` when no person was assigned** (the mission is then team-owned); never substitute the running identity.
    - Fill `## Goal` / `## Scope` / `## Experience` and a **proposed** `## Acceptance` sketch from the ask (Edit on the scaffold; clearly provisional — whoever reviews the pull request interrogates it to drive-ready via `/mission <instruction>`). Never touch `status` and never seed `assignees` or `merge_policy`.
 
 8. **Emit the tickets**, in the publish tree.
 
    For a **mission** proposal, emit its whole set — **two or more, always**; a set of one is not a mission:
-   - `bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/scaffold-proposed-ticket.sh "<title>" <mission-slug> [type] [layer]`, once per ticket, in the order they would be driven.
+   - `bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/scaffold-proposed-ticket.sh "<title>" <mission-slug> [type] [layer] --assignee <the same assignee>`, once per ticket, in the order they would be driven. The owner enters once at the trigger and rides every artifact this run emits (P6).
    - Then stamp the links: `bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/link-acceptance.sh <slug> <item-selector> <ticket-filename>` once per acceptance item the set satisfies — the pairing you decided in step 6, never inferred.
    - Then the floor: `bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/check-floor.sh <slug>`. A non-zero exit means this is **not** published as a mission — fall back to a loose ticket or to record-only, and report the script's `alternative`.
 
    For an **atomic** direction, emit exactly one loose ticket instead — no mission, no wrapper:
-   - `bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/scaffold-proposed-ticket.sh "<title>" --loose [type] [layer] --feedback <record>...`
+   - `bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/scaffold-proposed-ticket.sh "<title>" --loose [type] [layer] --feedback <record>... --assignee <the same assignee>`
    - The `--feedback` refs are **mandatory** here (`no_feedback` otherwise): with no mission to hold the relation, they are the only record of what the ticket answers.
 
    Either way, fill each ticket's Overview, Key Files, Implementation Steps, and the provisional Quality Gate, and leave `merge_policy` empty (absent reads as `review`).
 
-9. **Publish it all as one pull request.** `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/publish-tree-pr.sh "<title>" "<why>" "<changes>" "<concerns>" "<insights>" "<verify>"` — **one call**, carrying the record and whatever the judgment added. The record and the work it warrants are one decision; two pull requests would let a reviewer accept half of it. Title the PR for what it carries: `Propose mission <slug>`, `Propose ticket <slug>`, or `Register feedback <stem>` for record-only. On `ok: false`, report the reason; `pr_failed` means the artifact **is** pushed, so open the PR by hand rather than re-publishing (which would duplicate it).
+9. **Publish it all as one pull request.** `WORKAHOLIC_PR_TITLE="[Proposal] <title>" WORKAHOLIC_NOTIFY_TARGET="<thread url or empty>" bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/publish-tree-pr.sh "<title>" "<why>" "<changes>" "<concerns>" "<insights>" "<verify>"` — **one call**, carrying the record and whatever the judgment added. The record and the work it warrants are one decision; two pull requests would let a reviewer accept half of it. Name the commit subject for what it carries — `Propose mission <slug>`, `Propose ticket <slug>`, or `Register feedback <stem>` for record-only — and give the **pull request** the same words behind the `[Proposal]` prefix (`[提案]` for a Japanese title). The two are separate on purpose: the subject obeys the commit rule (no `[bracket]` prefix), the title carries the prefix the `[Implement]` routine's trigger filters on. Set `WORKAHOLIC_NOTIFY_TARGET` to the thread the ask arrived in when the caller handed you one, and **leave it unset otherwise** — an absent line is the next routine's documented fallback, and an invented one would suppress it. On `ok: false`, report the reason; `pr_failed` means the artifact **is** pushed, so open the PR by hand rather than re-publishing (which would duplicate it).
 
 10. **Close the publish tree.** `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/close-publish-tree.sh`. Run it whether or not the publish succeeded; it refuses rather than destroying recoverable state.
 

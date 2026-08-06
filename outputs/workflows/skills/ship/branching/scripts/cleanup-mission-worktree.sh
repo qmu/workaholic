@@ -6,7 +6,7 @@
 # is already gone.
 #
 # ITS CALLERS ARE THE CLAIM PATHS: ship (after an auto unit merges) and
-# release-claim.sh (a unit deliberately dropped). `/mission close` does NOT call it --
+# release-claim.sh (a unit deliberately dropped). `/mission-close` does NOT call it --
 # closing is a statement about the record, and a lingering worktree is an in-flight or
 # stale claim for a human to decide about (docs/loop-engineering-workflow.md I6).
 #

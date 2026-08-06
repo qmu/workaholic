@@ -36,7 +36,8 @@ const SCRIPTS = {
   update: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/update.sh"),
   archive: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/archive.sh"),
   userSlug: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/user-slug.sh"),
-  sweepTodo: join(REPO_ROOT, "plugins/workaholic/skills/create-ticket/scripts/sweep-todo.sh"),
+  migrateTodoOwners: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/migrate-todo-owners.sh"),
+  owns: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/owns.sh"),
   listTodo: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/list-todo.sh"),
   ticketSummary: join(REPO_ROOT, "plugins/workaholic/skills/create-ticket/scripts/summary.sh"),
   missionSummary: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/summary.sh"),
@@ -47,8 +48,8 @@ const SCRIPTS = {
   commit: join(REPO_ROOT, "plugins/workaholic/skills/commit/scripts/commit.sh"),
   missionProgress: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/progress.sh"),
   missionList: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/list.sh"),
-  missionOwners: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/mission-owners.sh"),
-  readAssignees: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/read-assignees.sh"),
+  missionOwners: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/owners.sh"),
+  readAssignees: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/read-assignees.sh"),
   migrateStrategies: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/migrate-strategies.sh"),
   missionClose: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/close.sh"),
   missionCreate: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/create.sh"),
@@ -121,6 +122,7 @@ const SCRIPTS = {
   openPublishTree: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/open-publish-tree.sh"),
   publishTreeCommit: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/publish-tree-commit.sh"),
   publishTreePr: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/publish-tree-pr.sh"),
+  readNotifyTarget: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/read-notify-target.sh"),
   listRoutineTemplates: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/list-routine-templates.sh"),
   renderRoutine: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/render-routine.sh"),
   checkSlackChannel: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/check-slack-channel.sh"),
@@ -186,11 +188,15 @@ function run(cwd, cmd, opts = {}) {
 // (mission/scripts/queue-size.sh) rather than against `## Acceptance` item count -- an
 // acceptance sketch is not a plan. A fixture that expects a mission to be OFFERED
 // therefore has to give it a ticket, exactly as a real one does.
-function seedMissionTicket(root, slug, stamp = "20260729000009", userSlug = TEST_SLUG) {
-  const dir = join(root, `.workaholic/tickets/todo/${userSlug}`);
+// The queue is FLAT since P2 (2026-08-06) and the owner is the `assignees` field.
+// `owner` defaults to the repo's standard test identity so a fixture ticket is
+// "mine" to the surveying runner, exactly as the per-user directory used to make it.
+function seedMissionTicket(root, slug, stamp = "20260729000009", owner = "test@example.com") {
+  const dir = join(root, ".workaholic/tickets/todo");
   mkdirSync(dir, { recursive: true });
   const p = join(dir, `${stamp}-${slug}-step.md`);
-  writeFileSync(p, `---\ncreated_at: 2026-07-29T00:00:09+09:00\nauthor: test@example.com\ntype: enhancement\nlayer: [Domain]\nmission: ${slug}\n---\n\n# ${slug} step\n`);
+  const assignees = owner ? `assignees: [${owner}]\n` : "assignees:\n";
+  writeFileSync(p, `---\ncreated_at: 2026-07-29T00:00:09+09:00\nauthor: test@example.com\n${assignees}type: enhancement\nlayer: [Domain]\nmission: ${slug}\n---\n\n# ${slug} step\n`);
   return p;
 }
 
@@ -686,57 +692,133 @@ function testUserSlug() {
   } finally { cleanup(dir); }
 }
 
-// ---------- 7. create-ticket/sweep-todo.sh ----------
-function testSweepTodo() {
+// ---------- 7. gather/migrate-todo-owners.sh (the living migration) ----------
+// P2 (2026-08-06) moved a ticket's owner out of its path and into its `assignees`
+// field. This replaces testSweepTodo, which asserted the OPPOSITE motion -- routing
+// strays INTO per-user directories -- and had no reason to exist once the flat root
+// became the canonical write target.
+function testMigrateTodoOwners() {
   const dir = makeRepo("main");
   try {
-    execSync(`git checkout -q -b work-20260528-sweep`, { cwd: dir });
+    execSync(`git checkout -q -b work-20260528-migrate`, { cwd: dir });
     const todoRoot = join(dir, ".workaholic/tickets/todo");
-    mkdirSync(todoRoot, { recursive: true });
+    const mk = (rel, body) => {
+      mkdirSync(dirname(join(todoRoot, rel)), { recursive: true });
+      writeFileSync(join(todoRoot, rel), body);
+    };
 
-    const mkTicket = (name, author) =>
-      writeFileSync(join(todoRoot, name),
-        `---\ncreated_at: 2026-05-28T12:00:00+09:00\n${author ? `author: ${author}\n` : ""}type: bugfix\nlayer: [Config]\n---\n\n# ${name}\n`);
+    // The ordinary case: author's email slugs to the directory, so the EMAIL is
+    // stamped rather than the lossy slug.
+    mk("a-qmu-jp/20260528120000-other.md",
+      `---\ncreated_at: 2026-05-28T12:00:00+09:00\nauthor: a@qmu.jp\ntype: bugfix\nlayer: [Config]\n---\n\n# other\n`);
+    // Author disagrees with the directory (a hand-move, or a reassignment done the
+    // old way): the DIRECTORY wins, because it is what expressed ownership.
+    mk("test-example-com/20260528120001-moved.md",
+      `---\ncreated_at: 2026-05-28T12:00:00+09:00\nauthor: a@qmu.jp\ntype: bugfix\nlayer: [Config]\n---\n\n# moved\n`);
+    // No author at all: nothing to recover the email from, so the slug is stamped.
+    mk("b-example-com/20260528120002-orphan.md",
+      `---\ncreated_at: 2026-05-28T12:00:00+09:00\ntype: bugfix\nlayer: [Config]\n---\n\n# orphan\n`);
+    // Already carries assignees: the FIELD outranks the directory, always -- it is
+    // the thing a reassignment edits, so the migration must not overwrite it.
+    mk("a-qmu-jp/20260528120003-owned.md",
+      `---\ncreated_at: 2026-05-28T12:00:00+09:00\nauthor: a@qmu.jp\nassignees: [keep@example.com]\ntype: bugfix\nlayer: [Config]\n---\n\n# owned\n`);
+    // Already flat: untouched, and not counted.
+    mk("20260528120004-already.md",
+      `---\ncreated_at: 2026-05-28T12:00:00+09:00\nauthor: a@qmu.jp\nassignees: [a@qmu.jp]\ntype: bugfix\nlayer: [Config]\n---\n\n# already\n`);
 
-    // Stray from another developer -> routed to THEIR subdirectory.
-    mkTicket("20260528120000-other.md", "a@qmu.jp");
-    // Stray from the current user -> routed to the current user's subdirectory.
-    mkTicket("20260528120001-mine.md", "test@example.com");
-    // Stray with no author -> falls back to the current user's subdirectory.
-    mkTicket("20260528120002-orphan.md", null);
-
-    // A ticket already nested one level deep must be left untouched (depth-1 sweep).
-    mkdirSync(join(todoRoot, "someone-else"), { recursive: true });
-    writeFileSync(join(todoRoot, "someone-else/keep.md"), "---\n---\n");
-
-    const r = run(dir, `${POSIX_SH} ${SCRIPTS.sweepTodo}`, { cwd: dir });
-    assertEq("sweep-todo exits 0", r.status, 0);
+    const r = run(dir, `${POSIX_SH} ${SCRIPTS.migrateTodoOwners}`, { cwd: dir });
+    assertEq("migrate-todo-owners exits 0", r.status, 0);
     const summary = JSON.parse(r.stdout);
-    assertEq("sweep-todo moved 3 strays", summary.moved, 3);
+    assertEq("it migrated exactly the nested tickets", summary.migrated, 4);
 
-    assertTrue("sweep routed other dev's ticket by author",
-      existsSync(join(todoRoot, "a-qmu-jp/20260528120000-other.md")));
-    assertTrue("sweep routed current user's ticket",
-      existsSync(join(todoRoot, "test-example-com/20260528120001-mine.md")));
-    assertTrue("sweep routed authorless ticket to current user (fallback)",
-      existsSync(join(todoRoot, "test-example-com/20260528120002-orphan.md")));
-    assertTrue("sweep left already-nested ticket untouched",
-      existsSync(join(todoRoot, "someone-else/keep.md")));
-    assertTrue("sweep removed strays from todo root",
-      !existsSync(join(todoRoot, "20260528120000-other.md")));
+    const read = (n) => readFileSync(join(todoRoot, n), "utf8");
+    assertTrue("every nested ticket is now flat",
+      ["20260528120000-other.md", "20260528120001-moved.md",
+       "20260528120002-orphan.md", "20260528120003-owned.md"]
+        .every((n) => existsSync(join(todoRoot, n))));
+    assertTrue("the per-user directories are gone",
+      !existsSync(join(todoRoot, "a-qmu-jp")) && !existsSync(join(todoRoot, "b-example-com")));
 
-    // Every move is git-staged: each destination shows up in the index, and no
-    // swept destination is left as untracked (??) residue.
+    assertTrue("the author's email is stamped when it slugs to the directory",
+      /^assignees: \[a@qmu\.jp\]$/m.test(read("20260528120000-other.md")));
+    assertTrue("the directory wins over a disagreeing author",
+      /^assignees: \[test-example-com\]$/m.test(read("20260528120001-moved.md")));
+    assertTrue("an authorless ticket is stamped with the bare directory slug",
+      /^assignees: \[b-example-com\]$/m.test(read("20260528120002-orphan.md")));
+    assertTrue("an existing assignees field is never overwritten",
+      /^assignees: \[keep@example\.com\]$/m.test(read("20260528120003-owned.md")));
+
+    // A stamped SLUG must still resolve to its owner, or every migrated ticket is
+    // silently orphaned -- which is why owns.sh compares by slug, not by string.
+    const owns = (n, who) =>
+      run(dir, `${POSIX_SH} ${SCRIPTS.owns} .workaholic/tickets/todo/${n} ${who}`).stdout.trim();
+    assertEq("a slug-stamped owner still matches that owner's email",
+      owns("20260528120002-orphan.md", "b@example.com"), "mine");
+    assertEq("and does not match anyone else",
+      owns("20260528120002-orphan.md", "a@qmu.jp"), "other");
+
+    // Every move is git-staged: no dangling unstaged deletion is left behind.
     const staged = new Set(
       execSync(`git diff --cached --name-only`, { cwd: dir, encoding: "utf8" })
         .split("\n").filter(Boolean));
-    for (const p of [
-      `.workaholic/tickets/todo/a-qmu-jp/20260528120000-other.md`,
-      `.workaholic/tickets/todo/test-example-com/20260528120001-mine.md`,
-      `.workaholic/tickets/todo/test-example-com/20260528120002-orphan.md`,
-    ]) {
-      assertTrue(`sweep staged ${p}`, staged.has(p), [...staged].join("\n"));
+    for (const n of ["20260528120000-other.md", "20260528120003-owned.md"]) {
+      assertTrue(`the migration staged ${n}`,
+        staged.has(`.workaholic/tickets/todo/${n}`), [...staged].join("\n"));
     }
+
+    // Idempotent: a second run is a no-op, which is what lets every write seam call
+    // it unconditionally.
+    const again = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.migrateTodoOwners}`, { cwd: dir }).stdout);
+    assertEq("a second run migrates nothing", again.migrated, 0);
+  } finally { cleanup(dir); }
+}
+
+// ---------- 7b. gather/owns.sh (the three-way ownership rule) ----------
+function testOwns() {
+  const dir = makeRepo("main");
+  try {
+    const f = (name, fm) => {
+      const p = join(dir, name);
+      mkdirSync(dirname(p), { recursive: true });
+      writeFileSync(p, `---\n${fm}\n---\n\n# x\n`);
+      return name;
+    };
+    const owns = (name, who) =>
+      run(dir, `${POSIX_SH} ${SCRIPTS.owns} ${name}${who === undefined ? "" : " " + who}`).stdout.trim();
+
+    assertEq("mine when the identity is among the owners",
+      owns(f("a.md", "assignees: [test@example.com, b@x]"), "test@example.com"), "mine");
+    assertEq("other when it is owned by someone else",
+      owns(f("b.md", "assignees: [b@x]"), "test@example.com"), "other");
+    assertEq("unowned when the field is empty", owns(f("c.md", "assignees:"), "test@example.com"), "unowned");
+    assertEq("unowned when the field is absent", owns(f("d.md", "type: bugfix"), "test@example.com"), "unowned");
+    assertEq("the legacy singular assignee still resolves",
+      owns(f("e.md", "assignee: test@example.com"), "test@example.com"), "mine");
+    // Comparison is by slug: case and a migration-stamped slug both have to match,
+    // or a whole class of tickets is silently orphaned.
+    assertEq("case does not change who owns it",
+      owns(f("g.md", "assignees: [Test@Example.COM]"), "test@example.com"), "mine");
+    assertEq("a stamped slug matches the email behind it",
+      owns(f("h.md", "assignees: [test-example-com]"), "test@example.com"), "mine");
+    // `unresolved` is its own answer. It implies the same conservative action as
+    // `other`, but collapsing the two is exactly the defect P2 removed. An empty
+    // ARGUMENT falls back to git config by contract, so the identity has to be gone
+    // for real -- hence the blanked config env rather than a `""` second argument.
+    const noIdEnv = { ...process.env, GIT_CONFIG_GLOBAL: "/dev/null", GIT_CONFIG_SYSTEM: "/dev/null" };
+    const ownsNoId = (name) => {
+      f(name === "i.md" ? "i.md" : name, name === "i.md" ? "assignees: [b@x]" : "assignees:");
+      return run(dir, `${POSIX_SH} ${SCRIPTS.owns} ${name}`,
+        { cwd: dir, env: noIdEnv }).stdout.trim();
+    };
+    execSync(`git config --unset user.email`, { cwd: dir });
+    assertEq("an owned artifact with no identity to compare is unresolved, not other",
+      ownsNoId("i.md"), "unresolved");
+    assertEq("an UNOWNED artifact is claimable even with no identity",
+      ownsNoId("j.md"), "unowned");
+    execSync(`git config user.email test@example.com`, { cwd: dir });
+    // A ticket's author is deliberately not an ownership tier.
+    assertEq("author is not owner",
+      owns(f("k.md", "author: test@example.com"), "test@example.com"), "unowned");
   } finally { cleanup(dir); }
 }
 
@@ -745,20 +827,30 @@ function testListTodo() {
   const dir = makeRepo("main");
   try {
     const todoRoot = join(dir, ".workaholic/tickets/todo");
-    mkdirSync(join(todoRoot, TEST_SLUG), { recursive: true });
-    writeFileSync(join(todoRoot, TEST_SLUG, "20260528120000-a.md"), "---\n---\n");
-    writeFileSync(join(todoRoot, TEST_SLUG, "20260528120001-b.md"), "---\n---\n");
-    // Noise the scoped scan must ignore: a root stray and another user's queue.
-    writeFileSync(join(todoRoot, "20260528120002-stray.md"), "---\n---\n");
+    mkdirSync(todoRoot, { recursive: true });
+    writeFileSync(join(todoRoot, "20260528120000-a.md"), "---\n---\n");
+    writeFileSync(join(todoRoot, "20260528120001-b.md"), "---\n---\n");
+    // A legacy per-user directory a checkout has not migrated yet. The reader must
+    // still see it: a reader scoped to the flat form would make the migration a
+    // GATE, and an unmigrated checkout would report an empty queue -- the exact
+    // failure P2 removed.
     mkdirSync(join(todoRoot, "a-qmu-jp"), { recursive: true });
     writeFileSync(join(todoRoot, "a-qmu-jp", "20260528120003-other.md"), "---\n---\n");
 
     const r = run(dir, `${POSIX_SH} ${SCRIPTS.listTodo}`, { cwd: dir });
+    assertEq("list-todo exits 0", r.status, 0);
     const lines = r.stdout.split("\n").filter(Boolean);
-    assertEq("list-todo lists only the current user's queue, sorted", lines, [
-      `.workaholic/tickets/todo/${TEST_SLUG}/20260528120000-a.md`,
-      `.workaholic/tickets/todo/${TEST_SLUG}/20260528120001-b.md`,
+    assertEq("list-todo lists the WHOLE queue, both layouts, sorted", lines, [
+      `.workaholic/tickets/todo/20260528120000-a.md`,
+      `.workaholic/tickets/todo/20260528120001-b.md`,
+      `.workaholic/tickets/todo/a-qmu-jp/20260528120003-other.md`,
     ]);
+
+    // The queue no longer depends on the reader's identity, so the failure mode the
+    // old exit-3 protocol signalled cannot occur any more.
+    const noId = run(dir, `${POSIX_SH} ${SCRIPTS.listTodo}`,
+      { cwd: dir, env: { ...process.env, GIT_CONFIG_GLOBAL: "/dev/null", GIT_CONFIG_SYSTEM: "/dev/null" } });
+    assertEq("an unidentified reader still reads the queue", noId.status, 0);
   } finally { cleanup(dir); }
 }
 
@@ -774,15 +866,18 @@ function testSummaryMode() {
     const A = "test@example.com", Aslug = "test-example-com";
     const B = "b@example.com", Bslug = "b-example-com";
 
-    const mkTicket = (slug, email, name, title, type) => {
-      const d = join(dir, `.workaholic/tickets/todo/${slug}`);
+    // The queue is flat and ownership is the `assignees` field (P2). The
+    // partitioning question this test asks is unchanged; only where the answer is
+    // written moved.
+    const mkTicket = (email, name, title, type) => {
+      const d = join(dir, `.workaholic/tickets/todo`);
       mkdirSync(d, { recursive: true });
       writeFileSync(join(d, name),
-        `---\ncreated_at: 2026-07-14T00:00:00+09:00\nauthor: ${email}\ntype: ${type}\nlayer: [Infrastructure]\ndepends_on:\n---\n\n# ${title}\n`);
+        `---\ncreated_at: 2026-07-14T00:00:00+09:00\nauthor: ${email}\nassignees: [${email}]\ntype: ${type}\nlayer: [Infrastructure]\ndepends_on:\n---\n\n# ${title}\n`);
     };
-    mkTicket(Aslug, A, "20260714120000-t1.md", "Ticket One", "enhancement");
-    mkTicket(Aslug, A, "20260714120001-t2.md", "Ticket Two", "bugfix");
-    mkTicket(Bslug, B, "20260714120002-t3.md", "Ticket Three", "enhancement");
+    mkTicket(A, "20260714120000-t1.md", "Ticket One", "enhancement");
+    mkTicket(A, "20260714120001-t2.md", "Ticket Two", "bugfix");
+    mkTicket(B, "20260714120002-t3.md", "Ticket Three", "enhancement");
 
     const mkMission = (slug, title, status, assignee, nextItem) => {
       const area = status === "active" ? "active" : "archive";
@@ -821,8 +916,8 @@ concerns: []
     setEmail(A);
     const tA = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.ticketSummary}`).stdout);
     assertEq("ticket summary (A) lists exactly A's tickets, sorted", tA.map((t) => t.path), [
-      `.workaholic/tickets/todo/${Aslug}/20260714120000-t1.md`,
-      `.workaholic/tickets/todo/${Aslug}/20260714120001-t2.md`,
+      `.workaholic/tickets/todo/20260714120000-t1.md`,
+      `.workaholic/tickets/todo/20260714120001-t2.md`,
     ]);
     assertEq("ticket summary carries title/type/layer",
       { title: tA[0].title, type: tA[0].type, layer: tA[0].layer },
@@ -831,7 +926,7 @@ concerns: []
     setEmail(B);
     const tB = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.ticketSummary}`).stdout);
     assertEq("ticket summary (B) excludes A's tickets", tB.map((t) => t.path), [
-      `.workaholic/tickets/todo/${Bslug}/20260714120002-t3.md`,
+      `.workaholic/tickets/todo/20260714120002-t3.md`,
     ]);
 
     // ---- mission summary: exact per-user active set, achieved excluded ----
@@ -960,9 +1055,12 @@ function testMissionPositionReport() {
   assertTrue("no mission-shaped frame is invented around unrelated work",
     /never fabricate a mission-shaped frame around unrelated work/.test(skill), "no-mission case missing");
 
-  // /mission close sources the shared definition (a027cd1b's behaviour, de-duplicated).
-  assertTrue("the close branch sources the shared definition",
-    /Give the \*\*Mission Position Report\*\*/.test(cmd), "close restates instead of sourcing");
+  // /mission-close sources the shared definition (a027cd1b's behaviour, de-duplicated).
+  // It is its own command since P5 (2026-08-06), so the pin follows it there rather
+  // than relaxing -- the property under test is that it POINTS at the definition.
+  const closeCmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/mission-close.md"), "utf8");
+  assertTrue("the close command sources the shared definition",
+    /Give the \*\*Mission Position Report\*\*/.test(closeCmd), "close restates instead of sourcing");
 }
 
 // ---------- drive: an unqueued problem becomes a ticket, not a stop ----------
@@ -1852,9 +1950,15 @@ function testMissionCreateNeverBranches() {
     /Never publish a half-formed mission/.test(cmd));
   assertTrue("the report does not hand back a path the developer cannot cd into",
     /Do \*\*not\*\* report a worktree path/.test(cmd));
+  // P5 moved the close branch to its own command; both properties follow it.
+  const closeCmd2 = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/mission-close.md"), "utf8");
   assertTrue("close publishes through the publish tree too",
-    /publish the result with subject `Close mission <slug>`/.test(cmd));
-  assertTrue("close still touches no worktree", /\*\*Close touches no worktree\.\*\*/.test(cmd));
+    /publish the result with subject `Close mission <slug>`/.test(closeCmd2));
+  assertTrue("close still touches no worktree", /\*\*Close touches no worktree\.\*\*/.test(closeCmd2));
+  // And `/mission` itself no longer forks on a first word (P5).
+  assertTrue("no literal word is intercepted by the mission command any more",
+    /No word of `\$ARGUMENT` is a subcommand/.test(cmd)
+    && !/When `\$ARGUMENT` starts with `close`/.test(cmd), "a subcommand branch survives in /mission");
 
   // Stale prose: no comment may claim a close-time worktree teardown.
   const closeSh = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/close.sh"), "utf8");
@@ -3526,14 +3630,18 @@ function testInstalledPluginHelperResolution() {
     assertEq("installed list-todo resolves gather/user-slug.sh", list.stdout.trim(),
       `.workaholic/tickets/todo/${TEST_SLUG}/20260707104117-installed.md`);
 
-    writeFileSync(join(todoRoot, "20260707104118-stray.md"),
-      "---\nauthor: a@qmu.jp\ntype: bugfix\nlayer: [Config]\n---\n\n# Stray\n");
-    const installedSweepTodo = join(installed.skillsDir, "create-ticket/scripts/sweep-todo.sh");
-    const sweep = run(dir, `${POSIX_SH} ${installedSweepTodo}`);
-    assertEq("installed sweep-todo exits 0", sweep.status, 0);
-    assertEq("installed sweep-todo moved one stray", JSON.parse(sweep.stdout).moved, 1);
-    assertTrue("installed sweep-todo routed by author",
-      existsSync(join(todoRoot, "a-qmu-jp/20260707104118-stray.md")));
+    mkdirSync(join(todoRoot, "a-qmu-jp"), { recursive: true });
+    writeFileSync(join(todoRoot, "a-qmu-jp/20260707104118-legacy.md"),
+      "---\nauthor: a@qmu.jp\ntype: bugfix\nlayer: [Config]\n---\n\n# Legacy\n");
+    const installedMigrate = join(installed.skillsDir, "gather/scripts/migrate-todo-owners.sh");
+    const migrated = run(dir, `${POSIX_SH} ${installedMigrate}`);
+    assertEq("installed migrate-todo-owners exits 0", migrated.status, 0);
+    // Two: the legacy ticket seeded here, plus the one the list-todo fixture above
+    // left in its own per-user directory. Both are exactly what the migration is for.
+    assertEq("installed migrate-todo-owners moved the legacy tickets", JSON.parse(migrated.stdout).migrated, 2);
+    assertTrue("installed migrate-todo-owners resolves its sibling helpers (user-slug, read-assignees)",
+      existsSync(join(todoRoot, "20260707104118-legacy.md"))
+      && /^assignees: \[a@qmu\.jp\]$/m.test(readFileSync(join(todoRoot, "20260707104118-legacy.md"), "utf8")));
 
     const icebox = join(dir, ".workaholic/tickets/icebox/20260707104119-icebox.md");
     mkdirSync(dirname(icebox), { recursive: true });
@@ -3542,8 +3650,10 @@ function testInstalledPluginHelperResolution() {
     const installedPromoteIcebox = join(installed.skillsDir, "drive/scripts/promote-icebox.sh");
     const promote = run(dir, `${POSIX_SH} ${installedPromoteIcebox} .workaholic/tickets/icebox/20260707104119-icebox.md`);
     assertEq("installed promote-icebox exits 0", promote.status, 0);
-    assertTrue("installed promote-icebox routes to current user's todo",
-      existsSync(join(todoRoot, `${TEST_SLUG}/20260707104119-icebox.md`)));
+    assertTrue("installed promote-icebox routes to the flat todo/ and stamps the promoter",
+      existsSync(join(todoRoot, "20260707104119-icebox.md"))
+      && /^assignees: \[test@example\.com\]$/m.test(
+        readFileSync(join(todoRoot, "20260707104119-icebox.md"), "utf8")));
   } finally {
     cleanup(dir);
     cleanup(installed.dir);
@@ -4450,11 +4560,15 @@ function testPromoteIcebox() {
 
     const r = run(dir, `${POSIX_SH} ${SCRIPTS.promoteIcebox} .workaholic/tickets/icebox/20260528120000-parked.md`, { cwd: dir });
     assertEq("promote-icebox exits 0", r.status, 0);
-    assertEq("promote-icebox prints user-scoped destination", r.stdout.trim(),
-      `.workaholic/tickets/todo/${TEST_SLUG}/20260528120000-parked.md`);
-    assertTrue("promote-icebox moved ticket into todo/<user>/",
-      existsSync(join(dir, `.workaholic/tickets/todo/${TEST_SLUG}/20260528120000-parked.md`)));
+    assertEq("promote-icebox prints the flat destination", r.stdout.trim(),
+      `.workaholic/tickets/todo/20260528120000-parked.md`);
+    const dest = join(dir, `.workaholic/tickets/todo/20260528120000-parked.md`);
+    assertTrue("promote-icebox moved ticket into the flat todo/", existsSync(dest));
     assertTrue("promote-icebox removed ticket from icebox", !existsSync(src));
+    // Promoting is taking the work on, so an unowned ticket gains the promoter as
+    // its owner -- otherwise it would land in a queue nobody is holding.
+    assertTrue("promote-icebox stamps the promoter as owner when nobody owns it",
+      /^assignees: \[test@example\.com\]$/m.test(readFileSync(dest, "utf8")));
   } finally { cleanup(dir); }
 }
 
@@ -6203,8 +6317,12 @@ function testValidateTicket() {
   assertEq("validate-ticket allows icebox/ (flat)", invoke(`.workaholic/tickets/icebox/${TS}-x.md`), 0);
   assertEq("validate-ticket allows abandoned/ (flat)", invoke(`.workaholic/tickets/abandoned/${TS}-x.md`), 0);
   assertEq("validate-ticket allows archive/<branch>/", invoke(`.workaholic/tickets/archive/work-x/${TS}-x.md`), 0);
+  // The FLAT todo root is the canonical write target since P2 (2026-08-06) -- the
+  // per-user directory it replaced is still accepted, because the living migration
+  // converges the tree and a hook that rejected the old shape would hard-block an
+  // ordinary edit to an unmigrated ticket.
+  assertEq("validate-ticket allows the flat todo/ (canonical)", invoke(`.workaholic/tickets/todo/${TS}-x.md`), 0);
   // Non-canonical locations -> exit 2.
-  assertEq("validate-ticket rejects root-level todo/ stray", invoke(`.workaholic/tickets/todo/${TS}-x.md`), 2);
   assertEq("validate-ticket rejects invented done/", invoke(`.workaholic/tickets/done/${TS}-x.md`), 2);
 
   // merge_policy: optional, enum-validated ONLY when present. Absent reads as
@@ -8751,7 +8869,7 @@ function testRenderSetupSheet() {
   const sheet = (target) => run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.renderSetupSheet} ${target} ${WH}`).stdout;
 
   const all = sheet("--all");
-  for (const name of ["[Propose] workaholic", "[Consent] workaholic", "[Drive] workaholic (pilot)"]) {
+  for (const name of ["[Propose] workaholic", "[Implement] workaholic"]) {
     assertTrue(`the sheet covers ${name}`, all.includes(`## ${name}`), all.slice(0, 200));
   }
   // Derived from frontmatter, per template -- not one generic paragraph.
@@ -9652,39 +9770,67 @@ function testPlanUnitsBacklogError() {
   const PLAN = `${POSIX_SH} ${SCRIPTS.planUnits}`;
   const LIST_TODO = `${POSIX_SH} ${SCRIPTS.listTodo}`;
   try {
-    // --- identity set, but no queue directory: genuinely empty, and it says so ---
+    // --- identity set, no queue directory: genuinely empty, and it says so ---
     let r = run(dir, PLAN);
     assertEq("plan-units.sh exits 0 with an identity and no queue directory", r.status, 0);
     let plan = JSON.parse(r.stdout);
-    assertEq("a genuinely empty queue reports no backlog_error and an empty backlog",
-      { backlog_error: plan.backlog_error, backlog: plan.backlog.length }, { backlog_error: "", backlog: 0 });
-    assertEq("the survey names whose queue it read", plan.user_slug, TEST_SLUG);
+    assertEq("a genuinely empty queue reports no error, no size, and no unresolved owner",
+      { backlog_error: plan.backlog_error, size: plan.backlog_size, unresolved: plan.owner_unresolved },
+      { backlog_error: "", size: 0, unresolved: false });
+    assertEq("the survey names the runner it surveyed as", plan.user_slug, TEST_SLUG);
 
     let lt = run(dir, LIST_TODO);
     assertEq("list-todo.sh exits 0 with no output when the queue directory is absent",
       { status: lt.status, stdout: lt.stdout.trim() }, { status: 0, stdout: "" });
 
-    // --- identity unresolvable: the SAME empty backlog, a different fact ---
+    // --- a queue with an owned ticket and an unowned one -------------------------
+    const todo = join(dir, ".workaholic/tickets/todo");
+    mkdirSync(todo, { recursive: true });
+    const t = (name, fm) => writeFileSync(join(todo, name),
+      `---\ncreated_at: 2026-08-06T00:00:00+09:00\nauthor: someone@example.com\n${fm}\ntype: bugfix\nlayer: [Config]\n---\n\n# ${name}\n`);
+    t("20260806000001-theirs.md", "assignees: [other@example.com]");
+    t("20260806000002-nobodys.md", "assignees:");
+
+    plan = JSON.parse(run(dir, PLAN).stdout);
+    assertEq("a colleague's ticket is dropped, and the unowned one is offered",
+      { size: plan.backlog_size, offered: plan.backlog.map((b) => basename(b.path)) },
+      { size: 2, offered: ["20260806000002-nobodys.md"] });
+    assertTrue("the drop names ownership as its reason",
+      plan.excluded.some((e) => e.reason === "owned_by_other" && /theirs/.test(e.id)));
+
+    // --- identity unresolvable: THE QUEUE IS STILL READ ---------------------------
+    // This is the whole of P2. Under the per-user layout there was no directory to
+    // open without an identity, so the survey emitted an EMPTY backlog over a full
+    // queue and terminated on `identity_unresolved`. Now the queue is flat, so the
+    // runner reads it, reports its size, offers the unowned half, and says which
+    // question it could not answer.
     execSync(`git config user.email ""`, { cwd: dir });
     lt = run(dir, LIST_TODO);
-    assertTrue("list-todo.sh exits non-zero when the developer cannot be resolved", lt.status !== 0);
-    assertTrue("list-todo.sh names the reason on stderr", /identity_unresolved/.test(lt.stderr));
+    assertEq("list-todo.sh still reads the queue with no identity", lt.status, 0);
+    assertEq("and returns every ticket in it", lt.stdout.split("\n").filter(Boolean).length, 2);
 
     r = run(dir, PLAN);
     assertEq("plan-units.sh still exits 0 — it reports the failure, never becomes one", r.status, 0);
     plan = JSON.parse(r.stdout);
-    assertEq("an unresolvable identity is reported, not swallowed",
-      plan.backlog_error, "identity_unresolved");
+    assertEq("the queue was read, so there is no backlog_error", plan.backlog_error, "");
+    assertEq("its size is reported, so 'nothing for me' cannot read as 'nothing at all'",
+      plan.backlog_size, 2);
+    assertEq("the unanswerable question is named", plan.owner_unresolved, true);
+    assertEq("the unowned ticket is STILL offered — it is claimable by anyone",
+      plan.backlog.map((b) => basename(b.path)), ["20260806000002-nobodys.md"]);
+    assertTrue("the owned one is excluded as unresolved, NOT as somebody else's",
+      plan.excluded.some((e) => e.reason === "owner_unresolved" && /theirs/.test(e.id))
+      && !plan.excluded.some((e) => e.reason === "owned_by_other"));
     assertEq("the unresolvable case reports an empty user_slug", plan.user_slug, "");
-    assertEq("the backlog is still empty — backlog_error is what makes the emptiness honest",
-      plan.backlog.length, 0);
 
-    // The two JSON shapes differ by that field ALONE. This is the whole point: a reader
-    // (or an operator grepping a cron log) can tell them apart without extra context.
+    // The two shapes differ by that field alone, so an operator grepping a cron log
+    // can tell them apart without extra context.
     execSync(`git config user.email test@example.com`, { cwd: dir });
     const ok = JSON.parse(run(dir, PLAN).stdout);
-    assertTrue("the two shapes are distinguishable by backlog_error",
-      ok.backlog_error === "" && plan.backlog_error !== "");
+    assertTrue("the two shapes are distinguishable by owner_unresolved",
+      ok.owner_unresolved === false && plan.owner_unresolved === true);
+    assertTrue("and both report the same queue size — the queue never changed",
+      ok.backlog_size === plan.backlog_size);
   } finally { cleanup(dir); }
 }
 
@@ -9740,8 +9886,8 @@ function testPlanUnitsOwnership() {
     // Ownership is DERIVED, never re-parsed. A second inline reader is exactly how the
     // two answers drifted apart in the first place.
     const src = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/plan-units.sh"), "utf8");
-    assertTrue("plan-units.sh resolves ownership through mission-owners.sh",
-      /mission-owners\.sh/.test(src));
+    assertTrue("plan-units.sh resolves ownership through the one oracle",
+      /gather\/scripts\/owns\.sh/.test(src));
     assertTrue("plan-units.sh parses no assignees/assignee field of its own",
       !/^[^#\n]*(fm_field[^\n]*assignees?\b|\^assignees?:)/m.test(src));
 
@@ -9770,16 +9916,14 @@ function testUnifiedDriveContract() {
     /survey → partition → claim → drive → report → route → account/.test(skill));
   assertTrue("the drive skill scopes its prohibition to the per-ticket workflow",
     /NEVER use AskUserQuestion while driving a ticket/.test(skill));
-  assertTrue("the command declares the unattended form prompt-free at every step",
-    /The unattended form issues no `AskUserQuestion` — anywhere, at any step/.test(cmd));
-  assertTrue("the command bounds the attended form to exactly one prompt",
-    /The attended form adds exactly one prompt and nothing else/.test(cmd)
-    && /at most once per run/.test(cmd));
+  assertTrue("the command bounds its one prompt to the selection step",
+    /the run's one question is the choice among peer units/.test(cmd)
+    && /at most once/.test(cmd));
   assertTrue("the partition's composition is reported, never asked",
     /Report the partition in full, always/.test(skill)
-    && /Report the partition in full, in both forms; never ask how it was composed/.test(cmd));
-  assertTrue("night mode is folded in as a synonym, not a second mode",
-    /`\/drive night`.*synonym/is.test(skill) && /`\/drive night`\*\* is a synonym/.test(cmd));
+    && /report the partition in full and never ask how it was composed/.test(cmd));
+  assertTrue("the retired first-word forms name no surviving behaviour",
+    !/\/drive (auto|night)/.test(cmd) && !/\/drive (auto|night)/.test(skill));
 
   // The one surviving prompt is the §2 selection. It must stay bounded to that step:
   // the retired per-ticket approval prompt, the order confirmation, and the icebox
@@ -9845,7 +9989,7 @@ function testUnifiedDriveContract() {
   // The loop must name the unattended form (O1): pointed at the bare form it would
   // wait on the selection prompt with nobody there to answer it.
   assertTrue("the /goal caller-side loop is named as the contract's consumer",
-    /\/goal \/drive auto ok/.test(skill) && /\/goal \/drive auto ok/.test(cmd));
+    /\/goal \/implement ok/.test(skill) && /\/goal \/implement ok/.test(cmd));
 
   // --- the claim-born, ship-torn worktree ---
   assertTrue("the skill wires teardown to the merge, not to /mission close",
@@ -10092,12 +10236,13 @@ function testTicketPublishesToMain() {
   const OPEN = `${POSIX_SH} ${SCRIPTS.openPublishTree}`;
   const PUBLISH = `${POSIX_SH} ${SCRIPTS.publishTreeCommit}`;
   const CLOSE = `${POSIX_SH} ${SCRIPTS.closePublishTree}`;
-  const NEW_REL = `.workaholic/tickets/todo/${TEST_SLUG}/20260730140000-new.md`;
+  const NEW_REL = `.workaholic/tickets/todo/20260730140000-new.md`;
   try {
-    // A stray ticket at the todo/ ROOT on main, so the sweep has something to route.
+    // A ticket still in a legacy per-user directory on main, so the Step 1.5
+    // migration has something to converge.
     execSync("git checkout -q main", { cwd: A });
-    mkdirSync(join(A, ".workaholic/tickets/todo"), { recursive: true });
-    writeFileSync(join(A, ".workaholic/tickets/todo/20260729010101-stray.md"),
+    mkdirSync(join(A, `.workaholic/tickets/todo/${TEST_SLUG}`), { recursive: true });
+    writeFileSync(join(A, `.workaholic/tickets/todo/${TEST_SLUG}/20260729010101-stray.md`),
       `---\ncreated_at: 2026-07-29T01:01:01+09:00\nauthor: test@example.com\ntype: enhancement\nlayer: [Domain]\n---\n\n# Stray\n`);
     execSync("git add -A && git commit -q -m 'Add stray ticket' && git push -q origin main", { cwd: A });
 
@@ -10110,10 +10255,11 @@ function testTicketPublishesToMain() {
     assertEq("the ticket flow opens a publish tree", pub.ok, true);
 
     // Step 1.5 runs INSIDE the publish tree — that is the checkout todo/ is written to.
-    const swept = JSON.parse(run(pub.path, `${POSIX_SH} ${SCRIPTS.sweepTodo}`).stdout);
-    assertEq("the stray sweep runs in the publish tree and routes the stray", swept.moved, 1);
+    const migrated = JSON.parse(run(pub.path, `${POSIX_SH} ${SCRIPTS.migrateTodoOwners}`).stdout);
+    assertEq("the queue migration runs in the publish tree and flattens the legacy ticket",
+      migrated.migrated, 1);
 
-    mkdirSync(join(pub.path, `.workaholic/tickets/todo/${TEST_SLUG}`), { recursive: true });
+    mkdirSync(join(pub.path, `.workaholic/tickets/todo`), { recursive: true });
     writeFileSync(join(pub.path, NEW_REL),
       `---\ncreated_at: 2026-07-30T14:00:00+09:00\nauthor: test@example.com\ntype: enhancement\nlayer: [Domain]\nmerge_policy: review\n---\n\n# New\n\n## Policies\n\n- none\n\n## Quality Gate\n\nnone\n`);
     const published = JSON.parse(run(A, `${PUBLISH} "Add ticket for the new thing" "why" "None" "None" "None" "verify" ${NEW_REL}`).stdout);
@@ -10123,9 +10269,9 @@ function testTicketPublishesToMain() {
     // On main, from a DIFFERENT clone — the end-to-end point of the change.
     execSync("git fetch -q origin && git merge --ff-only -q origin/main", { cwd: B });
     assertTrue("another clone sees the published ticket after fetching", existsSync(join(B, NEW_REL)));
-    assertTrue("the sweep's move rode the same publish commit",
-      existsSync(join(B, `.workaholic/tickets/todo/${TEST_SLUG}/20260729010101-stray.md`))
-      && !existsSync(join(B, ".workaholic/tickets/todo/20260729010101-stray.md")));
+    assertTrue("the migration's move rode the same publish commit",
+      existsSync(join(B, ".workaholic/tickets/todo/20260729010101-stray.md"))
+      && !existsSync(join(B, `.workaholic/tickets/todo/${TEST_SLUG}/20260729010101-stray.md`)));
     const planned = JSON.parse(run(B, `${POSIX_SH} ${SCRIPTS.planUnits}`).stdout);
     assertTrue("a published ticket is claimable by another runner's survey",
       planned.backlog.some((t) => t.path === NEW_REL), JSON.stringify(planned.backlog));
@@ -10344,19 +10490,29 @@ function testClaimNoStrandedTolerance() {
 
 function testDriveFreshnessContract() {
   const cmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/drive.md"), "utf8");
+  const impl = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/implement.md"), "utf8");
   const skill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/drive/SKILL.md"), "utf8");
   const runbook = readFileSync(join(REPO_ROOT, "docs/drive-loop-runbook.md"), "utf8");
 
-  assertTrue("the command runs the freshness step before the survey",
-    cmd.indexOf("sync-main.sh") > 0 && cmd.indexOf("sync-main.sh") < cmd.indexOf("plan-units.sh"));
+  // P1 moved the reason table out of the command and into the skill: two entry points
+  // may not each carry their own copy of it, because a table duplicated in two prompts
+  // is a second source of truth and the drift is one-directional.
+  assertTrue("the skill runs the freshness step before the survey",
+    skill.indexOf("sync-main.sh") > 0 && skill.indexOf("sync-main.sh") < skill.indexOf("plan-units.sh"));
+  for (const entry of [cmd, impl]) {
+    assertTrue("each command orders freshen before survey",
+      entry.indexOf("sync-main.sh") > 0 && entry.indexOf("sync-main.sh") < entry.indexOf("plan-units.sh"));
+    assertTrue("each command defers the reason table to the skill rather than copying it",
+      /reported decision, never a prompt/.test(entry) || /reported\*\*/.test(entry));
+  }
   assertTrue("one code path: the step is not cron-only",
-    /Same step interactively and on cron: one code path/.test(cmd));
+    /The step runs identically through both entry points: one code path/.test(skill));
   for (const reason of ["no_origin", "not_on_main", "dirty_workspace", "origin_unreachable", "diverged"]) {
-    assertTrue(`the command decides ${reason} explicitly`, cmd.includes(`\`${reason}\``), reason);
+    assertTrue(`the skill decides ${reason} explicitly`, skill.includes(`\`${reason}\``), reason);
   }
   // The slice has to name the heading that actually exists, or the assertion tests
   // `undefined` and passes over any prompt the freshness paths might grow.
-  const freshen = cmd.split("1. **Survey**")[0].split("0b. **Freshen**")[1];
+  const freshen = skill.split("Then survey what is claimable")[0].split("freshen the checkout before reading it")[1];
   assertTrue("the freshness step is located to be checked", typeof freshen === "string");
   assertTrue("the freshness paths add no prompt", !/AskUserQuestion/.test(freshen));
   assertTrue("a stale survey forbids ok in the token table",
@@ -10378,43 +10534,73 @@ function testDriveFreshnessContract() {
 // Both forms are pinned, on every surface that has to agree about them.
 function testDriveAttendedSelection() {
   const cmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/drive.md"), "utf8");
+  const impl = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/implement.md"), "utf8");
   const skill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/drive/SKILL.md"), "utf8");
-  const routine = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines/drive.md"), "utf8");
+  const routine = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines/implement.md"), "utf8");
   const runbook = readFileSync(join(REPO_ROOT, "docs/drive-loop-runbook.md"), "utf8");
   const claudeMd = readFileSync(join(REPO_ROOT, "CLAUDE.md"), "utf8");
 
-  assertTrue("the command names both forms",
-    /Bare `\/drive` is the \*\*attended\*\* form/.test(cmd)
-    && /`\/drive auto` is the \*\*unattended\*\* form/.test(cmd));
-  assertTrue("attendance follows the invocation and is never inferred",
-    /never inferred/.test(cmd) && /never from a TTY/.test(cmd)
-    && /never inferred/.test(skill.concat(claudeMd)));
+  // P1: attendance is carried by WHICH COMMAND was invoked, not by a first word.
+  // The two commands must each declare their own attendance, and the skill must
+  // hold both in one table -- a forked copy of the run is what P1 forbids.
+  assertTrue("the attended command declares itself attended",
+    /`\/drive` is the \*\*attended\*\* executor/.test(cmd));
+  assertTrue("the unattended command declares itself unattended and prompt-free",
+    /`\/implement` is the \*\*unattended\*\* executor/.test(impl)
+    && /issues no `AskUserQuestion` — anywhere, at any step/.test(impl));
+  assertTrue("the skill names both entry points over one run",
+    /two entry points that share every step below §2/.test(skill)
+    && /\*\*`\/drive \[<unit>\]`\*\*/.test(skill)
+    && /\*\*`\/implement \[<unit>\]`\*\*/.test(skill));
+  assertTrue("attendance follows the command and is never inferred",
+    /never of a TTY/.test(skill)
+    && /never of a TTY or the environment/.test(cmd)
+    && /never inferred/.test(claudeMd));
+  // The argument narrows scope. If it ever selected a behaviour it would be the
+  // first-word fork again, wearing an argument's clothes.
+  assertTrue("the optional argument is a scope, not a mode",
+    /a \*\*scope\*\*, not a mode/.test(skill)
+    && /It narrows the scope and nothing else/.test(cmd)
+    && /It narrows the scope and nothing else/.test(impl));
+
   assertTrue("the selection fires only above one target",
-    /more than one claimable or resumable target/.test(cmd)
+    /only when more than one claimable or resumable target remains/.test(cmd)
     && /\*\*more than one\*\* claimable or resumable target/.test(skill));
   assertTrue("the selection is one multiSelect question, once per run",
     /`multiSelect`/.test(cmd) && /`multiSelect: true`, at most once per run/.test(skill));
   assertTrue("the selection body carries the project label",
     /project-label\.sh/.test(cmd) && /project-label\.sh/.test(skill));
   assertTrue("a foregone choice is not asked",
-    /A single target, an invocation naming a specific unit, and the unattended form all ask nothing/.test(cmd)
+    /has nothing left to ask/.test(cmd)
     && /Ask nothing when there is nothing to choose/.test(skill));
   assertTrue("unchosen units are reported, not dropped",
     /`deferred_by_operator`/.test(cmd) && /`deferred_by_operator`/.test(skill));
   assertTrue("a deferred unit forbids the ok token",
     /a unit at the attended selection \(`deferred_by_operator`\) \| `pending`/.test(skill)
     && /still claimable, so it counts/.test(cmd));
+  // A present developer buys the choice among peers and nothing else -- not a
+  // gate override, which is the one thing attendance must never unlock.
+  assertTrue("attendance never unlocks a gate",
+    /through either entry point/.test(skill)
+    && /no gate a present developer may override/.test(cmd));
 
-  // The unattended callers must name the form: inferring it is exactly what O1 forbids,
-  // so a caller that omits the token gets the prompt however headless it is.
-  assertTrue("the routine template invokes the unattended form by name",
-    /run `\/drive auto`/i.test(routine) && /nobody is here to answer/.test(routine));
-  assertTrue("the runbook's cron line and loop contract carry the auto token",
-    /claude -p "\/drive auto"/.test(runbook) && /\/goal \/drive auto ok/.test(runbook));
-  assertTrue("the command points caller-side loops at the unattended form",
-    /`\/goal \/drive auto ok`/.test(cmd));
-  assertTrue("CLAUDE.md records the amendment with its decision id",
-    /decision O1, 2026-08-05/.test(claudeMd));
+  // The unattended callers must name /implement: pointed at /drive they would wait
+  // on the selection prompt with nobody there to answer it. The prompt names the
+  // command and stops -- being unattended is /implement's own contract, and the
+  // developer's rule for a routine prompt is that it restates nothing a skill owns.
+  assertTrue("the routine template invokes the unattended command by name",
+    /\/implement \[Mission\/Ticket\]/.test(routine) && !/\/drive\b/.test(routine.slice(routine.indexOf("## Prompt"))));
+  assertTrue("the runbook's cron line and loop contract name /implement",
+    /claude -p "\/implement"/.test(runbook) && /\/goal \/implement ok/.test(runbook));
+  assertTrue("the attended command points caller-side loops at /implement",
+    /`\/goal \/implement ok`/.test(cmd));
+  // Every live surface, including the runbook. The one place the retired form
+  // survives is O1's own row in the decision log, which is history and is never
+  // rewritten -- P1's row says it supersedes it.
+  assertTrue("no live surface still names a retired first-word form",
+    ![cmd, impl, skill, routine, runbook].some((t) => /\/drive (auto|night)\b/.test(t)));
+  assertTrue("CLAUDE.md records the split with its decision id",
+    /decision P1, 2026-08-06/.test(claudeMd));
 }
 
 // ---------------------------------------------------------------------------
@@ -10690,7 +10876,7 @@ function testMissionTicketFloorGate() {
     // The floor counts `total`, not `todo`: a mission whose tickets were all driven was
     // still CREATED with a plan, and the floor is a rule about creation.
     mkdirSync(join(dir, ".workaholic/tickets/archive/work-20260804-000000"), { recursive: true });
-    execSync(`git add -A && git commit -q -m seed && git mv .workaholic/tickets/todo/${TEST_SLUG}/20260804000002-two-tickets-step.md .workaholic/tickets/archive/work-20260804-000000/`, { cwd: dir });
+    execSync(`git add -A && git commit -q -m seed && git mv .workaholic/tickets/todo/20260804000002-two-tickets-step.md .workaholic/tickets/archive/work-20260804-000000/`, { cwd: dir });
     assertEq("a driven mission still meets the floor", gate("two-tickets").status, 0);
 
     const bare = run(dir, `${POSIX_SH} ${SCRIPTS.missionCheckFloor}`, { allowFail: true });
@@ -10767,7 +10953,7 @@ function testPlanFloorCountsQueue() {
     // runner -- which is why the two consumers read different fields.
     seedMissionTicket(A, "driven", "20260729000012");
     mkdirSync(join(A, ".workaholic/tickets/archive/work-20260729-000000"), { recursive: true });
-    execSync(`git add -A && git mv .workaholic/tickets/todo/${TEST_SLUG}/20260729000012-driven-step.md .workaholic/tickets/archive/work-20260729-000000/`, { cwd: A });
+    execSync(`git add -A && git mv .workaholic/tickets/todo/20260729000012-driven-step.md .workaholic/tickets/archive/work-20260729-000000/`, { cwd: A });
     q = JSON.parse(run(A, `${QUEUE} driven`).stdout);
     assertEq("a driven mission has an empty todo but a non-empty total",
       { t: q.todo, a: q.archive, tot: q.total }, { t: 0, a: 1, tot: 1 });
@@ -11855,7 +12041,8 @@ const tests = [
   ["drive/archive.sh", testArchive],
   ["commit/commit.sh never silently omits a file", testCommitStaging],
   ["gather/user-slug.sh", testUserSlug],
-  ["create-ticket/sweep-todo.sh", testSweepTodo],
+  ["gather/migrate-todo-owners.sh", testMigrateTodoOwners],
+  ["gather/owns.sh", testOwns],
   ["drive/list-todo.sh", testListTodo],
   ["create-ticket/summary.sh + mission/summary.sh (summary mode)", testSummaryMode],
   ["mission/summary.sh surfaces unassigned missions", testMissionSummaryUnassigned],
@@ -11991,7 +12178,7 @@ const tests = [
   ["drive/effective-policy.sh (G5 truth table)", testEffectivePolicy],
   ["drive/plan-units.sh (survey minus claims)", testPlanUnits],
   ["drive/plan-units.sh (exclusions + the dry demo)", testPlanUnitsExclusions],
-  ["drive/plan-units.sh (an unreadable backlog is not an empty one)", testPlanUnitsBacklogError],
+  ["drive/plan-units.sh (an unidentified runner reads the queue and says so)", testPlanUnitsBacklogError],
   ["drive/plan-units.sh (missions are filtered by ownership)", testPlanUnitsOwnership],
   ["mission: the ticket floor refuses a sub-floor mission and names the alternative", testMissionTicketFloorGate],
   ["drive: the plan floor counts the ticket queue, not acceptance items", testPlanFloorCountsQueue],
@@ -11999,6 +12186,11 @@ const tests = [
   ["branching/sync-main.sh (J3 freshness)", testSyncMain],
   ["branching publish tree: publication never touches the caller's checkout (J2)", testPublishTree],
   ["branching publish-tree-pr: an artifact lands on a work-* branch behind a PR (J4)", testPublishTreePr],
+  ["the routine chain hands off its notification target in the PR body (P4)", testNotifyTargetHandoff],
+  ["the notify-target contract is stated on both halves of the chain (P4)", testNotifyTargetContract],
+  ["one behaviour per command: no dispatch on a literal first word (P5)", testNoSubcommands],
+  ["a proposal carries its owner from the trigger (P6)", testProposalOwnershipChain],
+  ["the proposal ownership chain is stated end to end (P6)", testProposalOwnershipContract],
   ["branching close-publish-tree: closes after either publish path, still guards the unpushed one", testClosePublishTreeReachability],
   ["workaholify routines: one template set, applied per repository, drift named per field", testWorkaholifyRoutines],
   ["routine announcements: exactly one subject, or nothing at all", testRoutineAnnouncementScoping],
@@ -12112,6 +12304,269 @@ function testPublishTreePr() {
     rmSync(origin, { recursive: true, force: true });
     rmSync(A, { recursive: true, force: true });
   }
+}
+
+// ---------- the routine chain's hand-off: the PR carries its notification target ----------
+// P4 (2026-08-06). `/propose` writes `Notify-Thread: <url>` into the pull request body;
+// `/implement`, started by that PR's merge, reads it back and replies THERE. The
+// alternative it replaces -- re-deriving the thread from an `fb:<stem>` search -- is the
+// step that put a reply in the wrong place on 2026-08-05: a search has to guess, and a
+// guess in a notification path produces a message that looks right and is unrelated to
+// the event.
+//
+// The `absent` branch is asserted as hard as the found branch, because it is the
+// FALLBACK SIGNAL, not an error: every pull request opened before this change carries no
+// line, and the caller's documented behaviour on it is the existing thread search. A
+// reader that reported `absent` the way it reports `no_gh` would send a caller looking
+// for a broken tool instead of falling back.
+function testNotifyTargetHandoff() {
+  const { origin, A } = makePublishFixture();
+  const OPEN = `${POSIX_SH} ${SCRIPTS.openPublishTree}`;
+  const PR = `${POSIX_SH} ${SCRIPTS.publishTreePr}`;
+  const READ = `${POSIX_SH} ${SCRIPTS.readNotifyTarget}`;
+  const THREAD = "https://qmu.slack.com/archives/C0123ABCD/p1754460000123456";
+  const REL = ".workaholic/tickets/todo/20260806010000-chained.md";
+  try {
+    // ---- the reader, over a body already in hand (no gh, no network) ----
+    const bodyWith = join(A, "with.txt");
+    writeFileSync(bodyWith, `## Overview\n\nwhy\n\nNotify-Thread: ${THREAD}\n`);
+    assertEq("the reader returns the carried target verbatim",
+      JSON.parse(run(A, `${READ} --body-file ${bodyWith}`).stdout), { found: true, target: THREAD });
+
+    const bodyWithout = join(A, "without.txt");
+    writeFileSync(bodyWithout, "## Overview\n\nwhy\n");
+    assertEq("a body with no line reports absent — the documented fallback signal",
+      JSON.parse(run(A, `${READ} --body-file ${bodyWithout}`).stdout), { found: false, reason: "absent" });
+    assertTrue("and absent is a DIFFERENT reason from being unable to ask at all",
+      JSON.parse(run(A, `${READ} --body-file /nonexistent/body.txt`).stdout).reason === "unreadable"
+      && JSON.parse(run(A, READ).stdout).reason === "no_ref");
+
+    // A body may quote the line while discussing it; the writer emits exactly one, last,
+    // so first-match-wins resolves the duplicate the way the writer intended.
+    const bodyDup = join(A, "dup.txt");
+    writeFileSync(bodyDup, `Notify-Thread: ${THREAD}\n\nsome prose\n\nNotify-Thread: https://wrong/one\n`);
+    assertEq("the first line wins over a later quoted one",
+      JSON.parse(run(A, `${READ} --body-file ${bodyDup}`).stdout).target, THREAD);
+
+    // ---- the writer: the env var is what puts the line in the body ----
+    execSync("git checkout -q -b work-20260806-010000", { cwd: A });
+    run(A, OPEN);
+    mkdirSync(join(A, ".publish", ".workaholic/tickets/todo"), { recursive: true });
+    writeFileSync(join(A, ".publish", REL), "---\ntype: enhancement\n---\n\n# Chained\n");
+    // gh cannot open a PR against a bare local origin, so the run fails at the PR step --
+    // which is exactly where the body is built. The body file is written before the
+    // attempt, so what is asserted is the branch landing plus the reader's own contract
+    // over the same string the writer emits.
+    const r = JSON.parse(run(A,
+      `WORKAHOLIC_NOTIFY_TARGET='${THREAD}' WORKAHOLIC_PR_TITLE='[Proposal] Add a chained ticket' ${PR} "Add a chained ticket" "why" "None" "None" "None" "verify" ${REL}`).stdout);
+    assertTrue("the publication still lands on its branch with a target set",
+      r.ok === false && /^work-\d{8}-\d{6}$/.test(r.branch || ""), JSON.stringify(r));
+    const onBranch = execSync(`git ls-tree -r --name-only ${r.branch}`, { cwd: origin, encoding: "utf8" });
+    assertTrue("the artifact is pushed whether or not the PR step succeeded", onBranch.includes(REL), onBranch);
+
+    // THE PR TITLE IS NOT THE COMMIT SUBJECT. `[Proposal]` is exactly the shape
+    // check-subject.sh forbids, so passing one string to both made /propose's own
+    // documented prefix unwritable -- the publish died at `commit_failed` before any
+    // pull request existed. The subject keeps the project rule; the title carries the
+    // prefix the [Implement] trigger filters on.
+    const subject = execSync(`git log -1 --format=%s ${r.branch}`, { cwd: origin, encoding: "utf8" }).trim();
+    assertEq("the commit subject keeps the project's no-bracket-prefix rule",
+      subject, "Add a chained ticket");
+    const plain = JSON.parse(run(A, `${PR} "Add another ticket" "why" "None" "None" "None" "verify"`).stdout);
+    assertTrue("a caller that sets no PR title is unaffected",
+      plain.reason === "nothing_to_commit" || /^work-/.test(plain.branch || ""), JSON.stringify(plain));
+  } finally {
+    rmSync(origin, { recursive: true, force: true });
+    rmSync(A, { recursive: true, force: true });
+  }
+}
+
+// The chain's two halves are prose in two skills, so nothing mechanical would notice
+// either drifting away from the other.
+function testNotifyTargetContract() {
+  const propose = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/propose/SKILL.md"), "utf8");
+  const drive = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/drive/SKILL.md"), "utf8");
+  const wh = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/SKILL.md"), "utf8");
+  const writer = readFileSync(SCRIPTS.publishTreePr, "utf8");
+
+  assertTrue("the propose skill owns the [Proposal] prefix contract",
+    /\[Proposal\]` prefix/.test(propose));
+  assertTrue("and says why it is load-bearing rather than cosmetic",
+    /title contains \[Proposal\]/.test(propose), "trigger-filter rationale missing");
+  assertTrue("the propose skill routes the prefix through the PR-title env var",
+    /WORKAHOLIC_PR_TITLE/.test(propose) && /different surfaces with different rules/.test(propose));
+  assertTrue("and the writer keeps the commit subject separate from the PR title",
+    /WORKAHOLIC_PR_TITLE:-\$TITLE/.test(writer));
+  assertTrue("the propose skill states the labelled line the writer emits",
+    /Notify-Thread: <thread url>/.test(propose) && /WORKAHOLIC_NOTIFY_TARGET/.test(propose));
+  assertTrue("and forbids inventing a target to fill it",
+    /Do \*\*not\*\* invent a target/.test(propose), "invention not forbidden");
+  assertTrue("the writer emits the line only when the target is set",
+    /WORKAHOLIC_NOTIFY_TARGET:-/.test(writer) && /Notify-Thread: %s/.test(writer));
+  assertTrue("the drive skill reads the target back before searching",
+    /read-notify-target\.sh/.test(drive) && /documented fallback/.test(drive));
+  assertTrue("the thread rules place the carried target above the search",
+    /four ordered cases/.test(wh)
+    && wh.indexOf("read-notify-target.sh") < wh.indexOf("The `fb:<stem>` key search"));
+}
+
+// ---------- one behaviour per command (P5, 2026-08-06) ----------
+// A fork on a literal first word is a second command wearing one name: invisible in the
+// command list, undocumentable in one table row, and it reserves a word the argument can
+// then never legitimately be. This is a property of the whole command surface, so it is
+// asserted over the whole directory rather than per command -- a new command that grows a
+// subcommand is exactly what would otherwise slip through.
+//
+// Bare-versus-argument is deliberately NOT caught here: it is a scope, not a mode.
+// `/mission` with nothing named plans over all of yours, `/ticket` with nothing described
+// reports instead of writing, and `/drive [<unit>]` narrows one behaviour. The check is
+// for a branch keyed on a LITERAL WORD.
+function testNoSubcommands() {
+  const dir = join(REPO_ROOT, "plugins/workaholic/commands");
+  const files = readdirSync(dir).filter((f) => f.endsWith(".md")).sort();
+
+  // The literal words that used to select a mode. Each is either dropped or now its own
+  // command; none may be re-intercepted anywhere.
+  const retired = [
+    { word: "close", was: "/mission close <slug>", now: "/mission-close" },
+    { word: "summary", was: "/mission summary and /ticket summary", now: "dropped" },
+    { word: "approve", was: "/mission approve <slug>", now: "dropped" },
+    { word: "auto", was: "/drive auto", now: "/implement" },
+    { word: "night", was: "/drive night", now: "/implement" },
+  ];
+  for (const f of files) {
+    const body = readFileSync(join(dir, f), "utf8");
+    for (const { word, was, now } of retired) {
+      // The shape that IS the fork: a branch conditioned on the argument's literal value.
+      const dispatch = new RegExp(
+        "\\$ARGUMENT[^.\\n]{0,80}(is exactly|starts with|equals)[^.\\n]{0,20}`" + word + "`", "i");
+      assertTrue(`${f} does not dispatch on the literal \`${word}\` (${was} -> ${now})`,
+        !dispatch.test(body), body.slice(0, 200));
+    }
+  }
+
+  // The moved behaviour exists, and the single-writer property that forced the move
+  // rather than a drop is stated where a reader meets it.
+  assertTrue("ending a mission is its own command", files.includes("mission-close.md"));
+  const close = readFileSync(join(dir, "mission-close.md"), "utf8");
+  assertTrue("and it says why it moved instead of being dropped",
+    /only sanctioned way to end a mission/.test(close) && /single-writer/.test(close));
+  assertTrue("and it declares itself single-behaviour",
+    /It selects no mode: this command has exactly one behaviour/.test(close));
+
+  // Every fork is recorded, so nothing was silently lost.
+  const claudeMd = readFileSync(join(REPO_ROOT, "CLAUDE.md"), "utf8");
+  assertTrue("CLAUDE.md carries the per-fork inventory rather than a bulk claim",
+    /One behaviour per command \(P5, 2026-08-06\)/.test(claudeMd)
+    && /\/mission summary`, `\/mission approve`/.test(claudeMd)
+    && /Bare-versus-argument is a scope, not a mode/.test(claudeMd));
+  assertTrue("and names the one fork deliberately kept, with its reason",
+    /`\/fb`'s cross-repository mode is kept/.test(claudeMd) && /never on a first word/.test(claudeMd));
+}
+
+// ---------- ownership rides the chain from the trigger (P6, 2026-08-06) ----------
+// The [Propose] routine fires on an issue ASSIGNED TO A PERSON, so the owner is known
+// before any artifact exists. Until P6 nothing carried it: every proposal-born artifact
+// was written unowned, which correctly means "claimable by anyone" -- so with several
+// developers on a repository, EVERY runner judged the work claimable and raced for it,
+// and whose job it was got decided by whose push landed first. The claim protocol
+// prevented the double-drive; it could not decide the ownership, because nothing in the
+// data said.
+//
+// The empty case is deliberately KEPT: an issue with no assignee yields a team-owned
+// artifact. What is forbidden is falling back to the RUNNING identity, which would
+// assign work to whichever container happened to execute the batch -- the exact
+// re-derivation the chain exists to remove.
+function testProposalOwnershipChain() {
+  const dir = makeRepo("main");
+  const DRAFT = `${POSIX_SH} ${SCRIPTS.proposeScaffoldDraft}`;
+  const TICKET = `${POSIX_SH} ${SCRIPTS.scaffoldProposedTicket}`;
+  const OWNS = `${POSIX_SH} ${SCRIPTS.owns}`;
+  const ME = "test@example.com", OTHER = "other@example.com";
+  try {
+    mkdirSync(join(dir, ".workaholic/feedbacks"), { recursive: true });
+    writeFileSync(join(dir, ".workaholic/feedbacks/20260806000000-ask.md"),
+      "---\ntype: Feedback\nkind: instruction\nsource: slack\n---\n\n# Ask\n");
+    const REC = "20260806000000-ask.md";
+
+    // ---- the mission half ----
+    const m = JSON.parse(run(dir, `${DRAFT} "Owned proposal" --assignee ${OTHER} ${REC}`).stdout);
+    assertEq("the mission scaffold reports the owner it stamped", m.assignees, OTHER);
+    assertTrue("and writes it into the mission's assignees",
+      /^assignees: \[other@example\.com\]$/m.test(readFileSync(join(dir, m.path), "utf8")));
+
+    const mu = JSON.parse(run(dir, `${DRAFT} "Unowned proposal" ${REC}`).stdout);
+    assertTrue("with no assignee the mission stays team-owned",
+      /^assignees: \[\]$/m.test(readFileSync(join(dir, mu.path), "utf8")));
+    // The running identity must NOT leak in as a fallback.
+    assertEq("and the running identity is not substituted",
+      run(dir, `${OWNS} ${mu.path} ${ME}`).stdout.trim(), "unowned");
+
+    // ---- the ticket half, both forms ----
+    const t = JSON.parse(run(dir, `${TICKET} "Owned step" ${m.slug} enhancement Config --assignee ${OTHER}`).stdout);
+    assertEq("the ticket scaffold reports the owner it stamped", t.assignees, OTHER);
+    assertTrue("and writes it into the ticket's assignees",
+      /^assignees: \[other@example\.com\]$/m.test(readFileSync(join(dir, t.path), "utf8")));
+
+    // --feedback consumes to the end of the argument list, so --assignee has to be
+    // readable INSIDE that loop or the loose form silently drops it.
+    const l = JSON.parse(run(dir,
+      `${TICKET} "Loose owned step" --loose bugfix Config --feedback ${REC} --assignee ${OTHER}`).stdout);
+    assertEq("the loose form reads --assignee after --feedback", l.assignees, OTHER);
+    assertTrue("and does not swallow it as a feedback ref",
+      !/--assignee|other@example\.com/.test(l.feedback), l.feedback);
+
+    // ---- what the survey then does with it: the point of the whole chain ----
+    assertEq("the owner's runner sees the ticket as theirs",
+      run(dir, `${OWNS} ${t.path} ${OTHER}`).stdout.trim(), "mine");
+    assertEq("and every other developer's runner sees it as someone else's",
+      run(dir, `${OWNS} ${t.path} ${ME}`).stdout.trim(), "other");
+
+    const tu = JSON.parse(run(dir, `${TICKET} "Unowned step" ${mu.slug} enhancement Config`).stdout);
+    assertEq("an unassigned proposal is still claimable by anyone",
+      run(dir, `${OWNS} ${tu.path} ${ME}`).stdout.trim(), "unowned");
+  } finally { cleanup(dir); }
+}
+
+// The chain is prose in three places plus a trigger declaration, and the trigger is a
+// UI setting nothing in the plugin can read -- so the pins are what keep the two halves
+// (filter bounds the cost, data decides the ownership) from drifting apart.
+function testProposalOwnershipContract() {
+  const propose = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/propose/SKILL.md"), "utf8");
+  const cmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/propose.md"), "utf8");
+  const wh = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/SKILL.md"), "utf8");
+  const impl = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines/implement.md"), "utf8");
+  const fb = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines/fb.md"), "utf8");
+
+  assertTrue("the propose skill states that the owner enters at the trigger",
+    /enters once, at the trigger/.test(propose) && /--assignee/.test(propose));
+  assertTrue("and forbids falling back to the running identity",
+    /Do not fall back to the running identity/.test(propose));
+  assertTrue("the propose command passes the assignee to both scaffolds",
+    (cmd.match(/--assignee/g) || []).length >= 3);
+  // The ownership chain lives in the SKILL, not in the prompt: the developer's own rule
+  // for a routine prompt is "nothing a skill already owns". The trigger filter already
+  // guarantees the issue is assigned, and `/propose` is told where to read that from.
+  // The chain (issue assignee -> proposal `assignees` -> the implementing run) is the
+  // SKILL's; the prompt only says which issues this run may act on at all.
+  assertTrue("the ownership chain is the propose skill's, not the prompt's",
+    /--assignee <email>/.test(propose) && /enters once, at the trigger/.test(propose));
+  // No trigger narrows to a person: the UI offers no assignee filter, so the ruling is
+  // that the DATA decides and every copy fires on every matching event.
+  assertTrue("no template narrows its trigger to a person",
+    !/author = the developer|assignee = the developer/.test(impl + fb));
+  assertTrue("[Implement] relies on the survey's ownership filter and says so",
+    /owned_by_other/.test(impl) && /No prompt change is needed for this/.test(impl));
+  // Scoped to the PROMPT: each template's header discusses the rule at length, which is
+  // where it belongs -- documentation for a maintainer, not instruction for a session.
+  const promptOf = (t) => t.slice(t.indexOf("## Prompt"));
+  assertTrue("neither prompt carries an ownership guard (P8: the command owns it)",
+    !/assignee/.test(promptOf(fb)) && !/assignee/.test(promptOf(impl)));
+  assertTrue("the workaholify SKILL states the ruling and where each check lives",
+    /Neither trigger narrows to a person/.test(wh)
+    && /the data decides whose work it is/.test(wh)
+    && /Neither prompt carries a guard/.test(wh)
+    && /The check is the command's, never the prompt's/.test(wh));
 }
 
 // close-publish-tree.sh asks "is this tip pushed ANYWHERE?", not "did it reach the
@@ -12676,34 +13131,37 @@ function testWorkaholifyRoutines() {
   const WH = "https://github.com/qmu/workaholic";
   try {
     const tpl = JSON.parse(run(dir, LIST).stdout);
-    assertEq("the plugin ships three routine templates", tpl.count, 3);
-    assertEq("and they are the three live patterns",
-      tpl.templates.map((t) => t.id).sort(), ["drive", "fb", "merged-pr"]);
+    assertEq("the plugin ships two routine templates", tpl.count, 2);
+    assertEq("and they are the two live patterns",
+      tpl.templates.map((t) => t.id).sort(), ["fb", "implement"]);
     // The template set is discovered by scanning the routines dir, so a template is
     // surveyed, rendered and drift-checked the moment its file exists -- and leaves the
     // set the moment it does not. Nothing enumerates the ids in code, which is why both
     // adding `propose` and retiring it again needed no script change.
-    // No template is scheduled since 2026-08-06: [Drive] is merge-triggered (the
+    // No template is scheduled since 2026-08-06: [Implement] is merge-triggered (the
     // developer's ask), and a template that regrew a cron would resurrect the clock
     // this pin now forbids.
     assertEq("no template carries a schedule any more",
       tpl.templates.filter((t) => t.trigger === "cron").map((t) => t.cron_expression), []);
-    assertEq("drive declares the merge trigger",
-      tpl.templates.find((t) => t.id === "drive").trigger, "github-pr-merged");
+    assertEq("implement declares the merge trigger",
+      tpl.templates.find((t) => t.id === "implement").trigger, "github-pr-merged");
 
     // ---- the three substitutions, each demanded by a real prompt ----
-    const drive = JSON.parse(run(dir, `${RENDER} drive ${WH}`).stdout);
+    const drive = JSON.parse(run(dir, `${RENDER} implement ${WH}`).stdout);
     assertEq("the routine name uses the BARE repo name, as the live routines do",
-      drive.name, "[Drive] workaholic (pilot)");
-    assertTrue("{repo_slug} renders org/repo in the prompt's prose",
-      drive.prompt.includes("drive runner for qmu/workaholic,"), drive.prompt.slice(0, 200));
-    assertTrue("{repo_name} renders the dev-<name> Slack channel",
-      drive.prompt.includes("dev-workaholic"), "missing channel");
-    // The `#123` example left the template with the post formats on 2026-08-05 (they live
-    // in the workaholify SKILL now), so the prompt names the shape of the link rather than
-    // an instance of it. The property is unchanged: {repo} must still reach the prompt, or
-    // a routine would bake an unfollowable PR URL into every post.
-    assertTrue("{repo} renders the full URL in the PR links",
+      drive.name, "[Implement] workaholic");
+    // P7 (2026-08-06): the prompt NAMES no repository -- the notification target comes
+    // out of the triggering artifact, not out of a channel written into the prompt, so
+    // the same four lines paste into every project. `{repo}` survives because it is the
+    // developer's own placeholder in the format line, and it must still render or every
+    // post would carry an unfollowable link.
+    const raw = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines/implement.md"), "utf8");
+    const rawPrompt = raw.slice(raw.indexOf("## Prompt")).replace(/^## Prompt\n+/, "").trim();
+    assertTrue("the prompt's only substitution is the PR-link placeholder",
+      /\{repo\}\/pull\//.test(rawPrompt) && !/\{repo_(name|slug)\}/.test(rawPrompt), rawPrompt);
+    assertEq("everything else is byte-identical across repositories",
+      drive.prompt.trim(), rawPrompt.replace("{repo}", WH));
+    assertTrue("{repo} renders the full URL in the PR link",
       drive.prompt.includes(`${WH}/pull/`), "missing pull link");
     assertTrue("no placeholder survives rendering", !/\{repo(_name|_slug)?\}/.test(drive.prompt), drive.prompt);
 
@@ -12834,30 +13292,59 @@ function testRoutineAnnouncementScoping() {
   // `## Prompt`. A template's header explains the defect it was corrected for, quoting the
   // old wording verbatim, so checking the whole file flags the explanation as the bug.
   const prompt = (f) => { const b = read(f); const i = b.indexOf("## Prompt"); return i < 0 ? b : b.slice(i); };
-  const merged = prompt("merged-pr.md"), fb = prompt("fb.md"), drive = prompt("drive.md");
+  const fb = prompt("fb.md"), implement = prompt("implement.md");
+  // The prompt is the developer's own four lines and restates nothing; the DEFERRAL is
+  // stated in the template's header, which is documentation for a maintainer rather than
+  // instruction for the session. Both halves are pinned, each where it belongs.
+  const header = (f) => { const b = read(f); const i = b.indexOf("## Prompt"); return i < 0 ? "" : b.slice(0, i); };
+  const fbHeader = header("fb.md"), implementHeader = header("implement.md");
   const wh = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/SKILL.md"), "utf8");
 
   // The subject must be identified. "about the pull request" with no antecedent is the
   // exact wording that produced the duplicates.
-  for (const [name, body] of [["merged-pr", merged], ["fb", fb], ["drive", drive]]) {
+  for (const [name, body] of [["fb", fb], ["implement", implement]]) {
     assertTrue(`${name} never says "about the pull request" without saying which`,
       !/about the pull request\b(?![^\n]*(this session|you just|THIS session))/i.test(body),
       body.slice(0, 400));
   }
 
-  assertTrue("merged-pr announces exactly one pull request",
-    /exactly one\b[^\n]*pull request/i.test(merged), "one-PR scoping missing");
-  assertTrue("and identifies it as the one that started this session",
-    /whose merge started this session/i.test(merged), "triggering-merge scoping missing");
-  // SILENCE IS THE CORRECT FAILURE MODE. "Announce whatever merged most recently" is the
-  // fallback that IS the bug, so the prompt has to forbid it by name.
-  assertTrue("merged-pr posts nothing when it cannot identify the trigger",
-    /cannot identify[^\n]*post nothing/i.test(merged), "post-nothing fallback missing");
-  assertTrue("and forbids the recency fallback explicitly",
-    /most recently/i.test(merged) && /fallback is exactly the defect/i.test(merged),
-    "recency fallback not forbidden");
-  assertTrue("merged-pr forbids announcing more than one even when several merged",
-    /Never announce more than one/i.test(merged), "multi-report not forbidden");
+  // P3 (2026-08-06): two templates, and each prompt is four lines. A developer
+  // configures these by hand once per project, so the count and the length are the
+  // constraint the loop's shape is set by.
+  const templates = readdirSync(dir).filter((f) => f.endsWith(".md")).sort();
+  assertEq("exactly two templates ship", templates, ["fb.md", "implement.md"]);
+  // The developer's own four lines (feedback 20260806183556), and four is literal: the
+  // assignee guard that briefly lived here moved into /propose (P8), which is what keeps
+  // both templates identical in shape.
+  for (const [name, body] of [["fb", fb], ["implement", implement]]) {
+    const lines = body.replace(/^## Prompt\n/, "").split("\n").filter((l) => l.trim());
+    assertEq(`the ${name} prompt is four lines`, lines.length, 4);
+  }
+  // [Consent] is retired, and no surviving template may re-announce a merge: that is
+  // exactly the third standing process the reduction removed.
+  assertTrue("no template still names the retired merge-announcement routine",
+    ![fb, implement].some((b) => /\[Consent\]/.test(b)));
+  // What the retirement COSTS is stated where a developer meets it, not discovered.
+  assertTrue("the SKILL records what retiring the merge announcement costs",
+    /human-merged pull request is now announced by nobody/i.test(wh)
+    && /Do not reintroduce a third routine/i.test(wh), "retirement cost not stated");
+
+  // A prompt may not defer the one thing that IS its output contract.
+  // The four lines are the developer's own (feedback 20260806183556): read the target
+  // and payload out of the triggering artifact, say work has started in the payload's
+  // language, run the one command, post the result in the given format. The FORMAT is
+  // the one thing a routine cannot defer -- no skill states it, because it is the
+  // routine's output contract -- so it is pinned inline.
+  for (const [name, body] of [["fb", fb], ["implement", implement]]) {
+    assertTrue(`the ${name} prompt reads its target out of the triggering artifact`,
+      /notification target \(Slack Thread URL\)/.test(body), body.slice(0, 400));
+    assertTrue(`the ${name} prompt notifies in the payload's own language`,
+      /in the same language as the/.test(body), body.slice(0, 400));
+    assertTrue(`the ${name} prompt carries its post format inline`,
+      /<@U…>/.test(body) && /\{repo\}\/pull\/123/.test(body), body.slice(0, 400));
+    assertTrue(`the ${name} prompt names no repository`,
+      !/qmu|dev-workaholic/.test(body), body.slice(0, 400));
+  }
 
   // The other two announce their OWN output, so they have no ambiguity -- but say so,
   // because "the pull request" reads identically in all three.
@@ -12866,13 +13353,13 @@ function testRoutineAnnouncementScoping() {
   // These assertions therefore grep the OWNING skill, and one pin holds the deferral.
   assertTrue("the Proposed root announces only the posting session's own PR",
     /only the pull request you just created in this session/i.test(wh), "proposed scoping missing from workaholify SKILL");
-  // The drive template became a pointer on 2026-08-06 (second slimming): its announce
-  // scoping lives in the workaholify SKILL, and the template pin holds the deferral.
-  assertTrue("the announce scoping the drive template used to carry lives in the SKILL",
+  // The implement template is a pointer: its announce scoping lives in the workaholify
+  // SKILL, and the template pin holds the deferral.
+  assertTrue("the announce scoping the implement template used to carry lives in the SKILL",
     /announce events the session itself produced/i.test(wh) && /never announce another session's work/i.test(wh),
     "announce scoping missing from workaholify SKILL");
-  assertTrue("and the drive template defers to the skills instead of restating them",
-    /Follow them, not this prompt/.test(drive), "drive deferral missing");
+  assertTrue("and the implement template defers to the skills instead of restating them",
+    /no rule\s+a skill already owns/.test(implementHeader), "implement deferral missing");
   // `fb` IS the propose entrance since the batch template was retired (2026-08-04), and its
   // one postable event is the pull request it just opened — which is why the two clauses
   // the retired [Propose Batch] template carried are asserted here instead.
@@ -12882,13 +13369,13 @@ function testRoutineAnnouncementScoping() {
   assertTrue("the one-PR rule lives in the propose skill",
     /never as two pull requests/i.test(proposeSkill), "one-PR rule missing from propose SKILL");
   assertTrue("and the fb template defers to the skills instead of restating them",
-    /Follow them, not this prompt/.test(fb), "fb deferral missing");
+    /no rule\s+a skill already owns/.test(fbHeader), "fb deferral missing");
 
   // NO "Attention" BLOCK IN ANY ANNOUNCEMENT (developer's ruling, 2026-08-01). The
   // conditional concern block is gone from both the PR-opened and PR-merged formats; a
   // notification carries the fact, and concerns live in the story and the feedback stream
   // where they are read deliberately rather than skimmed in a channel.
-  for (const [name, body] of [["merged-pr", merged], ["fb", fb], ["drive", drive]]) {
+  for (const [name, body] of [["fb", fb], ["implement", implement]]) {
     assertTrue(`${name} carries no Attention block`, !/Attention/.test(body), body.slice(0, 300));
     assertTrue(`${name} carries no concern conditional`,
       !/\{\{#if [a-z_]*concern/i.test(body), body.slice(0, 300));
@@ -12942,6 +13429,6 @@ function testRoutineAnnouncementScoping() {
   // session produced, which are new every time — deduping them would hide real work.
   assertTrue("the dedupe applies to red failure alerts only",
     /announce events the session itself produced and are new every time/i.test(wh), "scoping missing");
-  assertTrue("and the slimmed drive template still points at the workaholify skill",
-    /workaholify. skill/i.test(drive), "template pointer missing");
+  assertTrue("and the slimmed implement template still points at the workaholify skill",
+    /workaholify. SKILL/i.test(implementHeader), "template pointer missing");
 }

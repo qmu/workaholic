@@ -16,7 +16,7 @@
 #   unassigned — the mission has no owners (unclaimed; closer to the caller's
 #                business than a colleague's mission, so it shares the full treatment)
 #   others     — owned by somebody else (owners present, caller not among them)
-# Ownership resolves through mission-owners.sh (the mission's own `assignees`,
+# Ownership resolves through gather/scripts/owners.sh (the mission's own `assignees`,
 # with a legacy fallback to its singular `assignee`) — not read from the mission's
 # frontmatter here — so the shape lives in exactly one place. `assignee` is
 # the FIRST owner ("" when unowned), aliased for back-compat; `owners` is
@@ -82,7 +82,7 @@ for d in $DIRS; do
     # Ownership (the mission's own assignees, legacy singular fallback) via the
     # single oracle — never parsed here. owners is the full set; assignee aliases the
     # first for back-compat; relation is the caller-centric partition.
-    owners_raw=$(sh "${SCRIPT_DIR}/mission-owners.sh" "$f" 2>/dev/null || true)
+    owners_raw=$(sh "${SCRIPT_DIR}/../../gather/scripts/owners.sh" "$f" 2>/dev/null || true)
     owners_json=""
     first_owner=""
     is_mine=0

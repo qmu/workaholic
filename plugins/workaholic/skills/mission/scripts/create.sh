@@ -25,7 +25,7 @@
 # Usage: create.sh "<title>" [assignee] [merge_policy]
 #   Ownership is CARRIED ON THE MISSION as the plural `assignees` list (2026-07-28 —
 #   returned from the 2026-07-24 strategy-layer model; see mission/reference/schema.md Ownership
-#   and mission-owners.sh). The scaffold seeds `assignees` with the CREATOR — the
+#   and gather/scripts/owners.sh). The scaffold seeds `assignees` with the CREATOR — the
 #   interactive creator is the mission's default owner. The optional second argument
 #   seeds a different single owner instead; co-owners are added by editing the list.
 #   The singular `assignee:` key stays emitted but EMPTY (legacy readers only).

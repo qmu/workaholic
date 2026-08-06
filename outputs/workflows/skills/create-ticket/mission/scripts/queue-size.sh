@@ -70,7 +70,8 @@ count_area() {
   _ca_dir="$1"
   _ca_n=0
   [ -d "$_ca_dir" ] || { printf '%s' 0; return 0; }
-  # -type f over the whole area: todo/ is one level deep (todo/<user>/) and archive/ is
+  # -type f over the whole area: todo/ is flat (a legacy todo/<user>/ may survive until
+  # the living migration converges it) and archive/ is
   # keyed by branch (archive/<branch>/), so neither depth is assumed here.
   for _ca_f in $(find "$_ca_dir" -type f -name '*.md' 2>/dev/null | LC_ALL=C sort); do
     if sh "${SCRIPT_DIR}/read-relation.sh" "$_ca_f" 2>/dev/null | grep -qxF -- "$slug"; then

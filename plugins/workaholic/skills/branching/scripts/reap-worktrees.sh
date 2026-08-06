@@ -10,7 +10,7 @@
 #    "failed": [{"path","error"}]}
 #
 # WHY A SWEEP RATHER THAN MORE TEARDOWN CALLS. Teardown already exists three times over —
-# `/ship` after a merge, `/drive` after an auto unit, `/mission close` — and each is
+# `/ship` after a merge, `/drive` after an auto unit, `/mission-close` — and each is
 # correct on its own. What they share is a precondition: SOMEBODY'S RUN HAS TO REACH THE
 # END. A mission open for weeks keeps its desk the whole time; an interrupted run, a
 # hand-driven branch, or a batch whose caller died is nobody's teardown. Measured when

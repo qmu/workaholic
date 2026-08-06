@@ -9,6 +9,35 @@
 # the branch, the push, and the pull request, not the message. The base branch is
 # `main` unless WORKAHOLIC_PUBLISH_BASE names another.
 #
+# THE PULL REQUEST'S TITLE IS NOT THE COMMIT SUBJECT (P4, 2026-08-06). Set
+# WORKAHOLIC_PR_TITLE to give the pull request a title of its own; unset, it is
+# the commit subject, which is the long-standing behaviour and stays the default.
+#
+# They are different surfaces with different contracts, and conflating them was a
+# live defect. The commit subject is gated by `commit/scripts/check-subject.sh`:
+# present tense, <= 50 characters, and NO `[bracket]` prefix. The pull request
+# title is gated by nothing and is what `/propose` must prefix with `[Proposal]`
+# — the string the `[Implement]` routine's GitHub trigger filters on. Passing one
+# string to both made those two rules contradict each other: `/propose` could
+# satisfy its own documented prefix only by writing a commit subject the gate
+# refuses, so the publish failed at `commit_failed` before the pull request
+# existed. Splitting them lets each surface keep its own rule.
+#
+# THE PULL REQUEST CARRIES THE NOTIFICATION TARGET (P4, 2026-08-06). Set
+# WORKAHOLIC_NOTIFY_TARGET to the thread the chain should reply in, and the body
+# gains one machine-readable line:
+#
+#   Notify-Thread: <url>
+#
+# It is an ENV VAR rather than a positional because the positionals belong to
+# commit.sh and end in an open-ended `[files...]`, so a seventh one could not be
+# told from a filename. It is a **labelled line, not prose**, because the next
+# routine in the chain reads it back with `read-notify-target.sh` rather than
+# interpreting it: re-deriving the target from an `fb:<stem>` search is the step
+# that put a reply in the wrong place on 2026-08-05. Unset simply omits the line,
+# and the reader's absence branch is the documented fallback to that search —
+# every pull request opened before this change has no line to read.
+#
 # Output (stdout, exit 0 for a reported outcome):
 #   {"ok": true,  "sha": "<sha>", "branch": "work-…", "pr_url": "<url>", "base": "<base>"}
 #   {"ok": false, "reason": "no_publish_tree"|"nothing_to_commit"|"commit_failed"
@@ -129,10 +158,18 @@ trap 'rm -f "$body_file"' EXIT
   printf '## Artifacts\n\n'
   git -C "$publish_path" show --stat --oneline --name-only --format='' HEAD | sed -e '/^$/d' -e 's/^/- `/' -e 's/$/`/'
   printf '\n## Notes\n\nPublished from the publish tree, so the caller'"'"'s checkout was never touched. Merging this pull request is what lands the artifact on `%s`.\n' "$base"
+  # One labelled line, last, so a reader finds it without parsing the prose above
+  # it. Omitted entirely when unset: an absent line is what tells the reader to
+  # fall back, and an empty one would read as a target that resolves to nothing.
+  if [ -n "${WORKAHOLIC_NOTIFY_TARGET:-}" ]; then
+    printf '\nNotify-Thread: %s\n' "$WORKAHOLIC_NOTIFY_TARGET"
+  fi
 } > "$body_file"
 
+PR_TITLE="${WORKAHOLIC_PR_TITLE:-$TITLE}"
+
 pr_url=$(git -C "$publish_path" rev-parse --show-toplevel >/dev/null 2>&1 && \
-  ( cd "$publish_path" && gh pr create --base "$base" --head "$work_branch" --title "$TITLE" --body-file "$body_file" 2>/dev/null ) || true)
+  ( cd "$publish_path" && gh pr create --base "$base" --head "$work_branch" --title "$PR_TITLE" --body-file "$body_file" 2>/dev/null ) || true)
 
 if [ -z "$pr_url" ]; then
   printf '{"ok": false, "reason": "pr_failed", "branch": "%s", "sha": "%s", "base": "%s", "detail": "the artifact IS pushed to the branch; open the pull request by hand rather than re-publishing"}\n' \

@@ -3,12 +3,13 @@ created_at: 2026-08-05T13:28:53+00:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
+effort: 1h
 commit_hash:
-category:
+category: Changed
 depends_on:
 feedback: [20260805132840-install-gh-in-the-web-container-via-the-session-start-hook.md]
 merge_policy:
+claim: work-20260806-150951
 ---
 
 # Install gh in the session-start bootstrap hook
@@ -112,3 +113,34 @@ remedy to the one startup seam this repository does own.
 - **Adjacent work.** `20260805194030-repair-a-superseded-plugin-binding-not-just-report-it.md`
   edits the same hook. Neither blocks the other, but driving them close together avoids two
   conflicting rewrites of the same file.
+
+## Final Report
+
+Development completed as planned. The install is step 0 of the hook — before the plugin
+work, since a container that cannot get `gh` should learn it at the top of the log — and
+every branch is non-fatal. All four paths were exercised against a hermetic PATH with
+shimmed `claude`/`id`/`apt-get`:
+
+| Path | Result |
+| ---- | ------ |
+| `gh` already present | logs `gh present (…); skip`, no network call, exit 0 |
+| absent, not root | one legible line, exit 0 |
+| absent, root, install fails | one legible line naming the `no_gh` consequence, exit 0 |
+| absent, root, install succeeds | `gh installed (gh version …)`, `gh` on PATH, exit 0 |
+| second run after success | `gh present … skip` — idempotent, exit 0 |
+
+### Discovered Insights
+
+- **Insight**: `check-bootstrap.sh` resolves the canonical copy **relative to its own
+  script location** (`SCRIPT_DIR/../bootstrap/session-start.sh`). Running the *installed
+  plugin's* copy against a **worktree** therefore compares the worktree's installed hook to
+  the main checkout's canonical one and reports a false `hook_stale`. Run the worktree's
+  own copy when verifying a hook change in a claim worktree.
+  **Context**: The two files were byte-identical (11523 bytes, verified) while the checker
+  said stale — a confusing five minutes, and a trap for any future hook ticket.
+
+- **Insight**: The success path's log line calls `gh --version` immediately after the
+  install, so the log records the version that actually landed rather than the one the
+  archive advertised.
+  **Context**: `gh installed ()` with empty parentheses means the binary arrived
+  unexecutable — which is exactly how a broken install reads in this log.

@@ -6,7 +6,7 @@ layer: [Config]
 effort:
 commit_hash:
 category:
-depends_on:
+depends_on: 20260806184521-carry-ownership-as-a-field-not-as-a-directory.md
 mission: reduce-the-loop-to-two-routines-and-one-behaviour-per-command
 merge_policy:
 ---
@@ -72,9 +72,13 @@ skill the session loads.
 
 ## Considerations
 
-- Retiring `[Consent]` means a **human-merged** pull request is announced by nobody:
-  `/implement` posts only for units it ran. That is the accepted cost of one fewer routine,
-  and it should be stated where a developer will meet it.
-- Dropping the identity line from the Implement prompt is tempting and measured-dangerous:
-  without `git config user.email` the run resolves no `todo/<user>/` and reports an empty
-  queue as a healthy tick. Keep it or prove the container sets it.
+- Retiring `[Consent]` is **approved** (developer, 2026-08-06): a human-merged pull request
+  is then announced by nobody, since `/implement` posts only for units it ran. That is the
+  accepted cost of one fewer standing process per project, and it should be stated where a
+  developer will meet it.
+- **The identity line is not kept — it is designed away.** An earlier draft of this ticket
+  proposed keeping `git config user.email` in the prompt, because without it the run
+  resolves no `todo/<user>/` and reports an empty queue as a healthy tick. The developer
+  rejected the patch and the flaw behind it: ownership belongs in a field, not a directory
+  (`20260806184521-carry-ownership-as-a-field-not-as-a-directory.md`). **This ticket depends
+  on that one** and the prompt drops to four lines only after it lands.

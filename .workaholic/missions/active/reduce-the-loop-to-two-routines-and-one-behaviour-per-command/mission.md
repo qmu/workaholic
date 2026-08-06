@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260806-185233
 ---
 
 # Reduce the loop to two routines and one behaviour per command

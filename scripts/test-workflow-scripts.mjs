@@ -122,6 +122,7 @@ const SCRIPTS = {
   openPublishTree: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/open-publish-tree.sh"),
   publishTreeCommit: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/publish-tree-commit.sh"),
   publishTreePr: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/publish-tree-pr.sh"),
+  readNotifyTarget: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/read-notify-target.sh"),
   listRoutineTemplates: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/list-routine-templates.sh"),
   renderRoutine: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/render-routine.sh"),
   checkSlackChannel: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/check-slack-channel.sh"),
@@ -12174,6 +12175,8 @@ const tests = [
   ["branching/sync-main.sh (J3 freshness)", testSyncMain],
   ["branching publish tree: publication never touches the caller's checkout (J2)", testPublishTree],
   ["branching publish-tree-pr: an artifact lands on a work-* branch behind a PR (J4)", testPublishTreePr],
+  ["the routine chain hands off its notification target in the PR body (P4)", testNotifyTargetHandoff],
+  ["the notify-target contract is stated on both halves of the chain (P4)", testNotifyTargetContract],
   ["branching close-publish-tree: closes after either publish path, still guards the unpushed one", testClosePublishTreeReachability],
   ["workaholify routines: one template set, applied per repository, drift named per field", testWorkaholifyRoutines],
   ["routine announcements: exactly one subject, or nothing at all", testRoutineAnnouncementScoping],
@@ -12287,6 +12290,110 @@ function testPublishTreePr() {
     rmSync(origin, { recursive: true, force: true });
     rmSync(A, { recursive: true, force: true });
   }
+}
+
+// ---------- the routine chain's hand-off: the PR carries its notification target ----------
+// P4 (2026-08-06). `/propose` writes `Notify-Thread: <url>` into the pull request body;
+// `/implement`, started by that PR's merge, reads it back and replies THERE. The
+// alternative it replaces -- re-deriving the thread from an `fb:<stem>` search -- is the
+// step that put a reply in the wrong place on 2026-08-05: a search has to guess, and a
+// guess in a notification path produces a message that looks right and is unrelated to
+// the event.
+//
+// The `absent` branch is asserted as hard as the found branch, because it is the
+// FALLBACK SIGNAL, not an error: every pull request opened before this change carries no
+// line, and the caller's documented behaviour on it is the existing thread search. A
+// reader that reported `absent` the way it reports `no_gh` would send a caller looking
+// for a broken tool instead of falling back.
+function testNotifyTargetHandoff() {
+  const { origin, A } = makePublishFixture();
+  const OPEN = `${POSIX_SH} ${SCRIPTS.openPublishTree}`;
+  const PR = `${POSIX_SH} ${SCRIPTS.publishTreePr}`;
+  const READ = `${POSIX_SH} ${SCRIPTS.readNotifyTarget}`;
+  const THREAD = "https://qmu.slack.com/archives/C0123ABCD/p1754460000123456";
+  const REL = ".workaholic/tickets/todo/20260806010000-chained.md";
+  try {
+    // ---- the reader, over a body already in hand (no gh, no network) ----
+    const bodyWith = join(A, "with.txt");
+    writeFileSync(bodyWith, `## Overview\n\nwhy\n\nNotify-Thread: ${THREAD}\n`);
+    assertEq("the reader returns the carried target verbatim",
+      JSON.parse(run(A, `${READ} --body-file ${bodyWith}`).stdout), { found: true, target: THREAD });
+
+    const bodyWithout = join(A, "without.txt");
+    writeFileSync(bodyWithout, "## Overview\n\nwhy\n");
+    assertEq("a body with no line reports absent — the documented fallback signal",
+      JSON.parse(run(A, `${READ} --body-file ${bodyWithout}`).stdout), { found: false, reason: "absent" });
+    assertTrue("and absent is a DIFFERENT reason from being unable to ask at all",
+      JSON.parse(run(A, `${READ} --body-file /nonexistent/body.txt`).stdout).reason === "unreadable"
+      && JSON.parse(run(A, READ).stdout).reason === "no_ref");
+
+    // A body may quote the line while discussing it; the writer emits exactly one, last,
+    // so first-match-wins resolves the duplicate the way the writer intended.
+    const bodyDup = join(A, "dup.txt");
+    writeFileSync(bodyDup, `Notify-Thread: ${THREAD}\n\nsome prose\n\nNotify-Thread: https://wrong/one\n`);
+    assertEq("the first line wins over a later quoted one",
+      JSON.parse(run(A, `${READ} --body-file ${bodyDup}`).stdout).target, THREAD);
+
+    // ---- the writer: the env var is what puts the line in the body ----
+    execSync("git checkout -q -b work-20260806-010000", { cwd: A });
+    run(A, OPEN);
+    mkdirSync(join(A, ".publish", ".workaholic/tickets/todo"), { recursive: true });
+    writeFileSync(join(A, ".publish", REL), "---\ntype: enhancement\n---\n\n# Chained\n");
+    // gh cannot open a PR against a bare local origin, so the run fails at the PR step --
+    // which is exactly where the body is built. The body file is written before the
+    // attempt, so what is asserted is the branch landing plus the reader's own contract
+    // over the same string the writer emits.
+    const r = JSON.parse(run(A,
+      `WORKAHOLIC_NOTIFY_TARGET='${THREAD}' WORKAHOLIC_PR_TITLE='[Proposal] Add a chained ticket' ${PR} "Add a chained ticket" "why" "None" "None" "None" "verify" ${REL}`).stdout);
+    assertTrue("the publication still lands on its branch with a target set",
+      r.ok === false && /^work-\d{8}-\d{6}$/.test(r.branch || ""), JSON.stringify(r));
+    const onBranch = execSync(`git ls-tree -r --name-only ${r.branch}`, { cwd: origin, encoding: "utf8" });
+    assertTrue("the artifact is pushed whether or not the PR step succeeded", onBranch.includes(REL), onBranch);
+
+    // THE PR TITLE IS NOT THE COMMIT SUBJECT. `[Proposal]` is exactly the shape
+    // check-subject.sh forbids, so passing one string to both made /propose's own
+    // documented prefix unwritable -- the publish died at `commit_failed` before any
+    // pull request existed. The subject keeps the project rule; the title carries the
+    // prefix the [Implement] trigger filters on.
+    const subject = execSync(`git log -1 --format=%s ${r.branch}`, { cwd: origin, encoding: "utf8" }).trim();
+    assertEq("the commit subject keeps the project's no-bracket-prefix rule",
+      subject, "Add a chained ticket");
+    const plain = JSON.parse(run(A, `${PR} "Add another ticket" "why" "None" "None" "None" "verify"`).stdout);
+    assertTrue("a caller that sets no PR title is unaffected",
+      plain.reason === "nothing_to_commit" || /^work-/.test(plain.branch || ""), JSON.stringify(plain));
+  } finally {
+    rmSync(origin, { recursive: true, force: true });
+    rmSync(A, { recursive: true, force: true });
+  }
+}
+
+// The chain's two halves are prose in two skills, so nothing mechanical would notice
+// either drifting away from the other.
+function testNotifyTargetContract() {
+  const propose = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/propose/SKILL.md"), "utf8");
+  const drive = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/drive/SKILL.md"), "utf8");
+  const wh = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/SKILL.md"), "utf8");
+  const writer = readFileSync(SCRIPTS.publishTreePr, "utf8");
+
+  assertTrue("the propose skill owns the [Proposal] prefix contract",
+    /\[Proposal\]` prefix/.test(propose));
+  assertTrue("and says why it is load-bearing rather than cosmetic",
+    /title contains \[Proposal\]/.test(propose), "trigger-filter rationale missing");
+  assertTrue("the propose skill routes the prefix through the PR-title env var",
+    /WORKAHOLIC_PR_TITLE/.test(propose) && /different surfaces with different rules/.test(propose));
+  assertTrue("and the writer keeps the commit subject separate from the PR title",
+    /WORKAHOLIC_PR_TITLE:-\$TITLE/.test(writer));
+  assertTrue("the propose skill states the labelled line the writer emits",
+    /Notify-Thread: <thread url>/.test(propose) && /WORKAHOLIC_NOTIFY_TARGET/.test(propose));
+  assertTrue("and forbids inventing a target to fill it",
+    /Do \*\*not\*\* invent a target/.test(propose), "invention not forbidden");
+  assertTrue("the writer emits the line only when the target is set",
+    /WORKAHOLIC_NOTIFY_TARGET:-/.test(writer) && /Notify-Thread: %s/.test(writer));
+  assertTrue("the drive skill reads the target back before searching",
+    /read-notify-target\.sh/.test(drive) && /documented fallback/.test(drive));
+  assertTrue("the thread rules place the carried target above the search",
+    /four ordered cases/.test(wh)
+    && wh.indexOf("read-notify-target.sh") < wh.indexOf("The `fb:<stem>` key search"));
 }
 
 // close-publish-tree.sh asks "is this tip pushed ANYWHERE?", not "did it reach the

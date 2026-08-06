@@ -43,7 +43,7 @@ subcommands anywhere, and `/drive` is again the interactive command it used to b
 
 - [x] `/implement` is the unattended executor and `/drive` is interactive again;
       `[Consent]` is retired, leaving exactly two routine templates. (#20260806183638-split-drive-into-an-interactive-drive-and-an-unattended-implement.md)
-- [ ] `/propose` and `/implement` are routine-shaped: `[Proposal]`-prefixed pull
+- [x] `/propose` and `/implement` are routine-shaped: `[Proposal]`-prefixed pull
       request titles, and the notification target carried in the pull request body. (#20260806183638-shape-propose-and-implement-for-the-routine-chain.md)
 - [ ] No command in the plugin takes a subcommand; each takes arguments and has one
       behaviour, with the setup sheets and docs matching. (#20260806183638-abolish-subcommands-across-every-command.md)
@@ -56,3 +56,4 @@ subcommands anywhere, and `/drive` is again the interactive command it used to b
 - 2026-08-06 — ticket archived — 20260806183638-split-drive-into-an-interactive-drive-and-an-unattended-implement.md
 - 2026-08-06 — ticket archived — 20260806184521-carry-ownership-as-a-field-not-as-a-directory.md
 - 2026-08-06 — ticket archived — 20260806183638-cut-the-two-routine-templates-to-four-lines-and-retire-consent.md
+- 2026-08-06 — ticket archived — 20260806183638-shape-propose-and-implement-for-the-routine-chain.md

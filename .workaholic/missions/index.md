@@ -3,6 +3,7 @@
 ## active
 
 * [reduce-the-loop-to-two-routines-and-one-behaviour-per-command](active/reduce-the-loop-to-two-routines-and-one-behaviour-per-command/mission.md) - Reduce the loop to two routines and one behaviour per command
+* [slim-commands-skills-and-docs-for-ai-agent-use](active/slim-commands-skills-and-docs-for-ai-agent-use/mission.md) - Slim commands, skills, and docs for AI-agent use
 
 ## archive
 

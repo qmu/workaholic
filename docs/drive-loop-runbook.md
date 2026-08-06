@@ -1,7 +1,7 @@
 # Drive Loop Runbook
 
 How to stand up the **"Drive Every 5 Minutes"** routine on a server: the cron that
-runs `/drive auto` headlessly so merged missions and queued tickets are claimed,
+runs `/implement` headlessly so merged missions and queued tickets are claimed,
 implemented, reported, and — per the artifacts' recorded merge policy — shipped or
 handed to a human at a PR (`docs/loop-engineering-workflow.md` G4; decision C1 —
 server cron first, Claude Code Web later). It is the execution sibling of the
@@ -19,17 +19,19 @@ without origin surveys, refuses to claim, and exits `pending` — by design (see
 
 ## 1. What the routine actually does
 
-Each tick is one full `/drive auto` run — survey, partition, claim, drive, report,
-route (`plugins/workaholic/skills/drive/SKILL.md`, *Unified Run*). **The `auto`
-token is load-bearing and must be in the tick's command line** (decision O1,
-2026-08-05): it names the **unattended** form, which issues no `AskUserQuestion` at
-any step, so nothing can block a tick waiting for a person. Bare `/drive` is the
-**attended** form and asks once which units to take whenever more than one is
+Each tick is one full `/implement` run — survey, partition, claim, drive, report,
+route (`plugins/workaholic/skills/drive/SKILL.md`, *Unified Run*). **The command
+name is load-bearing** (decision P1, 2026-08-06, superseding O1's two invocation forms of `/drive`):
+`/implement` is the **unattended** executor, which issues no `AskUserQuestion` at
+any step, so nothing can block a tick waiting for a person. `/drive` is the
+**attended** command and asks once which units to take whenever more than one is
 claimable — correct for a developer at a terminal, fatal for a cron tick, which
-would sit on the prompt until its window closed. The form is chosen by the
-invocation and never inferred from the environment, so a runner that drops the
-token gets the prompt no matter how headless its container is. The same applies to
-a caller-side loop: write `/goal /drive auto ok`, never `/goal /drive ok`.
+would sit on the prompt until its window closed. Attendance follows from *which
+command was invoked* and is never inferred from the environment, so a tick pointed
+at `/drive` gets the prompt no matter how headless its container is. The same
+applies to a caller-side loop: write `/goal /implement ok`, never `/goal /drive ok`.
+O1's `auto` and `night` first words are retired — a behaviour selected by an
+argument a caller might forget to pass is not a contract a loop can rest on.
 
 Two things the loop never does, and both are deliberate:
 
@@ -78,7 +80,7 @@ worktrees of that checkout. A working shape (adjust the claude invocation to the
 installed CLI):
 
 ```cron
-*/5 * * * * . "$HOME/.workaholic-drive.env" && claude -p "/drive auto" --cwd /path/to/repo >> "$HOME/.workaholic-drive.log" 2>&1
+*/5 * * * * . "$HOME/.workaholic-drive.env" && claude -p "/implement" --cwd /path/to/repo >> "$HOME/.workaholic-drive.log" 2>&1
 ```
 
 - Keep the token in a `0600` env file (`~/.workaholic-drive.env` with the exports
@@ -108,7 +110,7 @@ developer's original ask. Two earlier versions of this section argued for a cloc
 from "a merge trigger does not exist" (retracted: the trigger wiring lives in the
 routines UI, invisible to the API record both readings relied on) and then from the
 recovery argument. The recovery argument is answered by the survey itself: a
-merge-started `/drive auto` offers everything claimable — a handoff to resume, a lapsed
+merge-started `/implement` offers everything claimable — a handoff to resume, a lapsed
 claim, backlog `/ticket` wrote — not only the merged proposal's work, so the leftovers
 ride the next merge. The server cron this runbook documents remains the **fallback
 shape** for a machine-local loop, and standing it up stays a developer's act.
@@ -213,7 +215,7 @@ says so (`backlog_error: identity_unresolved`; see *Failure modes*).
 | a unit reported **blocked** on a failed production confirmation | the deploy did not verify | the unmerged branch is the rollback; diagnose the deploy, do not force the merge |
 | every tick reports 0 units / `ok` but the queue is full | the runner has no `git config user.email`, so there is no `todo/<user>/` to resolve and the survey never learned any ticket exists | `plan-units.sh` reports `backlog_error: identity_unresolved` with an empty `user_slug`, and the tick terminates `pending` rather than `ok`. Configure the runner's identity — the plugin cannot invent one, and it deliberately does not fall back to scanning every developer's queue |
 | missions exist on `main` but nothing is claimed | the mission has an empty `## Acceptance` (`no_plan`), **no ticket names it** (`no_tickets` — an acceptance sketch is not a plan; emit the set with `/mission <instruction>`), a claim already holds it (`claimed_active` / `claimed_by_other`, or `claimed_resumable` if it is yours to take over), or its `assignees` name only another developer (`owned_by_other`) | check `plan-units.sh`'s `excluded[]` — every drop states its reason. `owned_by_other` means nothing to do here: the mission is a colleague's, and their runner will take it. Two old causes cannot occur any more: "its tickets live in an unmerged worktree" (missions and tickets are published for merge, decision J1/J4) and `not_approved` (the draft gate was retired, K1) |
-| the tick reports nothing to do, but you can see a queued ticket on GitHub | the runner's checkout is behind `origin/main`, so the survey never learned the artifact exists | the freshness step (`sync-main.sh`, `commands/drive.md` step 0) fast-forwards before surveying, and `plan-units.sh` reports `current: false` when it could not. If it keeps reporting `not_on_main` / `dirty_workspace` / `diverged`, the runner checkout is being used for other work — keep it dedicated and reconcile by hand |
+| the tick reports nothing to do, but you can see a queued ticket on GitHub | the runner's checkout is behind `origin/main`, so the survey never learned the artifact exists | the freshness step (`sync-main.sh`, the drive skill §1) fast-forwards before surveying, and `plan-units.sh` reports `current: false` when it could not. If it keeps reporting `not_on_main` / `dirty_workspace` / `diverged`, the runner checkout is being used for other work — keep it dedicated and reconcile by hand |
 | a tick terminates `pending` with `not_on_main` or `dirty_workspace` | the runner checkout is on a branch, or holds uncommitted work | the run refuses to survey a branch rather than surveying the wrong queue. Return the checkout to a clean `main` |
 | `dirty_workspace` naming **staged mission files nobody edited** (`M .workaholic/missions/active/*/mission.md`) | the **installed plugin is older than the checkout**, and its always-on `mission-lens.sh` is running an obsolete living migration backwards — the pre-K1 build folds `active` → `draft` and `git add`s the result, on every prompt | check `check-deps/scripts/check.sh`: `version_drift: true` with `version` (installed) beside `checkout_version` names it outright. Restore with a **targeted** `git restore` of the listed files — never `git clean` / `git reset --hard` — then refresh the install (`claude plugin update workaholic@workaholic`) or start a fresh session, which re-runs the version-gated bootstrap. Do **not** edit the plugin cache: it is outside the repository, and a fix that lives in one container is not a fix |
 | `version_drift: true` but nothing is dirty | the installed build is simply behind; most releases touch nothing a given run reaches | **a warning, not a stop** — by decision, a runner that refuses to work because its plugin is old is as useless as one that works wrongly. The run continues and reports the drift. The hard stop already exists where drift actually bites, as the row above |

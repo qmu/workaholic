@@ -192,6 +192,12 @@ Defaults decided without asking (veto anytime):
 | - | ------ |
 | O1 | **`/drive` has two invocation forms, and the attended one asks which units to take.** This amends G2's *"no drive-time confirmation"*, which was written against the per-ticket approval prompt and swept up a different question with it: not *may I do this* but *which of these first*. Bare `/drive` is **attended** — when the partition offers more than one claimable or resumable target it asks once (`multiSelect`, one option per unit, `[project label]` prefix), drives the chosen units in the chosen order, and reports the rest as `deferred_by_operator`, which keeps them claimable and so forbids `ok`. `/drive auto` (synonym: `night`) is **unattended** and keeps the zero-prompt contract verbatim; the `[Drive]` routine template and every caller-side loop name it explicitly. **Attendance is chosen by the caller's invocation form and never inferred** from a TTY or environment: a wrong inference either parks a cron tick on an unanswerable prompt or silently strips the developer's choice, and the invocation is the only signal that cannot be wrong. Nothing else changes — the partition's *composition* is still reported and never asked, there is still no per-ticket prompt, and steps 3–7 are byte-identical between the forms. The measured failure it closes: on 2026-08-05 an attended run spent its first ~40 minutes reopening a pull request the developer considered parked, because `resumable[]` ranked it above their actual work in progress, and they had to interrupt twice to ask why. The ordering half was fixed by the `parked_with_pr` tier; this is the other half — where a person is present, the choice among peers is theirs, and a heuristic decides only where nobody can. |
 
+### Eleventh round — two routines, one behaviour per command (2026-08-06)
+
+| # | Ruling |
+| - | ------ |
+| P1 | **The unattended executor becomes `/implement`; `/drive` is the interactive command again.** This supersedes O1's *two invocation forms* half while keeping everything O1 decided about *what* is asked. O1 was right that attendance must be chosen by the caller and never inferred, and wrong about where to carry that choice: a first word (`auto`, with `night` as a synonym) is a second command wearing one name, so the contract a loop rests on was an argument the caller might forget to pass — and forgetting it parks the tick on a prompt, the exact failure O1 existed to prevent. Two commands make the mistake unrepresentable. `/drive [<unit>]` is **attended** and keeps O1's single `multiSelect` selection, its `deferred_by_operator` reporting, and its `pending` consequence verbatim. `/implement [<unit>]` is **unattended** and keeps the zero-prompt contract verbatim; the routine template and every caller-side loop (`/goal /implement ok`) name it. The optional argument is a **scope, not a mode** — the behaviour is identical with and without it — which is what keeps this a split rather than a new fork. Everything below §2 stays byte-identical between the two, and the knowledge stays in one skill with two entry points: a forked copy of the run would drift, and the run is the part that must not. |
+
 ## 5. Strategy-layer removal — migration inventory
 
 Abolishing `strategies/` touches every ownership consumer. The single-reader
@@ -253,9 +259,10 @@ design (`mission-owners.sh`) contains the blast radius:
 - Unit outcome per the artifacts' recorded merge policy (G5): all-auto →
   automated `/ship` (deploy + verify evidence before merge); otherwise → PR
   created and its URL posted to Slack.
-- The "Drive Every 5 Minutes" routine (G4) is simply this command on a
-  schedule, invoking the unattended form `/drive auto` by name (O1); an
-  attended invocation behaves identically once its units are chosen.
+- The "Drive Every 5 Minutes" routine (G4) is simply this run on a schedule,
+  invoking the unattended command `/implement` by name (P1, superseding
+  O1's two invocation forms); the attended `/drive` behaves identically
+  once its units are chosen.
 - Needed pieces: a deterministic claim reader (enumerate unmerged remote
   branches, extract claimed artifact IDs), a stale-claim reclamation rule
   (an abandoned claim branch must not block its work forever), and the

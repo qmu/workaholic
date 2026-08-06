@@ -3,9 +3,9 @@ created_at: 2026-08-06T18:36:38+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
+effort: 2h
 commit_hash:
-category:
+category: Changed
 depends_on:
 mission: reduce-the-loop-to-two-routines-and-one-behaviour-per-command
 merge_policy:
@@ -74,3 +74,34 @@ confirmation dialog. One name, one behaviour.
 
 - The `auto` token is load-bearing in five places today; a rename that misses one leaves a
   caller sitting on a prompt with nobody to answer it.
+
+## Final Report
+
+Development completed as planned. `/implement` is the unattended executor, `/drive` is
+attended only, and both are thin entry points over the one Unified Run in
+`skills/drive/SKILL.md`.
+
+### Discovered Insights
+
+- **Insight**: The `auto`/`night` first words were only half the duplication. The
+  step-0 freshness table lived in `commands/drive.md`, so splitting the command in
+  two would have produced two copies of it — and the routine-template lesson
+  (a prompt that duplicates a procedure is a second source of truth, and the drift
+  is one-directional) applies to a command file exactly as it does to a routine
+  prompt. The table moved into the skill's §1 and both commands now defer to it.
+  **Context**: Any future entry point onto this run inherits the tables for free;
+  a change to a refusal reason is made once. `testDriveFreshnessContract` was
+  re-pointed at the skill to pin that the copy does not come back.
+- **Insight**: The optional `<unit>` argument is deliberately a *scope*, not a mode.
+  That distinction is what keeps this a split rather than a new fork — the very
+  thing the mission abolishes — and it is pinned as its own assertion.
+  **Context**: If a future change makes the argument select a behaviour, the
+  command has grown a subcommand again under a different spelling.
+- **Insight**: `/drive` keeps the "ask nothing when there is nothing to choose"
+  carve-out rather than confirming unconditionally, even though the ticket's
+  acceptance reads as "asks for confirmation". `rules/interaction.md`'s
+  Recommended-label test forbids a prompt whose first option could honestly be
+  marked *(Recommended)*, and "drive the one claimable unit?" is exactly that.
+  **Context**: The always-loaded rule outranks a phrase in a provisional gate;
+  the reasoning is now written into the skill next to the carve-out so the next
+  reader does not re-litigate it.

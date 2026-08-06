@@ -41,7 +41,7 @@ subcommands anywhere, and `/drive` is again the interactive command it used to b
 
 <!-- PROPOSED criteria — replan sharpens them. -->
 
-- [ ] `/implement` is the unattended executor and `/drive` is interactive again;
+- [x] `/implement` is the unattended executor and `/drive` is interactive again;
       `[Consent]` is retired, leaving exactly two routine templates. (#20260806183638-split-drive-into-an-interactive-drive-and-an-unattended-implement.md)
 - [ ] `/propose` and `/implement` are routine-shaped: `[Proposal]`-prefixed pull
       request titles, and the notification target carried in the pull request body. (#20260806183638-shape-propose-and-implement-for-the-routine-chain.md)
@@ -53,3 +53,4 @@ subcommands anywhere, and `/drive` is again the interactive command it used to b
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-06 — ticket archived — 20260806183638-split-drive-into-an-interactive-drive-and-an-unattended-implement.md

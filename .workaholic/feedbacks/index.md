@@ -421,4 +421,5 @@
 * [The /setup-routines report presents a template-declared trigger as if it were live wiring](20260806032120-the-setup-routines-report-presents-a-template-declared-trigger-as-if-it-were-live-wiring.md)
 * [A ticket is claimable without a merge — merge-approval is mission doctrine](20260806113420-a-ticket-is-claimable-without-a-merge-merge-approval-is-mission-doctrine.md)
 * [Routine setup is a human act the plugin makes cheap](20260806143907-routine-setup-is-a-human-act-the-plugin-makes-cheap.md)
+* [Two routines, one behaviour per command](20260806183556-two-routines-one-behaviour-per-command.md)
 <!-- okf:generated:end -->

@@ -3,9 +3,9 @@ created_at: 2026-08-05T13:04:56+00:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
+effort: 1h
 commit_hash:
-category:
+category: Changed
 depends_on:
 mission: drive-on-a-merged-proposal-and-report-it-in-that-proposal-s-thread
 merge_policy:
@@ -99,3 +99,41 @@ record with its reason, not drop by omission.
   tickets queued today — and leaves handoff resumption and lapsed claims with nothing
   to pick them up. That is why the decision is scoped into this ticket rather than
   assumed either way.
+
+## Final Report
+
+Development completed as planned. All three decisions the ticket scoped were made and
+recorded beside the trigger they govern, and the first one turned out to be a capability
+finding rather than a judgement call.
+
+### Discovered Insights
+
+- **Insight**: A Claude Code Web routine record has **no event-subscription field at
+  all**. Read back over the whole live account (`RemoteTrigger list`, 20 routines), the
+  entire trigger surface is `cron_expression`, `run_once_at`, and an API token
+  (`api_token_hint` / `api_token_created_at`) that lets an external caller POST
+  `/v1/code/triggers/<id>/run`. Nothing names a repository, a pull request, a merge or a
+  webhook.
+  **Context**: `trigger: event` in the templates never described a subscription — it
+  described a routine with no schedule waiting to be invoked. Every design that assumed a
+  routine could key on a repository event was assuming a field that does not exist, which
+  is why the frontmatter now reads `trigger: invoked` and the word is pinned by a test.
+
+- **Insight**: **No `[Propose]` or `[Consent]` routine has ever fired.** All 8 `[Consent]`
+  and 7 `[Propose]` routines carry an empty cron, no `run_once_at`, no API token, and no
+  `last_fired_at` key at all, the oldest created 2026-07-31. The only routines in the
+  account that have ever run are the two cron ones and four one-off `run_once_at`
+  diagnostics.
+  **Context**: Two runbooks and three templates describe what happens "when the merge
+  fires this routine", and that path has never executed once. `last_fired_at` being
+  *absent* rather than null is the cheap tell, and `RemoteTrigger list` answers it in one
+  call — worth running before trusting any prose about what a routine does.
+
+- **Insight**: The ask behind this ticket ("start the run on a merged proposal") decomposes
+  into a trigger question that has no answer and an **invoker** question that does. The
+  invoker — a token plus something that POSTs `/run` — is a standing outward-facing
+  process, so it is a human act under *What may be applied unattended*, not a change an
+  agent lands.
+  **Context**: This is why the clock stays and why `[Consent]` keeps the merge event
+  rather than `[Drive]` growing a second watcher of it. The invoker is queued as its own
+  ticket rather than attempted here.

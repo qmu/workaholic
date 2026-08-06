@@ -112,7 +112,10 @@ def main():
             "name": u["name"],
             "template": None,
             "status": "unknown",
-            "trigger": "cron" if u["schedule"] else "event",
+            # A record with no schedule is not "event-driven": the API has no event
+            # subscription at all, so such a routine simply waits to be invoked
+            # (workaholify SKILL, *What a routine can be triggered by*).
+            "trigger": "cron" if u["schedule"] else "invoked",
             "schedule": u["schedule"] or None,
             "target_repo": u["target_repo"],
             "enabled": u["enabled"],

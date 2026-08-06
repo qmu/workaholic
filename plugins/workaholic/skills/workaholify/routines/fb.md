@@ -2,7 +2,7 @@
 type: Routine Template
 id: fb
 name: "[Propose] {repo_name}"
-trigger: event
+trigger: invoked
 model: claude-opus-5
 allowed_tools: [Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch]
 mcp: [Slack]

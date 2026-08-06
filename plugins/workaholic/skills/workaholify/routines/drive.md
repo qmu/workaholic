@@ -11,10 +11,23 @@ mcp: [Slack]
 
 # [Drive] — the hourly unattended drive runner
 
-The **only** scheduled template — `[Propose]` and `[Consent]` fire on events, and the
-`[Propose Batch]` that briefly shared this line was retired on 2026-08-04
-(`docs/proposal-loop-runbook.md` §7). It runs `/drive` in an isolated cloud session every
-hour at :56 UTC. Still marked `(pilot)` in its name.
+The **only** scheduled template, and — measured 2026-08-05 — the only one of the three
+that any trigger has ever fired. `[Propose]` and `[Consent]` carry no schedule and wait to
+be invoked, and nothing invokes them; the `[Propose Batch]` that briefly shared this line
+was retired on 2026-08-04 (`docs/proposal-loop-runbook.md` §7). It runs `/drive` in an
+isolated cloud session every hour at :56 UTC. Still marked `(pilot)` in its name.
+
+**Why the clock, and not a merge event** (decided 2026-08-05, from the ask that this
+routine start when a proposal's pull request merges). A routine record has no
+event-subscription field at all — its whole trigger surface is `cron_expression`,
+`run_once_at`, and an API token letting an external caller POST `/run` (`workaholify`
+SKILL, *What a routine can be triggered by*). So there is no merge to key on, and the
+`[Consent]` template — whose subject already *is* a merged pull request — keeps ownership
+of that event rather than this one growing a second watcher of it. Starting a drive run
+from a merge needs an **invoker**, not a second routine, and standing one up is a human
+act. The clock also covers three things no merge event ever will: resuming a handoff,
+taking back a claim whose heartbeat lapsed, and driving a ticket `/ticket` wrote rather
+than a proposal. Do not re-open this by swapping the trigger; the trigger is not there.
 
 Its Slack posts name a unit or a PR the session itself just produced, so it has no
 "which one?" ambiguity — unlike `merged-pr`, whose subject is an external event.
@@ -42,6 +55,6 @@ You are the hourly unattended drive runner for {repo_slug}, in an isolated cloud
 
 4. **Hand off everything unfinished** before the session ends: push the claim branch including partial work, open or update the unit's PR with a leading `## Handoff` section, and **leave the claim in place** — `release-claim.sh` deletes the remote branch and with it the very claim a later run resumes from. The pushed branch is the sole surviving copy; the worktree dies with this container.
 
-5. **Post to Slack channel `dev-{repo_name}` and nowhere else** — no mobile or push notification of any kind. This routine's postable events are exactly five: a run **started**, a **merge requested**, a **merge**, a **handoff**, and a **blocked-on-precondition failure**. Everything else is silent, including a tick that found nothing to do — an idle tick is correctly silent and that silence is the report. The shapes of the five posts, the mention rule, the red-alert dedup, and which thread a post lands in are all stated in the `workaholify` skill (*Slack is the only surface*, *A red failure alert is deduped…*, *Naming a person means mentioning them*, *One thread per feedback item*); this template does not restate them. Their PR links render as `{repo}/pull/<number>`.
+5. **Post to Slack channel `dev-{repo_name}` and nowhere else** — no mobile or push notification of any kind. This routine's postable events are exactly five, and the first four are **per unit**, not per run: a unit **started**, a **merge requested**, a **merge**, a **handoff**, and a **blocked-on-precondition failure**. Everything else is silent, including a tick that found nothing to do — an idle tick is correctly silent and that silence is the report. The shapes of the five posts, the mention rule, the red-alert dedup, and which thread a post lands in are all stated in the `workaholify` skill (*Slack is the only surface*, *A red failure alert is deduped…*, *Naming a person means mentioning them*, *One thread per feedback item*); this template does not restate them. Their PR links render as `{repo}/pull/<number>`.
 
 6. **Announce only the pull request THIS session just opened**, and only once. Recent activity in the repository is not this session's to report: never announce a pull request, merge or unit that this session did not itself produce. Every other standing prohibition — the gates, the destructive git commands, repository confinement, `plugins/` over `.claude/`, the docs-in-the-same-commit rule — is in the repository's always-loaded rules and `/drive`'s own contract, and is not restated here.

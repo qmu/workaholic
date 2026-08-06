@@ -68,9 +68,9 @@ The hook's own corrections (qmu/workaholic#126) are recorded in its header — i
 
 ## 5. Scheduled routines
 
-Routines are how a project actually runs, and there are **three** templates: a `[Propose]` routine (template id `fb`; named `[FB]` until 2026-08-04) turns a Slack-reported issue into a record and, when its judgment warrants it, the work that record asks for — both in one PR — a `[Consent]` routine (id `merged-pr`; named `Merged PR` until the same ruling) announces a merge — the approval, in this workflow — and a `[Drive]` routine runs the queue on a schedule. A fourth, `[Propose Batch]`, existed for part of 2026-08-04 and was retired the same day: proposing belongs in the session that receives the ask, not in a sweep over what has already merged (`docs/proposal-loop-runbook.md` §7). Wiring them up is part of *"wire this repository to the standards"*, which is why it lives here and not in a second setup command — the second setup command is the one nobody runs.
+Routines are how a project actually runs, and there are **three** templates: a `[Propose]` routine (template id `fb`; named `[FB]` until 2026-08-04) turns a Slack-reported issue into a record and, when its judgment warrants it, the work that record asks for — both in one PR — a `[Consent]` routine (id `merged-pr`; named `Merged PR` until the same ruling) announces a merge — the approval, in this workflow — and a `[Drive]` routine runs the queue on a schedule. Only the last of the three is reachable by any trigger the API actually offers, which is measured below and is not a detail of the wiring. A fourth, `[Propose Batch]`, existed for part of 2026-08-04 and was retired the same day: proposing belongs in the session that receives the ask, not in a sweep over what has already merged (`docs/proposal-loop-runbook.md` §7). Wiring them up is part of *"wire this repository to the standards"*, which is why it lives here and not in a second setup command — the second setup command is the one nobody runs.
 
-**These are Claude Code Web routines, not cron jobs.** Each one is a scheduled or event-driven cloud session with its own checkout, reached through the `RemoteTrigger` tool (`list` / `get` / `create` / `update` / `run`). There is deliberately no local scheduler in this picture, and no crontab: a machine's crontab would be invisible to everyone but its owner, which is the problem this replaces rather than a mechanism to copy.
+**These are Claude Code Web routines, not cron jobs.** Each one is a scheduled or externally invoked cloud session with its own checkout, reached through the `RemoteTrigger` tool (`list` / `get` / `create` / `update` / `run`) — and *invoked* is literal, not a synonym for event-driven; see *What a routine can be triggered by* below. There is deliberately no local scheduler in this picture, and no crontab: a machine's crontab would be invisible to everyone but its owner, which is the problem this replaces rather than a mechanism to copy.
 
 ### One set of templates, many repositories
 
@@ -78,9 +78,25 @@ The templates live in **this skill** (`routines/*.md`), not in any repository's 
 
 | Template | Trigger | What it does |
 | -------- | ------- | ------------ |
-| `fb` | event | A reported issue becomes a `/fb` record and a PR |
-| `merged-pr` | event | A merge is announced to `dev-<repo>` |
-| `drive` | cron `56 * * * *` | The hourly unattended drive runner (still a pilot; bounded to 2 units/tick) |
+| `fb` | invoked | A reported issue becomes a `/fb` record and a PR |
+| `merged-pr` | invoked | A merge is announced to `dev-<repo>` |
+| `drive` | cron `56 * * * *` | The hourly unattended drive runner (still a pilot) |
+
+#### What a routine can be triggered by — and what "event" actually means (measured 2026-08-05)
+
+**A routine cannot subscribe to a repository event.** Read back over the whole live account (`RemoteTrigger list`, 20 routines), a routine record's entire trigger surface is three fields and nothing else:
+
+| Field | What fires the routine |
+| ----- | ---------------------- |
+| `cron_expression` | a recurring schedule |
+| `run_once_at` | one scheduled time |
+| `api_token_hint` / `api_token_created_at` | **an external caller** POSTing `/v1/code/triggers/<id>/run` with that token |
+
+There is **no event-subscription field of any kind** — nothing naming a pull request, a merge, a push, a repository or a webhook. So `trigger: event` in a template has never meant "this routine watches an event". It means the routine carries no schedule and **waits to be invoked** by something outside the account. The templates now say `invoked`, which is what the API supports.
+
+**And nothing invokes them.** Every `[Consent]` (8 repositories) and every `[Propose]` (7) carries an empty `cron_expression`, no `run_once_at`, **no API token**, and **no `last_fired_at` at all** — none has fired once since the oldest was created on 2026-07-31. The only routines in the account that have ever run are the two cron ones and four one-off `run_once_at` diagnostics. A template's prose describing what happens "when a merge fires this routine" is therefore describing a path that has never executed, and both runbooks' event-driven claims were written against an intent rather than a measurement.
+
+**The consequence for scheduling.** Until an invoker exists — a token plus something that POSTs `/run`, which is a standing outward-facing process and so a human act under *What may be applied unattended* — a clock is not a *floor beneath* the event path, it is the **only** path. `[Drive]` keeps its cron for that reason first, and for a second reason that survives a working invoker: handoff resumption, a claim whose heartbeat lapsed, and any ticket `/ticket` wrote rather than a proposal have no merge event to key on at all.
 
 Everything below a template's `## Prompt` heading is the routine's prompt, verbatim. Three substitutions, each demanded by the live routines: `{repo}` (full URL, for the `…/pull/123` links), `{repo_slug}` (`org/repo`, how the Drive prompt names the repository in prose), and `{repo_name}` (bare name, the routine's own name and the `dev-<name>` Slack channel). **Anything else that differs between two repositories' routines is drift, not configuration.**
 
@@ -130,6 +146,21 @@ A merge uses the 🟢 shape with its line swapped for the actor: **🚀 Auto Mer
 
 **How a session identifies its trigger message is left to the session; the routine's own trigger payload is the natural source.** Where no reliable identification exists the correct outcome is case 2 — matching by recency or by message content would thread unrelated items together, which is a worse failure than a second root.
 
+#### Which thread a `/drive` unit's posts land in (decided 2026-08-05)
+
+**A drive run's start and finish are per-*unit*, not per-run**, and each lands in the thread of the item that unit's work traces to. Per-run was unroutable by construction: "a run started" names no single item, so there is no thread it could reply in, and the announcement fell back to a top-level line the model exists to eliminate.
+
+**The unit resolves to its stems through one reader.** `drive/scripts/unit-feedback-stems.sh` takes the unit's artifacts — the mission's `mission.md` for a mission unit, the ticket files for a batch — and reports the deduped feedback stems behind them, through `propose/scripts/read-feedback-relation.sh`. A mission unit whose own `feedback:` is empty resolves through its queued tickets instead; a stem is the record's filename without `.md`, which is exactly the `fb:<stem>` token a root carries.
+
+Four rules, each answering a case the resolution actually produces:
+
+- **Several stems → post into each of their threads**, once per stem per event. A batch whose tickets trace to two records advances two items, and an item's thread is supposed to carry that item's whole life — reporting into only one of them leaves the other's story missing the work that answered it. The multiplication is bounded by relatedness: a batch is grouped conservatively, so the count is small by construction, and the deduplication in the resolver means the common case (several tickets, one record) is one thread.
+- **No stem → key on `` `unit:<unit-id>` ``**, and never post keyless. Both of the unit's posts carry the same key, so the unit's own two lines still thread together. The unit id is the key rather than the pull request's `#<number>` (which is what `[Consent]` falls back to) for a mechanical reason: the start is posted at claim time, **before** any pull request exists, and a key that only the finish can compute cannot thread the pair.
+- **A unit posts exactly one start and one finish per thread, and the finish's shape follows the outcome** — 🟢 merge requested, 🚀 / 🟣 for a merge, 🟡 for a handoff, 🔴 for a blocked unit. **A handoff is the finish**, not a third post: it is where that unit's run ended, and giving it a line of its own would put two terminal posts in one thread for the outcome that is already the least conclusive.
+- **The merge line does not duplicate `[Consent]`'s.** `[Consent]` rule 3 already forbids re-announcing a pull request that carries a merge notification anywhere in the channel, thread or top level, so whichever posts first is the only one — no new rule, and deliberately none, since a second rule pointing the other way would make the outcome depend on which of the two ran first.
+
+**The bot notice `claim.sh` posts is a different surface and is deliberately left alone.** It goes through `notify-slack.sh` with a bot token and no threading, and it is the CLI-side signal that a claim landed — it is not the threaded start post and must not be grown into one. The threaded posts are the session's, made through the Slack connector the routine already loads, which is the only surface that can search for `fb:<stem>` and reply into a thread. Both are non-load-bearing; a repository with neither wired runs identically.
+
 **Every post carries its session URL** — the Claude Code Web session that did the work, the same URL the harness gives the session for its `Claude-Session:` commit trailer. It is what turns "merged by Claude" into something a developer can audit. If the URL is not discoverable in a given session, **post without it**; a notification missing one line beats a notification that did not happen.
 
 This model governs **what a post says and where it lands, and nothing else** — it changes no survey, no claim, and nothing `/drive` picks or implements.
@@ -157,7 +188,7 @@ Stated once here; the templates carry the token in their formats and point back 
 - **Drop the low tier by default** — the branch story keeps every concern and the PR body renders it without the `low` ones (`report/scripts/filter-low-concerns.sh`). Same move here: the session log keeps every step; the channel gets the ones that change what a developer does.
 - **Dedupe a repeat by its signature** — a red failure alert is suppressed while the same failure signature persists inside its cool-down (above). Announcements of events the session itself produced are never deduped, because each is new by construction.
 
-**The bright line, because a vague bar refills the channel.** Post: a run **started** (a fleet that is working must be distinguishable from a dead one), a proposal **opened**, a **merge**, a **handoff**, and a **blocked-on-precondition** failure. Do not post: a survey that found nothing, a claim, a heartbeat, a ticket archived, a commit pushed, a passing test, a build, a rebuild of `outputs/`, or a tick that ran and found nothing to do — an idle tick is correctly **silent**, and silence is a report. When an event is genuinely borderline, the tie goes to silence: an unread post costs attention every time it is scrolled past, while a missing one costs a question that the session log answers.
+**The bright line, because a vague bar refills the channel.** Post: a **unit started** (a fleet that is working must be distinguishable from a dead one — per *unit*, not per run, so the line has an item's thread to land in; see *Which thread a `/drive` unit's posts land in*), a proposal **opened**, a **merge**, a **handoff**, and a **blocked-on-precondition** failure. Do not post: a survey that found nothing, a claim, a heartbeat, a ticket archived, a commit pushed, a passing test, a build, a rebuild of `outputs/`, or a tick that ran and found nothing to do — an idle tick is correctly **silent**, and silence is a report. When an event is genuinely borderline, the tie goes to silence: an unread post costs attention every time it is scrolled past, while a missing one costs a question that the session log answers.
 
 Changing a template makes every live routine drift by construction, and **the fleet is refreshed by `/workaholify` or `/setup-routines`, one routine at a time, confirmed verbatim** — never as part of the change that edits the template. An unattended run cannot do it at all (`/drive` issues no confirmation of any kind), so a template edit and its rollout are two separate acts by design.
 

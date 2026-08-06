@@ -2,7 +2,7 @@
 type: Routine Template
 id: merged-pr
 name: "[Consent] {repo_name}"
-trigger: event
+trigger: invoked
 model: claude-opus-5
 allowed_tools: [Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch]
 mcp: [Slack]
@@ -16,8 +16,19 @@ what the event *means* — consent — not for the mechanics. The template `id` 
 `merged-pr`. A live routine still named `Merged PR <repo>` reads as `unknown` in the
 drift report until renamed through `/setup-routines`' verbatim-confirmed refresh.
 
-Event-driven (no cron). This is the routine that makes a merge an announceable event,
-which is the whole reason every artifact reaches `main` through a pull request.
+No cron: it waits to be invoked. This is the routine that makes a merge an announceable
+event, which is the whole reason every artifact reaches `main` through a pull request.
+
+**It owns the merged-pull-request event, including a merged proposal's** (decided
+2026-08-05, when the ask arrived to start `[Drive]` on a merged proposal instead). One
+event gets one owner, and this is the template whose subject already *is* that event —
+`[Drive]` does not become a second watcher of it. What that ask actually needs is an
+**invoker**: measured the same day, a routine record has no event-subscription field, and
+this routine has never fired in any repository since 2026-07-31 because nothing holds a
+token to POST its `/run` (`workaholify` SKILL, *What a routine can be triggered by*).
+Narrowing "a merge" to "a proposal's merge" is likewise not a trigger setting — it is the
+invoker's decision and this prompt's, which is why the key derivation below reads the
+repository rather than the event payload.
 
 **It replies; it does not found.** A merge is one event in a feedback item's life, so it
 lands in that item's thread rather than as a top-level line of its own. The threading

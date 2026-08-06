@@ -3,9 +3,9 @@ created_at: 2026-08-05T13:04:57+00:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
+effort: 1h
 commit_hash:
-category:
+category: Changed
 depends_on:
 mission: drive-on-a-merged-proposal-and-report-it-in-that-proposal-s-thread
 merge_policy:
@@ -101,3 +101,36 @@ what a unit carrying several feedback refs, or none, posts.
   posts, and the bright line is deliberately conservative about volume.
 - Under the `[Consent]` routine the merge is already announced in the same thread, so
   the finish post must not simply restate it.
+
+## Final Report
+
+Development completed as planned. The three open questions the ticket left open — several
+stems, no stem, and where a handoff posts — are each decided and recorded beside the rule
+they govern rather than left to the posting session.
+
+### Discovered Insights
+
+- **Insight**: The keyless fallback for a drive unit cannot reuse `[Consent]`'s, which
+  keys on the merged pull request's `#<number>`. A unit's **start** is posted at claim
+  time, before any pull request exists, so a key only the finish can compute cannot thread
+  the pair. The unit id is the one identifier stable across both posts, hence
+  `unit:<unit-id>`.
+  **Context**: The two fallbacks look interchangeable and are not, and the reason is the
+  ordering of the events rather than a preference. Anything later that unifies them will
+  silently orphan every start post.
+
+- **Insight**: There are **two Slack surfaces**, and only one of them can thread.
+  `claim.sh` posts through `notify-slack.sh` with a bot token and no `thread_ts`; the
+  threaded posts are the session's, through the Slack connector that can search
+  `fb:<stem>` and reply into a thread. Growing the bot notifier into the threaded start
+  post would be the obvious-looking fix and the wrong one.
+  **Context**: Recorded in both the `workaholify` and `drive` skills so the seam is not
+  "corrected" later. Both surfaces are non-load-bearing, and a repository with neither
+  wired runs identically.
+
+- **Insight**: The merge-line duplication with `[Consent]` needed **no new rule**.
+  `[Consent]` rule 3 already forbids re-announcing a pull request whose merge is already
+  in the channel, thread or top level.
+  **Context**: A second rule pointing the other way would have made the outcome depend on
+  which session ran first — the failure mode the one-owner-per-event decision in the
+  sibling ticket exists to avoid.

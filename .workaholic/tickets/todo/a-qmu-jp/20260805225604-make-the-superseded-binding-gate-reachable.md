@@ -9,6 +9,7 @@ category:
 depends_on:
 feedback: [20260805191634-a-persistent-drive-failure-goes-silent-for-a-day-under-the-alert-dedup-cool-down.md]
 merge_policy:
+claim: work-20260806-145355
 ---
 
 # Make the superseded-binding gate reachable

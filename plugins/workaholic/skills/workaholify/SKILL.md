@@ -206,6 +206,18 @@ Four rules, each answering a case the resolution actually produces:
 
 **The bot notice `claim.sh` posts is a different surface and is deliberately left alone.** It goes through `notify-slack.sh` with a bot token and no threading, and it is the CLI-side signal that a claim landed — it is not the threaded start post and must not be grown into one. The threaded posts are the session's, made through the Slack connector the routine already loads, which is the only surface that can search for `fb:<stem>` and reply into a thread. Both are non-load-bearing; a repository with neither wired runs identically.
 
+#### The thread URL is disclosed in a public repository — accepted, with its terms (2026-08-06)
+
+`Notify-Thread:` puts a Slack thread URL into a pull request body, and the routine chain expects one in the Issue that starts it. On a **public** repository both are world-readable. **The developer accepted this**, and the terms are recorded here rather than left implicit, because "we looked at it and decided" and "nobody looked" are indistinguishable a year later.
+
+**What it discloses**: the workspace subdomain (already inferable from the GitHub org), the **channel id**, and the **message timestamp to the microsecond**. It is not a credential and grants no read or write — an outsider opening the URL gets nothing without workspace membership. Its residual value is post-compromise convenience (a known channel id skips a discovery step for anyone who later obtains *any* token in the workspace) and **metadata accumulation**: enough of these timestamps profile a team's working hours and cadence.
+
+**Why it is nonetheless worth stating.** Public issue and pull-request bodies are permanently archived and scraped, so editing one later does not unpublish it. The exposure is small but **not retractable**, which is the property that makes it a decision rather than a detail. An earlier note in this repository called the link "workspace-internal; harmless" without accounting for that.
+
+**The bigger adjacent risk is the input, not the URL** — an untrusted issue body reaching an unattended agent — and its mitigation is the `Collaborators only` precondition above. That one is not accepted; it is required.
+
+**Revisit if**: the channel begins carrying customer material (`docs/loop-engineering-workflow.md` I9 already confines that to private repositories), or the repository starts receiving issues from outside the collaborator set. The alternative that costs least is to stop putting the URL in the *Issue* and let `/propose` open the thread itself — the chain still works, and only the link to a conversation held before the record existed is lost.
+
 **Every post carries its session URL** — the Claude Code Web session that did the work, the same URL the harness gives the session for its `Claude-Session:` commit trailer. It is what turns "merged by Claude" into something a developer can audit. If the URL is not discoverable in a given session, **post without it**; a notification missing one line beats a notification that did not happen.
 
 This model governs **what a post says and where it lands, and nothing else** — it changes no survey, no claim, and nothing `/drive` picks or implements.
@@ -287,7 +299,7 @@ Three things worth keeping from that machinery, because they were right and only
 
 (The web bootstrap in §4 is the third, and the one without which nothing runs at all.)
 
-Every template posts to `dev-<repo_name>`, so two things must hold before a routine is worth creating. Both are **reported, never gates** — they are environment-dependent, and blocking on them would make `/workaholify` unusable on a machine without the tooling.
+Every template posts to `dev-<repo_name>`, so two things must hold before a routine is worth creating. Both are **reported, never gates** — they are environment-dependent, and blocking on them would make `/workaholify` unusable on a machine without the tooling. A third, below, is not environment-dependent at all and is the one a **public** repository must not skip.
 
 - **The Slack connector must be attached.** A routine's body needs a `connector_uuid` and `url` that exist only in the account, so the developer picks the connector in the same form they paste the prompt into. The sheet names it (`Connectors: keep …`); nothing here can verify it was kept.
 - **The channel must exist.** `check-slack-channel.sh <repo-name>` probes `dev-<repo>`.
@@ -295,6 +307,8 @@ Every template posts to `dev-<repo_name>`, so two things must hold before a rout
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/workaholify/scripts/check-slack-channel.sh <repo-name>
 ```
+
+- **On a public repository, Issue and Pull request permissions must be `Collaborators only`.** This is the precondition of the whole loop, not a hardening step: a routine fires on an Issue and a merged pull request, and the **body of each becomes an unattended agent's instructions** — a session holding Bash, Write and a Slack connector. Without it, anyone on the internet can write into that input. The `issues.assigned` trigger already means a maintainer must assign before `[Propose]` runs, so the two together bound the injection surface to people inside the repository. Nothing here can verify the setting; the sheet states it, and a public repository that has not set it should not have these routines.
 
 **"Cannot check" is never reported as "does not exist", and that distinction is the reason the script exists.** On a locked qfs credential store, an existing channel and a nonexistent one return the *identical* `slack_auth` error — so a naive "did the read succeed?" test marks every channel missing and sends a developer to create channels that are already there. Only a probe that actually reached Slack may set `exists`; everything else is `checked: false` with a named reason (`no_qfs`, `slack_locked`, `slack_not_connected`).
 

@@ -12547,16 +12547,26 @@ function testProposalOwnershipContract() {
   // The ownership chain lives in the SKILL, not in the prompt: the developer's own rule
   // for a routine prompt is "nothing a skill already owns". The trigger filter already
   // guarantees the issue is assigned, and `/propose` is told where to read that from.
+  // The chain (issue assignee -> proposal `assignees` -> the implementing run) is the
+  // SKILL's; the prompt only says which issues this run may act on at all.
   assertTrue("the ownership chain is the propose skill's, not the prompt's",
-    /--assignee <email>/.test(propose) && /enters once, at the trigger/.test(propose)
-    && !/assignee/.test(fb.slice(fb.indexOf("## Prompt"))));
-  assertTrue("the [Implement] trigger is narrowed to the developer's own proposals",
-    /author = the developer/.test(impl));
-  assertTrue("and the template says the filter is the cost half, not the correctness half",
-    /cost\*\* half of the fix/.test(impl) && /owned_by_other/.test(impl));
-  assertTrue("the workaholify SKILL states both mechanisms and which one is load-bearing",
-    /The filter bounds the cost/.test(wh) && /The data decides the ownership/.test(wh)
-    && /Ownership is the load-bearing half/.test(wh));
+    /--assignee <email>/.test(propose) && /enters once, at the trigger/.test(propose));
+  // No trigger narrows to a person: the UI offers no assignee filter, so the ruling is
+  // that the DATA decides and every copy fires on every matching event.
+  assertTrue("no template narrows its trigger to a person",
+    !/author = the developer|assignee = the developer/.test(impl + fb));
+  assertTrue("[Implement] relies on the survey's ownership filter and says so",
+    /owned_by_other/.test(impl) && /No prompt change is needed for this/.test(impl));
+  // Scoped to the PROMPT: each template's header discusses the rule at length, which is
+  // where it belongs -- documentation for a maintainer, not instruction for a session.
+  const promptOf = (t) => t.slice(t.indexOf("## Prompt"));
+  assertTrue("neither prompt carries an ownership guard (P8: the command owns it)",
+    !/assignee/.test(promptOf(fb)) && !/assignee/.test(promptOf(impl)));
+  assertTrue("the workaholify SKILL states the ruling and where each check lives",
+    /Neither trigger narrows to a person/.test(wh)
+    && /the data decides whose work it is/.test(wh)
+    && /Neither prompt carries a guard/.test(wh)
+    && /The check is the command's, never the prompt's/.test(wh));
 }
 
 // close-publish-tree.sh asks "is this tip pushed ANYWHERE?", not "did it reach the
@@ -13303,6 +13313,9 @@ function testRoutineAnnouncementScoping() {
   // constraint the loop's shape is set by.
   const templates = readdirSync(dir).filter((f) => f.endsWith(".md")).sort();
   assertEq("exactly two templates ship", templates, ["fb.md", "implement.md"]);
+  // The developer's own four lines (feedback 20260806183556), and four is literal: the
+  // assignee guard that briefly lived here moved into /propose (P8), which is what keeps
+  // both templates identical in shape.
   for (const [name, body] of [["fb", fb], ["implement", implement]]) {
     const lines = body.replace(/^## Prompt\n/, "").split("\n").filter((l) => l.trim());
     assertEq(`the ${name} prompt is four lines`, lines.length, 4);

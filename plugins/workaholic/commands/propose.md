@@ -17,6 +17,8 @@ skills:
 
 **This command proposes from what is in hand** (`workaholic:propose` — read its *Propose at the capture seam* section first): the ask this session received and the feedback record it wrote from it. It reads nothing from a window and keeps no cursor; the repository's own state is a constraint it reads from the base. It is **unattended by contract** — it never issues `AskUserQuestion`, and every abort reports a machine-readable reason.
 
+**Act only on an ask that is yours** (P8). When the ask came from a GitHub issue carrying an **assignee**, compare it against this session's own GitHub identity (`gh api user`); if they differ, report `{"proposed": 0, "reason": "not_mine"}` and stop without writing anything. An unassigned issue, or no issue at all, proceeds as normal. Every developer's `[Propose]` routine fires on every assigned issue — the routines UI has no assignee filter — so without this each of them opens a pull request for the same issue.
+
 **What "in hand" means.** Any of: an ask given as this command's argument, a feedback record this session just wrote, or a record named explicitly by the caller. With **none** of those, report `{"proposed": 0, "reason": "nothing_in_hand"}` and stop — there is nothing to judge, and sweeping the repository for something to propose is exactly the design the 2026-08-04 ruling retired.
 
 ## Workflow

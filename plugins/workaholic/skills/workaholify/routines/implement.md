@@ -5,7 +5,7 @@ name: "[Implement] {repo_name}"
 trigger: github-pr-merged
 trigger_kind: github
 trigger_event: pull_request.closed
-trigger_filters: is merged = true; title contains [Proposal]; author = the developer
+trigger_filters: is merged = true; title contains [Proposal]
 model: claude-opus-5
 allowed_tools: [Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch]
 mcp: [Slack]
@@ -17,15 +17,17 @@ mcp: [Slack]
 event that starts the run that drains it. The wiring is set in the routines UI; the
 `trigger_*` keys declare the design, not a stored field.
 
-**`author = the developer` is part of that trigger, and it is not cosmetic** (P6,
-2026-08-06). Without it every developer's `[Implement]` fires on *anyone's* merged
-proposal, so N developers means N sessions per merge and N-1 of them do nothing.
-The filter is the **cost** half of the fix. The **correctness** half is elsewhere and
-does not depend on it: a proposal now carries the triggering issue's assignee as its
-`assignees`, so a runner that fires anyway surveys, finds the work is someone else's
-(`owned_by_other`), takes nothing, and ends `ok`. Both halves matter — the filter
-alone would be a UI setting nothing verifies, and ownership alone would leave a pile
-of empty sessions.
+**Every developer's copy fires on every merged proposal, and that is accepted**
+(developer's ruling, 2026-08-06). An `author` filter was tried and dropped: the ruling
+is that the trigger does not narrow anything and the **data** decides instead. A
+proposal carries the triggering issue's assignee as its `assignees`, so a runner whose
+work this is not surveys, sees `owned_by_other`, takes nothing, and ends `ok`. The cost
+is N−1 empty sessions per merge; the benefit is that ownership lives in the repository
+where every runner reads it through one oracle, rather than in a UI setting nothing can
+read or verify. **No prompt change is needed for this** — the survey already does it,
+which is what makes `[Implement]` different from `[Propose]`, where the session must
+check the assignee itself because proposing *creates* an artifact rather than claiming
+one.
 
 **The prompt is the developer's own four lines, rendered into English** (P3, 2026-08-06;
 the source is the ruling recorded as feedback `20260806183556`). It says only: read the

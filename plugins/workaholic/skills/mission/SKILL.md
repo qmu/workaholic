@@ -291,11 +291,11 @@ Read every figure through those scripts (`workaholic:implementation` / `domain-l
 
 | seam | when |
 | --- | --- |
-| `/mission close` | before asking for the outcome, and again on a carry (what moved to the successor). |
+| `/mission-close` | before asking for the outcome, and again on a carry (what moved to the successor). |
 | `/drive` | in the run report, for each mission unit the run left unfinished — the position a later run or a reader picks the work up from. Say nothing for a batch unit whose tickets carry no `mission:` relation — never fabricate a mission-shaped frame around unrelated work. |
 | `/report`, `/ship` | **not** stated — recorded decision, below. |
 
-`/report` and `/ship` roll missions but do **not** carry this report. Their audience is the PR reviewer, and the story's own sections already say what landed; adding mission position there would duplicate `/catch` and the lens for a reader who did not ask. The report exists for **continuity across a session boundary** — that is `/mission close` and an unfinished `/drive` unit, where the context is otherwise lost. Decided rather than defaulted; revisit if a reviewer ever has to ask "which mission is this?".
+`/report` and `/ship` roll missions but do **not** carry this report. Their audience is the PR reviewer, and the story's own sections already say what landed; adding mission position there would duplicate `/catch` and the lens for a reader who did not ask. The report exists for **continuity across a session boundary** — that is `/mission-close` and an unfinished `/drive` unit, where the context is otherwise lost. Decided rather than defaulted; revisit if a reviewer ever has to ask "which mission is this?".
 
 The dedicated hand-off command that once owned the first row is retired (`docs/loop-engineering-workflow.md` decision I5): in-flight state now lives on the **claim branch** by construction — the next run re-claims the unit with `claim.sh resume <unit-id>` and continues from the pushed work — so a resumption ticket written by hand would restate what the branch already holds. Resumption is scoped to the claim's **own** identity and fires once its heartbeat lapses; a colleague's claim is never taken over (`workaholic:drive`, *Claims*).
 
@@ -344,7 +344,7 @@ A mission's `.worktrees/<slug>/` worktree belongs to the **claim**, not to the m
 
 **`create-mission-worktree.sh` keeps its name, and the name is now a slight misnomer.** After J1 its only caller is `claim.sh`, and what it creates is a **claim** worktree keyed on a unit id — a mission slug being just one kind of unit id (a batch id is the other). It was **not** renamed to `create-claim-worktree.sh`: the script ships in the generated `outputs/workflows` bundle, so the name is public API to cross-agent consumers, and a rename would touch `claim.sh`, the tests, several documents, and the generated closure for no behavioural gain. The cheaper honest fix is this sentence plus the script's own header, which states it is claim-side only. Read every remaining "mission worktree" in this skill as "the claim worktree of a mission unit".
 
-**So `close.sh` and `/mission close` keep only the archive move.** Closing a mission is a statement about the *record* — this goal is reached, abandoned, or carried — and it says nothing about whether a worktree is still in use. A worktree still standing at close time is an in-flight or stale **claim**, which the claim reader already surfaces and a human already decides about; having `close` tear it down instead made a bookkeeping action quietly destructive, and hid the one signal (`list-claims.sh`) that says whether anyone is still working there. `cleanup-mission-worktree.sh` is unchanged and still the sanctioned cleaner — it is now called from the claim-release and ship paths rather than from close.
+**So `close.sh` and `/mission-close` keep only the archive move.** Closing a mission is a statement about the *record* — this goal is reached, abandoned, or carried — and it says nothing about whether a worktree is still in use. A worktree still standing at close time is an in-flight or stale **claim**, which the claim reader already surfaces and a human already decides about; having `close` tear it down instead made a bookkeeping action quietly destructive, and hid the one signal (`list-claims.sh`) that says whether anyone is still working there. `cleanup-mission-worktree.sh` is unchanged and still the sanctioned cleaner — it is now called from the claim-release and ship paths rather than from close.
 
 ### Outcomes
 

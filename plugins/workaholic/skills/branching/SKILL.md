@@ -204,7 +204,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/allocate-worktree-port.sh
 
 Returns the next free port base (`{port_base, dev_port, docs_port}`), scanning the bases already assigned in existing `.worktrees/*/.env` — so a removed worktree's base is reusable (allocation tracks live worktrees, not an ever-growing counter).
 
-Remove a mission worktree (only sanctioned at `/mission close`) — **never discards uncommitted work**: refuses a dirty worktree and reports it; idempotent when already gone:
+Remove a mission worktree (only sanctioned at `/mission-close`) — **never discards uncommitted work**: refuses a dirty worktree and reports it; idempotent when already gone:
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/cleanup-mission-worktree.sh <slug>
@@ -218,7 +218,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/reset-mission-worktree.sh <s
 
 ## Reclaiming worktrees
 
-**A worktree is allocated storage, and a tool that allocates without ever reclaiming is not finished** (`workaholic:operation`). Teardown exists three times over — `/ship` after a merge, `/drive` after an auto unit, `/mission close` — and each is correct, but all three share a precondition: **somebody's run has to reach the end**. A mission open for weeks keeps its desk the whole time; an interrupted run, a hand-driven branch, or a batch whose caller died is nobody's teardown. Measured when this was written: **53 GB held across four repositories, 31 GB of it fully merged and clean**, one repository holding 29 worktrees of which 22 were merged. The sweep below does not replace those calls — it catches what they structurally cannot.
+**A worktree is allocated storage, and a tool that allocates without ever reclaiming is not finished** (`workaholic:operation`). Teardown exists three times over — `/ship` after a merge, `/drive` after an auto unit, `/mission-close` — and each is correct, but all three share a precondition: **somebody's run has to reach the end**. A mission open for weeks keeps its desk the whole time; an interrupted run, a hand-driven branch, or a batch whose caller died is nobody's teardown. Measured when this was written: **53 GB held across four repositories, 31 GB of it fully merged and clean**, one repository holding 29 worktrees of which 22 were merged. The sweep below does not replace those calls — it catches what they structurally cannot.
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/survey-worktrees.sh [base]              # read-only

@@ -1055,9 +1055,12 @@ function testMissionPositionReport() {
   assertTrue("no mission-shaped frame is invented around unrelated work",
     /never fabricate a mission-shaped frame around unrelated work/.test(skill), "no-mission case missing");
 
-  // /mission close sources the shared definition (a027cd1b's behaviour, de-duplicated).
-  assertTrue("the close branch sources the shared definition",
-    /Give the \*\*Mission Position Report\*\*/.test(cmd), "close restates instead of sourcing");
+  // /mission-close sources the shared definition (a027cd1b's behaviour, de-duplicated).
+  // It is its own command since P5 (2026-08-06), so the pin follows it there rather
+  // than relaxing -- the property under test is that it POINTS at the definition.
+  const closeCmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/mission-close.md"), "utf8");
+  assertTrue("the close command sources the shared definition",
+    /Give the \*\*Mission Position Report\*\*/.test(closeCmd), "close restates instead of sourcing");
 }
 
 // ---------- drive: an unqueued problem becomes a ticket, not a stop ----------
@@ -1947,9 +1950,15 @@ function testMissionCreateNeverBranches() {
     /Never publish a half-formed mission/.test(cmd));
   assertTrue("the report does not hand back a path the developer cannot cd into",
     /Do \*\*not\*\* report a worktree path/.test(cmd));
+  // P5 moved the close branch to its own command; both properties follow it.
+  const closeCmd2 = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/mission-close.md"), "utf8");
   assertTrue("close publishes through the publish tree too",
-    /publish the result with subject `Close mission <slug>`/.test(cmd));
-  assertTrue("close still touches no worktree", /\*\*Close touches no worktree\.\*\*/.test(cmd));
+    /publish the result with subject `Close mission <slug>`/.test(closeCmd2));
+  assertTrue("close still touches no worktree", /\*\*Close touches no worktree\.\*\*/.test(closeCmd2));
+  // And `/mission` itself no longer forks on a first word (P5).
+  assertTrue("no literal word is intercepted by the mission command any more",
+    /No word of `\$ARGUMENT` is a subcommand/.test(cmd)
+    && !/When `\$ARGUMENT` starts with `close`/.test(cmd), "a subcommand branch survives in /mission");
 
   // Stale prose: no comment may claim a close-time worktree teardown.
   const closeSh = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/close.sh"), "utf8");
@@ -12177,6 +12186,7 @@ const tests = [
   ["branching publish-tree-pr: an artifact lands on a work-* branch behind a PR (J4)", testPublishTreePr],
   ["the routine chain hands off its notification target in the PR body (P4)", testNotifyTargetHandoff],
   ["the notify-target contract is stated on both halves of the chain (P4)", testNotifyTargetContract],
+  ["one behaviour per command: no dispatch on a literal first word (P5)", testNoSubcommands],
   ["branching close-publish-tree: closes after either publish path, still guards the unpushed one", testClosePublishTreeReachability],
   ["workaholify routines: one template set, applied per repository, drift named per field", testWorkaholifyRoutines],
   ["routine announcements: exactly one subject, or nothing at all", testRoutineAnnouncementScoping],
@@ -12394,6 +12404,60 @@ function testNotifyTargetContract() {
   assertTrue("the thread rules place the carried target above the search",
     /four ordered cases/.test(wh)
     && wh.indexOf("read-notify-target.sh") < wh.indexOf("The `fb:<stem>` key search"));
+}
+
+// ---------- one behaviour per command (P5, 2026-08-06) ----------
+// A fork on a literal first word is a second command wearing one name: invisible in the
+// command list, undocumentable in one table row, and it reserves a word the argument can
+// then never legitimately be. This is a property of the whole command surface, so it is
+// asserted over the whole directory rather than per command -- a new command that grows a
+// subcommand is exactly what would otherwise slip through.
+//
+// Bare-versus-argument is deliberately NOT caught here: it is a scope, not a mode.
+// `/mission` with nothing named plans over all of yours, `/ticket` with nothing described
+// reports instead of writing, and `/drive [<unit>]` narrows one behaviour. The check is
+// for a branch keyed on a LITERAL WORD.
+function testNoSubcommands() {
+  const dir = join(REPO_ROOT, "plugins/workaholic/commands");
+  const files = readdirSync(dir).filter((f) => f.endsWith(".md")).sort();
+
+  // The literal words that used to select a mode. Each is either dropped or now its own
+  // command; none may be re-intercepted anywhere.
+  const retired = [
+    { word: "close", was: "/mission close <slug>", now: "/mission-close" },
+    { word: "summary", was: "/mission summary and /ticket summary", now: "dropped" },
+    { word: "approve", was: "/mission approve <slug>", now: "dropped" },
+    { word: "auto", was: "/drive auto", now: "/implement" },
+    { word: "night", was: "/drive night", now: "/implement" },
+  ];
+  for (const f of files) {
+    const body = readFileSync(join(dir, f), "utf8");
+    for (const { word, was, now } of retired) {
+      // The shape that IS the fork: a branch conditioned on the argument's literal value.
+      const dispatch = new RegExp(
+        "\\$ARGUMENT[^.\\n]{0,80}(is exactly|starts with|equals)[^.\\n]{0,20}`" + word + "`", "i");
+      assertTrue(`${f} does not dispatch on the literal \`${word}\` (${was} -> ${now})`,
+        !dispatch.test(body), body.slice(0, 200));
+    }
+  }
+
+  // The moved behaviour exists, and the single-writer property that forced the move
+  // rather than a drop is stated where a reader meets it.
+  assertTrue("ending a mission is its own command", files.includes("mission-close.md"));
+  const close = readFileSync(join(dir, "mission-close.md"), "utf8");
+  assertTrue("and it says why it moved instead of being dropped",
+    /only sanctioned way to end a mission/.test(close) && /single-writer/.test(close));
+  assertTrue("and it declares itself single-behaviour",
+    /It selects no mode: this command has exactly one behaviour/.test(close));
+
+  // Every fork is recorded, so nothing was silently lost.
+  const claudeMd = readFileSync(join(REPO_ROOT, "CLAUDE.md"), "utf8");
+  assertTrue("CLAUDE.md carries the per-fork inventory rather than a bulk claim",
+    /One behaviour per command \(P5, 2026-08-06\)/.test(claudeMd)
+    && /\/mission summary`, `\/mission approve`/.test(claudeMd)
+    && /Bare-versus-argument is a scope, not a mode/.test(claudeMd));
+  assertTrue("and names the one fork deliberately kept, with its reason",
+    /`\/fb`'s cross-repository mode is kept/.test(claudeMd) && /never on a first word/.test(claudeMd));
 }
 
 // close-publish-tree.sh asks "is this tip pushed ANYWHERE?", not "did it reach the

@@ -109,6 +109,7 @@ const SCRIPTS = {
   nextAcceptance: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/next-acceptance.sh"),
   feedbackCreate: join(REPO_ROOT, "plugins/workaholic/skills/feedback/scripts/create.sh"),
   proposeReadFeedbackRelation: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/read-feedback-relation.sh"),
+  renderSetupSheet: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/render-setup-sheet.sh"),
   unitFeedbackStems: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/unit-feedback-stems.sh"),
   proposeListRefs: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/list-proposed-refs.sh"),
   proposeScaffoldDraft: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/scaffold-draft.sh"),
@@ -8742,6 +8743,50 @@ function testUnitFeedbackStems() {
   } finally { cleanup(dir); }
 }
 
+// ---------- workaholify/render-setup-sheet.sh: the human's UI setup, made cheap ----------
+// THE PROPERTY UNDER TEST is that the sheet's UI steps are DERIVED from each template's
+// structured trigger declaration, never hand-written prose that can drift, and that the
+// prompt reaches the developer verbatim -- what they paste is what runs. The command that
+// prints this makes no RemoteTrigger call at all: the GitHub trigger is web-UI-only, so a
+// tool that managed the readable half while blind to the wiring misled more than it helped
+// (developer's ruling, 2026-08-06).
+function testRenderSetupSheet() {
+  const WH = "https://github.com/qmu/workaholic";
+  const sheet = (target) => run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.renderSetupSheet} ${target} ${WH}`).stdout;
+
+  const all = sheet("--all");
+  for (const name of ["[Propose] workaholic", "[Consent] workaholic", "[Drive] workaholic (pilot)"]) {
+    assertTrue(`the sheet covers ${name}`, all.includes(`## ${name}`), all.slice(0, 200));
+  }
+  // Derived from frontmatter, per template -- not one generic paragraph.
+  assertTrue("each GitHub trigger renders its own event and filters",
+    all.includes("Event: `issues.assigned`") &&
+    all.includes("Event: `pull_request.closed`") &&
+    all.includes("is merged = true; title contains [Proposal]"),
+    all);
+  // The limitation is stated where the developer reads it, not only in a skill.
+  assertTrue("the sheet says the wiring cannot be read or set from here",
+    /configurable in the UI only/i.test(all) && /claude\.ai\/code\/routines/.test(all), all.slice(0, 600));
+
+  // VERBATIM PROMPT. The sheet is worthless if the prompt is paraphrased: what the
+  // developer pastes is what runs.
+  const fbSheet = sheet("fb");
+  const rendered = JSON.parse(run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.renderRoutine} fb ${WH}`).stdout).prompt;
+  assertTrue("the prompt appears verbatim in the sheet", fbSheet.includes(rendered.trim()), fbSheet.slice(0, 400));
+  assertEq("an unknown template is refused",
+    run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.renderSetupSheet} no-such ${WH}`).status !== 0, true);
+
+  // The command prints sheets and manages nothing -- pinned because "just one small
+  // RemoteTrigger read" is exactly how the retired management surface grew back.
+  const cmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/setup-routines.md"), "utf8");
+  // The command may NAME RemoteTrigger to say it does not call it; what must not survive
+  // is an instruction to invoke it. Both forms the retired command used are pinned out.
+  assertTrue("the command issues no RemoteTrigger call",
+    !/Call `RemoteTrigger`/.test(cmd) && !/RemoteTrigger[^\n]*\baction:/.test(cmd), cmd.slice(0, 300));
+  assertTrue("and it states plainly that it asks nothing",
+    /No `AskUserQuestion` anywhere/.test(cmd) && !/confirm it with `AskUserQuestion`/.test(cmd), cmd.slice(0, 300));
+}
+
 // ---------- propose skill: dedup set / draft scaffold ----------
 // The proposer's mechanics (docs/loop-engineering-workflow.md C2-C4, B1): the
 // artifact->feedback dedup set, and the unowned draft scaffold.
@@ -11933,6 +11978,7 @@ const tests = [
   ["hooks/install-git-hooks.sh", testInstallGitHooks],
   ["feedback/create.sh + list.sh + hooks/validate-feedback.sh", testFeedback],
   ["drive/unit-feedback-stems.sh: the unit's thread key", testUnitFeedbackStems],
+  ["workaholify/render-setup-sheet.sh: the human's UI setup", testRenderSetupSheet],
   ["propose: dedup set and draft scaffold", testProposeBatch],
   ["propose: the dedup set covers open pull requests", testProposedRefsCoverOpenPullRequests],
   ["propose/notify-slack.sh", testNotifySlack],

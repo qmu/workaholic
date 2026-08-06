@@ -47,7 +47,7 @@ and nothing asks them to confirm an API mutation that no longer exists.
 
 <!-- PROPOSED criteria — replan sharpens them. -->
 
-- [ ] Each routine template declares its trigger as structured data (kind, event,
+- [x] Each routine template declares its trigger as structured data (kind, event,
       filters), and `/setup-routines` renders per-template copy-paste setup
       sheets from it — no `RemoteTrigger` call anywhere in the command. (#20260806144006-render-copy-paste-setup-sheets-from-structured-trigger-declarations.md)
 - [ ] The API management machinery (plan/authorize digest gate, compare/list
@@ -57,3 +57,4 @@ and nothing asks them to confirm an API mutation that no longer exists.
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-06 — ticket archived — 20260806144006-render-copy-paste-setup-sheets-from-structured-trigger-declarations.md

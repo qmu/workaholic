@@ -3,6 +3,9 @@ type: Routine Template
 id: drive
 name: "[Drive] {repo_name} (pilot)"
 trigger: github-pr-merged
+trigger_kind: github
+trigger_event: pull_request.closed
+trigger_filters: is merged = true; title contains [Proposal]
 model: claude-opus-5
 allowed_tools: [Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch]
 mcp: [Slack]

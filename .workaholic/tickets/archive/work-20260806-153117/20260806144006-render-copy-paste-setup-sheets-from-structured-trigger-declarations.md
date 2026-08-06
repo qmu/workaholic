@@ -3,9 +3,9 @@ created_at: 2026-08-06T14:40:06+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
+effort: 1h
 commit_hash:
-category:
+category: Changed
 depends_on:
 mission: retire-routine-management-into-a-setup-sheet
 merge_policy:
@@ -87,3 +87,28 @@ developer opens claude.ai/code/routines beside the sheet, pastes and clicks, don
 - The sheet is advice, not verification: whether a human completed the steps is
   observable only through behavior (a matching event producing a session), never through
   the API.
+
+## Final Report
+
+Development completed as planned. The three templates carry a structured trigger
+declaration (`trigger_kind` / `trigger_event` / `trigger_filters`); `render-setup-sheet.sh`
+derives the UI steps from it and emits the prompt verbatim through the existing
+`render-routine.sh`, so a sheet can never disagree with the template it came from.
+`/setup-routines` is now the sheet renderer plus the two preconditions, with no
+`RemoteTrigger` call and no confirmation prompt.
+
+### Discovered Insights
+
+- **Insight**: The one-word `trigger:` summary was kept beside the structured block rather
+  than replaced. Two live pins read it (`list-routine-templates.sh`'s cadence assertion and
+  the `/setup-routines` report row), and a human skimming the file wants one line, not
+  three.
+  **Context**: Adding a structured form without removing the summary is what let this land
+  as an additive change with no test churn beyond the new section.
+
+- **Insight**: Pinning "the command makes no `RemoteTrigger` call" as a bare
+  `!/RemoteTrigger/` was wrong on the first attempt — the command legitimately *names* it
+  to say it does not call it. The pin now forbids the two invocation forms the retired
+  command actually used (`Call \`RemoteTrigger\``, and a `RemoteTrigger … action:` line).
+  **Context**: An absence-pin over prose has to distinguish mentioning from doing, or the
+  honest sentence explaining the constraint trips the guard meant to enforce it.

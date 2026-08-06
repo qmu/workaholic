@@ -118,9 +118,11 @@ Two prior readings of the account got this wrong in opposite directions, and bot
 
 **The consequence for scheduling** (settled 2026-08-06): `[Implement]` is merge-triggered — the developer's original ask, implementable all along through the same UI wiring that fires `[Propose]` on an assigned issue. The clock argument this paragraph used to make (handoff resumption, lapsed claims and `/ticket`-written backlog have no merge event) is answered by the survey itself: every merge-started run offers *everything* claimable, so the leftovers ride the next merge rather than a timer. A machine-local cron remains available as the fallback shape (`docs/drive-loop-runbook.md`), and is a developer's act to stand up.
 
-Everything below a template's `## Prompt` heading is the routine's prompt, verbatim. Three substitutions, each demanded by the live routines: `{repo}` (full URL, for the `…/pull/123` links), `{repo_slug}` (`org/repo`, how the prompts name the repository in prose), and `{repo_name}` (bare name, the routine's own name and the `dev-<name>` Slack channel). **Anything else that differs between two repositories' routines is drift, not configuration.**
+Everything below a template's `## Prompt` heading is the routine's prompt, verbatim — **and it is byte-identical in every repository** (P7, 2026-08-06). A prompt carries **no substitution and no repository name**: the session already knows which repository it is in, so naming it made each project's copy different, which is exactly the per-project cost the two-template reduction exists to remove. A developer pastes the same four lines everywhere.
 
-All three accept the repository URL in **any of its spellings** — `https://github.com/owner/name`, `git@github.com:owner/name`, `ssh://git@github.com/owner/name`, each ± `.git` and a trailing slash — and render identically. `{repo}` specifically renders the **https** form, because it becomes a link a person clicks and a value a *created* routine carries into a live standing process; an SSH spelling left raw would render `git@github.com:owner/name/pull/123` and make every routine read as prompt-drifted. A URL that already carries a scheme is passed through untouched, so a proxied `http://…` remote is never rewritten.
+`{repo_name}` survives in one place only — a template's `name:`, which is a **UI field**, not the prompt — because a routines list has to say which repository each routine belongs to. **Anything that differs between two repositories' *prompts* is drift, not configuration.**
+
+The renderer accepts the repository URL in **any of its spellings** — `https://github.com/owner/name`, `git@github.com:owner/name`, `ssh://git@github.com/owner/name`, each ± `.git` and a trailing slash — and render identically. The **Repository** field on the setup sheet renders the **https** form, because it is a link a person clicks and the value a created routine carries into a live standing process. A URL that already carries a scheme is passed through untouched, so a proxied `http://…` remote is never rewritten.
 
 Keeping the prompt as readable markdown rather than an embedded JSON string is deliberate: the prompt *is* the routine, template freshness is the entire point of the issue behind this, and a prompt nobody can read in a diff is a prompt nobody will keep current.
 
@@ -142,10 +144,10 @@ So while a signature is suppressed, the tick posts **one line as a threaded repl
 
 The orange/green/yellow/purple/rocket posts announce events the session itself produced and are new every time; deduping those would hide real work.
 
-**The shapes of the runner's posts**, so a template names its postable events without restating how each line looks. `<@U…>` follows the mention rule below; `{repo_name}` and `{repo}` are the routine's own substitutions.
+**The shapes of the runner's posts**, so a template names its postable events without restating how each line looks. `<@U…>` follows the mention rule below; `<repo>` is the repository the session is running in, which it derives itself rather than being told.
 
 ```
-🟢 Proposed to <@U…> - [#123 [Proposal] Issue Title]({repo}/pull/123)
+🟢 Proposed to <@U…> - [#123 [Proposal] Issue Title](<repo-url>/pull/123)
 One sentence, max 40 words, what the ask is — and, when the PR carries work, what it proposes.
 `fb:<stem>` · <session URL>
 
@@ -155,11 +157,11 @@ One sentence, max 25 words, what failed and what a human must do.
 🟠 drive started - `<unit-id>`
 `<branch>`, one sentence, max 25 words, what this unit contains only.
 
-🟢 Merge Requested for <@U…> - [#123 Issue Title]({repo}/pull/123)
+🟢 Merge Requested for <@U…> - [#123 Issue Title](<repo-url>/pull/123)
 `from-branch` → `to-branch`, one sentence, max 40 words, what the PR does only.
 <session URL>
 
-🟡 Handoff <@U…> - [#123 Issue Title]({repo}/pull/123)
+🟡 Handoff <@U…> - [#123 Issue Title](<repo-url>/pull/123)
 The next run resumes it automatically; `git fetch && git checkout <branch>` to take it sooner. One sentence, max 25 words, what remains only.
 <session URL>
 ```
@@ -237,7 +239,7 @@ Three places, one kind of fact each, and **the repository declares nothing**:
 | ----- | ------------ |
 | The **plugin** | What a routine *should* be — the templates above, one set for every repository |
 | The **account** | What a routine *is* — the live routine, reachable only through `RemoteTrigger` |
-| The **repository** | Nothing new. `{repo}`, `{repo_slug}` and `{repo_name}` all derive from its own git remote |
+| The **repository** | Nothing new. The setup sheet's Repository field and a routine's `{repo_name}` both derive from its own git remote; the prompt names no repository at all |
 
 A repository was never short of a config file; it was short of an **answer**. "What runs against this repo" was unanswerable because nothing read the account back to the developer — so the fix is a reader (`/setup-routines`), not a directory. **No `.workaholic/` area is introduced**, so no closed-layout amendment is involved.
 

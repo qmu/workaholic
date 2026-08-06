@@ -10349,7 +10349,7 @@ function testDriveAttendedSelection() {
   // The unattended callers must name the form: inferring it is exactly what O1 forbids,
   // so a caller that omits the token gets the prompt however headless it is.
   assertTrue("the routine template invokes the unattended form by name",
-    /Run `\/drive auto`/.test(routine) && /nobody here to answer/.test(routine));
+    /run `\/drive auto`/i.test(routine) && /nobody is here to answer/.test(routine));
   assertTrue("the runbook's cron line and loop contract carry the auto token",
     /claude -p "\/drive auto"/.test(runbook) && /\/goal \/drive auto ok/.test(runbook));
   assertTrue("the command points caller-side loops at the unattended form",
@@ -12625,8 +12625,13 @@ function testWorkaholifyRoutines() {
     // surveyed, rendered and drift-checked the moment its file exists -- and leaves the
     // set the moment it does not. Nothing enumerates the ids in code, which is why both
     // adding `propose` and retiring it again needed no script change.
-    assertEq("the one scheduled template carries its own cadence",
-      tpl.templates.filter((t) => t.trigger === "cron").map((t) => t.cron_expression), ["56 * * * *"]);
+    // No template is scheduled since 2026-08-06: [Drive] is merge-triggered (the
+    // developer's ask), and a template that regrew a cron would resurrect the clock
+    // this pin now forbids.
+    assertEq("no template carries a schedule any more",
+      tpl.templates.filter((t) => t.trigger === "cron").map((t) => t.cron_expression), []);
+    assertEq("drive declares the merge trigger",
+      tpl.templates.find((t) => t.id === "drive").trigger, "github-pr-merged");
 
     // ---- the three substitutions, each demanded by a real prompt ----
     const drive = JSON.parse(run(dir, `${RENDER} drive ${WH}`).stdout);
@@ -12664,7 +12669,7 @@ function testWorkaholifyRoutines() {
     });
     const merged = JSON.parse(run(dir, `${RENDER} merged-pr ${WH}`).stdout);
     const live = { data: [
-      entry("trig_drive", drive.name, drive.prompt, WH, "56 * * * *"),
+      entry("trig_drive", drive.name, drive.prompt, WH, ""),
       // model unset -- the real drift on `Merged PR qmu-co-jp` and `[FB] coop-csnet`
       entry("trig_merged", merged.name, merged.prompt, WH, "", ""),
       // an untemplated one-off, and another repository's routine
@@ -12738,7 +12743,7 @@ function testWorkaholifyRoutines() {
       "https://github.com/qmu/workaholic.git",
     ];
     const httpsLive = { data: [
-      entry("trig_drive", drive.name, drive.prompt, WH, "56 * * * *"),
+      entry("trig_drive", drive.name, drive.prompt, WH, ""),
       entry("trig_fb", fb.name, fb.prompt, WH),
       entry("trig_merged", merged.name, merged.prompt, WH),
     ] };
@@ -12759,7 +12764,7 @@ function testWorkaholifyRoutines() {
     // ...AND THE OTHER DIRECTION: an https caller against SSH-form routine sources. The
     // spelling that varies in the wild is whichever side was configured first.
     const sshLive = { data: [
-      entry("trig_drive", drive.name, drive.prompt, "git@github.com:qmu/workaholic", "56 * * * *"),
+      entry("trig_drive", drive.name, drive.prompt, "git@github.com:qmu/workaholic", ""),
       entry("trig_fb", fb.name, fb.prompt, "ssh://git@github.com/qmu/workaholic"),
     ] };
     writeFileSync(fixture, JSON.stringify(sshLive));
@@ -12978,10 +12983,13 @@ function testRoutineAnnouncementScoping() {
   // These assertions therefore grep the OWNING skill, and one pin holds the deferral.
   assertTrue("the Proposed root announces only the posting session's own PR",
     /only the pull request you just created in this session/i.test(wh), "proposed scoping missing from workaholify SKILL");
-  assertTrue("drive announces only the PR this session opened",
-    /only the pull request THIS session just opened/i.test(drive), "drive scoping missing");
-  assertTrue("drive forbids reporting activity it did not produce",
-    /did not itself produce/i.test(drive), "drive hard rule missing");
+  // The drive template became a pointer on 2026-08-06 (second slimming): its announce
+  // scoping lives in the workaholify SKILL, and the template pin holds the deferral.
+  assertTrue("the announce scoping the drive template used to carry lives in the SKILL",
+    /announce events the session itself produced/i.test(wh) && /never announce another session's work/i.test(wh),
+    "announce scoping missing from workaholify SKILL");
+  assertTrue("and the drive template defers to the skills instead of restating them",
+    /Follow them, not this prompt/.test(drive), "drive deferral missing");
   // `fb` IS the propose entrance since the batch template was retired (2026-08-04), and its
   // one postable event is the pull request it just opened — which is why the two clauses
   // the retired [Propose Batch] template carried are asserted here instead.
@@ -13051,8 +13059,8 @@ function testRoutineAnnouncementScoping() {
   // session produced, which are new every time — deduping them would hide real work.
   assertTrue("the dedupe applies to red failure alerts only",
     /announce events the session itself produced and are new every time/i.test(wh), "scoping missing");
-  assertTrue("and the slimmed drive template still points at that rule",
-    /red-alert dedup/i.test(drive) && /workaholify. skill/i.test(drive), "template pointer missing");
+  assertTrue("and the slimmed drive template still points at the workaholify skill",
+    /workaholify. skill/i.test(drive), "template pointer missing");
 }
 
 // ---------- /setup-routines: what runs against a repository, or an honest "I could not look"
@@ -13090,7 +13098,7 @@ function testSetupRoutinesListing() {
 
     // ---- 1. a repository that has routines ----
     const populated = listFrom({ data: [
-      entry("t_drive", drive.name, drive.prompt, WH, "56 * * * *"),
+      entry("t_drive", drive.name, drive.prompt, WH, ""),
       // model unset -- the real drift measured on two live routines
       entry("t_fb", fb.name, fb.prompt, WH, "", ""),
       entry("t_oneoff", "nightly docs sweep", "a one-off", WH),
@@ -13103,7 +13111,7 @@ function testSetupRoutinesListing() {
     assertEq("a routine is reported with its schedule, target and template",
       (({ template, status, trigger, schedule, target_repo, enabled }) =>
         ({ template, status, trigger, schedule, target_repo, enabled }))(byName(drive.name)),
-      { template: "drive", status: "current", trigger: "cron", schedule: "56 * * * *",
+      { template: "drive", status: "current", trigger: "github-pr-merged", schedule: null,
         target_repo: WH, enabled: true });
     assertEq("an unscheduled routine reports its designed trigger and no schedule",
       [byName(fb.name).trigger, byName(fb.name).schedule], ["github-issue-assigned", null]);
@@ -13206,7 +13214,7 @@ function testRoutineChangeGate() {
     const drive = render("drive"), fb = render("fb"), mp = render("merged-pr");
     const live = join(dir, "live.json");
     writeFileSync(live, JSON.stringify({ data: [
-      entry("t_drive", drive.name, drive.prompt, "56 * * * *"),   // matches the template
+      entry("t_drive", drive.name, drive.prompt, ""),             // matches the template
       entry("t_fb", fb.name, fb.prompt, "", ""),                  // drifted: model unset
       entry("t_mp", mp.name, mp.prompt, "", "claude-opus-5", false), // disabled
     ] }));

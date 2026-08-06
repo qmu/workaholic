@@ -5,7 +5,7 @@ name: "[Propose] {repo_name}"
 trigger: github-issue-assigned
 trigger_kind: github
 trigger_event: issues.assigned
-trigger_filters: assignee = the developer
+trigger_filters: (none - the session checks the assignee itself)
 model: claude-opus-5
 allowed_tools: [Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch]
 mcp: [Slack]
@@ -13,9 +13,18 @@ mcp: [Slack]
 
 # [Propose] — turn a reported ask into a record and the work it warrants
 
-**Fires when a GitHub issue assigned to the developer is opened.** The wiring lives in
-the GitHub integration, outside the routine record, which carries no trigger field
-(`workaholify` SKILL, *What a routine can be triggered by*).
+**Fires when a GitHub issue is assigned — for every developer, and `/propose` decides
+whether it is theirs** (developer's ruling, 2026-08-06). The routines UI offers no
+assignee filter, so the trigger cannot narrow this at all.
+
+**The check is `/propose`'s, not this prompt's** — symmetric with `[Implement]`, whose
+survey already drops what it does not own. Both prompts therefore stay the developer's
+own lines with no guard in them: a prompt states nothing a command already owns, and
+"whose work is this" is exactly the kind of rule that must live in one place rather than
+in two routine prompts that can drift apart. `/propose` reports `not_mine` and stops.
+
+The wiring lives in the GitHub integration, outside the routine record, which carries no
+trigger field (`workaholify` SKILL, *What a routine can be triggered by*).
 
 **The prompt is the developer's own four lines, rendered into English** (P3, 2026-08-06;
 the source is the ruling recorded as feedback `20260806183556`). It says only: read the

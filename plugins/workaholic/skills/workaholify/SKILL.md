@@ -199,7 +199,7 @@ Stated once here; the templates carry the token in their formats and point back 
 
 **One surface.** A routine notifies through the repository's `dev-<repo_name>` Slack channel and nowhere else. Every template says so in its own prompt, because the instruction has to reach the session that would otherwise reach for a push tool: *post to Slack only; send no mobile or push notification.*
 
-**What a template can and cannot switch off — measured, not assumed.** A live routine record carries `name`, `trigger`, `schedule`, `target repository`, `model`, `enabled` and its MCP connections, and **no notification field of any kind** (`scripts/list-routines.sh`'s documented shape; `lib/compare_routines.py` compares prompt, model, schedule, enabled and the Slack connector — there is nothing else to compare). So the duplicate mobile push is **not** routine configuration: the half a template reaches is the session's own behavior, above; the other half is the Claude app's account-level notification for a routine session completing, which no template, script or drift report can touch. Turning that off is a **developer act in the app's own settings**, surfaced by `/setup-routines` and stated there — a truthful "cannot" beats a claimed "did", and a drift report that silently omitted the field would be the worse outcome.
+**What a template can and cannot switch off — measured, not assumed.** A live routine record carries `name`, `trigger`, `schedule`, `target repository`, `model`, `enabled` and its MCP connections, and **no notification field of any kind** (the record's documented shape — name, trigger, schedule, target, model, `enabled` and its MCP connections, and nothing else). So the duplicate mobile push is **not** routine configuration: the half a template reaches is the session's own behavior, above; the other half is the Claude app's account-level notification for a routine session completing, which no template, script or drift report can touch. Turning that off is a **developer act in the app's own settings**, surfaced by `/setup-routines` and stated there — a truthful "cannot" beats a claimed "did", and a drift report that silently omitted the field would be the worse outcome.
 
 **Dropping a surface narrows visibility, so the remaining one must be worth reading.** The default for an event is **silence**; it earns a post only by being something a developer must **act on or stay aware of**. Two precedents from this repository decide the hard cases, and both are reused rather than reinvented:
 
@@ -233,33 +233,28 @@ The boundary is **read versus write**, not one command versus another:
 
 Both loop runbooks say *"do not install the crontab from an agent session — applying a standing outward-facing process is the developer's act."* That rule survives intact; the crontab was incidental to it. Generalized: **an agent may not bring a standing outward-facing process into existence, or re-point one, without a human seeing exactly what it will be.** All that changed is the sanctioned path — the confirmation is now mediated by a script instead of done entirely by hand, which makes it checkable rather than merely instructed.
 
-### The scripts, and the split they enforce
+### The scripts
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/workaholify/scripts/list-routine-templates.sh
 bash ${CLAUDE_PLUGIN_ROOT}/skills/workaholify/scripts/render-routine.sh <template-id> <repo-url>
+bash ${CLAUDE_PLUGIN_ROOT}/skills/workaholify/scripts/render-setup-sheet.sh <template-id|--all> <repo-url>
 bash ${CLAUDE_PLUGIN_ROOT}/skills/workaholify/scripts/resolve-repo-url.sh [name-or-url]
-<RemoteTrigger list JSON> | bash ${CLAUDE_PLUGIN_ROOT}/skills/workaholify/scripts/compare-routines.sh <repo-url>
-bash ${CLAUDE_PLUGIN_ROOT}/skills/workaholify/scripts/list-routines.sh <repo-url> --live <file>
-bash ${CLAUDE_PLUGIN_ROOT}/skills/workaholify/scripts/plan-routine-change.sh <create|refresh|remove> <template-id> <repo-url> --live <file> [--enable]
-bash ${CLAUDE_PLUGIN_ROOT}/skills/workaholify/scripts/authorize-routine-change.sh --plan <file> --digest <digest>
 ```
 
-**Scripts own the templates and the comparison; the command owns the API and the confirmation.** A shell script cannot call `RemoteTrigger` — only the main agent can — so the command fetches the live list and pipes it in. That split is what keeps the logic out of markdown (the Shell Script Principle) *and* testable: `compare-routines.sh` is driven against fixtures in the suite without touching anyone's account.
+**`/setup-routines` renders copy-paste setup sheets; it manages nothing** (the developer's ruling, 2026-08-06). `render-setup-sheet.sh` emits, per template, the routine's name, model, repository, the prompt verbatim in one block, the **UI steps derived from the template's own `trigger_kind` / `trigger_event` / `trigger_filters` declaration**, the connectors to keep and the `dev-<repo>` channel to have ready. Deriving the steps is what keeps them from drifting: a template whose trigger changes cannot leave a stale procedure behind in prose. The command makes **no `RemoteTrigger` call at all** and asks nothing — the developer acts in their own browser, and the sheet is what they act from.
 
-**`/setup-routines` renders copy-paste setup sheets; it manages nothing** (the developer's ruling, 2026-08-06). `render-setup-sheet.sh <template-id|--all> <repo-url>` emits, per template, the routine's name, model, repository, the prompt verbatim in one block, the **UI steps derived from the template's own `trigger_kind` / `trigger_event` / `trigger_filters` declaration**, the connectors to keep and the `dev-<repo>` channel to have ready. Deriving the steps is what keeps them from drifting: a template whose trigger changes cannot leave a stale procedure behind in prose. The command makes **no `RemoteTrigger` call at all** and asks nothing — the developer acts in their own browser, and the sheet is what they act from.
+#### The management surface is retired, and why it must not grow back
 
-**`list-routines.sh` is the developer-facing reader, and `/setup-routines` is its command.** `compare-routines.sh` answers "what has drifted, fleet-wide" for whoever is maintaining the templates; `list-routines.sh` answers "what runs against *this* repository" for somebody who has never seen it before — one block per routine with its trigger, schedule, target and template status, plus the fleet's drift as a summary rather than a drop. Its per-routine `trigger` is **the template's declaration, never live wiring** — every row carries `trigger_source: "template_declared"` and the top level carries `trigger_readable: false`, because the API exposes no trigger field (*What a routine can be triggered by*); the report must say so beside the value and point at the routines UI. Its one hard rule: **`checked: false` carries no `routines` key at all.** An absent, empty, unparseable, errored or unrecognised response is *not* an empty account, and the two must never render the same — a developer told a live repository has no routines will believe it. Only a response that actually parsed as a routines list may set `checked: true`.
+`plan-routine-change.sh` / `authorize-routine-change.sh` (the digest gate) and `compare-routines.sh` / `list-routines.sh` (drift and fleet reporting) were deleted on 2026-08-06 with their tests. They managed the half of a routine the API exposes while blind to the half that decides whether it runs at all, and the measured cost of that asymmetry was two wrong answers in one day: a paginated `list` (20 rows, `has_more` unread) surveyed as the whole account, and six duplicate records carefully refreshed through the digest gate while the real, wired `[Propose]` ran a stale prompt beyond page one. A "drift-free fleet" verdict was reported both times.
 
-**A routine belongs to a repository when its `sources[].git_repository.url` matches**, compared after stripping a trailing slash and `.git` — never by name. Names are what drift; matching on them would report a renamed routine as both missing and unknown at once.
+Three things worth keeping from that machinery, because they were right and only their application was wrong:
 
-**Drift is surveyed across the whole fleet, not just this checkout.** The templates are one set applied to many repositories, so drift is a property of the fleet: `Merged PR qmu-co-jp` losing its `model` is the same defect whichever repository you are standing in, and a survey scoped to the current repo would need somebody to visit seven checkouts to find seven instances of one problem. The asymmetry in the output is deliberate — `this_repo` reports **missing and drifted** (you are here; adopting a template is in scope), `other_repos` reports **drifted only**, over routines that already exist. A repository with no `[Drive]` routine has not failed to install one: that template is still a pilot, and "every repo should have all three" is not established. Proposing to create routines in repositories nobody is working in would be inventing policy out of a survey.
+- **The digest gate's reasoning survives the gate.** It closed *substitution* (the plan no longer hashes to its own digest) and *batching* (one confirmation carries exactly one routine) — the two failures a standing outward-facing process cannot survive. Nothing here weakens that bar; the acts it gated are simply gone, because the plugin no longer performs them. The record is `.workaholic/feedbacks/20260806143907-routine-setup-is-a-human-act-the-plugin-makes-cheap.md`.
+- **"Could not check" is never "does not exist."** That rule outlived its reader and still governs `check-slack-channel.sh` below.
+- **The account has no delete.** Removing a routine is a human act at <https://claude.ai/code/routines>, and always was.
 
-**A missing Slack connector counts as drift.** Every template posts to `dev-<repo>`; a routine without the connector runs, does its work, and fails silently at the last step.
-
-**Drift is reported per field, not as a boolean.** Measured live: `Merged PR qmu-co-jp` and `[FB] coop-csnet` carry no `model` at all while every sibling pins `claude-opus-5`, and `[FB] data-platform` has one extra prompt line. "This routine differs" would not tell a developer which of those they are looking at.
-
-**`unknown` is information, not an error.** A routine pointing at this repository that matches no template is somebody's deliberate one-off. It is listed so nothing is invisible, and nothing here ever proposes removing it — the API has no delete at all, and that asymmetry is a feature: this flow can add and refresh, never destroy. Deletion is a human act at <https://claude.ai/code/routines>.
+**Do not reintroduce a reader "just to report what exists."** The trigger wiring — the one field that decides whether a routine ever fires — is invisible to the API, so any such report is authoritative about the parts that do not matter and silent about the part that does. That is the shape that misled twice.
 
 ### Preconditions, checked before anything is scheduled
 
@@ -267,7 +262,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/workaholify/scripts/authorize-routine-change.s
 
 Every template posts to `dev-<repo_name>`, so two things must hold before a routine is worth creating. Both are **reported, never gates** — they are environment-dependent, and blocking on them would make `/workaholify` unusable on a machine without the tooling.
 
-- **The Slack connector must be attachable.** `compare-routines.sh` reports `slack_connector` — discovered from whatever live routine already carries one, because a new routine's body needs that `connector_uuid` and `url`, and the account is the only place they exist. A routine created without it is drift by definition, and the comparison says so.
+- **The Slack connector must be attached.** A routine's body needs a `connector_uuid` and `url` that exist only in the account, so the developer picks the connector in the same form they paste the prompt into. The sheet names it (`Connectors: keep …`); nothing here can verify it was kept.
 - **The channel must exist.** `check-slack-channel.sh <repo-name>` probes `dev-<repo>`.
 
 ```bash
@@ -278,17 +273,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/workaholify/scripts/check-slack-channel.sh <re
 
 That failure class has already cost this project twice: a survey concluded "no routines are installed" from an empty crontab, on a machine whose routines run in the cloud. Absence of evidence is not evidence of absence.
 
-### Changing a routine: the plan, the digest, and what "remove" means
-
-`plan-routine-change.sh` renders the exact content one change would carry and stamps it with a `confirm_digest`; `authorize-routine-change.sh` re-derives that digest and refuses anything that does not match. The command must pass through both — plan, show verbatim, confirm, authorize, then call the API with the returned `apply` block.
-
-**What the gate actually buys, stated precisely so it is not oversold.** It cannot prove a human was present; no script an agent runs can. What it closes are the two failures a standing outward-facing process cannot survive: **substitution** (`plan_tampered` — the plan no longer hashes to its own digest, so what was read and what would be sent differ) and **batching** (`digest_mismatch` — one confirmation carries exactly one digest, so a single yes can never cover a fleet). The digest covers only what a developer verifies by eye — action, repository, name, trigger, schedule, model, `enabled`, and the whole prompt — never the account plumbing nobody reads.
-
-**A noop is an answer and carries no digest**, so it cannot be forced through: refreshing an undrifted routine reports `no_drift` and changes nothing, and `already_exists`, `not_present`, `already_disabled` and `disabled_routine` each name what to do instead. `disabled_routine` exists because removal *is* disabling: a refresh that silently re-enabled a routine somebody switched off would undo a deliberate act, so it needs `--enable` to say that is what you mean.
-
-**"Remove" means disable, and says so.** The API has no delete, so removal is an update setting `enabled: false`; deleting the entry is a human act at <https://claude.ai/code/routines>. A removal's plan shows the **live** prompt rather than the template's — you are switching off what is actually there, which may have drifted.
-
 ### What the command does with all this
 
-Report the state, then **show the developer the rendered prompt and get an explicit confirmation before any `create` or `update`**. A routine is a standing, outward-facing process that will act on this repository unattended; that is the same class of commitment as `/fb` crossing a repository boundary, and it gets the same treatment — the verbatim body, confirmed, every time. `environment_id` is an account-level fact with more than one valid answer, so it is asked rather than guessed.
+Render the sheets, report the two preconditions, and say plainly what cannot be verified from here. There is no mutation to confirm and no account to survey: the developer creates the routine in their own browser from the sheet, and whether they did is observable only through what the routine produces.
 

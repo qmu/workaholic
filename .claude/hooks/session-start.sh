@@ -129,6 +129,36 @@ die() { echo "workaholic bootstrap: $1 (see $LOG)"; exit 0; }  # exit 0 = fail o
 
 log "=== bootstrap (claude $(claude --version 2>/dev/null || echo unknown)) ==="
 
+# 0) Provision `gh`, which the web container does not ship (2026-08-06).
+# Fourteen plugin scripts shell out to it; the two that decide whether a cloud run can
+# finish are publish-tree-pr.sh (pushes the branch, then reports `no_gh` instead of opening
+# the pull request) and merge-pr.sh (cannot run at all), so every cloud `auto` unit was
+# demoted to the PR path and every routine-published artifact waited for a human to open
+# its PR by hand. Measured in the container: `gh` 2.45.0 is in Ubuntu noble universe, the
+# session runs as root, and GH_TOKEN/GITHUB_TOKEN are already injected -- so the install is
+# a package away and the resulting `gh` has credentials.
+#
+# EVERY PART OF IT IS NON-FATAL. This hook has no `set -e` and must never block a session
+# from starting: `gh` still absent afterwards is exactly the status quo, not a regression,
+# which is why the failure path logs one line and falls through rather than calling die().
+# The `command -v gh` guard makes an already-provisioned container pay nothing and a
+# resume/clear/compact refire a no-op.
+if command -v gh >/dev/null 2>&1; then
+  log "gh present ($(gh --version 2>/dev/null | head -n 1)); skip"
+elif [ "$(id -u)" != "0" ]; then
+  log "gh absent and not root; skipping install"
+  echo "workaholic bootstrap: gh is not installed and this session is not root (see $LOG)"
+else
+  log "gh absent; installing from the distro archive"
+  if run apt-get update && run apt-get install -y --no-install-recommends gh; then
+    log "gh installed ($(gh --version 2>/dev/null | head -n 1))"
+  else
+    # Named, once, so a container where this cannot work says so here rather than
+    # surfacing later as a `no_gh` at the first publish-tree-pr.sh call.
+    echo "workaholic bootstrap: gh install failed; PR creation and merge will report no_gh (see $LOG)"
+  fi
+fi
+
 # Already installed at the version this checkout wants: skip the network round-trip.
 # Presence alone never skips -- see the header on the version gate.
 WANTED=$(sed -n 's/^ *"version": *"\([^"]*\)".*/\1/p' "${CLAUDE_PROJECT_DIR:-.}/.claude-plugin/marketplace.json" 2>/dev/null | head -n 1)

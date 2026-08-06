@@ -8859,7 +8859,7 @@ function testRenderSetupSheet() {
   const sheet = (target) => run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.renderSetupSheet} ${target} ${WH}`).stdout;
 
   const all = sheet("--all");
-  for (const name of ["[Propose] workaholic", "[Consent] workaholic", "[Drive] workaholic (pilot)"]) {
+  for (const name of ["[Propose] workaholic", "[Implement] workaholic"]) {
     assertTrue(`the sheet covers ${name}`, all.includes(`## ${name}`), all.slice(0, 200));
   }
   // Derived from frontmatter, per template -- not one generic paragraph.
@@ -10526,7 +10526,7 @@ function testDriveAttendedSelection() {
   const cmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/drive.md"), "utf8");
   const impl = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/implement.md"), "utf8");
   const skill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/drive/SKILL.md"), "utf8");
-  const routine = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines/drive.md"), "utf8");
+  const routine = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines/implement.md"), "utf8");
   const runbook = readFileSync(join(REPO_ROOT, "docs/drive-loop-runbook.md"), "utf8");
   const claudeMd = readFileSync(join(REPO_ROOT, "CLAUDE.md"), "utf8");
 
@@ -10577,7 +10577,7 @@ function testDriveAttendedSelection() {
   // The unattended callers must name /implement: pointed at /drive they would wait
   // on the selection prompt with nobody there to answer it.
   assertTrue("the routine template invokes the unattended command by name",
-    /run `\/implement`/i.test(routine) && /nobody is here to answer/.test(routine));
+    /run `\/implement`/i.test(routine) && /No human is here: never ask a question/.test(routine));
   assertTrue("the runbook's cron line and loop contract name /implement",
     /claude -p "\/implement"/.test(runbook) && /\/goal \/implement ok/.test(runbook));
   assertTrue("the attended command points caller-side loops at /implement",
@@ -12851,27 +12851,27 @@ function testWorkaholifyRoutines() {
   const WH = "https://github.com/qmu/workaholic";
   try {
     const tpl = JSON.parse(run(dir, LIST).stdout);
-    assertEq("the plugin ships three routine templates", tpl.count, 3);
-    assertEq("and they are the three live patterns",
-      tpl.templates.map((t) => t.id).sort(), ["drive", "fb", "merged-pr"]);
+    assertEq("the plugin ships two routine templates", tpl.count, 2);
+    assertEq("and they are the two live patterns",
+      tpl.templates.map((t) => t.id).sort(), ["fb", "implement"]);
     // The template set is discovered by scanning the routines dir, so a template is
     // surveyed, rendered and drift-checked the moment its file exists -- and leaves the
     // set the moment it does not. Nothing enumerates the ids in code, which is why both
     // adding `propose` and retiring it again needed no script change.
-    // No template is scheduled since 2026-08-06: [Drive] is merge-triggered (the
+    // No template is scheduled since 2026-08-06: [Implement] is merge-triggered (the
     // developer's ask), and a template that regrew a cron would resurrect the clock
     // this pin now forbids.
     assertEq("no template carries a schedule any more",
       tpl.templates.filter((t) => t.trigger === "cron").map((t) => t.cron_expression), []);
-    assertEq("drive declares the merge trigger",
-      tpl.templates.find((t) => t.id === "drive").trigger, "github-pr-merged");
+    assertEq("implement declares the merge trigger",
+      tpl.templates.find((t) => t.id === "implement").trigger, "github-pr-merged");
 
     // ---- the three substitutions, each demanded by a real prompt ----
-    const drive = JSON.parse(run(dir, `${RENDER} drive ${WH}`).stdout);
+    const drive = JSON.parse(run(dir, `${RENDER} implement ${WH}`).stdout);
     assertEq("the routine name uses the BARE repo name, as the live routines do",
-      drive.name, "[Drive] workaholic (pilot)");
+      drive.name, "[Implement] workaholic");
     assertTrue("{repo_slug} renders org/repo in the prompt's prose",
-      drive.prompt.includes("drive runner for qmu/workaholic,"), drive.prompt.slice(0, 200));
+      drive.prompt.includes("runner for qmu/workaholic"), drive.prompt.slice(0, 200));
     assertTrue("{repo_name} renders the dev-<name> Slack channel",
       drive.prompt.includes("dev-workaholic"), "missing channel");
     // The `#123` example left the template with the post formats on 2026-08-05 (they live
@@ -13009,30 +13009,42 @@ function testRoutineAnnouncementScoping() {
   // `## Prompt`. A template's header explains the defect it was corrected for, quoting the
   // old wording verbatim, so checking the whole file flags the explanation as the bug.
   const prompt = (f) => { const b = read(f); const i = b.indexOf("## Prompt"); return i < 0 ? b : b.slice(i); };
-  const merged = prompt("merged-pr.md"), fb = prompt("fb.md"), drive = prompt("drive.md");
+  const fb = prompt("fb.md"), implement = prompt("implement.md");
   const wh = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/SKILL.md"), "utf8");
 
   // The subject must be identified. "about the pull request" with no antecedent is the
   // exact wording that produced the duplicates.
-  for (const [name, body] of [["merged-pr", merged], ["fb", fb], ["drive", drive]]) {
+  for (const [name, body] of [["fb", fb], ["implement", implement]]) {
     assertTrue(`${name} never says "about the pull request" without saying which`,
       !/about the pull request\b(?![^\n]*(this session|you just|THIS session))/i.test(body),
       body.slice(0, 400));
   }
 
-  assertTrue("merged-pr announces exactly one pull request",
-    /exactly one\b[^\n]*pull request/i.test(merged), "one-PR scoping missing");
-  assertTrue("and identifies it as the one that started this session",
-    /whose merge started this session/i.test(merged), "triggering-merge scoping missing");
-  // SILENCE IS THE CORRECT FAILURE MODE. "Announce whatever merged most recently" is the
-  // fallback that IS the bug, so the prompt has to forbid it by name.
-  assertTrue("merged-pr posts nothing when it cannot identify the trigger",
-    /cannot identify[^\n]*post nothing/i.test(merged), "post-nothing fallback missing");
-  assertTrue("and forbids the recency fallback explicitly",
-    /most recently/i.test(merged) && /fallback is exactly the defect/i.test(merged),
-    "recency fallback not forbidden");
-  assertTrue("merged-pr forbids announcing more than one even when several merged",
-    /Never announce more than one/i.test(merged), "multi-report not forbidden");
+  // P3 (2026-08-06): two templates, and each prompt is four lines. A developer
+  // configures these by hand once per project, so the count and the length are the
+  // constraint the loop's shape is set by.
+  const templates = readdirSync(dir).filter((f) => f.endsWith(".md")).sort();
+  assertEq("exactly two templates ship", templates, ["fb.md", "implement.md"]);
+  for (const [name, body] of [["fb", fb], ["implement", implement]]) {
+    const lines = body.replace(/^## Prompt\n/, "").split("\n").filter((l) => l.trim());
+    assertEq(`the ${name} prompt is four lines`, lines.length, 4);
+  }
+  // [Consent] is retired, and no surviving template may re-announce a merge: that is
+  // exactly the third standing process the reduction removed.
+  assertTrue("no template still names the retired merge-announcement routine",
+    ![fb, implement].some((b) => /\[Consent\]/.test(b)));
+  // What the retirement COSTS is stated where a developer meets it, not discovered.
+  assertTrue("the SKILL records what retiring the merge announcement costs",
+    /human-merged pull request is now announced by nobody/i.test(wh)
+    && /Do not reintroduce a third routine/i.test(wh), "retirement cost not stated");
+
+  // A prompt may not defer the one thing that IS its output contract.
+  for (const [name, body] of [["fb", fb], ["implement", implement]]) {
+    assertTrue(`the ${name} prompt carries its channel inline`,
+      /dev-\{repo_name\}/.test(body), body.slice(0, 400));
+    assertTrue(`the ${name} prompt carries its post shape inline`,
+      /🟠/.test(body) && /(🟢|🚀|🟡|🔴)/.test(body), body.slice(0, 400));
+  }
 
   // The other two announce their OWN output, so they have no ambiguity -- but say so,
   // because "the pull request" reads identically in all three.
@@ -13041,13 +13053,13 @@ function testRoutineAnnouncementScoping() {
   // These assertions therefore grep the OWNING skill, and one pin holds the deferral.
   assertTrue("the Proposed root announces only the posting session's own PR",
     /only the pull request you just created in this session/i.test(wh), "proposed scoping missing from workaholify SKILL");
-  // The drive template became a pointer on 2026-08-06 (second slimming): its announce
-  // scoping lives in the workaholify SKILL, and the template pin holds the deferral.
-  assertTrue("the announce scoping the drive template used to carry lives in the SKILL",
+  // The implement template is a pointer: its announce scoping lives in the workaholify
+  // SKILL, and the template pin holds the deferral.
+  assertTrue("the announce scoping the implement template used to carry lives in the SKILL",
     /announce events the session itself produced/i.test(wh) && /never announce another session's work/i.test(wh),
     "announce scoping missing from workaholify SKILL");
-  assertTrue("and the drive template defers to the skills instead of restating them",
-    /Follow them, not this prompt/.test(drive), "drive deferral missing");
+  assertTrue("and the implement template defers to the skills instead of restating them",
+    /let it and the loaded skills own everything else/.test(implement), "implement deferral missing");
   // `fb` IS the propose entrance since the batch template was retired (2026-08-04), and its
   // one postable event is the pull request it just opened — which is why the two clauses
   // the retired [Propose Batch] template carried are asserted here instead.
@@ -13057,13 +13069,13 @@ function testRoutineAnnouncementScoping() {
   assertTrue("the one-PR rule lives in the propose skill",
     /never as two pull requests/i.test(proposeSkill), "one-PR rule missing from propose SKILL");
   assertTrue("and the fb template defers to the skills instead of restating them",
-    /Follow them, not this prompt/.test(fb), "fb deferral missing");
+    /let the loaded skills own everything else/.test(fb), "fb deferral missing");
 
   // NO "Attention" BLOCK IN ANY ANNOUNCEMENT (developer's ruling, 2026-08-01). The
   // conditional concern block is gone from both the PR-opened and PR-merged formats; a
   // notification carries the fact, and concerns live in the story and the feedback stream
   // where they are read deliberately rather than skimmed in a channel.
-  for (const [name, body] of [["merged-pr", merged], ["fb", fb], ["drive", drive]]) {
+  for (const [name, body] of [["fb", fb], ["implement", implement]]) {
     assertTrue(`${name} carries no Attention block`, !/Attention/.test(body), body.slice(0, 300));
     assertTrue(`${name} carries no concern conditional`,
       !/\{\{#if [a-z_]*concern/i.test(body), body.slice(0, 300));
@@ -13117,6 +13129,6 @@ function testRoutineAnnouncementScoping() {
   // session produced, which are new every time — deduping them would hide real work.
   assertTrue("the dedupe applies to red failure alerts only",
     /announce events the session itself produced and are new every time/i.test(wh), "scoping missing");
-  assertTrue("and the slimmed drive template still points at the workaholify skill",
-    /workaholify. skill/i.test(drive), "template pointer missing");
+  assertTrue("and the slimmed implement template still points at the workaholify skill",
+    /workaholify. skill/i.test(implement), "template pointer missing");
 }

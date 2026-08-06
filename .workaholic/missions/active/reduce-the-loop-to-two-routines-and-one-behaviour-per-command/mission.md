@@ -55,3 +55,4 @@ subcommands anywhere, and `/drive` is again the interactive command it used to b
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-06 — ticket archived — 20260806183638-split-drive-into-an-interactive-drive-and-an-unattended-implement.md
 - 2026-08-06 — ticket archived — 20260806184521-carry-ownership-as-a-field-not-as-a-directory.md
+- 2026-08-06 — ticket archived — 20260806183638-cut-the-two-routine-templates-to-four-lines-and-retire-consent.md

@@ -105,7 +105,7 @@ installed CLI):
 
 ### The cloud routine is merge-triggered; the clock in this runbook is the fallback (2026-08-06)
 
-The `[Drive]` cloud routine now **fires when a proposal's pull request merges** — the
+The `[Implement]` cloud routine **fires when a proposal's pull request merges** — the
 developer's original ask. Two earlier versions of this section argued for a clock, first
 from "a merge trigger does not exist" (retracted: the trigger wiring lives in the
 routines UI, invisible to the API record both readings relied on) and then from the

@@ -8,7 +8,7 @@
 #
 # ONE SET OF TEMPLATES, MANY REPOSITORIES. The templates live in the PLUGIN
 # (`skills/workaholify/routines/*.md`), not in any repository's `.workaholic/`. That is
-# the whole shape of the thing: `[Propose]`, `[Consent]` and `[Drive]` are the routines
+# the whole shape of the thing: `[Propose]` and `[Implement]` are the two routines
 # every workaholic repository should have, and what differs between repositories is only which
 # repository they point at. A per-repository declaration would be one copy per repo of a
 # file that is identical in every repo except its own URL — and each copy free to drift.

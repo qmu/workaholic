@@ -4,9 +4,9 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 type: enhancement
 layer: [Config]
-effort:
+effort: 2h
 commit_hash:
-category:
+category: Changed
 depends_on: 20260806184521-carry-ownership-as-a-field-not-as-a-directory.md
 mission: reduce-the-loop-to-two-routines-and-one-behaviour-per-command
 merge_policy:
@@ -83,3 +83,32 @@ skill the session loads.
   rejected the patch and the flaw behind it: ownership belongs in a field, not a directory
   (`20260806184521-carry-ownership-as-a-field-not-as-a-directory.md`). **This ticket depends
   on that one** and the prompt drops to four lines only after it lands.
+
+## Final Report
+
+Development completed as planned. Two templates ship (`fb` = `[Propose]`,
+`implement` = `[Implement]`), each prompt is exactly four lines, and `[Consent]` is
+retired with its cost written where a developer meets it.
+
+### Discovered Insights
+
+- **Insight**: The four-line rule needed a stated *boundary*, not just a length.
+  "Nothing a skill already owns is restated in a prompt" is the gate, but a
+  routine's **channel and post shape** are owned by nothing else — they are the
+  routine's entire output contract, and no skill can state them because they are
+  per-repository. So the rule became: four lines carrying the environment, the
+  payload, the one command, and the channel + shape; everything else defers.
+  **Context**: Without naming the exception, the next slimming would delete the
+  post format as "restated" and the routine would run and announce nothing.
+- **Insight**: `{repo}` is only demanded by the post-shape line. Cutting the
+  prompts removed the last `{repo}/pull/<number>` reference, which would have
+  made the SKILL's "three substitutions, each demanded by the live routines"
+  claim false and left the link form for a session to invent. The link form is
+  now inside the shape line, which is where it belongs anyway.
+  **Context**: `testWorkaholifyRoutines` pins that `{repo}` still renders.
+- **Insight**: Both renderer scripts (`list-routine-templates.sh`,
+  `render-setup-sheet.sh`) discover the template set by scanning the directory,
+  so retiring a template and renaming one needed no script change at all — only
+  the tests and the prose enumerate ids.
+  **Context**: This is the property that made `[Propose Batch]`'s addition and
+  same-day retirement cheap, and it held again here.

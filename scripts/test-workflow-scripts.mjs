@@ -109,6 +109,7 @@ const SCRIPTS = {
   nextAcceptance: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/next-acceptance.sh"),
   feedbackCreate: join(REPO_ROOT, "plugins/workaholic/skills/feedback/scripts/create.sh"),
   proposeReadFeedbackRelation: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/read-feedback-relation.sh"),
+  unitFeedbackStems: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/unit-feedback-stems.sh"),
   proposeListRefs: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/list-proposed-refs.sh"),
   proposeScaffoldDraft: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/scaffold-draft.sh"),
   proposeNotifySlack: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/notify-slack.sh"),
@@ -8648,6 +8649,66 @@ function testFeedback() {
   } finally { cleanup(dir); }
 }
 
+// ---------- drive: a unit's feedback stems, for the thread its posts land in ----------
+// The start and finish posts are per UNIT, not per run, and land in the feedback item's
+// thread (workaholify SKILL, *Which thread a /drive unit's posts land in*). This resolver
+// is the only path from a claimed unit to the `fb:<stem>` key, so what is pinned here is
+// the shape the poster depends on: dedup, order, and an empty answer that is an ANSWER.
+function testUnitFeedbackStems() {
+  const dir = makeRepo("main");
+  try {
+    const wk = (rel, body) => { mkdirSync(dirname(join(dir, rel)), { recursive: true }); writeFileSync(join(dir, rel), body); };
+    const stems = (...paths) =>
+      JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.unitFeedbackStems} ${paths.join(" ")}`).stdout);
+
+    wk(".workaholic/missions/active/alpha/mission.md",
+      "---\ntype: Mission\nslug: alpha\nstatus: active\nfeedback: [20260805000001-ask-one.md, 20260805000002-ask-two.md]\n---\n\n# Alpha\n");
+    const ticket = (n, refs) =>
+      wk(`.workaholic/tickets/todo/a-qmu-jp/2026080500000${n}-t${n}.md`,
+        `---\ncreated_at: 2026-08-05T00:00:0${n}+09:00\nauthor: a@qmu.jp\ntype: enhancement\nfeedback: ${refs}\n---\n\n# T${n}\n`);
+    ticket(1, "[20260805000001-ask-one.md]");
+    ticket(2, "20260805000001-ask-one.md");   // bare scalar, SAME record as ticket 1
+    ticket(3, "[20260805000003-ask-three.md]");
+    ticket(4, "");
+
+    // A mission unit resolves through its own mission.md, and the `.md` is stripped:
+    // `fb:<stem>` is the token a thread root carries, and only one place may spell it.
+    assertEq("a mission unit reports its own feedback stems, extension stripped",
+      stems(".workaholic/missions/active/alpha/mission.md"),
+      { count: 2, stems: ["20260805000001-ask-one", "20260805000002-ask-two"] });
+
+    // A batch resolves through its tickets. Two tickets tracing to ONE record must not
+    // make the unit post the same line twice into one thread.
+    assertEq("a batch dedups two tickets tracing to one record",
+      stems(".workaholic/tickets/todo/a-qmu-jp/20260805000001-t1.md",
+            ".workaholic/tickets/todo/a-qmu-jp/20260805000002-t2.md"),
+      { count: 1, stems: ["20260805000001-ask-one"] });
+    // Two records genuinely advanced is the case that legitimately yields two threads.
+    assertEq("a batch spanning two records reports both, in order",
+      stems(".workaholic/tickets/todo/a-qmu-jp/20260805000001-t1.md",
+            ".workaholic/tickets/todo/a-qmu-jp/20260805000003-t3.md"),
+      { count: 2, stems: ["20260805000001-ask-one", "20260805000003-ask-three"] });
+
+    // count: 0 is the answer that routes the unit to its `unit:<unit-id>` key. It must be
+    // reachable without an error, or a unit tracing to no record would post nothing --
+    // and a keyless top-level line is exactly what the threading model exists to end.
+    assertEq("a unit tracing to no record answers zero rather than failing",
+      stems(".workaholic/tickets/todo/a-qmu-jp/20260805000004-t4.md"), { count: 0, stems: [] });
+    assertEq("no artifacts at all is the same answer", stems(), { count: 0, stems: [] });
+    // A ticket archived by an earlier pass of the same run is no longer at the stamped
+    // path; a missing file is skipped, never a crash mid-run.
+    assertEq("a vanished artifact is skipped, and the rest still resolve",
+      stems(".workaholic/tickets/todo/a-qmu-jp/gone.md",
+            ".workaholic/tickets/todo/a-qmu-jp/20260805000003-t3.md"),
+      { count: 1, stems: ["20260805000003-ask-three"] });
+
+    // The relation has exactly ONE reader; a second parser would eventually disagree.
+    const src = readFileSync(SCRIPTS.unitFeedbackStems, "utf8");
+    assertTrue("the relation is read through read-feedback-relation.sh, never re-parsed",
+      /read-feedback-relation\.sh/.test(src) && !/^\s*(awk|sed|grep).*feedback:/m.test(src), src.slice(0, 200));
+  } finally { cleanup(dir); }
+}
+
 // ---------- propose skill: dedup set / draft scaffold ----------
 // The proposer's mechanics (docs/loop-engineering-workflow.md C2-C4, B1): the
 // artifact->feedback dedup set, and the unowned draft scaffold.
@@ -11838,6 +11899,7 @@ const tests = [
   ["hooks/git/commit-msg", testCommitMsgHook],
   ["hooks/install-git-hooks.sh", testInstallGitHooks],
   ["feedback/create.sh + list.sh + hooks/validate-feedback.sh", testFeedback],
+  ["drive/unit-feedback-stems.sh: the unit's thread key", testUnitFeedbackStems],
   ["propose: dedup set and draft scaffold", testProposeBatch],
   ["propose: the dedup set covers open pull requests", testProposedRefsCoverOpenPullRequests],
   ["propose/notify-slack.sh", testNotifySlack],
@@ -12568,7 +12630,10 @@ function testWorkaholifyRoutines() {
     assertTrue("no placeholder survives rendering", !/\{repo(_name|_slug)?\}/.test(drive.prompt), drive.prompt);
 
     const fb = JSON.parse(run(dir, `${RENDER} fb ${WH}`).stdout);
-    assertEq("the fb routine is event-driven, with no schedule", [fb.trigger, fb.cron_expression], ["event", ""]);
+    // `invoked`, not `event`: measured 2026-08-05, a routine record has no event
+    // subscription of any kind -- an unscheduled routine waits for an external caller to
+    // POST /run. The word is the whole finding, so it is pinned.
+    assertEq("the fb routine carries no schedule and waits to be invoked", [fb.trigger, fb.cron_expression], ["invoked", ""]);
     assertEq("an unknown template is refused by name",
       JSON.parse(run(dir, `${RENDER} no-such ${WH}`).stdout).error, "unknown_template");
 
@@ -13018,8 +13083,8 @@ function testSetupRoutinesListing() {
         ({ template, status, trigger, schedule, target_repo, enabled }))(byName(drive.name)),
       { template: "drive", status: "current", trigger: "cron", schedule: "56 * * * *",
         target_repo: WH, enabled: true });
-    assertEq("an event-driven routine reports no schedule rather than a fake one",
-      [byName(fb.name).trigger, byName(fb.name).schedule], ["event", null]);
+    assertEq("an unscheduled routine reports no schedule rather than a fake one",
+      [byName(fb.name).trigger, byName(fb.name).schedule], ["invoked", null]);
     // DRIFT IS PER FIELD, carried through from the comparison rather than flattened.
     assertEq("a drifted routine names the field that drifted",
       [byName(fb.name).status, byName(fb.name).drift],

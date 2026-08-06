@@ -138,7 +138,7 @@ origin_commit=$(git rev-parse --short HEAD)
 created_at=$(date -Iseconds)
 author_email=$(git config user.email 2>/dev/null || echo "unknown@unknown.invalid")
 
-owners_script="${SCRIPT_DIR}/../../mission/scripts//mission-owners.sh"
+owners_script="${SCRIPT_DIR}/../../gather/scripts//owners.sh"
 
 result=$(python3 - "$story_file" "$pr_number" "$pr_url" "$branch" "$origin_commit" "$created_at" "$author_email" "$owners_script" <<'PY'
 import sys, re, os, json, glob, subprocess, hashlib, unicodedata
@@ -163,7 +163,7 @@ if fm:
             story_tickets = tm.group(1).strip()
 
 # Lane owner: the first owner of the first mission the story advances
-# (mission-owners.sh — the mission's own assignees, legacy fallback), denormalized
+# (gather/scripts/owners.sh — the artifact's own assignees, legacy fallback), denormalized
 # as `owner:` so list-open-concerns.sh can scope lanes without resolving missions.
 def _first_slug(v):
     v = v.strip()

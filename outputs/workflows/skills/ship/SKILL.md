@@ -157,7 +157,7 @@ Checks whether the current ship environment has the tooling the matched target's
 bash ship/scripts/check-todo.sh
 ```
 
-Checks if the current user's `.workaholic/tickets/todo/<user>/` queue has remaining tickets. Returns JSON with cleanliness status, count, and ticket list. Drives the **informational, non-blocking** §4 note — it reports the count, but the queued tickets never block the merge (they are future work, unrelated to this branch's PR). The check is scoped to the current user's subdirectory: other developers' tickets (in their own subdirectories, or unswept at the `todo/` root) are never counted.
+Checks whether `.workaholic/tickets/todo/` still holds tickets this user owns — or that nobody owns, since team-owned work is claimable by anyone and leaving it queued is exactly the loose end this surfaces. Ownership is the `assignees` field, read through `gather/scripts/owns.sh` (P2, 2026-08-06); it was the `todo/<user>/` directory before that. Returns JSON with cleanliness status, count, and ticket list. Drives the **informational, non-blocking** §4 note — it reports the count, but the queued tickets never block the merge (they are future work, unrelated to this branch's PR). The check is scoped by ownership: a ticket owned solely by another developer is never counted.
 
 ### 2-4b. Commit Release Note
 
@@ -244,7 +244,7 @@ Parse the JSON output. If `clean` is `true`, proceed silently to the Ship Flow.
 
 If `clean` is `false`, print **one** non-blocking note and **proceed to the Ship Flow anyway** — never prompt, never block, never move tickets:
 
-> Note: N ticket(s) still queued in your `.workaholic/tickets/todo/<user>/` (not blocking this ship): \<filenames\>.
+> Note: N ticket(s) still queued in `.workaholic/tickets/todo/` (not blocking this ship): \<filenames\>.
 
 The queued tickets are future/unstarted work, unrelated to this branch's PR. A branch's shippability is gated by the **Workspace Guard** (§3, uncommitted changes) and the **deployment-confirmation gate** (Ship Flow) — not by the todo queue. Do **not** issue an the agent's selection prompt here, and do **not** move tickets to icebox. If the developer wants to clear the queue first, that is their call to make outside `/ship` (e.g. via `/drive`).
 

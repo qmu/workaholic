@@ -1,6 +1,7 @@
 ---
 created_at: 2026-08-06T18:36:38+09:00
 author: a@qmu.jp
+assignees: [a@qmu.jp]
 type: enhancement
 layer: [Config]
 effort:

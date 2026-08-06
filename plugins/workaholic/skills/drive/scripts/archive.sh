@@ -31,7 +31,7 @@ if [ -z "$BRANCH" ]; then
 fi
 
 TICKET_DIR=$(dirname "$TICKET")
-# Strip /todo, /icebox, or their per-user form /todo/<user>, /icebox/<user> to
+# Strip /todo, /icebox, or a legacy per-user form /todo/<user>, /icebox/<user> to
 # find the tickets root. The per-user patterns run first so a trailing user
 # segment is removed before the bare-directory patterns apply.
 TICKETS_ROOT=$(echo "$TICKET_DIR" | sed 's|/todo/[^/]*$||; s|/icebox/[^/]*$||; s|/todo$||; s|/icebox$||')

@@ -36,7 +36,8 @@ const SCRIPTS = {
   update: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/update.sh"),
   archive: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/archive.sh"),
   userSlug: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/user-slug.sh"),
-  sweepTodo: join(REPO_ROOT, "plugins/workaholic/skills/create-ticket/scripts/sweep-todo.sh"),
+  migrateTodoOwners: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/migrate-todo-owners.sh"),
+  owns: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/owns.sh"),
   listTodo: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/list-todo.sh"),
   ticketSummary: join(REPO_ROOT, "plugins/workaholic/skills/create-ticket/scripts/summary.sh"),
   missionSummary: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/summary.sh"),
@@ -47,8 +48,8 @@ const SCRIPTS = {
   commit: join(REPO_ROOT, "plugins/workaholic/skills/commit/scripts/commit.sh"),
   missionProgress: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/progress.sh"),
   missionList: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/list.sh"),
-  missionOwners: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/mission-owners.sh"),
-  readAssignees: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/read-assignees.sh"),
+  missionOwners: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/owners.sh"),
+  readAssignees: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/read-assignees.sh"),
   migrateStrategies: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/migrate-strategies.sh"),
   missionClose: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/close.sh"),
   missionCreate: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/create.sh"),
@@ -186,11 +187,15 @@ function run(cwd, cmd, opts = {}) {
 // (mission/scripts/queue-size.sh) rather than against `## Acceptance` item count -- an
 // acceptance sketch is not a plan. A fixture that expects a mission to be OFFERED
 // therefore has to give it a ticket, exactly as a real one does.
-function seedMissionTicket(root, slug, stamp = "20260729000009", userSlug = TEST_SLUG) {
-  const dir = join(root, `.workaholic/tickets/todo/${userSlug}`);
+// The queue is FLAT since P2 (2026-08-06) and the owner is the `assignees` field.
+// `owner` defaults to the repo's standard test identity so a fixture ticket is
+// "mine" to the surveying runner, exactly as the per-user directory used to make it.
+function seedMissionTicket(root, slug, stamp = "20260729000009", owner = "test@example.com") {
+  const dir = join(root, ".workaholic/tickets/todo");
   mkdirSync(dir, { recursive: true });
   const p = join(dir, `${stamp}-${slug}-step.md`);
-  writeFileSync(p, `---\ncreated_at: 2026-07-29T00:00:09+09:00\nauthor: test@example.com\ntype: enhancement\nlayer: [Domain]\nmission: ${slug}\n---\n\n# ${slug} step\n`);
+  const assignees = owner ? `assignees: [${owner}]\n` : "assignees:\n";
+  writeFileSync(p, `---\ncreated_at: 2026-07-29T00:00:09+09:00\nauthor: test@example.com\n${assignees}type: enhancement\nlayer: [Domain]\nmission: ${slug}\n---\n\n# ${slug} step\n`);
   return p;
 }
 
@@ -686,57 +691,133 @@ function testUserSlug() {
   } finally { cleanup(dir); }
 }
 
-// ---------- 7. create-ticket/sweep-todo.sh ----------
-function testSweepTodo() {
+// ---------- 7. gather/migrate-todo-owners.sh (the living migration) ----------
+// P2 (2026-08-06) moved a ticket's owner out of its path and into its `assignees`
+// field. This replaces testSweepTodo, which asserted the OPPOSITE motion -- routing
+// strays INTO per-user directories -- and had no reason to exist once the flat root
+// became the canonical write target.
+function testMigrateTodoOwners() {
   const dir = makeRepo("main");
   try {
-    execSync(`git checkout -q -b work-20260528-sweep`, { cwd: dir });
+    execSync(`git checkout -q -b work-20260528-migrate`, { cwd: dir });
     const todoRoot = join(dir, ".workaholic/tickets/todo");
-    mkdirSync(todoRoot, { recursive: true });
+    const mk = (rel, body) => {
+      mkdirSync(dirname(join(todoRoot, rel)), { recursive: true });
+      writeFileSync(join(todoRoot, rel), body);
+    };
 
-    const mkTicket = (name, author) =>
-      writeFileSync(join(todoRoot, name),
-        `---\ncreated_at: 2026-05-28T12:00:00+09:00\n${author ? `author: ${author}\n` : ""}type: bugfix\nlayer: [Config]\n---\n\n# ${name}\n`);
+    // The ordinary case: author's email slugs to the directory, so the EMAIL is
+    // stamped rather than the lossy slug.
+    mk("a-qmu-jp/20260528120000-other.md",
+      `---\ncreated_at: 2026-05-28T12:00:00+09:00\nauthor: a@qmu.jp\ntype: bugfix\nlayer: [Config]\n---\n\n# other\n`);
+    // Author disagrees with the directory (a hand-move, or a reassignment done the
+    // old way): the DIRECTORY wins, because it is what expressed ownership.
+    mk("test-example-com/20260528120001-moved.md",
+      `---\ncreated_at: 2026-05-28T12:00:00+09:00\nauthor: a@qmu.jp\ntype: bugfix\nlayer: [Config]\n---\n\n# moved\n`);
+    // No author at all: nothing to recover the email from, so the slug is stamped.
+    mk("b-example-com/20260528120002-orphan.md",
+      `---\ncreated_at: 2026-05-28T12:00:00+09:00\ntype: bugfix\nlayer: [Config]\n---\n\n# orphan\n`);
+    // Already carries assignees: the FIELD outranks the directory, always -- it is
+    // the thing a reassignment edits, so the migration must not overwrite it.
+    mk("a-qmu-jp/20260528120003-owned.md",
+      `---\ncreated_at: 2026-05-28T12:00:00+09:00\nauthor: a@qmu.jp\nassignees: [keep@example.com]\ntype: bugfix\nlayer: [Config]\n---\n\n# owned\n`);
+    // Already flat: untouched, and not counted.
+    mk("20260528120004-already.md",
+      `---\ncreated_at: 2026-05-28T12:00:00+09:00\nauthor: a@qmu.jp\nassignees: [a@qmu.jp]\ntype: bugfix\nlayer: [Config]\n---\n\n# already\n`);
 
-    // Stray from another developer -> routed to THEIR subdirectory.
-    mkTicket("20260528120000-other.md", "a@qmu.jp");
-    // Stray from the current user -> routed to the current user's subdirectory.
-    mkTicket("20260528120001-mine.md", "test@example.com");
-    // Stray with no author -> falls back to the current user's subdirectory.
-    mkTicket("20260528120002-orphan.md", null);
-
-    // A ticket already nested one level deep must be left untouched (depth-1 sweep).
-    mkdirSync(join(todoRoot, "someone-else"), { recursive: true });
-    writeFileSync(join(todoRoot, "someone-else/keep.md"), "---\n---\n");
-
-    const r = run(dir, `${POSIX_SH} ${SCRIPTS.sweepTodo}`, { cwd: dir });
-    assertEq("sweep-todo exits 0", r.status, 0);
+    const r = run(dir, `${POSIX_SH} ${SCRIPTS.migrateTodoOwners}`, { cwd: dir });
+    assertEq("migrate-todo-owners exits 0", r.status, 0);
     const summary = JSON.parse(r.stdout);
-    assertEq("sweep-todo moved 3 strays", summary.moved, 3);
+    assertEq("it migrated exactly the nested tickets", summary.migrated, 4);
 
-    assertTrue("sweep routed other dev's ticket by author",
-      existsSync(join(todoRoot, "a-qmu-jp/20260528120000-other.md")));
-    assertTrue("sweep routed current user's ticket",
-      existsSync(join(todoRoot, "test-example-com/20260528120001-mine.md")));
-    assertTrue("sweep routed authorless ticket to current user (fallback)",
-      existsSync(join(todoRoot, "test-example-com/20260528120002-orphan.md")));
-    assertTrue("sweep left already-nested ticket untouched",
-      existsSync(join(todoRoot, "someone-else/keep.md")));
-    assertTrue("sweep removed strays from todo root",
-      !existsSync(join(todoRoot, "20260528120000-other.md")));
+    const read = (n) => readFileSync(join(todoRoot, n), "utf8");
+    assertTrue("every nested ticket is now flat",
+      ["20260528120000-other.md", "20260528120001-moved.md",
+       "20260528120002-orphan.md", "20260528120003-owned.md"]
+        .every((n) => existsSync(join(todoRoot, n))));
+    assertTrue("the per-user directories are gone",
+      !existsSync(join(todoRoot, "a-qmu-jp")) && !existsSync(join(todoRoot, "b-example-com")));
 
-    // Every move is git-staged: each destination shows up in the index, and no
-    // swept destination is left as untracked (??) residue.
+    assertTrue("the author's email is stamped when it slugs to the directory",
+      /^assignees: \[a@qmu\.jp\]$/m.test(read("20260528120000-other.md")));
+    assertTrue("the directory wins over a disagreeing author",
+      /^assignees: \[test-example-com\]$/m.test(read("20260528120001-moved.md")));
+    assertTrue("an authorless ticket is stamped with the bare directory slug",
+      /^assignees: \[b-example-com\]$/m.test(read("20260528120002-orphan.md")));
+    assertTrue("an existing assignees field is never overwritten",
+      /^assignees: \[keep@example\.com\]$/m.test(read("20260528120003-owned.md")));
+
+    // A stamped SLUG must still resolve to its owner, or every migrated ticket is
+    // silently orphaned -- which is why owns.sh compares by slug, not by string.
+    const owns = (n, who) =>
+      run(dir, `${POSIX_SH} ${SCRIPTS.owns} .workaholic/tickets/todo/${n} ${who}`).stdout.trim();
+    assertEq("a slug-stamped owner still matches that owner's email",
+      owns("20260528120002-orphan.md", "b@example.com"), "mine");
+    assertEq("and does not match anyone else",
+      owns("20260528120002-orphan.md", "a@qmu.jp"), "other");
+
+    // Every move is git-staged: no dangling unstaged deletion is left behind.
     const staged = new Set(
       execSync(`git diff --cached --name-only`, { cwd: dir, encoding: "utf8" })
         .split("\n").filter(Boolean));
-    for (const p of [
-      `.workaholic/tickets/todo/a-qmu-jp/20260528120000-other.md`,
-      `.workaholic/tickets/todo/test-example-com/20260528120001-mine.md`,
-      `.workaholic/tickets/todo/test-example-com/20260528120002-orphan.md`,
-    ]) {
-      assertTrue(`sweep staged ${p}`, staged.has(p), [...staged].join("\n"));
+    for (const n of ["20260528120000-other.md", "20260528120003-owned.md"]) {
+      assertTrue(`the migration staged ${n}`,
+        staged.has(`.workaholic/tickets/todo/${n}`), [...staged].join("\n"));
     }
+
+    // Idempotent: a second run is a no-op, which is what lets every write seam call
+    // it unconditionally.
+    const again = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.migrateTodoOwners}`, { cwd: dir }).stdout);
+    assertEq("a second run migrates nothing", again.migrated, 0);
+  } finally { cleanup(dir); }
+}
+
+// ---------- 7b. gather/owns.sh (the three-way ownership rule) ----------
+function testOwns() {
+  const dir = makeRepo("main");
+  try {
+    const f = (name, fm) => {
+      const p = join(dir, name);
+      mkdirSync(dirname(p), { recursive: true });
+      writeFileSync(p, `---\n${fm}\n---\n\n# x\n`);
+      return name;
+    };
+    const owns = (name, who) =>
+      run(dir, `${POSIX_SH} ${SCRIPTS.owns} ${name}${who === undefined ? "" : " " + who}`).stdout.trim();
+
+    assertEq("mine when the identity is among the owners",
+      owns(f("a.md", "assignees: [test@example.com, b@x]"), "test@example.com"), "mine");
+    assertEq("other when it is owned by someone else",
+      owns(f("b.md", "assignees: [b@x]"), "test@example.com"), "other");
+    assertEq("unowned when the field is empty", owns(f("c.md", "assignees:"), "test@example.com"), "unowned");
+    assertEq("unowned when the field is absent", owns(f("d.md", "type: bugfix"), "test@example.com"), "unowned");
+    assertEq("the legacy singular assignee still resolves",
+      owns(f("e.md", "assignee: test@example.com"), "test@example.com"), "mine");
+    // Comparison is by slug: case and a migration-stamped slug both have to match,
+    // or a whole class of tickets is silently orphaned.
+    assertEq("case does not change who owns it",
+      owns(f("g.md", "assignees: [Test@Example.COM]"), "test@example.com"), "mine");
+    assertEq("a stamped slug matches the email behind it",
+      owns(f("h.md", "assignees: [test-example-com]"), "test@example.com"), "mine");
+    // `unresolved` is its own answer. It implies the same conservative action as
+    // `other`, but collapsing the two is exactly the defect P2 removed. An empty
+    // ARGUMENT falls back to git config by contract, so the identity has to be gone
+    // for real -- hence the blanked config env rather than a `""` second argument.
+    const noIdEnv = { ...process.env, GIT_CONFIG_GLOBAL: "/dev/null", GIT_CONFIG_SYSTEM: "/dev/null" };
+    const ownsNoId = (name) => {
+      f(name === "i.md" ? "i.md" : name, name === "i.md" ? "assignees: [b@x]" : "assignees:");
+      return run(dir, `${POSIX_SH} ${SCRIPTS.owns} ${name}`,
+        { cwd: dir, env: noIdEnv }).stdout.trim();
+    };
+    execSync(`git config --unset user.email`, { cwd: dir });
+    assertEq("an owned artifact with no identity to compare is unresolved, not other",
+      ownsNoId("i.md"), "unresolved");
+    assertEq("an UNOWNED artifact is claimable even with no identity",
+      ownsNoId("j.md"), "unowned");
+    execSync(`git config user.email test@example.com`, { cwd: dir });
+    // A ticket's author is deliberately not an ownership tier.
+    assertEq("author is not owner",
+      owns(f("k.md", "author: test@example.com"), "test@example.com"), "unowned");
   } finally { cleanup(dir); }
 }
 
@@ -745,20 +826,30 @@ function testListTodo() {
   const dir = makeRepo("main");
   try {
     const todoRoot = join(dir, ".workaholic/tickets/todo");
-    mkdirSync(join(todoRoot, TEST_SLUG), { recursive: true });
-    writeFileSync(join(todoRoot, TEST_SLUG, "20260528120000-a.md"), "---\n---\n");
-    writeFileSync(join(todoRoot, TEST_SLUG, "20260528120001-b.md"), "---\n---\n");
-    // Noise the scoped scan must ignore: a root stray and another user's queue.
-    writeFileSync(join(todoRoot, "20260528120002-stray.md"), "---\n---\n");
+    mkdirSync(todoRoot, { recursive: true });
+    writeFileSync(join(todoRoot, "20260528120000-a.md"), "---\n---\n");
+    writeFileSync(join(todoRoot, "20260528120001-b.md"), "---\n---\n");
+    // A legacy per-user directory a checkout has not migrated yet. The reader must
+    // still see it: a reader scoped to the flat form would make the migration a
+    // GATE, and an unmigrated checkout would report an empty queue -- the exact
+    // failure P2 removed.
     mkdirSync(join(todoRoot, "a-qmu-jp"), { recursive: true });
     writeFileSync(join(todoRoot, "a-qmu-jp", "20260528120003-other.md"), "---\n---\n");
 
     const r = run(dir, `${POSIX_SH} ${SCRIPTS.listTodo}`, { cwd: dir });
+    assertEq("list-todo exits 0", r.status, 0);
     const lines = r.stdout.split("\n").filter(Boolean);
-    assertEq("list-todo lists only the current user's queue, sorted", lines, [
-      `.workaholic/tickets/todo/${TEST_SLUG}/20260528120000-a.md`,
-      `.workaholic/tickets/todo/${TEST_SLUG}/20260528120001-b.md`,
+    assertEq("list-todo lists the WHOLE queue, both layouts, sorted", lines, [
+      `.workaholic/tickets/todo/20260528120000-a.md`,
+      `.workaholic/tickets/todo/20260528120001-b.md`,
+      `.workaholic/tickets/todo/a-qmu-jp/20260528120003-other.md`,
     ]);
+
+    // The queue no longer depends on the reader's identity, so the failure mode the
+    // old exit-3 protocol signalled cannot occur any more.
+    const noId = run(dir, `${POSIX_SH} ${SCRIPTS.listTodo}`,
+      { cwd: dir, env: { ...process.env, GIT_CONFIG_GLOBAL: "/dev/null", GIT_CONFIG_SYSTEM: "/dev/null" } });
+    assertEq("an unidentified reader still reads the queue", noId.status, 0);
   } finally { cleanup(dir); }
 }
 
@@ -774,15 +865,18 @@ function testSummaryMode() {
     const A = "test@example.com", Aslug = "test-example-com";
     const B = "b@example.com", Bslug = "b-example-com";
 
-    const mkTicket = (slug, email, name, title, type) => {
-      const d = join(dir, `.workaholic/tickets/todo/${slug}`);
+    // The queue is flat and ownership is the `assignees` field (P2). The
+    // partitioning question this test asks is unchanged; only where the answer is
+    // written moved.
+    const mkTicket = (email, name, title, type) => {
+      const d = join(dir, `.workaholic/tickets/todo`);
       mkdirSync(d, { recursive: true });
       writeFileSync(join(d, name),
-        `---\ncreated_at: 2026-07-14T00:00:00+09:00\nauthor: ${email}\ntype: ${type}\nlayer: [Infrastructure]\ndepends_on:\n---\n\n# ${title}\n`);
+        `---\ncreated_at: 2026-07-14T00:00:00+09:00\nauthor: ${email}\nassignees: [${email}]\ntype: ${type}\nlayer: [Infrastructure]\ndepends_on:\n---\n\n# ${title}\n`);
     };
-    mkTicket(Aslug, A, "20260714120000-t1.md", "Ticket One", "enhancement");
-    mkTicket(Aslug, A, "20260714120001-t2.md", "Ticket Two", "bugfix");
-    mkTicket(Bslug, B, "20260714120002-t3.md", "Ticket Three", "enhancement");
+    mkTicket(A, "20260714120000-t1.md", "Ticket One", "enhancement");
+    mkTicket(A, "20260714120001-t2.md", "Ticket Two", "bugfix");
+    mkTicket(B, "20260714120002-t3.md", "Ticket Three", "enhancement");
 
     const mkMission = (slug, title, status, assignee, nextItem) => {
       const area = status === "active" ? "active" : "archive";
@@ -821,8 +915,8 @@ concerns: []
     setEmail(A);
     const tA = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.ticketSummary}`).stdout);
     assertEq("ticket summary (A) lists exactly A's tickets, sorted", tA.map((t) => t.path), [
-      `.workaholic/tickets/todo/${Aslug}/20260714120000-t1.md`,
-      `.workaholic/tickets/todo/${Aslug}/20260714120001-t2.md`,
+      `.workaholic/tickets/todo/20260714120000-t1.md`,
+      `.workaholic/tickets/todo/20260714120001-t2.md`,
     ]);
     assertEq("ticket summary carries title/type/layer",
       { title: tA[0].title, type: tA[0].type, layer: tA[0].layer },
@@ -831,7 +925,7 @@ concerns: []
     setEmail(B);
     const tB = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.ticketSummary}`).stdout);
     assertEq("ticket summary (B) excludes A's tickets", tB.map((t) => t.path), [
-      `.workaholic/tickets/todo/${Bslug}/20260714120002-t3.md`,
+      `.workaholic/tickets/todo/20260714120002-t3.md`,
     ]);
 
     // ---- mission summary: exact per-user active set, achieved excluded ----
@@ -3526,14 +3620,18 @@ function testInstalledPluginHelperResolution() {
     assertEq("installed list-todo resolves gather/user-slug.sh", list.stdout.trim(),
       `.workaholic/tickets/todo/${TEST_SLUG}/20260707104117-installed.md`);
 
-    writeFileSync(join(todoRoot, "20260707104118-stray.md"),
-      "---\nauthor: a@qmu.jp\ntype: bugfix\nlayer: [Config]\n---\n\n# Stray\n");
-    const installedSweepTodo = join(installed.skillsDir, "create-ticket/scripts/sweep-todo.sh");
-    const sweep = run(dir, `${POSIX_SH} ${installedSweepTodo}`);
-    assertEq("installed sweep-todo exits 0", sweep.status, 0);
-    assertEq("installed sweep-todo moved one stray", JSON.parse(sweep.stdout).moved, 1);
-    assertTrue("installed sweep-todo routed by author",
-      existsSync(join(todoRoot, "a-qmu-jp/20260707104118-stray.md")));
+    mkdirSync(join(todoRoot, "a-qmu-jp"), { recursive: true });
+    writeFileSync(join(todoRoot, "a-qmu-jp/20260707104118-legacy.md"),
+      "---\nauthor: a@qmu.jp\ntype: bugfix\nlayer: [Config]\n---\n\n# Legacy\n");
+    const installedMigrate = join(installed.skillsDir, "gather/scripts/migrate-todo-owners.sh");
+    const migrated = run(dir, `${POSIX_SH} ${installedMigrate}`);
+    assertEq("installed migrate-todo-owners exits 0", migrated.status, 0);
+    // Two: the legacy ticket seeded here, plus the one the list-todo fixture above
+    // left in its own per-user directory. Both are exactly what the migration is for.
+    assertEq("installed migrate-todo-owners moved the legacy tickets", JSON.parse(migrated.stdout).migrated, 2);
+    assertTrue("installed migrate-todo-owners resolves its sibling helpers (user-slug, read-assignees)",
+      existsSync(join(todoRoot, "20260707104118-legacy.md"))
+      && /^assignees: \[a@qmu\.jp\]$/m.test(readFileSync(join(todoRoot, "20260707104118-legacy.md"), "utf8")));
 
     const icebox = join(dir, ".workaholic/tickets/icebox/20260707104119-icebox.md");
     mkdirSync(dirname(icebox), { recursive: true });
@@ -3542,8 +3640,10 @@ function testInstalledPluginHelperResolution() {
     const installedPromoteIcebox = join(installed.skillsDir, "drive/scripts/promote-icebox.sh");
     const promote = run(dir, `${POSIX_SH} ${installedPromoteIcebox} .workaholic/tickets/icebox/20260707104119-icebox.md`);
     assertEq("installed promote-icebox exits 0", promote.status, 0);
-    assertTrue("installed promote-icebox routes to current user's todo",
-      existsSync(join(todoRoot, `${TEST_SLUG}/20260707104119-icebox.md`)));
+    assertTrue("installed promote-icebox routes to the flat todo/ and stamps the promoter",
+      existsSync(join(todoRoot, "20260707104119-icebox.md"))
+      && /^assignees: \[test@example\.com\]$/m.test(
+        readFileSync(join(todoRoot, "20260707104119-icebox.md"), "utf8")));
   } finally {
     cleanup(dir);
     cleanup(installed.dir);
@@ -4450,11 +4550,15 @@ function testPromoteIcebox() {
 
     const r = run(dir, `${POSIX_SH} ${SCRIPTS.promoteIcebox} .workaholic/tickets/icebox/20260528120000-parked.md`, { cwd: dir });
     assertEq("promote-icebox exits 0", r.status, 0);
-    assertEq("promote-icebox prints user-scoped destination", r.stdout.trim(),
-      `.workaholic/tickets/todo/${TEST_SLUG}/20260528120000-parked.md`);
-    assertTrue("promote-icebox moved ticket into todo/<user>/",
-      existsSync(join(dir, `.workaholic/tickets/todo/${TEST_SLUG}/20260528120000-parked.md`)));
+    assertEq("promote-icebox prints the flat destination", r.stdout.trim(),
+      `.workaholic/tickets/todo/20260528120000-parked.md`);
+    const dest = join(dir, `.workaholic/tickets/todo/20260528120000-parked.md`);
+    assertTrue("promote-icebox moved ticket into the flat todo/", existsSync(dest));
     assertTrue("promote-icebox removed ticket from icebox", !existsSync(src));
+    // Promoting is taking the work on, so an unowned ticket gains the promoter as
+    // its owner -- otherwise it would land in a queue nobody is holding.
+    assertTrue("promote-icebox stamps the promoter as owner when nobody owns it",
+      /^assignees: \[test@example\.com\]$/m.test(readFileSync(dest, "utf8")));
   } finally { cleanup(dir); }
 }
 
@@ -6203,8 +6307,12 @@ function testValidateTicket() {
   assertEq("validate-ticket allows icebox/ (flat)", invoke(`.workaholic/tickets/icebox/${TS}-x.md`), 0);
   assertEq("validate-ticket allows abandoned/ (flat)", invoke(`.workaholic/tickets/abandoned/${TS}-x.md`), 0);
   assertEq("validate-ticket allows archive/<branch>/", invoke(`.workaholic/tickets/archive/work-x/${TS}-x.md`), 0);
+  // The FLAT todo root is the canonical write target since P2 (2026-08-06) -- the
+  // per-user directory it replaced is still accepted, because the living migration
+  // converges the tree and a hook that rejected the old shape would hard-block an
+  // ordinary edit to an unmigrated ticket.
+  assertEq("validate-ticket allows the flat todo/ (canonical)", invoke(`.workaholic/tickets/todo/${TS}-x.md`), 0);
   // Non-canonical locations -> exit 2.
-  assertEq("validate-ticket rejects root-level todo/ stray", invoke(`.workaholic/tickets/todo/${TS}-x.md`), 2);
   assertEq("validate-ticket rejects invented done/", invoke(`.workaholic/tickets/done/${TS}-x.md`), 2);
 
   // merge_policy: optional, enum-validated ONLY when present. Absent reads as
@@ -9652,39 +9760,67 @@ function testPlanUnitsBacklogError() {
   const PLAN = `${POSIX_SH} ${SCRIPTS.planUnits}`;
   const LIST_TODO = `${POSIX_SH} ${SCRIPTS.listTodo}`;
   try {
-    // --- identity set, but no queue directory: genuinely empty, and it says so ---
+    // --- identity set, no queue directory: genuinely empty, and it says so ---
     let r = run(dir, PLAN);
     assertEq("plan-units.sh exits 0 with an identity and no queue directory", r.status, 0);
     let plan = JSON.parse(r.stdout);
-    assertEq("a genuinely empty queue reports no backlog_error and an empty backlog",
-      { backlog_error: plan.backlog_error, backlog: plan.backlog.length }, { backlog_error: "", backlog: 0 });
-    assertEq("the survey names whose queue it read", plan.user_slug, TEST_SLUG);
+    assertEq("a genuinely empty queue reports no error, no size, and no unresolved owner",
+      { backlog_error: plan.backlog_error, size: plan.backlog_size, unresolved: plan.owner_unresolved },
+      { backlog_error: "", size: 0, unresolved: false });
+    assertEq("the survey names the runner it surveyed as", plan.user_slug, TEST_SLUG);
 
     let lt = run(dir, LIST_TODO);
     assertEq("list-todo.sh exits 0 with no output when the queue directory is absent",
       { status: lt.status, stdout: lt.stdout.trim() }, { status: 0, stdout: "" });
 
-    // --- identity unresolvable: the SAME empty backlog, a different fact ---
+    // --- a queue with an owned ticket and an unowned one -------------------------
+    const todo = join(dir, ".workaholic/tickets/todo");
+    mkdirSync(todo, { recursive: true });
+    const t = (name, fm) => writeFileSync(join(todo, name),
+      `---\ncreated_at: 2026-08-06T00:00:00+09:00\nauthor: someone@example.com\n${fm}\ntype: bugfix\nlayer: [Config]\n---\n\n# ${name}\n`);
+    t("20260806000001-theirs.md", "assignees: [other@example.com]");
+    t("20260806000002-nobodys.md", "assignees:");
+
+    plan = JSON.parse(run(dir, PLAN).stdout);
+    assertEq("a colleague's ticket is dropped, and the unowned one is offered",
+      { size: plan.backlog_size, offered: plan.backlog.map((b) => basename(b.path)) },
+      { size: 2, offered: ["20260806000002-nobodys.md"] });
+    assertTrue("the drop names ownership as its reason",
+      plan.excluded.some((e) => e.reason === "owned_by_other" && /theirs/.test(e.id)));
+
+    // --- identity unresolvable: THE QUEUE IS STILL READ ---------------------------
+    // This is the whole of P2. Under the per-user layout there was no directory to
+    // open without an identity, so the survey emitted an EMPTY backlog over a full
+    // queue and terminated on `identity_unresolved`. Now the queue is flat, so the
+    // runner reads it, reports its size, offers the unowned half, and says which
+    // question it could not answer.
     execSync(`git config user.email ""`, { cwd: dir });
     lt = run(dir, LIST_TODO);
-    assertTrue("list-todo.sh exits non-zero when the developer cannot be resolved", lt.status !== 0);
-    assertTrue("list-todo.sh names the reason on stderr", /identity_unresolved/.test(lt.stderr));
+    assertEq("list-todo.sh still reads the queue with no identity", lt.status, 0);
+    assertEq("and returns every ticket in it", lt.stdout.split("\n").filter(Boolean).length, 2);
 
     r = run(dir, PLAN);
     assertEq("plan-units.sh still exits 0 — it reports the failure, never becomes one", r.status, 0);
     plan = JSON.parse(r.stdout);
-    assertEq("an unresolvable identity is reported, not swallowed",
-      plan.backlog_error, "identity_unresolved");
+    assertEq("the queue was read, so there is no backlog_error", plan.backlog_error, "");
+    assertEq("its size is reported, so 'nothing for me' cannot read as 'nothing at all'",
+      plan.backlog_size, 2);
+    assertEq("the unanswerable question is named", plan.owner_unresolved, true);
+    assertEq("the unowned ticket is STILL offered — it is claimable by anyone",
+      plan.backlog.map((b) => basename(b.path)), ["20260806000002-nobodys.md"]);
+    assertTrue("the owned one is excluded as unresolved, NOT as somebody else's",
+      plan.excluded.some((e) => e.reason === "owner_unresolved" && /theirs/.test(e.id))
+      && !plan.excluded.some((e) => e.reason === "owned_by_other"));
     assertEq("the unresolvable case reports an empty user_slug", plan.user_slug, "");
-    assertEq("the backlog is still empty — backlog_error is what makes the emptiness honest",
-      plan.backlog.length, 0);
 
-    // The two JSON shapes differ by that field ALONE. This is the whole point: a reader
-    // (or an operator grepping a cron log) can tell them apart without extra context.
+    // The two shapes differ by that field alone, so an operator grepping a cron log
+    // can tell them apart without extra context.
     execSync(`git config user.email test@example.com`, { cwd: dir });
     const ok = JSON.parse(run(dir, PLAN).stdout);
-    assertTrue("the two shapes are distinguishable by backlog_error",
-      ok.backlog_error === "" && plan.backlog_error !== "");
+    assertTrue("the two shapes are distinguishable by owner_unresolved",
+      ok.owner_unresolved === false && plan.owner_unresolved === true);
+    assertTrue("and both report the same queue size — the queue never changed",
+      ok.backlog_size === plan.backlog_size);
   } finally { cleanup(dir); }
 }
 
@@ -9740,8 +9876,8 @@ function testPlanUnitsOwnership() {
     // Ownership is DERIVED, never re-parsed. A second inline reader is exactly how the
     // two answers drifted apart in the first place.
     const src = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/plan-units.sh"), "utf8");
-    assertTrue("plan-units.sh resolves ownership through mission-owners.sh",
-      /mission-owners\.sh/.test(src));
+    assertTrue("plan-units.sh resolves ownership through the one oracle",
+      /gather\/scripts\/owns\.sh/.test(src));
     assertTrue("plan-units.sh parses no assignees/assignee field of its own",
       !/^[^#\n]*(fm_field[^\n]*assignees?\b|\^assignees?:)/m.test(src));
 
@@ -10090,12 +10226,13 @@ function testTicketPublishesToMain() {
   const OPEN = `${POSIX_SH} ${SCRIPTS.openPublishTree}`;
   const PUBLISH = `${POSIX_SH} ${SCRIPTS.publishTreeCommit}`;
   const CLOSE = `${POSIX_SH} ${SCRIPTS.closePublishTree}`;
-  const NEW_REL = `.workaholic/tickets/todo/${TEST_SLUG}/20260730140000-new.md`;
+  const NEW_REL = `.workaholic/tickets/todo/20260730140000-new.md`;
   try {
-    // A stray ticket at the todo/ ROOT on main, so the sweep has something to route.
+    // A ticket still in a legacy per-user directory on main, so the Step 1.5
+    // migration has something to converge.
     execSync("git checkout -q main", { cwd: A });
-    mkdirSync(join(A, ".workaholic/tickets/todo"), { recursive: true });
-    writeFileSync(join(A, ".workaholic/tickets/todo/20260729010101-stray.md"),
+    mkdirSync(join(A, `.workaholic/tickets/todo/${TEST_SLUG}`), { recursive: true });
+    writeFileSync(join(A, `.workaholic/tickets/todo/${TEST_SLUG}/20260729010101-stray.md`),
       `---\ncreated_at: 2026-07-29T01:01:01+09:00\nauthor: test@example.com\ntype: enhancement\nlayer: [Domain]\n---\n\n# Stray\n`);
     execSync("git add -A && git commit -q -m 'Add stray ticket' && git push -q origin main", { cwd: A });
 
@@ -10108,10 +10245,11 @@ function testTicketPublishesToMain() {
     assertEq("the ticket flow opens a publish tree", pub.ok, true);
 
     // Step 1.5 runs INSIDE the publish tree — that is the checkout todo/ is written to.
-    const swept = JSON.parse(run(pub.path, `${POSIX_SH} ${SCRIPTS.sweepTodo}`).stdout);
-    assertEq("the stray sweep runs in the publish tree and routes the stray", swept.moved, 1);
+    const migrated = JSON.parse(run(pub.path, `${POSIX_SH} ${SCRIPTS.migrateTodoOwners}`).stdout);
+    assertEq("the queue migration runs in the publish tree and flattens the legacy ticket",
+      migrated.migrated, 1);
 
-    mkdirSync(join(pub.path, `.workaholic/tickets/todo/${TEST_SLUG}`), { recursive: true });
+    mkdirSync(join(pub.path, `.workaholic/tickets/todo`), { recursive: true });
     writeFileSync(join(pub.path, NEW_REL),
       `---\ncreated_at: 2026-07-30T14:00:00+09:00\nauthor: test@example.com\ntype: enhancement\nlayer: [Domain]\nmerge_policy: review\n---\n\n# New\n\n## Policies\n\n- none\n\n## Quality Gate\n\nnone\n`);
     const published = JSON.parse(run(A, `${PUBLISH} "Add ticket for the new thing" "why" "None" "None" "None" "verify" ${NEW_REL}`).stdout);
@@ -10121,9 +10259,9 @@ function testTicketPublishesToMain() {
     // On main, from a DIFFERENT clone — the end-to-end point of the change.
     execSync("git fetch -q origin && git merge --ff-only -q origin/main", { cwd: B });
     assertTrue("another clone sees the published ticket after fetching", existsSync(join(B, NEW_REL)));
-    assertTrue("the sweep's move rode the same publish commit",
-      existsSync(join(B, `.workaholic/tickets/todo/${TEST_SLUG}/20260729010101-stray.md`))
-      && !existsSync(join(B, ".workaholic/tickets/todo/20260729010101-stray.md")));
+    assertTrue("the migration's move rode the same publish commit",
+      existsSync(join(B, ".workaholic/tickets/todo/20260729010101-stray.md"))
+      && !existsSync(join(B, `.workaholic/tickets/todo/${TEST_SLUG}/20260729010101-stray.md`)));
     const planned = JSON.parse(run(B, `${POSIX_SH} ${SCRIPTS.planUnits}`).stdout);
     assertTrue("a published ticket is claimable by another runner's survey",
       planned.backlog.some((t) => t.path === NEW_REL), JSON.stringify(planned.backlog));
@@ -10726,7 +10864,7 @@ function testMissionTicketFloorGate() {
     // The floor counts `total`, not `todo`: a mission whose tickets were all driven was
     // still CREATED with a plan, and the floor is a rule about creation.
     mkdirSync(join(dir, ".workaholic/tickets/archive/work-20260804-000000"), { recursive: true });
-    execSync(`git add -A && git commit -q -m seed && git mv .workaholic/tickets/todo/${TEST_SLUG}/20260804000002-two-tickets-step.md .workaholic/tickets/archive/work-20260804-000000/`, { cwd: dir });
+    execSync(`git add -A && git commit -q -m seed && git mv .workaholic/tickets/todo/20260804000002-two-tickets-step.md .workaholic/tickets/archive/work-20260804-000000/`, { cwd: dir });
     assertEq("a driven mission still meets the floor", gate("two-tickets").status, 0);
 
     const bare = run(dir, `${POSIX_SH} ${SCRIPTS.missionCheckFloor}`, { allowFail: true });
@@ -10803,7 +10941,7 @@ function testPlanFloorCountsQueue() {
     // runner -- which is why the two consumers read different fields.
     seedMissionTicket(A, "driven", "20260729000012");
     mkdirSync(join(A, ".workaholic/tickets/archive/work-20260729-000000"), { recursive: true });
-    execSync(`git add -A && git mv .workaholic/tickets/todo/${TEST_SLUG}/20260729000012-driven-step.md .workaholic/tickets/archive/work-20260729-000000/`, { cwd: A });
+    execSync(`git add -A && git mv .workaholic/tickets/todo/20260729000012-driven-step.md .workaholic/tickets/archive/work-20260729-000000/`, { cwd: A });
     q = JSON.parse(run(A, `${QUEUE} driven`).stdout);
     assertEq("a driven mission has an empty todo but a non-empty total",
       { t: q.todo, a: q.archive, tot: q.total }, { t: 0, a: 1, tot: 1 });
@@ -11891,7 +12029,8 @@ const tests = [
   ["drive/archive.sh", testArchive],
   ["commit/commit.sh never silently omits a file", testCommitStaging],
   ["gather/user-slug.sh", testUserSlug],
-  ["create-ticket/sweep-todo.sh", testSweepTodo],
+  ["gather/migrate-todo-owners.sh", testMigrateTodoOwners],
+  ["gather/owns.sh", testOwns],
   ["drive/list-todo.sh", testListTodo],
   ["create-ticket/summary.sh + mission/summary.sh (summary mode)", testSummaryMode],
   ["mission/summary.sh surfaces unassigned missions", testMissionSummaryUnassigned],
@@ -12027,7 +12166,7 @@ const tests = [
   ["drive/effective-policy.sh (G5 truth table)", testEffectivePolicy],
   ["drive/plan-units.sh (survey minus claims)", testPlanUnits],
   ["drive/plan-units.sh (exclusions + the dry demo)", testPlanUnitsExclusions],
-  ["drive/plan-units.sh (an unreadable backlog is not an empty one)", testPlanUnitsBacklogError],
+  ["drive/plan-units.sh (an unidentified runner reads the queue and says so)", testPlanUnitsBacklogError],
   ["drive/plan-units.sh (missions are filtered by ownership)", testPlanUnitsOwnership],
   ["mission: the ticket floor refuses a sub-floor mission and names the alternative", testMissionTicketFloorGate],
   ["drive: the plan floor counts the ticket queue, not acceptance items", testPlanFloorCountsQueue],

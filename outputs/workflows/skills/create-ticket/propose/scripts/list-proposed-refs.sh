@@ -85,6 +85,7 @@ for md in \
     "$ROOT"/missions/active/*/mission.md \
     "$ROOT"/missions/archive/*/mission.md \
     "$ROOT"/missions/*/mission.md \
+    "$ROOT"/tickets/todo/*.md \
     "$ROOT"/tickets/todo/*/*.md \
     "$ROOT"/tickets/archive/*/*.md
 do
@@ -132,7 +133,7 @@ else
         for path in $(git diff --name-only --diff-filter=AM "$BASE" "$ref" -- \
                 "$ROOT/missions" "$ROOT/tickets" 2>/dev/null || true); do
             case "$path" in
-                */mission.md|"$ROOT"/tickets/todo/*/*.md|"$ROOT"/tickets/archive/*/*.md) ;;
+                */mission.md|"$ROOT"/tickets/todo/*.md|"$ROOT"/tickets/todo/*/*.md|"$ROOT"/tickets/archive/*/*.md) ;;
                 *) continue ;;
             esac
             n=$((n + 1))

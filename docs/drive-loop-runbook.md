@@ -132,16 +132,20 @@ with:
   `owned_by_other`, so a runner never drives someone else's plan to `main`. A
   proposal `/propose` registers is invisible to the executor until a human merges
   its pull request — the PR is the gate, and merging it is the approval.
-- **Backlog tickets** — anything in `.workaholic/tickets/todo/<user>/` with no
-  `mission:` relation. A missioned ticket is driven inside its mission's unit.
+- **Backlog tickets** — anything in `.workaholic/tickets/todo/` this runner owns,
+  or that nobody owns, with no `mission:` relation. A missioned ticket is driven
+  inside its mission's unit. Ownership is the ticket's `assignees` field (P2,
+  2026-08-06), not its directory.
 
 Both floors are enforced in the survey, not in prose: a mission with an
 empty `## Acceptance` is excluded as `no_plan`, because a merge with no plan behind
 it authorizes nothing concrete.
 
-Both halves are scoped by the runner's git identity, so **the identity is a
-precondition of the loop, not a detail** — a runner without one surveys nothing and
-says so (`backlog_error: identity_unresolved`; see *Failure modes*).
+Both halves are filtered by the runner's git identity against each artifact's
+`assignees`, through one oracle. The identity is a precondition of **claiming**,
+not of surveying: a runner without one still reads the whole queue, reports
+`owner_unresolved` with the queue's size, offers the unowned half, and forbids `ok`
+(see *Failure modes*).
 
 ## 5. Observability
 
@@ -213,7 +217,7 @@ says so (`backlog_error: identity_unresolved`; see *Failure modes*).
 | a unit reported **demoted to PR** | an `auto` unit hit an overridable gate (size/leak block, no confirmation method, content conflict with `main`) | the demotion is the design — review and merge the PR, or fix the diff and let the next tick re-drive |
 | a unit reported **blocked** on a `secret` finding | a credential reached the branch diff | non-overridable: remove the credential from the diff. The branch is already pushed, so treat it as an exposure, not just a gate failure |
 | a unit reported **blocked** on a failed production confirmation | the deploy did not verify | the unmerged branch is the rollback; diagnose the deploy, do not force the merge |
-| every tick reports 0 units / `ok` but the queue is full | the runner has no `git config user.email`, so there is no `todo/<user>/` to resolve and the survey never learned any ticket exists | `plan-units.sh` reports `backlog_error: identity_unresolved` with an empty `user_slug`, and the tick terminates `pending` rather than `ok`. Configure the runner's identity — the plugin cannot invent one, and it deliberately does not fall back to scanning every developer's queue |
+| every tick reports 0 units / `ok` but the queue is full | **cannot happen since P2 (2026-08-06)** — the queue is flat and readable by anyone, so a runner with no `git config user.email` reads it and says so instead of finding no directory | `plan-units.sh` reports `backlog_size` (what the queue actually holds) plus `owner_unresolved: true`, excludes each owned ticket as `owner_unresolved`, still offers the unowned ones, and forbids `ok`. Configure the runner's identity — claiming needs one and fails loudly without it, which is the claim protocol's question and is unchanged |
 | missions exist on `main` but nothing is claimed | the mission has an empty `## Acceptance` (`no_plan`), **no ticket names it** (`no_tickets` — an acceptance sketch is not a plan; emit the set with `/mission <instruction>`), a claim already holds it (`claimed_active` / `claimed_by_other`, or `claimed_resumable` if it is yours to take over), or its `assignees` name only another developer (`owned_by_other`) | check `plan-units.sh`'s `excluded[]` — every drop states its reason. `owned_by_other` means nothing to do here: the mission is a colleague's, and their runner will take it. Two old causes cannot occur any more: "its tickets live in an unmerged worktree" (missions and tickets are published for merge, decision J1/J4) and `not_approved` (the draft gate was retired, K1) |
 | the tick reports nothing to do, but you can see a queued ticket on GitHub | the runner's checkout is behind `origin/main`, so the survey never learned the artifact exists | the freshness step (`sync-main.sh`, the drive skill §1) fast-forwards before surveying, and `plan-units.sh` reports `current: false` when it could not. If it keeps reporting `not_on_main` / `dirty_workspace` / `diverged`, the runner checkout is being used for other work — keep it dedicated and reconcile by hand |
 | a tick terminates `pending` with `not_on_main` or `dirty_workspace` | the runner checkout is on a branch, or holds uncommitted work | the run refuses to survey a branch rather than surveying the wrong queue. Return the checkout to a clean `main` |

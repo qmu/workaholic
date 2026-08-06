@@ -4,7 +4,7 @@
 #
 # Born as the strategy skill's reader (2026-07-24) and relocated into the mission
 # skill when ownership returned to the mission and the strategy layer retired
-# (2026-07-28 — docs/loop-engineering-workflow.md B3/B4). mission-owners.sh calls
+# (2026-07-28 — docs/loop-engineering-workflow.md B3/B4). gather/scripts/owners.sh calls
 # this on mission.md as its primary tier; every place that needs "who does this
 # file's assignees name" calls this instead of parsing frontmatter itself, so the
 # field's shape lives in exactly one place.

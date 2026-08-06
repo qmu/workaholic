@@ -36,7 +36,7 @@ case "$file_path" in
       *.workaholic/feedbacks/*) : ;;
       *)
         if printf '%s' "$filename" | grep -qE '^[0-9]{14}-.*\.md$'; then
-          echo "Error: Ticket files must be under .workaholic/tickets/ (todo/<user>/, icebox/, or archive/<branch>/)" >&2
+          echo "Error: Ticket files must be under .workaholic/tickets/ (todo/, icebox/, or archive/<branch>/)" >&2
           echo "Got: $file_path" >&2
           print_skill_reference
           exit 2
@@ -95,7 +95,7 @@ case "$file_path" in
           echo "Workaholic layout: ${layout_reason}."
           echo "Got: $file_path"
           echo "Allowed .workaholic/ subdirectories: ${allowed_list} (plus README.md, index.md, scan-allow, and leak-denylist at the root)."
-          echo "If you meant a ticket, write it under .workaholic/tickets/todo/<user>/."
+          echo "If you meant a ticket, write it under .workaholic/tickets/todo/."
         } >&2
         print_skill_reference
         echo "(the .workaholic/ layout is a closed structure — register a new artifact directory in hooks/workaholic-layout-allowlist.txt and the rules/workaholic.md table before writing to it)" >&2
@@ -114,14 +114,22 @@ esac
 # Extract the path after .workaholic/tickets/
 tickets_path="${file_path#*.workaholic/tickets/}"
 
-# Validate location: must be in todo/<user>/ (the per-user subdir is MANDATORY —
-# the flat todo/ root is never a write target; strays are swept into
-# todo/<user>/ by create-ticket/drive), icebox/ (flat), abandoned/ (flat, where
-# drive parks failed tickets), or archive/<branch>/. The trailing [^/]+$ anchors
-# reject deeper nesting (e.g. todo/<user>/archive/...), and any other top-level
-# dir (an invented done/, root-level todo/ stray) falls through to the error.
-if printf '%s' "$tickets_path" | grep -qE '^todo/[^/]+/[^/]+$'; then
-  : # Valid (todo/<user>/<ticket>.md)
+# Validate location: must be in todo/ (FLAT — the canonical write target since P2,
+# 2026-08-06, because a ticket's owner is its `assignees` field and not its
+# directory), icebox/ (flat), abandoned/ (flat, where drive parks failed tickets),
+# or archive/<branch>/. The trailing [^/]+$ anchors reject deeper nesting, and any
+# other top-level dir (an invented done/) falls through to the error.
+#
+# `todo/<user>/<ticket>.md` is STILL ACCEPTED, and deliberately so: the living
+# migration (gather/scripts/migrate-todo-owners.sh) converges the tree at the write
+# seams, and a hook that rejected the old shape would hard-block an ordinary edit to
+# a ticket a checkout has not migrated yet — turning a convergent migration into a
+# gate, which is the class of failure this whole change removes. Both forms are
+# `is_todo_ticket` below, so every body check fires on both.
+if printf '%s' "$tickets_path" | grep -qE '^todo/[^/]+$'; then
+  : # Valid (todo/<ticket>.md — canonical)
+elif printf '%s' "$tickets_path" | grep -qE '^todo/[^/]+/[^/]+$'; then
+  : # Valid (todo/<user>/<ticket>.md — legacy, pending migration)
 elif printf '%s' "$tickets_path" | grep -qE '^icebox/[^/]+$'; then
   : # Valid (icebox stays flat)
 elif printf '%s' "$tickets_path" | grep -qE '^abandoned/[^/]+$'; then
@@ -129,12 +137,21 @@ elif printf '%s' "$tickets_path" | grep -qE '^abandoned/[^/]+$'; then
 elif printf '%s' "$tickets_path" | grep -qE '^archive/[^/]+/'; then
   : # Valid (archive/<branch>/)
 else
-  echo "Error: Ticket must be in todo/<user>/, icebox/, abandoned/, or archive/<branch>/" >&2
+  echo "Error: Ticket must be in todo/, icebox/, abandoned/, or archive/<branch>/" >&2
   echo "Got: $tickets_path" >&2
-  echo "(non-canonical subdirs such as done/ and root-level todo/ strays are not allowed)" >&2
+  echo "(non-canonical subdirs such as done/ are not allowed)" >&2
   print_skill_reference
   exit 2
 fi
+
+# The queue predicate, defined once. Both the canonical flat form and the legacy
+# per-user form are the todo QUEUE, and every gate below is scoped to it — writing
+# the two-branch test at each of the four call sites is how one of them ends up
+# fixed and the others silently fail open, which is exactly what a `todo/<user>/`
+# regex left behind at line 379 would have done.
+is_todo_ticket() {
+  printf '%s' "$tickets_path" | grep -qE '^todo/[^/]+$|^todo/[^/]+/[^/]+$'
+}
 
 # Validate filename format: YYYYMMDDHHmmss-*.md
 if ! printf '%s' "$filename" | grep -qE '^[0-9]{14}-.*\.md$'; then
@@ -338,7 +355,7 @@ if [ -n "$depends_on_line" ]; then
   fi
 fi
 
-# --- Mandatory body sections (todo/<user>/ only) -----------------------------
+# --- Mandatory body sections (the todo queue only) ---------------------------
 # create-ticket/SKILL.md makes two body sections mandatory and never-empty:
 # `## Policies` (l.310, the recorded policy list /drive opens before writing
 # code) and `## Quality Gate` (§4b, whose interrogation "always runs -- it is not
@@ -351,7 +368,7 @@ fi
 # and becomes the only bar the agent holds itself to. An omitted gate would then mean
 # a ticket that drives itself unjudged, silently.
 #
-# SCOPED TO todo/<user>/ DELIBERATELY -- it is the finished location, where a ticket
+# SCOPED TO THE TODO QUEUE DELIBERATELY -- it is the finished location, where a ticket
 # must be complete before /drive reads it:
 #   - archive/<branch>/ is history and is never retro-blocked;
 #   - icebox/ and abandoned/ are parking, not a queue, so a ticket already there is
@@ -376,7 +393,7 @@ has_section_body() {
   '
 }
 
-if printf '%s' "$tickets_path" | grep -qE '^todo/[^/]+/[^/]+$'; then
+if is_todo_ticket; then
   if ! has_section_body "Policies"; then
     echo "Error: ## Policies section is required and must not be empty" >&2
     echo "Got: $tickets_path" >&2
@@ -392,7 +409,7 @@ if printf '%s' "$tickets_path" | grep -qE '^todo/[^/]+/[^/]+$'; then
     exit 2
   fi
 
-  # --- mission: relation must resolve (todo/<user>/ only) --------------------
+  # --- mission: relation must resolve (the todo queue only) -----------------
   # A typo'd slug silently detaches a ticket from its mission's gates -- worse,
   # a wrong-but-resolving slug borrows ANOTHER mission's drive authorization.
   # Read through the mission skill's single reader (never re-parse the shape)
@@ -428,7 +445,7 @@ if printf '%s' "$tickets_path" | grep -qE '^todo/[^/]+/[^/]+$'; then
     fi
   fi
 
-  # --- resumption tickets list REMAINING work only (todo/<user>/ only) -------
+  # --- resumption tickets list REMAINING work only (the todo queue only) -----
   # A resumption ticket's ## Implementation Steps drive verbatim: /drive has no
   # notion of "already done", so a completed step left in the list is re-run --
   # and the unified run has no human gate left to catch it. The dedicated

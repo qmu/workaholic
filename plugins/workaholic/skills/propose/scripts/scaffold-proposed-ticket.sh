@@ -50,7 +50,7 @@
 #
 # THE MANDATORY BODY SECTIONS ARE WRITTEN AS HEADINGS WITH PLACEHOLDER GUIDANCE,
 # not omitted for the caller to remember. `hooks/validate-ticket.sh` rejects a
-# ticket in `todo/<user>/` whose `## Policies` or `## Quality Gate` is absent or
+# ticket in the todo queue whose `## Policies` or `## Quality Gate` is absent or
 # empty, and a scaffold that produced an invalid artifact would push the failure
 # to whoever ran the batch instead of the person who wrote the scaffold.
 
@@ -126,7 +126,11 @@ USER_SLUG=$(printf '%s\n' "$META" | grep '"user_slug"' | sed -e 's/.*: *"//' -e 
 SLUG=$(sh "${MISSION_SCRIPTS}/slug.sh" "$TITLE")
 [ -n "$SLUG" ] || { echo '{"created": false, "reason": "empty_slug"}'; exit 1; }
 
-TICKET_DIR=".workaholic/tickets/todo/${USER_SLUG}"
+# The FLAT queue since P2 (2026-08-06): a ticket's owner is its `assignees` field,
+# not its directory. A proposal is deliberately UNOWNED — `/propose` emits work
+# nobody has taken on yet, and an unowned artifact is claimable by anyone, which is
+# the same reading its empty `merge_policy` already gets.
+TICKET_DIR=".workaholic/tickets/todo"
 TICKET_PATH="${TICKET_DIR}/${STAMP}-${SLUG}.md"
 
 if [ -e "$TICKET_PATH" ]; then
@@ -150,6 +154,7 @@ cat > "$TICKET_PATH" <<EOTICKET
 ---
 created_at: ${CREATED_AT}
 author: ${AUTHOR}
+assignees:
 type: ${TYPE}
 layer: [${LAYER}]
 effort:

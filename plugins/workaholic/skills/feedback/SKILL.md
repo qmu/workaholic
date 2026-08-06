@@ -195,7 +195,7 @@ The command owns every `AskUserQuestion` (one-level fan-out; subagents cannot pr
    ```bash
    bash ${CLAUDE_PLUGIN_ROOT}/skills/feedback/scripts/resolve-target.sh <owner/name-or-url-or-path>
    ```
-   Returns `{ok, path, name, slug, remote, visibility, user_slug, todo_dir, source_repo}`.
+   Returns `{ok, path, name, slug, remote, visibility, user_slug, todo_dir, source_repo}` (`todo_dir` is the target's flat `.workaholic/tickets/todo/`; `user_slug` is reporting-only).
    The target need not be on this disk — an `owner/name` or a GitHub URL resolves with
    `path` empty. On `ok: false`, show `error` and stop. **Never guess a target.**
 

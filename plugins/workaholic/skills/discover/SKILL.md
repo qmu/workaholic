@@ -36,7 +36,7 @@ The script searches archive, todo, and icebox directories. Results are sorted by
 
 ```
 5 .workaholic/tickets/archive/feat-xxx/ticket-a.md
-3 .workaholic/tickets/todo/developer-company-com/ticket-b.md
+3 .workaholic/tickets/todo/ticket-b.md
 2 .workaholic/tickets/icebox/ticket-c.md
 ```
 
@@ -119,7 +119,7 @@ Return structured JSON combining historical context and ticket moderation:
     "status": "clear|duplicate|needs_decision",
     "matches": [
       {
-        "path": ".workaholic/tickets/todo/developer-company-com/filename.md",
+        "path": ".workaholic/tickets/todo/filename.md",
         "title": "Ticket title from H1",
         "category": "duplicate|merge|split|related",
         "overlap_percentage": 85,

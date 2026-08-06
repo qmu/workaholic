@@ -1,11 +1,12 @@
 ---
 created_at: 2026-08-06T18:45:21+09:00
 author: a@qmu.jp
+assignees: [a@qmu.jp]
 type: refactoring
 layer: [Config]
-effort:
+effort: 4h
 commit_hash:
-category:
+category: Changed
 depends_on: 20260806183638-split-drive-into-an-interactive-drive-and-an-unattended-implement.md
 mission: reduce-the-loop-to-two-routines-and-one-behaviour-per-command
 feedback: [20260806184651-ownership-is-a-field-not-a-directory.md]
@@ -126,3 +127,56 @@ config each container happens to carry.
   directory by accident of the survey's shape; flattening makes "whose work is queued" a
   question the data answers. That is the intent, but it is a visible change in what a bare
   `/ticket` listing shows.
+
+## Final Report
+
+Development completed as planned. The queue is flat, a ticket's owner is its
+`assignees` field, and one reader (`gather/scripts/owners.sh` + `owns.sh`) answers
+ownership for missions and tickets alike. `sweep-todo.sh` is retired and
+`gather/scripts/migrate-todo-owners.sh` converges the tree at the write seams.
+
+### Discovered Insights
+
+- **Insight**: The migration cannot run where it would have been most convenient.
+  `plan-units.sh` documents itself as side-effect-free and is called inside claim
+  worktrees, so a mutating living migration there would surprise every caller —
+  and the `migrate-strategies.sh` pattern the ticket points at runs from a
+  *resolver* seam, which the survey has no equivalent of. The answer was to make
+  every **reader** depth-2 tolerant and run the migration only from the **write**
+  seams. That turns the migration from a gate into a convergence: an unmigrated
+  checkout reports its queue correctly rather than reporting it empty, which is
+  the exact failure class the whole ticket exists to remove.
+  **Context**: If a future change scopes a reader to the flat form alone, it
+  silently reintroduces that failure for any checkout that has not written yet.
+  `testListTodo` pins the depth-2 read for this reason.
+- **Insight**: Owner comparison had to become **slug-based**, and this is
+  load-bearing rather than tidiness. The directory carries a slug, the slug rule
+  is lossy (`a@qmu.jp` and `a.qmu.jp` slug identically), so the migration cannot
+  always recover the email — it stamps the bare slug when the ticket's `author:`
+  does not corroborate the directory. A string-equality owner check would then
+  orphan exactly those tickets, invisibly.
+  **Context**: `gather/scripts/owns.sh` compares `user-slug.sh` of each side;
+  `testOwns` pins both the case-insensitivity and the stamped-slug match.
+- **Insight**: `unresolved` had to be a distinct verdict from `other`. They imply
+  the same conservative action — do not offer the artifact — so folding them is
+  tempting, and it is the same mistake in miniature that the ticket describes at
+  the queue level: "I know this is somebody else's" and "I cannot tell whose this
+  is" are different facts, and an operator reading a survey must be able to tell
+  them apart.
+  **Context**: `plan-units.sh` excludes with `owner_unresolved` rather than
+  `owned_by_other`, and reports the flag at top level so the run can forbid `ok`
+  without terminating.
+- **Insight**: A second, divergent slug rule was hiding in
+  `feedback/scripts/resolve-target.sh` (`tr '@.' '--'` rather than
+  `user-slug.sh`), used to build the cross-repository `todo_dir`. The flatten
+  removed the path segment and the duplicate rule with it.
+  **Context**: It could disagree with the canonical rule on any character outside
+  `[a-z0-9.@]`, and nothing would have reported the disagreement.
+- **Insight**: `validate-ticket.sh` gated the four body checks (`## Policies`,
+  `## Quality Gate`, the `mission:` resolution, the `resume-*` lint) on a second,
+  separately-written copy of the location regex. Changing only the first copy
+  would have made all four **fail open** — no error, no output, just gates that
+  stop firing. The predicate is now defined once as `is_todo_ticket`.
+  **Context**: This was the single sharpest correctness risk in the change, and
+  it is invisible from a passing test run: the tests that exercise those gates
+  would still pass on the paths they name.

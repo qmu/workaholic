@@ -129,7 +129,7 @@ merge_policy:           # auto | review — the orthogonal merge axis (G5), reco
 carried_from:           # only on a successor: the slug of the mission whose remainder it inherited
 created_at: <ISO-8601>
 author: <email>
-assignees: [<email>]    # the mission's OWNERS (plural — a mission can be co-owned). Creator-seeded by create.sh; empty = team-owned/claimable, and NEVER a floor (K2). Read ONLY via mission-owners.sh
+assignees: [<email>]    # the mission's OWNERS (plural — a mission can be co-owned). Creator-seeded by create.sh; empty = team-owned/claimable, and NEVER a floor (K2). Read ONLY via gather/scripts/owners.sh
 assignee: <email>       # LEGACY FALLBACK only (missions predating `assignees`). Empty on new missions; never read directly
 predicted_hours:        # decimal agent-hours, stamped ONCE at creation from archived-mission trend (predict-duration.sh); empty when basis 0
 actual_hours:           # decimal agent-hours accumulated by /drive across runs (record-run-hours.sh is its only writer); empty until a run records
@@ -176,7 +176,7 @@ A mission carries **no `## Reflection` section**. The per-run reflection channel
 
 - **Quality gate** (`gate_*`) — optional and normally empty, with the record of why it was demoted.
 - **Drivability** — what being in the active area asserts, and the alternatives rejected with `draft`.
-- **Ownership** — the `mission-owners.sh` oracle, its legacy fallback, and the redefinition record.
+- **Ownership** — the `gather/scripts/owners.sh` oracle, its legacy fallback, and the redefinition record.
 - **Duration** — how `predicted_hours` is derived once and `actual_hours` accumulated, and why the actual covers mission units only.
 - **Acceptance-checklist convention** — the `(#<filename>)` marker, **the link contract** (item-scoped, stamped at emission, unlinked-is-reported) with the alternatives it rejected, and the measured reason an unchecked item is a heading rather than a specification.
 - **Changelog line format** — the dated append-only line and its idempotent event id.
@@ -321,8 +321,6 @@ Every script lives at `${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/<name>`. **T
 | `gate.sh` | Read the optional `gate_*` declaration and resolve the worktree ports it is checked against (`valid` vs `driveable`) |
 | `drive-authorized.sh` | Per-ticket authorization answer; conservative across a many-valued `mission:` relation |
 | `read-relation.sh` | The single reader of an artifact's `mission:` relation (list or bare form) |
-| `mission-owners.sh` | The single ownership oracle — `assignees`, then the legacy `assignee` |
-| `read-assignees.sh` | The single parser of the `assignees` field shape |
 | `append-changelog.sh` | The single changelog writer; idempotent on its (event, artifact) pair |
 | `link-acceptance.sh` | The only writer of an acceptance item's `(#<filename>)` link; the caller names the pair, nothing is inferred |
 | `unlinked-acceptance.sh` | Name the unchecked items no artifact can tick — the audit half of the link contract |
@@ -411,7 +409,7 @@ Separately from the mutating seams above, a workflow may **read** missions witho
 
 The **mission lens** (`hooks/mission-lens.sh`) is the other read-only consumer, and an always-on one. On every `UserPromptSubmit` it injects a model-visible `additionalContext` line, and on every `Stop` a user-visible `systemMessage`, naming each **active** mission that passes all three of its gates, with derived `checked/total` and the next unchecked acceptance item (via `progress.sh` + `next-acceptance.sh`):
 
-1. **ownership** — the current `git config user.email` is among the mission's owners (`mission-owners.sh` — the mission's own `assignees` first, then the legacy `assignee`), or the mission is unowned (surfaced as claimable). Only a mission owned solely by others stays silent.
+1. **ownership** — the current `git config user.email` is among the mission's owners (`gather/scripts/owners.sh` — the mission's own `assignees` first, then the legacy `assignee`), or the mission is unowned (surfaced as claimable). Only a mission owned solely by others stays silent.
 2. **location** — worktree focus: inside a mission's own `.worktrees/<slug>`, only that mission; inside a worktree that owns **no** mission (a `/drive` worktree), nothing at all; in the main tree, only missions that own no worktree.
 3. **signal** — the mission has at least one acceptance criterion. A mission whose `## Acceptance` is empty would render as `0/0` with no next step — a technical condition with nothing to act on — so it stays silent.
 

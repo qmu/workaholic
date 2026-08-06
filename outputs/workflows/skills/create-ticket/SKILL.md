@@ -22,7 +22,7 @@ This skill works on any Agent-Skills-compatible agent. The two Claude-Code mecha
 bash create-ticket/scripts/summary.sh
 ```
 
-`summary.sh` reuses `drive/list-todo.sh` for the current-user scoping (`todo/<user-slug>/`, from `git config user.email`), so "assigned to me" stays defined in one place, then enriches each ticket with its H1 title and frontmatter `type`/`layer`/`depends_on`. Output is a JSON array `[{path, title, type, layer, depends_on}]` (sorted by path), or `[]` when the queue is empty. This is the create-only guardrail's one read-only exception: it lists work, it never writes.
+`summary.sh` reads the whole queue through `drive/list-todo.sh` and keeps what this developer owns plus what nobody owns (`gather/scripts/owns.sh`), so "assigned to me" stays defined in one place, then enriches each ticket with its H1 title and frontmatter `type`/`layer`/`depends_on`. Output is a JSON array `[{path, title, type, layer, depends_on}]` (sorted by path), or `[]` when the queue is empty. This is the create-only guardrail's one read-only exception: it lists work, it never writes.
 
 **Summary mode reads the CALLER's checkout, and opens no publish tree.** This is a deliberate divergence from the create path (which writes into a publish tree at `origin/main`), not an oversight to be "fixed" later: bare `/ticket` answers *"what is assigned to me"*, which is a question about the developer's own working state. Forcing a fetch would make a read-only listing fail offline and slow down the cheapest thing the command does. It writes nothing, so it needs no publication.
 
@@ -32,7 +32,7 @@ bash create-ticket/scripts/summary.sh
 
 Tickets are written to ONE of these two directories — never anywhere else. **Both resolve inside the publish tree** opened in Workflow Step 1 (`<publish_path>/.workaholic/tickets/…`), which is a registered worktree of this repository and therefore inside it by definition:
 
-- `.workaholic/tickets/todo/<user>/` — Active queue (default for new tickets). `<user>` is the filesystem-safe slug of `git config user.email` (the `user_slug` from Step 1). **The partition expresses assignment**: `list-todo.sh` and `plan-units.sh` scope a developer's queue by it, and `/drive`'s survey offers a developer their own backlog. (It was introduced to stop one developer's unarchived tickets leaking onto another's branch; with every ticket published to `main` there are no branches to leak between, so assignment is the whole of the reason now.) The flat `todo/` root is never a write target for new tickets; any strays already sitting there are swept into a user subdirectory (see Step 1.5).
+- `.workaholic/tickets/todo/` — Active queue (default for new tickets), and it is **flat**. **Assignment is the `assignees` frontmatter field**, not the directory (P2, 2026-08-06): plural, empty meaning team-owned and claimable by anyone, read by every consumer through the one oracle `gather/scripts/owners.sh`. The queue was partitioned as `todo/<user>/` until then — introduced to stop one developer's unarchived tickets leaking onto another's branch, a reason that expired when every ticket started publishing to `main` — and the partition then cost three things: an unreadable queue and an empty one became the same observation, reassignment became a file move, and a ticket had no unowned state at all while a mission did. Readers still tolerate the old shape and the living migration converges it (see Step 1.5).
 - `.workaholic/tickets/icebox/` — Deferred, and stays flat (only when the request explicitly targets the icebox).
 
 Archive paths (`.workaholic/tickets/archive/<branch>/`) are written by the drive archive script, never by this skill.
@@ -64,17 +64,19 @@ Parse the JSON output:
 }
 ```
 
-Use `created_at`/`author` for frontmatter fields, `filename_timestamp` for the filename, and `user_slug` for the `todo/<user>/` write path.
+Use `created_at`/`author` for frontmatter fields and `filename_timestamp` for the filename. `user_slug` is reporting-only now — no write path is built from it.
 
-## Step 1.5: Sweep Stray Tickets
+## Step 1.5: Converge the queue layout
 
-Before writing the new ticket, route any leftover tickets sitting directly at the `todo/` root into per-user subdirectories — **inside the publish tree**, since that is the checkout `todo/` is being written into and whose moves will ride the publish commit:
+Before writing the new ticket, run the living migration — **inside the publish tree**, since that is the checkout `todo/` is being written into and whose moves ride the publish commit:
 
 ```bash
-( cd <publish_path> && bash create-ticket/scripts/sweep-todo.sh )
+( cd <publish_path> && bash gather/scripts/migrate-todo-owners.sh )
 ```
 
-The sweep moves each root-level `todo/*.md` into `todo/<author-slug>/`, routing by the stray ticket's own `author:` frontmatter (falling back to the current user's slug when missing). It git-stages every move and **never** moves a ticket to the icebox. Report the `moved` count from its JSON output if any tickets were relocated.
+It moves any `todo/<user-slug>/X.md` to `todo/X.md`, stamping `assignees` from the directory it came from, and git-stages every move. It **never** moves a ticket to the icebox, and it never touches `archive/`. Report the `migrated` count from its JSON output if anything moved.
+
+This replaced `sweep-todo.sh`, which swept strays the other way — *into* per-user directories — and had no reason to exist once the flat root became the canonical write target.
 
 ## Frontmatter Template
 
@@ -84,6 +86,7 @@ Use the captured values from Step 1:
 ---
 created_at: $(date -Iseconds)      # REPLACE with actual output
 author: $(git config user.email)   # REPLACE with actual output
+assignees: [$(git config user.email)]  # WHO OWNS IT — plural; empty = team-owned/claimable. REPLACE with actual output
 type: <enhancement | bugfix | refactoring | housekeeping>
 layer: [<UX | Domain | Infrastructure | DB | Config>]
 effort:
@@ -97,7 +100,8 @@ merge_policy:                      # optional: auto | review — may this work m
 
 ### Field Requirements
 
-- **Lines 1-4**: Fill with actual values (never placeholders)
+- **Lines 1-5**: Fill with actual values (never placeholders)
+- **`assignees`**: Who the ticket belongs to — **plural**, because a ticket can be co-owned, and **empty means team-owned**, claimable by anyone. It is the ticket's owner *field* (P2, 2026-08-06), replacing the `todo/<user>/` directory that used to encode it; reassignment is now an edit to this line rather than a file move. Seed it with the requester when `/ticket` is typed by a developer; leave it **empty** for a proposal, which is work nobody has taken on yet. Read it **only** through `gather/scripts/owners.sh` / `owns.sh` — never by grepping the field — so `/drive`'s survey, `/ticket`'s summary, and `/ship`'s queue check cannot disagree about whose work it is. It is deliberately **not** `author`: author is who wrote the spec and is immutable history; owner is who is to do it and is meant to change.
 - **Lines 5-8** (`effort`/`commit_hash`/`category`/`depends_on`): Must be present but leave empty (filled after implementation, or during creation when a request is split)
 - **`mission`**: Optional. Present but empty unless the developer associates the ticket with an existing mission at `/ticket` time (see Workflow Step 4c) — then it holds that mission's `slug`. Machine-readable, never required; the pipeline tolerates its absence.
 - **`merge_policy`**: Optional, `auto` or `review`, captured at creation (Workflow Step 4d). **Absent means `review`** — the conservative default, stated here because this is where the field is defined. Every ticket written before the field existed carries no value, and the one reading that must never produce is "merge this without a human looking". `hooks/validate-ticket.sh` enforces the enum **only when a value is present**: an empty field is legal, a typo'd one is not (`merge_policy: atuo` would otherwise read as `review` while its author believed they had asked for automatic merging).
@@ -144,7 +148,7 @@ Take the returned `path` and treat it as **the root every subsequent write in th
 
 **`/ticket` never creates a branch.** A ticket is published to `main` and the executor's claim is the only creator of a branch or a worktree (decision J1, `docs/loop-engineering-workflow.md`). `create.sh` is not called anywhere in this path; the branch-name rule it enforces belongs to the claim side and is stated once in `branching`. The developer's own branch and uncommitted work are untouched by the whole flow — that is the publish tree's entire purpose, and it is why this step replaced a branch cut rather than being added beside one.
 
-Tickets go to `.workaholic/tickets/todo/<user>/` **inside the publish tree**, whatever branch the developer is standing on.
+Tickets go to `.workaholic/tickets/todo/` **inside the publish tree**, whatever branch the developer is standing on.
 
 ### 2. Parallel Discovery
 
@@ -258,7 +262,7 @@ Return one of:
   "status": "success",
   "tickets": [
     {
-      "path": ".workaholic/tickets/todo/developer-company-com/20260131-feature.md",
+      "path": ".workaholic/tickets/todo/20260131-feature.md",
       "title": "Ticket Title",
       "summary": "Brief one-line summary"
     }
@@ -273,7 +277,7 @@ Or if duplicate:
 ```json
 {
   "status": "duplicate",
-  "existing_ticket": ".workaholic/tickets/todo/developer-company-com/20260130-existing.md",
+  "existing_ticket": ".workaholic/tickets/todo/20260130-existing.md",
   "reason": "Existing ticket already covers this functionality"
 }
 ```
@@ -329,7 +333,7 @@ merge_policy: review
 
 The standard engineering policies — synced from the corporate site (qmu.co.jp) into the `workaholic` policy skills — that govern this ticket. The implementing session **MUST** read each linked policy hard copy before writing code and keep every change defensible against that policy's Goal (目標), Responsibility (責務), and Practices (実践). `/drive` consumes this section verbatim — it is the recorded, confirmable list of which standard policies the implementation answers to.
 
-This section is **mandatory and never empty**, and that is now **machine-checked**, not merely prose: `hooks/validate-ticket.sh` rejects a ticket written to `todo/<user>/` whose `## Policies` heading is absent or has nothing under it. A code-touching ticket always lists at least the two universal implementation policies; add the pillar policies the `layer` field selects (see the Policy Lens table) plus any specific policy the policy-mode discovery surfaced.
+This section is **mandatory and never empty**, and that is now **machine-checked**, not merely prose: `hooks/validate-ticket.sh` rejects a ticket written to the todo queue whose `## Policies` heading is absent or has nothing under it. A code-touching ticket always lists at least the two universal implementation policies; add the pillar policies the `layer` field selects (see the Policy Lens table) plus any specific policy the policy-mode discovery surfaced.
 
 - `implementation` / `policies/directory-structure.md` — conventional project layout (applies to all code work)
 - `implementation` / `policies/coding-standards.md` — TypeScript/style conventions (applies to all code work)
@@ -358,7 +362,7 @@ Past tickets that touched similar areas:
 
 How the outcome's quality is assured, captured from the developer at ticket time (Workflow Step 4b). `/drive` surfaces this in its approval prompt and forwards it into the commit `Verify:` key, so the approval is concrete: the implementation is approved against a pre-agreed, checkable gate. **Mandatory and never empty** for a code-touching ticket; every line must be objective and verifiable (`implementation` / `objective-documentation`).
 
-This is **machine-checked**: `hooks/validate-ticket.sh` rejects a ticket written to `todo/<user>/` whose `## Quality Gate` heading is absent or has nothing under it. The hook checks *presence*, never *quality* — whether a gate is any good is semantic, and stays the job of the Step 4b interrogation and the developer. Note the check is scoped to `todo/<user>/`: archived tickets are history and are never retro-blocked, and the hook is `PostToolUse`, so it reviews after the write rather than preventing it.
+This is **machine-checked**: `hooks/validate-ticket.sh` rejects a ticket written to the todo queue whose `## Quality Gate` heading is absent or has nothing under it. The hook checks *presence*, never *quality* — whether a gate is any good is semantic, and stays the job of the Step 4b interrogation and the developer. Note the check is scoped to the todo queue: archived tickets are history and are never retro-blocked, and the hook is `PostToolUse`, so it reviews after the write rather than preventing it.
 
 **Acceptance criteria** — the checkable conditions that must hold:
 

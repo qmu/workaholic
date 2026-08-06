@@ -1,6 +1,16 @@
 #!/bin/sh -eu
 # Promote a ticket from icebox to todo and stage both paths.
 # Usage: promote-icebox.sh <icebox-ticket-path>
+#
+# The destination is the FLAT queue (`.workaholic/tickets/todo/`) since P2,
+# 2026-08-06: a ticket's owner is its `assignees` field, not its directory. The
+# promoter becomes the owner when the ticket names none — promoting is taking the
+# work on, and an unowned promotion would otherwise land in a queue nobody is
+# holding. A ticket that already names owners keeps them: promotion is a queue
+# move, never a reassignment.
+#
+# It also runs the living migration first, so a checkout still carrying per-user
+# directories converges here rather than accumulating a mixed tree.
 
 set -eu
 
@@ -18,10 +28,32 @@ fi
 
 FILENAME=$(basename "$SRC")
 SCRIPT_DIR=$(dirname "$0")
-USER_SLUG=$(sh "${SCRIPT_DIR}/../../gather/scripts//user-slug.sh")
-DEST=".workaholic/tickets/todo/${USER_SLUG}/${FILENAME}"
+GATHER_SCRIPTS="${SCRIPT_DIR}/../../gather/scripts/"
 
-mkdir -p ".workaholic/tickets/todo/${USER_SLUG}"
+sh "${GATHER_SCRIPTS}/migrate-todo-owners.sh" >/dev/null 2>&1 || true
+
+DEST=".workaholic/tickets/todo/${FILENAME}"
+
+mkdir -p ".workaholic/tickets/todo"
+
+# Stamp the promoter as owner only when the ticket names nobody.
+existing=$(sh "${GATHER_SCRIPTS}/read-assignees.sh" "$SRC" 2>/dev/null || true)
+if [ -z "$existing" ]; then
+    ME=$(git config user.email 2>/dev/null || true)
+    if [ -n "$ME" ]; then
+        tmp="${SRC}.promote.$$"
+        awk -v owner="$ME" '
+            NR == 1 { print; if ($0 != "---") { done = 1 } ; next }
+            done { print; next }
+            !placed && /^author:[ \t]*/ { print; print "assignees: [" owner "]"; placed = 1; next }
+            !placed && /^---[ \t]*$/ { print "assignees: [" owner "]"; print; placed = 1; done = 1; next }
+            /^---[ \t]*$/ { print; done = 1; next }
+            { print }
+        ' "$SRC" > "$tmp"
+        mv "$tmp" "$SRC"
+    fi
+fi
+
 mv "$SRC" "$DEST"
 git add "$SRC" "$DEST"
 

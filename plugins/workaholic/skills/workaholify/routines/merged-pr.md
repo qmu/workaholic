@@ -2,7 +2,10 @@
 type: Routine Template
 id: merged-pr
 name: "[Consent] {repo_name}"
-trigger: invoked
+trigger: github-pr-merged
+trigger_kind: github
+trigger_event: pull_request.closed
+trigger_filters: is merged = true
 model: claude-opus-5
 allowed_tools: [Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch]
 mcp: [Slack]

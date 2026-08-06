@@ -3,6 +3,9 @@ type: Routine Template
 id: fb
 name: "[Propose] {repo_name}"
 trigger: github-issue-assigned
+trigger_kind: github
+trigger_event: issues.assigned
+trigger_filters: assignee = the developer
 model: claude-opus-5
 allowed_tools: [Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch]
 mcp: [Slack]

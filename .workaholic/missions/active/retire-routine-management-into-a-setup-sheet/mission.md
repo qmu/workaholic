@@ -9,13 +9,14 @@ author: a@qmu.jp
 assignees: []
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 2
 feedback: [20260806143907-routine-setup-is-a-human-act-the-plugin-makes-cheap.md]
 tickets: []
 stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260806-153117
 ---
 
 # Retire routine management into a setup sheet
@@ -46,13 +47,16 @@ and nothing asks them to confirm an API mutation that no longer exists.
 
 <!-- PROPOSED criteria — replan sharpens them. -->
 
-- [ ] Each routine template declares its trigger as structured data (kind, event,
+- [x] Each routine template declares its trigger as structured data (kind, event,
       filters), and `/setup-routines` renders per-template copy-paste setup
       sheets from it — no `RemoteTrigger` call anywhere in the command. (#20260806144006-render-copy-paste-setup-sheets-from-structured-trigger-declarations.md)
-- [ ] The API management machinery (plan/authorize digest gate, compare/list
+- [x] The API management machinery (plan/authorize digest gate, compare/list
       drift reporting) is retired with its tests, and every document that
       presented it as the management surface tells the new truth. (#20260806144006-retire-the-routine-api-management-machinery-and-its-tests.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-06 — ticket archived — 20260806144006-render-copy-paste-setup-sheets-from-structured-trigger-declarations.md
+- 2026-08-06 — ticket archived — 20260806144006-retire-the-routine-api-management-machinery-and-its-tests.md
+- 2026-08-06 — run recorded (+2.0h) — 20260806-153117

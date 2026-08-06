@@ -23,9 +23,11 @@ event, which is the whole reason every artifact reaches `main` through a pull re
 2026-08-05, when the ask arrived to start `[Drive]` on a merged proposal instead). One
 event gets one owner, and this is the template whose subject already *is* that event —
 `[Drive]` does not become a second watcher of it. What that ask actually needs is an
-**invoker**: measured the same day, a routine record has no event-subscription field, and
-this routine has never fired in any repository since 2026-07-31 because nothing holds a
-token to POST its `/run` (`workaholify` SKILL, *What a routine can be triggered by*).
+**invoker**: measured the same day, a routine record has no event-subscription field, so
+nothing in the record says how an unscheduled routine comes to run (`workaholify` SKILL,
+*What a routine can be triggered by*). A companion claim — that this routine has never
+fired anywhere — was retracted on 2026-08-06: it was read off an absent `last_fired_at`,
+which distinguishes nothing.
 Narrowing "a merge" to "a proposal's merge" is likewise not a trigger setting — it is the
 invoker's decision and this prompt's, which is why the key derivation below reads the
 repository rather than the event payload.

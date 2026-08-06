@@ -92,9 +92,33 @@ root=$(cd -- "${script_dir}/../../.." && pwd)
 # ...EXCEPT when the harness tells us what it actually bound. The script's own location
 # answers "where is this file", which is a different question from "what is this session
 # running", and the two diverge in precisely the case worth catching.
+#
+# THE ENV VAR IS NOT HOW THE SANCTIONED CALLER ARRIVES, and reading only it left the
+# gate LOCAL-ONLY SILENT (2026-08-06). The harness expands ${CLAUDE_PLUGIN_ROOT} inside
+# plugin markdown at load time -- a literal path in the command body, not an exported
+# variable -- and in a LOCAL session no variable reaches the Bash tool's environment, so
+# /drive's own step-0 invocation landed in the silent branch and the one pre-flight stop
+# never fired locally. (The cloud container DOES export it: the 2026-08-06 02:59 JST
+# tick fired this exact gate.) The repair: when the env var is absent but this script's
+# own resolved path sits inside the harness's plugin cache, that path IS the binding --
+# the caller reached it through the expanded token, so "where is this file" and "what is
+# this session running" are the same answer. A checkout or bundle invocation matches
+# neither and stays silent, which keeps the false-accusation case answered:
+# a non-Claude agent or a developer running an old checkout is still never accused of
+# drift it cannot have. `loaded_root_source` reports which case decided.
 loaded_root="${CLAUDE_PLUGIN_ROOT:-}"
+loaded_root_source="none"
 if [ -n "$loaded_root" ] && [ -d "$loaded_root" ]; then
   root="$loaded_root"
+  loaded_root_source="env"
+else
+  cache_prefix="${CLAUDE_PLUGIN_CACHE:-${HOME}/.claude/plugins/cache}"
+  case "$root" in
+    "${cache_prefix}"/*)
+      loaded_root="$root"
+      loaded_root_source="cache_path"
+      ;;
+  esac
 fi
 
 manifest="${root}/.claude-plugin/plugin.json"
@@ -185,6 +209,6 @@ fi
 # Emit missing_guards as a JSON array (jq handles quoting; empty -> []).
 missing_json=$(printf '%s\n' $missing | jq -R . | jq -sc 'map(select(length > 0))')
 
-printf '{"ok": true, "version": "%s", "checkout_version": "%s", "version_drift": %s, "registry_version": "%s", "registry_unreadable": %s, "loaded_version_behind_registry": %s, "guards_present": %s, "missing_guards": %s}\n' \
-  "$version" "$checkout_version" "$version_drift" "$registry_version" "$registry_unreadable" \
+printf '{"ok": true, "version": "%s", "checkout_version": "%s", "version_drift": %s, "loaded_root_source": "%s", "registry_version": "%s", "registry_unreadable": %s, "loaded_version_behind_registry": %s, "guards_present": %s, "missing_guards": %s}\n' \
+  "$version" "$checkout_version" "$version_drift" "$loaded_root_source" "$registry_version" "$registry_unreadable" \
   "$loaded_version_behind_registry" "$guards_present" "$missing_json"

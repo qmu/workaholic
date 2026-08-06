@@ -3,12 +3,13 @@ created_at: 2026-08-05T22:56:04+09:00
 author: a@qmu.jp
 type: bugfix
 layer: [Config]
-effort:
+effort: 0.5h
 commit_hash:
-category:
+category: Changed
 depends_on:
 feedback: [20260805191634-a-persistent-drive-failure-goes-silent-for-a-day-under-the-alert-dedup-cool-down.md]
 merge_policy:
+claim: work-20260806-145355
 ---
 
 # Make the superseded-binding gate reachable
@@ -128,3 +129,29 @@ other side, and it belongs in its own change rather than riding into one about r
   is local-only. The remaining question is whether a local session should be guarded by
   standing in the script's own resolved path for the binding, or whether the honest answer
   is that a local `/drive` simply reports `registry_version: ""` and says why.
+
+## Final Report
+
+Development completed as planned, on the narrowed (local-only) scope the 2026-08-06
+cloud evidence established. The stand-in decided in step 2 is the script's own resolved
+path, accepted **only** when it sits inside the harness's plugin cache and no env var
+arrived — in that invocation the caller reached the script through the expanded
+`${CLAUDE_PLUGIN_ROOT}` token, so "where is this file" and "what is this session
+running" are the same answer. `loaded_root_source` (`env` / `cache_path` / `none`)
+reports which case decided, keeping the false-accusation silence for checkouts and
+bundles. Verified end to end: a fake-cache invocation with no env var reports
+`cache_path` + `behind: true`; a checkout invocation stays `none`/silent; the live cache
+path on this machine reports the axis once this build reaches it.
+
+### Discovered Insights
+
+- **Insight**: `CLAUDE_PLUGIN_CACHE` was added as the cache-prefix override purely as a
+  test seam — the hermetic suite cannot put files under `~/.claude/plugins/cache`.
+  **Context**: Without a seam the new branch would be testable only on a machine with a
+  real harness install, which is how gaps like this one survive.
+
+- **Insight**: The pre-existing "no plugin root means no registry verdict" assertion was
+  kept true byte-for-byte and extended rather than replaced — the silence it pins is
+  still the right answer for every caller that is not the harness's own cache.
+  **Context**: The defect was never the silence; it was that the sanctioned caller
+  landed in it.

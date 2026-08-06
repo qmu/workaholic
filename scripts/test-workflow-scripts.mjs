@@ -211,7 +211,22 @@ function makeRepo(initialBranch = "main") {
   return dir;
 }
 
-function cleanup(dir) { rmSync(dir, { recursive: true, force: true }); }
+// CLEANUP MUST NOT BE ABLE TO FAIL A GREEN RUN (2026-08-06). `rmSync` raced a git
+// process still writing into the fixture's `.git` and threw
+// `ENOTEMPTY: rmdir '/tmp/workaholic-smoke-…/.git'`, which the harness reported as
+// `FAIL report/doc-drift.sh` — every assertion in that section had passed. A false red is
+// worse than a leaked temp dir twice over: it costs a re-run, and it teaches the reader
+// that a red run might mean nothing, which is how a real failure gets waved through.
+// So: retry the race (what `maxRetries`/`retryDelay` exist for), and if the directory
+// still will not go, WARN and continue — the OS reaps its own temp dir, and no assertion
+// depends on the removal.
+function cleanup(dir) {
+  try {
+    rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
+  } catch (e) {
+    console.log(`  warn  cleanup left ${dir} behind (${e.code || e.message})`);
+  }
+}
 
 function makeInstalledSkillsTree(skillNames) {
   const dir = mkdtempSync(join(tmpdir(), "workaholic-installed-skills-"));

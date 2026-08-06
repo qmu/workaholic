@@ -97,6 +97,12 @@ printf 'Create these by hand in the web UI. **The plugin cannot do it**: a routi
 printf 'trigger is configurable in the UI only, and the API exposes no trigger field, so\n'
 printf 'nothing here can read, set, or verify the wiring — only state what it should be.\n'
 printf 'Confirm what actually runs at <%s>.\n\n' "$ROUTINES_URL"
+printf '> **On a public repository, set Issue and Pull request permissions to `Collaborators\n'
+printf '> only` before creating these.** Each routine fires on an Issue or a pull request and\n'
+printf '> feeds its body to an unattended agent holding Bash, Write and a Slack connector, so\n'
+printf '> an open issue tracker is an open input to that agent. Note also that a Slack thread\n'
+printf '> URL placed in a public Issue or pull request body is world-readable and permanently\n'
+printf '> archived — it is not a credential and grants no access, but it cannot be unpublished.\n\n'
 
 if [ "$TARGET" = "--all" ]; then
     for _f in "$ROUTINES_DIR"/*.md; do

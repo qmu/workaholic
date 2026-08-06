@@ -2,7 +2,7 @@
 type: Mission
 title: Retire routine management into a setup sheet
 slug: retire-routine-management-into-a-setup-sheet
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-06T14:39:19+09:00
 author: a@qmu.jp
@@ -60,3 +60,4 @@ and nothing asks them to confirm an API mutation that no longer exists.
 - 2026-08-06 — ticket archived — 20260806144006-render-copy-paste-setup-sheets-from-structured-trigger-declarations.md
 - 2026-08-06 — ticket archived — 20260806144006-retire-the-routine-api-management-machinery-and-its-tests.md
 - 2026-08-06 — run recorded (+2.0h) — 20260806-153117
+- 2026-08-06 — mission achieved — mission.md

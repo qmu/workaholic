@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260806-153117
 ---
 
 # Retire routine management into a setup sheet

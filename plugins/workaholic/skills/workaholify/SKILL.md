@@ -80,7 +80,7 @@ The templates live in **this skill** (`routines/*.md`), not in any repository's 
 | -------- | ------- | ------------ |
 | `fb` | github-issue-assigned | An issue assigned to the developer becomes a `/fb` record and a PR |
 | `merged-pr` | invoked | A merge is announced to `dev-<repo>` |
-| `drive` | cron `56 * * * *` | The hourly unattended drive runner (still a pilot) |
+| `drive` | github-pr-merged | A merged proposal starts the unattended drive runner (still a pilot) |
 
 #### What a routine can be triggered by — and what "event" actually means (measured 2026-08-05)
 
@@ -98,7 +98,7 @@ There is **no event-subscription field of any kind** — nothing naming a pull r
 
 **A `[Propose]` routine observed firing on a merged pull request is misconfigured.** The merge is `[Consent]`'s event, and one event has one owner. Repairing a live routine's trigger is a **human act in the routines UI**: the trigger wiring is invisible to `RemoteTrigger list` and unreachable by it, so neither the drift report nor `/setup-routines` can see or fix it — they cover the prompt, model, schedule, `enabled` and the Slack connector, and the trigger only through the template's declared intent.
 
-**The consequence for scheduling.** `[Drive]` keeps its cron, and the reason that matters is the one independent of all this: handoff resumption, a claim whose heartbeat lapsed, and any ticket `/ticket` wrote rather than a proposal have **no merge event to key on at all**, so a clock is required whatever the event path turns out to be. The retracted claim had made the clock look like the *only* path; it is not known to be, and the decision never rested on that.
+**The consequence for scheduling** (settled 2026-08-06): `[Drive]` is merge-triggered — the developer's original ask, implementable all along through the same UI wiring that fires `[Propose]` on an assigned issue. The clock argument this paragraph used to make (handoff resumption, lapsed claims and `/ticket`-written backlog have no merge event) is answered by the survey itself: every merge-started run offers *everything* claimable, so the leftovers ride the next merge rather than a timer. A machine-local cron remains available as the fallback shape (`docs/drive-loop-runbook.md`), and is a developer's act to stand up.
 
 Everything below a template's `## Prompt` heading is the routine's prompt, verbatim. Three substitutions, each demanded by the live routines: `{repo}` (full URL, for the `…/pull/123` links), `{repo_slug}` (`org/repo`, how the Drive prompt names the repository in prose), and `{repo_name}` (bare name, the routine's own name and the `dev-<name>` Slack channel). **Anything else that differs between two repositories' routines is drift, not configuration.**
 

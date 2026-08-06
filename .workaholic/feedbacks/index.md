@@ -418,5 +418,6 @@
 * [Install `gh` in the web container via the session-start hook](20260805132840-install-gh-in-the-web-container-via-the-session-start-hook.md)
 * [A persistent drive failure goes silent for a day under the alert-dedup cool-down](20260805191634-a-persistent-drive-failure-goes-silent-for-a-day-under-the-alert-dedup-cool-down.md)
 * [The routines list API caps at 20, so a fleet drift report silently misses routines](20260805210036-the-routines-list-api-caps-at-20-so-a-fleet-drift-report-silently-misses-routines.md)
+* [The /setup-routines report presents a template-declared trigger as if it were live wiring](20260806032120-the-setup-routines-report-presents-a-template-declared-trigger-as-if-it-were-live-wiring.md)
 * [A ticket is claimable without a merge — merge-approval is mission doctrine](20260806113420-a-ticket-is-claimable-without-a-merge-merge-approval-is-mission-doctrine.md)
 <!-- okf:generated:end -->

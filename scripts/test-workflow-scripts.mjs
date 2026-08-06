@@ -10585,9 +10585,11 @@ function testDriveAttendedSelection() {
     && /no gate a present developer may override/.test(cmd));
 
   // The unattended callers must name /implement: pointed at /drive they would wait
-  // on the selection prompt with nobody there to answer it.
+  // on the selection prompt with nobody there to answer it. The prompt names the
+  // command and stops -- being unattended is /implement's own contract, and the
+  // developer's rule for a routine prompt is that it restates nothing a skill owns.
   assertTrue("the routine template invokes the unattended command by name",
-    /run `\/implement`/i.test(routine) && /No human is here: never ask a question/.test(routine));
+    /\/implement \[Mission\/Ticket\]/.test(routine) && !/\/drive\b/.test(routine.slice(routine.indexOf("## Prompt"))));
   assertTrue("the runbook's cron line and loop contract name /implement",
     /claude -p "\/implement"/.test(runbook) && /\/goal \/implement ok/.test(runbook));
   assertTrue("the attended command points caller-side loops at /implement",
@@ -12542,9 +12544,12 @@ function testProposalOwnershipContract() {
     /Do not fall back to the running identity/.test(propose));
   assertTrue("the propose command passes the assignee to both scaffolds",
     (cmd.match(/--assignee/g) || []).length >= 3);
-  assertTrue("the [Propose] prompt reads the issue's assignee and hands it on",
-    /its assignee/.test(fb) && /that assignee in hand/.test(fb)
-    && /the assignee owns whatever gets emitted/.test(fb));
+  // The ownership chain lives in the SKILL, not in the prompt: the developer's own rule
+  // for a routine prompt is "nothing a skill already owns". The trigger filter already
+  // guarantees the issue is assigned, and `/propose` is told where to read that from.
+  assertTrue("the ownership chain is the propose skill's, not the prompt's",
+    /--assignee <email>/.test(propose) && /enters once, at the trigger/.test(propose)
+    && !/assignee/.test(fb.slice(fb.indexOf("## Prompt"))));
   assertTrue("the [Implement] trigger is narrowed to the developer's own proposals",
     /author = the developer/.test(impl));
   assertTrue("and the template says the filter is the cost half, not the correctness half",
@@ -13135,18 +13140,19 @@ function testWorkaholifyRoutines() {
     const drive = JSON.parse(run(dir, `${RENDER} implement ${WH}`).stdout);
     assertEq("the routine name uses the BARE repo name, as the live routines do",
       drive.name, "[Implement] workaholic");
-    // P7 (2026-08-06): a PROMPT names no repository and carries no substitution -- it is
-    // byte-identical in every project, which is what "paste four lines into each" means.
-    // The routine's NAME still identifies the repository, because that is a UI field a
-    // routines list has to disambiguate.
+    // P7 (2026-08-06): the prompt NAMES no repository -- the notification target comes
+    // out of the triggering artifact, not out of a channel written into the prompt, so
+    // the same four lines paste into every project. `{repo}` survives because it is the
+    // developer's own placeholder in the format line, and it must still render or every
+    // post would carry an unfollowable link.
     const raw = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines/implement.md"), "utf8");
-    const rawPrompt = raw.slice(raw.indexOf("## Prompt"));
-    assertTrue("the template's prompt carries no substitution at all",
-      !/\{repo(_name|_slug)?\}/.test(rawPrompt), rawPrompt.slice(0, 300));
-    assertEq("so rendering leaves the prompt byte-identical",
-      drive.prompt.trim(), rawPrompt.replace(/^## Prompt\n+/, "").trim());
-    assertTrue("and it names no repository",
-      !/qmu|workaholic\//.test(drive.prompt), drive.prompt.slice(0, 200));
+    const rawPrompt = raw.slice(raw.indexOf("## Prompt")).replace(/^## Prompt\n+/, "").trim();
+    assertTrue("the prompt's only substitution is the PR-link placeholder",
+      /\{repo\}\/pull\//.test(rawPrompt) && !/\{repo_(name|slug)\}/.test(rawPrompt), rawPrompt);
+    assertEq("everything else is byte-identical across repositories",
+      drive.prompt.trim(), rawPrompt.replace("{repo}", WH));
+    assertTrue("{repo} renders the full URL in the PR link",
+      drive.prompt.includes(`${WH}/pull/`), "missing pull link");
     assertTrue("no placeholder survives rendering", !/\{repo(_name|_slug)?\}/.test(drive.prompt), drive.prompt);
 
     const fb = JSON.parse(run(dir, `${RENDER} fb ${WH}`).stdout);
@@ -13277,6 +13283,11 @@ function testRoutineAnnouncementScoping() {
   // old wording verbatim, so checking the whole file flags the explanation as the bug.
   const prompt = (f) => { const b = read(f); const i = b.indexOf("## Prompt"); return i < 0 ? b : b.slice(i); };
   const fb = prompt("fb.md"), implement = prompt("implement.md");
+  // The prompt is the developer's own four lines and restates nothing; the DEFERRAL is
+  // stated in the template's header, which is documentation for a maintainer rather than
+  // instruction for the session. Both halves are pinned, each where it belongs.
+  const header = (f) => { const b = read(f); const i = b.indexOf("## Prompt"); return i < 0 ? "" : b.slice(0, i); };
+  const fbHeader = header("fb.md"), implementHeader = header("implement.md");
   const wh = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/SKILL.md"), "utf8");
 
   // The subject must be identified. "about the pull request" with no antecedent is the
@@ -13306,11 +13317,20 @@ function testRoutineAnnouncementScoping() {
     && /Do not reintroduce a third routine/i.test(wh), "retirement cost not stated");
 
   // A prompt may not defer the one thing that IS its output contract.
+  // The four lines are the developer's own (feedback 20260806183556): read the target
+  // and payload out of the triggering artifact, say work has started in the payload's
+  // language, run the one command, post the result in the given format. The FORMAT is
+  // the one thing a routine cannot defer -- no skill states it, because it is the
+  // routine's output contract -- so it is pinned inline.
   for (const [name, body] of [["fb", fb], ["implement", implement]]) {
-    assertTrue(`the ${name} prompt carries its channel inline`,
-      /dev-<repo>/.test(body), body.slice(0, 400));
-    assertTrue(`the ${name} prompt carries its post shape inline`,
-      /🟠/.test(body) && /(🟢|🚀|🟡|🔴)/.test(body), body.slice(0, 400));
+    assertTrue(`the ${name} prompt reads its target out of the triggering artifact`,
+      /notification target \(Slack Thread URL\)/.test(body), body.slice(0, 400));
+    assertTrue(`the ${name} prompt notifies in the payload's own language`,
+      /in the same language as the/.test(body), body.slice(0, 400));
+    assertTrue(`the ${name} prompt carries its post format inline`,
+      /<@U…>/.test(body) && /\{repo\}\/pull\/123/.test(body), body.slice(0, 400));
+    assertTrue(`the ${name} prompt names no repository`,
+      !/qmu|dev-workaholic/.test(body), body.slice(0, 400));
   }
 
   // The other two announce their OWN output, so they have no ambiguity -- but say so,
@@ -13326,7 +13346,7 @@ function testRoutineAnnouncementScoping() {
     /announce events the session itself produced/i.test(wh) && /never announce another session's work/i.test(wh),
     "announce scoping missing from workaholify SKILL");
   assertTrue("and the implement template defers to the skills instead of restating them",
-    /let it and the loaded skills own everything else/.test(implement), "implement deferral missing");
+    /no rule\s+a skill already owns/.test(implementHeader), "implement deferral missing");
   // `fb` IS the propose entrance since the batch template was retired (2026-08-04), and its
   // one postable event is the pull request it just opened — which is why the two clauses
   // the retired [Propose Batch] template carried are asserted here instead.
@@ -13336,7 +13356,7 @@ function testRoutineAnnouncementScoping() {
   assertTrue("the one-PR rule lives in the propose skill",
     /never as two pull requests/i.test(proposeSkill), "one-PR rule missing from propose SKILL");
   assertTrue("and the fb template defers to the skills instead of restating them",
-    /let the loaded skills own everything else/.test(fb), "fb deferral missing");
+    /no rule\s+a skill already owns/.test(fbHeader), "fb deferral missing");
 
   // NO "Attention" BLOCK IN ANY ANNOUNCEMENT (developer's ruling, 2026-08-01). The
   // conditional concern block is gone from both the PR-opened and PR-merged formats; a
@@ -13397,5 +13417,5 @@ function testRoutineAnnouncementScoping() {
   assertTrue("the dedupe applies to red failure alerts only",
     /announce events the session itself produced and are new every time/i.test(wh), "scoping missing");
   assertTrue("and the slimmed implement template still points at the workaholify skill",
-    /workaholify. skill/i.test(implement), "template pointer missing");
+    /workaholify. SKILL/i.test(implementHeader), "template pointer missing");
 }

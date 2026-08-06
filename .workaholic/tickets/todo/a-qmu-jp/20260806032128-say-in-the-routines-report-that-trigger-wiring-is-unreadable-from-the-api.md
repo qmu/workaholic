@@ -9,6 +9,7 @@ category:
 depends_on:
 feedback: [20260806032120-the-setup-routines-report-presents-a-template-declared-trigger-as-if-it-were-live-wiring.md]
 merge_policy:
+claim: work-20260806-150055
 ---
 
 # Say in the routines report that trigger wiring is unreadable from the API

@@ -3,6 +3,7 @@
 ## active
 
 * [drive-on-a-merged-proposal-and-report-it-in-that-proposal-s-thread](active/drive-on-a-merged-proposal-and-report-it-in-that-proposal-s-thread/mission.md) - Drive on a merged proposal, and report it in that proposal's thread
+* [retire-routine-management-into-a-setup-sheet](active/retire-routine-management-into-a-setup-sheet/mission.md) - Retire routine management into a setup sheet
 
 ## archive
 

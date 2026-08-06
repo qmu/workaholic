@@ -53,3 +53,4 @@ thread, without going looking for it.
 - 2026-08-05 — ticket archived — 20260805130457-report-drive-start-and-finish-in-the-item-s-thread.md
 - 2026-08-05 — story reported — work-20260805-221704.md
 - 2026-08-05 — run recorded (+0.7h) — 20260805-221704
+- 2026-08-06 — ticket archived — 20260805223514-stand-up-an-invoker-for-the-unscheduled-routines.md

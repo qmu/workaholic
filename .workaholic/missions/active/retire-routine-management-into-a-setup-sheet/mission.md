@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: []
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 2
 feedback: [20260806143907-routine-setup-is-a-human-act-the-plugin-makes-cheap.md]
 tickets: []
 stories: []
@@ -59,3 +59,4 @@ and nothing asks them to confirm an API mutation that no longer exists.
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-06 — ticket archived — 20260806144006-render-copy-paste-setup-sheets-from-structured-trigger-declarations.md
 - 2026-08-06 — ticket archived — 20260806144006-retire-the-routine-api-management-machinery-and-its-tests.md
+- 2026-08-06 — run recorded (+2.0h) — 20260806-153117

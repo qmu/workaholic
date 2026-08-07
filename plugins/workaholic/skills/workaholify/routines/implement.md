@@ -20,20 +20,32 @@ takes nothing, and ends `ok`. No prompt change is needed for this — the survey
 filters ownership. The wiring is set in the routines UI; the `trigger_*` keys declare
 the design, not a stored field.
 
-**The prompt is the developer's own four lines** (P3) and states no rule
+**The prompt is the developer's own** (P3, reshaped by Q2: three instructions and two
+post formats — the start post is formatted too, and both carry the session URL and the
+requester's mention) and states no rule
 a skill already owns: `workaholic:drive` owns the run and its terminal contract,
 `workaholic:notify` owns every notification rule (the stateless thread lookup, red-alert
 dedup, mention resolution), and the always-loaded `rules/` own the standing prohibitions.
 The reply thread is **found**, never carried (Q1) — the notify SKILL's exact-token lookup, not a
 target read out of the pull request and not a channel name in the prompt — so no
-repository is named here and the same four lines paste into every project. `{repo}` in
-the format line is the developer's own placeholder for the pull request link. (Named
+repository is named here and the same prompt pastes into every project. `{repo}` in
+the format lines is the developer's own placeholder for the pull request links. (Named
 `[Drive]` until P1, when the unattended executor became `/implement`.)
 
 ## Prompt
 
-- Read the Mission/Ticket from the PR and find its reply thread (the workaholic:notify lookup)
-- Notify to the thread that implementation has started
-- After running `/implement [Mission/Ticket]`, notify the thread in the following format
+Read the Mission/Ticket from the PR and find its reply thread (the workaholic:notify lookup).
 
-<@U…> 🛠️ [#123 Title]({repo}/pull/123)
+Notify to the thread that implementation has started:
+
+```
+🛠️ Implementing for [#123 Proposal PR Title]({repo}/pull/123)
+by [Claude Code on the Web](https://claude.ai/code/session_***) of <@U…>
+```
+
+After running `/implement [Mission/Ticket]`, notify the thread in the following format:
+
+```
+🛠️ Implemented - [#123 Title]({repo}/pull/123)
+by [Claude Code on the Web](https://claude.ai/code/session_***) of <@U…>
+```

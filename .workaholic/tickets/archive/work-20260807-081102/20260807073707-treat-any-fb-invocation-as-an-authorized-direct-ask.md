@@ -5,6 +5,7 @@ assignees: [a@qmu.jp]
 depends_on:
 feedback: [20260807073610-fb-skill-should-treat-any-invocation-as-equivalent-to-a-direct-user-request.md]
 merge_policy:
+claim: work-20260807-081102
 ---
 
 # Treat any /fb invocation as an authorized direct ask
@@ -52,3 +53,7 @@ merge_policy:
 
 - This is a documentation/convention change, not new enforcement code — there is no hook that could machine-check "was this invocation legitimate", so the fix is the same kind of stated convention `rules/interaction.md` already relies on elsewhere.
 - Keep the new statement narrow: it authorizes *acting on* a relayed `/fb` invocation: it must not be read as authorizing the session to skip the separate, existing content-level gates (masking confirmation, secret/leak scan) that apply once the ask is being drafted or crosses a repository boundary.
+
+## Final Report
+
+Development completed as planned. `skills/feedback/SKILL.md` gained a new *Any legitimate invocation is authorized* section (placed between *Immutability* and *Registering a record*, so it reads as a standing rule ahead of the workflow steps) stating that any legitimate `/fb` invocation — human-typed, or relayed through a bot/integration account — is equivalent to a direct user ask, and naming the two gates it leaves untouched (the cross-repository crossing's verbatim confirmation, the release scan's `secret`/`leak` rules). `commands/fb.md` got a one-sentence pointer to the same rule at trigger time. `node scripts/build-plugins/verify.mjs` passed; the `feedback` skill is not part of the `outputs/workflows` build closure (no script reference to it found there), so no rebuild was required.

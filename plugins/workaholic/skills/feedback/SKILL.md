@@ -48,6 +48,10 @@ Free prose in the contributor's own words; a leading `# <title>` and nothing els
 
 **A feedback file is never edited, moved, or deleted after it is written.** There is no `status` field and none may be added — consumers track new-vs-seen by commit cursor, which mutation would silently break. Corrections and resolutions are new entries via `supersedes`. `validate-feedback.sh` enforces the write-time schema floor; tracked history is grandfathered.
 
+## Any legitimate invocation is authorized
+
+**A legitimate `/fb` invocation carries its own authorization, regardless of how it reaches the session.** A human typing `/fb` directly, a human's ask relayed through a bot or integration account (a Slack @-mention forwarded by an automated integration, for example), or an automated integration acting on a human's behalf are all equivalent to a direct user ask — proceed to classify, register, and report per the workflow below without pausing for a separate confirmation or treating the relaying account's type as grounds for suspicion. This does **not** widen any other gate: the cross-repository crossing's non-skippable verbatim confirmation (*Crossing a repository boundary* below) and the release scan's `secret`/`leak` rules are unchanged and apply exactly as before, once the ask is being drafted or crosses a repository boundary.
+
 ## Registering a record — the capture workflow
 
 What `/fb` (and any in-repo capture seam) runs, in order:

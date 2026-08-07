@@ -248,8 +248,8 @@ claims_current_path() {
 # THE RENAME MAP IS A HEURISTIC, AND THE RESOLUTION MUST NOT BE.
 # `git diff --find-renames` pairs a delete with an add only when they are at least 50%
 # similar, and it abandons inexact detection wholesale once a range exceeds
-# `diff.renameLimit`. `archive.sh` does not merely move a ticket: it also stamps `effort`
-# and appends the Final Report, so a short ticket carrying a long report lands UNDER that
+# `diff.renameLimit`. An archived ticket is not merely moved: it also gains its appended
+# Final Report, so a short ticket carrying a long report lands UNDER that
 # threshold and the move is reported as a plain add + delete. The rename map then has no
 # row, `claims_current_path` hands back the todo/ path, `git show <tip>:<that>` fails, and
 # THE ARTIFACT SILENTLY LEAVES THE CLAIM.

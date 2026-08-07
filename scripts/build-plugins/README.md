@@ -36,7 +36,7 @@ Output: `outputs/workflows/` — a committed, self-contained plugin (`.codex-plu
 | scripts | `${SCRIPT_DIR}/../../<x>/scripts/` | unchanged |
 
 Each closure skill's whole `scripts/` dir is copied intact, so same-directory
-sibling calls (e.g. `${SCRIPT_DIR}/update.sh`) keep working. The build fails
+sibling calls (e.g. `${SCRIPT_DIR}/list-todo.sh`) keep working. The build fails
 loudly if any `${CLAUDE_PLUGIN_ROOT}` token survives; `verify.mjs` additionally
 checks that every emitted reference points at a real file.
 

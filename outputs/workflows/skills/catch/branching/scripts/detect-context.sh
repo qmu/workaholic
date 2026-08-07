@@ -1,0 +1,146 @@
+#!/bin/sh -eu
+# Detect development context from current branch pattern.
+# Usage: sh detect-context.sh
+# Output: JSON with context type, branch, and optional mode/trip_name
+
+set -eu
+
+branch=$(git branch --show-current 2>/dev/null || echo "")
+root=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+USER_SLUG=$(sh "${SCRIPT_DIR}/../../gather/scripts//user-slug.sh" 2>/dev/null || echo "")
+
+if [ -z "$branch" ]; then
+  echo '{"context": "unknown", "branch": ""}'
+  exit 0
+fi
+
+# Resolve the trip directory belonging to THIS branch, or empty when the branch owns none.
+#
+# TWO trip<->branch associations are recorded, and only these:
+#
+#   * legacy naming: branch trip/<name> owns .workaholic/trips/<name>.
+#   * the recorded field (decided 2026-07-16): a trip's plan.md carries
+#     `branch: <name>`, stamped by init-trip.sh from its working directory's
+#     checkout. A modern work-* branch owns exactly the trip whose plan.md
+#     names it. Trips that predate the field have no `branch:` line and match
+#     no work-* branch — the honest legacy state, never guessed at.
+#
+# This replaced a repo-wide `find` for ANY trip directory, which made has_trips a property
+# of the repository instead of the branch: once .workaholic/trips/trip-20260319-040153/
+# landed on main in March 2026, every branch after it reported trip or hybrid forever.
+# The asymmetry was inside one function -- the ticket half three lines below was already
+# scoped to USER_SLUG, deliberately and with a comment.
+#
+# Both halves of the contract answer together: this function finds the dir, and the
+# work-* emitter below carries its basename out as trip_name, so report/SKILL.md's
+# Trip Mode resolves <trip-name> on every branch the flow actually creates.
+branch_trip_dir() {
+  case "$branch" in
+    trip/*) printf '%s' "${root}/.workaholic/trips/${branch#trip/}" ;;
+    work-*)
+      for _plan in "${root}"/.workaholic/trips/*/plan.md; do
+        [ -f "$_plan" ] || continue
+        if grep -qx "branch: ${branch}" "$_plan" 2>/dev/null; then
+          printf '%s' "${_plan%/plan.md}"
+          return 0
+        fi
+      done
+      printf ''
+      ;;
+    *) printf '' ;;
+  esac
+}
+
+# Detect mode from workspace artifacts
+detect_mode() {
+  todo_dir="${root}/.workaholic/tickets/todo"
+  has_trips=false
+  has_tickets=false
+
+  trip_dir=$(branch_trip_dir)
+  if [ -n "$trip_dir" ] && [ -d "$trip_dir" ]; then
+    has_trips=true
+  fi
+
+  # Count the whole queue. It was scoped to `todo/<user>/` so another developer's
+  # leftover tickets could not flip mode detection; since P2 (2026-08-06) ownership
+  # is a field rather than a directory, and mode detection is deliberately NOT
+  # re-derived through the ownership oracle: this answers "does this workspace have
+  # ticket work in it", which is true of a queue whoever owns it, and paying an
+  # owns.sh call per ticket to narrow a boolean would be cost without an answer.
+  # Depth 2 keeps a not-yet-migrated per-user directory counted.
+  ticket_count=$(find "${todo_dir}" -maxdepth 2 -name '*.md' 2>/dev/null | wc -l)
+  if [ "$ticket_count" -gt 0 ]; then
+    has_tickets=true
+  fi
+
+  if $has_trips && $has_tickets; then
+    echo "hybrid"
+  elif $has_trips; then
+    echo "trip"
+  elif $has_tickets; then
+    echo "drive"
+  else
+    echo "drive"
+  fi
+}
+
+# Work context: branch matches work-*. When the branch owns a trip (via the
+# recorded plan.md `branch:` field), emit trip_name too — report's Trip Mode
+# needs the name, not just the mode.
+case "$branch" in
+  work-*)
+    mode=$(detect_mode)
+    trip_dir=$(branch_trip_dir)
+    if [ -n "$trip_dir" ] && [ -d "$trip_dir" ]; then
+      echo "{\"context\": \"work\", \"branch\": \"${branch}\", \"mode\": \"${mode}\", \"trip_name\": \"$(basename "$trip_dir")\"}"
+    else
+      echo "{\"context\": \"work\", \"branch\": \"${branch}\", \"mode\": \"${mode}\"}"
+    fi
+    exit 0
+    ;;
+esac
+
+# Backward compat: drive-* branches map to work context with drive mode
+case "$branch" in
+  drive-*)
+    echo "{\"context\": \"work\", \"branch\": \"${branch}\", \"mode\": \"drive\"}"
+    exit 0
+    ;;
+esac
+
+# Backward compat: trip/* branches map to work context with trip/hybrid mode
+case "$branch" in
+  trip/*)
+    trip_name="${branch#trip/}"
+    mode=$(detect_mode)
+    if [ "$mode" = "drive" ]; then
+      mode="trip"
+    fi
+    echo "{\"context\": \"work\", \"branch\": \"${branch}\", \"mode\": \"${mode}\", \"trip_name\": \"${trip_name}\"}"
+    exit 0
+    ;;
+esac
+
+# Main/master: unknown context
+if [ "$branch" = "main" ] || [ "$branch" = "master" ]; then
+  echo "{\"context\": \"unknown\", \"branch\": \"${branch}\"}"
+  exit 0
+fi
+
+# Other branch: check for worktrees
+script_dir="$(cd "$(dirname "$0")" && pwd)"
+list_script="${script_dir}/list-worktrees.sh"
+
+if [ -f "$list_script" ]; then
+  worktree_output=$(sh "$list_script" 2>/dev/null || echo '{"count": 0}')
+  count=$(printf '%s' "$worktree_output" | jq -r '.count' 2>/dev/null || echo "0")
+
+  if [ "$count" -gt 0 ]; then
+    echo "{\"context\": \"worktree\", \"branch\": \"${branch}\"}"
+    exit 0
+  fi
+fi
+
+echo "{\"context\": \"unknown\", \"branch\": \"${branch}\"}"

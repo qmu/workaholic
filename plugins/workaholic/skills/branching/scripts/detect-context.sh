@@ -63,9 +63,14 @@ detect_mode() {
     has_trips=true
   fi
 
-  # Scope the count to the current user's subdirectory so another developer's
-  # leftover tickets don't flip mode detection for this user.
-  ticket_count=$(find "${todo_dir}/${USER_SLUG}" -maxdepth 1 -name '*.md' 2>/dev/null | wc -l)
+  # Count the whole queue. It was scoped to `todo/<user>/` so another developer's
+  # leftover tickets could not flip mode detection; since P2 (2026-08-06) ownership
+  # is a field rather than a directory, and mode detection is deliberately NOT
+  # re-derived through the ownership oracle: this answers "does this workspace have
+  # ticket work in it", which is true of a queue whoever owns it, and paying an
+  # owns.sh call per ticket to narrow a boolean would be cost without an answer.
+  # Depth 2 keeps a not-yet-migrated per-user directory counted.
+  ticket_count=$(find "${todo_dir}" -maxdepth 2 -name '*.md' 2>/dev/null | wc -l)
   if [ "$ticket_count" -gt 0 ]; then
     has_tickets=true
   fi

@@ -1,0 +1,96 @@
+# The propose run — step by step
+
+The ordered contract `/propose` executes. Every step's rules live in the SKILL
+(`SKILL.md`); this file is the orchestration: which script, in which order, with which
+abort reason. The run is **unattended by contract** — no `AskUserQuestion` at any step,
+and every abort reports a machine-readable reason.
+
+1. **Take the ask in hand.** An ask given as the command's argument, a feedback record
+   this session just wrote, or a record named explicitly by the caller. With none of
+   those, report `{"proposed": 0, "reason": "nothing_in_hand"}` and stop — sweeping the
+   repository for something to propose is the retired design. When the ask came from a
+   GitHub issue carrying an assignee, apply *Act only on an ask that is yours*
+   (SKILL.md): a differing assignee is `{"proposed": 0, "reason": "not_mine"}`, stop.
+
+2. **Open the publish tree.** `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/open-publish-tree.sh`.
+   On `ok: false`, abort reporting its reason. Everything written from here lands
+   **inside** the path it returns — a checkout of `origin/main` — so the caller's branch
+   and uncommitted work are untouched, and steps 3–4 read the base.
+
+3. **Register the record**, inside the publish tree:
+   `printf '%s\n' "<body>" | bash ${CLAUDE_PLUGIN_ROOT}/skills/feedback/scripts/create.sh "<title>" <kind> <source> [supersedes]`.
+   Classify by the feedback skill's deciding rule — an ask is an `instruction`; a
+   `concern` is a worry with no ask attached (`workaholic:feedback`, *Choosing the
+   kind*). This session decides both the `kind` and the judgment, so a misclassification
+   silences its own proposal. The record is written **whatever step 6 concludes**.
+
+4. **Read the constraints**, from the publish tree:
+   `bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/survey-state.sh` — missions, todo
+   queue, recent base commits, with `since_reason`. Constraints, never triggers.
+
+5. **Dedup.** `bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/list-proposed-refs.sh`.
+   An ask that restates a record already referenced is **record-only**: stop after
+   step 3's record and go to step 9. Read this **before** scaffolding, since what this
+   session writes joins the set immediately.
+
+6. **Judge** the ask against the SKILL's judgment bar, with the step-4 state in hand,
+   and **decide the form** (*The form follows the work's shape*): two or more units →
+   a mission with its ticket set (steps 7–8); atomic → one loose ticket (step 8's loose
+   form, no mission); neither → record-only. When unsure, record-only — and name what
+   made you unsure in step 9's PR body.
+
+7. **Draft the mission** (mission form only), in the publish tree:
+   - `bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/scaffold-draft.sh "<title>" --assignee <the triggering issue's assignee> <feedback-filename>...`
+     — the filename from step 3. Omit `--assignee` when no person was assigned (the
+     mission is then team-owned); never substitute the running identity.
+   - Fill `## Goal` / `## Scope` / `## Experience` and a **proposed** `## Acceptance`
+     sketch from the ask (Edit on the scaffold; clearly provisional — the PR's reviewer
+     interrogates it to drive-ready via `/mission <instruction>`). Never touch `status`
+     and never seed `assignees` beyond the flag or `merge_policy`.
+
+8. **Emit the tickets**, in the publish tree.
+
+   For a **mission** proposal, emit its whole set — two or more, always:
+   - `bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/scaffold-proposed-ticket.sh "<title>" <mission-slug> [type] [layer] --assignee <the same assignee>`,
+     once per ticket, in the order they would be driven.
+   - Stamp the links: `bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/link-acceptance.sh <slug> <item-selector> <ticket-filename>`
+     once per acceptance item the set satisfies — the pairing decided in step 6, never
+     inferred.
+   - Then the floor: `bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/check-floor.sh <slug>`.
+     Non-zero exit means this is **not** published as a mission — fall back to a loose
+     ticket or record-only, and report the script's `alternative`.
+
+   For an **atomic** direction, emit exactly one loose ticket — no mission, no wrapper:
+   - `bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/scaffold-proposed-ticket.sh "<title>" --loose [type] [layer] --feedback <record>... --assignee <the same assignee>`
+   - The `--feedback` refs are **mandatory** here (`no_feedback` otherwise).
+
+   Either way, fill each ticket's Overview, Key Files, Implementation Steps, and the
+   provisional Quality Gate, and leave `merge_policy` empty (absent reads as `review`).
+
+9. **Publish it all as one pull request.**
+   `WORKAHOLIC_PR_TITLE="[Proposal] <title>" bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/publish-tree-pr.sh "<title>" "<why>" "<changes>" "<concerns>" "<insights>" "<verify>"`
+   — **one call**, carrying the record and whatever the judgment added. Name the commit
+   subject for what it carries — `Propose mission <slug>`, `Propose ticket <slug>`, or
+   `Register feedback <stem>` for record-only — and give the pull request the same words
+   behind the `[Proposal]` prefix (`[提案]` for a Japanese title); the subject and the
+   title are separate surfaces (SKILL.md). No notification target rides the body — the
+   reply thread is found statelessly (Q1; `workaholic:notify`, *One thread per
+   feedback item*). On
+   `ok: false`, report the reason; `pr_failed` means the artifact **is** pushed, so open
+   the PR by hand rather than re-publishing (which would duplicate it).
+
+10. **Close the publish tree.** `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/close-publish-tree.sh`.
+    Run it whether or not the publish succeeded; it refuses rather than destroying
+    recoverable state.
+
+11. **Notify.** `bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/notify-slack.sh "<message>"`
+    — the title, this repo's label (`bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/project-label.sh`),
+    the **PR URL**, and how to pick it up once merged (`/mission <slug>` for a mission;
+    a loose ticket simply joins the backlog). A no-op or failure never fails the run
+    (SKILL.md, *Notifier contract*). Inside the `[Propose]` routine the thread root is
+    posted by the routine itself through the account's Slack connector; do not post
+    twice.
+
+12. **Report** one line: the form chosen (mission with N tickets / loose ticket /
+    record-only) with its reason, the record's filename, the PR URL, and the `notified`
+    flag.

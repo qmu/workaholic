@@ -11,7 +11,7 @@
 # explicitly, before the session's skill registry is built. A local session keeps a
 # persistent ~/.claude, so this is a no-op outside the web.
 #
-# WITHOUT IT, EVERY CLOUD ROUTINE STOPS AT ITS OWN PRECONDITION. The [Drive] routine's
+# WITHOUT IT, EVERY CLOUD ROUTINE STOPS AT ITS OWN PRECONDITION. The [Implement] routine's
 # prompt says "the workaholic plugin must be loaded ... if it is not, post the failure and
 # stop" -- so an unbootstrapped repository schedules the routine, fires it on time, and
 # does nothing, which looks healthy from the routines list.
@@ -73,6 +73,35 @@
 # never block a session on the network. /drive's own sync-main.sh fast-forwards the
 # checkout a moment later, so the mismatch becomes visible to check-deps on that tick.
 #
+# WHY THE SUPERSEDED BINDING IS NOT REPAIRABLE FROM HERE, MEASURED (2026-08-05). The
+# obvious candidate repair -- sweep the superseded version directories `plugin update`
+# leaves behind -- was investigated and is the WRONG repair, because it misreads where the
+# stale binding comes from. Observed on this machine:
+# `~/.claude/plugins/cache/workaholic/workaholic/` holds 25 version directories side by
+# side (1.0.100 … 1.0.133) while `installed_plugins.json` carries exactly ONE entry for
+# the plugin, naming 1.0.133. So the registry is never ambiguous and a session never
+# "picks the wrong directory": it binds whatever the registry named AT STARTUP, which is
+# strictly before this hook can run. When a container's baked-in image is behind, the
+# session binds the stale build, this hook then updates the registry to the current one,
+# and check.sh correctly reports `loaded_version_behind_registry` for the rest of that
+# session's life -- the update landed ~85s before the 2026-08-04T22:58Z session's first
+# commit, which is exactly this ordering.
+#
+# Two consequences, and the second is the outage. Deleting superseded directories would
+# repair nothing (the binding was not a choice among them) and would be actively unsafe,
+# since a running session is bound to a directory that becomes "superseded" the instant an
+# update lands -- the precise failure the no-mid-session-refresh rule above exists to
+# prevent. And because every tick is a FRESH container off the same image, a stale image
+# reproduces the condition every hour rather than self-healing: four consecutive ticks on
+# 2026-08-05 stopped at /drive's §1 gate with a claimable queue.
+#
+# So there is no safe repair inside the plugin, and that is the recorded outcome rather
+# than a gap. The binding, the cache layout and the registry are all the harness's; a
+# plugin editing any of them is reaching outside its own boundary. What would actually fix
+# it is a container image whose baked install is not behind, or a harness that rebinds
+# after SessionStart -- an ask, not a workaround. The gate stays exactly as it is: the
+# condition is detected correctly, and detecting it is not the bug.
+#
 # HOME IS RESPECTED, NOT IMPOSED (`: "${HOME:=/root}"`): hardcoding /root breaks the moment
 # the hook runs as a non-root user, whose ~/.claude would be unwritable.
 #
@@ -99,6 +128,36 @@ run() { log "\$ $*"; "$@" >>"$LOG" 2>&1 || { log "FAILED: $*"; return 1; }; }
 die() { echo "workaholic bootstrap: $1 (see $LOG)"; exit 0; }  # exit 0 = fail open
 
 log "=== bootstrap (claude $(claude --version 2>/dev/null || echo unknown)) ==="
+
+# 0) Provision `gh`, which the web container does not ship (2026-08-06).
+# Fourteen plugin scripts shell out to it; the two that decide whether a cloud run can
+# finish are publish-tree-pr.sh (pushes the branch, then reports `no_gh` instead of opening
+# the pull request) and merge-pr.sh (cannot run at all), so every cloud `auto` unit was
+# demoted to the PR path and every routine-published artifact waited for a human to open
+# its PR by hand. Measured in the container: `gh` 2.45.0 is in Ubuntu noble universe, the
+# session runs as root, and GH_TOKEN/GITHUB_TOKEN are already injected -- so the install is
+# a package away and the resulting `gh` has credentials.
+#
+# EVERY PART OF IT IS NON-FATAL. This hook has no `set -e` and must never block a session
+# from starting: `gh` still absent afterwards is exactly the status quo, not a regression,
+# which is why the failure path logs one line and falls through rather than calling die().
+# The `command -v gh` guard makes an already-provisioned container pay nothing and a
+# resume/clear/compact refire a no-op.
+if command -v gh >/dev/null 2>&1; then
+  log "gh present ($(gh --version 2>/dev/null | head -n 1)); skip"
+elif [ "$(id -u)" != "0" ]; then
+  log "gh absent and not root; skipping install"
+  echo "workaholic bootstrap: gh is not installed and this session is not root (see $LOG)"
+else
+  log "gh absent; installing from the distro archive"
+  if run apt-get update && run apt-get install -y --no-install-recommends gh; then
+    log "gh installed ($(gh --version 2>/dev/null | head -n 1))"
+  else
+    # Named, once, so a container where this cannot work says so here rather than
+    # surfacing later as a `no_gh` at the first publish-tree-pr.sh call.
+    echo "workaholic bootstrap: gh install failed; PR creation and merge will report no_gh (see $LOG)"
+  fi
+fi
 
 # Already installed at the version this checkout wants: skip the network round-trip.
 # Presence alone never skips -- see the header on the version gate.

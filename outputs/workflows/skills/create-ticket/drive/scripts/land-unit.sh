@@ -25,7 +25,7 @@
 # only while a human is genuinely present, so this script refuses two ways:
 #
 #   1. `--developer-present` must be passed explicitly. It is the instruction, not a
-#      proof: like authorize-routine-change.sh, this cannot demonstrate that a human was
+#      proof: no script an agent runs can demonstrate that a human was
 #      in the room, and it is not sold as doing so. What it does is make the claim
 #      EXPLICIT, so an unattended caller has to state a falsehood rather than fall into
 #      the route by omission -- and /drive's own prompt forbids stating it.

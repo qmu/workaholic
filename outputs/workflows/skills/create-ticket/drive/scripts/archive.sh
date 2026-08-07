@@ -31,7 +31,7 @@ if [ -z "$BRANCH" ]; then
 fi
 
 TICKET_DIR=$(dirname "$TICKET")
-# Strip /todo, /icebox, or their per-user form /todo/<user>, /icebox/<user> to
+# Strip /todo, /icebox, or a legacy per-user form /todo/<user>, /icebox/<user> to
 # find the tickets root. The per-user patterns run first so a trailing user
 # segment is removed before the bare-directory patterns apply.
 TICKETS_ROOT=$(echo "$TICKET_DIR" | sed 's|/todo/[^/]*$||; s|/icebox/[^/]*$||; s|/todo$||; s|/icebox$||')
@@ -41,6 +41,12 @@ SAFE_BRANCH=$(echo "$BRANCH" | tr '/' '-')
 ARCHIVE_DIR="${TICKETS_ROOT}/archive/${SAFE_BRANCH}"
 TICKET_FILENAME=$(basename "$TICKET")
 
+# The category is derived from the commit verb and emitted ONLY as the commit's
+# `Category:` git trailer (via commit.sh --category), which is what /report's
+# collect-commits.sh and the release-note grouping read. It is NOT stamped into the
+# ticket frontmatter any more — the `category` ticket field was retired with
+# type/layer/effort/commit_hash (2026-08-07); archived tickets that already carry it
+# are history and are left as they are.
 CATEGORY="Changed"
 case "$COMMIT_MSG" in
     Add*|Create*|Implement*|Introduce*) CATEGORY="Added" ;;
@@ -147,25 +153,16 @@ git add -A
 SCRIPT_DIR=$(dirname "$0")
 COMMIT_SCRIPT="${SCRIPT_DIR}/../../commit/scripts//commit.sh"
 
-# Pass the same computed CATEGORY both into the commit (as a git trailer) and into
-# the ticket frontmatter below, so the two surfaces can never disagree.
 sh "$COMMIT_SCRIPT" --skip-staging --category "$CATEGORY" "$COMMIT_MSG" "$WHY" "$CHANGES" "$CONCERNS" "$INSIGHTS" "$VERIFY"
 
-# NOTE: `commit_hash` is deliberately NOT stamped here. A commit cannot contain its own
-# hash: writing it and amending changes the hash, so the recorded value named a pre-amend
-# commit that is orphaned and never pushed — every link built from it 404s. Re-stamping
-# after the amend just regresses forever (no fixed point exists). The hash is derived
-# instead, from the commit that ADDED the archived ticket — see
-# `report/scripts/ticket-commits.sh`, which is the single source of truth for it.
-echo "==> Updating ticket frontmatter..."
-UPDATE_SCRIPT="${SCRIPT_DIR}/update.sh"
-sh "$UPDATE_SCRIPT" "$ARCHIVED_TICKET" "category" "$CATEGORY"
-
-git add "$ARCHIVED_TICKET"
-git commit --amend --no-edit
-echo "==> Updated ticket with category"
-
-# Read the hash only AFTER the final amend, so what we print actually exists.
+# NOTE: nothing is written back into the ticket after the commit. `commit_hash` is
+# deliberately NOT stamped — a commit cannot contain its own hash: writing it and
+# amending changes the hash, so the recorded value named a pre-amend commit that is
+# orphaned and never pushed. The hash is derived instead, from the commit that ADDED
+# the archived ticket — see `report/scripts/ticket-commits.sh`, the single source of
+# truth for it. And `category` lives only in the commit's `Category:` trailer (above),
+# since the ticket field was retired — which is also what removed the stamp-then-amend
+# dance this script used to end with.
 COMMIT_HASH=$(git rev-parse --short HEAD)
 
 echo ""

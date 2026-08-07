@@ -13224,7 +13224,7 @@ function testWorkaholifyRoutines() {
     assertTrue("the prompt's only substitution is the PR-link placeholder",
       /\{repo\}\/pull\//.test(rawPrompt) && !/\{repo_(name|slug)\}/.test(rawPrompt), rawPrompt);
     assertEq("everything else is byte-identical across repositories",
-      drive.prompt.trim(), rawPrompt.replace("{repo}", WH));
+      drive.prompt.trim(), rawPrompt.replaceAll("{repo}", WH));
     assertTrue("{repo} renders the full URL in the PR link",
       drive.prompt.includes(`${WH}/pull/`), "missing pull link");
     assertTrue("no placeholder survives rendering", !/\{repo(_name|_slug)?\}/.test(drive.prompt), drive.prompt);
@@ -13436,17 +13436,27 @@ function testRoutineAnnouncementScoping() {
       body.slice(0, 400));
   }
 
-  // P3 (2026-08-06): two templates, and each prompt is four lines. A developer
-  // configures these by hand once per project, so the count and the length are the
-  // constraint the loop's shape is set by.
+  // P3 (2026-08-06): two templates. A developer configures these by hand once per
+  // project, so the count and the shape are the constraint the loop's shape is set by.
   const templates = readdirSync(dir).filter((f) => f.endsWith(".md")).sort();
   assertEq("exactly two templates ship", templates, ["fb.md", "implement.md"]);
-  // The developer's own four lines (feedback 20260806183556), and four is literal: the
-  // assignee guard that briefly lived here moved into /propose (P8), which is what keeps
-  // both templates identical in shape.
+  // The developer's own prompt (feedback 20260806183556, reshaped by Q2 2026-08-07):
+  // three instructions and two fenced post formats — the start post is formatted too,
+  // and both formats carry the session URL and the requester's mention. The assignee
+  // guard that briefly lived here moved into /propose (P8), which is what keeps both
+  // templates identical in shape.
   for (const [name, body] of [["fb", fb], ["implement", implement]]) {
-    const lines = body.replace(/^## Prompt\n/, "").split("\n").filter((l) => l.trim());
-    assertEq(`the ${name} prompt is four lines`, lines.length, 4);
+    const prompt = body.replace(/^## Prompt\n/, "");
+    const instructions = prompt.split("\n").filter((l) => /^[A-Z]/.test(l.trim()));
+    assertEq(`the ${name} prompt carries three instructions`, instructions.length, 3);
+    const fences = (prompt.match(/^```$/gm) || []).length;
+    assertEq(`the ${name} prompt carries two fenced post formats`, fences, 4);
+    assertTrue(`the ${name} prompt's start post is formatted (Designing/Implementing for)`,
+      /(📐 Designing for|🛠️ Implementing for)/.test(prompt), prompt.slice(0, 200));
+    assertTrue(`the ${name} prompt's finish post is formatted (Proposed/Implemented)`,
+      /(📐 Proposed - |🛠️ Implemented - )/.test(prompt), prompt.slice(0, 200));
+    assertTrue(`both posts carry the session URL and the requester's mention`,
+      /claude\.ai\/code\/session_/.test(prompt) && /of <@U…>/.test(prompt), prompt.slice(0, 200));
   }
   // [Consent] is retired, and no surviving template may re-announce a merge: that is
   // exactly the third standing process the reduction removed.
@@ -13458,7 +13468,7 @@ function testRoutineAnnouncementScoping() {
     && /Do not reintroduce a third routine/i.test(wh), "retirement cost not stated");
 
   // A prompt may not defer the one thing that IS its output contract.
-  // The four lines are the developer's own (feedback 20260806183556, amended by Q1):
+  // The prompt is the developer's own (feedback 20260806183556, amended by Q1/Q2):
   // read the payload out of the triggering artifact and FIND its reply thread (the
   // notify skill owns the lookup -- the prompt names it and carries no target),
   // say work has started in the payload's language, run the one command, post the

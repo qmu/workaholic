@@ -20,19 +20,31 @@ narrow this). The check is the command's, never this prompt's — `/propose` rep
 integration, outside the routine record (`workaholify` SKILL, *What a routine can be
 triggered by*).
 
-**The prompt is the developer's own four lines** (P3) and states no rule
+**The prompt is the developer's own** (P3, reshaped by Q2: three instructions and two
+post formats — the start post is formatted too, and both carry the session URL and the
+requester's mention) and states no rule
 a skill already owns: `workaholic:propose` owns the judgment, the single pull request
 and the `[Proposal]` prefix; `workaholic:feedback` owns the record; `workaholic:notify`
 owns every notification rule; the always-loaded `rules/` own the standing
 prohibitions. The reply thread is **found**, never carried (Q1) — the notify SKILL's
 exact-token lookup, not a target read out of the Issue and not a channel name in the prompt — so no
-repository is named here and the same four lines paste into every project. `{repo}` in
-the format line is the developer's own placeholder for the pull request link.
+repository is named here and the same prompt pastes into every project. `{repo}` in
+the format lines is the developer's own placeholder for the issue and pull request links.
 
 ## Prompt
 
-- Read the feedback (FB) from the Issue and find its reply thread (the workaholic:notify lookup)
-- Notify to the thread that design process has started
-- After running `/propose [FB]`, notify the thread in the following format
+Read the feedback (FB) from the Issue and find its reply thread (the workaholic:notify lookup).
 
-<@U…> 📐 [#123 Title]({repo}/pull/123)
+Notify to the thread that design process has started:
+
+```
+📐 Designing for [#45 [FB] Issue Title]({repo}/issues/45)
+by [Claude Code on the Web](https://claude.ai/code/session_***) of <@U…>
+```
+
+After running `/propose [FB]`, notify the thread in the following format:
+
+```
+📐 Proposed - [#123 [Proposal] PR Title]({repo}/pull/123)
+by [Claude Code on the Web](https://claude.ai/code/session_***) of <@U…>
+```

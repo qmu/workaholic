@@ -1,11 +1,37 @@
 # Mission schema — reference
 
-Companion reference for [`../SKILL.md`](../SKILL.md)'s **Schema** section, which carries the
-frontmatter block itself and the body-section list. Everything below is the full detail behind
-those fields: the optional quality gate, what makes a mission drivable, the ownership oracle,
-the duration record, and the two line formats. Nothing here is optional reading when you are
-actually writing or reading one of these fields — it is separated only so the skill itself stays
-loadable, per the ~50-150 line guideline in `CLAUDE.md`.
+Companion reference for [`../SKILL.md`](../SKILL.md)'s **Location and Schema** section. Below are
+the frontmatter block itself and the full detail behind its fields: the optional quality gate,
+what makes a mission drivable, the ownership oracle, the duration record, the two line formats,
+and the retired-state history. Nothing here is optional reading when you are actually writing or
+reading one of these fields — it is separated only so the skill itself stays loadable, per the
+~50-150 line guideline in `CLAUDE.md`.
+
+### The frontmatter block
+
+`mission.md` carries this frontmatter (`type: Mission` is the OKF conformance floor):
+
+```yaml
+---
+type: Mission
+title: <human title>
+slug: <slug>
+status: active          # active | achieved | abandoned | carried — the ONE lifecycle axis; selects the area. Flipped only by close.sh; retired draft/approved spellings fold to active on the next script touch
+merge_policy:           # auto | review — the orthogonal merge axis (G5), recorded at CREATION (K2). EMPTY MEANS review, exactly as on a ticket; never defaulted to auto
+carried_from:           # only on a successor: the slug(s) of the mission(s) whose remainder it inherited
+created_at: <ISO-8601>
+author: <email>
+assignees: [<email>]    # the mission's OWNERS (plural — co-ownable). Creator-seeded by create.sh; empty = team-owned/claimable, NEVER a floor (K2). Read ONLY via gather/scripts/owners.sh
+assignee: <email>       # LEGACY FALLBACK only (missions predating `assignees`); empty on new missions, never read directly
+predicted_hours:        # decimal agent-hours, stamped ONCE at creation (predict-duration.sh); empty when basis 0
+actual_hours:           # accumulated by /drive (record-run-hours.sh is its only writer)
+tickets: []             # reserved machine-readable member lists, populated by later work
+stories: []
+gate_type:              # OPTIONAL and normally EMPTY — documentation | live-app | check
+gate_target:            # the route/command to exercise
+gate_assert:            # one line: what must hold
+---
+```
 
 ### Quality gate — optional, and normally empty
 
@@ -130,3 +156,16 @@ The chosen option's cost is real and accepted: a genuine "this direction continu
 - **Markers travel verbatim.** An inherited item keeps its `(#<filename>)` link, because an item linked to a known artifact carries strictly more information than an unlinked one — `unlinked` is the *unaddressable* state this contract exists to prevent. The trap is real: an inherited link may name a ticket the **predecessor** archived, which can therefore never tick again. That is a plan statement, so its repair is the successor's replan re-linking through `link-acceptance.sh` — which refuses `linked_to_other` precisely so re-pointing stays deliberate.
 - **`carried_from` is many-valued.** A mission can absorb more than one predecessor, so a second carry rewrites the scalar into `[first, second]`. A bare scalar still reads as one, matching the `mission:` relation convention, so nothing predating this is orphaned. The successor also gets a `remainder carried from <slug>` changelog line, which is the half of the lineage a reader greps.
 - **The append is idempotent by item text.** The item line — marker included — is the identity, the same key `link-acceptance.sh` and `tick-acceptance.sh` address items by. An item the successor already carries is skipped whether this carry put it there or the successor wrote it itself, so a re-run changes the file not at all and two predecessors sharing a criterion contribute one copy.
+
+### History — retired words, states, and sections
+
+Recorded so none of it is re-litigated (`workaholic:planning` / `terminology`):
+
+- **"Mission" was redefined twice.** Before 2026-07-21 it was the long-lived container ("a durable goal spanning many tickets, outliving any branch or session"). On 2026-07-21 it became "the overnight-executable execution plan of a strategy", with longevity moved up to a new `strategy` artifact — the mission had been playing two roles at once. On 2026-07-28 it took its current meaning — an **optional, epic-equivalent grouping of tickets**, never a required parent — and the strategy layer was retired: direction accretes in the feedback stream instead of a second direction artifact (two homes would drift), and ownership returned to the mission itself (`docs/loop-engineering-workflow.md` B3/B5). Retired strategies survive verbatim as feedback records (`migrate-strategies.sh`).
+- **"Trip" retired 2026-07-28** (decision I1): design discussion is the feedback stream, decomposition is `/mission` and `/propose`, execution is `/drive`. `.workaholic/trips/` stays on disk as read-only history with no writer.
+- **`status: draft` and `status: approved` retired into `active`** (K1, 2026-07-31). `draft` made sense when `/propose` pushed straight to `main` (J1) and something had to stop `/drive` claiming unreviewed work; J4 replaced that premise — every artifact arrives behind a pull request — so the flag gated the same content twice, and `/mission approve`'s only job was to undo the first gate. Observable cost: six active missions on `main`, none claimable, `/drive` reporting `pending` every tick. Legacy spellings fold to `active` on the next mission-script touch (`lib/resolve.sh`, which also drops the long-retired `drive_authorized:` key); every reader tolerates both for the transition window. `active` doubling as area name and status word is deliberate — with one in-flight state the ambiguity I2 warned about is gone. Keeping `draft` as an *optional* marker was rejected: an optional gate only some artifacts carry is a gate nobody can rely on. The scaffold writers are unaffected by the write-time floor's re-aim — they write with a shell heredoc, which a `PostToolUse` hook never sees.
+- **`## Scope` was removed from the template on 2026-08-01**, deleted rather than made optional: no validator, script, or hook ever read it, and `## Goal` (why) plus `## Experience` (what) already carry what it reached for. Older missions keep it verbatim as history; a carried successor does not inherit it (the successor is scaffolded from the template, and copying one would re-introduce a retired section into a new mission).
+- **`## Reflection` retired with the parallel-mission executor** (I3): what a run learned is written as a `kind: concern` or `kind: insight` feedback record — the seam `/drive` already uses for everything it defers — not a section only mission-planning ever read. Pre-2026-07-28 missions keep it; any `## ` heading ends `## Acceptance`, so its checklist-shaped lines never counted toward progress.
+- **`concerns: []` is no longer scaffolded** — deferred concerns live in the feedback stream (H2), so a reserved slot on the mission would be a second, always-empty home. Missions predating 2026-07-28 still carry the key; it is tolerated and read by nothing.
+- **`create-mission-worktree.sh` keeps its name, now a slight misnomer.** After J1 its only caller is `claim.sh`, and what it creates is a *claim* worktree keyed on a unit id (a mission slug is one kind; a batch id the other). It was not renamed: the script ships in the generated `outputs/workflows` bundle, so the name is public API to cross-agent consumers, and a rename would touch `claim.sh`, the tests, several documents, and the generated closure for no behavioural gain. Read "mission worktree" as "the claim worktree of a mission unit".
+- **Creation once built the worktree itself** — `/mission` committed inside an unpushed worktree, leaving the mission invisible to `plan-units.sh` (the failure `docs/drive-loop-runbook.md` §6 documented). Decision J1 ended it: every mission write goes through a publish tree, and `claim.sh` is the only creator of a branch or worktree in the plugin. The mission scripts were untouched — they are cwd-relative and never branch or commit; only the caller's `cd` target moved.

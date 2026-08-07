@@ -8,18 +8,11 @@ metadata:
 
 # Commit
 
-Safe commit workflow with multi-contributor awareness. All commits in the Workaholic workflow should use this skill.
+Safe commit workflow with multi-contributor awareness. All commits in the Workaholic workflow go through `commit.sh`.
 
 ## Multi-Contributor Awareness
 
-**Context**: You are not the only one working in this repository. Multiple developers and agents may have uncommitted changes in the working directory.
-
-Before committing:
-
-1. **Run pre-flight check** to understand what will be committed
-2. **Review staged changes** to ensure only intended files are included
-3. **Identify unintended changes** that may belong to other contributors
-4. **Ask user if uncertain** about whether to include changes
+You are not the only one working in this repository — multiple developers and agents may have uncommitted changes in the working directory. Before committing: run the pre-flight check to understand what will be committed, review the staged changes so only intended files are included, and identify changes that may belong to another contributor.
 
 **Never stage an untracked file without confirmation** — it may belong to another contributor. When untracked files belong in the commit, list them and confirm with the user first (a selectable prompt, its `question` body prefixed with the `[<project label>]` from `bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/project-label.sh`), then pass them explicitly as trailing `[files...]` arguments to `commit.sh`.
 
@@ -27,47 +20,41 @@ Before committing:
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/commit/scripts/commit.sh \
-  [--category <Added|Changed|Removed>] [--skip-staging] \
+  [--category <Added|Changed|Removed>] [--skip-staging] [--allow-empty] \
   "<title>" "<why>" "<changes>" "<concerns>" "<insights>" "<verify>" [files...]
 ```
 
-**Argument order is strict**: any flags (`--category`, `--skip-staging`) come **first**, then the six positional args in exactly this order — `title why changes concerns insights verify` — then optional `[files...]`. A flag placed after the positionals is parsed as a filename, not a flag, and is silently dropped — a trailing `--category` loses its `Category:` trailer. Pass `--category` when the change maps cleanly to Added / Changed / Removed so `/report` can group it. The trailer block (including any `Co-Authored-By`) is whatever `commit.sh` emits — callers stay trailer-agnostic and add no attribution line themselves.
+**Argument order is strict**: any flags come **first**, then the six positional args in exactly this order — `title why changes concerns insights verify` — then optional `[files...]`. A flag placed after the positionals is parsed as a filename, not a flag, and is silently dropped — a trailing `--category` loses its `Category:` trailer. Pass `--category` when the change maps cleanly to Added / Changed / Removed so `/report` can group it. The trailer block (including any `Co-Authored-By`) is whatever `commit.sh` emits — callers stay trailer-agnostic and add no attribution line themselves.
 
-### Parameters
+Each body section (except title) is a short paragraph of 3-5 sentences; the keys are chosen to feed `/report` (`Why` → Motivation, `Changes` → Changes/Outcome, `Concerns` → Concerns, `Insights` → Successful Development Patterns):
 
-Each section (except title) should be a short paragraph of 3-5 sentences. See the Message Format section below for detailed guidance on what to cover in each section. The body keys are chosen to feed `/report`: `Why` → Motivation, `Changes` → Changes/Outcome, `Concerns` → Concerns, `Insights` → Successful Development Patterns.
-
-- `title` - Commit title (present-tense verb, 50 chars max)
-- `why` - Why this change was needed: the problem, what triggered it, the chosen approach and rationale (from ticket Overview). Feeds `/report` Motivation. Omitted from the message when empty.
-- `changes` - What users will experience differently: concrete before-and-after differences, or "None" with brief explanation
-- `concerns` - Risks, trade-offs, deferred work, or forward-looking follow-ups this change surfaced (from ticket Considerations). Feeds `/report` Concerns. Pass "None" or empty to omit the section.
-- `insights` - Non-obvious patterns, gotchas, or institutional knowledge worth preserving (from ticket Discovered Insights). Feeds `/report` Successful Development Patterns. Pass "None" or empty to omit the section.
-- `verify` - What verification was done or should be done: manual checks, automated tests, edge cases considered
-- `files...` - Optional: specific files to stage (if omitted, stages all tracked changes)
+- `title` — present-tense verb, what changed, 50 chars max (see *Title* below)
+- `why` — the problem or gap, what triggered the work, the chosen approach and why it beat the alternatives (from ticket Overview); omitted from the message when empty
+- `changes` — what users will experience differently: each observable difference concretely, before-and-after, readable without the code; internal-only changes write "None" plus a brief why
+- `concerns` — risks, trade-offs, limitations, deferred work, forward-looking follow-ups (from ticket Considerations); concrete and actionable — recorded here it survives ticket pruning, and `/ship` can carry unresolved ones forward. "None"/empty omits the section
+- `insights` — non-obvious patterns, gotchas, hidden coupling, institutional knowledge worth preserving: what *worked* and why, or the surprising constraint that shaped the implementation — never a restatement of the change (from ticket Discovered Insights). "None"/empty omits
+- `verify` — what verification was done or should be done: manual checks and their results, tests added/run, edge cases considered, how external interactions were validated. "None" only for trivial changes
+- `files...` — specific files to stage (omitted: all tracked changes)
 
 ### Staging Behavior
 
-- If files are specified: stages only those files. **A named path that cannot be staged is a fatal error** — the script names every unresolved path, stages nothing, and exits non-zero, so a typo'd or moved path can never be committed-around in silence. (A named path that is untracked-but-exists stages normally; a named deleted path stages as a deletion.)
-- If no files specified: stages all modified tracked files (`git add -u`). Untracked files are **not** swept in, but they are **listed by name** before the commit — the omission is reported, never silent. Re-run naming an untracked file explicitly if it belongs in the commit.
-- **Never uses `git add -A`** to avoid accidentally staging untracked files from other contributors.
+- With files named: stages only those. **A named path that cannot be staged is a fatal error** — the script names every unresolved path, stages nothing, and exits non-zero, so a typo'd or moved path can never be committed-around in silence. (Untracked-but-existing stages normally; a named deleted path stages as a deletion.)
+- With no files: stages all modified tracked files (`git add -u`). Untracked files are **not** swept in, but they are **listed by name** before the commit — the omission is reported, never silent. Re-run naming an untracked file explicitly if it belongs in the commit.
+- **Never uses `git add -A`**, to avoid staging another contributor's untracked files.
 
-A commit this script reports as created always contains every file the caller named; it never reports success while quietly leaving a named or untracked file out.
+A commit this script reports as created always contains every file the caller named; it never reports success while quietly leaving a named or untracked file out. The script also refuses a detached HEAD, warns when nothing is staged, and shows a diff summary before committing.
 
-## Pre-Commit Checks
+### `--allow-empty` means empty
 
-The commit script performs safety checks:
-
-1. **Verify branch exists** - Cannot commit in detached HEAD state
-2. **Check for staged changes** - Warns if nothing to commit
-3. **Review what will be committed** - Shows diff summary before proceeding
+For coordination markers only (heartbeats, `Claim`/`Resume` commits). It builds the commit against a scratch index seeded from `HEAD`, so the commit's tree equals `HEAD`'s by construction and the caller's index is left byte-identical — git's own flag merely *permits* a changeless commit and would sweep whatever is staged into it (a heartbeat fired over a staged `git rm` once shipped three real deletions subjected "Refresh heartbeat"). The commit still gets the subject gate and the trailers, which is why coordination markers use this seam rather than raw `git commit`.
 
 ## The commit as a unit
 
-A commit is the smallest description layer: **one normalized change**, kept to a reviewable size so commit *count* is a comparable throughput unit. That size is enforced by the release-scan per-commit changed-lines gate (ticket `20260721020759`) — do not restate its thresholds here. The full commit → ticket → mission granularity discipline lives in `workaholic:mission`'s **Granularity** section.
+A commit is the smallest description layer: **one normalized change**, kept to a reviewable size so commit *count* is a comparable throughput unit. That size is enforced by the release-scan per-commit changed-lines gate — do not restate its thresholds here. The full commit → ticket → mission granularity discipline lives in `workaholic:mission`'s **Granularity** section.
 
 ## Message Format
 
-Each section should be a short paragraph (3-5 sentences). The keys map onto the report's narrative sections so `git log` alone gives a reviewer — and the `/report` overview-writer — enough signal without reading the diff. `Why`, `Concerns`, and `Insights` are omitted when empty or "None"; `Changes` and `Verify` always render.
+The keys map onto the report's narrative sections so `git log` alone gives a reviewer — and the `/report` overview-writer — enough signal without reading the diff. `Why`, `Concerns`, and `Insights` are omitted when empty or "None"; `Changes` and `Verify` always render.
 
 ```
 <title>
@@ -87,70 +74,21 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 
 ### Title
 
-Present-tense verb, what changed (50 chars max). No prefixes like `feat:` or `[fix]`.
+Present-tense verb, what changed, 50 chars max. No prefixes like `feat:` or `[fix]`. Examples: "Add session-based authentication", "Fix Mermaid slash character in labels", "Remove unused RegisterTool type".
 
-`commit.sh` enforces this rule itself: it runs the shared subject validator (`scripts/check-subject.sh` in this skill — the same rule source the commit-guard hooks delegate to) before staging anything, so an off-policy title fails fast with the index untouched. The 50-character limit counts characters, not bytes (the validator pins a UTF-8 locale), so a Japanese title measures the same on every host.
+`commit.sh` enforces this rule itself: it runs the shared subject validator (`scripts/check-subject.sh` in this skill — the canonical rule source the commit-guard hooks also delegate to) before staging anything, so an off-policy title fails fast with the index untouched. The 50-character limit counts characters, not bytes (the validator pins a UTF-8 locale), so a Japanese title measures the same on every host.
 
-Examples:
-- Add session-based authentication
-- Fix Mermaid slash character in labels
-- Remove unused RegisterTool type
-
-### Why
-
-Why this change was needed, including the motivation and rationale. Start with the problem or gap that existed before this change. Explain what triggered the work -- a user report, a downstream dependency, a missing capability, or a design decision. State the chosen approach and why it was preferred over alternatives. Extract context from the ticket Overview. Target 3-5 sentences. `/report` synthesizes the branch's Motivation section from these. Omitted from the message when empty (e.g. a trivial archive commit).
-
-### Changes
-
-What users will experience differently after this change. Describe each observable difference concretely -- new commands, altered output format, changed error messages, new options, or modified default behavior. Explain the before-and-after for each difference so that a reader who has never seen the code can understand the impact. `/report` draws the Changes and Outcome sections from these. If the change is internal only, write "None" and briefly explain why there is no user-facing impact (e.g., "None -- this is a refactor of internal shell scripts with no change to CLI behavior").
-
-### Concerns
-
-Risks, trade-offs, limitations, deferred work, or forward-looking follow-ups this change surfaced. Each should be a concrete, actionable observation -- what the risk is and, where possible, how to address it. Extract from the ticket Considerations and anything you discovered while implementing. `/report` feeds these into its Concerns section (and `/ship` can carry unresolved ones forward), so a concern recorded here is not lost if the ticket is later pruned. Pass "None" or leave empty when there is nothing to flag; the section is then omitted from the message.
-
-### Insights
-
-Non-obvious patterns, gotchas, hidden coupling, or institutional knowledge worth preserving for whoever touches this area next. Focus on what *worked* and why, or a surprising constraint that shaped the implementation -- not a restatement of the change. Extract from the ticket Discovered Insights. `/report` uses these for its Successful Development Patterns section. Pass "None" or leave empty when nothing noteworthy emerged; the section is then omitted.
-
-### Verify
-
-What verification was done or should be done to confirm this change works correctly. Describe manual checks that were performed and their results. List automated tests that were added, modified, or run. Identify edge cases that were considered and whether they were covered or deferred. If the change interacts with external systems, note how those interactions were validated. Write "None" only if the change is trivial (e.g., typo fix, comment update) and requires no special verification.
-
-## Examples
-
-### Implementation commit (with specific files)
+## Example
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/commit/scripts/commit.sh \
   "Add session-based authentication" \
-  "Users needed persistent login state across browser sessions. Previously, every page refresh required re-authentication, causing friction for returning users. Added cookie-based session management with configurable TTL, chosen over JWT tokens for simplicity and server-side revocation support." \
-  "New 'Remember me' checkbox on the login form that persists sessions for 30 days. When unchecked, sessions expire when the browser closes. Session expiry now shows a friendly redirect to login instead of a raw 401 error." \
-  "Session fixation was considered and mitigated by regenerating the session id on login; CSRF protection for the new cookie path is deferred to a follow-up and should be tracked before this ships externally." \
-  "Server-side revocation via a session store turned out simpler to reason about than JWT blacklisting for this codebase -- prefer it whenever sessions must be invalidated mid-life." \
-  "Manual login/logout flow tested across Chrome and Firefox. Verified session persistence across page refreshes and browser restarts. Tested session expiry by setting TTL to 5 seconds and confirming redirect behavior. Cookie security flags (HttpOnly, Secure, SameSite) verified in browser dev tools." \
+  "Users needed persistent login state across browser sessions; every refresh required re-authentication. Cookie-based sessions with configurable TTL were chosen over JWT for simplicity and server-side revocation." \
+  "New 'Remember me' checkbox persists sessions for 30 days; session expiry now redirects to login instead of a raw 401." \
+  "CSRF protection for the new cookie path is deferred to a follow-up and should be tracked before this ships externally." \
+  "Server-side revocation via a session store is simpler to reason about than JWT blacklisting -- prefer it when sessions must be invalidated mid-life." \
+  "Manual login/logout across Chrome and Firefox; persistence across restarts; expiry tested with a 5s TTL; cookie security flags verified in dev tools." \
   src/auth/session.ts src/middleware/auth.ts
 ```
 
-### Archive commit (stage all changes)
-
-```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/commit/scripts/commit.sh \
-  "Archive ticket: add-authentication" \
-  "" \
-  "None" \
-  "None" \
-  "None" \
-  "None"
-```
-
-### Abandonment commit
-
-```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/commit/scripts/commit.sh \
-  "Abandon: add-authentication" \
-  "Implementation proved unworkable due to API limitations" \
-  "None" \
-  "The provider's API has no idempotency key, so retries double-charge; revisit only if they ship one." \
-  "None" \
-  "None"
-```
+A minimal bookkeeping commit (e.g. archiving a ticket) passes `""`/`"None"` for the sections that do not apply — they are omitted from the message, never padded.

@@ -6,7 +6,7 @@ type: refactoring
 layer: [Config]
 effort:
 commit_hash:
-category:
+category: Changed
 depends_on:
 mission: slim-commands-skills-and-docs-for-ai-agent-use
 merge_policy:
@@ -62,3 +62,14 @@ genuinely needed moves to a `reference/` companion, which the build already carr
 
 <!-- ~100 lines is a target, not a hard cap; a few skills may justify more.
      The approval interrogation should fix the measure and the exceptions. -->
+
+## Final Report
+
+Development completed as planned. Sixteen oversized SKILL.md files went 6,040 → 2,219 lines. Nine now read under 100; the seven above name their reason: drive (130 — the §7 token table is the /goal contract and stays near-verbatim, plus gate/effective-policy tables and §-anchors other files reference), workaholify/create-ticket (120 — externally referenced section roster + test-pinned phrases), propose/branching/mission (119/119/118 — referenced heading identities and script invocation blocks), ship/report (105 — numbered-section skeleton named by commands and docs). Incident narrations folded into per-skill Caveats bullets; genuinely needed detail moved to reference/ companions (report 5 files, drive 5, ship 3, workaholify 3, feedback 2, branching 2, catch/explain 1 each; mission/create-ticket extended their existing dirs). All externally referenced section headings were grepped and preserved; every remaining script invocation keeps its ${CLAUDE_PLUGIN_ROOT} form.
+
+### Discovered Insights
+
+- **Insight**: Two smoke-test pins now point at relocated prose (report's `## Handoff` template block, and index-order checks) — the rules live in reference/ files, not the SKILL.md the tests read.
+  **Context**: Retargeting them is the pare-tests ticket's scope in this same unit, with the agents' deletion lists as the map of what moved versus what retired.
+- **Insight**: A referenced section heading is the real floor under a SKILL.md's size — the cut bottomed out where commands, hooks, docs and tests name sections by identity.
+  **Context**: Future growth should extend reference/ files, never the SKILL.md, which is now mostly an index plus hard rules.

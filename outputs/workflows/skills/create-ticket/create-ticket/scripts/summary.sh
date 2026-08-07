@@ -6,16 +6,17 @@
 # view that hid it would hide the queue's most actionable half. "Assigned to me"
 # stays defined in exactly one place (gather/scripts/owns.sh, the one ownership
 # oracle), which is what makes this view and /drive's survey unable to disagree.
-# Each kept ticket is enriched with its H1 title and frontmatter
-# type/layer/depends_on. Creates nothing; reads only.
+# Each kept ticket is enriched with its H1 title and frontmatter depends_on.
+# (`type`/`layer` rode along until 2026-08-07, when those ticket fields were
+# retired.) Creates nothing; reads only.
 #
 # Before P2 (2026-08-06) the scoping was the directory `todo/<user-slug>/` and
 # list-todo.sh applied it; the shape of this script is unchanged because the
 # ownership question simply moved from the path to a field.
 #
 # Usage: summary.sh
-# Output: JSON array [{path, title, type, layer, depends_on, owners}], sorted by
-#         path; [] when nothing in the queue is this developer's or unowned.
+# Output: JSON array [{path, title, depends_on, owners}], sorted by path;
+#         [] when nothing in the queue is this developer's or unowned.
 
 set -eu
 
@@ -49,13 +50,11 @@ for f in $PATHS; do
     esac
     owners=$(json_escape "$(sh "${GATHER_SCRIPTS}/owners.sh" "$f" 2>/dev/null | tr '\n' ' ' | sed 's/ *$//' || true)")
     title=$(json_escape "$(h1_title "$f")")
-    type=$(json_escape "$(fm_field "$f" type)")
-    layer=$(json_escape "$(fm_field "$f" layer)")
     depends_on=$(json_escape "$(fm_field "$f" depends_on)")
     path=$(json_escape "$f")
     [ "$FIRST" -eq 1 ] || OUT="${OUT},"
     FIRST=0
-    OUT="${OUT}{\"path\":\"${path}\",\"title\":\"${title}\",\"type\":\"${type}\",\"layer\":\"${layer}\",\"depends_on\":\"${depends_on}\",\"owners\":\"${owners}\"}"
+    OUT="${OUT}{\"path\":\"${path}\",\"title\":\"${title}\",\"depends_on\":\"${depends_on}\",\"owners\":\"${owners}\"}"
 done
 OUT="${OUT}]"
 printf '%s\n' "$OUT"

@@ -15,7 +15,7 @@
 #    "resumable": [{"unit", "branch", "author", "last_commit_at", "stale",
 #                   "resume_reason", "artifacts"}],
 #    "missions": [{"slug", "title", "merge_policy", "checked", "total", "next", "path"}],
-#    "backlog":  [{"path", "title", "type", "layer", "merge_policy", "depends_on"}],
+#    "backlog":  [{"path", "title", "merge_policy", "depends_on"}],
 #    "excluded": [{"kind": "mission"|"ticket", "id": "...", "reason": "..."}]}
 #
 # IT STATES ITS OWN FRESHNESS, AND STILL DOES NOT FIX IT (decision J3). Claims come
@@ -435,11 +435,9 @@ for t in $TODO_LIST; do
         continue
     fi
     title=$(json_escape "$(doc_title "$t")")
-    ttype=$(json_escape "$(fm_field "$t" type)")
-    layer=$(json_escape "$(fm_field "$t" layer)")
     policy=$(json_escape "$(fm_field "$t" merge_policy)")
     depends=$(json_escape "$(fm_field "$t" depends_on)")
-    BACKLOG="${BACKLOG}${b_sep}{\"path\": \"$(json_escape "$t")\", \"title\": \"${title}\", \"type\": \"${ttype}\", \"layer\": \"${layer}\", \"merge_policy\": \"${policy}\", \"depends_on\": \"${depends}\"}"
+    BACKLOG="${BACKLOG}${b_sep}{\"path\": \"$(json_escape "$t")\", \"title\": \"${title}\", \"merge_policy\": \"${policy}\", \"depends_on\": \"${depends}\"}"
     b_sep=", "
 done
 

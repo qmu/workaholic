@@ -98,10 +98,10 @@ installed CLI):
   outward-facing process is the developer's act; this page is the instruction.
   The rule generalized beyond cron on 2026-08-03: an agent may not bring a
   standing outward-facing process into existence, or re-point one, without a
-  human seeing exactly what it will be. `/setup-routines` schedules Claude Code
-  Web routines under that same bar — it reads freely, and every create, refresh
-  or removal is confirmed verbatim, one routine at a time, in an interactive
-  session (`skills/workaholify/SKILL.md` §5).
+  human seeing exactly what it will be. Claude Code Web routines sit under the
+  same bar taken to its end (2026-08-06): `/setup-routines` renders copy-paste
+  setup sheets and **manages nothing** — the developer creates each routine in
+  their own browser from the sheet (`skills/workaholify/SKILL.md` §5).
 
 ### The cloud routine is merge-triggered; the clock in this runbook is the fallback (2026-08-06)
 
@@ -229,4 +229,4 @@ not of surveying: a runner without one still reads the whole queue, reports
 | a merged `/propose` proposal drives nothing | its `## Acceptance` is a provisional sketch with no tickets behind it | the survey reports `no_tickets` and the mission is not offered. Replan it (`/mission <instruction referencing it>`) to emit the ticket set, and merge that delta |
 | `claim.sh` refuses with `mission_missing` | the slug is wrong, or the checkout is behind the base | absence is a real error since J1. Run `sync-main.sh`, then re-check the slug against `mission/scripts/list.sh` |
 | `{"notified": false, "reason": "no_token"}` on every review unit | env file missing/unsourced in cron | check the `. …/.workaholic-drive.env` prefix and file perms |
-| tickets pile up untouched | they carry a `mission:` relation whose mission is not approved | approve the mission, or drop the relation so they become backlog |
+| tickets pile up untouched | they carry a `mission:` relation, so they are driven only inside that mission's unit (`mission_member`) — and the mission itself is not being offered | read the mission's own row in `plan-units.sh`'s `excluded[]` (`no_plan`, `owned_by_other`, a live claim) and fix that; there is no approval flip to perform (K1 — merging the mission's pull request was the approval). A ticket that should stand alone drops the relation and becomes ordinary backlog |

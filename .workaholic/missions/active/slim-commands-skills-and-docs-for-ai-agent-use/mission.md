@@ -9,13 +9,14 @@ author: noreply@anthropic.com
 assignees: []
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 2.2
 feedback: [20260806124808-ai.md]
 tickets: []
 stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260807-102500
 ---
 
 # Slim commands, skills, and docs for AI-agent use
@@ -45,14 +46,23 @@ the README-reachable docs are reorganized to match the current spec.
      plan. Approval replans this mission to drive-ready; only then may it be
      authorized. -->
 
-- [ ] Every command is a thin skill-alias and every SKILL.md (drive/SKILL.md
+- [x] Every command is a thin skill-alias and every SKILL.md (drive/SKILL.md
       included) sits under ~100 lines with obsolete rules, scar-tissue prose, and
       non-essential bold removed. (#20260806125031-cut-every-skill-md-under-the-line-target.md)
-- [ ] Tests, shell scripts, and the ticket front matter are pared to what is
+- [x] Tests, shell scripts, and the ticket front matter are pared to what is
       needed — `type`/`layer`/`effort`/`commit_hash`/`category` dropped. (#20260806125031-drop-obsolete-ticket-front-matter-fields.md)
-- [ ] README-reachable docs are restructured to the current spec and the plugin
+- [x] README-reachable docs are restructured to the current spec and the plugin
       is framed for AI-agent use first, developer use second. (#20260806125031-reframe-the-plugin-for-ai-agent-use-first.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-07 — ticket archived — 20260806125031-make-every-command-a-thin-skill-alias.md
+- 2026-08-07 — ticket archived — 20260806125031-drop-obsolete-ticket-front-matter-fields.md
+- 2026-08-07 — ticket archived — 20260806125031-cut-every-skill-md-under-the-line-target.md
+- 2026-08-07 — ticket archived — 20260806125031-pare-tests-and-shell-scripts-to-the-load-bearing-set.md
+- 2026-08-07 — ticket archived — 20260806125031-reframe-the-plugin-for-ai-agent-use-first.md
+- 2026-08-07 — ticket archived — 20260806125031-restructure-readme-reachable-docs-to-the-current-spec.md
+- 2026-08-07 — ticket archived — 20260807105800-let-final-report-edits-pass-on-foreign-authored-tickets.md
+- 2026-08-07 — run recorded (+2.2h) — 20260807-102500
+- 2026-08-07 — story reported — work-20260807-102500.md

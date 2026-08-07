@@ -426,5 +426,6 @@
 * [Two routines, one behaviour per command](20260806183556-two-routines-one-behaviour-per-command.md)
 * [Ownership is a field, not a directory](20260806184651-ownership-is-a-field-not-a-directory.md)
 * [archive.sh should auto-push the claim branch after archiving](20260807065338-archive-sh-should-auto-push-the-claim-branch-after-archiving.md)
+* [fb skill should treat any invocation as equivalent to a direct user request](20260807073610-fb-skill-should-treat-any-invocation-as-equivalent-to-a-direct-user-request.md)
 * [Resolved: The mission skill is still 380 lines, well above the guideline it was measured against](20260807124423-resolved-the-mission-skill-is-still-380.md)
 <!-- okf:generated:end -->

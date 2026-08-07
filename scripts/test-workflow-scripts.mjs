@@ -12212,6 +12212,7 @@ const tests = [
   ["workaholify routines: one template set, applied per repository, drift named per field", testWorkaholifyRoutines],
   ["routine announcements: exactly one subject, or nothing at all", testRoutineAnnouncementScoping],
   ["workaholify bootstrap: without it a web routine is configured but cannot work", testWorkaholifyBootstrap],
+  ["workaholify bootstrap: the session gets the developer's git identity", testBootstrapGitIdentity],
   ["branching worktree reclamation: merged AND clean, every skip named", testWorktreeReclamation],
   ["mission size norms: a ceiling on what a mission may say, and the floor it must not touch", testMissionSizeNorms],
   ["propose: widened inputs, emitted tickets, and the mission_member safety property (J4)", testProposeWidenedBatch],
@@ -13336,6 +13337,66 @@ function testWorkaholifyBootstrap() {
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+}
+
+// ---------- workaholify bootstrap: the session gets the developer's git identity ----------
+// The web container's git identity is `noreply@anthropic.com`, and ownership keys on
+// `git config user.email` (gather/scripts/owns.sh) -- measured live 2026-08-07, the first
+// full routine-chain day: a proposal's ticket carried the developer's own address in
+// `assignees` and the developer's own [Implement] routine ended `ticket_owner_mismatch`,
+// unable to claim the very ticket it existed to drive. The bootstrap resolves the
+// session's GitHub login through the committed repo-root `.claude/git-identities` mapping
+// (`<login>=<email>`) and sets the repo-local identity -- ONLY when the current email is
+// empty or an @anthropic.com default. `gh` and `claude` are PATH shims, the suite's
+// standard stub shape: the hook calls `gh api user --jq .login`, so the gh shim just
+// answers the login; the `claude` shim keeps the install steps off the network entirely
+// (CLAUDE_CODE_REMOTE=true is what lets the hook past its web gate at all).
+function testBootstrapGitIdentity() {
+  const dir = makeRepo("main");
+  const binDir = mkdtempSync(join(tmpdir(), "workaholic-idstub-"));
+  writeFileSync(join(binDir, "gh"),
+    `#!/bin/sh\ncase "$1" in --version) echo "gh 0.0.0 (stub)";; api) echo "testlogin";; esac\nexit 0\n`);
+  writeFileSync(join(binDir, "claude"), "#!/bin/sh\nexit 0\n");
+  chmodSync(join(binDir, "gh"), 0o755);
+  chmodSync(join(binDir, "claude"), 0o755);
+  const HOOK = `${POSIX_SH} ${SCRIPTS.bootstrapHook}`;
+  // TMPDIR points into the fixture so the hook's log never touches the real machine's;
+  // the global/system git config is masked so the developer machine running the suite
+  // cannot leak its own user.name into "unset", as a fresh container has none.
+  const env = { ...process.env, PATH: `${binDir}:${process.env.PATH}`,
+    CLAUDE_CODE_REMOTE: "true", CLAUDE_PROJECT_DIR: dir, TMPDIR: binDir,
+    GIT_CONFIG_GLOBAL: "/dev/null", GIT_CONFIG_SYSTEM: "/dev/null" };
+  const email = () => run(dir, "git config user.email", { env }).stdout.trim();
+  try {
+    // (a) The anthropic default plus a mapped login becomes the developer's identity --
+    // and user.name is filled from the login only because it was unset.
+    mkdirSync(join(dir, ".claude"), { recursive: true });
+    writeFileSync(join(dir, ".claude/git-identities"),
+      "# <login>=<email> -- comments tolerated\ntestlogin=dev@example.com\n");
+    run(dir, "git config user.email noreply@anthropic.com");
+    run(dir, "git config --unset user.name");
+    let r = run(dir, HOOK, { env });
+    assertEq("a mapped anthropic-default session exits 0", r.status, 0);
+    assertEq("...and ends up with the mapped user.email", email(), "dev@example.com");
+    assertEq("...and user.name filled from the login (it was unset)",
+      run(dir, "git config user.name", { env }).stdout.trim(), "testlogin");
+
+    // (c) A real local identity is NEVER overwritten, even with a mapping hit on file.
+    run(dir, "git config user.email real@example.com");
+    run(dir, "git config user.name Real");
+    r = run(dir, HOOK, { env });
+    assertEq("a real identity still exits 0", r.status, 0);
+    assertEq("a real local identity is untouched by a mapping hit", email(), "real@example.com");
+    assertEq("...and its user.name is untouched too",
+      run(dir, "git config user.name", { env }).stdout.trim(), "Real");
+
+    // (b) No mapping file is the status quo, not an error: untouched, session starts.
+    rmSync(join(dir, ".claude/git-identities"));
+    run(dir, "git config user.email noreply@anthropic.com");
+    r = run(dir, HOOK, { env });
+    assertEq("an absent mapping file never blocks session start", r.status, 0);
+    assertEq("...and leaves the identity untouched", email(), "noreply@anthropic.com");
+  } finally { cleanup(dir); cleanup(binDir); }
 }
 
 // ---------- routine templates: an announcement names exactly one subject ----------

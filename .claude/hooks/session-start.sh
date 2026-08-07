@@ -102,6 +102,22 @@
 # after SessionStart -- an ask, not a workaround. The gate stays exactly as it is: the
 # condition is detected correctly, and detecting it is not the bug.
 #
+# THE SESSION GETS THE DEVELOPER'S GIT IDENTITY (2026-08-07). The web container's git
+# identity is `noreply@anthropic.com`, and ticket/mission ownership is compared against
+# `git config user.email` (gather/scripts/owns.sh) -- so on the first full routine-chain
+# day a proposal's ticket carried the developer's own address in `assignees` and the
+# developer's own [Implement] routine ended `ticket_owner_mismatch`, unable to claim the
+# very ticket it existed to drive. The session pushes and merges AS the developer's GitHub
+# account, yet git did not know who it was. Step 0b closes that at the provisioning seam:
+# it resolves the session's GitHub login (`gh api user`) through the committed repo-root
+# `.claude/git-identities` mapping (`<login>=<email>`, one per line, `#` comments
+# tolerated; the emails are already public in git history, so the file discloses nothing
+# new) and sets the REPO-LOCAL `git config user.email` (and `user.name` from the login,
+# only when unset). It acts ONLY when the current email is empty or an @anthropic.com
+# default -- a developer's real local identity is never overwritten -- and, like the `gh`
+# step, every branch is non-fatal with one legible log line: an absent mapping file, a
+# missing `gh`, or a failed API call is the status quo, not a regression.
+#
 # HOME IS RESPECTED, NOT IMPOSED (`: "${HOME:=/root}"`): hardcoding /root breaks the moment
 # the hook runs as a non-root user, whose ~/.claude would be unwritable.
 #
@@ -158,6 +174,50 @@ else
     echo "workaholic bootstrap: gh install failed; PR creation and merge will report no_gh (see $LOG)"
   fi
 fi
+
+# 0b) Give the session the developer's git identity (2026-08-07; the header carries the
+# measurement). Runs before the version-gated fast path so a resume/clear/compact refire
+# still repairs an unset identity; once the email is set the first case arm makes every
+# later fire a single `git config` read. Every branch non-fatal, one log line each way.
+GIT_EMAIL=$(git config user.email 2>/dev/null || true)
+IDMAP="${CLAUDE_PROJECT_DIR:-.}/.claude/git-identities"
+case "$GIT_EMAIL" in
+""|*@anthropic.com)
+  if [ ! -f "$IDMAP" ]; then
+    log "git identity: no mapping file at ${IDMAP}; keeping '${GIT_EMAIL:-unset}'"
+  elif ! command -v gh >/dev/null 2>&1; then
+    log "git identity: gh unavailable; keeping '${GIT_EMAIL:-unset}'"
+  else
+    LOGIN=$(gh api user --jq .login 2>>"$LOG") || LOGIN=""
+    case "$LOGIN" in
+    "")
+      log "git identity: could not resolve the GitHub login; keeping '${GIT_EMAIL:-unset}'"
+      ;;
+    *[!A-Za-z0-9-]*)
+      # A login is interpolated into the sed lookup below; GitHub logins are
+      # alphanumeric-plus-hyphen, so anything else is a malformed answer, not a user.
+      log "git identity: unexpected login '${LOGIN}'; keeping '${GIT_EMAIL:-unset}'"
+      ;;
+    *)
+      MAPPED=$(sed -n "s/^${LOGIN}=//p" "$IDMAP" | head -n 1)
+      if [ -z "$MAPPED" ]; then
+        log "git identity: no entry for '${LOGIN}' in ${IDMAP}; keeping '${GIT_EMAIL:-unset}'"
+      elif git config user.email "$MAPPED" 2>>"$LOG"; then
+        if [ -z "$(git config user.name 2>/dev/null || true)" ]; then
+          git config user.name "$LOGIN" 2>>"$LOG" || log "git identity: setting user.name failed"
+        fi
+        log "git identity: user.email set to ${MAPPED} (login ${LOGIN})"
+      else
+        log "git identity: git config failed; keeping '${GIT_EMAIL:-unset}'"
+      fi
+      ;;
+    esac
+  fi
+  ;;
+*)
+  log "git identity: real local identity '${GIT_EMAIL}' kept"
+  ;;
+esac
 
 # Already installed at the version this checkout wants: skip the network round-trip.
 # Presence alone never skips -- see the header on the version gate.

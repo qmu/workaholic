@@ -2,7 +2,7 @@
 type: Mission
 title: Slim commands, skills, and docs for AI-agent use
 slug: slim-commands-skills-and-docs-for-ai-agent-use
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-06T12:49:35+00:00
 author: noreply@anthropic.com
@@ -66,3 +66,4 @@ the README-reachable docs are reorganized to match the current spec.
 - 2026-08-07 — ticket archived — 20260807105800-let-final-report-edits-pass-on-foreign-authored-tickets.md
 - 2026-08-07 — run recorded (+2.2h) — 20260807-102500
 - 2026-08-07 — story reported — work-20260807-102500.md
+- 2026-08-07 — mission achieved — mission.md

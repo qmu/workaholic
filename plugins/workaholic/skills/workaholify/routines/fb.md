@@ -22,16 +22,16 @@ triggered by*).
 
 **The prompt is the developer's own four lines** (P3) and states no rule
 a skill already owns: `workaholic:propose` owns the judgment, the single pull request
-and the `[Proposal]` prefix; `workaholic:feedback` owns the record; the `workaholify`
-SKILL owns every notification rule; the always-loaded `rules/` own the standing
-prohibitions. The reply thread is **found**, never carried (Q1) — the SKILL's exact-token
-lookup, not a target read out of the Issue and not a channel name in the prompt — so no
+and the `[Proposal]` prefix; `workaholic:feedback` owns the record; `workaholic:notify`
+owns every notification rule; the always-loaded `rules/` own the standing
+prohibitions. The reply thread is **found**, never carried (Q1) — the notify SKILL's
+exact-token lookup, not a target read out of the Issue and not a channel name in the prompt — so no
 repository is named here and the same four lines paste into every project. `{repo}` in
 the format line is the developer's own placeholder for the pull request link.
 
 ## Prompt
 
-- Read the feedback (FB) from the Issue and find its reply thread (the workaholify lookup)
+- Read the feedback (FB) from the Issue and find its reply thread (the workaholic:notify lookup)
 - Notify the thread, in the same language as the FB, that consideration has started
 - After running `/propose [FB]`, notify the thread in the following format
 

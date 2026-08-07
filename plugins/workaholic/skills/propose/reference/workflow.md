@@ -74,7 +74,7 @@ and every abort reports a machine-readable reason.
    `Register feedback <stem>` for record-only — and give the pull request the same words
    behind the `[Proposal]` prefix (`[提案]` for a Japanese title); the subject and the
    title are separate surfaces (SKILL.md). No notification target rides the body — the
-   reply thread is found statelessly (Q1; `workaholic:workaholify`, *One thread per
+   reply thread is found statelessly (Q1; `workaholic:notify`, *One thread per
    feedback item*). On
    `ok: false`, report the reason; `pr_failed` means the artifact **is** pushed, so open
    the PR by hand rather than re-publishing (which would duplicate it).

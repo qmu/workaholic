@@ -77,3 +77,12 @@ sheets — with a pointer to `workaholic:notify` for the model the templates def
 
 - No rule of the model is lost or weakened in the move (Q1 bounds, exact-token-only,
   per-unit posts, /implement-only scoping all survive verbatim in substance).
+
+## Final Report
+
+Development completed as planned. `workaholic:notify` (SKILL.md 50 lines + reference/notifications.md 59) now holds the whole runtime notification model — the Q1 stateless lookup with its written bounds, per-unit posts, /implement-only scoping, post shapes, mention resolution, red-alert dedup, the bright line, and the withdrawn-P9 history. Workaholify shrank 121→87 lines to a one-paragraph pointer and its reference/notifications.md is deleted; drive/propose preload the new skill and every consumer reference (including both routine prompts, still exactly four lines) names `workaholic:notify`. Two relocation pins prevent the model growing back into workaholify.
+
+### Discovered Insights
+
+- **Insight**: `computeClosure` follows script references only, so a prose-only skill never enters the built bundles by itself — the bundles carry flattened `notify` references, the same parity they previously had with workaholify.
+  **Context**: Adding it to EXTRA_SKILLS would fail verify.mjs on its cross-skill script mention; flattened references are the accepted shape.

@@ -78,7 +78,7 @@ Note the asymmetry this **removes** rather than creates. `/implement` filters at
 
 ```bash
 scaffold-draft.sh "<title>" --assignee <email> <feedback-record>...
-scaffold-proposed-ticket.sh "<title>" <mission-slug> [type] [layer] --assignee <email>
+scaffold-proposed-ticket.sh "<title>" <mission-slug> --assignee <email>
 ```
 
 Both write `assignees: [<email>]`; both write an **empty** field when no assignee is given, which means team-owned and claimable by anyone. That empty case is a real state and stays available — but it is the wrong *default* for the routine chain, and leaving it as the only behaviour was a measured hole: every proposal-born artifact was unowned, so **every** developer's runner judged it claimable, and whose job it was got decided by whose push landed first. The claim protocol stopped the double-drive; nothing could decide the ownership, because nothing in the data said (`gather/scripts/owns.sh` correctly answered `unowned` for everyone).
@@ -181,8 +181,8 @@ Writes the proposed `mission.md` (schema above; slug via `mission/scripts/slug.s
 ### scaffold-proposed-ticket.sh — the ticket writer
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/scaffold-proposed-ticket.sh "<title>" <mission-slug> [type] [layer]
-bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/scaffold-proposed-ticket.sh "<title>" --loose [type] [layer] --feedback <record>...
+bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/scaffold-proposed-ticket.sh "<title>" <mission-slug>
+bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/scaffold-proposed-ticket.sh "<title>" --loose --feedback <record>...
 ```
 
 Writes one proposed ticket into the flat `todo/`, **unowned** — a proposal is work nobody has taken on yet, which is the same reading its empty `merge_policy` already gets. The **mission form** carries `mission: <slug>` — the relation that makes it driveable only as part of its mission's unit, never as loose backlog. The **`--loose` form** writes no `mission:` key at all and carries `feedback: [...]` instead; it is refused as `no_feedback` without refs, since those refs are the only record of what it answers. Emits `{created, path, slug, mission, feedback, loose}`, or a `reason` (`no_title` / `no_mission` / `mission_missing` / `no_feedback` / `exists`).

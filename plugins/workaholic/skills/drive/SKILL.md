@@ -114,7 +114,7 @@ If `missions` and `backlog` are both empty **and `backlog_error` is empty**, the
 A **PR-unit** is one merge: one unit ↔ one claim ↔ one branch ↔ one worktree ↔ one PR.
 
 - **Each claimable mission is exactly one unit** (unit id = the mission slug). Its ticket set was designed together and its acceptance list is the bar for the whole batch; splitting it across PRs splits the plan.
-- **Related backlog tickets group into one batch unit** (unit id minted by `claim.sh` as `batch-<YYYYMMDDHHMMSS>`). Relatedness is *this run's judgment*, from the signals the survey already carries: the same subsystem or overlapping Key Files, the same `layer`, a `depends_on` chain.
+- **Related backlog tickets group into one batch unit** (unit id minted by `claim.sh` as `batch-<YYYYMMDDHHMMSS>`). Relatedness is *this run's judgment*, from the signals the survey already carries: the same subsystem or overlapping Key Files, a `depends_on` chain.
 
 **Group conservatively — when unsure, one ticket per unit.** The failure mode is asymmetric and reviewers pay for it: a PR that bundles unrelated changes cannot be reviewed as one thing, and its reviewer has to reconstruct which diff belongs to which motivation. Splitting too finely costs one extra PR. So group only on a reason you could state in one sentence in the PR body; a hunch that two tickets "feel adjacent" is not one. `depends_on` is the one signal strong enough to group on by itself — a dependent ticket in a separate PR is a PR that cannot merge.
 
@@ -170,7 +170,7 @@ Pass the mission's `mission.md` for a mission unit and the ticket files for a ba
 
 ### 4. Drive the unit
 
-Inside the unit's worktree, run each ticket through the **Workflow** section: read the ticket (including its `## Policies` and `## Quality Gate`, and the gate of every mission it names), implement, verify against the gate, update effort, append the Final Report, and `archive.sh`. Order the tickets with *Ordering within a unit* below.
+Inside the unit's worktree, run each ticket through the **Workflow** section: read the ticket (including its `## Policies` and `## Quality Gate`, and the gate of every mission it names), implement, verify against the gate, append the Final Report, and `archive.sh`. Order the tickets with *Ordering within a unit* below.
 
 **Keep the unit's heartbeat alive while driving it.** The claim branch tip is the liveness signal every other runner reads (*Claims*), so a long stretch with no commit makes a working unit look abandoned and eligible for takeover. Each `archive.sh` refreshes it for free; when a single ticket runs long without one, beat explicitly:
 
@@ -349,7 +349,7 @@ Everything below is what an unattended unit may and may not do when a ticket goe
 **A closed set of four outcomes.** Every ticket handed to a unit ends as exactly one, and the totals reconcile to the unit's queue. There is no "declined" category:
 
 - **implemented** — verified against its `## Quality Gate`, archived, commit hash recorded.
-- **failed** — implemented, but its checks went red (or its frontmatter update failed). `git stash` the partial work so it cannot contaminate the next commit, leave the ticket in `todo`, record the reason and the stash.
+- **failed** — implemented, but its checks went red. `git stash` the partial work so it cannot contaminate the next commit, leave the ticket in `todo`, record the reason and the stash.
 - **blocked** — a **named** hard external blocker, with **the command that was attempted and its raw output** recorded.
 - **`deferred`** — an unqueued problem was met and became a ticket (below); the run continued.
 
@@ -411,7 +411,7 @@ State the model before the scripts, because the scripts only implement it:
 
 - **PR-unit.** The thing a runner takes. It is either one approved **mission** (unit id = the mission slug) or one **batch** of related backlog tickets (unit id = `batch-<YYYYMMDDHHMMSS>`, minted at claim time). One unit ↔ one branch ↔ one worktree ↔ one PR.
 - **Claim.** A commit whose subject is `Claim <unit-id>`, on a fresh `work-*` branch cut from `origin/main` by the standard creator, whose content stamps `claim: <branch>` into the claimed artifacts' frontmatter — the mission's `mission.md`, or each batched ticket file — **pushed immediately**. **The stamp is written only on the branch, and a stamp that reaches the base is history, never a claim** (decision M1). No merge un-stamps anything: a merged branch has left the unmerged set, so the *scan* already reports its claim as released, and whatever frontmatter rode in with the merge is a record of which unit last held the artifact. This matters because a **handoff** or **blocked** unit merges its PR with tickets still in `todo/` (§7), so a base-side stamp on a live queue item is now an ordinary, expected state. **Never read it as a claim** — `list-claims.sh` is the only oracle. The artifact must actually be present in the claiming checkout: a mission with no `mission.md` is refused as `mission_missing`, since after J1 absence means either a wrong slug or a checkout behind the base — never the "it lives on an unmerged branch" case the claim writer used to tolerate.
-- **Reader.** Fetch, enumerate the `origin/*` branches carrying commits not on `origin/main`, and for each read the unit from its newest `Claim …` subject and the claimed artifacts from the branch tip's `claim: <branch>` stamps — **reading each stamp at the file's current path, not the path the claim commit stamped.** `archive.sh` *renames* a driven ticket (`todo/<user>/X.md` → `archive/<branch>/X.md`) and carries the stamp along, so looking the old path up at the tip finds nothing: every batch unit silently lost its whole artifact list the moment its first ticket was archived, and the survey then offered tickets already in flight — the double-pick the protocol exists to prevent (observed live 2026-07-30). One tree-to-tree diff per claim gives the net old→new mapping, so chained renames need no walk — **and when that diff does not report a rename at all, the tip-side path is resolved a second way, exactly rather than statistically.** `git diff --find-renames` pairs a delete with an add only above 50% similarity and abandons inexact detection past `diff.renameLimit`, while `archive.sh` does not merely move a ticket (it stamps `effort` and appends the Final Report), so a short ticket carrying a long report is reported as a plain add + delete and the artifact vanishes exactly as before. The fallback is a lookup by **filename** under `.workaholic/tickets/`, which is unique in the tree by construction, applied only to ticket paths and only when it resolves to exactly one file — `mission.md` is shared by every mission, so an unscoped basename lookup could resolve one mission's claim onto another's file, and ambiguity therefore falls back to the mapped path rather than guessing. **What the reader reports is the base-side path** (the one the claim commit stamped), because that is the coordinate space both consumers compare in: `plan-units.sh` against the working tree's queue, `claim.sh` against paths it resolved in the main tree. A genuine stamp *removal* still drops the artifact, and a *deleted* artifact is not claimed — both deliberate, both pinned by tests.
+- **Reader.** Fetch, enumerate the `origin/*` branches carrying commits not on `origin/main`, and for each read the unit from its newest `Claim …` subject and the claimed artifacts from the branch tip's `claim: <branch>` stamps — **reading each stamp at the file's current path, not the path the claim commit stamped.** `archive.sh` *renames* a driven ticket (`todo/<user>/X.md` → `archive/<branch>/X.md`) and carries the stamp along, so looking the old path up at the tip finds nothing: every batch unit silently lost its whole artifact list the moment its first ticket was archived, and the survey then offered tickets already in flight — the double-pick the protocol exists to prevent (observed live 2026-07-30). One tree-to-tree diff per claim gives the net old→new mapping, so chained renames need no walk — **and when that diff does not report a rename at all, the tip-side path is resolved a second way, exactly rather than statistically.** `git diff --find-renames` pairs a delete with an add only above 50% similarity and abandons inexact detection past `diff.renameLimit`, while `archive.sh` does not merely move a ticket (the appended Final Report rides in the same rename), so a short ticket carrying a long report is reported as a plain add + delete and the artifact vanishes exactly as before. The fallback is a lookup by **filename** under `.workaholic/tickets/`, which is unique in the tree by construction, applied only to ticket paths and only when it resolves to exactly one file — `mission.md` is shared by every mission, so an unscoped basename lookup could resolve one mission's claim onto another's file, and ambiguity therefore falls back to the mapped path rather than guessing. **What the reader reports is the base-side path** (the one the claim commit stamped), because that is the coordinate space both consumers compare in: `plan-units.sh` against the working tree's queue, `claim.sh` against paths it resolved in the main tree. A genuine stamp *removal* still drops the artifact, and a *deleted* artifact is not claimed — both deliberate, both pinned by tests.
 
   **One lost artifact list is two visible failures, which is why the resolution is worth this much care** (measured 2026-08-04). `plan-units.sh` subtracts a claim by its artifact paths, so it stopped subtracting at all — offering a ticket already driven on a pushed branch as fresh backlog, and with **no `excluded[]` row**, because the survey only reports items it *saw* and dropped. And `claims_has_work` fell through to its deliberate "no artifacts means unknown, so assume work remains" branch, flipping a drained unit to `resumable` and inviting a takeover of a branch whose PR was waiting on a human. Both read as separate defects and were one.
 - **Release = merge or branch deletion.** A merged branch's commits are on the base, so its claim leaves the unmerged set *by definition* — the normal path needs no script at all. Deliberately **discarding** an unfinished unit is the other path, and that one is explicit. `release-claim.sh` is **not** how an interrupted unit is recovered — it deletes the remote branch, which is the opposite of recovery; resumption is below.
@@ -487,14 +487,13 @@ List the unit's queue from inside its worktree:
 bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/list-todo.sh
 ```
 
-For each ticket read the frontmatter — `type` (bugfix > enhancement > refactoring > housekeeping), `layer`, `depends_on` — and order by, in precedence:
+For each ticket read the frontmatter `depends_on` plus its Key Files, and order by, in precedence:
 
-1. **Dependency ordering** — build the graph from `depends_on` and topologically sort it. On a cycle, warn in the report and fall back to type priority for the cycled tickets.
-2. **Severity** — within a dependency tier, bugfixes precede enhancements.
-3. **Context grouping** — tickets touching the same layer/files run together.
-4. **Implicit dependencies** — if A modifies files B reads, A first.
+1. **Dependency ordering** — build the graph from `depends_on` and topologically sort it. On a cycle, warn in the report and fall back to queue order (filename timestamp) for the cycled tickets.
+2. **Context grouping** — tickets touching the same files/subsystem run together.
+3. **Implicit dependencies** — if A modifies files B reads, A first.
 
-Handle missing metadata gracefully: absent fields mean normal priority, and an empty `depends_on` means no dependencies.
+Handle missing metadata gracefully: an empty `depends_on` means no dependencies, and tickets nothing orders keep their queue order. (The retired `type`/`layer` fields played a severity/grouping role here until 2026-08-07; a grandfathered ticket still carrying them gets no special treatment.)
 
 On Claude Code this ordering may be delegated to a `general-purpose` subagent (preloading `workaholic:drive`, returning `{tickets[], tiers{}, cycle_warning}`); inline is equally correct and is the default elsewhere. That subagent issues no `AskUserQuestion` — no subagent can, and nothing in this run below §2 does.
 
@@ -550,7 +549,7 @@ If no Patches section exists, skip to step 3.
 
 #### 3. Implement the Ticket
 
-- **Load the policy lens first (when the standards plugin is installed).** Both entry points preload `workaholic:design`, `workaholic:implementation`, and `workaholic:operation`, so the three index `SKILL.md` files are in context. Before writing code, open every policy hard copy the ticket's **`## Policies`** section lists — that recorded list (synced from qmu.co.jp) is authoritative for which policies this implementation answers to. Read each `policies/<slug>.md` it names. If a ticket predates the `## Policies` section (it is absent or empty), fall back to deriving the set from the ticket's `layer` field via the Policy Lens mapping: UX → `workaholic:design` plus `workaholic:implementation`, Domain/DB → `workaholic:implementation`, Infrastructure → `workaholic:implementation` plus `workaholic:operation`, Config → the skill whose policies the config touches. Either way, judge the change's **design** (interaction and behavior), **implementation** (code structure and correctness), and **operation** (delivery, runtime, and recovery) against each applicable policy's Goal (目標), Responsibility (責務), and Practices (実践). If the standards plugin is not installed, proceed without it.
+- **Load the policy lens first (when the standards plugin is installed).** Both entry points preload `workaholic:design`, `workaholic:implementation`, and `workaholic:operation`, so the three index `SKILL.md` files are in context. Before writing code, open every policy hard copy the ticket's **`## Policies`** section lists — that recorded list (synced from qmu.co.jp) is authoritative for which policies this implementation answers to. Read each `policies/<slug>.md` it names. The section is mandatory and hook-enforced on every live ticket (`validate-ticket.sh`); a ticket predating it simply gets the two always-apply implementation policies (`directory-structure`, `coding-standards`). Either way, judge the change's **design** (interaction and behavior), **implementation** (code structure and correctness), and **operation** (delivery, runtime, and recovery) against each applicable policy's Goal (目標), Responsibility (責務), and Practices (実践). If the standards plugin is not installed, proceed without it.
 - Follow the implementation steps in the ticket
 - Use existing patterns and conventions in the codebase
 - For areas where patches applied, verify and adjust as needed
@@ -573,7 +572,7 @@ After implementation is complete, return a summary:
 }
 ```
 
-Then update effort, append the Final Report, and archive (below).
+Then append the Final Report and archive (below).
 
 ### Critical Rules
 
@@ -616,41 +615,7 @@ When an implementation step requires a prohibited operation, use a safe project-
 
 ## Final Report
 
-After a ticket's implementation passes its gate, update the ticket with effort and final report.
-
-### Update Effort Field
-
-Estimate the actual time this implementation took, then round to the nearest valid value.
-
-**The ONLY valid values are:** `0.1h`, `0.25h`, `0.5h`, `1h`, `2h`, `4h`
-
-Do NOT use t-shirt sizes (S/M/L/XS/XL), minutes (10m/30m), or any other format. The `update.sh` script will reject invalid values.
-
-**Valid values (hour-based only):**
-
-| Value | Use For |
-|-------|---------|
-| `0.1h` | Trivial changes (typo fix, config tweak) |
-| `0.25h` | Simple changes (add field, update text) |
-| `0.5h` | Small feature or fix (new function, bug fix) |
-| `1h` | Medium feature (new component, refactor) |
-| `2h` | Large feature (new workflow, significant refactor) |
-| `4h` | Very large feature (new system, major rewrite) |
-
-ALWAYS use one of these exact values: `0.1h`, `0.25h`, `0.5h`, `1h`, `2h`, `4h`
-
-#### How to Update
-
-**MUST use update.sh** -- NEVER use the Edit tool to modify the effort field directly.
-
-```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/update.sh <ticket-path> effort <value>
-```
-
-Example:
-```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/update.sh .workaholic/tickets/todo/20260212-example.md effort 0.5h
-```
+After a ticket's implementation passes its gate, append its final report. The ticket's frontmatter is **not** touched at drive time: the per-ticket `effort` field is retired (a mission unit's time is accounted once, by `record-run-hours.sh` in §7), and everything else worth recording is derived or recorded elsewhere — see *Fields the run never writes* below.
 
 ### Final Report Section
 
@@ -703,12 +668,7 @@ Complete commit workflow after a ticket clears its gate. Always use this script 
 
 ### Prerequisites
 
-**CRITICAL**: Before calling the archive script, verify that all required frontmatter fields have been successfully updated:
-
-1. **Verify effort field**: The ticket MUST have a valid `effort:` value (e.g., `0.1h`, `0.25h`, `0.5h`, `1h`, `2h`, `4h`)
-2. **Abort on failure**: If the frontmatter update failed, **DO NOT proceed with archiving** — record the ticket `failed` with the error instead.
-
-**Never archive a ticket without all required frontmatter fields.**
+Before calling the archive script, the ticket's `## Final Report` must be appended — the archive commit is the report's permanent home, and a ticket archived without one has discarded what the implementation learned. No frontmatter update precedes archiving (the `effort` prerequisite retired with the field, 2026-08-07); a grandfathered ticket still carrying the old fields archives exactly the same way.
 
 ### Usage
 
@@ -744,50 +704,13 @@ Verify: Ran commit.sh with sample inputs and confirmed the labeled sections, the
 Co-Authored-By: Claude <noreply@anthropic.com>
 ```
 
-## Update Frontmatter
+## Fields the run never writes
 
-Update ticket YAML frontmatter fields after implementation.
+A driven ticket's frontmatter is read, never edited, and the reasons are decisions rather than omissions:
 
-### Usage
+- **`commit_hash`** — **retired as a field, and derived from git even for history.** A commit cannot carry its own hash: the old stamp-then-amend left a value naming an orphaned, never-pushed pre-amend commit, and no stamping order fixes it. `/report` derives the hash from the commit that *added* the archived ticket (`report/scripts/ticket-commits.sh`). Do not re-introduce a stamp, and do not read the field where old archives still carry it — those values are dead.
+- **`category`** — **retired as a field.** The change category (Added / Changed / Removed, from the commit verb) lives only in the commit's `Category:` git trailer, which `archive.sh` passes to `commit.sh --category` and `/report`'s `collect-commits.sh` reads back. One surface, so nothing can disagree with it.
+- **`effort`** — **retired.** Per-ticket time was estimated by the agent and rounded into a six-value enum, which measured nothing; a mission unit's wall-clock is recorded once, honestly, by `record-run-hours.sh` (§7).
+- **`merge_policy`** — **recorded at ticket creation, read at route time.** `auto` lets the unit this ticket lands in merge without a human; anything else, including absence, routes to a PR (§6). The run reads it through `effective-policy.sh` and never edits it: changing a ticket's merge policy mid-run would let the run grant itself permission to merge.
 
-```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/update.sh <ticket-path> <field> <value>
-```
-
-### Fields
-
-#### effort
-
-Time spent in numeric hours.
-
-Valid values: `0.1h`, `0.25h`, `0.5h`, `1h`, `2h`, `4h`
-
-Invalid: `XS`, `S`, `M`, `10m` (t-shirt sizes and minutes are not allowed)
-
-Update when: After implementation, before archiving.
-
-#### commit_hash
-
-**Not written — derived from git.** `archive.sh` deliberately does not stamp this field: a commit cannot carry its own hash, so writing it and amending the ticket into that same commit changes the hash, leaving a value that points at an orphaned, never-pushed commit (and no stamping order fixes it — re-stamping after the amend regresses forever). `/report` derives the hash from the commit that *added* the archived ticket (its `ticket-commits.sh` script). Do not re-introduce a stamp here, and do not read this field: tickets archived before the fix still carry dead values.
-
-#### merge_policy
-
-**Recorded at ticket creation, read at route time — never written here.** `auto` lets the unit this ticket lands in merge without a human; anything else, including absence, routes to a PR (§6). The run reads it through `effective-policy.sh` and never edits it: changing a ticket's merge policy mid-run would let the run grant itself permission to merge.
-
-#### category
-
-Change category based on commit message verb.
-
-Values:
-- **Added**: Add, Create, Implement, Introduce
-- **Changed**: Update, Fix, Refactor (default)
-- **Removed**: Remove, Delete
-
-Update when: After creating the commit, set automatically by archive script.
-
-### Field Insertion Order
-
-When a field doesn't exist, it's inserted in this order:
-1. After `layer:` -> `effort:`
-2. After `effort:` -> `commit_hash:`
-3. After `commit_hash:` -> `category:`
+(The drive skill's frontmatter editor served exactly the retired fields and is deleted with them.)

@@ -49,7 +49,7 @@ the README-reachable docs are reorganized to match the current spec.
 - [ ] Every command is a thin skill-alias and every SKILL.md (drive/SKILL.md
       included) sits under ~100 lines with obsolete rules, scar-tissue prose, and
       non-essential bold removed. (#20260806125031-cut-every-skill-md-under-the-line-target.md)
-- [ ] Tests, shell scripts, and the ticket front matter are pared to what is
+- [x] Tests, shell scripts, and the ticket front matter are pared to what is
       needed — `type`/`layer`/`effort`/`commit_hash`/`category` dropped. (#20260806125031-drop-obsolete-ticket-front-matter-fields.md)
 - [ ] README-reachable docs are restructured to the current spec and the plugin
       is framed for AI-agent use first, developer use second. (#20260806125031-reframe-the-plugin-for-ai-agent-use-first.md)
@@ -58,3 +58,4 @@ the README-reachable docs are reorganized to match the current spec.
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-07 — ticket archived — 20260806125031-make-every-command-a-thin-skill-alias.md
+- 2026-08-07 — ticket archived — 20260806125031-drop-obsolete-ticket-front-matter-fields.md

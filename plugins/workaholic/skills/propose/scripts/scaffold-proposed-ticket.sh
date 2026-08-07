@@ -2,8 +2,8 @@
 # Scaffold a PROPOSED TICKET — the second half of a proposal. The batch fills the
 # sections; this script owns the filename, the frontmatter, and the relations.
 #
-#   scaffold-proposed-ticket.sh "<title>" <mission-slug> [type] [layer] [--assignee <email>]
-#   scaffold-proposed-ticket.sh "<title>" --loose [type] [layer] --feedback <record>... [--assignee <email>]
+#   scaffold-proposed-ticket.sh "<title>" <mission-slug> [--assignee <email>]
+#   scaffold-proposed-ticket.sh "<title>" --loose --feedback <record>... [--assignee <email>]
 #
 # Output: JSON {created, path, slug, assignees[, mission][, feedback][, reason]}
 #   reasons: no_title | no_mission | mission_missing | no_feedback | exists
@@ -80,14 +80,14 @@ if [ "$MISSION_SLUG" = "--loose" ]; then
   MISSION_SLUG=""
 fi
 
-# What remains is [type] [layer], --assignee <email>, and, after --feedback, the
-# record filenames. --feedback consumes to the end, so --assignee is read inside
-# that loop too rather than being unreachable after it.
-TYPE="enhancement"
-LAYER="Config"
+# What remains is --assignee <email> and, after --feedback, the record filenames.
+# --feedback consumes to the end, so --assignee is read inside that loop too rather
+# than being unreachable after it. Stray positionals are TOLERATED AND IGNORED: the
+# retired `[type] [layer]` slot lived here until 2026-08-07 (the fields left the
+# ticket frontmatter), and a stale caller passing them must not have its title
+# ticket refused over two words that no longer mean anything.
 FEEDBACK=""
 ASSIGNEE=""
-POS=0
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --assignee)
@@ -109,13 +109,6 @@ while [ "$#" -gt 0 ]; do
       done
       ;;
     *)
-      POS=$((POS + 1))
-      if [ "$POS" = "1" ] && [ -n "$1" ]; then
-        TYPE="$1"
-      fi
-      if [ "$POS" = "2" ] && [ -n "$1" ]; then
-        LAYER="$1"
-      fi
       shift
       ;;
   esac
@@ -185,11 +178,6 @@ cat > "$TICKET_PATH" <<EOTICKET
 created_at: ${CREATED_AT}
 author: ${AUTHOR}
 assignees: ${ASSIGNEES_VALUE}
-type: ${TYPE}
-layer: [${LAYER}]
-effort:
-commit_hash:
-category:
 depends_on:
 ${RELATIONS}
 merge_policy:

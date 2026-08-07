@@ -25,7 +25,7 @@ Workaholic follows the cross-agent [Agent Skills standard](https://skills.sh). W
 - **Policy skills** (`planning` / `design` / `implementation` / `operation`) — the engineering-policy index (pure prose, self-contained): title, one-line summary, and canonical qmu.co.jp link per policy, organized into the 企画 / 設計 / 実装 / 運用 pillars. Available on every Agent-Skills agent.
 - **`write-release-note`** — release-note structure guidance (pure prose).
 - **Workflows** — `create-ticket`, `drive`, `report`, `ship`, `catch`, `mission` as agent-neutral skills. On non-Claude agents the workflow runs the same steps without Claude's parallel subagents/`AskUserQuestion` — see each skill's **Agent Compatibility** note.
-- **[Open Knowledge Format](https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf) (OKF v0.1)** — two surfaces, no install needed. The committed `outputs/okf/` bundle exposes the four pillars' policy hard copies to any OKF reader straight from the repo path; and every project using the plugin gets an OKF-compatible `.workaholic/` tree — generated documents carry `type` frontmatter and the workflows regenerate the `index.md` hierarchy (entry point: `.workaholic/index.md`) before each knowledge commit.
+- **[Open Knowledge Format](https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf) (OKF v0.1)** — two surfaces, no install needed. The committed `outputs/okf/` bundle exposes the four pillars' policy hard copies to any OKF reader straight from the repo path; and every project using the plugin gets an OKF-compatible `.workaholic/` tree — generated knowledge documents carry `type` frontmatter (tickets excepted — the queue is not index-managed and tickets carry no `type`) and the workflows regenerate the `index.md` hierarchy (entry point: `.workaholic/index.md`) before each knowledge commit.
 
 ### Install matrix
 
@@ -135,7 +135,7 @@ Everything converges on the same unit of work — a ticket. The shorthand: **sou
 
 Working artifacts live in [.workaholic/](.workaholic/README.md). Each artifact captures a snapshot of the code change at a specific point in the workflow — they are not generic documentation. The table below summarizes what gets stored, when it is written, and how it survives (or is eliminated) through the ship process.
 
-The tree is also an [Open Knowledge Format](https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf) bundle: `.workaholic/index.md` is the entry point (declaring `okf_version`), each knowledge area keeps an `index.md` the workflows regenerate before committing (via the internal `okf` skill's `refresh-index.sh`), and every generated document carries YAML frontmatter with a non-empty `type` — so any OKF reader can walk the project's development knowledge.
+The tree is also an [Open Knowledge Format](https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf) bundle: `.workaholic/index.md` is the entry point (declaring `okf_version`), each knowledge area keeps an `index.md` the workflows regenerate before committing (via the internal `okf` skill's `refresh-index.sh`), and every generated knowledge document carries YAML frontmatter with a non-empty `type` (tickets are the exception: the queue is not index-managed and a ticket carries no `type`) — so any OKF reader can walk the project's development knowledge.
 
 ### Lifecycle Reference
 
@@ -423,7 +423,7 @@ flowchart LR
 
 **Plan** — `/ticket` writes a new file under `tickets/todo/` describing the intended change, and publishes it in one commit onto a `work-*` branch behind a pull request; merging that PR is what puts it on `main`, where `/drive` surveys the queue. This is the only artifact created before code exists. It never branches your checkout and creates no worktree: the executor's claim is the only thing that does either.
 
-**Implement** — `/drive` reads `tickets/todo/`, claims a PR-unit's tickets onto its own branch, implements them there, and moves each file to `tickets/archive/<branch>/` as it lands. The archive subdirectory is named after the claim branch so all of a unit's tickets cluster under one folder. Final reports and the resolving `commit_hash` are written into the ticket frontmatter at archive time.
+**Implement** — `/drive` reads `tickets/todo/`, claims a PR-unit's tickets onto its own branch, implements them there, and moves each file to `tickets/archive/<branch>/` as it lands. The archive subdirectory is named after the claim branch so all of a unit's tickets cluster under one folder. The Final Report is appended to each ticket before it moves; the implementing commit is derived from git at report time (`ticket-commits.sh`), never stamped into the ticket.
 
 **Report** — `/report` runs after all tickets on a branch are archived. It does four writes in order:
 1. Judges every **open** `kind: concern` record in the feedback stream (`feedback/scripts/list-open-concerns.sh`) via a `general-purpose` deferred-concern-judge subagent. Each resolved one gets a **superseding record** appended (`supersedes: <filename>`, naming the resolving PR/commit); still-open ones simply stay open.

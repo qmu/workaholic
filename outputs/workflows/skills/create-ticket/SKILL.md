@@ -22,7 +22,7 @@ This skill works on any Agent-Skills-compatible agent. The two Claude-Code mecha
 bash create-ticket/scripts/summary.sh
 ```
 
-`summary.sh` reads the whole queue through `drive/list-todo.sh` and keeps what this developer owns plus what nobody owns (`gather/scripts/owns.sh`), so "assigned to me" stays defined in one place, then enriches each ticket with its H1 title and frontmatter `type`/`layer`/`depends_on`. Output is a JSON array `[{path, title, type, layer, depends_on}]` (sorted by path), or `[]` when the queue is empty. This is the create-only guardrail's one read-only exception: it lists work, it never writes. Present the result as a readable list — one line per ticket showing its title, `type`, `layer`, and any `depends_on` — or, when the queue is empty, say so and that `/ticket "<description>"` writes a new one.
+`summary.sh` reads the whole queue through `drive/list-todo.sh` and keeps what this developer owns plus what nobody owns (`gather/scripts/owns.sh`), so "assigned to me" stays defined in one place, then enriches each ticket with its H1 title and frontmatter `depends_on`. Output is a JSON array `[{path, title, depends_on, owners}]` (sorted by path), or `[]` when the queue is empty. This is the create-only guardrail's one read-only exception: it lists work, it never writes. Present the result as a readable list — one line per ticket showing its title and any `depends_on` — or, when the queue is empty, say so and that `/ticket "<description>"` writes a new one.
 
 **Summary mode reads the CALLER's checkout, and opens no publish tree.** This is a deliberate divergence from the create path (which writes into a publish tree at `origin/main`), not an oversight to be "fixed" later: bare `/ticket` answers *"what is assigned to me"*, which is a question about the developer's own working state. Forcing a fetch would make a read-only listing fail offline and slow down the cheapest thing the command does. It writes nothing, so it needs no publication.
 
@@ -87,11 +87,6 @@ Use the captured values from Step 1:
 created_at: $(date -Iseconds)      # REPLACE with actual output
 author: $(git config user.email)   # REPLACE with actual output
 assignees: [$(git config user.email)]  # WHO OWNS IT — plural; empty = team-owned/claimable. REPLACE with actual output
-type: <enhancement | bugfix | refactoring | housekeeping>
-layer: [<UX | Domain | Infrastructure | DB | Config>]
-effort:
-commit_hash:
-category:
 depends_on:
 mission:                           # optional: every mission this ticket advances — `[slug-a, slug-b]`, or a bare slug for one (empty when none)
 merge_policy:                      # optional: auto | review — may this work merge automatically? ABSENT MEANS review
@@ -100,9 +95,9 @@ merge_policy:                      # optional: auto | review — may this work m
 
 ### Field Requirements
 
-- **Lines 1-5**: Fill with actual values (never placeholders)
+- **`created_at` / `author` / `assignees`**: Fill with actual values (never placeholders)
 - **`assignees`**: Who the ticket belongs to — **plural**, because a ticket can be co-owned, and **empty means team-owned**, claimable by anyone. It is the ticket's owner *field* (P2, 2026-08-06), replacing the `todo/<user>/` directory that used to encode it; reassignment is now an edit to this line rather than a file move. Seed it with the requester when `/ticket` is typed by a developer; leave it **empty** for a proposal, which is work nobody has taken on yet. Read it **only** through `gather/scripts/owners.sh` / `owns.sh` — never by grepping the field — so `/drive`'s survey, `/ticket`'s summary, and `/ship`'s queue check cannot disagree about whose work it is. It is deliberately **not** `author`: author is who wrote the spec and is immutable history; owner is who is to do it and is meant to change.
-- **Lines 5-8** (`effort`/`commit_hash`/`category`/`depends_on`): Must be present but leave empty (filled after implementation, or during creation when a request is split)
+- **`depends_on`**: Must be present but leave empty (filled during creation when a request is split)
 - **`mission`**: Optional. Present but empty unless the developer associates the ticket with an existing mission at `/ticket` time (see Workflow Step 4c) — then it holds that mission's `slug`. Machine-readable, never required; the pipeline tolerates its absence.
 - **`merge_policy`**: Optional, `auto` or `review`, captured at creation (Workflow Step 4d). **Absent means `review`** — the conservative default, stated here because this is where the field is defined. Every ticket written before the field existed carries no value, and the one reading that must never produce is "merge this without a human looking". `hooks/validate-ticket.sh` enforces the enum **only when a value is present**: an empty field is legal, a typo'd one is not (`merge_policy: atuo` would otherwise read as `review` while its author believed they had asked for automatic merging).
 
@@ -112,10 +107,9 @@ These cause validation failures:
 
 | Mistake | Example | Fix |
 |---------|---------|-----|
-| Missing empty fields | Omitting `effort:` line | Include all 8 fields, even if empty |
 | Placeholder values | `author: user@example.com` | Run `git config user.email` and use actual output |
 | Wrong date format | `2026-01-31` or `2026/01/31T...` | Use `date -Iseconds` output (includes timezone) |
-| Invalid layer value | `layer: [Frontend]` | Use only `UX`, `Domain`, `Infrastructure`, `DB`, `Config` (the array form is the house style) |
+| Retired fields written anew | `type: enhancement`, `layer: [UX]`, `effort:`, `commit_hash:`, `category:` | Omit them — retired 2026-08-07. Existing tickets carrying them are grandfathered; never add them to a new ticket |
 | Invalid depends_on entry | `depends_on: [notes.md]` | List real ticket filenames: `depends_on: [20260131192546-foo.md]` |
 
 ## Filename Convention
@@ -227,7 +221,7 @@ The select is multi because a ticket can genuinely advance more than one mission
 
 Ask, once per `/ticket` run, **may this work merge automatically once it is done and verified, or must a human review the PR?** — and write the answer into every ticket written by this run as `merge_policy: auto | review` (decision G5, `docs/loop-engineering-workflow.md`). One the agent's selection prompt at the command level, `question` body prefixed with the `[<project label>]`, two options: *auto — merge on green deploy evidence* / *review — stop at the PR for a human*.
 
-**This is one of the few genuinely unrecommendable forks** (`rules/interaction.md`), which is why it is asked rather than decided: the answer depends on how much the developer trusts this particular change to land unattended, which is information you do not hold. Do not derive it from the ticket's `type` or size.
+**This is one of the few genuinely unrecommendable forks** (`rules/interaction.md`), which is why it is asked rather than decided: the answer depends on how much the developer trusts this particular change to land unattended, which is information you do not hold. Do not derive it from the ticket's kind or size.
 
 **Inheritance from a mission.** When the ticket is emitted as part of a mission's ticket set (the mission Creation Interrogation / Replan flows, `mission`), it **inherits the mission's `merge_policy`** and this question is not asked per ticket — the mission's approval already decided it for the batch. The interrogation may still rule otherwise for a specific ticket (a risky one inside an `auto` mission is written `review`); when it does, record the divergence and its reason in that ticket's `## Quality Gate` as a `Decided:` line, so the exception is visible where the gate is read.
 
@@ -235,7 +229,7 @@ Ask, once per `/ticket` run, **may this work merge automatically once it is done
 
 ### 5. Write Ticket(s)
 
-Follow the rest of this skill for format and content. Apply the Policy Lens table (below) to map the ticket's `layer` field to the relevant `workaholic:` policy skill — its policies and practices govern the ticket's Implementation Steps, Considerations, and Patches.
+Follow the rest of this skill for format and content. Apply the Policy Lens table (below) to map the architectural layers the work touches to the relevant `workaholic:` policy skill — its policies and practices govern the ticket's Implementation Steps, Considerations, and Patches.
 
 Populate sections from the three discovery JSONs:
 
@@ -243,7 +237,7 @@ Populate sections from the three discovery JSONs:
 - **source → Key Files**: `files` array provides paths and relevance descriptions.
 - **source → Implementation Steps**: reference `code_flow`.
 - **source.snippets → Patches**: generate unified diffs from snippets. Follow the patch guidelines in this skill. Mark patches as speculative if based on interpretation rather than explicit requirements. Omit the Patches section if changes cannot be expressed as concrete diffs.
-- **policy → Policies**: write the mandatory `## Policies` section. Always list the two universal implementation policies (`directory-structure`, `coding-standards`), then add the pillar policies the ticket's `layer` selects via the Policy Lens table, plus any specific policy the policy-mode discovery surfaced. Each entry is `workaholic:<pillar>` / `policies/<slug>.md` followed by one line on why it applies. This is the recorded list `/drive` reads before implementing — never leave it empty for a code-touching ticket.
+- **policy → Policies**: write the mandatory `## Policies` section. Always list the two universal implementation policies (`directory-structure`, `coding-standards`), then add the pillar policies the layers the work touches select via the Policy Lens table, plus any specific policy the policy-mode discovery surfaced. Each entry is `workaholic:<pillar>` / `policies/<slug>.md` followed by one line on why it applies. This is the recorded list `/drive` reads before implementing — never leave it empty for a code-touching ticket.
 - **interrogation → Quality Gate**: write the mandatory `## Quality Gate` section from the Step 4b interrogation answers (unlike the other sections, this content is **developer-elicited**, not discovery-fed). Structure it as **Acceptance Criteria** (checkable bullets), **Verification Method** (the commands/tests/probes that prove them), and **Gate** (what must pass before approval). Keep every line objective and verifiable. This is the recorded gate `/drive` surfaces in its approval prompt and forwards into the commit `Verify:` key — never leave it empty.
 - **policy → Considerations**: reference relevant `policies` that the implementation must follow; note `architecture.principles` and `architecture.dependency_rules` that constrain the design.
 
@@ -332,11 +326,7 @@ Or if clarification needed — this is also the channel for the **mandatory Qual
 ---
 created_at: 2026-01-31T19:25:46+09:00
 author: developer@company.com
-type: enhancement
-layer: [UX, Domain]
-effort:
-commit_hash:
-category:
+assignees: [developer@company.com]
 depends_on:
 mission:
 merge_policy: review
@@ -352,7 +342,7 @@ merge_policy: review
 
 The standard engineering policies — synced from the corporate site (qmu.co.jp) into the `workaholic` policy skills — that govern this ticket. The implementing session **MUST** read each linked policy hard copy before writing code and keep every change defensible against that policy's Goal (目標), Responsibility (責務), and Practices (実践). `/drive` consumes this section verbatim — it is the recorded, confirmable list of which standard policies the implementation answers to.
 
-This section is **mandatory and never empty**, and that is now **machine-checked**, not merely prose: `hooks/validate-ticket.sh` rejects a ticket written to the todo queue whose `## Policies` heading is absent or has nothing under it. A code-touching ticket always lists at least the two universal implementation policies; add the pillar policies the `layer` field selects (see the Policy Lens table) plus any specific policy the policy-mode discovery surfaced.
+This section is **mandatory and never empty**, and that is now **machine-checked**, not merely prose: `hooks/validate-ticket.sh` rejects a ticket written to the todo queue whose `## Policies` heading is absent or has nothing under it. A code-touching ticket always lists at least the two universal implementation policies; add the pillar policies the touched layers select (see the Policy Lens table) plus any specific policy the policy-mode discovery surfaced.
 
 - `implementation` / `policies/directory-structure.md` — conventional project layout (applies to all code work)
 - `implementation` / `policies/coding-standards.md` — TypeScript/style conventions (applies to all code work)
@@ -368,7 +358,7 @@ This section is **mandatory and never empty**, and that is now **machine-checked
 
 Past tickets that touched similar areas:
 
-- [20260127010716-rename-terminology-to-terms.md](.workaholic/tickets/archive/<branch>/20260127010716-rename-terminology-to-terms.md) - Renamed terminology directory (same layer: Config)
+- [20260127010716-rename-terminology-to-terms.md](.workaholic/tickets/archive/<branch>/20260127010716-rename-terminology-to-terms.md) - Renamed terminology directory (same area: configuration)
 - [20260125113858-auto-commit-ticket-on-creation.md](.workaholic/tickets/archive/<branch>/20260125113858-auto-commit-ticket-on-creation.md) - Modified ticket.md (same file)
 
 ## Implementation Steps
@@ -430,25 +420,11 @@ This is **machine-checked**: `hooks/validate-ticket.sh` rejects a ticket written
 
 - **created_at**: Creation timestamp in ISO 8601 format. Run `date -Iseconds` and use the actual output.
 - **author**: Git email. Run `git config user.email` and use the actual output. Never use hardcoded values.
-- **type**: Infer from request context:
-  - `enhancement` - New features or capabilities (keywords: add, create, implement, new)
-  - `bugfix` - Fixing broken behavior (keywords: fix, bug, broken, error)
-  - `refactoring` - Restructuring without changing behavior (keywords: refactor, restructure, reorganize)
-  - `housekeeping` - Maintenance, cleanup, documentation (keywords: clean, update, remove, deprecate)
-- **layer**: Architectural layers affected (YAML array, can specify multiple):
-  - `UX` - User interface, components, styling
-  - `Domain` - Business logic, models, services
-  - `Infrastructure` - External integrations, APIs, networking
-  - `DB` - Database, storage, migrations
-  - `Config` - Configuration, build, tooling
+- **assignees**: Who owns the work — plural, empty means team-owned/claimable (see *Field Requirements* above).
 
-### Filled After Implementation
+### Retired (2026-08-07) — never written anew
 
-These fields are updated by the `drive` skill (Update Frontmatter section) during archiving:
-
-- **effort**: Time spent in numeric hours (leave empty when creating)
-- **commit_hash**: Short git commit hash (set by archive script)
-- **category**: Added, Changed, or Removed (set by archive script)
+`type`, `layer`, `effort`, `commit_hash`, and `category` left the ticket schema in one change: `type`/`layer` classified rather than informed (nothing routed on them once ordering became `depends_on`-and-context and the `## Policies` section became the recorded lens), `effort` was an agent's rounded guess (mission time is recorded honestly by `record-run-hours.sh`), `commit_hash` is derived from git (`report/scripts/ticket-commits.sh` — a commit cannot carry its own hash), and `category` lives in the commit's `Category:` git trailer. Existing tickets carrying them — the whole archive and any grandfathered queue item — validate and drive unchanged; the fields are tolerated everywhere and required nowhere.
 
 ### Optional
 
@@ -458,7 +434,7 @@ These fields are updated by the `drive` skill (Update Frontmatter section) durin
 
 ## Policy Lens
 
-Each ticket should respect the relevant policies in the `workaholic` policy skills based on its `layer` field. Map layer to skill:
+Each ticket should respect the relevant policies in the `workaholic` policy skills based on the architectural layers the work touches (judged from discovery — there is no frontmatter field for this). Map layer to skill:
 
 | Layer | Policy skill | Lens |
 | ----- | ------------ | ---- |

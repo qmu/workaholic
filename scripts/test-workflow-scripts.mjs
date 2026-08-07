@@ -33,7 +33,6 @@ const SCRIPTS = {
   missionLens: join(REPO_ROOT, "plugins/workaholic/hooks/mission-lens.sh"),
   detectContext: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/detect-context.sh"),
   checkWorkspace: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/check-workspace.sh"),
-  update: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/update.sh"),
   archive: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/archive.sh"),
   userSlug: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/user-slug.sh"),
   migrateTodoOwners: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/migrate-todo-owners.sh"),
@@ -415,63 +414,37 @@ function testCheckWorkspace() {
   } finally { cleanup(dir); }
 }
 
-// ---------- 4. drive/update.sh ----------
+// ---------- 4. drive/update.sh (deleted with the retired frontmatter fields) ----------
+// The frontmatter editor served exactly the retired ticket fields (effort /
+// commit_hash / category); with those gone (2026-08-07) nothing calls it, so the
+// script is deleted rather than kept as a field-less shell. This pin keeps a
+// stray copy from riding back in without a caller.
 function testUpdate() {
-  const dir = makeRepo("main");
-  try {
-    const ticket = join(dir, "t.md");
-    writeFileSync(ticket, `---
-created_at: 2026-05-28T12:00:00+09:00
-author: a@example.com
-type: bugfix
-layer: [Config]
-effort:
-commit_hash:
-category:
-depends_on:
----
-
-# Test
-`);
-
-    // Valid effort value updates in place
-    let r = run(dir, `${POSIX_SH} ${SCRIPTS.update} ${ticket} effort 0.5h`);
-    assertEq("update.sh accepts 0.5h", r.status, 0);
-    assertTrue("update.sh wrote effort: 0.5h", readFileSync(ticket, "utf8").includes("effort: 0.5h"));
-
-    // Invalid effort value rejected with non-zero status
-    r = run(dir, `${POSIX_SH} ${SCRIPTS.update} ${ticket} effort 30m`);
-    assertTrue("update.sh rejects 30m", r.status !== 0, `expected non-zero exit, got ${r.status}`);
-    assertTrue("update.sh keeps original on reject", readFileSync(ticket, "utf8").includes("effort: 0.5h"));
-
-    // commit_hash field updates
-    r = run(dir, `${POSIX_SH} ${SCRIPTS.update} ${ticket} commit_hash abc1234`);
-    assertEq("update.sh accepts commit_hash", r.status, 0);
-    assertTrue("update.sh wrote commit_hash", readFileSync(ticket, "utf8").includes("commit_hash: abc1234"));
-  } finally { cleanup(dir); }
+  assertTrue("drive/scripts/update.sh stays deleted with the retired fields",
+    !existsSync(join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/update.sh")));
 }
 
 // ---------- 5. drive/archive.sh ----------
-// Full end-to-end: move ticket from todo/ to archive/<branch>/, commit via
-// commit.sh, then amend with the populated frontmatter. Asserts on filesystem
-// layout, commit message body, and final frontmatter fields.
+// Full end-to-end: move ticket from todo/ to archive/<branch>/ and commit via
+// commit.sh in one pass (the stamp-then-amend tail went with the retired
+// `category` field). Asserts on filesystem layout, commit message body, and
+// that the retired frontmatter fields are neither demanded nor written.
 function testArchive() {
   const dir = makeRepo("main");
   try {
     execSync(`git checkout -q -b work-20260528-smoke`, { cwd: dir });
     // Ticket lives under the per-user subdirectory; archive must still strip the
     // /todo/<user> segment and land the ticket flat under archive/<branch>/.
+    // The frontmatter is the post-2026-08-07 shape: no type/layer/effort/
+    // commit_hash/category — archiving must not require any of them (the old
+    // effort prerequisite is retired with the field).
     const todoDir = join(dir, `.workaholic/tickets/todo/${TEST_SLUG}`);
     mkdirSync(todoDir, { recursive: true });
     const ticketPath = join(todoDir, "20260528120000-smoke-ticket.md");
     writeFileSync(ticketPath, `---
 created_at: 2026-05-28T12:00:00+09:00
 author: a@example.com
-type: bugfix
-layer: [Config]
-effort: 0.25h
-commit_hash:
-category:
+assignees: []
 depends_on:
 ---
 
@@ -494,18 +467,17 @@ Development completed as planned.
     assertTrue("archive.sh removed ticket from todo/", !existsSync(ticketPath));
 
     const archived = readFileSync(archivedPath, "utf8");
-    // commit_hash is deliberately NOT stamped: a commit cannot carry its own hash, so the
-    // old stamp-then-amend named a pre-amend commit that is orphaned and never pushed.
-    // /report derives it from git instead (ticket-commits.sh).
-    assertTrue("archive.sh does NOT stamp commit_hash", !/^commit_hash:\s*[0-9a-f]{7,}/m.test(archived), archived.split("\n").slice(0, 12).join("\n"));
-    assertTrue("archive.sh stamped category=Added (from 'Add' verb)", /^category:\s*Added/m.test(archived));
+    // Nothing is written back into the ticket after the commit. commit_hash is
+    // derived from git by /report (ticket-commits.sh) — a commit cannot carry its
+    // own hash — and category lives only in the commit's Category: trailer since
+    // the ticket field was retired (2026-08-07).
+    assertTrue("archive.sh does NOT stamp commit_hash", !/^commit_hash:/m.test(archived), archived.split("\n").slice(0, 12).join("\n"));
+    assertTrue("archive.sh does NOT stamp category (trailer-only since the field retired)",
+      !/^category:/m.test(archived), archived.split("\n").slice(0, 12).join("\n"));
 
-    // The hash archive.sh reports must exist — it is read after the final amend.
-    // Match archive.sh's own summary line, not commit.sh's earlier "Done! Commit:"
-    // (that one is the pre-amend hash by construction).
     const reported = (r.stdout.match(/Archive complete!\s*\n\s*Commit:\s*([0-9a-f]{7,})/) || [])[1];
     assertTrue("archive.sh reports a hash", !!reported, r.stdout);
-    assertEq("the reported hash is the branch tip (not an orphaned pre-amend commit)",
+    assertEq("the reported hash is the branch tip",
       execSync(`git rev-parse --short HEAD`, { cwd: dir, encoding: "utf8" }).trim(), reported);
 
     // Commit message uses the report-aligned keys (Why/Changes/Concerns/Insights/Verify)
@@ -919,9 +891,12 @@ concerns: []
       `.workaholic/tickets/todo/20260714120000-t1.md`,
       `.workaholic/tickets/todo/20260714120001-t2.md`,
     ]);
-    assertEq("ticket summary carries title/type/layer",
+    // The fixtures above deliberately still carry the retired type/layer fields:
+    // a grandfathered ticket must list fine, and the retired keys must not leak
+    // back into the summary output.
+    assertEq("ticket summary carries the title and drops the retired type/layer keys",
       { title: tA[0].title, type: tA[0].type, layer: tA[0].layer },
-      { title: "Ticket One", type: "enhancement", layer: "[Infrastructure]" });
+      { title: "Ticket One", type: undefined, layer: undefined });
 
     setEmail(B);
     const tB = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.ticketSummary}`).stdout);
@@ -1130,7 +1105,7 @@ function testDriveMintsTicketsForMidrunProblems() {
         return 0;
       } catch (e) { return e.status ?? 1; }
     };
-    const FM = `---\ncreated_at: 2026-07-16T12:00:00+09:00\nauthor: a@qmu.jp\ntype: bugfix\nlayer: [Domain]\neffort:\ncommit_hash:\ncategory:\ndepends_on:\nmission: some-mission\n---\n\n# A problem the run actually hit\n`;
+    const FM = `---\ncreated_at: 2026-07-16T12:00:00+09:00\nauthor: a@qmu.jp\nassignees: []\ndepends_on:\nmission: some-mission\n---\n\n# A problem the run actually hit\n`;
     // The inherited mission relation must RESOLVE (validate-ticket checks it now).
     mkdirSync(join(dir, ".workaholic/missions/active/some-mission"), { recursive: true });
     writeFileSync(join(dir, ".workaholic/missions/active/some-mission/mission.md"),
@@ -1539,11 +1514,7 @@ function testMissionInterrogationProtocol() {
     writeFileSync(abs, `---
 created_at: 2026-07-16T11:00:00+09:00
 author: a@qmu.jp
-type: enhancement
-layer: [Domain]
-effort:
-commit_hash:
-category:
+assignees: []
 depends_on:
 mission: some-mission
 ---
@@ -6348,6 +6319,25 @@ function testValidateTicket() {
     assertEq("validate-ticket accepts merge_policy: review", check(ticket(" review")), 0);
     assertEq("validate-ticket accepts an EMPTY merge_policy (absent reads as review)", check(ticket("")), 0);
     assertEq("validate-ticket rejects a merge_policy outside the enum", check(ticket(" atuo")), 2);
+
+    // The retired fields (type/layer/effort/commit_hash/category, 2026-08-07) are
+    // TOLERATED, NEVER VALIDATED — in both directions. A new-shape ticket without
+    // them passes, and a grandfathered ticket carrying them passes too, even with
+    // values the old enums would have rejected: a rule on a retired field would
+    // retro-block history on its next ordinary edit.
+    const shaped = (fm) => {
+      const rel = `.workaholic/tickets/todo/${TS}-shape.md`;
+      const abs = join(dir, rel);
+      mkdirSync(dirname(abs), { recursive: true });
+      writeFileSync(abs, `---\n${fm}\n---\n\n# T\n\n## Policies\n\n- x\n\n## Quality Gate\n\ng\n`);
+      return rel;
+    };
+    assertEq("validate-ticket accepts a ticket WITHOUT the retired fields",
+      check(shaped("created_at: 2026-08-07T00:00:00+09:00\nauthor: a@qmu.jp\nassignees: []\ndepends_on:\nmerge_policy:")), 0);
+    assertEq("validate-ticket still accepts a grandfathered ticket WITH them",
+      check(shaped("created_at: 2026-06-24T14:02:07+09:00\nauthor: a@qmu.jp\ntype: enhancement\nlayer: [Domain]\neffort: 0.5h\ncommit_hash: abc1234\ncategory: Added\ndepends_on:")), 0);
+    assertEq("and never judges a retired field's value (the old enums are gone)",
+      check(shaped("created_at: 2026-06-24T14:02:07+09:00\nauthor: a@qmu.jp\ntype: bananas\nlayer: [Frontend]\neffort: 30m\ncategory: Tweaked\ndepends_on:")), 0);
   } finally { cleanup(dir); }
 
   assertEq("validate-ticket rejects nested todo/<user>/archive/", invoke(`.workaholic/tickets/todo/a-qmu-jp/archive/b/${TS}-x.md`), 2);
@@ -9670,8 +9660,11 @@ function testPlanUnits() {
     assertEq("the survey offers the unclaimed backlog",
       plan.backlog.map((t) => basename(t.path)),
       ["20260729000001-t1.md", "20260729000002-t2.md"]);
-    assertEq("the backlog summary carries what grouping needs",
-      { type: plan.backlog[0].type, layer: plan.backlog[0].layer }, { type: "enhancement", layer: "[Domain]" });
+    // Grouping runs on depends_on and context; the retired type/layer fields must
+    // not resurface in the row even when a grandfathered ticket still carries them.
+    assertEq("the backlog summary carries what grouping needs and drops the retired keys",
+      { depends_on: plan.backlog[0].depends_on ?? "", type: plan.backlog[0].type, layer: plan.backlog[0].layer },
+      { depends_on: "", type: undefined, layer: undefined });
     assertEq("a reachable origin reports a live claim read", plan.fetched, true);
 
     // --- a claimed unit leaves the offer, and says why ---
@@ -12503,7 +12496,7 @@ function testProposalOwnershipChain() {
       run(dir, `${OWNS} ${mu.path} ${ME}`).stdout.trim(), "unowned");
 
     // ---- the ticket half, both forms ----
-    const t = JSON.parse(run(dir, `${TICKET} "Owned step" ${m.slug} enhancement Config --assignee ${OTHER}`).stdout);
+    const t = JSON.parse(run(dir, `${TICKET} "Owned step" ${m.slug} --assignee ${OTHER}`).stdout);
     assertEq("the ticket scaffold reports the owner it stamped", t.assignees, OTHER);
     assertTrue("and writes it into the ticket's assignees",
       /^assignees: \[other@example\.com\]$/m.test(readFileSync(join(dir, t.path), "utf8")));
@@ -12511,7 +12504,7 @@ function testProposalOwnershipChain() {
     // --feedback consumes to the end of the argument list, so --assignee has to be
     // readable INSIDE that loop or the loose form silently drops it.
     const l = JSON.parse(run(dir,
-      `${TICKET} "Loose owned step" --loose bugfix Config --feedback ${REC} --assignee ${OTHER}`).stdout);
+      `${TICKET} "Loose owned step" --loose --feedback ${REC} --assignee ${OTHER}`).stdout);
     assertEq("the loose form reads --assignee after --feedback", l.assignees, OTHER);
     assertTrue("and does not swallow it as a feedback ref",
       !/--assignee|other@example\.com/.test(l.feedback), l.feedback);
@@ -12522,7 +12515,7 @@ function testProposalOwnershipChain() {
     assertEq("and every other developer's runner sees it as someone else's",
       run(dir, `${OWNS} ${t.path} ${ME}`).stdout.trim(), "other");
 
-    const tu = JSON.parse(run(dir, `${TICKET} "Unowned step" ${mu.slug} enhancement Config`).stdout);
+    const tu = JSON.parse(run(dir, `${TICKET} "Unowned step" ${mu.slug}`).stdout);
     assertEq("an unassigned proposal is still claimable by anyone",
       run(dir, `${OWNS} ${tu.path} ${ME}`).stdout.trim(), "unowned");
   } finally { cleanup(dir); }
@@ -12700,6 +12693,8 @@ function testProposeWidenedBatch() {
     assertEq("scaffold-proposed-ticket writes the ticket", t.created, true);
     const body = readFileSync(join(root, t.path), "utf8");
     assertTrue("the proposed ticket carries the mission relation", body.includes(`mission: ${slug}`), body.slice(0, 300));
+    assertTrue("a freshly scaffolded ticket carries none of the retired frontmatter fields",
+      !/^(type|layer|effort|commit_hash|category):/m.test(body), body.slice(0, 300));
     assertTrue("the proposed ticket leaves merge_policy empty, which reads as review",
       /^merge_policy:\s*$/m.test(body), body.slice(0, 300));
     assertTrue("the proposed ticket carries a non-empty Policies section",
@@ -12750,6 +12745,10 @@ function testProposeLooseTicket() {
       `---\ntype: Mission\ntitle: A decomposable direction\nslug: ${slug}\nstatus: active\nmerge_policy:\nassignees: []\nfeedback: [20260801000000-mission-record.md]\n---\n\n# A decomposable direction\n\n## Acceptance\n\n- [ ] proposed criterion\n`);
 
     // ---- the loose form ----
+    // The stray `bugfix Domain` positionals are DELIBERATE: they are the retired
+    // [type] [layer] argument slot, and a stale caller passing them must be
+    // tolerated (ignored) rather than refused — pinned by the none-of-the-five
+    // assertion below.
     const loose = JSON.parse(run(root, `${SCAFFOLD} "Fix the atomic thing" --loose bugfix Domain --feedback 20260802000000-ask.md`).stdout);
     assertEq("an atomic direction scaffolds one loose ticket",
       { created: loose.created, loose: loose.loose, mission: loose.mission }, { created: true, loose: true, mission: "" });
@@ -12759,8 +12758,8 @@ function testProposeLooseTicket() {
     assertTrue("a loose ticket writes no mission key whatsoever", !/^mission:/m.test(body), body.slice(0, 300));
     assertTrue("and carries its provenance as feedback refs instead",
       /^feedback: \[20260802000000-ask\.md\]$/m.test(body), body.slice(0, 300));
-    assertTrue("its type and layer come from the arguments, not the defaults",
-      /^type: bugfix$/m.test(body) && /^layer: \[Domain\]$/m.test(body), body.slice(0, 300));
+    assertTrue("a scaffolded ticket carries none of the retired fields (even under legacy args)",
+      !/^(type|layer|effort|commit_hash|category):/m.test(body), body.slice(0, 300));
     assertTrue("merge_policy stays empty, which reads as review",
       /^merge_policy:\s*$/m.test(body), body.slice(0, 300));
     // The `feedback:` key is TOLERATED by the validator, like `claim:` -- it validates
@@ -12782,7 +12781,7 @@ function testProposeLooseTicket() {
       JSON.stringify(refs()));
 
     // A mission's own ticket may carry refs too; the set is a set.
-    const member = JSON.parse(run(root, `${SCAFFOLD} "Do the missioned work" ${slug} enhancement Config --feedback 20260802000000-ask.md`).stdout);
+    const member = JSON.parse(run(root, `${SCAFFOLD} "Do the missioned work" ${slug} --feedback 20260802000000-ask.md`).stdout);
     assertTrue("a mission-member ticket still carries its mission relation",
       readFileSync(join(root, member.path), "utf8").includes(`mission: ${slug}`), member.path);
     assertEq("a record referenced by several artifacts is listed once",

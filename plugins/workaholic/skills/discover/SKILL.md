@@ -44,7 +44,7 @@ The script searches archive, todo, and icebox directories. Results are sorted by
 
 - Higher count = more keyword matches = more relevant
 - Read top 5 tickets to understand context
-- Extract: title, overview, key files, layer
+- Extract: title, overview, key files
 
 ### Overlap Analysis
 

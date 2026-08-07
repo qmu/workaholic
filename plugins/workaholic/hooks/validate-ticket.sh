@@ -227,85 +227,11 @@ case "$author" in
     ;;
 esac
 
-# type: one of enhancement, bugfix, refactoring, housekeeping
-type=$(validate_field "type")
-if [ -z "$type" ]; then
-  echo "Error: type field is required" >&2
-  print_skill_reference
-  exit 2
-fi
-case "$type" in
-  enhancement|bugfix|refactoring|housekeeping) : ;;
-  *)
-    echo "Error: type must be one of: enhancement, bugfix, refactoring, housekeeping" >&2
-    echo "Got: $type" >&2
-    print_skill_reference
-    exit 2
-    ;;
-esac
-
-# layer: YAML array with valid values
-layer_line=$(printf '%s\n' "$frontmatter" | grep "^layer:" || true)
-if [ -z "$layer_line" ]; then
-  echo "Error: layer field is required" >&2
-  print_skill_reference
-  exit 2
-fi
-# Extract array values (handles [UX, Domain] format)
-layer_values=$(printf '%s\n' "$layer_line" | sed 's/^layer:[[:space:]]*//' | tr -d '[]' | tr ',' '\n' | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//')
-if [ -z "$layer_values" ]; then
-  echo "Error: layer must contain at least one value" >&2
-  print_skill_reference
-  exit 2
-fi
-# Find the first non-empty value that is not an allowed layer (no subshell exit:
-# grep surfaces the offender, the test runs in the current shell).
-invalid_layer=$(printf '%s\n' "$layer_values" | grep -v '^$' | grep -vE '^(UX|Domain|Infrastructure|DB|Config)$' | head -n 1 || true)
-if [ -n "$invalid_layer" ]; then
-  echo "Error: layer values must be one of: UX, Domain, Infrastructure, DB, Config" >&2
-  echo "Got: $invalid_layer" >&2
-  print_skill_reference
-  exit 2
-fi
-
-# effort: empty or valid format (0.1h, 0.25h, 0.5h, 1h, 2h, 4h)
-effort=$(validate_field "effort")
-if [ -n "$effort" ]; then
-  case "$effort" in
-    0.1h|0.25h|0.5h|1h|2h|4h) : ;;
-    *)
-      echo "Error: effort must be one of: 0.1h, 0.25h, 0.5h, 1h, 2h, 4h (or empty)" >&2
-      echo "Got: $effort" >&2
-      print_skill_reference
-      exit 2
-      ;;
-  esac
-fi
-
-# commit_hash: empty or short git hash format (7-40 hex chars)
-commit_hash=$(validate_field "commit_hash")
-if [ -n "$commit_hash" ]; then
-  if ! printf '%s' "$commit_hash" | grep -qE '^[0-9a-f]{7,40}$'; then
-    echo "Error: commit_hash must be a valid short git hash (7-40 hex characters)" >&2
-    echo "Got: $commit_hash" >&2
-    print_skill_reference
-    exit 2
-  fi
-fi
-
-# category: empty or one of Added, Changed, Removed
-category=$(validate_field "category")
-if [ -n "$category" ]; then
-  case "$category" in
-    Added|Changed|Removed) : ;;
-    *)
-      echo "Error: category must be one of: Added, Changed, Removed (or empty)" >&2
-      echo "Got: $category" >&2
-      print_skill_reference
-      exit 2
-      ;;
-  esac
-fi
+# type / layer / effort / commit_hash / category: RETIRED (2026-08-07) and therefore
+# tolerated, never validated. New tickets do not carry them; the whole existing corpus
+# (todo and archive alike) does, and a hook that rejected — or demanded — a retired
+# field would retro-block history on its next ordinary edit. So there is no rule here
+# at all: present values of any shape pass, exactly like `claim:` below.
 
 # merge_policy: optional, one of auto | review.
 #

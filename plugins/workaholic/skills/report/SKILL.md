@@ -124,7 +124,7 @@ Wait for all 3 to complete. Track which succeeded and which failed.
 
 #### Phase 3: Write Story File
 
-1. **Gather Source Data**: Read archived tickets using Glob pattern `.workaholic/tickets/archive/<branch-name>/*.md`. Extract frontmatter (`category`, **`mission`**) and content (Overview, Final Report). Record each ticket's **filename** (basename) — this is the `tickets:` relation — and its `mission:` slugs (a list; a bare scalar counts as one) — whose union is the story's `mission:` (see Story Frontmatter for the inheritance rule).
+1. **Gather Source Data**: Read archived tickets using Glob pattern `.workaholic/tickets/archive/<branch-name>/*.md`. Extract frontmatter (**`mission`**) and content (Overview, Final Report). The change category comes from each commit's `Category:` git trailer via `collect-commits.sh` — the ticket `category` field is retired (2026-08-07); an archived ticket still carrying one is history, not a source. Record each ticket's **filename** (basename) — this is the `tickets:` relation — and its `mission:` slugs (a list; a bare scalar counts as one) — whose union is the story's `mission:` (see Story Frontmatter for the inheritance rule).
 
    **Take each ticket's commit hash from git, never from frontmatter:**
 

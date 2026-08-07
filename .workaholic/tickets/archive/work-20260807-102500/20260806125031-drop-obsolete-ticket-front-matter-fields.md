@@ -6,7 +6,7 @@ type: refactoring
 layer: [Config]
 effort:
 commit_hash:
-category:
+category: Changed
 depends_on:
 mission: slim-commands-skills-and-docs-for-ai-agent-use
 merge_policy:
@@ -62,3 +62,14 @@ removed field.
 
 <!-- Decide whether existing tickets are migrated or simply tolerated; the hook must
      not retro-block history either way. -->
+
+## Final Report
+
+Development completed as planned. The five fields (`type`, `layer`, `effort`, `commit_hash`, `category`) left the ticket frontmatter across writers (create-ticket template, propose scaffold), the validation hook (checks deleted; retired fields tolerated-never-validated like `claim:`), the drive skill (effort step and archive prerequisite gone, ordering now depends_on → context grouping → implicit deps, layer-derived policy fallback deleted), and the readers (`summary.sh`/`plan-units.sh` drop the keys from output; report/write-release-note/discover prose updated). Existing tickets are grandfathered byte-untouched. `update.sh` was deleted — nothing references it after the change, and a test pins the deletion. Docs updated: CLAUDE.md/README OKF paragraphs state tickets as the `type`-floor exception.
+
+### Discovered Insights
+
+- **Insight**: The commit `Category:` git trailer (archive.sh → `commit.sh --category` → collect-commits) is the surface `/report` actually reads; the frontmatter field was a second, unread copy.
+  **Context**: Retiring the field made the trailer the single category source — the same one-source shape the repo prefers everywhere.
+- **Insight**: The propose scaffold tolerates its retired `[type] [layer]` positional args instead of refusing them.
+  **Context**: Stale routine prompts on the live account may still pass them; a refusal would break every such tick for a cosmetic reason.

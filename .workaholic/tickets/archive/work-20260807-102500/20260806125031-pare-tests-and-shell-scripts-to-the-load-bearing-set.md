@@ -61,3 +61,12 @@ by the remaining suite still passing.
 
 <!-- "Load-bearing" needs a defensible definition so a needed edge-case test is
      not cut; the approval interrogation should set the bar. -->
+
+## Final Report
+
+Development completed as planned. A full caller map over the 151 shell scripts (SKILL.md, reference/, commands/, hooks, scripts, build tooling, CI, tests as callers) found exactly one orphan — `ship/scripts/backfill-deferred-concerns.sh`, a one-time migration with zero callers — deleted with its three generated copies. Everything else is live; the conservative keeps (posix-lint.sh named by rules/shell.md, push-outcome.sh sourced by four ship scripts) are recorded. The test suite went from 58 deliberate failures (prose pins over relocated command/skill content) to 2,415 passed / 0 failed: 54 assertions retargeted to the files now carrying the rules, 1 deleted (it pinned dropped retirement narration), 1 pruned as duplicate coverage. No live rule was lost — zero source regressions surfaced.
+
+### Discovered Insights
+
+- **Insight**: The script inventory was already load-bearing — the multiplication the ticket assumed was mostly in prose pins, not in scripts.
+  **Context**: The caller map is the reusable artifact here; run it again after any future skill restructuring.

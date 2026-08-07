@@ -60,3 +60,4 @@ the README-reachable docs are reorganized to match the current spec.
 - 2026-08-07 — ticket archived — 20260806125031-make-every-command-a-thin-skill-alias.md
 - 2026-08-07 — ticket archived — 20260806125031-drop-obsolete-ticket-front-matter-fields.md
 - 2026-08-07 — ticket archived — 20260806125031-cut-every-skill-md-under-the-line-target.md
+- 2026-08-07 — ticket archived — 20260806125031-pare-tests-and-shell-scripts-to-the-load-bearing-set.md

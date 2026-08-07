@@ -5,6 +5,7 @@ assignees: [a@qmu.jp]
 depends_on:
 feedback: [20260807073610-fb-skill-should-treat-any-invocation-as-equivalent-to-a-direct-user-request.md]
 merge_policy:
+claim: work-20260807-081102
 ---
 
 # Treat any /fb invocation as an authorized direct ask

@@ -424,4 +424,5 @@
 * [Routine setup is a human act the plugin makes cheap](20260806143907-routine-setup-is-a-human-act-the-plugin-makes-cheap.md)
 * [Two routines, one behaviour per command](20260806183556-two-routines-one-behaviour-per-command.md)
 * [Ownership is a field, not a directory](20260806184651-ownership-is-a-field-not-a-directory.md)
+* [Resolved: The mission skill is still 380 lines, well above the guideline it was measured against](20260807124423-resolved-the-mission-skill-is-still-380.md)
 <!-- okf:generated:end -->

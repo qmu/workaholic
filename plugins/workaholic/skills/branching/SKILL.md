@@ -47,7 +47,6 @@ A publish tree is a checkout of `origin/main` at the fixed, git-ignored `.publis
 bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/open-publish-tree.sh [base]
 # write the artifact under <path>/…
 bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/publish-tree-pr.sh <title> <why> <changes> <concerns> <insights> <verify> [files...]
-bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/read-notify-target.sh <pr-number-or-url>
 bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/close-publish-tree.sh [base]
 ```
 
@@ -58,7 +57,7 @@ Publish has two destinations, and the branch one is the default. Both run `commi
 | `publish-tree-pr.sh` | a fresh `work-*` branch + an open pull request | every artifact a person should see land (feedback, missions, tickets) — the merge is the event that can be announced |
 | `publish-tree-commit.sh` | the base branch directly | only seams already downstream of a merge (e.g. ship-time concern extraction) |
 
-Rules that hold across the lifecycle (outputs, refusal reasons, the `WORKAHOLIC_PR_TITLE`/`WORKAHOLIC_NOTIFY_TARGET` env vars, and the full rationale: [`reference/publish-tree.md`](reference/publish-tree.md)):
+Rules that hold across the lifecycle (outputs, refusal reasons, the `WORKAHOLIC_PR_TITLE` env var, and the full rationale: [`reference/publish-tree.md`](reference/publish-tree.md)):
 
 - Nothing recoverable is ever destroyed by a bookkeeping call: `open` and `close` refuse a dirty publish tree, and `close` also refuses `unpublished_commits` — a clean tree whose `publish-main` tip no remote ref contains, the state a `diverged` publish leaves behind. A collision or surviving non-fast-forward is reported, never resolved by overwriting.
 - `pr_failed`/`no_gh` still report `branch` and `sha` because the artifact IS pushed — recover by opening the PR by hand, never by re-publishing. Closing after a PR publish leaves the work on the remote `work-*` branch — the intended end state; "published" and "queued" are different states (J4).

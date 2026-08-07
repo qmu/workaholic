@@ -30,7 +30,7 @@ envelope, and abort reason, is [`reference/workflow.md`](reference/workflow.md):
 4. **Judge and decide the form** (below); scaffold the mission and/or tickets, stamp the
    acceptance links, and check the ticket floor.
 5. **Publish everything as one pull request** (`publish-tree-pr.sh` under
-   `WORKAHOLIC_PR_TITLE` / `WORKAHOLIC_NOTIFY_TARGET`), close the publish tree,
+   `WORKAHOLIC_PR_TITLE`), close the publish tree,
    **notify**, and **report** one line: the form chosen with its reason, the record's
    filename, the PR URL, and the `notified` flag.
 
@@ -49,13 +49,7 @@ The judgment decides cardinality before anything else, and there are exactly thr
 - A **loose ticket** lands in the flat `todo/` behind the same pull request, carries no `mission:` key — so `plan-units.sh` offers it as ordinary backlog, while a mission's tickets are excluded from the loose offer as `mission_member` and driven only in their mission's unit — and its `feedback:` refs are mandatory (`no_feedback`): with no mission to hold the relation they are the only record of what it answers, and without them a re-asked direction has nothing to collide with.
 - Do not dress a decomposable direction as one loose ticket, or an atomic one as a mission, to get something published: both trade the artifact's honesty for a publication. Nothing here is claimable before the pull request merges, and everything is after.
 
-**Record and proposal arrive as one pull request.** Everything is written into the publish tree (`.publish/` is an independent checkout, so an interactive caller's branch and uncommitted work are untouched) and landed with a single `branching/scripts/publish-tree-pr.sh` call — never straight to the base and never as two pull requests: the record and the work it warrants are one decision, and splitting them would let a reviewer accept half of it. The pull request's **title carries the `[Proposal]` prefix** (`[提案]` when Japanese) — load-bearing, not cosmetic: the `[Implement]` routine's GitHub trigger filters merged pull requests by `title contains [Proposal]`, so a dropped prefix opens a pull request whose merge starts nothing. Set it through `WORKAHOLIC_PR_TITLE`, never the commit subject — the two are different surfaces with different rules (`check-subject.sh` forbids a `[bracket]` prefix on a subject; conflating them made every publish die at `commit_failed`, P4). The **body carries the notification target**, written when `WORKAHOLIC_NOTIFY_TARGET` is exported, as one machine-readable line:
-
-```
-Notify-Thread: <thread url>
-```
-
-`/implement`, started by that pull request's merge, reads it back (`branching/scripts/read-notify-target.sh <pr>`) and replies **there** instead of guessing the thread by `fb:<stem>` search (a guess put a reply in the wrong place on 2026-08-05). Pass the target the routine handed you; pass nothing when you have none — an absent line is the reader's documented fallback signal. Do **not** invent a target to fill the line. (A Slack thread URL in a public PR body is workspace-internal and leaks no content.)
+**Record and proposal arrive as one pull request.** Everything is written into the publish tree (`.publish/` is an independent checkout, so an interactive caller's branch and uncommitted work are untouched) and landed with a single `branching/scripts/publish-tree-pr.sh` call — never straight to the base and never as two pull requests: the record and the work it warrants are one decision, and splitting them would let a reviewer accept half of it. The pull request's **title carries the `[Proposal]` prefix** (`[提案]` when Japanese) — load-bearing, not cosmetic: the `[Implement]` routine's GitHub trigger filters merged pull requests by `title contains [Proposal]`, so a dropped prefix opens a pull request whose merge starts nothing. Set it through `WORKAHOLIC_PR_TITLE`, never the commit subject — the two are different surfaces with different rules (`check-subject.sh` forbids a `[bracket]` prefix on a subject; conflating them made every publish die at `commit_failed`, P4). The body carries **no notification target** (Q1, 2026-08-07 — P4's carried-target propagation is retired and its P9 disclosure withdrawn with it): `/implement`, started by the pull request's merge, finds the item's thread itself through the stateless exact-token lookup in `workaholic:workaholify` (*One thread per feedback item*), and this session's own finish post finds it the same way — the key is the record's `fb:<stem>`, in hand on both sides. Never thread by similarity or recency; a lookup that matches nothing posts a new keyed root.
 
 ## Act only on an ask that is yours
 

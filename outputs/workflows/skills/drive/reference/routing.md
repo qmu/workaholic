@@ -39,7 +39,7 @@ posts nothing to Slack, at any step** (scoped 2026-08-07). Under `/implement`:
   through its queued tickets) — and post the 🟠 start line into each stem's thread.
 - **The thread is found, never carried** (Q1, 2026-08-07 — a merged pull request names no
   target, and no body line is read back). Find each stem's thread by the stateless lookup in
-  `workaholify` (*One thread per feedback item*): exact-string searches only —
+  `notify` (*One thread per feedback item*): exact-string searches only —
   `fb:<stem>`, then the Issue/PR URL — at most two queries, no full-channel read, and a new
   keyed root when nothing matches; never a similarity or recency match. Resolve the target
   **once per run** and reuse it for the finish.
@@ -49,7 +49,7 @@ posts nothing to Slack, at any step** (scoped 2026-08-07). Under `/implement`:
   actually reached.
 - **Per unit, never per run** ("a run started" names no item, so it has no thread); with no stems
   at all, key on `unit:<unit-id>` — never keyless. The routing rules live in
-  `workaholify` (*One thread per feedback item*). The posts go through the session's
+  `notify` (*One thread per feedback item*). The posts go through the session's
   Slack connector, are never load-bearing, and a failure to post changes nothing about the claim.
 
 `claim.sh`'s own one-line bot notice (token-gated CLI surface) is a different thing and is not

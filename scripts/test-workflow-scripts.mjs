@@ -8807,7 +8807,7 @@ function testFeedback() {
 
 // ---------- drive: a unit's feedback stems, for the thread its posts land in ----------
 // The start and finish posts are per UNIT, not per run, and land in the feedback item's
-// thread (workaholify SKILL, *Which thread a /drive unit's posts land in*). This resolver
+// thread (notify SKILL, *Which thread an /implement unit's posts land in*). This resolver
 // is the only path from a claimed unit to the `fb:<stem>` key, so what is pinned here is
 // the shape the poster depends on: dedup, order, and an empty answer that is an ANSWER.
 function testUnitFeedbackStems() {
@@ -12368,12 +12368,16 @@ function testPrTitleSeparateFromSubject() {
 // stated so that it cannot guess. The lookup is prose the running model applies, so
 // these pins are what stop each load-bearing clause from silently dropping out: the
 // order of the exact searches, the by-name fuzzy prohibition, the written query bound,
-// and the once-per-run resolution.
+// and the once-per-run resolution. THE MODEL LIVES IN `workaholic:notify` (2026-08-07,
+// developer's ruling): it was the workaholify SKILL's until then, and the last block
+// here pins the relocation both ways -- present in notify, absent from workaholify --
+// so the model cannot silently grow back in the setup gateway.
 function testStatelessThreadLookup() {
   const propose = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/propose/SKILL.md"), "utf8");
   const drive = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/drive/SKILL.md"), "utf8");
   const routing = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/drive/reference/routing.md"), "utf8");
-  const wh = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/SKILL.md"), "utf8");
+  const notifySkill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/notify/SKILL.md"), "utf8");
+  const workaholify = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/SKILL.md"), "utf8");
   const writer = readFileSync(SCRIPTS.publishTreePr, "utf8");
 
   // The surviving P4 half: the prefix contract and its env var are untouched.
@@ -12390,39 +12394,51 @@ function testStatelessThreadLookup() {
   // not a search and sits first; then the fb:<stem> key; then the Issue/PR URL; a miss
   // posts a new keyed root. Ordering is asserted by position, so a reshuffle is caught.
   assertTrue("the lookup is stated as exact-string searches only",
-    /exact-string/.test(wh) && /never a similarity or content match/.test(wh));
-  const iTrigger = wh.indexOf("The session's own trigger message");
-  const iStem = wh.indexOf("Search `` `fb:<stem>` ``");
-  const iUrl = wh.indexOf("Search the Issue or pull-request URL");
-  const iRoot = wh.indexOf("post a **new root** carrying `fb:<stem>`");
+    /exact-string/.test(notifySkill) && /never a similarity or content match/.test(notifySkill));
+  const iTrigger = notifySkill.indexOf("The session's own trigger message");
+  const iStem = notifySkill.indexOf("Search `` `fb:<stem>` ``");
+  const iUrl = notifySkill.indexOf("Search the Issue or pull-request URL");
+  const iRoot = notifySkill.indexOf("post a **new root** carrying `fb:<stem>`");
   assertTrue("the ordered cases exist and hold their order",
     iTrigger >= 0 && iStem > iTrigger && iUrl > iStem && iRoot > iUrl,
     JSON.stringify({ iTrigger, iStem, iUrl, iRoot }));
   assertTrue("the fb:<stem> key is derived from the repository, never from Slack",
-    /derived from the repository, never from Slack/.test(wh)
-    && /unit-feedback-stems\.sh/.test(wh));
+    /derived from the repository, never from Slack/.test(notifySkill)
+    && /unit-feedback-stems\.sh/.test(notifySkill));
 
   // The prohibition is by name -- it IS what the 2026-08-05 defect was.
   assertTrue("fuzzy matching is prohibited by name",
-    /Fuzzy matching is prohibited by name/i.test(wh));
+    /Fuzzy matching is prohibited by name/i.test(notifySkill));
   assertTrue("and its named forms are each forbidden",
-    /never a similarity match/.test(wh)
-    && /never "the most recent thread that looks related"/.test(wh)
-    && /never recency/.test(wh));
+    /never a similarity match/.test(notifySkill)
+    && /never "the most recent thread that looks related"/.test(notifySkill)
+    && /never recency/.test(notifySkill));
   assertTrue("the not-found branch starts a thread instead of picking the closest thing",
-    /says so\*\* by starting one/.test(wh));
+    /says so\*\* by starting one/.test(notifySkill));
 
   // The bound is a written number, so a future edit changes it deliberately.
   assertTrue("at most two search queries per lookup",
-    /at most two search queries per lookup/.test(wh));
+    /at most two search queries per lookup/.test(notifySkill));
   assertTrue("no full-channel read at any point",
-    /no full-channel read at any point/.test(wh)
-    && /channel history returns everything and is never the instrument/.test(wh));
+    /no full-channel read at any point/.test(notifySkill)
+    && /channel history returns everything and is never the instrument/.test(notifySkill));
 
   // Once per run: statelessness is between runs, never within one.
   assertTrue("the target is resolved once per run and reused",
-    /Resolve once per run and reuse it/.test(wh)
-    && /between runs, never within one/.test(wh));
+    /Resolve once per run and reuse it/.test(notifySkill)
+    && /between runs, never within one/.test(notifySkill));
+
+  // THE RELOCATION, PINNED BOTH WAYS (2026-08-07): the model's home is the notify
+  // skill, and workaholify keeps a pointer and none of the rules. The written query
+  // bound is the tripwire -- it is the clause a re-grown copy would carry first --
+  // and the pointer is pinned so the deferral cannot silently stop pointing.
+  assertTrue("workaholify no longer states the lookup itself",
+    !/at most two search queries per lookup/.test(workaholify)
+    && !/Fuzzy matching is prohibited by name/i.test(workaholify)
+    && !/`fb:<stem>`/.test(workaholify));
+  assertTrue("and defers to the notify skill by name",
+    /workaholic:notify/.test(workaholify)
+    && /notification model lives in `workaholic:notify`/i.test(workaholify));
 
   // The consumers defer to the one statement instead of re-deriving the rules.
   assertTrue("the drive skill sends its posts through the stateless lookup",
@@ -13346,6 +13362,10 @@ function testRoutineAnnouncementScoping() {
   const header = (f) => { const b = read(f); const i = b.indexOf("## Prompt"); return i < 0 ? "" : b.slice(0, i); };
   const fbHeader = header("fb.md"), implementHeader = header("implement.md");
   const wh = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/SKILL.md"), "utf8");
+  // The notification model moved into its own skill (2026-08-07): the announce scoping
+  // and the red-alert dedup are `workaholic:notify`'s now; workaholify keeps only the
+  // routine-count policy ([Consent] retirement) and a pointer.
+  const nf = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/notify/SKILL.md"), "utf8");
 
   // The subject must be identified. "about the pull request" with no antecedent is the
   // exact wording that produced the duplicates.
@@ -13379,14 +13399,14 @@ function testRoutineAnnouncementScoping() {
   // A prompt may not defer the one thing that IS its output contract.
   // The four lines are the developer's own (feedback 20260806183556, amended by Q1):
   // read the payload out of the triggering artifact and FIND its reply thread (the
-  // workaholify SKILL owns the lookup -- the prompt names it and carries no target),
+  // notify skill owns the lookup -- the prompt names it and carries no target),
   // say work has started in the payload's language, run the one command, post the
   // result in the given format. The FORMAT is the one thing a routine cannot defer --
   // no skill states it, because it is the routine's output contract -- so it is pinned
   // inline.
   for (const [name, body] of [["fb", fb], ["implement", implement]]) {
     assertTrue(`the ${name} prompt finds its reply thread rather than reading a carried target`,
-      /find its reply thread \(the workaholify lookup\)/.test(body), body.slice(0, 400));
+      /find its reply thread \(the workaholic:notify lookup\)/.test(body), body.slice(0, 400));
     assertTrue(`the ${name} prompt carries no thread URL to read`,
       !/Slack Thread URL/.test(body), body.slice(0, 400));
     assertTrue(`the ${name} prompt notifies in the payload's own language`,
@@ -13403,19 +13423,19 @@ function testRoutineAnnouncementScoping() {
   // ruling): every announcement rule lives in the skills, and the template only defers.
   // These assertions therefore grep the OWNING skill, and one pin holds the deferral.
   assertTrue("the Proposed root announces only the posting session's own PR",
-    /only the pull request you just created in this session/i.test(wh), "proposed scoping missing from workaholify SKILL");
-  // The implement template is a pointer: its announce scoping lives in the workaholify
+    /only the pull request you just created in this session/i.test(nf), "proposed scoping missing from notify SKILL");
+  // The implement template is a pointer: its announce scoping lives in the notify
   // SKILL, and the template pin holds the deferral.
   assertTrue("the announce scoping the implement template used to carry lives in the SKILL",
-    /announce events the session itself produced/i.test(wh) && /never announce another session's work/i.test(wh),
-    "announce scoping missing from workaholify SKILL");
+    /announce events the session itself produced/i.test(nf) && /never announce another session's work/i.test(nf),
+    "announce scoping missing from notify SKILL");
   assertTrue("and the implement template defers to the skills instead of restating them",
     /no rule\s+a skill already owns/.test(implementHeader), "implement deferral missing");
   // `fb` IS the propose entrance since the batch template was retired (2026-08-04), and its
   // one postable event is the pull request it just opened — which is why the two clauses
   // the retired [Propose Batch] template carried are asserted here instead.
   assertTrue("and a session that opened no pull request posts nothing",
-    /post nothing if you created none/i.test(wh), "post-nothing rule missing from workaholify SKILL");
+    /post nothing if you created none/i.test(nf), "post-nothing rule missing from notify SKILL");
   const proposeSkill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/propose/SKILL.md"), "utf8");
   assertTrue("the one-PR rule lives in the propose skill",
     /never as two pull requests/i.test(proposeSkill), "one-PR rule missing from propose SKILL");
@@ -13439,47 +13459,49 @@ function testRoutineAnnouncementScoping() {
   // drop silently, and dropping any one of them turns dedupe into silent failure.
   //
   // ASSERTED AGAINST THE SKILL, NOT THE TEMPLATE, since 2026-08-05: the rule moved into
-  // `workaholify/SKILL.md` when `[Drive]` was slimmed to a thin pointer, because it is
-  // notification policy every routine shares rather than drive procedure. The template now
-  // names the rule and defers, which the last assertion here pins — a pointer that stops
-  // pointing is the one way this relocation could silently lose the rule.
+  // the workaholify SKILL when `[Drive]` was slimmed to a thin pointer, because it is
+  // notification policy every routine shares rather than drive procedure — and into
+  // `notify/SKILL.md` on 2026-08-07, when the whole notification model left the setup
+  // gateway for its own skill. The template now names the rule and defers, which the
+  // last assertion here pins — a pointer that stops pointing is the one way this
+  // relocation could silently lose the rule.
   assertTrue("the skill defines a stable failure signature",
-    /failure signature/i.test(wh) && /stable across ticks/i.test(wh), "signature rule missing");
+    /failure signature/i.test(nf) && /stable across ticks/i.test(nf), "signature rule missing");
   assertTrue("and forbids volatile detail in it, which would defeat suppression",
-    /never a SHA, a timestamp/i.test(wh), "volatility rule missing");
+    /never a SHA, a timestamp/i.test(nf), "volatility rule missing");
   assertTrue("a red alert is posted only after reading the channel",
-    /read the channel's recent history/i.test(wh), "read-before-post rule missing");
+    /read the channel's recent history/i.test(nf), "read-before-post rule missing");
   assertTrue("and suppresses only a same-signature alert inside the cool-down",
-    /same signature/i.test(wh) && /24-hour cool-down/i.test(wh), "cool-down rule missing");
+    /same signature/i.test(nf) && /24-hour cool-down/i.test(nf), "cool-down rule missing");
   assertTrue("a changed signature still posts immediately",
-    /suppresses repeats, never first reports/i.test(wh), "first-report guarantee missing");
+    /suppresses repeats, never first reports/i.test(nf), "first-report guarantee missing");
   // FAIL OPEN TOWARD ALERTING. A dedupe that cannot read its own evidence must not
   // manufacture silence — that would convert a notification bug into a monitoring outage.
   assertTrue("an unreadable channel history posts the alert anyway",
-    /unreadable history posts the alert/i.test(wh), "fail-open clause missing");
+    /unreadable history posts the alert/i.test(nf), "fail-open clause missing");
   assertTrue("and says why silence must never come from the silencing mechanism",
-    /silence must never be produced by a failure of the mechanism/i.test(wh), "fail-open rationale missing");
+    /silence must never be produced by a failure of the mechanism/i.test(nf), "fail-open rationale missing");
   assertTrue("a suppressed tick names the suppression in its own terminal report",
-    /alert suppressed as duplicate/i.test(wh), "suppression-visibility rule missing");
+    /alert suppressed as duplicate/i.test(nf), "suppression-visibility rule missing");
   // A PERSISTING failure is not a repeating one, and the cool-down could not tell them
   // apart: four consecutive ticks produced nothing while the channel read as a healthy
   // idle fleet. The reply is what keeps "broken and already reported" distinguishable
   // from "nothing to do" WITHOUT reintroducing the top-level repeat.
   assertTrue("a suppressed tick replies in the alert's thread instead of going silent",
-    /threaded reply on the existing alert/i.test(wh), "persisting-failure reply rule missing");
+    /threaded reply on the existing alert/i.test(nf), "persisting-failure reply rule missing");
   assertTrue("and the reply carries what changed, so it is not itself a repeat",
-    /still failing/i.test(wh) && /ticks/i.test(wh), "reply content missing");
+    /still failing/i.test(nf) && /ticks/i.test(nf), "reply content missing");
   // The reply REPLACES the suppressed top-level post; it never displaces the two cases
   // that still post a root. Getting this ordering wrong turns a changed signature or a
   // first report into a thread reply nobody sees.
   assertTrue("the reply replaces only the suppressed top-level post",
-    /cool-down suppresses the \*\*top-level\*\* post and nothing else/i.test(wh), "reply ordering missing");
+    /cool-down suppresses the \*\*top-level\*\* post and nothing else/i.test(nf), "reply ordering missing");
   assertTrue("and the reply's own rate is decided rather than left to the session",
-    /reply is not itself rate-limited/i.test(wh), "reply-rate decision missing");
+    /reply is not itself rate-limited/i.test(nf), "reply-rate decision missing");
   // The dedupe is scoped to red alerts. The orange/green/yellow posts announce events this
   // session produced, which are new every time — deduping them would hide real work.
   assertTrue("the dedupe applies to red failure alerts only",
-    /announce events the session itself produced and are new every time/i.test(wh), "scoping missing");
-  assertTrue("and the slimmed implement template still points at the workaholify skill",
-    /workaholify. SKILL/i.test(implementHeader), "template pointer missing");
+    /announce events the session itself produced and are new every time/i.test(nf), "scoping missing");
+  assertTrue("and the slimmed implement template still points at the notify skill",
+    /workaholic:notify/.test(implementHeader), "template pointer missing");
 }

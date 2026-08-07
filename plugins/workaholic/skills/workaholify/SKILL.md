@@ -44,6 +44,7 @@ Every problem is named separately — `hook_missing`, `hook_stale`, `not_registe
 
 - The already-installed fast path is version-gated, never presence-gated (a baked-in stale install is refreshed with `plugin update`, not skipped on presence).
 - The hook also provisions `gh` — guarded on `command -v gh`, non-fatal in every branch (the web container ships none, and fourteen plugin scripts need it).
+- The hook also gives the session the developer's git identity: it resolves the session's GitHub login (`gh api user`) through the committed repo-root `.claude/git-identities` mapping (`<login>=<email>`, one per line, `#` comments tolerated) and sets the repo-local `user.email`/`user.name` — **only** when the current email is empty or an `@anthropic.com` default; a real local identity is never overwritten, and an absent mapping file is the status quo, not an error. Without it, ownership keys on `git config user.email`, so the developer's own `[Implement]` routine cannot claim tickets assigned to them (measured 2026-08-07: `ticket_owner_mismatch` on the developer's own proposal).
 - The `SessionStart` matcher must be `startup` (the event also fires on `resume`/`clear`/`compact`); the timeout is 120 (a marketplace clone can exceed the default). The hook is POSIX `sh` with no `set -e` (it must never block session start), idempotent, and fails open; `matches_canonical` compares byte-for-byte, so an older installed copy reports as drift.
 
 ## 5. Scheduled routines
@@ -77,6 +78,7 @@ Reported, never gates (the web bootstrap in §4 is the third, and the one withou
 
 - The Slack connector must be attached (nothing here can verify it was kept), and the channel must exist: `bash ${CLAUDE_PLUGIN_ROOT}/skills/workaholify/scripts/check-slack-channel.sh <repo-name>` probes `dev-<repo>`. "Cannot check" is never reported as "does not exist" — only a probe that actually reached Slack may set `exists`; everything else is `checked: false` with a named reason (`no_qfs`, `slack_locked`, `slack_not_connected`).
 - On a public repository, Issue and Pull request permissions must be `Collaborators only`. This is the precondition of the whole loop: an Issue or pull-request body becomes an unattended agent's instructions, and this bounds that injection surface to people inside the repository. Nothing here can verify it; the sheet states it.
+- The committed `.claude/git-identities` mapping must carry each developer whose tickets a routine should drive (`<login>=<email>`; §4's bootstrap hook reads it). Without their entry, a cloud session keeps the container's `noreply@anthropic.com` identity and the developer's own `[Implement]` routine cannot claim tickets assigned to them.
 
 ### What may be applied unattended
 

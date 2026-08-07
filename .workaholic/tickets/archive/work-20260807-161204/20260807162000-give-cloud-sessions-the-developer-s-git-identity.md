@@ -6,6 +6,7 @@ depends_on:
 mission:
 feedback: [20260807065338-archive-sh-should-auto-push-the-claim-branch-after-archiving.md]
 merge_policy:
+claim: work-20260807-161204
 ---
 
 # Give cloud sessions the developer's git identity
@@ -65,3 +66,12 @@ routine prompts stay four lines.
 **Gate:**
 
 - The hook stays POSIX sh with no `set -e` and never blocks session start; the mapping file's absence is the status quo, not an error.
+
+## Final Report
+
+Development completed as planned. The bootstrap gains step 0b: when the session's git email is unset or the anthropic default, it resolves `gh api user`'s login through the committed `.claude/git-identities` mapping and sets the repo-local `git config user.email` (and `user.name` only when empty) — every branch non-fatal with one log line, a real local identity never overwritten, and a malformed login refused rather than interpolated. The installed hook copy is byte-identical (`check-bootstrap.sh` canonical), the mapping ships with `tamurayoshiya=a@qmu.jp`, and the workaholify SKILL/reference and setup-sheet preconditions document it. Eight new assertions cover the three cases via the suite's existing gh PATH-shim precedent.
+
+### Discovered Insights
+
+- **Insight**: The host's global `user.name` leaks into a "fresh" test repo unless `GIT_CONFIG_GLOBAL=/dev/null` masks it — an unset-identity test that passes locally can assert nothing.
+  **Context**: The suite's hook fixtures now mask global/system git config for identity tests.

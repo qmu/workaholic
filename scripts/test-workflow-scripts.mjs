@@ -13409,8 +13409,8 @@ function testRoutineAnnouncementScoping() {
       /find its reply thread \(the workaholic:notify lookup\)/.test(body), body.slice(0, 400));
     assertTrue(`the ${name} prompt carries no thread URL to read`,
       !/Slack Thread URL/.test(body), body.slice(0, 400));
-    assertTrue(`the ${name} prompt notifies in the payload's own language`,
-      /in the same language as the/.test(body), body.slice(0, 400));
+    assertTrue(`the ${name} prompt announces that work has started`,
+      /that (design process|implementation) has started/.test(body), body.slice(0, 400));
     assertTrue(`the ${name} prompt carries its post format inline`,
       /<@U…>/.test(body) && /\{repo\}\/pull\/123/.test(body), body.slice(0, 400));
     assertTrue(`the ${name} prompt names no repository`,

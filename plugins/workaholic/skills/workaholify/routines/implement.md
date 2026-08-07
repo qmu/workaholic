@@ -33,7 +33,7 @@ the format line is the developer's own placeholder for the pull request link. (N
 ## Prompt
 
 - Read the Mission/Ticket from the PR and find its reply thread (the workaholic:notify lookup)
-- Notify the thread, in the same language as the PR, that implementation has started
+- Notify to the thread that implementation has started
 - After running `/implement [Mission/Ticket]`, notify the thread in the following format
 
 <@U…> 🛠️ [#123 Title]({repo}/pull/123)

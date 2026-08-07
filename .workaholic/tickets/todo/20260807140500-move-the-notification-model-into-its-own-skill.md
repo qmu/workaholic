@@ -5,6 +5,7 @@ assignees: [a@qmu.jp]
 depends_on:
 mission:
 merge_policy:
+claim: work-20260807-135731
 ---
 
 # Move the notification model into its own skill

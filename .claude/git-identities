@@ -1,0 +1,2 @@
+# <github-login>=<git-email>, one per line: the web bootstrap (.claude/hooks/session-start.sh) maps the session GitHub login to the developer git identity so personally-assigned tickets are claimable; committed because these emails are already public in git history.
+tamurayoshiya=a@qmu.jp

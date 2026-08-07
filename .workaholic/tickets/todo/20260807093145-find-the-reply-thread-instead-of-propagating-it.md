@@ -10,6 +10,7 @@ category:
 depends_on:
 mission:
 merge_policy:
+claim: work-20260807-125614
 ---
 
 # Find the reply thread instead of propagating it

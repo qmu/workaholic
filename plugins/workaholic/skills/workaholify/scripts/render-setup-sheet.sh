@@ -103,6 +103,11 @@ printf '> feeds its body to an unattended agent holding Bash, Write and a Slack 
 printf '> an open issue tracker is an open input to that agent. Note also that a Slack thread\n'
 printf '> URL placed in a public Issue or pull request body is world-readable and permanently\n'
 printf '> archived — it is not a credential and grants no access, but it cannot be unpublished.\n\n'
+printf '> **Each developer whose tickets a routine should drive needs an entry in the\n'
+printf '> committed `.claude/git-identities` mapping** (`<login>=<email>`; the web bootstrap\n'
+printf '> hook reads it). Without one, the cloud session keeps the container'\''s default git\n'
+printf '> identity and that developer'\''s own [Implement] routine cannot claim tickets\n'
+printf '> assigned to them.\n\n'
 
 if [ "$TARGET" = "--all" ]; then
     for _f in "$ROUTINES_DIR"/*.md; do

@@ -501,6 +501,55 @@ Development completed as planned.
   } finally { cleanup(dir); }
 }
 
+// ---------- 5a. drive/archive.sh pushes the claim branch itself ----------
+// The archive commit is a progress signal that must always reach the remote (an
+// unpushed archive makes a finished claim look resumable once its heartbeat lapses).
+// archive.sh now pushes right after the archive commit, the same non-blocking
+// convention heartbeat.sh already uses -- this pins that the remote branch tip carries
+// the archive commit with NO separate `git push` call from the caller.
+function testArchivePushesClaimBranch() {
+  const origin = mkdtempSync(join(tmpdir(), "wh-archive-push-origin-"));
+  const dir = mkdtempSync(join(tmpdir(), "wh-archive-push-clone-"));
+  try {
+    execSync(`git -c init.defaultBranch=main init -q --bare`, { cwd: origin });
+    execSync(`git clone -q ${origin} .`, { cwd: dir });
+    execSync(`git config user.email test@example.com && git config user.name Test && git config commit.gpgsign false`, { cwd: dir });
+    writeFileSync(join(dir, "README.md"), "smoke\n");
+    execSync(`git add README.md && git commit -q -m initial && git push -q origin main`, { cwd: dir });
+
+    // A claim branch, pushed at claim time -- exactly as claim.sh leaves it before
+    // the session starts driving.
+    execSync(`git checkout -q -b work-20260807-smoke`, { cwd: dir });
+    execSync(`git push -q -u origin work-20260807-smoke`, { cwd: dir });
+
+    const todoDir = join(dir, `.workaholic/tickets/todo/${TEST_SLUG}`);
+    mkdirSync(todoDir, { recursive: true });
+    const ticketPath = join(todoDir, "20260807000000-push-ticket.md");
+    writeFileSync(ticketPath, `---
+created_at: 2026-08-07T00:00:00+09:00
+author: a@example.com
+assignees: []
+depends_on:
+---
+
+# Push Ticket
+
+## Final Report
+
+Development completed as planned.
+`);
+
+    const r = run(dir, `${POSIX_SH} ${SCRIPTS.archive} .workaholic/tickets/todo/${TEST_SLUG}/20260807000000-push-ticket.md "Add push feature" https://example.com/repo "the why" "the changes" "the concerns" "the insights" "the verify"`);
+    assertEq("archive.sh exits 0", r.status, 0);
+    assertTrue("archive.sh reports the push", /Push:\s*pushed/.test(r.stdout), r.stdout);
+
+    const localTip = execSync(`git rev-parse HEAD`, { cwd: dir, encoding: "utf8" }).trim();
+    const remoteTip = execSync(`git --git-dir=${origin} rev-parse work-20260807-smoke`, { encoding: "utf8" }).trim();
+    assertEq("remote branch tip already carries the archive commit -- no separate push required",
+      remoteTip, localTip);
+  } finally { cleanup(origin); cleanup(dir); }
+}
+
 // ---------- 5b. commit/commit.sh staging never silently omits a file ----------
 // The defect this pins: commit.sh reported a commit as done while a file the caller
 // meant to include was missing from it. Two holes — an explicitly-named path that
@@ -12056,6 +12105,7 @@ const tests = [
   ["branching/check-workspace.sh", testCheckWorkspace],
   ["drive/update.sh", testUpdate],
   ["drive/archive.sh", testArchive],
+  ["drive/archive.sh pushes the claim branch itself", testArchivePushesClaimBranch],
   ["commit/commit.sh never silently omits a file", testCommitStaging],
   ["gather/user-slug.sh", testUserSlug],
   ["gather/migrate-todo-owners.sh", testMigrateTodoOwners],

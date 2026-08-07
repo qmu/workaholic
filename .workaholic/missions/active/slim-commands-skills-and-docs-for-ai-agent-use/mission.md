@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260807-102500
 ---
 
 # Slim commands, skills, and docs for AI-agent use

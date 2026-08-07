@@ -9,7 +9,7 @@ author: noreply@anthropic.com
 assignees: []
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 2.2
 feedback: [20260806124808-ai.md]
 tickets: []
 stories: []
@@ -64,3 +64,4 @@ the README-reachable docs are reorganized to match the current spec.
 - 2026-08-07 — ticket archived — 20260806125031-reframe-the-plugin-for-ai-agent-use-first.md
 - 2026-08-07 — ticket archived — 20260806125031-restructure-readme-reachable-docs-to-the-current-spec.md
 - 2026-08-07 — ticket archived — 20260807105800-let-final-report-edits-pass-on-foreign-authored-tickets.md
+- 2026-08-07 — run recorded (+2.2h) — 20260807-102500

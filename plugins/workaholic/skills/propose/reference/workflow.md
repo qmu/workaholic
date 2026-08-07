@@ -68,13 +68,14 @@ and every abort reports a machine-readable reason.
    provisional Quality Gate, and leave `merge_policy` empty (absent reads as `review`).
 
 9. **Publish it all as one pull request.**
-   `WORKAHOLIC_PR_TITLE="[Proposal] <title>" WORKAHOLIC_NOTIFY_TARGET="<thread url or empty>" bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/publish-tree-pr.sh "<title>" "<why>" "<changes>" "<concerns>" "<insights>" "<verify>"`
+   `WORKAHOLIC_PR_TITLE="[Proposal] <title>" bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/publish-tree-pr.sh "<title>" "<why>" "<changes>" "<concerns>" "<insights>" "<verify>"`
    — **one call**, carrying the record and whatever the judgment added. Name the commit
    subject for what it carries — `Propose mission <slug>`, `Propose ticket <slug>`, or
    `Register feedback <stem>` for record-only — and give the pull request the same words
    behind the `[Proposal]` prefix (`[提案]` for a Japanese title); the subject and the
-   title are separate surfaces (SKILL.md). Set `WORKAHOLIC_NOTIFY_TARGET` to the thread
-   the ask arrived in when the caller handed you one, and leave it unset otherwise. On
+   title are separate surfaces (SKILL.md). No notification target rides the body — the
+   reply thread is found statelessly (Q1; `workaholic:workaholify`, *One thread per
+   feedback item*). On
    `ok: false`, report the reason; `pr_failed` means the artifact **is** pushed, so open
    the PR by hand rather than re-publishing (which would duplicate it).
 

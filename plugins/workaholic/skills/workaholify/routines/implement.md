@@ -22,18 +22,18 @@ the design, not a stored field.
 
 **The prompt is the developer's own four lines** (P3) and states no rule
 a skill already owns: `workaholic:drive` owns the run and its terminal contract, the
-`workaholify` SKILL owns every notification rule (thread routing, red-alert dedup,
-mention resolution), and the always-loaded `rules/` own the standing prohibitions. The
-notification target comes from the pull request (P4's `Notify-Thread:` line), not from
-a channel name in the prompt, so no repository is named here and the same four lines
-paste into every project. `{repo}` in the format line is the developer's own
-placeholder for the pull request link. (Named `[Drive]` until P1, when the unattended
-executor became `/implement`.)
+`workaholify` SKILL owns every notification rule (the stateless thread lookup, red-alert
+dedup, mention resolution), and the always-loaded `rules/` own the standing prohibitions.
+The reply thread is **found**, never carried (Q1) — the SKILL's exact-token lookup, not a
+target read out of the pull request and not a channel name in the prompt — so no
+repository is named here and the same four lines paste into every project. `{repo}` in
+the format line is the developer's own placeholder for the pull request link. (Named
+`[Drive]` until P1, when the unattended executor became `/implement`.)
 
 ## Prompt
 
-- Read the notification target (Slack Thread URL) and the Mission/Ticket from the PR
-- Notify the target, in the same language as the PR, that implementation has started
-- After running `/implement [Mission/Ticket]`, notify the target in the following format
+- Read the Mission/Ticket from the PR and find its reply thread (the workaholify lookup)
+- Notify the thread, in the same language as the PR, that implementation has started
+- After running `/implement [Mission/Ticket]`, notify the thread in the following format
 
 <@U…> 🛠️ [#123 Title]({repo}/pull/123)

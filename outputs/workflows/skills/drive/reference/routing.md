@@ -37,12 +37,12 @@ posts nothing to Slack, at any step** (scoped 2026-08-07). Under `/implement`:
   `bash ../drive/scripts/unit-feedback-stems.sh <artifact>...` (a
   mission's `mission.md`, or the batch's ticket files; a mission with empty `feedback:` resolves
   through its queued tickets) — and post the 🟠 start line into each stem's thread.
-- **When the run was started by a merged pull request, that PR names the thread.** Read it back
-  before searching:
-  `bash ../branching/scripts/read-notify-target.sh <pr-number-or-url>`.
-  `found: true` → reply there, no `fb:<stem>` search. `found: false, reason: "absent"` is the
-  documented fallback to the stems and the thread rules in `workaholify`; `no_gh` /
-  `unreadable` mean the question could not be asked — report that as its own fact.
+- **The thread is found, never carried** (Q1, 2026-08-07 — a merged pull request names no
+  target, and no body line is read back). Find each stem's thread by the stateless lookup in
+  `workaholify` (*One thread per feedback item*): exact-string searches only —
+  `fb:<stem>`, then the Issue/PR URL — at most two queries, no full-channel read, and a new
+  keyed root when nothing matches; never a similarity or recency match. Resolve the target
+  **once per run** and reuse it for the finish.
 - **Finish (§6/§7):** one finish line per thread, shape following the outcome — 🟢 merge
   requested, 🚀/🟣 merge, 🟡 handoff, 🔴 blocked. A handoff's 🟡 **is** the finish, never a third
   post. Every route owes the finish, including a demotion — the unit reports the shape it

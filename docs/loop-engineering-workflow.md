@@ -1,10 +1,16 @@
-# Loop Engineering Workflow — Reorganization Design
+# Loop Engineering Workflow — the decision log
 
-Status: **decided 2026-07-28** (design-elicitation session). Implementation has not
-started; this document is the decision record and the gap analysis it came from.
-When implementation begins, each phase becomes missions/tickets and the affected
-docs (`CLAUDE.md`, `rules/*.md`, skill docs) are updated in those changes — this
-document records the *direction*, not the final wording of every rule.
+Status: **decision log, kept current by appending.** The loop-engineering
+reorganization was decided 2026-07-28 (design-elicitation session) and has since
+been implemented; the later rounds (fifth through eleventh, 2026-07-30〜2026-08-06)
+were appended as they were ruled. Rows are cited by id (A1…P9) from `CLAUDE.md`,
+the skills, and the runbooks — read this document for *why a rule is what it is*,
+never for current behaviour, which lives in `CLAUDE.md` and the skill that owns
+each flow. A superseded row is struck through or annotated in place, never
+rewritten. §§1–3 and 5–8 are the planning material the first rounds came from,
+kept as history rather than spec: they describe since-retired surfaces
+(`/monitor`, the mission draft state, the 15-minute proposal batch, the strategy
+layer) as they stood at decision time.
 
 ## 1. Vision
 

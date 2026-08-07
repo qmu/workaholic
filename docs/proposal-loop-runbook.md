@@ -80,10 +80,11 @@ Two things the routine needs before it can work:
 - **The Slack connector and the `dev-<repo>` channel**, for the thread root the
   routine posts when it opens the pull request.
 
-**An agent never creates or re-points a routine on its own** (generalized
-2026-08-03 from the cron rule): it reads freely, and every create, refresh or
-removal is confirmed verbatim by a human, one routine at a time
-(`skills/workaholify/SKILL.md` §5). An unattended run cannot do it at all.
+**An agent never creates or re-points a routine at all** (generalized 2026-08-03
+from the cron rule, taken to its end 2026-08-06): the plugin renders the setup
+sheet and **manages nothing** — every standing outward-facing process is brought
+into existence by the developer, in their own browser, seeing exactly what it
+will be (`skills/workaholify/SKILL.md` §5, *What may be applied unattended*).
 
 Several sessions may run at once. They coordinate through nothing, because they
 share nothing: each opens its own publish tree, writes its own record, and opens

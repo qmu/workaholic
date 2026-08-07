@@ -6,7 +6,7 @@ type: housekeeping
 layer: [Config]
 effort:
 commit_hash:
-category:
+category: Changed
 depends_on:
 mission: slim-commands-skills-and-docs-for-ai-agent-use
 merge_policy:
@@ -61,3 +61,12 @@ README to an accurate, non-redundant set.
 
 <!-- Scope which docs are in the "README-reachable" set versus deep-reference; the
      approval interrogation should draw the line. -->
+
+## Final Report
+
+Development completed as planned. The README linked no docs/ page at all — the whole tree was orphaned. It now carries a Documentation section (CLAUDE.md as the agents' operating manual → the decision log → the two operator runbooks → the OKF dependency record → the artifacts hub). One stale page deleted (gate-audit-shape-dependent-green.md — a dated audit of a tree that no longer exists, its durable findings already in feedback records); the decision log repositioned as append-only history; both runbooks kept (test-pinned, cited by name) and trimmed of drifted restatements; README/.workaholic-README stale spots fixed (fourteen commands, /mission-close, J4 publish path, M1 stamp rule, the /implement-only Slack scoping, the retired routine-management surface). All links resolve repo-wide.
+
+### Discovered Insights
+
+- **Insight**: The docs had drifted invisibly because nothing reached them — an unlinked page cannot be caught by a link walk.
+  **Context**: The new README navigation makes doc-drift.sh's reachable set meaningful.

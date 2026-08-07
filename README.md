@@ -24,7 +24,7 @@ Workaholic follows the cross-agent [Agent Skills standard](https://skills.sh). W
 
 - **Policy skills** (`planning` / `design` / `implementation` / `operation`) — the engineering-policy index (pure prose, self-contained): title, one-line summary, and canonical qmu.co.jp link per policy, organized into the 企画 / 設計 / 実装 / 運用 pillars. Available on every Agent-Skills agent.
 - **`write-release-note`** — release-note structure guidance (pure prose).
-- **Workflows** — `create-ticket`, `drive`, `report`, `ship`, `catch`, `mission` as agent-neutral skills. On non-Claude agents the workflow runs the same steps without Claude's parallel subagents/`AskUserQuestion` — see each skill's **Agent Compatibility** note.
+- **Workflows** — `create-ticket`, `drive`, `report`, `ship`, `catch`, `mission` as agent-neutral skills. On non-Claude agents the workflow runs the same steps without Claude's parallel subagents/`AskUserQuestion` — see the **Agent Compatibility** notes the skills carry.
 - **[Open Knowledge Format](https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf) (OKF v0.1)** — two surfaces, no install needed. The committed `outputs/okf/` bundle exposes the four pillars' policy hard copies to any OKF reader straight from the repo path; and every project using the plugin gets an OKF-compatible `.workaholic/` tree — generated knowledge documents carry `type` frontmatter (tickets excepted — the queue is not index-managed and tickets carry no `type`) and the workflows regenerate the `index.md` hierarchy (entry point: `.workaholic/index.md`) before each knowledge commit.
 
 ### Install matrix
@@ -53,7 +53,7 @@ The `plugins/workaholic` source stays Claude-Code-only (`metadata.internal: true
 | Command    | What it does                                          |
 | ---------- | ----------------------------------------------------- |
 | `/ticket`  | Plan a change with context and steps, then **publish it onto a `work-*` branch behind a pull request**; merging that PR is what queues it for the next `/drive` tick — run it from any branch, mid-edit; your own checkout and its uncommitted work are left untouched, and nothing is branched from it (bare `/ticket` reports the queue instead — the tickets you own plus the unowned, claimable ones) |
-| `/drive`   | **The executor, attended.** Fast-forwards its checkout to the base first — artifacts live on `main`, so a runner that skipped this would survey a stale queue and report it confidently — then surveys what is claimable (the active missions you may take + your unclaimed backlog), partitions it into **PR-units** — "what deserves one merge" — claims each on a pushed branch, implements it in the claim's own worktree, opens its PR via `/report`'s seam, and routes it by the unit's recorded **merge policy**: `auto` ships through the full deploy-and-confirm-then-merge doctrine and cleans the claim up, anything else stops at the PR and posts its URL to Slack (a policy nobody recorded counts as review). Then it accounts for the run: a reconciliation line plus an **honest derived terminal token** — `ok` only when every claimed unit reached its routed end *and* a fresh survey offers nothing claimable, else `pending`. **It asks exactly one thing**: when more than one unit is claimable or resumable it shows you the partition and asks once which units to take, drives them in the order you picked, and reports the rest as deferred (still claimable, so the run ends `pending`). Nothing else is ever asked: not the partition, not each ticket, and no gate is overridable just because you are present. `/drive <unit>` narrows the run to one mission or ticket — a scope, not a mode. Approval is not a per-ticket prompt: it was given where the work was decided — a human merged the pull request that published the mission or ticket, and the `merge_policy` recorded on it at creation says whether its completed units may merge unattended. Work is coordinated by the **claim protocol** — every runner reads the claims in flight from the unmerged remote branches, so two runners (or two machines) never pick the same work. There is no lock file and no server; the repository itself is the coordination medium |
+| `/drive`   | **The executor, attended.** Fast-forwards its checkout to the base first — artifacts live on `main`, so a runner that skipped this would survey a stale queue and report it confidently — then surveys what is claimable (the active missions you may take + your unclaimed backlog), partitions it into **PR-units** — "what deserves one merge" — claims each on a pushed branch, implements it in the claim's own worktree, opens its PR via `/report`'s seam, and routes it by the unit's recorded **merge policy**: `auto` ships through the full deploy-and-confirm-then-merge doctrine and cleans the claim up, anything else stops at the PR (a policy nobody recorded counts as review) — under `/implement` the PR URL is posted to Slack; an attended run reports it in the session and posts nothing. Then it accounts for the run: a reconciliation line plus an **honest derived terminal token** — `ok` only when every claimed unit reached its routed end *and* a fresh survey offers nothing claimable, else `pending`. **It asks exactly one thing**: when more than one unit is claimable or resumable it shows you the partition and asks once which units to take, drives them in the order you picked, and reports the rest as deferred (still claimable, so the run ends `pending`). Nothing else is ever asked: not the partition, not each ticket, and no gate is overridable just because you are present. `/drive <unit>` narrows the run to one mission or ticket — a scope, not a mode. Approval is not a per-ticket prompt: it was given where the work was decided — a human merged the pull request that published the mission or ticket, and the `merge_policy` recorded on it at creation says whether its completed units may merge unattended. Work is coordinated by the **claim protocol** — every runner reads the claims in flight from the unmerged remote branches, so two runners (or two machines) never pick the same work. There is no lock file and no server; the repository itself is the coordination medium |
 | `/implement` | **The executor, unattended** — the same run as `/drive` with **no prompt at any step**, and what the routine and any `/goal /implement ok` loop invoke by name (`docs/drive-loop-runbook.md`). A decision it cannot make is deferred and recorded in its final report, never asked; a half-driven unit ends in `handoff` with its state written into the PR body. It never overrides a gate: a credential in the diff hard-stops the unit, and a size/leak block or a missing deployment confirmation demotes it to the PR path. `/implement <unit>` narrows it to one mission or ticket. It is a separate command rather than a first word on `/drive` because a behaviour selected by an argument is one a caller can forget to pass — and forgetting it parks an unattended tick on a prompt nobody will answer |
 | `/commit`  | Commit the working changes with a policy-conformant message (for small non-ticketed changes; ticketed work belongs to `/drive` or `/implement`) |
 | `/propose` | Judge the ask in hand and emit, in **one** pull request, the feedback record together with what it warrants — a **mission with its ticket set** when the direction decomposes, **one loose backlog ticket** when it is atomic, or **the record alone** when it is neither. The repository's own state constrains the judgment; merging that pull request approves record and proposal at once. Runs unattended in the `[Propose]` routine's session, on the reported ask rather than on a clock |
@@ -65,7 +65,7 @@ The `plugins/workaholic` source stays Claude-Code-only (`metadata.internal: true
 | `/catch`   | Read-only catch-up report over a recent window (commits, tickets, stories, each active mission's derived progress and unmerged in-flight work) plus an orchestration-throughput block, then follow-up Q&A |
 | `/explain` | Answer a question about the repository and export a printer-ready PDF report, rendered from HTML by a real browser |
 | `/workaholify` | Wire the current repo to the standards: refer to the gateway skill, audit `CLAUDE.md` against the documentation standard, and confirm the working-directory hook is active |
-| `/setup-routines` | Answer what a repository could not answer about itself: **what runs against it** — each scheduled Claude Code Web routine with its trigger, schedule, target and whether it still matches the shipped template. The repository declares nothing; the templates live in the plugin and the live routines in the account, so the command asks the account and reports. An unreachable account reports **"could not check"**, never "nothing is configured". It also adds, refreshes and removes routines — each confirmed **verbatim, one at a time**, with the bar enforced by a digest gate rather than by prose, and "remove" meaning *disable* because the routines API has no delete |
+| `/setup-routines` | Render **copy-paste setup sheets** for this repository's routines: per template, the name, model, repository, the prompt verbatim, and the web-UI steps derived from the template's trigger declaration — plus the preconditions (the `dev-<repo>` Slack channel, the web bootstrap) and a plain statement of what cannot be verified from a session. **It manages nothing**: a routine's GitHub trigger is configurable only in the web UI and the API record carries no event field, so the wiring can be neither read, written nor drift-checked from here — the developer creates each routine in their own browser from the sheet |
 
 **Engineering-policy skills** (`planning` / `design` / `implementation` / `operation`): a catalog mirrored from qmu.co.jp giving each policy's title, one-line summary, and canonical link, organized into the 企画 (planning — grounding a project in business, market, and legal context before design begins), 設計 (design), 実装 (implementation, sub-grouped by 妥当性 / 可用性 / アクセシビリティ), and 運用 (operations) pillars. Pure prose, exposed on every Agent-Skills agent. Security (安全) and working-practice (執務) policies live elsewhere on qmu.co.jp and are out of scope.
 
@@ -290,16 +290,17 @@ flowchart LR
 <details>
 <summary><strong>The full map</strong> — every command and every artifact in one graph</summary>
 
-Every command communicates with the others **only through the documents it writes to `.workaholic/`** — no command calls another directly. The single flowchart below covers all twelve commands at once (rounded **blue** = command, rectangular **grey** = artifact, dashed grey border = an artifact that lands *outside* `.workaholic/`). It is dense on purpose — the per-use-case maps above are the readable slices.
+Every command communicates with the others **only through the documents it writes to `.workaholic/`** — no command calls another directly. The single flowchart below covers all fourteen commands at once (`/drive` and `/implement` share one node — one executor, two entry points; rounded **blue** = command, rectangular **grey** = artifact, dashed grey border = an artifact that lands *outside* `.workaholic/`). It is dense on purpose — the per-use-case maps above are the readable slices.
 
 ```mermaid
 flowchart LR
   %% ---------- commands (blue) ----------
   ticket(["/ticket"])
   mission(["/mission"])
+  missionclose(["/mission-close"])
   propose(["/propose"])
   feedback(["/fb"])
-  drive(["/drive"])
+  drive(["/drive · /implement"])
   report(["/report"])
   ship(["/ship"])
   catch(["/catch"])
@@ -332,6 +333,7 @@ flowchart LR
   feedback --> EXT
   mission --> MIS
   mission --> TODO
+  missionclose --> MIS
   propose --> MIS
   propose --> TODO
   feedback --> FBK
@@ -376,7 +378,7 @@ flowchart LR
   classDef cmd fill:#dbeafe,stroke:#1e40af,stroke-width:1.5px,color:#1e3a8a;
   classDef art fill:#f3f4f6,stroke:#6b7280,color:#111827;
   classDef ext fill:#f3f4f6,stroke:#9aa0aa,stroke-dasharray:4 3,color:#374151;
-  class ticket,mission,propose,feedback,drive,report,ship,catch,commit,explain,workaholify,setuproutines cmd;
+  class ticket,mission,missionclose,propose,feedback,drive,report,ship,catch,commit,explain,workaholify,setuproutines cmd;
   class TODO,ICE,ARCH,ABD,MIS,STORY,FBK,REL,DEP art;
   class EXT,PDF,WT,CFG,ROUT ext;
 ```
@@ -384,7 +386,7 @@ flowchart LR
 Reading the map:
 
 - **Solid arrow** = the command *generates* that artifact. **Dashed arrow** = the command *reads / refers to* it. `rolls` = the command updates a named mission's `## Changelog` and `## Acceptance` checklist (via the `mission:` relation any ticket/story/concern carries).
-- **Node style tells the kind apart.** Rounded **blue** = the twelve commands; rectangular **grey** = the artifacts they generate. A **dashed grey border** marks the artifacts that land *outside* `.workaholic/` — a cross-repo issue via `/fb`, a printed PDF via `/explain`, a plain working-tree commit via `/commit`, repo wiring via `/workaholify`, and the scheduled routines `/setup-routines` reads out of the Claude Code Web account.
+- **Node style tells the kind apart.** Rounded **blue** = the fourteen commands (`/drive` and `/implement` share the executor node); rectangular **grey** = the artifacts they generate. A **dashed grey border** marks the artifacts that land *outside* `.workaholic/` — a cross-repo issue via `/fb`, a printed PDF via `/explain`, a plain working-tree commit via `/commit`, repo wiring via `/workaholify`, and the scheduled routines `/setup-routines` reads out of the Claude Code Web account.
 - **`/mission` and `/drive` are the two poles.** `/mission` writes `missions/…` and the kickoff/delta tickets into `tickets/todo/` (with `/propose` proposing missions and loose tickets upstream of it); `/drive` reads the mission set and each worktree's `todo/`, drains them to `tickets/archive/`, and rolls each mission it advances — in parallel across every claim it holds.
 - **The ticket is the spine.** `/ticket`, `/mission`, and `/propose` (a mission's ticket set, or one loose ticket) all *fill* `tickets/todo/`; **`/drive` alone** drains it to `tickets/archive/`. Everything downstream reads the archive.
 - **The feedback stream is the only loop.** `/ship` extracts a shipped story's section-6 concerns into `feedbacks/` as `kind: concern` records; the *next* `/report` re-reads the open set (records nobody superseded) and, for each one this branch resolved, appends a superseding record. Every record is written once and becomes permanent history — the "loop" is reading, never rewriting.
@@ -436,6 +438,21 @@ flowchart LR
 ### What "Carried Over" Means
 
 Most artifacts are written once and never revisited — they form the permanent history of the codebase. The feedback stream is written once **per record** and read forever: risks and improvement ideas raised in one PR cannot silently vanish when it merges, because the `kind: concern` records persist and the **open set is computed** — a concern is open until some later record names it in `supersedes`. Each `/report` judges the open set and appends superseding records for what the branch resolved; nothing is ever rewritten, moved, or deleted, so the audit trail survives misclassification by construction. Curation is the reader's judgment over the stream (the retired promote/triage/demote machinery has no successor on purpose — `docs/loop-engineering-workflow.md` H2).
+
+## Documentation
+
+Everything beyond this README, by what the reader needs. The set is deliberately small: current behaviour lives in `CLAUDE.md` and the skills the agents load; the `docs/` pages carry only what neither can — the decision history and the operator runbooks.
+
+| Document | What it is |
+| -------- | ---------- |
+| [CLAUDE.md](CLAUDE.md) | The operating manual the agents load in this repository: architecture policy, the claim protocol, the release tier, the gates and hooks, version management. The most detailed statement of **current** behaviour |
+| [docs/loop-engineering-workflow.md](docs/loop-engineering-workflow.md) | **The decision log** (A1…P9): every ruling that shaped the loop, appended in dated rounds and never rewritten. Read it for *why a rule is what it is* — not for current behaviour |
+| [docs/drive-loop-runbook.md](docs/drive-loop-runbook.md) | Operator runbook for the execution loop: what an `/implement` tick does, the environment, the machine-local cron fallback shape, observability, failure modes |
+| [docs/proposal-loop-runbook.md](docs/proposal-loop-runbook.md) | Operator runbook for the `[Propose]` routine: Slack provisioning, scheduling, observability, failure modes |
+| [docs/dependencies/okf.md](docs/dependencies/okf.md) | Dependency-decision log (reason / assessment / monitoring / exit) per adopted external dependency, as the vendor-neutrality policy mandates — currently OKF v0.1 |
+| [.workaholic/README.md](.workaholic/README.md) | The working-artifacts hub: which artifact kind to write (feedback / ticket / mission) and each `.workaholic/` area's contract |
+
+Skill-level detail — per-script contracts, schemas, notification shapes — lives beside each skill under `plugins/workaholic/skills/<name>/` (`SKILL.md` plus its `reference/` pages), because that is what the agents load; those pages are not duplicated into `docs/`.
 
 ## Author
 

@@ -420,7 +420,7 @@
 * [The routines list API caps at 20, so a fleet drift report silently misses routines](20260805210036-the-routines-list-api-caps-at-20-so-a-fleet-drift-report-silently-misses-routines.md)
 * [The /setup-routines report presents a template-declared trigger as if it were live wiring](20260806032120-the-setup-routines-report-presents-a-template-declared-trigger-as-if-it-were-live-wiring.md)
 * [A ticket is claimable without a merge — merge-approval is mission doctrine](20260806113420-a-ticket-is-claimable-without-a-merge-merge-approval-is-mission-doctrine.md)
-* [コマンド/スキルの記述量を大幅削減しAIエージェント向けにプラグインを再設計する](20260806124808-ai.md)
+* [Slim commands and skills and redesign the plugin for AI-agent use](20260806124808-ai.md)
 * [Routine setup is a human act the plugin makes cheap](20260806143907-routine-setup-is-a-human-act-the-plugin-makes-cheap.md)
 * [Two routines, one behaviour per command](20260806183556-two-routines-one-behaviour-per-command.md)
 * [Ownership is a field, not a directory](20260806184651-ownership-is-a-field-not-a-directory.md)

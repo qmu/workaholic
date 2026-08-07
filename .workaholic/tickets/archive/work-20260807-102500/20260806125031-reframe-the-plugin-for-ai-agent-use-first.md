@@ -6,7 +6,7 @@ type: housekeeping
 layer: [Config]
 effort:
 commit_hash:
-category:
+category: Changed
 depends_on:
 mission: slim-commands-skills-and-docs-for-ai-agent-use
 merge_policy:
@@ -62,3 +62,12 @@ doc-restructure ticket and should land consistently with it.
 
 <!-- This is framing, not behavior; keep it from silently changing what commands do.
      The approval interrogation should confirm the boundary. -->
+
+## Final Report
+
+Development completed as planned. README and CLAUDE.md open with the same audience contract — AI agents are the primary users (routines invoking /implement and /propose, sessions running the workflow skills); the developer is the operator (approves PRs, configures routines, steps in when a run defers a decision), with by-hand command use the supported secondary path. The one skill intro naming the developer as sole originator (mission) now names both seams. Frontmatter descriptions were left intact as trigger-matching surfaces, and every "developer" stating a decided behavior contract (PR-merge approval, --developer-present, icebox curation, crossing confirmation) was deliberately untouched — those are behavior, not framing.
+
+### Discovered Insights
+
+- **Insight**: "Operator" was the right second-audience word because the repo already uses it (`deferred_by_operator`, the §2 choice).
+  **Context**: Framing vocabulary that reuses existing contract words cannot drift from the contracts.

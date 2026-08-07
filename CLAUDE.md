@@ -1,6 +1,6 @@
 # Workaholic
 
-Private, cross-agent distribution of structured development workflows and engineering standards. It is richest on **Claude Code**, where it installs as a plugin marketplace (slash commands, hooks, the always-on policy and mission lenses); the portable skills also ship to **Codex** (via `.agents/plugins/marketplace.json` → `outputs/workflows`) and to **OpenCode** plus 40+ other agents via the Agent Skills standard / `skills` CLI. Authored source lives under `plugins/`; cross-agent artifacts are generated into `outputs/`.
+Private, cross-agent distribution of structured development workflows and engineering standards. **AI agents are the primary users**: the plugin is consumed by the agents that run it — Claude Code Web routines invoking `/implement` and `/propose`, and sessions, attended or unattended, running the workflow skills — while the **developer is the operator** who approves the pull requests those agents open, configures the routines, and intervenes when a run defers a decision (direct command use stays supported as the secondary path). It is richest on **Claude Code**, where it installs as a plugin marketplace (slash commands, hooks, the always-on policy and mission lenses); the portable skills also ship to **Codex** (via `.agents/plugins/marketplace.json` → `outputs/workflows`) and to **OpenCode** plus 40+ other agents via the Agent Skills standard / `skills` CLI. Authored source lives under `plugins/`; cross-agent artifacts are generated into `outputs/`.
 
 ## Important
 

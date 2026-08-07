@@ -51,7 +51,7 @@ the README-reachable docs are reorganized to match the current spec.
       non-essential bold removed. (#20260806125031-cut-every-skill-md-under-the-line-target.md)
 - [x] Tests, shell scripts, and the ticket front matter are pared to what is
       needed — `type`/`layer`/`effort`/`commit_hash`/`category` dropped. (#20260806125031-drop-obsolete-ticket-front-matter-fields.md)
-- [ ] README-reachable docs are restructured to the current spec and the plugin
+- [x] README-reachable docs are restructured to the current spec and the plugin
       is framed for AI-agent use first, developer use second. (#20260806125031-reframe-the-plugin-for-ai-agent-use-first.md)
 
 ## Changelog
@@ -61,3 +61,4 @@ the README-reachable docs are reorganized to match the current spec.
 - 2026-08-07 — ticket archived — 20260806125031-drop-obsolete-ticket-front-matter-fields.md
 - 2026-08-07 — ticket archived — 20260806125031-cut-every-skill-md-under-the-line-target.md
 - 2026-08-07 — ticket archived — 20260806125031-pare-tests-and-shell-scripts-to-the-load-bearing-set.md
+- 2026-08-07 — ticket archived — 20260806125031-reframe-the-plugin-for-ai-agent-use-first.md

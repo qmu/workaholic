@@ -32,7 +32,7 @@ the format line is the developer's own placeholder for the pull request link.
 ## Prompt
 
 - Read the feedback (FB) from the Issue and find its reply thread (the workaholic:notify lookup)
-- Notify the thread, in the same language as the FB, that consideration has started
+- Notify to the thread that design process has started
 - After running `/propose [FB]`, notify the thread in the following format
 
 <@U…> 📐 [#123 Title]({repo}/pull/123)

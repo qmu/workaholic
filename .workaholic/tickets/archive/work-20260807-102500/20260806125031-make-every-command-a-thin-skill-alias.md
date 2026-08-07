@@ -4,9 +4,9 @@ author: noreply@anthropic.com
 assignees: [noreply@anthropic.com]
 type: refactoring
 layer: [Config]
-effort:
+effort: 1h
 commit_hash:
-category:
+category: Changed
 depends_on:
 mission: slim-commands-skills-and-docs-for-ai-agent-use
 merge_policy:
@@ -65,3 +65,14 @@ true everywhere.
 
 <!-- The line between "orchestration a command may keep" and "logic a skill must own"
      needs a crisp rule; the approval interrogation should set it. -->
+
+## Final Report
+
+Development completed as planned. All 14 commands are now thin skill-aliases (850 → 203 lines total; each 12–18 lines): frontmatter kept verbatim, the `workaholic:policy-lens` sentinel kept in exactly the six commands the hook matches, the long Notice / plugin-boundary paragraphs replaced by a one-line namespace echo, and every command body reduced to the skill + section to run plus what is entry-point-specific. Unique orchestration moved into the owning skills: mission command flows → `skills/mission/reference/command-flows.md`; ticket publish/present flow → `skills/create-ticket/` (+ `reference/publishing.md`); propose workflow → `skills/propose/reference/workflow.md`; fb capture/crossing routing → `skills/feedback/SKILL.md`; small load-bearing rules → commit/ship/workaholify SKILLs. The two routine templates were trimmed to thin pointers with their machine-read frontmatter and four-line prompts byte-identical (render-setup-sheet.sh contract verified). CLAUDE.md's Design Principle and boundary-echo sentences updated.
+
+### Discovered Insights
+
+- **Insight**: 40 smoke tests pin exact prose in command markdown; they fail after the move although every rule survives in the skills/reference files.
+  **Context**: The suite treats command bodies as the rule's address. Retargeting/pruning these assertions is exactly the pare-tests ticket's scope and is handled there, so this branch is green at its head.
+- **Insight**: `mission/reference/scripts.md` still advertised the refused `--successor-title` flag; fixed here as a truthfulness repair while relocating the mission flows.
+  **Context**: close.sh's header is the authority — the flag is refused by the ticket floor.

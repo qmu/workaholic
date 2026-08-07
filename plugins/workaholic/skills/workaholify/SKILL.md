@@ -38,6 +38,8 @@ Two operational rules a session keeps while working in a repository:
 
 These are enforced by `hooks/guard-working-directory.sh` (a `PreToolUse(Bash)` guard that detects a top-level `cd` moving the persistent cwd; a `( cd <dir> && … )` subshell, an absolute-path command, and a tool prefix like `npm --prefix <dir>` are not flagged). A matched top-level `cd` is **denied** (`permissionDecision: "deny"`), with a reason naming the offending command and the sanctioned alternatives — **unconditionally, with no env-var toggle**: enforcement is built into the plugin code, so "plugin installed = guard active", identical on every machine and fresh clone. (An injectable opt-in switch fails open exactly when it is not set, which is when the guard is needed, and an advisory reminder is text an agent ignores.) The subshell / absolute-path / `--prefix` patterns still pass silently, so correct usage is never blocked.
 
+When wiring a repository, **confirm the guard is actually registered** (it is a blocking `PreToolUse(Bash)` entry in the plugin's `hooks.json`): a stale or partial install can be loaded without it, leaving the ground rule documented but not machine-enforced. If it is not registered, tell the user to update the plugin.
+
 ## 3. CLAUDE.md audit
 
 `/workaholify` checks that the repository's `CLAUDE.md` meets the documentation standard — it exists at the root and **refers to this gateway** (rather than embedding the rules). Run the audit and report the checklist:
@@ -318,5 +320,7 @@ That failure class has already cost this project twice: a survey concluded "no r
 
 ### What the command does with all this
 
-Render the sheets, report the two preconditions, and say plainly what cannot be verified from here. There is no mutation to confirm and no account to survey: the developer creates the routine in their own browser from the sheet, and whether they did is observable only through what the routine produces.
+Resolve the repository first (`resolve-repo-url.sh [name-or-url]`; no argument means this checkout). When its `source` is `same_org_as_checkout`, say which repository it resolved to — a bare name is a guess inside this checkout's organisation, and answering confidently about the wrong repository is the failure this flow must not commit.
+
+Render the sheets, report the two preconditions, and say plainly what cannot be verified from here. Print each sheet as it comes, the prompt blocks **verbatim** — never summarise, re-wrap, or "clean up" a prompt: what the developer pastes is what runs. There is no mutation to confirm and no account to survey: the developer creates the routine in their own browser from the sheet, and whether they did is observable only through what the routine produces.
 

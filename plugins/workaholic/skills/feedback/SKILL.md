@@ -85,6 +85,29 @@ Body: free prose in the contributor's own words — the excerpt, the instruction
 
 **A feedback file is never edited, moved, or deleted after it is written.** There is no `status` field and none may be added: consumers track "new vs seen" by commit cursor (which commits they have already read), and mutation would silently break that model. Corrections and resolutions are new entries (`supersedes`). The `validate-feedback.sh` hook enforces the write-time floor; immutability itself is a convention this section states once — the hook cannot distinguish a correcting edit from a mutation, so it grandfathers tracked files exactly like the story validator.
 
+## Registering a record — the capture workflow
+
+What `/fb` (and any in-repo capture seam) runs, in order:
+
+1. **Gather the content.** The given argument, when present, is the feedback (or names
+   what to capture from the conversation); when absent, it is the conclusion or
+   instruction the current conversation just reached. Write the body faithfully in the
+   contributor's own words, per *Body style* above — summarize for length, never
+   editorialize.
+2. **Classify — decide, do not ask** (`rules/interaction.md`, the Recommended-label
+   test): derive `kind` and `source` from the context, applying *Choosing the kind*
+   above — downstream readers see only the file, and `/propose` will not act on a
+   misfiled ask. If the record moots or resolves an earlier feedback, find its filename
+   via `list.sh` (below) and name it in `supersedes`.
+3. **Register** through `create.sh` (below) — the only sanctioned writer; never
+   Write/Edit a feedback file directly. On `reason: "exists"`, re-run with a more
+   specific title (the timestamp+slug collided).
+4. **Commit** via the commit skill with a policy-conformant subject, e.g.
+   `Record feedback on <topic>`:
+   `sh ${CLAUDE_PLUGIN_ROOT}/skills/commit/scripts/commit.sh "<title>" "<why>" "<changes>" "None" "None" "<verify>"`
+   — except inside a publish tree, where the publish seam's own call commits.
+5. **Report** the written path and its `kind`/`source` in one line.
+
 ## Scripts
 
 ### create.sh — register a feedback
@@ -135,6 +158,13 @@ place they already read: the target's own `[Propose]` routine ingests it exactly
 other inbound report, so the recording and the proposal judgment happen inside the
 **target's** loop rather than ours. Nothing is written into the target's tree, so there is
 nothing for its owners to discover in a `git status` they did not expect.
+
+**When this flow fires — the routing rule.** Only when the input names another repository
+as its **destination**: an `owner/name`, a GitHub URL, or an explicit "to \<repo\>" /
+"against \<repo\>" / "ask \<repo\> to…". An input that merely *mentions* another
+repository is an in-repo record about that repository — ask nothing and record it here
+through the capture workflow above. When the flow does fire, no feedback record is
+written here: the ask belongs to the target's stream.
 
 ### 1. The masking step is a judgement, not a matcher
 

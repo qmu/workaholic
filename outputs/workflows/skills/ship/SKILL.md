@@ -40,7 +40,7 @@ This skill works on any Agent-Skills-compatible agent. Where a step uses the age
 
 **`auto` means no *approval* is needed; it never means no *gate* applies.** A gate an unattended run may skip is a gate that does not exist, so nothing here weakens a tier — the tiers are identical, and only the *override* path (which requires a human) is unavailable. `/ship` remains independently usable on a hand-driven branch with every prompt intact.
 
-**Teardown belongs to the caller, not here.** After a successful merge, the unified run removes the unit's claim worktree and deletes its remote claim branch (`drive` §6). `/ship` does not tear worktrees down: it may itself be running *inside* the worktree in question, and a merge that cleans up its own working directory is a merge that cannot report its result.
+**Teardown belongs to the caller, not here.** After a successful merge, the unified run removes the unit's claim worktree and deletes its remote claim branch (`drive` §6). `/ship` does not tear worktrees down: it may itself be running *inside* the worktree in question, and a merge that cleans up its own working directory is a merge that cannot report its result. A worktree that should persist for a further batch is **reset** instead of removed, with `bash branching/scripts/reset-mission-worktree.sh <slug>`.
 
 ## 1. Deployment Contract
 

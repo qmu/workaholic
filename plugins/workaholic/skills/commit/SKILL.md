@@ -21,12 +21,17 @@ Before committing:
 3. **Identify unintended changes** that may belong to other contributors
 4. **Ask user if uncertain** about whether to include changes
 
+**Never stage an untracked file without confirmation** — it may belong to another contributor. When untracked files belong in the commit, list them and confirm with the user first (a selectable prompt, its `question` body prefixed with the `[<project label>]` from `bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/project-label.sh`), then pass them explicitly as trailing `[files...]` arguments to `commit.sh`.
+
 ## Usage
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/commit/scripts/commit.sh \
+  [--category <Added|Changed|Removed>] [--skip-staging] \
   "<title>" "<why>" "<changes>" "<concerns>" "<insights>" "<verify>" [files...]
 ```
+
+**Argument order is strict**: any flags (`--category`, `--skip-staging`) come **first**, then the six positional args in exactly this order — `title why changes concerns insights verify` — then optional `[files...]`. A flag placed after the positionals is parsed as a filename, not a flag, and is silently dropped — a trailing `--category` loses its `Category:` trailer. Pass `--category` when the change maps cleanly to Added / Changed / Removed so `/report` can group it. The trailer block (including any `Co-Authored-By`) is whatever `commit.sh` emits — callers stay trailer-agnostic and add no attribution line themselves.
 
 ### Parameters
 

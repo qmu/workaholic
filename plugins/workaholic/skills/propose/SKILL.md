@@ -23,6 +23,25 @@ The design this replaces is worth naming, because it looked reasonable. Proposin
 
 **What this answers.** Not "did someone write feedback" — the record in hand already says so — but **what, if anything, this ask warrants**. Three signals constrain that answer and the ask carries none of them, so the session reads all three from the base (`survey-state.sh`): what is already **planned** (the missions and their derived progress), what is already **queued** (the todo tickets), and what has just been **built** (recent commits). A proposer blind to those proposes work that is underway or already decided, which is the noise the judgment bar exists to prevent — so widening the inputs is what makes the bar's job possible, not a relaxation of it.
 
+## Workflow
+
+The run, in order — the step-by-step contract, with every script invocation, env-var
+envelope, and abort reason, is [`reference/workflow.md`](reference/workflow.md):
+
+1. **Take the ask in hand** — the command's argument, the record this session just
+   wrote, or a record the caller named; none → `nothing_in_hand`, and an ask assigned to
+   someone else → `not_mine` (*Act only on an ask that is yours*, below).
+2. **Open the publish tree** and **register the record** inside it — written whatever
+   the judgment concludes.
+3. **Read the constraints** (`survey-state.sh`) and **dedup** (`list-proposed-refs.sh`)
+   before scaffolding anything.
+4. **Judge and decide the form** (below); scaffold the mission and/or tickets, stamp the
+   acceptance links, and check the ticket floor.
+5. **Publish everything as one pull request** (`publish-tree-pr.sh` under
+   `WORKAHOLIC_PR_TITLE` / `WORKAHOLIC_NOTIFY_TARGET`), close the publish tree,
+   **notify**, and **report** one line: the form chosen with its reason, the record's
+   filename, the PR URL, and the `notified` flag.
+
 ## The form follows the work's shape
 
 **The judgment decides cardinality before it decides anything else**, and there are exactly three answers:

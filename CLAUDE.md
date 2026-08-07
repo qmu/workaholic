@@ -145,7 +145,7 @@ Two design points worth not re-litigating. **The reader degrades offline, the wr
 
 **Thin commands, comprehensive skills.**
 
-- **Commands**: Orchestration only (~50-100 lines). Define workflow steps, spawn `general-purpose` subagents, handle all user interaction.
+- **Commands**: Thin skill-aliases (a few lines each): name the skill and section to run, state what is entry-point-specific (argument routing, the attended/unattended contract), and nothing else. All user interaction (`AskUserQuestion`) still happens at the command/main-agent level; the flows themselves live in the skills.
 - **`general-purpose` subagent prompts**: Orchestration only. Name the `workaholic` skill to preload, the section to run, the inputs, and the return schema — no per-workflow `.md` file.
 - **Skills**: Comprehensive knowledge (~50-150 lines). Contain templates, guidelines, rules, and bash scripts.
 
@@ -216,7 +216,7 @@ A command's skills are already loaded via its `skills:` frontmatter and resolved
 - read or run anything under `~/.claude/plugins/marketplaces/` or any other global/marketplace install — those may be stale copies from older versions and will silently run obsolete logic;
 - guess a plugin or skill namespace. `drivin`, `trippin`, `core`, `standards`, and `work` are **obsolete** plugin names — all merged into the single `workaholic` plugin, which is the only live plugin.
 
-If a skill you expect is not in context, ask the user which plugins are loaded — do not search the filesystem for it. The five `workaholic` command `**Notice:**` headers carry a short echo of this rule.
+If a skill you expect is not in context, ask the user which plugins are loaded — do not search the filesystem for it. Every `workaholic` command body ends with a one-line echo of this rule.
 
 ### Closed `.workaholic/` layout (lockstep registration)
 

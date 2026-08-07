@@ -57,3 +57,4 @@ the README-reachable docs are reorganized to match the current spec.
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-07 — ticket archived — 20260806125031-make-every-command-a-thin-skill-alias.md

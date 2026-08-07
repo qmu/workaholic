@@ -22,7 +22,7 @@ This skill works on any Agent-Skills-compatible agent. The two Claude-Code mecha
 bash create-ticket/scripts/summary.sh
 ```
 
-`summary.sh` reads the whole queue through `drive/list-todo.sh` and keeps what this developer owns plus what nobody owns (`gather/scripts/owns.sh`), so "assigned to me" stays defined in one place, then enriches each ticket with its H1 title and frontmatter `type`/`layer`/`depends_on`. Output is a JSON array `[{path, title, type, layer, depends_on}]` (sorted by path), or `[]` when the queue is empty. This is the create-only guardrail's one read-only exception: it lists work, it never writes.
+`summary.sh` reads the whole queue through `drive/list-todo.sh` and keeps what this developer owns plus what nobody owns (`gather/scripts/owns.sh`), so "assigned to me" stays defined in one place, then enriches each ticket with its H1 title and frontmatter `type`/`layer`/`depends_on`. Output is a JSON array `[{path, title, type, layer, depends_on}]` (sorted by path), or `[]` when the queue is empty. This is the create-only guardrail's one read-only exception: it lists work, it never writes. Present the result as a readable list — one line per ticket showing its title, `type`, `layer`, and any `depends_on` — or, when the queue is empty, say so and that `/ticket "<description>"` writes a new one.
 
 **Summary mode reads the CALLER's checkout, and opens no publish tree.** This is a deliberate divergence from the create path (which writes into a publish tree at `origin/main`), not an oversight to be "fixed" later: bare `/ticket` answers *"what is assigned to me"*, which is a question about the developer's own working state. Forcing a fetch would make a read-only listing fail offline and slow down the cheapest thing the command does. It writes nothing, so it needs no publication.
 
@@ -130,6 +130,14 @@ Example: `20260114153042-add-dark-mode.md`
 
 The `/ticket` command (main agent) drives this Workflow directly. Skills cannot invoke subagents or the agent's selection prompt directly; the steps below describe what the loading agent (the command) must do. The command issues every the agent's selection prompt (moderation decisions, clarifications) and spawns every discovery subagent itself — no `ticket-organizer` subagent sits in between.
 
+### Pre-check: plugin health
+
+```bash
+bash check-deps/scripts/check.sh
+```
+
+If `ok` is `false`, display the `message` to the user and stop. Otherwise note the reported `version`, and **warn** the user before proceeding — without blocking on it — when either: `missing_guards` is non-empty (a stale or partial plugin install is loaded, and the listed PreToolUse guards are not registered in this build), or `version_drift` is `true` (the loaded `version` is not the `checkout_version` this repository wants).
+
 ### 0. Load the Policy Lens (first)
 
 Before scoping the request or writing any ticket content, load the project's engineering policies as your judging lens: `planning`, `design`, `implementation`, and `operation`. On Claude Code these arrive automatically (this skill preloads them via its `skills:` frontmatter and the `/ticket` command's `policy-lens.sh` hook injects the reminder); on other agents, open each index skill yourself. Read those indexes, then open the specific policy hard copies they link (`policies/<slug>.md`) for the layer(s) the request touches — use the **Policy Lens** table below to pick which skill(s) apply.
@@ -144,9 +152,9 @@ If a policy index is somehow not in context, load it with the Skill tool and pro
 bash branching/scripts/open-publish-tree.sh
 ```
 
-Take the returned `path` and treat it as **the root every subsequent write in this workflow resolves against**. On `ok: false`, report the reason and stop before writing anything — an artifact written into a checkout that cannot publish is an artifact the developer believes is queued and is not.
+Take the returned `path` and treat it as **the root every subsequent write in this workflow resolves against**: run queue scripts as `( cd <publish_path> && … )` and give every Write an absolute path under `<publish_path>/`. On `ok: false`, report the reason and stop before writing anything — an artifact written into a checkout that cannot publish is an artifact the developer believes is queued and is not.
 
-**`/ticket` never creates a branch.** A ticket is published to `main` and the executor's claim is the only creator of a branch or a worktree (decision J1, `docs/loop-engineering-workflow.md`). `create.sh` is not called anywhere in this path; the branch-name rule it enforces belongs to the claim side and is stated once in `branching`. The developer's own branch and uncommitted work are untouched by the whole flow — that is the publish tree's entire purpose, and it is why this step replaced a branch cut rather than being added beside one.
+**`/ticket` never creates a branch — and never asks about one.** The worktree-choice prompt that once preceded this workflow is retired and must not come back: publication lands on `main` from whatever checkout the developer is standing in, so every answer produced the identical outcome, and a prompt whose every answer is the same is worse than no prompt (`rules/interaction.md`). A ticket is published to `main` and the executor's claim is the only creator of a branch or a worktree (decision J1, `docs/loop-engineering-workflow.md`). `create.sh` is not called anywhere in this path; the branch-name rule it enforces belongs to the claim side and is stated once in `branching`. The developer's own branch and uncommitted work are untouched by the whole flow — that is the publish tree's entire purpose, and it is why this step replaced a branch cut rather than being added beside one.
 
 Tickets go to `.workaholic/tickets/todo/` **inside the publish tree**, whatever branch the developer is standing on.
 
@@ -164,8 +172,8 @@ These are leaf subagents — they do non-interactive discovery only and MUST NOT
 
 Based on the history discovery subagent's `moderation` field:
 
-- `moderation.status: "duplicate"` — Return `status: "duplicate"` with existing ticket path.
-- `moderation.status: "needs_decision"` — Return `status: "needs_decision"` with merge/split options.
+- `moderation.status: "duplicate"` — inform the user and show the existing ticket path (done; nothing is written).
+- `moderation.status: "needs_decision"` — present the merge/split options via the agent's selection prompt and act on the choice.
 - `moderation.status: "clear"` — Proceed to step 4.
 
 ### 4. Evaluate Complexity
@@ -211,7 +219,7 @@ Before writing, offer to associate the ticket(s) with an existing **mission** �
 bash mission/scripts/list.sh
 ```
 
-If the array contains **in-flight** missions (`status: draft` or `approved` — the active area), the command issues one **`multiSelect: true`** the agent's selection prompt offering each in-flight mission (by `title` + `slug`) plus a **"None"** option, and writes **every** chosen `slug` into each written ticket's `mission:` field — `mission: [alpha, beta]` for two, a bare `mission: alpha` for one (ended — `achieved`/`abandoned`/`carried` — missions live in the archive area and are never offered: new work does not advance a closed mission). If no in-flight mission exists, or the developer picks "None", leave `mission:` empty. Because the choices are drawn from the list of existing missions, the written slugs are valid by construction — no separate slug validation is applied (the field is optional and the pipeline tolerates its absence). Skip this step silently when there are no missions.
+If the array contains **in-flight** missions (the `missions/active/` area — `status: active`), the command issues one **`multiSelect: true`** the agent's selection prompt offering each in-flight mission (by `title` + `slug`) plus a **"None"** option, and writes **every** chosen `slug` into each written ticket's `mission:` field — `mission: [alpha, beta]` for two, a bare `mission: alpha` for one (ended — `achieved`/`abandoned`/`carried` — missions live in the archive area and are never offered: new work does not advance a closed mission). If no in-flight mission exists, or the developer picks "None", leave `mission:` empty. Because the choices are drawn from the list of existing missions, the written slugs are valid by construction — no separate slug validation is applied (the field is optional and the pipeline tolerates its absence). Skip this step silently when there are no missions.
 
 The select is multi because a ticket can genuinely advance more than one mission, and the relation should record that rather than force a choice. Naming a mission is a **commitment, not a label**: `/drive` reads the quality gate of **every** mission a ticket names and the change must satisfy all of them. If the work cannot meet a mission's bar, do not name that mission.
 
@@ -252,6 +260,17 @@ Populate sections from the three discovery JSONs:
 ### 6. Handle Ambiguity
 
 If the request is ambiguous, return `status: "needs_clarification"` with a `questions` array.
+
+### 7. Publish and Present
+
+**Skip this step when the run is inside `/drive`** — a ticket minted mid-run belongs to the PR that discovered it: the drive archive script commits it on the claim branch, and it reaches `main` when that PR merges. Open no publish tree there. Otherwise publish the batch as one commit and tear the publish tree down:
+
+```bash
+bash branching/scripts/publish-tree-pr.sh "Add ticket for <short-description>" "<why>" "None" "None" "None" "<verify>" <ticket-path>...
+bash branching/scripts/close-publish-tree.sh
+```
+
+Pass **only the tickets this run wrote**, then present the result — path, commit, branch and pull-request URL, and when the ticket becomes claimable. Each publish outcome (success, the four publish failures, the pushed-but-PR-less pair) has its own report contract: see [reference/publishing.md](reference/publishing.md).
 
 ## Output Contract
 

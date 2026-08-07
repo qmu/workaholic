@@ -150,7 +150,7 @@ List OPEN pull requests referencing a mission slug (slug present in a PR's title
 
 ```bash
 bash ../mission/scripts/close.sh <mission-slug-or-file> <achieved|abandoned|carried> [date] \
-  [--successor-title "<title>" | --successor <slug>]
+  [--successor <slug>]
 ```
 
 End a mission — the only sanctioned way. Flips `status`, appends the closing changelog line through `append-changelog.sh` so the transition itself becomes history (`design` / `history-structures`), moves the mission dir into `archive/`, refreshes the OKF indexes, and git-stages. Idempotent: re-closing with the same status is a no-op (`{closed: false, reason: "already_closed"}`); re-closing with another status flips it in place and appends its own line. Emits `{closed, slug, status, path}` JSON (plus `successor` / `successor_path` on a carry).

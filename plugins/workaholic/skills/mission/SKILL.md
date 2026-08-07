@@ -183,6 +183,10 @@ A mission carries **no `## Reflection` section**. The per-run reflection channel
 
 Read it before writing or interpreting any of these fields; the block above names them, it does not define them.
 
+### The command flows live in the reference directory too
+
+[`reference/command-flows.md`](reference/command-flows.md) carries the orchestration the thin `/mission` and `/mission-close` commands run: how the argument routes (the reference-judgment criteria), the create and replan publish-tree step sequences, the bare-`/mission` planning session, and the close flow — including where each `AskUserQuestion` is issued (always by the loading command/main agent, `[<project label>]`-prefixed via `bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/project-label.sh`; a subagent cannot ask).
+
 ## Creation Interrogation (mandatory — always run)
 
 When `/mission "<title>"` creates a mission, **interrogate the developer until the mission is drive-ready**, then emit the whole ticket set in one pass. This step **always runs — it is not skippable**, and it is not gated on the request "seeming obvious".

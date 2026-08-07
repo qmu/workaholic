@@ -116,7 +116,7 @@ ride the next merge. The server cron this runbook documents remains the **fallba
 shape** for a machine-local loop, and standing it up stays a developer's act.
 
 The announcement half is unchanged: a drive run posts its own start and finish into the
-feedback item's thread (§5, and `skills/workaholify/SKILL.md`, *One thread per feedback
+feedback item's thread (§5, and `skills/notify/SKILL.md`, *One thread per feedback
 item*).
 
 ## 4. What feeds the loop
@@ -173,8 +173,8 @@ not of surveying: a runner without one still reads the whole queue, reports
   `drive/scripts/unit-feedback-stems.sh` (the mission's `mission.md`, or the batch's
   tickets); a unit tracing to no record keys on `unit:<unit-id>` rather than posting
   keyless. One start, one finish, the finish's shape following the outcome — a handoff
-  *is* the finish. The rules are in `skills/workaholify/SKILL.md`, *Which thread a
-  `/drive` unit's posts land in*. These are the session's posts through the Slack
+  *is* the finish. The rules are in `skills/notify/SKILL.md`, *Which thread an
+  `/implement` unit's posts land in*. These are the session's posts through the Slack
   connector; the bot-token notice above is a separate surface and neither is
   load-bearing.
 - **Handoffs** are units a run half-drove and could not finish. They are readable

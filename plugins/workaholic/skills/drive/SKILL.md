@@ -4,6 +4,7 @@ description: Use when the user runs `/drive` or `/implement`, asks to "implement
 skills:
   - commit
   - system-safety
+  - workaholic:notify
   - workaholic:design
   - workaholic:implementation
   - workaholic:operation
@@ -45,7 +46,7 @@ A PR-unit is one merge: one unit ↔ one claim ↔ one branch ↔ one worktree �
 
 Claim with `bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/claim.sh mission <slug>` or `bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/claim.sh batch <ticket-file>...`. Claim before driving, **one unit at a time** — claim, drive, report, route, then survey again; never claim several up front (an untaken claim sits invisible until its heartbeat lapses). No per-run limit in the other direction: keep going until nothing is claimable. Prefer a mission over backlog tickets. Read a refusal rather than working around it: `already_claimed` → drop the unit and continue (the protocol working); `origin_unreachable`/`no_origin` → end claiming (an unpublished claim is not a claim). All refusals: [reference/claims.md](reference/claims.md). The claim creates `.worktrees/<unit-id>/`; **all of the unit's work happens there**, every command `( cd <worktree_path> && … )` or absolute-pathed.
 
-**Under `/implement` only, post the unit's 🟠 start** into its feedback items' threads — resolve the stems with `bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/unit-feedback-stems.sh <artifact>...`, then find each thread by the **stateless lookup** in `workaholic:workaholify` (*One thread per feedback item*): exact-string searches only, at most two queries, a new keyed root when nothing matches — resolved **once per run** and reused for the finish. **An attended `/drive` run posts nothing to Slack, at any step** — the operator is present. Post rules: [reference/routing.md](reference/routing.md); `claim.sh`'s own one-line bot notice is a separate token-gated surface, never load-bearing.
+**Under `/implement` only, post the unit's 🟠 start** into its feedback items' threads — resolve the stems with `bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/unit-feedback-stems.sh <artifact>...`, then find each thread by the **stateless lookup** in `workaholic:notify` (*One thread per feedback item*): exact-string searches only, at most two queries, a new keyed root when nothing matches — resolved **once per run** and reused for the finish. **An attended `/drive` run posts nothing to Slack, at any step** — the operator is present. Post rules: [reference/routing.md](reference/routing.md); `claim.sh`'s own one-line bot notice is a separate token-gated surface, never load-bearing.
 
 ### 4. Drive the unit
 

@@ -14,7 +14,7 @@ metadata:
 
 # Workaholify
 
-The single gateway a repository refers to in order to work under the workaholic engineering standards. `CLAUDE.md` stays thin and points here; the rules live in the pillar policy skills' `policies/` directories and are reached by reference, never by duplication (`workaholic:development` / `policy-as-plugin`). Relocated detail: [reference/notifications.md](reference/notifications.md) (post shapes, session URL, mention mechanics, disclosure terms), [reference/routines.md](reference/routines.md) (trigger evidence, ownership mechanisms, configuration placement), [reference/bootstrap.md](reference/bootstrap.md) (bootstrap mechanics and history).
+The single gateway a repository refers to in order to work under the workaholic engineering standards. `CLAUDE.md` stays thin and points here; the rules live in the pillar policy skills' `policies/` directories and are reached by reference, never by duplication (`workaholic:development` / `policy-as-plugin`). Relocated detail: [reference/routines.md](reference/routines.md) (trigger evidence, ownership mechanisms, configuration placement), [reference/bootstrap.md](reference/bootstrap.md) (bootstrap mechanics and history).
 
 ## 1. The rules live in the policies
 
@@ -50,48 +50,15 @@ Every problem is named separately — `hook_missing`, `hook_stale`, `not_registe
 
 Routines are Claude Code Web routines (scheduled or externally invoked cloud sessions), never cron. The plugin holds two templates in this skill's `routines/`, each four lines long, applied to whichever repository the command runs in — no per-repository routine file exists: `fb` (`[Propose]` — an issue assigned to the developer becomes a `/fb` record and a PR) and `implement` (`[Implement]` — a merged proposal starts the unattended executor). Two, because a developer configures these by hand and every field multiplies by the number of projects (P3). `[Consent]`, the merge announcement, was retired 2026-08-06 at a stated cost: a human-merged pull request is now announced by nobody. Do not reintroduce a third routine to recover it.
 
-A template is a thin pointer, not a procedure: a prompt carries only what the plugin cannot know — the environment, the payload, the one command, and the channel and post shape — and defers everything else to its owner (the run to `workaholic:drive`, the notification rules to this SKILL, the standing prohibitions to `rules/`); a prompt that restates a rule is a second source of truth, and the drift is one-directional. Prompts are byte-identical across repositories (P7): no substitution, no repository name; `{repo_name}` survives only in the `name:` UI field.
+A template is a thin pointer, not a procedure: a prompt carries only what the plugin cannot know — the environment, the payload, the one command, and the channel and post shape — and defers everything else to its owner (the run to `workaholic:drive`, the notification rules to `workaholic:notify`, the standing prohibitions to `rules/`); a prompt that restates a rule is a second source of truth, and the drift is one-directional. Prompts are byte-identical across repositories (P7): no substitution, no repository name; `{repo_name}` survives only in the `name:` UI field. Changing a template makes every live routine drift by construction; the fleet is refreshed one routine at a time, confirmed verbatim — never as part of the change that edits the template.
 
 #### What a routine can be triggered by
 
 A routine fires three ways — a schedule, an API call, or a GitHub event — and the GitHub wiring is configurable only in the web UI: the API record carries no event field, so the wiring is unreadable, unwritable and unverifiable from a session (a template's `trigger:` states the designed trigger, not a stored field), and `last_fired_at` is absent for GitHub-triggered fires, so no claim may rest on it — look at what the routine produced. Designed wiring: `[Propose]` on issue assigned; `[Implement]` on pull request closed, `is merged = true`, title contains `[Proposal]`. Neither trigger narrows to a person (the UI offers no assignee filter): every developer's copy fires on every matching event and the data decides whose work it is. Neither prompt carries a guard; both commands do their own filtering — `/implement` at its survey (`owned_by_other`), `/propose` at its input (`not_mine`, P8), and a proposal carries the triggering issue's assignee onto every artifact it emits (P6). The check is the command's, never the prompt's. Repairing a live routine's trigger is a human act in the routines UI. Evidence and history: [reference/routines.md](reference/routines.md).
 
-### One thread per feedback item — the notification model
+### The notification model lives in `workaholic:notify`
 
-The unit of a notification is the reader's item of interest, not the emitter's step: one Slack thread per feedback item, carrying its whole life. The `[Propose]` routine posts the root; every later event of that item is an in-thread reply. The key is the feedback record's filename stem, embedded verbatim in the root as `` `fb:<stem>` `` — the identifier that lives in the repository (`feedback:` relations, `supersedes`, the publishing PR's diff), so a later session derives it from the artifact in hand; the issue number rides along as a human pointer only.
-
-Finding the thread is **stateless** (Q1, 2026-08-07 — nothing carries a target between routines; the search is defined so it cannot guess). Ordered cases, take the first that applies — every search an **exact-string** Slack search, never a similarity or content match:
-
-1. The session's own trigger message — reply there; that message is the item's thread. Not a search, and not reducible to one: a hand-off knows its target at write time, and a message written before the record existed can never carry the key.
-2. Search `` `fb:<stem>` `` — the key a thread root already carries, derived from the repository, never from Slack (`drive/scripts/unit-feedback-stems.sh` for `/implement`; the record `/propose` just wrote for its finish post).
-3. Search the Issue or pull-request URL — or its `#<number>` reference when no URL is in hand, a substitute and never an extra query — which finds the originating human thread when somebody pasted the link into Slack.
-4. No exact match → post a **new root** carrying `fb:<stem>` — never a keyless top-level line (two roots with one key is repairable; a keyless post is not attributable to anything).
-
-**Fuzzy matching is prohibited by name**: never a similarity match, never "the most recent thread that looks related", never recency — it is what put a reply in the wrong place on 2026-08-05, and a guess in a notification path is a message that looks right and is unrelated to the event. The not-found branch is what makes the search safe: a lookup that cannot find the thread **says so** by starting one. **The bound is a written number**: **at most two search queries per lookup** (cases 2 and 3, one each), results capped to the top few matches, and **no full-channel read at any point** — search returns matches; channel history returns everything and is never the instrument. **Resolve once per run and reuse it**: a unit's start and finish go to the same thread — statelessness is between runs, never within one. (History and the withdrawn disclosure: [reference/notifications.md](reference/notifications.md).)
-
-#### Which thread an `/implement` unit's posts land in
-
-These posts are the unattended run's (`/implement` — the routine and any caller-side loop): they exist so an absent operator can tell a working fleet from a dead one. **An attended `/drive` session posts nothing to Slack** — the developer is watching the run, and its report is the session's.
-
-A unit's start and finish are **per-unit, never per-run** ("a run started" names no item, so it has no thread to land in). `drive/scripts/unit-feedback-stems.sh` resolves the unit's artifacts to their deduped feedback stems. Rules:
-
-- Several stems → post into each thread, once per stem per event. No stem → key on `` `unit:<unit-id>` ``, never keyless (the unit id, not the PR number: the start posts before any pull request exists).
-- Exactly one start and one finish per thread; the finish's shape follows the outcome (🟢 merge requested, 🚀/🟣 merge, 🟡 handoff, 🔴 blocked). A handoff is the finish, never a third post.
-- Never re-announce a merge the channel already carries (a resumed unit can reach the route step twice).
-
-The bot notice `claim.sh` posts (bot token, no threading) is a different surface and is deliberately left alone; neither surface is load-bearing.
-
-### Post shapes, mentions, and the red-alert dedup
-
-The exact shapes of the runner's posts (🟢 proposed / 🔴 blocked / 🟠 started / 🟢 merge requested / 🟡 handoff / 🚀 auto merge / 🟣 human merge) are in [reference/notifications.md](reference/notifications.md); a template names its postable events and defers the shapes there. Standing rules:
-
-- 🟢 Proposed is the `[Propose]` routine's thread root; its `` `fb:<stem>` `` line is never dropped. The root announces only the pull request you just created in this session, exactly once — post nothing if you created none, and never announce another session's work.
-- Every post carries its session URL when discoverable; a post missing it still posts. No thread URL rides a public Issue or pull-request body — the carried target is retired and its recorded disclosure withdrawn (Q1; [reference/notifications.md](reference/notifications.md)).
-- Naming a person means mentioning them: resolve to a Slack user id and write `<@U…>` — plain `@name` pings nobody. Email is the reliable key (a GitHub login is not a Slack handle). The fallback is non-blocking: an unresolved id posts the plain name rather than not posting.
-- A red failure alert is deduped by its failure signature — the failed precondition or step plus its one-line reason class, stable across ticks: never a SHA, a timestamp, a file count or any varying detail. Before posting, read the channel's recent history (~50 messages) and suppress only the same signature inside a 24-hour cool-down; the rule suppresses repeats, never first reports. A suppressed tick names the suppression in its terminal report (`alert suppressed as duplicate - <signature>`) and posts one line as a threaded reply on the existing alert (`↳ still failing - <signature>, first reported <time>, <N> ticks`) — the reply is not itself rate-limited, since only a fresh reply answers "is this still happening". The cool-down suppresses the **top-level** post and nothing else: a changed signature or a first report always posts a root, and an unreadable history posts the alert anyway, because silence must never be produced by a failure of the mechanism that decides to be silent.
-- The orange/green/yellow/purple/rocket posts announce events the session itself produced and are new every time; deduping those would hide real work.
-
-Slack is the only surface — the repository's `dev-<repo_name>` channel; no mobile or push notification. An event earns its post by being something a developer must act on or stay aware of: post a unit started, a proposal opened, a merge, a handoff, a blocked-on-precondition failure; do not post an idle tick, a claim, a heartbeat, a ticket archived, a commit, a passing test, or a build — the tie goes to silence. Changing a template makes every live routine drift by construction; the fleet is refreshed one routine at a time, confirmed verbatim — never as part of the change that edits the template.
+Which events earn a Slack post, the exact post shapes, the stateless reply-thread lookup (*One thread per feedback item*), which thread an `/implement` unit's posts land in, mention resolution, and the red-alert dedup are all stated once in `workaholic:notify` — the templates and every other consumer defer there, and nothing of the model is restated here.
 
 ### The scripts
 

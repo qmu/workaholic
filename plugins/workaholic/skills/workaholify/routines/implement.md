@@ -21,10 +21,10 @@ filters ownership. The wiring is set in the routines UI; the `trigger_*` keys de
 the design, not a stored field.
 
 **The prompt is the developer's own four lines** (P3) and states no rule
-a skill already owns: `workaholic:drive` owns the run and its terminal contract, the
-`workaholify` SKILL owns every notification rule (the stateless thread lookup, red-alert
+a skill already owns: `workaholic:drive` owns the run and its terminal contract,
+`workaholic:notify` owns every notification rule (the stateless thread lookup, red-alert
 dedup, mention resolution), and the always-loaded `rules/` own the standing prohibitions.
-The reply thread is **found**, never carried (Q1) — the SKILL's exact-token lookup, not a
+The reply thread is **found**, never carried (Q1) — the notify SKILL's exact-token lookup, not a
 target read out of the pull request and not a channel name in the prompt — so no
 repository is named here and the same four lines paste into every project. `{repo}` in
 the format line is the developer's own placeholder for the pull request link. (Named
@@ -32,7 +32,7 @@ the format line is the developer's own placeholder for the pull request link. (N
 
 ## Prompt
 
-- Read the Mission/Ticket from the PR and find its reply thread (the workaholify lookup)
+- Read the Mission/Ticket from the PR and find its reply thread (the workaholic:notify lookup)
 - Notify the thread, in the same language as the PR, that implementation has started
 - After running `/implement [Mission/Ticket]`, notify the thread in the following format
 

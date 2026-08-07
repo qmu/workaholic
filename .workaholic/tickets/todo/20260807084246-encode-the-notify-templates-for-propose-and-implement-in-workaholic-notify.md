@@ -5,6 +5,7 @@ assignees: [a@qmu.jp]
 depends_on:
 feedback: [.workaholic/feedbacks/20260807084216-define-explicit-notify-templates-for-propose-and-implement-routine-prompts.md]
 merge_policy:
+claim: work-20260807-102749
 ---
 
 # Encode the notify templates for /propose and /implement in workaholic:notify

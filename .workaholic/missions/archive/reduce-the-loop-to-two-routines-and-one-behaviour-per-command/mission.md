@@ -2,7 +2,7 @@
 type: Mission
 title: Reduce the loop to two routines and one behaviour per command
 slug: reduce-the-loop-to-two-routines-and-one-behaviour-per-command
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-06T18:36:08+09:00
 author: a@qmu.jp
@@ -59,3 +59,4 @@ subcommands anywhere, and `/drive` is again the interactive command it used to b
 - 2026-08-06 — ticket archived — 20260806183638-shape-propose-and-implement-for-the-routine-chain.md
 - 2026-08-06 — ticket archived — 20260806183638-abolish-subcommands-across-every-command.md
 - 2026-08-06 — run recorded (+3.5h) — 20260806-185233
+- 2026-08-07 — mission achieved — mission.md

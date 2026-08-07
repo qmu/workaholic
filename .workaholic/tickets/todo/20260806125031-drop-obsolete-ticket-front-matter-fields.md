@@ -1,6 +1,7 @@
 ---
 created_at: 2026-08-06T12:50:31+00:00
 author: noreply@anthropic.com
+assignees: [noreply@anthropic.com]
 type: refactoring
 layer: [Config]
 effort:

@@ -176,7 +176,7 @@ The next run resumes it automatically; `git fetch && git checkout <branch>` to t
 
 ### One thread per feedback item — the notification model (decided 2026-08-04)
 
-**The unit of a notification is the reader's item of interest, not the emitter's step** (`workaholic:design` / UX). Until this date each routine posted its own top-level line — "🟢 PR opened", "🟣 PR merged" — so following one feedback item from ask to merge meant reassembling it from posts scattered across the channel, each threading to nothing. The replacement: **one Slack thread per feedback item, carrying its whole life.** The `[Propose]` routine posts the root; every later event of that item — the merge, and any `/drive` outcome for work that traces back to it — is an **in-thread reply**. All three templates implement this model; it is stated here once and referenced, never restated per template.
+**The unit of a notification is the reader's item of interest, not the emitter's step** (`workaholic:design` / UX). Until this date each routine posted its own top-level line — "🟢 PR opened", "🟣 PR merged" — so following one feedback item from ask to merge meant reassembling it from posts scattered across the channel, each threading to nothing. The replacement: **one Slack thread per feedback item, carrying its whole life.** The `[Propose]` routine posts the root; every later event of that item — the merge, and any `/implement` outcome for work that traces back to it — is an **in-thread reply**. All three templates implement this model; it is stated here once and referenced, never restated per template.
 
 **The key is the feedback record's filename stem**, embedded verbatim in the thread root as `` `fb:<stem>` `` (for example `` `fb:20260804101847-make-workaholify-record-the-fb-to-merge-lifecycle-as-one-semantic-slack-thread` ``). That identifier was chosen over the GitHub issue number because it is the one that **lives in the repository**: a mission carries `feedback: [<filename>]`, a record carries `supersedes`, and a publishing PR names the file in its own diff — so a later session derives the key from the artifact it is already working on rather than from a channel post it has to find first. The issue number rides the root post too, as a human pointer, but nothing keys on it.
 
@@ -191,9 +191,11 @@ The next run resumes it automatically; `git fetch && git checkout <branch>` to t
 
 **How a session identifies its trigger message is left to the session; the routine's own trigger payload is the natural source.** Where no reliable identification exists the correct outcome is case 2 — matching by recency or by message content would thread unrelated items together, which is a worse failure than a second root.
 
-#### Which thread a `/drive` unit's posts land in (decided 2026-08-05)
+#### Which thread an `/implement` unit's posts land in (decided 2026-08-05; scoped to the unattended run 2026-08-07)
 
-**A drive run's start and finish are per-*unit*, not per-run**, and each lands in the thread of the item that unit's work traces to. Per-run was unroutable by construction: "a run started" names no single item, so there is no thread it could reply in, and the announcement fell back to a top-level line the model exists to eliminate.
+**These posts are the unattended run's** (`/implement` — the routine and any caller-side loop): they exist so an absent operator can tell a working fleet from a dead one. An attended `/drive` session posts nothing to Slack — the developer is watching the run, and its report is the session's.
+
+**An implement run's start and finish are per-*unit*, not per-run**, and each lands in the thread of the item that unit's work traces to. Per-run was unroutable by construction: "a run started" names no single item, so there is no thread it could reply in, and the announcement fell back to a top-level line the model exists to eliminate.
 
 **The unit resolves to its stems through one reader.** `drive/scripts/unit-feedback-stems.sh` takes the unit's artifacts — the mission's `mission.md` for a mission unit, the ticket files for a batch — and reports the deduped feedback stems behind them, through `propose/scripts/read-feedback-relation.sh`. A mission unit whose own `feedback:` is empty resolves through its queued tickets instead; a stem is the record's filename without `.md`, which is exactly the `fb:<stem>` token a root carries.
 

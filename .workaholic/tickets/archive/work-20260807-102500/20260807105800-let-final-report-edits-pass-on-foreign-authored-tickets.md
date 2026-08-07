@@ -50,3 +50,12 @@ run must not rewrite the artifact's provenance. Ownership moved to `assignees`
 **Gate:**
 
 - No other validation loosened; provenance is never rewritten to satisfy the hook.
+
+## Final Report
+
+Development completed as planned. The @anthropic.com author rejection in `validate-ticket.sh` is now scoped to a new (git-untracked) ticket; an edit of a tracked ticket — a drive run appending its Final Report to a routine-authored one — passes with provenance intact. Two test cases pin both directions.
+
+### Discovered Insights
+
+- **Insight**: `git -C <dir> ls-files` resolves its pathspec relative to `-C`, so passing the original (cwd-relative) path silently reports every file untracked; query by basename against the file's own directory.
+  **Context**: The first implementation shipped exactly this bug and the new test caught it.

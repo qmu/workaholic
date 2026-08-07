@@ -6346,6 +6346,17 @@ function testValidateTicket() {
       check(shaped("created_at: 2026-06-24T14:02:07+09:00\nauthor: a@qmu.jp\ntype: enhancement\nlayer: [Domain]\neffort: 0.5h\ncommit_hash: abc1234\ncategory: Added\ndepends_on:")), 0);
     assertEq("and never judges a retired field's value (the old enums are gone)",
       check(shaped("created_at: 2026-06-24T14:02:07+09:00\nauthor: a@qmu.jp\ntype: bananas\nlayer: [Frontend]\neffort: 30m\ncategory: Tweaked\ndepends_on:")), 0);
+
+    // The @anthropic.com author rejection is scoped to a NEW (untracked) ticket:
+    // author records provenance, so creation must use the runner's real email — but
+    // a drive run appending its Final Report to a tracked, routine-authored ticket
+    // must not be told to rewrite provenance to satisfy the check (measured
+    // 2026-08-07: five Final Report appends flagged on one mission unit).
+    const foreign = shaped("created_at: 2026-08-07T00:00:00+09:00\nauthor: noreply@anthropic.com\nassignees: []\ndepends_on:\nmerge_policy:");
+    assertEq("a NEW ticket with an anthropic.com author is still rejected", check(foreign), 2);
+    execSync(`git add "${foreign}"`, { cwd: dir });
+    execSync(`git commit -q -m "Add fixture"`, { cwd: dir });
+    assertEq("an EDIT of a tracked foreign-authored ticket passes", check(foreign), 0);
   } finally { cleanup(dir); }
 
   assertEq("validate-ticket rejects nested todo/<user>/archive/", invoke(`.workaholic/tickets/todo/a-qmu-jp/archive/b/${TS}-x.md`), 2);

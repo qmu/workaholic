@@ -63,3 +63,4 @@ the README-reachable docs are reorganized to match the current spec.
 - 2026-08-07 — ticket archived — 20260806125031-pare-tests-and-shell-scripts-to-the-load-bearing-set.md
 - 2026-08-07 — ticket archived — 20260806125031-reframe-the-plugin-for-ai-agent-use-first.md
 - 2026-08-07 — ticket archived — 20260806125031-restructure-readme-reachable-docs-to-the-current-spec.md
+- 2026-08-07 — ticket archived — 20260807105800-let-final-report-edits-pass-on-foreign-authored-tickets.md

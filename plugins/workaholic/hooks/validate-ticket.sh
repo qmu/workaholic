@@ -217,15 +217,29 @@ if ! printf '%s' "$author" | grep -qE '^[^@]+@[^@]+\.[^@]+$'; then
   print_skill_reference
   exit 2
 fi
-# Reject anthropic.com emails - Claude must use actual user's git email
-case "$author" in
-  *@anthropic.com)
-    echo "Error: author must be your actual email from 'git config user.email'" >&2
-    echo "Rejected: $author (run 'git config user.email' and use that value)" >&2
-    print_skill_reference
-    exit 2
-    ;;
-esac
+# Reject anthropic.com emails - Claude must use actual user's git email.
+# Scoped to a NEW ticket (untracked at this path): the field records who created the
+# artifact, so on creation it must be the runner's real identity - but an EDIT of a
+# tracked ticket (a drive run appending its Final Report to a routine-authored one)
+# must not be told to rewrite provenance to satisfy the check (measured 2026-08-07:
+# five Final Report appends flagged on a mission whose tickets the cloud routine
+# authored as noreply@anthropic.com). Tracked-ness is answered by git; when git
+# cannot answer, the strict creation-time behavior is kept.
+ticket_is_tracked=false
+ticket_dir=$(dirname -- "$file_path")
+if git -C "$ticket_dir" ls-files --error-unmatch -- "$filename" >/dev/null 2>&1; then
+  ticket_is_tracked=true
+fi
+if [ "$ticket_is_tracked" = "false" ]; then
+  case "$author" in
+    *@anthropic.com)
+      echo "Error: author must be your actual email from 'git config user.email'" >&2
+      echo "Rejected: $author (run 'git config user.email' and use that value)" >&2
+      print_skill_reference
+      exit 2
+      ;;
+  esac
+fi
 
 # type / layer / effort / commit_hash / category: RETIRED (2026-08-07) and therefore
 # tolerated, never validated. New tickets do not carry them; the whole existing corpus

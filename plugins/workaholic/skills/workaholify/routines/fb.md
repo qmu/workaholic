@@ -24,15 +24,15 @@ triggered by*).
 a skill already owns: `workaholic:propose` owns the judgment, the single pull request
 and the `[Proposal]` prefix; `workaholic:feedback` owns the record; the `workaholify`
 SKILL owns every notification rule; the always-loaded `rules/` own the standing
-prohibitions. The notification target comes from the Issue, not from a channel name in
-the prompt, so no repository is named here and the same four lines paste into every
-project. `{repo}` in the format line is the developer's own placeholder for the pull
-request link.
+prohibitions. The reply thread is **found**, never carried (Q1) — the SKILL's exact-token
+lookup, not a target read out of the Issue and not a channel name in the prompt — so no
+repository is named here and the same four lines paste into every project. `{repo}` in
+the format line is the developer's own placeholder for the pull request link.
 
 ## Prompt
 
-- Read the notification target (Slack Thread URL) and the feedback (FB) from the Issue
-- Notify the target, in the same language as the FB, that consideration has started
-- After running `/propose [FB]`, notify the target in the following format
+- Read the feedback (FB) from the Issue and find its reply thread (the workaholify lookup)
+- Notify the thread, in the same language as the FB, that consideration has started
+- After running `/propose [FB]`, notify the thread in the following format
 
 <@U…> 📐 [#123 Title]({repo}/pull/123)

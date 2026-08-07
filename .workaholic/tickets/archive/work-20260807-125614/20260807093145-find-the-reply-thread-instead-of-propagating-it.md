@@ -10,6 +10,7 @@ category:
 depends_on:
 mission:
 merge_policy:
+claim: work-20260807-125614
 ---
 
 # Find the reply thread instead of propagating it
@@ -155,3 +156,12 @@ already loads; the prompt must not grow to carry it.
   why the search must be exact. Supersede it; do not rewrite it.
 - **`unit-feedback-stems.sh` already does the repository-side half.** The lookup being
   added is the Slack-side half only; nothing new needs to resolve artifacts to keys.
+
+## Final Report
+
+Development completed as planned. The lookup is stated in `workaholic:workaholify` as ordered exact-string searches only — the trigger message (not a search), `fb:<stem>` derived from the repository, the Issue/PR URL with `#<number>` as a substitute, then a new keyed root — with fuzzy/recency matching prohibited by name, the bound written as numbers (at most two search queries per lookup, results capped, no full-channel read), and once-per-run resolution. The propagation is retired: `WORKAHOLIC_NOTIFY_TARGET` gone from `publish-tree-pr.sh` (`WORKAHOLIC_PR_TITLE` stays), `read-notify-target.sh` deleted, the reader/writer steps dropped from drive/propose. Decision Q1 appended to the log (P4's propagation half superseded, exactness kept; P9 withdrawn, `Collaborators only` stays). Both routine prompts remain exactly four lines. Tests: P4 suites retired, Q1 pins added including a plugins/-wide absence pin; 2423 passed, 0 failed.
+
+### Discovered Insights
+
+- **Insight**: The Quality Gate's two live-chain items (one real Issue→PR→merge→reply chain in one thread; the not-found branch exercised against real Slack) cannot be exercised from a local session — they are recorded as open verification items for the next routine tick, not claimed done.
+  **Context**: The first real `[Propose]`/`[Implement]` firing after this merges is the natural exercise of both.

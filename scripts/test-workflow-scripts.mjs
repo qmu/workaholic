@@ -121,7 +121,6 @@ const SCRIPTS = {
   openPublishTree: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/open-publish-tree.sh"),
   publishTreeCommit: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/publish-tree-commit.sh"),
   publishTreePr: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/publish-tree-pr.sh"),
-  readNotifyTarget: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/read-notify-target.sh"),
   listRoutineTemplates: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/list-routine-templates.sh"),
   renderRoutine: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/render-routine.sh"),
   checkSlackChannel: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/check-slack-channel.sh"),
@@ -12204,8 +12203,8 @@ const tests = [
   ["branching/sync-main.sh (J3 freshness)", testSyncMain],
   ["branching publish tree: publication never touches the caller's checkout (J2)", testPublishTree],
   ["branching publish-tree-pr: an artifact lands on a work-* branch behind a PR (J4)", testPublishTreePr],
-  ["the routine chain hands off its notification target in the PR body (P4)", testNotifyTargetHandoff],
-  ["the notify-target contract is stated on both halves of the chain (P4)", testNotifyTargetContract],
+  ["the PR title is not the commit subject (P4's surviving half)", testPrTitleSeparateFromSubject],
+  ["the reply thread is found, not carried (Q1)", testStatelessThreadLookup],
   ["one behaviour per command: no dispatch on a literal first word (P5)", testNoSubcommands],
   ["a proposal carries its owner from the trigger (P6)", testProposalOwnershipChain],
   ["the proposal ownership chain is stated end to end (P6)", testProposalOwnershipContract],
@@ -12324,69 +12323,32 @@ function testPublishTreePr() {
   }
 }
 
-// ---------- the routine chain's hand-off: the PR carries its notification target ----------
-// P4 (2026-08-06). `/propose` writes `Notify-Thread: <url>` into the pull request body;
-// `/implement`, started by that PR's merge, reads it back and replies THERE. The
-// alternative it replaces -- re-deriving the thread from an `fb:<stem>` search -- is the
-// step that put a reply in the wrong place on 2026-08-05: a search has to guess, and a
-// guess in a notification path produces a message that looks right and is unrelated to
-// the event.
-//
-// The `absent` branch is asserted as hard as the found branch, because it is the
-// FALLBACK SIGNAL, not an error: every pull request opened before this change carries no
-// line, and the caller's documented behaviour on it is the existing thread search. A
-// reader that reported `absent` the way it reports `no_gh` would send a caller looking
-// for a broken tool instead of falling back.
-function testNotifyTargetHandoff() {
+// ---------- the PR title is not the commit subject (P4's surviving half) ----------
+// P4 (2026-08-06) split two surfaces that had shared one string: `[Proposal]` is exactly
+// the shape check-subject.sh forbids on a commit subject, so passing one string to both
+// made /propose's own documented prefix unwritable -- the publish died at `commit_failed`
+// before any pull request existed. The subject keeps the project rule; the title carries
+// the prefix the [Implement] trigger filters on. (P4's other half -- the carried
+// notification target -- is retired by Q1 and pinned in testStatelessThreadLookup.)
+function testPrTitleSeparateFromSubject() {
   const { origin, A } = makePublishFixture();
   const OPEN = `${POSIX_SH} ${SCRIPTS.openPublishTree}`;
   const PR = `${POSIX_SH} ${SCRIPTS.publishTreePr}`;
-  const READ = `${POSIX_SH} ${SCRIPTS.readNotifyTarget}`;
-  const THREAD = "https://qmu.slack.com/archives/C0123ABCD/p1754460000123456";
   const REL = ".workaholic/tickets/todo/20260806010000-chained.md";
   try {
-    // ---- the reader, over a body already in hand (no gh, no network) ----
-    const bodyWith = join(A, "with.txt");
-    writeFileSync(bodyWith, `## Overview\n\nwhy\n\nNotify-Thread: ${THREAD}\n`);
-    assertEq("the reader returns the carried target verbatim",
-      JSON.parse(run(A, `${READ} --body-file ${bodyWith}`).stdout), { found: true, target: THREAD });
-
-    const bodyWithout = join(A, "without.txt");
-    writeFileSync(bodyWithout, "## Overview\n\nwhy\n");
-    assertEq("a body with no line reports absent — the documented fallback signal",
-      JSON.parse(run(A, `${READ} --body-file ${bodyWithout}`).stdout), { found: false, reason: "absent" });
-    assertTrue("and absent is a DIFFERENT reason from being unable to ask at all",
-      JSON.parse(run(A, `${READ} --body-file /nonexistent/body.txt`).stdout).reason === "unreadable"
-      && JSON.parse(run(A, READ).stdout).reason === "no_ref");
-
-    // A body may quote the line while discussing it; the writer emits exactly one, last,
-    // so first-match-wins resolves the duplicate the way the writer intended.
-    const bodyDup = join(A, "dup.txt");
-    writeFileSync(bodyDup, `Notify-Thread: ${THREAD}\n\nsome prose\n\nNotify-Thread: https://wrong/one\n`);
-    assertEq("the first line wins over a later quoted one",
-      JSON.parse(run(A, `${READ} --body-file ${bodyDup}`).stdout).target, THREAD);
-
-    // ---- the writer: the env var is what puts the line in the body ----
     execSync("git checkout -q -b work-20260806-010000", { cwd: A });
     run(A, OPEN);
     mkdirSync(join(A, ".publish", ".workaholic/tickets/todo"), { recursive: true });
     writeFileSync(join(A, ".publish", REL), "---\ntype: enhancement\n---\n\n# Chained\n");
     // gh cannot open a PR against a bare local origin, so the run fails at the PR step --
-    // which is exactly where the body is built. The body file is written before the
-    // attempt, so what is asserted is the branch landing plus the reader's own contract
-    // over the same string the writer emits.
+    // after the commit and the push, which is what is asserted here.
     const r = JSON.parse(run(A,
-      `WORKAHOLIC_NOTIFY_TARGET='${THREAD}' WORKAHOLIC_PR_TITLE='[Proposal] Add a chained ticket' ${PR} "Add a chained ticket" "why" "None" "None" "None" "verify" ${REL}`).stdout);
-    assertTrue("the publication still lands on its branch with a target set",
+      `WORKAHOLIC_PR_TITLE='[Proposal] Add a chained ticket' ${PR} "Add a chained ticket" "why" "None" "None" "None" "verify" ${REL}`).stdout);
+    assertTrue("the publication lands on its branch with a PR title set",
       r.ok === false && /^work-\d{8}-\d{6}$/.test(r.branch || ""), JSON.stringify(r));
     const onBranch = execSync(`git ls-tree -r --name-only ${r.branch}`, { cwd: origin, encoding: "utf8" });
     assertTrue("the artifact is pushed whether or not the PR step succeeded", onBranch.includes(REL), onBranch);
 
-    // THE PR TITLE IS NOT THE COMMIT SUBJECT. `[Proposal]` is exactly the shape
-    // check-subject.sh forbids, so passing one string to both made /propose's own
-    // documented prefix unwritable -- the publish died at `commit_failed` before any
-    // pull request existed. The subject keeps the project rule; the title carries the
-    // prefix the [Implement] trigger filters on.
     const subject = execSync(`git log -1 --format=%s ${r.branch}`, { cwd: origin, encoding: "utf8" }).trim();
     assertEq("the commit subject keeps the project's no-bracket-prefix rule",
       subject, "Add a chained ticket");
@@ -12399,14 +12361,22 @@ function testNotifyTargetHandoff() {
   }
 }
 
-// The chain's two halves are prose in two skills, so nothing mechanical would notice
-// either drifting away from the other.
-function testNotifyTargetContract() {
+// ---------- the reply thread is found, not carried (Q1, 2026-08-07) ----------
+// P4's propagation is retired: no body line carries a thread URL, nothing reads one
+// back, and each routine locates its own thread. What P4 taught is kept -- the
+// 2026-08-05 defect was a search that GUESSED -- so the replacement lookup must be
+// stated so that it cannot guess. The lookup is prose the running model applies, so
+// these pins are what stop each load-bearing clause from silently dropping out: the
+// order of the exact searches, the by-name fuzzy prohibition, the written query bound,
+// and the once-per-run resolution.
+function testStatelessThreadLookup() {
   const propose = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/propose/SKILL.md"), "utf8");
   const drive = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/drive/SKILL.md"), "utf8");
+  const routing = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/drive/reference/routing.md"), "utf8");
   const wh = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/SKILL.md"), "utf8");
   const writer = readFileSync(SCRIPTS.publishTreePr, "utf8");
 
+  // The surviving P4 half: the prefix contract and its env var are untouched.
   assertTrue("the propose skill owns the [Proposal] prefix contract",
     /\[Proposal\]` prefix/.test(propose));
   assertTrue("and says why it is load-bearing rather than cosmetic",
@@ -12415,17 +12385,65 @@ function testNotifyTargetContract() {
     /WORKAHOLIC_PR_TITLE/.test(propose) && /different surfaces with different rules/.test(propose));
   assertTrue("and the writer keeps the commit subject separate from the PR title",
     /WORKAHOLIC_PR_TITLE:-\$TITLE/.test(writer));
-  assertTrue("the propose skill states the labelled line the writer emits",
-    /Notify-Thread: <thread url>/.test(propose) && /WORKAHOLIC_NOTIFY_TARGET/.test(propose));
-  assertTrue("and forbids inventing a target to fill it",
-    /Do \*\*not\*\* invent a target/.test(propose), "invention not forbidden");
-  assertTrue("the writer emits the line only when the target is set",
-    /WORKAHOLIC_NOTIFY_TARGET:-/.test(writer) && /Notify-Thread: %s/.test(writer));
-  assertTrue("the drive skill reads the target back before searching",
-    /read-notify-target\.sh/.test(drive) && /documented fallback/.test(drive));
-  assertTrue("the thread rules place the carried target above the search",
-    /four ordered cases/.test(wh)
-    && wh.indexOf("read-notify-target.sh") < wh.indexOf("The `fb:<stem>` key search"));
+
+  // The three ordered exact searches, in order: the session's own trigger message is
+  // not a search and sits first; then the fb:<stem> key; then the Issue/PR URL; a miss
+  // posts a new keyed root. Ordering is asserted by position, so a reshuffle is caught.
+  assertTrue("the lookup is stated as exact-string searches only",
+    /exact-string/.test(wh) && /never a similarity or content match/.test(wh));
+  const iTrigger = wh.indexOf("The session's own trigger message");
+  const iStem = wh.indexOf("Search `` `fb:<stem>` ``");
+  const iUrl = wh.indexOf("Search the Issue or pull-request URL");
+  const iRoot = wh.indexOf("post a **new root** carrying `fb:<stem>`");
+  assertTrue("the ordered cases exist and hold their order",
+    iTrigger >= 0 && iStem > iTrigger && iUrl > iStem && iRoot > iUrl,
+    JSON.stringify({ iTrigger, iStem, iUrl, iRoot }));
+  assertTrue("the fb:<stem> key is derived from the repository, never from Slack",
+    /derived from the repository, never from Slack/.test(wh)
+    && /unit-feedback-stems\.sh/.test(wh));
+
+  // The prohibition is by name -- it IS what the 2026-08-05 defect was.
+  assertTrue("fuzzy matching is prohibited by name",
+    /Fuzzy matching is prohibited by name/i.test(wh));
+  assertTrue("and its named forms are each forbidden",
+    /never a similarity match/.test(wh)
+    && /never "the most recent thread that looks related"/.test(wh)
+    && /never recency/.test(wh));
+  assertTrue("the not-found branch starts a thread instead of picking the closest thing",
+    /says so\*\* by starting one/.test(wh));
+
+  // The bound is a written number, so a future edit changes it deliberately.
+  assertTrue("at most two search queries per lookup",
+    /at most two search queries per lookup/.test(wh));
+  assertTrue("no full-channel read at any point",
+    /no full-channel read at any point/.test(wh)
+    && /channel history returns everything and is never the instrument/.test(wh));
+
+  // Once per run: statelessness is between runs, never within one.
+  assertTrue("the target is resolved once per run and reused",
+    /Resolve once per run and reuse it/.test(wh)
+    && /between runs, never within one/.test(wh));
+
+  // The consumers defer to the one statement instead of re-deriving the rules.
+  assertTrue("the drive skill sends its posts through the stateless lookup",
+    /stateless lookup/.test(drive) && /once per run/.test(drive));
+  assertTrue("the routing reference states found-never-carried with the bound",
+    /found, never carried/.test(routing) && /at most two queries/.test(routing)
+    && /no full-channel read/.test(routing));
+  assertTrue("the propose skill carries no target in the body and says so",
+    /no notification target\*\*/.test(propose) && /stateless exact-token lookup/.test(propose));
+
+  // ABSENCE: the retired names are gone from the whole live plugin surface. History
+  // (.workaholic/, docs/loop-engineering-workflow.md) keeps them; plugins/ may not.
+  const pluginRoot = join(REPO_ROOT, "plugins");
+  const offenders = [];
+  for (const rel of readdirSync(pluginRoot, { recursive: true })) {
+    const p = join(pluginRoot, String(rel));
+    if (!statSync(p).isFile()) continue;
+    const body = readFileSync(p, "utf8");
+    if (/read-notify-target|WORKAHOLIC_NOTIFY_TARGET|Notify-Thread/.test(body)) offenders.push(String(rel));
+  }
+  assertEq("no retired notify-target name survives anywhere under plugins/", offenders, []);
 }
 
 // ---------- one behaviour per command (P5, 2026-08-06) ----------
@@ -13359,14 +13377,18 @@ function testRoutineAnnouncementScoping() {
     && /Do not reintroduce a third routine/i.test(wh), "retirement cost not stated");
 
   // A prompt may not defer the one thing that IS its output contract.
-  // The four lines are the developer's own (feedback 20260806183556): read the target
-  // and payload out of the triggering artifact, say work has started in the payload's
-  // language, run the one command, post the result in the given format. The FORMAT is
-  // the one thing a routine cannot defer -- no skill states it, because it is the
-  // routine's output contract -- so it is pinned inline.
+  // The four lines are the developer's own (feedback 20260806183556, amended by Q1):
+  // read the payload out of the triggering artifact and FIND its reply thread (the
+  // workaholify SKILL owns the lookup -- the prompt names it and carries no target),
+  // say work has started in the payload's language, run the one command, post the
+  // result in the given format. The FORMAT is the one thing a routine cannot defer --
+  // no skill states it, because it is the routine's output contract -- so it is pinned
+  // inline.
   for (const [name, body] of [["fb", fb], ["implement", implement]]) {
-    assertTrue(`the ${name} prompt reads its target out of the triggering artifact`,
-      /notification target \(Slack Thread URL\)/.test(body), body.slice(0, 400));
+    assertTrue(`the ${name} prompt finds its reply thread rather than reading a carried target`,
+      /find its reply thread \(the workaholify lookup\)/.test(body), body.slice(0, 400));
+    assertTrue(`the ${name} prompt carries no thread URL to read`,
+      !/Slack Thread URL/.test(body), body.slice(0, 400));
     assertTrue(`the ${name} prompt notifies in the payload's own language`,
       /in the same language as the/.test(body), body.slice(0, 400));
     assertTrue(`the ${name} prompt carries its post format inline`,

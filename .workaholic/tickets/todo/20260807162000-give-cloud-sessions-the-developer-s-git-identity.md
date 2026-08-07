@@ -6,6 +6,7 @@ depends_on:
 mission:
 feedback: [20260807065338-archive-sh-should-auto-push-the-claim-branch-after-archiving.md]
 merge_policy:
+claim: work-20260807-161204
 ---
 
 # Give cloud sessions the developer's git identity

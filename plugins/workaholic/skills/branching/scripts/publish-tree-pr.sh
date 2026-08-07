@@ -9,6 +9,30 @@
 # the branch, the push, and the pull request, not the message. The base branch is
 # `main` unless WORKAHOLIC_PUBLISH_BASE names another.
 #
+# THE PULL REQUEST'S TITLE IS NOT THE COMMIT SUBJECT (P4, 2026-08-06). Set
+# WORKAHOLIC_PR_TITLE to give the pull request a title of its own; unset, it is
+# the commit subject, which is the long-standing behaviour and stays the default.
+#
+# They are different surfaces with different contracts, and conflating them was a
+# live defect. The commit subject is gated by `commit/scripts/check-subject.sh`:
+# present tense, <= 50 characters, and NO `[bracket]` prefix. The pull request
+# title is gated by nothing and is what `/propose` must prefix with `[Proposal]`
+# — the string the `[Implement]` routine's GitHub trigger filters on. Passing one
+# string to both made those two rules contradict each other: `/propose` could
+# satisfy its own documented prefix only by writing a commit subject the gate
+# refuses, so the publish failed at `commit_failed` before the pull request
+# existed. Splitting them lets each surface keep its own rule.
+#
+# THE BODY CARRIES NO NOTIFICATION TARGET (Q1, 2026-08-07). P4 briefly added a
+# second env var that wrote a machine-readable thread-URL line into the body for
+# the next routine to read back; that propagation is retired — the reply thread
+# is found statelessly by the consumer (workaholic:workaholify, *One thread per
+# feedback item*), and a carried target must not be reintroduced here.
+#
+# WORKAHOLIC_PR_TITLE is an ENV VAR rather than a positional because the
+# positionals belong to commit.sh and end in an open-ended `[files...]`, so an
+# extra one could not be told from a filename.
+#
 # Output (stdout, exit 0 for a reported outcome):
 #   {"ok": true,  "sha": "<sha>", "branch": "work-…", "pr_url": "<url>", "base": "<base>"}
 #   {"ok": false, "reason": "no_publish_tree"|"nothing_to_commit"|"commit_failed"
@@ -131,8 +155,10 @@ trap 'rm -f "$body_file"' EXIT
   printf '\n## Notes\n\nPublished from the publish tree, so the caller'"'"'s checkout was never touched. Merging this pull request is what lands the artifact on `%s`.\n' "$base"
 } > "$body_file"
 
+PR_TITLE="${WORKAHOLIC_PR_TITLE:-$TITLE}"
+
 pr_url=$(git -C "$publish_path" rev-parse --show-toplevel >/dev/null 2>&1 && \
-  ( cd "$publish_path" && gh pr create --base "$base" --head "$work_branch" --title "$TITLE" --body-file "$body_file" 2>/dev/null ) || true)
+  ( cd "$publish_path" && gh pr create --base "$base" --head "$work_branch" --title "$PR_TITLE" --body-file "$body_file" 2>/dev/null ) || true)
 
 if [ -z "$pr_url" ]; then
   printf '{"ok": false, "reason": "pr_failed", "branch": "%s", "sha": "%s", "base": "%s", "detail": "the artifact IS pushed to the branch; open the pull request by hand rather than re-publishing"}\n' \

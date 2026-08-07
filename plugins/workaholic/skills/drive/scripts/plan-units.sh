@@ -7,13 +7,15 @@
 #   {"fetched": bool, "shallow": bool, "base": "<ref>",
 #    "surveyed_sha": "<sha of the checkout's HEAD>", "base_sha": "<sha of <base>>",
 #    "current": bool,
-#    "user_slug": "<the surveyed developer's queue slug, "" when unresolvable>",
+#    "user_slug": "<the runner's own slug, "" when it has no git identity>",
 #    "backlog_error": "<reason, "" when the queue was read>",
+#    "backlog_size": <how many tickets the queue actually holds, owned or not>,
+#    "owner_unresolved": bool,
 #    "claimed": [{"unit", "branch", "stale", "resumable", "resume_reason"}],
 #    "resumable": [{"unit", "branch", "author", "last_commit_at", "stale",
 #                   "resume_reason", "artifacts"}],
 #    "missions": [{"slug", "title", "merge_policy", "checked", "total", "next", "path"}],
-#    "backlog":  [{"path", "title", "type", "layer", "merge_policy", "depends_on"}],
+#    "backlog":  [{"path", "title", "merge_policy", "depends_on"}],
 #    "excluded": [{"kind": "mission"|"ticket", "id": "...", "reason": "..."}]}
 #
 # IT STATES ITS OWN FRESHNESS, AND STILL DOES NOT FIX IT (decision J3). Claims come
@@ -85,27 +87,41 @@
 # reason vocabulary is read straight out of cron logs, so collapsing them would make
 # the log less actionable.
 #
-# AN UNREADABLE QUEUE IS NOT AN EMPTY ONE. The backlog half is scoped to the current
-# developer, so it has a failure mode the mission half does not: with no
-# `git config user.email` there is no queue directory to name, and a survey that
-# discarded that status would emit `backlog: []` and let the run terminate `ok` over
-# a full queue. So the read's status is captured, not swallowed: `backlog_error` names
-# the reason (`identity_unresolved`, `unreadable`) and is `""` when the queue was
-# genuinely read, and `user_slug` reports WHOSE queue was surveyed. A non-empty
-# `backlog_error` forbids `ok` exactly as `current: false` does (drive/SKILL.md §7).
-# It is a top-level key rather than an `excluded[]` entry for the same reason `current`
-# is: `excluded[]` names artifacts the survey SAW and dropped, and this condition is
-# that it never learned any artifact exists.
+# AN UNREADABLE QUEUE IS NOT AN EMPTY ONE, AND AN UNIDENTIFIED RUNNER NO LONGER
+# PRODUCES ONE (P2, 2026-08-06). Until then the backlog was scoped by PATH --
+# `todo/<user-slug>/` -- so with no `git config user.email` there was no directory
+# to name and the survey never learned any ticket existed; `backlog_error:
+# identity_unresolved` was the honest report of a queue that could not be located,
+# and it terminated the run. Ownership is a FIELD now, so the queue is read whatever
+# the runner's identity, and the two facts separate cleanly:
 #
-# MISSIONS ARE FILTERED BY OWNERSHIP, through the one oracle every other consumer
-# already reads (mission/scripts/mission-owners.sh -- plural `assignees`, legacy
-# fallback to the singular `assignee`). The gate is the mission lens's, verbatim: a
-# mission is offerable when the runner's identity is AMONG its owners, or it has no
-# owners at all (team-owned = claimable); only a mission owned solely by others is
-# dropped, as `owned_by_other`. Without this the executor was the single ownership
-# consumer answering differently from the roadmap the developer is shown -- and an
-# unattended runner would claim a colleague's mission and, under
-# `merge_policy: auto`, drive it to `main`.
+#   `backlog_error`     the queue could not be READ at all (`unreadable`). Still a
+#                       top-level key rather than an `excluded[]` entry, for the same
+#                       reason `current` is: `excluded[]` names artifacts the survey
+#                       SAW and dropped, and this is not having learned any exists.
+#   `backlog_size`      how many tickets the queue holds, before any filtering. This
+#                       is what makes "nothing for me" and "nothing at all"
+#                       distinguishable from outside.
+#   `owner_unresolved`  the queue WAS read, and this runner has no identity to judge
+#                       ownership against. Unowned tickets are still offered (they
+#                       are claimable by anyone); every owned one is excluded as
+#                       `owner_unresolved`. It forbids `ok` -- there is claimable
+#                       work this runner could not judge -- but it does NOT terminate
+#                       the run, because the survey is honest and the unowned half is
+#                       genuinely actionable. Claiming still needs an identity and
+#                       still fails loudly if there is none, which is the claim
+#                       protocol's business and is deliberately unchanged.
+#
+# EVERY ARTIFACT IS FILTERED BY THE SAME OWNERSHIP RULE, through the one oracle every
+# other consumer reads (gather/scripts/owns.sh over gather/scripts/owners.sh --
+# plural `assignees`, legacy fallback to the singular `assignee`, compared by slug).
+# The gate is the mission lens's, verbatim, and now applies to a ticket identically:
+# an artifact is offerable when the runner's identity is AMONG its owners, or it has
+# no owners at all (team-owned = claimable); one owned solely by others is dropped as
+# `owned_by_other`. Without this the executor was the single ownership consumer
+# answering differently from the roadmap the developer is shown -- and an unattended
+# runner would claim a colleague's mission and, under `merge_policy: auto`, drive it
+# to `main`.
 #
 # Pure read: it fetches (through the shared reader) and inspects, and writes nothing.
 
@@ -120,6 +136,7 @@ if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
 fi
 
 MISSION_SCRIPTS="${SCRIPT_DIR}/../../mission/scripts"
+GATHER_SCRIPTS="${SCRIPT_DIR}/../../gather/scripts"
 
 # JSON-escape a value (backslash and double-quote only; titles are plain text --
 # the same assumption list.sh makes about .workaholic/ artifacts).
@@ -281,11 +298,17 @@ exclude() {
 # way, and no action of theirs follows from the claim.
 MISSIONS=""
 m_sep=""
-# The runner's identity, resolved once. Empty means unresolvable — the same condition
-# `backlog_error` reports below — and every OWNED mission is then someone else's,
-# which is the conservative reading: a runner that cannot say who it is must not
-# claim work on anyone's behalf. Unowned missions stay offerable, as everywhere else.
+# The runner's identity, resolved once and passed to every ownership question so the
+# survey cannot answer two of them differently. Empty is reported as
+# `owner_unresolved` rather than as "somebody else's": a runner that cannot say who
+# it is must not claim work on anyone's behalf, but it must also not report that
+# certainty it does not have. Unowned artifacts stay offerable, as everywhere else.
 ME=$(git config user.email 2>/dev/null || true)
+# Set by EITHER half — a mission and a ticket ask the same question, so one flag
+# answers "was there anything this runner could not judge". Initialized here rather
+# than beside the backlog it was first written for: the mission loop runs first, and
+# a later re-initialization would silently discard its answer.
+OWNER_UNRESOLVED=false
 if [ -d ".workaholic/missions/active" ]; then
     for d in $(find .workaholic/missions/active -maxdepth 1 -mindepth 1 -type d 2>/dev/null | LC_ALL=C sort); do
         f="${d}/mission.md"
@@ -296,11 +319,18 @@ if [ -d ".workaholic/missions/active" ]; then
         # IS the approval -- re-reading a status word here would re-ask the question the
         # review already answered.
         # Mine, or unclaimed. Someone else's is not this runner's to take.
-        owners=$(sh "${MISSION_SCRIPTS}/mission-owners.sh" "$f" 2>/dev/null || true)
-        if [ -n "$owners" ] && { [ -z "$ME" ] || ! printf '%s\n' "$owners" | grep -Fxq "$ME"; }; then
-            exclude mission "$slug" "owned_by_other"
-            continue
-        fi
+        case "$(sh "${GATHER_SCRIPTS}/owns.sh" "$f" "$ME" 2>/dev/null || echo unowned)" in
+            mine|unowned) : ;;
+            unresolved)
+                OWNER_UNRESOLVED=true
+                exclude mission "$slug" "owner_unresolved"
+                continue
+                ;;
+            *)
+                exclude mission "$slug" "owned_by_other"
+                continue
+                ;;
+        esac
         if is_claimed_unit "$slug"; then
             exclude mission "$slug" "$(claim_reason_for "$slug")"
             continue
@@ -359,28 +389,42 @@ if [ -d ".workaholic/missions/active" ]; then
 fi
 
 # --- the unclaimed backlog ----------------------------------------------------
-# The current developer's todo queue (list-todo.sh is already user-scoped), minus
-# anything a claim holds, minus anything a mission already owns: a missioned
-# ticket is driven as part of its mission's unit, in that mission's worktree, so
-# offering it here would split one plan across two PRs.
+# The WHOLE todo queue (list-todo.sh reads every ticket, whoever owns it), minus
+# anything owned solely by someone else, minus anything a claim holds, minus
+# anything a mission already owns: a missioned ticket is driven as part of its
+# mission's unit, in that mission's worktree, so offering it here would split one
+# plan across two PRs.
 #
-# The read's STATUS is captured rather than discarded (see the header): list-todo.sh
-# exits 3 when the developer's identity — and therefore the queue directory — cannot
-# be resolved at all, which is a different fact from an empty queue and must not
-# render identically.
+# The read's STATUS is captured rather than discarded (see the header). Since P2 the
+# only way this read fails is the queue being genuinely unreadable — the
+# identity-shaped failure is gone with the per-user directory, and `owner_unresolved`
+# now carries what is left of it without pretending the queue was empty.
 BACKLOG=""
 b_sep=""
-USER_SLUG=$(sh "${SCRIPT_DIR}/../../gather/scripts/user-slug.sh" 2>/dev/null || true)
+USER_SLUG=$(sh "${GATHER_SCRIPTS}/user-slug.sh" 2>/dev/null || true)
 BACKLOG_ERROR=""
+BACKLOG_SIZE=0
 todo_status=0
 TODO_LIST=$(sh "${SCRIPT_DIR}/list-todo.sh" 2>/dev/null) || todo_status=$?
 case "$todo_status" in
     0) ;;
-    3) BACKLOG_ERROR="identity_unresolved" ;;
     *) BACKLOG_ERROR="unreadable" ;;
 esac
 for t in $TODO_LIST; do
     [ -f "$t" ] || continue
+    BACKLOG_SIZE=$((BACKLOG_SIZE + 1))
+    case "$(sh "${GATHER_SCRIPTS}/owns.sh" "$t" "$ME" 2>/dev/null || echo unowned)" in
+        mine|unowned) : ;;
+        unresolved)
+            OWNER_UNRESOLVED=true
+            exclude ticket "$t" "owner_unresolved"
+            continue
+            ;;
+        *)
+            exclude ticket "$t" "owned_by_other"
+            continue
+            ;;
+    esac
     if is_claimed_artifact "$t"; then
         exclude ticket "$t" "$(claim_reason_for "$t")"
         continue
@@ -391,14 +435,13 @@ for t in $TODO_LIST; do
         continue
     fi
     title=$(json_escape "$(doc_title "$t")")
-    ttype=$(json_escape "$(fm_field "$t" type)")
-    layer=$(json_escape "$(fm_field "$t" layer)")
     policy=$(json_escape "$(fm_field "$t" merge_policy)")
     depends=$(json_escape "$(fm_field "$t" depends_on)")
-    BACKLOG="${BACKLOG}${b_sep}{\"path\": \"$(json_escape "$t")\", \"title\": \"${title}\", \"type\": \"${ttype}\", \"layer\": \"${layer}\", \"merge_policy\": \"${policy}\", \"depends_on\": \"${depends}\"}"
+    BACKLOG="${BACKLOG}${b_sep}{\"path\": \"$(json_escape "$t")\", \"title\": \"${title}\", \"merge_policy\": \"${policy}\", \"depends_on\": \"${depends}\"}"
     b_sep=", "
 done
 
-printf '{"fetched": %s, "shallow": %s, "base": "%s", "surveyed_sha": "%s", "base_sha": "%s", "current": %s, "user_slug": "%s", "backlog_error": "%s", "claimed": [%s], "resumable": [%s], "missions": [%s], "backlog": [%s], "excluded": [%s]}\n' \
+printf '{"fetched": %s, "shallow": %s, "base": "%s", "surveyed_sha": "%s", "base_sha": "%s", "current": %s, "user_slug": "%s", "backlog_error": "%s", "backlog_size": %d, "owner_unresolved": %s, "claimed": [%s], "resumable": [%s], "missions": [%s], "backlog": [%s], "excluded": [%s]}\n' \
     "$FETCHED" "$SHALLOW" "$BASE" "$SURVEYED_SHA" "$BASE_SHA" "$CURRENT" "$(json_escape "$USER_SLUG")" "$BACKLOG_ERROR" \
+    "$BACKLOG_SIZE" "$OWNER_UNRESOLVED" \
     "$CLAIMED_JSON" "$RESUMABLE" "$MISSIONS" "$BACKLOG" "$EXCLUDED"

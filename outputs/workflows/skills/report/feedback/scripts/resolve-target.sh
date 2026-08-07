@@ -150,10 +150,21 @@ name="$(basename -- "$target_root")"
 remote="$(remote_url_configured "$target_root")"
 [ -n "$remote" ] || remote="$(remote_url_effective "$target_root")"
 
-user_slug="$(git -C "$target_root" config user.email 2>/dev/null | tr '@.' '--' || echo "")"
-[ -n "$user_slug" ] || user_slug="$(git config user.email 2>/dev/null | tr '@.' '--' || echo unknown)"
+# `todo_dir` is the target's FLAT queue since P2 (2026-08-06). It used to carry a
+# per-user segment derived here by a SECOND, divergent slug rule (`tr '@.' '--'`,
+# not gather/scripts/user-slug.sh) — a duplicate that could disagree with the
+# canonical one on any character outside [a-z0-9.@]. The flatten removes the
+# segment and the duplicate rule with it; `user_slug` stays as the reporting-only
+# field it was, computed through the one rule.
+user_slug="$(git -C "$target_root" config user.email 2>/dev/null || echo "")"
+[ -n "$user_slug" ] || user_slug="$(git config user.email 2>/dev/null || echo "")"
+if [ -n "$user_slug" ]; then
+    user_slug="$(sh "$(dirname "$0")/../../gather/scripts/user-slug.sh" "$user_slug" 2>/dev/null || echo unknown)"
+else
+    user_slug="unknown"
+fi
 
 printf '{"ok": true, "path": "%s", "name": "%s", "slug": "%s", "remote": "%s", "visibility": "%s", "user_slug": "%s", "todo_dir": "%s", "source_repo": "%s"}\n' \
     "$target_root" "$name" "$(url_slug "$remote")" "$remote" "$(lookup_visibility "$remote")" "$user_slug" \
-    "${target_root}/.workaholic/tickets/todo/${user_slug}" \
+    "${target_root}/.workaholic/tickets/todo" \
     "$(basename -- "$SOURCE_ROOT")"

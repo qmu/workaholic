@@ -95,4 +95,5 @@
 * [`/request`'s backstop matches an identifier, not a substring](work-20260804-112404.md)
 * [The hourly drive routine stops repeating the same red alert](work-20260804-113101.md)
 * [Gate audit: no other gate reports on a shape instead of a failure](work-20260804-113856.md)
+* [Two routines, one behaviour per command](work-20260807-004323.md)
 <!-- okf:generated:end -->

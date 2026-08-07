@@ -23,7 +23,7 @@
 // Reference rewrites (per built skill):
 //   SKILL.md:  ${CLAUDE_PLUGIN_ROOT}/skills/<x>/scripts/  ->  <x>/scripts/
 //   scripts:   ${SCRIPT_DIR}/../../<x>/scripts/                    ->  unchanged
-// (intra-skill same-dir refs like ${SCRIPT_DIR}/update.sh are preserved because each
+// (intra-skill same-dir refs like ${SCRIPT_DIR}/list-todo.sh are preserved because each
 //  closure skill's whole scripts/ dir is copied intact.)
 
 import { readFileSync, writeFileSync, rmSync, mkdirSync, cpSync, existsSync, readdirSync, statSync, mkdtempSync } from "node:fs";

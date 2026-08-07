@@ -23,17 +23,19 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/read-relation.sh <artifact-fil
 
 Read an artifact's `mission:` relation; prints one slug per line, nothing when absent or empty. The **single source of the relation's shape** — every seam reads through this rather than parsing frontmatter itself. Accepts `mission: [a, b]` and a bare `mission: a` alike, and only ever looks inside the frontmatter block (a body line starting `mission:` is not the relation). Never fails: a missing file, a file with no frontmatter, and an empty field all print nothing. Note this reads a relation **on** an artifact — `mission.md`'s own fields (`title`/`status`/`gate_*`) are read by `list.sh`, `progress.sh`, and `gate.sh` instead.
 
+**Ownership is no longer a mission script.** `mission-owners.sh` and
+`read-assignees.sh` moved to `gather/` on 2026-08-06 (P2) and became
+`gather/scripts/owners.sh`, `gather/scripts/owns.sh` and
+`gather/scripts/read-assignees.sh` — one oracle for every artifact kind, because a
+**ticket** now carries its owners in the same `assignees` field a mission does
+instead of in its directory. The resolution order, the legacy `assignee` fallback,
+and "empty means unowned/claimable" are unchanged in substance; see
+`workaholic:gather`, *Ownership — who an artifact belongs to*. A mission still reads
+its owners exactly as before, through that one reader:
+
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/mission-owners.sh <mission-file>
+bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/owners.sh <mission-file>
 ```
-
-Resolve **who owns a mission** — the single ownership oracle (2026-07-28). First non-empty tier wins: the mission's **own plural `assignees`** (via `mission/scripts/read-assignees.sh`, the single parser of the field shape), then a **legacy fallback** to the mission's own singular `assignee`, so a mission predating the plural field is never orphaned. Prints one owner per line; **empty output means unowned** (claimable). Every ownership consumer — `list.sh`'s `relation`, `summary.sh`, `hooks/mission-lens.sh`, `/drive`'s survey, `hooks/validate-mission.sh`'s authorized-owner floor, and `ship`'s concern-lane owner — reads through this, never by parsing the fields itself.
-
-```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/read-assignees.sh <file>
-```
-
-Read a file's `assignees:` frontmatter field, one owner per line — **the single parser of the field shape** (inline-list `[a, b]` and bare-scalar forms; empty/absent prints nothing). Born on the strategy side (2026-07-24) and relocated here when ownership returned to the mission; `mission-owners.sh`'s primary tier reads through it.
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/migrate-strategies.sh [workaholic-root]
@@ -88,7 +90,7 @@ Compute `{checked, total}` over a mission's `## Acceptance` checklist. Accepts e
 bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/list.sh
 ```
 
-List every mission — across both `active/` and `archive/` — with its `status`, recorded `merge_policy`, derived ownership, computed progress, and its `predicted_hours`/`actual_hours`: a JSON array of `{slug, title, status, merge_policy, assignee, owners, relation, next, checked, total, ready, ready_reason, predicted_hours, actual_hours, path}`, sorted by slug (`path` is the resolved `mission.md` location, so consumers never rebuild it by hand). Emits `[]` when there are no missions. `owners` is the full owner set (`mission-owners.sh` — the mission's own `assignees` first, then the legacy `assignee`), `assignee` aliases the first owner for back-compat, and `relation` is the caller-centric partition (`mine` / `unassigned` / `others` — the same "not somebody else's" gate `summary.sh`, the lens, and `/drive`'s survey read, all through `mission-owners.sh`, computed once here so consumers never re-derive it; a missing git email degrades to nothing-`mine`, never an error). `next` is the first unchecked acceptance item via `next-acceptance.sh`. `ready`/`ready_reason` are the **planning-session drive-readiness verdict**: `ready: true` when the mission is in flight and has a plan (`total > 0`); otherwise `ready: false` with `ready_reason` naming the blocker — `no_plan` (empty `## Acceptance`) or `not_active` (an ended mission) — so the bare `/mission` session can explain what is missing. The retired `draft` reason is gone with the state itself (K1), as `not_authorized` went before it. Together these let the bare `/mission` view render its two tiers and drive its replan loop with **no inline logic**. All keys are additive; older consumers parse a subset and are unaffected.
+List every mission — across both `active/` and `archive/` — with its `status`, recorded `merge_policy`, derived ownership, computed progress, and its `predicted_hours`/`actual_hours`: a JSON array of `{slug, title, status, merge_policy, assignee, owners, relation, next, checked, total, ready, ready_reason, predicted_hours, actual_hours, path}`, sorted by slug (`path` is the resolved `mission.md` location, so consumers never rebuild it by hand). Emits `[]` when there are no missions. `owners` is the full owner set (`gather/scripts/owners.sh` — the mission's own `assignees` first, then the legacy `assignee`), `assignee` aliases the first owner for back-compat, and `relation` is the caller-centric partition (`mine` / `unassigned` / `others` — the same "not somebody else's" gate `summary.sh`, the lens, and `/drive`'s survey read, all through `gather/scripts/owners.sh`, computed once here so consumers never re-derive it; a missing git email degrades to nothing-`mine`, never an error). `next` is the first unchecked acceptance item via `next-acceptance.sh`. `ready`/`ready_reason` are the **planning-session drive-readiness verdict**: `ready: true` when the mission is in flight and has a plan (`total > 0`); otherwise `ready: false` with `ready_reason` naming the blocker — `no_plan` (empty `## Acceptance`) or `not_active` (an ended mission) — so the bare `/mission` session can explain what is missing. The retired `draft` reason is gone with the state itself (K1), as `not_authorized` went before it. Together these let the bare `/mission` view render its two tiers and drive its replan loop with **no inline logic**. All keys are additive; older consumers parse a subset and are unaffected.
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/summary.sh
@@ -148,9 +150,9 @@ List OPEN pull requests referencing a mission slug (slug present in a PR's title
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/close.sh <mission-slug-or-file> <achieved|abandoned|carried> [date] \
-  [--successor-title "<title>" | --successor <slug>]
+  [--successor <slug>]
 ```
 
 End a mission — the only sanctioned way. Flips `status`, appends the closing changelog line through `append-changelog.sh` so the transition itself becomes history (`workaholic:design` / `history-structures`), moves the mission dir into `archive/`, refreshes the OKF indexes, and git-stages. Idempotent: re-closing with the same status is a no-op (`{closed: false, reason: "already_closed"}`); re-closing with another status flips it in place and appends its own line. Emits `{closed, slug, status, path}` JSON (plus `successor` / `successor_path` on a carry).
 
-**Completion lifecycle — "merge and clean up" is a chain, and only one link may be automatic.** When a mission's tickets are all done, it moves through four stages, each with a distinct owner: **complete** (`## Acceptance` fully checked per `progress.sh`, gate exercised when declared) → **PR** (opened by `/drive` §5 from the claim worktree's branch — auto-*creation*, so the morning starts at review) → **merge** (`/ship`, deploy-evidence-gated) → **`/mission close`** (archives the mission). The merge is automatic only where the mission's `merge_policy` says `auto`, which a human recorded at approval; absent that ruling it stays a human decision on evidence, and the PR is where a night's work becomes reviewable. A blanket auto-merge was rejected outright — it would bypass PR review and the deploy-before-merge doctrine.
+**Completion lifecycle — "merge and clean up" is a chain, and only one link may be automatic.** When a mission's tickets are all done, it moves through four stages, each with a distinct owner: **complete** (`## Acceptance` fully checked per `progress.sh`, gate exercised when declared) → **PR** (opened by `/drive` §5 from the claim worktree's branch — auto-*creation*, so the morning starts at review) → **merge** (`/ship`, deploy-evidence-gated) → **`/mission-close`** (archives the mission). The merge is automatic only where the mission's `merge_policy` says `auto`, which a human recorded at approval; absent that ruling it stays a human decision on evidence, and the PR is where a night's work becomes reviewable. A blanket auto-merge was rejected outright — it would bypass PR review and the deploy-before-merge doctrine.

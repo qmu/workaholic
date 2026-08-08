@@ -12213,6 +12213,7 @@ const tests = [
   ["routine announcements: exactly one subject, or nothing at all", testRoutineAnnouncementScoping],
   ["workaholify bootstrap: without it a web routine is configured but cannot work", testWorkaholifyBootstrap],
   ["workaholify bootstrap: the session gets the developer's git identity", testBootstrapGitIdentity],
+  ["workaholify bootstrap: a real install/update marks the reload gap, a skip does not", testBootstrapReloadMarker],
   ["branching worktree reclamation: merged AND clean, every skip named", testWorktreeReclamation],
   ["mission size norms: a ceiling on what a mission may say, and the floor it must not touch", testMissionSizeNorms],
   ["propose: widened inputs, emitted tickets, and the mission_member safety property (J4)", testProposeWidenedBatch],
@@ -13396,6 +13397,76 @@ function testBootstrapGitIdentity() {
     r = run(dir, HOOK, { env });
     assertEq("an absent mapping file never blocks session start", r.status, 0);
     assertEq("...and leaves the identity untouched", email(), "noreply@anthropic.com");
+  } finally { cleanup(dir); cleanup(binDir); }
+}
+
+// ---------- workaholify bootstrap: the reload gap is legible when it cannot be fixed ----------
+// A freshly-registered plugin can leave every command/skill/hook unregistered for a
+// session's whole life (2026-08-08, ticket 20260807131727) -- reproduced live inside an
+// [Implement] routine run, not inferred: Skill({skill: "workaholic:drive"}) returned
+// "Unknown skill" for the rest of that session, immediately after this hook's own success
+// message. There is no documented way to make Claude Code re-register mid-session short
+// of a human-typed /reload-plugins, so session-start.sh cannot repair this -- it can only
+// mark that a real install/update happened (so check.sh can report it, for the narrower
+// case where SOME registration survives) and say the required response in its own
+// trailing stdout line, the one channel proven to survive regardless of registration.
+function testBootstrapReloadMarker() {
+  const dir = makeRepo("main");
+  const binDir = mkdtempSync(join(tmpdir(), "workaholic-reloadmark-"));
+  const HOOK = `${POSIX_SH} ${SCRIPTS.bootstrapHook}`;
+  const marker = join(binDir, "workaholic-bootstrap-reload-pending");
+  const stubClaude = (installedVersion) => {
+    const listOutput = installedVersion ? `workaholic@workaholic\n  Version: ${installedVersion}\n` : "";
+    writeFileSync(join(binDir, "claude"),
+      `#!/bin/sh\ncase "$1 $2" in\n"plugin list") printf '%s' '${listOutput}' ;;\nesac\nexit 0\n`);
+    chmodSync(join(binDir, "claude"), 0o755);
+  };
+  writeFileSync(join(binDir, "gh"), "#!/bin/sh\nexit 1\n");
+  chmodSync(join(binDir, "gh"), 0o755);
+  const env = { ...process.env, PATH: `${binDir}:${process.env.PATH}`,
+    CLAUDE_CODE_REMOTE: "true", CLAUDE_PROJECT_DIR: dir, TMPDIR: binDir };
+  const checkDepsEnv = { env: { ...process.env, TMPDIR: binDir } };
+  try {
+    mkdirSync(join(dir, ".claude-plugin"), { recursive: true });
+    // WANTED is read by a sed pattern anchored on `^ *"version":`, so the manifest must be
+    // pretty-printed one-key-per-line like the real file -- a minified single-line JSON
+    // never matches the anchor and silently reads as "unknown" (never as a false skip).
+    writeFileSync(join(dir, ".claude-plugin/marketplace.json"), JSON.stringify({ version: "9.9.9" }, null, 2));
+
+    // A totally fresh install (nothing returned by `claude plugin list`): the marker
+    // records "install", and the trailing message tells an unattended reader what to do
+    // instead of falling back to a guessed script path.
+    stubClaude(null);
+    let r = run(dir, HOOK, { env });
+    assertEq("a fresh install exits 0", r.status, 0);
+    assertTrue("the trailing message states the required response",
+      r.stdout.includes("Unknown skill") && r.stdout.includes("pending"), r.stdout);
+    assertTrue("the marker file is written", existsSync(marker));
+    assertEq("...recording reason 'install'", readFileSync(marker, "utf8").split("\n")[0], "install");
+
+    // check.sh, given the same TMPDIR, reports it -- the narrower case this CAN close.
+    let c = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.checkDeps}`, checkDepsEnv).stdout);
+    assertEq("check.sh reports the fresh-install marker",
+      { pending: c.bootstrap_reload_pending, reason: c.bootstrap_reload_reason },
+      { pending: true, reason: "install" });
+
+    // An update (some prior version already installed) records "update" instead.
+    rmSync(marker);
+    stubClaude("1.0.0");
+    r = run(dir, HOOK, { env });
+    assertEq("an update exits 0", r.status, 0);
+    assertEq("...and records reason 'update'", readFileSync(marker, "utf8").split("\n")[0], "update");
+    c = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.checkDeps}`, checkDepsEnv).stdout);
+    assertEq("check.sh reports reason 'update'", c.bootstrap_reload_reason, "update");
+
+    // The skip fast path (already at the wanted version) never touches the marker.
+    rmSync(marker);
+    stubClaude("9.9.9");
+    r = run(dir, HOOK, { env });
+    assertEq("the skip fast path exits 0", r.status, 0);
+    assertTrue("...and writes no marker", !existsSync(marker));
+    c = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.checkDeps}`, checkDepsEnv).stdout);
+    assertEq("check.sh reports no pending reload after a skip", c.bootstrap_reload_pending, false);
   } finally { cleanup(dir); cleanup(binDir); }
 }
 

@@ -102,6 +102,40 @@
 # after SessionStart -- an ask, not a workaround. The gate stays exactly as it is: the
 # condition is detected correctly, and detecting it is not the bug.
 #
+# THE RELOAD GAP IS A DIFFERENT, HARDER CASE (2026-08-08, qmu/workaholic ticket
+# 20260807131727). The superseded-binding case above is a session bound to a stale but
+# WORKING install. This one is a session where NOTHING of the plugin was ever registered
+# at all -- reproduced live inside an [Implement] routine run: immediately after this
+# hook printed its old "installed, run /reload-plugins" line, `Skill({skill:
+# "workaholic:drive"})` returned "Unknown skill" for the rest of that session, and so did
+# every other workaholic: skill and command. Checked against Claude Code's own docs
+# (code.claude.com/docs/en/plugins.md, plugins-reference.md): a mid-session plugin change
+# does not take effect for hooks, skills, or commands until a human types
+# /reload-plugins, and there is no documented programmatic equivalent -- an unattended
+# session has no way to trigger one.
+#
+# THERE IS NO FIX INSIDE THE PLUGIN FOR THE TOTALLY-FRESH CASE, and unlike the
+# superseded-binding case, THE GAP CANNOT EVEN BE DETECTED FROM INSIDE THE PLUGIN: any
+# script that would report the condition (check-deps/scripts/check.sh included) is
+# exactly as unregistered as the skill whose absence it would explain -- a diagnostic
+# nobody can invoke diagnoses nothing. The one channel proven to survive is THIS HOOK'S
+# OWN STDOUT: it lives in the CONSUMING repo's .claude/settings.json, outside the
+# plugin's own registered surface, so it always runs and is always readable regardless of
+# what the harness did or did not register afterward. Its trailing message below now
+# states the condition and the required response directly -- report the run pending and
+# stop, never fall back to guessing script paths -- because it is the only message an
+# unattended run is guaranteed to see before it might attempt a workaholic: call.
+#
+# check-deps/scripts/check.sh STILL GAINED a `bootstrap_reload_pending` field (see its
+# SKILL.md's "Bootstrap reload-pending" section) for the narrower, real case this hook
+# CAN help with: a genuine update sometimes leaves the OLD build's skills/commands bound
+# rather than none at all (Claude Code's own doc: a mid-session update "keeps using the
+# previous version's path") -- the update-only twin of the already-handled
+# superseded-binding case, where check.sh remains reachable. That field closes the gap
+# /drive's own preflight CAN reach; it is powerless for the totally-fresh case above,
+# where nothing can reach it -- which is why this hook's own message carries the
+# instruction instead of leaving it to a script three layers downstream.
+#
 # THE SESSION GETS THE DEVELOPER'S GIT IDENTITY (2026-08-07). The web container's git
 # identity is `noreply@anthropic.com`, and ticket/mission ownership is compared against
 # `git config user.email` (gather/scripts/owns.sh) -- so on the first full routine-chain
@@ -229,6 +263,10 @@ if [ -n "$INSTALLED" ] && [ -n "$WANTED" ] && [ "$INSTALLED" = "$WANTED" ]; then
 fi
 log "installed='${INSTALLED:-none}' wanted='${WANTED:-unknown}'; refreshing"
 
+# Which case this is, for the marker and the trailing message below: no prior install at
+# all reads as a genuinely fresh registration, anything else as an update.
+if [ -z "$INSTALLED" ]; then BOOTSTRAP_REASON=install; else BOOTSTRAP_REASON=update; fi
+
 # 1) Register the marketplace, or refresh it when already registered.
 if claude plugin marketplace list 2>/dev/null | grep -q "$MP"; then
   run claude plugin marketplace update "$MP" || true   # try the install regardless
@@ -245,5 +283,14 @@ fi
 
 # 3) Verify.
 run claude plugin list || true
-echo "workaholic installed. Run /reload-plugins if its commands aren't available yet."
+
+# Mark that a real install/update happened THIS session, for check-deps/scripts/check.sh
+# to report even after this line has scrolled out of context (2026-08-08). This is
+# best-effort diagnostics, not a fix: nothing here learns whether a later /reload-plugins
+# actually happened, so the marker can outlive the gap it once described -- an occasional
+# false "still pending" is preferable to a missed real one (see check-deps' SKILL.md).
+printf '%s\n%s\n' "$BOOTSTRAP_REASON" "$(date -Is)" > "${TMPDIR:-/tmp}/workaholic-bootstrap-reload-pending" 2>/dev/null || true
+
+if [ "$BOOTSTRAP_REASON" = install ]; then BOOTSTRAP_VERB=installed; else BOOTSTRAP_VERB=updated; fi
+echo "workaholic ${BOOTSTRAP_VERB}. Its skills/commands are NOT available this session without a human-typed /reload-plugins -- Claude Code has no unattended equivalent. If a workaholic: skill or command next fails with 'Unknown skill'/'Unknown command', that is this exact gap: do not fall back to guessing internal script paths -- report this run as blocked/pending (to whatever thread or channel it was about to notify) and stop."
 exit 0

@@ -23,7 +23,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/check-deps/scripts/check.sh
 ### Output contract
 
 ```json
-{"ok": true, "version": "1.0.112", "checkout_version": "1.0.126", "version_drift": true, "registry_version": "1.0.129", "registry_unreadable": false, "loaded_version_behind_registry": true, "guards_present": true, "missing_guards": []}
+{"ok": true, "version": "1.0.112", "checkout_version": "1.0.126", "version_drift": true, "registry_version": "1.0.129", "registry_unreadable": false, "loaded_version_behind_registry": true, "bootstrap_reload_pending": false, "bootstrap_reload_reason": "", "bootstrap_reload_at": "", "guards_present": true, "missing_guards": []}
 ```
 
 - `ok` — dependencies satisfied (always `true` for the single-plugin layout). Consumers stop with
@@ -43,6 +43,12 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/check-deps/scripts/check.sh
 - `loaded_version_behind_registry` — the loaded version sorts **strictly older** than the
   registry's. Ordered, not merely different: a loaded version *ahead* of the registry is a
   developer running a local build, which is deliberate.
+- `bootstrap_reload_pending` / `bootstrap_reload_reason` / `bootstrap_reload_at` — whether
+  the consuming repo's own `session-start.sh` performed a real install or update (`"install"`
+  or `"update"`) at some point THIS session, per the marker it writes at
+  `${TMPDIR:-/tmp}/workaholic-bootstrap-reload-pending`. `false`/empty when the marker is
+  absent — either the bootstrap took its skip fast path, or this is not a bootstrapped
+  session at all. See *Bootstrap reload-pending* below.
 - `guards_present` / `missing_guards` — whether the expected PreToolUse Bash guards
   (`guard-ticket-structure.sh`, `guard-git-commit.sh`, `guard-git-branch.sh`) are registered in
   the loaded `hooks.json`. A non-empty list means a stale/partial install — a warning, `ok` stays
@@ -75,6 +81,42 @@ session, never a retry. Two properties keep the check trustworthy at any plugin 
 operand is plugin content** (the harness's binding vs the harness's registry), and **the absence
 of the field counts as the condition** — a build too old to emit it is by construction the stale
 build the field exists to catch.
+
+## Bootstrap reload-pending: closes part of the gap, not all of it
+
+Investigated 2026-08-08 (qmu/workaholic ticket 20260807131727), reproduced live inside an
+`[Implement]` routine run: immediately after `session-start.sh` printed its old
+"installed, run `/reload-plugins`" line, `Skill({skill: "workaholic:drive"})` returned
+"Unknown skill" for the whole rest of that session — nothing from the plugin (commands,
+skills, hooks) was registered at all. Checked against Claude Code's own docs
+(`code.claude.com/docs/en/plugins.md` / `plugins-reference.md`): a mid-session plugin
+change does not take effect for hooks, skills, or commands until a human types
+`/reload-plugins`, and there is **no documented programmatic equivalent** — an unattended
+session cannot trigger one.
+
+**There is no fix inside the plugin for that totally-fresh case, and unlike the
+registry-drift axis above, the gap cannot even be *detected* from inside the plugin**: any
+script that would report the condition — `check.sh` included — is exactly as unregistered
+as the skill whose absence it would explain. `bootstrap_reload_pending` only closes the
+narrower, real case where *some* registration survives: an update that leaves the old
+build's skills/commands bound rather than none at all (Claude Code's own doc: a
+mid-session update "keeps using the previous version's path"), the update-only twin of
+`loaded_version_behind_registry`. For that case `/drive`'s own preflight can still reach
+this script and terminate `pending` on the field.
+
+The totally-fresh case is instead handled by `session-start.sh`'s own trailing stdout
+message, which lives in the *consuming repo's* hook config rather than in this plugin, so
+it always runs and is always readable regardless of what the harness did or did not
+register afterward — the one channel proven to survive. That message now states the
+condition and the required response directly: treat the next `Unknown skill`/`Unknown
+command` as this exact gap, report the run pending, and stop, rather than falling back to
+guessing internal script paths.
+
+**Known limit of the marker itself:** nothing observes whether a later `/reload-plugins`
+actually ran, so once written it stays `true` for the rest of the session's `TMPDIR`
+lifetime even if the gap was since resolved by hand. An occasional false "still pending"
+is the accepted cost — the alternative, silently clearing it, risks the opposite: a real
+gap read as healthy.
 
 ## Caveats
 

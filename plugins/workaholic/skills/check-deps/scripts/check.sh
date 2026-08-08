@@ -185,6 +185,30 @@ if [ -n "$loaded_root" ]; then
   fi
 fi
 
+# --- Bootstrap reload-pending (2026-08-08, qmu/workaholic ticket 20260807131727) --------
+# session-start.sh (outside this plugin, in the consuming repo's own hook config) writes
+# this marker whenever it performs a REAL install/update -- never on its skip fast path --
+# because that is exactly when Claude Code's documented behavior applies: a mid-session
+# plugin change does not take effect for skills/commands/hooks until a human types
+# /reload-plugins, and an unattended session never does. For a TOTALLY FRESH install
+# (nothing registered before this session) this script is exactly as unreachable as the
+# skill whose absence it would explain -- so this field only closes the gap for the
+# narrower case where SOME registration survives (an update that leaves the old build's
+# skills/commands bound, per Claude Code's own doc that a mid-session update "keeps using
+# the previous version's path") -- the update-only twin of `loaded_version_behind_registry`
+# above. The genuinely fresh case has no fix reachable from inside the plugin at all, and
+# is handled instead by session-start.sh's own trailing stdout message -- the one channel
+# proven to reach the agent regardless of registration state.
+bootstrap_marker="${TMPDIR:-/tmp}/workaholic-bootstrap-reload-pending"
+bootstrap_reload_pending=false
+bootstrap_reload_reason=""
+bootstrap_reload_at=""
+if [ -f "$bootstrap_marker" ]; then
+  bootstrap_reload_pending=true
+  bootstrap_reload_reason=$(sed -n '1p' "$bootstrap_marker" 2>/dev/null || printf '')
+  bootstrap_reload_at=$(sed -n '2p' "$bootstrap_marker" 2>/dev/null || printf '')
+fi
+
 # Assert the three PreToolUse Bash guards are registered in the loaded hooks.json.
 expected="guard-ticket-structure.sh guard-git-commit.sh guard-git-branch.sh"
 missing=""
@@ -209,6 +233,7 @@ fi
 # Emit missing_guards as a JSON array (jq handles quoting; empty -> []).
 missing_json=$(printf '%s\n' $missing | jq -R . | jq -sc 'map(select(length > 0))')
 
-printf '{"ok": true, "version": "%s", "checkout_version": "%s", "version_drift": %s, "loaded_root_source": "%s", "registry_version": "%s", "registry_unreadable": %s, "loaded_version_behind_registry": %s, "guards_present": %s, "missing_guards": %s}\n' \
+printf '{"ok": true, "version": "%s", "checkout_version": "%s", "version_drift": %s, "loaded_root_source": "%s", "registry_version": "%s", "registry_unreadable": %s, "loaded_version_behind_registry": %s, "bootstrap_reload_pending": %s, "bootstrap_reload_reason": "%s", "bootstrap_reload_at": "%s", "guards_present": %s, "missing_guards": %s}\n' \
   "$version" "$checkout_version" "$version_drift" "$loaded_root_source" "$registry_version" "$registry_unreadable" \
-  "$loaded_version_behind_registry" "$guards_present" "$missing_json"
+  "$loaded_version_behind_registry" "$bootstrap_reload_pending" "$bootstrap_reload_reason" "$bootstrap_reload_at" \
+  "$guards_present" "$missing_json"

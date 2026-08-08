@@ -26,6 +26,11 @@ requester's mention) and states no rule
 a skill already owns: `workaholic:drive` owns the run and its terminal contract,
 `workaholic:notify` owns every notification rule (the stateless thread lookup, red-alert
 dedup, mention resolution), and the always-loaded `rules/` own the standing prohibitions.
+The two literal formats below stay embedded rather than deferred — Q2's reasoning holds:
+a routine cannot defer its own output contract — but `workaholic:notify`'s
+`reference/notifications.md` mirrors them verbatim as the sole sanctioned shapes for
+these two events (P10, 2026-08-07), so a future edit to either copy is a drift to fix,
+never a second wording to reconcile against a third.
 The reply thread is **found**, never carried (Q1) — the notify SKILL's exact-token lookup, not a
 target read out of the pull request and not a channel name in the prompt — so no
 repository is named here and the same prompt pastes into every project. `{repo}` in

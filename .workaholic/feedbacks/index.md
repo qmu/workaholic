@@ -431,4 +431,5 @@
 * [A freshly-installed plugin is not invocable until /reload-plugins, which no unattended routine ever types](20260807104046-a-freshly-installed-plugin-is-not-invocable-until-reload-plugins-which-no-unattended-routine-ever-types.md)
 * [Resolved: The mission skill is still 380 lines, well above the guideline it was measured against](20260807124423-resolved-the-mission-skill-is-still-380.md)
 * [Adopt the six-color notify state emoji set, keeping the rocket for auto merge](20260807190939-adopt-the-six-color-notify-state-emoji-set-keeping-the-rocket-for-auto-merge.md)
+* [[Propose] notify posts top-level instead of the FB thread and omits the issue link](20260808030816-propose-notify-posts-top-level-instead-of-the-fb-thread-and-omits-the-issue-link.md)
 <!-- okf:generated:end -->

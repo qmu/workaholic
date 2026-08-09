@@ -2,6 +2,8 @@
 
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
+* [work-20260809-201846.md](work-20260809-201846.md) - Added the *prompt is the ceiling* rule to `workaholic:notify`: a session may emit only the notification events and shapes its own routine prompt or invoking command names — the skill's own documentation and prior in-session reasoning are never authorization, and an addition becomes standing behavior only after developer confirmation (issue #298 / FB `20260807082554`). `reference/notifications.md` reframed as an opt-in catalog. v1.0.144; 2455 passing / 0 failed - 1 ticket
+
 * [work-20260809-035121.md](work-20260809-035121.md) - Replaced `publish-tree-pr.sh`'s enumerated file-path `## Artifacts` listing with a counts summary per `.workaholic/` area and status (e.g. "3 feedbacks added, 1 mission added, 2 tickets added"), with a generic fallback line for paths outside `.workaholic/` and renames folded into `modified`. v1.0.141; 2448 passing / 0 failed - 1 ticket
 
 * [work-20260807-102749.md](work-20260807-102749.md) - Encoded issue #300's literal `/propose`/`/implement` start/finish notification templates as the sole sanctioned shapes in `workaholic:notify`, retiring the earlier overlapping 🟢 Proposed/🟠 drive started/🟢 Merge Requested shapes while keeping the outcome-specific finishes (merge, handoff, blocked) that carry information the generic line would lose. 2441 passing / 0 failed - 1 ticket

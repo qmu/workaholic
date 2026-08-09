@@ -4,7 +4,7 @@ Companion to `SKILL.md` (*One thread per feedback item*, *Post shapes, mentions,
 
 ## The shapes of the runner's posts
 
-A template names its postable events and defers the line formats here. `<@U…>` follows the SKILL's mention rule; `<repo>` is the repository the session is running in, which it derives itself rather than being told. Two events (`/propose` design start/finish, `/implement` unit start/finish) carry the **sole sanctioned** wording — the literal templates from issue #300, reconciled below with the shapes that predate them (P10, 2026-08-07). Every other event keeps its pre-existing shape unchanged.
+A template names its postable events and defers the line formats here. This file is the **catalog** a template draws from when it explicitly names an event — never blanket authorization: a shape's presence here does not permit a session to emit it unprompted (SKILL, *The prompt is the ceiling — no self-authorized shapes*). `<@U…>` follows the SKILL's mention rule; `<repo>` is the repository the session is running in, which it derives itself rather than being told. Two events (`/propose` design start/finish, `/implement` unit start/finish) carry the **sole sanctioned** wording — the literal templates from issue #300, reconciled below with the shapes that predate them (P10, 2026-08-07). Every other event keeps its pre-existing shape unchanged.
 
 ### `/propose` — design start and finish
 

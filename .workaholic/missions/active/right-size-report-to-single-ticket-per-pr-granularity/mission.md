@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 0.3
 feedback: [.workaholic/feedbacks/20260809010511-lighten-report-now-that-prs-are-merged-per-single-ticket-without-losing-result-records-or-cross-document-relations.md]
 tickets: []
 stories: []
@@ -52,3 +52,4 @@ things `/report` currently gives up nothing on: the recording of results
 - 2026-08-09 — ticket archived — 20260809010644-design-a-right-sized-report-for-single-ticket-per-pr-granularity.md
 - 2026-08-09 — ticket archived — 20260809010647-implement-the-right-sized-report-and-verify-linking-survives.md
 - 2026-08-09 — story reported — work-20260809-025458.md
+- 2026-08-09 — run recorded (+0.3h) — implement-20260809-025458

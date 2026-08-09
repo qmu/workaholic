@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260809-025458
 ---
 
 # Right-size /report to single-ticket-per-PR granularity

@@ -38,7 +38,7 @@ things `/report` currently gives up nothing on: the recording of results
 
 ## Acceptance
 
-- [ ] A design is written for `/report`'s right-sized unit of work (e.g.
+- [x] A design is written for `/report`'s right-sized unit of work (e.g.
   per-ticket instead of per-Story) that names what stays and what is
   trimmed, while preserving the result record and the FB/Proposal/
   Ticket/Report relations. (#20260809010644-design-a-right-sized-report-for-single-ticket-per-pr-granularity.md)
@@ -49,3 +49,4 @@ things `/report` currently gives up nothing on: the recording of results
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-09 — ticket archived — 20260809010644-design-a-right-sized-report-for-single-ticket-per-pr-granularity.md

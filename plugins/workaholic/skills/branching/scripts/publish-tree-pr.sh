@@ -151,7 +151,59 @@ trap 'rm -f "$body_file"' EXIT
 {
   printf '## Overview\n\n%s\n\n' "$WHY"
   printf '## Artifacts\n\n'
-  git -C "$publish_path" show --stat --oneline --name-only --format='' HEAD | sed -e '/^$/d' -e 's/^/- `/' -e 's/$/`/'
+  # Counts per (.workaholic/ area, status), not an enumerated file-path list (a
+  # reviewer wants roughly what shape the change is, not each literal path). A path
+  # outside .workaholic/, or directly under it with no subdirectory, folds into one
+  # generic "files changed" line rather than being dropped. Renames (R###) and copies
+  # (C###) carry two paths; the destination (last field) is what matters, and a
+  # rename reads as "modified" — the artifact did not newly appear.
+  git -C "$publish_path" show --stat --oneline --name-status --format='' HEAD | awk '
+    NF == 0 { next }
+    {
+      status = substr($1, 1, 1)
+      path = $NF
+      area = ""
+      if (index(path, ".workaholic/") == 1) {
+        rest = substr(path, length(".workaholic/") + 1)
+        slash = index(rest, "/")
+        if (slash > 0) area = substr(rest, 1, slash - 1)
+      }
+      if (area == "") { other++; next }
+      word = "modified"
+      if (status == "A") word = "added"
+      else if (status == "D") word = "deleted"
+      else if (status == "C") word = "added"
+      key = area SUBSEP word
+      if (!(key in count)) order[++n] = key
+      count[key]++
+    }
+    END {
+      for (i = 1; i <= n; i++) {
+        split(order[i], parts, SUBSEP)
+        area = parts[1]; word = parts[2]
+        printf("- %d %s %s\n", count[order[i]], label(area, count[order[i]]), word)
+      }
+      if (other > 0) printf("- %d files changed\n", other)
+      if (n == 0 && other == 0) print "- no artifact changes"
+    }
+    function label(area, n,    s) {
+      if (n == 1) {
+        if (area == "feedbacks") return "feedback"
+        if (area == "missions") return "mission"
+        if (area == "tickets") return "ticket"
+        if (area == "stories") return "story"
+        if (area == "releases") return "release"
+        if (area == "release-notes") return "release note"
+        if (area == "trips") return "trip"
+        s = area
+        if (substr(s, length(s), 1) == "s") return substr(s, 1, length(s) - 1)
+        return s
+      }
+      if (area == "release-notes") return "release notes"
+      gsub(/-/, " ", area)
+      return area
+    }
+  '
   printf '\n## Notes\n\nPublished from the publish tree, so the caller'"'"'s checkout was never touched. Merging this pull request is what lands the artifact on `%s`.\n' "$base"
 } > "$body_file"
 

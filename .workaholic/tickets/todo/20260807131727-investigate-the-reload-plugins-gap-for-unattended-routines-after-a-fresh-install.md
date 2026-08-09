@@ -5,6 +5,7 @@ assignees: [a@qmu.jp]
 depends_on:
 feedback: [20260807104046-a-freshly-installed-plugin-is-not-invocable-until-reload-plugins-which-no-unattended-routine-ever-types.md]
 merge_policy:
+claim: work-20260809-031402
 ---
 
 # Investigate the /reload-plugins gap for unattended routines after a fresh install

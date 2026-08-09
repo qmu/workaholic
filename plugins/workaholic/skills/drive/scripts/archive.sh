@@ -165,7 +165,19 @@ sh "$COMMIT_SCRIPT" --skip-staging --category "$CATEGORY" "$COMMIT_MSG" "$WHY" "
 # dance this script used to end with.
 COMMIT_HASH=$(git rev-parse --short HEAD)
 
+# Push the archive commit immediately, following the same non-blocking convention
+# heartbeat.sh already uses for the branch tip: the commit is already made locally and
+# must not be lost or treated as an error if the push fails. A failed push is reported
+# loudly (not silently swallowed) but never fails the archive -- the next heartbeat or
+# commit will carry it forward regardless.
+if git push --quiet origin "$BRANCH" >/dev/null 2>&1; then
+    PUSH_STATUS="pushed"
+else
+    PUSH_STATUS="! could not push claim branch ${BRANCH}"
+fi
+
 echo ""
 echo "Archive complete!"
 echo "  Commit: ${COMMIT_HASH}"
 echo "  Ticket: ${ARCHIVED_TICKET}"
+echo "  Push: ${PUSH_STATUS}"

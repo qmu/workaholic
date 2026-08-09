@@ -5,6 +5,7 @@ assignees:
 depends_on:
 feedback: [.workaholic/feedbacks/20260809080335-erase-purple-circle-notification-feature.md]
 merge_policy:
+claim: work-20260809-085355
 ---
 
 # Erase the purple-circle (🟣) notification format

@@ -428,6 +428,13 @@
 * [archive.sh should auto-push the claim branch after archiving](20260807065338-archive-sh-should-auto-push-the-claim-branch-after-archiving.md)
 * [fb skill should treat any invocation as equivalent to a direct user request](20260807073610-fb-skill-should-treat-any-invocation-as-equivalent-to-a-direct-user-request.md)
 * [Define explicit notify templates for /propose and /implement routine prompts](20260807084216-define-explicit-notify-templates-for-propose-and-implement-routine-prompts.md)
+* [A freshly-installed plugin is not invocable until /reload-plugins, which no unattended routine ever types](20260807104046-a-freshly-installed-plugin-is-not-invocable-until-reload-plugins-which-no-unattended-routine-ever-types.md)
 * [Resolved: The mission skill is still 380 lines, well above the guideline it was measured against](20260807124423-resolved-the-mission-skill-is-still-380.md)
 * [Adopt the six-color notify state emoji set, keeping the rocket for auto merge](20260807190939-adopt-the-six-color-notify-state-emoji-set-keeping-the-rocket-for-auto-merge.md)
+* [[Propose] notify posts top-level instead of the FB thread and omits the issue link](20260808030816-propose-notify-posts-top-level-instead-of-the-fb-thread-and-omits-the-issue-link.md)
+* [Lighten /report now that PRs are merged per single ticket, without losing result records or cross-document relations](20260809010511-lighten-report-now-that-prs-are-merged-per-single-ticket-without-losing-result-records-or-cross-document-relations.md)
+* [Proposal PR descriptions should summarize artifacts by count, not list full file paths](20260809025755-proposal-pr-descriptions-should-summarize-artifacts-by-count-not-list-full-file-paths.md)
+* [Tighten criteria for filing FB issues](20260809040815-tighten-criteria-for-filing-fb-issues.md)
+* [Erase purple circle (🟣) notification feature](20260809080335-erase-purple-circle-notification-feature.md)
+* [FB issues are not auto-closing when their Proposal PR merges](20260809080752-fb-issues-are-not-auto-closing-when-their-proposal-pr-merges.md)
 <!-- okf:generated:end -->

@@ -5,6 +5,7 @@ assignees: [a@qmu.jp]
 depends_on:
 feedback: [20260807082554-agents-must-not-add-slack-notifications-beyond-the-routine-prompt-s-specified-format.md]
 merge_policy:
+claim: work-20260809-201846
 ---
 
 # Forbid agents from self-authorizing notification formats beyond the routine prompt

@@ -501,6 +501,55 @@ Development completed as planned.
   } finally { cleanup(dir); }
 }
 
+// ---------- 5a. drive/archive.sh pushes the claim branch itself ----------
+// The archive commit is a progress signal that must always reach the remote (an
+// unpushed archive makes a finished claim look resumable once its heartbeat lapses).
+// archive.sh now pushes right after the archive commit, the same non-blocking
+// convention heartbeat.sh already uses -- this pins that the remote branch tip carries
+// the archive commit with NO separate `git push` call from the caller.
+function testArchivePushesClaimBranch() {
+  const origin = mkdtempSync(join(tmpdir(), "wh-archive-push-origin-"));
+  const dir = mkdtempSync(join(tmpdir(), "wh-archive-push-clone-"));
+  try {
+    execSync(`git -c init.defaultBranch=main init -q --bare`, { cwd: origin });
+    execSync(`git clone -q ${origin} .`, { cwd: dir });
+    execSync(`git config user.email test@example.com && git config user.name Test && git config commit.gpgsign false`, { cwd: dir });
+    writeFileSync(join(dir, "README.md"), "smoke\n");
+    execSync(`git add README.md && git commit -q -m initial && git push -q origin main`, { cwd: dir });
+
+    // A claim branch, pushed at claim time -- exactly as claim.sh leaves it before
+    // the session starts driving.
+    execSync(`git checkout -q -b work-20260807-smoke`, { cwd: dir });
+    execSync(`git push -q -u origin work-20260807-smoke`, { cwd: dir });
+
+    const todoDir = join(dir, `.workaholic/tickets/todo/${TEST_SLUG}`);
+    mkdirSync(todoDir, { recursive: true });
+    const ticketPath = join(todoDir, "20260807000000-push-ticket.md");
+    writeFileSync(ticketPath, `---
+created_at: 2026-08-07T00:00:00+09:00
+author: a@example.com
+assignees: []
+depends_on:
+---
+
+# Push Ticket
+
+## Final Report
+
+Development completed as planned.
+`);
+
+    const r = run(dir, `${POSIX_SH} ${SCRIPTS.archive} .workaholic/tickets/todo/${TEST_SLUG}/20260807000000-push-ticket.md "Add push feature" https://example.com/repo "the why" "the changes" "the concerns" "the insights" "the verify"`);
+    assertEq("archive.sh exits 0", r.status, 0);
+    assertTrue("archive.sh reports the push", /Push:\s*pushed/.test(r.stdout), r.stdout);
+
+    const localTip = execSync(`git rev-parse HEAD`, { cwd: dir, encoding: "utf8" }).trim();
+    const remoteTip = execSync(`git --git-dir=${origin} rev-parse work-20260807-smoke`, { encoding: "utf8" }).trim();
+    assertEq("remote branch tip already carries the archive commit -- no separate push required",
+      remoteTip, localTip);
+  } finally { cleanup(origin); cleanup(dir); }
+}
+
 // ---------- 5b. commit/commit.sh staging never silently omits a file ----------
 // The defect this pins: commit.sh reported a commit as done while a file the caller
 // meant to include was missing from it. Two holes — an explicitly-named path that
@@ -8436,6 +8485,65 @@ function testCheckDepsRegistryDrift() {
   } finally { cleanup(dir); }
 }
 
+// THE FRESH-INSTALL/NO-RELOAD GAP (FB 20260807104046, 2026-08-09) is a THIRD axis, distinct
+// from registry drift: not a STALE binding but NO binding at all. Measured live: a SessionStart
+// hook installs the plugin and prints the /reload-plugins reminder, but the session's very next
+// Skill(...) call fails "Unknown skill" -- nothing from the plugin is ever bound. Investigated
+// against Claude Code's own docs and confirmed there is no in-plugin fix, so the deliverable is
+// legibility: a genuine Claude Code session (CLAUDE_CODE_SESSION_ID set) where the harness's own
+// registry confirms an install, yet loaded_root_source never resolved past "none".
+function testCheckDepsUnboundSession() {
+  let hasJq = true;
+  try { execSync("command -v jq", { stdio: "ignore" }); } catch { hasJq = false; }
+  if (!hasJq) { console.log("  skip  check-deps unbound-session axis (jq not available)"); return; }
+
+  const dir = mkdtempSync(join(tmpdir(), "workaholic-unbound-"));
+  try {
+    const registry = join(dir, "installed_plugins.json");
+    writeFileSync(registry, JSON.stringify({
+      version: 2,
+      plugins: { "workaholic@workaholic": [{ scope: "user", installPath: "/anywhere", version: "1.0.140" }] },
+    }));
+
+    // GATE 1 — the measured defect: a genuine Claude Code session, the registry confirms an
+    // install, but no plugin root is bound at all (loaded_root_source stays "none").
+    let r = JSON.parse(run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.checkDeps}`, {
+      env: { ...process.env, CLAUDE_PLUGIN_ROOT: "", CLAUDE_PLUGIN_REGISTRY: registry, CLAUDE_CODE_SESSION_ID: "test-session-id" },
+    }).stdout);
+    assertEq("a genuine session with a registered-but-unbound install is flagged",
+      { src: r.loaded_root_source, claudeSession: r.claude_session_detected, hasInstall: r.registry_has_install, unbound: r.unbound_in_claude_session },
+      { src: "none", claudeSession: true, hasInstall: true, unbound: true });
+
+    // GATE 2 — a non-Claude agent (no session id) must never be accused: it has no plugin root
+    // by design, not by a gap this axis exists to catch.
+    r = JSON.parse(run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.checkDeps}`, {
+      env: { ...process.env, CLAUDE_PLUGIN_ROOT: "", CLAUDE_PLUGIN_REGISTRY: registry, CLAUDE_CODE_SESSION_ID: "" },
+    }).stdout);
+    assertEq("no session marker means no verdict, even with a confirmed install",
+      { claudeSession: r.claude_session_detected, unbound: r.unbound_in_claude_session },
+      { claudeSession: false, unbound: false });
+
+    // GATE 3 — a genuine session where the registry has nothing for this plugin (never
+    // installed) must not be confused with "installed but unbound".
+    const emptyRegistry = join(dir, "empty-registry.json");
+    writeFileSync(emptyRegistry, JSON.stringify({ version: 2, plugins: {} }));
+    r = JSON.parse(run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.checkDeps}`, {
+      env: { ...process.env, CLAUDE_PLUGIN_ROOT: "", CLAUDE_PLUGIN_REGISTRY: emptyRegistry, CLAUDE_CODE_SESSION_ID: "test-session-id" },
+    }).stdout);
+    assertEq("a genuine session with no registry entry is not flagged",
+      { hasInstall: r.registry_has_install, unbound: r.unbound_in_claude_session },
+      { hasInstall: false, unbound: false });
+
+    // GATE 4 — a BOUND session (a plugin root resolved) must never trip this axis, even with the
+    // session marker present: the whole point is "nothing bound", not "session exists".
+    r = JSON.parse(run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.checkDeps}`, {
+      env: { ...process.env, CLAUDE_PLUGIN_ROOT: REPO_ROOT + "/plugins/workaholic", CLAUDE_PLUGIN_REGISTRY: registry, CLAUDE_CODE_SESSION_ID: "test-session-id" },
+    }).stdout);
+    assertEq("a bound session is never flagged unbound regardless of the session marker",
+      r.unbound_in_claude_session, false);
+  } finally { cleanup(dir); }
+}
+
 // ---------- catch/scan-window.sh (time-buckets + per-branch axis) ----------
 // Hermetic: a repo with dated commits across two branches. Asserts the scanner
 // emits epoch bucket boundaries, tags each commit into a time-bucket, and builds
@@ -12056,6 +12164,7 @@ const tests = [
   ["branching/check-workspace.sh", testCheckWorkspace],
   ["drive/update.sh", testUpdate],
   ["drive/archive.sh", testArchive],
+  ["drive/archive.sh pushes the claim branch itself", testArchivePushesClaimBranch],
   ["commit/commit.sh never silently omits a file", testCommitStaging],
   ["gather/user-slug.sh", testUserSlug],
   ["gather/migrate-todo-owners.sh", testMigrateTodoOwners],
@@ -12171,6 +12280,7 @@ const tests = [
   ["build: a plugin-root PATH is a defect, a bare read is not", testPluginRootPathVsRead],
   ["check-deps/check.sh", testCheckDeps],
   ["check-deps: a superseded plugin binding is a stop, not a warning", testCheckDepsRegistryDrift],
+  ["check-deps: an unbound plugin in a genuine session is a stop", testCheckDepsUnboundSession],
   ["catch/scan-window.sh buckets+branches", testScanWindowBuckets],
   ["branching/ensure-worktree.sh", testEnsureWorktreeGuard],
   ["hooks/lib/check-subject.sh", testCheckSubject],
@@ -12203,6 +12313,7 @@ const tests = [
   ["branching/sync-main.sh (J3 freshness)", testSyncMain],
   ["branching publish tree: publication never touches the caller's checkout (J2)", testPublishTree],
   ["branching publish-tree-pr: an artifact lands on a work-* branch behind a PR (J4)", testPublishTreePr],
+  ["branching publish-tree-pr: the ## Artifacts section is a counts summary, not a file-path list", testPublishTreePrArtifactsSummary],
   ["the PR title is not the commit subject (P4's surviving half)", testPrTitleSeparateFromSubject],
   ["the reply thread is found, not carried (Q1)", testStatelessThreadLookup],
   ["one behaviour per command: no dispatch on a literal first word (P5)", testNoSubcommands],
@@ -12321,6 +12432,79 @@ function testPublishTreePr() {
   } finally {
     rmSync(origin, { recursive: true, force: true });
     rmSync(A, { recursive: true, force: true });
+  }
+}
+
+// ---------- publish-tree-pr's ## Artifacts section is a counts summary, not a file-path list ----------
+// A reviewer of a proposal PR wants roughly what shape the change is (how many feedbacks,
+// missions, tickets were touched), not the literal path of each one. `gh` is stubbed here
+// (unlike testPublishTreePr) so the body-file `gh pr create` is given can actually be
+// inspected — the fixture's origin is still a bare local repo with no GitHub behind it.
+function testPublishTreePrArtifactsSummary() {
+  const { origin, A } = makePublishFixture();
+  const OPEN = `${POSIX_SH} ${SCRIPTS.openPublishTree}`;
+  const PR = `${POSIX_SH} ${SCRIPTS.publishTreePr}`;
+  const binDir = mkdtempSync(join(tmpdir(), "wh-gh-artifacts-"));
+  const capturedBody = join(binDir, "captured-body.md");
+  try {
+    writeFileSync(join(binDir, "gh"), `#!/bin/sh
+prev=""
+bodyfile=""
+for arg in "$@"; do
+  if [ "$prev" = "--body-file" ]; then bodyfile="$arg"; fi
+  prev="$arg"
+done
+if [ -n "$bodyfile" ]; then cp "$bodyfile" ${capturedBody}; fi
+echo "https://example.test/pr/42"
+`);
+    chmodSync(join(binDir, "gh"), 0o755);
+    const env = { ...process.env, PATH: `${binDir}:${process.env.PATH}` };
+
+    run(A, OPEN);
+    const pub = join(A, ".publish");
+    // 3 feedbacks added, 1 mission added, 2 tickets added (the acceptance example verbatim),
+    // plus one non-.workaholic path (falls into the generic fallback) and one rename (folds
+    // into "modified" rather than "added" — the artifact did not newly appear).
+    mkdirSync(join(pub, ".workaholic/feedbacks"), { recursive: true });
+    for (const n of ["a", "b", "c"]) writeFileSync(join(pub, `.workaholic/feedbacks/2026080900000${n}-fb.md`), "fb\n");
+    mkdirSync(join(pub, ".workaholic/missions/right-size"), { recursive: true });
+    writeFileSync(join(pub, ".workaholic/missions/right-size/mission.md"), "mission\n");
+    mkdirSync(join(pub, `.workaholic/tickets/todo/${TEST_SLUG}`), { recursive: true });
+    writeFileSync(join(pub, `.workaholic/tickets/todo/${TEST_SLUG}/20260809000001-x.md`), "ticket x\n");
+    writeFileSync(join(pub, `.workaholic/tickets/todo/${TEST_SLUG}/20260809000002-y.md`), "ticket y\n");
+    mkdirSync(join(pub, "plugins/workaholic/skills/foo"), { recursive: true });
+    writeFileSync(join(pub, "plugins/workaholic/skills/foo/SKILL.md"), "skill\n");
+    // A renamed ticket (e.g. archive.sh moving one) — R### in --name-status, folded to "modified".
+    // The seed commit's own `.workaholic/tickets/todo/.keep` is the tracked file to move.
+    mkdirSync(join(pub, ".workaholic/tickets/archive"), { recursive: true });
+    execSync("git mv .workaholic/tickets/todo/.keep .workaholic/tickets/archive/.keep", { cwd: pub });
+
+    const files = [
+      ".workaholic/feedbacks/2026080900000a-fb.md",
+      ".workaholic/feedbacks/2026080900000b-fb.md",
+      ".workaholic/feedbacks/2026080900000c-fb.md",
+      ".workaholic/missions/right-size/mission.md",
+      `.workaholic/tickets/todo/${TEST_SLUG}/20260809000001-x.md`,
+      `.workaholic/tickets/todo/${TEST_SLUG}/20260809000002-y.md`,
+      "plugins/workaholic/skills/foo/SKILL.md",
+    ];
+    const r = JSON.parse(run(A, `${PR} "Propose a batch" "why" "None" "None" "None" "verify" ${files.join(" ")}`, { env }).stdout);
+    assertEq("with gh stubbed, publish-tree-pr reports success", r.ok, true);
+
+    const body = readFileSync(capturedBody, "utf8");
+    assertTrue("the Artifacts section tallies feedbacks by count", body.includes("- 3 feedbacks added"), body);
+    assertTrue("the Artifacts section tallies the mission by count", body.includes("- 1 mission added"), body);
+    assertTrue("the Artifacts section tallies tickets by count", body.includes("- 2 tickets added"), body);
+    assertTrue("a renamed ticket folds into modified rather than added",
+      /- 1 ticket modified/.test(body), body);
+    assertTrue("a path outside .workaholic/ folds into the generic fallback line",
+      /- 1 files changed/.test(body), body);
+    assertTrue("no full artifact file path is enumerated",
+      !body.includes("2026080900000a-fb.md") && !body.includes("20260809000001-x.md") && !body.includes("SKILL.md"), body);
+  } finally {
+    rmSync(origin, { recursive: true, force: true });
+    rmSync(A, { recursive: true, force: true });
+    rmSync(binDir, { recursive: true, force: true });
   }
 }
 

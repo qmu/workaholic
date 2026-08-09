@@ -4,29 +4,52 @@ Companion to `SKILL.md` (*One thread per feedback item*, *Post shapes, mentions,
 
 ## The shapes of the runner's posts
 
-A template names its postable events and defers the line formats here. `<@U…>` follows the SKILL's mention rule; `<repo>` is the repository the session is running in, which it derives itself rather than being told.
+A template names its postable events and defers the line formats here. `<@U…>` follows the SKILL's mention rule; `<repo>` is the repository the session is running in, which it derives itself rather than being told. Two events (`/propose` design start/finish, `/implement` unit start/finish) carry the **sole sanctioned** wording — the literal templates from issue #300, reconciled below with the shapes that predate them (P10, 2026-08-07). Every other event keeps its pre-existing shape unchanged.
+
+### `/propose` — design start and finish
 
 ```
-🟢 Proposed to <@U…> - [#123 [Proposal] Issue Title](<repo-url>/pull/123)
-One sentence, max 40 words, what the ask is — and, when the PR carries work, what it proposes.
-`fb:<stem>` · <session URL>
+📐 Designing for [#45 [FB] Issue Title](<repo-url>/issues/45)
+by [Claude Code on the Web](<session URL>) of <@U…>
 
-🔴 drive blocked - `<signature>`
-One sentence, max 25 words, what failed and what a human must do.
+📐 Proposed - [#123 [Proposal] PR Title](<repo-url>/pull/123)
+by [Claude Code on the Web](<session URL>) of <@U…>
+```
 
-🟠 drive started - `<unit-id>`
-`<branch>`, one sentence, max 25 words, what this unit contains only.
+`📐 Proposed` retires the earlier `🟢 Proposed to <@U…> - ...` shape and takes over its root role: whichever of the two posts is the first to land in a thread the stateless lookup did not find (SKILL, *One thread per feedback item*, case 4) carries `` `fb:<stem>` `` on its own line, never dropped — one shape now covers both a fresh root and a reply into a found thread, where two overlapping shapes covered only the root before.
 
-🟢 Merge Requested for <@U…> - [#123 Issue Title](<repo-url>/pull/123)
+### `/implement` — a unit's start and finish
+
+```
+🛠️ Implementing for [#123 Proposal PR Title](<repo-url>/pull/123)
+by [Claude Code on the Web](<session URL>) of <@U…>
+
+🛠️ Implemented - [#123 Title](<repo-url>/pull/123)
+by [Claude Code on the Web](<session URL>) of <@U…>
+```
+
+`🛠️ Implementing` retires the earlier terse `🟠 drive started - <unit-id>` shape as the unit's **only** start post. `🛠️ Implemented` is the finish shape for the **ordinary** case: the unit reached its `review` effective policy's PR and stopped there — it retires the earlier `🟢 Merge Requested for <@U…> - ...` shape, which announced exactly the same event in more words. Four outcomes keep their own finish shape rather than collapsing into `🛠️ Implemented`, because each carries information the generic line would lose — whether a merge happened and who approved it, whether the unit is genuinely unfinished, or what named blocker stopped it (the bright line in the SKILL: *an event earns its post*):
+
+```
+🚀 Auto Merge - [#123 Title](<repo-url>/pull/123)
+`from-branch` → `to-branch`, one sentence, max 40 words, what the PR does only.
+<session URL>
+
+🟣 Merged by <@U…> - [#123 Title](<repo-url>/pull/123)
 `from-branch` → `to-branch`, one sentence, max 40 words, what the PR does only.
 <session URL>
 
 🟡 Handoff <@U…> - [#123 Issue Title](<repo-url>/pull/123)
 The next run resumes it automatically; `git fetch && git checkout <branch>` to take it sooner. One sentence, max 25 words, what remains only.
 <session URL>
+
+🔴 drive blocked - `<signature>`
+One sentence, max 25 words, what failed and what a human must do.
 ```
 
-A merge uses the 🟢 Merge-Requested shape with its line swapped for the actor: `🚀 Auto Merge by Claude` when the unit's recorded `merge_policy` was `auto` and `/ship` merged it, `🟣 Merged by <@U…>` when a human merged it during the run. That distinction is the point — a developer scanning the thread must be able to tell what merged without approval from what a person approved — and it is why the auto line names no person and carries no mention token.
+`🚀 Auto Merge` names no person and carries no mention token — a developer scanning the thread must be able to tell what merged without approval from what a person approved. `🟣 Merged by <@U…>` names whoever merged it. Both keep the pre-existing merge shape's `from-branch → to-branch` body line verbatim; only the base template they extend moved from `🟢 Merge Requested` to `🛠️ Implemented`'s simpler two-line form. `🟡 Handoff` and `🔴 drive blocked` are unchanged from the shapes that predate this reconciliation.
+
+Exactly one finish per thread stays the rule (SKILL, *Which thread an `/implement` unit's posts land in*): a unit posts `🛠️ Implemented` **or** one of the four outcome shapes above, never both — `handoff` is the finish, never a third post, and the same holds for a blocked or merged unit.
 
 ## The session URL
 

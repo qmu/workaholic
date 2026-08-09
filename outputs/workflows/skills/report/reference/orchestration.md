@@ -28,13 +28,16 @@ Run before the parallel batch. Skip silently when `list-open-concerns.sh` report
 
 ## Phase 2: Spawn Story Generation Workers
 
-Spawn 3 `general-purpose` leaf subagents in parallel (single message, 3 Task calls):
+**Scale to the branch's size first** (right-sizing to single-ticket-per-PR granularity, FB `20260809010511`): count Phase 0's `archived_tickets`. The loop now merges a PR per single ticket far more often than a whole Story's worth, so the fixed 3-subagent fan-out below — sized for a Story-sized batch — is disproportionate to the common case. Two paths, chosen once per run and reported which was taken:
 
-- **release-readiness**: preload `report`, run `## Assess Release Readiness`, return the releasability JSON. Pass archived tickets list and branch name.
-- **overview-writer**: preload `report`, run `### Overview Generation`, return the overview JSON. Pass branch name and base branch.
-- **section-reviewer**: preload `review-sections`, run it, return its JSON (`historical_context`, `outcome`, `concerns`, `development_patterns`). Pass branch name, archived tickets list, the per-run verdicts file path `$RUN_DIR/deferred-concern-verdicts.json`, and the collected commit bodies (`collect-commits.sh` output). `historical_context` is not a section — it folds into Motivation, and it is empty far more often than not. The Concerns section records this branch's concerns only — open stream concerns are not prepended; the stream itself is the durable memory. The section-reviewer folds in `Concerns:` and `Insights:` keys from the commit bodies so content recorded at commit time is not lost when a ticket is sparse or absent.
+- **Lite path — `archived_tickets` count ≤ 2** (the common case: one backlog ticket, or a small mission batch like this one). Spawn **one** `general-purpose` leaf subagent that folds all three roles into a single pass: preload `report` and run `## Assess Release Readiness`; preload `review-sections` and run it; and produce Overview/Highlights/Motivation per [Overview Generation detail](#overview-generation-detail) fields 1-3 **only** — field 4 (Journey) is skipped outright, never generated and never rendered. Pass it every input the three roles below individually receive. It returns one merged JSON: `{releasability: {...}, overview: {overview, highlights[], motivation}, review: {historical_context, outcome, concerns, development_patterns}}` — same field shapes as the full path, minus `journey`. A flowchart earns its keep only once there is a multi-phase progression worth diagramming; the Changes section goes straight from the ticket-count line to the per-ticket subsections (story-structure.md's Changes guidelines).
+- **Full path — `archived_tickets` count > 2** (a Story-shaped batch). Unchanged: spawn 3 `general-purpose` leaf subagents in parallel (single message, 3 Task calls):
 
-Wait for all 3; track which succeeded and which failed.
+  - **release-readiness**: preload `report`, run `## Assess Release Readiness`, return the releasability JSON. Pass archived tickets list and branch name.
+  - **overview-writer**: preload `report`, run `### Overview Generation`, return the overview JSON (including `journey`). Pass branch name and base branch.
+  - **section-reviewer**: preload `review-sections`, run it, return its JSON (`historical_context`, `outcome`, `concerns`, `development_patterns`). Pass branch name, archived tickets list, the per-run verdicts file path `$RUN_DIR/deferred-concern-verdicts.json`, and the collected commit bodies (`collect-commits.sh` output). `historical_context` is not a section — it folds into Motivation, and it is empty far more often than not. The Concerns section records this branch's concerns only — open stream concerns are not prepended; the stream itself is the durable memory. The section-reviewer folds in `Concerns:` and `Insights:` keys from the commit bodies so content recorded at commit time is not lost when a ticket is sparse or absent.
+
+Wait for the spawn(s) of whichever path ran; track which role(s) succeeded and which failed. **Phase 3 and everything after are identical between paths** — the result record (per-ticket Changes, Final Report content) and the cross-document relations (frontmatter `tickets:`/`mission:`, the stories index, the PR body links) are Phase 3/4/5 output, untouched by which path generated the narrative inputs.
 
 ## Phase 3: Write Story File
 
@@ -71,11 +74,13 @@ Then display the full story file content inline for the developer, and the PR UR
 
 | Worker role | Sections | Fields |
 | ----------- | -------- | ------ |
-| overview-writer | Overview, Motivation, Changes (journey preamble) | `overview`, `highlights[]`, `motivation`, `journey.mermaid`, `journey.summary` |
+| overview-writer (full path only) | Overview, Motivation, Changes (journey preamble) | `overview`, `highlights[]`, `motivation`, `journey.mermaid`, `journey.summary` |
 | section-reviewer | Motivation (past-context paragraph), Outcome, Concerns, Successful Development Patterns | `historical_context`, `outcome`, `concerns`, `development_patterns` |
 | release-readiness | Release Preparation | `verdict`, `concerns[]`, `instructions.pre_release[]`, `instructions.post_release[]` |
 
-The Changes section comes from archived tickets, prefaced by journey content from the overview-writer. Motivation has two contributors: the overview-writer's `motivation` prose plus — appended only when non-empty — the section-reviewer's `historical_context`.
+On the **lite path** the single combined worker fills every row above except the journey fields, which it does not produce at all — the Changes section then opens directly on the per-ticket subsections, no mermaid fence.
+
+The Changes section comes from archived tickets, prefaced by journey content from the overview-writer when the full path ran. Motivation has two contributors: the overview prose (`overview`-role or the combined worker) plus — appended only when non-empty — the section-reviewer's (or combined worker's) `historical_context`.
 
 ## Report Output Schema
 
@@ -94,7 +99,7 @@ The Changes section comes from archived tickets, prefaced by journey content fro
 
 ## Overview Generation detail
 
-Generate the four fields consumed by story sections 1-3 by analyzing commit history.
+Generate the four fields consumed by story sections 1-3 by analyzing commit history. Run by the full path's dedicated overview-writer worker, and by the lite path's combined worker for fields 1-3 only (field 4, Journey, is full-path only — see Phase 2).
 
 Collect commits:
 

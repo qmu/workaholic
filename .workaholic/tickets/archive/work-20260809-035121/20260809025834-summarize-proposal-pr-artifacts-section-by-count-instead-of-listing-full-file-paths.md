@@ -5,6 +5,7 @@ assignees: [a@qmu.jp]
 depends_on:
 feedback: [20260809025755-proposal-pr-descriptions-should-summarize-artifacts-by-count-not-list-full-file-paths.md]
 merge_policy:
+claim: work-20260809-035121
 ---
 
 # Summarize proposal PR Artifacts section by count instead of listing full file paths

@@ -433,4 +433,5 @@
 * [Adopt the six-color notify state emoji set, keeping the rocket for auto merge](20260807190939-adopt-the-six-color-notify-state-emoji-set-keeping-the-rocket-for-auto-merge.md)
 * [[Propose] notify posts top-level instead of the FB thread and omits the issue link](20260808030816-propose-notify-posts-top-level-instead-of-the-fb-thread-and-omits-the-issue-link.md)
 * [Lighten /report now that PRs are merged per single ticket, without losing result records or cross-document relations](20260809010511-lighten-report-now-that-prs-are-merged-per-single-ticket-without-losing-result-records-or-cross-document-relations.md)
+* [Proposal PR descriptions should summarize artifacts by count, not list full file paths](20260809025755-proposal-pr-descriptions-should-summarize-artifacts-by-count-not-list-full-file-paths.md)
 <!-- okf:generated:end -->

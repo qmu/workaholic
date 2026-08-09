@@ -12253,6 +12253,7 @@ const tests = [
   ["branching/sync-main.sh (J3 freshness)", testSyncMain],
   ["branching publish tree: publication never touches the caller's checkout (J2)", testPublishTree],
   ["branching publish-tree-pr: an artifact lands on a work-* branch behind a PR (J4)", testPublishTreePr],
+  ["branching publish-tree-pr: the ## Artifacts section is a counts summary, not a file-path list", testPublishTreePrArtifactsSummary],
   ["the PR title is not the commit subject (P4's surviving half)", testPrTitleSeparateFromSubject],
   ["the reply thread is found, not carried (Q1)", testStatelessThreadLookup],
   ["one behaviour per command: no dispatch on a literal first word (P5)", testNoSubcommands],
@@ -12371,6 +12372,79 @@ function testPublishTreePr() {
   } finally {
     rmSync(origin, { recursive: true, force: true });
     rmSync(A, { recursive: true, force: true });
+  }
+}
+
+// ---------- publish-tree-pr's ## Artifacts section is a counts summary, not a file-path list ----------
+// A reviewer of a proposal PR wants roughly what shape the change is (how many feedbacks,
+// missions, tickets were touched), not the literal path of each one. `gh` is stubbed here
+// (unlike testPublishTreePr) so the body-file `gh pr create` is given can actually be
+// inspected — the fixture's origin is still a bare local repo with no GitHub behind it.
+function testPublishTreePrArtifactsSummary() {
+  const { origin, A } = makePublishFixture();
+  const OPEN = `${POSIX_SH} ${SCRIPTS.openPublishTree}`;
+  const PR = `${POSIX_SH} ${SCRIPTS.publishTreePr}`;
+  const binDir = mkdtempSync(join(tmpdir(), "wh-gh-artifacts-"));
+  const capturedBody = join(binDir, "captured-body.md");
+  try {
+    writeFileSync(join(binDir, "gh"), `#!/bin/sh
+prev=""
+bodyfile=""
+for arg in "$@"; do
+  if [ "$prev" = "--body-file" ]; then bodyfile="$arg"; fi
+  prev="$arg"
+done
+if [ -n "$bodyfile" ]; then cp "$bodyfile" ${capturedBody}; fi
+echo "https://example.test/pr/42"
+`);
+    chmodSync(join(binDir, "gh"), 0o755);
+    const env = { ...process.env, PATH: `${binDir}:${process.env.PATH}` };
+
+    run(A, OPEN);
+    const pub = join(A, ".publish");
+    // 3 feedbacks added, 1 mission added, 2 tickets added (the acceptance example verbatim),
+    // plus one non-.workaholic path (falls into the generic fallback) and one rename (folds
+    // into "modified" rather than "added" — the artifact did not newly appear).
+    mkdirSync(join(pub, ".workaholic/feedbacks"), { recursive: true });
+    for (const n of ["a", "b", "c"]) writeFileSync(join(pub, `.workaholic/feedbacks/2026080900000${n}-fb.md`), "fb\n");
+    mkdirSync(join(pub, ".workaholic/missions/right-size"), { recursive: true });
+    writeFileSync(join(pub, ".workaholic/missions/right-size/mission.md"), "mission\n");
+    mkdirSync(join(pub, `.workaholic/tickets/todo/${TEST_SLUG}`), { recursive: true });
+    writeFileSync(join(pub, `.workaholic/tickets/todo/${TEST_SLUG}/20260809000001-x.md`), "ticket x\n");
+    writeFileSync(join(pub, `.workaholic/tickets/todo/${TEST_SLUG}/20260809000002-y.md`), "ticket y\n");
+    mkdirSync(join(pub, "plugins/workaholic/skills/foo"), { recursive: true });
+    writeFileSync(join(pub, "plugins/workaholic/skills/foo/SKILL.md"), "skill\n");
+    // A renamed ticket (e.g. archive.sh moving one) — R### in --name-status, folded to "modified".
+    // The seed commit's own `.workaholic/tickets/todo/.keep` is the tracked file to move.
+    mkdirSync(join(pub, ".workaholic/tickets/archive"), { recursive: true });
+    execSync("git mv .workaholic/tickets/todo/.keep .workaholic/tickets/archive/.keep", { cwd: pub });
+
+    const files = [
+      ".workaholic/feedbacks/2026080900000a-fb.md",
+      ".workaholic/feedbacks/2026080900000b-fb.md",
+      ".workaholic/feedbacks/2026080900000c-fb.md",
+      ".workaholic/missions/right-size/mission.md",
+      `.workaholic/tickets/todo/${TEST_SLUG}/20260809000001-x.md`,
+      `.workaholic/tickets/todo/${TEST_SLUG}/20260809000002-y.md`,
+      "plugins/workaholic/skills/foo/SKILL.md",
+    ];
+    const r = JSON.parse(run(A, `${PR} "Propose a batch" "why" "None" "None" "None" "verify" ${files.join(" ")}`, { env }).stdout);
+    assertEq("with gh stubbed, publish-tree-pr reports success", r.ok, true);
+
+    const body = readFileSync(capturedBody, "utf8");
+    assertTrue("the Artifacts section tallies feedbacks by count", body.includes("- 3 feedbacks added"), body);
+    assertTrue("the Artifacts section tallies the mission by count", body.includes("- 1 mission added"), body);
+    assertTrue("the Artifacts section tallies tickets by count", body.includes("- 2 tickets added"), body);
+    assertTrue("a renamed ticket folds into modified rather than added",
+      /- 1 ticket modified/.test(body), body);
+    assertTrue("a path outside .workaholic/ folds into the generic fallback line",
+      /- 1 files changed/.test(body), body);
+    assertTrue("no full artifact file path is enumerated",
+      !body.includes("2026080900000a-fb.md") && !body.includes("20260809000001-x.md") && !body.includes("SKILL.md"), body);
+  } finally {
+    rmSync(origin, { recursive: true, force: true });
+    rmSync(A, { recursive: true, force: true });
+    rmSync(binDir, { recursive: true, force: true });
   }
 }
 

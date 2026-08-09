@@ -42,7 +42,7 @@ things `/report` currently gives up nothing on: the recording of results
   per-ticket instead of per-Story) that names what stays and what is
   trimmed, while preserving the result record and the FB/Proposal/
   Ticket/Report relations. (#20260809010644-design-a-right-sized-report-for-single-ticket-per-pr-granularity.md)
-- [ ] `/report` is implemented to that design and its per-run output/cost
+- [x] `/report` is implemented to that design and its per-run output/cost
   matches single-ticket-per-PR granularity, with existing linking
   (`feedback:`/`mission:` relations, the stories index, the PR body) intact. (#20260809010647-implement-the-right-sized-report-and-verify-linking-survives.md)
 
@@ -50,3 +50,4 @@ things `/report` currently gives up nothing on: the recording of results
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-09 — ticket archived — 20260809010644-design-a-right-sized-report-for-single-ticket-per-pr-granularity.md
+- 2026-08-09 — ticket archived — 20260809010647-implement-the-right-sized-report-and-verify-linking-survives.md

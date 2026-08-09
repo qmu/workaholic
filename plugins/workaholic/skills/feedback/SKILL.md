@@ -36,6 +36,10 @@ supersedes:               # OPTIONAL: filename of an earlier feedback this entry
 
 `kind` is the nature of the entry, `source` the channel it arrived through. `supersedes` is the immutable alternative to a status flip: resolving, correcting, or mooting a record is a **new** entry naming the old one. Full field semantics, the `kind: concern` producer fields, and the computed open-concern set: [`reference/schema.md`](reference/schema.md).
 
+### Whether this merits filing
+
+A separate, prior question from *Choosing the kind* below (which classifies content already judged worth filing) and from *Any legitimate invocation is authorized* (which governs who may invoke `/fb`, not whether the content merits it): file only when the content is **genuine user feedback** — a real problem, bug, or improvement idea a user wants addressed — or **something important that must not be overlooked**. Do not file a routine request, a clarifying question, or a passing remark just because it was clearly stated in conversation; act on it in-session instead, without registering a record. When in doubt, the bar is the ask itself: would leaving it unrecorded risk losing a genuine problem or a real improvement idea, or would it just be one more log line for something already actioned?
+
 ### Choosing the kind
 
 **Does the reporter ask for something to be done? Then it is `kind: instruction`** — including every report that names a defect *and* what should happen about it (a "How to Fix" section is an ask wearing a description). A `concern` is a worry with no ask attached; an `insight` changes what someone believes, not what someone does next; `material`/`answer` are inputs that arrived. Decide at capture, where the context exists — `/propose` acts on an `instruction` (or a substantial `insight`) and never on a lone `concern`, so a misfiled ask is judged to silence. A misfiled record stays misfiled; the correction is a new record with the right `kind` naming the old one in `supersedes`. The ship-time extractor's `kind: concern` lane is never reclassified: those are the loop's own leftovers, not a reporter's asks.

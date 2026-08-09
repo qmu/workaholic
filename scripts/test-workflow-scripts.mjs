@@ -112,6 +112,7 @@ const SCRIPTS = {
   renderSetupSheet: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/render-setup-sheet.sh"),
   unitFeedbackStems: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/unit-feedback-stems.sh"),
   proposeListRefs: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/list-proposed-refs.sh"),
+  proposeExtractIssueNumber: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/extract-issue-number.sh"),
   proposeScaffoldDraft: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/scaffold-draft.sh"),
   proposeNotifySlack: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/notify-slack.sh"),
   feedbackList: join(REPO_ROOT, "plugins/workaholic/skills/feedback/scripts/list.sh"),
@@ -12204,6 +12205,8 @@ const tests = [
   ["branching publish tree: publication never touches the caller's checkout (J2)", testPublishTree],
   ["branching publish-tree-pr: an artifact lands on a work-* branch behind a PR (J4)", testPublishTreePr],
   ["branching publish-tree-pr: the ## Artifacts section is a counts summary, not a file-path list", testPublishTreePrArtifactsSummary],
+  ["propose extract-issue-number: captures a triggering GitHub issue number from env or argument", testExtractIssueNumber],
+  ["branching publish-tree-pr: threads a native Closes #<N> keyword when an issue number is in hand", testPublishTreePrClosesIssue],
   ["the PR title is not the commit subject (P4's surviving half)", testPrTitleSeparateFromSubject],
   ["the reply thread is found, not carried (Q1)", testStatelessThreadLookup],
   ["one behaviour per command: no dispatch on a literal first word (P5)", testNoSubcommands],
@@ -12394,6 +12397,109 @@ echo "https://example.test/pr/42"
   } finally {
     rmSync(origin, { recursive: true, force: true });
     rmSync(A, { recursive: true, force: true });
+    rmSync(binDir, { recursive: true, force: true });
+  }
+}
+
+// ---------- extract-issue-number.sh (the FB-auto-close ticket) ----------
+// Pure unit tests -- no git fixture needed. The routine-provided env var wins over an
+// argument mention (it is the more specific signal), a non-numeric env var is treated
+// as absent rather than laundered into the body, and an ask with no issue anywhere is
+// the ordinary case, not an error.
+function testExtractIssueNumber() {
+  const SCRIPT = SCRIPTS.proposeExtractIssueNumber;
+  const here = process.cwd();
+
+  assertEq("no source anywhere yields an empty issue_number",
+    JSON.parse(run(here, `${POSIX_SH} ${SCRIPT} "just an ask, no issue"`).stdout).issue_number, "");
+
+  assertEq("a #<N> mention in the argument is captured",
+    JSON.parse(run(here, `${POSIX_SH} ${SCRIPT} "#319 fix the auto-close gap"`).stdout).issue_number, "319");
+
+  assertEq("an issues/<N> URL in the argument is captured",
+    JSON.parse(run(here, `${POSIX_SH} ${SCRIPT} "see https://github.com/qmu/workaholic/issues/319 please"`).stdout).issue_number, "319");
+
+  assertEq("CCR_TRIGGER_ISSUE_NUMBER wins over an argument mention",
+    JSON.parse(run(here, `CCR_TRIGGER_ISSUE_NUMBER=42 ${POSIX_SH} ${SCRIPT} "#319 mentioned too"`).stdout).issue_number, "42");
+
+  assertEq("a non-numeric CCR_TRIGGER_ISSUE_NUMBER is treated as absent, not laundered through",
+    JSON.parse(run(here, `CCR_TRIGGER_ISSUE_NUMBER=abc ${POSIX_SH} ${SCRIPT} "#7"`).stdout).issue_number, "7");
+
+  assertEq("no argument at all is the ordinary case, not a crash",
+    JSON.parse(run(here, `${POSIX_SH} ${SCRIPT}`).stdout).issue_number, "");
+}
+
+// ---------- publish-tree-pr.sh threads a native closing keyword (auto-close FB issues) ----------
+// The ticket this closes: a merged "[Proposal]" pull request is supposed to auto-close
+// the "[FB] ***" GitHub issue it addresses via GitHub's own closing-keyword behavior, but
+// the proposal pipeline never captured the triggering issue's NUMBER, so no PR body ever
+// carried `Closes #<N>`. `gh` is stubbed (as in the Artifacts-summary test above) so the
+// body-file `gh pr create` receives can actually be inspected.
+// Each scenario gets its OWN fixture (own origin, own publish tree) rather than
+// sharing one and calling publish-tree-pr.sh twice in a row: the work branch name is
+// `work-$(date +%Y%m%d-%H%M%S)`, so two calls landing in the same wall-clock second
+// against the SAME origin collide (`branch_collision`) — independent origins never
+// share that namespace, so this is not a race to sleep around.
+function testPublishTreePrClosesIssueScenario(env, ticketRel, closesIssueEnv) {
+  const { origin, A } = makePublishFixture();
+  const OPEN = `${POSIX_SH} ${SCRIPTS.openPublishTree}`;
+  const PR = `${POSIX_SH} ${SCRIPTS.publishTreePr}`;
+  try {
+    run(A, OPEN);
+    mkdirSync(join(A, ".publish", ".workaholic/tickets/todo"), { recursive: true });
+    writeFileSync(join(A, ".publish", ticketRel), "ticket\n");
+    const prefix = closesIssueEnv ? `${closesIssueEnv} ` : "";
+    const r = JSON.parse(run(A,
+      `${prefix}${PR} "Propose a fix" "why" "None" "None" "None" "verify" ${ticketRel}`,
+      { env }).stdout);
+    return r;
+  } finally {
+    rmSync(origin, { recursive: true, force: true });
+    rmSync(A, { recursive: true, force: true });
+  }
+}
+
+function testPublishTreePrClosesIssue() {
+  const binDir = mkdtempSync(join(tmpdir(), "wh-gh-closes-"));
+  const capturedBody = join(binDir, "captured-body.md");
+  try {
+    writeFileSync(join(binDir, "gh"), `#!/bin/sh
+prev=""
+bodyfile=""
+for arg in "$@"; do
+  if [ "$prev" = "--body-file" ]; then bodyfile="$arg"; fi
+  prev="$arg"
+done
+if [ -n "$bodyfile" ]; then cp "$bodyfile" ${capturedBody}; fi
+echo "https://example.test/pr/42"
+`);
+    chmodSync(join(binDir, "gh"), 0o755);
+    const env = { ...process.env, PATH: `${binDir}:${process.env.PATH}` };
+
+    rmSync(capturedBody, { force: true });
+    const withIssue = testPublishTreePrClosesIssueScenario(env,
+      ".workaholic/tickets/todo/20260809000003-z.md", "WORKAHOLIC_CLOSES_ISSUE=319");
+    assertEq("with gh stubbed and an issue number set, publish-tree-pr reports success", withIssue.ok, true);
+    const bodyWith = readFileSync(capturedBody, "utf8");
+    assertTrue("the body carries a native GitHub closing keyword for the captured issue",
+      bodyWith.includes("Closes #319"), bodyWith);
+
+    rmSync(capturedBody, { force: true });
+    const withoutIssue = testPublishTreePrClosesIssueScenario(env,
+      ".workaholic/tickets/todo/20260809000004-w.md", "");
+    assertEq("an ask with no issue number in hand is unaffected", withoutIssue.ok, true);
+    const bodyWithout = readFileSync(capturedBody, "utf8");
+    assertTrue("no Closes line appears when WORKAHOLIC_CLOSES_ISSUE was never set",
+      !bodyWithout.includes("Closes #"), bodyWithout);
+
+    rmSync(capturedBody, { force: true });
+    const bogus = testPublishTreePrClosesIssueScenario(env,
+      ".workaholic/tickets/todo/20260809000005-v.md", "WORKAHOLIC_CLOSES_ISSUE=not-a-number");
+    assertEq("a non-numeric WORKAHOLIC_CLOSES_ISSUE still reports success", bogus.ok, true);
+    const bodyBogus = readFileSync(capturedBody, "utf8");
+    assertTrue("a non-numeric issue value is validated away, never laundered into the body",
+      !bodyBogus.includes("Closes #"), bodyBogus);
+  } finally {
     rmSync(binDir, { recursive: true, force: true });
   }
 }

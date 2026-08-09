@@ -11,6 +11,13 @@ and every abort reports a machine-readable reason.
    repository for something to propose is the retired design. When the ask came from a
    GitHub issue carrying an assignee, apply *Act only on an ask that is yours*
    (SKILL.md): a differing assignee is `{"proposed": 0, "reason": "not_mine"}`, stop.
+   Also capture the triggering issue's number, if any:
+   `bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/extract-issue-number.sh "<argument>"`
+   — `CCR_TRIGGER_ISSUE_NUMBER` under a routine, else a `#<N>`/issue URL in the
+   argument; an empty `issue_number` is the common case (most asks never had a
+   GitHub issue) and simply means step 9 threads nothing. Keep it in hand through
+   to step 9 — it names no closing behavior of its own, it only feeds the env var
+   that step reads.
 
 2. **Open the publish tree.** `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/open-publish-tree.sh`.
    On `ok: false`, abort reporting its reason. Everything written from here lands
@@ -68,16 +75,21 @@ and every abort reports a machine-readable reason.
    provisional Quality Gate, and leave `merge_policy` empty (absent reads as `review`).
 
 9. **Publish it all as one pull request.**
-   `WORKAHOLIC_PR_TITLE="[Proposal] <title>" bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/publish-tree-pr.sh "<title>" "<why>" "<changes>" "<concerns>" "<insights>" "<verify>"`
+   `WORKAHOLIC_PR_TITLE="[Proposal] <title>" WORKAHOLIC_CLOSES_ISSUE="<issue number from step 1>" bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/publish-tree-pr.sh "<title>" "<why>" "<changes>" "<concerns>" "<insights>" "<verify>"`
    — **one call**, carrying the record and whatever the judgment added. Name the commit
    subject for what it carries — `Propose mission <slug>`, `Propose ticket <slug>`, or
    `Register feedback <stem>` for record-only — and give the pull request the same words
    behind the `[Proposal]` prefix (`[提案]` for a Japanese title); the subject and the
    title are separate surfaces (SKILL.md). No notification target rides the body — the
    reply thread is found statelessly (Q1; `workaholic:notify`, *One thread per
-   feedback item*). On
+   feedback item*). `WORKAHOLIC_CLOSES_ISSUE` is empty whenever step 1 found no issue
+   number — the ordinary case — and the writer then emits no closing line, unchanged
+   from before this existed; when it is set, the body carries a `Closes #<N>` line so
+   merging the pull request auto-closes the originating "[FB] ***" issue. On
    `ok: false`, report the reason; `pr_failed` means the artifact **is** pushed, so open
-   the PR by hand rather than re-publishing (which would duplicate it).
+   the PR by hand rather than re-publishing (which would duplicate it) — and if step 1
+   captured an issue number, include the same `Closes #<N>` line in the hand-opened
+   body, since GitHub's native behavior applies identically either way.
 
 10. **Close the publish tree.** `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/close-publish-tree.sh`.
     Run it whether or not the publish succeeded; it refuses rather than destroying

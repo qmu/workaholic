@@ -32,7 +32,9 @@ envelope, and abort reason, is [`reference/workflow.md`](reference/workflow.md):
 4. **Judge and decide the form** (below); scaffold the mission and/or tickets, stamp the
    acceptance links, and check the ticket floor.
 5. **Publish everything as one pull request** (`publish-tree-pr.sh` under
-   `WORKAHOLIC_PR_TITLE`), close the publish tree,
+   `WORKAHOLIC_PR_TITLE`, and `WORKAHOLIC_CLOSES_ISSUE` when step 1 captured a
+   triggering issue number — its merge then auto-closes that issue), close the
+   publish tree,
    **notify**, and **report** one line: the form chosen with its reason, the record's
    filename, the PR URL, and the `notified` flag.
 
@@ -104,7 +106,8 @@ Full invocations with `${CLAUDE_PLUGIN_ROOT}` paths are in [`reference/workflow.
 - **`list-proposed-refs.sh`** — the dedup set: the union of `feedback:` refs across every mission (active + archive) and every ticket (todo + archive) — the archive counts, since a driven ticket is the strongest evidence its feedback was acted on — **plus the same artifacts on unmerged remote branches**, via the claim protocol's own oracle, so an open proposal pull request counts as proposed (added 2026-08-05, after an ask proposed ten minutes earlier was proposed again). Deleting the branch is what frees the feedback again, and ambiguity resolves toward *including* a ref — a shallow clone over-reads and says so on stderr, because a duplicate proposal is loud and a suppressed one is quiet. At this seam the veto keys on the records the ask *restates* (the new record has no refs pointing at it yet); read the set before scaffolding, since what this session writes joins it immediately.
 - **`scaffold-draft.sh "<title>" [--assignee <email>] <feedback-filename>...`** — writes the proposed `mission.md` (schema above; slug via `mission/scripts/slug.sh`), refreshes the OKF indexes, git-stages; refuses an existing slug. Emits `{created, slug, path}`.
 - **`scaffold-proposed-ticket.sh "<title>" <mission-slug> | --loose --feedback <record>... [--assignee <email>]`** — one ticket into the flat `todo/`; the mission form carries `mission: <slug>`, the loose form carries `feedback:` instead (refused `no_feedback` without refs); `merge_policy` left empty; the mandatory `## Policies`/`## Quality Gate` sections scaffolded so the artifact is valid at write. Emits `{created, path, slug, mission, feedback, loose}` or a `reason` (`no_title`/`no_mission`/`mission_missing`/`no_feedback`/`exists`). **Stamp the acceptance links after the set is written** — `mission/scripts/link-acceptance.sh <slug> <item-selector> <ticket-filename>` once per satisfied item, naming the pairing decided at decomposition, never inferring; an unsatisfied item stays unlinked and is named in the PR body (37 unlinked items across six proposed missions is the measured cost of skipping this).
-- **`branching/scripts/publish-tree-pr.sh <title> <why> <changes> <concerns> <insights> <verify>`** — one call, everything written; emits `{ok, sha, branch, pr_url, base}`; `pr_failed` still reports `branch` and `sha`.
+- **`branching/scripts/publish-tree-pr.sh <title> <why> <changes> <concerns> <insights> <verify>`** — one call, everything written; emits `{ok, sha, branch, pr_url, base}`; `pr_failed` still reports `branch` and `sha`. `WORKAHOLIC_CLOSES_ISSUE=<N>` threads a native `Closes #<N>` line into the body, so merging the pull request auto-closes the "[FB] ***" issue the ask came from — empty (the common case) emits no line.
+- **`extract-issue-number.sh ["<argument>"]`** — the source for that env var: `CCR_TRIGGER_ISSUE_NUMBER` under a routine, else a `#<N>`/issue URL in the argument; emits `{"issue_number": "<N>"}` or `""`. Run at step 1, kept in hand through to step 9.
 
 ## Notifier contract
 

@@ -438,4 +438,5 @@
 * [Tighten criteria for filing FB issues](20260809040815-tighten-criteria-for-filing-fb-issues.md)
 * [Erase purple circle (🟣) notification feature](20260809080335-erase-purple-circle-notification-feature.md)
 * [FB issues are not auto-closing when their Proposal PR merges](20260809080752-fb-issues-are-not-auto-closing-when-their-proposal-pr-merges.md)
+* [check-deps reports unbound_in_claude_session in the dev repo where the plugin is bound from the checkout](20260809202650-check-deps-reports-unbound-in-claude-session-in-the-dev-repo-where-the-plugin-is-bound-from-the-checkout.md)
 <!-- okf:generated:end -->

@@ -64,3 +64,31 @@ specified and verifies the two preserved properties still hold afterward.
 
 - Do not silently drop either preserved property in pursuit of a lighter run — the source feedback is explicit that both must survive.
 - If the design ticket's output changes the shape of what `/report` records, make sure downstream readers of that record (e.g. `/catch`, mission changelog rolling) still work.
+
+## Final Report
+
+Applied the companion ticket's scale-gate design to `/report`'s Phase 2:
+
+- `plugins/workaholic/skills/report/reference/orchestration.md` — Phase 2 now branches on `archived_tickets` count from Phase 0's `git-context.sh`: **≤2** spawns one combined `general-purpose` opus worker (release-readiness + review-sections + Overview/Highlights/Motivation, no Journey); **>2** keeps the original 3-worker parallel fan-out with Journey, unchanged. Updated the Worker Output Mapping table and the Overview Generation detail intro to name both callers of fields 1-3.
+- `plugins/workaholic/skills/report/reference/story-structure.md` — the Changes section template now marks the mermaid Journey fence as full-path-only (omitted outright on the lite path, straight to the per-ticket subsections); the per-section line-budget table's Journey row notes the same.
+- `plugins/workaholic/skills/report/SKILL.md` — Phase 2 summary bullet states the scale gate and points to the reference for detail.
+- `CLAUDE.md` — `/report` row now states the right-sizing and what stays identical on both paths.
+- Regenerated `outputs/workflows/` (`node scripts/build-plugins/build.mjs`) so the report/catch/mission/ship bundle picks up the source edits.
+
+**Result record preserved**: Phase 3 (per-ticket Changes section from archived tickets + `ticket-commits.sh`) and Phase 4 (the story-file commit) are untouched by the Phase 2 split — neither path skips or reshapes them.
+
+**Cross-document relations preserved**: frontmatter `tickets:`/`mission:` (Phase 3), the stories index update (Phase 3), the mission changelog/acceptance roll (Phase 4), and the PR body's commit links (Phase 5's unchanged PR-creator worker) all run identically regardless of which Phase 2 path fired.
+
+### Verification
+
+- `node scripts/build-plugins/build.mjs` — regenerated `outputs/workflows` and `hooks/policy-index.md` cleanly.
+- `node scripts/build-plugins/verify.mjs` — all built skills self-contained, policy index in sync, OKF bundle fresh (no manual doc-drift introduced).
+- `node scripts/build-plugins/validate-metadata.mjs` — Codex manifests valid and version-aligned.
+- `node scripts/test-workflow-scripts.mjs` — 2441 assertions passed, 0 failed (hermetic smoke suite unaffected — this change touches only markdown skill content, no scripts).
+- `bash plugins/workaholic/hooks/layout-doctor.sh .` — `conforming: true`.
+- This ticket and its companion were themselves driven by `/implement` as a 2-ticket mission unit and reported by this very `/report` run once the branch reaches the Report step — the lite path (2 archived tickets) is its own first live exercise.
+
+### Discovered Insights
+
+- **Insight**: The disproportionate cost was never the branch-safety scan or doc-drift check (both script-only, already cheap) — it was three LLM subagent spawns plus mermaid-flowchart synthesis for a change that, at single-ticket granularity, the ticket file's own Overview and Final Report already describe adequately.
+  **Context**: Future right-sizing work on this loop should look for the same pattern — a fixed multi-subagent fan-out sized for the old Story-batch granularity — rather than assuming every per-run cost scales with content size.

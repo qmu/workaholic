@@ -10,7 +10,7 @@ Each section carries a budget in lines, blank lines and heading included. These 
 | ------- | -----: | ----- |
 | Overview | 12 | the 2-3 sentence summary plus at most 3 one-line highlights |
 | Motivation | 9 | +3 more when the section-reviewer returned a past-context paragraph |
-| Changes — the journey diagram | 16 | the whole fence; the 3-5 subgraph ceiling is unchanged |
+| Changes — the journey diagram | 16 | the whole fence; the 3-5 subgraph ceiling is unchanged; full path only (>2 tickets) — omitted entirely on the lite path |
 | Changes — each `### 3-N.` ticket block | 9 | heading plus the 1-3 sentence summary |
 | Outcome | 5 | |
 | Concerns — each `###` block | 7 | heading, severity, Description, How to Fix |
@@ -65,6 +65,10 @@ paragraph placing this work against what was solved before. Past context is part
 there is no Historical Analysis section to fill.]
 
 ## 3. Changes
+
+[ONLY on the full path (>2 archived tickets, Phase 2): the journey fence below. On the lite
+path (≤2 tickets) no journey is generated — omit both lines entirely and open directly on the
+per-ticket subsections.]
 
 ```mermaid
 [overview-writer `journey.mermaid`]

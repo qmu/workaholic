@@ -44,9 +44,11 @@ posts nothing to Slack, at any step** (scoped 2026-08-07). Under `/implement`:
   keyed root when nothing matches; never a similarity or recency match. Resolve the target
   **once per run** and reuse it for the finish.
 - **Finish (§6/§7):** one finish line per thread, shape following the outcome — 🟢 merge
-  requested, 🚀/🟣 merge, 🟡 handoff, 🔴 blocked. A handoff's 🟡 **is** the finish, never a third
+  requested, 🚀 merge, 🟡 handoff, 🔴 blocked. A handoff's 🟡 **is** the finish, never a third
   post. Every route owes the finish, including a demotion — the unit reports the shape it
-  actually reached.
+  actually reached. A human merge of a `review` unit posts no finish line of its own — that
+  was `[Consent]`'s retired job (`notify`, *Which thread an `/implement` unit's
+  posts land in*).
 - **Per unit, never per run** ("a run started" names no item, so it has no thread); with no stems
   at all, key on `unit:<unit-id>` — never keyless. The routing rules live in
   `notify` (*One thread per feedback item*). The posts go through the session's

@@ -71,3 +71,21 @@ before the companion implementation ticket proceeds.
 
 - This is a design ticket, not an implementation one — resist the temptation to also change `/report`'s scripts here; that is the companion ticket's job once this design is reviewed.
 - Some of `/report`'s current per-run cost may already be justified even at single-ticket granularity (e.g. the branch-safety scan `/report` warns on); the design should say which parts are genuinely Story-sized versus load-bearing at any size.
+
+## Final Report
+
+**The unit of work is unchanged — one report per branch/PR.** What is oversized is the *procedure* Phase 2 runs against it: a fixed 3-subagent fan-out (release-readiness opus, overview-writer haiku, section-reviewer haiku) plus a mermaid Journey flowchart, sized for a whole Story's worth of tickets, now runs against a branch that is usually one ticket or a small mission batch (this very mission has 2).
+
+**Design: scale Phase 2 by `archived_tickets` count** (already returned by `git-context.sh`, Phase 0):
+
+- **Lite path — count ≤ 2** (the new common case): one combined `general-purpose` opus subagent does release-readiness + review-sections + a short overview (Overview/Highlights/Motivation only), and the mermaid Journey is skipped entirely — no flowchart is generated or rendered.
+- **Full path — count > 2** (a genuinely Story-shaped batch): unchanged, the existing 3-worker parallel fan-out with Journey.
+
+**What stays intact on both paths, unconditionally** (the two things this design must not touch):
+
+1. **The result record** — Phase 3's per-ticket Changes section (ticket title, commit hash link, 1-3 sentence summary sourced from the archived ticket + its Final Report) is generated from archived tickets and `ticket-commits.sh` regardless of path; Phase 4's commit captures the story file itself as the permanent record.
+2. **The cross-document relations** — frontmatter `tickets:`/`mission:` (Phase 3), the stories index update (Phase 3), the mission changelog/acceptance roll (Phase 4), and the PR body's links (Phase 5, unchanged worker) all run identically on both paths — none of this lives in the trimmed Phase 2 fan-out.
+
+The branch-safety scan and doc-drift backstop (both script-only, cheap) stay in the release-readiness role on both paths — they were never the disproportionate cost; the disproportionate cost was three LLM subagents plus flowchart synthesis for a change usually touching 1-2 tickets.
+
+Implemented in the companion ticket: `plugins/workaholic/skills/report/reference/orchestration.md` (Phase 2 scale gate, Worker Output Mapping, Overview Generation detail note), `plugins/workaholic/skills/report/reference/story-structure.md` (Journey fence marked full-path-only in the template and the line-budget table), `plugins/workaholic/skills/report/SKILL.md` (Phase 2 summary bullet), `CLAUDE.md` (`/report` row).

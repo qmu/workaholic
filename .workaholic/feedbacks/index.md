@@ -427,6 +427,7 @@
 * [Ownership is a field, not a directory](20260806184651-ownership-is-a-field-not-a-directory.md)
 * [archive.sh should auto-push the claim branch after archiving](20260807065338-archive-sh-should-auto-push-the-claim-branch-after-archiving.md)
 * [fb skill should treat any invocation as equivalent to a direct user request](20260807073610-fb-skill-should-treat-any-invocation-as-equivalent-to-a-direct-user-request.md)
+* [Agents must not add Slack notifications beyond the routine prompt's specified format](20260807082554-agents-must-not-add-slack-notifications-beyond-the-routine-prompt-s-specified-format.md)
 * [Define explicit notify templates for /propose and /implement routine prompts](20260807084216-define-explicit-notify-templates-for-propose-and-implement-routine-prompts.md)
 * [A freshly-installed plugin is not invocable until /reload-plugins, which no unattended routine ever types](20260807104046-a-freshly-installed-plugin-is-not-invocable-until-reload-plugins-which-no-unattended-routine-ever-types.md)
 * [Resolved: The mission skill is still 380 lines, well above the guideline it was measured against](20260807124423-resolved-the-mission-skill-is-still-380.md)

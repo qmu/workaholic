@@ -5,6 +5,7 @@ assignees:
 depends_on:
 feedback: [20260809080752-fb-issues-are-not-auto-closing-when-their-proposal-pr-merges.md]
 merge_policy:
+claim: work-20260809-085418
 ---
 
 # Auto-close FB issues when their Proposal PR merges

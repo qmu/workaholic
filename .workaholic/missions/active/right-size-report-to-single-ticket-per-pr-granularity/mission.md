@@ -9,13 +9,14 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 0.3
 feedback: [.workaholic/feedbacks/20260809010511-lighten-report-now-that-prs-are-merged-per-single-ticket-without-losing-result-records-or-cross-document-relations.md]
 tickets: []
 stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260809-025458
 ---
 
 # Right-size /report to single-ticket-per-PR granularity
@@ -37,14 +38,18 @@ things `/report` currently gives up nothing on: the recording of results
 
 ## Acceptance
 
-- [ ] A design is written for `/report`'s right-sized unit of work (e.g.
+- [x] A design is written for `/report`'s right-sized unit of work (e.g.
   per-ticket instead of per-Story) that names what stays and what is
   trimmed, while preserving the result record and the FB/Proposal/
   Ticket/Report relations. (#20260809010644-design-a-right-sized-report-for-single-ticket-per-pr-granularity.md)
-- [ ] `/report` is implemented to that design and its per-run output/cost
+- [x] `/report` is implemented to that design and its per-run output/cost
   matches single-ticket-per-PR granularity, with existing linking
   (`feedback:`/`mission:` relations, the stories index, the PR body) intact. (#20260809010647-implement-the-right-sized-report-and-verify-linking-survives.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-09 — ticket archived — 20260809010644-design-a-right-sized-report-for-single-ticket-per-pr-granularity.md
+- 2026-08-09 — ticket archived — 20260809010647-implement-the-right-sized-report-and-verify-linking-survives.md
+- 2026-08-09 — story reported — work-20260809-025458.md
+- 2026-08-09 — run recorded (+0.3h) — implement-20260809-025458

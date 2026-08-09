@@ -16,7 +16,7 @@ A unit of execution is **what deserves one merge**. The run turns the artifact s
 
 ### 1. Survey
 
-Confirm the install: `bash check-deps/scripts/check.sh`. `ok: false` → print the `message` and stop. **`loaded_version_behind_registry: true` terminates `pending` before surveying** — a superseded plugin binding changes the survey's answer; treat `registry_unreadable: true`, and the **absence** of the field, identically (see `check-deps`). `version_drift` or `missing_guards` → warn, continue, record in the run report.
+Confirm the install: `bash check-deps/scripts/check.sh`. `ok: false` → print the `message` and stop. **`loaded_version_behind_registry: true` terminates `pending` before surveying** — a superseded plugin binding changes the survey's answer; treat `registry_unreadable: true`, and the **absence** of the field, identically (see `check-deps`). **`unbound_in_claude_session: true` terminates `pending` before surveying too** — a genuine Claude Code session where the harness's own registry confirms this plugin is installed, yet nothing was ever bound: every skill, command and hook this plugin ships is invisible for the whole run, not merely stale (`check-deps`; no fix exists inside the plugin — Claude Code exposes no supported way to hot-load a plugin mid-session other than a human-typed `/reload-plugins`, which an unattended routine never types). `version_drift` or `missing_guards` → warn, continue, record in the run report.
 
 Then **freshen the checkout before reading it** (J3): `bash branching/scripts/sync-main.sh`. The step runs identically through both entry points: one code path, and each `ok: false` is a reported decision, never a prompt — `no_origin`/`origin_unreachable` survey locally, say so, and forbid `ok`; `not_on_main`/`dirty_workspace`/`diverged` terminate `pending` (never merge or reset; see [reference/survey.md](reference/survey.md)).
 
@@ -90,6 +90,7 @@ Per **mission** unit, record wall-clock once via `bash mission/scripts/record-ru
 | The survey ran against a checkout **not** known current with the base (`current: false`, or `sync-main.sh` reported `no_origin`/`origin_unreachable`) | `pending` |
 | The survey could not read the backlog (`backlog_error` non-empty), could not judge ownership (`owner_unresolved`), or the claim scan ran over **truncated history** (`shallow: true`) | `pending` |
 | The run bound a **superseded plugin** (`loaded_version_behind_registry`, `registry_unreadable`, or a `check.sh` too old to report either) — §1 terminated before surveying | `pending` |
+| The run never bound the plugin at all (`unbound_in_claude_session: true`) — §1 terminated before surveying | `pending` |
 | Nothing was claimable and nothing is in flight, over a **current** survey that read the backlog | `ok` |
 
 "I stopped" is not "it's done": a blocked unit is `pending`, not `ok`. This table is verbatim the contract a caller-side loop such as `/goal /implement ok` waits on (decision I4); the reconciliation line always precedes the token so the outcome is graspable from outside.

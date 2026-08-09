@@ -8485,6 +8485,65 @@ function testCheckDepsRegistryDrift() {
   } finally { cleanup(dir); }
 }
 
+// THE FRESH-INSTALL/NO-RELOAD GAP (FB 20260807104046, 2026-08-09) is a THIRD axis, distinct
+// from registry drift: not a STALE binding but NO binding at all. Measured live: a SessionStart
+// hook installs the plugin and prints the /reload-plugins reminder, but the session's very next
+// Skill(...) call fails "Unknown skill" -- nothing from the plugin is ever bound. Investigated
+// against Claude Code's own docs and confirmed there is no in-plugin fix, so the deliverable is
+// legibility: a genuine Claude Code session (CLAUDE_CODE_SESSION_ID set) where the harness's own
+// registry confirms an install, yet loaded_root_source never resolved past "none".
+function testCheckDepsUnboundSession() {
+  let hasJq = true;
+  try { execSync("command -v jq", { stdio: "ignore" }); } catch { hasJq = false; }
+  if (!hasJq) { console.log("  skip  check-deps unbound-session axis (jq not available)"); return; }
+
+  const dir = mkdtempSync(join(tmpdir(), "workaholic-unbound-"));
+  try {
+    const registry = join(dir, "installed_plugins.json");
+    writeFileSync(registry, JSON.stringify({
+      version: 2,
+      plugins: { "workaholic@workaholic": [{ scope: "user", installPath: "/anywhere", version: "1.0.140" }] },
+    }));
+
+    // GATE 1 — the measured defect: a genuine Claude Code session, the registry confirms an
+    // install, but no plugin root is bound at all (loaded_root_source stays "none").
+    let r = JSON.parse(run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.checkDeps}`, {
+      env: { ...process.env, CLAUDE_PLUGIN_ROOT: "", CLAUDE_PLUGIN_REGISTRY: registry, CLAUDE_CODE_SESSION_ID: "test-session-id" },
+    }).stdout);
+    assertEq("a genuine session with a registered-but-unbound install is flagged",
+      { src: r.loaded_root_source, claudeSession: r.claude_session_detected, hasInstall: r.registry_has_install, unbound: r.unbound_in_claude_session },
+      { src: "none", claudeSession: true, hasInstall: true, unbound: true });
+
+    // GATE 2 — a non-Claude agent (no session id) must never be accused: it has no plugin root
+    // by design, not by a gap this axis exists to catch.
+    r = JSON.parse(run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.checkDeps}`, {
+      env: { ...process.env, CLAUDE_PLUGIN_ROOT: "", CLAUDE_PLUGIN_REGISTRY: registry, CLAUDE_CODE_SESSION_ID: "" },
+    }).stdout);
+    assertEq("no session marker means no verdict, even with a confirmed install",
+      { claudeSession: r.claude_session_detected, unbound: r.unbound_in_claude_session },
+      { claudeSession: false, unbound: false });
+
+    // GATE 3 — a genuine session where the registry has nothing for this plugin (never
+    // installed) must not be confused with "installed but unbound".
+    const emptyRegistry = join(dir, "empty-registry.json");
+    writeFileSync(emptyRegistry, JSON.stringify({ version: 2, plugins: {} }));
+    r = JSON.parse(run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.checkDeps}`, {
+      env: { ...process.env, CLAUDE_PLUGIN_ROOT: "", CLAUDE_PLUGIN_REGISTRY: emptyRegistry, CLAUDE_CODE_SESSION_ID: "test-session-id" },
+    }).stdout);
+    assertEq("a genuine session with no registry entry is not flagged",
+      { hasInstall: r.registry_has_install, unbound: r.unbound_in_claude_session },
+      { hasInstall: false, unbound: false });
+
+    // GATE 4 — a BOUND session (a plugin root resolved) must never trip this axis, even with the
+    // session marker present: the whole point is "nothing bound", not "session exists".
+    r = JSON.parse(run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.checkDeps}`, {
+      env: { ...process.env, CLAUDE_PLUGIN_ROOT: REPO_ROOT + "/plugins/workaholic", CLAUDE_PLUGIN_REGISTRY: registry, CLAUDE_CODE_SESSION_ID: "test-session-id" },
+    }).stdout);
+    assertEq("a bound session is never flagged unbound regardless of the session marker",
+      r.unbound_in_claude_session, false);
+  } finally { cleanup(dir); }
+}
+
 // ---------- catch/scan-window.sh (time-buckets + per-branch axis) ----------
 // Hermetic: a repo with dated commits across two branches. Asserts the scanner
 // emits epoch bucket boundaries, tags each commit into a time-bucket, and builds
@@ -12221,6 +12280,7 @@ const tests = [
   ["build: a plugin-root PATH is a defect, a bare read is not", testPluginRootPathVsRead],
   ["check-deps/check.sh", testCheckDeps],
   ["check-deps: a superseded plugin binding is a stop, not a warning", testCheckDepsRegistryDrift],
+  ["check-deps: an unbound plugin in a genuine session is a stop", testCheckDepsUnboundSession],
   ["catch/scan-window.sh buckets+branches", testScanWindowBuckets],
   ["branching/ensure-worktree.sh", testEnsureWorktreeGuard],
   ["hooks/lib/check-subject.sh", testCheckSubject],

@@ -5,6 +5,7 @@ assignees: [a@qmu.jp]
 depends_on:
 feedback: [20260807104046-a-freshly-installed-plugin-is-not-invocable-until-reload-plugins-which-no-unattended-routine-ever-types.md]
 merge_policy:
+claim: work-20260809-031402
 ---
 
 # Investigate the /reload-plugins gap for unattended routines after a fresh install
@@ -83,3 +84,63 @@ rather than continuing to run a session with zero workaholic surface.
 
 - This may turn out, like the superseded-binding case, to have no fix inside the plugin — the deliverable is then documentation plus a legibility improvement, not a workaround
 - Scope this to the fresh-install case only; do not fold in or re-litigate the already-closed superseded-cached-binding investigation
+
+## Final Report
+
+**Reproduced live, in this very session.** This ticket was driven by a Claude Code Web session
+that itself hit the exact gap: the SessionStart hook's `workaholic installed. Run /reload-plugins
+if its commands aren't available yet.` line printed, and the session's very next
+`Skill({skill: "workaholic:notify"})` call failed `Unknown skill: workaholic:notify`. Nothing from
+the plugin (commands, skills, hooks) was live for the rest of the session — the workaround was
+calling the skill's bundled scripts directly via Bash, exactly as the Overview describes.
+`CLAUDE_PLUGIN_ROOT` was confirmed unset for the whole run.
+
+**No harness mechanism exists (Step 2, checked against documentation, not guessed).** Consulted
+Claude Code's own docs
+(https://code.claude.com/docs/en/plugins-reference.md#plugin-updates-and-caching): "When a plugin
+updates mid-session, hook commands, monitors, MCP servers, and LSP servers keep using the previous
+version's path. Run `/reload-plugins` to switch..." — `/reload-plugins` is the *only* documented
+way to make a plugin update effective mid-session, and it is a manual, human-invoked command.
+There is no environment variable, CLI flag, settings.json option, or alternate hook event that
+makes a SessionStart-time install effective before the harness finalizes its command/skill
+registry. This is the same conclusion the already-closed superseded-binding investigation reached
+for its own axis, now confirmed for this different one: **no fix inside the plugin (Step 3 does
+not apply); the deliverable is the legibility improvement Step 4 describes.**
+
+**Legibility implemented (Step 4).** `check-deps/scripts/check.sh` now reports three new fields —
+`claude_session_detected` (a genuine Claude Code session, via `CLAUDE_CODE_SESSION_ID`),
+`registry_has_install` (the harness's own registry confirms this plugin is installed, read
+independently of whether a root was bound), and `unbound_in_claude_session` (true when
+`loaded_root_source == "none"` and both of the above hold) — distinguishing "installed per the
+registry but never bound this session" from "never installed" and from "a non-Claude agent/bare
+checkout, which has no root by design." Verified directly against this session: running the
+patched script here reports `unbound_in_claude_session: true`, confirming the detector fires on
+the exact live case that motivated it. `drive/SKILL.md` §1 and its `reference/survey.md` now
+terminate `pending` on it, identically to the existing registry-drift stop, and the §7 terminal
+table gained a matching row.
+
+**Docs updated in the same change (Step 5)**: `CLAUDE.md`'s `/workaholify` row, `workaholify/SKILL.md`'s
+web-bootstrap section (a pointer noting a hook-registered install and a *bound* one are different
+questions), and `check-deps/SKILL.md` (the axis renamed "Two drift axes" → "Three drift axes" with
+the new axis's rationale and known limit spelled out) — following the same "legible, not gated"
+precedent already recorded for the superseded-binding case.
+
+### Discovered Insights
+
+- **Insight**: The three environment facts that make the new detector trustworthy —
+  `CLAUDE_CODE_SESSION_ID` (proves this is a Claude Code session), the harness's own
+  `installed_plugins.json` (proves an install exists), and `loaded_root_source` (already computed,
+  proves nothing was bound) — are all facts *about* the harness, never about the plugin's own
+  content. This is the same "neither operand is plugin content" property that makes the
+  registry-drift axis trustworthy at any plugin age, applied to a new question.
+  **Context**: Any future harness-binding diagnostic in this script should keep that property —
+  reading plugin content to diagnose a plugin-binding problem risks the reporter agreeing with
+  itself, which is exactly the defect the registry axis was built to avoid.
+- **Insight**: The detector has a real, named false-positive case — a developer invoking
+  `check.sh` directly by its literal path in an otherwise-healthy, fully-bound session also shows
+  `loaded_root_source: "none"` for that one call, because the `${CLAUDE_PLUGIN_ROOT}` substitution
+  happens in command-body text, never as a persistent process env var.
+  **Context**: Accepted deliberately, matching this script's existing bias throughout: an
+  unanswerable or ambiguous signal reports the stop, not silence, because the cost of a spurious
+  `pending` is far lower than the cost of a routine running its whole tick with zero plugin
+  surface and reading as healthy.

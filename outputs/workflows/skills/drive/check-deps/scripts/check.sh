@@ -185,6 +185,58 @@ if [ -n "$loaded_root" ]; then
   fi
 fi
 
+# --- Unbound in a genuine Claude Code session (the fresh-install/no-reload gap, FB
+# 20260807104046) ------------------------------------------------------------------
+# SessionStart may install/update the plugin, but nothing makes that binding
+# effective for the REST of that session: Claude Code exposes no supported mechanism
+# to hot-load a plugin mid-session (only a human-typed /reload-plugins does, per
+# https://code.claude.com/docs/en/plugins-reference.md#plugin-updates-and-caching --
+# hooks, MCP servers and LSP servers keep the previous binding until reload), and an
+# unattended routine never types that command. The measured symptom is total: no
+# plugin root is EVER bound (loaded_root_source stays "none" above), so every
+# skill/command/hook the plugin ships is invisible for the whole run -- not merely
+# stale, as the two axes above cover, but entirely absent.
+#
+# This runs INDEPENDENTLY of loaded_root_source's value (rather than nested inside
+# the "when a root IS bound" branch above), because the whole question is "was this
+# genuinely a Claude Code session that should have bound one, but did not" -- which
+# only arises when nothing was bound.
+#
+# Three facts, none of them plugin content, distinguish the fresh-install gap from a
+# session that legitimately has no root bound (a non-Claude agent, a developer's bare
+# checkout invocation):
+#   1. This IS a Claude Code session (CLAUDE_CODE_SESSION_ID is a harness-set env var
+#      present on both local and cloud sessions, present regardless of plugin state).
+#   2. No plugin root was bound (loaded_root_source == "none", computed above).
+#   3. The harness's OWN registry confirms an install exists for this plugin -- so the
+#      gap is "installed but never bound this session", not "never installed".
+#
+# KNOWN LIMIT, same shape as every diagnostic in this script: a developer who runs
+# this script directly via its literal path in an otherwise-healthy, fully-bound
+# session ALSO shows loaded_root_source == "none" for that one invocation (the
+# ${CLAUDE_PLUGIN_ROOT} substitution happens in command-body text, not as a process
+# env var), so this can false-positive there. Over-reporting is the accepted
+# direction throughout this script's registry axis (a stale reader over-reports
+# claims elsewhere in the project for the identical reason) -- the run pays a
+# possibly-unnecessary `pending` rather than proceeding on a broken assumption.
+claude_session_detected=false
+[ -n "${CLAUDE_CODE_SESSION_ID:-}" ] && claude_session_detected=true
+
+registry_has_install=false
+probe_registry="${CLAUDE_PLUGIN_REGISTRY:-${HOME}/.claude/plugins/installed_plugins.json}"
+if [ -f "$probe_registry" ]; then
+  probe_count=$(jq -r '(.plugins["workaholic@workaholic"] // []) | length' "$probe_registry" 2>/dev/null || printf '0')
+  case "$probe_count" in
+    ''|*[!0-9]*) probe_count=0 ;;
+  esac
+  [ "$probe_count" -gt 0 ] && registry_has_install=true
+fi
+
+unbound_in_claude_session=false
+if [ "$loaded_root_source" = "none" ] && [ "$claude_session_detected" = true ] && [ "$registry_has_install" = true ]; then
+  unbound_in_claude_session=true
+fi
+
 # Assert the three PreToolUse Bash guards are registered in the loaded hooks.json.
 expected="guard-ticket-structure.sh guard-git-commit.sh guard-git-branch.sh"
 missing=""
@@ -209,6 +261,7 @@ fi
 # Emit missing_guards as a JSON array (jq handles quoting; empty -> []).
 missing_json=$(printf '%s\n' $missing | jq -R . | jq -sc 'map(select(length > 0))')
 
-printf '{"ok": true, "version": "%s", "checkout_version": "%s", "version_drift": %s, "loaded_root_source": "%s", "registry_version": "%s", "registry_unreadable": %s, "loaded_version_behind_registry": %s, "guards_present": %s, "missing_guards": %s}\n' \
+printf '{"ok": true, "version": "%s", "checkout_version": "%s", "version_drift": %s, "loaded_root_source": "%s", "registry_version": "%s", "registry_unreadable": %s, "loaded_version_behind_registry": %s, "claude_session_detected": %s, "registry_has_install": %s, "unbound_in_claude_session": %s, "guards_present": %s, "missing_guards": %s}\n' \
   "$version" "$checkout_version" "$version_drift" "$loaded_root_source" "$registry_version" "$registry_unreadable" \
-  "$loaded_version_behind_registry" "$guards_present" "$missing_json"
+  "$loaded_version_behind_registry" "$claude_session_detected" "$registry_has_install" "$unbound_in_claude_session" \
+  "$guards_present" "$missing_json"

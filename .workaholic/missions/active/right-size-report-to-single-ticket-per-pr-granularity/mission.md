@@ -51,3 +51,4 @@ things `/report` currently gives up nothing on: the recording of results
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-09 — ticket archived — 20260809010644-design-a-right-sized-report-for-single-ticket-per-pr-granularity.md
 - 2026-08-09 — ticket archived — 20260809010647-implement-the-right-sized-report-and-verify-linking-survives.md
+- 2026-08-09 — story reported — work-20260809-025458.md

@@ -57,16 +57,24 @@ retired.
 
 ## Implementation Steps
 
-1. Decide and document where the thread key is persisted — **never anywhere committed to
-   the repository** (developer's ruling, FB `20260811084130`, 2026-08-11): the repository
-   is public, and the P9 withdrawal (`workaholic:notify` reference, *Withdrawn, not
-   deleted*) already records that a Slack thread coordinate in public content disclosed
-   the workspace subdomain, channel id, and timestamp irretractably. The frontmatter-field
-   candidate this step previously named is therefore ruled out. The store must be private
-   to the workspace and reachable from a fresh cloud container — the natural candidate is
-   Slack itself (a pinned index canvas or dedicated index message, written by the
-   connector at root-post time and read back by exact `fb:<stem>` key), keeping Slack
-   coordinates inside Slack.
+**Root cause measured 2026-08-11 (FB `20260811084546`) — read it before implementing.**
+The search does not miss because search is unreliable; it misses because it runs in the
+wrong scope: `dev-<repo>` is a **private** channel and the default, consent-free
+`slack_search_public` covers public channels only, so it returns zero for any `fb:` key
+by construction (verified live: 0 results public-only, instant exact hit private-
+inclusive). The persisted key attacks the wrong layer.
+
+1. **Fix the lookup's search surface first**: specify in `workaholic:notify` that the
+   thread lookup runs through the private-inclusive search (`slack_search_public_and_private`)
+   with `include_bots: true` — the developer's consent to reading the repository's own
+   `dev-<repo>` channel is a one-time recorded ruling carried by the skill and the
+   routine templates, not a per-run prompt (an unattended routine can never answer one).
+2. **Defer the persisted key** until a scope-corrected lookup is measured to still miss.
+   Only if that day comes does the storage question reopen — and then **never anywhere
+   committed to the repository** (developer's ruling, FB `20260811084130`; the P9
+   withdrawal's irretractable-exposure reasoning): the store would have to be private to
+   the workspace and reachable from a fresh container, the natural candidate being Slack
+   itself (a pinned index canvas or index message keyed by `fb:<stem>`).
 2. Update the `[Propose]` routine (and any other root-posting path) to write the persisted
    key immediately after a successful root post.
 3. Update `workaholic:notify`'s lookup order so a persisted key is checked first, with the

@@ -441,4 +441,5 @@
 * [check-deps reports unbound_in_claude_session in the dev repo where the plugin is bound from the checkout](20260809202650-check-deps-reports-unbound-in-claude-session-in-the-dev-repo-where-the-plugin-is-bound-from-the-checkout.md)
 * [Color-code the notify post shapes by state](20260810062845-color-code-the-notify-post-shapes-by-state.md)
 * [Implement routine over-blocks on unbound_in_claude_session](20260810070110-implement-routine-over-blocks-on-unbound-in-claude-session.md)
+* [Fix drift in routine notify templates for Propose/Implement status posts](20260810080930-fix-drift-in-routine-notify-templates-for-propose-implement-status-posts.md)
 <!-- okf:generated:end -->

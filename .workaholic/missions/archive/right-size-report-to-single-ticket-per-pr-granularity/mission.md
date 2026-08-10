@@ -2,7 +2,7 @@
 type: Mission
 title: Right-size /report to single-ticket-per-PR granularity
 slug: right-size-report-to-single-ticket-per-pr-granularity
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-09T01:06:19+00:00
 author: a@qmu.jp
@@ -53,3 +53,4 @@ things `/report` currently gives up nothing on: the recording of results
 - 2026-08-09 — ticket archived — 20260809010647-implement-the-right-sized-report-and-verify-linking-survives.md
 - 2026-08-09 — story reported — work-20260809-025458.md
 - 2026-08-09 — run recorded (+0.3h) — implement-20260809-025458
+- 2026-08-10 — mission achieved — mission.md

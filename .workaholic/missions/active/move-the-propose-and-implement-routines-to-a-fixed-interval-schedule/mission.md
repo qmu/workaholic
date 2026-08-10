@@ -39,7 +39,7 @@ reaction, is what produces the loop's feedback.
 
 ## Acceptance
 
-- [ ] The `[Propose]` and `[Implement]` routine templates (and
+- [x] The `[Propose]` and `[Implement]` routine templates (and
       `render-setup-sheet.sh`'s derived UI steps) declare a fixed-interval
       schedule trigger instead of an immediate GitHub webhook trigger. (#20260810085347-declare-a-fixed-interval-cron-trigger-on-the-propose-and-implement-routine-templates.md)
 - [ ] A revived `/set-routines`-equivalent command helps a developer
@@ -48,3 +48,4 @@ reaction, is what produces the loop's feedback.
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-10 — ticket archived — 20260810085347-declare-a-fixed-interval-cron-trigger-on-the-propose-and-implement-routine-templates.md

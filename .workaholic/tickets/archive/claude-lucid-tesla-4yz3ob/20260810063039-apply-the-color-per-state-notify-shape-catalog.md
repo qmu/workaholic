@@ -87,3 +87,41 @@ the design ticket; this ticket finds every reference and rewrites it to match.
   the backlog as this proposal is written) shows the failure mode to avoid: a partial
   edit that updates one shape's line but leaves an adjacent reference to a different
   retired shape unchanged. Re-grep after editing, not just before.
+
+## Final Report
+
+Development completed as planned. Applied the companion design ticket's resolved catalog
+mechanically across every live reference:
+
+- `plugins/workaholic/skills/notify/SKILL.md` — the shape-list summary line, the
+  `🟠 Implementing` / `🟢 Implemented` start/finish rule, and the `🔵 Proposed` thread-root
+  bullet.
+- `plugins/workaholic/skills/notify/reference/notifications.md` — both literal shape
+  code blocks (`/propose` and `/implement`) and every prose sentence naming the current
+  shape (five occurrences beyond the code blocks itself), including renaming
+  `🔴 drive blocked` to `🔴 Blocked` in the outcome-shape block.
+- `plugins/workaholic/skills/workaholify/routines/fb.md` and
+  `plugins/workaholic/skills/workaholify/routines/implement.md` — the pasted literal
+  post formats in both routine prompts.
+- `outputs/workflows/` and `CLAUDE.md` — grepped and confirmed to carry no occurrence of
+  the old shapes (the `notify`/`workaholify` skills are Claude-Code-only and are not part
+  of the generated bundle; `CLAUDE.md`'s one shape mention predates P10 and is tracked by
+  the separate, already-backlogged ticket
+  `20260809085953-reconcile-stale-notification-shape-references-post-p10.md` — left
+  untouched, out of scope here).
+
+### Discovered Insights
+
+- **Insight**: The `notify` and `workaholify` skills carry `metadata.internal: true` and
+  are never part of `computeClosure` for any of the six skills `build.mjs` assembles into
+  `outputs/workflows` (confirmed via `grep -rl` over `outputs/` returning no hits for any
+  of the shape strings before or after this change).
+  **Context**: A future notify-shape change does not need an `outputs/` rebuild to stay
+  correct there, though running the build remains the standard verification step and
+  catches drift in the six skills that *are* bundled.
+
+## Verify
+
+`node scripts/build-plugins/build.mjs && node scripts/build-plugins/verify.mjs && node scripts/build-plugins/validate-metadata.mjs` all clean; a repository-wide grep for the retired
+`📐 Proposed` / `🛠️ Implementing` / `🛠️ Implemented` / `🔴 drive blocked` shapes across
+`plugins/workaholic/`, `outputs/`, and `CLAUDE.md` returns zero hits; `bash plugins/workaholic/hooks/layout-doctor.sh .` reports `conforming: true`. `node scripts/test-workflow-scripts.mjs` run separately to confirm no regression (unrelated to this shape-text-only change).

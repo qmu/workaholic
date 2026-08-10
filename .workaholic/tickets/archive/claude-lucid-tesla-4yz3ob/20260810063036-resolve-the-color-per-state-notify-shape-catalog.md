@@ -100,3 +100,72 @@ change. The companion implementation ticket applies whatever this one resolves.
   purple circle should not be excluded from this direction. Treat that as live, current
   guidance and resolve the 🟣 question deliberately rather than defaulting to either
   position; record the reasoning either way.
+
+## Resolved Catalog
+
+One color per exactly one state, applied mechanically by the companion ticket:
+
+| State | Old shape | New shape | Change |
+| --- | --- | --- | --- |
+| Designing (`/propose` start) | `📐 Designing` | `📐 Designing` | **unchanged** |
+| Proposed (`/propose` finish) | `📐 Proposed` | `🔵 Proposed` | recolored |
+| Implementing (`/implement` start) | `🛠️ Implementing` | `🟠 Implementing` | recolored |
+| Implemented (`/implement` ordinary finish) | `🛠️ Implemented` | `🟢 Implemented` | recolored |
+| Handoff | `🟡 Handoff` | `🟡 Handoff` | unchanged |
+| Blocked | `🔴 drive blocked` | `🔴 Blocked` | label aligned to state name; color unchanged |
+| Auto Merge | `🚀 Auto Merge` | `🚀 Auto Merge` | unchanged — deliberately outside the color set |
+
+Line wording (issue #300's two-line format) is otherwise untouched; only the leading emoji
+and, for Blocked, the state word change.
+
+**Design-start (`📐 Designing`) color — resolved to leave it unchanged, not the suggested
+🔵 family.** The double-duty this mission exists to fix was two glyphs each covering two
+states (`📐` for Designing *and* Proposed; `🛠️` for Implementing *and* Implemented). Moving
+Proposed off `📐` onto its own `🔵` already makes `📐` unique to Designing — no state now
+shares it. Recoloring Designing into the `🔵` family as the issue's fallback suggested
+would put two states (Designing, Proposed) back in the same color family, which is exactly
+what the Experience section's "no two states sharing a color" bar forbids in spirit even if
+the two used distinguishable icons within the family. `📐` is not a member of the colored-
+circle set (`🔴`/`🟠`/`🟡`/`🟢`/`🔵`) at all, so leaving it as-is costs nothing and keeps
+every state's signal unambiguous — the simpler alternative the issue explicitly allowed for
+("or an alternative the design ticket judges"), and the one `workaholic:design` /
+`interaction-design-standard`'s consistency bar favors: don't introduce a new distinction
+(diamond vs. circle blue) when removing the actual collision (the shared `📐`) already
+resolves the ambiguity.
+
+**The 🟣 human-merge question — resolved as reserved, not reinstated.** The developer's
+live note ("purple circle should not be excluded from this direction") is honored by *not*
+assigning `🟣` to any state in this catalog and *not* reintroducing the automated
+human-merge announcement `[Consent]`'s retirement removed (qmu/workaholic#317) — restoring
+that posting behavior is a functional decision (detecting a human merge, avoiding a
+duplicate of `[Consent]`'s own retired announcement, deciding which thread and whose
+mention) well beyond this mission's scope of recoloring existing shapes, and the mission's
+own Acceptance only asks for the catalog above to be applied. `🟣` stays unused and
+unassigned in this catalog precisely so a later, dedicated ticket can revisit a human-merge
+shape without inheriting a color conflict from this one. This is a deliberate reservation,
+not exclusion.
+
+**Locations the companion ticket must touch** (grep confirms these are the only
+current, non-historical occurrences of the old shapes):
+
+- `plugins/workaholic/skills/notify/SKILL.md`
+- `plugins/workaholic/skills/notify/reference/notifications.md`
+- `plugins/workaholic/skills/workaholify/routines/fb.md`
+- `plugins/workaholic/skills/workaholify/routines/implement.md`
+- `outputs/workflows/` — confirmed to carry no copy of these shapes (the `notify` and
+  `workaholify` skills are Claude-Code-only and are not part of that bundle); rebuild
+  anyway as the standard verification step.
+- `CLAUDE.md` — confirmed to carry no occurrence of the current double-duty shapes; its one
+  emoji-shape passage (§ *Under `/implement`, a unit announces...*) already describes an
+  earlier, pre-P10 wording (`🟠 start`, `🟢 merge requested`) and is tracked by the
+  separate, already-backlogged ticket `20260809085953-reconcile-stale-notification-shape-
+  references-post-p10.md` — out of scope here, left untouched.
+
+Historical/retired-shape mentions (e.g. `🟢 Merge Requested`, `🟠 drive started`, `🟣
+Merged by`) describing what a past shape *was* stay as written — only the current, live
+shape tokens change.
+
+## Final Report
+
+Development completed as planned: resolved the color-per-state catalog above, including
+the Designing-color and 🟣 open questions the mission left for this ticket.

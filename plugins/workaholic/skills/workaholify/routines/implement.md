@@ -44,13 +44,13 @@ Read the Mission/Ticket from the PR and find its reply thread (the workaholic:no
 Notify to the thread that implementation has started:
 
 ```
-🛠️ Implementing for [#123 Proposal PR Title]({repo}/pull/123)
+🟠 Implementing for [#123 Proposal PR Title]({repo}/pull/123)
 by [Claude Code on the Web](https://claude.ai/code/session_***) of <@U…>
 ```
 
 After running `/implement [Mission/Ticket]`, notify the thread in the following format:
 
 ```
-🛠️ Implemented - [#123 Title]({repo}/pull/123)
+🟢 Implemented - [#123 Title]({repo}/pull/123)
 by [Claude Code on the Web](https://claude.ai/code/session_***) of <@U…>
 ```

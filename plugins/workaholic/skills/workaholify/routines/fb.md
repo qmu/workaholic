@@ -2,9 +2,9 @@
 type: Routine Template
 id: fb
 name: "[Propose] {repo_name}"
-trigger: schedule-every-30-min
+trigger: schedule-hourly
 trigger_kind: schedule
-cron_expression: 0,30 * * * *
+cron_expression: 15 * * * *
 model: claude-opus-5
 allowed_tools: [Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch]
 mcp: [Slack]
@@ -12,7 +12,7 @@ mcp: [Slack]
 
 # [Propose] — turn a reported ask into a record and the work it warrants
 
-**Fires on a fixed 30-minute schedule (:00/:30)** — FB `20260810085032`/issue #336,
+**Fires on a fixed hourly schedule (:15 — the API floor is one hour)** — FB `20260810085032`/issue #336,
 ticket `20260810085347`, 2026-08-10: loop-engineering cadence over instant webhook
 reaction, for both `[Propose]` and `[Implement]` (the developer's explicit correction
 — an earlier draft of this ticket kept `[Propose]` event-triggered on the reasoning
@@ -35,12 +35,12 @@ redesign of `/propose`'s ask-discovery, which stays exactly as documented in
 discovery mechanism is a separate, unscoped question.
 
 **The prompt is the developer's own** (P3, reshaped by Q2: three instructions and two
-post formats — the start post is formatted too, and both carry the session URL and the
+post formats — the finish post carries the session URL and the
 requester's mention) and states no rule
 a skill already owns: `workaholic:propose` owns the judgment, the single pull request
 and the `[Proposal]` prefix; `workaholic:feedback` owns the record; `workaholic:notify`
 owns every notification rule; the always-loaded `rules/` own the standing
-prohibitions. The two literal formats below stay embedded rather than deferred — Q2's
+prohibitions. The one literal format below stays embedded rather than deferred — Q2's
 reasoning holds: a routine cannot defer its own output contract — but
 `workaholic:notify`'s `reference/notifications.md` mirrors them verbatim as the sole
 sanctioned shapes for these two events (P10, 2026-08-07), so a future edit to either
@@ -54,18 +54,11 @@ lines is the developer's own placeholder for the issue and pull request links.
 
 ## Prompt
 
-Run `/propose`. If it finds an ask in hand, find its reply thread (the workaholic:notify lookup).
-
-Notify the thread that proposing process has started:
-
-```
-📐 Proposing for [#45 [FB] Issue Title]({repo}/issues/45)
-by the [routine](https://claude.ai/code/session_***) of <@U…>
-```
-
-When it finishes, notify the thread in the following format:
+Run `/propose`. If it finds an ask in hand, find its reply thread (the workaholic:notify lookup) and notify it when the run finishes, in the following format — the finish is the only post; there is no "started" line (developer's order, 2026-08-11):
 
 ```
 🔵 Proposed - [#123 [Proposal] PR Title]({repo}/pull/123)
 by the [routine](https://claude.ai/code/session_***) of <@U…>
 ```
+
+The schedule is hourly (`15 * * * *`): the routine API's minimum interval is one hour — `0,30 * * * *` is rejected (`cron interval too short`, measured 2026-08-10) — and a bare `:00` minute is rewritten to a server-chosen jitter minute, so an explicit non-zero minute is what actually sticks. `[Propose]` at :15 and `[Implement]` at :30 keep a merged proposal waiting at most the gap between them.

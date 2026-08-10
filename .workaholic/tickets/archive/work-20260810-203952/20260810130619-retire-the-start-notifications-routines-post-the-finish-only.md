@@ -5,6 +5,7 @@ assignees: [a@qmu.jp]
 depends_on:
 feedback: [.workaholic/feedbacks/20260810215745-retire-the-start-notifications-routines-post-the-finish-only.md]
 merge_policy:
+claim: work-20260810-203952
 ---
 
 # Retire the start notifications, routines post the finish only
@@ -88,3 +89,12 @@ finish-only.
 - Purely a documentation/prompt-consistency change — no script behavior changes, since the notify skill's Slack-posting logic lives in the session's own prompt-following, not in a script this ticket touches.
 - `SKILL.md`'s *The prompt is the ceiling — no self-authorized shapes* rule means a session already only posts what its routine prompt names; this ticket removes the now-stale authorization for the start shapes from the routine prompts themselves; the fix is otherwise editorial (drop a block, retitle a heading, adjust prose that assumed a pair of posts).
 - The `skills/notify` and `skills/workaholify` skills are script-bearing and mirrored into `outputs/workflows` — rebuild and verify per the repository's Local Verification list even though this change touches no `.sh` file.
+
+## Final Report
+
+No code change needed: the mission `auto-merge-propose-and-implement-prs-under-a-dev-release-branch-split` (closed 2026-08-11) already retired the start posts as part of its own scope — commit `359baaa9` ("Merge propose and implement PRs immediately") reworded `skills/workaholify/routines/fb.md` and `implement.md` to finish-only and reconciled `skills/notify/SKILL.md` and `reference/notifications.md` to the P10 finish-only contract before this ticket was driven. Verified against this ticket's own acceptance criteria: `grep -rn "📐 Proposing|🟠 Implementing" plugins/workaholic/skills/workaholify/routines/ plugins/workaholic/skills/notify/` returns only hits documenting the shapes as retired history (acceptable per the ticket's own verification method), and neither routine template's `## Prompt` section instructs a start post. Also verified: `skills/notify` and `skills/workaholify` are not actually part of the `outputs/workflows` bundle (checked directly — the Consideration above overstated the ticket's own build exposure), so no rebuild was required beyond the Local Verification suite already run for this unit's other tickets, which passed clean.
+
+### Discovered Insights
+
+- **Insight**: This ticket was filed from feedback (`20260810215745`) recorded on the same day the auto-merge mission's PR (`359baaa9`) already implemented the identical change.
+  **Context**: A loose backlog ticket can be proposed for work another PR-unit already completed; the drive step verifies against current state rather than assuming a queued ticket still describes an open gap.

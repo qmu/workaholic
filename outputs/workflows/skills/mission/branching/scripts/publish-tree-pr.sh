@@ -238,5 +238,31 @@ if [ -z "$pr_url" ]; then
   exit 0
 fi
 
-printf '{"ok": true, "sha": "%s", "branch": "%s", "pr_url": "%s", "base": "%s"}\n' \
-  "$after_sha" "$work_branch" "$pr_url" "$base"
+# --- 5. Optional immediate merge (WORKAHOLIC_AUTO_MERGE=1) --------------------
+# Opt-in for /propose and /implement only (mission
+# auto-merge-propose-and-implement-prs-under-a-dev-release-branch-split,
+# 2026-08-11): their pull requests merge immediately after opening, with the
+# release scan as the sole mechanical gate — ANY finding (secret hard, size/leak
+# confirm) leaves the PR open instead, because there is no human here to
+# override, exactly the /implement demotion doctrine. Default off, so /ticket,
+# /mission, and every other publish-tree caller keep their human-merged PR.
+merged=false
+merge_reason="not_requested"
+if [ "${WORKAHOLIC_AUTO_MERGE:-}" = "1" ]; then
+  scan_json=$( cd "$publish_path" && sh "${SCRIPT_DIR}/../../release-scan/scripts//scan-branch-safety.sh" "origin/${base}" 2>/dev/null || true )
+  case "$scan_json" in
+    *'"verdict": "pass"'*)
+      if ( cd "$publish_path" && gh pr merge "$pr_url" --merge ) >/dev/null 2>&1; then
+        merged=true
+        merge_reason="merged"
+      else
+        merge_reason="merge_failed"
+      fi
+      ;;
+    *'"verdict": "block"'*) merge_reason="scan_finding" ;;
+    *) merge_reason="scan_unreadable" ;;
+  esac
+fi
+
+printf '{"ok": true, "sha": "%s", "branch": "%s", "pr_url": "%s", "base": "%s", "merged": %s, "merge_reason": "%s"}\n' \
+  "$after_sha" "$work_branch" "$pr_url" "$base" "$merged" "$merge_reason"

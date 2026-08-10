@@ -2,9 +2,9 @@
 type: Routine Template
 id: implement
 name: "[Implement] {repo_name}"
-trigger: schedule-every-30-min
+trigger: schedule-hourly
 trigger_kind: schedule
-cron_expression: 0,30 * * * *
+cron_expression: 30 * * * *
 model: claude-opus-5
 allowed_tools: [Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch]
 mcp: [Slack]
@@ -12,7 +12,7 @@ mcp: [Slack]
 
 # [Implement] — the unattended executor
 
-**Fires on a fixed 30-minute schedule (:00/:30)** — FB `20260810085032`/issue #336:
+**Fires on a fixed hourly schedule (:30 — the API floor is one hour)** — FB `20260810085032`/issue #336:
 loop-engineering cadence over instant reaction on the merge event. Every developer's
 copy fires independently, and the **data** decides whose work it is: a proposal
 carries the triggering issue's assignee as its `assignees`, so a runner whose work
@@ -29,12 +29,12 @@ keys declare the design, not a stored field a session can read back (no
 `ToolSearch`, ticket `20260810085351`).
 
 **The prompt is the developer's own** (P3, reshaped by Q2: three instructions and two
-post formats — the start post is formatted too, and both carry the session URL and the
+post formats — the finish post carries the session URL and the
 requester's mention) and states no rule
 a skill already owns: `workaholic:drive` owns the run and its terminal contract,
 `workaholic:notify` owns every notification rule (the stateless thread lookup, red-alert
 dedup, mention resolution), and the always-loaded `rules/` own the standing prohibitions.
-The two literal formats below stay embedded rather than deferred — Q2's reasoning holds:
+The one literal format below stays embedded rather than deferred — Q2's reasoning holds:
 a routine cannot defer its own output contract — but `workaholic:notify`'s
 `reference/notifications.md` mirrors them verbatim as the sole sanctioned shapes for
 these two events (P10, 2026-08-07), so a future edit to either copy is a drift to fix,
@@ -51,18 +51,11 @@ unattended executor became `/implement`.)
 
 ## Prompt
 
-For each PR-unit `/implement` claims, find its reply thread (the workaholic:notify lookup).
-
-Notify the thread that implementation has started:
-
-```
-🟠 Implementing for [#123 Proposal PR Title]({repo}/pull/123)
-by the [routine](https://claude.ai/code/session_***) of <@U…>
-```
-
-When the unit finishes, notify the thread in the following format:
+Run `/implement`. For each PR-unit it claims, find its reply thread (the workaholic:notify lookup) and notify it when the unit finishes, in the following format — the finish is the only post; there is no "started" line (developer's order, 2026-08-11); and if the run stops before claiming anything, on a precondition-stop signature (`workaholic:notify`, the closed `unbound_in_claude_session`/`loaded_version_behind_registry` list), post the calm-first, escalate-on-persistence shape notify defines for it instead:
 
 ```
 🟢 Implemented - [#123 Title]({repo}/pull/123)
 by the [routine](https://claude.ai/code/session_***) of <@U…>
 ```
+
+The schedule is hourly (`30 * * * *`): the routine API's minimum interval is one hour — `0,30 * * * *` is rejected (`cron interval too short`, measured 2026-08-10) — and a bare `:00` minute is rewritten to a server-chosen jitter minute, so an explicit non-zero minute is what actually sticks. `[Propose]` at :15 and `[Implement]` at :30 keep a merged proposal waiting at most the gap between them.

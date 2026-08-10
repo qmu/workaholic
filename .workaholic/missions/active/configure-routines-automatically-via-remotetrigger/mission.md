@@ -9,13 +9,14 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 0.65
 feedback: [.workaholic/feedbacks/20260810214929-make-setup-routines-and-workaholify-configure-routines-automatically-via-remotetrigger.md]
 tickets: []
 stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260810-210319
 ---
 
 # Configure routines automatically via RemoteTrigger
@@ -30,10 +31,16 @@ A session with a `RemoteTrigger`-family tool lists the account's routines, diffs
 
 ## Acceptance
 
-- [ ] `/setup-routines` detects `RemoteTrigger` availability and, when available, lists/diffs/applies routine wiring directly; falls back to today's sheet-only behavior otherwise. (#.workaholic/tickets/todo/20260810130703-apply-routine-wiring-directly-via-remotetrigger-in-setup-routines.md)
-- [ ] The `[Propose]`/`[Implement]` templates declare a realizable hourly `cron_expression` with a non-zero minute (never `0,30 * * * *`, never bare `:00`), docs updated to match. (#.workaholic/tickets/todo/20260810130657-fix-the-routine-templates-unrealizable-30-minute-schedule.md)
-- [ ] `workaholic:workaholify` and `CLAUDE.md`'s `/setup-routines` row restate "manages nothing" as session-class-dependent, not unconditional. (#.workaholic/tickets/todo/20260810130705-restate-the-manages-nothing-ruling-as-session-class-dependent.md)
+- [x] `/setup-routines` detects `RemoteTrigger` availability and, when available, lists/diffs/applies routine wiring directly; falls back to today's sheet-only behavior otherwise. (#20260810130703-apply-routine-wiring-directly-via-remotetrigger-in-setup-routines.md)
+- [x] The `[Propose]`/`[Implement]` templates declare a realizable hourly `cron_expression` with a non-zero minute (never `0,30 * * * *`, never bare `:00`), docs updated to match. (#20260810130657-fix-the-routine-templates-unrealizable-30-minute-schedule.md)
+- [x] `workaholic:workaholify` and `CLAUDE.md`'s `/setup-routines` row restate "manages nothing" as session-class-dependent, not unconditional. (#20260810130705-restate-the-manages-nothing-ruling-as-session-class-dependent.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-10 — ticket archived — 20260810130657-fix-the-routine-templates-unrealizable-30-minute-schedule.md
+- 2026-08-10 — ticket archived — 20260810130703-apply-routine-wiring-directly-via-remotetrigger-in-setup-routines.md
+- 2026-08-10 — ticket archived — 20260810130705-restate-the-manages-nothing-ruling-as-session-class-dependent.md
+- 2026-08-10 — run recorded (+0.5h) — implement-20260810-202951
+- 2026-08-10 — ticket archived — 20260810203351-fix-acceptance-link-marker-mismatch-full-path-vs-basename.md
+- 2026-08-10 — run recorded (+0.15h) — implement-20260810-210319

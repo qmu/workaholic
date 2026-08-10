@@ -5,6 +5,7 @@ assignees:
 depends_on:
 mission:
 merge_policy:
+claim: work-20260810-170054
 ---
 
 # Reconcile drive/reference/routing.md's stale review-route description

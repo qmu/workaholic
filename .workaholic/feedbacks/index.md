@@ -443,4 +443,5 @@
 * [Implement routine over-blocks on unbound_in_claude_session](20260810070110-implement-routine-over-blocks-on-unbound-in-claude-session.md)
 * [Fix drift in routine notify templates for Propose/Implement status posts](20260810080930-fix-drift-in-routine-notify-templates-for-propose-implement-status-posts.md)
 * [Move workaholify Proposal and Implement steps to a fixed interval loop instead of immediate webhook triggers](20260810085032-move-workaholify-proposal-and-implement-steps-to-a-fixed-interval-loop-instead-of-immediate-webhook-triggers.md)
+* ["workflows" plugin fails marketplace sync — missing manifest](20260810092222-workflows-plugin-fails-marketplace-sync-missing-manifest.md)
 <!-- okf:generated:end -->

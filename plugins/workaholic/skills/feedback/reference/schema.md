@@ -18,6 +18,15 @@ per-field detail, the classification rationale, and the concern producer extensi
   earlier feedback is resolved, obsolete, or overtaken, write a **new** entry naming the
   old one here. Consumers treat a superseded entry as historical context, not current
   signal.
+- **`thread_ref`** (optional, absent on most records) is `<channel-id>:<ts>` for this
+  item's Slack thread root, written **once**, immediately after a routine posts that
+  root — never at `create.sh` time, since the thread does not exist yet then. It is the
+  one field a routine ever adds to an already-written record (`set-thread-ref.sh`,
+  ticket `20260810163359`); a later event for the item reads it directly instead of
+  re-deriving the thread by search (`workaholic:notify`, *One thread per feedback
+  item*). Absent on a record older than this field, or when the write-once script was
+  never called (a failed or skipped write) — either way the reader falls back to the
+  pre-existing exact-string search, which stays the safety net.
 
 Why "feedback": the word covers the whole inbound stream — technical or not, solicited
 or not — where "note"/"memo" implies triviality and "knowledge" implies curation.

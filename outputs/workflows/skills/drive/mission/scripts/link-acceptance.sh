@@ -27,9 +27,9 @@
 #   selector: the item's 1-based position in ## Acceptance ("3"), or a substring that
 #             matches exactly one item's text
 # Output: JSON {linked, path, index, artifact[, reason]}
-#   Refusals print JSON on stdout and exit 1 (no_match, ambiguous, linked_to_other);
-#   already_linked is a no-op on stdout with exit 0; argument/file errors go to stderr
-#   with exit 1, as in the sibling mutators.
+#   Refusals print JSON on stdout and exit 1 (no_match, ambiguous, linked_to_other,
+#   path_not_filename); already_linked is a no-op on stdout with exit 0; argument/file
+#   errors go to stderr with exit 1, as in the sibling mutators.
 
 set -eu
 
@@ -40,6 +40,21 @@ if [ -z "$ARG" ] || [ -z "$SELECTOR" ] || [ -z "$ARTIFACT" ]; then
     echo '{"linked": false, "reason": "missing_args"}' >&2
     exit 1
 fi
+
+# The marker is documented as "(#<artifact-filename>)" -- a bare filename, never a path.
+# `tick-acceptance.sh` is handed a basename by every known caller (`archive.sh`'s
+# `basename "$TICKET"`), so a path-shaped marker written here can never match at tick
+# time and the acceptance item is silently stranded until every one of its member
+# tickets has already landed (measured 2026-08-10, ticket `20260810203351`: a mission
+# stuck at 0/3 after all three tickets archived, because its ARTIFACT arguments were
+# full `.workaholic/tickets/todo/<file>.md` paths). Refuse at the write instead of
+# discovering the mismatch at read time, once it is too late to relink cheaply.
+case "$ARTIFACT" in
+    */*)
+        printf '{"linked": false, "reason": "path_not_filename", "artifact": "%s"}\n' "$ARTIFACT"
+        exit 1
+        ;;
+esac
 
 SCRIPT_DIR=$(dirname "$0")
 . "${SCRIPT_DIR}/lib/resolve.sh"

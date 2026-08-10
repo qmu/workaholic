@@ -54,7 +54,7 @@ Publish has two destinations, and the branch one is the default. Both run `commi
 
 | Script | Destination | Use it for |
 | ------ | ----------- | ---------- |
-| `publish-tree-pr.sh` | a fresh `work-*` branch + an open pull request | every artifact a person should see land (feedback, missions, tickets) — the merge is the event that can be announced |
+| `publish-tree-pr.sh` | a fresh `work-*` branch + an open pull request | every artifact a person should see land (feedback, missions, tickets) — the merge is the event that can be announced. `WORKAHOLIC_AUTO_MERGE=1` (opt-in; `/propose` and `/implement` only, 2026-08-11) merges the PR immediately after opening it when the release scan passes, reporting `merged`/`merge_reason` — `main` is the continuously auto-merged dev branch, `release/*` the QA boundary; `/ticket`'s and `/mission`'s PRs keep their human merge |
 | `publish-tree-commit.sh` | the base branch directly | only seams already downstream of a merge (e.g. ship-time concern extraction) |
 
 Rules that hold across the lifecycle (outputs, refusal reasons, the `WORKAHOLIC_PR_TITLE` env var, and the full rationale: [`reference/publish-tree.md`](reference/publish-tree.md)):

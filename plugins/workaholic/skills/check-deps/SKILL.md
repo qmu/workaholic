@@ -91,7 +91,11 @@ build the field exists to catch.
 
 **No binding at all (`unbound_in_claude_session`) is a warning for `/drive` (its §1), not a stop**
 (2026-08-10, ticket `20260810090005`) — a different failure from either axis above, and lighter in
-kind. Registry drift is a *stale* binding whose scripts run and silently lie; this is *no* binding:
+kind. `/drive`'s handling is one instance of the general rule stated once in
+`plugins/workaholic/rules/general.md` ("An unbound skill surface is not, by itself, a reason to
+stop"): any unattended entry point that finds the `Skill`/`Command` abstraction unreachable, with
+the checkout present and current, reads the needed skill from the checkout path instead of
+stopping outright. Registry drift is a *stale* binding whose scripts run and silently lie; this is *no* binding:
 a genuine Claude Code session (`CLAUDE_CODE_SESSION_ID` present) where the registry confirms the
 plugin is installed, yet `loaded_root_source` never resolved past `"none"` — every skill, command
 and hook the plugin ships is invisible to the Skill/Command tool abstraction for the whole run. FB

@@ -33,22 +33,23 @@ The threaded posts exist so an **absent** operator can tell a working fleet from
 developer attending a `/drive` session is already watching the run, so **an attended `/drive` run
 posts nothing to Slack, at any step** (scoped 2026-08-07). Under `/implement`:
 
-- **Start (§3):** resolve the unit's artifacts to their deduped feedback stems —
+- **Resolve stems (§3):** the start post is retired (2026-08-11) — a unit posts its finish only.
+  Still resolve the unit's artifacts to their deduped feedback stems —
   `bash ../drive/scripts/unit-feedback-stems.sh <artifact>...` (a
   mission's `mission.md`, or the batch's ticket files; a mission with empty `feedback:` resolves
-  through its queued tickets) — and post the 🟠 start line into each stem's thread.
+  through its queued tickets) — for reuse at the finish.
 - **The thread is found, never carried** (Q1, 2026-08-07 — a merged pull request names no
   target, and no body line is read back). Find each stem's thread by the stateless lookup in
   `notify` (*One thread per feedback item*): exact-string searches only —
   `fb:<stem>`, then the Issue/PR URL — at most two queries, no full-channel read, and a new
   keyed root when nothing matches; never a similarity or recency match. Resolve the target
   **once per run** and reuse it for the finish.
-- **Finish (§6/§7):** one finish line per thread, shape following the outcome — 🟢 merge
-  requested, 🚀 merge, 🟡 handoff, 🔴 blocked. A handoff's 🟡 **is** the finish, never a third
-  post. Every route owes the finish, including a demotion — the unit reports the shape it
-  actually reached. A human merge of a `review` unit posts no finish line of its own — that
-  was `[Consent]`'s retired job (`notify`, *Which thread an `/implement` unit's
-  posts land in*).
+- **Finish (§6/§7):** one finish line per thread, shape following the outcome — 🟢 Implemented
+  (the ordinary case: PR opened and merged, or an open PR a scan finding held), 🚀 Auto Merge,
+  🟡 handoff, 🔴 blocked. A handoff's 🟡 **is** the finish, never a third post. Every route owes
+  the finish, including a demotion — the unit reports the shape it actually reached. A human
+  merge of a `review` unit posts no finish line of its own — that was `[Consent]`'s retired job
+  (`notify`, *Which thread an `/implement` unit's posts land in*).
 - **Per unit, never per run** ("a run started" names no item, so it has no thread); with no stems
   at all, key on `unit:<unit-id>` — never keyless. The routing rules live in
   `notify` (*One thread per feedback item*). The posts go through the session's
@@ -75,8 +76,13 @@ not write a second story generator.
 
 ## Routing mechanics (§6)
 
-- **`review` → stop at the PR.** The worktree and the claim **stay** — the unit is unfinished
-  until its PR merges. Under `/implement`, post the URL through
+- **`review` → merge the PR immediately** (mission `auto-merge-propose-and-implement-prs-under-a-dev-release-branch-split`,
+  2026-08-11, superseding the earlier stop-at-the-PR route): once `/report` has opened the unit's
+  pull request and the branch-safety scan verdict is `pass`, merge it (`gh pr merge --merge`) with
+  no human confirmation and tear the claim down exactly as `auto` does below — quality is gated
+  downstream at the `release/*` QA window, not at merge time. A scan finding is the one thing that
+  leaves the PR open instead (there is no human here to override — the demotion doctrine below is
+  unchanged). Under `/implement`, post the one `🟢 Implemented` finish line through
   `bash ../propose/scripts/notify-slack.sh "<message with the PR URL>"`
   (never load-bearing: without a token it records `{"notified": false, "reason": "no_token"}` and
   the run continues). Under `/drive` the developer is the human loop — report the URL in the

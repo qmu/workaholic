@@ -3923,6 +3923,19 @@ author: test@example.com
       JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.tickAcceptance} linkme t1.md`).stdout).ticked, true);
     assertEq("progress moves after the link makes the item addressable",
       JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionProgress} linkme`).stdout).checked, 1);
+
+    // A path-shaped artifact argument can never match what archive.sh hands
+    // tick-acceptance.sh (a bare basename), so link-acceptance.sh refuses it at write
+    // time rather than stamping a marker the ticker can never find (ticket
+    // 20260810203351: a mission stuck at 0/3 after every member ticket had already
+    // archived, because its markers were full `.workaholic/tickets/todo/<file>.md`
+    // paths instead of bare filenames).
+    const beforePathRefusal = readFileSync(mfile, "utf8");
+    const pathAttempt = run(dir, `${POSIX_SH} ${SCRIPTS.linkAcceptance} linkme 3 .workaholic/tickets/todo/t9.md`);
+    assertEq("a path-shaped artifact is refused, not silently stamped",
+      JSON.parse(pathAttempt.stdout).reason, "path_not_filename");
+    assertEq("a path-shaped artifact refusal exits non-zero", pathAttempt.status, 1);
+    assertEq("the refusal leaves the file untouched", readFileSync(mfile, "utf8"), beforePathRefusal);
   } finally { cleanup(dir); }
 }
 
@@ -8977,10 +8990,14 @@ function testUnitFeedbackStems() {
 // ---------- workaholify/render-setup-sheet.sh: the human's UI setup, made cheap ----------
 // THE PROPERTY UNDER TEST is that the sheet's UI steps are DERIVED from each template's
 // structured trigger declaration, never hand-written prose that can drift, and that the
-// prompt reaches the developer verbatim -- what they paste is what runs. The command that
-// prints this makes no RemoteTrigger call at all: the GitHub trigger is web-UI-only, so a
-// tool that managed the readable half while blind to the wiring misled more than it helped
-// (developer's ruling, 2026-08-06).
+// prompt reaches the developer verbatim -- what they paste is what runs. This SCRIPT makes
+// no RemoteTrigger call at all -- it only reads templates and renders text (developer's
+// ruling, 2026-08-06). The COMMAND layered on top of it now detects a RemoteTrigger-family
+// tool per-session and applies directly when one is exposed (ticket 20260810130703,
+// scoped to the interactive session class that FB 20260810214929 found carries the tool);
+// this script remains its unconditional fallback and the direct-apply path's own source of
+// the target state, so what must never survive is an UNCONDITIONAL call issued without
+// first detecting the tool.
 function testRenderSetupSheet() {
   const WH = "https://github.com/qmu/workaholic";
   const sheet = (target) => run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.renderSetupSheet} ${target} ${WH}`).stdout;
@@ -8994,7 +9011,8 @@ function testRenderSetupSheet() {
   // developer's explicit ask covering both routines) -- neither renders a GitHub
   // event step any more.
   assertTrue("each schedule trigger renders its own cron step",
-    (all.match(/\*\*Trigger\*\* — \*Select a trigger\* → \*\*Schedule\*\*, cron `0,30 \* \* \* \*`/g) || []).length === 2 &&
+    /\*\*Trigger\*\* — \*Select a trigger\* → \*\*Schedule\*\*, cron `15 \* \* \* \*`/.test(all) &&
+    /\*\*Trigger\*\* — \*Select a trigger\* → \*\*Schedule\*\*, cron `30 \* \* \* \*`/.test(all) &&
     !/Event: `issues\.assigned`/.test(all) &&
     !/Event: `pull_request\.closed`/.test(all),
     all);
@@ -9010,13 +9028,14 @@ function testRenderSetupSheet() {
   assertEq("an unknown template is refused",
     run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.renderSetupSheet} no-such ${WH}`).status !== 0, true);
 
-  // The command prints sheets and manages nothing -- pinned because "just one small
-  // RemoteTrigger read" is exactly how the retired management surface grew back.
+  // The command converges routines directly ONLY behind a detection step -- pinned
+  // because "just one small RemoteTrigger read" (with no detection gate) is exactly how
+  // the retired, unconditional management surface grew back the first time.
   const cmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/setup-routines.md"), "utf8");
-  // The command may NAME RemoteTrigger to say it does not call it; what must not survive
-  // is an instruction to invoke it. Both forms the retired command used are pinned out.
-  assertTrue("the command issues no RemoteTrigger call",
-    !/Call `RemoteTrigger`/.test(cmd) && !/RemoteTrigger[^\n]*\baction:/.test(cmd), cmd.slice(0, 300));
+  assertTrue("the command detects RemoteTrigger before applying anything",
+    /detect `RemoteTrigger` availability/.test(cmd), cmd.slice(0, 400));
+  assertTrue("it still falls back to the unchanged sheet when the tool is absent",
+    /render the copy-paste setup sheets/.test(cmd) && /behavior is unchanged/i.test(cmd), cmd.slice(0, 600));
   assertTrue("and it states plainly that it asks nothing",
     /no `AskUserQuestion`/.test(cmd) && !/confirm it with `AskUserQuestion`/.test(cmd), cmd.slice(0, 300));
 }
@@ -13502,12 +13521,16 @@ function testWorkaholifyRoutines() {
     // Both templates carry a fixed-interval schedule trigger (ticket 20260810085347,
     // developer's explicit ask covering [Propose] as well as [Implement], 2026-08-10),
     // superseding the 2026-08-06 merge-trigger pin this block used to state.
-    assertEq("both templates carry the same 30-minute schedule",
-      tpl.templates.map((t) => t.cron_expression).sort(), ["0,30 * * * *", "0,30 * * * *"]);
+    // Hourly since 2026-08-11: the routine API's minimum interval is one hour
+    // (`0,30 * * * *` rejected as "cron interval too short", measured live), so the
+    // designed 30-minute cadence became a staggered hourly pair — [Propose] :15,
+    // [Implement] :30.
+    assertEq("the templates carry the staggered hourly schedule",
+      tpl.templates.map((t) => t.cron_expression).sort(), ["15 * * * *", "30 * * * *"]);
     assertEq("implement declares the schedule trigger",
-      tpl.templates.find((t) => t.id === "implement").trigger, "schedule-every-30-min");
+      tpl.templates.find((t) => t.id === "implement").trigger, "schedule-hourly");
     assertEq("fb declares the schedule trigger",
-      tpl.templates.find((t) => t.id === "fb").trigger, "schedule-every-30-min");
+      tpl.templates.find((t) => t.id === "fb").trigger, "schedule-hourly");
 
     // ---- the three substitutions, each demanded by a real prompt ----
     const drive = JSON.parse(run(dir, `${RENDER} implement ${WH}`).stdout);
@@ -13535,7 +13558,7 @@ function testWorkaholifyRoutines() {
     // 2026-08-10, superseding the 2026-08-06 assigned-issue-only pin). The word is the
     // design, so it is pinned.
     assertEq("the fb routine declares the schedule trigger, matching implement",
-      [fb.trigger, fb.cron_expression], ["schedule-every-30-min", "0,30 * * * *"]);
+      [fb.trigger, fb.cron_expression], ["schedule-hourly", "15 * * * *"]);
     assertEq("an unknown template is refused by name",
       JSON.parse(run(dir, `${RENDER} no-such ${WH}`).stdout).error, "unknown_template");
   } finally { cleanup(dir); }
@@ -13741,19 +13764,19 @@ function testRoutineAnnouncementScoping() {
   // project, so the count and the shape are the constraint the loop's shape is set by.
   const templates = readdirSync(dir).filter((f) => f.endsWith(".md")).sort();
   assertEq("exactly two templates ship", templates, ["fb.md", "implement.md"]);
-  // The developer's own prompt (feedback 20260806183556, reshaped by Q2 2026-08-07):
-  // three instructions and two fenced post formats — the start post is formatted too,
-  // and both formats carry the session URL and the requester's mention. The assignee
-  // guard that briefly lived here moved into /propose (P8), which is what keeps both
-  // templates identical in shape.
+  // The developer's own prompt (feedback 20260806183556, reshaped by Q2 2026-08-07,
+  // narrowed 2026-08-11 by FB 20260810215745): the start post is RETIRED — a routine
+  // posts its finish only, and the one fenced format carries the session URL and the
+  // requester's mention. The assignee guard that briefly lived here moved into
+  // /propose (P8), which is what keeps both templates identical in shape.
   for (const [name, body] of [["fb", fb], ["implement", implement]]) {
     const prompt = body.replace(/^## Prompt\n/, "");
     const instructions = prompt.split("\n").filter((l) => /^[A-Z]/.test(l.trim()));
-    assertEq(`the ${name} prompt carries three instructions`, instructions.length, 3);
+    assertEq(`the ${name} prompt carries two instructions`, instructions.length, 2);
     const fences = (prompt.match(/^```$/gm) || []).length;
-    assertEq(`the ${name} prompt carries two fenced post formats`, fences, 4);
-    assertTrue(`the ${name} prompt's start post is formatted (Proposing/Implementing for)`,
-      /(📐 Proposing for|🟠 Implementing for)/.test(prompt), prompt.slice(0, 200));
+    assertEq(`the ${name} prompt carries one fenced post format`, fences, 2);
+    assertTrue(`the ${name} prompt carries no start post (retired 2026-08-11)`,
+      !/(📐 Proposing for|🟠 Implementing for)/.test(prompt), prompt.slice(0, 200));
     assertTrue(`the ${name} prompt's finish post is formatted (Proposed/Implemented)`,
       /(🔵 Proposed - |🟢 Implemented - )/.test(prompt), prompt.slice(0, 200));
     assertTrue(`both posts carry the session URL and the requester's mention`,
@@ -13781,8 +13804,8 @@ function testRoutineAnnouncementScoping() {
       /find its reply thread \(the workaholic:notify lookup\)/.test(body), body.slice(0, 400));
     assertTrue(`the ${name} prompt carries no thread URL to read`,
       !/Slack Thread URL/.test(body), body.slice(0, 400));
-    assertTrue(`the ${name} prompt announces that work has started`,
-      /that (proposing process|implementation) has started/.test(body), body.slice(0, 400));
+    assertTrue(`the ${name} prompt announces no start (the finish is the only post)`,
+      !/has started/.test(body) && /the finish is the only post/.test(body), body.slice(0, 400));
     assertTrue(`the ${name} prompt carries its post format inline`,
       /<@U…>/.test(body) && /\{repo\}\/pull\/123/.test(body), body.slice(0, 400));
     assertTrue(`the ${name} prompt names no repository`,

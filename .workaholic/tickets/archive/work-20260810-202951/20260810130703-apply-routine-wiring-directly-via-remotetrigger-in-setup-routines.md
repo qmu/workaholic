@@ -62,3 +62,12 @@ merge_policy:
 ## Considerations
 
 The prior ruling's "no tool" finding was measured for the *unattended, routine-fired* session class specifically (`render-setup-sheet.sh`'s header); this ticket must not silently broaden that scope claim beyond what a fresh interactive-session check confirms. Depends on the schedule fix ticket landing first (or in the same mission unit) so nothing applies the still-unrealizable `0,30 * * * *` value.
+
+## Final Report
+
+Development completed as planned. `/setup-routines` now detects a `RemoteTrigger`-family tool via `ToolSearch` before rendering anything, and branches: when exposed (an interactive session — this unattended, routine-fired session confirmed it still has none, consistent with the prior finding) it lists the account's routines, diffs each against its template (name/prompt/model/`cron_expression`/connectors) via `list-routine-templates.sh`/`render-routine.sh`, and applies create/update calls to converge, reporting exactly what changed per routine; when absent it falls through unchanged to `render-setup-sheet.sh --all <repo-url>`. No `AskUserQuestion` is introduced (converging to the developer's own already-declared template passes the Recommended-label test in `rules/interaction.md`). The detection-and-apply logic is agent prose in the skill (§5 *Direct-apply when RemoteTrigger is exposed*) rather than a bash script, since calling `RemoteTrigger` is a model-level tool call no shell script can make — consistent with `list-routine-templates.sh`'s own header, which already anticipated this split ("scripts own the template reading and the comparison, the command owns the API calls"). Updated the existing `render-setup-sheet.sh` smoke test to assert the new conditional design (detection gates any application) rather than the old unconditional prohibition it had pinned.
+
+### Discovered Insights
+
+- **Insight**: `list-routine-templates.sh`'s header comment already stated the intended split — "THIS SCRIPT NEVER TALKS TO THE API... the command owns the API calls and the confirmation" — before this ticket implemented that command-side half.
+  **Context**: Confirms the direct-apply path belongs in the skill's prose (read by the agent driving `/setup-routines`), not in a new script; a script cannot call a Claude Code tool like `RemoteTrigger`.

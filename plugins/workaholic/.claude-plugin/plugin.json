@@ -1,7 +1,7 @@
 {
   "name": "workaholic",
   "description": "Structured development workflows and engineering standards: commands, skills, and hooks for cross-agent development",
-  "version": "1.0.146",
+  "version": "1.0.147",
   "dependencies": [],
   "author": {
     "name": "tamurayoshiya",

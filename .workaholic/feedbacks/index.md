@@ -442,5 +442,6 @@
 * [Color-code the notify post shapes by state](20260810062845-color-code-the-notify-post-shapes-by-state.md)
 * [Implement routine over-blocks on unbound_in_claude_session](20260810070110-implement-routine-over-blocks-on-unbound-in-claude-session.md)
 * [Fix drift in routine notify templates for Propose/Implement status posts](20260810080930-fix-drift-in-routine-notify-templates-for-propose-implement-status-posts.md)
+* [Move workaholify Proposal and Implement steps to a fixed interval loop instead of immediate webhook triggers](20260810085032-move-workaholify-proposal-and-implement-steps-to-a-fixed-interval-loop-instead-of-immediate-webhook-triggers.md)
 * [Version-binding gate in /implement's survey step stops the whole session instead of warning and continuing](20260810085823-version-binding-gate-in-implement-s-survey-step-stops-the-whole-session-instead-of-warning-and-continuing.md)
 <!-- okf:generated:end -->

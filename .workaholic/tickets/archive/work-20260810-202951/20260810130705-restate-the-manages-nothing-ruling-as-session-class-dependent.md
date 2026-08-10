@@ -59,3 +59,12 @@ Once the sibling ticket lands the direct-apply path, every doc still stating "`/
 ## Considerations
 
 This ticket is pure documentation and should be small; if the direct-apply ticket's scope shifts during review, keep this one in lockstep rather than letting the docs drift ahead of the code — the exact failure mode `CLAUDE.md`'s own "Update the docs in the same change" rule exists to prevent.
+
+## Final Report
+
+Development completed as planned. Grepped the repository for "manages nothing" and its paraphrases and restated each surviving instance as session-class-dependent rather than unconditional: `CLAUDE.md`'s `/setup-routines` row now leads with the two-branch behavior (interactive session with `RemoteTrigger` → direct-apply; routine-fired session without it → unchanged sheet-only fallback) before restating the original 2026-08-06/2026-08-10 findings as the reason the *fallback* class still manages nothing; `reference/routines.md`'s *The schedule field* section now states that the interactive-session case it had left as an open question was subsequently checked and found true. `SKILL.md` §5 already carried the qualified statement from the sibling direct-apply ticket in this mission, so it needed no further change beyond what that ticket already made. The prior ruling's evidence (the 2026-08-06 digest-gate measured costs, the GitHub-trigger API-blindness finding) is preserved verbatim everywhere it was already recorded — only the scope of the conclusion changed, never the reasoning behind it.
+
+### Discovered Insights
+
+- **Insight**: "Manages nothing" was stated in this repository's docs as a property of the `/setup-routines` *command*, when it was actually a property of the *session class* every check to date happened to run in (the unattended, routine-fired class) — a distinction the docs only made explicit once a differently-classed session actually falsified the unconditional reading.
+  **Context**: A finding measured from inside one session class does not automatically generalize to another; restating it as scoped from the start (rather than unconditional) would have made this ticket unnecessary.

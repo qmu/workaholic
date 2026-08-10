@@ -8977,10 +8977,14 @@ function testUnitFeedbackStems() {
 // ---------- workaholify/render-setup-sheet.sh: the human's UI setup, made cheap ----------
 // THE PROPERTY UNDER TEST is that the sheet's UI steps are DERIVED from each template's
 // structured trigger declaration, never hand-written prose that can drift, and that the
-// prompt reaches the developer verbatim -- what they paste is what runs. The command that
-// prints this makes no RemoteTrigger call at all: the GitHub trigger is web-UI-only, so a
-// tool that managed the readable half while blind to the wiring misled more than it helped
-// (developer's ruling, 2026-08-06).
+// prompt reaches the developer verbatim -- what they paste is what runs. This SCRIPT makes
+// no RemoteTrigger call at all -- it only reads templates and renders text (developer's
+// ruling, 2026-08-06). The COMMAND layered on top of it now detects a RemoteTrigger-family
+// tool per-session and applies directly when one is exposed (ticket 20260810130703,
+// scoped to the interactive session class that FB 20260810214929 found carries the tool);
+// this script remains its unconditional fallback and the direct-apply path's own source of
+// the target state, so what must never survive is an UNCONDITIONAL call issued without
+// first detecting the tool.
 function testRenderSetupSheet() {
   const WH = "https://github.com/qmu/workaholic";
   const sheet = (target) => run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.renderSetupSheet} ${target} ${WH}`).stdout;
@@ -9011,13 +9015,14 @@ function testRenderSetupSheet() {
   assertEq("an unknown template is refused",
     run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.renderSetupSheet} no-such ${WH}`).status !== 0, true);
 
-  // The command prints sheets and manages nothing -- pinned because "just one small
-  // RemoteTrigger read" is exactly how the retired management surface grew back.
+  // The command converges routines directly ONLY behind a detection step -- pinned
+  // because "just one small RemoteTrigger read" (with no detection gate) is exactly how
+  // the retired, unconditional management surface grew back the first time.
   const cmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/setup-routines.md"), "utf8");
-  // The command may NAME RemoteTrigger to say it does not call it; what must not survive
-  // is an instruction to invoke it. Both forms the retired command used are pinned out.
-  assertTrue("the command issues no RemoteTrigger call",
-    !/Call `RemoteTrigger`/.test(cmd) && !/RemoteTrigger[^\n]*\baction:/.test(cmd), cmd.slice(0, 300));
+  assertTrue("the command detects RemoteTrigger before applying anything",
+    /detect `RemoteTrigger` availability/.test(cmd), cmd.slice(0, 400));
+  assertTrue("it still falls back to the unchanged sheet when the tool is absent",
+    /render the copy-paste setup sheets/.test(cmd) && /behavior is unchanged/i.test(cmd), cmd.slice(0, 600));
   assertTrue("and it states plainly that it asks nothing",
     /no `AskUserQuestion`/.test(cmd) && !/confirm it with `AskUserQuestion`/.test(cmd), cmd.slice(0, 300));
 }

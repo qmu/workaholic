@@ -60,3 +60,12 @@ Both routine templates declare `cron_expression: 0,30 * * * *` — two fires an 
 ## Considerations
 
 This ticket only fixes what the templates *declare*; per the existing `/setup-routines` "manages nothing" ruling, a developer must still re-enter the corrected schedule in the web UI unless the sibling ticket in this mission lands the direct-apply path first.
+
+## Final Report
+
+Development completed as planned. The two routine templates (`fb.md`, `implement.md`) already carried the corrected realizable hourly `cron_expression` values (`15 * * * *` / `30 * * * *`) from a prior change, so this ticket's remaining work was the surrounding-documentation drift: `SKILL.md` (§5 and *What a routine can be triggered by*), `reference/routines.md`, and `CLAUDE.md`'s `/workaholify` row still described the retired, API-rejected `0,30 * * * *` value as the designed/current wiring. Rewrote each to state the realizable hourly cadence with distinct non-zero minutes, keeping a historical mention of the rejected `0,30 * * * *` value only where it explains why the two routines ended up on different minutes. Confirmed `render-setup-sheet.sh` reads `cron_expression` generically via `fm_field` with no hardcoded `0,30` assumption, so no script change was needed.
+
+### Discovered Insights
+
+- **Insight**: The routine templates and the prose describing them can drift independently — the templates (`fb.md`/`implement.md`) had already been corrected by an earlier change while three other docs (`SKILL.md`, `reference/routines.md`, `CLAUDE.md`) still stated the old, rejected schedule as current.
+  **Context**: `grep -rn '0,30 \* \* \* \*'` across `plugins/` and `CLAUDE.md` is the fast way to catch this class of drift before it compounds further.

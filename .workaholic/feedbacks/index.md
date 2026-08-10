@@ -442,4 +442,5 @@
 * [Color-code the notify post shapes by state](20260810062845-color-code-the-notify-post-shapes-by-state.md)
 * [Implement routine over-blocks on unbound_in_claude_session](20260810070110-implement-routine-over-blocks-on-unbound-in-claude-session.md)
 * [Fix drift in routine notify templates for Propose/Implement status posts](20260810080930-fix-drift-in-routine-notify-templates-for-propose-implement-status-posts.md)
+* [Version-binding gate stops the whole session, which costs more than it saves](20260810085255-version-binding-gate-stops-the-whole-session-which-costs-more-than-it-saves.md)
 <!-- okf:generated:end -->

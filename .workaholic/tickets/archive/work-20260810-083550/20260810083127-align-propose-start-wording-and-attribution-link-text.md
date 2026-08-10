@@ -100,3 +100,59 @@ documented, keeping every emoji, link, and mention token exactly as they are tod
 - Purely cosmetic wording; no behavior, schema, or trigger change. Scoped to this mission
   as a delta rather than a fresh mission/ticket, since it sharpens the same shape catalog
   this mission's own two tickets just landed (propose PR #334's Concerns section).
+
+## Final Report
+
+Development completed as planned. Applied both substitutions mechanically across every
+live reference:
+
+- `plugins/workaholic/skills/workaholify/routines/fb.md` — `📐 Designing for` → `📐
+  Proposing for`; both `by [Claude Code on the Web](...)` lines → `by the
+  [routine](...)`; also aligned the adjacent instruction line ("Notify to the thread
+  that design process has started" → "...that proposing process has started") for
+  internal consistency with the corrected shape, since leaving it would have made the
+  same file self-contradictory.
+- `plugins/workaholic/skills/workaholify/routines/implement.md` — both attribution
+  lines only ("Implementing"/"Implemented" wording already matched the developer's
+  template).
+- `plugins/workaholic/skills/notify/reference/notifications.md` — the `/propose` and
+  `/implement` code blocks (one "Designing", four attribution lines), plus the section
+  heading ("design start and finish" → "start and finish") and the summary sentence
+  naming the two sanctioned events.
+- `plugins/workaholic/skills/notify/SKILL.md` — the standing shapes-list line (`📐
+  designing` → `📐 proposing`).
+- `scripts/test-workflow-scripts.mjs` — both pinned assertions in
+  `testRoutineAnnouncementScoping` that hard-coded the retired wording (the start-post
+  format regex and the "announces that work has started" regex), so the suite asserts
+  the corrected template rather than the old one.
+- `outputs/workflows/` — grepped and confirmed no occurrence of either old string; the
+  `notify`/`workaholify` skills are Claude-Code-only and are not part of
+  `computeClosure` for any of the six skills `build.mjs` assembles, so no generated
+  file needed touching (`node scripts/build-plugins/build.mjs` still run to confirm and
+  regenerate the OKF/policy-index side effects; it produced no `outputs/` diff).
+
+### Discovered Insights
+
+- **Insight**: `node scripts/test-workflow-scripts.mjs` failed 5 of 2467 tests on the
+  first run in this session — 4 in `propose extract-issue-number` plus a fifth that
+  *was* this ticket's own (fixed above). Re-running with `CCR_TRIGGER_ISSUE_NUMBER`
+  explicitly unset passed all 2467. **Context**: this interactive session was itself
+  triggered by a GitHub `issues.opened` webhook for #333, so the container's real
+  environment carries `CCR_TRIGGER_ISSUE_NUMBER=333`; `test-workflow-scripts.mjs`'s
+  `run()` helper spawns fixtures via `execSync` without stripping ambient env, so that
+  real trigger value leaked into `propose/scripts/extract-issue-number.sh` fixtures
+  that assert an *empty* or *argument-derived* issue number. Confirmed unrelated to
+  this ticket's own change (same 4 failures reproduce identically before and after).
+  Not minted as a ticket: a fresh `/implement` container is a `pull_request.closed`
+  trigger and never carries `CCR_TRIGGER_ISSUE_NUMBER`, so the gap is latent rather
+  than live in the unattended path; recorded here for whoever next runs the suite
+  inside an `issues.*`-triggered session.
+
+## Verify
+
+`node scripts/build-plugins/build.mjs && node scripts/build-plugins/verify.mjs && node
+scripts/build-plugins/validate-metadata.mjs` all clean; `env -u CCR_TRIGGER_ISSUE_NUMBER
+node scripts/test-workflow-scripts.mjs` reports `2467 passed, 0 failed`; a
+repository-wide grep for `📐 Designing` / `Claude Code on the Web` across
+`plugins/workaholic/`, `outputs/`, and `scripts/` returns zero hits; `bash
+plugins/workaholic/hooks/layout-doctor.sh .` reports `conforming: true`.

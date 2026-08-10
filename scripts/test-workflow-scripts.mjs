@@ -501,6 +501,55 @@ Development completed as planned.
   } finally { cleanup(dir); }
 }
 
+// ---------- 5a. drive/archive.sh pushes the claim branch itself ----------
+// The archive commit is a progress signal that must always reach the remote (an
+// unpushed archive makes a finished claim look resumable once its heartbeat lapses).
+// archive.sh now pushes right after the archive commit, the same non-blocking
+// convention heartbeat.sh already uses -- this pins that the remote branch tip carries
+// the archive commit with NO separate `git push` call from the caller.
+function testArchivePushesClaimBranch() {
+  const origin = mkdtempSync(join(tmpdir(), "wh-archive-push-origin-"));
+  const dir = mkdtempSync(join(tmpdir(), "wh-archive-push-clone-"));
+  try {
+    execSync(`git -c init.defaultBranch=main init -q --bare`, { cwd: origin });
+    execSync(`git clone -q ${origin} .`, { cwd: dir });
+    execSync(`git config user.email test@example.com && git config user.name Test && git config commit.gpgsign false`, { cwd: dir });
+    writeFileSync(join(dir, "README.md"), "smoke\n");
+    execSync(`git add README.md && git commit -q -m initial && git push -q origin main`, { cwd: dir });
+
+    // A claim branch, pushed at claim time -- exactly as claim.sh leaves it before
+    // the session starts driving.
+    execSync(`git checkout -q -b work-20260807-smoke`, { cwd: dir });
+    execSync(`git push -q -u origin work-20260807-smoke`, { cwd: dir });
+
+    const todoDir = join(dir, `.workaholic/tickets/todo/${TEST_SLUG}`);
+    mkdirSync(todoDir, { recursive: true });
+    const ticketPath = join(todoDir, "20260807000000-push-ticket.md");
+    writeFileSync(ticketPath, `---
+created_at: 2026-08-07T00:00:00+09:00
+author: a@example.com
+assignees: []
+depends_on:
+---
+
+# Push Ticket
+
+## Final Report
+
+Development completed as planned.
+`);
+
+    const r = run(dir, `${POSIX_SH} ${SCRIPTS.archive} .workaholic/tickets/todo/${TEST_SLUG}/20260807000000-push-ticket.md "Add push feature" https://example.com/repo "the why" "the changes" "the concerns" "the insights" "the verify"`);
+    assertEq("archive.sh exits 0", r.status, 0);
+    assertTrue("archive.sh reports the push", /Push:\s*pushed/.test(r.stdout), r.stdout);
+
+    const localTip = execSync(`git rev-parse HEAD`, { cwd: dir, encoding: "utf8" }).trim();
+    const remoteTip = execSync(`git --git-dir=${origin} rev-parse work-20260807-smoke`, { encoding: "utf8" }).trim();
+    assertEq("remote branch tip already carries the archive commit -- no separate push required",
+      remoteTip, localTip);
+  } finally { cleanup(origin); cleanup(dir); }
+}
+
 // ---------- 5b. commit/commit.sh staging never silently omits a file ----------
 // The defect this pins: commit.sh reported a commit as done while a file the caller
 // meant to include was missing from it. Two holes — an explicitly-named path that
@@ -8436,6 +8485,65 @@ function testCheckDepsRegistryDrift() {
   } finally { cleanup(dir); }
 }
 
+// THE FRESH-INSTALL/NO-RELOAD GAP (FB 20260807104046, 2026-08-09) is a THIRD axis, distinct
+// from registry drift: not a STALE binding but NO binding at all. Measured live: a SessionStart
+// hook installs the plugin and prints the /reload-plugins reminder, but the session's very next
+// Skill(...) call fails "Unknown skill" -- nothing from the plugin is ever bound. Investigated
+// against Claude Code's own docs and confirmed there is no in-plugin fix, so the deliverable is
+// legibility: a genuine Claude Code session (CLAUDE_CODE_SESSION_ID set) where the harness's own
+// registry confirms an install, yet loaded_root_source never resolved past "none".
+function testCheckDepsUnboundSession() {
+  let hasJq = true;
+  try { execSync("command -v jq", { stdio: "ignore" }); } catch { hasJq = false; }
+  if (!hasJq) { console.log("  skip  check-deps unbound-session axis (jq not available)"); return; }
+
+  const dir = mkdtempSync(join(tmpdir(), "workaholic-unbound-"));
+  try {
+    const registry = join(dir, "installed_plugins.json");
+    writeFileSync(registry, JSON.stringify({
+      version: 2,
+      plugins: { "workaholic@workaholic": [{ scope: "user", installPath: "/anywhere", version: "1.0.140" }] },
+    }));
+
+    // GATE 1 — the measured defect: a genuine Claude Code session, the registry confirms an
+    // install, but no plugin root is bound at all (loaded_root_source stays "none").
+    let r = JSON.parse(run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.checkDeps}`, {
+      env: { ...process.env, CLAUDE_PLUGIN_ROOT: "", CLAUDE_PLUGIN_REGISTRY: registry, CLAUDE_CODE_SESSION_ID: "test-session-id" },
+    }).stdout);
+    assertEq("a genuine session with a registered-but-unbound install is flagged",
+      { src: r.loaded_root_source, claudeSession: r.claude_session_detected, hasInstall: r.registry_has_install, unbound: r.unbound_in_claude_session },
+      { src: "none", claudeSession: true, hasInstall: true, unbound: true });
+
+    // GATE 2 — a non-Claude agent (no session id) must never be accused: it has no plugin root
+    // by design, not by a gap this axis exists to catch.
+    r = JSON.parse(run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.checkDeps}`, {
+      env: { ...process.env, CLAUDE_PLUGIN_ROOT: "", CLAUDE_PLUGIN_REGISTRY: registry, CLAUDE_CODE_SESSION_ID: "" },
+    }).stdout);
+    assertEq("no session marker means no verdict, even with a confirmed install",
+      { claudeSession: r.claude_session_detected, unbound: r.unbound_in_claude_session },
+      { claudeSession: false, unbound: false });
+
+    // GATE 3 — a genuine session where the registry has nothing for this plugin (never
+    // installed) must not be confused with "installed but unbound".
+    const emptyRegistry = join(dir, "empty-registry.json");
+    writeFileSync(emptyRegistry, JSON.stringify({ version: 2, plugins: {} }));
+    r = JSON.parse(run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.checkDeps}`, {
+      env: { ...process.env, CLAUDE_PLUGIN_ROOT: "", CLAUDE_PLUGIN_REGISTRY: emptyRegistry, CLAUDE_CODE_SESSION_ID: "test-session-id" },
+    }).stdout);
+    assertEq("a genuine session with no registry entry is not flagged",
+      { hasInstall: r.registry_has_install, unbound: r.unbound_in_claude_session },
+      { hasInstall: false, unbound: false });
+
+    // GATE 4 — a BOUND session (a plugin root resolved) must never trip this axis, even with the
+    // session marker present: the whole point is "nothing bound", not "session exists".
+    r = JSON.parse(run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.checkDeps}`, {
+      env: { ...process.env, CLAUDE_PLUGIN_ROOT: REPO_ROOT + "/plugins/workaholic", CLAUDE_PLUGIN_REGISTRY: registry, CLAUDE_CODE_SESSION_ID: "test-session-id" },
+    }).stdout);
+    assertEq("a bound session is never flagged unbound regardless of the session marker",
+      r.unbound_in_claude_session, false);
+  } finally { cleanup(dir); }
+}
+
 // ---------- catch/scan-window.sh (time-buckets + per-branch axis) ----------
 // Hermetic: a repo with dated commits across two branches. Asserts the scanner
 // emits epoch bucket boundaries, tags each commit into a time-bucket, and builds
@@ -12056,6 +12164,7 @@ const tests = [
   ["branching/check-workspace.sh", testCheckWorkspace],
   ["drive/update.sh", testUpdate],
   ["drive/archive.sh", testArchive],
+  ["drive/archive.sh pushes the claim branch itself", testArchivePushesClaimBranch],
   ["commit/commit.sh never silently omits a file", testCommitStaging],
   ["gather/user-slug.sh", testUserSlug],
   ["gather/migrate-todo-owners.sh", testMigrateTodoOwners],
@@ -12171,6 +12280,7 @@ const tests = [
   ["build: a plugin-root PATH is a defect, a bare read is not", testPluginRootPathVsRead],
   ["check-deps/check.sh", testCheckDeps],
   ["check-deps: a superseded plugin binding is a stop, not a warning", testCheckDepsRegistryDrift],
+  ["check-deps: an unbound plugin in a genuine session is a stop", testCheckDepsUnboundSession],
   ["catch/scan-window.sh buckets+branches", testScanWindowBuckets],
   ["branching/ensure-worktree.sh", testEnsureWorktreeGuard],
   ["hooks/lib/check-subject.sh", testCheckSubject],

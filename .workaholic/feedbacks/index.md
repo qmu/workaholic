@@ -452,4 +452,5 @@
 * [Resolved: Prompt comparison is exact, so reformatting a template flags every repository at once](20260810092934-resolved-prompt-comparison-is-exact-so-reformatting.md)
 * [Resolved: The digest gate cannot prove a human was present](20260810092934-resolved-the-digest-gate-cannot-prove-a.md)
 * [Resolved: The Drive template is still a pilot](20260810092934-resolved-the-drive-template-is-still-a.md)
+* ["No RemoteTrigger tool exposed" claim is session-class-dependent — and reveals real cron/prompt drift on the live routines](20260810104520-no-remotetrigger-tool-exposed-claim-is-session-class-dependent-and-reveals-real-cron-prompt-drift-on-the-live-routines.md)
 <!-- okf:generated:end -->

@@ -5,6 +5,7 @@ assignees:
 depends_on:
 mission:
 merge_policy:
+claim: work-20260810-171152
 ---
 
 # Reconcile /ticket creation's "review" wording with the auto-merge mission

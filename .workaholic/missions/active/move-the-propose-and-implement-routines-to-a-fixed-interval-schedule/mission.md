@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260810-090432
 ---
 
 # Move the Propose and Implement routines to a fixed-interval schedule

@@ -5,6 +5,7 @@ assignees:
 depends_on:
 mission:
 merge_policy:
+claim: work-20260810-171152
 ---
 
 # Reconcile /ticket creation's "review" wording with the auto-merge mission
@@ -68,3 +69,17 @@ told they are choosing whether a human looks at the PR, which is no longer true 
 - This is a developer-facing decision prompt, not internal doc prose — misleading it has a higher cost than the two doc-drift tickets that found it, since a developer answers it believing they are opting a human in or out.
 - Low-to-moderate severity: the field's mechanical effect (deploy-gate timing) is unchanged and correctly implemented; only the human-facing explanation is stale.
 - Found while implementing `20260810164156-reconcile-drive-routing-md-s-stale-review-route-description.md`, itself minted from `20260809085953-reconcile-stale-notification-shape-references-post-p10.md`.
+
+## Final Report
+
+Development completed as planned. Rewrote the `/ticket` §4d interrogation (`create-ticket/SKILL.md`
+and `reference/interrogation.md`) and `/mission`'s equivalent ruling
+(`mission/reference/command-flows.md`, found via step 2's grep, matching this ticket's Key Files
+note) to describe the actual current distinction: `auto` proves the deploy before merging, `review`
+merges immediately and defers quality to the `release/*` QA window — neither asks a human to review
+the pull request any more. The step-3 repository-wide grep for the retired framing came back clean.
+
+### Discovered Insights
+
+- **Insight**: A developer-facing decision prompt (an `AskUserQuestion` interrogation) can go stale in the same way internal doc prose does, but its cost is higher — a developer answers it trusting the options as stated, and a misleading option changes what they believe they chose.
+  **Context**: Worth specifically re-checking any `AskUserQuestion` text whenever the model it describes changes, not just the reference docs that happen to mention the same fork.

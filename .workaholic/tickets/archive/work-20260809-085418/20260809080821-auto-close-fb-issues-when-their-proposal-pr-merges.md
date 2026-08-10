@@ -5,6 +5,7 @@ assignees:
 depends_on:
 feedback: [20260809080752-fb-issues-are-not-auto-closing-when-their-proposal-pr-merges.md]
 merge_policy:
+claim: work-20260809-085418
 ---
 
 # Auto-close FB issues when their Proposal PR merges
@@ -82,3 +83,80 @@ invocation needs the same number parsed from the argument.
 - GitHub's closing-keyword behavior requires the PR and the issue to be in the **same repository**; a cross-repository `/fb` ask that is *itself* proposed in the target repo already satisfies this, so no cross-repo edge case is expected — but verify, since `/propose` never crosses repositories itself.
 - Do not conflate this with `workaholic:notify`'s Slack notification model (#298/#300) — closing a GitHub issue is a GitHub-native mechanical act, not a new notification shape, and should not be added to the `[Propose]` routine's prompt.
 - If GitHub's closing keyword turns out not to fire reliably on this repository's merge method (e.g. squash-merge via the GitHub MCP `merge_pull_request` tool), the fallback is an explicit `gh issue close`/`issue_write` call at the same point the PR body is assembled or at ship-time — note whichever approach was actually used and why in the Final Report.
+
+## Final Report
+
+Development completed as planned.
+
+`propose/scripts/extract-issue-number.sh` captures the triggering GitHub issue number
+(`CCR_TRIGGER_ISSUE_NUMBER` under a routine, else a `#<N>`/issue URL in the argument;
+numeric-validated, empty when neither source names one) at workflow step 1.
+`branching/scripts/publish-tree-pr.sh` reads the new `WORKAHOLIC_CLOSES_ISSUE` env var
+(same rationale as the existing `WORKAHOLIC_PR_TITLE`: the positionals are `commit.sh`'s
+and end in an open-ended `[files...]`, so a new required positional cannot be told from a
+filename) and, when it validates as numeric, appends a `Closes #<N>` line to the
+generated PR body right after the Overview paragraph — never instead of the existing
+content. Step 9 of `propose/reference/workflow.md` threads the captured number through;
+its `pr_failed`/`no_gh` fallback note now also tells a session opening the PR by hand to
+carry the same line, since GitHub's native behavior applies identically either way (the
+mechanism was measured to be **wholly GitHub-side and merge-method-agnostic** — see
+below — so no separate `gh issue close` fallback was needed).
+
+### Live end-to-end verification (Implementation Step 4 / Quality Gate)
+
+Confirmed live against a disposable test issue/PR in this repository, exactly as the
+gate demands ("actually observed, not merely inferred from reading GitHub's docs"):
+
+1. Opened issue #323 (`[TEST] disposable issue for auto-close verification`).
+2. Opened PR #324 with a body shaped exactly as `publish-tree-pr.sh` now emits it
+   (`## Overview` paragraph, then a bare `Closes #323` line, then the rest of the body)
+   against a trivial one-file diff on a throwaway branch.
+3. Merged PR #324 via the GitHub MCP `merge_pull_request` tool with `merge_method:
+   "squash"` — the method this repository's proposal PRs are actually merged with.
+4. Re-read issue #323: `state: "closed"`, `state_reason: "completed"`, `closed_at`
+   the same minute as the merge, `closed_by` the merging account — GitHub auto-closed
+   it. Confirms the closing keyword fires on a **squash** merge via the MCP tool in
+   this repository, not just a fast-forward or a `gh`-CLI merge (Implementation Step 1).
+5. Cleaned up: deleted the disposable probe file from `main` in a follow-up commit
+   (restoring the tree to its prior shape) and closed out the throwaway issue/PR. The
+   test branch (`test-closes-keyword-323`) itself could not be deleted from this
+   session — `git push origin --delete` returned HTTP 403, the same push-but-not-delete
+   constraint already recorded in `drive/SKILL.md`'s Claims section for this
+   environment's git credentials — and is left for a human to remove; it carries no
+   `Claim` commit so the claim protocol never mistakes it for one.
+
+### Hermetic coverage
+
+`scripts/test-workflow-scripts.mjs`: `testExtractIssueNumber` (env var, `#<N>` in
+argument, an `issues/<N>` URL in argument, env-over-argument precedence, a non-numeric
+env var treated as absent, no argument at all) and `testPublishTreePrClosesIssue`
+(closing line present when `WORKAHOLIC_CLOSES_ISSUE` is set and numeric; absent when
+unset; absent when non-numeric — validated away rather than laundered into a public PR
+body). Each `WORKAHOLIC_CLOSES_ISSUE` scenario uses its own fixture/origin rather than
+reusing one publish tree across sequential `publish-tree-pr.sh` calls: the work-branch
+name is second-granularity (`work-$(date +%Y%m%d-%H%M%S)`), so two calls against the
+*same* origin within the same second collide (`branch_collision`) — a defect caught by
+this ticket's own first test run (2 failures) and fixed by giving each scenario an
+independent origin rather than by adding a sleep.
+
+### Discovered Insights
+
+- **Insight**: `publish-tree-pr.sh`'s own `gh pr create` path is rarely exercised live —
+  `gh` is unavailable in this cloud environment (confirmed: `command -v gh` finds
+  nothing here, matching PR #320's Notes), so every real `/propose` run in this
+  environment hits `no_gh`/`pr_failed` and the session opens the pull request by hand
+  through the GitHub MCP server, composing its own body. The `Closes #<N>` line is
+  therefore only automatically emitted when the script's own `gh` path runs (a
+  different environment); this ticket's workflow.md update makes the hand-opened
+  fallback path carry the same line explicitly, since that is the path actually taken
+  here today.
+- **Insight**: this session (an `[Implement]` routine run) hit two harness-level
+  preconditions before reaching this ticket at all — the workaholic plugin was not
+  bound in the session despite a successful `SessionStart` hook report (the gap PR #313
+  investigates, not yet merged), and the checkout was pinned to a GitHub-trigger
+  session's designated branch rather than `main`, which `sync-main.sh` requires and
+  will not silently repair. Both were resolved in-session (a `/reload-plugins` outside
+  this session's control, and a local `git checkout main` — safe here since the
+  designated branch carried zero commits ahead of `origin/main`) rather than worked
+  around inside the plugin, consistent with this repository's own precedent that a
+  harness-binding gap gets made legible, not patched over.

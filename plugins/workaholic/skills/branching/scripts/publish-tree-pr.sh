@@ -29,6 +29,15 @@
 # is found statelessly by the consumer (workaholic:workaholify, *One thread per
 # feedback item*), and a carried target must not be reintroduced here.
 #
+# WORKAHOLIC_CLOSES_ISSUE threads a GitHub issue number into the body as a
+# native closing keyword (`Closes #<N>`), so merging this pull request
+# auto-closes the "[FB] ***" issue the ask came from. Same reasoning as
+# WORKAHOLIC_PR_TITLE for being an env var: the positionals are commit.sh's
+# and end in an open-ended [files...], so a new required positional cannot be
+# told from a filename. Unset or non-numeric — the common case, since most
+# asks never had a GitHub issue at all — emits no line, unchanged from before
+# this existed.
+#
 # WORKAHOLIC_PR_TITLE is an ENV VAR rather than a positional because the
 # positionals belong to commit.sh and end in an open-ended `[files...]`, so an
 # extra one could not be told from a filename.
@@ -146,10 +155,21 @@ if ! command -v gh >/dev/null 2>&1; then
   exit 0
 fi
 
+# A closing keyword is validated here, not trusted from the caller: a
+# non-numeric value would land verbatim in a public PR body as inert text
+# that merely looks like it closes something.
+closes_issue="${WORKAHOLIC_CLOSES_ISSUE:-}"
+case "$closes_issue" in
+  ''|*[!0-9]*) closes_issue="" ;;
+esac
+
 body_file=$(mktemp "${TMPDIR:-/tmp}/workaholic-publish-pr.XXXXXX")
 trap 'rm -f "$body_file"' EXIT
 {
   printf '## Overview\n\n%s\n\n' "$WHY"
+  if [ -n "$closes_issue" ]; then
+    printf 'Closes #%s\n\n' "$closes_issue"
+  fi
   printf '## Artifacts\n\n'
   # Counts per (.workaholic/ area, status), not an enumerated file-path list (a
   # reviewer wants roughly what shape the change is, not each literal path). A path

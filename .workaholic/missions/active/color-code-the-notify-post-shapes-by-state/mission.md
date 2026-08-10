@@ -9,13 +9,14 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 0.37
 feedback: [.workaholic/feedbacks/20260810062845-color-code-the-notify-post-shapes-by-state.md]
 tickets: []
 stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260810-083550
 ---
 
 # Color-code the notify post shapes by state
@@ -52,7 +53,7 @@ rebuilds `outputs/workflows`.
       `workaholic:notify`'s `SKILL.md`/`reference/notifications.md`, both routine
       templates in `skills/workaholify/routines/`, and the prompt-is-the-ceiling
       example text, and rebuilds `outputs/workflows` (#20260810063039-apply-the-color-per-state-notify-shape-catalog.md)
-- [ ] The `/propose` design-start post reads "Proposing" (not "Designing") and every
+- [x] The `/propose` design-start post reads "Proposing" (not "Designing") and every
       post's attribution reads "the [routine](...)" (not "[Claude Code on the Web](...)"),
       matching the developer's dictated template in issue #333 (#20260810083127-align-propose-start-wording-and-attribution-link-text.md)
 
@@ -64,3 +65,6 @@ rebuilds `outputs/workflows`.
 - 2026-08-10 — story reported — claude-lucid-tesla-4yz3ob.md
 - 2026-08-10 — ticket added — 20260810083127-align-propose-start-wording-and-attribution-link-text.md
 - 2026-08-10 — mission replanned (issue #333 wording fix: Designing to Proposing, Claude Code on the Web to the routine) — mission.md
+- 2026-08-10 — ticket archived — 20260810083127-align-propose-start-wording-and-attribution-link-text.md
+- 2026-08-10 — story reported — work-20260810-083550.md
+- 2026-08-10 — run recorded (+0.37h) — session-01UqamDaSDrTMQCZo8bqsfd1-wording-fix

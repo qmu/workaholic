@@ -439,4 +439,5 @@
 * [Erase purple circle (🟣) notification feature](20260809080335-erase-purple-circle-notification-feature.md)
 * [FB issues are not auto-closing when their Proposal PR merges](20260809080752-fb-issues-are-not-auto-closing-when-their-proposal-pr-merges.md)
 * [check-deps reports unbound_in_claude_session in the dev repo where the plugin is bound from the checkout](20260809202650-check-deps-reports-unbound-in-claude-session-in-the-dev-repo-where-the-plugin-is-bound-from-the-checkout.md)
+* [Color-code the notify post shapes by state](20260810062845-color-code-the-notify-post-shapes-by-state.md)
 <!-- okf:generated:end -->

@@ -1,5 +1,9 @@
 # missions
 
+## active
+
+* [color-code-the-notify-post-shapes-by-state](active/color-code-the-notify-post-shapes-by-state/mission.md) - Color-code the notify post shapes by state
+
 ## archive
 
 * [adopt-a-git-flow-branching-model-with-durable-ship-records](archive/adopt-a-git-flow-branching-model-with-durable-ship-records/mission.md) - Adopt a release-branch staging tier with durable ship records

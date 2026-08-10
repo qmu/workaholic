@@ -5,6 +5,7 @@ assignees:
 depends_on:
 feedback: [20260810212924-precondition-stops-should-post-calm-escalating-to-red-only-on-persistence.md]
 merge_policy:
+claim: work-20260810-164914
 ---
 
 # Post precondition stops calm, escalate to red only on persistence

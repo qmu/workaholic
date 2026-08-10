@@ -2,7 +2,7 @@
 type: Mission
 title: Auto-merge propose and implement PRs under a dev/release branch split
 slug: auto-merge-propose-and-implement-prs-under-a-dev-release-branch-split
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-10T09:01:19+00:00
 author: a@qmu.jp
@@ -59,3 +59,4 @@ by whichever agent plans the release — not blocked at merge time.
 - 2026-08-11 — ticket archived — 20260810090145-merge-propose-and-implement-prs-immediately-no-confirmation.md
 - 2026-08-11 — ticket archived — 20260810090145-document-main-as-the-dev-branch-with-release-as-the-qa-boundary.md
 - 2026-08-11 — ticket archived — 20260810090145-scope-qa-release-planning-and-post-release-quality-check-loops.md
+- 2026-08-11 — mission achieved — mission.md

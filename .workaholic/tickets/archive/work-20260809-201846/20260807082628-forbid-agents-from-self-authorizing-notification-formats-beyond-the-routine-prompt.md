@@ -5,6 +5,7 @@ assignees: [a@qmu.jp]
 depends_on:
 feedback: [20260807082554-agents-must-not-add-slack-notifications-beyond-the-routine-prompt-s-specified-format.md]
 merge_policy:
+claim: work-20260809-201846
 ---
 
 # Forbid agents from self-authorizing notification formats beyond the routine prompt
@@ -61,3 +62,14 @@ merge_policy:
 - This is a **documentation-only** change: it adds a standing rule, it does not change which events already earn a post (`workaholic:notify`'s *bright line*) or their shapes. Do not use this ticket to redesign the notification model.
 - Keep the wording generic to "any notification shape not named by the routine prompt/command", not scoped only to the PR-merge line that triggered #298 — the same failure mode (citing a skill's own docs as self-authorization) could recur for any event.
 - The routine templates (`skills/workaholify/routines/`) already claim to name their postable events exhaustively (per *A template is a thin pointer, not a procedure*); if reading them surfaces a gap, note it here rather than silently expanding this ticket's scope — file a follow-up feedback record instead.
+
+## Final Report
+
+**Outcome: implemented.**
+
+- `plugins/workaholic/skills/notify/SKILL.md` gains *The prompt is the ceiling — no self-authorized shapes*: a session may emit only the notification events and post shapes its own routine prompt or invoking command names; neither this skill's documentation (including the reference catalog) nor prior in-session reasoning is authorization; an unnamed event/shape becomes standing behavior only after developer confirmation. The measured origin (FB `20260807082554`, issue #298) is cited in place.
+- `reference/notifications.md`'s intro now frames the shapes as the **catalog** a template draws from when it explicitly names an event, never blanket authorization, linking back to the new SKILL section.
+- Routine templates checked (`skills/workaholify/routines/fb.md`, `implement.md`): both name their postable events exhaustively (two formats each, per Q2) and defer only the thread lookup and notification rules — no wording change needed. The outcome-specific finish shapes (🚀/🟣/🟡/🔴) are named by the invoking command's skill chain (P10-sanctioned, merged behind a reviewed PR), which the new rule's "or invoking command" clause covers deliberately.
+- Rebuild run (`node scripts/build-plugins/build.mjs`): **no `outputs/` diff** — the notify skill carries `metadata.internal` and is not among the bundled workflow skills, so its wording ships nowhere in `outputs/workflows/`; the acceptance item's rebuild-and-lockstep intent is satisfied by the clean rebuild (`verify.mjs` green, no drift).
+
+**Verification**: `node scripts/build-plugins/verify.mjs` (self-contained, no drift), `node scripts/build-plugins/validate-metadata.mjs` (version-aligned), `node scripts/test-workflow-scripts.mjs` (2455 passed / 0 failed). `git diff` touches only the two notify markdown files — documentation-only, as scoped.

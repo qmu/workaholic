@@ -63,3 +63,5 @@ PROPOSED sketch, not a plan. `/mission approve` replans this to drive-ready.
 - 2026-08-03 — concern deferred (stuck) — 20260803221452-nothing-here-has-been-run-against.md
 - 2026-08-03 — concern deferred (stuck) — 20260803221452-two-commands-now-survey-routines.md
 - 2026-08-04 — mission achieved — mission.md
+- 2026-08-10 — concern resolved (unstuck) — 20260803221452-nothing-here-has-been-run-against.md
+- 2026-08-10 — concern resolved (unstuck) — 20260803221452-the-digest-gate-cannot-prove-a.md

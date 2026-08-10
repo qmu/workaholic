@@ -19,14 +19,20 @@
 # refreshed through a digest gate, and the real wired routine ran a stale prompt beyond
 # page one. So the plugin's one job here is to make the human's UI setup cheap.
 #
-# THE SAME RULING HOLDS FOR A SCHEDULE TRIGGER (re-verified 2026-08-10, ticket
-# `20260810085351` -- FB `20260810085032`/issue #336 asked to revive a management
+# THE SAME RULING HELD FOR A SCHEDULE TRIGGER IN EVERY SESSION CHECKED THROUGH 2026-08-10
+# (ticket `20260810085351` -- FB `20260810085032`/issue #336 asked to revive a management
 # command for `cron_expression` specifically, since it is a genuine data field on a
-# routine record, unlike the GitHub event). `ToolSearch` over this session's full tool
+# routine record, unlike the GitHub event). `ToolSearch` over those sessions' full tool
 # surface found no `RemoteTrigger`-family tool at all -- only `CronCreate`/`CronList`/
-# `CronDelete`, which are this session's OWN in-memory, session-only cron and unrelated
-# to account-level routines. So a schedule trigger is exactly as unreadable/unwritable
-# from a session as a GitHub one, and this sheet stays the whole surface for both.
+# `CronDelete`, session-only in-memory cron unrelated to account-level routines. THAT
+# FINDING WAS SCOPED TO THE UNATTENDED, ROUTINE-FIRED SESSION CLASS, and a later
+# interactive-session check (FB `20260810214929`, ticket `20260810130703`) found a
+# `RemoteTrigger`-family tool present there -- so `/setup-routines` now detects this
+# per-session and applies directly when the tool is exposed (`workaholic:workaholify`
+# SKILL.md, "Direct-apply when RemoteTrigger is exposed"). This script remains the
+# whole surface for the class that genuinely has no such tool, and the direct-apply
+# path's own source of the target state either way -- nothing below reads or writes
+# an account.
 #
 # THE UI STEPS ARE DERIVED, NEVER HAND-WRITTEN. They come from the template's own
 # `trigger_kind` / `trigger_event` / `trigger_filters` declaration, so a template whose

@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260810-083550
 ---
 
 # Color-code the notify post shapes by state

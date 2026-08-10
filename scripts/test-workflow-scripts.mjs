@@ -8994,7 +8994,8 @@ function testRenderSetupSheet() {
   // developer's explicit ask covering both routines) -- neither renders a GitHub
   // event step any more.
   assertTrue("each schedule trigger renders its own cron step",
-    (all.match(/\*\*Trigger\*\* — \*Select a trigger\* → \*\*Schedule\*\*, cron `0,30 \* \* \* \*`/g) || []).length === 2 &&
+    /\*\*Trigger\*\* — \*Select a trigger\* → \*\*Schedule\*\*, cron `15 \* \* \* \*`/.test(all) &&
+    /\*\*Trigger\*\* — \*Select a trigger\* → \*\*Schedule\*\*, cron `30 \* \* \* \*`/.test(all) &&
     !/Event: `issues\.assigned`/.test(all) &&
     !/Event: `pull_request\.closed`/.test(all),
     all);
@@ -13502,12 +13503,16 @@ function testWorkaholifyRoutines() {
     // Both templates carry a fixed-interval schedule trigger (ticket 20260810085347,
     // developer's explicit ask covering [Propose] as well as [Implement], 2026-08-10),
     // superseding the 2026-08-06 merge-trigger pin this block used to state.
-    assertEq("both templates carry the same 30-minute schedule",
-      tpl.templates.map((t) => t.cron_expression).sort(), ["0,30 * * * *", "0,30 * * * *"]);
+    // Hourly since 2026-08-11: the routine API's minimum interval is one hour
+    // (`0,30 * * * *` rejected as "cron interval too short", measured live), so the
+    // designed 30-minute cadence became a staggered hourly pair — [Propose] :15,
+    // [Implement] :30.
+    assertEq("the templates carry the staggered hourly schedule",
+      tpl.templates.map((t) => t.cron_expression).sort(), ["15 * * * *", "30 * * * *"]);
     assertEq("implement declares the schedule trigger",
-      tpl.templates.find((t) => t.id === "implement").trigger, "schedule-every-30-min");
+      tpl.templates.find((t) => t.id === "implement").trigger, "schedule-hourly");
     assertEq("fb declares the schedule trigger",
-      tpl.templates.find((t) => t.id === "fb").trigger, "schedule-every-30-min");
+      tpl.templates.find((t) => t.id === "fb").trigger, "schedule-hourly");
 
     // ---- the three substitutions, each demanded by a real prompt ----
     const drive = JSON.parse(run(dir, `${RENDER} implement ${WH}`).stdout);
@@ -13535,7 +13540,7 @@ function testWorkaholifyRoutines() {
     // 2026-08-10, superseding the 2026-08-06 assigned-issue-only pin). The word is the
     // design, so it is pinned.
     assertEq("the fb routine declares the schedule trigger, matching implement",
-      [fb.trigger, fb.cron_expression], ["schedule-every-30-min", "0,30 * * * *"]);
+      [fb.trigger, fb.cron_expression], ["schedule-hourly", "15 * * * *"]);
     assertEq("an unknown template is refused by name",
       JSON.parse(run(dir, `${RENDER} no-such ${WH}`).stdout).error, "unknown_template");
   } finally { cleanup(dir); }
@@ -13741,19 +13746,19 @@ function testRoutineAnnouncementScoping() {
   // project, so the count and the shape are the constraint the loop's shape is set by.
   const templates = readdirSync(dir).filter((f) => f.endsWith(".md")).sort();
   assertEq("exactly two templates ship", templates, ["fb.md", "implement.md"]);
-  // The developer's own prompt (feedback 20260806183556, reshaped by Q2 2026-08-07):
-  // three instructions and two fenced post formats — the start post is formatted too,
-  // and both formats carry the session URL and the requester's mention. The assignee
-  // guard that briefly lived here moved into /propose (P8), which is what keeps both
-  // templates identical in shape.
+  // The developer's own prompt (feedback 20260806183556, reshaped by Q2 2026-08-07,
+  // narrowed 2026-08-11 by FB 20260810215745): the start post is RETIRED — a routine
+  // posts its finish only, and the one fenced format carries the session URL and the
+  // requester's mention. The assignee guard that briefly lived here moved into
+  // /propose (P8), which is what keeps both templates identical in shape.
   for (const [name, body] of [["fb", fb], ["implement", implement]]) {
     const prompt = body.replace(/^## Prompt\n/, "");
     const instructions = prompt.split("\n").filter((l) => /^[A-Z]/.test(l.trim()));
-    assertEq(`the ${name} prompt carries three instructions`, instructions.length, 3);
+    assertEq(`the ${name} prompt carries two instructions`, instructions.length, 2);
     const fences = (prompt.match(/^```$/gm) || []).length;
-    assertEq(`the ${name} prompt carries two fenced post formats`, fences, 4);
-    assertTrue(`the ${name} prompt's start post is formatted (Proposing/Implementing for)`,
-      /(📐 Proposing for|🟠 Implementing for)/.test(prompt), prompt.slice(0, 200));
+    assertEq(`the ${name} prompt carries one fenced post format`, fences, 2);
+    assertTrue(`the ${name} prompt carries no start post (retired 2026-08-11)`,
+      !/(📐 Proposing for|🟠 Implementing for)/.test(prompt), prompt.slice(0, 200));
     assertTrue(`the ${name} prompt's finish post is formatted (Proposed/Implemented)`,
       /(🔵 Proposed - |🟢 Implemented - )/.test(prompt), prompt.slice(0, 200));
     assertTrue(`both posts carry the session URL and the requester's mention`,
@@ -13781,8 +13786,8 @@ function testRoutineAnnouncementScoping() {
       /find its reply thread \(the workaholic:notify lookup\)/.test(body), body.slice(0, 400));
     assertTrue(`the ${name} prompt carries no thread URL to read`,
       !/Slack Thread URL/.test(body), body.slice(0, 400));
-    assertTrue(`the ${name} prompt announces that work has started`,
-      /that (proposing process|implementation) has started/.test(body), body.slice(0, 400));
+    assertTrue(`the ${name} prompt announces no start (the finish is the only post)`,
+      !/has started/.test(body) && /the finish is the only post/.test(body), body.slice(0, 400));
     assertTrue(`the ${name} prompt carries its post format inline`,
       /<@U…>/.test(body) && /\{repo\}\/pull\/123/.test(body), body.slice(0, 400));
     assertTrue(`the ${name} prompt names no repository`,

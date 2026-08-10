@@ -56,7 +56,7 @@ Derive the route with `bash drive/scripts/effective-policy.sh mission <slug>` or
 | Batch unit | each member ticket's own `merge_policy` | `auto` iff **every** member says `auto` |
 | Any member says `review`, or records nothing | — | `review` (any review member wins; **absent means review** — review costs a human one look, auto merges work nobody authorized) |
 
-**`review` → stop at the PR**; the worktree and claim stay — the unit is unfinished until its PR merges. Under `/implement`, post the URL via `bash propose/scripts/notify-slack.sh "<message with the PR URL>"` (never load-bearing); under `/drive` report it in the session and post nothing. **`auto` → ship** through `ship`'s full evidence-gated doctrine, no prompts and no shortcuts, then tear the claim down from the main checkout (claim-born and ship-torn): `bash branching/scripts/cleanup-mission-worktree.sh <unit-id>` then delete the claim branch. **Under `/implement`, every route posts one finish line** (🟢/🚀/🟡/🔴) into the same threads as the start; an attended `/drive` run posts no finish line either ([reference/routing.md](reference/routing.md)).
+**`review` → merge the PR immediately** (mission `auto-merge-propose-and-implement-prs-under-a-dev-release-branch-split`, 2026-08-11, superseding the stop-at-the-PR route): once `/report` has opened the unit's pull request and the branch-safety scan verdict is `pass`, merge it (`gh pr merge --merge`) with no human confirmation and tear the claim down exactly as `auto` does — quality is gated downstream at the `release/*` QA window, not at merge time. **Any scan finding leaves the PR open instead** (there is no human here to override — the demotion doctrine unchanged), and that open PR is the unit's reported outcome. Under `/implement`, post the one `🟢 Implemented` finish line via `bash propose/scripts/notify-slack.sh "<message with the PR URL>"` (never load-bearing); under `/drive` report it in the session and post nothing. **`auto` → ship** through `ship`'s full evidence-gated doctrine, no prompts and no shortcuts, then tear the claim down from the main checkout (claim-born and ship-torn): `bash branching/scripts/cleanup-mission-worktree.sh <unit-id>` then delete the claim branch. **Under `/implement`, every route posts one finish line** (🟢/🚀/🟡/🔴) into the same threads as the start; an attended `/drive` run posts no finish line either ([reference/routing.md](reference/routing.md)).
 
 **The run never overrides a gate — through either entry point.** `auto` means "no *approval* needed"; it never means "no *gate* applies", and a present developer recovers no override:
 
@@ -80,7 +80,7 @@ Per **mission** unit, record wall-clock once via `bash mission/scripts/record-ru
 
 | State at the end of the run | Final line |
 | --------------------------- | ---------- |
-| Every claimed unit reached its routed end (`auto` merged, `review` at an open PR) **and** a fresh survey offers nothing claimable | `ok` |
+| Every claimed unit reached its routed end (`auto` shipped, `review` merged — or waiting at a PR only because a scan finding held it) **and** a fresh survey offers nothing claimable | `ok` |
 | Any claimed unit is `blocked`, or ended in **`handoff`** | `pending` |
 | Any claimed unit was **demoted** and is waiting at a PR it was meant to ship, or was left with tickets undriven (failed/blocked tickets remain in its queue) | `pending` |
 | The survey still offers a claimable mission or ticket (including a unit another runner holds) | `pending` |

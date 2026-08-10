@@ -11,7 +11,7 @@ metadata:
 
 # Propose
 
-The AI half of "humans supply feedback, the AI proposes missions" (`docs/loop-engineering-workflow.md` §6.3): a session with an ask in hand judges it and emits, in **one** pull request, the feedback record together with whatever the judgment warrants — a mission with its ticket set, one loose ticket, or the record alone. Everything it proposes is `feedback:`-linked with `merge_policy` empty (reads as `review`), on a `work-*` branch for humans to discuss and accept. **Merging that pull request is the approval** (K1), of the record and the proposal in one act; nothing is marked unapproved, because the open PR already is that state.
+The AI half of "humans supply feedback, the AI proposes missions" (`docs/loop-engineering-workflow.md` §6.3): a session with an ask in hand judges it and emits, in **one** pull request, the feedback record together with whatever the judgment warrants — a mission with its ticket set, one loose ticket, or the record alone. Everything it proposes is `feedback:`-linked with `merge_policy` empty (reads as `review`), on a `work-*` branch whose pull request **merges immediately after it opens** (`WORKAHOLIC_AUTO_MERGE=1`; mission `auto-merge-propose-and-implement-prs-under-a-dev-release-branch-split`, 2026-08-11, superseding K1's approval-by-merge for this flow): `main` is the continuously auto-merged development branch, and quality is gated downstream — the `release/*` QA window and the scoped QA/release-planning/post-release loops — not at merge time. A release-scan finding is the one thing that leaves the PR open for a human.
 
 ## Propose at the capture seam
 

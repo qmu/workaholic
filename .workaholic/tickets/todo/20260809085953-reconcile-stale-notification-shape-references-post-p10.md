@@ -5,6 +5,7 @@ assignees:
 depends_on:
 mission:
 merge_policy:
+claim: work-20260810-163619
 ---
 
 # Reconcile stale notification-shape references left behind by P10

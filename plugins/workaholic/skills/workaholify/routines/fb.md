@@ -39,16 +39,16 @@ the format lines is the developer's own placeholder for the issue and pull reque
 
 Read the feedback (FB) from the Issue and find its reply thread (the workaholic:notify lookup).
 
-Notify to the thread that design process has started:
+Notify to the thread that proposing process has started:
 
 ```
-📐 Designing for [#45 [FB] Issue Title]({repo}/issues/45)
-by [Claude Code on the Web](https://claude.ai/code/session_***) of <@U…>
+📐 Proposing for [#45 [FB] Issue Title]({repo}/issues/45)
+by the [routine](https://claude.ai/code/session_***) of <@U…>
 ```
 
 After running `/propose [FB]`, notify the thread in the following format:
 
 ```
 🔵 Proposed - [#123 [Proposal] PR Title]({repo}/pull/123)
-by [Claude Code on the Web](https://claude.ai/code/session_***) of <@U…>
+by the [routine](https://claude.ai/code/session_***) of <@U…>
 ```

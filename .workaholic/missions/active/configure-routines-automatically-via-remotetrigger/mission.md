@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours: 0.5
+actual_hours: 0.65
 feedback: [.workaholic/feedbacks/20260810214929-make-setup-routines-and-workaholify-configure-routines-automatically-via-remotetrigger.md]
 tickets: []
 stories: []
@@ -43,3 +43,4 @@ A session with a `RemoteTrigger`-family tool lists the account's routines, diffs
 - 2026-08-10 — ticket archived — 20260810130705-restate-the-manages-nothing-ruling-as-session-class-dependent.md
 - 2026-08-10 — run recorded (+0.5h) — implement-20260810-202951
 - 2026-08-10 — ticket archived — 20260810203351-fix-acceptance-link-marker-mismatch-full-path-vs-basename.md
+- 2026-08-10 — run recorded (+0.15h) — implement-20260810-210319

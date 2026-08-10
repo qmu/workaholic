@@ -9,13 +9,14 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 0.5
 feedback: [.workaholic/feedbacks/20260810085032-move-workaholify-proposal-and-implement-steps-to-a-fixed-interval-loop-instead-of-immediate-webhook-triggers.md]
 tickets: []
 stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260810-090432
 ---
 
 # Move the Propose and Implement routines to a fixed-interval schedule
@@ -38,12 +39,16 @@ reaction, is what produces the loop's feedback.
 
 ## Acceptance
 
-- [ ] The `[Propose]` and `[Implement]` routine templates (and
+- [x] The `[Propose]` and `[Implement]` routine templates (and
       `render-setup-sheet.sh`'s derived UI steps) declare a fixed-interval
       schedule trigger instead of an immediate GitHub webhook trigger. (#20260810085347-declare-a-fixed-interval-cron-trigger-on-the-propose-and-implement-routine-templates.md)
-- [ ] A revived `/set-routines`-equivalent command helps a developer
+- [x] A revived `/set-routines`-equivalent command helps a developer
       provision that fixed-interval schedule for a repository's routines. (#20260810085351-revive-set-routines-to-provision-the-routines-fixed-interval-trigger.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-10 — ticket archived — 20260810085347-declare-a-fixed-interval-cron-trigger-on-the-propose-and-implement-routine-templates.md
+- 2026-08-10 — ticket archived — 20260810085351-revive-set-routines-to-provision-the-routines-fixed-interval-trigger.md
+- 2026-08-10 — story reported — work-20260810-090432.md
+- 2026-08-10 — run recorded (+0.5h) — implement-work-20260810-090432

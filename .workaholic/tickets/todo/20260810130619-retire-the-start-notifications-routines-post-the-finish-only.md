@@ -5,6 +5,7 @@ assignees: [a@qmu.jp]
 depends_on:
 feedback: [.workaholic/feedbacks/20260810215745-retire-the-start-notifications-routines-post-the-finish-only.md]
 merge_policy:
+claim: work-20260810-203952
 ---
 
 # Retire the start notifications, routines post the finish only

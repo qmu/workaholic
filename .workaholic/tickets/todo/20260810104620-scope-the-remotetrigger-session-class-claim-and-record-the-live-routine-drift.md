@@ -5,6 +5,7 @@ assignees: [a@qmu.jp]
 depends_on:
 feedback: [.workaholic/feedbacks/20260810104520-no-remotetrigger-tool-exposed-claim-is-session-class-dependent-and-reveals-real-cron-prompt-drift-on-the-live-routines.md]
 merge_policy:
+claim: work-20260810-203952
 ---
 
 # Scope the RemoteTrigger session-class claim and record the live routine drift

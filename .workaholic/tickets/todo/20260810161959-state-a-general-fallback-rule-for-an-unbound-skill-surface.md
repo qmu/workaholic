@@ -5,6 +5,7 @@ assignees: [a@qmu.jp]
 depends_on:
 feedback: [.workaholic/feedbacks/20260810161811-routines-should-keep-going-when-the-plugin-is-unbound.md]
 merge_policy:
+claim: work-20260810-203952
 ---
 
 # State a general fallback rule for an unbound skill surface

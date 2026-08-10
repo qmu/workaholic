@@ -53,7 +53,7 @@ rebuilds `outputs/workflows`.
       `workaholic:notify`'s `SKILL.md`/`reference/notifications.md`, both routine
       templates in `skills/workaholify/routines/`, and the prompt-is-the-ceiling
       example text, and rebuilds `outputs/workflows` (#20260810063039-apply-the-color-per-state-notify-shape-catalog.md)
-- [ ] The `/propose` design-start post reads "Proposing" (not "Designing") and every
+- [x] The `/propose` design-start post reads "Proposing" (not "Designing") and every
       post's attribution reads "the [routine](...)" (not "[Claude Code on the Web](...)"),
       matching the developer's dictated template in issue #333 (#20260810083127-align-propose-start-wording-and-attribution-link-text.md)
 
@@ -65,3 +65,4 @@ rebuilds `outputs/workflows`.
 - 2026-08-10 — story reported — claude-lucid-tesla-4yz3ob.md
 - 2026-08-10 — ticket added — 20260810083127-align-propose-start-wording-and-attribution-link-text.md
 - 2026-08-10 — mission replanned (issue #333 wording fix: Designing to Proposing, Claude Code on the Web to the routine) — mission.md
+- 2026-08-10 — ticket archived — 20260810083127-align-propose-start-wording-and-attribution-link-text.md

@@ -27,8 +27,10 @@ gate_assert:
 developer scanning a `dev-` Slack thread cannot tell a phase's start from its finish by
 emoji alone. Color-code every shape by state instead, one color per exactly one state:
 🔵 Proposed, 🟠 Implementing, 🟡 Handoff, 🟢 Implemented, 🔴 Blocked, keeping 🚀 Auto Merge
-outside the color set (the auto/human merge distinction must stay visually distinct, and
-the retired 🟣 human-merge shape from #317 is not to be reintroduced). Supersedes the
+outside the color set (the auto/human merge distinction must stay visually distinct).
+Whether the retired 🟣 human-merge shape (erased per #317) has a place in this scheme is
+an open question for the design ticket, not foreclosed here — developer note during
+proposing: purple circle should not be excluded from this direction. Supersedes the
 un-implemented ruling in FB `20260807190939` (issue qmu/workaholic#330).
 
 ## Experience

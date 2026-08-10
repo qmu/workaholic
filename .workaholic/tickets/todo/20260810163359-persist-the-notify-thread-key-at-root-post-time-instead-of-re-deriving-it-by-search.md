@@ -5,6 +5,7 @@ assignees: [a@qmu.jp]
 depends_on:
 feedback: [20260810163347-workaholic-notify-s-stateless-thread-lookup-fails-posting-new-threads-instead-of-replying.md, 20260808030816-propose-notify-posts-top-level-instead-of-the-fb-thread-and-omits-the-issue-link.md]
 merge_policy:
+claim: work-20260810-232944
 ---
 
 # Persist the notify thread key at root-post time instead of re-deriving it by search

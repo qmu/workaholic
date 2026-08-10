@@ -48,7 +48,7 @@ by whichever agent plans the release — not blocked at merge time.
 - [x] The branch model explicitly documents `main` as the continuously
       auto-merged development branch, with `release/*` (existing tier) as
       the pre-production QA/release boundary. (#20260810090145-document-main-as-the-dev-branch-with-release-as-the-qa-boundary.md)
-- [ ] The QA loop, release-planning loop, and post-release quality-check
+- [x] The QA loop, release-planning loop, and post-release quality-check
       loop this policy depends on are each captured as a named, scoped
       follow-on mission — not fully designed here, but traceable rather
       than assumed. (#20260810090145-scope-qa-release-planning-and-post-release-quality-check-loops.md)
@@ -58,3 +58,4 @@ by whichever agent plans the release — not blocked at merge time.
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-11 — ticket archived — 20260810090145-merge-propose-and-implement-prs-immediately-no-confirmation.md
 - 2026-08-11 — ticket archived — 20260810090145-document-main-as-the-dev-branch-with-release-as-the-qa-boundary.md
+- 2026-08-11 — ticket archived — 20260810090145-scope-qa-release-planning-and-post-release-quality-check-loops.md

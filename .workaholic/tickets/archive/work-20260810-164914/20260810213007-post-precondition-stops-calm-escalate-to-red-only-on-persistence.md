@@ -5,6 +5,7 @@ assignees:
 depends_on:
 feedback: [20260810212924-precondition-stops-should-post-calm-escalating-to-red-only-on-persistence.md]
 merge_policy:
+claim: work-20260810-164914
 ---
 
 # Post precondition stops calm, escalate to red only on persistence
@@ -68,3 +69,30 @@ PROPOSED. A scheduled run that terminates `pending` at a known, self-healing pre
 - The class boundary must stay a **named list**: deciding "is this failure self-healing" at post time from prose is the exact judgment-in-a-notification-path the fuzzy-matching prohibition exists to prevent.
 - Under-alerting risk: a calm post the operator skims past delays reaction by one tick at most, because persistence escalates — that bound is the design and should be stated in the notify prose.
 - This changes only the notification model (prose); no script emits these posts today, so no script change is expected — if one is found emitting a shape, that is a separate defect to report, not to fix silently here.
+
+## Final Report
+
+Development completed as planned. Defined the precondition-stop class (`unbound_in_claude_session`,
+`loaded_version_behind_registry`) as a named, closed list in `workaholic:notify`'s SKILL.md, next to
+the red-alert dedup rule it narrows. Added the calm `⚪ Paused - <signature>` shape (top-level root,
+carries the session URL) for a first-occurrence report of a class signature, and the escalation rule:
+the same signature found again in the dedup's existing ~50-message history read becomes an ordinary
+`🔴 Blocked` red alert from that point on, after which the standing 24-hour cool-down and
+`↳ still failing` threaded replies apply unchanged. Every genuine-failure shape (`🔴` blocked finish,
+a `secret` hard stop, `🟢`/`🚀`/`🟡`) is untouched — verified by diffing the edit against the prior
+version, no existing block was altered, only new prose inserted. Documented the exact shape in
+`notify/reference/notifications.md`'s new *Precondition-stop* subsection, and named it in the
+`[Implement]` routine template (`workaholify/routines/implement.md`) per *the prompt is the ceiling*
+rule, since a session may only post a shape its own routine prompt names. Checked `[Propose]`'s
+template (`fb.md`) for any existing failure-shape mention per the ticket's scope note — it names none,
+so it needed no change. `outputs/workflows` carries neither `notify` nor `workaholify` in its bundle
+(verified: `node scripts/build-plugins/build.mjs` produced no `outputs/` diff), so no rebuild was
+needed for this ticket's content, though the routine version bump below still regenerated it for its
+own reason. `CLAUDE.md`'s `/workaholify` row interim-safety sentence ("a persisting failure stops
+reading as a healthy idle tick") was checked against the new model and remains truthful as written —
+persistence still surfaces as a red alert with a threaded reply, just via the escalation path now.
+
+### Discovered Insights
+
+- **Insight**: `commit.sh`'s `git add -u` sweeps in every tracked-file modification present in the worktree at commit time, not just the files named in its trailing `[files...]` argument.
+  **Context**: A separate "Bump version" commit swept this ticket's content edits in with it (both were tracked-file changes already in the worktree), so the ticket's archive commit ends up as a housekeeping move with no content diff of its own — the actual implementation commit is the version-bump commit immediately before it. Worth knowing when tracing a ticket's changes back through `ticket-commits.sh`, which resolves the archive-time commit, not necessarily the one that carries the content.

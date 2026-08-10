@@ -5,6 +5,7 @@ assignees: [a@qmu.jp]
 depends_on:
 feedback: [.workaholic/feedbacks/20260810085823-version-binding-gate-in-implement-s-survey-step-stops-the-whole-session-instead-of-warning-and-continuing.md, .workaholic/feedbacks/20260810070110-implement-routine-over-blocks-on-unbound-in-claude-session.md]
 merge_policy:
+claim: work-20260810-124512
 ---
 
 # Warn and continue instead of hard-stopping /implement's survey on a version-binding gate

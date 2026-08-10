@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260810-202951
 ---
 
 # Configure routines automatically via RemoteTrigger

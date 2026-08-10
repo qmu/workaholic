@@ -470,4 +470,5 @@
 * [Scope the release-planning loop that decides what ships](20260811010237-scope-the-release-planning-loop-that-decides-what-ships.md)
 * [Scope the post-release quality-check loop](20260811010337-scope-the-post-release-quality-check-loop.md)
 * [Notify thread key must not be persisted into the public repository](20260811084130-notify-thread-key-must-not-be-persisted-into-the-public-repository.md)
+* [Notify lookup fails from search scope not search unreliability](20260811084546-notify-lookup-fails-from-search-scope-not-search-unreliability.md)
 <!-- okf:generated:end -->

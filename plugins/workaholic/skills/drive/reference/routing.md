@@ -76,8 +76,13 @@ not write a second story generator.
 
 ## Routing mechanics (§6)
 
-- **`review` → stop at the PR.** The worktree and the claim **stay** — the unit is unfinished
-  until its PR merges. Under `/implement`, post the URL through
+- **`review` → merge the PR immediately** (mission `auto-merge-propose-and-implement-prs-under-a-dev-release-branch-split`,
+  2026-08-11, superseding the earlier stop-at-the-PR route): once `/report` has opened the unit's
+  pull request and the branch-safety scan verdict is `pass`, merge it (`gh pr merge --merge`) with
+  no human confirmation and tear the claim down exactly as `auto` does below — quality is gated
+  downstream at the `release/*` QA window, not at merge time. A scan finding is the one thing that
+  leaves the PR open instead (there is no human here to override — the demotion doctrine below is
+  unchanged). Under `/implement`, post the one `🟢 Implemented` finish line through
   `bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/notify-slack.sh "<message with the PR URL>"`
   (never load-bearing: without a token it records `{"notified": false, "reason": "no_token"}` and
   the run continues). Under `/drive` the developer is the human loop — report the URL in the

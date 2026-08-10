@@ -5,6 +5,7 @@ assignees: [a@qmu.jp]
 depends_on:
 feedback: [20260807065338-archive-sh-should-auto-push-the-claim-branch-after-archiving.md]
 merge_policy:
+claim: work-20260807-101724
 ---
 
 # Make archive.sh push the claim branch after the archive commit

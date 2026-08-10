@@ -41,7 +41,7 @@ by whichever agent plans the release — not blocked at merge time.
 
 ## Acceptance
 
-- [ ] `/propose` and `/implement` (and their routine templates) merge their
+- [x] `/propose` and `/implement` (and their routine templates) merge their
       own pull request immediately after creating it, with no
       human-confirmation step, and post the simplified `🔵 Proposed` /
       `🟢 Implemented` notifications, dropping the separate "started" post. (#20260810090145-merge-propose-and-implement-prs-immediately-no-confirmation.md)
@@ -56,3 +56,4 @@ by whichever agent plans the release — not blocked at merge time.
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-11 — ticket archived — 20260810090145-merge-propose-and-implement-prs-immediately-no-confirmation.md

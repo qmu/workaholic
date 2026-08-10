@@ -17,14 +17,17 @@ developer scanning a `dev-` thread cannot tell a phase's start from its finish b
 alone. Issue qmu/workaholic#330 (FB `20260810062845`) asks for one color mapping to
 exactly one state instead: 🔵 Proposed, 🟠 Implementing, 🟡 Handoff, 🟢 Implemented, 🔴
 Blocked, with 🚀 Auto Merge deliberately kept outside the color set (the auto/human merge
-distinction must stay visually distinct on its own; the retired 🟣 human-merge shape from
-qmu/workaholic#317 is **not** to be reintroduced). This design-only ticket resolves the
+distinction must stay visually distinct on its own). This design-only ticket resolves the
 exact catalog — including where the design-start (currently 📐 Designing) post's color
 lands: the issue suggests it should adopt the state color of what it opens (the 🔵
 family), or the design may judge otherwise. It supersedes the un-implemented six-color
-ruling in FB `20260807190939`, whose 🟣 half is moot since #317's erasure. Line wording is
-unchanged (issue #300's two-line format) — only the leading emoji and state words change.
-The companion implementation ticket applies whatever this one resolves.
+ruling in FB `20260807190939`. **Whether the retired 🟣 human-merge shape (erased per
+qmu/workaholic#317) has a place in this scheme is an open question for this ticket, not
+foreclosed** — developer note received while this was being proposed: purple circle
+should not be excluded from this direction, so re-evaluate whether a human-merge shape
+belongs in the resolved catalog rather than treating its removal as settled. Line wording
+is unchanged (issue #300's two-line format) — only the leading emoji and state words
+change. The companion implementation ticket applies whatever this one resolves.
 
 ## Policies
 
@@ -43,7 +46,8 @@ The companion implementation ticket applies whatever this one resolves.
   (*Post shapes, mentions, and the red-alert dedup*)
 - `.workaholic/feedbacks/20260807190939-adopt-the-six-color-notify-state-emoji-set-keeping-the-rocket-for-auto-merge.md`
   — the prior, un-implemented six-color ruling this supersedes; read for the color set it
-  already picked (🔵/🟠/🟡/🟢/🟣/🔴) minus the now-moot 🟣 slot
+  already picked (🔵/🟠/🟡/🟢/🟣/🔴) — do not assume the 🟣 slot is moot; that is exactly
+  what this ticket must re-decide
 - `.workaholic/feedbacks/20260810062845-color-code-the-notify-post-shapes-by-state.md` —
   this mission's own source record
 
@@ -90,6 +94,9 @@ The companion implementation ticket applies whatever this one resolves.
 
 - This is a design decision, not a mechanical rename — resolve the catalog here, and let
   the implementation ticket be a pure find-and-replace against what this one decides.
-- The prior FB `20260807190939` ruling already chose 🔵/🟠/🟡/🟢/🟣/🔴; this ticket's job is
-  mostly to confirm that set still holds minus the retired 🟣 slot, and to make the one
-  call #330 leaves open (the design-start post's color).
+- The prior FB `20260807190939` ruling already chose 🔵/🟠/🟡/🟢/🟣/🔴. Issue #330's own
+  text argues the 🟣 human-merge shape stays erased (qmu/workaholic#317) and out of scope,
+  but a developer note received while this proposal was being drafted says the opposite —
+  purple circle should not be excluded from this direction. Treat that as live, current
+  guidance and resolve the 🟣 question deliberately rather than defaulting to either
+  position; record the reasoning either way.

@@ -46,7 +46,7 @@ rebuilds `outputs/workflows`.
 
 ## Acceptance
 
-- [ ] A design ticket resolves the exact color-per-state shape catalog, including where
+- [x] A design ticket resolves the exact color-per-state shape catalog, including where
       the design-start (📐 Designing) post's color lands (#20260810063036-resolve-the-color-per-state-notify-shape-catalog.md)
 - [ ] An implementation ticket applies the resolved catalog across
       `workaholic:notify`'s `SKILL.md`/`reference/notifications.md`, both routine
@@ -56,3 +56,4 @@ rebuilds `outputs/workflows`.
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-10 — ticket archived — 20260810063036-resolve-the-color-per-state-notify-shape-catalog.md

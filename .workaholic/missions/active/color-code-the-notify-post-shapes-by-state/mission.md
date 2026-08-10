@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 0.37
 feedback: [.workaholic/feedbacks/20260810062845-color-code-the-notify-post-shapes-by-state.md]
 tickets: []
 stories: []
@@ -67,3 +67,4 @@ rebuilds `outputs/workflows`.
 - 2026-08-10 — mission replanned (issue #333 wording fix: Designing to Proposing, Claude Code on the Web to the routine) — mission.md
 - 2026-08-10 — ticket archived — 20260810083127-align-propose-start-wording-and-attribution-link-text.md
 - 2026-08-10 — story reported — work-20260810-083550.md
+- 2026-08-10 — run recorded (+0.37h) — session-01UqamDaSDrTMQCZo8bqsfd1-wording-fix

@@ -66,3 +66,4 @@ rebuilds `outputs/workflows`.
 - 2026-08-10 — ticket added — 20260810083127-align-propose-start-wording-and-attribution-link-text.md
 - 2026-08-10 — mission replanned (issue #333 wording fix: Designing to Proposing, Claude Code on the Web to the routine) — mission.md
 - 2026-08-10 — ticket archived — 20260810083127-align-propose-start-wording-and-attribution-link-text.md
+- 2026-08-10 — story reported — work-20260810-083550.md

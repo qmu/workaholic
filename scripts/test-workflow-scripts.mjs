@@ -13741,8 +13741,8 @@ function testRoutineAnnouncementScoping() {
     assertEq(`the ${name} prompt carries three instructions`, instructions.length, 3);
     const fences = (prompt.match(/^```$/gm) || []).length;
     assertEq(`the ${name} prompt carries two fenced post formats`, fences, 4);
-    assertTrue(`the ${name} prompt's start post is formatted (Designing/Implementing for)`,
-      /(📐 Designing for|🟠 Implementing for)/.test(prompt), prompt.slice(0, 200));
+    assertTrue(`the ${name} prompt's start post is formatted (Proposing/Implementing for)`,
+      /(📐 Proposing for|🟠 Implementing for)/.test(prompt), prompt.slice(0, 200));
     assertTrue(`the ${name} prompt's finish post is formatted (Proposed/Implemented)`,
       /(🔵 Proposed - |🟢 Implemented - )/.test(prompt), prompt.slice(0, 200));
     assertTrue(`both posts carry the session URL and the requester's mention`,
@@ -13771,7 +13771,7 @@ function testRoutineAnnouncementScoping() {
     assertTrue(`the ${name} prompt carries no thread URL to read`,
       !/Slack Thread URL/.test(body), body.slice(0, 400));
     assertTrue(`the ${name} prompt announces that work has started`,
-      /that (design process|implementation) has started/.test(body), body.slice(0, 400));
+      /that (proposing process|implementation) has started/.test(body), body.slice(0, 400));
     assertTrue(`the ${name} prompt carries its post format inline`,
       /<@U…>/.test(body) && /\{repo\}\/pull\/123/.test(body), body.slice(0, 400));
     assertTrue(`the ${name} prompt names no repository`,

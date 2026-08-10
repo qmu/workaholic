@@ -4,16 +4,16 @@ Companion to `SKILL.md` (*One thread per feedback item*, *Post shapes, mentions,
 
 ## The shapes of the runner's posts
 
-A template names its postable events and defers the line formats here. This file is the **catalog** a template draws from when it explicitly names an event — never blanket authorization: a shape's presence here does not permit a session to emit it unprompted (SKILL, *The prompt is the ceiling — no self-authorized shapes*). `<@U…>` follows the SKILL's mention rule; `<repo>` is the repository the session is running in, which it derives itself rather than being told. Two events (`/propose` design start/finish, `/implement` unit start/finish) carry the **sole sanctioned** wording — the literal templates from issue #300, reconciled below with the shapes that predate them (P10, 2026-08-07). Every other event keeps its pre-existing shape unchanged.
+A template names its postable events and defers the line formats here. This file is the **catalog** a template draws from when it explicitly names an event — never blanket authorization: a shape's presence here does not permit a session to emit it unprompted (SKILL, *The prompt is the ceiling — no self-authorized shapes*). `<@U…>` follows the SKILL's mention rule; `<repo>` is the repository the session is running in, which it derives itself rather than being told. Two events (`/propose` start/finish, `/implement` unit start/finish) carry the **sole sanctioned** wording — the literal templates from issue #300, reconciled below with the shapes that predate them (P10, 2026-08-07), and aligned again against the developer's dictated wording in issue #333. Every other event keeps its pre-existing shape unchanged.
 
-### `/propose` — design start and finish
+### `/propose` — start and finish
 
 ```
-📐 Designing for [#45 [FB] Issue Title](<repo-url>/issues/45)
-by [Claude Code on the Web](<session URL>) of <@U…>
+📐 Proposing for [#45 [FB] Issue Title](<repo-url>/issues/45)
+by the [routine](<session URL>) of <@U…>
 
 🔵 Proposed - [#123 [Proposal] PR Title](<repo-url>/pull/123)
-by [Claude Code on the Web](<session URL>) of <@U…>
+by the [routine](<session URL>) of <@U…>
 ```
 
 `🔵 Proposed` retires the earlier `🟢 Proposed to <@U…> - ...` shape and takes over its root role: whichever of the two posts is the first to land in a thread the stateless lookup did not find (SKILL, *One thread per feedback item*, case 4) carries `` `fb:<stem>` `` on its own line, never dropped — one shape now covers both a fresh root and a reply into a found thread, where two overlapping shapes covered only the root before.
@@ -22,10 +22,10 @@ by [Claude Code on the Web](<session URL>) of <@U…>
 
 ```
 🟠 Implementing for [#123 Proposal PR Title](<repo-url>/pull/123)
-by [Claude Code on the Web](<session URL>) of <@U…>
+by the [routine](<session URL>) of <@U…>
 
 🟢 Implemented - [#123 Title](<repo-url>/pull/123)
-by [Claude Code on the Web](<session URL>) of <@U…>
+by the [routine](<session URL>) of <@U…>
 ```
 
 `🟠 Implementing` retires the earlier terse `🟠 drive started - <unit-id>` shape as the unit's **only** start post. `🟢 Implemented` is the finish shape for the **ordinary** case: the unit reached its `review` effective policy's PR and stopped there — it retires the earlier `🟢 Merge Requested for <@U…> - ...` shape, which announced exactly the same event in more words. Three outcomes keep their own finish shape rather than collapsing into `🟢 Implemented`, because each carries information the generic line would lose — whether an unattended merge happened, whether the unit is genuinely unfinished, or what named blocker stopped it (the bright line in the SKILL: *an event earns its post*):

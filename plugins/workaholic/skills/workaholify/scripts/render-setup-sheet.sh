@@ -108,11 +108,13 @@ sheet() {
 }
 
 printf '# Routine setup for %s\n\n' "$REPO_URL"
-printf 'Create these by hand in the web UI. **The plugin cannot do it**: a GitHub-event\n'
+printf 'Create these by hand in the web UI. **This command cannot do it**: a GitHub-event\n'
 printf 'trigger is configurable in the UI only with no API-readable field, and no\n'
-printf '`RemoteTrigger`-family tool is exposed to a session for either kind — verified\n'
-printf 'empty for a schedule trigger too (ticket `20260810085351`), not only assumed from\n'
-printf 'the earlier GitHub-trigger finding. Nothing here can read, set, or verify the\n'
+printf '`RemoteTrigger`-family tool was exposed to an unattended, routine-fired session for\n'
+printf 'either kind — verified empty for a schedule trigger too (ticket `20260810085351`),\n'
+printf 'not only assumed from the earlier GitHub-trigger finding. A separate attended session\n'
+printf 'found the opposite on its own tool surface (workaholify reference/routines.md); this\n'
+printf 'command makes no such call either way. Nothing here can read, set, or verify the\n'
 printf 'wiring for any trigger kind — only state what it should be. Confirm what\n'
 printf 'actually runs at <%s>.\n\n' "$ROUTINES_URL"
 printf '> **On a public repository, set Issue and Pull request permissions to `Collaborators\n'

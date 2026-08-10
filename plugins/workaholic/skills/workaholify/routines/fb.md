@@ -49,6 +49,6 @@ by [Claude Code on the Web](https://claude.ai/code/session_***) of <@U…>
 After running `/propose [FB]`, notify the thread in the following format:
 
 ```
-📐 Proposed - [#123 [Proposal] PR Title]({repo}/pull/123)
+🔵 Proposed - [#123 [Proposal] PR Title]({repo}/pull/123)
 by [Claude Code on the Web](https://claude.ai/code/session_***) of <@U…>
 ```

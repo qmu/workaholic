@@ -12,23 +12,23 @@ A template names its postable events and defers the line formats here. This file
 📐 Designing for [#45 [FB] Issue Title](<repo-url>/issues/45)
 by [Claude Code on the Web](<session URL>) of <@U…>
 
-📐 Proposed - [#123 [Proposal] PR Title](<repo-url>/pull/123)
+🔵 Proposed - [#123 [Proposal] PR Title](<repo-url>/pull/123)
 by [Claude Code on the Web](<session URL>) of <@U…>
 ```
 
-`📐 Proposed` retires the earlier `🟢 Proposed to <@U…> - ...` shape and takes over its root role: whichever of the two posts is the first to land in a thread the stateless lookup did not find (SKILL, *One thread per feedback item*, case 4) carries `` `fb:<stem>` `` on its own line, never dropped — one shape now covers both a fresh root and a reply into a found thread, where two overlapping shapes covered only the root before.
+`🔵 Proposed` retires the earlier `🟢 Proposed to <@U…> - ...` shape and takes over its root role: whichever of the two posts is the first to land in a thread the stateless lookup did not find (SKILL, *One thread per feedback item*, case 4) carries `` `fb:<stem>` `` on its own line, never dropped — one shape now covers both a fresh root and a reply into a found thread, where two overlapping shapes covered only the root before.
 
 ### `/implement` — a unit's start and finish
 
 ```
-🛠️ Implementing for [#123 Proposal PR Title](<repo-url>/pull/123)
+🟠 Implementing for [#123 Proposal PR Title](<repo-url>/pull/123)
 by [Claude Code on the Web](<session URL>) of <@U…>
 
-🛠️ Implemented - [#123 Title](<repo-url>/pull/123)
+🟢 Implemented - [#123 Title](<repo-url>/pull/123)
 by [Claude Code on the Web](<session URL>) of <@U…>
 ```
 
-`🛠️ Implementing` retires the earlier terse `🟠 drive started - <unit-id>` shape as the unit's **only** start post. `🛠️ Implemented` is the finish shape for the **ordinary** case: the unit reached its `review` effective policy's PR and stopped there — it retires the earlier `🟢 Merge Requested for <@U…> - ...` shape, which announced exactly the same event in more words. Three outcomes keep their own finish shape rather than collapsing into `🛠️ Implemented`, because each carries information the generic line would lose — whether an unattended merge happened, whether the unit is genuinely unfinished, or what named blocker stopped it (the bright line in the SKILL: *an event earns its post*):
+`🟠 Implementing` retires the earlier terse `🟠 drive started - <unit-id>` shape as the unit's **only** start post. `🟢 Implemented` is the finish shape for the **ordinary** case: the unit reached its `review` effective policy's PR and stopped there — it retires the earlier `🟢 Merge Requested for <@U…> - ...` shape, which announced exactly the same event in more words. Three outcomes keep their own finish shape rather than collapsing into `🟢 Implemented`, because each carries information the generic line would lose — whether an unattended merge happened, whether the unit is genuinely unfinished, or what named blocker stopped it (the bright line in the SKILL: *an event earns its post*):
 
 ```
 🚀 Auto Merge - [#123 Title](<repo-url>/pull/123)
@@ -39,15 +39,15 @@ by [Claude Code on the Web](<session URL>) of <@U…>
 The next run resumes it automatically; `git fetch && git checkout <branch>` to take it sooner. One sentence, max 25 words, what remains only.
 <session URL>
 
-🔴 drive blocked - `<signature>`
+🔴 Blocked - `<signature>`
 One sentence, max 25 words, what failed and what a human must do.
 ```
 
-`🚀 Auto Merge` names no person and carries no mention token — a developer scanning the thread must be able to tell what merged without approval from what a person approved. It keeps the pre-existing merge shape's `from-branch → to-branch` body line verbatim; only the base template it extends moved from `🟢 Merge Requested` to `🛠️ Implemented`'s simpler two-line form. `🟡 Handoff` and `🔴 drive blocked` are unchanged from the shapes that predate this reconciliation.
+`🚀 Auto Merge` names no person and carries no mention token — a developer scanning the thread must be able to tell what merged without approval from what a person approved. It keeps the pre-existing merge shape's `from-branch → to-branch` body line verbatim; only the base template it extends moved from `🟢 Merge Requested` to `🟢 Implemented`'s simpler two-line form. `🟡 Handoff` and `🔴 Blocked` are unchanged from the shapes that predate this reconciliation.
 
-**A human merge is not announced by `/implement` at all** — that was `[Consent]`'s job, and `[Consent]` is retired (`workaholic:workaholify`, *Routines*): "a human-merged pull request is now announced by nobody." The `Merged by <@U…>` purple-circle shape this section once documented erased with it (2026-08-09, qmu/workaholic#317) rather than being reassigned — nothing in the current system posts a human-merge finish line, so keeping the shape on the books described a post nobody makes. The auto/human distinction the shape used to carry survives anyway, in the silence itself: `🚀 Auto Merge` is the only merge line `/implement` ever posts, so its presence in a thread means the run shipped the unit unattended; a `review` unit's thread ends at `🛠️ Implemented` and stays there even after a human merges the PR later, and the merge itself is always readable on GitHub regardless. A developer telling the two apart reads the thread, not a second emoji.
+**A human merge is not announced by `/implement` at all** — that was `[Consent]`'s job, and `[Consent]` is retired (`workaholic:workaholify`, *Routines*): "a human-merged pull request is now announced by nobody." The `Merged by <@U…>` purple-circle shape this section once documented erased with it (2026-08-09, qmu/workaholic#317) rather than being reassigned — nothing in the current system posts a human-merge finish line, so keeping the shape on the books described a post nobody makes. The auto/human distinction the shape used to carry survives anyway, in the silence itself: `🚀 Auto Merge` is the only merge line `/implement` ever posts, so its presence in a thread means the run shipped the unit unattended; a `review` unit's thread ends at `🟢 Implemented` and stays there even after a human merges the PR later, and the merge itself is always readable on GitHub regardless. A developer telling the two apart reads the thread, not a second emoji.
 
-Exactly one finish per thread stays the rule (SKILL, *Which thread an `/implement` unit's posts land in*): a unit posts `🛠️ Implemented` **or** one of the three outcome shapes above, never both — `handoff` is the finish, never a third post, and the same holds for a blocked or merged unit.
+Exactly one finish per thread stays the rule (SKILL, *Which thread an `/implement` unit's posts land in*): a unit posts `🟢 Implemented` **or** one of the three outcome shapes above, never both — `handoff` is the finish, never a third post, and the same holds for a blocked or merged unit.
 
 ## The session URL
 

@@ -13742,9 +13742,9 @@ function testRoutineAnnouncementScoping() {
     const fences = (prompt.match(/^```$/gm) || []).length;
     assertEq(`the ${name} prompt carries two fenced post formats`, fences, 4);
     assertTrue(`the ${name} prompt's start post is formatted (Designing/Implementing for)`,
-      /(📐 Designing for|🛠️ Implementing for)/.test(prompt), prompt.slice(0, 200));
+      /(📐 Designing for|🟠 Implementing for)/.test(prompt), prompt.slice(0, 200));
     assertTrue(`the ${name} prompt's finish post is formatted (Proposed/Implemented)`,
-      /(📐 Proposed - |🛠️ Implemented - )/.test(prompt), prompt.slice(0, 200));
+      /(🔵 Proposed - |🟢 Implemented - )/.test(prompt), prompt.slice(0, 200));
     assertTrue(`both posts carry the session URL and the requester's mention`,
       /claude\.ai\/code\/session_/.test(prompt) && /of <@U…>/.test(prompt), prompt.slice(0, 200));
   }

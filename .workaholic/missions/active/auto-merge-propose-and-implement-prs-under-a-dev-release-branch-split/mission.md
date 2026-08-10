@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260811-005414
 ---
 
 # Auto-merge propose and implement PRs under a dev/release branch split

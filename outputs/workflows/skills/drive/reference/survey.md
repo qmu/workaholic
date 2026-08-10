@@ -21,7 +21,9 @@ Two drift axes with different consequences (full field semantics: `check-deps`):
   the tree). Note the check runs **before** the fast-forward, so a clone behind the base can show
   a falsely-matching pair on this tick and the real drift on the next.
 - **`unbound_in_claude_session: true` is a warning, not a stop** (2026-08-10, ticket
-  `20260810090005`, generalizing the developer's live correction recorded in FB `20260810070110`).
+  `20260810090005`, generalizing the developer's live correction recorded in FB `20260810070110`) —
+  this is `/drive`'s instance of the general unbound-skill-surface fallback rule
+  (`plugins/workaholic/rules/general.md`); the concrete detail below is specific to the survey step.
   A genuine Claude Code session (`CLAUDE_CODE_SESSION_ID` present) where the harness's own registry
   confirms this plugin is installed, yet no plugin root was ever bound: every skill, command and
   hook the plugin ships is invisible to the Skill/Command tool abstraction for the whole run. FB

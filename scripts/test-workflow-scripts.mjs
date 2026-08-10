@@ -8989,11 +8989,14 @@ function testRenderSetupSheet() {
   for (const name of ["[Propose] workaholic", "[Implement] workaholic"]) {
     assertTrue(`the sheet covers ${name}`, all.includes(`## ${name}`), all.slice(0, 200));
   }
-  // Derived from frontmatter, per template -- not one generic paragraph.
-  assertTrue("each GitHub trigger renders its own event and filters",
-    all.includes("Event: `issues.assigned`") &&
-    all.includes("Event: `pull_request.closed`") &&
-    all.includes("is merged = true; title contains [Proposal]"),
+  // Derived from frontmatter, per template -- not one generic paragraph. Both
+  // templates moved to a fixed-interval schedule trigger (ticket 20260810085347,
+  // developer's explicit ask covering both routines) -- neither renders a GitHub
+  // event step any more.
+  assertTrue("each schedule trigger renders its own cron step",
+    (all.match(/\*\*Trigger\*\* — \*Select a trigger\* → \*\*Schedule\*\*, cron `0,30 \* \* \* \*`/g) || []).length === 2 &&
+    !/Event: `issues\.assigned`/.test(all) &&
+    !/Event: `pull_request\.closed`/.test(all),
     all);
   // The limitation is stated where the developer reads it, not only in a skill.
   assertTrue("the sheet says the wiring cannot be read or set from here",
@@ -10712,8 +10715,12 @@ function testDriveAttendedSelection() {
   // on the selection prompt with nobody there to answer it. The prompt names the
   // command and stops -- being unattended is /implement's own contract, and the
   // developer's rule for a routine prompt is that it restates nothing a skill owns.
+  // Bare `/implement`, not `/implement [Mission/Ticket]`: since the template moved to a
+  // fixed-interval schedule trigger (ticket 20260810085347), a fire carries no specific
+  // unit in hand the way a merge-event fire once did, so the prompt runs the unattended
+  // survey rather than naming a scope no trigger payload can supply.
   assertTrue("the routine template invokes the unattended command by name",
-    /\/implement \[Mission\/Ticket\]/.test(routine) && !/\/drive\b/.test(routine.slice(routine.indexOf("## Prompt"))));
+    /\/implement\b/.test(routine) && !/\/drive\b/.test(routine.slice(routine.indexOf("## Prompt"))));
   assertTrue("the runbook's cron line and loop contract name /implement",
     /claude -p "\/implement"/.test(runbook) && /\/goal \/implement ok/.test(runbook));
   assertTrue("the attended command points caller-side loops at /implement",
@@ -13492,13 +13499,15 @@ function testWorkaholifyRoutines() {
     // surveyed, rendered and drift-checked the moment its file exists -- and leaves the
     // set the moment it does not. Nothing enumerates the ids in code, which is why both
     // adding `propose` and retiring it again needed no script change.
-    // No template is scheduled since 2026-08-06: [Implement] is merge-triggered (the
-    // developer's ask), and a template that regrew a cron would resurrect the clock
-    // this pin now forbids.
-    assertEq("no template carries a schedule any more",
-      tpl.templates.filter((t) => t.trigger === "cron").map((t) => t.cron_expression), []);
-    assertEq("implement declares the merge trigger",
-      tpl.templates.find((t) => t.id === "implement").trigger, "github-pr-merged");
+    // Both templates carry a fixed-interval schedule trigger (ticket 20260810085347,
+    // developer's explicit ask covering [Propose] as well as [Implement], 2026-08-10),
+    // superseding the 2026-08-06 merge-trigger pin this block used to state.
+    assertEq("both templates carry the same 30-minute schedule",
+      tpl.templates.map((t) => t.cron_expression).sort(), ["0,30 * * * *", "0,30 * * * *"]);
+    assertEq("implement declares the schedule trigger",
+      tpl.templates.find((t) => t.id === "implement").trigger, "schedule-every-30-min");
+    assertEq("fb declares the schedule trigger",
+      tpl.templates.find((t) => t.id === "fb").trigger, "schedule-every-30-min");
 
     // ---- the three substitutions, each demanded by a real prompt ----
     const drive = JSON.parse(run(dir, `${RENDER} implement ${WH}`).stdout);
@@ -13521,10 +13530,12 @@ function testWorkaholifyRoutines() {
 
     const fb = JSON.parse(run(dir, `${RENDER} fb ${WH}`).stdout);
     // The template's trigger states the DESIGNED trigger (the record stores no such
-    // field): [Propose] fires on a GitHub issue assigned to the developer -- never a
-    // schedule, never a merge (developer's instruction, 2026-08-06). The word is the
+    // field): [Propose] fires on a fixed 30-minute schedule, same as [Implement]
+    // (ticket 20260810085347, developer's explicit ask covering both routines,
+    // 2026-08-10, superseding the 2026-08-06 assigned-issue-only pin). The word is the
     // design, so it is pinned.
-    assertEq("the fb routine declares the assigned-issue trigger, no schedule", [fb.trigger, fb.cron_expression], ["github-issue-assigned", ""]);
+    assertEq("the fb routine declares the schedule trigger, matching implement",
+      [fb.trigger, fb.cron_expression], ["schedule-every-30-min", "0,30 * * * *"]);
     assertEq("an unknown template is refused by name",
       JSON.parse(run(dir, `${RENDER} no-such ${WH}`).stdout).error, "unknown_template");
   } finally { cleanup(dir); }

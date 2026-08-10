@@ -16,8 +16,7 @@ mcp: [Slack]
 loop-engineering cadence over instant reaction on the merge event. Every developer's
 copy fires independently, and the **data** decides whose work it is: a proposal
 carries the triggering issue's assignee as its `assignees`, so a runner whose work
-this is not surveys, sees `owned_by_other`, takes nothing, and ends `ok`. No prompt
-change is needed for this — the survey already filters ownership, and the survey
+this is not surveys, sees `owned_by_other`, takes nothing, and ends `ok`. No prompt change is needed for this — the survey already filters ownership, and the survey
 itself (not a trigger payload) is what decides what gets driven this tick — a
 schedule fire carries no PR/issue context at all, unlike the retired merge-event
 trigger. **The tradeoff this reintroduces**: `[Implement]` no longer starts the
@@ -52,15 +51,16 @@ unattended executor became `/implement`.)
 
 ## Prompt
 
-Run `/implement`. For each PR-unit it claims, find that unit's reply thread (the
-workaholic:notify lookup) and notify it that implementing has started:
+For each PR-unit `/implement` claims, find its reply thread (the workaholic:notify lookup).
+
+Notify the thread that implementation has started:
 
 ```
 🟠 Implementing for [#123 Proposal PR Title]({repo}/pull/123)
 by the [routine](https://claude.ai/code/session_***) of <@U…>
 ```
 
-When that unit finishes, notify the same thread in the following format:
+When the unit finishes, notify the thread in the following format:
 
 ```
 🟢 Implemented - [#123 Title]({repo}/pull/123)

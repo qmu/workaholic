@@ -4,6 +4,7 @@
 
 * [auto-merge-propose-and-implement-prs-under-a-dev-release-branch-split](active/auto-merge-propose-and-implement-prs-under-a-dev-release-branch-split/mission.md) - Auto-merge propose and implement PRs under a dev/release branch split
 * [color-code-the-notify-post-shapes-by-state](active/color-code-the-notify-post-shapes-by-state/mission.md) - Color-code the notify post shapes by state
+* [configure-routines-automatically-via-remotetrigger](active/configure-routines-automatically-via-remotetrigger/mission.md) - Configure routines automatically via RemoteTrigger
 * [move-the-propose-and-implement-routines-to-a-fixed-interval-schedule](active/move-the-propose-and-implement-routines-to-a-fixed-interval-schedule/mission.md) - Move the Propose and Implement routines to a fixed-interval schedule
 
 ## archive

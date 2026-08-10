@@ -2,10 +2,9 @@
 type: Routine Template
 id: implement
 name: "[Implement] {repo_name}"
-trigger: github-pr-merged
-trigger_kind: github
-trigger_event: pull_request.closed
-trigger_filters: is merged = true; title contains [Proposal]
+trigger: schedule-every-30-min
+trigger_kind: schedule
+cron_expression: 0,30 * * * *
 model: claude-opus-5
 allowed_tools: [Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch]
 mcp: [Slack]
@@ -13,12 +12,22 @@ mcp: [Slack]
 
 # [Implement] — the unattended executor
 
-**Fires when a proposal's pull request merges** — for every developer's copy, and the
-**data** decides whose work it is: a proposal carries the triggering issue's assignee
-as its `assignees`, so a runner whose work this is not surveys, sees `owned_by_other`,
-takes nothing, and ends `ok`. No prompt change is needed for this — the survey already
-filters ownership. The wiring is set in the routines UI; the `trigger_*` keys declare
-the design, not a stored field.
+**Fires on a fixed 30-minute schedule (:00/:30)** — FB `20260810085032`/issue #336:
+loop-engineering cadence over instant reaction on the merge event. Every developer's
+copy fires independently, and the **data** decides whose work it is: a proposal
+carries the triggering issue's assignee as its `assignees`, so a runner whose work
+this is not surveys, sees `owned_by_other`, takes nothing, and ends `ok`. No prompt
+change is needed for this — the survey already filters ownership, and the survey
+itself (not a trigger payload) is what decides what gets driven this tick — a
+schedule fire carries no PR/issue context at all, unlike the retired merge-event
+trigger. **The tradeoff this reintroduces**: `[Implement]` no longer starts the
+instant a `[Proposal]` PR merges — a merged proposal now waits up to 30 minutes for
+the next tick, same as any other claimable backlog item (`workaholic:workaholify`
+SKILL, *Routines*; `reference/routines.md`, *The trigger surface, measured*). The
+wiring is entered by hand in the routines UI; the `trigger_kind`/`cron_expression`
+keys declare the design, not a stored field a session can read back (no
+`RemoteTrigger`-family tool is exposed to this session — verified empty by
+`ToolSearch`, ticket `20260810085351`).
 
 **The prompt is the developer's own** (P3, reshaped by Q2: three instructions and two
 post formats — the start post is formatted too, and both carry the session URL and the
@@ -32,23 +41,26 @@ a routine cannot defer its own output contract — but `workaholic:notify`'s
 these two events (P10, 2026-08-07), so a future edit to either copy is a drift to fix,
 never a second wording to reconcile against a third.
 The reply thread is **found**, never carried (Q1) — the notify SKILL's exact-token lookup, not a
-target read out of the pull request and not a channel name in the prompt — so no
-repository is named here and the same prompt pastes into every project. `{repo}` in
-the format lines is the developer's own placeholder for the pull request links. (Named
-`[Drive]` until P1, when the unattended executor became `/implement`.)
+target read out of a triggering event and not a channel name in the prompt — so no
+repository is named here and the same prompt pastes into every project. A schedule
+fire carries no single PR/issue at all (unlike the retired merge-event trigger), so
+the lookup runs **per claimed unit** — `workaholic:drive`'s own §3/§6 already resolve
+each unit's feedback-item thread via `unit-feedback-stems.sh`, this prompt only fixes
+the two literal post shapes. `{repo}` in the format lines is the developer's own
+placeholder for the pull request links. (Named `[Drive]` until P1, when the
+unattended executor became `/implement`.)
 
 ## Prompt
 
-Read the Mission/Ticket from the PR and find its reply thread (the workaholic:notify lookup).
-
-Notify to the thread that implementation has started:
+Run `/implement`. For each PR-unit it claims, find that unit's reply thread (the
+workaholic:notify lookup) and notify it that implementing has started:
 
 ```
 🟠 Implementing for [#123 Proposal PR Title]({repo}/pull/123)
 by the [routine](https://claude.ai/code/session_***) of <@U…>
 ```
 
-After running `/implement [Mission/Ticket]`, notify the thread in the following format:
+When that unit finishes, notify the same thread in the following format:
 
 ```
 🟢 Implemented - [#123 Title]({repo}/pull/123)

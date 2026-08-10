@@ -19,6 +19,15 @@
 # refreshed through a digest gate, and the real wired routine ran a stale prompt beyond
 # page one. So the plugin's one job here is to make the human's UI setup cheap.
 #
+# THE SAME RULING HOLDS FOR A SCHEDULE TRIGGER (re-verified 2026-08-10, ticket
+# `20260810085351` -- FB `20260810085032`/issue #336 asked to revive a management
+# command for `cron_expression` specifically, since it is a genuine data field on a
+# routine record, unlike the GitHub event). `ToolSearch` over this session's full tool
+# surface found no `RemoteTrigger`-family tool at all -- only `CronCreate`/`CronList`/
+# `CronDelete`, which are this session's OWN in-memory, session-only cron and unrelated
+# to account-level routines. So a schedule trigger is exactly as unreadable/unwritable
+# from a session as a GitHub one, and this sheet stays the whole surface for both.
+#
 # THE UI STEPS ARE DERIVED, NEVER HAND-WRITTEN. They come from the template's own
 # `trigger_kind` / `trigger_event` / `trigger_filters` declaration, so a template whose
 # trigger changes cannot leave a stale procedure behind in prose somebody forgot.
@@ -93,16 +102,21 @@ sheet() {
 }
 
 printf '# Routine setup for %s\n\n' "$REPO_URL"
-printf 'Create these by hand in the web UI. **The plugin cannot do it**: a routine'\''s GitHub\n'
-printf 'trigger is configurable in the UI only, and the API exposes no trigger field, so\n'
-printf 'nothing here can read, set, or verify the wiring — only state what it should be.\n'
-printf 'Confirm what actually runs at <%s>.\n\n' "$ROUTINES_URL"
+printf 'Create these by hand in the web UI. **The plugin cannot do it**: a GitHub-event\n'
+printf 'trigger is configurable in the UI only with no API-readable field, and no\n'
+printf '`RemoteTrigger`-family tool is exposed to a session for either kind — verified\n'
+printf 'empty for a schedule trigger too (ticket `20260810085351`), not only assumed from\n'
+printf 'the earlier GitHub-trigger finding. Nothing here can read, set, or verify the\n'
+printf 'wiring for any trigger kind — only state what it should be. Confirm what\n'
+printf 'actually runs at <%s>.\n\n' "$ROUTINES_URL"
 printf '> **On a public repository, set Issue and Pull request permissions to `Collaborators\n'
-printf '> only` before creating these.** Each routine fires on an Issue or a pull request and\n'
-printf '> feeds its body to an unattended agent holding Bash, Write and a Slack connector, so\n'
-printf '> an open issue tracker is an open input to that agent. Note also that a Slack thread\n'
-printf '> URL placed in a public Issue or pull request body is world-readable and permanently\n'
-printf '> archived — it is not a credential and grants no access, but it cannot be unpublished.\n\n'
+printf '> only` before creating these.** A GitHub-triggered routine feeds an Issue or a pull\n'
+printf '> request body to an unattended agent holding Bash, Write and a Slack connector, so\n'
+printf '> an open issue tracker is an open input to that agent; a schedule-triggered routine\n'
+printf '> reads the same content once it starts driving, so the precondition still applies.\n'
+printf '> Note also that a Slack thread URL placed in a public Issue or pull request body is\n'
+printf '> world-readable and permanently archived — it is not a credential and grants no\n'
+printf '> access, but it cannot be unpublished.\n\n'
 printf '> **Each developer whose tickets a routine should drive needs an entry in the\n'
 printf '> committed `.claude/git-identities` mapping** (`<login>=<email>`; the web bootstrap\n'
 printf '> hook reads it). Without one, the cloud session keeps the container'\''s default git\n'

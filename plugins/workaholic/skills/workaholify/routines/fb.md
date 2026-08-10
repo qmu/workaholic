@@ -20,6 +20,21 @@ narrow this). The check is the command's, never this prompt's — `/propose` rep
 integration, outside the routine record (`workaholify` SKILL, *What a routine can be
 triggered by*).
 
+**Deliberately kept event-triggered, not moved to a schedule** (FB `20260810085032`/
+issue #336 asked for both `[Propose]` and `[Implement]` to move; only `[Implement]`
+did — `implement.md`, ticket `20260810085347`). `/propose`'s whole design is **the ask
+in hand**: the reported ask and the ask alone decide what gets proposed, with
+`nothing_in_hand` the honest answer when there is none (`CLAUDE.md`, `/propose` row) —
+a design that exists *because* the earlier `[Propose Batch]` swept the backlog instead
+and was retired for it (`reference/routines.md`, *The retired routines*). A schedule
+fire carries no issue number, no assignee, nothing in hand at all — every tick would
+report `nothing_in_hand` unless `/propose` grew a sweep back, which is the exact
+mechanism this repository already rejected once. `[Implement]` has no such conflict:
+it is survey-driven, not ask-driven, so a schedule fire loses nothing but the merge
+event's instant start. Revisiting this would mean redesigning how `/propose`
+discovers an ask under a clock instead of an event — out of scope here; tracked as its
+own concern rather than assumed away.
+
 **The prompt is the developer's own** (P3, reshaped by Q2: three instructions and two
 post formats — the start post is formatted too, and both carry the session URL and the
 requester's mention) and states no rule

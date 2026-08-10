@@ -459,4 +459,5 @@
 * ["No RemoteTrigger tool exposed" claim is session-class-dependent — and reveals real cron/prompt drift on the live routines](20260810104520-no-remotetrigger-tool-exposed-claim-is-session-class-dependent-and-reveals-real-cron-prompt-drift-on-the-live-routines.md)
 * [Unbound cloud plugin is a known upstream race with a documented seed-dir counter](20260810211402-unbound-cloud-plugin-is-a-known-upstream-race-with-a-documented-seed-dir-counter.md)
 * [Precondition stops should post calm, escalating to red only on persistence](20260810212924-precondition-stops-should-post-calm-escalating-to-red-only-on-persistence.md)
+* [Make setup-routines and workaholify configure routines automatically via RemoteTrigger](20260810214929-make-setup-routines-and-workaholify-configure-routines-automatically-via-remotetrigger.md)
 <!-- okf:generated:end -->

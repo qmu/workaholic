@@ -440,4 +440,5 @@
 * [FB issues are not auto-closing when their Proposal PR merges](20260809080752-fb-issues-are-not-auto-closing-when-their-proposal-pr-merges.md)
 * [check-deps reports unbound_in_claude_session in the dev repo where the plugin is bound from the checkout](20260809202650-check-deps-reports-unbound-in-claude-session-in-the-dev-repo-where-the-plugin-is-bound-from-the-checkout.md)
 * [Color-code the notify post shapes by state](20260810062845-color-code-the-notify-post-shapes-by-state.md)
+* [Implement routine over-blocks on unbound_in_claude_session](20260810070110-implement-routine-over-blocks-on-unbound-in-claude-session.md)
 <!-- okf:generated:end -->

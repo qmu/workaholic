@@ -38,3 +38,4 @@ A session with a `RemoteTrigger`-family tool lists the account's routines, diffs
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-10 — ticket archived — 20260810130657-fix-the-routine-templates-unrealizable-30-minute-schedule.md

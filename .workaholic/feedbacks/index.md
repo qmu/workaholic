@@ -443,6 +443,7 @@
 * [Implement routine over-blocks on unbound_in_claude_session](20260810070110-implement-routine-over-blocks-on-unbound-in-claude-session.md)
 * [Fix drift in routine notify templates for Propose/Implement status posts](20260810080930-fix-drift-in-routine-notify-templates-for-propose-implement-status-posts.md)
 * [Move workaholify Proposal and Implement steps to a fixed interval loop instead of immediate webhook triggers](20260810085032-move-workaholify-proposal-and-implement-steps-to-a-fixed-interval-loop-instead-of-immediate-webhook-triggers.md)
+* ["workflows" plugin fails marketplace sync — missing manifest](20260810092222-workflows-plugin-fails-marketplace-sync-missing-manifest.md)
 * [Resolved: Routine configuration has no source of truth in the repository](20260810092934-resolved-20260731160517-routine-configuration-has-no-source-of-truth-in-the-repository.md)
 * [Resolved: The drive routine's handoff section still says resumption is impossible](20260810092934-resolved-20260804143009-the-drive-routine-s-handoff-section-still-says-resumption-is-impossible.md)
 * [Resolved: The routines list API caps at 20, so a fleet drift report silently misses routines](20260810092934-resolved-20260805210036-the-routines-list-api-caps-at-20-so-a-fleet-drift-report-silently-misses-routines.md)

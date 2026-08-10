@@ -45,7 +45,7 @@ by whichever agent plans the release — not blocked at merge time.
       own pull request immediately after creating it, with no
       human-confirmation step, and post the simplified `🔵 Proposed` /
       `🟢 Implemented` notifications, dropping the separate "started" post. (#20260810090145-merge-propose-and-implement-prs-immediately-no-confirmation.md)
-- [ ] The branch model explicitly documents `main` as the continuously
+- [x] The branch model explicitly documents `main` as the continuously
       auto-merged development branch, with `release/*` (existing tier) as
       the pre-production QA/release boundary. (#20260810090145-document-main-as-the-dev-branch-with-release-as-the-qa-boundary.md)
 - [ ] The QA loop, release-planning loop, and post-release quality-check
@@ -57,3 +57,4 @@ by whichever agent plans the release — not blocked at merge time.
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-11 — ticket archived — 20260810090145-merge-propose-and-implement-prs-immediately-no-confirmation.md
+- 2026-08-11 — ticket archived — 20260810090145-document-main-as-the-dev-branch-with-release-as-the-qa-boundary.md

@@ -5,6 +5,7 @@ assignees:
 depends_on:
 mission:
 merge_policy:
+claim: work-20260810-170054
 ---
 
 # Reconcile drive/reference/routing.md's stale review-route description
@@ -66,3 +67,22 @@ routing detail) directly contradicts the skill it is meant to elaborate.
 
 - Low severity, cosmetic doc drift — not blocking, hence minted rather than fixed opportunistically inside the notification-shape ticket per the drive skill's failure contract.
 - Found while implementing `20260809085953-reconcile-stale-notification-shape-references-post-p10.md`.
+
+## Final Report
+
+Development completed as planned. Rewrote `drive/reference/routing.md`'s *Routing mechanics (§6)*
+`review` bullet to match `drive/SKILL.md` §6, the current source of truth: the PR merges
+immediately once opened and the branch-safety scan verdict is `pass`, tearing the claim down
+exactly as `auto` does, with a scan finding the one thing that leaves it open. The re-grep (step 2)
+surfaced a deeper, out-of-scope drift in the same sweep: `/ticket`'s and (per its own Key Files
+note) potentially `/mission`'s creation-time `merge_policy` interrogation still frames `review` as
+"a human must review the PR" — no longer true under the auto-merge mission, since both policies now
+merge unattended and the real distinction is deploy-confirmation timing. Minted
+`20260810170140-reconcile-ticket-creation-s-review-wording-with-auto-merge.md` for it rather than
+fixing it here, since it touches a developer-facing decision prompt outside this ticket's stated
+Key Files.
+
+### Discovered Insights
+
+- **Insight**: A skill's `reference/` file can drift out of sync with the `SKILL.md` it elaborates even when the `SKILL.md` itself was correctly updated — the two are separate files with no automated cross-check.
+  **Context**: `drive/SKILL.md` §6 was already reconciled to the auto-merge mission's model, but `drive/reference/routing.md`, which `SKILL.md` links to for the same routing detail, was missed in that change and kept contradicting it. Worth a grep sweep across a skill's `reference/` directory whenever its `SKILL.md`'s routing/behavior sections change.

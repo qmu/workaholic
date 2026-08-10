@@ -73,3 +73,28 @@ Affected, as of this writing:
 
 - Low severity, cosmetic doc drift — not blocking, hence minted rather than fixed opportunistically inside the 🟣-removal ticket per the drive skill's failure contract ("inside the current ticket's scope → implement it; outside it → write a ticket, continue").
 - Found while implementing `20260809080408-erase-the-purple-circle-notification-format.md` (qmu/workaholic#317).
+
+## Final Report
+
+Development completed as planned. The re-grep (step 1) surfaced that the model had moved further
+since this ticket was written: mission `auto-merge-propose-and-implement-prs-under-a-dev-release-branch-split`
+(2026-08-11) retired the 🟠 start post entirely and reconciled the review-route finish to `🟢
+Implemented` in `workaholic:notify` (the actual current source of truth) — this ticket's own
+Implementation Steps, which target a `🛠️ Implemented`/`🛠️ Implementing` pair, were themselves
+already superseded by that later reconciliation. Applied the *current* correct model (per
+`notify/SKILL.md` and `notify/reference/notifications.md`, unchanged by this ticket) rather than
+the ticket's now-stale suggested target: removed the `🟠` start-post description from
+`drive/SKILL.md` and `drive/reference/routing.md` (the start post is retired; a unit posts its
+finish only), fixed the `🟢 Merge Requested` wording to `🟢 Implemented` in `routing.md`, and fixed
+the same paragraph in `CLAUDE.md`'s claim-protocol prose. The re-grep also caught a stale mention
+in `workaholify/reference/routines.md` (`[Consent]`'s retirement rationale still cited "the run's
+own 🟠 start line" as a softening factor) and fixed it. Rebuilt `outputs/workflows` so its mirrors
+match. A second, unrelated drift was found in the same `routing.md` file — its `review` route
+description predates the 2026-08-11 auto-merge mission — and minted as
+`20260810164156-reconcile-drive-routing-md-s-stale-review-route-description.md` rather than fixed
+here, per the failure contract's scope boundary.
+
+### Discovered Insights
+
+- **Insight**: A ticket's own Implementation Steps can go stale between authoring and driving when the area it targets keeps evolving (here, `workaholic:notify`'s model changed twice more after this ticket was written on 2026-08-09).
+  **Context**: The driving run should verify a ticket's suggested fix against the current source of truth (the file the ticket names as authoritative) rather than applying the literal steps blind — the acceptance criteria (no stale `🟢 Merge Requested`/`🟠 drive started`) held regardless of which reconciliation the fix actually applied.

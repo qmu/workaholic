@@ -74,9 +74,14 @@ and every abort reports a machine-readable reason.
    Either way, fill each ticket's Overview, Key Files, Implementation Steps, and the
    provisional Quality Gate, and leave `merge_policy` empty (absent reads as `review`).
 
-9. **Publish it all as one pull request.**
-   `WORKAHOLIC_PR_TITLE="[Proposal] <title>" WORKAHOLIC_CLOSES_ISSUE="<issue number from step 1>" bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/publish-tree-pr.sh "<title>" "<why>" "<changes>" "<concerns>" "<insights>" "<verify>"`
-   — **one call**, carrying the record and whatever the judgment added. Name the commit
+9. **Publish it all as one pull request, merged immediately.**
+   `WORKAHOLIC_AUTO_MERGE=1 WORKAHOLIC_PR_TITLE="[Proposal] <title>" WORKAHOLIC_CLOSES_ISSUE="<issue number from step 1>" bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/publish-tree-pr.sh "<title>" "<why>" "<changes>" "<concerns>" "<insights>" "<verify>"`
+   — **one call**, carrying the record and whatever the judgment added.
+   `WORKAHOLIC_AUTO_MERGE=1` merges the pull request right after opening it
+   (mission `auto-merge-propose-and-implement-prs-under-a-dev-release-branch-split`,
+   2026-08-11): the report's `merged`/`merge_reason` says what happened, and any
+   release-scan finding leaves the PR open for a human instead — report that as
+   the outcome, never retry the merge by hand in the same run. Name the commit
    subject for what it carries — `Propose mission <slug>`, `Propose ticket <slug>`, or
    `Register feedback <stem>` for record-only — and give the pull request the same words
    behind the `[Proposal]` prefix (`[提案]` for a Japanese title); the subject and the

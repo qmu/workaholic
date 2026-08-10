@@ -76,3 +76,45 @@ GitHub event one.
 
 - This proposal deliberately revisits a settled decision (`/setup-routines` "manages nothing", "routines are never cron") — the interrogation should confirm whether a schedule trigger is genuinely configurable through the routines API/UI before this is marked drive-ready.
 - Overlaps with ticket 2 (reviving `/set-routines`): that ticket may be what actually provisions the `cron_expression` this one only declares.
+
+## Final Report
+
+`implement.md` now declares `trigger_kind: schedule` / `cron_expression: 0,30 * * * *`
+in place of the `pull_request.closed` webhook trigger, and its prompt was reworded to
+find each **claimed unit's** own reply thread (matching `workaholic:drive`'s existing
+per-unit posting) instead of assuming a single triggering PR, which a schedule fire no
+longer supplies. `render-setup-sheet.sh` already had a `cron_expression` branch before
+this ticket — it needed no code change, only the template frontmatter — but its
+preamble text and `reference/routines.md`/`SKILL.md`/`CLAUDE.md` were updated to state
+that no `RemoteTrigger`-family tool is exposed to this (unattended, routine-fired)
+session for either trigger kind, re-verified via `ToolSearch` rather than assumed.
+
+**`fb.md` (`[Propose]`) was deliberately left on its GitHub trigger** — a scoped
+deviation from the ticket's literal "change fb.md's and implement.md's frontmatter"
+instruction, recorded rather than silently done. `/propose`'s whole design is *the ask
+in hand* (`nothing_in_hand` when there is none); a schedule fire carries no issue
+number, no assignee, nothing in hand at all, so converting it would make every tick
+report `nothing_in_hand` unless `/propose` regrew a sweep over the backlog — exactly
+the `[Propose Batch]` design this repository already retired for sweeping instead of
+receiving an ask. `[Implement]` has no such conflict: it is survey-driven, not
+ask-driven, so the move only costs the merge event's instant start. This is documented
+in `fb.md`'s own header, `reference/routines.md`, and the mission's linked considerations
+— a follow-up would need to redesign how `/propose` discovers an ask under a clock,
+which is out of scope here.
+
+### Discovered Insights
+
+- **Insight**: `render-setup-sheet.sh`'s schedule-trigger rendering (the `elif [ -n
+  "$_cron" ]` branch) already existed before this ticket, built for exactly this case.
+  **Context**: the setup-sheet renderer was already trigger-kind-agnostic by design —
+  it derives its UI steps from whichever of `trigger_kind`/`cron_expression` a template
+  declares — so "declaring the trigger" was a template-frontmatter change, not a script
+  change, once the finding in ticket `20260810085351` confirmed no session tool could
+  provision the field directly.
+- **Insight**: The routine templates' explanatory prose (above `## Prompt`) doubles as
+  the authoritative source `workaholic:notify`'s reference doc mirrors — editing the
+  trigger meant also fixing the prose's now-inaccurate claim that a session reads "the
+  PR" that triggered it, since a schedule fire has no such PR.
+  **Context**: worth remembering for any future trigger-kind change to these templates:
+  the prompt's per-unit language (drive/SKILL.md §3's `unit-feedback-stems.sh` lookup)
+  generalizes across trigger kinds; language describing "the triggering event" does not.

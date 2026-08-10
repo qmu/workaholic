@@ -85,3 +85,53 @@ not a reintroduction of the retired event-management surface.
 
 - Directly revisits the 2026-08-06 ruling that routine management "manages nothing" — this ticket's first step is to re-verify that premise for the schedule field specifically, not to assume the old retirement fully applies.
 - If step 1 finds scheduling is still not settable from a session, this ticket still delivers value as an accurate, revived setup sheet — it must not silently become a no-op.
+
+## Final Report
+
+Step 1 (re-verify, not assume): `ToolSearch` was run against this session's entire
+tool surface, first by name (`RemoteTrigger`) and then by keyword (`routine`, `cron`,
+`trigger`, `schedule`, "create trigger routine schedule webhook code session"). No
+`RemoteTrigger`-family tool exists at all. The only scheduling-shaped tools present are
+`CronCreate`/`CronList`/`CronDelete`, and their own descriptions rule them out: "Jobs
+live only in this Claude session — nothing is written to disk, and the job is gone
+when Claude exits." That is a session-local, in-memory mechanism, unrelated to an
+account-level routine record that persists across sessions/devices and is what
+actually fires `[Propose]`/`[Implement]`. So although `cron_expression` **is** a
+genuine, API-visible field on a routine record (unlike a GitHub event's trigger,
+which the 2026-08-06 retirement found has no field at all) — the 2026-08-06 "manages
+nothing" ruling's *conclusion* still holds for a schedule trigger, for a related but
+distinct reason: the field exists, but no tool in this session's surface reads or
+writes it.
+
+Step 3 (not settable → accurate copy-paste sheet, not a fabricated management
+surface): `render-setup-sheet.sh` already derived a **Schedule** trigger step from a
+template's `cron_expression` field before this ticket (the branch predates it), so
+reviving "`/set-routines`" required no new command — `/setup-routines` already is that
+sheet, and ticket `20260810085347`'s template change is what makes it render a real
+schedule step for `[Implement]` for the first time. Writing a second, near-identical
+command would repeat exactly the mistake the 2026-08-06 retirement corrected (a tool
+managing what it cannot verify) and would violate this repository's own "one
+behaviour per command" (`CLAUDE.md`, P5) posture toward duplicate command surfaces.
+
+Docs updated to state the finding rather than let the "manages nothing" claim read as
+an unchecked assumption: `CLAUDE.md`'s `/setup-routines` row, `workaholify/SKILL.md`
+§5, and `reference/routines.md`'s new *The schedule field, re-verified for a session*
+section.
+
+**Scope of the finding, stated explicitly rather than left implicit**: this was
+checked from an unattended, routine-fired session — the exact class `[Implement]`
+runs in. It does not by itself establish what tooling a developer's own interactive
+`claude.ai` session carries; that would need its own re-verification from inside such
+a session, not an assumption in either direction. This limit is recorded in
+`reference/routines.md` and `CLAUDE.md` so a future reader does not read "no
+`RemoteTrigger` tool" as a universal claim broader than what was actually checked.
+
+### Discovered Insights
+
+- **Insight**: `CronCreate`/`CronList`/`CronDelete` look, by name, like exactly the
+  tool this ticket was hoping to find — and are not it.
+  **Context**: worth flagging for any future investigation of "can a session manage
+  X account-level resource": these tools are session-scoped and in-memory by explicit
+  design (their own docs state jobs vanish when the session ends), so a name match
+  alone is not evidence of capability. The distinguishing test is persistence across
+  sessions, which only an account-level API-backed tool would have.

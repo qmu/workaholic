@@ -443,4 +443,13 @@
 * [Implement routine over-blocks on unbound_in_claude_session](20260810070110-implement-routine-over-blocks-on-unbound-in-claude-session.md)
 * [Fix drift in routine notify templates for Propose/Implement status posts](20260810080930-fix-drift-in-routine-notify-templates-for-propose-implement-status-posts.md)
 * [Move workaholify Proposal and Implement steps to a fixed interval loop instead of immediate webhook triggers](20260810085032-move-workaholify-proposal-and-implement-steps-to-a-fixed-interval-loop-instead-of-immediate-webhook-triggers.md)
+* [Resolved: Routine configuration has no source of truth in the repository](20260810092934-resolved-20260731160517-routine-configuration-has-no-source-of-truth-in-the-repository.md)
+* [Resolved: The drive routine's handoff section still says resumption is impossible](20260810092934-resolved-20260804143009-the-drive-routine-s-handoff-section-still-says-resumption-is-impossible.md)
+* [Resolved: The routines list API caps at 20, so a fleet drift report silently misses routines](20260810092934-resolved-20260805210036-the-routines-list-api-caps-at-20-so-a-fleet-drift-report-silently-misses-routines.md)
+* [Resolved: A legitimate per-repository difference now reads as drift forever](20260810092934-resolved-a-legitimate-per-repository-difference-now.md)
+* [Resolved: Nothing here has been run against the live account](20260810092934-resolved-nothing-here-has-been-run-against.md)
+* [Resolved: Nothing reconciles a routine that was deleted outside this flow](20260810092934-resolved-nothing-reconciles-a-routine-that-was.md)
+* [Resolved: Prompt comparison is exact, so reformatting a template flags every repository at once](20260810092934-resolved-prompt-comparison-is-exact-so-reformatting.md)
+* [Resolved: The digest gate cannot prove a human was present](20260810092934-resolved-the-digest-gate-cannot-prove-a.md)
+* [Resolved: The Drive template is still a pilot](20260810092934-resolved-the-drive-template-is-still-a.md)
 <!-- okf:generated:end -->

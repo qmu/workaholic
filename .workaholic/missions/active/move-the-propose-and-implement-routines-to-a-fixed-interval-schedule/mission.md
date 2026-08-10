@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 0.5
 feedback: [.workaholic/feedbacks/20260810085032-move-workaholify-proposal-and-implement-steps-to-a-fixed-interval-loop-instead-of-immediate-webhook-triggers.md]
 tickets: []
 stories: []
@@ -51,3 +51,4 @@ reaction, is what produces the loop's feedback.
 - 2026-08-10 — ticket archived — 20260810085347-declare-a-fixed-interval-cron-trigger-on-the-propose-and-implement-routine-templates.md
 - 2026-08-10 — ticket archived — 20260810085351-revive-set-routines-to-provision-the-routines-fixed-interval-trigger.md
 - 2026-08-10 — story reported — work-20260810-090432.md
+- 2026-08-10 — run recorded (+0.5h) — implement-work-20260810-090432

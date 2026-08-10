@@ -459,6 +459,7 @@
 * ["No RemoteTrigger tool exposed" claim is session-class-dependent — and reveals real cron/prompt drift on the live routines](20260810104520-no-remotetrigger-tool-exposed-claim-is-session-class-dependent-and-reveals-real-cron-prompt-drift-on-the-live-routines.md)
 * [CLAUDE.md is too long](20260810161713-claude-md-is-too-long.md)
 * [Routines should keep going when the plugin is unbound](20260810161811-routines-should-keep-going-when-the-plugin-is-unbound.md)
+* [workaholic:notify's stateless thread lookup fails, posting new threads instead of replying](20260810163347-workaholic-notify-s-stateless-thread-lookup-fails-posting-new-threads-instead-of-replying.md)
 * [A shell cwd reset let archive.sh push directly to main](20260810171107-a-shell-cwd-reset-let-archive-sh-push-directly-to-main.md)
 * [notify's thread lookup posts new roots instead of replying](20260810202108-notify-s-thread-lookup-posts-new-roots-instead-of-replying.md)
 * [Unbound cloud plugin is a known upstream race with a documented seed-dir counter](20260810211402-unbound-cloud-plugin-is-a-known-upstream-race-with-a-documented-seed-dir-counter.md)

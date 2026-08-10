@@ -3923,6 +3923,19 @@ author: test@example.com
       JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.tickAcceptance} linkme t1.md`).stdout).ticked, true);
     assertEq("progress moves after the link makes the item addressable",
       JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionProgress} linkme`).stdout).checked, 1);
+
+    // A path-shaped artifact argument can never match what archive.sh hands
+    // tick-acceptance.sh (a bare basename), so link-acceptance.sh refuses it at write
+    // time rather than stamping a marker the ticker can never find (ticket
+    // 20260810203351: a mission stuck at 0/3 after every member ticket had already
+    // archived, because its markers were full `.workaholic/tickets/todo/<file>.md`
+    // paths instead of bare filenames).
+    const beforePathRefusal = readFileSync(mfile, "utf8");
+    const pathAttempt = run(dir, `${POSIX_SH} ${SCRIPTS.linkAcceptance} linkme 3 .workaholic/tickets/todo/t9.md`);
+    assertEq("a path-shaped artifact is refused, not silently stamped",
+      JSON.parse(pathAttempt.stdout).reason, "path_not_filename");
+    assertEq("a path-shaped artifact refusal exits non-zero", pathAttempt.status, 1);
+    assertEq("the refusal leaves the file untouched", readFileSync(mfile, "utf8"), beforePathRefusal);
   } finally { cleanup(dir); }
 }
 

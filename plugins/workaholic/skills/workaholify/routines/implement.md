@@ -51,7 +51,7 @@ unattended executor became `/implement`.)
 
 ## Prompt
 
-Run `/implement`. For each PR-unit it claims, find its reply thread (the workaholic:notify lookup) and notify it when the unit finishes, in the following format — the finish is the only post; there is no "started" line (developer's order, 2026-08-11):
+Run `/implement`. For each PR-unit it claims, find its reply thread (the workaholic:notify lookup) and notify it when the unit finishes, in the following format — the finish is the only post; there is no "started" line (developer's order, 2026-08-11); and if the run stops before claiming anything, on a precondition-stop signature (`workaholic:notify`, the closed `unbound_in_claude_session`/`loaded_version_behind_registry` list), post the calm-first, escalate-on-persistence shape notify defines for it instead:
 
 ```
 🟢 Implemented - [#123 Title]({repo}/pull/123)

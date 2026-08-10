@@ -136,3 +136,42 @@ warn-and-continue, and whether any needs a narrower substitute stop (e.g.
 refusing only the claim/write step rather than the whole survey)" as the open
 design question — named here rather than pre-decided by the proposal, per
 this feedback's own PR (#337) leaving it explicitly to whoever picks this up.
+
+## Final Report
+
+Decided the open design question from Considerations: `unbound_in_claude_session`
+is now a warning, not a stop, generalizing the developer's live correction in
+FB `20260810070110` — the plugin's scripts stay directly runnable via `bash`
+from the checkout and the safety hooks stay active independent of whether the
+Skill/Command binding resolved, so `/drive`/`/implement` §1 now names the
+condition in the run report and continues, invoking the rest of the run's
+scripts on their checkout-relative path instead of `${CLAUDE_PLUGIN_ROOT}`.
+
+`loaded_version_behind_registry` and `registry_unreadable` are kept as the one
+remaining hard stop, per the ticket's own Gate requirement: unlike the unbound
+case, every other script this run touches (`claims.sh` chief among them) is
+reached through the stale bound `${CLAUDE_PLUGIN_ROOT}` when this fires, so the
+double-pick risk the field exists to catch (the 2026-08-04 incident) is
+unchanged by softening it — nothing short of a fresh session repairs a
+superseded binding. This is the reasoned exception the ticket's acceptance
+criteria explicitly allows.
+
+Updated `plugins/workaholic/skills/drive/SKILL.md` §1 and its §7
+terminal-token table, `plugins/workaholic/skills/drive/reference/survey.md`'s
+install-check section, `plugins/workaholic/skills/check-deps/SKILL.md`'s
+three-drift-axes section, `plugins/workaholic/skills/workaholify/SKILL.md`,
+and `CLAUDE.md`'s `/workaholify` row to match. `check-deps/scripts/check.sh`
+itself is unchanged — the three fields it reports stay as-is; only their
+consumers' severity changed, per the ticket's own Key Files note. Rebuilt
+`outputs/workflows/` (`build.mjs`) since `drive`'s bundled `SKILL.md`/
+`reference/survey.md` changed.
+
+### Discovered Insights
+
+- **Insight**: This very session hit `unbound_in_claude_session: true` while
+  attempting to run this ticket (`workaholic:drive` was `Unknown skill`), and
+  proceeded by invoking the plugin's scripts directly from the checkout path
+  — a live re-confirmation, in the act of implementing this ticket, that the
+  softened behavior this ticket adds is exactly what the situation calls for.
+  **Context**: no test run was needed to validate the warn-and-continue path;
+  the implementing session was itself an instance of it.

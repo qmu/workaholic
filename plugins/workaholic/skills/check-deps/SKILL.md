@@ -66,7 +66,7 @@ the script degrades to `{"ok": true}` with no extra fields — the diagnostics a
 never a gate. Consumers surface `version` at the start of a flow and warn on `version_drift` or
 non-empty `missing_guards`.
 
-## Three drift axes: checkout drift warns, the other two stop
+## Three drift axes: checkout drift and no-binding warn, registry drift stops
 
 They have different causes and different fixes, so they are reported separately, and this script
 decides neither — it is a diagnostic; the consumer enforces.
@@ -89,20 +89,26 @@ operand is plugin content** (the harness's binding vs the harness's registry), a
 of the field counts as the condition** — a build too old to emit it is by construction the stale
 build the field exists to catch.
 
-**No binding at all (`unbound_in_claude_session`) is also a stop for `/drive` (its §1) — a
-different failure from either axis above.** Registry drift is a *stale* binding; this is *no*
-binding: a genuine Claude Code session (`CLAUDE_CODE_SESSION_ID` present) where the registry
-confirms the plugin is installed, yet `loaded_root_source` never resolved past `"none"` — every
-skill, command and hook the plugin ships is invisible for the whole run. FB `20260807104046`
-measured it live: a SessionStart hook installed the plugin and printed the `/reload-plugins`
-reminder, and the session's very next `Skill(...)` call failed `Unknown skill: workaholic:drive`.
-Investigated and confirmed there is no fix inside the plugin (2026-08-09,
-https://code.claude.com/docs/en/plugins-reference.md#plugin-updates-and-caching): Claude Code's
-own documentation states hooks, MCP servers and LSP servers keep the previous binding until a
-human runs `/reload-plugins` — there is no environment variable, CLI flag, or alternate hook event
-that makes a SessionStart-time install effective mid-session, and an unattended routine never
-types the one command that does. The repair is the same as registry drift's: a fresh session, not
-a retry.
+**No binding at all (`unbound_in_claude_session`) is a warning for `/drive` (its §1), not a stop**
+(2026-08-10, ticket `20260810090005`) — a different failure from either axis above, and lighter in
+kind. Registry drift is a *stale* binding whose scripts run and silently lie; this is *no* binding:
+a genuine Claude Code session (`CLAUDE_CODE_SESSION_ID` present) where the registry confirms the
+plugin is installed, yet `loaded_root_source` never resolved past `"none"` — every skill, command
+and hook the plugin ships is invisible to the Skill/Command tool abstraction for the whole run. FB
+`20260807104046` measured it live: a SessionStart hook installed the plugin and printed the
+`/reload-plugins` reminder, and the session's very next `Skill(...)` call failed
+`Unknown skill: workaholic:drive`. Investigated and confirmed there is no fix inside the plugin
+(2026-08-09, https://code.claude.com/docs/en/plugins-reference.md#plugin-updates-and-caching):
+Claude Code's own documentation states hooks, MCP servers and LSP servers keep the previous
+binding until a human runs `/reload-plugins` — there is no environment variable, CLI flag, or
+alternate hook event that makes a SessionStart-time install effective mid-session, and an
+unattended routine never types the one command that does. Unlike registry drift, though, the
+scripts themselves are not stale here — only the Skill/Command binding is missing — so the
+developer's live correction (FB `20260810070110`) generalizes: the plugin's own scripts stay
+directly runnable via `bash` from the checkout path, and the PreToolUse safety hooks stay
+registered and active, independent of whether the Skill/Command binding resolved. `/drive` now
+warns, records the condition in the run report, and continues by invoking every remaining script
+on its checkout-relative path rather than `${CLAUDE_PLUGIN_ROOT}`.
 
 ## Caveats
 

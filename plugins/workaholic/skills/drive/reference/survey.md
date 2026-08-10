@@ -20,19 +20,29 @@ Two drift axes with different consequences (full field semantics: `workaholic:ch
   `dirty_workspace` (an installed build running an obsolete always-on migration is what dirties
   the tree). Note the check runs **before** the fast-forward, so a clone behind the base can show
   a falsely-matching pair on this tick and the real drift on the next.
-- **`unbound_in_claude_session: true` is a STOP** — terminate `pending` before surveying. A
-  genuine Claude Code session (`CLAUDE_CODE_SESSION_ID` present) where the harness's own registry
+- **`unbound_in_claude_session: true` is a warning, not a stop** (2026-08-10, ticket
+  `20260810090005`, generalizing the developer's live correction recorded in FB `20260810070110`).
+  A genuine Claude Code session (`CLAUDE_CODE_SESSION_ID` present) where the harness's own registry
   confirms this plugin is installed, yet no plugin root was ever bound: every skill, command and
-  hook the plugin ships is invisible for the whole run, not merely stale. FB `20260807104046`
-  measured this on a fresh-install `[Implement]` run — `session-start.sh` installed the plugin and
-  printed the developer-facing `/reload-plugins` reminder, but the very next `Skill(...)` call
-  failed `Unknown skill: workaholic:drive` and nothing from the plugin was live for the rest of
-  the session. There is no fix inside the plugin: Claude Code exposes no supported mechanism to
-  make a SessionStart-time install effective mid-session other than a human typing
-  `/reload-plugins` (https://code.claude.com/docs/en/plugins-reference.md#plugin-updates-and-caching),
-  and an unattended routine never types it — the repair is a fresh session next tick, same as the
-  superseded-binding axis above, and this axis exists so that tick reports `pending` instead of
-  silently running with zero plugin surface.
+  hook the plugin ships is invisible to the Skill/Command tool abstraction for the whole run. FB
+  `20260807104046` measured this on a fresh-install `[Implement]` run — `session-start.sh` installed
+  the plugin and printed the developer-facing `/reload-plugins` reminder, but the very next
+  `Skill(...)` call failed `Unknown skill: workaholic:drive`. There is no fix inside the plugin:
+  Claude Code exposes no supported mechanism to make a SessionStart-time install effective
+  mid-session other than a human typing `/reload-plugins`
+  (https://code.claude.com/docs/en/plugins-reference.md#plugin-updates-and-caching), and an
+  unattended routine never types it — but unlike the superseded-binding axis above, the *scripts*
+  are not stale here: only the Skill/Command binding is missing, and the plugin's own scripts under
+  `plugins/workaholic/skills/` stay directly runnable via `bash` from the checkout path, with the
+  PreToolUse safety hooks registered and active independent of that binding (the developer's live
+  correction, FB `20260810070110`: "the plugin's own scripts stay runnable via Bash from the
+  checkout, and the safety hooks stay active, independent of whether the Skill/Command tool binding
+  itself resolved — so refusing to survey at all is disproportionate to what is actually broken").
+  Name the condition and its values in the run report and continue, invoking every remaining script
+  in this run on its checkout-relative path rather than `${CLAUDE_PLUGIN_ROOT}` (which resolves to
+  nothing when unbound) — reading the checkout directly carries none of the staleness risk the
+  `loaded_version_behind_registry` stop above exists to prevent, since there is no cached binding to
+  be behind.
 - `ok: false` → print the `message` and stop. Non-empty `missing_guards` → warn, continue, and
   record it in the run report — it matters most here because this run commits, pushes, and may
   merge without a human in the loop.

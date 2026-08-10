@@ -57,10 +57,16 @@ retired.
 
 ## Implementation Steps
 
-1. Decide and document where the thread key is persisted (e.g. a new optional frontmatter
-   field on the feedback record, written by the `[Propose]` routine right after it posts
-   the root) — the record is inbound and technically immutable, so confirm this is an
-   append-only/write-once field consistent with that rule, or pick a different store if not.
+1. Decide and document where the thread key is persisted — **never anywhere committed to
+   the repository** (developer's ruling, FB `20260811084130`, 2026-08-11): the repository
+   is public, and the P9 withdrawal (`workaholic:notify` reference, *Withdrawn, not
+   deleted*) already records that a Slack thread coordinate in public content disclosed
+   the workspace subdomain, channel id, and timestamp irretractably. The frontmatter-field
+   candidate this step previously named is therefore ruled out. The store must be private
+   to the workspace and reachable from a fresh cloud container — the natural candidate is
+   Slack itself (a pinned index canvas or dedicated index message, written by the
+   connector at root-post time and read back by exact `fb:<stem>` key), keeping Slack
+   coordinates inside Slack.
 2. Update the `[Propose]` routine (and any other root-posting path) to write the persisted
    key immediately after a successful root post.
 3. Update `workaholic:notify`'s lookup order so a persisted key is checked first, with the
@@ -100,8 +106,9 @@ retired.
   bug fix; the interrogation/implementation should explicitly re-examine Q1's stated reason
   for statelessness (a carried target's prior failure mode) and confirm a persisted key
   avoids the same failure rather than reintroducing it under a new name.
-- Where to persist the key matters: writing to the immutable feedback record needs to
-  respect *Immutability* (`workaholic:feedback`) — likely an additive, write-once field
-  filled only at first-post time, never edited afterward.
+- Where to persist the key is constrained, not open: any repository-committed store is
+  ruled out (public repo; FB `20260811084130` and the P9 withdrawal's irretractable-
+  exposure reasoning), which also disposes of the immutability question the frontmatter
+  candidate raised — the store lives outside the repository entirely.
 - A failed or partial persisted-write must not silently break the fallback search path —
   the existing statelessness should remain a safety net, not be deleted outright.

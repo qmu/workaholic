@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260810-202951
 ---
 
 # Configure routines automatically via RemoteTrigger
@@ -37,3 +38,6 @@ A session with a `RemoteTrigger`-family tool lists the account's routines, diffs
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-10 — ticket archived — 20260810130657-fix-the-routine-templates-unrealizable-30-minute-schedule.md
+- 2026-08-10 — ticket archived — 20260810130703-apply-routine-wiring-directly-via-remotetrigger-in-setup-routines.md
+- 2026-08-10 — ticket archived — 20260810130705-restate-the-manages-nothing-ruling-as-session-class-dependent.md

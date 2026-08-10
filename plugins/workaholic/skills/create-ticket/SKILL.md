@@ -83,7 +83,7 @@ List missions with `bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/list.sh`. 
 
 ### 4d. Record the merge policy
 
-Ask once per run — *auto: merge on green deploy evidence* or *review: stop at the PR* — and write `merge_policy` into every ticket of the run; a genuinely unrecommendable fork, so asked, never derived. Mission-emitted tickets inherit the mission's policy instead. Absent reads as `review`; never write `auto` because nobody answered. Detail: [reference/interrogation.md](reference/interrogation.md) §4d.
+Ask once per run — *auto: confirm the deploy before merging* or *review: merge immediately, gated later at the `release/*` QA window* — and write `merge_policy` into every ticket of the run; a genuinely unrecommendable fork, so asked, never derived. Mission-emitted tickets inherit the mission's policy instead. Absent reads as `review`; never write `auto` because nobody answered. Detail: [reference/interrogation.md](reference/interrogation.md) §4d.
 
 ### 5. Write Ticket(s)
 

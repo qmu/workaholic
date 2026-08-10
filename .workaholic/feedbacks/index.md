@@ -460,6 +460,7 @@
 * [CLAUDE.md is too long](20260810161713-claude-md-is-too-long.md)
 * [Routines should keep going when the plugin is unbound](20260810161811-routines-should-keep-going-when-the-plugin-is-unbound.md)
 * [A shell cwd reset let archive.sh push directly to main](20260810171107-a-shell-cwd-reset-let-archive-sh-push-directly-to-main.md)
+* [notify's thread lookup posts new roots instead of replying](20260810202108-notify-s-thread-lookup-posts-new-roots-instead-of-replying.md)
 * [Unbound cloud plugin is a known upstream race with a documented seed-dir counter](20260810211402-unbound-cloud-plugin-is-a-known-upstream-race-with-a-documented-seed-dir-counter.md)
 * [Precondition stops should post calm, escalating to red only on persistence](20260810212924-precondition-stops-should-post-calm-escalating-to-red-only-on-persistence.md)
 * [Make setup-routines and workaholify configure routines automatically via RemoteTrigger](20260810214929-make-setup-routines-and-workaholify-configure-routines-automatically-via-remotetrigger.md)

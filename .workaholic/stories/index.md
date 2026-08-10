@@ -2,6 +2,8 @@
 
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
+* [work-20260810-090432.md](work-20260810-090432.md) - Moved both `[Implement]` and `[Propose]` off their GitHub webhook triggers onto the same fixed 30-minute schedule (`0,30 * * * *`), per the developer's explicit ask covering both routines. `[Propose]`'s move leaves an open gap stated rather than hidden: a schedule fire alone gives it no ask in hand, so a pure clock tick still reports `nothing_in_hand`. Re-verified (via `ToolSearch`) that no `RemoteTrigger`-family tool exists in a session, so "revive `/set-routines`" is answered by `/setup-routines`'s existing `cron_expression` rendering rather than a new command. v1.0.148; 2468 passing / 0 failed - 2 tickets
+
 * [work-20260809-201846.md](work-20260809-201846.md) - Added the *prompt is the ceiling* rule to `workaholic:notify`: a session may emit only the notification events and shapes its own routine prompt or invoking command names — the skill's own documentation and prior in-session reasoning are never authorization, and an addition becomes standing behavior only after developer confirmation (issue #298 / FB `20260807082554`). `reference/notifications.md` reframed as an opt-in catalog. v1.0.144; 2455 passing / 0 failed - 1 ticket
 
 * [work-20260809-035121.md](work-20260809-035121.md) - Replaced `publish-tree-pr.sh`'s enumerated file-path `## Artifacts` listing with a counts summary per `.workaholic/` area and status (e.g. "3 feedbacks added, 1 mission added, 2 tickets added"), with a generic fallback line for paths outside `.workaholic/` and renames folded into `modified`. v1.0.141; 2448 passing / 0 failed - 1 ticket

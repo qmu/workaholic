@@ -5,6 +5,7 @@ assignees:
 depends_on:
 feedback: [.workaholic/feedbacks/20260809080335-erase-purple-circle-notification-feature.md]
 merge_policy:
+claim: work-20260809-085355
 ---
 
 # Erase the purple-circle (🟣) notification format
@@ -73,3 +74,44 @@ Removes the 🟣 ("Merged by `<@U…>`") purple-circle notification shape from `
 
 - The 🟣 shape currently carries information (a human, not an automated policy, approved this merge) that the ask does not say to drop — only the *format* is to be erased. The implementer should decide and record what (if anything) replaces that signal, rather than silently losing the auto/human distinction.
 - `outputs/workflows/` is generated; the fix belongs in `plugins/workaholic/` source with a rebuild, never a hand-edit to the generated mirror (`Outputs Freshness` CI would catch a hand-edit as drift anyway).
+
+## Final Report
+
+Development completed as planned. Grepped `plugins/workaholic/`, `outputs/`, and `CLAUDE.md` for
+🟣 on current `main`; found it in the six locations the ticket's Key Files anticipated (the
+`workaholify/routines/*.md` templates were clean — the `[Implement]` prompt never named the
+shape). Removed the `🟣 Merged by <@U…>` block from `notify/reference/notifications.md` and
+rewrote its surrounding prose: rather than replacing the shape with a new emoji, the shape is
+erased outright, because tracing its only poster (the `[Consent]` routine) found it was retired
+2026-08-06 — nothing in the current system has posted a human-merge notification since, so there
+was no live behavior to re-target. The auto/human distinction survives without a second shape:
+`🚀 Auto Merge` is the only merge line `/implement` ever posts, so its presence means an unattended
+ship; a `review` unit's thread stays at `🛠️ Implemented` even after a human merges the PR later,
+and the merge itself is always readable on GitHub. Updated `notify/SKILL.md`, `drive/SKILL.md`,
+`drive/reference/routing.md`, and `CLAUDE.md`'s matching paragraph to stop naming the retired
+shape (kept every literal 🟣 glyph out of the new prose too, not just out of the removed
+definition, since the ticket's own verification greps for the character). Regenerated
+`outputs/workflows` via `build.mjs`.
+
+While editing the same lines, found two other notification shapes (`🟢 Merge Requested`, `🟠 drive
+started`) still described as current in `drive/SKILL.md`, `drive/reference/routing.md`, and
+`CLAUDE.md` — pre-existing drift from an earlier reconciliation (P10, 2026-08-07) that this
+ticket's scope does not cover. Minted
+`.workaholic/tickets/todo/20260809085953-reconcile-stale-notification-shape-references-post-p10.md`
+for it rather than fixing opportunistically.
+
+### Discovered Insights
+
+- **Insight**: The `🟣 Merged by <@U…>` shape had no live poster before this ticket — its only
+  producer, the `[Consent]` routine, was retired 2026-08-06 (`workaholic:workaholify`,
+  *Routines*). A shape can go fully dead in documentation while the code path that would emit it
+  never existed to begin with (`/implement`'s route step only ever posts `🚀`/`🟡`/`🔴`/the plain
+  review-stop line — never a human-merge line of its own).
+  **Context**: worth remembering when auditing other documented-but-unposted shapes; "grep finds
+  it in the docs" is not evidence it is still emitted anywhere.
+
+## Verification
+
+- `grep -rn "🟣" plugins/workaholic/ outputs/ CLAUDE.md` — no hits.
+- `node scripts/build-plugins/build.mjs && node scripts/build-plugins/verify.mjs && node scripts/build-plugins/validate-metadata.mjs && node scripts/test-workflow-scripts.mjs` — all clean (2448 passed, 0 failed).
+- `bash plugins/workaholic/hooks/layout-doctor.sh .` — `conforming: true`.

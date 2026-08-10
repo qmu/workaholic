@@ -5,6 +5,7 @@ assignees: [a@qmu.jp]
 depends_on:
 feedback: [.workaholic/feedbacks/20260810161811-routines-should-keep-going-when-the-plugin-is-unbound.md]
 merge_policy:
+claim: work-20260810-203952
 ---
 
 # State a general fallback rule for an unbound skill surface
@@ -58,3 +59,12 @@ The fix belongs where every workflow already looks first: an always-loaded rule.
 - The two failure instances named in the triggering issue are an `[Implement]` schedule tick and a merge-announcement run; `[Consent]` (the merge-announcement routine) is already retired, so that second instance is historical — the ticket's scope is the general rule plus `/drive`'s existing reference, not resurrecting a retired routine.
 - `/propose` currently has no `check-deps` gate or documented unbound-fallback at all; this ticket does not add one mechanically (a script gate the way `/drive`'s survey has one) — it relies on the general rule being visible in the always-loaded `rules/general.md` so a routine reasons its way through even when `workaholic:propose` itself is unreachable. If that proves insufficient in practice, a follow-up ticket can add an explicit check-deps call to `/propose`.
 - Keep the general rule's exceptions narrow and named, not open-ended — a rule that reads as "always work around a broken tool surface" would invite hand-reconstructing logic that should fail safe (destructive git operations, anything gated by a hook the model can no longer rely on being active).
+
+## Final Report
+
+Development completed as planned. Added the general fallback rule to `plugins/workaholic/rules/general.md` ("An unbound skill surface is not, by itself, a reason to stop"), keeping the two named exceptions (an `AskUserQuestion`-driven step; logic too risky to hand-reconstruct) narrow rather than open-ended, and pointed `/drive`'s existing `unbound_in_claude_session` prose (`SKILL.md` §1 and `reference/survey.md`) at the general rule while keeping the command-specific concrete detail (checkout-relative script paths, the registry-drift stop staying unchanged) in place. Added cross-references from `check-deps/SKILL.md` and `workaholify/SKILL.md`'s bootstrap section, and updated the `/workaholify` row in `CLAUDE.md` (the only CLAUDE.md row that named the fallback) to describe it as `/drive`'s instance of the general rule. `node scripts/build-plugins/build.mjs && node scripts/build-plugins/verify.mjs` pass clean, confirming `outputs/workflows`'s copy of `drive/SKILL.md` and `reference/survey.md` stays in lockstep with source.
+
+### Discovered Insights
+
+- **Insight**: `/propose` carries no `check-deps` gate or documented unbound-fallback of its own; this ticket deliberately left that as-is, relying on the always-loaded `rules/general.md` to reach it rather than adding a mechanical gate.
+  **Context**: If `/propose` is ever observed stopping unnecessarily on an unbound surface, the fix is a follow-up ticket adding an explicit `check-deps` call there, not a broader read of this rule.

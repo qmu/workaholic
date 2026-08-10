@@ -43,6 +43,18 @@ One sentence, max 25 words, what failed and what a human must do.
 
 Exactly one finish per thread stays the rule (SKILL, *Which thread an `/implement` unit's posts land in*): a unit posts `🟢 Implemented` **or** one of the three outcome shapes above, never both — `handoff` is the finish, never a third post, and the same holds for a blocked or merged unit.
 
+### Precondition-stop — calm first, escalate on persistence
+
+A **first** report of a signature in the precondition-stop class (SKILL, *Post shapes, mentions, and the red-alert dedup* — `unbound_in_claude_session`, `loaded_version_behind_registry`) posts calm rather than alarming, since the run stopped at a known, typically self-healing condition before it ever reached a unit:
+
+```
+⚪ Paused - `<signature>`
+One sentence, max 25 words, what the run stopped on and that the next tick retries automatically.
+<session URL>
+```
+
+This is a top-level root, not a threaded reply — it needs one to thread onto if the signature persists. **Escalation**: when the dedup's own recent-history read (~50 messages) finds the same signature already posted, this tick's report is the ordinary `🔴 Blocked` red alert instead of a second `⚪ Paused` — from there the standing cool-down and `↳ still failing` threaded-reply rules apply exactly as for any other red alert. A signature outside the precondition-stop class never posts `⚪ Paused`; it is a red alert from its first report, unchanged.
+
 ## The session URL
 
 Every post carries the Claude Code Web session URL that did the work — the same URL the harness gives the session for its `Claude-Session:` commit trailer. It is what turns "merged by Claude" into something a developer can audit. If the URL is not discoverable in a given session, post without it: a notification missing one line beats a notification that did not happen.

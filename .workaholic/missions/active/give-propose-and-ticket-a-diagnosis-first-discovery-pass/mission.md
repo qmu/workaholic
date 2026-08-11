@@ -52,3 +52,4 @@ this mission targets the general mechanism, not that ticket.)
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-11 — ticket archived — 20260811001223-give-propose-a-discovery-pass-and-open-decision-items.md
 - 2026-08-11 — ticket archived — 20260811001226-add-a-diagnosis-first-rule-to-ticket-and-propose.md
+- 2026-08-11 — story published — work-20260811-001834

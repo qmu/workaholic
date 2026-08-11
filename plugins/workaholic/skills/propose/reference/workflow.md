@@ -106,12 +106,7 @@ and every abort reports a machine-readable reason.
     a loose ticket simply joins the backlog). A no-op or failure never fails the run
     (SKILL.md, *Notifier contract*). Inside the `[Propose]` routine the thread root is
     posted by the routine itself through the account's Slack connector; do not post
-    twice. When that post is a fresh root (nothing found by the stateless lookup), the
-    routine persists it onto the record it just wrote —
-    `bash ${CLAUDE_PLUGIN_ROOT}/skills/feedback/scripts/set-thread-ref.sh <feedback-path>
-    <channel-id> <ts>` — so a later event for the same item finds it via the field
-    instead of re-deriving it by search (`workaholic:notify`, *One thread per feedback
-    item*, case 5).
+    twice.
 
 12. **Report** one line: the form chosen (mission with N tickets / loose ticket /
     record-only) with its reason, the record's filename, the PR URL, and the `notified`

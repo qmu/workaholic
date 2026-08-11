@@ -108,7 +108,6 @@ const SCRIPTS = {
   recordRunHours: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/record-run-hours.sh"),
   nextAcceptance: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/next-acceptance.sh"),
   feedbackCreate: join(REPO_ROOT, "plugins/workaholic/skills/feedback/scripts/create.sh"),
-  feedbackSetThreadRef: join(REPO_ROOT, "plugins/workaholic/skills/feedback/scripts/set-thread-ref.sh"),
   proposeReadFeedbackRelation: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/read-feedback-relation.sh"),
   renderSetupSheet: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/render-setup-sheet.sh"),
   unitFeedbackStems: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/unit-feedback-stems.sh"),
@@ -8893,48 +8892,6 @@ function testFeedback() {
     assertTrue("superseding feedback records the old filename",
       readFileSync(join(dir, second.path), "utf8").includes(`supersedes: ${basename(created.path)}`));
 
-    // --- set-thread-ref: the one sanctioned mutator, and it is write-once ---
-    // (ticket 20260810163359 — persist the notify thread key at root-post time)
-    r = run(dir, `${POSIX_SH} ${SCRIPTS.feedbackSetThreadRef} "${created.path}" C0123 1699999999.000100`);
-    assertEq("set-thread-ref exits 0 on a first write", r.status, 0);
-    const written = JSON.parse(r.stdout);
-    assertTrue("set-thread-ref reports written", written.written === true, r.stdout);
-    assertEq("set-thread-ref reports the composed ref", written.thread_ref, "C0123:1699999999.000100");
-    let afterWrite = readFileSync(join(dir, created.path), "utf8");
-    assertTrue("thread_ref lands inside the frontmatter block, before the closing ---",
-      /^thread_ref: C0123:1699999999\.000100\n---\n/m.test(afterWrite), afterWrite);
-    assertTrue("the record's other fields are byte-identical after the mutation",
-      afterWrite.includes("kind: insight") && afterWrite.includes("We decided the loop model."), afterWrite);
-
-    // A second write — even naming the identical value — is refused, never silently
-    // accepted: write-once is the whole safety property (SKILL.md, Immutability).
-    r = run(dir, `${POSIX_SH} ${SCRIPTS.feedbackSetThreadRef} "${created.path}" C0123 1699999999.000100`);
-    assertTrue("set-thread-ref refuses a second write to the same value",
-      r.status !== 0 && JSON.parse(r.stdout).reason === "already_set", r.stdout);
-    r = run(dir, `${POSIX_SH} ${SCRIPTS.feedbackSetThreadRef} "${created.path}" C9999 1111111111.000200`);
-    const conflict = JSON.parse(r.stdout);
-    assertTrue("set-thread-ref refuses a conflicting second write",
-      r.status !== 0 && conflict.reason === "already_set", r.stdout);
-    assertEq("the refusal reports the existing value, not the attempted one",
-      conflict.existing, "C0123:1699999999.000100");
-    assertEq("the file is untouched by the refused conflicting write",
-      readFileSync(join(dir, created.path), "utf8"), afterWrite);
-
-    // Refusals: a missing file, and missing arguments -- argument/file errors go to
-    // stderr, as in the sibling mutators (record-run-hours.sh, link-acceptance.sh).
-    r = run(dir, `${POSIX_SH} ${SCRIPTS.feedbackSetThreadRef} .workaholic/feedbacks/nope.md C1 T1`);
-    assertTrue("set-thread-ref refuses a missing file",
-      r.status !== 0 && JSON.parse(r.stderr).reason === "not_found", r.stderr);
-    r = run(dir, `${POSIX_SH} ${SCRIPTS.feedbackSetThreadRef} "${created.path}" C1`);
-    assertTrue("set-thread-ref refuses a missing ts argument",
-      r.status !== 0 && JSON.parse(r.stderr).reason === "missing_args", r.stderr);
-
-    // A record with no thread_ref at all (the common case, and every record predating
-    // this field) is untouched — the field is genuinely optional.
-    assertTrue("a record set-thread-ref never touched carries no thread_ref line",
-      !readFileSync(join(dir, second.path), "utf8").includes("thread_ref:"),
-      readFileSync(join(dir, second.path), "utf8"));
-
     // --- list: every record with its frontmatter fields ---
     r = run(dir, `${POSIX_SH} ${SCRIPTS.feedbackList}`);
     const listed = JSON.parse(r.stdout);
@@ -12737,7 +12694,6 @@ function testStatelessThreadLookup() {
   const drive = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/drive/SKILL.md"), "utf8");
   const routing = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/drive/reference/routing.md"), "utf8");
   const notifySkill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/notify/SKILL.md"), "utf8");
-  const feedbackSkill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/feedback/SKILL.md"), "utf8");
   const workaholify = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/SKILL.md"), "utf8");
   const writer = readFileSync(SCRIPTS.publishTreePr, "utf8");
 
@@ -12757,29 +12713,12 @@ function testStatelessThreadLookup() {
   assertTrue("the lookup is stated as exact-string searches only",
     /exact-string/.test(notifySkill) && /never a similarity or content match/.test(notifySkill));
   const iTrigger = notifySkill.indexOf("The session's own trigger message");
-  const iThreadRef = notifySkill.indexOf("own `thread_ref` frontmatter field");
   const iStem = notifySkill.indexOf("Search `` `fb:<stem>` ``");
   const iUrl = notifySkill.indexOf("Search the Issue or pull-request URL");
   const iRoot = notifySkill.indexOf("post a **new root** carrying `fb:<stem>`");
   assertTrue("the ordered cases exist and hold their order",
-    iTrigger >= 0 && iThreadRef > iTrigger && iStem > iThreadRef && iUrl > iStem && iRoot > iUrl,
-    JSON.stringify({ iTrigger, iThreadRef, iStem, iUrl, iRoot }));
-
-  // The persisted-key primary path (ticket 20260810163359): a file read, checked
-  // BEFORE either search runs, and does not count against the two-query bound. The
-  // root-posting branch persists it immediately via the one sanctioned mutator.
-  assertTrue("the persisted thread_ref is read before any search, and is not a search itself",
-    /no search at all/.test(notifySkill) && /skip straight to case 3/.test(notifySkill));
-  assertTrue("a fresh root persists thread_ref immediately via the sanctioned mutator",
-    /immediately persist it/.test(notifySkill)
-    && /feedback\/scripts\/set-thread-ref\.sh/.test(notifySkill));
-  assertTrue("a failed or skipped persist degrades to the search fallback, never a guess",
-    /falls back to case 3, exactly as it does for a record that predates this field/.test(notifySkill));
-  assertTrue("the write-once mutator is documented on the feedback side too",
-    /the only sanctioned mutator of an existing feedback file/.test(feedbackSkill)
-    && /never overwrites/.test(feedbackSkill));
-  assertTrue("Immutability documents thread_ref as the one deliberate exception",
-    /One deliberate, additive exception/.test(feedbackSkill) && /already_set/.test(feedbackSkill));
+    iTrigger >= 0 && iStem > iTrigger && iUrl > iStem && iRoot > iUrl,
+    JSON.stringify({ iTrigger, iStem, iUrl, iRoot }));
   assertTrue("the fb:<stem> key is derived from the repository, never from Slack",
     /derived from the repository, never from Slack/.test(notifySkill)
     && /unit-feedback-stems\.sh/.test(notifySkill));
@@ -12800,6 +12739,17 @@ function testStatelessThreadLookup() {
   assertTrue("no full-channel read at any point",
     /no full-channel read at any point/.test(notifySkill)
     && /channel history returns everything and is never the instrument/.test(notifySkill));
+
+  // Ticket 20260810163359 (2026-08-11): the lookup's misses were measured to come from
+  // the default search covering public channels only against a private dev-<repo>
+  // channel, not from search unreliability -- pin the corrected surface by name so a
+  // future edit cannot silently narrow it back to the public-only default.
+  assertTrue("cases 2 and 3 run the private-inclusive search, never the public-only default",
+    /slack_search_public_and_private/.test(notifySkill)
+    && /include_bots.*true/.test(notifySkill)
+    && /never the default `slack_search_public`/.test(notifySkill));
+  assertTrue("the private-channel read is a standing, one-time consent, not a per-run ask",
+    /standing, one-time developer consent/.test(notifySkill));
 
   // Once per run: statelessness is between runs, never within one.
   assertTrue("the target is resolved once per run and reused",

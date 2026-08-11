@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260811-001834
 ---
 
 # Give /propose and /ticket a diagnosis-first discovery pass

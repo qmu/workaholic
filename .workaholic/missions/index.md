@@ -4,6 +4,7 @@
 
 * [color-code-the-notify-post-shapes-by-state](active/color-code-the-notify-post-shapes-by-state/mission.md) - Color-code the notify post shapes by state
 * [configure-routines-automatically-via-remotetrigger](active/configure-routines-automatically-via-remotetrigger/mission.md) - Configure routines automatically via RemoteTrigger
+* [give-propose-and-ticket-a-diagnosis-first-discovery-pass](active/give-propose-and-ticket-a-diagnosis-first-discovery-pass/mission.md) - Give /propose and /ticket a diagnosis-first discovery pass
 * [move-the-propose-and-implement-routines-to-a-fixed-interval-schedule](active/move-the-propose-and-implement-routines-to-a-fixed-interval-schedule/mission.md) - Move the Propose and Implement routines to a fixed-interval schedule
 
 ## archive

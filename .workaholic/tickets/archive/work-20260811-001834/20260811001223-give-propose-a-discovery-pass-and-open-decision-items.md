@@ -88,3 +88,33 @@ for the reporter.
   implementing tick to decide, not this proposal.
 - Keep discovery scoped to the ask already in hand — it reads context for that ask, it
   must not become a second sweep of the backlog (the retired `[Propose Batch]` design).
+
+## Final Report
+
+Development completed as planned. `/propose`'s workflow (`propose/reference/workflow.md`)
+now runs a history-mode discovery pass as its new step 5 — inserted between reading
+constraints (step 4) and dedup (step 6, was step 5) — before the judgment step (now step
+7) decides the proposal's form; every later step number shifted accordingly and every
+in-file `step N` cross-reference was updated to match, including
+`propose/scripts/extract-issue-number.sh`'s comment. `propose/SKILL.md`'s judgment bar
+now names discovery as a fourth input that can only inform or veto, never originate, a
+proposal. A new `## Open Decisions` ticket section (`create-ticket/reference/ticket-format.md`)
+carries a genuinely unrecommendable fork discovery surfaces, since `/propose` has no
+`/ticket`-style §4b to ask a human; `drive/reference/ticket-workflow.md` now requires the
+driving session to resolve any such item explicitly (never a silent guess) before
+implementing. `CLAUDE.md`'s `/propose` row documents the discovery pass and the
+open-decision convention.
+
+### Discovered Insights
+
+- **Insight**: The Consideration's subagent-vs-inline fork was resolvable, not
+  genuinely unrecommendable. `/ticket`'s three discovery modes (history/source/policy)
+  fan out to `general-purpose` subagents because they run **concurrently**; `/propose`
+  needs only a single history-mode pass, which has nothing to fan out to, so it runs
+  inline in the command's own session — no `open_decision` needed for this particular
+  fork.
+  **Context**: A fork is only genuinely unrecommendable when neither branch is clearly
+  better; here the reason `/ticket` uses subagents (parallelism) doesn't transfer to a
+  single-mode pass, so the choice reduces to the plain case the Architecture Policy
+  already covers. Worth recording so a future reader doesn't reintroduce the fork as
+  open when the same reasoning still applies.

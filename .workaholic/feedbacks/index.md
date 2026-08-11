@@ -466,6 +466,7 @@
 * [Precondition stops should post calm, escalating to red only on persistence](20260810212924-precondition-stops-should-post-calm-escalating-to-red-only-on-persistence.md)
 * [Make setup-routines and workaholify configure routines automatically via RemoteTrigger](20260810214929-make-setup-routines-and-workaholify-configure-routines-automatically-via-remotetrigger.md)
 * [Retire the start notifications - routines post the finish only](20260810215745-retire-the-start-notifications-routines-post-the-finish-only.md)
+* [propose lacks ticket's epistemics — add discovery and a diagnosis-first rule](20260811001004-propose-lacks-ticket-s-epistemics-add-discovery-and-a-diagnosis-first-rule.md)
 * [Scope the QA loop that gates a release cut](20260811010203-scope-the-qa-loop-that-gates-a-release-cut.md)
 * [Scope the release-planning loop that decides what ships](20260811010237-scope-the-release-planning-loop-that-decides-what-ships.md)
 * [Scope the post-release quality-check loop](20260811010337-scope-the-post-release-quality-check-loop.md)

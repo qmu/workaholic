@@ -12740,6 +12740,17 @@ function testStatelessThreadLookup() {
     /no full-channel read at any point/.test(notifySkill)
     && /channel history returns everything and is never the instrument/.test(notifySkill));
 
+  // Ticket 20260810163359 (2026-08-11): the lookup's misses were measured to come from
+  // the default search covering public channels only against a private dev-<repo>
+  // channel, not from search unreliability -- pin the corrected surface by name so a
+  // future edit cannot silently narrow it back to the public-only default.
+  assertTrue("cases 2 and 3 run the private-inclusive search, never the public-only default",
+    /slack_search_public_and_private/.test(notifySkill)
+    && /include_bots.*true/.test(notifySkill)
+    && /never the default `slack_search_public`/.test(notifySkill));
+  assertTrue("the private-channel read is a standing, one-time consent, not a per-run ask",
+    /standing, one-time developer consent/.test(notifySkill));
+
   // Once per run: statelessness is between runs, never within one.
   assertTrue("the target is resolved once per run and reused",
     /Resolve once per run and reuse it/.test(notifySkill)

@@ -5,6 +5,7 @@ assignees: [a@qmu.jp]
 depends_on:
 feedback: [20260810163347-workaholic-notify-s-stateless-thread-lookup-fails-posting-new-threads-instead-of-replying.md, 20260808030816-propose-notify-posts-top-level-instead-of-the-fb-thread-and-omits-the-issue-link.md]
 merge_policy:
+claim: work-20260810-232944
 ---
 
 # Persist the notify thread key at root-post time instead of re-deriving it by search
@@ -120,3 +121,53 @@ inclusive). The persisted key attacks the wrong layer.
   candidate raised — the store lives outside the repository entirely.
 - A failed or partial persisted-write must not silently break the fallback search path —
   the existing statelessness should remain a safety net, not be deleted outright.
+
+
+## Final Report
+
+**This ticket's implementation was redirected mid-flight by two live developer corrections
+that landed on `main` while a first attempt was already open as a pull request; that
+attempt is superseded by this report and was closed unmerged.** A first pass built the
+ticket's originally-drafted step 1 (a committed `thread_ref` frontmatter field on the
+feedback record, plus its mutator script) and opened PR #373. Before it could be reviewed,
+commit `52681f0b` ruled that design out entirely — a Slack thread coordinate committed to
+this **public** repository is exactly the exposure the P9 withdrawal (`workaholic:notify`
+reference) already found irretractable — and commit `3172a65b` measured the actual root
+cause live: `dev-<repo>` is a **private** Slack channel, and the connector's default,
+consent-free `slack_search_public` tool covers public channels only, so an exact
+`` `fb:<stem>` `` query against it returns zero results by construction, regardless of how
+faithfully a root carries the key. The lookup was never unreliable; it was searching a
+scope that could never contain the answer. PR #373 was closed unmerged and its claim
+resumed to implement the corrected design below.
+
+**What actually shipped**: `workaholic:notify`'s *One thread per feedback item* section now
+specifies that cases 2 and 3 (the `` `fb:<stem>` `` and Issue/PR-URL searches) run through
+`slack_search_public_and_private` with `include_bots: true`, never the default
+`slack_search_public`, documented as a standing, one-time developer consent to read the
+repository's own `dev-<repo>` channel — never a per-run prompt, since an unattended routine
+has no one to ask. `reference/notifications.md`'s *Finding the thread — history* section
+records both corrections and why the persisted-key mechanism is deferred rather than
+deleted: it remains the answer if a scope-corrected search is ever measured to still miss,
+constrained from the start to a store outside the repository. No frontmatter schema change,
+no new script, and no change to the ordered-cases structure or the two-query bound Q1
+defined — this is a one-line specification fix to an unwritten detail underneath an
+otherwise-correct design.
+
+### Discovered Insights
+
+- **Insight**: a claim's remote branch can become undeletable mid-run (measured live: `git
+  push origin --delete` returned `403`/`RPC failed` from this container, matching the
+  `half_released` state `release-claim.sh`'s header already documents), which forbids the
+  sanctioned `claim.sh resume` path too (it gates on a 30-minute heartbeat lapse that a
+  same-tick correction cannot wait out). The recovery used here — a plain `git worktree add`
+  at the existing claim branch, a `heartbeat.sh` refresh from the repo root (its worktree
+  path resolves from `git rev-parse --show-toplevel` at invocation time, so it must be run
+  from the main checkout, not from inside the target worktree), then ordinary commits
+  through the sanctioned scripts — stayed inside the claim's own identity and pushed no
+  second claim, but is not itself a named script; a future occurrence of the same situation
+  should read this insight rather than re-discover the same recovery from first principles.
+- **Insight**: the `computeClosure` build-detectable form (`${CLAUDE_PLUGIN_ROOT}/skills/<x>/scripts/`)
+  means a cross-skill script reference added to a prose-only skill with no `scripts/` of its
+  own (`notify`, here abandoned along with the field it would have supported) is invisible to
+  `outputs/workflows` regardless of whether Claude Code can resolve it at runtime — worth
+  remembering the next time a persisted-key mechanism is drafted for this same ticket.

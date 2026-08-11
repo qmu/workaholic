@@ -31,10 +31,12 @@ source: meeting | slack | discussion | development
 created_at: <ISO-8601>
 author: <email>
 supersedes:               # OPTIONAL: filename of an earlier feedback this entry moots/resolves
+thread_ref:                # OPTIONAL, write-once: "<channel-id>:<ts>" of this item's Slack
+                            # thread root, set by set-thread-ref.sh at first-post time
 ---
 ```
 
-`kind` is the nature of the entry, `source` the channel it arrived through. `supersedes` is the immutable alternative to a status flip: resolving, correcting, or mooting a record is a **new** entry naming the old one. Full field semantics, the `kind: concern` producer fields, and the computed open-concern set: [`reference/schema.md`](reference/schema.md).
+`kind` is the nature of the entry, `source` the channel it arrived through. `supersedes` is the immutable alternative to a status flip: resolving, correcting, or mooting a record is a **new** entry naming the old one. `thread_ref` is the one deliberate exception to *Immutability* below — full field semantics, the `kind: concern` producer fields, and the computed open-concern set: [`reference/schema.md`](reference/schema.md).
 
 ### Whether this merits filing
 
@@ -51,6 +53,8 @@ Free prose in the contributor's own words; a leading `# <title>` and nothing els
 ## Immutability
 
 **A feedback file is never edited, moved, or deleted after it is written.** There is no `status` field and none may be added — consumers track new-vs-seen by commit cursor, which mutation would silently break. Corrections and resolutions are new entries via `supersedes`. `validate-feedback.sh` enforces the write-time schema floor; tracked history is grandfathered.
+
+**One deliberate, additive exception**: `thread_ref` (ticket `20260810163359`) names no fact about the record's content — only where its own life is being narrated in Slack — and cannot be known until after the write, since the thread it points at is created only once a routine has posted the root. It is filled **exactly once**, immediately after that post, by `set-thread-ref.sh` — the only sanctioned mutator of an existing feedback file — and never edited again: a second write attempt, even to the identical value, is refused (`already_set`). This is not a loosening of the rule above; it is the one field whose value literally cannot exist at write time, handled by a script that enforces write-once as strictly as the rest of the record enforces never-written-to-twice.
 
 ## Any legitimate invocation is authorized
 
@@ -73,6 +77,7 @@ What `/fb` (and any in-repo capture seam) runs, in order:
 - **list-open-concerns.sh** — `bash ${CLAUDE_PLUGIN_ROOT}/skills/feedback/scripts/list-open-concerns.sh`. The single reader of the open concern set (`kind: concern` minus superseded minus migration-`closed:`). Envelope `{active_count, my_lane_count, owner_counts, should_triage: false, migrated, concerns: [...]}`; runs `migrate-concerns.sh` first and reports that write as `migrated`.
 - **migrate-concerns.sh** — `bash ${CLAUDE_PLUGIN_ROOT}/skills/feedback/scripts/migrate-concerns.sh [workaholic-root]`. The living migration for the concerns-corpus merger: active files become open records, archived ones `closed:`-stamped records, then `concerns/` is removed. Idempotent, best-effort, never blocks a caller. **It never touches the index** (`staged: false` is a contract): the index is the caller's shared state, and this runs as a side effect of a documented pure read.
 - **list.sh** — `bash ${CLAUDE_PLUGIN_ROOT}/skills/feedback/scripts/list.sh`. Pure read; JSON array `[{path, title, kind, source, created_at, author, supersedes}]`, newest first, `[]` when the area is absent.
+- **set-thread-ref.sh** — `bash ${CLAUDE_PLUGIN_ROOT}/skills/feedback/scripts/set-thread-ref.sh <feedback-path> <channel-id> <ts>`. The one sanctioned mutator of an already-written feedback file: writes `thread_ref: <channel-id>:<ts>` into the frontmatter once, immediately after a routine posts that item's Slack thread root (`workaholic:notify`, *One thread per feedback item*). Refuses `already_set` on a second call (existing value carried in the reply) — never overwrites. Git-stages. Emits `{written, path[, thread_ref][, reason][, existing]}`.
 
 ## Crossing a repository boundary
 

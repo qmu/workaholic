@@ -39,11 +39,18 @@ posts nothing to Slack, at any step** (scoped 2026-08-07). Under `/implement`:
   mission's `mission.md`, or the batch's ticket files; a mission with empty `feedback:` resolves
   through its queued tickets) — for reuse at the finish.
 - **The thread is found, never carried** (Q1, 2026-08-07 — a merged pull request names no
-  target, and no body line is read back). Find each stem's thread by the stateless lookup in
-  `workaholic:notify` (*One thread per feedback item*): exact-string searches only —
-  `fb:<stem>`, then the Issue/PR URL — at most two queries, no full-channel read, and a new
-  keyed root when nothing matches; never a similarity or recency match. Resolve the target
-  **once per run** and reuse it for the finish.
+  target, and no body line is read back). Find each stem's thread through `workaholic:notify`
+  (*One thread per feedback item*): check the resolved feedback record's own `thread_ref`
+  frontmatter field first (a plain file read, no search) — primary once a record carries it —
+  then fall back to the exact-string searches — `fb:<stem>`, then the Issue/PR URL —
+  at most two queries, no full-channel read, and a new keyed root when nothing matches;
+  never a similarity or recency match. Resolve the target **once per run** and reuse it
+  for the finish.
+  **When this run itself posts a new root** (nothing matched), persist it immediately —
+  `bash ${CLAUDE_PLUGIN_ROOT}/skills/feedback/scripts/set-thread-ref.sh <feedback-path>
+  <channel-id> <ts>` — so a later event for the same item skips straight to the field. A failed
+  or skipped persist changes nothing about the post itself; the next event just falls back to
+  the search.
 - **Finish (§6/§7):** one finish line per thread, shape following the outcome — 🟢 Implemented
   (the ordinary case: PR opened and merged, or an open PR a scan finding held), 🚀 Auto Merge,
   🟡 handoff, 🔴 blocked. A handoff's 🟡 **is** the finish, never a third post. Every route owes

@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 1.5
 feedback: [.workaholic/feedbacks/20260811001004-propose-lacks-ticket-s-epistemics-add-discovery-and-a-diagnosis-first-rule.md]
 tickets: []
 stories: []
@@ -53,3 +53,4 @@ this mission targets the general mechanism, not that ticket.)
 - 2026-08-11 — ticket archived — 20260811001223-give-propose-a-discovery-pass-and-open-decision-items.md
 - 2026-08-11 — ticket archived — 20260811001226-add-a-diagnosis-first-rule-to-ticket-and-propose.md
 - 2026-08-11 — story published — work-20260811-001834
+- 2026-08-11 — run recorded (+1.5h) — work-20260811-001834

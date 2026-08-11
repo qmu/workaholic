@@ -59,7 +59,7 @@ Run the living migration inside the publish tree — `( cd <publish_path> && bas
 
 ### 2. Parallel Discovery
 
-Spawn three `subagent_type: "general-purpose"` subagents in parallel (single message, three Task calls, `model: "opus"`), each preloading `workaholic:discover` and running one mode: **history** (Discover History → summary, tickets, `moderation`), **source** (Discover Source → summary, files, code_flow, snippets), **policy** (Discover Policy → summary, policies, architecture). Leaves MUST NOT call AskUserQuestion. Wait for all three.
+Spawn three `subagent_type: "general-purpose"` subagents in parallel (single message, three Task calls, `model: "opus"`), each preloading `workaholic:discover` and running one mode: **history** (Discover History → summary, tickets, `moderation`, `diagnosis_first` — *Diagnosis-First Rule*), **source** (Discover Source → summary, files, code_flow, snippets), **policy** (Discover Policy → summary, policies, architecture). Leaves MUST NOT call AskUserQuestion. Wait for all three.
 
 ### 3. Handle Moderation Result
 
@@ -87,7 +87,7 @@ Ask once per run — *auto: confirm the deploy before merging* or *review: merge
 
 ### 5. Write Ticket(s)
 
-Capture dynamic values with `bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/ticket-metadata.sh`: `created_at`/`author` for frontmatter, `filename_timestamp` for the `YYYYMMDDHHmmss-<short-description>.md` filename — actual values, never placeholders. Follow [reference/ticket-format.md](reference/ticket-format.md) for the file structure, frontmatter fields, policy-lens mapping, and patch guidelines; write each ticket complete in one Write call. Populate: history → Related History (omit if no matches); source → Key Files, Implementation Steps, Patches (speculative ones marked); policy + lens table → the mandatory `## Policies` list; the §4b answers → the mandatory `## Quality Gate` (Acceptance Criteria / Verification Method / Gate — objective, verifiable; `/drive` reads both sections). If splitting: unique timestamps (+1s apart), foundation first, `depends_on` only for genuine ordering, cross-references in Considerations.
+Capture dynamic values with `bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/ticket-metadata.sh`: `created_at`/`author` for frontmatter, `filename_timestamp` for the `YYYYMMDDHHmmss-<short-description>.md` filename — actual values, never placeholders. Follow [reference/ticket-format.md](reference/ticket-format.md) for the file structure, frontmatter fields, policy-lens mapping, and patch guidelines; write each ticket complete in one Write call. Populate: history → Related History (omit if no matches); source → Key Files, Implementation Steps, Patches (speculative ones marked); policy + lens table → the mandatory `## Policies` list; the §4b answers → the mandatory `## Quality Gate` (Acceptance Criteria / Verification Method / Gate — objective, verifiable; `/drive` reads both sections). **When Discover History reports `diagnosis_first: true`** (`workaholic:discover`), open Implementation Steps with reproducing and localizing the failure and move any reporter-proposed fix to Considerations as a hypothesis, never step 1's design. If splitting: unique timestamps (+1s apart), foundation first, `depends_on` only for genuine ordering, cross-references in Considerations.
 
 ### 6. Handle Ambiguity
 

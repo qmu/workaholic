@@ -53,6 +53,13 @@ the project has decided to defer.
 ### 1. Read and understand the ticket
 
 - Read the ticket: requirements, Key Files, implementation steps.
+- **If the ticket carries a non-empty `## Open Decisions` section** (`propose`,
+  *Open decisions* — mainly a `/propose`-emitted ticket, since `/ticket` resolves the
+  same kind of fork by asking a human directly), resolve each item explicitly before
+  implementing it and record the resolution and its reasoning in the Final Report. An
+  item this session cannot resolve with reasoning it can defend is not a silent guess —
+  it is a named blocker under the failure contract (`blocked` or `handoff`), never
+  resolved by picking a side without saying so.
 - **Read its `## Policies` section** — the recorded list of engineering policies this ticket
   answers to. Step 3 opens each named `policies/<slug>.md` before writing code.
 - **Read its `## Quality Gate` section** (if present) — the developer-agreed acceptance criteria

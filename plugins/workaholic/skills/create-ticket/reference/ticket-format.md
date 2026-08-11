@@ -99,13 +99,24 @@ How the outcome's quality is assured, captured from the developer in Workflow §
 
 <Optional unified diffs — omit if no concrete code changes can be specified>
 
+## Open Decisions
+
+<Optional — a genuinely unrecommendable fork the writing session has no authority to
+resolve unattended, each item naming the fork and its live options. `/ticket` resolves
+this kind of fork by asking the developer directly in Workflow §4b, so it rarely needs
+this section; `/propose` cannot ask, so this is where it records one instead of silently
+choosing (`workaholic:propose`, *Open decisions*). Omit the section entirely when there
+is none.>
+
+- <The fork> — options: <A> vs <B>. <Why neither is clearly recommendable.>
+
 ## Considerations
 
 - <Concern description> (`path/to/relevant-file.ext`)
 - <Line-specific concern> (`path/to/file.ext` lines 45-60)
 ```
 
-Related History is omitted entirely when discovery found no matches; `<branch>` comes from the search result. Considerations SHOULD each reference a specific file path in parentheses (with line ranges where specific); a purely conceptual concern may omit the reference.
+Related History is omitted entirely when discovery found no matches; `<branch>` comes from the search result. Considerations SHOULD each reference a specific file path in parentheses (with line ranges where specific); a purely conceptual concern may omit the reference. A ticket whose ask reports a failure of an existing mechanism states step 1 as reproducing and localizing that failure, with any reporter-proposed fix recorded here as a hypothesis rather than adopted directly (`workaholic:discover`, *Diagnosis-First Rule*).
 
 ### Trip Origin — a legacy line, never written anew
 

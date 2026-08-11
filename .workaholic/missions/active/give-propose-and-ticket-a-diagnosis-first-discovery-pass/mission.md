@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260811-001834
 ---
 
 # Give /propose and /ticket a diagnosis-first discovery pass
@@ -41,11 +42,14 @@ this mission targets the general mechanism, not that ticket.)
 
 ## Acceptance
 
-- [ ] `/propose`'s workflow runs a discovery pass before scaffolding and records
+- [x] `/propose`'s workflow runs a discovery pass before scaffolding and records
       genuinely unrecommendable forks as `open_decision` items. (#20260811001223-give-propose-a-discovery-pass-and-open-decision-items.md)
-- [ ] `/ticket` and `/propose` both apply a diagnosis-first rule for asks that report a
+- [x] `/ticket` and `/propose` both apply a diagnosis-first rule for asks that report a
       failure of an existing mechanism. (#20260811001226-add-a-diagnosis-first-rule-to-ticket-and-propose.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-11 — ticket archived — 20260811001223-give-propose-a-discovery-pass-and-open-decision-items.md
+- 2026-08-11 — ticket archived — 20260811001226-add-a-diagnosis-first-rule-to-ticket-and-propose.md
+- 2026-08-11 — story published — work-20260811-001834

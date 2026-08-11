@@ -40,11 +40,12 @@ For matches in todo/ and icebox/, classify overlap with the proposed ticket. Sco
     "status": "clear|duplicate|needs_decision",
     "matches": [{"path": "...", "title": "...", "category": "duplicate|merge|split|related", "overlap_percentage": 85, "reason": "..."}],
     "recommendation": "Action to take"
-  }
+  },
+  "diagnosis_first": false
 }
 ```
 
-`clear` → proceed (set it, with empty `matches`, when no todo/icebox ticket matches); `duplicate` → do not create; `needs_decision` → the user chooses the merge/split strategy.
+`clear` → proceed (set it, with empty `matches`, when no todo/icebox ticket matches); `duplicate` → do not create; `needs_decision` → the user chooses the merge/split strategy. `diagnosis_first` (see *Diagnosis-First Rule* below): `true` when the ask reports a failure of an existing mechanism, `false` (default) for a new-feature ask.
 
 ## Discover Source
 
@@ -67,6 +68,30 @@ Follow the language's own linkage (`import`/`require` and `*.d.ts`, Python `impo
 ```
 
 `summary`, `files`, and `code_flow` are required; `snippets` (feeds patch generation), `import_graph`, `patterns`, `test_coverage` optional. Glob/Grep/Read only — static analysis, no execution or runtime behavior; partial-read large files.
+
+## Diagnosis-First Rule
+
+Stated once here because both ticket-writing seams — `/ticket`'s Workflow §5 and
+`/propose`'s Emit-the-tickets step — already read this skill before authoring
+Implementation Steps, and both would otherwise need to restate it.
+
+An ask reporting a **failure of an existing mechanism** (a lookup misses, a check fails,
+a routine silently no-ops) is not a new-feature ask: the live surface the failure lives
+on must be measured before a fix is designed. Discover History already classifies a
+ticket's overlap with prior work (*Duplicate / Merge / Split / Related*); extend the same
+judgment with one more signal and carry it in the History output as
+`"diagnosis_first": true|false` (default `false` — fail toward the ordinary, non-diagnosis
+reading on ambiguity, since a false positive here only adds a reproduction step, while a
+false negative on a genuine failure report ships a fix nobody measured).
+
+When `diagnosis_first` is `true`, the ticket's Implementation Steps begin with
+**reproducing and localizing the failure** — measuring the mechanism's actual live
+behavior, not inferring it from the report — and design the fix only after that
+measurement. Any mechanism the reporter proposes is recorded under `## Considerations` as
+a hypothesis to weigh, never written into step 1 as the adopted design. Worked example:
+commits `52681f0`/`3172a65` measured the notify thread-key lookup's actual miss (a
+search-scope defect) before rewriting the ticket's steps, rather than adopting the
+reporter's presumed persistence gap directly.
 
 ## Discover Policy
 

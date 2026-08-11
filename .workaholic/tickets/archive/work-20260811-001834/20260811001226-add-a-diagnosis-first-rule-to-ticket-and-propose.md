@@ -82,3 +82,28 @@ what this rule demands.
 - Distinguishing a failure report from a new-feature ask is a judgment call; a false
   positive (treating an ordinary feature request as diagnosis-first) should degrade to
   the existing behavior rather than block.
+
+## Final Report
+
+Development completed as planned. The diagnosis-first rule is stated once in
+`workaholic:discover`'s new *Diagnosis-First Rule* section — the single source both
+`/ticket`'s and `/propose`'s discovery already read — and carried as a `diagnosis_first`
+boolean on Discover History's output schema (default `false`, failing toward the
+ordinary reading on ambiguity per this ticket's own gate). `/ticket`'s Workflow §5 (Write
+Ticket(s)) now opens Implementation Steps with reproduce-and-localize and moves any
+reporter-proposed fix to Considerations as a hypothesis when `diagnosis_first: true`;
+`/propose`'s emit-tickets step (renumbered to step 9 by the sibling ticket's discovery
+insertion) applies the identical rule to its own scaffolded tickets. `CLAUDE.md`'s
+`/ticket` and `/propose` rows document the rule.
+
+### Discovered Insights
+
+- **Insight**: This ticket's implementation landed together with the sibling ticket's
+  (`20260811001223`, discovery pass) because both write to the same seam —
+  `workaholic:discover`'s output schema and both ticket-writing workflows — and
+  `workaholic:discover` is exactly the single source Implementation Step 1 asked this
+  rule be stated in.
+  **Context**: Worth noting for a future reader diffing commits: the diagnosis-first
+  rule's own worked example (`52681f0`/`3172a65`) is the same measured-not-assumed
+  discipline this ticket's Considerations asked the implementer to apply — the rule was
+  stated in one place and both write sites now read it, rather than restated twice.

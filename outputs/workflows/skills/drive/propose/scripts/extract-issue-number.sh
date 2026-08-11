@@ -1,5 +1,5 @@
 #!/bin/sh -eu
-# Capture the GitHub issue number a proposal's ask came from, so step 9 can
+# Capture the GitHub issue number a proposal's ask came from, so step 10 can
 # thread it into the pull request body as a closing keyword (`Closes #<N>`)
 # and merging the proposal auto-closes the originating "[FB] ***" issue.
 #

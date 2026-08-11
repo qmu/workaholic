@@ -27,8 +27,9 @@ envelope, and abort reason, is [`reference/workflow.md`](reference/workflow.md):
    someone else → `not_mine` (*Act only on an ask that is yours*, below).
 2. **Open the publish tree** and **register the record** inside it — written whatever
    the judgment concludes.
-3. **Read the constraints** (`survey-state.sh`) and **dedup** (`list-proposed-refs.sh`)
-   before scaffolding anything.
+3. **Read the constraints** (`survey-state.sh`), **discover** the mechanism the ask
+   names or reports a failure of (below, *Discovery before scaffolding*), and **dedup**
+   (`list-proposed-refs.sh`) — all before scaffolding anything.
 4. **Judge and decide the form** (below); scaffold the mission and/or tickets, stamp the
    acceptance links, and check the ticket floor.
 5. **Publish everything as one pull request** (`publish-tree-pr.sh` under
@@ -37,6 +38,32 @@ envelope, and abort reason, is [`reference/workflow.md`](reference/workflow.md):
    publish tree,
    **notify**, and **report** one line: the form chosen with its reason, the record's
    filename, the PR URL, and the `notified` flag.
+
+## Discovery before scaffolding
+
+`/ticket` runs history/source/policy discovery before it writes anything (`workaholic:create-ticket`
+§2); `/propose` had none, which let a store-location fork `/ticket`'s §4b would have
+interrogated a human on get silently inherited from a reporter's framing instead of
+inspected (qmu/workaholic#374). Step 3 of `reference/workflow.md` closes that gap: for an
+ask that names an existing mechanism or reports a failure of one, run at least a
+history-mode pass (`workaholic:discover`'s Discover History) before judging the form —
+**inline, in this session**: unlike `/ticket`'s three parallel discovery modes, which
+fan out to `general-purpose` subagents because they run concurrently, a single
+history-mode pass has nothing to fan out to, so it runs directly in the command's own
+context (Architecture Policy already permits this — no subagent, no open question).
+Carry the resulting `diagnosis_first` verdict into the emitted ticket's
+Implementation Steps (`workaholic:discover`, *Diagnosis-First Rule*). Scoped to the ask in
+hand — this is not a second sweep of the backlog (the retired `[Propose Batch]` design).
+
+### Open decisions
+
+`/ticket` resolves a genuinely unrecommendable fork by asking the developer directly
+(§4b); `/propose` cannot ask anyone. When discovery surfaces that kind of fork, record it
+verbatim as an item in the emitted ticket's `## Open Decisions` section
+(`create-ticket/reference/ticket-format.md`) instead of choosing for the reporter — the
+driving session resolves it explicitly and records the resolution in its Final Report,
+never a silent guess. Most proposals carry none; write the section only when a fork this
+session cannot recommend one side of actually surfaced.
 
 ## The form follows the work's shape
 
@@ -80,6 +107,7 @@ A model judgment with a conservative, written bar, stated per input:
 
 - **Feedback is the only input that can *originate* a proposal** — typically `kind: instruction`, or a substantial `insight` naming concrete work; one mission may draw on several records. A lone `concern`, a `material`/`answer` record, or a purely informational note is never a trigger — concerns feed replans and planning sessions. The `kind` is decided at capture (`workaholic:feedback`, *Choosing the kind*), and at this seam the same session decides both, so a misclassified ask is a self-inflicted record-only; the correction is a superseding record, never a bar loose enough to read concerns.
 - **Missions, the queue, and commits are constraints, never triggers** — they can only shrink or veto: a direction restating an existing mission's scope is record-only (a direction that *sharpens* one belongs in a replan, a human act); work already specified as a todo ticket is not proposed again; commits say what is done, never what should come next — "this area changed a lot" is exactly the pattern that fills a channel with plausible noise.
+- **Discovery is a fourth input, and it can only inform or veto, never originate** (*Discovery before scaffolding*, above): a history-mode pass over a named mechanism can turn an apparently-atomic ask into a mission (the mechanism is more entangled than the ask implies), surface a duplicate that makes the ask record-only, or leave the judgment unchanged — it never manufactures a proposal feedback did not originate.
 - **When unsure, record-only** — and say what made you unsure. A false negative costs one reading (a human can run `/mission` from the merged record); a false positive publishes work nobody asked for and erodes trust in the loop.
 
 ## Draft missions
@@ -107,7 +135,7 @@ Full invocations with `${CLAUDE_PLUGIN_ROOT}` paths are in [`reference/workflow.
 - **`scaffold-draft.sh "<title>" [--assignee <email>] <feedback-filename>...`** — writes the proposed `mission.md` (schema above; slug via `mission/scripts/slug.sh`), refreshes the OKF indexes, git-stages; refuses an existing slug. Emits `{created, slug, path}`.
 - **`scaffold-proposed-ticket.sh "<title>" <mission-slug> | --loose --feedback <record>... [--assignee <email>]`** — one ticket into the flat `todo/`; the mission form carries `mission: <slug>`, the loose form carries `feedback:` instead (refused `no_feedback` without refs); `merge_policy` left empty; the mandatory `## Policies`/`## Quality Gate` sections scaffolded so the artifact is valid at write. Emits `{created, path, slug, mission, feedback, loose}` or a `reason` (`no_title`/`no_mission`/`mission_missing`/`no_feedback`/`exists`). **Stamp the acceptance links after the set is written** — `mission/scripts/link-acceptance.sh <slug> <item-selector> <ticket-filename>` once per satisfied item, naming the pairing decided at decomposition, never inferring; an unsatisfied item stays unlinked and is named in the PR body (37 unlinked items across six proposed missions is the measured cost of skipping this).
 - **`branching/scripts/publish-tree-pr.sh <title> <why> <changes> <concerns> <insights> <verify>`** — one call, everything written; emits `{ok, sha, branch, pr_url, base}`; `pr_failed` still reports `branch` and `sha`. `WORKAHOLIC_CLOSES_ISSUE=<N>` threads a native `Closes #<N>` line into the body, so merging the pull request auto-closes the "[FB] ***" issue the ask came from — empty (the common case) emits no line.
-- **`extract-issue-number.sh ["<argument>"]`** — the source for that env var: `CCR_TRIGGER_ISSUE_NUMBER` under a routine, else a `#<N>`/issue URL in the argument; emits `{"issue_number": "<N>"}` or `""`. Run at step 1, kept in hand through to step 9.
+- **`extract-issue-number.sh ["<argument>"]`** — the source for that env var: `CCR_TRIGGER_ISSUE_NUMBER` under a routine, else a `#<N>`/issue URL in the argument; emits `{"issue_number": "<N>"}` or `""`. Run at step 1, kept in hand through to step 10.
 
 ## Notifier contract
 

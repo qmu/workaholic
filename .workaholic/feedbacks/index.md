@@ -472,4 +472,5 @@
 * [Scope the post-release quality-check loop](20260811010337-scope-the-post-release-quality-check-loop.md)
 * [Notify thread key must not be persisted into the public repository](20260811084130-notify-thread-key-must-not-be-persisted-into-the-public-repository.md)
 * [Notify lookup fails from search scope not search unreliability](20260811084546-notify-lookup-fails-from-search-scope-not-search-unreliability.md)
+* [release-scan: exclude HCL variable references from the secret rule](20260811102137-release-scan-exclude-hcl-variable-references-from-the-secret-rule.md)
 <!-- okf:generated:end -->

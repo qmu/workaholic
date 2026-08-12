@@ -5,7 +5,8 @@
 #
 # Output (stdout, always exit 0 for a reported outcome):
 #   {"ok": true,  "base": "origin/<base>", "sha": "<sha>", "advanced": true|false,
-#                 ["realigned": true, "previous_sha": "<sha>", "backup_ref": "<ref>"]}
+#                 ["realigned": true, "previous_sha": "<sha>", "backup_ref": "<ref>"]
+#                 ["off_base": true, "branch": "<name>"]}
 #   {"ok": false, "reason": "not_on_main"|"dirty_workspace"|"no_origin"
 #                          |"origin_unreachable"|"diverged", ...}
 #
@@ -16,6 +17,11 @@
 # The single exception is §5 below, which fires only where that rationale is
 # provably absent -- a base branch with no local commits at all -- and preserves
 # the discarded tip under refs/backup/ when it does.
+#
+# §1a is the OTHER narrow exception, and it mutates nothing at all: a checkout
+# parked off the base branch entirely, but sitting on the base's exact tip with a
+# clean tree, is reported `ok` with `off_base: true` instead of refused. See its
+# own reasoning below.
 #
 # The reasons ride stdout with exit 0 on purpose. Every one of them is a
 # legitimate state of a developer's checkout — on a branch, mid-edit — not a
@@ -45,18 +51,86 @@ check_out=$(sh "${SCRIPT_DIR}/check.sh")
 branch=$(printf '%s\n' "$check_out" | sed -n 's/.*"branch":[ ]*"\([^"]*\)".*/\1/p')
 on_main=$(printf '%s\n' "$check_out" | sed -n 's/.*"on_main":[ ]*\([a-z]*\).*/\1/p')
 
+off_base=false
 if [ -n "$requested_base" ]; then
   base="$requested_base"
-  if [ "$branch" != "$base" ]; then
-    printf '{"ok": false, "reason": "not_on_main", "branch": "%s", "base": "%s"}\n' "$branch" "$base"
-    exit 0
-  fi
+  [ "$branch" = "$base" ] || off_base=true
 else
   if [ "$on_main" != "true" ]; then
-    printf '{"ok": false, "reason": "not_on_main", "branch": "%s"}\n' "$branch"
-    exit 0
+    # No base branch is checked out, so there is no branch name to take the base
+    # from. check.sh recognises `main` OR `master` by name but does not say which
+    # this repository uses, so read it off the refs that exist rather than
+    # defaulting to one: a local base branch first (the shape §5's baked-clone
+    # case leaves behind), then origin's. Nothing resolvable means the off-base
+    # proof below cannot be made, and it refuses `not_on_main` as before.
+    base=""
+    for candidate in main master; do
+      if git rev-parse --verify --quiet "refs/heads/${candidate}" >/dev/null 2>&1 \
+        || git rev-parse --verify --quiet "refs/remotes/origin/${candidate}" >/dev/null 2>&1; then
+        base="$candidate"
+        break
+      fi
+    done
+    off_base=true
+  else
+    base="$branch"
   fi
-  base="$branch"
+fi
+
+# --- 1a. Parked off the base, but standing on its exact tip --------------------
+# THE REFUSAL BELOW IS RIGHT IN THE GENERAL CASE AND STAYS. A developer's feature
+# branch carries different content, so surveying it reports a queue that does not
+# exist -- which is the whole reason `/drive`'s freshen step runs before its
+# survey. What this section adds is the one shape where that reasoning provably
+# does not apply: the checkout is on some other branch, but HEAD is the base's
+# exact tip and the tree is clean, so the working tree the caller is about to read
+# is byte-identical to the one it would read standing on the base.
+#
+# Measured twice within one hour on 2026-08-12 -- 21:38Z (this ticket) and 22:24Z
+# (the tick that minted `20260812223046-pin-the-plugin-source-across-the-freshen-step`)
+# -- plus two merged pull requests from a `claude/*` branch (#394, #395). The cloud
+# container hands the session a harness branch created from `origin/main` and checks
+# THAT out, leaving the image's baked `main` behind; every such tick was
+# contractually finished before it could survey, with work sitting in the queue.
+# It is the same class as the superseded plugin binding and the baked base branch:
+# a harness artifact wearing a developer's clothes, which the run should proceed
+# past rather than stop on.
+#
+# THE EXCEPTION RESTS ON A PROOF, NEVER ON A BRANCH NAME. A `claude/*` allowlist
+# would be a guess about a harness that is free to rename its branches tomorrow;
+# "same commit as the base, nothing modified" is checkable here and now. Every way
+# the proof can fail -- no origin, an unreachable one, a tip that does not match,
+# a dirty tree -- refuses `not_on_main` exactly as before, so no off-base refusal
+# changes its reason. And it MUTATES NOTHING: there is no branch to fast-forward
+# (the caller is not on one) and moving the caller's checkout is not this script's
+# licence to take. `off_base: true` rides the success so the caller reports the
+# state rather than silently treating it as an ordinary sync.
+if [ "$off_base" = true ]; then
+  refuse_off_base() {
+    if [ -n "$requested_base" ]; then
+      printf '{"ok": false, "reason": "not_on_main", "branch": "%s", "base": "%s"}\n' "$branch" "$base"
+    else
+      printf '{"ok": false, "reason": "not_on_main", "branch": "%s"}\n' "$branch"
+    fi
+    exit 0
+  }
+
+  [ -n "$base" ] || refuse_off_base
+  git config --get remote.origin.url >/dev/null 2>&1 || refuse_off_base
+  git fetch --quiet origin "$base" >&2 || refuse_off_base
+
+  off_remote_sha=$(git rev-parse --verify --quiet "refs/remotes/origin/${base}^{commit}" || true)
+  off_head_sha=$(git rev-parse --verify --quiet "HEAD^{commit}" || true)
+  [ -n "$off_remote_sha" ] || refuse_off_base
+  [ "$off_head_sha" = "$off_remote_sha" ] || refuse_off_base
+
+  off_ws=$(sh "${SCRIPT_DIR}/check-workspace.sh")
+  off_clean=$(printf '%s\n' "$off_ws" | sed -n 's/.*"clean":[ ]*\([a-z]*\).*/\1/p')
+  [ "$off_clean" = "true" ] || refuse_off_base
+
+  printf '{"ok": true, "base": "origin/%s", "sha": "%s", "advanced": false, "off_base": true, "branch": "%s"}\n' \
+    "$base" "$off_remote_sha" "$branch"
+  exit 0
 fi
 
 # --- 2. Clean tree? ---------------------------------------------------------

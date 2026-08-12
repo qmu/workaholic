@@ -26,7 +26,25 @@ if ! command -v gh >/dev/null 2>&1; then
   exit 0
 fi
 
-pr_info=$(gh pr list --head "$branch" --state all --json number,url,state,mergedAt --jq '.[0]' 2>/dev/null || echo "")
+# REST, NOT `gh pr list` (2026-08-12, FB 20260812172522): GraphQL-backed, and a web
+# session may 403 it. `state=all` and the `mergedAt` reading are preserved — REST spells
+# them `state=all` and `merged_at`, and `head` needs the owner-qualified `owner:branch`
+# form. The field names are remapped here so every caller downstream is untouched.
+SCRIPT_DIR=$(cd -- "$(dirname -- "$0")" && pwd)
+GATHER_SCRIPTS="${SCRIPT_DIR}/../../gather/scripts"
+slug=$(sh "${GATHER_SCRIPTS}/gh-rest.sh" slug 2>/dev/null || echo "")
+owner=${slug%%/*}
+
+pr_info=""
+if [ -n "$slug" ]; then
+  pr_info=$(sh "${GATHER_SCRIPTS}/gh-rest.sh" api \
+    "repos/${slug}/pulls?head=${owner}:${branch}&state=all&per_page=1" \
+    --jq '.[0] | select(. != null)
+          | {number, url: .html_url,
+             state: (if .merged_at then "MERGED" else (.state | ascii_upcase) end),
+             mergedAt: .merged_at}' \
+    2>/dev/null || echo "")
+fi
 
 if [ -z "$pr_info" ] || [ "$pr_info" = "null" ]; then
   echo '{"found": false, "branch": "'"$branch"'"}'

@@ -78,7 +78,10 @@ not write a second story generator.
 
 - **`review` → merge the PR immediately** (mission `auto-merge-propose-and-implement-prs-under-a-dev-release-branch-split`,
   2026-08-11, superseding the earlier stop-at-the-PR route): once `/report` has opened the unit's
-  pull request and the branch-safety scan verdict is `pass`, merge it (`gh pr merge --merge`) with
+  pull request and the branch-safety scan verdict is `pass`, merge it (REST
+  `PUT repos/{owner}/{repo}/pulls/{n}/merge` with `merge_method: merge`, through
+  `gather/scripts/gh-rest.sh` — never the GraphQL-backed `gh pr merge`, which a web session
+  may 403) with
   no human confirmation and tear the claim down exactly as `auto` does below — quality is gated
   downstream at the `release/*` QA window, not at merge time. A scan finding is the one thing that
   leaves the PR open instead (there is no human here to override — the demotion doctrine below is

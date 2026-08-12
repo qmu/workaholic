@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 0.7
 feedback: [20260812203825-stop-a-routine-finish-line-from-vanishing-on-the-script-path.md]
 tickets: []
 stories: []
@@ -52,3 +52,4 @@ sent.
 - 2026-08-12 — ticket archived — 20260812204122-make-workaholic-notify-own-the-finish-line-transport.md
 - 2026-08-12 — ticket archived — 20260812204216-report-an-unposted-finish-line-as-unposted.md
 - 2026-08-12 — story written — work-20260812-204905.md
+- 2026-08-12 — run recorded (+0.7h) — implement-20260812-204905

@@ -24,9 +24,35 @@
 #
 # The narrowing is about ADJACENCY, never about dropping checks. The `owner/name` remote
 # form and the clone URL are matched exactly; the absolute-path test is exact and carries
-# the real weight; and the bare name still refuses a standalone mention, declining only
-# when it is glued to a neighbouring identifier character. Every refusal names the matched
-# text and its line, so the next false positive is diagnosable rather than mysterious.
+# the real weight. Every refusal names the matched text and its line, so the next false
+# positive is diagnosable rather than mysterious.
+#
+# IT MATCHES A REFERENCE, NOT A WORD (2026-08-12). The 08-02 narrowing fixed adjacency to
+# *identifier* characters; it did not address prose. For a repository whose basename is an
+# ordinary English word, a standalone occurrence is usually not a reference to the
+# repository — it is just the language. Measured 2026-08-12 (qmu/workaholic#384) on a body
+# that was a generated publish plan of about seventy path pairs: it was refused on two
+# lines naming no repository — the plan's own heading, and a line carrying a published
+# article's title that has to be reproduced verbatim because it doubles as the
+# destination's sidebar label. Masking that title would mean changing a published page's
+# title to satisfy a lint, so once again "mask it" named an action that did not exist,
+# after the human gate.
+#
+# So the bare name is refused only where it READS AS A REFERENCE: inside backticks (code
+# formatting marks it as a token rather than prose), or directly beside a
+# repository-indicating noun — `<name> repo|repository|checkout|worktree|project`, the
+# possessive `<name>'s repo`, and the reversed `repository <name>` — in either order and
+# case-insensitively.
+#
+# WHAT THIS GIVES UP, stated rather than glossed: an UNQUALIFIED bare mention in prose
+# ("a ticket that still says <name> in the text") now passes. So does a qualifier outside
+# the short literal noun list, including its plurals — the list is deliberately not grown
+# speculatively, because a missed qualifier is the same trade this change already accepts.
+# What still holds: every exact rule above is untouched and carries the real weight (each
+# clone-URL form, the `owner/name` slug, the absolute path), and the developer's verbatim
+# confirmation of destination and body remains the actual control — this was never
+# assurance. There is deliberately NO skip flag: an escape hatch reachable by the agent the
+# backstop exists to constrain turns a mechanical check into an optional one.
 
 set -eu
 
@@ -115,11 +141,26 @@ IFS="$old_ifs"
 hit="$(first_fixed "$SOURCE_ROOT" "$body_file")"
 [ -z "$hit" ] || emit_err "body still contains this repository's path at line $(cite "$hit") — mask it and re-confirm"
 
-# The bare name, as a standalone identifier. A neighbouring alphanumeric, `-`, `_` or `/`
-# means it is part of some OTHER identifier — `<name>-reports/`, `site-<name>/` — which is
-# exactly the false positive this rule exists to stop refusing.
+# The bare name, where it reads as a REFERENCE. Two conditions have to hold together.
+#
+# Adjacency to identifier characters (unchanged, 2026-08-02): a neighbouring alphanumeric,
+# `-`, `_` or `/` means the name is part of some OTHER identifier — `<name>-reports/`,
+# `site-<name>/` — which is not a mention at all.
+#
+# Adjacency to a qualifier (2026-08-12): a backtick on either side, or one of the five
+# repository-indicating nouns directly before or after it, with an optional possessive.
+# Everything else is prose and passes. The noun list is short and literal on purpose.
 name_re="$(printf '%s' "$source_name" | sed -e 's/[][\\.^$*+?(){}|/-]/\\&/g')"
-hit="$(first_ere "(^|[^A-Za-z0-9_/-])${name_re}([^A-Za-z0-9_/-]|\$)" "$body_file")"
+bt='`'
+lb='(^|[^A-Za-z0-9_/-])'
+rb='([^A-Za-z0-9_/-]|$)'
+noun='(repo|repository|checkout|worktree|project)'
+poss="('s|’s)?"
+ref_re="${bt}${name_re}${rb}"
+ref_re="${ref_re}|${lb}${name_re}${bt}"
+ref_re="${ref_re}|${lb}${name_re}${poss}[[:space:]]+${noun}${rb}"
+ref_re="${ref_re}|${lb}${noun}[[:space:]]+${name_re}${rb}"
+hit="$(first_ere "$ref_re" "$body_file")"
 [ -z "$hit" ] || emit_err "body still names this repository ('${source_name}') at line $(cite "$hit") — mask it and re-confirm"
 
 printf '{"ok": true}\n'

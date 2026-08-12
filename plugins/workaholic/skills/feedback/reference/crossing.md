@@ -88,7 +88,7 @@ The command owns every `AskUserQuestion` (one-level fan-out; subagents cannot pr
   redirect from Bash nor an API call `gh` makes — which is the point: the casual path is
   closed and the deliberate path runs through a script, where the developer has already
   been shown exactly what will be sent.
-- `check-outbound-body.sh` knows only this repo's own name as a standalone identifier,
+- `check-outbound-body.sh` knows only this repo's own name where it reads as a reference,
   its `owner/name` remote form, every form of its clone URL, and its absolute path.
   Everything else rests on the human judgement and the verbatim confirmation.
 - **"Its clone URL" means every form of it.** git rewrites remotes through
@@ -104,17 +104,34 @@ The command owns every `AskUserQuestion` (one-level fan-out; subagents cannot pr
   let a body carrying this repository's literal clone URL through entirely.
   `resolve-target.sh` reports the **configured** URL — the destination a human confirms
   and a colleague could clone, never one a local rewrite invented.
-- **It matches an identifier, not a substring, and that is a usability requirement.**
-  This backstop is the one place a *legitimate* ask can be refused after the developer
-  has confirmed the body verbatim, so its false-positive rate is a usability property.
-  It was a plain case-insensitive substring match until 2026-08-02, when a repository
-  whose basename is an ordinary English word could not raise *any* ask: the body was
-  seventy path pairs whose right-hand sides were the **target** repo's own directories,
-  the path list *was* the ask, and "mask it" named an action that did not exist. The
-  bare name now matches only where it is not glued to a neighbouring identifier
-  character, and every refusal cites the matched text and its line. The narrowing is
-  about adjacency: a standalone mention, the `owner/name` form, the clone URL and the
-  absolute path are all still refused.
+- **It matches a reference, not a substring and not a word, and that is a usability
+  requirement.** This backstop is the one place a *legitimate* ask can be refused after
+  the developer has confirmed the body verbatim, so its false-positive rate is a
+  usability property. It has been narrowed twice, both times on a measured refusal a
+  human could not act on, and both times about **adjacency** rather than about dropping
+  checks:
+  - **2026-08-02, adjacency to identifier characters.** It was a plain case-insensitive
+    substring match, so a repository whose basename is an ordinary English word could not
+    raise *any* ask: the body was seventy path pairs whose right-hand sides were the
+    **target** repo's own directories, the path list *was* the ask, and "mask it" named an
+    action that did not exist. The bare name stopped matching where it is glued to a
+    neighbouring identifier character (`<name>-reports/`, `site-<name>/`).
+  - **2026-08-12, adjacency to a qualifier.** That fixed identifiers but not prose. On
+    qmu/workaholic#384 the same publish plan was refused on two lines naming no
+    repository — the plan's own heading, and a line quoting a published article's title
+    that has to be reproduced verbatim because it doubles as the destination's sidebar
+    label; masking *that* would mean editing a live page's title to satisfy a lint. The
+    bare name now refuses only where it reads as a reference: inside backticks, or
+    directly beside `repo`/`repository`/`checkout`/`worktree`/`project` in either order,
+    possessives included, case-insensitively.
+
+  Every refusal still cites the matched text and its line. **What is given up:** an
+  unqualified bare mention in prose passes, as does a qualifier outside that short
+  literal noun list — the list is not grown speculatively, since a missed qualifier is
+  the same trade. **What still holds:** the `owner/name` form, every clone-URL form and
+  the absolute path are refused exactly as before, and the verbatim human confirmation
+  remains the actual control. There is deliberately no skip flag — an escape hatch
+  reachable by the agent the backstop constrains would make it optional.
 - **`visibility` is an enum, never a payload.** `gh api` prints its error body to
   *stdout* with a non-zero status, so the idiomatic `2>/dev/null || echo unknown`
   fallback concatenated a JSON blob with the fallback word. `resolve-target.sh`

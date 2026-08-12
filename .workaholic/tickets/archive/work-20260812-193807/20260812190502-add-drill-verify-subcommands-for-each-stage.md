@@ -87,3 +87,44 @@ notification surface must never decide a stage that the artifacts already decide
   material, not a verdict.
 - Distinguish "stage not yet run" (no artifacts, issue still open) from "stage
   failed" (abort reason visible in artifacts): the former is `pending`, not `fail`.
+
+## Final Report
+
+Development completed as planned. `verify-propose <issue>` and
+`verify-implement <issue>` emit one JSON line carrying `{check, pass, detail,
+bearing}` rows. Load-bearing rows read `origin/main`, the unmerged-branch scan and
+REST issue/pull-request state — never a session transcript. Slack rows are
+`bearing: advisory` and can only ever be `pass: null`/`true`/`false` without touching
+the exit code. `--json` emits the full row set; the terse default carries only the
+rows an operator must act on.
+
+Three verdicts with distinct exit codes: `pass` (0), `fail` (1), `pending` (5) —
+the last for a stage nobody fired yet, which is reported with `load_bearing.failed:
+0` so a poller can tell "wait" from "broken".
+
+Verified with `node scripts/test-workflow-scripts.mjs` (2394 passed, 0 failed),
+including two new cases pinning the row contract. The live `verify-propose` +
+`verify-implement` pass against a real drill is deferred with the live cycle in the
+previous ticket — it needs a real seeded issue and two routine fires.
+
+### Discovered Insights
+
+- **Insight**: a TAB is an IFS **whitespace** character, so `while IFS="$TAB" read -r
+  a b c d e` silently shifts every field after an empty one.
+  **Context**: measured here — an UNMERGED pull request has an empty `merged_at`, so
+  the body arrived holding the title and `verify-propose` reported "no pull request
+  carries Closes #N" about a pull request that carried it. Exactly the row this drill
+  exists to recognise. The fix is a `-` sentinel from jq (`.merged_at // "-"`), not a
+  different reader. Every other TSV reader in this repository escapes the same trap
+  only by never emitting an empty middle field — worth knowing before adding one.
+- **Insight**: the archive path *is* the unit's branch
+  (`tickets/archive/<branch>/<file>`), so the ticket's landing place names the pull
+  request and the claim to check.
+  **Context**: that is why nothing has to be carried between the two verify stages —
+  each relation is read back out of the artifacts, which is the same statelessness the
+  notification lookup relies on.
+- **Insight**: `claim_released` is checked narrowly — this unit's branch is gone from
+  the unmerged set, not "the repository holds no claims".
+  **Context**: the literal reading would go red on a colleague's live claim, which is
+  a failure the operator cannot act on. In the drill's own window (seed refuses a dirty
+  base) the two readings coincide.

@@ -12244,6 +12244,8 @@ const tests = [
   ["drive claim protocol: truncated history never invents a claim", testClaimScanShallowClone],
   ["e2e/loop-drill.sh: seed refuses a polluted base and mints a fresh pair", testLoopDrillSeed],
   ["e2e/loop-drill.sh: reset recovers only what the drill minted", testLoopDrillReset],
+  ["e2e/loop-drill.sh: verify-propose reads artifacts, and pending is not fail", testLoopDrillVerifyPropose],
+  ["e2e/loop-drill.sh: verify-implement reads the archive move, story, PR and claim", testLoopDrillVerifyImplement],
 ];
 
 // `await` matters even though almost every test is synchronous: without it an async
@@ -13646,6 +13648,7 @@ function makeDrillFixture() {
 
   writeFileSync(join(state, "login"), "operator\n");
   writeFileSync(join(state, "issues.json"), "[]\n");
+  writeFileSync(join(state, "pulls.json"), "[]\n");
 
   const ghStub = `#!/bin/sh
 STATE="${state}"
@@ -13693,6 +13696,13 @@ case "$method:$path" in
     exit 0 ;;
 esac
 case "$path" in
+  repos/*/issues/*)
+    n="\${path##*/}"
+    emit "$(jq -c --argjson n "$n" '.[] | select(.number == $n)' "$STATE/issues.json")"
+    exit 0 ;;
+  repos/*/pulls\\?*)
+    emit "$(cat "$STATE/pulls.json")"
+    exit 0 ;;
   repos/*/issues\\?*)
     # The server-side filters the real endpoint applies; the script's own --jq expression
     # then runs over the result, exactly as against GitHub.
@@ -13893,5 +13903,170 @@ function testLoopDrillReset() {
     assertEq("a second consecutive reset exits 0", again.status, 0);
     assertEq("with nothing left to close", j2.closed_issues, []);
     assertEq("and nothing left to delete", j2.deleted_branches, []);
+  } finally { cleanup(fx.tmp); }
+}
+
+// ---------- loop-drill verify-propose / verify-implement ----------
+// What these pin is the ROW CONTRACT, not prose: the `check` names, the three `pass`
+// values, which rows are load-bearing, and the three verdicts (`pass`, `fail`,
+// `pending`) with their distinct exit codes. A drill whose verdict cannot be read by a
+// machine is a drill that still needs a human to read a transcript, which is the thing
+// the mission exists to end.
+//
+// The distinction that matters most here is PENDING vs FAIL. A routine that has not
+// fired yet has not failed, and reporting it as red is how an operator learns to ignore
+// red.
+function seedProposeArtifacts(fx, issueNumber, { assignee = "operator", ticket = true } = {}) {
+  const stem = "20260812000000-drill-ask";
+  mkdirSync(join(fx.repo, ".workaholic/feedbacks"), { recursive: true });
+  writeFileSync(join(fx.repo, `.workaholic/feedbacks/${stem}.md`),
+    `---\ntype: Feedback\nassignees: [${assignee}]\n---\n\nSource: GitHub issue #${issueNumber} (https://github.com/o/r/issues/${issueNumber})\n`);
+  if (ticket) {
+    mkdirSync(join(fx.repo, ".workaholic/tickets/todo"), { recursive: true });
+    writeFileSync(join(fx.repo, ".workaholic/tickets/todo/20260812000100-drill-step.md"),
+      `---\nassignees: [${assignee}]\nfeedback: ${stem}\n---\n\n# Drill step\n`);
+  }
+  execSync("git add -A && git commit -q -m 'Add drill artifacts'", { cwd: fx.repo });
+  execSync("git push -q origin main", { cwd: fx.repo });
+  return stem;
+}
+
+function setPulls(fx, pulls) {
+  writeFileSync(join(fx.state, "pulls.json"), JSON.stringify(pulls));
+}
+
+function testLoopDrillVerifyPropose() {
+  const fx = makeDrillFixture();
+  try {
+    const seeded = JSON.parse(run(fx.repo, `${fx.DRILL} seed`, { env: fx.env }).stdout);
+    const N = seeded.issue_number;
+
+    // (1) NOT YET RUN. No record on the base, the ask still open — `pending`, exit 5,
+    // and NOT a failure row count.
+    let r = run(fx.repo, `${fx.DRILL} verify-propose ${N}`, { env: fx.env });
+    let j = JSON.parse(r.stdout);
+    assertEq("an unfired stage is pending, not failed", j.verdict, "pending");
+    assertEq("with its own exit code so a poller can tell wait from broken", r.status, 5);
+    assertEq("and no load-bearing failure is claimed", j.load_bearing.failed, 0);
+
+    // (2) RAN AND FAILED. The artifacts landed but the pull request never merged and
+    // the issue is still open: every failing row names the ref it expected.
+    seedProposeArtifacts(fx, N);
+    setPulls(fx, [{ number: 900, head: { ref: "work-20260812-190000" }, merged_at: null,
+      title: "[Proposal] Record loop-drill run", body: `Closes #${N}` }]);
+    r = run(fx.repo, `${fx.DRILL} verify-propose ${N} --json`, { env: fx.env });
+    j = JSON.parse(r.stdout);
+    assertEq("a landed-but-unmerged proposal is a FAIL", j.verdict, "fail");
+    assertEq("with exit 1, distinct from pending", r.status, 1);
+    const byName = Object.fromEntries(j.rows.map((x) => [x.check, x]));
+    assertEq("the record row passes", byName.feedback_record.pass, true);
+    assertEq("the ticket row passes", byName.ticket_feedback_ref.pass, true);
+    assertEq("the assignee row passes", byName.ticket_assignee.pass, true);
+    assertEq("the unmerged pull request row fails", byName.proposal_pr_merged.pass, false);
+    assertTrue("naming the pull request rather than erroring",
+      byName.proposal_pr_merged.detail.includes("900"), byName.proposal_pr_merged.detail);
+    assertEq("and the still-open issue fails", byName.issue_closed.pass, false);
+
+    // The Slack row is ADVISORY and can never decide the stage.
+    assertEq("the Slack row is advisory", byName.slack_seed_root.bearing, "advisory");
+
+    // (3) THE CLEAN PASS.
+    setPulls(fx, [{ number: 900, head: { ref: "work-20260812-190000" }, merged_at: "2026-08-12T20:00:00Z",
+      title: "[Proposal] Record loop-drill run", body: `Closes #${N}` }]);
+    closeDrillIssue(fx, N);
+    r = run(fx.repo, `${fx.DRILL} verify-propose ${N} --json`, { env: fx.env });
+    j = JSON.parse(r.stdout);
+    assertEq("a landed propose stage passes", j.verdict, "pass");
+    assertEq("with exit 0", r.status, 0);
+    assertEq("and every load-bearing row accounted for", j.load_bearing.failed, 0);
+    assertTrue("the terse default carries only the actionable rows",
+      JSON.parse(run(fx.repo, `${fx.DRILL} verify-propose ${N}`, { env: fx.env }).stdout)
+        .rows.every((x) => x.pass !== true), "a passing row leaked into the terse output");
+
+    // (4) A SLACK FAILURE NEVER FAILS A STAGE. The surface is unread, reported null.
+    writeFileSync(join(fx.state, "qfs-fail"), "");
+    r = run(fx.repo, `${fx.DRILL} verify-propose ${N} --json`, { env: fx.env });
+    j = JSON.parse(r.stdout);
+    assertEq("an unreadable Slack leaves the stage passing", j.verdict, "pass");
+    assertEq("and exit 0", r.status, 0);
+    assertEq("the unread row is null, never false",
+      j.rows.find((x) => x.check === "slack_seed_root").pass, null);
+    rmSync(join(fx.state, "qfs-fail"));
+
+    // (5) A MISSING ARTIFACT IS A ROW, NOT A CRASH.
+    execSync("git rm -q -r .workaholic/tickets", { cwd: fx.repo });
+    execSync("git commit -q -m 'Drop the drill ticket'", { cwd: fx.repo });
+    execSync("git push -q origin main", { cwd: fx.repo });
+    r = run(fx.repo, `${fx.DRILL} verify-propose ${N} --json`, { env: fx.env });
+    j = JSON.parse(r.stdout);
+    assertEq("a missing ticket fails the stage", j.verdict, "fail");
+    const ticketRow = j.rows.find((x) => x.check === "ticket_feedback_ref");
+    assertEq("with a row, not a script error", ticketRow.pass, false);
+    assertTrue("naming the path it expected",
+      ticketRow.detail.includes(".workaholic/tickets/"), ticketRow.detail);
+  } finally { cleanup(fx.tmp); }
+}
+
+function testLoopDrillVerifyImplement() {
+  const fx = makeDrillFixture();
+  try {
+    const seeded = JSON.parse(run(fx.repo, `${fx.DRILL} seed`, { env: fx.env }).stdout);
+    const N = seeded.issue_number;
+
+    // Propose has not landed at all: the implement stage cannot be red for that.
+    let r = run(fx.repo, `${fx.DRILL} verify-implement ${N}`, { env: fx.env });
+    assertEq("without a propose stage the implement stage is pending",
+      JSON.parse(r.stdout).verdict, "pending");
+    assertEq("exit 5", r.status, 5);
+
+    // Propose landed, the ticket is still queued: still pending, not failed.
+    seedProposeArtifacts(fx, N);
+    r = run(fx.repo, `${fx.DRILL} verify-implement ${N}`, { env: fx.env });
+    let j = JSON.parse(r.stdout);
+    assertEq("a queued ticket means the implement fire has not landed", j.verdict, "pending");
+    assertTrue("and the row says where the ticket still sits",
+      j.rows.some((x) => x.check === "ticket_archived" && /tickets\/todo/.test(x.detail)),
+      JSON.stringify(j.rows));
+
+    // The unit ran: the ticket is archived under its branch, a story exists, the
+    // unit's pull request is merged, and the claim branch is gone.
+    const BRANCH = "work-20260812-200000";
+    execSync("git rm -q .workaholic/tickets/todo/20260812000100-drill-step.md", { cwd: fx.repo });
+    mkdirSync(join(fx.repo, `.workaholic/tickets/archive/${BRANCH}`), { recursive: true });
+    writeFileSync(join(fx.repo, `.workaholic/tickets/archive/${BRANCH}/20260812000100-drill-step.md`),
+      "---\nfeedback: 20260812000000-drill-ask\n---\n\n# Drill step\n");
+    mkdirSync(join(fx.repo, ".workaholic/stories"), { recursive: true });
+    writeFileSync(join(fx.repo, `.workaholic/stories/20260812210000-drill.md`),
+      `---\ntype: Story\n---\n\nBranch: ${BRANCH}\n`);
+    execSync("git add -A && git commit -q -m 'Land the drill unit'", { cwd: fx.repo });
+    execSync("git push -q origin main", { cwd: fx.repo });
+    setPulls(fx, [{ number: 901, head: { ref: BRANCH }, merged_at: "2026-08-12T21:30:00Z",
+      title: "Land the drill unit", body: "story" }]);
+
+    r = run(fx.repo, `${fx.DRILL} verify-implement ${N} --json`, { env: fx.env });
+    j = JSON.parse(r.stdout);
+    assertEq("a landed implement stage passes", j.verdict, "pass");
+    assertEq("with exit 0", r.status, 0);
+    const byName = Object.fromEntries(j.rows.map((x) => [x.check, x]));
+    assertEq("the archive move is read off origin/main", byName.ticket_archived.pass, true);
+    assertEq("the story is found", byName.story_exists.pass, true);
+    assertEq("the unit's pull request is merged", byName.unit_pr_merged.pass, true);
+    assertEq("and the merge released the claim", byName.claim_released.pass, true);
+
+    // A COLLEAGUE'S LIVE CLAIM IS NOT THIS DRILL'S FAILURE. An unrelated unmerged
+    // work-* branch is reported in the detail and never fails the row — a red an
+    // operator cannot act on is worse than no check.
+    pushClaimBranch(fx.repo, "work-20260812-999999", "colleague.md", "unrelated\n");
+    j = JSON.parse(run(fx.repo, `${fx.DRILL} verify-implement ${N} --json`, { env: fx.env }).stdout);
+    const claimRow = j.rows.find((x) => x.check === "claim_released");
+    assertEq("an unrelated live claim leaves the row passing", claimRow.pass, true);
+    assertTrue("but is named in the detail", claimRow.detail.includes("work-20260812-999999"), claimRow.detail);
+
+    // The unit's own branch left unmerged IS a failure — the claim was never released.
+    pushClaimBranch(fx.repo, BRANCH, "wip.md", "half-driven\n");
+    j = JSON.parse(run(fx.repo, `${fx.DRILL} verify-implement ${N} --json`, { env: fx.env }).stdout);
+    assertEq("the unit's own unmerged branch fails the stage", j.verdict, "fail");
+    assertEq("naming claim_released",
+      j.rows.find((x) => x.check === "claim_released").pass, false);
   } finally { cleanup(fx.tmp); }
 }

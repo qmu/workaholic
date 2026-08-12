@@ -1,9 +1,11 @@
 #!/bin/sh -eu
 # Exercise the propose-implement loop on demand, end to end.
 #
-#   loop-drill.sh seed      # mint a fresh drill pair (GitHub issue + Slack root)
-#   loop-drill.sh status    # report the drill's residue: issues, claims, tickets
-#   loop-drill.sh reset     # recover an ABORTED run: close/delete drill-owned residue
+#   loop-drill.sh seed                        # mint a fresh drill pair (issue + Slack root)
+#   loop-drill.sh status                      # report the drill's residue
+#   loop-drill.sh reset                       # recover an ABORTED run
+#   loop-drill.sh verify-propose  <issue> [--json]   # did the [Propose] fire land?
+#   loop-drill.sh verify-implement <issue> [--json]  # did the [Implement] fire land?
 #
 # Every outcome is ONE JSON line on stdout. A non-zero exit names the blocker in
 # `reason`; exit 0 means the subcommand did what it was asked.
@@ -14,6 +16,9 @@
 #   3  a dirty precondition refused the drill (`inbox_dirty`, `claim_dirty`)
 #   4  the environment could not answer (`gh_unavailable`, `identity_unresolved`,
 #      `list_failed`, `issue_failed`, `not_a_repo`)
+#   5  a verify stage HAS NOT RUN YET (no artifacts, the ask still open) -- distinct
+#      from 1 so a poller can tell "wait" from "broken"
+#   1  a verify stage RAN AND FAILED: at least one load-bearing row is false
 #
 # WHY THIS EXISTS (2026-08-12, mission
 # make-the-propose-implement-loop-drillable-on-demand). The loop is otherwise tested
@@ -404,21 +409,350 @@ EOF
         "$closed" "$close_failed" "$deleted" "$skipped" "$inbox_dirty" "$claim_dirty"
 }
 
+# ---------------------------------------------------------------- verify
+
+# THE ARTIFACTS ARE THE VERDICT. Every load-bearing row below reads `origin/main`, an
+# unmerged-branch scan, or a REST issue/pull-request state -- the same oracles the loop
+# itself reads. A session transcript is diagnosis material, never a verdict: it says
+# what a run believed, and a stage that believed it succeeded is exactly the stage
+# worth checking.
+#
+# THREE VALUES, NOT TWO. `pass: true` / `pass: false` / `pass: null`. Null is either
+# advisory (a Slack row, which can never decide a stage) or unread (`qfs` failed).
+# "Stage not yet run" is a property of the WHOLE stage, not of a row -- reported as
+# `verdict: "pending"` with exit 5, because a stage nobody fired has not failed.
+
+ROWS=""
+ACTIONABLE=""
+LOAD_FAILED=0
+LOAD_PASSED=0
+ADVISORY=0
+SHOW_ALL_ROWS="false"
+
+# add_row <check> <pass:true|false|null> <detail> <bearing:load|advisory>
+#
+# Both accumulators are built here rather than filtered at print time: a row's JSON
+# carries operator-written detail, and re-parsing that back out with sed to decide what
+# to print is the kind of cleverness that breaks on the first detail containing a brace.
+add_row() {
+    _row="{\"check\": \"$(json_escape "$1")\", \"pass\": $2, \"detail\": \"$(json_escape "$3")\", \"bearing\": \"$4\"}"
+    ROWS="$(append_row "$ROWS" "$_row")"
+    if [ "$2" != "true" ]; then
+        ACTIONABLE="$(append_row "$ACTIONABLE" "$_row")"
+    fi
+    if [ "$4" = "load" ]; then
+        if [ "$2" = "true" ]; then
+            LOAD_PASSED=$((LOAD_PASSED + 1))
+        else
+            LOAD_FAILED=$((LOAD_FAILED + 1))
+        fi
+    else
+        ADVISORY=$((ADVISORY + 1))
+    fi
+}
+
+# Files on the base whose CONTENT matches an ERE. Reading the base rather than the
+# working tree is the point: a drill verifies what the loop published, not what this
+# checkout happens to hold.
+main_grep() {
+    git -C "$REPO_ROOT" ls-tree -r --name-only "origin/${BASE_BRANCH}" -- "$1" 2>/dev/null \
+        | while read -r _f; do
+            if git -C "$REPO_ROOT" show "origin/${BASE_BRANCH}:${_f}" 2>/dev/null | grep -qE "$2"; then
+                printf '%s\n' "$_f"
+            fi
+        done
+}
+
+main_show() {
+    git -C "$REPO_ROOT" show "origin/${BASE_BRANCH}:${1}" 2>/dev/null || true
+}
+
+# Sets: PR_ROWS -- "<number>\t<head_ref>\t<merged_at>\t<title>\t<body>" per pull
+# request. Read through the REST pulls endpoint; `gh pr list` is GraphQL-backed and a
+# restricted session would report "the stage failed" when it only failed to look.
+# `@tsv` escapes the body's newlines and tabs, so the five fields stay unambiguous.
+#
+# `-` IS THE EMPTY SENTINEL, and it is a correctness requirement rather than a style
+# choice. A TAB is an IFS *whitespace* character, so `read` collapses a run of them into
+# ONE delimiter and strips leading ones: a genuinely empty middle field (an UNMERGED
+# pull request's `merged_at` -- exactly the row this drill has to recognise) shifts
+# every later field left by one, and the body arrives holding the title. Measured while
+# writing this: `verify-propose` reported "no pull request carries Closes #N" about a
+# pull request that carried it.
+PR_EMPTY="-"
+read_pulls() {
+    if ! PR_ROWS="$(gh_api "repos/${SLUG}/pulls?state=all&per_page=${ISSUE_PAGE_SIZE}" \
+        --jq '.[] | [(.number|tostring), (.head.ref // "-"), (.merged_at // "-"), (.title // "-"), (.body // "-")] | @tsv' 2>&1)"; then
+        emit_err "list_failed" 4 "$PR_ROWS"
+    fi
+}
+
+# Read the seed thread. ADVISORY ALWAYS: the notification surface must never decide a
+# stage the artifacts already decided, so every outcome here is `pass: null` on failure
+# and never touches the exit code.
+slack_rows() {
+    _needle="$1"
+    _name="$2"
+    if ! command -v qfs >/dev/null 2>&1; then
+        add_row "$_name" null "qfs is not installed; the Slack surface was not read" advisory
+        return 0
+    fi
+    if ! _out="$(qfs run "${DRILL_SLACK_MOUNT} |> select text |> limit 50" --json 2>&1)"; then
+        add_row "$_name" null "qfs read failed: $(one_line "$_out")" advisory
+        return 0
+    fi
+    if printf '%s' "$_out" | grep -qF "$_needle"; then
+        add_row "$_name" true "found in the seed thread" advisory
+    else
+        add_row "$_name" false "not found in ${DRILL_SLACK_MOUNT}" advisory
+    fi
+}
+
+emit_verdict() {
+    _stage="$1"
+    _issue="$2"
+    _verdict="$3"
+    _code="$4"
+    _ok="false"
+    if [ "$_verdict" = "pass" ]; then
+        _ok="true"
+    fi
+    # The terse default carries the ACTIONABLE rows -- everything not passing, which is
+    # what an operator has to act on. `--json` carries the full set, which is what a
+    # runbook pastes and what a regression test pins.
+    if [ "$SHOW_ALL_ROWS" = "true" ]; then
+        _rows="$ROWS"
+    else
+        _rows="$ACTIONABLE"
+    fi
+    printf '{"ok": %s, "stage": "%s", "issue": %s, "verdict": "%s", "load_bearing": {"passed": %s, "failed": %s}, "advisory": %s, "rows": [%s]}\n' \
+        "$_ok" "$_stage" "$_issue" "$_verdict" "$LOAD_PASSED" "$LOAD_FAILED" "$ADVISORY" "$_rows"
+    exit "$_code"
+}
+
+# Sets: ISSUE_STATE, ISSUE_ASSIGNEE
+read_issue() {
+    if ! _row="$(gh_api "repos/${SLUG}/issues/${1}" \
+        --jq '[.state, ((.assignees // []) | map(.login) | join(","))] | @tsv' 2>&1)"; then
+        emit_err "list_failed" 4 "$_row"
+    fi
+    ISSUE_STATE="$(printf '%s' "$_row" | cut -f1)"
+    ISSUE_ASSIGNEE="$(printf '%s' "$_row" | cut -f2)"
+}
+
+verify_prelude() {
+    require_repo
+    require_gh
+    resolve_slug
+    git -C "$REPO_ROOT" fetch --quiet origin "$BASE_BRANCH" >/dev/null 2>&1 || true
+    git -C "$REPO_ROOT" fetch --quiet origin >/dev/null 2>&1 || true
+}
+
+cmd_verify_propose() {
+    ISSUE="${1:-}"
+    case "$ISSUE" in
+        '' | *[!0-9]*) emit_err "usage" 2 "verify-propose needs an issue number" ;;
+    esac
+    verify_prelude
+    read_issue "$ISSUE"
+    read_pulls
+
+    record="$(main_grep ".workaholic/feedbacks" "/issues/${ISSUE}([^0-9]|\$)" | head -1)"
+
+    # STAGE NOT YET RUN vs STAGE FAILED. No record on the base AND the ask still open is
+    # a routine that has not fired -- `pending`, not `fail`. Calling that a failure would
+    # train the operator to ignore red, which is worse than reporting nothing.
+    if [ -z "$record" ] && [ "$ISSUE_STATE" = "open" ]; then
+        add_row "feedback_record" null "no record on origin/${BASE_BRANCH} names /issues/${ISSUE} and the issue is still open" load
+        LOAD_FAILED=0
+        emit_verdict "propose" "$ISSUE" "pending" 5
+    fi
+
+    if [ -n "$record" ]; then
+        add_row "feedback_record" true "$record" load
+    else
+        add_row "feedback_record" false "expected a file under .workaholic/feedbacks/ on origin/${BASE_BRANCH} naming /issues/${ISSUE}" load
+    fi
+
+    if [ "$ISSUE_STATE" = "closed" ]; then
+        add_row "issue_closed" true "the merged proposal's Closes #${ISSUE} closed it" load
+    else
+        add_row "issue_closed" false "issue #${ISSUE} is still ${ISSUE_STATE}" load
+    fi
+
+    # The proposal pull request: found by its NATIVE CLOSING KEYWORD, which is the
+    # relation the propose seam actually writes into the body -- not by its title, which
+    # is prose and would match a hand-opened pull request that closes nothing.
+    pr_number=""
+    pr_merged=""
+    while IFS="$TAB" read -r number head merged title body; do
+        [ -n "$number" ] || continue
+        printf '%s' "$body" | grep -qE "Closes #${ISSUE}([^0-9]|\$)" || continue
+        pr_number="$number"
+        pr_merged="$merged"
+    done <<EOF
+$PR_ROWS
+EOF
+    if [ -z "$pr_number" ]; then
+        add_row "proposal_pr_merged" false "no pull request on ${SLUG} carries Closes #${ISSUE}" load
+    elif [ "$pr_merged" != "$PR_EMPTY" ]; then
+        add_row "proposal_pr_merged" true "pull request #${pr_number} merged at ${pr_merged}" load
+    else
+        add_row "proposal_pr_merged" false "pull request #${pr_number} exists but is not merged" load
+    fi
+
+    # The ticket the proposal emitted. A record-only proposal legitimately emits none --
+    # reported as a failing row naming what it looked for, never a script error, so the
+    # operator reads WHICH artifact is absent rather than a stack trace.
+    if [ -n "$record" ]; then
+        stem="$(basename "$record" .md)"
+        ticket="$(main_grep ".workaholic/tickets" "$stem" | head -1)"
+    else
+        stem=""
+        ticket=""
+    fi
+    if [ -n "$ticket" ]; then
+        add_row "ticket_feedback_ref" true "$ticket" load
+        if [ -n "$ISSUE_ASSIGNEE" ] && main_show "$ticket" | grep -qF "$ISSUE_ASSIGNEE"; then
+            add_row "ticket_assignee" true "carries the issue's assignee (${ISSUE_ASSIGNEE})" load
+        else
+            add_row "ticket_assignee" false "expected the issue's assignee (${ISSUE_ASSIGNEE:-none}) on ${ticket}" load
+        fi
+    else
+        add_row "ticket_feedback_ref" false "expected a ticket under .workaholic/tickets/ naming ${stem:-the feedback record}" load
+        add_row "ticket_assignee" false "no ticket to carry the assignee" load
+    fi
+
+    slack_rows "/issues/${ISSUE}" "slack_seed_root"
+
+    if [ "$LOAD_FAILED" -gt 0 ]; then
+        emit_verdict "propose" "$ISSUE" "fail" 1
+    fi
+    emit_verdict "propose" "$ISSUE" "pass" 0
+}
+
+cmd_verify_implement() {
+    ISSUE="${1:-}"
+    case "$ISSUE" in
+        '' | *[!0-9]*) emit_err "usage" 2 "verify-implement needs an issue number" ;;
+    esac
+    verify_prelude
+    read_pulls
+
+    record="$(main_grep ".workaholic/feedbacks" "/issues/${ISSUE}([^0-9]|\$)" | head -1)"
+    if [ -z "$record" ]; then
+        add_row "feedback_record" null "the propose stage has not landed; run verify-propose first" load
+        LOAD_FAILED=0
+        emit_verdict "implement" "$ISSUE" "pending" 5
+    fi
+    stem="$(basename "$record" .md)"
+
+    todo="$(main_grep ".workaholic/tickets/todo" "$stem" | head -1)"
+    archived="$(main_grep ".workaholic/tickets/archive" "$stem" | head -1)"
+
+    if [ -z "$archived" ] && [ -n "$todo" ]; then
+        add_row "ticket_archived" null "the drill ticket is still queued at ${todo}; the [Implement] fire has not landed" load
+        LOAD_FAILED=0
+        emit_verdict "implement" "$ISSUE" "pending" 5
+    fi
+
+    if [ -n "$archived" ]; then
+        add_row "ticket_archived" true "$archived" load
+    else
+        add_row "ticket_archived" false "expected the drill ticket under .workaholic/tickets/archive/ on origin/${BASE_BRANCH}" load
+    fi
+
+    # The archive directory IS the unit's branch (`tickets/archive/<branch>/<file>`), so
+    # the ticket's landing place names the pull request to check. Nothing is carried
+    # between stages: every relation is read back out of the artifacts.
+    unit_branch=""
+    if [ -n "$archived" ]; then
+        unit_branch="$(printf '%s' "$archived" | sed -n 's#^.workaholic/tickets/archive/\([^/]*\)/.*#\1#p')"
+    fi
+
+    story="$(main_grep ".workaholic/stories" "${unit_branch:-$stem}" | head -1)"
+    if [ -n "$story" ]; then
+        add_row "story_exists" true "$story" load
+    else
+        add_row "story_exists" false "expected a story under .workaholic/stories/ naming ${unit_branch:-$stem}" load
+    fi
+
+    if [ -n "$unit_branch" ]; then
+        pr_state=""
+        pr_number=""
+        while IFS="$TAB" read -r number head merged title body; do
+            [ -n "$number" ] || continue
+            [ "$head" = "$unit_branch" ] || continue
+            pr_number="$number"
+            pr_state="$merged"
+        done <<EOF
+$PR_ROWS
+EOF
+        if [ -z "$pr_number" ]; then
+            add_row "unit_pr_merged" false "no pull request found for head ${unit_branch}" load
+        elif [ "$pr_state" != "$PR_EMPTY" ]; then
+            add_row "unit_pr_merged" true "pull request #${pr_number} merged at ${pr_state}" load
+        else
+            add_row "unit_pr_merged" false "pull request #${pr_number} for ${unit_branch} is not merged" load
+        fi
+
+        # CLAIM RELEASE, READ NARROWLY AND DELIBERATELY. The merge releases the claim by
+        # definition, so what is checked is that THIS unit's branch is gone from the
+        # unmerged set -- not that the repository holds no claims at all. A colleague's
+        # live claim is not this drill's failure, and a check that reported it as one
+        # would be red for reasons the operator cannot act on.
+        if claim_branches | grep -qx "$unit_branch"; then
+            add_row "claim_released" false "${unit_branch} is still an unmerged work-* branch" load
+        else
+            others="$(claim_branches | tr '\n' ' ')"
+            add_row "claim_released" true "${unit_branch} is merged${others:+; other live claims: ${others}}" load
+        fi
+    else
+        add_row "unit_pr_merged" false "no archived ticket, so no unit branch to check" load
+        add_row "claim_released" false "no unit branch to check" load
+    fi
+
+    slack_rows "/issues/${ISSUE}" "slack_finish_line"
+
+    if [ "$LOAD_FAILED" -gt 0 ]; then
+        emit_verdict "implement" "$ISSUE" "fail" 1
+    fi
+    emit_verdict "implement" "$ISSUE" "pass" 0
+}
+
 # ---------------------------------------------------------------- dispatch
+
+USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-propose <issue>|verify-implement <issue> [--json]"}'
 
 CMD="${1:-}"
 [ -n "$CMD" ] || {
-    echo '{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset"}' >&2
+    echo "$USAGE" >&2
     exit 2
 }
 shift
+
+# `--json` is a presentation flag on the verify stages, accepted in any position so the
+# runbook's copy-paste order cannot be wrong.
+ARGS=""
+for a in "$@"; do
+    case "$a" in
+        --json) SHOW_ALL_ROWS="true" ;;
+        *) ARGS="${ARGS} ${a}" ;;
+    esac
+done
+# Word-splitting is intended: the verify stages take exactly one positional argument
+# (an issue number), and `seed`/`status`/`reset` take none.
+# shellcheck disable=SC2086
+set -- $ARGS
 
 case "$CMD" in
     seed) cmd_seed "$@" ;;
     status) cmd_status "$@" ;;
     reset) cmd_reset "$@" ;;
+    verify-propose) cmd_verify_propose "$@" ;;
+    verify-implement) cmd_verify_implement "$@" ;;
     *)
-        echo '{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset"}' >&2
+        echo "$USAGE" >&2
         exit 2
         ;;
 esac

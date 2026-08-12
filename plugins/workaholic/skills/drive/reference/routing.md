@@ -52,8 +52,10 @@ posts nothing to Slack, at any step** (scoped 2026-08-07). Under `/implement`:
   (`workaholic:notify`, *Which thread an `/implement` unit's posts land in*).
 - **Per unit, never per run** ("a run started" names no item, so it has no thread); with no stems
   at all, key on `unit:<unit-id>` — never keyless. The routing rules live in
-  `workaholic:notify` (*One thread per feedback item*). The posts go through the session's
-  Slack connector, are never load-bearing, and a failure to post changes nothing about the claim.
+  `workaholic:notify` (*One thread per feedback item*), the transport ordering in the same skill
+  (*The transport* — connector primary, tokened script the machine fallback). The posts are
+  never load-bearing and a failure to post changes nothing about the claim — but it does change
+  the run report, which names the outcome per unit (below).
 
 `claim.sh`'s own one-line bot notice (token-gated CLI surface) is a different thing and is not
 grown into the threaded post — see [`claims.md`](claims.md).
@@ -163,6 +165,15 @@ moments.
 - Per unit: members, effective policy, route taken, ticket outcomes reconciling to the queue it
   was handed, and the commits.
 - PR per unit — the URL, or the `pr_error` if creation failed.
+- **Notification outcome per unit** (`/implement` only — an attended `/drive` posts nothing, so it
+  reports nothing): for each thread the unit posted into, the surface used and the result —
+  `posted` with the thread it landed in, or the failure named (`no_surface` when the session has
+  neither connector nor token, `no_token` / `no_channel` / `http_<code>` / `slack_<error>` as the
+  fallback script reports them, `posted_as_root` when no thread was found and a keyed root was
+  started instead). The shape follows `/propose`'s `notified` flag, which already reports this way.
+  **A post that did not happen is stated, never omitted**: silence in this list read as success is
+  the whole defect (measured 2026-08-12, issue #406 — the 18:48 UTC `[Implement]` run got
+  `{"notified": false, "reason": "no_token"}` and nothing downstream said so).
 - Tickets minted mid-run (`deferred`), one line each: what was found, which ticket provoked it,
   the new filename. Additional to the unit's queue; never silent.
 - Deferred decisions — every judgment call the run met and recorded instead of asking. This list

@@ -12793,6 +12793,17 @@ function testStatelessThreadLookup() {
   }
   assertEq("no plugin markdown names notify-slack.sh as the primary finish-line transport",
     scriptFirst, []);
+
+  // A post that never happened must be visible from OUTSIDE the run. Until 2026-08-12 the
+  // drive run report carried no notification field at all, so a tick whose whole Slack output
+  // vanished was byte-identical to one whose posts landed -- and read as a clean `ok`. The
+  // token deliberately does NOT move (a notification is never load-bearing), which is exactly
+  // why the report has to say it: both halves are asserted, since either alone re-opens the gap.
+  const driveSkill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/drive/SKILL.md"), "utf8");
+  assertTrue("the drive run report names the per-unit notification outcome",
+    /notification outcome/i.test(driveSkill) && /unposted/i.test(driveSkill));
+  assertTrue("and the terminal-token table rules an unposted finish line non-decisive",
+    /finish line[^|]{0,40}did not reach Slack[\s\S]{0,200}not by itself/i.test(driveSkill));
 }
 
 // ---------- one behaviour per command (P5, 2026-08-06) ----------

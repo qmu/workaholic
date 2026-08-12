@@ -5,6 +5,7 @@ assignees: [a@qmu.jp]
 depends_on:
 feedback: [20260812155518-plan-units-sh-strands-a-ticket-whose-mission-has-closed.md]
 merge_policy:
+claim: work-20260812-180600
 ---
 
 # Stop stranding a ticket whose missions have all closed

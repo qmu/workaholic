@@ -5,6 +5,7 @@ assignees: [a@qmu.jp]
 depends_on:
 feedback: [20260812211841-fb-command-does-not-always-prefix-issue-titles-with-fb.md]
 merge_policy:
+claim: work-20260812-213854
 ---
 
 # Stamp the [FB] prefix on the crossing's issue title

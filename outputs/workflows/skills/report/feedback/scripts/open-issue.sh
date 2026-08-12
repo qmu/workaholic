@@ -20,6 +20,15 @@
 # A REFUSAL FROM `gh` IS REPORTED VERBATIM, NEVER WORKED AROUND. A target that has
 # issues disabled, or that this identity cannot reach, is a fact about the boundary —
 # retrying it another way would be routing around the target's own decision.
+#
+# REST, NOT `gh issue create` (2026-08-12, FB 20260812172522): the subcommand is
+# GraphQL-backed and a Claude Code Web session may serve only "the pinned set of
+# PR-review operations". THE CROSSING'S CONTRACT IS UNCHANGED, and that is the point of
+# this conversion being the most conservative of the set: composition in the target's
+# vocabulary, the masking judgment, the developer's verbatim confirmation of destination
+# and body, `scan-outbound-body.sh` and `check-outbound-body.sh` all happen BEFORE this
+# script is invoked and none of them move. What changes is only the wire call — the same
+# request, the same target, the same body file, reported the same way.
 
 set -eu
 
@@ -47,10 +56,21 @@ command -v gh >/dev/null 2>&1 || emit_err "gh is not available — cannot open a
 # added here or anywhere upstream. What the target's routine does with the issue is the
 # target's loop's business, and a prefix that means something in our vocabulary reads as
 # noise — or worse, as a category — in theirs.
-out="$(gh issue create -R "$slug" --title "$title" --body-file "$body_file" 2>&1)" \
-    || emit_err "gh issue create failed for ${slug}: ${out}"
+#
+# The body goes in on STDIN, never through argv — it is unbounded prose and a single argv
+# entry is capped at 128 KiB on Linux. `--body-file` had that covered; a naive `-f
+# body=@...` would not.
+SCRIPT_DIR=$(cd -- "$(dirname -- "$0")" && pwd)
+GATHER_SCRIPTS="${SCRIPT_DIR}/../../gather/scripts/"
 
-url="$(printf '%s\n' "$out" | grep -Eo 'https://[^[:space:]]+' | tail -1 || true)"
-[ -n "$url" ] || emit_err "gh issue create reported no issue URL for ${slug}: ${out}"
+payload="$(jq -n --arg t "$title" --rawfile body "$body_file" '{title: $t, body: $body}' 2>/dev/null || true)"
+[ -n "$payload" ] || emit_err "could not build the issue payload for ${slug} (is jq present?)"
+
+out="$(printf '%s' "$payload" \
+    | sh "${GATHER_SCRIPTS}/gh-rest.sh" api "repos/${slug}/issues" --method POST --input - 2>&1)" \
+    || emit_err "issue creation failed for ${slug}: ${out}"
+
+url="$(printf '%s' "$out" | jq -r '.html_url // empty' 2>/dev/null || true)"
+[ -n "$url" ] || emit_err "issue creation reported no issue URL for ${slug}: ${out}"
 
 printf '{"ok": true, "url": "%s", "slug": "%s"}\n' "$url" "$slug"

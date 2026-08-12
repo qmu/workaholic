@@ -5,6 +5,7 @@ assignees: [a@qmu.jp]
 depends_on:
 feedback: [20260812204800-setup-routines-must-configure-the-routines-itself-not-only-when-a-remotetrigger-tool-happens-to-exist.md]
 merge_policy:
+claim: work-20260812-211712
 ---
 
 # Make /setup-routines configure the routines itself, not only when a RemoteTrigger tool is exposed
@@ -126,3 +127,59 @@ shape of the fix. Diagnose before designing.
 - Step 2 may find that no transport exists in the routine-fired class. That is a legitimate
   result and must be written down rather than worked around — it is the fact that makes the
   step-4 shape honest.
+
+## Final Report
+
+Development completed as planned, diagnosis first.
+
+**Step 1, reproduce.** Only one session class was reachable from here — the unattended,
+routine-fired one this tick runs in. What it produces on the absent path is the sheet render plus
+the preconditions, framed by the command's own description as one of two equal branches
+("Detects a `RemoteTrigger`-family tool first … otherwise render copy-paste setup sheets"). The
+interactive-session wording the reporter quoted ("たまたま … 生えていたので") is not stored text —
+it is what a session composes when the contract tells it detection comes first and configuration
+is the branch that detection happened to select. That framing is the half of the report this
+change answers directly.
+
+**Step 2, the constraint — measured, and this is the fact the design turns on.** In this session:
+
+- `ToolSearch` by name and by keyword (`RemoteTrigger`, routine, schedule, trigger, cron, account)
+  returns **no `RemoteTrigger`-family tool** — confirming the 2026-08-10 finding still holds for
+  the routine-fired class.
+- The only scheduling tools present are `CronCreate` / `CronList` / `CronDelete`, whose own
+  documentation says jobs "live only in this Claude session — nothing is written to disk, and the
+  job is gone when Claude exits." They schedule a prompt inside this REPL; they cannot create,
+  read or update an **account** routine.
+- The `claude` CLI on PATH exposes no routine/cron/schedule subcommand.
+- The session's environment carries no routines-API credential. A harness-internal OAuth token
+  handle (`CLAUDE_CODE_OAUTH_TOKEN_FILE_DESCRIPTOR`) exists, but reading a session credential to
+  hand-roll calls at an undocumented endpoint is an outward mutation of a standing process — the
+  safety floor and §*What may be applied unattended* both put that behind a human, so it is not a
+  transport this command may reach for.
+
+**Conclusion: no second transport exists**, so step 4 applies rather than step 3. Nothing in the
+plugin can make a tool-less session configure a routine; what it can do is stop presenting that
+inability as an ordinary outcome.
+
+**Steps 4-5, the restructure.** §5's *Direct-apply when `RemoteTrigger` is exposed* is now
+*Configuring the routines is the job; `no_transport` is its one refusal* — attempt, converge,
+or report `no_transport: RemoteTrigger-family tool` and render the sheet **as that refusal's
+recovery path**. The sheet's content is byte-identical; only its standing changed. The command
+description, *The scripts*, *What the command does with all this*, `reference/routines.md`'s two
+back-references and `CLAUDE.md`'s row were rewritten to match, and the measured absence above is
+recorded in the skill so the refusal is honest rather than a shrug.
+
+### Discovered Insights
+
+- **Insight**: the defect was in the *shape* of the contract, not in any behavior. Both paths did
+  the right thing; describing them as peers keyed on detection is what made a success read as
+  luck and a failure read as normal. A contract that says "detect, then branch" produces exactly
+  that narration, because the session reports the structure it was given.
+  **Context**: worth checking wherever a capability probe precedes an action — the probe's result
+  should name a refusal, not select an outcome of equal standing.
+- **Insight**: `CronCreate` is a permanent near-miss. Its name, its cron syntax and its
+  scheduling vocabulary all match what a routine needs, and only its documentation says it is
+  session-only and in-memory. Every re-verification of this question has had to rule it out
+  explicitly.
+  **Context**: keep the exclusion written next to the transport rule; a future session searching
+  "cron" will find it first and could reasonably assume it qualifies.

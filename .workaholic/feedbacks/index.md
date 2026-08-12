@@ -474,6 +474,7 @@
 * [Notify lookup fails from search scope not search unreliability](20260811084546-notify-lookup-fails-from-search-scope-not-search-unreliability.md)
 * [release-scan: exclude HCL variable references from the secret rule](20260811102137-release-scan-exclude-hcl-variable-references-from-the-secret-rule.md)
 * [plan-units.sh strands a ticket whose mission has closed](20260812155518-plan-units-sh-strands-a-ticket-whose-mission-has-closed.md)
+* [check-outbound-body.sh refuses ordinary prose, not only references](20260812155852-check-outbound-body-sh-refuses-ordinary-prose-not-only-references.md)
 * [loaded_version_behind_registry blocks every cloud run since 2026-08-10](20260812221610-loaded-version-behind-registry-blocks-every-cloud-run-since-2026-08-10.md)
 * [The Propose schedule migration includes discovery of assigned open issues, not just the trigger move](20260812225650-the-propose-schedule-migration-includes-discovery-of-assigned-open-issues-not-just-the-trigger-move.md)
 <!-- okf:generated:end -->

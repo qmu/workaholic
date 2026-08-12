@@ -210,3 +210,14 @@ assigned issue is an ask the next discovery would take again.
 
 `reset` exists for the other case — an **aborted** run, where residue was minted and no
 pass completed. It is a recovery path, never a cleanup step of a healthy drill.
+
+## 8. Drill log
+
+§7 keeps every pass's artifacts on `main`; this log is the operator-readable **index over
+them** — which passes were run, when, and how each ended — so the history is legible
+without walking closed issues and merged pull requests by hand. A row is appended by
+whoever ran the pass, at the end of it, using the run id `seed` minted.
+
+| Run id | Date | Issue | Outcome |
+| ------ | ---- | ----- | ------- |
+| `20260812-215314` | 2026-08-12 | [#419](https://github.com/qmu/workaholic/issues/419) | exercised the propose–implement loop end to end |

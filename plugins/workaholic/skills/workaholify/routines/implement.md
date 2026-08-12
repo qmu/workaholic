@@ -5,6 +5,7 @@ name: "[Implement] {repo_name}"
 trigger: schedule-hourly
 trigger_kind: schedule
 cron_expression: 30 * * * *
+autofix_on_pr_create: true
 model: claude-opus-5
 allowed_tools: [Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch]
 mcp: [Slack]

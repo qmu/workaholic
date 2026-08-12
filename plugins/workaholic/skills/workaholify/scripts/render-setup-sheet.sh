@@ -76,6 +76,7 @@ sheet() {
     _event=$(fm_field "$_file" trigger_event)
     _filters=$(fm_field "$_file" trigger_filters)
     _cron=$(fm_field "$_file" cron_expression)
+    _autofix=$(fm_field "$_file" autofix_on_pr_create)
     _mcp=$(fm_field "$_file" mcp)
 
     printf '## %s\n\n' "$_name"
@@ -98,6 +99,10 @@ sheet() {
         _n=$((_n + 1))
     fi
 
+    if [ "$_autofix" = "true" ]; then
+        printf '%s. **Auto-fix pull requests**: turn the option on (stored as `autofix_on_pr_create` on the routine).\n' "$_n"
+        _n=$((_n + 1))
+    fi
     printf '%s. **Connectors**: keep `%s`; remove the rest.\n' "$_n" "${_mcp:-none}"
     _n=$((_n + 1))
     printf '%s. Have the Slack channel `dev-%s` ready — every post goes there and nowhere else.\n' "$_n" "$_repo_name"

@@ -13783,7 +13783,10 @@ function testRoutineAnnouncementScoping() {
   for (const [name, body] of [["fb", fb], ["implement", implement]]) {
     const prompt = body.replace(/^## Prompt\n/, "");
     const instructions = prompt.split("\n").filter((l) => /^[A-Z]/.test(l.trim()));
-    assertEq(`the ${name} prompt carries two instructions`, instructions.length, 2);
+    // One instruction line since 2026-08-12: the schedule-rationale paragraph that used
+    // to trail the format block was commentary shipped as instruction — the developer
+    // ordered it out of the prompt (it dilutes what the session must actually do).
+    assertEq(`the ${name} prompt carries one instruction`, instructions.length, 1);
     const fences = (prompt.match(/^```$/gm) || []).length;
     assertEq(`the ${name} prompt carries one fenced post format`, fences, 2);
     assertTrue(`the ${name} prompt carries no start post (retired 2026-08-11)`,

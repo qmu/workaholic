@@ -82,3 +82,39 @@ for every named abort reason.
 - Trigger ids are account-scoped configuration: name them as "the `[Propose]` /
   `[Implement]` routines' trigger ids (from the trigger API's list)", not as
   hard-coded values that rot.
+
+## Final Report
+
+Development completed as planned. `docs/loop-drill-runbook.md` takes an operator from
+`seed` to a clean pass without another document: a stage table with the exact command
+per stage, the cron race windows (`:10–:20` for `[Propose]`, `:25–:40` for
+`[Implement]`), the row/verdict contract with its three exit codes, two blame tables,
+an abort playbook, and the residue policy. `CLAUDE.md` names the runbook and the drill
+script in this same commit; `README.md`'s documentation map gains its row.
+
+Coverage was cross-checked mechanically rather than by eye: every `[a-z_]`-shaped
+reason token in `propose/SKILL.md`, `propose/reference/workflow.md` and the drive
+skill's §7 terminal table was tested for presence in the runbook, and the three real
+gaps that check found (`deferred_by_operator`, `claimed_reported`, and the publish
+seam's `push_failed`/`nothing_to_commit`) were added.
+
+### Discovered Insights
+
+- **Insight**: the abort reasons a drill actually meets are mostly **not** the propose
+  skill's own — they belong to the publish seam (`publish-tree-pr.sh`:
+  `commit_failed`, `branch_collision`, `push_failed`, `pr_failed`, `merge_failed`) and
+  to `gh-rest.sh`.
+  **Context**: a blame table built only from the skill that names the loop would send
+  the operator to the wrong file for the most common failures. The reason lives where
+  the script that prints it lives.
+- **Insight**: three abort states must never be answered with `reset` —
+  `pr_failed` (the branch is pushed; re-publishing duplicates the artifact), a
+  half-driven unit (a live claim; merge its pull request or `release-claim.sh`), and a
+  `secret` finding (an exposure, not residue).
+  **Context**: this is why the playbook is ordered "read the outcome, then act" rather
+  than "when in doubt, reset" — the safe-looking default is the destructive one in
+  exactly the cases that matter.
+- **Insight**: `deferred_by_operator` cannot occur in a drill.
+  **Context**: the drill fires `/implement`, which asks nothing. Seeing it means an
+  attended `/drive` took the unit instead — which makes it a useful diagnostic rather
+  than an omission, and worth a row saying so.

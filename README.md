@@ -449,6 +449,7 @@ Everything beyond this README, by what the reader needs. The set is deliberately
 | [docs/loop-engineering-workflow.md](docs/loop-engineering-workflow.md) | **The decision log** (A1…P9): every ruling that shaped the loop, appended in dated rounds and never rewritten. Read it for *why a rule is what it is* — not for current behaviour |
 | [docs/drive-loop-runbook.md](docs/drive-loop-runbook.md) | Operator runbook for the execution loop: what an `/implement` tick does, the environment, the machine-local cron fallback shape, observability, failure modes |
 | [docs/proposal-loop-runbook.md](docs/proposal-loop-runbook.md) | Operator runbook for the `[Propose]` routine: Slack provisioning, scheduling, observability, failure modes |
+| [docs/loop-drill-runbook.md](docs/loop-drill-runbook.md) | Operator runbook for drilling the whole propose–implement loop **on demand** (`scripts/e2e/loop-drill.sh`): the stage table, the cron race windows, a machine verdict per stage, and a failure-reason→file blame table for both routines |
 | [docs/dependencies/okf.md](docs/dependencies/okf.md) | Dependency-decision log (reason / assessment / monitoring / exit) per adopted external dependency, as the vendor-neutrality policy mandates — currently OKF v0.1 |
 | [.workaholic/README.md](.workaholic/README.md) | The working-artifacts hub: which artifact kind to write (feedback / ticket / mission) and each `.workaholic/` area's contract |
 

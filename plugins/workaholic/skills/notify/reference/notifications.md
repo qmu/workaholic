@@ -45,7 +45,7 @@ Exactly one finish per thread stays the rule (SKILL, *Which thread an `/implemen
 
 ### Precondition-stop — calm first, escalate on persistence
 
-A **first** report of a signature in the precondition-stop class (SKILL, *Post shapes, mentions, and the red-alert dedup* — `unbound_in_claude_session`, `loaded_version_behind_registry`) posts calm rather than alarming, since the run stopped at a known, typically self-healing condition before it ever reached a unit:
+A **first** report of a signature in the precondition-stop class (SKILL, *Post shapes, mentions, and the red-alert dedup* — `no_plugin_source`; `unbound_in_claude_session` and `loaded_version_behind_registry` left the class on 2026-08-12 by ceasing to be stops) posts calm rather than alarming, since the run stopped before it ever reached a unit:
 
 ```
 ⚪ Paused - `<signature>`

@@ -78,16 +78,41 @@ rewrites artifacts leaves a dirty tree, and `/drive`'s `sync-main.sh` terminates
 before surveying — the fix was to make the mismatch legible, not to add a second gate (2026-08-04
 outage: a baked-in stale build running a retired migration backwards).
 
-**Registry drift (`loaded_version_behind_registry`) is a stop for `/drive` (its §1).** `plugin
+**Registry drift (`loaded_version_behind_registry`) is a warning, and `plugin-src.sh` is what
+answers it** (2026-08-12, the developer's ruling; it was a `/drive` §1 stop until then). `plugin
 update` unpacks the new version beside the old and deletes nothing, so a session can bind a
 **superseded** cache directory and keep it — the SessionStart bootstrap never refreshes a running
-session, so nothing repairs it. A superseded binding silently changes the **survey's answer**,
-and the run's next action on that answer is a push (measured 2026-08-04: a stale `claims.sh`
-offered five already-driven tickets as backlog and the tick claimed one). The repair is a fresh
-session, never a retry. Two properties keep the check trustworthy at any plugin age: **neither
-operand is plugin content** (the harness's binding vs the harness's registry), and **the absence
-of the field counts as the condition** — a build too old to emit it is by construction the stale
-build the field exists to catch.
+session, so nothing repairs *the binding*. What the old stop actually protected was the run's
+**scripts**, not its binding: a superseded binding silently changed the survey's answer and the
+run's next action on that answer is a push (measured 2026-08-04: a stale `claims.sh` offered five
+already-driven tickets as backlog and the tick claimed one). So the answer is to stop reaching
+through the binding — see *Resolving the source to run from* below — rather than to refuse to run.
+Two properties keep the check itself trustworthy at any plugin age: **neither operand is plugin
+content** (the harness's binding vs the harness's registry), and **the absence of the field counts
+as the condition** — a build too old to emit it is by construction the stale build the field
+exists to catch.
+
+## Resolving the source to run from (`scripts/plugin-src.sh`)
+
+```
+bash ${CLAUDE_PLUGIN_ROOT}/skills/check-deps/scripts/plugin-src.sh [--clone] [--refresh]
+```
+
+Returns the **newest plugin tree present on this machine** and the run executes every script
+from it: `{"ok": true, "src": …, "source": "checkout|registry|clone|bound", "version": …,
+"degraded": …, "bound_version": …, "candidates": […]}`. Order of preference is by version, ties
+going to the **checkout** (`<project>/plugins/workaholic`, the tip by construction after
+`sync-main.sh`), then the newest **registry** `installPath` (already downloaded — no network),
+then a **clone** at `$WORKAHOLIC_SRC_HOME` (created only with `--clone`), then the **bound**
+`${CLAUDE_PLUGIN_ROOT}`. Picking the newest can only move a run forward on the staleness axis,
+which is what makes the demoted gate above safe.
+
+The harness binding is therefore an input, never a precondition: `unbound_in_claude_session` and
+`loaded_version_behind_registry` both become source-selection facts to report. `ok: false`
+(`no_plugin_source`) is the one genuine stop — nothing on the machine carries the workflow.
+**It does not repair hooks**: PreToolUse guards and the policy lens belong to whatever the harness
+bound, so a degraded run keeps the older guards (`guards_present` reports whether they are
+registered at all) and must load `hooks/policy-index.md` from `src` explicitly.
 
 **No binding at all (`unbound_in_claude_session`) is a warning for `/drive` (its §1), not a stop**
 (2026-08-10, ticket `20260810090005`) — a different failure from either axis above, and lighter in

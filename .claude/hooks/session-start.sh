@@ -99,8 +99,24 @@
 # than a gap. The binding, the cache layout and the registry are all the harness's; a
 # plugin editing any of them is reaching outside its own boundary. What would actually fix
 # it is a container image whose baked install is not behind, or a harness that rebinds
-# after SessionStart -- an ask, not a workaround. The gate stays exactly as it is: the
-# condition is detected correctly, and detecting it is not the bug.
+# after SessionStart -- an ask, not a workaround.
+#
+# CORRECTION (2026-08-12): TWO SCOPES, AND THE HOOK ONLY UPDATES ONE. The paragraph above
+# says installed_plugins.json "carries exactly ONE entry for the plugin". It no longer does,
+# and that is the whole outage. Measured live: a `project`-scope entry pinned at v1.0.133
+# (image commit 77c462d, 2026-08-06) alongside a `user`-scope entry -- and step 2 below
+# reports "√ Plugin updated from 1.0.133 to 1.0.159 **for scope user**", leaving the
+# project-scope pin, which is what the session binds, untouched. So the condition is not
+# merely "the image is behind"; it is structurally unreachable from here, every hour,
+# forever. Twelve consecutive [Implement] ticks stopped at /drive's gate with three
+# claimable tickets queued before this was found.
+#
+# What changed in response is NOT this hook (the ordering above is unfixable from a
+# SessionStart hook): the workflows stopped reaching through the binding at all.
+# `check-deps/scripts/plugin-src.sh` resolves the newest plugin tree on the machine --
+# checkout, registry installPath, clone, binding -- and /drive §1 runs from that, so a
+# superseded or absent binding is a reported fact rather than a terminated tick. The gate
+# still detects the condition correctly; it just no longer ends the run over it.
 #
 # THE SESSION GETS THE DEVELOPER'S GIT IDENTITY (2026-08-07). The web container's git
 # identity is `noreply@anthropic.com`, and ticket/mission ownership is compared against

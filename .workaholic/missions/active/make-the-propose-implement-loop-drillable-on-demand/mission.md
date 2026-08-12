@@ -15,6 +15,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260812-193807
 ---
 
 # Make the propose–implement loop drillable on demand

@@ -52,8 +52,10 @@ posts nothing to Slack, at any step** (scoped 2026-08-07). Under `/implement`:
   (`notify`, *Which thread an `/implement` unit's posts land in*).
 - **Per unit, never per run** ("a run started" names no item, so it has no thread); with no stems
   at all, key on `unit:<unit-id>` — never keyless. The routing rules live in
-  `notify` (*One thread per feedback item*). The posts go through the session's
-  Slack connector, are never load-bearing, and a failure to post changes nothing about the claim.
+  `notify` (*One thread per feedback item*), the transport ordering in the same skill
+  (*The transport* — connector primary, tokened script the machine fallback). The posts are
+  never load-bearing and a failure to post changes nothing about the claim — but it does change
+  the run report, which names the outcome per unit (below).
 
 `claim.sh`'s own one-line bot notice (token-gated CLI surface) is a different thing and is not
 grown into the threaded post — see [`claims.md`](claims.md).
@@ -85,11 +87,15 @@ not write a second story generator.
   no human confirmation and tear the claim down exactly as `auto` does below — quality is gated
   downstream at the `release/*` QA window, not at merge time. A scan finding is the one thing that
   leaves the PR open instead (there is no human here to override — the demotion doctrine below is
-  unchanged). Under `/implement`, post the one `🟢 Implemented` finish line through
+  unchanged). Under `/implement`, post the one `🟢 Implemented` finish line with the PR URL on the
+  transport `notify` selects (*The transport*): the account's Slack connector where the
+  session has one — the only surface that can run the thread lookup and reply into a thread — and
   `bash ../propose/scripts/notify-slack.sh "<message with the PR URL>"`
-  (never load-bearing: without a token it records `{"notified": false, "reason": "no_token"}` and
-  the run continues). Under `/drive` the developer is the human loop — report the URL in the
-  session and post nothing.
+  as the machine fallback for a caller with no connector, which can post a keyed root only. Never
+  load-bearing either way: with no surface (or no token — the script records
+  `{"notified": false, "reason": "no_token"}` and exits 0) the run continues and **reports the
+  notification outcome** in its per-unit report below. Under `/drive` the developer is the human
+  loop — report the URL in the session and post nothing.
 - **`auto` → ship** through `ship`'s Ship Flow with no prompts (its *Unattended
   routing* section factors each interactive seam): catch up with `main`, prove the deploy
   contract, confirm in production, record the evidence, **then** merge, then release and extract
@@ -159,6 +165,15 @@ moments.
 - Per unit: members, effective policy, route taken, ticket outcomes reconciling to the queue it
   was handed, and the commits.
 - PR per unit — the URL, or the `pr_error` if creation failed.
+- **Notification outcome per unit** (`/implement` only — an attended `/drive` posts nothing, so it
+  reports nothing): for each thread the unit posted into, the surface used and the result —
+  `posted` with the thread it landed in, or the failure named (`no_surface` when the session has
+  neither connector nor token, `no_token` / `no_channel` / `http_<code>` / `slack_<error>` as the
+  fallback script reports them, `posted_as_root` when no thread was found and a keyed root was
+  started instead). The shape follows `/propose`'s `notified` flag, which already reports this way.
+  **A post that did not happen is stated, never omitted**: silence in this list read as success is
+  the whole defect (measured 2026-08-12, issue #406 — the 18:48 UTC `[Implement]` run got
+  `{"notified": false, "reason": "no_token"}` and nothing downstream said so).
 - Tickets minted mid-run (`deferred`), one line each: what was found, which ticket provoked it,
   the new filename. Additional to the unit's queue; never silent.
 - Deferred decisions — every judgment call the run met and recorded instead of asking. This list

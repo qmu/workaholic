@@ -191,7 +191,7 @@ Full invocations with `${CLAUDE_PLUGIN_ROOT}` paths are in [`reference/workflow.
 
 ## Notifier contract
 
-After a successful push, `notify-slack.sh "<text>"` posts the proposal message as the bot (`SLACK_BOT_TOKEN` + `WORKAHOLIC_SLACK_CHANNEL`; `WORKAHOLIC_SLACK_API_URL` overrides the endpoint for tests; the token is read at call time and never persisted or echoed). **Never load-bearing**: a missing token/channel or an API failure is `{"notified": false, "reason": ...}` with exit 0 — a proposal that pushed is a success whether or not anyone was told; the report records `notified` rather than retrying. The `[Propose]` routine posts its thread root through the account's Slack connector instead; provisioning and failure modes are `docs/proposal-loop-runbook.md`.
+After a successful push the proposal message goes out on the transport `workaholic:notify` selects (*The transport*): the account's Slack connector where the session has one — what the `[Propose]` routine uses for its thread root — and `notify-slack.sh "<text>"` as the machine fallback for a caller with no connector, which posts as the bot (`SLACK_BOT_TOKEN` + `WORKAHOLIC_SLACK_CHANNEL`; `WORKAHOLIC_SLACK_API_URL` overrides the endpoint for tests; the token is read at call time and never persisted or echoed) and can post a **keyed root only** — it carries no `thread_ts`. **Never load-bearing**: a missing token/channel or an API failure is `{"notified": false, "reason": ...}` with exit 0 — a proposal that pushed is a success whether or not anyone was told; the report records `notified` rather than retrying, and an unposted message is reported as unposted, never as sent. Provisioning and failure modes are `docs/proposal-loop-runbook.md`.
 
 ## Agent Compatibility
 

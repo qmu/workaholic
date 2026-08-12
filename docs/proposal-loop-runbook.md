@@ -37,13 +37,21 @@ export WORKAHOLIC_SLACK_CHANNEL=<channel id>
 Both unset is valid: the loop runs identically and records
 `{"notified": false, "reason": "no_token"}` instead of posting.
 
-**Two notification paths, and they do not overlap.** `notify-slack.sh` is the
-bot-token path a shell or CLI invocation uses, configured here. The `[Propose]`
-routine posts the item's **thread root** through the **account's Slack
-connector** instead — its cloud container carries no env file — so the connector
-must be selected when the routine is created, and nothing in the plugin can
-verify that it was. Neither path is load-bearing: a proposal that opened its pull request is a success whether or
-not anyone was told.
+**Two notification paths, and the order between them is fixed** (`workaholic:notify`,
+*The transport* — the one place that states it; the skills defer there rather than
+naming a script). The **account's Slack connector is primary**: it is what a routine
+session carries (its cloud container has no env file), the only surface that can run
+the thread lookup, and the only one that can reply *into* a thread — so the connector
+must be selected when the routine is created, and nothing in the plugin can verify
+that it was. `notify-slack.sh` is the **bot-token fallback** a shell or CLI invocation
+uses, configured here; it posts a **keyed root only** (its payload carries no
+`thread_ts`). Reaching for the fallback from a connector-only session is how a finish
+line disappears: with no token it records `{"notified": false, "reason": "no_token"}`
+and exits 0 (measured 2026-08-12, issue #406 — four runs whose posts never existed).
+Neither path is load-bearing: a proposal that opened its pull request is a success
+whether or not anyone was told — but an unposted message is **reported as unposted**
+(`/propose`'s `notified` flag, `/implement`'s per-unit notification outcome), never
+left to read as sent.
 
 ## 3. Schedule the routine
 

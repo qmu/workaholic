@@ -132,3 +132,52 @@ contract has to say what it can and cannot do.
 - The connector is an account-level selection nothing in the plugin can verify, so
   the rule must degrade rather than assume — which is what ticket
   `20260812204216` exists to make visible.
+
+## Final Report
+
+Development completed as planned, diagnosis first.
+
+**Measured evidence (steps 1-4).**
+
+1. Reproduced: `bash plugins/workaholic/skills/propose/scripts/notify-slack.sh "probe"` with no
+   `SLACK_BOT_TOKEN` prints `{"notified": false, "reason": "no_token"}` and exits **0** — the
+   silent no-op in the exact shape a routine session hits it.
+2. Localized: five markdown call sites named the script, four of them as *the* way to post
+   (`drive/SKILL.md` route step, `drive/reference/routing.md`, `propose/reference/workflow.md`
+   step 12, `propose/SKILL.md` *Notifier contract*), while `workaholify/routines/fb.md` and
+   `implement.md` name only the connector lookup. The Overview's split is confirmed; no call site
+   was missed. `drive/scripts/claim.sh` also reaches for the script, but as the separate
+   bot-notice surface the notify skill deliberately leaves alone.
+3. Threading limit **confirmed**: `notify-slack.sh` builds its payload as
+   `{"channel", "text"}` from one text argument — no `thread_ts` parameter exists and the script
+   runs no search, so it can post a keyed root only, never a reply into a thread. It is therefore
+   not a like-for-like fallback for the connector, and the rule now says so.
+4. Checked live against `#dev-workaholic` (standing consent, private-inclusive search): every
+   `🔵 Proposed` / `🟢 Implemented` line in the channel — including #402's, threaded under
+   `thread_ts` 1786562079.274919 — was posted **as the user through the connector**, never as the
+   bot the script would have used. Several finish lines (#403, #404, #405, #363, #365, #366) sit
+   as top-level roots with no `thread_ts`, the shape a failed or unavailable in-thread post
+   leaves behind. No post in the channel was produced by the script path.
+
+**Open Decision resolved — (B), the fallback stays keyed-root-only and says so.** Option (A),
+teaching `notify-slack.sh` a `thread_ts`, also obliges it to run the exact-token search, which
+needs a `search:read` scope this bot token does not have: an account-level provisioning change,
+not a plugin one, whose appetite only the operator can weigh. (B) costs nothing and is already
+sanctioned by the model — the lookup's own not-found branch posts a keyed root, and "two roots
+with one key is repairable, a keyless post is not". (A) is recorded as a deferred decision, not
+foreclosed.
+
+### Discovered Insights
+
+- **Insight**: a transport named at the call site is a transport *selected* for every session
+  that reads it. The four call sites did not disagree with the routine templates in wording — they
+  disagreed in which surface a reader would reach for, and only a session lacking that surface
+  could tell.
+  **Context**: the same shape as the plugin-binding and `gh`-GraphQL findings of the same week —
+  a capability the writing environment had and the running one did not. The repository's answer is
+  consistent: state the rule once in the owning skill, have call sites defer, and pin the
+  relationship (not the phrasing) with a drift assertion.
+- **Insight**: the channel's own history distinguishes the transports without any instrumentation
+  — a connector post carries the operator's user identity, a bot-token post would not.
+  **Context**: this makes "which surface posted this line" answerable months later from Slack
+  alone, which is what let step 4 be measured rather than assumed.

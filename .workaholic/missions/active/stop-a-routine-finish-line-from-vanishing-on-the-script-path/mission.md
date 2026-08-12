@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260812-204905
 ---
 
 # Stop a routine finish line from vanishing on the script path
@@ -39,12 +40,15 @@ sent.
 
 ## Acceptance
 
-- [ ] `workaholic:notify` states the transport rule — connector primary, tokened
+- [x] `workaholic:notify` states the transport rule — connector primary, tokened
       script as the machine fallback — and every call site defers to it instead of
       naming `notify-slack.sh` (#20260812204122-make-workaholic-notify-own-the-finish-line-transport.md)
-- [ ] A run whose finish post did not reach Slack reports that outcome in its own
+- [x] A run whose finish post did not reach Slack reports that outcome in its own
       terminal report rather than treating it as posted (#20260812204216-report-an-unposted-finish-line-as-unposted.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-12 — ticket archived — 20260812204122-make-workaholic-notify-own-the-finish-line-transport.md
+- 2026-08-12 — ticket archived — 20260812204216-report-an-unposted-finish-line-as-unposted.md
+- 2026-08-12 — story written — work-20260812-204905.md

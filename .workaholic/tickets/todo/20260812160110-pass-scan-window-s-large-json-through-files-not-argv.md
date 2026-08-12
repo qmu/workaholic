@@ -5,6 +5,7 @@ assignees: [a@qmu.jp]
 depends_on:
 feedback: [20260812160052-catch-scan-window-sh-dies-with-argument-list-too-long-on-a-large-ticket-corpus.md]
 merge_policy:
+claim: work-20260812-185209
 ---
 
 # Pass scan-window's large JSON through files, not argv

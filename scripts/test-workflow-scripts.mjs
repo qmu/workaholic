@@ -10865,8 +10865,18 @@ function testShipWorksFromAClaimWorktree() {
     // commit_hash must be the commit that LANDED on the base, not the branch head --
     // Ship Flow step 7 tags it, and the branch head is not on the base's first-parent
     // line whenever the base advanced since the branch's last catch-up.
+    // Through REST (`GET .../pulls/{n}` -> `merge_commit_sha`), not the GraphQL-backed
+    // `gh pr view --json mergeCommit`: a web session may serve only the pinned PR-review
+    // operations (2026-08-12, FB 20260812172522). The PROPERTY is unchanged — GitHub is
+    // still asked for the merge commit rather than the branch head.
     assertTrue("merge-pr.sh asks GitHub for the merge commit",
-      /gh pr view "\$pr_number" --json mergeCommit/.test(src), src);
+      /pulls\/\$\{pr_number\}"[\s\S]{0,120}merge_commit_sha/.test(src), src);
+    // Comments legitimately NAME the subcommands they replaced (that is the record of
+    // why), so the check is against executable lines only — what matters is that none is
+    // still invoked.
+    const merge_pr_code = src.split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+    assertTrue("merge-pr.sh reaches GitHub through the REST transport, never a GraphQL subcommand",
+      /gh-rest\.sh/.test(merge_pr_code) && !/gh pr (view|merge)\b/.test(merge_pr_code), merge_pr_code);
     assertTrue("merge-pr.sh falls back to the fetched base tip, not to HEAD",
       /git rev-parse "origin\/\$\{base\}"/.test(src), src);
     assertTrue("merge-pr.sh names how commit_hash was resolved",
@@ -12093,15 +12103,23 @@ function testPublishTreePrArtifactsSummary() {
   const binDir = mkdtempSync(join(tmpdir(), "wh-gh-artifacts-"));
   const capturedBody = join(binDir, "captured-body.md");
   try {
+    // The PR is opened through REST now (POST repos/{owner}/{repo}/pulls), not
+    // `gh pr create` — so the body arrives as JSON on STDIN rather than in a
+    // --body-file, and the stub answers with the REST response shape the script parses.
     writeFileSync(join(binDir, "gh"), `#!/bin/sh
-prev=""
-bodyfile=""
-for arg in "$@"; do
-  if [ "$prev" = "--body-file" ]; then bodyfile="$arg"; fi
-  prev="$arg"
-done
-if [ -n "$bodyfile" ]; then cp "$bodyfile" ${capturedBody}; fi
-echo "https://example.test/pr/42"
+case "$1 $2" in
+  "api user") printf 'tester\\n'; exit 0 ;;
+esac
+case "$*" in
+  *pulls*POST*)
+    jq -r '.body' > ${capturedBody}
+    echo '{"html_url":"https://example.test/pr/42","number":42}'
+    exit 0 ;;
+  *merge*)
+    echo '{"merged":true}'
+    exit 0 ;;
+esac
+echo ""
 `);
     chmodSync(join(binDir, "gh"), 0o755);
     const env = { ...process.env, PATH: `${binDir}:${process.env.PATH}` };
@@ -12205,29 +12223,71 @@ function testListInboundIssues() {
     writeFileSync(p, `#!/bin/sh\n${body}\n`);
     chmodSync(p, 0o755);
   };
+  // The inbox is read through REST now (`gh api repos/{owner}/{repo}/issues`), not
+  // through the GraphQL-backed `gh issue list` — so the stub serves a canned payload on
+  // the `api` path and pipes it through the REAL jq using the expression the script
+  // actually passed. That keeps the suite hermetic (no network) while still exercising
+  // the filter rather than a hand-written approximation of it. `$5` is the --jq
+  // expression: the script calls `gh api <path> --jq <expr>`.
+  const REST_ISSUES = JSON.stringify([
+    { number: 9, html_url: "https://github.com/o/r/issues/9", updated_at: "2026-08-12T03:00:00Z", title: "Newer ask" },
+    { number: 7, html_url: "https://github.com/o/r/issues/7", updated_at: "2026-08-12T00:00:00Z", title: "Oldest ask, taken first" },
+    { number: 12, html_url: "https://github.com/o/r/issues/12", updated_at: "2026-08-12T01:00:00Z", title: "Already captured" },
+    { number: 120, html_url: "https://github.com/o/r/issues/120", updated_at: "2026-08-12T02:00:00Z", title: "Boundary guard" },
+    // A pull request on the SAME endpoint. `GET /issues` returns these; `gh issue list`
+    // did not — the one behavioral difference the REST conversion must not lose.
+    { number: 55, html_url: "https://github.com/o/r/pull/55", updated_at: "2026-08-12T04:00:00Z", title: "A pull request", pull_request: { url: "https://github.com/o/r/pulls/55" } },
+  ]);
+  const restGh = (payload = REST_ISSUES) => [
+    `case "$1 $2" in`,
+    `  "api user") printf 'tester\\n' ; exit 0 ;;`,
+    `esac`,
+    `case "$2" in`,
+    `  repos/*/issues*) printf '%s' '${payload}' | jq -r "$4" ; exit 0 ;;`,
+    `esac`,
+    `exit 1`,
+  ].join("\n");
   try {
+    // The REST path needs a resolvable {owner}/{repo}, derived from the remote.
+    execSync("git init -q", { cwd: repo });
+    execSync("git remote add origin https://github.com/o/r.git", { cwd: repo });
+
     // A record already names issue 12 by its URL — that issue is in flight, not new.
     writeFileSync(join(repo, ".workaholic/feedbacks/20260812000000-captured.md"),
       `---\ntype: Feedback\n---\n\nSource: GitHub issue #12 (https://github.com/o/r/issues/12)\n`);
 
-    writeGh([
-      `case "$1" in`,
-      `  api) printf 'tester\\n' ;;`,
-      `  issue) printf '7\\thttps://github.com/o/r/issues/7\\t2026-08-12T00:00:00Z\\tOldest ask, taken first\\n12\\thttps://github.com/o/r/issues/12\\t2026-08-12T01:00:00Z\\tAlready captured\\n120\\thttps://github.com/o/r/issues/120\\t2026-08-12T02:00:00Z\\tBoundary guard\\n' ;;`,
-      `esac`,
-    ].join("\n"));
+    writeGh(restGh());
     const r = JSON.parse(run(repo, `${POSIX_SH} ${SCRIPT}`, { env }).stdout);
+    assertEq("a pull request on the issues endpoint is never read as an ask",
+      r.issues.some((i) => i.number === 55), false);
     assertEq("a readable inbox is ok:true", r.ok, true);
     assertEq("the identity is the session's own login", r.identity, "tester");
     assertEq("issue 12, already named by a record, is excluded", r.excluded.length, 1);
     assertEq("and the exclusion is reported with its reason", r.excluded[0].reason, "already_captured");
-    assertEq("two issues survive", r.issues.length, 2);
+    assertEq("three issues survive", r.issues.length, 3);
     assertEq("issue 120 is NOT swallowed by the record naming issue 12 (numeric boundary)",
       r.issues.some((i) => i.number === 120), true);
     assertEq("the oldest issue comes first", r.issues[0].number, 7);
 
+    // THE RESTRICTED SESSION (2026-08-12, feedback 20260812172522). A `gh` that serves
+    // REST but 403s every GraphQL-backed subcommand is exactly the measured Claude Code
+    // Web session. Before the conversion this reported `list_failed` and the routine
+    // ingested nothing for the hour; the run must now be indistinguishable from an
+    // unrestricted one.
+    const GRAPHQL_403 = `echo 'HTTP 403: This GraphQL query is not enabled for this session' >&2; exit 1`;
+    writeGh([
+      `case "$1" in`,
+      `  issue|pr|search) ${GRAPHQL_403} ;;`,
+      `esac`,
+      restGh(),
+    ].join("\n"));
+    const restricted = JSON.parse(run(repo, `${POSIX_SH} ${SCRIPT}`, { env }).stdout);
+    assertEq("a GraphQL-restricted session still reads its inbox", restricted.ok, true);
+    assertEq("and reads exactly what an unrestricted one reads",
+      restricted.issues.map((i) => i.number), r.issues.map((i) => i.number));
+
     // An empty inbox is ok:true with zero issues — the honest nothing_in_hand.
-    writeGh(`case "$1" in api) printf 'tester\\n' ;; issue) : ;; esac`);
+    writeGh(restGh("[]"));
     const empty = JSON.parse(run(repo, `${POSIX_SH} ${SCRIPT}`, { env }).stdout);
     assertEq("an empty inbox is still ok:true", empty.ok, true);
     assertEq("with no issues", empty.issues.length, 0);
@@ -12293,15 +12353,23 @@ function testPublishTreePrClosesIssue() {
   const binDir = mkdtempSync(join(tmpdir(), "wh-gh-closes-"));
   const capturedBody = join(binDir, "captured-body.md");
   try {
+    // The PR is opened through REST now (POST repos/{owner}/{repo}/pulls), not
+    // `gh pr create` — so the body arrives as JSON on STDIN rather than in a
+    // --body-file, and the stub answers with the REST response shape the script parses.
     writeFileSync(join(binDir, "gh"), `#!/bin/sh
-prev=""
-bodyfile=""
-for arg in "$@"; do
-  if [ "$prev" = "--body-file" ]; then bodyfile="$arg"; fi
-  prev="$arg"
-done
-if [ -n "$bodyfile" ]; then cp "$bodyfile" ${capturedBody}; fi
-echo "https://example.test/pr/42"
+case "$1 $2" in
+  "api user") printf 'tester\\n'; exit 0 ;;
+esac
+case "$*" in
+  *pulls*POST*)
+    jq -r '.body' > ${capturedBody}
+    echo '{"html_url":"https://example.test/pr/42","number":42}'
+    exit 0 ;;
+  *merge*)
+    echo '{"merged":true}'
+    exit 0 ;;
+esac
+echo ""
 `);
     chmodSync(join(binDir, "gh"), 0o755);
     const env = { ...process.env, PATH: `${binDir}:${process.env.PATH}` };
@@ -12525,7 +12593,16 @@ function testClosePublishTreeReachability() {
   // Stub `gh` so the PR path reaches ok:true — the real client cannot open a PR
   // against a bare local origin, and this test is about close, not about gh.
   const stubDir = mkdtempSync(join(tmpdir(), "workaholic-ghstub-"));
-  writeFileSync(join(stubDir, "gh"), "#!/bin/sh\necho https://example.invalid/pull/1\n");
+  // REST shapes: the publish path parses `.html_url`/`.number` out of the POST response
+  // now, so a bare URL on stdout is no longer a valid answer.
+  writeFileSync(join(stubDir, "gh"),
+    "#!/bin/sh\n" +
+    "case \"$1 $2\" in \"api user\") printf 'tester\\n'; exit 0 ;; esac\n" +
+    "case \"$*\" in\n" +
+    "  *pulls*POST*) cat >/dev/null; echo '{\"html_url\":\"https://example.invalid/pull/1\",\"number\":1}'; exit 0 ;;\n" +
+    "  *merge*) echo '{\"merged\":true}'; exit 0 ;;\n" +
+    "esac\n" +
+    "echo ''\n");
   chmodSync(join(stubDir, "gh"), 0o755);
   const withStub = { env: { ...process.env, PATH: `${stubDir}:${process.env.PATH}` } };
 
@@ -12766,7 +12843,16 @@ function testProposeCaptureSeam() {
   // `gh` cannot open a PR against a bare local origin, and this test is about what the
   // commit CARRIES, not about gh — so the PR step is stubbed to succeed.
   const stubDir = mkdtempSync(join(tmpdir(), "workaholic-ghstub-"));
-  writeFileSync(join(stubDir, "gh"), "#!/bin/sh\necho https://example.invalid/pull/1\n");
+  // REST shapes: the publish path parses `.html_url`/`.number` out of the POST response
+  // now, so a bare URL on stdout is no longer a valid answer.
+  writeFileSync(join(stubDir, "gh"),
+    "#!/bin/sh\n" +
+    "case \"$1 $2\" in \"api user\") printf 'tester\\n'; exit 0 ;; esac\n" +
+    "case \"$*\" in\n" +
+    "  *pulls*POST*) cat >/dev/null; echo '{\"html_url\":\"https://example.invalid/pull/1\",\"number\":1}'; exit 0 ;;\n" +
+    "  *merge*) echo '{\"merged\":true}'; exit 0 ;;\n" +
+    "esac\n" +
+    "echo ''\n");
   chmodSync(join(stubDir, "gh"), 0o755);
   const withStub = { env: { ...process.env, PATH: `${stubDir}:${process.env.PATH}` } };
 

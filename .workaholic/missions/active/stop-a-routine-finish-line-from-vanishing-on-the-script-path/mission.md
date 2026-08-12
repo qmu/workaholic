@@ -53,3 +53,4 @@ sent.
 - 2026-08-12 — ticket archived — 20260812204216-report-an-unposted-finish-line-as-unposted.md
 - 2026-08-12 — story written — work-20260812-204905.md
 - 2026-08-12 — run recorded (+0.7h) — implement-20260812-204905
+- 2026-08-12 — ticket archived — 20260812210500-reconcile-the-runbook-s-version-binding-stop-rows.md

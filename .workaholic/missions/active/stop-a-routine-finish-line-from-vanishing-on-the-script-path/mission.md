@@ -16,7 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
-claim: work-20260812-204905
+claim: work-20260812-211128
 ---
 
 # Stop a routine finish line from vanishing on the script path
@@ -53,3 +53,5 @@ sent.
 - 2026-08-12 — ticket archived — 20260812204216-report-an-unposted-finish-line-as-unposted.md
 - 2026-08-12 — story written — work-20260812-204905.md
 - 2026-08-12 — run recorded (+0.7h) — implement-20260812-204905
+- 2026-08-12 — ticket archived — 20260812210500-reconcile-the-runbook-s-version-binding-stop-rows.md
+- 2026-08-12 — story written — work-20260812-211128.md

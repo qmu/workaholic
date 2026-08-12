@@ -10,6 +10,19 @@ repo_root="$(git rev-parse --show-toplevel)"
 worktrees_json="[]"
 count=0
 
+# REST, NOT `gh pr list` (2026-08-12, FB 20260812172522). This call site was NOT on the
+# ticket's list and was found by its sweep step — which is the argument for the
+# hermetic check added in the same change: a list of call sites goes stale, a check does
+# not. `/report`'s `worktree` context routes on `has_pr`, so a 403 here silently reported
+# every claim worktree as un-PR'd.
+#
+# The slug is resolved ONCE, outside the loop: one worktree list can hold many branches
+# and the remote does not change between them.
+SCRIPT_DIR=$(cd -- "$(dirname -- "$0")" && pwd)
+GATHER_SCRIPTS="${SCRIPT_DIR}/../../gather/scripts"
+pr_slug=$(sh "${GATHER_SCRIPTS}/gh-rest.sh" slug 2>/dev/null || echo "")
+pr_owner=${pr_slug%%/*}
+
 current_path=""
 current_branch=""
 
@@ -26,7 +39,12 @@ flush_record() {
       case "$current_branch" in
         work-*|drive-*|trip/*)
           # Check for existing PR
-          pr_info=$(gh pr list --head "$current_branch" --state open --json number,url --jq '.[0]' 2>/dev/null || echo "")
+          pr_info=""
+          if [ -n "$pr_slug" ]; then
+            pr_info=$(sh "${GATHER_SCRIPTS}/gh-rest.sh" api \
+              "repos/${pr_slug}/pulls?head=${pr_owner}:${current_branch}&state=open&per_page=1" \
+              --jq '.[0] | select(. != null) | {number, url: .html_url}' 2>/dev/null || echo "")
+          fi
 
           if [ -n "$pr_info" ] && [ "$pr_info" != "null" ]; then
             pr_number=$(printf '%s' "$pr_info" | jq -r '.number')

@@ -43,7 +43,7 @@ No step reports `list_failed` or `pr_failed` for a reason the environment can se
 
 - [x] Issue discovery succeeds in a session serving only pinned PR-review operations (#20260812172713-read-the-inbound-issue-inbox-through-rest.md)
 - [x] A proposal opened in that same session reaches a merged pull request (#20260812172713-open-and-merge-pull-requests-through-rest.md)
-- [ ] The hermetic suite fails if a workflow script regains a hard GraphQL dependency (#20260812172713-cover-the-remaining-gh-readers-and-pin-the-dependency.md)
+- [x] The hermetic suite fails if a workflow script regains a hard GraphQL dependency (#20260812172713-cover-the-remaining-gh-readers-and-pin-the-dependency.md)
 
 ## Changelog
 
@@ -51,3 +51,4 @@ No step reports `list_failed` or `pr_failed` for a reason the environment can se
 - 2026-08-12 — ticket archived — 20260812172713-read-the-inbound-issue-inbox-through-rest.md
 - 2026-08-12 — ticket archived — 20260812172713-open-and-merge-pull-requests-through-rest.md
 - 2026-08-12 — run recorded (+1.4h) — implement-20260812-180600
+- 2026-08-12 — ticket archived — 20260812172713-cover-the-remaining-gh-readers-and-pin-the-dependency.md

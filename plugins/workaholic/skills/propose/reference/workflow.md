@@ -137,14 +137,22 @@ and every abort reports a machine-readable reason.
     Run it whether or not the publish succeeded; it refuses rather than destroying
     recoverable state.
 
-12. **Notify.** `bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/notify-slack.sh "<message>"`
-    — the title, this repo's label (`bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/project-label.sh`),
-    the **PR URL**, and how to pick it up once merged (`/mission <slug>` for a mission;
-    a loose ticket simply joins the backlog). A no-op or failure never fails the run
-    (SKILL.md, *Notifier contract*). Inside the `[Propose]` routine the thread root is
-    posted by the routine itself through the account's Slack connector; do not post
+12. **Notify** on the transport `workaholic:notify` selects (*The transport*): the
+    account's Slack connector where the session has one, and
+    `bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/notify-slack.sh "<message>"` as the
+    machine fallback for a caller with no connector (keyed root only — it cannot thread).
+    The message carries the title, this repo's label
+    (`bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/project-label.sh`), the **PR URL**,
+    and how to pick it up once merged (`/mission <slug>` for a mission; a loose ticket
+    simply joins the backlog). A no-op or failure never fails the run (SKILL.md,
+    *Notifier contract*) — it is reported at step 13, never treated as posted. Inside the
+    `[Propose]` routine the thread root is the routine's own connector post; do not post
     twice.
 
 13. **Report** one line: the form chosen (mission with N tickets / loose ticket /
-    record-only) with its reason, the record's filename, the PR URL, and the `notified`
-    flag.
+    record-only) with its reason, the record's filename, the PR URL, and the
+    notification outcome — **which surface carried it** (connector or the tokened
+    fallback) and `notified`, or the reason it did not post (`no_surface`, `no_token`,
+    `slack_<error>`, …). A message that did not reach Slack is reported as unposted,
+    never omitted; it does not make the run a failure (`workaholic:drive` §7 states the
+    same rule for `/implement`'s per-unit finish lines).

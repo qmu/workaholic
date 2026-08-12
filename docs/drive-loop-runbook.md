@@ -189,6 +189,12 @@ not of surveying: a runner without one still reads the whole queue, reports
   (`N units: X shipped, Y PR'd, Z blocked`) and then `ok` or `pending`. Grepping the
   log for `^pending` is the fastest way to find the ticks that need a human;
   a healthy idle loop prints `0 units: 0 shipped, 0 PR'd, 0 blocked` / `ok`.
+- **The notification outcome** rides the run report, per unit: the surface the finish
+  line went out on and whether it landed, or the reason it did not (`no_surface`,
+  `no_token`, `slack_<error>`). It does **not** move the terminal token — a
+  notification is never load-bearing — so a tick can read `ok` with its Slack output
+  missing; the report is where that shows. Grep a tick's report for the outcome before
+  concluding from Slack's silence that the loop is dead (`workaholic:drive` §7).
 - **Worktrees** left in `.worktrees/` are in-flight or stale claims by definition —
   the same fact `list-claims.sh` reports, visible on the filesystem.
 - **`release/*` branches are not the loop's output and never appear because of a tick.**

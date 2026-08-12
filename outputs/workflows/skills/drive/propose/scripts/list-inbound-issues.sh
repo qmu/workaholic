@@ -70,15 +70,37 @@ emit_err() {
 
 command -v gh >/dev/null 2>&1 || emit_err "gh_unavailable" "gh is not on PATH"
 
+SCRIPT_DIR=$(cd -- "$(dirname -- "$0")" && pwd)
+GATHER_SCRIPTS="${SCRIPT_DIR}/../../gather/scripts/"
+
 login="$(gh api user --jq .login 2>&1)" || emit_err "identity_unresolved" "$login"
 [ -n "$login" ] || emit_err "identity_unresolved" "gh api user returned an empty login"
 
-# Oldest first: the ask that has waited longest is served first, so a busy hour
-# never starves an early report. @tsv escapes tabs/newlines inside the title, so
-# the 4-field read below is unambiguous (title deliberately last).
-rows="$(gh issue list --assignee "$login" --state open --limit "$LIMIT" \
-  --json number,title,url,updatedAt \
-  --jq 'sort_by(.number) | .[] | [(.number|tostring), .url, .updatedAt, .title] | @tsv' 2>&1)" \
+# REST, NOT `gh issue list` (2026-08-12, feedback 20260812172522). The subcommand is
+# GraphQL-backed and a Claude Code Web session is not guaranteed to serve that surface:
+# measured HTTP 403 "only the pinned set of PR-review operations is served" in this
+# repository's own routine tick, 80 minutes after the same path had worked. The
+# capability is per-session, so this reads through the one REST transport
+# (`gather/scripts/gh-rest.sh`) and a restricted session ingests its inbox normally
+# instead of reporting `list_failed` and going quiet for the hour.
+slug="$(sh "${GATHER_SCRIPTS}/gh-rest.sh" slug 2>&1)" || emit_err "list_failed" "$slug"
+
+# `per_page` IS the cap, deliberately and not by inheritance: the REST endpoint paginates
+# where `--limit` truncated, so asking for exactly LIMIT on a single page reproduces the
+# old ceiling rather than quietly walking every page.
+#
+# THE ONE BEHAVIORAL DIFFERENCE THE CONVERSION MUST NOT LOSE: `GET /issues` returns pull
+# requests as well as issues (they share the numbering space); `gh issue list` did not.
+# Rows carrying `.pull_request` are dropped here, or a routine would start proposing
+# against its own pull requests.
+#
+# Oldest first: the ask that has waited longest is served first, so a busy hour never
+# starves an early report. @tsv escapes tabs/newlines inside the title, so the 4-field
+# read below is unambiguous (title deliberately last).
+rows="$(sh "${GATHER_SCRIPTS}/gh-rest.sh" api \
+  "repos/${slug}/issues?state=open&assignee=${login}&per_page=${LIMIT}" \
+  --jq 'map(select(.pull_request | not)) | sort_by(.number) | .[]
+        | [(.number|tostring), .html_url, .updated_at, .title] | @tsv' 2>&1)" \
   || emit_err "list_failed" "$rows"
 
 TAB="$(printf '\t')"

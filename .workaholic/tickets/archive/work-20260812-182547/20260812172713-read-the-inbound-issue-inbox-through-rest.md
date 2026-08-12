@@ -115,3 +115,88 @@ worth driving — a loop that cannot read its inbox has nothing to publish.
   deliberately rather than inherited from whatever `per_page` does.
 - `gh api` still needs a resolvable `{owner}/{repo}`; deriving it from the remote
   is a step, not an assumption.
+
+## Final Report
+
+Development completed as planned. The reporter's hypothesis survived the reproduction and
+was adopted.
+
+### The reproduction, recorded before the fix
+
+The restriction is per-session and cannot be summoned, so it was built: a stub `gh` early
+on `PATH` that exits 1 with the measured 403 body for `issue`/`pr`/`search` and proxies
+`api` to the real binary. Against the unmodified script:
+
+```
+{"ok": false, "reason": "list_failed", "detail": "HTTP 403: This GraphQL query
+ (RepositoryInfo, sent by gh issue list) is not enabled for this session — only the
+ pinned set of PR-review operations is served. Use REST via `gh api
+ repos/{owner}/{repo}/...` instead."}
+```
+
+### Localization: the GraphQL surface, not auth and not assignment
+
+Under the *same* stub and the same credential, both REST calls answered: `gh api user`
+returned `tamurayoshiya`, and `gh api "repos/qmu/workaholic/issues?state=open&assignee=…"`
+returned a well-formed (currently empty) array. So the credential is valid, the assignment
+filter is serviceable, and the failure is specifically the GraphQL-backed subcommand —
+which is what makes a transport conversion the fix rather than a retry or a re-auth.
+
+After the change, the same stub yields `{"ok": true, "identity": "tamurayoshiya",
+"limit": 20, "issues": [], "excluded": []}` — byte-identical to the unrestricted run.
+
+### Open Decision — resolved: `gather/scripts/gh-rest.sh`, invoked, not sourced
+
+**Where the shared helper lives.** Ruled: `gather`, as an executable invoked through the
+established cross-skill form.
+
+- Six skills reach GitHub in this mission's scope — `propose`, `branching`, `ship`,
+  `report`, `mission`, `feedback`. A `lib/` beside each consumer means six copies of one
+  transport, and drift between them would be invisible in exactly the way this defect was.
+- `gather` is the documented home of common operations (CLAUDE.md, *Design principles*),
+  and a GitHub transport used by six skills is the definition of one.
+- The recorded objection — gather's scripts are read-only gatherers, and later tickets need
+  PR *writes* — is answered by the script's **shape**, not by its address: `gh-rest.sh`
+  performs no operation of its own. It resolves a slug and forwards a call whose method the
+  caller chooses, so the write remains the caller's act and gather gains a transport rather
+  than a mutator.
+- `branching` was rejected as a home because it owns the publish seam only; `/fb`'s issue
+  crossing and `/ship`'s merge confirmation would sit oddly there.
+- **Invoked, not sourced**: every existing cross-skill call in this plugin runs another
+  skill's script with `sh`, and the bundle build's closure detection is tuned for that form
+  (`${SCRIPT_DIR}/../../<skill>/scripts/`, enforced by `verify.mjs`). Cross-skill sourcing
+  has no precedent here and would be invisible to the build, shipping an incomplete closure.
+
+### The fallback direction — resolved: REST-only, no GraphQL ladder
+
+Recorded in the script header. REST answers in both restricted and unrestricted sessions,
+so a REST-after-GraphQL ladder would preserve a slower path, leave two behaviors to reason
+about, and still fail whenever the 403 arrives in a shape the ladder did not anticipate.
+One always-available transport cannot drift from itself.
+
+### The two REST differences handled deliberately
+
+- **Pull requests share the issues endpoint.** `GET /issues` returns them; `gh issue list`
+  did not. Rows carrying `.pull_request` are filtered, and the suite pins it — without this
+  a routine would begin proposing against its own pull requests.
+- **Pagination replaces `--limit`.** `per_page` carries the cap so a single page reproduces
+  the old ceiling, rather than inheriting whatever the endpoint's default paging does.
+
+### Discovered Insights
+
+- **Insight**: The script's own error contract was never the defect — it correctly reported
+  `list_failed` instead of inventing an empty inbox, which is why nothing looked broken. The
+  failure was one layer beneath the contract: there was no path to the data at all in a
+  session serving REST only.
+  **Context**: A well-behaved "I could not read this" is not evidence that the reader is
+  fine. When an honest failure recurs on a schedule, the question to ask is whether the
+  *capability* it depends on is static — here it was per-session, and the code assumed
+  otherwise.
+
+- **Insight**: The hermetic suite gained a stubbed-`gh` shape that pipes a canned payload
+  through the *real* `jq` using the expression the script actually passed (`$4` of `gh api
+  <path> --jq <expr>`). That keeps the test hermetic while still exercising the production
+  filter rather than a re-implementation of it.
+  **Context**: Worth reusing for the remaining conversions in this mission — a stub that
+  hard-codes the expected output would have passed even if the `.pull_request` filter were
+  dropped.

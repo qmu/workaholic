@@ -229,12 +229,47 @@ trap 'rm -f "$body_file"' EXIT
 
 PR_TITLE="${WORKAHOLIC_PR_TITLE:-$TITLE}"
 
-pr_url=$(git -C "$publish_path" rev-parse --show-toplevel >/dev/null 2>&1 && \
-  ( cd "$publish_path" && gh pr create --base "$base" --head "$work_branch" --title "$PR_TITLE" --body-file "$body_file" 2>/dev/null ) || true)
+# REST, NOT `gh pr create` (2026-08-12, FB 20260812172522). The subcommand is
+# GraphQL-backed and a Claude Code Web session may serve only "the pinned set of
+# PR-review operations" — measured HTTP 403 in this repository's own tick. This is the
+# worse half of that failure: the artifact is already committed and PUSHED by the time
+# the PR is opened, so a stop here leaves work pushed-but-unpublished for a human to
+# finish by hand, every tick, in a session nobody is reading.
+#
+# THE STDERR IS CAPTURED, AND THAT IS HALF THE FIX. This call used to end in
+# `2>/dev/null`, so the 403 never reached the operator and `pr_failed` was
+# indistinguishable from a network blip, an expired token, or a policy denial. The
+# underlying message now rides the `detail`, which alone would have made the measured
+# incident self-describing.
+GATHER_SCRIPTS="${SCRIPT_DIR}/../../gather/scripts"
+pr_url=""
+pr_number=""
+pr_err=""
+if slug=$( cd "$publish_path" && sh "${GATHER_SCRIPTS}/gh-rest.sh" slug 2>&1 ); then
+  # The payload goes in on stdin rather than through argv: a PR body is unbounded (it
+  # carries the whole story), and a single argv entry is capped at 128 KiB on Linux.
+  pr_payload=$(jq -n --arg t "$PR_TITLE" --arg h "$work_branch" --arg b "$base" \
+    --rawfile body "$body_file" '{title: $t, head: $h, base: $b, body: $body}' 2>/dev/null || true)
+  if [ -n "$pr_payload" ]; then
+    if pr_resp=$( cd "$publish_path" && printf '%s' "$pr_payload" \
+        | sh "${GATHER_SCRIPTS}/gh-rest.sh" api "repos/${slug}/pulls" --method POST --input - 2>&1 ); then
+      pr_url=$(printf '%s' "$pr_resp" | jq -r '.html_url // empty' 2>/dev/null || true)
+      pr_number=$(printf '%s' "$pr_resp" | jq -r '.number // empty' 2>/dev/null || true)
+      [ -n "$pr_url" ] || pr_err="$pr_resp"
+    else
+      pr_err="$pr_resp"
+    fi
+  else
+    pr_err="could not build the pull-request payload (is jq present?)"
+  fi
+else
+  pr_err="$slug"
+fi
 
 if [ -z "$pr_url" ]; then
-  printf '{"ok": false, "reason": "pr_failed", "branch": "%s", "sha": "%s", "base": "%s", "detail": "the artifact IS pushed to the branch; open the pull request by hand rather than re-publishing"}\n' \
-    "$work_branch" "$after_sha" "$base"
+  detail=$(printf '%s' "$pr_err" | tr -d '"\\' | tr '\n' ' ' | cut -c1-400)
+  printf '{"ok": false, "reason": "pr_failed", "branch": "%s", "sha": "%s", "base": "%s", "detail": "the artifact IS pushed to the branch; open the pull request by hand rather than re-publishing. Underlying error: %s"}\n' \
+    "$work_branch" "$after_sha" "$base" "$detail"
   exit 0
 fi
 
@@ -252,11 +287,22 @@ if [ "${WORKAHOLIC_AUTO_MERGE:-}" = "1" ]; then
   scan_json=$( cd "$publish_path" && sh "${SCRIPT_DIR}/../../release-scan/scripts/scan-branch-safety.sh" "origin/${base}" 2>/dev/null || true )
   case "$scan_json" in
     *'"verdict": "pass"'*)
-      if ( cd "$publish_path" && gh pr merge "$pr_url" --merge ) >/dev/null 2>&1; then
+      # `PUT .../merge` with merge_method "merge" — the REST equivalent of the
+      # `gh pr merge --merge` this replaces, for the same GraphQL reason as the create
+      # above. merge_reason stays HONEST rather than collapsing every non-200 into
+      # merge_failed: 405 is GitHub refusing the merge itself (conflict, or a required
+      # check not satisfied), 409 is the head moving under us, and those are different
+      # next actions for whoever reads the line.
+      if merge_resp=$( cd "$publish_path" && sh "${GATHER_SCRIPTS}/gh-rest.sh" api \
+          "repos/${slug}/pulls/${pr_number}/merge" --method PUT -f merge_method=merge 2>&1 ); then
         merged=true
         merge_reason="merged"
       else
-        merge_reason="merge_failed"
+        case "$merge_resp" in
+          *405*) merge_reason="merge_not_allowed" ;;
+          *409*) merge_reason="head_moved" ;;
+          *) merge_reason="merge_failed" ;;
+        esac
       fi
       ;;
     *'"verdict": "block"'*) merge_reason="scan_finding" ;;

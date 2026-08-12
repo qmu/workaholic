@@ -18,7 +18,8 @@
 # is not what landed, and a squash or rebase merge makes it not even an ancestor.
 #
 # HOW IT IS RESOLVED, and why the source is reported rather than assumed:
-#   pr_merge_commit — GitHub's own answer (`gh pr view --json mergeCommit`). Correct for
+#   pr_merge_commit — GitHub's own answer (REST `GET .../pulls/{n}` -> `merge_commit_sha`;
+#                     this was `gh pr view --json mergeCommit` until 2026-08-12). Correct for
 #                     every merge strategy, including squash and rebase.
 #   base_tip        — the fetched `origin/<base>` tip, when GitHub did not answer.
 #                     Correct in the ordinary case and the honest name for its assumption.
@@ -69,8 +70,24 @@ if ! command -v gh >/dev/null 2>&1; then
   exit 1
 fi
 
-if ! gh pr merge "$pr_number" --merge --delete-branch=false; then
-  echo '{"merged": false, "error": "merge failed"}' >&2
+# REST, NOT `gh pr merge` (2026-08-12, FB 20260812172522): the subcommand is
+# GraphQL-backed and a Claude Code Web session may serve only the pinned PR-review
+# operations. `merge_method: merge` reproduces `--merge` exactly, and REST never deletes
+# the head branch, which is what `--delete-branch=false` was asking for.
+SCRIPT_DIR=$(cd -- "$(dirname -- "$0")" && pwd)
+GATHER_SCRIPTS="${SCRIPT_DIR}/../../gather/scripts/"
+
+slug=$(sh "${GATHER_SCRIPTS}/gh-rest.sh" slug 2>&1) || {
+  echo '{"merged": false, "reason": "no_remote", "detail": "'"$(printf '%s' "$slug" | tr -d '"\\' | tr '\n' ' ')"'"}' >&2
+  exit 1
+}
+
+if ! merge_out=$(sh "${GATHER_SCRIPTS}/gh-rest.sh" api \
+    "repos/${slug}/pulls/${pr_number}/merge" --method PUT -f merge_method=merge 2>&1); then
+  # The underlying message rides the error rather than being swallowed: a 405 (GitHub
+  # refusing the merge) and a 403 (the transport being restricted) need different
+  # actions from whoever reads this.
+  echo '{"merged": false, "error": "merge failed", "detail": "'"$(printf '%s' "$merge_out" | tr -d '"\\' | tr '\n' ' ' | cut -c1-400)"'"}' >&2
   exit 1
 fi
 
@@ -105,7 +122,11 @@ git fetch origin "$base" --quiet >/dev/null 2>&1 || true
 commit_hash=""
 commit_hash_source=""
 
-resolved=$(gh pr view "$pr_number" --json mergeCommit --jq '.mergeCommit.oid' 2>/dev/null || true)
+# `GET .../pulls/{n}` reading `merge_commit_sha` — the REST equivalent of the
+# `gh pr view --json mergeCommit` this replaces. The documented precedence below is
+# unchanged: the PR's own merge commit first, the base tip only as a fallback.
+resolved=$(sh "${GATHER_SCRIPTS}/gh-rest.sh" api "repos/${slug}/pulls/${pr_number}" \
+  --jq '.merge_commit_sha // empty' 2>/dev/null || true)
 if [ -n "$resolved" ] && [ "$resolved" != "null" ]; then
   commit_hash="$resolved"
   commit_hash_source="pr_merge_commit"

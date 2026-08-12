@@ -30,6 +30,18 @@ oldest-first. Each returned issue is an ask in hand exactly as if the retired tr
 had delivered it: run the full workflow per issue — its own record, its own judgment,
 its own pull request with `Closes #<N>` — one at a time.
 
+The inbox is read through **REST** (`gather/scripts/gh-rest.sh` → `gh api
+repos/{owner}/{repo}/issues`), never through `gh issue list` (2026-08-12, FB
+`20260812172522`). That subcommand is GraphQL-backed, and a Claude Code Web session is
+not guaranteed to serve that surface: measured HTTP 403 "only the pinned set of
+PR-review operations is served" in this repository's own tick, 80 minutes after the same
+path had worked — the capability is a property of the **session**, so a run must degrade
+rather than stop. Two consequences of the REST endpoint are handled deliberately and
+must not be undone: it returns pull requests alongside issues (rows carrying
+`.pull_request` are dropped, or a routine would propose against its own PRs), and it
+paginates where `--limit` truncated (`per_page` carries the cap, so a single page
+reproduces the old ceiling).
+
 Three boundaries keep this from becoming the retired `[Propose Batch]` sweep:
 
 - **It reads the inbound ask channel, never the repository's own state.** Issues are

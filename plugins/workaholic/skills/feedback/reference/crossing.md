@@ -28,10 +28,24 @@ the ask still makes its point, the detail was never load-bearing.
 Masking is compose-then-remove, and removal can be forgotten. The stronger shape is to
 build the ask from the **target** repo's own vocabulary plus synthetic placeholders, so
 there is nothing to remove. Reach for that first; fall back to masking only when the ask
-genuinely cannot be expressed in the target's own terms. The issue title is the
-target's too: no `[Proposal]`/`[Request]` prefix of ours belongs on it. If a masking
-miss is ever observed in practice, treat it as a signal to make the synthetic shape
-mandatory rather than as an isolated mistake.
+genuinely cannot be expressed in the target's own terms. If a masking miss is ever
+observed in practice, treat it as a signal to make the synthetic shape mandatory rather
+than as an isolated mistake.
+
+**The title is the one exception, and it carries an `[FB] ` marker** — reversed on the
+developer's instruction (issue #411, 2026-08-12). The rule that stood here said the
+title was the target's too and that no prefix of ours belonged on it. What settled it
+was not the argument but the measurement: 17 of the 17 issues this repository had
+received through the crossing already carried `[FB]`, against 1 of 9 filed directly by a
+human. Every composing agent had been stamping the marker by hand, so the written rule
+had never once described the shipped behavior; what the reporter observed as "doesn't
+always" was the absence of a guarantee, not a run of misses. `open-issue.sh` now stamps
+it, so the guarantee is real and no agent has to remember it — and the rest of the
+title stays exactly what this section demands, composed in the target's vocabulary. The
+marker is the ask's provenance, which a target running this same loop ingests and a
+target that does not can read as the tag it is. The single implementation of that shape
+is `scripts/fb-title.sh`; it is idempotent, so a composing agent that still writes
+`[FB]` by hand produces the same string as one that does not.
 
 ## Workflow
 
@@ -54,7 +68,13 @@ The command owns every `AskUserQuestion` (one-level fan-out; subagents cannot pr
    states it. Prefix the prompt body with `[<project label>]`
    (`gather/scripts/project-label.sh`; `hooks/guard-askuserquestion-label.sh` blocks
    otherwise) and name **both** repositories — the developer is deciding about a
-   boundary, so both sides must be on screen.
+   boundary, so both sides must be on screen. **Show the title as it will reach the
+   wire**, rendered through the same script step 7 stamps with:
+   ```bash
+   bash ${CLAUDE_PLUGIN_ROOT}/skills/feedback/scripts/fb-title.sh "<title>"
+   ```
+   Confirming one string and sending another is not a verbatim confirmation, and this
+   gate is the crossing's only human one.
 
 5. **Scan it** as an independent second layer:
    ```bash

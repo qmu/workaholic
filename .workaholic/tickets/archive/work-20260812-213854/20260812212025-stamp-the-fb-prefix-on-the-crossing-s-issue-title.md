@@ -5,6 +5,7 @@ assignees: [a@qmu.jp]
 depends_on:
 feedback: [20260812211841-fb-command-does-not-always-prefix-issue-titles-with-fb.md]
 merge_policy:
+claim: work-20260812-213854
 ---
 
 # Stamp the [FB] prefix on the crossing's issue title
@@ -174,3 +175,72 @@ Report — it is not a silent choice.*
 - Step 1's measurement is stated with actual counts, not inferred from this ticket.
 - The whole local verification set in `CLAUDE.md` passes.
 - The release-safety scan reports no `secret` finding.
+
+## Final Report
+
+Development completed as planned.
+
+### The Open Decision, resolved
+
+**Resolved in favor of always stamping**, mechanized in one place. The fork was decided by
+step 1's measurement rather than by the competing arguments, because the measurement showed
+the two sides were not actually in conflict on the ground:
+
+- Of the 26 issues this repository has received, **17 of 17 opened through the crossing**
+  (author `claude[bot]`) already carried `[FB]`. Only **1 of 9** filed directly by a human
+  did.
+- So the written no-prefix rule in `open-issue.sh` and `crossing.md` had **never once**
+  described the shipped behavior: every composing agent stamped the marker by hand. The
+  reporter's "doesn't always" names the absence of a *guarantee*, not a run of observed
+  misses.
+- Mechanizing therefore changes no observable output. It converts a 100%-applied unwritten
+  convention into one that is true by construction, which is exactly what the reporter asked
+  for and the smallest possible change to what the target actually receives.
+
+The third reading (stamp only for targets that run this same loop) was **rejected**: there is
+no reliable way to know whether a target repository runs the loop — no probe exists, and
+inventing one would make an outward-facing contract depend on a guess. The developer also
+asked for "always", not "sometimes".
+
+The vocabulary argument that motivated the old rule was not discarded, only narrowed to what
+it actually governs: the rest of the title is still composed in the target's own words. The
+marker is provenance — a target running this loop ingests it, and a target that does not can
+read it as the tag it is.
+
+### Discovered Insights
+
+- **Insight**: The crossing's human gate constrains where the stamp may live. The
+  confirmation is the only human control on the whole crossing and it is specified as
+  *verbatim*; a title confirmed in one form and rewritten by the sender would silently break
+  that property. This is why the shape lives in its own `fb-title.sh` rather than inline in
+  `open-issue.sh` — one implementation, two callers (the confirmation renders through it, the
+  sender stamps with it), so "exactly one place" and "the developer saw the wire string" hold
+  at once.
+  **Context**: Any future change to what the crossing sends has the same shape of constraint:
+  if it alters the bytes, it must alter them before the confirmation, not after.
+
+- **Insight**: Idempotence here is a certainty, not a precaution. Because the convention was
+  applied by hand for its entire life (17/17), a composing agent writing `[FB]` itself is the
+  *common* case — a naive prepend would have shipped `[FB] [FB] …` on the very first
+  invocation, not on some rare edge.
+  **Context**: The same reasoning applies to mechanizing any other hand-applied convention in
+  this repository: measure how often humans/agents already do it before choosing between
+  "prepend" and "normalize".
+
+- **Insight**: Four places describing the originating issue as `"[FB] ***"`
+  (`publish-tree-pr.sh`, `extract-issue-number.sh`, `propose/SKILL.md`,
+  `docs/loop-engineering-workflow.md` Q2) were documenting an assumption that the written
+  rules contradicted. They needed no edit — the change makes them true rather than merely
+  lucky. `extract-issue-number.sh` keys on the issue *number*, never the title, so nothing
+  ever depended on it.
+  **Context**: The inconsistency was a correctness-of-the-record problem, which is why closing
+  it was worth doing whichever way the fork resolved.
+
+- **Insight**: `/propose`'s *No title filter* boundary was justified by the no-prefix rule, so
+  reversing that rule invalidated the stated reason while leaving the behavior correct. The
+  replacement reason is about the **inbound** mix, not our outbound shape: issues arrive from
+  humans and other tools that will never carry a prefix (measured: 1 of 9), so a title filter
+  would still drop exactly the asks the loop exists to ingest — and the crossing was never the
+  only sender.
+  **Context**: A boundary whose rationale is a *different* decision is fragile; re-anchoring it
+  on a property of its own inputs makes it stable against changes elsewhere.

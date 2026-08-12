@@ -101,8 +101,8 @@ to act on.
 | propose | `feedback_record` | a record under `.workaholic/feedbacks/` on `origin/main` names `/issues/<N>` |
 | propose | `issue_closed` | the merged proposal's `Closes #<N>` closed the ask |
 | propose | `proposal_pr_merged` | a pull request carrying `Closes #<N>` exists **and merged** |
-| propose | `ticket_feedback_ref` | a ticket names that record's stem |
-| propose | `ticket_assignee` | the ticket carries the issue's assignee, not the runner's identity |
+| propose | `ticket_feedback_ref` | a ticket reaches that record — **directly** (a loose ticket naming the stem) or **through the mission** (`mission.feedback` names the record, a ticket carries `mission: <slug>`); the detail says which. `null`/advisory when the proposal was record-alone; **false** when a mission names the record but no ticket carries its relation |
+| propose | `ticket_assignee` | the ticket carries the issue's assignee, not the runner's identity — **either spelling**: the GitHub login, or the git email `.claude/git-identities` maps it to, which is what the propose seam actually writes |
 | implement | `ticket_archived` | the ticket moved to `tickets/archive/<branch>/` |
 | implement | `story_exists` | a story under `.workaholic/stories/` names the unit |
 | implement | `unit_pr_merged` | the unit's pull request merged |
@@ -110,6 +110,12 @@ to act on.
 
 `claim_released` is narrow on purpose: a colleague's live claim is named in the row's
 detail and never fails it, because a red an operator cannot act on is worse than no check.
+
+**One advisory row on the propose stage**: `proposal_form` names which of the three
+sanctioned shapes the proposal emitted — `loose ticket`, `mission <slug>`, or `record
+alone`. It is deliberately **not** load-bearing: the drill can see which form was emitted,
+never which form the ask warranted, and a row that graded that choice would fail every
+correctly-record-alone proposal. Read it to understand a stage, never to judge one.
 
 ## 4. Blame table — the `[Propose]` stage
 

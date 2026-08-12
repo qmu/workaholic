@@ -124,3 +124,54 @@ immutable and version-addressed, so it cannot move under a run. The checkout is 
   superseded binding this resolver already exists for, and as `sync-main.sh` §5. This ticket
   does not touch §5 — that mechanism worked as designed once the current copy was the one
   running.
+
+## Final Report
+
+Development completed as planned. The defect was reproduced before the fix, in a throwaway
+repository with a checkout and a version-addressed cache at the same version: `plugin-src.sh`
+resolved `source: checkout`, and re-reading the same `src` path after the tree moved returned
+different content (`echo CURRENT` → `echo STALE`) while the run still reported version 1.0.5.
+The same probe after the fix resolves the cache path and reads byte-identical content across
+the move.
+
+The resolution is the second tie-break axis the ticket specified — **newest version wins; an
+equal version goes to the immutable candidate** — plus `src_immutable` and a per-candidate
+`immutable` so a caller reads the property instead of re-deriving it. Immutability is read off
+the path, not off the source name: a candidate is immutable when it is **version-addressed**
+(its own basename is the version it carries, the cache layout
+`<cache>/workaholic/workaholic/<version>/`). That test is env-free and correctly calls a
+checkout, a clone, and a binding pointing at either mutable — including the case a source-kind
+rule would get wrong, a developer who bound `${CLAUDE_PLUGIN_ROOT}` to a working tree.
+
+Two deviations from the steps as written, both recorded rather than silently taken:
+
+- **Step 4** asked for the ordering statement in the two command markdowns. Those commands are
+  now thin aliases that carry no step 0/0b tables at all (the resolve-then-freshen ordering
+  lives in `drive/SKILL.md` §1), so adding it there would have contradicted *thin commands,
+  comprehensive skills*. Taken as the step's own stated preference: stated once in
+  `check-deps/SKILL.md` and pointed at from `drive/SKILL.md` §1, which is the text both
+  commands delegate to.
+- The ticket's `## Policies` cites `workaholic:operation` / `policies/observability.md`, which
+  does not exist — the operation pillar ships `ai-production-investigation.md`, `ci-cd.md`, and
+  `no-customer-support-in-repo.md`. The intent (a run must not report a plugin version other
+  than the one whose code it executed) is answered by `src_immutable` and by the run report
+  recording it; no policy file was invented to match the citation.
+
+### Discovered Insights
+
+- **Insight**: This ticket's own defect fired on the run that implemented it, and the recovery
+  path was the one the ticket predicted. The tick started on a harness branch at `origin/main`
+  with a *shallow* clone whose local `main` was the image's stale baked tip; `sync-main.sh`
+  answered `not_on_main`, then `diverged`/`both_diverged` after switching to `main`.
+  **Context**: The shallow clone is what made the divergence unreadable — `git merge-base` was
+  empty, so the two histories looked unrelated rather than 456 apart. `git fetch --unshallow`
+  turned it into a plain fast-forward with 0 local-only commits, and the reflog (`branch:
+  Created from refs/remotes/origin/main`, one entry) is what proved nothing local was at risk.
+  A future run meeting `diverged` on a cloud container should check `--is-shallow-repository`
+  and the reflog before reading it as a human's decision to preserve.
+
+- **Insight**: The equal-version tie is the *normal* state on a cloud tick, not an edge case.
+  **Context**: The bootstrap installs the same version into the registry cache that the
+  checkout carries, so nearly every tick hits the tie and — before this change — took the
+  mutable side of it. The window is only as long as step 0 → step 0b, but that is exactly the
+  span containing `sync-main.sh`, the one step whose job is to move the tree.

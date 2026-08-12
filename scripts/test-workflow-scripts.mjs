@@ -101,6 +101,7 @@ const SCRIPTS = {
   guardWorkingDir: join(REPO_ROOT, "plugins/workaholic/hooks/guard-working-directory.sh"),
   auditClaudeMd: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/audit-claude-md.sh"),
   checkDeps: join(REPO_ROOT, "plugins/workaholic/skills/check-deps/scripts/check.sh"),
+  pluginSrc: join(REPO_ROOT, "plugins/workaholic/skills/check-deps/scripts/plugin-src.sh"),
   ensureWorktree: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/ensure-worktree.sh"),
   checkSubject: join(REPO_ROOT, "plugins/workaholic/hooks/lib/check-subject.sh"),
   commitMsgHook: join(REPO_ROOT, "plugins/workaholic/hooks/git/commit-msg"),
@@ -8521,6 +8522,96 @@ async function testPluginRootPathVsRead() {
 // deletes neither — and the old build's survey then answers wrongly with full
 // confidence. Both operands here are environment facts (the harness's binding, the
 // harness's registry) precisely so the verdict survives the plugin's own age.
+// ---------- check-deps/plugin-src.sh: which tree the run executes ----------
+// THE MEASURED DEFECT (2026-08-12T22:24Z). The resolver runs at the TOP of the run and the
+// freshen (`sync-main.sh`) runs after it, so the tree behind a resolved `src` can move — and
+// did: a cloud tick resolved the checkout on a version tie, then reached a surveyable state by
+// checking out the container image's stale baked `main`, and every subsequent script path
+// silently reverted 200 commits, to a `sync-main.sh` that answers `diverged` (which the caller
+// reads as terminate `pending`). The run would have been lost to the very failure the newer
+// code prevents, while reporting a version that was not the code it ran. The fix is a second
+// tie-break axis: on an EQUAL version prefer the immutable, version-addressed candidate.
+function testPluginSrcTieBreak() {
+  let hasJq = true;
+  try { execSync("command -v jq", { stdio: "ignore" }); } catch { hasJq = false; }
+  if (!hasJq) { console.log("  skip  check-deps/plugin-src.sh tie-break (jq not available)"); return; }
+
+  const dir = mkdtempSync(join(tmpdir(), "workaholic-plugin-src-"));
+  try {
+    // A checkout with TWO tree states, so the freshen has something to move it to.
+    const repo = join(dir, "repo");
+    const checkout = join(repo, "plugins/workaholic");
+    mkdirSync(join(checkout, ".claude-plugin"), { recursive: true });
+    mkdirSync(join(checkout, "skills"), { recursive: true });
+    const setCheckoutVersion = (v) =>
+      writeFileSync(join(checkout, ".claude-plugin/plugin.json"), JSON.stringify({ name: "workaholic", version: v }));
+    execSync("git -c init.defaultBranch=main init -q", { cwd: repo });
+    execSync("git config user.email test@example.com && git config user.name Test && git config commit.gpgsign false", { cwd: repo });
+    setCheckoutVersion("1.0.5");
+    writeFileSync(join(checkout, "skills/marker.sh"), "echo STALE\n");
+    execSync("git add -A && git commit -q -m stale", { cwd: repo });
+    const staleSha = execSync("git rev-parse HEAD", { cwd: repo, encoding: "utf8" }).trim();
+    writeFileSync(join(checkout, "skills/marker.sh"), "echo CURRENT\n");
+    execSync("git add -A && git commit -q -m current", { cwd: repo });
+
+    // The registry cache: version-addressed, exactly as `plugin update` unpacks it.
+    const cachePrefix = join(dir, "cache");
+    const cacheRoot = join(cachePrefix, "workaholic/workaholic/1.0.5");
+    mkdirSync(join(cacheRoot, ".claude-plugin"), { recursive: true });
+    mkdirSync(join(cacheRoot, "skills"), { recursive: true });
+    writeFileSync(join(cacheRoot, ".claude-plugin/plugin.json"), JSON.stringify({ name: "workaholic", version: "1.0.5" }));
+    writeFileSync(join(cacheRoot, "skills/marker.sh"), "echo CACHE\n");
+    const registry = join(dir, "installed_plugins.json");
+    writeFileSync(registry, JSON.stringify({
+      version: 2,
+      plugins: { "workaholic@workaholic": [{ scope: "user", installPath: cacheRoot, version: "1.0.5" }] },
+    }));
+
+    // HOME is redirected so the default registry path and the ~/.workaholic-src clone
+    // candidate cannot leak the developer's real machine into the fixture.
+    const home = join(dir, "home");
+    mkdirSync(home, { recursive: true });
+    const resolve_ = () => JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.pluginSrc}`, {
+      env: {
+        ...process.env, HOME: home, CLAUDE_PROJECT_DIR: repo, CLAUDE_PLUGIN_REGISTRY: registry,
+        CLAUDE_PLUGIN_ROOT: "", CLAUDE_PLUGIN_CACHE: cachePrefix,
+      },
+    }).stdout);
+
+    // GATE 1 — the tie goes to the immutable candidate, and it says so in one field.
+    let r = resolve_();
+    assertEq("an equal version resolves to the immutable registry cache",
+      { src: r.src, source: r.source, version: r.version, immutable: r.src_immutable },
+      { src: cacheRoot, source: "registry", version: "1.0.5", immutable: true });
+
+    // GATE 2 — every candidate carries the property, so a caller never re-derives it.
+    assertEq("candidates[] carries immutable for every candidate",
+      r.candidates.map((c) => [c.source, c.immutable]),
+      [["checkout", false], ["registry", true]]);
+
+    // GATE 3 — the point of the whole change: the resolved source survives the freshen.
+    const before = readFileSync(join(r.src, "skills/marker.sh"), "utf8");
+    execSync(`git checkout -q ${staleSha}`, { cwd: repo });   // what sync-main.sh did to the tick
+    assertEq("the resolved src is byte-identical after the tree moves under the run",
+      readFileSync(join(r.src, "skills/marker.sh"), "utf8"), before);
+
+    // GATE 4 — the version axis is UNTOUCHED. A strictly newer checkout must still win, or
+    // this repository could no longer develop its own plugin and run the result.
+    execSync("git checkout -q main", { cwd: repo });
+    setCheckoutVersion("1.0.9");
+    r = resolve_();
+    assertEq("a strictly newer checkout still wins over an immutable older cache",
+      { source: r.source, version: r.version, immutable: r.src_immutable },
+      { source: "checkout", version: "1.0.9", immutable: false });
+
+    // And the reverse: a newer CACHE beats the checkout on version alone, as it always did.
+    setCheckoutVersion("1.0.1");
+    r = resolve_();
+    assertEq("a newer cache still wins on the version axis",
+      { source: r.source, version: r.version }, { source: "registry", version: "1.0.5" });
+  } finally { cleanup(dir); }
+}
+
 function testCheckDepsRegistryDrift() {
   let hasJq = true;
   try { execSync("command -v jq", { stdio: "ignore" }); } catch { hasJq = false; }
@@ -12256,6 +12347,7 @@ const tests = [
   ["build: a plugin-root PATH is a defect, a bare read is not", testPluginRootPathVsRead],
   ["check-deps/check.sh", testCheckDeps],
   ["check-deps: a superseded plugin binding is a stop, not a warning", testCheckDepsRegistryDrift],
+  ["check-deps/plugin-src.sh: an equal version goes to the immutable tree", testPluginSrcTieBreak],
   ["check-deps: an unbound plugin in a genuine session is a stop", testCheckDepsUnboundSession],
   ["catch/scan-window.sh buckets+branches", testScanWindowBuckets],
   ["branching/ensure-worktree.sh", testEnsureWorktreeGuard],

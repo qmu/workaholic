@@ -5,6 +5,7 @@ assignees: [a@qmu.jp]
 depends_on:
 feedback: [20260812215702-record-loop-drill-run-20260812-215314-in-the-drill-log.md]
 merge_policy:
+claim: work-20260812-220214
 ---
 
 # Record loop-drill run 20260812-215314 in the drill log

@@ -6866,6 +6866,70 @@ function testScanWindow() {
   } finally { cleanup(dir); }
 }
 
+// ---------- catch/scan-window.sh (a corpus past the argv ceiling) ----------
+// Linux caps a SINGLE argv entry at MAX_ARG_STRLEN (32 pages = 131,072 bytes),
+// independently of the much larger total ARG_MAX. The MISSIONS assembly used to pass
+// the whole serialized tickets array as one `--argjson` value, so once the corpus
+// crossed that ceiling `jq` aborted with `Argument list too long` and the script exited
+// non-zero emitting NOTHING — /catch had no report to render, permanently, on exactly
+// the mature repositories it is most useful for (qmu/workaholic#387; reproduced here at
+// 900 ticket files ≈ 218 KB serialized).
+//
+// The fixture is GENERATED, never committed, and sized from the measured limit rather
+// than a file-count guess: it keeps working as the real corpus grows because it does not
+// read `.workaholic/` at all.
+function testScanWindowOversizedCorpus() {
+  let hasJq = true;
+  try { execSync("command -v jq", { stdio: "ignore" }); } catch { hasJq = false; }
+  if (!hasJq) { console.log("  skip  scan-window oversized corpus (jq not available)"); return; }
+  const dir = makeRepo("main");
+  try {
+    const slug = "big-corpus";
+    const mdir = join(dir, `.workaholic/missions/active/${slug}`);
+    mkdirSync(mdir, { recursive: true });
+    writeFileSync(join(mdir, "mission.md"),
+      `---\ntype: Mission\nslug: ${slug}\nstatus: active\n---\n\n# Big corpus\n\n## Acceptance\n\n- [ ] a\n\n## Changelog\n\n- 2026-08-12 — ticket archived — x.md\n`);
+
+    // Grow the corpus until the serialized tickets array is past MAX_ARG_STRLEN, so the
+    // fixture is defined by the limit it must cross and not by a magic file count.
+    const MAX_ARG_STRLEN = 32 * 4096;
+    const todoDir = join(dir, ".workaholic/tickets/todo");
+    mkdirSync(todoDir, { recursive: true });
+    let serialized = 0, n = 0;
+    while (serialized < MAX_ARG_STRLEN * 1.5) {
+      const name = `2026081200${String(n).padStart(4, "0")}-a-synthetic-ticket-with-a-reasonably-long-slug-${n}.md`;
+      writeFileSync(join(todoDir, name),
+        `---\ncreated_at: 2026-08-12T00:00:00+00:00\nauthor: test@example.com\nmission: ${slug}\n---\n\n# A synthetic ticket with a reasonably long title number ${n}\n`);
+      // Mirrors the record scan-window builds per ticket: path, author, title, scope,
+      // mission[], commit_hash.
+      serialized += JSON.stringify({
+        path: `.workaholic/tickets/todo/${name}`, author: "test@example.com",
+        title: `A synthetic ticket with a reasonably long title number ${n}`,
+        scope: "todo", mission: [slug], commit_hash: "",
+      }).length + 1;
+      n += 1;
+    }
+    assertTrue("the fixture really does cross the single-argument ceiling",
+      serialized > MAX_ARG_STRLEN, `serialized ${serialized} vs ${MAX_ARG_STRLEN}`);
+
+    const r = run(dir, `${POSIX_SH} ${SCRIPTS.scanWindow} "2 weeks ago"`);
+    assertEq("scan-window completes on a corpus past the argv ceiling", r.status, 0);
+    let j = null;
+    try { j = JSON.parse(r.stdout); } catch { /* leave null */ }
+    assertTrue("and emits its full JSON envelope rather than nothing",
+      j !== null, (r.stderr || r.stdout).slice(0, 240));
+    assertEq("the envelope still carries every top-level key",
+      Object.keys(j || {}).sort(),
+      ["buckets", "deployments", "developers", "fetch_ok", "missions", "stories", "tickets", "window"]);
+    assertEq("every ticket is present", (j?.tickets || []).length, n);
+    // The mission join is the stage that aborted, so assert it actually computed.
+    assertEq("the mission join ran over the whole corpus",
+      (j?.missions || [])[0]?.in_flight?.length, n);
+    assertEq("and its window_events survived the transport change",
+      (j?.missions || [])[0]?.window_events?.length, 1);
+  } finally { cleanup(dir); }
+}
+
 // ---------- catch/scan-window.sh (remote fetch + remote-branch scan) ----------
 // /catch fetches before scanning and scans --branches --remotes so teammates'
 // pushed-but-unpulled work is visible. Two hermetic scenarios (bare local remote,
@@ -11924,6 +11988,7 @@ const tests = [
   ["catch/scan-window.sh deploy attribution + fetch bound", testScanWindowDeployAttribution],
   ["catch/scan-window.sh fetch bound", testScanWindowFetchBound],
   ["catch/scan-window.sh mission join", testScanWindowMissions],
+  ["catch/scan-window.sh oversized corpus", testScanWindowOversizedCorpus],
   ["hooks/guard-git-commit.sh", testGuardGitCommit],
   ["hooks/guard-git-branch.sh", testGuardGitBranch],
   ["hooks/guard-repo-confinement.sh", testGuardRepoConfinement],

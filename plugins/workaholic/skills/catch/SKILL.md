@@ -15,7 +15,7 @@ metadata:
 
 # Catch
 
-Generate a by-developer catch-up report over a recent time window (default: the last two weeks), then answer follow-up questions. `/catch` reads tickets, branch stories, docs, and commit messages: it writes **no files and makes no commits** — the one write is a best-effort `git fetch` at the start of the scan, which updates only remote-tracking refs (`refs/remotes/*`), never the working tree, the index, or any project file. Per-field scanner schema, the collector output example, and the exact report template live in [reference/rendering.md](reference/rendering.md).
+Generate a by-developer catch-up report over a recent time window (default: the last two weeks), then answer follow-up questions. `/catch` reads tickets, branch stories, docs, and commit messages: it writes **no project files and makes no commits** — the one repository write is a best-effort `git fetch` at the start of the scan, which updates only remote-tracking refs (`refs/remotes/*`), never the working tree, the index, or any project file. The scan also stages two values in a private `mktemp -d` it removes on every exit path: the mission list and the tickets array are handed to `jq` **by file, never as an argument**, because Linux caps one argv entry at 128 KiB and a mature ticket corpus crosses that on its own — passing them inline aborted the whole scan with `jq: Argument list too long` and emitted nothing at all. Per-field scanner schema, the collector output example, and the exact report template live in [reference/rendering.md](reference/rendering.md).
 
 ## Agent Compatibility
 

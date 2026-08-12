@@ -101,3 +101,39 @@ under `.workaholic/` (feedback records are immutable history).
 - Slack access today: the `/slack-me` mount posts to `dev-workaholic`
   (measured 2026-08-12); the team-bot mount cannot see the private channel. The
   script should name the mount in one variable so a rebind is a one-line change.
+
+## Final Report
+
+Development completed as planned. `scripts/e2e/loop-drill.sh` ships with `seed`,
+`status` and `reset`; every outcome is one JSON line, and the blockers
+(`inbox_dirty`, `claim_dirty`, `identity_unresolved`, `gh_unavailable`,
+`list_failed`, `issue_failed`) carry distinct non-zero exit codes (3 = dirty
+precondition, 4 = the environment could not answer). Two hermetic cases join
+`scripts/test-workflow-scripts.mjs` with stub `gh`/`qfs` shims on PATH.
+
+The live `seed` → `status` → `reset` cycle named in the verification method is
+**deferred to the operator**: it mints a real GitHub issue, which fires the
+`[Propose]` routine on the next tick, and the base currently carries this run's own
+claim — which the preflight correctly refuses. The refusals are what the hermetic
+cases pin, and they are the half a live cycle cannot rehearse safely.
+
+### Discovered Insights
+
+- **Insight**: `seed`'s inbox preflight makes the drill self-serializing — a second
+  seed over an unfinished pass is refused, because the first drill issue is still
+  open and assigned.
+  **Context**: the pass is finished by the merged proposal's `Closes #<N>`, not by
+  the drill. So "re-runnable" means *after* a clean pass, and the first hermetic
+  test asserted the wrong model until the script refused it. Residue deletion is
+  never the path to re-runnability; fresh minting is.
+- **Insight**: a helper that reports a blocker must never be called from inside
+  `$(...)`.
+  **Context**: `x="$(helper)"` swallows the helper's JSON into `x` and its `exit`
+  kills only the subshell, so the caller dies with a bare status and nothing on
+  stdout — the exact silent-failure shape the drill exists to detect. Every fallible
+  call in this script is an `if ! x="$(...)"` in the current shell.
+- **Insight**: `[ cond ] && var=value` under `set -eu` exits the script when the
+  condition is false.
+  **Context**: the AND-list's own non-zero status triggers `-e` when the list is the
+  last command in the body. Two accumulator updates were written that way and had to
+  become `if` blocks.

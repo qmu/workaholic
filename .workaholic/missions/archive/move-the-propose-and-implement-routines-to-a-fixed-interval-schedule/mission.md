@@ -2,7 +2,7 @@
 type: Mission
 title: Move the Propose and Implement routines to a fixed-interval schedule
 slug: move-the-propose-and-implement-routines-to-a-fixed-interval-schedule
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-10T08:52:42+00:00
 author: a@qmu.jp
@@ -52,3 +52,4 @@ reaction, is what produces the loop's feedback.
 - 2026-08-10 — ticket archived — 20260810085351-revive-set-routines-to-provision-the-routines-fixed-interval-trigger.md
 - 2026-08-10 — story reported — work-20260810-090432.md
 - 2026-08-10 — run recorded (+0.5h) — implement-work-20260810-090432
+- 2026-08-12 — mission achieved — mission.md

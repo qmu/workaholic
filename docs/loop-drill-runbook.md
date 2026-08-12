@@ -221,3 +221,4 @@ whoever ran the pass, at the end of it, using the run id `seed` minted.
 | Run id | Date | Issue | Outcome |
 | ------ | ---- | ----- | ------- |
 | `20260812-215314` | 2026-08-12 | [#419](https://github.com/qmu/workaholic/issues/419) | exercised the propose–implement loop end to end |
+| `20260812-221056` | 2026-08-12 | [#423](https://github.com/qmu/workaholic/issues/423) | exercised the propose–implement loop end to end |

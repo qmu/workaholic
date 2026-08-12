@@ -3047,6 +3047,23 @@ function testReleaseScanSecretLiteralVsReference() {
     let sec = scan("work-20260714-000020", { "app.ts": refs });
     assertEq("env reads / variable refs / placeholders are not credentials", sec.length, 0);
 
+    // HCL reference forms (qmu/workaholic#378): the documented Terraform wiring for a
+    // provider credential is an unquoted var./local./data./module. reference, which ends
+    // the line and used to read as shape (b) — a hard, non-overridable block on good code.
+    const hclRefs = [
+      "  api_token = var.cloudflare_api_token",
+      "  password  = local.db_password",
+      "  secret    = data.aws_secretsmanager_secret_version.db.secret_string",
+      "  api_key   = module.vault.api_key_output",
+    ].join("\n") + "\n";
+    assertEq("HCL var./local./data./module. references are not credentials",
+      scan("hcl-refs", { "main.tf": hclRefs }).length, 0);
+
+    // ...and a literal HCL credential still flags — the subtraction requires the value to
+    // BEGIN with the reference prefix, so a quoted literal is untouched by it.
+    assertEq("a literal HCL credential still flags",
+      scan("hcl-literal", { "main.tf": '  api_token = "hunter2value"\n' }).length, 1);
+
     // Literal forms — these must still be caught, or the fix would gut the gate.
     sec = scan("work-20260714-000021", {
       "a.env": "TOKEN=supersecretvalue123\n",

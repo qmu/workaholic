@@ -60,5 +60,3 @@ Run `/propose`. If it finds an ask in hand, find its reply thread (the workaholi
 🔵 Proposed - [#123 [Proposal] PR Title]({repo}/pull/123)
 by the [routine](https://claude.ai/code/session_***) of <@U…>
 ```
-
-The schedule is hourly (`15 * * * *`): the routine API's minimum interval is one hour — `0,30 * * * *` is rejected (`cron interval too short`, measured 2026-08-10) — and a bare `:00` minute is rewritten to a server-chosen jitter minute, so an explicit non-zero minute is what actually sticks. `[Propose]` at :15 and `[Implement]` at :30 keep a merged proposal waiting at most the gap between them.

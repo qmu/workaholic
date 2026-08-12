@@ -5,6 +5,7 @@ assignees: [a@qmu.jp]
 depends_on:
 feedback:
 merge_policy:
+claim: work-20260812-223743
 ---
 
 # Pin the plugin source across the freshen step

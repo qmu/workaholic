@@ -100,12 +100,35 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/check-deps/scripts/plugin-src.sh [--clone] [--
 
 Returns the **newest plugin tree present on this machine** and the run executes every script
 from it: `{"ok": true, "src": …, "source": "checkout|registry|clone|bound", "version": …,
-"degraded": …, "bound_version": …, "candidates": […]}`. Order of preference is by version, ties
-going to the **checkout** (`<project>/plugins/workaholic`, the tip by construction after
-`sync-main.sh`), then the newest **registry** `installPath` (already downloaded — no network),
-then a **clone** at `$WORKAHOLIC_SRC_HOME` (created only with `--clone`), then the **bound**
-`${CLAUDE_PLUGIN_ROOT}`. Picking the newest can only move a run forward on the staleness axis,
-which is what makes the demoted gate above safe.
+"src_immutable": …, "degraded": …, "bound_version": …, "candidates": [{…, "immutable": …}]}`.
+The candidates are the **checkout** (`<project>/plugins/workaholic`), the newest **registry**
+`installPath` (already downloaded — no network), a **clone** at `$WORKAHOLIC_SRC_HOME` (created
+only with `--clone`), and the **bound** `${CLAUDE_PLUGIN_ROOT}`. Picking the newest can only move
+a run forward on the staleness axis, which is what makes the demoted gate above safe.
+
+**Two axes decide, in order: version, then stability.** Highest version wins outright — a
+genuinely newer checkout still executes, which is what lets this repository develop its own
+plugin and run the result. On an **equal** version the **immutable** candidate wins, because a
+tie on version is not a tie on stability.
+
+**`src_immutable` is the field to read, not a convention to remember.** A candidate is immutable
+when its path is **version-addressed** — its own basename is the version it carries, the cache
+layout `<cache>/workaholic/workaholic/<version>/` — so a different version unpacks to a different
+directory and nothing can change the content behind a path already resolved. A checkout, a clone,
+and a binding pointing at either are working trees, and are mutable by that same test.
+`candidates[].immutable` reports it per candidate.
+
+**Ordering rule for callers — the resolution must outlive every tree-moving step in the run.**
+The source is resolved at the top of a run (`/drive` §1) and the freshen (`sync-main.sh`) runs
+*after* it, so a mutable `src` can change — including backwards — while the run is already
+executing from it. A caller therefore either resolves a source with `src_immutable: true`, or
+**re-resolves after the tree-moving step**; preferring the immutable path on a tie makes the
+first case the default and costs the caller nothing. Measured 2026-08-12T22:24Z: a cloud tick
+resolved the checkout at a version tie, then reached a surveyable state by checking out the
+container image's stale baked `main`, and the plugin source silently reverted 200 commits with
+it — to a `sync-main.sh` that answered `diverged`, which the caller reads as terminate
+`pending`. The tick would have been lost to the very failure the newer code prevents, while
+reporting a version that was not the code it ran.
 
 The harness binding is therefore an input, never a precondition: `unbound_in_claude_session` and
 `loaded_version_behind_registry` both become source-selection facts to report. `ok: false`

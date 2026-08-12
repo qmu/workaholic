@@ -13,24 +13,50 @@
 # the harness binding is not something the loop may depend on. A current copy of the plugin is
 # present on the VM in every one of these failures; the run must find it and use it.
 #
-# THE RULE: pick the NEWEST source available, ties going to the checkout. That is what makes
-# this safe rather than merely permissive -- the gate it replaces existed to stop a run from
-# executing *stale* scripts (a stale `claims.sh` once called five already-driven tickets fresh
-# backlog and claimed one, 2026-08-04), and choosing the newest tree can only move a run
-# forward on that axis, never back. Preferring the checkout on a tie keeps the source the
-# developer can actually inspect and edit.
+# THE RULE: pick the NEWEST source available; on an EQUAL version, pick the IMMUTABLE one.
+# Newest-wins is what makes this safe rather than merely permissive -- the gate it replaces
+# existed to stop a run from executing *stale* scripts (a stale `claims.sh` once called five
+# already-driven tickets fresh backlog and claimed one, 2026-08-04), and choosing the newest
+# tree can only move a run forward on that axis, never back.
 #
-# Sources, in tie-break order:
-#   checkout - <project>/plugins/workaholic. This repository IS the plugin; after the run's own
-#              sync-main.sh it is the tip by construction. Absent in a consuming repository.
+# WHY STABILITY BREAKS THE TIE, AND NOT THE CHECKOUT. A tie on version is not a tie on
+# stability. The resolution happens at the TOP of the run (`/drive` §1) and the freshen
+# (`sync-main.sh`) runs *after* it, so a mutable source can change -- including backwards --
+# while the run is already executing from it. Measured 2026-08-12T22:24Z: a cloud tick started
+# on a harness branch whose tip was `origin/main`, so the checkout candidate won the tie at
+# 1.0.172; reaching a surveyable state then checked out the container image's stale baked
+# `main` (200 commits behind, its tip on no remote branch), and the plugin source silently
+# reverted with it to a `sync-main.sh` predating its own realignment. That older copy answered
+# `diverged`, which the caller reads as *terminate `pending`* -- the tick would have been lost
+# to the very failure the newer code was written to prevent, while reporting a version (1.0.172)
+# that was not the code it ran. A version-addressed cache directory cannot move like that, so
+# on an equal version it is the candidate that will still be the same code at §7.
+#
+# Sources, in declared order (consulted in this order; version, then immutability, decide):
+#   checkout - <project>/plugins/workaholic. This repository IS the plugin, and a genuinely
+#              NEWER checkout still wins -- that is what lets this repository develop its own
+#              plugin and run the result. MUTABLE: it is a git working tree, and the run's own
+#              freshen moves it. Absent in a consuming repository.
 #   registry - the installPath of the newest entry in the harness's installed_plugins.json.
 #              Requires no network: the cloud bootstrap has already downloaded it (that is what
 #              makes the binding "behind" in the first place), it just is not what got bound.
+#              IMMUTABLE: the cache stores one version-addressed directory per version.
 #   clone    - $WORKAHOLIC_SRC_HOME (default ~/.workaholic-src), a plain git clone this script
 #              creates only when asked (--clone) and refreshes only when asked (--refresh).
 #              This is the consuming-repository path when the harness knows nothing usable.
+#              MUTABLE: --refresh pulls it.
 #   bound    - ${CLAUDE_PLUGIN_ROOT}, or this script's own location inside the plugin cache.
-#              Still the answer whenever it is the newest thing present.
+#              Still the answer whenever it is the newest thing present. Immutable when it
+#              points into the cache, mutable when a developer bound a checkout.
+#
+# IMMUTABILITY IS READ OFF THE PATH, not off the source name: a candidate is immutable when it
+# is VERSION-ADDRESSED -- its own directory basename is the version it carries, the harness
+# cache layout (<cache>/workaholic/workaholic/<version>/). A different version unpacks to a
+# different directory, so nothing can change the content behind a path already resolved. A
+# checkout, a clone, and a binding that points at either all carry the plugin at a basename of
+# `workaholic`, and are mutable by that same test. Callers read `src_immutable` rather than
+# re-deriving this, and a caller whose source must survive a tree-moving step either requires
+# `src_immutable: true` or re-resolves after that step.
 #
 # WHAT THIS DOES NOT REPAIR, AND MUST NOT CLAIM TO. Hooks and the Skill/Command tool bindings
 # come from whatever the harness bound; nothing here changes them mid-session. A run degraded
@@ -42,8 +68,9 @@
 #
 # Output (single JSON line, always exit 0 unless no source exists at all):
 #   {"ok":true,"src":"<abs path>","source":"checkout|registry|clone|bound","version":"…",
-#    "degraded":true|false,"bound_root":"…","bound_version":"…","registry_version":"…",
-#    "candidates":[{"source":"…","version":"…","path":"…"}]}
+#    "src_immutable":true|false,"degraded":true|false,"bound_root":"…","bound_version":"…",
+#    "registry_version":"…","candidates":[{"source":"…","version":"…","path":"…",
+#    "immutable":true|false}]}
 set -eu
 
 usage() {
@@ -85,6 +112,15 @@ tree_version() {
 
 abspath() {
   ( cd "$1" 2>/dev/null && pwd ) || printf ''
+}
+
+# Version-addressed means immutable: a path whose own basename IS the version it carries cannot
+# be updated in place to a different version -- the next version unpacks beside it. Everything
+# else (a checkout, a clone, a binding pointing at either) is a working tree that the run's own
+# freshen can move under it. See the header's tie-break rationale.
+is_immutable() {
+  # $1 = path, $2 = version. Prints `true` or `false`.
+  if [ "$(basename -- "$1")" = "$2" ]; then printf 'true'; else printf 'false'; fi
 }
 
 # --- candidate: checkout -------------------------------------------------------------------
@@ -164,23 +200,32 @@ if [ -n "$bound_root" ]; then
 fi
 
 # --- choose ---------------------------------------------------------------------------------
-# Highest version wins; equal versions fall to the declared order (checkout, registry, clone,
-# bound). `sort -V` is the same comparator check.sh uses for the behind/ahead decision, so the
-# two scripts can never disagree about which of two versions is newer.
+# Highest version wins; on an EQUAL version an immutable candidate beats a mutable one; a tie on
+# both falls to the declared order (checkout, registry, clone, bound). `sort -V` is the same
+# comparator check.sh uses for the behind/ahead decision, so the two scripts can never disagree
+# about which of two versions is newer.
 chosen_source=""
 chosen_path=""
 chosen_version=""
+chosen_immutable=""
 consider() {
   # $1 = source name, $2 = path, $3 = version
   [ -n "$2" ] || return 0
   [ -n "$3" ] || return 0
+  cand_immutable=$(is_immutable "$2" "$3")
   if [ -z "$chosen_version" ]; then
-    chosen_source="$1"; chosen_path="$2"; chosen_version="$3"
+    chosen_source="$1"; chosen_path="$2"; chosen_version="$3"; chosen_immutable="$cand_immutable"
     return 0
   fi
   newer=$(printf '%s\n%s\n' "$chosen_version" "$3" | sort -V 2>/dev/null | tail -n 1)
   if [ "$newer" = "$3" ] && [ "$3" != "$chosen_version" ]; then
-    chosen_source="$1"; chosen_path="$2"; chosen_version="$3"
+    chosen_source="$1"; chosen_path="$2"; chosen_version="$3"; chosen_immutable="$cand_immutable"
+    return 0
+  fi
+  # Equal version, and this candidate cannot move under the run while the incumbent can. The
+  # version axis is untouched: a strictly newer mutable candidate already won above.
+  if [ "$3" = "$chosen_version" ] && [ "$cand_immutable" = true ] && [ "$chosen_immutable" != true ]; then
+    chosen_source="$1"; chosen_path="$2"; chosen_version="$3"; chosen_immutable="$cand_immutable"
   fi
 }
 consider checkout "$checkout_path" "$checkout_version"
@@ -203,7 +248,8 @@ candidates=""
 add_candidate() {
   [ -n "$2" ] || return 0
   [ -n "$3" ] || return 0
-  entry=$(printf '{"source": "%s", "version": "%s", "path": "%s"}' "$1" "$3" "$2")
+  entry=$(printf '{"source": "%s", "version": "%s", "path": "%s", "immutable": %s}' \
+    "$1" "$3" "$2" "$(is_immutable "$2" "$3")")
   candidates="${candidates:+$candidates, }$entry"
 }
 add_candidate checkout "$checkout_path" "$checkout_version"
@@ -211,6 +257,6 @@ add_candidate registry "$registry_path" "$registry_version"
 add_candidate clone    "$clone_path"    "$clone_version"
 add_candidate bound    "$bound_path"    "$bound_version"
 
-printf '{"ok": true, "src": "%s", "source": "%s", "version": "%s", "degraded": %s, "bound_root": "%s", "bound_version": "%s", "registry_version": "%s", "candidates": [%s]}\n' \
-  "$chosen_path" "$chosen_source" "$chosen_version" "$degraded" \
+printf '{"ok": true, "src": "%s", "source": "%s", "version": "%s", "src_immutable": %s, "degraded": %s, "bound_root": "%s", "bound_version": "%s", "registry_version": "%s", "candidates": [%s]}\n' \
+  "$chosen_path" "$chosen_source" "$chosen_version" "$chosen_immutable" "$degraded" \
   "$bound_path" "$bound_version" "$registry_version" "$candidates"

@@ -5,6 +5,7 @@ assignees:
 depends_on:
 feedback: [.workaholic/feedbacks/20260811102137-release-scan-exclude-hcl-variable-references-from-the-secret-rule.md]
 merge_policy:
+claim: work-20260812-223641
 ---
 
 # Exclude HCL var./local./data. references from the secret-scan credential rule

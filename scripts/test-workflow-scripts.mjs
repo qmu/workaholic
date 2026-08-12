@@ -10835,8 +10835,18 @@ function testShipWorksFromAClaimWorktree() {
     // commit_hash must be the commit that LANDED on the base, not the branch head --
     // Ship Flow step 7 tags it, and the branch head is not on the base's first-parent
     // line whenever the base advanced since the branch's last catch-up.
+    // Through REST (`GET .../pulls/{n}` -> `merge_commit_sha`), not the GraphQL-backed
+    // `gh pr view --json mergeCommit`: a web session may serve only the pinned PR-review
+    // operations (2026-08-12, FB 20260812172522). The PROPERTY is unchanged — GitHub is
+    // still asked for the merge commit rather than the branch head.
     assertTrue("merge-pr.sh asks GitHub for the merge commit",
-      /gh pr view "\$pr_number" --json mergeCommit/.test(src), src);
+      /pulls\/\$\{pr_number\}"[\s\S]{0,120}merge_commit_sha/.test(src), src);
+    // Comments legitimately NAME the subcommands they replaced (that is the record of
+    // why), so the check is against executable lines only — what matters is that none is
+    // still invoked.
+    const merge_pr_code = src.split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+    assertTrue("merge-pr.sh reaches GitHub through the REST transport, never a GraphQL subcommand",
+      /gh-rest\.sh/.test(merge_pr_code) && !/gh pr (view|merge)\b/.test(merge_pr_code), merge_pr_code);
     assertTrue("merge-pr.sh falls back to the fetched base tip, not to HEAD",
       /git rev-parse "origin\/\$\{base\}"/.test(src), src);
     assertTrue("merge-pr.sh names how commit_hash was resolved",
@@ -12063,15 +12073,23 @@ function testPublishTreePrArtifactsSummary() {
   const binDir = mkdtempSync(join(tmpdir(), "wh-gh-artifacts-"));
   const capturedBody = join(binDir, "captured-body.md");
   try {
+    // The PR is opened through REST now (POST repos/{owner}/{repo}/pulls), not
+    // `gh pr create` — so the body arrives as JSON on STDIN rather than in a
+    // --body-file, and the stub answers with the REST response shape the script parses.
     writeFileSync(join(binDir, "gh"), `#!/bin/sh
-prev=""
-bodyfile=""
-for arg in "$@"; do
-  if [ "$prev" = "--body-file" ]; then bodyfile="$arg"; fi
-  prev="$arg"
-done
-if [ -n "$bodyfile" ]; then cp "$bodyfile" ${capturedBody}; fi
-echo "https://example.test/pr/42"
+case "$1 $2" in
+  "api user") printf 'tester\\n'; exit 0 ;;
+esac
+case "$*" in
+  *pulls*POST*)
+    jq -r '.body' > ${capturedBody}
+    echo '{"html_url":"https://example.test/pr/42","number":42}'
+    exit 0 ;;
+  *merge*)
+    echo '{"merged":true}'
+    exit 0 ;;
+esac
+echo ""
 `);
     chmodSync(join(binDir, "gh"), 0o755);
     const env = { ...process.env, PATH: `${binDir}:${process.env.PATH}` };
@@ -12305,15 +12323,23 @@ function testPublishTreePrClosesIssue() {
   const binDir = mkdtempSync(join(tmpdir(), "wh-gh-closes-"));
   const capturedBody = join(binDir, "captured-body.md");
   try {
+    // The PR is opened through REST now (POST repos/{owner}/{repo}/pulls), not
+    // `gh pr create` — so the body arrives as JSON on STDIN rather than in a
+    // --body-file, and the stub answers with the REST response shape the script parses.
     writeFileSync(join(binDir, "gh"), `#!/bin/sh
-prev=""
-bodyfile=""
-for arg in "$@"; do
-  if [ "$prev" = "--body-file" ]; then bodyfile="$arg"; fi
-  prev="$arg"
-done
-if [ -n "$bodyfile" ]; then cp "$bodyfile" ${capturedBody}; fi
-echo "https://example.test/pr/42"
+case "$1 $2" in
+  "api user") printf 'tester\\n'; exit 0 ;;
+esac
+case "$*" in
+  *pulls*POST*)
+    jq -r '.body' > ${capturedBody}
+    echo '{"html_url":"https://example.test/pr/42","number":42}'
+    exit 0 ;;
+  *merge*)
+    echo '{"merged":true}'
+    exit 0 ;;
+esac
+echo ""
 `);
     chmodSync(join(binDir, "gh"), 0o755);
     const env = { ...process.env, PATH: `${binDir}:${process.env.PATH}` };
@@ -12537,7 +12563,16 @@ function testClosePublishTreeReachability() {
   // Stub `gh` so the PR path reaches ok:true — the real client cannot open a PR
   // against a bare local origin, and this test is about close, not about gh.
   const stubDir = mkdtempSync(join(tmpdir(), "workaholic-ghstub-"));
-  writeFileSync(join(stubDir, "gh"), "#!/bin/sh\necho https://example.invalid/pull/1\n");
+  // REST shapes: the publish path parses `.html_url`/`.number` out of the POST response
+  // now, so a bare URL on stdout is no longer a valid answer.
+  writeFileSync(join(stubDir, "gh"),
+    "#!/bin/sh\n" +
+    "case \"$1 $2\" in \"api user\") printf 'tester\\n'; exit 0 ;; esac\n" +
+    "case \"$*\" in\n" +
+    "  *pulls*POST*) cat >/dev/null; echo '{\"html_url\":\"https://example.invalid/pull/1\",\"number\":1}'; exit 0 ;;\n" +
+    "  *merge*) echo '{\"merged\":true}'; exit 0 ;;\n" +
+    "esac\n" +
+    "echo ''\n");
   chmodSync(join(stubDir, "gh"), 0o755);
   const withStub = { env: { ...process.env, PATH: `${stubDir}:${process.env.PATH}` } };
 
@@ -12778,7 +12813,16 @@ function testProposeCaptureSeam() {
   // `gh` cannot open a PR against a bare local origin, and this test is about what the
   // commit CARRIES, not about gh — so the PR step is stubbed to succeed.
   const stubDir = mkdtempSync(join(tmpdir(), "workaholic-ghstub-"));
-  writeFileSync(join(stubDir, "gh"), "#!/bin/sh\necho https://example.invalid/pull/1\n");
+  // REST shapes: the publish path parses `.html_url`/`.number` out of the POST response
+  // now, so a bare URL on stdout is no longer a valid answer.
+  writeFileSync(join(stubDir, "gh"),
+    "#!/bin/sh\n" +
+    "case \"$1 $2\" in \"api user\") printf 'tester\\n'; exit 0 ;; esac\n" +
+    "case \"$*\" in\n" +
+    "  *pulls*POST*) cat >/dev/null; echo '{\"html_url\":\"https://example.invalid/pull/1\",\"number\":1}'; exit 0 ;;\n" +
+    "  *merge*) echo '{\"merged\":true}'; exit 0 ;;\n" +
+    "esac\n" +
+    "echo ''\n");
   chmodSync(join(stubDir, "gh"), 0o755);
   const withStub = { env: { ...process.env, PATH: `${stubDir}:${process.env.PATH}` } };
 

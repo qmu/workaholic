@@ -99,3 +99,63 @@ session ends with pushed-but-unpublished work.
   owner/repo derived explicitly.
 - Depends on the shared helper from the discovery ticket, including wherever its
   Open Decision lands it.
+
+## Final Report
+
+Development completed as planned, on the helper the discovery ticket placed at
+`gather/scripts/gh-rest.sh`.
+
+### Diagnosability first, transport second
+
+Step 2 was done before the conversion, as the ticket directs. `gh pr create` was invoked
+with `2>/dev/null`, so the measured 403 never reached the operator and `pr_failed` was
+indistinguishable from a network blip, an expired token, or a policy denial. The call now
+captures stderr and carries the underlying message into `pr_failed`'s `detail` alongside
+the standing "the artifact IS pushed; open the pull request by hand" instruction. This
+alone would have made the original incident self-describing.
+
+### What was converted
+
+| Call site | Was | Now |
+| --------- | --- | --- |
+| `publish-tree-pr.sh` PR creation | `gh pr create --body-file` | `POST repos/{slug}/pulls`, payload on **stdin** |
+| `publish-tree-pr.sh` auto-merge | `gh pr merge --merge` | `PUT repos/{slug}/pulls/{n}/merge`, `merge_method: merge` |
+| `ship/merge-pr.sh` merge | `gh pr merge --merge --delete-branch=false` | same `PUT`; REST never deletes the head branch, which is what the flag asked for |
+| `ship/merge-pr.sh` confirmation | `gh pr view --json mergeCommit` | `GET repos/{slug}/pulls/{n}` → `merge_commit_sha` |
+| `ship/pre-check.sh` lookup | `gh pr list --head --state all` | `GET repos/{slug}/pulls?head={owner}:{branch}&state=all` |
+
+The PR body goes in on **stdin** rather than through argv, deliberately: a body carries the
+whole story and a single argv entry is capped at 128 KiB on Linux — the same ceiling the
+sibling scan-window ticket documents. Converting it to a `--field` would have traded one
+transport bug for a size bug.
+
+### Contracts held, and the two shapes that had to be remapped
+
+`WORKAHOLIC_AUTO_MERGE` is still gated on the scan's `pass` verdict, a `block` still leaves
+the PR open, `WORKAHOLIC_PR_TITLE` and `WORKAHOLIC_CLOSES_ISSUE` are untouched, and
+`pr_failed` still means "pushed but unpublished". Two REST/GraphQL shape differences needed
+explicit remapping rather than inheritance:
+
+- **`state`**: `gh pr list` reports `MERGED`; REST reports `closed` with `merged_at` set.
+  `pre-check.sh` remaps to the old vocabulary so every downstream caller is untouched.
+- **`merge_reason` stays honest** rather than collapsing every non-200 into `merge_failed`:
+  405 (GitHub refusing the merge — conflict or an unsatisfied required check) is
+  `merge_not_allowed` and 409 (the head moved) is `head_moved`, because those are different
+  next actions for whoever reads the line.
+
+### Discovered Insights
+
+- **Insight**: Four suite failures were assertions pinned to the *transport* rather than to
+  the *property* — one asserted the source text contained `gh pr view --json mergeCommit`.
+  It was rewritten to assert what actually matters (GitHub is asked for the merge commit,
+  not the branch head) plus a new check that no GraphQL subcommand is invoked at all,
+  applied to non-comment lines so the header can still record what it replaced.
+  **Context**: A test that names the mechanism blocks the mechanism from changing. When a
+  conversion breaks assertions, the question is whether each one was protecting a behavior
+  or merely describing an implementation.
+
+- **Insight**: The stubs that broke did so in the informative direction — they returned a
+  bare URL where the script now needs `{html_url, number}` JSON, so a half-done conversion
+  fails loudly rather than passing on a coincidence.
+  **Context**: Worth preserving as the remaining call sites convert in ticket 3: stub the
+  response *shape*, never just a success string.

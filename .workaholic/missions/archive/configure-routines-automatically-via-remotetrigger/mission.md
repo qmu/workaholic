@@ -2,7 +2,7 @@
 type: Mission
 title: Configure routines automatically via RemoteTrigger
 slug: configure-routines-automatically-via-remotetrigger
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-10T13:05:36+00:00
 author: a@qmu.jp
@@ -44,3 +44,4 @@ A session with a `RemoteTrigger`-family tool lists the account's routines, diffs
 - 2026-08-10 — run recorded (+0.5h) — implement-20260810-202951
 - 2026-08-10 — ticket archived — 20260810203351-fix-acceptance-link-marker-mismatch-full-path-vs-basename.md
 - 2026-08-10 — run recorded (+0.15h) — implement-20260810-210319
+- 2026-08-12 — mission achieved — mission.md

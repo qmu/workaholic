@@ -5,6 +5,7 @@ assignees: [a@qmu.jp]
 depends_on:
 feedback: [20260812155518-plan-units-sh-strands-a-ticket-whose-mission-has-closed.md]
 merge_policy:
+claim: work-20260812-180600
 ---
 
 # Stop stranding a ticket whose missions have all closed
@@ -138,3 +139,123 @@ so the driving session resolves them explicitly and records the resolution.
   worth naming in the Final Report so the operator is not surprised by a queue that grows.
 - Nothing about this is silent today: the exclusion is reported. The defect is that the
   reason misdescribes the state, so a fix that only adds a comment would not close it.
+
+## Final Report
+
+Development completed as planned. The reporter's hypothesised mechanism survived
+localization and was adopted; the one place this diverges from their sketch is where the
+repaired case is reported (see the shape ruling below).
+
+### The reproduction, recorded before the fix
+
+A throwaway repository with `m-live` in `missions/active/`, `m-closed` in
+`missions/archive/`, and three todo tickets (naming the closed mission, the live one, and
+both). `plan-units.sh` before the change:
+
+```
+"backlog": []
+"excluded": [ {20260729000001-stranded.md, "mission_member"},
+              {20260729000002-live-member.md, "mission_member"},
+              {20260729000003-mixed.md, "mission_member"} ]
+"missions": [ {"slug": "m-live"} ]
+```
+
+The stranded ticket is excluded `mission_member` while `m-closed` contributes no unit —
+offered by neither path, exactly as reported. After the change, the same fixture:
+
+```
+"backlog": [ {20260729000001-stranded.md, "mission_closed": "m-closed"} ]
+"excluded": [ {20260729000002-live-member.md, "mission_member"},
+              {20260729000003-mixed.md, "mission_member"} ]
+```
+
+### Localization: which of the two halves the fix changes
+
+Both halves confirmed independently. (a) The ticket loop excluded on a merely **non-empty**
+relation, consulting no mission state (`plan-units.sh`, at the `read-relation.sh` call).
+(b) The mission loop enumerates `.workaholic/missions/active/` only, so an archived mission
+contributes no unit — confirmed by `m-closed` being absent from `missions[]` above.
+
+**The fix changes (a) only.** (b) is not a defect: the active area *is* the set of drivable
+missions (K1 — the area is the authority), and widening it to archived missions would offer
+closed missions as claimable units, which is the opposite of what closing one means. The
+premise (a) rests on is what expired, so (a) is where it is repaired.
+
+`grep` over the reference docs and the suite found no consumer of `mission_member` as a
+signal beyond documentation and two test sites, both retained (below).
+
+### Open Decision — resolved: survey-time only, `close.sh` untouched
+
+Ruled **out of scope**, deliberately and not by default:
+
+- The survey-time fix is strictly stronger on coverage — it repairs every queue already
+  closed before this ships, which a close-path change cannot reach by construction.
+- Clearing the stamp at close time **destroys information**. The `mission:` relation is the
+  durable record of which mission a ticket belonged to; `/report`, `/ship`'s deferred-concern
+  extraction, and the mission graph all read it as history, and an archived ticket's relation
+  is read long after its mission ends. Repairing an offer must not cost the provenance.
+- It would also make closing a mission a **queue-mutating act**. `close.sh` is the only
+  writer of an end state, and that narrowness is the reason it is trustworthy; having it
+  rewrite N tickets as a side effect is a much larger blast radius than the defect warrants.
+
+"Doing both is defensible" — but only the survey half is *needed*, and the close half has a
+real cost, so it is not done. The stamp is now preserved **and** surfaced: a repaired row
+carries `mission_closed`, so the developer who used to clear the stamp by hand no longer has
+to, and nothing is lost by leaving it.
+
+### The other ruling the Gate asks for: where the repaired case is reported
+
+The reporter suggested `mission_closed` as an `excluded` reason. It is instead an
+**annotation on the backlog row** (`"mission_closed": "<comma-separated closed slugs>"`,
+empty for a ticket naming no mission). `excluded[]` is defined as "items the survey saw and
+dropped"; a repaired ticket is *offered*, so recording it as an exclusion would state the
+opposite of what happened, and a caller filtering `excluded[]` would double-count it. The
+annotation keeps both halves honest — the offer says what it offers, the row says why it
+once did not. A dangling slug reads as closed for the same reason a closed one does: a
+mission that resolves nowhere cannot offer the ticket a unit either.
+
+### Where liveness is answered
+
+A new pure reader, `mission/scripts/read-active-relation.sh`, beside `read-relation.sh`
+whose contract is untouched (four seams depend on it). It keys on the **area**, never on
+`status` — which is what keeps `/propose`'s safety property intact: a ticket proposed under
+a `status: draft` mission still sitting in `active/` remains unclaimable. It never invokes
+`missions_migrate_layout` (that function does `git mv`/`git add`), because `plan-units.sh`
+must stay side-effect free — it runs inside claim worktrees.
+
+### The many-valued relation
+
+The test is **ANY, not ALL**: a ticket naming one live and one closed mission is still
+`mission_member`, arrives through the live mission's unit, and is never double-offered.
+Pinned in both directions by the new case.
+
+### Operator-visible consequence, named as the ticket asks
+
+A mission closed **`abandoned`** now surfaces its unfinished tickets as ordinary backlog.
+That is the intended repair — the work was never withdrawn, only the grouping — but it means
+an unattended `/implement` will pick up work that a developer may have considered dropped.
+The queue growing after a mission is abandoned is correct behavior, not a regression. A
+developer who genuinely wants that work gone should ice the tickets or drop the relation;
+both are already developer-curated acts. Recorded in `docs/drive-loop-runbook.md` so an
+operator meets it there rather than in a surprising tick.
+
+### Discovered Insights
+
+- **Insight**: `excluded[]` in `plan-units.sh` carries two different kinds of reason, and
+  only one of them is a fact about the artifact. `owned_by_other` and `claimed_*` are
+  observations; `mission_member` is a **premise about a future offer** ("it arrives inside
+  its mission's unit instead"). A premise can expire while the artifact is unchanged, which
+  is precisely how this defect stayed invisible — the survey kept reporting a reason that
+  had been true when it was written.
+  **Context**: Worth checking any future exclusion reason against this distinction before
+  adding it. A reason that promises another path must also own that path's liveness, or it
+  becomes a silent drop the moment the other path narrows.
+
+- **Insight**: The propose-safety test at `testProposeWidenedBatch` is explicitly labelled
+  the tripwire for narrowing this exclusion — and it stayed green *because* liveness keys on
+  the area rather than on `status`. Had the fix read `status: active`, that draft mission
+  would have read as closed and every proposed ticket would have become claimable before its
+  mission was driven.
+  **Context**: K1's "the area is the authority, not a status word" is not only about the
+  mission offer; it is load-bearing for the ticket offer too. Any new mission-state predicate
+  should key on the area for the same reason.

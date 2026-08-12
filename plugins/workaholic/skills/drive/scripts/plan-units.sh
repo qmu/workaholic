@@ -15,7 +15,7 @@
 #    "resumable": [{"unit", "branch", "author", "last_commit_at", "stale",
 #                   "resume_reason", "artifacts"}],
 #    "missions": [{"slug", "title", "merge_policy", "checked", "total", "next", "path"}],
-#    "backlog":  [{"path", "title", "merge_policy", "depends_on"}],
+#    "backlog":  [{"path", "title", "merge_policy", "depends_on", "mission_closed"}],
 #    "excluded": [{"kind": "mission"|"ticket", "id": "...", "reason": "..."}]}
 #
 # IT STATES ITS OWN FRESHNESS, AND STILL DOES NOT FIX IT (decision J3). Claims come
@@ -63,6 +63,16 @@
 # queue item that vanishes from an unattended run's offer with no trace is
 # indistinguishable from one that was never there (`workaholic:implementation` /
 # observability).
+#
+# THE SAME RULE APPLIES TO A REPAIR, WHICH IS WHY ONE REASON HAS NO `excluded` ENTRY.
+# `mission_member` is not a fact about a ticket, it is a PREMISE -- "this arrives inside
+# its mission's unit instead" -- and the premise expires when the last mission the ticket
+# names closes, because only `missions/active/` yields units. A ticket in that state is
+# now OFFERED rather than dropped, so it appears in `backlog` with a non-empty
+# `mission_closed` naming the closed missions it carries. It is deliberately NOT an
+# `excluded` reason: `excluded[]` means "the survey saw this and dropped it", and a
+# repaired ticket is the opposite of dropped. Reading it as an annotation keeps both
+# halves honest -- the offer says what it offers, and the row says why it once did not.
 #
 # A CLAIM IS NOT A DEAD END. The single `claimed` reason split into three, because it
 # was hiding the difference between work in progress and work abandoned mid-flight: a
@@ -429,15 +439,38 @@ for t in $TODO_LIST; do
         exclude ticket "$t" "$(claim_reason_for "$t")"
         continue
     fi
+    # A MISSION MEMBER ONLY WHILE A MISSION IT NAMES IS STILL ALIVE (2026-08-12,
+    # qmu/workaholic#382). The exclusion rests on a premise -- "it will be offered inside
+    # its mission's unit instead" -- and the mission loop above enumerates
+    # `missions/active/` only, so the premise expires the moment the last mission a
+    # ticket names is closed. Excluding on a merely NON-EMPTY relation therefore stranded
+    # such a ticket: offered by neither path, sitting in todo/ while the queue read as
+    # drained rather than as broken. Liveness is asked of the one reader that owns the
+    # question (mission/scripts/read-active-relation.sh), never re-derived here.
+    #
+    # The relation is MANY-valued and the test is ANY, not ALL: a ticket naming one live
+    # mission and one closed one is still a member, arrives through the live mission's
+    # unit, and must not also be offered as backlog.
     relation=$(sh "${MISSION_SCRIPTS}/read-relation.sh" "$t" 2>/dev/null || true)
-    if [ -n "$relation" ]; then
+    active_relation=$(sh "${MISSION_SCRIPTS}/read-active-relation.sh" "$t" 2>/dev/null || true)
+    if [ -n "$active_relation" ]; then
         exclude ticket "$t" "mission_member"
         continue
+    fi
+    # THE REPAIR IS ANNOTATED ON THE ROW, NOT REPORTED AS AN EXCLUSION. A repaired ticket
+    # is OFFERED, and `excluded[]` names items the survey saw and DROPPED -- putting
+    # `mission_closed` there would describe the opposite of what happened. So the offer
+    # carries the closed slugs that would previously have suppressed it, and an operator
+    # can see that a repair happened instead of inferring it from an absence. Empty for
+    # the ordinary case of a ticket that names no mission at all.
+    mission_closed=""
+    if [ -n "$relation" ]; then
+        mission_closed=$(printf '%s\n' "$relation" | tr '\n' ',' | sed -e 's/,*$//')
     fi
     title=$(json_escape "$(doc_title "$t")")
     policy=$(json_escape "$(fm_field "$t" merge_policy)")
     depends=$(json_escape "$(fm_field "$t" depends_on)")
-    BACKLOG="${BACKLOG}${b_sep}{\"path\": \"$(json_escape "$t")\", \"title\": \"${title}\", \"merge_policy\": \"${policy}\", \"depends_on\": \"${depends}\"}"
+    BACKLOG="${BACKLOG}${b_sep}{\"path\": \"$(json_escape "$t")\", \"title\": \"${title}\", \"merge_policy\": \"${policy}\", \"depends_on\": \"${depends}\", \"mission_closed\": \"$(json_escape "$mission_closed")\"}"
     b_sep=", "
 done
 

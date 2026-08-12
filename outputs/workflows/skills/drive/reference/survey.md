@@ -53,9 +53,8 @@ Two drift axes with different consequences (full field semantics: `check-deps`):
   itself resolved — so refusing to survey at all is disproportionate to what is actually broken").
   Name the condition and its values in the run report and continue, invoking every remaining script
   in this run on its checkout-relative path rather than `${CLAUDE_PLUGIN_ROOT}` (which resolves to
-  nothing when unbound) — reading the checkout directly carries none of the staleness risk the
-  `loaded_version_behind_registry` stop above exists to prevent, since there is no cached binding to
-  be behind.
+  nothing when unbound) — reading the checkout directly carries none of the staleness risk
+  `loaded_version_behind_registry` names above, since there is no cached binding to be behind.
 - `ok: false` → print the `message` and stop. Non-empty `missing_guards` → warn, continue, and
   record it in the run report — it matters most here because this run commits, pushes, and may
   merge without a human in the loop.

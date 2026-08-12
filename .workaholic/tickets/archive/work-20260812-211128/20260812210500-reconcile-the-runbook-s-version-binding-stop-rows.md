@@ -88,3 +88,51 @@ queue.
   two registers (a skill's contract and an operator's troubleshooting table), and a word-level
   tripwire over "stop" would fire on the legitimate history. Decide during implementation whether
   anything mechanical is worth pinning.
+
+## Final Report
+
+Development completed as planned.
+
+**Step 1, the audit.** `grep -rn "loaded_version_behind_registry\|registry_unreadable"` over `plugins/`
+and `docs/` returned ten hits outside `check-deps` (which owns the field semantics and is correct).
+Eight already read as the current rule or as history: `drive/SKILL.md` §1 and §7,
+`drive/reference/survey.md:10` and `:18`, `notify/SKILL.md`'s precondition-stop class,
+`notify/reference/notifications.md`, `workaholify/reference/bootstrap.md` (neutral — "`/drive` acts
+on them"), and `bootstrap/session-start.sh`'s header. Two stated the retired stop as current, both
+in `docs/drive-loop-runbook.md`; a third hit, `survey.md:57`, back-referenced "the
+`loaded_version_behind_registry` stop above" where the text above it says WARNING. No fourth
+document was found.
+
+**Steps 2-3, the rewrite.** The runbook's two rows now carry the warning and the reason it replaced
+the stop — the drift the field names is real, but it is a property of *which scripts a run executes*,
+which `plugin-src.sh` answers by selecting the newest tree on the machine. The measured history is
+kept and extended with the origin the reversal actually rests on (a project-scope pin the user-scope
+`plugin update` never moves, so the gate reproduced hourly and never self-healed: four ticks on
+2026-08-05, twelve on 2026-08-12). A third row was corrected in passing: the `version_drift` row
+pointed at a "hard stop … as the row above" that no longer exists, and now names the one termination
+left in §1, `no_plugin_source`. `survey.md:57` names the condition instead of a stop.
+
+**Step 4, the cross-check.** `notify:SKILL.md`'s precondition-stop class is still `no_plugin_source`
+alone and needed no edit — it already records that the other two members left the class by ceasing
+to be stops, and posting a `⚪ Paused` for a condition that no longer terminates a run would put a
+notification where there is no event.
+
+The Considerations' question is answered as posed: **no mechanical tripwire was added.** A word-level
+check for "stop" near either field would fire on exactly the history both documents are supposed to
+keep, and the rule now lives in one place with the runbook referencing it — which is the structural
+fix a tripwire would only approximate.
+
+### Discovered Insights
+
+- **Insight**: this reconciliation was found by *being* the failure — the tick that minted the ticket
+  ran on a bound plugin at 1.0.133 against a 1.0.166 registry, and its own command markdown carried
+  the retired hard stop. A doc-drift audit would have had to read both registers to notice; running
+  the old copy surfaced it in one step.
+  **Context**: the repository already treats the harness binding as an input rather than a
+  precondition. The corollary is that a routine session is a live sample of an older build, and what
+  it stumbles on is worth minting rather than working around silently.
+- **Insight**: an operator-facing troubleshooting table drifts differently from a skill contract.
+  The skill was corrected the same day the ruling landed; the table was not, because a table row
+  reads as a fact about the world rather than as an instruction the change had to update.
+  **Context**: when a rule changes, grep the operator docs for the *symptom* (here `pending`,
+  "stop"), not only for the identifier.

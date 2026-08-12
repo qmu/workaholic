@@ -150,5 +150,9 @@ and every abort reports a machine-readable reason.
     twice.
 
 13. **Report** one line: the form chosen (mission with N tickets / loose ticket /
-    record-only) with its reason, the record's filename, the PR URL, and the `notified`
-    flag.
+    record-only) with its reason, the record's filename, the PR URL, and the
+    notification outcome — **which surface carried it** (connector or the tokened
+    fallback) and `notified`, or the reason it did not post (`no_surface`, `no_token`,
+    `slack_<error>`, …). A message that did not reach Slack is reported as unposted,
+    never omitted; it does not make the run a failure (`workaholic:drive` §7 states the
+    same rule for `/implement`'s per-unit finish lines).

@@ -85,11 +85,15 @@ not write a second story generator.
   no human confirmation and tear the claim down exactly as `auto` does below — quality is gated
   downstream at the `release/*` QA window, not at merge time. A scan finding is the one thing that
   leaves the PR open instead (there is no human here to override — the demotion doctrine below is
-  unchanged). Under `/implement`, post the one `🟢 Implemented` finish line through
+  unchanged). Under `/implement`, post the one `🟢 Implemented` finish line with the PR URL on the
+  transport `notify` selects (*The transport*): the account's Slack connector where the
+  session has one — the only surface that can run the thread lookup and reply into a thread — and
   `bash ../propose/scripts/notify-slack.sh "<message with the PR URL>"`
-  (never load-bearing: without a token it records `{"notified": false, "reason": "no_token"}` and
-  the run continues). Under `/drive` the developer is the human loop — report the URL in the
-  session and post nothing.
+  as the machine fallback for a caller with no connector, which can post a keyed root only. Never
+  load-bearing either way: with no surface (or no token — the script records
+  `{"notified": false, "reason": "no_token"}` and exits 0) the run continues and **reports the
+  notification outcome** in its per-unit report below. Under `/drive` the developer is the human
+  loop — report the URL in the session and post nothing.
 - **`auto` → ship** through `ship`'s Ship Flow with no prompts (its *Unattended
   routing* section factors each interactive seam): catch up with `main`, prove the deploy
   contract, confirm in production, record the evidence, **then** merge, then release and extract

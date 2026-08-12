@@ -40,7 +40,7 @@ sent.
 
 ## Acceptance
 
-- [ ] `workaholic:notify` states the transport rule — connector primary, tokened
+- [x] `workaholic:notify` states the transport rule — connector primary, tokened
       script as the machine fallback — and every call site defers to it instead of
       naming `notify-slack.sh` (#20260812204122-make-workaholic-notify-own-the-finish-line-transport.md)
 - [ ] A run whose finish post did not reach Slack reports that outcome in its own
@@ -49,3 +49,4 @@ sent.
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-12 — ticket archived — 20260812204122-make-workaholic-notify-own-the-finish-line-transport.md

@@ -98,7 +98,7 @@ The repository is the coordination medium; the model is stated once in `skills/d
 - The heartbeat is the branch tip (`heartbeat.sh`, empty commit built against a scratch index). `archive.sh` pushes the claim branch itself after each archive commit.
 - Worktrees are **claim-born and ship-torn** (`cleanup-mission-worktree.sh` is the sanctioned cleaner; `survey-worktrees.sh` / `reap-worktrees.sh` back the teardowns up). `.worktrees/` and `.publish/` sit inside the repo root — add them to `.dockerignore` and any archiver's ignore list.
 - The claim is the only creator of a branch a runner may drive. Artifact writers use the **publish tree** instead: a checkout of `origin/main` at git-ignored `.publish/` on local branch `publish-main` (`open-publish-tree.sh` → write → `publish-tree-pr.sh` (default, PR path) or `publish-tree-commit.sh` (direct, post-merge seams only) → `close-publish-tree.sh`). The caller's checkout is left byte-identical.
-- The reader degrades offline; the writer fails loudly. Under `/implement`, each unit posts one finish line into its feedback item's thread (`unit-feedback-stems.sh` + `workaholic:notify`'s stateless lookup); an attended `/drive` run posts nothing to Slack.
+- The reader degrades offline; the writer fails loudly. Under `/implement`, each unit posts one finish line into its feedback item's thread (`unit-feedback-stems.sh` + `workaholic:notify`'s stateless lookup) on the transport that skill selects — **connector primary, the tokened `notify-slack.sh` the machine fallback** (keyed root only, it cannot thread); an attended `/drive` run posts nothing to Slack.
 
 ### The release tier (`release/*`)
 

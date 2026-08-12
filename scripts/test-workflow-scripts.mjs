@@ -12767,6 +12767,32 @@ function testStatelessThreadLookup() {
     if (/read-notify-target|WORKAHOLIC_NOTIFY_TARGET|Notify-Thread/.test(body)) offenders.push(String(rel));
   }
   assertEq("no retired notify-target name survives anywhere under plugins/", offenders, []);
+
+  // The TRANSPORT rule lives in one place and says both halves: which surface is primary,
+  // and what the fallback cannot do. Issue #406 (2026-08-12): the skills named the tokened
+  // script as THE way to post a finish line, a routine session carries the connector and no
+  // token, so `notify-slack.sh` recorded {"notified": false, "reason": "no_token"} and exited
+  // 0 -- the post silently never existed and the FB thread lost its root.
+  assertTrue("the notify skill states the transport ordering and the fallback's threading limit",
+    /connector/i.test(notifySkill) && /notify-slack\.sh/.test(notifySkill)
+      && /fallback/i.test(notifySkill) && /thread_ts/.test(notifySkill));
+
+  // ABSENCE: no OTHER markdown under plugins/ may present the script as the way a run posts.
+  // Naming it is fine -- naming it without the word that marks it as the fallback is the
+  // drift that put four runs' finish lines nowhere. Word-level, not sentence-level: the
+  // check pins the relationship between the two transports, never anyone's phrasing.
+  const scriptFirst = [];
+  for (const rel of readdirSync(pluginRoot, { recursive: true })) {
+    const r = String(rel);
+    if (!r.endsWith(".md")) continue;
+    const p = join(pluginRoot, r);
+    if (!statSync(p).isFile()) continue;
+    const body = readFileSync(p, "utf8");
+    if (!/notify-slack\.sh/.test(body)) continue;
+    if (!/fallback/i.test(body)) scriptFirst.push(r);
+  }
+  assertEq("no plugin markdown names notify-slack.sh as the primary finish-line transport",
+    scriptFirst, []);
 }
 
 // ---------- one behaviour per command (P5, 2026-08-06) ----------

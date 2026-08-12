@@ -16,7 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
-claim: work-20260812-204905
+claim: work-20260812-211128
 ---
 
 # Stop a routine finish line from vanishing on the script path

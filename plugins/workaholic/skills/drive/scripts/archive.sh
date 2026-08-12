@@ -30,6 +30,47 @@ if [ -z "$BRANCH" ]; then
     exit 1
 fi
 
+# SUBJECT GATE BEFORE ANYTHING MOVES (2026-08-12). `commit.sh` runs this same rule
+# before it stages, but it only runs at the END of this script — after the ticket has
+# already been moved into `archive/<branch>/`. So an off-policy subject used to leave the
+# tree HALF-ARCHIVED: the rename staged, no commit, and the obvious retry impossible,
+# because the path the caller was told to pass no longer holds a file:
+#
+#   ==> Archiving ticket...
+#   Error: rejected off-policy subject (subject is 60 characters (limit 50)).
+#   $ <identical re-run>
+#   Error: Ticket not found: .workaholic/tickets/todo/<name>.md
+#
+# Measured while driving ticket 20260812155908 on branch work-20260812-183726; recovery
+# took a hand-written `git mv` back into `todo/`, in the one seam the drive workflow says
+# must never be done by hand ("NEVER manually archive"). Under `/implement` nobody is
+# reading the transcript, and every honest outcome in the failure contract assumes the
+# tree is left in a state a later run can read — a staged-but-uncommitted rename is not.
+#
+# The subject is knowable before anything moves, so it is checked here. This is a CALL to
+# the one canonical validator, never a second copy of the rule, and `commit.sh` keeps its
+# own check: the layers share one source and cannot drift. The subject is never
+# auto-shortened to fit — that would put a machine-invented sentence into permanent
+# history; the caller passes a shorter one.
+#
+# Audited with it (the same shape elsewhere in this seam): every other refusal in
+# `commit.sh` is either already checked above (a named branch) or unreachable from here
+# (`--skip-staging` is passed with no file list, so the "named path cannot be staged"
+# refusal cannot fire). The subject gate was the only one that could.
+SCRIPT_DIR=$(dirname "$0")
+if ! SUBJECT_REASON=$(sh "${SCRIPT_DIR}/../../commit/scripts/check-subject.sh" "$COMMIT_MSG"); then
+    echo "Error: rejected off-policy subject (${SUBJECT_REASON})."
+    echo "  Subject: \"${COMMIT_MSG}\""
+    echo ""
+    echo "Subject policy (plugins/workaholic/skills/commit/SKILL.md):"
+    echo "  - present-tense, 50 characters or fewer"
+    echo "  - no Conventional-Commit prefix (feat:/fix:/docs: ...)"
+    echo "  - no leading [bracket] tag"
+    echo ""
+    echo "Nothing was moved and nothing was staged. Re-run with a conforming subject."
+    exit 1
+fi
+
 TICKET_DIR=$(dirname "$TICKET")
 # Strip /todo, /icebox, or a legacy per-user form /todo/<user>, /icebox/<user> to
 # find the tickets root. The per-user patterns run first so a trailing user
@@ -149,8 +190,8 @@ fi
 echo "==> Staging changes..."
 git add -A
 
-# Delegate to commit skill (with --skip-staging since we already staged)
-SCRIPT_DIR=$(dirname "$0")
+# Delegate to commit skill (with --skip-staging since we already staged). SCRIPT_DIR is
+# already set above, where the subject gate uses it.
 COMMIT_SCRIPT="${SCRIPT_DIR}/../../commit/scripts/commit.sh"
 
 sh "$COMMIT_SCRIPT" --skip-staging --category "$CATEGORY" "$COMMIT_MSG" "$WHY" "$CHANGES" "$CONCERNS" "$INSIGHTS" "$VERIFY"

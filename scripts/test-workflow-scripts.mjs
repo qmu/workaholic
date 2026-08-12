@@ -7364,7 +7364,7 @@ function testCrossRepoBackstop() {
     assertEq("check-outbound-body refuses a missing file",
       json(src, SCRIPTS.checkOutboundBody, q(join(tmp, "absent.md"))).ok, false);
 
-    const named = body("named.md", `A ticket that still says ${basename(src)} in the text.\n`);
+    const named = body("named.md", `A ticket that still says the ${basename(src)} repo needs it.\n`);
     assertEq("check-outbound-body refuses a body naming the source repo",
       json(src, SCRIPTS.checkOutboundBody, q(named)).ok, false);
 
@@ -7386,11 +7386,37 @@ function testCrossRepoBackstop() {
     assertEq("a name glued to another identifier is not a mention",
       json(src, SCRIPTS.checkOutboundBody, q(glued)).ok, true);
 
-    // Every true positive survives the narrowing, and each names what it matched.
-    const standalone = json(src, SCRIPTS.checkOutboundBody, q(named));
-    assertEq("a standalone mention is still refused", standalone.ok, false);
-    assertTrue("and the refusal names the matched text and its line",
-      /at line \d+:/.test(standalone.error || "") && standalone.error.includes(name), standalone.error);
+    // ---- a reference, not a word (2026-08-12) ----
+    // The 08-02 narrowing fixed adjacency to IDENTIFIER characters; it did not address
+    // prose. Measured on qmu/workaholic#384: a generated publish plan was refused on its
+    // own heading and on a line quoting a published article's title that had to be
+    // reproduced verbatim — two lines naming no repository, and one of them unmaskable,
+    // again after the developer's verbatim confirmation. So the bare name refuses only
+    // where it READS AS A REFERENCE: backticked, or beside a repository-indicating noun.
+    const qualified = [
+      `Use the ${name} repo for this.`,
+      `Clone the ${name} repository next.`,
+      `The ${name} checkout is dirty.`,
+      `Work in the ${name} worktree.`,
+      `The ${name} project ships it.`,
+      `The ${name}'s repo needs the guard.`,   // a possessive is still a reference
+      `See repository ${name} for details.`,   // and so is the reversed order
+      `The \`${name}\` plugin ships it.`,      // backticks mark a token, not prose
+    ];
+    for (const text of qualified) {
+      const r = json(src, SCRIPTS.checkOutboundBody, q(body("qualified.md", `${text}\n`)));
+      assertEq(`a qualified mention is still refused: ${text}`, r.ok, false);
+      assertTrue("and the refusal names the matched text and its line",
+        /at line \d+:/.test(r.error || "") && r.error.includes(name), r.error);
+    }
+
+    // WHAT THIS GIVES UP, pinned as deliberately as the refusals: an unqualified mention
+    // in ordinary prose now passes. The exact rules below carry the weight, and the
+    // verbatim human confirmation remains the actual control.
+    for (const text of [`A ticket that still says ${name} in the text.`, `# ${name} publish plan`]) {
+      assertEq(`plain prose passes: ${text}`,
+        json(src, SCRIPTS.checkOutboundBody, q(body("prose.md", `${text}\n`))).ok, true);
+    }
 
     const abs = body("abs.md", `# Ask\n\nSee ${src}/docs for details.\n`);
     const absR = json(src, SCRIPTS.checkOutboundBody, q(abs));
@@ -7637,11 +7663,15 @@ function testFbCrossRepoIssueMode() {
         { ...process.env, PATH: join(tmp, "no-such-bin") }).ok, false);
 
     // ---- 3. the mechanical backstop, at its own entry point ----
-    const named = body("named.md", `A ticket that still says ${basename(src)} in the text.\n`);
-    const standalone = json(src, SCRIPTS.checkOutboundBody, q(named));
-    assertEq("check-outbound-body refuses a standalone mention of this repo", standalone.ok, false);
+    const named = body("named.md", `A ticket that still says the ${basename(src)} repo needs it.\n`);
+    const qualified = json(src, SCRIPTS.checkOutboundBody, q(named));
+    assertEq("check-outbound-body refuses a qualified mention of this repo", qualified.ok, false);
     assertTrue("and names the matched text and its line",
-      /at line \d+:/.test(standalone.error || "") && standalone.error.includes(basename(src)), standalone.error);
+      /at line \d+:/.test(qualified.error || "") && qualified.error.includes(basename(src)), qualified.error);
+
+    assertEq("a reference, not a word: unqualified prose passes",
+      json(src, SCRIPTS.checkOutboundBody,
+        q(body("prose.md", `A ticket that still says ${basename(src)} in the text.\n`))).ok, true);
 
     const seg = body("segments.md",
       `docs/${basename(src)}-reports/foo.md -> docs/site-${basename(src)}/foo.md\n`);

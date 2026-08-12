@@ -5,6 +5,7 @@ assignees: [a@qmu.jp]
 depends_on:
 feedback: [20260812204800-setup-routines-must-configure-the-routines-itself-not-only-when-a-remotetrigger-tool-happens-to-exist.md]
 merge_policy:
+claim: work-20260812-211712
 ---
 
 # Make /setup-routines configure the routines itself, not only when a RemoteTrigger tool is exposed

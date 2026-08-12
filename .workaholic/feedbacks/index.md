@@ -477,6 +477,7 @@
 * [check-outbound-body.sh refuses ordinary prose, not only references](20260812155852-check-outbound-body-sh-refuses-ordinary-prose-not-only-references.md)
 * [catch scan-window.sh dies with Argument list too long on a large ticket corpus](20260812160052-catch-scan-window-sh-dies-with-argument-list-too-long-on-a-large-ticket-corpus.md)
 * [Workflow scripts assume a gh GraphQL surface a web session may not serve](20260812172522-workflow-scripts-assume-a-gh-graphql-surface-a-web-session-may-not-serve.md)
+* [Document that a manual routine fire ignores a custom run body](20260812191816-document-that-a-manual-routine-fire-ignores-a-custom-run-body.md)
 * [loaded_version_behind_registry blocks every cloud run since 2026-08-10](20260812221610-loaded-version-behind-registry-blocks-every-cloud-run-since-2026-08-10.md)
 * [The Propose schedule migration includes discovery of assigned open issues, not just the trigger move](20260812225650-the-propose-schedule-migration-includes-discovery-of-assigned-open-issues-not-just-the-trigger-move.md)
 <!-- okf:generated:end -->

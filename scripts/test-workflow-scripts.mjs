@@ -12175,29 +12175,71 @@ function testListInboundIssues() {
     writeFileSync(p, `#!/bin/sh\n${body}\n`);
     chmodSync(p, 0o755);
   };
+  // The inbox is read through REST now (`gh api repos/{owner}/{repo}/issues`), not
+  // through the GraphQL-backed `gh issue list` — so the stub serves a canned payload on
+  // the `api` path and pipes it through the REAL jq using the expression the script
+  // actually passed. That keeps the suite hermetic (no network) while still exercising
+  // the filter rather than a hand-written approximation of it. `$5` is the --jq
+  // expression: the script calls `gh api <path> --jq <expr>`.
+  const REST_ISSUES = JSON.stringify([
+    { number: 9, html_url: "https://github.com/o/r/issues/9", updated_at: "2026-08-12T03:00:00Z", title: "Newer ask" },
+    { number: 7, html_url: "https://github.com/o/r/issues/7", updated_at: "2026-08-12T00:00:00Z", title: "Oldest ask, taken first" },
+    { number: 12, html_url: "https://github.com/o/r/issues/12", updated_at: "2026-08-12T01:00:00Z", title: "Already captured" },
+    { number: 120, html_url: "https://github.com/o/r/issues/120", updated_at: "2026-08-12T02:00:00Z", title: "Boundary guard" },
+    // A pull request on the SAME endpoint. `GET /issues` returns these; `gh issue list`
+    // did not — the one behavioral difference the REST conversion must not lose.
+    { number: 55, html_url: "https://github.com/o/r/pull/55", updated_at: "2026-08-12T04:00:00Z", title: "A pull request", pull_request: { url: "https://github.com/o/r/pulls/55" } },
+  ]);
+  const restGh = (payload = REST_ISSUES) => [
+    `case "$1 $2" in`,
+    `  "api user") printf 'tester\\n' ; exit 0 ;;`,
+    `esac`,
+    `case "$2" in`,
+    `  repos/*/issues*) printf '%s' '${payload}' | jq -r "$4" ; exit 0 ;;`,
+    `esac`,
+    `exit 1`,
+  ].join("\n");
   try {
+    // The REST path needs a resolvable {owner}/{repo}, derived from the remote.
+    execSync("git init -q", { cwd: repo });
+    execSync("git remote add origin https://github.com/o/r.git", { cwd: repo });
+
     // A record already names issue 12 by its URL — that issue is in flight, not new.
     writeFileSync(join(repo, ".workaholic/feedbacks/20260812000000-captured.md"),
       `---\ntype: Feedback\n---\n\nSource: GitHub issue #12 (https://github.com/o/r/issues/12)\n`);
 
-    writeGh([
-      `case "$1" in`,
-      `  api) printf 'tester\\n' ;;`,
-      `  issue) printf '7\\thttps://github.com/o/r/issues/7\\t2026-08-12T00:00:00Z\\tOldest ask, taken first\\n12\\thttps://github.com/o/r/issues/12\\t2026-08-12T01:00:00Z\\tAlready captured\\n120\\thttps://github.com/o/r/issues/120\\t2026-08-12T02:00:00Z\\tBoundary guard\\n' ;;`,
-      `esac`,
-    ].join("\n"));
+    writeGh(restGh());
     const r = JSON.parse(run(repo, `${POSIX_SH} ${SCRIPT}`, { env }).stdout);
+    assertEq("a pull request on the issues endpoint is never read as an ask",
+      r.issues.some((i) => i.number === 55), false);
     assertEq("a readable inbox is ok:true", r.ok, true);
     assertEq("the identity is the session's own login", r.identity, "tester");
     assertEq("issue 12, already named by a record, is excluded", r.excluded.length, 1);
     assertEq("and the exclusion is reported with its reason", r.excluded[0].reason, "already_captured");
-    assertEq("two issues survive", r.issues.length, 2);
+    assertEq("three issues survive", r.issues.length, 3);
     assertEq("issue 120 is NOT swallowed by the record naming issue 12 (numeric boundary)",
       r.issues.some((i) => i.number === 120), true);
     assertEq("the oldest issue comes first", r.issues[0].number, 7);
 
+    // THE RESTRICTED SESSION (2026-08-12, feedback 20260812172522). A `gh` that serves
+    // REST but 403s every GraphQL-backed subcommand is exactly the measured Claude Code
+    // Web session. Before the conversion this reported `list_failed` and the routine
+    // ingested nothing for the hour; the run must now be indistinguishable from an
+    // unrestricted one.
+    const GRAPHQL_403 = `echo 'HTTP 403: This GraphQL query is not enabled for this session' >&2; exit 1`;
+    writeGh([
+      `case "$1" in`,
+      `  issue|pr|search) ${GRAPHQL_403} ;;`,
+      `esac`,
+      restGh(),
+    ].join("\n"));
+    const restricted = JSON.parse(run(repo, `${POSIX_SH} ${SCRIPT}`, { env }).stdout);
+    assertEq("a GraphQL-restricted session still reads its inbox", restricted.ok, true);
+    assertEq("and reads exactly what an unrestricted one reads",
+      restricted.issues.map((i) => i.number), r.issues.map((i) => i.number));
+
     // An empty inbox is ok:true with zero issues — the honest nothing_in_hand.
-    writeGh(`case "$1" in api) printf 'tester\\n' ;; issue) : ;; esac`);
+    writeGh(restGh("[]"));
     const empty = JSON.parse(run(repo, `${POSIX_SH} ${SCRIPT}`, { env }).stdout);
     assertEq("an empty inbox is still ok:true", empty.ok, true);
     assertEq("with no issues", empty.issues.length, 0);

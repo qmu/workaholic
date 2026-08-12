@@ -5,6 +5,7 @@ assignees: [a@qmu.jp]
 depends_on:
 feedback: [20260812155852-check-outbound-body-sh-refuses-ordinary-prose-not-only-references.md]
 merge_policy:
+claim: work-20260812-183726
 ---
 
 # Refuse the bare repo name only where it reads as a reference
@@ -131,3 +132,83 @@ path — do not change and keep carrying the weight.
   expression; a possessive form is still a reference.
 - This is one narrowing later on the same rule. Whatever the pattern becomes, the script's
   header is where the next reader learns why — keep it the record, not the commit message.
+
+## Final Report
+
+Development completed as planned.
+
+### Reproduction, before the fix (step 1)
+
+A body of the reported shape — a heading using the basename as a plain capitalised English
+word, plus a line quoting a published article's title that contains it — run against the
+unmodified script from this repository (basename `workaholic`, an ordinary English word):
+
+```
+{"ok": false, "error": "body still names this repository ('workaholic') at line 1:# Workaholic publish plan — mask it and re-confirm"}
+```
+
+The quoted-title line alone refuses identically:
+
+```
+{"ok": false, "error": "body still names this repository ('workaholic') at line 1:The article Being a workaholic is not a strategy keeps its title verbatim. — mask it and re-confirm"}
+```
+
+### Localization (step 2)
+
+Identified by the **emitted message**, not by inspection: the refusal text is the bare-name
+rule's own (`body still names this repository ('<name>')`). The three exact rules above it
+were each exercised on their own input and each fired with its own distinct message —
+`clone URL at line …`, `names this repository as 'qmu/workaholic' at line …`,
+`contains this repository's path at line …` — so the wrong-rule failure mode recorded in the
+script's 2026-08-02 header is not what happened here.
+
+### The same reproduction, after the fix
+
+```
+# Workaholic publish plan / quoted-title line   -> {"ok": true}
+```
+
+### What changed
+
+- `check-outbound-body.sh`'s final rule now requires a **qualifier** as well as the existing
+  identifier-adjacency exclusion: a backtick on either side, or one of `repo`, `repository`,
+  `checkout`, `worktree`, `project` directly before or after the name, possessive (`'s`,
+  `’s`) allowed, case-insensitive, both orders. The regex is assembled from named parts
+  (`lb`/`rb`/`noun`/`poss`) so the next reader can see the rule rather than parse it.
+- No flag, env var or argument can bypass it — step 4 of the plan, deliberately.
+- The four exact rules (each clone-URL form, `owner/name`, absolute path) are byte-unchanged.
+- Both pinned test sites rewritten rather than deleted: eight qualified forms still refuse
+  and still cite matched text + line, and the prose cases now assert a pass.
+- Prose updated in the same change: the script header (this narrowing recorded beside the
+  08-02 one, including what it gives up), `feedback/SKILL.md`, `feedback/reference/crossing.md`
+  (the two narrowings now read as one adjacency story). `rules/general.md` and `CLAUDE.md`
+  restate neither rule, so neither needed a change.
+- `outputs/` regenerated — the feedback skill's script closure ships in the `catch` and
+  `mission` bundles.
+
+### The true positive being given up
+
+An **unqualified** bare mention in prose now passes ("A ticket that still says `<name>` in
+the text"), and so does a qualifier outside the five-noun list, including its plurals. The
+remaining controls still hold: the `owner/name` slug, every clone-URL form and the absolute
+path are matched exactly and carry the real weight, and the developer's verbatim
+confirmation of destination and body is — as the script's header has always said — the
+actual control. This was never assurance, and a pass still means only "our own name is
+absent in the forms we can mechanically know".
+
+### Discovered Insights
+
+- **Insight**: `check-outbound-body.sh` resolves the source repository from the **caller's
+  cwd** (`git rev-parse --show-toplevel`), not from the body or any argument.
+  **Context**: a reproduction that builds a throwaway repo and invokes the script by
+  absolute path silently checks the *calling* repository instead. The controls in this
+  ticket's step 2 read as false passes until the invocation was run against the repo whose
+  remote forms were actually being matched. Anyone extending the crossing tests should note
+  the suite's `json(cwd, script, args)` helper exists precisely to pin that cwd.
+- **Insight**: the noun list is a judgment surface with no exhaustive answer, and it was
+  deliberately left at the five singular forms the ticket named — plurals (`repos`,
+  `worktrees`, `repositories`) are **not** matched.
+  **Context**: a missed qualifier passes as prose, which is the same trade the change
+  already accepts, and the alternative is an ever-growing morphology list inside a backstop
+  whose header insists it is not assurance. If a real refusal is ever missed on a plural,
+  that is the evidence to grow the list — not speculation.

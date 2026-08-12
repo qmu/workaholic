@@ -76,7 +76,8 @@ confidently (decision J3). Each `ok: false` is a reported decision, never a prom
 ## The survey (`drive/scripts/plan-units.sh`)
 
 Emits `{fetched, shallow, base, surveyed_sha, base_sha, current, user_slug, backlog_error,
-backlog_size, owner_unresolved, claimed[], resumable[], missions[], backlog[], excluded[]}` —
+backlog_size, owner_unresolved, claimed[], resumable[], missions[], backlog[], excluded[]}`,
+each backlog row `{path, title, merge_policy, depends_on, mission_closed}` —
 the unclaimed active missions this runner may take and the unclaimed todo tickets, with
 everything a claim already holds subtracted through the shared claim reader.
 
@@ -87,6 +88,24 @@ was accepted when its pull request merged (K1); the area is the authority. `no_p
 `no_tickets`, and `queue_drained` are deliberately distinct because each names a different next
 action: write the acceptance criteria, emit the ticket set, or decide the close — a mission whose
 every ticket was driven and archived is finished, not unplanned.
+
+**`mission_member` is a premise with an expiry, and its repair is an annotation, not a reason**
+(2026-08-12, qmu/workaholic#382). The exclusion says "this ticket arrives inside its mission's
+unit instead", and only `missions/active/` yields units — so once the last mission a ticket names
+has closed, the premise is false and the ticket was offered by *neither* path: it stayed in
+`todo/` while the queue read as drained rather than as broken (six tickets unreachable for weeks
+in one repository, five of them genuinely open work). A ticket is now excluded `mission_member`
+only while **at least one** mission it names is still active — the test is ANY, not ALL, so a
+ticket naming one live mission and one closed one is still a member and is never double-offered.
+Liveness is asked of `mission/scripts/read-active-relation.sh`, a pure reader beside
+`read-relation.sh` whose contract is untouched; it keys on the **area**, so a `status: draft`
+mission still in `active/` counts as alive and `/propose`'s safety property (a ticket proposed
+under a not-yet-driven mission is unclaimable) holds unchanged. A ticket whose missions have all
+closed appears in **`backlog`** carrying `mission_closed` — the closed slugs that used to suppress
+it. It is deliberately not an `excluded` reason: `excluded[]` means the survey saw an item and
+dropped it, and a repaired ticket is offered, so recording it there would state the opposite of
+what happened. A dangling slug reads as closed for the same reason — a mission that resolves
+nowhere in this tree cannot offer the ticket a unit either.
 
 **Ownership.** Every artifact is offered by ownership — a ticket exactly as a mission (P2,
 2026-08-06). Claimable = this runner's `git config user.email` is among the owners, or there are

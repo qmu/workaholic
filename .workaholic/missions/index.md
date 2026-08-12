@@ -4,6 +4,7 @@
 
 * [make-the-propose-implement-loop-drillable-on-demand](active/make-the-propose-implement-loop-drillable-on-demand/mission.md) - Make the propose–implement loop drillable on demand
 * [make-the-workflow-scripts-survive-a-graphql-restricted-gh](active/make-the-workflow-scripts-survive-a-graphql-restricted-gh/mission.md) - Make the workflow scripts survive a GraphQL-restricted gh
+* [stop-a-routine-finish-line-from-vanishing-on-the-script-path](active/stop-a-routine-finish-line-from-vanishing-on-the-script-path/mission.md) - Stop a routine finish line from vanishing on the script path
 
 ## archive
 

@@ -113,6 +113,7 @@ const SCRIPTS = {
   unitFeedbackStems: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/unit-feedback-stems.sh"),
   proposeListRefs: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/list-proposed-refs.sh"),
   proposeExtractIssueNumber: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/extract-issue-number.sh"),
+  proposeListInboundIssues: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/list-inbound-issues.sh"),
   proposeScaffoldDraft: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/scaffold-draft.sh"),
   proposeNotifySlack: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/notify-slack.sh"),
   feedbackList: join(REPO_ROOT, "plugins/workaholic/skills/feedback/scripts/list.sh"),
@@ -11830,6 +11831,7 @@ const tests = [
   ["branching publish-tree-pr: an artifact lands on a work-* branch behind a PR (J4)", testPublishTreePr],
   ["branching publish-tree-pr: the ## Artifacts section is a counts summary, not a file-path list", testPublishTreePrArtifactsSummary],
   ["propose extract-issue-number: captures a triggering GitHub issue number from env or argument", testExtractIssueNumber],
+  ["propose list-inbound-issues: the clock-fired discovery reads the inbox, never invents one", testListInboundIssues],
   ["branching publish-tree-pr: threads a native Closes #<N> keyword when an issue number is in hand", testPublishTreePrClosesIssue],
   ["the PR title is not the commit subject (P4's surviving half)", testPrTitleSeparateFromSubject],
   ["the reply thread is found, not carried (Q1)", testStatelessThreadLookup],
@@ -12047,6 +12049,83 @@ function testExtractIssueNumber() {
 
   assertEq("no argument at all is the ordinary case, not a crash",
     JSON.parse(run(here, `${POSIX_SH} ${SCRIPT}`).stdout).issue_number, "");
+}
+
+// ---------- list-inbound-issues.sh (the clock-fired discovery) ----------
+// [Propose]'s schedule fire hands the session nothing, so /propose discovers its own
+// asks: the open issues assigned to this identity, minus those a feedback record
+// already names. `gh` is ALWAYS stubbed — the suite never touches the network — and
+// the properties pinned are the ones a wrong inbox would corrupt silently:
+//   - already_captured keys on the URL's /issues/<N> form with a NUMERIC BOUNDARY,
+//     because a record naming issue 12 must not swallow issue 120;
+//   - an exclusion is REPORTED, never silently dropped;
+//   - a missing gh is ok:false, because an unreadable inbox must never render as an
+//     empty one (the same rule plan-units.sh applies to an unreadable queue).
+function testListInboundIssues() {
+  const SCRIPT = SCRIPTS.proposeListInboundIssues;
+  const tmp = mkdtempSync(join(tmpdir(), "wh-inbound-"));
+  const bin = join(tmp, "bin");
+  const repo = join(tmp, "repo");
+  mkdirSync(bin, { recursive: true });
+  mkdirSync(join(repo, ".workaholic/feedbacks"), { recursive: true });
+  const env = { ...process.env, PATH: `${bin}:${process.env.PATH}` };
+  const writeGh = (body) => {
+    const p = join(bin, "gh");
+    writeFileSync(p, `#!/bin/sh\n${body}\n`);
+    chmodSync(p, 0o755);
+  };
+  try {
+    // A record already names issue 12 by its URL — that issue is in flight, not new.
+    writeFileSync(join(repo, ".workaholic/feedbacks/20260812000000-captured.md"),
+      `---\ntype: Feedback\n---\n\nSource: GitHub issue #12 (https://github.com/o/r/issues/12)\n`);
+
+    writeGh([
+      `case "$1" in`,
+      `  api) printf 'tester\\n' ;;`,
+      `  issue) printf '7\\thttps://github.com/o/r/issues/7\\t2026-08-12T00:00:00Z\\tOldest ask, taken first\\n12\\thttps://github.com/o/r/issues/12\\t2026-08-12T01:00:00Z\\tAlready captured\\n120\\thttps://github.com/o/r/issues/120\\t2026-08-12T02:00:00Z\\tBoundary guard\\n' ;;`,
+      `esac`,
+    ].join("\n"));
+    const r = JSON.parse(run(repo, `${POSIX_SH} ${SCRIPT}`, { env }).stdout);
+    assertEq("a readable inbox is ok:true", r.ok, true);
+    assertEq("the identity is the session's own login", r.identity, "tester");
+    assertEq("issue 12, already named by a record, is excluded", r.excluded.length, 1);
+    assertEq("and the exclusion is reported with its reason", r.excluded[0].reason, "already_captured");
+    assertEq("two issues survive", r.issues.length, 2);
+    assertEq("issue 120 is NOT swallowed by the record naming issue 12 (numeric boundary)",
+      r.issues.some((i) => i.number === 120), true);
+    assertEq("the oldest issue comes first", r.issues[0].number, 7);
+
+    // An empty inbox is ok:true with zero issues — the honest nothing_in_hand.
+    writeGh(`case "$1" in api) printf 'tester\\n' ;; issue) : ;; esac`);
+    const empty = JSON.parse(run(repo, `${POSIX_SH} ${SCRIPT}`, { env }).stdout);
+    assertEq("an empty inbox is still ok:true", empty.ok, true);
+    assertEq("with no issues", empty.issues.length, 0);
+
+    // A failed identity lookup is a REPORTED failure, not an empty inbox.
+    writeGh(`case "$1" in api) echo 'HTTP 401: Bad credentials' >&2; exit 1 ;; esac`);
+    const noAuth = JSON.parse(run(repo, `${POSIX_SH} ${SCRIPT}`, { env }).stdout);
+    assertEq("a failed identity lookup is ok:false", noAuth.ok, false);
+    assertEq("with its reason named", noAuth.reason, "identity_unresolved");
+
+    // No gh at all: mirror the whole PATH minus gh (the testGhAbsentDegrades pattern —
+    // an allowlist of "needed tools" breaks at EXIT-trap time on tools it forgot).
+    const noGhBin = join(tmp, "nogh-bin");
+    mkdirSync(noGhBin, { recursive: true });
+    for (const dir of (process.env.PATH || "").split(":").filter(Boolean)) {
+      let entries = [];
+      try { entries = readdirSync(dir); } catch { continue; }
+      for (const name of entries) {
+        if (name === "gh") continue;
+        if (existsSync(join(noGhBin, name))) continue;
+        try { symlinkSync(join(dir, name), join(noGhBin, name)); } catch { /* unreadable entry */ }
+      }
+    }
+    const noGh = { ...process.env, PATH: noGhBin };
+    assertEq("the fixture PATH really has no gh", run(repo, `command -v gh`, { env: noGh }).status !== 0, true);
+    const unavailable = JSON.parse(run(repo, `${POSIX_SH} ${SCRIPT}`, { env: noGh }).stdout);
+    assertEq("no gh is ok:false, never an empty inbox", unavailable.ok, false);
+    assertEq("named as gh_unavailable", unavailable.reason, "gh_unavailable");
+  } finally { cleanup(tmp); }
 }
 
 // ---------- publish-tree-pr.sh threads a native closing keyword (auto-close FB issues) ----------

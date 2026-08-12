@@ -48,12 +48,18 @@ not anyone was told.
 ## 3. Schedule the routine
 
 The loop runs **in the repository**, in an isolated cloud session started by the
-`[Propose]` routine, which fires on a **GitHub event**: an issue assigned to the developer
-being opened. That wiring is configured in the routines web UI and **nowhere else** — the
-record carries no event field, so it can be neither read nor set from a session
-(`skills/workaholify/SKILL.md`, *What a routine can be triggered by*). It runs on the
-inbound report, which is also the moment its judgment has the most context available.
-Its prompt is the shipped template
+`[Propose]` routine, which fires on a **fixed hourly schedule** (`15 * * * *`;
+FB `20260810085032` — the loop-engineering cadence, superseding the earlier GitHub
+issue-assignment trigger). A schedule fire hands the session nothing, so the run
+finds its own input: `/propose`'s *Clock-fired discovery*
+(`propose/scripts/list-inbound-issues.sh`) lists the repository's open GitHub
+issues **assigned to the developer**, skips any a feedback record already names,
+and takes each remaining issue as an inbound ask through the full run
+(`skills/propose/SKILL.md`). The schedule wiring is configured in the routines
+web UI (or by `/setup-routines` from an interactive session where the
+`RemoteTrigger` tool is exposed); from an unattended session it can be neither
+read nor set (`skills/workaholify/SKILL.md`, *What a routine can be triggered
+by*). Its prompt is the shipped template
 `plugins/workaholic/skills/workaholify/routines/fb.md` (template id `fb`).
 
 Provision it from an interactive session in the repository:

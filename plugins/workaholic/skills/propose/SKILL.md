@@ -1,6 +1,6 @@
 ---
 name: propose
-description: Use when a session has an ask in hand — the [Propose] capture routine that received it, or /propose by hand — to judge it against the conservative bar and emit, in one publish-tree pull request, the feedback record together with whatever the judgment warrants. Defines the judgment bar, the three forms a proposal takes, the proposal schema, and the scripts.
+description: Use when a session has an ask in hand — the [Propose] routine's clock tick that discovers one (the open GitHub issues assigned to this identity), or /propose by hand — to judge it against the conservative bar and emit, in one publish-tree pull request, the feedback record together with whatever the judgment warrants. Defines the clock-fired discovery, the judgment bar, the three forms a proposal takes, the proposal schema, and the scripts.
 allowed-tools: Bash
 user-invocable: false
 skills:
@@ -17,14 +17,53 @@ The AI half of "humans supply feedback, the AI proposes missions" (`docs/loop-en
 
 The judgment happens in the session that receives the ask (developer's ruling, 2026-08-04, superseding a batch sweep over merged `main` — that proposer could not see the record its own capture session had just written, so a second seat, a cron cadence and a shared cursor existed only to compensate; `docs/proposal-loop-runbook.md`). The capture session holds what no later reader can recover: the reporter's words, the thread they arrived in, and the record it just wrote. The inputs keep their asymmetry: the **ask in hand** originates a proposal, while the repository's own state — what is planned, queued, and recently built, read from the base (`survey-state.sh`, `list-proposed-refs.sh`), never from the caller's imagination — can only shrink one or veto it. The relation direction is **artifact → feedback**: a proposal records its source records in its own `feedback:` frontmatter list; nothing is ever stored on the feedback side, so the stream stays immutable and dedup reads the artifacts.
 
+## Clock-fired discovery
+
+Since `[Propose]` fires on an hourly schedule rather than a GitHub issue trigger (FB
+`20260810085032`), no event hands the session an issue — so a run that starts with
+nothing in hand **discovers its own asks** before conceding `nothing_in_hand`
+(developer's instruction, 2026-08-12, closing the gap the schedule migration left
+open): `list-inbound-issues.sh` lists the open GitHub issues on this repository
+**assigned to the session's own identity**, excludes any a feedback record already
+names (`already_captured` — reported, never silently dropped), and hands back the rest
+oldest-first. Each returned issue is an ask in hand exactly as if the retired trigger
+had delivered it: run the full workflow per issue — its own record, its own judgment,
+its own pull request with `Closes #<N>` — one at a time.
+
+Three boundaries keep this from becoming the retired `[Propose Batch]` sweep:
+
+- **It reads the inbound ask channel, never the repository's own state.** Issues are
+  what people (and `/fb`'s cross-repository mode) open *at* this repository — the same
+  input the retired event trigger delivered one at a time. Missions, the queue, and
+  commits stay constraints (*The judgment bar*); nothing here reads them for something
+  to propose.
+- **Assigned to me only, never unassigned** — every developer's copy fires hourly, so
+  an unassigned issue offered to every copy would have N runners race for it (the
+  measured failure P8 records). An unassigned issue still reaches `/propose` by hand
+  (`/propose #<N>`), where a human chose the one session that acts. The server-side
+  filter also makes `not_mine` impossible on this path by construction.
+- **No title filter.** `/fb`'s crossing deliberately adds no `[FB]`-style prefix to
+  the issues it opens (`feedback/scripts/open-issue.sh` — the title is the target's,
+  not ours), so a title filter would drop exactly the asks this loop exists to ingest.
+  Assignment is the routing signal; the title is prose.
+
+An unreadable inbox is reported, never rendered as an empty one: `ok: false` carries
+its reason (`gh_unavailable` / `identity_unresolved` / `list_failed`) into the run's
+report beside `nothing_in_hand`. For the exclusion to hold, the record each run writes
+**must carry the issue's URL** (its `/issues/<N>` form) — the capture step's contract.
+
 ## Workflow
 
 The run, in order — the step-by-step contract, with every script invocation, env-var
 envelope, and abort reason, is [`reference/workflow.md`](reference/workflow.md):
 
 1. **Take the ask in hand** — the command's argument, the record this session just
-   wrote, or a record the caller named; none → `nothing_in_hand`, and an ask assigned to
-   someone else → `not_mine` (*Act only on an ask that is yours*, below).
+   wrote, or a record the caller named. **With none of those** — the clock-fired
+   `[Propose]` tick — **discover the inbound issues** (`list-inbound-issues.sh`; below,
+   *Clock-fired discovery*): each open GitHub issue assigned to this session's own
+   identity is an ask in hand, taken oldest-first, each through the full run. Still
+   none → `nothing_in_hand`; an ask assigned to someone else → `not_mine` (*Act only
+   on an ask that is yours*, below).
 2. **Open the publish tree** and **register the record** inside it — written whatever
    the judgment concludes.
 3. **Read the constraints** (`survey-state.sh`), **discover** the mechanism the ask
@@ -136,6 +175,7 @@ Full invocations with `${CLAUDE_PLUGIN_ROOT}` paths are in [`reference/workflow.
 - **`scaffold-proposed-ticket.sh "<title>" <mission-slug> | --loose --feedback <record>... [--assignee <email>]`** — one ticket into the flat `todo/`; the mission form carries `mission: <slug>`, the loose form carries `feedback:` instead (refused `no_feedback` without refs); `merge_policy` left empty; the mandatory `## Policies`/`## Quality Gate` sections scaffolded so the artifact is valid at write. Emits `{created, path, slug, mission, feedback, loose}` or a `reason` (`no_title`/`no_mission`/`mission_missing`/`no_feedback`/`exists`). **Stamp the acceptance links after the set is written** — `mission/scripts/link-acceptance.sh <slug> <item-selector> <ticket-filename>` once per satisfied item, naming the pairing decided at decomposition, never inferring; an unsatisfied item stays unlinked and is named in the PR body (37 unlinked items across six proposed missions is the measured cost of skipping this).
 - **`branching/scripts/publish-tree-pr.sh <title> <why> <changes> <concerns> <insights> <verify>`** — one call, everything written; emits `{ok, sha, branch, pr_url, base}`; `pr_failed` still reports `branch` and `sha`. `WORKAHOLIC_CLOSES_ISSUE=<N>` threads a native `Closes #<N>` line into the body, so merging the pull request auto-closes the "[FB] ***" issue the ask came from — empty (the common case) emits no line.
 - **`extract-issue-number.sh ["<argument>"]`** — the source for that env var: `CCR_TRIGGER_ISSUE_NUMBER` under a routine, else a `#<N>`/issue URL in the argument; emits `{"issue_number": "<N>"}` or `""`. Run at step 1, kept in hand through to step 10.
+- **`list-inbound-issues.sh [feedbacks-dir]`** — the clock-fired discovery (*Clock-fired discovery*, above): the open GitHub issues assigned to the session's own identity, oldest-first, minus those a feedback record already names (each exclusion reported as `already_captured`); `WORKAHOLIC_PROPOSE_ISSUE_LIMIT` caps the page (default 20). Pure read, never load-bearing: a missing `gh` or a failed lookup is `{ok: false, reason, detail}` with exit 0 — an unreadable inbox is reported, never rendered as an empty one.
 
 ## Notifier contract
 

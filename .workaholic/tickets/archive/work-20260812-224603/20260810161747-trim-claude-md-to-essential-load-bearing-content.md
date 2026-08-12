@@ -5,6 +5,7 @@ assignees: [a@qmu.jp]
 depends_on:
 feedback: [20260810161713-claude-md-is-too-long.md]
 merge_policy:
+claim: work-20260812-224603
 ---
 
 # Trim CLAUDE.md to essential, load-bearing content
@@ -67,3 +68,15 @@ while keeping every instruction a session actually needs to act correctly.
 - This is a judgment-heavy edit, not a mechanical one: distinguishing "load-bearing" from "narrative" requires reading the whole file, and an overly aggressive cut risks silently dropping a rule a hook or script depends on being followed (even though nothing parses `CLAUDE.md` programmatically, sessions do rely on it behaving as instruction).
 - Consider whether a firm target (e.g. a line-count or byte-size ceiling, analogous to the mission-size norm already established for `mission.md`) is worth adopting here too, so this does not regrow to its current size — that ceiling, if any, is a decision for whoever drives this ticket or a follow-up mission, not settled by this proposal.
 - Relocating history into `docs/` rather than deleting it keeps the "knowledge is never deleted" norm this repository otherwise follows for its own artifacts.
+
+## Final Report
+
+**Outcome: implemented.**
+
+- Baseline measured: 375 lines / 129,674 bytes. Trimmed: **195 lines / 27,962 bytes** (−48% lines, **−78% bytes**).
+- Every paragraph was tagged instruction-vs-narrative; the narrative (dated decisions, measured incidents, rejected alternatives) was cut or compressed to a clause, with a standing pointer block at the top naming where fuller accounts live (`docs/loop-engineering-workflow.md`, the runbooks, each skill's `reference/`, the feedback stream, git history) — relocation over deletion, per the knowledge norm.
+- Preserved operationally verbatim: the Component Nesting Rules table, the Local Verification command block, the Version Management steps, both branch-name literals, every script path and `${CLAUDE_PLUGIN_ROOT}` rule, the closed-layout lockstep rule, and each command's factual contract (rewritten terse, no contract dropped). The Project Structure tree kept its shape with the hooks annotation moved to a compact "Hooks" list.
+- Sections were restated as current behavior ("what a session must do now"); decision IDs and dates were dropped except where a rule's scope depends on them.
+- Cross-checked `README.md`, `.workaholic/README.md`, `plugins/workaholic/rules/workaholic.md`, and the test suite for references to renamed headings — none exist (the prose-pinning tests that once referenced CLAUDE.md headings were removed earlier the same day).
+- Verified: `layout-doctor.sh .` conforming, `verify.mjs` clean, `test-workflow-scripts.mjs` 2238 passed / 0 failed.
+- The Considerations' size-ceiling question is left open deliberately — a follow-up decision for the operator, not settled here.

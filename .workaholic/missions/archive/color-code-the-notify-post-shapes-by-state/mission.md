@@ -2,7 +2,7 @@
 type: Mission
 title: Color-code the notify post shapes by state
 slug: color-code-the-notify-post-shapes-by-state
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-10T06:30:16+00:00
 author: a@qmu.jp
@@ -68,3 +68,4 @@ rebuilds `outputs/workflows`.
 - 2026-08-10 — ticket archived — 20260810083127-align-propose-start-wording-and-attribution-link-text.md
 - 2026-08-10 — story reported — work-20260810-083550.md
 - 2026-08-10 — run recorded (+0.37h) — session-01UqamDaSDrTMQCZo8bqsfd1-wording-fix
+- 2026-08-12 — mission achieved — mission.md

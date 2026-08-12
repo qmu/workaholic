@@ -20,6 +20,26 @@ set -eu
 WINDOW="${1:-2 weeks ago}"
 SCRIPT_DIR=$(dirname "$0")
 
+# --- Scratch space for values too large to pass through argv -----------------
+# A VALUE THAT GROWS WITH THE CORPUS IS PASSED BY FILE, NEVER AS AN ARGUMENT.
+# Linux caps a SINGLE argv entry at MAX_ARG_STRLEN (32 pages = 131,072 bytes),
+# which is independent of the much larger total ARG_MAX (2 MiB here) — so raising
+# `ulimit`, shortening the window, or splitting one jq call into several does not
+# help: one oversized value is fatal on its own. Measured 2026-08-12 on a 900-file
+# ticket corpus (qmu/workaholic#387, reported against ~1,600 files): the serialized
+# tickets array reached 217,691 bytes, `--argjson tickets "$TICKETS"` aborted with
+# `jq: Argument list too long`, and the script exited 126 emitting NOTHING — so
+# /catch had nothing to render and was permanently broken on exactly the mature
+# repositories it is most useful for.
+#
+# The trap covers the error paths too, not only the happy one: this script runs
+# under `set -eu`, where any unchecked non-zero exit terminates it mid-flight.
+SCAN_TMP=$(mktemp -d)
+trap 'rm -rf "$SCAN_TMP"' EXIT
+trap 'rm -rf "$SCAN_TMP"; exit 130' INT
+trap 'rm -rf "$SCAN_TMP"; exit 143' TERM
+trap 'rm -rf "$SCAN_TMP"; exit 129' HUP
+
 # --- Refresh remote-tracking refs (best-effort, non-fatal) ------------------
 # /catch answers "what has everyone pushed", so refresh refs/remotes/* before
 # scanning. This is the one write /catch performs, and it touches only
@@ -233,11 +253,26 @@ if [ -d ".workaholic/missions" ]; then
   MLIST=$(sh "${SCRIPT_DIR}/../../mission/scripts//list.sh" 2>/dev/null || echo '[]')
   [ -n "$MLIST" ] || MLIST='[]'
 
+  # BOTH grow-with-corpus values go through files (see SCAN_TMP at the top).
+  # `$TICKETS` is the measured abort site; `$MLIST` is ~300 bytes per mission, so it
+  # is not "a small scalar" either — it is merely further from the ceiling, which is
+  # a reason to fix it now and not a reason to leave it in argv. `$WINDOW_START_DATE`
+  # is a date and stays an argument, as do the epoch scalars and `$REMOTES` (bounded
+  # by how many git remotes a human configured, not by the corpus) further up.
+  #
+  # --slurpfile binds an ARRAY of the file's values, hence the `[0]`. The two `as`
+  # bindings re-establish `$list` and `$tickets` so the filter body below is
+  # byte-identical to the argjson version and reads as the transport change it is.
+  printf '%s' "$MLIST" > "${SCAN_TMP}/mlist.json"
+  printf '%s' "$TICKETS" > "${SCAN_TMP}/tickets.json"
   MISSIONS=$(
     emit_changelog_events | jq -Rs \
-      --argjson list "$MLIST" \
-      --argjson tickets "$TICKETS" \
+      --slurpfile list_file "${SCAN_TMP}/mlist.json" \
+      --slurpfile tickets_file "${SCAN_TMP}/tickets.json" \
       --arg cutoff "$WINDOW_START_DATE" '
+      ($list_file[0]) as $list
+      | ($tickets_file[0]) as $tickets
+      |
       ( split("")
         | map(select((gsub("\\s"; "") | length) > 0))
         | map(split("") | {slug: .[0], date: .[1], event: .[2], artifact: .[3]})

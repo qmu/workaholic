@@ -54,10 +54,14 @@ Three boundaries keep this from becoming the retired `[Propose Batch]` sweep:
   measured failure P8 records). An unassigned issue still reaches `/propose` by hand
   (`/propose #<N>`), where a human chose the one session that acts. The server-side
   filter also makes `not_mine` impossible on this path by construction.
-- **No title filter.** `/fb`'s crossing deliberately adds no `[FB]`-style prefix to
-  the issues it opens (`feedback/scripts/open-issue.sh` — the title is the target's,
-  not ours), so a title filter would drop exactly the asks this loop exists to ingest.
-  Assignment is the routing signal; the title is prose.
+- **No title filter**, and the reason is the *inbound* mix, not our own outbound shape.
+  Issues arrive here from humans typing into the GitHub UI and from other tools, neither
+  of which will ever carry an `[FB]`-style prefix — measured 2026-08-12, only 1 of the 9
+  issues filed directly by a human carried one — so filtering on the title would drop
+  exactly the asks this loop exists to ingest. (This boundary once rested on `/fb`'s
+  crossing adding no prefix of its own; since issue #411 it stamps `[FB] `
+  — `feedback/scripts/fb-title.sh` — which changes nothing here, because the crossing
+  was never the only sender.) Assignment is the routing signal; the title is prose.
 
 An unreadable inbox is reported, never rendered as an empty one: `ok: false` carries
 its reason (`gh_unavailable` / `identity_unresolved` / `list_failed`) into the run's

@@ -52,10 +52,25 @@ printf '%s' "$slug" | grep -qE '^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$' \
 
 command -v gh >/dev/null 2>&1 || emit_err "gh is not available — cannot open an issue on ${slug}"
 
-# The title is the target's, not ours: no `[Proposal]`/`[Request]` prefix of ours is
-# added here or anywhere upstream. What the target's routine does with the issue is the
-# target's loop's business, and a prefix that means something in our vocabulary reads as
-# noise — or worse, as a category — in theirs.
+# THE TITLE CARRIES AN `[FB] ` MARKER, AND THIS IS WHERE IT IS STAMPED — reversing, on
+# the developer's instruction (issue #411, 2026-08-12), the rule that stood here for the
+# life of the crossing. The old rule read: "The title is the target's, not ours: no
+# `[Proposal]`/`[Request]` prefix of ours is added here or anywhere upstream... a prefix
+# that means something in our vocabulary reads as noise — or worse, as a category — in
+# theirs." That reasoning was never wrong about vocabulary; it was wrong about what was
+# actually happening. Measured before the reversal: 17 of the 17 issues this repository
+# received through the crossing already carried `[FB]`, against 1 of 9 filed directly by
+# a human — every composing agent had been stamping it by hand anyway, so the written
+# rule and the shipped behavior had disagreed 100% of the time. The reporter's
+# "doesn't always" is therefore about the absence of a *guarantee*, not about observed
+# misses, and mechanizing the marker changes no observable output: it only makes the
+# convention true by construction. `[FB]` also earns its keep in the target's own terms
+# — a target running this same loop ingests it, and for one that does not it reads as
+# the provenance tag it is.
+#
+# The shape itself lives in `fb-title.sh`, not here, because the crossing's confirmation
+# step must show the developer the *stamped* string: a title confirmed verbatim and then
+# rewritten on the way out is not a title anyone confirmed.
 #
 # The body goes in on STDIN, never through argv — it is unbounded prose and a single argv
 # entry is capped at 128 KiB on Linux. `--body-file` had that covered; a naive `-f
@@ -63,7 +78,10 @@ command -v gh >/dev/null 2>&1 || emit_err "gh is not available — cannot open a
 SCRIPT_DIR=$(cd -- "$(dirname -- "$0")" && pwd)
 GATHER_SCRIPTS="${SCRIPT_DIR}/../../gather/scripts/"
 
-payload="$(jq -n --arg t "$title" --rawfile body "$body_file" '{title: $t, body: $body}' 2>/dev/null || true)"
+wire_title="$(sh "${SCRIPT_DIR}/fb-title.sh" "$title" 2>/dev/null || true)"
+[ -n "$wire_title" ] || emit_err "could not render the issue title for ${slug}: ${title}"
+
+payload="$(jq -n --arg t "$wire_title" --rawfile body "$body_file" '{title: $t, body: $body}' 2>/dev/null || true)"
 [ -n "$payload" ] || emit_err "could not build the issue payload for ${slug} (is jq present?)"
 
 out="$(printf '%s' "$payload" \

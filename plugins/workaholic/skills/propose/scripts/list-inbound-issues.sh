@@ -31,11 +31,14 @@
 # the one session that acts. The server-side assignee filter also makes the
 # P8 `not_mine` verdict impossible on this path by construction.
 #
-# NO TITLE FILTER (decided, not omitted): /fb's cross-repository crossing
-# deliberately adds no "[FB]"-style prefix to the issues it opens
-# (feedback/scripts/open-issue.sh — the title is the target's, not ours), so a
-# title filter would drop exactly the asks this loop exists to ingest.
-# Assignment is the routing signal; the title is prose.
+# NO TITLE FILTER (decided, not omitted), because of what arrives rather than
+# what we send: issues are filed here by humans in the GitHub UI and by other
+# tools, and neither carries an "[FB]"-style prefix — measured 2026-08-12, 1 of
+# 9 human-filed issues did — so a title filter would drop exactly the asks this
+# loop exists to ingest. Assignment is the routing signal; the title is prose.
+# (This once rested on /fb's own crossing adding no prefix; since issue #411 it
+# stamps "[FB] " via feedback/scripts/fb-title.sh. The boundary is unaffected —
+# the crossing was never the only sender.)
 #
 # ALREADY-CAPTURED EXCLUSION: a merged proposal auto-closes its issue
 # (`Closes #<N>`), so an OPEN issue whose number a feedback record already

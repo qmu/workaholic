@@ -35,9 +35,10 @@ over one at a time — and feedback stays the only input that can originate a pr
 A tick whose discovery returns nothing still reports `nothing_in_hand` and ends —
 the honest answer, now meaning "the inbox is empty" rather than "I could not look".
 
-**The prompt is the developer's own** (P3, reshaped by Q2: three instructions and two
-post formats — the finish post carries the session URL and the
-requester's mention) and states no rule
+**The prompt is the developer's own** (P3, reshaped by Q2, trimmed again 2026-08-12 after
+the developer read dated decision notes in the live prompt: the command, the load
+fallback, and one literal finish shape carrying the session URL and the requester's
+mention — nothing else) and states no rule
 a skill already owns: `workaholic:propose` owns the judgment, the single pull request
 and the `[Proposal]` prefix; `workaholic:feedback` owns the record; `workaholic:notify`
 owns every notification rule; the always-loaded `rules/` own the standing
@@ -56,9 +57,11 @@ lines is the developer's own placeholder for the issue and pull request links.
 
 ## Prompt
 
-Run `/propose`. If that command is unavailable or its skills did not bind, do not end the tick: run `bash plugins/workaholic/skills/check-deps/scripts/plugin-src.sh` from the repository checkout, take its `src`, then read `<src>/commands/propose.md` and follow it with every script path rooted at `<src>`. A binding that is missing or behind the registry is a source-resolution fact, never a stop (`rules/general.md`).
+Run `/propose`.
 
-If it finds an ask in hand, find its reply thread (the workaholic:notify lookup) and notify it when the run finishes, in the following format — the finish is the only post; there is no "started" line (developer's order, 2026-08-11):
+If the command or its skills did not load, do not stop: run `bash plugins/workaholic/skills/check-deps/scripts/plugin-src.sh` from the checkout, take its `src`, then read `<src>/commands/propose.md` and follow it with every script path under `<src>`.
+
+If it finds an ask in hand, post one finish line into its reply thread (the workaholic:notify lookup):
 
 ```
 🔵 Proposed - [#123 [Proposal] PR Title]({repo}/pull/123)

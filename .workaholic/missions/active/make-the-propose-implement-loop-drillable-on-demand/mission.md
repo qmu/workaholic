@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: []
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 0.52
 tickets: []
 stories: []
 gate_type:
@@ -49,3 +49,4 @@ minting a fresh issue per run, never from deleting history.
 - 2026-08-12 — ticket archived — 20260812190502-add-drill-verify-subcommands-for-each-stage.md
 - 2026-08-12 — ticket archived — 20260812190503-write-the-loop-drill-runbook.md
 - 2026-08-12 — story — work-20260812-193807.md
+- 2026-08-12 — run recorded (+0.52h) — 20260812-193807

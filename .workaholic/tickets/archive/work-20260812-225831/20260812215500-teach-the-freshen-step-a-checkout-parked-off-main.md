@@ -142,3 +142,86 @@ is written — a one-off is a different fix from a standing condition.
 
 - The whole local verification set in `CLAUDE.md` passes.
 - The release-safety scan reports no `secret` finding.
+
+## Final Report
+
+Development completed as planned.
+
+### Step 1: the measurement, and its limits
+
+The ticket asked how often the container parks the checkout off `main`, because a one-off
+and a standing condition deserve different fixes. **Confirmed occurrences, both on
+2026-08-12, both inside one hour:**
+
+| When | Evidence | Harness branch | Tip |
+| ---- | -------- | -------------- | --- |
+| 21:38Z | this ticket's own run | `claude/stoic-euler-thqys9` | `c338f19` = `origin/main` |
+| 22:24Z | archived ticket `20260812223046-pin-the-plugin-source-across-the-freshen-step` (PR #426) | a harness branch, unnamed in the record | `1e49199` = `origin/main` |
+
+Two independent runners hit the identical shape, neither knowing about the other; the second
+minted a ticket for a *different* consequence of it (the plugin source reverting under the
+run) and that fix has already merged. Corroborating: PRs #394 and #395 merged from
+`qmu/claude/nifty-ramanujan-hn0rpm`, a third session working from a `claude/*` branch.
+
+**A count is the wrong shape for the rest of the answer, and saying so is part of the
+finding.** A tick that terminates on `not_on_main` writes nothing: it never claims, so it
+leaves no branch; and `not_on_main` is not in the precondition-stop class (`workaholic:notify`
+names that closed list — `no_plugin_source` only), so it posts nothing to Slack either. A
+lost tick and an idle tick over an empty queue are therefore **indistinguishable from
+outside**, which is exactly why this went unnoticed. The rate is not recoverable from any
+surviving artifact; two confirmed occurrences in one hour, from independent runners, is
+enough to call it standing rather than incidental, and the invisibility is itself the
+argument against leaving it to a documented manual recovery.
+
+### Step 2: the rule, and why it is a proof rather than a name
+
+The freshen step now passes when the checkout is parked off the base **and** stands on the
+base's exact tip **and** the tree is clean — reported as `off_base: true` with the parked
+branch name, never silently. The general refusal is untouched: a topic branch carrying its
+own commit is still refused, because its content differs from the base and surveying it
+reports a queue that does not exist.
+
+Rejected: matching a `claude/*` branch-name pattern. That would be a guess about a harness
+free to rename its branches tomorrow, and it would pass a `claude/*` branch that had drifted.
+"Same commit as the base, nothing modified" is checkable on the spot and is the entire
+justification — under it the tree about to be surveyed is byte-identical to the one the
+caller would survey standing on the base.
+
+Also rejected: having the run move the checkout onto the base itself, which is what this
+ticket's own provoking run did by hand. It mutates a developer's checkout for a condition
+that needs no mutation at all, and §1a proves that: it changes nothing on disk.
+
+### Discovered Insights
+
+- **Insight**: The refusal's cost was invisible by construction. It fires before the claim
+  (so no branch), before the survey (so no report), and its reason is not in the
+  precondition-stop class (so no Slack post) — three separate silences that compose into a
+  tick indistinguishable from a healthy idle one.
+  **Context**: When adding a pre-survey gate, check what it leaves behind. A gate whose
+  failure produces no artifact cannot be measured later, and its rate can only be recovered
+  by catching it live.
+
+- **Insight**: This is the third instance of one class — a harness or image artifact wearing
+  a developer's clothes — after the superseded plugin binding (`plugin-src.sh`) and the baked
+  base branch (`sync-main.sh` §5). All three were written as "a human decided this, so stop",
+  and all three were actually "the container arrived like this, so proceed on proof". §1a
+  deliberately mirrors §5's shape: a narrow, evidence-gated exception, reported in the JSON,
+  refusing identically the moment the evidence is absent.
+  **Context**: When a refusal rests on "a developer must have meant this", ask what the
+  container alone could have produced. If the answer is "exactly this state", the refusal
+  needs a proof to distinguish the two.
+
+- **Insight**: Two of this suite's existing cases asserted the off-base refusal using a branch
+  created at the base's tip with a clean tree — precisely the state now allowed. The
+  assertions were correct about the *rule* and accidental about the *fixture*, so narrowing
+  the rule broke them. Both were rewritten to carry their own commit, which is the shape the
+  refusal actually exists for.
+  **Context**: A test that constructs the cheapest instance of a category can pin a boundary
+  nobody intended. When a refusal has a reason, build the fixture from the reason.
+
+- **Insight**: `land-unit.sh` is the one other caller passing an explicit base, and it needs
+  no change: it runs from the landing checkout, and after a successful land that checkout is
+  *behind* the moved base, so §1a's proof fails and `base_synced: false` is reported honestly.
+  **Context**: The exception is self-limiting for callers that use the result to decide
+  whether the working tree saw a change — being at the tip is the same question as having
+  seen it.

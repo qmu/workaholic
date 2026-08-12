@@ -10503,9 +10503,48 @@ function testSyncMain() {
     assertEq("sync-main fast-forwards a stale main", { ok: r.ok, advanced: r.advanced }, { ok: true, advanced: true });
     assertTrue("the fast-forward actually brought the commit in", existsSync(join(A, "b.txt")));
 
-    // Not on main.
+    // Not on main. THE SHAPE THE REFUSAL EXISTS FOR is a topic branch carrying its
+    // own commit: its content differs from the base, so surveying it reports a
+    // queue that does not exist. (This case used to branch at the base's tip and
+    // assert the refusal there — narrowed below, so it now asserts the real shape.)
     execSync("git checkout -q -b work-20260730-130000", { cwd: A });
-    assertEq("sync-main refuses off main", JSON.parse(run(A, SYNC).stdout).reason, "not_on_main");
+    writeFileSync(join(A, "topic.txt"), "topic\n");
+    execSync("git add -A && git commit -q -m 'Add topic work'", { cwd: A });
+    assertEq("sync-main refuses a topic branch carrying its own commit",
+      JSON.parse(run(A, SYNC).stdout).reason, "not_on_main");
+
+    // ...but a checkout PARKED off the base while standing on the base's exact tip,
+    // clean, is the cloud-harness shape (measured twice on 2026-08-12) and passes,
+    // reported rather than silent. The tree it would survey is byte-identical to
+    // the one it would survey on the base.
+    execSync("git checkout -q -B claude/parked origin/main", { cwd: A });
+    r = JSON.parse(run(A, SYNC).stdout);
+    assertEq("sync-main passes a clean checkout parked on the base tip",
+      { ok: r.ok, off_base: r.off_base, advanced: r.advanced },
+      { ok: true, off_base: true, advanced: false });
+    assertEq("naming the branch it was parked on", r.branch, "claude/parked");
+    assertEq("and reporting the base's own sha", r.sha,
+      execSync("git rev-parse origin/main", { cwd: A, encoding: "utf8" }).trim());
+    assertEq("while mutating nothing",
+      execSync("git status --porcelain", { cwd: A, encoding: "utf8" }).trim(), "");
+
+    // THE PROOF IS REQUIRED, NOT THE BRANCH NAME — a `claude/*` allowlist would be a
+    // guess about a harness free to rename its branches. Every way the proof fails
+    // refuses `not_on_main`, so no off-base refusal changed its reason.
+    writeFileSync(join(A, "scratch.txt"), "x\n");
+    assertEq("a parked checkout with a dirty tree still refuses",
+      JSON.parse(run(A, SYNC).stdout).reason, "not_on_main");
+    rmSync(join(A, "scratch.txt"));
+
+    execSync("git checkout -q -B claude/behind origin/main~1", { cwd: A });
+    assertEq("a parked checkout behind the base still refuses",
+      JSON.parse(run(A, SYNC).stdout).reason, "not_on_main");
+
+    execSync("git checkout -q -B claude/ahead origin/main", { cwd: A });
+    writeFileSync(join(A, "ahead.txt"), "ahead\n");
+    execSync("git add -A && git commit -q -m 'Add work ahead of the base'", { cwd: A });
+    assertEq("a parked checkout ahead of the base still refuses",
+      JSON.parse(run(A, SYNC).stdout).reason, "not_on_main");
 
     // Dirty tree on main.
     execSync("git checkout -q main", { cwd: A });
@@ -10754,7 +10793,12 @@ function testDriveSurveysCurrentMain() {
     run(A, `${POSIX_SH} ${SCRIPTS.releaseClaim} ${won.unit}`);
 
     // Each sync failure is a distinct, visible reason — none of them may report ok.
+    // The off-base branch carries its own commit: a branch sitting on the base's
+    // exact tip with a clean tree is the harness shape that now passes with
+    // `off_base: true` (see testSyncMain), so it would not be a failure to name.
     execSync("git checkout -q -b work-20260730-170000", { cwd: A });
+    writeFileSync(join(A, "off-base-work.txt"), "work\n");
+    execSync("git add -A && git commit -q -m 'Add off base work'", { cwd: A });
     assertEq("off main: a distinct reason", JSON.parse(run(A, SYNC).stdout).reason, "not_on_main");
     execSync("git checkout -q main", { cwd: A });
     writeFileSync(join(A, "dirty.txt"), "x\n");

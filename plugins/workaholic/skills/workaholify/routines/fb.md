@@ -21,19 +21,19 @@ below; the developer asked for both). Every developer's copy fires independently
 its own tick, and the **data** decides whose work it is exactly as before: `/propose`
 reads whatever ask is in hand and reports `not_mine` when it is not theirs.
 
-**The cost this accepts, stated plainly rather than assumed away**: `/propose`'s
-design is **the ask in hand** — the reported ask and the ask alone decide what gets
-proposed, with `nothing_in_hand` the honest answer when there is none (`CLAUDE.md`,
-`/propose` row) — a design that exists *because* the earlier `[Propose Batch]` swept
-the backlog instead and was retired for it (`reference/routines.md`, *The retired
-routines*). A schedule fire carries no issue number, no assignee, nothing in hand at
-all, so a `[Propose]` tick fired purely by the clock reports `nothing_in_hand` and
-ends — the schedule alone does not give `/propose` anything new to act on. What the
-schedule buys is a periodic sweep for whatever *is* in hand by other means (a
-developer-invoked ask, a queued item another surface left for it); it is not a
-redesign of `/propose`'s ask-discovery, which stays exactly as documented in
-`CLAUDE.md`. Whether `/propose` should eventually gain its own clock-compatible
-discovery mechanism is a separate, unscoped question.
+**A schedule fire carries nothing in hand, so `/propose` discovers its own asks**
+(developer's instruction, 2026-08-12, closing the cost the schedule migration first
+stated as unresolved): a tick that starts with no argument, no fresh record and no
+trigger payload runs the propose skill's *Clock-fired discovery* —
+`list-inbound-issues.sh` lists the open GitHub issues on this repository assigned to
+the session's own identity, minus those a feedback record already names — and takes
+each returned issue as an ask in hand, oldest-first, one full run per issue. This is
+**not** the retired `[Propose Batch]` sweep (`reference/routines.md`, *The retired
+routines*): that read the repository's own backlog for something to propose; this
+reads the inbound ask channel — the issues the retired event trigger used to hand
+over one at a time — and feedback stays the only input that can originate a proposal.
+A tick whose discovery returns nothing still reports `nothing_in_hand` and ends —
+the honest answer, now meaning "the inbox is empty" rather than "I could not look".
 
 **The prompt is the developer's own** (P3, reshaped by Q2: three instructions and two
 post formats — the finish post carries the session URL and the
@@ -49,8 +49,9 @@ copy is a drift to fix, never a second wording to reconcile against a third. The
 thread is **found**, never carried (Q1) — the notify SKILL's exact-token lookup, not a
 target read out of a triggering event and not a channel name in the prompt — so no
 repository is named here and the same prompt pastes into every project. A schedule
-fire carries no specific Issue at all (unlike the retired assignment trigger), so the
-lookup runs only when `/propose` actually found an ask in hand. `{repo}` in the format
+fire carries no specific Issue in its payload (unlike the retired assignment
+trigger) — the issues come from `/propose`'s own clock-fired discovery — so the
+lookup runs once per ask `/propose` actually took in hand. `{repo}` in the format
 lines is the developer's own placeholder for the issue and pull request links.
 
 ## Prompt

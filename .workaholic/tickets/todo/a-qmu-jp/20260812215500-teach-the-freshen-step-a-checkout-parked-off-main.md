@@ -5,6 +5,7 @@ assignees: [a@qmu.jp]
 depends_on:
 feedback:
 merge_policy:
+claim: work-20260812-225831
 ---
 
 # Teach the freshen step a checkout parked off main

@@ -6866,6 +6866,142 @@ function testScanWindow() {
   } finally { cleanup(dir); }
 }
 
+// ---------- mission/list-related-prs.sh (slug matching over repo-scoped REST) ----------
+// This is the script whose SEMANTICS moved furthest in the GraphQL conversion. The old
+// call asked the server `<slug> in:title,body`; `search/issues` — the obvious REST
+// translation — is refused in a bound session ("sessions are bound to their configured
+// repositories. Use repository-scoped endpoints"), so the match moved client-side onto
+// `GET repos/{slug}/pulls`. These assertions pin that the question being asked is still
+// the same one, and that a refused read is never dressed up as an empty result.
+function testListRelatedPrs() {
+  let hasJq = true;
+  try { execSync("command -v jq", { stdio: "ignore" }); } catch { hasJq = false; }
+  if (!hasJq) { console.log("  skip  list-related-prs (jq not available)"); return; }
+  const repo = makeRepo("main");
+  const binDir = mkdtempSync(join(tmpdir(), "wh-relprs-"));
+  const SCRIPT = join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/list-related-prs.sh");
+  try {
+    execSync("git remote add origin https://github.com/acme-org/demo-repo.git", { cwd: repo, stdio: "ignore" });
+    const writeGh = (bodyLines) => {
+      writeFileSync(join(binDir, "gh"), `#!/bin/sh\n${bodyLines}\n`);
+      chmodSync(join(binDir, "gh"), 0o755);
+    };
+    const env = { ...process.env, PATH: `${binDir}:${process.env.PATH}` };
+    const call = (slug) => JSON.parse(run(repo, `${POSIX_SH} ${SCRIPT} ${slug}`, { env }).stdout);
+
+    // One PR matching in the TITLE, one in the BODY, one not at all.
+    const payload = JSON.stringify([
+      { number: 1, title: "Do the foo-slug thing", body: "x", html_url: "https://e/1", head: { ref: "work-1" } },
+      { number: 2, title: "Unrelated", body: "mentions foo-slug in the body", html_url: "https://e/2", head: { ref: "work-2" } },
+      { number: 3, title: "Nothing", body: "nothing", html_url: "https://e/3", head: { ref: "work-3" } },
+    ]).replace(/'/g, "");
+    writeGh(`cat <<'JSON'\n${payload}\nJSON`);
+
+    const hit = call("foo-slug");
+    assertEq("a successful read reports available", hit.available, true);
+    assertEq("the slug matches in title AND in body, and nothing else",
+      (hit.prs || []).map((p) => p.number), [1, 2]);
+    assertEq("headRefName survives the move to the repo-scoped endpoint",
+      (hit.prs || []).map((p) => p.headRefName), ["work-1", "work-2"]);
+
+    const miss = call("no-such-slug");
+    assertEq("a slug matching nothing is an available, empty answer", miss.available, true);
+    assertEq("with no PRs", miss.prs, []);
+
+    // A REFUSED READ IS NOT AN EMPTY ONE. `gh api` prints its error BODY to stdout, so a
+    // non-empty string proves nothing — reporting that as `available: true` would hand
+    // the caller an error object where it expects a list of pull requests.
+    writeGh(`printf '{"message": "This GitHub API path is not available"}\\n'\nexit 1`);
+    const refused = call("foo-slug");
+    assertEq("a refused read reports unavailable, never a false empty", refused.available, false);
+    assertEq("and carries no bogus payload", refused.prs, []);
+
+    // Same rule when the call "succeeds" but hands back an object rather than an array.
+    writeGh(`printf '{"message": "This GitHub API path is not available"}\\n'`);
+    const bogus = call("foo-slug");
+    assertEq("a non-array answer is not available either", bogus.available, false);
+    assertEq("and still carries no bogus payload", bogus.prs, []);
+  } finally { cleanup(repo); cleanup(binDir); }
+}
+
+// ---------- no workflow script may reach GitHub through GraphQL ----------
+// THE POINT OF THIS CHECK IS THAT A LIST GOES STALE AND A CHECK DOES NOT. The mission
+// that converted these call sites (FB 20260812172522) worked from an enumerated list of
+// seven scripts — and the sweep that closed it found an eighth the list never mentioned
+// (`branching/scripts/list-worktrees.sh`). Nothing prevented the ninth, and the failure
+// is invisible: an hourly routine in a GraphQL-restricted session silently does nothing,
+// in a transcript nobody reads.
+//
+// The prohibited set is exactly the `gh` subcommand families that are GraphQL-backed:
+// `gh issue`, `gh pr`, `gh repo`. `gh api` is the sanctioned transport (via
+// `gather/scripts/gh-rest.sh`) and is not matched. `gh release` is deliberately NOT
+// prohibited — it is REST-backed, so banning it would be the theatre this ticket warns
+// against; `ship/scripts/publish-release.sh` uses it and is correct to.
+//
+// Known limitation, stated rather than hidden: the scan strips FULL-LINE comments only,
+// so a subcommand named inside a string literal or a trailing comment would be flagged.
+// That is the safe direction and has an explicit escape — ALLOWLIST below, which is
+// EMPTY on purpose. If it ever holds most of the call sites, the check has become
+// theatre and should be reconsidered rather than grown.
+const GRAPHQL_GH_ALLOWLIST = [
+  // "path/relative/to/repo/root.sh:LINE — why this call site cannot use REST",
+];
+
+function testNoGraphqlGhCalls() {
+  const roots = [
+    join(REPO_ROOT, "plugins/workaholic/skills"),
+    join(REPO_ROOT, "plugins/workaholic/hooks"),
+  ];
+  const shFiles = [];
+  const walk = (d) => {
+    let entries = [];
+    try { entries = readdirSync(d, { withFileTypes: true }); } catch { return; }
+    for (const e of entries) {
+      const p = join(d, e.name);
+      if (e.isDirectory()) walk(p);
+      else if (e.name.endsWith(".sh")) shFiles.push(p);
+    }
+  };
+  roots.forEach(walk);
+  assertTrue("the scan actually found workflow scripts to check", shFiles.length > 20, `${shFiles.length} files`);
+
+  const PROHIBITED = /(^|[^A-Za-z0-9_.-])gh\s+(issue|pr|repo)\s+[a-z]/;
+  const findViolations = (files) => {
+    const hits = [];
+    for (const f of files) {
+      const rel = f.slice(REPO_ROOT.length + 1);
+      readFileSync(f, "utf8").split("\n").forEach((line, i) => {
+        if (/^\s*#/.test(line)) return;            // a full-line comment is prose
+        if (!PROHIBITED.test(line)) return;
+        const site = `${rel}:${i + 1}`;
+        if (GRAPHQL_GH_ALLOWLIST.some((a) => a.startsWith(site + " "))) return;
+        hits.push(`${site} — ${line.trim().slice(0, 120)}`);
+      });
+    }
+    return hits;
+  };
+
+  assertEq("no workflow script invokes a GraphQL-backed gh subcommand", findViolations(shFiles), []);
+
+  // AND THE CHECK BITES. A rule that cannot be shown to fail is not a rule — this
+  // reintroduces a violation in a throwaway copy and asserts it is caught, with its
+  // file and line named so the next reader can find it.
+  const tmp = mkdtempSync(join(tmpdir(), "graphql-gh-"));
+  try {
+    const planted = join(tmp, "regression.sh");
+    writeFileSync(planted,
+      "#!/bin/sh\n# A comment naming `gh pr list` must NOT trip the check.\nPR=$(gh pr list --head x --json number)\n");
+    const rel = planted.slice(REPO_ROOT.length + 1);
+    const hits = [];
+    readFileSync(planted, "utf8").split("\n").forEach((line, i) => {
+      if (/^\s*#/.test(line)) return;
+      if (PROHIBITED.test(line)) hits.push(`${rel}:${i + 1}`);
+    });
+    assertEq("a reintroduced GraphQL call is caught, and only the real one", hits.length, 1);
+    assertTrue("and the finding names the offending line", /:3$/.test(hits[0]), hits[0]);
+  } finally { rmSync(tmp, { recursive: true, force: true }); }
+}
+
 // ---------- catch/scan-window.sh (a corpus past the argv ceiling) ----------
 // Linux caps a SINGLE argv entry at MAX_ARG_STRLEN (32 pages = 131,072 bytes),
 // independently of the much larger total ARG_MAX. The MISSIONS assembly used to pass
@@ -7632,19 +7768,35 @@ function testFbCrossRepoIssueMode() {
     assertTrue("and routes it to /ticket", /\/ticket/.test(selfSlug.error || ""), selfSlug.error);
 
     // ---- 2. the issue-create call shape ----
+    // REST since 2026-08-12 (FB 20260812172522): `gh issue create` is GraphQL-backed and
+    // a web session may 403 it, which would break the ONE sanctioned crossing. These
+    // assertions were rewritten rather than deleted — the transport changed, the
+    // properties they guard did not: the right target, the title carried, and the body
+    // never inline on the command line.
     const askBody = body("ask.md", "The parser drops a trailing newline on CRLF input.\n");
-    writeGh(`printf 'https://github.com/other-org/target-repo/issues/42\\n'`);
+    const ghStdin = join(tmp, "gh-stdin.txt");
+    writeGh(`cat > "${ghStdin}"\nprintf '{"html_url": "https://github.com/other-org/target-repo/issues/42"}\\n'`);
     const opened = json(src, SCRIPTS.openIssue, `"other-org/target-repo" "Parser drops a trailing newline" ${q(askBody)}`);
     assertEq("open-issue reports ok", opened.ok, true);
-    assertEq("and returns the issue URL gh printed", opened.url, "https://github.com/other-org/target-repo/issues/42");
-    assertEq("the call is `issue create` against the resolved repo",
-      readFileSync(ghLog, "utf8").trim().split("\n").slice(0, 4).join(" "),
-      "issue create -R other-org/target-repo");
+    assertEq("and returns the issue URL the API returned", opened.url, "https://github.com/other-org/target-repo/issues/42");
     const argv = readFileSync(ghLog, "utf8").trim().split("\n");
-    assertTrue("the title is passed with --title",
-      argv[argv.indexOf("--title") + 1] === "Parser drops a trailing newline", argv.join(" "));
-    assertEq("and the body is passed by FILE, never inline on the command line",
-      argv[argv.indexOf("--body-file") + 1], askBody);
+    assertEq("the call is a REST POST against the resolved repo's issues",
+      argv.slice(0, 4).join(" "),
+      "api repos/other-org/target-repo/issues --method POST");
+    assertTrue("and never a GraphQL-backed subcommand",
+      argv[0] === "api" && !argv.includes("issue"), argv.join(" "));
+
+    // THE BODY STILL NEVER RIDES ARGV. It used to be `--body-file <path>`; it is now
+    // stdin. Both keep an unbounded ask off a command line capped at 128 KiB per entry,
+    // and this asserts the property rather than the mechanism.
+    const sent = JSON.parse(readFileSync(ghStdin, "utf8"));
+    assertEq("the title rides the payload", sent.title, "Parser drops a trailing newline");
+    assertEq("and the body is the file's contents, passed on STDIN",
+      sent.body, readFileSync(askBody, "utf8"));
+    assertTrue("no argv entry carries the body text",
+      !argv.some((a) => a.includes("trailing newline on CRLF")), argv.join(" "));
+    assertTrue("the payload is fed with --input -, not an inline -f",
+      argv.includes("--input") && argv[argv.indexOf("--input") + 1] === "-", argv.join(" "));
 
     // A refusal from the target is reported verbatim, never worked around: issues
     // disabled, or no access for this identity, is the target's own decision.
@@ -11346,6 +11498,9 @@ function testShrinkKeepsHandoff() {
 // create-or-update.sh must take the UPDATE path for an existing PR — a handoff unit
 // that opened a second PR would split the record a person is meant to read.
 function testCreateOrUpdatePaths() {
+  let hasJq = true;
+  try { execSync("command -v jq", { stdio: "ignore" }); } catch { hasJq = false; }
+  if (!hasJq) { console.log("  skip  create-or-update paths (jq not available)"); return; }
   const repo = makeRepo("main");
   const binDir = mkdtempSync(join(tmpdir(), "wh-gh-"));
   const callLog = join(binDir, "calls.txt");
@@ -11354,29 +11509,30 @@ function testCreateOrUpdatePaths() {
     writeFileSync(join(repo, ".workaholic/stories/work-20260801-000000.md"),
       `---\ntype: Story\n---\n\n## Handoff\n\n- **Next step:** continue the migration\n\n## 1. Overview\n\nunfinished\n`);
 
-    // `gh` and `jq` stubs on PATH: the suite never calls the network. The gh stub is
-    // switched by a file so one stub can play "no PR yet" and then "PR exists".
+    // REST NEEDS WHAT `gh pr create` USED TO INFER. The subcommand resolved the base
+    // repository and the base branch by itself; `gh api` does not, so the fixture now
+    // has to supply both — an origin URL for the slug, and a remote-tracking ref for
+    // `base-ref.sh`. That the test needed this is the behaviour change, not a test
+    // artifact, so it is set up explicitly rather than papered over.
+    execSync("git remote add origin https://github.com/acme-org/demo-repo.git", { cwd: repo, stdio: "ignore" });
+    const head = execSync("git rev-parse HEAD", { cwd: repo, encoding: "utf8" }).trim();
+    execSync(`git update-ref refs/remotes/origin/main ${head}`, { cwd: repo, stdio: "ignore" });
+
+    // The `gh` stub on PATH: the suite never calls the network. Real `jq` is used, since
+    // the script now builds JSON payloads with it. The stub is switched by a file so one
+    // stub can play "no PR yet" and then "PR exists"; it answers the `--jq`-filtered
+    // shape directly, which is what `gh api --jq` would have printed.
     const state = join(binDir, "haspr");
     writeFileSync(join(binDir, "gh"), `#!/bin/sh
 printf '%s\\n' "$*" >> ${callLog}
-case "$1 $2" in
-  "pr list") if [ -f ${state} ]; then echo '{"number":7,"url":"https://example.test/pr/7"}'; else echo ""; fi ;;
-  "pr create") echo "https://example.test/pr/7" ;;
-  "api "*) echo '{"url":"https://example.test/pr/7"}' ;;
+case "$*" in
+  *"--method POST"*) cat >/dev/null; echo '{"html_url":"https://example.test/pr/7","number":7}' ;;
+  *"--method PATCH"*) cat >/dev/null; echo '{"html_url":"https://example.test/pr/7","number":7}' ;;
+  *pulls*head=*) if [ -f ${state} ]; then echo '{"number":7,"url":"https://example.test/pr/7"}'; else echo ""; fi ;;
   *) echo "" ;;
 esac
 `);
-    writeFileSync(join(binDir, "jq"), `#!/bin/sh
-# Minimal stand-in: the script only ever asks for .number and .url here.
-input=$(cat)
-case "$*" in
-  *number*) echo 7 ;;
-  *url*) echo "https://example.test/pr/7" ;;
-  *) echo "$input" ;;
-esac
-`);
     chmodSync(join(binDir, "gh"), 0o755);
-    chmodSync(join(binDir, "jq"), 0o755);
     const env = { ...process.env, PATH: `${binDir}:${process.env.PATH}` };
     const CMD = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/create-or-update.sh")} work-20260801-000000 "Unfinished work"`;
 
@@ -11389,8 +11545,18 @@ esac
     assertEq("with a PR already open, the script still succeeds", updated.status, 0);
     assertTrue("and takes the UPDATE path rather than opening a second PR",
       /PR updated: https:\/\/example\.test\/pr\/7/.test(updated.stdout), updated.stdout);
-    assertEq("gh pr create was called exactly once, for the first run",
-      readFileSync(callLog, "utf8").split("\n").filter((l) => l.startsWith("pr create")).length, 1);
+
+    const calls = readFileSync(callLog, "utf8").split("\n").filter(Boolean);
+    assertEq("the PR was created exactly once, on the first run",
+      calls.filter((l) => l.includes("--method POST")).length, 1);
+    assertEq("and the second run PATCHed the existing one",
+      calls.filter((l) => l.includes("--method PATCH")).length, 1);
+    assertTrue("every GitHub call went through REST, never a subcommand",
+      calls.every((l) => l.startsWith("api ")), calls.join(" | "));
+    assertTrue("the head lookup is owner-qualified, as REST requires",
+      calls.some((l) => l.includes("head=acme-org:work-20260801-000000")), calls.join(" | "));
+    assertTrue("and the create names an explicit base branch",
+      readFileSync(callLog, "utf8").includes("repos/acme-org/demo-repo/pulls --method POST"), calls.join(" | "));
   } finally { cleanup(repo); cleanup(binDir); }
 }
 
@@ -11989,6 +12155,8 @@ const tests = [
   ["catch/scan-window.sh fetch bound", testScanWindowFetchBound],
   ["catch/scan-window.sh mission join", testScanWindowMissions],
   ["catch/scan-window.sh oversized corpus", testScanWindowOversizedCorpus],
+  ["mission/list-related-prs.sh slug matching", testListRelatedPrs],
+  ["no workflow script reaches GitHub through GraphQL", testNoGraphqlGhCalls],
   ["hooks/guard-git-commit.sh", testGuardGitCommit],
   ["hooks/guard-git-branch.sh", testGuardGitBranch],
   ["hooks/guard-repo-confinement.sh", testGuardRepoConfinement],

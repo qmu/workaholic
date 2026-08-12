@@ -152,3 +152,60 @@ Two consequences follow, and the second is why this is not merely an environment
   otherwise leave it as an observation.
 - The generated `outputs/workflows/` mirror of `scan-window.sh` must not be hand-edited;
   it is rebuilt or it is untouched.
+
+## Final Report
+
+Development completed as planned.
+
+**Step 1 — reproduced before changing anything.** An isolated repro (a throwaway repo with
+the fixture's mission changelog, run against `scan-window.sh`) printed the derived cutoff
+next to the emitted `window_events`, at 2026-08-12 23:36 UTC:
+
+| run | cutoff (`%cd`) | `window_events` |
+| --- | --- | --- |
+| `TZ=UTC` | `2026-08-12` | the `2026-08-12` event, kept |
+| `TZ=Asia/Tokyo` | `2026-08-13` | `[]` — the operator server's symptom |
+| commit pinned to 2026-08-14 | `2026-08-14` | `[]` — the same failure on any machine |
+
+The measurement matches the localization the ticket recorded: `%cd` renders each commit in
+the offset that commit itself recorded, so the cutoff is the run's own local today, while
+the changelog line was frozen at `2026-08-12`.
+
+**Step 2 — verdict: fixture-only.** `scan-window.sh` is not changed. In a real repository
+both sides are local: `append-changelog.sh` stamps `date +%Y-%m-%d` and the cutoff is
+formatted from local commit offsets, so writer and reader agree. Only the fixture pinned one
+side to a calendar constant. (`build.mjs` ran clean with no diff, which is the same fact
+from the generated side: no script changed, so `outputs/` did not move.)
+
+**Step 3 — one clock on both sides.** `testScanWindowOversizedCorpus` now pins the repo's
+only commit to an explicit `+00:00` instant derived from `Date.now()` (24 h back, so it is
+inside the `"2 weeks ago"` window and never in the future) and dates the changelog event
+with that same string — cutoff and event are two views of one value. A second changelog
+line 30 days back was added so `window_events.length === 1` proves the cutoff still
+*filters*, and a new assertion names the surviving artifact. Nothing was removed or
+loosened; the corpus is still sized from `MAX_ARG_STRLEN` and still generated, not
+committed.
+
+**Step 4 — sweep result: one site.** Every other `YYYY-MM-DD` constant in the suite is
+compared against a date the fixture itself passes to the script (`append-changelog.sh`,
+`close.sh`), or is deliberately far outside the window and stays there (`2010-01-01` in
+the commit-KPI fixture). The other two `window_events` fixtures already derive both sides
+from the run's clock: `testScanWindowMission` writes its changelog through `archive.sh` at
+real now, and the deployments fixture pins its commits with `GIT_*_DATE` computed from
+`now`. No second site to fix.
+
+### Discovered Insights
+
+- **Insight**: `git log --date=format:'%Y-%m-%d'` with `%cd` renders in the *commit's own*
+  recorded offset, not the reader's — so `scan-window.sh`'s window cutoff is "today" in
+  whatever timezone the earliest in-window commit was made in.
+  **Context**: any future fixture or feature comparing a date string against that cutoff
+  has to derive both sides from one clock. Freezing the pinned instant at a calendar day is
+  the trap in the other direction: once it drifts outside the window the cutoff goes empty,
+  the filter degrades to "keep everything", and the assertion silently stops testing the
+  windowing it is named for.
+- **Insight**: this defect was latent-by-date, not environment-specific. The operator server
+  (JST) merely crossed the boundary a few hours before every other machine would have on
+  2026-08-13.
+  **Context**: a red line on one developer's machine that CI cannot reproduce is worth
+  reading as a clock or locale question before a platform one.

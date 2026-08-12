@@ -51,3 +51,4 @@ sent.
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-12 — ticket archived — 20260812204122-make-workaholic-notify-own-the-finish-line-transport.md
 - 2026-08-12 — ticket archived — 20260812204216-report-an-unposted-finish-line-as-unposted.md
+- 2026-08-12 — story written — work-20260812-204905.md

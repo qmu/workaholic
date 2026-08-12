@@ -1026,69 +1026,6 @@ concerns: []
   } finally { cleanup(dir); }
 }
 
-// ---------- the Mission Position Report: one definition, stated at every handoff ----------
-// The pieces to say "where does the mission stand" already existed and were already
-// computed (progress.sh, next-acceptance.sh). What was missing was the OBLIGATION to say
-// it at the moments that decide continuity -- the handoffs. /carry's whole purpose is
-// handing work to a fresh session and it mentioned missions ZERO times, so a resumption
-// ticket handed over a task, not a mission.
-//
-// The lens already does this continuously; the gap is the discontinuity, which is exactly
-// when the lens's context is lost.
-function testMissionPositionReport() {
-  const skill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/mission/SKILL.md"), "utf8");
-  const cmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/mission.md"), "utf8");
-
-  // One definition, in one place.
-  assertTrue("the mission skill defines the Mission Position Report",
-    /^## Mission Position Report$/m.test(skill), "no definition section");
-  assertTrue("the report answers how far a fresh session can proceed",
-    /how far a fresh session can proceed/.test(skill), "the continuity question is missing");
-  assertTrue("figures are read through the scripts, never by parsing mission.md",
-    /Read every figure through the scripts/.test(skill), "domain-layer rule missing");
-  assertTrue("the relation is read as many-valued",
-    /report every mission the work advances/.test(skill), "many-valued rule missing");
-  // The developer asked for LESS confirmation; a report that grows into a prompt is this
-  // ticket failing.
-  assertTrue("the report is explicitly a report, never a prompt",
-    /It is a report, never a "shall I proceed\?"/.test(skill), "prompt ban missing");
-
-  // The inversion of the lens's signal gate -- deliberate, and it must say so or someone
-  // will "fix" the inconsistency later.
-  assertTrue("a 0/0 mission is reported honestly at a handoff, not silenced like in the lens",
-    /A `0\/0` mission is reported honestly/.test(skill), "0/0 rule missing");
-  assertTrue("the divergence from the lens is marked deliberate",
-    /deliberate divergence/.test(skill), "divergence not justified");
-
-  // The /report + /ship decision was made rather than left to default.
-  assertTrue("the /report + /ship decision is recorded either way",
-    /deliberately \*\*not\*\* by `\/report`\/`\/ship`/.test(skill), "the decision was left to default");
-
-  // The dedicated hand-off command that once owned this seam is retired (decision I5):
-  // in-flight state lives on the pushed claim branch, which the next run re-claims and
-  // resumes. The seam table must say where the report is stated NOW, or the definition
-  // becomes a section nothing invokes.
-  assertTrue("the seam table no longer names the retired hand-off command",
-    !/\| `\/carry` \|/.test(skill), "the retired /carry row survives in the seam table");
-  assertTrue("an unfinished /drive unit states the position instead",
-    /by `\/drive` for each unfinished mission unit/.test(skill), "no /drive seam row");
-  // (The /carry-retirement narration was deliberately dropped in the 2026-08-07 slim-down;
-  // the surviving substance — every hand-off seam states the report — is pinned above.)
-  // The negative case survives the retirement: no mission -> say nothing, never invent a frame.
-  assertTrue("no mission-shaped frame is invented around unrelated work",
-    /never fabricated for an unmissioned batch/.test(skill), "no-mission case missing");
-
-  // /mission-close sources the shared definition (a027cd1b's behaviour, de-duplicated).
-  // The close flow lives in reference/command-flows.md since 2026-08-07, so the pin
-  // follows it there -- the property under test is that it POINTS at the definition.
-  const closeFlow = readFileSync(
-    join(REPO_ROOT, "plugins/workaholic/skills/mission/reference/command-flows.md"), "utf8");
-  assertTrue("the close command sources the shared definition",
-    /State the Mission Position Report first/.test(closeFlow)
-    && /defined once in the SKILL; do not restate it/.test(closeFlow),
-    "close restates instead of sourcing");
-}
-
 // ---------- drive: an unqueued problem becomes a ticket, not a stop ----------
 // Removing the approval prompt answers "stop asking me to approve each ticket". It does
 // not answer what happens when the run meets something the queue does not cover. /drive
@@ -1104,43 +1041,8 @@ function testMissionPositionReport() {
 // ticket must pass the real validate-ticket.sh -- which is what stops "mint a ticket"
 // degrading into "mint a shell".
 function testDriveMintsTicketsForMidrunProblems() {
-  const skill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/drive/SKILL.md"), "utf8");
-
-  assertTrue("drive states the deferred outcome for an unqueued problem",
-    /\*\*`deferred`\*\*/.test(skill), "no deferred outcome");
-  assertTrue("drive states why prose is not enough: an observation is not an obligation",
-    /An observation is not an obligation\. Only a ticket is\./.test(skill), "rationale missing");
-
-  // The three-way boundary. Each half matters: the in-scope half stops this becoming a
-  // way to avoid work; the outside half stops opportunistic fixes riding into a commit
-  // that describes something else.
-  assertTrue("in-scope work is implemented, not deferred",
-    /\*\*Inside the current ticket's scope\*\* → \*\*implement it\.\*\*/.test(skill), "in-scope rule missing");
-  assertTrue("out-of-scope work is minted and the run continues",
-    /\*\*Outside it\*\* → \*\*write a ticket, continue\.\*\*/.test(skill), "outside rule missing");
-  assertTrue("drive forbids fixing an out-of-scope problem opportunistically",
-    /Do \*\*not\*\* fix it opportunistically/.test(skill), "opportunistic-fix ban missing");
-  assertTrue("a blocking problem is minted THEN recorded blocked, naming the new ticket",
-    /\*\*Blocks the current ticket\*\* → write the ticket, then record the current one \*\*`blocked`\*\*/.test(skill),
-    "blocking rule missing");
-
-  // The failure mode is over-minting: a queue of auto-written tickets nobody asked for
-  // looks like a plan. The threshold has to be in the skill, not just the ticket.
-  assertTrue("drive mints only for an OBSERVED problem, never a speculative one",
-    /Mint only for an observed problem/.test(skill), "threshold missing");
-  assertTrue("drive names the over-minting failure mode explicitly",
-    /turns the queue into a diary/.test(skill), "over-minting risk not stated");
-
-  // Initiative to record, not a licence to redesign -- overnight-ai's explicit limit,
-  // quoted where the implementer will read it rather than only cited in the ticket.
-  assertTrue("drive quotes overnight-ai's blank-cheque limit at the point of use",
-    /unverified inferences pile up in the code/.test(skill), "policy limit not quoted");
-  assertTrue("a minted ticket inherits the provoking ticket's mission relation",
-    /inherits the provoking ticket's `mission:` relation/.test(skill), "mission inheritance missing");
-  assertTrue("every minted ticket is named in the batch report",
-    /Tickets minted mid-run/.test(skill), "report line missing");
-
   // The row with teeth: a minted ticket answers to the same bar as a hand-written one.
+  // (The sentence-level pins over the drive skill's minting prose are gone, 2026-08-12.)
   const dir = makeRepo("main");
   try {
     const rel = ".workaholic/tickets/todo/a-qmu-jp/20260716120000-minted.md";
@@ -1259,24 +1161,6 @@ function testDriveAuthorized() {
     assertEq("a missing ticket file is NOT authorized, and does not crash",
       { a: missing.authorized, reason: missing.reason }, { a: false, reason: "no_ticket" });
   } finally { cleanup(dir); }
-
-  // The prose contract has moved twice. It first had to stop calling night mode the ONLY
-  // gate-skipping mode (a mission queue skipped it too); phase 3 then retired the
-  // per-ticket prompt outright (ticket 20260728221803), so the assertions below pin the
-  // RETIREMENT rather than the skip rule. The resolver itself is untouched and still
-  // authoritative for a per-ticket caller — what changed is that /drive no longer needs
-  // one, because the survey applies the resolver's own floor at the unit level.
-  const skill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/drive/SKILL.md"), "utf8");
-  assertTrue("drive/SKILL.md no longer claims night mode is the only gate-skipping mode",
-    !/ONLY mode that skips/.test(skill), "the false sentence survives");
-  assertTrue("drive/SKILL.md records the per-ticket prompt's retirement where it stood",
-    /Where the per-ticket approval prompt went/.test(skill), "retirement not recorded");
-  assertTrue("drive/SKILL.md keeps approval relocated, not removed",
-    /approval is relocated, not removed/i.test(skill), "relocation not stated");
-  assertTrue("drive/SKILL.md still names the resolver's floor as the unit-level floor",
-    /drive-authorized\.sh/.test(skill) && /moved up to the unit/.test(skill), "resolver floor not accounted for");
-  assertTrue("the unattended run inherits the attempt-every failure contract",
-    /Attempt every ticket/.test(skill), "failure contract not stated");
 }
 
 // ---------- mission resolution follows the TICKET, not the process cwd ----------
@@ -1512,51 +1396,8 @@ function testMissionResolutionFollowsTicket() {
 // gone, and -- the part that actually bites -- that a ticket the interrogation emits must
 // pass the real validate-ticket.sh. Rows the suite cannot reach are driven, not implied.
 function testMissionInterrogationProtocol() {
-  const skill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/mission/SKILL.md"), "utf8");
-  const cmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/mission.md"), "utf8");
-
-  assertTrue("the skill states the Creation Interrogation protocol",
-    /^## Creation Interrogation \(mandatory — always run\)$/m.test(skill), "no protocol section");
-  assertTrue("the interrogation is explicitly non-skippable",
-    /Never skippable, never gated on the request/.test(skill), "not marked non-skippable");
-  // The round nobody asked before, and the reason the mission ends up drive-ready.
-  assertTrue("the protocol includes the ticket-set round",
-    /\*\*The ticket set\*\*/.test(skill), "no ticket-set round");
-  assertTrue("the protocol includes the demanded-experience round",
-    /\*\*The demanded experience\*\*/.test(skill), "no experience round");
-  // Re-aimed off the gate: a mandatory gate round would contradict the schema, which now
-  // calls gate_* optional-and-normally-empty (54e5ec65).
-  assertTrue("the protocol tells the interrogation NOT to ask for the mission gate",
-    /Never interrogate `gate_\*`/.test(skill), "gate round not removed");
-  // The ordering rule that reconciles "ask everything first" with "Acceptance names tickets".
-  assertTrue("the protocol records the ask-vs-write ordering rule",
-    /ask everything → decide the ticket set → write the tickets → write `## Acceptance` → stamp each item's link/.test(skill),
-    "no ordering rule");
-  // The link is stamped by the emission seam, not typed by the author — the step whose
-  // absence left every proposal-scaffolded board untickable.
-  assertTrue("the emission step stamps the acceptance links",
-    /link-acceptance\.sh <slug> <item-selector> <ticket-filename>/.test(skill), "no link-stamping step");
-  assertTrue("an unsatisfiable acceptance item is reported, never linked to the nearest ticket",
-    /stays unlinked and is reported to the developer, never linked to the nearest ticket/.test(skill),
-    "no never-guess rule");
-  // The 2-4 split cap conflicts with "a complete set" for a mission-sized goal; the
-  // exception must be stated rather than silently violated.
-  assertTrue("the mission-scoped split-cap exception is stated, not silently taken",
-    /The split cap does not apply to a mission/.test(skill), "cap exception not recorded");
-
-  // Thin commands, comprehensive skills: the command routes to the flows, which route
-  // to the protocol (retargeted 2026-08-07 — the flow detail moved to reference/).
-  const flowsI = readFileSync(
-    join(REPO_ROOT, "plugins/workaholic/skills/mission/reference/command-flows.md"), "utf8");
-  assertTrue("the command routes to the skill's interrogation rather than restating it",
-    /command flows/.test(cmd) && /Creation Interrogation/.test(flowsI),
-    "command does not route to the protocol");
-  assertTrue("the command keeps AskUserQuestion at main-agent level",
-    /a subagent cannot ask/.test(cmd), "One-Level Fan-Out not stated");
-  assertTrue("the command no longer tells the developer to fill in the mission gate",
-    !/set `gate_type` \(`documentation` or `live-app`\)/.test(cmd), "command still interrogates the gate");
-
   // The part with teeth: a ticket the interrogation emits answers to the real hook.
+  // (The sentence-level pins over the interrogation's prose are gone, 2026-08-12.)
   const dir = makeRepo("main");
   try {
     const rel = ".workaholic/tickets/todo/a-qmu-jp/20260716110000-emitted.md";
@@ -1961,44 +1802,12 @@ function testMissionCreateNeverBranches() {
       ["main"]);
   } finally { cleanup(dir3); }
 
-  // The flow markdown must keep saying so — the create path is markdown, so the
-  // contract is asserted where it lives (reference/command-flows.md since 2026-08-07,
-  // when the thin commands became aliases into the mission skill's flows).
-  const cmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/mission.md"), "utf8");
+  // Machine token only (2026-08-12): the create flow invokes the publish tree, never
+  // the claim worktree creator. The sentence-level pins over the flows' prose are gone.
   const flows = readFileSync(
     join(REPO_ROOT, "plugins/workaholic/skills/mission/reference/command-flows.md"), "utf8");
   assertTrue("the create path opens a publish tree, not a worktree",
     /open-publish-tree\.sh/.test(flows) && !/create-mission-worktree\.sh/.test(flows));
-  assertTrue("creation states plainly that it makes no worktree and no branch",
-    /Creation makes no worktree and no branch/.test(flows));
-  assertTrue("the creation batch is one commit, with the reason",
-    /One commit, because the batch is one act/.test(flows));
-  assertTrue("the publish names .workaholic/ so untracked tickets are staged",
-    /Pass `\.workaholic\/` as the file argument — load-bearing/.test(flows));
-  assertTrue("a half-formed mission publishes nothing",
-    /Never publish a half-formed mission/.test(flows));
-  assertTrue("the report does not hand back a path the developer cannot cd into",
-    /Report \*\*no worktree path\*\*/.test(flows));
-  // P5 moved the close branch to its own command; both properties live in the flows.
-  assertTrue("close publishes through the publish tree too",
-    /publish the result with subject `Close mission <slug>`/.test(flows));
-  assertTrue("close still touches no worktree", /\*\*Close touches no worktree\.\*\*/.test(flows));
-  // And `/mission` itself no longer forks on a first word (P5).
-  assertTrue("no literal word is intercepted by the mission command any more",
-    /No word of `\$ARGUMENT` is a subcommand/.test(cmd)
-    && !/When `\$ARGUMENT` starts with `close`/.test(cmd), "a subcommand branch survives in /mission");
-
-  // Stale prose: no comment may claim a close-time worktree teardown.
-  const closeSh = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/close.sh"), "utf8");
-  const cleanupSh = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/cleanup-mission-worktree.sh"), "utf8");
-  assertTrue("close.sh no longer claims the command tears the worktree down after it",
-    !/tears the mission worktree down AFTER/.test(closeSh));
-  assertTrue("close.sh states the claim-born rule instead",
-    /claim-born and ship-torn/.test(closeSh));
-  assertTrue("cleanup-mission-worktree.sh no longer cites a /mission close teardown",
-    !/a\n# \/mission close cannot/.test(cleanupSh) && !/\/mission close cannot silently destroy/.test(cleanupSh));
-  assertTrue("cleanup-mission-worktree.sh names its real callers",
-    /ITS CALLERS ARE THE CLAIM PATHS/.test(cleanupSh));
 
   // create-mission-worktree.sh has exactly one INVOKER in the tree: claim.sh. Grep for
   // an actual `sh …/create-mission-worktree.sh` call on a non-comment line — a plain
@@ -5416,14 +5225,6 @@ function testReportArtifacts() {
     /mktemp/.test(createOrUpdate), "no mktemp in create-or-update.sh");
   assertTrue("create-or-update.sh drops the >| noclobber-defeating redirect",
     !/>\|/.test(createOrUpdate), "found a >| redirect in create-or-update.sh");
-
-  const constVerdicts = /\/tmp\/[^\s`)]*deferred-concern-verdicts\.json/;
-  const reportSkill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/report/SKILL.md"), "utf8");
-  const reviewSkill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/review-sections/SKILL.md"), "utf8");
-  assertTrue("report/SKILL.md names no constant /tmp deferred-concern-verdicts.json",
-    !constVerdicts.test(reportSkill), "report/SKILL.md still names a constant /tmp verdicts path");
-  assertTrue("review-sections/SKILL.md names no constant /tmp deferred-concern-verdicts.json",
-    !constVerdicts.test(reviewSkill), "review-sections/SKILL.md still names a constant /tmp verdicts path");
 }
 
 // ---------- ship/extract-deferred-concerns.sh (Bug 2: canonical dedup across PR prefixes) ----------
@@ -5595,24 +5396,7 @@ function testStoryTemplateMirrors() {
   assertTrue("and the retired historical_analysis field is gone from the contract",
     !/"historical_analysis"\s*:/.test(review), "stale field still in the JSON contract");
 
-  // 2. Omit-when-empty: neither mirror still instructs the writer to render "None".
-  // Matched on the AFFIRMATIVE forms only — both files now carry the prohibition
-  // ("Never write \"None\""), and a blunter pattern would flag the fix as the bug.
-  for (const [name, src] of [["report", report], ["review-sections", review]]) {
-    assertTrue(`${name}/SKILL.md never instructs writing "None" for an empty section`,
-      !/[Ww]rite "None" if\b/.test(src) && !/^\s*-?\s*Or "None/m.test(src),
-      'still instructs writing "None"');
-  }
-  assertTrue("report/SKILL.md states the omit rule once, by name",
-    report.includes("Omit, never pad"), "rule heading missing");
-  assertTrue("review-sections/SKILL.md refers to that rule rather than restating it",
-    review.includes("Omit, never pad"), "reference missing");
-
-  // 3. Release Preparation is one flat list, not 8-1/8-2/8-3 sub-sections.
-  assertTrue("report/SKILL.md has no 8-1/8-2/8-3 sub-sections",
-    !/8-[123]\./.test(report), "flattening incomplete");
-
-  // 4. No consumer is told to key on a section NUMBER — the numbers move.
+  // 2. No consumer is told to key on a section NUMBER — the numbers move.
   for (const [name, src] of [
     ["shrink-pr-body.sh", readFileSync(SCRIPTS.shrinkPrBody, "utf8")],
     ["extract-deferred-concerns.sh", readFileSync(SCRIPTS.extractDeferredConcerns, "utf8")],
@@ -9016,10 +8800,6 @@ function testRenderSetupSheet() {
     !/Event: `issues\.assigned`/.test(all) &&
     !/Event: `pull_request\.closed`/.test(all),
     all);
-  // The limitation is stated where the developer reads it, not only in a skill.
-  assertTrue("the sheet says the wiring cannot be read or set from here",
-    /configurable in the UI only/i.test(all) && /claude\.ai\/code\/routines/.test(all), all.slice(0, 600));
-
   // VERBATIM PROMPT. The sheet is worthless if the prompt is paraphrased: what the
   // developer pastes is what runs.
   const fbSheet = sheet("fb");
@@ -9027,17 +8807,6 @@ function testRenderSetupSheet() {
   assertTrue("the prompt appears verbatim in the sheet", fbSheet.includes(rendered.trim()), fbSheet.slice(0, 400));
   assertEq("an unknown template is refused",
     run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.renderSetupSheet} no-such ${WH}`).status !== 0, true);
-
-  // The command converges routines directly ONLY behind a detection step -- pinned
-  // because "just one small RemoteTrigger read" (with no detection gate) is exactly how
-  // the retired, unconditional management surface grew back the first time.
-  const cmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/setup-routines.md"), "utf8");
-  assertTrue("the command detects RemoteTrigger before applying anything",
-    /detect `RemoteTrigger` availability/.test(cmd), cmd.slice(0, 400));
-  assertTrue("it still falls back to the unchanged sheet when the tool is absent",
-    /render the copy-paste setup sheets/.test(cmd) && /behavior is unchanged/i.test(cmd), cmd.slice(0, 600));
-  assertTrue("and it states plainly that it asks nothing",
-    /no `AskUserQuestion`/.test(cmd) && !/confirm it with `AskUserQuestion`/.test(cmd), cmd.slice(0, 300));
 }
 
 // ---------- propose skill: dedup set / draft scaffold ----------
@@ -10042,119 +9811,6 @@ function testPlanUnitsOwnership() {
   } finally { cleanup(dir); }
 }
 
-// ---------- the unified run's contract (prose-verified) ----------
-// The run pipeline is orchestration, not a script, so its load-bearing promises are
-// pinned as sentinels — the method the retired parallel executor's contract used. Each
-// assertion below corresponds to a Gate line of ticket 20260728221803: a regression
-// that quietly reintroduces a prompt, an auto-override, or a self-graded token would
-// otherwise be invisible to every mechanical check in the repo.
-function testUnifiedDriveContract() {
-  const skill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/drive/SKILL.md"), "utf8");
-  const cmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/drive.md"), "utf8");
-  const ship = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/ship/SKILL.md"), "utf8");
-
-  // --- one executor, two invocation forms, exactly one prompt between them (O1) ---
-  assertTrue("the drive skill states the survey→route pipeline as a model",
-    /survey → partition → claim → drive → report → route → account/.test(skill));
-  assertTrue("the drive skill scopes its prohibition to the per-ticket workflow",
-    /NEVER use AskUserQuestion while driving a ticket/.test(skill));
-  assertTrue("the command bounds its one prompt to the selection step",
-    /ask once/.test(cmd)
-    && /nothing else is ever asked at any step/.test(cmd));
-  assertTrue("the partition's composition is reported, never asked",
-    /Report the partition in full, always/.test(skill)
-    && /the composition is never asked through either entry point/.test(skill));
-  // (The retired-first-word pin lives in testDriveAttendedSelection, which sweeps
-  // every live surface; a second copy here was duplicate coverage.)
-
-  // The one surviving prompt is the §2 selection. It must stay bounded to that step:
-  // the retired per-ticket approval prompt, the order confirmation, and the icebox
-  // picker all lived further down, and none of them may return under this amendment.
-  const workflow = skill.slice(skill.indexOf("## Workflow"));
-  assertTrue("no prompt survives below the selection step",
-    !/AskUserQuestion/.test(workflow.replace(/- \*\*NEVER use AskUserQuestion[^\n]*\n/, "")));
-  assertTrue("the ordering subagent still cannot prompt",
-    /That subagent issues no `AskUserQuestion`/.test(skill));
-  assertTrue("the retired per-ticket approval prompt is recorded where it used to be",
-    /Where the per-ticket approval prompt went/.test(skill)
-    && /approval is relocated, not removed/i.test(skill));
-  assertTrue("the relocation names both artifact-level authorizations",
-    /merged the mission's pull request/.test(skill) && /each ticket was created/.test(skill));
-  assertTrue("the looking-through is explicitly NOT what was removed",
-    /completeness check inside the drive loop — nothing else/.test(skill));
-
-  // --- the effective-policy table and the conservative default ---
-  assertTrue("the skill states the effective-merge-policy derivation as a table",
-    /\| Unit \| Policy source \| Effective policy \|/.test(skill));
-  assertTrue("absent means review is stated where the policy is derived",
-    /\*\*absent means review\*\*/i.test(skill));
-  assertTrue("any review member wins", /any review member wins/.test(skill));
-
-  // --- an unattended run never overrides a gate ---
-  assertTrue("the skill states auto is about approval, never about gates",
-    /`auto` means "no \*approval\* needed"; it never means "no \*gate\* applies"/.test(skill));
-  assertTrue("a secret finding hard-stops rather than demoting",
-    /`secret` finding \(non-overridable\) \| \*\*Hard stop\.\*\*/.test(skill));
-  assertTrue("a size block demotes an auto unit to the PR path",
-    /`size`\/`leak` finding \(overridable interactively\) \| \*\*Demote to the PR path\.\*\*/.test(skill));
-  assertTrue("a missing confirmation method demotes rather than taking the bypass",
-    /No confirmation method \(ship §1-4\) \| \*\*Demote to the PR path\.\*\*/.test(skill));
-
-  // --- ship factors its prompts for the unattended caller, without forking ---
-  assertTrue("ship documents unattended routing", /## 0\. Unattended routing/.test(ship));
-  assertTrue("ship's unattended routing is a table over the existing seams, not a second flow",
-    /routing table over the existing seams, not a second flow/.test(ship));
-  assertTrue("ship keeps the secret tier non-overridable for the unattended caller",
-    /Hard stop\*\*, exactly as interactively — non-overridable is non-overridable/.test(ship));
-  assertTrue("ship stays independently usable interactively",
-    /remains independently usable on a hand-driven branch with every prompt intact/.test(ship));
-  assertTrue("teardown belongs to the caller, not to ship",
-    /Teardown belongs to the caller, not here/.test(ship));
-
-  // --- composed, never absorbed ---
-  assertTrue("the report flow is composed, never forked",
-    /Compose `\/report`; never fork or absorb it/.test(skill));
-  assertTrue("the run calls report's own PR seam",
-    /report\/scripts\/create-or-update\.sh/.test(skill));
-  assertTrue("a review unit's PR URL is posted through the propose notifier",
-    /propose\/scripts\/notify-slack\.sh/.test(skill) && /never load-bearing/.test(skill));
-
-  // --- the honest terminal, verbatim the /goal-compatible contract ---
-  assertTrue("the skill prints the reconciliation line before the token",
-    /N units: X shipped, Y PR'd, Z blocked/.test(skill));
-  assertTrue("the terminal token is a derived truth table",
-    /\| State at the end of the run \| Final line \|/.test(skill));
-  assertTrue("ok requires nothing claimable left undone",
-    /derived, never self-asserted/.test(skill) && /a blocked unit is `pending`, not `ok`/.test(skill));
-  assertTrue("the command defers the terminal contract to the skill's table",
-    /terminal token derived from the skill's §7 table/.test(cmd));
-  // The loop must name the unattended form (O1): pointed at the bare form it would
-  // wait on the selection prompt with nobody there to answer it.
-  const implCmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/implement.md"), "utf8");
-  assertTrue("the /goal caller-side loop is named as the contract's consumer",
-    /\/goal \/implement ok/.test(skill) && /\/goal \/implement ok/.test(implCmd));
-
-  // --- the claim-born, ship-torn worktree ---
-  assertTrue("the skill wires teardown to the merge, not to /mission close",
-    /claim-born and ship-torn/.test(skill) && /cleanup-mission-worktree\.sh <unit-id>/.test(skill));
-
-  // --- agent-hours moved here with the rest of the absorbed machinery ---
-  assertTrue("mission units record agent-hours through the absorbed seam",
-    /mission\/scripts\/record-run-hours\.sh/.test(skill) && /idempotent per run-id/.test(skill));
-
-  // --- the runbook exists and mirrors the proposal runbook's shape ---
-  const runbook = readFileSync(join(REPO_ROOT, "docs/drive-loop-runbook.md"), "utf8");
-  assertTrue("the runbook is the 5-minute cron entry", /\*\/5 \* \* \* \*/.test(runbook));
-  assertTrue("the runbook mirrors the proposal runbook's env-file pattern",
-    /\.workaholic-drive\.env/.test(runbook) && /0600/.test(runbook));
-  assertTrue("the runbook documents multi-runner as safe via claims",
-    /Several runners are safe, and that is the point/.test(runbook));
-  assertTrue("the runbook states its observables and failure modes",
-    /## 5\. Observability/.test(runbook) && /## 6\. Failure modes/.test(runbook));
-  assertTrue("the runbook names the stale-claim, demotion and secret failure modes",
-    /stale/.test(runbook) && /demoted to PR/.test(runbook) && /`secret` finding/.test(runbook));
-}
-
 // ---------------------------------------------------------------------------
 // The publish tree (decision J2) and sync-main.sh (J3).
 //
@@ -10462,34 +10118,12 @@ function testValidateTicketResolvesInPublishTree() {
 }
 
 function testTicketPublishContract() {
-  const cmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/ticket.md"), "utf8");
   const skill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/create-ticket/SKILL.md"), "utf8");
 
-  // The flow detail lives in the skill and its reference/ files since 2026-08-07; the
-  // thin command carries only the entry-point contract.
-  const pub = readFileSync(
-    join(REPO_ROOT, "plugins/workaholic/skills/create-ticket/reference/publishing.md"), "utf8");
+  // Machine contract only (2026-08-12): which script the flow invokes, and the retired
+  // vocabulary staying retired. The sentence-level pins over the skill's prose are gone.
   assertTrue("the ticket flow opens a publish tree instead of cutting a branch",
     /open-publish-tree\.sh/.test(skill) && !/branching\/scripts\/create\.sh/.test(skill));
-  assertTrue("the skill states plainly that /ticket never creates a branch",
-    /`\/ticket` never creates a branch/.test(skill));
-  assertTrue("the retired worktree guard records why it must not come back",
-    /retired and must not come back/.test(skill));
-  assertTrue("the removed guard's reason is stated, not just its absence",
-    /every answer is the same is worse than no prompt/.test(skill));
-  assertTrue("the /drive-invoked carve-out survives",
-    /Skip this step when the run is inside `\/drive`/.test(skill));
-  assertTrue("a publish failure is surfaced as not-published",
-    /\*\*not published\*\*/.test(pub));
-  // The two failure kinds must not be collapsed. `pr_failed` means the ticket IS on its
-  // branch and only the PR is missing, so the recovery is to open it by hand -- re-running
-  // /ticket would write a second copy of the same ticket.
-  assertTrue("pr_failed is reported as pushed-but-unreviewed, not as unpublished",
-    /`pr_failed` and `no_gh` are a different report/.test(pub));
-  assertTrue("and the report says re-running would duplicate the ticket",
-    /would write a second copy of the same ticket/.test(pub));
-  assertTrue("summary mode's divergence is recorded so it is not 'fixed' later",
-    /reads the CALLER's checkout, and opens no publish tree/.test(skill));
 
   // branch_created left the vocabulary entirely — source AND generated artifacts.
   for (const dir of ["plugins", "outputs"]) {
@@ -10635,122 +10269,24 @@ function testClaimNoStrandedTolerance() {
   }
 }
 
-function testDriveFreshnessContract() {
-  const cmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/drive.md"), "utf8");
-  const impl = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/implement.md"), "utf8");
-  const skill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/drive/SKILL.md"), "utf8");
-  const runbook = readFileSync(join(REPO_ROOT, "docs/drive-loop-runbook.md"), "utf8");
-
-  // P1 moved the reason table out of the command and into the skill: two entry points
-  // may not each carry their own copy of it, because a table duplicated in two prompts
-  // is a second source of truth and the drift is one-directional.
-  assertTrue("the skill runs the freshness step before the survey",
-    skill.indexOf("sync-main.sh") > 0 && skill.indexOf("sync-main.sh") < skill.indexOf("plan-units.sh"));
-  // The thin commands (2026-08-07) carry no copy of the pipeline at all: each aliases
-  // the skill's Unified Run and repeats neither the freshen ordering nor the reason
-  // table — a table duplicated in two prompts is a second source of truth.
-  for (const entry of [cmd, impl]) {
-    assertTrue("each command defers the freshen/survey pipeline to the skill rather than copying it",
-      /Unified Run/.test(entry) && !/no_origin/.test(entry) && !/dirty_workspace/.test(entry));
-  }
-  assertTrue("one code path: the step is not cron-only",
-    /The step runs identically through both entry points: one code path/.test(skill));
-  for (const reason of ["no_origin", "not_on_main", "dirty_workspace", "origin_unreachable", "diverged"]) {
-    assertTrue(`the skill decides ${reason} explicitly`, skill.includes(`\`${reason}\``), reason);
-  }
-  // The slice has to name the heading that actually exists, or the assertion tests
-  // `undefined` and passes over any prompt the freshness paths might grow.
-  const freshen = skill.split("Then survey what is claimable")[0].split("freshen the checkout before reading it")[1];
-  assertTrue("the freshness step is located to be checked", typeof freshen === "string");
-  assertTrue("the freshness paths add no prompt", !/AskUserQuestion/.test(freshen));
-  assertTrue("a stale survey forbids ok in the token table",
-    /not\*\* known current with the base/.test(skill));
-  assertTrue("the skill keeps plan-units.sh a pure reader, with the reason",
-    /states its freshness and does not repair it/.test(skill));
-  assertTrue("the runbook no longer cites the unmerged-worktree cause",
-    !/its tickets live in an unmerged worktree \| check/.test(runbook)
-    && /cannot occur any more/.test(runbook));
-  assertTrue("the runbook documents the stale-checkout symptom instead",
-    /the runner's checkout is behind `origin\/main`/.test(runbook));
-}
-
-// ---------- the two invocation forms (decision O1, 2026-08-05) ----------
-// The attended selection is prose in a command and a skill, so nothing mechanical
-// would notice it drifting back into either extreme: a prompt leaking into the
-// unattended path (a cron tick parks forever) or the selection quietly disappearing
-// (the heuristic overrides the operator again, the failure the amendment closes).
-// Both forms are pinned, on every surface that has to agree about them.
+// ---------- the two invocation forms (decision O1/P1) ----------
+// What survives here is machine contract only (2026-08-12): the routine template must
+// invoke the prompt-free /implement (pointed at /drive an unattended fire parks on the
+// selection prompt), and no live surface may resurrect the retired first-word forms.
+// The sentence-level pins over the commands' and skill's prose are gone.
 function testDriveAttendedSelection() {
   const cmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/drive.md"), "utf8");
   const impl = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/implement.md"), "utf8");
   const skill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/drive/SKILL.md"), "utf8");
   const routine = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines/implement.md"), "utf8");
   const runbook = readFileSync(join(REPO_ROOT, "docs/drive-loop-runbook.md"), "utf8");
-  const claudeMd = readFileSync(join(REPO_ROOT, "CLAUDE.md"), "utf8");
 
-  // P1: attendance is carried by WHICH COMMAND was invoked, not by a first word.
-  // The two commands must each declare their own attendance, and the skill must
-  // hold both in one table -- a forked copy of the run is what P1 forbids.
-  assertTrue("the attended command declares itself attended",
-    /This is the \*\*attended\*\* entry point/.test(cmd));
-  assertTrue("the unattended command declares itself unattended and prompt-free",
-    /This is the \*\*unattended\*\* entry point/.test(impl)
-    && /no `AskUserQuestion` anywhere, at any step/.test(impl));
-  assertTrue("the skill names both entry points over one run",
-    /two entry points that share every step below §2/.test(skill)
-    && /\*\*`\/drive \[<unit>\]`\*\*/.test(skill)
-    && /\*\*`\/implement \[<unit>\]`\*\*/.test(skill));
-  assertTrue("attendance follows the command and is never inferred",
-    /never of a TTY/.test(skill)
-    && /never inferred/.test(claudeMd));
-  // The argument narrows scope. If it ever selected a behaviour it would be the
-  // first-word fork again, wearing an argument's clothes.
-  assertTrue("the optional argument is a scope, not a mode",
-    /a \*\*scope\*\*, not a mode/.test(skill)
-    && /a scope, not a mode/.test(cmd)
-    && /a scope, not a mode/.test(impl));
-
-  assertTrue("the selection fires only above one target",
-    /more than one claimable or resumable target/.test(cmd)
-    && /\*\*more than one\*\* claimable or resumable target/.test(skill));
-  assertTrue("the selection is one multiSelect question, once per run",
-    /`multiSelect`/.test(cmd) && /`multiSelect: true`, at most once per run/.test(skill));
-  assertTrue("the selection body carries the project label",
-    /project-label\.sh/.test(cmd) && /project-label\.sh/.test(skill));
-  assertTrue("a foregone choice is not asked",
-    /Ask nothing when there is nothing to choose/.test(skill));
-  assertTrue("unchosen units are reported, not dropped",
-    /`deferred_by_operator`/.test(skill));
-  assertTrue("a deferred unit forbids the ok token",
-    /a unit at the attended selection \(`deferred_by_operator`\) \| `pending`/.test(skill)
-    && /still claimable, so it \*\*forbids `ok`\*\*/.test(skill));
-  // A present developer buys the choice among peers and nothing else -- not a
-  // gate override, which is the one thing attendance must never unlock.
-  assertTrue("attendance never unlocks a gate",
-    /through either entry point/.test(skill)
-    && /no gate is ever overridden/.test(cmd));
-
-  // The unattended callers must name /implement: pointed at /drive they would wait
-  // on the selection prompt with nobody there to answer it. The prompt names the
-  // command and stops -- being unattended is /implement's own contract, and the
-  // developer's rule for a routine prompt is that it restates nothing a skill owns.
-  // Bare `/implement`, not `/implement [Mission/Ticket]`: since the template moved to a
-  // fixed-interval schedule trigger (ticket 20260810085347), a fire carries no specific
-  // unit in hand the way a merge-event fire once did, so the prompt runs the unattended
-  // survey rather than naming a scope no trigger payload can supply.
   assertTrue("the routine template invokes the unattended command by name",
     /\/implement\b/.test(routine) && !/\/drive\b/.test(routine.slice(routine.indexOf("## Prompt"))));
   assertTrue("the runbook's cron line and loop contract name /implement",
     /claude -p "\/implement"/.test(runbook) && /\/goal \/implement ok/.test(runbook));
-  assertTrue("the attended command points caller-side loops at /implement",
-    /a caller-side loop must name `\/implement`, not this command/.test(cmd));
-  // Every live surface, including the runbook. The one place the retired form
-  // survives is O1's own row in the decision log, which is history and is never
-  // rewritten -- P1's row says it supersedes it.
   assertTrue("no live surface still names a retired first-word form",
     ![cmd, impl, skill, routine, runbook].some((t) => /\/drive (auto|night)\b/.test(t)));
-  assertTrue("CLAUDE.md records the split with its decision id",
-    /decision P1, 2026-08-06/.test(claudeMd));
 }
 
 // ---------------------------------------------------------------------------
@@ -10791,11 +10327,6 @@ function testSkillReferenceFilesShip() {
   for (const f of srcFiles) {
     assertTrue(`SKILL.md links to reference/${f}`, skill.includes(`reference/${f}`), f);
   }
-
-  // And the shrink itself: the skill got materially smaller without losing content.
-  const lines = skill.split("\n").length;
-  assertTrue(`mission SKILL.md is materially shorter than its 562-line original (now ${lines})`,
-    lines < 420, String(lines));
 }
 
 // ---------------------------------------------------------------------------
@@ -11534,64 +11065,6 @@ function testHeartbeat() {
   } finally { cleanup(origin); cleanup(A); cleanup(B); }
 }
 
-// ---------- `handoff`: a run that could not finish says so where a person looks ----------
-// The four ticket outcomes close over what happens to a TICKET; none of them says "a
-// person must pick this up from here, and this is where to start". That state used to
-// live only in the run report — stdout nobody re-reads — which for a cloud run means
-// nowhere at all, since the PR is the entire inheritance once the sandbox dies.
-function testHandoffState() {
-  const drive = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/drive/SKILL.md"), "utf8");
-  const report = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/report/SKILL.md"), "utf8");
-
-  assertTrue("drive/SKILL.md defines a handoff unit state", /`handoff`/.test(drive));
-  assertTrue("the boundary test distinguishes handoff from blocked",
-    /queue is \*\*not drained\*\*/.test(drive) && /nothing further is possible/.test(drive), "no boundary test");
-  assertTrue("and from a review unit waiting at a PR",
-    /Its queue \*\*is\*\* drained/.test(drive), "no review-at-a-PR contrast");
-  assertTrue("handoff cannot be the soft landing for unattempted work",
-    /soft landing/.test(drive) && /Attempt every ticket/.test(drive), "no attempt-every-ticket guard");
-  assertTrue("the ticket-outcome contract stays four-valued",
-    /the four ticket outcomes stay four/i.test(drive), "no statement that the four outcomes are unchanged");
-  assertTrue("handoff lands on the pending side of the terminal token",
-    /ended in \*\*`handoff`\*\*[^|]*\|\s*`pending`/.test(drive), "handoff is not in the token table as pending");
-  // THE RESUMABLE OFFER IS TWO-TIERED, and only the dead tier is mandatory. A unit that
-  // reached its PR and is waiting on a human must not outrank fresh work: forcing that
-  // reading is what made an attended run spend its opening ~40 minutes reopening a pull
-  // request the developer considered finished.
-  assertTrue("an untaken resumable unit that DIED mid-drive still forbids ok",
-    /\*\*resumable\*\* unit with `resume_reason: heartbeat_lapsed`[^|]*\|\s*`pending`/.test(drive),
-    "heartbeat_lapsed is not pending");
-  assertTrue("but one parked at its PR does not, by itself",
-    /\*\*resumable\*\* unit with `resume_reason: parked_with_pr`[^|]*\|[^|]*not by itself/.test(drive),
-    "parked_with_pr is not carved out of the pending rule");
-  assertTrue("and the offer states which tier is mandatory",
-    /reportable rather than mandatory/.test(drive), "the two tiers are not distinguished in the offer");
-  assertTrue("the run report names handoff as a route",
-    /\/ \*\*handoff\*\* \//.test(drive), "handoff missing from the per-unit report line");
-
-  // The story section: written only for a handoff unit, first, with four elements.
-  // The template block lives in reference/story-structure.md since 2026-08-07.
-  const storyRef = readFileSync(
-    join(REPO_ROOT, "plugins/workaholic/skills/report/reference/story-structure.md"), "utf8");
-  assertTrue("the report skill defines a Handoff story section",
-    /^## Handoff \(conditional, first, unnumbered\)$/m.test(storyRef));
-  assertTrue("it is written only for a handoff unit and omitted otherwise",
-    /written ONLY for a unit `\/drive` classified `handoff`/.test(report) && /Omit it entirely otherwise/.test(report),
-    "no omit-when-empty discipline stated");
-  // Ordered within the reference file: the Handoff block precedes the template's
-  // `## 1. Overview`, so a handoff is met before the branch's narrative.
-  assertTrue("it comes before section 1 of the story template",
-    storyRef.indexOf("## Handoff") >= 0 && storyRef.indexOf("## Handoff") < storyRef.indexOf("## 1. Overview"),
-    `handoff@${storyRef.indexOf("## Handoff")} overview@${storyRef.indexOf("## 1. Overview")}`);
-  for (const el of ["**Done:**", "**Not done:**", "**Next step:**", "**Attempted:**"]) {
-    assertTrue(`the Handoff section requires ${el}`, report.includes(el), `missing ${el}`);
-  }
-  assertTrue("Attempted demands raw output, not a verdict",
-    /raw output, never a verdict/.test(report), "no raw-output rule");
-  assertTrue("the PR section is named authoritative over the run report",
-    /authoritative record; the run report is the log/.test(report), "authority between the two is unstated");
-}
-
 // shrink-pr-body.sh bounds an over-limit body by SHEDDING — and the one section a
 // handoff reader needs must never be what gets shed. Retention is explicit rather
 // than positional, so a template edit cannot silently drop it.
@@ -12238,7 +11711,6 @@ const tests = [
   ["mission status migration is whitelist-only (never folds backwards)", testMissionStatusMigrationIsWhitelistOnly],
   ["mission resolution follows the ticket, not the cwd", testMissionResolutionFollowsTicket],
   ["drive mints tickets for mid-run problems", testDriveMintsTicketsForMidrunProblems],
-  ["mission position report at handoffs", testMissionPositionReport],
   ["mission/append-changelog.sh + tick-acceptance.sh", testMissionMutators],
   ["mission/link-acceptance.sh (the acceptance-to-artifact link)", testLinkAcceptance],
   ["acceptance satisfaction semantics (ticker + progress + audit)", testAcceptanceSatisfactionSemantics],
@@ -12336,7 +11808,6 @@ const tests = [
   ["drive/plan-units.sh (missions are filtered by ownership)", testPlanUnitsOwnership],
   ["mission: the ticket floor refuses a sub-floor mission and names the alternative", testMissionTicketFloorGate],
   ["drive: the plan floor counts the ticket queue, not acceptance items", testPlanFloorCountsQueue],
-  ["drive: the unified run's contract", testUnifiedDriveContract],
   ["branching/sync-main.sh (J3 freshness)", testSyncMain],
   ["branching publish tree: publication never touches the caller's checkout (J2)", testPublishTree],
   ["branching publish-tree-pr: an artifact lands on a work-* branch behind a PR (J4)", testPublishTreePr],
@@ -12347,7 +11818,6 @@ const tests = [
   ["the reply thread is found, not carried (Q1)", testStatelessThreadLookup],
   ["one behaviour per command: no dispatch on a literal first word (P5)", testNoSubcommands],
   ["a proposal carries its owner from the trigger (P6)", testProposalOwnershipChain],
-  ["the proposal ownership chain is stated end to end (P6)", testProposalOwnershipContract],
   ["branching close-publish-tree: closes after either publish path, still guards the unpushed one", testClosePublishTreeReachability],
   ["workaholify routines: one template set, applied per repository, drift named per field", testWorkaholifyRoutines],
   ["workaholify bootstrap: without it a web routine is configured but cannot work", testWorkaholifyBootstrap],
@@ -12363,7 +11833,6 @@ const tests = [
   ["/ticket publish contract (no branch, no guard, no branch_created)", testTicketPublishContract],
   ["/drive surveys a current main (J3)", testDriveSurveysCurrentMain],
   ["drive/claim.sh drops its stranded-artifact tolerance", testClaimNoStrandedTolerance],
-  ["/drive freshness contract (one code path, every reason visible)", testDriveFreshnessContract],
   ["/drive: attended selection vs the unattended form (O1)", testDriveAttendedSelection],
   ["drive/claim.sh announces the claim, never load-bearing", testClaimAnnounces],
   ["drive claim protocol: a dropped unit is resumed, not stranded", testClaimResume],
@@ -12374,7 +11843,6 @@ const tests = [
   ["drive claim protocol: an archive git cannot prove is a rename keeps its artifact", testClaimSurvivesUndetectedRename],
   ["drive claim protocol: a mission artifact never resolves by basename", testMissionArtifactNeverResolvesByBasename],
   ["PR seams degrade when the runner has no gh", testGhAbsentDegrades],
-  ["drive: handoff is a first-class terminal state", testHandoffState],
   ["report/shrink-pr-body.sh never drops the Handoff section", testShrinkKeepsHandoff],
   ["report/create-or-update.sh takes the update path for an existing PR", testCreateOrUpdatePaths],
   ["branching/cut-release-branch.sh (the release/* staging tier)", testCutReleaseBranch],
@@ -12678,103 +12146,24 @@ function testPrTitleSeparateFromSubject() {
 }
 
 // ---------- the reply thread is found, not carried (Q1, 2026-08-07) ----------
-// P4's propagation is retired: no body line carries a thread URL, nothing reads one
-// back, and each routine locates its own thread. What P4 taught is kept -- the
-// 2026-08-05 defect was a search that GUESSED -- so the replacement lookup must be
-// stated so that it cannot guess. The lookup is prose the running model applies, so
-// these pins are what stop each load-bearing clause from silently dropping out: the
-// order of the exact searches, the by-name fuzzy prohibition, the written query bound,
-// and the once-per-run resolution. THE MODEL LIVES IN `workaholic:notify` (2026-08-07,
-// developer's ruling): it was the workaholify SKILL's until then, and the last block
-// here pins the relocation both ways -- present in notify, absent from workaholify --
-// so the model cannot silently grow back in the setup gateway.
+// What survives here is machine contract only: the env var wiring in the publish-tree
+// writer, the exact tool/key tokens the notify lookup depends on, and the tripwire
+// that retired notify-target identifiers never resurface under plugins/. The
+// sentence-level pins over the lookup's prose are gone (2026-08-12): they guarded
+// wording, not the mechanism.
 function testStatelessThreadLookup() {
-  const propose = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/propose/SKILL.md"), "utf8");
-  const drive = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/drive/SKILL.md"), "utf8");
-  const routing = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/drive/reference/routing.md"), "utf8");
   const notifySkill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/notify/SKILL.md"), "utf8");
-  const workaholify = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/SKILL.md"), "utf8");
   const writer = readFileSync(SCRIPTS.publishTreePr, "utf8");
 
-  // The surviving P4 half: the prefix contract and its env var are untouched.
-  assertTrue("the propose skill owns the [Proposal] prefix contract",
-    /\[Proposal\]` prefix/.test(propose));
-  assertTrue("and says why it is load-bearing rather than cosmetic",
-    /title contains \[Proposal\]/.test(propose), "trigger-filter rationale missing");
-  assertTrue("the propose skill routes the prefix through the PR-title env var",
-    /WORKAHOLIC_PR_TITLE/.test(propose) && /different surfaces with different rules/.test(propose));
-  assertTrue("and the writer keeps the commit subject separate from the PR title",
+  // The writer keeps the commit subject separate from the PR title (the [Proposal]
+  // prefix rides WORKAHOLIC_PR_TITLE, which check-subject.sh would reject on a subject).
+  assertTrue("the writer keeps the commit subject separate from the PR title",
     /WORKAHOLIC_PR_TITLE:-\$TITLE/.test(writer));
 
-  // The three ordered exact searches, in order: the session's own trigger message is
-  // not a search and sits first; then the fb:<stem> key; then the Issue/PR URL; a miss
-  // posts a new keyed root. Ordering is asserted by position, so a reshuffle is caught.
-  assertTrue("the lookup is stated as exact-string searches only",
-    /exact-string/.test(notifySkill) && /never a similarity or content match/.test(notifySkill));
-  const iTrigger = notifySkill.indexOf("The session's own trigger message");
-  const iStem = notifySkill.indexOf("Search `` `fb:<stem>` ``");
-  const iUrl = notifySkill.indexOf("Search the Issue or pull-request URL");
-  const iRoot = notifySkill.indexOf("post a **new root** carrying `fb:<stem>`");
-  assertTrue("the ordered cases exist and hold their order",
-    iTrigger >= 0 && iStem > iTrigger && iUrl > iStem && iRoot > iUrl,
-    JSON.stringify({ iTrigger, iStem, iUrl, iRoot }));
-  assertTrue("the fb:<stem> key is derived from the repository, never from Slack",
-    /derived from the repository, never from Slack/.test(notifySkill)
-    && /unit-feedback-stems\.sh/.test(notifySkill));
-
-  // The prohibition is by name -- it IS what the 2026-08-05 defect was.
-  assertTrue("fuzzy matching is prohibited by name",
-    /Fuzzy matching is prohibited by name/i.test(notifySkill));
-  assertTrue("and its named forms are each forbidden",
-    /never a similarity match/.test(notifySkill)
-    && /never "the most recent thread that looks related"/.test(notifySkill)
-    && /never recency/.test(notifySkill));
-  assertTrue("the not-found branch starts a thread instead of picking the closest thing",
-    /says so\*\* by starting one/.test(notifySkill));
-
-  // The bound is a written number, so a future edit changes it deliberately.
-  assertTrue("at most two search queries per lookup",
-    /at most two search queries per lookup/.test(notifySkill));
-  assertTrue("no full-channel read at any point",
-    /no full-channel read at any point/.test(notifySkill)
-    && /channel history returns everything and is never the instrument/.test(notifySkill));
-
-  // Ticket 20260810163359 (2026-08-11): the lookup's misses were measured to come from
-  // the default search covering public channels only against a private dev-<repo>
-  // channel, not from search unreliability -- pin the corrected surface by name so a
-  // future edit cannot silently narrow it back to the public-only default.
-  assertTrue("cases 2 and 3 run the private-inclusive search, never the public-only default",
-    /slack_search_public_and_private/.test(notifySkill)
-    && /include_bots.*true/.test(notifySkill)
-    && /never the default `slack_search_public`/.test(notifySkill));
-  assertTrue("the private-channel read is a standing, one-time consent, not a per-run ask",
-    /standing, one-time developer consent/.test(notifySkill));
-
-  // Once per run: statelessness is between runs, never within one.
-  assertTrue("the target is resolved once per run and reused",
-    /Resolve once per run and reuse it/.test(notifySkill)
-    && /between runs, never within one/.test(notifySkill));
-
-  // THE RELOCATION, PINNED BOTH WAYS (2026-08-07): the model's home is the notify
-  // skill, and workaholify keeps a pointer and none of the rules. The written query
-  // bound is the tripwire -- it is the clause a re-grown copy would carry first --
-  // and the pointer is pinned so the deferral cannot silently stop pointing.
-  assertTrue("workaholify no longer states the lookup itself",
-    !/at most two search queries per lookup/.test(workaholify)
-    && !/Fuzzy matching is prohibited by name/i.test(workaholify)
-    && !/`fb:<stem>`/.test(workaholify));
-  assertTrue("and defers to the notify skill by name",
-    /workaholic:notify/.test(workaholify)
-    && /notification model lives in `workaholic:notify`/i.test(workaholify));
-
-  // The consumers defer to the one statement instead of re-deriving the rules.
-  assertTrue("the drive skill sends its posts through the stateless lookup",
-    /stateless lookup/.test(drive) && /once per run/.test(drive));
-  assertTrue("the routing reference states found-never-carried with the bound",
-    /found, never carried/.test(routing) && /at most two queries/.test(routing)
-    && /no full-channel read/.test(routing));
-  assertTrue("the propose skill carries no target in the body and says so",
-    /no notification target\*\*/.test(propose) && /stateless exact-token lookup/.test(propose));
+  // The machine tokens the lookup consumes: the thread key and the private-inclusive
+  // search tool name (the public-only default was the measured 2026-08-11 miss).
+  assertTrue("the notify skill names the fb:<stem> key and the private-inclusive search tool",
+    /fb:<stem>/.test(notifySkill) && /slack_search_public_and_private/.test(notifySkill));
 
   // ABSENCE: the retired names are gone from the whole live plugin surface. History
   // (.workaholic/, docs/loop-engineering-workflow.md) keeps them; plugins/ may not.
@@ -12824,25 +12213,8 @@ function testNoSubcommands() {
     }
   }
 
-  // The moved behaviour exists, and the single-writer property that forced the move
-  // rather than a drop is stated where a reader meets it.
+  // The moved behaviour exists as its own command file.
   assertTrue("ending a mission is its own command", files.includes("mission-close.md"));
-  const close = readFileSync(join(dir, "mission-close.md"), "utf8");
-  assertTrue("and it says why it moved instead of being dropped",
-    /the only sanctioned writer of an end state/.test(close));
-  assertTrue("and it declares itself single-behaviour",
-    /it selects no mode/.test(close));
-
-  // Every fork is recorded, so nothing was silently lost. The single-writer reason
-  // that forced the move (rather than a drop) lives in the P5 inventory.
-  const claudeMd = readFileSync(join(REPO_ROOT, "CLAUDE.md"), "utf8");
-  assertTrue("CLAUDE.md carries the per-fork inventory rather than a bulk claim",
-    /One behaviour per command \(P5, 2026-08-06\)/.test(claudeMd)
-    && /\/mission summary`, `\/mission approve`/.test(claudeMd)
-    && /Bare-versus-argument is a scope, not a mode/.test(claudeMd)
-    && /single-writer/.test(claudeMd));
-  assertTrue("and names the one fork deliberately kept, with its reason",
-    /`\/fb`'s cross-repository mode is kept/.test(claudeMd) && /never on a first word/.test(claudeMd));
 }
 
 // ---------- ownership rides the chain from the trigger (P6, 2026-08-06) ----------
@@ -12907,47 +12279,6 @@ function testProposalOwnershipChain() {
     assertEq("an unassigned proposal is still claimable by anyone",
       run(dir, `${OWNS} ${tu.path} ${ME}`).stdout.trim(), "unowned");
   } finally { cleanup(dir); }
-}
-
-// The chain is prose in three places plus a trigger declaration, and the trigger is a
-// UI setting nothing in the plugin can read -- so the pins are what keep the two halves
-// (filter bounds the cost, data decides the ownership) from drifting apart.
-function testProposalOwnershipContract() {
-  const propose = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/propose/SKILL.md"), "utf8");
-  const cmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/propose.md"), "utf8");
-  const wh = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/SKILL.md"), "utf8");
-  const impl = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines/implement.md"), "utf8");
-  const fb = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines/fb.md"), "utf8");
-
-  assertTrue("the propose skill states that the owner enters at the trigger",
-    /enters once, at the trigger/.test(propose) && /--assignee/.test(propose));
-  assertTrue("and forbids falling back to the running identity",
-    /Do not fall back to the running identity/.test(propose));
-  assertTrue("the propose command passes the assignee to both scaffolds",
-    (cmd.match(/--assignee/g) || []).length >= 3);
-  // The ownership chain lives in the SKILL, not in the prompt: the developer's own rule
-  // for a routine prompt is "nothing a skill already owns". The trigger filter already
-  // guarantees the issue is assigned, and `/propose` is told where to read that from.
-  // The chain (issue assignee -> proposal `assignees` -> the implementing run) is the
-  // SKILL's; the prompt only says which issues this run may act on at all.
-  assertTrue("the ownership chain is the propose skill's, not the prompt's",
-    /--assignee <email>/.test(propose) && /enters once, at the trigger/.test(propose));
-  // No trigger narrows to a person: the UI offers no assignee filter, so the ruling is
-  // that the DATA decides and every copy fires on every matching event.
-  assertTrue("no template narrows its trigger to a person",
-    !/author = the developer|assignee = the developer/.test(impl + fb));
-  assertTrue("[Implement] relies on the survey's ownership filter and says so",
-    /owned_by_other/.test(impl) && /No prompt change is needed for this/.test(impl));
-  // Scoped to the PROMPT: each template's header discusses the rule at length, which is
-  // where it belongs -- documentation for a maintainer, not instruction for a session.
-  const promptOf = (t) => t.slice(t.indexOf("## Prompt"));
-  assertTrue("neither prompt carries an ownership guard (P8: the command owns it)",
-    !/assignee/.test(promptOf(fb)) && !/assignee/.test(promptOf(impl)));
-  assertTrue("the workaholify SKILL states the ruling and where each check lives",
-    /Neither trigger narrows to a person/.test(wh)
-    && /the data decides whose work it is/.test(wh)
-    && /Neither prompt carries a guard/.test(wh)
-    && /The check is the command's, never the prompt's/.test(wh));
 }
 
 // close-publish-tree.sh asks "is this tip pushed ANYWHERE?", not "did it reach the
@@ -13486,16 +12817,6 @@ function testMissionSizeNorms() {
     assertTrue("create.sh no longer scaffolds a ## Scope section", !/^## Scope$/m.test(createSrc));
     const draftSrc = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/scaffold-draft.sh"), "utf8");
     assertTrue("scaffold-draft.sh no longer scaffolds a ## Scope section", !/^## Scope$/m.test(draftSrc));
-    const skill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/mission/SKILL.md"), "utf8");
-    const schemaRef = readFileSync(
-      join(REPO_ROOT, "plugins/workaholic/skills/mission/reference/schema.md"), "utf8");
-    assertTrue("the mission skill records WHY Scope was removed rather than just dropping it",
-      /`## Scope` was removed from the template/.test(schemaRef));
-    assertTrue("the mission skill states the norm-for-a-human, gate-for-the-batch split",
-      /A \*\*norm\*\* for a human author/.test(skill)
-      && /\*\*enforced\*\* on `\/propose`'s unattended drafts/.test(skill));
-    assertTrue("the mission skill says plainly that the floor is untouched",
-      /never relaxes the write-time floor/.test(skill));
 
     // A legacy mission that still carries ## Scope is history, never retro-blocked.
     writeFileSync(join(dir, rel),

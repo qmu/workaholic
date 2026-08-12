@@ -32,8 +32,8 @@ shape of the fix. Diagnose before designing.
 
 - `workaholic:implementation` / `policies/coding-standards.md` — style and structure conventions
 - `workaholic:implementation` / `policies/directory-structure.md` — conventional project layout
-- `workaholic:operation` / `policies/observability.md` — a refusal must be reported with its reason, never rendered as a normal result
-- `workaholic:development` / `policies/policy-distribution-as-plugins.md` — the command and skill text are the distributed contract
+- `workaholic:implementation` / `policies/observability.md` — a refusal must be reported with its reason, never rendered as a normal result
+- `workaholic:development` / `policies/policy-as-plugin.md` — the command and skill text are the distributed contract
 
 ## Key Files
 

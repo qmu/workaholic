@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: []
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 1.4
 feedback: [20260812172522-workflow-scripts-assume-a-gh-graphql-surface-a-web-session-may-not-serve.md]
 tickets: []
 stories: []
@@ -50,3 +50,4 @@ No step reports `list_failed` or `pr_failed` for a reason the environment can se
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-12 — ticket archived — 20260812172713-read-the-inbound-issue-inbox-through-rest.md
 - 2026-08-12 — ticket archived — 20260812172713-open-and-merge-pull-requests-through-rest.md
+- 2026-08-12 — run recorded (+1.4h) — implement-20260812-180600

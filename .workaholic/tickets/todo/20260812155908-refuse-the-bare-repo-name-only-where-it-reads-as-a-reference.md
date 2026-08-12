@@ -5,6 +5,7 @@ assignees: [a@qmu.jp]
 depends_on:
 feedback: [20260812155852-check-outbound-body-sh-refuses-ordinary-prose-not-only-references.md]
 merge_policy:
+claim: work-20260812-183726
 ---
 
 # Refuse the bare repo name only where it reads as a reference

@@ -5,6 +5,7 @@ assignees: [a@qmu.jp]
 depends_on:
 feedback: [20260812205142-teach-the-loop-drill-s-verify-propose-the-mission-shaped-proposal.md]
 merge_policy:
+claim: work-20260812-212339
 ---
 
 # Teach verify-propose the mission-shaped proposal
@@ -103,3 +104,78 @@ failure mode the script's own `pending`-vs-`fail` comment already argues against
 - This is follow-up work on a delivered mission (`make-the-propose-implement-loop-drillable-on-demand`,
   acceptance already 3/3), not a sharpening of an in-flight one — hence a loose backlog
   ticket rather than a replan.
+
+## Final Report
+
+Development completed as planned, diagnosis first — and the reproduction found a second
+defect behind the first.
+
+**Step 1, before-state** (`verify-propose 406 --json`, run against `origin/main` from a checkout
+without this change):
+
+```json
+{"verdict": "fail", "load_bearing": {"passed": 3, "failed": 2},
+ "rows": [ … {"check": "ticket_feedback_ref", "pass": false,
+   "detail": "expected a ticket under .workaholic/tickets/ naming 20260812203825-stop-a-routine-finish-line-from-vanishing-on-the-script-path"},
+   {"check": "ticket_assignee", "pass": false, "detail": "no ticket to carry the assignee"} … ]}
+```
+
+`feedback_record`, `issue_closed` and `proposal_pr_merged` all passed on that same run — so step
+2's localization holds exactly: the single `main_grep ".workaholic/tickets" "$stem"` lookup was
+the whole cause, and it only ever described the loose-ticket shape.
+
+**Step 3, the fallback.** When no ticket names the stem, follow record → `mission.feedback` →
+`ticket.mission`, both hops anchored to the line-leading frontmatter key and both read off the
+base through `main_grep`. The loose lookup is left byte-identical, so the shape the rows were
+written for cannot regress.
+
+**Step 4, record-alone.** Reported as its own advisory `proposal_form` row, with the ticket rows
+becoming `null`/advisory rather than false. Stated in the code and the runbook: the row is **not**
+load-bearing because the drill can see which form was emitted and never which form the ask
+warranted; grading that choice would fail every correctly-record-alone proposal. The one shape
+that stays load-bearing and red is a mission naming the record with **no** ticket carrying its
+relation — a mission is not a mission under two tickets, so that is a real defect of the run.
+
+**The second defect, found by the reproduction.** With the mission hop in place the stage still
+failed, now on `ticket_assignee`: the issue's assignee is the GitHub login `tamurayoshiya`, while
+the ticket the mission reached carries `a@qmu.jp` — because the propose seam writes the identity
+`.claude/git-identities` maps, which is the file the web bootstrap already reads. The row demanded
+the raw login, so it failed a correctly-assigned ticket. Either spelling now satisfies it, with
+the map read off the base; an absent or unmapped login leaves the login as the only accepted
+token rather than erroring. This was inside the ticket's own acceptance ("returns `verdict: pass`
+against the real base"), so it was implemented rather than minted.
+
+**After-state**, same command, same base:
+
+```json
+{"ok": true, "verdict": "pass", "load_bearing": {"passed": 5, "failed": 0}, "advisory": 2,
+ "rows": [ … {"check": "proposal_form", "pass": null,
+   "detail": "mission stop-a-routine-finish-line-from-vanishing-on-the-script-path (…/mission.md)"},
+   {"check": "ticket_feedback_ref", "pass": true,
+    "detail": "….md via mission stop-a-routine-finish-line-from-vanishing-on-the-script-path"},
+   {"check": "ticket_assignee", "pass": true,
+    "detail": "carries the issue's assignee as a@qmu.jp (git-identities maps tamurayoshiya)"} … ]}
+```
+
+`slack_seed_root` stays `null`/advisory in both runs — `qfs` is not installed here, which is the
+advisory tier working as designed.
+
+**Step 5**, the hermetic suite gained four scenarios — loose (form row named), record-alone,
+mission-shaped, mission-without-tickets, plus the mapped-email assignee — 2424 passing, no `gh`
+and no network. **Step 6**, the runbook's blame table now describes both hops, the two non-load
+outcomes, and the added advisory row.
+
+### Discovered Insights
+
+- **Insight**: a verifier written against one artifact shape reports the *other* shapes as
+  breakage, and the first live run is where that shows. The drill's own rule — a red an operator
+  cannot act on is worse than no check — applies to its own row set, not only to colleagues'
+  claims.
+  **Context**: the same reasoning is why `proposal_form` is advisory. When adding a row, ask what
+  it can *see* versus what it would be *judging*.
+- **Insight**: identity has two spellings in this repository and they meet exactly here — GitHub
+  logins on issues, git emails on artifacts, with `.claude/git-identities` as the only bridge.
+  Any check comparing an issue field against an artifact field has to cross it.
+  **Context**: `gather/scripts/owners.sh` already knows this for plugin code; the drill is
+  operator tooling outside the plugin, so it reads the committed map directly rather than
+  assuming a binding.

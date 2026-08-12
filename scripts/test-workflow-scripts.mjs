@@ -14046,7 +14046,7 @@ function testLoopDrillVerifyPropose() {
 
     // (2) RAN AND FAILED. The artifacts landed but the pull request never merged and
     // the issue is still open: every failing row names the ref it expected.
-    seedProposeArtifacts(fx, N);
+    const stem = seedProposeArtifacts(fx, N);
     setPulls(fx, [{ number: 900, head: { ref: "work-20260812-190000" }, merged_at: null,
       title: "[Proposal] Record loop-drill run", body: `Closes #${N}` }]);
     r = run(fx.repo, `${fx.DRILL} verify-propose ${N} --json`, { env: fx.env });
@@ -14088,17 +14088,84 @@ function testLoopDrillVerifyPropose() {
       j.rows.find((x) => x.check === "slack_seed_root").pass, null);
     rmSync(join(fx.state, "qfs-fail"));
 
-    // (5) A MISSING ARTIFACT IS A ROW, NOT A CRASH.
+    // The loose shape is the one the rows were written for: it reports itself as such.
+    assertEq("the loose shape is named by the form row",
+      j.rows.find((x) => x.check === "proposal_form").detail.startsWith("loose ticket"), true);
+    assertEq("and the form row decides nothing",
+      j.rows.find((x) => x.check === "proposal_form").bearing, "advisory");
+
+    // (5) A RECORD-ALONE PROPOSAL IS A JUDGMENT, NOT A MISSING ARTIFACT. Emitting the
+    // record alone is a legitimate outcome of the propose skill's judgment bar, and the
+    // drill cannot know which form the ask warranted — so it names the shape and decides
+    // nothing, rather than failing the stage for a ticket nobody promised.
     execSync("git rm -q -r .workaholic/tickets", { cwd: fx.repo });
     execSync("git commit -q -m 'Drop the drill ticket'", { cwd: fx.repo });
     execSync("git push -q origin main", { cwd: fx.repo });
     r = run(fx.repo, `${fx.DRILL} verify-propose ${N} --json`, { env: fx.env });
     j = JSON.parse(r.stdout);
-    assertEq("a missing ticket fails the stage", j.verdict, "fail");
-    const ticketRow = j.rows.find((x) => x.check === "ticket_feedback_ref");
-    assertEq("with a row, not a script error", ticketRow.pass, false);
-    assertTrue("naming the path it expected",
-      ticketRow.detail.includes(".workaholic/tickets/"), ticketRow.detail);
+    assertEq("a record-alone proposal leaves the stage passing", j.verdict, "pass");
+    let byCheck = Object.fromEntries(j.rows.map((x) => [x.check, x]));
+    assertTrue("the form row says record alone",
+      byCheck.proposal_form.detail.includes("record alone"), byCheck.proposal_form.detail);
+    assertEq("the ticket row is null, never false", byCheck.ticket_feedback_ref.pass, null);
+    assertEq("and advisory, so it cannot decide the stage", byCheck.ticket_feedback_ref.bearing, "advisory");
+    assertEq("the assignee row follows it", byCheck.ticket_assignee.pass, null);
+
+    // (6) THE MISSION SHAPE SATISFIES THE SAME CHAIN INDIRECTLY: record →
+    // mission.feedback → ticket.mission. Measured 2026-08-12 (PR #407): this shape was
+    // reported as a missing ticket on a stage that had passed.
+    const slug = "drill-mission";
+    mkdirSync(join(fx.repo, `.workaholic/missions/active/${slug}`), { recursive: true });
+    writeFileSync(join(fx.repo, `.workaholic/missions/active/${slug}/mission.md`),
+      `---\ntype: Mission\nslug: ${slug}\nfeedback: [${stem}.md]\n---\n\n# Drill mission\n`);
+    mkdirSync(join(fx.repo, ".workaholic/tickets/todo"), { recursive: true });
+    writeFileSync(join(fx.repo, ".workaholic/tickets/todo/20260812000200-drill-member.md"),
+      `---\nassignees: [operator]\nmission: ${slug}\n---\n\n# Drill member\n`);
+    execSync("git add -A && git commit -q -m 'Add a mission-shaped proposal'", { cwd: fx.repo });
+    execSync("git push -q origin main", { cwd: fx.repo });
+    r = run(fx.repo, `${fx.DRILL} verify-propose ${N} --json`, { env: fx.env });
+    j = JSON.parse(r.stdout);
+    byCheck = Object.fromEntries(j.rows.map((x) => [x.check, x]));
+    assertEq("a mission-shaped proposal passes", j.verdict, "pass");
+    assertEq("with exit 0", r.status, 0);
+    assertEq("the ticket row passes", byCheck.ticket_feedback_ref.pass, true);
+    assertTrue("saying WHICH shape satisfied it",
+      byCheck.ticket_feedback_ref.detail.includes(`via mission ${slug}`), byCheck.ticket_feedback_ref.detail);
+    assertEq("the assignee row is checked on the ticket the mission reached",
+      byCheck.ticket_assignee.pass, true);
+    assertTrue("and the form row names the mission",
+      byCheck.proposal_form.detail.includes(slug), byCheck.proposal_form.detail);
+
+    // (7) A MISSION WITH NO MEMBER TICKET IS A REAL DEFECT — a mission is not a mission
+    // under two tickets — so this one stays load-bearing and red.
+    execSync("git rm -q -r .workaholic/tickets", { cwd: fx.repo });
+    execSync("git commit -q -m 'Drop the member ticket'", { cwd: fx.repo });
+    execSync("git push -q origin main", { cwd: fx.repo });
+    r = run(fx.repo, `${fx.DRILL} verify-propose ${N} --json`, { env: fx.env });
+    j = JSON.parse(r.stdout);
+    byCheck = Object.fromEntries(j.rows.map((x) => [x.check, x]));
+    assertEq("a mission with no member ticket fails the stage", j.verdict, "fail");
+    assertEq("the ticket row is false, not null", byCheck.ticket_feedback_ref.pass, false);
+    assertTrue("naming the relation it looked for",
+      byCheck.ticket_feedback_ref.detail.includes(`mission: ${slug}`), byCheck.ticket_feedback_ref.detail);
+
+    // (8) ONE PERSON, TWO SPELLINGS. The issue carries a GitHub login; the ticket carries
+    // the git email the repository's own committed map resolves. Demanding the raw login
+    // failed a correctly-assigned ticket (measured 2026-08-12 on issue #406).
+    mkdirSync(join(fx.repo, ".claude"), { recursive: true });
+    writeFileSync(join(fx.repo, ".claude/git-identities"), "operator=op@example.test\n");
+    mkdirSync(join(fx.repo, ".workaholic/tickets/todo"), { recursive: true });
+    writeFileSync(join(fx.repo, ".workaholic/tickets/todo/20260812000300-drill-member.md"),
+      `---\nassignees: [op@example.test]\nmission: ${slug}\n---\n\n# Drill member\n`);
+    execSync("git add -A && git commit -q -m 'Assign by email, as the seam writes it'", { cwd: fx.repo });
+    execSync("git push -q origin main", { cwd: fx.repo });
+    r = run(fx.repo, `${fx.DRILL} verify-propose ${N} --json`, { env: fx.env });
+    j = JSON.parse(r.stdout);
+    byCheck = Object.fromEntries(j.rows.map((x) => [x.check, x]));
+    assertEq("a ticket assigned by mapped email passes the assignee row", byCheck.ticket_assignee.pass, true);
+    assertTrue("saying which spelling satisfied it",
+      byCheck.ticket_assignee.detail.includes("op@example.test"), byCheck.ticket_assignee.detail);
+    assertEq("and the whole stage passes", j.verdict, "pass");
   } finally { cleanup(fx.tmp); }
 }
 

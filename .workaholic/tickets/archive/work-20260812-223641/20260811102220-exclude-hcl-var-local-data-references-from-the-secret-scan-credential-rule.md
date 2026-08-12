@@ -51,3 +51,12 @@ PROPOSED, from qmu/workaholic#378 (`.workaholic/feedbacks/20260811102137-release
 
 - The reporter's suggested fix — extending the value-is-a-reference exclusion to cover HCL's `var.`/`local.`/`data.` forms — is a hypothesis for the driving session to weigh, not an adopted design: it is the natural extension of the existing mechanism (same shape, same file, same list), but the driving session should confirm no other HCL reference form (e.g. a nested `module.x.output` reference) is left uncovered by the same gap before considering this closed.
 - `secret-patterns.sh` is shared with `ship/scripts/record-evidence.sh` only for the pass-1 unmistakable shapes (`secret_pass1_grep`) — pass 2's value judgment, which this ticket touches, is scanner-only and deliberately not shared, so this change cannot affect the evidence guard.
+
+## Final Report
+
+**Outcome: implemented.**
+
+- Reproduced the failure first: on this branch's base, `printf 'x.tf\t2\t  api_token = var.cloudflare_api_token\n' | secret_grep` matched (a hard `secret` finding on the documented Terraform wiring), localized to pass 2's reference-subtraction list in `secret-patterns.sh`, which knew the host-language env readers but no HCL reference prefix.
+- Extended the pass-2 `grep -Eiv` subtraction with `var\.|local\.|data\.|module\.` — the same mechanism as the existing `process.env`-class exclusions, not a new rule shape. `module.` is included by the Considerations' own check: a nested `module.x.output` reference is the same grammar class and was left uncovered by the reported three. The header documents the addition and why a quoted literal (`"var.x"`) still flags: the subtraction requires the value to *begin* with the prefix, and in HCL grammar an unquoted `var.…` value can only be a reference.
+- Extended the shared gate table in `test-workflow-scripts.mjs`: four must-not-flag HCL reference rows (`var.`/`local.`/`data.`/`module.`) and a paired must-flag row for a literal HCL credential (`api_token = "hunter2value"`).
+- Verified: `node scripts/test-workflow-scripts.mjs` — 2238 passed, 0 failed; both probes resolve as expected (reference silent, literal flags); `record-evidence.sh` is unaffected by construction — it shares only pass 1 (`secret_pass1_grep`), and this change touches pass 2 only. `outputs/` rebuilt (`build.mjs` + `verify.mjs` clean) — the six bundle copies of `secret-patterns.sh` carry the fix.

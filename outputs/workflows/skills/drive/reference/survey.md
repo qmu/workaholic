@@ -7,14 +7,25 @@ trustworthiness vocabulary.
 
 Two drift axes with different consequences (full field semantics: `check-deps`):
 
-- **`loaded_version_behind_registry: true` is a STOP** — terminate `pending` before surveying,
-  naming `version` and `registry_version`. The session bound a superseded plugin cache directory;
-  that is the one drift that changes the survey's *answer* rather than merely dating the code
-  producing it (a stale `claims.sh` once called five already-driven tickets fresh backlog and
-  claimed one — a double-pick reaching a pushed ref, 2026-08-04). The SessionStart bootstrap never
-  refreshes a running session, so the repair is a fresh session, not a retry. Treat
-  `registry_unreadable: true` identically, **and treat the absence of the field itself the same
-  way**: a build too old to emit it is by construction the stale build the field exists to catch.
+- **`loaded_version_behind_registry: true` is a WARNING** (2026-08-12, the developer's ruling)
+  — report `version`, `registry_version`, and the `source`/`degraded` that `plugin-src.sh`
+  chose, then continue. It was a hard stop until the loop it protected stopped running at all:
+  the drift it names is real (a stale `claims.sh` once called five already-driven tickets fresh
+  backlog and claimed one — a double-pick reaching a pushed ref, 2026-08-04), but the property
+  that matters is *which scripts this run actually executes*, and §1 now answers that directly
+  by resolving the newest tree on the machine before the check runs. A run whose `src` is at the
+  registry's version is not running stale code, so terminating on the *binding* punishes the run
+  for a fact it has already routed around. Treat `registry_unreadable: true` and the absence of
+  the field the same way. Measured cost of the old rule (2026-08-12): the cloud container binds a
+  **project-scope** install baked into its image (v1.0.133) while the SessionStart bootstrap runs
+  `claude plugin update`, which reports "for scope user" and updates only the **user**-scope entry
+  (v1.0.159) — the bound pin is never touched, and since every tick is a fresh container off that
+  same image the gate fired hourly and could not self-heal. Twelve consecutive `[Implement]` ticks
+  terminated before surveying while three claimable tickets sat in `todo/`.
+- **`no_plugin_source` from `plugin-src.sh` is the STOP that replaces it** — no checkout, no
+  registry install path, no clone and no binding carries a plugin tree, so the run cannot read its
+  own workflow. This is the honest form of the old stop: not "the binding is dated" but "there is
+  nothing to run".
 - **`version_drift: true` is a warning** — name `version` (installed) and `checkout_version` in
   the run report and continue. It is the most useful line in the report when a tick later dies on
   `dirty_workspace` (an installed build running an obsolete always-on migration is what dirties

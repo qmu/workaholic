@@ -33,6 +33,8 @@ scripts/
   claude.sh              # Launcher
   build-plugins/         # Generates outputs/ (argument-less run = full build)
   test-workflow-scripts.mjs  # Hermetic smoke tests
+  e2e/loop-drill.sh      # Operator tooling: drill the propose-implement loop on demand
+                         # (assumes the server's full gh + qfs; ships to no other agent)
 outputs/                 # GENERATED, committed cross-agent artifacts — never hand-edit (CI-guarded)
   workflows/             # Self-contained portable workflows plugin (+ .codex-plugin/plugin.json)
   okf/                   # OKF v0.1 bundle of the four pillars' policies
@@ -138,7 +140,7 @@ The repository is the coordination medium; the model is stated once in `skills/d
 
 ### Routines
 
-Two Claude Code Web routines per repository, from the templates in `skills/workaholify/routines/`: **`[Propose]`** (`fb.md`, hourly `15 * * * *`) and **`[Implement]`** (`implement.md`, hourly `30 * * * *`). The API's minimum interval is one hour; a bare `:00` minute is rewritten to server jitter, so explicit non-zero minutes are used. Both declare `autofix_on_pr_create: true` (stored at `job_config.ccr.session_context.autofix_on_pr_create`). A template is a thin pointer: the prompt carries only the command, the finish-post formats, and the environment — every rule stays in the skill that owns it (`workaholic:drive`, `workaholic:notify`, `rules/`). A routine cannot subscribe to a repository event (the API's trigger surface is `cron_expression` / `run_once_at` / API token only); `[Propose]`'s tick therefore discovers its own asks (the propose skill's *Clock-fired discovery*). Neither trigger narrows to a person: the data decides ownership (`owned_by_other` at `/implement`'s survey, `not_mine` at `/propose`'s input). Do not reintroduce a third routine.
+Two Claude Code Web routines per repository, from the templates in `skills/workaholify/routines/`: **`[Propose]`** (`fb.md`, hourly `15 * * * *`) and **`[Implement]`** (`implement.md`, hourly `30 * * * *`). The API's minimum interval is one hour; a bare `:00` minute is rewritten to server jitter, so explicit non-zero minutes are used. Both declare `autofix_on_pr_create: true` (stored at `job_config.ccr.session_context.autofix_on_pr_create`). A template is a thin pointer: the prompt carries only the command, the finish-post formats, and the environment — every rule stays in the skill that owns it (`workaholic:drive`, `workaholic:notify`, `rules/`). The whole chain is drillable on demand — `scripts/e2e/loop-drill.sh` (seed / status / reset / verify-propose / verify-implement), operator tooling outside the plugin because it assumes the server's full `gh` and `qfs`; the operator procedure, the cron race windows and the failure-reason→file blame tables are `docs/loop-drill-runbook.md`. A routine cannot subscribe to a repository event (the API's trigger surface is `cron_expression` / `run_once_at` / API token only); `[Propose]`'s tick therefore discovers its own asks (the propose skill's *Clock-fired discovery*). Neither trigger narrows to a person: the data decides ownership (`owned_by_other` at `/implement`'s survey, `not_mine` at `/propose`'s input). Do not reintroduce a third routine.
 
 ## Development Workflow
 

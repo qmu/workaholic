@@ -61,6 +61,7 @@ const SCRIPTS = {
   promoteIcebox: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/promote-icebox.sh"),
   claim: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/claim.sh"),
   planUnits: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/plan-units.sh"),
+  readActiveRelation: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/read-active-relation.sh"),
   effectivePolicy: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/effective-policy.sh"),
   listClaims: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/list-claims.sh"),
   releaseClaim: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/release-claim.sh"),
@@ -9688,6 +9689,81 @@ function testPlanUnitsExclusions() {
   } finally { cleanup(dir); }
 }
 
+// A ticket whose every named mission has CLOSED must come back to the offer. The
+// `mission_member` exclusion is a premise -- "it arrives inside its mission's unit
+// instead" -- and only `missions/active/` yields units, so the premise expires when the
+// last mission a ticket names closes. Before 2026-08-12 (qmu/workaholic#382) such a
+// ticket was offered by NEITHER path: it sat in todo/ while the queue read as drained
+// rather than as broken. The retained half of this test is the tripwire in the other
+// direction -- a ticket of a LIVE mission must still be excluded, and a ticket naming one
+// of each must not be double-offered.
+function testPlanUnitsClosedMission() {
+  const dir = makeRepo("main");
+  const PLAN = `${POSIX_SH} ${SCRIPTS.planUnits}`;
+  const ACTIVE = `${POSIX_SH} ${SCRIPTS.readActiveRelation}`;
+  const mission = (area, slug, status) => {
+    mkdirSync(join(dir, `.workaholic/missions/${area}/${slug}`), { recursive: true });
+    writeFileSync(join(dir, `.workaholic/missions/${area}/${slug}/mission.md`),
+      `---\ntype: Mission\ntitle: ${slug}\nslug: ${slug}\nstatus: ${status}\nmerge_policy: auto\n` +
+      `assignees: [test@example.com]\n---\n\n# ${slug}\n\n## Acceptance\n\n- [ ] ship it\n`);
+  };
+  const ticket = (name, relation) => {
+    const p = `.workaholic/tickets/todo/${name}`;
+    writeFileSync(join(dir, p),
+      `---\ncreated_at: 2026-07-29T00:00:01+09:00\nauthor: test@example.com\nmission: ${relation}\n---\n\n# ${name}\n`);
+    return p;
+  };
+  try {
+    mkdirSync(join(dir, ".workaholic/tickets/todo"), { recursive: true });
+    mission("active", "m-live", "active");
+    mission("archive", "m-closed", "achieved");
+    // A mission still in active/ but carrying the retired draft word: ALIVE, because the
+    // area is the authority (K1). This is /propose's safety property in miniature.
+    mission("active", "m-draft", "draft");
+    const stranded = ticket("20260729000001-stranded.md", "m-closed");
+    const member = ticket("20260729000002-live-member.md", "m-live");
+    const mixed = ticket("20260729000003-mixed.md", "[m-closed, m-live]");
+    const proposed = ticket("20260729000004-proposed.md", "m-draft");
+    const dangling = ticket("20260729000005-dangling.md", "m-nowhere");
+    execSync("git add -A && git commit -q -m seed", { cwd: dir });
+
+    // The reader that owns the liveness question, checked on its own contract first.
+    const active = (p) => run(dir, `${ACTIVE} ${join(dir, p)}`).stdout.trim();
+    assertEq("read-active-relation drops a closed mission", active(stranded), "");
+    assertEq("read-active-relation keeps an active one", active(member), "m-live");
+    assertEq("read-active-relation is ANY, not ALL, across a many-valued relation",
+      active(mixed), "m-live");
+    assertEq("a draft mission in active/ is alive — the area is the authority",
+      active(proposed), "m-draft");
+    assertEq("a slug that resolves nowhere reads as closed", active(dangling), "");
+
+    const plan = JSON.parse(run(dir, PLAN).stdout);
+    const offered = plan.backlog.map((b) => b.path);
+    const why = (id) => plan.excluded.find((e) => e.id === id)?.reason;
+
+    // THE REPAIR: offered, and visible in the JSON rather than inferred.
+    assertTrue("a ticket whose every mission has closed is offered as backlog",
+      offered.includes(stranded), JSON.stringify(plan.backlog));
+    assertEq("the repair is annotated on the row, naming the closed mission",
+      plan.backlog.find((b) => b.path === stranded)?.mission_closed, "m-closed");
+    assertTrue("the repaired ticket is NOT also reported as excluded",
+      why(stranded) === undefined, JSON.stringify(plan.excluded));
+    assertEq("a dangling relation is offered too, and says which slug it carried",
+      plan.backlog.find((b) => b.path === dangling)?.mission_closed, "m-nowhere");
+
+    // THE TRIPWIRE: the live cases must not have moved.
+    assertEq("a ticket of an active mission is still excluded mission_member",
+      why(member), "mission_member");
+    assertEq("a ticket naming one live and one closed mission is still a member",
+      why(mixed), "mission_member");
+    assertTrue("and it is never double-offered as backlog",
+      !offered.includes(mixed), JSON.stringify(plan.backlog));
+    assertEq("a ticket proposed under a draft mission stays unclaimable",
+      why(proposed), "mission_member");
+    assertEq("only the two repaired tickets reach the offer", offered.length, 2);
+  } finally { cleanup(dir); }
+}
+
 // An UNREADABLE backlog must never render as an EMPTY one. The queue is scoped to
 // `todo/<user>/`, so with no `git config user.email` there is no directory to name and
 // the survey learns nothing at all — a state that used to be swallowed by a `|| true`
@@ -11822,6 +11898,7 @@ const tests = [
   ["drive/effective-policy.sh (G5 truth table)", testEffectivePolicy],
   ["drive/plan-units.sh (survey minus claims)", testPlanUnits],
   ["drive/plan-units.sh (exclusions + the dry demo)", testPlanUnitsExclusions],
+  ["drive/plan-units.sh (a ticket whose missions have all closed comes back)", testPlanUnitsClosedMission],
   ["drive/plan-units.sh (an unidentified runner reads the queue and says so)", testPlanUnitsBacklogError],
   ["drive/plan-units.sh (missions are filtered by ownership)", testPlanUnitsOwnership],
   ["mission: the ticket floor refuses a sub-floor mission and names the alternative", testMissionTicketFloorGate],

@@ -96,6 +96,7 @@ const SCRIPTS = {
   checkOutboundBody: join(REPO_ROOT, "plugins/workaholic/skills/feedback/scripts/check-outbound-body.sh"),
   scanOutboundBody: join(REPO_ROOT, "plugins/workaholic/skills/feedback/scripts/scan-outbound-body.sh"),
   openIssue: join(REPO_ROOT, "plugins/workaholic/skills/feedback/scripts/open-issue.sh"),
+  fbTitle: join(REPO_ROOT, "plugins/workaholic/skills/feedback/scripts/fb-title.sh"),
   guardAskLabel: join(REPO_ROOT, "plugins/workaholic/hooks/guard-askuserquestion-label.sh"),
   guardWorkingDir: join(REPO_ROOT, "plugins/workaholic/hooks/guard-working-directory.sh"),
   auditClaudeMd: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/audit-claude-md.sh"),
@@ -7848,13 +7849,39 @@ function testFbCrossRepoIssueMode() {
     // stdin. Both keep an unbounded ask off a command line capped at 128 KiB per entry,
     // and this asserts the property rather than the mechanism.
     const sent = JSON.parse(readFileSync(ghStdin, "utf8"));
-    assertEq("the title rides the payload", sent.title, "Parser drops a trailing newline");
+    assertEq("the title rides the payload, stamped with the [FB] marker",
+      sent.title, "[FB] Parser drops a trailing newline");
     assertEq("and the body is the file's contents, passed on STDIN",
       sent.body, readFileSync(askBody, "utf8"));
     assertTrue("no argv entry carries the body text",
       !argv.some((a) => a.includes("trailing newline on CRLF")), argv.join(" "));
     assertTrue("the payload is fed with --input -, not an inline -f",
       argv.includes("--input") && argv[argv.indexOf("--input") + 1] === "-", argv.join(" "));
+
+    // ---- 2b. the title's wire shape, and its idempotence ----
+    // THE MARKER IS STAMPED IN EXACTLY ONE PLACE (issue #411, 2026-08-12), reversing the
+    // rule that the title took no prefix of ours. The reversal was decided on a
+    // measurement, not a preference: 17 of 17 issues this repository had received through
+    // the crossing already carried `[FB]` by an agent's hand — so double-prefixing is the
+    // likely first regression, not a hypothetical, and these cases pin it.
+    const title = (t) => run(tmp, `${POSIX_SH} ${SCRIPTS.fbTitle} ${q(t)}`).stdout.trim();
+    assertEq("a bare title is stamped", title("Parser drops a newline"), "[FB] Parser drops a newline");
+    assertEq("an already-stamped title is unchanged",
+      title("[FB] Parser drops a newline"), "[FB] Parser drops a newline");
+    assertEq("stamping is idempotent under a second pass",
+      title(title("Parser drops a newline")), "[FB] Parser drops a newline");
+    // Every spacing and case a composing agent plausibly writes canonicalises to one form.
+    for (const written of ["[fb] Parser drops a newline", "[Fb]Parser drops a newline",
+                           "[ FB ]  Parser drops a newline", "  [FB] Parser drops a newline",
+                           "[FB] [FB] Parser drops a newline"]) {
+      assertEq(`"${written}" canonicalises`, title(written), "[FB] Parser drops a newline");
+    }
+    // A title that is nothing but the marker carries no ask — refused rather than sent
+    // as a bare `[FB]` into somebody else's tracker.
+    assertEq("a marker-only title is refused",
+      run(tmp, `${POSIX_SH} ${SCRIPTS.fbTitle} ${q("[FB]")}`).status !== 0, true);
+    assertEq("and so is an empty one",
+      run(tmp, `${POSIX_SH} ${SCRIPTS.fbTitle} ${q("")}`).status !== 0, true);
 
     // A refusal from the target is reported verbatim, never worked around: issues
     // disabled, or no access for this identity, is the target's own decision.

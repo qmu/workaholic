@@ -4,6 +4,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
 merge_policy:
+claim: work-20260812-193239
 ---
 
 # Validate the archive subject before moving the ticket

@@ -5,6 +5,7 @@ assignees: [a@qmu.jp]
 depends_on:
 feedback: [20260810161713-claude-md-is-too-long.md]
 merge_policy:
+claim: work-20260812-224603
 ---
 
 # Trim CLAUDE.md to essential, load-bearing content

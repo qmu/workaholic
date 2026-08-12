@@ -48,3 +48,4 @@ minting a fresh issue per run, never from deleting history.
 - 2026-08-12 — ticket archived — 20260812190501-add-the-loop-drill-script-seed-status-reset.md
 - 2026-08-12 — ticket archived — 20260812190502-add-drill-verify-subcommands-for-each-stage.md
 - 2026-08-12 — ticket archived — 20260812190503-write-the-loop-drill-runbook.md
+- 2026-08-12 — story — work-20260812-193807.md

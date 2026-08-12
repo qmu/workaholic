@@ -7080,11 +7080,33 @@ function testScanWindowOversizedCorpus() {
   if (!hasJq) { console.log("  skip  scan-window oversized corpus (jq not available)"); return; }
   const dir = makeRepo("main");
   try {
+    // ONE CLOCK ON BOTH SIDES OF THE WINDOW COMPARISON (2026-08-12). `scan-window.sh`
+    // derives its cutoff from the repository's own commits — `git log --since=<window>
+    // --format=%cd --date=format:'%Y-%m-%d'`, which renders each commit in the offset the
+    // COMMIT recorded — and then keeps only events with `.date >= cutoff`. A changelog
+    // line frozen at a calendar day therefore fails wherever the run's local date is
+    // later: measured on the operator server (Amazon Linux 2023, JST) at 2026-08-12
+    // 23:19Z, where the cutoff resolved to 2026-08-13 and the frozen 2026-08-12 event
+    // was filtered out — and it would have failed on every machine from 2026-08-13.
+    // So pin the repo's only commit to an explicit +00:00 instant and date the event
+    // with that same string: cutoff and event become two views of ONE value.
+    // Derived from now, never a calendar constant — a timestamp frozen in the past
+    // eventually leaves the "2 weeks ago" window, at which point the cutoff is empty,
+    // the filter degrades to "keep everything", and the assertion stops testing it.
+    const pinnedIso = `${new Date(Date.now() - 86400 * 1000).toISOString().slice(0, 19)}+00:00`;
+    const pinnedDay = pinnedIso.slice(0, 10);
+    const staleDay = new Date(Date.now() - 30 * 86400 * 1000).toISOString().slice(0, 10);
+    execSync(`git commit -q --amend --no-edit`, {
+      cwd: dir, env: { ...process.env, GIT_AUTHOR_DATE: pinnedIso, GIT_COMMITTER_DATE: pinnedIso },
+    });
+
     const slug = "big-corpus";
     const mdir = join(dir, `.workaholic/missions/active/${slug}`);
     mkdirSync(mdir, { recursive: true });
+    // Two events, one in the window and one 30 days out, so `window_events.length === 1`
+    // proves the date filter still filters rather than merely surviving the transport.
     writeFileSync(join(mdir, "mission.md"),
-      `---\ntype: Mission\nslug: ${slug}\nstatus: active\n---\n\n# Big corpus\n\n## Acceptance\n\n- [ ] a\n\n## Changelog\n\n- 2026-08-12 — ticket archived — x.md\n`);
+      `---\ntype: Mission\nslug: ${slug}\nstatus: active\n---\n\n# Big corpus\n\n## Acceptance\n\n- [ ] a\n\n## Changelog\n\n- ${staleDay} — ticket archived — stale.md\n- ${pinnedDay} — ticket archived — x.md\n`);
 
     // Grow the corpus until the serialized tickets array is past MAX_ARG_STRLEN, so the
     // fixture is defined by the limit it must cross and not by a magic file count.
@@ -7123,6 +7145,8 @@ function testScanWindowOversizedCorpus() {
       (j?.missions || [])[0]?.in_flight?.length, n);
     assertEq("and its window_events survived the transport change",
       (j?.missions || [])[0]?.window_events?.length, 1);
+    assertEq("and the surviving event is the in-window one (the cutoff still filters)",
+      (j?.missions || [])[0]?.window_events?.[0]?.artifact, "x.md");
   } finally { cleanup(dir); }
 }
 

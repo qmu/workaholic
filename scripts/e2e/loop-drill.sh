@@ -601,26 +601,89 @@ EOF
         add_row "proposal_pr_merged" false "pull request #${pr_number} exists but is not merged" load
     fi
 
-    # The ticket the proposal emitted. A record-only proposal legitimately emits none --
-    # reported as a failing row naming what it looked for, never a script error, so the
-    # operator reads WHICH artifact is absent rather than a stack trace.
+    # The artifacts the proposal emitted, in WHICHEVER of the three sanctioned shapes it
+    # chose (`workaholic:propose`, *The form follows the work's shape*): a loose ticket
+    # naming the record, a mission naming the record whose tickets carry `mission: <slug>`,
+    # or the record alone. Until 2026-08-12 only the first was looked for, so the
+    # mission-shaped proposal (PR #407, measured 20:47 UTC) was reported as a missing
+    # ticket on a stage that had in fact passed -- a red verdict on a green run, which
+    # trains the operator to ignore red exactly as the `pending`-vs-`fail` rule above
+    # argues against.
+    #
+    # The mission hops are anchored to the FRONTMATTER relation -- `feedback:` and
+    # `mission:` are line-leading keys -- so a mission merely discussed in a ticket's prose
+    # is not mistaken for the relation. The loose lookup is deliberately left as it was
+    # (any occurrence of the stem under tickets/), so the shape the rows were written for
+    # cannot regress. Both hops read the base through main_grep like every other row: a
+    # drill that consulted the working tree would disagree with itself per operator.
+    form="record_alone"
+    ticket=""
+    mission=""
+    slug=""
+    stem=""
     if [ -n "$record" ]; then
         stem="$(basename "$record" .md)"
         ticket="$(main_grep ".workaholic/tickets" "$stem" | head -1)"
-    else
-        stem=""
-        ticket=""
+        if [ -n "$ticket" ]; then
+            form="loose_ticket"
+        else
+            mission="$(main_grep ".workaholic/missions" "^feedback:.*${stem}" | head -1)"
+            if [ -n "$mission" ]; then
+                slug="$(basename "$(dirname "$mission")")"
+                ticket="$(main_grep ".workaholic/tickets" "^mission:.*${slug}" | head -1)"
+                if [ -n "$ticket" ]; then
+                    form="mission"
+                else
+                    form="mission_without_tickets"
+                fi
+            fi
+        fi
     fi
+
+    # ADVISORY BY DECISION, not by oversight: the drill knows which form was emitted, it
+    # cannot know which form the ask WARRANTED -- that judgment is the propose skill's and
+    # a human's. A row that graded the choice would fail every correctly-record-alone
+    # proposal, so this one states the shape and decides nothing.
+    case "$form" in
+        loose_ticket) add_row "proposal_form" null "loose ticket (${ticket})" advisory ;;
+        mission) add_row "proposal_form" null "mission ${slug} (${mission})" advisory ;;
+        mission_without_tickets) add_row "proposal_form" null "mission ${slug} with no ticket carrying its relation" advisory ;;
+        *) add_row "proposal_form" null "record alone -- no ticket and no mission names ${stem:-the record}" advisory ;;
+    esac
+
     if [ -n "$ticket" ]; then
-        add_row "ticket_feedback_ref" true "$ticket" load
+        if [ "$form" = "mission" ]; then
+            add_row "ticket_feedback_ref" true "${ticket} via mission ${slug}" load
+        else
+            add_row "ticket_feedback_ref" true "$ticket" load
+        fi
+        # THE TWO SPELLINGS OF ONE PERSON. An issue's assignee is a GitHub login; a ticket
+        # carries a git email, because the propose seam writes the identity the repository's
+        # own committed map resolves (`.claude/git-identities`, `<login>=<email>` — the same
+        # file the web bootstrap reads). Comparing the raw login against the ticket failed a
+        # correctly-assigned one: measured 2026-08-12 on issue #406, where the ticket carried
+        # `a@qmu.jp` and the row demanded `tamurayoshiya`. Either spelling satisfies it, and
+        # the map is read off the base like every other row — an absent or unmapped login
+        # simply leaves the login as the only accepted token, never an error.
+        assignee_email=""
+        if [ -n "$ISSUE_ASSIGNEE" ]; then
+            assignee_email="$(main_show ".claude/git-identities" | grep -E "^${ISSUE_ASSIGNEE}=" | head -1 | cut -d= -f2)"
+        fi
         if [ -n "$ISSUE_ASSIGNEE" ] && main_show "$ticket" | grep -qF "$ISSUE_ASSIGNEE"; then
             add_row "ticket_assignee" true "carries the issue's assignee (${ISSUE_ASSIGNEE})" load
+        elif [ -n "$assignee_email" ] && main_show "$ticket" | grep -qF "$assignee_email"; then
+            add_row "ticket_assignee" true "carries the issue's assignee as ${assignee_email} (git-identities maps ${ISSUE_ASSIGNEE})" load
         else
-            add_row "ticket_assignee" false "expected the issue's assignee (${ISSUE_ASSIGNEE:-none}) on ${ticket}" load
+            add_row "ticket_assignee" false "expected the issue's assignee (${ISSUE_ASSIGNEE:-none}${assignee_email:+ or ${assignee_email}}) on ${ticket}" load
         fi
-    else
-        add_row "ticket_feedback_ref" false "expected a ticket under .workaholic/tickets/ naming ${stem:-the feedback record}" load
+    elif [ "$form" = "mission_without_tickets" ]; then
+        # A mission is not a mission under two tickets (`mission/scripts/check-floor.sh`),
+        # so a published mission with none is a real defect of the run -- load-bearing.
+        add_row "ticket_feedback_ref" false "mission ${slug} names ${stem} but no ticket carries mission: ${slug}" load
         add_row "ticket_assignee" false "no ticket to carry the assignee" load
+    else
+        add_row "ticket_feedback_ref" null "record-alone proposal: no ticket or mission names ${stem:-the feedback record}, which the judgment bar permits" advisory
+        add_row "ticket_assignee" null "no ticket to carry the assignee (record alone)" advisory
     fi
 
     slack_rows "/issues/${ISSUE}" "slack_seed_root"

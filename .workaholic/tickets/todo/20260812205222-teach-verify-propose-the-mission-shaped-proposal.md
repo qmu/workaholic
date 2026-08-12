@@ -5,6 +5,7 @@ assignees: [a@qmu.jp]
 depends_on:
 feedback: [20260812205142-teach-the-loop-drill-s-verify-propose-the-mission-shaped-proposal.md]
 merge_policy:
+claim: work-20260812-212339
 ---
 
 # Teach verify-propose the mission-shaped proposal

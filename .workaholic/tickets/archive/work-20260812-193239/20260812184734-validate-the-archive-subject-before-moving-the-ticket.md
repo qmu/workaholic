@@ -114,3 +114,94 @@ validator and is already called by `commit.sh`, by `guard-git-commit.sh`, and by
 - Whether the failed path should also leave a breadcrumb (a reported reason a later run can
   read) is worth one thought, but the smaller fix — never enter the bad state — is the one
   this ticket asks for.
+
+## Final Report
+
+Development completed as planned.
+
+### Reproduction, before the fix (step 1)
+
+Throwaway repository, one ticket in `todo/`, clean tree, `archive.sh` called with a
+60-character subject:
+
+```
+$ git status --short          # (empty — clean)
+$ sh archive.sh …/todo/20260101000000-demo.md "Refuse the bare repo name only where it reads as a reference" …
+exit=1
+$ git status --short
+A  .workaholic/index.md
+R  .workaholic/tickets/todo/20260101000000-demo.md -> .workaholic/tickets/archive/work-20260101-000000/20260101000000-demo.md
+$ <identical re-run>
+Error: Ticket not found: .workaholic/tickets/todo/20260101000000-demo.md
+```
+
+The rename staged, no commit, and the obvious retry impossible — exactly as reported.
+
+### Localization (step 2)
+
+By the **emitted message**, not by inspection. The refusal is the subject gate:
+
+```
+==> Staging changes...
+Error: rejected off-policy subject (subject is 60 characters (limit 50)).
+```
+
+printed *after* `==> Archiving ticket...` and the move. A conformant subject archived
+cleanly against the same fixture, confirming nothing else in `commit.sh` was involved.
+
+### The audit (step 5) — is anything else the same shape?
+
+Every step of `archive.sh` that mutates the tree, against every refusal that can follow it:
+
+| refusal in `commit.sh` | reachable after the move? |
+| ---------------------- | ------------------------- |
+| off-policy subject | **yes** — this defect |
+| not on a named branch | no — `archive.sh` checks it itself, before the move |
+| a named path cannot be staged | no — unreachable from this caller: `archive.sh` passes `--skip-staging` with no file list |
+| flag-parsing errors (`--trailer`, unknown flag) | no — `archive.sh` passes fixed, well-formed flags |
+
+The mission mutators between the move and the commit are explicitly non-blocking and
+report rather than fail, so they cannot strand the ticket either. **The subject gate was
+the only one.**
+
+### What changed
+
+- `archive.sh` calls `commit/scripts/check-subject.sh` as its first act, before
+  `mkdir -p`/`mv`, and exits non-zero with the same message `commit.sh` prints plus one
+  line the caller actually needs: *"Nothing was moved and nothing was staged. Re-run with
+  a conforming subject."* `SCRIPT_DIR` moved up to the top; the duplicate definition
+  further down is gone.
+- `commit.sh` keeps its own check — this is a **call to one validator**, not a second copy
+  of the rule, so the four layers still cannot drift.
+- No auto-shortening (step 4): truncating a subject to fit would put a machine-invented
+  sentence into permanent history.
+- Ten assertions pin the all-or-nothing property, including that the retry works with no
+  manual `git mv` in between — the half-archived state's real cost.
+- Prose updated in the same change: `drive/reference/ticket-workflow.md`'s Archive section
+  (the recovery story changed) and `CLAUDE.md`'s commit-subject gate line (`archive.sh` is
+  now a fourth caller of the canonical validator).
+
+### Verification
+
+- The step-1 reproduction re-run against the fixed script: refused, and `git status` +
+  `git rev-parse HEAD` **byte-identical to before the call**; the ticket still in `todo/`,
+  nothing in `archive/`.
+- The same command with a conforming subject then succeeded, with no manual step between.
+- `node scripts/test-workflow-scripts.mjs` → **2327 passed, 0 failed** (from 2317),
+  including the ten new assertions.
+- `build.mjs` / `verify.mjs` clean.
+
+### Discovered Insights
+
+- **Insight**: this defect was found by *hitting* it while driving an unrelated ticket in
+  the same run that later minted this one, and the recovery required the one operation the
+  drive workflow explicitly forbids (`NEVER manually archive`).
+  **Context**: when a seam's failure mode can only be undone by an action the workflow
+  bans, that is the signal to fix the seam rather than to document the recovery. The
+  forbidden-recovery smell generalizes to any script that mutates before it validates.
+- **Insight**: the fix is one call, but the *audit* is the deliverable — the table above is
+  what makes "this cannot happen elsewhere in this seam" a checked claim rather than a
+  hope.
+  **Context**: `--skip-staging` with no file list is what makes the "named path cannot be
+  staged" refusal unreachable here. If a future change gives `archive.sh` an explicit file
+  list, that refusal becomes reachable after the move and this audit needs redoing.

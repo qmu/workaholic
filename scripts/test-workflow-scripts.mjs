@@ -504,6 +504,63 @@ Development completed as planned.
   } finally { cleanup(dir); }
 }
 
+// ---------- 5aa. drive/archive.sh refuses an off-policy subject BEFORE moving ----------
+// The subject gate lives in commit.sh, which archive.sh calls LAST — after the ticket has
+// already been moved into archive/<branch>/. So an over-length subject used to leave the
+// tree half-archived: the rename staged, no commit, and the obvious retry impossible,
+// because the path the caller was told to pass no longer held a file ("Ticket not
+// found"). Measured while driving ticket 20260812155908 on work-20260812-183726;
+// recovery took a hand-written `git mv` in the one seam the workflow says must never be
+// done by hand. Under /implement nobody reads the transcript, and every honest outcome in
+// the failure contract assumes a tree a later run can read.
+//
+// The property pinned here is ALL-OR-NOTHING: on a refusal the tree is byte-identical to
+// before the call, and the very same command with a conforming subject then succeeds with
+// no manual step in between.
+function testArchiveSubjectGateBeforeMove() {
+  const dir = makeRepo("main");
+  try {
+    execSync(`git checkout -q -b work-20260528-smoke`, { cwd: dir });
+    const todoDir = join(dir, ".workaholic/tickets/todo");
+    mkdirSync(todoDir, { recursive: true });
+    const rel = ".workaholic/tickets/todo/20260528120000-gate.md";
+    writeFileSync(join(dir, rel),
+      "---\ncreated_at: 2026-05-28T12:00:00+09:00\nauthor: a@example.com\n---\n\n# Gate\n\n## Final Report\n\nDone.\n");
+    execSync("git add -A && git -c commit.gpgsign=false commit -qm 'Add the gate fixture'", { cwd: dir });
+
+    const snapshot = () => ({
+      status: execSync("git status --porcelain", { cwd: dir, encoding: "utf8" }),
+      head: execSync("git rev-parse HEAD", { cwd: dir, encoding: "utf8" }).trim(),
+    });
+    const before = snapshot();
+    const invoke = (subject) => run(dir,
+      `${POSIX_SH} ${SCRIPTS.archive} ${rel} "${subject}" https://example.com/repo "why" "changes" "None" "None" "verify"`);
+
+    // 60 characters — over the 50-char limit, the exact shape that was measured.
+    const refused = invoke("Refuse the bare repo name only where it reads as a reference");
+    assertTrue("an off-policy subject is refused", refused.status !== 0, `${refused.status}`);
+    assertTrue("and the refusal names the limit",
+      /50 characters or fewer/.test(refused.stdout + refused.stderr), refused.stdout);
+    assertTrue("and says nothing was moved",
+      /Nothing was moved and nothing was staged/.test(refused.stdout + refused.stderr), refused.stdout);
+
+    const after = snapshot();
+    assertEq("the working tree is byte-identical to before the call", after.status, before.status);
+    assertEq("and no commit was made", after.head, before.head);
+    assertTrue("the ticket is still in todo/", existsSync(join(dir, rel)));
+    assertTrue("and nothing landed in archive/",
+      !existsSync(join(dir, ".workaholic/tickets/archive/work-20260528-smoke/20260528120000-gate.md")));
+
+    // THE RETRY WORKS WITH NO MANUAL `git mv` IN BETWEEN — the half-archived state's
+    // real cost was that the obvious next command could not run at all.
+    const ok = invoke("Add the gate fixture archive");
+    assertEq("the same call with a conforming subject then succeeds", ok.status, 0);
+    assertTrue("and the ticket reaches archive/",
+      existsSync(join(dir, ".workaholic/tickets/archive/work-20260528-smoke/20260528120000-gate.md")));
+    assertTrue("leaving todo/ empty of it", !existsSync(join(dir, rel)));
+  } finally { cleanup(dir); }
+}
+
 // ---------- 5a. drive/archive.sh pushes the claim branch itself ----------
 // The archive commit is a progress signal that must always reach the remote (an
 // unpushed archive makes a finished claim look resumable once its heartbeat lapses).
@@ -12052,6 +12109,7 @@ const tests = [
   ["branching/check-workspace.sh", testCheckWorkspace],
   ["drive/update.sh", testUpdate],
   ["drive/archive.sh", testArchive],
+  ["drive/archive.sh refuses an off-policy subject before moving", testArchiveSubjectGateBeforeMove],
   ["drive/archive.sh pushes the claim branch itself", testArchivePushesClaimBranch],
   ["commit/commit.sh never silently omits a file", testCommitStaging],
   ["gather/user-slug.sh", testUserSlug],

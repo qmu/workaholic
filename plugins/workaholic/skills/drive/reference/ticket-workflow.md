@@ -174,6 +174,17 @@ users, `<concerns>` from Considerations (or "None"), `<insights>` from Discovere
 Changes / Concerns / Successful Development Patterns). Message format: the **commit** skill's
 Message Format section.
 
+**`<title>` is the commit subject, and it is checked before anything moves.** `archive.sh`
+runs the canonical `commit/scripts/check-subject.sh` as its first act, so an off-policy
+subject (over 50 characters, a `feat:` prefix, a `[bracket]` tag) refuses with the tree
+**byte-identical** to before the call — the ticket stays in `todo/`, nothing is staged, and
+re-running the same command with a shorter subject just works. Before 2026-08-12 the gate
+only ran inside `commit.sh` at the end, so a refused subject left the ticket already moved
+into `archive/<branch>/` with the rename staged and no commit, and the obvious retry died
+on `Ticket not found` — recoverable only by the manual `git mv` this section forbids.
+The subject is never auto-shortened: pass a shorter one rather than letting a machine
+invent the sentence that goes into permanent history.
+
 ## Fields the run never writes
 
 A driven ticket's frontmatter is read, never edited:

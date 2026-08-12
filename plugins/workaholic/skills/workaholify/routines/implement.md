@@ -29,9 +29,10 @@ keys declare the design, not a stored field a session can read back (no
 `RemoteTrigger`-family tool is exposed to this session — verified empty by
 `ToolSearch`, ticket `20260810085351`).
 
-**The prompt is the developer's own** (P3, reshaped by Q2: three instructions and two
-post formats — the finish post carries the session URL and the
-requester's mention) and states no rule
+**The prompt is the developer's own** (P3, reshaped by Q2, trimmed again 2026-08-12 after
+the developer read dated decision notes in the live prompt: the command, the load
+fallback, and one literal finish shape carrying the session URL and the requester's
+mention — nothing else) and states no rule
 a skill already owns: `workaholic:drive` owns the run and its terminal contract,
 `workaholic:notify` owns every notification rule (the stateless thread lookup, red-alert
 dedup, mention resolution), and the always-loaded `rules/` own the standing prohibitions.
@@ -46,17 +47,21 @@ repository is named here and the same prompt pastes into every project. A schedu
 fire carries no single PR/issue at all (unlike the retired merge-event trigger), so
 the lookup runs **per claimed unit** — `workaholic:drive`'s own §3/§6 already resolve
 each unit's feedback-item thread via `unit-feedback-stems.sh`, this prompt only fixes
-the two literal post shapes. `{repo}` in the format lines is the developer's own
+the literal finish shape. `{repo}` in the format lines is the developer's own
 placeholder for the pull request links. (Named `[Drive]` until P1, when the
 unattended executor became `/implement`.)
 
 ## Prompt
 
-Run `/implement`. If that command is unavailable or its skills did not bind, do not end the tick: run `bash plugins/workaholic/skills/check-deps/scripts/plugin-src.sh` from the repository checkout, take its `src`, then read `<src>/commands/implement.md` and follow it with every script path rooted at `<src>`. A binding that is missing or behind the registry is a source-resolution fact, never a stop (`rules/general.md`).
+Run `/implement`.
 
-For each PR-unit it claims, find its reply thread (the workaholic:notify lookup) and notify it when the unit finishes, in the following format — the finish is the only post; there is no "started" line (developer's order, 2026-08-11); and if the run stops before claiming anything, on a precondition-stop signature (`workaholic:notify`, the closed `no_plugin_source` list), post the calm-first, escalate-on-persistence shape notify defines for it instead:
+If the command or its skills did not load, do not stop: run `bash plugins/workaholic/skills/check-deps/scripts/plugin-src.sh` from the checkout, take its `src`, then read `<src>/commands/implement.md` and follow it with every script path under `<src>`.
+
+Post one finish line per claimed PR-unit into its reply thread (the workaholic:notify lookup):
 
 ```
 🟢 Implemented - [#123 Title]({repo}/pull/123)
 by the [routine](https://claude.ai/code/session_***) of <@U…>
 ```
+
+If the run stops before claiming anything, post notify's precondition-stop shape instead.

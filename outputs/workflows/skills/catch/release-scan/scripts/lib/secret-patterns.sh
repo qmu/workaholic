@@ -73,6 +73,12 @@
 #     dots are value characters and it ends the line, so the allowlist of guilt catches it.
 #     The well-known env-reader names are short and closed, so subtracting them costs
 #     nothing and buys back the single most common correct way to handle a secret.
+#     HCL's reference prefixes (`var.` / `local.` / `data.` / `module.`) are the same
+#     class (qmu/workaholic#378): `api_token = var.cloudflare_api_token` is the
+#     documented, correct Terraform wiring and reads as shape (b) for the same reason an
+#     env read does. The subtraction requires the VALUE to begin with the prefix, so a
+#     quoted literal `"var.x"` (starts with a quote) and any real credential still flag —
+#     in HCL grammar an unquoted `var.…` value can only be a reference.
 #
 #   * `key: <primitive>` AT END OF LINE. This is the one real ambiguity, and matching on the
 #     value does not dissolve it: `apiKey: string` (a TypeScript annotation) and `password:
@@ -169,7 +175,7 @@ secret_grep() {
                     -e "${_SP_KEY}[[:space:]]*[:=][[:space:]]*${_SP_LIT}" \
                     -e "${_SP_KEY}[[:space:]]*:${_SP_ANNOT}=[[:space:]]*${_SP_LIT}" \
                 | grep -Eiv \
-                    -e "${_SP_KEY}[[:space:]]*[:=][[:space:]]*(process\.env|import\.meta\.env|os\.environ|Deno\.env|ENV\[|getenv|System\.getenv)" \
+                    -e "${_SP_KEY}[[:space:]]*[:=][[:space:]]*(process\.env|import\.meta\.env|os\.environ|Deno\.env|ENV\[|getenv|System\.getenv|var\.|local\.|data\.|module\.)" \
                     -e "${_SP_KEY}[[:space:]]*:[[:space:]]*${_SP_PRIM}[[:space:]]*\$" \
                 || true
         } | grep -v '^[[:space:]]*$' | sort -u

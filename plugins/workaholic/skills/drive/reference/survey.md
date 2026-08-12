@@ -71,7 +71,7 @@ confidently (decision J3). Each `ok: false` is a reported decision, never a prom
 | `no_origin` | Survey the local tree, say so, continue. The terminal token may not be `ok`. |
 | `not_on_main` / `dirty_workspace` | Not a surveyable state. Report the reason, terminate `pending` — never silently survey a branch. |
 | `origin_unreachable` | Like `no_origin`: survey locally, say so, token may not be `ok`. |
-| `diverged` | A human's decision (`detail`: `local_ahead` / `both_diverged`). Report, terminate `pending`. Never merge or reset. |
+| `diverged` | A human's decision (`detail`: `local_ahead` / `both_diverged`). Report, terminate `pending`. Never merge or reset. One divergence is *not* a human's: a base branch carrying **no local commits at all** (a single creation entry in its reflog) that parted from origin only because upstream history was rewritten under it. `sync-main.sh` realigns that one itself and returns `ok: true` with `realigned: true` and a `backup_ref` holding the old tip — report it, do not treat it as a stop. |
 
 ## The survey (`drive/scripts/plan-units.sh`)
 

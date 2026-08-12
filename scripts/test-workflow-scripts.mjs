@@ -10032,6 +10032,30 @@ function testSyncMain() {
     assertEq("sync-main distinguishes genuine divergence",
       JSON.parse(run(A, SYNC).stdout).detail, "both_diverged");
 
+    // A base branch with NO local commits, diverged only because origin's history was
+    // rewritten under it: the container-image artifact of 2026-08-12, where a baked
+    // clone's `main` sat 59 commits off a rewritten upstream and every tick terminated
+    // `diverged`. The refusal's own rationale ("a reset would discard a developer's
+    // local commits") is provably absent here, so this one realigns — and preserves the
+    // discarded tip under refs/backup/ rather than dropping it.
+    const artifact = mkdtempSync(join(tmpdir(), "wh-sync-artifact-"));
+    rmSync(artifact, { recursive: true, force: true });
+    execSync(`git clone -q "${origin}" "${artifact}"`);
+    const artifactTip = execSync("git rev-parse main", { cwd: artifact, encoding: "utf8" }).trim();
+    // Rewrite origin's main so the clone's tip is on no remote branch at all.
+    execSync("git checkout -q --orphan rewritten && git rm -rq --cached . && git clean -qfd", { cwd: B });
+    writeFileSync(join(B, "rewritten.txt"), "rewritten\n");
+    execSync("git add -A && git commit -q -m 'Rewrite the history' && git push -qf origin rewritten:main", { cwd: B });
+    r = JSON.parse(run(artifact, SYNC).stdout);
+    assertEq("sync-main realigns a base branch that carries no local commits",
+      { ok: r.ok, realigned: r.realigned, previous_sha: r.previous_sha },
+      { ok: true, realigned: true, previous_sha: artifactTip });
+    assertTrue("the realignment actually took origin's history",
+      existsSync(join(artifact, "rewritten.txt")));
+    assertEq("the discarded tip is preserved under refs/backup/",
+      execSync(`git rev-parse ${r.backup_ref}`, { cwd: artifact, encoding: "utf8" }).trim(), artifactTip);
+    rmSync(artifact, { recursive: true, force: true });
+
     // No origin.
     const lonely = makeRepo();
     assertEq("sync-main reports no_origin", JSON.parse(run(lonely, SYNC).stdout).reason, "no_origin");

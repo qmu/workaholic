@@ -4,14 +4,18 @@
 #   sync-main.sh [base-branch]      # base defaults to the branch check.sh calls main
 #
 # Output (stdout, always exit 0 for a reported outcome):
-#   {"ok": true,  "base": "origin/<base>", "sha": "<sha>", "advanced": true|false}
+#   {"ok": true,  "base": "origin/<base>", "sha": "<sha>", "advanced": true|false,
+#                 ["realigned": true, "previous_sha": "<sha>", "backup_ref": "<ref>"]}
 #   {"ok": false, "reason": "not_on_main"|"dirty_workspace"|"no_origin"
 #                          |"origin_unreachable"|"diverged", ...}
 #
-# NEVER merges, rebases, stashes, or resets. A fast-forward is the only mutation
-# it will perform, and every state in which it cannot fast-forward is REPORTED
-# rather than resolved: staleness is reported and never auto-broken, and a reset
-# would discard a developer's local commits on the base.
+# NEVER merges, rebases or stashes. A fast-forward is the only mutation it will
+# perform on a base branch a developer has touched, and every state in which it
+# cannot fast-forward is REPORTED rather than resolved: staleness is reported and
+# never auto-broken, and a reset would discard a developer's local commits.
+# The single exception is §5 below, which fires only where that rationale is
+# provably absent -- a base branch with no local commits at all -- and preserves
+# the discarded tip under refs/backup/ when it does.
 #
 # The reasons ride stdout with exit 0 on purpose. Every one of them is a
 # legitimate state of a developer's checkout — on a branch, mid-edit — not a
@@ -107,6 +111,43 @@ if git merge-base --is-ancestor "$remote_sha" "$local_sha"; then
 else
   detail="both_diverged"
 fi
+
+# --- 5. The one divergence that is not a developer's ---------------------------
+# The refusal above rests on a stated rationale: "a reset would discard a
+# developer's local commits on the base." When the base branch provably carries
+# NO local commits, that rationale does not apply and the refusal costs a run for
+# nothing. Measured 2026-08-12: a cloud container's baked clone had `main` at a
+# commit 59 behind an upstream history that had since been rewritten, so the tip
+# was on no remote branch at all and every tick reported `both_diverged` and
+# terminated -- an image artifact wearing a developer's clothes, the same class of
+# failure as the superseded plugin binding (`check-deps/scripts/plugin-src.sh`).
+#
+# The proof is the reflog, and it is deliberately narrow: exactly ONE entry, and
+# that entry is the branch's creation -- `clone: from …` when git checked the
+# branch out during a clone, `branch: Created from …` when the image built it from
+# a remote-tracking ref (the shape the 2026-08-12 container actually had). A branch
+# that was ever committed to, reset, amended, merged or rebased locally carries a
+# second entry, so it keeps the refusal. An absent or disabled reflog proves
+# nothing and also keeps it -- silence is not evidence. The old tip is preserved
+# under refs/backup/ rather than dropped, so even a misjudged realignment is
+# recoverable with a single `git reset --hard`.
+if [ "$detail" = "both_diverged" ]; then
+  reflog=$(git reflog show "$base" 2>/dev/null || printf '')
+  entries=$(printf '%s\n' "$reflog" | grep -c . || true)
+  case "$reflog" in
+    *"clone: from "*|*"branch: Created from"*) created_only=true ;;
+    *) created_only=false ;;
+  esac
+  if [ "$entries" = "1" ] && [ "$created_only" = true ]; then
+    backup_ref="refs/backup/${base}-$(git rev-parse --short "$local_sha")"
+    git update-ref "$backup_ref" "$local_sha"
+    git reset --hard --quiet "origin/${base}" >&2
+    printf '{"ok": true, "base": "origin/%s", "sha": "%s", "advanced": true, "realigned": true, "previous_sha": "%s", "backup_ref": "%s"}\n' \
+      "$base" "$remote_sha" "$local_sha" "$backup_ref"
+    exit 0
+  fi
+fi
+
 printf '{"ok": false, "reason": "diverged", "base": "%s", "local_sha": "%s", "remote_sha": "%s", "detail": "%s"}\n' \
   "$base" "$local_sha" "$remote_sha" "$detail"
 exit 0

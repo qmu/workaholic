@@ -2,7 +2,7 @@
 type: Mission
 title: Give /propose and /ticket a diagnosis-first discovery pass
 slug: give-propose-and-ticket-a-diagnosis-first-discovery-pass
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-11T00:11:29+00:00
 author: a@qmu.jp
@@ -54,3 +54,4 @@ this mission targets the general mechanism, not that ticket.)
 - 2026-08-11 — ticket archived — 20260811001226-add-a-diagnosis-first-rule-to-ticket-and-propose.md
 - 2026-08-11 — story published — work-20260811-001834
 - 2026-08-11 — run recorded (+1.5h) — work-20260811-001834
+- 2026-08-12 — mission achieved — mission.md

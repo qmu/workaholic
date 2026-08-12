@@ -5,6 +5,7 @@ assignees: [a@qmu.jp]
 depends_on:
 feedback: [20260812231818-hermetic-smoke-suite-fails-off-the-routine-image-on-the-argv-ceiling-fixture.md]
 merge_policy:
+claim: work-20260812-233617
 ---
 
 # Make the argv-ceiling scan-window fixture date-deterministic

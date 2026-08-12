@@ -5,6 +5,7 @@ assignees: [a@qmu.jp]
 depends_on:
 feedback: [20260812215702-record-loop-drill-run-20260812-215314-in-the-drill-log.md]
 merge_policy:
+claim: work-20260812-220214
 ---
 
 # Record loop-drill run 20260812-215314 in the drill log
@@ -95,3 +96,41 @@ documentation file — the drill's own ask, not a redesign of the drill.
   same commit), so it is not worth doing for one row.
 - §7's "the drill never edits or deletes" rule applies to the pass's artifacts, not to this
   documentation file; appending a row is not an edit of history.
+
+## Final Report
+
+Development completed as planned. `docs/loop-drill-runbook.md` gains a `## 8. Drill log`
+section after §7 — one paragraph saying what the log indexes and who appends a row, then a
+four-column table (run id, date, issue, outcome) carrying its first row for run
+`20260812-215314` (2026-08-12, issue #419, exercised the propose–implement loop end to
+end). No other file changed.
+
+### Open Decisions resolved
+
+- **Who writes a row — the operator, or the script?** Resolved as *the operator*, and the
+  section says so in those words ("appended by whoever ran the pass, at the end of it").
+  The reasoning is the one the ticket already sketched and this run confirms by reading the
+  script: `loop-drill.sh verify-implement` is a **verifier**, and every one of its
+  subcommands is read-only today. Giving it a write side effect would (a) make a verdict
+  depend on a successful write, so a failed append could turn a passing pass red, and (b)
+  leave `reset` with residue it did not mint — `reset` cleans what `seed` minted, and a log
+  row is neither. The row's shape is identical either way, so a later pass can adopt the
+  automated form without rewriting the section; nothing here forecloses it.
+
+### Discovered Insights
+
+- **Insight**: The ticket's `## Policies` cites `workaholic:operation` /
+  `policies/observability.md`, but the observability policy hard copy lives under
+  `skills/implementation/policies/observability.md` — `skills/operation/policies/` holds
+  only `ai-production-investigation.md`, `ci-cd.md` and `no-customer-support-in-repo.md`.
+  **Context**: The pillar a policy is *cited* under and the pillar whose `policies/`
+  directory *holds* it can differ, so a `## Policies` line is a name to resolve rather than
+  a path to open. Reading it as a path yields "file not found" on a policy that exists;
+  locating it by slug across the four pillars' `policies/` directories is the reliable move.
+- **Insight**: The drill log deliberately indexes rather than duplicates. §7 already
+  establishes that a pass's artifacts on `main` are the immutable record, so §8 carries only
+  what cannot be recovered cheaply from them — the run id `seed` minted, which appears in
+  the issue marker (`drill:<run-id>`) but nowhere in a listing of merged pull requests.
+  **Context**: Anyone extending the log later should keep adding *index* columns, not
+  outcome detail; a row that restates the pass's artifacts would drift from them, and §7's
+  rule that the runbook documents the drill rather than the loop is what keeps it honest.

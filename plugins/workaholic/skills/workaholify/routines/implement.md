@@ -52,7 +52,9 @@ unattended executor became `/implement`.)
 
 ## Prompt
 
-Run `/implement`. For each PR-unit it claims, find its reply thread (the workaholic:notify lookup) and notify it when the unit finishes, in the following format — the finish is the only post; there is no "started" line (developer's order, 2026-08-11); and if the run stops before claiming anything, on a precondition-stop signature (`workaholic:notify`, the closed `unbound_in_claude_session`/`loaded_version_behind_registry` list), post the calm-first, escalate-on-persistence shape notify defines for it instead:
+Run `/implement`. If that command is unavailable or its skills did not bind, do not end the tick: run `bash plugins/workaholic/skills/check-deps/scripts/plugin-src.sh` from the repository checkout, take its `src`, then read `<src>/commands/implement.md` and follow it with every script path rooted at `<src>`. A binding that is missing or behind the registry is a source-resolution fact, never a stop (`rules/general.md`).
+
+For each PR-unit it claims, find its reply thread (the workaholic:notify lookup) and notify it when the unit finishes, in the following format — the finish is the only post; there is no "started" line (developer's order, 2026-08-11); and if the run stops before claiming anything, on a precondition-stop signature (`workaholic:notify`, the closed `no_plugin_source` list), post the calm-first, escalate-on-persistence shape notify defines for it instead:
 
 ```
 🟢 Implemented - [#123 Title]({repo}/pull/123)

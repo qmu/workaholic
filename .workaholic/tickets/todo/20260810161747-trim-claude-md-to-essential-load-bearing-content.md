@@ -1,7 +1,7 @@
 ---
 created_at: 2026-08-10T16:17:47+00:00
 author: a@qmu.jp
-assignees: [tamura.yoshiya@gmail.com]
+assignees: [a@qmu.jp]
 depends_on:
 feedback: [20260810161713-claude-md-is-too-long.md]
 merge_policy:

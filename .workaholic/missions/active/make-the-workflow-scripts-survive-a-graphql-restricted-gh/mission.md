@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260812-182547
 ---
 
 # Make the workflow scripts survive a GraphQL-restricted gh

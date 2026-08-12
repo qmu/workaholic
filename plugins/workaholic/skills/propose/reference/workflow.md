@@ -6,11 +6,22 @@ abort reason. The run is **unattended by contract** — no `AskUserQuestion` at 
 and every abort reports a machine-readable reason.
 
 1. **Take the ask in hand.** An ask given as the command's argument, a feedback record
-   this session just wrote, or a record named explicitly by the caller. With none of
-   those, report `{"proposed": 0, "reason": "nothing_in_hand"}` and stop — sweeping the
-   repository for something to propose is the retired design. When the ask came from a
-   GitHub issue carrying an assignee, apply *Act only on an ask that is yours*
-   (SKILL.md): a differing assignee is `{"proposed": 0, "reason": "not_mine"}`, stop.
+   this session just wrote, or a record named explicitly by the caller. **With none of
+   those** — the clock-fired `[Propose]` tick — **discover the inbound issues**
+   (SKILL.md, *Clock-fired discovery*):
+   `bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/list-inbound-issues.sh`
+   — the open GitHub issues assigned to this session's own identity, oldest-first,
+   minus those a feedback record already names (reported as `already_captured`). Each
+   returned issue is an ask in hand: run steps 2–13 **once per issue**, in the order
+   returned, its URL carried into step 3's record (the exclusion's contract) and its
+   number into step 10's `Closes #<N>`. An empty list is
+   `{"proposed": 0, "reason": "nothing_in_hand"}`, stop; an `ok: false` list is the
+   same stop with the script's `reason` reported beside it — an unreadable inbox is
+   never an empty one. Reading the repository's own state for something to propose
+   stays the retired design; this reads only the inbound ask channel. When the ask
+   came from a GitHub issue carrying an assignee, apply *Act only on an ask that is
+   yours* (SKILL.md): a differing assignee is `{"proposed": 0, "reason": "not_mine"}`,
+   stop (discovery-returned issues are assigned to this identity by construction).
    Also capture the triggering issue's number, if any:
    `bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/extract-issue-number.sh "<argument>"`
    — `CCR_TRIGGER_ISSUE_NUMBER` under a routine, else a `#<N>`/issue URL in the
@@ -30,6 +41,10 @@ and every abort reports a machine-readable reason.
    `concern` is a worry with no ask attached (`workaholic:feedback`, *Choosing the
    kind*). This session decides both the `kind` and the judgment, so a misclassification
    silences its own proposal. The record is written **whatever step 7 concludes**.
+   When the ask came from a GitHub issue, the body **must name the issue's URL** (a
+   `Source:` line carrying its `/issues/<N>` form) — that line is what
+   `list-inbound-issues.sh` keys its `already_captured` exclusion on, so omitting it
+   re-proposes the same open issue every tick until its pull request merges.
 
 4. **Read the constraints**, from the publish tree:
    `bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/survey-state.sh` — missions, todo

@@ -482,6 +482,7 @@
 * [/setup-routines must configure the routines itself, not only when a RemoteTrigger tool happens to exist](20260812204800-setup-routines-must-configure-the-routines-itself-not-only-when-a-remotetrigger-tool-happens-to-exist.md)
 * [Teach the loop drill's verify-propose the mission-shaped proposal](20260812205142-teach-the-loop-drill-s-verify-propose-the-mission-shaped-proposal.md)
 * [/fb command does not always prefix issue titles with [FB]](20260812211841-fb-command-does-not-always-prefix-issue-titles-with-fb.md)
+* [Record loop-drill run 20260812-215314 in the drill log](20260812215702-record-loop-drill-run-20260812-215314-in-the-drill-log.md)
 * [loaded_version_behind_registry blocks every cloud run since 2026-08-10](20260812221610-loaded-version-behind-registry-blocks-every-cloud-run-since-2026-08-10.md)
 * [The Propose schedule migration includes discovery of assigned open issues, not just the trigger move](20260812225650-the-propose-schedule-migration-includes-discovery-of-assigned-open-issues-not-just-the-trigger-move.md)
 <!-- okf:generated:end -->

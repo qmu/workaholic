@@ -9,6 +9,11 @@
 # stream every consumer trusts, so the same write-time floor tickets, missions,
 # and stories carry applies here. Like them it checks PRESENCE, never quality.
 #
+# The `subject` axis (2026-08-13, issue #436) is enforced here on NEW writes only:
+# it says WHOSE opinion the record carries, which `source` (the channel) and
+# `author` (who ran the capture) never answered. Records written before it exists
+# are grandfathered by the same tracked-file rule below.
+#
 # Grandfathering: a file already TRACKED in git is history — feedback files are
 # immutable by convention (SKILL.md), and this hook cannot distinguish a
 # forbidden mutation from a legitimate correction, so tracked files are never
@@ -100,6 +105,28 @@ case "$source_val" in
   meeting|slack|discussion|development) : ;;
   *)
     echo "Error: feedback source must be one of: meeting, slack, discussion, development; got '${source_val:-<absent>}'" >&2
+    echo "Got: $file_path" >&2
+    print_skill_reference
+    exit 2
+    ;;
+esac
+
+# `subject` — whose opinion this is. Required on NEW writes only; every record
+# written before 2026-08-13 predates the axis and is grandfathered by the
+# tracked-file check above, exactly as the OKF `type:` floor was introduced.
+# The KIND prefix is a closed set (so the field stays readable years later); the
+# identity after the colon is free text (so "etc." in the ask stays open).
+subject_val=$(fm_value subject)
+if [ -z "$(printf '%s' "$subject_val" | tr -d '[:space:]')" ]; then
+  echo "Error: feedback must name the subject that formed it (subject: <kind>[:<identity>])" >&2
+  echo "Got: $file_path" >&2
+  print_skill_reference
+  exit 2
+fi
+case "${subject_val%%:*}" in
+  person|meeting|observer_ai|customer|team|other) : ;;
+  *)
+    echo "Error: feedback subject kind must be one of: person, meeting, observer_ai, customer, team, other; got '${subject_val%%:*}'" >&2
     echo "Got: $file_path" >&2
     print_skill_reference
     exit 2

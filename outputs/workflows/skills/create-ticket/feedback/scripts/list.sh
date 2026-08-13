@@ -6,7 +6,9 @@
 # construction (feedback/scripts/create.sh).
 #
 # Usage: list.sh
-# Output: JSON array [{path, title, kind, source, created_at, author, supersedes}],
+# Output: JSON array [{path, title, kind, source, subject, created_at, author, supersedes}],
+#         `subject` is "" on a record predating the axis (2026-08-13) — the stream is
+#         immutable, so history is read as it was written, never backfilled.
 #         [] when the area does not exist or is empty.
 
 set -eu
@@ -44,11 +46,12 @@ for f in $FILES; do
     title=$(json_escape "$(fm_field "$f" title)")
     kind=$(json_escape "$(fm_field "$f" kind)")
     source=$(json_escape "$(fm_field "$f" source)")
+    subject=$(json_escape "$(fm_field "$f" subject)")
     created_at=$(json_escape "$(fm_field "$f" created_at)")
     author=$(json_escape "$(fm_field "$f" author)")
     supersedes=$(json_escape "$(fm_field "$f" supersedes)")
-    entry=$(printf '{"path": "%s", "title": "%s", "kind": "%s", "source": "%s", "created_at": "%s", "author": "%s", "supersedes": "%s"}' \
-        "$f" "$title" "$kind" "$source" "$created_at" "$author" "$supersedes")
+    entry=$(printf '{"path": "%s", "title": "%s", "kind": "%s", "source": "%s", "subject": "%s", "created_at": "%s", "author": "%s", "supersedes": "%s"}' \
+        "$f" "$title" "$kind" "$source" "$subject" "$created_at" "$author" "$supersedes")
     if [ "$FIRST" -eq 1 ]; then
         OUT="${OUT}${entry}"
         FIRST=0

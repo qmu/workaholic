@@ -9177,7 +9177,7 @@ function testFeedback() {
   const dir = makeRepo("main");
   try {
     // --- create: a conformant, staged, indexed record ---
-    let r = run(dir, `printf 'We decided the loop model.\\n' | ${POSIX_SH} ${SCRIPTS.feedbackCreate} "Loop model decided" insight discussion`);
+    let r = run(dir, `printf 'We decided the loop model.\\n' | ${POSIX_SH} ${SCRIPTS.feedbackCreate} --subject "person:a@qmu.jp" "Loop model decided" insight discussion`);
     assertEq("feedback create exits 0", r.status, 0);
     const created = JSON.parse(r.stdout);
     assertTrue("feedback create reports created", created.created === true, r.stdout);
@@ -9192,15 +9192,15 @@ function testFeedback() {
     assertTrue("feedback file is git-staged", staged.includes("feedbacks/"), staged);
 
     // --- enum + body floors are refused at the writer ---
-    r = run(dir, `printf 'x\\n' | ${POSIX_SH} ${SCRIPTS.feedbackCreate} "T" bogus discussion`);
+    r = run(dir, `printf 'x\\n' | ${POSIX_SH} ${SCRIPTS.feedbackCreate} --subject "person:a@qmu.jp" "T" bogus discussion`);
     assertTrue("feedback create refuses unknown kind", r.status !== 0 && r.stdout.includes("bad_kind"), r.stdout);
-    r = run(dir, `printf 'x\\n' | ${POSIX_SH} ${SCRIPTS.feedbackCreate} "T" insight carrier-pigeon`);
+    r = run(dir, `printf 'x\\n' | ${POSIX_SH} ${SCRIPTS.feedbackCreate} --subject "person:a@qmu.jp" "T" insight carrier-pigeon`);
     assertTrue("feedback create refuses unknown source", r.status !== 0 && r.stdout.includes("bad_source"), r.stdout);
-    r = run(dir, `printf '' | ${POSIX_SH} ${SCRIPTS.feedbackCreate} "T" insight slack`);
+    r = run(dir, `printf '' | ${POSIX_SH} ${SCRIPTS.feedbackCreate} --subject "person:a@qmu.jp" "T" insight slack`);
     assertTrue("feedback create refuses an empty body", r.status !== 0 && r.stdout.includes("empty_body"), r.stdout);
 
     // --- supersedes: resolution is a NEW record naming the old one ---
-    r = run(dir, `printf 'Overtaken by the new design.\\n' | ${POSIX_SH} ${SCRIPTS.feedbackCreate} "Loop model superseded" insight discussion "${basename(created.path)}"`);
+    r = run(dir, `printf 'Overtaken by the new design.\\n' | ${POSIX_SH} ${SCRIPTS.feedbackCreate} --subject "person:a@qmu.jp" "Loop model superseded" insight discussion "${basename(created.path)}"`);
     const second = JSON.parse(r.stdout);
     assertTrue("superseding feedback records the old filename",
       readFileSync(join(dir, second.path), "utf8").includes(`supersedes: ${basename(created.path)}`));
@@ -9211,6 +9211,21 @@ function testFeedback() {
     assertEq("feedback list reports both records", listed.length, 2);
     assertTrue("feedback list carries kind/source/author fields",
       listed.every((e) => e.kind === "insight" && e.source === "discussion" && e.author.includes("@")), r.stdout);
+
+    // The subject axis (2026-08-13): whose opinion this is, never defaulted.
+    assertTrue("the record carries the subject that formed it",
+      /^subject: person:a@qmu\.jp$/m.test(readFileSync(join(dir, created.path), "utf8")));
+    assertEq("create refuses with no subject rather than seeding the runner's identity",
+      JSON.parse(run(dir, `printf 'x\\n' | ${POSIX_SH} ${SCRIPTS.feedbackCreate} "No subject" insight slack`).stdout).reason,
+      "no_subject");
+    assertEq("create refuses a subject kind outside the closed set",
+      JSON.parse(run(dir, `printf 'x\\n' | ${POSIX_SH} ${SCRIPTS.feedbackCreate} --subject "vibes:whatever" "Bad subject" insight slack`).stdout).reason,
+      "bad_subject_kind");
+    assertTrue("a free-text identity after the closed kind is accepted",
+      JSON.parse(run(dir, `printf 'x\\n' | ${POSIX_SH} ${SCRIPTS.feedbackCreate} --subject "meeting:2026-08-13 planning" "From a meeting" insight meeting`).stdout).created);
+    assertTrue("list.sh surfaces the subject",
+      JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.feedbackList}`).stdout).some((e) => e.subject === "meeting:2026-08-13 planning"));
+
 
     // --- validator: NEW writes are held to the floor; history is grandfathered ---
     let hasJq = true;
@@ -9232,11 +9247,24 @@ function testFeedback() {
     const badName = put(".workaholic/feedbacks/free-form-name.md",
       "---\ntype: Feedback\ntitle: X\nkind: insight\nsource: slack\ncreated_at: 2026-07-28T19:00:02+09:00\nauthor: test@example.com\n---\n\n# X\n");
     assertEq("validate-feedback blocks an off-pattern filename", invoke(badName), 2);
+    const noSubject = put(".workaholic/feedbacks/20260728190003-no-subject.md",
+      "---\ntype: Feedback\ntitle: X\nkind: insight\nsource: slack\ncreated_at: 2026-07-28T19:00:03+09:00\nauthor: test@example.com\n---\n\n# X\n");
+    assertEq("validate-feedback blocks a new record with no subject", invoke(noSubject), 2);
+    const badSubject = put(".workaholic/feedbacks/20260728190004-bad-subject.md",
+      "---\ntype: Feedback\ntitle: X\nkind: insight\nsource: slack\nsubject: vibes:whatever\ncreated_at: 2026-07-28T19:00:04+09:00\nauthor: test@example.com\n---\n\n# X\n");
+    assertEq("validate-feedback blocks a subject kind outside the closed set", invoke(badSubject), 2);
+    const freeSubject = put(".workaholic/feedbacks/20260728190005-free-subject.md",
+      "---\ntype: Feedback\ntitle: X\nkind: insight\nsource: slack\nsubject: observer_ai:[Implement] routine\ncreated_at: 2026-07-28T19:00:05+09:00\nauthor: test@example.com\n---\n\n# X\n");
+    assertEq("validate-feedback accepts a free-text identity behind a closed kind", invoke(freeSubject), 0);
     assertEq("validate-feedback ignores feedbacks/index.md", invoke(".workaholic/feedbacks/index.md"), 0);
     assertEq("validate-feedback ignores non-feedback paths", invoke("src/app.ts"), 0);
     const old = put(".workaholic/feedbacks/20260101000000-legacy.md", "no frontmatter\n");
     execSync(`git add .workaholic/feedbacks/20260101000000-legacy.md && git commit -q -m "legacy"`, { cwd: dir });
     assertEq("validate-feedback grandfathers a tracked legacy file", invoke(old), 0);
+    const preAxis = put(".workaholic/feedbacks/20260601000000-pre-subject-axis.md",
+      "---\ntype: Feedback\ntitle: Older than the axis\nkind: insight\nsource: slack\ncreated_at: 2026-06-01T00:00:00+09:00\nauthor: test@example.com\nsupersedes:\n---\n\n# Older than the axis\n");
+    execSync(`git add ${preAxis} && git commit -q -m "pre-axis"`, { cwd: dir });
+    assertEq("a record written before the subject axis is grandfathered, never backfilled", invoke(preAxis), 0);
   } finally { cleanup(dir); }
 }
 
@@ -13468,7 +13496,7 @@ function testProposeCaptureSeam() {
     // ---- 1. Composition: record + mission + its whole ticket set, in ONE commit ----
     run(A, OPEN);
     const rec = JSON.parse(run(pub,
-      `printf 'Build the thing, in two steps.\\n' | ${POSIX_SH} ${SCRIPTS.feedbackCreate} "Build the thing" instruction slack`).stdout);
+      `printf 'Build the thing, in two steps.\\n' | ${POSIX_SH} ${SCRIPTS.feedbackCreate} --subject "person:reporter@example.com" "Build the thing" instruction slack`).stdout);
     assertTrue("the record is written where the judgment can see it — the publish tree",
       rec.created === true && existsSync(join(pub, rec.path)), JSON.stringify(rec));
 
@@ -13518,7 +13546,7 @@ function testProposeCaptureSeam() {
     // ---- 2. Record-only: the JUDGED fallback still writes the record ----
     run(A, OPEN);
     const only = JSON.parse(run(pub,
-      `printf 'It would be nice if things were nicer.\\n' | ${POSIX_SH} ${SCRIPTS.feedbackCreate} "A wish" insight slack`).stdout);
+      `printf 'It would be nice if things were nicer.\\n' | ${POSIX_SH} ${SCRIPTS.feedbackCreate} --subject "person:reporter@example.com" "A wish" insight slack`).stdout);
     assertEq("the record is written whatever the judgment concludes", only.created, true);
     const rpr = publish("Register the reported ask");
     assertTrue("record-only publishes as a pull request too", rpr.ok === true, JSON.stringify(rpr));

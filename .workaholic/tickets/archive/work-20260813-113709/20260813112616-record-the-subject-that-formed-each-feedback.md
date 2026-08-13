@@ -74,3 +74,22 @@ Provisional — sharpened by the interrogation that replans this mission to driv
 ## Considerations
 
 - The field is only worth its cost if it is filled honestly at capture. `/propose` and the routines write most records, so their subject must be derived from the ask (issue author, Slack reporter) and never defaulted to the runner — the same failure `assignees` had before P6.
+
+## Final Report
+
+Development completed as planned. The stream now records whose opinion each record carries, on the write path, at the floor, and in every caller's contract.
+
+### Open Decisions — resolved
+
+- **New field beside `source`, or a replacement for it? → A new field.** They cut across each other rather than overlapping: an Observer AI reporting through Slack has `subject: observer_ai:…` and `source: slack`, and neither value can be derived from the other. Replacing `source` would also break every existing reader and silently re-interpret 100+ already-written records, which the stream's immutability forbids outright. The cost of two similar-looking axes is paid by naming them apart in one sentence, which now appears identically in `SKILL.md`, `reference/schema.md`, `create.sh`'s header and the hook's: **subject = who formed the opinion, source = the channel it travelled through, author = the git identity that ran the capture.** Three axes, three questions.
+- **Closed vocabulary or open? → Both, split at the colon.** `subject: <kind>[:<identity>]`. The **kind** is closed (`person | meeting | observer_ai | customer | team | other`) and validated, because a fully open field cannot be filtered or counted a year later, which is the whole reason to record it. The **identity** after the colon is free text, because the ask's "etc." is real — `meeting:2026-08-13 planning`, `observer_ai:[Implement] routine`, `customer:<account>` all need to say something a fixed enum cannot. `other:` is the escape hatch and its use is a signal the set needs a sixth member, not a licence to stop deciding.
+- **What subject does the loop's own writer carry? → `observer_ai:<author email>`.** `ship`'s extractor files a concern the run itself observed in its own story; no human formed it, so naming a person would be a fabrication and leaving it empty would fail the floor the ticket asks for. `observer_ai` is exactly true, and the email disambiguates which runner when several are awake. This is the one place the runner's identity legitimately appears as the subject — because there the machine really is the one with the opinion.
+
+### Discovered Insights
+
+- **Insight**: `--subject` is an **option**, not a fifth positional, and that choice is what let the axis be required without moving anything.
+  **Context**: `create.sh`'s positional contract (`"<title>" <kind> <source> [supersedes]`) is quoted in `feedback/SKILL.md`, `propose/reference/workflow.md`, and the test suite. Appending a fifth positional would have collided with the optional `supersedes` in the four-argument call. Parsed as a leading option, the existing contract is byte-identical and the new axis is still refusable.
+- **Insight**: The ticket asked to keep callers working when the subject is absent; the Considerations forbade defaulting it to the runner. Both cannot hold, so the writer **refuses** (`no_subject`) instead.
+  **Context**: A default would be the only way to satisfy both, and it is precisely the failure named — `/propose` and the routines write most of this stream, so a default would record every opinion in the project as the machine's, exactly as `assignees` did before P6. "No caller breaks" is satisfied by updating every caller in the same commit (the positional contract never moved); an external caller that omits it gets a named refusal instead of a quietly mis-attributed permanent record.
+- **Insight**: Introducing a required field into an immutable stream is a solved problem here — the OKF `type:` floor did it first.
+  **Context**: The floor lives in the hook and fires only on **untracked** files, so the 100+ records written before 2026-08-13 pass unchanged and are never backfilled. `list.sh` reports `subject: ""` for them, which is the honest answer: the record genuinely does not say. The regression test pins that (`a record written before the subject axis is grandfathered, never backfilled`).

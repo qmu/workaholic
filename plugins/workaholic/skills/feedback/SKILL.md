@@ -28,13 +28,21 @@ type: Feedback            # OKF conformance floor — exact string
 title: <human title>
 kind: insight | instruction | concern | material | answer
 source: meeting | slack | discussion | development
+subject: <kind>[:<identity>]  # WHOSE opinion this is; kind is the closed set
+                              # person | meeting | observer_ai | customer | team | other
 created_at: <ISO-8601>
 author: <email>
 supersedes:               # OPTIONAL: filename of an earlier feedback this entry moots/resolves
 ---
 ```
 
-`kind` is the nature of the entry, `source` the channel it arrived through. `supersedes` is the immutable alternative to a status flip: resolving, correcting, or mooting a record is a **new** entry naming the old one. Full field semantics, the `kind: concern` producer fields, and the computed open-concern set: [`reference/schema.md`](reference/schema.md).
+`kind` is the nature of the entry, `source` the channel it arrived through, `subject` **whose opinion it is**. `supersedes` is the immutable alternative to a status flip: resolving, correcting, or mooting a record is a **new** entry naming the old one. Full field semantics, the `kind: concern` producer fields, and the computed open-concern set: [`reference/schema.md`](reference/schema.md).
+
+### Choosing the subject
+
+**One sentence separates the three lookalikes: `subject` is who formed the opinion, `source` is the channel it travelled through, `author` is the git identity that ran the capture.** They disagree routinely — an Observer AI reporting through Slack has all three different — and reading any one of them as another is the mistake this field exists to stop.
+
+Fill it from the ask itself, and **never default it** — least of all to the runner. `create.sh` refuses (`no_subject`) rather than guess, because `/propose` and the routines write most of this stream and a defaulted subject would record every opinion in the project as the machine's (the failure `assignees` had before P6). `/fb` takes it from the human whose words these are; `/propose` from the triggering issue's **author**; the ship-time extractor writes `observer_ai:<author email>` because the loop genuinely observed its own leftover. The kind prefix is closed so the field stays readable; the identity after the colon is free text so it stays specific. Full statement: [`reference/schema.md`](reference/schema.md), *The subject axis*.
 
 ### Whether this merits filing
 
@@ -61,7 +69,7 @@ Free prose in the contributor's own words; a leading `# <title>` and nothing els
 What `/fb` (and any in-repo capture seam) runs, in order:
 
 1. **Gather the content** — the given argument, or the conclusion/instruction the conversation just reached; write faithfully per *Body style*.
-2. **Classify — decide, do not ask** (`rules/interaction.md`): derive `kind`/`source` per *Choosing the kind*; find any mooted record via `list.sh` and name it in `supersedes`.
+2. **Classify — decide, do not ask** (`rules/interaction.md`): derive `kind`/`source` per *Choosing the kind* and `subject` per *Choosing the subject*; find any mooted record via `list.sh` and name it in `supersedes`.
 3. **Register** through `create.sh` — the only sanctioned writer; never Write/Edit a feedback file directly. On `reason: "exists"`, re-run with a more specific title.
 4. **Commit** via the commit skill with a policy-conformant subject:
    `sh ${CLAUDE_PLUGIN_ROOT}/skills/commit/scripts/commit.sh "<title>" "<why>" "<changes>" "None" "None" "<verify>"` — except inside a publish tree, where the publish seam commits.
@@ -69,10 +77,10 @@ What `/fb` (and any in-repo capture seam) runs, in order:
 
 ## Scripts
 
-- **create.sh** — `printf '%s\n' "<body>" | bash ${CLAUDE_PLUGIN_ROOT}/skills/feedback/scripts/create.sh "<title>" <kind> <source> [supersedes-filename]`. Stamps `created_at`/`author`, derives the filename, refuses an existing filename and unknown enum values, refreshes the OKF indexes, git-stages. Emits `{created, path[, reason]}`.
+- **create.sh** — `printf '%s\n' "<body>" | bash ${CLAUDE_PLUGIN_ROOT}/skills/feedback/scripts/create.sh --subject <subject> "<title>" <kind> <source> [supersedes-filename]`. Stamps `created_at`/`author`, derives the filename, refuses an existing filename, unknown enum values, a missing `--subject` (`no_subject`) and a subject kind outside the closed set (`bad_subject_kind`), refreshes the OKF indexes, git-stages. Emits `{created, path[, reason]}`. `--subject` is an **option**, so the positional contract every caller already used did not move.
 - **list-open-concerns.sh** — `bash ${CLAUDE_PLUGIN_ROOT}/skills/feedback/scripts/list-open-concerns.sh`. The single reader of the open concern set (`kind: concern` minus superseded minus migration-`closed:`). Envelope `{active_count, my_lane_count, owner_counts, should_triage: false, migrated, concerns: [...]}`; runs `migrate-concerns.sh` first and reports that write as `migrated`.
 - **migrate-concerns.sh** — `bash ${CLAUDE_PLUGIN_ROOT}/skills/feedback/scripts/migrate-concerns.sh [workaholic-root]`. The living migration for the concerns-corpus merger: active files become open records, archived ones `closed:`-stamped records, then `concerns/` is removed. Idempotent, best-effort, never blocks a caller. **It never touches the index** (`staged: false` is a contract): the index is the caller's shared state, and this runs as a side effect of a documented pure read.
-- **list.sh** — `bash ${CLAUDE_PLUGIN_ROOT}/skills/feedback/scripts/list.sh`. Pure read; JSON array `[{path, title, kind, source, created_at, author, supersedes}]`, newest first, `[]` when the area is absent.
+- **list.sh** — `bash ${CLAUDE_PLUGIN_ROOT}/skills/feedback/scripts/list.sh`. Pure read; JSON array `[{path, title, kind, source, subject, created_at, author, supersedes}]`, newest first, `[]` when the area is absent. A record predating the subject axis reports `subject: ""`.
 
 ## Crossing a repository boundary
 

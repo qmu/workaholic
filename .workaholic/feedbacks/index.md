@@ -487,4 +487,5 @@
 * [Record loop-drill run 20260812-221056 in the drill log](20260812221909-record-loop-drill-run-20260812-221056-in-the-drill-log.md)
 * [The Propose schedule migration includes discovery of assigned open issues, not just the trigger move](20260812225650-the-propose-schedule-migration-includes-discovery-of-assigned-open-issues-not-just-the-trigger-move.md)
 * [Hermetic smoke suite fails off the routine image on the argv-ceiling fixture](20260812231818-hermetic-smoke-suite-fails-off-the-routine-image-on-the-argv-ceiling-fixture.md)
+* [Update the outdated README and documentation to match current behavior](20260813072519-update-the-outdated-readme-and-documentation-to-match-current-behavior.md)
 <!-- okf:generated:end -->

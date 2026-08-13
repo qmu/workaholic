@@ -2,7 +2,7 @@
 type: Mission
 title: Stop a routine finish line from vanishing on the script path
 slug: stop-a-routine-finish-line-from-vanishing-on-the-script-path
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-12T20:40:49+00:00
 author: a@qmu.jp
@@ -55,3 +55,4 @@ sent.
 - 2026-08-12 — run recorded (+0.7h) — implement-20260812-204905
 - 2026-08-12 — ticket archived — 20260812210500-reconcile-the-runbook-s-version-binding-stop-rows.md
 - 2026-08-12 — story written — work-20260812-211128.md
+- 2026-08-13 — mission achieved — mission.md

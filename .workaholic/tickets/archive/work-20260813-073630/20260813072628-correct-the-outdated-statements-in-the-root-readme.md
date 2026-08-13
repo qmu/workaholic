@@ -105,3 +105,70 @@ Measured against `origin/main` at `cdcbfe1`:
 - `CLAUDE.md` is the reference here, not a subject. If a passage disagrees with it and
   **`CLAUDE.md`** turns out to be the wrong one, that is a separate finding: record it as
   feedback rather than editing `CLAUDE.md` inside this ticket.
+
+## Final Report
+
+Development completed as planned. The README was walked section by section against
+`CLAUDE.md` and the shipped skills; three of the four proposal-time drifts were
+confirmed and corrected, one was **dropped as not drift**, and four further
+contradictions the proposal-time pass missed were found and corrected.
+
+**Confirmed and corrected:**
+
+1. `/propose` "on the reported ask rather than on a clock" (the command table row and
+   the use-case-3 closing paragraph) — replaced with the fixed hourly schedule
+   (`15 * * * *`) and clock-fired discovery of the issues assigned to it
+   (`list-inbound-issues.sh`).
+2. The proposal approval seam (the `/propose` row, the use-case-3 prose, and the
+   mermaid edge label `the human ruling: merging the PR`) — replaced with
+   merge-on-opening, a scan finding as the one thing that leaves the PR open, and the
+   human judgment relocated to `merge_policy` plus the `release/*` QA window.
+3. `/setup-routines` "**It manages nothing**" — replaced with the configure-first
+   contract (list → diff against template → converge → report), the setup sheets
+   demoted to the `no_transport` refusal's recovery path.
+4. The portable workflow list — the six script-bearing workflow skills kept as they
+   were, with `review-sections` added beside `write-release-note` as the second
+   exposed prose skill and the bundle's true count (eight) stated, matching
+   `ls outputs/workflows/skills/`.
+
+**Dropped — not drift:** the Overview named `README.md:94` (the overnight-session
+block's "you merge that pull request: the merge is the approval") as part of the
+approval-seam drift. It is **correct as written**: `WORKAHOLIC_AUTO_MERGE=1` is opt-in
+for `/propose` and `/implement` only, and `branching/SKILL.md:57` states explicitly
+that "`/ticket`'s and `/mission`'s PRs keep their human merge". Line 94 is a `/mission`
+publication, so its human merge is still the approval. Left untouched, as were the
+matching statements at `:7`, `:210` and the `/mission` command row.
+
+**Found beyond the Overview's list:**
+
+5. The `/drive` row said a non-`auto` unit "stops at the PR". A `review` unit now
+   merges its PR as soon as `/report` opens it and the scan passes.
+6. The same row said "under `/implement` the PR URL is posted to Slack" — it is one
+   finish line posted into the unit's feedback-item thread.
+7. The lifecycle table credited `tickets/todo/` to `/ticket` alone (`/mission` and
+   `/propose` both write there) and the feedback stream to `/fb`, `/ship`, `/report`
+   (`/propose` writes a record on every run and is the highest-volume writer).
+8. The release-record row named `releases/release-<ts>.md`; the shipped path is
+   `.workaholic/releases/<release-branch>.md` (`record-release-cut.sh:182`), and the
+   cut is a batch-level act invoked explicitly rather than a step of the per-unit ship.
+9. The full-map legend said `/setup-routines` "reads" the routines out of the account —
+   it now reads *and converges* them.
+
+### Discovered Insights
+
+- **Insight**: `WORKAHOLIC_AUTO_MERGE=1` is scoped per caller, not repository-wide —
+  `/propose` and `/implement` set it; `/ticket` and `/mission` deliberately do not.
+  **Context**: "proposal PRs auto-merge" reads easily as "all publish-tree PRs
+  auto-merge", and the four README passages about approval-by-merge are split between
+  the two groups. The authoritative one-line statement is `branching/SKILL.md`'s
+  `publish-tree-pr.sh` table row, not the propose skill — checking the caller rather
+  than the seam is what separates a real drift from a correct sentence here.
+
+- **Insight**: the README's Documentation table and the `.workaholic/` lifecycle table
+  are the two places where drift concentrates, because both are *inventories* — a row
+  goes stale when a writer is added elsewhere, and nothing in the adding change
+  naturally points back at the row.
+  **Context**: three of the four unlisted drifts found here were inventory rows
+  (`todo/` writers, `feedbacks/` writers, the release-record path). A future
+  documentation pass gets the best return per minute by diffing those two tables
+  against the shipped writers first.

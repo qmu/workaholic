@@ -1,14 +1,19 @@
 # Proposal Loop Runbook
 
 How the proposal loop runs: the **`[Propose]` Claude Code Web routine**, which
-fires on an inbound report, writes the feedback record, judges it, and opens
-**one** pull request carrying the record together with whatever the judgment
-warranted — a mission with its ticket set, one loose ticket, or the record alone
+fires on a fixed hourly schedule (`15 * * * *`), takes an ask — one handed to the
+session, or one the tick discovered for itself (§3) — writes the feedback record,
+judges it, and opens **one** pull request carrying the record together with
+whatever the judgment warranted — a mission with its ticket set, one loose ticket,
+or the record alone
 (`docs/loop-engineering-workflow.md` §6.3; `plugins/workaholic/skills/propose/SKILL.md`).
 
-**Merging that pull request approves both halves.** There is no second approval
-step and no second seat: the session that receives the ask is the one that
-proposes.
+**That pull request merges as soon as it opens** (`WORKAHOLIC_AUTO_MERGE=1`), so
+what it publishes is claimable by the next `[Implement]` tick. There is no second
+seat: the session that takes the ask is the one that proposes. The human judgment
+is not the merge — it is the `merge_policy` recorded on what was published (absent
+reads as `review`) and the `release/*` QA window downstream. A release-scan finding
+is the one thing that leaves such a pull request open for a person.
 
 **Precondition (decision I9):** the repository must be **private** wherever the
 feedback stream may carry customer material (H4). Do not wire this loop on a
@@ -61,13 +66,14 @@ FB `20260810085032` — the loop-engineering cadence, superseding the earlier Gi
 issue-assignment trigger). A schedule fire hands the session nothing, so the run
 finds its own input: `/propose`'s *Clock-fired discovery*
 (`propose/scripts/list-inbound-issues.sh`) lists the repository's open GitHub
-issues **assigned to the developer**, skips any a feedback record already names,
-and takes each remaining issue as an inbound ask through the full run
-(`skills/propose/SKILL.md`). The schedule wiring is configured in the routines
-web UI (or by `/setup-routines` from an interactive session where the
-`RemoteTrigger` tool is exposed); from an unattended session it can be neither
-read nor set (`skills/workaholify/SKILL.md`, *What a routine can be triggered
-by*). Its prompt is the shipped template
+issues **assigned to the session's own identity** (never unassigned ones, never a
+title filter), oldest first, skips any a feedback record already names, and takes
+each remaining issue as an inbound ask through the full run
+(`skills/propose/SKILL.md`). An issue assigned to someone else is `not_mine`; an
+inbox that could not be read reports its reason rather than passing for empty. The
+schedule wiring is converged by `/setup-routines` on every run where a
+`RemoteTrigger`-family tool is reachable, and set by hand in the routines web UI
+otherwise (`skills/workaholify/SKILL.md`, *What a routine can be triggered by*). Its prompt is the shipped template
 `plugins/workaholic/skills/workaholify/routines/fb.md` (template id `fb`).
 
 Provision it from an interactive session in the repository:
@@ -77,12 +83,16 @@ Provision it from an interactive session in the repository:
 /workaholify             # the same survey inside the full standards pass
 ```
 
-Either command renders a **copy-paste setup sheet** — the name, model, repository,
-the prompt verbatim, and the web-UI steps for the trigger — and you create the
-routine yourself at <https://claude.ai/code/routines>. The plugin does not create
-it: a routine's GitHub trigger is configurable in the web UI only, and the API
-record carries no event field, so the wiring can be neither set nor verified from
-a session.
+`/setup-routines` **configures** the routines: it lists the account's routines
+through a `RemoteTrigger`-family tool, diffs each against its template (name,
+prompt, model, `cron_expression`, `autofix_on_pr_create`, connectors), applies the
+create/update that converges them, and reports the per-routine changes. When no such
+transport is reachable it reports `no_transport` and falls back to rendering a
+**copy-paste setup sheet** — the name, model, repository, the prompt verbatim, and
+the web-UI steps — which you then apply yourself at
+<https://claude.ai/code/routines>. What still cannot be set or verified from a
+session is a *repository-event* trigger: none exists, because the API's whole
+trigger surface is `cron_expression` / `run_once_at` / API token.
 
 Two things the routine needs before it can work:
 
@@ -94,11 +104,15 @@ Two things the routine needs before it can work:
 - **The Slack connector and the `dev-<repo>` channel**, for the thread root the
   routine posts when it opens the pull request.
 
-**An agent never creates or re-points a routine at all** (generalized 2026-08-03
-from the cron rule, taken to its end 2026-08-06): the plugin renders the setup
-sheet and **manages nothing** — every standing outward-facing process is brought
-into existence by the developer, in their own browser, seeing exactly what it
-will be (`skills/workaholify/SKILL.md` §5, *What may be applied unattended*).
+> **Superseded (2026-08-06): "An agent never creates or re-points a routine at
+> all — the plugin renders the setup sheet and manages nothing."** That reading,
+> generalized 2026-08-03 from the cron rule and taken to its end on 2026-08-06,
+> held that every standing outward-facing process must be brought into existence by
+> the developer, in their own browser, seeing exactly what it will be. It is
+> replaced by the mission `configure-routines-automatically-via-remotetrigger`:
+> `/setup-routines` converges the routines itself where a `RemoteTrigger`-family
+> tool is reachable (`skills/workaholify/SKILL.md` §5). The rule still stands for a
+> **server crontab**, which no agent installs.
 
 Several sessions may run at once. They coordinate through nothing, because they
 share nothing: each opens its own publish tree, writes its own record, and opens
@@ -127,14 +141,19 @@ history.
 
 ## 5. Observability
 
-- **Proposals** are open pull requests titled `Propose mission <slug>` /
-  `Propose ticket <slug>`; `gh pr list --search 'Propose'` is the loop's ledger,
-  and each one is waiting on a human, since merging it *is* the approval.
+- **Proposals** are pull requests titled `[Proposal] …` (set via
+  `WORKAHOLIC_PR_TITLE`), carrying `Closes #<N>` when the ask came from an issue.
+  They are the loop's ledger, and they are normally **already merged** — a
+  *still-open* one is the exception worth looking at, because a release-scan
+  finding is what holds it open. Read them over REST
+  (`gather/scripts/gh-rest.sh api 'repos/<slug>/pulls?state=all'`) rather than
+  `gh pr list`, which is GraphQL-backed and may 403 in a web session.
 - **Record-only** pull requests carry the record alone and are just as normal an
   outcome; they merge the same way.
 - **The channel is the liveness signal.** Every session that opens a pull
-  request posts a thread root to `dev-<repo>`. A reported ask with no root and no
-  PR is the thing to investigate — most often the web bootstrap (§6).
+  request posts its one finish line into the feedback item's thread in
+  `dev-<repo>`, keying a new root when no thread matches. A reported ask with no
+  post and no PR is the thing to investigate — most often the web bootstrap (§6).
 - **Notifications** — a run records `notified`. A failed post never fails the
   run.
 

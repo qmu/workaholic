@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260813-133929
 ---
 
 # Draft deployment plans in the Release Note before deploying

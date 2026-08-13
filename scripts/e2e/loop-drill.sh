@@ -6,6 +6,7 @@
 #   loop-drill.sh reset                       # recover an ABORTED run
 #   loop-drill.sh verify-propose  <issue> [--json]   # did the [Propose] fire land?
 #   loop-drill.sh verify-implement <issue> [--json]  # did the [Implement] fire land?
+#   loop-drill.sh verify-plan [--json]        # is the deployment-plan refresh sound?
 #
 # Every outcome is ONE JSON line on stdout. A non-zero exit names the blocker in
 # `reason`; exit 0 means the subcommand did what it was asked.
@@ -16,6 +17,7 @@
 #   3  a dirty precondition refused the drill (`inbox_dirty`, `claim_dirty`)
 #   4  the environment could not answer (`gh_unavailable`, `identity_unresolved`,
 #      `list_failed`, `issue_failed`, `not_a_repo`)
+#      `verify-plan` additionally uses 4 for `plan_unreadable`.
 #   5  a verify stage HAS NOT RUN YET (no artifacts, the ask still open) -- distinct
 #      from 1 so a poller can tell "wait" from "broken"
 #   1  a verify stage RAN AND FAILED: at least one load-bearing row is false
@@ -783,9 +785,70 @@ EOF
     emit_verdict "implement" "$ISSUE" "pass" 0
 }
 
+# ---------------------------------------------------------------- verify-plan
+#
+# The deployment-plan refresh is carried by `[Implement]`'s existing hourly tick
+# (through `/ship`'s drafting phase), which means it is otherwise only observable by
+# waiting an hour and reading a note. This stage proves the three properties the
+# carrier depends on, in seconds and without waiting for a tick:
+#
+#   plan_drafted    the consolidation reads this repository and a plan is produced
+#   plan_idempotent a second run against an unchanged base is byte-identical
+#   plan_degraded   an unreadable base is reported and writes NOTHING
+#
+# It writes nothing under `.workaholic/`: the plan is drafted into a scratch note in
+# the temp directory, using this repository's real deployment targets and real commit
+# range. A drill that edited the knowledge tree would be rewriting its own evidence.
+cmd_verify_plan() {
+    _draft="${REPO_ROOT}/plugins/workaholic/skills/ship/scripts/draft-deploy-plan.sh"
+    if [ ! -f "$_draft" ]; then
+        emit_err "plan_unreadable" 4 "draft-deploy-plan.sh is not present in this checkout"
+    fi
+
+    _tmp="${TMPDIR:-/tmp}/workaholic-plan-drill.$$"
+    _note="${_tmp}/scratch-note.md"
+    mkdir -p "$_tmp"
+    # shellcheck disable=SC2064 -- expand _tmp now, at trap definition time.
+    trap "rm -rf '$_tmp'" EXIT INT TERM
+    printf -- '---\ntype: Release Note\nbranch: drill-scratch\n---\n\n# Drill scratch\n\n## Summary\n\nNot a real note.\n' > "$_note"
+
+    _out=$(cd "$REPO_ROOT" && sh "$_draft" "$_note" "$BASE_BRANCH" 2>&1) || true
+    case "$_out" in
+        *'"ok": true'*)
+            _targets=$(printf '%s' "$_out" | sed -n 's/.*"targets": \([0-9]*\).*/\1/p')
+            add_row "plan_drafted" true "the plan covers ${_targets} target(s)" load
+            ;;
+        *)
+            add_row "plan_drafted" false "$(one_line "$_out")" load
+            emit_verdict "plan" 0 "fail" 1
+            ;;
+    esac
+
+    cp "$_note" "${_note}.first"
+    _out2=$(cd "$REPO_ROOT" && sh "$_draft" "$_note" "$BASE_BRANCH" 2>&1) || true
+    if printf '%s' "$_out2" | grep -q '"changed": false' && cmp -s "$_note" "${_note}.first"; then
+        add_row "plan_idempotent" true "a second run left the note byte-identical" load
+    else
+        add_row "plan_idempotent" false "a second run changed the note: $(one_line "$_out2")" load
+    fi
+
+    cp "$_note" "${_note}.before"
+    _out3=$(cd "$REPO_ROOT" && sh "$_draft" "$_note" "no-such-base-for-the-drill" 2>&1) || true
+    if printf '%s' "$_out3" | grep -q '"ok": false' && cmp -s "$_note" "${_note}.before"; then
+        add_row "plan_degraded" true "an unreadable base was reported and skipped" load
+    else
+        add_row "plan_degraded" false "a degraded read did not skip cleanly: $(one_line "$_out3")" load
+    fi
+
+    if [ "$LOAD_FAILED" -gt 0 ]; then
+        emit_verdict "plan" 0 "fail" 1
+    fi
+    emit_verdict "plan" 0 "pass" 0
+}
+
 # ---------------------------------------------------------------- dispatch
 
-USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-propose <issue>|verify-implement <issue> [--json]"}'
+USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-propose <issue>|verify-implement <issue>|verify-plan [--json]"}'
 
 CMD="${1:-}"
 [ -n "$CMD" ] || {
@@ -814,6 +877,7 @@ case "$CMD" in
     reset) cmd_reset "$@" ;;
     verify-propose) cmd_verify_propose "$@" ;;
     verify-implement) cmd_verify_implement "$@" ;;
+    verify-plan) cmd_verify_plan "$@" ;;
     *)
         echo "$USAGE" >&2
         exit 2

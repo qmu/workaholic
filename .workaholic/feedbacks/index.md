@@ -489,4 +489,7 @@
 * [Hermetic smoke suite fails off the routine image on the argv-ceiling fixture](20260812231818-hermetic-smoke-suite-fails-off-the-routine-image-on-the-argv-ceiling-fixture.md)
 * [Update the outdated README and documentation to match current behavior](20260813072519-update-the-outdated-readme-and-documentation-to-match-current-behavior.md)
 * [Revive the Strategy artifact and reshape the .workaholic artifact set](20260813112458-revive-the-strategy-artifact-and-reshape-the-workaholic-artifact-set.md)
+* [Propose's thread lookup searched an issue reference form that exists nowhere](20260813121647-propose-s-thread-lookup-searched-an-issue-reference-form-that-exists-nowhere.md)
+* [Change /ship's role to drafting deploy plans into Release Notes before deploying](20260813123222-change-ship-s-role-to-drafting-deploy-plans-into-release-notes-before-deploying.md)
+* [workaholify still stops at setup sheets instead of applying routine configuration](20260813205116-workaholify-still-stops-at-setup-sheets-instead-of-applying-routine-configuration.md)
 <!-- okf:generated:end -->

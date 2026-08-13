@@ -45,15 +45,104 @@ Searches for `./CLAUDE.md`. Returns JSON with path or `{"found": false}`.
 ## read-deployments.sh
 
 ```bash
-bash ../ship/scripts/read-deployments.sh
+bash ../ship/scripts/read-deployments.sh [--slugs | --slug <slug>]
 ```
 
 Reads `.workaholic/deployments/*.md`. Returns `{"has_confirmation": <bool>, "count": N,
-"deployments": [{title, environment, confirmation_method, url, endpoint, command,
-procedure, confirmation}]}`. `has_confirmation` is true iff at least one target declares
-a `confirmation_method` and a non-empty `## Confirmation` body — this drives the §1-4
-hard gate. Returns the empty/no-confirmation result (never errors) when the directory is
-absent.
+"deployments": [{slug, title, environment, confirmation_method, url, endpoint, command,
+deploy_model, deploy_model_reason, paths, has_confirmation, procedure, confirmation}]}`.
+The top-level `has_confirmation` is true iff at least one target declares a
+`confirmation_method` and a non-empty `## Confirmation` body — this drives the §1-4 hard
+gate; the per-entry field says the same about one target. Returns the
+empty/no-confirmation result (never errors) when the directory is absent, and skips
+`README.md` and the OKF `index.md` (before 2026-08-13 the index counted as a target).
+
+`slug` is the filename without `.md` and is the **target's identity** — nothing else in
+the tree names one. `deploy_model` answers "does the merge deploy this target?", read
+from an explicit `deploy_model:` field (`deploy_model_reason: frontmatter`), else the
+first `deploy-on-merge` / `deploy-from-branch` literal in the record's own prose
+(`body_declaration`), else reported `unresolved` rather than guessed. `paths` is the
+optional subtree the target ships.
+
+`--slugs` prints the slugs one per line; `--slug <slug>` prints that one entry object
+(`{}` when absent). **The single-target modes exist so a composing script never grows a
+second frontmatter parser** — `read-deploy-state.sh` splices this reader's own JSON.
+
+## read-release-notes.sh
+
+```bash
+bash ../ship/scripts/read-release-notes.sh [--latest-for <slug> [--exclude <path>]]
+```
+
+The one parser for `.workaholic/release-notes/` frontmatter — the area had none before
+2026-08-13. Bare: `{"count": N, "notes": [{path, branch, released_at, targets}]}`, newest
+first (filenames carry the branch's timestamp). `--latest-for <slug>`:
+`{"match": "declared" | "recency" | "none", "note": {...} | null}`. **The match tier is
+always reported**: `declared` means the note's `targets:` names the slug; `recency` means
+no note does and the newest note overall was returned, which is a weak answer that says
+so. `--exclude` drops one note — the plan writer passes the note it is writing, so a note
+never becomes its own "latest note" (which would flip `recency` to `declared` on the
+second run and never settle).
+
+## read-deploy-state.sh
+
+```bash
+bash ../ship/scripts/read-deploy-state.sh [--rows | --base-rev] [--exclude-note <path>] [<base>]
+```
+
+The deployment-plan **consolidation**: per `Deployments` target, its contract (spliced
+verbatim from `read-deployments.sh`), its latest release note (from
+`read-release-notes.sh`, with the match tier), and the merged-but-unreleased commit range
+with a named `since_reason`. **Pure read** — it writes nothing, checks nothing out, and
+never touches a branch, so an unattended tick can run it against the base safely.
+
+`since_reason` follows `record-release-cut.sh`'s precedence: `prior_release` (the newest
+`.workaholic/releases/` record whose `cut_sha` resolves), `latest_tag:<tag>`,
+`full_history`, or `unresolvable` (a truncated clone). A range that quietly became empty
+would be worse than one that says it could not be read, so `unresolvable` is a reported
+state, never a silent zero. An unreadable base is `{"ok": false, "reason":
+"base_unresolvable"}`; zero targets is `{"ok": true, "count": 0, "reason": "no_targets"}`
+— an empty list with a reason, never an error.
+
+`attribution` is the Open Decision this script had to resolve rather than assume. "The
+commit history for each deployment target" presumes a path→target map the repository has
+no data for, so: a target declaring `paths:` gets its range filtered to them
+(`declared_paths`); a target declaring none gets the whole unreleased range, reported as
+`whole_range`. Honest with one target, visibly weak with several — which is why it is
+reported instead of picked silently. Declaring `paths:` is how a multi-target repository
+upgrades the answer with no change here.
+
+`--rows` prints the same state as one `\037`-separated line per target (slug, title,
+environment, deploy_model, deploy_model_reason, confirmation_method, command,
+has_confirmation, attribution, since, since_reason, unreleased_count, latest_note_path,
+note_match) for a POSIX-sh caller that must not grow a JSON parser, and exits 3 with the
+reason on stderr on a refusal so the caller can tell "unreadable base" from "no targets".
+**`\037`, not tab**: tab is an IFS *whitespace* character, so `read -r` collapses two
+adjacent tabs into one delimiter and shifts every later field whenever an optional value
+comes back empty — the same defect measured in `loop-drill.sh`'s `read_pulls`.
+`--base-rev` prints `<base_rev>\037<short-sha>`, the plan's datum.
+
+## draft-deploy-plan.sh
+
+```bash
+bash ../ship/scripts/draft-deploy-plan.sh "<note-path>" [<base>]
+```
+
+Writes or refreshes the note's `## Deployment Plan` from the consolidation, and stamps
+the note's `targets:` frontmatter. Returns `{"ok": true, path, targets, changed,
+base_rev, base_sha}` or `{"ok": false, reason, "written": false}` (`usage`, `no_note`,
+`base_unresolvable`, `not_a_git_repo`, `write_failed`).
+
+**Idempotence is the contract, not a nicety** — a periodic caller runs this. The section
+carries no clock (its datum is the base's commit sha), so a re-run against an unchanged
+base is byte-identical and `changed` is `false`; a caller commits nothing. The section is
+inserted before `## Links` when the note has one and appended otherwise, and both shapes
+re-run stably.
+
+**A degraded read writes nothing**: on a reader refusal the reason is reported and the
+note is left untouched — a half-written plan is worse than none. Zero targets is *not*
+degradation: the section is written and names the declaration gap, because silence there
+would read as "nothing to deploy" when the truth is "nothing was ever declared".
 
 ## check-confirmation-capability.sh
 
@@ -136,7 +225,7 @@ of units.
 ## record-evidence.sh
 
 ```bash
-bash ../ship/scripts/record-evidence.sh "<branch>" "<target>" "<method>" "<result>" "<status>"
+bash ../ship/scripts/record-evidence.sh "<branch>" "<target>" "<method>" "<result>" "<status>" ["<note-path>"]
 ```
 
 Appends a `## Deployment Evidence` block (when / by — the configured git `user.email`,
@@ -148,6 +237,24 @@ for common secret shapes (cloud keys, GitHub/Slack tokens, bearer/basic auth, PE
 `password=`/`token=` assignments) and refuses
 (`{"recorded": false, "reason": "possible_secret"}`, non-zero exit) rather than writing
 a credential into the public story.
+
+**`<status>` is a closed set of four**, checked before anything is written:  `pass`,
+`fail`, `not_run` (no check ran — the declared method cannot execute in this
+environment), `bypassed` (an accepted-risk merge without a confirmation). Anything else
+is `bad_status` and writes nothing. `not_run` and `fail` are deliberately distinct: "we
+could not check" and "we checked and it was wrong" call for different acts, and
+conflating them makes an unverified deployment look like a verified one.
+
+**One writer, two destinations** (2026-08-13). Given a `<note-path>`, the same attempt is
+also appended to that Release Note as a `## Deployment Verification` block, tied back to
+the plan entry it answers — same evidence, two audiences (the story is the branch's
+record for reviewers, the note is where the reader holding the plan looks). The heading
+is written once and each attempt adds a `### Attempt` beneath it: **append-only**, so a
+second attempt never rewrites the first, matching `confirm-release.sh`'s rule that a
+failed confirmation deletes nothing. The secret guard runs *before* either destination is
+touched, which is why there is one writer and not two with their own redaction rules.
+Returns `{"recorded", "story", "note", "status"}`; `no_story` only when there is neither
+a story nor a usable note.
 
 ## publish-release.sh
 

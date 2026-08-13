@@ -14,7 +14,7 @@ The `.workaholic/` directory has a fixed structure. Only these subdirectories ar
 | `guides/`        | User documentation (project-local docs area) |
 | `missions/`      | Optional, epic-equivalent groupings of **two or more** tickets — the ticket floor; a bare direction is a feedback record and a single unit of work is a ticket (`active/`, `archive/`) |
 | `policies/`      | Project-local policy documentation         |
-| `release-notes/` | Per-branch release notes — one per shipped unit branch, written pre-merge |
+| `release-notes/` | Per-branch release notes — one per shipped unit branch, written pre-merge; each also carries the prospective `## Deployment Plan` and the append-only `## Deployment Verification` |
 | `releases/`      | Per-`release/*`-branch ship records — which base commits a release carried, when it was cut, when it was confirmed or failed. **Not** `release-notes/`: that is one note per shipped unit, this is one record per production release |
 | `specs/`         | Current state reference documentation      |
 | `stories/`       | Development narratives per branch          |
@@ -70,18 +70,18 @@ modified_at: <ISO 8601 timestamp>
 | --------------- | ------------------------------------------------------ |
 | `feedbacks/`    | `type: Feedback`, `title`, `kind`, `source`, optional `supersedes` |
 | `missions/`     | `type: Mission`, `title`, `slug`, `status`, `merge_policy`, `assignees` |
-| `release-notes/`| `type: Release Note`                                   |
+| `release-notes/`| `type: Release Note`; `targets` (the deploy-target slugs the note plans for) is **stamped by `draft-deploy-plan.sh`**, never hand-written |
 | `releases/`     | `type: Release`, `release_branch`, `status` (`staging` / `confirmed` / `failed`), `base`, `cut_at`, `cut_sha`, `since_ref`, `since_reason`, `carried_count`; filled at confirmation: `confirmed_at`, `confirmation_method`, `confirmation_status`, `tag` |
 | `specs/`        | `title`, `description`, `category`, `commit_hash`      |
 | `stories/`      | `type: Story`, `branch`, `started_at`, `ended_at`, metrics fields |
 | `terms/`  | `title`, `description`, `category`                     |
 | `tickets/`      | See `/ticket` command for full schema                  |
-| `deployments/`  | `title`, `environment`, `confirmation_method` (one of `browser` / `server-batch` / `db-query` / `api-probe` / `other`); optional **non-secret** locators `url` / `endpoint` / `command` |
+| `deployments/`  | `title`, `environment`, `confirmation_method` (one of `browser` / `server-batch` / `db-query` / `api-probe` / `other`); optional **non-secret** locators `url` / `endpoint` / `command`; optional `deploy_model` (`deploy-on-merge` / `deploy-from-branch`, otherwise read from the body's own wording) and `paths` (the subtree this target ships — absent means the plan attributes it the whole unreleased range and says so) |
 
 Each `deployments/<target>.md` file describes one deployment target and MUST carry two body sections:
 
 - `## Procedure` — the deploy/release steps, written at copy-paste-executable granularity (a concrete command, not "deploy it").
-- `## Confirmation` — the exact, executable way to confirm the deployment succeeded in production (a URL to open and the signal to look for, a batch command to run on the server, a DB query and its expected result, an API probe, …). This is the method `/ship` requires before it will complete a deployment.
+- `## Confirmation` — the exact, executable way to confirm the deployment succeeded in production (a URL to open and the signal to look for, a batch command to run on the server, a DB query and its expected result, an API probe, …). This is the method `/ship` requires before it will complete a deployment — and the verification its drafted deployment plan names for this target.
 
 > **Never commit secrets.** `deployments/*.md` is version-controlled. Credentials, tokens, and session cookies are NEVER written here — the locator fields hold only a URL, an endpoint name, or a command *template*. Actual credentials are supplied transiently at ship time.
 

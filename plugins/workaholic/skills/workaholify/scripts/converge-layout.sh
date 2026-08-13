@@ -72,8 +72,13 @@ BEFORE=$(doctor)
 APPLIED=""
 TICKETS_ROOT="${ROOT}/.workaholic/tickets"
 
-owners_out=$(sh "${PLUGIN_ROOT}/skills/gather/scripts/migrate-todo-owners.sh" "$TICKETS_ROOT" 2>/dev/null || printf '{"migrated": 0, "moves": []}')
-states_out=$(sh "${PLUGIN_ROOT}/skills/gather/scripts/migrate-ticket-states.sh" "$TICKETS_ROOT" 2>/dev/null || printf '{"migrated": 0, "moves": []}')
+# Cross-skill references use the ${SCRIPT_DIR}/../../<skill>/scripts/ form, which is
+# the shape build.mjs detects when it computes a skill's script closure for the
+# portable bundle. ${PLUGIN_ROOT}/skills/... reads the same at runtime and is
+# INVISIBLE to that scan, so the bundle would ship this script without the two
+# migrations it composes (verify.mjs catches it).
+owners_out=$(sh "${SCRIPT_DIR}/../../gather/scripts/migrate-todo-owners.sh" "$TICKETS_ROOT" 2>/dev/null || printf '{"migrated": 0, "moves": []}')
+states_out=$(sh "${SCRIPT_DIR}/../../gather/scripts/migrate-ticket-states.sh" "$TICKETS_ROOT" 2>/dev/null || printf '{"migrated": 0, "moves": []}')
 
 APPLIED="{\"migration\": \"migrate-todo-owners\", \"result\": ${owners_out}}, {\"migration\": \"migrate-ticket-states\", \"result\": ${states_out}}"
 

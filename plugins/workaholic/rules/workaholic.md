@@ -44,7 +44,11 @@ Root-level files allowed at the `.workaholic/` root: `README.md`; `index.md` —
 
 # Frontmatter Requirements
 
-All markdown files under `.workaholic/` require YAML frontmatter with minimum fields:
+Every knowledge document under `.workaholic/` carries a non-empty **`type:`** (the OKF
+conformance floor, enforced on new writes by `validate-story.sh` / `validate-feedback.sh` /
+`validate-mission.sh`); **tickets are the exception** — the queue is not index-managed and a
+ticket carries no `type:`. All markdown files under `.workaholic/` also require YAML
+frontmatter with minimum fields:
 
 ```yaml
 ---
@@ -64,10 +68,12 @@ modified_at: <ISO 8601 timestamp>
 
 | Directory       | Additional Fields                                      |
 | --------------- | ------------------------------------------------------ |
-| `feedbacks/`    | `title`, `kind`, `source`, optional `supersedes`       |
+| `feedbacks/`    | `type: Feedback`, `title`, `kind`, `source`, optional `supersedes` |
+| `missions/`     | `type: Mission`, `title`, `slug`, `status`, `merge_policy`, `assignees` |
+| `release-notes/`| `type: Release Note`                                   |
 | `releases/`     | `type: Release`, `release_branch`, `status` (`staging` / `confirmed` / `failed`), `base`, `cut_at`, `cut_sha`, `since_ref`, `since_reason`, `carried_count`; filled at confirmation: `confirmed_at`, `confirmation_method`, `confirmation_status`, `tag` |
 | `specs/`        | `title`, `description`, `category`, `commit_hash`      |
-| `stories/`      | `branch`, `started_at`, `ended_at`, metrics fields     |
+| `stories/`      | `type: Story`, `branch`, `started_at`, `ended_at`, metrics fields |
 | `terms/`  | `title`, `description`, `category`                     |
 | `tickets/`      | See `/ticket` command for full schema                  |
 | `deployments/`  | `title`, `environment`, `confirmation_method` (one of `browser` / `server-batch` / `db-query` / `api-probe` / `other`); optional **non-secret** locators `url` / `endpoint` / `command` |

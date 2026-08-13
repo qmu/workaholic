@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260813-073630
 ---
 
 # Refresh the outdated documentation to match current behavior
@@ -43,10 +44,14 @@ request merging on opening, quality gated at the `release/*` window, and
 
 <!-- PROPOSED sketch, interrogated to drive-ready by whoever picks this up. -->
 
-- [ ] The root `README.md` states nothing the shipped code contradicts (#20260813072628-correct-the-outdated-statements-in-the-root-readme.md)
-- [ ] The `docs/` runbooks describe the loops as they now run, with no retired contract left standing (#20260813072628-bring-the-docs-runbooks-in-line-with-the-shipped-loops.md)
-- [ ] `.workaholic/README.md` and `rules/*.md` name the current writers, layout and gates (#20260813072628-update-the-artifact-hub-and-rules-docs-to-current-behavior.md)
+- [x] The root `README.md` states nothing the shipped code contradicts (#20260813072628-correct-the-outdated-statements-in-the-root-readme.md)
+- [x] The `docs/` runbooks describe the loops as they now run, with no retired contract left standing (#20260813072628-bring-the-docs-runbooks-in-line-with-the-shipped-loops.md)
+- [x] `.workaholic/README.md` and `rules/*.md` name the current writers, layout and gates (#20260813072628-update-the-artifact-hub-and-rules-docs-to-current-behavior.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-13 — ticket archived — 20260813072628-correct-the-outdated-statements-in-the-root-readme.md
+- 2026-08-13 — ticket archived — 20260813072628-bring-the-docs-runbooks-in-line-with-the-shipped-loops.md
+- 2026-08-13 — ticket archived — 20260813072628-update-the-artifact-hub-and-rules-docs-to-current-behavior.md
+- 2026-08-13 — Story written — work-20260813-073630.md

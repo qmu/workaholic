@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260813-113709
 ---
 
 # Revive Strategy and reshape the .workaholic artifact set

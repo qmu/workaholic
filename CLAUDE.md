@@ -20,8 +20,9 @@ plugins/
     .codex-plugin/       # Hand-maintained Codex-facing manifest
     skills/              # Workflow skills (branching, catch, check-deps, commit, create-ticket,
                          # discover, drive, explain, feedback, gather, mission, notify, okf,
-                         # propose, release-scan, report, review-sections, ship, system-safety,
-                         # validate-writer-output, workaholify, write-release-note) + policy
+                         # propose, release-scan, report, review-sections, ship, strategy,
+                         # system-safety, validate-writer-output, workaholify,
+                         # write-release-note) + policy
                          # skills (planning, design, implementation, operation, safety,
                          # development; English hard copies under each skill's policies/)
     commands/            # Claude-only thin aliases (ticket, drive, implement, commit, propose,
@@ -46,7 +47,7 @@ docs/                    # Documentation (dependencies/ = dependency-decision lo
 
 - `validate-ticket.sh` (PostToolUse Write|Edit) — ticket floor on the `todo/` queue only: frontmatter, location, mandatory `## Policies`/`## Quality Gate`, resolvable `mission:` relation.
 - `validate-mission.sh` (PostToolUse) — Experience/≥1-acceptance floor on any mission under `missions/active/`; archive never retro-blocked.
-- `validate-story.sh` / `validate-trip.sh` / `validate-feedback.sh` (PostToolUse) — OKF `type:` and schema floors on new writes; git-tracked history is grandfathered.
+- `validate-story.sh` / `validate-trip.sh` / `validate-feedback.sh` / `validate-strategy.sh` (PostToolUse) — OKF `type:` and schema floors on new writes; git-tracked history is grandfathered. `validate-strategy.sh` holds the revived strategy artifact to the three properties that distinguish it from the one retired in 2026-07-28: a `YYYY-MM-DD` `target_date`, a **non-empty** `assignees` (the one artifact where empty is a refusal, not team-owned), and non-empty `## Aim` / `## Schedule`.
 - `guard-ticket-structure.sh` (PreToolUse Bash) — blocks non-canonical ticket moves.
 - `guard-git-commit.sh` / `guard-git-branch.sh` (PreToolUse Bash) — commit-subject and branch-name gates (see below).
 - `guard-askuserquestion-label.sh` (PreToolUse AskUserQuestion) — every question body must open with a `[<project label>]` prefix (`gather/scripts/project-label.sh`).
@@ -82,8 +83,9 @@ Everything converges on the **ticket** as the unit of work: *sources* fill `tick
 
 ### `.workaholic/` runtime conventions
 
-- **OKF floor**: every knowledge artifact carries a non-empty `type:` (`Story`, `Mission`, `Feedback`, `Release Note`, `Release`); `okf/scripts/refresh-index.sh` regenerates the bundle indexes before each knowledge commit. **Tickets are the exception**: no `type:` frontmatter, and `tickets/` internals are never index-managed. `README.md` and `index.md` are the only files allowed at the `.workaholic/` root.
+- **OKF floor**: every knowledge artifact carries a non-empty `type:` (`Story`, `Mission`, `Feedback`, `Strategy`, `Release Note`, `Release`); `okf/scripts/refresh-index.sh` regenerates the bundle indexes before each knowledge commit. **Tickets are the exception**: no `type:` frontmatter, and `tickets/` internals are never index-managed. `README.md` and `index.md` are the only files allowed at the `.workaholic/` root.
 - **Mission rolling**: commit seams (archive, ship, report) append `## Changelog` lines and tick `## Acceptance` items via the mission skill's idempotent mutators (`append-changelog.sh` / `tick-acceptance.sh`). Progress (`checked ÷ total`) is computed, never stored. Acceptance items become tickable through their `(#<filename>)` link, stamped only by the emitting seam via `link-acceptance.sh`. The `mission:` relation is many-valued; read it only through `read-relation.sh`.
+- **Strategy** (`.workaholic/strategies/<slug>.md`, revived 2026-08-13 — issue #436): the operator's **outbound, resolved direction** — an **Aim**, a **Schedule** (`target_date`), an **Assignee** (non-empty `assignees`). Flat, one file, operator-authored through `workaholic:strategy`; no command, hook or routine writes one and `/drive` never surveys it. It carries **no ticket plan** — planning executable work stays a mission's job. It is the complement of the feedback stream, not a rival inbox: `feedbacks/` holds what someone *said* (inbound, immutable), a strategy holds what the operator *decided*, and the citation link runs **one way** (strategy → feedback). The 2026-07-28 retirement (B3) stands as history and its reasoning is answered rather than dismissed — the retired artifact was open-ended `## Direction` prose with no completion condition, the revived one is bounded, owned and closable. The `strategy:` mission relation and its ownership hop did **not** return. `mission/scripts/migrate-strategies.sh` and the `missions_migrate_strategies` seam that erased `strategies/` on every mission-script touch are **retired**; do not re-add them. Full record: `skills/mission/SKILL.md`, *The strategy layer: retired, then redefined*.
 - **Ownership**: plural `assignees` on every artifact; **empty means team-owned/claimable**. One oracle resolves it — `gather/scripts/owners.sh`, with `owns.sh` returning `mine`/`unowned`/`other`/`unresolved` (compared by slug). Claim authorship and resumption key on `git config user.email` separately.
 - **Mission lifecycle**: `status: active | achieved | abandoned | carried` — one in-flight state; `active/` vs `archive/` areas; `mission/scripts/close.sh` is the **only** writer of an end state. Merging the mission's PR is the approval; drivability is derived (active area + plan + queued tickets), never a status word.
 - **Deferred concerns** live in the feedback stream: the story's Concerns section is the durable record (PR body drops `low` blocks at render); `ship`'s `extract-deferred-concerns.sh` persists each as a `kind: concern` record keyed on `concern_id`; the open set is computed — a concern is open until a later record names it in `supersedes`.

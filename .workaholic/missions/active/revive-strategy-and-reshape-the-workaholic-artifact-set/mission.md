@@ -40,3 +40,4 @@ Proposed sketch — interrogate before driving.
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-13 — ticket archived — 20260813112615-revive-the-strategy-artifact-with-aim-schedule-and-assignee.md

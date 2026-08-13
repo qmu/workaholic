@@ -78,3 +78,22 @@ Provisional — sharpened by the interrogation that replans this mission to driv
 
 - The retirement's reasoning is the strongest argument against this ticket as specified; it is answered by the different shape (bounded, dated, owned) rather than dismissed. Record that answer in the redefinition record so the next reader does not re-litigate it a third time.
 - Consuming repositories that already ran `migrate-strategies.sh` have their old strategies as feedback records. Nothing restores them, and nothing should — those records are history.
+
+## Final Report
+
+Development completed as planned. The artifact is registered, implemented, floored and documented, and the migration that would have deleted it is unwired.
+
+### Open Decisions — resolved
+
+- **Does a mission link back to a strategy? → No relation, in either direction.** The 2026-07-28 retirement removed `strategy:` from the mission scaffold specifically because the relation gave ownership a second resolution path (the hop `mission-owners.sh` made through a linked strategy's `assignees`), and the single-oracle design is what has kept every later ownership move cheap. The ask does not request the relation, and restoring it would re-open the one failure the retirement measured. A strategy owns itself (non-empty `assignees`); a mission owns itself. `owners.sh`'s comment now says the hop is gone **and stays gone**, so the next reader does not restore it as an oversight. A legacy `strategy:` key in an old mission remains tolerated history read by nothing.
+- **What does `Schedule` mean? → A single dated bound (`target_date: YYYY-MM-DD`) plus prose.** A window and a cadence both reduce to "by when is this meant to hold", and only that reduction is checkable — which matters because *boundedness is the whole difference* between this artifact and the retired one. The richer shape (a start, milestones, a cadence) lives in the `## Schedule` body where it is read, not parsed. One field, one floor, no derived progress.
+- **How does a `Strategy` relate to the feedback stream? → Complement, with a one-way link.** `feedbacks/` is **inbound**: what someone said, immutable, unowned, undated. A strategy is **outbound**: what the operator decided, revisable until closed, dated, owned. A strategy may cite the records that formed it (`feedback:` relation); no feedback record ever points at a strategy, and nothing derives one from the other. Two homes for direction drift when *both* are inboxes — the drift B3 named — and only one of these is.
+
+### Discovered Insights
+
+- **Insight**: A living migration and a live artifact area cannot share a directory name. `missions_migrate_strategies` ran at the `lib/resolve.sh` seam on *every* mission-script touch and erased `.workaholic/strategies/` unconditionally — so the revived artifact would have been deleted by the next `/mission`, `/drive` archive, or mission-lens fire, with no error anywhere.
+  **Context**: The erasure was correct while the layer was retired and became a landmine the moment it was not. The regression test is written as the inversion of the old one: create a strategy, touch a mission script, assert the file is still byte-identical. Any future re-add of the seam fails that assertion instead of silently deleting operator direction.
+- **Insight**: `assignees` is empty-means-team-owned on every artifact in this repository except this one, where empty is a refusal.
+  **Context**: The inversion is deliberate and is called out in `validate-strategy.sh`'s header, in `create.sh`'s refusal, and in the skill: the Assignee is part of what the artifact *is* (bounded, dated, **owned**), not an ownership hint that can default. `create.sh` refuses `no_assignees` rather than seeding the runner's identity, so a routine can never author direction in the operator's name.
+- **Insight**: The flat `<slug>.md` shape was chosen over the retired nested `strategies/active/<slug>/strategy.md` because `refresh-index.sh` already has a "flat knowledge areas" loop that handles exactly that shape.
+  **Context**: Registering the area cost one word in two loops. The nested shape would have needed its own index branch, like `missions/` and `trips/` have. A consuming repo still holding the legacy nested tree is now *reported* rather than erased — that convergence is the mission's `/workaholify` ticket.

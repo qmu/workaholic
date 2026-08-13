@@ -49,7 +49,11 @@ const SCRIPTS = {
   missionList: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/list.sh"),
   missionOwners: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/owners.sh"),
   readAssignees: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/read-assignees.sh"),
-  migrateStrategies: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/migrate-strategies.sh"),
+  strategyCreate: join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/create.sh"),
+  strategyList: join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/list.sh"),
+  strategyRead: join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/read.sh"),
+  strategyClose: join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/close.sh"),
+  validateStrategy: join(REPO_ROOT, "plugins/workaholic/hooks/validate-strategy.sh"),
   missionClose: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/close.sh"),
   missionCreate: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/create.sh"),
   validateMission: join(REPO_ROOT, "plugins/workaholic/hooks/validate-mission.sh"),
@@ -3487,47 +3491,107 @@ function testMissionDuration() {
   } finally { cleanup(dir); }
 }
 
-// ---------- mission/migrate-strategies.sh (strategy-layer retirement) ----------
-// The living migration: a lingering strategies/ tree folds into feedbacks + mission
-// assignees and is removed — nothing deleted from knowledge, only from structure.
-// Runs standalone here AND through lib/resolve.sh's seam on any mission-script touch.
-function testMigrateStrategies() {
+// ---------- strategy skill (the artifact revived 2026-08-13) ----------
+// The strategy layer was retired 2026-07-28 and re-introduced with a bounded,
+// dated, owned shape. Two things are proved here: the scripts hold that floor,
+// and the retired erasing migration is really gone — a strategy must SURVIVE a
+// mission-script touch, which is what used to delete it.
+function testStrategySkill() {
   const dir = makeRepo("main");
   try {
-    const wk = (rel, body) => { mkdirSync(dirname(join(dir, rel)), { recursive: true }); writeFileSync(join(dir, rel), body); };
-    wk(".workaholic/strategies/active/dir-a/strategy.md",
-      "---\ntype: Strategy\ntitle: Direction A\nslug: dir-a\nstatus: active\ncreated_at: 2026-07-21T03:35:56+09:00\nauthor: a@qmu.jp\nassignees: [a@qmu.jp, b@qmu.jp]\n---\n\n# Direction A\n\n## Direction\n\nGo somewhere good.\n\n## Changelog\n");
-    wk(".workaholic/missions/active/m-linked/mission.md",
-      "---\ntype: Mission\ntitle: L\nslug: m-linked\nstatus: active\nassignees: []\nassignee:\nstrategy: dir-a\n---\n\n## Acceptance\n\n- [ ] x\n");
-    wk(".workaholic/missions/active/m-owned/mission.md",
-      "---\ntype: Mission\ntitle: O\nslug: m-owned\nstatus: active\nassignees: [c@qmu.jp]\nassignee:\nstrategy: dir-a\n---\n\n## Acceptance\n\n- [ ] x\n");
+    const create = (args, aim = "Reach the good place.") =>
+      run(dir, `printf '%s\\n' ${JSON.stringify(aim)} | ${POSIX_SH} ${SCRIPTS.strategyCreate} ${args}`);
+
+    // The three mandated parts are refused at the writer, not only at the hook.
+    assertEq("create refuses a non-ISO target date",
+      JSON.parse(create(`"Ship the thing" 2026/09/01 "a@qmu.jp" "Q3"`).stdout).reason, "bad_target_date");
+    assertEq("create refuses an empty assignee list — an unowned direction is not a strategy",
+      JSON.parse(create(`"Ship the thing" 2026-09-01 "" "Q3"`).stdout).reason, "no_assignees");
+    assertEq("create refuses an empty schedule",
+      JSON.parse(create(`"Ship the thing" 2026-09-01 "a@qmu.jp" ""`).stdout).reason, "empty_schedule");
+    assertEq("create refuses an empty aim",
+      JSON.parse(create(`"Ship the thing" 2026-09-01 "a@qmu.jp" "Q3"`, "   ").stdout).reason, "empty_aim");
+
+    const made = JSON.parse(create(`"Ship the thing" 2026-09-01 "a@qmu.jp,b@qmu.jp" "Kickoff in July, review monthly." "20260813112458-x.md"`).stdout);
+    assertTrue("create writes a flat strategies/<slug>.md", made.created && made.path === ".workaholic/strategies/ship-the-thing.md", JSON.stringify(made));
+    const body = readFileSync(join(dir, made.path), "utf8");
+    assertTrue("the record carries type/status/target_date/assignees",
+      /^type: Strategy$/m.test(body) && /^status: active$/m.test(body)
+      && /^target_date: 2026-09-01$/m.test(body) && /^assignees: \[a@qmu\.jp, b@qmu\.jp\]$/m.test(body), body);
+    assertTrue("the record carries a non-empty Aim and Schedule",
+      /## Aim\n\nReach the good place\./.test(body) && /## Schedule\n\nTarget: 2026-09-01/.test(body), body);
+    assertTrue("the forming feedback is cited one-way", /^feedback: \[20260813112458-x\.md\]$/m.test(body), body);
+    assertEq("a second create on the same title refuses rather than overwriting",
+      JSON.parse(create(`"Ship the thing" 2026-10-01 "a@qmu.jp" "later"`).stdout).reason, "exists");
+
+    // Read + list.
+    const read = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.strategyRead} ship-the-thing`).stdout);
+    assertEq("read returns the target date", read.target_date, "2026-09-01");
+    assertEq("read returns the assignees", read.assignees, "a@qmu.jp, b@qmu.jp");
+    assertEq("read of an unknown slug is not_found",
+      JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.strategyRead} nope`).stdout).reason, "not_found");
+    let listed = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.strategyList}`).stdout);
+    assertEq("list finds the strategy", listed.count, 1);
+    assertEq("list carries the status", listed.strategies[0].status, "active");
+
+    // THE regression this artifact's revival turns on: a mission-script touch used
+    // to fold strategies/ into feedbacks and delete the directory.
     execSync(`git add -A && git commit -q -m seed`, { cwd: dir });
-
-    let r = run(dir, `${POSIX_SH} ${SCRIPTS.migrateStrategies}`);
-    assertEq("migrate-strategies exits 0", r.status, 0);
-    const fb = join(dir, ".workaholic/feedbacks/20260721033556-strategy-dir-a.md");
-    assertTrue("the strategy survives as a feedback record", existsSync(fb));
-    const body = readFileSync(fb, "utf8");
-    assertTrue("the feedback preserves the Direction prose verbatim", body.includes("Go somewhere good."), body);
-    assertTrue("the feedback keeps kind/author/created_at from the strategy",
-      body.includes("kind: insight") && body.includes("author: a@qmu.jp") && body.includes("created_at: 2026-07-21T03:35:56+09:00"), body);
-    assertTrue("strategy assignees fold into the empty linked mission",
-      /^assignees: \[a@qmu\.jp, b@qmu\.jp\]$/m.test(readFileSync(join(dir, ".workaholic/missions/active/m-linked/mission.md"), "utf8")));
-    assertTrue("an already-owned mission is untouched",
-      /^assignees: \[c@qmu\.jp\]$/m.test(readFileSync(join(dir, ".workaholic/missions/active/m-owned/mission.md"), "utf8")));
-    assertTrue("the strategies directory is removed", !existsSync(join(dir, ".workaholic/strategies")));
-    assertEq("mission-owners resolves the folded owners with no strategy hop",
-      run(dir, `${POSIX_SH} ${SCRIPTS.missionOwners} ${join(dir, ".workaholic/missions/active/m-linked/mission.md")}`).stdout.split("\n").filter(Boolean),
-      ["a@qmu.jp", "b@qmu.jp"]);
-    r = run(dir, `${POSIX_SH} ${SCRIPTS.migrateStrategies}`);
-    assertEq("a second run is a clean no-op (idempotent)", r.status, 0);
-
-    // The resolve.sh seam: any mission-script touch migrates a tree that reappears.
-    wk(".workaholic/strategies/active/dir-b/strategy.md",
-      "---\ntype: Strategy\ntitle: B\nslug: dir-b\nstatus: active\ncreated_at: 2026-07-22T00:00:00+09:00\nauthor: a@qmu.jp\nassignees: [a@qmu.jp]\n---\n\n## Direction\n\nB.\n\n## Changelog\n");
     run(dir, `${POSIX_SH} ${SCRIPTS.missionList}`);
-    assertTrue("the resolve.sh seam migrates on the next mission-script touch",
-      !existsSync(join(dir, ".workaholic/strategies")) && existsSync(join(dir, ".workaholic/feedbacks/20260722000000-strategy-dir-b.md")));
+    assertTrue("a mission-script touch leaves the strategy present", existsSync(join(dir, made.path)));
+    assertEq("a mission-script touch leaves the strategy byte-identical",
+      readFileSync(join(dir, made.path), "utf8"), body);
+    assertTrue("no strategy is folded into the feedback stream",
+      !existsSync(join(dir, ".workaholic/feedbacks")) ||
+      readdirSync(join(dir, ".workaholic/feedbacks")).every((f) => !f.includes("strategy-")));
+
+    // Close: the only writer of an end state, and it does not move the file.
+    assertEq("close refuses a status outside the closed set",
+      JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.strategyClose} ship-the-thing done`).stdout).reason, "bad_status");
+    assertTrue("close writes the end state",
+      JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.strategyClose} ship-the-thing achieved`).stdout).closed);
+    assertTrue("a closed strategy stays where it is", existsSync(join(dir, made.path)));
+    assertTrue("closing again to the same state is an idempotent no-op",
+      JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.strategyClose} ship-the-thing achieved`).stdout).closed);
+    assertEq("re-ending a closed strategy to a different state refuses",
+      JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.strategyClose} ship-the-thing abandoned`).stdout).reason, "already_ended");
+    listed = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.strategyList} --status active`).stdout);
+    assertEq("the status filter excludes the closed strategy", listed.count, 0);
+  } finally { cleanup(dir); }
+}
+
+// ---------- hooks/validate-strategy.sh (the write-time floor) ----------
+function testValidateStrategy() {
+  const dir = makeRepo("main");
+  try {
+    const rel = ".workaholic/strategies/s-x.md";
+    const abs = join(dir, rel);
+    mkdirSync(dirname(abs), { recursive: true });
+    const doc = ({ type = "type: Strategy", status = "status: active", target = "target_date: 2026-09-01",
+                   assignees = "assignees: [a@qmu.jp]", aim = "Do the thing.", sched = "Target: 2026-09-01" } = {}) =>
+      `---\n${type}\ntitle: X\nslug: s-x\n${status}\n${target}\n${assignees}\n---\n\n# X\n\n## Aim\n\n${aim}\n\n## Schedule\n\n${sched}\n`;
+    const invoke = () => run(dir, `printf '%s' '${JSON.stringify({ tool_input: { file_path: abs } })}' | ${POSIX_SH} ${SCRIPTS.validateStrategy}`).status;
+
+    writeFileSync(abs, doc());
+    assertEq("a conforming strategy passes", invoke(), 0);
+    writeFileSync(abs, doc({ type: "type:" }));
+    assertEq("an absent type: Strategy is refused", invoke(), 2);
+    writeFileSync(abs, doc({ status: "status: draft" }));
+    assertEq("a status outside the closed set is refused", invoke(), 2);
+    writeFileSync(abs, doc({ target: "target_date: soon" }));
+    assertEq("a Schedule with no real date is refused", invoke(), 2);
+    writeFileSync(abs, doc({ assignees: "assignees: []" }));
+    assertEq("an empty Assignee is refused — the deliberate inversion", invoke(), 2);
+    writeFileSync(abs, doc({ aim: "" }));
+    assertEq("a bare ## Aim heading is refused", invoke(), 2);
+    writeFileSync(abs, doc({ sched: "" }));
+    assertEq("a bare ## Schedule heading is refused", invoke(), 2);
+
+    // History is never retro-blocked.
+    writeFileSync(abs, doc());
+    execSync(`git add -A && git commit -q -m seed`, { cwd: dir });
+    writeFileSync(abs, doc({ status: "status: draft" }));
+    assertEq("a git-tracked strategy is grandfathered", invoke(), 0);
   } finally { cleanup(dir); }
 }
 
@@ -12332,7 +12396,8 @@ const tests = [
   ["release-scan gate decision", testReleaseScanGateDecision],
   ["gather/commit-kpi.sh orchestration throughput", testCommitKpi],
   ["mission duration predict + record", testMissionDuration],
-  ["mission/migrate-strategies.sh (strategy-layer retirement)", testMigrateStrategies],
+  ["strategy skill (the artifact revived 2026-08-13)", testStrategySkill],
+  ["hooks/validate-strategy.sh (the write-time floor)", testValidateStrategy],
   ["mission ownership (read-assignees + mission-owners)", testMissionOwnership],
   ["installed plugin helper resolution", testInstalledPluginHelperResolution],
   ["mission/create.sh + progress.sh + list.sh", testMission],

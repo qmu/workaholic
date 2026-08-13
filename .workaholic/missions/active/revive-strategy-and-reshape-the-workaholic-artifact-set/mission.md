@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 1
 feedback: [20260813112458-revive-the-strategy-artifact-and-reshape-the-workaholic-artifact-set.md]
 tickets: []
 stories: []
@@ -47,3 +47,4 @@ Proposed sketch — interrogate before driving.
 - 2026-08-13 — ticket archived — 20260813112619-fold-abandoned-and-icebox-tickets-into-the-archive.md
 - 2026-08-13 — ticket archived — 20260813112620-apply-the-layout-migrations-through-workaholify.md
 - 2026-08-13 — story reported — work-20260813-113709.md
+- 2026-08-13 — run recorded (+1.0h) — implement-20260813-113709

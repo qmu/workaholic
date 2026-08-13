@@ -50,3 +50,4 @@ PROVISIONAL sketch — the interrogation that replans this sharpens it.
 - 2026-08-13 — ticket archived — 20260813123903-add-a-deployment-plan-section-to-the-release-note.md
 - 2026-08-13 — ticket archived — 20260813123903-make-ship-draft-the-plan-instead-of-deploying.md
 - 2026-08-13 — ticket archived — 20260813123903-record-the-verification-method-and-its-report.md
+- 2026-08-13 — ticket archived — 20260813123903-keep-the-deploy-plan-draft-current-periodically.md

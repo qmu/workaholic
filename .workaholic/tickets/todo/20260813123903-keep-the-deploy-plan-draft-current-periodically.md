@@ -77,3 +77,64 @@ Provisional — sharpened by the interrogation that replans this mission to driv
 - The honest failure to avoid is scheduling a churn machine: an hourly agent that rewrites a plan document produces a commit stream nobody reads and conflicts with the append-only handling `catchup-main.sh` applies to `.workaholic/`.
 - If the answer to the Open Decision is "operator-invoked", say so in the mission's own record. "Kept up to date by managed agents" would then be unimplemented by choice, which is a legitimate outcome only if it is written down rather than quietly dropped.
 - A third routine costs every consuming repository a setup step and every operator a drill path; the two-routine rule exists because that cost was measured, not for tidiness.
+
+## Final Report
+
+Development completed as planned.
+
+### Step 1 — the idempotence precondition, checked before scheduling anything
+
+The ticket's first step makes scheduling conditional on the refresh genuinely being a
+no-op against an unchanged base. Verified three ways before a template was touched:
+`draft-deploy-plan.sh` returns `changed: false` on the second and third run; the note is
+byte-identical; and with the first draft committed, `git status --porcelain` is empty after
+a re-run. The hermetic suite pins all three, and `loop-drill.sh verify-plan` re-proves them
+on demand against this repository's real targets.
+
+### Open Decisions — resolved
+
+- **Which surface runs the refresh periodically?** Resolved as **(i), `[Implement]`'s
+  existing hourly tick (`30 * * * *`), through `/ship`'s drafting phase** — no third
+  routine, and no unattended commit to `main`. Reasoning: option (iii) reverses a written
+  decision ("Do not reintroduce a third routine") whose cost was measured, not assumed —
+  every consuming repository gains a setup step and every operator a drill path. Option
+  (ii) contradicts the ask outright. Option (i) costs nothing new: the plan lands inside
+  the unit's own pull request, which is already how every artifact reaches `main`, and the
+  refresh is idempotent so a tick with nothing to change writes nothing.
+  **The limit is stated rather than glossed**: a repository whose units are all `review`
+  never reaches `/ship`, so its plan refreshes only when an `auto` unit ships. "Kept up to
+  date by managed agents" therefore holds to exactly that extent — recorded in `CLAUDE.md`'s
+  `### Routines` section in those words, because the ticket is right that dropping it
+  quietly would be the dishonest outcome.
+
+- **Does the refresh commit to `main` unattended?** **No.** The plan is written on the
+  unit's branch and reaches `main` when that unit's pull request merges — the same path
+  every other artifact takes. An hourly agent pushing a rewritten document straight to
+  `main` would be a new class of unattended write for a tree whose conflicts are resolved
+  append-only, and the ticket's own Considerations name it as the failure to avoid.
+
+### What was built for verifiability
+
+`loop-drill.sh verify-plan` — no seed, no fire, no issue number. It drafts a plan into a
+scratch note in the temp directory using this repository's real targets and real commit
+range, so it writes nothing under `.workaholic/` and can run at any moment. Three
+load-bearing rows: `plan_drafted`, `plan_idempotent`, `plan_degraded`. Run on this
+checkout: **3 passed, 0 failed**. `docs/loop-drill-runbook.md` §5b carries the row→file
+blame table, and notes that a red `plan_idempotent` is the one to act on first — it breaks
+the *periodic* property the whole arrangement rests on rather than any single ship.
+
+### Discovered Insights
+
+- **Insight**: "verifiable on demand" was cheap to build only because the writer takes an
+  arbitrary note path and the reader is a pure read.
+  **Context**: The drill needs no fixture repository and no network: it points the writer
+  at a temp file while the reader still sees the real repository. Had the writer resolved
+  its own note (e.g. "the newest note"), the drill would have had to fabricate a whole
+  checkout or write under `.workaholic/` — the two things it is built not to do.
+
+- **Insight**: the two-routine rule survived contact with an ask that appeared to require
+  breaking it, because the ask's *cadence* requirement and the rule's *count* requirement
+  were never actually in conflict — only the assumed implementation was.
+  **Context**: "Run periodically by managed agents" was satisfiable by an existing tick the
+  moment the refresh became idempotent and branch-scoped. The general shape: before adding
+  a scheduled surface, check whether the work can ride one that already fires.

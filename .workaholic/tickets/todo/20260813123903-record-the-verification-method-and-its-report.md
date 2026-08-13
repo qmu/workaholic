@@ -70,3 +70,62 @@ Provisional — sharpened by the interrogation that replans this mission to driv
 - The failure mode this guards against is a plan whose verification column is aspirational — every release planning a check nobody ever ran, with nothing in the tree showing it.
 - Verification output can carry secrets (tokens in a probe URL, a connection string in a DB check). `record-evidence.sh`'s refusal is the only thing standing between an observed result and a committed credential; extending the writer must not route around it.
 - For a deploy-on-merge target the confirmation is split pre-merge/post-merge. One block per attempt has to hold both halves, or a promoted release will look half-verified.
+
+## Final Report
+
+Development completed as planned.
+
+### What was built
+
+`record-evidence.sh` gained an optional sixth argument, the Release Note path. Given one,
+the same call appends a `## Deployment Verification` block to that note in addition to the
+story's `## Deployment Evidence` — **one writer, two destinations**, which is what keeps
+the `possible_secret` refusal load-bearing for both. A second writer with its own
+redaction rules would have been the way around the only guard standing between an observed
+result and a committed credential.
+
+The four statuses are now a **closed set checked in the script** — `pass`, `fail`,
+`not_run`, `bypassed` — and anything else is refused as `bad_status` with nothing written.
+`not_run` (the declared method cannot execute in this environment) is the new one, and it
+exists because "we could not check" and "we checked and it was wrong" call for different
+acts; a record that conflated them would make an unverified deployment read as a verified
+one, which is the failure mode the ticket named.
+
+The note block is **append-only**: the `## Deployment Verification` heading is written
+once and every attempt adds a `### Attempt` beneath it, matching `confirm-release.sh`'s
+rule that a failed confirmation deletes nothing. Each block ties itself back to the plan
+entry it answers (`**Answers:** the ## Deployment Plan entry for <target>`) and names the
+story it is also recorded in, so a reader is never left comparing two documents to work
+out whether they describe the same event.
+
+### Verification limit — stated rather than skipped
+
+The ticket's verification method asks for "a live run against the `marketplace` target
+recording the post-merge `gh release view v<version>` check and its result". **That was not
+run.** A live recording requires an instructed deployment against production, which this
+unattended run has no instruction to perform and which the safety floor puts outside what
+it may take on its own — and, after the sibling ticket, `/ship` deliberately cannot start
+one. What was proven instead is every property the ticket's acceptance criteria state, in
+the hermetic suite: all four statuses recordable and distinguishable, a second attempt
+appending rather than overwriting, the attempts staying in order, the secret refusal
+writing to **neither** destination, an out-of-set status refused, and the story-only path
+byte-for-byte unchanged when no note is passed. The live recording remains for the first
+real instructed deployment.
+
+### Discovered Insights
+
+- **Insight**: `record-evidence.sh` returned `{"recorded": false, "reason": "no_story"}`
+  when the story was missing; with a note destination that is no longer the right answer.
+  **Context**: The refusal now fires only when there is *neither* a story nor a usable
+  note, and `story` comes back as `""` when only the note was written. A refusal keyed to
+  one destination silently becomes wrong the moment a second exists — and the failure
+  would have been a *silently unrecorded* deployment, the exact thing this ticket exists
+  to prevent.
+
+- **Insight**: for a deploy-on-merge target the confirmation is split pre-merge/post-merge,
+  and one block per attempt has to hold both halves.
+  **Context**: The block records the method "as declared" plus the observed result, and the
+  `marketplace` record declares both halves under one `## Confirmation`. So one attempt
+  block naturally carries both — but only because the *record* keeps them together. A
+  target that split them into two frontmatter methods would produce a half-verified
+  reading, and the fix would belong in the record, not here.

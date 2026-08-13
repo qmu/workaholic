@@ -28,6 +28,7 @@ Run every command from the repository root, on a clean `main`.
 | 3 | Verify propose | `sh scripts/e2e/loop-drill.sh verify-propose <issue> --json` | `origin/main`, REST issue + pull requests |
 | 4 | Fire `[Implement]` | run the `[Implement]` routine by its trigger id | — |
 | 5 | Verify implement | `sh scripts/e2e/loop-drill.sh verify-implement <issue> --json` | `origin/main`, REST pull requests, unmerged `work-*` branches |
+| — | Any time | `sh scripts/e2e/loop-drill.sh verify-plan --json` | this checkout's deployment targets and commit range — proves the plan refresh `[Implement]` carries |
 | — | Any time | `sh scripts/e2e/loop-drill.sh status` | the drill's residue: issues, claim branches, tickets |
 | — | After an abort | `sh scripts/e2e/loop-drill.sh reset` | closes/deletes **drill-minted** residue only |
 
@@ -167,6 +168,27 @@ from what the tick printed to the one file to read.
 | `origin_unreachable` / `no_origin` | `skills/drive/scripts/claim.sh` — an unpushed claim is not a claim; the run correctly claims nothing |
 | `mission_missing` | `skills/drive/scripts/claim.sh` — wrong slug, or the checkout is behind the base |
 | `pr_error: gh_unavailable` | `skills/report/scripts/create-or-update.sh` — the work **is** pushed; only the pull request is missing |
+
+## 5b. The deployment-plan refresh
+
+`verify-plan` needs no seed, no fire and no issue number: it drafts a plan into a
+**scratch note in the temp directory** using this repository's real deployment targets
+and real commit range, so it writes nothing under `.workaholic/` and can be run at any
+moment, including mid-drill.
+
+It exists because the refresh has no routine of its own. The carrier is `[Implement]`'s
+existing hourly tick, through `/ship`'s drafting phase (`CLAUDE.md`, *Routines*), which
+means the only other way to observe it is to wait an hour and read a note. Three
+load-bearing rows, all three of which the carrier depends on:
+
+| Row | Fails when | Read |
+| --- | ---------- | ---- |
+| `plan_drafted` | the consolidation could not read this checkout | `skills/ship/scripts/read-deploy-state.sh` — an unresolvable base, or no `.workaholic/deployments/` target |
+| `plan_idempotent` | a second run against an unchanged base changed the note | `skills/ship/scripts/draft-deploy-plan.sh` — something time-varying leaked into the section; an hourly carrier would now commit every tick |
+| `plan_degraded` | an unreadable base did not skip cleanly | `skills/ship/scripts/draft-deploy-plan.sh` — a degraded read must report its reason and leave the note untouched, never half-write |
+
+A red `plan_idempotent` is the one to act on first: it does not break a single ship, it
+breaks the *periodic* property the whole refresh rests on.
 
 ## 6. Abort playbook
 

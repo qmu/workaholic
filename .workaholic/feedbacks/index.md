@@ -488,4 +488,5 @@
 * [The Propose schedule migration includes discovery of assigned open issues, not just the trigger move](20260812225650-the-propose-schedule-migration-includes-discovery-of-assigned-open-issues-not-just-the-trigger-move.md)
 * [Hermetic smoke suite fails off the routine image on the argv-ceiling fixture](20260812231818-hermetic-smoke-suite-fails-off-the-routine-image-on-the-argv-ceiling-fixture.md)
 * [Update the outdated README and documentation to match current behavior](20260813072519-update-the-outdated-readme-and-documentation-to-match-current-behavior.md)
+* [Revive the Strategy artifact and reshape the .workaholic artifact set](20260813112458-revive-the-strategy-artifact-and-reshape-the-workaholic-artifact-set.md)
 <!-- okf:generated:end -->

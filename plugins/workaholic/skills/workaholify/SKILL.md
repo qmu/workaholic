@@ -32,6 +32,16 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/workaholify/scripts/audit-claude-md.sh
 
 Returns `{file, conformant, checks:{claude_md_present, refers_workaholify_gateway}, missing:[...]}`. On `conformant: false`, report the `missing` checks and offer to add a reference to this gateway — never a copy of the rules. Every check stays a verifiable condition.
 
+## 3a. The `.workaholic/` layout
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/hooks/layout-doctor.sh [repo-root]
+```
+
+Read-only. `conforming: false` means the tree holds something the closed layout does not designate; each finding carries its own `remediation`. Report them, never apply them silently — the layout is the repository's, and the audit's job is to make a mismatch legible.
+
+**The retired documentation areas.** `guides/`, `policies/` and `specs/` left the allowlist on 2026-08-13 (issue #436) because an area with no writer in the loop goes stale and then lies — in this repository all 17 substantive files still described the three-plugin architecture retired months earlier. A consuming repository updates its plugin before its tree, so it will meet the de-listed allowlist while still holding the directories, and **every later write into them is hard-blocked** (the layout gate has no opt-out). `layout-doctor.sh` classifies those three as `retired-area` and says so by name rather than as a generic undesignated directory. **What happens to the content is the owner's call, not this command's**: move what is still true into the repository's own `docs/` tree, outside `.workaholic/`, then remove the directory. This repository deleted its own; nothing imposes that answer elsewhere.
+
 ## 4. The web bootstrap
 
 Claude Code on the web starts each session in a fresh container where `enabledPlugins` installs nothing, so without `.claude/hooks/session-start.sh` (canonical copy: this skill's `bootstrap/session-start.sh`) plus its `SessionStart` entry, every cloud routine stops at its own "the workaholic plugin must be loaded" precondition — firing on time, doing nothing, and reading as healthy. A local session keeps a persistent `~/.claude`, so this is a no-op outside the web.

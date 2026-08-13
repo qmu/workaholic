@@ -5281,15 +5281,17 @@ function testRefreshIndexPreservesContent() {
   {
     const dir = makeRepo("main");
     try {
-      mkdirSync(join(dir, ".workaholic/specs"), { recursive: true });
-      const idx = join(dir, ".workaholic/specs/index.md");
-      writeFileSync(idx, "# specs\n\nIntro a human wrote.\n\n"
+      // terms/ stands in for "a flat indexed area" here — specs/ played the role
+      // until it was retired 2026-08-13 (issue #436) and left the indexed set.
+      mkdirSync(join(dir, ".workaholic/terms"), { recursive: true });
+      const idx = join(dir, ".workaholic/terms/index.md");
+      writeFileSync(idx, "# terms\n\nIntro a human wrote.\n\n"
         + "<!-- okf:generated:begin -->\n* [Alpha](alpha.md) - hand alpha desc\n<!-- okf:generated:end -->\n\n"
         + "## Footer\n\nHuman notes.\n");
       // alpha.md carries NO description frontmatter: the region's description must
       // be preserved from the prior line, not degraded to a bare link.
-      writeFileSync(join(dir, ".workaholic/specs/alpha.md"), "---\ntitle: Alpha\n---\n# Alpha\n");
-      writeFileSync(join(dir, ".workaholic/specs/beta.md"),
+      writeFileSync(join(dir, ".workaholic/terms/alpha.md"), "---\ntitle: Alpha\n---\n# Alpha\n");
+      writeFileSync(join(dir, ".workaholic/terms/beta.md"),
         "---\ntitle: Beta\ndescription: beta fm desc\n---\n# Beta\n");
       execSync(`git add -A && git commit -q -m seed`, { cwd: dir });
       run(dir, `${POSIX_SH} ${R}`);
@@ -5302,7 +5304,7 @@ function testRefreshIndexPreservesContent() {
       assertTrue("prose after the markers is preserved",
         body.includes("## Footer") && body.includes("Human notes."), body);
 
-      execSync(`git rm -q .workaholic/specs/beta.md`, { cwd: dir });
+      execSync(`git rm -q .workaholic/terms/beta.md`, { cwd: dir });
       run(dir, `${POSIX_SH} ${R}`);
       body = readFileSync(idx, "utf8");
       assertTrue("a removed file leaves the region", !body.includes("](beta.md)"), body);
@@ -6202,17 +6204,28 @@ function testValidateLayout() {
     blocked.out.includes("Workaholic layout") && blocked.out.includes("closed structure"),
     `expected a closed-structure message, got: ${blocked.out.slice(0, 300)}`);
 
-  // Allowed locations pass cleanly (exit 0) — including the newly-registered
-  // feedbacks/guides/policies dirs and the release-scan root files.
+  // Allowed locations pass cleanly (exit 0) — every one of them an area some
+  // plugin script writes or reads, plus the release-scan root files.
   for (const p of [
     ".workaholic/stories/s.md", ".workaholic/deployments/prod.md",
     ".workaholic/release-notes/work-x.md", ".workaholic/trips/work-x/designs/design-v1.md",
-    ".workaholic/feedbacks/20260728000000-note.md", ".workaholic/guides/getting-started.md",
-    ".workaholic/policies/security.md",
+    ".workaholic/feedbacks/20260728000000-note.md",
+    ".workaholic/strategies/ship-the-thing.md",
     ".workaholic/README.md", ".workaholic/index.md", ".workaholic/scan-allow", ".workaholic/leak-denylist",
     ".workaholic/tickets/todo/test-example-com/20260101000000-t.md",
   ]) {
     assertEq(`layout allows ${p}`, invoke(p).status, 0);
+  }
+
+  // The three documentation areas retired 2026-08-13 (issue #436) are BLOCKED —
+  // the point of de-listing them is that the gate stops new writes into an area
+  // nothing maintains. The allowlist and the rules table moved in the same commit.
+  for (const p of [
+    ".workaholic/guides/getting-started.md",
+    ".workaholic/policies/security.md",
+    ".workaholic/specs/application.md",
+  ]) {
+    assertEq(`layout blocks the retired area ${p}`, invoke(p).status, 2);
   }
 }
 
@@ -6247,11 +6260,34 @@ function testLayoutDoctor() {
     assertTrue("doctor: no false positive on feedbacks/", !paths.includes(".workaholic/concerns"));
   } finally { cleanup(dir); }
 
+  // The three areas retired 2026-08-13 (issue #436) are named BY THE RETIREMENT,
+  // not as generic undesignated dirs — a consuming repo's plugin updates before
+  // its tree, so the reason it reads must describe the change, not its own shape.
+  // The content decision stays the owner's: the doctor reports, never migrates.
+  const retired = mkdtempSync(join(tmpdir(), "workaholic-doctor-retired-"));
+  try {
+    for (const d of ["stories", "guides", "policies", "specs"]) {
+      mkdirSync(join(retired, ".workaholic", d), { recursive: true });
+    }
+    const r = JSON.parse(run(retired, `${POSIX_SH} ${DOCTOR} ${retired}`).stdout);
+    const byPath = Object.fromEntries(r.findings.map((f) => [f.path, f]));
+    for (const area of ["guides", "policies", "specs"]) {
+      assertEq(`doctor classifies ${area}/ as retired-area`,
+        byPath[`.workaholic/${area}`]?.classification, "retired-area");
+      assertTrue(`doctor names the retirement for ${area}/`,
+        byPath[`.workaholic/${area}`]?.reason.includes("retired 2026-08-13"));
+      assertTrue(`doctor leaves ${area}/ content to the owner`,
+        byPath[`.workaholic/${area}`]?.remediation.includes("owner decision"));
+    }
+    assertTrue("doctor: no false positive on stories/ beside the retired areas",
+      !r.findings.some((f) => f.path === ".workaholic/stories"));
+  } finally { rmSync(retired, { recursive: true, force: true }); }
+
   // A clean tree conforms with zero findings — including the registered
-  // feedbacks/guides/policies dirs and the release-scan root files.
+  // feedbacks/strategies dirs and the release-scan root files.
   const clean = mkdtempSync(join(tmpdir(), "workaholic-doctor-"));
   try {
-    for (const d of ["stories", "tickets/todo", "feedbacks", "guides", "policies"]) {
+    for (const d of ["stories", "tickets/todo", "feedbacks", "strategies"]) {
       mkdirSync(join(clean, ".workaholic", d), { recursive: true });
     }
     writeFileSync(join(clean, ".workaholic/scan-allow"), "");

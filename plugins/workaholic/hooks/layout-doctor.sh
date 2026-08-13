@@ -90,6 +90,17 @@ for entry in "$WH"/* "$WH"/.*; do
 
   if in_allowlist "$name"; then
     : # allowed top-level directory
+  elif [ "$name" = "guides" ] || [ "$name" = "policies" ] || [ "$name" = "specs" ]; then
+    # The three documentation areas retired 2026-08-13 (issue #436). A consuming
+    # repository's plugin updates before its tree does, so it meets the de-listed
+    # allowlist while still holding the directory — and every later write into it is
+    # hard-blocked. Name the retirement rather than let the generic "not in the
+    # allowlist" reason describe a shape the repo has had for months. The content
+    # decision is the OWNER'S: this repo deleted its own because all 17 substantive
+    # files described a retired architecture, and nothing imposes that answer here.
+    add_finding ".workaholic/${name}" "retired-area" \
+      "the guides/, policies/ and specs/ documentation areas were retired 2026-08-13 (issue #436): an area with no writer in the loop goes stale and then lies" \
+      "move what is still true into this repository's own docs/ tree (outside .workaholic/), then remove the directory — owner decision, never applied automatically"
   elif [ "$name" = ".trips" ]; then
     add_finding ".workaholic/.trips" "undesignated" \
       "dotted duplicate of the canonical trips/" \

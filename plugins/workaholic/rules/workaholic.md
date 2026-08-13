@@ -11,19 +11,16 @@ The `.workaholic/` directory has a fixed structure. Only these subdirectories ar
 | ---------------- | ------------------------------------------ |
 | `deployments/`   | Deployment/release procedures and their success-confirmation methods |
 | `feedbacks/`     | The inbound feedback stream — one immutable record per entry (`kind`: insight/instruction/concern/material/answer) |
-| `guides/`        | User documentation (project-local docs area) |
 | `missions/`      | Optional, epic-equivalent groupings of **two or more** tickets — the ticket floor; a bare direction is a feedback record and a single unit of work is a ticket (`active/`, `archive/`) |
-| `policies/`      | Project-local policy documentation         |
 | `release-notes/` | Per-branch release notes — one per shipped unit branch, written pre-merge |
 | `releases/`      | Per-`release/*`-branch ship records — which base commits a release carried, when it was cut, when it was confirmed or failed. **Not** `release-notes/`: that is one note per shipped unit, this is one record per production release |
-| `specs/`         | Current state reference documentation      |
 | `stories/`       | Development narratives per branch          |
 | `strategies/`    | **Outbound, resolved direction** — one flat `<slug>.md` per strategy, each carrying an Aim (what is being pursued), a Schedule (its dated bound) and an Assignee (who carries it). Operator-authored; never written by the loop. Re-introduced 2026-08-13 with a bounded/dated/owned shape after the 2026-07-28 retirement of the open-ended `## Direction` artifact |
 | `terms/`         | Term definitions                           |
 | `tickets/`       | Implementation work queue and archives (`todo/`, `archive/`, `icebox/`, `abandoned/`) |
 | `trips/`         | **Legacy, read-only history** — design/decision artifacts from the retired trip workflow; no writer since 2026-07-28 |
 
-This list is the single source of truth in `plugins/workaholic/hooks/workaholic-layout-allowlist.txt` (one directory per line), which `hooks/validate-ticket.sh` reads to enforce the layout on every `Write`/`Edit`. Keep the table and that file in lockstep when amending the structure — introducing a new top-level artifact directory is a deliberate amendment that must update **both** in the same change (see CLAUDE.md's closed-layout / lockstep-registration policy). Most entries are plugin-generated; `guides/` and `policies/` are conventional project-local documentation areas.
+This list is the single source of truth in `plugins/workaholic/hooks/workaholic-layout-allowlist.txt` (one directory per line), which `hooks/validate-ticket.sh` reads to enforce the layout on every `Write`/`Edit`. Keep the table and that file in lockstep when amending the structure — introducing a new top-level artifact directory is a deliberate amendment that must update **both** in the same change (see CLAUDE.md's closed-layout / lockstep-registration policy). **Every entry is plugin-generated or plugin-read** — that is the admission rule, not a description. `guides/`, `policies/` and `specs/` were the three exceptions (conventional, model-written documentation areas with no writer in the loop) and were **retired on 2026-08-13** (issue #436): an area with no writer goes stale and then lies, and all 17 substantive files in them still described the three-plugin architecture retired months earlier. Reference documentation now lives in the repository's own `docs/` tree, **outside** `.workaholic/`, where its maintainer is a human who reads it. De-listing moves in the same lockstep as listing: a directory leaves this table and the allowlist in one commit, or the next write into it is blocked with a stale reason.
 
 The `tickets/` queue is **flat**: active tickets live directly under `tickets/todo/`, and **who a ticket belongs to is its `assignees` frontmatter field**, not its location (P2, 2026-08-06). `assignees` is plural (a ticket can be co-owned) and **empty means team-owned** — claimable by anyone — exactly as on a mission; every consumer reads it through the one oracle, `gather/scripts/owners.sh` (and `owns.sh` for the mine/unowned/other/unresolved verdict). Reassignment is therefore a frontmatter edit rather than a file move. The queue was partitioned per developer as `tickets/todo/<user>/` until that change; readers still tolerate that shape and the living migration `gather/scripts/migrate-todo-owners.sh` converges it at the write seams, so a checkout mid-migration is never blocked. The icebox (`tickets/icebox/`) and archive (`tickets/archive/<branch>/`) are unchanged.
 
@@ -45,7 +42,7 @@ Root-level files allowed at the `.workaholic/` root: `README.md`; `index.md` —
 - Never create directories outside the allowed list. Enforcement is **blocking and unconditional** — a `Write`/`Edit` into an undesignated `.workaholic/` subdirectory is denied (exit 2) by `validate-ticket.sh` whenever the plugin is installed, with no env-var or marker opt-out (an injectable opt-out fails open exactly when it is not set). The ticket-shape and ticket-location rules are always blocking too. This is why registering a new artifact directory in both sources of truth *before* writing to it is mandatory: a stale allowlist hard-blocks a legitimate write.
 - To audit an existing tree for drift without changing anything, run `bash ${CLAUDE_PLUGIN_ROOT}/hooks/layout-doctor.sh [path]` — it reports undesignated directories and misplaced ticket states (with suggested `git mv`s) against this same allowlist, and never mutates the tree. `[path]` defaults to the current repo; pass a repo root to audit another.
 - If a user requests a new directory, explain the structure and suggest the appropriate existing directory
-- Map common requests: "docs" → `specs/`, "archive" → `tickets/archive/`, "changelog" → use ticket frontmatter, "deploy steps" / "release procedure" / "how to verify a deploy" → `deployments/`
+- Map common requests: "docs" / "reference documentation" / "how does this work today" → the repository's own `docs/` tree, **outside** `.workaholic/` (the retired `specs/` area is not a destination any more — `.workaholic/` holds what the loop writes and reads, and documentation has no writer in the loop), "archive" → `tickets/archive/`, "changelog" → use ticket frontmatter, "deploy steps" / "release procedure" / "how to verify a deploy" → `deployments/`
 
 # Frontmatter Requirements
 
@@ -77,7 +74,6 @@ modified_at: <ISO 8601 timestamp>
 | `missions/`     | `type: Mission`, `title`, `slug`, `status`, `merge_policy`, `assignees` |
 | `release-notes/`| `type: Release Note`                                   |
 | `releases/`     | `type: Release`, `release_branch`, `status` (`staging` / `confirmed` / `failed`), `base`, `cut_at`, `cut_sha`, `since_ref`, `since_reason`, `carried_count`; filled at confirmation: `confirmed_at`, `confirmation_method`, `confirmation_status`, `tag` |
-| `specs/`        | `title`, `description`, `category`, `commit_hash`      |
 | `stories/`      | `type: Story`, `branch`, `started_at`, `ended_at`, metrics fields |
 | `strategies/`   | `type: Strategy`, `title`, `slug`, `status` (`active` / `achieved` / `abandoned`), `target_date` (the Schedule's bound, `YYYY-MM-DD`), non-empty `assignees` (the Assignee), optional `feedback` relation; body sections `## Aim` and `## Schedule` |
 | `terms/`  | `title`, `description`, `category`                     |

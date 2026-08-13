@@ -73,3 +73,29 @@ Provisional — sharpened by the interrogation that replans this mission to driv
 
 - Order matters against the rest of this mission: the ask says "after the plugin update", so this lands after the artifact-side changes, not before them.
 - A consuming repository will still have the three areas after its plugin updates. Removing them from the allowlist makes every later write into them a hard block — that is why the `/workaholify` step of this mission exists, and why this ticket must tell it what to do.
+
+## Final Report
+
+Development completed as planned. The three areas are gone from the repository, the allowlist, the rules table and the OKF index set, in one commit, and a consuming repository that still holds them is told so by name.
+
+### Open Decisions — resolved
+
+- **Deleted, or relocated? → Deleted, and the reasoning is a measurement rather than a preference.** The repository's retirement precedent is that *knowledge* survives structure — and the test of that precedent is whether the content is knowledge. It is not. **17 of the 20 files describe the retired three-plugin architecture** (`core` / `standards` / `work`, `drivin`, `trippin`, the `/trip` command, per-workflow agent files): `specs/component.md` carries 45 such references, `specs/infrastructure.md` 41, `specs/feature.md` 40, `policies/delivery.md` 38, `specs/ux.md` 38. Not one has been touched since 2026-05-14 and most not since 2026-03-10; every one still stamps `commit_hash: f76bde2`. Relocating them into `docs/` would move stale text describing a system that no longer exists next to the maintained documents that contradict it — which is worse than deletion, because a reader would find it and believe it. The precedent is honoured where it applies: git history holds every byte and `git log --follow` recovers any of them. The three `README.md`/`index.md` files went with their areas.
+- **What replaces the `"docs" → specs/` mapping? → The repository's own `docs/` tree, outside `.workaholic/`.** The mapping is now written that way in the rules Guidelines list. The reason is the same one that retired the area: `.workaholic/` holds **what the loop writes and reads**, and documentation has no writer in the loop — which is exactly how these three went stale. `docs/` has a human maintainer who reads it, and this repository's own `docs/` (the loop-engineering workflow, the runbooks, the dependency logs) is the demonstration that the arrangement works.
+
+### What happened to each of the 20 files
+
+All deleted in the archive commit; each recoverable at `git log --follow -- <path>`. None relocated, because none was still true.
+
+- `policies/` (8): `README.md`, `accessibility.md`, `delivery.md`, `observability.md`, `quality.md`, `recovery.md`, `security.md`, `test.md` — the seven substantive files carry 13–38 retired-architecture references each. The live equivalents are the plugin's own pillar policy skills (`workaholic:design` / `implementation` / `operation` / `planning` / `safety` / `development`), whose `policies/` directories are hard copies synced from qmu.co.jp and are **not** affected by this change.
+- `guides/` (4): `README.md`, `commands.md`, `getting-started.md`, `workflow.md` — the live equivalent is `README.md`'s commands table and `CLAUDE.md`.
+- `specs/` (11): `README.md`, `index.md`, `application.md`, `component.md`, `data.md`, `feature.md`, `infrastructure.md`, `model.md`, `stakeholder.md`, `usecase.md`, `ux.md` — the live equivalent is `CLAUDE.md` plus `docs/`.
+
+### Discovered Insights
+
+- **Insight**: The three retired areas were exactly the three the allowlist's own header called exceptions — "conventional, model-written areas" with no writer in the loop — and that exemption is what let them rot.
+  **Context**: Every other allowlist entry is created or read by a live script, so a change to the system changes the artifact. These three had no such coupling, so the system changed around them for five months in silence. The header now states the admission rule positively — *every entry is plugin-generated or plugin-read* — so the next candidate exception has to argue against a rule instead of joining a list of exceptions.
+- **Insight**: De-listing needs the same lockstep as listing, and it is the more dangerous direction.
+  **Context**: Adding a directory to the rules table without the allowlist blocks a legitimate write. **Removing** one from the allowlist blocks every *future* write into a directory a consuming repo already has, with a reason describing a shape it has never had. That is why `layout-doctor.sh` gained a `retired-area` classification that names the retirement and its date rather than reporting "not in the canonical allowlist", and why it emits a remediation but never applies it — the content decision belongs to whoever wrote the content.
+- **Insight**: A test fixture can quietly encode a policy. Two suites used `.workaholic/specs/` as their stand-in for "a flat indexed area" and `guides/`+`policies/` as their stand-in for "a clean tree".
+  **Context**: Both were green for the wrong reason after the retirement — one because `specs/` was no longer indexed, one because the clean tree was no longer clean. They now use `terms/` and `strategies/`, with a comment saying why the substitution happened, so a future reader does not restore the retired area to make a test pass.

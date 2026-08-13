@@ -42,3 +42,4 @@ Proposed sketch — interrogate before driving.
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-13 — ticket archived — 20260813112615-revive-the-strategy-artifact-with-aim-schedule-and-assignee.md
 - 2026-08-13 — ticket archived — 20260813112616-record-the-subject-that-formed-each-feedback.md
+- 2026-08-13 — ticket archived — 20260813112617-retire-the-policies-guides-and-specs-areas.md

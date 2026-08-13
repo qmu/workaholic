@@ -184,7 +184,7 @@ write_index() {
 # around it survives; the region carries only directories git will actually ship.
 region_tmp=$(mktemp)
 trap 'rm -f "$region_tmp"' EXIT
-for area in deployments feedbacks release-notes releases specs strategies terms; do
+for area in deployments feedbacks release-notes releases strategies terms; do
   dir="$ROOT/$area"
   [ -d "$dir" ] || continue
   index="$dir/index.md"
@@ -308,7 +308,7 @@ The development knowledge this project's workaholic workflows generate and maint
 organized as an Open Knowledge Format bundle. Enter any area through its index.
 
 "
-for area in tickets stories missions feedbacks strategies deployments release-notes releases specs terms trips; do
+for area in tickets stories missions feedbacks strategies deployments release-notes releases terms trips; do
   dir="$ROOT/$area"
   [ -d "$dir" ] || continue
   case "$area" in
@@ -325,8 +325,6 @@ for area in tickets stories missions feedbacks strategies deployments release-no
     release-notes) root_body="$root_body* [release-notes](release-notes/index.md) - per-branch release notes, one per shipped unit
 " ;;
     releases)      root_body="$root_body* [releases](releases/index.md) - per-release-branch ship records: which base commits a release carried, when it was cut, when it was confirmed
-" ;;
-    specs)         root_body="$root_body* [specs](specs/index.md) - specification documents
 " ;;
     strategies)    root_body="$root_body* [strategies](strategies/index.md) - outbound, resolved direction: one aim per file, with the date it is bound by and who carries it
 " ;;

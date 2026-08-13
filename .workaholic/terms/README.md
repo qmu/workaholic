@@ -46,13 +46,17 @@ commit and whether it still names something this repository has retired — a de
 It **reports; it never writes.** A glossary a machine maintained would define the words
 the machine already uses, which is the opposite of what a glossary is for.
 
-**Current state, stated plainly**: five of the six records here are flagged. They date
-from 2026-03-10 and still define `drivin`, `trippin`, `scanner`, `guides` and
-`policies` — names retired since. Conforming their frontmatter (this change) is not the
-same as re-reading their prose; that content audit is its own work and its own ticket.
+**Current state, stated plainly**: exactly one record here is flagged, and it is flagged
+by design. The four current-vocabulary records and the conflict ledger were re-read
+against the shipped system on 2026-08-13 and no longer define a name this repository does
+not have. Every retired name moved into `retired-terms.md`, whose whole job is to name
+them — so the seam flags that record permanently, and its own text says so. A flag on any
+other record in this area is a defect.
 
 - [core-concepts.md](core-concepts.md) — the vocabulary of the system itself
 - [artifacts.md](artifacts.md) — what each `.workaholic/` artifact is called and means
-- [workflow-terms.md](workflow-terms.md) — the verbs: drive, archive, report, ship
+- [workflow-terms.md](workflow-terms.md) — the verbs: survey, claim, drive, report, ship
 - [file-conventions.md](file-conventions.md) — naming patterns and directory structures
-- [inconsistencies.md](inconsistencies.md) — known terminology conflicts
+- [inconsistencies.md](inconsistencies.md) — terminology conflicts that are live today
+- [retired-terms.md](retired-terms.md) — names the project no longer has, with dates and
+  successors (permanently flagged by the freshness seam, by design)

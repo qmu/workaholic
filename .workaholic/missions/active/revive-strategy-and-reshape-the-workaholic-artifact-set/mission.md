@@ -49,3 +49,4 @@ Proposed sketch — interrogate before driving.
 - 2026-08-13 — story reported — work-20260813-113709.md
 - 2026-08-13 — run recorded (+1.0h) — implement-20260813-113709
 - 2026-08-13 — run recorded (+0.5h) — 20260813-1400-catchup
+- 2026-08-13 — ticket archived — 20260813125500-re-read-the-stale-terms-glossary-content.md

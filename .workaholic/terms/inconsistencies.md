@@ -1,393 +1,151 @@
 ---
 type: Term
 title: Inconsistencies
-description: Known terminology issues and potential resolutions
+description: Terminology conflicts that are live today — two live meanings for one word
 category: developer
-last_updated: 2026-03-10
-commit_hash: f76bde2
+last_updated: 2026-08-13
 ---
-
-[English](inconsistencies.md) | [日本語](inconsistencies_ja.md)
 
 # Inconsistencies
 
-Known terminology issues and potential resolutions.
+Known terminology conflicts. A term entry like any other, with no special status.
 
-## "Spec" Terminology Overload
+**What belongs here**: a word this project uses today in two different live senses, where
+a reader could pick the wrong one and be misled. **What does not**: a name the project
+retired. A conflict between two names that no longer exist is resolved by history, not by
+a ledger entry — those are recorded in [retired-terms.md](retired-terms.md) with their
+dates and successors. Every entry this file carried before 2026-08-13 was of that second
+kind and has moved there.
 
-### Issue
-
-The `/ticket` command description uses "implementation spec" to describe tickets, but "spec" has a distinct meaning in Workaholic (current state documentation in `.workaholic/specs/`).
-
-### Current Usage
-
-- `/ticket` description: "Explore codebase and write implementation ticket"
-- But historically referred to as "implementation spec" in some contexts
-- `.workaholic/specs/` contains current state documentation, not implementation plans
-
-### Recommended Resolution
-
-Consistently use "ticket" for implementation work requests and "spec" only for current state documentation. Update any remaining references to "implementation spec" to use "ticket" instead.
-
-## Legacy "doc-specs", "sync-src-doc", and "sync-work" References
+## "policy" has three live senses
 
 ### Issue
 
-Historical documentation may reference `/sync-doc-specs`, `/sync-src-doc`, or `/sync-work` commands that no longer exist. These commands have been consolidated into `/pull-request`.
+The word carries three unrelated meanings, and two of them appear in the same ticket.
 
-### Current Usage
+### Current usage
 
-- Current workflow: `/report` runs spec-writer and terms-writer subagents automatically
-- Historical commands: `sync-doc-specs`, `sync-src-doc`, `sync-work`, `sync-workaholic`
-- Targets: `.workaholic/specs/` and `.workaholic/terms/`
+- **An engineering policy** — one of the canonical articles distributed by the six pillar
+  skills (planning, design, implementation, operation, safety, development). A ticket's
+  mandatory policy section names the ones its work answers to, and the driver opens each
+  before writing code.
+- **`merge_policy`** — a two-valued field on a mission or ticket (`auto` / `review`)
+  deciding whether the unit may merge without a human. Nothing to do with engineering
+  policy.
+- **The nesting policy** — the table of which component may invoke which, in `CLAUDE.md`.
 
-### Recommended Resolution
+### Resolution
 
-Update any remaining references to explain that documentation sync happens automatically during `/report`. Historical documents should remain unchanged.
+Say which one. "Engineering policy" for the pillar articles, "merge policy" written out
+for the field, "nesting rules" for the table. Never the bare plural for the pillar
+articles: the same word named a `.workaholic/` area retired on 2026-08-13, and the
+freshness seam reads it as that retired area.
 
-## Legacy "terminology" References
-
-### Issue
-
-The directory `.workaholic/terminology/` has been renamed to `.workaholic/terms/` for brevity. Similarly, the agent `terminology-writer` is now `terms-writer`.
-
-### Current Usage
-
-- Current directory: `.workaholic/terms/`
-- Current agent: `terms-writer`
-- Historical directory: `.workaholic/terminology/`
-- Historical agent: `terminology-writer`
-
-### Recommended Resolution
-
-Update any remaining references from `terminology` to `terms`. Historical documents (archived tickets, stories) should remain unchanged as they reflect what existed at the time.
-
-## Legacy "/sync-workaholic" Command References
+## "report" is both a command and an output
 
 ### Issue
 
-The `/sync-workaholic` command has been removed. Its functionality is now part of `/report` which automatically runs spec-writer and terms-writer subagents.
+`/report` is the command that writes a story and opens a pull request. The **run report**
+is what an unattended executor prints at the end of every run. Neither produces the
+other.
 
-### Current Usage
+### Current usage
 
-- Current workflow: `/report` runs 4 documentation agents concurrently (changelog-writer, story-writer, spec-writer, terms-writer)
-- Historical command: `/sync-workaholic` orchestrated spec-writer and terms-writer
+- `/report` → a story file plus a pull request.
+- The run report → per-unit outcomes, minted tickets, deferred decisions, the
+  reconciliation line and the terminal token, printed to the session.
 
-### Recommended Resolution
+### Resolution
 
-Update any references to `/sync-workaholic` to explain that documentation sync happens automatically during `/report`. Historical documents should remain unchanged.
+Write "the run report" whenever the executor's terminal output is meant, and `/report`
+with the slash whenever the command is. Do not shorten either to "the report".
 
-## Historical `doc/` and `.work/` Directory References
-
-### Issue
-
-Older documentation or comments may reference `doc/` or `.work/` directories that were renamed to `.workaholic/` in the current structure.
-
-### Current Usage
-
-- Current: `.workaholic/` contains all working artifacts
-- Historical: `doc/` → `.work/` → `.workaholic/` (migration path)
-
-### Recommended Resolution
-
-Ensure all current documentation references `.workaholic/` consistently. When encountering `doc/` or `.work/` references, update them to `.workaholic/`.
-
-## "Archive" Dual Meaning
+## "scan" now means the safety scan only
 
 ### Issue
 
-"Archive" is used both as a verb (the action of archiving) and as a noun (the archive directory), which is standard but can cause confusion in instructions.
+`scan` names the deterministic branch-safety gate. It previously named a documentation
+command that no longer exists, and older archived stories use it that way.
 
-### Current Usage
+### Current usage
 
-- Verb: "Archive the ticket after completion"
-- Noun: "Check the archive for previous tickets"
-- Directory: `.workaholic/tickets/archive/`
+- Current: the branch-safety scan — `secret`, `size` and `leak` rules over the branch
+  diff, warn tier at report time and block tier at ship time.
+- Historical: a documentation-regeneration command, retired 2026-05.
 
-### Recommended Resolution
+### Resolution
 
-This is standard English usage and acceptable. When clarity is needed, prefer "archive directory" for the noun form and "archive" (verb) for the action.
+Unqualified "scan" means the safety scan. A historical document keeps its own meaning and
+is not edited.
 
-## Legacy "TDD Plugin" References
-
-### Issue
-
-Historical documentation may reference a separate "TDD plugin" (`plugins/tdd/`) that has been merged into the drivin plugin (formerly "core").
-
-### Current Usage
-
-- Current: All development commands, skills, and rules are in `plugins/drivin/`
-- Historical: Some docs may reference `plugins/tdd/` or "TDD plugin"
-
-### Recommended Resolution
-
-Update any remaining references to the TDD plugin to refer to the drivin plugin instead. The ticket-driven development commands (`/ticket`, `/drive`) are now part of the drivin plugin.
-
-## Legacy "core" Plugin References
+## subject, source and author look alike
 
 ### Issue
 
-The `plugins/core/` directory was renamed to `plugins/drivin/` to give the plugin a distinctive name alongside the new trippin plugin. All `subagent_type: "core:*"` references were updated to `"drivin:*"` and all installed plugin paths from `~/.claude/plugins/marketplaces/workaholic/plugins/core/` to `~/.claude/plugins/marketplaces/workaholic/plugins/drivin/`.
+A feedback record carries all three, and they answer different questions.
 
-### Current Usage
+### Current usage
 
-- Current plugin directory: `plugins/drivin/`
-- Current subagent type prefix: `"drivin:*"`
-- Current installed path: `~/.claude/plugins/marketplaces/workaholic/plugins/drivin/`
-- Historical: `plugins/core/`, `"core:*"`, `~/.claude/plugins/marketplaces/workaholic/plugins/core/`
-- Generated documentation under `.workaholic/specs/` and `.workaholic/policies/` may still contain `plugins/core/` references until regenerated by `/scan`
+- **subject** — whose opinion the record carries (`person`, `meeting`, `observer_ai`,
+  `customer`, `team`, `other`, plus a free-text identity).
+- **source** — the channel it arrived through (meeting, slack, discussion, development).
+- **author** — the git identity that ran the capture.
 
-### Recommended Resolution
+### Resolution
 
-Update any remaining active references from `plugins/core/` to `plugins/drivin/` and from `"core:*"` to `"drivin:*"`. Historical documents (archived tickets, stories) should remain unchanged as they document what existed at the time. Generated specs and policies will be updated automatically on the next `/scan` run.
+Name the axis explicitly in prose. The failure mode is real and was the reason `subject`
+was added: without it, a record written by a routine reads as the machine's own opinion.
 
-## Legacy "/pull-request" Command References
-
-### Issue
-
-The `/pull-request` command has been renamed to `/report`. The new name better reflects that this command generates comprehensive documentation (changelog, story, specs, terms) in addition to creating a GitHub PR.
-
-### Current Usage
-
-- Current command: `/report`
-- Historical command: `/pull-request`
-- The `pr-creator` agent name remains unchanged (internal implementation detail)
-
-### Recommended Resolution
-
-Update any references to `/pull-request` to use `/report`. Historical documents (archived tickets, stories) should remain unchanged as they reflect what existed at the time.
-
-## Legacy "/commit" Command References
+## "release" names four different things
 
 ### Issue
 
-The `/commit` command has been removed. Running `/commit` during a `/drive` session would flush context, disrupting the workflow. Additionally, the command encouraged ad-hoc commits without tickets, undermining the ticket-driven development philosophy.
+Four live artifacts and one branch pattern share the root word.
 
-### Current Usage
+### Current usage
 
-- Current workflow: Commits happen through `/drive` (for ticket implementation) or `/report` (for documentation)
-- Historical command: `/commit` allowed standalone commits
+- **`release/*` branch** — the QA window cut from the base, where a batch's production
+  evidence is proved.
+- **release note** — one per shipped unit branch, in `.workaholic/release-notes/`.
+- **release record** — one per production release, in `.workaholic/releases/`.
+- **GitHub Release** — what continuous integration publishes after a version bump lands.
 
-### Recommended Resolution
+### Resolution
 
-Update any references to `/commit` to explain that commits now happen through ticket-driven workflows (`/drive`, `/report`). All changes should flow through tickets for proper documentation.
+Never write bare "release" where two could be meant. The note is per unit, the record is
+per release, and the branch is per batch.
 
-## Skill Directory Structure Evolution
-
-### Issue
-
-Skills have evolved from single markdown files to directory-based structures with SKILL.md and sh/ subdirectories. Some older documentation may reference the flat file pattern or the `scripts/` directory name.
-
-### Current Usage
-
-- Current structure: `plugins/<name>/skills/<skill-name>/SKILL.md` with optional `sh/` directory
-- Current skills (verb-noun format): archive-ticket, generate-changelog, calculate-story-metrics, gather-spec-context, gather-terms-context, manage-pr, define-ticket-format, drive-workflow, block-commands, enforce-i18n, write-story, write-spec, write-terms, write-changelog, analyze-performance, create-pr, assess-release-readiness
-- Historical pattern: Single markdown files like `archive-ticket.md`
-- Historical directory: `scripts/` (now renamed to `sh/` for POSIX shell compatibility)
-
-### Recommended Resolution
-
-When referencing skills, use the directory-based pattern. The `SKILL.md` file contains the skill definition, while `sh/` contains reusable POSIX shell scripts that agents can invoke.
-
-## Legacy Ticket Root Directory References
+## "archive" is both a verb and a place
 
 ### Issue
 
-Active tickets have moved from `.workaholic/tickets/` (root) to `.workaholic/tickets/todo/` subdirectory. This creates a cleaner three-tier structure (todo/icebox/archive).
+Standard English, and standard in this project's instructions: "archive the ticket" and
+"check the archive".
 
-### Current Usage
+### Current usage
 
-- Current structure: `.workaholic/tickets/todo/` for active tickets
-- Historical location: `.workaholic/tickets/` (root directory)
-- Unchanged: `.workaholic/tickets/icebox/` and `.workaholic/tickets/archive/<branch>/`
+- Verb: the seam that moves a completed ticket and commits it.
+- Noun: `.workaholic/tickets/archive/<branch>/`.
 
-### Recommended Resolution
+### Resolution
 
-Update any references to ticket storage from `.workaholic/tickets/` to `.workaholic/tickets/todo/`. Historical documents should remain unchanged as they reflect the structure at that time.
+Acceptable as-is. Where a sentence could be read either way, write "the archive
+directory" for the noun.
 
-## Legacy "scripts/" Directory References
-
-### Issue
-
-The shell script directory within skills has been renamed from `scripts/` to `sh/` for brevity and to clarify that these are POSIX shell scripts (not bash-specific).
-
-### Current Usage
-
-- Current directory: `sh/` (e.g., `plugins/drivin/skills/write-changelog/sh/generate.sh`)
-- Historical directory: `scripts/` (e.g., `plugins/core/skills/archive-ticket/scripts/archive.sh`)
-
-### Recommended Resolution
-
-Update any remaining references from `scripts/` to `sh/`. All shell scripts should be POSIX-compliant (use `#!/bin/sh`, avoid bash-specific features).
-
-## Legacy "Section 0 Topic Tree" References
+## "feedback" is a record kind, not a review comment
 
 ### Issue
 
-Historical documentation may reference "section 0" or "Topic Tree as a standalone section" for stories. The topic tree was initially added as section 0 at the top of stories, but was later moved to be embedded within the Journey section (section 3).
+`/fb` registers an immutable record in the inbound stream. Claude Code separately ships a
+built-in `/feedback` for reporting problems with the tool — which is why this project's
+command is abbreviated.
 
-### Current Usage
+### Current usage
 
-- Current structure: Story has 7 sections (1-7), with Topic Tree flowchart embedded in Journey (section 3)
-- Historical references: Some docs may mention "section 0" or Topic Tree as a separate section
+- `/fb` → a record in `.workaholic/feedbacks/`, with a kind, a source and a subject.
+- `/feedback` → the host agent's own built-in, unrelated to this repository.
 
-### Recommended Resolution
+### Resolution
 
-Update any references to "section 0 Topic Tree" to clarify that the Topic Tree flowchart is now embedded within the Journey section (section 3). Historical documents (archived tickets, stories) should remain unchanged as they reflect the structure at that time.
-
-## Story Section Count Evolution
-
-### Issue
-
-Historical documentation may reference stories having 7 sections, but the current story format has been expanded to 11 sections with additional analysis sections.
-
-### Current Usage
-
-- Current section count: 11 sections (Summary, Motivation, Journey, Changes, Outcome, Performance, Decisions, Risks, Release Preparation, Notes)
-- Historical reference: 7 sections (Summary, Motivation, Journey, Changes, Outcome, Performance, Notes)
-
-### Recommended Resolution
-
-When referencing story sections, use current section numbers. Historical documents should remain unchanged. The additional sections (Decisions, Risks, Release Preparation) were added to provide more comprehensive PR context.
-
-## Legacy Skill Naming References
-
-### Issue
-
-Skill names have been standardized to use verb-noun format. Older documentation may reference the previous names.
-
-### Current Usage
-
-| Old Name | New Name |
-|----------|----------|
-| changelog | generate-changelog |
-| story-metrics | calculate-story-metrics |
-| spec-context | gather-spec-context |
-| terms-context | gather-terms-context |
-| pr-ops | manage-pr |
-| ticket-format | define-ticket-format |
-| command-prohibition | block-commands |
-| i18n | enforce-i18n |
-
-### Recommended Resolution
-
-Update skill name references to use the new verb-noun format. This naming convention makes skill purposes clearer (the verb indicates what action the skill performs).
-
-## Legacy Skill Consolidation References
-
-### Issue
-
-Several skills have been merged to reduce fragmentation and simplify the skill hierarchy. Historical documentation may reference skills that no longer exist as standalone entities.
-
-### Current Usage
-
-| Removed Skill | Merged Into | Notes |
-|---------------|-------------|-------|
-| manage-pr | create-pr | Shell script and PR operations consolidated |
-| gather-terms-context | write-terms | Context gathering integrated into write skill |
-| gather-spec-context | write-spec | Context gathering integrated into write skill |
-| calculate-story-metrics | write-story | Metrics calculation integrated into write skill |
-| enforce-i18n | translate | Translation requirements consolidated |
-| define-ticket-format | create-ticket | Ticket format merged with creation workflow |
-| block-commands | (deleted) | Removed as ineffective for plugin distribution |
-
-### Recommended Resolution
-
-Update any references to removed skills to point to their consolidated locations. For example, references to `gather-terms-context` should now reference the "Gather Context" section within `write-terms`.
-
-## Legacy "5 Agents Concurrently" References
-
-### Issue
-
-Historical documentation may state that `/report` runs 5 agents concurrently. The current architecture uses two-phase execution: 4 agents run in parallel first, then story-writer runs with release-readiness output.
-
-### Current Usage
-
-- Phase 1: changelog-writer, spec-writer, terms-writer, release-readiness (parallel)
-- Phase 2: story-writer (needs release-readiness output)
-- Phase 3: pr-creator (needs story content)
-
-### Recommended Resolution
-
-Update references to clarify the two-phase execution model. Historical documents should remain unchanged as they reflect the architecture at that time.
-
-## Legacy "Needs revision" Approval Option References
-
-### Issue
-
-The "Needs revision" selectable option was removed from the `/drive` approval dialog. User feedback is now provided through the "Other" free-form input option, which enforces the ticket-update-first rule.
-
-### Current Usage
-
-- Current: Three selectable options (Approve, Approve and stop, Abandon) plus free-form "Other"
-- Historical: Four options including "Needs revision"
-- The feedback functionality remains but is now accessed via "Other" with explicit ticket-update-first enforcement
-
-### Recommended Resolution
-
-Update any references to "Needs revision" as a selectable option. The feedback mechanism now uses "Other" and requires updating the ticket's Implementation Steps before making code changes. Historical documents should remain unchanged.
-
-## Legacy Ad-Hoc Spec File References
-
-### Issue
-
-The spec directory previously contained 3 ad-hoc files (`architecture.md`, `command-flows.md`, `contributing.md`). These have been superseded by 8 viewpoint-based architecture documents (`stakeholder.md`, `model.md`, `usecase.md`, `infrastructure.md`, `application.md`, `component.md`, `data.md`, `feature.md`).
-
-### Current Usage
-
-- Current: 8 viewpoint-based specs in `.workaholic/specs/` with `_ja.md` translations
-- Historical: `architecture.md`, `command-flows.md`, `contributing.md`
-- Legacy files may still exist until fully replaced by viewpoint outputs
-
-### Recommended Resolution
-
-Update any references to the old spec filenames to use the viewpoint-based filenames. The content from `architecture.md` is now split across `component.md` and `infrastructure.md` viewpoints.
-
-## H3 Heading Numbering Convention Change
-
-### Issue
-
-H3 heading numbering changed from dot notation (`### 1.1. Subsection`) to hyphen notation (`### 1-1. Subsection`). Historical documents use the old dot notation.
-
-### Current Usage
-
-- Current: `### 1-1. Subsection` (hyphen notation)
-- Historical: `### 1.1. Subsection` (dot notation)
-- H2 format unchanged: `## 1. Section`
-
-### Recommended Resolution
-
-New documents should use hyphen notation. Historical documents (archived stories, tickets) should remain unchanged as they reflect the convention at the time of creation.
-
-## Legacy Policy Badge System References
-
-### Issue
-
-Historical policy documents may reference `[Explicit]` and `[Inferred]` badges that were used to distinguish between enforced and aspirational policies. This badge system has been removed entirely. Current policy documents only document policies that are actually implemented and executable in the codebase.
-
-### Current Usage
-
-- Current: No badges. Each statement cites its enforcement mechanism (CI check, git hook, linter, script, test)
-- Historical: `[Explicit]` prefix for enforced policies, `[Inferred]` for aspirational practices
-- Documented-only conventions without code enforcement are now excluded from policies
-
-### Recommended Resolution
-
-Update references to explain that policies now only document verifiable, code-enforced practices. Historical documents (archived policy files) should remain unchanged as they reflect the convention at the time of creation.
-
-## Legacy "/story" Command and Scanner Subagent References
-
-### Issue
-
-The `/story` command has been removed and the scanner subagent has been deleted. The `/story` command's functionality (full documentation scan + PR creation) has been split into `/scan` (documentation updates) and `/report` (PR creation). The scanner subagent's orchestration logic has been migrated directly into the `/scan` command.
-
-### Current Usage
-
-- Current commands: `/scan` for documentation updates, `/report` for PR creation
-- Current architecture: `/scan` invokes 17 agents directly (no scanner subagent)
-- Historical command: `/story` performed both scan and PR creation
-- Historical architecture: scanner subagent orchestrated 17 agents
-
-### Recommended Resolution
-
-Update references to explain the command split and architecture flattening. The `/scan` command now provides real-time per-agent progress visibility by invoking agents directly rather than delegating to a scanner subagent. Historical documents should remain unchanged.
+Write `/fb` with the slash when the command is meant, and "feedback record" when the
+artifact is. Do not write `/feedback` for this project's command.

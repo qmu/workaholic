@@ -75,3 +75,55 @@ Provisional — sharpened by the interrogation that replans this mission to driv
 - The deploy-on-merge case is the one that makes this section worth writing and the one most likely to read wrong: for `marketplace.md` the code is already on `main`, so "what needs deploying" is the tag and the published release, not the commits. A plan that lists commits as "to deploy" for that target would be actively misleading.
 - Keep the retrospective note and the prospective plan distinguishable in the document itself. A reader who cannot tell "this shipped" from "this is proposed to ship" is worse off than one with no plan.
 - `write-release-note` is exposed to non-Claude agents through the generated bundle, so its guidance must not assume Claude Code's tooling.
+
+## Final Report
+
+Development completed as planned.
+
+### Open Decisions — resolved
+
+- **Which document is "the Release Note" here?** Resolved as **(i), the per-branch note**
+  (`.workaholic/release-notes/<branch>.md`), which gains a `## Deployment Plan` section.
+  Reasoning, in the order it decided the question: (a) the ask's own word is "Release
+  Note", and this is the only artifact in the tree carrying `type: Release Note`; (b)
+  option (ii) is refused by the repository's own written rule — `.workaholic/releases/` is
+  "derived from git, never hand-authored" — and a drafted plan is the opposite of derived;
+  (c) option (iii) would create a *third* artifact competing for the same name, which is
+  exactly the confusion this ticket's Considerations warn about, and would cost both
+  lockstep sources plus OKF plumbing to register; (d) the note is written at the ship
+  seam, which is precisely where the plan is drafted — one document, one seam. The
+  mission's own `## Experience` ("It leaves a Release Note whose plan says, per target
+  …") reads naturally as one note carrying an entry per target, and that is what was
+  built. **No new area was introduced, so `layout-doctor.sh` is unaffected.**
+
+- **Is the plan mutable?** Resolved as **mutable within a branch, append-only across
+  branches**. The section is regenerated in place on every refresh — it is a draft, and
+  drafts are rewritten — but each ship writes its own note file, so the *tree* stays
+  append-only history and `history-structures.md` holds. A merged note's plan becomes the
+  permanent record of what was planned at that ship. The conflict worry in the ticket does
+  not materialise: only the current, unmerged branch's note is ever rewritten, and
+  `catchup-main.sh`'s append-only `.workaholic/` resolution never has two sides to
+  reconcile on a note that exactly one branch owns.
+
+### Discovered Insights
+
+- **Insight**: the first idempotence attempt was not idempotent, because stamping
+  `targets:` made the note match *itself* as "the latest note for this target" — the
+  answer flipped `recency` → `declared` on run 2 and only settled on run 3.
+  **Context**: A self-referential lookup is the specific way an "obviously idempotent"
+  regenerator fails: nothing about the rendering is time-varying, but the *input* includes
+  the output. `--exclude-note` is the fix, and the general rule is that a writer feeding a
+  reader that scans the writer's own output area must exclude its target.
+
+- **Insight**: the plan section deliberately carries no timestamp — its datum is the
+  base's commit sha.
+  **Context**: `released_at`-style stamping is the reflex for a `.workaholic/` document,
+  and it is exactly what makes a refresh non-idempotent. The sha is both a stabler datum
+  and a more useful one: a reader can check the plan against `git log` from it.
+
+- **Insight**: a `${CLAUDE_PLUGIN_ROOT}` script reference in `write-release-note` breaks
+  the generated bundle — `verify.mjs` reports `MISS` because the prose-only skill's
+  closure carries no `ship/scripts/`.
+  **Context**: The skill is publicly exposed, so its guidance has to name the *skill* that
+  owns a mechanic rather than the script path. `verify.mjs` catches this, but it exits 0
+  while reporting the misses, so the line has to be read rather than waited for.

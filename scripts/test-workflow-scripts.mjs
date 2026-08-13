@@ -69,6 +69,9 @@ const SCRIPTS = {
   publishRelease: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/publish-release.sh"),
   shipPreCheck: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/pre-check.sh"),
   readDeployments: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/read-deployments.sh"),
+  readReleaseNotes: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/read-release-notes.sh"),
+  readDeployState: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/read-deploy-state.sh"),
+  draftDeployPlan: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/draft-deploy-plan.sh"),
   recordEvidence: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/record-evidence.sh"),
   catchupMain: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/catchup-main.sh"),
   applyVerdicts: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/apply-deferred-concern-verdicts.sh"),
@@ -4588,6 +4591,247 @@ function testReadDeployments() {
     assertEq("read-deployments empty confirmation body -> halt",
       { h: r.has_confirmation, c: r.count }, { h: false, c: 1 });
   } finally { cleanup(emptyConf); }
+
+  // The OKF index.md is NOT a deployment target. Before 2026-08-13 the reader
+  // counted it, so a repo with one target reported two — and the plan would have
+  // drafted an entry for a generated index.
+  const withIndex = makeRepo("main");
+  try {
+    mkdirSync(join(withIndex, ".workaholic/deployments"), { recursive: true });
+    writeFileSync(join(withIndex, ".workaholic/deployments/index.md"), "---\ntype: Index\n---\n# Deployments\n");
+    writeFileSync(join(withIndex, ".workaholic/deployments/prod.md"),
+      "---\ntitle: Prod\nconfirmation_method: browser\n---\n\n## Procedure\n\n1. deploy\n\n## Confirmation\n\n1. check\n");
+    const r = JSON.parse(run(withIndex, `${POSIX_SH} ${SCRIPTS.readDeployments}`).stdout);
+    assertEq("read-deployments skips the OKF index", { c: r.count, s: r.deployments[0]?.slug }, { c: 1, s: "prod" });
+  } finally { cleanup(withIndex); }
+
+  // The single-target modes are what read-deploy-state.sh composes: it must be
+  // able to enumerate slugs and splice one entry without parsing frontmatter.
+  const modes = makeRepo("main");
+  try {
+    mkdirSync(join(modes, ".workaholic/deployments"), { recursive: true });
+    writeFileSync(join(modes, ".workaholic/deployments/prod.md"),
+      "---\ntitle: Prod\nconfirmation_method: browser\npaths: [app/, lib/]\n---\n\n## Procedure\n\nThis is a deploy-from-branch target.\n\n## Confirmation\n\n1. check\n");
+    assertEq("read-deployments --slugs lists target slugs",
+      run(modes, `${POSIX_SH} ${SCRIPTS.readDeployments} --slugs`).stdout.trim(), "prod");
+    const one = JSON.parse(run(modes, `${POSIX_SH} ${SCRIPTS.readDeployments} --slug prod`).stdout);
+    assertEq("read-deployments --slug carries model, paths and per-entry confirmation",
+      { m: one.deploy_model, r: one.deploy_model_reason, p: one.paths, h: one.has_confirmation },
+      { m: "deploy-from-branch", r: "body_declaration", p: ["app/", "lib/"], h: true });
+    assertEq("read-deployments --slug of an unknown target -> {}",
+      JSON.parse(run(modes, `${POSIX_SH} ${SCRIPTS.readDeployments} --slug nope`).stdout), {});
+  } finally { cleanup(modes); }
+}
+
+// ---------- ship/read-deploy-state.sh (the deployment-plan consolidation) ----------
+// The four cases the ticket named: no targets, one target with no prior note, one
+// target with a prior note and a non-empty range, and an unresolvable range. Each
+// degradation is a REPORTED reason — never an error and never an empty success.
+function testReadDeployState() {
+  const seedTarget = (root, slug, extraFm = "") => {
+    mkdirSync(join(root, ".workaholic/deployments"), { recursive: true });
+    writeFileSync(join(root, `.workaholic/deployments/${slug}.md`),
+      `---\ntitle: ${slug}\nenvironment: production\nconfirmation_method: other\ncommand: probe\n${extraFm}---\n\n` +
+      "This is a deploy-on-merge target.\n\n## Procedure\n\n1. merge\n\n## Confirmation\n\n1. probe it\n");
+  };
+
+  // Zero targets -> an empty list with a reason, never an error.
+  const noTargets = makeRepo("main");
+  try {
+    const r = JSON.parse(run(noTargets, `${POSIX_SH} ${SCRIPTS.readDeployState}`).stdout);
+    assertEq("read-deploy-state no targets -> reported emptiness",
+      { ok: r.ok, c: r.count, reason: r.reason }, { ok: true, c: 0, reason: "no_targets" });
+  } finally { cleanup(noTargets); }
+
+  // One target, no release note anywhere -> latest_note null, note_match none.
+  const noNote = makeRepo("main");
+  try {
+    seedTarget(noNote, "prod");
+    execSync(`git add -A && git commit -q -m "Add the deployment target"`, { cwd: noNote });
+    const r = JSON.parse(run(noNote, `${POSIX_SH} ${SCRIPTS.readDeployState}`).stdout);
+    const t = r.targets[0];
+    assertEq("read-deploy-state one target, no note",
+      { c: r.count, slug: t.slug, note: t.latest_note, m: t.note_match, model: t.target.deploy_model },
+      { c: 1, slug: "prod", note: null, m: "none", model: "deploy-on-merge" });
+    // No prior release and no tag: the range genuinely is the whole history.
+    assertEq("read-deploy-state names full_history when there is no boundary",
+      t.since_reason, "full_history");
+    assertTrue("read-deploy-state reports a non-empty range", t.unreleased_count >= 1,
+      `unreleased_count was ${t.unreleased_count}`);
+    // No `paths:` on the record -> the weakness is NAMED, not silently assumed.
+    assertEq("read-deploy-state names whole_range attribution", t.attribution, "whole_range");
+  } finally { cleanup(noNote); }
+
+  // One target with a prior note and a non-empty range measured from a tag.
+  const withNote = makeRepo("main");
+  try {
+    seedTarget(withNote, "prod");
+    mkdirSync(join(withNote, ".workaholic/release-notes"), { recursive: true });
+    writeFileSync(join(withNote, ".workaholic/release-notes/work-20260801-000000.md"),
+      "---\ntype: Release Note\nbranch: work-20260801-000000\nreleased_at: 2026-08-01T00:00:00+00:00\ntargets: [prod]\n---\n\n# note\n");
+    execSync(`git add -A && git commit -q -m "Add the target and its note"`, { cwd: withNote });
+    execSync(`git tag v1.0.0`, { cwd: withNote });
+    writeFileSync(join(withNote, "feature.txt"), "shipped after the tag\n");
+    execSync(`git add -A && git commit -q -m "Add a feature after the tag"`, { cwd: withNote });
+    const t = JSON.parse(run(withNote, `${POSIX_SH} ${SCRIPTS.readDeployState}`).stdout).targets[0];
+    assertEq("read-deploy-state joins the note that DECLARES the target",
+      { m: t.note_match, p: t.latest_note?.path },
+      { m: "declared", p: ".workaholic/release-notes/work-20260801-000000.md" });
+    assertEq("read-deploy-state measures the range from the latest tag",
+      { r: t.since_reason, n: t.unreleased_count }, { r: "latest_tag:v1.0.0", n: 1 });
+    assertEq("read-deploy-state lists the unreleased commit subjects",
+      t.commits.map((c) => c.subject), ["Add a feature after the tag"]);
+  } finally { cleanup(withNote); }
+
+  // A note that names no target can only be matched by RECENCY, and the weak
+  // answer says so rather than passing itself off as a join.
+  const recency = makeRepo("main");
+  try {
+    seedTarget(recency, "prod");
+    mkdirSync(join(recency, ".workaholic/release-notes"), { recursive: true });
+    writeFileSync(join(recency, ".workaholic/release-notes/work-20260801-000000.md"),
+      "---\ntype: Release Note\nbranch: work-20260801-000000\n---\n\n# note\n");
+    execSync(`git add -A && git commit -q -m "Add the target and an untargeted note"`, { cwd: recency });
+    const t = JSON.parse(run(recency, `${POSIX_SH} ${SCRIPTS.readDeployState}`).stdout).targets[0];
+    assertEq("read-deploy-state reports a recency match as recency", t.note_match, "recency");
+  } finally { cleanup(recency); }
+
+  // A declared `paths:` upgrades attribution and filters the range.
+  const scoped = makeRepo("main");
+  try {
+    seedTarget(scoped, "prod", "paths: [app/]\n");
+    execSync(`git add -A && git commit -q -m "Add the scoped target"`, { cwd: scoped });
+    execSync(`git tag v1.0.0`, { cwd: scoped });
+    mkdirSync(join(scoped, "app"), { recursive: true });
+    writeFileSync(join(scoped, "app/index.js"), "// shipped\n");
+    execSync(`git add -A && git commit -q -m "Change what this target ships"`, { cwd: scoped });
+    writeFileSync(join(scoped, "unrelated.txt"), "not this target\n");
+    execSync(`git add -A && git commit -q -m "Change something else entirely"`, { cwd: scoped });
+    const t = JSON.parse(run(scoped, `${POSIX_SH} ${SCRIPTS.readDeployState}`).stdout).targets[0];
+    assertEq("read-deploy-state filters the range to the declared paths",
+      { a: t.attribution, p: t.paths, n: t.unreleased_count, s: t.commits.map((c) => c.subject) },
+      { a: "declared_paths", p: ["app/"], n: 1, s: ["Change what this target ships"] });
+  } finally { cleanup(scoped); }
+
+  // An unresolvable base is reported, not guessed.
+  const noBase = makeRepo("trunk");
+  try {
+    seedTarget(noBase, "prod");
+    execSync(`git add -A && git commit -q -m "Add the deployment target"`, { cwd: noBase });
+    const r = JSON.parse(run(noBase, `${POSIX_SH} ${SCRIPTS.readDeployState} main`).stdout);
+    assertEq("read-deploy-state unresolvable base -> reported refusal",
+      { ok: r.ok, reason: r.reason }, { ok: false, reason: "base_unresolvable" });
+  } finally { cleanup(noBase); }
+}
+
+// ---------- ship/draft-deploy-plan.sh (the prospective plan section) ----------
+// The refresh is IDEMPOTENT by contract: a periodic caller runs it, so a second
+// run against an unchanged base has to leave the file byte-identical or the
+// carrier becomes a commit machine.
+function makePlanRepo(withLinks = true) {
+  const dir = makeRepo("main");
+  mkdirSync(join(dir, ".workaholic/deployments"), { recursive: true });
+  writeFileSync(join(dir, ".workaholic/deployments/prod.md"),
+    "---\ntitle: Prod web\nenvironment: production\nconfirmation_method: browser\ncommand: curl -sf /healthz\n---\n\n" +
+    "This is a deploy-from-branch target.\n\n## Procedure\n\n1. deploy\n\n## Confirmation\n\n1. probe /healthz\n");
+  mkdirSync(join(dir, ".workaholic/release-notes"), { recursive: true });
+  const note = ".workaholic/release-notes/work-20260813-000000.md";
+  writeFileSync(join(dir, note),
+    "---\ntype: Release Note\nbranch: work-20260813-000000\nreleased_at: 2026-08-13T00:00:00+00:00\n---\n\n" +
+    "# Sample\n\n## Summary\n\nA sample note.\n" + (withLinks ? "\n## Links\n\n- [Pull Request](https://example.com/pr/1)\n" : ""));
+  execSync(`git add -A && git commit -q -m "Add the target and the note"`, { cwd: dir });
+  // Draft from a WORK BRANCH, as `/ship` does. The plan's datum is the base's
+  // commit sha, so committing the draft must not move the base — on a real ship
+  // it cannot (the base is `origin/main`), and a fixture that committed straight
+  // onto `main` would fail its own idempotence check for the wrong reason.
+  execSync(`git checkout -q -b work-20260813-000000`, { cwd: dir });
+  return { dir, note };
+}
+
+function testDraftDeployPlan() {
+  // A plan is drafted, and every field traces back to the consolidation.
+  const { dir, note } = makePlanRepo();
+  try {
+    const r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.draftDeployPlan} ${note}`).stdout);
+    assertEq("draft-deploy-plan writes the section", { ok: r.ok, t: r.targets, c: r.changed }, { ok: true, t: 1, c: true });
+    const body = readFileSync(join(dir, note), "utf8");
+    assertTrue("draft-deploy-plan marks the section as prospective",
+      /^## Deployment Plan$/m.test(body) && body.includes("Nothing in this section has been deployed"), body);
+    assertTrue("draft-deploy-plan names the target, model, range and verification",
+      body.includes("### Prod web (`prod`)") &&
+      body.includes("deploy-from-branch (`body_declaration`)") &&
+      body.includes("`since_reason: full_history`") &&
+      body.includes("attribution `whole_range`") &&
+      body.includes("`browser` — `curl -sf /healthz`"), body);
+    assertTrue("draft-deploy-plan stamps the targets frontmatter",
+      /^targets: \[prod\]$/m.test(body), body);
+    assertTrue("draft-deploy-plan keeps the plan above ## Links",
+      body.indexOf("## Deployment Plan") < body.indexOf("## Links"), body);
+
+    // THE IDEMPOTENCE DEMO. Commit the first draft, then re-run twice: the
+    // working tree stays clean, which is what a periodic carrier depends on.
+    const after = readFileSync(join(dir, note), "utf8");
+    execSync(`git add -A && git commit -q -m "Draft the deployment plan"`, { cwd: dir });
+    const r2 = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.draftDeployPlan} ${note}`).stdout);
+    const r3 = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.draftDeployPlan} ${note}`).stdout);
+    assertEq("draft-deploy-plan is idempotent", { a: r2.changed, b: r3.changed }, { a: false, b: false });
+    assertEq("draft-deploy-plan left the note byte-identical", readFileSync(join(dir, note), "utf8"), after);
+    assertEq("draft-deploy-plan leaves nothing to commit on a no-op run",
+      run(dir, "git status --porcelain").stdout.trim(), "");
+  } finally { cleanup(dir); }
+
+  // A note without ## Links gets the section appended, and is still idempotent.
+  const noLinks = makePlanRepo(false);
+  try {
+    run(noLinks.dir, `${POSIX_SH} ${SCRIPTS.draftDeployPlan} ${noLinks.note}`);
+    const first = readFileSync(join(noLinks.dir, noLinks.note), "utf8");
+    const r2 = JSON.parse(run(noLinks.dir, `${POSIX_SH} ${SCRIPTS.draftDeployPlan} ${noLinks.note}`).stdout);
+    assertEq("draft-deploy-plan appends idempotently with no ## Links", r2.changed, false);
+    assertEq("draft-deploy-plan appended note is stable", readFileSync(join(noLinks.dir, noLinks.note), "utf8"), first);
+  } finally { cleanup(noLinks.dir); }
+
+  // A note NEVER cites itself as "the latest note for this target" — that would
+  // flip recency->declared on the second run and never settle.
+  const self = makePlanRepo();
+  try {
+    run(self.dir, `${POSIX_SH} ${SCRIPTS.draftDeployPlan} ${self.note}`);
+    const body = readFileSync(join(self.dir, self.note), "utf8");
+    assertTrue("draft-deploy-plan does not cite the note it is writing",
+      body.includes("**Latest note for this target:** none yet"), body);
+  } finally { cleanup(self.dir); }
+
+  // Zero targets is a DECLARATION GAP, said plainly — not silence.
+  const noTargets = makeRepo("main");
+  try {
+    mkdirSync(join(noTargets, ".workaholic/release-notes"), { recursive: true });
+    const note2 = ".workaholic/release-notes/work-20260813-000000.md";
+    writeFileSync(join(noTargets, note2), "---\ntype: Release Note\nbranch: work-20260813-000000\n---\n\n# Sample\n");
+    execSync(`git add -A && git commit -q -m "Add the note"`, { cwd: noTargets });
+    const r = JSON.parse(run(noTargets, `${POSIX_SH} ${SCRIPTS.draftDeployPlan} ${note2}`).stdout);
+    assertEq("draft-deploy-plan with no targets still writes the section", { ok: r.ok, t: r.targets }, { ok: true, t: 0 });
+    assertTrue("draft-deploy-plan names the declaration gap",
+      readFileSync(join(noTargets, note2), "utf8").includes("declaration gap"), "the gap is not named");
+  } finally { cleanup(noTargets); }
+
+  // A DEGRADED READ WRITES NOTHING. An unresolvable base is reported and skipped.
+  const badBase = makePlanRepo();
+  try {
+    const before = readFileSync(join(badBase.dir, badBase.note), "utf8");
+    const r = JSON.parse(run(badBase.dir, `${POSIX_SH} ${SCRIPTS.draftDeployPlan} ${badBase.note} nosuchbase`).stdout);
+    assertEq("draft-deploy-plan degraded read -> reported and skipped",
+      { ok: r.ok, reason: r.reason, w: r.written }, { ok: false, reason: "base_unresolvable", w: false });
+    assertEq("draft-deploy-plan wrote nothing on a degraded read",
+      readFileSync(join(badBase.dir, badBase.note), "utf8"), before);
+  } finally { cleanup(badBase.dir); }
+
+  // A missing note is a refusal, not a created file.
+  const noNote = makePlanRepo();
+  try {
+    const r = JSON.parse(run(noNote.dir, `${POSIX_SH} ${SCRIPTS.draftDeployPlan} .workaholic/release-notes/absent.md`).stdout);
+    assertEq("draft-deploy-plan missing note -> no_note", { ok: r.ok, reason: r.reason }, { ok: false, reason: "no_note" });
+    assertTrue("draft-deploy-plan did not create the missing note",
+      !existsSync(join(noNote.dir, ".workaholic/release-notes/absent.md")), "the note was created");
+  } finally { cleanup(noNote.dir); }
 }
 
 // ---------- ship/record-evidence.sh (pre-merge deployment evidence capture) ----------
@@ -4651,6 +4895,89 @@ function testRecordEvidence() {
     const r = JSON.parse(run(cleanHash, `${POSIX_SH} ${SCRIPTS.recordEvidence} work-x Prod other "200 OK v1.0.55 at commit 63bbb9e; smoke 63/0" pass`).stdout);
     assertEq("record-evidence allows commit-hash/version result", r.recorded, true);
   } finally { cleanup(cleanHash); }
+}
+
+// ---------- ship/record-evidence.sh -> the note's Deployment Verification ----------
+// The plan asks for a verification; this block is where the answer lands, in the
+// SAME document, so an unverified planned deployment is visibly unverified rather
+// than merely absent. One writer fills both destinations, and the four statuses
+// are a closed set: `not_run` ("we could not check") must stay distinguishable
+// from `fail` ("we checked and it was wrong").
+function testRecordEvidenceIntoNote() {
+  const seed = () => {
+    const dir = makeRepo("main");
+    mkdirSync(join(dir, ".workaholic/stories"), { recursive: true });
+    writeFileSync(join(dir, ".workaholic/stories/work-x.md"), "---\nbranch: work-x\n---\n# story\n");
+    mkdirSync(join(dir, ".workaholic/release-notes"), { recursive: true });
+    writeFileSync(join(dir, ".workaholic/release-notes/work-x.md"),
+      "---\ntype: Release Note\nbranch: work-x\ntargets: [prod]\n---\n\n# note\n\n## Deployment Plan\n\nprod: pending\n");
+    return dir;
+  };
+  const NOTE = ".workaholic/release-notes/work-x.md";
+
+  // All four statuses are recordable and distinguishable in the note.
+  for (const status of ["pass", "fail", "not_run", "bypassed"]) {
+    const dir = seed();
+    try {
+      const r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.recordEvidence} work-x prod probe "observed 200" ${status} ${NOTE}`).stdout);
+      assertEq(`record-evidence records ${status} into both destinations`,
+        { rec: r.recorded, st: r.status, s: r.story, n: r.note },
+        { rec: true, st: status, s: ".workaholic/stories/work-x.md", n: NOTE });
+      const body = readFileSync(join(dir, NOTE), "utf8");
+      assertTrue(`record-evidence note block carries status ${status}`,
+        body.includes("## Deployment Verification") && body.includes(`- **Status:** ${status}`), body);
+      assertTrue(`record-evidence ${status} block ties back to the plan entry`,
+        body.includes("**Answers:** the `## Deployment Plan` entry for `prod`"), body);
+    } finally { cleanup(dir); }
+  }
+
+  // A second attempt APPENDS: the first result is never rewritten or removed.
+  const twice = seed();
+  try {
+    run(twice, `${POSIX_SH} ${SCRIPTS.recordEvidence} work-x prod probe "first attempt failed" fail ${NOTE}`);
+    run(twice, `${POSIX_SH} ${SCRIPTS.recordEvidence} work-x prod probe "second attempt ok" pass ${NOTE}`);
+    const body = readFileSync(join(twice, NOTE), "utf8");
+    assertEq("record-evidence writes the Verification heading exactly once",
+      (body.match(/^## Deployment Verification$/gm) || []).length, 1);
+    assertEq("record-evidence appends one block per attempt",
+      (body.match(/^### Attempt — /gm) || []).length, 2);
+    assertTrue("record-evidence never rewrites the earlier attempt",
+      body.includes("first attempt failed") && body.includes("second attempt ok"), body);
+    assertTrue("record-evidence keeps the attempts in order",
+      body.indexOf("first attempt failed") < body.indexOf("second attempt ok"), body);
+  } finally { cleanup(twice); }
+
+  // The secret refusal guards BOTH destinations — it must not be routable around.
+  const secret = seed();
+  try {
+    const r = run(secret, `${POSIX_SH} ${SCRIPTS.recordEvidence} work-x prod probe "token=ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ012345" pass ${NOTE}`);
+    assertTrue("record-evidence refuses a secret even with a note destination",
+      r.status !== 0 && r.stdout.includes("possible_secret"), `${r.status}: ${r.stdout}`);
+    assertTrue("record-evidence wrote the secret to neither destination",
+      !readFileSync(join(secret, NOTE), "utf8").includes("ghp_ABCDEFGHIJ") &&
+      !readFileSync(join(secret, ".workaholic/stories/work-x.md"), "utf8").includes("ghp_ABCDEFGHIJ"),
+      "the secret leaked");
+  } finally { cleanup(secret); }
+
+  // An unrecognised status is refused rather than written as an unknown word.
+  const badStatus = seed();
+  try {
+    const r = run(badStatus, `${POSIX_SH} ${SCRIPTS.recordEvidence} work-x prod probe "observed 200" probably ${NOTE}`);
+    assertTrue("record-evidence refuses a status outside the closed set",
+      r.status !== 0 && r.stdout.includes("bad_status"), `${r.status}: ${r.stdout}`);
+    assertTrue("record-evidence wrote nothing for a bad status",
+      !readFileSync(join(badStatus, NOTE), "utf8").includes("Deployment Verification"), "wrote anyway");
+  } finally { cleanup(badStatus); }
+
+  // The story path is unchanged when no note is passed — the existing callers keep
+  // exactly their old behaviour.
+  const storyOnly = seed();
+  try {
+    const r = JSON.parse(run(storyOnly, `${POSIX_SH} ${SCRIPTS.recordEvidence} work-x prod probe "observed 200" pass`).stdout);
+    assertEq("record-evidence without a note still records the story", { rec: r.recorded, n: r.note }, { rec: true, n: "" });
+    assertTrue("record-evidence left the note untouched without a note argument",
+      !readFileSync(join(storyOnly, NOTE), "utf8").includes("Deployment Verification"), "the note was touched");
+  } finally { cleanup(storyOnly); }
 }
 
 // ---------- ship/record-evidence.sh shares the scanner's key group + pass 1 ----------
@@ -12360,7 +12687,10 @@ const tests = [
   ["ship/publish-release.sh", testPublishRelease],
   ["ship/check-confirmation-capability.sh", testCheckCapability],
   ["ship/read-deployments.sh", testReadDeployments],
+  ["ship/read-deploy-state.sh", testReadDeployState],
+  ["ship/draft-deploy-plan.sh", testDraftDeployPlan],
   ["ship/record-evidence.sh", testRecordEvidence],
+  ["ship/record-evidence.sh -> release note", testRecordEvidenceIntoNote],
   ["ship/record-evidence.sh shared secret rules", testRecordEvidenceSharedRules],
   ["ship/catchup-main.sh", testCatchupMain],
   ["report/apply-deferred-concern-verdicts.sh", testApplyVerdicts],

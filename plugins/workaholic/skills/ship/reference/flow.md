@@ -1,9 +1,10 @@
 # Ship Flow — step-by-step detail
 
 `SKILL.md` §5 is the flow's index; this file is the full per-step contract. Script
-envelopes are [`scripts.md`](scripts.md). Merge is the LAST step, gated on a passing
-production confirmation — if confirmation fails, the branch simply is not merged, and
-that is the rollback.
+envelopes are [`scripts.md`](scripts.md). **The flow deploys nothing**: its outcome is a
+drafted `## Deployment Plan` in the Release Note and a merged PR. Deploying is the
+separate, instructed path (§5-D below), and the production evidence for what has landed
+on the base is the `release/*` window's confirmation (`SKILL.md` §6).
 
 ## Deployment contract formats
 
@@ -15,6 +16,8 @@ title: ...
 environment: production
 confirmation_method: browser   # browser | server-batch | db-query | api-probe | other
 url: ...                       # optional, non-secret locator
+deploy_model: deploy-on-merge  # optional; otherwise read from the body's own wording
+paths: [app/, lib/]            # optional; the subtree this target ships (see below)
 ---
 ## Procedure
 Step-by-step deployment instructions for the agent to execute.
@@ -32,6 +35,11 @@ Step-by-step deployment instructions for the agent to execute.
 Health checks, smoke tests, and expected outcomes.
 ```
 
+`paths` is how a repository with several targets makes "what is waiting to deploy"
+answerable per target. When a target declares none, the consolidation gives it the whole
+unreleased range and reports `attribution: whole_range` — honest with one target,
+visibly weak with several, and never silently assumed either way.
+
 A target follows one of two **deploy models** — *deploy-from-branch* (deploy + confirm
 from the branch, then merge) or *deploy-on-merge* (the merge is the deployment;
 confirmation splits into a pre-merge readiness proof and a post-merge promotion check).
@@ -46,10 +54,11 @@ must be stated, not left absent.
 1. **Pre-check**: `bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/pre-check.sh "<branch>"`.
    If `found` is `false`: inform the user "No PR found for this branch. Run `/report`
    first." and stop. If `merged` is `true`: the PR is already on `main` and this
-   confirmation-before-merge flow cannot re-gate it — warn, then proceed only to
-   deploy/confirm/release for the already-merged commit. Capture `pr_number` and `url`.
+   flow has nothing further to land — warn, then proceed only to the drafting phase and
+   the release publish for the already-merged commit. Capture `pr_number` and `url`.
 
-2. **Catch up with `main`** (mandatory — before any deploy):
+2. **Catch up with `main`** (mandatory — before the plan is drafted, so the plan
+   describes the reconciled branch):
    `bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/catchup-main.sh "<base-branch>"`, and
    apply the version-collision guard: confirm the branch's target version is greater
    than `main`'s current version and not an already-published tag; if not (which a
@@ -58,7 +67,7 @@ must be stated, not left absent.
    **`mechanical`** — reconcile it yourself as routine ship hygiene (merge
    `origin/main`, resolve the version/lockstep manifests plus any `append_only_files` by
    keeping both sides, re-bump past the collision, regenerate `outputs/`, re-run the
-   pre-merge proof), no user prompt; **`content`** — halt and ask the user;
+   project's checks), no user prompt; **`content`** — halt and ask the user;
    `conflict:false, reason:"merge_failed"` is neither — fix the working tree and re-run.
    Never present reconciliation itself as an optional choice.
 
@@ -83,78 +92,103 @@ must be stated, not left absent.
      `bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/record-evidence.sh "<branch>" "release-scan" "override" "<findings overridden: rules + files>" "bypassed"`
      — then continue. Re-run the scan after any fix.
 
-3. **Deploy** (gated on a confirmation method — §1-4; PRE-MERGE): run
-   `read-deployments.sh` and `find-claude-md.sh`.
+3. **Draft the deployment plan** (PRE-MERGE; this step replaced the deploy step on
+   2026-08-13): run `read-deployments.sh` and `find-claude-md.sh`.
    - **No confirmation method** (`has_confirmation` false AND no `## Verify`): HALT and
      apply the §1-4 hard gate — provide a path/credentials, inspect production, author a
      `.workaholic/deployments/` entry, abort, or the deliberate accepted-risk bypass
-     (record via the step-5 bypass path, then merge). Aborting leaves `main` untouched.
+     (record via the step-4 bypass path, then merge). Aborting leaves `main` untouched.
+     The gate is unchanged by the role change: a plan whose verification line reads
+     "none declared" is exactly the aspirational plan this phase exists to prevent.
    - **Confirmation method exists**: run the capability check
-     (`check-confirmation-capability.sh`) for the target's `confirmation_method`; if
-     `capable` is false, warn with `missing`/`hint` — the method cannot run in this
-     environment (e.g. `browser` in headless CI) and will force the post-deploy halt;
-     steer toward a headless-executable method or an interactive ship. Advisory only.
-     Then take the deploy procedure from the matching `## Procedure` (preferred) or
-     `## Deploy`, display it, confirm via AskUserQuestion (§1-3), and execute. For a
-     **deploy-on-merge** project the pre-merge "deploy + confirm" is the
-     branch/staging-level readiness proof (build/verify/test green, version correct);
-     the merge promotes and step 7 publishes/confirms the release. Capture the target's
-     `confirmation_method` and `## Confirmation` / `## Verify` for step 4.
+     (`check-confirmation-capability.sh`) for each target's `confirmation_method` and
+     report `capable: false` with its `missing`/`hint` — the plan names a check that
+     could not run *here*, which the reader needs to know and which no longer blocks
+     anything, because nothing is being deployed. Advisory, as before.
+   - Generate the release note (`workaholic:write-release-note` against
+     `.workaholic/stories/<branch>.md`, passing the PR `url`), then draft the plan into
+     it:
 
-4. **Confirm in production** (execute the confirmation, PRE-MERGE), branching on
-   `confirmation_method`: `browser` — open the recorded `url` and check the documented
-   signal; `server-batch` — run the documented command (credentials transient, never
-   persisted); `db-query` — run the documented query and compare; `api-probe` — probe
-   the recorded `endpoint`; `other` / `## Verify` — follow the documented steps.
-   **A confirmation that runs and returns a failing result is a failed ship — do NOT
-   merge, and it is NOT bypassable.** Report it prominently, leave the PR open, stop.
-   (Distinct from *cannot execute at all* — a cannot-confirm case, which falls back to
-   the §1-4 accepted-risk bypass option, not a force-merge.)
+     ```bash
+     bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/draft-deploy-plan.sh "<note-path>" [<base>]
+     ```
 
-5. **Record evidence and prepare merge artifacts** (PRE-MERGE):
-   - Append the proof: `bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/record-evidence.sh "<branch>" "<target>" "<method>" "<non-secret result>" "pass"`.
+     Report `targets` and `changed`. On `ok: false` (`base_unresolvable`, `no_note`)
+     **report the reason and skip** — the note is left untouched, and a plan that was
+     half-written would be worse than one that was not written at all. The section
+     carries no clock, so a re-run against an unchanged base is byte-identical and
+     `changed` is `false`.
+
+4. **Commit the merge artifacts** (PRE-MERGE):
    - **Bypass path only** (the developer chose the §1-4 accepted-risk override): record
-     the bypass instead —
-     `bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/record-evidence.sh "<branch>" "none" "none (accepted-risk bypass)" "<short note: production state unverified; merge-without-confirmation accepted by developer>" "bypassed"`.
-     On `no_story`, still surface the bypass in the PR body and the step-9 summary.
-   - Generate the release note: run `workaholic:write-release-note` against
-     `.workaholic/stories/<branch>.md`, passing the PR `url`.
-   - Commit both so they ride into the merge:
+     the bypass —
+     `bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/record-evidence.sh "<branch>" "none" "none (accepted-risk bypass)" "<short note: production state unverified; merge-without-confirmation accepted by developer>" "bypassed" "<note-path>"`.
+     On `no_story`, still surface the bypass in the PR body and the step-8 summary.
+   - Commit the note and the story so they ride into the merge:
      `bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/commit-release-note.sh "<branch>"`
      (commit the story update alongside — the script commits only the note). **A failed
      push stops the ship here, pre-merge** (`fatal: "release_note_not_on_remote"`; only
      `no_remote` is soft): resolve the named `push_error`, push, re-run.
-   - Update the PR body so reviewers see the proof before merge:
+   - Update the PR body so reviewers see the plan before merge:
      `bash ${CLAUDE_PLUGIN_ROOT}/skills/report/scripts/create-or-update.sh "<branch>" "<title>"`.
 
-6. **Merge PR** (LAST — only after a passing confirmation):
+5. **Merge PR**:
    `bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/merge-pr.sh "<pr-number>" [<base-branch>]`.
    On failure, inform the user and stop. Read `commit_hash_source` before using
-   `commit_hash` in step 7; report `checked_out`/`checkout_reason` rather than treating
-   a refused post-merge checkout as an error (see [`scripts.md`](scripts.md)).
+   `commit_hash` in step 6; report `checked_out`/`checkout_reason` rather than treating
+   a refused post-merge checkout as an error (see [`scripts.md`](scripts.md)). **The
+   merge is not a deployment** and authorizes none.
 
-7. **Publish GitHub Release** (post-merge, gated on a successful merge):
+6. **Publish GitHub Release** (post-merge, gated on a successful merge):
    `bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/publish-release.sh "<branch>" "<merge-commit>" "<tag>" "<notes-file>"`.
    It defers to an existing release-publishing CI workflow (`reason:"ci_publishes"`) —
-   do nothing then. **Refuse to tag when step 6 reported `on_base: false` or
+   do nothing then. **Refuse to tag when step 5 reported `on_base: false` or
    `commit_hash_source: "branch_head"`**: a tag on the branch head builds the release
    from a tree that never existed on the base. Derive `<tag>` from the project version
    when present, else the next semver after `gh release view`/the latest tag; suffix for
    an additional release on the same branch. When CI is absent and a release will be
    created interactively, confirm via AskUserQuestion first. Report `published`/`reason`.
 
-8. **Extract deferred concerns** (post-merge):
+7. **Extract deferred concerns** (post-merge):
    `bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/extract-deferred-concerns.sh "<branch>" "<pr-number>" "<pr-url>" [<base-branch>]`.
    Pass the base explicitly; report `extracted`, **`pushed`** (on false, say local
    `main` is ahead and a `git push` is outstanding, naming `push_error`), and
    **`destination`** (a count without a destination does not say whether the records
    became visible on the base).
 
-9. **Summarize**: catch-up result, branch-safety scan result (pass, or the blocking
-   findings — and any recorded accepted-risk override), deployment status, confirmation
-   result (method + pass/fail with the recorded evidence, the unresolved-gate outcome if
-   ship halted, or — distinctly — merged WITHOUT production confirmation with the
-   recorded bypass evidence), PR merge status (number, URL — merged only after
-   confirmation passed), release-note status, GitHub Release status, and the deferred
-   concern extraction count with its `destination`, plus `checked_out`/`checkout_reason`
-   when the base was not checked out.
+8. **Summarize**: catch-up result, branch-safety scan result (pass, or the blocking
+   findings — and any recorded accepted-risk override), **the drafted plan** (targets
+   covered, `changed`, or the reported reason it was skipped, and any target whose
+   declared method is not capable here), the unresolved-gate outcome if ship halted or —
+   distinctly — merged WITHOUT a declared confirmation method with the recorded bypass
+   evidence, PR merge status (number, URL), release-note status, GitHub Release status,
+   and the deferred concern extraction count with its `destination`, plus
+   `checked_out`/`checkout_reason` when the base was not checked out.
+
+## §5-D. The instructed deployment
+
+A separate invocation on the developer's instruction, naming a target, after they have
+read the drafted plan. Unattended callers never reach it (`SKILL.md` §0). It is not a
+subcommand and not a first word of an argument — `/ship` keeps one behaviour.
+
+- **D1. Deploy**: run `check-confirmation-capability.sh` (advisory), display the named
+  target's `## Procedure` / `## Deploy`, confirm via AskUserQuestion (§1-3), execute.
+- **D2. Confirm**: execute that target's `## Confirmation` / `## Verify`, branching on
+  `confirmation_method`: `browser` — open the recorded `url` and check the documented
+  signal; `server-batch` — run the documented command (credentials transient, never
+  persisted); `db-query` — run the documented query and compare; `api-probe` — probe the
+  recorded `endpoint`; `other` / `## Verify` — follow the documented steps. **A failing
+  result is a failed deployment and is not overridable**: record it as `fail` and
+  promote nothing.
+- **D3. Record** the attempt into both destinations with one call:
+
+  ```bash
+  bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/record-evidence.sh \
+    "<branch>" "<target>" "<method>" "<non-secret result>" "<status>" "<note-path>"
+  ```
+
+  `<status>` is `pass`, `fail`, `not_run` (the declared method cannot execute in this
+  environment — deliberately distinct from `fail`), or `bypassed`. The note's
+  `## Deployment Verification` is **append-only**: a second attempt adds a block and
+  never rewrites the first, matching the rule that a failed confirmation deletes
+  nothing. The secret guard runs before either destination is touched.

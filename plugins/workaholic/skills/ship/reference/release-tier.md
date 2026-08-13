@@ -1,6 +1,6 @@
 # Release promotion — the `release/*` tier in detail
 
-The rules — explicit invocation, second-confirmation-never-weakens-the-first, a failed
+The rules — explicit invocation, the window carries the production evidence, a failed
 confirmation deletes nothing — are `SKILL.md` §6. This file is the mechanics. (Decisions
 L1-L3, `docs/loop-engineering-workflow.md`.)
 
@@ -19,9 +19,11 @@ merges into the base exactly as today — one merge target per unit.
    move under it, before it is called a release. The base is not blocked meanwhile —
    later units keep merging there and simply belong to the next release.
 3. **Confirm it.** Run the target's `## Confirmation` (or `CLAUDE.md` `## Verify`)
-   against the release branch's tip, exactly as the Ship Flow's step 4 runs it against a
-   unit branch. This is a second confirmation about a batch already on the base, never a
-   deferral or weakening of the per-unit gate.
+   against the release branch's tip, and record the attempt with `confirm-release.sh`.
+   Since 2026-08-13 this is **the** production confirmation, not a second one: the Ship
+   Flow drafts a deployment plan and deploys nothing, so what a unit branch used to
+   prove before it landed is proved here, over the batch, or it is not proved at all.
+   Skipping it does not defer the evidence — it removes it.
 4. **Deploy/tag from the confirmed branch.**
    `bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/publish-release.sh "<release-branch>" "<release tip sha>" "<tag>" "<notes-file>"`.
    It still defers to CI (`ci_publishes`) — in a deploy-on-merge project the release is

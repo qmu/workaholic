@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 1.6
 feedback: [20260813123222-change-ship-s-role-to-drafting-deploy-plans-into-release-notes-before-deploying.md]
 tickets: []
 stories: []
@@ -52,3 +52,4 @@ PROVISIONAL sketch — the interrogation that replans this sharpens it.
 - 2026-08-13 — ticket archived — 20260813123903-record-the-verification-method-and-its-report.md
 - 2026-08-13 — ticket archived — 20260813123903-keep-the-deploy-plan-draft-current-periodically.md
 - 2026-08-13 — reported — work-20260813-133929.md
+- 2026-08-13 — run recorded (+1.6h) — implement-20260813-133929

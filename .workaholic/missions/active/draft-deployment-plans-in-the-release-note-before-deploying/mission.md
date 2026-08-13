@@ -41,7 +41,7 @@ PROVISIONAL sketch — the interrogation that replans this sharpens it.
 
 - [x] The note carries a plan section: per target, what needs deploying and how it is verified. (#20260813123903-add-a-deployment-plan-section-to-the-release-note.md)
 - [x] `/ship` drafts that plan instead of deploying; a deploy needs the developer's instruction. (#20260813123903-make-ship-draft-the-plan-instead-of-deploying.md)
-- [ ] An instructed deployment leaves its verification method and report in that same note. (#20260813123903-record-the-verification-method-and-its-report.md)
+- [x] An instructed deployment leaves its verification method and report in that same note. (#20260813123903-record-the-verification-method-and-its-report.md)
 
 ## Changelog
 
@@ -49,3 +49,4 @@ PROVISIONAL sketch — the interrogation that replans this sharpens it.
 - 2026-08-13 — ticket archived — 20260813123903-consolidate-per-target-deploy-state-for-the-plan.md
 - 2026-08-13 — ticket archived — 20260813123903-add-a-deployment-plan-section-to-the-release-note.md
 - 2026-08-13 — ticket archived — 20260813123903-make-ship-draft-the-plan-instead-of-deploying.md
+- 2026-08-13 — ticket archived — 20260813123903-record-the-verification-method-and-its-report.md

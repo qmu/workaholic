@@ -16,7 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
-claim: work-20260813-073630
+claim: work-20260813-083658
 ---
 
 # Refresh the outdated documentation to match current behavior

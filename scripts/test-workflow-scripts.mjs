@@ -126,6 +126,8 @@ const SCRIPTS = {
   proposeNotifySlack: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/notify-slack.sh"),
   feedbackList: join(REPO_ROOT, "plugins/workaholic/skills/feedback/scripts/list.sh"),
   areaFreshness: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/area-freshness.sh"),
+  migrateTicketStates: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/migrate-ticket-states.sh"),
+  listIcebox: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/list-icebox.sh"),
   missionQueueSize: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/queue-size.sh"),
   missionCheckFloor: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/check-floor.sh"),
   syncMain: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/sync-main.sh"),
@@ -3489,6 +3491,77 @@ function testMissionDuration() {
     assertTrue("actual_hours reflects the sum", /^actual_hours:\s*4\s*$/m.test(body), body);
     assertTrue("each run's increment is carried in a changelog line",
       /run recorded \(\+2\.4h\) — run-a/.test(body) && /run recorded \(\+1\.6h\) — run-b/.test(body), body);
+  } finally { cleanup(dir); }
+}
+
+// ---------- gather/migrate-ticket-states.sh (the two-state ticket tree) ----------
+// 2026-08-13, issue #436: state is a FIELD, the archive is a PLACE — P2's move
+// applied to ticket state. Three cases the ticket named: a repo with both legacy
+// directories, a repo with neither, and a second run proving idempotence. Plus the
+// two properties the migration turns on: the body is untouched, and a ticket
+// carrying an end state is never offered as claimable work.
+function testMigrateTicketStates() {
+  const dir = makeRepo("main");
+  try {
+    const wk = (rel, body) => { mkdirSync(dirname(join(dir, rel)), { recursive: true }); writeFileSync(join(dir, rel), body); };
+    const M = () => JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.migrateTicketStates}`).stdout);
+
+    // A repo with NEITHER legacy directory: a clean no-op, not an error.
+    assertEq("a tree with no legacy directories migrates nothing", M().migrated, 0);
+
+    const abandonedBody = "---\ncreated_at: 2026-07-01T00:00:00+09:00\nauthor: a@qmu.jp\nassignees: [a@qmu.jp]\nmission:\n---\n\n# Dropped\n\n## Overview\n\nBody that must survive byte-identical.\n";
+    const iceboxBody = "---\ncreated_at: 2026-07-02T00:00:00+09:00\nauthor: a@qmu.jp\nassignees: []\nmission:\n---\n\n# Parked\n\n## Overview\n\nDeferred, not rejected.\n";
+    wk(".workaholic/tickets/abandoned/20260701000000-dropped.md", abandonedBody);
+    wk(".workaholic/tickets/icebox/20260702000000-parked.md", iceboxBody);
+    wk(".workaholic/tickets/todo/20260703000000-queued.md",
+      "---\ncreated_at: 2026-07-03T00:00:00+09:00\nauthor: a@qmu.jp\nassignees: [a@qmu.jp]\nmission:\n---\n\n# Queued\n");
+    execSync(`git add -A && git commit -q -m seed`, { cwd: dir });
+
+    const r = M();
+    assertEq("both legacy directories fold", r.migrated, 2);
+    const A = join(dir, ".workaholic/tickets/archive/unbranched/20260701000000-dropped.md");
+    const I = join(dir, ".workaholic/tickets/archive/unbranched/20260702000000-parked.md");
+    assertTrue("an abandoned ticket lands in archive/unbranched/", existsSync(A));
+    assertTrue("an iceboxed ticket lands in archive/unbranched/", existsSync(I));
+    assertTrue("the legacy directories are gone",
+      !existsSync(join(dir, ".workaholic/tickets/abandoned")) && !existsSync(join(dir, ".workaholic/tickets/icebox")));
+
+    // State carried in FRONTMATTER, and the body untouched.
+    assertTrue("the abandoned ticket carries status: abandoned", /^status: abandoned$/m.test(readFileSync(A, "utf8")));
+    assertTrue("the iceboxed ticket carries status: icebox", /^status: icebox$/m.test(readFileSync(I, "utf8")));
+    assertEq("the migration inserts one line and changes nothing else",
+      readFileSync(A, "utf8"), abandonedBody.replace("author: a@qmu.jp", "status: abandoned\nauthor: a@qmu.jp")
+        .replace("status: abandoned\nauthor", "status: abandoned\nauthor"));
+    assertEq("the body survives byte-identical",
+      readFileSync(A, "utf8").split("---\n").slice(2).join("---\n"),
+      abandonedBody.split("---\n").slice(2).join("---\n"));
+
+    // Idempotence: a second run is a no-op and rewrites nothing.
+    execSync(`git add -A && git commit -q -m migrate`, { cwd: dir });
+    assertEq("a second run migrates nothing", M().migrated, 0);
+    assertEq("a second run leaves the tree byte-identical",
+      execSync(`git status --porcelain`, { cwd: dir, encoding: "utf8" }).trim(), "");
+
+    // The survey never offers a ticket carrying an end state, wherever it sits.
+    const queued = run(dir, `${POSIX_SH} ${SCRIPTS.listTodo}`).stdout.trim().split("\n").filter(Boolean);
+    assertEq("only the queued ticket is offered", queued, [".workaholic/tickets/todo/20260703000000-queued.md"]);
+    wk(".workaholic/tickets/todo/20260704000000-stamped.md",
+      "---\ncreated_at: 2026-07-04T00:00:00+09:00\nstatus: abandoned\nauthor: a@qmu.jp\n---\n\n# Stamped\n");
+    assertTrue("a ticket stamped with an end state is never offered, even from todo/",
+      !run(dir, `${POSIX_SH} ${SCRIPTS.listTodo}`).stdout.includes("20260704000000-stamped.md"));
+
+    // The icebox is a STATE: list-icebox reads the field out of the archive.
+    assertEq("list-icebox finds the iceboxed ticket by its field",
+      run(dir, `${POSIX_SH} ${SCRIPTS.listIcebox}`).stdout.trim(),
+      ".workaholic/tickets/archive/unbranched/20260702000000-parked.md");
+
+    // Promotion clears the field — absent means queued, so leaving it would put a
+    // ticket in todo/ that every survey correctly refuses to offer.
+    const promoted = run(dir, `${POSIX_SH} ${SCRIPTS.promoteIcebox} .workaholic/tickets/archive/unbranched/20260702000000-parked.md`).stdout.trim();
+    assertEq("promotion returns the ticket to the flat queue", promoted, ".workaholic/tickets/todo/20260702000000-parked.md");
+    assertTrue("promotion clears the end state", !/^status:/m.test(readFileSync(join(dir, promoted), "utf8")));
+    assertTrue("a promoted ticket is offered again",
+      run(dir, `${POSIX_SH} ${SCRIPTS.listTodo}`).stdout.includes("20260702000000-parked.md"));
   } finally { cleanup(dir); }
 }
 
@@ -12521,6 +12594,7 @@ const tests = [
   ["release-scan gate decision", testReleaseScanGateDecision],
   ["gather/commit-kpi.sh orchestration throughput", testCommitKpi],
   ["mission duration predict + record", testMissionDuration],
+  ["gather/migrate-ticket-states.sh (the two-state ticket tree)", testMigrateTicketStates],
   ["report/area-freshness.sh (the two hand-maintained areas' upkeep seam)", testAreaFreshness],
   ["strategy skill (the artifact revived 2026-08-13)", testStrategySkill],
   ["hooks/validate-strategy.sh (the write-time floor)", testValidateStrategy],

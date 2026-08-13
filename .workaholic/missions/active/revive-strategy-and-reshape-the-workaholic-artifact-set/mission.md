@@ -44,3 +44,4 @@ Proposed sketch — interrogate before driving.
 - 2026-08-13 — ticket archived — 20260813112616-record-the-subject-that-formed-each-feedback.md
 - 2026-08-13 — ticket archived — 20260813112617-retire-the-policies-guides-and-specs-areas.md
 - 2026-08-13 — ticket archived — 20260813112618-redefine-the-deployments-and-terms-areas.md
+- 2026-08-13 — ticket archived — 20260813112619-fold-abandoned-and-icebox-tickets-into-the-archive.md

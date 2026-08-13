@@ -77,3 +77,26 @@ Provisional — sharpened by the interrogation that replans this mission to driv
 
 - 752 archived tickets already exist; the migration must not rewrite or re-index them, only the 7 that move.
 - The enforcement surface is the risk, not the file moves: a repository whose plugin updates before its tree migrates will have its next ticket write blocked by the new floor. That is what the `/workaholify` step of this mission is for.
+
+## Final Report
+
+Development completed as planned. `tickets/` is two-state, the seven parked tickets carry their state in frontmatter, and all three enforcement surfaces plus every reader moved with the tree.
+
+### Open Decisions — resolved
+
+- **Where does a ticket with no branch land? → `archive/unbranched/`, a single synthetic bucket.** The archive is keyed by *the branch that drove a ticket*; an abandoned or iceboxed one was never driven, so naming the branch of the commit that parked it would assert a drive that never happened — and a reader joining archive directories to branches would find one that never carried the work. The flat archive root was the other candidate and breaks the `archive/*/` shape every reader globs (`scan-window.sh`, `ticket-commits.sh`, `report`'s counters). One named bucket keeps the shape and states exactly what is true: archived, never driven.
+- **What is the field called, and what is its vocabulary? → `status:`, over `done | abandoned | icebox`, absent means queued.** `status:` rather than a new word because a reader already knows it from missions and release records, and sharing `abandoned` across artifacts is worth more than a private vocabulary. **Absent means queued** is the same shape as an empty `assignees` meaning team-owned and an absent `merge_policy` meaning review — a ticket gains the field at the moment it stops being queued, and `promote-icebox.sh` *removes* it on the way back. Tickets keep carrying **no `type:`** (the OKF exception is untouched); `status:` is the one new axis.
+- **Does the icebox survive as a state? → Yes, and folding it into `abandoned` would have been a quiet loss.** They are different decisions: iceboxed is **deferred and promotable**, abandoned is **decided against**. The distinction is load-bearing — `promote-icebox.sh` exists to bring one back, and the drive skill is explicit that the icebox is developer-curated in both directions and the run never touches it. Collapsing them would convert every deferral into a rejection with no one deciding to.
+
+### The migration, run here
+
+`migrated: 7` — six from `abandoned/`, one from `icebox/`. Second run: `migrated: 0`, working tree byte-identical. `.workaholic/tickets/` now holds `README.md`, `todo/` and `archive/`. Each moved file gained exactly one line (`status:` after `created_at:`); the body is byte-identical, which the suite pins by comparing everything past the frontmatter fence.
+
+### Discovered Insights
+
+- **Insight**: The enforcement surface was the risk, exactly as the ticket predicted — and the answer was to make every layer *tolerate* the old shape rather than switch to the new one.
+  **Context**: `validate-ticket.sh` still accepts `icebox/` and `abandoned/`, `guard-ticket-structure.sh` still permits a move out of them, `list-icebox.sh` reads both the field and the directory, and `scan-window.sh` still scans all four. A layer that switched cleanly would hard-block a consuming repository whose plugin updated before its tree — turning a convergent migration into a gate, which is the class of failure this change exists to remove. The same reasoning that keeps `todo/<user>/` readable indefinitely applies unchanged.
+- **Insight**: Filtering the queue on the **field** rather than on the directory is not redundancy, it is the actual invariant.
+  **Context**: Nothing writes an end state into `todo/` — the archive seam moves the file in the same act — so filtering by directory would be correct today. But a ticket mid-migration, or one a human stamps by hand, would then be offered as claimable work carrying `status: abandoned`. `list-todo.sh` now reads the field, and the suite pins it with a ticket deliberately stamped while sitting in `todo/`.
+- **Insight**: `[ cond ] && printf` as the last statement of a `while` loop under `set -e` makes a healthy read exit 1.
+  **Context**: `list-icebox.sh` failed its own smoke run that way — the final iteration's non-match became the loop's status, and the loop's status became the script's. An `if` is not stylistic here; every one of these list scripts is consumed by a caller that reads a non-zero exit as "the queue could not be read at all", which is the opposite of "the queue is empty".

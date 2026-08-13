@@ -1,5 +1,6 @@
 ---
 created_at: 2026-07-24T09:43:04+09:00
+status: icebox
 author: a@qmu.jp
 type: enhancement
 layer: [Config]

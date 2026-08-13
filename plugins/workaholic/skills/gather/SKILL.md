@@ -56,9 +56,14 @@ Every consumer reads through these — `/drive`'s survey, `/ticket`'s summary, `
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/migrate-todo-owners.sh [tickets-root]
+bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/migrate-ticket-states.sh [tickets-root]
 ```
 
 Moves `todo/<user-slug>/X.md` → `todo/X.md`, stamping `assignees` from the directory it came from (the author's email when its slug matches that directory, else the bare slug — both compare correctly because `owns.sh` compares by slug). A ticket that already names owners keeps them and is only moved: the field outranks the directory, always. It runs from the write seams (`/ticket`'s publish step, `promote-icebox.sh`, `archive.sh`) and deliberately not from the side-effect-free `plan-units.sh`; every reader tolerates both layouts (`-maxdepth 2`), so the migration converges the tree rather than gating it. It replaces the retired `create-ticket/scripts/sweep-todo.sh`, which routed strays the other way.
+
+`migrate-ticket-states.sh` is its sibling and runs at the same seams: it folds the retired `tickets/abandoned/` and `tickets/icebox/` directories into `tickets/archive/unbranched/`, carrying the state in frontmatter (`status: abandoned` / `status: icebox`) instead of in a path (2026-08-13, issue #436 — P2's *state is a field, not a directory* applied to ticket state). `archive/unbranched/` because the archive is keyed by the branch that **drove** a ticket and neither of these was ever driven. It stamps before it moves (so a failed stamp leaves the ticket where it was), never touches the body, never touches a ticket that already carries a `status:` — which is what makes a second run report `migrated: 0` — and refuses a filename collision rather than guessing, exactly as its sibling does. Emits `{"migrated": N, "moves": [{from, to, status}]}`.
+
+`status:` on a ticket is the one state axis, and **absent means queued**: `done` (stamped by `archive.sh` when a ticket passes its gate), `abandoned`, `icebox`. `promote-icebox.sh` **clears** the field when it returns a ticket to `todo/`, because a queued ticket carrying an end state is one every survey correctly refuses to offer.
 
 ## Project Label
 

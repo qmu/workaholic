@@ -1,5 +1,6 @@
 ---
 created_at: 2026-06-28T00:20:49+09:00
+status: abandoned
 author: a@qmu.jp
 type: refactoring
 layer: [Config]

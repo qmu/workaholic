@@ -117,9 +117,17 @@ if [ -d "${WH}/tickets" ]; then
     [ -d "$sub" ] || continue
     sname=$(basename "$sub")
     case "$sname" in
-      todo|icebox|archive|abandoned) : ;;
+      todo|archive) : ;;
+      icebox|abandoned)
+        # Retired 2026-08-13 (issue #436): state is a frontmatter field, the
+        # archive is a place. The living migration converges these; the doctor
+        # reports them so a tree that has not run it yet says why.
+        add_finding ".workaholic/tickets/${sname}" "retired-ticket-state" \
+          "tickets/ is two-state since 2026-08-13: todo/ and archive/ only — a ticket's state is its status: frontmatter field, not its directory" \
+          "bash \${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/migrate-ticket-states.sh   # folds into archive/unbranched/ with status: ${sname}"
+        ;;
       *) add_finding ".workaholic/tickets/${sname}" "misplaced-ticket-state" \
-           "tickets/ allows only todo, icebox, archive, abandoned" \
+           "tickets/ allows only todo and archive" \
            "git mv .workaholic/tickets/${sname}/* .workaholic/tickets/archive/<branch>/" ;;
     esac
   done

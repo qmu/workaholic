@@ -1,5 +1,6 @@
 ---
 created_at: 2026-07-22T09:18:11+09:00
+status: abandoned
 author: a@qmu.jp
 type: enhancement
 layer: [Application]

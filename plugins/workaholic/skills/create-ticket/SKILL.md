@@ -55,7 +55,7 @@ Treat the returned `path` as the root every subsequent write resolves against (q
 
 ### 1.5. Converge the queue layout
 
-Run the living migration inside the publish tree — `( cd <publish_path> && bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/migrate-todo-owners.sh )`. It moves any legacy `todo/<user-slug>/X.md` to the flat root, stamping `assignees`, git-staged so the moves ride the publish commit. Report `migrated` when anything moved.
+Run the living migrations inside the publish tree — `( cd <publish_path> && bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/migrate-todo-owners.sh )` then `( cd <publish_path> && bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/migrate-ticket-states.sh )`. The first moves any legacy `todo/<user-slug>/X.md` to the flat root, stamping `assignees`; the second folds any retired `tickets/abandoned/` or `tickets/icebox/` directory into `archive/unbranched/` with the state in frontmatter. Both are git-staged so the moves ride the publish commit; both are no-ops in a converged tree. Report `migrated` when anything moved.
 
 ### 2. Parallel Discovery
 

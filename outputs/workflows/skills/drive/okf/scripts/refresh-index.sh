@@ -312,7 +312,7 @@ for area in tickets stories missions feedbacks strategies deployments release-no
   dir="$ROOT/$area"
   [ -d "$dir" ] || continue
   case "$area" in
-    tickets)       root_body="$root_body* [tickets/](tickets/) - implementation tickets (todo / archive / icebox queues)
+    tickets)       root_body="$root_body* [tickets/](tickets/) - implementation tickets (two states: todo / archive; the outcome is the status: field)
 " ;;
     stories)       root_body="$root_body* [stories](stories/index.md) - branch development narratives (PR descriptions and historical record)
 " ;;

@@ -142,9 +142,9 @@ The tree is also an [Open Knowledge Format](https://github.com/GoogleCloudPlatfo
 | Artifact | Written by | Snapshot of | Diffed on ship? | Carried over? | Eliminated when |
 | -------- | ---------- | ----------- | --------------- | ------------- | --------------- |
 | `tickets/todo/<ts>-*.md` | `/ticket`, `/mission` (its whole ordered ticket set), `/propose` (a mission's set, or one loose ticket) | Intended change (not yet implemented) | committed onto a **`work-*` branch behind a pull request** at creation; reaches `main` when that PR merges | no | `/drive` claims it into a PR-unit and archives it once implemented |
-| `tickets/archive/<branch>/*.md` | `/drive` (archive) | Implemented change with final report and commit hash | committed, permanent | no — permanent record | never (institutional history) |
-| `tickets/icebox/*.md` | `/ticket --icebox` (or manual move) | Deferred change | committed | yes (survives across PRs until promoted) | `/drive` (after user promotes from icebox) |
-| `tickets/abandoned/*.md` | `/drive` (abandon flow) | Attempted-then-abandoned change with failure analysis | committed, permanent | no | never |
+| `tickets/archive/<branch>/*.md` | `/drive` (archive) | Implemented change with final report; `status: done` stamped at the gate | committed, permanent | no — permanent record | never (institutional history) |
+| `tickets/archive/**` with `status: icebox` | `/ticket --icebox` (or manual move) | **Deferred** change — parked, promotable, developer-curated in both directions | committed | yes (survives across PRs until promoted) | `promote-icebox.sh` clears the field and returns it to `todo/` |
+| `tickets/archive/**` with `status: abandoned` | `/drive` (abandon flow) | Attempted-then-**decided-against** change with failure analysis | committed, permanent | no | never |
 | `stories/<branch>.md` | `/report` | PR description: overview, journey, outcome, concerns, ideas, release readiness | committed before PR creation | concerns/ideas sections only (extracted by `/ship`) | never (per-branch permanent record) |
 | `release-notes/<branch>.md` | `/ship` (before merging) | Concise release narrative for GitHub Releases | committed before merge | no | never |
 | `releases/<release-branch>.md` | the release promotion (`/ship` §6): `record-release-cut.sh` at the cut — a batch-level act invoked explicitly, never a step of the per-unit ship — and `confirm-release.sh` at each confirmation | Durable ship record for one `release/*` branch: which `main` commits it carried, when it was cut, when it was confirmed or failed. Derived from git, never hand-authored | committed to `main` at cut and at each confirmation | n/a — not branch-scoped | never (a failed confirmation is recorded, not erased) |
@@ -160,7 +160,9 @@ The plugin has one spine — the **ticket** — but the work reaches it through 
 
 #### Use case 1 — Everyday development: `/ticket` → `/drive`
 
-The unit of work is a single ticket, and it is really *one file that changes state* as commands act on it. `/ticket` writes it into the queue; `/drive` reads the queue, implements it, and moves it to the permanent archive (or, if the attempt is dropped, to `abandoned/`). Then the shared tail turns the archived work into a merged, deployed PR.
+The unit of work is a single ticket, and it is really *one file that changes state* as commands act on it. `/ticket` writes it into the queue; `/drive` reads the queue, implements it, and moves it to the permanent archive, stamping the outcome. Then the shared tail turns the archived work into a merged, deployed PR.
+
+Since 2026-08-13 the tree has **two places and four states**: the file is in `todo/` or in `archive/`, and its `status:` frontmatter field says which state it is in — absent (queued), `done`, `abandoned`, or `icebox`. This is the same move `assignees` made — *a property is a field, not a directory* — so a reader never has to parse a path to learn what a ticket is.
 
 ```mermaid
 flowchart LR
@@ -169,13 +171,13 @@ flowchart LR
   report(["/report"])
   ship(["/ship"])
 
-  subgraph TICKET["A ticket — one file, four states"]
+  subgraph TICKET["A ticket — one file, two places, four states"]
     direction TB
-    todo["todo/<br/>queued for work"]
-    icebox["icebox/<br/>parked for later"]
-    archived["archive/&lt;branch&gt;/<br/>implemented · permanent"]
-    abandoned["abandoned/<br/>attempted · dropped"]
-    icebox -.->|promote| todo
+    todo["todo/<br/>status absent · queued"]
+    icebox["archive/**<br/>status: icebox · parked"]
+    archived["archive/&lt;branch&gt;/<br/>status: done · permanent"]
+    abandoned["archive/**<br/>status: abandoned · dropped"]
+    icebox -.->|"promote (clears status)"| todo
     todo ==>|"/drive: claim, implement, archive"| archived
     todo -.->|"/drive: abandon"| abandoned
   end

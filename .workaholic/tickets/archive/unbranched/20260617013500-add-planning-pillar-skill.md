@@ -3,6 +3,7 @@ type: feature
 effort:
 commit_hash:
 created_at: 2026-06-17T01:35:00+09:00
+status: abandoned
 category: Added
 author: a@qmu.jp
 ---

@@ -128,6 +128,7 @@ const SCRIPTS = {
   areaFreshness: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/area-freshness.sh"),
   migrateTicketStates: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/migrate-ticket-states.sh"),
   listIcebox: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/list-icebox.sh"),
+  convergeLayout: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/converge-layout.sh"),
   missionQueueSize: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/queue-size.sh"),
   missionCheckFloor: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/check-floor.sh"),
   syncMain: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/sync-main.sh"),
@@ -3492,6 +3493,83 @@ function testMissionDuration() {
     assertTrue("each run's increment is carried in a changelog line",
       /run recorded \(\+2\.4h\) — run-a/.test(body) && /run recorded \(\+1\.6h\) — run-b/.test(body), body);
   } finally { cleanup(dir); }
+}
+
+// ---------- workaholify/converge-layout.sh (the migration seam) ----------
+// Issue #436 closes with "these migrations need to be applied through
+// /workaholify". What is pinned here is the LINE: it applies what is mechanical
+// and reports what needs a judgment, it stages and never commits, and a converged
+// repository produces an empty delta so it is safe to run every time.
+function testConvergeLayout() {
+  // A fixture in the full pre-mission shape.
+  const dir = makeRepo("main");
+  try {
+    const wk = (rel, body) => { mkdirSync(dirname(join(dir, rel)), { recursive: true }); writeFileSync(join(dir, rel), body); };
+    wk(".workaholic/tickets/todo/a-example-com/20260701000000-owned.md",
+      "---\ncreated_at: 2026-07-01T00:00:00+09:00\nauthor: a@example.com\nmission:\n---\n\n# Owned\n");
+    wk(".workaholic/tickets/abandoned/20260702000000-dropped.md",
+      "---\ncreated_at: 2026-07-02T00:00:00+09:00\nauthor: a@example.com\n---\n\n# Dropped\n");
+    wk(".workaholic/tickets/icebox/20260703000000-parked.md",
+      "---\ncreated_at: 2026-07-03T00:00:00+09:00\nauthor: a@example.com\n---\n\n# Parked\n");
+    wk(".workaholic/guides/getting-started.md", "---\ntitle: g\n---\n# g\n");
+    wk(".workaholic/specs/application.md", "---\ntitle: s\n---\n# s\n");
+    // The one shape nothing converts: the legacy nested strategy tree.
+    wk(".workaholic/strategies/active/old-dir/strategy.md",
+      "---\ntype: Strategy\nslug: old-dir\nstatus: active\n---\n\n## Direction\n\nold shape\n");
+    execSync(`git add -A && git commit -q -m seed`, { cwd: dir });
+    const commitsBefore = execSync(`git rev-list --count HEAD`, { cwd: dir, encoding: "utf8" }).trim();
+
+    let r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.convergeLayout} .`).stdout);
+    assertEq("the mechanical migrations all run", r.changed, 3);
+    assertEq("each migration is composed, not reimplemented",
+      r.applied.map((a) => a.migration), ["migrate-todo-owners", "migrate-ticket-states"]);
+    assertTrue("the per-user queue is flattened",
+      existsSync(join(dir, ".workaholic/tickets/todo/20260701000000-owned.md")));
+    assertTrue("the retired ticket-state directories are folded",
+      existsSync(join(dir, ".workaholic/tickets/archive/unbranched/20260702000000-dropped.md"))
+      && !existsSync(join(dir, ".workaholic/tickets/icebox")));
+
+    // What it will NOT do: decide what happens to another repo's content.
+    assertEq("a retired documentation area is reported, never converted",
+      r.decisions.map((d) => d.path).sort(), [".workaholic/guides", ".workaholic/specs"]);
+    assertTrue("each reported decision names the decision it needs",
+      r.decisions.every((d) => d.classification === "retired-area" && d.remediation.includes("owner decision")));
+    assertTrue("the retired areas are still on disk, untouched",
+      existsSync(join(dir, ".workaholic/guides/getting-started.md")));
+    assertEq("a legacy nested strategy tree is reported and never converted", r.legacy_strategies, true);
+    assertTrue("the legacy strategy tree is still on disk",
+      existsSync(join(dir, ".workaholic/strategies/active/old-dir/strategy.md")));
+    assertEq("the tree does not conform while a decision is owed", r.conforming, false);
+
+    // It stages, it never commits.
+    assertTrue("the migration's moves are staged",
+      execSync(`git diff --cached --name-only`, { cwd: dir, encoding: "utf8" }).includes("archive/unbranched"));
+    assertEq("no commit was made", execSync(`git rev-list --count HEAD`, { cwd: dir, encoding: "utf8" }).trim(), commitsBefore);
+
+    // Safe to repeat: a second run changes nothing and still owes the same decisions.
+    const staged = execSync(`git status --porcelain`, { cwd: dir, encoding: "utf8" });
+    r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.convergeLayout} .`).stdout);
+    assertEq("a second run migrates nothing", r.changed, 0);
+    assertEq("a second run still reports the decisions nobody has made", r.decisions.length, 2);
+    assertEq("a second run leaves the tree exactly as it was",
+      execSync(`git status --porcelain`, { cwd: dir, encoding: "utf8" }), staged);
+  } finally { cleanup(dir); }
+
+  // A repository already in the target shape: an EMPTY delta, so the step is safe
+  // to run on every /workaholify rather than being something an operator times.
+  const clean = makeRepo("main");
+  try {
+    mkdirSync(join(clean, ".workaholic/tickets/todo"), { recursive: true });
+    mkdirSync(join(clean, ".workaholic/stories"), { recursive: true });
+    execSync(`git add -A && git commit -q --allow-empty -m seed`, { cwd: clean });
+    const r = JSON.parse(run(clean, `${POSIX_SH} ${SCRIPTS.convergeLayout} .`).stdout);
+    assertEq("a converged repository migrates nothing", r.changed, 0);
+    assertEq("a converged repository owes no decisions", r.decisions, []);
+    assertEq("a converged repository conforms", r.conforming, true);
+    assertEq("a converged repository has no legacy strategy tree", r.legacy_strategies, false);
+    assertEq("a converged repository is left byte-identical",
+      execSync(`git status --porcelain`, { cwd: clean, encoding: "utf8" }).trim(), "");
+  } finally { cleanup(clean); }
 }
 
 // ---------- gather/migrate-ticket-states.sh (the two-state ticket tree) ----------
@@ -12595,6 +12673,7 @@ const tests = [
   ["gather/commit-kpi.sh orchestration throughput", testCommitKpi],
   ["mission duration predict + record", testMissionDuration],
   ["gather/migrate-ticket-states.sh (the two-state ticket tree)", testMigrateTicketStates],
+  ["workaholify/converge-layout.sh (the migration seam)", testConvergeLayout],
   ["report/area-freshness.sh (the two hand-maintained areas' upkeep seam)", testAreaFreshness],
   ["strategy skill (the artifact revived 2026-08-13)", testStrategySkill],
   ["hooks/validate-strategy.sh (the write-time floor)", testValidateStrategy],

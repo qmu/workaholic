@@ -2,7 +2,7 @@
 type: Mission
 title: Make the workflow scripts survive a GraphQL-restricted gh
 slug: make-the-workflow-scripts-survive-a-graphql-restricted-gh
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-12T17:26:31+00:00
 author: a@qmu.jp
@@ -53,3 +53,4 @@ No step reports `list_failed` or `pr_failed` for a reason the environment can se
 - 2026-08-12 — run recorded (+1.4h) — implement-20260812-180600
 - 2026-08-12 — ticket archived — 20260812172713-cover-the-remaining-gh-readers-and-pin-the-dependency.md
 - 2026-08-12 — run recorded (+0.6h) — implement-20260812-183726
+- 2026-08-13 — mission achieved — mission.md

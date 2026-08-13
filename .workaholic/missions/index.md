@@ -1,11 +1,5 @@
 # missions
 
-## active
-
-* [make-the-propose-implement-loop-drillable-on-demand](active/make-the-propose-implement-loop-drillable-on-demand/mission.md) - Make the propose–implement loop drillable on demand
-* [make-the-workflow-scripts-survive-a-graphql-restricted-gh](active/make-the-workflow-scripts-survive-a-graphql-restricted-gh/mission.md) - Make the workflow scripts survive a GraphQL-restricted gh
-* [stop-a-routine-finish-line-from-vanishing-on-the-script-path](active/stop-a-routine-finish-line-from-vanishing-on-the-script-path/mission.md) - Stop a routine finish line from vanishing on the script path
-
 ## archive
 
 * [adopt-a-git-flow-branching-model-with-durable-ship-records](archive/adopt-a-git-flow-branching-model-with-durable-ship-records/mission.md) - Adopt a release-branch staging tier with durable ship records
@@ -27,6 +21,8 @@
 * [make-the-branch-story-measurably-shorter](archive/make-the-branch-story-measurably-shorter/mission.md) - Make the branch story measurably shorter
 * [make-the-feedback-loop-actually-propose](archive/make-the-feedback-loop-actually-propose/mission.md) - Make the feedback loop actually propose
 * [make-the-per-commit-changed-lines-ceiling-a-rule-that-holds](archive/make-the-per-commit-changed-lines-ceiling-a-rule-that-holds/mission.md) - Make the per-commit changed-lines ceiling a rule that holds
+* [make-the-propose-implement-loop-drillable-on-demand](archive/make-the-propose-implement-loop-drillable-on-demand/mission.md) - Make the propose–implement loop drillable on demand
+* [make-the-workflow-scripts-survive-a-graphql-restricted-gh](archive/make-the-workflow-scripts-survive-a-graphql-restricted-gh/mission.md) - Make the workflow scripts survive a GraphQL-restricted gh
 * [move-the-propose-and-implement-routines-to-a-fixed-interval-schedule](archive/move-the-propose-and-implement-routines-to-a-fixed-interval-schedule/mission.md) - Move the Propose and Implement routines to a fixed-interval schedule
 * [propose-at-the-capture-seam](archive/propose-at-the-capture-seam/mission.md) - Propose at the capture seam
 * [reduce-the-loop-to-two-routines-and-one-behaviour-per-command](archive/reduce-the-loop-to-two-routines-and-one-behaviour-per-command/mission.md) - Reduce the loop to two routines and one behaviour per command
@@ -34,3 +30,4 @@
 * [retire-routine-management-into-a-setup-sheet](archive/retire-routine-management-into-a-setup-sheet/mission.md) - Retire routine management into a setup sheet
 * [right-size-report-to-single-ticket-per-pr-granularity](archive/right-size-report-to-single-ticket-per-pr-granularity/mission.md) - Right-size /report to single-ticket-per-PR granularity
 * [slim-commands-skills-and-docs-for-ai-agent-use](archive/slim-commands-skills-and-docs-for-ai-agent-use/mission.md) - Slim commands, skills, and docs for AI-agent use
+* [stop-a-routine-finish-line-from-vanishing-on-the-script-path](archive/stop-a-routine-finish-line-from-vanishing-on-the-script-path/mission.md) - Stop a routine finish line from vanishing on the script path

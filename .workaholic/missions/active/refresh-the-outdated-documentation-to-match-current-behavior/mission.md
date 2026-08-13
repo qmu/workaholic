@@ -54,3 +54,4 @@ request merging on opening, quality gated at the `release/*` window, and
 - 2026-08-13 — ticket archived — 20260813072628-correct-the-outdated-statements-in-the-root-readme.md
 - 2026-08-13 — ticket archived — 20260813072628-bring-the-docs-runbooks-in-line-with-the-shipped-loops.md
 - 2026-08-13 — ticket archived — 20260813072628-update-the-artifact-hub-and-rules-docs-to-current-behavior.md
+- 2026-08-13 — Story written — work-20260813-073630.md

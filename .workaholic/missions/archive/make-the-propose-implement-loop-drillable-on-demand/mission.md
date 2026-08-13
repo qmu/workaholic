@@ -2,7 +2,7 @@
 type: Mission
 title: Make the propose–implement loop drillable on demand
 slug: make-the-propose-implement-loop-drillable-on-demand
-status: active
+status: achieved
 merge_policy: auto
 created_at: 2026-08-13T04:04:28+09:00
 author: a@qmu.jp
@@ -50,3 +50,4 @@ minting a fresh issue per run, never from deleting history.
 - 2026-08-12 — ticket archived — 20260812190503-write-the-loop-drill-runbook.md
 - 2026-08-12 — story — work-20260812-193807.md
 - 2026-08-12 — run recorded (+0.52h) — 20260812-193807
+- 2026-08-13 — mission achieved — mission.md

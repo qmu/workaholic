@@ -82,7 +82,18 @@ At `mission/scripts/<name>`. A locator, not a contract — arguments, JSON keys,
 - **Create / end**: `create.sh` (scaffold, creator-seeded `assignees`; refuses to overwrite), `slug.sh` (title → slug, the single source of the slug rule), `close.sh` (the only sanctioned way to end a mission: status flip + archive move).
 - **Read**: `list.sh` (the roadmap with computed `relation`, `next`, `ready`/`ready_reason`), `summary.sh` (canonical statement of the shared owner gate), `progress.sh` (`{checked, total, unlinked}`), `next-acceptance.sh`, `gate.sh` (`gate_*` + worktree ports; `valid` vs `driveable`), `drive-authorized.sh` (per-ticket, conservative across a many-valued relation), `read-relation.sh` (the single reader of `mission:`), `unlinked-acceptance.sh`, `list-related-prs.sh` (best-effort, for the replan), `queue-size.sh` (the single ticket counter, home of `meets_floor`).
 - **Write** (each the *only* writer of its field): `append-changelog.sh` (idempotent per event+artifact), `link-acceptance.sh` (the acceptance `(#<filename>)` link; pairing named, never inferred), `tick-acceptance.sh` (the `[x]`, keyed on the link), `predict-duration.sh` / `record-run-hours.sh` (`predicted_hours` once / `actual_hours`).
-- **Floors / migrations**: `check-floor.sh` (the ticket floor as an act-on-able verdict), `migrate-strategies.sh` (folds a legacy `strategies/` tree into feedback records).
+- **Floors / migrations**: `check-floor.sh` (the ticket floor as an act-on-able verdict). `migrate-strategies.sh` was **retired 2026-08-13** with the strategy artifact's return — see *The strategy layer: retired, then redefined* below.
+
+## The strategy layer: retired, then redefined
+
+A mission is **not** a strategy's execution plan, and has not been one since 2026-07-28. That day the strategy layer was retired (decision B3): a mission became an optional, epic-equivalent grouping of tickets, ownership returned to the mission itself, and long-lived direction was sent to the feedback stream — because a second direction artifact and an inbox of direction would drift, and because the retired artifact carried open-ended `## Direction` prose with **no completion condition**, so nothing could ever say it was done.
+
+On **2026-08-13** the artifact returned, with a different definition (`strategy`, issue #436). This is a recorded inversion, not an erasure of the retirement — both halves stand:
+
+- **What returned**: a `Strategy` is one piece of outbound, resolved direction at `.workaholic/strategies/<slug>.md`, carrying an **Aim**, a **Schedule** (`target_date`, a real date) and an **Assignee** (non-empty `assignees`). It is bounded, owned and closable — precisely the three properties the retired artifact lacked, and the three the write floor `validate-strategy.sh` checks.
+- **Why it does not re-open the drift**: the feedback stream stays the sole home of *inbound* direction — what someone said, immutable and unowned. A strategy is what the operator *decided*, and the citation link runs one way (strategy → feedback). Two homes drift when both are inboxes; only one of these is.
+- **What did not return**: the `strategy:` relation on a mission, and the ownership hop it fed (`owners.sh`). A mission's owner is on the mission; a strategy's owner is on the strategy. A legacy `strategy:` key in an old mission stays tolerated history and is still read by nothing.
+- **What was unwired**: `migrate-strategies.sh` and the `missions_migrate_strategies` seam, which erased `strategies/` on every mission-script touch. Leaving them wired would have deleted each revived strategy silently. The retirement's own folding stands in history; nothing reverses it, and no route re-adds the erasure.
 
 ## Worktree lifecycle
 

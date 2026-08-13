@@ -114,10 +114,17 @@ esac
 # Extract the path after .workaholic/tickets/
 tickets_path="${file_path#*.workaholic/tickets/}"
 
-# Validate location: must be in todo/ (FLAT — the canonical write target since P2,
-# 2026-08-06, because a ticket's owner is its `assignees` field and not its
-# directory), icebox/ (flat), abandoned/ (flat, where drive parks failed tickets),
-# or archive/<branch>/. The trailing [^/]+$ anchors reject deeper nesting, and any
+# Validate location: the tree is TWO-STATE since 2026-08-13 (issue #436) — todo/
+# (FLAT: the canonical write target since P2, 2026-08-06, because a ticket's owner
+# is its `assignees` field and not its directory) and archive/<branch>/. A ticket's
+# STATE is its `status:` frontmatter field, not its path: absent means queued,
+# `done | abandoned | icebox` mean archived with that outcome. The retired
+# icebox/ and abandoned/ directories are STILL ACCEPTED here, for the same reason
+# todo/<user>/ is: the living migration (gather/scripts/migrate-ticket-states.sh)
+# converges the tree at the write seams, and a hook that rejected the old shape
+# would hard-block an ordinary edit to a ticket a checkout has not migrated yet —
+# turning a convergent migration into a gate, which is the class of failure this
+# whole change removes. The trailing [^/]+$ anchors reject deeper nesting, and any
 # other top-level dir (an invented done/) falls through to the error.
 #
 # `todo/<user>/<ticket>.md` is STILL ACCEPTED, and deliberately so: the living
@@ -131,15 +138,18 @@ if printf '%s' "$tickets_path" | grep -qE '^todo/[^/]+$'; then
 elif printf '%s' "$tickets_path" | grep -qE '^todo/[^/]+/[^/]+$'; then
   : # Valid (todo/<user>/<ticket>.md — legacy, pending migration)
 elif printf '%s' "$tickets_path" | grep -qE '^icebox/[^/]+$'; then
-  : # Valid (icebox stays flat)
+  : # Valid (legacy, pending migration — folds into archive/unbranched/ + status: icebox)
 elif printf '%s' "$tickets_path" | grep -qE '^abandoned/[^/]+$'; then
-  : # Valid (abandoned stays flat)
+  : # Valid (legacy, pending migration — folds into archive/unbranched/ + status: abandoned)
 elif printf '%s' "$tickets_path" | grep -qE '^archive/[^/]+/'; then
-  : # Valid (archive/<branch>/)
+  : # Valid (archive/<branch>/, including the synthetic archive/unbranched/)
 else
-  echo "Error: Ticket must be in todo/, icebox/, abandoned/, or archive/<branch>/" >&2
+  echo "Error: Ticket must be in todo/ or archive/<branch>/ (the two-state tree)" >&2
   echo "Got: $tickets_path" >&2
-  echo "(non-canonical subdirs such as done/ are not allowed)" >&2
+  echo "(a ticket's state is its status: frontmatter field — absent means queued;" >&2
+  echo " done | abandoned | icebox mean archived with that outcome. Non-canonical" >&2
+  echo " subdirs such as done/ are not allowed; the retired icebox/ and abandoned/" >&2
+  echo " directories are tolerated only until the living migration converges them.)" >&2
   print_skill_reference
   exit 2
 fi

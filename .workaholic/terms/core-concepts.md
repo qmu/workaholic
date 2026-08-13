@@ -1,4 +1,5 @@
 ---
+type: Term
 title: Core Concepts
 description: Fundamental building blocks of the Workaholic plugin system
 category: developer

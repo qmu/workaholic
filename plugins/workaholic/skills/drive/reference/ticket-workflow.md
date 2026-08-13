@@ -30,11 +30,28 @@ directories flattens before anything reads or writes it:
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/migrate-todo-owners.sh
+bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/migrate-ticket-states.sh
 ```
 
-It moves `todo/<user-slug>/X.md` to `todo/X.md`, stamps `assignees` from the directory, and
-git-stages each move (they ride into the next archive commit). It never touches `archive/` or the
-icebox; every reader tolerates both layouts, so it converges the tree rather than gating it.
+The first moves `todo/<user-slug>/X.md` to `todo/X.md`, stamps `assignees` from the directory, and
+git-stages each move (they ride into the next archive commit).
+
+The second folds the retired `tickets/abandoned/` and `tickets/icebox/` directories into
+`archive/unbranched/`, carrying the state in frontmatter (`status: abandoned` / `status: icebox`)
+instead of in a path (2026-08-13, issue #436). It never touches the body, never touches a ticket
+that already carries a `status:`, and is a clean no-op in a repository that never had either
+directory — so a second run reports `migrated: 0`.
+
+Both are convergent, never gates: every reader tolerates both layouts, so a checkout that has not
+run them is never blocked.
+
+### The icebox is a state, not a place
+
+`list-icebox.sh` reads `status: icebox` out of the archive **and** the retired directory, and
+`promote-icebox.sh` clears the field when it moves a ticket back to `todo/` (absent means queued,
+so a promoted ticket carrying the stamp would be silently refused by every survey). The icebox
+survives as a state distinct from `abandoned` on purpose: iceboxed is **deferred and promotable**,
+abandoned is **decided against**.
 
 ### The icebox is developer-curated
 

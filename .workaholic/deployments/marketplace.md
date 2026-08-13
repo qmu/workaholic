@@ -1,4 +1,5 @@
 ---
+type: Deployment
 author: a@qmu.jp
 created_at: 2026-06-17T23:18:48+09:00
 modified_at: 2026-06-17T23:18:48+09:00

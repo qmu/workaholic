@@ -24,6 +24,18 @@ Run by the release-readiness worker (Phase 2). Analyze the branch and return the
 
    passing the resolved `base_branch` from `git-context.sh`. It returns drift **facts**, not verdicts: which structural files changed presence — skills, commands, agents, hooks added/removed/renamed, plus top-level `scripts/` — and whether the index/meta docs that enumerate them (`CLAUDE.md`, `README.md`, `docs/` when present) were touched in the same range. For each `candidate`, **judge** against the diff and the doc's actual content whether that doc genuinely should have been updated and was not. A candidate is a hint, not a verdict; dismiss it when the doc legitimately did not need the change. Confirmed drift becomes (a) a `concerns[]` entry plus a `pre_release` instruction, and (b) a durable Concerns entry via `review-sections`, so it carries over on `/ship` if not fixed first. Exclude `outputs/` staleness and version/manifest drift — the Outputs Freshness CI and `validate-metadata.mjs` own those domains; the script already omits them.
 
+4a. **Assess hand-maintained area freshness**:
+
+   ```bash
+   bash ../report/scripts/area-freshness.sh
+   ```
+
+   The upkeep seam for the two areas that have **no writer in the loop** and survived the 2026-08-13 layout reshape on the condition that staleness become visible: `deployments/` and `terms/`. Like `doc-drift.sh` it emits **facts, never verdicts**, and it never edits a record — a deployment record describes a procedure a human authored, and a glossary a machine maintained would define the words it already uses.
+
+   Two facts per record. **`retired_terms` is the one that carries weight**: the record still names something this repository no longer has — a de-listed `.workaholic/` area (`guides`, `policies`, `specs`), or a retired plugin namespace (`drivin`, `trippin`). That is not "possibly stale", it is wrong, and it is worth a concern when this branch touched the area or the thing the record describes. **`stale_days`** is reported for every record and thresholded by nobody: the right interval differs per project, so a number baked into the script would be a guess. Judge it in context — a deployment record untouched while this branch changed the delivery path it describes is drift; the same record untouched while the path did not change is fine.
+
+   **Do not flag the whole backlog on every branch.** This repository's own `terms/` records date from 2026-03-10 and five of six are flagged; re-reading that prose is its own work with its own ticket, and re-raising it on every unrelated report would train a reader to ignore the signal.
+
 5. **Identify actionable items** (not theoretical concerns): documentation to update (including confirmed drift), version numbers to bump, files to stage/commit before release.
 
 ## What NOT to flag
@@ -34,6 +46,7 @@ Run by the release-readiness worker (Phase 2). Analyze the branch and return the
 - Theoretical upgrade concerns — users pull fresh versions
 - Drift the existing guards already own: `outputs/` staleness (Outputs Freshness CI) and version-number mismatches across manifests (`validate-metadata.mjs`)
 - A `doc-drift.sh` candidate that, on inspection, is not real
+- An `area-freshness.sh` record this branch did not touch and did not affect — the known backlog is not this branch's concern
 
 ## Output format
 

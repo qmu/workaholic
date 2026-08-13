@@ -11,12 +11,35 @@
 # or mootness is a NEW entry naming the old one via the optional supersedes
 # argument (see feedback/SKILL.md, Immutability).
 #
-# Usage: printf '%s\n' "<body>" | create.sh "<title>" <kind> <source> [supersedes-filename]
-#   kind:   insight | instruction | concern | material | answer
-#   source: meeting | slack | discussion
+# THREE axes are recorded and they answer three different questions, so none of
+# them substitutes for another (feedback/reference/schema.md, Field semantics):
+#   subject = WHOSE opinion this is   (a person, a meeting, an observer AI, ...)
+#   source  = WHICH CHANNEL it arrived through (meeting | slack | discussion | development)
+#   author  = WHO RAN THE CAPTURE     (a git identity; under a routine, the runner)
+# `subject` is REQUIRED and is never defaulted — least of all to the author. A
+# routine writes most of this stream, so a defaulted subject would say every
+# opinion in the project is the runner's, which is the exact failure `assignees`
+# had before P6. A caller that does not know the subject must find it, not guess.
+#
+# Usage: printf '%s\n' "<body>" | create.sh --subject <subject> "<title>" <kind> <source> [supersedes-filename]
+#   subject: <kind>[:<identity>]; kind is the closed set
+#            person | meeting | observer_ai | customer | team | other
+#            and the identity after the colon is free text ("person:a@qmu.jp",
+#            "meeting:2026-08-13 planning", "observer_ai:[Implement] routine")
+#   kind:    insight | instruction | concern | material | answer
+#   source:  meeting | slack | discussion | development
 # Output: JSON {created, path[, reason]}
+#
+# `--subject` is an OPTION, deliberately: the positional contract every caller
+# already uses is left exactly where it was, so adding the axis moved no argument.
 
 set -eu
+
+SUBJECT=""
+if [ "${1:-}" = "--subject" ]; then
+    SUBJECT="${2:-}"
+    shift 2
+fi
 
 TITLE="${1:-}"
 KIND="${2:-}"
@@ -24,6 +47,13 @@ SOURCE="${3:-}"
 SUPERSEDES="${4:-}"
 
 [ -n "$TITLE" ] || { echo '{"created": false, "reason": "no_title"}'; exit 1; }
+
+[ -n "$(printf '%s' "$SUBJECT" | tr -d '[:space:]')" ] || {
+    echo '{"created": false, "reason": "no_subject"}'; exit 1; }
+case "${SUBJECT%%:*}" in
+    person|meeting|observer_ai|customer|team|other) : ;;
+    *) echo '{"created": false, "reason": "bad_subject_kind"}'; exit 1 ;;
+esac
 
 case "$KIND" in
     insight|instruction|concern|material|answer) : ;;
@@ -69,6 +99,7 @@ mkdir -p "$DIR"
     printf 'title: %s\n' "$TITLE"
     printf 'kind: %s\n' "$KIND"
     printf 'source: %s\n' "$SOURCE"
+    printf 'subject: %s\n' "$SUBJECT"
     printf 'created_at: %s\n' "$CREATED_AT"
     printf 'author: %s\n' "$AUTHOR"
     printf 'supersedes: %s\n' "$SUPERSEDES"

@@ -1,4 +1,5 @@
 ---
+type: Term
 title: Inconsistencies
 description: Known terminology issues and potential resolutions
 category: developer

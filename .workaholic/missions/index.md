@@ -2,6 +2,7 @@
 
 ## active
 
+* [draft-deployment-plans-in-the-release-note-before-deploying](active/draft-deployment-plans-in-the-release-note-before-deploying/mission.md) - Draft deployment plans in the Release Note before deploying
 * [refresh-the-outdated-documentation-to-match-current-behavior](active/refresh-the-outdated-documentation-to-match-current-behavior/mission.md) - Refresh the outdated documentation to match current behavior
 * [revive-strategy-and-reshape-the-workaholic-artifact-set](active/revive-strategy-and-reshape-the-workaholic-artifact-set/mission.md) - Revive Strategy and reshape the .workaholic artifact set
 

@@ -16,7 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
-claim: work-20260813-073630
+claim: work-20260813-083658
 ---
 
 # Refresh the outdated documentation to match current behavior
@@ -56,3 +56,5 @@ request merging on opening, quality gated at the `release/*` window, and
 - 2026-08-13 — ticket archived — 20260813072628-update-the-artifact-hub-and-rules-docs-to-current-behavior.md
 - 2026-08-13 — Story written — work-20260813-073630.md
 - 2026-08-13 — run recorded (+0.4h) — session_016YnpVceVrFukQqeAAnFpCN
+- 2026-08-13 — ticket archived — 20260813081500-reconcile-the-okf-skill-s-ticket-type-claim.md
+- 2026-08-13 — Story written — work-20260813-083658.md

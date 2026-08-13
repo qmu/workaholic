@@ -125,6 +125,7 @@ const SCRIPTS = {
   proposeScaffoldDraft: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/scaffold-draft.sh"),
   proposeNotifySlack: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/notify-slack.sh"),
   feedbackList: join(REPO_ROOT, "plugins/workaholic/skills/feedback/scripts/list.sh"),
+  areaFreshness: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/area-freshness.sh"),
   missionQueueSize: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/queue-size.sh"),
   missionCheckFloor: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/check-floor.sh"),
   syncMain: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/sync-main.sh"),
@@ -3488,6 +3489,66 @@ function testMissionDuration() {
     assertTrue("actual_hours reflects the sum", /^actual_hours:\s*4\s*$/m.test(body), body);
     assertTrue("each run's increment is carried in a changelog line",
       /run recorded \(\+2\.4h\) — run-a/.test(body) && /run recorded \(\+1\.6h\) — run-b/.test(body), body);
+  } finally { cleanup(dir); }
+}
+
+// ---------- report/area-freshness.sh (the upkeep seam for the two hand-maintained areas) ----------
+// deployments/ and terms/ survived the 2026-08-13 reshape on the condition that
+// staleness become visible. What is pinned here: it REPORTS and never writes, it
+// names a retired structure rather than guessing at prose, and it degrades to an
+// honest empty answer rather than an error.
+function testAreaFreshness() {
+  const dir = makeRepo("main");
+  try {
+    const wk = (rel, body) => { mkdirSync(dirname(join(dir, rel)), { recursive: true }); writeFileSync(join(dir, rel), body); };
+    const run_ = () => JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.areaFreshness}`).stdout);
+
+    // An absent area is reported as absent, never as an empty conforming one.
+    let r = run_();
+    assertEq("an absent deployments/ is reported present:false", r.areas.deployments.present, false);
+    assertEq("an absent terms/ is reported present:false", r.areas.terms.present, false);
+    assertEq("nothing to report is a zero total", r.total, 0);
+
+    wk(".workaholic/deployments/README.md", "# Deployments\n\nnamed guides here but README is skipped\n");
+    wk(".workaholic/deployments/index.md", "# deployments\n");
+    wk(".workaholic/deployments/prod.md",
+      "---\ntype: Deployment\ntitle: Prod\nconfirmation_method: api-probe\n---\n\n## Procedure\n\n1. deploy\n\n## Confirmation\n\n1. curl it\n");
+    wk(".workaholic/terms/core-concepts.md",
+      "---\ntype: Term\ntitle: Core\n---\n\n# Core\n\nThe drivin plugin owns the queue; specs live under specs/.\n");
+    wk(".workaholic/terms/clean.md", "---\ntype: Term\ntitle: Clean\n---\n\n# Clean\n\nA mission is a batch of tickets.\n");
+    execSync(`git add -A && git commit -q -m seed`, { cwd: dir });
+
+    r = run_();
+    assertEq("README.md and index.md are not records", r.total, 3);
+    const byPath = Object.fromEntries(
+      [...r.areas.deployments.records, ...r.areas.terms.records].map((x) => [x.path, x]));
+
+    assertEq("a record naming retired structure is flagged by name",
+      byPath[".workaholic/terms/core-concepts.md"].retired_terms.sort(), ["drivin", "specs"]);
+    assertEq("a record naming nothing retired is clean",
+      byPath[".workaholic/terms/clean.md"].retired_terms, []);
+    assertEq("a conforming deployment record is clean",
+      byPath[".workaholic/deployments/prod.md"].retired_terms, []);
+    assertEq("only the naming records count as flagged", r.flagged, 1);
+
+    // stale_days is REPORTED and thresholded by nobody — a just-committed record
+    // is 0 days old, and the script never turns that into a verdict.
+    assertEq("a just-committed record reports zero days",
+      byPath[".workaholic/terms/clean.md"].stale_days, 0);
+    assertTrue("every record carries its last commit",
+      Object.values(byPath).every((x) => /^\d{4}-\d{2}-\d{2}T/.test(x.last_commit)));
+
+    // The seam never writes: a run leaves the tree byte-identical.
+    const before = execSync(`git status --porcelain`, { cwd: dir, encoding: "utf8" });
+    run_();
+    assertEq("area-freshness never writes", execSync(`git status --porcelain`, { cwd: dir, encoding: "utf8" }), before);
+
+    // Word-bounded, so ordinary prose does not trip it.
+    wk(".workaholic/terms/prose.md",
+      "---\ntype: Term\ntitle: Prose\n---\n\n# Prose\n\nRead the pillar policy skills; a specification is not a spec area.\n");
+    execSync(`git add -A && git commit -q -m prose`, { cwd: dir });
+    assertEq("ordinary prose does not trip the retired-name check",
+      run_().areas.terms.records.find((x) => x.path.endsWith("prose.md")).retired_terms, []);
   } finally { cleanup(dir); }
 }
 
@@ -12460,6 +12521,7 @@ const tests = [
   ["release-scan gate decision", testReleaseScanGateDecision],
   ["gather/commit-kpi.sh orchestration throughput", testCommitKpi],
   ["mission duration predict + record", testMissionDuration],
+  ["report/area-freshness.sh (the two hand-maintained areas' upkeep seam)", testAreaFreshness],
   ["strategy skill (the artifact revived 2026-08-13)", testStrategySkill],
   ["hooks/validate-strategy.sh (the write-time floor)", testValidateStrategy],
   ["mission ownership (read-assignees + mission-owners)", testMissionOwnership],

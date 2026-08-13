@@ -1,4 +1,5 @@
 ---
+type: Term
 title: Artifacts
 description: Documentation artifacts generated during development workflows
 category: developer

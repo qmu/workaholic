@@ -1,4 +1,5 @@
 ---
+type: Term
 title: Workflow Terms
 description: Actions and operations in the development workflow
 category: developer

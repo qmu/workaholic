@@ -1,15 +1,37 @@
 ---
 created_at: 2026-06-17T21:32:42+09:00
-modified_at: 2026-06-17T21:32:42+09:00
+modified_at: 2026-08-13T00:00:00+09:00
 ---
 
 # Deployments
 
-Each file in this directory describes **one deployment target** — the
-procedure to deploy/release it, and the specific, executable way to confirm
-the deployment succeeded in production. `/ship` reads these entries (via
-`read-deployments.sh`) and will not complete a deployment unless an
-established confirmation method exists for the target.
+**One record per delivery path.** Each file describes one deployment target: the
+procedure to deploy/release it (`## Procedure`), and the specific, executable way to
+confirm the deployment succeeded in production (`## Confirmation`). `/ship` reads these
+entries (via `read-deployments.sh`) and will not complete a deployment unless an
+established confirmation method exists for the target — the record **is** the evidence
+the gate rests on.
+
+## What it never holds
+
+Credentials of any kind (see *Rules* below), a deploy **log**, or a record of what a run
+actually did. A deployment record says what *should* happen and how to prove it did; the
+history of what happened is git, the release records, and the stories.
+
+## Who writes it, and when
+
+**A human**, when a delivery path is created or changes. `/ship` is the only live
+*reader* and never a writer: a record describes a procedure a person authored, so a
+machine that rewrote it from a run would be recording what happened rather than what
+should happen — and the next ship would gate on its own last behaviour.
+
+## How staleness becomes visible
+
+This area survived the 2026-08-13 layout reshape (issue #436) on one condition: that
+"kept updated" stop being aspirational. `plugins/workaholic/skills/report/scripts/area-freshness.sh`
+reports, for every record here and in `terms/`, how many days since its last commit and
+whether it still names something this repository has retired. `/report` reads it beside
+`doc-drift.sh`. It reports facts, never verdicts, and it never edits a record.
 
 ## Deploy models
 
@@ -55,6 +77,7 @@ deploy-on-merge target, split `## Confirmation` into a "Pre-merge" and a
 
 ```markdown
 ---
+type: Deployment
 author: <git user.email>
 created_at: <ISO 8601>
 modified_at: <ISO 8601>

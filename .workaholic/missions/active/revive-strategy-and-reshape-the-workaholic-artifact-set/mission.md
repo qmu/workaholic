@@ -34,7 +34,7 @@ An operator reads direction from a `Strategy` and sees who formed each piece of 
 Proposed sketch — interrogate before driving.
 
 - [x] `Strategy` is a registered artifact carrying Aim/Schedule/Assignee, and a new feedback record names the subject that formed it (#20260813112616-record-the-subject-that-formed-each-feedback.md)
-- [ ] `.workaholic/` carries no `policies/`, `guides/` or `specs/`; `deployments/` and `terms/` have a stated definition and an upkeep seam (#20260813112618-redefine-the-deployments-and-terms-areas.md)
+- [x] `.workaholic/` carries no `policies/`, `guides/` or `specs/`; `deployments/` and `terms/` have a stated definition and an upkeep seam (#20260813112618-redefine-the-deployments-and-terms-areas.md)
 - [ ] `tickets/` holds only `todo/` and `archive/`, former abandoned and icebox tickets carrying their state in frontmatter, and `/workaholify` applies each migration (#20260813112620-apply-the-layout-migrations-through-workaholify.md)
 
 ## Changelog
@@ -43,3 +43,4 @@ Proposed sketch — interrogate before driving.
 - 2026-08-13 — ticket archived — 20260813112615-revive-the-strategy-artifact-with-aim-schedule-and-assignee.md
 - 2026-08-13 — ticket archived — 20260813112616-record-the-subject-that-formed-each-feedback.md
 - 2026-08-13 — ticket archived — 20260813112617-retire-the-policies-guides-and-specs-areas.md
+- 2026-08-13 — ticket archived — 20260813112618-redefine-the-deployments-and-terms-areas.md

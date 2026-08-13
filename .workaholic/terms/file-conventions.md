@@ -1,4 +1,5 @@
 ---
+type: Term
 title: File Conventions
 description: Naming patterns and directory structures used in Workaholic
 category: developer

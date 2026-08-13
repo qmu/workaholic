@@ -1,12 +1,17 @@
 # Drive Loop Runbook
 
-How to stand up the **"Drive Every 5 Minutes"** routine on a server: the cron that
-runs `/implement` headlessly so merged missions and queued tickets are claimed,
-implemented, reported, and — per the artifacts' recorded merge policy — shipped or
-handed to a human at a PR (`docs/loop-engineering-workflow.md` G4; decision C1 —
-server cron first, Claude Code Web later). It is the execution sibling of the
-15-minute proposal loop (`docs/proposal-loop-runbook.md`), and deliberately mirrors
-its shape.
+How the execution loop runs `/implement` headlessly, so merged missions and queued
+tickets are claimed, implemented, reported, and — per the artifacts' recorded merge
+policy — shipped or merged at a PR (`docs/loop-engineering-workflow.md` G4).
+
+**The primary trigger is the `[Implement]` Claude Code Web routine**, which fires on
+a fixed hourly schedule (`30 * * * *`) from the shipped template
+`plugins/workaholic/skills/workaholify/routines/implement.md`. It is the execution
+sibling of the `[Propose]` routine, which fires hourly at `15 * * * *`
+(`docs/proposal-loop-runbook.md`), and deliberately mirrors its shape. §3's server
+cron is the **machine-local fallback shape** for a runner outside the routines
+account; standing it up remains a developer's act (decision C1 — server cron first,
+Claude Code Web later — describes the order the two arrived in, not today's default).
 
 **Precondition (decision I9):** the repository must be **private** wherever the
 feedback stream may carry customer material (H4). Do not wire this loop on a public
@@ -35,18 +40,26 @@ argument a caller might forget to pass is not a contract a loop can rest on.
 
 Two things the loop never does, and both are deliberate:
 
-- **It never merges anything a policy did not authorize.** A unit merges only when
-  every member records `merge_policy: auto`, and even then only through the full
-  `/ship` doctrine (catch up with `main`, deploy, confirm in production, record the
-  evidence, *then* merge). Absent policy means review.
-- **It never overrides a gate.** A blocking scan finding or a missing deployment
-  confirmation demotes an `auto` unit to the PR path; a secret hard-stops it. "No
+- **It never ships anything a policy did not authorize.** `merge_policy` decides the
+  *route*, not whether a merge happens: a unit whose members all record `auto` goes
+  through the full `/ship` doctrine (catch up with `main`, deploy, confirm in
+  production, record the evidence, *then* merge), while a `review` unit — which is
+  also what an absent policy means — merges its pull request as soon as `/report`
+  opens it and the scan passes. Since 2026-08-11 `main` is the continuously
+  auto-merged development branch and **quality is gated at the `release/*` QA
+  window**, so what a `review` policy withholds is the deploy-and-confirm doctrine,
+  not the merge. (Until then a `review` unit stopped at its PR to wait for a person.)
+- **It never overrides a gate.** A blocking scan finding leaves a `review` unit's PR
+  open instead of merging it; on an `auto` unit a size/leak finding or a missing
+  deployment confirmation demotes it to the PR path, and a secret hard-stops it. "No
   approval needed" is not "no gate applies".
 
 ## 2. Wire the environment (per runner)
 
 The only environment the loop needs is the Slack notifier's, and it is optional —
-it is how a `review` unit's PR URL reaches the team:
+it is the machine fallback by which a unit's finish line, carrying its PR URL,
+reaches the team. (A routine session uses the account's Slack connector instead;
+`workaholic:notify`, *The transport*, is the one place that states the order.)
 
 ```sh
 export SLACK_BOT_TOKEN=<your bot token>   # chat:write scope
@@ -73,7 +86,11 @@ heartbeat has lapsed. Keep the heartbeat window well under the tick interval you
 care about recovering within: at the default 30 minutes an hourly routine reclaims
 its own dropped unit on the next tick. See *Failure modes*.
 
-## 3. The cron entry (every 5 minutes)
+## 3. The machine-local fallback: a server cron entry
+
+This section is the **fallback shape** for a runner outside the routines account —
+the primary trigger is the hourly `[Implement]` routine (§1). The interval below is
+a working example, not a contract; the routines API's own minimum is one hour.
 
 The run works **in the repository checkout**, claiming into `.worktrees/<unit-id>/`
 worktrees of that checkout. A working shape (adjust the claude invocation to the
@@ -98,26 +115,39 @@ installed CLI):
   outward-facing process is the developer's act; this page is the instruction.
   The rule generalized beyond cron on 2026-08-03: an agent may not bring a
   standing outward-facing process into existence, or re-point one, without a
-  human seeing exactly what it will be. Claude Code Web routines sit under the
-  same bar taken to its end (2026-08-06): `/setup-routines` renders copy-paste
-  setup sheets and **manages nothing** — the developer creates each routine in
-  their own browser from the sheet (`skills/workaholify/SKILL.md` §5).
+  human seeing exactly what it will be. **The 2026-08-06 reading of that bar —
+  "`/setup-routines` renders copy-paste setup sheets and manages nothing" — is
+  superseded** (mission `configure-routines-automatically-via-remotetrigger`):
+  `/setup-routines` now *configures* the routines on every run through a
+  `RemoteTrigger`-family tool — list the account's routines, diff each against its
+  template, apply the create/update that converges them, report the per-routine
+  changes. The setup sheets remain, as the recovery path when no such transport is
+  reachable (`no_transport`), not as the product (`skills/workaholify/SKILL.md` §5).
+  The bar itself is unchanged for **cron**: a server crontab is still installed by
+  the developer, from this page, never from an agent session.
 
-### The cloud routine is merge-triggered; the clock in this runbook is the fallback (2026-08-06)
+### The routine fires on a clock; no repository-event trigger exists
 
-The `[Implement]` cloud routine **fires when a proposal's pull request merges** — the
-developer's original ask. Two earlier versions of this section argued for a clock, first
-from "a merge trigger does not exist" (retracted: the trigger wiring lives in the
-routines UI, invisible to the API record both readings relied on) and then from the
-recovery argument. The recovery argument is answered by the survey itself: a
-merge-started `/implement` offers everything claimable — a handoff to resume, a lapsed
-claim, backlog `/ticket` wrote — not only the merged proposal's work, so the leftovers
-ride the next merge. The server cron this runbook documents remains the **fallback
-shape** for a machine-local loop, and standing it up stays a developer's act.
+**The `[Implement]` routine fires on the hourly schedule `30 * * * *`.** A routine
+cannot subscribe to a repository event at all: the API's whole trigger surface is
+`cron_expression`, `run_once_at`, and an API token, so there is nothing for a merge to
+attach to. The server cron in §3 is the fallback shape for a machine-local loop, and
+standing it up stays a developer's act.
 
-The announcement half is unchanged: a drive run posts its own start and finish into the
-feedback item's thread (§5, and `skills/notify/SKILL.md`, *One thread per feedback
-item*).
+> **Superseded (2026-08-06): "The cloud routine is merge-triggered; the clock in this
+> runbook is the fallback."** That section held that the routine **fires when a
+> proposal's pull request merges** — the developer's original ask — and retracted two
+> earlier clock arguments, the first of them "a merge trigger does not exist", on the
+> grounds that the trigger wiring lived in the routines UI and was invisible to the API
+> record both readings relied on. The retraction was itself wrong: the trigger surface
+> was later read directly and carries no event field, so the first argument had been
+> right. The recovery argument that section answered still holds and still matters —
+> the survey offers everything claimable, not only the work a particular event
+> produced, so nothing is stranded by an hourly cadence.
+
+The announcement half changed too: **the start post is retired** (2026-08-11) — a drive
+run posts its **one finish line** into the feedback item's thread and nothing else (§5,
+and `skills/notify/SKILL.md`, *One thread per feedback item*).
 
 ## 4. What feeds the loop
 
@@ -130,8 +160,10 @@ with:
   is among the mission's `assignees`, or the mission has none — team-owned work is
   claimable by anyone. A mission owned solely by a colleague is excluded as
   `owned_by_other`, so a runner never drives someone else's plan to `main`. A
-  proposal `/propose` registers is invisible to the executor until a human merges
-  its pull request — the PR is the gate, and merging it is the approval.
+  proposal `/propose` registers reaches the executor as soon as its pull request
+  merges — which now happens **on opening**, so the next tick can already see it;
+  the human judgment is the `merge_policy` recorded on what was published (absent
+  reads as `review`) and the `release/*` QA window, not the merge itself.
 - **Backlog tickets** — anything in `.workaholic/tickets/todo/` this runner owns,
   or that nobody owns, with no `mission:` relation. A missioned ticket is driven
   inside its mission's unit. Ownership is the ticket's `assignees` field (P2,
@@ -156,10 +188,13 @@ not of surveying: a runner without one still reads the whole queue, reports
   ```
 
   Each entry names the unit, its branch, the claimed artifacts, whether the branch
-  tip has gone stale, and whether the unit is **resumable** (with `resume_reason`:
-  `claim_active` / `foreign_identity` / `identity_unresolved` / `shallow_history` /
-  `queue_drained`). The top-level `shallow` says whether this clone's history was
-  complete enough to answer at all. `Claim <unit-id>`
+  tip has gone stale, and whether the unit is **resumable**. `resume_reason` is never
+  empty and names either the one resumable verdict — `heartbeat_lapsed` — or the
+  condition that refused it: `claim_active` / `foreign_identity` /
+  `identity_unresolved` / `shallow_history` / `queue_drained`. (`plan-units.sh`'s
+  `resumable[]` adds the second, softer tier, `parked_with_pr` — reportable rather
+  than mandatory, and it does not forbid `ok`.) The top-level `shallow` says whether
+  this clone's history was complete enough to answer at all. `Claim <unit-id>`
   commits on unmerged branches are the loop's ledger — `git log --oneline --all
   --grep='^Claim '` reads it from git alone.
 - **Claim notices** are the loop's *first* signal, minutes ahead of any PR: `claim.sh`
@@ -167,14 +202,15 @@ not of surveying: a runner without one still reads the whole queue, reports
   is never load-bearing, so its absence proves nothing on its own — check
   `announced` / `announce_reason` in the tick's own output before concluding the
   runner is dead.
-- **Per-unit start and finish posts** land in the **feedback item's own thread**, so an
-  item's ask, its proposal, its run and its merge read as one conversation instead of
-  four scattered lines. The unit's stems come from
+- **The per-unit finish post** lands in the **feedback item's own thread**, so an
+  item's ask, its proposal and its run read as one conversation instead of scattered
+  lines. The unit's stems come from
   `drive/scripts/unit-feedback-stems.sh` (the mission's `mission.md`, or the batch's
   tickets); a unit tracing to no record keys on `unit:<unit-id>` rather than posting
-  keyless. One start, one finish, the finish's shape following the outcome — a handoff
-  *is* the finish. The rules are in `skills/notify/SKILL.md`, *Which thread an
-  `/implement` unit's posts land in*. These are the session's posts through the Slack
+  keyless. **Exactly one post per unit** — the start post (`🟠 Implementing`) is
+  retired (2026-08-11) — its shape following the outcome (`🟢` implemented, `🚀`
+  shipped, `🟡` handoff, `🔴` blocked); a handoff *is* the finish. The rules are in
+  `skills/notify/SKILL.md`, *Which thread an `/implement` unit's posts land in*. These are the session's posts through the Slack
   connector; the bot-token notice above is a separate surface and neither is
   load-bearing.
 - **Handoffs** are units a run half-drove and could not finish. They are readable
@@ -182,9 +218,13 @@ not of surveying: a runner without one still reads the whole queue, reports
   done, what is not, the next step, and any command attempted with its raw output.
   A handoff tick terminates `pending`, and the unit is exactly the shape a later run
   resumes (below) — one story, not two mechanisms.
-- **PRs** are the loop's output: one per unit. A `review` unit stops there and its
-  URL is posted to Slack; an `auto` unit's PR is merged by the same tick that opened
-  it, and its worktree and claim branch are removed afterwards.
+- **PRs** are the loop's output: one per unit, and **both routes merge on the tick
+  that opened them**. A `review` unit's PR is merged as soon as `/report` opens it and
+  the branch-safety scan passes — a scan finding is the one thing that leaves it open,
+  and that open PR is then the unit's reported outcome. An `auto` unit's PR is merged
+  through the full `/ship` doctrine instead. Either way the URL rides the unit's finish
+  line, and the worktree and claim branch are removed afterwards. Quality is gated
+  downstream at the `release/*` QA window, not at merge time.
 - **Terminal tokens** end every tick in the cron log: the reconciliation line
   (`N units: X shipped, Y PR'd, Z blocked`) and then `ok` or `pending`. Grepping the
   log for `^pending` is the fastest way to find the ticks that need a human;

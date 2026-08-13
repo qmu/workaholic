@@ -46,3 +46,4 @@ Proposed sketch — interrogate before driving.
 - 2026-08-13 — ticket archived — 20260813112618-redefine-the-deployments-and-terms-areas.md
 - 2026-08-13 — ticket archived — 20260813112619-fold-abandoned-and-icebox-tickets-into-the-archive.md
 - 2026-08-13 — ticket archived — 20260813112620-apply-the-layout-migrations-through-workaholify.md
+- 2026-08-13 — story reported — work-20260813-113709.md

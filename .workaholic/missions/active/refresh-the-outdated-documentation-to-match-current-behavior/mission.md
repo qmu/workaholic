@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours: 0.4
+actual_hours: 0.7
 feedback: [20260813072519-update-the-outdated-readme-and-documentation-to-match-current-behavior.md]
 tickets: []
 stories: []
@@ -58,3 +58,4 @@ request merging on opening, quality gated at the `release/*` window, and
 - 2026-08-13 — run recorded (+0.4h) — session_016YnpVceVrFukQqeAAnFpCN
 - 2026-08-13 — ticket archived — 20260813081500-reconcile-the-okf-skill-s-ticket-type-claim.md
 - 2026-08-13 — Story written — work-20260813-083658.md
+- 2026-08-13 — run recorded (+0.3h) — session_01MYzEyoR3FK7v6ywCoenNJ4

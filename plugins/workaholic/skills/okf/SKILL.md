@@ -8,11 +8,11 @@ metadata:
 
 # OKF Bundle Maintenance
 
-The `.workaholic/` tree of a project using workaholic is an [Open Knowledge Format](https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf) (OKF v0.1) bundle: every generated markdown document carries YAML frontmatter with a non-empty `type` (the OKF conformance floor), and navigation uses OKF's reserved `index.md` filename so any OKF reader can enter at `.workaholic/index.md` and walk the hierarchy.
+The `.workaholic/` tree of a project using workaholic is an [Open Knowledge Format](https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf) (OKF v0.1) bundle: every generated knowledge document carries YAML frontmatter with a non-empty `type` (the OKF conformance floor), and navigation uses OKF's reserved `index.md` filename so any OKF reader can enter at `.workaholic/index.md` and walk the hierarchy. **Tickets are the exception** — the queue is a work surface, not a knowledge area: a ticket carries no `type` and `tickets/` internals are never index-managed.
 
 Two layers keep that true:
 
-- **Per-file conformance** is owned by the writing workflows: tickets (`type: enhancement|bugfix|refactoring|housekeeping`), stories (`type: Story`), missions (`type: Mission`), feedbacks (`type: Feedback`), release notes (`type: Release Note`), and trip artifacts (`type: Direction|Model|Design|Review|Rollback|Trip Plan|Event Log`).
+- **Per-file conformance** is owned by the writing workflows: stories (`type: Story`), missions (`type: Mission`), feedbacks (`type: Feedback`), release notes (`type: Release Note`), releases (`type: Release`), and legacy trip artifacts (`type: Direction|Model|Design|Review|Rollback|Trip Plan|Event Log`). Tickets are not on this list and must not be added to it: the `type`/`layer` fields left the ticket schema on 2026-08-07, no shipped ticket carries one, and `hooks/validate-ticket.sh` neither requires nor validates the field.
 - **Hierarchy organization** is owned by this skill's refresh script, which deterministically regenerates the indexes from whatever exists on disk — documents added, renamed, or removed by any workflow are reflected on the next refresh, with no hand-maintained lists.
 
 ## Refresh Script

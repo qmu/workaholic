@@ -13,10 +13,11 @@ what it publishes is claimable by the next `[Implement]` tick. There is no secon
 seat: the session that takes the ask is the one that proposes. The human judgment
 is not the merge — it is the `merge_policy` recorded on what was published (absent
 reads as `review`) and the `release/*` QA window downstream. **Two** things leave
-such a pull request open for a person: a release-scan finding, and the **strategy
-form** (§4) — a strategy is the operator's resolved direction, so the operator's
-merge is what authors it, and the run reports the open PR as that form's outcome
-rather than as a failed merge.
+such a pull request open for a person: a release-scan finding, and any proposal
+that **wrote under `.workaholic/strategies/`** (§4) — a strategy is the operator's
+resolved direction, so the operator's merge is what authors it and what ends it,
+and the run reports the open PR as that form's outcome rather than as a failed
+merge.
 
 **Precondition (decision I9):** the repository must be **private** wherever the
 feedback stream may carry customer material (H4). Do not wire this loop on a
@@ -139,6 +140,13 @@ which is minted per second (§5).
    present in the ask — a `YYYY-MM-DD` date, a named owner, an aim with no
    decomposable plan — and its pull request is the one proposal that does not
    auto-merge, so the operator's merge stays the act that authors the artifact.
+   An ask that instead **announces something about an existing strategy** (created,
+   changed, ended) is recognised before the four forms and lands only on the
+   strategy it names: identification is by explicit slug, read through
+   `strategy/scripts/list.sh`, and an unmatched slug is record-only naming
+   `strategy_not_found` rather than a guessed match. *Ended* reaches `close.sh`,
+   *changed* is record-only (there is no third writer), and any strategy-touching
+   pull request stays un-auto-merged.
 5. Publishes everything in **one** `publish-tree-pr.sh` call, then posts the
    `🔵 Proposed` finish line into the item's thread — preceded by a description
    root when the lookup found none, which is the only case that sends two

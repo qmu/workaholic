@@ -20,7 +20,11 @@ when a human merges it — the operator's merge is the authorship. Everything el
 `create.sh` is still the only writer, `close.sh` still the only writer of an end state, `/drive`
 still never surveys a strategy, and the bar `/propose` must clear is all three parts present in
 the ask (a date, a named owner, an aim with no decomposable plan) or it emits nothing
-(`workaholic:propose`, *The strategy form, and the one rule it widens*).
+(`workaholic:propose`, *The strategy form, and the one rule it widens*). The same exemption
+covers `close.sh` when an ask **announces** that a named strategy ended — matched by explicit
+slug only, never by title similarity. There is still no third writer: nothing edits a live
+strategy's Aim, Schedule or Assignee, so an announced *change* is captured as feedback and
+applied by the operator.
 
 ## The model
 

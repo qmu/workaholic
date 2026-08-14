@@ -49,3 +49,4 @@ plainly it is not for everyone, since N copies of a repo routine is the failure.
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-14 — ticket archived — 20260814064854-split-setup-routines-into-dev-and-repo-commands.md
 - 2026-08-14 — ticket archived — 20260814064854-add-the-hourly-release-note-repo-routine.md
+- 2026-08-14 — story written — work-20260814-084725.md

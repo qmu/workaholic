@@ -265,7 +265,7 @@ append_section "Verify" "$VERIFY"
 # Co-Authored-By trailer. `git log --format='%(trailers:key=Category,valueonly)'`
 # can then read the Added/Changed/Removed grouping straight from the log.
 #
-# WHY A SESSION TRAILER AND NOT A ROUTINE NAME (issue #452, measured 2026-08-14 while
+# WHY A SESSION TRAILER AND NOT A ROUTINE NAME (issue #453, measured 2026-08-14 while
 # driving the ticket, in a live `[Implement]` container). The report was that every
 # web-routine commit reads as "Claude" and cannot be attributed. Half of that is
 # already false and stays that way: the author EMAIL is the developer's own

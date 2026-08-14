@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-14T06:48:54+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -74,3 +75,40 @@ no scope today, so the split has to start there rather than in the commands.
 - `/setup-routines` disappearing is a breaking change for anyone with it in a runbook. Decide whether the old name stays as an alias for one release or is removed outright, and say which in the story.
 - One behaviour per command still holds: these are two commands with two jobs, not one command switching on its first argument.
 - The repository-scope idea only pays off if the second ticket's routine exists; a `/setup-repo-routines` that configures an empty set is a command with nothing to do.
+
+## Final Report
+
+Development completed as planned.
+
+**The one Consideration that needed a ruling — the old command name — is resolved as
+`/setup-routines` removed outright, not kept as an alias.** One behaviour per command is the
+standing rule and an alias would have to pick a scope: aliasing to the developer half would
+silently converge only two of the three routines while reporting success, which is the
+"configured but not working" failure this repository already chased once through the web
+bootstrap. A name that is plainly gone fails visibly and recoverably on a runbook's next use,
+and the rename is stated in `CLAUDE.md`, `README.md`, the workaholify SKILL, and both loop
+runbooks.
+
+The scope filter is a **template field**, not a list in either command body — the same reason
+the template set is discovered by scanning the directory rather than enumerated in code. Two
+commands each carrying their own ids would be one list written twice, and the drift between
+them would be invisible exactly the way live-routine drift was.
+
+### Discovered Insights
+
+- **Insight**: the repository-scope guarantee is unenforceable by construction, and the honest
+  move is to say so in the command body rather than build a gate.
+  **Context**: a Claude Code Web routine is an **account-level** record; no account can list
+  another's. So nothing in this plugin — or in the product — can detect the failure the scope
+  exists to prevent (six developers each converging the repository's single routine, six copies
+  firing every hour). `/setup-repo-routines` therefore states the single-owner convention and
+  reports exactly which routines it converged, by name, so a second person sees their own
+  duplicate in their own report. Any authorization mechanism invented here would have looked
+  stronger than the API can actually carry.
+
+- **Insight**: `render-setup-sheet.sh`'s `--all` loop had to filter *before* calling `sheet()`,
+  not inside it.
+  **Context**: the script runs under `set -eu`, so a `return 1` from `sheet()` inside the `--all`
+  loop would abort the whole render. A scope that simply does not apply to a template is a
+  **skip**; a scope mismatch on an explicitly named template id is a **refusal**. Same field,
+  two different meanings depending on how the caller asked.

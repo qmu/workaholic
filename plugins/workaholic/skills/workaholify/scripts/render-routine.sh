@@ -90,6 +90,7 @@ subst() {
 }
 
 name=$(subst "$(fm_field "$FILE" name)")
+scope=$(fm_field "$FILE" scope)
 trigger=$(fm_field "$FILE" trigger)
 cron=$(fm_field "$FILE" cron_expression)
 autofix=$(fm_field "$FILE" autofix_on_pr_create)
@@ -104,5 +105,5 @@ prompt_raw=$(awk '
 ' "$FILE" | sed -e '1{/^$/d}')
 prompt=$(subst "$prompt_raw")
 
-printf '{"id": "%s", "name": "%s", "trigger": "%s", "cron_expression": "%s", "autofix_on_pr_create": "%s", "model": "%s", "allowed_tools": "%s", "mcp": "%s", "repo": "%s", "repo_name": "%s", "repo_slug": "%s", "prompt": "%s"}\n' \
-  "$ID" "$name" "$trigger" "$cron" "$autofix" "$model" "$tools" "$mcp" "$REPO" "$REPO_NAME" "$REPO_SLUG" "$(json_escape "$prompt")"
+printf '{"id": "%s", "name": "%s", "scope": "%s", "trigger": "%s", "cron_expression": "%s", "autofix_on_pr_create": "%s", "model": "%s", "allowed_tools": "%s", "mcp": "%s", "repo": "%s", "repo_name": "%s", "repo_slug": "%s", "prompt": "%s"}\n' \
+  "$ID" "$name" "$scope" "$trigger" "$cron" "$autofix" "$model" "$tools" "$mcp" "$REPO" "$REPO_NAME" "$REPO_SLUG" "$(json_escape "$prompt")"

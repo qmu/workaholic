@@ -38,7 +38,7 @@ authored by someone else says so where a human reads it.
 
 ## Acceptance
 
-- [ ] A queued ticket under `todo/<user-slug>/` with no `assignees:` resolves to
+- [x] A queued ticket under `todo/<user-slug>/` with no `assignees:` resolves to
       that slug through the one ownership oracle, so a colleague's legacy ticket is
       excluded from the survey, not offered as unowned. (#20260814103051-resolve-a-legacy-path-owned-ticket-to-its-owner.md)
 - [ ] `drive/scripts/archive.sh` runs `migrate-todo-owners.sh`, so an actively
@@ -49,3 +49,4 @@ authored by someone else says so where a human reads it.
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-14 — ticket archived — 20260814103051-resolve-a-legacy-path-owned-ticket-to-its-owner.md

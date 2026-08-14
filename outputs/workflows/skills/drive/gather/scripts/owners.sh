@@ -30,6 +30,32 @@
 #      the single parser of the field shape (list + bare forms);
 #   2. LEGACY FALLBACK: the artifact's own singular `assignee:`, so an artifact
 #      predating the plural field is never orphaned.
+#   3. LEGACY TOLERANCE, TICKETS ONLY: a queued ticket still sitting at
+#      `.workaholic/tickets/todo/<user-slug>/<file>.md` with no field of its own
+#      resolves to `<user-slug>` — the directory that WAS the ownership record.
+#
+# WHY TIER 3 EXISTS (2026-08-14, issue #454). P2 moved the owner into the field but
+# left the old layout tolerated everywhere it is read — `list-todo.sh` surveys
+# `-maxdepth 2` on purpose — so a colleague's un-migrated ticket reached this oracle
+# with no `assignees:`, answered EMPTY, and `owns.sh` called it `unowned`. Unowned
+# means team-owned and claimable by anyone, so `plan-units.sh` offered every
+# colleague's queue to every runner: measured overnight 2026-08-13→14, ~10 PR-units
+# driven and merged under one developer's identity out of other people's queues.
+# The directory that used to BE the ownership record was being read as its absence,
+# the exact inverse of the `owned_by_other` exclusion the survey promises.
+#
+# It is a TIER ON THE ORACLE, not an exclusion rule in the survey, for three
+# reasons: every consumer already reads ownership from here, so one tier fixes all
+# of them at once; comparison downstream is by slug (`user-slug.sh`) precisely so a
+# directory-shaped owner matches an email identity; and resolving (rather than
+# excluding) keeps a runner's OWN legacy tickets answering `mine` instead of
+# vanishing along with everyone else's.
+#
+# It is a TOLERANCE, NOT A MODEL CHANGE, and it is written to be deletable: it fires
+# only for the one path shape, only when both field tiers are silent, and only for
+# tickets. A ticket directly in `todo/` still answers empty — genuinely team-owned —
+# and no other artifact kind gains a path tier. When the legacy layout is gone (the
+# archive seam now converges every queue it touches), this block goes with it.
 #
 # NOTE what is deliberately NOT here: a ticket's `author:`. Author is who wrote
 # the spec and is immutable history; owner is who is to do it and is meant to
@@ -67,8 +93,25 @@ if [ -n "$own" ]; then
 fi
 
 # 2. Legacy fallback: the artifact's own singular `assignee:` (frontmatter only).
-awk '
+legacy=$(awk '
 NR == 1 { if ($0 != "---") exit; next }
 /^---[ \t]*$/ { exit }
 /^assignee:[ \t]*/ { sub(/^assignee:[ \t]*/, ""); sub(/[ \t]+$/, ""); if (length($0) > 0) print; exit }
-' "$FILE" 2>/dev/null || true
+' "$FILE" 2>/dev/null || true)
+if [ -n "$legacy" ]; then
+    printf '%s\n' "$legacy"
+    exit 0
+fi
+
+# 3. Legacy tolerance, tickets only: the per-user queue directory P2 replaced.
+# The shape is matched exactly — `<...>/tickets/todo/<segment>/<file>` — so a flat
+# `todo/<file>` (segment would be `todo` itself, parent `tickets`) and every other
+# tree (`archive/<branch>/`, `missions/active/<slug>/`) fall through to empty.
+dir=$(dirname "$FILE")
+segment=$(basename "$dir")
+parent=$(basename "$(dirname "$dir")")
+grandparent=$(basename "$(dirname "$(dirname "$dir")")")
+
+if [ "$parent" = "todo" ] && [ "$grandparent" = "tickets" ]; then
+    printf '%s\n' "$segment"
+fi

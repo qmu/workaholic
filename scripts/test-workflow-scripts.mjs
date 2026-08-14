@@ -124,6 +124,7 @@ const SCRIPTS = {
   proposeReadFeedbackRelation: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/read-feedback-relation.sh"),
   renderSetupSheet: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/render-setup-sheet.sh"),
   unitFeedbackStems: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/unit-feedback-stems.sh"),
+  unitAuthors: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/unit-authors.sh"),
   proposeListRefs: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/list-proposed-refs.sh"),
   proposeExtractIssueNumber: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/extract-issue-number.sh"),
   proposeListInboundIssues: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/list-inbound-issues.sh"),
@@ -440,6 +441,155 @@ function testCheckWorkspace() {
 function testUpdate() {
   assertTrue("drive/scripts/update.sh stays deleted with the retired fields",
     !existsSync(join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/update.sh")));
+}
+
+// ---------- drive/archive.sh converges the todo layout (issue #454) ----------
+// `migrate-todo-owners.sh`'s header has named this seam since it was written —
+// "create-ticket's publish step, promote-icebox.sh, and drive's archive.sh" — and
+// archive.sh was the one that did not call it, so an actively driven queue never
+// converged through ORDINARY USE. Measured overnight 2026-08-13→14: tickets moved
+// straight from `todo/<another-user-slug>/` into `archive/` without ever being
+// stamped, which is what made the ownership tolerance in `owners.sh` permanent
+// rather than transitional. What is pinned here is the seam's four properties: it
+// converges whether or not the ticket names a mission, it is scoped to the archived
+// ticket's own tree, it changes nothing in a converged repository, and it never
+// strands an archive.
+function testArchiveConvergesTodoLayout() {
+  const ARCHIVE = (dir, ticket, subject) =>
+    run(dir, `${POSIX_SH} ${SCRIPTS.archive} ${ticket} "${subject}" https://example.com/r "why" "changes" "None" "None" "verify"`);
+  const legacy = (dir, slug, stamp, mission = "") => {
+    const p = join(dir, `.workaholic/tickets/todo/${slug}/${stamp}-t.md`);
+    mkdirSync(dirname(p), { recursive: true });
+    writeFileSync(p, `---\ncreated_at: 2026-08-01T00:00:00+09:00\nauthor: colleague@example.com\nmission:${mission ? " " + mission : ""}\n---\n\n# t\n`);
+    return `.workaholic/tickets/todo/${slug}/${stamp}-t.md`;
+  };
+
+  // An UN-MISSIONED ticket converges the queue too — the mission branch is exactly
+  // where the migration would have been hidden.
+  {
+    const dir = makeRepo("work-20260801-000000");
+    try {
+      const a = legacy(dir, "colleague-example-com", "20260801000000");
+      legacy(dir, "colleague-example-com", "20260801000001");
+      execSync("git add -A && git commit -q -m seed", { cwd: dir });
+
+      ARCHIVE(dir, a, "Archive the legacy ticket");
+      assertTrue("the sibling is flattened out of the per-user directory",
+        existsSync(join(dir, ".workaholic/tickets/todo/20260801000001-t.md"))
+        && !existsSync(join(dir, ".workaholic/tickets/todo/colleague-example-com")));
+      assertTrue("and carries the owner the directory encoded",
+        /^assignees: \[colleague@example\.com\]$/m.test(
+          readFileSync(join(dir, ".workaholic/tickets/todo/20260801000001-t.md"), "utf8")));
+      // THE MIGRATION RUNS BEFORE THE MOVE, so the ticket being archived is stamped
+      // too — it is precisely the file whose ownership the measured failure lost.
+      assertTrue("the archived ticket itself lands stamped, not bare",
+        /^assignees: \[colleague@example\.com\]$/m.test(
+          readFileSync(join(dir, ".workaholic/tickets/archive/work-20260801-000000/20260801000000-t.md"), "utf8")));
+      // BEFORE `git add -A`, so the moves ride the archive commit rather than
+      // sitting unstaged for whoever commits next.
+      assertEq("the moves rode the archive commit", execSync("git status --porcelain", { cwd: dir, encoding: "utf8" }).trim(), "");
+      assertTrue("the converged sibling is in the commit that archived the ticket",
+        execSync("git show --name-only --format= HEAD", { cwd: dir, encoding: "utf8" }).includes("todo/20260801000001-t.md"));
+    } finally { cleanup(dir); }
+  }
+
+  // A repository with no legacy directories archives byte-identically to before,
+  // and a second archive migrates nothing — the migration is convergent, not a step.
+  {
+    const dir = makeRepo("work-20260801-000000");
+    try {
+      const flat = ".workaholic/tickets/todo/20260801000000-t.md";
+      mkdirSync(join(dir, ".workaholic/tickets/todo"), { recursive: true });
+      writeFileSync(join(dir, flat), "---\ncreated_at: 2026-08-01T00:00:00+09:00\nauthor: a@example.com\nassignees: [a@example.com]\nmission:\n---\n\n# t\n");
+      const other = ".workaholic/tickets/todo/20260801000001-t.md";
+      writeFileSync(join(dir, other), "---\ncreated_at: 2026-08-01T00:00:00+09:00\nauthor: a@example.com\nassignees: [a@example.com]\nmission:\n---\n\n# t\n");
+      execSync("git add -A && git commit -q -m seed", { cwd: dir });
+
+      const before = readFileSync(join(dir, other), "utf8");
+      ARCHIVE(dir, flat, "Archive the flat ticket");
+      assertEq("a converged queue is left byte-identical", readFileSync(join(dir, other), "utf8"), before);
+      assertTrue("the archive commit moves no ticket but the one archived",
+        !execSync("git show --name-only --format= HEAD", { cwd: dir, encoding: "utf8" }).includes(other),
+        execSync("git show --name-only --format= HEAD", { cwd: dir, encoding: "utf8" }));
+      ARCHIVE(dir, other, "Archive the second flat ticket");
+      assertEq("a second archive migrates nothing", execSync("git status --porcelain", { cwd: dir, encoding: "utf8" }).trim(), "");
+    } finally { cleanup(dir); }
+  }
+
+  // SCOPED TO THE ARCHIVED TICKET'S OWN TREE. archive.sh runs inside a claim
+  // worktree, so a migration defaulting to the process cwd would converge the wrong
+  // repository — the same failure `missions_root_from_artifact` exists to prevent.
+  {
+    const outer = makeRepo("work-20260801-000000");
+    try {
+      const inner = join(outer, "sub");
+      mkdirSync(inner, { recursive: true });
+      execSync("git -c init.defaultBranch=work-20260801-000000 init -q && git config user.email test@example.com && git config user.name Test && git config commit.gpgsign false", { cwd: inner });
+      const a = legacy(inner, "colleague-example-com", "20260801000000");
+      legacy(inner, "colleague-example-com", "20260801000001");
+      execSync("git add -A && git commit -q -m seed", { cwd: inner });
+      // The OUTER tree carries its own legacy queue and must not be touched.
+      legacy(outer, "someone-else-example-com", "20260801000009");
+      execSync("git add -A && git commit -q -m outerseed", { cwd: outer });
+
+      run(inner, `${POSIX_SH} ${SCRIPTS.archive} ${a} "Archive from the inner tree" https://example.com/r "why" "changes" "None" "None" "verify"`);
+      assertTrue("the archived ticket's own tree converged",
+        existsSync(join(inner, ".workaholic/tickets/todo/20260801000001-t.md")));
+      assertTrue("and the tree the process merely stands in did not",
+        existsSync(join(outer, ".workaholic/tickets/todo/someone-else-example-com/20260801000009-t.md")));
+    } finally { cleanup(outer); }
+  }
+
+  // A FAILING MIGRATION MUST NOT STRAND AN ARCHIVE. The migration refuses rather
+  // than overwrite when the flat destination is already taken (a name collision);
+  // the archive still lands and the collision is left for a human.
+  {
+    const dir = makeRepo("work-20260801-000000");
+    try {
+      const a = legacy(dir, "colleague-example-com", "20260801000000");
+      legacy(dir, "colleague-example-com", "20260801000001");
+      // The destination the sibling would move to is already occupied.
+      writeFileSync(join(dir, ".workaholic/tickets/todo/20260801000001-t.md"),
+        "---\ncreated_at: 2026-08-01T00:00:00+09:00\nauthor: a@example.com\nassignees: [a@example.com]\nmission:\n---\n\n# occupied\n");
+      execSync("git add -A && git commit -q -m seed", { cwd: dir });
+
+      const r = ARCHIVE(dir, a, "Archive despite the collision");
+      assertTrue("the archive still landed",
+        existsSync(join(dir, ".workaholic/tickets/archive/work-20260801-000000/20260801000000-t.md")), r.stdout);
+      assertTrue("the colliding ticket is left where it was, not overwritten",
+        existsSync(join(dir, ".workaholic/tickets/todo/colleague-example-com/20260801000001-t.md"))
+        && readFileSync(join(dir, ".workaholic/tickets/todo/20260801000001-t.md"), "utf8").includes("occupied"));
+    } finally { cleanup(dir); }
+  }
+
+  // A QUEUE IS LISTED ONCE AND DRIVEN TICKET BY TICKET, so the first archive of a
+  // legacy queue flattens every path the run is still holding. Failing the rest with
+  // `Ticket not found` would strand a half-driven unit needing the hand-written
+  // `git mv` the workflow forbids — the same recovery the subject gate prevents.
+  {
+    const dir = makeRepo("work-20260801-000000");
+    try {
+      const a = legacy(dir, "colleague-example-com", "20260801000000");
+      const b = legacy(dir, "colleague-example-com", "20260801000001");
+      execSync("git add -A && git commit -q -m seed", { cwd: dir });
+
+      ARCHIVE(dir, a, "Archive the first ticket");
+      const r = ARCHIVE(dir, b, "Archive the second ticket");
+      assertTrue("a path the migration flattened mid-run still archives",
+        existsSync(join(dir, ".workaholic/tickets/archive/work-20260801-000000/20260801000001-t.md")), r.stdout);
+      assertTrue("and says so rather than silently substituting a path",
+        /flattened this ticket/.test(r.stdout), r.stdout);
+      assertTrue("both archived tickets carry the owner their directory encoded",
+        ["20260801000000-t.md", "20260801000001-t.md"].every((n) =>
+          /^assignees: \[colleague@example\.com\]$/m.test(
+            readFileSync(join(dir, ".workaholic/tickets/archive/work-20260801-000000", n), "utf8"))));
+      // A ticket that genuinely does not exist still fails — the fallback is tried
+      // only when the named path is absent, and never invents one.
+      const ghost = run(dir, `${POSIX_SH} ${SCRIPTS.archive} .workaholic/tickets/todo/nope/20260801999999-x.md "Archive a ghost" https://example.com/r "why" "changes" "None" "None" "verify"`);
+      assertTrue("a genuinely missing ticket is still Ticket not found",
+        ghost.status !== 0 && /Ticket not found/.test(ghost.stdout + ghost.stderr), ghost.stdout);
+    } finally { cleanup(dir); }
+  }
 }
 
 // ---------- 5. drive/archive.sh ----------
@@ -957,6 +1107,58 @@ function testOwns() {
     // A ticket's author is deliberately not an ownership tier.
     assertEq("author is not owner",
       owns(f("k.md", "author: test@example.com"), "test@example.com"), "unowned");
+
+    // ---- tier 3: the legacy per-user queue directory (2026-08-14, issue #454) ----
+    // The layout P2 replaced is still TOLERATED by every reader (`list-todo.sh` is
+    // `-maxdepth 2` on purpose), and until this tier the directory that WAS the
+    // ownership record read as its ABSENCE: a colleague's un-migrated ticket
+    // answered `unowned` — team-owned, claimable by anyone — so the survey offered
+    // other people's queues to every runner. Measured overnight 2026-08-13→14:
+    // ~10 PR-units driven and merged out of colleagues' queues.
+    const legacy = (slug) => f(`.workaholic/tickets/todo/${slug}/20260801000000-x.md`, "author: whoever@x\nmission:");
+    assertEq("a colleague's path-owned legacy ticket is theirs, not unowned",
+      owns(legacy("b-x"), "test@example.com"), "other");
+    assertEq("the runner's OWN path-owned ticket stays mine, not hidden with the rest",
+      owns(legacy(TEST_SLUG), "test@example.com"), "mine");
+    // The tier is a tolerance, not a model change: it fires ONLY for that shape.
+    assertEq("a ticket directly in todo/ is still genuinely team-owned",
+      owns(f(".workaholic/tickets/todo/20260801000001-flat.md", "author: whoever@x\nmission:"), "test@example.com"), "unowned");
+    assertEq("an archived ticket gains no path tier",
+      owns(f(".workaholic/tickets/archive/work-20260801-000000/20260801000002-a.md", "author: whoever@x"), "test@example.com"), "unowned");
+    assertEq("no other artifact kind gains a path tier",
+      owns(f(".workaholic/missions/active/some-slug/mission.md", "type: Mission\nassignees:"), "test@example.com"), "unowned");
+    // A field always wins over the path — the tier is the LAST resort, so a
+    // reassigned legacy ticket is not dragged back to its directory's owner.
+    assertEq("an explicit assignees field overrides the directory",
+      owns(f(".workaholic/tickets/todo/b-x/20260801000003-reassigned.md", "assignees: [test@example.com]"), "test@example.com"), "mine");
+  } finally { cleanup(dir); }
+}
+
+// ---------- the survey end of the legacy-ownership tier (issue #454) ----------
+// The tier lives on the oracle rather than as an exclusion rule in the survey, so
+// what has to be pinned at this end is that the ONE consumer that turns ownership
+// into an offer now sees it: a colleague's legacy ticket leaves the backlog as
+// `owned_by_other`, and the runner's own legacy ticket is still offered.
+function testSurveyExcludesLegacyPathOwnedTickets() {
+  const dir = makeRepo("main");
+  try {
+    const t = (rel, fm) => {
+      const p = join(dir, rel);
+      mkdirSync(dirname(p), { recursive: true });
+      writeFileSync(p, `---\n${fm}\n---\n\n# t\n\n## Overview\n\nx\n`);
+      return rel;
+    };
+    const theirs = t(".workaholic/tickets/todo/b-x/20260801000000-theirs.md", "author: b@x\nmission:");
+    const mine = t(`.workaholic/tickets/todo/${TEST_SLUG}/20260801000001-mine.md`, "author: test@example.com\nmission:");
+    const flat = t(".workaholic/tickets/todo/20260801000002-flat.md", "author: b@x\nassignees: []\nmission:");
+    execSync("git add -A && git commit -q -m seed", { cwd: dir });
+
+    const r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.planUnits}`).stdout);
+    assertEq("the survey no longer offers a colleague's legacy queue",
+      r.backlog.map((b) => (typeof b === "string" ? b : b.path)).sort(), [flat, mine].sort());
+    assertTrue("and names the exclusion by the reason the survey already promises",
+      r.excluded.some((e) => e.id === theirs && e.reason === "owned_by_other"), JSON.stringify(r.excluded));
+    assertEq("an unreadable queue is still distinguishable from an empty one", r.backlog_error, "");
   } finally { cleanup(dir); }
 }
 
@@ -12776,8 +12978,13 @@ function testClaimSurvivesUndetectedRename() {
     const claimSha = execSync(`git log --format=%H --grep="Claim a PR-unit" -1`, { cwd: wt, encoding: "utf8" }).trim();
     const nameStatus = execSync(`git diff --find-renames --name-status ${claimSha} HEAD -- .workaholic/tickets`,
       { cwd: wt, encoding: "utf8" });
+    // Scoped to the ARCHIVED ticket's own rows: since 2026-08-14 (issue #454) the same
+    // commit also carries the todo-layout migration's genuine renames of the unit's
+    // other queued tickets, which are a different fact and would otherwise read as this
+    // premise failing.
+    const archivedRows = nameStatus.split("\n").filter((l) => l.includes("20260729000001-t1.md"));
     assertTrue("the premise holds: git reports this archive as add+delete, not a rename",
-      !/^R/m.test(nameStatus), nameStatus);
+      archivedRows.length > 0 && !archivedRows.some((l) => /^R/.test(l)), nameStatus);
 
     // ...and the claim still knows exactly what it holds, at the base-side path.
     const r = JSON.parse(run(B, `${POSIX_SH} ${SCRIPTS.listClaims}`, { env: lapsed }).stdout);
@@ -13102,12 +13309,14 @@ const tests = [
   ["branching/check-workspace.sh", testCheckWorkspace],
   ["drive/update.sh", testUpdate],
   ["drive/archive.sh", testArchive],
+  ["drive/archive.sh converges the todo layout", testArchiveConvergesTodoLayout],
   ["drive/archive.sh refuses an off-policy subject before moving", testArchiveSubjectGateBeforeMove],
   ["drive/archive.sh pushes the claim branch itself", testArchivePushesClaimBranch],
   ["commit/commit.sh never silently omits a file", testCommitStaging],
   ["gather/user-slug.sh", testUserSlug],
   ["gather/migrate-todo-owners.sh", testMigrateTodoOwners],
   ["gather/owns.sh", testOwns],
+  ["the survey excludes a legacy path-owned ticket", testSurveyExcludesLegacyPathOwnedTickets],
   ["drive/list-todo.sh", testListTodo],
   ["create-ticket/summary.sh + mission/summary.sh (summary mode)", testSummaryMode],
   ["mission/summary.sh surfaces unassigned missions", testMissionSummaryUnassigned],
@@ -13223,6 +13432,7 @@ const tests = [
   ["the crossing checks under a git insteadOf URL rewrite", testCrossRepoUnderUrlRewrite],
   ["/fb's cross-repository issue mode", testFbCrossRepoIssueMode],
   ["hooks/guard-askuserquestion-label.sh", testGuardAskUserQuestionLabel],
+  ["drive/unit-authors.sh: the authorship disclosure", testUnitAuthorsDisclosure],
   ["workaholify/audit-claude-md.sh", testAuditClaudeMd],
   ["hooks/guard-working-directory.sh", testGuardWorkingDirectory],
   ["build: a plugin-root PATH is a defect, a bare read is not", testPluginRootPathVsRead],
@@ -13830,6 +14040,63 @@ function testStatelessThreadLookup() {
   assertTrue("the description root carries the fb:<stem> key", /`fb:<stem>`/.test(catalogRoot), catalogRoot);
   assertTrue("the notify skill states the root's no-Claude-mention rule",
     /no Claude mention token/i.test(notifySkill));
+}
+
+// ---------- the authorship disclosure (issue #454) ----------
+// A developer who enabled [Implement] under their own identity expected it to take
+// their own and genuinely team-owned work. It took colleagues' work and, on the
+// immediate-merge route, merged it — with nothing in the run report or the Slack
+// finish line saying whose work it was. This pins the fact's computation (one
+// identity comparison, `unresolved` kept distinct) and the shape's authorization
+// (the prompt is the ceiling: a line the routine template does not name may not be
+// posted, however well this repository documents it).
+function testUnitAuthorsDisclosure() {
+  const dir = makeRepo("main");
+  try {
+    const AUTHORS = `${POSIX_SH} ${SCRIPTS.unitAuthors}`;
+    const f = (name, fm) => { writeFileSync(join(dir, name), `---\n${fm}\n---\n\n# x\n`); return name; };
+    const A = (...names) => JSON.parse(run(dir, `${AUTHORS} ${names.join(" ")}`).stdout);
+
+    assertEq("a colleague's ticket is disclosed as foreign, by name",
+      (() => { const r = A(f("a.md", "author: colleague@example.com")); return [r.verdict, r.foreign_authors]; })(),
+      ["foreign", ["colleague@example.com"]]);
+    // ONE identity comparison, not a second one: by slug, exactly as owns.sh compares
+    // owners — so case and a migration-stamped slug are the same person here too.
+    assertEq("the runner's own ticket adds nothing, whatever the spelling",
+      A(f("b.md", "author: Test@Example.COM"), f("c.md", "author: test-example-com")).verdict, "mine");
+    assertEq("a unit naming no author is not 'foreign'", A(f("d.md", "type: Mission")).verdict, "mine");
+    assertEq("a mixed unit is foreign and names only the foreign author",
+      A("b.md", "a.md").foreign_authors, ["colleague@example.com"]);
+
+    // `unresolved` is its own verdict: a runner that CANNOT tell must never render as
+    // one that checked and found the work its own — the same distinction owns.sh keeps.
+    const noIdEnv = { ...process.env, GIT_CONFIG_GLOBAL: "/dev/null", GIT_CONFIG_SYSTEM: "/dev/null" };
+    execSync("git config --unset user.email", { cwd: dir });
+    const r = JSON.parse(execSync(`${AUTHORS} a.md`, { cwd: dir, env: noIdEnv, encoding: "utf8" }));
+    assertEq("no runner identity is unresolved, not 'authored by me'", [r.verdict, r.runner], ["unresolved", ""]);
+    execSync("git config user.email test@example.com", { cwd: dir });
+
+    // DISCLOSURE, NOT OWNERSHIP. `author:` must not have become a claim input.
+    assertTrue("the disclosure never reaches the survey or the claim",
+      !readFileSync(SCRIPTS.planUnits, "utf8").includes("unit-authors.sh")
+      && !readFileSync(SCRIPTS.claim, "utf8").includes("unit-authors.sh"));
+  } finally { cleanup(dir); }
+
+  // THE PROMPT IS THE CEILING. The added line exists on the wire only because the
+  // [Implement] template names it; the catalog and the template must agree word for
+  // word, or a session would post a shape its own routine never authorized.
+  const catalog = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/notify/reference/notifications.md"), "utf8");
+  const template = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines/implement.md"), "utf8");
+  for (const line of ["tickets authored by <identity>", "ticket authorship unresolved"]) {
+    assertTrue(`the catalog carries the line verbatim: ${line}`, catalog.includes(line), "missing from the catalog");
+    assertTrue(`the [Implement] template authorizes it verbatim: ${line}`, template.includes(line), "missing from the template");
+  }
+  // No mention token on the added line — a <@U…> on a routine's own post has
+  // re-triggered the Slack app before.
+  assertTrue("the authorship line carries no mention token",
+    !/tickets authored by[^\n]*<@U/.test(catalog) && !/tickets authored by[^\n]*<@U/.test(template));
+  assertTrue("the catalog states it is a body line, never a fifth shape or a second post",
+    /never a fifth shape and never a second post/.test(catalog), "the one-finish-per-thread rule is not stated");
 }
 
 // ---------- one behaviour per command (P5, 2026-08-06) ----------

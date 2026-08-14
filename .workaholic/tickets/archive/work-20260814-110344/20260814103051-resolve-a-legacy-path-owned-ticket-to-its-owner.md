@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-14T10:30:51+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -116,3 +117,38 @@ The alternative the reporter also offered is recorded under Considerations.
   the sibling ticket in this mission is what makes queues actually drain.
 - `author:` stays out of ownership. The path tier reads the directory, which was
   the old owner field; it must not be widened into reading `author:`.
+
+## Final Report
+
+Development completed as planned. Step 1's reproduction confirmed the report rather
+than assuming it: in a throwaway repository under a different `git config user.email`,
+`list-todo.sh` surfaced all three fixtures, and a colleague's `todo/colleague-example-com/…`
+ticket with no `assignees:` answered `owners=[]` / `owns=unowned` — offered to every
+runner. `owners.sh` gained the third tier; `owns.sh` and `user-slug.sh` needed no change
+(step 4's contingency did not fire — a directory-shaped owner already normalizes against
+an email identity). `plan-units.sh` now excludes the colleague's ticket as
+`owned_by_other` while still offering the runner's own and the flat unowned one.
+
+### Discovered Insights
+
+- **Insight**: The tier's path match has to be anchored at both ends —
+  `parent = todo` **and** `grandparent = tickets`.
+  **Context**: Anchoring only on `parent = todo` would make a flat
+  `todo/X.md` resolve its owner to the literal string `todo` (its own directory), turning
+  every genuinely team-owned ticket into one owned by nobody real. The two-segment match
+  is what keeps "a ticket directly in `todo/`" answering `unowned`, which is the state the
+  whole ownership model rests on.
+
+- **Insight**: The legacy `assignee:` tier had to be restructured from a bare `awk` at the
+  end of the file into a captured value with an explicit `exit 0`.
+  **Context**: It was previously the last statement, so "no output" and "fall through"
+  were the same thing. Adding a tier after it meant the singular field's silence had to
+  become a decision — otherwise a ticket carrying `assignee: someone@x` in a legacy
+  directory would have emitted both owners.
+
+- **Insight**: The tolerance is deletable by construction, and the sibling ticket is what
+  makes deleting it possible.
+  **Context**: The tier fires only for one path shape and only after both field tiers are
+  silent, so removing it is a single block deletion. It stays only while the layout does —
+  and `archive.sh` now converges every queue it touches, so the layout actually drains
+  through ordinary use rather than waiting for someone to run `/workaholify`.

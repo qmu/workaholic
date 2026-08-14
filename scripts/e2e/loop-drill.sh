@@ -6,6 +6,9 @@
 #   loop-drill.sh reset                       # recover an ABORTED run
 #   loop-drill.sh verify-propose  <issue> [--json]   # did the [Propose] fire land?
 #   loop-drill.sh verify-implement <issue> [--json]  # did the [Implement] fire land?
+#                                             (a drill ticket carrying
+#                                             `verification_handoff:` inverts the
+#                                             stage: open + handed off, not merged)
 #   loop-drill.sh verify-plan [--json]        # is the deployment-plan refresh sound?
 #   loop-drill.sh verify-status [--json]      # is the [Release Status] read sound and silent?
 #
@@ -744,42 +747,89 @@ cmd_verify_implement() {
         add_row "story_exists" false "expected a story under .workaholic/stories/ naming ${unit_branch:-$stem}" load
     fi
 
+    # THE UNVERIFIABLE-UNIT FIXTURE INVERTS THE EXPECTATIONS, and it is read off the
+    # artifact rather than passed as a flag: a ticket declaring `verification_handoff:`
+    # is one the loop must NOT merge (`workaholic:drive` §6), so for that seed a merged
+    # pull request is the failure and an open one carrying `## Handoff` is the pass. The
+    # declaration is read from the ARCHIVED ticket -- the same file the run routed on --
+    # so the drill and the run cannot disagree about which fixture this was.
+    declared=""
+    if [ -n "$archived" ]; then
+        declared="$(main_show "$archived" | awk '
+            NR == 1 { if ($0 != "---") exit; next }
+            /^---[ \t]*$/ { exit }
+            index($0, "verification_handoff:") == 1 { sub(/^[^:]*:[ \t]*/, ""); sub(/[ \t]+$/, ""); print; exit }
+        ')"
+    fi
+
     if [ -n "$unit_branch" ]; then
         pr_state=""
         pr_number=""
+        pr_body=""
         while IFS="$TAB" read -r number head merged title body; do
             [ -n "$number" ] || continue
             [ "$head" = "$unit_branch" ] || continue
             pr_number="$number"
             pr_state="$merged"
+            pr_body="$body"
         done <<EOF
 $PR_ROWS
 EOF
-        if [ -z "$pr_number" ]; then
-            add_row "unit_pr_merged" false "no pull request found for head ${unit_branch}" load
-        elif [ "$pr_state" != "$PR_EMPTY" ]; then
-            add_row "unit_pr_merged" true "pull request #${pr_number} merged at ${pr_state}" load
-        else
-            add_row "unit_pr_merged" false "pull request #${pr_number} for ${unit_branch} is not merged" load
-        fi
+        if [ -n "$declared" ]; then
+            if [ -z "$pr_number" ]; then
+                add_row "unit_pr_handed_off" false "no pull request found for head ${unit_branch}" load
+            elif [ "$pr_state" != "$PR_EMPTY" ]; then
+                add_row "unit_pr_handed_off" false "pull request #${pr_number} MERGED at ${pr_state}; a unit declaring verification_handoff must stay open" load
+            elif ! printf '%s' "$pr_body" | grep -qF '## Handoff'; then
+                add_row "unit_pr_handed_off" false "pull request #${pr_number} is open but its body carries no ## Handoff section" load
+            elif ! printf '%s' "$pr_body" | grep -qF "$declared"; then
+                add_row "unit_pr_handed_off" false "pull request #${pr_number} hands off without naming the declared verification (${declared})" load
+            else
+                add_row "unit_pr_handed_off" true "pull request #${pr_number} is open and hands off: ${declared}" load
+            fi
 
-        # CLAIM RELEASE, READ NARROWLY AND DELIBERATELY. The merge releases the claim by
-        # definition, so what is checked is that THIS unit's branch is gone from the
-        # unmerged set -- not that the repository holds no claims at all. A colleague's
-        # live claim is not this drill's failure, and a check that reported it as one
-        # would be red for reasons the operator cannot act on.
-        if claim_branches | grep -qx "$unit_branch"; then
-            add_row "claim_released" false "${unit_branch} is still an unmerged work-* branch" load
+            # The claim is the other half of the handoff: the unit is still owned while
+            # it waits for a person, so the branch staying unmerged is the pass here --
+            # the exact inverse of the merged case below, and for the same reason.
+            if claim_branches | grep -qx "$unit_branch"; then
+                add_row "claim_held" true "${unit_branch} is still claimed, as a handoff unit should be" load
+            else
+                add_row "claim_held" false "${unit_branch} is no longer an unmerged work-* branch; the handoff released its claim" load
+            fi
         else
-            others="$(claim_branches | tr '\n' ' ')"
-            add_row "claim_released" true "${unit_branch} is merged${others:+; other live claims: ${others}}" load
+            if [ -z "$pr_number" ]; then
+                add_row "unit_pr_merged" false "no pull request found for head ${unit_branch}" load
+            elif [ "$pr_state" != "$PR_EMPTY" ]; then
+                add_row "unit_pr_merged" true "pull request #${pr_number} merged at ${pr_state}" load
+            else
+                add_row "unit_pr_merged" false "pull request #${pr_number} for ${unit_branch} is not merged" load
+            fi
+
+            # CLAIM RELEASE, READ NARROWLY AND DELIBERATELY. The merge releases the claim by
+            # definition, so what is checked is that THIS unit's branch is gone from the
+            # unmerged set -- not that the repository holds no claims at all. A colleague's
+            # live claim is not this drill's failure, and a check that reported it as one
+            # would be red for reasons the operator cannot act on.
+            if claim_branches | grep -qx "$unit_branch"; then
+                add_row "claim_released" false "${unit_branch} is still an unmerged work-* branch" load
+            else
+                others="$(claim_branches | tr '\n' ' ')"
+                add_row "claim_released" true "${unit_branch} is merged${others:+; other live claims: ${others}}" load
+            fi
         fi
+    elif [ -n "$declared" ]; then
+        add_row "unit_pr_handed_off" false "no archived ticket, so no unit branch to check" load
+        add_row "claim_held" false "no unit branch to check" load
     else
         add_row "unit_pr_merged" false "no archived ticket, so no unit branch to check" load
         add_row "claim_released" false "no unit branch to check" load
     fi
 
-    slack_rows "/issues/${ISSUE}" "slack_finish_line"
+    if [ -n "$declared" ]; then
+        slack_rows "/issues/${ISSUE}" "slack_handoff_line"
+    else
+        slack_rows "/issues/${ISSUE}" "slack_finish_line"
+    fi
 
     if [ "$LOAD_FAILED" -gt 0 ]; then
         emit_verdict "implement" "$ISSUE" "fail" 1

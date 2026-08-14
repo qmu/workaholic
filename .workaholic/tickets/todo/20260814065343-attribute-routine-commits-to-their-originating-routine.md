@@ -5,6 +5,7 @@ assignees: [a@qmu.jp]
 depends_on:
 feedback: [20260814065335-commit-author-shows-as-claude-for-all-web-routine-commits.md]
 merge_policy:
+claim: work-20260814-091758
 ---
 
 # Attribute routine commits to their originating routine

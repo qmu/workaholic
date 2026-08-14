@@ -3,7 +3,9 @@
 # sections; this script owns the filename, the frontmatter, and the relations.
 #
 #   scaffold-proposed-ticket.sh "<title>" <mission-slug> [--assignee <email>]
+#                               [--verification-handoff "<what cannot run here>"]
 #   scaffold-proposed-ticket.sh "<title>" --loose --feedback <record>... [--assignee <email>]
+#                               [--verification-handoff "<what cannot run here>"]
 #
 # Output: JSON {created, path, slug, assignees[, mission][, feedback][, reason]}
 #   reasons: no_title | no_mission | mission_missing | no_feedback | exists
@@ -60,6 +62,16 @@
 # writes an empty field — team-owned, claimable by anyone, which is the honest
 # reading when no person was named.
 #
+# `--verification-handoff` IS A FACT ABOUT THE ENVIRONMENT, WHICH IS WHY THE
+# PROPOSER MAY WRITE IT WHILE IT MAY NOT WRITE merge_policy. The two look alike and
+# are not: merge_policy grants a permission the proposer does not hold, whereas this
+# field records something the ask already stated — the verification needs a
+# credential, device or account an unattended run does not have. Recording it makes
+# `/drive` hand the finished unit to a person instead of merging it and announcing
+# it verified (`workaholic:drive` §6). It is written ONLY when the ask says so; the
+# batch never infers it from a Quality Gate it wrote itself, since that would let
+# the loop excuse its own units from verification. Empty is the ordinary case.
+#
 # THE MANDATORY BODY SECTIONS ARE WRITTEN AS HEADINGS WITH PLACEHOLDER GUIDANCE,
 # not omitted for the caller to remember. `hooks/validate-ticket.sh` rejects a
 # ticket in the todo queue whose `## Policies` or `## Quality Gate` is absent or
@@ -88,10 +100,15 @@ fi
 # ticket refused over two words that no longer mean anything.
 FEEDBACK=""
 ASSIGNEE=""
+VERIFICATION_HANDOFF=""
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --assignee)
       ASSIGNEE="${2:-}"
+      shift 2 || shift
+      ;;
+    --verification-handoff)
+      VERIFICATION_HANDOFF="${2:-}"
       shift 2 || shift
       ;;
     --feedback)
@@ -99,6 +116,11 @@ while [ "$#" -gt 0 ]; do
       while [ "$#" -gt 0 ]; do
         if [ "$1" = "--assignee" ]; then
           ASSIGNEE="${2:-}"
+          shift 2 || shift
+          continue
+        fi
+        if [ "$1" = "--verification-handoff" ]; then
+          VERIFICATION_HANDOFF="${2:-}"
           shift 2 || shift
           continue
         fi
@@ -113,6 +135,10 @@ while [ "$#" -gt 0 ]; do
       ;;
   esac
 done
+
+# One frontmatter line, so a multi-line reason is folded rather than corrupting the
+# block. Reported back in the JSON exactly as it was written.
+VERIFICATION_HANDOFF=$(printf '%s' "$VERIFICATION_HANDOFF" | tr '\n' ' ')
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "$0")" && pwd)
 MISSION_SCRIPTS="${SCRIPT_DIR}/../../mission/scripts/"
@@ -181,6 +207,7 @@ assignees: ${ASSIGNEES_VALUE}
 depends_on:
 ${RELATIONS}
 merge_policy:
+verification_handoff: ${VERIFICATION_HANDOFF}
 ---
 
 # ${TITLE}
@@ -239,5 +266,9 @@ if [ "$LOOSE" = "1" ]; then
   LOOSE_JSON=true
 fi
 
-printf '{"created": true, "path": "%s", "slug": "%s", "mission": "%s", "feedback": "%s", "assignees": "%s", "loose": %s}\n' \
-  "$TICKET_PATH" "$SLUG" "$MISSION_SLUG" "$FEEDBACK" "$ASSIGNEE" "$LOOSE_JSON"
+json_escape() {
+  printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g'
+}
+
+printf '{"created": true, "path": "%s", "slug": "%s", "mission": "%s", "feedback": "%s", "assignees": "%s", "loose": %s, "verification_handoff": "%s"}\n' \
+  "$TICKET_PATH" "$SLUG" "$MISSION_SLUG" "$FEEDBACK" "$ASSIGNEE" "$LOOSE_JSON" "$(json_escape "$VERIFICATION_HANDOFF")"

@@ -67,6 +67,7 @@ const SCRIPTS = {
   planUnits: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/plan-units.sh"),
   readActiveRelation: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/read-active-relation.sh"),
   effectivePolicy: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/effective-policy.sh"),
+  verificationHandoff: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/verification-handoff.sh"),
   listClaims: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/list-claims.sh"),
   releaseClaim: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/release-claim.sh"),
   landUnit: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/land-unit.sh"),
@@ -10730,6 +10731,78 @@ function testEffectivePolicy() {
   } finally { cleanup(dir); }
 }
 
+// ---------- drive/verification-handoff.sh: the declared-handoff axis ----------
+// The second routing input, read BEFORE merge policy (drive SKILL §6): a unit whose
+// artifact declared `verification_handoff:` at creation is handed to a person instead
+// of merged, whatever its merge policy says. The asymmetry under test mirrors — and
+// deliberately inverts — effective-policy's: there, silence is conservative and means
+// `review`; here, silence is the ORDINARY case and only an explicit declaration
+// diverts the unit, because a field that stopped merges by default would stop them
+// for every artifact written before it existed.
+function testVerificationHandoff() {
+  const dir = makeRepo("main");
+  const VH = `${POSIX_SH} ${SCRIPTS.verificationHandoff}`;
+  const REASON = "the Slack connector credential is absent in the routine container";
+  const mission = (slug, declared) => {
+    mkdirSync(join(dir, `.workaholic/missions/active/${slug}`), { recursive: true });
+    writeFileSync(join(dir, `.workaholic/missions/active/${slug}/mission.md`),
+      `---\ntype: Mission\ntitle: ${slug}\nslug: ${slug}\nstatus: active\nmerge_policy: auto\n` +
+      (declared === null ? "" : `verification_handoff: ${declared}\n`) +
+      `assignees: [test@example.com]\n---\n\n# ${slug}\n\n## Acceptance\n\n- [ ] a\n`);
+  };
+  const ticket = (name, declared) => {
+    const d = join(dir, ".workaholic/tickets/todo");
+    mkdirSync(d, { recursive: true });
+    const rel = `.workaholic/tickets/todo/${name}.md`;
+    writeFileSync(join(dir, rel),
+      `---\ncreated_at: 2026-08-14T00:00:00+09:00\nauthor: test@example.com\nmerge_policy: auto\n` +
+      (declared === null ? "" : `verification_handoff: ${declared}\n`) + `---\n\n# ${name}\n`);
+    return rel;
+  };
+  try {
+    mission("m-declared", REASON);
+    mission("m-plain", null);
+    const tPlain = ticket("20260814000001-plain", null);
+    const tEmpty = ticket("20260814000002-empty", "");
+    const tDeclared = ticket("20260814000003-declared", REASON);
+
+    const v = (cmd) => JSON.parse(run(dir, `${VH} ${cmd}`).stdout);
+
+    // --- the ordinary case is silence, and it must not divert anything ---
+    assertEq("a ticket declaring nothing does not hand off", v(`tickets ${tPlain}`).handoff, false);
+    assertEq("an EMPTY declaration reads as no declaration", v(`tickets ${tEmpty}`).handoff, false);
+    assertEq("a mission declaring nothing does not hand off", v("mission m-plain").handoff, false);
+
+    // --- an explicit declaration diverts the unit, and its value IS the reason ---
+    const declared = v(`tickets ${tDeclared}`);
+    assertEq("a declared ticket hands the unit off, naming what cannot run",
+      { handoff: declared.handoff, reason: declared.reason, member: declared.member },
+      { handoff: true, reason: REASON, member: tDeclared });
+    assertEq("a declared mission hands the unit off",
+      { handoff: v("mission m-declared").handoff, reason: v("mission m-declared").reason },
+      { handoff: true, reason: REASON });
+
+    // --- one declaring member carries the whole unit: it is one merge ---
+    const mixed = v(`tickets ${tPlain} ${tDeclared}`);
+    assertEq("one declaring member hands off the whole batch",
+      { handoff: mixed.handoff, member: mixed.member }, { handoff: true, member: tDeclared });
+    assertEq("the handed-off unit still reports every member",
+      mixed.members.map((m) => m.verification_handoff), ["", REASON]);
+
+    // --- a missing file cannot declare anything (effective-policy already refuses
+    //     to merge it, so defaulting it to handoff here would gate twice on one fact) ---
+    const missing = v("tickets .workaholic/tickets/todo/nope.md");
+    assertEq("a missing member is reported, never read as a declaration",
+      { handoff: missing.handoff, missing: missing.missing },
+      { handoff: false, missing: [".workaholic/tickets/todo/nope.md"] });
+
+    // Malformed invocation is the only hard error: a caller that mistyped the kind
+    // must not receive a plausible-looking `false`.
+    assertTrue("a bad unit kind exits non-zero", run(dir, `${VH} bogus x`).status !== 0);
+    assertTrue("a kind with no members exits non-zero", run(dir, `${VH} tickets`).status !== 0);
+  } finally { cleanup(dir); }
+}
+
 // ---------- drive/plan-units.sh: the survey half of the partition ----------
 // The unified run's offer must equal "everything claimable, minus what a claim holds",
 // computed identically on every machine. The hermetic dry demo the ticket's Gate names
@@ -13155,6 +13228,7 @@ const tests = [
   ["drive claim protocol: a long mission slug round-trips", testLongSlugClaimRoundTrip],
   ["drive claim protocol: a refused claim leaves no debris", testRefusedClaimLeavesNoDebris],
   ["drive/effective-policy.sh (G5 truth table)", testEffectivePolicy],
+  ["drive/verification-handoff.sh (declared handoff)", testVerificationHandoff],
   ["drive/plan-units.sh (survey minus claims)", testPlanUnits],
   ["drive/plan-units.sh (exclusions + the dry demo)", testPlanUnitsExclusions],
   ["drive/plan-units.sh (a ticket whose missions have all closed comes back)", testPlanUnitsClosedMission],
@@ -14044,6 +14118,25 @@ function testProposeLooseTicket() {
       !/^(type|layer|effort|commit_hash|category):/m.test(body), body.slice(0, 300));
     assertTrue("merge_policy stays empty, which reads as review",
       /^merge_policy:\s*$/m.test(body), body.slice(0, 300));
+    // The verification axis is written by default as an EMPTY field: present so the
+    // schema is visible, empty so nothing is diverted from the ordinary route.
+    assertTrue("verification_handoff is written empty by default",
+      /^verification_handoff:\s*$/m.test(body), body.slice(0, 300));
+
+    // The proposer MAY write this one (unlike merge_policy) because it records a fact
+    // the ask stated rather than granting a permission — and the value is the reason,
+    // quoted verbatim into the pull request later.
+    const REASON = "verifying the Slack post needs a connector token the routine lacks";
+    const declared = JSON.parse(run(root,
+      `${SCAFFOLD} "Post a thing to Slack" --loose --feedback 20260802000000-ask.md --verification-handoff "${REASON}"`).stdout);
+    const declaredBody = readFileSync(join(root, declared.path), "utf8");
+    assertEq("the declaration is reported back by the scaffold", declared.verification_handoff, REASON);
+    assertTrue("and written into the ticket frontmatter verbatim",
+      declaredBody.includes(`verification_handoff: ${REASON}`), declaredBody.slice(0, 400));
+    assertEq("a declared proposed ticket still passes validate-ticket.sh", validates(declared.path), 0);
+    assertEq("and drive reads it as a handoff declaration",
+      JSON.parse(run(root, `${POSIX_SH} ${SCRIPTS.verificationHandoff} tickets ${declared.path}`).stdout).reason,
+      REASON);
     // The `feedback:` key is TOLERATED by the validator, like `claim:` -- it validates
     // named fields only, so an artifact relation needs no schema amendment.
     assertEq("a loose proposed ticket passes validate-ticket.sh", validates(loose.path), 0);
@@ -15156,5 +15249,42 @@ function testLoopDrillVerifyImplement() {
     assertEq("the unit's own unmerged branch fails the stage", j.verdict, "fail");
     assertEq("naming claim_released",
       j.rows.find((x) => x.check === "claim_released").pass, false);
+
+    // THE UNVERIFIABLE-UNIT FIXTURE INVERTS THE STAGE (2026-08-14, issue #452). A drill
+    // ticket declaring `verification_handoff:` is one the loop must NOT merge, so the
+    // very state that just failed above — an open PR on a still-claimed branch — is the
+    // pass here, provided the PR actually hands off and names what could not be run.
+    const REASON = "the deploy confirmation needs a production credential";
+    writeFileSync(join(fx.repo, `.workaholic/tickets/archive/${BRANCH}/20260812000100-drill-step.md`),
+      `---\nfeedback: 20260812000000-drill-ask\nverification_handoff: ${REASON}\n---\n\n# Drill step\n`);
+    execSync("git add -A && git commit -q -m 'Declare the unit unverifiable here'", { cwd: fx.repo });
+    execSync("git push -q origin main", { cwd: fx.repo });
+    setPulls(fx, [{ number: 902, head: { ref: BRANCH }, merged_at: null,
+      title: "Hand the drill unit off", body: `## Handoff\n\n- **Not done:** ${REASON}\n` }]);
+
+    j = JSON.parse(run(fx.repo, `${fx.DRILL} verify-implement ${N} --json`, { env: fx.env }).stdout);
+    let handoffRows = Object.fromEntries(j.rows.map((x) => [x.check, x]));
+    assertEq("a declared-unverifiable unit passes on an OPEN handed-off PR", j.verdict, "pass");
+    assertEq("the merged-PR row is not even asked for", handoffRows.unit_pr_merged, undefined);
+    assertEq("the handoff row passes instead", handoffRows.unit_pr_handed_off.pass, true);
+    assertEq("and the claim is expected to still be held", handoffRows.claim_held.pass, true);
+
+    // Merging it is the defect this fixture exists to catch.
+    setPulls(fx, [{ number: 902, head: { ref: BRANCH }, merged_at: "2026-08-14T09:00:00Z",
+      title: "Hand the drill unit off", body: `## Handoff\n\n- **Not done:** ${REASON}\n` }]);
+    j = JSON.parse(run(fx.repo, `${fx.DRILL} verify-implement ${N} --json`, { env: fx.env }).stdout);
+    handoffRows = Object.fromEntries(j.rows.map((x) => [x.check, x]));
+    assertEq("merging a declared-unverifiable unit fails the stage", j.verdict, "fail");
+    assertTrue("naming the merge as the failure",
+      handoffRows.unit_pr_handed_off.detail.includes("MERGED"), handoffRows.unit_pr_handed_off.detail);
+
+    // An open PR that says nothing about what could not be run hands off nothing.
+    setPulls(fx, [{ number: 902, head: { ref: BRANCH }, merged_at: null,
+      title: "Hand the drill unit off", body: "## Handoff\n\n- **Not done:** something\n" }]);
+    j = JSON.parse(run(fx.repo, `${fx.DRILL} verify-implement ${N} --json`, { env: fx.env }).stdout);
+    handoffRows = Object.fromEntries(j.rows.map((x) => [x.check, x]));
+    assertEq("a handoff that does not name the verification fails", j.verdict, "fail");
+    assertTrue("naming the declaration it looked for",
+      handoffRows.unit_pr_handed_off.detail.includes(REASON), handoffRows.unit_pr_handed_off.detail);
   } finally { cleanup(fx.tmp); }
 }

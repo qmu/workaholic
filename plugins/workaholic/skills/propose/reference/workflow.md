@@ -134,6 +134,12 @@ and every abort reports a machine-readable reason.
 
    Either way, fill each ticket's Overview, Key Files, Implementation Steps, and the
    provisional Quality Gate, and leave `merge_policy` empty (absent reads as `review`).
+   **Pass `--verification-handoff "<what cannot run here>"` when the ask itself states
+   that the work's real-world verification needs a credential, device or third-party
+   account an unattended run does not have** — the loop's own asks arrive that way
+   (issue #452). It is read off the ask, never inferred from the Quality Gate this
+   batch just wrote, and it makes `/drive` hand the finished unit to a person rather
+   than merge it and announce it verified (`workaholic:drive` §6).
    **When step 5 found `diagnosis_first: true`**, open Implementation Steps with
    reproducing and localizing the failure and record any reporter-proposed mechanism
    under Considerations as a hypothesis, never as step 1's design

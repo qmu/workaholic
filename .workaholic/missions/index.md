@@ -1,11 +1,5 @@
 # missions
 
-## active
-
-* [draft-deployment-plans-in-the-release-note-before-deploying](active/draft-deployment-plans-in-the-release-note-before-deploying/mission.md) - Draft deployment plans in the Release Note before deploying
-* [refresh-the-outdated-documentation-to-match-current-behavior](active/refresh-the-outdated-documentation-to-match-current-behavior/mission.md) - Refresh the outdated documentation to match current behavior
-* [revive-strategy-and-reshape-the-workaholic-artifact-set](active/revive-strategy-and-reshape-the-workaholic-artifact-set/mission.md) - Revive Strategy and reshape the .workaholic artifact set
-
 ## archive
 
 * [adopt-a-git-flow-branching-model-with-durable-ship-records](archive/adopt-a-git-flow-branching-model-with-durable-ship-records/mission.md) - Adopt a release-branch staging tier with durable ship records
@@ -13,6 +7,7 @@
 * [color-code-the-notify-post-shapes-by-state](archive/color-code-the-notify-post-shapes-by-state/mission.md) - Color-code the notify post shapes by state
 * [configure-routines-automatically-via-remotetrigger](archive/configure-routines-automatically-via-remotetrigger/mission.md) - Configure routines automatically via RemoteTrigger
 * [cross-the-repo-boundary-as-an-issue](archive/cross-the-repo-boundary-as-an-issue/mission.md) - Cross the repo boundary as an issue
+* [draft-deployment-plans-in-the-release-note-before-deploying](archive/draft-deployment-plans-in-the-release-note-before-deploying/mission.md) - Draft deployment plans in the Release Note before deploying
 * [drive-on-a-merged-proposal-and-report-it-in-that-proposal-s-thread](archive/drive-on-a-merged-proposal-and-report-it-in-that-proposal-s-thread/mission.md) - Drive on a merged proposal, and report it in that proposal's thread
 * [drop-the-draft-gate-and-make-drive-own-its-worktree-from-refreshed-main](archive/drop-the-draft-gate-and-make-drive-own-its-worktree-from-refreshed-main/mission.md) - Drop the draft gate and make /drive own its worktree from refreshed main
 * [give-propose-and-ticket-a-diagnosis-first-discovery-pass](archive/give-propose-and-ticket-a-diagnosis-first-discovery-pass/mission.md) - Give /propose and /ticket a diagnosis-first discovery pass
@@ -32,8 +27,10 @@
 * [move-the-propose-and-implement-routines-to-a-fixed-interval-schedule](archive/move-the-propose-and-implement-routines-to-a-fixed-interval-schedule/mission.md) - Move the Propose and Implement routines to a fixed-interval schedule
 * [propose-at-the-capture-seam](archive/propose-at-the-capture-seam/mission.md) - Propose at the capture seam
 * [reduce-the-loop-to-two-routines-and-one-behaviour-per-command](archive/reduce-the-loop-to-two-routines-and-one-behaviour-per-command/mission.md) - Reduce the loop to two routines and one behaviour per command
+* [refresh-the-outdated-documentation-to-match-current-behavior](archive/refresh-the-outdated-documentation-to-match-current-behavior/mission.md) - Refresh the outdated documentation to match current behavior
 * [reorganize-missions-under-strategies](archive/reorganize-missions-under-strategies/mission.md) - Reorganize missions under strategies
 * [retire-routine-management-into-a-setup-sheet](archive/retire-routine-management-into-a-setup-sheet/mission.md) - Retire routine management into a setup sheet
+* [revive-strategy-and-reshape-the-workaholic-artifact-set](archive/revive-strategy-and-reshape-the-workaholic-artifact-set/mission.md) - Revive Strategy and reshape the .workaholic artifact set
 * [right-size-report-to-single-ticket-per-pr-granularity](archive/right-size-report-to-single-ticket-per-pr-granularity/mission.md) - Right-size /report to single-ticket-per-PR granularity
 * [slim-commands-skills-and-docs-for-ai-agent-use](archive/slim-commands-skills-and-docs-for-ai-agent-use/mission.md) - Slim commands, skills, and docs for AI-agent use
 * [stop-a-routine-finish-line-from-vanishing-on-the-script-path](archive/stop-a-routine-finish-line-from-vanishing-on-the-script-path/mission.md) - Stop a routine finish line from vanishing on the script path

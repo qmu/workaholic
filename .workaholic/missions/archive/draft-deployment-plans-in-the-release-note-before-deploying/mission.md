@@ -2,7 +2,7 @@
 type: Mission
 title: Draft deployment plans in the Release Note before deploying
 slug: draft-deployment-plans-in-the-release-note-before-deploying
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-13T12:35:44+00:00
 author: a@qmu.jp
@@ -53,3 +53,4 @@ PROVISIONAL sketch — the interrogation that replans this sharpens it.
 - 2026-08-13 — ticket archived — 20260813123903-keep-the-deploy-plan-draft-current-periodically.md
 - 2026-08-13 — reported — work-20260813-133929.md
 - 2026-08-13 — run recorded (+1.6h) — implement-20260813-133929
+- 2026-08-14 — mission achieved — mission.md

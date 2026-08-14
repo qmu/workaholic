@@ -2,7 +2,7 @@
 type: Mission
 title: Revive Strategy and reshape the .workaholic artifact set
 slug: revive-strategy-and-reshape-the-workaholic-artifact-set
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-13T11:25:09+00:00
 author: a@qmu.jp
@@ -50,3 +50,4 @@ Proposed sketch — interrogate before driving.
 - 2026-08-13 — run recorded (+1.0h) — implement-20260813-113709
 - 2026-08-13 — run recorded (+0.5h) — 20260813-1400-catchup
 - 2026-08-13 — ticket archived — 20260813125500-re-read-the-stale-terms-glossary-content.md
+- 2026-08-14 — mission achieved — mission.md

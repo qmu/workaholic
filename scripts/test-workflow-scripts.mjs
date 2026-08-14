@@ -13665,6 +13665,29 @@ function testStatelessThreadLookup() {
     /notification outcome/i.test(driveSkill) && /unposted/i.test(driveSkill));
   assertTrue("and the terminal-token table rules an unposted finish line non-decisive",
     /finish line[^|]{0,40}did not reach Slack[\s\S]{0,200}not by itself/i.test(driveSkill));
+
+  // Case 4 posts TWO messages since 2026-08-14 (issue #443): a description root a human can
+  // answer, then the finish line as a reply into it. The root's wording lives in exactly two
+  // places -- the shape catalog, and the [Propose] routine template whose prompt is the
+  // ceiling on what a session may emit -- so a drift between them ships either a documented
+  // shape nobody is authorized to post or a posted shape nothing documents. Byte for byte.
+  const rootBlock = (body) => {
+    const m = body.match(/```\n(\u{1F4DD} FB - [\s\S]*?)```/u);
+    return m ? m[1] : "";
+  };
+  const catalog = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/notify/reference/notifications.md"), "utf8");
+  const proposeTemplate = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines/fb.md"), "utf8");
+  const catalogRoot = rootBlock(catalog);
+  assertTrue("the shape catalog carries the description root's block", catalogRoot !== "", catalog.slice(0, 200));
+  assertEq("the description root reads byte-identically in the catalog and the [Propose] template",
+    rootBlock(proposeTemplate), catalogRoot);
+
+  // The root carries the lookup's own key -- case 2 searches for `fb:<stem>`, so moving the
+  // key onto the root is safe only while the root keeps it -- and carries no mention token,
+  // since mentioning the Claude app would re-trigger it on the routine's own post.
+  assertTrue("the description root carries the fb:<stem> key", /`fb:<stem>`/.test(catalogRoot), catalogRoot);
+  assertTrue("the notify skill states the root's no-Claude-mention rule",
+    /no Claude mention token/i.test(notifySkill));
 }
 
 // ---------- one behaviour per command (P5, 2026-08-06) ----------

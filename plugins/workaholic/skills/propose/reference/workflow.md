@@ -150,15 +150,24 @@ and every abort reports a machine-readable reason.
     The message carries the title, this repo's label
     (`bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/project-label.sh`), the **PR URL**,
     and how to pick it up once merged (`/mission <slug>` for a mission; a loose ticket
-    simply joins the backlog). A no-op or failure never fails the run (SKILL.md,
+    simply joins the backlog). **When the lookup finds no thread (case 4), two messages
+    go out on the connector, in order**: the description root (`workaholic:notify`,
+    *The description root* — the feedback record's title and URL, the `` `fb:<stem>` ``
+    key, no mention token of any kind), then the `🔵 Proposed` finish line as a reply
+    whose `thread_ts` is that root's timestamp. A found thread takes the finish line
+    alone, unchanged; the tokened fallback posts the keyed finish line alone in either
+    case, because it cannot thread. A no-op or failure never fails the run (SKILL.md,
     *Notifier contract*) — it is reported at step 13, never treated as posted. Inside the
-    `[Propose]` routine the thread root is the routine's own connector post; do not post
-    twice.
+    `[Propose]` routine these are the routine's own connector posts; do not post twice.
 
 13. **Report** one line: the form chosen (mission with N tickets / loose ticket /
     record-only) with its reason, the record's filename, the PR URL, and the
     notification outcome — **which surface carried it** (connector or the tokened
-    fallback) and `notified`, or the reason it did not post (`no_surface`, `no_token`,
-    `slack_<error>`, …). A message that did not reach Slack is reported as unposted,
-    never omitted; it does not make the run a failure (`workaholic:drive` §7 states the
-    same rule for `/implement`'s per-unit finish lines).
+    fallback), **which lookup case it took**, and `notified` **per message** (the
+    description root and the finish reply are reported separately when case 4 sent
+    both), or the reason one did not post (`no_surface`, `no_token`, `slack_<error>`,
+    …). A run on the tokened fallback reports `could_not_thread` beside its one keyed
+    message rather than reading as if it had threaded. A message that did not reach
+    Slack is reported as unposted, never omitted; it does not make the run a failure
+    (`workaholic:drive` §7 states the same rule for `/implement`'s per-unit finish
+    lines).

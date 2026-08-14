@@ -101,8 +101,10 @@ Two things the routine needs before it can work:
   and its `SessionStart` entry the routine fires on time and stops at its own
   "the workaholic plugin must be loaded" precondition — looking healthy in the
   routines list while doing nothing. `/workaholify` checks this first.
-- **The Slack connector and the `dev-<repo>` channel**, for the thread root the
-  routine posts when it opens the pull request.
+- **The Slack connector and the `dev-<repo>` channel**, for the finish line the
+  routine posts when it opens the pull request — and, when the stateless lookup
+  finds no thread for the item, the description root it posts that line into
+  (`workaholic:notify`, *The description root*).
 
 > **Superseded (2026-08-06): "An agent never creates or re-points a routine at
 > all — the plugin renders the setup sheet and manages nothing."** That reading,
@@ -131,8 +133,10 @@ which is minted per second (§5).
 4. Judges against the propose skill's conservative bar and picks the form: a
    mission with its ordered ticket set, one loose backlog ticket, or the record
    alone.
-5. Publishes everything in **one** `publish-tree-pr.sh` call and posts the
-   thread root.
+5. Publishes everything in **one** `publish-tree-pr.sh` call, then posts the
+   `🔵 Proposed` finish line into the item's thread — preceded by a description
+   root when the lookup found none, which is the only case that sends two
+   messages.
 
 **Record-only is a judgment, not a mechanism.** The session can always see the
 record — it wrote it — so an empty proposal means "this ask warrants no work",

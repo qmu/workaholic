@@ -497,4 +497,5 @@
 * [Add Strategy as a fourth /propose artifact type](20260814064431-add-strategy-as-a-fourth-propose-artifact-type.md)
 * [Split /setup-routines into /setup-dev-routines and /setup-repo-routines](20260814064840-split-setup-routines-into-setup-dev-routines-and-setup-repo-routines.md)
 * [Introduce Handoff PR status for credential-blocked verification](20260814065157-introduce-handoff-pr-status-for-credential-blocked-verification.md)
+* [Commit author shows as Claude for all Web Routine commits](20260814065335-commit-author-shows-as-claude-for-all-web-routine-commits.md)
 <!-- okf:generated:end -->

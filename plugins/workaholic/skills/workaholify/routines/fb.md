@@ -38,7 +38,9 @@ the honest answer, now meaning "the inbox is empty" rather than "I could not loo
 **The prompt is the developer's own** (P3, reshaped by Q2, trimmed again 2026-08-12 after
 the developer read dated decision notes in the live prompt: the command, the load
 fallback, and one literal finish shape carrying the session URL and the requester's
-mention — nothing else) and states no rule
+mention — plus, since 2026-08-14, the description root the finish replies into when
+the lookup finds no thread, which the ceiling rule requires the prompt to name before
+any session may emit it) and states no rule
 a skill already owns: `workaholic:propose` owns the judgment, the single pull request
 and the `[Proposal]` prefix; `workaholic:feedback` owns the record; `workaholic:notify`
 owns every notification rule; the always-loaded `rules/` own the standing
@@ -46,7 +48,9 @@ prohibitions. The one literal format below stays embedded rather than deferred �
 reasoning holds: a routine cannot defer its own output contract — but
 `workaholic:notify`'s `reference/notifications.md` mirrors them verbatim as the sole
 sanctioned shapes for these two events (P10, 2026-08-07), so a future edit to either
-copy is a drift to fix, never a second wording to reconcile against a third. The reply
+copy is a drift to fix, never a second wording to reconcile against a third. The root
+block is copied from that catalog **byte for byte**, placeholders included, so the two
+copies diff clean — `<repo-url>` there is the `{repo}` of the finish line above it. The reply
 thread is **found**, never carried (Q1) — the notify SKILL's exact-token lookup, not a
 target read out of a triggering event and not a channel name in the prompt — so no
 repository is named here and the same prompt pastes into every project. A schedule
@@ -66,4 +70,13 @@ If it finds an ask in hand, post one finish line into its reply thread (the work
 ```
 🔵 Proposed - [#123 [Proposal] PR Title]({repo}/pull/123)
 by the [routine](https://claude.ai/code/session_***) of <@U…>
+```
+
+If that lookup finds no thread, post this description root first and the finish line above as a reply into it — no mention token of any kind on the root:
+
+```
+📝 FB - [<feedback title>](<repo-url>/blob/main/.workaholic/feedbacks/<stem>.md)
+One sentence, max 30 words, what the feedback asks for.
+`fb:<stem>`
+<session URL>
 ```

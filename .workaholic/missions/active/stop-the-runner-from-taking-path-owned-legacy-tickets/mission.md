@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260814-110344
 ---
 
 # Stop the runner from taking path-owned legacy tickets

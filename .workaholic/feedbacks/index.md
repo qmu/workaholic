@@ -499,4 +499,5 @@
 * [Introduce Handoff PR status for credential-blocked verification](20260814065157-introduce-handoff-pr-status-for-credential-blocked-verification.md)
 * [Commit author shows as Claude for all Web Routine commits](20260814065335-commit-author-shows-as-claude-for-all-web-routine-commits.md)
 * [Path-owned legacy todo tickets are surveyed as team-owned by the unattended routine](20260814102845-path-owned-legacy-todo-tickets-are-surveyed-as-team-owned-by-the-unattended-routine.md)
+* [Workaholify is the preparation command, so it must apply rather than report](20260814103718-workaholify-is-the-preparation-command-so-it-must-apply-rather-than-report.md)
 <!-- okf:generated:end -->

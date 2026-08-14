@@ -3,6 +3,7 @@
 ## active
 
 * [give-propose-a-strategy-artifact-form](active/give-propose-a-strategy-artifact-form/mission.md) - Give /propose a Strategy artifact form
+* [make-workaholify-apply-the-standards-not-report-them](active/make-workaholify-apply-the-standards-not-report-them/mission.md) - Make workaholify apply the standards, not report them
 * [split-routine-setup-into-developer-and-repository-scopes](active/split-routine-setup-into-developer-and-repository-scopes/mission.md) - Split routine setup into developer and repository scopes
 * [stop-the-runner-from-taking-path-owned-legacy-tickets](active/stop-the-runner-from-taking-path-owned-legacy-tickets/mission.md) - Stop the runner from taking path-owned legacy tickets
 

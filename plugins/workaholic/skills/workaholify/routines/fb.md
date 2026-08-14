@@ -2,6 +2,7 @@
 type: Routine Template
 id: fb
 name: "[Propose] {repo_name}"
+scope: developer
 trigger: schedule-hourly
 trigger_kind: schedule
 cron_expression: 15 * * * *
@@ -12,6 +13,11 @@ mcp: [Slack]
 ---
 
 # [Propose] — turn a reported ask into a record and the work it warrants
+
+**`scope: developer`** — every developer needs their own copy, so `/setup-dev-routines`
+converges it and `/setup-repo-routines` never sees it. The scope is the template's own
+field because both commands and both setup sheets have to read one source
+(`workaholic:workaholify` §5, *Two scopes, two commands*).
 
 **Fires on a fixed hourly schedule (:15 — the API floor is one hour)** — FB `20260810085032`/issue #336,
 ticket `20260810085347`, 2026-08-10: loop-engineering cadence over instant webhook

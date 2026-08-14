@@ -49,6 +49,12 @@ A unit's start and finish are **per-unit, never per-run** ("a run started" names
 
 The bot notice `claim.sh` posts (bot token, no threading) is a different surface and is deliberately left alone; neither surface is load-bearing.
 
+### The repository tick's status line — the one post with no feedback item
+
+`/release-status` and its repository-scoped `[Release Status]` routine post `📦 Release status` as a **top-level keyed root**, keyed on `` `deploy:<digest>` `` — never a reply. Nobody *said* anything for this event; the repository's own state changed, so there is no feedback item and no thread to land in, which is the same reason an `/implement` unit with no stem keys on `` `unit:<unit-id>` ``. It carries **no mention token of any kind**: the line names a repository state, not a person's work.
+
+**Two conditions, both required, or the tick posts nothing**: `actionable: true` (some target's `needs[]` is non-empty) **and** an exact-string search for `` `deploy:<digest>` `` finding nothing. The digest hashes the substantive per-target state and deliberately not the base sha (`workaholic:ship` §7), so a base that merely advanced is not news and an unchanged answer is never repeated. This is content-keyed dedup, not the red-alert cool-down: no time window, no escalation, and a status that becomes true again posts once more. Exact shape: [reference/notifications.md](reference/notifications.md).
+
 ## The transport — the connector is primary, the tokened script is the machine fallback
 
 The model above says *which* thread a post lands in; this says *what carries it there*. Stated once here because a call site that names one transport as **the** way to post silently selects it for sessions that do not have it — measured 2026-08-12 (FB `20260812203825`, issue #406): the skills named the script, a routine session carries the connector and no token, and the finish line for four runs never existed.
@@ -78,4 +84,4 @@ A session may emit only the notification events and post shapes its own routine 
 
 ## The bright line — what earns a post
 
-Slack is the only surface — the repository's `dev-<repo_name>` channel; no mobile or push notification. An event earns its post by being something a developer must act on or stay aware of: post a unit started, a proposal opened, a merge, a handoff, a blocked-on-precondition failure; do not post an idle tick, a claim, a heartbeat, a ticket archived, a commit, a passing test, or a build — the tie goes to silence.
+Slack is the only surface — the repository's `dev-<repo_name>` channel; no mobile or push notification. An event earns its post by being something a developer must act on or stay aware of: post a unit started, a proposal opened, a merge, a handoff, a blocked-on-precondition failure, a **changed** release status with something waiting; do not post an idle tick, a claim, a heartbeat, a ticket archived, a commit, a passing test, or a build — the tie goes to silence. The `📦 Release status` line is the one recurring post, and it survives this rule only because both of its gates make an idle tick silent: nothing waiting posts nothing, and an answer already said posts nothing.

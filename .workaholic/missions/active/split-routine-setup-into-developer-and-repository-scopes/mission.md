@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260814-084725
 ---
 
 # Split routine setup into developer and repository scopes
@@ -39,10 +40,13 @@ plainly it is not for everyone, since N copies of a repo routine is the failure.
 
 <!-- PROPOSED sketch, not a plan — the reviewer replans this to drive-ready. -->
 
-- [ ] Routine templates carry a scope (developer vs repository), and each command configures only its own scope. (#20260814064854-split-setup-routines-into-dev-and-repo-commands.md)
-- [ ] `/setup-dev-routines` reproduces today's `/setup-routines` behaviour, including the `no_transport` refusal and its setup-sheet recovery path. (#20260814064854-split-setup-routines-into-dev-and-repo-commands.md)
-- [ ] A repository-scoped routine that refreshes release notes exists as a template and is configured only by `/setup-repo-routines`. (#20260814064854-add-the-hourly-release-note-repo-routine.md)
+- [x] Routine templates carry a scope (developer vs repository), and each command configures only its own scope. (#20260814064854-split-setup-routines-into-dev-and-repo-commands.md)
+- [x] `/setup-dev-routines` reproduces today's `/setup-routines` behaviour, including the `no_transport` refusal and its setup-sheet recovery path. (#20260814064854-split-setup-routines-into-dev-and-repo-commands.md)
+- [x] A repository-scoped routine that refreshes release notes exists as a template and is configured only by `/setup-repo-routines`. (#20260814064854-add-the-hourly-release-note-repo-routine.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-14 — ticket archived — 20260814064854-split-setup-routines-into-dev-and-repo-commands.md
+- 2026-08-14 — ticket archived — 20260814064854-add-the-hourly-release-note-repo-routine.md
+- 2026-08-14 — story written — work-20260814-084725.md

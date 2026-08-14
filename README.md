@@ -65,7 +65,9 @@ The `plugins/workaholic` source stays Claude-Code-only (`metadata.internal: true
 | `/catch`   | Read-only catch-up report over a recent window (commits, tickets, stories, each active mission's derived progress and unmerged in-flight work) plus an orchestration-throughput block, then follow-up Q&A |
 | `/explain` | Answer a question about the repository and export a printer-ready PDF report, rendered from HTML by a real browser |
 | `/workaholify` | Wire the current repo to the standards: refer to the gateway skill, audit `CLAUDE.md` against the documentation standard, and confirm the working-directory hook is active |
-| `/setup-routines` | **Configure** this repository's routines: every run lists the account's routines through a `RemoteTrigger`-family tool, diffs each against its template (name, prompt, model, `cron_expression`, `autofix_on_pr_create`, connectors), applies the create/update needed to converge, and reports the per-routine changes. No questions. When no such transport is reachable it says so — `no_transport` — and falls back to rendering the **copy-paste setup sheets** (name, model, repository, the prompt verbatim, the web-UI steps) as that refusal's recovery path, together with the preconditions (the `dev-<repo>` Slack channel, the web bootstrap) and a plain statement of what could not be verified from the session |
+| `/release-status` | Report what is **waiting to deploy** on the base right now, per deployment target, and what about it needs a human — commits waiting since the last release boundary, a target that declares no confirmation method, a target no release note has ever joined. **A pure read**: it writes no file, commits nothing, opens no pull request, merges nothing and deploys nothing. It posts one Slack line only when something is waiting *and* that exact answer has not been posted before; both gates fail and it says nothing at all. This is what the repository-scoped `[Release Status]` routine runs hourly |
+| `/setup-dev-routines` | **Configure** the routines every developer needs their own copy of (`[Propose]`, `[Implement]`): every run lists the account's routines through a `RemoteTrigger`-family tool, diffs each against its template (name, prompt, model, `cron_expression`, `autofix_on_pr_create`, connectors), applies the create/update needed to converge, and reports the per-routine changes. No questions. When no such transport is reachable it says so — `no_transport` — and falls back to rendering the **copy-paste setup sheets** (name, scope, model, repository, the prompt verbatim, the web-UI steps) as that refusal's recovery path, together with the preconditions (the `dev-<repo>` Slack channel, the web bootstrap) and a plain statement of what could not be verified from the session |
+| `/setup-repo-routines` | **Configure** the routines the repository needs exactly **one** of (`[Release Status]`) — same flow, same one refusal, scoped to `repository` templates. **Run it from one account**, a designated person or a project/service account: a routine is an account-level record no other account can list, so N members each converging the repository's single routine would leave N copies firing every hour and nothing in the product could detect it. That makes the single-owner rule a **stated convention rather than an enforced one**, which the command says plainly instead of inventing an authorization the API cannot carry — it reports exactly which routines it converged, by name, so a second person sees their own duplicate |
 
 **Engineering-policy skills** (`planning` / `design` / `implementation` / `operation`): a catalog mirrored from qmu.co.jp giving each policy's title, one-line summary, and canonical link, organized into the 企画 (planning — grounding a project in business, market, and legal context before design begins), 設計 (design), 実装 (implementation, sub-grouped by 妥当性 / 可用性 / アクセシビリティ), and 運用 (operations) pillars. Pure prose, exposed on every Agent-Skills agent. Security (安全) and working-practice (執務) policies live elsewhere on qmu.co.jp and are out of scope.
 
@@ -309,7 +311,8 @@ flowchart LR
   commit(["/commit"])
   explain(["/explain"])
   workaholify(["/workaholify"])
-  setuproutines(["/setup-routines"])
+  setuproutines(["/setup-dev-routines · /setup-repo-routines"])
+  releasestatus(["/release-status"])
 
   %% ---------- artifacts under .workaholic/ (grey) ----------
   TODO["tickets/todo/"]
@@ -367,6 +370,8 @@ flowchart LR
   catch -.-> DEP
   explain -.-> ARCH
   setuproutines -.-> ROUT
+  releasestatus -.-> DEP
+  releasestatus -.-> REL
 
   %% ========== mission rolls: dashed, labelled ==========
   drive -. rolls .-> MIS
@@ -380,7 +385,7 @@ flowchart LR
   classDef cmd fill:#dbeafe,stroke:#1e40af,stroke-width:1.5px,color:#1e3a8a;
   classDef art fill:#f3f4f6,stroke:#6b7280,color:#111827;
   classDef ext fill:#f3f4f6,stroke:#9aa0aa,stroke-dasharray:4 3,color:#374151;
-  class ticket,mission,missionclose,propose,feedback,drive,report,ship,catch,commit,explain,workaholify,setuproutines cmd;
+  class ticket,mission,missionclose,propose,feedback,drive,report,ship,releasestatus,catch,commit,explain,workaholify,setuproutines cmd;
   class TODO,ICE,ARCH,ABD,MIS,STORY,FBK,REL,DEP art;
   class EXT,PDF,WT,CFG,ROUT ext;
 ```
@@ -388,7 +393,7 @@ flowchart LR
 Reading the map:
 
 - **Solid arrow** = the command *generates* that artifact. **Dashed arrow** = the command *reads / refers to* it. `rolls` = the command updates a named mission's `## Changelog` and `## Acceptance` checklist (via the `mission:` relation any ticket/story/concern carries).
-- **Node style tells the kind apart.** Rounded **blue** = the fourteen commands (`/drive` and `/implement` share the executor node); rectangular **grey** = the artifacts they generate. A **dashed grey border** marks the artifacts that land *outside* `.workaholic/` — a cross-repo issue via `/fb`, a printed PDF via `/explain`, a plain working-tree commit via `/commit`, repo wiring via `/workaholify`, and the scheduled routines `/setup-routines` reads and converges in the Claude Code Web account.
+- **Node style tells the kind apart.** Rounded **blue** = the commands (`/drive` and `/implement` share the executor node); rectangular **grey** = the artifacts they generate. A **dashed grey border** marks the artifacts that land *outside* `.workaholic/` — a cross-repo issue via `/fb`, a printed PDF via `/explain`, a plain working-tree commit via `/commit`, repo wiring via `/workaholify`, and the scheduled routines `/setup-dev-routines` and `/setup-repo-routines` read and converge in the Claude Code Web account.
 - **`/mission` and `/drive` are the two poles.** `/mission` writes `missions/…` and the kickoff/delta tickets into `tickets/todo/` (with `/propose` proposing missions and loose tickets upstream of it); `/drive` reads the mission set and each worktree's `todo/`, drains them to `tickets/archive/`, and rolls each mission it advances — in parallel across every claim it holds.
 - **The ticket is the spine.** `/ticket`, `/mission`, and `/propose` (a mission's ticket set, or one loose ticket) all *fill* `tickets/todo/`; **`/drive` alone** drains it to `tickets/archive/`. Everything downstream reads the archive.
 - **The feedback stream is the only loop.** `/ship` extracts a shipped story's section-6 concerns into `feedbacks/` as `kind: concern` records; the *next* `/report` re-reads the open set (records nobody superseded) and, for each one this branch resolved, appends a superseding record. Every record is written once and becomes permanent history — the "loop" is reading, never rewriting.

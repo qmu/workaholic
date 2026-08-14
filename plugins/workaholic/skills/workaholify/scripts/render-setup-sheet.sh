@@ -2,8 +2,16 @@
 # Render a COPY-PASTE SETUP SHEET for one routine template: everything a developer needs
 # to create that routine by hand at https://claude.ai/code/routines, and nothing else.
 #
-#   render-setup-sheet.sh <template-id> <repo-url>
-#   render-setup-sheet.sh --all <repo-url>
+#   render-setup-sheet.sh <template-id> <repo-url> [<scope>]
+#   render-setup-sheet.sh --all <repo-url> [<scope>]
+#
+# The optional third argument is the routine SCOPE (`developer` | `repository`), the
+# template's own frontmatter field. `--all` with a scope renders only that scope's
+# sheets, so `/setup-dev-routines` and `/setup-repo-routines` each keep a usable
+# copy-paste recovery path for its own refusal instead of sharing one sheet that
+# tells a developer to create the repository's single routine as well. An explicit
+# template id whose scope does not match is refused by name (`scope_mismatch`)
+# rather than rendered anyway.
 #
 # Output: the sheet on stdout, as markdown. No JSON, because the consumer is a person
 # reading it beside a browser form, not a program.
@@ -52,18 +60,29 @@ ROUTINES_URL="https://claude.ai/code/routines"
 fm_field() { sed -n "2,/^---[ \t]*\$/p" "$1" | sed -n "s/^$2:[ \t]*//p" | head -n 1; }
 
 usage() {
-    echo 'usage: render-setup-sheet.sh <template-id|--all> <repo-url>' >&2
+    echo 'usage: render-setup-sheet.sh <template-id|--all> <repo-url> [developer|repository]' >&2
     exit 2
 }
 
-[ "$#" -eq 2 ] || usage
+[ "$#" -eq 2 ] || [ "$#" -eq 3 ] || usage
 TARGET="$1"
 REPO_URL="$2"
+WANT_SCOPE="${3:-}"
+
+case "$WANT_SCOPE" in
+    ''|developer|repository) ;;
+    *) echo "unknown scope: ${WANT_SCOPE}" >&2; exit 2 ;;
+esac
 
 sheet() {
     _id="$1"
     _file="${ROUTINES_DIR}/${_id}.md"
     [ -f "$_file" ] || { echo "unknown template: ${_id}" >&2; return 1; }
+    _scope=$(fm_field "$_file" scope)
+    if [ -n "$WANT_SCOPE" ] && [ "$_scope" != "$WANT_SCOPE" ]; then
+        echo "scope_mismatch: ${_id} is scope '${_scope:-none}', not '${WANT_SCOPE}'" >&2
+        return 1
+    fi
 
     # The rendered fields (name, model, prompt) come from the same renderer the templates
     # have always used, so a sheet can never disagree with what the template says.
@@ -80,6 +99,11 @@ sheet() {
     _mcp=$(fm_field "$_file" mcp)
 
     printf '## %s\n\n' "$_name"
+    case "$_scope" in
+        repository) printf 'Scope: **repository** — exactly one account creates this one.\n\n' ;;
+        developer)  printf 'Scope: **developer** — each developer creates their own copy.\n\n' ;;
+        *)          printf 'Scope: **undeclared** — the template declares no `scope:`; treat that as a defect.\n\n' ;;
+    esac
     printf 'Open <%s> and click **New routine**, then:\n\n' "$ROUTINES_URL"
     printf '1. **Name**: `%s`\n' "$_name"
     printf '2. **Model**: `%s`\n' "$_model"
@@ -112,7 +136,21 @@ sheet() {
     printf '````\n\n'
 }
 
-printf '# Routine setup for %s\n\n' "$REPO_URL"
+case "$WANT_SCOPE" in
+    developer)
+        printf '# Developer-scoped routine setup for %s\n\n' "$REPO_URL"
+        printf '**Every developer on this repository creates their own copy of these.**\n\n'
+        ;;
+    repository)
+        printf '# Repository-scoped routine setup for %s\n\n' "$REPO_URL"
+        printf '**One account creates these for the whole repository — not every team member.**\n'
+        printf 'N copies of a repository routine all firing hourly is the failure the scope exists\n'
+        printf 'to prevent; nothing in the product can detect or refuse the duplicates.\n\n'
+        ;;
+    *)
+        printf '# Routine setup for %s\n\n' "$REPO_URL"
+        ;;
+esac
 printf 'Create these by hand in the web UI. **This command cannot do it**: a GitHub-event\n'
 printf 'trigger is configurable in the UI only with no API-readable field, and no\n'
 printf '`RemoteTrigger`-family tool was exposed to an unattended, routine-fired session for\n'
@@ -137,11 +175,18 @@ printf '> identity and that developer'\''s own [Implement] routine cannot claim 
 printf '> assigned to them.\n\n'
 
 if [ "$TARGET" = "--all" ]; then
+    rendered=0
     for _f in "$ROUTINES_DIR"/*.md; do
         [ -f "$_f" ] || continue
-        _b=$(basename "$_f" .md)
-        sheet "$_b"
+        # Filtered here rather than inside sheet() so a scope that simply does not
+        # apply to a template is a skip, not the refusal an explicit id earns.
+        [ -z "$WANT_SCOPE" ] || [ "$(fm_field "$_f" scope)" = "$WANT_SCOPE" ] || continue
+        sheet "$(basename "$_f" .md)"
+        rendered=$((rendered + 1))
     done
+    # Silence here would read as "nothing to do"; the truth is "this plugin version
+    # ships no template of that scope".
+    [ "$rendered" -gt 0 ] || printf 'This plugin version ships no `%s`-scoped routine template.\n\n' "$WANT_SCOPE"
 else
     sheet "$TARGET"
 fi

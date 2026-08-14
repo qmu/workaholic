@@ -2,6 +2,7 @@
 type: Routine Template
 id: implement
 name: "[Implement] {repo_name}"
+scope: developer
 trigger: schedule-hourly
 trigger_kind: schedule
 cron_expression: 30 * * * *
@@ -12,6 +13,11 @@ mcp: [Slack]
 ---
 
 # [Implement] — the unattended executor
+
+**`scope: developer`** — every developer needs their own copy, so `/setup-dev-routines`
+converges it and `/setup-repo-routines` never sees it. The scope is the template's own
+field because both commands and both setup sheets have to read one source
+(`workaholic:workaholify` §5, *Two scopes, two commands*).
 
 **Fires on a fixed hourly schedule (:30 — the API floor is one hour)** — FB `20260810085032`/issue #336:
 loop-engineering cadence over instant reaction on the merge event. Every developer's

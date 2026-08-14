@@ -117,3 +117,27 @@ Runs **only** on a developer's instruction naming a target, and never in the sam
 - **A failed confirmation deletes nothing**: the release branch is the rollback boundary and the durable evidence of what was tried — record the failure (`confirm-release.sh … "fail"`) and cut a **fresh** branch for the next attempt; never re-point, force-push, or reuse one.
 - **The durable record** is `.workaholic/releases/<release-branch>.md`, written on the base by `record-release-cut.sh` at the cut and `confirm-release.sh` at each attempt — derived from git, never hand-authored, with `since_reason` naming how the carried range was chosen.
 - **No prompting anywhere**: every outcome is a reported JSON refusal or a recorded status; a decision the flow cannot make is a stop with its reason named, never a question.
+
+## 7. Release status — the read that keeps the plan honest between ships
+
+`/release-status`, and the repository-scoped `[Release Status]` routine that runs it hourly. **It reads; it never writes** — no file, no commit, no branch, no pull request, no merge, no deployment — and it is a separate command rather than a mode of `/ship`, because `/ship` has exactly one behaviour and merging is part of it.
+
+```bash
+bash ship/scripts/report-deploy-status.sh [base]
+```
+
+Per target: `unreleased_count` and the `since` boundary with its `since_reason`, `has_confirmation`, the latest note that joined it and how (`declared`/`recency`/`none`), and `needs[]` — `confirmation_method` (the target declares none, so §1-4 halts on it), `release` (commits are waiting), `note` (no note has ever joined this target). Report each target and the `needs`; `actionable: false` on every target is the quiet state and is reported as such. A refusal (`base_unresolvable`, `not_a_git_repo`) is reported with its reason and ends the run — never half-reported as a clean status.
+
+**The `digest` is what makes an idle tick silent.** It hashes the substantive per-target state and deliberately **not** the base sha, so a base that merely advanced is not news. The consumer posts it as the `deploy:<digest>` token and finds its own previous post by it (`notify`, *One thread per feedback item* — the same stateless lookup, no stored state anywhere): token found ⇒ post nothing.
+
+### Why this is a reader (the Open Decision on ticket `20260814064854-add-the-hourly-release-note-repo-routine`, resolved 2026-08-14)
+
+The ask was "run `/ship` once per hour to update the release notes". A `## Deployment Plan` is a **branch's prospective** section, drafted inside that unit's own pull request at §5 step 3. Every unit-less **writer** for it was measured and refused:
+
+| Writer design | Why it was refused |
+| ------------- | ------------------ |
+| Refresh a merged note on `main` | Self-referential. The plan's datum is the base sha, and for any target declaring no `paths:` — the default `attribution: whole_range`, and what this repository's own `marketplace` record does — the refresh's **own** commit increments `unreleased_count`. Each refresh invalidates itself, so an hourly writer is a commit treadmill: precisely what `draft-deploy-plan.sh` keeps a clock out of its section to prevent. |
+| Push the refresh into each open PR's branch | Those branches are not this routine's to write. A `work-*` branch under a live claim is pushed by `archive.sh` and `heartbeat.sh` on the driving session's own schedule, so an hourly third writer races the claim protocol and the developer for nothing. |
+| Run `/ship` itself, hourly | `/ship` **merges**. An unattended hourly sweep with a loose scope merges pull requests nobody expected, and a unit-less sweep mode is a second behaviour on a command that has one. |
+
+So the tick does the strongest thing a machine may honestly do to a document whose forward-looking half is a human's decision to act on: it checks it and says what it found. The precedent is this repository's own `report/scripts/area-freshness.sh` — *it reports, it never writes* — adopted 2026-08-13 for the same class of problem. **What is deliberately not delivered, rather than glossed:** the release notes are not updated by any tick. `[Implement]` still refreshes a unit's plan inside that unit's pull request whenever it ships an `auto` unit; between ships, `[Release Status]` is what tells a human the plan needs their hand. The remaining write is the operator's, and the three rows above are its input.

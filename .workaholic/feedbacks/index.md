@@ -496,4 +496,5 @@
 * [Auto-file a short FB issue for /propose notifications with no linked FB, so Proposed can reply to it](20260814032508-auto-file-a-short-fb-issue-for-propose-notifications-with-no-linked-fb-so-proposed-can-reply-to-it.md)
 * [Add Strategy as a fourth /propose artifact type](20260814064431-add-strategy-as-a-fourth-propose-artifact-type.md)
 * [Split /setup-routines into /setup-dev-routines and /setup-repo-routines](20260814064840-split-setup-routines-into-setup-dev-routines-and-setup-repo-routines.md)
+* [Introduce Handoff PR status for credential-blocked verification](20260814065157-introduce-handoff-pr-status-for-credential-blocked-verification.md)
 <!-- okf:generated:end -->

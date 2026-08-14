@@ -4,7 +4,7 @@ The development workflows we use at [qmu](https://github.com/qmu), written down 
 
 **Concretely**, it's a cross-agent distribution of structured development workflows and engineering-standard skills: ticket-driven development, AI-collaborative exploration, and the engineering-policy index (the `planning` / `design` / `implementation` / `operation` skills, mirrored from qmu.co.jp). It's richest on **Claude Code** (a plugin marketplace: slash commands, hooks, always-on policy and mission lenses); the same skills install on **Codex**, **OpenCode**, and 40+ other agents via the [Agent Skills standard](https://skills.sh). Authored once under `plugins/`, generated into portable artifacts under `outputs/`.
 
-**The planning hierarchy is three layers, each at its own granularity — and no layer restates a lower one's detail:** a **mission** is an *optional, epic-equivalent grouping* — a bounded batch of **two or more** tickets an agent fleet drives together (typically overnight), never a required parent; a **ticket** is one drive-able change (fully first-class on its own, and a single unit of work stays one rather than becoming a mission); a **commit** is one normalized change kept to a reviewable size. Long-lived *direction* accretes in the `.workaholic/feedbacks/` stream rather than a separate artifact layer. This is the day/night model we work in: the developer spends the **day planning** (interrogating each mission to question-free, drive-ready readiness) and **merging the pull request that publishes it** — that merge is the approval — and **coding agents execute at night** in parallel, so the morning starts with reviewable results — open PRs, honest reconciliation lines, and whatever the run learned written back into the feedback stream.
+**The planning hierarchy is three layers, each at its own granularity — and no layer restates a lower one's detail:** a **mission** is an *optional, epic-equivalent grouping* — a bounded batch of **two or more** tickets an agent fleet drives together (typically overnight), never a required parent; a **ticket** is one drive-able change (fully first-class on its own, and a single unit of work stays one rather than becoming a mission); a **commit** is one normalized change kept to a reviewable size. Long-lived *inbound* direction accretes in the `.workaholic/feedbacks/` stream; what the operator has **decided** to pursue — an aim, a date, an owner — is a `.workaholic/strategies/` record, which sits above the hierarchy and plans nothing (a strategy carries no tickets and no acceptance list). This is the day/night model we work in: the developer spends the **day planning** (interrogating each mission to question-free, drive-ready readiness) and **merging the pull request that publishes it** — that merge is the approval — and **coding agents execute at night** in parallel, so the morning starts with reviewable results — open PRs, honest reconciliation lines, and whatever the run learned written back into the feedback stream.
 
 > [!WARNING]
 > **This drives git on your behalf.** Workaholic lets your coding agent autonomously create branches, commit, amend, push, and open pull requests. Review the plugin/skill descriptions below before installing so you know what to expect.
@@ -113,7 +113,7 @@ Once tickets are queued, `/drive` (or `/implement`, when nobody is present) grou
 > - **Ticket**: A change request describing what should be different (flowing, temporal)
 > - **Spec**: Current state documentation describing what exists now (snapshot, persistent)
 >
-> Tickets drive implementation; specs document the result. Both are markdown, both are versioned, but they serve complementary purposes.
+> Tickets drive implementation; the repository's own `docs/` tree documents the result. Both are markdown, both are versioned, but they serve complementary purposes — and documentation lives outside `.workaholic/`, because `.workaholic/` holds what the loop writes and reads (the `specs/` area was retired 2026-08-13 for exactly that reason).
 
 ### Sources and the one executor
 
@@ -142,17 +142,17 @@ The tree is also an [Open Knowledge Format](https://github.com/GoogleCloudPlatfo
 | Artifact | Written by | Snapshot of | Diffed on ship? | Carried over? | Eliminated when |
 | -------- | ---------- | ----------- | --------------- | ------------- | --------------- |
 | `tickets/todo/<ts>-*.md` | `/ticket`, `/mission` (its whole ordered ticket set), `/propose` (a mission's set, or one loose ticket) | Intended change (not yet implemented) | committed onto a **`work-*` branch behind a pull request** at creation; reaches `main` when that PR merges | no | `/drive` claims it into a PR-unit and archives it once implemented |
-| `tickets/archive/<branch>/*.md` | `/drive` (archive) | Implemented change with final report and commit hash | committed, permanent | no — permanent record | never (institutional history) |
-| `tickets/icebox/*.md` | `/ticket --icebox` (or manual move) | Deferred change | committed | yes (survives across PRs until promoted) | `/drive` (after user promotes from icebox) |
-| `tickets/abandoned/*.md` | `/drive` (abandon flow) | Attempted-then-abandoned change with failure analysis | committed, permanent | no | never |
+| `tickets/archive/<branch>/*.md` | `/drive` (archive) | Implemented change with final report; `status: done` stamped at the gate | committed, permanent | no — permanent record | never (institutional history) |
+| `tickets/archive/**` with `status: icebox` | `/ticket --icebox` (or manual move) | **Deferred** change — parked, promotable, developer-curated in both directions | committed | yes (survives across PRs until promoted) | `promote-icebox.sh` clears the field and returns it to `todo/` |
+| `tickets/archive/**` with `status: abandoned` | `/drive` (abandon flow) | Attempted-then-**decided-against** change with failure analysis | committed, permanent | no | never |
 | `stories/<branch>.md` | `/report` | PR description: overview, journey, outcome, concerns, ideas, release readiness | committed before PR creation | concerns/ideas sections only (extracted by `/ship`) | never (per-branch permanent record) |
 | `release-notes/<branch>.md` | `/ship` (before merging) | Concise release narrative for GitHub Releases, **plus the prospective `## Deployment Plan`** (per target: what is waiting, the procedure, the verification required) and the append-only `## Deployment Verification` an instructed deployment writes back | committed before merge | no | never |
 | `releases/<release-branch>.md` | the release promotion (`/ship` §6): `record-release-cut.sh` at the cut — a batch-level act invoked explicitly, never a step of the per-unit ship — and `confirm-release.sh` at each confirmation | Durable ship record for one `release/*` branch: which `main` commits it carried, when it was cut, when it was confirmed or failed. Derived from git, never hand-authored | committed to `main` at cut and at each confirmation | n/a — not branch-scoped | never (a failed confirmation is recorded, not erased) |
 | `trips/<name>/*` | nothing — **no writer since 2026-07-28** | Legacy multi-agent design output from the retired `/trip` command | already committed; read-only history | no | never (kept as history; knowledge is not deleted) |
 | `missions/active/<slug>/mission.md` | `/mission` | Optional epic-equivalent grouping bundling **two or more** tickets: goal, demanded experience, acceptance checklist (progress = checked/total), one `status` lifecycle axis with a single in-flight state (`active`, then one of three end states) plus the orthogonal `merge_policy` recorded at creation, `predicted_hours`/`actual_hours` (predicted at creation from the archived trend, actual accumulated by `/drive`), append-only changelog | committed behind its publication PR, updated as related work lands | n/a — outlives any branch | `/mission-close` flips `status` to `achieved`, `abandoned` or `carried` and moves the dir to `missions/archive/<slug>/` (file and changelog preserved) — the only status flip there is |
-| `feedbacks/<ts>-<slug>.md` | `/fb` (conclusions/instructions), `/propose` (**one record on every run**, whatever it judges — the highest-volume writer), `/ship` (`kind: concern` records extracted from a shipped story's section 6), `/report` (superseding resolution records) — all through the feedback skill's writers | One **immutable** inbound record of project context: a conclusion (`kind: insight`), an instruction, a development-born concern, or customer material — the raw material later planning reads | committed when registered | **yes — the stream accumulates forever**; consumers track "new" by commit cursor, and the open concern set is computed as "not superseded" | never (resolution/mootness is a *new* record naming the old one via `supersedes`, not an edit) |
-| `specs/*.md` | manual (hand-edited reference) | Current-state documentation of how things work today | committed | n/a — not branch-scoped | superseded when manually rewritten |
-| `guides/*.md` `policies/*.md` `terms/*.md` | manual | Persistent reference material (user docs, policies, glossary) | committed | n/a | superseded when manually rewritten |
+| `feedbacks/<ts>-<slug>.md` | `/fb` (conclusions/instructions), `/propose` (**one record on every run**, whatever it judges — the highest-volume writer), `/ship` (`kind: concern` records extracted from a shipped story's section 6), `/report` (superseding resolution records) — all through the feedback skill's writers | One **immutable** inbound record of project context: a conclusion (`kind: insight`), an instruction, a development-born concern, or customer material — the raw material later planning reads. Each record names **whose opinion it is** (`subject`), which is a different question from the channel it arrived through (`source`) and from who ran the capture (`author`) | committed when registered | **yes — the stream accumulates forever**; consumers track "new" by commit cursor, and the open concern set is computed as "not superseded" | never (resolution/mootness is a *new* record naming the old one via `supersedes`, not an edit) |
+| `strategies/<slug>.md` | manual, through `workaholic:strategy`'s `create.sh` (operator-authored; no command or routine writes one) | One piece of **outbound, resolved direction**: an **Aim**, a **Schedule** (`target_date`) and an **Assignee**. The complement of `feedbacks/` — the stream holds what someone *said*, a strategy holds what the operator *decided* — with a one-way citation link (strategy → feedback) | committed when created | n/a — not branch-scoped | ended by `close.sh` (`achieved`/`abandoned`); the file never moves |
+| `terms/*.md` | manual | Persistent reference material (the project's glossary) | committed | n/a | superseded when manually rewritten |
 
 ### Command ⇄ artifact maps, by development style
 
@@ -160,7 +160,9 @@ The plugin has one spine — the **ticket** — but the work reaches it through 
 
 #### Use case 1 — Everyday development: `/ticket` → `/drive`
 
-The unit of work is a single ticket, and it is really *one file that changes state* as commands act on it. `/ticket` writes it into the queue; `/drive` reads the queue, implements it, and moves it to the permanent archive (or, if the attempt is dropped, to `abandoned/`). Then the shared tail turns the archived work into a merged, deployed PR.
+The unit of work is a single ticket, and it is really *one file that changes state* as commands act on it. `/ticket` writes it into the queue; `/drive` reads the queue, implements it, and moves it to the permanent archive, stamping the outcome. Then the shared tail turns the archived work into a merged, deployed PR.
+
+Since 2026-08-13 the tree has **two places and four states**: the file is in `todo/` or in `archive/`, and its `status:` frontmatter field says which state it is in — absent (queued), `done`, `abandoned`, or `icebox`. This is the same move `assignees` made — *a property is a field, not a directory* — so a reader never has to parse a path to learn what a ticket is.
 
 ```mermaid
 flowchart LR
@@ -169,13 +171,13 @@ flowchart LR
   report(["/report"])
   ship(["/ship"])
 
-  subgraph TICKET["A ticket — one file, four states"]
+  subgraph TICKET["A ticket — one file, two places, four states"]
     direction TB
-    todo["todo/<br/>queued for work"]
-    icebox["icebox/<br/>parked for later"]
-    archived["archive/&lt;branch&gt;/<br/>implemented · permanent"]
-    abandoned["abandoned/<br/>attempted · dropped"]
-    icebox -.->|promote| todo
+    todo["todo/<br/>status absent · queued"]
+    icebox["archive/**<br/>status: icebox · parked"]
+    archived["archive/&lt;branch&gt;/<br/>status: done · permanent"]
+    abandoned["archive/**<br/>status: abandoned · dropped"]
+    icebox -.->|"promote (clears status)"| todo
     todo ==>|"/drive: claim, implement, archive"| archived
     todo -.->|"/drive: abandon"| abandoned
   end
@@ -390,7 +392,7 @@ Reading the map:
 - **`/mission` and `/drive` are the two poles.** `/mission` writes `missions/…` and the kickoff/delta tickets into `tickets/todo/` (with `/propose` proposing missions and loose tickets upstream of it); `/drive` reads the mission set and each worktree's `todo/`, drains them to `tickets/archive/`, and rolls each mission it advances — in parallel across every claim it holds.
 - **The ticket is the spine.** `/ticket`, `/mission`, and `/propose` (a mission's ticket set, or one loose ticket) all *fill* `tickets/todo/`; **`/drive` alone** drains it to `tickets/archive/`. Everything downstream reads the archive.
 - **The feedback stream is the only loop.** `/ship` extracts a shipped story's section-6 concerns into `feedbacks/` as `kind: concern` records; the *next* `/report` re-reads the open set (records nobody superseded) and, for each one this branch resolved, appends a superseding record. Every record is written once and becomes permanent history — the "loop" is reading, never rewriting.
-- **Not shown** (to keep the graph legible): `specs/`, `guides/`, `policies/`, `terms/` are hand-maintained reference material, not command-generated; `trips/` is legacy read-only history with no writer since 2026-07-28, so no arrow touches it; and the OKF `index.md` hierarchy is regenerated automatically by the same commit seams (`/drive`, `/report`, `/ship`) whenever they write knowledge, not by a command of its own.
+- **Not shown** (to keep the graph legible): `terms/` is hand-maintained reference material, not command-generated, and `strategies/` is operator-authored the same way; `trips/` is legacy read-only history with no writer since 2026-07-28, so no arrow touches it; and the OKF `index.md` hierarchy is regenerated automatically by the same commit seams (`/drive`, `/report`, `/ship`) whenever they write knowledge, not by a command of its own.
 
 </details>
 

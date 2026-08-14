@@ -37,11 +37,9 @@ its owners exactly as before, through that one reader:
 bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/owners.sh <mission-file>
 ```
 
-```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/migrate-strategies.sh [workaholic-root]
-```
+### `migrate-strategies.sh` — retired 2026-08-13
 
-Retire a lingering `.workaholic/strategies/` tree — the direct/test entry to the living migration every mission script also runs through `lib/resolve.sh`'s seam (`missions_migrate_strategies`; the logic lives there so the two entries cannot drift). Each strategy document survives **verbatim** as a feedback record (`feedbacks/<ts>-strategy-<slug>.md`, `kind: insight`, `source: discussion`, original author/`created_at` preserved; the timestamp derives from `created_at`, so the migration is deterministic and idempotent), its `assignees` fold down into each linked active mission whose own `assignees` is still empty, and then the directory is removed (`git rm` when tracked). Best-effort: a failure never blocks the calling seam. Nothing is deleted from knowledge, only from structure.
+**There is no strategy-erasing migration.** From 2026-07-28 to 2026-08-13 this script (and the `missions_migrate_strategies` seam in `lib/resolve.sh` that every mission script ran) folded a lingering `.workaholic/strategies/` tree into feedback records and removed the directory. The strategy artifact was re-introduced on 2026-08-13 with a bounded, dated, owned shape (`workaholic:strategy`), so a migration that erases `strategies/` on the next mission-script touch would delete the live area. Both the script and the seam are gone; the folding it already performed stands in history and nothing reverses it. Do not re-add it — an erasing living migration and a live artifact area cannot share a directory. A consuming repository still holding the *legacy nested* shape (`strategies/<area>/<slug>/strategy.md`) is **reported** by `/workaholify`'s layout convergence, never erased by it.
 
 ### `approve.sh` — retired 2026-07-31
 

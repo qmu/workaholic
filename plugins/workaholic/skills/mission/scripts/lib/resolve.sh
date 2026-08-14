@@ -89,10 +89,13 @@ missions_root_for_arg() {
 missions_migrate_layout() {
     _mroot="${1:-}"
     [ -n "$_mroot" ] || return 0
-    # The strategy-layer retirement rides the same seam: any lingering
-    # .workaholic/strategies/ tree is folded into feedbacks + mission assignees
-    # on the next mission-script touch (see missions_migrate_strategies below).
-    missions_migrate_strategies "$_mroot" || true
+    # NOTE: the strategy-layer retirement used to ride this seam, folding any
+    # .workaholic/strategies/ tree into feedbacks and removing the directory. It was
+    # unwired on 2026-08-13 when the artifact was re-introduced with a bounded,
+    # dated, owned shape (rules/workaholic.md; mission/SKILL.md, "The strategy
+    # layer: retired, then redefined"). Leaving it wired would have deleted every
+    # revived strategy on the next mission-script touch. Do not re-add it: an
+    # erasing living migration and a live artifact area cannot share a directory.
     _mroot="${_mroot}/missions"
     [ -d "$_mroot" ] || return 0
     for _mdir in "$_mroot"/*/; do
@@ -202,88 +205,6 @@ missions_migrate_status() {
         }
         git add "$_msf" >/dev/null 2>&1 || true
     done
-    return 0
-}
-
-# Living migration: retire a lingering .workaholic/strategies/ tree (the strategy
-# layer was removed 2026-07-28 -- docs/loop-engineering-workflow.md B3; direction
-# now accretes in the feedbacks stream and mission ownership lives on the mission).
-# Nothing is deleted from KNOWLEDGE, only from STRUCTURE:
-#   * each strategy.md survives verbatim as a feedback record
-#     (<root>/feedbacks/<ts>-strategy-<slug>.md, kind: insight, source: discussion,
-#     original author/created_at preserved; ts derives from created_at so the
-#     migration is deterministic and idempotent);
-#   * its `assignees` fold down into each linked active mission whose own
-#     `assignees` is still empty (the mission's `strategy:` frontmatter names the
-#     slug), so the ownership oracle's strategy hop can be gone without orphaning
-#     anything;
-#   * then the strategies/ directory is removed (git rm when tracked).
-# Idempotent (a retired tree has nothing left to migrate) and best-effort: every
-# failure is swallowed so a calling seam is never blocked. Direct/test entry:
-# mission/scripts/migrate-strategies.sh.
-missions_migrate_strategies() {
-    _swroot="${1:-}"
-    [ -n "$_swroot" ] || return 0
-    _sdir="${_swroot}/strategies"
-    [ -d "$_sdir" ] || return 0
-    mkdir -p "${_swroot}/feedbacks" 2>/dev/null || return 0
-    for _sfile in "$_sdir"/active/*/strategy.md "$_sdir"/archive/*/strategy.md "$_sdir"/*/strategy.md; do
-        [ -f "$_sfile" ] || continue
-        _sslug=$(basename "$(dirname "$_sfile")")
-        _sfm() { grep -m1 "^$1:" "$_sfile" 2>/dev/null | sed -e "s/^$1:[ \t]*//" -e 's/[ \t]*$//' || true; }
-        _sca=$(_sfm created_at)
-        _sts=$(printf '%s' "$_sca" | tr -dc '0-9' | cut -c1-14)
-        [ -n "$_sts" ] || _sts="00000000000000"
-        _stitle=$(_sfm title)
-        [ -n "$_stitle" ] || _stitle="$_sslug"
-        _sauthor=$(_sfm author)
-        [ -n "$_sauthor" ] || _sauthor=$(git config user.email 2>/dev/null || echo "unknown@unknown.invalid")
-        [ -n "$_sca" ] || _sca=$(date +%Y-%m-%dT%H:%M:%S%z 2>/dev/null || echo "")
-        _sout="${_swroot}/feedbacks/${_sts}-strategy-${_sslug}.md"
-        if [ ! -e "$_sout" ]; then
-            {
-                printf -- '---\n'
-                printf 'type: Feedback\n'
-                printf 'title: Strategy (retired): %s\n' "$_stitle"
-                printf 'kind: insight\n'
-                printf 'source: discussion\n'
-                printf 'created_at: %s\n' "$_sca"
-                printf 'author: %s\n' "$_sauthor"
-                printf 'supersedes:\n'
-                printf -- '---\n\n'
-                # Body: the strategy document past its frontmatter, verbatim.
-                awk 'NR==1 && $0=="---" {infm=1; next} infm && /^---[ \t]*$/ {infm=0; body=1; next} body || (!infm && NR>1) {print}' "$_sfile"
-            } > "$_sout" 2>/dev/null || continue
-            git add "$_sout" >/dev/null 2>&1 || true
-        fi
-        # Fold assignees down into linked active missions whose own assignees is empty.
-        _sraw=$(awk 'NR==1{if($0!="---")exit;next} /^---[ \t]*$/{exit} /^assignees:[ \t]*/{sub(/^assignees:[ \t]*/,"");sub(/[ \t]+$/,"");print;exit}' "$_sfile" 2>/dev/null || true)
-        _sraw_clean=$(printf '%s' "$_sraw" | tr -d '[] \t')
-        if [ -n "$_sraw_clean" ]; then
-            case "$_sraw" in \[*\]) : ;; *) _sraw="[${_sraw}]" ;; esac
-            for _smd in "${_swroot}/missions/active"/*/mission.md; do
-                [ -f "$_smd" ] || continue
-                _smstrat=$(awk 'NR==1{if($0!="---")exit;next} /^---[ \t]*$/{exit} /^strategy:[ \t]*/{sub(/^strategy:[ \t]*/,"");sub(/[ \t]+$/,"");print;exit}' "$_smd" 2>/dev/null || true)
-                [ "$_smstrat" = "$_sslug" ] || continue
-                _smown=$(awk 'NR==1{if($0!="---")exit;next} /^---[ \t]*$/{exit} /^assignees:[ \t]*/{sub(/^assignees:[ \t]*/,"");sub(/[ \t]+$/,"");print;exit}' "$_smd" 2>/dev/null | tr -d '[] \t' || true)
-                [ -z "$_smown" ] || continue
-                _stmp="${_smd}.migrate.$$"
-                awk -v owners="$_sraw" '
-                    NR==1 && $0=="---" { infm=1; print; next }
-                    infm && /^---[ \t]*$/ { if (!done) { print "assignees: " owners; done=1 }; infm=0; print; next }
-                    infm && /^assignees:[ \t]*/ { if (!done) { print "assignees: " owners; done=1 }; next }
-                    infm && /^assignee:[ \t]*/ && !done { print "assignees: " owners; done=1; print; next }
-                    { print }
-                ' "$_smd" > "$_stmp" 2>/dev/null && mv "$_stmp" "$_smd" 2>/dev/null || { rm -f "$_stmp" 2>/dev/null || true; continue; }
-                git add "$_smd" >/dev/null 2>&1 || true
-            done
-        fi
-    done
-    # Structure teardown: the directory itself goes; knowledge already moved.
-    if ! git rm -r -q "$_sdir" >/dev/null 2>&1; then
-        rm -rf "$_sdir" 2>/dev/null || true
-    fi
-    git add -A "$_sdir" >/dev/null 2>&1 || true
     return 0
 }
 

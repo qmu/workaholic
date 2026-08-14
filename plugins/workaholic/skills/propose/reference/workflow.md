@@ -36,7 +36,13 @@ and every abort reports a machine-readable reason.
    and uncommitted work are untouched, and steps 3–4 read the base.
 
 3. **Register the record**, inside the publish tree:
-   `printf '%s\n' "<body>" | bash ${CLAUDE_PLUGIN_ROOT}/skills/feedback/scripts/create.sh "<title>" <kind> <source> [supersedes]`.
+   `printf '%s\n' "<body>" | bash ${CLAUDE_PLUGIN_ROOT}/skills/feedback/scripts/create.sh --subject <subject> "<title>" <kind> <source> [supersedes]`.
+   **The subject is the ask's author, never this session.** For a discovered inbound
+   issue that is `person:<the issue's author login or email>`; for an argument handed in
+   by a human it is that human. The runner's own identity is already recorded as
+   `author`, so writing it as `subject` too would assert that the machine holds every
+   opinion in the project — `create.sh` refuses an absent subject (`no_subject`) rather
+   than let that happen silently (`workaholic:feedback`, *Choosing the subject*).
    Classify by the feedback skill's deciding rule — an ask is an `instruction`; a
    `concern` is a worry with no ask attached (`workaholic:feedback`, *Choosing the
    kind*). This session decides both the `kind` and the judgment, so a misclassification

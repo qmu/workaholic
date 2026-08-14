@@ -37,10 +37,13 @@
 # which is the reassignment cost above wearing a different field name.
 #
 # The strategy hop (2026-07-24 — owners derived from a linked strategy's
-# `assignees`) is GONE with the strategy layer's retirement; the living migration
-# (mission/scripts/migrate-strategies.sh) folds strategy assignees down into each
-# linked active mission's own `assignees` on the next mission-script touch, so
-# nothing is orphaned by the removal.
+# `assignees`) is GONE and stays gone. It went with the 2026-07-28 strategy-layer
+# retirement, whose living migration folded strategy assignees down into each
+# linked active mission's own `assignees` so nothing was orphaned. The strategy
+# ARTIFACT returned on 2026-08-13 (workaholic:strategy) — the HOP did not: a
+# strategy owns itself and a mission owns itself, with no relation between them,
+# because a second ownership resolution path is exactly what this oracle exists to
+# not have (strategy/SKILL.md, Its relation to missions).
 #
 # Usage: owners.sh <artifact-file>
 # Output: zero or more owners, one per line. Empty output means UNOWNED, which is a

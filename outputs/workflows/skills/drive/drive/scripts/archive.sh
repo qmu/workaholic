@@ -98,6 +98,28 @@ echo "==> Archiving ticket..."
 mkdir -p "$ARCHIVE_DIR"
 mv "$TICKET" "$ARCHIVE_DIR/"
 ARCHIVED_TICKET="${ARCHIVE_DIR}/${TICKET_FILENAME}"
+
+# Stamp the ticket's end state (2026-08-13, issue #436: state is a frontmatter
+# field, the archive is a place). `done` is the outcome an archive represents —
+# the ticket passed its gate and its work is in this commit. Absent means queued,
+# so a ticket only ever gains this field at the moment it stops being queued.
+# Idempotent: a ticket that already carries a `status:` is left alone, which keeps
+# a re-archive (and a ticket a living migration already stamped) byte-identical.
+if head -n 1 "$ARCHIVED_TICKET" 2>/dev/null | grep -q '^---$' && \
+   ! grep -qE '^status:' "$ARCHIVED_TICKET" 2>/dev/null; then
+    _st_tmp="${ARCHIVED_TICKET}.status.$$"
+    if awk '
+        NR == 1 { print; if ($0 != "---") { fin = 1 }; next }
+        fin { print; next }
+        !placed && /^---[ \t]*$/ { print "status: done"; placed = 1; fin = 1; print; next }
+        !placed && /^created_at:[ \t]*/ { print; print "status: done"; placed = 1; next }
+        { print }
+    ' "$ARCHIVED_TICKET" > "$_st_tmp" 2>/dev/null; then
+        mv "$_st_tmp" "$ARCHIVED_TICKET" 2>/dev/null || rm -f "$_st_tmp" 2>/dev/null || true
+    else
+        rm -f "$_st_tmp" 2>/dev/null || true
+    fi
+fi
 echo "    ${ARCHIVED_TICKET}"
 
 SCRIPT_DIR=$(dirname "$0")

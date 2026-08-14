@@ -289,6 +289,11 @@ for block in blocks:
         f'title: {strip_carried(title)}',
         'kind: concern',
         'source: development',
+        # The loop observed this concern in its own story; no human formed it, so
+        # the subject is the running agent AS an observer AI — not the git author
+        # (that field already says who ran the capture) and not a person nobody
+        # asked. See feedback/reference/schema.md, The subject axis.
+        f'subject: observer_ai:{author_email}',
         f'created_at: {created_at}',
         f'author: {author_email}',
         'supersedes:',

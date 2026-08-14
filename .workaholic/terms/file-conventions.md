@@ -1,53 +1,126 @@
 ---
+type: Term
 title: File Conventions
-description: Naming patterns and directory structures used in Workaholic
+description: Naming patterns, directory shapes and the fields that carry state
 category: developer
-last_updated: 2026-03-10
-commit_hash: f76bde2
+last_updated: 2026-08-13
 ---
-
-[English](file-conventions.md) | [日本語](file-conventions_ja.md)
 
 # File Conventions
 
-Naming patterns and directory structures used in Workaholic.
+Naming patterns and directory structures. The authoritative structural rules are in
+`plugins/workaholic/rules/workaholic.md` and the layout allowlist beside it; this file
+explains the conventions a reader meets in filenames and paths.
 
 ## kebab-case
 
-Kebab-case is the standard naming convention for files and directories in Workaholic, using lowercase letters with hyphens separating words (e.g., `ticket.md`, `archive-ticket.md`, `core-concepts/`). This convention ensures consistency and avoids issues with case-sensitive filesystems. Exceptions: `README.md`, `CHANGELOG.md`, and `CLAUDE.md` use uppercase by convention. Related terms: frontmatter.
+Kebab-case — lowercase words joined by hyphens — is the naming convention for files,
+directories, skills and slugs (`create-ticket`, `mission-close`, `release-scan`). It
+avoids case-sensitivity surprises across filesystems. The exceptions are conventional
+uppercase names: `README.md`, `CHANGELOG.md`, `CLAUDE.md`, `SKILL.md`. Related terms:
+frontmatter, slug.
+
+## slug
+
+A slug is the kebab-case identifier derived from a title and used as a filename and a
+key — a mission's `slug`, a strategy's `<slug>.md`, a deployment target's name. Ownership
+comparisons are made by slug, not by display name. Related terms: kebab-case, mission.
+
+## timestamped filename
+
+A ticket's filename is `YYYYMMDDHHmmss-<short-description>.md`, and a branch's name is
+`work-YYYYMMDD-HHMMSS` or `release/YYYYMMDD-HHMMSS`. The timestamp is a **sort key and a
+unique id**, not metadata to read: queue order falls out of it, and splitting one ticket
+into several uses timestamps a second apart to fix their order. Related terms: branch
+name, ticket.
 
 ## frontmatter
 
-Frontmatter is a YAML metadata block delimited by `---` at the beginning of markdown files. It contains metadata like title, description, category, last_updated, and commit_hash. All documentation files in `.workaholic/` require frontmatter for consistency and tracking. Standard fields: title (Document Title), description (Brief description), category (user | developer), last_updated (YYYY-MM-DD), commit_hash (short-hash). Related terms: kebab-case.
+Frontmatter is the YAML block delimited by `---` at the top of a markdown file. Every
+knowledge artifact here carries a non-empty `type:` (`Story`, `Mission`, `Feedback`,
+`Strategy`, `Deployment`, `Term`, `Release Note`, `Release`) — that is the OKF floor, and
+write-time validators enforce it on new files while git-tracked history is grandfathered.
+**Tickets are the exception**: no `type:`, by decision. Per-artifact field lists are in
+the rules table. Related terms: OKF, type, validator.
+
+## status field
+
+A ticket's state is a **frontmatter field, not a directory**: `status:` absent means
+queued, `done` is stamped at the archive gate, and `abandoned` and `icebox` mean archived
+with that outcome. `icebox` survives as a state distinct from `abandoned` — deferred and
+promotable versus decided against — and promoting a ticket back to the queue clears the
+field. Related terms: todo, archive, ticket.
 
 ## todo
 
-The todo directory (`.workaholic/tickets/todo/`) holds tickets queued for implementation. When a ticket is created via `/ticket`, it is placed here. During `/drive`, tickets are processed from this directory in sorted order by timestamp prefix. After successful implementation and commit, tickets move from todo to archive. Related terms: icebox, archive, ticket.
-
-## icebox
-
-The icebox directory (`.workaholic/tickets/icebox/`) holds tickets not currently being worked on but preserved for future consideration. When creating a PR, unfinished tickets are moved from todo to icebox rather than being deleted. This prevents loss of planned work while clearing the active queue. Iceboxed tickets retain original names. Related terms: archive, ticket.
+`.workaholic/tickets/todo/` is the queue: every ticket waiting to be driven, flat, with no
+per-owner subdirectories (ownership is the `assignees` field, so reassignment is an edit
+rather than a file move). A source fills it; one executor drains it. Related terms:
+archive, status field, assignees.
 
 ## archive
 
-The archive directory (`.workaholic/tickets/archive/<branch>/`) stores completed tickets organized by branch name. All tickets implemented during work on that branch are stored here after commit, providing historical context for understanding past development. Archived files retain original names. Related terms: icebox, ticket.
+`.workaholic/tickets/archive/<branch>/` holds tickets that have been driven, keyed by the
+branch that drove them. A ticket that was never driven lands in the synthetic
+`archive/unbranched/` — inventing a branch name would assert a drive that never happened.
+Archived files keep their original names, and archives are history: the write floors
+never retro-block them. Related terms: todo, status field, branch name.
 
-## abandoned
+## assignees
 
-The abandoned directory (`.workaholic/tickets/abandoned/`) holds tickets abandoned during `/drive` workflow because the implementation approach proved unworkable. Unlike icebox (which defers unfinished work), abandoned preserves attempted work with Failure Analysis attached, explaining what was attempted, why it failed, and insights for future attempts. This prevents duplicate failed attempts and captures learnings in git history. Related terms: icebox, archive, ticket, abandon, failure-analysis.
+`assignees` is the plural ownership field on every artifact, and **empty means
+team-owned and claimable by anyone**. It is deliberately distinct from `author`: author
+is immutable history, owner is meant to change. Read it only through the one ownership
+oracle, never by grepping — that is what keeps the executor's survey, the ticket queue
+report and the ship check agreeing about whose work it is. Related terms: author, slug,
+survey.
 
-## guides
+## branch name
 
-The guides directory (`.workaholic/guides/`) contains user-focused documentation explaining how to use Workaholic, including getting started guides, command references, and workflow examples. Guides are distinct from specs (which document technical implementation details) and are organized for accessibility to end users. Related terms: specs, kebab-case.
+Exactly two branch-name patterns are permitted, each named by exactly one script:
+`work-YYYYMMDD-HHMMSS` for a claimed unit and `release/YYYYMMDD-HHMMSS` for a release
+window. A tool-level guard blocks anything else. There is no long-lived integration
+branch and no hotfix pattern. Related terms: claim, cut a release branch, timestamped
+filename.
 
-## policies
+## .worktrees/
 
-The policies directory (`.workaholic/policies/`) contains policy documents describing repository practices across 7 operational domains: test, security, quality, accessibility, observability, delivery, and recovery. Each domain produces two files: `<slug>.md` (English) and `<slug>_ja.md` (Japanese). Policy documents are generated by the policy-writer subagent during `/scan`, with each domain analyzed by a parallel policy-analyst. The directory includes `README.md` and `README_ja.md` index files. Related terms: specs, terms, scan, policy, constraints.
+`.worktrees/<unit-id>/` holds a claim's own checkout — one per claimed unit,
+claim-born and ship-torn. It sits **inside** the repository root, so it belongs in
+`.dockerignore` and any archiver's ignore list. Related terms: worktree, claim.
 
-## constraints
+## .publish/
 
-The constraints directory (`.workaholic/constraints/`) contains manager-generated prescriptive boundaries that narrow decision space for lead agents. Three files exist: `project.md`, `architecture.md`, and `quality.md`, corresponding to the three manager domains. Each constraint file follows a structured template defined in managers-principle with frontmatter (manager name, last_updated), a summary, and constraint entries specifying what is bounded, rationale, affected leaders, falsifiable criteria, and review triggers. Constraints differ semantically from policies: constraints are strategic boundaries set by managers, while policies are observational documentation of implemented practices produced by leads. Related terms: manager, lead, managers-principle, policies.
+`.publish/` is the git-ignored publish tree: a checkout of the base branch used by
+artifact writers that have no claim. It is opened, written into, pushed behind a pull
+request and closed, leaving the caller's checkout byte-identical. Also ignore-listed.
+Related terms: publish tree, worktree.
+
+## index.md and README.md
+
+`README.md` and `index.md` are the **only** files allowed at the `.workaholic/` root, and
+inside each area they play distinct roles: `README.md` is the human-written definition of
+what the area holds and who writes it, while `index.md` is **generated** by the OKF index
+refresh before each knowledge commit. Do not hand-edit an `index.md`. Related terms: OKF,
+frontmatter.
+
+## generated output
+
+`outputs/` is generated and committed, never hand-edited: `outputs/workflows/` is the
+self-contained portable bundle (plugin-root references rewritten relative, internal
+metadata stripped) and `outputs/okf/` is the knowledge bundle of the six pillars. A
+continuous-integration workflow rebuilds both and fails on any diff, so regenerating them
+is part of the change that touched their source. Related terms: bundle, marketplace.
+
+## reference directory
+
+A skill's `reference/` directory holds the detail its `SKILL.md` cannot carry without
+exceeding its size budget — the full contracts, vocabularies and measured origins. The
+`SKILL.md` links to it; the split is a size convention, not a difference in authority.
+Related terms: skill.
 
 ## trips
 
-The trips directory (`.workaholic/.trips/`) stores artifacts produced during `/trip` sessions from the trippin plugin. Each trip session creates a subdirectory named after the trip (e.g., `.workaholic/.trips/trip-20260309-214650/`) containing three artifact subdirectories: `directions/` (Planner output), `models/` (Architect output), and `designs/` (Constructor output). Artifacts are versioned with numeric suffixes (`direction-v1.md`, `direction-v2.md`). The directory is created by `init-trip.sh` and is not git-tracked in the main working tree since trip sessions operate in isolated git worktrees. Related terms: trip, direction, model, design, worktree.
+`.workaholic/trips/` is **read-only legacy history** — artifacts from a retired
+exploration workflow. It stays in the layout allowlist so the audit does not report it,
+and nothing writes there. Related terms: retired terms.

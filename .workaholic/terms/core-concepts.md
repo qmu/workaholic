@@ -1,145 +1,207 @@
 ---
+type: Term
 title: Core Concepts
-description: Fundamental building blocks of the Workaholic plugin system
+description: The vocabulary of the system itself — what a plugin, a skill, a claim and a unit mean here
 category: developer
-last_updated: 2026-03-10
-commit_hash: f76bde2
+last_updated: 2026-08-13
 ---
-
-[English](core-concepts.md) | [日本語](core-concepts_ja.md)
 
 # Core Concepts
 
-Fundamental building blocks of the Workaholic plugin system.
+The vocabulary of the system itself. A term earns an entry here when this project
+uses it in a way a competent reader would otherwise have to guess at.
 
 ## plugin
 
-A plugin packages related Claude Code extensions into a single distributable unit containing commands, skills, rules, and agents. Each plugin has its own directory under `plugins/` (e.g., `plugins/drivin/`, `plugins/trippin/`) with a `.claude-plugin/plugin.json` metadata file. The marketplace currently contains two plugins: drivin (ticket-driven development workflow) and trippin (AI-oriented exploration and creative development). Plugin names must match their directory names for CI validation. Related terms: command, skill, rule, agent, drivin, trippin.
+A plugin packages Claude Code extensions — commands, skills, rules, hooks — into one
+distributable unit. **This repository ships exactly one**, `workaholic`, authored under
+`plugins/workaholic/` with its metadata in `.claude-plugin/plugin.json` and
+`dependencies: []`. Every skill reference inside it is same-plugin: the
+`workaholic:<name>` namespace, or `${CLAUDE_PLUGIN_ROOT}/skills/<name>/...` for a script
+path. It is not a collection of cooperating plugins — the single-plugin shape is what
+makes "never guess a namespace" enforceable. Related terms: command, skill, rule, hook,
+marketplace.
 
-## drivin
+## marketplace
 
-Drivin is the primary development plugin (formerly named "core") providing ticket-driven development workflows including `/ticket`, `/drive`, `/report`, `/scan`, and `/release` commands. Located at `plugins/drivin/` with its configuration in `plugins/drivin/.claude-plugin/plugin.json`, it contains all agents, skills, and rules for structured development. The rename from "core" to "drivin" updated all `subagent_type: "core:*"` references to `"drivin:*"` and all installed plugin paths from `~/.claude/plugins/marketplaces/workaholic/plugins/core/` to `~/.claude/plugins/marketplaces/workaholic/plugins/drivin/`. Historical references in archived tickets and stories retain the "core" name. Related terms: plugin, trippin, TiDD.
-
-## trippin
-
-Trippin is the exploration and creative development plugin providing the `/trip` command for launching collaborative Agent Teams sessions. Located at `plugins/trippin/` with its configuration in `plugins/trippin/.claude-plugin/plugin.json`, it uses three specialized agents (Planner, Architect, Constructor) that collaborate through filesystem-based artifact exchange in `.workaholic/.trips/`. The plugin operates in isolated git worktrees to prevent interference with the main working tree. The `trip-*` branch prefix convention aligns with the plugin name, parallel to `drive-*` branches for drivin. Related terms: plugin, drivin, trip, worktree, agent-teams.
-
-## agent-teams
-
-Agent Teams is an experimental Claude Code feature (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`) that enables multiple AI agents to work collaboratively in independent context windows. In Workaholic, the trippin plugin's `/trip` command uses Agent Teams to launch three agents (Planner, Architect, Constructor) that communicate through filesystem artifacts rather than direct context sharing. Each agent operates independently and reads other agents' outputs from `.workaholic/.trips/<trip-name>/`. Related terms: trippin, trip, context-window.
-
-## worktree
-
-A worktree is a git feature used by the trippin plugin to isolate trip sessions from the main working tree. The `ensure-worktree.sh` script creates a dedicated worktree at `.worktrees/trip-<trip-name>/` on a `trip/<trip-name>` branch from current HEAD. This isolation ensures trip exploration does not affect uncommitted work in the main checkout. Every discrete workflow step within a trip produces a git commit in the worktree branch, creating a complete trace of the collaborative process. Related terms: trippin, trip.
+The marketplace is the distribution manifest a host agent reads to install plugins.
+`.claude-plugin/marketplace.json` is Claude Code's and is the **version source of
+truth**; `.agents/plugins/marketplace.json` is Codex's and points at the generated
+`outputs/workflows` bundle. A marketplace entry is not a plugin: the `workflows` entry
+is generated output, which is why it carries `"strict": false` and deliberately has no
+`plugin.json`. Related terms: plugin, bundle.
 
 ## command
 
-A command is a user-invocable slash action that performs a specific task, serving as the primary user interface for plugins. Users invoke commands with a slash prefix (e.g., `/ticket`, `/drive`, `/report`). Each command is defined by a markdown file in `plugins/<name>/commands/` such as `ticket.md` or `drive.md`. Related terms: skill, plugin.
+A command is a user-invocable slash action — `/ticket`, `/drive`, `/report`. Each is a
+markdown file in `plugins/workaholic/commands/`, and each is **thin by rule**: a few
+lines naming the skill, the section, and the entry-point contract. Knowledge never lives
+in a command. A command is Claude-only; other agents reach the same work through the
+skills. Related terms: skill, plugin, subagent.
 
 ## skill
 
-A skill is a helper sub-routine that is not directly user-invocable, supporting commands or other operations internally. Skills are defined in `plugins/<name>/skills/<skill-name>/` directories, each containing a `SKILL.md` definition and optional `sh/` directory with shell scripts. Skills can be preloaded by agents via the `skills:` frontmatter field. Current utility skills include archive-ticket, branching, create-pr, discover-history, and drive-workflow. Content skills include write-story, write-spec, write-terms, write-changelog, and create-ticket. Cross-cutting principle skills include managers-principle and leaders-principle. Related terms: command, plugin, agent, principle.
+A skill is the durable knowledge unit — templates, rules, and scripts — loaded by name
+rather than invoked by a user. Each lives at `plugins/workaholic/skills/<name>/` with a
+`SKILL.md` (~50-150 lines), an optional `scripts/` directory, and an optional
+`reference/` directory for overflow. A skill may load another skill; it may never invoke
+a command. Related terms: command, preload, reference, subagent.
 
 ## rule
 
-A rule provides persistent guidelines and constraints that shape Claude's behavior within a plugin's scope, defining coding standards, documentation requirements, or behavioral constraints. Rules are stored in `plugins/<name>/rules/` with files like `general.md` or `typescript.md`. Related terms: plugin, command.
-
-## agent
-
-An agent (or subagent) is a specialized AI subprocess that runs with specific prompts and tools in its own context window, preserving the parent conversation's context while handling focused tasks. Agents are defined in `plugins/<name>/agents/` with files like `spec-writer.md`, `story-writer.md`, `ticket-organizer.md`, or hierarchical agents like `architecture-manager.md` and `quality-lead.md`. Commands invoke agents via the Task tool. Common types include writer agents (documentation generation), analyst agents (evaluation), creator agents (external operations), search agents (finding related work), and hierarchical agents (managers and leads). The agent hierarchy includes managers (strategic outputs), leads (domain-specific implementation), and general-purpose agents. Related terms: plugin, command, skill, orchestrator, manager, lead.
-
-## ticket-organizer
-
-The ticket-organizer is a subagent that handles the complete ticket creation workflow during `/ticket`. It receives a feature description, performs parallel discovery tasks (searching archived tickets, exploring source code, checking for duplicates), and writes a new ticket file with proper structure and related history links. Defined in `plugins/<name>/agents/ticket-organizer.md`, it preloads branching, create-ticket, discover-history, and discover-source skills. Related terms: command, skill, ticket.
-
-## orchestrator
-
-An orchestrator is a command that coordinates multiple agents to complete complex workflows, delegating specialized work rather than performing tasks inline. The orchestrator gathers initial context, invokes agents (potentially in parallel), and consolidates outputs. For example, `/report` orchestrates changelog-writer, story-writer, spec-writer, terms-writer, and release-readiness concurrently, then pr-creator sequentially. This is a pattern, not a storage location. Related terms: command, agent, concurrent-execution.
-
-## deny
-
-A deny rule is a permission configuration in `.claude/settings.json` under `permissions.deny` that blocks specific command patterns across the entire project, including subagents. Unlike agent-specific prohibitions, deny rules are enforced centrally before execution. Example: `"Bash(git -C:*)"` blocks all `git -C` command variations. Related terms: rule, agent.
-
-## preload
-
-Preloading is the mechanism by which agents gain access to skill content at initialization time. By specifying skills in the agent's `skills:` frontmatter field (e.g., `skills: [story-metrics, i18n]`), the skill's SKILL.md content is included in the agent's context when spawned, providing access to reusable instructions, scripts, or formatting rules. Related terms: skill, agent, frontmatter.
-
-## branching
-
-The branching skill provides utility operations for checking current git branch state and creating timestamped topic branches when needed. Defined in `plugins/drivin/skills/branching/` with bundled shell scripts (`sh/check.sh`, `sh/create.sh`, `sh/check-version-bump.sh`), it replaced the previous branching skill to avoid naming collision with the manager tier's manage- prefix convention. The skill is preloaded by ticket-organizer and referenced in report command for version bump detection. Related terms: skill, ticket-organizer, manager.
-
-## constraint
-
-A constraint is a prescriptive boundary that narrows decision space for lead agents, produced by manager agents following the Constraint Setting workflow defined in managers-principle. Constraints are stored in `.workaholic/constraints/<domain>.md` where domain matches the manager's territory (project, architecture, quality). Each constraint file follows a structured template with frontmatter, summary, and constraint entries that specify what is bounded, rationale, which leaders are affected, falsifiable criteria, and review triggers. Constraints differ semantically from policies: constraints are manager-generated strategic boundaries, while policies are leader-generated observational documentation of implemented practices stored in `.workaholic/policies/`. Related terms: manager, lead, managers-principle, policy.
-
-## principle
-
-A principle is a cross-cutting behavioral rule that applies to all agents in a tier (managers or leads), encoded in principle skills rather than generated as output documents. Two principle skills exist: managers-principle (Constraint Setting workflow, Strategic Focus) and leaders-principle (Prior Term Consistency, Vendor Neutrality). The term "principle" distinguishes these fundamental behavioral rules from "policy" which refers to leader-generated output artifacts documenting implemented practices in `.workaholic/policies/`. This terminology shift resolved semantic ambiguity when the managers-principle and leaders-principle skills were renamed to managers-principle and leaders-principle. Related terms: managers-principle, leaders-principle, policy, skill.
-
-## nesting-policy
-
-The nesting policy defines allowed and prohibited invocation patterns between commands, subagents, and skills, ensuring clean separation between orchestration and knowledge. Allowed: Command→Skill (preload), Command→Subagent (Task tool), Subagent→Skill (preload), Subagent→Subagent (Task tool), Skill→Skill (preload). Prohibited: Skill→Subagent, Skill→Command, Subagent→Command. The guiding principle is "thin commands and subagents (~20-100 lines), comprehensive skills (~50-150 lines)". Multi-level nesting (e.g., scanner→spec-writer→architecture-analyst) is acceptable when child invocations are parallel. Documented in root CLAUDE.md under Architecture Policy. Related terms: command, agent, skill, orchestrator.
-
-## viewpoint
-
-A viewpoint is a predefined architectural lens for analyzing a repository from a specific perspective. Workaholic defines 8 viewpoints: stakeholder, model, usecase, infrastructure, application, component, data, and feature. Each viewpoint has analysis prompts, a Mermaid diagram type, and output sections. During `/scan`, the spec-writer orchestrates 8 parallel architecture-analyst subagents, one per viewpoint, producing `.workaholic/specs/<slug>.md` and `<slug>_ja.md`. Viewpoint definitions live in the spec-writer agent (the caller), while the analyze-viewpoint skill provides the generic analysis framework. Related terms: spec, architecture-analyst, analyze-viewpoint, scan.
-
-## viewpoint-analyst
-
-A viewpoint-analyst (e.g., stakeholder-analyst, model-analyst) is a thin subagent that analyzes the repository from a specific viewpoint perspective. It uses the analyze-viewpoint skill to gather context, read overrides from the user's CLAUDE.md, and write a viewpoint spec document with Mermaid diagrams and an Assumptions section distinguishing `[Explicit]` from `[Inferred]` knowledge. Each of the 8 viewpoints has its own dedicated analyst agent defined in `plugins/drivin/agents/<slug>-analyst.md`. Invoked directly by the scanner rather than through an intermediate writer. Related terms: viewpoint, scanner, analyze-viewpoint.
-
-## policy-analyst
-
-A policy-analyst (e.g., test-policy-analyst, security-policy-analyst) is a thin subagent that analyzes the repository from a specific policy domain perspective. It uses the analyze-policy skill to gather context and document only policies that are actually implemented and executable in the codebase. Each policy statement must cite its enforcement mechanism (CI check, git hook, linter rule, automated script, or test). Aspirational practices documented only in README or CLAUDE.md without code enforcement are excluded. Gaps where no evidence is found are marked as "Not observed" rather than omitted. Each of the 7 policy domains has its own dedicated analyst agent defined in `plugins/drivin/agents/<slug>-policy-analyst.md`. Invoked directly by the `/scan` command rather than through an intermediate subagent. Related terms: policy, scan, analyze-policy.
-
-## scanner (Deprecated)
-
-The scanner was a subagent that orchestrated 17 documentation agents in parallel. This orchestration has been migrated directly into the `/scan` command to provide real-time per-agent progress visibility. The scanner agent file (`plugins/drivin/agents/scanner.md`) has been removed, and the `/scan` command now invokes all 17 agents (8 viewpoint analysts, 7 policy analysts, changelog-writer, terms-writer) directly using parallel Task tool calls. This flattening from 2-level to 1-level nesting improves user transparency while maintaining the same parallel execution pattern. Related terms: scan, orchestrator, concurrent-execution.
-
-## run_in_background
-
-The run_in_background parameter is a Bash tool option that controls whether commands execute in the background. When set to `true`, the command runs asynchronously and the user is notified upon completion. However, background execution has a critical constraint: agents running in background mode automatically have Write and Edit tool permissions denied, preventing file operations. For scan agents and other documentation writers that require Write/Edit permissions, `run_in_background` must be explicitly set to `false` (the default). The `/scan` command includes explicit constraints that all 17 agent Task calls must use `run_in_background: false` to preserve Write/Edit permissions. Related terms: agent, Task tool, scan.
+A rule is a persistent constraint on behavior rather than a procedure to run — coding
+standards, shell conventions, interaction limits. Rules live in
+`plugins/workaholic/rules/` (`diagrams`, `general`, `interaction`, `shell`, `typescript`,
+`workaholic`). A rule states what must hold; a skill states how work is done. Related
+terms: plugin, skill, hook.
 
 ## hook
 
-A hook is a callback mechanism that executes code at specific points in the Claude Code tool lifecycle. Workaholic uses PostToolUse hooks to validate file operations. Hooks are configured in `plugins/<name>/hooks/hooks.json` and can execute shell scripts based on matching criteria. Claude Code automatically loads hooks.json from the standard location without requiring a manifest entry. Related terms: rule, plugin, PostToolUse.
+A hook is a callback the host agent runs at a point in the tool lifecycle, configured in
+`plugins/workaholic/hooks/hooks.json` (whose only top-level key is `hooks`). This
+repository uses four kinds: `PostToolUse` validators that floor what gets written
+(tickets, missions, stories, feedback records, strategies), `PreToolUse` guards that
+refuse an off-policy action before it happens (commit subject, branch name, working
+directory, repository confinement, ticket moves), and `UserPromptSubmit` lenses that
+inject context (the policy lens, the mission lens). A hook is registered by the host,
+so a session with no plugin binding runs the scripts but not the hooks. Related terms:
+rule, lens, guard.
 
-## PostToolUse
+## subagent
 
-PostToolUse is a hook lifecycle event that triggers after a Claude Code tool (like Write or Edit) completes successfully. In Workaholic, PostToolUse hooks validate ticket file operations, ensuring files meet format and location requirements. Referenced in `hooks/hooks.json` matcher configurations. Related terms: hook, rule, plugin.
+A subagent is a Claude Code sub-process with its own context window, spawned with the
+`Task` tool. This repository ships **no agent files at all**: every fan-out uses
+`subagent_type: "general-purpose"` with a prompt naming the skill to preload, the
+section, the inputs and the return schema. Fan-out is **one level** — a subagent cannot
+nest another and cannot ask the user a question, so all interaction happens at the
+command level and leaves return JSON. Related terms: skill, preload, context-window.
+
+## preload
+
+Preloading is how a skill's content reaches a subagent at spawn time: the prompt names
+the skill, and its `SKILL.md` is in context before the subagent starts. It is the only
+sanctioned way a leaf gets knowledge — a subagent never invokes a command to get it.
+Related terms: skill, subagent.
+
+## lens
+
+A lens is context injected into a session rather than requested by it. Two ship active:
+the **policy lens** (`policy-lens.sh`) puts the engineering-policy index in front of any
+command carrying the `workaholic:policy-lens` sentinel, and the **mission lens**
+(`mission-lens.sh`) surfaces the active missions that pass ownership and signal gates.
+A lens informs; it never forces. Related terms: hook, pillar, mission.
+
+## pillar
+
+A pillar is one of the six engineering-policy domains this project distributes —
+planning (企画), design (設計), implementation (実装), operation (運用), safety (安全)
+and development (開発). Each is a skill holding English hard copies of the canonical
+articles under its own directory, indexed by that skill's `SKILL.md`. A ticket's
+mandatory policy list names the specific documents its work answers to, and the driver
+opens each one before writing code. Related terms: lens, skill, ticket.
+
+## executor
+
+The executor is the single component that drains the ticket queue. It has **two entry
+points and one run**: `/drive` (attended — it asks exactly one thing, which units to
+take) and `/implement` (unattended — no question at any step). Attendance is a property
+of which command was invoked, never of a terminal or an environment variable. Related
+terms: unit, claim, drive.
+
+## unit
+
+A unit — a **PR-unit** — is what deserves one merge. One unit maps to exactly one claim,
+one branch, one worktree and one pull request. A claimable mission is always one unit;
+related backlog tickets group into a `batch-<timestamp>` unit only on a reason statable
+in one sentence. Merge policy is never a grouping input. Related terms: claim, mission,
+merge-policy, executor.
+
+## claim
+
+A claim is how a runner takes a unit **visibly**, so concurrent runners do not collide:
+a `Claim <unit-id>` commit pushed on a `work-*` branch. **The repository is the
+coordination medium** — unmerged remote branches are the only claim oracle, a merge
+releases a claim by definition, and the push (never a clock) settles a race. The
+heartbeat is the branch tip; staleness is reported and never acted on. A claim is not a
+lock file and not a database row. Related terms: unit, worktree, heartbeat, work-branch.
+
+## heartbeat
+
+The heartbeat is the claim branch's tip time — refreshed by an empty commit, or for free
+by any archive commit. A lapsed heartbeat makes a claim **resumable by its own author**;
+a colleague's claim is untouchable at any age. It measures liveness, not progress.
+Related terms: claim, resume.
+
+## worktree
+
+A worktree is a second checkout of this repository on its own branch, at
+`.worktrees/<unit-id>/`. Worktrees are **claim-born and ship-torn**: the claim creates
+one, the ship (or an explicit claim release) removes it, and all of a unit's work happens
+inside it. `.worktrees/` and `.publish/` sit inside the repository root, so they belong
+in any archiver's ignore list. Related terms: claim, publish-tree, unit.
+
+## publish tree
+
+The publish tree is how an artifact writer publishes **without a claim**: a checkout of
+`origin/main` at git-ignored `.publish/` on local branch `publish-main`. `/ticket`,
+`/mission` and `/propose` open it, write, push behind a pull request, and close it — the
+caller's own checkout is left byte-identical. It is the counterpart of a worktree: a
+worktree is for driving work, a publish tree is for publishing artifacts. Related terms:
+worktree, claim, ticket, mission.
+
+## merge policy
+
+`merge_policy` is a field recorded **at creation** on a mission or a ticket, with two
+values and one default: `auto` merges unattended through the ship flow, `review` merges
+its pull request as soon as the report opens it and the branch-safety scan passes, and
+**absent means `review`**. A batch unit is `auto` only if every member says so. It
+answers "may this merge without a human deciding", never "may this deploy". Related
+terms: unit, ship, gate, scan.
+
+## gate
+
+A gate is a check the run **may not override**. Three kinds sit on the path to a merge: a
+ticket's `## Quality Gate` (acceptance criteria plus the verification that proves them),
+the branch-safety scan's findings, and a deployment target's confirmation method. A
+`secret` finding hard-stops; an overridable finding demotes an `auto` unit to the pull
+request path rather than being waved through, because the override is a human ruling an
+unattended run does not have. Related terms: scan, merge-policy, quality-gate.
+
+## routine
+
+A routine is a Claude Code Web schedule that fires a prompt on a cron expression. This
+project ships **two per repository** — `[Propose]` hourly at `15 * * * *` and
+`[Implement]` hourly at `30 * * * *` — and a routine template is a thin pointer: it
+carries the command, the post format and the environment, never a rule. A routine cannot
+subscribe to a repository event, which is why `[Propose]` discovers its own asks. Do not
+add a third. Related terms: command, executor, propose.
+
+## OKF
+
+OKF (Open Knowledge Format) is the bundle convention `.workaholic/` conforms to: every
+knowledge artifact carries a non-empty `type:`, and each area's `index.md` is
+regenerated rather than hand-written. **Tickets are the deliberate exception** — no
+`type:`, and their internals are never index-managed. Related terms: artifact, index,
+frontmatter.
 
 ## TiDD
 
-TiDD (Ticket-Driven Development) is Workaholic's core philosophy where tickets serve as the single source of truth for planned and completed work. Rather than external issue trackers, tickets live in the repository alongside code, capturing what should change (Overview, Implementation Steps), what happened (Final Report), and what was learned (Discovered Insights). The workflow enforces: plan (create ticket), implement (drive), document (story). Referenced in README.md and project documentation. Related terms: ticket, drive, story, archive.
+TiDD (Ticket-Driven Development) is this project's premise: the **ticket** is the unit of
+work and the single source of truth for what should change and what happened. Sources
+fill `tickets/todo/`, one executor drains it to `tickets/archive/`, and everything else —
+missions, stories, release notes — hangs off that spine. Related terms: ticket, executor,
+mission.
 
-## context-window
+## context window
 
-A context window is the isolated conversation memory available to an agent during execution. When agents run in isolated contexts, they preserve the main conversation's context window for orchestration while handling implementation details in dedicated spaces, preventing context pollution from extensive file reads or complex analysis. Related terms: agent, orchestrator.
+A context window is the isolated conversation memory an agent has while it runs. Work is
+delegated to a subagent precisely to spend a fresh one on a bounded task and return a
+small result, keeping the orchestrating conversation legible. Related terms: subagent,
+preload.
 
-## manager
+## Retired vocabulary
 
-A manager is a strategic agent that sits above leads in the agent hierarchy, producing high-level outputs that leaders depend on for context. Managers are defined by the define-manager schema in `.claude/rules/define-manager.md`, which requires Role, Responsibility, Goal, Outputs, and Default Policies sections. Three managers exist: project-manager (business context, stakeholders, timeline), architecture-manager (system structure, components, layers), and quality-manager (quality standards, assurance processes). Each manager has a corresponding `manage-<domain>` skill in `plugins/drivin/skills/` and a thin agent file in `plugins/drivin/agents/*-manager.md`. Managers preload the managers-principle skill for cross-cutting behavioral principles and follow a Constraint Setting workflow to produce structured constraint files at `.workaholic/constraints/<domain>.md`. Related terms: lead, define-manager, managers-principle, constraint, agent, skill.
-
-## lead
-
-A lead is a domain-specific agent responsible for a particular aspect of the project, consuming manager outputs to make informed domain decisions. Leads are defined by the define-lead schema in `.claude/rules/define-lead.md`, which requires Role, Responsibility, Goal, and Default Policies sections. Current leads include architecture-lead, security-lead, quality-lead, test-lead, a11y-lead, ux-lead, db-lead, delivery-lead, infra-lead, observability-lead, and recovery-lead. Each lead has a corresponding `lead-<speciality>` skill in `plugins/drivin/skills/` and a thin agent file in `plugins/drivin/agents/*-lead.md`. Leads preload the leaders-principle skill for cross-cutting behavioral principles including Prior Term Consistency. Related terms: manager, define-lead, leaders-principle, agent, skill.
-
-## define-manager
-
-Define-manager is a schema enforcement rule at `.claude/rules/define-manager.md` that validates manager skill and agent file structure. It applies to `plugins/drivin/skills/manage-*/SKILL.md` and `plugins/drivin/agents/*-manager.md` via path-scoped frontmatter. The schema requires five sections (Role, Responsibility, Goal, Outputs, Default Policies) and four policy subsections (Implementation, Review, Documentation, Execution). The Outputs section is unique to managers, defining structured artifacts that leaders consume. Related terms: manager, define-lead, schema, rule.
-
-## define-lead
-
-Define-lead is a schema enforcement rule at `.claude/rules/define-lead.md` that validates lead skill and agent file structure. It applies to `plugins/drivin/skills/lead-*/SKILL.md` and `plugins/drivin/agents/*-lead.md` via path-scoped frontmatter. The schema requires four sections (Role, Responsibility, Goal, Default Policies) and four policy subsections (Implementation, Review, Documentation, Execution). Unlike define-manager, leads do not have an Outputs section as they produce domain-specific documentation rather than strategic artifacts. Related terms: lead, define-manager, schema, rule.
-
-## managers-principle
-
-The managers-principle is a cross-cutting behavioral principle skill that all manager agents preload, parallel to leaders-principle. Defined in `plugins/drivin/skills/managers-principle/SKILL.md`, it contains two principle sections: Constraint Setting (workflow for identifying, proposing, and producing constraints) and Strategic Focus (managers produce actionable outputs consumable by leaders, not aspirational statements). Each manager agent lists managers-principle as its first preloaded skill in frontmatter. Related terms: manager, leaders-principle, skill, principle.
-
-## leaders-principle
-
-The leaders-principle is a cross-cutting behavioral principle skill that all lead agents preload, parallel to managers-principle. Defined in `plugins/drivin/skills/leaders-principle/SKILL.md`, it contains Prior Term Consistency and Vendor Neutrality principles. Prior Term Consistency requires leads to respect existing terms, prefer 1-word over multi-word expressions, and maintain ubiquitous language across artifacts. Each lead agent lists leaders-principle as its first preloaded skill in frontmatter. Related terms: lead, managers-principle, skill, principle.
-
-## driver (Deprecated)
-
-The driver was a previous intermediate subagent for implementing individual tickets during `/drive` workflow, now replaced by the drive-workflow skill. The pattern was removed to improve visibility and preserve modification history in the main conversation context. The `/drive` command now directly invokes drive-workflow inline. Related terms: drive, drive-workflow, agent.
+Names this project once used and no longer has — the two-plugin architecture, its agent
+tiers and its scan pipeline — are recorded with their dates and successors in
+[retired-terms.md](retired-terms.md), not here. A current-vocabulary record that still
+defined them would teach a reader words that match nothing they can find.

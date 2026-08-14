@@ -32,6 +32,32 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/workaholify/scripts/audit-claude-md.sh
 
 Returns `{file, conformant, checks:{claude_md_present, refers_workaholify_gateway}, missing:[...]}`. On `conformant: false`, report the `missing` checks and offer to add a reference to this gateway — never a copy of the rules. Every check stays a verifiable condition.
 
+## 3a. The `.workaholic/` layout
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/hooks/layout-doctor.sh [repo-root]
+```
+
+Read-only. `conforming: false` means the tree holds something the closed layout does not designate; each finding carries its own `remediation`. Report them, never apply them silently — the layout is the repository's, and the audit's job is to make a mismatch legible.
+
+**The retired documentation areas.** `guides/`, `policies/` and `specs/` left the allowlist on 2026-08-13 (issue #436) because an area with no writer in the loop goes stale and then lies — in this repository all 17 substantive files still described the three-plugin architecture retired months earlier. A consuming repository updates its plugin before its tree, so it will meet the de-listed allowlist while still holding the directories, and **every later write into them is hard-blocked** (the layout gate has no opt-out). `layout-doctor.sh` classifies those three as `retired-area` and says so by name rather than as a generic undesignated directory. **What happens to the content is the owner's call, not this command's**: move what is still true into the repository's own `docs/` tree, outside `.workaholic/`, then remove the directory. This repository deleted its own; nothing imposes that answer elsewhere.
+
+### Converging the layout
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/workaholify/scripts/converge-layout.sh [repo-root]
+```
+
+The seam issue #436 closes with — *"these migrations need to be applied through `/workaholify`"* — and it exists because **the plugin updates before the tree does**. A repository takes a new plugin version and immediately meets floors written for a shape it has never had; the layout gate has no env-var opt-out, so its next ticket write is hard-blocked with a reason describing someone else's repository. Convergence is the only way out of that state.
+
+It runs `layout-doctor.sh`, applies the mechanical migrations, runs the doctor again, and reports the delta — `{before, applied, after, decisions, legacy_strategies, changed, conforming}`. Report `changed` and each entry of `decisions` to the operator; a converged repository produces `changed: 0`, `decisions: []` and no diff at all, so it is safe to run every time.
+
+**The line it will not cross.** It **applies** only what is mechanical and already has a single idempotent entry point — `migrate-todo-owners.sh` (`todo/<user>/` → `todo/`) and `migrate-ticket-states.sh` (`abandoned/`+`icebox/` → `archive/unbranched/` with the state in frontmatter). It **composes** those; it never reimplements one, so there is one behaviour per migration. Everything needing a judgment is **reported with the decision it needs and never guessed**: a `retired-area` finding is the owner's call about their own content (this repository deleted its own after measuring it; another repository's `guides/` may be maintained and true), and a `retired-ticket-state` that survived the migration is a fact — a name collision, an unwritable file — not something to retry.
+
+**It stages; it never commits.** The migrations git-stage their own moves, which is their existing contract. Committing here would make an attended audit an author of history in a repository whose state it has only just learned, and every other step of this command reports rather than writes. The blocked-write condition lifts the moment the files move on disk, so staging is enough to unblock the repository; the commit is the operator's.
+
+**Two changes need no migration at all**, and saying so is part of the report: the feedback `subject:` floor applies to **new writes only** (the stream is immutable and history is grandfathered), and an absent `strategies/` area is the correct state, not a gap — a strategy is operator-authored. A repository still holding the **legacy nested** `strategies/<area>/<slug>/strategy.md` shape is reported as `legacy_strategies: true` and **never converted**: the migration that used to fold it away was retired with the artifact's revival, deliberately, because an erasing living migration and a live artifact area cannot share a directory.
+
 ## 4. The web bootstrap
 
 Claude Code on the web starts each session in a fresh container where `enabledPlugins` installs nothing, so without `.claude/hooks/session-start.sh` (canonical copy: this skill's `bootstrap/session-start.sh`) plus its `SessionStart` entry, every cloud routine stops at its own "the workaholic plugin must be loaded" precondition — firing on time, doing nothing, and reading as healthy. A local session keeps a persistent `~/.claude`, so this is a no-op outside the web.

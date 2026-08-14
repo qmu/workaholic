@@ -61,9 +61,12 @@ for p in $paths; do
   [ "$rel" = "$p" ] && continue
   first=${rel%%/*}
 
-  # Top-level segment must be one of the four canonical directories.
+  # Top-level segment must be canonical. The tree is TWO-STATE since 2026-08-13
+  # (todo/ and archive/); icebox/ and abandoned/ are permitted here only so the
+  # living migration's own `git mv` out of them is not blocked by the guard that
+  # exists to protect the shape it is converging toward.
   case "$first" in
-    todo|icebox|abandoned|archive) : ;;
+    todo|archive|icebox|abandoned) : ;;
     *)
       bad="${bad}
   - ${p}  (top-level '${first}/' is not a canonical tickets directory)"
@@ -92,7 +95,9 @@ if [ -n "$bad" ]; then
   echo "Error: refusing to place a ticket in a non-canonical location under .workaholic/tickets/." >&2
   echo "Offending path(s):${bad}" >&2
   echo "" >&2
-  echo "Canonical layout: todo/  icebox/  abandoned/  archive/<branch>/" >&2
+  echo "Canonical layout: todo/  archive/<branch>/   (two-state since 2026-08-13)" >&2
+  echo "A ticket's state is its status: frontmatter field, never its directory —" >&2
+  echo "absent means queued; done | abandoned | icebox mean archived with that outcome." >&2
   echo "To complete a ticket, run /drive (its archive.sh moves it to archive/<branch>/)" >&2
   echo "rather than moving it by hand into an invented directory such as done/." >&2
   print_skill_reference

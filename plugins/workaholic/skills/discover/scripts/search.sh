@@ -14,6 +14,9 @@ ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 
 ARCHIVE_DIR="${ROOT}/.workaholic/tickets/archive"
 TODO_DIR="${ROOT}/.workaholic/tickets/todo"
+# The icebox is a STATE inside archive/ since 2026-08-13 (issue #436), so ARCHIVE_DIR
+# already covers it; this path is kept for a checkout the living migration has not
+# reached yet, where it is a real directory holding real tickets.
 ICEBOX_DIR="${ROOT}/.workaholic/tickets/icebox"
 
 # Collect all search directories that exist

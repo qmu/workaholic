@@ -113,6 +113,22 @@ to act on.
 `claim_released` is narrow on purpose: a colleague's live claim is named in the row's
 detail and never fails it, because a red an operator cannot act on is worse than no check.
 
+**The unverifiable-unit fixture** (2026-08-14, issue #452). Seed the drill ticket with a
+non-empty `verification_handoff:` — the declaration that the work's real-world verification
+needs something an unattended run does not have — and the implement stage swaps its last two
+rows for the inverse assertions, because that unit must **not** merge:
+
+| Stage | Row | What it asserts |
+| ----- | --- | --------------- |
+| implement | `unit_pr_handed_off` | the unit's pull request is **open**, carries `## Handoff`, and names the declared verification |
+| implement | `claim_held` | the branch is **still** an unmerged `work-*` branch — the unit stays owned while it waits for a person |
+
+`ticket_archived` and `story_exists` are unchanged: a declared handoff has finished its work,
+so its tickets archive normally and only the verification waits. The fixture is selected by
+reading the archived ticket, never by a flag, so the drill routes on exactly the file the run
+routed on. The Slack row is `slack_handoff_line` rather than `slack_finish_line`, and stays
+advisory like every notification row.
+
 **One advisory row on the propose stage**: `proposal_form` names which of the three
 sanctioned shapes the proposal emitted — `loose ticket`, `mission <slug>`, or `record
 alone`. It is deliberately **not** load-bearing: the drill can see which form was emitted,

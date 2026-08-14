@@ -1,10 +1,12 @@
 ---
 created_at: 2026-08-14T06:53:43+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
 feedback: [20260814065335-commit-author-shows-as-claude-for-all-web-routine-commits.md]
 merge_policy:
+claim: work-20260814-091758
 ---
 
 # Attribute routine commits to their originating routine
@@ -79,3 +81,82 @@ confirmed on an `[Implement]` container too before anything is changed.
 - If the `Claude` name is set by the container image or the harness rather than by anything in this repository, no change in this repository can alter it — say so plainly in the story rather than reporting a fix that did not reach the cause.
 - Commits already carry a `Claude-Session:` trailer naming the session URL, which is a per-run identifier. Check whether it already answers the auditability half of the report before adding a second field that says nearly the same thing.
 - The subject rule (`check-subject.sh`) governs the subject line only; trailers are unaffected. Confirm rather than assume.
+
+## Final Report
+
+Development completed. Step 1's reproduction came first and it narrowed the ticket twice.
+
+### Step 1 — the `[Implement]` container measurement the proposal did not have
+
+Read live, inside a routine-fired `[Implement]` session (container
+`container_01UMSBoRBT6y6auhgvFTuBWy`):
+
+| Reading | Value |
+| ------- | ----- |
+| `git config user.name` | `Claude` |
+| `git config user.email` | `a@qmu.jp` |
+| `git config --global user.name` / `user.email` | `Claude` / `noreply@anthropic.com` |
+| `git config --local` | `user.email a@qmu.jp` — and nothing else |
+| a produced commit's `%an\|%ae\|%cn\|%ce` | `Claude\|a@qmu.jp\|Claude\|a@qmu.jp` |
+
+**Identical to the `[Propose]` reading in the proposal**, which settles the report's premise:
+the *name* is `Claude` and comes from the container's **global** config; the *email* is the
+developer's own, set **repo-locally** by the web bootstrap from `.claude/git-identities`. So the
+**person** was always attributable from a commit, on both routines. The report's "always Claude"
+is true of the name only.
+
+### Step 2 — where the name is set, and step 3 — what identifies a routine
+
+`Claude` is in the container's **global** git config, which no change in this repository can
+reach — so the fix had to be a trailer written by our own scripts, exactly as the ticket
+anticipated. Step 3's question was then answered by reading the container's whole environment:
+**nothing in it names the routine.** `CLAUDE_CODE_REMOTE_SESSION_ID`, `CLAUDE_CODE_SESSION_ID`
+and `CLAUDE_CODE_CONTAINER_ID` identify the run and the container; no variable identifies the
+standing routine record that started them.
+
+That is a finding, not a gap to work around, and it decided the mechanism. A `Routine:` trailer
+could only be fed by the caller, and both caller paths fail concretely:
+
+- **An env var does not survive between a session's separate shell invocations** in this harness
+  (shell state is not persisted between tool calls), so a prompt instructing the session to
+  export one is a rule that silently stops applying after the first command.
+- **A `--routine` flag** would have to be threaded through `archive.sh`, `claim.sh` and
+  `heartbeat.sh` and remembered at every call site. One forgotten prefix and the commit lies by
+  omission, which is worse than a commit that never claimed to know.
+
+### Step 4 — what shipped
+
+`commit.sh` — the one commit writer — emits `Claude-Session: https://claude.ai/code/<id>` when
+`CLAUDE_CODE_REMOTE_SESSION_ID` is in its process environment. It needs no cooperation from any
+caller, so every seam inherits it, and the id resolves to its routine in the routines UI: the
+auditability the report asked for, reached by a different route than the one it proposed. Outside
+a cloud session the trailer is **omitted, never faked** — a local developer's commit has no run
+to point at.
+
+### Step 5 — the author email is untouched
+
+Confirmed as a test assertion, not a claim: `drive/scripts/lib/claims.sh` resolves claim
+ownership and resumption from `git config user.email`, so changing it would move the claim oracle
+underneath a running fleet.
+
+### Discovered Insights
+
+- **Insight**: the "one writer" property is what let this change reach every seam without
+  touching any of them.
+  **Context**: `commit.sh` is the sole commit writer, and it reads the environment rather than an
+  argument — so `archive.sh`, `claim.sh` and the scratch-index heartbeat all gained the trailer
+  with no edit and no call site to forget. Both rejected mechanisms would have converted a
+  single-writer property into an N-caller obligation, which is the shape that decays.
+
+- **Insight**: the scratch-index heartbeat path is the one that would have been missed, so it is
+  the one the test names.
+  **Context**: `--allow-empty` builds the commit against a scratch index seeded from `HEAD`.
+  It still routes through the shared trailer block, but nothing about reading the code makes that
+  obvious, so it gets its own assertion rather than being assumed to follow.
+
+- **Insight**: a failure report can be half already-false, and saying which half is most of the
+  work.
+  **Context**: "commits are always Claude" was true of the name and false of the email, and the
+  difference is exactly what made a trailer the right fix and an author-email change the wrong
+  one. Reproducing before proposing is what separated them; the proposal had one container's
+  reading and this run supplied the other.

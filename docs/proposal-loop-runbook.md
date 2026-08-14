@@ -75,7 +75,7 @@ title filter), oldest first, skips any a feedback record already names, and take
 each remaining issue as an inbound ask through the full run
 (`skills/propose/SKILL.md`). An issue assigned to someone else is `not_mine`; an
 inbox that could not be read reports its reason rather than passing for empty. The
-schedule wiring is converged by `/setup-routines` on every run where a
+schedule wiring is converged by `/setup-dev-routines` on every run where a
 `RemoteTrigger`-family tool is reachable, and set by hand in the routines web UI
 otherwise (`skills/workaholify/SKILL.md`, *What a routine can be triggered by*). Its prompt is the shipped template
 `plugins/workaholic/skills/workaholify/routines/fb.md` (template id `fb`).
@@ -83,11 +83,13 @@ otherwise (`skills/workaholify/SKILL.md`, *What a routine can be triggered by*).
 Provision it from an interactive session in the repository:
 
 ```
-/setup-routines          # what runs against this repo, and what is missing
+/setup-dev-routines      # your own [Propose]/[Implement]: what runs, what is missing
 /workaholify             # the same survey inside the full standards pass
 ```
 
-`/setup-routines` **configures** the routines: it lists the account's routines
+`/setup-dev-routines` **configures** the developer-scoped routines (its sibling
+`/setup-repo-routines` does the same for the repository's single `[Release Status]`,
+run from one account): it lists the account's routines
 through a `RemoteTrigger`-family tool, diffs each against its template (name,
 prompt, model, `cron_expression`, `autofix_on_pr_create`, connectors), applies the
 create/update that converges them, and reports the per-routine changes. When no such
@@ -116,7 +118,7 @@ Two things the routine needs before it can work:
 > held that every standing outward-facing process must be brought into existence by
 > the developer, in their own browser, seeing exactly what it will be. It is
 > replaced by the mission `configure-routines-automatically-via-remotetrigger`:
-> `/setup-routines` converges the routines itself where a `RemoteTrigger`-family
+> the setup commands converge the routines themselves where a `RemoteTrigger`-family
 > tool is reachable (`skills/workaholify/SKILL.md` §5). The rule still stands for a
 > **server crontab**, which no agent installs.
 

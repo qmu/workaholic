@@ -1,10 +1,22 @@
 #!/bin/sh -eu
 # List the routine TEMPLATES this plugin ships. Pure read.
 #
-#   list-routine-templates.sh
+#   list-routine-templates.sh [<scope>]
 #
 # Output (one JSON line):
-#   {"count": N, "templates": [{"id","name_pattern","trigger","cron_expression","model"}]}
+#   {"count": N, "scope": "<filter or empty>",
+#    "templates": [{"id","name_pattern","scope","trigger","cron_expression","model","path"}]}
+#
+# THE SCOPE IS THE TEMPLATE'S OWN FIELD, NOT THE COMMAND'S (2026-08-14, issue #451).
+# `/setup-dev-routines` and `/setup-repo-routines` differ only in which templates they
+# converge, so the split has to live where both of them — and both setup sheets — read
+# one source. Enumerating ids inside two commands would be the same list written twice,
+# and the drift between them would be invisible exactly the way template drift was.
+#   developer   every developer needs their own copy ([Propose], [Implement])
+#   repository  the repository needs exactly ONE copy, configured by one account
+# An optional positional filters the set; absent, every template is listed. A template
+# declaring no scope is reported with an empty one and is never silently folded into
+# either bucket — a missing scope is a defect in the template, not a default.
 #
 # ONE SET OF TEMPLATES, MANY REPOSITORIES. The templates live in the PLUGIN
 # (`skills/workaholify/routines/*.md`), not in any repository's `.workaholic/`. That is
@@ -29,6 +41,12 @@ set -eu
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "$0")" && pwd)
 DIR="${SCRIPT_DIR}/../routines"
+WANT_SCOPE="${1:-}"
+
+case "$WANT_SCOPE" in
+  ''|developer|repository) ;;
+  *) printf '{"error": "unknown_scope", "scope": "%s"}\n' "$WANT_SCOPE" >&2; exit 2 ;;
+esac
 
 json_escape() {
   printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' -e 's/	/\\t/g'
@@ -59,13 +77,16 @@ for f in "$DIR"/*.md; do
   id=$(fm_field "$f" id)
   [ -n "$id" ] || id=$(basename "$f" .md)
   name=$(fm_field "$f" name)
+  scope=$(fm_field "$f" scope)
   trigger=$(fm_field "$f" trigger)
   cron=$(fm_field "$f" cron_expression)
   model=$(fm_field "$f" model)
 
-  entries="${entries}${sep}{\"id\": \"$(json_escape "$id")\", \"name_pattern\": \"$(json_escape "$name")\", \"trigger\": \"$(json_escape "$trigger")\", \"cron_expression\": \"$(json_escape "$cron")\", \"model\": \"$(json_escape "$model")\", \"path\": \"$(json_escape "$f")\"}"
+  [ -z "$WANT_SCOPE" ] || [ "$scope" = "$WANT_SCOPE" ] || continue
+
+  entries="${entries}${sep}{\"id\": \"$(json_escape "$id")\", \"name_pattern\": \"$(json_escape "$name")\", \"scope\": \"$(json_escape "$scope")\", \"trigger\": \"$(json_escape "$trigger")\", \"cron_expression\": \"$(json_escape "$cron")\", \"model\": \"$(json_escape "$model")\", \"path\": \"$(json_escape "$f")\"}"
   sep=", "
   count=$((count + 1))
 done
 
-printf '{"count": %s, "templates": [%s]}\n' "$count" "$entries"
+printf '{"count": %s, "scope": "%s", "templates": [%s]}\n' "$count" "$(json_escape "$WANT_SCOPE")" "$entries"

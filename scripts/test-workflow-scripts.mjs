@@ -77,6 +77,7 @@ const SCRIPTS = {
   readReleaseNotes: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/read-release-notes.sh"),
   readDeployState: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/read-deploy-state.sh"),
   draftDeployPlan: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/draft-deploy-plan.sh"),
+  reportDeployStatus: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/report-deploy-status.sh"),
   recordEvidence: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/record-evidence.sh"),
   catchupMain: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/catchup-main.sh"),
   applyVerdicts: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/apply-deferred-concern-verdicts.sh"),
@@ -9962,9 +9963,31 @@ function testRenderSetupSheet() {
   const sheet = (target) => run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.renderSetupSheet} ${target} ${WH}`).stdout;
 
   const all = sheet("--all");
-  for (const name of ["[Propose] workaholic", "[Implement] workaholic"]) {
+  for (const name of ["[Propose] workaholic", "[Implement] workaholic", "[Release Status] workaholic"]) {
     assertTrue(`the sheet covers ${name}`, all.includes(`## ${name}`), all.slice(0, 200));
   }
+  // ---- the scope filter (2026-08-14, issue #451) ----
+  // Each setup command's `no_transport` recovery path must render ITS OWN scope's sheets:
+  // handing a developer the repository's single routine alongside their own is how N copies
+  // of a repository routine get created, which nothing in the product can detect or refuse.
+  const scopedSheet = (sc) => run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.renderSetupSheet} --all ${WH} ${sc}`).stdout;
+  const devSheet = scopedSheet("developer");
+  assertTrue("the developer sheet covers both developer routines and neither repository one",
+    devSheet.includes("## [Propose] workaholic") && devSheet.includes("## [Implement] workaholic") &&
+    !devSheet.includes("## [Release Status] workaholic"), devSheet.slice(0, 300));
+  const repoSheet = scopedSheet("repository");
+  assertTrue("the repository sheet covers only the repository routine",
+    repoSheet.includes("## [Release Status] workaholic") &&
+    !repoSheet.includes("## [Propose] workaholic"), repoSheet.slice(0, 300));
+  assertTrue("the repository sheet states the one-account convention it cannot enforce",
+    /not every team member/i.test(repoSheet), repoSheet.slice(0, 400));
+  assertTrue("each sheet names the scope of the routine it describes",
+    /Scope: \*\*repository\*\*/.test(repoSheet) && /Scope: \*\*developer\*\*/.test(devSheet),
+    repoSheet.slice(0, 600));
+  assertEq("an explicit template id outside the requested scope is refused, not rendered",
+    run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.renderSetupSheet} fb ${WH} repository`).status !== 0, true);
+  assertEq("an unknown scope is refused", 
+    run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.renderSetupSheet} --all ${WH} nonsense`).status !== 0, true);
   // Derived from frontmatter, per template -- not one generic paragraph. Both
   // templates moved to a fixed-interval schedule trigger (ticket 20260810085347,
   // developer's explicit ask covering both routines) -- neither renders a GitHub
@@ -9972,6 +9995,7 @@ function testRenderSetupSheet() {
   assertTrue("each schedule trigger renders its own cron step",
     /\*\*Trigger\*\* — \*Select a trigger\* → \*\*Schedule\*\*, cron `15 \* \* \* \*`/.test(all) &&
     /\*\*Trigger\*\* — \*Select a trigger\* → \*\*Schedule\*\*, cron `30 \* \* \* \*`/.test(all) &&
+    /\*\*Trigger\*\* — \*Select a trigger\* → \*\*Schedule\*\*, cron `45 \* \* \* \*`/.test(all) &&
     !/Event: `issues\.assigned`/.test(all) &&
     !/Event: `pull_request\.closed`/.test(all),
     all);
@@ -13248,6 +13272,8 @@ const tests = [
   ["one behaviour per command: no dispatch on a literal first word (P5)", testNoSubcommands],
   ["a proposal carries its owner from the trigger (P6)", testProposalOwnershipChain],
   ["branching close-publish-tree: closes after either publish path, still guards the unpushed one", testClosePublishTreeReachability],
+  ["ship/report-deploy-status.sh: the repository tick reads, and an idle tick is silent", testReportDeployStatus],
+  ["release-status: the repository routine and its command are a reader", testReleaseStatusIsAReader],
   ["workaholify routines: one template set, applied per repository, drift named per field", testWorkaholifyRoutines],
   ["workaholify bootstrap: without it a web routine is configured but cannot work", testWorkaholifyBootstrap],
   ["workaholify bootstrap: the session gets the developer's git identity", testBootstrapGitIdentity],
@@ -14493,6 +14519,111 @@ function testMissionSizeNorms() {
   }
 }
 
+// ---------- ship/report-deploy-status.sh (the repository tick's read) ----------
+// THE PROPERTY UNDER TEST is that the repository-scoped [Release Status] tick is a READER
+// and that an idle tick is silent. Two facts carry both: it writes nothing (asserted by
+// construction -- the fixture's tree is byte-identical after a run), and its digest is
+// STABLE across reads of an unchanged base while deliberately EXCLUDING the base sha, so a
+// base that merely advanced is not news. An unstable digest would make the routine post
+// every hour, which is exactly the idle tick `workaholic:notify`'s bright line refuses.
+//
+// The Open Decision this resolves (ticket 20260814064854-add-the-hourly-release-note-repo-
+// routine, 2026-08-14): the ask was "run /ship hourly to update the release notes", and
+// every unit-less WRITER was refused -- refreshing a merged note on `main` is
+// self-referential (the plan's datum is the base sha and, absent `paths:`, the refresh's
+// own commit changes the count it reports), pushing into an open PR's branch races the
+// claim protocol, and /ship merges. See `skills/ship/SKILL.md` §7.
+function testReportDeployStatus() {
+  const seedTarget = (root, slug, extraFm = "") => {
+    mkdirSync(join(root, ".workaholic/deployments"), { recursive: true });
+    writeFileSync(join(root, `.workaholic/deployments/${slug}.md`),
+      `---\ntitle: ${slug}\nenvironment: production\nconfirmation_method: other\ncommand: probe\n${extraFm}---\n\n` +
+      "This is a deploy-on-merge target.\n\n## Procedure\n\n1. merge\n\n## Confirmation\n\n1. probe it\n");
+  };
+
+  // Zero targets: reported, with an empty `needs` set and nothing actionable. Silence
+  // here would read as "nothing to deploy" when the truth is "nothing was declared".
+  const noTargets = makeRepo("main");
+  try {
+    const r = JSON.parse(run(noTargets, `${POSIX_SH} ${SCRIPTS.reportDeployStatus}`).stdout);
+    assertEq("report-deploy-status with no targets reports emptiness, not an error",
+      { ok: r.ok, c: r.count, a: r.actionable }, { ok: true, c: 0, a: false });
+    assertTrue("a digest is produced even with no targets", /^[0-9a-f]{40}$/.test(r.digest), r.digest);
+  } finally { cleanup(noTargets); }
+
+  const dir = makeRepo("main");
+  try {
+    seedTarget(dir, "prod");
+    execSync(`git add -A && git commit -q -m "Add the deployment target"`, { cwd: dir });
+
+    const first = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.reportDeployStatus}`).stdout);
+    const t = first.targets[0];
+    assertEq("report-deploy-status reports the target and what it needs",
+      { c: first.count, slug: t.slug, conf: t.has_confirmation }, { c: 1, slug: "prod", conf: true });
+    // Commits are waiting and no note has ever joined this target: both are facts already
+    // in the rows, never a forecast.
+    assertEq("needs[] names the facts a human would act on",
+      t.needs.sort(), ["note", "release"]);
+    assertEq("something waiting makes the tick actionable", first.actionable, true);
+
+    // IT WRITES NOTHING. The contract is the whole point of the design, so it is asserted
+    // as a property of the tree rather than trusted from the script's prose.
+    assertEq("the read leaves the working tree untouched",
+      execSync("git status --porcelain", { cwd: dir, encoding: "utf8" }).trim(), "");
+
+    // THE IDLE TICK IS SILENT. Same base, same substantive state -> same digest, so the
+    // consumer's `deploy:<digest>` search finds its own earlier post and says nothing.
+    const second = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.reportDeployStatus}`).stdout);
+    assertEq("two reads of an unchanged base return the same digest", second.digest, first.digest);
+
+    // AND THE BASE SHA IS NOT IN IT. A commit that changes nothing a reader would act on
+    // must not move the digest -- otherwise every tick is news and the routine posts hourly.
+    // The target declares `paths:` so its range is filtered, which is the shape a
+    // multi-target repository is told to use.
+    writeFileSync(join(dir, ".workaholic/deployments/prod.md"),
+      readFileSync(join(dir, ".workaholic/deployments/prod.md"), "utf8").replace(/^---\n/, "---\npaths: src/\n"));
+    execSync(`git add -A && git commit -q -m "Declare the target paths"`, { cwd: dir });
+    const scoped = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.reportDeployStatus}`).stdout);
+    assertEq("a path-scoped target attributes its range by declared paths",
+      scoped.targets[0].attribution, "declared_paths");
+    writeFileSync(join(dir, "unrelated.md"), "not a deploy-relevant change\n");
+    execSync(`git add -A && git commit -q -m "Touch nothing the target ships"`, { cwd: dir });
+    const advanced = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.reportDeployStatus}`).stdout);
+    assertEq("a base advance that changes nothing deployable leaves the digest alone",
+      advanced.digest, scoped.digest);
+    assertTrue("the base sha itself did move", advanced.base_sha !== scoped.base_sha,
+      `${advanced.base_sha} vs ${scoped.base_sha}`);
+
+    // A DEGRADED READ REFUSES BY NAME AND YIELDS NO DIGEST. A digest over partial rows
+    // would be a token the consumer could post and never reproduce.
+    const bad = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.reportDeployStatus} no-such-base`).stdout);
+    assertEq("an unreadable base is a named refusal with an empty digest",
+      { ok: bad.ok, d: bad.digest }, { ok: false, d: "" });
+    assertTrue("the refusal names its reason", (bad.reason || "").length > 0, JSON.stringify(bad));
+  } finally { cleanup(dir); }
+}
+
+// ---------- the release-status command and routine are a READER, end to end ----------
+// The routine's contract is what it must NOT do, so the machine-checkable half is the
+// absence of the write surfaces: no Write/Edit in `allowed_tools`, and no
+// `autofix_on_pr_create` (a routine that opens no pull request must not declare a flag it
+// can never reach). Pinned because "it only reads" is the kind of claim that decays into
+// prose while a template quietly regains a tool.
+function testReleaseStatusIsAReader() {
+  const tpl = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines/release-status.md"), "utf8");
+  const cmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/release-status.md"), "utf8");
+  const fm = tpl.slice(0, tpl.indexOf("\n---", 4));
+
+  assertTrue("the repository-scoped template declares its scope", /^scope: repository$/m.test(fm), fm);
+  assertTrue("it carries no write tool", !/Write|Edit/.test(fm.match(/^allowed_tools:.*$/m)[0]), fm);
+  assertTrue("it declares no auto-fix, since it opens no pull request",
+    /^autofix_on_pr_create: false$/m.test(fm), fm);
+  assertTrue("its prompt invokes the reader command, never /ship",
+    /\/release-status\b/.test(tpl) && !/^Run `\/ship`/m.test(tpl.slice(tpl.indexOf("## Prompt"))), tpl);
+  assertTrue("the command states that it writes nothing",
+    /writes nothing/i.test(cmd) && /merges nothing/i.test(cmd), cmd);
+}
+
 // ---------- workaholify: routine templates, rendering, and drift ----------
 // Routines are Claude Code Web routines, NOT cron. The plugin holds ONE set of templates
 // and /workaholify applies them to whichever repository it runs in -- there is no
@@ -14507,9 +14638,26 @@ function testWorkaholifyRoutines() {
   const WH = "https://github.com/qmu/workaholic";
   try {
     const tpl = JSON.parse(run(dir, LIST).stdout);
-    assertEq("the plugin ships two routine templates", tpl.count, 2);
-    assertEq("and they are the two live patterns",
-      tpl.templates.map((t) => t.id).sort(), ["fb", "implement"]);
+    assertEq("the plugin ships three routine templates", tpl.count, 3);
+    assertEq("and they are the three live patterns",
+      tpl.templates.map((t) => t.id).sort(), ["fb", "implement", "release-status"]);
+
+    // ---- the scope split (2026-08-14, issue #451) ----
+    // The scope is the TEMPLATE's field, not a list written into two command bodies:
+    // /setup-dev-routines and /setup-repo-routines differ only in the value they pass, so
+    // a command, its diff and its recovery sheet cannot disagree about what is in scope.
+    // A template declaring no scope is a defect, never a silent default into either bucket.
+    assertTrue("every template declares a scope",
+      tpl.templates.every((t) => t.scope === "developer" || t.scope === "repository"),
+      JSON.stringify(tpl.templates.map((t) => [t.id, t.scope])));
+    assertEq("the two routines every developer needs their own copy of are developer-scoped",
+      JSON.parse(run(dir, `${LIST} developer`).stdout).templates.map((t) => t.id).sort(),
+      ["fb", "implement"]);
+    assertEq("the routine the repository needs exactly one of is repository-scoped",
+      JSON.parse(run(dir, `${LIST} repository`).stdout).templates.map((t) => t.id),
+      ["release-status"]);
+    assertEq("an unknown scope is refused rather than treated as no filter",
+      run(dir, `${LIST} nonsense`).status !== 0, true);
     // The template set is discovered by scanning the routines dir, so a template is
     // surveyed, rendered and drift-checked the moment its file exists -- and leaves the
     // set the moment it does not. Nothing enumerates the ids in code, which is why both
@@ -14522,7 +14670,7 @@ function testWorkaholifyRoutines() {
     // designed 30-minute cadence became a staggered hourly pair — [Propose] :15,
     // [Implement] :30.
     assertEq("the templates carry the staggered hourly schedule",
-      tpl.templates.map((t) => t.cron_expression).sort(), ["15 * * * *", "30 * * * *"]);
+      tpl.templates.map((t) => t.cron_expression).sort(), ["15 * * * *", "30 * * * *", "45 * * * *"]);
     assertEq("implement declares the schedule trigger",
       tpl.templates.find((t) => t.id === "implement").trigger, "schedule-hourly");
     assertEq("fb declares the schedule trigger",

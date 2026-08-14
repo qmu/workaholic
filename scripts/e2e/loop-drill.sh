@@ -10,6 +10,7 @@
 #                                             `verification_handoff:` inverts the
 #                                             stage: open + handed off, not merged)
 #   loop-drill.sh verify-plan [--json]        # is the deployment-plan refresh sound?
+#   loop-drill.sh verify-status [--json]      # is the [Release Status] read sound and silent?
 #
 # Every outcome is ONE JSON line on stdout. A non-zero exit names the blocker in
 # `reason`; exit 0 means the subcommand did what it was asked.
@@ -20,7 +21,8 @@
 #   3  a dirty precondition refused the drill (`inbox_dirty`, `claim_dirty`)
 #   4  the environment could not answer (`gh_unavailable`, `identity_unresolved`,
 #      `list_failed`, `issue_failed`, `not_a_repo`)
-#      `verify-plan` additionally uses 4 for `plan_unreadable`.
+#      `verify-plan` additionally uses 4 for `plan_unreadable`, and `verify-status`
+#      for `status_unreadable`.
 #   5  a verify stage HAS NOT RUN YET (no artifacts, the ask still open) -- distinct
 #      from 1 so a poller can tell "wait" from "broken"
 #   1  a verify stage RAN AND FAILED: at least one load-bearing row is false
@@ -896,9 +898,64 @@ cmd_verify_plan() {
     emit_verdict "plan" 0 "pass" 0
 }
 
+# ---------------------------------------------------------------- verify-status
+#
+# The repository-scoped `[Release Status]` routine (`/release-status`) is otherwise
+# only observable by waiting an hour and watching a Slack channel for a message that,
+# on a healthy quiet repository, correctly never arrives. This stage proves the three
+# properties the routine depends on, in seconds:
+#
+#   status_read       the consolidation reads this repository and reports its targets
+#   status_stable     a second run against an unchanged base returns the SAME digest
+#                     (the digest excludes the base sha, so an advanced base is not
+#                     news; an unstable digest would make every tick post)
+#   status_degraded   an unreadable base is reported by reason and yields no digest
+#
+# It writes nothing anywhere — which is the routine's whole contract, so the drill
+# asserting it by construction is the point rather than a convenience.
+cmd_verify_status() {
+    _rep="${REPO_ROOT}/plugins/workaholic/skills/ship/scripts/report-deploy-status.sh"
+    if [ ! -f "$_rep" ]; then
+        emit_err "status_unreadable" 4 "report-deploy-status.sh is not present in this checkout"
+    fi
+
+    _out=$(cd "$REPO_ROOT" && sh "$_rep" "$BASE_BRANCH" 2>&1) || true
+    case "$_out" in
+        *'"ok": true'*)
+            _count=$(printf '%s' "$_out" | sed -n 's/.*"count": \([0-9]*\).*/\1/p')
+            _digest=$(printf '%s' "$_out" | sed -n 's/.*"digest": "\([0-9a-f]*\)".*/\1/p')
+            add_row "status_read" true "the status covers ${_count} target(s), digest ${_digest}" load
+            ;;
+        *)
+            add_row "status_read" false "$(one_line "$_out")" load
+            emit_verdict "status" 0 "fail" 1
+            ;;
+    esac
+
+    _out2=$(cd "$REPO_ROOT" && sh "$_rep" "$BASE_BRANCH" 2>&1) || true
+    _digest2=$(printf '%s' "$_out2" | sed -n 's/.*"digest": "\([0-9a-f]*\)".*/\1/p')
+    if [ -n "$_digest" ] && [ "$_digest" = "$_digest2" ]; then
+        add_row "status_stable" true "a second run returned the same digest, so an idle tick posts nothing" load
+    else
+        add_row "status_stable" false "the digest moved between two reads: ${_digest} -> ${_digest2}" load
+    fi
+
+    _out3=$(cd "$REPO_ROOT" && sh "$_rep" "no-such-base-for-the-drill" 2>&1) || true
+    if printf '%s' "$_out3" | grep -q '"ok": false' && printf '%s' "$_out3" | grep -q '"digest": ""'; then
+        add_row "status_degraded" true "an unreadable base was reported with no digest" load
+    else
+        add_row "status_degraded" false "a degraded read did not refuse cleanly: $(one_line "$_out3")" load
+    fi
+
+    if [ "$LOAD_FAILED" -gt 0 ]; then
+        emit_verdict "status" 0 "fail" 1
+    fi
+    emit_verdict "status" 0 "pass" 0
+}
+
 # ---------------------------------------------------------------- dispatch
 
-USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-propose <issue>|verify-implement <issue>|verify-plan [--json]"}'
+USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-propose <issue>|verify-implement <issue>|verify-plan [--json]|verify-status [--json]"}'
 
 CMD="${1:-}"
 [ -n "$CMD" ] || {
@@ -928,6 +985,7 @@ case "$CMD" in
     verify-propose) cmd_verify_propose "$@" ;;
     verify-implement) cmd_verify_implement "$@" ;;
     verify-plan) cmd_verify_plan "$@" ;;
+    verify-status) cmd_verify_status "$@" ;;
     *)
         echo "$USAGE" >&2
         exit 2

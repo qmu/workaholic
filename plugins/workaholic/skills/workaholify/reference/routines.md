@@ -2,6 +2,8 @@
 
 Companion to `SKILL.md` §5. The standing rules live in the SKILL; this file carries the measurements, the retirement records, and the rejected alternatives.
 
+**Reading the command name below.** Everything dated before 2026-08-14 says `/setup-routines`, and it is kept as written because it is what was decided and measured at the time. On 2026-08-14 (issue #451) that one command **split by routine scope** into `/setup-dev-routines` (the `developer`-scoped `[Propose]`/`[Implement]`) and `/setup-repo-routines` (the `repository`-scoped `[Release Status]`, converged from one account). The flow, the `no_transport` refusal and the sheet-as-recovery-path are identical in both; only the template set differs, and every finding recorded here applies unchanged to each. The old name is removed rather than aliased (`SKILL.md` §5, *Two scopes, two commands*).
+
 ## The trigger surface, measured (2026-08-05/06)
 
 The product's documentation ([Routines](https://code.claude.com/docs/en/routines), *Add a GitHub trigger*) states: "GitHub triggers are configured from the web UI only." Supported event categories are Pull request and Release, narrowable by AND-combined filters (author, title, body, base/head branch, labels, is-draft, is-merged); `matches regex` tests the whole value, so substring matching wants `contains`. An API trigger's token is likewise generated in the UI only and fires `POST /v1/claude_code/routines/<id>/fire` with an optional `text` payload.

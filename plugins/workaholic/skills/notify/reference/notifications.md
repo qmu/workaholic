@@ -60,6 +60,23 @@ One sentence, max 25 words, what failed and what a human must do.
 
 Exactly one finish per thread stays the rule (SKILL, *Which thread an `/implement` unit's posts land in*): a unit posts `🟢 Implemented` **or** one of the three outcome shapes above, never both — `handoff` is the finish, never a third post, and the same holds for a blocked or merged unit.
 
+### `/release-status` — the repository tick's one line
+
+```
+📦 Release status - <N> commit(s) waiting on <target>
+One sentence, max 25 words, what a human must do (cut a release, declare a confirmation method).
+`deploy:<digest>`
+<session URL>
+```
+
+**A top-level keyed root, never a reply.** This event belongs to no feedback item — nobody *said* anything, the repository's own state changed — so it has no thread to land in and keys on its own `` `deploy:<digest>` `` instead, exactly as an `/implement` unit with no stem keys on `` `unit:<unit-id>` ``. The digest is `report-deploy-status.sh`'s, which hashes the substantive per-target state and **not** the base sha (`workaholic:ship` §7).
+
+**The dedup is the whole reason the line is postable at all.** Before posting, search `` `deploy:<digest>` `` exactly once (private-inclusive, `include_bots: true`, like every case-2 search): found ⇒ **post nothing**, because the answer has not changed since it was last said, and an hourly repeat of an unchanged status is the idle tick the bright line refuses. This is *not* the red-alert cool-down — there is no time window and no escalation; the key is the content itself, so a status that stops being true stops matching and a status that becomes true again posts once more.
+
+**`actionable: false` posts nothing either**, whatever the digest says: every target's `needs[]` empty means nothing is waiting and nobody has anything to do. A tick that reports a quiet repository is a tick that says nothing.
+
+**No mention token of any kind** — no `<@U…>` for a person and none for the Claude app. The line names a repository state, not a person's work, and there is nobody whose turn it is; a mention would page whoever was named every hour for a condition that is nobody's in particular.
+
 ### Precondition-stop — calm first, escalate on persistence
 
 A **first** report of a signature in the precondition-stop class (SKILL, *Post shapes, mentions, and the red-alert dedup* — `no_plugin_source`; `unbound_in_claude_session` and `loaded_version_behind_registry` left the class on 2026-08-12 by ceasing to be stops) posts calm rather than alarming, since the run stopped before it ever reached a unit:
@@ -88,7 +105,7 @@ The threaded reply was added 2026-08-05, after a failure that *persisted* rather
 
 ## What a template can and cannot switch off
 
-A live routine record carries `name`, `trigger`, `schedule`, `target repository`, `model`, `enabled` and its MCP connections — and no notification field of any kind. So the duplicate mobile push is not routine configuration: it is the Claude app's account-level notification for a routine session completing, which no template, script or report can touch. Turning it off is a developer act in the app's own settings, surfaced by `/setup-routines` and stated there — a truthful "cannot" beats a claimed "did".
+A live routine record carries `name`, `trigger`, `schedule`, `target repository`, `model`, `enabled` and its MCP connections — and no notification field of any kind. So the duplicate mobile push is not routine configuration: it is the Claude app's account-level notification for a routine session completing, which no template, script or report can touch. Turning it off is a developer act in the app's own settings, surfaced by `/setup-dev-routines` and stated there — a truthful "cannot" beats a claimed "did".
 
 ## The event bar's two precedents
 

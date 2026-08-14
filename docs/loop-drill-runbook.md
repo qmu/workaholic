@@ -29,6 +29,7 @@ Run every command from the repository root, on a clean `main`.
 | 4 | Fire `[Implement]` | run the `[Implement]` routine by its trigger id | — |
 | 5 | Verify implement | `sh scripts/e2e/loop-drill.sh verify-implement <issue> --json` | `origin/main`, REST pull requests, unmerged `work-*` branches |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-plan --json` | this checkout's deployment targets and commit range — proves the plan refresh `[Implement]` carries |
+| — | Any time | `sh scripts/e2e/loop-drill.sh verify-status --json` | the same targets read the `[Release Status]` way — proves the repository tick reads soundly and stays silent when nothing changed |
 | — | Any time | `sh scripts/e2e/loop-drill.sh status` | the drill's residue: issues, claim branches, tickets |
 | — | After an abort | `sh scripts/e2e/loop-drill.sh reset` | closes/deletes **drill-minted** residue only |
 
@@ -205,6 +206,28 @@ load-bearing rows, all three of which the carrier depends on:
 
 A red `plan_idempotent` is the one to act on first: it does not break a single ship, it
 breaks the *periodic* property the whole refresh rests on.
+
+## 5c. The `[Release Status]` read
+
+`verify-status` needs no seed, no fire and no issue number either, and it writes
+nothing anywhere — which is the routine's whole contract, so a drill that asserted it by
+construction is the point rather than a convenience.
+
+`[Release Status]` (repository scope, `45 * * * *`, configured by `/setup-repo-routines`
+from **one** account) runs `/release-status`, a pure read. On a healthy quiet repository
+its correct output is *no Slack message at all*, which makes "did it work?" unanswerable
+by watching the channel. Three load-bearing rows:
+
+| Row | Fails when | Read |
+| --- | ---------- | ---- |
+| `status_read` | the consolidation could not read this checkout | `skills/ship/scripts/report-deploy-status.sh` over `read-deploy-state.sh` — an unresolvable base, or no `.workaholic/deployments/` target |
+| `status_stable` | two reads of an unchanged base returned different digests | `skills/ship/scripts/report-deploy-status.sh` — something varying leaked into the digest input; the routine would now post every hour, which is the idle tick `workaholic:notify`'s bright line refuses |
+| `status_degraded` | an unreadable base did not refuse cleanly | `skills/ship/scripts/report-deploy-status.sh` — a refusal must name its reason and yield an empty digest, never a digest over partial rows |
+
+`status_stable` is this stage's `plan_idempotent`: a single read is still correct when it
+is red, and the *hourly* property is what breaks. The most likely regression is the base
+sha finding its way into the digest input — it is excluded on purpose, because a base
+that merely advanced is not news.
 
 ## 6. Abort playbook
 

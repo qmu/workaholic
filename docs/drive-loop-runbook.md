@@ -122,11 +122,15 @@ installed CLI):
   human seeing exactly what it will be. **The 2026-08-06 reading of that bar —
   "`/setup-routines` renders copy-paste setup sheets and manages nothing" — is
   superseded** (mission `configure-routines-automatically-via-remotetrigger`):
-  `/setup-routines` now *configures* the routines on every run through a
+  the setup commands now *configure* the routines on every run through a
   `RemoteTrigger`-family tool — list the account's routines, diff each against its
   template, apply the create/update that converges them, report the per-routine
   changes. The setup sheets remain, as the recovery path when no such transport is
   reachable (`no_transport`), not as the product (`skills/workaholify/SKILL.md` §5).
+  Since 2026-08-14 `/setup-routines` itself is **split by routine scope**:
+  `/setup-dev-routines` converges the two developer-scoped routines and
+  `/setup-repo-routines` the repository's single `[Release Status]`, run by one
+  account. Same flow, same one refusal; only the template set differs.
   The bar itself is unchanged for **cron**: a server crontab is still installed by
   the developer, from this page, never from an agent session.
 

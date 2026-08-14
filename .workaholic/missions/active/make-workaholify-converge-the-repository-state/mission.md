@@ -34,9 +34,10 @@ An operator runs `/workaholify` in a repository that predates recent structural 
 <!-- PROPOSED sketch - the reviewer interrogates this to drive-ready. -->
 
 - [x] `/workaholify` applies the `CLAUDE.md` gateway reference and the web-bootstrap hook after one confirmation each, instead of stopping at "offer"; a refusal is named and report-only is its recovery path, never the ordinary outcome. (#20260814193833-apply-the-wiring-and-bootstrap-through-workaholify.md)
-- [ ] The gateway skill states the living-migration registry contract: `converge-layout.sh` is the one seam, and a structural change ships registered there in the same commit — with a check that every `gather/scripts/migrate-*.sh` is composed or named-excluded with a reason. (#20260814193833-state-the-living-migration-registry-contract.md)
+- [x] The gateway skill states the living-migration registry contract: `converge-layout.sh` is the one seam, and a structural change ships registered there in the same commit — with a check that every `gather/scripts/migrate-*.sh` is composed or named-excluded with a reason. (#20260814193833-state-the-living-migration-registry-contract.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-14 — ticket archived — 20260814193833-apply-the-wiring-and-bootstrap-through-workaholify.md
+- 2026-08-14 — ticket archived — 20260814193833-state-the-living-migration-registry-contract.md

@@ -69,8 +69,25 @@ Insights: <non-obvious patterns or gotchas worth preserving>
 
 Verify: <what verification was done or should be done>
 
+Claude-Session: https://claude.ai/code/<session id>
 Co-Authored-By: Claude <noreply@anthropic.com>
 ```
+
+### The trailer block
+
+`commit.sh` owns it; callers stay trailer-agnostic and add no attribution line themselves. Three trailers, each conditional in its own way:
+
+| Trailer | Emitted when | Read by |
+| ------- | ------------ | ------- |
+| `Category:` | `--category` was passed | `/report`'s `collect-commits.sh`, for Added/Changed/Removed grouping |
+| `Claude-Session:` | the process environment carries `CLAUDE_CODE_REMOTE_SESSION_ID` — a cloud session, which every routine-fired run is | a human auditing which run produced a commit |
+| `Co-Authored-By:` | always | GitHub's co-author attribution |
+
+**Which run, not which routine** (issue #452, measured 2026-08-14 in a live `[Implement]` container). The report was that every web-routine commit reads as "Claude" and cannot be attributed. Half of it was already false: `user.name` is `Claude` from the container's global config, but `user.email` is set repo-locally by the web bootstrap from `.claude/git-identities`, so commits read `Claude <a@qmu.jp>` and the **person** was always attributable. What was genuinely unrecoverable is which **run** produced a commit — `[Propose]` and `[Implement]` were indistinguishable.
+
+The routine's **name** stays unrecoverable, and that is a measurement rather than a preference: the container's whole environment was read and nothing in it names the routine — `CLAUDE_CODE_REMOTE_SESSION_ID`, `CLAUDE_CODE_SESSION_ID` and `CLAUDE_CODE_CONTAINER_ID` identify the run and the container, never the standing routine record that started them. A `Routine:` trailer could therefore only be fed by the caller, and both paths there fail: an env var does not survive between a session's separate shell invocations, and a `--routine` flag would have to be threaded through `archive.sh`, `claim.sh` and `heartbeat.sh` and remembered at every call site — one forgotten prefix and the commit lies by omission. The session id needs no cooperation from anybody: it sits in the process environment of every invocation, so one writer picks it up and every seam inherits it, and it resolves to its routine in the routines UI.
+
+**The author email is not touched.** `drive/scripts/lib/claims.sh` resolves claim ownership and resumption from `git config user.email`; changing it would move the claim oracle underneath a running fleet. The subject rule is unaffected too — `check-subject.sh` governs the subject line only, and trailers live in the last paragraph.
 
 ### Title
 

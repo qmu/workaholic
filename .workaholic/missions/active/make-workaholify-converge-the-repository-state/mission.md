@@ -41,3 +41,4 @@ An operator runs `/workaholify` in a repository that predates recent structural 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-14 — ticket archived — 20260814193833-apply-the-wiring-and-bootstrap-through-workaholify.md
 - 2026-08-14 — ticket archived — 20260814193833-state-the-living-migration-registry-contract.md
+- 2026-08-14 — Story written (2 tickets; both acceptance items met) — work-20260814-104347.md

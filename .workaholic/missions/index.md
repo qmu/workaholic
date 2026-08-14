@@ -3,6 +3,7 @@
 ## active
 
 * [give-propose-a-strategy-artifact-form](active/give-propose-a-strategy-artifact-form/mission.md) - Give /propose a Strategy artifact form
+* [split-routine-setup-into-developer-and-repository-scopes](active/split-routine-setup-into-developer-and-repository-scopes/mission.md) - Split routine setup into developer and repository scopes
 
 ## archive
 

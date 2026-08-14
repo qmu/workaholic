@@ -5,6 +5,7 @@ assignees: [a@qmu.jp]
 depends_on:
 feedback: [20260814065157-introduce-handoff-pr-status-for-credential-blocked-verification.md]
 merge_policy:
+claim: work-20260814-094401
 ---
 
 # Hand off a unit whose verification is known impossible

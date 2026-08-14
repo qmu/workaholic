@@ -71,7 +71,9 @@ A strategy is the operator's **outbound, resolved direction**: one flat
 `.workaholic/strategies/<slug>.md` carrying an **Aim** (what is pursued), a **Schedule**
 (a real `target_date`) and an **Assignee** (non-empty `assignees` — the one artifact
 where empty is a refusal rather than team-owned). Operator-authored; no command, hook or
-routine writes one. It is the complement of the feedback stream, not a second copy: the
+routine puts one on `main` on its own — `/propose`'s strategy form may draft one into a
+proposal pull request, which is then the one proposal that does not auto-merge, so the
+operator's merge stays the act that authors it. It is the complement of the feedback stream, not a second copy: the
 stream records what someone **said**, a strategy records what the operator **decided**,
 and the citation link runs one way (strategy → feedback). It carries no ticket plan —
 planning executable work stays a mission's job. Related terms: feedback record, mission.

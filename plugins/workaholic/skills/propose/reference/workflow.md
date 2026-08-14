@@ -72,16 +72,37 @@ and every abort reports a machine-readable reason.
    default. Scoped to the ask already in hand: this reads context for that ask, not a
    second sweep of the backlog (the retired `[Propose Batch]` design).
 
+5b. **Read the strategy set**, from the publish tree:
+   `bash ${CLAUDE_PLUGIN_ROOT}/skills/strategy/scripts/list.sh` — pure read, run
+   before the judgment so an ask naming a strategy is matched against the **actual**
+   set rather than a remembered one (SKILL.md, *Strategy lifecycle announcements*).
+   An empty list is a real answer, not a degraded one: it means any slug the ask names
+   is `strategy_not_found`. Only an **explicit slug** matches; a title or a paraphrase
+   never does.
+
 6. **Dedup.** `bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/list-proposed-refs.sh`.
    An ask that restates a record already referenced is **record-only**: stop after
    step 3's record and go to step 10. Read this **before** scaffolding, since what this
    session writes joins the set immediately.
 
-7. **Judge** the ask against the SKILL's judgment bar, with the step-4 state and the
-   step-5 discovery in hand, and **decide the form** (*The form follows the work's
-   shape*): two or more units → a mission with its ticket set (steps 8–9); atomic → one
-   loose ticket (step 9's loose form, no mission); neither → record-only. When unsure,
-   record-only — and name what made you unsure in step 10's PR body.
+7. **Judge** the ask against the SKILL's judgment bar, with the step-4 state, the
+   step-5 discovery and the step-5b strategy set in hand, and **decide the form**
+   (*The form follows the work's shape*).
+
+   **First, is it a lifecycle announcement?** An ask that names an explicit strategy
+   slug and announces that it was created, changed or ended takes step 9c instead of
+   the four forms (SKILL.md, *Strategy lifecycle announcements*): a slug absent from
+   step 5b's set is record-only with `strategy_not_found` and the slug named; an
+   *ended* announcement that does not say achieved or abandoned is record-only with
+   `no_end_state`; a *changed* announcement about a slug already in the set is
+   record-only with `strategy_exists_no_update_writer`. An ask naming no slug is not
+   an announcement — judge it through the forms below.
+
+   Otherwise, in this precedence: two or more units → a mission with its ticket set
+   (steps 8–9); atomic → one loose ticket (step 9's loose form, no mission); a
+   **date + an owner + an aim with no decomposable plan** → one strategy (step 9b);
+   none of those → record-only. When unsure, record-only — and name what made you
+   unsure in step 10's PR body.
 
 8. **Draft the mission** (mission form only), in the publish tree:
    - `bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/scaffold-draft.sh "<title>" --assignee <the triggering issue's assignee> <feedback-filename>...`
@@ -108,6 +129,9 @@ and every abort reports a machine-readable reason.
    - `bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/scaffold-proposed-ticket.sh "<title>" --loose [type] [layer] --feedback <record>... --assignee <the same assignee>`
    - The `--feedback` refs are **mandatory** here (`no_feedback` otherwise).
 
+   Neither ticket form runs for the strategy form — a strategy carries no ticket plan
+   (step 9b).
+
    Either way, fill each ticket's Overview, Key Files, Implementation Steps, and the
    provisional Quality Gate, and leave `merge_policy` empty (absent reads as `review`).
    **When step 5 found `diagnosis_first: true`**, open Implementation Steps with
@@ -117,6 +141,41 @@ and every abort reports a machine-readable reason.
    `open_decision`**, write it verbatim into the ticket's `## Open Decisions` section
    (`reference/ticket-format.md`) rather than resolving it.
 
+9b. **Emit the strategy** (strategy form only), in the publish tree — instead of
+   step 9, never alongside it:
+
+   ```sh
+   printf '%s\n' "<aim prose, in the ask's own terms>" \
+     | bash ${CLAUDE_PLUGIN_ROOT}/skills/strategy/scripts/create.sh \
+         "<title>" <YYYY-MM-DD from the ask> "<the triggering issue's assignee>" \
+         "<schedule prose>" "<the step-3 record's filename>"
+   ```
+
+   The three parts come from the **ask**, never from this session: the date is one the
+   ask states (no date → record-only, `no_target_date`), and the assignee is the
+   triggering issue's, never the running identity (unassigned → record-only,
+   `no_assignee`) — `create.sh` refuses an empty assignee list outright, which is the
+   floor, not a thing to work around. Any refusal it emits (`bad_target_date`,
+   `no_assignees`, `empty_schedule`, `empty_aim`, `exists`) **falls back to record-only
+   naming that reason**; never retry with a substituted value. The `feedback:` ref is
+   the record from step 3 — the citation runs strategy → feedback only, and nothing is
+   ever written back onto the record.
+
+9c. **End the announced strategy** (an *ended* announcement only), in the publish
+   tree — instead of steps 8, 9 and 9b, never alongside them:
+
+   ```sh
+   bash ${CLAUDE_PLUGIN_ROOT}/skills/strategy/scripts/close.sh <slug> achieved|abandoned
+   ```
+
+   The slug is the one the ask named and step 5b confirmed; the end state is the one
+   the ask stated. This is the **only** thing the run writes for an announcement — no
+   mission, no ticket, no second artifact, and nothing written back onto the feedback
+   record (the citation runs strategy → feedback only, and a close adds no pointer in
+   either direction; the pull request is what connects the close to its ask). Any
+   refusal (`not_found`, `already_ended`, `bad_status`) **falls back to record-only
+   naming it**.
+
 10. **Publish it all as one pull request, merged immediately.**
    `WORKAHOLIC_AUTO_MERGE=1 WORKAHOLIC_PR_TITLE="[Proposal] <title>" WORKAHOLIC_CLOSES_ISSUE="<issue number from step 1>" bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/publish-tree-pr.sh "<title>" "<why>" "<changes>" "<concerns>" "<insights>" "<verify>"`
    — **one call**, carrying the record and whatever the judgment added.
@@ -124,8 +183,15 @@ and every abort reports a machine-readable reason.
    (mission `auto-merge-propose-and-implement-prs-under-a-dev-release-branch-split`,
    2026-08-11): the report's `merged`/`merge_reason` says what happened, and any
    release-scan finding leaves the PR open for a human instead — report that as
-   the outcome, never retry the merge by hand in the same run. Name the commit
-   subject for what it carries — `Propose mission <slug>`, `Propose ticket <slug>`, or
+   the outcome, never retry the merge by hand in the same run. **Whenever this run
+   wrote under `.workaholic/strategies/` — step 9b's create or step 9c's close —
+   leave `WORKAHOLIC_AUTO_MERGE` unset**: a strategy-touching proposal is the one
+   kind this run deliberately does not merge, because the operator's merge is what
+   authors that artifact and what ends it (SKILL.md, *The strategy form, and the one
+   rule it widens*). Report the open PR as that form's outcome, never as a
+   merge failure, and never merge it by hand in the same run. Name the commit
+   subject for what it carries — `Propose mission <slug>`, `Propose ticket <slug>`,
+   `Propose strategy <slug>`, `Close strategy <slug>`, or
    `Register feedback <stem>` for record-only — and give the pull request the same words
    behind the `[Proposal]` prefix (`[提案]` for a Japanese title); the subject and the
    title are separate surfaces (SKILL.md). No notification target rides the body — the
@@ -161,7 +227,13 @@ and every abort reports a machine-readable reason.
     `[Propose]` routine these are the routine's own connector posts; do not post twice.
 
 13. **Report** one line: the form chosen (mission with N tickets / loose ticket /
-    record-only) with its reason, the record's filename, the PR URL, and the
+    **strategy `<slug>`, PR left open for the operator** / **strategy `<slug>` closed
+    `achieved|abandoned`, PR left open for the operator** / record-only, and for
+    record-only reached by a failed strategy bar or an unmatched announcement, the
+    part that was missing — `no_target_date` / `no_assignee` / `strategy_not_found`
+    with the slug / `no_end_state` / `strategy_exists_no_update_writer`) with its
+    reason, the record's filename, the
+    PR URL, and the
     notification outcome — **which surface carried it** (connector or the tokened
     fallback), **which lookup case it took**, and `notified` **per message** (the
     description root and the finish reply are reported separately when case 4 sent

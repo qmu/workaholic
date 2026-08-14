@@ -1,5 +1,9 @@
 # missions
 
+## active
+
+* [give-propose-a-strategy-artifact-form](active/give-propose-a-strategy-artifact-form/mission.md) - Give /propose a Strategy artifact form
+
 ## archive
 
 * [adopt-a-git-flow-branching-model-with-durable-ship-records](archive/adopt-a-git-flow-branching-model-with-durable-ship-records/mission.md) - Adopt a release-branch staging tier with durable ship records

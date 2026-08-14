@@ -5,6 +5,7 @@ assignees: [a@qmu.jp]
 depends_on:
 feedback: [20260814032508-auto-file-a-short-fb-issue-for-propose-notifications-with-no-linked-fb-so-proposed-can-reply-to-it.md]
 merge_policy:
+claim: work-20260814-033643
 ---
 
 # Post a thread root for a proposal that has no linked FB

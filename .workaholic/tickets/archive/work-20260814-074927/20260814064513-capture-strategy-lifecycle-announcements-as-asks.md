@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-14T06:45:13+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -73,3 +74,62 @@ for new work.
 - Depends on the first ticket: without the strategy form there is nothing for a *created* or *changed* announcement to produce. Drive them in order.
 - The Slack half of the ask lives outside this repository — Claude Tag decides what it files as an FB issue. What is in scope here is everything from the issue inward; say so rather than implying the whole chain is delivered.
 - Matching an announcement to a strategy by title is a similarity match, and the notify skill already refuses similarity matching for threads for the same reason. Prefer an explicit slug and treat its absence as unmatched.
+
+## Final Report
+
+Development completed as planned.
+
+### What the recognition rule ended up being
+
+An announcement is identified by an **explicit slug and nothing else** — the same
+refusal `workaholic:notify` makes for reply threads, for the same reason: a similarity
+match that is wrong is silent, and it would attach a lifecycle event to a direction
+nobody meant. The set is read through `strategy/scripts/list.sh` at a new step 5b, so
+the match runs against the actual set rather than a remembered one; an absent slug is
+record-only with `strategy_not_found` and the slug reported.
+
+The three kinds route to three different outcomes, and one of them is deliberately a
+non-write:
+
+- **ended** → `close.sh <slug> achieved|abandoned`, the only sanctioned writer of an end
+  state, and the only thing the run writes. An *ended* ask that does not say which end
+  state is `no_end_state`, record-only — the two are not interchangeable and this
+  session may not pick between them.
+- **created** → the strategy form from the first ticket, on its own unchanged three-part
+  bar. An announcement is not an exemption from it.
+- **changed** → record-only, `strategy_exists_no_update_writer`. This is the decision
+  worth naming: the ticket's step 3 says *changed* "reaches the form chosen in the first
+  ticket", but `create.sh` refuses `exists`, and the artifact has exactly **two** writers
+  by design (`create.sh` creates, `close.sh` ends). Adding a third that edits a live
+  strategy's Aim, Schedule or Assignee would give the loop the power to rewrite the
+  operator's standing decision — strictly worse than drafting a new one, which at least
+  waits for a merge. The change is captured in the record and applied by the operator.
+
+The auto-merge exemption from the first ticket was **generalised from "the strategy form"
+to "any proposal that wrote under `.workaholic/strategies/`"**, so a close is held for the
+operator's merge exactly as a create is. Ending a direction is as much the operator's act
+as starting one.
+
+### Scope stated rather than implied
+
+The Slack half of the chain is outside this repository — Claude Tag decides what it files
+as an FB issue. What landed here is everything from the issue inward, plus one addition on
+the outbound side: `feedback/reference/crossing.md` now requires an announcement composed
+for another repository to carry that strategy's slug verbatim, since the receiving
+`/propose` cannot match anything else.
+
+### Discovered Insights
+
+- **Insight**: `close.sh` writes the strategy file **and** the OKF indexes
+  (`okf/scripts/refresh-index.sh`, best-effort, same as `create.sh`). "Lands on that
+  strategy's status and on nothing else" is true of the artifact set, not of the file
+  set — a test asserting a single-file diff would fail on the index refresh.
+  **Context**: every knowledge writer in this repo has that same tail, so the same
+  caveat applies to any similar assertion elsewhere.
+- **Insight**: adding `workaholic:strategy` to `propose/SKILL.md`'s `skills:` list pulled
+  `strategy/scripts/*` into every generated bundle that transitively carries propose
+  (`outputs/workflows/skills/drive/strategy/`, `.../create-ticket/strategy/`) — eight new
+  files from one frontmatter line. **Context**: `build.mjs` resolves the script closure
+  transitively, so a skill reference is a bundle-size decision as well as a preload one;
+  the new files are untracked until committed and therefore invisible to
+  `git diff --stat`, which is what makes the `Outputs Freshness` CI the real check.

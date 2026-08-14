@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-14T06:45:13+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -77,3 +78,56 @@ new artifact.
 ## Open Decisions
 
 - **Does `/propose` become a strategy writer at all?** `workaholic:strategy`, `CLAUDE.md` and `rules/workaholic.md` all state the artifact is operator-authored and that "no command, hook or routine writes one" — written 2026-08-13, one day before this ask. Two readings, and this session cannot recommend one: **(a)** the rule is widened — `/propose` may write a strategy, because the proposal only reaches `main` when the operator merges the PR, which is the same approval a mission gets; **(b)** the rule holds — `/propose` never writes the file, and a strategy-shaped ask instead produces the record plus a named recommendation the operator turns into a strategy by hand. The driving session must resolve this explicitly and record the resolution in its Final Report; do not infer it from the ask's framing.
+
+## Final Report
+
+Development completed as planned.
+
+### Open Decision resolved
+
+**Does `/propose` become a strategy writer at all?** — resolved as **(a), repaired**:
+the rule is widened by exactly one clause, and the clause carries its own price.
+`/propose` may **draft** a strategy into its proposal pull request, and **a proposal
+carrying a strategy never auto-merges**.
+
+The reasoning, and why neither side was taken as written:
+
+- **(a) as stated is defeated by a checkable fact.** Its justification is "the proposal
+  only reaches `main` when the operator merges the PR, which is the same approval a
+  mission gets". That premise stopped being true on 2026-08-11, when propose pull
+  requests began auto-merging on open (`WORKAHOLIC_AUTO_MERGE=1`). Taking (a) verbatim
+  would land a machine's reading of an inbound ask on `main` as the operator's resolved
+  decision with nobody having decided it — and `strategies/` would become a second
+  inbound stream, the exact drift the artifact's own definition names ("two homes for
+  direction only drift when both are inboxes; only one of these is").
+- **(b) holds the definition but under-delivers.** Never writing the file would leave the
+  fourth form as prose-only advice, and the mission's `## Experience` — a dated, owned
+  direction coming out of `/propose` "as a strategy in the proposal PR" — unmet.
+- **The repair restores the premise (a) needs instead of arguing about it.** Suppressing
+  auto-merge for the strategy form makes the operator's merge the act that authors the
+  artifact, which is precisely what "operator-authored" was protecting. The mechanism
+  already exists — a release-scan finding is the one thing that leaves a propose PR open
+  — so this adds a second reason, not a new mechanism.
+- **What deliberately did not move**: `create.sh` stays the only writer, `close.sh` the
+  only writer of an end state, `/drive` still never surveys a strategy, and the citation
+  link still runs strategy → feedback only.
+
+Two things were weighed and found not to decide it: the mission's `## Experience` wording
+(a `/propose` draft that auto-merged, so not an operator approval), and the ask's own
+framing (subject `observer_ai:claude[bot]` — an AI observer's suggestion, not the
+developer's instruction). The resolution rests on the auto-merge fact, not on either.
+
+### Discovered Insights
+
+- **Insight**: The 2026-08-11 auto-merge change silently invalidated an argument the
+  rest of the repository still leans on — "approval by merge" (K1). Any rule whose
+  justification is "a human merges the PR" needs re-checking against which flow it sits
+  in: `/propose` PRs merge themselves, `/drive`'s `review` units merge themselves too.
+  **Context**: this ticket's Open Decision was written one day after the auto-merge
+  landed and still cited approval-by-merge as live. Expect the same stale premise
+  wherever a decision record predates 2026-08-11 but reads as current.
+- **Insight**: `hooks/validate-strategy.sh` grandfathers git-tracked files, and
+  `strategy/scripts/create.sh` runs `git add` on what it writes — so validating a
+  freshly-created strategy passes trivially through grandfathering unless the file is
+  un-staged first. **Context**: any test asserting the write floor actually holds must
+  test an untracked file, or it proves nothing.

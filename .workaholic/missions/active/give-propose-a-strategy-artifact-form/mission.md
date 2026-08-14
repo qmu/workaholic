@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260814-074927
 ---
 
 # Give /propose a Strategy artifact form
@@ -38,10 +39,13 @@ announcement that a strategy was created, changed or ended lands on that strateg
 
 <!-- PROPOSED sketch, not a plan — the reviewer replans this to drive-ready. -->
 
-- [ ] `/propose`'s judgment names a fourth form and the written condition that selects it over a mission, a loose ticket, and record-only. (#20260814064513-add-the-strategy-form-to-propose-s-judgment-and-emit-path.md)
-- [ ] A strategy-shaped ask published by `/propose` produces a valid `.workaholic/strategies/<slug>.md` (target_date, non-empty assignees, Aim, Schedule) inside the proposal PR. (#20260814064513-add-the-strategy-form-to-propose-s-judgment-and-emit-path.md)
-- [ ] A strategy lifecycle announcement (created / changed / ended) is captured and lands on the named strategy instead of proposing unrelated work. (#20260814064513-capture-strategy-lifecycle-announcements-as-asks.md)
+- [x] `/propose`'s judgment names a fourth form and the written condition that selects it over a mission, a loose ticket, and record-only. (#20260814064513-add-the-strategy-form-to-propose-s-judgment-and-emit-path.md)
+- [x] A strategy-shaped ask published by `/propose` produces a valid `.workaholic/strategies/<slug>.md` (target_date, non-empty assignees, Aim, Schedule) inside the proposal PR. (#20260814064513-add-the-strategy-form-to-propose-s-judgment-and-emit-path.md)
+- [x] A strategy lifecycle announcement (created / changed / ended) is captured and lands on the named strategy instead of proposing unrelated work. (#20260814064513-capture-strategy-lifecycle-announcements-as-asks.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-14 — ticket archived — 20260814064513-add-the-strategy-form-to-propose-s-judgment-and-emit-path.md
+- 2026-08-14 — ticket archived — 20260814064513-capture-strategy-lifecycle-announcements-as-asks.md
+- 2026-08-14 — story — work-20260814-074927.md

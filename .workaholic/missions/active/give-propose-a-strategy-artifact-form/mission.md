@@ -48,3 +48,4 @@ announcement that a strategy was created, changed or ended lands on that strateg
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-14 — ticket archived — 20260814064513-add-the-strategy-form-to-propose-s-judgment-and-emit-path.md
 - 2026-08-14 — ticket archived — 20260814064513-capture-strategy-lifecycle-announcements-as-asks.md
+- 2026-08-14 — story — work-20260814-074927.md

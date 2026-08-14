@@ -43,7 +43,7 @@ authored by someone else says so where a human reads it.
       excluded from the survey, not offered as unowned. (#20260814103051-resolve-a-legacy-path-owned-ticket-to-its-owner.md)
 - [x] `drive/scripts/archive.sh` runs `migrate-todo-owners.sh`, so an actively
       driven queue converges at the seam the migration's own header claims. (#20260814103051-converge-the-todo-layout-at-the-archive-seam.md)
-- [ ] `/implement`'s run report and finish line name a claimed unit whose tickets
+- [x] `/implement`'s run report and finish line name a claimed unit whose tickets
       were authored by someone other than the runner's identity. (#20260814103051-name-a-unit-whose-tickets-are-not-the-runner-s.md)
 
 ## Changelog
@@ -51,3 +51,4 @@ authored by someone else says so where a human reads it.
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-14 — ticket archived — 20260814103051-resolve-a-legacy-path-owned-ticket-to-its-owner.md
 - 2026-08-14 — ticket archived — 20260814103051-converge-the-todo-layout-at-the-archive-seam.md
+- 2026-08-14 — ticket archived — 20260814103051-name-a-unit-whose-tickets-are-not-the-runner-s.md

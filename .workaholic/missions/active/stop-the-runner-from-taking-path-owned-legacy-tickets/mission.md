@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 0.55
 feedback: [20260814102845-path-owned-legacy-todo-tickets-are-surveyed-as-team-owned-by-the-unattended-routine.md]
 tickets: []
 stories: []
@@ -52,3 +52,5 @@ authored by someone else says so where a human reads it.
 - 2026-08-14 — ticket archived — 20260814103051-resolve-a-legacy-path-owned-ticket-to-its-owner.md
 - 2026-08-14 — ticket archived — 20260814103051-converge-the-todo-layout-at-the-archive-seam.md
 - 2026-08-14 — ticket archived — 20260814103051-name-a-unit-whose-tickets-are-not-the-runner-s.md
+- 2026-08-14 — Story written (3 tickets; all acceptance items met) — work-20260814-110344.md
+- 2026-08-14 — run recorded (+0.55h) — run-20260814-110344

@@ -78,6 +78,9 @@ not write a second story generator.
 
 ## Routing mechanics (§6)
 
+- **The verification axis is read before the merge-policy table** —
+  `bash ../drive/scripts/verification-handoff.sh mission <slug>` /
+  `… tickets <ticket-file>...`. See *The declared handoff* below.
 - **`review` → merge the PR immediately** (mission `auto-merge-propose-and-implement-prs-under-a-dev-release-branch-split`,
   2026-08-11, superseding the earlier stop-at-the-PR route): once `/report` has opened the unit's
   pull request and the branch-safety scan verdict is `pass`, merge it (REST
@@ -109,6 +112,51 @@ not write a second story generator.
 - A mission unit's dev environment, when the project declares one, starts inside the worktree on
   its allocated ports (`mission/scripts/gate.sh` reports `dev_port`) and is stopped at run end
   **if this run started it** — never one it found already running.
+
+## The declared handoff — a unit whose verification cannot run here (§6)
+
+Some work is requested already knowing that an unattended run cannot prove it: the credential,
+the device, or the third-party account the verification needs is not in the routine's
+environment. Before 2026-08-14 nothing in the run read that, so such a unit drained its queue
+like any other, merged on the `review` route, and announced `🟢 Implemented` — a line that says
+the work was verified when only the code was written. **The routing path was never the defect;
+the missing input was.** `effective-policy.sh` reads `merge_policy` and nothing in the route
+table reads a Quality Gate at all, which is exactly why the fix is a second declared field
+rather than a smarter router.
+
+**The signal is `verification_handoff:`, optional frontmatter on a ticket or a mission, whose
+value is the reason.** Non-empty means "the real-world verification this work needs cannot run
+where an unattended run executes", and the value names what cannot run — free text, because an
+enum could not say *which* verification is missing and the value is quoted verbatim into the
+pull request. Absent or empty is the ordinary route. It is recorded **at creation** by whoever
+writes the artifact (`create-ticket`, `propose`) and read at route time
+by `verification-handoff.sh`; like `merge_policy` it is never edited mid-run — a run that could
+declare its own unit unverifiable would have handed itself the soft landing `handoff` is
+written never to become. Any member declaring it carries the whole unit, because the unit is
+one merge.
+
+**What the run then does**, whatever the merge policy says — `auto` does not outrank it, for
+the same reason `auto` has never meant "no gate applies":
+
+| | Declared handoff |
+| - | - |
+| Merge | **No.** The pull request opens and stays open. |
+| Tickets | Archived as `implemented` as usual — the work *is* done. |
+| Claim | **Left standing**, so the unit is still owned while it waits. |
+| PR body | `## Handoff`, non-droppable, naming the verification verbatim. |
+| Finish line | `🟡 Handoff` naming the assignee, never `🟢 Implemented`. |
+| Token | `pending` (`../SKILL.md` §7 — `handoff` already forces it). |
+
+**Why this widened `handoff` instead of adding a fourth route** (the ticket's Open Decision,
+ruled 2026-08-14 — issue #452). Every consequence in that table is already exactly what
+`handoff` produces, and an outcome is defined by its consequences rather than by how it was
+reached; a second name reaching the same PR section, the same 🟡 line and the same token would
+be two words for one state, and the daily aggregation the ask foresees — "every pull request
+currently in the Handoff state" — would have to query both. What the three-condition definition
+was protecting is the *soft landing*, and that is preserved by a stricter guard than "queue not
+drained": the declaration must exist on the artifact **before** the drive, so no run can reach
+this path by giving up. The cost accepted: "half-driven" is no longer a synonym for `handoff`,
+so `../SKILL.md` §7 now states two entry paths explicitly rather than three conditions.
 
 ## The third route: `land-unit.sh` (§6)
 
@@ -152,10 +200,13 @@ hand-edit the field. Report predicted vs actual per mission unit.
 **Handoff.** A handoff unit writes the Handoff section (`report`, *Story Content
 Structure*), opens or updates its PR with the partial work pushed — an unpublished handoff is not
 a handoff — and, under `/implement`, posts the PR URL through the same notifier the `review`
-route uses; its 🟡 line is the unit's one finish post. Its tickets stay stamped and stay in
-`todo/`, so merging that PR carries a `claim:` onto the base — expected, and history rather than
+route uses; its 🟡 line is the unit's one finish post. On the **half-driven** path its undriven
+tickets stay stamped and stay in `todo/`, so merging that PR carries a `claim:` onto the base —
+expected, and history rather than
 a claim (M1). Do **not** strip the stamp: the stamp at the tip is what keeps the ticket claimed
-while the PR is open. The PR section is the authoritative record; the run report is the log. A
+while the PR is open. On the **declared** path (*The declared handoff*) nothing is left in
+`todo/` — every ticket archived normally, and what waits is the verification, not the work.
+The PR section is the authoritative record; the run report is the log. A
 later run resumes exactly this shape — a handoff and a resumption are one story told at two
 moments.
 

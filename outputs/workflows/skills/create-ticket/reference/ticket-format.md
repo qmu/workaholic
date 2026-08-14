@@ -16,6 +16,8 @@ assignees: [developer@company.com]       # who owns the work — plural; empty =
 depends_on:
 mission:                                 # optional: every mission this ticket advances
 merge_policy:                            # optional: auto | review — ABSENT MEANS review
+verification_handoff:                    # optional: what this work's verification needs and
+                                         # an unattended run does not have — ABSENT MEANS none
 ---
 ```
 
@@ -24,6 +26,16 @@ merge_policy:                            # optional: auto | review — ABSENT ME
 - `depends_on`: present but empty unless the run split the request; dependent tickets list prerequisite filenames (`depends_on: [20260410002111-foundation.md]`), only where a genuine implementation ordering exists (shared files, API contracts, schema-first changes).
 - `mission`: optional — every mission the ticket advances (`mission: [alpha, beta]`, or a bare slug for one). Chosen from the existing missions in Workflow §4c, so written slugs are valid by construction; never required, and the pipeline tolerates its absence.
 - `merge_policy`: optional, `auto` or `review`, captured in Workflow §4d. Absent means `review` — the conservative default; every ticket written before the field existed carries no value, and the one reading that must never produce is "merge this without a human looking". `hooks/validate-ticket.sh` enforces the enum only when a value is present: an empty field is legal, a typo'd one (`atuo`) is not — it would otherwise read as `review` while its author believed they had asked for automatic merging.
+
+- `verification_handoff`: optional free text, added 2026-08-14 (issue #452). Record it when the ask
+  already says the real-world verification cannot run where an unattended run executes — a missing
+  credential, device, or third-party account — and make the value **name what is missing**, because
+  it is quoted verbatim into the pull request's `## Handoff` section. Absent means none, which is
+  the overwhelmingly common case; leave it empty rather than guessing, since a value here stops the
+  unit from merging. `/drive` reads it through `drive/scripts/verification-handoff.sh` **before**
+  the merge-policy table and routes the unit to `handoff` whatever `merge_policy` says
+  (`drive` §6). It is a creation-time declaration like `merge_policy` and is never
+  edited by a run — a run that could declare its own unit unverifiable would be excusing itself.
 
 ### Retired (2026-08-07) — never written anew
 
@@ -48,6 +60,7 @@ assignees: [developer@company.com]
 depends_on:
 mission:
 merge_policy: review
+verification_handoff:
 ---
 
 # <Title>

@@ -43,6 +43,25 @@ Written ONLY for a unit `/drive` classified `handoff`. It comes before Overview 
 
 "Attempted" is raw output, never a verdict: `deploy.sh → exit 127: gh: command not found` is actionable; "deployment seemed human-only" is not.
 
+**The declared-handoff variant.** A unit routed here by `verification_handoff:` (`workaholic:drive`
+§6) has finished its work and cannot prove it, so the lead line states that instead — the elements
+and their order do not move:
+
+```markdown
+## Handoff
+
+**This branch is complete but unverified here. Someone must verify it before it merges.**
+
+- **Done:** <what is complete and pushed>
+- **Not done:** <the declared verification, quoted verbatim from `verification_handoff:`>
+- **Next step:** <run it where the credential/device/account exists, then merge>
+- **Attempted:** Not attempted — declared unrunnable in an unattended environment at
+  ticket creation (`verification_handoff:` on <ticket or mission>).
+```
+
+A lead line claiming the branch is unfinished when the code is done would send the reader hunting
+for missing work; naming the verification is what makes the pull request actionable.
+
 ## Template
 
 ````markdown

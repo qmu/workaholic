@@ -61,6 +61,12 @@ The command owns every `AskUserQuestion` (one-level fan-out; subagents cannot pr
 
 2. **Compose the body** in the target's vocabulary, as prose a maintainer there can act
    on: what is wrong or wanted, what they would observe, what would make it done.
+   **When the ask announces something about one of the target's strategies** (created,
+   changed, ended), the body must carry that strategy's **slug** verbatim: the
+   receiving `/propose` matches an announcement by explicit slug and by nothing else,
+   so a body naming only a title arrives unmatchable (`workaholic:propose`, *Strategy
+   lifecycle announcements*). A slug is a target-side identifier, not this repo's
+   vocabulary, so it crosses unmasked — it names their artifact, not our context.
 
 3. **Mask it** per the table above.
 

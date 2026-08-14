@@ -49,7 +49,11 @@ const SCRIPTS = {
   missionList: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/list.sh"),
   missionOwners: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/owners.sh"),
   readAssignees: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/read-assignees.sh"),
-  migrateStrategies: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/migrate-strategies.sh"),
+  strategyCreate: join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/create.sh"),
+  strategyList: join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/list.sh"),
+  strategyRead: join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/read.sh"),
+  strategyClose: join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/close.sh"),
+  validateStrategy: join(REPO_ROOT, "plugins/workaholic/hooks/validate-strategy.sh"),
   missionClose: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/close.sh"),
   missionCreate: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/create.sh"),
   validateMission: join(REPO_ROOT, "plugins/workaholic/hooks/validate-mission.sh"),
@@ -124,6 +128,10 @@ const SCRIPTS = {
   proposeScaffoldDraft: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/scaffold-draft.sh"),
   proposeNotifySlack: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/notify-slack.sh"),
   feedbackList: join(REPO_ROOT, "plugins/workaholic/skills/feedback/scripts/list.sh"),
+  areaFreshness: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/area-freshness.sh"),
+  migrateTicketStates: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/migrate-ticket-states.sh"),
+  listIcebox: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/list-icebox.sh"),
+  convergeLayout: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/converge-layout.sh"),
   missionQueueSize: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/queue-size.sh"),
   missionCheckFloor: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/check-floor.sh"),
   syncMain: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/sync-main.sh"),
@@ -3490,47 +3498,315 @@ function testMissionDuration() {
   } finally { cleanup(dir); }
 }
 
-// ---------- mission/migrate-strategies.sh (strategy-layer retirement) ----------
-// The living migration: a lingering strategies/ tree folds into feedbacks + mission
-// assignees and is removed — nothing deleted from knowledge, only from structure.
-// Runs standalone here AND through lib/resolve.sh's seam on any mission-script touch.
-function testMigrateStrategies() {
+// ---------- workaholify/converge-layout.sh (the migration seam) ----------
+// Issue #436 closes with "these migrations need to be applied through
+// /workaholify". What is pinned here is the LINE: it applies what is mechanical
+// and reports what needs a judgment, it stages and never commits, and a converged
+// repository produces an empty delta so it is safe to run every time.
+function testConvergeLayout() {
+  // A fixture in the full pre-mission shape.
   const dir = makeRepo("main");
   try {
     const wk = (rel, body) => { mkdirSync(dirname(join(dir, rel)), { recursive: true }); writeFileSync(join(dir, rel), body); };
-    wk(".workaholic/strategies/active/dir-a/strategy.md",
-      "---\ntype: Strategy\ntitle: Direction A\nslug: dir-a\nstatus: active\ncreated_at: 2026-07-21T03:35:56+09:00\nauthor: a@qmu.jp\nassignees: [a@qmu.jp, b@qmu.jp]\n---\n\n# Direction A\n\n## Direction\n\nGo somewhere good.\n\n## Changelog\n");
-    wk(".workaholic/missions/active/m-linked/mission.md",
-      "---\ntype: Mission\ntitle: L\nslug: m-linked\nstatus: active\nassignees: []\nassignee:\nstrategy: dir-a\n---\n\n## Acceptance\n\n- [ ] x\n");
-    wk(".workaholic/missions/active/m-owned/mission.md",
-      "---\ntype: Mission\ntitle: O\nslug: m-owned\nstatus: active\nassignees: [c@qmu.jp]\nassignee:\nstrategy: dir-a\n---\n\n## Acceptance\n\n- [ ] x\n");
+    wk(".workaholic/tickets/todo/a-example-com/20260701000000-owned.md",
+      "---\ncreated_at: 2026-07-01T00:00:00+09:00\nauthor: a@example.com\nmission:\n---\n\n# Owned\n");
+    wk(".workaholic/tickets/abandoned/20260702000000-dropped.md",
+      "---\ncreated_at: 2026-07-02T00:00:00+09:00\nauthor: a@example.com\n---\n\n# Dropped\n");
+    wk(".workaholic/tickets/icebox/20260703000000-parked.md",
+      "---\ncreated_at: 2026-07-03T00:00:00+09:00\nauthor: a@example.com\n---\n\n# Parked\n");
+    wk(".workaholic/guides/getting-started.md", "---\ntitle: g\n---\n# g\n");
+    wk(".workaholic/specs/application.md", "---\ntitle: s\n---\n# s\n");
+    // The one shape nothing converts: the legacy nested strategy tree.
+    wk(".workaholic/strategies/active/old-dir/strategy.md",
+      "---\ntype: Strategy\nslug: old-dir\nstatus: active\n---\n\n## Direction\n\nold shape\n");
+    execSync(`git add -A && git commit -q -m seed`, { cwd: dir });
+    const commitsBefore = execSync(`git rev-list --count HEAD`, { cwd: dir, encoding: "utf8" }).trim();
+
+    let r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.convergeLayout} .`).stdout);
+    assertEq("the mechanical migrations all run", r.changed, 3);
+    assertEq("each migration is composed, not reimplemented",
+      r.applied.map((a) => a.migration), ["migrate-todo-owners", "migrate-ticket-states"]);
+    assertTrue("the per-user queue is flattened",
+      existsSync(join(dir, ".workaholic/tickets/todo/20260701000000-owned.md")));
+    assertTrue("the retired ticket-state directories are folded",
+      existsSync(join(dir, ".workaholic/tickets/archive/unbranched/20260702000000-dropped.md"))
+      && !existsSync(join(dir, ".workaholic/tickets/icebox")));
+
+    // What it will NOT do: decide what happens to another repo's content.
+    assertEq("a retired documentation area is reported, never converted",
+      r.decisions.map((d) => d.path).sort(), [".workaholic/guides", ".workaholic/specs"]);
+    assertTrue("each reported decision names the decision it needs",
+      r.decisions.every((d) => d.classification === "retired-area" && d.remediation.includes("owner decision")));
+    assertTrue("the retired areas are still on disk, untouched",
+      existsSync(join(dir, ".workaholic/guides/getting-started.md")));
+    assertEq("a legacy nested strategy tree is reported and never converted", r.legacy_strategies, true);
+    assertTrue("the legacy strategy tree is still on disk",
+      existsSync(join(dir, ".workaholic/strategies/active/old-dir/strategy.md")));
+    assertEq("the tree does not conform while a decision is owed", r.conforming, false);
+
+    // It stages, it never commits.
+    assertTrue("the migration's moves are staged",
+      execSync(`git diff --cached --name-only`, { cwd: dir, encoding: "utf8" }).includes("archive/unbranched"));
+    assertEq("no commit was made", execSync(`git rev-list --count HEAD`, { cwd: dir, encoding: "utf8" }).trim(), commitsBefore);
+
+    // Safe to repeat: a second run changes nothing and still owes the same decisions.
+    const staged = execSync(`git status --porcelain`, { cwd: dir, encoding: "utf8" });
+    r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.convergeLayout} .`).stdout);
+    assertEq("a second run migrates nothing", r.changed, 0);
+    assertEq("a second run still reports the decisions nobody has made", r.decisions.length, 2);
+    assertEq("a second run leaves the tree exactly as it was",
+      execSync(`git status --porcelain`, { cwd: dir, encoding: "utf8" }), staged);
+  } finally { cleanup(dir); }
+
+  // A repository already in the target shape: an EMPTY delta, so the step is safe
+  // to run on every /workaholify rather than being something an operator times.
+  const clean = makeRepo("main");
+  try {
+    mkdirSync(join(clean, ".workaholic/tickets/todo"), { recursive: true });
+    mkdirSync(join(clean, ".workaholic/stories"), { recursive: true });
+    execSync(`git add -A && git commit -q --allow-empty -m seed`, { cwd: clean });
+    const r = JSON.parse(run(clean, `${POSIX_SH} ${SCRIPTS.convergeLayout} .`).stdout);
+    assertEq("a converged repository migrates nothing", r.changed, 0);
+    assertEq("a converged repository owes no decisions", r.decisions, []);
+    assertEq("a converged repository conforms", r.conforming, true);
+    assertEq("a converged repository has no legacy strategy tree", r.legacy_strategies, false);
+    assertEq("a converged repository is left byte-identical",
+      execSync(`git status --porcelain`, { cwd: clean, encoding: "utf8" }).trim(), "");
+  } finally { cleanup(clean); }
+}
+
+// ---------- gather/migrate-ticket-states.sh (the two-state ticket tree) ----------
+// 2026-08-13, issue #436: state is a FIELD, the archive is a PLACE — P2's move
+// applied to ticket state. Three cases the ticket named: a repo with both legacy
+// directories, a repo with neither, and a second run proving idempotence. Plus the
+// two properties the migration turns on: the body is untouched, and a ticket
+// carrying an end state is never offered as claimable work.
+function testMigrateTicketStates() {
+  const dir = makeRepo("main");
+  try {
+    const wk = (rel, body) => { mkdirSync(dirname(join(dir, rel)), { recursive: true }); writeFileSync(join(dir, rel), body); };
+    const M = () => JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.migrateTicketStates}`).stdout);
+
+    // A repo with NEITHER legacy directory: a clean no-op, not an error.
+    assertEq("a tree with no legacy directories migrates nothing", M().migrated, 0);
+
+    const abandonedBody = "---\ncreated_at: 2026-07-01T00:00:00+09:00\nauthor: a@qmu.jp\nassignees: [a@qmu.jp]\nmission:\n---\n\n# Dropped\n\n## Overview\n\nBody that must survive byte-identical.\n";
+    const iceboxBody = "---\ncreated_at: 2026-07-02T00:00:00+09:00\nauthor: a@qmu.jp\nassignees: []\nmission:\n---\n\n# Parked\n\n## Overview\n\nDeferred, not rejected.\n";
+    wk(".workaholic/tickets/abandoned/20260701000000-dropped.md", abandonedBody);
+    wk(".workaholic/tickets/icebox/20260702000000-parked.md", iceboxBody);
+    wk(".workaholic/tickets/todo/20260703000000-queued.md",
+      "---\ncreated_at: 2026-07-03T00:00:00+09:00\nauthor: a@qmu.jp\nassignees: [a@qmu.jp]\nmission:\n---\n\n# Queued\n");
     execSync(`git add -A && git commit -q -m seed`, { cwd: dir });
 
-    let r = run(dir, `${POSIX_SH} ${SCRIPTS.migrateStrategies}`);
-    assertEq("migrate-strategies exits 0", r.status, 0);
-    const fb = join(dir, ".workaholic/feedbacks/20260721033556-strategy-dir-a.md");
-    assertTrue("the strategy survives as a feedback record", existsSync(fb));
-    const body = readFileSync(fb, "utf8");
-    assertTrue("the feedback preserves the Direction prose verbatim", body.includes("Go somewhere good."), body);
-    assertTrue("the feedback keeps kind/author/created_at from the strategy",
-      body.includes("kind: insight") && body.includes("author: a@qmu.jp") && body.includes("created_at: 2026-07-21T03:35:56+09:00"), body);
-    assertTrue("strategy assignees fold into the empty linked mission",
-      /^assignees: \[a@qmu\.jp, b@qmu\.jp\]$/m.test(readFileSync(join(dir, ".workaholic/missions/active/m-linked/mission.md"), "utf8")));
-    assertTrue("an already-owned mission is untouched",
-      /^assignees: \[c@qmu\.jp\]$/m.test(readFileSync(join(dir, ".workaholic/missions/active/m-owned/mission.md"), "utf8")));
-    assertTrue("the strategies directory is removed", !existsSync(join(dir, ".workaholic/strategies")));
-    assertEq("mission-owners resolves the folded owners with no strategy hop",
-      run(dir, `${POSIX_SH} ${SCRIPTS.missionOwners} ${join(dir, ".workaholic/missions/active/m-linked/mission.md")}`).stdout.split("\n").filter(Boolean),
-      ["a@qmu.jp", "b@qmu.jp"]);
-    r = run(dir, `${POSIX_SH} ${SCRIPTS.migrateStrategies}`);
-    assertEq("a second run is a clean no-op (idempotent)", r.status, 0);
+    const r = M();
+    assertEq("both legacy directories fold", r.migrated, 2);
+    const A = join(dir, ".workaholic/tickets/archive/unbranched/20260701000000-dropped.md");
+    const I = join(dir, ".workaholic/tickets/archive/unbranched/20260702000000-parked.md");
+    assertTrue("an abandoned ticket lands in archive/unbranched/", existsSync(A));
+    assertTrue("an iceboxed ticket lands in archive/unbranched/", existsSync(I));
+    assertTrue("the legacy directories are gone",
+      !existsSync(join(dir, ".workaholic/tickets/abandoned")) && !existsSync(join(dir, ".workaholic/tickets/icebox")));
 
-    // The resolve.sh seam: any mission-script touch migrates a tree that reappears.
-    wk(".workaholic/strategies/active/dir-b/strategy.md",
-      "---\ntype: Strategy\ntitle: B\nslug: dir-b\nstatus: active\ncreated_at: 2026-07-22T00:00:00+09:00\nauthor: a@qmu.jp\nassignees: [a@qmu.jp]\n---\n\n## Direction\n\nB.\n\n## Changelog\n");
+    // State carried in FRONTMATTER, and the body untouched.
+    assertTrue("the abandoned ticket carries status: abandoned", /^status: abandoned$/m.test(readFileSync(A, "utf8")));
+    assertTrue("the iceboxed ticket carries status: icebox", /^status: icebox$/m.test(readFileSync(I, "utf8")));
+    assertEq("the migration inserts one line and changes nothing else",
+      readFileSync(A, "utf8"), abandonedBody.replace("author: a@qmu.jp", "status: abandoned\nauthor: a@qmu.jp")
+        .replace("status: abandoned\nauthor", "status: abandoned\nauthor"));
+    assertEq("the body survives byte-identical",
+      readFileSync(A, "utf8").split("---\n").slice(2).join("---\n"),
+      abandonedBody.split("---\n").slice(2).join("---\n"));
+
+    // Idempotence: a second run is a no-op and rewrites nothing.
+    execSync(`git add -A && git commit -q -m migrate`, { cwd: dir });
+    assertEq("a second run migrates nothing", M().migrated, 0);
+    assertEq("a second run leaves the tree byte-identical",
+      execSync(`git status --porcelain`, { cwd: dir, encoding: "utf8" }).trim(), "");
+
+    // The survey never offers a ticket carrying an end state, wherever it sits.
+    const queued = run(dir, `${POSIX_SH} ${SCRIPTS.listTodo}`).stdout.trim().split("\n").filter(Boolean);
+    assertEq("only the queued ticket is offered", queued, [".workaholic/tickets/todo/20260703000000-queued.md"]);
+    wk(".workaholic/tickets/todo/20260704000000-stamped.md",
+      "---\ncreated_at: 2026-07-04T00:00:00+09:00\nstatus: abandoned\nauthor: a@qmu.jp\n---\n\n# Stamped\n");
+    assertTrue("a ticket stamped with an end state is never offered, even from todo/",
+      !run(dir, `${POSIX_SH} ${SCRIPTS.listTodo}`).stdout.includes("20260704000000-stamped.md"));
+
+    // The icebox is a STATE: list-icebox reads the field out of the archive.
+    assertEq("list-icebox finds the iceboxed ticket by its field",
+      run(dir, `${POSIX_SH} ${SCRIPTS.listIcebox}`).stdout.trim(),
+      ".workaholic/tickets/archive/unbranched/20260702000000-parked.md");
+
+    // Promotion clears the field — absent means queued, so leaving it would put a
+    // ticket in todo/ that every survey correctly refuses to offer.
+    const promoted = run(dir, `${POSIX_SH} ${SCRIPTS.promoteIcebox} .workaholic/tickets/archive/unbranched/20260702000000-parked.md`).stdout.trim();
+    assertEq("promotion returns the ticket to the flat queue", promoted, ".workaholic/tickets/todo/20260702000000-parked.md");
+    assertTrue("promotion clears the end state", !/^status:/m.test(readFileSync(join(dir, promoted), "utf8")));
+    assertTrue("a promoted ticket is offered again",
+      run(dir, `${POSIX_SH} ${SCRIPTS.listTodo}`).stdout.includes("20260702000000-parked.md"));
+  } finally { cleanup(dir); }
+}
+
+// ---------- report/area-freshness.sh (the upkeep seam for the two hand-maintained areas) ----------
+// deployments/ and terms/ survived the 2026-08-13 reshape on the condition that
+// staleness become visible. What is pinned here: it REPORTS and never writes, it
+// names a retired structure rather than guessing at prose, and it degrades to an
+// honest empty answer rather than an error.
+function testAreaFreshness() {
+  const dir = makeRepo("main");
+  try {
+    const wk = (rel, body) => { mkdirSync(dirname(join(dir, rel)), { recursive: true }); writeFileSync(join(dir, rel), body); };
+    const run_ = () => JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.areaFreshness}`).stdout);
+
+    // An absent area is reported as absent, never as an empty conforming one.
+    let r = run_();
+    assertEq("an absent deployments/ is reported present:false", r.areas.deployments.present, false);
+    assertEq("an absent terms/ is reported present:false", r.areas.terms.present, false);
+    assertEq("nothing to report is a zero total", r.total, 0);
+
+    wk(".workaholic/deployments/README.md", "# Deployments\n\nnamed guides here but README is skipped\n");
+    wk(".workaholic/deployments/index.md", "# deployments\n");
+    wk(".workaholic/deployments/prod.md",
+      "---\ntype: Deployment\ntitle: Prod\nconfirmation_method: api-probe\n---\n\n## Procedure\n\n1. deploy\n\n## Confirmation\n\n1. curl it\n");
+    wk(".workaholic/terms/core-concepts.md",
+      "---\ntype: Term\ntitle: Core\n---\n\n# Core\n\nThe drivin plugin owns the queue; specs live under specs/.\n");
+    wk(".workaholic/terms/clean.md", "---\ntype: Term\ntitle: Clean\n---\n\n# Clean\n\nA mission is a batch of tickets.\n");
+    execSync(`git add -A && git commit -q -m seed`, { cwd: dir });
+
+    r = run_();
+    assertEq("README.md and index.md are not records", r.total, 3);
+    const byPath = Object.fromEntries(
+      [...r.areas.deployments.records, ...r.areas.terms.records].map((x) => [x.path, x]));
+
+    assertEq("a record naming retired structure is flagged by name",
+      byPath[".workaholic/terms/core-concepts.md"].retired_terms.sort(), ["drivin", "specs"]);
+    assertEq("a record naming nothing retired is clean",
+      byPath[".workaholic/terms/clean.md"].retired_terms, []);
+    assertEq("a conforming deployment record is clean",
+      byPath[".workaholic/deployments/prod.md"].retired_terms, []);
+    assertEq("only the naming records count as flagged", r.flagged, 1);
+
+    // stale_days is REPORTED and thresholded by nobody — a just-committed record
+    // is 0 days old, and the script never turns that into a verdict.
+    assertEq("a just-committed record reports zero days",
+      byPath[".workaholic/terms/clean.md"].stale_days, 0);
+    assertTrue("every record carries its last commit",
+      Object.values(byPath).every((x) => /^\d{4}-\d{2}-\d{2}T/.test(x.last_commit)));
+
+    // The seam never writes: a run leaves the tree byte-identical.
+    const before = execSync(`git status --porcelain`, { cwd: dir, encoding: "utf8" });
+    run_();
+    assertEq("area-freshness never writes", execSync(`git status --porcelain`, { cwd: dir, encoding: "utf8" }), before);
+
+    // Word-bounded, so ordinary prose does not trip it.
+    wk(".workaholic/terms/prose.md",
+      "---\ntype: Term\ntitle: Prose\n---\n\n# Prose\n\nRead the pillar policy skills; a specification is not a spec area.\n");
+    execSync(`git add -A && git commit -q -m prose`, { cwd: dir });
+    assertEq("ordinary prose does not trip the retired-name check",
+      run_().areas.terms.records.find((x) => x.path.endsWith("prose.md")).retired_terms, []);
+  } finally { cleanup(dir); }
+}
+
+// ---------- strategy skill (the artifact revived 2026-08-13) ----------
+// The strategy layer was retired 2026-07-28 and re-introduced with a bounded,
+// dated, owned shape. Two things are proved here: the scripts hold that floor,
+// and the retired erasing migration is really gone — a strategy must SURVIVE a
+// mission-script touch, which is what used to delete it.
+function testStrategySkill() {
+  const dir = makeRepo("main");
+  try {
+    const create = (args, aim = "Reach the good place.") =>
+      run(dir, `printf '%s\\n' ${JSON.stringify(aim)} | ${POSIX_SH} ${SCRIPTS.strategyCreate} ${args}`);
+
+    // The three mandated parts are refused at the writer, not only at the hook.
+    assertEq("create refuses a non-ISO target date",
+      JSON.parse(create(`"Ship the thing" 2026/09/01 "a@qmu.jp" "Q3"`).stdout).reason, "bad_target_date");
+    assertEq("create refuses an empty assignee list — an unowned direction is not a strategy",
+      JSON.parse(create(`"Ship the thing" 2026-09-01 "" "Q3"`).stdout).reason, "no_assignees");
+    assertEq("create refuses an empty schedule",
+      JSON.parse(create(`"Ship the thing" 2026-09-01 "a@qmu.jp" ""`).stdout).reason, "empty_schedule");
+    assertEq("create refuses an empty aim",
+      JSON.parse(create(`"Ship the thing" 2026-09-01 "a@qmu.jp" "Q3"`, "   ").stdout).reason, "empty_aim");
+
+    const made = JSON.parse(create(`"Ship the thing" 2026-09-01 "a@qmu.jp,b@qmu.jp" "Kickoff in July, review monthly." "20260813112458-x.md"`).stdout);
+    assertTrue("create writes a flat strategies/<slug>.md", made.created && made.path === ".workaholic/strategies/ship-the-thing.md", JSON.stringify(made));
+    const body = readFileSync(join(dir, made.path), "utf8");
+    assertTrue("the record carries type/status/target_date/assignees",
+      /^type: Strategy$/m.test(body) && /^status: active$/m.test(body)
+      && /^target_date: 2026-09-01$/m.test(body) && /^assignees: \[a@qmu\.jp, b@qmu\.jp\]$/m.test(body), body);
+    assertTrue("the record carries a non-empty Aim and Schedule",
+      /## Aim\n\nReach the good place\./.test(body) && /## Schedule\n\nTarget: 2026-09-01/.test(body), body);
+    assertTrue("the forming feedback is cited one-way", /^feedback: \[20260813112458-x\.md\]$/m.test(body), body);
+    assertEq("a second create on the same title refuses rather than overwriting",
+      JSON.parse(create(`"Ship the thing" 2026-10-01 "a@qmu.jp" "later"`).stdout).reason, "exists");
+
+    // Read + list.
+    const read = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.strategyRead} ship-the-thing`).stdout);
+    assertEq("read returns the target date", read.target_date, "2026-09-01");
+    assertEq("read returns the assignees", read.assignees, "a@qmu.jp, b@qmu.jp");
+    assertEq("read of an unknown slug is not_found",
+      JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.strategyRead} nope`).stdout).reason, "not_found");
+    let listed = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.strategyList}`).stdout);
+    assertEq("list finds the strategy", listed.count, 1);
+    assertEq("list carries the status", listed.strategies[0].status, "active");
+
+    // THE regression this artifact's revival turns on: a mission-script touch used
+    // to fold strategies/ into feedbacks and delete the directory.
+    execSync(`git add -A && git commit -q -m seed`, { cwd: dir });
     run(dir, `${POSIX_SH} ${SCRIPTS.missionList}`);
-    assertTrue("the resolve.sh seam migrates on the next mission-script touch",
-      !existsSync(join(dir, ".workaholic/strategies")) && existsSync(join(dir, ".workaholic/feedbacks/20260722000000-strategy-dir-b.md")));
+    assertTrue("a mission-script touch leaves the strategy present", existsSync(join(dir, made.path)));
+    assertEq("a mission-script touch leaves the strategy byte-identical",
+      readFileSync(join(dir, made.path), "utf8"), body);
+    assertTrue("no strategy is folded into the feedback stream",
+      !existsSync(join(dir, ".workaholic/feedbacks")) ||
+      readdirSync(join(dir, ".workaholic/feedbacks")).every((f) => !f.includes("strategy-")));
+
+    // Close: the only writer of an end state, and it does not move the file.
+    assertEq("close refuses a status outside the closed set",
+      JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.strategyClose} ship-the-thing done`).stdout).reason, "bad_status");
+    assertTrue("close writes the end state",
+      JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.strategyClose} ship-the-thing achieved`).stdout).closed);
+    assertTrue("a closed strategy stays where it is", existsSync(join(dir, made.path)));
+    assertTrue("closing again to the same state is an idempotent no-op",
+      JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.strategyClose} ship-the-thing achieved`).stdout).closed);
+    assertEq("re-ending a closed strategy to a different state refuses",
+      JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.strategyClose} ship-the-thing abandoned`).stdout).reason, "already_ended");
+    listed = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.strategyList} --status active`).stdout);
+    assertEq("the status filter excludes the closed strategy", listed.count, 0);
+  } finally { cleanup(dir); }
+}
+
+// ---------- hooks/validate-strategy.sh (the write-time floor) ----------
+function testValidateStrategy() {
+  const dir = makeRepo("main");
+  try {
+    const rel = ".workaholic/strategies/s-x.md";
+    const abs = join(dir, rel);
+    mkdirSync(dirname(abs), { recursive: true });
+    const doc = ({ type = "type: Strategy", status = "status: active", target = "target_date: 2026-09-01",
+                   assignees = "assignees: [a@qmu.jp]", aim = "Do the thing.", sched = "Target: 2026-09-01" } = {}) =>
+      `---\n${type}\ntitle: X\nslug: s-x\n${status}\n${target}\n${assignees}\n---\n\n# X\n\n## Aim\n\n${aim}\n\n## Schedule\n\n${sched}\n`;
+    const invoke = () => run(dir, `printf '%s' '${JSON.stringify({ tool_input: { file_path: abs } })}' | ${POSIX_SH} ${SCRIPTS.validateStrategy}`).status;
+
+    writeFileSync(abs, doc());
+    assertEq("a conforming strategy passes", invoke(), 0);
+    writeFileSync(abs, doc({ type: "type:" }));
+    assertEq("an absent type: Strategy is refused", invoke(), 2);
+    writeFileSync(abs, doc({ status: "status: draft" }));
+    assertEq("a status outside the closed set is refused", invoke(), 2);
+    writeFileSync(abs, doc({ target: "target_date: soon" }));
+    assertEq("a Schedule with no real date is refused", invoke(), 2);
+    writeFileSync(abs, doc({ assignees: "assignees: []" }));
+    assertEq("an empty Assignee is refused — the deliberate inversion", invoke(), 2);
+    writeFileSync(abs, doc({ aim: "" }));
+    assertEq("a bare ## Aim heading is refused", invoke(), 2);
+    writeFileSync(abs, doc({ sched: "" }));
+    assertEq("a bare ## Schedule heading is refused", invoke(), 2);
+
+    // History is never retro-blocked.
+    writeFileSync(abs, doc());
+    execSync(`git add -A && git commit -q -m seed`, { cwd: dir });
+    writeFileSync(abs, doc({ status: "status: draft" }));
+    assertEq("a git-tracked strategy is grandfathered", invoke(), 0);
   } finally { cleanup(dir); }
 }
 
@@ -5544,15 +5820,17 @@ function testRefreshIndexPreservesContent() {
   {
     const dir = makeRepo("main");
     try {
-      mkdirSync(join(dir, ".workaholic/specs"), { recursive: true });
-      const idx = join(dir, ".workaholic/specs/index.md");
-      writeFileSync(idx, "# specs\n\nIntro a human wrote.\n\n"
+      // terms/ stands in for "a flat indexed area" here — specs/ played the role
+      // until it was retired 2026-08-13 (issue #436) and left the indexed set.
+      mkdirSync(join(dir, ".workaholic/terms"), { recursive: true });
+      const idx = join(dir, ".workaholic/terms/index.md");
+      writeFileSync(idx, "# terms\n\nIntro a human wrote.\n\n"
         + "<!-- okf:generated:begin -->\n* [Alpha](alpha.md) - hand alpha desc\n<!-- okf:generated:end -->\n\n"
         + "## Footer\n\nHuman notes.\n");
       // alpha.md carries NO description frontmatter: the region's description must
       // be preserved from the prior line, not degraded to a bare link.
-      writeFileSync(join(dir, ".workaholic/specs/alpha.md"), "---\ntitle: Alpha\n---\n# Alpha\n");
-      writeFileSync(join(dir, ".workaholic/specs/beta.md"),
+      writeFileSync(join(dir, ".workaholic/terms/alpha.md"), "---\ntitle: Alpha\n---\n# Alpha\n");
+      writeFileSync(join(dir, ".workaholic/terms/beta.md"),
         "---\ntitle: Beta\ndescription: beta fm desc\n---\n# Beta\n");
       execSync(`git add -A && git commit -q -m seed`, { cwd: dir });
       run(dir, `${POSIX_SH} ${R}`);
@@ -5565,7 +5843,7 @@ function testRefreshIndexPreservesContent() {
       assertTrue("prose after the markers is preserved",
         body.includes("## Footer") && body.includes("Human notes."), body);
 
-      execSync(`git rm -q .workaholic/specs/beta.md`, { cwd: dir });
+      execSync(`git rm -q .workaholic/terms/beta.md`, { cwd: dir });
       run(dir, `${POSIX_SH} ${R}`);
       body = readFileSync(idx, "utf8");
       assertTrue("a removed file leaves the region", !body.includes("](beta.md)"), body);
@@ -6465,17 +6743,28 @@ function testValidateLayout() {
     blocked.out.includes("Workaholic layout") && blocked.out.includes("closed structure"),
     `expected a closed-structure message, got: ${blocked.out.slice(0, 300)}`);
 
-  // Allowed locations pass cleanly (exit 0) — including the newly-registered
-  // feedbacks/guides/policies dirs and the release-scan root files.
+  // Allowed locations pass cleanly (exit 0) — every one of them an area some
+  // plugin script writes or reads, plus the release-scan root files.
   for (const p of [
     ".workaholic/stories/s.md", ".workaholic/deployments/prod.md",
     ".workaholic/release-notes/work-x.md", ".workaholic/trips/work-x/designs/design-v1.md",
-    ".workaholic/feedbacks/20260728000000-note.md", ".workaholic/guides/getting-started.md",
-    ".workaholic/policies/security.md",
+    ".workaholic/feedbacks/20260728000000-note.md",
+    ".workaholic/strategies/ship-the-thing.md",
     ".workaholic/README.md", ".workaholic/index.md", ".workaholic/scan-allow", ".workaholic/leak-denylist",
     ".workaholic/tickets/todo/test-example-com/20260101000000-t.md",
   ]) {
     assertEq(`layout allows ${p}`, invoke(p).status, 0);
+  }
+
+  // The three documentation areas retired 2026-08-13 (issue #436) are BLOCKED —
+  // the point of de-listing them is that the gate stops new writes into an area
+  // nothing maintains. The allowlist and the rules table moved in the same commit.
+  for (const p of [
+    ".workaholic/guides/getting-started.md",
+    ".workaholic/policies/security.md",
+    ".workaholic/specs/application.md",
+  ]) {
+    assertEq(`layout blocks the retired area ${p}`, invoke(p).status, 2);
   }
 }
 
@@ -6510,11 +6799,34 @@ function testLayoutDoctor() {
     assertTrue("doctor: no false positive on feedbacks/", !paths.includes(".workaholic/concerns"));
   } finally { cleanup(dir); }
 
+  // The three areas retired 2026-08-13 (issue #436) are named BY THE RETIREMENT,
+  // not as generic undesignated dirs — a consuming repo's plugin updates before
+  // its tree, so the reason it reads must describe the change, not its own shape.
+  // The content decision stays the owner's: the doctor reports, never migrates.
+  const retired = mkdtempSync(join(tmpdir(), "workaholic-doctor-retired-"));
+  try {
+    for (const d of ["stories", "guides", "policies", "specs"]) {
+      mkdirSync(join(retired, ".workaholic", d), { recursive: true });
+    }
+    const r = JSON.parse(run(retired, `${POSIX_SH} ${DOCTOR} ${retired}`).stdout);
+    const byPath = Object.fromEntries(r.findings.map((f) => [f.path, f]));
+    for (const area of ["guides", "policies", "specs"]) {
+      assertEq(`doctor classifies ${area}/ as retired-area`,
+        byPath[`.workaholic/${area}`]?.classification, "retired-area");
+      assertTrue(`doctor names the retirement for ${area}/`,
+        byPath[`.workaholic/${area}`]?.reason.includes("retired 2026-08-13"));
+      assertTrue(`doctor leaves ${area}/ content to the owner`,
+        byPath[`.workaholic/${area}`]?.remediation.includes("owner decision"));
+    }
+    assertTrue("doctor: no false positive on stories/ beside the retired areas",
+      !r.findings.some((f) => f.path === ".workaholic/stories"));
+  } finally { rmSync(retired, { recursive: true, force: true }); }
+
   // A clean tree conforms with zero findings — including the registered
-  // feedbacks/guides/policies dirs and the release-scan root files.
+  // feedbacks/strategies dirs and the release-scan root files.
   const clean = mkdtempSync(join(tmpdir(), "workaholic-doctor-"));
   try {
-    for (const d of ["stories", "tickets/todo", "feedbacks", "guides", "policies"]) {
+    for (const d of ["stories", "tickets/todo", "feedbacks", "strategies"]) {
       mkdirSync(join(clean, ".workaholic", d), { recursive: true });
     }
     writeFileSync(join(clean, ".workaholic/scan-allow"), "");
@@ -9440,7 +9752,7 @@ function testFeedback() {
   const dir = makeRepo("main");
   try {
     // --- create: a conformant, staged, indexed record ---
-    let r = run(dir, `printf 'We decided the loop model.\\n' | ${POSIX_SH} ${SCRIPTS.feedbackCreate} "Loop model decided" insight discussion`);
+    let r = run(dir, `printf 'We decided the loop model.\\n' | ${POSIX_SH} ${SCRIPTS.feedbackCreate} --subject "person:a@qmu.jp" "Loop model decided" insight discussion`);
     assertEq("feedback create exits 0", r.status, 0);
     const created = JSON.parse(r.stdout);
     assertTrue("feedback create reports created", created.created === true, r.stdout);
@@ -9455,15 +9767,15 @@ function testFeedback() {
     assertTrue("feedback file is git-staged", staged.includes("feedbacks/"), staged);
 
     // --- enum + body floors are refused at the writer ---
-    r = run(dir, `printf 'x\\n' | ${POSIX_SH} ${SCRIPTS.feedbackCreate} "T" bogus discussion`);
+    r = run(dir, `printf 'x\\n' | ${POSIX_SH} ${SCRIPTS.feedbackCreate} --subject "person:a@qmu.jp" "T" bogus discussion`);
     assertTrue("feedback create refuses unknown kind", r.status !== 0 && r.stdout.includes("bad_kind"), r.stdout);
-    r = run(dir, `printf 'x\\n' | ${POSIX_SH} ${SCRIPTS.feedbackCreate} "T" insight carrier-pigeon`);
+    r = run(dir, `printf 'x\\n' | ${POSIX_SH} ${SCRIPTS.feedbackCreate} --subject "person:a@qmu.jp" "T" insight carrier-pigeon`);
     assertTrue("feedback create refuses unknown source", r.status !== 0 && r.stdout.includes("bad_source"), r.stdout);
-    r = run(dir, `printf '' | ${POSIX_SH} ${SCRIPTS.feedbackCreate} "T" insight slack`);
+    r = run(dir, `printf '' | ${POSIX_SH} ${SCRIPTS.feedbackCreate} --subject "person:a@qmu.jp" "T" insight slack`);
     assertTrue("feedback create refuses an empty body", r.status !== 0 && r.stdout.includes("empty_body"), r.stdout);
 
     // --- supersedes: resolution is a NEW record naming the old one ---
-    r = run(dir, `printf 'Overtaken by the new design.\\n' | ${POSIX_SH} ${SCRIPTS.feedbackCreate} "Loop model superseded" insight discussion "${basename(created.path)}"`);
+    r = run(dir, `printf 'Overtaken by the new design.\\n' | ${POSIX_SH} ${SCRIPTS.feedbackCreate} --subject "person:a@qmu.jp" "Loop model superseded" insight discussion "${basename(created.path)}"`);
     const second = JSON.parse(r.stdout);
     assertTrue("superseding feedback records the old filename",
       readFileSync(join(dir, second.path), "utf8").includes(`supersedes: ${basename(created.path)}`));
@@ -9474,6 +9786,21 @@ function testFeedback() {
     assertEq("feedback list reports both records", listed.length, 2);
     assertTrue("feedback list carries kind/source/author fields",
       listed.every((e) => e.kind === "insight" && e.source === "discussion" && e.author.includes("@")), r.stdout);
+
+    // The subject axis (2026-08-13): whose opinion this is, never defaulted.
+    assertTrue("the record carries the subject that formed it",
+      /^subject: person:a@qmu\.jp$/m.test(readFileSync(join(dir, created.path), "utf8")));
+    assertEq("create refuses with no subject rather than seeding the runner's identity",
+      JSON.parse(run(dir, `printf 'x\\n' | ${POSIX_SH} ${SCRIPTS.feedbackCreate} "No subject" insight slack`).stdout).reason,
+      "no_subject");
+    assertEq("create refuses a subject kind outside the closed set",
+      JSON.parse(run(dir, `printf 'x\\n' | ${POSIX_SH} ${SCRIPTS.feedbackCreate} --subject "vibes:whatever" "Bad subject" insight slack`).stdout).reason,
+      "bad_subject_kind");
+    assertTrue("a free-text identity after the closed kind is accepted",
+      JSON.parse(run(dir, `printf 'x\\n' | ${POSIX_SH} ${SCRIPTS.feedbackCreate} --subject "meeting:2026-08-13 planning" "From a meeting" insight meeting`).stdout).created);
+    assertTrue("list.sh surfaces the subject",
+      JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.feedbackList}`).stdout).some((e) => e.subject === "meeting:2026-08-13 planning"));
+
 
     // --- validator: NEW writes are held to the floor; history is grandfathered ---
     let hasJq = true;
@@ -9495,11 +9822,24 @@ function testFeedback() {
     const badName = put(".workaholic/feedbacks/free-form-name.md",
       "---\ntype: Feedback\ntitle: X\nkind: insight\nsource: slack\ncreated_at: 2026-07-28T19:00:02+09:00\nauthor: test@example.com\n---\n\n# X\n");
     assertEq("validate-feedback blocks an off-pattern filename", invoke(badName), 2);
+    const noSubject = put(".workaholic/feedbacks/20260728190003-no-subject.md",
+      "---\ntype: Feedback\ntitle: X\nkind: insight\nsource: slack\ncreated_at: 2026-07-28T19:00:03+09:00\nauthor: test@example.com\n---\n\n# X\n");
+    assertEq("validate-feedback blocks a new record with no subject", invoke(noSubject), 2);
+    const badSubject = put(".workaholic/feedbacks/20260728190004-bad-subject.md",
+      "---\ntype: Feedback\ntitle: X\nkind: insight\nsource: slack\nsubject: vibes:whatever\ncreated_at: 2026-07-28T19:00:04+09:00\nauthor: test@example.com\n---\n\n# X\n");
+    assertEq("validate-feedback blocks a subject kind outside the closed set", invoke(badSubject), 2);
+    const freeSubject = put(".workaholic/feedbacks/20260728190005-free-subject.md",
+      "---\ntype: Feedback\ntitle: X\nkind: insight\nsource: slack\nsubject: observer_ai:[Implement] routine\ncreated_at: 2026-07-28T19:00:05+09:00\nauthor: test@example.com\n---\n\n# X\n");
+    assertEq("validate-feedback accepts a free-text identity behind a closed kind", invoke(freeSubject), 0);
     assertEq("validate-feedback ignores feedbacks/index.md", invoke(".workaholic/feedbacks/index.md"), 0);
     assertEq("validate-feedback ignores non-feedback paths", invoke("src/app.ts"), 0);
     const old = put(".workaholic/feedbacks/20260101000000-legacy.md", "no frontmatter\n");
     execSync(`git add .workaholic/feedbacks/20260101000000-legacy.md && git commit -q -m "legacy"`, { cwd: dir });
     assertEq("validate-feedback grandfathers a tracked legacy file", invoke(old), 0);
+    const preAxis = put(".workaholic/feedbacks/20260601000000-pre-subject-axis.md",
+      "---\ntype: Feedback\ntitle: Older than the axis\nkind: insight\nsource: slack\ncreated_at: 2026-06-01T00:00:00+09:00\nauthor: test@example.com\nsupersedes:\n---\n\n# Older than the axis\n");
+    execSync(`git add ${preAxis} && git commit -q -m "pre-axis"`, { cwd: dir });
+    assertEq("a record written before the subject axis is grandfathered, never backfilled", invoke(preAxis), 0);
   } finally { cleanup(dir); }
 }
 
@@ -12659,7 +12999,11 @@ const tests = [
   ["release-scan gate decision", testReleaseScanGateDecision],
   ["gather/commit-kpi.sh orchestration throughput", testCommitKpi],
   ["mission duration predict + record", testMissionDuration],
-  ["mission/migrate-strategies.sh (strategy-layer retirement)", testMigrateStrategies],
+  ["gather/migrate-ticket-states.sh (the two-state ticket tree)", testMigrateTicketStates],
+  ["workaholify/converge-layout.sh (the migration seam)", testConvergeLayout],
+  ["report/area-freshness.sh (the two hand-maintained areas' upkeep seam)", testAreaFreshness],
+  ["strategy skill (the artifact revived 2026-08-13)", testStrategySkill],
+  ["hooks/validate-strategy.sh (the write-time floor)", testValidateStrategy],
   ["mission ownership (read-assignees + mission-owners)", testMissionOwnership],
   ["installed plugin helper resolution", testInstalledPluginHelperResolution],
   ["mission/create.sh + progress.sh + list.sh", testMission],
@@ -13733,7 +14077,7 @@ function testProposeCaptureSeam() {
     // ---- 1. Composition: record + mission + its whole ticket set, in ONE commit ----
     run(A, OPEN);
     const rec = JSON.parse(run(pub,
-      `printf 'Build the thing, in two steps.\\n' | ${POSIX_SH} ${SCRIPTS.feedbackCreate} "Build the thing" instruction slack`).stdout);
+      `printf 'Build the thing, in two steps.\\n' | ${POSIX_SH} ${SCRIPTS.feedbackCreate} --subject "person:reporter@example.com" "Build the thing" instruction slack`).stdout);
     assertTrue("the record is written where the judgment can see it — the publish tree",
       rec.created === true && existsSync(join(pub, rec.path)), JSON.stringify(rec));
 
@@ -13783,7 +14127,7 @@ function testProposeCaptureSeam() {
     // ---- 2. Record-only: the JUDGED fallback still writes the record ----
     run(A, OPEN);
     const only = JSON.parse(run(pub,
-      `printf 'It would be nice if things were nicer.\\n' | ${POSIX_SH} ${SCRIPTS.feedbackCreate} "A wish" insight slack`).stdout);
+      `printf 'It would be nice if things were nicer.\\n' | ${POSIX_SH} ${SCRIPTS.feedbackCreate} --subject "person:reporter@example.com" "A wish" insight slack`).stdout);
     assertEq("the record is written whatever the judgment concludes", only.created, true);
     const rpr = publish("Register the reported ask");
     assertTrue("record-only publishes as a pull request too", rpr.ok === true, JSON.stringify(rpr));

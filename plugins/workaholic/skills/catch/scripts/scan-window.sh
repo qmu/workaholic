@@ -141,10 +141,14 @@ DEVELOPERS=$(
 )
 [ -n "$DEVELOPERS" ] || DEVELOPERS='[]'
 
-# --- Tickets across todo / archive / icebox / abandoned ----------------------
-# abandoned/ is a real ticket state (the drive Abandonment flow moves failed
-# tickets there with a Failure Analysis); omitting it made those tickets
-# invisible to /catch and attributable to no developer.
+# --- Tickets across the two-state tree, plus the retired directories ---------
+# Since 2026-08-13 (issue #436) the tree is todo/ + archive/ and a ticket's state
+# is its `status:` field, so `scope` below is read from the FIELD first and falls
+# back to the path. The retired icebox/ and abandoned/ directories stay in this
+# list until every checkout has run the living migration: omitting them would make
+# an un-migrated repo's parked tickets invisible to /catch and attributable to no
+# developer, which is the exact defect that put abandoned/ in this list in the
+# first place. The counts do not double: a ticket is in one place or the other.
 TDIRS=""
 for d in todo archive icebox abandoned; do
   if [ -d ".workaholic/tickets/$d" ]; then
@@ -165,12 +169,26 @@ emit_tickets() {
     # record comma-joined and split back into an array by the jq below. Absent fields emit
     # "" and never fail the scan.
     mission=$(sh "${SCRIPT_DIR}/../../mission/scripts/read-relation.sh" "$f" 2>/dev/null | paste -sd, - || true)
-    case "$f" in
-      *.workaholic/tickets/todo/*) scope=todo ;;
-      *.workaholic/tickets/archive/*) scope=archive ;;
-      *.workaholic/tickets/icebox/*) scope=icebox ;;
-      *.workaholic/tickets/abandoned/*) scope=abandoned ;;
-      *) scope=unknown ;;
+    # State is a field; the path is the fallback for a ticket the migration has
+    # not reached. `status: done` is what an ordinary archived ticket carries, and
+    # it reports as `archive` so the counters this feeds are unchanged by the fold.
+    state=$(awk '
+        NR == 1 { if ($0 != "---") exit; next }
+        /^---[ \t]*$/ { exit }
+        /^status:/ { sub(/^status:[ \t]*/, ""); sub(/[ \t]+$/, ""); print; exit }
+    ' "$f" 2>/dev/null || true)
+    case "$state" in
+      icebox)    scope=icebox ;;
+      abandoned) scope=abandoned ;;
+      *)
+        case "$f" in
+          *.workaholic/tickets/todo/*) scope=todo ;;
+          *.workaholic/tickets/archive/*) scope=archive ;;
+          *.workaholic/tickets/icebox/*) scope=icebox ;;
+          *.workaholic/tickets/abandoned/*) scope=abandoned ;;
+          *) scope=unknown ;;
+        esac
+        ;;
     esac
     # commit_hash ties an archived ticket to the commit that implemented it. Derive it
     # from git — the commit that ADDED the archived ticket — never from frontmatter: a

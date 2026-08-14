@@ -14,10 +14,53 @@ per-field detail, the classification rationale, and the concern producer extensi
   `slack` (chat), `discussion` (a working session with the AI, or any other origin),
   `development` (born from development work itself — the source every `kind: concern`
   record extracted at ship time carries).
+- **`subject`** is **whose opinion this is** — the person, the people, or the
+  machine that formed it. One sentence separates the three lookalike axes:
+  **subject** is who formed the opinion, **source** is the channel it travelled
+  through, **author** is the git identity that ran the capture. They disagree
+  routinely and that is the point — an Observer AI reporting through Slack on
+  behalf of nobody has `subject: observer_ai:…`, `source: slack`, and an `author`
+  that is whichever runner was awake.
 - **`supersedes`** is the immutable alternative to a status flip: to record that an
   earlier feedback is resolved, obsolete, or overtaken, write a **new** entry naming the
   old one here. Consumers treat a superseded entry as historical context, not current
   signal.
+
+## The subject axis
+
+Added 2026-08-13 (issue #436). Before it, the stream recorded the *channel* and the
+*capture identity* and nothing at all about **who the opinion belonged to** — and since
+`/propose` and the routines write most of the stream, `author` on the majority of
+records was a runner rather than a human with an opinion.
+
+**Shape**: `subject: <kind>[:<identity>]`. The **kind is a closed set** —
+`person` | `meeting` | `observer_ai` | `customer` | `team` | `other` — and the
+**identity after the colon is free text**. That split is deliberate: a fully open
+vocabulary is unreadable a year later (nothing can group or count it), and a fully
+closed one cannot express the "etc." the ask asked for. The closed half is what a
+reader filters on; the free half is what makes the record specific
+(`person:a@qmu.jp`, `meeting:2026-08-13 planning`, `observer_ai:[Implement] routine`,
+`customer:<the account>`). `other:` is the escape hatch, and using it is a signal the
+set may need a sixth member — not a licence to stop thinking.
+
+**Never defaulted.** `create.sh` refuses `no_subject` rather than seeding the runner's
+identity, and refuses a kind outside the set. A caller that does not know whose opinion
+it is holding must find out — from the issue's author, the reporter in the thread, the
+meeting — because a defaulted subject would assert that every opinion in the project is
+the machine's, which is the failure `assignees` had before P6 wearing a new field name.
+The field is only worth its cost if it is filled honestly at capture.
+
+**Who fills it where**:
+
+| Writer | Subject |
+| ------ | ------- |
+| `/fb`, in-repo capture | The human whose words these are (`person:<email or name>`), or the meeting (`meeting:<when/what>`) |
+| `/propose` | The **triggering issue's author** — the person whose ask it is — never the running identity |
+| `ship`'s `extract-deferred-concerns.sh` | `observer_ai:<author email>`: the loop observed its own leftover; no human formed it |
+
+**Grandfathered.** Records written before the axis existed carry no `subject`, are never
+edited (the stream is immutable), and `validate-feedback.sh` holds only *new* writes to
+the floor — the same introduction the OKF `type:` floor got.
 
 Why "feedback": the word covers the whole inbound stream — technical or not, solicited
 or not — where "note"/"memo" implies triviality and "knowledge" implies curation.

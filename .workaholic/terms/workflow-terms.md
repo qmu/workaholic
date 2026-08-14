@@ -1,89 +1,190 @@
 ---
+type: Term
 title: Workflow Terms
-description: Actions and operations in the development workflow
+description: The verbs — survey, claim, drive, archive, report, ship, propose
 category: developer
-last_updated: 2026-03-10
-commit_hash: f76bde2
+last_updated: 2026-08-13
 ---
-
-[English](workflow-terms.md) | [日本語](workflow-terms_ja.md)
 
 # Workflow Terms
 
-Actions and operations in the development workflow.
+The verbs. Each names a step some command actually performs today; the order they appear
+in is roughly the order a unit of work meets them.
+
+## propose
+
+Propose is the operation that judges an **ask in hand** — an argument, a record just
+written, or, on a clock-fired tick with nothing handed in, the open issues assigned to
+the running identity — and emits, in one pull request, a feedback record plus whatever
+the work's shape selects: a mission with its ticket set, one loose ticket, or the record
+alone. It never prompts, and its pull request auto-merges on opening unless the scan
+finds something. It is the loop's inbound half; `/implement` is the outbound half.
+Related terms: feedback record, mission, ticket, publish tree.
+
+## survey
+
+The survey is the executor's read of what is claimable: unclaimed active missions and
+queued tickets this runner owns or that are unowned, minus everything a claim already
+holds. It **states its freshness and does not repair it** — an unreadable queue never
+renders as an empty one, and four conditions (not current, shallow history, a backlog
+error, unresolved ownership) forbid the run from ending `ok`. Every drop is named with
+its reason; nothing leaves the offer silently. Related terms: claim, unit, freshen.
+
+## freshen
+
+Freshening is bringing the checkout level with its base **before reading it** — the step
+that stops a run from surveying a stale queue. It is the caller's job, never the
+survey's. A checkout parked on its own branch at the base's exact tip with a clean tree
+is not stale, and the run says so and continues. Related terms: survey, catch up.
+
+## partition
+
+Partitioning turns the survey's offer into **PR-units** — what deserves one merge. Each
+claimable mission is exactly one unit; related backlog tickets group only on a reason
+statable in one sentence. The composition is derived and reported, never asked; only the
+choice *among* units is ever put to a present operator. Related terms: unit, claim,
+merge policy.
+
+## claim
+
+To claim is to take a unit **visibly**: push a `Claim <unit-id>` commit on a `work-*`
+branch, creating the branch, the worktree and the right to drive. Claim one unit at a
+time — claim, drive, report, route, then survey again — because an untaken claim is
+invisible to every other runner until its heartbeat lapses. Related terms: resume,
+release a claim, heartbeat, worktree.
+
+## resume
+
+To resume is to **take over an existing claim**, never to make a fresh one: it continues
+from the pushed branch tip, adopting this machine's worktree when there is one and
+otherwise creating one at the tip so archived tickets are not re-driven. Two tiers are
+resumable — a run whose heartbeat lapsed (take it over before claiming fresh) and a unit
+parked at its pull request (reportable, not mandatory). **Your own claim only**: a
+colleague's is untouchable at any age. Related terms: claim, heartbeat, handoff.
+
+## release a claim
+
+To release a claim is to **deliberately discard an unfinished unit** — it is not a
+recovery path and not how a finished unit ends. A merge releases a claim by definition;
+this is for the case where the work is being abandoned on purpose. Related terms: claim,
+worktree.
 
 ## drive
 
-Drive is the operation that processes tickets from `.workaholic/tickets/todo/` sequentially. For each ticket, it implements the described changes, requests user approval, commits the work, and archives the ticket. This creates a structured development flow where work is captured before implementation and documented after completion. Invoked with `/drive` command. Related terms: ticket, archive, commit.
-
-## trip
-
-Trip is the operation that launches a collaborative Agent Teams session with three specialized agents (Planner, Architect, Constructor) to explore and implement a creative direction. The `/trip` command accepts an instruction, creates an isolated git worktree on a `trip/<trip-name>` branch, initializes artifact directories under `.workaholic/.trips/<trip-name>/`, and orchestrates a two-phase workflow: Phase 1 (Specification) where agents produce Direction, Model, and Design artifacts through mutual review and moderation, and Phase 2 (Implementation) where they test, build, and review code. Every workflow step produces a git commit in the worktree branch using the `trip(<agent>): <step>` message format. Invoked with `/trip` command from the trippin plugin. Related terms: trippin, agent-teams, worktree, direction, model, design.
-
-## abandon
-
-Abandon is one of four approval options during `/drive` workflow when implementation proves unworkable. When selected, it discards uncommitted implementation changes (via `git restore`), requires a Failure Analysis section documenting what was attempted and why it failed, moves the ticket to `.workaholic/tickets/abandoned/`, commits to preserve the analysis, and continues to the next ticket. Related terms: ticket, failure-analysis, drive, approval.
+To drive is to implement a claimed unit inside its worktree: order the queue (dependency
+sort, then context grouping — reported, never asked), then take each ticket through read
+→ implement against the policy lens → run its `## Quality Gate` verification → append
+the Final Report → archive. Reached through `/drive` (attended) or `/implement`
+(unattended); the two share every step below the one selection question. Related terms:
+claim, archive, executor, quality gate.
 
 ## archive
 
-Archive moves completed tickets from the active queue (`.workaholic/tickets/todo/`) to branch-specific directories (`.workaholic/tickets/archive/<branch>/`). This preserves implementation records while clearing the active queue. The archive-ticket skill handles this automatically after successful commits. Related terms: ticket, drive, icebox.
+To archive is to move a completed ticket from `todo/` into
+`tickets/archive/<branch>/` and commit it — **one script owns this seam**, never a manual
+`mv` plus `git add`. The commit subject is validated before the ticket moves, so a
+refused subject leaves the tree byte-identical rather than half-archived, and the archive
+commit pushes its branch immediately because progress must always reach the remote.
+Related terms: ticket, final report, commit, claim.
 
-## sync
+## commit
 
-Sync operations update derived documentation (specs, terms) to reflect the current codebase state. Unlike commits that record changes, syncs ensure documentation accuracy. The `/report` command automatically synchronizes the `.workaholic/` directory via spec-writer and terms-writer subagents. Related terms: spec, terms.
-
-## release
-
-A release increments the marketplace version, updates version metadata in `.claude-plugin/marketplace.json`, and publishes changes. The `/release` command supports major, minor, and patch version increments following semantic versioning and creates appropriate git tags. Related terms: changelog, plugin.
+To commit is to write a structured message and record the change: a subject that is
+present-tense, 50 characters or fewer, with no `feat:`-style prefix and no leading
+`[bracket]` tag, followed by the sections that give downstream readers context. One
+validator enforces the subject and every layer calls it — the commit script, the archive
+seam, the tool-level guard, and the opt-in git hook — so the layers cannot drift.
+Related terms: archive, subject, gate.
 
 ## report
 
-Report is the operation that generates a story document and creates or updates a GitHub pull request for the current branch. The `/report` command invokes the story-writer subagent to synthesize branch work into a comprehensive PR description. Before story generation, `/report` automatically performs a patch version bump following CLAUDE.md Version Management conventions, ensuring every merged PR triggers a GitHub release. The command focuses on PR creation without triggering full documentation scans, making it faster than `/scan`. Related terms: story, changelog, release, story-writer, agent.
+Report is the operation that writes the branch **story** and opens or updates the unit's
+pull request, right-sized to the branch: two or fewer archived tickets get one combined
+worker and no Journey, more get a three-worker fan-out, and both produce the same result
+record. It runs the branch-safety scan at warn tier — findings fold into the pull request
+body rather than stopping anything. Note the collision: this is `/report` the command,
+distinct from the **run report** an unattended executor prints at the end of its run.
+Related terms: story, scan, pull request, run report.
 
-## story (Deprecated)
+## run report
 
-The `/story` command has been removed. Its original purpose—orchestrating full documentation scans and PR creation—has been split into two commands: `/scan` for full documentation updates and `/report` for PR creation with story generation. This separation provides clearer command semantics and allows developers to choose between full scans or focused PR preparation. Related terms: report, scan.
+The run report is what `/implement` prints when it finishes — per unit: members, policy,
+route, ticket outcomes reconciling to its queue, commits, pull request URL, and whether
+the finish notification actually landed; then minted tickets, deferred decisions and
+exclusions; then the reconciliation line and the terminal token. It is **the
+deliverable**, emitted whether the run succeeded or not, because it is where the
+developer's looking-through relocated to. Related terms: report, terminal token,
+reconciliation.
 
-## workflow
+## route
 
-In Workaholic's context, workflow refers to GitHub Actions workflows (YAML files in `.github/workflows/`) that automate release processes and CI/CD tasks. Workflows are triggered manually via `workflow_dispatch` or automatically on events like tag pushes. The release workflow automates version bumping, changelog extraction, and GitHub Release creation. Related terms: release, GitHub Actions.
+To route is to send a finished unit down the path its **effective merge policy** selects
+— derived by a script, never by prose, because the answer decides whether machinery
+merges to the base. `auto` goes through the ship flow; `review` merges its pull request
+as soon as the report opens it and the scan passes. Related terms: merge policy, ship,
+gate.
 
-## concurrent-execution
+## ship
 
-Concurrent execution is a pattern where multiple independent agents are invoked in parallel when they write to different locations and have no dependencies. The orchestrating command sends multiple Task tool invocations in a single message, allowing simultaneous work. Example: `/story` runs changelog-writer, spec-writer, terms-writer, and release-readiness concurrently in phase 1, then story-writer sequentially in phase 2. Related terms: agent, orchestrator, Task tool.
+Ship is the operation that **drafts the deployment plan and merges** — since 2026-08-13
+it deploys nothing. It refreshes the release note's `## Deployment Plan` from the
+deployment records, blocks pre-merge on the scan, halts when a target declares no
+confirmation method, merges, and tears the claim's worktree down. Deploying is a separate
+step taken **only on the developer's instruction**: it runs the procedure, confirms, and
+records the attempt. "Shipped" therefore means merged with a current plan drafted, never
+deployed. Related terms: route, deployment record, release note, confirm.
+
+## catch up
+
+To catch up is to merge the base branch into a work branch so what gets proved equals
+what will land. Conflicts are classified rather than guessed at: an append-only conflict
+in the knowledge tree is resolved by keeping both sides, a version or generated-output
+conflict is mechanical and reconciled in place, and anything else is a content conflict a
+human must judge. Related terms: freshen, ship, merge conflict.
 
 ## scan
 
-Scan is the operation that updates `.workaholic/` documentation by invoking all 17 documentation agents directly in parallel. The `/scan` command orchestrates 8 viewpoint analysts (stakeholder, model, usecase, infrastructure, application, component, data, feature), 7 policy analysts (test, security, quality, accessibility, observability, delivery, recovery), changelog-writer, and terms-writer as concurrent Task calls within the command itself. This direct invocation pattern (replacing the previous scanner subagent) provides real-time per-agent progress visibility to the user. Each agent must use `run_in_background: false` to preserve Write/Edit permissions. After all agents complete, output is validated, index files are updated, and changes are staged and committed. Related terms: spec, terms, policy, changelog, concurrent-execution, viewpoint-analyst, policy-analyst, run_in_background.
+**The branch-safety scan** — a deterministic, script-only gate over the branch diff, run
+at warn tier by `/report` and at block tier by `/ship`. Three rule families: `secret`
+(hard, never overridable), `size` (overridable by a human), and `leak` (re-introduction
+of denylisted terms). Read its scope literally: a `pass` means these rules found nothing,
+not that the branch is safe in some broader sense. The word once named a documentation
+command; that meaning is retired. Related terms: gate, ship, report.
 
-## approval
+## cut a release branch
 
-Approval is a decision point in `/drive` workflow that occurs after implementation and before commit. Three selectable options are presented: Approve (commit and continue), Approve and stop (commit and end session), and Abandon (discard changes, write failure analysis, move to abandoned). Users can also provide free-form feedback via the "Other" option, which triggers the ticket-update-first rule: the ticket's Implementation Steps must be updated before any code changes are made. The previous "Needs revision" selectable option has been removed in favor of this free-form feedback approach. Related terms: drive, ticket, abandon, commit, feedback.
+To cut a release branch is to create `release/YYYYMMDD-HHMMSS` from the base — batch
+level, explicitly invoked, never a step of a per-unit ship. It carries no commits of its
+own and is invisible to the claim protocol. Since 2026-08-13 **the confirmation at this
+window is the production evidence**, not a second one, because the per-unit ship no
+longer deploys. A failed confirmation deletes nothing; the next attempt cuts a fresh
+branch. Related terms: release record, ship, confirm.
 
-## feedback
+## confirm
 
-Feedback is the free-form text a user provides during `/drive` approval when they want changes to the implementation. Rather than selecting a predefined option, users select "Other" and type their feedback. The drive-approval skill enforces the ticket-update-first rule: the ticket's Implementation Steps section must be updated with new or modified steps BEFORE any code changes are made. A Discussion section is appended to the ticket for traceability, recording the user feedback, ticket updates, direction change, and action taken. Related terms: approval, drive, ticket.
+To confirm is to run a deployment target's `## Confirmation` — the exact executable proof
+that a change reached production — and record the attempt as `pass`, `fail`, `not_run` or
+`bypassed`. A target with no confirmation method is a halt, not a warning: a plan whose
+verification reads "none declared" is the aspirational plan the gate exists to prevent.
+Related terms: deployment record, ship, cut a release branch.
 
-## release-readiness
+## reconciliation
 
-Release readiness is a pre-release analysis evaluating whether branch changes are suitable for immediate release. The release-readiness subagent runs during `/story` alongside other documentation agents, producing a verdict (ready/needs attention) with concerns and instructions. Analysis considers breaking changes, incomplete work, test status, and security concerns. Output appears in the story's Release Preparation section. Related terms: release, story, agent.
+The reconciliation is the second-to-last line of an unattended run — `N units: X shipped,
+Y PR'd, Z blocked` — so the outcome is graspable from outside without reading the report.
+Ticket outcomes reconcile to the queue the unit was handed: a closed set of four
+(implemented, failed, blocked, deferred). Related terms: run report, terminal token.
 
-## prioritization
+## terminal token
 
-Prioritization is the process of analyzing ticket metadata (type, layer, effort) and ordering tickets for optimal execution during `/drive`. Claude Code determines recommended order based on severity (bugfix > enhancement > refactoring > housekeeping), context grouping (same-layer tickets together), and effort estimates. Users see the proposed order and can accept, override, or pick individual tickets. Related terms: drive, ticket, context-grouping, severity.
+The terminal token is the last line of an unattended run — `ok` or `pending` — and it is
+**derived, never self-asserted**. `ok` requires that every claimed unit reached its routed
+end *and* a fresh survey offers nothing claimable over a readable, current queue.
+"I stopped" is not "it's done": a blocked or handed-off unit is `pending`. It is the
+contract a caller-side loop waits on. Related terms: reconciliation, run report, handoff.
 
-## context-grouping
+## Retired verbs
 
-Context grouping is an optimization strategy during ticket prioritization where tickets modifying files in the same architectural layers (Config, Infrastructure, Domain) are grouped and processed sequentially. This reduces cognitive load and context switching overhead, allowing developers to maintain focus on specific codebase areas. Related terms: prioritization, ticket, layer.
-
-## severity
-
-Severity is a prioritization criterion based on ticket type: bugfixes (addressing broken functionality) take highest priority, followed by enhancements (new features), refactoring (code improvements), and housekeeping (maintenance). This ensures critical issues are resolved before new functionality work, maintaining production stability. Related terms: prioritization, ticket, type.
-
-## structured-commit-message
-
-A structured commit message extends beyond a simple title to include five detailed sections capturing context for downstream lead agents. Format: Title (present-tense verb, 50 chars max), Description (motivation and rationale, 2-3 sentences), Changes (user-visible differences or "None"), Test Planning (verification done or needed), Release Preparation (ship and support requirements), and Co-Authored-By trailer. This expanded format replaced the previous 4-section format (Motivation, UX Change, Arch Change) to provide better signal for test-lead, delivery-lead, security-lead, and other domain leads. The commit skill handles message construction via `commit.sh`, and format-commit-message skill content was merged into the commit skill. Related terms: commit, archive-ticket, commit skill.
-
-## format-commit-message (Deprecated)
-
-The format-commit-message skill was a separate skill defining commit message formatting, previously located in `plugins/core/skills/format-commit-message/SKILL.md`. It has been merged into the commit skill to eliminate dual-maintenance burden and simplify preload lists. The commit skill now contains the full per-section writing guidelines (Title, Description, Changes, Test Planning, Release Preparation) as the single authoritative source for commit message formatting. Historical references in archived tickets and stories remain unchanged as they are historical records. Related terms: commit, structured-commit-message, skill.
+`trip`, `scan` (the documentation command), `sync`, `abandon` (as a drive-time approval
+option), `approval` and `prioritization` are recorded with their dates and successors in
+[retired-terms.md](retired-terms.md).

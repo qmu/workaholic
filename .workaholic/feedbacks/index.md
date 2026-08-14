@@ -495,4 +495,5 @@
 * [Close achieved missions automatically at the end of /implement](20260814030919-close-achieved-missions-automatically-at-the-end-of-implement.md)
 * [Auto-file a short FB issue for /propose notifications with no linked FB, so Proposed can reply to it](20260814032508-auto-file-a-short-fb-issue-for-propose-notifications-with-no-linked-fb-so-proposed-can-reply-to-it.md)
 * [Add Strategy as a fourth /propose artifact type](20260814064431-add-strategy-as-a-fourth-propose-artifact-type.md)
+* [Split /setup-routines into /setup-dev-routines and /setup-repo-routines](20260814064840-split-setup-routines-into-setup-dev-routines-and-setup-repo-routines.md)
 <!-- okf:generated:end -->

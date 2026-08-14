@@ -493,4 +493,5 @@
 * [Change /ship's role to drafting deploy plans into Release Notes before deploying](20260813123222-change-ship-s-role-to-drafting-deploy-plans-into-release-notes-before-deploying.md)
 * [workaholify still stops at setup sheets instead of applying routine configuration](20260813205116-workaholify-still-stops-at-setup-sheets-instead-of-applying-routine-configuration.md)
 * [Close achieved missions automatically at the end of /implement](20260814030919-close-achieved-missions-automatically-at-the-end-of-implement.md)
+* [Auto-file a short FB issue for /propose notifications with no linked FB, so Proposed can reply to it](20260814032508-auto-file-a-short-fb-issue-for-propose-notifications-with-no-linked-fb-so-proposed-can-reply-to-it.md)
 <!-- okf:generated:end -->

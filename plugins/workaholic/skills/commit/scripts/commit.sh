@@ -260,10 +260,47 @@ case "$CONCERNS" in ""|None|none) : ;; *) append_section "Concerns" "$CONCERNS" 
 case "$INSIGHTS" in ""|None|none) : ;; *) append_section "Insights" "$INSIGHTS" ;; esac
 append_section "Verify" "$VERIFY"
 
-# Trailer block (last paragraph): a machine-readable Category trailer (when set)
-# plus the Co-Authored-By trailer. `git log --format='%(trailers:key=Category,valueonly)'`
+# Trailer block (last paragraph): a machine-readable Category trailer (when set),
+# the run's own session trailer (when the environment carries one), and the
+# Co-Authored-By trailer. `git log --format='%(trailers:key=Category,valueonly)'`
 # can then read the Added/Changed/Removed grouping straight from the log.
+#
+# WHY A SESSION TRAILER AND NOT A ROUTINE NAME (issue #452, measured 2026-08-14 while
+# driving the ticket, in a live `[Implement]` container). The report was that every
+# web-routine commit reads as "Claude" and cannot be attributed. Half of that is
+# already false and stays that way: the author EMAIL is the developer's own
+# (`user.name` = `Claude` comes from the container's global config, `user.email` is
+# set repo-locally by the web bootstrap from `.claude/git-identities`), so the PERSON
+# is attributable today. What was genuinely unrecoverable is WHICH RUN produced the
+# commit -- `[Propose]` and `[Implement]` were indistinguishable.
+#
+# The routine's NAME is not recoverable either, and that is a measurement, not a
+# choice: the container's whole environment was read in an `[Implement]` session and
+# nothing in it names the routine. `CLAUDE_CODE_REMOTE_SESSION_ID`,
+# `CLAUDE_CODE_SESSION_ID` and `CLAUDE_CODE_CONTAINER_ID` identify the run and the
+# container; no variable identifies the standing routine record that started them. So
+# a `Routine:` trailer could only be fed by the caller, and the two candidate paths
+# both fail: an env var does not survive between a session's separate shell
+# invocations, and a `--routine` flag would have to be threaded through every seam
+# (`archive.sh`, `claim.sh`, `heartbeat.sh`) and remembered at every call site -- one
+# forgotten prefix and the commit lies by omission.
+#
+# The session id needs no cooperation from any caller: it is in the process
+# environment of every invocation, so ONE writer picks it up and every seam inherits
+# it. It resolves to its routine in the routines UI, which is the auditability the
+# report asked for, reached by a different route. This is not a credential (the same
+# URL is already posted into Slack by every finish line) and it is absent outside a
+# cloud session, where the trailer is simply omitted rather than faked.
+#
+# THE AUTHOR EMAIL IS NOT TOUCHED, deliberately: `drive/scripts/lib/claims.sh`
+# resolves claim ownership and resumption from `git config user.email`, so changing it
+# would move the claim oracle underneath a running fleet.
 TRAILERS="Co-Authored-By: Claude <noreply@anthropic.com>"
+SESSION_ID="${CLAUDE_CODE_REMOTE_SESSION_ID:-}"
+if [ -n "$SESSION_ID" ]; then
+    TRAILERS="Claude-Session: https://claude.ai/code/${SESSION_ID}
+${TRAILERS}"
+fi
 if [ -n "$CATEGORY" ]; then
     TRAILERS="Category: ${CATEGORY}
 ${TRAILERS}"

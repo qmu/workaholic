@@ -767,6 +767,48 @@ function testCommitStaging() {
       assertEq("--category: git parses Category: Added", trailer, "Added");
     } finally { cleanup(dir); }
   }
+
+  // Row: the Claude-Session trailer, which is how a commit says WHICH RUN produced it
+  // (issue #452, 2026-08-14). The routine NAME is not recoverable in-container -- nothing
+  // in the environment names it -- so the session id stands in, and it needs no
+  // cooperation from any caller: it is read from the process environment by the ONE
+  // commit writer, which is why every seam (archive.sh, claim.sh, the scratch-index
+  // heartbeat) inherits it without threading a flag through each of them.
+  {
+    const dir = makeRepo("main");
+    const env = { ...process.env, CLAUDE_CODE_REMOTE_SESSION_ID: "cse_TESTSESSION" };
+    const sessionTrailer = () =>
+      execSync("git log -1 --format='%(trailers:key=Claude-Session,valueonly)'", { cwd: dir, encoding: "utf8" }).trim();
+    try {
+      writeFileSync(join(dir, "s.md"), "x\n");
+      const r = run(dir, `${POSIX_SH} ${SCRIPTS.commit} "Add s" "" "None" "None" "None" "None" s.md`, { env });
+      assertEq("session trailer: exit 0", r.status, 0);
+      assertEq("a cloud session stamps the run it came from",
+        sessionTrailer(), "https://claude.ai/code/cse_TESTSESSION");
+
+      // The scratch-index heartbeat path shares the trailer block, so a coordination
+      // marker is attributable too -- that path builds its own index and would be the
+      // easy one to miss.
+      const beat = run(dir, `${POSIX_SH} ${SCRIPTS.commit} --allow-empty "Refresh heartbeat" "" "None" "None" "None" "None"`, { env });
+      assertEq("the changeless coordination commit carries it too",
+        [beat.status, sessionTrailer()], [0, "https://claude.ai/code/cse_TESTSESSION"]);
+
+      // AND IT IS OMITTED, NEVER FAKED, outside a cloud session. A local developer's
+      // commit has no run to point at, and a fabricated one would be worse than none.
+      writeFileSync(join(dir, "t.md"), "x\n");
+      const local = { ...process.env };
+      delete local.CLAUDE_CODE_REMOTE_SESSION_ID;
+      const r2 = run(dir, `${POSIX_SH} ${SCRIPTS.commit} "Add t" "" "None" "None" "None" "None" t.md`, { env: local });
+      assertEq("no session in the environment stamps no trailer", [r2.status, sessionTrailer()], [0, ""]);
+
+      // THE AUTHOR EMAIL IS UNTOUCHED. The claim protocol resolves ownership and
+      // resumption from it (drive/scripts/lib/claims.sh), so a change here would move
+      // the claim oracle underneath a running fleet.
+      assertEq("the author email is not rewritten by the attribution change",
+        execSync("git log -1 --format='%ae'", { cwd: dir, encoding: "utf8" }).trim(),
+        execSync("git config user.email", { cwd: dir, encoding: "utf8" }).trim());
+    } finally { cleanup(dir); }
+  }
 }
 
 // ---------- 6. gather/user-slug.sh ----------

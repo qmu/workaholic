@@ -492,4 +492,5 @@
 * [Propose's thread lookup searched an issue reference form that exists nowhere](20260813121647-propose-s-thread-lookup-searched-an-issue-reference-form-that-exists-nowhere.md)
 * [Change /ship's role to drafting deploy plans into Release Notes before deploying](20260813123222-change-ship-s-role-to-drafting-deploy-plans-into-release-notes-before-deploying.md)
 * [workaholify still stops at setup sheets instead of applying routine configuration](20260813205116-workaholify-still-stops-at-setup-sheets-instead-of-applying-routine-configuration.md)
+* [Close achieved missions automatically at the end of /implement](20260814030919-close-achieved-missions-automatically-at-the-end-of-implement.md)
 <!-- okf:generated:end -->

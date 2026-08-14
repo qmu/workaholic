@@ -2,7 +2,7 @@
 type: Mission
 title: Refresh the outdated documentation to match current behavior
 slug: refresh-the-outdated-documentation-to-match-current-behavior
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-13T07:25:36+00:00
 author: a@qmu.jp
@@ -59,3 +59,4 @@ request merging on opening, quality gated at the `release/*` window, and
 - 2026-08-13 — ticket archived — 20260813081500-reconcile-the-okf-skill-s-ticket-type-claim.md
 - 2026-08-13 — Story written — work-20260813-083658.md
 - 2026-08-13 — run recorded (+0.3h) — session_01MYzEyoR3FK7v6ywCoenNJ4
+- 2026-08-14 — mission achieved — mission.md

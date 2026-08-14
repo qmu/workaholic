@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 0.32
 feedback: [20260814193737-workaholify-is-the-preparation-command-not-an-audit-converge-the-repository-state-by-running-the-living-migrations.md]
 tickets: []
 stories: []
@@ -42,3 +42,4 @@ An operator runs `/workaholify` in a repository that predates recent structural 
 - 2026-08-14 — ticket archived — 20260814193833-apply-the-wiring-and-bootstrap-through-workaholify.md
 - 2026-08-14 — ticket archived — 20260814193833-state-the-living-migration-registry-contract.md
 - 2026-08-14 — Story written (2 tickets; both acceptance items met) — work-20260814-104347.md
+- 2026-08-14 — run recorded (+0.32h) — run-20260814-104347

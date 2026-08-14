@@ -5,15 +5,18 @@ fires on a fixed hourly schedule (`15 * * * *`), takes an ask — one handed to 
 session, or one the tick discovered for itself (§3) — writes the feedback record,
 judges it, and opens **one** pull request carrying the record together with
 whatever the judgment warranted — a mission with its ticket set, one loose ticket,
-or the record alone
+one strategy, or the record alone
 (`docs/loop-engineering-workflow.md` §6.3; `plugins/workaholic/skills/propose/SKILL.md`).
 
 **That pull request merges as soon as it opens** (`WORKAHOLIC_AUTO_MERGE=1`), so
 what it publishes is claimable by the next `[Implement]` tick. There is no second
 seat: the session that takes the ask is the one that proposes. The human judgment
 is not the merge — it is the `merge_policy` recorded on what was published (absent
-reads as `review`) and the `release/*` QA window downstream. A release-scan finding
-is the one thing that leaves such a pull request open for a person.
+reads as `review`) and the `release/*` QA window downstream. **Two** things leave
+such a pull request open for a person: a release-scan finding, and the **strategy
+form** (§4) — a strategy is the operator's resolved direction, so the operator's
+merge is what authors it, and the run reports the open PR as that form's outcome
+rather than as a failed merge.
 
 **Precondition (decision I9):** the repository must be **private** wherever the
 feedback stream may carry customer material (H4). Do not wire this loop on a
@@ -131,8 +134,11 @@ which is minted per second (§5).
 3. Vetoes a re-ask against what existing artifacts already answer
    (`list-proposed-refs.sh`, read **before** anything is scaffolded).
 4. Judges against the propose skill's conservative bar and picks the form: a
-   mission with its ordered ticket set, one loose backlog ticket, or the record
-   alone.
+   mission with its ordered ticket set, one loose backlog ticket, one strategy,
+   or the record alone. The **strategy form** (2026-08-14) needs all three parts
+   present in the ask — a `YYYY-MM-DD` date, a named owner, an aim with no
+   decomposable plan — and its pull request is the one proposal that does not
+   auto-merge, so the operator's merge stays the act that authors the artifact.
 5. Publishes everything in **one** `publish-tree-pr.sh` call, then posts the
    `🔵 Proposed` finish line into the item's thread — preceded by a description
    root when the lookup found none, which is the only case that sends two

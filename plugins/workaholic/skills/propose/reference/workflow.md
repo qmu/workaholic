@@ -79,9 +79,11 @@ and every abort reports a machine-readable reason.
 
 7. **Judge** the ask against the SKILL's judgment bar, with the step-4 state and the
    step-5 discovery in hand, and **decide the form** (*The form follows the work's
-   shape*): two or more units → a mission with its ticket set (steps 8–9); atomic → one
-   loose ticket (step 9's loose form, no mission); neither → record-only. When unsure,
-   record-only — and name what made you unsure in step 10's PR body.
+   shape*), in this precedence: two or more units → a mission with its ticket set
+   (steps 8–9); atomic → one loose ticket (step 9's loose form, no mission); a
+   **date + an owner + an aim with no decomposable plan** → one strategy (step 9b);
+   none of those → record-only. When unsure, record-only — and name what made you
+   unsure in step 10's PR body.
 
 8. **Draft the mission** (mission form only), in the publish tree:
    - `bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/scaffold-draft.sh "<title>" --assignee <the triggering issue's assignee> <feedback-filename>...`
@@ -108,6 +110,9 @@ and every abort reports a machine-readable reason.
    - `bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/scaffold-proposed-ticket.sh "<title>" --loose [type] [layer] --feedback <record>... --assignee <the same assignee>`
    - The `--feedback` refs are **mandatory** here (`no_feedback` otherwise).
 
+   Neither ticket form runs for the strategy form — a strategy carries no ticket plan
+   (step 9b).
+
    Either way, fill each ticket's Overview, Key Files, Implementation Steps, and the
    provisional Quality Gate, and leave `merge_policy` empty (absent reads as `review`).
    **When step 5 found `diagnosis_first: true`**, open Implementation Steps with
@@ -117,6 +122,26 @@ and every abort reports a machine-readable reason.
    `open_decision`**, write it verbatim into the ticket's `## Open Decisions` section
    (`reference/ticket-format.md`) rather than resolving it.
 
+9b. **Emit the strategy** (strategy form only), in the publish tree — instead of
+   step 9, never alongside it:
+
+   ```sh
+   printf '%s\n' "<aim prose, in the ask's own terms>" \
+     | bash ${CLAUDE_PLUGIN_ROOT}/skills/strategy/scripts/create.sh \
+         "<title>" <YYYY-MM-DD from the ask> "<the triggering issue's assignee>" \
+         "<schedule prose>" "<the step-3 record's filename>"
+   ```
+
+   The three parts come from the **ask**, never from this session: the date is one the
+   ask states (no date → record-only, `no_target_date`), and the assignee is the
+   triggering issue's, never the running identity (unassigned → record-only,
+   `no_assignee`) — `create.sh` refuses an empty assignee list outright, which is the
+   floor, not a thing to work around. Any refusal it emits (`bad_target_date`,
+   `no_assignees`, `empty_schedule`, `empty_aim`, `exists`) **falls back to record-only
+   naming that reason**; never retry with a substituted value. The `feedback:` ref is
+   the record from step 3 — the citation runs strategy → feedback only, and nothing is
+   ever written back onto the record.
+
 10. **Publish it all as one pull request, merged immediately.**
    `WORKAHOLIC_AUTO_MERGE=1 WORKAHOLIC_PR_TITLE="[Proposal] <title>" WORKAHOLIC_CLOSES_ISSUE="<issue number from step 1>" bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/publish-tree-pr.sh "<title>" "<why>" "<changes>" "<concerns>" "<insights>" "<verify>"`
    — **one call**, carrying the record and whatever the judgment added.
@@ -124,8 +149,14 @@ and every abort reports a machine-readable reason.
    (mission `auto-merge-propose-and-implement-prs-under-a-dev-release-branch-split`,
    2026-08-11): the report's `merged`/`merge_reason` says what happened, and any
    release-scan finding leaves the PR open for a human instead — report that as
-   the outcome, never retry the merge by hand in the same run. Name the commit
-   subject for what it carries — `Propose mission <slug>`, `Propose ticket <slug>`, or
+   the outcome, never retry the merge by hand in the same run. **For the strategy
+   form (step 9b), leave `WORKAHOLIC_AUTO_MERGE` unset** — a proposal carrying a
+   strategy is the one form this run deliberately does not merge, because the
+   operator's merge is what authors that artifact (SKILL.md, *The strategy form, and
+   the one rule it widens*). Report the open PR as that form's outcome, never as a
+   merge failure, and never merge it by hand in the same run. Name the commit
+   subject for what it carries — `Propose mission <slug>`, `Propose ticket <slug>`,
+   `Propose strategy <slug>`, or
    `Register feedback <stem>` for record-only — and give the pull request the same words
    behind the `[Proposal]` prefix (`[提案]` for a Japanese title); the subject and the
    title are separate surfaces (SKILL.md). No notification target rides the body — the
@@ -161,7 +192,10 @@ and every abort reports a machine-readable reason.
     `[Propose]` routine these are the routine's own connector posts; do not post twice.
 
 13. **Report** one line: the form chosen (mission with N tickets / loose ticket /
-    record-only) with its reason, the record's filename, the PR URL, and the
+    **strategy `<slug>`, PR left open for the operator** / record-only, and for
+    record-only reached by a failed strategy bar, the part that was missing —
+    `no_target_date` / `no_assignee`) with its reason, the record's filename, the
+    PR URL, and the
     notification outcome — **which surface carried it** (connector or the tokened
     fallback), **which lookup case it took**, and `notified` **per message** (the
     description root and the finish reply are reported separately when case 4 sent

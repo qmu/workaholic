@@ -12,7 +12,15 @@ metadata:
 A **Strategy** is one piece of **outbound, resolved direction**: what the operator has committed
 to pursue (**Aim**), by when (**Schedule**), and who carries it (**Assignee**). It lives flat at
 `.workaholic/strategies/<slug>.md`, one file per strategy, and is **operator-authored** — no
-command, hook, or routine creates one on its own.
+command, hook, or routine puts one on `main` on its own.
+
+**The one drafting exemption** (2026-08-14): `/propose` may draft a strategy into its proposal
+pull request, and **that pull request never auto-merges**, so the file still reaches `main` only
+when a human merges it — the operator's merge is the authorship. Everything else holds unchanged:
+`create.sh` is still the only writer, `close.sh` still the only writer of an end state, `/drive`
+still never surveys a strategy, and the bar `/propose` must clear is all three parts present in
+the ask (a date, a named owner, an aim with no decomposable plan) or it emits nothing
+(`workaholic:propose`, *The strategy form, and the one rule it widens*).
 
 ## The model
 

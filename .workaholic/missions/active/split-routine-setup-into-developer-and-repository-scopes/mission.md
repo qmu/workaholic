@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260814-084725
 ---
 
 # Split routine setup into developer and repository scopes

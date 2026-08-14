@@ -52,7 +52,11 @@ Two things the loop never does, and both are deliberate:
 - **It never overrides a gate.** A blocking scan finding leaves a `review` unit's PR
   open instead of merging it; on an `auto` unit a size/leak finding or a missing
   deployment confirmation demotes it to the PR path, and a secret hard-stops it. "No
-  approval needed" is not "no gate applies".
+  approval needed" is not "no gate applies". Since 2026-08-14 the same holds one step
+  earlier: a unit whose mission or ticket declared `verification_handoff:` at creation
+  — the verification needs a credential the runner does not have — is routed to
+  `handoff` before the merge-policy table is consulted at all, so it never merges and
+  never announces `🟢 Implemented`.
 
 ## 2. Wire the environment (per runner)
 

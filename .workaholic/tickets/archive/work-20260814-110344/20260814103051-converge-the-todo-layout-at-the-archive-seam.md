@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-14T10:30:51+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -118,3 +119,52 @@ migration into the seam its own header already claims.
   emitted before `git add -A` and not after.
 - `plan-units.sh` stays side-effect-free. Do not "fix" convergence by migrating
   in the survey; that is the boundary the migration's header already refuses.
+
+## Final Report
+
+Development completed, with one design correction the reproduction forced. Step 1
+confirmed the gap: archiving `todo/colleague-example-com/…-a.md` landed it in
+`archive/<branch>/` with no `assignees:` stamped and left its sibling under the per-user
+directory. Step 8's check resolved in the header's favour — `create-ticket/SKILL.md:58`
+does instruct the publish step to run the migration, and `promote-icebox.sh` calls it, so
+`archive.sh` was the only named seam that did not; the header now also names
+`converge-layout.sh` as the manual seam and records when this one was wired.
+
+**The correction.** Step 3 placed the call after the `mv`, which is where it was first
+written. That failed eight assertions across three existing tests, and the failures were
+not fixture noise: a unit's queue is listed **once** and driven ticket by ticket, so the
+first archive of a legacy queue flattens every path the run still holds, and each later
+`archive.sh` call died on `Ticket not found`. In `testResumeSkipsDrainedUnit` that left
+the second ticket queued, so a drained unit read as `heartbeat_lapsed`-resumable and the
+survey re-offered a claimed ticket — the 2026-08-04 double-pick class of failure.
+
+The seam therefore runs the migration **before** the move and re-resolves a legacy path
+whose ticket the migration just flattened. Both halves are load-bearing: running before
+the move stamps the ticket being archived (precisely the file whose ownership the
+measured failure lost), and the path tolerance keeps a half-driven unit from stranding on
+a path that was correct when it was read. The tolerance is lexical, tried only when the
+named path is absent, and a genuinely missing ticket still fails at the same check.
+
+### Discovered Insights
+
+- **Insight**: Wiring a tree-wide migration into a per-file seam changes paths that other
+  in-flight machinery holds — and the claim protocol is one of those holders.
+  **Context**: Two unrelated existing tests (`testResumeSkipsDrainedUnit`,
+  `testTicketCommitsDerivation`) failed for the same reason, and the cheap reading was
+  "legacy-layout fixtures, update them". They were reporting a real hazard instead: any
+  caller holding a list of queue paths across an archive. The suite earned its keep here —
+  the defect would have shipped as a plausible three-line addition.
+
+- **Insight**: The `Ticket not found` recovery the subject gate was built to prevent had a
+  second entrance nobody had closed.
+  **Context**: `archive.sh`'s header documents that exact failure — a refused subject left
+  the ticket already moved, and recovery took the hand-written `git mv` the workflow
+  forbids. A migration running at the same seam re-opens it from the other side, so the
+  tolerance is the same rule applied to the same recovery rather than a convenience.
+
+- **Insight**: `TICKETS_ROOT` was already derived from the ticket's own path, so the
+  scoping step 4 asked for needed no new derivation.
+  **Context**: The `sed` that strips `/todo/<user>` or `/todo` from the ticket's directory
+  predates this change and answers exactly the question `missions_root_from_artifact`
+  answers for missions. Reaching for a second root derivation would have added a way for
+  the two to disagree inside one script.

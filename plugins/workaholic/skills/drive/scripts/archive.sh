@@ -18,9 +18,29 @@ if [ -z "$TICKET" ] || [ -z "$COMMIT_MSG" ] || [ -z "$REPO_URL" ]; then
     exit 1
 fi
 
+# A LEGACY PATH THE TODO-LAYOUT MIGRATION HAS ALREADY FLATTENED still archives
+# (2026-08-14, issue #454). This seam now converges `todo/<user-slug>/X.md` to
+# `todo/X.md` on every archive (see the migration below), and a unit's queue is listed
+# ONCE and driven ticket by ticket — so the first archive of a legacy queue flattens
+# every remaining ticket, and each later call arrives holding a path that was correct
+# when it was read. Failing those with `Ticket not found` would strand a half-driven
+# unit needing the hand-written `git mv` the drive workflow forbids, which is the same
+# recovery the subject gate below exists to prevent. The fallback is purely lexical —
+# drop the one `<segment>/` between `todo/` and the filename — and it is tried ONLY
+# when the named path is absent, so a field-owned ticket is never second-guessed and a
+# ticket that genuinely does not exist still fails here.
 if [ ! -f "$TICKET" ]; then
-    echo "Error: Ticket not found: $TICKET"
-    exit 1
+    _flat=''
+    case "$TICKET" in
+        */todo/*/*.md) _flat="$(dirname "$(dirname "$TICKET")")/$(basename "$TICKET")" ;;
+    esac
+    if [ -n "$_flat" ] && [ -f "$_flat" ]; then
+        echo "==> The todo-layout migration flattened this ticket; archiving it from ${_flat}"
+        TICKET="$_flat"
+    else
+        echo "Error: Ticket not found: $TICKET"
+        exit 1
+    fi
 fi
 
 BRANCH=$(git branch --show-current)
@@ -93,6 +113,50 @@ case "$COMMIT_MSG" in
     Add*|Create*|Implement*|Introduce*) CATEGORY="Added" ;;
     Remove*|Delete*) CATEGORY="Removed" ;;
 esac
+
+# Converge the todo layout before anything moves: `todo/<user-slug>/X.md` to the flat
+# root, stamping `assignees` from the directory (2026-08-14, issue #454). The
+# migration's own header has always named this seam — "create-ticket's publish step,
+# promote-icebox.sh, and drive's archive.sh" — and archive.sh was the one that did not
+# call it, so a queue that predates P2 never converged through ORDINARY USE: measured
+# overnight 2026-08-13→14, tickets moved straight from `todo/<another-user-slug>/` into
+# `archive/` without ever being stamped, which is what makes the ownership tolerance in
+# `gather/scripts/owners.sh` permanent rather than transitional.
+#
+# BEFORE THE MOVE, NOT AFTER, and that ordering is the whole design. Running it after
+# would leave the ticket being archived as the one ticket the seam never stamps —
+# precisely the file whose ownership was lost in the measurement above. Running it
+# before stamps it like any other and lets it ride into the archive already converged.
+#
+# It is also OUTSIDE the mission branch below: that branch is why the migration ran for
+# some archives and not others, and an un-missioned ticket has to converge its queue too.
+# And it is before `git add -A`, so every move rides the archive commit already being
+# made rather than sitting unstaged for whoever commits next.
+#
+# Scoped to the ARCHIVED TICKET'S OWN TREE via `$TICKETS_ROOT` (derived from the ticket's
+# path above), the same rule `missions_root_from_artifact` applies to the mission roll:
+# archive.sh runs inside a claim worktree, so defaulting to the process cwd would
+# converge a different tree than the one being committed.
+#
+# Same failure boundary as the mission roll and the index refresh: non-blocking — a
+# migration problem must never strand an archive — but NOT silent, and silent on success,
+# since it runs on every archive and a success line each time would be noise.
+MIG_OUT=$(sh "${SCRIPT_DIR}/../../gather/scripts/migrate-todo-owners.sh" "$TICKETS_ROOT" 2>&1) && MIG_RC=0 || MIG_RC=$?
+if [ "$MIG_RC" -ne 0 ]; then
+    echo "    ! todo-layout migration failed (exit ${MIG_RC}); archive proceeds. migrate-todo-owners.sh said: ${MIG_OUT}"
+fi
+
+# THE MIGRATION MAY HAVE MOVED THE TICKET THIS CALL NAMES, so the legacy path a caller
+# holds is re-resolved to the flat one rather than failing as `Ticket not found`. This is
+# not a convenience: a unit's queue is listed ONCE and driven ticket by ticket, so
+# without it the first archive of a legacy queue would flatten every remaining ticket and
+# each later call would die on a path that was correct when it was read — the same
+# half-archived, hand-`git mv` recovery the subject gate above exists to prevent. A
+# ticket that simply does not exist still fails, at the pre-flight check above.
+if [ ! -f "$TICKET" ] && [ -f "${TICKETS_ROOT}/todo/${TICKET_FILENAME}" ]; then
+    echo "    · the todo-layout migration flattened this ticket; archiving it from ${TICKETS_ROOT}/todo/${TICKET_FILENAME}"
+    TICKET="${TICKETS_ROOT}/todo/${TICKET_FILENAME}"
+fi
 
 echo "==> Archiving ticket..."
 mkdir -p "$ARCHIVE_DIR"

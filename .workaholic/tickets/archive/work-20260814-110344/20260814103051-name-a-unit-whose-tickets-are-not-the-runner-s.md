@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-14T10:30:51+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -124,3 +125,57 @@ recorded under `## Open Decisions` rather than answered here.
 - The finish line's audience is a Slack thread, so keep the added line short and
   do not introduce a mention token — a `<@U…>` on a routine's own post has
   re-triggered the Slack app before (`workaholic:notify`).
+
+## Final Report
+
+Development completed as planned, as disclosure only.
+
+### Open Decision resolved: (A), and (B) stays the operator's
+
+**Taken: (A) — keep "empty `assignees:` = claimable by anyone" and rely on this ticket's
+disclosure.** Not because (B) is wrong, but because this session can defend (A) and
+cannot defend (B) from here:
+
+- (A) is the **status quo**, and this ticket is scoped to make it legible. Its own
+  Considerations say so in as many words: *"Do not fold the Open Decision above into it by
+  quietly narrowing the survey."* Taking (B) inside a ticket that forbids it would be the
+  silent choice the decision exists to prevent.
+- (B) changes what "team-owned" means for the one executor that runs most of the time.
+  Empty `assignees:` was settled deliberately (P2, B3/B4) as *claimable by anyone*;
+  narrowing the unattended runner to `mine` would make unowned work reachable only by an
+  attended `/drive`, which is a policy the operator owns and no run should award itself.
+- The three tickets in this mission together remove the **surprise** (B)'s case rested on:
+  the legacy-layout tier stops a colleague's path-owned ticket from ever reading as
+  team-owned, the archive seam drains that layout through ordinary use, and this line makes
+  a genuinely unowned unit's authorship visible. What is left for (B) to answer is a
+  narrower question than the one the ask raised, and it should be answered with the
+  disclosure's evidence in hand rather than before it exists.
+
+**Recorded as still open**: whether `/implement` should take genuinely team-owned work at
+all. Nothing here forecloses (B); the run reports it as a deferred decision.
+
+### What shipped
+
+`drive/scripts/unit-authors.sh` returns `foreign` / `unresolved` / `mine` over a unit's
+artifacts, comparing by slug through `user-slug.sh` — the same comparison `owns.sh` makes,
+not a second one. `foreign` and `unresolved` add one appended body line to the unit's
+existing finish shape (no fifth shape, no second post, no mention token) and name the
+authors in the per-unit run report; `mine` adds nothing anywhere. The shape is authorized
+in `workaholify/routines/implement.md` and mirrored verbatim in
+`notify/reference/notifications.md`, pinned against drift by the smoke suite.
+
+### Discovered Insights
+
+- **Insight**: The disclosure had to be provably outside the claim path, not merely
+  described as outside it.
+  **Context**: `author:` is one grep away from becoming an ownership tier again, and the
+  header of `owners.sh` explains why that would re-create the defect P2 removed. The test
+  therefore asserts that neither `plan-units.sh` nor `claim.sh` references
+  `unit-authors.sh` — a property of the wiring, which survives an edit that a comment
+  would not.
+
+- **Insight**: `unresolved` has to survive the trip to Slack, not just the script.
+  **Context**: The natural compression is "say nothing when you cannot tell", which
+  renders identically to "the tickets are mine" — the exact collapse `owns.sh` keeps
+  `unresolved` separate to prevent. The catalog and the template both carry the second
+  line for that reason, and the test pins both copies.

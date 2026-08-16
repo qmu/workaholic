@@ -70,4 +70,16 @@ Post one finish line per claimed PR-unit into its reply thread (the workaholic:n
 by the [routine](https://claude.ai/code/session_***) of <@U…>
 ```
 
+When the unit's tickets were written by somebody else, append one line — no mention token:
+
+```
+tickets authored by <identity>
+```
+
+or, when this runner has no identity to compare against:
+
+```
+ticket authorship unresolved
+```
+
 If the run stops before claiming anything, post notify's precondition-stop shape instead.

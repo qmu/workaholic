@@ -9,7 +9,11 @@
 #
 # WHERE IT RUNS, AND WHY NOT IN THE SURVEY. The queue's WRITE seams call it —
 # create-ticket's publish step (the seat the retired sweep-todo.sh held),
-# promote-icebox.sh, and drive's archive.sh. `plan-units.sh` deliberately does NOT:
+# promote-icebox.sh, and drive's archive.sh (wired 2026-08-14, issue #454: this
+# header named the seam from the start and archive.sh was the one that did not
+# call it, so an actively driven queue never converged through ordinary use).
+# `workaholify/scripts/converge-layout.sh` calls it too, as the manual seam.
+# `plan-units.sh` deliberately does NOT:
 # it documents itself as side-effect-free and is called inside claim worktrees, so
 # a mutating migration there would surprise every other caller. That is affordable
 # because **the readers tolerate both layouts** (`-maxdepth 2`), so nothing depends

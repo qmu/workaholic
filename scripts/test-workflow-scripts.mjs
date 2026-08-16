@@ -145,6 +145,8 @@ const SCRIPTS = {
   checkSlackChannel: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/check-slack-channel.sh"),
   resolveRepoUrl: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/resolve-repo-url.sh"),
   checkBootstrap: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/check-bootstrap.sh"),
+  applyClaudeMdReference: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/apply-claude-md-reference.sh"),
+  applyBootstrap: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/apply-bootstrap.sh"),
   bootstrapHook: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/bootstrap/session-start.sh"),
   surveyWorktrees: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/survey-worktrees.sh"),
   reapWorktrees: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/reap-worktrees.sh"),
@@ -3547,6 +3549,78 @@ function testMissionDuration() {
 // /workaholify". What is pinned here is the LINE: it applies what is mechanical
 // and reports what needs a judgment, it stages and never commits, and a converged
 // repository produces an empty delta so it is safe to run every time.
+// ---------- the living-migration registry contract ----------
+// 2026-08-14, issue #445. `converge-layout.sh` is the ONE seam a repository's tree is
+// converged through, which makes it the registry every living migration must appear in.
+// The failure this prevents is silent: an unregistered migration leaves consuming
+// repositories on a shape the plugin misreads while /workaholify calls them conformant —
+// what happened to the per-user ticket queue and the retired ticket-state directories
+// (issues #444, #445). Stating the obligation in prose is not enough; the next migration
+// author has to be told by the build, so this walks the naming convention and fails on a
+// script that is neither composed nor deliberately excluded.
+//
+// THE EXCLUSION LIST IS THE ESCAPE HATCH, AND IT IS EMPTY ON PURPOSE. A migration that
+// must not run at converge is a real case (one needing a judgment, one whose target area
+// is live) — it is written here WITH ITS REASON rather than inferred from absence. A
+// RETIRED migration is deleted, never excluded: `migrate-strategies.sh` is the precedent.
+const CONVERGE_EXCLUDED_MIGRATIONS = {
+  // "migrate-example.sh": "why this must not run at the converge seam",
+};
+
+function testMigrationRegistryContract() {
+  const dir = join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts");
+  const registry = readFileSync(SCRIPTS.convergeLayout, "utf8");
+  // Only the code registers a migration; naming one in a comment is not composing it.
+  const code = registry.split("\n").filter((l) => !l.trimStart().startsWith("#")).join("\n");
+  const walk = () => readdirSync(dir).filter((f) => f.startsWith("migrate-") && f.endsWith(".sh")).sort();
+  // The one verdict, used by the real walk below AND by the fixture proof at the end, so
+  // "the check would have failed" is the same code path rather than a restatement of it.
+  const verdict = (m) => ({
+    composed: code.includes(m),
+    excluded: Object.prototype.hasOwnProperty.call(CONVERGE_EXCLUDED_MIGRATIONS, m),
+  });
+  const registered = (m) => { const v = verdict(m); return v.composed || v.excluded; };
+  const migrations = walk();
+
+  assertTrue("the naming convention finds the living migrations", migrations.length > 0, JSON.stringify(migrations));
+
+  for (const m of migrations) {
+    const { composed, excluded } = verdict(m);
+    assertTrue(
+      `${m} is registered at the converge seam (or excluded with a reason)`,
+      composed || excluded,
+      `gather/scripts/${m} is neither invoked by converge-layout.sh nor listed in ` +
+      `CONVERGE_EXCLUDED_MIGRATIONS. A structural change ships its migration AND its ` +
+      `registration in the same commit (workaholic:workaholify, "The living-migration ` +
+      `registry contract"). If it genuinely must not run at converge, add it to the ` +
+      `exclusion map with the reason; if it is retired, delete it.`);
+    assertTrue(`${m} is not both composed and excluded`, !(composed && excluded),
+      `${m} is invoked by converge-layout.sh and also listed as excluded — one of the two is wrong.`);
+  }
+
+  for (const m of Object.keys(CONVERGE_EXCLUDED_MIGRATIONS)) {
+    assertTrue(`the exclusion for ${m} names a reason`,
+      typeof CONVERGE_EXCLUDED_MIGRATIONS[m] === "string" && CONVERGE_EXCLUDED_MIGRATIONS[m].trim().length > 0,
+      "an exclusion without a reason is indistinguishable from an oversight");
+    assertTrue(`the excluded ${m} still exists`, existsSync(join(dir, m)),
+      "a retired migration is deleted, not carried as an exclusion");
+  }
+
+  // THE CHECK HAS TO ACTUALLY BITE. A migration added without a registration must fail
+  // the suite — asserted through `registered()`, the same verdict the walk above uses, so
+  // this is the real code path with a throwaway migration in front of it rather than a
+  // second copy of the rule that could agree with nothing.
+  const FIXTURE = "migrate-fixture-registry-check.sh";
+  const fixture = join(dir, FIXTURE);
+  try {
+    writeFileSync(fixture, "#!/bin/sh\n# throwaway fixture\nexit 0\n");
+    assertTrue("an unregistered migration is visible to the walk", walk().includes(FIXTURE), JSON.stringify(walk()));
+    assertEq("and the contract refuses it", registered(FIXTURE), false);
+  } finally { rmSync(fixture, { force: true }); }
+  assertTrue("the fixture is removed", !existsSync(fixture));
+  assertEq("and every real migration still passes", walk().filter((m) => !registered(m)), []);
+}
+
 function testConvergeLayout() {
   // A fixture in the full pre-mission shape.
   const dir = makeRepo("main");
@@ -13140,6 +13214,7 @@ const tests = [
   ["mission duration predict + record", testMissionDuration],
   ["gather/migrate-ticket-states.sh (the two-state ticket tree)", testMigrateTicketStates],
   ["workaholify/converge-layout.sh (the migration seam)", testConvergeLayout],
+  ["the living-migration registry contract", testMigrationRegistryContract],
   ["report/area-freshness.sh (the two hand-maintained areas' upkeep seam)", testAreaFreshness],
   ["strategy skill (the artifact revived 2026-08-13)", testStrategySkill],
   ["hooks/validate-strategy.sh (the write-time floor)", testValidateStrategy],
@@ -13276,6 +13351,7 @@ const tests = [
   ["release-status: the repository routine and its command are a reader", testReleaseStatusIsAReader],
   ["workaholify routines: one template set, applied per repository, drift named per field", testWorkaholifyRoutines],
   ["workaholify bootstrap: without it a web routine is configured but cannot work", testWorkaholifyBootstrap],
+  ["workaholify: the wiring halves apply, they do not merely audit", testWorkaholifyApplies],
   ["workaholify bootstrap: the session gets the developer's git identity", testBootstrapGitIdentity],
   ["branching worktree reclamation: merged AND clean, every skip named", testWorktreeReclamation],
   ["mission size norms: a ceiling on what a mission may say, and the floor it must not touch", testMissionSizeNorms],
@@ -14804,6 +14880,142 @@ function testWorkaholifyBootstrap() {
     assertEq("workaholic itself is bootstrapped", [self.ok, self.problems], [true, []]);
   } finally {
     rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+// ---------- workaholify: the two wiring halves APPLY, they do not merely audit ----------
+// 2026-08-14, issue #445 — "/workaholify is the preparation command, not an audit". The
+// layout half already converged; these two stopped at "conformant: false" plus an offer,
+// so a repository that ran the command still left unprepared. What is pinned here is the
+// LINE both scripts hold: they converge from each named problem state, they are no-ops on
+// a conformant repository, and they refuse BY NAME rather than half-writing.
+function testWorkaholifyApplies() {
+  const canonical = readFileSync(SCRIPTS.bootstrapHook, "utf8");
+
+  // ---- apply-claude-md-reference.sh ----
+  {
+    const dir = makeRepo("main");
+    try {
+      const APPLY = `${POSIX_SH} ${SCRIPTS.applyClaudeMdReference} ${dir}`;
+      const AUDIT = `${POSIX_SH} ${SCRIPTS.auditClaudeMd} ${dir}`;
+      rmSync(join(dir, "CLAUDE.md"), { force: true });
+
+      // Absent file: created, and the audit that motivated the apply now passes.
+      let r = JSON.parse(run(dir, APPLY).stdout);
+      assertEq("an absent CLAUDE.md is created and made conformant",
+        { ch: r.changed, cr: r.created, c: r.conformant, why: r.reason },
+        { ch: true, cr: true, c: true, why: "applied" });
+      assertEq("the audit agrees the repository is now conformant",
+        JSON.parse(run(dir, AUDIT).stdout).conformant, true);
+
+      // A REFERENCE, NEVER A COPY: the block points at the gateway; it does not restate a
+      // rule, which would be the second source of truth policy-as-plugin exists to avoid.
+      const body = readFileSync(join(dir, "CLAUDE.md"), "utf8");
+      assertTrue("the block refers to the gateway skill by name",
+        body.includes("workaholic:workaholify"), body);
+      assertTrue("the block says the rules are not copied here",
+        /not\*{0,2} copied here/.test(body), body);
+
+      // Idempotent: safe on every /workaholify run.
+      r = JSON.parse(run(dir, APPLY).stdout);
+      assertEq("a conformant repository is a no-op",
+        { ch: r.changed, why: r.reason }, { ch: false, why: "already_conformant" });
+      assertEq("and not one byte moved", readFileSync(join(dir, "CLAUDE.md"), "utf8"), body);
+
+      // IT APPENDS; IT NEVER REWRITES. An existing CLAUDE.md is the repository's own.
+      const own = "# Repo\n\nProject instructions nobody here may reorder.\n";
+      writeFileSync(join(dir, "CLAUDE.md"), own);
+      r = JSON.parse(run(dir, APPLY).stdout);
+      assertEq("a non-conformant existing file is appended to, not created",
+        { ch: r.changed, cr: r.created, c: r.conformant }, { ch: true, cr: false, c: true });
+      assertTrue("the repository's own content survives verbatim at the top",
+        readFileSync(join(dir, "CLAUDE.md"), "utf8").startsWith(own), readFileSync(join(dir, "CLAUDE.md"), "utf8"));
+    } finally { cleanup(dir); }
+  }
+
+  // An unwritable file is a NAMED refusal, and the file is left untouched.
+  {
+    const dir = makeRepo("main");
+    try {
+      const own = "# Repo\n\nNo gateway reference here.\n";
+      writeFileSync(join(dir, "CLAUDE.md"), own);
+      chmodSync(join(dir, "CLAUDE.md"), 0o444);
+      const r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.applyClaudeMdReference} ${dir}`).stdout);
+      // Running as root defeats a read-only bit; only assert when the bit actually bites.
+      if (r.reason === "unwritable") {
+        assertEq("an unwritable CLAUDE.md refuses by name and writes nothing",
+          { ch: r.changed, c: r.conformant }, { ch: false, c: false });
+        assertEq("the file is left byte-identical", readFileSync(join(dir, "CLAUDE.md"), "utf8"), own);
+      } else {
+        console.log("  skip  apply-claude-md-reference unwritable refusal (root ignores the mode bit)");
+      }
+      chmodSync(join(dir, "CLAUDE.md"), 0o644);
+    } finally { cleanup(dir); }
+  }
+
+  // ---- apply-bootstrap.sh ----
+  {
+    const dir = makeRepo("main");
+    try {
+      const APPLY = `${POSIX_SH} ${SCRIPTS.applyBootstrap} ${dir}`;
+      const CHECK = `${POSIX_SH} ${SCRIPTS.checkBootstrap} ${dir}`;
+
+      // From nothing: every named problem repaired, and the check that named them passes.
+      let r = JSON.parse(run(dir, APPLY).stdout);
+      assertEq("an unbootstrapped repository converges", { ch: r.changed, ok: r.ok }, { ch: true, ok: true });
+      for (const key of ["hook_missing", "not_registered", "enabled_plugin", "marketplace"]) {
+        assertTrue(`${key} is repaired and reported by its own id`,
+          r.applied.includes(key), JSON.stringify(r.applied));
+      }
+      assertEq("the check agrees nothing is left", JSON.parse(run(dir, CHECK).stdout).problems, []);
+      assertEq("the installed hook is the plugin's canonical copy",
+        readFileSync(join(dir, ".claude/hooks/session-start.sh"), "utf8"), canonical);
+
+      // Idempotent, and a hook that matches_canonical is never touched.
+      const mtime = statSync(join(dir, ".claude/hooks/session-start.sh")).mtimeMs;
+      r = JSON.parse(run(dir, APPLY).stdout);
+      assertEq("a bootstrapped repository is a no-op", { ch: r.changed, a: r.applied }, { ch: false, a: [] });
+      assertEq("a canonical hook is not rewritten",
+        statSync(join(dir, ".claude/hooks/session-start.sh")).mtimeMs, mtime);
+
+      // Each remaining problem id maps to its own repair, and unrelated settings survive.
+      writeFileSync(join(dir, ".claude/hooks/session-start.sh"), "#!/bin/sh\n# an old copy\n");
+      writeFileSync(join(dir, ".claude/settings.json"), JSON.stringify({
+        env: { KEEP: "me" },
+        hooks: { SessionStart: [{ matcher: "resume", hooks: [
+          { type: "command", command: '"$CLAUDE_PROJECT_DIR"/.claude/hooks/session-start.sh', timeout: 5 }] }] },
+      }, null, 2));
+      r = JSON.parse(run(dir, APPLY).stdout);
+      assertEq("stale/matcher/timeout are each repaired under their own name",
+        ["hook_stale", "matcher", "timeout"].filter((k) => r.applied.includes(k)),
+        ["hook_stale", "matcher", "timeout"]);
+      const s = JSON.parse(readFileSync(join(dir, ".claude/settings.json"), "utf8"));
+      assertEq("unrelated settings keys survive", s.env, { KEEP: "me" });
+      assertEq("the existing entry is CORRECTED, never duplicated by a second group",
+        s.hooks.SessionStart.length, 1);
+      assertEq("the corrected entry carries the load-bearing matcher and timeout",
+        [s.hooks.SessionStart[0].matcher, s.hooks.SessionStart[0].hooks[0].timeout], ["startup", 120]);
+      assertEq("and the repository is bootstrapped", JSON.parse(run(dir, CHECK).stdout).ok, true);
+    } finally { cleanup(dir); }
+  }
+
+  // IT REFUSES RATHER THAN HALF-WRITING. An unparseable settings file means the hook
+  // cannot be registered, so the hook is not installed either: a hook sitting installed
+  // and unregistered would be a state this run created.
+  {
+    const dir = makeRepo("main");
+    try {
+      mkdirSync(join(dir, ".claude"), { recursive: true });
+      writeFileSync(join(dir, ".claude/settings.json"), "{ not json\n");
+      const r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.applyBootstrap} ${dir}`).stdout);
+      assertEq("an unparseable settings file is refused by name",
+        { ref: r.refused, ch: r.changed, a: r.applied }, { ref: "settings_unparseable", ch: false, a: [] });
+      assertEq("the settings file is never overwritten",
+        readFileSync(join(dir, ".claude/settings.json"), "utf8"), "{ not json\n");
+      assertTrue("and no hook is left behind by a refused run",
+        !existsSync(join(dir, ".claude/hooks/session-start.sh")));
+      assertTrue("the refusal reports the problems it could not repair", r.problems_after.length > 0);
+    } finally { cleanup(dir); }
   }
 }
 

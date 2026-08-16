@@ -30,7 +30,20 @@ Stay at the repository root; if you must `cd`, return immediately — prefer an 
 bash ${CLAUDE_PLUGIN_ROOT}/skills/workaholify/scripts/audit-claude-md.sh
 ```
 
-Returns `{file, conformant, checks:{claude_md_present, refers_workaholify_gateway}, missing:[...]}`. On `conformant: false`, report the `missing` checks and offer to add a reference to this gateway — never a copy of the rules. Every check stays a verifiable condition.
+Returns `{file, conformant, checks:{claude_md_present, refers_workaholify_gateway}, missing:[...]}`. Every check stays a verifiable condition.
+
+**On `conformant: false`, apply it** — `/workaholify` is the preparation command, not an audit (the developer's ruling, 2026-08-14, issue #445), and the layout half below already converges:
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/workaholify/scripts/apply-claude-md-reference.sh [repo-root]
+```
+
+Report the `missing` checks and the block that will be written, take **one** confirmation (the body prefixed with the project label — `gather/scripts/project-label.sh`), then apply. Returns `{file, changed, created, conformant, reason}` with `reason` in `applied | already_conformant | unwritable`.
+
+- **A reference, never a copy.** The block points at this gateway and at the pillar `policies/`; a repository that copied a rule would carry a second source of truth that drifts the moment the plugin updates (`workaholic:development` / `policy-as-plugin`).
+- **It appends; it never rewrites.** An existing `CLAUDE.md` is the repository's own document, so nothing here reorders or removes a line of it; the file is created only when absent.
+- **The check is composed, never reimplemented** — conformance is read from `audit-claude-md.sh`, so the apply cannot disagree with the audit that motivated it. A conformant repository is `changed: false` and no byte moves, so the step is safe every run.
+- **Report-only is a refusal's recovery path, never the ordinary outcome.** A declined confirmation, or a named refusal (`unwritable`), falls back to reporting what is missing — stated as the refusal it is.
 
 ## 3a. The `.workaholic/` layout
 
@@ -56,6 +69,15 @@ It runs `layout-doctor.sh`, applies the mechanical migrations, runs the doctor a
 
 **It stages; it never commits.** The migrations git-stage their own moves, which is their existing contract. Committing here would make an attended audit an author of history in a repository whose state it has only just learned, and every other step of this command reports rather than writes. The blocked-write condition lifts the moment the files move on disk, so staging is enough to unblock the repository; the commit is the operator's.
 
+**The living-migration registry contract** (2026-08-14, issue #445). `converge-layout.sh` is **the one seam** a repository's tree is converged through, so it is also the **registry** every living migration must appear in. A structural change to `.workaholic/`'s shape ships, **in the same commit**:
+
+1. its idempotent migration, named `gather/scripts/migrate-<what>.sh`, and
+2. its registration in `converge-layout.sh` — composed, never reimplemented.
+
+This mirrors the closed-layout rule's two-lockstep-sources pattern (`rules/workaholic.md`), and for the same reason: the failure it prevents is silent. An unregistered migration leaves consuming repositories on a shape the plugin misreads while `/workaholify` calls them conformant — exactly what happened to the per-user ticket queue and the retired ticket-state directories (issues #444, #445). So the obligation is **mechanically checked**, not merely stated: `scripts/test-workflow-scripts.mjs` walks every `gather/scripts/migrate-*.sh` and fails the suite unless each is either invoked by `converge-layout.sh` or carried in that check's explicit exclusion list **with a reason**. The exclusion list is empty today, deliberately — a migration that must not run at converge is a real case (one needing a judgment, or one whose target area is live), and it is written down rather than inferred. A retired migration is **deleted**, never excluded (the erased `migrate-strategies.sh` is the precedent).
+
+The contract obliges **registration, not application**: a migration needing a judgment still belongs in the REPORTED class above, named with the decision it needs.
+
 **Two changes need no migration at all**, and saying so is part of the report: the feedback `subject:` floor applies to **new writes only** (the stream is immutable and history is grandfathered), and an absent `strategies/` area is the correct state, not a gap — a strategy is operator-authored. A repository still holding the **legacy nested** `strategies/<area>/<slug>/strategy.md` shape is reported as `legacy_strategies: true` and **never converted**: the migration that used to fold it away was retired with the artifact's revival, deliberately, because an erasing living migration and a live artifact area cannot share a directory.
 
 ## 4. The web bootstrap
@@ -66,7 +88,22 @@ Claude Code on the web starts each session in a fresh container where `enabledPl
 bash ${CLAUDE_PLUGIN_ROOT}/skills/workaholify/scripts/check-bootstrap.sh [repo-root]
 ```
 
-Every problem is named separately — `hook_missing`, `hook_stale`, `not_registered`, `matcher`, `timeout`, `enabled_plugin`, `marketplace` — because each needs a different fix. Caveats (live rules; mechanics and history in [reference/bootstrap.md](reference/bootstrap.md)):
+Every problem is named separately — `hook_missing`, `hook_stale`, `not_registered`, `matcher`, `timeout`, `enabled_plugin`, `marketplace` — because each needs a different fix.
+
+**Then apply those fixes** (2026-08-14, issue #445 — the same ruling as §3: running the preparation command leaves the repository prepared):
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/workaholify/scripts/apply-bootstrap.sh [repo-root]
+```
+
+Report the `problems`, take **one** confirmation (project-label prefixed), then apply. Returns `{changed, applied:[...], refused, ok, problems_before, problems_after}`; each entry of `applied` is a problem id, so the repair is legible against the check that named it.
+
+- **One repair per named problem, mapped one-to-one**: `hook_missing`/`hook_stale` install or refresh the canonical `bootstrap/session-start.sh` copy; `not_registered` adds the `SessionStart` entry; `matcher` corrects it to `startup`; `timeout` raises it to 120; `enabled_plugin` and `marketplace` add the two settings keys. A hook that `matches_canonical` reports no problem and is therefore **never touched**.
+- **It refuses rather than half-writes.** Settings are read and rewritten through `python3` from the parsed object (parse-don't-regex — a `SessionStart` entry nests several ways). An existing `.claude/settings.json` that does not parse is `refused: settings_unparseable` with **nothing written at all, the hook included**: a hook installed but unregistered is a state this run would have created, worse than the one it found. `hook_source_missing` and `unwritable` refuse the same way. A refusal's recovery path is the report.
+- **It corrects the existing entry rather than appending a second** — two `SessionStart` groups would run the bootstrap twice per session and disagree about the matcher — and every unrelated settings key survives untouched.
+- **Idempotent**: a bootstrapped repository is `changed: false, applied: []` and no byte moves.
+
+Caveats (live rules; mechanics and history in [reference/bootstrap.md](reference/bootstrap.md)):
 
 - The already-installed fast path is version-gated, never presence-gated (a baked-in stale install is refreshed with `plugin update`, not skipped on presence).
 - The hook also provisions `gh` — guarded on `command -v gh`, non-fatal in every branch (the web container ships none, and fourteen plugin scripts need it).

@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-14T19:38:33+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -57,3 +58,41 @@ verification_handoff:
 
 - The confirmation is an attended-session act; unattended callers (none today invoke `/workaholify`) must keep report-only.
 - `apply-bootstrap.sh` edits `.claude/settings.json` in the consuming repository — parse-don't-regex, and an unparseable file is a named refusal, never overwritten.
+
+## Final Report
+
+Development completed as planned. Both wiring halves now apply:
+`apply-claude-md-reference.sh` (composes `audit-claude-md.sh`, appends the gateway
+reference block, creates `CLAUDE.md` only when absent, `already_conformant` on a
+second run, `unwritable` as its named refusal) and `apply-bootstrap.sh` (one repair
+per `check-bootstrap.sh` problem id, `settings_unparseable` /`hook_source_missing` /
+`unwritable` refusing with nothing written at all). `commands/workaholify.md` and
+`SKILL.md` §3/§4 carry the apply contract with its one confirmation each, and
+`CLAUDE.md`/`README.md` were updated in the same change.
+
+### Discovered Insights
+
+- **Insight**: The refusal had to cover the *hook file* too, not just the settings
+  write. `apply-bootstrap.sh` checks `settings.json` parseability **before** copying
+  the canonical hook.
+  **Context**: The two repairs look independent, but installing the hook while the
+  registration fails produces a state the run itself created — a hook present and
+  unregistered — which `check-bootstrap.sh` then reports as `not_registered` against a
+  file that exists. Refusing atomically keeps the repository in the state the operator
+  can still reason about, which is what "an apply that cannot proceed names its refusal
+  instead of half-writing" means in practice.
+
+- **Insight**: The settings repair corrects the existing `SessionStart` group rather
+  than appending a new one.
+  **Context**: `check-bootstrap.sh` finds the group by matching `session-start.sh` in
+  any entry's command, so an appended second group would leave the check reading
+  whichever it found last while both fired the bootstrap once per session. The `matcher`
+  and `timeout` problems are properties of an entry that already exists; repairing them
+  in place is the only reading that makes the check and the apply agree.
+
+- **Insight**: Composing `audit-claude-md.sh` rather than re-deriving conformance is
+  what keeps the apply honest.
+  **Context**: The audit's rule is a single `grep -q 'workaholify'`. Had the apply
+  carried its own idea of "refers to the gateway", a block that satisfied the writer but
+  not the checker would report `changed: true` and leave the repository non-conformant —
+  the exact class of drift the two-lockstep-sources pattern exists to prevent.

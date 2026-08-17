@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260817-124529
 ---
 
 # Add the standup daily per-strategy summary

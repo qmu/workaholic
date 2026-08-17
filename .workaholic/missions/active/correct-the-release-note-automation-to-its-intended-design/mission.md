@@ -58,3 +58,4 @@ the fragmented notification is gone.
 - 2026-08-17 — ticket archived — 20260817114539-structure-the-note-as-the-release-record.md
 - 2026-08-17 — ticket archived — 20260817114540-sync-the-github-and-workaholic-note-copies.md
 - 2026-08-17 — ticket archived — 20260817114541-implement-the-daily-note-generation-cadence.md
+- 2026-08-17 — ticket archived — 20260817114542-replace-the-fragmented-status-notification.md

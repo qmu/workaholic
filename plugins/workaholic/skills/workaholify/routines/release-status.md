@@ -69,8 +69,9 @@ If the command or its skills did not load, do not stop: run `bash plugins/workah
 If something is waiting and the exact-string search for the digest token finds no earlier post, post this one line as a new top-level message (the workaholic:notify lookup) — no mention token of any kind:
 
 ```
-📦 Release status - 14 commit(s) waiting on marketplace
-One sentence, max 25 words, what a human must do.
+📦 Release status - <N> commit(s) waiting on <target>
+One sentence, max 25 words, what a human must do (cut a release, declare a confirmation method).
+Draft note: <draft release URL>
 `deploy:<digest>`
 <session URL>
 ```

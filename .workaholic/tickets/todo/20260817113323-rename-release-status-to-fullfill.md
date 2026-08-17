@@ -6,6 +6,7 @@ depends_on:
 feedback: [20260817113249-rename-release-status-to-fullfill-for-the-one-word-command-naming-convention.md]
 merge_policy:
 verification_handoff: 
+claim: work-20260817-180716
 ---
 
 # Rename /release-status to /fullfill

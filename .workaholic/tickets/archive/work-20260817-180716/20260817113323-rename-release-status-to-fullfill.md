@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-17T11:33:23+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -138,3 +139,47 @@ out under Open Decisions rather than swept along with the rest.
 - `/fullfill` reads less obviously than `/release-status` for a reader who does not already
   know the command. The description frontmatter carries the meaning and should stay
   explicit about what it reports.
+
+## Final Report
+
+Development completed as planned. `/release-status` is now `/fullfill`; the command file
+moved (`git mv`, so the history follows), its `name:` frontmatter and heading changed, and
+every command-level reference followed — the routine template's prompt and its
+`<src>/commands/…` fallback path, `ship/SKILL.md` §7, `notify/SKILL.md` and its shape
+catalog, `CLAUDE.md` (commands listing and table row), `README.md` (table row and the full
+map's node label), `docs/loop-drill-runbook.md`, `scripts/e2e/loop-drill.sh`, and the two
+`testReleaseStatusIsAReader` assertions. Behaviour is untouched: still the pure reader
+`workaholic:ship` §7 defines, still gated on `actionable` and the digest search.
+
+### The two Open Decisions, resolved
+
+**1. Spelling — `/fullfill`, as the ask names it.** Both the feedback record and the
+ticket title carry that string, so it is the operator's chosen identifier rather than a
+slip this session observed; a run that silently "corrected" an operator's explicit command
+name would be overriding an instruction, which is the more expensive mistake of the two.
+It is recorded as a story concern with the exact one-line fix, so ruling the other way
+costs a second rename and nothing else. It is deliberately **not** a silent pick.
+
+**2. The routine record keeps its name — only the command moved.**
+`/setup-repo-routines` converges an account's routines *by name*, so renaming the
+template's `name:` would not rename the operator's existing routine: the next convergence
+would create a second one, and a routine is an account-level record no other account can
+list or delete, so `[Release Status]` would keep firing hourly beside it until its owner
+removed it by hand. A rename whose only effect is a duplicate nobody else can clean up is
+not a rename. `id: release-status`, the template filename, and the CLAUDE.md routines-table
+row therefore stand. The reasoning is written into the template itself, not only here.
+
+**The `📦 Release status` prefix and the `deploy:<digest>` token are untouched**, per the
+ticket's own recommendation: they name the *event*, not the command, and the prefix is the
+notify lookup's exact-string dedup key — changing it would post exactly one duplicate line
+at the cutover for no gain.
+
+### Discovered Insights
+
+- **Insight**: the rename splits cleanly along one line — a **command** reference renames,
+  an **event** or **record** reference does not. Every one of the eight surviving
+  `release-status` hits is a template id, a template filename, or a test name derived from
+  one, and every one of them is correct to leave.
+  **Context**: the same split will decide the other multi-word commands
+  (`/setup-dev-routines`, `/setup-repo-routines`, `/mission-close`) if the convention is
+  extended, which the ask explicitly scoped out.

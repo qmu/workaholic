@@ -215,7 +215,7 @@ nothing anywhere — which is the routine's whole contract, so a drill that asse
 construction is the point rather than a convenience.
 
 `[Release Status]` (repository scope, `45 * * * *`, configured by `/setup-repo-routines`
-from **one** account) runs `/release-status`, a pure read. On a healthy quiet repository
+from **one** account) runs `/fullfill`, a pure read. On a healthy quiet repository
 its correct output is *no Slack message at all*, which makes "did it work?" unanswerable
 by watching the channel. Three load-bearing rows:
 

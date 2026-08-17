@@ -123,7 +123,7 @@ Runs **only** on a developer's instruction naming a target, and never in the sam
 
 ## 7. Release status — the read that keeps the plan honest between ships
 
-`/release-status`, and the repository-scoped `[Release Status]` routine that runs it hourly. **It reads; it never writes** — no file, no commit, no branch, no pull request, no merge, no deployment — and it is a separate command rather than a mode of `/ship`, because `/ship` has exactly one behaviour and merging is part of it.
+`/fullfill`, and the repository-scoped `[Release Status]` routine that runs it hourly. **It reads; it never writes** — no file, no commit, no branch, no pull request, no merge, no deployment — and it is a separate command rather than a mode of `/ship`, because `/ship` has exactly one behaviour and merging is part of it.
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/report-deploy-status.sh [base]

@@ -15143,7 +15143,7 @@ function testReportDeployStatus() {
 // prose while a template quietly regains a tool.
 function testReleaseStatusIsAReader() {
   const tpl = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines/release-status.md"), "utf8");
-  const cmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/release-status.md"), "utf8");
+  const cmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/fullfill.md"), "utf8");
   const fm = tpl.slice(0, tpl.indexOf("\n---", 4));
 
   assertTrue("the repository-scoped template declares its scope", /^scope: repository$/m.test(fm), fm);
@@ -15151,7 +15151,7 @@ function testReleaseStatusIsAReader() {
   assertTrue("it declares no auto-fix, since it opens no pull request",
     /^autofix_on_pr_create: false$/m.test(fm), fm);
   assertTrue("its prompt invokes the reader command, never /ship",
-    /\/release-status\b/.test(tpl) && !/^Run `\/ship`/m.test(tpl.slice(tpl.indexOf("## Prompt"))), tpl);
+    /\/fullfill\b/.test(tpl) && !/^Run `\/ship`/m.test(tpl.slice(tpl.indexOf("## Prompt"))), tpl);
   assertTrue("the command states that it writes nothing into the repository",
     /writes nothing into the repository/i.test(cmd) && /merges nothing/i.test(cmd), cmd);
   // 2026-08-17 (issue #472): the tick now keeps each target's DRAFT release note current,

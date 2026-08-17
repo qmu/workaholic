@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 1.8
 feedback: [20260817113647-add-housekeep-an-hourly-project-operation-routine.md]
 tickets: []
 stories: []
@@ -60,3 +60,4 @@ most five a tick, never late at night — instead of a silent guess.
 - 2026-08-17 — ticket archived — 20260817113754-implement-the-human-check-in-step.md
 - 2026-08-17 — ticket archived — 20260817113755-ship-the-housekeep-routine-template.md
 - 2026-08-17 — story written — work-20260817-114453.md
+- 2026-08-17 — run recorded (+1.8h) — implement-20260817-114453

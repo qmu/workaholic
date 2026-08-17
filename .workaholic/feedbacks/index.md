@@ -501,4 +501,5 @@
 * [Path-owned legacy todo tickets are surveyed as team-owned by the unattended routine](20260814102845-path-owned-legacy-todo-tickets-are-surveyed-as-team-owned-by-the-unattended-routine.md)
 * [Workaholify is the preparation command not an audit - converge the repository state by running the living migrations](20260814193737-workaholify-is-the-preparation-command-not-an-audit-converge-the-repository-state-by-running-the-living-migrations.md)
 * [Asking the developer to review an implement PR is the wrong seam](20260816050728-asking-the-developer-to-review-an-implement-pr-is-the-wrong-seam.md)
+* [Rename /release-status to /fullfill for the one-word command naming convention](20260817113249-rename-release-status-to-fullfill-for-the-one-word-command-naming-convention.md)
 <!-- okf:generated:end -->

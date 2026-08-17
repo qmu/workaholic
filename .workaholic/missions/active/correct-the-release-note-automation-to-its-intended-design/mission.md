@@ -40,7 +40,7 @@ the fragmented notification is gone.
 
 <!-- PROPOSED — a sketch for discussion. Approval replans this to drive-ready. -->
 
-- [ ] Every target has a derived environment mapping and a draft note computed from what is
+- [x] Every target has a derived environment mapping and a draft note computed from what is
   merged on the base. (#20260817114537-derive-the-deploy-target-environment-mapping.md)
 - [ ] A note carries its confirmation procedure and the AI's completion record, and both
   copies are identical. (#20260817114540-sync-the-github-and-workaholic-note-copies.md)
@@ -53,3 +53,4 @@ the fragmented notification is gone.
 
 - 2026-08-17 — Proposed from issue #472.
 - 2026-08-17 — ticket archived — 20260817114536-diagnose-the-release-note-automation-drift.md
+- 2026-08-17 — ticket archived — 20260817114537-derive-the-deploy-target-environment-mapping.md

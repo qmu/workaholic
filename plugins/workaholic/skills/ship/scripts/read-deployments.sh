@@ -11,6 +11,8 @@
 #   read-deployments.sh              # every target, one JSON object
 #   read-deployments.sh --slugs      # target slugs, one per line (no JSON)
 #   read-deployments.sh --slug <s>   # one target's entry object, or {} when absent
+#   read-deployments.sh --mapping    # the target<->environment mapping + named gaps
+#   read-deployments.sh --scaffold [slug]  # a BLANK record for a human to fill (stdout only)
 #
 # Output (default mode): a single JSON object consumed by the /ship
 # deployment-confirmation gate:
@@ -39,6 +41,34 @@
 # paths is the OPTIONAL per-target path attribution: the globs this target
 # ships. Absent means the target has not claimed a subtree, which is a fact the
 # consolidation reports (`attribution: whole_range`) rather than papering over.
+#
+# --mapping IS A READ, AND THE AREA'S RULE IS WHY (2026-08-17, mission
+# `correct-the-release-note-automation-to-its-intended-design`). The ask was
+# "derive which deploy targets exist and which software environment each
+# corresponds to". A HUMAN writes a deployment record; `/ship` is the only live
+# reader and never a writer (`.workaholic/deployments/README.md`), so deriving
+# the mapping means: report what is DECLARED, mark what was DEFAULTED, name what
+# is MISSING, and hand a human a blank scaffold — never synthesise a populated
+# record from the repository's shape. A generated record would make the next
+# `/ship` gate on a machine's guess about how production is reached, which is
+# the one thing the confirmation gate exists to prevent. The precedent is
+# `report/scripts/area-freshness.sh`: it reports, it never writes.
+#
+# Every mapping field therefore carries a `source`:
+#   declared        - the record states it
+#   defaulted       - the record is silent and a documented default applies
+#   body_declaration/frontmatter/unresolved - deploy_model's existing vocabulary
+#
+# Gaps are named, never rendered as an empty result:
+#   no_targets                  - no `deployments/` record at all
+#   environment_undeclared      - a target whose environment is unstated
+#   path_attribution_undeclared - a target with no `paths:`, so it claims the
+#                                 whole range and counts every commit as its own
+#   unmatched_component         - a top-level component matching no target's
+#                                 `paths:` (reported only once SOME target
+#                                 declares `paths:`; with none declared the
+#                                 whole-range default already covers everything
+#                                 and a component gap would be noise)
 
 set -eu
 
@@ -46,6 +76,11 @@ MODE=all
 WANT_SLUG=""
 case "${1:-}" in
   --slugs) MODE=slugs ;;
+  --mapping) MODE=mapping ;;
+  --scaffold)
+    MODE=scaffold
+    WANT_SLUG="${2:-<target-slug>}"
+    ;;
   --slug)
     MODE=one
     WANT_SLUG="${2:-}"
@@ -58,10 +93,51 @@ esac
 root=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 dir="${root}/.workaholic/deployments"
 
+# The scaffold is a BLANK template printed to stdout. It writes no file on
+# purpose: the human who authors it decides where production is and how it is
+# confirmed, and a machine that wrote the file would be answering that for them.
+if [ "$MODE" = scaffold ]; then
+  cat <<SCAFFOLD
+---
+type: Deployment
+title: <human-readable name of this deployable component>
+environment: <production | staging | preview | ... — the software environment this target IS>
+confirmation_method: <http | command | other — how a machine can prove the deploy landed>
+url:
+endpoint:
+command: <the non-secret one-liner that confirms it, e.g. \`curl -fsS <endpoint>\`>
+deploy_model: <deploy-on-merge | deploy-from-branch — does merging to the base deploy this?>
+paths: [<glob>, <glob>]
+---
+
+# ${WANT_SLUG}
+
+<!-- What is this target, in one paragraph? Which component of the tree ships here? -->
+
+## Procedure
+
+<!-- Copy-paste executable steps that perform the release. Written for a human who
+     has never done it. If a step needs a credential, name the credential — never
+     paste it. -->
+
+## Confirmation
+
+<!-- The executable proof that the deploy succeeded, and what its output looks like
+     when it did. \`/ship\` gates on this section: a target with no confirmation
+     method halts the flow rather than shipping unverified. Say what command runs
+     and what it returns — an assertion that it was checked is not evidence. -->
+SCAFFOLD
+  exit 0
+fi
+
 if [ ! -d "$dir" ]; then
   case "$MODE" in
     slugs) exit 0 ;;
     one) printf '{}\n'; exit 0 ;;
+    mapping)
+      printf '{"ok": true, "count": 0, "targets": [], "gaps": [{"kind": "no_targets", "target": "", "detail": "no .workaholic/deployments/ directory - run read-deployments.sh --scaffold <slug> and fill it in"}], "scaffold_available": true}\n'
+      exit 0
+      ;;
     *) printf '{"has_confirmation": false, "count": 0, "deployments": []}\n'; exit 0 ;;
   esac
 fi
@@ -156,6 +232,105 @@ if [ "$MODE" = slugs ]; then
     [ "$base" = "index.md" ] && continue
     basename "$file" .md
   done
+  exit 0
+fi
+
+if [ "$MODE" = mapping ]; then
+  targets=""
+  gaps=""
+  tsep=""
+  gsep=""
+  count=0
+  any_paths=0
+  declared_globs=""
+
+  for file in "$dir"/*.md; do
+    [ -e "$file" ] || continue
+    base=$(basename "$file")
+    [ "$base" = "README.md" ] && continue
+    [ "$base" = "index.md" ] && continue
+
+    build_entry "$file"
+    count=$((count + 1))
+    slug=$(basename "$file" .md)
+
+    environment=$(read_field "$file" "environment")
+    if [ -n "$environment" ]; then
+      env_source=declared
+    else
+      env_source=undeclared
+      gaps="${gaps}${gsep}{\"kind\": \"environment_undeclared\", \"target\": \"$slug\", \"detail\": \"the record states no environment: - a target with no environment cannot be mapped to one\"}"
+      gsep=", "
+    fi
+
+    deploy_model=$(read_field "$file" "deploy_model")
+    if [ -n "$deploy_model" ]; then
+      dm_source=frontmatter
+    else
+      deploy_model=$(awk 'match($0, /deploy-(on-merge|from-branch)/) { print substr($0, RSTART, RLENGTH); exit }' "$file")
+      if [ -n "$deploy_model" ]; then dm_source=body_declaration; else dm_source=unresolved; fi
+    fi
+
+    paths_raw=$(read_field "$file" "paths")
+    paths_items=$(printf '%s' "$paths_raw" | tr -d '[]' | tr ',' ' ' \
+      | awk '{ for (i = 1; i <= NF; i++) printf "%s\"%s\"", (i > 1 ? "," : ""), $i }')
+    if [ -n "$paths_items" ]; then
+      paths_source=declared
+      attribution=explicit
+      any_paths=1
+      declared_globs="$declared_globs $(printf '%s' "$paths_raw" | tr -d '[]' | tr ',' ' ')"
+    else
+      paths_source=defaulted
+      attribution=whole_range
+      gaps="${gaps}${gsep}{\"kind\": \"path_attribution_undeclared\", \"target\": \"$slug\", \"detail\": \"no paths: - this target claims the whole range, so every commit on the base counts as unreleased for it, including a commit that only writes its own note\"}"
+      gsep=", "
+    fi
+
+    confirmation_method=$(read_field "$file" "confirmation_method")
+    if [ -n "$confirmation_method" ]; then cm_source=declared; else cm_source=undeclared; fi
+
+    slug_json=$(printf '%s' "$slug" | escape_json)
+    env_json=$(printf '%s' "$environment" | escape_json)
+    dm_json=$(printf '%s' "$deploy_model" | escape_json)
+    cm_json=$(printf '%s' "$confirmation_method" | escape_json)
+
+    targets="${targets}${tsep}{\"slug\":$slug_json,\"environment\":{\"value\":$env_json,\"source\":\"$env_source\"},\"deploy_model\":{\"value\":$dm_json,\"source\":\"$dm_source\"},\"paths\":{\"value\":[$paths_items],\"source\":\"$paths_source\",\"attribution\":\"$attribution\"},\"confirmation_method\":{\"value\":$cm_json,\"source\":\"$cm_source\"},\"has_confirmation\":$ENTRY_HAS_CONF}"
+    tsep=", "
+  done
+
+  if [ "$count" -eq 0 ]; then
+    gaps="{\"kind\": \"no_targets\", \"target\": \"\", \"detail\": \".workaholic/deployments/ holds no target record - run read-deployments.sh --scaffold <slug> and fill it in\"}"
+  fi
+
+  # A component gap is only meaningful once SOME target has claimed a subtree.
+  # With every target on the whole-range default the tree is covered by
+  # definition, and reporting each directory as unmatched would be noise.
+  if [ "$any_paths" -eq 1 ]; then
+    # `set -f` matters: the declared values ARE globs (`api/**`), so an unquoted
+    # expansion of them in a `for` list would be pathname-expanded against the
+    # working directory and the comparison would run against whatever files
+    # happened to match. Compare the declared text, never its expansion.
+    set -f
+    for comp in $(git -C "$root" ls-files 2>/dev/null | awk -F/ 'NF > 1 { print $1 }' | sort -u); do
+      case "$comp" in .*) continue ;; esac
+      matched=0
+      for glob in $declared_globs; do
+        prefix=${glob%%[*?]*}
+        prefix=${prefix%%/}
+        [ -n "$prefix" ] || continue
+        case "$comp/" in "${prefix%/}"/*) matched=1 ;; esac
+        [ "$comp" = "${prefix%/}" ] && matched=1
+      done
+      if [ "$matched" -eq 0 ]; then
+        gaps="${gaps}${gsep}{\"kind\": \"unmatched_component\", \"target\": \"$comp\", \"detail\": \"this top-level component matches no target's paths: - either it ships nowhere, or a target has not claimed it\"}"
+        gsep=", "
+      fi
+    done
+    set +f
+  fi
+
+  printf '{"ok": true, "count": %d, "targets": [%s], "gaps": [%s], "scaffold_available": true}\n' \
+    "$count" "$targets" "$gaps"
   exit 0
 fi
 

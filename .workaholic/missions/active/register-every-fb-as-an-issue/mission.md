@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260817-173706
 ---
 
 # Register every /fb as an issue

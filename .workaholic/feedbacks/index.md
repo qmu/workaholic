@@ -504,4 +504,5 @@
 * [Rename /release-status to /fullfill for the one-word command naming convention](20260817113249-rename-release-status-to-fullfill-for-the-one-word-command-naming-convention.md)
 * [Add /housekeep an hourly project operation routine](20260817113647-add-housekeep-an-hourly-project-operation-routine.md)
 * [Release note automation deviates from its intended per-target design](20260817114457-release-note-automation-deviates-from-its-intended-per-target-design.md)
+* [Add a standup daily per-strategy status summary routine](20260817115147-add-a-standup-daily-per-strategy-status-summary-routine.md)
 <!-- okf:generated:end -->

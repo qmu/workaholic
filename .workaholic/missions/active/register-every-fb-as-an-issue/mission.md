@@ -52,3 +52,4 @@ captured rather than lost, and the command says which path it took.
 - 2026-08-17 — ticket archived — 20260817133224-give-the-fb-issue-writer-an-assignee-and-this-repo.md
 - 2026-08-17 — ticket archived — 20260817133224-route-a-destination-less-fb-to-an-in-repo-issue.md
 - 2026-08-17 — ticket archived — 20260817133224-keep-the-record-as-fb-s-fallback-when-the-issue-fails.md
+- 2026-08-17 — story — work-20260817-173706.md

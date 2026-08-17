@@ -14963,8 +14963,16 @@ function testReleaseStatusIsAReader() {
     /^autofix_on_pr_create: false$/m.test(fm), fm);
   assertTrue("its prompt invokes the reader command, never /ship",
     /\/release-status\b/.test(tpl) && !/^Run `\/ship`/m.test(tpl.slice(tpl.indexOf("## Prompt"))), tpl);
-  assertTrue("the command states that it writes nothing",
-    /writes nothing/i.test(cmd) && /merges nothing/i.test(cmd), cmd);
+  assertTrue("the command states that it writes nothing into the repository",
+    /writes nothing into the repository/i.test(cmd) && /merges nothing/i.test(cmd), cmd);
+  // 2026-08-17 (issue #472): the tick now keeps each target's DRAFT release note current,
+  // so "it writes nothing" full stop would be false. The contract that actually protects
+  // the tree is narrower and is what is pinned above and here: nothing is written INTO THE
+  // REPOSITORY, and the one artifact it maintains is named rather than left to prose. The
+  // `allowed_tools` assertion above is unchanged and is the machine-checkable half -- a
+  // draft release lives outside git, so the routine still needs no Write/Edit.
+  assertTrue("it names the draft release as the one artifact it maintains",
+    /draft/i.test(cmd) && /release/i.test(cmd), cmd);
 }
 
 // ---------- workaholify: routine templates, rendering, and drift ----------

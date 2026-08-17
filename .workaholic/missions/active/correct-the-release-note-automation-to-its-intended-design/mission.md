@@ -9,13 +9,14 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 1.1
 feedback: [20260817114457-release-note-automation-deviates-from-its-intended-per-target-design.md]
 tickets: []
 stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260817-163715
 ---
 
 # Correct the release note automation to its intended design
@@ -39,11 +40,11 @@ the fragmented notification is gone.
 
 <!-- PROPOSED — a sketch for discussion. Approval replans this to drive-ready. -->
 
-- [ ] Every target has a derived environment mapping and a draft note computed from what is
+- [x] Every target has a derived environment mapping and a draft note computed from what is
   merged on the base. (#20260817114537-derive-the-deploy-target-environment-mapping.md)
-- [ ] A note carries its confirmation procedure and the AI's completion record, and both
+- [x] A note carries its confirmation procedure and the AI's completion record, and both
   copies are identical. (#20260817114540-sync-the-github-and-workaholic-note-copies.md)
-- [ ] Daily generation replaces the fragmented notification, with each §7 refusal answered
+- [x] Daily generation replaces the fragmented notification, with each §7 refusal answered
   in writing. (#20260817114541-implement-the-daily-note-generation-cadence.md)
 
 ## Changelog
@@ -51,3 +52,11 @@ the fragmented notification is gone.
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 
 - 2026-08-17 — Proposed from issue #472.
+- 2026-08-17 — ticket archived — 20260817114536-diagnose-the-release-note-automation-drift.md
+- 2026-08-17 — ticket archived — 20260817114537-derive-the-deploy-target-environment-mapping.md
+- 2026-08-17 — ticket archived — 20260817114538-draft-per-target-release-notes-from-the-base.md
+- 2026-08-17 — ticket archived — 20260817114539-structure-the-note-as-the-release-record.md
+- 2026-08-17 — ticket archived — 20260817114540-sync-the-github-and-workaholic-note-copies.md
+- 2026-08-17 — ticket archived — 20260817114541-implement-the-daily-note-generation-cadence.md
+- 2026-08-17 — ticket archived — 20260817114542-replace-the-fragmented-status-notification.md
+- 2026-08-17 — run recorded (+1.1h) — run-20260817-163715

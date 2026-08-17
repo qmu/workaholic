@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-17T11:45:37+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on: 20260817114536-diagnose-the-release-note-automation-drift.md
@@ -89,3 +90,69 @@ be easiest to lose.
 - `paths:` is the field that decides whether a target's own note commits count as
   unreleased. It is optional today; the note-generation ticket depends on it, so this
   ticket should make its absence loudly visible.
+
+## Final Report
+
+Development completed as planned.
+
+**What was built.** `read-deployments.sh` gained two read modes and stayed the single
+parser of deployment frontmatter:
+
+- `--mapping` emits, per target, `environment` / `deploy_model` / `paths` /
+  `confirmation_method`, each as `{"value", "source"}` with `source` one of `declared`,
+  `defaulted`, `undeclared` (and `deploy_model`'s existing `frontmatter` /
+  `body_declaration` / `unresolved` vocabulary, unchanged). `paths` additionally reports
+  `attribution: explicit | whole_range`, the same word `read-deploy-state.sh` already uses.
+- `gaps[]` names what is not derivable rather than returning an empty result:
+  `no_targets`, `environment_undeclared`, `path_attribution_undeclared`,
+  `unmatched_component`.
+- `--scaffold <slug>` prints a **blank** record to stdout — every field empty, reasoning
+  prompts inline — and writes no file.
+
+`report-deploy-status.sh` splices the mapping verbatim under a new `mapping` key, so
+`/release-status` gains the per-target axis with no second command. The mapping is
+deliberately **not** hashed into the `digest`: verified, the digest is byte-identical
+before and after this change (`fdc103b38c664b002a6d6bf85dbe3c136a356336`), so no
+`deploy:<digest>` dedup was invalidated by adding it.
+
+**The human-writes-it rule, demonstrably intact.** No code path added here writes into
+`.workaholic/deployments/`. The scaffold is stdout-only and its fields are placeholders,
+not values read off the tree — `grep -rn` for any write to that directory in the ship
+skill's scripts still finds only readers. A populated record would make the next `/ship`
+gate on a machine's guess about how production is reached, which is the failure the
+`## Confirmation` gate exists to prevent.
+
+**`unmatched_component` is reported only once some target declares `paths:`.** With every
+target on the whole-range default the tree is covered by definition, so flagging each
+directory would be noise on top of the `path_attribution_undeclared` gap that already
+states the real problem.
+
+**Measured against a synthetic two-target fixture**, as the ticket required, because this
+repository's single target would otherwise have encoded the single-target case as the
+shape of the world:
+
+- zero records → `{"count": 0, "gaps": [{"kind": "no_targets", …}], "scaffold_available": true}`,
+  nothing written;
+- `api` (declared `environment`, `deploy_model`, `paths: [api/**]`, `confirmation_method`)
+  → every field `declared`, `attribution: explicit`, no gap;
+- `web` (bare) → `environment_undeclared` + `path_attribution_undeclared`;
+- components `infra` and `web` → `unmatched_component`; `api` correctly matched.
+
+### Discovered Insights
+
+- **Insight**: A declared `paths:` value is itself a glob, so expanding it unquoted in a
+  `for` list pathname-expands it against the working directory — `api/**` silently became
+  `api/a.txt` and every component then read as unmatched. The fixture caught it; this
+  repository could not have, because it declares no `paths:` at all and never enters that
+  branch.
+  **Context**: Any future code comparing declared globs must `set -f` around the
+  comparison. The bug class is invisible in this repository and only appears in the
+  multi-target repositories the feature exists for — which is the argument for the fixture
+  being mandatory rather than nice-to-have.
+
+- **Insight**: Splicing a new object into `report-deploy-status.sh` was safe only because
+  the digest is computed from a separate substantive-state file rather than from the
+  emitted JSON. Had the digest hashed its own output, this additive change would have
+  re-posted the status line in every consuming repository.
+  **Context**: The digest's narrow input is load-bearing for additive evolution of this
+  report, not just for idle-tick silence. Keep new descriptive fields out of `$SUBST`.

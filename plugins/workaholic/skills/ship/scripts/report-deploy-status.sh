@@ -10,7 +10,8 @@
 #    "count": N, "digest": "<40-hex>", "actionable": <bool>,
 #    "targets": [{"slug","title","environment","deploy_model","has_confirmation",
 #                 "unreleased_count","since","since_reason","attribution",
-#                 "latest_note","note_match","needs":["..."]}]}
+#                 "latest_note","note_match","needs":["..."]}],
+#    "mapping": <read-deployments.sh --mapping, spliced verbatim>}
 #   {"ok": false, "reason": "not_a_git_repo"|"base_unresolvable"|..., "digest": ""}
 #
 # WHY THIS READS AND DOES NOT WRITE (the Open Decision on ticket
@@ -121,6 +122,15 @@ done < "$ROWS"
 # deterministic across platforms in a way `cksum`'s 32 bits are not.
 DIGEST=$(git hash-object --stdin < "$SUBST")
 
-printf '{"ok": true, "base": "%s", "base_rev": "%s", "base_sha": "%s", "count": %d, "digest": "%s", "actionable": %s, "targets": [%s]}\n' \
+# The target<->environment mapping rides this read rather than a second command
+# (2026-08-17): the per-target axis is the same question this report already
+# answers, and `read-deployments.sh` stays the single parser of that frontmatter.
+# It is spliced verbatim and deliberately NOT hashed into the digest — the digest
+# is "what a reader would act on right now", and a mapping that only restates
+# what the records declare does not become news because a record was reformatted.
+MAPPING=$(sh "${SCRIPT_DIR}/read-deployments.sh" --mapping 2>/dev/null \
+  || printf '{"ok": false, "reason": "mapping_unreadable"}')
+
+printf '{"ok": true, "base": "%s", "base_rev": "%s", "base_sha": "%s", "count": %d, "digest": "%s", "actionable": %s, "targets": [%s], "mapping": %s}\n' \
   "$(json_escape "$BASE")" "$(json_escape "$BASE_REV")" "$(json_escape "$BASE_SHA")" \
-  "$count" "$DIGEST" "$actionable" "$out"
+  "$count" "$DIGEST" "$actionable" "$out" "$MAPPING"

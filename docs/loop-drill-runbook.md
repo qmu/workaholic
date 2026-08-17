@@ -30,6 +30,7 @@ Run every command from the repository root, on a clean `main`.
 | 5 | Verify implement | `sh scripts/e2e/loop-drill.sh verify-implement <issue> --json` | `origin/main`, REST pull requests, unmerged `work-*` branches |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-plan --json` | this checkout's deployment targets and commit range — proves the plan refresh `[Implement]` carries |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-status --json` | the same targets read the `[Release Status]` way — proves the repository tick reads soundly and stays silent when nothing changed |
+| — | Any time | `sh scripts/e2e/loop-drill.sh verify-cadence --json` | the same targets' **draft notes** — proves the daily generation renders, is idempotent and clock-free, and derives its stage |
 | — | Any time | `sh scripts/e2e/loop-drill.sh status` | the drill's residue: issues, claim branches, tickets |
 | — | After an abort | `sh scripts/e2e/loop-drill.sh reset` | closes/deletes **drill-minted** residue only |
 
@@ -228,6 +229,30 @@ by watching the channel. Three load-bearing rows:
 is red, and the *hourly* property is what breaks. The most likely regression is the base
 sha finding its way into the digest input — it is excluded on purpose, because a base
 that merely advanced is not news.
+
+## 5d. The daily note cadence
+
+`verify-cadence` needs no seed, no fire and no issue number, calls no network, and writes
+nothing. It exists for the same reason as `5c`: the behaviour it covers is otherwise only
+observable by **waiting a day** and then reading a GitHub draft release.
+
+The generation rides the same `[Release Status]` tick (one repository-scoped routine, both
+jobs — `workaholic:ship` §7, *The cadence*). It is bounded to once per `Asia/Tokyo` day,
+refreshes immediately whenever the release stage advances, and writes only a GitHub
+**draft** release — never a file, a commit or a branch. Four load-bearing rows:
+
+| Row | Fails when | Read |
+| --- | ---------- | ---- |
+| `cadence_renders` | no draft body rendered for a declared target | `skills/ship/scripts/draft-release-note.sh` over `read-deploy-state.sh` — an unresolvable base, or no `.workaholic/deployments/` target |
+| `cadence_idempotent` | two renders of an unchanged base differ | `skills/ship/scripts/draft-release-note.sh` — something non-derived reached the body; a periodic generator would now rewrite the draft on every tick |
+| `cadence_clockfree` | a render a second later differs | the same script — a clock leaked into the body. This is the specific failure the whole design refuses: a timestamp is what turns an idempotent drafter into a write treadmill |
+| `cadence_stage` | the release stage was not derived | `skills/ship/scripts/run-note-cadence.sh` — the stage comes from git and `.workaholic/releases/`, never a stored cursor |
+
+`cadence_idempotent` and `cadence_clockfree` are this stage's `plan_idempotent`: a single
+render is still correct when either is red, and the *periodic* property is what breaks.
+They are separated because they fail for different reasons — the first catches anything
+non-derived (a network read, an unordered set), the second catches a clock specifically,
+which is why the drill takes the two renders a second apart.
 
 ## 6. Abort playbook
 

@@ -178,6 +178,14 @@ verification is required and never records whether it ran degrades into a wish. 
 block per **attempt**, appended — a second attempt adds a block and never rewrites the
 first, matching the rule that a failed confirmation deletes nothing.
 
+**Appended at the end of that section, not at the end of the file.** The distinction was
+invisible while this section happened to be the last heading in every note; a per-target
+draft ends with `## Links`, and appending to the file put the attempt *below* it while
+the Verification section above still read "no attempt has been recorded" — one document
+disagreeing with itself about whether a release was verified. Append-only is unchanged:
+the insert point is the end of the section, so an earlier attempt is never rewritten or
+reordered.
+
 Each block names the target, the method as the record declares it, the exact check that
 ran, the observed result, and one of four statuses:
 

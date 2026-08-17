@@ -55,3 +55,4 @@ the fragmented notification is gone.
 - 2026-08-17 — ticket archived — 20260817114536-diagnose-the-release-note-automation-drift.md
 - 2026-08-17 — ticket archived — 20260817114537-derive-the-deploy-target-environment-mapping.md
 - 2026-08-17 — ticket archived — 20260817114538-draft-per-target-release-notes-from-the-base.md
+- 2026-08-17 — ticket archived — 20260817114539-structure-the-note-as-the-release-record.md

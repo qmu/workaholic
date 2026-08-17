@@ -89,6 +89,15 @@ escape_file_json() {
     || perl -e 'use JSON::PP; print encode_json(do { local $/; <STDIN> })'
 }
 
+# Drop leading and trailing blank lines from a section body before it is quoted,
+# so a record whose section starts on the line after its heading does not render
+# an empty `>` row at the top of the quote.
+trim_blank_edges() {
+  awk 'BEGIN { started = 0 }
+       { lines[NR] = $0; if (NF) { if (!started) { first = NR; started = 1 } last = NR } }
+       END { for (i = first; i <= last; i++) print lines[i] }'
+}
+
 TMP="${TMPDIR:-/tmp}/wh-draft-note.$$"
 ROWS="${TMP}.rows"
 BODY="${TMP}.body"
@@ -260,19 +269,55 @@ while IFS="$US" read -r slug title environment model model_reason \
     printf -- '- **Environment**: %s\n' "${environment:-*undeclared* — the record states none}"
     printf -- '- **Deploy model**: %s (resolved from `%s`)\n' "${model:-unresolved}" "${model_reason:-unresolved}"
     printf -- '- **Waiting**: %s commit(s) since `%s`\n' "${n:-0}" "${since_reason:-unknown}"
-    printf -- '- **Procedure**: see the `## Procedure` section of `.workaholic/deployments/%s.md`\n' "$slug"
-    if [ "$has_conf" = true ]; then
-      printf -- '- **Confirmation required**: `%s`, per the `## Confirmation` section of `.workaholic/deployments/%s.md`\n' \
-        "${conf_method}" "$slug"
-    else
-      printf -- '- **Confirmation required**: **this target declares no confirmation method.**\n'
-      printf '  `/ship` halts on it rather than shipping unverified, and this note says so\n'
-      printf '  rather than rendering an unverified release as a verified one.\n'
-    fi
+    printf -- '- **Confirmation method**: %s\n' \
+      "$( [ "$has_conf" = true ] && printf '`%s`' "$conf_method" \
+          || printf '**none declared** — `/ship` halts on this target rather than shipping it unverified, and this note says so rather than rendering an unverified release as a verified one' )"
     printf '\n'
+  } >> "$BODY"
+
+  # The procedure and the confirmation are QUOTED, not referenced — and the quote
+  # is regenerated from the record on every render, so it cannot drift from the
+  # text `/ship` gates on. The citation names the authored source and says which
+  # document to edit, which is what keeps this from becoming a second, editable
+  # copy of a human's contract.
+  {
+    printf '### Procedure\n\n'
+    printf 'Quoted verbatim from the `## Procedure` section of\n'
+    printf '`.workaholic/deployments/%s.md`, which a human authors. Edit that record —\n' "$slug"
+    printf 'never this note: the quote is regenerated on every render and anything typed\n'
+    printf 'here is lost.\n\n'
+  } >> "$BODY"
+  proc=$(sh "${SCRIPT_DIR}/read-deployments.sh" --section "$slug" Procedure || true)
+  if [ -n "$(printf '%s' "$proc" | tr -d '[:space:]')" ]; then
+    printf '%s\n' "$proc" | trim_blank_edges | sed 's/^/>/;s/^>\(.\)/> \1/' >> "$BODY"
+    printf '\n' >> "$BODY"
+  else
+    printf '> *The record declares no `## Procedure`.*\n\n' >> "$BODY"
+  fi
+
+  {
+    printf '### Verification required after release\n\n'
+    printf 'Quoted verbatim from the `## Confirmation` section of\n'
+    printf '`.workaholic/deployments/%s.md`. This is the evidence the gate rests on.\n\n' "$slug"
+  } >> "$BODY"
+  conf=$(sh "${SCRIPT_DIR}/read-deployments.sh" --section "$slug" Confirmation || true)
+  if [ -n "$(printf '%s' "$conf" | tr -d '[:space:]')" ]; then
+    printf '%s\n' "$conf" | trim_blank_edges | sed 's/^/>/;s/^>\(.\)/> \1/' >> "$BODY"
+    printf '\n' >> "$BODY"
+  else
+    printf '> *The record declares no `## Confirmation`, so there is nothing to run and\n'
+    printf '> nothing this note could report as verified.*\n\n' >> "$BODY"
+  fi
+
+  {
     printf '## Deployment Verification\n\n'
-    printf 'Append-only; one row per attempt. No attempt has been recorded against this\n'
-    printf 'draft — a draft describes a release that has not happened.\n\n'
+    printf 'Append-only; one block per attempt, written by `record-evidence.sh` — the one\n'
+    printf 'writer that also fills the branch story, so the two cannot disagree. Each block\n'
+    printf 'names the target, the declared method, the exact check that ran, the observed\n'
+    printf 'result, and one of `pass` / `fail` / `not_run` / `bypassed`. A later attempt\n'
+    printf 'adds a block and never rewrites an earlier one.\n\n'
+    printf 'No attempt has been recorded against this draft — a draft describes a release\n'
+    printf 'that has not happened.\n\n'
     printf '## Links\n\n'
     printf -- '- [Deployment record](.workaholic/deployments/%s.md)\n' "$slug"
   } >> "$BODY"

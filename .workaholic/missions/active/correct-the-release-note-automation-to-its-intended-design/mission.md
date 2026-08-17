@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260817-163715
 ---
 
 # Correct the release note automation to its intended design

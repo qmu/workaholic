@@ -505,4 +505,5 @@
 * [Add /housekeep an hourly project operation routine](20260817113647-add-housekeep-an-hourly-project-operation-routine.md)
 * [Release note automation deviates from its intended per-target design](20260817114457-release-note-automation-deviates-from-its-intended-per-target-design.md)
 * [Add a standup daily per-strategy status summary routine](20260817115147-add-a-standup-daily-per-strategy-status-summary-routine.md)
+* [Unify /fb to always register a GitHub issue regardless of destination](20260817133031-unify-fb-to-always-register-a-github-issue-regardless-of-destination.md)
 <!-- okf:generated:end -->

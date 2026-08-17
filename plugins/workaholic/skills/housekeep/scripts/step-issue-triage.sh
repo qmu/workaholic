@@ -9,7 +9,7 @@
 # an unattended tick starts lying about its own coverage.
 #
 # The contract this file will keep when it is filled in — inputs, what it may
-# write, its abort reasons — is stated in `../../reference/workflow.md`, not here.
+# write, its abort reasons — is stated in `../reference/workflow.md`, not here.
 #
 # Usage: issue-triage.sh --tick <id> --root <repo-root>
 # Output: one JSON line {"step","status","reason","summary","needs_agent":[]}

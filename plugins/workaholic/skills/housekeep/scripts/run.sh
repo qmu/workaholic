@@ -21,6 +21,14 @@
 # names, recording what it did as `<step>-filed` (a distinct fact from what the
 # probe found, and a distinct log key, so neither overwrites the other).
 #
+# STEP SCRIPTS ARE FLAT (`step-<slug>.sh`, not `steps/<slug>.sh`). A skill's
+# scripts live exactly one directory below the skill, because that is the depth the
+# build's cross-skill reference form encodes (`${SCRIPT_DIR}/../../<skill>/scripts/`,
+# `scripts/build-plugins/script-ref-patterns.mjs`). A nested directory would make
+# every reference to another skill one `../` deeper than the build can detect, and
+# the build would ship a broken closure rather than fail — so the nesting bends to
+# the guard rather than the guard to the nesting.
+#
 # THE DEADLINE IS REPORTED, NEVER SILENT. `--deadline-seconds` bounds the tick;
 # steps not reached are logged `skipped` with reason `budget`, by name. The
 # Consideration this answers: "the report should name the steps that did not run
@@ -43,7 +51,6 @@
 set -eu
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "$0")" && pwd)
-STEPS_DIR="${SCRIPT_DIR}/steps"
 LOG_APPEND="${SCRIPT_DIR}/log-append.sh"
 
 # The step list IS the contract (reference/workflow.md states each one's inputs,
@@ -179,9 +186,9 @@ for step in $STEPS; do
         continue
     fi
 
-    script="${STEPS_DIR}/${step}.sh"
+    script="${SCRIPT_DIR}/step-${step}.sh"
     if [ ! -f "$script" ]; then
-        summary="no step script at steps/${step}.sh"
+        summary="no step script at step-${step}.sh"
         logged=$(log_step "$step" degraded "$summary")
         emit_row "$step" degraded step_missing "$summary" 0 "$logged"
         continue

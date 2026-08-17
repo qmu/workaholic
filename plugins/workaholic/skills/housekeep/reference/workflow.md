@@ -36,26 +36,55 @@ seam this file names for that step — recording what it actually did under the 
 
 ## 2. `inbound-sweep` — Gmail, Drive, Slack and GitHub
 
-- **Reads**: whichever connectors this session actually has, plus the repository's GitHub inbox
-  through `gather/scripts/gh-rest.sh`.
-- **Writes**: nothing directly. Candidates go to `needs_agent`; the agent files each one as a
-  **feedback record** (`feedback/scripts/create.sh`, `--subject` naming *whose* opinion it is —
-  never defaulted to the runner) and, when the ask names another repository, through `/fb`'s
-  cross-repository mode with its verbatim confirmation.
-- **Aborts**: `no_connector` per surface (named individually — three of four working is not
-  "nothing found"), `unreadable_inbox`.
-- **Dedup**: `log-read.sh --step inbound-sweep --contains "<id>"` before proposing anything, so
-  the same message is not re-filed every hour.
-- Ticket: `20260817113751`.
+- **Reads**: GitHub itself, through `gather/scripts/gh-rest.sh` — repository-scoped, `since`-filtered,
+  pull requests dropped (they share the issue numbering space, and a sweep that kept them would
+  re-file the loop's own work). Slack, Gmail and Drive are **connectors held by the session, not by
+  the script**, so they come back in `needs_agent` as `probe_connector` entries carrying the bound
+  each is read under.
+- **The window is the last sweep, not a clock**: `--since` defaults to the previous tick that
+  recorded an `inbound-sweep` line, read out of the tick log; with no such tick, this tick's own UTC
+  day start. Anchoring to a fact in the log avoids `date -d`/`date -v`, which differ between the
+  developer's laptop and the routine's container.
+- **Writes**: nothing. The agent applies the **materiality bar** — a genuine problem or improvement
+  idea, or something that must not be overlooked; a passing remark is not filed — and writes what
+  passes as a **feedback record** (`feedback/scripts/create.sh`, `--subject` naming *whose* opinion
+  it is: `person:<them>` for a message someone wrote, `observer_ai:<identity>` for what the tick
+  noticed itself, **never** defaulted to the runner). What it filed is recorded as
+  `inbound-sweep-filed`, which the next tick's dedup reads.
+- **It does not open a GitHub issue** (resolved 2026-08-17, the ticket's first Open Decision). The
+  crossing flow is gated on a verbatim human confirmation an unattended tick cannot give, and a
+  self-filed *assigned* issue would be re-discovered by `[Propose]` every hour forever — a record
+  written before the issue can never name it, which is the measured reason issue #443's auto-file
+  option was refused on 2026-08-14.
+- **Quoting rule: pointer and subject line only** (resolved 2026-08-17, the second Open Decision).
+  A candidate carries its surface, a stable identifier or permalink, and the title as written —
+  never a message body, an attachment, or a Drive file's contents. `.workaholic/` history is durable
+  and the leak scan matches only a hand-maintained denylist, so a `pass` there never means "no
+  sensitive content"; a pointer leaves the content behind its own access controls.
+- **Slack's bound is not advice**: exact-string search, at most two queries, **no channel history
+  read at any point** (`workaholic:notify`).
+- **Aborts**: `gh_unavailable` (GitHub named as unreadable while the three connector surfaces are
+  still handed over — three of four working is not "nothing found").
+- **Dedup**: an issue a feedback record already names, or one an earlier tick logged under
+  `inbound-sweep-filed`, is skipped and counted in the summary.
 
 ## 3. `workload-logs` — environments whose credentials are here
 
-- **Reads**: the deployment targets that declare a readable log source, only where the credentials
-  are actually present in this environment.
-- **Writes**: nothing directly; a finding becomes a feedback record like step 2's.
-- **Aborts**: `no_credentials` (named per target — a missing credential is a checked claim, never
-  a forecast), `no_targets`.
-- Ticket: `20260817113751`.
+- **Reads**: `.workaholic/deployments/*.md`. A target declares its log source with the optional,
+  **non-secret** frontmatter locator `log_locator:` (a URL, endpoint or command *template*,
+  alongside the existing `url` / `endpoint` / `command`) and, when reading it needs a credential,
+  `log_credential_env:` — the NAME of an environment variable, never its value.
+- **It runs nothing** (decided 2026-08-17). A deployment record already carries executable prose,
+  and `/ship` runs it **only on the developer's instruction** (§5-D). An hourly unattended tick that
+  executed a repository-declared command would move that boundary quietly — arbitrary code out of a
+  file, every hour, with nobody watching. The step resolves *which* targets are readable *here* and
+  hands them to the agent, which reads them with the tools the session actually has.
+- **Writes**: nothing directly; a finding becomes a feedback record exactly as step 2's does, under
+  the same pointer-only quoting rule (the failing signal, never a log body, never a credential).
+- **Aborts**: `no_targets` (no deployment records), `no_log_source` (records exist, none declares a
+  locator this environment can read). **`no_credentials` is a checked claim**: it is reported per
+  target only after the named variable was looked for and found absent, and the report names the
+  variable — never "probably missing credentials".
 
 ## 4. `merge-conflicts` — pull requests whose merge is blocked
 

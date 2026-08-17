@@ -30,7 +30,7 @@ while [ $# -gt 0 ]; do
     esac
 done
 
-ALLOWLIST="${SCRIPT_DIR}/../../../hooks/workaholic-layout-allowlist.txt"
+ALLOWLIST="${SCRIPT_DIR}/../../hooks/workaholic-layout-allowlist.txt"
 
 if [ ! -d "$ROOT/.workaholic" ]; then
     printf '{"step": "open-log", "status": "degraded", "reason": "no_workaholic_dir", "summary": "no .workaholic/ tree here — nothing this tick reads or writes exists", "needs_agent": []}\n'

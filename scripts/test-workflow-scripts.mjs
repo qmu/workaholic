@@ -13599,6 +13599,7 @@ const tests = [
   ["housekeep: the tick log is registered, append-only and idempotent", testHousekeepLog],
   ["housekeep: the tick runs every step, and every step reports", testHousekeepRun],
   ["housekeep: the unattended contract is in the files, not in intent", testHousekeepUnattendedContract],
+  ["housekeep steps 2-3: every surface is named, and nothing is executed", testHousekeepInboundSweep],
 ];
 
 // `await` matters even though almost every test is synchronous: without it an async
@@ -16038,9 +16039,9 @@ function testHousekeepRun() {
     cpSync(join(REPO_ROOT, "plugins/workaholic/skills/housekeep"), join(broken, "housekeep"), { recursive: true });
     cpSync(join(REPO_ROOT, "plugins/workaholic/hooks"), join(broken, "hooks"), { recursive: true });
     const BROKEN_RUN = `${POSIX_SH} ${join(broken, "housekeep/scripts/run.sh")}`;
-    rmSync(join(broken, "housekeep/scripts/steps/doc-drift.sh"), { force: true });
-    writeFileSync(join(broken, "housekeep/scripts/steps/stuck-prs.sh"), "#!/bin/sh\nexit 3\n");
-    writeFileSync(join(broken, "housekeep/scripts/steps/issue-triage.sh"), "#!/bin/sh\nexit 0\n");
+    rmSync(join(broken, "housekeep/scripts/step-doc-drift.sh"), { force: true });
+    writeFileSync(join(broken, "housekeep/scripts/step-stuck-prs.sh"), "#!/bin/sh\nexit 3\n");
+    writeFileSync(join(broken, "housekeep/scripts/step-issue-triage.sh"), "#!/bin/sh\nexit 0\n");
     const b = JSON.parse(run(repo, `${BROKEN_RUN} --tick 20260817-100000`).stdout);
     const byStep = Object.fromEntries(b.steps.map((s) => [s.step, s]));
     assertEq("a missing step script is still a reported row", byStep["doc-drift"].reason, "step_missing");
@@ -16097,4 +16098,76 @@ function testHousekeepUnattendedContract() {
   const list = /^STEPS='([^']+)'/m.exec(runSh)[1].split(/\s+/);
   const missing = list.filter((s) => !new RegExp("`" + s + "`").test(ref));
   assertEq("every step run.sh drives has a stated contract", missing, []);
+}
+
+// ---------- housekeep steps 2-3: every surface is named, and nothing is executed ----------
+// (2026-08-17, issue #471) The acceptance the ask actually needs is NOT "the sweep found
+// things" — it is that an unavailable surface is never rendered as an empty one, that
+// "missing credentials" is a checked claim naming the variable, and that a repository
+// record's prose is never executed by an hourly unattended tick.
+function testHousekeepInboundSweep() {
+  const repo = makeRepo();
+  const SWEEP = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/housekeep/scripts/step-inbound-sweep.sh")}`;
+  const LOGS = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/housekeep/scripts/step-workload-logs.sh")}`;
+  try {
+    mkdirSync(join(repo, ".workaholic/feedbacks"), { recursive: true });
+
+    // No GitHub here (the fixture has no remote): the surface is named unreadable, and the
+    // three connector surfaces are still handed to the agent with their bounds.
+    const j = JSON.parse(run(repo, `${SWEEP} --tick 20260817-120000 --root .`).stdout);
+    assertEq("an unreachable GitHub is named, not reported empty", j.reason, "gh_unavailable");
+    assertEq("and the step degrades rather than passing", j.status, "degraded");
+    assertEq("every surface has a stated outcome",
+      Object.keys(j.surfaces).sort(), ["drive", "github", "gmail", "slack"]);
+    assertEq("the connector surfaces are handed to the agent", j.needs_agent.length, 3);
+    assertTrue("Slack's two-query bound rides with it",
+      j.needs_agent.find((n) => n.surface === "slack").bound.includes("at most two queries"),
+      JSON.stringify(j.needs_agent));
+    assertTrue("and Gmail's is pointer-only",
+      j.needs_agent.find((n) => n.surface === "gmail").bound.includes("never a message body"),
+      JSON.stringify(j.needs_agent));
+
+    // The window is derived from the log, never from date arithmetic.
+    assertEq("with no earlier sweep the window is the tick's own UTC day start",
+      j.since, "2026-08-17T00:00:00Z");
+    run(repo, `${POSIX_SH} ${SCRIPTS.housekeepLogAppend} --tick 20260817-100000 --step inbound-sweep --status ok --summary swept`);
+    const k = JSON.parse(run(repo, `${SWEEP} --tick 20260817-120000 --root .`).stdout);
+    assertEq("an earlier sweep moves the window to that tick", k.since, "2026-08-17T10:00:00Z");
+
+    // Step 3: no records at all is its own reason, distinct from "records but no source".
+    let w = JSON.parse(run(repo, `${LOGS} --tick 20260817-120000 --root .`).stdout);
+    assertEq("no deployment records is its own reason", w.reason, "no_targets");
+
+    mkdirSync(join(repo, ".workaholic/deployments"), { recursive: true });
+    writeFileSync(join(repo, ".workaholic/deployments/batch.md"),
+      "---\ntype: Deployment\ntitle: Batch\nconfirmation_method: server-batch\n---\n\n# Batch\n");
+    w = JSON.parse(run(repo, `${LOGS} --tick 20260817-120000 --root .`).stdout);
+    assertEq("a record declaring no log source is a different answer", w.reason, "no_log_source");
+    assertEq("and the target says which", w.targets[0].state, "no_log_source");
+
+    writeFileSync(join(repo, ".workaholic/deployments/web.md"),
+      "---\ntype: Deployment\ntitle: Web\nconfirmation_method: browser\nlog_locator: https://logs.example.test/web\nlog_credential_env: HOUSEKEEP_TEST_LOG_TOKEN\n---\n\n# Web\n");
+    w = JSON.parse(run(repo, `${LOGS} --tick 20260817-120000 --root .`).stdout);
+    const web = w.targets.find((t) => t.target === "web");
+    assertEq("a missing credential is a CHECKED claim", web.state, "no_credentials");
+    assertEq("naming the variable it looked for", web.credential_env, "HOUSEKEEP_TEST_LOG_TOKEN");
+    assertEq("and nothing is handed over to read", w.needs_agent.length, 0);
+
+    w = JSON.parse(run(repo, `${LOGS} --tick 20260817-120000 --root .`,
+      { env: { ...process.env, HOUSEKEEP_TEST_LOG_TOKEN: "present" } }).stdout);
+    assertEq("with the credential present the target becomes readable",
+      w.targets.find((t) => t.target === "web").state, "readable");
+    assertEq("and is handed to the agent rather than read here", w.needs_agent.length, 1);
+    assertTrue("under a pointer-only bound",
+      w.needs_agent[0].bound.includes("never a log body"), JSON.stringify(w.needs_agent));
+
+    // The step must never execute a record's prose: a `command:` in a record is not run.
+    writeFileSync(join(repo, ".workaholic/deployments/trap.md"),
+      `---\ntype: Deployment\ntitle: Trap\nconfirmation_method: other\ncommand: touch ${join(repo, "EXECUTED")}\nlog_locator: touch ${join(repo, "EXECUTED")}\n---\n\n# Trap\n`);
+    run(repo, `${LOGS} --tick 20260817-120000 --root .`);
+    assertEq("a deployment record's command is never executed by the tick",
+      existsSync(join(repo, "EXECUTED")), false);
+  } finally {
+    cleanup(repo);
+  }
 }

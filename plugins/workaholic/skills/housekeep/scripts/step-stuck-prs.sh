@@ -1,7 +1,7 @@
 #!/bin/sh -eu
-# Step 2 — sweep Gmail, Drive, Slack and GitHub for what the repository should know.
+# Step 6 — name the pull requests that failed to auto-merge and what each needs.
 #
-# STUB. This step's behaviour is ticket `20260817113751-implement-the-inbound-sweep-steps.md`; until it lands, the step
+# STUB. This step's behaviour is ticket `20260817113752-implement-the-repository-hygiene-steps.md`; until it lands, the step
 # reports `not_implemented` rather than returning "nothing found". The
 # distinction is the one `list-inbound-issues.sh` already makes and the one an
 # hourly routine lives or dies on: a step that cannot run and a step that ran and
@@ -9,11 +9,11 @@
 # an unattended tick starts lying about its own coverage.
 #
 # The contract this file will keep when it is filled in — inputs, what it may
-# write, its abort reasons — is stated in `../../reference/workflow.md`, not here.
+# write, its abort reasons — is stated in `../reference/workflow.md`, not here.
 #
-# Usage: inbound-sweep.sh --tick <id> --root <repo-root>
+# Usage: stuck-prs.sh --tick <id> --root <repo-root>
 # Output: one JSON line {"step","status","reason","summary","needs_agent":[]}
 
 set -eu
 
-printf '{"step": "inbound-sweep", "status": "skipped", "reason": "not_implemented", "summary": "not implemented yet (ticket 20260817113751-implement-the-inbound-sweep-steps.md)", "needs_agent": []}\n'
+printf '{"step": "stuck-prs", "status": "skipped", "reason": "not_implemented", "summary": "not implemented yet (ticket 20260817113752-implement-the-repository-hygiene-steps.md)", "needs_agent": []}\n'

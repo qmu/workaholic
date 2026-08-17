@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-17T11:37:51+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on: 20260817113750-add-the-housekeep-command-and-skill.md
@@ -108,3 +109,55 @@ pick one; see Open Decisions.
   developer; the step must be a clean no-op then, not a failure.
 - The materiality bar is where this step either earns its place or becomes the "channel
   full of plausible noise" the propose bar already warns about. Prefer under-filing.
+
+## Final Report
+
+Development completed as planned. Both Open Decisions were resolved before any code was
+written, and both are recorded in `reference/workflow.md` where the next reader meets them:
+
+1. **Record, or issue? — Records.** The tick writes **feedback records** and files no GitHub
+   issue. Two reasons, and the second is the decisive one: the crossing flow is gated on a
+   verbatim human confirmation an unattended tick cannot give; and a self-filed *assigned*
+   issue would be re-discovered by `[Propose]` every hour **forever**, because
+   `list-inbound-issues.sh` excludes only issues a feedback record already names and a record
+   written before the issue can never name it. That is the same reasoning that refused issue
+   #443's auto-file option on 2026-08-14, so the crossing's confirmation rule is left exactly
+   where it is rather than widened for self-directed issues.
+2. **How much of a mailbox may the repository quote? — Pointer and subject line only.** A
+   candidate carries its surface, a stable identifier or permalink, and the title/subject as
+   written. Never a message body, an attachment, or a Drive file's contents. `.workaholic/`
+   history is durable and the leak scan matches only a hand-maintained denylist, so a `pass`
+   there never means "no sensitive content"; a pointer leaves the content behind its own
+   access controls, where the person who can read it decides what to quote.
+
+One decision the ticket did not anticipate, made and recorded here: **step 3 executes
+nothing.** A deployment record already carries executable prose and `/ship` runs it only on
+the developer's instruction (§5-D); an hourly unattended tick that executed a
+repository-declared command would move that boundary quietly. The step resolves which targets
+are readable *here* — through the new optional, non-secret `log_locator:` and
+`log_credential_env:` frontmatter — and hands them to the agent. A test asserts a record's
+`command:` is never executed by the tick.
+
+### Discovered Insights
+
+- **Insight**: Of the four surfaces the ask names, exactly one (GitHub) is reachable from a
+  shell script; Slack, Gmail and Drive are connectors held by the *session*.
+  **Context**: This is why the step returns `probe_connector` entries carrying each surface's
+  bound rather than pretending to probe them. It also means the acceptance criterion that
+  matters is structural — every surface has a *stated outcome* in the report — rather than
+  behavioural, and that is what the test pins.
+
+- **Insight**: The sweep window is derived from the tick log (the previous tick that recorded
+  an `inbound-sweep` line), never from clock arithmetic.
+  **Context**: `date -d` is GNU-only and `date -v` BSD-only, so any "an hour ago" computation
+  behaves differently on the developer's laptop and in the routine's container. The tick id is
+  already `YYYYMMDD-HHMMSS`, so converting it to the REST `since` parameter is string surgery —
+  and it makes the log the memory for the window as well as for the dedup.
+
+- **Insight**: A skill's scripts must sit exactly one directory below the skill. The build's
+  cross-skill reference form is `${SCRIPT_DIR}/../../<skill>/scripts/`, and `verify.mjs` fails
+  any reference that is not in it.
+  **Context**: The step scripts started in `scripts/steps/` and had to be flattened to
+  `scripts/step-<slug>.sh`. The failure the guard prevents is not cosmetic: a deeper reference
+  passes a naive read but is invisible to `build.mjs`'s closure detection, which would ship a
+  bundle whose scripts are missing rather than fail the build.

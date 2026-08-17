@@ -40,7 +40,7 @@ most five a tick, never late at night — instead of a silent guess.
 
 <!-- PROPOSED — a sketch for discussion. Approval replans this to drive-ready. -->
 
-- [ ] The nine steps run end to end unattended, log to a registered `.workaholic/` area,
+- [x] The nine steps run end to end unattended, log to a registered `.workaholic/` area,
   and file findings through the existing seams. (#20260817113750-add-the-housekeep-command-and-skill.md)
 - [ ] The template ships with a declared scope and cron, is converged by that scope's setup
   command, and posts only shapes its prompt names. (#20260817113755-ship-the-housekeep-routine-template.md)
@@ -53,3 +53,4 @@ most five a tick, never late at night — instead of a silent guess.
 
 - 2026-08-17 — Proposed from issue #471.
 - 2026-08-17 — ticket archived — 20260817113749-register-the-housekeep-log-area.md
+- 2026-08-17 — ticket archived — 20260817113750-add-the-housekeep-command-and-skill.md

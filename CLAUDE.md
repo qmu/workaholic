@@ -19,15 +19,15 @@ plugins/
     .claude-plugin/      # Plugin configuration
     .codex-plugin/       # Hand-maintained Codex-facing manifest
     skills/              # Workflow skills (branching, catch, check-deps, commit, create-ticket,
-                         # discover, drive, explain, feedback, gather, mission, notify, okf,
+                         # discover, drive, explain, feedback, gather, housekeep, mission, notify, okf,
                          # propose, release-scan, report, review-sections, ship, strategy,
                          # system-safety, validate-writer-output, workaholify,
                          # write-release-note) + policy
                          # skills (planning, design, implementation, operation, safety,
                          # development; English hard copies under each skill's policies/)
     commands/            # Claude-only thin aliases (ticket, drive, implement, commit, propose,
-                         # fb, report, ship, release-status, mission, mission-close, catch,
-                         # explain, workaholify, setup-dev-routines, setup-repo-routines)
+                         # fb, report, ship, release-status, housekeep, mission, mission-close,
+                         # catch, explain, workaholify, setup-dev-routines, setup-repo-routines)
     hooks/               # Validation + guard hooks (see "Hooks" below) and generated policy-index.md
     rules/               # diagrams, general, interaction, shell, typescript, workaholic
 scripts/
@@ -145,6 +145,7 @@ The repository is the coordination medium; the model is stated once in `skills/d
 | `/mission-close <slug> [achieved\|abandoned\|carried]` | End a mission into `missions/archive/` (archive move only; worktrees are claim-born/ship-torn). States the Mission Position Report, asks the outcome only when the argument omits it, runs `close.sh` — the only sanctioned writer of an end state. |
 | `/setup-dev-routines [repo]` | **Configures the `developer`-scoped routines** (`[Propose]`, `[Implement]` — the ones every developer needs their own copy of) — one job with one named failure mode, never two branches. Attempts it every time through a `RemoteTrigger`-family tool: list the account's routines, diff each against its template (name/prompt/model/`cron_expression`/`autofix_on_pr_create`/connectors), apply create/update to converge, report per-routine changes; no questions, and never framed as luck. **No transport reachable** (the routine-fired class; measured — the session-only `CronCreate` family cannot touch an account routine): report `no_transport: RemoteTrigger-family tool`, then render the copy-paste setup sheets for this scope (`render-setup-sheet.sh --all <repo-url> developer`) **as that refusal's recovery path**, with the preconditions (Slack channel probe — `checked: false` is never "does not exist"; web bootstrap) and what cannot be verified. Never touches a `repository`-scoped routine. The account-management surface (digest gate, drift/fleet reports) stays retired. |
 | `/setup-repo-routines [repo]` | **Configures the `repository`-scoped routines** (`[Release Status]`) — the ones the repository needs exactly **one** of. Same flow, same one refusal, scoped to `repository` templates. **Run it from one account** — a designated person or a project/service account — because N members converging the repository's single routine leaves N copies firing every hour; a routine is an account-level record no other account can list, so this is a **stated convention the plugin cannot enforce**, and the command says so and reports exactly what it converged by name instead of inventing an authorization the API could not carry. Never touches a `developer`-scoped routine. |
+| `/housekeep` | **The maintenance tick** (2026-08-17, issue #471): nine steps in one hourly, unattended run — open the tick log, sweep the inbound surfaces, read reachable workload logs, report conflict state, triage stale issues and GitHub↔`.workaholic/` drift, name what failed to auto-merge, report documentation drift, propose for an active strategy, and ask the humans up to five questions in Slack. It **files through the existing seams** (a finding is a feedback record, work is a ticket or a mission, a question is a Slack post) and writes nothing else anywhere but its own log: `.workaholic/housekeeping/<UTC-day>.md`, one line per step, append-only. **No `AskUserQuestion` at any step**, never merges a pull request, never pushes into a branch the claim protocol owns, never edits a live strategy. A degraded read is reported **by name**, never as a step that ran and found nothing; a step not reached inside `--deadline-seconds` is reported as unreached. `run.sh` invokes every step and every step contributes a report line — a missing, crashing or silent step is `degraded` with its reason rather than absent. |
 | `/release-status` | Report what is waiting to deploy on the base, per target, and what about it needs a human (`ship/scripts/report-deploy-status.sh` over `read-deploy-state.sh`). **A pure read** — no file, no commit, no branch, no PR, no merge, no deployment, no prompt. Posts one `📦 Release status` line only when something is waiting **and** the `deploy:<digest>` search finds no earlier post; both gates fail ⇒ it posts nothing. This is what `[Release Status]` runs. |
 
 ### Routines

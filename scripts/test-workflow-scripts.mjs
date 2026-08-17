@@ -38,6 +38,7 @@ const SCRIPTS = {
   migrateTodoOwners: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/migrate-todo-owners.sh"),
   owns: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/owns.sh"),
   listTodo: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/list-todo.sh"),
+  housekeepRun: join(REPO_ROOT, "plugins/workaholic/skills/housekeep/scripts/run.sh"),
   housekeepLogAppend: join(REPO_ROOT, "plugins/workaholic/skills/housekeep/scripts/log-append.sh"),
   housekeepLogRead: join(REPO_ROOT, "plugins/workaholic/skills/housekeep/scripts/log-read.sh"),
   ticketSummary: join(REPO_ROOT, "plugins/workaholic/skills/create-ticket/scripts/summary.sh"),
@@ -13596,6 +13597,8 @@ const tests = [
   ["e2e/loop-drill.sh: verify-propose reads artifacts, and pending is not fail", testLoopDrillVerifyPropose],
   ["e2e/loop-drill.sh: verify-implement reads the archive move, story, PR and claim", testLoopDrillVerifyImplement],
   ["housekeep: the tick log is registered, append-only and idempotent", testHousekeepLog],
+  ["housekeep: the tick runs every step, and every step reports", testHousekeepRun],
+  ["housekeep: the unattended contract is in the files, not in intent", testHousekeepUnattendedContract],
 ];
 
 // `await` matters even though almost every test is synchronous: without it an async
@@ -15993,4 +15996,105 @@ function testHousekeepLog() {
   } finally {
     cleanup(repo);
   }
+}
+
+// ---------- housekeep: the tick runs every step, and every step reports ----------
+// (2026-08-17, issue #471) The property under test is COVERAGE, not correctness of any
+// one step: an hourly unattended run is trustworthy only if a step that is missing,
+// crashes, prints nothing, or never got its turn is as visible in the report as one that
+// worked. Each of those is a separate row here because each is a separate way for a tick
+// to quietly under-report itself.
+function testHousekeepRun() {
+  const repo = makeRepo();
+  const RUN = `${POSIX_SH} ${SCRIPTS.housekeepRun}`;
+  const STEPS = ["open-log", "inbound-sweep", "workload-logs", "merge-conflicts",
+    "issue-triage", "stuck-prs", "doc-drift", "strategy-proposals", "human-checkin"];
+  try {
+    // A tick only makes sense in a repository the loop already writes to; step 1 is the
+    // probe that says so, and it never creates the tree behind the layout gate's back.
+    mkdirSync(join(repo, ".workaholic"), { recursive: true });
+    const j = JSON.parse(run(repo, `${RUN} --tick 20260817-090000`).stdout);
+    assertEq("every step of the ask is run and reported", j.steps.map((s) => s.step), STEPS);
+    assertEq("the tick writes its log", j.log, "./.workaholic/housekeeping/2026-08-17.md");
+    const log = readFileSync(join(repo, ".workaholic/housekeeping/2026-08-17.md"), "utf8");
+    assertEq("one log section for the tick", (log.match(/^## /gm) || []).length, 1);
+    assertEq("and one line per step", (log.match(/^- `/gm) || []).length, STEPS.length);
+    assertEq("step 1 is real", j.steps[0].status, "ok");
+
+    // A stub reports `not_implemented` — NOT "ran and found nothing". This is the
+    // distinction the whole skill is built on, so it is pinned rather than assumed.
+    const stub = j.steps.find((s) => s.step === "doc-drift");
+    assertEq("an unbuilt step is skipped", stub.status, "skipped");
+    assertEq("and says it is not implemented", stub.reason, "not_implemented");
+
+    // Re-running the same tick id re-reports every step and does not double the log.
+    const again = JSON.parse(run(repo, `${RUN} --tick 20260817-090000`).stdout);
+    assertEq("a re-entered tick still reports every step", again.steps.length, STEPS.length);
+    const log2 = readFileSync(join(repo, ".workaholic/housekeeping/2026-08-17.md"), "utf8");
+    assertEq("without doubling its log", log2, log);
+
+    // The three ways a step can go silent are three named degradations.
+    const broken = join(repo, "plugins-broken");
+    cpSync(join(REPO_ROOT, "plugins/workaholic/skills/housekeep"), join(broken, "housekeep"), { recursive: true });
+    cpSync(join(REPO_ROOT, "plugins/workaholic/hooks"), join(broken, "hooks"), { recursive: true });
+    const BROKEN_RUN = `${POSIX_SH} ${join(broken, "housekeep/scripts/run.sh")}`;
+    rmSync(join(broken, "housekeep/scripts/steps/doc-drift.sh"), { force: true });
+    writeFileSync(join(broken, "housekeep/scripts/steps/stuck-prs.sh"), "#!/bin/sh\nexit 3\n");
+    writeFileSync(join(broken, "housekeep/scripts/steps/issue-triage.sh"), "#!/bin/sh\nexit 0\n");
+    const b = JSON.parse(run(repo, `${BROKEN_RUN} --tick 20260817-100000`).stdout);
+    const byStep = Object.fromEntries(b.steps.map((s) => [s.step, s]));
+    assertEq("a missing step script is still a reported row", byStep["doc-drift"].reason, "step_missing");
+    assertEq("a crashing step is reported, not dropped", byStep["stuck-prs"].reason, "step_error");
+    assertEq("a silent step is reported too", byStep["issue-triage"].reason, "no_output");
+    assertEq("each of them degrades rather than passing",
+      [byStep["doc-drift"].status, byStep["stuck-prs"].status, byStep["issue-triage"].status],
+      ["degraded", "degraded", "degraded"]);
+    assertEq("and the run still covers every step", b.steps.length, STEPS.length);
+
+    // A step that never got its turn is named as unreached, with its cause.
+    const d = JSON.parse(run(repo, `${RUN} --tick 20260817-110000 --deadline-seconds 0 --skip inbound-sweep`).stdout);
+    const skipped = d.steps.find((s) => s.step === "inbound-sweep");
+    assertEq("a caller-skipped step is still a reported line", skipped.status, "skipped");
+    assertEq("with the caller named as the cause", skipped.reason, "requested");
+  } finally {
+    cleanup(repo);
+  }
+}
+
+// ---------- housekeep: the unattended contract is in the files, not in intent ----------
+function testHousekeepUnattendedContract() {
+  const skill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/housekeep/SKILL.md"), "utf8");
+  const command = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/housekeep.md"), "utf8");
+  const ref = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/housekeep/reference/workflow.md"), "utf8");
+
+  // The skill bears scripts, so it is internal to the skills CLI; Claude Code ignores it.
+  assertTrue("the skill is marked internal", /metadata:\s*\n\s*internal:\s*true/.test(skill), skill.slice(0, 400));
+  assertTrue("and is reached through a command, not invoked directly", /user-invocable:\s*false/.test(skill));
+
+  // No AskUserQuestion in anything the tick EXECUTES — step 9 asks in Slack instead. The
+  // prose is allowed to name it, and has to: what the skill and command say is that they
+  // never use one, which is the sentence the next reader needs.
+  const inScripts = run(REPO_ROOT,
+    `grep -rl AskUserQuestion plugins/workaholic/skills/housekeep/scripts || true`).stdout.trim();
+  assertEq("no AskUserQuestion in any housekeep script", inScripts, "");
+  assertTrue("the skill states the unattended contract", /no `AskUserQuestion` at any step/.test(skill));
+  assertTrue("and so does the command", /no `AskUserQuestion` at any step/.test(command));
+
+  // Every script reference is plugin-root-anchored: a relative path does not resolve at
+  // runtime, which is the failure mode that silently disables a step.
+  for (const [name, text] of [["SKILL.md", skill], ["housekeep.md", command]]) {
+    const bad = [...text.matchAll(/bash\s+(\S*\/\S+)/g)].map((m) => m[1]).filter((x) => !x.startsWith("${CLAUDE_PLUGIN_ROOT}"));
+    assertEq(`${name} anchors every script reference at the plugin root`, bad, []);
+  }
+
+  // GitHub reads go through the one sanctioned transport (the suite's global gh check
+  // covers the verbs; this pins the skill's own statement of it).
+  assertTrue("the skill names gh-rest.sh as the only GitHub transport", /gh-rest\.sh/.test(skill));
+
+  // The reference states a contract per step, so a later ticket fills one in rather than
+  // inventing one: every step id in run.sh must have a section.
+  const runSh = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/housekeep/scripts/run.sh"), "utf8");
+  const list = /^STEPS='([^']+)'/m.exec(runSh)[1].split(/\s+/);
+  const missing = list.filter((s) => !new RegExp("`" + s + "`").test(ref));
+  assertEq("every step run.sh drives has a stated contract", missing, []);
 }

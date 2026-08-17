@@ -65,6 +65,7 @@ The `plugins/workaholic` source stays Claude-Code-only (`metadata.internal: true
 | `/catch`   | Read-only catch-up report over a recent window (commits, tickets, stories, each active mission's derived progress and unmerged in-flight work) plus an orchestration-throughput block, then follow-up Q&A |
 | `/explain` | Answer a question about the repository and export a printer-ready PDF report, rendered from HTML by a real browser |
 | `/workaholify` | Prepare the current repo for the standards: **apply** the `CLAUDE.md` gateway reference and the web-bootstrap hook (one confirmation each), converge the `.workaholic/` layout, and confirm the working-directory hook is active |
+| `/housekeep` | **The maintenance tick.** `/propose` turns asks into work and `/implement` drives it; nothing keeps the space *around* them tidy. One hourly, unattended run walks nine steps — open the tick log, sweep the inbound surfaces, read the workload logs it has credentials for, report merge-conflict state, triage stale issues and drift between GitHub and `.workaholic/`, name the pull requests that failed to auto-merge and what each needs from a human, report documentation drift starting at `README.md`, propose expansion and consolidation work for an active strategy, and ask the humans up to five questions in Slack, never late at night. It **files through the seams that already exist** — a finding becomes a feedback record, work becomes a ticket or a mission, a question becomes a Slack post — and the only thing it writes on its own is its log, `.workaholic/housekeeping/<UTC-day>.md`, one line per step, append-only and never pruned by a machine. It **never prompts**, never merges a pull request, never pushes into a branch the claim protocol owns, and never edits a live strategy. Every step reports: a missing connector, an unreadable inbox or a 403 is named as itself rather than rendered as a step that ran and found nothing, and a step that ran out of the tick's time budget says so |
 | `/release-status` | Report what is **waiting to deploy** on the base right now, per deployment target, and what about it needs a human — commits waiting since the last release boundary, a target that declares no confirmation method, a target no release note has ever joined. **A pure read**: it writes no file, commits nothing, opens no pull request, merges nothing and deploys nothing. It posts one Slack line only when something is waiting *and* that exact answer has not been posted before; both gates fail and it says nothing at all. This is what the repository-scoped `[Release Status]` routine runs hourly |
 | `/setup-dev-routines` | **Configure** the routines every developer needs their own copy of (`[Propose]`, `[Implement]`): every run lists the account's routines through a `RemoteTrigger`-family tool, diffs each against its template (name, prompt, model, `cron_expression`, `autofix_on_pr_create`, connectors), applies the create/update needed to converge, and reports the per-routine changes. No questions. When no such transport is reachable it says so — `no_transport` — and falls back to rendering the **copy-paste setup sheets** (name, scope, model, repository, the prompt verbatim, the web-UI steps) as that refusal's recovery path, together with the preconditions (the `dev-<repo>` Slack channel, the web bootstrap) and a plain statement of what could not be verified from the session |
 | `/setup-repo-routines` | **Configure** the routines the repository needs exactly **one** of (`[Release Status]`) — same flow, same one refusal, scoped to `repository` templates. **Run it from one account**, a designated person or a project/service account: a routine is an account-level record no other account can list, so N members each converging the repository's single routine would leave N copies firing every hour and nothing in the product could detect it. That makes the single-owner rule a **stated convention rather than an enforced one**, which the command says plainly instead of inventing an authorization the API cannot carry — it reports exactly which routines it converged, by name, so a second person sees their own duplicate |
@@ -313,6 +314,7 @@ flowchart LR
   workaholify(["/workaholify"])
   setuproutines(["/setup-dev-routines · /setup-repo-routines"])
   releasestatus(["/release-status"])
+  housekeep(["/housekeep"])
 
   %% ---------- artifacts under .workaholic/ (grey) ----------
   TODO["tickets/todo/"]
@@ -324,6 +326,7 @@ flowchart LR
   FBK["feedbacks/"]
   REL["release-notes/&lt;branch&gt;.md"]
   DEP["deployments/"]
+  HK["housekeeping/&lt;day&gt;.md"]
 
   %% ---------- artifacts that land outside .workaholic/ (grey, dashed border) ----------
   EXT["issue in ANOTHER repo"]
@@ -350,6 +353,9 @@ flowchart LR
   ship --> REL
   ship --> FBK
   ship --> DEP
+  housekeep --> HK
+  housekeep --> FBK
+  housekeep --> TODO
   commit --> WT
   explain --> PDF
   workaholify --> CFG
@@ -370,6 +376,8 @@ flowchart LR
   catch -.-> DEP
   explain -.-> ARCH
   setuproutines -.-> ROUT
+  housekeep -.-> MIS
+  housekeep -.-> HK
   releasestatus -.-> DEP
   releasestatus -.-> REL
 
@@ -385,8 +393,8 @@ flowchart LR
   classDef cmd fill:#dbeafe,stroke:#1e40af,stroke-width:1.5px,color:#1e3a8a;
   classDef art fill:#f3f4f6,stroke:#6b7280,color:#111827;
   classDef ext fill:#f3f4f6,stroke:#9aa0aa,stroke-dasharray:4 3,color:#374151;
-  class ticket,mission,missionclose,propose,feedback,drive,report,ship,releasestatus,catch,commit,explain,workaholify,setuproutines cmd;
-  class TODO,ICE,ARCH,ABD,MIS,STORY,FBK,REL,DEP art;
+  class ticket,mission,missionclose,propose,feedback,drive,report,ship,releasestatus,housekeep,catch,commit,explain,workaholify,setuproutines cmd;
+  class TODO,ICE,ARCH,ABD,MIS,STORY,FBK,REL,DEP,HK art;
   class EXT,PDF,WT,CFG,ROUT ext;
 ```
 

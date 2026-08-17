@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 0.5
 feedback: [20260817133031-unify-fb-to-always-register-a-github-issue-regardless-of-destination.md]
 tickets: []
 stories: []
@@ -53,3 +53,4 @@ captured rather than lost, and the command says which path it took.
 - 2026-08-17 — ticket archived — 20260817133224-route-a-destination-less-fb-to-an-in-repo-issue.md
 - 2026-08-17 — ticket archived — 20260817133224-keep-the-record-as-fb-s-fallback-when-the-issue-fails.md
 - 2026-08-17 — story — work-20260817-173706.md
+- 2026-08-17 — run recorded (+0.5h) — implement-20260817-173706

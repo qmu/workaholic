@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-17T11:52:32+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on: 20260817115231-resolve-strategy-to-activity-attribution.md

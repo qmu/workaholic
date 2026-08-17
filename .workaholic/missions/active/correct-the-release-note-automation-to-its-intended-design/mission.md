@@ -42,7 +42,7 @@ the fragmented notification is gone.
 
 - [x] Every target has a derived environment mapping and a draft note computed from what is
   merged on the base. (#20260817114537-derive-the-deploy-target-environment-mapping.md)
-- [ ] A note carries its confirmation procedure and the AI's completion record, and both
+- [x] A note carries its confirmation procedure and the AI's completion record, and both
   copies are identical. (#20260817114540-sync-the-github-and-workaholic-note-copies.md)
 - [ ] Daily generation replaces the fragmented notification, with each §7 refusal answered
   in writing. (#20260817114541-implement-the-daily-note-generation-cadence.md)
@@ -56,3 +56,4 @@ the fragmented notification is gone.
 - 2026-08-17 — ticket archived — 20260817114537-derive-the-deploy-target-environment-mapping.md
 - 2026-08-17 — ticket archived — 20260817114538-draft-per-target-release-notes-from-the-base.md
 - 2026-08-17 — ticket archived — 20260817114539-structure-the-note-as-the-release-record.md
+- 2026-08-17 — ticket archived — 20260817114540-sync-the-github-and-workaholic-note-copies.md

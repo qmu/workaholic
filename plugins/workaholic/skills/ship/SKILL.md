@@ -135,6 +135,42 @@ Per target: `unreleased_count` and the `since` boundary with its `since_reason`,
 
 **The `digest` is what makes an idle tick silent.** It hashes the substantive per-target state and deliberately **not** the base sha, so a base that merely advanced is not news. The consumer posts it as the `deploy:<digest>` token and finds its own previous post by it (`workaholic:notify`, *One thread per feedback item* — the same stateless lookup, no stored state anywhere): token found ⇒ post nothing.
 
+### The two copies, and which one is authoritative (2026-08-17)
+
+A target's note lives in two places — a **GitHub draft release** and, once released,
+`.workaholic/release-notes/` — and the ask is that the two be **always identical**. They are,
+because **neither store is the source of truth: the derivation is.** `draft-release-note.sh`
+rendering the base state is the authority, and both stores are projections of it. One renderer,
+one input, so wherever both copies exist they are byte-identical by construction rather than by
+copying.
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/sync-release-note.sh [--target <slug>] [--dry-run] [base]
+```
+
+- **The writer is a projection, never a merge.** It overwrites the draft release's body with the
+  derived content. Merging would create text neither the base nor a human authored, so a human's
+  edit on the GitHub side is a **divergence** — reported per target and per section (`missing
+  from the … copy`, `present only in the … copy — an edit made outside the renderer`, `content
+  differs from the derived note`) **before anything is written**, never silently repaired and
+  never silently kept.
+- **It writes nothing into git.** No file, no commit, no branch. Its only write is to a GitHub
+  **draft** release through `gh release` — REST-backed and explicitly sanctioned (`rules/shell.md`);
+  `gh pr`/`gh issue`/`gh repo` stay refused. The `.workaholic` copy is written at release time by
+  `commit-release-note.sh` from the same renderer, so it is identical the moment it exists.
+- **A published release is never overwritten from a draft**, checked before any write and reported
+  as `published_release`. `.github/workflows/release.yml` publishes `v<version>` on a version bump,
+  so the GitHub side has a second writer this sync must not fight: the draft's tag is
+  `draft/<slug>`, which cannot collide with a `v*` tag, and a release found not to be a draft is
+  left alone whatever its tag.
+- **It is idempotent**: equal bodies make no API call and report `changed: false`.
+
+Why not the alternatives: `.workaholic` authoritative is refused on the measured number —
+`paths:` is declared on 0 of 1 targets here, so a note commit is 100 % self-counted and a daily
+writer is +365 commits/year on `main`, each invalidating the next, which is the treadmill the
+table below refuses. "Both authoritative for different sections" makes *which side is wrong*
+unanswerable, which is the very confusion the ask exists to remove.
+
 ### Why this is a reader (the Open Decision on ticket `20260814064854-add-the-hourly-release-note-repo-routine`, resolved 2026-08-14)
 
 The ask was "run `/ship` once per hour to update the release notes". A `## Deployment Plan` is a **branch's prospective** section, drafted inside that unit's own pull request at §5 step 3. Every unit-less **writer** for it was measured and refused:

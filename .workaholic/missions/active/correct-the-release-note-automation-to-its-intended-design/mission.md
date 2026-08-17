@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 1.1
 feedback: [20260817114457-release-note-automation-deviates-from-its-intended-per-target-design.md]
 tickets: []
 stories: []
@@ -59,3 +59,4 @@ the fragmented notification is gone.
 - 2026-08-17 — ticket archived — 20260817114540-sync-the-github-and-workaholic-note-copies.md
 - 2026-08-17 — ticket archived — 20260817114541-implement-the-daily-note-generation-cadence.md
 - 2026-08-17 — ticket archived — 20260817114542-replace-the-fragmented-status-notification.md
+- 2026-08-17 — run recorded (+1.1h) — run-20260817-163715

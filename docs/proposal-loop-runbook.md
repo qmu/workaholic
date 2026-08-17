@@ -188,6 +188,7 @@ history.
 | `{"ok": false, "reason": "branch_collision"}` | two publications in the same second; the remote branch name is minted per second | the commit is already made in the publish tree — push it to a fresh `work-*` branch and open the PR by hand; a re-call reports `nothing_to_commit` rather than retrying |
 | `{"ok": false, "reason": "pr_failed"}` | the push landed, `gh` could not open the PR | open the pull request by hand on the reported branch — never re-publish, which duplicates the artifact |
 | the same ask proposed twice | the first proposal's `feedback:` refs were removed, so the dedup set has nothing to key on | restore the refs; the set is the only dedup mechanism at this seam |
+| a `/fb` ask never reaches a tick | `/fb` could not open its issue and took the fallback, writing a record instead — **discovery reads open issues, not files**, so a fallback record is captured but never proposed | the `/fb` report names the fallback and its reason; file the issue (or re-run `/fb`) once the transport is back. There is deliberately no sweep over local records — that is the retired `[Propose Batch]` design |
 
 ## 7. History: the batch seat and the merged-main window (retired 2026-08-04)
 

@@ -106,6 +106,7 @@ const SCRIPTS = {
   scanOutboundBody: join(REPO_ROOT, "plugins/workaholic/skills/feedback/scripts/scan-outbound-body.sh"),
   openIssue: join(REPO_ROOT, "plugins/workaholic/skills/feedback/scripts/open-issue.sh"),
   fbTitle: join(REPO_ROOT, "plugins/workaholic/skills/feedback/scripts/fb-title.sh"),
+  fbFallback: join(REPO_ROOT, "plugins/workaholic/skills/feedback/scripts/fb-fallback.sh"),
   guardAskLabel: join(REPO_ROOT, "plugins/workaholic/hooks/guard-askuserquestion-label.sh"),
   guardWorkingDir: join(REPO_ROOT, "plugins/workaholic/hooks/guard-working-directory.sh"),
   auditClaudeMd: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/audit-claude-md.sh"),
@@ -13557,6 +13558,7 @@ const tests = [
   ["hooks/guard-askuserquestion-label.sh", testGuardAskUserQuestionLabel],
   ["drive/unit-authors.sh: the authorship disclosure", testUnitAuthorsDisclosure],
   ["/fb files an issue, whatever the destination", testFbFilesAnIssue],
+  ["/fb's one degradation: the fallback decision", testFbFallbackDecision],
   ["workaholify/audit-claude-md.sh", testAuditClaudeMd],
   ["hooks/guard-working-directory.sh", testGuardWorkingDirectory],
   ["build: a plugin-root PATH is a defect, a bare read is not", testPluginRootPathVsRead],
@@ -14289,6 +14291,76 @@ function testFbFilesAnIssue() {
   for (const doc of ["README.md", ".workaholic/README.md"]) {
     assertTrue(`${doc} no longer lists /fb as a feedbacks/ writer`,
       !/written by `\/fb`|`\/fb` \(conclusions\/instructions\)/.test(read(doc)), doc);
+  }
+}
+
+// ---------- /fb's one degradation (2026-08-17) ----------
+// Making the primary path a network call made `/fb` losable in ways the old file write
+// never was. The fallback is deliberately narrow, and every edge of that narrowness is a
+// way to lose or duplicate an ask: firing on the happy path re-introduces the
+// `already_captured` self-suppression, not firing on an unparseable envelope drops the
+// ask silently, and firing on the crossing routes around another repository's own
+// decision about its boundary. Driven off stubbed envelopes — no `gh`, no network.
+function testFbFallbackDecision() {
+  const decide = (dest, envelope) => JSON.parse(execSync(
+    `printf '%s' ${JSON.stringify(envelope)} | ${POSIX_SH} ${SCRIPTS.fbFallback} ${dest}`,
+    { encoding: "utf8", shell: "/bin/sh" }));
+
+  // THE HAPPY PATH NEVER WRITES A RECORD. A `/fb` that opened the issue AND wrote the
+  // record would make `[Propose]`'s discovery skip its own issue as `already_captured`,
+  // and the ask would sit unproposed forever — the defect the in-repo path exists to avoid.
+  assertEq("a filed issue does not fall back",
+    decide("in-repo", '{"ok": true, "url": "https://example.test/issues/1"}').fallback, false);
+
+  // THE FAILURE PATH CAPTURES, AND CARRIES THE REASON so the record can say the issue was
+  // attempted rather than skipped.
+  for (const [label, envelope, expected] of [
+    ["a refusal from the API", '{"ok": false, "error": "issues are disabled for this repository"}', "issues are disabled"],
+    ["an absent transport", '{"ok": false, "reason": "gh_unavailable"}', "gh_unavailable"],
+  ]) {
+    const r = decide("in-repo", envelope);
+    assertEq(`${label} falls back`, r.fallback, true);
+    assertTrue(`and carries the reason: ${label}`, r.reason.includes(expected), r.reason);
+  }
+
+  // AN UNPARSEABLE ENVELOPE IS A FAILURE, NOT A FILING. `open-issue.sh` emits JSON on
+  // every outcome, so anything else means the call did not complete the way either side
+  // expects; reading it as success is exactly how an ask disappears with nothing said.
+  const garbled = decide("in-repo", "gh: command not found");
+  assertEq("an unparseable envelope falls back rather than reading as filed", garbled.fallback, true);
+  assertTrue("saying the outcome could not be parsed", /no parseable outcome/.test(garbled.reason), garbled.reason);
+  assertEq("and an empty one does not read as filed either",
+    decide("in-repo", "").fallback, false);
+
+  // THE CROSSING NEVER FALLS BACK, at any envelope. A refusal from a different repository
+  // is that target's own decision about its boundary; writing a local record about it
+  // would be a different act from the one the caller asked for.
+  for (const envelope of ['{"ok": false, "error": "issues are disabled"}',
+                          '{"ok": false, "reason": "gh_unavailable"}',
+                          "not json at all"]) {
+    const r = decide("crossing", envelope);
+    assertEq(`the crossing does not fall back on: ${envelope.slice(0, 24)}`, r.fallback, false);
+    assertTrue("and says the refusal is reported verbatim",
+      /reported verbatim, never worked around/.test(r.reason), r.reason);
+  }
+
+  assertEq("an unknown destination is refused rather than guessed",
+    decide("elsewhere", '{"ok": false}').fallback, false);
+
+  // THE COST IS WRITTEN DOWN, in the skill and in the runbook — a fallback record is
+  // captured but never proposed, because discovery reads issues rather than files. Left
+  // unstated, a fallback reads as a full recovery and the ask goes quiet.
+  const skill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/feedback/SKILL.md"), "utf8");
+  const runbook = readFileSync(join(REPO_ROOT, "docs/proposal-loop-runbook.md"), "utf8");
+  assertTrue("the skill states a fallback record is not discovered by [Propose]",
+    /not discovered by `\[Propose\]`/.test(skill), "the consequence is not stated in the skill");
+  assertTrue("the runbook carries it as a failure mode",
+    /discovery reads open issues, not files/.test(runbook), "the consequence is not stated in the runbook");
+  // AND NO SWEEP WAS ADDED to paper over it: re-reading local records for something to
+  // propose is the retired [Propose Batch] design.
+  for (const [label, text] of [["skill", skill], ["runbook", runbook]]) {
+    assertTrue(`the ${label} forbids a sweep over local records`,
+      /\[Propose Batch\]/.test(text), `${label} does not name the retired design`);
   }
 }
 

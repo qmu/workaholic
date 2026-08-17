@@ -91,6 +91,23 @@ One sentence, max 25 words, what a human must do (cut a release, declare a confi
 
 **No mention token of any kind** — no `<@U…>` for a person and none for the Claude app. The line names a repository state, not a person's work, and there is nobody whose turn it is; a mention would page whoever was named every hour for a condition that is nobody's in particular.
 
+### `/standup` — the daily per-strategy digest
+
+```
+📣 Standup - <N> strategy/strategies, <M> moved since yesterday
+<Strategy title> (<days> to <target_date>): one line, what moved and what waits.
+<Strategy title>: no activity.
+<K> item(s) not attributable to any strategy.
+`standup:<YYYY-MM-DD>`
+<session URL>
+```
+
+**A top-level keyed root, never a reply**, and **no mention token of any kind** — the same two reasons `📦 Release status` carries none: no feedback item said anything, and the line names the repository's state rather than a person's work.
+
+**One strategy line each, in the digest's own order, capped.** A quiet strategy gets the explicit `no activity` line rather than being dropped — a strategy missing from the digest reads as a strategy nobody is working on, which is a different claim. `strategies_omitted` above the cap is stated as a trailing count, never silently cut. The final `not attributable` line is a **count** and rides only when it is non-zero; enumerating it would make this a repository changelog, which is `/catch`'s job.
+
+**Keyed on the date, not on the content.** A daily digest speaks for today even when today resembles yesterday; what the key prevents is two posts for one morning. Search the token exactly once (private-inclusive, `include_bots: true`): found ⇒ post nothing. `noop: true` from the digest posts nothing either, whatever the date says.
+
 ### Precondition-stop — calm first, escalate on persistence
 
 A **first** report of a signature in the precondition-stop class (SKILL, *Post shapes, mentions, and the red-alert dedup* — `no_plugin_source`; `unbound_in_claude_session` and `loaded_version_behind_registry` left the class on 2026-08-12 by ceasing to be stops) posts calm rather than alarming, since the run stopped before it ever reached a unit:

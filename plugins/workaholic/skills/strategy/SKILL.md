@@ -62,6 +62,43 @@ because the extra relation gave ownership a second resolution path (the "ownersh
 mission; a strategy's owner is on the strategy. An operator who wants to see them together reads
 both.
 
+## Which work belongs to a strategy — through the feedback stream, adding no field
+
+A reader that needs "what moved on this strategy" — `/standup`'s per-strategy digest is the first —
+asks **one script** and nothing else parses the question:
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/strategy/scripts/attributed-work.sh <slug> [window] [.workaholic-root]
+```
+
+**The rule, written down before any summary is computed** (the Open Decision on ticket
+`20260817115231-resolve-strategy-to-activity-attribution`, resolved 2026-08-17): attribution runs
+along the citation that already exists, and **no new field is added anywhere**.
+
+| Hop | Rule | `attribution` |
+| --- | ---- | ------------- |
+| 1 | The artifact's `feedback:` refs intersect the strategy's | `direct` |
+| 2 | A **mission** attributed by hop 1 is named by the artifact's `mission:` relation | `via_mission:<slug>` |
+
+Hop 2 is load-bearing, not a nicety: `/propose` puts the `feedback:` refs on the **mission** and its
+ticket set carries `mission:` instead, so a one-hop reader would see almost nothing. Both hops read
+their relation through that relation's existing single reader
+(`propose/scripts/read-feedback-relation.sh`, `mission/scripts/read-relation.sh`), so this script
+parses neither field itself.
+
+**The direction is unchanged and stays one-way.** A strategy cites feedback; nothing cites a
+strategy. That is what makes this option the one that answers the 2026-07-28 removal instead of
+reopening it — it adds no relation, so it cannot rebuild the ownership hop, and it needs no write
+floor, no hook and no migration. The three rejected alternatives and why are in the script's own
+header, beside the rule they lost to.
+
+**It is lossy, and it says so.** Work that answers a strategy without citing the same record is
+invisible to hop 1 and hop 2 alike. Every artifact therefore carries the `attribution` that caught
+it, and a consumer states what it could not attribute rather than implying the digest is exhaustive.
+A quiet strategy is a real answer, not an error: `empty_reason` is `no_feedback_refs` (it cites
+nothing), `no_citing_artifacts` (nothing cites it back) or `no_activity_in_window` (attributable work
+exists, none of it moved) — never an empty result with no reason, and never a guess.
+
 ## Scripts
 
 ```bash
@@ -77,6 +114,9 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/strategy/scripts/read.sh <slug>
 
 # Close — the ONLY writer of an end state.
 bash ${CLAUDE_PLUGIN_ROOT}/skills/strategy/scripts/close.sh <slug> achieved|abandoned
+
+# Attributed work — the ONE reader of "which work belongs to strategy X in window W".
+bash ${CLAUDE_PLUGIN_ROOT}/skills/strategy/scripts/attributed-work.sh <slug> [window] [workaholic-root]
 ```
 
 Every script is POSIX `#!/bin/sh -eu`, takes an optional trailing `.workaholic` root so it can be

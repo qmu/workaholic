@@ -107,3 +107,73 @@ scope, read-only, `allowed_tools` with no `Write`/`Edit`.
 - A routine cannot subscribe to a repository event — the API's trigger surface is
   `cron_expression` / `run_once_at` / API token only — so the digest is necessarily a
   scheduled read, not a reaction to the day's activity.
+
+## Final Report
+
+Development completed as planned.
+
+**The timezone Open Decision is resolved: 09:00 Asia/Tokyo, written `5 0 * * *`, landing at
+09:05 JST.** Two facts decided it and both are recorded in the template's own prose so the
+deviation cannot later be read as a mistake and "tidied" into a bug:
+
+1. **The routines API stores a bare cron with no timezone field**, so the expression is UTC
+   whatever a reader assumes. `9 * * *` would post at 18:00 in Tokyo — the end of the working day,
+   and a standup posted after the work is done is the wrong artifact. The Slack workspace is
+   `Asia/Tokyo`, so the digest is timed for that morning: 09:00 JST = 00:00 UTC.
+2. **The minute cannot be `0`** — a bare `:00` is rewritten to server-chosen jitter, the measured
+   reason every existing routine carries an explicit non-zero minute (`15`, `30`, `45`). So 00:05
+   UTC, and five minutes is the price of a deterministic schedule.
+
+A team in another timezone changes this one field; the digest is written to be *readable* rather
+than *timed*, which is what makes that safe. Both halves are pinned by
+`node scripts/test-workflow-scripts.mjs` (the hour, the non-zero minute across every template, and
+the template's own statement of whose 09:00 it is), because each is exactly the kind of value a
+later cleanup rounds off.
+
+**The scope is repository, and the second one in it.** `list-routine-templates.sh repository` now
+returns `release-status` and `standup`; the developer-scoped command never sees either. The
+ticket's Considerations asked that the new burden be *said* rather than discovered — so
+`render-setup-sheet.sh`'s repository header now states the **count** ("There are **2** routines in
+this scope"), computed from the templates rather than written into prose that could drift. The
+per-developer burden is unchanged at two, which is the argument the scope was introduced with.
+
+**An idle morning posts nothing**, which is what makes a recurring post admissible under
+`workaholic:notify`'s bright line: the digest's own `noop` gate (no active strategy, or nothing
+moved with no date approaching) and the `standup:<YYYY-MM-DD>` search. The post carries **no
+mention token of any kind**, `autofix_on_pr_create: false`, and an `allowed_tools` list with no
+`Write`/`Edit`.
+
+**One deliberate difference from `📦 Release status`, stated where it will be questioned**: the key
+is the **morning**, not a content hash. A release status must not repeat an unchanged answer; a
+*daily* digest is expected to speak for today even when today resembles yesterday, so what the key
+prevents is two posts for one morning — precisely the failure the repository scope cannot prevent
+on its own, since nothing can detect N copies of a repository routine.
+
+Verified: `render-setup-sheet.sh standup <repo-url> repository` renders the full sheet;
+`build.mjs` + `verify.mjs` + `validate-metadata.mjs` clean; the shape is byte-identical between
+the prompt and `notify/reference/notifications.md` (pinned); and
+`sh scripts/e2e/loop-drill.sh verify-standup --json` returns `pass` on four load-bearing rows.
+
+### Discovered Insights
+
+- **Insight**: a repository-scoped routine set only stays cheap while every member of it is a
+  *reader*.
+  **Context**: the scope was introduced to stop N copies of one routine; it says nothing about
+  what a routine may do. Two readers cost the designated account two UI forms and add no
+  unattended-write class to `main`. The moment a repository-scoped template wants to write, the
+  2026-08-13 objection (an hourly agent rewriting a document on a tree whose conflicts are
+  resolved append-only) applies to it in full — which is a design question for the developer, not
+  a template edit.
+
+- **Insight**: the drill's JSON matching is transport-sensitive in a way that silently fails a
+  new stage.
+  **Context**: the older scripts print JSON with `printf` and a space after each colon; anything
+  emitting `jq -c` output has none, so a `case "$out" in *'"ok": true'*)` pattern copied from a
+  neighbouring verb never matches and the stage reports a false failure on a passing script. New
+  drill rows should match colon-space-optionally.
+
+- **Insight**: stating a count in generated text beats stating it in prose, even for a "2".
+  **Context**: the sheet's header could have said "both routines" — and would have been wrong the
+  next time the scope grows, in a document nobody re-reads. Counting the templates makes the
+  sentence maintain itself, which is the same reason the scope lives on the template rather than
+  in two command bodies.

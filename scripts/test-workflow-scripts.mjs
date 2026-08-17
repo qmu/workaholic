@@ -13600,6 +13600,7 @@ const tests = [
   ["housekeep: the tick runs every step, and every step reports", testHousekeepRun],
   ["housekeep: the unattended contract is in the files, not in intent", testHousekeepUnattendedContract],
   ["housekeep steps 2-3: every surface is named, and nothing is executed", testHousekeepInboundSweep],
+  ["housekeep steps 4-7: report, never repair; remind once per state", testHousekeepHygieneSteps],
 ];
 
 // `await` matters even though almost every test is synchronous: without it an async
@@ -16024,7 +16025,7 @@ function testHousekeepRun() {
 
     // A stub reports `not_implemented` — NOT "ran and found nothing". This is the
     // distinction the whole skill is built on, so it is pinned rather than assumed.
-    const stub = j.steps.find((s) => s.step === "doc-drift");
+    const stub = j.steps.find((s) => s.step === "human-checkin");
     assertEq("an unbuilt step is skipped", stub.status, "skipped");
     assertEq("and says it is not implemented", stub.reason, "not_implemented");
 
@@ -16169,5 +16170,93 @@ function testHousekeepInboundSweep() {
       existsSync(join(repo, "EXECUTED")), false);
   } finally {
     cleanup(repo);
+  }
+}
+
+// ---------- housekeep steps 4-7: report, never repair; remind once per state ----------
+// (2026-08-17, issue #471) Three properties the ask's own wording puts at risk: step 4
+// must not push into a branch the claim protocol owns, step 6 must not repeat an
+// unchanged reminder every hour, and step 7 must not re-file a finding that is true
+// forever. A fake GitHub gives the first two real data to work on.
+function testHousekeepHygieneSteps() {
+  const repo = makeRepo();
+  const bin = mkdtempSync(join(tmpdir(), "wh-gh-"));
+  const HK = join(REPO_ROOT, "plugins/workaholic/skills/housekeep/scripts");
+  try {
+    mkdirSync(join(repo, ".workaholic/feedbacks"), { recursive: true });
+    // `gh-rest.sh` resolves the repository from the git remote, so the fixture needs one
+    // even though every call is served by the stub below.
+    execSync("git remote add origin https://github.com/qmu/workaholic.git", { cwd: repo });
+    // A fake `gh api` serving one conflicted and one review-blocked pull request. The
+    // per-pull endpoint is what carries mergeability, exactly as the real one does.
+    const pulls = { 12: { mergeable: false, mergeable_state: "dirty", draft: false, ref: "work-20260817-010101" },
+                    13: { mergeable: true, mergeable_state: "blocked", draft: false, ref: "work-20260817-020202" } };
+    writeFileSync(join(bin, "gh"), `#!/bin/sh
+path=""; jqexpr=""; seen=0
+while [ $# -gt 0 ]; do
+  case "$1" in
+    api) seen=1 ;;
+    --jq) jqexpr="$2"; shift ;;
+    -*) ;;
+    *) if [ "$seen" = 1 ] && [ -z "$path" ]; then path="$1"; fi ;;
+  esac
+  shift
+done
+emit() { if [ -n "$jqexpr" ]; then printf '%s' "$1" | jq -r "$jqexpr"; else printf '%s' "$1"; fi; }
+case "$path" in
+  repos/*/pulls\\?*) emit '${JSON.stringify(Object.keys(pulls).map((n) => ({ number: Number(n) })))}' ;;
+  repos/*/pulls/12) emit '${JSON.stringify({ number: 12, html_url: "https://x/12", head: { ref: pulls[12].ref }, draft: false, mergeable: false, mergeable_state: "dirty", title: "Conflicted unit" })}' ;;
+  repos/*/pulls/13) emit '${JSON.stringify({ number: 13, html_url: "https://x/13", head: { ref: pulls[13].ref }, draft: false, mergeable: true, mergeable_state: "blocked", title: "Waiting on review" })}' ;;
+  repos/*/issues\\?*) emit '${JSON.stringify([{ number: 71, html_url: "https://x/i/71", updated_at: "2026-07-01T00:00:00Z", title: "Landed already" }])}' ;;
+  *) emit '[]' ;;
+esac
+`);
+    chmodSync(join(bin, "gh"), 0o755);
+    const env = { ...process.env, PATH: `${bin}:${process.env.PATH}` };
+
+    // Step 4: conflicts are reported and NOTHING is pushed. The branch names in the
+    // fixture are claim branches; the repo must be byte-identical afterwards.
+    const before = run(repo, "git log --oneline --all", { env }).stdout;
+    const c = JSON.parse(run(repo, `${POSIX_SH} ${join(HK, "step-merge-conflicts.sh")} --tick 20260817-120000 --root .`, { env }).stdout);
+    assertEq("a conflicted pull request blocks rather than passing", c.status, "blocked");
+    assertEq("and is named", c.conflicted, [12]);
+    assertEq("step 4 posts nothing itself — the reminder is step 6's", c.needs_agent.length, 0);
+    assertEq("and pushes nothing anywhere", run(repo, "git log --oneline --all", { env }).stdout, before);
+
+    // Step 6: one reminder per distinct state, and the decision is named per row.
+    let s6 = JSON.parse(run(repo, `${POSIX_SH} ${join(HK, "step-stuck-prs.sh")} --tick 20260817-120000 --root .`, { env }).stdout);
+    assertEq("both stuck pull requests are reported", s6.needs_agent.length, 2);
+    assertTrue("the conflicted one names the claim holder as the decision",
+      s6.needs_agent.find((n) => n.pull === 12).decision.includes("claim holder"), JSON.stringify(s6.needs_agent));
+    assertTrue("the blocked one names the review", s6.needs_agent.find((n) => n.pull === 13).decision.includes("review"));
+    assertTrue("the reminder carries a state key", /^stuck:\d+$/.test(s6.key), s6.key);
+    // The key is distinct from the release-status family, so neither dedups the other.
+    assertTrue("keyed distinctly from deploy:<digest>", !s6.key.startsWith("deploy:"), s6.key);
+
+    // Once the agent records the post, the same state earns no second reminder.
+    run(repo, `${POSIX_SH} ${SCRIPTS.housekeepLogAppend} --tick 20260817-120000 --step stuck-prs-filed --status filed --summary "posted ${s6.key}"`);
+    const s6b = JSON.parse(run(repo, `${POSIX_SH} ${join(HK, "step-stuck-prs.sh")} --tick 20260817-130000 --root .`, { env }).stdout);
+    assertEq("an unchanged state is not re-announced", s6b.needs_agent.length, 0);
+    assertEq("and says why", s6b.reason, "already_filed");
+
+    // Step 5: an open issue an archived ticket names is drift, and nothing is closed.
+    mkdirSync(join(repo, ".workaholic/tickets/archive/work-20260817-010101"), { recursive: true });
+    writeFileSync(join(repo, ".workaholic/tickets/archive/work-20260817-010101/t.md"),
+      "---\nfeedback: x\n---\n\n# T\n\nCloses https://github.com/qmu/workaholic/issues/71\n");
+    const s5 = JSON.parse(run(repo, `${POSIX_SH} ${join(HK, "step-issue-triage.sh")} --tick 20260817-120000 --root .`, { env }).stdout);
+    assertEq("the landed-but-open issue is reported", s5.needs_agent.length, 1);
+    assertEq("as drift, not as a closure", s5.needs_agent[0].drift, "landed_but_open");
+    assertTrue("under a propose-never-perform bound",
+      s5.needs_agent[0].bound.includes("never perform"), JSON.stringify(s5.needs_agent));
+
+    // Step 7: a finding an earlier tick filed is not filed again.
+    const s7key = ".workaholic/terms/retired-terms.md";
+    run(repo, `${POSIX_SH} ${SCRIPTS.housekeepLogAppend} --tick 20260817-110000 --step doc-drift-filed --status filed --summary "filed a ticket for ${s7key}"`);
+    const s7 = JSON.parse(run(repo, `${POSIX_SH} ${join(HK, "step-doc-drift.sh")} --tick 20260817-120000 --root . --base HEAD`, { env }).stdout);
+    assertTrue("an already-filed drift finding is dropped, not re-filed",
+      !JSON.stringify(s7.needs_agent).includes(s7key), JSON.stringify(s7.needs_agent));
+  } finally {
+    cleanup(repo);
+    cleanup(bin);
   }
 }

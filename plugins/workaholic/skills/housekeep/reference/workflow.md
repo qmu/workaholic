@@ -88,41 +88,71 @@ seam this file names for that step — recording what it actually did under the 
 
 ## 4. `merge-conflicts` — pull requests whose merge is blocked
 
-- **Reads**: open pull requests over REST.
-- **Writes**: **nothing to any branch.** It reports conflict state and returns the affected units
-  in `needs_agent` for a Slack line. Pushing into an open pull request's branch was measured and
-  refused (`workaholic:ship` §7): the branch belongs to whoever holds its claim, and this tick
-  holds none of them.
-- **Aborts**: `gh_unavailable`.
-- Ticket: `20260817113752`.
+- **Reads**: open pull requests through `pulls-state.sh`, the one reader steps 4 and 6 share.
+  Mergeability lives only on the single-pull endpoint, so the per-pull reads are bounded by
+  `--limit` (default 10) and the cap is **reported** — a busy repository is never silently
+  half-read. GitHub's lazily-computed `mergeable: null` is `unknown`, never `clean`.
+- **Writes**: **nothing to any branch, and no post of its own.** The finding rides step 6's
+  reminder; two Slack lines about one pull request in one tick is the noise a gated post exists
+  to prevent.
+- **It does not rebase** (resolved 2026-08-17, the ticket's Open Decision). A `work-*` branch
+  **is** a claim — the heartbeat is its tip and `archive.sh` pushes it after each archive commit —
+  so a third party rebasing it races the claim holder's own pushes and can strand or duplicate a
+  unit; it is one of the three unit-less writer designs `workaholic:ship` §7 measured and refused.
+  Rebasing only *unclaimed* branches would need a staleness rule the claim protocol deliberately
+  refuses to have (it reports staleness and never acts on it), and rebasing anything accepts the
+  race knowingly. The drive loop already assigns this repair to its owner: a merge-conflict notice
+  tells the **claim holder** to resolve it, which is the person who knows which side keeps its
+  behaviour.
+- **Aborts**: `gh_unavailable` — conflict state unknown is reported as unknown.
 
 ## 5. `issue-triage` — stale issues, and GitHub↔`.workaholic/` drift
 
-- **Reads**: open issues and pull requests; `.workaholic/tickets/`, `stories/`, `feedbacks/`.
-- **Writes**: nothing directly. Consolidation and closure are **proposals**, not acts — an issue
-  is somebody's words, and a machine that closed them hourly would be deciding what the project
-  heard. The agent files each as a comment or a ticket through the existing seam.
-- **Aborts**: `gh_unavailable`, `unreadable_inbox`.
-- Ticket: `20260817113752`.
+- **Reads**: open issues over REST (oldest-updated first); `.workaholic/tickets/archive/`,
+  `stories/`, `feedbacks/`.
+- **Three mechanical facts, no verdicts**: `landed_but_open` (an open issue an archived ticket or
+  a story names — the work landed), `never_ingested` (an open issue no feedback record names —
+  `[Propose]` only takes issues assigned to the running identity, so someone else's issue lands
+  here legitimately), and `oldest` (the least recently updated, with dates, for the agent to judge
+  staleness against).
+- **Writes**: nothing. **It closes nothing and merges nothing** — an issue is somebody's words,
+  and a machine that closed them hourly would be deciding what the project heard. Consolidation is
+  a judgement: propose it, never perform it. "Remove" is never delete; the repository's history is
+  the durable record.
+- **Aborts**: `gh_unavailable`.
 
 ## 6. `stuck-prs` — what failed to auto-merge, and what it needs
 
-- **Reads**: open pull requests, their mergeability and check state.
-- **Writes**: nothing directly; the reminder is a Slack post, composed by the agent, naming **what
-  needs a human decision** rather than that something is red.
-- **Aborts**: `gh_unavailable`. **Dedup** against earlier ticks by `log-read.sh`, so one stuck pull
-  request is not announced twenty-four times a day.
-- Ticket: `20260817113752`.
+- **Reads**: `pulls-state.sh`, as step 4 does — resolved once per tick, used twice.
+- **Every row names the decision, not the colour**: `conflict` → the claim holder must resolve it
+  and nobody else may push to that branch; `review` → a required review or gate is unsatisfied;
+  `checks` → the author must fix a failing check or say it is expected; `draft` → mark it ready or
+  close it; `behind` → the claim holder must update it; `unknown` → GitHub has not computed
+  mergeability yet, re-read before acting.
+- **One reminder per distinct state.** The key is `stuck:<digest>` over the sorted
+  `<number>:<blocked_by>` set, so an unchanged answer is never repeated while a new pull request or
+  a changed reason earns a post. **Two gates, both required**: something actionable, and no earlier
+  post for this exact state — the tick log answers the second, and `workaholic:notify`'s stateless
+  lookup answers it again on the wire. The key is deliberately distinct from `[Release Status]`'s
+  `deploy:<digest>`: one reports what is waiting to deploy, this what is waiting on a human, and a
+  shared key would let either dedup the other away.
+- **Aborts**: `gh_unavailable`. Already-posted state is `ok`/`already_filed`, not a second post.
 
 ## 7. `doc-drift` — the documentation against the current concept
 
-- **Reads**: `README.md` first, then the documents the loop's own drift check already covers
-  (`report/scripts/doc-drift.sh`, `area-freshness.sh`).
-- **Writes**: nothing directly. Drift becomes a **ticket**, because fixing documentation is work
-  and work has a queue; an hourly agent rewriting `main`'s documents is the unattended-write class
-  this project has refused twice.
-- **Aborts**: `no_docs`.
-- Ticket: `20260817113752`.
+- **Reads**: `report/scripts/doc-drift.sh` (structural presence changes versus the documents that
+  enumerate them) and `report/scripts/area-freshness.sh` (a hand-maintained record naming something
+  this repository retired). Reused, not re-implemented.
+- **The window is a git question**: the base is `git rev-list -1 --before=<the previous doc-drift
+  tick, as ISO> HEAD`, so no `date -d`/`date -v` arithmetic is involved. `no_baseline` when nothing
+  precedes that boundary — comparing against nothing would report every document as drifted.
+- **Writes**: nothing. Drift becomes a **ticket**, because fixing documentation is work and work
+  has a queue; an hourly agent rewriting `main`'s documents is the unattended-write class this
+  project has refused twice.
+- **Dedup is not optional here.** `terms/retired-terms.md` is a glossary *of* retired terms, so it
+  names retired terms by construction and `area-freshness.sh` reports it truthfully and forever.
+  A finding an earlier tick logged under `doc-drift-filed` is counted and dropped.
+- **Aborts**: `no_repo`, `no_baseline`, `drift_unreadable`.
 
 ## 8. `strategy-proposals` — expansion and consolidation for a strategy
 

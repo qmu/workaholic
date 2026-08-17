@@ -119,7 +119,11 @@ json_field() {
         }'
 }
 
-# `needs_agent` is an array; the report only needs its length.
+# `needs_agent` is an array of flat objects; the report only needs its length, so
+# this counts top-level `{` between the array's brackets with a depth counter. A
+# comma count would be wrong by a factor of however many fields an entry has —
+# measured, on the first step that returned three entries and was reported as
+# eleven.
 json_array_len() {
     printf '%s' "$2" | awk -v key="\"$1\":" '
         {
@@ -128,11 +132,14 @@ json_array_len() {
             rest = substr($0, i + length(key))
             i = index(rest, "[")
             if (i == 0) { print 0; exit }
-            j = index(rest, "]")
-            if (j == 0) { print 0; exit }
-            body = substr(rest, i + 1, j - i - 1)
-            gsub(/[ \t]/, "", body)
-            print (length(body) == 0) ? 0 : gsub(/,/, ",", body) + 1
+            depth = 0; n = 0
+            for (j = i + 1; j <= length(rest); j++) {
+                c = substr(rest, j, 1)
+                if (c == "{") { if (depth == 0) n++; depth++ }
+                else if (c == "}") depth--
+                else if (c == "]" && depth == 0) break
+            }
+            print n
         }'
 }
 

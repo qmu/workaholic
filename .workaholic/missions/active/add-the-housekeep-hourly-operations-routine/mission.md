@@ -55,3 +55,4 @@ most five a tick, never late at night — instead of a silent guess.
 - 2026-08-17 — ticket archived — 20260817113749-register-the-housekeep-log-area.md
 - 2026-08-17 — ticket archived — 20260817113750-add-the-housekeep-command-and-skill.md
 - 2026-08-17 — ticket archived — 20260817113751-implement-the-inbound-sweep-steps.md
+- 2026-08-17 — ticket archived — 20260817113752-implement-the-repository-hygiene-steps.md

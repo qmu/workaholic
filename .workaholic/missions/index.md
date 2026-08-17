@@ -3,6 +3,7 @@
 ## active
 
 * [add-the-housekeep-hourly-operations-routine](active/add-the-housekeep-hourly-operations-routine/mission.md) - Add the /housekeep hourly operations routine
+* [correct-the-release-note-automation-to-its-intended-design](active/correct-the-release-note-automation-to-its-intended-design/mission.md) - Correct the release note automation to its intended design
 * [give-propose-a-strategy-artifact-form](active/give-propose-a-strategy-artifact-form/mission.md) - Give /propose a Strategy artifact form
 * [make-workaholify-converge-the-repository-state](active/make-workaholify-converge-the-repository-state/mission.md) - Make workaholify converge the repository state
 * [split-routine-setup-into-developer-and-repository-scopes](active/split-routine-setup-into-developer-and-repository-scopes/mission.md) - Split routine setup into developer and repository scopes

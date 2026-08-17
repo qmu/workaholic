@@ -33,6 +33,50 @@ reports, for every record here and in `terms/`, how many days since its last com
 whether it still names something this repository has retired. `/report` reads it beside
 `doc-drift.sh`. It reports facts, never verdicts, and it never edits a record.
 
+## The target ↔ environment mapping
+
+**What this area answers, in one read.** Which deploy targets exist, which software
+environment each one *is*, how each reaches production, and which part of the tree each
+one ships:
+
+```bash
+bash plugins/workaholic/skills/ship/scripts/read-deployments.sh --mapping
+```
+
+Per target it emits `environment`, `deploy_model`, `paths` and `confirmation_method`,
+each as `{"value": …, "source": …}` — **`declared` when the record states it,
+`defaulted`/`undeclared` when it does not**. The distinction is the point: a defaulted
+field is a decision nobody made, and this area's whole premise is that a delivery path is
+declared rather than inferred. `report-deploy-status.sh` splices the same object under
+`mapping`, so `/release-status` gains the per-target axis without a second command, and
+it is deliberately **not** hashed into that report's `digest` — reformatting a record is
+not news a human must act on.
+
+**Gaps are named, never rendered as an empty result:**
+
+| Gap | Means |
+| --- | ----- |
+| `no_targets` | there is no record here at all |
+| `environment_undeclared` | a target that cannot be mapped to an environment |
+| `path_attribution_undeclared` | no `paths:`, so this target claims the **whole range** — every commit on the base counts as unreleased for it, *including a commit that only writes its own note* |
+| `unmatched_component` | a top-level component matching no target's declared `paths:` — it ships nowhere, or nobody claimed it |
+
+`path_attribution_undeclared` is the one to read twice. `paths:` is optional and this
+repository declares it on **0 of 1** targets, which is what makes any design that commits
+a generated note to `main` count that note against itself.
+
+**Nothing here writes a record.** For an undeclared target the reader offers a *blank*
+scaffold and stops:
+
+```bash
+bash plugins/workaholic/skills/ship/scripts/read-deployments.sh --scaffold <slug>   # prints to stdout
+```
+
+The fields come out empty with the reasoning prompts inline, because the human who
+authors this record is deciding where production is and how it is proved. A record
+generated from the repository's shape would make the next `/ship` gate on a machine's
+guess — the failure the `## Confirmation` gate exists to prevent.
+
 ## Deploy models
 
 A target follows one of two models. Pick the one that matches how the target

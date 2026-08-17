@@ -11,6 +11,7 @@
 #                                             stage: open + handed off, not merged)
 #   loop-drill.sh verify-plan [--json]        # is the deployment-plan refresh sound?
 #   loop-drill.sh verify-status [--json]      # is the [Release Status] read sound and silent?
+#   loop-drill.sh verify-cadence [--json]     # is the daily note generation idempotent and clock-free?
 #
 # Every outcome is ONE JSON line on stdout. A non-zero exit names the blocker in
 # `reason`; exit 0 means the subcommand did what it was asked.
@@ -953,9 +954,78 @@ cmd_verify_status() {
     emit_verdict "status" 0 "pass" 0
 }
 
+# --------------------------------------------------------------- verify-cadence
+#
+# The daily per-target note generation that rides the same repository tick. Like
+# `verify-status` it exists so the behaviour is checkable in seconds rather than by
+# waiting a day and reading a GitHub draft release. It proves four properties:
+#
+#   cadence_renders    every declared target renders a draft body
+#   cadence_idempotent two renders of an unchanged base are byte-identical, which is
+#                      what keeps a periodic generator from being a write treadmill
+#   cadence_clockfree  two renders taken a second apart still match, so no clock
+#                      leaked into the body
+#   cadence_stage      the release stage is derived from git and the release record
+#
+# It never calls `gh` and never writes: the render is pure, and the only writing step
+# (the sync) is deliberately out of scope here so the drill stays hermetic.
+cmd_verify_cadence() {
+    _drafter="${REPO_ROOT}/plugins/workaholic/skills/ship/scripts/draft-release-note.sh"
+    _cadence="${REPO_ROOT}/plugins/workaholic/skills/ship/scripts/run-note-cadence.sh"
+    if [ ! -f "$_drafter" ] || [ ! -f "$_cadence" ]; then
+        emit_err "cadence_unreadable" 4 "the note cadence scripts are not present in this checkout"
+    fi
+
+    _a=$(cd "$REPO_ROOT" && sh "$_drafter" "$BASE_BRANCH" 2>&1) || true
+    case "$_a" in
+        *'"ok": true'*)
+            _n=$(printf '%s' "$_a" | sed -n 's/.*"count": \([0-9]*\).*/\1/p')
+            add_row "cadence_renders" true "a draft rendered for ${_n} target(s)" load
+            ;;
+        *)
+            add_row "cadence_renders" false "$(one_line "$_a")" load
+            emit_verdict "cadence" 0 "fail" 1
+            ;;
+    esac
+
+    _b=$(cd "$REPO_ROOT" && sh "$_drafter" "$BASE_BRANCH" 2>&1) || true
+    if [ "$_a" = "$_b" ]; then
+        add_row "cadence_idempotent" true "two renders of an unchanged base are byte-identical" load
+    else
+        add_row "cadence_idempotent" false "two renders of an unchanged base differ, so a periodic tick would write every time" load
+    fi
+
+    sleep 1
+    _c=$(cd "$REPO_ROOT" && sh "$_drafter" "$BASE_BRANCH" 2>&1) || true
+    if [ "$_a" = "$_c" ]; then
+        add_row "cadence_clockfree" true "a render a second later still matches, so no clock reached the body" load
+    else
+        add_row "cadence_clockfree" false "a render a second later differs: a clock leaked into the note body" load
+    fi
+
+    _s=$(cd "$REPO_ROOT" && sh "$_cadence" --dry-run "$BASE_BRANCH" 2>&1) || true
+    case "$_s" in
+        *'"stage": "draft"'*|*'"stage": "staging"'*|*'"stage": "confirmed"'*)
+            _st=$(printf '%s' "$_s" | sed -n 's/.*"stage": "\([a-z]*\)".*/\1/p' | head -n 1)
+            add_row "cadence_stage" true "the release stage derived as ${_st}" load
+            ;;
+        *'"reason": "gh_unavailable"'*)
+            add_row "cadence_stage" true "no gh in this environment; the cadence refused by reason and wrote nothing" load
+            ;;
+        *)
+            add_row "cadence_stage" false "the stage was not derived: $(one_line "$_s")" load
+            ;;
+    esac
+
+    if [ "$LOAD_FAILED" -gt 0 ]; then
+        emit_verdict "cadence" 0 "fail" 1
+    fi
+    emit_verdict "cadence" 0 "pass" 0
+}
+
 # ---------------------------------------------------------------- dispatch
 
-USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-propose <issue>|verify-implement <issue>|verify-plan [--json]|verify-status [--json]"}'
+USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-propose <issue>|verify-implement <issue>|verify-plan [--json]|verify-status [--json]|verify-cadence [--json]"}'
 
 CMD="${1:-}"
 [ -n "$CMD" ] || {
@@ -986,6 +1056,7 @@ case "$CMD" in
     verify-implement) cmd_verify_implement "$@" ;;
     verify-plan) cmd_verify_plan "$@" ;;
     verify-status) cmd_verify_status "$@" ;;
+    verify-cadence) cmd_verify_cadence "$@" ;;
     *)
         echo "$USAGE" >&2
         exit 2

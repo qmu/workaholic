@@ -74,7 +74,7 @@ One sentence, max 25 words, what failed and what a human must do.
 
 Exactly one finish per thread stays the rule (SKILL, *Which thread an `/implement` unit's posts land in*): a unit posts `🟢 Implemented` **or** one of the three outcome shapes above, never both — `handoff` is the finish, never a third post, and the same holds for a blocked or merged unit.
 
-### `/release-status` — the repository tick's one line
+### `/fullfill` — the repository tick's one line
 
 ```
 📦 Release status - <N> commit(s) waiting on <target>

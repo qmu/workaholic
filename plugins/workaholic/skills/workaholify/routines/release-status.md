@@ -14,6 +14,18 @@ mcp: [Slack]
 
 # [Release Status] — the repository's one tick, and it writes nothing into the tree
 
+**The routine record keeps its name; only the command it invokes was renamed** (2026-08-17,
+the ticket's Open Decision 2). `/release-status` became `/fullfill`, and this template's
+`id:`, `name:` and filename deliberately did **not** follow. `/setup-repo-routines`
+converges an account's routines **by name**, so renaming the record here would not rename
+the operator's existing routine — the next convergence would create a *second* one, and a
+routine is an account-level record no other account can list or delete, so the old
+`[Release Status]` would keep firing hourly beside it until its owner removed it by hand.
+A rename whose only effect is a duplicate nobody else can clean up is not a rename. The
+post shape (`📦 Release status`, keyed on `deploy:<digest>`) is untouched for the adjacent
+reason: it names the **event**, not the command, and the prefix is the notify lookup's own
+exact-string dedup key — changing it would post one duplicate line at the cutover.
+
 **`scope: repository`** — the repository needs exactly **one** of this routine, configured
 by one designated person or a project/service account through `/setup-repo-routines`.
 This is the first repository-scoped template and the reason the scope exists: N copies
@@ -62,9 +74,9 @@ does not appear at all, because this line links no pull request.
 
 ## Prompt
 
-Run `/release-status`.
+Run `/fullfill`.
 
-If the command or its skills did not load, do not stop: run `bash plugins/workaholic/skills/check-deps/scripts/plugin-src.sh` from the checkout, take its `src`, then read `<src>/commands/release-status.md` and follow it with every script path under `<src>`.
+If the command or its skills did not load, do not stop: run `bash plugins/workaholic/skills/check-deps/scripts/plugin-src.sh` from the checkout, take its `src`, then read `<src>/commands/fullfill.md` and follow it with every script path under `<src>`.
 
 If something is waiting and the exact-string search for the digest token finds no earlier post, post this one line as a new top-level message (the workaholic:notify lookup) — no mention token of any kind:
 

@@ -74,12 +74,19 @@ set -eu
 
 MODE=all
 WANT_SLUG=""
+WANT_SECTION=""
 case "${1:-}" in
   --slugs) MODE=slugs ;;
   --mapping) MODE=mapping ;;
   --scaffold)
     MODE=scaffold
     WANT_SLUG="${2:-<target-slug>}"
+    ;;
+  --section)
+    MODE=section
+    WANT_SLUG="${2:-}"
+    WANT_SECTION="${3:-}"
+    [ -n "$WANT_SLUG" ] && [ -n "$WANT_SECTION" ] || { echo '{"reason": "usage"}' >&2; exit 1; }
     ;;
   --slug)
     MODE=one
@@ -232,6 +239,20 @@ if [ "$MODE" = slugs ]; then
     [ "$base" = "index.md" ] && continue
     basename "$file" .md
   done
+  exit 0
+fi
+
+# --section prints ONE section's raw body, unescaped, for a caller that wants to
+# QUOTE the human's authored text rather than re-parse the record (2026-08-17).
+# It exists so `draft-release-note.sh` can quote `## Procedure` / `## Confirmation`
+# verbatim while this file stays the single parser of that frontmatter and those
+# sections: a second reader would be exactly the fork the area's rule forbids.
+# Missing target or missing section prints nothing and exits 0 — "the record does
+# not declare this" is a state the caller renders, not an error.
+if [ "$MODE" = section ]; then
+  file="${dir}/${WANT_SLUG}.md"
+  [ -f "$file" ] || exit 0
+  read_section "$file" "$WANT_SECTION"
   exit 0
 fi
 

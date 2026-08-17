@@ -15,7 +15,13 @@
 #
 # Usage:
 #   log-read.sh [--since <YYYY-MM-DD>] [--tick <YYYYMMDD-HHMMSS>] [--step <slug>]
-#               [--status <status>] [--contains <needle>] [--root <repo-root>]
+#               [--step-prefix <slug->] [--status <status>] [--contains <needle>]
+#               [--root <repo-root>]
+#
+# `--step-prefix` exists because the log is idempotent per (tick, step): a step that
+# records SEVERAL facts in one tick — the check-in asking up to five questions — has
+# to spell each one as its own step id (`human-checkin-ask-<slug>`), and counting
+# them then needs a prefix rather than an exact match.
 #
 # Output: one JSON line
 #   {"read": true, "count": <n>, "days": <n>,
@@ -31,6 +37,7 @@ set -eu
 SINCE=''
 TICK=''
 STEP=''
+STEP_PREFIX=''
 STATUS=''
 CONTAINS=''
 ROOT='.'
@@ -40,6 +47,7 @@ while [ $# -gt 0 ]; do
         --since)    SINCE="${2:-}"; shift 2 ;;
         --tick)     TICK="${2:-}"; shift 2 ;;
         --step)     STEP="${2:-}"; shift 2 ;;
+        --step-prefix) STEP_PREFIX="${2:-}"; shift 2 ;;
         --status)   STATUS="${2:-}"; shift 2 ;;
         --contains) CONTAINS="${2:-}"; shift 2 ;;
         --root)     ROOT="${2:-}"; shift 2 ;;
@@ -68,7 +76,7 @@ for file in "$DIR"/*.md; do
     fi
     days=$((days + 1))
     rows=$(awk -v day="$day" -v want_tick="$TICK" -v want_step="$STEP" \
-               -v want_status="$STATUS" -v needle="$CONTAINS" '
+               -v want_prefix="$STEP_PREFIX" -v want_status="$STATUS" -v needle="$CONTAINS" '
         function esc(s) { gsub(/\\/, "\\\\", s); gsub(/"/, "\\\"", s); return s }
         substr($0, 1, 3) == "## " { tick = substr($0, 4); sub(/[ \t]+$/, "", tick); next }
         substr($0, 1, 3) != "- `" { next }
@@ -85,6 +93,7 @@ for file in "$DIR"/*.md; do
 
             if (want_tick != "" && tick != want_tick) next
             if (want_step != "" && step != want_step) next
+            if (want_prefix != "" && substr(step, 1, length(want_prefix)) != want_prefix) next
             if (want_status != "" && status != want_status) next
             if (needle != "" && index(summary, needle) == 0) next
 

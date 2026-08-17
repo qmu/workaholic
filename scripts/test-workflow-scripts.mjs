@@ -13602,6 +13602,7 @@ const tests = [
   ["housekeep steps 2-3: every surface is named, and nothing is executed", testHousekeepInboundSweep],
   ["housekeep steps 4-7: report, never repair; remind once per state", testHousekeepHygieneSteps],
   ["housekeep step 8: a step reversing a standing decision stays unbuilt", testHousekeepStrategyStepIsGated],
+  ["housekeep step 9: asking costs attention, so the gates are mechanical", testHousekeepCheckIn],
 ];
 
 // `await` matters even though almost every test is synchronous: without it an async
@@ -16024,11 +16025,14 @@ function testHousekeepRun() {
     assertEq("and one line per step", (log.match(/^- `/gm) || []).length, STEPS.length);
     assertEq("step 1 is real", j.steps[0].status, "ok");
 
-    // A stub reports `not_implemented` — NOT "ran and found nothing". This is the
-    // distinction the whole skill is built on, so it is pinned rather than assumed.
-    const stub = j.steps.find((s) => s.step === "human-checkin");
-    assertEq("an unbuilt step is skipped", stub.status, "skipped");
-    assertEq("and says it is not implemented", stub.reason, "not_implemented");
+    // Every step is built: the spine's stubs reported `not_implemented`, and none is
+    // left. A step that abstains now does it for a stated reason of its own — an empty
+    // strategy set, a quiet window — which is the distinction the skill is built on.
+    assertEq("no step is left reporting not_implemented",
+      j.steps.filter((s) => s.reason === "not_implemented").map((s) => s.step), []);
+    assertTrue("and a step that abstains names its own reason",
+      j.steps.filter((s) => s.status === "skipped").every((s) => s.reason.length > 0),
+      JSON.stringify(j.steps.filter((s) => s.status === "skipped")));
 
     // Re-running the same tick id re-reports every step and does not double the log.
     const again = JSON.parse(run(repo, `${RUN} --tick 20260817-090000`).stdout);
@@ -16078,8 +16082,9 @@ function testHousekeepUnattendedContract() {
   // prose is allowed to name it, and has to: what the skill and command say is that they
   // never use one, which is the sentence the next reader needs.
   const inScripts = run(REPO_ROOT,
-    `grep -rl AskUserQuestion plugins/workaholic/skills/housekeep/scripts || true`).stdout.trim();
-  assertEq("no AskUserQuestion in any housekeep script", inScripts, "");
+    `grep -rn AskUserQuestion plugins/workaholic/skills/housekeep/scripts || true`).stdout
+    .trim().split("\n").filter(Boolean).filter((l) => !/^[^:]+:\d+:\s*#/.test(l));
+  assertEq("no AskUserQuestion in any housekeep script", inScripts, []);
   assertTrue("the skill states the unattended contract", /no `AskUserQuestion` at any step/.test(skill));
   assertTrue("and so does the command", /no `AskUserQuestion` at any step/.test(command));
 
@@ -16294,6 +16299,70 @@ function testHousekeepStrategyStepIsGated() {
     const propose = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/propose/SKILL.md"), "utf8");
     assertTrue("propose still says repository state never triggers a proposal",
       /constraints, never triggers/.test(propose), "the judgment bar was edited without a ruling");
+  } finally {
+    cleanup(repo);
+  }
+}
+
+// ---------- housekeep step 9: asking costs attention, so the gates are mechanical ----------
+// (2026-08-17, issue #471) Four properties, and none of them is "the question was good":
+// nothing is posted inside the quiet window and the question is HELD rather than dropped, a
+// question is asked once rather than once an hour, the per-tick ceiling is real, and a
+// second bound stops the per-tick ceiling aggregating into 120 questions a day.
+function testHousekeepCheckIn() {
+  const repo = makeRepo();
+  const HK = join(REPO_ROOT, "plugins/workaholic/skills/housekeep/scripts");
+  const STEP = `${POSIX_SH} ${join(HK, "step-human-checkin.sh")}`;
+  const ASK = `${POSIX_SH} ${join(HK, "ask-question.sh")}`;
+  const LOG = `${POSIX_SH} ${SCRIPTS.housekeepLogAppend}`;
+  try {
+    mkdirSync(join(repo, ".workaholic"), { recursive: true });
+
+    // Quiet hours: nothing asked, and the window is named rather than implied.
+    let j = JSON.parse(run(repo, `${STEP} --tick 20260817-020000 --root . --hour 2`).stdout);
+    assertEq("inside the quiet window the step asks nothing", j.needs_agent.length, 0);
+    assertEq("and says why", j.reason, "quiet_hours");
+    let a = JSON.parse(run(repo, `${ASK} --tick 20260817-020000 --key q:sizing --root . --hour 2`).stdout);
+    assertEq("a question inside the window is refused", a.ask, false);
+    assertEq("as a HOLD, not a drop", a.hold, true);
+
+    // The held question comes back on the next eligible tick, then stops once asked.
+    run(repo, `${LOG} --tick 20260817-020000 --step human-checkin-held-q-sizing --status skipped --summary "held q:sizing"`);
+    j = JSON.parse(run(repo, `${STEP} --tick 20260817-120000 --root . --hour 14`).stdout);
+    assertEq("a held question is handed back when the window clears", j.held, ["q-sizing"]);
+    run(repo, `${LOG} --tick 20260817-120000 --step human-checkin-ask-q-sizing --status filed --summary "asked q:sizing"`);
+    j = JSON.parse(run(repo, `${STEP} --tick 20260817-130000 --root . --hour 14`).stdout);
+    assertEq("and stops being held once it has been asked", j.held, []);
+
+    // Asked once, not once an hour. Silence is not a reason to re-ask.
+    a = JSON.parse(run(repo, `${ASK} --tick 20260817-130000 --key q:sizing --root . --hour 14`).stdout);
+    assertEq("an unanswered question is not re-asked next tick", a.ask, false);
+    assertEq("named as already asked, not as answered", a.reason, "already_asked");
+
+    // The per-tick ceiling is real, and each ask gets its own log key so five fit.
+    for (let i = 1; i <= 5; i++) {
+      const g = JSON.parse(run(repo, `${ASK} --tick 20260817-140000 --key q:${i} --root . --hour 14 --max-per-day 50`).stdout);
+      assertTrue(`question ${i} of five is allowed`, g.ask, JSON.stringify(g));
+      assertEq(`question ${i} gets its own log key`, g.log_step, `human-checkin-ask-q-${i}`);
+      run(repo, `${LOG} --tick 20260817-140000 --step ${g.log_step} --status filed --summary "asked q:${i}"`);
+    }
+    a = JSON.parse(run(repo, `${ASK} --tick 20260817-140000 --key q:6 --root . --hour 14 --max-per-day 50`).stdout);
+    assertEq("the sixth question in a tick is refused", a.reason, "tick_cap");
+    assertEq("and held rather than lost", a.hold, true);
+
+    // The daily bound the per-tick cap must not aggregate past.
+    a = JSON.parse(run(repo, `${ASK} --tick 20260817-150000 --key q:7 --root . --hour 14 --max-per-day 5`).stdout);
+    assertEq("a fresh tick still respects the daily bound", a.reason, "day_cap");
+
+    // No AskUserQuestion anywhere in the step's surface EXCEPT where the scripts say
+    // they will never use one — the comment is the contract, so it has to be allowed
+    // while any executable mention stays a failure.
+    const mentions = run(REPO_ROOT,
+      `grep -n AskUserQuestion ${join(HK, "step-human-checkin.sh")} ${join(HK, "ask-question.sh")} || true`).stdout
+      .trim().split("\n").filter(Boolean);
+    const executable = mentions.filter((l) => !/^[^:]+:\d+:\s*#/.test(l));
+    assertEq("the check-in never reaches for AskUserQuestion", executable, []);
+    assertTrue("and says so in writing", mentions.length > 0, "the contract is not stated anywhere");
   } finally {
     cleanup(repo);
   }

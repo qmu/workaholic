@@ -190,13 +190,35 @@ seam this file names for that step — recording what it actually did under the 
 
 ## 9. `human-checkin` — up to five questions, never late at night
 
-- **Reads**: what the earlier steps returned; the clock, in the workspace's timezone.
+- **Reads**: the tick log (held questions, what was already asked today) and the clock in the
+  workspace's timezone.
 - **Writes**: nothing to the repository. Questions are **Slack posts** — a routine-fired session
   has no `AskUserQuestion`, and this skill's standing rule forbids one anyway.
-- **Aborts**: `quiet_hours` (with the boundary and timezone named), `no_surface`, `nothing_to_ask`.
-- **Bounded**: at most five questions per tick, and the bound is enforced in the step, not left to
-  the model's judgment.
-- Ticket: `20260817113754`.
+- **The script is the gate and the ledger; the agent composes and posts.** *Which* items are worth
+  asking is a judgement (`rules/interaction.md`'s Recommended-label test: an item you could
+  honestly mark "(Recommended)" is decided and recorded, never asked). *How many*, *when*, and
+  *was this asked before* are mechanical, and live in `ask-question.sh`, which answers
+  `ask: true|false` and hands back the `log_step` to record the ask under.
+- **Four gates, each its own refusal**: `quiet_hours`, `already_asked`, `tick_cap` (5), `day_cap`
+  (10 — the bound the per-tick cap must not aggregate past; five an hour is 120 a day at the
+  ceiling, and the cap alone protects nobody's attention).
+- **Quiet hours: one gate per tick, in the workspace's timezone** (resolved 2026-08-17), default
+  `Asia/Tokyo` 22:00–08:00, both overridable (`WORKAHOLIC_QUIET_TZ`, `WORKAHOLIC_QUIET_HOURS`).
+  The per-recipient alternative — each addressee's Slack profile timezone — is more precise and
+  was not taken: it costs a profile read per person per tick against a surface this project keeps
+  to exact-string queries, and it buys little, because a suppressed question is **held, not
+  dropped**. The gate is one function reading one zone, so it stays swappable.
+- **Held is not dropped**: a suppressed question is recorded as `human-checkin-held-<slug>` and
+  handed back by this step on the next eligible tick; it drops out once it has been asked.
+- **Silence is not consent, and it is not a reason to ask again** (resolved 2026-08-17). An
+  unanswered question is never re-posted. The red-alert `↳ still failing` precedent covers a
+  machine-observable state that persists; a question is a demand on a person's attention, and
+  repeating it hourly turns asking into nagging. The unanswered set stays visible where humans
+  already look — the tick log and the run report — and the post is still sitting in its thread.
+- **Mentions**: a resolved `<@U…>` from the owner's email, never a bare `@name` (it pings nobody),
+  and never a Claude mention token on a routine's own post (it re-triggers the app).
+- **Aborts**: `quiet_hours`. An answer that resolves something durable is recorded as a
+  `kind: answer` feedback record, which is what closes the loop the question opened.
 
 ---
 

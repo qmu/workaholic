@@ -12,7 +12,7 @@ allowed_tools: [Bash, Read, Glob, Grep]
 mcp: [Slack]
 ---
 
-# [Release Status] — the repository's one tick, and it writes nothing
+# [Release Status] — the repository's one tick, and it writes nothing into the tree
 
 **`scope: repository`** — the repository needs exactly **one** of this routine, configured
 by one designated person or a project/service account through `/setup-repo-routines`.
@@ -21,21 +21,29 @@ would each read the same base and post the same line into the same channel every
 and nothing in the product can detect or refuse the duplicates
 (`workaholic:workaholify` §5, *Two scopes, two commands*).
 
-**It is a reader.** No file, no commit, no branch, no pull request, no merge, no
-deployment — and no `AskUserQuestion`. The ask this template answers was "run `/ship`
-once per hour to update the release notes" (issue #451); the command is **not** `/ship`,
-and the tick does not update the notes. `workaholic:ship` §7 records the three writer
-designs that were measured and refused — a merged note's plan is self-referential (its
-own refresh commit changes the count it reports), an open pull request's branch belongs
-to whoever holds its claim, and `/ship` merges. What is left is the strongest honest
-thing: check the plan and say what a human has to act on. The precedent is this
-repository's own `area-freshness.sh` — *it reports, it never writes*.
+**It writes nothing into the repository.** No file, no commit, no branch, no pull
+request, no merge, no deployment — and no `AskUserQuestion`. The ask this template
+answers was "run `/ship` once per hour to update the release notes" (issue #451); the
+command is still **not** `/ship`.
+
+**Since 2026-08-17 it does keep the notes current, and the shape is what makes that
+safe** (issue #472). `workaholic:ship` §7 recorded three writer designs that were
+measured and refused; the first — a merged note's plan is self-referential, because its
+own refresh commit changes the count it reports — is answered not by a better writer but
+by a home that is not a commit: each target's **GitHub draft release**, invisible to
+consumers and free to rewrite. A draft that never enters git cannot count itself. The
+other two refusals stand untouched: no open pull request's branch is written, and `/ship`
+is never run. So the tick reports hourly and regenerates each target's draft **at most
+once per `Asia/Tokyo` day**, plus immediately whenever the release stage advances; an
+idle tick writes nothing and posts nothing.
 
 Two frontmatter values differ from the developer-scoped pair, and both follow from the
-reader contract rather than from taste: `autofix_on_pr_create: false` (this routine opens
-no pull request, so the flag would declare a behaviour it can never reach — the setup
-sheet renders no step for it) and an `allowed_tools` list with no `Write`/`Edit`, which
-is the contract stated where the product can act on it.
+contract rather than from taste: `autofix_on_pr_create: false` (this routine opens no
+pull request, so the flag would declare a behaviour it can never reach — the setup sheet
+renders no step for it) and an `allowed_tools` list with no `Write`/`Edit`. That list is
+unchanged by the generation step and that is the point: the draft lives outside git, so
+the routine still needs no ability to write a file, and the property is stated where the
+product can act on it rather than only in prose.
 
 **Two gates make an idle tick silent**, and they are the reason a recurring post is
 allowed at all under `workaholic:notify`'s bright line: nothing waiting (`actionable:

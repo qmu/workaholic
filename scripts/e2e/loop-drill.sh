@@ -901,7 +901,7 @@ cmd_verify_plan() {
 
 # ---------------------------------------------------------------- verify-status
 #
-# The repository-scoped `[Release Status]` routine (`/release-status`) is otherwise
+# The repository-scoped `[Release Status]` routine (`/fullfill`) is otherwise
 # only observable by waiting an hour and watching a Slack channel for a message that,
 # on a healthy quiet repository, correctly never arrives. This stage proves the three
 # properties the routine depends on, in seconds:

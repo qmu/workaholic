@@ -51,7 +51,7 @@ The bot notice `claim.sh` posts (bot token, no threading) is a different surface
 
 ### The repository tick's status line — the one post with no feedback item
 
-`/release-status` and its repository-scoped `[Release Status]` routine post `📦 Release status` as a **top-level keyed root**, keyed on `` `deploy:<digest>` `` — never a reply. Nobody *said* anything for this event; the repository's own state changed, so there is no feedback item and no thread to land in, which is the same reason an `/implement` unit with no stem keys on `` `unit:<unit-id>` ``. It carries **no mention token of any kind**: the line names a repository state, not a person's work.
+`/fullfill` and its repository-scoped `[Release Status]` routine post `📦 Release status` as a **top-level keyed root**, keyed on `` `deploy:<digest>` `` — never a reply. Nobody *said* anything for this event; the repository's own state changed, so there is no feedback item and no thread to land in, which is the same reason an `/implement` unit with no stem keys on `` `unit:<unit-id>` ``. It carries **no mention token of any kind**: the line names a repository state, not a person's work.
 
 **Two conditions, both required, or the tick posts nothing**: `actionable: true` (some target's `needs[]` is non-empty) **and** an exact-string search for `` `deploy:<digest>` `` finding nothing. The digest hashes the substantive per-target state and deliberately not the base sha (`workaholic:ship` §7), so a base that merely advanced is not news and an unchanged answer is never repeated. This is content-keyed dedup, not the red-alert cool-down: no time window, no escalation, and a status that becomes true again posts once more. Exact shape: [reference/notifications.md](reference/notifications.md).
 

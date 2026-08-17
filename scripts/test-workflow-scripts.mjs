@@ -13603,6 +13603,7 @@ const tests = [
   ["housekeep steps 4-7: report, never repair; remind once per state", testHousekeepHygieneSteps],
   ["housekeep step 8: a step reversing a standing decision stays unbuilt", testHousekeepStrategyStepIsGated],
   ["housekeep step 9: asking costs attention, so the gates are mechanical", testHousekeepCheckIn],
+  ["[Housekeep]: the template, its scope, and the shapes it authorizes", testHousekeepRoutineTemplate],
 ];
 
 // `await` matters even though almost every test is synchronous: without it an async
@@ -14991,9 +14992,9 @@ function testWorkaholifyRoutines() {
   const WH = "https://github.com/qmu/workaholic";
   try {
     const tpl = JSON.parse(run(dir, LIST).stdout);
-    assertEq("the plugin ships three routine templates", tpl.count, 3);
-    assertEq("and they are the three live patterns",
-      tpl.templates.map((t) => t.id).sort(), ["fb", "implement", "release-status"]);
+    assertEq("the plugin ships four routine templates", tpl.count, 4);
+    assertEq("and they are the four live patterns",
+      tpl.templates.map((t) => t.id).sort(), ["fb", "housekeep", "implement", "release-status"]);
 
     // ---- the scope split (2026-08-14, issue #451) ----
     // The scope is the TEMPLATE's field, not a list written into two command bodies:
@@ -15006,9 +15007,9 @@ function testWorkaholifyRoutines() {
     assertEq("the two routines every developer needs their own copy of are developer-scoped",
       JSON.parse(run(dir, `${LIST} developer`).stdout).templates.map((t) => t.id).sort(),
       ["fb", "implement"]);
-    assertEq("the routine the repository needs exactly one of is repository-scoped",
-      JSON.parse(run(dir, `${LIST} repository`).stdout).templates.map((t) => t.id),
-      ["release-status"]);
+    assertEq("the routines the repository needs exactly one of are repository-scoped",
+      JSON.parse(run(dir, `${LIST} repository`).stdout).templates.map((t) => t.id).sort(),
+      ["housekeep", "release-status"]);
     assertEq("an unknown scope is refused rather than treated as no filter",
       run(dir, `${LIST} nonsense`).status !== 0, true);
     // The template set is discovered by scanning the routines dir, so a template is
@@ -15023,7 +15024,13 @@ function testWorkaholifyRoutines() {
     // designed 30-minute cadence became a staggered hourly pair — [Propose] :15,
     // [Implement] :30.
     assertEq("the templates carry the staggered hourly schedule",
-      tpl.templates.map((t) => t.cron_expression).sort(), ["15 * * * *", "30 * * * *", "45 * * * *"]);
+      tpl.templates.map((t) => t.cron_expression).sort(),
+      ["15 * * * *", "30 * * * *", "45 * * * *", "50 * * * *"]);
+    // The stagger is the point, not the times: the API's floor is one hour and a bare
+    // `:00` is rewritten to server jitter, so every template names an explicit non-zero
+    // minute and no two share one.
+    assertEq("and no two routines fire on the same minute",
+      new Set(tpl.templates.map((t) => t.cron_expression)).size, tpl.count);
     assertEq("implement declares the schedule trigger",
       tpl.templates.find((t) => t.id === "implement").trigger, "schedule-hourly");
     assertEq("fb declares the schedule trigger",
@@ -16366,4 +16373,48 @@ function testHousekeepCheckIn() {
   } finally {
     cleanup(repo);
   }
+}
+
+// ---------- [Housekeep]: the template, its scope, and the shapes it authorizes ----------
+// (2026-08-17, issue #471) The prompt is the ceiling: a session may emit only the shapes its
+// own routine names, so a template and the shape catalog that disagree ship either a
+// documented shape nobody may post or a posted shape nothing documents. Byte for byte.
+function testHousekeepRoutineTemplate() {
+  const template = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines/housekeep.md"), "utf8");
+  const catalog = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/notify/reference/notifications.md"), "utf8");
+  const claudeMd = readFileSync(join(REPO_ROOT, "CLAUDE.md"), "utf8");
+
+  const block = (body, lead) => {
+    const m = body.match(new RegExp("```\\n(" + lead + "[\\s\\S]*?)```", "u"));
+    return m ? m[1] : "";
+  };
+  for (const [name, lead] of [["stuck-pull-request reminder", "🔧 Needs a decision"],
+                              ["check-in question", "❓ Question"]]) {
+    const c = block(catalog, lead);
+    assertTrue(`the catalog carries the ${name}`, c !== "", "missing from notifications.md");
+    assertEq(`the ${name} reads byte-identically in the template and the catalog`,
+      block(template, lead), c);
+  }
+
+  // The reminder names a repository state and mentions nobody; the question is addressed.
+  assertTrue("the reminder carries no mention token",
+    !/<@U/.test(block(catalog, "🔧 Needs a decision")), block(catalog, "🔧 Needs a decision"));
+  assertTrue("the question carries a resolved mention",
+    /<@U…>/.test(block(catalog, "❓ Question")), block(catalog, "❓ Question"));
+  // Its dedup key is its own, or [Release Status] and this would dedup each other away.
+  assertTrue("the reminder keys on stuck:<digest>, not deploy:<digest>",
+    /`stuck:<digest>`/.test(block(catalog, "🔧 Needs a decision")));
+
+  // Scope, cron and the write grant are the template's own claims; CLAUDE.md's routines
+  // table must state the same ones, since that table is where a human reads them.
+  assertTrue("the template is repository-scoped", /^scope: repository$/m.test(template));
+  assertTrue("firing at :50, after the other three", /^cron_expression: 50 \* \* \* \*$/m.test(template));
+  assertTrue("CLAUDE.md's routines table carries the same row",
+    /\| `housekeep\.md` \| `\[Housekeep\]` \| `repository` \| `50 \* \* \* \*` \| `\/setup-repo-routines` \|/.test(claudeMd),
+    "the routines table and the template disagree");
+  // Write/Edit are granted BECAUSE it writes — the reader routine's contract is the
+  // contrast, and the template has to say which it is rather than inherit a list.
+  assertTrue("the write grant is justified in the template's own prose",
+    /`Write`\/`Edit` are granted rather than inherited/.test(template), "the grant is unexplained");
+  assertTrue("and the tools list carries them", /^allowed_tools: \[.*Write.*Edit.*\]$/m.test(template));
 }

@@ -38,6 +38,8 @@ const SCRIPTS = {
   migrateTodoOwners: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/migrate-todo-owners.sh"),
   owns: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/owns.sh"),
   listTodo: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/list-todo.sh"),
+  housekeepLogAppend: join(REPO_ROOT, "plugins/workaholic/skills/housekeep/scripts/log-append.sh"),
+  housekeepLogRead: join(REPO_ROOT, "plugins/workaholic/skills/housekeep/scripts/log-read.sh"),
   ticketSummary: join(REPO_ROOT, "plugins/workaholic/skills/create-ticket/scripts/summary.sh"),
   missionSummary: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/summary.sh"),
   missionCreate: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/create.sh"),
@@ -13593,6 +13595,7 @@ const tests = [
   ["e2e/loop-drill.sh: reset recovers only what the drill minted", testLoopDrillReset],
   ["e2e/loop-drill.sh: verify-propose reads artifacts, and pending is not fail", testLoopDrillVerifyPropose],
   ["e2e/loop-drill.sh: verify-implement reads the archive move, story, PR and claim", testLoopDrillVerifyImplement],
+  ["housekeep: the tick log is registered, append-only and idempotent", testHousekeepLog],
 ];
 
 // `await` matters even though almost every test is synchronous: without it an async
@@ -15914,4 +15917,80 @@ function testLoopDrillVerifyImplement() {
     assertTrue("naming the declaration it looked for",
       handoffRows.unit_pr_handed_off.detail.includes(REASON), handoffRows.unit_pr_handed_off.detail);
   } finally { cleanup(fx.tmp); }
+}
+
+// ---------- housekeep: the tick log is registered, append-only and idempotent ----------
+// (2026-08-17, issue #471) Three properties, because each one failing is a different
+// kind of damage: an UNREGISTERED area is hard-blocked by the layout gate on the very
+// first tick, a NON-idempotent writer doubles the record of a retried step, and a
+// reader that cannot answer "did an earlier tick file this?" makes an hourly routine
+// re-file the same finding twenty-four times a day.
+function testHousekeepLog() {
+  const repo = makeRepo();
+  const APPEND = `${POSIX_SH} ${SCRIPTS.housekeepLogAppend}`;
+  const READ = `${POSIX_SH} ${SCRIPTS.housekeepLogRead}`;
+  const HOOK = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/hooks/validate-ticket.sh")}`;
+  try {
+    // The closed layout admits the area — and still refuses a near-miss sibling, which
+    // is the property that makes registration meaningful rather than decorative.
+    mkdirSync(join(repo, ".workaholic/housekeeping"), { recursive: true });
+    mkdirSync(join(repo, ".workaholic/housekeepin"), { recursive: true });
+    const ok = join(repo, ".workaholic/housekeeping/2026-08-17.md");
+    const bad = join(repo, ".workaholic/housekeepin/2026-08-17.md");
+    writeFileSync(ok, "# log\n");
+    writeFileSync(bad, "# log\n");
+    assertEq("a write into the registered log area passes the layout gate",
+      run(repo, `printf '{"tool_name":"Write","tool_input":{"file_path":"${ok}"}}' | ${HOOK}`, { shell: "/bin/sh" }).status, 0);
+    assertEq("a write into an unregistered sibling is still denied",
+      run(repo, `printf '{"tool_name":"Write","tool_input":{"file_path":"${bad}"}}' | ${HOOK}`, { shell: "/bin/sh" }).status, 2);
+    rmSync(join(repo, ".workaholic/housekeepin"), { recursive: true, force: true });
+    rmSync(ok, { force: true });
+
+    // One entry per (tick, step): the second write of the same step is refused, and the
+    // file is a day file named off the tick id, not off the clock.
+    const T1 = "20260817-120000";
+    let j = JSON.parse(run(repo, `${APPEND} --tick ${T1} --step stale-issues --status filed --summary 'commented on #123'`).stdout);
+    assertEq("the first step of a tick opens the day file", j.created_file, true);
+    assertEq("and its section", j.created_section, true);
+    assertTrue("named for the tick's UTC day", j.file.endsWith(".workaholic/housekeeping/2026-08-17.md"), j.file);
+    j = JSON.parse(run(repo, `${APPEND} --tick ${T1} --step drift --status ok --summary 'no drift'`).stdout);
+    assertEq("a second step joins the same section", j.created_section, false);
+    j = JSON.parse(run(repo, `${APPEND} --tick ${T1} --step drift --status ok --summary 'no drift'`).stdout);
+    assertEq("re-running a recorded step writes nothing", j.logged, false);
+    assertEq("and says why", j.duplicate, true);
+
+    // A later tick appends its own section; re-entering the EARLIER tick still lands
+    // inside that tick's section rather than at the tail of the file.
+    run(repo, `${APPEND} --tick 20260817-130000 --step stale-issues --status skipped --summary 'inbox unreadable'`);
+    run(repo, `${APPEND} --tick ${T1} --step docs --status degraded --summary 'could not read README'`);
+    const body = readFileSync(join(repo, ".workaholic/housekeeping/2026-08-17.md"), "utf8");
+    const firstSection = body.split("## 20260817-130000")[0];
+    assertTrue("a re-entered tick appends inside its own section", firstSection.includes("`docs`: degraded"), body);
+
+    // The reader is how a step asks whether an earlier tick already did this.
+    j = JSON.parse(run(repo, `${READ}`).stdout);
+    assertEq("every entry is readable back", j.count, 4);
+    j = JSON.parse(run(repo, `${READ} --step stale-issues --contains '#123'`).stdout);
+    assertEq("filtered to the one that filed it", j.count, 1);
+    assertEq("carrying its status", j.entries[0].status, "filed");
+    j = JSON.parse(run(repo, `${READ} --since 2026-08-18`).stdout);
+    assertEq("a since-date past every day file reads nothing", j.count, 0);
+
+    // Refusals are named, never guessed: a malformed tick id would put an entry in a
+    // day file no reader would look in.
+    assertEq("a malformed tick id is refused",
+      JSON.parse(run(repo, `${APPEND} --tick nope --step x --status ok --summary y`).stdout).reason, "bad_tick");
+    assertEq("an off-vocabulary status is refused",
+      JSON.parse(run(repo, `${APPEND} --tick ${T1} --step x --status wonderful --summary y`).stdout).reason, "bad_status");
+
+    // The area is an OKF exception: the index refresh links the directory and writes no
+    // index into it, so a tick never churns the bundle indexes.
+    run(repo, `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/okf/scripts/refresh-index.sh")}`);
+    assertEq("the log area gets no index.md", existsSync(join(repo, ".workaholic/housekeeping/index.md")), false);
+    assertTrue("but the bundle root links it",
+      readFileSync(join(repo, ".workaholic/index.md"), "utf8").includes("housekeeping/"),
+      readFileSync(join(repo, ".workaholic/index.md"), "utf8"));
+  } finally {
+    cleanup(repo);
+  }
 }

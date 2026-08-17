@@ -52,3 +52,4 @@ most five a tick, never late at night — instead of a silent guess.
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 
 - 2026-08-17 — Proposed from issue #471.
+- 2026-08-17 — ticket archived — 20260817113749-register-the-housekeep-log-area.md

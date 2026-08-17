@@ -154,20 +154,39 @@ seam this file names for that step — recording what it actually did under the 
   A finding an earlier tick logged under `doc-drift-filed` is counted and dropped.
 - **Aborts**: `no_repo`, `no_baseline`, `drift_unreadable`.
 
-## 8. `strategy-proposals` — expansion and consolidation for a strategy
+## 8. `strategy-proposals` — GATED: it proposes nothing until the operator rules
 
-- **Reads**: `strategy/scripts/list.sh`; the base state a proposal is constrained by
-  (`propose/scripts/survey-state.sh`, `list-proposed-refs.sh`).
-- **Writes**: nothing directly. Everything goes through `/propose`'s own publish path, so a
-  proposal from this tick is the same artifact, with the same dedup and the same pull request, as
-  a proposal from any other input.
-- **Aborts**: `no_strategies` — the honest and, today, the *actual* outcome: the repository holds
-  zero strategies, so this step has no data until the operator authors one.
-- **The ruling it carries**: proposing from a strategy inverts `workaholic:propose`'s standing bar
-  that feedback is the only input which can originate a proposal. That reversal is decided in the
-  step's own ticket, with the retired `[Propose Batch]` design's reasoning answered rather than
-  dropped.
-- Ticket: `20260817113753`.
+- **Reads**: `strategy/scripts/list.sh`. Nothing else, because it acts on nothing.
+- **Writes**: **nothing at all**, by decision (2026-08-17). Its own mission says why: *every step
+  reversing a standing decision is ruled on by the operator or left unbuilt, never inferred* — and
+  this step reverses one. `workaholic:propose`'s judgment bar states that **missions, the queue and
+  commits are constraints, never triggers**; feedback is the only input that can originate a
+  proposal, and the retired `[Propose Batch]` routine was exactly the state-sweep this step
+  reintroduces, with a recorded failure mode of "a channel full of plausible noise".
+- **Three independent rulings are outstanding**, and the step names them in every report:
+  1. **Does a strategy originate a proposal at all?** The argument in favour is real and is
+     *recorded rather than acted on*: a strategy is not repository state — it is the operator's own
+     resolved, dated, owned direction, which sits far closer to feedback than to a backlog sweep.
+     If it is accepted, it belongs in `workaholic:propose` as a second originator, so there is one
+     bar and not two. Accepting it is the operator's act.
+  2. **Which Slack shape?** The ask's `🟡 Proposing` collides twice — 🟡 is the handoff finish line
+     today, and the start post was retired on 2026-08-11 ("a routine posts its finish only"). And
+     `workaholic:notify`'s *the prompt is the ceiling* means no session may emit a shape the
+     routine's own prompt does not name, so a shape settled here alone would still be inert.
+  3. **What counts as "negative feedback"?** A reaction, a token in a reply, a human closing the
+     pull request, and a model's reading of a thread have four very different false-positive
+     rates, and an auto-close on a misread reply destroys a proposal nobody rejected. Of the four,
+     an **explicit token** is the only one whose false-positive rate is a property of the rule
+     rather than of the reader.
+- **Aborts**: `no_strategies` — today's actual state, reported rather than left silently empty;
+  `awaiting_operator_ruling` (`blocked`) once a strategy exists, because then the ruling is live;
+  `no_strategy_reader` when the strategy skill is absent.
+- **When it is built**: reuse `/propose`'s emission machinery (publish tree → record → scaffold →
+  one pull request) rather than a second copy of it — only the *trigger* differs — put the ask's
+  "about a week" reaction window in **one named constant**, derive the in-flight state from the
+  open pull request's age rather than a stored cursor (the repository is the coordination medium),
+  and make a decline leave a record naming the reason **and** a closed pull request, never a closed
+  pull request alone.
 
 ## 9. `human-checkin` — up to five questions, never late at night
 

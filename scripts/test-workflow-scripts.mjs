@@ -13601,6 +13601,7 @@ const tests = [
   ["housekeep: the unattended contract is in the files, not in intent", testHousekeepUnattendedContract],
   ["housekeep steps 2-3: every surface is named, and nothing is executed", testHousekeepInboundSweep],
   ["housekeep steps 4-7: report, never repair; remind once per state", testHousekeepHygieneSteps],
+  ["housekeep step 8: a step reversing a standing decision stays unbuilt", testHousekeepStrategyStepIsGated],
 ];
 
 // `await` matters even though almost every test is synchronous: without it an async
@@ -16258,5 +16259,42 @@ esac
   } finally {
     cleanup(repo);
     cleanup(bin);
+  }
+}
+
+// ---------- housekeep step 8: a step that reverses a standing decision stays unbuilt ----------
+// (2026-08-17, issue #471) The mission's own acceptance is the property under test: a step
+// that reverses a standing decision is ruled on by the operator or LEFT UNBUILT, never
+// inferred. So the test is not "does it propose well" — it is that it proposes nothing,
+// names the rulings it is waiting on, and tells an empty strategy set apart from a live one.
+function testHousekeepStrategyStepIsGated() {
+  const repo = makeRepo();
+  const STEP = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/housekeep/scripts/step-strategy-proposals.sh")}`;
+  try {
+    mkdirSync(join(repo, ".workaholic"), { recursive: true });
+    let j = JSON.parse(run(repo, `${STEP} --tick 20260817-120000 --root .`).stdout);
+    assertEq("with no strategies the step is a reported no-op", j.reason, "no_strategies");
+    assertEq("and says how many it saw", j.strategies, 0);
+    assertEq("it never hands work to the agent", j.needs_agent.length, 0);
+    assertEq("and it names all three outstanding rulings", j.open_rulings.length, 3);
+
+    mkdirSync(join(repo, ".workaholic/strategies"), { recursive: true });
+    writeFileSync(join(repo, ".workaholic/strategies/x.md"),
+      "---\ntype: Strategy\ntitle: X\nslug: x\nstatus: active\ntarget_date: 2026-12-01\nassignees: [a@qmu.jp]\n---\n\n## Aim\n\nx\n\n## Schedule\n\nx\n");
+    j = JSON.parse(run(repo, `${STEP} --tick 20260817-120000 --root .`).stdout);
+    assertEq("a live strategy makes the ruling live, not the step", j.reason, "awaiting_operator_ruling");
+    assertEq("the step blocks rather than proposing", j.status, "blocked");
+    assertEq("and still proposes nothing", j.needs_agent.length, 0);
+
+    // Nothing was written anywhere: no record, no ticket, no branch.
+    assertEq("no feedback record was minted", existsSync(join(repo, ".workaholic/feedbacks")), false);
+    assertEq("and no ticket queue was touched", existsSync(join(repo, ".workaholic/tickets")), false);
+
+    // The propose skill's bar is UNCHANGED — the reversal was not slipped in sideways.
+    const propose = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/propose/SKILL.md"), "utf8");
+    assertTrue("propose still says repository state never triggers a proposal",
+      /constraints, never triggers/.test(propose), "the judgment bar was edited without a ruling");
+  } finally {
+    cleanup(repo);
   }
 }

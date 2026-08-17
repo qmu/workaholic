@@ -44,7 +44,7 @@ most five a tick, never late at night — instead of a silent guess.
   and file findings through the existing seams. (#20260817113750-add-the-housekeep-command-and-skill.md)
 - [ ] The template ships with a declared scope and cron, is converged by that scope's setup
   command, and posts only shapes its prompt names. (#20260817113755-ship-the-housekeep-routine-template.md)
-- [ ] Every step reversing a standing decision is ruled on by the operator or left unbuilt,
+- [x] Every step reversing a standing decision is ruled on by the operator or left unbuilt,
   never inferred. (#20260817113753-implement-the-strategy-proposal-step.md)
 
 ## Changelog
@@ -56,3 +56,4 @@ most five a tick, never late at night — instead of a silent guess.
 - 2026-08-17 — ticket archived — 20260817113750-add-the-housekeep-command-and-skill.md
 - 2026-08-17 — ticket archived — 20260817113751-implement-the-inbound-sweep-steps.md
 - 2026-08-17 — ticket archived — 20260817113752-implement-the-repository-hygiene-steps.md
+- 2026-08-17 — ticket archived — 20260817113753-implement-the-strategy-proposal-step.md

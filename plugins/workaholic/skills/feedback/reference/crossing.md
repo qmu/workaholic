@@ -101,8 +101,12 @@ The command owns every `AskUserQuestion` (one-level fan-out; subagents cannot pr
    ```bash
    bash ${CLAUDE_PLUGIN_ROOT}/skills/feedback/scripts/open-issue.sh <owner/name> "<title>" <body-file>
    ```
-   Returns `{ok, url, slug}`. A refusal from `gh` — issues disabled, no access for this
-   identity — is reported verbatim and never worked around.
+   Returns `{ok, url, slug, requested_assignee, assignees, assigned}`. A refusal from
+   `gh` — issues disabled, no access for this identity — is reported verbatim and never
+   worked around. **The crossing passes no `--assignee`**: naming one of *our* identities
+   on somebody else's tracker would be composing in our vocabulary, and the target's
+   maintainers assign their own work. Without the flag the request body is what it has
+   always been, and `assignees` comes back empty.
 
 8. **Report** the issue URL in one line, and say that the target's loop takes it from
    here. Do not follow it, do not comment on it, and do not commit anything in the

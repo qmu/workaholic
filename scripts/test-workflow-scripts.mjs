@@ -8842,6 +8842,54 @@ function testFbCrossRepoIssueMode() {
     assertTrue("the payload is fed with --input -, not an inline -f",
       argv.includes("--input") && argv[argv.indexOf("--input") + 1] === "-", argv.join(" "));
 
+    // ---- 2a. the assignee, which is load-bearing rather than cosmetic ----
+    // `[Propose]`'s discovery lists only issues assigned to the running identity and
+    // deliberately never unassigned ones, so an unassigned in-repo `[FB]` issue would be
+    // ingested by nobody. These cases pin both halves: the flag puts the login on the
+    // wire, and its ABSENCE leaves the crossing's request body exactly what it was.
+    assertTrue("without --assignee the payload carries no assignees key at all",
+      !("assignees" in sent), JSON.stringify(sent));
+    assertEq("and the envelope reports nothing was requested", opened.requested_assignee, "");
+    assertEq("nor assigned", opened.assigned, false);
+
+    writeGh(`cat > "${ghStdin}"\nprintf '{"html_url": "https://github.com/acme-org/source-repo/issues/7", "assignees": [{"login": "octo"}]}\\n'`);
+    const assigned = json(src, SCRIPTS.openIssue,
+      `--assignee octo "acme-org/source-repo" "Parser drops a trailing newline" ${q(askBody)}`);
+    assertEq("--assignee still reports ok", assigned.ok, true);
+    assertEq("the payload carries the login as a one-element array",
+      JSON.stringify(JSON.parse(readFileSync(ghStdin, "utf8")).assignees), '["octo"]');
+    assertEq("and the envelope echoes what the RESPONSE carried",
+      JSON.stringify(assigned.assignees), '["octo"]');
+    assertEq("so the caller can report the assignment landed", assigned.assigned, true);
+
+    // THIS REPOSITORY IS A LEGAL TARGET. The writer was written for another repo's
+    // tracker; the unified `/fb` files here through the same script, and there is
+    // deliberately no "is this us" branch — the caller decides the destination.
+    assertEq("open-issue accepts this repository's own slug", assigned.slug, "acme-org/source-repo");
+
+    // AN ASSIGNMENT GITHUB SILENTLY DROPS IS REPORTED, NEVER ASSUMED: a login without
+    // access is dropped by the API rather than refused, and issue creation still
+    // succeeded — a filed ask with no assignee is recoverable by hand, a lost one is not.
+    writeGh(`cat > "${ghStdin}"\nprintf '{"html_url": "https://github.com/acme-org/source-repo/issues/8", "assignees": []}\\n'`);
+    const dropped = json(src, SCRIPTS.openIssue,
+      `--assignee stranger "acme-org/source-repo" "T" ${q(askBody)}`);
+    assertEq("a dropped assignment does not fail issue creation", dropped.ok, true);
+    assertEq("and is reported as unassigned rather than assumed", dropped.assigned, false);
+    assertEq("with the login we asked for still named", dropped.requested_assignee, "stranger");
+
+    writeGh(`cat > "${ghStdin}"\nprintf '{"html_url": "https://github.com/acme-org/source-repo/issues/9"}\\n'`);
+    assertEq("--assignee with no login is refused, never a silent unassigned filing",
+      json(src, SCRIPTS.openIssue, `--assignee "" "acme-org/source-repo" "T" ${q(askBody)}`).ok, false);
+    assertEq("and so is a login that is not a GitHub login",
+      json(src, SCRIPTS.openIssue, `--assignee "not a login" "acme-org/source-repo" "T" ${q(askBody)}`).ok, false);
+    assertEq("the --assignee=<login> form works too",
+      json(src, SCRIPTS.openIssue, `--assignee=octo "acme-org/source-repo" "T" ${q(askBody)}`).ok, true);
+    assertEq("and the three positionals did not move",
+      JSON.parse(readFileSync(ghStdin, "utf8")).title, "[FB] T");
+
+    // Restore the stub the rest of this case was written against.
+    writeGh(`cat > "${ghStdin}"\nprintf '{"html_url": "https://github.com/other-org/target-repo/issues/42"}\\n'`);
+
     // ---- 2b. the title's wire shape, and its idempotence ----
     // THE MARKER IS STAMPED IN EXACTLY ONE PLACE (issue #411, 2026-08-12), reversing the
     // rule that the title took no prefix of ours. The reversal was decided on a

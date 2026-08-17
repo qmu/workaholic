@@ -135,6 +135,42 @@ prose-only — no shell of its own, so it remains readable on an agent that has 
 tooling. Where the ship skill's scripts are unavailable, assemble the section by hand to
 the shape above; the fields are the consolidation's, whoever gathers them.
 
+## The per-target draft
+
+The structure above describes a **branch's** note, written at the ship seam. Since
+2026-08-17 there is a second reading of the same structure: a **target's** draft —
+"what the note would say if this component were deployed from the base right now" —
+rendered by `workaholic:ship`'s `draft-release-note.sh` (this skill stays prose-only and
+owns no shell, as above). Same sections, same voice, so a
+generated draft and a hand-written note read alike; four things differ, and each
+follows from it being prospective rather than retrospective.
+
+| | Branch note | Target draft |
+| - | ----------- | ------------ |
+| Key | the branch (`<branch-name>.md`) | the target slug |
+| Frontmatter | `branch`, `released_at`, `targets` | `target`, `environment`, `stage: draft` |
+| Range | that branch's own tickets | everything unreleased for that target, from `read-deploy-state.sh` |
+| Verification | attempts, appended | none — a draft describes a release that has not happened |
+
+**It says it is a draft in its first paragraph**, because a reader who mistakes a
+prospective document for a record of a release that happened is the failure this whole
+area exists to prevent.
+
+**Its `## Key Changes` comes from the stories behind the merges in the range**, not from
+the commit list: a story is the written record of *why*, and a commit subject cannot
+reconstruct that. A merge with no story on the base is listed by its pull request number
+and said to have none, rather than dropped — a silently shortened list reads as "nothing
+else happened".
+
+**It is idempotent and carries no clock, no sha and no run-varying value**, so the same
+base state renders byte-identical output. That is the property the daily cadence rests
+on, and it is why the boundary is named in words (`latest_tag:v1.0.178`, `prior_release`,
+`full_history`) rather than by its sha.
+
+**The generator writes nothing into the repository.** It emits JSON on stdout, or
+materialises bodies under a caller-chosen directory with `--out`. Where the draft is
+*stored* is the sync's decision, not the renderer's.
+
 ## Recording the verification
 
 `## Deployment Verification` is the other half of the loop: a plan that says what

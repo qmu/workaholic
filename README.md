@@ -57,7 +57,7 @@ The `plugins/workaholic` source stays Claude-Code-only (`metadata.internal: true
 | `/implement` | **The executor, unattended** — the same run as `/drive` with **no prompt at any step**, and what the routine and any `/goal /implement ok` loop invoke by name (`docs/drive-loop-runbook.md`). A decision it cannot make is deferred and recorded in its final report, never asked; a half-driven unit ends in `handoff` with its state written into the PR body. It never overrides a gate: a credential in the diff hard-stops the unit, and a size/leak block or a target with no declared confirmation method demotes it to the PR path. `/implement <unit>` narrows it to one mission or ticket. It is a separate command rather than a first word on `/drive` because a behaviour selected by an argument is one a caller can forget to pass — and forgetting it parks an unattended tick on a prompt nobody will answer |
 | `/commit`  | Commit the working changes with a policy-conformant message (for small non-ticketed changes; ticketed work belongs to `/drive` or `/implement`) |
 | `/propose` | Judge the ask in hand and emit, in **one** pull request, the feedback record together with what it warrants — a **mission with its ticket set** when the direction decomposes, **one loose backlog ticket** when it is atomic, or **the record alone** when it is neither. The repository's own state constrains the judgment. That pull request **merges as soon as it opens** — quality is gated downstream at the `release/*` QA window, and a release-scan finding is the one thing that leaves it open. Runs unattended in the `[Propose]` routine's session, which fires on a fixed hourly schedule (`15 * * * *`); a tick that starts with nothing in hand **discovers its own asks** — the open GitHub issues assigned to it, oldest first, minus those a feedback record already names (`list-inbound-issues.sh`) |
-| `/fb` | Register one **immutable** record into the feedback stream — a design conclusion, an instruction, a development-born concern, or customer material. Resolution is a new record naming the old one via `supersedes`, never an edit. Named `/fb` because Claude Code ships a built-in `/feedback` (which sends feedback to Anthropic); **only the trigger is abbreviated** — the artifact, the skill, and the stream keep the full word. Given a target repository (`/fb <the ask> to <owner/name>`) it instead **crosses the boundary**: it composes the ask in the target's vocabulary and opens it as a GitHub **issue** there — the only sanctioned way to raise work against another repository, writing into no checkout of it, and requiring you to confirm the destination and the exact body, verbatim, in one non-skippable confirmation |
+| `/fb` | File one ask — a design conclusion, an instruction, a development-born concern, or customer material — as an `[FB] `-marked GitHub **issue**. **One artifact, two addresses**: with no destination it opens on **this** repository, assigned to you, carrying the `kind`/`source`/`subject` judgment in its body, and writes **no** file — the hourly `[Propose]` tick discovers the issue and registers the record itself, so a `/fb` that also wrote one would suppress its own ingestion. Given a target repository (`/fb <the ask> to <owner/name>`) it instead **crosses the boundary**: it composes the ask in the target's vocabulary and opens the issue there — the only sanctioned way to raise work against another repository, writing into no checkout of it, and requiring you to confirm the destination and the exact body, verbatim, in one non-skippable confirmation. Named `/fb` because Claude Code ships a built-in `/feedback` (which sends feedback to Anthropic); **only the trigger is abbreviated** — the artifact, the skill, and the stream keep the full word |
 | `/report`  | Context-aware: generate the branch story and create the PR (warns on the branch-safety scan — credentials/oversize/leakage) |
 | `/ship`    | Context-aware: **draft the deployment plan, merge the PR, publish the GitHub Release** — it starts no deployment. The Release Note gains a `## Deployment Plan` saying, per deployment target, what is waiting to deploy and the verification that would be required; you read it and *then* instruct the deploy, which runs the procedure, confirms it, and records the method and observed result back into that same note. Blocks pre-merge on the branch-safety scan (secrets non-overridable) and still halts when a target declares no confirmation method — a plan that names no verification is the failure the gate exists to prevent. Production evidence for what has landed on `main` is the `release/*` window's confirmation |
 | `/mission` | Plan an **optional, epic-equivalent grouping** — a bounded batch of **two or more** tickets an agent fleet drives together, typically overnight (never a required parent; single tickets drive fine without one, and one unit of work is a ticket rather than a mission — under two tickets a mission is not published at all): create one (asks the one human ruling — whether the mission's completed units may merge automatically — interrogates you to a drive-ready state, then **publishes onto a `work-*` branch behind a pull request, in one commit**, the mission statement and the **whole** ordered ticket set it emitted; **merging that pull request is the approval**, so there is no `approve` subcommand, and it creates no worktree — a worktree is claim-born, made when `/drive` takes the mission as a PR-unit), **replan** an in-flight one (a free-form instruction referencing it, no subcommand: re-enters the interrogation scoped to what changed and emits delta tickets the same way), show the **developer-centric roadmap** (bare `/mission`: full treatment — progress, next step, recent movement — for your and unclaimed active missions, one-liners for colleagues' and archived ones; the former `summary` mode is folded into this view). **No word of the argument is a subcommand**: it names the mission you mean, and nothing else. Ending one is `/mission-close` |
@@ -126,7 +126,7 @@ Everything converges on the same unit of work — a ticket. The shorthand: **sou
 
 **Where the design conversation went.** Until 2026-07-28 this section described `/trip`, an Agent Teams session in which a Planner, an Architect, and a Constructor designed a concept together, decomposed it into tickets, and drove them. That command, along with `/monitor` (parallel mission execution) and `/carry` (handing in-progress work to a fresh session), has been retired and its ideas absorbed:
 
-- **Design discussion** is now the **feedback stream** — `/fb` records each conclusion, instruction, concern, or piece of customer material as an immutable entry that later planning reads.
+- **Design discussion** is now the **feedback stream** — `/fb` files each conclusion, instruction, concern, or piece of customer material as an issue, and `/propose` turns it into the immutable entry later planning reads.
 - **Decomposition** is `/mission` (interrogate a goal into its whole ticket set) and `/propose` (judge the ask in hand, and propose a mission with its ticket set — or one loose ticket — in the same pull request as its feedback record).
 - **Execution — including parallel, unattended, many-mission execution — is `/drive` and its unattended twin `/implement`.** What `/monitor` did across mission worktrees, that one run now does as its normal survey-and-claim behavior, coordinated through the claim branches instead of a dispatcher.
 - **Handing off in-flight work** needs no command: the work lives on a pushed claim branch by construction, so the next run re-claims the unit (`claim.sh resume <unit-id>`, once the claim's heartbeat lapses and only for its own identity) and continues from the branch tip. A run that knowingly leaves a unit unfinished says so in the PR body's `## Handoff` section. What a hand-off used to capture in prose — the learnings, the deferred concerns — is written at the ship seam as `kind: concern` / `kind: insight` feedback records.
@@ -152,7 +152,7 @@ The tree is also an [Open Knowledge Format](https://github.com/GoogleCloudPlatfo
 | `releases/<release-branch>.md` | the release promotion (`/ship` §6): `record-release-cut.sh` at the cut — a batch-level act invoked explicitly, never a step of the per-unit ship — and `confirm-release.sh` at each confirmation | Durable ship record for one `release/*` branch: which `main` commits it carried, when it was cut, when it was confirmed or failed. Derived from git, never hand-authored | committed to `main` at cut and at each confirmation | n/a — not branch-scoped | never (a failed confirmation is recorded, not erased) |
 | `trips/<name>/*` | nothing — **no writer since 2026-07-28** | Legacy multi-agent design output from the retired `/trip` command | already committed; read-only history | no | never (kept as history; knowledge is not deleted) |
 | `missions/active/<slug>/mission.md` | `/mission` | Optional epic-equivalent grouping bundling **two or more** tickets: goal, demanded experience, acceptance checklist (progress = checked/total), one `status` lifecycle axis with a single in-flight state (`active`, then one of three end states) plus the orthogonal `merge_policy` recorded at creation, `predicted_hours`/`actual_hours` (predicted at creation from the archived trend, actual accumulated by `/drive`), append-only changelog | committed behind its publication PR, updated as related work lands | n/a — outlives any branch | `/mission-close` flips `status` to `achieved`, `abandoned` or `carried` and moves the dir to `missions/archive/<slug>/` (file and changelog preserved) — the only status flip there is |
-| `feedbacks/<ts>-<slug>.md` | `/fb` (conclusions/instructions), `/propose` (**one record on every run**, whatever it judges — the highest-volume writer), `/ship` (`kind: concern` records extracted from a shipped story's section 6), `/report` (superseding resolution records) — all through the feedback skill's writers | One **immutable** inbound record of project context: a conclusion (`kind: insight`), an instruction, a development-born concern, or customer material — the raw material later planning reads. Each record names **whose opinion it is** (`subject`), which is a different question from the channel it arrived through (`source`) and from who ran the capture (`author`) | committed when registered | **yes — the stream accumulates forever**; consumers track "new" by commit cursor, and the open concern set is computed as "not superseded" | never (resolution/mootness is a *new* record naming the old one via `supersedes`, not an edit) |
+| `feedbacks/<ts>-<slug>.md` | `/propose` (**one record on every run**, whatever it judges — the highest-volume writer, and the one that registers what `/fb` filed as an issue), `/ship` (`kind: concern` records extracted from a shipped story's section 6), `/report` (superseding resolution records) — all through the feedback skill's writers. **Not `/fb`'s primary path**, which files an issue instead | One **immutable** inbound record of project context: a conclusion (`kind: insight`), an instruction, a development-born concern, or customer material — the raw material later planning reads. Each record names **whose opinion it is** (`subject`), which is a different question from the channel it arrived through (`source`) and from who ran the capture (`author`) | committed when registered | **yes — the stream accumulates forever**; consumers track "new" by commit cursor, and the open concern set is computed as "not superseded" | never (resolution/mootness is a *new* record naming the old one via `supersedes`, not an edit) |
 | `strategies/<slug>.md` | manual, through `workaholic:strategy`'s `create.sh` (operator-authored; the loop's only reach is `/propose`'s strategy form, whose pull request does not auto-merge — the operator's merge authors it) | One piece of **outbound, resolved direction**: an **Aim**, a **Schedule** (`target_date`) and an **Assignee**. The complement of `feedbacks/` — the stream holds what someone *said*, a strategy holds what the operator *decided* — with a one-way citation link (strategy → feedback) | committed when created | n/a — not branch-scoped | ended by `close.sh` (`achieved`/`abandoned`); the file never moves |
 | `terms/*.md` | manual | Persistent reference material (the project's glossary) | committed | n/a | superseded when manually rewritten |
 
@@ -263,7 +263,7 @@ Parallelism is not a separate command: `/drive`'s survey picks up every claimabl
 
 #### Use case 3 — Feedback-driven: `/fb` → `/propose` → `/mission` → `/drive`
 
-When the work starts as something someone said rather than something you already scoped, the front door is the feedback stream. `/fb` records the conclusion, instruction, concern, or customer material as an immutable entry; `/propose` judges an ask — one handed to the session, or one its hourly tick discovered among the issues assigned to it — and opens one pull request carrying the record together with what it warrants — a mission with its whole ticket set when the direction decomposes, one loose ticket when it is atomic, or the record alone when it is neither — all `feedback:`-linked; that pull request merges on opening, so what it publishes is claimable immediately and the quality judgment happens downstream at the `release/*` window; `/drive` executes them. This is the loop that replaced the retired `/trip` design session — the conversation lives in records rather than in an agent team.
+When the work starts as something someone said rather than something you already scoped, the front door is `/fb`, which files the conclusion, instruction, concern, or customer material as an `[FB] `-marked issue assigned to you — the same artifact the Slack (Claude Tag) route produces, so the deliverable no longer depends on the destination; `/propose` judges an ask — one handed to the session, or one its hourly tick discovered among the issues assigned to it — and opens one pull request carrying the record together with what it warrants — a mission with its whole ticket set when the direction decomposes, one loose ticket when it is atomic, or the record alone when it is neither — all `feedback:`-linked; that pull request merges on opening, so what it publishes is claimable immediately and the quality judgment happens downstream at the `release/*` window; `/drive` executes them. This is the loop that replaced the retired `/trip` design session — the conversation lives in records rather than in an agent team.
 
 ```mermaid
 flowchart LR
@@ -271,12 +271,14 @@ flowchart LR
   propose(["/propose"])
   drive(["/drive"])
 
+  ISSUE["[FB] issue on this repo<br/>assigned to you"]
   FBK["feedbacks/<br/>immutable records"]
   PROP["work-* branch + PR<br/>record + mission and ticket set,<br/>or one ticket, or the record alone"]
   ACTIVE["on main<br/>missions/active/ + tickets/todo/"]
 
-  feedback ==>|writes one record| FBK
-  FBK -.->|the ask, in hand| propose
+  feedback ==>|files one issue| ISSUE
+  ISSUE -.->|discovered by the hourly tick| propose
+  propose ==>|registers the record| FBK
   propose ==>|publishes both in one commit| PROP
   PROP ==>|merges on opening; a scan finding leaves it open| ACTIVE
   ACTIVE -.->|surveyed as claimable| drive
@@ -287,6 +289,8 @@ flowchart LR
   class feedback,propose,drive cmd;
   class PROP,ACTIVE state;
   class FBK art;
+  class ISSUE ext;
+  classDef ext fill:#f3f4f6,stroke:#9aa0aa,stroke-dasharray:4 3,color:#374151;
 ```
 
 `/propose` runs unattended inside the `[Propose]` routine's session, which fires on a fixed hourly schedule (`15 * * * *`) rather than on a report reaching it — a routine cannot subscribe to a repository event, so a tick that starts with nothing in hand discovers its own asks: the open issues assigned to it, oldest first, minus those a feedback record already names. It is allowed to propose nothing — record-only is a valid outcome, and one it has to justify rather than fall into. Its pull request merges on opening, so the human judgment is not the merge: it is the `merge_policy` recorded on what the PR publishes (absent reads as `review`), and the `release/*` QA window downstream.
@@ -327,6 +331,7 @@ flowchart LR
 
   %% ---------- artifacts that land outside .workaholic/ (grey, dashed border) ----------
   EXT["issue in ANOTHER repo"]
+  OWN["[FB] issue in THIS repo"]
   PDF["PDF report"]
   WT["git commit"]
   CFG["CLAUDE.md + hooks wiring"]
@@ -336,12 +341,13 @@ flowchart LR
   ticket --> TODO
   ticket --> ICE
   feedback --> EXT
+  feedback --> OWN
   mission --> MIS
   mission --> TODO
   missionclose --> MIS
   propose --> MIS
   propose --> TODO
-  feedback --> FBK
+  propose --> FBK
   drive --> ARCH
   drive --> ABD
   drive --> TODO
@@ -358,7 +364,7 @@ flowchart LR
   %% ========== reference: dashed arrow = reads / refers ==========
   drive -.-> TODO
   drive -.-> MIS
-  propose -.-> FBK
+  propose -.-> OWN
   report -.-> ARCH
   report -.-> FBK
   ship -.-> STORY
@@ -387,13 +393,13 @@ flowchart LR
   classDef ext fill:#f3f4f6,stroke:#9aa0aa,stroke-dasharray:4 3,color:#374151;
   class ticket,mission,missionclose,propose,feedback,drive,report,ship,releasestatus,catch,commit,explain,workaholify,setuproutines cmd;
   class TODO,ICE,ARCH,ABD,MIS,STORY,FBK,REL,DEP art;
-  class EXT,PDF,WT,CFG,ROUT ext;
+  class EXT,OWN,PDF,WT,CFG,ROUT ext;
 ```
 
 Reading the map:
 
 - **Solid arrow** = the command *generates* that artifact. **Dashed arrow** = the command *reads / refers to* it. `rolls` = the command updates a named mission's `## Changelog` and `## Acceptance` checklist (via the `mission:` relation any ticket/story/concern carries).
-- **Node style tells the kind apart.** Rounded **blue** = the commands (`/drive` and `/implement` share the executor node); rectangular **grey** = the artifacts they generate. A **dashed grey border** marks the artifacts that land *outside* `.workaholic/` — a cross-repo issue via `/fb`, a printed PDF via `/explain`, a plain working-tree commit via `/commit`, repo wiring via `/workaholify`, and the scheduled routines `/setup-dev-routines` and `/setup-repo-routines` read and converge in the Claude Code Web account.
+- **Node style tells the kind apart.** Rounded **blue** = the commands (`/drive` and `/implement` share the executor node); rectangular **grey** = the artifacts they generate. A **dashed grey border** marks the artifacts that land *outside* `.workaholic/` — the `[FB] ` issue every `/fb` files, here or across the boundary, a printed PDF via `/explain`, a plain working-tree commit via `/commit`, repo wiring via `/workaholify`, and the scheduled routines `/setup-dev-routines` and `/setup-repo-routines` read and converge in the Claude Code Web account.
 - **`/mission` and `/drive` are the two poles.** `/mission` writes `missions/…` and the kickoff/delta tickets into `tickets/todo/` (with `/propose` proposing missions and loose tickets upstream of it); `/drive` reads the mission set and each worktree's `todo/`, drains them to `tickets/archive/`, and rolls each mission it advances — in parallel across every claim it holds.
 - **The ticket is the spine.** `/ticket`, `/mission`, and `/propose` (a mission's ticket set, or one loose ticket) all *fill* `tickets/todo/`; **`/drive` alone** drains it to `tickets/archive/`. Everything downstream reads the archive.
 - **The feedback stream is the only loop.** `/ship` extracts a shipped story's section-6 concerns into `feedbacks/` as `kind: concern` records; the *next* `/report` re-reads the open set (records nobody superseded) and, for each one this branch resolved, appends a superseding record. Every record is written once and becomes permanent history — the "loop" is reading, never rewriting.

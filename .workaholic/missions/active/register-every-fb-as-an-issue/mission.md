@@ -42,7 +42,7 @@ captured rather than lost, and the command says which path it took.
 <!-- PROPOSED sketch, not a plan — the reviewer interrogates this to drive-ready. -->
 
 - [x] The issue writer takes an assignee and accepts this repository as its target. (#20260817133224-give-the-fb-issue-writer-an-assignee-and-this-repo.md)
-- [ ] A destination-less `/fb` opens that assigned issue, writes no record on that path,
+- [x] A destination-less `/fb` opens that assigned issue, writes no record on that path,
       and `[Propose]`'s discovery ingests it unchanged. (#20260817133224-route-a-destination-less-fb-to-an-in-repo-issue.md)
 - [ ] `/fb` never loses an ask when the issue cannot be opened. (#20260817133224-keep-the-record-as-fb-s-fallback-when-the-issue-fails.md)
 
@@ -50,3 +50,4 @@ captured rather than lost, and the command says which path it took.
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-17 — ticket archived — 20260817133224-give-the-fb-issue-writer-an-assignee-and-this-repo.md
+- 2026-08-17 — ticket archived — 20260817133224-route-a-destination-less-fb-to-an-in-repo-issue.md

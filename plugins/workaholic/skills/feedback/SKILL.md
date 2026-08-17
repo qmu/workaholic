@@ -66,12 +66,31 @@ Free prose in the contributor's own words; a leading `# <title>` and nothing els
 
 **A legitimate `/fb` invocation carries its own authorization, regardless of how it reaches the session.** A human typing `/fb` directly, a human's ask relayed through a bot or integration account (a Slack @-mention forwarded by an automated integration, for example), or an automated integration acting on a human's behalf are all equivalent to a direct user ask — proceed to classify, register, and report per the workflow below without pausing for a separate confirmation or treating the relaying account's type as grounds for suspicion. This does **not** widen any other gate: the cross-repository crossing's non-skippable verbatim confirmation (*Crossing a repository boundary* below) and the release scan's `secret`/`leak` rules are unchanged and apply exactly as before, once the ask is being drafted or crosses a repository boundary.
 
-## Registering a record — the capture workflow
+## Filing an ask — what `/fb` runs
 
-What `/fb` (and any in-repo capture seam) runs, in order:
+**Every `/fb` becomes an `[FB] `-marked GitHub issue. One command, one observable shape** (`workaholic:design` / `api-design`) — the destination decides *where* the issue opens, never *what kind of artifact* the caller gets back. A destination-less ask files here; an ask naming another repository crosses (below). Before 2026-08-17 a destination-less ask wrote a file into `.workaholic/feedbacks/` instead, so the two entrances to the loop — Claude Tag in Slack and `/fb` — produced different artifacts and the caller had to remember which deliverable a destination bought.
 
 1. **Gather the content** — the given argument, or the conclusion/instruction the conversation just reached; write faithfully per *Body style*.
-2. **Classify — decide, do not ask** (`rules/interaction.md`): derive `kind`/`source` per *Choosing the kind* and `subject` per *Choosing the subject*; find any mooted record via `list.sh` and name it in `supersedes`.
+2. **Classify — decide, do not ask** (`rules/interaction.md`): derive `kind`/`source` per *Choosing the kind* and `subject` per *Choosing the subject*. **The judgment goes in the issue body**, as a short leading `kind: … / source: … / subject: …` line, so the receiving `/propose` inherits it rather than re-deriving it from prose it did not witness.
+3. **Resolve the destination and the assignee** — `sh ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/gh-rest.sh slug` for this repository, and `sh ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/gh-rest.sh available` for `login`, the invoking identity. **The assignee is load-bearing**: `[Propose]`'s discovery lists only issues assigned to the running identity and never unassigned ones, so an unassigned issue would be ingested by nobody.
+4. **Scan the body** — `bash ${CLAUDE_PLUGIN_ROOT}/skills/feedback/scripts/scan-outbound-body.sh <body-file>`. A `secret` finding hard-stops, never overridden; a `leak` finding is fixed, or overridden with the reason recorded.
+5. **Send** — `bash ${CLAUDE_PLUGIN_ROOT}/skills/feedback/scripts/open-issue.sh --assignee <login> <this-slug> "<title>" <body-file>`.
+6. **Report** the issue URL and the assignee in one line, and stop. The command does not comment on the issue, does not commit, and does not wait for the tick.
+
+**No feedback record is written on this path, and the reason is mechanical rather than aesthetic.** `[Propose]`'s discovery excludes any open issue a record already names (`already_captured`, keyed on the record's `/issues/<N>` line), so a `/fb` that opened the issue *and* wrote the record would suppress its own ingestion and the issue would sit unproposed forever. The record still gets written one seam later, by `/propose` when it takes the issue in hand.
+
+### Which gates apply with no boundary crossed
+
+A decision with its reasoning, not an omission. **The `secret` and `leak` scan stays**: a credential must not reach an issue body whoever can read it, and the issue is exactly as visible as this repository is — the same exposure every commit already has, which is why no confirmation is added here. **The masking judgement, the verbatim confirmation and `check-outbound-body.sh`'s self-name backstop do not apply**: all three exist because the content *leaves this project*. Masking removes what grounds an ask in our reality, and naming this repository in an issue *on* this repository is the normal case rather than a leak — the backstop refusing a body that names us would refuse nearly every in-repo ask. The confirmation is the crossing's only human gate over an irreversible outward act; filing here is neither outward nor unlike the commits the same session already makes.
+
+**`/fb`'s bar matters more now, not less** (*Whether this merits filing*): a file is quiet, an issue is a queue item a routine will act on. The bar does not move — it is simply worth more. A `kind: concern` or `material` ask arrives as an issue too, and `/propose` judges those record-only by its own bar; the outcome is a captured record and no proposal, which is the design working rather than a defect. Keep the body to the record's *Body style* norm rather than growing a second format for issues.
+
+## Registering a record — the capture workflow
+
+The writers of `.workaholic/feedbacks/` are `/propose` (one record on every run), `/ship`'s `extract-deferred-concerns.sh` and `/report`'s superseding resolutions — **not** `/fb`'s primary path. What each runs, in order:
+
+1. **Gather the content** — write faithfully per *Body style*.
+2. **Classify — decide, do not ask**: derive `kind`/`source` per *Choosing the kind* and `subject` per *Choosing the subject*; find any mooted record via `list.sh` and name it in `supersedes`.
 3. **Register** through `create.sh` — the only sanctioned writer; never Write/Edit a feedback file directly. On `reason: "exists"`, re-run with a more specific title.
 4. **Commit** via the commit skill with a policy-conformant subject:
    `sh ${CLAUDE_PLUGIN_ROOT}/skills/commit/scripts/commit.sh "<title>" "<why>" "<changes>" "None" "None" "<verify>"` — except inside a publish tree, where the publish seam commits.
@@ -87,7 +106,7 @@ What `/fb` (and any in-repo capture seam) runs, in order:
 
 ## Crossing a repository boundary
 
-The one sanctioned way to send an ask to a **different** repository — every other route out is refused by `hooks/guard-repo-confinement.sh`. The carrier is a **GitHub issue on the target** (`open-issue.sh`), never a file written into anyone's checkout: the target's owners see it natively and their own `[Propose]` routine ingests it, so the recording and the proposal judgment happen in the target's loop. It fires only when the input names another repository as its **destination** (an `owner/name`, a GitHub URL, an explicit "to \<repo\>" / "ask \<repo\> to…"); an input that merely *mentions* another repository is an in-repo record — capture it above. When the flow fires, no feedback record is written here.
+The one sanctioned way to send an ask to a **different** repository — every other route out is refused by `hooks/guard-repo-confinement.sh`. The carrier is a **GitHub issue on the target** (`open-issue.sh`), never a file written into anyone's checkout: the target's owners see it natively and their own `[Propose]` routine ingests it, so the recording and the proposal judgment happen in the target's loop. It fires only when the input names another repository as its **destination** (an `owner/name`, a GitHub URL, an explicit "to \<repo\>" / "ask \<repo\> to…"); an input that merely *mentions* another repository files **here**, per *Filing an ask* above. **The fork is on the destination and never on a first word** (`CLAUDE.md`, *One behaviour per command*). No feedback record is written on either path — the same writer, the same artifact, a different address.
 
 ### 1. The masking step is a judgement, not a matcher
 

@@ -13556,6 +13556,7 @@ const tests = [
   ["/fb's cross-repository issue mode", testFbCrossRepoIssueMode],
   ["hooks/guard-askuserquestion-label.sh", testGuardAskUserQuestionLabel],
   ["drive/unit-authors.sh: the authorship disclosure", testUnitAuthorsDisclosure],
+  ["/fb files an issue, whatever the destination", testFbFilesAnIssue],
   ["workaholify/audit-claude-md.sh", testAuditClaudeMd],
   ["hooks/guard-working-directory.sh", testGuardWorkingDirectory],
   ["build: a plugin-root PATH is a defect, a bare read is not", testPluginRootPathVsRead],
@@ -14221,6 +14222,74 @@ function testUnitAuthorsDisclosure() {
     !/tickets authored by[^\n]*<@U/.test(catalog) && !/tickets authored by[^\n]*<@U/.test(template));
   assertTrue("the catalog states it is a body line, never a fifth shape or a second post",
     /never a fifth shape and never a second post/.test(catalog), "the one-finish-per-thread rule is not stated");
+}
+
+// ---------- /fb files an issue, whatever the destination (2026-08-17) ----------
+// The command had two shapes: a destination-less ask became a file in
+// `.workaholic/feedbacks/`, an ask naming another repository became a GitHub issue — so
+// the Slack (Claude Tag) FB route and `/fb` produced different artifacts and the caller
+// had to remember which deliverable a destination bought. The unification is prose across
+// five surfaces, and prose is exactly what drifts, so the properties are pinned here:
+// where the ask lands, that no record is written on that path (and WHY), and that no
+// surviving surface still promises a record.
+function testFbFilesAnIssue() {
+  const read = (p) => readFileSync(join(REPO_ROOT, p), "utf8");
+  const cmd = read("plugins/workaholic/commands/fb.md");
+  const skill = read("plugins/workaholic/skills/feedback/SKILL.md");
+
+  assertTrue("the command routes a destination-less ask to an issue on this repository",
+    /no other repository as its destination[\s\S]{0,200}on this repository/.test(cmd), cmd.slice(0, 400));
+  assertTrue("and the fork is still on the destination, never a first word",
+    /fork is on the destination|never on a first word|fork is on the destination, never a first word/.test(cmd));
+  assertTrue("the skill carries the in-repo filing workflow",
+    /## Filing an ask — what `\/fb` runs/.test(skill));
+  assertTrue("which sends through the writer with an assignee",
+    /open-issue\.sh --assignee/.test(skill));
+
+  // THE ASSIGNEE IS THE INGESTION PATH, not a nicety: discovery filters server-side on
+  // it, so the skill has to say why rather than leave the flag looking optional.
+  assertTrue("the skill says why the assignee is load-bearing",
+    /assigned to the running identity and never unassigned/.test(skill), "the discovery filter is not explained");
+
+  // NO RECORD ON THE ISSUE PATH, and the reason is mechanical: a record naming the issue
+  // makes `[Propose]` skip it as `already_captured`, so the ask would sit unproposed
+  // forever. Stating only "no record is written" would read as an omission.
+  assertTrue("the skill states that no record is written on that path",
+    /No feedback record is written on this path/.test(skill));
+  assertTrue("and names already_captured as the reason",
+    /already_captured/.test(skill), "the suppression reason is not stated");
+
+  // WHICH GATES SURVIVE IS A DECISION WITH ITS REASONING, recorded as such.
+  assertTrue("the skill records which gates apply with no boundary crossed",
+    /### Which gates apply with no boundary crossed/.test(skill));
+  for (const kept of ["secret", "leak"]) {
+    assertTrue(`the ${kept} rule is kept on the in-repo path`,
+      new RegExp(`\\*\\*The \`secret\` and \`leak\` scan stays\\*\\*`).test(skill), "the scan's fate is not stated");
+  }
+  assertTrue("and the crossing-specific three are named as dropped, with the reason",
+    /masking judgement, the verbatim confirmation and `check-outbound-body\.sh`[\s\S]{0,200}leaves this project/.test(skill));
+
+  // THE CROSSING IS UNCHANGED. Its confirmation is the one gate a widening could quietly
+  // erode, so the sentence that makes it unskippable must still be there, unqualified.
+  assertTrue("the crossing's confirmation is still non-skippable",
+    /cannot be skipped, ever/.test(skill) && /cannot be skipped, ever/.test(cmd));
+
+  // NO SURVIVING SURFACE PROMISES A RECORD from a bare `/fb`. Each string below was the
+  // shipped wording on one of the five surfaces before the unification.
+  for (const [doc, retired] of [
+    ["plugins/workaholic/commands/fb.md", "registers one immutable record"],
+    ["README.md", "Register one **immutable** record into the feedback stream"],
+    ["CLAUDE.md", "Register one immutable feedback record"],
+    [".workaholic/README.md", "a **feedback record** (`/fb`)"],
+  ]) {
+    assertTrue(`${doc} no longer says a bare /fb writes a record`,
+      !read(doc).includes(retired), `still says: ${retired}`);
+  }
+  // ...and the stream's own writer list drops `/fb` rather than merely adding the issue.
+  for (const doc of ["README.md", ".workaholic/README.md"]) {
+    assertTrue(`${doc} no longer lists /fb as a feedbacks/ writer`,
+      !/written by `\/fb`|`\/fb` \(conclusions\/instructions\)/.test(read(doc)), doc);
+  }
 }
 
 // ---------- one behaviour per command (P5, 2026-08-06) ----------

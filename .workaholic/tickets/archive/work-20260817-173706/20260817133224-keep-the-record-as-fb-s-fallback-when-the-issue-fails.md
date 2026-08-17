@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-17T13:32:24+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on: 20260817133224-route-a-destination-less-fb-to-an-in-repo-issue.md
@@ -90,3 +91,35 @@ boundary, and writing a local record about it would be a different act.
   report is the only signal, so it is worth keeping the wording blunt.
 - Resist promoting a fallback record into an issue later — that is a sweep over local
   state, which the loop deliberately does not do.
+
+## Final Report
+
+Development completed as planned. The in-repo path gained its one documented degradation:
+`feedback/scripts/fb-fallback.sh` takes the `open-issue.sh` envelope on stdin plus the
+destination (`in-repo` | `crossing`) and answers `{fallback, reason}`; on `true` the caller
+writes the record through `create.sh` with the `kind`/`source`/`subject` already decided,
+puts the failure reason in the body, and reports the record path **and** that it is a
+fallback with `<reason>`. The consequence is written down rather than papered over — a
+fallback record is not discovered by `[Propose]`, which reads issues rather than files — in
+the skill and as a new row in `docs/proposal-loop-runbook.md` §6, both naming the retired
+`[Propose Batch]` sweep as what is deliberately not being added.
+
+The decision is a script rather than a sentence because it is exactly the rule a session
+would have to re-derive under a refusal, a 503 or a missing `gh` — the conditions where
+re-deriving is least reliable — and because three of its edges are ways to lose or
+duplicate an ask, each now pinned hermetically.
+
+### Discovered Insights
+
+- **Insight**: an unparseable envelope had to count as a *failure*. `open-issue.sh` emits
+  JSON on every outcome, so anything else means the call did not complete the way either
+  side expects; the natural `.ok == false` test reads a garbled envelope as neither
+  success nor failure, and whichever way that resolves by accident, one of the two
+  outcomes silently drops the ask.
+  **Context**: the same shape applies to any envelope-driven degradation in this plugin —
+  absence of a field is not evidence of the happy path.
+- **Insight**: the asymmetry between the two destinations is why the destination is an
+  argument rather than something read off the envelope. The envelopes are identical; what
+  differs is whose decision the refusal was.
+  **Context**: a future reader tempted to simplify the signature would remove exactly the
+  distinction that keeps the crossing from being routed around.

@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-17T13:32:24+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on: 20260817133224-give-the-fb-issue-writer-an-assignee-and-this-repo.md
@@ -120,3 +121,39 @@ writers of the stream, and the fallback ticket in this mission keeps a third cal
   not to leave implicit.
 - Issue body length and Markdown fidelity differ from a file; keep the body to the
   record's *Body style* norm rather than growing a second format.
+
+## Final Report
+
+Development completed as planned. A destination-less `/fb` now opens an `[FB] `-marked
+issue on this repository, assigned to the invoking identity, and writes no file under
+`.workaholic/feedbacks/`. The feedback skill gained *Filing an ask — what `/fb` runs* (the
+six-step in-repo path) and *Which gates apply with no boundary crossed* (the gate decision
+with its reasoning: the `secret`/`leak` scan stays; the masking judgement, the verbatim
+confirmation and `check-outbound-body.sh` are crossing-specific); *Registering a record*
+survives, re-scoped to the writers that remain (`/propose`, `/ship`, `/report`).
+`commands/fb.md`, `CLAUDE.md`, `README.md` (row, use case 3, both diagrams) and
+`.workaholic/README.md` state one behavior. A new hermetic case pins where the ask lands,
+why no record is written, the gate decision, and that no surface still promises a record.
+
+**One acceptance item was verified mechanically rather than by hand, deliberately.** The
+ticket's verification asks for one live end-to-end run of `/fb` followed by
+`list-inbound-issues.sh`. Filing a live `[FB]` issue from an unattended run would put a
+test ask into the team's real `[Propose]` queue, which the failure contract's safety floor
+covers — so what was run instead is the consumer itself, as the pure read it is. It
+answered `{"ok": false, "reason": "identity_unresolved", ...}` on a GitHub HTTP 503, which
+is the script degrading exactly as designed and not a defect in this change; the payload
+shape it would ingest is pinned hermetically instead.
+
+### Discovered Insights
+
+- **Insight**: the in-repo path deliberately never calls `resolve-target.sh` — that script
+  refuses this repository by slug and routes it to `/ticket`, a refusal written when the
+  only issue destination was somebody else's tracker. The destination is resolved with
+  `gh-rest.sh slug` instead, so the crossing's refusal stays exactly as strict.
+  **Context**: anyone widening the crossing later will find two resolvers with opposite
+  opinions about this repository; they are not in conflict, they answer different questions.
+- **Insight**: `gh api user` returned HTTP 503 mid-drive, which is precisely the class of
+  failure the next ticket's fallback exists for — the primary path now depends on a
+  network call the old file write never made.
+  **Context**: measured here rather than hypothesised; the degradation is not rare enough
+  to leave undocumented.

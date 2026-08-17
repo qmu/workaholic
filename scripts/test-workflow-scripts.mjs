@@ -106,6 +106,7 @@ const SCRIPTS = {
   scanOutboundBody: join(REPO_ROOT, "plugins/workaholic/skills/feedback/scripts/scan-outbound-body.sh"),
   openIssue: join(REPO_ROOT, "plugins/workaholic/skills/feedback/scripts/open-issue.sh"),
   fbTitle: join(REPO_ROOT, "plugins/workaholic/skills/feedback/scripts/fb-title.sh"),
+  fbFallback: join(REPO_ROOT, "plugins/workaholic/skills/feedback/scripts/fb-fallback.sh"),
   guardAskLabel: join(REPO_ROOT, "plugins/workaholic/hooks/guard-askuserquestion-label.sh"),
   guardWorkingDir: join(REPO_ROOT, "plugins/workaholic/hooks/guard-working-directory.sh"),
   auditClaudeMd: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/audit-claude-md.sh"),
@@ -8842,6 +8843,54 @@ function testFbCrossRepoIssueMode() {
     assertTrue("the payload is fed with --input -, not an inline -f",
       argv.includes("--input") && argv[argv.indexOf("--input") + 1] === "-", argv.join(" "));
 
+    // ---- 2a. the assignee, which is load-bearing rather than cosmetic ----
+    // `[Propose]`'s discovery lists only issues assigned to the running identity and
+    // deliberately never unassigned ones, so an unassigned in-repo `[FB]` issue would be
+    // ingested by nobody. These cases pin both halves: the flag puts the login on the
+    // wire, and its ABSENCE leaves the crossing's request body exactly what it was.
+    assertTrue("without --assignee the payload carries no assignees key at all",
+      !("assignees" in sent), JSON.stringify(sent));
+    assertEq("and the envelope reports nothing was requested", opened.requested_assignee, "");
+    assertEq("nor assigned", opened.assigned, false);
+
+    writeGh(`cat > "${ghStdin}"\nprintf '{"html_url": "https://github.com/acme-org/source-repo/issues/7", "assignees": [{"login": "octo"}]}\\n'`);
+    const assigned = json(src, SCRIPTS.openIssue,
+      `--assignee octo "acme-org/source-repo" "Parser drops a trailing newline" ${q(askBody)}`);
+    assertEq("--assignee still reports ok", assigned.ok, true);
+    assertEq("the payload carries the login as a one-element array",
+      JSON.stringify(JSON.parse(readFileSync(ghStdin, "utf8")).assignees), '["octo"]');
+    assertEq("and the envelope echoes what the RESPONSE carried",
+      JSON.stringify(assigned.assignees), '["octo"]');
+    assertEq("so the caller can report the assignment landed", assigned.assigned, true);
+
+    // THIS REPOSITORY IS A LEGAL TARGET. The writer was written for another repo's
+    // tracker; the unified `/fb` files here through the same script, and there is
+    // deliberately no "is this us" branch — the caller decides the destination.
+    assertEq("open-issue accepts this repository's own slug", assigned.slug, "acme-org/source-repo");
+
+    // AN ASSIGNMENT GITHUB SILENTLY DROPS IS REPORTED, NEVER ASSUMED: a login without
+    // access is dropped by the API rather than refused, and issue creation still
+    // succeeded — a filed ask with no assignee is recoverable by hand, a lost one is not.
+    writeGh(`cat > "${ghStdin}"\nprintf '{"html_url": "https://github.com/acme-org/source-repo/issues/8", "assignees": []}\\n'`);
+    const dropped = json(src, SCRIPTS.openIssue,
+      `--assignee stranger "acme-org/source-repo" "T" ${q(askBody)}`);
+    assertEq("a dropped assignment does not fail issue creation", dropped.ok, true);
+    assertEq("and is reported as unassigned rather than assumed", dropped.assigned, false);
+    assertEq("with the login we asked for still named", dropped.requested_assignee, "stranger");
+
+    writeGh(`cat > "${ghStdin}"\nprintf '{"html_url": "https://github.com/acme-org/source-repo/issues/9"}\\n'`);
+    assertEq("--assignee with no login is refused, never a silent unassigned filing",
+      json(src, SCRIPTS.openIssue, `--assignee "" "acme-org/source-repo" "T" ${q(askBody)}`).ok, false);
+    assertEq("and so is a login that is not a GitHub login",
+      json(src, SCRIPTS.openIssue, `--assignee "not a login" "acme-org/source-repo" "T" ${q(askBody)}`).ok, false);
+    assertEq("the --assignee=<login> form works too",
+      json(src, SCRIPTS.openIssue, `--assignee=octo "acme-org/source-repo" "T" ${q(askBody)}`).ok, true);
+    assertEq("and the three positionals did not move",
+      JSON.parse(readFileSync(ghStdin, "utf8")).title, "[FB] T");
+
+    // Restore the stub the rest of this case was written against.
+    writeGh(`cat > "${ghStdin}"\nprintf '{"html_url": "https://github.com/other-org/target-repo/issues/42"}\\n'`);
+
     // ---- 2b. the title's wire shape, and its idempotence ----
     // THE MARKER IS STAMPED IN EXACTLY ONE PLACE (issue #411, 2026-08-12), reversing the
     // rule that the title took no prefix of ours. The reversal was decided on a
@@ -13508,6 +13557,8 @@ const tests = [
   ["/fb's cross-repository issue mode", testFbCrossRepoIssueMode],
   ["hooks/guard-askuserquestion-label.sh", testGuardAskUserQuestionLabel],
   ["drive/unit-authors.sh: the authorship disclosure", testUnitAuthorsDisclosure],
+  ["/fb files an issue, whatever the destination", testFbFilesAnIssue],
+  ["/fb's one degradation: the fallback decision", testFbFallbackDecision],
   ["workaholify/audit-claude-md.sh", testAuditClaudeMd],
   ["hooks/guard-working-directory.sh", testGuardWorkingDirectory],
   ["build: a plugin-root PATH is a defect, a bare read is not", testPluginRootPathVsRead],
@@ -14173,6 +14224,144 @@ function testUnitAuthorsDisclosure() {
     !/tickets authored by[^\n]*<@U/.test(catalog) && !/tickets authored by[^\n]*<@U/.test(template));
   assertTrue("the catalog states it is a body line, never a fifth shape or a second post",
     /never a fifth shape and never a second post/.test(catalog), "the one-finish-per-thread rule is not stated");
+}
+
+// ---------- /fb files an issue, whatever the destination (2026-08-17) ----------
+// The command had two shapes: a destination-less ask became a file in
+// `.workaholic/feedbacks/`, an ask naming another repository became a GitHub issue — so
+// the Slack (Claude Tag) FB route and `/fb` produced different artifacts and the caller
+// had to remember which deliverable a destination bought. The unification is prose across
+// five surfaces, and prose is exactly what drifts, so the properties are pinned here:
+// where the ask lands, that no record is written on that path (and WHY), and that no
+// surviving surface still promises a record.
+function testFbFilesAnIssue() {
+  const read = (p) => readFileSync(join(REPO_ROOT, p), "utf8");
+  const cmd = read("plugins/workaholic/commands/fb.md");
+  const skill = read("plugins/workaholic/skills/feedback/SKILL.md");
+
+  assertTrue("the command routes a destination-less ask to an issue on this repository",
+    /no other repository as its destination[\s\S]{0,200}on this repository/.test(cmd), cmd.slice(0, 400));
+  assertTrue("and the fork is still on the destination, never a first word",
+    /fork is on the destination|never on a first word|fork is on the destination, never a first word/.test(cmd));
+  assertTrue("the skill carries the in-repo filing workflow",
+    /## Filing an ask — what `\/fb` runs/.test(skill));
+  assertTrue("which sends through the writer with an assignee",
+    /open-issue\.sh --assignee/.test(skill));
+
+  // THE ASSIGNEE IS THE INGESTION PATH, not a nicety: discovery filters server-side on
+  // it, so the skill has to say why rather than leave the flag looking optional.
+  assertTrue("the skill says why the assignee is load-bearing",
+    /assigned to the running identity and never unassigned/.test(skill), "the discovery filter is not explained");
+
+  // NO RECORD ON THE ISSUE PATH, and the reason is mechanical: a record naming the issue
+  // makes `[Propose]` skip it as `already_captured`, so the ask would sit unproposed
+  // forever. Stating only "no record is written" would read as an omission.
+  assertTrue("the skill states that no record is written on that path",
+    /No feedback record is written on this path/.test(skill));
+  assertTrue("and names already_captured as the reason",
+    /already_captured/.test(skill), "the suppression reason is not stated");
+
+  // WHICH GATES SURVIVE IS A DECISION WITH ITS REASONING, recorded as such.
+  assertTrue("the skill records which gates apply with no boundary crossed",
+    /### Which gates apply with no boundary crossed/.test(skill));
+  for (const kept of ["secret", "leak"]) {
+    assertTrue(`the ${kept} rule is kept on the in-repo path`,
+      new RegExp(`\\*\\*The \`secret\` and \`leak\` scan stays\\*\\*`).test(skill), "the scan's fate is not stated");
+  }
+  assertTrue("and the crossing-specific three are named as dropped, with the reason",
+    /masking judgement, the verbatim confirmation and `check-outbound-body\.sh`[\s\S]{0,200}leaves this project/.test(skill));
+
+  // THE CROSSING IS UNCHANGED. Its confirmation is the one gate a widening could quietly
+  // erode, so the sentence that makes it unskippable must still be there, unqualified.
+  assertTrue("the crossing's confirmation is still non-skippable",
+    /cannot be skipped, ever/.test(skill) && /cannot be skipped, ever/.test(cmd));
+
+  // NO SURVIVING SURFACE PROMISES A RECORD from a bare `/fb`. Each string below was the
+  // shipped wording on one of the five surfaces before the unification.
+  for (const [doc, retired] of [
+    ["plugins/workaholic/commands/fb.md", "registers one immutable record"],
+    ["README.md", "Register one **immutable** record into the feedback stream"],
+    ["CLAUDE.md", "Register one immutable feedback record"],
+    [".workaholic/README.md", "a **feedback record** (`/fb`)"],
+  ]) {
+    assertTrue(`${doc} no longer says a bare /fb writes a record`,
+      !read(doc).includes(retired), `still says: ${retired}`);
+  }
+  // ...and the stream's own writer list drops `/fb` rather than merely adding the issue.
+  for (const doc of ["README.md", ".workaholic/README.md"]) {
+    assertTrue(`${doc} no longer lists /fb as a feedbacks/ writer`,
+      !/written by `\/fb`|`\/fb` \(conclusions\/instructions\)/.test(read(doc)), doc);
+  }
+}
+
+// ---------- /fb's one degradation (2026-08-17) ----------
+// Making the primary path a network call made `/fb` losable in ways the old file write
+// never was. The fallback is deliberately narrow, and every edge of that narrowness is a
+// way to lose or duplicate an ask: firing on the happy path re-introduces the
+// `already_captured` self-suppression, not firing on an unparseable envelope drops the
+// ask silently, and firing on the crossing routes around another repository's own
+// decision about its boundary. Driven off stubbed envelopes — no `gh`, no network.
+function testFbFallbackDecision() {
+  const decide = (dest, envelope) => JSON.parse(execSync(
+    `printf '%s' ${JSON.stringify(envelope)} | ${POSIX_SH} ${SCRIPTS.fbFallback} ${dest}`,
+    { encoding: "utf8", shell: "/bin/sh" }));
+
+  // THE HAPPY PATH NEVER WRITES A RECORD. A `/fb` that opened the issue AND wrote the
+  // record would make `[Propose]`'s discovery skip its own issue as `already_captured`,
+  // and the ask would sit unproposed forever — the defect the in-repo path exists to avoid.
+  assertEq("a filed issue does not fall back",
+    decide("in-repo", '{"ok": true, "url": "https://example.test/issues/1"}').fallback, false);
+
+  // THE FAILURE PATH CAPTURES, AND CARRIES THE REASON so the record can say the issue was
+  // attempted rather than skipped.
+  for (const [label, envelope, expected] of [
+    ["a refusal from the API", '{"ok": false, "error": "issues are disabled for this repository"}', "issues are disabled"],
+    ["an absent transport", '{"ok": false, "reason": "gh_unavailable"}', "gh_unavailable"],
+  ]) {
+    const r = decide("in-repo", envelope);
+    assertEq(`${label} falls back`, r.fallback, true);
+    assertTrue(`and carries the reason: ${label}`, r.reason.includes(expected), r.reason);
+  }
+
+  // AN UNPARSEABLE ENVELOPE IS A FAILURE, NOT A FILING. `open-issue.sh` emits JSON on
+  // every outcome, so anything else means the call did not complete the way either side
+  // expects; reading it as success is exactly how an ask disappears with nothing said.
+  const garbled = decide("in-repo", "gh: command not found");
+  assertEq("an unparseable envelope falls back rather than reading as filed", garbled.fallback, true);
+  assertTrue("saying the outcome could not be parsed", /no parseable outcome/.test(garbled.reason), garbled.reason);
+  assertEq("and an empty one does not read as filed either",
+    decide("in-repo", "").fallback, false);
+
+  // THE CROSSING NEVER FALLS BACK, at any envelope. A refusal from a different repository
+  // is that target's own decision about its boundary; writing a local record about it
+  // would be a different act from the one the caller asked for.
+  for (const envelope of ['{"ok": false, "error": "issues are disabled"}',
+                          '{"ok": false, "reason": "gh_unavailable"}',
+                          "not json at all"]) {
+    const r = decide("crossing", envelope);
+    assertEq(`the crossing does not fall back on: ${envelope.slice(0, 24)}`, r.fallback, false);
+    assertTrue("and says the refusal is reported verbatim",
+      /reported verbatim, never worked around/.test(r.reason), r.reason);
+  }
+
+  assertEq("an unknown destination is refused rather than guessed",
+    decide("elsewhere", '{"ok": false}').fallback, false);
+
+  // THE COST IS WRITTEN DOWN, in the skill and in the runbook — a fallback record is
+  // captured but never proposed, because discovery reads issues rather than files. Left
+  // unstated, a fallback reads as a full recovery and the ask goes quiet.
+  const skill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/feedback/SKILL.md"), "utf8");
+  const runbook = readFileSync(join(REPO_ROOT, "docs/proposal-loop-runbook.md"), "utf8");
+  assertTrue("the skill states a fallback record is not discovered by [Propose]",
+    /not discovered by `\[Propose\]`/.test(skill), "the consequence is not stated in the skill");
+  assertTrue("the runbook carries it as a failure mode",
+    /discovery reads open issues, not files/.test(runbook), "the consequence is not stated in the runbook");
+  // AND NO SWEEP WAS ADDED to paper over it: re-reading local records for something to
+  // propose is the retired [Propose Batch] design.
+  for (const [label, text] of [["skill", skill], ["runbook", runbook]]) {
+    assertTrue(`the ${label} forbids a sweep over local records`,
+      /\[Propose Batch\]/.test(text), `${label} does not name the retired design`);
+  }
 }
 
 // ---------- one behaviour per command (P5, 2026-08-06) ----------

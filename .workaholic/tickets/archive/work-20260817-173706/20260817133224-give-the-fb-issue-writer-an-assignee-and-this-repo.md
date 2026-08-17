@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-17T13:32:24+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -93,3 +94,29 @@ observable changes for a caller until that one lands.
   without widening that sentence is how the next reader concludes the gates moved.
 - Assignment failure must not fail issue creation — a filed ask with no assignee is
   recoverable by hand; a lost ask is not.
+
+## Final Report
+
+Development completed as planned. `open-issue.sh` gained `--assignee <login>` as an
+option (the three positionals did not move), its header now states the widened
+destination and what did **not** widen with it, and the envelope echoes the `assignees`
+the API response actually carried so a silently-dropped login reports `assigned: false`
+instead of being assumed. Without the flag the request body is byte-identical to what the
+crossing has always sent. `SKILL.md` gained an `open-issue.sh` entry under *Scripts*,
+`reference/crossing.md` step 7 states the new envelope and that the crossing passes no
+`--assignee`, and the bundle was regenerated.
+
+### Discovered Insights
+
+- **Insight**: `open-issue.sh` was already destination-agnostic in code — the only thing
+  binding it to "another repository" was `resolve-target.sh`, which refuses this
+  repository by slug and routes it to `/ticket`. The in-repo path therefore reuses the
+  writer unchanged and simply never calls the resolver.
+  **Context**: the two scripts read as one flow but are separable; the next ticket routes
+  a destination-less `/fb` without touching either one's refusals.
+- **Insight**: an empty `--assignee` had to be a refusal rather than a fall-back to
+  unassigned. `list-inbound-issues.sh` filters on `assignee=<login>` server-side, so an
+  unassigned in-repo `[FB]` issue is invisible to every `[Propose]` copy — a silent
+  unassigned filing would be an ask nobody ever proposes.
+  **Context**: the discovery filter is what makes the assignee load-bearing; anything
+  that can leave it empty must say so loudly.

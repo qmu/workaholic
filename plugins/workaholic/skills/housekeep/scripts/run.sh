@@ -34,15 +34,25 @@
 # Consideration this answers: "the report should name the steps that did not run
 # for lack of time as clearly as the ones that failed."
 #
+# THE PERSIST IS THE CLOSING ACT, NOT A TENTH STEP. `persist-log.sh` puts the
+# log on the base after every step has had its turn, so a tick that dies half-way
+# still persists what it recorded on its next run. It is deliberately NOT in
+# `STEPS`: the nine are the ask's contract and the log's step keys, while this is
+# the run's own bookkeeping — it reports under the top-level `persist` key and
+# logs under the step id `persist-log`. `--no-log` implies no persist (there is
+# nothing to put anywhere), and `--no-persist` keeps the log local.
+#
 # Usage:
 #   run.sh [--tick <YYYYMMDD-HHMMSS>] [--root <repo-root>] [--only <slug>[,<slug>]...]
 #          [--skip <slug>[,<slug>]...] [--deadline-seconds <n>] [--no-log]
+#          [--no-persist]
 #
 # Output: one JSON line
 #   {"tick": "...", "log": "<path>|", "steps": [
 #      {"step","status","reason","summary","needs_agent":[...],"logged":true|false}, ...],
 #    "counts": {"ok":n,"filed":n,"skipped":n,"degraded":n,"blocked":n},
-#    "needs_agent": <total>}
+#    "needs_agent": <total>,
+#    "persist": {"status","reason","summary","persisted","logged"}}
 #
 # `status` is the tick log's closed vocabulary: ok | filed | skipped | degraded | blocked.
 # `reason` is free-form but stable per cause (`not_implemented`, `budget`,
@@ -52,6 +62,7 @@ set -eu
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "$0")" && pwd)
 LOG_APPEND="${SCRIPT_DIR}/log-append.sh"
+PERSIST_LOG="${SCRIPT_DIR}/persist-log.sh"
 
 # The step list IS the contract (reference/workflow.md states each one's inputs,
 # what it may write, and its abort reasons). Order is the ask's order, which is
@@ -64,6 +75,7 @@ ONLY=''
 SKIP=''
 DEADLINE=0
 DO_LOG=1
+DO_PERSIST=1
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -73,6 +85,7 @@ while [ $# -gt 0 ]; do
         --skip)             SKIP=$(printf '%s' "${2:-}" | tr ',' ' '); shift 2 ;;
         --deadline-seconds) DEADLINE="${2:-0}"; shift 2 ;;
         --no-log)           DO_LOG=0; shift ;;
+        --no-persist)       DO_PERSIST=0; shift ;;
         *) printf '{"tick": "", "error": "unknown_argument", "argument": "%s"}\n' "$1"; exit 1 ;;
     esac
 done
@@ -240,5 +253,44 @@ if [ "$DO_LOG" -eq 1 ] && [ -f "$ROOT/.workaholic/housekeeping/$DAY.md" ]; then
     log_file="$ROOT/.workaholic/housekeeping/$DAY.md"
 fi
 
-printf '{"tick": "%s", "log": "%s", "steps": [%s], "counts": {"ok": %s, "filed": %s, "skipped": %s, "degraded": %s, "blocked": %s}, "needs_agent": %s}\n' \
-    "$TICK" "$(json_escape "$log_file")" "$rows" "$ok" "$filed" "$skipped" "$degraded" "$blocked" "$needs_total"
+# --- The closing act: put the log where the next tick can read it -------------
+# A routine's container is discarded after the run, so a log that stayed in the
+# checkout would leave every dedup blind and the tick with no audit trail
+# (`persist-log.sh`'s header). Its outcome is reported and logged like any other
+# fact this tick establishes — a persist that did not reach the base says so by
+# name rather than reading as a clean tick.
+persist_status=skipped
+persist_reason=disabled
+persist_summary='the caller kept the log local'
+persist_persisted=false
+persist_logged=false
+
+if [ "$DO_LOG" -eq 1 ] && [ "$DO_PERSIST" -eq 1 ]; then
+    if [ -z "$log_file" ]; then
+        persist_reason=no_log
+        persist_summary='the tick wrote no log, so there is nothing to persist'
+    else
+        pout=$(sh "$PERSIST_LOG" --tick "$TICK" --root "$ROOT" 2>/dev/null || true)
+        pout=$(printf '%s' "$pout" | tail -n 1)
+        if [ -z "$pout" ]; then
+            persist_status=degraded
+            persist_reason=no_output
+            persist_summary='the persist printed nothing'
+        else
+            persist_status=$(json_field status "$pout")
+            persist_reason=$(json_field reason "$pout")
+            persist_summary=$(json_field summary "$pout")
+            case "$pout" in *'"persisted": true'*) persist_persisted=true ;; *) persist_persisted=false ;; esac
+            case "$persist_status" in
+                ok|filed|skipped|degraded|blocked) ;;
+                *) persist_status=degraded; persist_reason=bad_output; persist_summary="the persist's status was not in the log vocabulary" ;;
+            esac
+            [ -n "$persist_summary" ] || persist_summary='(the persist reported no summary)'
+        fi
+    fi
+    persist_logged=$(log_step persist-log "$persist_status" "$persist_summary")
+fi
+
+printf '{"tick": "%s", "log": "%s", "steps": [%s], "counts": {"ok": %s, "filed": %s, "skipped": %s, "degraded": %s, "blocked": %s}, "needs_agent": %s, "persist": {"status": "%s", "reason": "%s", "summary": "%s", "persisted": %s, "logged": %s}}\n' \
+    "$TICK" "$(json_escape "$log_file")" "$rows" "$ok" "$filed" "$skipped" "$degraded" "$blocked" "$needs_total" \
+    "$persist_status" "$(json_escape "$persist_reason")" "$(json_escape "$persist_summary")" "$persist_persisted" "$persist_logged"

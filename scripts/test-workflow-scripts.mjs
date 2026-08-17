@@ -41,6 +41,7 @@ const SCRIPTS = {
   housekeepRun: join(REPO_ROOT, "plugins/workaholic/skills/housekeep/scripts/run.sh"),
   housekeepLogAppend: join(REPO_ROOT, "plugins/workaholic/skills/housekeep/scripts/log-append.sh"),
   housekeepLogRead: join(REPO_ROOT, "plugins/workaholic/skills/housekeep/scripts/log-read.sh"),
+  housekeepPersist: join(REPO_ROOT, "plugins/workaholic/skills/housekeep/scripts/persist-log.sh"),
   ticketSummary: join(REPO_ROOT, "plugins/workaholic/skills/create-ticket/scripts/summary.sh"),
   missionSummary: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/summary.sh"),
   missionCreate: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/create.sh"),
@@ -13598,6 +13599,7 @@ const tests = [
   ["e2e/loop-drill.sh: verify-implement reads the archive move, story, PR and claim", testLoopDrillVerifyImplement],
   ["housekeep: the tick log is registered, append-only and idempotent", testHousekeepLog],
   ["housekeep: the tick runs every step, and every step reports", testHousekeepRun],
+  ["housekeep: the tick log survives the container that wrote it", testHousekeepPersist],
   ["housekeep: the unattended contract is in the files, not in intent", testHousekeepUnattendedContract],
   ["housekeep steps 2-3: every surface is named, and nothing is executed", testHousekeepInboundSweep],
   ["housekeep steps 4-7: report, never repair; remind once per state", testHousekeepHygieneSteps],
@@ -16029,7 +16031,14 @@ function testHousekeepRun() {
     assertEq("the tick writes its log", j.log, "./.workaholic/housekeeping/2026-08-17.md");
     const log = readFileSync(join(repo, ".workaholic/housekeeping/2026-08-17.md"), "utf8");
     assertEq("one log section for the tick", (log.match(/^## /gm) || []).length, 1);
-    assertEq("and one line per step", (log.match(/^- `/gm) || []).length, STEPS.length);
+    // Nine step lines plus the closing act's own line. The persist is deliberately
+    // NOT a tenth step (`steps[]` above is still exactly the nine), but its outcome
+    // is a fact this tick established, so it is logged and reported like one.
+    assertEq("and one line per step, plus the persist",
+      (log.match(/^- `/gm) || []).length, STEPS.length + 1);
+    assertTrue("the persist reports itself by name", /^- `persist-log`: /m.test(log), log);
+    assertEq("a checkout with no remote skips it rather than failing",
+      [j.persist.status, j.persist.reason], ["skipped", "no_origin"]);
     assertEq("step 1 is real", j.steps[0].status, "ok");
 
     // Every step is built: the spine's stubs reported `not_implemented`, and none is
@@ -16072,6 +16081,118 @@ function testHousekeepRun() {
     assertEq("with the caller named as the cause", skipped.reason, "requested");
   } finally {
     cleanup(repo);
+  }
+}
+
+// ---------- housekeep: the tick log survives the container that wrote it ----------
+// (2026-08-17, ticket `20260817131500-persist-the-housekeep-tick-log`) A routine tick
+// runs in a fresh clone that is thrown away afterwards, so a log that stayed in the
+// checkout would leave every dedup blind and the run with no audit trail. The property
+// under test is that the log REACHES THE BASE, and that two containers ticking on the
+// same day do not overwrite each other — which is why the merge is a union by section
+// rather than a textual append that a rebase would have to reconcile.
+function testHousekeepPersist() {
+  const tmp = mkdtempSync(join(tmpdir(), "workaholic-hk-persist-"));
+  const PERSIST = `${POSIX_SH} ${SCRIPTS.housekeepPersist}`;
+  const APPEND = `${POSIX_SH} ${SCRIPTS.housekeepLogAppend}`;
+  const origin = join(tmp, "origin.git");
+  const A = join(tmp, "a");
+  const B = join(tmp, "b");
+  const DAY = ".workaholic/housekeeping/2026-08-17.md";
+  const clone = (path, email) => {
+    execSync(`git clone -q ${origin} ${path}`);
+    execSync(`git config user.email ${email}`, { cwd: path });
+    execSync(`git config user.name ${email[0].toUpperCase()}`, { cwd: path });
+    execSync("git config commit.gpgsign false", { cwd: path });
+  };
+  try {
+    execSync(`git init -q --bare --initial-branch=main ${origin}`);
+    const seed = join(tmp, "seed");
+    mkdirSync(join(seed, ".workaholic"), { recursive: true });
+    execSync("git -c init.defaultBranch=main init -q", { cwd: seed });
+    execSync("git config user.email test@example.com", { cwd: seed });
+    execSync("git config user.name Test", { cwd: seed });
+    execSync("git config commit.gpgsign false", { cwd: seed });
+    writeFileSync(join(seed, ".workaholic/README.md"), "seed\n");
+    execSync(`git add -A && git commit -q -m initial && git remote add origin ${origin} && git push -q origin main`, { cwd: seed });
+    clone(A, "a@example.com");
+    clone(B, "b@example.com");
+
+    // Each clone records one tick locally, exactly as log-append.sh does mid-run.
+    run(A, `${APPEND} --tick 20260817-100000 --step open-log --status ok --summary "from a"`);
+    run(B, `${APPEND} --tick 20260817-110000 --step open-log --status ok --summary "from b"`);
+
+    const a1 = JSON.parse(run(A, `${PERSIST} --tick 20260817-100000`).stdout);
+    assertEq("a tick's log reaches the base", [a1.persisted, a1.status, a1.reason],
+      [true, "filed", "persisted"]);
+
+    // THE CALLER'S CHECKOUT IS UNTOUCHED. The publish tree is the seam precisely so a
+    // tick never creates a branch or a worktree of its own — a routine that left either
+    // behind would be visible to the claim protocol's branch scan.
+    assertEq("no publish branch is left behind",
+      run(A, "git branch --list publish-main").stdout.trim(), "");
+    assertEq("and no publish worktree", existsSync(join(A, ".publish")), false);
+    assertEq("the checkout's own tracked state is unchanged",
+      run(A, "git status --porcelain --untracked-files=no").stdout.trim(), "");
+
+    // Re-persisting the same tick is a no-op that says so, so a re-entered tick does
+    // not double the base's copy.
+    const a2 = JSON.parse(run(A, `${PERSIST} --tick 20260817-100000`).stdout);
+    assertEq("re-persisting is idempotent", [a2.status, a2.reason, a2.changed],
+      ["ok", "already_current", false]);
+
+    // The second clone never fetched A's section, so its union is computed against a
+    // base it has to read first.
+    const b1 = JSON.parse(run(B, `${PERSIST} --tick 20260817-110000`).stdout);
+    assertEq("a second clone's tick lands too", b1.reason, "persisted");
+    run(A, "git fetch -q origin main");
+    const landed = run(A, `git show origin/main:${DAY}`).stdout;
+    assertEq("and neither erased the other",
+      (landed.match(/^## \d{8}-\d{6}$/gm) || []).sort(), ["## 20260817-100000", "## 20260817-110000"]);
+
+    // A GENUINE RACE, not just two sequential writers: the base advances between this
+    // clone's read and its push. A textual rebase of two end-of-file appends conflicts,
+    // so the retry re-opens at the new base and re-unions instead of replaying a patch.
+    run(A, `${APPEND} --tick 20260817-120000 --step open-log --status ok --summary "a again"`);
+    run(B, `${APPEND} --tick 20260817-130000 --step open-log --status ok --summary "b again"`);
+    // Linked worktrees share the common dir's hooks, so this fires on the publish push.
+    // The nested run must drop git's own exported env or it would operate on A's repo.
+    writeFileSync(join(A, ".git/hooks/pre-push"), `#!/bin/sh
+[ -f "${tmp}/raced" ] && exit 0
+touch "${tmp}/raced"
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_PREFIX GIT_COMMON_DIR GIT_OBJECT_DIRECTORY
+( cd "${B}" && ${PERSIST} --tick 20260817-130000 ) >/dev/null 2>&1
+exit 0
+`);
+    chmodSync(join(A, ".git/hooks/pre-push"), 0o755);
+    const a3 = JSON.parse(run(A, `${PERSIST} --tick 20260817-120000`).stdout);
+    assertEq("a beaten push retries rather than failing", [a3.persisted, a3.reason], [true, "persisted"]);
+    assertTrue("and it took a second attempt to do it", a3.attempts >= 2, JSON.stringify(a3));
+    run(A, "git fetch -q origin main");
+    assertEq("all four sections are on the base",
+      (run(A, `git show origin/main:${DAY}`).stdout.match(/^## \d{8}-\d{6}$/gm) || []).length, 4);
+
+    // A LOG ROOT OUTSIDE A REPOSITORY IS SKIPPED BY NAME, never published into whatever
+    // repository the caller's cwd happens to be. This is what keeps the drill — which
+    // runs a tick against a throwaway root from inside the operator's own checkout —
+    // from committing a fixture's log to the operator's base.
+    const loose = join(tmp, "loose");
+    mkdirSync(join(loose, ".workaholic/housekeeping"), { recursive: true });
+    writeFileSync(join(loose, DAY), "# x\n\n## 20260817-140000\n\n- `open-log`: ok — x\n");
+    const l = JSON.parse(run(A, `${PERSIST} --tick 20260817-140000 --root ${loose}`).stdout);
+    assertEq("a root outside a repository is skipped, not published",
+      [l.persisted, l.status, l.reason], [false, "skipped", "not_a_repo"]);
+
+    // An unreachable base is reported by name and changes nothing.
+    run(A, `git remote set-url origin ${join(tmp, "gone.git")}`);
+    run(A, `${APPEND} --tick 20260817-150000 --step open-log --status ok --summary "offline"`);
+    const off = JSON.parse(run(A, `${PERSIST} --tick 20260817-150000`).stdout);
+    assertEq("an unreachable base degrades by name",
+      [off.persisted, off.status, off.reason], [false, "degraded", "origin_unreachable"]);
+    assertTrue("and the log is still in the checkout",
+      readFileSync(join(A, DAY), "utf8").includes("## 20260817-150000"));
+  } finally {
+    cleanup(tmp);
   }
 }
 

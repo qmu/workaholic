@@ -996,14 +996,25 @@ cmd_verify_housekeep() {
     _log="${_root}/.workaholic/housekeeping/${_day}.md"
     if [ -f "$_log" ]; then
         _sections=$(grep -c '^## ' "$_log" || true)
+        # Nine step lines plus the closing act's own `persist-log` line.
         _lines=$(grep -c '^- `' "$_log" || true)
-        if [ "$_sections" = "1" ] && [ "$_lines" = "9" ]; then
-            add_row "housekeep_log" true "one tick section carrying nine step lines" load
+        if [ "$_sections" = "1" ] && [ "$_lines" = "10" ]; then
+            add_row "housekeep_log" true "one tick section carrying nine step lines and the persist" load
         else
-            add_row "housekeep_log" false "expected 1 section and 9 lines, got ${_sections} and ${_lines}" load
+            add_row "housekeep_log" false "expected 1 section and 10 lines, got ${_sections} and ${_lines}" load
         fi
     else
         add_row "housekeep_log" false "the tick wrote no log at ${_log}" load
+    fi
+
+    # THE DRILL MUST NOT PUBLISH. The tick's closing act puts the log on the base, and
+    # the drill runs against a throwaway root from inside the operator's own checkout —
+    # so the one thing worth pinning here is that a root outside a repository is skipped
+    # BY NAME rather than committed into whatever repository the cwd happens to be.
+    if printf '%s' "$_out" | grep -q '"reason": "not_a_repo"'; then
+        add_row "housekeep_persist" true "the drill's throwaway root is skipped by name, never published" load
+    else
+        add_row "housekeep_persist" false "the persist did not report not_a_repo for a throwaway root: $(one_line "$_out")" load
     fi
 
     # Nothing outside the log: a maintenance tick that dirtied the checkout would be

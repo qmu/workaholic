@@ -233,3 +233,41 @@ seam this file names for that step — recording what it actually did under the 
 - **`--only` / `--skip` are for the operator and the tests**, and a skipped step is still a
   reported line (`skipped`/`requested`) — an unreported skip is the failure this whole design is
   built against.
+
+---
+
+## The closing act — `persist-log.sh`
+
+Not a tenth step: the nine above are the ask's contract and the log's step keys, and this is the
+run's own bookkeeping. It runs **after** the ninth step has had its turn, so a tick that dies
+half-way still persists what it recorded on its next run, and it reports under the run's top-level
+`persist` key while logging under the step id `persist-log`.
+
+- **Reads**: the checkout's `.workaholic/housekeeping/<UTC-day>.md`, and the base's copy of the
+  same path.
+- **Writes**: that one file, on the base, through the publish tree — `open-publish-tree.sh` →
+  `publish-tree-commit.sh` → `close-publish-tree.sh`. Nothing else, anywhere. The caller's checkout
+  is byte-identical afterwards: no branch, no worktree, and no `publish-main` ref on origin, so the
+  claim protocol's branch scan never sees it.
+- **Who commits the log, and when**: this script, once per tick, at the end of the tick. It is the
+  only writer to the base in the whole skill, and it carries **every** section the checkout has and
+  the base does not — so a tick whose persist failed is carried up by the next tick in the same
+  container.
+- **Concurrency is a union, not a rebase.** Two containers ticking on the same day both append to
+  the same file, and a textual rebase of two end-of-file appends conflicts. So each attempt
+  re-opens the publish tree at a freshly fetched base and appends only the `## <tick-id>` sections
+  the base is missing; a rejected push re-unions rather than replaying a patch. Attempts are
+  bounded (default 3) because sustained divergence is something a human should see.
+- **Aborts, each by name**: `not_a_repo` and `root_not_repo_root` (a `--root` outside the
+  repository — the drill's throwaway root — is never published into whatever repository the cwd
+  happens to be), `no_log` (nothing was recorded), `no_origin` (`skipped`: a local-only checkout
+  has no base, so nothing went wrong), and `origin_unreachable` / `base_unresolved` /
+  `dirty_publish_tree` / `diverged` / `push_failed` / `commit_failed` (`degraded`: the base exists
+  and the log did not reach it). A failed persist leaves the log in the checkout and says so; it
+  never half-writes.
+- **Its own log line is not on the base, deliberately.** The outcome is known only after the push,
+  so recording it, pushing again, and recording *that* does not terminate. The base already carries
+  the answer: the tick's section is there iff its persist succeeded, and when it did not, the run
+  report names the reason. Full rationale, including the rejected pull-request-per-tick
+  alternative and the point-by-point contrast with the three writer designs `workaholic:ship` §7
+  refused, is in the script's header.

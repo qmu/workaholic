@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-17T13:15:00+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -96,3 +97,56 @@ between the mission and a routine that is safe to switch on.
   artifacts instead of the log (a feedback record already names the issue it captured; a Slack
   search already answers "was this posted"). It does not cover the audit trail, which is the
   half that has no substitute.
+
+## Final Report
+
+Development completed as planned.
+
+### Open Decision resolved
+
+**1. Publish tree, or a pull request per tick? — the publish tree, directly
+(`publish-tree-commit.sh`).**
+
+The direct form's "post-merge seams only" documentation is about *when a direct commit is owed
+no approval*, and an append-only operational log is that case by construction: nothing in it is
+a decision, and there is no content a reviewer could rule on. A pull request per tick is
+twenty-four a day asking a human to approve a line recording what a machine already did — a
+review with no possible verdict is not a gate, it is noise that trains its reviewer to stop
+looking.
+
+It is not the unattended-`main`-writer class `workaholic:ship` §7 refused, checked against each
+of that section's three rows on its own stated ground:
+
+- *"Refresh a merged note on `main`"* was refused as **self-referential** — the plan's datum is
+  the base sha, so the refresh's own commit changes the number it reports. A log append has no
+  such loop: its content is the tick's probe results, fixed before the persist runs, and
+  appending it changes no input to the tick that wrote it. What *later* ticks read out of it
+  (the dedup sets) is the point of the ticket, not an invalidation.
+- *"Push into each open PR's branch"* was refused because those branches belong to whoever holds
+  their claim. This writes to no branch: `publish-main` stays local and only the commit lands on
+  the base, so the claim scan never sees it.
+- *"Run `/ship` hourly"* was refused because `/ship` merges. This merges nothing and reads no
+  pull request.
+
+### Discovered Insights
+
+- **Insight**: A textual rebase cannot reconcile two end-of-file appends, so
+  `publish-tree-commit.sh`'s built-in one-shot rebase is not by itself enough for a
+  concurrently-written artifact — the retry has to re-derive the content against the new base.
+  **Context**: `persist-log.sh` therefore loops open→union→commit rather than replaying a patch:
+  each attempt re-opens the publish tree at a freshly fetched base and appends only the
+  `## <tick-id>` sections that base is missing. Any future artifact written by more than one
+  unattended runner on the same path will need the same shape.
+- **Insight**: A publish step's blast radius is decided by *where the git repository is*, not by
+  where its input is. `run.sh` takes `--root`, and the drill deliberately points it at a
+  throwaway directory while running from inside the operator's own checkout.
+  **Context**: Without the `not_a_repo` / `root_not_repo_root` guard the drill would have
+  committed a fixture's log into the operator's base every time it ran. The guard resolves the
+  git toplevel *of the log root* and refuses anything that is not exactly it.
+- **Insight**: Recording the outcome of a publish, in the thing being published, does not
+  terminate — the outcome is only known after the push, and pushing the line recording it needs
+  its own line.
+  **Context**: The persist's own log line is written to the checkout and not to the base, and
+  nothing is lost by that: the base already answers the question the line would ask, because a
+  tick's section is present there iff its persist succeeded. Any future self-recording write has
+  the same regress and the same escape.

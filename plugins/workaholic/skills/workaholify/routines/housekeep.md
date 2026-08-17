@@ -48,12 +48,19 @@ which publishes behind a pull request, exactly as `/propose` does. A pull reques
 opened and then left red is a stuck artifact nobody owns, so the flag is `true` for the same
 reason it is true on `[Propose]`.
 
+**Its container is discarded, so the tick commits its own log.** A routine tick runs in a fresh
+clone; a log left in that checkout would take every dedup's memory with it and leave an hourly
+unattended process with no audit trail. `persist-log.sh` is the tick's closing act and the one
+thing this routine puts on `main` — an append to its own log, through the publish tree, leaving
+the checkout byte-identical and creating no branch (`workaholic:housekeep`, *The tick log*).
+
 **What it never does**, and none of it is left to the prompt: it never merges a pull request,
 never pushes into a branch the claim protocol owns (step 4 reports conflict state and the claim
 holder resolves it), never edits a live strategy, never closes an issue, never rewrites a
-document on `main`, and never calls `AskUserQuestion` — step 9 asks humans **in Slack**. Every
-one of those rules lives in `workaholic:housekeep` and its `reference/workflow.md`, which is why
-this prompt does not restate them.
+document on `main` — its own append-only tick log is the single exception, stated above — and
+never calls `AskUserQuestion` — step 9 asks humans **in Slack**. Every one of those rules lives
+in `workaholic:housekeep` and its `reference/workflow.md`, which is why this prompt does not
+restate them.
 
 **The prompt is the ceiling** (P3, Q2, P10): the two literal formats below are the only shapes a
 session running this routine may emit, and `workaholic:notify`'s `reference/notifications.md`

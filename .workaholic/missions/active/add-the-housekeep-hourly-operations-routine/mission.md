@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260817-114453
 ---
 
 # Add the /housekeep hourly operations routine

@@ -62,3 +62,4 @@ most five a tick, never late at night — instead of a silent guess.
 - 2026-08-17 — story written — work-20260817-114453.md
 - 2026-08-17 — run recorded (+1.8h) — implement-20260817-114453
 - 2026-08-17 — ticket archived — 20260817131500-persist-the-housekeep-tick-log.md
+- 2026-08-17 — story updated — work-20260817-114453.md

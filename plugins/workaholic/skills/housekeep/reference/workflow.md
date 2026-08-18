@@ -129,6 +129,12 @@ seam this file names for that step — recording what it actually did under the 
   `checks` → the author must fix a failing check or say it is expected; `draft` → mark it ready or
   close it; `behind` → the claim holder must update it; `unknown` → GitHub has not computed
   mergeability yet, re-read before acting.
+- **The heading names the kind, the key does not move** (2026-08-18, issue #513). `headline` is
+  derived from the same `blocked_by` set — `conflicting with main`, `waiting on review`, `with a
+  failing check`, `still in draft`, `behind main`, `with mergeability not yet computed`, and
+  `stuck: <kind>, <kind>` when one post covers several — and the `🔧` post's first line carries it,
+  so a conflict finding and an un-run auto-merge no longer share a heading. It is **wording only**:
+  the digest, the two gates and the post's frequency are untouched.
 - **One reminder per distinct state.** The key is `stuck:<digest>` over the sorted
   `<number>:<blocked_by>` set, so an unchanged answer is never repeated while a new pull request or
   a changed reason earns a post. **Two gates, both required**: something actionable, and no earlier

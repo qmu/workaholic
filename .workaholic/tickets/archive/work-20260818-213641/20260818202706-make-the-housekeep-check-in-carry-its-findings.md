@@ -1,11 +1,13 @@
 ---
 created_at: 2026-08-18T20:27:06+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
 feedback: [20260818202549-make-the-housekeep-notification-reflect-the-tick-s-actual-findings.md]
 merge_policy:
 verification_handoff: 
+claim: work-20260818-213641
 ---
 
 # Make the housekeep check-in carry its findings
@@ -161,3 +163,89 @@ session does not re-derive them:
   than a generic heading plus a sentence.
 - The honest limit of the measurement in this ticket: ~24 hours and two posts.
   Step 1 exists so the design rests on a week, not on that.
+
+## Final Report
+
+Development completed as planned.
+
+### Step 1 — what the channel actually shows
+
+The seven-day read was run before anything was changed, and it turned out to be a
+read of the **entire** history of both shapes: searching `#dev-workaholic` for the
+`🔧` and `❓` posts returns four messages in total, all from 2026-08-18, because the
+routine shipped on 2026-08-17. So the "week" this design was supposed to rest on does
+not exist yet, and the honest sample is still four posts.
+
+| Shape | Posts | Distinct second line | Replies |
+| ----- | ----- | -------------------- | ------- |
+| `🔧 Needs a decision` | 2 | 2 of 2 | 0 |
+| `❓ Question` | 2 | n/a (each named its two options) | 0 |
+
+The two `🔧` posts were `stuck:4231364083` (three clean-but-unmerged pull requests,
+2026-08-18 18:54 JST) and `stuck:3623811666` (PR #509 conflicting, 2026-08-19 04:53
+JST). The two `❓` posts were `ask:connector-coverage-gmail-drive` and
+`ask:unmerged-clean-prs-489-491-493`. The ticket's own 24-hour measurement is
+confirmed rather than corrected: the bodies vary, the headings do not, and nothing
+drew a reply.
+
+### Open Decision 1 — which "fixed template" the report means
+
+**Resolved (a): the heading.** The measurement supports it directly — both `🔧` posts
+carried a situation-specific sentence under a first line that differed only in `N`, so
+the reader's "reads the same every time" is a true description of the heading and a
+false one of the post. `step-stuck-prs.sh` now emits a `headline` derived from the
+`blocked_by` set it already resolves, and the `🔧` first line carries it, so a conflict
+finding and an un-run auto-merge differ where a scanning reader looks first. The
+`` `stuck:<digest>` `` derivation and format are untouched, both gates are untouched,
+and the post's frequency is unchanged.
+
+**(b) — the channel in aggregate — was measured and is real, and is filed rather than
+done here**, exactly as the ticket instructed. Over the same ~14 hours `[Prepare
+Release]` posted at least nine `📦` lines to housekeep's four, all asking for the same
+act, with counts swinging 16 → 18 → 22 → 25 → 30 → 36 → 165 → 181 → 3. Half of that
+swing is the stale-refs defect closed the same day (issue #503); the rate is not, and
+it belongs to a routine this ticket does not name. Minted as
+`20260818214615-measure-and-bound-the-prepare-release-post-rate.md`, whose first step
+is to re-measure over a week now that #503 has landed — its honest outcome may be that
+no change is needed.
+
+### Open Decision 2 — what a reply is supposed to do
+
+**Resolved (i): a question a person can answer in one line for another person's
+benefit.** Nothing in the loop ingests a Slack reply today; (ii) is a new mechanism,
+not a rewording, and the ticket forbids building it without a ruling. This is that
+ruling and it does not authorise (ii).
+
+The consequence for step 4 is that the `❓` shape is **left unchanged**, and the
+evidence is why: both questions ever posted already named their two options in one
+sentence, which is precisely what the shape's instruction demands. Tightening an
+instruction that both examples satisfy would be a change with nothing behind it, and
+neither drew a reply anyway — so the wording is not what the silence is about. Both
+findings are written into `notify/reference/notifications.md` so the next reader does
+not re-derive them.
+
+### Discovered Insights
+
+- **Insight**: The `🔧` reminder's dedup key and its heading were never coupled, and
+  the repository has already paid once for confusing them — the release tick's
+  2026-08-17 heading rename was reversed a day later on the belief that the heading
+  was the key.
+  **Context**: `stuck:<digest>` is a `cksum` over the sorted `<number>:<blocked_by>`
+  pairs and nothing searches the visible text, so heading wording is free to change
+  and the key must not. Both scripts now say so in their headers; a future reader
+  changing either should check which half they are touching.
+
+- **Insight**: `blocked_by` already carried everything the heading needed. The
+  vocabulary (`conflict` / `review` / `checks` / `draft` / `behind` / `unknown`) is
+  resolved once per tick by `pulls-state.sh` and consumed by steps 4 and 6, so naming
+  the kind cost a derived string and no new read.
+  **Context**: When a post reads as uninformative, the first question is whether the
+  information is already computed and simply not rendered. Here it was — the per-row
+  `decision` sentences had it, and only the aggregate line lacked it.
+
+- **Insight**: "Read the last seven days" met a feature two days old. The search
+  returned the shapes' complete history rather than a window.
+  **Context**: A verification step written in calendar time can silently become a
+  census when the thing measured is newer than the window. Reporting four posts as
+  four, rather than as "a week's worth", is what keeps the sample honest — and the
+  design here rests on the same two posts the ticket already had.

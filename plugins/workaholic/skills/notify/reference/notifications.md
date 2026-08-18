@@ -133,11 +133,23 @@ and for the same reason: nobody *said* anything, the repository's own state did 
 there is no thread to land in and the post keys on its own content instead.
 
 ```
-🔧 Needs a decision - <N> pull request(s) waiting on a human
+🔧 Needs a decision - <the step's headline: how many pull requests, and what is blocking them>
 One sentence, max 25 words, what the decision is (resolve a conflict, review it, fix a check).
 `stuck:<digest>`
 <session URL>
 ```
+
+**The first line names the kind of finding, and the key does not move** (2026-08-18, issue #513).
+It read `<N> pull request(s) waiting on a human` every time, so the varying half — the sentence
+naming the decision — sat under an invariant heading and the post read the same whether the finding
+was a merge conflict, an un-run auto-merge or a failing check. The heading now carries
+`step-stuck-prs.sh`'s `headline`, derived from the `blocked_by` set the script already resolves
+(`conflicting with main` / `waiting on review` / `with a failing check` / `still in draft` /
+`behind main` / `with mergeability not yet computed`, and `stuck: <kind>, <kind>` when one post
+covers several). **Visible wording only**: `` `stuck:<digest>` `` is still the sorted
+`<number>:<blocked_by>` set, nothing searches the heading, and the 2026-08-17 release-tick rename
+was reversed the next day precisely because the heading was mistaken for the dedup key. Making the
+post more informative must not make it more frequent — both gates below are untouched.
 
 **Two gates, both required, and an idle tick is silent.** Nothing waiting posts nothing; a state
 already posted (the `` `stuck:<digest>` `` search finds it) posts nothing. The digest hashes the
@@ -166,6 +178,15 @@ asking into nagging. Silence is never read as an answer — the unanswered set s
 tick log and the run report, and the post is still sitting in its thread. The mention is a
 resolved `<@U…>` from the person's email; a bare `@name` pings nobody, and a Claude mention token
 on a routine's own post re-triggers the app.
+
+**The shape was measured against the channel and deliberately left as it is** (2026-08-18, issue
+#513). Both `❓` posts `#dev-workaholic` has ever carried named their two options in one sentence,
+exactly as the shape requires, and neither drew a reply — so the evidence says the wording is not
+what silence is about, and tightening an instruction both examples already satisfy would be a
+change with nothing behind it. What a reply is *for* was ruled on at the same time: a reply is a
+person answering another person, and **nothing ingests a Slack reply back into the loop**. Building
+an answer the loop itself consumes is a new mechanism, not a rewording, and it is unbuilt until
+somebody scopes it.
 
 ### Precondition-stop — calm first, escalate on persistence
 

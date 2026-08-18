@@ -75,7 +75,7 @@ If the command or its skills did not load, do not stop: run `bash plugins/workah
 If pull requests are waiting on a human and the exact-string search for the state key finds no earlier post, post this one line as a new top-level message (the workaholic:notify lookup) — no mention token of any kind:
 
 ```
-🔧 Needs a decision - <N> pull request(s) waiting on a human
+🔧 Needs a decision - <the step's headline: how many pull requests, and what is blocking them>
 One sentence, max 25 words, what the decision is (resolve a conflict, review it, fix a check).
 `stuck:<digest>`
 <session URL>

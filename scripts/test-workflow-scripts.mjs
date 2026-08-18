@@ -18093,6 +18093,57 @@ esac
     assertEq("an unchanged state is not re-announced", s6b.needs_agent.length, 0);
     assertEq("and says why", s6b.reason, "already_filed");
 
+    // Step 6's HEADLINE (2026-08-18, issue #513). The reminder's first line read
+    // `<N> pull request(s) waiting on a human` whatever the finding was, so the varying
+    // half sat under an invariant heading. The property under test is that two different
+    // findings produce two different first lines -- and that the key, which IS the
+    // contract, is untouched by the wording that is not.
+    const single = (n, mergeable, state) => {
+      const d = mkdtempSync(join(tmpdir(), "wh-gh1-"));
+      writeFileSync(join(d, "gh"), `#!/bin/sh
+path=""; jqexpr=""; seen=0
+while [ $# -gt 0 ]; do
+  case "$1" in
+    api) seen=1 ;;
+    --jq) jqexpr="$2"; shift ;;
+    -*) ;;
+    *) if [ "$seen" = 1 ] && [ -z "$path" ]; then path="$1"; fi ;;
+  esac
+  shift
+done
+emit() { if [ -n "$jqexpr" ]; then printf '%s' "$1" | jq -r "$jqexpr"; else printf '%s' "$1"; fi; }
+case "$path" in
+  repos/*/pulls\\?*) emit '${JSON.stringify([{ number: n }])}' ;;
+  repos/*/pulls/${n}) emit '${JSON.stringify({ number: n, html_url: `https://x/${n}`, head: { ref: "work-20260817-030303" }, draft: false, mergeable, mergeable_state: state, title: "One" })}' ;;
+  *) emit '[]' ;;
+esac
+`);
+      chmodSync(join(d, "gh"), 0o755);
+      return d;
+    };
+    const binC = single(21, false, "dirty");
+    const binR = single(22, true, "blocked");
+    try {
+      const conflicted = JSON.parse(run(repo, `${POSIX_SH} ${join(HK, "step-stuck-prs.sh")} --tick 20260817-140000 --root .`,
+        { env: { ...process.env, PATH: `${binC}:${process.env.PATH}` } }).stdout);
+      const unmerged = JSON.parse(run(repo, `${POSIX_SH} ${join(HK, "step-stuck-prs.sh")} --tick 20260817-140000 --root .`,
+        { env: { ...process.env, PATH: `${binR}:${process.env.PATH}` } }).stdout);
+      assertEq("a conflict finding names the conflict in the heading",
+        conflicted.headline, "1 pull request conflicting with main");
+      assertEq("an un-run auto-merge names the review instead",
+        unmerged.headline, "1 pull request waiting on review");
+      assertTrue("so the two headings differ", conflicted.headline !== unmerged.headline, conflicted.headline);
+      // Mixed findings name every kind rather than collapsing to the first one.
+      assertEq("a mixed state names the kinds it covers", s6.headline, "2 pull requests stuck: conflict, review");
+      // The wording is wording: the key is still the sorted <number>:<blocked_by> digest.
+      assertTrue("each finding still keys on stuck:<digest>",
+        /^stuck:\d+$/.test(conflicted.key) && /^stuck:\d+$/.test(unmerged.key), `${conflicted.key} ${unmerged.key}`);
+      assertTrue("and a different state is still a different key", conflicted.key !== unmerged.key, conflicted.key);
+    } finally {
+      cleanup(binC);
+      cleanup(binR);
+    }
+
     // Step 5: an open issue an archived ticket names is drift, and nothing is closed.
     mkdirSync(join(repo, ".workaholic/tickets/archive/work-20260817-010101"), { recursive: true });
     writeFileSync(join(repo, ".workaholic/tickets/archive/work-20260817-010101/t.md"),

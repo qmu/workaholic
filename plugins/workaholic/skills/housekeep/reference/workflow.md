@@ -133,7 +133,7 @@ seam this file names for that step — recording what it actually did under the 
   `<number>:<blocked_by>` set, so an unchanged answer is never repeated while a new pull request or
   a changed reason earns a post. **Two gates, both required**: something actionable, and no earlier
   post for this exact state — the tick log answers the second, and `workaholic:notify`'s stateless
-  lookup answers it again on the wire. The key is deliberately distinct from `[Release Status]`'s
+  lookup answers it again on the wire. The key is deliberately distinct from `[Prepare Release]`'s
   `deploy:<digest>`: one reports what is waiting to deploy, this what is waiting on a human, and a
   shared key would let either dedup the other away.
 - **Aborts**: `gh_unavailable`. Already-posted state is `ok`/`already_filed`, not a second post.

@@ -129,7 +129,7 @@ installed CLI):
   reachable (`no_transport`), not as the product (`skills/workaholify/SKILL.md` §5).
   Since 2026-08-14 `/setup-routines` itself is **split by routine scope**:
   `/setup-dev-routines` converges the two developer-scoped routines and
-  `/setup-repo-routines` the repository's single `[Release Status]`, run by one
+  `/setup-repo-routines` the repository's single `[Prepare Release]`, run by one
   account. Same flow, same one refusal; only the template set differs.
   The bar itself is unchanged for **cron**: a server crontab is still installed by
   the developer, from this page, never from an agent session.

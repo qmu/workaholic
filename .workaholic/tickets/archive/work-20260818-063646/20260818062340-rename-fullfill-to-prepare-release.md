@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-18T06:23:40+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -166,3 +167,88 @@ Every current `fullfill` hit outside `.workaholic/` (the history area is never r
   `/mission-close` remain multi-word; with this rename the one-word convention is no longer
   the project's stated naming rule at all, which the command file's *On the name* paragraph
   should reflect rather than leave dangling.
+
+## Final Report
+
+Development completed as planned.
+
+### Open Decision 1, resolved: **both** surfaces were renamed
+
+The ask names one string (`[Release Status]`, the routine record's name) and describes the
+other ("the routine's **notification heading**", which is the `📦 Release status` post root).
+This run renamed **both**: the record to `[Prepare Release] {repo_name}`, and the post root to
+`📦 Prepare release`.
+
+The tie was broken by a fact, not a preference. The 2026-08-17 ticket left the post root alone
+on one stated cost — "its prefix is the notify lookup's own exact-string dedup key, so changing
+it posts one duplicate line at the cutover". **That cost does not exist.** The lookup searches
+`` `deploy:<digest>` `` and nothing anywhere queries the `📦` prefix
+(`notify/SKILL.md`, *The repository tick's status line*; `notifications.md`'s dedup paragraph).
+With its only measured cost gone, the remaining argument for leaving it — "it names the event,
+not the command" — did not outweigh the ask's own stated goal, which is a heading consistent
+with the command name. The correction is recorded in both places that carried the wrong claim
+(`notify/SKILL.md`, `notifications.md`) rather than silently dropped.
+
+Unchanged by this: the `📦` emoji, the `deploy:<digest>` key, both silence gates, and the
+`Draft note:` line.
+
+**One surface deliberately not renamed**: `ship/SKILL.md`'s section title `## 7. Release status`.
+It names the *read* the section documents (and is the cross-reference the command file cites by
+name), not the command and not a notification; the ask reached neither. Left as written.
+
+### The duplicate-routine cutover is a stated operator action
+
+Renaming the record does **not** rename an operator's live routine. `/setup-repo-routines`
+converges by rendered `name`, so the next run **creates a second routine** beside the old one,
+and a routine is an account-level record no other account can list or delete — nothing in the
+plugin can detect or remove the duplicate. The instruction ships with the rename rather than
+instead of it, and is carried **mechanically** so it cannot rot:
+
+- the template declares `renamed_from: "[Release Status] {repo_name}"`;
+- `render-setup-sheet.sh` renders it as the sheet's first note ("Already running
+  `[Release Status] workaholic`? Rename that routine — do not create a second.");
+- `/setup-repo-routines`' report path states it for the convergence path, which renders no sheet;
+- `workaholify/SKILL.md` §5 and `CLAUDE.md` record the field's lifecycle: **delete it from the
+  template once the fleet has cut over**, because it describes a migration, not a routine.
+
+Two `test-workflow-scripts.mjs` assertions pin both surfaces, and they are written to assert
+nothing once the field is deleted — the intended end state.
+
+### This is the same command's second rename in two days
+
+`/release-status` → `/fullfill` (2026-08-17) → `/prepare-release` (2026-08-18). Behaviour did
+not move under either; the cost is paid by every operator with the routine configured, and this
+time the record moved too, so the manual cutover above is owed to all of them. `CLAUDE.md` and
+the command's *On the name* paragraph both state it plainly. The one-word command convention
+that produced `/fullfill` is now retired outright — `/setup-dev-routines`,
+`/setup-repo-routines` and `/mission-close` were already multi-word and nothing was left holding
+the line.
+
+### Surviving `fullfill` / `[Release Status]` hits, accounted for
+
+Every survivor outside `.workaholic/` is a deliberate historical reference naming the old name:
+`commands/prepare-release.md` (the *On the name* paragraph), `routines/prepare-release.md`
+(`renamed_from:` plus the cutover paragraph), `workaholify/SKILL.md` §5, its
+`reference/routines.md`, `notify/SKILL.md`, `notifications.md`, and `CLAUDE.md`'s rename
+paragraph. Everything inside `.workaholic/` — the feedback records, the archived ticket, the
+stories, the indexes — is immutable history and is correct to leave, exactly as the previous
+rename left its `release-status` survivors. No hit was left unchanged by omission.
+
+### Discovered Insights
+
+- **Insight**: The `📦 Release status` heading was never the lookup's dedup key; the key is
+  `` `deploy:<digest>` `` and always was.
+  **Context**: A decision was made on 2026-08-17 to *not* rename that heading, and its sole
+  stated justification was that the prefix carried dedup weight. Neither `notify/SKILL.md` nor
+  `notifications.md` ever said so — both name the token — but the claim was written into the
+  routine template and read as authoritative the next day. A cost recorded in the wrong file is
+  worse than one not recorded at all: it survives review by looking like a measurement. Both
+  canonical files now state that the heading is free wording, so the next rename does not have
+  to rediscover it.
+- **Insight**: `renamed_from:` is the first template field that describes a *migration* rather
+  than a routine, and it is designed to be deleted.
+  **Context**: `list-routine-templates.sh` and `render-routine.sh` both read fields by name and
+  ignore the rest, so the field costs nothing to add and nothing to remove. Because
+  `render-setup-sheet.sh` derives the note from the field and the tests iterate over whichever
+  templates carry it, deleting the field after the cutover removes the note, the report line and
+  the assertions in one act — no prose is left behind naming a migration that finished.

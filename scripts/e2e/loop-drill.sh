@@ -10,7 +10,7 @@
 #                                             `verification_handoff:` inverts the
 #                                             stage: open + handed off, not merged)
 #   loop-drill.sh verify-plan [--json]        # is the deployment-plan refresh sound?
-#   loop-drill.sh verify-status [--json]      # is the [Release Status] read sound and silent?
+#   loop-drill.sh verify-status [--json]      # is the [Prepare Release] read sound and silent?
 #   loop-drill.sh verify-cadence [--json]     # is the daily note generation idempotent and clock-free?
 #   loop-drill.sh verify-housekeep [--json]   # is the [Housekeep] tick sound and write-free?
 #
@@ -902,7 +902,7 @@ cmd_verify_plan() {
 
 # ---------------------------------------------------------------- verify-status
 #
-# The repository-scoped `[Release Status]` routine (`/fullfill`) is otherwise
+# The repository-scoped `[Prepare Release]` routine (`/prepare-release`) is otherwise
 # only observable by waiting an hour and watching a Slack channel for a message that,
 # on a healthy quiet repository, correctly never arrives. This stage proves the three
 # properties the routine depends on, in seconds:

@@ -120,7 +120,7 @@ Runs **only** on a developer's instruction naming a target, and never in the sam
 
 ## 7. Release status — the read that keeps the plan honest between ships
 
-`/fullfill`, and the repository-scoped `[Release Status]` routine that runs it hourly. **It reads; it never writes** — no file, no commit, no branch, no pull request, no merge, no deployment — and it is a separate command rather than a mode of `/ship`, because `/ship` has exactly one behaviour and merging is part of it.
+`/prepare-release`, and the repository-scoped `[Prepare Release]` routine that runs it hourly. **It reads; it never writes** — no file, no commit, no branch, no pull request, no merge, no deployment — and it is a separate command rather than a mode of `/ship`, because `/ship` has exactly one behaviour and merging is part of it.
 
 ```bash
 bash ship/scripts/report-deploy-status.sh [base]
@@ -188,7 +188,7 @@ So the tick does the strongest thing a machine may honestly do to a document who
 bash ship/scripts/run-note-cadence.sh [--target <slug>] [--dry-run] [--force] [base]
 ```
 
-**One routine, both jobs.** The generation rides the existing repository-scoped `[Release Status]` tick, which **stays hourly**. Of the three shapes the ticket weighed: folding it into `[Implement]` is ruled out by the scope reasoning of issue #451 (a `developer`-scoped routine would give N developers N repository-scoped generators); a second repository-scoped routine gains only a cron field and costs every consuming repository a second setup step, which is the exact cost the scope exists to avoid; and replacing the reader with a daily writer was chosen **minus its stated cost** — the objection was that it "loses the hourly *something needs your hand* signal", and it does not have to. The tick reports hourly as before; only the **generation** is bounded to once a day.
+**One routine, both jobs.** The generation rides the existing repository-scoped `[Prepare Release]` tick, which **stays hourly**. Of the three shapes the ticket weighed: folding it into `[Implement]` is ruled out by the scope reasoning of issue #451 (a `developer`-scoped routine would give N developers N repository-scoped generators); a second repository-scoped routine gains only a cron field and costs every consuming repository a second setup step, which is the exact cost the scope exists to avoid; and replacing the reader with a daily writer was chosen **minus its stated cost** — the objection was that it "loses the hourly *something needs your hand* signal", and it does not have to. The tick reports hourly as before; only the **generation** is bounded to once a day.
 
 - **"Daily" is a floor derived from state, never a stored cursor**: the gate asks whether the draft release was already updated during today's **`Asia/Tokyo`** day, read off the authoritative store's own `updatedAt`. There is no cursor to go stale and a fresh clone behaves identically. The timezone is stated because the container runs UTC while the workspace is `Asia/Tokyo`, and "daily" without one is ambiguous by a day boundary.
 - **It also refreshes when the release advances**, so "updated as the release progresses" is literal rather than up-to-a-day stale. The stage is derived from git and the release record — `draft` (no record), `staging` (a record with `status: staging`), `confirmed` — never stored.

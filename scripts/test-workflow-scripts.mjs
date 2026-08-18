@@ -101,6 +101,7 @@ const SCRIPTS = {
   gateDecision: join(REPO_ROOT, "plugins/workaholic/skills/release-scan/scripts/gate-decision.sh"),
   collectCommits: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/collect-commits.sh"),
   baseRef: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/base-ref.sh"),
+  checkVersionBump: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/check-version-bump.sh"),
   gitContext: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/git-context.sh"),
   scanWindow: join(REPO_ROOT, "plugins/workaholic/skills/catch/scripts/scan-window.sh"),
   resolveExportPath: join(REPO_ROOT, "plugins/workaholic/skills/explain/scripts/resolve-export-path.sh"),
@@ -2461,6 +2462,117 @@ function testMissionWorktreeFetchFirst() {
       assertEq("no-origin local project still creates the worktree on work-*", actual, r.branch);
       run(dir, `${POSIX_SH} ${SCRIPTS.cleanupMissionWorktree} localonly`);
     } finally { cleanup(dir); }
+  }
+}
+
+// ---------- 8d-quater. check-version-bump measures against the MERGED base ----------
+// The predicate answers "has THIS branch already bumped the version?". Reading a local
+// `main` made that answer depend on whatever the container's checkout happened to have:
+// a claim worktree is cut from origin/main and nothing on the drive path moves local
+// `main`, so the stale range swept up every `Bump version to vX` that had landed on the
+// base since — a FALSE `already_bumped: true` on a branch carrying no bump, which is the
+// answer that SKIPS the bump and ships plugin changes on a stale version. Measured
+// 2026-08-18 in worktree batch-20260818063646 (local main 6e0cb9e9 vs origin/main
+// a871103d). The failure is one-directional: a stale base can only ever produce the
+// false `true`, never a wrongly-forced bump.
+function testCheckVersionBumpBaseResolution() {
+  // Fixture: a real bare origin carrying a `Bump version` commit that local `main` lacks,
+  // and a work branch cut from FRESH origin/main.
+  const makeBumpedBaseClone = ({ bumpOnBranch = false } = {}) => {
+    const origin = mkdtempSync(join(tmpdir(), "wh-cvborigin-"));
+    const clone = mkdtempSync(join(tmpdir(), "wh-cvbclone-"));
+    const seed = mkdtempSync(join(tmpdir(), "wh-cvbseed-"));
+    execSync(`git -c init.defaultBranch=main init -q --bare`, { cwd: origin });
+    execSync(`git clone -q ${origin} .`, { cwd: seed });
+    execSync(`git config user.email test@example.com && git config user.name Test && git config commit.gpgsign false`, { cwd: seed });
+    writeFileSync(join(seed, "base.txt"), "base\n");
+    execSync(`git add -A && git commit -q -m "seed base" && git push -q origin main`, { cwd: seed });
+    // Three commits merged to origin/main since this desk last moved its local `main`,
+    // one of them the version bump the stale range would wrongly attribute to the branch.
+    writeFileSync(join(seed, "merged-1.txt"), "merged work 1\n");
+    execSync(`git add -A && git commit -q -m "merged work 1" && git push -q origin main`, { cwd: seed });
+    writeFileSync(join(seed, "version.txt"), "1.0.2\n");
+    execSync(`git add -A && git commit -q -m "Bump version to v1.0.2" && git push -q origin main`, { cwd: seed });
+    writeFileSync(join(seed, "merged-2.txt"), "merged work 2\n");
+    execSync(`git add -A && git commit -q -m "merged work 2" && git push -q origin main`, { cwd: seed });
+    rmSync(seed, { recursive: true, force: true });
+    execSync(`git clone -q ${origin} .`, { cwd: clone });
+    execSync(`git config user.email test@example.com && git config user.name Test && git config commit.gpgsign false`, { cwd: clone });
+    execSync(`git checkout -q -b work-20260818-x origin/main`, { cwd: clone });
+    writeFileSync(join(clone, "real.txt"), "the one real change\n");
+    execSync(`git add -A && git commit -q -m "Add my one real change"`, { cwd: clone });
+    if (bumpOnBranch) {
+      writeFileSync(join(clone, "version.txt"), "1.0.3\n");
+      execSync(`git add -A && git commit -q -m "Bump version to v1.0.3"`, { cwd: clone });
+    }
+    // Pin LOCAL main behind origin/main, across the bump commit.
+    execSync(`git branch -f main main~3`, { cwd: clone });
+    return { origin, clone };
+  };
+
+  // Row A: the reproduction. Branch carries NO bump; local main is stale across one.
+  {
+    const { origin, clone } = makeBumpedBaseClone();
+    try {
+      assertTrue("fixture: the stale local main lacks the base's bump commit",
+        run(clone, `git log main..origin/main --oneline --grep="Bump version"`).stdout.trim().length > 0,
+        "the bump must sit in the stale gap");
+      const r = JSON.parse(run(clone, `${POSIX_SH} ${SCRIPTS.checkVersionBump}`).stdout);
+      assertEq("stale local main: a branch with no bump is NOT already_bumped", r.already_bumped, false);
+      assertEq("reports the base it actually compared against", r.base, "origin/main");
+      assertEq("a resolved base is not a degraded read", r.ok, true);
+    } finally { cleanup(origin); cleanup(clone); }
+  }
+
+  // Row B: the predicate still does its job — a real bump on the branch is detected.
+  {
+    const { origin, clone } = makeBumpedBaseClone({ bumpOnBranch: true });
+    try {
+      const r = JSON.parse(run(clone, `${POSIX_SH} ${SCRIPTS.checkVersionBump}`).stdout);
+      assertEq("a branch that genuinely bumped is already_bumped", r.already_bumped, true);
+      assertEq("reports the base it actually compared against", r.base, "origin/main");
+    } finally { cleanup(origin); cleanup(clone); }
+  }
+
+  // Row C: origin configured but never fetched -> the read is DEGRADED and says so by
+  // name. It must never answer `true`: that is the answer that silently skips the bump.
+  {
+    const dir = makeRepo("main");
+    try {
+      execSync(`git remote add origin /nonexistent/nope.git`, { cwd: dir });
+      execSync(`git checkout -q -b work-20260818-y`, { cwd: dir });
+      const r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.checkVersionBump}`).stdout);
+      assertEq("unresolvable base is a degraded read", r.ok, false);
+      assertEq("degraded read never answers already_bumped: true", r.already_bumped, false);
+      assertEq("degraded read names its reason", r.reason, "base_never_fetched");
+      assertEq("degraded read names no base", r.base, "");
+    } finally { cleanup(dir); }
+  }
+
+  // Row D: a purely local project (no origin at all) — local `main` IS the base there,
+  // so the answer is genuine, not degraded.
+  {
+    const dir = makeRepo("main");
+    try {
+      execSync(`git checkout -q -b work-20260818-z`, { cwd: dir });
+      writeFileSync(join(dir, "version.txt"), "1.0.4\n");
+      execSync(`git add -A && git commit -q -m "Bump version to v1.0.4"`, { cwd: dir });
+      const r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.checkVersionBump}`).stdout);
+      assertEq("no-origin project: the local base still answers", r.ok, true);
+      assertEq("no-origin project: the branch's own bump is detected", r.already_bumped, true);
+      assertEq("no-origin project: names the local base it used", r.base, "main");
+    } finally { cleanup(dir); }
+  }
+
+  // Row E: an explicit base argument wins, resolved by the same rule as the default.
+  {
+    const { origin, clone } = makeBumpedBaseClone();
+    try {
+      const r = JSON.parse(run(clone, `${POSIX_SH} ${SCRIPTS.checkVersionBump} main`).stdout);
+      assertEq("explicit base honoured: reported back", r.base, "main");
+      assertEq("explicit stale base reproduces the old answer (the caller asked for it)",
+        r.already_bumped, true);
+    } finally { cleanup(origin); cleanup(clone); }
   }
 }
 
@@ -13751,6 +13863,7 @@ const tests = [
   ["worktree env-file carrying (root/subdir/none/declaration)", testWorktreeEnvCarry],
   ["mission worktree lands on the branch it reports", testMissionWorktreeNoLocalMain],
   ["mission worktree starts from the merged base (fetch-first)", testMissionWorktreeFetchFirst],
+  ["check-version-bump measures against the merged base", testCheckVersionBumpBaseResolution],
   ["mission-lens worktree focus", testMissionLensWorktreeFocus],
   ["mission create publish spine: batch to main, no worktree (J1)", testMissionCreatePublishFlow],
   ["mission worktree ship reset", testMissionWorktreeShipReset],

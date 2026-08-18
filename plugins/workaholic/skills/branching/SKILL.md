@@ -89,7 +89,7 @@ Scripts live at `${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/<name>`. This ta
 | `allocate-worktree-port.sh` | next free port base across live worktrees |
 | `cleanup-mission-worktree.sh <slug>` | remove a claim worktree; refuses a dirty one, idempotent when gone |
 | `reset-mission-worktree.sh <slug> [base]` | fresh `work-*` branch inside a persisting worktree after a merge (`/ship` uses this, not `cleanup-worktree.sh`, for a mission worktree) |
-| `check-version-bump.sh` | `{already_bumped}` — is a "Bump version" commit already on this branch |
+| `check-version-bump.sh [base]` | `{ok, already_bumped, base, reason}` — is a "Bump version" commit already on this branch, measured against the **resolved** base (`gather/scripts/base-ref.sh`), never a local `main` a checkout pinned stale. Offline: it reads, it never fetches. An unresolvable base is `ok: false` + `reason` and **always** `already_bumped: false` — the caller bumps (`workaholic:report` Phase 0) |
 
 A mission runs in a persistent worktree keyed by its slug directory — `.worktrees/<mission-slug>/`, not a `work-*` directory — while the branch checked out inside is still an ordinary `work-*` branch (the branch-name invariant holds); only the directory carries the mission's name. Each worktree gets a unique local port base (`WORKAHOLIC_PORT_BASE`/`WORKAHOLIC_DEV_PORT`/`WORKAHOLIC_DOCS_PORT`) so several can run dev/docs servers at once without colliding.
 

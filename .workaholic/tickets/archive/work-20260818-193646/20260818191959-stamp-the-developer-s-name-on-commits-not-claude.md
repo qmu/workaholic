@@ -1,11 +1,13 @@
 ---
 created_at: 2026-08-18T19:19:59+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
 feedback: [20260818191739-commits-display-claude-as-the-author-name-instead-of-the-developer.md]
 merge_policy:
 verification_handoff: 
+claim: work-20260818-193646
 ---
 
 # Stamp the developer's name on commits, not Claude
@@ -144,3 +146,55 @@ name should stay `Claude` — it simply was not changed.
 - **Consuming repositories** get the fix when their bootstrap copy is refreshed by
   `/workaholify`, which is version-gated; the change is worth a version bump so the
   fleet picks it up.
+
+## Final Report
+
+Development completed as planned.
+
+The split was reproduced exactly as described — in this container `git config user.name`
+answers `Claude` from the global scope, `git config --local user.name` is empty, and
+`git config --local user.email` is the developer's own — and localized to the
+`-z "$(git config user.name)"` guard in step 0b of `bootstrap/session-start.sh`: it reads
+the **effective** scope, which a web container never leaves empty, so the `user.name` line
+beside the working `user.email` line had never executed once since it shipped on
+2026-08-07. The outer `case "$GIT_EMAIL"` gate admits `""` and `*@anthropic.com`, which is
+what a fresh container presents, so the repaired branch runs on a container's first
+session.
+
+The guard now tests `git config --local user.name`; the value prefers `gh api user --jq
+.name` and falls back to the login, treating `--jq`'s `null` for a nameless account as
+absent. Both writes stay repo-local and non-fatal with one log line each way, matching the
+surrounding branches. `.claude/hooks/session-start.sh` was refreshed from the canonical
+copy in the same change and the two are byte-identical.
+
+Verification: the hermetic suite passes at 3096 assertions, including four new fixtures on
+the identity step — the account's real name filling an unset local name, a nameless
+account falling back to the login, **the measured container shape** (global `Claude`,
+local unset → the developer's name lands, the mapped email unchanged), and an
+already-chosen repo-local name left alone under that same global `Claude`. The container
+shape was also rehearsed directly against both versions of the hook: the pre-change copy
+(`git show HEAD:…`) leaves the local name empty, the post-change copy sets it, with the
+mapped email unchanged either way. `diff` reports the two hook copies identical;
+`build.mjs` / `verify.mjs` / `validate-metadata.mjs` and `layout-doctor.sh` are clean.
+
+### Discovered Insights
+
+- **Insight**: the identity step is gated on the **email**, so a checkout that already
+  carries a repo-local `user.email` skips the whole block — the name repair included.
+  **Context**: it costs nothing in the cloud, where every routine tick is a fresh
+  container whose email is still the `@anthropic.com` default when the hook fires, so both
+  fields are set in one pass. It does mean the repair cannot reach a checkout that was
+  already given an email by some other path, and that a session already running keeps the
+  name it started with. Widening the gate to admit "email fine, local name unset" would
+  make the block run on every session of a correctly-configured repository, which is why
+  it was left alone here rather than changed silently.
+- **Insight**: `gh api user --jq .name` prints the literal `null` for an account that
+  publishes no display name, not an empty string.
+  **Context**: any `[ -n "$X" ]` check over a `--jq` scalar is wrong for a nullable field;
+  the fallback has to name `null` explicitly, and the stub in the hermetic suite rehearses
+  exactly that answer.
+- **Insight**: `git config <key> <value>` inside a worktree writes the **repository**
+  config, while `git config <key>` reads the effective value across system/global/local.
+  **Context**: the asymmetry is the whole defect — the write was already correctly scoped,
+  only the read was not, which is why the fix is one word (`--local`) and no behaviour
+  around it moved.

@@ -16418,28 +16418,54 @@ function testWorkaholifyApplies() {
 // session's GitHub login through the committed repo-root `.claude/git-identities` mapping
 // (`<login>=<email>`) and sets the repo-local identity -- ONLY when the current email is
 // empty or an @anthropic.com default. `gh` and `claude` are PATH shims, the suite's
-// standard stub shape: the hook calls `gh api user --jq .login`, so the gh shim just
-// answers the login; the `claude` shim keeps the install steps off the network entirely
+// standard stub shape: the hook calls `gh api user --jq .login` for the login and
+// `--jq .name` for the account's published name, so the gh shim answers each separately
+// (the `realname` state file is what a case flips to rehearse an account that publishes
+// none); the `claude` shim keeps the install steps off the network entirely
 // (CLAUDE_CODE_REMOTE=true is what lets the hook past its web gate at all).
+//
+// The NAME half is pinned here because it shipped dead (2026-08-18): its guard read the
+// EFFECTIVE scope, which in a web container is the global `Claude` and never empty, so
+// every routine commit rendered on GitHub -- which shows the name, not the email -- as
+// authored by Claude. Case (d) is that exact container shape, and it is the fixture the
+// old code fails.
 function testBootstrapGitIdentity() {
   const dir = makeRepo("main");
   const binDir = mkdtempSync(join(tmpdir(), "workaholic-idstub-"));
-  writeFileSync(join(binDir, "gh"),
-    `#!/bin/sh\ncase "$1" in --version) echo "gh 0.0.0 (stub)";; api) echo "testlogin";; esac\nexit 0\n`);
+  writeFileSync(join(binDir, "realname"), "Dev Example\n");
+  writeFileSync(join(binDir, "gh"), `#!/bin/sh
+case "$1" in
+  --version) echo "gh 0.0.0 (stub)" ;;
+  api) case "$*" in
+         *"--jq .name"*) cat "${binDir}/realname" ;;
+         *) echo "testlogin" ;;
+       esac ;;
+esac
+exit 0
+`);
   writeFileSync(join(binDir, "claude"), "#!/bin/sh\nexit 0\n");
   chmodSync(join(binDir, "gh"), 0o755);
   chmodSync(join(binDir, "claude"), 0o755);
+  // A container's global config: `Claude`, with no email. Masking the developer machine's
+  // own global config matters either way -- it must not leak its user.name into a case
+  // that means "unset" -- but a fresh web container is not nameless, it is named Claude,
+  // so the fixture says so rather than emptying the scope.
+  const globalCfg = join(binDir, "gitconfig-global");
+  writeFileSync(globalCfg, "[user]\n\tname = Claude\n");
+  const emptyCfg = join(binDir, "gitconfig-empty");
+  writeFileSync(emptyCfg, "");
   const HOOK = `${POSIX_SH} ${SCRIPTS.bootstrapHook}`;
-  // TMPDIR points into the fixture so the hook's log never touches the real machine's;
-  // the global/system git config is masked so the developer machine running the suite
-  // cannot leak its own user.name into "unset", as a fresh container has none.
-  const env = { ...process.env, PATH: `${binDir}:${process.env.PATH}`,
+  // TMPDIR points into the fixture so the hook's log never touches the real machine's.
+  const envWith = (globalPath) => ({ ...process.env, PATH: `${binDir}:${process.env.PATH}`,
     CLAUDE_CODE_REMOTE: "true", CLAUDE_PROJECT_DIR: dir, TMPDIR: binDir,
-    GIT_CONFIG_GLOBAL: "/dev/null", GIT_CONFIG_SYSTEM: "/dev/null" };
-  const email = () => run(dir, "git config user.email", { env }).stdout.trim();
+    GIT_CONFIG_GLOBAL: globalPath, GIT_CONFIG_SYSTEM: "/dev/null" });
+  const env = envWith(emptyCfg);
+  const claudeEnv = envWith(globalCfg);
+  const email = (e = env) => run(dir, "git config user.email", { env: e }).stdout.trim();
+  const localName = () => run(dir, "git config --local user.name", { env }).stdout.trim();
   try {
     // (a) The anthropic default plus a mapped login becomes the developer's identity --
-    // and user.name is filled from the login only because it was unset.
+    // and user.name is filled from the account's real name, because it was unset.
     mkdirSync(join(dir, ".claude"), { recursive: true });
     writeFileSync(join(dir, ".claude/git-identities"),
       "# <login>=<email> -- comments tolerated\ntestlogin=dev@example.com\n");
@@ -16448,8 +16474,40 @@ function testBootstrapGitIdentity() {
     let r = run(dir, HOOK, { env });
     assertEq("a mapped anthropic-default session exits 0", r.status, 0);
     assertEq("...and ends up with the mapped user.email", email(), "dev@example.com");
-    assertEq("...and user.name filled from the login (it was unset)",
-      run(dir, "git config user.name", { env }).stdout.trim(), "testlogin");
+    assertEq("...and user.name filled from the account's real name (it was unset)",
+      localName(), "Dev Example");
+
+    // (a2) An account that publishes no name (`--jq` prints `null`) falls back to the
+    // login -- never to the literal string "null".
+    writeFileSync(join(binDir, "realname"), "null\n");
+    run(dir, "git config --unset user.name");
+    run(dir, "git config user.email noreply@anthropic.com");
+    r = run(dir, HOOK, { env });
+    assertEq("a nameless account still exits 0", r.status, 0);
+    assertEq("...and falls back to the login", localName(), "testlogin");
+    writeFileSync(join(binDir, "realname"), "Dev Example\n");
+
+    // (d) THE MEASURED CONTAINER SHAPE: the global name is `Claude` and the local name is
+    // unset. The old guard read the effective scope, saw `Claude`, and left the local
+    // scope empty forever; the fix reads --local, so the developer's name lands and the
+    // email the claim oracle reads is exactly the mapping's value.
+    run(dir, "git config --unset user.name");
+    run(dir, "git config user.email noreply@anthropic.com");
+    r = run(dir, HOOK, { env: claudeEnv });
+    assertEq("a container whose global name is Claude exits 0", r.status, 0);
+    assertEq("...and ends with the developer's repo-local user.name",
+      run(dir, "git config --local user.name", { env: claudeEnv }).stdout.trim(), "Dev Example");
+    assertEq("...with the mapped email unchanged underneath",
+      run(dir, "git config --local user.email", { env: claudeEnv }).stdout.trim(),
+      "dev@example.com");
+
+    // (e) A developer's own repo-local name is left alone even under a global `Claude`.
+    run(dir, "git config user.email noreply@anthropic.com");
+    run(dir, "git config user.name Chosen");
+    r = run(dir, HOOK, { env: claudeEnv });
+    assertEq("an already-chosen repo-local name exits 0", r.status, 0);
+    assertEq("...and is never overwritten",
+      run(dir, "git config --local user.name", { env: claudeEnv }).stdout.trim(), "Chosen");
 
     // (c) A real local identity is NEVER overwritten, even with a mapping hit on file.
     run(dir, "git config user.email real@example.com");
@@ -16457,8 +16515,7 @@ function testBootstrapGitIdentity() {
     r = run(dir, HOOK, { env });
     assertEq("a real identity still exits 0", r.status, 0);
     assertEq("a real local identity is untouched by a mapping hit", email(), "real@example.com");
-    assertEq("...and its user.name is untouched too",
-      run(dir, "git config user.name", { env }).stdout.trim(), "Real");
+    assertEq("...and its user.name is untouched too", localName(), "Real");
 
     // (b) No mapping file is the status quo, not an error: untouched, session starts.
     rmSync(join(dir, ".claude/git-identities"));

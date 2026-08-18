@@ -120,7 +120,7 @@ Runs **only** on a developer's instruction naming a target, and never in the sam
 
 ## 7. Release status — the read that keeps the plan honest between ships
 
-`/release-status`, and the repository-scoped `[Release Status]` routine that runs it hourly. **It reads; it never writes** — no file, no commit, no branch, no pull request, no merge, no deployment — and it is a separate command rather than a mode of `/ship`, because `/ship` has exactly one behaviour and merging is part of it.
+`/fullfill`, and the repository-scoped `[Release Status]` routine that runs it hourly. **It reads; it never writes** — no file, no commit, no branch, no pull request, no merge, no deployment — and it is a separate command rather than a mode of `/ship`, because `/ship` has exactly one behaviour and merging is part of it.
 
 ```bash
 bash ship/scripts/report-deploy-status.sh [base]
@@ -128,7 +128,45 @@ bash ship/scripts/report-deploy-status.sh [base]
 
 Per target: `unreleased_count` and the `since` boundary with its `since_reason`, `has_confirmation`, the latest note that joined it and how (`declared`/`recency`/`none`), and `needs[]` — `confirmation_method` (the target declares none, so §1-4 halts on it), `release` (commits are waiting), `note` (no note has ever joined this target). Report each target and the `needs`; `actionable: false` on every target is the quiet state and is reported as such. A refusal (`base_unresolvable`, `not_a_git_repo`) is reported with its reason and ends the run — never half-reported as a clean status.
 
+**The per-target mapping rides the same read** (2026-08-17). `report-deploy-status.sh` splices `read-deployments.sh --mapping` under `mapping`: per target its `environment`, `deploy_model`, `paths` and `confirmation_method`, each marked **`declared`** or **`defaulted`/`undeclared`**, plus named `gaps[]` — `no_targets`, `environment_undeclared`, `path_attribution_undeclared`, `unmatched_component`. `read-deployments.sh` stays the single parser of that frontmatter, and the mapping is **not** hashed into the `digest`: reformatting a record is not news. For an undeclared target the reader prints a **blank** scaffold (`--scaffold <slug>`, stdout only) and stops — deriving the mapping means reporting what a human declared, never synthesising a record from the tree's shape, because the next `/ship` gates on that record (`.workaholic/deployments/README.md`, *The target ↔ environment mapping*).
+
 **The `digest` is what makes an idle tick silent.** It hashes the substantive per-target state and deliberately **not** the base sha, so a base that merely advanced is not news. The consumer posts it as the `deploy:<digest>` token and finds its own previous post by it (`notify`, *One thread per feedback item* — the same stateless lookup, no stored state anywhere): token found ⇒ post nothing.
+
+### The two copies, and which one is authoritative (2026-08-17)
+
+A target's note lives in two places — a **GitHub draft release** and, once released,
+`.workaholic/release-notes/` — and the ask is that the two be **always identical**. They are,
+because **neither store is the source of truth: the derivation is.** `draft-release-note.sh`
+rendering the base state is the authority, and both stores are projections of it. One renderer,
+one input, so wherever both copies exist they are byte-identical by construction rather than by
+copying.
+
+```bash
+bash ship/scripts/sync-release-note.sh [--target <slug>] [--dry-run] [base]
+```
+
+- **The writer is a projection, never a merge.** It overwrites the draft release's body with the
+  derived content. Merging would create text neither the base nor a human authored, so a human's
+  edit on the GitHub side is a **divergence** — reported per target and per section (`missing
+  from the … copy`, `present only in the … copy — an edit made outside the renderer`, `content
+  differs from the derived note`) **before anything is written**, never silently repaired and
+  never silently kept.
+- **It writes nothing into git.** No file, no commit, no branch. Its only write is to a GitHub
+  **draft** release through `gh release` — REST-backed and explicitly sanctioned (`rules/shell.md`);
+  `gh pr`/`gh issue`/`gh repo` stay refused. The `.workaholic` copy is written at release time by
+  `commit-release-note.sh` from the same renderer, so it is identical the moment it exists.
+- **A published release is never overwritten from a draft**, checked before any write and reported
+  as `published_release`. `.github/workflows/release.yml` publishes `v<version>` on a version bump,
+  so the GitHub side has a second writer this sync must not fight: the draft's tag is
+  `draft/<slug>`, which cannot collide with a `v*` tag, and a release found not to be a draft is
+  left alone whatever its tag.
+- **It is idempotent**: equal bodies make no API call and report `changed: false`.
+
+Why not the alternatives: `.workaholic` authoritative is refused on the measured number —
+`paths:` is declared on 0 of 1 targets here, so a note commit is 100 % self-counted and a daily
+writer is +365 commits/year on `main`, each invalidating the next, which is the treadmill the
+table below refuses. "Both authoritative for different sections" makes *which side is wrong*
+unanswerable, which is the very confusion the ask exists to remove.
 
 ### Why this is a reader (the Open Decision on ticket `20260814064854-add-the-hourly-release-note-repo-routine`, resolved 2026-08-14)
 
@@ -140,4 +178,19 @@ The ask was "run `/ship` once per hour to update the release notes". A `## Deplo
 | Push the refresh into each open PR's branch | Those branches are not this routine's to write. A `work-*` branch under a live claim is pushed by `archive.sh` and `heartbeat.sh` on the driving session's own schedule, so an hourly third writer races the claim protocol and the developer for nothing. |
 | Run `/ship` itself, hourly | `/ship` **merges**. An unattended hourly sweep with a loose scope merges pull requests nobody expected, and a unit-less sweep mode is a second behaviour on a command that has one. |
 
-So the tick does the strongest thing a machine may honestly do to a document whose forward-looking half is a human's decision to act on: it checks it and says what it found. The precedent is this repository's own `report/scripts/area-freshness.sh` — *it reports, it never writes* — adopted 2026-08-13 for the same class of problem. **What is deliberately not delivered, rather than glossed:** the release notes are not updated by any tick. `[Implement]` still refreshes a unit's plan inside that unit's pull request whenever it ships an `auto` unit; between ships, `[Release Status]` is what tells a human the plan needs their hand. The remaining write is the operator's, and the three rows above are its input.
+So the tick does the strongest thing a machine may honestly do to a document whose forward-looking half is a human's decision to act on: it checks it and says what it found. The precedent is this repository's own `report/scripts/area-freshness.sh` — *it reports, it never writes* — adopted 2026-08-13 for the same class of problem.
+
+**Row 1 was answered on 2026-08-17; rows 2 and 3 stand.** The refusal above is against *committing* a regenerated document to `main`, and it was measured, not asserted: `paths:` is declared on 0 of 1 targets here, so a note commit is 100 % self-counted. The answer is not a better writer but a home that is not a commit — the per-target **GitHub draft release** (*The two copies, and which one is authoritative*, above). A draft that never enters git cannot increment the count it reports, so the self-reference goes to zero rather than being compensated for. Rows 2 and 3 are untouched by it: no open pull request's branch is ever written, and `/ship` is never run on a tick. The sentence this section used to carry — *"the release notes are not updated by any tick"* — is **no longer true and has been removed rather than left to rot**; what remains deliberately undelivered is that `.workaholic/release-notes/` is still written only at ship and release time, never by a tick.
+
+### The cadence (2026-08-17)
+
+```bash
+bash ship/scripts/run-note-cadence.sh [--target <slug>] [--dry-run] [--force] [base]
+```
+
+**One routine, both jobs.** The generation rides the existing repository-scoped `[Release Status]` tick, which **stays hourly**. Of the three shapes the ticket weighed: folding it into `[Implement]` is ruled out by the scope reasoning of issue #451 (a `developer`-scoped routine would give N developers N repository-scoped generators); a second repository-scoped routine gains only a cron field and costs every consuming repository a second setup step, which is the exact cost the scope exists to avoid; and replacing the reader with a daily writer was chosen **minus its stated cost** — the objection was that it "loses the hourly *something needs your hand* signal", and it does not have to. The tick reports hourly as before; only the **generation** is bounded to once a day.
+
+- **"Daily" is a floor derived from state, never a stored cursor**: the gate asks whether the draft release was already updated during today's **`Asia/Tokyo`** day, read off the authoritative store's own `updatedAt`. There is no cursor to go stale and a fresh clone behaves identically. The timezone is stated because the container runs UTC while the workspace is `Asia/Tokyo`, and "daily" without one is ambiguous by a day boundary.
+- **It also refreshes when the release advances**, so "updated as the release progresses" is literal rather than up-to-a-day stale. The stage is derived from git and the release record — `draft` (no record), `staging` (a record with `status: staging`), `confirmed` — never stored.
+- **An idle day is silent and free**: nothing waiting and nothing changed means no write, no post, and a reported no-op (`idle: true`, `wrote: 0`). The sync makes no API call at all when the bodies already match.
+- **Verifiable on demand** rather than by waiting a day: `sh scripts/e2e/loop-drill.sh verify-cadence` proves the render, its idempotency, its clock-freedom and the stage derivation, and calls no network.

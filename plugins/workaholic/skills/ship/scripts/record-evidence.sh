@@ -125,11 +125,19 @@ fi
 # The note's block answers the plan drafted above it, in the same document. It is
 # APPENDED under a single `## Deployment Verification` heading: the heading is
 # written once, every later attempt adds another `### Attempt` beneath it.
+#
+# IT IS APPENDED AT THE END OF THAT SECTION, NOT AT THE END OF THE FILE
+# (2026-08-17). Until then the block went to EOF, which was correct only while
+# `## Deployment Verification` happened to be the last heading in every note. A
+# generated per-target draft ends with `## Links`, so the attempt landed *below*
+# it while the Verification section above still read "no attempt has been
+# recorded" — the document contradicting itself about whether the release was
+# ever verified, which is precisely the confusion this section exists to prevent.
+# Append-only is unchanged: the insert point is the end of the section, so an
+# earlier attempt is never rewritten or reordered.
 note_rel=""
 if [ -n "$note_path" ]; then
-  if ! grep -q '^## Deployment Verification$' "$note_path"; then
-    printf '\n## Deployment Verification\n' >> "$note_path"
-  fi
+  block="${TMPDIR:-/tmp}/wh-evidence-block.$$"
   {
     printf '\n### Attempt — %s (%s)\n\n' "$target" "$status"
     printf -- '- **When:** %s\n' "$ts"
@@ -140,7 +148,34 @@ if [ -n "$note_path" ]; then
     printf -- '- **Observed:** %s\n' "$result"
     printf -- '- **Answers:** the `## Deployment Plan` entry for `%s` in this note.\n' "$target"
     printf -- '- **Also recorded in:** %s\n' "${story_rel:-(no story for this branch)}"
-  } >> "$note_path"
+  } > "$block"
+
+  if grep -q '^## Deployment Verification$' "$note_path"; then
+    merged="${TMPDIR:-/tmp}/wh-evidence-note.$$"
+    awk -v blockfile="$block" '
+      /^## Deployment Verification$/ { insec = 1; print; next }
+      /^## / && insec {
+        while ((getline line < blockfile) > 0) print line
+        close(blockfile)
+        emitted = 1
+        insec = 0
+        print
+        next
+      }
+      { print }
+      END {
+        if (insec && !emitted) {
+          while ((getline line < blockfile) > 0) print line
+          close(blockfile)
+        }
+      }
+    ' "$note_path" > "$merged"
+    mv "$merged" "$note_path"
+  else
+    printf '\n## Deployment Verification\n' >> "$note_path"
+    cat "$block" >> "$note_path"
+  fi
+  rm -f "$block"
   note_rel=${note_path#"${root}/"}
 fi
 

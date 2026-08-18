@@ -511,4 +511,5 @@
 * [The tick log's step-filed lines can never reach the base](20260818064140-the-tick-log-s-step-filed-lines-can-never-reach-the-base.md)
 * [The stuck-prs step reports nothing is stuck for a clean pull request auto-merge never took](20260818095536-the-stuck-prs-step-reports-nothing-is-stuck-for-a-clean-pull-request-auto-merge-never-took.md)
 * [create.sh refuses source development while the schema documents it and 371 records carry it](20260818095551-create-sh-refuses-source-development-while-the-schema-documents-it-and-371-records-carry-it.md)
+* [The draft release note's Key Changes renders three dead lines](20260818112045-the-draft-release-note-s-key-changes-renders-three-dead-lines.md)
 <!-- okf:generated:end -->

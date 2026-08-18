@@ -10,6 +10,7 @@ autofix_on_pr_create: true
 model: claude-opus-5
 allowed_tools: [Bash, Read, Write, Edit, Glob, Grep]
 mcp: [Slack]
+notifications: none
 ---
 
 # [Housekeep] — the maintenance tick, one copy for the repository
@@ -65,6 +66,14 @@ restate them.
 **The prompt is the ceiling** (P3, Q2, P10): the two literal formats below are the only shapes a
 session running this routine may emit, and `workaholic:notify`'s `reference/notifications.md`
 mirrors both verbatim. A future edit to either copy is a drift to fix, never a second wording.
+
+**`notifications: none` — this routine reports in Slack and nowhere else.** Its results are
+posts in `dev-<repo>` whose timing and content its own instruction decides, so a completion
+notification from the app is a second channel carrying the same event without that judgment.
+The value is **unverified against the API** (no session that configures routines has been able
+to read the accepted field set, and the API silently drops unknown fields), so the setup
+commands confirm it by reading the record back and report `notifications_unsupported` when it
+did not stick.
 
 ## Prompt
 

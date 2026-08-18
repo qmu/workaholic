@@ -10,6 +10,7 @@ autofix_on_pr_create: false
 model: claude-opus-5
 allowed_tools: [Bash, Read, Glob, Grep]
 mcp: [Slack]
+notifications: none
 ---
 
 # [Standup] — the repository's morning digest, and it writes nothing
@@ -55,6 +56,14 @@ shape for this event (P10) — a future edit to either copy is a drift to fix, n
 wording. No repository is named in the prompt (P7); `{repo}` does not appear at all, because
 this line links no pull request. It carries **no mention token of any kind**: the digest names
 a repository's state, not a person's work.
+
+**`notifications: none` — this routine reports in Slack and nowhere else.** Its results are
+posts in `dev-<repo>` whose timing and content its own instruction decides, so a completion
+notification from the app is a second channel carrying the same event without that judgment.
+The value is **unverified against the API** (no session that configures routines has been able
+to read the accepted field set, and the API silently drops unknown fields), so the setup
+commands confirm it by reading the record back and report `notifications_unsupported` when it
+did not stick.
 
 ## Prompt
 

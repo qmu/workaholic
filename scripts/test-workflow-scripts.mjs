@@ -16171,6 +16171,28 @@ function testWorkaholifyRoutines() {
       [fb.trigger, fb.cron_expression], ["schedule-hourly", "15 * * * *"]);
     assertEq("an unknown template is refused by name",
       JSON.parse(run(dir, `${RENDER} no-such ${WH}`).stdout).error, "unknown_template");
+
+    // ---- the app's completion notification (2026-08-18, issue #514) ----
+    // Every routine reports in Slack on its own instruction's terms, so the app's
+    // completion notification is a second channel carrying the same event. The field was
+    // absent from every template AND from all three scripts, which meant the loop created
+    // recurring routines and left the setting to whatever the server defaults to. Pinned
+    // on all three surfaces because a field the convergence sets but the sheet omits makes
+    // a hand-configured routine silently differ from a converged one.
+    assertEq("every template declares the completion-notification setting",
+      tpl.templates.map((t) => t.notifications).sort(), ["none", "none", "none", "none", "none"]);
+    assertEq("and the renderer carries it into a created routine", drive.notifications, "none");
+    const sheet = run(dir, `${POSIX_SH} ${SCRIPTS.renderSetupSheet} implement ${WH} developer`).stdout;
+    assertTrue("and the setup sheet shows it, so a hand-configured routine matches",
+      /\*\*Completion notifications\*\*: `none`/.test(sheet), sheet);
+    // Both setup commands converge the field, and both name the refusal rather than
+    // dropping it: the API silently drops unknown fields, so a 200 is not confirmation.
+    for (const cmd of ["setup-dev-routines", "setup-repo-routines"]) {
+      const body = readFileSync(join(REPO_ROOT, `plugins/workaholic/commands/${cmd}.md`), "utf8");
+      assertTrue(`${cmd} converges notifications`, /`notifications`\)/.test(body), cmd);
+      assertTrue(`${cmd} names the refusal instead of dropping it silently`,
+        /notifications_unsupported/.test(body), cmd);
+    }
   } finally { cleanup(dir); }
 }
 

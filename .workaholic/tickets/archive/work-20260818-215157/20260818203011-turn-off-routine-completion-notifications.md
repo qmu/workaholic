@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-18T20:30:11+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -147,3 +148,77 @@ of those routines reports through Slack by design.
 - The honest risk: steps 3–5 may close a real gap and still leave the developer
   receiving the notifications they reported, because the cause is elsewhere. That is
   why step 1 is a diagnosis and why the Final Report must state which one it fixed.
+
+## Final Report
+
+Development completed as planned. **The unit takes the handoff route it declared at
+creation**: the field is set and provable here; the notifications stopping is not.
+
+### Step 1 — the diagnosis, and it is not the comfortable one
+
+**The five workaholic routines were never shown to be the source of the reported
+notifications.** The ask's own investigation traced them to one-shot, `send_later`-style
+check-ins bound to a **persistent session**, and that was corroborated here rather than
+taken on trust: the only scheduling surface this session carries is
+`CronCreate`/`CronList`/`CronDelete`, whose entire parameter set is `cron` / `prompt` /
+`recurring` / `durable` — **no notification field of any kind** — and which is documented
+as session-only and in-memory, unrelated to an account routine. So nothing in the class
+that produced the symptom had a setting to misconfigure, and **the change below is not the
+fix for what the developer observed.** Saying that plainly is the step's whole point.
+
+What *is* a real gap, and was verified against the tree before touching it: no routine
+template declared `notifications:` and none of the three scripts read one. The loop
+therefore created recurring, fresh-session-per-fire routines — exactly the class the field
+*is* accepted for — and left their completion-notification setting to the server's default,
+while every one of them reports through Slack by design.
+
+### Step 2 — what could not be confirmed, and what was done about it
+
+**Not confirmable from here.** `ToolSearch` over this session's whole surface found no
+`RemoteTrigger`-family tool, so neither the accepted field set for a fresh-session-per-fire
+routine nor the server's default when the field is omitted could be read. That is the same
+session-class finding this repository has recorded since 2026-08-10, reconfirmed today.
+
+The step says a default of "on" and a default of "off" lead to different work. Unable to
+learn which, the change was written so **both readings are survivable**: the field is
+declared explicitly rather than relied on to default, and — because the API **silently
+drops unknown fields**, the `autofix_on_pr_create` discovery of 2026-08-12, so a 200 proves
+nothing — the convergence confirms by **reading the record back** and reports
+`notifications_unsupported: <routine name>` when the value did not stick. The value chosen
+is `none`; its API-side key and vocabulary are stated as unverified in every place they
+appear, rather than presented as known.
+
+### Open Decision 1 — ruled (b)
+
+**(b): the in-repo field, plus raising the platform half with the developer.** (a) would
+ship the field, write down what is out of scope, and leave the developer's actual symptom
+addressed by nobody — when naming it costs one line in a document they are already going to
+read. So the platform half is named in `workaholify/reference/routines.md` and in this
+unit's `## Handoff`, for the developer to carry across themselves. **No crossing was
+performed**: `/fb <ask> to <owner/name>` needs a human's verbatim confirmation an unattended
+run cannot give, and the ticket forbids performing one without the developer.
+
+### Discovered Insights
+
+- **Insight**: "The API silently drops unknown fields" turns *every* new routine field into
+  a read-back question rather than a write question. A 200 from a create/update is
+  compatible with the field never having existed.
+  **Context**: This was learned once for `autofix_on_pr_create` (2026-08-12, by toggling
+  the UI option and re-reading the record) and it generalises: any field added to the
+  templates from now on needs a named unsupported-outcome, because the failure mode is
+  silence, not an error. That is why step 5's requirement is not defensive padding.
+
+- **Insight**: The two mechanisms that look alike here are `CronCreate` (session-only,
+  in-memory, four parameters, dies with the session) and an account routine (persistent,
+  fresh session per fire, reachable only through a `RemoteTrigger`-family tool). A report
+  about "routine notifications" can mean either, and they have different owners.
+  **Context**: The first thing to check on any future routine-behaviour report is which of
+  the two produced it. Reading `CronCreate`'s own parameter list is a two-second check that
+  rules one of them out.
+
+- **Insight**: A field the convergence sets but the setup sheet omits makes a
+  hand-configured routine silently differ from a converged one — and the sheet exists
+  precisely for the session class that cannot converge.
+  **Context**: The sheet is derived from the template for this reason, so the new step was
+  added to the renderer rather than written into prose; the test pins all three surfaces
+  (template, render, sheet) together for the same reason.

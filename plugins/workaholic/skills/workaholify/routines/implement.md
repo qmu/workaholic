@@ -10,6 +10,7 @@ autofix_on_pr_create: true
 model: claude-opus-5
 allowed_tools: [Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch]
 mcp: [Slack]
+notifications: none
 ---
 
 # [Implement] — the unattended executor
@@ -56,6 +57,14 @@ each unit's feedback-item thread via `unit-feedback-stems.sh`, this prompt only 
 the literal finish shape. `{repo}` in the format lines is the developer's own
 placeholder for the pull request links. (Named `[Drive]` until P1, when the
 unattended executor became `/implement`.)
+
+**`notifications: none` — this routine reports in Slack and nowhere else.** Its results are
+posts in `dev-<repo>` whose timing and content its own instruction decides, so a completion
+notification from the app is a second channel carrying the same event without that judgment.
+The value is **unverified against the API** (no session that configures routines has been able
+to read the accepted field set, and the API silently drops unknown fields), so the setup
+commands confirm it by reading the record back and report `notifications_unsupported` when it
+did not stick.
 
 ## Prompt
 

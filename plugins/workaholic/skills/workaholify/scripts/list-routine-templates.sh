@@ -5,7 +5,8 @@
 #
 # Output (one JSON line):
 #   {"count": N, "scope": "<filter or empty>",
-#    "templates": [{"id","name_pattern","scope","trigger","cron_expression","model","path"}]}
+#    "templates": [{"id","name_pattern","scope","trigger","cron_expression","model",
+#                   "notifications","path"}]}
 #
 # THE SCOPE IS THE TEMPLATE'S OWN FIELD, NOT THE COMMAND'S (2026-08-14, issue #451).
 # `/setup-dev-routines` and `/setup-repo-routines` differ only in which templates they
@@ -81,10 +82,13 @@ for f in "$DIR"/*.md; do
   trigger=$(fm_field "$f" trigger)
   cron=$(fm_field "$f" cron_expression)
   model=$(fm_field "$f" model)
+  # The app's completion notification, reported per template so a template that declares
+  # nothing is visible as a defect rather than folded into the server's default.
+  notifications=$(fm_field "$f" notifications)
 
   [ -z "$WANT_SCOPE" ] || [ "$scope" = "$WANT_SCOPE" ] || continue
 
-  entries="${entries}${sep}{\"id\": \"$(json_escape "$id")\", \"name_pattern\": \"$(json_escape "$name")\", \"scope\": \"$(json_escape "$scope")\", \"trigger\": \"$(json_escape "$trigger")\", \"cron_expression\": \"$(json_escape "$cron")\", \"model\": \"$(json_escape "$model")\", \"path\": \"$(json_escape "$f")\"}"
+  entries="${entries}${sep}{\"id\": \"$(json_escape "$id")\", \"name_pattern\": \"$(json_escape "$name")\", \"scope\": \"$(json_escape "$scope")\", \"trigger\": \"$(json_escape "$trigger")\", \"cron_expression\": \"$(json_escape "$cron")\", \"model\": \"$(json_escape "$model")\", \"notifications\": \"$(json_escape "$notifications")\", \"path\": \"$(json_escape "$f")\"}"
   sep=", "
   count=$((count + 1))
 done

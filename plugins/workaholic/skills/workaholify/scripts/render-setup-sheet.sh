@@ -97,6 +97,7 @@ sheet() {
     _cron=$(fm_field "$_file" cron_expression)
     _autofix=$(fm_field "$_file" autofix_on_pr_create)
     _mcp=$(fm_field "$_file" mcp)
+    _notifications=$(fm_field "$_file" notifications)
     # A rename is the one thing the convergence CANNOT do for the operator: it matches an
     # account's routines by NAME, so a renamed template creates a second routine beside the
     # old one rather than renaming it — and a routine is an account-level record no other
@@ -146,6 +147,18 @@ sheet() {
     fi
     printf '%s. **Connectors**: keep `%s`; remove the rest.\n' "$_n" "${_mcp:-none}"
     _n=$((_n + 1))
+    # A field the convergence sets must also appear here, or a hand-configured routine
+    # silently differs from a converged one — the whole reason this sheet is derived from
+    # the template rather than written out in prose. Named as an option a person looks for
+    # rather than as an API field, since the reader is beside a browser form; the form's
+    # exact wording is not knowable from here, so the step says what to achieve.
+    if [ -n "$_notifications" ]; then
+        printf '%s. **Completion notifications**: `%s` — turn off any push/email notification\n' "$_n" "$_notifications"
+        printf '   for this routine'\''s results. It reports in Slack, and a second channel carrying\n'
+        printf '   the same event is duplication. If the form exposes no such option, leave it and\n'
+        printf '   say so — this half of the setting is not confirmed configurable.\n'
+        _n=$((_n + 1))
+    fi
     printf '%s. Have the Slack channel `dev-%s` ready — every post goes there and nowhere else.\n' "$_n" "$_repo_name"
     printf '\nPrompt to paste:\n\n````text\n'
     # The prompt, verbatim, from the same renderer -- read back out of the JSON string.

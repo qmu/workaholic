@@ -57,3 +57,53 @@ Three places, one kind of fact each, and the repository declares nothing: the **
 ## The management surface is retired, and why it must not grow back (2026-08-06)
 
 `plan-routine-change.sh` / `authorize-routine-change.sh` (the digest gate) and `compare-routines.sh` / `list-routines.sh` (drift and fleet reporting) were deleted with their tests. They managed the half of a routine the API exposes while blind to the half that decides whether it runs at all; the measured cost was two wrong answers in one day — a paginated `list` (20 rows, `has_more` unread) surveyed as the whole account, and six duplicate records carefully refreshed through the digest gate while the real, wired `[Propose]` ran a stale prompt beyond page one, with a "drift-free fleet" verdict reported both times. Three things survive the machinery: the digest gate's reasoning (it closed *substitution* and *batching*; the bar is not weakened — the acts it gated no longer exist; record: `.workaholic/feedbacks/20260806143907-routine-setup-is-a-human-act-the-plugin-makes-cheap.md`), the rule that "could not check" is never "does not exist" (still governing `check-slack-channel.sh`), and the fact that the account has no delete — removing a routine is a human act at <https://claude.ai/code/routines>, and always was. That failure class had already cost the project once before: a survey concluded "no routines are installed" from an empty crontab, on a machine whose routines run in the cloud. Absence of evidence is not evidence of absence.
+
+## The app's completion notifications: the half that is here, and the half that is not (2026-08-18)
+
+Issue #514 reported that the Claude app sends its own push/email notification when routine
+results land, although every routine's reporting is deliberately designed to arrive in Slack
+and nowhere else. **Two different things were conflated in that report, and the split matters
+more than either half.**
+
+**The diagnosis, stated plainly: the five workaholic routines were never shown to be the
+source.** The ask's own investigation traced the notifications to one-shot, `send_later`-style
+check-ins bound to a **persistent session** — a different mechanism entirely, and the same
+class this repository has documented since 2026-08-10 as unrelated to account routines. That
+finding was corroborated here rather than taken on trust: the only scheduling surface a
+routine-fired session carries is `CronCreate`/`CronList`/`CronDelete`, whose entire parameter
+set is `cron` / `prompt` / `recurring` / `durable` — **no notification field of any kind**, and
+session-only besides. So nothing in the class that produced the reported symptom had a setting
+to misconfigure, and **the change below is not the fix for what the developer observed**. A
+later reader should not infer otherwise from the fact that both live in this document.
+
+**What was a real gap here**, verified against the tree: **no routine template declared
+`notifications:` and no script carried one.** `render-routine.sh`, `list-routine-templates.sh`
+and `render-setup-sheet.sh` read `cron_expression`, `model`, `autofix_on_pr_create`,
+`allowed_tools` and `mcp` and nothing else — so the loop created recurring, fresh-session-per-fire
+routines (exactly the class the field *is* accepted for) and left their completion-notification
+setting to whatever the server defaults to, while every one of those routines reports through
+Slack by design. The five templates now declare `notifications: none`, the three scripts carry
+it, and both setup commands converge it on an **existing** routine rather than only a new one.
+
+**The value is unverified against the API, and that is stated rather than papered over.** No
+session that can configure an account routine was reachable from here — `ToolSearch` over this
+session's whole surface found no `RemoteTrigger`-family tool — so the accepted field set and
+the server's default when the field is omitted could not be read. Since the API **silently
+drops unknown fields** (the `autofix_on_pr_create` discovery above), a 200 would prove nothing
+either. The convergence therefore confirms by **reading the record back**, exactly as the
+auto-fix flag is confirmed, and reports `notifications_unsupported: <routine name>` when the
+value did not stick — never a silent drop, never a failed run.
+
+**Open Decision 1, ruled (b): the in-repo field, plus raising the platform half with the
+developer.** The reported notifications come from an Anthropic product surface with no exposed
+opt-out; repository confinement means no change here can reach it, and the only sanctioned
+crossing (`/fb <ask> to <owner/name>`) needs a human's verbatim confirmation an unattended run
+cannot give. (a) — ship the field and write down what is out of scope — would leave the
+developer's actual symptom addressed by nobody, when naming it costs one line in a document
+they are already going to read. So the platform half is named here and in the implementing unit's
+`## Handoff`, for the developer to carry across themselves. **No crossing was performed.**
+
+Adjacent prior work, so this is not mistaken for a duplicate: feedback record
+`20260804085719-make-the-web-routine-notify-slack-only-and-filter-what-it-posts.md` made the
+routine's **own posts** Slack-only. This is about the **app's** notifications *about* the
+routine — a different layer.

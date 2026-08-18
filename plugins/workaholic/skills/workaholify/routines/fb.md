@@ -10,6 +10,7 @@ autofix_on_pr_create: true
 model: claude-opus-5
 allowed_tools: [Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch]
 mcp: [Slack]
+notifications: none
 ---
 
 # [Propose] — turn a reported ask into a record and the work it warrants
@@ -64,6 +65,14 @@ fire carries no specific Issue in its payload (unlike the retired assignment
 trigger) — the issues come from `/propose`'s own clock-fired discovery — so the
 lookup runs once per ask `/propose` actually took in hand. `{repo}` in the format
 lines is the developer's own placeholder for the issue and pull request links.
+
+**`notifications: none` — this routine reports in Slack and nowhere else.** Its results are
+posts in `dev-<repo>` whose timing and content its own instruction decides, so a completion
+notification from the app is a second channel carrying the same event without that judgment.
+The value is **unverified against the API** (no session that configures routines has been able
+to read the accepted field set, and the API silently drops unknown fields), so the setup
+commands confirm it by reading the record back and report `notifications_unsupported` when it
+did not stick.
 
 ## Prompt
 

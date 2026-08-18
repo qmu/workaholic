@@ -97,6 +97,14 @@ autofix=$(fm_field "$FILE" autofix_on_pr_create)
 model=$(fm_field "$FILE" model)
 tools=$(fm_field "$FILE" allowed_tools)
 mcp=$(fm_field "$FILE" mcp)
+# `notifications` is the app's completion notification, not the routine's own reporting
+# (2026-08-18, issue #514). Every routine here posts its results to Slack on its own
+# instruction's terms, so a second channel is duplication — and the field was absent from
+# this renderer entirely, which meant the loop created recurring routines and left the
+# setting to whatever the server defaults to. Emitted as the empty string when a template
+# does not declare it: the caller must be able to tell "declared none" from "said nothing",
+# because only the second is a defect in the template.
+notifications=$(fm_field "$FILE" notifications)
 
 # Everything after the `## Prompt` heading, verbatim, with the substitutions applied.
 prompt_raw=$(awk '
@@ -105,5 +113,5 @@ prompt_raw=$(awk '
 ' "$FILE" | sed -e '1{/^$/d}')
 prompt=$(subst "$prompt_raw")
 
-printf '{"id": "%s", "name": "%s", "scope": "%s", "trigger": "%s", "cron_expression": "%s", "autofix_on_pr_create": "%s", "model": "%s", "allowed_tools": "%s", "mcp": "%s", "repo": "%s", "repo_name": "%s", "repo_slug": "%s", "prompt": "%s"}\n' \
-  "$ID" "$name" "$scope" "$trigger" "$cron" "$autofix" "$model" "$tools" "$mcp" "$REPO" "$REPO_NAME" "$REPO_SLUG" "$(json_escape "$prompt")"
+printf '{"id": "%s", "name": "%s", "scope": "%s", "trigger": "%s", "cron_expression": "%s", "autofix_on_pr_create": "%s", "model": "%s", "allowed_tools": "%s", "mcp": "%s", "notifications": "%s", "repo": "%s", "repo_name": "%s", "repo_slug": "%s", "prompt": "%s"}\n' \
+  "$ID" "$name" "$scope" "$trigger" "$cron" "$autofix" "$model" "$tools" "$mcp" "$notifications" "$REPO" "$REPO_NAME" "$REPO_SLUG" "$(json_escape "$prompt")"

@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-18T11:23:41+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -159,3 +160,90 @@ decision below.
 - **Proposal merges will always lack stories** — that is structural (`/propose` never runs
   `/report`), so whatever the fallback says will be the common case in this repository, not the
   rare one. Judge the wording on that basis.
+
+## Final Report
+
+**Step 1, the before-measurement.** Rendered on the base at `75a6363e`. The `marketplace`
+target's boundary was `latest_tag:v1.0.184`, so `## Key Changes` held exactly **one** line and
+that line was a placeholder — 1 placeholder, 0 story lines:
+
+```
+- Pull request #503 (`work-20260818-130444`) — no branch story on the base.
+```
+
+Over the wider `v1.0.179..HEAD` range the shape the reporter described was reproduced in full:
+8 lines, placeholders and story lines interleaved chronologically.
+
+**Step 2, the localization, confirms the ticket's correction of the reporter's account.** There
+is no cap and no selection step: the loop walks every merge in the range and emits one line each,
+so nothing is *chosen* over anything. `$msubject` was already in hand — but it is the wrong
+string, which is what step 3 turned on.
+
+**Step 3, what the fallback says — and why not the reporter's proposal.** The leading hypothesis
+was "fall back to the merge's own commit subject". Checked against real subjects on this base
+before adopting, as the ticket required, and **rejected**: a merge subject reads
+
+```
+Merge pull request #503 from qmu/work-20260818-130444
+```
+
+— the number and the branch, which is precisely what the placeholder already said. The same
+`git log` read shows GitHub puts the pull request's **title** in the merge commit's **body**:
+
+```
+SUBJECT: Merge pull request #497 from qmu/work-20260818-112513
+BODY:    [Proposal] Key Changes renders story-less merges as dead lines
+```
+
+So the fallback is the **body's first non-empty line**, clamped to the same 160 characters the
+story sentence uses. It is local git data already inside the range: no network, `--enrich` stays
+off by default, and the idempotency contract is untouched. The ticket's own Consideration
+anticipated needing the PR title and feared it would cost a network read — it does not, because
+the title is already in the merge commit.
+
+**Step 5 — the Open Decision, resolved: reading (a), fallback only, order unchanged.**
+
+- **(b) reorder so story-bearing lines come first** — refused: it turns the section from a
+  timeline into a ranking, which a reader of a release note does not expect and cannot see the
+  rule for.
+- **(c) cap the list, filling the cap with story-bearing merges first** — refused: it silently
+  drops merges, the exact failure mode the placeholder was written to avoid ("a silently
+  shortened list reads as 'nothing else happened'"). A bounded section is not worth an
+  unbounded lie.
+- **(a) fallback only** — taken. The renderer performs no selection today, so "prefer" had
+  nothing to act on unless a cap or a reordering were *added*; and once every line carries a
+  title there is nothing left to prefer away **from**. The report's actual complaint — lines a
+  reader learns nothing from — is fully answered by the fallback. All three readings and their
+  reasoning are written into the script's header beside the existing "THE STORY IS PREFERRED
+  OVER THE COMMIT LIST" paragraph.
+
+**Step 8, the after-measurement.** Same wider range, re-rendered: **8 lines, 0 placeholders**,
+every story line byte-identical to before. On the current boundary the single line now reads
+`- Correct the provenance citation on the tick log persist fix (#503)`.
+
+**Every acceptance criterion, and how it was proved.**
+
+- *No line has the absence of a story as its only content* — 0 placeholder lines over the
+  8-merge range, and a hermetic case asserting it directly.
+- *A merge with no story renders that merge's own identifying content* — the new case asserts
+  the exact line `- [Proposal] Key Changes renders story-less merges as dead lines (#42)`, and
+  asserts no line matches `Merge pull request`.
+- *A merge with a story renders that story's sentence, exactly as before* — the same case builds
+  one story-bearing and one story-less merge and asserts the story path yields the Overview
+  sentence and **not** the pull request title.
+- *Clock-free and idempotent* — two renders of an unchanged base compared byte-for-byte, both in
+  the hermetic case and against this repository's own base.
+- *The Open Decision resolved explicitly* — above, with the two rejected readings answered.
+
+**Verification run.** `node scripts/test-workflow-scripts.mjs` — **3061 passed, 0 failed**
+(10 new assertions). `build.mjs`, `verify.mjs`, `validate-metadata.mjs` clean; `posix-lint.sh`
+conforming.
+
+**One correction to the header this change touched.** It claimed "the merge subject carries the
+pull request number and title". The subject carries the number; the body carries the title. That
+sentence is why the reporter's proposal looked sufficient, so it is fixed rather than left.
+
+**Ticket minted, not fixed here** (the Considerations' instruction, followed): the story-bearing
+path truncates at a period inside backticks — `.workaholic/stories/work-20260818-083716.md`
+renders as ``- `check-version-bump.``, an unclosed backtick that corrupts the markdown after it.
+Filed as `20260818131500-key-changes-cuts-a-story-sentence-at-a-period-inside-backticks`.

@@ -519,4 +519,5 @@
 * [Commits display Claude as the author name instead of the developer](20260818191739-commits-display-claude-as-the-author-name-instead-of-the-developer.md)
 * [The draft release note must be an agent's arranged release plan, not a rendered commit list](20260818201731-the-draft-release-note-must-be-an-agent-s-arranged-release-plan-not-a-rendered-commit-list.md)
 * [Make the Housekeep notification reflect the tick's actual findings](20260818202549-make-the-housekeep-notification-reflect-the-tick-s-actual-findings.md)
+* [The Claude app notifies on routine results though routine reporting is Slack-only](20260818202939-the-claude-app-notifies-on-routine-results-though-routine-reporting-is-slack-only.md)
 <!-- okf:generated:end -->

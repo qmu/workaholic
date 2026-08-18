@@ -6,6 +6,7 @@ depends_on:
 feedback: [20260818112045-the-draft-release-note-s-key-changes-renders-three-dead-lines.md]
 merge_policy:
 verification_handoff: 
+claim: work-20260818-130809
 ---
 
 # Key Changes renders story-less merges as dead lines

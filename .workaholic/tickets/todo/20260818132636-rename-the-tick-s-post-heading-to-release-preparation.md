@@ -6,6 +6,7 @@ depends_on:
 feedback: [20260818132525-rename-the-repository-tick-s-post-heading-to-release-preparation.md]
 merge_policy:
 verification_handoff: 
+claim: work-20260818-134024
 ---
 
 # Rename the tick's post heading to Release Preparation

@@ -6,6 +6,7 @@ depends_on:
 feedback: [20260818132013-the-release-status-reader-trusts-whatever-refs-its-container-holds.md]
 merge_policy:
 verification_handoff: 
+claim: work-20260818-134024
 ---
 
 # Freshen or distrust the deploy status reader's refs

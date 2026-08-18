@@ -12,6 +12,8 @@ Returns: branch, base_branch, repo_url, archived_tickets, git_log.
 
 Before the phases, bump the version following CLAUDE.md's Version Management section (patch increment) — skip when `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/check-version-bump.sh` reports `already_bumped: true`.
 
+The script measures against the resolved base (`gather/scripts/base-ref.sh`, i.e. `origin/<default>` as last fetched) and reports it in `base`; it does not fetch, so freshness stays the caller's act — on the drive path `sync-main.sh` has already fetched and the claim worktree is cut from that tip. A read whose base could not be resolved comes back `ok: false` with a named `reason` (`base_never_fetched`, `no_base_ref`, `base_not_found`, `base_unresolved`) and `already_bumped: false`: **bump, and report the reason**. Skipping on an unresolvable base is the failure this contract exists to prevent — it ships plugin changes on a stale version, silently.
+
 ## Phase 1: Judge Open Deferred Concerns
 
 Run before the parallel batch. Skip silently when `list-open-concerns.sh` reports zero open concerns.

@@ -1,11 +1,13 @@
 ---
 created_at: 2026-08-18T06:52:58+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
 feedback: []
 merge_policy:
 verification_handoff: 
+claim: work-20260818-083716
 ---
 
 # check-version-bump reads a stale local main
@@ -111,3 +113,55 @@ where it wrongly forces one.
   one silent wrong answer for a different one.
 - This ticket was minted by a run driving an unrelated rename, which is why it carries no
   `feedback:` reference — nobody reported it; a run tripped over it.
+
+## Final Report
+
+Development completed as planned.
+
+The base is now resolved by the single resolver every other base-reading script uses
+(`gather/scripts/base-ref.sh` → `origin/<default>` as last fetched), and the script reports the
+ref it actually compared against. An explicit `[<base-ref>]` argument still wins, resolved by the
+same rule — a caller that asks for a stale ref gets the answer it asked for, which is what makes
+the regression row in the harness demonstrable.
+
+**Which direction it errs when the base is unresolvable, and why.** It errs toward
+`already_bumped: false` — it reports `ok: false` with the reason named (`base_never_fetched`,
+`no_base_ref`, `base_not_found`, `base_unresolved`) and answers `false`, never `true`. The two
+directions are not symmetric. A wrong `false` costs a redundant patch bump: a no-op commit a
+human can drop, visible in the diff. A wrong `true` skips the bump silently and ships plugin
+changes on a stale version — nothing in the branch, the PR or CI says so, which is exactly the
+failure this ticket was minted from. So the degraded answer is the one whose cost is a visible
+no-op, and the caller (`workaholic:report` Phase 0) is told to bump on it and report the reason.
+
+**Open Decision 1 — should the script fetch, or only read? Resolved: read only.** `base-ref.sh`
+is deliberately offline for the same reason this predicate should be — a network call inside a
+predicate becomes a new failure mode for every caller, and a gate whose verdict depends on
+connectivity is a gate that fails differently on a bad network than on a bad branch. Freshness
+already happens upstream and is the caller's act: `/drive` runs `sync-main.sh` before surveying,
+and the claim's worktree is cut from that just-fetched `origin/main`. What the script owes in
+exchange is visibility, which is the new `base` field: a caller that skipped its fetch can see
+which ref the answer rests on instead of assuming. This is stated in the script header, in
+`branching/SKILL.md`'s table row, and in `report/reference/orchestration.md`.
+
+### Discovered Insights
+
+- **Insight**: 21 of the last 29 plugin-touching merged units carried no `Bump version` commit
+  (`git log origin/main --merges --first-parent -n 60`, filtered to merges touching `plugins/`).
+  **Context**: The number is consistent with the defect's blast radius but does not prove it —
+  a `/report` run can skip a bump for other reasons, and not every plugin-touching merge goes
+  through `/report` Phase 0 at all. Left as a measurement, not a remediation: recovering skipped
+  patch bumps after the fact has no meaning (the version files carry one semver, and history is
+  what it is), and deciding whether it matters is the operator's call.
+- **Insight**: The relative cross-skill reference (`${SCRIPT_DIR}/../../gather/scripts/base-ref.sh`)
+  is what makes the fix survive into `outputs/workflows/`. The build copies a skill's script
+  closure per consuming skill, so `base-ref.sh` now ships beside `check-version-bump.sh` under all
+  six bundle skills that carry it (catch, create-ticket, drive, mission, report, ship).
+  **Context**: A script that resolved the base by re-deriving it inline would have kept working in
+  the bundle while a `${CLAUDE_PLUGIN_ROOT}`-anchored path would have silently broken there —
+  `verify.mjs`'s "build-detectable form" check is what stands between the two.
+- **Insight**: The one-directional failure argument is what made the fix small. A predicate whose
+  wrong answers are asymmetric does not need a correct answer in every state — it needs its
+  degraded state pointed at the cheap side, and named.
+  **Context**: The same shape recurs across this repo's gates (a `size` finding demotes rather
+  than blocks; a degraded plan read skips rather than half-writes). Worth reaching for before
+  designing a predicate that must always be right.

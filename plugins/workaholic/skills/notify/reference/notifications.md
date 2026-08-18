@@ -74,11 +74,12 @@ One sentence, max 25 words, what failed and what a human must do.
 
 Exactly one finish per thread stays the rule (SKILL, *Which thread an `/implement` unit's posts land in*): a unit posts `🟢 Implemented` **or** one of the three outcome shapes above, never both — `handoff` is the finish, never a third post, and the same holds for a blocked or merged unit.
 
-### `/release-status` — the repository tick's one line
+### `/fullfill` — the repository tick's one line
 
 ```
 📦 Release status - <N> commit(s) waiting on <target>
 One sentence, max 25 words, what a human must do (cut a release, declare a confirmation method).
+Draft note: <draft release URL>
 `deploy:<digest>`
 <session URL>
 ```
@@ -90,6 +91,25 @@ One sentence, max 25 words, what a human must do (cut a release, declare a confi
 **`actionable: false` posts nothing either**, whatever the digest says: every target's `needs[]` empty means nothing is waiting and nobody has anything to do. A tick that reports a quiet repository is a tick that says nothing.
 
 **No mention token of any kind** — no `<@U…>` for a person and none for the Claude app. The line names a repository state, not a person's work, and there is nobody whose turn it is; a mention would page whoever was named every hour for a condition that is nobody's in particular.
+
+**The `Draft note:` line points at the artifact; it never restates it** (2026-08-17, issue #472). Since the repository tick keeps each target's draft release note current, the note is where the answer lives — what is waiting, the procedure, the verification required. A notification's job is to bring a human *to* the artifact, so the line carries the URL and nothing more: summarising the note's contents into the post would make the note redundant and re-create the fragmentation the ask is about. Omit the line entirely when no draft exists yet (a repository whose cadence has not run, or one with no `gh`) rather than posting a dead link — the shape's other four lines are unchanged and still stand alone.
+
+### `/standup` — the daily per-strategy digest
+
+```
+📣 Standup - <N> strategy/strategies, <M> moved since yesterday
+<Strategy title> (<days> to <target_date>): one line, what moved and what waits.
+<Strategy title>: no activity.
+<K> item(s) not attributable to any strategy.
+`standup:<YYYY-MM-DD>`
+<session URL>
+```
+
+**A top-level keyed root, never a reply**, and **no mention token of any kind** — the same two reasons `📦 Release status` carries none: no feedback item said anything, and the line names the repository's state rather than a person's work.
+
+**One strategy line each, in the digest's own order, capped.** A quiet strategy gets the explicit `no activity` line rather than being dropped — a strategy missing from the digest reads as a strategy nobody is working on, which is a different claim. `strategies_omitted` above the cap is stated as a trailing count, never silently cut. The final `not attributable` line is a **count** and rides only when it is non-zero; enumerating it would make this a repository changelog, which is `/catch`'s job.
+
+**Keyed on the date, not on the content.** A daily digest speaks for today even when today resembles yesterday; what the key prevents is two posts for one morning. Search the token exactly once (private-inclusive, `include_bots: true`): found ⇒ post nothing. `noop: true` from the digest posts nothing either, whatever the date says.
 
 ### `/housekeep` — the maintenance tick's two shapes
 

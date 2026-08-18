@@ -30,6 +30,8 @@ Run every command from the repository root, on a clean `main`.
 | 5 | Verify implement | `sh scripts/e2e/loop-drill.sh verify-implement <issue> --json` | `origin/main`, REST pull requests, unmerged `work-*` branches |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-plan --json` | this checkout's deployment targets and commit range — proves the plan refresh `[Implement]` carries |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-status --json` | the same targets read the `[Release Status]` way — proves the repository tick reads soundly and stays silent when nothing changed |
+| — | Any time | `sh scripts/e2e/loop-drill.sh verify-cadence --json` | the same targets' **draft notes** — proves the daily generation renders, is idempotent and clock-free, and derives its stage |
+| — | Any time | `sh scripts/e2e/loop-drill.sh verify-standup --json` | this checkout's strategies and their attributable work — proves the daily digest reads soundly, names its silence and writes nothing |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-housekeep --json` | one `[Housekeep]` tick against a throwaway root — proves every step reports, the log carries one section per tick, and the checkout is untouched |
 | — | Any time | `sh scripts/e2e/loop-drill.sh status` | the drill's residue: issues, claim branches, tickets |
 | — | After an abort | `sh scripts/e2e/loop-drill.sh reset` | closes/deletes **drill-minted** residue only |
@@ -215,7 +217,7 @@ nothing anywhere — which is the routine's whole contract, so a drill that asse
 construction is the point rather than a convenience.
 
 `[Release Status]` (repository scope, `45 * * * *`, configured by `/setup-repo-routines`
-from **one** account) runs `/release-status`, a pure read. On a healthy quiet repository
+from **one** account) runs `/fullfill`, a pure read. On a healthy quiet repository
 its correct output is *no Slack message at all*, which makes "did it work?" unanswerable
 by watching the channel. Three load-bearing rows:
 
@@ -230,7 +232,54 @@ is red, and the *hourly* property is what breaks. The most likely regression is 
 sha finding its way into the digest input — it is excluded on purpose, because a base
 that merely advanced is not news.
 
-## 5d. The `[Housekeep]` tick
+## 5d. The daily note cadence
+
+`verify-cadence` needs no seed, no fire and no issue number, calls no network, and writes
+nothing. It exists for the same reason as `5c`: the behaviour it covers is otherwise only
+observable by **waiting a day** and then reading a GitHub draft release.
+
+The generation rides the same `[Release Status]` tick (one repository-scoped routine, both
+jobs — `workaholic:ship` §7, *The cadence*). It is bounded to once per `Asia/Tokyo` day,
+refreshes immediately whenever the release stage advances, and writes only a GitHub
+**draft** release — never a file, a commit or a branch. Four load-bearing rows:
+
+| Row | Fails when | Read |
+| --- | ---------- | ---- |
+| `cadence_renders` | no draft body rendered for a declared target | `skills/ship/scripts/draft-release-note.sh` over `read-deploy-state.sh` — an unresolvable base, or no `.workaholic/deployments/` target |
+| `cadence_idempotent` | two renders of an unchanged base differ | `skills/ship/scripts/draft-release-note.sh` — something non-derived reached the body; a periodic generator would now rewrite the draft on every tick |
+| `cadence_clockfree` | a render a second later differs | the same script — a clock leaked into the body. This is the specific failure the whole design refuses: a timestamp is what turns an idempotent drafter into a write treadmill |
+| `cadence_stage` | the release stage was not derived | `skills/ship/scripts/run-note-cadence.sh` — the stage comes from git and `.workaholic/releases/`, never a stored cursor |
+
+`cadence_idempotent` and `cadence_clockfree` are this stage's `plan_idempotent`: a single
+render is still correct when either is red, and the *periodic* property is what breaks.
+They are separated because they fail for different reasons — the first catches anything
+non-derived (a network read, an unordered set), the second catches a clock specifically,
+which is why the drill takes the two renders a second apart.
+
+## 5e. The `[Standup]` read
+
+`verify-standup` needs no seed, no fire and no issue number either, and it writes nothing
+anywhere. On a repository with **no strategy authored — which is this one today** — the
+correct output is *no Slack message at all*, so "did it work?" is unanswerable by watching
+the channel; that is exactly why the stage exists.
+
+`[Standup]` (repository scope, `5 0 * * *` — 09:05 Asia/Tokyo, configured by
+`/setup-repo-routines` from **one** account, the second routine in that scope) runs
+`/standup`, a pure read. Four load-bearing rows:
+
+| Row | Fails when | Read |
+| --- | ---------- | ---- |
+| `standup_read` | the digest could not be computed from this checkout | `skills/standup/scripts/digest.sh` over `skills/strategy/scripts/attributed-work.sh` — a missing script, or a malformed strategy record |
+| `standup_noop_named` | a quiet morning produced `noop: true` with no reason | `skills/standup/scripts/digest.sh` — a nameless empty digest is indistinguishable from a read that failed, and the whole silence rule rests on the distinction |
+| `standup_writes_nothing` | the working tree changed across two reads | `skills/standup/scripts/digest.sh` — the routine's contract is that it writes nothing; a daily unattended tick that writes is a new class of write on `main` |
+| `standup_degraded` | an absent knowledge root did not answer cleanly | `skills/standup/scripts/digest.sh` — a degraded read reports `no_strategies` and exits 0, because a non-zero exit is a silent morning nobody explains |
+
+`standup_writes_nothing` is this stage's `plan_idempotent`: the digest can be perfectly
+correct and still be the wrong artifact if it left something behind. The likeliest
+regression is a helper that starts caching its answer to a file "to be idempotent", which
+is the opposite of what a reader needs.
+
+## 5f. The `[Housekeep]` tick
 
 `verify-housekeep` needs no seed, no fire and no issue number, and it runs the tick against
 a **throwaway root** so a drill never appends to the operator's own

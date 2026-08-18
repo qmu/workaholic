@@ -142,10 +142,24 @@ case "$WANT_SCOPE" in
         printf '**Every developer on this repository creates their own copy of these.**\n\n'
         ;;
     repository)
+        # The COUNT is stated, not left to be discovered by scrolling: this scope grew from
+        # one routine to two on 2026-08-17, and the whole point of the scope is that one
+        # account carries them all. A reader who creates the first and stops has left the
+        # repository half-configured with nothing to tell them so.
+        _repo_count=0
+        for _f in "$ROUTINES_DIR"/*.md; do
+            [ -f "$_f" ] || continue
+            [ "$(fm_field "$_f" scope)" = "repository" ] || continue
+            _repo_count=$((_repo_count + 1))
+        done
         printf '# Repository-scoped routine setup for %s\n\n' "$REPO_URL"
         printf '**One account creates these for the whole repository — not every team member.**\n'
-        printf 'N copies of a repository routine all firing hourly is the failure the scope exists\n'
-        printf 'to prevent; nothing in the product can detect or refuse the duplicates.\n\n'
+        printf 'N copies of a repository routine all firing on their schedule is the failure the\n'
+        printf 'scope exists to prevent; nothing in the product can detect or refuse the duplicates.\n\n'
+        printf 'There %s **%s** routine%s in this scope, and the same account creates every one of\n' \
+            "$([ "$_repo_count" -eq 1 ] && echo is || echo are)" "$_repo_count" \
+            "$([ "$_repo_count" -eq 1 ] && echo '' || echo s)"
+        printf 'them. The per-developer setup burden is unchanged at two either way.\n\n'
         ;;
     *)
         printf '# Routine setup for %s\n\n' "$REPO_URL"

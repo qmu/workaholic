@@ -38,6 +38,10 @@ const SCRIPTS = {
   migrateTodoOwners: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/migrate-todo-owners.sh"),
   owns: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/owns.sh"),
   listTodo: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/list-todo.sh"),
+  housekeepRun: join(REPO_ROOT, "plugins/workaholic/skills/housekeep/scripts/run.sh"),
+  housekeepLogAppend: join(REPO_ROOT, "plugins/workaholic/skills/housekeep/scripts/log-append.sh"),
+  housekeepLogRead: join(REPO_ROOT, "plugins/workaholic/skills/housekeep/scripts/log-read.sh"),
+  housekeepPersist: join(REPO_ROOT, "plugins/workaholic/skills/housekeep/scripts/persist-log.sh"),
   ticketSummary: join(REPO_ROOT, "plugins/workaholic/skills/create-ticket/scripts/summary.sh"),
   missionSummary: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/summary.sh"),
   missionCreate: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/create.sh"),
@@ -10574,7 +10578,7 @@ function testRenderSetupSheet() {
   // sheet states the COUNT rather than leaving a reader to discover the second by scrolling:
   // creating the first and stopping leaves the repository half-configured silently.
   assertTrue("the repository sheet states how many routines the one account must create",
-    /There are \*\*2\*\* routines in this scope/.test(repoSheet), repoSheet.slice(0, 600));
+    /There are \*\*3\*\* routines in this scope/.test(repoSheet), repoSheet.slice(0, 600));
   assertTrue("each sheet names the scope of the routine it describes",
     /Scope: \*\*repository\*\*/.test(repoSheet) && /Scope: \*\*developer\*\*/.test(devSheet),
     repoSheet.slice(0, 600));
@@ -13918,6 +13922,15 @@ const tests = [
   ["e2e/loop-drill.sh: reset recovers only what the drill minted", testLoopDrillReset],
   ["e2e/loop-drill.sh: verify-propose reads artifacts, and pending is not fail", testLoopDrillVerifyPropose],
   ["e2e/loop-drill.sh: verify-implement reads the archive move, story, PR and claim", testLoopDrillVerifyImplement],
+  ["housekeep: the tick log is registered, append-only and idempotent", testHousekeepLog],
+  ["housekeep: the tick runs every step, and every step reports", testHousekeepRun],
+  ["housekeep: the tick log survives the container that wrote it", testHousekeepPersist],
+  ["housekeep: the unattended contract is in the files, not in intent", testHousekeepUnattendedContract],
+  ["housekeep steps 2-3: every surface is named, and nothing is executed", testHousekeepInboundSweep],
+  ["housekeep steps 4-7: report, never repair; remind once per state", testHousekeepHygieneSteps],
+  ["housekeep step 8: a step reversing a standing decision stays unbuilt", testHousekeepStrategyStepIsGated],
+  ["housekeep step 9: asking costs attention, so the gates are mechanical", testHousekeepCheckIn],
+  ["[Housekeep]: the template, its scope, and the shapes it authorizes", testHousekeepRoutineTemplate],
 ];
 
 // `await` matters even though almost every test is synchronous: without it an async
@@ -15452,9 +15465,9 @@ function testWorkaholifyRoutines() {
   const WH = "https://github.com/qmu/workaholic";
   try {
     const tpl = JSON.parse(run(dir, LIST).stdout);
-    assertEq("the plugin ships four routine templates", tpl.count, 4);
-    assertEq("and they are the four live patterns",
-      tpl.templates.map((t) => t.id).sort(), ["fb", "implement", "release-status", "standup"]);
+    assertEq("the plugin ships five routine templates", tpl.count, 5);
+    assertEq("and they are the five live patterns",
+      tpl.templates.map((t) => t.id).sort(), ["fb", "housekeep", "implement", "release-status", "standup"]);
 
     // ---- the scope split (2026-08-14, issue #451) ----
     // The scope is the TEMPLATE's field, not a list written into two command bodies:
@@ -15469,7 +15482,7 @@ function testWorkaholifyRoutines() {
       ["fb", "implement"]);
     assertEq("the routines the repository needs exactly one of each are repository-scoped",
       JSON.parse(run(dir, `${LIST} repository`).stdout).templates.map((t) => t.id).sort(),
-      ["release-status", "standup"]);
+      ["housekeep", "release-status", "standup"]);
     assertEq("an unknown scope is refused rather than treated as no filter",
       run(dir, `${LIST} nonsense`).status !== 0, true);
     // The template set is discovered by scanning the routines dir, so a template is
@@ -15490,12 +15503,15 @@ function testWorkaholifyRoutines() {
     // "09:05, not 09:00" cannot later be read as a typo and rounded off.
     assertEq("the templates carry the staggered hourly schedule plus the daily digest",
       tpl.templates.map((t) => t.cron_expression).sort(),
-      ["15 * * * *", "30 * * * *", "45 * * * *", "5 0 * * *"]);
+      ["15 * * * *", "30 * * * *", "45 * * * *", "5 0 * * *", "50 * * * *"]);
     assertEq("the standup declares the daily schedule trigger",
       tpl.templates.find((t) => t.id === "standup").trigger, "schedule-daily");
     assertTrue("no template's cron minute is 0, which the API would rewrite to jitter",
       tpl.templates.every((t) => t.cron_expression.split(" ")[0] !== "0"),
       JSON.stringify(tpl.templates.map((t) => t.cron_expression)));
+    // The stagger is the point, not the times: no two routines share a firing minute.
+    assertEq("and no two routines fire on the same minute",
+      new Set(tpl.templates.map((t) => t.cron_expression)).size, tpl.count);
     assertEq("implement declares the schedule trigger",
       tpl.templates.find((t) => t.id === "implement").trigger, "schedule-hourly");
     assertEq("fb declares the schedule trigger",
@@ -16396,4 +16412,609 @@ function testLoopDrillVerifyImplement() {
     assertTrue("naming the declaration it looked for",
       handoffRows.unit_pr_handed_off.detail.includes(REASON), handoffRows.unit_pr_handed_off.detail);
   } finally { cleanup(fx.tmp); }
+}
+
+// ---------- housekeep: the tick log is registered, append-only and idempotent ----------
+// (2026-08-17, issue #471) Three properties, because each one failing is a different
+// kind of damage: an UNREGISTERED area is hard-blocked by the layout gate on the very
+// first tick, a NON-idempotent writer doubles the record of a retried step, and a
+// reader that cannot answer "did an earlier tick file this?" makes an hourly routine
+// re-file the same finding twenty-four times a day.
+function testHousekeepLog() {
+  const repo = makeRepo();
+  const APPEND = `${POSIX_SH} ${SCRIPTS.housekeepLogAppend}`;
+  const READ = `${POSIX_SH} ${SCRIPTS.housekeepLogRead}`;
+  const HOOK = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/hooks/validate-ticket.sh")}`;
+  try {
+    // The closed layout admits the area — and still refuses a near-miss sibling, which
+    // is the property that makes registration meaningful rather than decorative.
+    mkdirSync(join(repo, ".workaholic/housekeeping"), { recursive: true });
+    mkdirSync(join(repo, ".workaholic/housekeepin"), { recursive: true });
+    const ok = join(repo, ".workaholic/housekeeping/2026-08-17.md");
+    const bad = join(repo, ".workaholic/housekeepin/2026-08-17.md");
+    writeFileSync(ok, "# log\n");
+    writeFileSync(bad, "# log\n");
+    assertEq("a write into the registered log area passes the layout gate",
+      run(repo, `printf '{"tool_name":"Write","tool_input":{"file_path":"${ok}"}}' | ${HOOK}`, { shell: "/bin/sh" }).status, 0);
+    assertEq("a write into an unregistered sibling is still denied",
+      run(repo, `printf '{"tool_name":"Write","tool_input":{"file_path":"${bad}"}}' | ${HOOK}`, { shell: "/bin/sh" }).status, 2);
+    rmSync(join(repo, ".workaholic/housekeepin"), { recursive: true, force: true });
+    rmSync(ok, { force: true });
+
+    // One entry per (tick, step): the second write of the same step is refused, and the
+    // file is a day file named off the tick id, not off the clock.
+    const T1 = "20260817-120000";
+    let j = JSON.parse(run(repo, `${APPEND} --tick ${T1} --step stale-issues --status filed --summary 'commented on #123'`).stdout);
+    assertEq("the first step of a tick opens the day file", j.created_file, true);
+    assertEq("and its section", j.created_section, true);
+    assertTrue("named for the tick's UTC day", j.file.endsWith(".workaholic/housekeeping/2026-08-17.md"), j.file);
+    j = JSON.parse(run(repo, `${APPEND} --tick ${T1} --step drift --status ok --summary 'no drift'`).stdout);
+    assertEq("a second step joins the same section", j.created_section, false);
+    j = JSON.parse(run(repo, `${APPEND} --tick ${T1} --step drift --status ok --summary 'no drift'`).stdout);
+    assertEq("re-running a recorded step writes nothing", j.logged, false);
+    assertEq("and says why", j.duplicate, true);
+
+    // A later tick appends its own section; re-entering the EARLIER tick still lands
+    // inside that tick's section rather than at the tail of the file.
+    run(repo, `${APPEND} --tick 20260817-130000 --step stale-issues --status skipped --summary 'inbox unreadable'`);
+    run(repo, `${APPEND} --tick ${T1} --step docs --status degraded --summary 'could not read README'`);
+    const body = readFileSync(join(repo, ".workaholic/housekeeping/2026-08-17.md"), "utf8");
+    const firstSection = body.split("## 20260817-130000")[0];
+    assertTrue("a re-entered tick appends inside its own section", firstSection.includes("`docs`: degraded"), body);
+
+    // The reader is how a step asks whether an earlier tick already did this.
+    j = JSON.parse(run(repo, `${READ}`).stdout);
+    assertEq("every entry is readable back", j.count, 4);
+    j = JSON.parse(run(repo, `${READ} --step stale-issues --contains '#123'`).stdout);
+    assertEq("filtered to the one that filed it", j.count, 1);
+    assertEq("carrying its status", j.entries[0].status, "filed");
+    j = JSON.parse(run(repo, `${READ} --since 2026-08-18`).stdout);
+    assertEq("a since-date past every day file reads nothing", j.count, 0);
+
+    // Refusals are named, never guessed: a malformed tick id would put an entry in a
+    // day file no reader would look in.
+    assertEq("a malformed tick id is refused",
+      JSON.parse(run(repo, `${APPEND} --tick nope --step x --status ok --summary y`).stdout).reason, "bad_tick");
+    assertEq("an off-vocabulary status is refused",
+      JSON.parse(run(repo, `${APPEND} --tick ${T1} --step x --status wonderful --summary y`).stdout).reason, "bad_status");
+
+    // The area is an OKF exception: the index refresh links the directory and writes no
+    // index into it, so a tick never churns the bundle indexes.
+    run(repo, `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/okf/scripts/refresh-index.sh")}`);
+    assertEq("the log area gets no index.md", existsSync(join(repo, ".workaholic/housekeeping/index.md")), false);
+    assertTrue("but the bundle root links it",
+      readFileSync(join(repo, ".workaholic/index.md"), "utf8").includes("housekeeping/"),
+      readFileSync(join(repo, ".workaholic/index.md"), "utf8"));
+  } finally {
+    cleanup(repo);
+  }
+}
+
+// ---------- housekeep: the tick runs every step, and every step reports ----------
+// (2026-08-17, issue #471) The property under test is COVERAGE, not correctness of any
+// one step: an hourly unattended run is trustworthy only if a step that is missing,
+// crashes, prints nothing, or never got its turn is as visible in the report as one that
+// worked. Each of those is a separate row here because each is a separate way for a tick
+// to quietly under-report itself.
+function testHousekeepRun() {
+  const repo = makeRepo();
+  const RUN = `${POSIX_SH} ${SCRIPTS.housekeepRun}`;
+  const STEPS = ["open-log", "inbound-sweep", "workload-logs", "merge-conflicts",
+    "issue-triage", "stuck-prs", "doc-drift", "strategy-proposals", "human-checkin"];
+  try {
+    // A tick only makes sense in a repository the loop already writes to; step 1 is the
+    // probe that says so, and it never creates the tree behind the layout gate's back.
+    mkdirSync(join(repo, ".workaholic"), { recursive: true });
+    const j = JSON.parse(run(repo, `${RUN} --tick 20260817-090000`).stdout);
+    assertEq("every step of the ask is run and reported", j.steps.map((s) => s.step), STEPS);
+    assertEq("the tick writes its log", j.log, "./.workaholic/housekeeping/2026-08-17.md");
+    const log = readFileSync(join(repo, ".workaholic/housekeeping/2026-08-17.md"), "utf8");
+    assertEq("one log section for the tick", (log.match(/^## /gm) || []).length, 1);
+    // Nine step lines plus the closing act's own line. The persist is deliberately
+    // NOT a tenth step (`steps[]` above is still exactly the nine), but its outcome
+    // is a fact this tick established, so it is logged and reported like one.
+    assertEq("and one line per step, plus the persist",
+      (log.match(/^- `/gm) || []).length, STEPS.length + 1);
+    assertTrue("the persist reports itself by name", /^- `persist-log`: /m.test(log), log);
+    assertEq("a checkout with no remote skips it rather than failing",
+      [j.persist.status, j.persist.reason], ["skipped", "no_origin"]);
+    assertEq("step 1 is real", j.steps[0].status, "ok");
+
+    // Every step is built: the spine's stubs reported `not_implemented`, and none is
+    // left. A step that abstains now does it for a stated reason of its own — an empty
+    // strategy set, a quiet window — which is the distinction the skill is built on.
+    assertEq("no step is left reporting not_implemented",
+      j.steps.filter((s) => s.reason === "not_implemented").map((s) => s.step), []);
+    assertTrue("and a step that abstains names its own reason",
+      j.steps.filter((s) => s.status === "skipped").every((s) => s.reason.length > 0),
+      JSON.stringify(j.steps.filter((s) => s.status === "skipped")));
+
+    // Re-running the same tick id re-reports every step and does not double the log.
+    const again = JSON.parse(run(repo, `${RUN} --tick 20260817-090000`).stdout);
+    assertEq("a re-entered tick still reports every step", again.steps.length, STEPS.length);
+    const log2 = readFileSync(join(repo, ".workaholic/housekeeping/2026-08-17.md"), "utf8");
+    assertEq("without doubling its log", log2, log);
+
+    // The three ways a step can go silent are three named degradations.
+    const broken = join(repo, "plugins-broken");
+    cpSync(join(REPO_ROOT, "plugins/workaholic/skills/housekeep"), join(broken, "housekeep"), { recursive: true });
+    cpSync(join(REPO_ROOT, "plugins/workaholic/hooks"), join(broken, "hooks"), { recursive: true });
+    const BROKEN_RUN = `${POSIX_SH} ${join(broken, "housekeep/scripts/run.sh")}`;
+    rmSync(join(broken, "housekeep/scripts/step-doc-drift.sh"), { force: true });
+    writeFileSync(join(broken, "housekeep/scripts/step-stuck-prs.sh"), "#!/bin/sh\nexit 3\n");
+    writeFileSync(join(broken, "housekeep/scripts/step-issue-triage.sh"), "#!/bin/sh\nexit 0\n");
+    const b = JSON.parse(run(repo, `${BROKEN_RUN} --tick 20260817-100000`).stdout);
+    const byStep = Object.fromEntries(b.steps.map((s) => [s.step, s]));
+    assertEq("a missing step script is still a reported row", byStep["doc-drift"].reason, "step_missing");
+    assertEq("a crashing step is reported, not dropped", byStep["stuck-prs"].reason, "step_error");
+    assertEq("a silent step is reported too", byStep["issue-triage"].reason, "no_output");
+    assertEq("each of them degrades rather than passing",
+      [byStep["doc-drift"].status, byStep["stuck-prs"].status, byStep["issue-triage"].status],
+      ["degraded", "degraded", "degraded"]);
+    assertEq("and the run still covers every step", b.steps.length, STEPS.length);
+
+    // A step that never got its turn is named as unreached, with its cause.
+    const d = JSON.parse(run(repo, `${RUN} --tick 20260817-110000 --deadline-seconds 0 --skip inbound-sweep`).stdout);
+    const skipped = d.steps.find((s) => s.step === "inbound-sweep");
+    assertEq("a caller-skipped step is still a reported line", skipped.status, "skipped");
+    assertEq("with the caller named as the cause", skipped.reason, "requested");
+  } finally {
+    cleanup(repo);
+  }
+}
+
+// ---------- housekeep: the tick log survives the container that wrote it ----------
+// (2026-08-17, ticket `20260817131500-persist-the-housekeep-tick-log`) A routine tick
+// runs in a fresh clone that is thrown away afterwards, so a log that stayed in the
+// checkout would leave every dedup blind and the run with no audit trail. The property
+// under test is that the log REACHES THE BASE, and that two containers ticking on the
+// same day do not overwrite each other — which is why the merge is a union by section
+// rather than a textual append that a rebase would have to reconcile.
+function testHousekeepPersist() {
+  const tmp = mkdtempSync(join(tmpdir(), "workaholic-hk-persist-"));
+  const PERSIST = `${POSIX_SH} ${SCRIPTS.housekeepPersist}`;
+  const APPEND = `${POSIX_SH} ${SCRIPTS.housekeepLogAppend}`;
+  const origin = join(tmp, "origin.git");
+  const A = join(tmp, "a");
+  const B = join(tmp, "b");
+  const DAY = ".workaholic/housekeeping/2026-08-17.md";
+  const clone = (path, email) => {
+    execSync(`git clone -q ${origin} ${path}`);
+    execSync(`git config user.email ${email}`, { cwd: path });
+    execSync(`git config user.name ${email[0].toUpperCase()}`, { cwd: path });
+    execSync("git config commit.gpgsign false", { cwd: path });
+  };
+  try {
+    execSync(`git init -q --bare --initial-branch=main ${origin}`);
+    const seed = join(tmp, "seed");
+    mkdirSync(join(seed, ".workaholic"), { recursive: true });
+    execSync("git -c init.defaultBranch=main init -q", { cwd: seed });
+    execSync("git config user.email test@example.com", { cwd: seed });
+    execSync("git config user.name Test", { cwd: seed });
+    execSync("git config commit.gpgsign false", { cwd: seed });
+    writeFileSync(join(seed, ".workaholic/README.md"), "seed\n");
+    execSync(`git add -A && git commit -q -m initial && git remote add origin ${origin} && git push -q origin main`, { cwd: seed });
+    clone(A, "a@example.com");
+    clone(B, "b@example.com");
+
+    // Each clone records one tick locally, exactly as log-append.sh does mid-run.
+    run(A, `${APPEND} --tick 20260817-100000 --step open-log --status ok --summary "from a"`);
+    run(B, `${APPEND} --tick 20260817-110000 --step open-log --status ok --summary "from b"`);
+
+    const a1 = JSON.parse(run(A, `${PERSIST} --tick 20260817-100000`).stdout);
+    assertEq("a tick's log reaches the base", [a1.persisted, a1.status, a1.reason],
+      [true, "filed", "persisted"]);
+
+    // THE CALLER'S CHECKOUT IS UNTOUCHED. The publish tree is the seam precisely so a
+    // tick never creates a branch or a worktree of its own — a routine that left either
+    // behind would be visible to the claim protocol's branch scan.
+    assertEq("no publish branch is left behind",
+      run(A, "git branch --list publish-main").stdout.trim(), "");
+    assertEq("and no publish worktree", existsSync(join(A, ".publish")), false);
+    assertEq("the checkout's own tracked state is unchanged",
+      run(A, "git status --porcelain --untracked-files=no").stdout.trim(), "");
+
+    // Re-persisting the same tick is a no-op that says so, so a re-entered tick does
+    // not double the base's copy.
+    const a2 = JSON.parse(run(A, `${PERSIST} --tick 20260817-100000`).stdout);
+    assertEq("re-persisting is idempotent", [a2.status, a2.reason, a2.changed],
+      ["ok", "already_current", false]);
+
+    // The second clone never fetched A's section, so its union is computed against a
+    // base it has to read first.
+    const b1 = JSON.parse(run(B, `${PERSIST} --tick 20260817-110000`).stdout);
+    assertEq("a second clone's tick lands too", b1.reason, "persisted");
+    run(A, "git fetch -q origin main");
+    const landed = run(A, `git show origin/main:${DAY}`).stdout;
+    assertEq("and neither erased the other",
+      (landed.match(/^## \d{8}-\d{6}$/gm) || []).sort(), ["## 20260817-100000", "## 20260817-110000"]);
+
+    // A GENUINE RACE, not just two sequential writers: the base advances between this
+    // clone's read and its push. A textual rebase of two end-of-file appends conflicts,
+    // so the retry re-opens at the new base and re-unions instead of replaying a patch.
+    run(A, `${APPEND} --tick 20260817-120000 --step open-log --status ok --summary "a again"`);
+    run(B, `${APPEND} --tick 20260817-130000 --step open-log --status ok --summary "b again"`);
+    // Linked worktrees share the common dir's hooks, so this fires on the publish push.
+    // The nested run must drop git's own exported env or it would operate on A's repo.
+    writeFileSync(join(A, ".git/hooks/pre-push"), `#!/bin/sh
+[ -f "${tmp}/raced" ] && exit 0
+touch "${tmp}/raced"
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_PREFIX GIT_COMMON_DIR GIT_OBJECT_DIRECTORY
+( cd "${B}" && ${PERSIST} --tick 20260817-130000 ) >/dev/null 2>&1
+exit 0
+`);
+    chmodSync(join(A, ".git/hooks/pre-push"), 0o755);
+    const a3 = JSON.parse(run(A, `${PERSIST} --tick 20260817-120000`).stdout);
+    assertEq("a beaten push retries rather than failing", [a3.persisted, a3.reason], [true, "persisted"]);
+    assertTrue("and it took a second attempt to do it", a3.attempts >= 2, JSON.stringify(a3));
+    run(A, "git fetch -q origin main");
+    assertEq("all four sections are on the base",
+      (run(A, `git show origin/main:${DAY}`).stdout.match(/^## \d{8}-\d{6}$/gm) || []).length, 4);
+
+    // A LOG ROOT OUTSIDE A REPOSITORY IS SKIPPED BY NAME, never published into whatever
+    // repository the caller's cwd happens to be. This is what keeps the drill — which
+    // runs a tick against a throwaway root from inside the operator's own checkout —
+    // from committing a fixture's log to the operator's base.
+    const loose = join(tmp, "loose");
+    mkdirSync(join(loose, ".workaholic/housekeeping"), { recursive: true });
+    writeFileSync(join(loose, DAY), "# x\n\n## 20260817-140000\n\n- `open-log`: ok — x\n");
+    const l = JSON.parse(run(A, `${PERSIST} --tick 20260817-140000 --root ${loose}`).stdout);
+    assertEq("a root outside a repository is skipped, not published",
+      [l.persisted, l.status, l.reason], [false, "skipped", "not_a_repo"]);
+
+    // An unreachable base is reported by name and changes nothing.
+    run(A, `git remote set-url origin ${join(tmp, "gone.git")}`);
+    run(A, `${APPEND} --tick 20260817-150000 --step open-log --status ok --summary "offline"`);
+    const off = JSON.parse(run(A, `${PERSIST} --tick 20260817-150000`).stdout);
+    assertEq("an unreachable base degrades by name",
+      [off.persisted, off.status, off.reason], [false, "degraded", "origin_unreachable"]);
+    assertTrue("and the log is still in the checkout",
+      readFileSync(join(A, DAY), "utf8").includes("## 20260817-150000"));
+  } finally {
+    cleanup(tmp);
+  }
+}
+
+// ---------- housekeep: the unattended contract is in the files, not in intent ----------
+function testHousekeepUnattendedContract() {
+  const skill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/housekeep/SKILL.md"), "utf8");
+  const command = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/housekeep.md"), "utf8");
+  const ref = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/housekeep/reference/workflow.md"), "utf8");
+
+  // The skill bears scripts, so it is internal to the skills CLI; Claude Code ignores it.
+  assertTrue("the skill is marked internal", /metadata:\s*\n\s*internal:\s*true/.test(skill), skill.slice(0, 400));
+  assertTrue("and is reached through a command, not invoked directly", /user-invocable:\s*false/.test(skill));
+
+  // No AskUserQuestion in anything the tick EXECUTES — step 9 asks in Slack instead. The
+  // prose is allowed to name it, and has to: what the skill and command say is that they
+  // never use one, which is the sentence the next reader needs.
+  const inScripts = run(REPO_ROOT,
+    `grep -rn AskUserQuestion plugins/workaholic/skills/housekeep/scripts || true`).stdout
+    .trim().split("\n").filter(Boolean).filter((l) => !/^[^:]+:\d+:\s*#/.test(l));
+  assertEq("no AskUserQuestion in any housekeep script", inScripts, []);
+  assertTrue("the skill states the unattended contract", /no `AskUserQuestion` at any step/.test(skill));
+  assertTrue("and so does the command", /no `AskUserQuestion` at any step/.test(command));
+
+  // Every script reference is plugin-root-anchored: a relative path does not resolve at
+  // runtime, which is the failure mode that silently disables a step.
+  for (const [name, text] of [["SKILL.md", skill], ["housekeep.md", command]]) {
+    const bad = [...text.matchAll(/bash\s+(\S*\/\S+)/g)].map((m) => m[1]).filter((x) => !x.startsWith("${CLAUDE_PLUGIN_ROOT}"));
+    assertEq(`${name} anchors every script reference at the plugin root`, bad, []);
+  }
+
+  // GitHub reads go through the one sanctioned transport (the suite's global gh check
+  // covers the verbs; this pins the skill's own statement of it).
+  assertTrue("the skill names gh-rest.sh as the only GitHub transport", /gh-rest\.sh/.test(skill));
+
+  // The reference states a contract per step, so a later ticket fills one in rather than
+  // inventing one: every step id in run.sh must have a section.
+  const runSh = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/housekeep/scripts/run.sh"), "utf8");
+  const list = /^STEPS='([^']+)'/m.exec(runSh)[1].split(/\s+/);
+  const missing = list.filter((s) => !new RegExp("`" + s + "`").test(ref));
+  assertEq("every step run.sh drives has a stated contract", missing, []);
+}
+
+// ---------- housekeep steps 2-3: every surface is named, and nothing is executed ----------
+// (2026-08-17, issue #471) The acceptance the ask actually needs is NOT "the sweep found
+// things" — it is that an unavailable surface is never rendered as an empty one, that
+// "missing credentials" is a checked claim naming the variable, and that a repository
+// record's prose is never executed by an hourly unattended tick.
+function testHousekeepInboundSweep() {
+  const repo = makeRepo();
+  const SWEEP = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/housekeep/scripts/step-inbound-sweep.sh")}`;
+  const LOGS = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/housekeep/scripts/step-workload-logs.sh")}`;
+  try {
+    mkdirSync(join(repo, ".workaholic/feedbacks"), { recursive: true });
+
+    // No GitHub here (the fixture has no remote): the surface is named unreadable, and the
+    // three connector surfaces are still handed to the agent with their bounds.
+    const j = JSON.parse(run(repo, `${SWEEP} --tick 20260817-120000 --root .`).stdout);
+    assertEq("an unreachable GitHub is named, not reported empty", j.reason, "gh_unavailable");
+    assertEq("and the step degrades rather than passing", j.status, "degraded");
+    assertEq("every surface has a stated outcome",
+      Object.keys(j.surfaces).sort(), ["drive", "github", "gmail", "slack"]);
+    assertEq("the connector surfaces are handed to the agent", j.needs_agent.length, 3);
+    assertTrue("Slack's two-query bound rides with it",
+      j.needs_agent.find((n) => n.surface === "slack").bound.includes("at most two queries"),
+      JSON.stringify(j.needs_agent));
+    assertTrue("and Gmail's is pointer-only",
+      j.needs_agent.find((n) => n.surface === "gmail").bound.includes("never a message body"),
+      JSON.stringify(j.needs_agent));
+
+    // The window is derived from the log, never from date arithmetic.
+    assertEq("with no earlier sweep the window is the tick's own UTC day start",
+      j.since, "2026-08-17T00:00:00Z");
+    run(repo, `${POSIX_SH} ${SCRIPTS.housekeepLogAppend} --tick 20260817-100000 --step inbound-sweep --status ok --summary swept`);
+    const k = JSON.parse(run(repo, `${SWEEP} --tick 20260817-120000 --root .`).stdout);
+    assertEq("an earlier sweep moves the window to that tick", k.since, "2026-08-17T10:00:00Z");
+
+    // Step 3: no records at all is its own reason, distinct from "records but no source".
+    let w = JSON.parse(run(repo, `${LOGS} --tick 20260817-120000 --root .`).stdout);
+    assertEq("no deployment records is its own reason", w.reason, "no_targets");
+
+    mkdirSync(join(repo, ".workaholic/deployments"), { recursive: true });
+    writeFileSync(join(repo, ".workaholic/deployments/batch.md"),
+      "---\ntype: Deployment\ntitle: Batch\nconfirmation_method: server-batch\n---\n\n# Batch\n");
+    w = JSON.parse(run(repo, `${LOGS} --tick 20260817-120000 --root .`).stdout);
+    assertEq("a record declaring no log source is a different answer", w.reason, "no_log_source");
+    assertEq("and the target says which", w.targets[0].state, "no_log_source");
+
+    writeFileSync(join(repo, ".workaholic/deployments/web.md"),
+      "---\ntype: Deployment\ntitle: Web\nconfirmation_method: browser\nlog_locator: https://logs.example.test/web\nlog_credential_env: HOUSEKEEP_TEST_LOG_TOKEN\n---\n\n# Web\n");
+    w = JSON.parse(run(repo, `${LOGS} --tick 20260817-120000 --root .`).stdout);
+    const web = w.targets.find((t) => t.target === "web");
+    assertEq("a missing credential is a CHECKED claim", web.state, "no_credentials");
+    assertEq("naming the variable it looked for", web.credential_env, "HOUSEKEEP_TEST_LOG_TOKEN");
+    assertEq("and nothing is handed over to read", w.needs_agent.length, 0);
+
+    w = JSON.parse(run(repo, `${LOGS} --tick 20260817-120000 --root .`,
+      { env: { ...process.env, HOUSEKEEP_TEST_LOG_TOKEN: "present" } }).stdout);
+    assertEq("with the credential present the target becomes readable",
+      w.targets.find((t) => t.target === "web").state, "readable");
+    assertEq("and is handed to the agent rather than read here", w.needs_agent.length, 1);
+    assertTrue("under a pointer-only bound",
+      w.needs_agent[0].bound.includes("never a log body"), JSON.stringify(w.needs_agent));
+
+    // The step must never execute a record's prose: a `command:` in a record is not run.
+    writeFileSync(join(repo, ".workaholic/deployments/trap.md"),
+      `---\ntype: Deployment\ntitle: Trap\nconfirmation_method: other\ncommand: touch ${join(repo, "EXECUTED")}\nlog_locator: touch ${join(repo, "EXECUTED")}\n---\n\n# Trap\n`);
+    run(repo, `${LOGS} --tick 20260817-120000 --root .`);
+    assertEq("a deployment record's command is never executed by the tick",
+      existsSync(join(repo, "EXECUTED")), false);
+  } finally {
+    cleanup(repo);
+  }
+}
+
+// ---------- housekeep steps 4-7: report, never repair; remind once per state ----------
+// (2026-08-17, issue #471) Three properties the ask's own wording puts at risk: step 4
+// must not push into a branch the claim protocol owns, step 6 must not repeat an
+// unchanged reminder every hour, and step 7 must not re-file a finding that is true
+// forever. A fake GitHub gives the first two real data to work on.
+function testHousekeepHygieneSteps() {
+  const repo = makeRepo();
+  const bin = mkdtempSync(join(tmpdir(), "wh-gh-"));
+  const HK = join(REPO_ROOT, "plugins/workaholic/skills/housekeep/scripts");
+  try {
+    mkdirSync(join(repo, ".workaholic/feedbacks"), { recursive: true });
+    // `gh-rest.sh` resolves the repository from the git remote, so the fixture needs one
+    // even though every call is served by the stub below.
+    execSync("git remote add origin https://github.com/qmu/workaholic.git", { cwd: repo });
+    // A fake `gh api` serving one conflicted and one review-blocked pull request. The
+    // per-pull endpoint is what carries mergeability, exactly as the real one does.
+    const pulls = { 12: { mergeable: false, mergeable_state: "dirty", draft: false, ref: "work-20260817-010101" },
+                    13: { mergeable: true, mergeable_state: "blocked", draft: false, ref: "work-20260817-020202" } };
+    writeFileSync(join(bin, "gh"), `#!/bin/sh
+path=""; jqexpr=""; seen=0
+while [ $# -gt 0 ]; do
+  case "$1" in
+    api) seen=1 ;;
+    --jq) jqexpr="$2"; shift ;;
+    -*) ;;
+    *) if [ "$seen" = 1 ] && [ -z "$path" ]; then path="$1"; fi ;;
+  esac
+  shift
+done
+emit() { if [ -n "$jqexpr" ]; then printf '%s' "$1" | jq -r "$jqexpr"; else printf '%s' "$1"; fi; }
+case "$path" in
+  repos/*/pulls\\?*) emit '${JSON.stringify(Object.keys(pulls).map((n) => ({ number: Number(n) })))}' ;;
+  repos/*/pulls/12) emit '${JSON.stringify({ number: 12, html_url: "https://x/12", head: { ref: pulls[12].ref }, draft: false, mergeable: false, mergeable_state: "dirty", title: "Conflicted unit" })}' ;;
+  repos/*/pulls/13) emit '${JSON.stringify({ number: 13, html_url: "https://x/13", head: { ref: pulls[13].ref }, draft: false, mergeable: true, mergeable_state: "blocked", title: "Waiting on review" })}' ;;
+  repos/*/issues\\?*) emit '${JSON.stringify([{ number: 71, html_url: "https://x/i/71", updated_at: "2026-07-01T00:00:00Z", title: "Landed already" }])}' ;;
+  *) emit '[]' ;;
+esac
+`);
+    chmodSync(join(bin, "gh"), 0o755);
+    const env = { ...process.env, PATH: `${bin}:${process.env.PATH}` };
+
+    // Step 4: conflicts are reported and NOTHING is pushed. The branch names in the
+    // fixture are claim branches; the repo must be byte-identical afterwards.
+    const before = run(repo, "git log --oneline --all", { env }).stdout;
+    const c = JSON.parse(run(repo, `${POSIX_SH} ${join(HK, "step-merge-conflicts.sh")} --tick 20260817-120000 --root .`, { env }).stdout);
+    assertEq("a conflicted pull request blocks rather than passing", c.status, "blocked");
+    assertEq("and is named", c.conflicted, [12]);
+    assertEq("step 4 posts nothing itself — the reminder is step 6's", c.needs_agent.length, 0);
+    assertEq("and pushes nothing anywhere", run(repo, "git log --oneline --all", { env }).stdout, before);
+
+    // Step 6: one reminder per distinct state, and the decision is named per row.
+    let s6 = JSON.parse(run(repo, `${POSIX_SH} ${join(HK, "step-stuck-prs.sh")} --tick 20260817-120000 --root .`, { env }).stdout);
+    assertEq("both stuck pull requests are reported", s6.needs_agent.length, 2);
+    assertTrue("the conflicted one names the claim holder as the decision",
+      s6.needs_agent.find((n) => n.pull === 12).decision.includes("claim holder"), JSON.stringify(s6.needs_agent));
+    assertTrue("the blocked one names the review", s6.needs_agent.find((n) => n.pull === 13).decision.includes("review"));
+    assertTrue("the reminder carries a state key", /^stuck:\d+$/.test(s6.key), s6.key);
+    // The key is distinct from the release-status family, so neither dedups the other.
+    assertTrue("keyed distinctly from deploy:<digest>", !s6.key.startsWith("deploy:"), s6.key);
+
+    // Once the agent records the post, the same state earns no second reminder.
+    run(repo, `${POSIX_SH} ${SCRIPTS.housekeepLogAppend} --tick 20260817-120000 --step stuck-prs-filed --status filed --summary "posted ${s6.key}"`);
+    const s6b = JSON.parse(run(repo, `${POSIX_SH} ${join(HK, "step-stuck-prs.sh")} --tick 20260817-130000 --root .`, { env }).stdout);
+    assertEq("an unchanged state is not re-announced", s6b.needs_agent.length, 0);
+    assertEq("and says why", s6b.reason, "already_filed");
+
+    // Step 5: an open issue an archived ticket names is drift, and nothing is closed.
+    mkdirSync(join(repo, ".workaholic/tickets/archive/work-20260817-010101"), { recursive: true });
+    writeFileSync(join(repo, ".workaholic/tickets/archive/work-20260817-010101/t.md"),
+      "---\nfeedback: x\n---\n\n# T\n\nCloses https://github.com/qmu/workaholic/issues/71\n");
+    const s5 = JSON.parse(run(repo, `${POSIX_SH} ${join(HK, "step-issue-triage.sh")} --tick 20260817-120000 --root .`, { env }).stdout);
+    assertEq("the landed-but-open issue is reported", s5.needs_agent.length, 1);
+    assertEq("as drift, not as a closure", s5.needs_agent[0].drift, "landed_but_open");
+    assertTrue("under a propose-never-perform bound",
+      s5.needs_agent[0].bound.includes("never perform"), JSON.stringify(s5.needs_agent));
+
+    // Step 7: a finding an earlier tick filed is not filed again.
+    const s7key = ".workaholic/terms/retired-terms.md";
+    run(repo, `${POSIX_SH} ${SCRIPTS.housekeepLogAppend} --tick 20260817-110000 --step doc-drift-filed --status filed --summary "filed a ticket for ${s7key}"`);
+    const s7 = JSON.parse(run(repo, `${POSIX_SH} ${join(HK, "step-doc-drift.sh")} --tick 20260817-120000 --root . --base HEAD`, { env }).stdout);
+    assertTrue("an already-filed drift finding is dropped, not re-filed",
+      !JSON.stringify(s7.needs_agent).includes(s7key), JSON.stringify(s7.needs_agent));
+  } finally {
+    cleanup(repo);
+    cleanup(bin);
+  }
+}
+
+// ---------- housekeep step 8: a step that reverses a standing decision stays unbuilt ----------
+// (2026-08-17, issue #471) The mission's own acceptance is the property under test: a step
+// that reverses a standing decision is ruled on by the operator or LEFT UNBUILT, never
+// inferred. So the test is not "does it propose well" — it is that it proposes nothing,
+// names the rulings it is waiting on, and tells an empty strategy set apart from a live one.
+function testHousekeepStrategyStepIsGated() {
+  const repo = makeRepo();
+  const STEP = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/housekeep/scripts/step-strategy-proposals.sh")}`;
+  try {
+    mkdirSync(join(repo, ".workaholic"), { recursive: true });
+    let j = JSON.parse(run(repo, `${STEP} --tick 20260817-120000 --root .`).stdout);
+    assertEq("with no strategies the step is a reported no-op", j.reason, "no_strategies");
+    assertEq("and says how many it saw", j.strategies, 0);
+    assertEq("it never hands work to the agent", j.needs_agent.length, 0);
+    assertEq("and it names all three outstanding rulings", j.open_rulings.length, 3);
+
+    mkdirSync(join(repo, ".workaholic/strategies"), { recursive: true });
+    writeFileSync(join(repo, ".workaholic/strategies/x.md"),
+      "---\ntype: Strategy\ntitle: X\nslug: x\nstatus: active\ntarget_date: 2026-12-01\nassignees: [a@qmu.jp]\n---\n\n## Aim\n\nx\n\n## Schedule\n\nx\n");
+    j = JSON.parse(run(repo, `${STEP} --tick 20260817-120000 --root .`).stdout);
+    assertEq("a live strategy makes the ruling live, not the step", j.reason, "awaiting_operator_ruling");
+    assertEq("the step blocks rather than proposing", j.status, "blocked");
+    assertEq("and still proposes nothing", j.needs_agent.length, 0);
+
+    // Nothing was written anywhere: no record, no ticket, no branch.
+    assertEq("no feedback record was minted", existsSync(join(repo, ".workaholic/feedbacks")), false);
+    assertEq("and no ticket queue was touched", existsSync(join(repo, ".workaholic/tickets")), false);
+
+    // The propose skill's bar is UNCHANGED — the reversal was not slipped in sideways.
+    const propose = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/propose/SKILL.md"), "utf8");
+    assertTrue("propose still says repository state never triggers a proposal",
+      /constraints, never triggers/.test(propose), "the judgment bar was edited without a ruling");
+  } finally {
+    cleanup(repo);
+  }
+}
+
+// ---------- housekeep step 9: asking costs attention, so the gates are mechanical ----------
+// (2026-08-17, issue #471) Four properties, and none of them is "the question was good":
+// nothing is posted inside the quiet window and the question is HELD rather than dropped, a
+// question is asked once rather than once an hour, the per-tick ceiling is real, and a
+// second bound stops the per-tick ceiling aggregating into 120 questions a day.
+function testHousekeepCheckIn() {
+  const repo = makeRepo();
+  const HK = join(REPO_ROOT, "plugins/workaholic/skills/housekeep/scripts");
+  const STEP = `${POSIX_SH} ${join(HK, "step-human-checkin.sh")}`;
+  const ASK = `${POSIX_SH} ${join(HK, "ask-question.sh")}`;
+  const LOG = `${POSIX_SH} ${SCRIPTS.housekeepLogAppend}`;
+  try {
+    mkdirSync(join(repo, ".workaholic"), { recursive: true });
+
+    // Quiet hours: nothing asked, and the window is named rather than implied.
+    let j = JSON.parse(run(repo, `${STEP} --tick 20260817-020000 --root . --hour 2`).stdout);
+    assertEq("inside the quiet window the step asks nothing", j.needs_agent.length, 0);
+    assertEq("and says why", j.reason, "quiet_hours");
+    let a = JSON.parse(run(repo, `${ASK} --tick 20260817-020000 --key q:sizing --root . --hour 2`).stdout);
+    assertEq("a question inside the window is refused", a.ask, false);
+    assertEq("as a HOLD, not a drop", a.hold, true);
+
+    // The held question comes back on the next eligible tick, then stops once asked.
+    run(repo, `${LOG} --tick 20260817-020000 --step human-checkin-held-q-sizing --status skipped --summary "held q:sizing"`);
+    j = JSON.parse(run(repo, `${STEP} --tick 20260817-120000 --root . --hour 14`).stdout);
+    assertEq("a held question is handed back when the window clears", j.held, ["q-sizing"]);
+    run(repo, `${LOG} --tick 20260817-120000 --step human-checkin-ask-q-sizing --status filed --summary "asked q:sizing"`);
+    j = JSON.parse(run(repo, `${STEP} --tick 20260817-130000 --root . --hour 14`).stdout);
+    assertEq("and stops being held once it has been asked", j.held, []);
+
+    // Asked once, not once an hour. Silence is not a reason to re-ask.
+    a = JSON.parse(run(repo, `${ASK} --tick 20260817-130000 --key q:sizing --root . --hour 14`).stdout);
+    assertEq("an unanswered question is not re-asked next tick", a.ask, false);
+    assertEq("named as already asked, not as answered", a.reason, "already_asked");
+
+    // The per-tick ceiling is real, and each ask gets its own log key so five fit.
+    for (let i = 1; i <= 5; i++) {
+      const g = JSON.parse(run(repo, `${ASK} --tick 20260817-140000 --key q:${i} --root . --hour 14 --max-per-day 50`).stdout);
+      assertTrue(`question ${i} of five is allowed`, g.ask, JSON.stringify(g));
+      assertEq(`question ${i} gets its own log key`, g.log_step, `human-checkin-ask-q-${i}`);
+      run(repo, `${LOG} --tick 20260817-140000 --step ${g.log_step} --status filed --summary "asked q:${i}"`);
+    }
+    a = JSON.parse(run(repo, `${ASK} --tick 20260817-140000 --key q:6 --root . --hour 14 --max-per-day 50`).stdout);
+    assertEq("the sixth question in a tick is refused", a.reason, "tick_cap");
+    assertEq("and held rather than lost", a.hold, true);
+
+    // The daily bound the per-tick cap must not aggregate past.
+    a = JSON.parse(run(repo, `${ASK} --tick 20260817-150000 --key q:7 --root . --hour 14 --max-per-day 5`).stdout);
+    assertEq("a fresh tick still respects the daily bound", a.reason, "day_cap");
+
+    // No AskUserQuestion anywhere in the step's surface EXCEPT where the scripts say
+    // they will never use one — the comment is the contract, so it has to be allowed
+    // while any executable mention stays a failure.
+    const mentions = run(REPO_ROOT,
+      `grep -n AskUserQuestion ${join(HK, "step-human-checkin.sh")} ${join(HK, "ask-question.sh")} || true`).stdout
+      .trim().split("\n").filter(Boolean);
+    const executable = mentions.filter((l) => !/^[^:]+:\d+:\s*#/.test(l));
+    assertEq("the check-in never reaches for AskUserQuestion", executable, []);
+    assertTrue("and says so in writing", mentions.length > 0, "the contract is not stated anywhere");
+  } finally {
+    cleanup(repo);
+  }
+}
+
+// ---------- [Housekeep]: the template, its scope, and the shapes it authorizes ----------
+// (2026-08-17, issue #471) The prompt is the ceiling: a session may emit only the shapes its
+// own routine names, so a template and the shape catalog that disagree ship either a
+// documented shape nobody may post or a posted shape nothing documents. Byte for byte.
+function testHousekeepRoutineTemplate() {
+  const template = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines/housekeep.md"), "utf8");
+  const catalog = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/notify/reference/notifications.md"), "utf8");
+  const claudeMd = readFileSync(join(REPO_ROOT, "CLAUDE.md"), "utf8");
+
+  const block = (body, lead) => {
+    const m = body.match(new RegExp("```\\n(" + lead + "[\\s\\S]*?)```", "u"));
+    return m ? m[1] : "";
+  };
+  for (const [name, lead] of [["stuck-pull-request reminder", "🔧 Needs a decision"],
+                              ["check-in question", "❓ Question"]]) {
+    const c = block(catalog, lead);
+    assertTrue(`the catalog carries the ${name}`, c !== "", "missing from notifications.md");
+    assertEq(`the ${name} reads byte-identically in the template and the catalog`,
+      block(template, lead), c);
+  }
+
+  // The reminder names a repository state and mentions nobody; the question is addressed.
+  assertTrue("the reminder carries no mention token",
+    !/<@U/.test(block(catalog, "🔧 Needs a decision")), block(catalog, "🔧 Needs a decision"));
+  assertTrue("the question carries a resolved mention",
+    /<@U…>/.test(block(catalog, "❓ Question")), block(catalog, "❓ Question"));
+  // Its dedup key is its own, or [Release Status] and this would dedup each other away.
+  assertTrue("the reminder keys on stuck:<digest>, not deploy:<digest>",
+    /`stuck:<digest>`/.test(block(catalog, "🔧 Needs a decision")));
+
+  // Scope, cron and the write grant are the template's own claims; CLAUDE.md's routines
+  // table must state the same ones, since that table is where a human reads them.
+  assertTrue("the template is repository-scoped", /^scope: repository$/m.test(template));
+  assertTrue("firing at :50, after the other three", /^cron_expression: 50 \* \* \* \*$/m.test(template));
+  assertTrue("CLAUDE.md's routines table carries the same row",
+    /\| `housekeep\.md` \| `\[Housekeep\]` \| `repository` \| `50 \* \* \* \*` \| `\/setup-repo-routines` \|/.test(claudeMd),
+    "the routines table and the template disagree");
+  // Write/Edit are granted BECAUSE it writes — the reader routine's contract is the
+  // contrast, and the template has to say which it is rather than inherit a list.
+  assertTrue("the write grant is justified in the template's own prose",
+    /`Write`\/`Edit` are granted rather than inherited/.test(template), "the grant is unexplained");
+  assertTrue("and the tools list carries them", /^allowed_tools: \[.*Write.*Edit.*\]$/m.test(template));
 }

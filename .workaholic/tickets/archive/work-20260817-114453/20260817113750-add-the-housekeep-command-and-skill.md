@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-17T11:37:50+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on: 20260817113749-register-the-housekeep-log-area.md
@@ -91,3 +92,49 @@ skipped, or could not read. A degraded read is reported and skipped, never half-
   failed.
 - The routine's `allowed_tools` is decided in the template ticket, but the skill should
   work with the smallest set: several steps only read.
+
+## Final Report
+
+Development completed as planned. The spine is in place: `/housekeep` runs end to end with
+eight of nine steps stubbed, writes exactly one log section with one line per step, and
+reports one row per step. The step list lives in `run.sh`, the per-step contract in
+`reference/workflow.md`, and each stub names the ticket that fills it in.
+
+Two design points worth stating, because the later tickets build on them:
+
+1. **`run.sh` is the tick's only log writer.** Step scripts print a verdict and write
+   nothing. Two writers would race on the log's `(tick, step)` key and turn its idempotence
+   into a property of caller discipline rather than of the code.
+2. **`needs_agent` is the seam between script and model.** A step script is non-interactive
+   and composes no prose: it probes, decides, and files where the action is mechanical.
+   Anything needing composition (an issue body, a question, a proposal) or a human surface
+   (Slack) comes back in `needs_agent`, and what the agent then did is recorded under the
+   distinct log key `<step>-filed` — a different fact from what the probe found, and one the
+   log's per-(tick, step) idempotence keeps from overwriting it.
+
+The five collisions the ask makes with standing decisions are carried into the skill rather
+than resolved here — each is named in `SKILL.md`'s last section and ruled on in the ticket
+that owns the step.
+
+### Discovered Insights
+
+- **Insight**: `DEFAULT_TARGETS` in `build.mjs` is an explicit list, and `propose` is not in
+  it either — routine-facing skills that depend on connectors and Slack stay Claude-only,
+  while the portable bundle carries the workflow skills.
+  **Context**: `housekeep` follows `propose`'s precedent rather than being an oversight; a
+  future decision to export it would need the connector-shaped steps to degrade cleanly on
+  an agent that has none, which is a different piece of work from writing the steps.
+
+- **Insight**: The failure mode an hourly unattended tick actually dies of is a step going
+  *quiet*, not a step going wrong — so `run.sh` treats "missing script", "non-zero exit",
+  "printed nothing" and "status outside the log vocabulary" as four separately-named
+  degradations and still emits the row.
+  **Context**: This is why the step list is in the script rather than in prose. Prose that
+  says "run the nine steps" cannot notice that only eight ran; a fixed list that emits a row
+  per entry can, and the tests pin exactly those four silences.
+
+- **Insight**: A step that ran out of the tick's `--deadline-seconds` budget is logged
+  `skipped` with reason `budget`, by name.
+  **Context**: The ticket's Consideration asked for this explicitly, and it is the same
+  distinction as `not_implemented` versus "found nothing": an hourly report that omits what
+  it never reached reads as coverage it does not have.

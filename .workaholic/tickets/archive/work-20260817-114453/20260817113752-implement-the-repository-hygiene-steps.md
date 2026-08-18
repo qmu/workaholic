@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-17T11:37:52+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on: 20260817113750-add-the-housekeep-command-and-skill.md
@@ -114,3 +115,52 @@ Step 4 is the one that touches other people's branches, and it is fenced below.
 - If the routine ends up `scope: developer` (the template ticket's Open Decision), steps 5,
   6 and 7 run N times an hour for N developers and post N reminders. That is the strongest
   argument in that decision and it belongs on the record here too.
+
+## Final Report
+
+Development completed as planned. Steps 4, 5, 6 and 7 are implemented; the Open Decision is
+resolved with reasoning drawn from the repository's own standing decisions rather than picked.
+
+**May the tick rebase a pull request at all? — No. Option (a): report, never rebase.** The
+reasoning is structural. A `work-*` branch **is** a claim: the heartbeat is its tip and
+`archive.sh` pushes it after each archive commit, so a third party rebasing it races the claim
+holder's own pushes and can strand or duplicate a unit — one of the three unit-less writer
+designs `workaholic:ship` §7 measured and refused. Option (b), rebasing only branches with no
+live claim, needs a staleness rule the claim protocol **deliberately does not have**: it
+reports staleness and never acts on it, precisely so that "old" never becomes a licence to take
+somebody's work; building one here would re-introduce, in a maintenance tick, exactly what the
+protocol refuses to give the executor. Option (c) accepts a known race knowingly. And the loop
+already assigns this repair to its owner — a merge-conflict notice tells the **claim holder** to
+resolve it, which is the person who knows which side of the conflict keeps its behaviour. So
+step 4 reports, and its finding rides step 6's reminder rather than posting a second line.
+
+Steps 5 and 7 write nothing but the records and tickets they file; step 6 posts at most one
+reminder per distinct state (`stuck:<digest>` over the sorted `<number>:<blocked_by>` set, a key
+deliberately distinct from `[Release Status]`'s `deploy:<digest>`); every GitHub call goes
+through `gh-rest.sh`.
+
+### Discovered Insights
+
+- **Insight**: `tr '}' '}\n'` does not split a JSON payload into lines. `tr` maps one character
+  to one character, so the replacement's second character is silently dropped and the payload
+  stays on one line — after which a greedy `sed 's/.*"number": //'` reads the **last** object's
+  number for every match.
+  **Context**: Measured here: two open pull requests, #12 conflicted, reported as "#13
+  conflicted". The step scripts now split with `awk '{ gsub(/}/, "}\n"); print }'`, and the trap
+  is written into the scripts that hit it. Any shell script in this repository that chunks JSON
+  this way is suspect.
+
+- **Insight**: `mergeable` and `mergeable_state` exist only on GitHub's **single-pull**
+  endpoint, and a pull request GitHub has not yet computed answers `mergeable: null`.
+  **Context**: A reader built on the list endpoint alone cannot tell a conflicted pull request
+  from a healthy one — the exact distinction steps 4 and 6 exist to draw — so `pulls-state.sh`
+  pays for one GET per pull request, bounds them with `--limit`, **reports the cap**, and maps
+  `null` to `unknown` rather than to `clean`. Going quiet on "not computed yet" is how a
+  reminder disappears exactly when it is needed.
+
+- **Insight**: `terms/retired-terms.md` is a glossary **of** retired terms, so
+  `area-freshness.sh` reports it as naming retired terms — truthfully, and forever.
+  **Context**: Without dedup, step 7 would file a ticket about it every hour. The step keys its
+  dedup on the document or record path in the `doc-drift-filed` log line, which is the same
+  shape steps 2 and 6 use. Any hourly step that files must answer "did an earlier tick already
+  file this?" before it acts; the tick log is what makes that answerable.

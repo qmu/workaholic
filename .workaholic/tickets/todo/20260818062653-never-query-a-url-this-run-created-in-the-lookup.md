@@ -6,6 +6,7 @@ depends_on:
 feedback: [20260818062639-reopen-the-thread-lookup-it-bounds-the-search-when-only-the-acceptance-needs-bounding.md]
 merge_policy:
 verification_handoff: 
+claim: work-20260818-073640
 ---
 
 # Never query a URL this run created in the lookup

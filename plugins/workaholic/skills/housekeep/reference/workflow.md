@@ -249,15 +249,25 @@ half-way still persists what it recorded on its next run, and it reports under t
   `publish-tree-commit.sh` → `close-publish-tree.sh`. Nothing else, anywhere. The caller's checkout
   is byte-identical afterwards: no branch, no worktree, and no `publish-main` ref on origin, so the
   claim protocol's branch scan never sees it.
-- **Who commits the log, and when**: this script, once per tick, at the end of the tick. It is the
-  only writer to the base in the whole skill, and it carries **every** section the checkout has and
-  the base does not — so a tick whose persist failed is carried up by the next tick in the same
-  container.
+- **Who commits the log, and when**: this script, **twice** per tick. `run.sh` runs it as its
+  closing act, and the agent runs it again after recording its `<step>-filed` lines (`SKILL.md`,
+  *The run*) — the agent acts on `needs_agent` only after `run.sh` has returned, so the closing act
+  alone can never carry what the tick filed. It is the only writer to the base in the whole skill,
+  and it carries **every** section the checkout has and the base does not — so a tick whose persist
+  failed is carried up by the next tick in the same container.
 - **Concurrency is a union, not a rebase.** Two containers ticking on the same day both append to
   the same file, and a textual rebase of two end-of-file appends conflicts. So each attempt
-  re-opens the publish tree at a freshly fetched base and appends only the `## <tick-id>` sections
-  the base is missing; a rejected push re-unions rather than replaying a patch. Attempts are
-  bounded (default 3) because sustained divergence is something a human should see.
+  re-opens the publish tree at a freshly fetched base and appends only what the base is missing; a
+  rejected push re-unions rather than replaying a patch. Attempts are bounded (default 3) because
+  sustained divergence is something a human should see.
+- **The union is by `(tick, step)`, not by `(tick)`** (2026-08-18, issue #497). A `## <tick-id>`
+  section the base lacks is appended whole (`sections`); a section it already carries is merged
+  **entry by entry**, appending only the steps its copy lacks, in the checkout's order, at the end
+  of that section (`lines`). Nothing is rewritten, reordered or removed — a `(tick, step)` the base
+  already has wins over a differing local copy, the same append-only-in-substance rule
+  `log-append.sh` applies within a run. By section alone, the second persist above was inert: it
+  asked only whether the base had the section, it did, and every `<step>-filed` line died with the
+  container while the script reported `already_current` and was correct by its own rule.
 - **Aborts, each by name**: `not_a_repo` and `root_not_repo_root` (a `--root` outside the
   repository — the drill's throwaway root — is never published into whatever repository the cwd
   happens to be), `no_log` (nothing was recorded), `no_origin` (`skipped`: a local-only checkout
@@ -265,7 +275,7 @@ half-way still persists what it recorded on its next run, and it reports under t
   `dirty_publish_tree` / `diverged` / `push_failed` / `commit_failed` (`degraded`: the base exists
   and the log did not reach it). A failed persist leaves the log in the checkout and says so; it
   never half-writes.
-- **Its own log line is not on the base, deliberately.** The outcome is known only after the push,
+- **The last persist's own log line is not on the base, deliberately.** The outcome is known only after the push,
   so recording it, pushing again, and recording *that* does not terminate. The base already carries
   the answer: the tick's section is there iff its persist succeeded, and when it did not, the run
   report names the reason. Full rationale, including the rejected pull-request-per-tick

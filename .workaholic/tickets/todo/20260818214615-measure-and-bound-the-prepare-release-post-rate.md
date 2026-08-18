@@ -6,6 +6,7 @@ depends_on:
 feedback: [20260818202549-make-the-housekeep-notification-reflect-the-tick-s-actual-findings.md]
 merge_policy:
 verification_handoff: 
+claim: work-20260818-222423
 ---
 
 # Measure and bound the Prepare Release post rate

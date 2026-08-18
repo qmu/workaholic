@@ -193,3 +193,4 @@ Branch development narratives, one per branch, serving as the PR description and
 * [work-20260818-130809.md](work-20260818-130809.md) - Key Changes falls back to the merge commit body's pull request title, so a story-less merge renders what landed instead of that nothing says what landed
 * [work-20260818-132434.md](work-20260818-132434.md) - A story sentence ends at a period followed by whitespace, so a backticked filename no longer cuts the line and leaves an unclosed backtick
 * [work-20260818-193646.md](work-20260818-193646.md) - The web bootstrap guards user.name on the local scope, so a routine commit renders the developer name instead of Claude
+* [work-20260818-205051.md](work-20260818-205051.md) - The draft release note becomes an agent-authored release plan: a plan seam, substance for story-less merges, the judgment in CI, and the release life in one document

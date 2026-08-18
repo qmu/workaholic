@@ -42,13 +42,47 @@
 # moved. Each merge in the range names its branch, the branch names its story,
 # and the story's title is what reaches `## Key Changes`.
 #
+# WHEN NO STORY JOINED THE MERGE, THE FALLBACK IS THE MERGE COMMIT'S BODY — the
+# pull request's own title (2026-08-18, issue #496). Until then this arm emitted
+# `Pull request #N (branch) — no branch story on the base.`, a line whose entire
+# content is the absence of a summary. It is not a rare fallback but a routine
+# one: a `/propose` pull request is published through the publish tree and
+# auto-merges without ever running `/report`, so it structurally never has a
+# story, and proposal merges are the most frequent merge kind in this repository.
+#
+# THE FALLBACK IS THE BODY, NOT THE SUBJECT, AND THAT DISTINCTION IS THE WHOLE
+# FIX. The reporter proposed falling back to "the merge's own commit subject",
+# and that subject reads `Merge pull request #503 from qmu/work-20260818-130444`
+# — the number and the branch, which is exactly what the placeholder already
+# said. GitHub puts the pull request's TITLE in the merge commit's body, so the
+# informative string is local git data already in the range: no network, no
+# `--enrich`, and byte-identical for an unchanged base.
+#
+# "PREFER MERGES THAT HAVE A STORY" INTRODUCES NO SELECTION (the ticket's Open
+# Decision, resolved here). Three readings were on the table; this is (a),
+# fallback only, order unchanged and chronological:
+#
+#   - (b) Reorder so story-bearing lines come first. Refused: it turns the
+#     section from a timeline into a ranking, which a reader of a release note
+#     does not expect and cannot see the rule for.
+#   - (c) Cap the list and fill the cap with story-bearing merges. Refused: it
+#     silently drops merges, which is the exact failure mode the placeholder was
+#     written to avoid ("a silently shortened list reads as 'nothing else
+#     happened'"). A bounded section is not worth an unbounded lie.
+#
+# The renderer performs no selection today — it emits one line per merge in the
+# whole range — so "prefer" had nothing to act on unless a cap or a reordering
+# were added. With every line now carrying a title, there is nothing left to
+# prefer away FROM: the report's actual complaint (lines that teach a reader
+# nothing) is answered by the fallback alone.
+#
 # `--enrich` IS OFF BY DEFAULT, AND THAT IS THE IDEMPOTENCY CONTRACT SPEAKING.
 # It fetches pull request bodies through `gather/scripts/gh-rest.sh` (REST only —
 # `gh pr` is refused by `rules/shell.md` and by the smoke tests). Remote content
 # can change under an unchanged base, so a daily generator that enriched by
 # default would produce a diff on a day nothing happened. Everything the note
-# needs is already local: the merge subject carries the pull request number and
-# title, and the story carries the reasoning.
+# needs is already local: the merge subject carries the pull request number, its
+# body carries that pull request's title, and the story carries the reasoning.
 #
 # A TARGET WITH NOTHING UNRELEASED RENDERS AN EXPLICIT EMPTY DRAFT, never an
 # error and never an absent file: "nothing is waiting" is a fact a reader came
@@ -168,15 +202,43 @@ while IFS="$US" read -r slug title environment model model_reason \
     # --- Key Changes: the stories behind the merges in the range ---------------
     stories=""
     if [ -n "$RANGE" ]; then
+      # One record per merge, subject and body-title on ONE line so the loop below
+      # keeps its line-at-a-time shape: records are separated by RS, the two fields
+      # by US, and the body is reduced to its first non-empty line (GitHub writes
+      # the pull request's title there) clamped to the same 160 characters the
+      # story sentence uses.
+      MERGE_FMT='%x1e%s%x1f%b'
+      merge_split='
+        BEGIN { RS = "\036" }
+        {
+          if ($0 !~ /[^ \t\n]/) next
+          i = index($0, "\037")
+          if (i == 0) { subj = $0; body = "" }
+          else        { subj = substr($0, 1, i - 1); body = substr($0, i + 1) }
+          gsub(/\n/, " ", subj)
+          sub(/^[ \t]+/, "", subj); sub(/[ \t]+$/, "", subj)
+          n = split(body, line, "\n"); t = ""
+          for (j = 1; j <= n; j++) { if (line[j] ~ /[^ \t]/) { t = line[j]; break } }
+          sub(/^[ \t]+/, "", t); sub(/[ \t]+$/, "", t)
+          if (length(t) > 160) {
+            t = substr(t, 1, 160); sub(/[^ ]*$/, "", t); sub(/[[:space:]]+$/, "", t)
+            t = t "\342\200\246"
+          }
+          print subj "\037" t
+        }'
       if [ -n "$PATHSPEC" ]; then
         # shellcheck disable=SC2086 - PATHSPEC is a built argument list.
-        merges=$(git -C "$ROOT" log --merges --format='%s' "$RANGE" -- $PATHSPEC 2>/dev/null || true)
+        merges=$(git -C "$ROOT" log --merges --format="$MERGE_FMT" "$RANGE" -- $PATHSPEC 2>/dev/null | awk "$merge_split" || true)
       else
-        merges=$(git -C "$ROOT" log --merges --format='%s' "$RANGE" 2>/dev/null || true)
+        merges=$(git -C "$ROOT" log --merges --format="$MERGE_FMT" "$RANGE" 2>/dev/null | awk "$merge_split" || true)
       fi
+      US=$(printf '\037')
       OLD_IFS=$IFS; IFS='
 '
-      for msubject in $merges; do
+      for mrecord in $merges; do
+        msubject=${mrecord%%"$US"*}
+        mtitle=${mrecord#*"$US"}
+        [ "$mtitle" != "$mrecord" ] || mtitle=''
         branch=$(printf '%s' "$msubject" | sed -n 's|.*from [^/]*/\(work-[0-9-]*\).*|\1|p')
         [ -n "$branch" ] || continue
         prnum=$(printf '%s' "$msubject" | sed -n 's|.*pull request #\([0-9]*\).*|\1|p')
@@ -203,9 +265,22 @@ while IFS="$US" read -r slug title environment model model_reason \
         if [ -n "$stitle" ]; then
           stories="${stories}- ${stitle}
 "
+        elif [ -n "$mtitle" ]; then
+          # No story joined this merge — the structural case for every `/propose`
+          # pull request, which auto-merges without ever running `/report`. The
+          # merge commit's body is that pull request's own title, so the line says
+          # what landed instead of saying that nothing says what landed.
+          if [ -n "$prnum" ]; then
+            stories="${stories}- ${mtitle} (#${prnum})
+"
+          else
+            stories="${stories}- ${mtitle}
+"
+          fi
         elif [ -n "$prnum" ]; then
-          # No story joined this merge. Say which merge, rather than dropping it:
-          # a silently shortened list reads as "nothing else happened".
+          # Neither a story nor a title: a merge commit whose body somebody
+          # emptied. Say which merge, rather than dropping it — a silently
+          # shortened list reads as "nothing else happened".
           stories="${stories}- Pull request #${prnum} (\`${branch}\`) — no branch story on the base.
 "
         fi

@@ -14150,6 +14150,7 @@ const tests = [
   ["ship/report-deploy-status.sh: the repository tick reads, and an idle tick is silent", testReportDeployStatus],
   ["prepare-release: the repository routine and its command are a reader", testPrepareReleaseIsAReader],
   ["release note draft: CI writes it, and the tick never attempts to", testTheDraftNoteWriterIsCi],
+  ["release note: Key Changes says what landed, for every merge", testReleaseNoteKeyChangesFallback],
   ["workaholify routines: one template set, applied per repository, drift named per field", testWorkaholifyRoutines],
   ["workaholify bootstrap: without it a web routine is configured but cannot work", testWorkaholifyBootstrap],
   ["workaholify: the wiring halves apply, they do not merely audit", testWorkaholifyApplies],
@@ -15720,6 +15721,93 @@ function testPrepareReleaseIsAReader() {
 // Both halves are pinned mechanically because both are one careless edit away from
 // regressing to a job that fails silently every hour: the cadence must refuse to write
 // without `--write`, and exactly one caller may pass it.
+// ---------- release note: Key Changes says what landed, for every merge ----------
+// (2026-08-18, issue #496) The section emitted `Pull request #N (branch) — no branch
+// story on the base.` for any merge with no story, and a `/propose` pull request
+// structurally never has one — it auto-merges without ever running `/report` — so the
+// commonest merge kind in this repository rendered as a line whose entire content is the
+// absence of a summary. The fallback is the merge commit's BODY, where GitHub puts the
+// pull request's title: local data, so no network and no `--enrich`.
+function testReleaseNoteKeyChangesFallback() {
+  const tmp = mkdtempSync(join(tmpdir(), "workaholic-note-keys-"));
+  const repo = join(tmp, "repo");
+  const DRAFT = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/draft-release-note.sh")}`;
+  const keyChanges = (body) => {
+    const m = /## Key Changes\n([\s\S]*?)(?=\n## |$)/.exec(body);
+    return (m ? m[1] : "").trim().split("\n").filter((l) => l.trim());
+  };
+  try {
+    mkdirSync(join(repo, ".workaholic/stories"), { recursive: true });
+    mkdirSync(join(repo, ".workaholic/deployments"), { recursive: true });
+    execSync("git -c init.defaultBranch=main init -q", { cwd: repo });
+    execSync("git config user.email test@example.com", { cwd: repo });
+    execSync("git config user.name Test", { cwd: repo });
+    execSync("git config commit.gpgsign false", { cwd: repo });
+    writeFileSync(join(repo, ".workaholic/deployments/marketplace.md"),
+      "---\ntype: Deployment\ntarget: marketplace\nenvironment: production\ndeploy_model: deploy-on-merge\n---\n\n# marketplace\n\n## Procedure\n\n1. Merge.\n\n## Confirmation\n\nCheck the release exists.\n");
+    // A story for the first branch only. The second models a /propose merge: published
+    // through the publish tree, auto-merged, and so structurally story-less.
+    writeFileSync(join(repo, ".workaholic/stories/work-20260101-000000.md"),
+      "---\ntype: Story\nbranch: work-20260101-000000\n---\n\n## 1. Overview\n\nThe executor learned to survey again after merging its first unit. More prose that does not belong in the line.\n");
+    execSync("git add -A && git commit -q -m initial", { cwd: repo });
+
+    const merge = (branch, prnum, prTitle) => {
+      execSync(`git checkout -q -b ${branch}`, { cwd: repo });
+      writeFileSync(join(repo, `${branch}.txt`), "x\n");
+      execSync(`git add -A && git commit -q -m "Do the work on ${branch}"`, { cwd: repo });
+      execSync("git checkout -q main", { cwd: repo });
+      // Byte-for-byte GitHub's classic merge commit: number in the subject, PR title in the body.
+      execSync(`git merge -q --no-ff ${branch} -m "Merge pull request #${prnum} from qmu/${branch}" -m "${prTitle}"`, { cwd: repo });
+    };
+    merge("work-20260101-000000", 41, "Fast-forward a detached checkout so a run can survey");
+    merge("work-20260102-000000", 42, "[Proposal] Key Changes renders story-less merges as dead lines");
+
+    const first = JSON.parse(run(repo, `${DRAFT}`).stdout);
+    const lines = keyChanges(first.targets[0].body);
+    assertEq("one line per merge in the range, none dropped", lines.length, 2);
+    assertEq("no line's only content is the absence of a story",
+      lines.filter((l) => /no branch story/.test(l)).length, 0, lines.join("\n"));
+
+    // The story-bearing path is untouched: its Overview sentence, not the merge body.
+    assertTrue("a merge with a story still renders that story's sentence",
+      lines.some((l) => l.includes("The executor learned to survey again after merging its first unit.")),
+      lines.join("\n"));
+    assertTrue("and not its pull request title",
+      !lines.some((l) => l.includes("Fast-forward a detached checkout")), lines.join("\n"));
+
+    // The story-less path carries the merge's own identifying content — the TITLE from
+    // the body, not the subject, which would only restate the number the placeholder gave.
+    assertTrue("a merge with no story renders its pull request title",
+      lines.some((l) => l === "- [Proposal] Key Changes renders story-less merges as dead lines (#42)"),
+      lines.join("\n"));
+    assertTrue("never the bare 'Merge pull request' subject",
+      !lines.some((l) => /Merge pull request/.test(l)), lines.join("\n"));
+
+    // ORDER IS UNCHANGED AND CHRONOLOGICAL — the Open Decision resolved as fallback-only:
+    // no reordering that would rank story-bearing merges, and no cap that would drop any.
+    assertTrue("the newest merge is still listed first", /#42/.test(lines[0]), lines.join("\n"));
+
+    // Clock-free and idempotent: the same base state renders byte-identical output.
+    assertEq("two renders of an unchanged base are identical",
+      run(repo, `${DRAFT}`).stdout, run(repo, `${DRAFT}`).stdout);
+
+    // A merge with NEITHER a story NOR a body still names itself rather than vanishing —
+    // a silently shortened list reads as "nothing else happened".
+    execSync("git checkout -q -b work-20260103-000000", { cwd: repo });
+    writeFileSync(join(repo, "third.txt"), "x\n");
+    execSync('git add -A && git commit -q -m "Third"', { cwd: repo });
+    execSync("git checkout -q main", { cwd: repo });
+    execSync('git merge -q --no-ff work-20260103-000000 -m "Merge pull request #43 from qmu/work-20260103-000000"',
+      { cwd: repo });
+    const bodyless = keyChanges(JSON.parse(run(repo, `${DRAFT}`).stdout).targets[0].body);
+    assertEq("a bodyless, story-less merge is still listed", bodyless.length, 3);
+    assertTrue("naming the merge it could not summarise",
+      bodyless.some((l) => l.includes("#43") && /no branch story/.test(l)), bodyless.join("\n"));
+  } finally {
+    cleanup(tmp);
+  }
+}
+
 function testTheDraftNoteWriterIsCi() {
   const cadence = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/run-note-cadence.sh"), "utf8");
   const wf = readFileSync(join(REPO_ROOT, ".github/workflows/release-note-draft.yml"), "utf8");

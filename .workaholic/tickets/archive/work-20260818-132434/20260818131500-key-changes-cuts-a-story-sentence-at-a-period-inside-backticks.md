@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-18T13:15:00+00:00
+status: done
 author: a@qmu.jp
 assignees: 
 depends_on:
@@ -85,3 +86,55 @@ it in the rendered release, so one story's wording damages a section it does not
   reaching for the more general rule.
 - **Out of scope**: the story-less fallback, fixed on ticket
   `20260818112341-key-changes-renders-story-less-merges-as-dead-lines`.
+
+## Final Report
+
+**Step 1, reproduced.** A hermetic story opening `` `check-version-bump.sh` answered … ``
+rendered as ``- `check-version-bump.`` — an unclosed backtick and a fragment. The assertion
+failed before the change and passes after it.
+
+**Step 2, the rule — measured before it was chosen, as the ticket required.** Both candidates
+were run over the repository's **199** stories with an Overview paragraph:
+
+| Rule | Stories rendering with unbalanced backticks | Abbreviation mis-splits |
+| ---- | ---: | ---: |
+| Current — up to the first `.` | **32** | — |
+| Cheap — `.` followed by whitespace or end-of-line | **1** | **0** |
+
+The cheap rule was adopted, and the backtick-aware alternative the ticket also offered was **not
+needed**: the two rules disagree on 41 of the 199, the cheap one is right on every one of them,
+and `e.g.` / `i.e.` / `etc.` / `vs.` followed by a space appears in **zero** of the 199 first
+sentences. Version numbers are safe by construction (`v1.0.105` has no space after its periods),
+and the old rule cut them mid-number anyway.
+
+**The residual 1 was not the split — it was the clamp**, cutting inside a backtick span 160
+characters in. So the clamp closes a span it opened, before the ellipsis. That is the second half
+of the fix, and it is what makes the acceptance criterion ("balanced backticks") true rather than
+usually-true.
+
+**Both clamps folded into one function** (`CLAMP_FN`, shared textually by the two awk programs).
+This is the `low` concern the previous unit's story deferred to "when the backtick ticket rewrites
+the sentence split, which touches the same pipeline" — that ticket is this one, so it was folded
+here rather than left to drift.
+
+**Acceptance criteria.**
+
+- *A story opening with a backticked filename containing a period renders its whole first
+  sentence, with balanced backticks* — hermetic case asserts the exact line
+  ``- `check-version-bump.sh` answered from a local `main` nothing keeps current.``, balanced,
+  with the following sentence still dropped.
+- *No story-bearing line that rendered correctly before renders differently after* — rendered
+  over `v1.0.179..HEAD` before and after: unbalanced-backtick lines 1 → 0, every other line
+  unchanged. The corpus table above is the same measurement over all 199 stories.
+- *Clock-free and idempotent* — the existing two-render comparison in the same hermetic case
+  still passes, and the real base renders byte-identically twice.
+
+**Verification run.** `node scripts/test-workflow-scripts.mjs` — **3066 passed, 0 failed**
+(5 new assertions). `build.mjs`, `verify.mjs`, `validate-metadata.mjs` clean; `posix-lint.sh`
+conforming.
+
+**One test-fixture correction worth recording.** The first clamp fixture used a 200-character
+unbroken token and did **not** reproduce an open span: the clamp trims back to a word boundary,
+so a single long token is removed whole and takes its opening backtick with it. The span has to
+contain spaces for the cut to land inside it. The fixture, not the code, was wrong — noted
+because the failing assertion looked like a code defect and was not.

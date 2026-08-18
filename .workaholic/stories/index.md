@@ -186,3 +186,4 @@ Branch development narratives, one per branch, serving as the PR description and
 * [work-20260817-173706.md](work-20260817-173706.md) - Unify /fb: every ask becomes an [FB]-marked GitHub issue, with an assignee and one documented fallback
 * [work-20260817-180716.md](work-20260817-180716.md) - Rename /release-status to /fullfill for the one-word command convention; the routine record and the post shape deliberately do not move
 * [work-20260818-073640.md](work-20260818-073640.md) - The thread lookup's case 3 now searches the originating Issue or pull-request URL and never one the run itself created; the two effort-ceiling reversals stay the operator's
+* [work-20260818-083716.md](work-20260818-083716.md) - The version-bump predicate now measures against the resolved base and matches on the commit subject; its degraded read names its reason and bumps

@@ -46,14 +46,52 @@
 #
 # CONFLICT TOLERANCE IS A UNION, NOT A REBASE. Two containers ticking in the
 # same minute both append to the same day file, and a textual rebase of two
-# end-of-file appends conflicts. So the merge is done BY SECTION against a
-# freshly fetched base on every attempt: whatever `## <tick-id>` sections the
-# base already carries are left untouched, and only the sections this checkout
-# has and the base does not are appended. A rejected push therefore does not
-# retry the same patch — it re-opens the publish tree at the new base and
-# re-unions, so both ticks land and neither erases the other. Attempts are
-# bounded (`--attempts`, default 3): sustained divergence is something a human
-# should see, not something a loop should hide.
+# end-of-file appends conflicts. So the merge is done against a freshly fetched
+# base on every attempt: whatever the base already carries is left untouched, and
+# only what this checkout has and the base does not is appended. A rejected push
+# therefore does not retry the same patch — it re-opens the publish tree at the
+# new base and re-unions, so both ticks land and neither erases the other.
+# Attempts are bounded (`--attempts`, default 3): sustained divergence is
+# something a human should see, not something a loop should hide.
+#
+# THE UNION IS BY `(tick, step)`, NOT BY `(tick)` (2026-08-18, issue #497,
+# ticket `20260818064158-carry-the-tick-log-step-filed-lines-to-the-base`). It
+# was by section until then, and that made a whole class of line permanently
+# unreachable: `run.sh` runs this script as its closing act, but the agent acts
+# on `needs_agent` only AFTER `run.sh` returns, so every `<step>-filed` line —
+# what the tick FILED, as opposed to what it found — is appended to the checkout
+# after the persist has already landed the section. A second persist could not
+# carry them either: by-section union asks only "does the base have `## <tick>`?",
+# and it does, so it reported `already_current` and was correct by its own rule
+# while the lines died with the container. Measured on tick `20260818-063819`,
+# and invisible to a hand-run because a hand-run's checkout survives.
+#
+# So a section the base already carries is now merged LINE-WISE: for each of this
+# checkout's entries in that section, the base's copy is asked whether it already
+# has a line for that STEP, and only the steps it lacks are appended, in this
+# checkout's order, at the end of that section. Nothing is rewritten, reordered
+# or removed — a `(tick, step)` the base already has WINS over a differing local
+# copy, which keeps the log append-only in substance exactly as `log-append.sh`'s
+# refusal to rewrite an earlier line does, and keeps two containers sharing one
+# section (a resumed tick keeps its id) from clobbering each other's entries.
+#
+# THE OTHER TWO FORKS, AND WHY THIS ONE. The feedback record named three:
+#
+#   - "Persist twice." Not an alternative but the other half of this one: a
+#     second persist is what the agent now runs after recording its `<step>-filed`
+#     lines (`workaholic:housekeep`, *The run*), and it is inert unless the union
+#     can update a section that has already landed — which is this change. Both
+#     halves ship together; either alone fixes nothing.
+#   - "Move the agent's filing before the persist." Refused. It takes the closing
+#     act away from `run.sh`, which is the one thing that guarantees a tick that
+#     dies part-way still puts what it recorded on the base. A tick that died
+#     between the ninth step and the agent's filing would then persist NOTHING,
+#     where today it at least persists every probe line — trading a missing
+#     subset of the log for a missing whole one.
+#
+# The second persist is the agent's act, so `run.sh` is unchanged: it still owns
+# its closing act, and the extra persist is idempotent (`already_current` when
+# the agent filed nothing).
 #
 # IT CARRIES EVERY MISSING SECTION, NOT JUST THIS TICK'S. A tick whose persist
 # failed leaves its section behind in the checkout; the next tick in the same
@@ -61,13 +99,16 @@
 # a diverged publish commit — the checkout's day file, never this script's
 # working state, is the source.
 #
-# THE PERSIST'S OWN LOG LINE IS NOT ON THE BASE, AND DOES NOT NEED TO BE. The
-# outcome is known only after the push, so a line recording it could only be
+# THE LAST PERSIST'S OWN LOG LINE IS NOT ON THE BASE, AND DOES NOT NEED TO BE.
+# The outcome is known only after the push, so a line recording it could only be
 # written afterwards — and writing it, pushing again, and recording THAT does not
 # terminate. It is written into the checkout (where a hand-run and the run report
 # read it) and the base gets the evidence that actually answers the question:
 # the tick's section is there iff its persist succeeded, and when it did not the
-# run report names the reason. `run.sh` logs it under the step id `persist-log`.
+# run report names the reason. `run.sh` logs it under the step id `persist-log`;
+# since the agent persists again afterwards, that line now does reach the base,
+# and it is the SECOND persist's outcome — reported in the session, never
+# logged — that stays off it, for the same non-terminating reason.
 #
 # Usage:
 #   persist-log.sh --tick <YYYYMMDD-HHMMSS> [--root <repo-root>] [--base <branch>]
@@ -75,8 +116,13 @@
 #
 # Output: one JSON line
 #   {"persisted": true|false, "status": "filed|ok|skipped|degraded", "reason": "<stable>",
-#    "summary": "<one line>", "sections": <n>, "attempts": <n>, "changed": true|false,
-#    "sha": "<pushed sha>", "closed": true|false, "close_reason": "<reason>"}
+#    "summary": "<one line>", "sections": <n>, "lines": <n>, "attempts": <n>,
+#    "changed": true|false, "sha": "<pushed sha>", "closed": true|false,
+#    "close_reason": "<reason>"}
+#
+# `sections` counts whole `## <tick>` sections appended; `lines` counts entries
+# merged into a section the base already carried. A persist that carried only
+# late `<step>-filed` lines reports `sections: 0` with a non-zero `lines`.
 #
 # `status` is the tick log's closed vocabulary. Stable reasons:
 #   persisted | already_current | no_log | not_a_repo | root_not_repo_root
@@ -117,10 +163,10 @@ json_escape() {
 }
 
 report() {
-    # $1 persisted  $2 status  $3 reason  $4 summary  $5 sections  $6 attempts
-    # $7 changed  $8 sha  $9 closed  $10 close_reason
-    printf '{"persisted": %s, "status": "%s", "reason": "%s", "summary": "%s", "sections": %s, "attempts": %s, "changed": %s, "sha": "%s", "closed": %s, "close_reason": "%s"}\n' \
-        "$1" "$2" "$3" "$(json_escape "$4")" "$5" "$6" "$7" "$8" "$9" "${10}"
+    # $1 persisted  $2 status  $3 reason  $4 summary  $5 sections  $6 lines
+    # $7 attempts  $8 changed  $9 sha  $10 closed  $11 close_reason
+    printf '{"persisted": %s, "status": "%s", "reason": "%s", "summary": "%s", "sections": %s, "lines": %s, "attempts": %s, "changed": %s, "sha": "%s", "closed": %s, "close_reason": "%s"}\n' \
+        "$1" "$2" "$3" "$(json_escape "$4")" "$5" "$6" "$7" "$8" "$9" "${10}" "${11}"
     exit 0
 }
 
@@ -128,7 +174,7 @@ DAY=$(printf '%s' "$TICK" | cut -c1-4)-$(printf '%s' "$TICK" | cut -c5-6)-$(prin
 LOG_REL=".workaholic/housekeeping/${DAY}.md"
 
 if [ ! -d "$ROOT" ]; then
-    report false skipped not_a_repo "the log root ${ROOT} does not exist" 0 0 false '' false ''
+    report false skipped not_a_repo "the log root ${ROOT} does not exist" 0 0 0 false '' false ''
 fi
 root_abs=$(cd -- "$ROOT" && pwd)
 
@@ -139,15 +185,15 @@ root_abs=$(cd -- "$ROOT" && pwd)
 # repository's history is the one way this script could do real damage.
 repo_root=$(git -C "$root_abs" rev-parse --show-toplevel 2>/dev/null || printf '')
 if [ -z "$repo_root" ]; then
-    report false skipped not_a_repo "the log root is not inside a git repository, so there is no base to publish to" 0 0 false '' false ''
+    report false skipped not_a_repo "the log root is not inside a git repository, so there is no base to publish to" 0 0 0 false '' false ''
 fi
 if [ "$root_abs" != "$repo_root" ]; then
-    report false skipped root_not_repo_root "the log root is not the repository root (${root_abs} vs ${repo_root})" 0 0 false '' false ''
+    report false skipped root_not_repo_root "the log root is not the repository root (${root_abs} vs ${repo_root})" 0 0 0 false '' false ''
 fi
 
 LOCAL_LOG="${root_abs}/${LOG_REL}"
 if [ ! -f "$LOCAL_LOG" ]; then
-    report false skipped no_log "no tick log at ${LOG_REL} to persist" 0 0 false '' false ''
+    report false skipped no_log "no tick log at ${LOG_REL} to persist" 0 0 0 false '' false ''
 fi
 
 # --- the union ---------------------------------------------------------------
@@ -168,6 +214,12 @@ CLOSED=false
 CLOSE_REASON=''
 attempt=0
 carried=0
+merged_lines=0
+
+# Scratch for the line-wise union. Outside the repository and the publish tree,
+# so a run that dies mid-merge leaves neither carrying a stray file.
+WORK=$(mktemp -d)
+trap 'rm -rf "$WORK"' EXIT
 
 while [ "$attempt" -lt "$ATTEMPTS" ]; do
     attempt=$((attempt + 1))
@@ -188,40 +240,97 @@ while [ "$attempt" -lt "$ATTEMPTS" ]; do
                 no_origin) st=skipped ;;
                 *)         st=degraded ;;
             esac
-            report false "$st" "$reason" "the publish tree would not open (${reason}); the log stays in the checkout" 0 "$attempt" false '' false ''
+            report false "$st" "$reason" "the publish tree would not open (${reason}); the log stays in the checkout" 0 0 "$attempt" false '' false ''
             ;;
     esac
 
     publish_path="${repo_root}/.publish"
     target="${publish_path}/${LOG_REL}"
 
-    if [ ! -f "$target" ]; then
+    # An absent OR empty target takes the whole file: the two-file readers below
+    # distinguish their inputs by which one they saw first, and an empty base
+    # copy would make every local line read as one the base already has.
+    if [ ! -s "$target" ]; then
         mkdir -p "$(dirname -- "$target")"
         cp "$LOCAL_LOG" "$target"
         carried=$(printf '%s\n' "$local_ticks" | grep -c '[^[:space:]]' || true)
+        merged_lines=0
     else
         carried=0
+        merged_lines=0
         for t in $local_ticks; do
-            if grep -q "^## ${t}\$" "$target"; then
+            if ! grep -q "^## ${t}\$" "$target"; then
+                # Heading plus body, with the section's trailing blank lines dropped
+                # so appended sections stay one blank line apart however the source
+                # was spaced.
+                section=$(awk -v head="## $t" '
+                    $0 == head { inside = 1; print; next }
+                    inside && substr($0, 1, 3) == "## " { exit }
+                    inside { print }
+                ' "$LOCAL_LOG" | awk '{ lines[NR] = $0 } END { last = NR; while (last > 0 && lines[last] ~ /^[[:space:]]*$/) last--; for (i = 1; i <= last; i++) print lines[i] }')
+                [ -n "$section" ] || continue
+                printf '\n%s\n' "$section" >> "$target"
+                carried=$((carried + 1))
                 continue
             fi
-            # Heading plus body, with the section's trailing blank lines dropped
-            # so appended sections stay one blank line apart however the source
-            # was spaced.
-            section=$(awk -v head="## $t" '
-                $0 == head { inside = 1; print; next }
-                inside && substr($0, 1, 3) == "## " { exit }
-                inside { print }
-            ' "$LOCAL_LOG" | awk '{ lines[NR] = $0 } END { last = NR; while (last > 0 && lines[last] ~ /^[[:space:]]*$/) last--; for (i = 1; i <= last; i++) print lines[i] }')
-            [ -n "$section" ] || continue
-            printf '\n%s\n' "$section" >> "$target"
-            carried=$((carried + 1))
+
+            # The section is already on the base: union its ENTRIES by step id.
+            # `key()` is the step slug out of "- `<step>`: <status> — <summary>",
+            # so a line whose `(tick, step)` the base already carries is left
+            # exactly as the base has it, whatever this checkout says — the same
+            # append-only-in-substance rule `log-append.sh` applies within a run.
+            awk -v head="## $t" '
+                function key(line,   rest, i) {
+                    if (substr(line, 1, 3) != "- `") return "=" line
+                    rest = substr(line, 4)
+                    i = index(rest, "`: ")
+                    if (i == 0) return "=" line
+                    return substr(rest, 1, i - 1)
+                }
+                FNR == 1 { fileno++ }
+                fileno == 1 {
+                    if ($0 == head) { inside = 1; next }
+                    if (inside && substr($0, 1, 3) == "## ") { inside = 0 }
+                    if (inside && substr($0, 1, 3) == "- `") seen[key($0)] = 1
+                    next
+                }
+                {
+                    if ($0 == head) { mine = 1; next }
+                    if (mine && substr($0, 1, 3) == "## ") { mine = 0 }
+                    if (!mine || substr($0, 1, 3) != "- `") next
+                    k = key($0)
+                    if (k in seen) next
+                    seen[k] = 1
+                    print
+                }
+            ' "$target" "$LOCAL_LOG" > "$WORK/missing"
+
+            [ -s "$WORK/missing" ] || continue
+            n=$(grep -c '' "$WORK/missing")
+
+            # Inserted at the END of that section, in this checkout's order, with
+            # the section's trailing blank lines held back so the new entries land
+            # against the last one rather than after the section break.
+            awk -v head="## $t" -v missfile="$WORK/missing" '
+                BEGIN { n = 0; while ((getline l < missfile) > 0) miss[++n] = l }
+                function release(   i) { for (i = 1; i <= held; i++) print hold[i]; held = 0 }
+                function emit(   i) { if (inside && !done) { for (i = 1; i <= n; i++) print miss[i]; done = 1 } }
+                {
+                    if ($0 == head) { release(); print; inside = 1; next }
+                    if (substr($0, 1, 3) == "## ") { emit(); release(); inside = 0; print; next }
+                    if (inside && NF == 0) { hold[++held] = $0; next }
+                    release(); print
+                }
+                END { emit(); release() }
+            ' "$target" > "$WORK/merged"
+            cat "$WORK/merged" > "$target"
+            merged_lines=$((merged_lines + n))
         done
     fi
 
     if [ -z "$(git -C "$publish_path" status --porcelain -- "$LOG_REL" 2>/dev/null)" ]; then
         close_tree
-        report true ok already_current "every section of ${DAY} is already on ${BASE}" 0 "$attempt" false '' "$CLOSED" "$CLOSE_REASON"
+        report true ok already_current "every line of ${DAY} is already on ${BASE}" 0 0 "$attempt" false '' "$CLOSED" "$CLOSE_REASON"
     fi
 
     commit_out=$(cd "$repo_root" && sh "${BRANCHING}/publish-tree-commit.sh" \
@@ -237,11 +346,11 @@ while [ "$attempt" -lt "$ATTEMPTS" ]; do
         *'"ok": true'*)
             sha=$(printf '%s' "$commit_out" | sed -n 's/.*"sha": "\([^"]*\)".*/\1/p')
             close_tree
-            report true filed persisted "${carried} tick section(s) of ${DAY} recorded on ${BASE}" "$carried" "$attempt" true "$sha" "$CLOSED" "$CLOSE_REASON"
+            report true filed persisted "${carried} tick section(s) and ${merged_lines} late line(s) of ${DAY} recorded on ${BASE}" "$carried" "$merged_lines" "$attempt" true "$sha" "$CLOSED" "$CLOSE_REASON"
             ;;
         *'"reason": "nothing_to_commit"'*)
             close_tree
-            report true ok already_current "every section of ${DAY} is already on ${BASE}" 0 "$attempt" false '' "$CLOSED" "$CLOSE_REASON"
+            report true ok already_current "every line of ${DAY} is already on ${BASE}" 0 0 "$attempt" false '' "$CLOSED" "$CLOSE_REASON"
             ;;
         *'"reason": "diverged"'*|*'"reason": "push_failed"'*)
             # The base moved under us. Re-open (which resets the publish branch to
@@ -254,11 +363,11 @@ while [ "$attempt" -lt "$ATTEMPTS" ]; do
             reason=$(printf '%s' "$commit_out" | sed -n 's/.*"reason": "\([^"]*\)".*/\1/p')
             [ -n "$reason" ] || reason=commit_failed
             close_tree
-            report false degraded "$reason" "the log could not be committed to ${BASE} (${reason}); it stays in the checkout" "$carried" "$attempt" true '' "$CLOSED" "$CLOSE_REASON"
+            report false degraded "$reason" "the log could not be committed to ${BASE} (${reason}); it stays in the checkout" "$carried" "$merged_lines" "$attempt" true '' "$CLOSED" "$CLOSE_REASON"
             ;;
     esac
 done
 
 [ -n "${reason:-}" ] || reason=diverged
 close_tree
-report false degraded "$reason" "the base moved under ${ATTEMPTS} attempts (${reason}); the log stays in the checkout" "$carried" "$ATTEMPTS" true '' "$CLOSED" "$CLOSE_REASON"
+report false degraded "$reason" "the base moved under ${ATTEMPTS} attempts (${reason}); the log stays in the checkout" "$carried" "$merged_lines" "$ATTEMPTS" true '' "$CLOSED" "$CLOSE_REASON"

@@ -188,3 +188,4 @@ Branch development narratives, one per branch, serving as the PR description and
 * [work-20260818-073640.md](work-20260818-073640.md) - The thread lookup's case 3 now searches the originating Issue or pull-request URL and never one the run itself created; the two effort-ceiling reversals stay the operator's
 * [work-20260818-083716.md](work-20260818-083716.md) - The version-bump predicate now measures against the resolved base and matches on the commit subject; its degraded read names its reason and bumps
 * [work-20260818-113659.md](work-20260818-113659.md) - sync-main.sh §1b fast-forwards a detached, clean, strictly-behind checkout, so an /implement tick can survey again after it merges its first unit
+* [work-20260818-123734.md](work-20260818-123734.md) - The housekeep persist unions by (tick, step) and runs again after the agent files, so the tick log's step-filed lines reach the base

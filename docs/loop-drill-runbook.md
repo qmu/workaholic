@@ -29,7 +29,7 @@ Run every command from the repository root, on a clean `main`.
 | 4 | Fire `[Implement]` | run the `[Implement]` routine by its trigger id | — |
 | 5 | Verify implement | `sh scripts/e2e/loop-drill.sh verify-implement <issue> --json` | `origin/main`, REST pull requests, unmerged `work-*` branches |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-plan --json` | this checkout's deployment targets and commit range — proves the plan refresh `[Implement]` carries |
-| — | Any time | `sh scripts/e2e/loop-drill.sh verify-status --json` | the same targets read the `[Release Status]` way — proves the repository tick reads soundly and stays silent when nothing changed |
+| — | Any time | `sh scripts/e2e/loop-drill.sh verify-status --json` | the same targets read the `[Prepare Release]` way — proves the repository tick reads soundly and stays silent when nothing changed |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-cadence --json` | the same targets' **draft notes** — proves the daily generation renders, is idempotent and clock-free, and derives its stage |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-standup --json` | this checkout's strategies and their attributable work — proves the daily digest reads soundly, names its silence and writes nothing |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-housekeep --json` | one `[Housekeep]` tick against a throwaway root — proves every step reports, the log carries one section per tick, and the checkout is untouched |
@@ -210,14 +210,14 @@ load-bearing rows, all three of which the carrier depends on:
 A red `plan_idempotent` is the one to act on first: it does not break a single ship, it
 breaks the *periodic* property the whole refresh rests on.
 
-## 5c. The `[Release Status]` read
+## 5c. The `[Prepare Release]` read
 
 `verify-status` needs no seed, no fire and no issue number either, and it writes
 nothing anywhere — which is the routine's whole contract, so a drill that asserted it by
 construction is the point rather than a convenience.
 
-`[Release Status]` (repository scope, `45 * * * *`, configured by `/setup-repo-routines`
-from **one** account) runs `/fullfill`, a pure read. On a healthy quiet repository
+`[Prepare Release]` (repository scope, `45 * * * *`, configured by `/setup-repo-routines`
+from **one** account) runs `/prepare-release`, a pure read. On a healthy quiet repository
 its correct output is *no Slack message at all*, which makes "did it work?" unanswerable
 by watching the channel. Three load-bearing rows:
 
@@ -238,7 +238,7 @@ that merely advanced is not news.
 nothing. It exists for the same reason as `5c`: the behaviour it covers is otherwise only
 observable by **waiting a day** and then reading a GitHub draft release.
 
-The generation rides the same `[Release Status]` tick (one repository-scoped routine, both
+The generation rides the same `[Prepare Release]` tick (one repository-scoped routine, both
 jobs — `workaholic:ship` §7, *The cadence*). It is bounded to once per `Asia/Tokyo` day,
 refreshes immediately whenever the release stage advances, and writes only a GitHub
 **draft** release — never a file, a commit or a branch. Four load-bearing rows:

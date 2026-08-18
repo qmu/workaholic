@@ -1,7 +1,8 @@
 ---
 type: Routine Template
-id: release-status
-name: "[Release Status] {repo_name}"
+id: prepare-release
+name: "[Prepare Release] {repo_name}"
+renamed_from: "[Release Status] {repo_name}"
 scope: repository
 trigger: schedule-hourly
 trigger_kind: schedule
@@ -12,19 +13,30 @@ allowed_tools: [Bash, Read, Glob, Grep]
 mcp: [Slack]
 ---
 
-# [Release Status] — the repository's one tick, and it writes nothing into the tree
+# [Prepare Release] — the repository's one tick, and it writes nothing into the tree
 
-**The routine record keeps its name; only the command it invokes was renamed** (2026-08-17,
-the ticket's Open Decision 2). `/release-status` became `/fullfill`, and this template's
-`id:`, `name:` and filename deliberately did **not** follow. `/setup-repo-routines`
-converges an account's routines **by name**, so renaming the record here would not rename
-the operator's existing routine — the next convergence would create a *second* one, and a
-routine is an account-level record no other account can list or delete, so the old
-`[Release Status]` would keep firing hourly beside it until its owner removed it by hand.
-A rename whose only effect is a duplicate nobody else can clean up is not a rename. The
-post shape (`📦 Release status`, keyed on `deploy:<digest>`) is untouched for the adjacent
-reason: it names the **event**, not the command, and the prefix is the notify lookup's own
-exact-string dedup key — changing it would post one duplicate line at the cutover.
+**The record moved with the command this time, and it owes the operator a cutover**
+(2026-08-18, issue #485). `/fullfill` became `/prepare-release` and this template's `id:`,
+`name:` and filename followed, reversing the 2026-08-17 decision that deliberately held
+them back. The mechanics that decision named have not gone away — `/setup-repo-routines`
+converges an account's routines **by name**, so the next convergence **creates a second
+routine** rather than renaming the operator's existing one, and a routine is an
+account-level record no other account can list or delete. So the rename ships **with** its
+one-time instruction instead of instead of it: an account already running
+`[Release Status] <repo>` must **rename that routine in the UI**, not create a second, and
+nothing in the plugin can detect or remove a duplicate on another account. The
+`renamed_from:` field above is what carries that instruction into
+`/setup-repo-routines`' report and its setup sheet; **delete the field once the fleet has
+cut over** — it describes a migration, not the routine.
+
+**The post shape moved too** (same change, the ticket's Open Decision 1): the root is
+`📦 Prepare release`, not `📦 Release status`. The reason the 2026-08-17 ticket left it
+alone — "the prefix is the notify lookup's own exact-string dedup key, so changing it
+posts one duplicate line at the cutover" — was simply **not true**: the lookup searches
+`` `deploy:<digest>` `` and never the prefix (`workaholic:notify`, *The repository tick's
+status line*), so the heading carries no dedup weight and the cutover costs nothing. With
+its one measured cost gone, the tie broke toward the ask's own stated goal — a heading
+consistent with the command name.
 
 **`scope: repository`** — the repository needs exactly **one** of this routine, configured
 by one designated person or a project/service account through `/setup-repo-routines`.
@@ -74,14 +86,14 @@ does not appear at all, because this line links no pull request.
 
 ## Prompt
 
-Run `/fullfill`.
+Run `/prepare-release`.
 
-If the command or its skills did not load, do not stop: run `bash plugins/workaholic/skills/check-deps/scripts/plugin-src.sh` from the checkout, take its `src`, then read `<src>/commands/fullfill.md` and follow it with every script path under `<src>`.
+If the command or its skills did not load, do not stop: run `bash plugins/workaholic/skills/check-deps/scripts/plugin-src.sh` from the checkout, take its `src`, then read `<src>/commands/prepare-release.md` and follow it with every script path under `<src>`.
 
 If something is waiting and the exact-string search for the digest token finds no earlier post, post this one line as a new top-level message (the workaholic:notify lookup) — no mention token of any kind:
 
 ```
-📦 Release status - <N> commit(s) waiting on <target>
+📦 Prepare release - <N> commit(s) waiting on <target>
 One sentence, max 25 words, what a human must do (cut a release, declare a confirmation method).
 Draft note: <draft release URL>
 `deploy:<digest>`

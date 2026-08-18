@@ -2,7 +2,7 @@
 
 Companion to `SKILL.md` §5. The standing rules live in the SKILL; this file carries the measurements, the retirement records, and the rejected alternatives.
 
-**Reading the command name below.** Everything dated before 2026-08-14 says `/setup-routines`, and it is kept as written because it is what was decided and measured at the time. On 2026-08-14 (issue #451) that one command **split by routine scope** into `/setup-dev-routines` (the `developer`-scoped `[Propose]`/`[Implement]`) and `/setup-repo-routines` (the `repository`-scoped `[Release Status]` and, since 2026-08-17, `[Standup]` — converged from one account). The flow, the `no_transport` refusal and the sheet-as-recovery-path are identical in both; only the template set differs, and every finding recorded here applies unchanged to each. The old name is removed rather than aliased (`SKILL.md` §5, *Two scopes, two commands*).
+**Reading the command name below.** Everything dated before 2026-08-14 says `/setup-routines`, and it is kept as written because it is what was decided and measured at the time. On 2026-08-14 (issue #451) that one command **split by routine scope** into `/setup-dev-routines` (the `developer`-scoped `[Propose]`/`[Implement]`) and `/setup-repo-routines` (the `repository`-scoped `[Prepare Release]` — named `[Release Status]` until 2026-08-18 — and, since 2026-08-17, `[Standup]`, converged from one account). The flow, the `no_transport` refusal and the sheet-as-recovery-path are identical in both; only the template set differs, and every finding recorded here applies unchanged to each. The old name is removed rather than aliased (`SKILL.md` §5, *Two scopes, two commands*).
 
 ## The trigger surface, measured (2026-08-05/06)
 

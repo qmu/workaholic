@@ -12,7 +12,7 @@
 #
 # ── ONE ROUTINE OR TWO (the Open Decision, ruled 2026-08-17) ──
 #
-# ONE. The generation rides the existing repository-scoped `[Release Status]` tick
+# ONE. The generation rides the existing repository-scoped `[Prepare Release]` tick
 # rather than adding a fourth routine, and the routine STAYS HOURLY.
 #
 #   (c) fold into `[Implement]` — ruled out by the scope reasoning of 2026-08-14
@@ -32,7 +32,7 @@
 # WHY THE ROUTINE IS STILL NOT A REPOSITORY WRITER. Under the sync ruling
 # (`workaholic:ship`, *The two copies*) the draft lives in a GitHub draft release,
 # so the generation writes NO file, NO commit and NO branch. The property
-# `release-status.md` defends — an `allowed_tools` with no `Write`/`Edit` — survives
+# `prepare-release.md` defends — an `allowed_tools` with no `Write`/`Edit` — survives
 # this change untouched, and the 2026-08-13 objection that an hourly agent rewriting
 # a document on `main` is a new class of unattended write never comes due, because
 # no write to `main` happens.

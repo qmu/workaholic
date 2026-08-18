@@ -38,11 +38,11 @@ commands and both setup sheets read this field, so nothing else has to move with
 
 **Fires at :50** — the API's minimum interval is one hour, a bare `:00` minute is rewritten to
 server jitter, and `15` / `30` / `45` are taken by `[Propose]`, `[Implement]` and
-`[Release Status]`. Landing last in the hour is deliberate: the tick reads what the other three
+`[Prepare Release]`. Landing last in the hour is deliberate: the tick reads what the other three
 have just done.
 
 **`autofix_on_pr_create: true`, and `Write`/`Edit` are granted rather than inherited.** This
-routine is not a pure reader like `[Release Status]`: it writes its own tick log under
+routine is not a pure reader like `[Prepare Release]`: it writes its own tick log under
 `.workaholic/housekeeping/`, and filing a finding means writing a feedback record or a ticket —
 which publishes behind a pull request, exactly as `/propose` does. A pull request this routine
 opened and then left red is a stuck artifact nobody owns, so the flag is `true` for the same

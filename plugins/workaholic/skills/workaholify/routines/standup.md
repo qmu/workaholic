@@ -18,7 +18,7 @@ mcp: [Slack]
 one designated person or a project/service account through `/setup-repo-routines`. The scope
 is deliberate rather than inherited: a per-strategy digest describes the **repository**, not a
 developer, so N developers' copies would post the same digest N times each morning — the
-failure the scope was introduced for on 2026-08-14 (issue #451). `[Release Status]` is the
+failure the scope was introduced for on 2026-08-14 (issue #451). `[Prepare Release]` is the
 precedent this template follows in every frontmatter value.
 
 **It is a reader.** No file, no commit, no branch, no pull request, no merge, no deployment —

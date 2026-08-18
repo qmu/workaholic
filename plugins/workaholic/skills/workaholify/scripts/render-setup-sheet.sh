@@ -97,6 +97,15 @@ sheet() {
     _cron=$(fm_field "$_file" cron_expression)
     _autofix=$(fm_field "$_file" autofix_on_pr_create)
     _mcp=$(fm_field "$_file" mcp)
+    # A rename is the one thing the convergence CANNOT do for the operator: it matches an
+    # account's routines by NAME, so a renamed template creates a second routine beside the
+    # old one rather than renaming it — and a routine is an account-level record no other
+    # account can list or delete. `renamed_from:` is therefore carried into the sheet as an
+    # instruction to a human, derived from the template like every other step here rather
+    # than written into prose somebody has to remember to delete. The field is deleted from
+    # the template once the fleet has cut over, and the note disappears with it.
+    _renamed_from=$(fm_field "$_file" renamed_from \
+        | sed -e 's/^"//' -e 's/"$//' -e "s#{repo_name}#${_repo_name}#g")
 
     printf '## %s\n\n' "$_name"
     case "$_scope" in
@@ -104,6 +113,14 @@ sheet() {
         developer)  printf 'Scope: **developer** — each developer creates their own copy.\n\n' ;;
         *)          printf 'Scope: **undeclared** — the template declares no `scope:`; treat that as a defect.\n\n' ;;
     esac
+    if [ -n "$_renamed_from" ]; then
+        printf '> **Already running `%s`? Rename that routine — do not create a second.**\n' "$_renamed_from"
+        printf '> This routine was renamed, and convergence matches an account'\''s routines by name,\n'
+        printf '> so creating a new one leaves the old one firing on its own schedule beside it.\n'
+        printf '> A routine is an account-level record: nothing in this plugin — and no other\n'
+        printf '> account — can detect or delete your duplicate. Open the old routine, change its\n'
+        printf '> name to `%s`, and apply the fields below to it.\n\n' "$_name"
+    fi
     printf 'Open <%s> and click **New routine**, then:\n\n' "$ROUTINES_URL"
     printf '1. **Name**: `%s`\n' "$_name"
     printf '2. **Model**: `%s`\n' "$_model"

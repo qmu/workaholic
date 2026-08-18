@@ -12190,6 +12190,97 @@ function testSyncMain() {
   }
 }
 
+// §1b: the sequel to §1a, measured 2026-08-18 (tickets `20260818070000` and
+// `20260818075500`). §1a admits the cloud container's DETACHED checkout only while it
+// stands on the base's exact tip. A run that merges its first unit advances
+// origin/main, leaves its own checkout one commit behind, and every later freshen in
+// the same run refused `not_on_main` -- so an `/implement` tick drove at most ONE
+// PR-unit, penalised precisely for succeeding. The fixture models the discard the way
+// the loop actually experiences it: origin/main advances by ARCHIVING a ticket (what a
+// merged unit does), and the assertion is that the next survey sees the base's real
+// queue rather than the ticket the run already drove.
+function testSyncMainDetachedBehind() {
+  const { origin, A, B } = makePublishFixture();
+  const SYNC = `${POSIX_SH} ${SCRIPTS.syncMain}`;
+  const PLAN = `${POSIX_SH} ${SCRIPTS.planUnits}`;
+  const TODO = `.workaholic/tickets/todo/${TEST_SLUG}`;
+  try {
+    // Two queued tickets on the base -- the two units a tick would survey.
+    mkdirSync(join(B, TODO), { recursive: true });
+    for (const [name, title] of [["20260818070000-first", "First"], ["20260818075500-second", "Second"]]) {
+      writeFileSync(join(B, `${TODO}/${name}.md`),
+        `---\ncreated_at: 2026-08-18T07:00:00+00:00\nassignees: []\n---\n\n# ${title}\n`);
+    }
+    execSync("git add -A && git commit -q -m 'Add two queued tickets' && git push -q origin main", { cwd: B });
+
+    // The container's shape: DETACHED at origin/main's tip, clean.
+    execSync("git fetch -q origin main && git checkout -q --detach origin/main", { cwd: A });
+    let r = JSON.parse(run(A, SYNC).stdout);
+    assertEq("a detached checkout on the base tip passes §1a unmoved",
+      { ok: r.ok, off_base: r.off_base, advanced: r.advanced, branch: r.branch },
+      { ok: true, off_base: true, advanced: false, branch: "" });
+    const parkedSha = execSync("git rev-parse HEAD", { cwd: A, encoding: "utf8" }).trim();
+
+    // The run merges its first unit: origin/main advances and the first ticket leaves
+    // the queue. THE REPRODUCTION -- before §1b this answered `not_on_main`.
+    rmSync(join(B, `${TODO}/20260818070000-first.md`));
+    execSync("git add -A && git commit -q -m 'Archive the first unit' && git push -q origin main", { cwd: B });
+    const advancedSha = execSync("git rev-parse main", { cwd: B, encoding: "utf8" }).trim();
+
+    r = JSON.parse(run(A, SYNC).stdout);
+    assertEq("a detached checkout strictly behind the base is fast-forwarded, not refused",
+      { ok: r.ok, off_base: r.off_base, advanced: r.advanced, fast_forwarded: r.fast_forwarded },
+      { ok: true, off_base: true, advanced: true, fast_forwarded: true });
+    assertEq("and the JSON says where it came from, so the caller reports a move",
+      { previous_sha: r.previous_sha, sha: r.sha }, { previous_sha: parkedSha, sha: advancedSha });
+    assertEq("the checkout actually moved to the base tip",
+      execSync("git rev-parse HEAD", { cwd: A, encoding: "utf8" }).trim(), advancedSha);
+    assertTrue("it is still detached -- no branch was created to hold it",
+      execSync("git branch --show-current", { cwd: A, encoding: "utf8" }).trim() === "");
+    assertEq("and the tree is clean afterwards",
+      execSync("git status --porcelain", { cwd: A, encoding: "utf8" }).trim(), "");
+
+    // The property the ticket exists to restore: a second unit is surveyable across
+    // the intervening merge, and the merged unit's ticket is ABSENT from the backlog.
+    const survey = JSON.parse(run(A, PLAN).stdout);
+    assertEq("the survey after the merge is current", survey.current, true);
+    assertEq("and offers the second unit only",
+      survey.backlog.map((b) => b.path), [`${TODO}/20260818075500-second.md`]);
+
+    // NO LOCAL COMMIT IS EVER DISCARDED. A detached HEAD carrying a commit the base
+    // does not have is not an ancestor, so it keeps refusing.
+    writeFileSync(join(A, "detached-work.txt"), "work\n");
+    execSync("git add -A && git commit -q -m 'Add work only this checkout has'", { cwd: A });
+    writeFileSync(join(B, "b3.txt"), "b3\n");
+    execSync("git add -A && git commit -q -m 'Advance the base again' && git push -q origin main", { cwd: B });
+    const detachedTip = execSync("git rev-parse HEAD", { cwd: A, encoding: "utf8" }).trim();
+    assertEq("a detached checkout carrying its own commit still refuses",
+      JSON.parse(run(A, SYNC).stdout).reason, "not_on_main");
+    assertEq("and that commit survives the refusal",
+      execSync("git rev-parse HEAD", { cwd: A, encoding: "utf8" }).trim(), detachedTip);
+
+    // A NAMED off-base branch that is behind is a developer's branch: §1b does not
+    // reach it, because moving it would rewrite a ref a person created.
+    execSync("git checkout -q -B claude/behind origin/main~1", { cwd: A });
+    const namedTip = execSync("git rev-parse HEAD", { cwd: A, encoding: "utf8" }).trim();
+    assertEq("a NAMED branch behind the base still refuses, byte-unchanged",
+      JSON.parse(run(A, SYNC).stdout).reason, "not_on_main");
+    assertEq("and the named branch was not moved",
+      execSync("git rev-parse HEAD", { cwd: A, encoding: "utf8" }).trim(), namedTip);
+
+    // A detached checkout behind the base with a DIRTY tree still refuses: the
+    // fast-forward would move tracked files under uncommitted work.
+    execSync("git checkout -q --detach origin/main~1", { cwd: A });
+    writeFileSync(join(A, "README.md"), "seed\nmid-edit\n");
+    assertEq("a detached checkout behind the base but dirty still refuses",
+      JSON.parse(run(A, SYNC).stdout).reason, "not_on_main");
+    assertEq("and the edit survives the refusal",
+      readFileSync(join(A, "README.md"), "utf8"), "seed\nmid-edit\n");
+  } finally {
+    for (const d of [origin, A, B]) rmSync(d, { recursive: true, force: true });
+  }
+}
+
 // ---------------------------------------------------------------------------
 // /ticket publishes to main (decision J1). The command's orchestration is markdown,
 // so this covers it from both sides: the mechanical end-to-end (a ticket written into
@@ -14035,6 +14126,7 @@ const tests = [
   ["mission: the ticket floor refuses a sub-floor mission and names the alternative", testMissionTicketFloorGate],
   ["drive: the plan floor counts the ticket queue, not acceptance items", testPlanFloorCountsQueue],
   ["branching/sync-main.sh (J3 freshness)", testSyncMain],
+  ["branching/sync-main.sh §1b: a detached checkout behind the base is fast-forwarded", testSyncMainDetachedBehind],
   ["branching publish tree: publication never touches the caller's checkout (J2)", testPublishTree],
   ["branching publish-tree-pr: an artifact lands on a work-* branch behind a PR (J4)", testPublishTreePr],
   ["branching publish-tree-pr: the ## Artifacts section is a counts summary, not a file-path list", testPublishTreePrArtifactsSummary],

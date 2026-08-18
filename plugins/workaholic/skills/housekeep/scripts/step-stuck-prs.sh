@@ -19,12 +19,23 @@
 # one reports what is waiting to deploy, this reports what is waiting on a human,
 # and a shared key would let either dedup the other away.
 #
+# THE HEADLINE NAMES THE KIND, AND THE KEY DOES NOT MOVE (2026-08-18, issue #513).
+# The reminder's varying half was its second line while its first read
+# `<N> pull request(s) waiting on a human` every time, so a reader scanning the
+# channel saw one invariant heading whether the finding was a conflict, an un-run
+# auto-merge or a failing check. `headline` is derived from the `blocked_by` set
+# this script already computes, so a conflict finding and a review finding differ
+# at the first line. It is VISIBLE WORDING ONLY: `stuck:<digest>` is still the
+# sorted `<number>:<blocked_by>` set and nothing searches the heading — the
+# release tick's 2026-08-17 heading rename was reversed the next day precisely
+# because the heading was mistaken for the dedup key.
+#
 # CONFLICTS RIDE THIS REMINDER TOO. Step 4 reports conflict state and posts
 # nothing; two Slack lines about one pull request in one tick is the noise the
 # gate exists to prevent.
 #
 # Usage: step-stuck-prs.sh --tick <id> --root <repo-root> [--limit <n>]
-# Output: one JSON line {"step","status","reason","summary","needs_agent":[...],"key":"stuck:<digest>"}
+# Output: one JSON line {"step","status","reason","summary","headline","needs_agent":[...],"key":"stuck:<digest>"}
 
 # ONE OBJECT PER LINE, VIA awk. `tr '}' '}\n'` looks like it splits the JSON and
 # does not: tr maps one character to one character, so the replacement's second
@@ -56,7 +67,7 @@ case "$state" in
     *)
         reason=$(printf '%s' "$state" | sed 's/.*"reason": "//; s/".*//')
         [ -n "$reason" ] || reason=gh_unavailable
-        printf '{"step": "stuck-prs", "status": "degraded", "reason": "%s", "summary": "pull requests unreadable — no reminder can be trusted this tick", "needs_agent": [], "key": ""}\n' "$reason"
+        printf '{"step": "stuck-prs", "status": "degraded", "reason": "%s", "summary": "pull requests unreadable — no reminder can be trusted this tick", "headline": "", "needs_agent": [], "key": ""}\n' "$reason"
         exit 0
         ;;
 esac
@@ -65,7 +76,7 @@ rows=$(printf '%s' "$state" | awk '{ gsub(/}/, "}\n"); print }' | grep '"blocked
 count=$(printf '%s' "$rows" | awk 'NF { n++ } END { print n + 0 }')
 
 if [ "$count" -eq 0 ]; then
-    printf '{"step": "stuck-prs", "status": "ok", "reason": "", "summary": "nothing is stuck: every open pull request is mergeable", "needs_agent": [], "key": ""}\n'
+    printf '{"step": "stuck-prs", "status": "ok", "reason": "", "summary": "nothing is stuck: every open pull request is mergeable", "headline": "", "needs_agent": [], "key": ""}\n'
     exit 0
 fi
 
@@ -75,11 +86,32 @@ pairs=$(printf '%s' "$rows" | sed 's/.*"number": \([0-9]*\).*"blocked_by": "\([a
 digest=$(printf '%s' "$pairs" | cksum | awk '{ print $1 }')
 KEY="stuck:${digest}"
 
+# The heading's varying half. Derived from the SAME `blocked_by` set the digest is
+# taken over, but never fed back into it: this is wording, the key is the contract.
+kinds=$(printf '%s' "$rows" | sed 's/.*"blocked_by": "\([a-z]*\)".*/\1/' | sort -u)
+kind_count=$(printf '%s' "$kinds" | awk 'NF { n++ } END { print n + 0 }')
+plural='pull request'
+[ "$count" -eq 1 ] || plural='pull requests'
+if [ "$kind_count" -eq 1 ]; then
+    case "$kinds" in
+        conflict) what='conflicting with main' ;;
+        review)   what='waiting on review' ;;
+        checks)   what='with a failing check' ;;
+        draft)    what='still in draft' ;;
+        behind)   what='behind main' ;;
+        unknown)  what='with mergeability not yet computed' ;;
+        *)        what='waiting on a human' ;;
+    esac
+else
+    what="stuck: $(printf '%s' "$kinds" | tr '\n' ',' | sed 's/,/, /g; s/, $//')"
+fi
+HEADLINE="${count} ${plural} ${what}"
+
 if [ -f "$LOG_READ" ]; then
     seen=$(sh "$LOG_READ" --root "$ROOT" --step stuck-prs-filed --contains "$KEY" 2>/dev/null | sed 's/.*"count": //; s/,.*//')
     if [ -n "$seen" ] && [ "$seen" != "0" ]; then
-        printf '{"step": "stuck-prs", "status": "ok", "reason": "already_filed", "summary": "%s pull request(s) stuck, unchanged since an earlier tick posted %s", "needs_agent": [], "key": "%s"}\n' \
-            "$count" "$KEY" "$KEY"
+        printf '{"step": "stuck-prs", "status": "ok", "reason": "already_filed", "summary": "%s pull request(s) stuck, unchanged since an earlier tick posted %s", "headline": "%s", "needs_agent": [], "key": "%s"}\n' \
+            "$count" "$KEY" "$HEADLINE" "$KEY"
         exit 0
     fi
 fi
@@ -100,5 +132,5 @@ needs=$(printf '%s' "$rows" | awk -v key="$KEY" '
             (c++ ? ", " : ""), n, u, b, decision, key
     }')
 
-printf '{"step": "stuck-prs", "status": "blocked", "reason": "", "summary": "%s pull request(s) waiting on a human (%s) — reminder keyed %s", "needs_agent": [%s], "key": "%s"}\n' \
-    "$count" "$(printf '%s' "$pairs" | sed 's/ $//')" "$KEY" "$needs" "$KEY"
+printf '{"step": "stuck-prs", "status": "blocked", "reason": "", "summary": "%s (%s) — reminder keyed %s", "headline": "%s", "needs_agent": [%s], "key": "%s"}\n' \
+    "$HEADLINE" "$(printf '%s' "$pairs" | sed 's/ $//')" "$KEY" "$HEADLINE" "$needs" "$KEY"

@@ -193,3 +193,4 @@ Branch development narratives, one per branch, serving as the PR description and
 * [work-20260818-130809.md](work-20260818-130809.md) - Key Changes falls back to the merge commit body's pull request title, so a story-less merge renders what landed instead of that nothing says what landed
 * [work-20260818-132434.md](work-20260818-132434.md) - A story sentence ends at a period followed by whitespace, so a backticked filename no longer cuts the line and leaves an unclosed backtick
 * [work-20260818-193646.md](work-20260818-193646.md) - The web bootstrap guards user.name on the local scope, so a routine commit renders the developer name instead of Claude
+* [work-20260818-213641.md](work-20260818-213641.md) - The housekeep reminder names the kind of finding in its first line, derived from blocked_by, with the stuck:<digest> key untouched

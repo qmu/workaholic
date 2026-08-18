@@ -1,14 +1,49 @@
 #!/bin/sh -eu
 # THE DAILY PER-TARGET NOTE CADENCE — the generation half of the repository tick.
 #
-#   run-note-cadence.sh [--target <slug>] [--dry-run] [--force] [base]
+#   run-note-cadence.sh [--write] [--target <slug>] [--dry-run] [--force] [base]
 #
 # Output (one JSON line):
 #   {"ok": true, "tz": "Asia/Tokyo", "day": "YYYY-MM-DD", "idle": <bool>,
-#    "count": N, "wrote": N,
+#    "count": N, "wrote": N, "writer": "ci"|"self",
 #    "targets": [{"slug","stage","stage_reason","due","reason","changed","written",
 #                 "divergences":[...]}]}
 #   {"ok": false, "reason": "gh_unavailable"|"no_targets"|...}
+#
+# ── WHO WRITES THE DRAFT (2026-08-18) ──
+#
+# CI WRITES; THE TICK DOES NOT ATTEMPT TO. Without `--write` this script performs
+# NO `gh` call of any kind and reports `writer: "ci"` with every target `due:
+# false`, `reason: writer_is_ci`. `--write` is passed by exactly one caller, the
+# `Release Note Draft` GitHub Actions workflow. `/prepare-release` and its
+# `[Prepare Release]` routine call it WITHOUT the flag, which is what restores the
+# command to the pure reader it has always declared itself to be.
+#
+# THE REASON IS MEASURED, NOT STYLISTIC. A Claude Code Web session — which is
+# every routine-fired container — cannot write a release at all:
+#
+#   gh release view|create|edit      403, GraphQL is not served to the session
+#   POST repos/{o}/{r}/releases      403 "Creating, editing, or deleting releases
+#                                        is not permitted for this session type"
+#
+# The second refusal is the load-bearing one: it is not the GraphQL restriction
+# that `gather/scripts/gh-rest.sh` exists to route around, so REST is not a way
+# out and no transport in that container can reach the draft. A tick that kept
+# trying would fail every hour forever and report `degraded` for a condition that
+# is permanent and expected, which drains the word of its meaning. GitHub Actions
+# holds `contents: write` and is already this repository's release writer
+# (`.github/workflows/release.yml`), so the capability is moved to where it exists
+# rather than simulated where it does not.
+#
+# CI ALSO FIXES THE INPUT, NOT ONLY THE PERMISSION. A routine's container carries
+# whatever refs its clone happened to get: measured 2026-08-18, one had NO TAGS at
+# all and an `origin/main` five days stale, which collapses the boundary to
+# `full_history` and made the same repository state report 9, then 191, then the
+# true 8 unreleased commits as refs were fetched. The workflow checks out with
+# `fetch-depth: 0` and tags, so the render's input is defined rather than
+# inherited. What this does NOT fix is the READING half — `report-deploy-status.sh`
+# still reports against the container's refs — and that is deliberately left
+# untouched here rather than half-solved.
 #
 # ── ONE ROUTINE OR TWO (the Open Decision, ruled 2026-08-17) ──
 #
@@ -63,11 +98,13 @@ TZ_NAME="${WORKAHOLIC_NOTE_CADENCE_TZ:-Asia/Tokyo}"
 WANT_TARGET=""
 DRY_RUN=""
 FORCE=0
+WRITE=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --target) WANT_TARGET="${2:-}"; shift 2 ;;
     --dry-run) DRY_RUN=--dry-run; shift ;;
     --force) FORCE=1; shift ;;
+    --write) WRITE=1; shift ;;
     --) shift; break ;;
     -*) echo '{"ok": false, "reason": "usage"}' >&2; exit 1 ;;
     *) break ;;
@@ -100,6 +137,27 @@ if [ -d "$RELEASES" ]; then
       *)         STAGE=draft;     STAGE_REASON="release_record_status:${rec_status:-unset}" ;;
     esac
   fi
+fi
+
+# --- the tick is not the writer ----------------------------------------------
+# Without `--write` this returns here, having made no `gh` call at all. The
+# targets are still enumerated and the stage still reported, because saying which
+# targets exist and where the release stands is the reading half's job and is
+# unaffected by who writes the draft. `due: false` is the literal truth for this
+# caller: nothing is due FROM IT.
+if [ "$WRITE" -eq 0 ]; then
+  skip_out=""
+  skip_sep=""
+  skip_count=0
+  for slug in $(sh "${SCRIPT_DIR}/read-deployments.sh" --slugs); do
+    [ -z "$WANT_TARGET" ] || [ "$slug" = "$WANT_TARGET" ] || continue
+    skip_count=$((skip_count + 1))
+    skip_out="${skip_out}${skip_sep}{\"slug\": \"$(json_escape "$slug")\", \"stage\": \"${STAGE}\", \"stage_reason\": \"$(json_escape "$STAGE_REASON")\", \"due\": false, \"reason\": \"writer_is_ci\", \"changed\": false, \"written\": false, \"divergences\": []}"
+    skip_sep=", "
+  done
+  printf '{"ok": true, "tz": "%s", "day": "%s", "stage": "%s", "idle": true, "count": %d, "wrote": 0, "writer": "ci", "targets": [%s]}\n' \
+    "$TZ_NAME" "$DAY" "$STAGE" "$skip_count" "$skip_out"
+  exit 0
 fi
 
 if ! command -v gh >/dev/null 2>&1; then
@@ -174,5 +232,5 @@ if [ "$count" -eq 0 ]; then
   exit 0
 fi
 
-printf '{"ok": true, "tz": "%s", "day": "%s", "stage": "%s", "idle": %s, "count": %d, "wrote": %d, "targets": [%s]}\n' \
+printf '{"ok": true, "tz": "%s", "day": "%s", "stage": "%s", "idle": %s, "count": %d, "wrote": %d, "writer": "self", "targets": [%s]}\n' \
   "$TZ_NAME" "$DAY" "$STAGE" "$idle" "$count" "$wrote" "$out"

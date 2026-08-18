@@ -14140,6 +14140,7 @@ const tests = [
   ["branching close-publish-tree: closes after either publish path, still guards the unpushed one", testClosePublishTreeReachability],
   ["ship/report-deploy-status.sh: the repository tick reads, and an idle tick is silent", testReportDeployStatus],
   ["prepare-release: the repository routine and its command are a reader", testPrepareReleaseIsAReader],
+  ["release note draft: CI writes it, and the tick never attempts to", testTheDraftNoteWriterIsCi],
   ["workaholify routines: one template set, applied per repository, drift named per field", testWorkaholifyRoutines],
   ["workaholify bootstrap: without it a web routine is configured but cannot work", testWorkaholifyBootstrap],
   ["workaholify: the wiring halves apply, they do not merely audit", testWorkaholifyApplies],
@@ -15693,14 +15694,64 @@ function testPrepareReleaseIsAReader() {
     /\/prepare-release\b/.test(tpl) && !/^Run `\/ship`/m.test(tpl.slice(tpl.indexOf("## Prompt"))), tpl);
   assertTrue("the command states that it writes nothing into the repository",
     /writes nothing into the repository/i.test(cmd) && /merges nothing/i.test(cmd), cmd);
-  // 2026-08-17 (issue #472): the tick now keeps each target's DRAFT release note current,
-  // so "it writes nothing" full stop would be false. The contract that actually protects
-  // the tree is narrower and is what is pinned above and here: nothing is written INTO THE
-  // REPOSITORY, and the one artifact it maintains is named rather than left to prose. The
-  // `allowed_tools` assertion above is unchanged and is the machine-checkable half -- a
-  // draft release lives outside git, so the routine still needs no Write/Edit.
-  assertTrue("it names the draft release as the one artifact it maintains",
-    /draft/i.test(cmd) && /release/i.test(cmd), cmd);
+  // 2026-08-17 (issue #472) narrowed this to "nothing INTO THE REPOSITORY", because the
+  // tick was then believed to keep each target's DRAFT release note current. 2026-08-18
+  // removed that exception rather than widening it further: a routine's container cannot
+  // write a release by any transport, so the write moved to the `Release Note Draft`
+  // workflow and the command is once again a writer of nothing at all. The narrower phrase
+  // is still pinned above because it is still true and is the half that protects the tree;
+  // what is pinned here is that the command names CI as the draft's writer, so a future
+  // edit cannot quietly hand the write back to the tick.
+  assertTrue("it names the draft release, and CI as its writer",
+    /draft/i.test(cmd) && /release/i.test(cmd) && /Release Note Draft|workflow/i.test(cmd), cmd);
+}
+
+// The draft release note's writer is CI, and the tick must not attempt it (2026-08-18).
+// Both halves are pinned mechanically because both are one careless edit away from
+// regressing to a job that fails silently every hour: the cadence must refuse to write
+// without `--write`, and exactly one caller may pass it.
+function testTheDraftNoteWriterIsCi() {
+  const cadence = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/run-note-cadence.sh"), "utf8");
+  const wf = readFileSync(join(REPO_ROOT, ".github/workflows/release-note-draft.yml"), "utf8");
+  const cmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/prepare-release.md"), "utf8");
+
+  assertTrue("the cadence takes a --write flag", /--write\)\s*WRITE=1/.test(cadence), cadence);
+  assertTrue("and returns before any gh call without it",
+    cadence.indexOf('if [ "$WRITE" -eq 0 ]') < cadence.indexOf("command -v gh"), cadence);
+  assertTrue("reporting who the writer is", /"writer": "ci"/.test(cadence), cadence);
+  assertTrue("and naming why a target is not due from it", /writer_is_ci/.test(cadence), cadence);
+
+  assertTrue("the workflow holds contents: write", /permissions:\s*\n\s*contents: write/.test(wf), wf);
+  assertTrue("it is the caller that passes --write", /run-note-cadence\.sh --write/.test(wf), wf);
+  assertTrue("it defines its own checkout depth", /fetch-depth: 0/.test(wf), wf);
+  assertTrue("and fetches tags, since the boundary is the latest release tag",
+    /fetch-tags: true/.test(wf), wf);
+  assertTrue("it serialises against itself", /concurrency:/.test(wf), wf);
+
+  assertTrue("the command says it calls the cadence without --write",
+    /without[^\n]*`--write`/.test(cmd), cmd);
+  assertTrue("and no longer advertises keeping the note current in its description",
+    !/keep each target's draft release note current/i.test(cmd.slice(0, cmd.indexOf("\n---", 4))), cmd);
+
+  // Nothing under skills/ may pass --write: a routine reaching the flag by any path is
+  // the exact regression this move exists to prevent.
+  const offenders = [];
+  const stack = [join(REPO_ROOT, "plugins/workaholic/skills")];
+  while (stack.length) {
+    for (const e of readdirSync(stack.pop(), { withFileTypes: true })) {
+      const p = join(e.parentPath ?? e.path, e.name);
+      if (e.isDirectory()) { stack.push(p); continue; }
+      if (!/\.(sh|md)$/.test(p) || p.endsWith("run-note-cadence.sh")) continue;
+      // An INVOCATION only. A usage line (`[--write]`) and prose saying the tick calls it
+      // `without` the flag are exactly what this move documents, so neither is an offence.
+      for (const line of readFileSync(p, "utf8").split("\n")) {
+        if (!/run-note-cadence\.sh\s+--write/.test(line)) continue;
+        if (/without/i.test(line)) continue;
+        offenders.push(`${p}: ${line.trim()}`);
+      }
+    }
+  }
+  assertTrue("no skill or routine passes --write", offenders.length === 0, offenders.join("\n"));
 }
 
 // ---------- workaholify: routine templates, rendering, and drift ----------

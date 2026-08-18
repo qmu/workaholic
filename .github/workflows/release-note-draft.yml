@@ -1,0 +1,49 @@
+name: Release Note Draft
+
+# Keeps each deployment target's GitHub DRAFT release current, and is the ONLY
+# writer of it. The draft is the non-authoritative projection of what
+# `ship/scripts/draft-release-note.sh` derives from the base state; the derivation
+# is the source of truth, so this job re-renders and overwrites rather than merges.
+#
+# WHY CI AND NOT THE HOURLY TICK. `[Prepare Release]` runs in a Claude Code Web
+# container, which cannot write a release by any transport: `gh release` is
+# GraphQL-backed and refused, and REST answers "Creating, editing, or deleting
+# releases is not permitted for this session type". A tick that kept trying would
+# report a permanent, expected condition as `degraded` every hour. This repository
+# already makes CI its release writer (release.yml), so the capability is used
+# where it exists. The tick keeps its reading half and calls the cadence WITHOUT
+# `--write`, which is what makes /prepare-release the pure reader it declares
+# itself to be.
+#
+# WHY fetch-depth: 0 AND TAGS. The renderer's boundary is the latest release tag.
+# A clone without tags collapses it to `full_history` and reports a meaningless
+# count — measured 2026-08-18, when a routine container holding no tags and a
+# five-day-stale origin/main reported 9, then 191, against a true 8. CI defines
+# its own input instead of inheriting a container's.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-note-draft
+  cancel-in-progress: false
+
+jobs:
+  draft:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Refresh each target's draft release note
+        run: |
+          bash plugins/workaholic/skills/ship/scripts/run-note-cadence.sh --write main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

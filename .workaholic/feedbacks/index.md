@@ -509,4 +509,6 @@
 * [Rename /fullfill to /prepare-release and update the routine notification heading](20260818062117-rename-fullfill-to-prepare-release-and-update-the-routine-notification-heading.md)
 * [Reopen the thread lookup: it bounds the search, when only the acceptance needs bounding](20260818062639-reopen-the-thread-lookup-it-bounds-the-search-when-only-the-acceptance-needs-bounding.md)
 * [The tick log's step-filed lines can never reach the base](20260818064140-the-tick-log-s-step-filed-lines-can-never-reach-the-base.md)
+* [The stuck-prs step reports nothing is stuck for a clean pull request auto-merge never took](20260818095536-the-stuck-prs-step-reports-nothing-is-stuck-for-a-clean-pull-request-auto-merge-never-took.md)
+* [create.sh refuses source development while the schema documents it and 371 records carry it](20260818095551-create-sh-refuses-source-development-while-the-schema-documents-it-and-371-records-carry-it.md)
 <!-- okf:generated:end -->

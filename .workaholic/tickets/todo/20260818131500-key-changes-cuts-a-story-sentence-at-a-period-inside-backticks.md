@@ -6,6 +6,7 @@ depends_on:
 feedback: [20260818112045-the-draft-release-note-s-key-changes-renders-three-dead-lines]
 merge_policy:
 verification_handoff: 
+claim: work-20260818-132434
 ---
 
 # Key Changes cuts a story sentence at a period inside backticks

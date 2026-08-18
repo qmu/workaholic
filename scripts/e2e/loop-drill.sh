@@ -11,6 +11,7 @@
 #                                             stage: open + handed off, not merged)
 #   loop-drill.sh verify-plan [--json]        # is the deployment-plan refresh sound?
 #   loop-drill.sh verify-status [--json]      # is the [Release Status] read sound and silent?
+#   loop-drill.sh verify-cadence [--json]     # is the daily note generation idempotent and clock-free?
 #   loop-drill.sh verify-housekeep [--json]   # is the [Housekeep] tick sound and write-free?
 #
 # Every outcome is ONE JSON line on stdout. A non-zero exit names the blocker in
@@ -901,7 +902,7 @@ cmd_verify_plan() {
 
 # ---------------------------------------------------------------- verify-status
 #
-# The repository-scoped `[Release Status]` routine (`/release-status`) is otherwise
+# The repository-scoped `[Release Status]` routine (`/fullfill`) is otherwise
 # only observable by waiting an hour and watching a Slack channel for a message that,
 # on a healthy quiet repository, correctly never arrives. This stage proves the three
 # properties the routine depends on, in seconds:
@@ -954,7 +955,135 @@ cmd_verify_status() {
     emit_verdict "status" 0 "pass" 0
 }
 
+# --------------------------------------------------------------- verify-cadence
+#
+# The daily per-target note generation that rides the same repository tick. Like
+# `verify-status` it exists so the behaviour is checkable in seconds rather than by
+# waiting a day and reading a GitHub draft release. It proves four properties:
+#
+#   cadence_renders    every declared target renders a draft body
+#   cadence_idempotent two renders of an unchanged base are byte-identical, which is
+#                      what keeps a periodic generator from being a write treadmill
+#   cadence_clockfree  two renders taken a second apart still match, so no clock
+#                      leaked into the body
+#   cadence_stage      the release stage is derived from git and the release record
+#
+# It never calls `gh` and never writes: the render is pure, and the only writing step
+# (the sync) is deliberately out of scope here so the drill stays hermetic.
+cmd_verify_cadence() {
+    _drafter="${REPO_ROOT}/plugins/workaholic/skills/ship/scripts/draft-release-note.sh"
+    _cadence="${REPO_ROOT}/plugins/workaholic/skills/ship/scripts/run-note-cadence.sh"
+    if [ ! -f "$_drafter" ] || [ ! -f "$_cadence" ]; then
+        emit_err "cadence_unreadable" 4 "the note cadence scripts are not present in this checkout"
+    fi
 
+    _a=$(cd "$REPO_ROOT" && sh "$_drafter" "$BASE_BRANCH" 2>&1) || true
+    case "$_a" in
+        *'"ok": true'*)
+            _n=$(printf '%s' "$_a" | sed -n 's/.*"count": \([0-9]*\).*/\1/p')
+            add_row "cadence_renders" true "a draft rendered for ${_n} target(s)" load
+            ;;
+        *)
+            add_row "cadence_renders" false "$(one_line "$_a")" load
+            emit_verdict "cadence" 0 "fail" 1
+            ;;
+    esac
+
+    _b=$(cd "$REPO_ROOT" && sh "$_drafter" "$BASE_BRANCH" 2>&1) || true
+    if [ "$_a" = "$_b" ]; then
+        add_row "cadence_idempotent" true "two renders of an unchanged base are byte-identical" load
+    else
+        add_row "cadence_idempotent" false "two renders of an unchanged base differ, so a periodic tick would write every time" load
+    fi
+
+    sleep 1
+    _c=$(cd "$REPO_ROOT" && sh "$_drafter" "$BASE_BRANCH" 2>&1) || true
+    if [ "$_a" = "$_c" ]; then
+        add_row "cadence_clockfree" true "a render a second later still matches, so no clock reached the body" load
+    else
+        add_row "cadence_clockfree" false "a render a second later differs: a clock leaked into the note body" load
+    fi
+
+    _s=$(cd "$REPO_ROOT" && sh "$_cadence" --dry-run "$BASE_BRANCH" 2>&1) || true
+    case "$_s" in
+        *'"stage": "draft"'*|*'"stage": "staging"'*|*'"stage": "confirmed"'*)
+            _st=$(printf '%s' "$_s" | sed -n 's/.*"stage": "\([a-z]*\)".*/\1/p' | head -n 1)
+            add_row "cadence_stage" true "the release stage derived as ${_st}" load
+            ;;
+        *'"reason": "gh_unavailable"'*)
+            add_row "cadence_stage" true "no gh in this environment; the cadence refused by reason and wrote nothing" load
+            ;;
+        *)
+            add_row "cadence_stage" false "the stage was not derived: $(one_line "$_s")" load
+            ;;
+    esac
+
+    if [ "$LOAD_FAILED" -gt 0 ]; then
+        emit_verdict "cadence" 0 "fail" 1
+    fi
+    emit_verdict "cadence" 0 "pass" 0
+}
+
+cmd_verify_standup() {
+    # The [Standup] read. Like verify-status it needs no seed, no fire and no issue number,
+    # and it writes nothing anywhere -- which is the routine's whole contract, so asserting
+    # it by construction is the point. On a healthy repository with no strategy authored the
+    # correct output is NO Slack message at all, so "did it work?" is unanswerable by
+    # watching the channel; these rows answer it instead.
+    _dig="${REPO_ROOT}/plugins/workaholic/skills/standup/scripts/digest.sh"
+    if [ ! -f "$_dig" ]; then
+        emit_err "standup_unreadable" 4 "digest.sh is not present in this checkout"
+    fi
+
+    # digest.sh emits COMPACT json (jq -c), so every match below tolerates the absent space
+    # after a colon rather than assuming the spaced form the shell-printf scripts emit.
+    _out=$(cd "$REPO_ROOT" && sh "$_dig" "1 day ago" 2>&1) || true
+    if printf '%s' "$_out" | grep -q '"token":[ ]*"standup:'; then
+        _n=$(printf '%s' "$_out" | sed -n 's/.*"strategy_count":[ ]*\([0-9]*\).*/\1/p')
+        _reason=$(printf '%s' "$_out" | sed -n 's/.*"noop_reason":[ ]*"\([a-z_]*\)".*/\1/p')
+        add_row "standup_read" true "the digest covers ${_n} strategy(ies), noop_reason '${_reason}'" load
+    else
+        add_row "standup_read" false "$(one_line "$_out")" load
+        emit_verdict "standup" 0 "fail" 1
+    fi
+
+    # A repository with no strategy authored must be a NAMED no-op, never an empty digest:
+    # the silence is what allows a daily post to exist at all, and a nameless empty one is
+    # indistinguishable from a read that failed.
+    if printf '%s' "$_out" | grep -q '"noop":[ ]*true'; then
+        if printf '%s' "$_out" | grep -qE '"noop_reason":[ ]*"(no_strategies|no_activity|strategy_list_unreadable)"'; then
+            add_row "standup_noop_named" true "a quiet morning names its reason and posts nothing" load
+        else
+            add_row "standup_noop_named" false "noop with no reason: $(one_line "$_out")" load
+        fi
+    else
+        add_row "standup_noop_named" true "the digest is news today, so the no-op path is not exercised" info
+    fi
+
+    # THE PURE READ, demonstrated rather than asserted: the tree is unchanged after the run.
+    _dirty=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | wc -l | tr -d ' ')
+    _out2=$(cd "$REPO_ROOT" && sh "$_dig" "1 day ago" 2>&1) || true
+    _dirty2=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | wc -l | tr -d ' ')
+    if [ "$_dirty" = "$_dirty2" ]; then
+        add_row "standup_writes_nothing" true "two runs left the working tree exactly as it was" load
+    else
+        add_row "standup_writes_nothing" false "the working tree changed across a read: ${_dirty} -> ${_dirty2}" load
+    fi
+
+    # An unreadable knowledge root must degrade to a named no-op, not a crash: the routine
+    # runs unattended every morning and a non-zero exit is a silent morning nobody explains.
+    _out3=$(cd "$REPO_ROOT" && sh "$_dig" "1 day ago" ".workaholic-no-such-root-for-the-drill" 2>&1) || true
+    if printf '%s' "$_out3" | grep -q '"noop_reason":[ ]*"no_strategies"'; then
+        add_row "standup_degraded" true "an absent knowledge root reads as no strategies and posts nothing" load
+    else
+        add_row "standup_degraded" false "a degraded read did not answer cleanly: $(one_line "$_out3")" load
+    fi
+
+    if [ "$LOAD_FAILED" -gt 0 ]; then
+        emit_verdict "standup" 0 "fail" 1
+    fi
+    emit_verdict "standup" 0 "pass" 0
+}
 # ---------------------------------------------------------------- verify-housekeep
 # Is the maintenance tick sound — every step reported, one log entry, nothing written
 # outside the log? The drill runs the tick against a THROWAWAY root so the operator's
@@ -1037,7 +1166,7 @@ cmd_verify_housekeep() {
 
 # ---------------------------------------------------------------- dispatch
 
-USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-propose <issue>|verify-implement <issue>|verify-plan [--json]|verify-status [--json]|verify-housekeep [--json]"}'
+USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-propose <issue>|verify-implement <issue>|verify-plan [--json]|verify-status [--json]|verify-cadence [--json]|verify-standup [--json]|verify-housekeep [--json]"}'
 
 CMD="${1:-}"
 [ -n "$CMD" ] || {
@@ -1068,6 +1197,8 @@ case "$CMD" in
     verify-implement) cmd_verify_implement "$@" ;;
     verify-plan) cmd_verify_plan "$@" ;;
     verify-status) cmd_verify_status "$@" ;;
+    verify-cadence) cmd_verify_cadence "$@" ;;
+    verify-standup) cmd_verify_standup "$@" ;;
     verify-housekeep) cmd_verify_housekeep "$@" ;;
     *)
         echo "$USAGE" >&2

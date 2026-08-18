@@ -14153,6 +14153,7 @@ const tests = [
   ["prepare-release: the post shape reads the same in the catalog and the template", testPrepareReleasePostShape],
   ["release note draft: CI writes it, and the tick never attempts to", testTheDraftNoteWriterIsCi],
   ["release note: Key Changes says what landed, for every merge", testReleaseNoteKeyChangesFallback],
+  ["release note: a story-less merge keeps its substance", testReleaseNoteStoryLessSubstance],
   ["release note: the plan seam over the renderer", testReleaseNotePlanSeam],
   ["workaholify routines: one template set, applied per repository, drift named per field", testWorkaholifyRoutines],
   ["workaholify bootstrap: without it a web routine is configured but cannot work", testWorkaholifyBootstrap],
@@ -16028,6 +16029,96 @@ function testReleaseNoteKeyChangesFallback() {
     assertEq("a bodyless, story-less merge is still listed", bodyless.length, 5);
     assertTrue("naming the merge it could not summarise",
       bodyless.some((l) => l.includes("#43") && /no branch story/.test(l)), bodyless.join("\n"));
+  } finally {
+    cleanup(tmp);
+  }
+}
+
+// ---------- release note: a story-less merge keeps its substance ----------
+// (2026-08-18, issue #512) A `/propose` pull request auto-merges without ever running
+// `/report`, so it structurally never has a branch story — measured on this repository,
+// 38 of 68 merges over `v1.0.170..main` (56%) carry none. The merge's own diff still
+// names what it published: the feedback record, the mission, the tickets. That substance
+// rides the SAME row as sub-bullets — no merge is dropped, reordered or capped by it.
+function testReleaseNoteStoryLessSubstance() {
+  const tmp = mkdtempSync(join(tmpdir(), "workaholic-note-substance-"));
+  const repo = join(tmp, "repo");
+  const DRAFT = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/draft-release-note.sh")}`;
+  const keyChanges = (body) => {
+    const m = /## Key Changes\n([\s\S]*?)(?=\n## |$)/.exec(body);
+    return (m ? m[1] : "").trim();
+  };
+  try {
+    mkdirSync(join(repo, ".workaholic/stories"), { recursive: true });
+    mkdirSync(join(repo, ".workaholic/deployments"), { recursive: true });
+    mkdirSync(join(repo, ".workaholic/feedbacks"), { recursive: true });
+    mkdirSync(join(repo, ".workaholic/missions/active/plan-the-release"), { recursive: true });
+    mkdirSync(join(repo, ".workaholic/tickets/todo"), { recursive: true });
+    execSync("git -c init.defaultBranch=main init -q", { cwd: repo });
+    execSync("git config user.email test@example.com", { cwd: repo });
+    execSync("git config user.name Test", { cwd: repo });
+    execSync("git config commit.gpgsign false", { cwd: repo });
+    writeFileSync(join(repo, ".workaholic/deployments/marketplace.md"),
+      "---\ntype: Deployment\ntarget: marketplace\nenvironment: production\ndeploy_model: deploy-on-merge\n---\n\n# marketplace\n\n## Procedure\n\n1. Merge.\n\n## Confirmation\n\nCheck it.\n");
+    execSync("git add -A && git commit -q -m initial", { cwd: repo });
+
+    // A proposal merge: publishes a feedback record, a mission and two tickets, and —
+    // like every /propose pull request — no story.
+    execSync("git checkout -q -b work-20260201-000000", { cwd: repo });
+    writeFileSync(join(repo, ".workaholic/feedbacks/20260201-the-note-must-be-a-plan.md"),
+      "---\ntype: Feedback\ntitle: The draft release note must be an arranged release plan\nkind: instruction\n---\n\nBody.\n");
+    writeFileSync(join(repo, ".workaholic/missions/active/plan-the-release/mission.md"),
+      "---\ntype: Mission\ntitle: Make the draft note an agent's release plan\nslug: plan-the-release\nstatus: active\n---\n\n# m\n");
+    writeFileSync(join(repo, ".workaholic/tickets/todo/20260201000000-a.md"), "---\n---\n\n# A\n");
+    writeFileSync(join(repo, ".workaholic/tickets/todo/20260201000001-b.md"), "---\n---\n\n# B\n");
+    execSync('git add -A && git commit -q -m "Publish the proposal"', { cwd: repo });
+    execSync("git checkout -q main", { cwd: repo });
+    execSync('git merge -q --no-ff work-20260201-000000 -m "Merge pull request #71 from qmu/work-20260201-000000" -m "[Proposal] Make the draft note an agent\'s release plan"',
+      { cwd: repo });
+
+    // A merge that published nothing an artifact reader can name.
+    execSync("git checkout -q -b work-20260202-000000", { cwd: repo });
+    writeFileSync(join(repo, "src.txt"), "x\n");
+    execSync('git add -A && git commit -q -m "Do the work"', { cwd: repo });
+    execSync("git checkout -q main", { cwd: repo });
+    execSync('git merge -q --no-ff work-20260202-000000 -m "Merge pull request #72 from qmu/work-20260202-000000" -m "Fix the thing"',
+      { cwd: repo });
+
+    const body = keyChanges(JSON.parse(run(repo, DRAFT).stdout).targets[0].body);
+    const rows = body.split("\n").filter((l) => l.startsWith("- "));
+    assertEq("one top-level row per merge — nothing dropped, nothing capped", rows.length, 2);
+
+    assertTrue("the proposal's feedback record is named, labelled as what was ASKED FOR",
+      body.includes("  - Asked for: The draft release note must be an arranged release plan (feedback `20260201-the-note-must-be-a-plan`)."),
+      body);
+    assertTrue("...and the mission it planned, with the tickets it queued",
+      body.includes("  - Planned as: mission \"Make the draft note an agent's release plan\", 2 ticket(s) queued."),
+      body);
+    assertTrue("the detail sits UNDER its own row, not as a row of its own",
+      /- \[Proposal\] Make the draft note an agent's release plan \(#71\)\n {2}- Asked for:/.test(body), body);
+    assertTrue("a merge that published no artifact renders exactly as before",
+      /- Fix the thing \(#72\)$/m.test(body) && !/Fix the thing \(#72\)\n {2}- /.test(body), body);
+
+    // Local reads only, so the contract holds: same base state, same detail.
+    assertEq("two renders of an unchanged base are byte-identical",
+      run(repo, DRAFT).stdout, run(repo, DRAFT).stdout);
+
+    // A merge WITH a story is never asked — the story is the better answer, and a
+    // second summary beside it would only compete with it.
+    execSync("git checkout -q -b work-20260203-000000", { cwd: repo });
+    writeFileSync(join(repo, ".workaholic/stories/work-20260203-000000.md"),
+      "---\ntype: Story\nbranch: work-20260203-000000\n---\n\n## 1. Overview\n\nThe run learned to arrange. More prose.\n");
+    writeFileSync(join(repo, ".workaholic/feedbacks/20260203-another.md"),
+      "---\ntype: Feedback\ntitle: Another ask entirely\n---\n\nBody.\n");
+    execSync('git add -A && git commit -q -m "Do it"', { cwd: repo });
+    execSync("git checkout -q main", { cwd: repo });
+    execSync('git merge -q --no-ff work-20260203-000000 -m "Merge pull request #73 from qmu/work-20260203-000000" -m "Arrange the note"',
+      { cwd: repo });
+    const withStory = keyChanges(JSON.parse(run(repo, DRAFT).stdout).targets[0].body);
+    assertTrue("a story-bearing merge still renders its story sentence alone",
+      /- The run learned to arrange\.$/m.test(withStory), withStory);
+    assertTrue("...with no substance sub-bullets under it",
+      !/Another ask entirely/.test(withStory), withStory);
   } finally {
     cleanup(tmp);
   }

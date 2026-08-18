@@ -45,7 +45,7 @@ one document carries plan → release → verification.
 
 - [ ] A target's draft note is an agent-authored release plan, not a byte-identical
   render of the merge range. (#20260818202056-run-the-release-planning-judgment-and-reach-ci.md)
-- [ ] Every merge contributes its substance, including the story-less proposal
+- [x] Every merge contributes its substance, including the story-less proposal
   merges that are this repository's most frequent kind. (#20260818202056-recover-the-substance-of-story-less-merges.md)
 - [ ] The post-release confirmation and report append to the note that planned the
   release. (#20260818202056-append-the-release-confirmation-to-its-own-plan.md)
@@ -54,3 +54,4 @@ one document carries plan → release → verification.
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-18 — ticket archived — 20260818202056-give-the-release-note-a-plan-seam-over-the-renderer.md
+- 2026-08-18 — ticket archived — 20260818202056-recover-the-substance-of-story-less-merges.md

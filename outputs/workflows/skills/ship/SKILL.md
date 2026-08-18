@@ -162,6 +162,20 @@ the number and the branch and summarises nothing, which is what the old placehol
 Both sources are local git data, so the rule adds no network read and leaves `--enrich` off by
 default. Only a merge carrying neither a story nor a body falls through to naming itself.
 
+**And a story-less merge keeps its substance** (2026-08-18, issue #512). The title rung was an
+improvement over the placeholder, and a title is still one clamped line where a story is a
+paragraph of *why* — on the **majority** path: measured over `v1.0.170..main`, **38 of 68 merges
+(56%) carry no story**, because a `/propose` pull request auto-merges without ever running
+`/report`. The substance is already on the base, and the merge's own diff against its first parent
+names where: `resolve-merge-substance.sh` reads the feedback record it published (`Asked for:` —
+labelled that way because a record states what somebody *asked for*, which is not always what the
+merge *did*), the mission it planned, and the count of tickets it queued. The detail renders as
+**sub-bullets on the same row**, so nothing is dropped, reordered or capped, a merge that published
+no artifact renders exactly as before, and a story-bearing merge is never asked at all. Local git
+plus base-tree reads only: `--enrich` stays off and the same base state renders the same detail.
+Neither the `feedback:` nor the `mission:` relation is parsed there — it discovers paths from a
+diff and reads a `title:` field, so each relation keeps its one reader.
+
 **Where the story's sentence ends** (2026-08-18, ticket `20260818131500`). A period **followed by
 whitespace or the end of the line** — so a period inside `check-version-bump.sh` is not one. The
 rule was "up to the first period", which cut inside such a filename and left an **unclosed

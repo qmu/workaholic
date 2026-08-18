@@ -86,6 +86,26 @@
 # informative string is local git data already in the range: no network, no
 # `--enrich`, and byte-identical for an unchanged base.
 #
+# THE FALLBACK CHAIN, IN ORDER, AND WHY EACH RUNG EXISTS (2026-08-18, issue #512):
+#
+#   1. The branch story's Overview sentence -- the written record of WHY, and the
+#      only rung a human authored about this change specifically.
+#   2. The merge commit body's pull request title -- what the change was called.
+#      Reached by every `/propose` merge, which never has a story; measured on this
+#      repository over `v1.0.170..main`, 38 of 68 merges (56%) land here.
+#   3. `Pull request #N (branch)` -- a merge whose body somebody emptied. Named
+#      rather than dropped: a shortened list reads as "nothing else happened".
+#
+# Rungs 2 and 3 then gain SUB-BULLETS from `resolve-merge-substance.sh`: what that
+# merge published on the base -- the feedback record it wrote (`Asked for:`), the
+# mission it planned, the tickets it queued. A story-bearing merge is never asked,
+# because the story is the better answer and a second summary beside it would only
+# compete with it. The labels are honest by design: a feedback record says what
+# somebody ASKED FOR, which is not always what the merge DID, and a wrong summary
+# is worse than a thin one. The detail rides the same row, so no merge is dropped,
+# reordered or capped by it, and it is local git plus base-tree reads, so `--enrich`
+# stays off by default and the same base state renders the same detail.
+#
 # "PREFER MERGES THAT HAVE A STORY" INTRODUCES NO SELECTION (the ticket's Open
 # Decision, resolved here). Three readings were on the table; this is (a),
 # fallback only, order unchanged and chronological:
@@ -272,20 +292,27 @@ while IFS="$US" read -r slug title environment model model_reason \
       # keeps its line-at-a-time shape: records are separated by RS, the two fields
       # by US, and the body is reduced to its first non-empty line (GitHub writes
       # the pull request's title there).
-      MERGE_FMT='%x1e%s%x1f%b'
+      # THE SHA RIDES THE RECORD (2026-08-18, issue #512), because a story-less
+      # merge's substance is resolved from that merge's own diff and there is no
+      # second traversal to recover it from.
+      MERGE_FMT='%x1e%H%x1f%s%x1f%b'
       merge_split='
         BEGIN { RS = "\036" }
         {
           if ($0 !~ /[^ \t\n]/) next
           i = index($0, "\037")
-          if (i == 0) { subj = $0; body = "" }
-          else        { subj = substr($0, 1, i - 1); body = substr($0, i + 1) }
+          if (i == 0) next
+          sha = substr($0, 1, i - 1); rest = substr($0, i + 1)
+          gsub(/[ \t\n]/, "", sha)
+          j = index(rest, "\037")
+          if (j == 0) { subj = rest; body = "" }
+          else        { subj = substr(rest, 1, j - 1); body = substr(rest, j + 1) }
           gsub(/\n/, " ", subj)
           sub(/^[ \t]+/, "", subj); sub(/[ \t]+$/, "", subj)
           n = split(body, line, "\n"); t = ""
-          for (j = 1; j <= n; j++) { if (line[j] ~ /[^ \t]/) { t = line[j]; break } }
+          for (k = 1; k <= n; k++) { if (line[k] ~ /[^ \t]/) { t = line[k]; break } }
           sub(/^[ \t]+/, "", t); sub(/[ \t]+$/, "", t)
-          print subj "\037" clamp(t)
+          print sha "\037" subj "\037" clamp(t)
         }'
       if [ -n "$PATHSPEC" ]; then
         # shellcheck disable=SC2086 - PATHSPEC is a built argument list.
@@ -297,9 +324,11 @@ while IFS="$US" read -r slug title environment model model_reason \
       OLD_IFS=$IFS; IFS='
 '
       for mrecord in $merges; do
-        msubject=${mrecord%%"$US"*}
-        mtitle=${mrecord#*"$US"}
-        [ "$mtitle" != "$mrecord" ] || mtitle=''
+        msha=${mrecord%%"$US"*}
+        mrest=${mrecord#*"$US"}
+        msubject=${mrest%%"$US"*}
+        mtitle=${mrest#*"$US"}
+        [ "$mtitle" != "$mrest" ] || mtitle=''
         branch=$(printf '%s' "$msubject" | sed -n 's|.*from [^/]*/\(work-[0-9-]*\).*|\1|p')
         [ -n "$branch" ] || continue
         prnum=$(printf '%s' "$msubject" | sed -n 's|.*pull request #\([0-9]*\).*|\1|p')
@@ -361,10 +390,34 @@ while IFS="$US" read -r slug title environment model model_reason \
           # shortened list reads as "nothing else happened".
           line="Pull request #${prnum} (\`${branch}\`) — no branch story on the base."
         fi
+        # A STORY-LESS MERGE IS ASKED WHAT ELSE IT PUBLISHED (2026-08-18, issue
+        # #512). 38 of 68 merges over `v1.0.170..main` carry no story — the
+        # majority path — and the substance is already on the base: the proposal's
+        # feedback record, the mission it planned, the tickets it queued. The
+        # detail rides the SAME row as sub-bullets: no merge is dropped, reordered
+        # or capped by it, and a merge that published nothing renders unchanged.
+        # A merge WITH a story is never asked — the story is the better answer and
+        # a second summary beside it would only compete with it.
+        detail=""
+        if [ -z "$stitle" ] && [ -n "$line" ]; then
+          detail=$(sh "${SCRIPT_DIR}/resolve-merge-substance.sh" "$msha" 2>/dev/null \
+            | awk "${CLAMP_FN}"'NF { print clamp($0) }' || true)
+        fi
         if [ -n "$line" ]; then
           stories="${stories}- ${line}
 "
-          printf '%s%s%s%s%s\n' "$prnum" "$US" "$branch" "$US" "$line" >> "$FACTS"
+          factline="$line"
+          if [ -n "$detail" ]; then
+            OLD_IFS2=$IFS; IFS='
+'
+            for dline in $detail; do
+              stories="${stories}  - ${dline}
+"
+              factline="${factline}$(printf '\036')${dline}"
+            done
+            IFS=$OLD_IFS2
+          fi
+          printf '%s%s%s%s%s\n' "$prnum" "$US" "$branch" "$US" "$factline" >> "$FACTS"
         fi
       done
       IFS=$OLD_IFS

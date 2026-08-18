@@ -24,6 +24,12 @@
 # commentary; it never supplies a change's own text, which is what keeps a planner
 # from quietly rewriting history it did not read.
 #
+# The third field may carry RS-separated (`\036`) DETAIL after the line — the
+# substance `resolve-merge-substance.sh` recovered for a story-less merge — which
+# renders as sub-bullets under the item wherever that item lands. A planned note and
+# a planless one therefore carry the same rows AND the same detail; the plan decides
+# only where each row sits.
+#
 # NOTHING IS EVER DROPPED. A merge no group and no `held_back` entry names is
 # rendered under *Not arranged by the plan*; a plan item naming a pull request that
 # is not in this range is named under its own heading rather than fabricated; a
@@ -115,8 +121,11 @@ if facts_path and os.path.exists(facts_path):
             parts = raw.split(US)
             while len(parts) < 3:
                 parts.append("")
+            # The line, then whatever detail the caller recovered for it.
+            chunks = parts[2].split("\036")
             facts.append({"pr": parts[0].strip(), "branch": parts[1].strip(),
-                          "line": parts[2].strip()})
+                          "line": chunks[0].strip(),
+                          "detail": [c.strip() for c in chunks[1:] if c.strip()]})
 
 by_pr = {}
 for fact in facts:
@@ -127,6 +136,13 @@ out = []
 seen = set()
 unknown = []
 duplicates = 0
+
+
+def bullet(fact, suffix=""):
+    """One row: the derived line, the plan's own note, then the recovered detail."""
+    rows = ["- %s%s" % (fact["line"], (" \u2014 %s" % suffix) if suffix else "")]
+    rows.extend("  - %s" % d for d in (fact.get("detail") or []))
+    return rows
 
 
 def take(pr):
@@ -185,7 +201,7 @@ for index, group in enumerate(groups, start=1):
         fact = take(pr)
         if fact is None:
             continue
-        lines.append("- %s%s" % (fact["line"], (" — %s" % note) if note else ""))
+        lines.extend(bullet(fact, note))
     if not lines:
         # A group whose every item was unknown or repeated has nothing to arrange;
         # its references are still reported below rather than vanishing.
@@ -208,6 +224,7 @@ held = plan.get("held_back")
 if not isinstance(held, list):
     held = []
 held_lines = []
+held_count = 0
 for entry in held:
     if isinstance(entry, dict):
         pr, why = entry.get("pr"), str(entry.get("why") or "").strip()
@@ -218,7 +235,8 @@ for entry in held:
     fact = take(pr)
     if fact is None:
         continue
-    held_lines.append("- %s%s" % (fact["line"], (" — %s" % why) if why else ""))
+    held_count += 1
+    held_lines.extend(bullet(fact, why))
 if held_lines:
     out.append("### Held back")
     out.append("")
@@ -234,7 +252,7 @@ if unarranged:
     out.append("In this range, named by no group and held back by nobody.")
     out.append("")
     for fact in unarranged:
-        out.append("- %s" % fact["line"])
+        out.extend(bullet(fact))
     out.append("")
 
 if unknown:
@@ -248,8 +266,8 @@ body = "\n".join(out).rstrip("\n")
 sys.stdout.write(body + "\n" if body else "")
 
 status = {"present": True, "stale": stale, "base_sha": plan_base,
-          "groups": rendered_groups, "arranged": len(seen) - len(held_lines),
-          "held_back": len(held_lines), "unarranged": len(unarranged),
+          "groups": rendered_groups, "arranged": len(seen) - held_count,
+          "held_back": held_count, "unarranged": len(unarranged),
           "unknown": len(unknown), "duplicates": duplicates, "reason": ""}
 with open(status_out, "w") as fh:
     fh.write(json.dumps(status) + "\n")

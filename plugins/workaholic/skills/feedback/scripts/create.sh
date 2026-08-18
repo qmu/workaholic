@@ -59,8 +59,14 @@ case "$KIND" in
     insight|instruction|concern|material|answer) : ;;
     *) echo '{"created": false, "reason": "bad_kind"}'; exit 1 ;;
 esac
+# `development` was in this script's own usage header, in `SKILL.md` and in
+# `validate-feedback.sh` and missing only here, so the one writer refused a value
+# every reader accepted — found 2026-08-18 while filing a record about a defect
+# born in development, which had to be filed as `discussion`. Widened rather than
+# narrowed: three sources agree it is valid, and it is the one that names a
+# concern the loop raised about itself.
 case "$SOURCE" in
-    meeting|slack|discussion) : ;;
+    meeting|slack|discussion|development) : ;;
     *) echo '{"created": false, "reason": "bad_source"}'; exit 1 ;;
 esac
 

@@ -10569,6 +10569,15 @@ function testFeedback() {
     assertTrue("list.sh surfaces the subject",
       JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.feedbackList}`).stdout).some((e) => e.subject === "meeting:2026-08-13 planning"));
 
+    // EVERY DOCUMENTED SOURCE IS ACCEPTED, not just the three the writer listed.
+    // `development` was in this script's own usage header, in `SKILL.md` and in
+    // `validate-feedback.sh`, and missing only from `create.sh`'s own case — so the
+    // one writer refused a value every reader accepted (2026-08-18). Asserted here,
+    // after the listing counts above, because it leaves a real record behind.
+    r = run(dir, `printf 'Born in development.\\n' | ${POSIX_SH} ${SCRIPTS.feedbackCreate} --subject "observer_ai:claude" "Found while driving" concern development`);
+    assertTrue("feedback create accepts every documented source",
+      r.status === 0 && JSON.parse(r.stdout).created === true, r.stdout);
+
 
     // --- validator: NEW writes are held to the floor; history is grandfathered ---
     let hasJq = true;
@@ -14178,6 +14187,7 @@ const tests = [
   ["housekeep: the tick log is registered, append-only and idempotent", testHousekeepLog],
   ["housekeep: the tick runs every step, and every step reports", testHousekeepRun],
   ["housekeep: the tick log survives the container that wrote it", testHousekeepPersist],
+  ["housekeep: the lines written after the persist reach the base too", testHousekeepPersistCarriesLateLines],
   ["housekeep: the unattended contract is in the files, not in intent", testHousekeepUnattendedContract],
   ["housekeep steps 2-3: every surface is named, and nothing is executed", testHousekeepInboundSweep],
   ["housekeep steps 4-7: report, never repair; remind once per state", testHousekeepHygieneSteps],
@@ -16973,6 +16983,116 @@ exit 0
       [off.persisted, off.status, off.reason], [false, "degraded", "origin_unreachable"]);
     assertTrue("and the log is still in the checkout",
       readFileSync(join(A, DAY), "utf8").includes("## 20260817-150000"));
+  } finally {
+    cleanup(tmp);
+  }
+}
+
+// ---------- housekeep: the lines written after the persist reach the base too ----------
+// (2026-08-18, ticket `20260818064158-carry-the-tick-log-step-filed-lines-to-the-base`)
+// The agent acts on `needs_agent` only AFTER `run.sh` returns, so every `<step>-filed`
+// line is appended to the checkout after the closing act already ran. A union BY SECTION
+// cannot carry them — the section it would have to update has already landed — so in a
+// routine-fired container that memory was permanently empty. The union is therefore by
+// `(tick, step)`: a persist run again after the filing appends the missing LINES into a
+// section the base already carries. Asserted against the BASE, never the checkout: a
+// hand-run's checkout survives, which is exactly why the defect was invisible.
+function testHousekeepPersistCarriesLateLines() {
+  const tmp = mkdtempSync(join(tmpdir(), "workaholic-hk-late-"));
+  const PERSIST = `${POSIX_SH} ${SCRIPTS.housekeepPersist}`;
+  const APPEND = `${POSIX_SH} ${SCRIPTS.housekeepLogAppend}`;
+  const origin = join(tmp, "origin.git");
+  const A = join(tmp, "a");
+  const B = join(tmp, "b");
+  const DAY = ".workaholic/housekeeping/2026-08-17.md";
+  const clone = (path, email) => {
+    execSync(`git clone -q ${origin} ${path}`);
+    execSync(`git config user.email ${email}`, { cwd: path });
+    execSync(`git config user.name ${email[0].toUpperCase()}`, { cwd: path });
+    execSync("git config commit.gpgsign false", { cwd: path });
+  };
+  const based = (repo) => {
+    run(repo, "git fetch -q origin main");
+    return run(repo, `git show origin/main:${DAY}`).stdout;
+  };
+  try {
+    execSync(`git init -q --bare --initial-branch=main ${origin}`);
+    const seed = join(tmp, "seed");
+    mkdirSync(join(seed, ".workaholic"), { recursive: true });
+    execSync("git -c init.defaultBranch=main init -q", { cwd: seed });
+    execSync("git config user.email test@example.com", { cwd: seed });
+    execSync("git config user.name Test", { cwd: seed });
+    execSync("git config commit.gpgsign false", { cwd: seed });
+    writeFileSync(join(seed, ".workaholic/README.md"), "seed\n");
+    execSync(`git add -A && git commit -q -m initial && git remote add origin ${origin} && git push -q origin main`, { cwd: seed });
+    clone(A, "a@example.com");
+
+    // The tick as `run.sh` leaves it: the probe's line, then the closing act.
+    run(A, `${APPEND} --tick 20260817-100000 --step doc-drift --status filed --summary "found #471"`);
+    run(A, `${APPEND} --tick 20260817-100000 --step persist-log --status filed --summary "1 section"`);
+    const first = JSON.parse(run(A, `${PERSIST} --tick 20260817-100000`).stdout);
+    assertEq("the tick's own lines reach the base", [first.persisted, first.reason], [true, "persisted"]);
+
+    // What the agent does next, after `run.sh` has already returned and persisted.
+    run(A, `${APPEND} --tick 20260817-100000 --step doc-drift-filed --status filed --summary "ticket 20260818064158"`);
+    const late = JSON.parse(run(A, `${PERSIST} --tick 20260817-100000`).stdout);
+    assertEq("a persist run again after the filing carries it", [late.persisted, late.reason], [true, "persisted"]);
+    assertEq("as lines into a section the base already has", [late.sections, late.lines], [0, 1]);
+    assertTrue("and the `<step>-filed` line is on the BASE, not just the checkout",
+      based(A).includes("- `doc-drift-filed`: filed — ticket 20260818064158"), based(A));
+    assertTrue("the earlier lines of that section are still there",
+      based(A).includes("- `doc-drift`: filed — found #471") && based(A).includes("- `persist-log`: filed"), based(A));
+    assertEq("the section is not duplicated",
+      (based(A).match(/^## 20260817-100000$/gm) || []).length, 1);
+
+    // Nothing new to carry says so, and changes nothing.
+    const noop = JSON.parse(run(A, `${PERSIST} --tick 20260817-100000`).stdout);
+    assertEq("a third persist is a no-op that says so", [noop.status, noop.reason, noop.changed],
+      ["ok", "already_current", false]);
+    assertEq("the caller's checkout is still byte-identical",
+      run(A, "git status --porcelain --untracked-files=no").stdout.trim(), "");
+    assertEq("no publish branch is left behind", run(A, "git branch --list publish-main").stdout.trim(), "");
+    assertEq("and no publish-main ref reached origin",
+      run(A, "git ls-remote --heads origin publish-main").stdout.trim(), "");
+
+    // TWO CONTAINERS, ONE SHARED SECTION. A resumed tick keeps its id, so two containers
+    // can both hold section S and append different lines to it. Neither may lose the
+    // other's — the union is per `(tick, step)`, so it is append-only within the section
+    // as well as across sections, with no rebase anywhere.
+    clone(B, "b@example.com");
+    run(B, `${APPEND} --tick 20260817-100000 --step issue-triage-filed --status filed --summary "from b"`);
+    run(B, `${APPEND} --tick 20260817-200000 --step open-log --status ok --summary "b's own tick"`);
+    const bOut = JSON.parse(run(B, `${PERSIST} --tick 20260817-100000`).stdout);
+    assertEq("b's shared-section line and its own section both land",
+      [bOut.persisted, bOut.sections, bOut.lines], [true, 1, 1]);
+
+    run(A, `${APPEND} --tick 20260817-100000 --step stuck-prs-filed --status filed --summary "from a"`);
+    const aOut = JSON.parse(run(A, `${PERSIST} --tick 20260817-100000`).stdout);
+    assertEq("and a's later line lands on top of b's", [aOut.persisted, aOut.lines], [true, 1]);
+    const merged = based(A);
+    for (const line of [
+      "- `doc-drift`: filed — found #471",
+      "- `doc-drift-filed`: filed — ticket 20260818064158",
+      "- `issue-triage-filed`: filed — from b",
+      "- `stuck-prs-filed`: filed — from a",
+      "- `open-log`: ok — b's own tick",
+    ]) {
+      assertTrue(`nothing was lost: ${line}`, merged.includes(line), merged);
+    }
+    assertEq("both sections are on the base, each once",
+      (merged.match(/^## \d{8}-\d{6}$/gm) || []).sort(), ["## 20260817-100000", "## 20260817-200000"]);
+
+    // A LINE ALREADY ON THE BASE IS NEVER REWRITTEN. The log is append-only in substance:
+    // a step that ran twice with different outcomes is recorded under a distinct step id,
+    // and the base's copy of a `(tick, step)` wins over a checkout that differs.
+    const dayFile = join(A, DAY);
+    writeFileSync(dayFile, readFileSync(dayFile, "utf8").replace("found #471", "rewritten"));
+    const rewrite = JSON.parse(run(A, `${PERSIST} --tick 20260817-100000`).stdout);
+    assertEq("a differing line is not carried as an update", [rewrite.status, rewrite.reason],
+      ["ok", "already_current"]);
+    assertTrue("the base keeps what it had", based(A).includes("- `doc-drift`: filed — found #471"), based(A));
+    assertTrue("and it is not doubled",
+      (based(A).match(/^- `doc-drift`: /gm) || []).length === 1, based(A));
   } finally {
     cleanup(tmp);
   }

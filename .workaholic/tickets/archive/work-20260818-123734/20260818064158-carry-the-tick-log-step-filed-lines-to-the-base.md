@@ -1,11 +1,13 @@
 ---
 created_at: 2026-08-18T06:41:58+00:00
+status: done
 author: a@qmu.jp
 assignees: 
 depends_on:
 feedback: [20260818064140-the-tick-log-s-step-filed-lines-can-never-reach-the-base]
 merge_policy:
 verification_handoff: 
+claim: work-20260818-123734
 ---
 
 # Carry the tick log step-filed lines to the base
@@ -113,3 +115,82 @@ skip an item an earlier tick filed, and `human-checkin`'s `already_asked` gate a
   header lists `development` as a valid `source` while the validator accepts only
   `meeting|slack|discussion`. Found while filing the record above, which had to be filed as
   `discussion`. Header and `case` are one file apart and disagree.
+
+## Final Report
+
+**The fork, stated before it was written** (Implementation Step 2). The feedback record
+named three and the ticket left the choice to whoever drove it. Taken: **(2) union by
+`(tick, step)`, together with (1) persist twice** — they are not rivals but the two halves
+of one fix, and either alone changes nothing. A second persist run against a by-section
+union asks only *"does the base have `## <tick>`?"*, gets `yes`, and reports
+`already_current`; a line-wise union with no second run never sees the `<step>-filed` lines,
+because they are appended after `run.sh` has already returned. Both shipped.
+
+**(3) — moving the agent's filing before the persist — is refused, and the reason is
+recorded in `persist-log.sh`'s header rather than dropped.** It takes the closing act away
+from `run.sh`, which is the one thing guaranteeing that a tick dying part-way still puts what
+it recorded on the base. A tick that died between the ninth step and the agent's filing would
+then persist **nothing**, where today it persists every probe line — trading a missing subset
+of the log for a missing whole one.
+
+**What was built.**
+
+- `persist-log.sh`: a `## <tick-id>` section the base lacks is still appended whole
+  (`sections`); a section it already carries is now merged **entry by entry**, appending only
+  the steps its copy lacks, in the checkout's order, at the end of that section (`lines`, a
+  new output field). Nothing is rewritten, reordered or removed — a `(tick, step)` the base
+  already has **wins** over a differing local copy, which is `log-append.sh`'s
+  append-only-in-substance rule applied across containers.
+- `SKILL.md` *The run*: the agent persists again after recording its `<step>-filed` lines,
+  and that second persist is now the last thing a tick does. Idempotent
+  (`already_current` when nothing was filed), reported in the session, deliberately not
+  logged — recording it would need a third persist, and so on.
+- The header's concurrency rationale and the refused pull-request-per-tick alternative are
+  **answered, not replaced**: the union is still a union and still not a rebase, and the
+  point-by-point contrast with the three writer designs `workaholic:ship` §7 refused stands
+  untouched.
+
+**Every acceptance criterion, and how it was proved.**
+
+- *A `<step>-filed` line appended after `run.sh` returns reaches the base within the same
+  tick* — new hermetic case `housekeep: the lines written after the persist reach the base
+  too`, asserting against `origin/main`, never the checkout. It **failed before the change**
+  (`expected [true,"persisted"], got [true,"already_current"]`; the base's section carried
+  neither the line nor a `lines` field) and passes after it.
+- *Two containers appending to the same UTC day both land — sections and lines within a
+  shared section — with nothing lost and no rebase involved* — same case: two clones append
+  different entries to one shared section plus a section of their own; all five lines and
+  both sections survive. The pre-existing genuine-race case (a `pre-push` hook that lets the
+  other clone win) is untouched and still passes.
+- *The caller's checkout is byte-identical, no `work-*` branch, no `publish-main` ref on
+  origin* — asserted in the new case (`git status --porcelain`, `git branch --list`,
+  `git ls-remote --heads origin publish-main`) and by `verify-housekeep`, which measures a
+  working-tree delta rather than an absolute.
+- *A persist that does not reach the base is still reported `degraded` by name, with the log
+  left in the checkout* — the existing `origin_unreachable` assertion is unchanged and
+  passes; the failure paths now carry `lines` alongside `sections`.
+
+**Verification run.** `node scripts/test-workflow-scripts.mjs` — **3051 passed, 0 failed**.
+`sh scripts/e2e/loop-drill.sh verify-housekeep` — `verdict: pass`, 5/5 load-bearing.
+`node scripts/build-plugins/build.mjs`, `verify.mjs`, `validate-metadata.mjs` — all clean.
+`layout-doctor.sh` — `conforming: true`.
+
+**One correction to the ticket's own step 6.** It says `outputs/` must be regenerated because
+"housekeep scripts are in the portable bundle's closure". They are not — the bundle carries
+`create-ticket, drive, report, ship, catch, mission, review-sections, write-release-note`, and
+`housekeep` is not among them, so no `persist-log.sh` copy exists there to drift. The rebuild
+was run regardless and was **not** a no-op: it propagated the adjacent `feedback/create.sh`
+fix below into the six bundled skills that carry that script in their closure.
+
+**The adjacent fix, taken because it was cheap** (Considerations). `feedback/scripts/create.sh`
+listed `development` as a valid `source` in its own usage header, `SKILL.md` documented it and
+`validate-feedback.sh` accepted it — and only the writer's own `case` refused it, so the one
+writer rejected a value every reader accepted. Widened to match the three that agree (not
+narrowed: the record this very ticket grew from had to be filed as `discussion` for want of
+it), with a regression case placed after the fixture's listing assertions because creating a
+record changes the counts they make.
+
+**Documentation updated in the same change**: `housekeep/SKILL.md`,
+`housekeep/reference/workflow.md`, `rules/workaholic.md`, `CLAUDE.md` — each now states a
+union by `(tick, step)` and a persist that runs twice, rather than the by-section closing act
+that no longer describes what is built.

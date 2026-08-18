@@ -50,24 +50,28 @@ request, no merge, no deployment — and no `AskUserQuestion`. The ask this temp
 answers was "run `/ship` once per hour to update the release notes" (issue #451); the
 command is still **not** `/ship`.
 
-**Since 2026-08-17 it does keep the notes current, and the shape is what makes that
-safe** (issue #472). `workaholic:ship` §7 recorded three writer designs that were
-measured and refused; the first — a merged note's plan is self-referential, because its
-own refresh commit changes the count it reports — is answered not by a better writer but
-by a home that is not a commit: each target's **GitHub draft release**, invisible to
-consumers and free to rewrite. A draft that never enters git cannot count itself. The
-other two refusals stand untouched: no open pull request's branch is written, and `/ship`
-is never run. So the tick reports hourly and regenerates each target's draft **at most
-once per `Asia/Tokyo` day**, plus immediately whenever the release stage advances; an
-idle tick writes nothing and posts nothing.
+**The notes are kept current by CI, not by this routine** (2026-08-17 chose the home;
+2026-08-18 moved the writer). `workaholic:ship` §7 recorded three writer designs that
+were measured and refused; the first — a merged note's plan is self-referential, because
+its own refresh commit changes the count it reports — is answered not by a better writer
+but by a home that is not a commit: each target's **GitHub draft release**, invisible to
+consumers and free to rewrite. A draft that never enters git cannot count itself. That
+home stands. What moved is who writes it: this routine's container **cannot** write a
+release by any transport (`gh release` refused as GraphQL; REST answering *"Creating,
+editing, or deleting releases is not permitted for this session type"*), so the write
+belongs to the `Release Note Draft` workflow, which holds `contents: write`. The tick
+calls `run-note-cadence.sh` **without** `--write` and makes no `gh` call for it at all.
+The other two refusals stand untouched: no open pull request's branch is written, and
+`/ship` is never run. The tick reports hourly; an idle tick writes nothing and posts
+nothing.
 
 Two frontmatter values differ from the developer-scoped pair, and both follow from the
 contract rather than from taste: `autofix_on_pr_create: false` (this routine opens no
 pull request, so the flag would declare a behaviour it can never reach — the setup sheet
-renders no step for it) and an `allowed_tools` list with no `Write`/`Edit`. That list is
-unchanged by the generation step and that is the point: the draft lives outside git, so
-the routine still needs no ability to write a file, and the property is stated where the
-product can act on it rather than only in prose.
+renders no step for it) and an `allowed_tools` list with no `Write`/`Edit`. That list has
+never needed a change: the draft lives outside git and is now written by CI besides, so
+the routine needs no ability to write a file by either route, and the property is stated
+where the product can act on it rather than only in prose.
 
 **Two gates make an idle tick silent**, and they are the reason a recurring post is
 allowed at all under `workaholic:notify`'s bright line: nothing waiting (`actionable:

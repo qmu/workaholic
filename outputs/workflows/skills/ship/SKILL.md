@@ -227,6 +227,14 @@ The ask was "run `/ship` once per hour to update the release notes". A `## Deplo
 
 So the tick does the strongest thing a machine may honestly do to a document whose forward-looking half is a human's decision to act on: it checks it and says what it found. The precedent is this repository's own `report/scripts/area-freshness.sh` — *it reports, it never writes* — adopted 2026-08-13 for the same class of problem.
 
+### Plan → release → verification, in one document (2026-08-18, issue #512's fourth gap)
+
+The three records were separately correct and never joined: the **plan** in the target's draft, the **window** under `.workaholic/releases/` (written at the cut by `record-release-cut.sh`, at each attempt by `confirm-release.sh`), and the **per-target attempt** appended to `.workaholic/release-notes/<slug>.md` by `record-evidence.sh`. A reader opening a target's draft saw the plan and nothing that came after it.
+
+The join is a **derivation, not a copy**: `read-release-history.sh` reads those records where their own writers keep them, and `draft-release-note.sh` renders them into the note it already renders — `## Deployment Plan`, then `## Releases`, then `## Deployment Verification`, in that order. **No third store**, which is the whole constraint: two stores exist by decision and the derivation is the truth, so a third would drift inside a week. Append-only survives untouched because the projection never writes: `record-evidence.sh` remains the one writer of an attempt and `confirm-release.sh` of a confirmation, and a published release is still never overwritten.
+
+Two things it refuses to blur. A **window is repository-wide** — a `release/*` branch carries the whole batch — so the note says so rather than letting a batch confirmation read as "this target was checked"; the per-target evidence is the section below it. And **`fail`, `not_run` and `bypassed` render exactly as loudly as `pass`**: a continuity feature that showed only successes would make an unverified release look verified, which is the failure the verification section exists to prevent. An empty stage says so in words (*"No release has been cut yet"*), never by an absent section.
+
 ### Where the judgment runs (the Open Decision on ticket `20260818202056-run-the-release-planning-judgment-and-reach-ci`, ruled 2026-08-18)
 
 **(a) — in CI, beside the writer.** The seam above renders a plan; this is where the plan is authored. The three candidates were weighed against the refusals in this section rather than against effort:

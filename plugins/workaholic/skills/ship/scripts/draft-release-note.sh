@@ -560,6 +560,29 @@ while IFS="$US" read -r slug title environment model model_reason \
     printf '> nothing this note could report as verified.*\n\n' >> "$BODY"
   fi
 
+  # --- Releases: what the plan above turned into ------------------------------
+  # THE JOIN (2026-08-18, issue #512's fourth gap). The plan, the release and the
+  # verification were three correct records in three places, so no single document
+  # carried a release through its life. They are DERIVED here rather than copied:
+  # `read-release-history.sh` reads the records their own writers own, so this adds
+  # no third store and cannot violate their append-only order — it never writes.
+  releases=$(sh "${SCRIPT_DIR}/read-release-history.sh" --releases 2>/dev/null || true)
+  {
+    printf '## Releases\n\n'
+    printf 'Derived from `.workaholic/releases/` — the durable ship records, written at the\n'
+    printf 'cut by `record-release-cut.sh` and at each confirmation attempt by\n'
+    printf '`confirm-release.sh`. A window is **repository-wide**: it carries the whole\n'
+    printf 'batch, so a confirmation here says the batch containing `%s` reached\n' "$slug"
+    printf 'production, not that this target was checked on its own — the per-target\n'
+    printf 'evidence is the section below.\n\n'
+  } >> "$BODY"
+  if [ -n "$releases" ]; then
+    printf '%s\n\n' "$releases" >> "$BODY"
+  else
+    printf 'No release has been cut yet, so nothing above has left the base.\n\n' >> "$BODY"
+  fi
+
+  attempts=$(sh "${SCRIPT_DIR}/read-release-history.sh" --attempts --target "$slug" 2>/dev/null || true)
   {
     printf '## Deployment Verification\n\n'
     printf 'Append-only; one block per attempt, written by `record-evidence.sh` — the one\n'
@@ -567,8 +590,22 @@ while IFS="$US" read -r slug title environment model model_reason \
     printf 'names the target, the declared method, the exact check that ran, the observed\n'
     printf 'result, and one of `pass` / `fail` / `not_run` / `bypassed`. A later attempt\n'
     printf 'adds a block and never rewrites an earlier one.\n\n'
-    printf 'No attempt has been recorded against this draft — a draft describes a release\n'
-    printf 'that has not happened.\n\n'
+  } >> "$BODY"
+  if [ -n "$attempts" ]; then
+    # Every recorded outcome, in the order it was recorded — `fail`, `not_run` and
+    # `bypassed` exactly as visible as `pass`, because a continuity feature that
+    # showed only successes would make an unverified release read as a verified one.
+    {
+      printf 'Recorded against `%s` so far, derived from\n' "$slug"
+      printf '`.workaholic/release-notes/%s.md` (its own writer appends there; this is a\n' "$slug"
+      printf 'projection and never a second record):\n\n'
+    } >> "$BODY"
+    printf '%s\n\n' "$attempts" >> "$BODY"
+  else
+    printf 'No attempt has been recorded against this target — a draft describes a release\n' >> "$BODY"
+    printf 'that has not happened.\n\n' >> "$BODY"
+  fi
+  {
     printf '## Links\n\n'
     printf -- '- [Deployment record](.workaholic/deployments/%s.md)\n' "$slug"
   } >> "$BODY"

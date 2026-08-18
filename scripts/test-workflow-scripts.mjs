@@ -14155,6 +14155,7 @@ const tests = [
   ["release note: Key Changes says what landed, for every merge", testReleaseNoteKeyChangesFallback],
   ["release note: a story-less merge keeps its substance", testReleaseNoteStoryLessSubstance],
   ["release note: the plan seam over the renderer", testReleaseNotePlanSeam],
+  ["release note: plan then release then verification, in one document", testReleaseNoteLifecycleJoin],
   ["release plan: the planner, its gate, and its visible failure", testReleasePlannerChain],
   ["workaholify routines: one template set, applied per repository, drift named per field", testWorkaholifyRoutines],
   ["workaholify bootstrap: without it a web routine is configured but cannot work", testWorkaholifyBootstrap],
@@ -16120,6 +16121,102 @@ function testReleaseNoteStoryLessSubstance() {
       /- The run learned to arrange\.$/m.test(withStory), withStory);
     assertTrue("...with no substance sub-bullets under it",
       !/Another ask entirely/.test(withStory), withStory);
+  } finally {
+    cleanup(tmp);
+  }
+}
+
+// ---------- release note: plan → release → verification, in one document ----------
+// (2026-08-18, issue #512's fourth gap) The three records were separately correct and
+// never joined: the plan in the draft, the window under `.workaholic/releases/`, the
+// per-target attempt in `.workaholic/release-notes/`. They are DERIVED into the one
+// document rather than copied — no third store, and the writers keep their append-only
+// order because the projection never writes. The unflattering outcomes (`fail`,
+// `not_run`, `bypassed`) render exactly as loudly as `pass`.
+function testReleaseNoteLifecycleJoin() {
+  const tmp = mkdtempSync(join(tmpdir(), "workaholic-note-join-"));
+  const repo = join(tmp, "repo");
+  const DRAFT = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/draft-release-note.sh")}`;
+  const body = () => JSON.parse(run(repo, DRAFT).stdout).targets[0].body;
+  const section = (b, name) => {
+    const m = new RegExp(`## ${name}\\n([\\s\\S]*?)(?=\\n## |$)`).exec(b);
+    return (m ? m[1] : "").trim();
+  };
+  try {
+    mkdirSync(join(repo, ".workaholic/deployments"), { recursive: true });
+    mkdirSync(join(repo, ".workaholic/releases"), { recursive: true });
+    mkdirSync(join(repo, ".workaholic/release-notes"), { recursive: true });
+    execSync("git -c init.defaultBranch=main init -q", { cwd: repo });
+    execSync("git config user.email test@example.com", { cwd: repo });
+    execSync("git config user.name Test", { cwd: repo });
+    execSync("git config commit.gpgsign false", { cwd: repo });
+    writeFileSync(join(repo, ".workaholic/deployments/marketplace.md"),
+      "---\ntype: Deployment\ntarget: marketplace\nenvironment: production\ndeploy_model: deploy-on-merge\n---\n\n# marketplace\n\n## Procedure\n\n1. Merge.\n\n## Confirmation\n\nCheck it.\n");
+    execSync("git add -A && git commit -q -m initial", { cwd: repo });
+
+    // (1) NOTHING YET: both stages say so in words, never by an absent section.
+    let b = body();
+    assertTrue("a draft with no release says so plainly",
+      /No release has been cut yet/.test(section(b, "Releases")), section(b, "Releases"));
+    assertTrue("and one with no attempt says that too",
+      /No attempt has been recorded against this target/.test(section(b, "Deployment Verification")),
+      section(b, "Deployment Verification"));
+    assertTrue("the three stages read in order: plan, then release, then verification",
+      b.indexOf("## Deployment Plan") < b.indexOf("## Releases")
+      && b.indexOf("## Releases") < b.indexOf("## Deployment Verification"), b);
+
+    // (2) A WINDOW IS CUT, THEN CONFIRMED — repository-wide, and labelled as such.
+    writeFileSync(join(repo, ".workaholic/releases/release-20260301-000000.md"),
+      "---\ntype: Release\nrelease_branch: release/20260301-000000\nstatus: confirmed\ncut_at: 2026-03-01T00:00:00+00:00\ncarried_count: 7\nconfirmed_at: 2026-03-01T01:00:00+00:00\nconfirmation_method: browser\nconfirmation_status: pass\ntag: v1.0.200\n---\n\n# release\n");
+    b = body();
+    assertTrue("the window renders with its verdict, method and tag",
+      /`release\/20260301-000000` — cut 2026-03-01T00:00:00\+00:00, 7 commit\(s\), \*\*confirmed\*\*; confirmation pass at 2026-03-01T01:00:00\+00:00 \(`browser`\), tag `v1\.0\.200`/
+        .test(section(b, "Releases")), section(b, "Releases"));
+    assertTrue("and the note says a window is repository-wide, not per target",
+      /repository-wide/.test(section(b, "Releases")), section(b, "Releases"));
+
+    // A FAILED confirmation is recorded, never erased — and renders as loudly.
+    writeFileSync(join(repo, ".workaholic/releases/release-20260302-000000.md"),
+      "---\ntype: Release\nrelease_branch: release/20260302-000000\nstatus: failed\ncut_at: 2026-03-02T00:00:00+00:00\ncarried_count: 2\nconfirmed_at: 2026-03-02T01:00:00+00:00\nconfirmation_method: browser\nconfirmation_status: fail\ntag:\n---\n\n# release\n");
+    b = body();
+    assertTrue("a failed window is as visible as a confirmed one",
+      /`release\/20260302-000000`[^\n]*\*\*failed\*\*[^\n]*confirmation fail/.test(section(b, "Releases")),
+      section(b, "Releases"));
+    assertTrue("newest first", section(b, "Releases").indexOf("20260302") < section(b, "Releases").indexOf("20260301"),
+      section(b, "Releases"));
+
+    // (3) PER-TARGET ATTEMPTS, from the note their own writer appends to.
+    writeFileSync(join(repo, ".workaholic/release-notes/marketplace.md"),
+      ["---", "type: Release Note", "target: marketplace", "---", "", "# note", "",
+        "## Deployment Verification", "",
+        "### Attempt — marketplace (not_run)", "",
+        "- **When:** 2026-03-01T02:00:00+00:00", "- **By:** test@example.com",
+        "- **Target:** marketplace", "- **Method declared:** browser",
+        "- **Status:** not_run", "- **Observed:** no browser in this environment", "",
+        "### Attempt — marketplace (pass)", "",
+        "- **When:** 2026-03-03T02:00:00+00:00", "- **By:** test@example.com",
+        "- **Target:** marketplace", "- **Method declared:** browser",
+        "- **Status:** pass", "- **Observed:** 200 OK", "",
+        "## Links", ""].join("\n"));
+    b = body();
+    const ver = section(b, "Deployment Verification");
+    assertTrue("every recorded attempt reaches the draft that planned it",
+      /2026-03-01T02:00:00\+00:00 — \*\*not_run\*\* \(`browser`\)/.test(ver)
+      && /2026-03-03T02:00:00\+00:00 — \*\*pass\*\* \(`browser`\)/.test(ver), ver);
+    assertTrue("in the order they were recorded, the unflattering one first",
+      ver.indexOf("not_run") < ver.indexOf("**pass**"), ver);
+    assertTrue("and the projection names the record it is projecting",
+      /projection and never a second record/.test(ver), ver);
+
+    // (4) STILL A PROJECTION: no store was created, nothing was appended, and the
+    // same base state still renders byte-identically.
+    // The fixture's own files are untracked by construction; what must not move is
+    // anything the RENDER touched, so the comparison is across a render.
+    const beforeRender = run(repo, "git status --porcelain").stdout;
+    body();
+    assertEq("the join writes nothing into the checkout",
+      run(repo, "git status --porcelain").stdout, beforeRender);
+    assertEq("and two renders are byte-identical", run(repo, DRAFT).stdout, run(repo, DRAFT).stdout);
   } finally {
     cleanup(tmp);
   }

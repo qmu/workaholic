@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-17T11:52:31+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -107,3 +108,77 @@ decides how it comes to exist — or that it does not, and the digest is scoped 
 - Whatever is chosen, the citation direction should stay one-way. The strategy → feedback
   link is one-way by explicit design, and a bidirectional attribution would reintroduce the
   bookkeeping that made the old relation expensive.
+
+## Final Report
+
+Development completed as planned.
+
+**The Open Decision is resolved: (b), attribution through the feedback stream.** Work reaches a
+strategy along the citation that already exists, and **no field is added anywhere**:
+
+| Hop | Rule | `attribution` |
+| --- | ---- | ------------- |
+| 1 | the artifact's `feedback:` refs intersect the strategy's | `direct` |
+| 2 | a **mission** attributed by hop 1 is named by the artifact's `mission:` relation | `via_mission:<slug>` |
+
+Hop 2 is load-bearing rather than a convenience: `/propose` puts the `feedback:` refs on the
+mission and its ticket set carries `mission:` instead, so a one-hop reader would have seen
+almost nothing on the corpus this repository actually has.
+
+**The 2026-08-13 removal's reasoning, answered rather than ignored** (the ticket's Gate). That
+decision declined to revive `strategy:` on a mission because the relation gave ownership a
+*second resolution path* — the "ownership hop" `mission-owners.sh` used to make — and because a
+mission's owner belongs on the mission. (b) does not answer that objection by out-arguing it; it
+answers it by **never creating the relation**. There is no new field, so there is no second
+resolution path to rebuild, nothing for `owners.sh` to hop through, and no write floor, hook or
+migration to ship — which is also why step 3 of the Implementation Steps and the "any new field
+carries a registered migration" acceptance criterion are satisfied vacuously rather than skipped.
+The retired relation stays retired and the citation stays one-way.
+
+The other three candidates and why each lost are recorded in the reader's own header, beside the
+rule that won: (a) would have to re-answer the removal and reopen the ownership model for a
+read-only digest; (c) needs a **third writer** of a live strategy, which the two-writer design
+refuses; (d) ships without a ruling and is not what was asked for.
+
+**One reader, and the lossiness is reported rather than hidden.**
+`skills/strategy/scripts/attributed-work.sh` is the only answer to "which work belongs to
+strategy X in window W", and it parses neither relation itself — each hop goes through that
+relation's existing single reader (`propose/scripts/read-feedback-relation.sh`,
+`mission/scripts/read-relation.sh`), so a second parser cannot disagree with the first. Work that
+answers a strategy without citing the same record is invisible to both hops; every artifact
+therefore carries the hop that caught it, and every consumer is required to state what it could
+not attribute instead of implying the answer is exhaustive.
+
+**A quiet strategy is an answer, never an error**: `empty_reason` is `no_feedback_refs`,
+`no_citing_artifacts` or `no_activity_in_window`, and every degradation — including an unknown
+slug and a missing argument — exits 0 so a digest can call the reader unguarded.
+
+### Discovered Insights
+
+- **Insight**: the artifact→feedback relation already had a single reader, and it was in the
+  `propose` skill (`read-feedback-relation.sh`), not the `feedback` skill.
+  **Context**: the obvious move when adding a consumer is to write "the feedback relation
+  reader" in the skill that owns the artifact; doing that would have created the second parser
+  this repository's one-reader rule exists to prevent. The rule is about the *relation*, and its
+  reader lives wherever it was first needed — check for one before adding one.
+
+- **Insight**: attribution had to be transitive to see anything at all, because of where
+  `/propose` puts the refs.
+  **Context**: a mission carries `feedback:`; the tickets it emits carry `mission:` and usually
+  no `feedback:` of their own. Any future reader that walks refs one hop from an artifact will
+  measure near-zero on this corpus and look correct while doing it — the emptiness is a property
+  of the emitter, not of the tree.
+
+- **Insight**: a large-corpus reader can keep the one-reader rule *and* stay cheap by
+  prefiltering with grep and confirming with the reader.
+  **Context**: 800+ tickets means a per-file call to a relation reader is 800 process spawns
+  (`catch/scripts/scan-window.sh` pays exactly that). Grepping the corpus for the literal stems
+  first and calling the reader only on the hits keeps the authoritative parse in one place while
+  reading a handful of files — the grep decides "worth reading", never attribution.
+
+- **Insight**: `jq` filters carrying literal `0x1e`/`0x1f` separators are fragile in a way that
+  fails loudly but confusingly — the split silently degrades to per-character.
+  **Context**: the separators survive in the file but are invisible in a diff and can be dropped
+  by any tool that touches the line, and the failure mode (441 one-character "records" out of a
+  five-artifact fixture) reads like a parsing bug rather than a lost byte. `scan-window.sh` has
+  the same shape; a fixture assertion on the record count is what catches it.

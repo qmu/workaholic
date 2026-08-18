@@ -31,6 +31,7 @@ Run every command from the repository root, on a clean `main`.
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-plan --json` | this checkout's deployment targets and commit range — proves the plan refresh `[Implement]` carries |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-status --json` | the same targets read the `[Release Status]` way — proves the repository tick reads soundly and stays silent when nothing changed |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-cadence --json` | the same targets' **draft notes** — proves the daily generation renders, is idempotent and clock-free, and derives its stage |
+| — | Any time | `sh scripts/e2e/loop-drill.sh verify-standup --json` | this checkout's strategies and their attributable work — proves the daily digest reads soundly, names its silence and writes nothing |
 | — | Any time | `sh scripts/e2e/loop-drill.sh status` | the drill's residue: issues, claim branches, tickets |
 | — | After an abort | `sh scripts/e2e/loop-drill.sh reset` | closes/deletes **drill-minted** residue only |
 
@@ -253,6 +254,29 @@ render is still correct when either is red, and the *periodic* property is what 
 They are separated because they fail for different reasons — the first catches anything
 non-derived (a network read, an unordered set), the second catches a clock specifically,
 which is why the drill takes the two renders a second apart.
+
+## 5e. The `[Standup]` read
+
+`verify-standup` needs no seed, no fire and no issue number either, and it writes nothing
+anywhere. On a repository with **no strategy authored — which is this one today** — the
+correct output is *no Slack message at all*, so "did it work?" is unanswerable by watching
+the channel; that is exactly why the stage exists.
+
+`[Standup]` (repository scope, `5 0 * * *` — 09:05 Asia/Tokyo, configured by
+`/setup-repo-routines` from **one** account, the second routine in that scope) runs
+`/standup`, a pure read. Four load-bearing rows:
+
+| Row | Fails when | Read |
+| --- | ---------- | ---- |
+| `standup_read` | the digest could not be computed from this checkout | `skills/standup/scripts/digest.sh` over `skills/strategy/scripts/attributed-work.sh` — a missing script, or a malformed strategy record |
+| `standup_noop_named` | a quiet morning produced `noop: true` with no reason | `skills/standup/scripts/digest.sh` — a nameless empty digest is indistinguishable from a read that failed, and the whole silence rule rests on the distinction |
+| `standup_writes_nothing` | the working tree changed across two reads | `skills/standup/scripts/digest.sh` — the routine's contract is that it writes nothing; a daily unattended tick that writes is a new class of write on `main` |
+| `standup_degraded` | an absent knowledge root did not answer cleanly | `skills/standup/scripts/digest.sh` — a degraded read reports `no_strategies` and exits 0, because a non-zero exit is a silent morning nobody explains |
+
+`standup_writes_nothing` is this stage's `plan_idempotent`: the digest can be perfectly
+correct and still be the wrong artifact if it left something behind. The likeliest
+regression is a helper that starts caching its answer to a file "to be idempotent", which
+is the opposite of what a reader needs.
 
 ## 6. Abort playbook
 

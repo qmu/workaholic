@@ -66,8 +66,9 @@ The `plugins/workaholic` source stays Claude-Code-only (`metadata.internal: true
 | `/explain` | Answer a question about the repository and export a printer-ready PDF report, rendered from HTML by a real browser |
 | `/workaholify` | Prepare the current repo for the standards: **apply** the `CLAUDE.md` gateway reference and the web-bootstrap hook (one confirmation each), converge the `.workaholic/` layout, and confirm the working-directory hook is active |
 | `/fullfill` | Report what is **waiting to deploy** on the base right now, per deployment target, and what about it needs a human — commits waiting since the last release boundary, a target that declares no confirmation method, a target no release note has ever joined. **A pure read**: it writes no file, commits nothing, opens no pull request, merges nothing and deploys nothing. It posts one Slack line only when something is waiting *and* that exact answer has not been posted before; both gates fail and it says nothing at all. This is what the repository-scoped `[Release Status]` routine runs hourly |
+| `/standup` | Report the day's development activity **per strategy** — what moved since yesterday, what is waiting, and how close each dated direction is to its `target_date`. **A pure read**: it writes no file, commits nothing, opens no pull request, merges nothing and deploys nothing. A quiet strategy says "no activity" rather than vanishing from the digest, work belonging to no strategy is reported as a count so the summary never reads as exhaustive, and a morning that is not news — no active strategy, or nothing moved with no date approaching — posts nothing at all. This is what the repository-scoped `[Standup]` routine runs each morning |
 | `/setup-dev-routines` | **Configure** the routines every developer needs their own copy of (`[Propose]`, `[Implement]`): every run lists the account's routines through a `RemoteTrigger`-family tool, diffs each against its template (name, prompt, model, `cron_expression`, `autofix_on_pr_create`, connectors), applies the create/update needed to converge, and reports the per-routine changes. No questions. When no such transport is reachable it says so — `no_transport` — and falls back to rendering the **copy-paste setup sheets** (name, scope, model, repository, the prompt verbatim, the web-UI steps) as that refusal's recovery path, together with the preconditions (the `dev-<repo>` Slack channel, the web bootstrap) and a plain statement of what could not be verified from the session |
-| `/setup-repo-routines` | **Configure** the routines the repository needs exactly **one** of (`[Release Status]`) — same flow, same one refusal, scoped to `repository` templates. **Run it from one account**, a designated person or a project/service account: a routine is an account-level record no other account can list, so N members each converging the repository's single routine would leave N copies firing every hour and nothing in the product could detect it. That makes the single-owner rule a **stated convention rather than an enforced one**, which the command says plainly instead of inventing an authorization the API cannot carry — it reports exactly which routines it converged, by name, so a second person sees their own duplicate |
+| `/setup-repo-routines` | **Configure** the routines the repository needs exactly **one** of (`[Release Status]`, `[Standup]`) — same flow, same one refusal, scoped to `repository` templates. **Run it from one account**, a designated person or a project/service account: a routine is an account-level record no other account can list, so N members each converging the repository's single routine would leave N copies firing every hour and nothing in the product could detect it. That makes the single-owner rule a **stated convention rather than an enforced one**, which the command says plainly instead of inventing an authorization the API cannot carry — it reports exactly which routines it converged, by name, so a second person sees their own duplicate. There are **two** routines in this scope, and the setup sheet says so in its header — creating the first and stopping would leave the repository half-configured with nothing to say so |
 
 **Engineering-policy skills** (`planning` / `design` / `implementation` / `operation`): a catalog mirrored from qmu.co.jp giving each policy's title, one-line summary, and canonical link, organized into the 企画 (planning — grounding a project in business, market, and legal context before design begins), 設計 (design), 実装 (implementation, sub-grouped by 妥当性 / 可用性 / アクセシビリティ), and 運用 (operations) pillars. Pure prose, exposed on every Agent-Skills agent. Security (安全) and working-practice (執務) policies live elsewhere on qmu.co.jp and are out of scope.
 
@@ -317,6 +318,7 @@ flowchart LR
   workaholify(["/workaholify"])
   setuproutines(["/setup-dev-routines · /setup-repo-routines"])
   releasestatus(["/fullfill"])
+  standup(["/standup"])
 
   %% ---------- artifacts under .workaholic/ (grey) ----------
   TODO["tickets/todo/"]
@@ -378,6 +380,10 @@ flowchart LR
   setuproutines -.-> ROUT
   releasestatus -.-> DEP
   releasestatus -.-> REL
+  standup -.-> TODO
+  standup -.-> ARCH
+  standup -.-> MIS
+  standup -.-> STORY
 
   %% ========== mission rolls: dashed, labelled ==========
   drive -. rolls .-> MIS
@@ -391,7 +397,7 @@ flowchart LR
   classDef cmd fill:#dbeafe,stroke:#1e40af,stroke-width:1.5px,color:#1e3a8a;
   classDef art fill:#f3f4f6,stroke:#6b7280,color:#111827;
   classDef ext fill:#f3f4f6,stroke:#9aa0aa,stroke-dasharray:4 3,color:#374151;
-  class ticket,mission,missionclose,propose,feedback,drive,report,ship,releasestatus,catch,commit,explain,workaholify,setuproutines cmd;
+  class ticket,mission,missionclose,propose,feedback,drive,report,ship,releasestatus,standup,catch,commit,explain,workaholify,setuproutines cmd;
   class TODO,ICE,ARCH,ABD,MIS,STORY,FBK,REL,DEP art;
   class EXT,OWN,PDF,WT,CFG,ROUT ext;
 ```
@@ -403,7 +409,7 @@ Reading the map:
 - **`/mission` and `/drive` are the two poles.** `/mission` writes `missions/…` and the kickoff/delta tickets into `tickets/todo/` (with `/propose` proposing missions and loose tickets upstream of it); `/drive` reads the mission set and each worktree's `todo/`, drains them to `tickets/archive/`, and rolls each mission it advances — in parallel across every claim it holds.
 - **The ticket is the spine.** `/ticket`, `/mission`, and `/propose` (a mission's ticket set, or one loose ticket) all *fill* `tickets/todo/`; **`/drive` alone** drains it to `tickets/archive/`. Everything downstream reads the archive.
 - **The feedback stream is the only loop.** `/ship` extracts a shipped story's section-6 concerns into `feedbacks/` as `kind: concern` records; the *next* `/report` re-reads the open set (records nobody superseded) and, for each one this branch resolved, appends a superseding record. Every record is written once and becomes permanent history — the "loop" is reading, never rewriting.
-- **Not shown** (to keep the graph legible): `terms/` is hand-maintained reference material, not command-generated, and `strategies/` is operator-authored — `/propose`'s strategy form may draft one behind a pull request that never auto-merges, but nothing reaches `main` there without the operator's merge; `trips/` is legacy read-only history with no writer since 2026-07-28, so no arrow touches it; and the OKF `index.md` hierarchy is regenerated automatically by the same commit seams (`/drive`, `/report`, `/ship`) whenever they write knowledge, not by a command of its own.
+- **Not shown** (to keep the graph legible): `terms/` is hand-maintained reference material, not command-generated, and `strategies/` is operator-authored — `/propose`'s strategy form may draft one behind a pull request that never auto-merges, but nothing reaches `main` there without the operator's merge, so the area `/standup` groups its digest *by* is the one input of that command the graph does not draw; `trips/` is legacy read-only history with no writer since 2026-07-28, so no arrow touches it; and the OKF `index.md` hierarchy is regenerated automatically by the same commit seams (`/drive`, `/report`, `/ship`) whenever they write knowledge, not by a command of its own.
 
 </details>
 

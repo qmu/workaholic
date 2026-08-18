@@ -13,7 +13,7 @@
 // state, and cleans up. No network, no real remotes, no GitHub token, no
 // mutation of the developer's working tree. Run with `node scripts/test-workflow-scripts.mjs`.
 
-import { cpSync, mkdtempSync, rmSync, writeFileSync, readFileSync, mkdirSync, existsSync, statSync, chmodSync, readdirSync, realpathSync, symlinkSync } from "node:fs";
+import { cpSync, mkdtempSync, rmSync, writeFileSync, appendFileSync, readFileSync, mkdirSync, existsSync, statSync, chmodSync, readdirSync, realpathSync, symlinkSync } from "node:fs";
 import { execSync } from "node:child_process";
 import { join, resolve, dirname, basename } from "node:path";
 import { tmpdir } from "node:os";
@@ -53,6 +53,8 @@ const SCRIPTS = {
   strategyList: join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/list.sh"),
   strategyRead: join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/read.sh"),
   strategyClose: join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/close.sh"),
+  strategyAttributedWork: join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/attributed-work.sh"),
+  standupDigest: join(REPO_ROOT, "plugins/workaholic/skills/standup/scripts/digest.sh"),
   validateStrategy: join(REPO_ROOT, "plugins/workaholic/hooks/validate-strategy.sh"),
   missionClose: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/close.sh"),
   missionCreate: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/create.sh"),
@@ -4094,6 +4096,267 @@ function testStrategySkill() {
     listed = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.strategyList} --status active`).stdout);
     assertEq("the status filter excludes the closed strategy", listed.count, 0);
   } finally { cleanup(dir); }
+}
+
+// ---------- strategy/attributed-work.sh (the ONE attribution reader) ----------
+// The rule written down before any summary is computed (ticket
+// `20260817115231-resolve-strategy-to-activity-attribution`, 2026-08-17): work reaches a
+// strategy through the citation that already exists — the feedback stream — and NO FIELD IS
+// ADDED. What is pinned here is that rule's two hops, its honesty about being lossy, and
+// its named empty results; a fixture is the only way to check any of it, since the
+// repository holds zero strategies.
+function testStrategyAttributedWork() {
+  const dir = makeRepo("main");
+  const READ = `${POSIX_SH} ${SCRIPTS.strategyAttributedWork}`;
+  const wf = (rel, body) => {
+    const abs = join(dir, rel);
+    mkdirSync(dirname(abs), { recursive: true });
+    writeFileSync(abs, body);
+  };
+  const strategy = (slug, refs) =>
+    `---\ntype: Strategy\ntitle: ${slug}\nslug: ${slug}\nstatus: active\n` +
+    `target_date: 2026-12-31\nassignees: [a@qmu.jp]\nfeedback: [${refs}]\n---\n\n` +
+    `# ${slug}\n\n## Aim\n\nx\n\n## Schedule\n\ny\n`;
+  try {
+    // Two strategies with OVERLAPPING work: both cite fb-1, so the mission and its whole
+    // ticket set belong to both. Attribution is not a partition and nothing de-duplicates
+    // across strategies — two directions can be advanced by one commit.
+    wf(".workaholic/strategies/alpha.md", strategy("alpha", "20260801000001-one.md"));
+    wf(".workaholic/strategies/beta.md", strategy("beta", "20260801000001-one.md, 20260801000002-two.md"));
+    wf(".workaholic/strategies/silent.md", strategy("silent", ""));
+    wf(".workaholic/missions/active/m-one/mission.md",
+      "---\ntype: Mission\ntitle: M One\nslug: m-one\nstatus: active\nfeedback: [20260801000001-one.md]\n---\n\n# M One\n");
+    wf(".workaholic/tickets/todo/20260810000001-queued.md",
+      "---\ncreated_at: 2026-08-10T00:00:00+00:00\nmission: m-one\n---\n\n# Queued work\n");
+    wf(".workaholic/tickets/archive/work-x/20260805000001-shipped.md",
+      "---\ncreated_at: 2026-08-05T00:00:00+00:00\nstatus: done\nmission: [m-one]\n---\n\n# Shipped work\n");
+    wf(".workaholic/tickets/todo/20260811000001-loose.md",
+      "---\ncreated_at: 2026-08-11T00:00:00+00:00\nfeedback: [20260801000002-two.md]\n---\n\n# Loose direct ticket\n");
+    wf(".workaholic/stories/work-x.md", "---\ntype: Story\nbranch: work-x\nmission: [m-one]\n---\n\n# Work x story\n");
+    // A ticket citing NEITHER: the lossiness the reader is honest about must not be
+    // papered over by some looser match.
+    wf(".workaholic/tickets/todo/20260812000001-unrelated.md",
+      "---\ncreated_at: 2026-08-12T00:00:00+00:00\n---\n\n# Unrelated work\n");
+
+    // Seeded with a backdated commit so the window question has a real answer: everything
+    // is attributable and nothing MOVED.
+    execSync("git add -A && git commit -q -m seed", {
+      cwd: dir,
+      env: { ...process.env, GIT_COMMITTER_DATE: "2026-01-01T00:00:00+00:00", GIT_AUTHOR_DATE: "2026-01-01T00:00:00+00:00" },
+    });
+
+    const alpha = JSON.parse(run(dir, `${READ} alpha "1 day ago"`).stdout);
+    assertEq("hop 1 + hop 2 attribute the mission and everything naming it",
+      alpha.artifacts.map((a) => a.path).sort(),
+      [".workaholic/missions/active/m-one/mission.md",
+       ".workaholic/stories/work-x.md",
+       ".workaholic/tickets/archive/work-x/20260805000001-shipped.md",
+       ".workaholic/tickets/todo/20260810000001-queued.md"]);
+    assertEq("each artifact carries the hop that caught it",
+      alpha.artifacts.map((a) => a.attribution).sort(),
+      ["direct", "via_mission:m-one", "via_mission:m-one", "via_mission:m-one"]);
+    assertEq("a queued ticket is reported as waiting", alpha.waiting_count, 1);
+    assertEq("a quiet window is a named answer, not an error and not an empty set",
+      [alpha.empty, alpha.active_count, alpha.empty_reason], [false, 0, "no_activity_in_window"]);
+
+    const beta = JSON.parse(run(dir, `${READ} beta "1 day ago"`).stdout);
+    assertEq("overlapping work belongs to both strategies, uncounted-once",
+      beta.artifacts.map((a) => a.path).sort(),
+      [".workaholic/missions/active/m-one/mission.md",
+       ".workaholic/stories/work-x.md",
+       ".workaholic/tickets/archive/work-x/20260805000001-shipped.md",
+       ".workaholic/tickets/todo/20260810000001-queued.md",
+       ".workaholic/tickets/todo/20260811000001-loose.md"]);
+    assertTrue("a ticket citing no record of either strategy is invisible — the lossiness is real",
+      !beta.artifacts.some((a) => a.path.includes("unrelated")), JSON.stringify(beta.artifacts));
+
+    // Movement inside the window is read from git, the only place recency can come from.
+    appendFileSync(join(dir, ".workaholic/tickets/todo/20260810000001-queued.md"), "\nprogress\n");
+    execSync("git add -A && git commit -q -m 'Advance the queued ticket'", { cwd: dir });
+    const moved = JSON.parse(run(dir, `${READ} alpha "1 day ago"`).stdout);
+    assertEq("what moved inside the window is counted and reasonless",
+      [moved.active_count, moved.empty_reason], [1, ""]);
+    assertTrue("the mover sorts to the front",
+      moved.artifacts[0].path.endsWith("20260810000001-queued.md"), JSON.stringify(moved.artifacts));
+
+    // The three degradations, each named rather than blank.
+    assertEq("a strategy citing nothing says so instead of returning a silent empty set",
+      JSON.parse(run(dir, `${READ} silent`).stdout).empty_reason, "no_feedback_refs");
+    assertEq("an unknown slug is not_found and never a guess",
+      JSON.parse(run(dir, `${READ} nope`).stdout).empty_reason, "not_found");
+    assertEq("no slug at all is refused by name", JSON.parse(run(dir, READ).stdout).empty_reason, "no_slug");
+    assertEq("every degradation still exits 0 — a reader a digest can call unguarded",
+      [run(dir, `${READ} silent`).status, run(dir, `${READ} nope`).status, run(dir, READ).status], [0, 0, 0]);
+
+    // It is a READER. The digest it feeds runs daily, unattended, on `main`.
+    assertEq("the reader leaves the tree clean", run(dir, "git status --porcelain").stdout.trim(), "");
+  } finally { cleanup(dir); }
+}
+
+// ---------- standup/digest.sh + the /standup command are a READER ----------
+// The daily per-strategy digest (ticket `20260817115232`, 2026-08-17). Three properties are
+// worth a fixture, because none of them can be observed in this repository — it holds zero
+// strategies, which is itself the first case: the SILENCE RULE (what is not news), the
+// NAMED no-op (an empty digest is never posted as one), and the pure-read property, which
+// the ticket's gate requires be demonstrated rather than asserted.
+function testStandupDigest() {
+  const dir = makeRepo("main");
+  const DIGEST = `${POSIX_SH} ${SCRIPTS.standupDigest}`;
+  const wf = (rel, body) => {
+    const abs = join(dir, rel);
+    mkdirSync(dirname(abs), { recursive: true });
+    writeFileSync(abs, body);
+  };
+  const strategy = (slug, refs, target, status = "active") =>
+    `---\ntype: Strategy\ntitle: ${slug} title\nslug: ${slug}\nstatus: ${status}\n` +
+    `target_date: ${target}\nassignees: [a@qmu.jp]\nfeedback: [${refs}]\n---\n\n` +
+    `# ${slug}\n\n## Aim\n\nx\n\n## Schedule\n\ny\n`;
+  const far = "2099-12-31";
+  try {
+    // ---- zero strategies: the state this repository is in today ----
+    let d = JSON.parse(run(dir, DIGEST).stdout);
+    assertEq("no strategy at all is a NAMED no-op, never an empty digest",
+      [d.noop, d.noop_reason, d.strategy_count], [true, "no_strategies", 0]);
+
+    wf(".workaholic/strategies/moving.md", strategy("moving", "20260801000001-one.md", far));
+    wf(".workaholic/strategies/quiet.md", strategy("quiet", "20260801000002-two.md", far));
+    wf(".workaholic/strategies/closed.md", strategy("closed", "20260801000003-three.md", far, "achieved"));
+    wf(".workaholic/missions/active/m-one/mission.md",
+      "---\ntype: Mission\ntitle: M One\nslug: m-one\nstatus: active\nfeedback: [20260801000001-one.md]\n---\n\n# M One\n");
+    for (const n of [1, 2, 3, 4]) {
+      wf(`.workaholic/tickets/todo/2026081000000${n}-queued-${n}.md`,
+        `---\ncreated_at: 2026-08-10T00:00:00+00:00\nmission: m-one\n---\n\n# Queued ${n}\n`);
+    }
+    wf(".workaholic/tickets/todo/20260811000001-quiet-side.md",
+      "---\ncreated_at: 2026-08-11T00:00:00+00:00\nfeedback: [20260801000002-two.md]\n---\n\n# Quiet side work\n");
+    // Two tickets under no strategy at all — the honesty line's input.
+    wf(".workaholic/tickets/todo/20260812000001-orphan.md",
+      "---\ncreated_at: 2026-08-12T00:00:00+00:00\n---\n\n# Orphan queued\n");
+    wf(".workaholic/tickets/archive/work-o/20260812000002-orphan-done.md",
+      "---\ncreated_at: 2026-08-12T00:00:00+00:00\nstatus: done\n---\n\n# Orphan landed\n");
+    execSync("git add -A && git commit -q -m seed", {
+      cwd: dir,
+      env: { ...process.env, GIT_COMMITTER_DATE: "2026-01-01T00:00:00+00:00", GIT_AUTHOR_DATE: "2026-01-01T00:00:00+00:00" },
+    });
+
+    // ---- the silence rule: waiting work alone is not a morning's news ----
+    d = JSON.parse(run(dir, `${DIGEST} "1 day ago"`).stdout);
+    assertEq("nothing moved and no date approaching is silence, however much is queued",
+      [d.noop, d.noop_reason], [true, "no_activity"]);
+    assertEq("the strategy set is still read and reported through the no-op", d.strategy_count, 2);
+    assertTrue("a closed strategy has no morning",
+      !d.strategies.some((s) => s.slug === "closed"), JSON.stringify(d.strategies.map((s) => s.slug)));
+
+    // ---- an approaching date IS news daily, and it terminates ----
+    const near = JSON.parse(run(dir, `STANDUP_TARGET_HORIZON=99999 ${DIGEST} "1 day ago"`).stdout);
+    assertEq("a strategy inside the target horizon breaks the silence on its own",
+      [near.noop, near.due_soon_count > 0], [false, true]);
+
+    // ---- movement inside the window ----
+    appendFileSync(join(dir, ".workaholic/tickets/todo/20260810000001-queued-1.md"), "\nprogress\n");
+    execSync("git add -A && git commit -q -m 'Advance a queued ticket'", { cwd: dir });
+    d = JSON.parse(run(dir, `${DIGEST} "1 day ago"`).stdout);
+    assertEq("what moved under a strategy is what makes the morning news",
+      [d.noop, d.noop_reason, d.active_strategy_count], [false, "", 1]);
+    const moving = d.strategies.find((s) => s.slug === "moving");
+    const quiet = d.strategies.find((s) => s.slug === "quiet");
+    assertEq("the moving strategy carries what moved", moving.moved.map((m) => m.title), ["Queued 1"]);
+    assertEq("a quiet strategy is present with its own reason, never dropped",
+      [quiet.active_count, quiet.empty_reason], [0, "no_activity_in_window"]);
+    assertEq("the digest names the strategy's own schedule proximity", moving.target_date, far);
+    assertTrue("days_to_target is a number, not a stored progress figure",
+      typeof moving.days_to_target === "number", JSON.stringify(moving));
+
+    // ---- bounded by construction, and every cut counted ----
+    const capped = JSON.parse(run(dir, `STANDUP_MAX_ITEMS=2 STANDUP_MAX_STRATEGIES=1 ${DIGEST} "1 day ago"`).stdout);
+    assertEq("the strategy list is capped and the cut is counted, never silent",
+      [capped.strategies.length, capped.strategies_omitted], [1, 1]);
+    assertEq("the item lists are capped and their cuts counted too",
+      [capped.strategies[0].waiting.length, capped.strategies[0].waiting_omitted], [2, 2]);
+
+    // ---- the honesty line: lossy attribution states what it could not attribute ----
+    assertEq("work under no strategy is reported as a count, so the digest never reads as exhaustive",
+      d.unattributed, { moved: 0, waiting: 1 });
+
+    // ---- it is a READER: the whole reason a daily unattended tick is allowed ----
+    assertEq("the digest leaves the tree clean", run(dir, "git status --porcelain").stdout.trim(), "");
+    assertEq("and it commits nothing", run(dir, "git log --oneline").stdout.trim().split("\n").length, 3);
+    assertEq("every no-op path still exits 0",
+      [run(dir, DIGEST).status, run(dir, `${DIGEST} "1 day ago"`).status], [0, 0]);
+
+    // The token is the MORNING, not a content hash — the one place this shape deliberately
+    // differs from `deploy:<digest>`: a daily digest speaks for today even when today
+    // resembles yesterday, and what must be prevented is two posts for one morning.
+    assertTrue("the post token keys on the date", /^standup:\d{4}-\d{2}-\d{2}$/.test(d.token), d.token);
+    assertEq("the token and the reported date agree", d.token, `standup:${d.date}`);
+  } finally { cleanup(dir); }
+}
+
+// ---------- the [Standup] routine template (ticket `20260817115233`) ----------
+// A fourth routine and a SECOND repository-scoped one. What is pinned is what a template
+// can get wrong in a way nothing else would catch: the scope that decides how many copies
+// exist, the write tools it must not carry, the cron the API would silently rewrite, and the
+// post shape — which lives in exactly two places (the catalog and this prompt, the ceiling
+// on what a session may emit), so a drift between them ships either a documented shape
+// nobody is authorized to post or a posted shape nothing documents. Byte for byte.
+function testStandupRoutineTemplate() {
+  const tpl = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines/standup.md"), "utf8");
+  const catalog = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/notify/reference/notifications.md"), "utf8");
+  const fm = tpl.slice(0, tpl.indexOf("\n---", 4));
+
+  assertTrue("the digest describes the repository, so the template is repository-scoped",
+    /^scope: repository$/m.test(fm), fm);
+  assertTrue("it carries no write tool", !/Write|Edit/.test(fm.match(/^allowed_tools:.*$/m)[0]), fm);
+  assertTrue("it declares no auto-fix, since it opens no pull request",
+    /^autofix_on_pr_create: false$/m.test(fm), fm);
+  assertTrue("its prompt invokes the reader command and nothing else",
+    /\/standup\b/.test(tpl.slice(tpl.indexOf("## Prompt"))), tpl);
+
+  // 09:00 Asia/Tokyo, expressed in the only thing the API stores: a bare UTC cron with a
+  // non-zero minute. Both halves are the resolved Open Decision, and both are the kind of
+  // detail a later edit "tidies" into a bug — `9 * * *` would post at 18:00 in Tokyo and
+  // `0 0 * * *` would be rewritten to a server-chosen minute.
+  assertTrue("the cron is daily at 00:05 UTC — 09:05 Asia/Tokyo",
+    /^cron_expression: 5 0 \* \* \*$/m.test(fm), fm);
+  assertTrue("the template says whose 09:00 it is and why the minute is not 0",
+    /Asia\/Tokyo/.test(tpl) && /minute cannot be `0`/.test(tpl), tpl);
+
+  // An idle morning posts nothing — the gate that lets a recurring post exist at all.
+  assertTrue("the prompt makes the no-op silent", /post nothing/.test(tpl), tpl);
+
+  const shape = (body) => {
+    const m = body.match(/```\n(\u{1F4E3} Standup[\s\S]*?)```/u);
+    return m ? m[1] : "";
+  };
+  const catalogShape = shape(catalog);
+  assertTrue("the shape catalog carries the standup block", catalogShape !== "", catalog.slice(0, 200));
+  assertEq("the post reads byte-identically in the catalog and the [Standup] template",
+    shape(tpl), catalogShape);
+  assertTrue("the line keys on the morning, not on a content hash",
+    /`standup:<YYYY-MM-DD>`/.test(catalogShape), catalogShape);
+  assertTrue("and it carries no mention token of any kind",
+    !/<@U/.test(catalogShape), catalogShape);
+}
+
+// The command and the skill state the reader contract where a human and a diff can see it,
+// exactly as `/release-status` does — a write appearing here later has to contradict text.
+function testStandupIsAReader() {
+  const cmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/standup.md"), "utf8");
+  const skill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/standup/SKILL.md"), "utf8");
+  assertTrue("the command states that it writes nothing",
+    /writes nothing/i.test(cmd) && /merges nothing/i.test(cmd), cmd);
+  assertTrue("the command names no AskUserQuestion step", /no `AskUserQuestion`/.test(cmd), cmd);
+  assertTrue("the skill is internal, since it bears scripts", /internal: true/.test(skill), skill);
+  assertTrue("the skill defers attribution to the strategy skill's one reader",
+    /attributed-work\.sh/.test(skill) && /workaholic:strategy/.test(skill), skill);
+  // Read over CODE only: the header explains at length why there is no GitHub read here, so
+  // matching the whole file would fail on the very sentence that documents the property.
+  const code = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/standup/scripts/digest.sh"), "utf8")
+    .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+  assertTrue("the digest reaches GitHub not at all, so no transport rule can be broken",
+    !/gh-rest\.sh|gh api|gh pr |gh issue /.test(code), code);
+  assertTrue("and it parses neither relation itself",
+    !/\^feedback:|\^mission:/.test(code), code);
 }
 
 // ---------- hooks/validate-strategy.sh (the write-time floor) ----------
@@ -10288,7 +10551,8 @@ function testRenderSetupSheet() {
   const sheet = (target) => run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.renderSetupSheet} ${target} ${WH}`).stdout;
 
   const all = sheet("--all");
-  for (const name of ["[Propose] workaholic", "[Implement] workaholic", "[Release Status] workaholic"]) {
+  for (const name of ["[Propose] workaholic", "[Implement] workaholic", "[Release Status] workaholic",
+                      "[Standup] workaholic"]) {
     assertTrue(`the sheet covers ${name}`, all.includes(`## ${name}`), all.slice(0, 200));
   }
   // ---- the scope filter (2026-08-14, issue #451) ----
@@ -10301,11 +10565,16 @@ function testRenderSetupSheet() {
     devSheet.includes("## [Propose] workaholic") && devSheet.includes("## [Implement] workaholic") &&
     !devSheet.includes("## [Release Status] workaholic"), devSheet.slice(0, 300));
   const repoSheet = scopedSheet("repository");
-  assertTrue("the repository sheet covers only the repository routine",
-    repoSheet.includes("## [Release Status] workaholic") &&
+  assertTrue("the repository sheet covers only the repository routines",
+    repoSheet.includes("## [Release Status] workaholic") && repoSheet.includes("## [Standup] workaholic") &&
     !repoSheet.includes("## [Propose] workaholic"), repoSheet.slice(0, 300));
   assertTrue("the repository sheet states the one-account convention it cannot enforce",
     /not every team member/i.test(repoSheet), repoSheet.slice(0, 400));
+  // The scope grew from one routine to two on 2026-08-17 (ticket `20260817115233`), and the
+  // sheet states the COUNT rather than leaving a reader to discover the second by scrolling:
+  // creating the first and stopping leaves the repository half-configured silently.
+  assertTrue("the repository sheet states how many routines the one account must create",
+    /There are \*\*2\*\* routines in this scope/.test(repoSheet), repoSheet.slice(0, 600));
   assertTrue("each sheet names the scope of the routine it describes",
     /Scope: \*\*repository\*\*/.test(repoSheet) && /Scope: \*\*developer\*\*/.test(devSheet),
     repoSheet.slice(0, 600));
@@ -10321,6 +10590,7 @@ function testRenderSetupSheet() {
     /\*\*Trigger\*\* — \*Select a trigger\* → \*\*Schedule\*\*, cron `15 \* \* \* \*`/.test(all) &&
     /\*\*Trigger\*\* — \*Select a trigger\* → \*\*Schedule\*\*, cron `30 \* \* \* \*`/.test(all) &&
     /\*\*Trigger\*\* — \*Select a trigger\* → \*\*Schedule\*\*, cron `45 \* \* \* \*`/.test(all) &&
+    /\*\*Trigger\*\* — \*Select a trigger\* → \*\*Schedule\*\*, cron `5 0 \* \* \*`/.test(all) &&
     !/Event: `issues\.assigned`/.test(all) &&
     !/Event: `pull_request\.closed`/.test(all),
     all);
@@ -13475,6 +13745,10 @@ const tests = [
   ["the living-migration registry contract", testMigrationRegistryContract],
   ["report/area-freshness.sh (the two hand-maintained areas' upkeep seam)", testAreaFreshness],
   ["strategy skill (the artifact revived 2026-08-13)", testStrategySkill],
+  ["strategy/attributed-work.sh (the ONE attribution reader)", testStrategyAttributedWork],
+  ["standup/digest.sh (the daily per-strategy digest)", testStandupDigest],
+  ["standup: the command and skill are a reader", testStandupIsAReader],
+  ["standup: the [Standup] routine template and its one post shape", testStandupRoutineTemplate],
   ["hooks/validate-strategy.sh (the write-time floor)", testValidateStrategy],
   ["mission ownership (read-assignees + mission-owners)", testMissionOwnership],
   ["installed plugin helper resolution", testInstalledPluginHelperResolution],
@@ -15178,9 +15452,9 @@ function testWorkaholifyRoutines() {
   const WH = "https://github.com/qmu/workaholic";
   try {
     const tpl = JSON.parse(run(dir, LIST).stdout);
-    assertEq("the plugin ships three routine templates", tpl.count, 3);
-    assertEq("and they are the three live patterns",
-      tpl.templates.map((t) => t.id).sort(), ["fb", "implement", "release-status"]);
+    assertEq("the plugin ships four routine templates", tpl.count, 4);
+    assertEq("and they are the four live patterns",
+      tpl.templates.map((t) => t.id).sort(), ["fb", "implement", "release-status", "standup"]);
 
     // ---- the scope split (2026-08-14, issue #451) ----
     // The scope is the TEMPLATE's field, not a list written into two command bodies:
@@ -15193,9 +15467,9 @@ function testWorkaholifyRoutines() {
     assertEq("the two routines every developer needs their own copy of are developer-scoped",
       JSON.parse(run(dir, `${LIST} developer`).stdout).templates.map((t) => t.id).sort(),
       ["fb", "implement"]);
-    assertEq("the routine the repository needs exactly one of is repository-scoped",
-      JSON.parse(run(dir, `${LIST} repository`).stdout).templates.map((t) => t.id),
-      ["release-status"]);
+    assertEq("the routines the repository needs exactly one of each are repository-scoped",
+      JSON.parse(run(dir, `${LIST} repository`).stdout).templates.map((t) => t.id).sort(),
+      ["release-status", "standup"]);
     assertEq("an unknown scope is refused rather than treated as no filter",
       run(dir, `${LIST} nonsense`).status !== 0, true);
     // The template set is discovered by scanning the routines dir, so a template is
@@ -15209,8 +15483,19 @@ function testWorkaholifyRoutines() {
     // (`0,30 * * * *` rejected as "cron interval too short", measured live), so the
     // designed 30-minute cadence became a staggered hourly pair — [Propose] :15,
     // [Implement] :30.
-    assertEq("the templates carry the staggered hourly schedule",
-      tpl.templates.map((t) => t.cron_expression).sort(), ["15 * * * *", "30 * * * *", "45 * * * *"]);
+    // Three staggered hourly ticks, plus the one DAILY digest. Its minute is non-zero for
+    // the same measured reason theirs are (a bare `:00` is rewritten to server jitter), and
+    // its hour is `0` UTC because the routines API carries no timezone field and the target
+    // is 09:00 Asia/Tokyo — ticket `20260817115233`'s resolved Open Decision, pinned here so
+    // "09:05, not 09:00" cannot later be read as a typo and rounded off.
+    assertEq("the templates carry the staggered hourly schedule plus the daily digest",
+      tpl.templates.map((t) => t.cron_expression).sort(),
+      ["15 * * * *", "30 * * * *", "45 * * * *", "5 0 * * *"]);
+    assertEq("the standup declares the daily schedule trigger",
+      tpl.templates.find((t) => t.id === "standup").trigger, "schedule-daily");
+    assertTrue("no template's cron minute is 0, which the API would rewrite to jitter",
+      tpl.templates.every((t) => t.cron_expression.split(" ")[0] !== "0"),
+      JSON.stringify(tpl.templates.map((t) => t.cron_expression)));
     assertEq("implement declares the schedule trigger",
       tpl.templates.find((t) => t.id === "implement").trigger, "schedule-hourly");
     assertEq("fb declares the schedule trigger",

@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 1.5
 feedback: [20260818201731-the-draft-release-note-must-be-an-agent-s-arranged-release-plan-not-a-rendered-commit-list.md]
 tickets: []
 stories: []
@@ -57,3 +57,4 @@ one document carries plan → release → verification.
 - 2026-08-18 — ticket archived — 20260818202056-recover-the-substance-of-story-less-merges.md
 - 2026-08-18 — ticket archived — 20260818202056-run-the-release-planning-judgment-and-reach-ci.md
 - 2026-08-18 — ticket archived — 20260818202056-append-the-release-confirmation-to-its-own-plan.md
+- 2026-08-18 — run recorded (+1.5h) — implement-20260818-2050

@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260818-205051
 ---
 
 # Make the draft release note an agent's release plan

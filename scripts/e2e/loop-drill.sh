@@ -912,6 +912,11 @@ cmd_verify_plan() {
 #                     (the digest excludes the base sha, so an advanced base is not
 #                     news; an unstable digest would make every tick post)
 #   status_degraded   an unreadable base is reported by reason and yields no digest
+#   status_refs       the freshness of the refs the count came from is REPORTED, and a
+#                     read that could not freshen them names its doubt instead of
+#                     printing a bare number (2026-08-18 — a container with no tags and
+#                     a five-day-stale base reported 2721, then 2950, then the true 4
+#                     for one unchanged repository, with the digest moving each time)
 #
 # It writes nothing anywhere — which is the routine's whole contract, so the drill
 # asserting it by construction is the point rather than a convenience.
@@ -947,6 +952,27 @@ cmd_verify_status() {
         add_row "status_degraded" true "an unreadable base was reported with no digest" load
     else
         add_row "status_degraded" false "a degraded read did not refuse cleanly: $(one_line "$_out3")" load
+    fi
+
+    # The freshness field must be PRESENT and, when the refs could not be freshened, the
+    # read must say so rather than let a collapsed boundary pass as an ordinary one. Run
+    # with the fetch opted out so the degraded path is exercised on demand rather than
+    # only when the server happens to be offline.
+    _refs=$(printf '%s' "$_out" | sed -n 's/.*"refs": "\([a-z_]*\)".*/\1/p')
+    if [ -n "$_refs" ]; then
+        _why=$(printf '%s' "$_out" | sed -n 's/.*"refs_reason": "\([a-z_]*\)".*/\1/p')
+        _doubt=$(printf '%s' "$_out" | sed -n 's/.*"doubtful": \([a-z]*\).*/\1/p')
+        add_row "status_refs" true "the read names its refs: ${_refs} (${_why}), doubtful ${_doubt}" load
+    else
+        add_row "status_refs" false "the read reported no refs field: $(one_line "$_out")" load
+    fi
+
+    _out4=$(cd "$REPO_ROOT" && WORKAHOLIC_DEPLOY_FETCH_TIMEOUT=0 sh "$_rep" "$BASE_BRANCH" 2>&1) || true
+    _refs4=$(printf '%s' "$_out4" | sed -n 's/.*"refs": "\([a-z_]*\)".*/\1/p')
+    if [ "$_refs4" = "skipped" ]; then
+        add_row "status_refs_optout" true "the offline opt-out is honoured and named skipped" load
+    else
+        add_row "status_refs_optout" false "the opt-out did not report skipped: $(one_line "$_out4")" load
     fi
 
     if [ "$LOAD_FAILED" -gt 0 ]; then

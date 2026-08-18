@@ -30,13 +30,23 @@ nothing in the plugin can detect or remove a duplicate on another account. The
 cut over** — it describes a migration, not the routine.
 
 **The post shape moved too** (same change, the ticket's Open Decision 1): the root is
-`📦 Prepare release`, not `📦 Release status`. The reason the 2026-08-17 ticket left it
+`📦 Release Preparation`, not `📦 Release status`. The reason the 2026-08-17 ticket left it
 alone — "the prefix is the notify lookup's own exact-string dedup key, so changing it
 posts one duplicate line at the cutover" — was simply **not true**: the lookup searches
 `` `deploy:<digest>` `` and never the prefix (`workaholic:notify`, *The repository tick's
 status line*), so the heading carries no dedup weight and the cutover costs nothing. With
 its one measured cost gone, the tie broke toward the ask's own stated goal — a heading
 consistent with the command name.
+
+**And once more, to a noun phrase** (2026-08-18, later the same day, issue #504): the
+sequence is `📦 Release status` → `📦 Prepare release` → `📦 Release Preparation`. On
+seeing the second wording applied, the developer ruled the heading should name the report
+rather than repeat the command's imperative verb — a post is a thing a human reads, not an
+instruction to the machine. The reason it was free to move is unchanged and is stated
+once, above: nothing searches the heading. **The routine's own name did not move** and
+stays `[Prepare Release]`, because convergence matches routines by name and a second
+rename there would create a second routine exactly as `renamed_from:` documents; neither
+did the command, which stays `/prepare-release`. Only the words in the post changed.
 
 **`scope: repository`** — the repository needs exactly **one** of this routine, configured
 by one designated person or a project/service account through `/setup-repo-routines`.
@@ -97,11 +107,20 @@ If the command or its skills did not load, do not stop: run `bash plugins/workah
 If something is waiting and the exact-string search for the digest token finds no earlier post, post this one line as a new top-level message (the workaholic:notify lookup) — no mention token of any kind:
 
 ```
-📦 Prepare release - <N> commit(s) waiting on <target>
+📦 Release Preparation - <N> commit(s) waiting on <target>
 One sentence, max 25 words, what a human must do (cut a release, declare a confirmation method).
 Draft note: <draft release URL>
 `deploy:<digest>`
 <session URL>
 ```
 
-If nothing is waiting, or that search finds the same digest already posted, post nothing.
+If the read reports `doubtful: true`, post this variant instead — the count is withheld because the refs behind it were not freshened:
+
+```
+📦 Release Preparation - refs not freshened (<refs_reason>); count unavailable on <target>
+One sentence, max 25 words, what a human must do (restore the container's network, then re-read).
+`deploy:<digest>`
+<session URL>
+```
+
+If nothing is waiting and the read is not doubtful, or that search finds the same digest already posted, post nothing.

@@ -1,11 +1,13 @@
 ---
 created_at: 2026-08-18T13:22:51+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
 feedback: [20260818132013-the-release-status-reader-trusts-whatever-refs-its-container-holds.md]
 merge_policy:
 verification_handoff: 
+claim: work-20260818-134024
 ---
 
 # Freshen or distrust the deploy status reader's refs
@@ -163,3 +165,71 @@ records that as a **stated open limit**. This ticket closes it.
 - The digest currently excludes the base sha on purpose ("a base that merely advanced is
   not news"). Adding the freshness state does not reopen that decision; keep the header's
   reasoning intact and extend it.
+
+## Final Report
+
+Development completed as planned. The defect was reproduced first, on a throwaway clone
+shaped like the container (`--no-tags`, `origin/main` rolled back five days): one unchanged
+repository reported **2721** commits (`full_history`), then **2950** (`full_history`), then
+the true **4** (`latest_tag:v1.0.185`) as refs were fetched — three different `deploy:<digest>`
+values for one real state. After the change all three ref states converge on one digest.
+
+### The Open Decision, resolved
+
+**When the freshen fails, does the tick post the degraded status or stay silent?**
+Ruled: **post, with the count suppressed and only the degradation named** — the third
+option the ticket asked to be weighed against the two it framed.
+
+Both framed options are wrong on their own, and the ticket said so accurately. Silence is
+indistinguishable from a quiet repository, which is the same class of invisible degradation
+this ticket exists to remove; posting the bare count publishes a number the reader has just
+declared untrustworthy. The third option is not a compromise between them but the answer to
+both: what the tick knows is *that it could not see the repository*, and that is the fact
+worth a human's attention. It also matches how this repository already resolves the class
+everywhere else — `workaholic:operation`'s observability policy, `/housekeep`'s "a degraded
+read is reported by name, never as a step that ran and found nothing", and `area-freshness.sh`'s
+report-never-write seam.
+
+Two consequences follow, and both are implemented rather than left implicit:
+
+- **The post gate becomes `actionable || doubtful`.** Gating the degradation behind
+  `actionable` would have let the unreliable half of the read speak for the repository:
+  "nothing is waiting" is one of the answers stale refs fabricate.
+- **The doubtful digest redacts the values it withholds.** Without this the ruling would
+  have reintroduced the defect it fixes — two containers holding different stale refs would
+  hash different counts, key differently for one real state, and both post. Redacted, every
+  doubtful container converges on one digest and the state is said once, not hourly.
+
+### Discovered Insights
+
+- **Insight**: `status_stable` in `loop-drill.sh verify-status` could never have caught this,
+  and did not.
+  **Context**: it compares two reads *inside one container*, where the digest was perfectly
+  stable the whole time — the answer moved *between* containers. A property asserted within
+  one process is silent about a fleet of ephemeral ones, which is the shape every routine in
+  this repository runs as. The two new rows (`status_refs`, `status_refs_optout`) and the
+  hermetic multi-clone fixture exist because of this gap, not because the old rows were wrong.
+
+- **Insight**: the digest's correct input is not "the substantive state" but "what the reader
+  is willing to publish".
+  **Context**: the original header framed the exclusion of the base sha as an editorial
+  judgment about newsworthiness, which is right but incomplete. Once any field can be
+  *suppressed* at render time, hashing it silently decouples the dedup key from the message —
+  the key says two states differ while the posts would read identically. Stating the rule as
+  "the digest hashes what the post claims" resolves both the old exclusion and the new
+  redaction from one principle.
+
+- **Insight**: the fix belongs to `report-deploy-status.sh` alone because it is the only
+  entry an *inherited* checkout reaches.
+  **Context**: `read-deploy-state.sh` has three callers; the other two (`draft-deploy-plan.sh`,
+  `draft-release-note.sh`) run from a ship or from CI, and CI already defines its checkout
+  (`fetch-depth: 0` + tags, PR #499). The general rule this instance follows: a checkout can
+  be *defined* from outside and only *freshened* from inside, so where the definition is
+  possible it is preferable, and the freshen is for the places it is not.
+
+- **Insight**: a bare `git init --bare` fixture silently produces clones with no working tree.
+  **Context**: the bare repo's `HEAD` is what a clone checks out; defaulting to `master` while
+  `main` is pushed leaves every clone empty, so `.workaholic/deployments/` is absent and the
+  reader honestly reports zero targets. The failure presents as the reader's and is the
+  fixture's — `git -c init.defaultBranch=main init --bare` is the fix, and the same trap
+  applies to any future test that clones a fixture rather than using it in place.

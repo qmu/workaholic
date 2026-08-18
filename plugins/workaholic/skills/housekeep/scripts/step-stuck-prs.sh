@@ -7,7 +7,7 @@
 # own mergeability fields, and the reminder the agent composes names the decision
 # rather than the colour.
 #
-# ONE REMINDER PER DISTINCT STATE, exactly as `📦 Prepare release` posts one line
+# ONE REMINDER PER DISTINCT STATE, exactly as `📦 Release Preparation` posts one line
 # per distinct deploy digest. The key is `stuck:<digest>` over the sorted
 # `<number>:<blocked_by>` set, so a pull request that is still stuck for the same
 # reason next hour earns no second post, while a NEW pull request or a CHANGED

@@ -517,4 +517,5 @@
 * [The release status reader trusts whatever refs its container holds](20260818132013-the-release-status-reader-trusts-whatever-refs-its-container-holds.md)
 * [Rename the repository tick's post heading to Release Preparation](20260818132525-rename-the-repository-tick-s-post-heading-to-release-preparation.md)
 * [Commits display Claude as the author name instead of the developer](20260818191739-commits-display-claude-as-the-author-name-instead-of-the-developer.md)
+* [The draft release note must be an agent's arranged release plan, not a rendered commit list](20260818201731-the-draft-release-note-must-be-an-agent-s-arranged-release-plan-not-a-rendered-commit-list.md)
 <!-- okf:generated:end -->

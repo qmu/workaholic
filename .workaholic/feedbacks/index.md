@@ -514,4 +514,5 @@
 * [The draft release note's Key Changes renders three dead lines](20260818112045-the-draft-release-note-s-key-changes-renders-three-dead-lines.md)
 * [Resolved: The sanctioned feedback writer rejects the source 97% of records use](20260818125724-resolved-20260730110715-the-sanctioned-feedback-writer-rejects-the-source-97-of-records-use.md)
 * [Resolved: The tick log's step-filed lines can never reach the base](20260818125724-resolved-20260818064140-the-tick-log-s-step-filed-lines-can-never-reach-the-base.md)
+* [The release status reader trusts whatever refs its container holds](20260818132013-the-release-status-reader-trusts-whatever-refs-its-container-holds.md)
 <!-- okf:generated:end -->

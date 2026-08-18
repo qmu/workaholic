@@ -74,10 +74,10 @@ One sentence, max 25 words, what failed and what a human must do.
 
 Exactly one finish per thread stays the rule (SKILL, *Which thread an `/implement` unit's posts land in*): a unit posts `🟢 Implemented` **or** one of the three outcome shapes above, never both — `handoff` is the finish, never a third post, and the same holds for a blocked or merged unit.
 
-### `/fullfill` — the repository tick's one line
+### `/prepare-release` — the repository tick's one line
 
 ```
-📦 Release status - <N> commit(s) waiting on <target>
+📦 Prepare release - <N> commit(s) waiting on <target>
 One sentence, max 25 words, what a human must do (cut a release, declare a confirmation method).
 Draft note: <draft release URL>
 `deploy:<digest>`
@@ -92,6 +92,8 @@ Draft note: <draft release URL>
 
 **No mention token of any kind** — no `<@U…>` for a person and none for the Claude app. The line names a repository state, not a person's work, and there is nobody whose turn it is; a mention would page whoever was named every hour for a condition that is nobody's in particular.
 
+**The heading was renamed with the command, and it was free to move** (2026-08-18, issue #485 — `📦 Release status` before it). The 2026-08-17 rename left it alone on the stated ground that "the prefix is the notify lookup's own exact-string dedup key", which was wrong: the search above is for `` `deploy:<digest>` `` and nothing queries the heading, so no cutover duplicate was ever at stake. The token, the two gates and the `📦` are unchanged; only the words a human reads moved, to match the command that posts them.
+
 **The `Draft note:` line points at the artifact; it never restates it** (2026-08-17, issue #472). Since the repository tick keeps each target's draft release note current, the note is where the answer lives — what is waiting, the procedure, the verification required. A notification's job is to bring a human *to* the artifact, so the line carries the URL and nothing more: summarising the note's contents into the post would make the note redundant and re-create the fragmentation the ask is about. Omit the line entirely when no draft exists yet (a repository whose cadence has not run, or one with no `gh`) rather than posting a dead link — the shape's other four lines are unchanged and still stand alone.
 
 ### `/standup` — the daily per-strategy digest
@@ -105,7 +107,7 @@ Draft note: <draft release URL>
 <session URL>
 ```
 
-**A top-level keyed root, never a reply**, and **no mention token of any kind** — the same two reasons `📦 Release status` carries none: no feedback item said anything, and the line names the repository's state rather than a person's work.
+**A top-level keyed root, never a reply**, and **no mention token of any kind** — the same two reasons `📦 Prepare release` carries none: no feedback item said anything, and the line names the repository's state rather than a person's work.
 
 **One strategy line each, in the digest's own order, capped.** A quiet strategy gets the explicit `no activity` line rather than being dropped — a strategy missing from the digest reads as a strategy nobody is working on, which is a different claim. `strategies_omitted` above the cap is stated as a trailing count, never silently cut. The final `not attributable` line is a **count** and rides only when it is non-zero; enumerating it would make this a repository changelog, which is `/catch`'s job.
 
@@ -113,7 +115,7 @@ Draft note: <draft release URL>
 
 ### `/housekeep` — the maintenance tick's two shapes
 
-The stuck-pull-request reminder is a **top-level keyed root**, exactly as `📦 Release status` is
+The stuck-pull-request reminder is a **top-level keyed root**, exactly as `📦 Prepare release` is
 and for the same reason: nobody *said* anything, the repository's own state did something, so
 there is no thread to land in and the post keys on its own content instead.
 

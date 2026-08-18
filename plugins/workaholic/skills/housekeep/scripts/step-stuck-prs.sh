@@ -7,7 +7,7 @@
 # own mergeability fields, and the reminder the agent composes names the decision
 # rather than the colour.
 #
-# ONE REMINDER PER DISTINCT STATE, exactly as `📦 Release status` posts one line
+# ONE REMINDER PER DISTINCT STATE, exactly as `📦 Prepare release` posts one line
 # per distinct deploy digest. The key is `stuck:<digest>` over the sorted
 # `<number>:<blocked_by>` set, so a pull request that is still stuck for the same
 # reason next hour earns no second post, while a NEW pull request or a CHANGED
@@ -15,7 +15,7 @@
 # for this exact state — the tick log answers the second, and `workaholic:notify`'s
 # stateless lookup answers it again on the wire before posting.
 #
-# ITS KEY IS DELIBERATELY DISTINCT from `[Release Status]`'s `deploy:<digest>`:
+# ITS KEY IS DELIBERATELY DISTINCT from `[Prepare Release]`'s `deploy:<digest>`:
 # one reports what is waiting to deploy, this reports what is waiting on a human,
 # and a shared key would let either dedup the other away.
 #

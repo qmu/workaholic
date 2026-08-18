@@ -4343,7 +4343,7 @@ function testStandupRoutineTemplate() {
 }
 
 // The command and the skill state the reader contract where a human and a diff can see it,
-// exactly as `/release-status` does — a write appearing here later has to contradict text.
+// exactly as `/prepare-release` does — a write appearing here later has to contradict text.
 function testStandupIsAReader() {
   const cmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/standup.md"), "utf8");
   const skill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/standup/SKILL.md"), "utf8");
@@ -10555,7 +10555,7 @@ function testRenderSetupSheet() {
   const sheet = (target) => run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.renderSetupSheet} ${target} ${WH}`).stdout;
 
   const all = sheet("--all");
-  for (const name of ["[Propose] workaholic", "[Implement] workaholic", "[Release Status] workaholic",
+  for (const name of ["[Propose] workaholic", "[Implement] workaholic", "[Prepare Release] workaholic",
                       "[Standup] workaholic"]) {
     assertTrue(`the sheet covers ${name}`, all.includes(`## ${name}`), all.slice(0, 200));
   }
@@ -10567,10 +10567,10 @@ function testRenderSetupSheet() {
   const devSheet = scopedSheet("developer");
   assertTrue("the developer sheet covers both developer routines and neither repository one",
     devSheet.includes("## [Propose] workaholic") && devSheet.includes("## [Implement] workaholic") &&
-    !devSheet.includes("## [Release Status] workaholic"), devSheet.slice(0, 300));
+    !devSheet.includes("## [Prepare Release] workaholic"), devSheet.slice(0, 300));
   const repoSheet = scopedSheet("repository");
   assertTrue("the repository sheet covers only the repository routines",
-    repoSheet.includes("## [Release Status] workaholic") && repoSheet.includes("## [Standup] workaholic") &&
+    repoSheet.includes("## [Prepare Release] workaholic") && repoSheet.includes("## [Standup] workaholic") &&
     !repoSheet.includes("## [Propose] workaholic"), repoSheet.slice(0, 300));
   assertTrue("the repository sheet states the one-account convention it cannot enforce",
     /not every team member/i.test(repoSheet), repoSheet.slice(0, 400));
@@ -10582,6 +10582,33 @@ function testRenderSetupSheet() {
   assertTrue("each sheet names the scope of the routine it describes",
     /Scope: \*\*repository\*\*/.test(repoSheet) && /Scope: \*\*developer\*\*/.test(devSheet),
     repoSheet.slice(0, 600));
+  // ---- the rename cutover (2026-08-18, issue #485) ----
+  // Convergence matches an account's routines by NAME, so a renamed template creates a
+  // SECOND routine rather than renaming the operator's live one -- and no other account can
+  // list or delete that duplicate. The instruction is therefore DERIVED from the template's
+  // own `renamed_from:`, like every other step on this sheet, rather than written into prose
+  // that outlives the migration. Delete the field once the fleet has cut over and this
+  // block asserts nothing, which is the intended end state.
+  const renamedTemplates = readdirSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines"))
+    .filter((f) => f.endsWith(".md"))
+    .map((f) => [f, readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines", f), "utf8")])
+    .filter(([, body]) => /^renamed_from:/m.test(body));
+  for (const [file] of renamedTemplates) {
+    const id = file.replace(/\.md$/, "");
+    const one = run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.renderSetupSheet} ${id} ${WH}`).stdout;
+    assertTrue(`the ${id} sheet tells an operator to rename, not create a second routine`,
+      /Rename that routine — do not create a second/.test(one), one.slice(0, 600));
+    assertTrue(`and names the old routine it must be renamed from (${id})`,
+      /Already running `\[[^\]]+\] workaholic`\?/.test(one), one.slice(0, 600));
+  }
+  // The same instruction has to reach the path that does NOT render a sheet: convergence
+  // succeeds there, and a created routine beside a stale one is the failure it prevents.
+  if (renamedTemplates.length > 0) {
+    const repoCmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/setup-repo-routines.md"), "utf8");
+    assertTrue("the setup command's report path states the rename cutover too",
+      /renamed_from:/.test(repoCmd) && /rename it\*\* rather than create a second/.test(repoCmd),
+      repoCmd.slice(0, 400));
+  }
   assertEq("an explicit template id outside the requested scope is refused, not rendered",
     run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.renderSetupSheet} fb ${WH} repository`).status !== 0, true);
   assertEq("an unknown scope is refused", 
@@ -13887,7 +13914,7 @@ const tests = [
   ["a proposal carries its owner from the trigger (P6)", testProposalOwnershipChain],
   ["branching close-publish-tree: closes after either publish path, still guards the unpushed one", testClosePublishTreeReachability],
   ["ship/report-deploy-status.sh: the repository tick reads, and an idle tick is silent", testReportDeployStatus],
-  ["release-status: the repository routine and its command are a reader", testReleaseStatusIsAReader],
+  ["prepare-release: the repository routine and its command are a reader", testPrepareReleaseIsAReader],
   ["workaholify routines: one template set, applied per repository, drift named per field", testWorkaholifyRoutines],
   ["workaholify bootstrap: without it a web routine is configured but cannot work", testWorkaholifyBootstrap],
   ["workaholify: the wiring halves apply, they do not merely audit", testWorkaholifyApplies],
@@ -15339,7 +15366,7 @@ function testMissionSizeNorms() {
 }
 
 // ---------- ship/report-deploy-status.sh (the repository tick's read) ----------
-// THE PROPERTY UNDER TEST is that the repository-scoped [Release Status] tick is a READER
+// THE PROPERTY UNDER TEST is that the repository-scoped [Prepare Release] tick is a READER
 // and that an idle tick is silent. Two facts carry both: it writes nothing (asserted by
 // construction -- the fixture's tree is byte-identical after a run), and its digest is
 // STABLE across reads of an unchanged base while deliberately EXCLUDING the base sha, so a
@@ -15422,15 +15449,15 @@ function testReportDeployStatus() {
   } finally { cleanup(dir); }
 }
 
-// ---------- the release-status command and routine are a READER, end to end ----------
+// ---------- the prepare-release command and routine are a READER, end to end ----------
 // The routine's contract is what it must NOT do, so the machine-checkable half is the
 // absence of the write surfaces: no Write/Edit in `allowed_tools`, and no
 // `autofix_on_pr_create` (a routine that opens no pull request must not declare a flag it
 // can never reach). Pinned because "it only reads" is the kind of claim that decays into
 // prose while a template quietly regains a tool.
-function testReleaseStatusIsAReader() {
-  const tpl = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines/release-status.md"), "utf8");
-  const cmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/fullfill.md"), "utf8");
+function testPrepareReleaseIsAReader() {
+  const tpl = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines/prepare-release.md"), "utf8");
+  const cmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/prepare-release.md"), "utf8");
   const fm = tpl.slice(0, tpl.indexOf("\n---", 4));
 
   assertTrue("the repository-scoped template declares its scope", /^scope: repository$/m.test(fm), fm);
@@ -15438,7 +15465,7 @@ function testReleaseStatusIsAReader() {
   assertTrue("it declares no auto-fix, since it opens no pull request",
     /^autofix_on_pr_create: false$/m.test(fm), fm);
   assertTrue("its prompt invokes the reader command, never /ship",
-    /\/fullfill\b/.test(tpl) && !/^Run `\/ship`/m.test(tpl.slice(tpl.indexOf("## Prompt"))), tpl);
+    /\/prepare-release\b/.test(tpl) && !/^Run `\/ship`/m.test(tpl.slice(tpl.indexOf("## Prompt"))), tpl);
   assertTrue("the command states that it writes nothing into the repository",
     /writes nothing into the repository/i.test(cmd) && /merges nothing/i.test(cmd), cmd);
   // 2026-08-17 (issue #472): the tick now keeps each target's DRAFT release note current,
@@ -15467,7 +15494,7 @@ function testWorkaholifyRoutines() {
     const tpl = JSON.parse(run(dir, LIST).stdout);
     assertEq("the plugin ships five routine templates", tpl.count, 5);
     assertEq("and they are the five live patterns",
-      tpl.templates.map((t) => t.id).sort(), ["fb", "housekeep", "implement", "release-status", "standup"]);
+      tpl.templates.map((t) => t.id).sort(), ["fb", "housekeep", "implement", "prepare-release", "standup"]);
 
     // ---- the scope split (2026-08-14, issue #451) ----
     // The scope is the TEMPLATE's field, not a list written into two command bodies:
@@ -15482,7 +15509,7 @@ function testWorkaholifyRoutines() {
       ["fb", "implement"]);
     assertEq("the routines the repository needs exactly one of each are repository-scoped",
       JSON.parse(run(dir, `${LIST} repository`).stdout).templates.map((t) => t.id).sort(),
-      ["housekeep", "release-status", "standup"]);
+      ["housekeep", "prepare-release", "standup"]);
     assertEq("an unknown scope is refused rather than treated as no filter",
       run(dir, `${LIST} nonsense`).status !== 0, true);
     // The template set is discovered by scanning the routines dir, so a template is
@@ -16843,7 +16870,7 @@ esac
       s6.needs_agent.find((n) => n.pull === 12).decision.includes("claim holder"), JSON.stringify(s6.needs_agent));
     assertTrue("the blocked one names the review", s6.needs_agent.find((n) => n.pull === 13).decision.includes("review"));
     assertTrue("the reminder carries a state key", /^stuck:\d+$/.test(s6.key), s6.key);
-    // The key is distinct from the release-status family, so neither dedups the other.
+    // The key is distinct from the prepare-release family, so neither dedups the other.
     assertTrue("keyed distinctly from deploy:<digest>", !s6.key.startsWith("deploy:"), s6.key);
 
     // Once the agent records the post, the same state earns no second reminder.
@@ -17001,7 +17028,7 @@ function testHousekeepRoutineTemplate() {
     !/<@U/.test(block(catalog, "🔧 Needs a decision")), block(catalog, "🔧 Needs a decision"));
   assertTrue("the question carries a resolved mention",
     /<@U…>/.test(block(catalog, "❓ Question")), block(catalog, "❓ Question"));
-  // Its dedup key is its own, or [Release Status] and this would dedup each other away.
+  // Its dedup key is its own, or [Prepare Release] and this would dedup each other away.
   assertTrue("the reminder keys on stuck:<digest>, not deploy:<digest>",
     /`stuck:<digest>`/.test(block(catalog, "🔧 Needs a decision")));
 

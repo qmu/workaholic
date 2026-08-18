@@ -88,7 +88,7 @@ Provision it from an interactive session in the repository:
 ```
 
 `/setup-dev-routines` **configures** the developer-scoped routines (its sibling
-`/setup-repo-routines` does the same for the repository's single `[Release Status]`,
+`/setup-repo-routines` does the same for the repository's single `[Prepare Release]`,
 run from one account): it lists the account's routines
 through a `RemoteTrigger`-family tool, diffs each against its template (name,
 prompt, model, `cron_expression`, `autofix_on_pr_create`, connectors), applies the

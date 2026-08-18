@@ -68,7 +68,14 @@ if ! git rev-parse --verify --quiet "$BASE" >/dev/null 2>&1; then
   exit 0
 fi
 
-COUNT=$(git log "${BASE}..HEAD" --oneline --grep="Bump version" | wc -l | tr -d ' ')
+# THE MATCH IS ON THE SUBJECT, NOT THE WHOLE MESSAGE. `--grep` searches the entire
+# commit message, so any commit whose BODY happens to say "Bump version" answered the
+# predicate `true` — measured on this script's own branch, where the archive commit's
+# body describes the bug and the predicate then claimed the branch had bumped. The
+# bump commit's subject is fixed by CLAUDE.md's Version Management section
+# ("Bump version to v{new_version}"), so the subject is the whole signal; a body is
+# prose about a commit, never the commit itself.
+COUNT=$(git log "${BASE}..HEAD" --format=%s | grep -c '^Bump version' || true)
 
 if [ "$COUNT" -gt 0 ]; then
   emit true true "$BASE" ""

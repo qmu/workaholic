@@ -2564,6 +2564,26 @@ function testCheckVersionBumpBaseResolution() {
     } finally { cleanup(dir); }
   }
 
+  // Row D-bis: a commit whose BODY merely talks about a version bump is not a bump.
+  // Measured on this fix's own branch: the archive commit's body described the defect
+  // ("carrying no Bump version commit"), `--grep` searches the whole message, and the
+  // predicate answered `true` for a branch that had not bumped. The subject is the whole
+  // signal — CLAUDE.md fixes it as "Bump version to v{new_version}".
+  {
+    const dir = makeRepo("main");
+    try {
+      execSync(`git checkout -q -b work-20260818-w`, { cwd: dir });
+      writeFileSync(join(dir, "note.txt"), "prose\n");
+      execSync(`git add -A && git commit -q -F -`, {
+        cwd: dir,
+        input: "Resolve the base check-version-bump reads\n\nThe branch carries no Bump version commit; this body only talks about one.\n",
+      });
+      const r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.checkVersionBump}`).stdout);
+      assertEq("a body that merely mentions a bump is not a bump", r.already_bumped, false);
+      assertEq("the read itself is sound", r.ok, true);
+    } finally { cleanup(dir); }
+  }
+
   // Row E: an explicit base argument wins, resolved by the same rule as the default.
   {
     const { origin, clone } = makeBumpedBaseClone();

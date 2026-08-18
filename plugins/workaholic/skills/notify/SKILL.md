@@ -55,6 +55,14 @@ The bot notice `claim.sh` posts (bot token, no threading) is a different surface
 
 **Two conditions, both required, or the tick posts nothing**: `actionable: true` (some target's `needs[]` is non-empty) **and** an exact-string search for `` `deploy:<digest>` `` finding nothing. The digest hashes the substantive per-target state and deliberately not the base sha (`workaholic:ship` §7), so a base that merely advanced is not news and an unchanged answer is never repeated. This is content-keyed dedup, not the red-alert cool-down: no time window, no escalation, and a status that becomes true again posts once more. Exact shape: [reference/notifications.md](reference/notifications.md).
 
+### The daily standup digest — the second post with no feedback item
+
+`/standup` and its repository-scoped `[Standup]` routine post `📣 Standup` as a **top-level keyed root**, keyed on `` `standup:<YYYY-MM-DD>` `` — never a reply, and carrying **no mention token of any kind**, for the same two reasons `📦 Release status` carries none: nobody *said* anything for this event, and the line names the repository's state rather than a person's work. A strategy's assignees appear *in* the digest as a fact; nobody is paged by it.
+
+**The key is the morning, not a content hash** — the one place this shape deliberately differs from the release tick's. A release status must not repeat an unchanged answer, so it keys on its content; a *daily* digest is expected to speak for today even when today resembles yesterday, so what must be prevented is **two posts for one morning** — exactly the failure the repository scope cannot prevent on its own, since nothing can detect N copies of a repository routine. Search `` `standup:<YYYY-MM-DD>` `` exactly once (private-inclusive, `include_bots: true`, like every case-2 search): found ⇒ post nothing.
+
+**The digest's own no-op is the other gate, and it is the reason a recurring post is allowed here at all**: `noop: true` posts nothing, whatever the date says — no active strategy (`no_strategies`), nothing moved and no `target_date` inside the horizon (`no_activity`), or an unreadable strategies area (`strategy_list_unreadable`, reported in the session and not posted, because a mechanism that could not read must not announce quiet). `workaholic:standup` owns those gates; this skill owns only the shape. Exact wording: [reference/notifications.md](reference/notifications.md).
+
 ## The transport — the connector is primary, the tokened script is the machine fallback
 
 The model above says *which* thread a post lands in; this says *what carries it there*. Stated once here because a call site that names one transport as **the** way to post silently selects it for sessions that do not have it — measured 2026-08-12 (FB `20260812203825`, issue #406): the skills named the script, a routine session carries the connector and no token, and the finish line for four runs never existed.

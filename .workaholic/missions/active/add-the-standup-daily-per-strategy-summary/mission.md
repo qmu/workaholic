@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260817-124529
 ---
 
 # Add the standup daily per-strategy summary
@@ -38,11 +39,11 @@ strategies authored, the routine says nothing at all rather than posting an empt
 
 <!-- PROPOSED — a sketch for discussion. Approval replans this to drive-ready. -->
 
-- [ ] Work is attributable to a strategy by a rule written down before any summary is
+- [x] Work is attributable to a strategy by a rule written down before any summary is
   computed. (#20260817115231-resolve-strategy-to-activity-attribution.md)
-- [ ] `/standup` produces the per-strategy digest as a pure read, and is a clean no-op with
+- [x] `/standup` produces the per-strategy digest as a pure read, and is a clean no-op with
   zero strategies. (#20260817115232-add-the-standup-command-and-skill.md)
-- [ ] The routine ships repository-scoped on an unambiguous daily schedule, posting only a
+- [x] The routine ships repository-scoped on an unambiguous daily schedule, posting only a
   shape its own prompt names. (#20260817115233-ship-the-standup-routine-template.md)
 
 ## Changelog
@@ -50,3 +51,6 @@ strategies authored, the routine says nothing at all rather than posting an empt
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 
 - 2026-08-17 — Proposed from issue #473.
+- 2026-08-17 — ticket archived — 20260817115231-resolve-strategy-to-activity-attribution.md
+- 2026-08-17 — ticket archived — 20260817115232-add-the-standup-command-and-skill.md
+- 2026-08-17 — ticket archived — 20260817115233-ship-the-standup-routine-template.md

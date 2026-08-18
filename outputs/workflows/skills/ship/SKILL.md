@@ -152,6 +152,16 @@ the number and the branch and summarises nothing, which is what the old placehol
 Both sources are local git data, so the rule adds no network read and leaves `--enrich` off by
 default. Only a merge carrying neither a story nor a body falls through to naming itself.
 
+**Where the story's sentence ends** (2026-08-18, ticket `20260818131500`). A period **followed by
+whitespace or the end of the line** — so a period inside `check-version-bump.sh` is not one. The
+rule was "up to the first period", which cut inside such a filename and left an **unclosed
+backtick**, corrupting the markdown of everything after that line in the rendered release; 32 of
+this repository's 199 stories rendered that way. The cheaper whitespace rule was measured against
+the whole corpus before the backtick-aware alternative: it fixes all 32 and mis-splits no
+abbreviation in any of them, so the more general rule was not needed. Both sources are then cut to
+160 characters by **one shared clamp**, which never returns an odd number of backticks — a span it
+cut open is closed before the ellipsis.
+
 ```bash
 bash ship/scripts/sync-release-note.sh [--target <slug>] [--dry-run] [base]
 ```

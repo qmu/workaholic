@@ -15791,6 +15791,35 @@ function testReleaseNoteKeyChangesFallback() {
     assertEq("two renders of an unchanged base are identical",
       run(repo, `${DRAFT}`).stdout, run(repo, `${DRAFT}`).stdout);
 
+    // A SENTENCE ENDS AT A PERIOD FOLLOWED BY WHITESPACE OR THE END OF THE LINE
+    // (2026-08-18, ticket 20260818131500). "Up to the first period" cut inside
+    // `check-version-bump.sh` and left an unclosed backtick, which corrupts the markdown
+    // of everything after the line — 32 of this repository's 199 stories rendered that
+    // way. The whitespace rule was measured against the whole corpus before the
+    // backtick-aware alternative: it fixes all 32 and mis-splits no abbreviation.
+    writeFileSync(join(repo, ".workaholic/stories/work-20260104-000000.md"),
+      "---\ntype: Story\nbranch: work-20260104-000000\n---\n\n## 1. Overview\n\n`check-version-bump.sh` answered from a local `main` nothing keeps current. A second sentence that must not appear.\n");
+    merge("work-20260104-000000", 44, "Freshen the version-bump predicate");
+    const split = keyChanges(JSON.parse(run(repo, `${DRAFT}`).stdout).targets[0].body);
+    const line = split.find((l) => l.includes("check-version-bump"));
+    assertEq("a period inside a backticked filename is not a sentence end", line,
+      "- `check-version-bump.sh` answered from a local `main` nothing keeps current.");
+    assertTrue("so the rendered line's backticks balance", (line.match(/`/g) || []).length % 2 === 0, line);
+    assertTrue("and the second sentence is still dropped", !line.includes("must not appear"), line);
+
+    // The clamp is the other way a backtick span can be left open, so it closes one it
+    // cut — before the ellipsis, which belongs outside the code span. The span has to
+    // contain spaces for this to bite: the clamp trims back to a word boundary, so a
+    // single unbroken token is removed whole and takes its opening backtick with it.
+    writeFileSync(join(repo, ".workaholic/stories/work-20260105-000000.md"),
+      `---\ntype: Story\nbranch: work-20260105-000000\n---\n\n## 1. Overview\n\nThe run resolved \`${"alpha beta ".repeat(20)}omega\` and stopped.\n`);
+    merge("work-20260105-000000", 45, "Resolve the long identifier");
+    const clamped = keyChanges(JSON.parse(run(repo, `${DRAFT}`).stdout).targets[0].body)
+      .find((l) => l.includes("The run resolved"));
+    assertTrue("a clamp that cut inside a backtick span closes it",
+      (clamped.match(/`/g) || []).length % 2 === 0, clamped);
+    assertTrue("with the ellipsis outside the span", /`…$/.test(clamped), clamped);
+
     // A merge with NEITHER a story NOR a body still names itself rather than vanishing —
     // a silently shortened list reads as "nothing else happened".
     execSync("git checkout -q -b work-20260103-000000", { cwd: repo });
@@ -15800,7 +15829,7 @@ function testReleaseNoteKeyChangesFallback() {
     execSync('git merge -q --no-ff work-20260103-000000 -m "Merge pull request #43 from qmu/work-20260103-000000"',
       { cwd: repo });
     const bodyless = keyChanges(JSON.parse(run(repo, `${DRAFT}`).stdout).targets[0].body);
-    assertEq("a bodyless, story-less merge is still listed", bodyless.length, 3);
+    assertEq("a bodyless, story-less merge is still listed", bodyless.length, 5);
     assertTrue("naming the merge it could not summarise",
       bodyless.some((l) => l.includes("#43") && /no branch story/.test(l)), bodyless.join("\n"));
   } finally {

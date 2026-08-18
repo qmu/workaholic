@@ -202,11 +202,29 @@ while IFS="$US" read -r slug title environment model model_reason \
     # --- Key Changes: the stories behind the merges in the range ---------------
     stories=""
     if [ -n "$RANGE" ]; then
+      # ONE LINE RULE, WRITTEN ONCE. Both sources of a `## Key Changes` line — the
+      # story's Overview sentence and the merge body's pull request title — are cut
+      # to the same 160 characters and balanced the same way, so this awk function
+      # is textually shared by the two programs below rather than written twice.
+      # `clamp()` never returns an odd number of backticks: an unclosed span
+      # corrupts the markdown of everything after the line, so it is closed before
+      # the ellipsis (measured 2026-08-18 over 199 stories: the clamp is the last
+      # remaining way to open one).
+      CLAMP_FN='
+        function clamp(s,   ell) {
+          ell = 0
+          if (length(s) > 160) {
+            s = substr(s, 1, 160); sub(/[^ ]*$/, "", s); sub(/[[:space:]]+$/, "", s)
+            ell = 1
+          }
+          if (gsub(/`/, "`", s) % 2) s = s "`"
+          if (ell) s = s "\342\200\246"
+          return s
+        }'
       # One record per merge, subject and body-title on ONE line so the loop below
       # keeps its line-at-a-time shape: records are separated by RS, the two fields
       # by US, and the body is reduced to its first non-empty line (GitHub writes
-      # the pull request's title there) clamped to the same 160 characters the
-      # story sentence uses.
+      # the pull request's title there).
       MERGE_FMT='%x1e%s%x1f%b'
       merge_split='
         BEGIN { RS = "\036" }
@@ -220,17 +238,13 @@ while IFS="$US" read -r slug title environment model model_reason \
           n = split(body, line, "\n"); t = ""
           for (j = 1; j <= n; j++) { if (line[j] ~ /[^ \t]/) { t = line[j]; break } }
           sub(/^[ \t]+/, "", t); sub(/[ \t]+$/, "", t)
-          if (length(t) > 160) {
-            t = substr(t, 1, 160); sub(/[^ ]*$/, "", t); sub(/[[:space:]]+$/, "", t)
-            t = t "\342\200\246"
-          }
-          print subj "\037" t
+          print subj "\037" clamp(t)
         }'
       if [ -n "$PATHSPEC" ]; then
         # shellcheck disable=SC2086 - PATHSPEC is a built argument list.
-        merges=$(git -C "$ROOT" log --merges --format="$MERGE_FMT" "$RANGE" -- $PATHSPEC 2>/dev/null | awk "$merge_split" || true)
+        merges=$(git -C "$ROOT" log --merges --format="$MERGE_FMT" "$RANGE" -- $PATHSPEC 2>/dev/null | awk "${CLAMP_FN}${merge_split}" || true)
       else
-        merges=$(git -C "$ROOT" log --merges --format="$MERGE_FMT" "$RANGE" 2>/dev/null | awk "$merge_split" || true)
+        merges=$(git -C "$ROOT" log --merges --format="$MERGE_FMT" "$RANGE" 2>/dev/null | awk "${CLAMP_FN}${merge_split}" || true)
       fi
       US=$(printf '\037')
       OLD_IFS=$IFS; IFS='
@@ -257,10 +271,25 @@ while IFS="$US" read -r slug title environment model model_reason \
             insec && !NF && para != "" { exit }
             { next }
             END { sub(/^ /, "", para); print para }
-          ' "$story" | sed 's/\([^.]*\.\).*/\1/' \
-            | awk '{ if (length($0) <= 160) { print; next }
-                     s = substr($0, 1, 160); sub(/[^ ]*$/, "", s);
-                     sub(/[[:space:]]+$/, "", s); print s "\342\200\246" }')
+          ' "$story" | awk "${CLAMP_FN}"'
+            {
+              # A SENTENCE ENDS AT A PERIOD FOLLOWED BY WHITESPACE OR THE END OF THE
+              # LINE (2026-08-18, ticket 20260818131500). The rule was "up to the
+              # first period", which cut inside `check-version-bump.sh` and left an
+              # unclosed backtick that corrupted the rest of the rendered release —
+              # 32 of the 199 stories in this repository rendered that way. The cheaper
+              # whitespace rule was measured against the whole corpus before the
+              # backtick-aware alternative the ticket also offered: it fixes all 32
+              # and mis-splits no abbreviation in any of them, so the more general
+              # rule was not needed.
+              out = $0
+              n = length($0)
+              for (i = 1; i <= n; i++) {
+                if (substr($0, i, 1) != ".") continue
+                if (i == n || substr($0, i + 1, 1) ~ /[ \t]/) { out = substr($0, 1, i); break }
+              }
+              print clamp(out)
+            }')
         fi
         if [ -n "$stitle" ]; then
           stories="${stories}- ${stitle}

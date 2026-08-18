@@ -6,6 +6,7 @@ depends_on:
 feedback: [20260818191739-commits-display-claude-as-the-author-name-instead-of-the-developer.md]
 merge_policy:
 verification_handoff: 
+claim: work-20260818-193646
 ---
 
 # Stamp the developer's name on commits, not Claude

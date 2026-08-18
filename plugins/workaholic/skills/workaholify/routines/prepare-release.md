@@ -89,6 +89,17 @@ false`) posts nothing, and an answer already posted (the `deploy:<digest>` searc
 it) posts nothing. The digest hashes the substantive per-target state and deliberately
 not the base sha, so a base that merely advanced is not news.
 
+**A third gate bounds the rate** (2026-08-18, ticket `20260818214615`), because the two
+above did not. Measured over the nine hours after the refs fix landed: nine posts in nine
+consecutive hours, counts 10, 12, 14, 16, 18, 22, 30, 2, 2, and **one** request behind
+all nine. `unreleased_count` is in the digest's input and a commit lands on the base every
+hour on an active day, so the digest prevented a *repeat* and never fired against an
+hourly *restatement*. The `deploy-day:<day_token>` search is the bound: the token is
+`<Asia/Tokyo day>:<hash of the per-target needs sets>` — what the tick is asking for, not
+how much of it there is — so an unchanged ask is said once a day while a **new kind** of
+ask is still said the same hour. `deploy:<digest>` itself did not move, in derivation or
+format; the rate bound is a third condition, not a rewrite of the first two.
+
 **The prompt is the developer's own** (P3, Q2) and states no rule a skill already owns:
 `workaholic:ship` owns the read and its refusals, `workaholic:notify` owns every
 notification rule, and the always-loaded `rules/` own the standing prohibitions. The one
@@ -104,13 +115,13 @@ Run `/prepare-release`.
 
 If the command or its skills did not load, do not stop: run `bash plugins/workaholic/skills/check-deps/scripts/plugin-src.sh` from the checkout, take its `src`, then read `<src>/commands/prepare-release.md` and follow it with every script path under `<src>`.
 
-If something is waiting and the exact-string search for the digest token finds no earlier post, post this one line as a new top-level message (the workaholic:notify lookup) — no mention token of any kind:
+If something is waiting and the exact-string searches for the digest token and the day token both find no earlier post, post this one line as a new top-level message (the workaholic:notify lookup) — no mention token of any kind:
 
 ```
 📦 Release Preparation - <N> commit(s) waiting on <target>
 One sentence, max 25 words, what a human must do (cut a release, declare a confirmation method).
 Draft note: <draft release URL>
-`deploy:<digest>`
+`deploy:<digest>` `deploy-day:<day_token>`
 <session URL>
 ```
 
@@ -119,8 +130,8 @@ If the read reports `doubtful: true`, post this variant instead — the count is
 ```
 📦 Release Preparation - refs not freshened (<refs_reason>); count unavailable on <target>
 One sentence, max 25 words, what a human must do (restore the container's network, then re-read).
-`deploy:<digest>`
+`deploy:<digest>` `deploy-day:<day_token>`
 <session URL>
 ```
 
-If nothing is waiting and the read is not doubtful, or that search finds the same digest already posted, post nothing.
+If nothing is waiting and the read is not doubtful, or either search finds an earlier post — the same digest, or any post carrying today's day token — post nothing.

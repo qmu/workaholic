@@ -7,13 +7,15 @@
 #
 # Output (one JSON line):
 #   {"ok": true, "base": "main", "base_rev": "origin/main", "base_sha": "abcd1234",
-#    "count": N, "digest": "<40-hex>", "actionable": <bool>,
+#    "count": N, "digest": "<40-hex>", "day_token": "YYYY-MM-DD:<8-hex>",
+#    "day": "YYYY-MM-DD", "tz": "Asia/Tokyo", "actionable": <bool>,
 #    "refs": "fresh"|"stale"|"skipped", "refs_reason": "...", "doubtful": <bool>,
 #    "targets": [{"slug","title","environment","deploy_model","has_confirmation",
 #                 "unreleased_count","since","since_reason","attribution",
 #                 "latest_note","note_match","doubtful","needs":["..."]}],
 #    "mapping": <read-deployments.sh --mapping, spliced verbatim>}
-#   {"ok": false, "reason": "not_a_git_repo"|"base_unresolvable"|..., "digest": ""}
+#   {"ok": false, "reason": "not_a_git_repo"|"base_unresolvable"|..., "digest": "",
+#    "day_token": ""}
 #
 # WHY THIS READS AND DOES NOT WRITE (the Open Decision on ticket
 # `20260814064854-add-the-hourly-release-note-repo-routine`, resolved 2026-08-14 while
@@ -107,6 +109,46 @@
 # fact already in the rows: `confirmation_method` (the target declares none, so `/ship`
 # halts on it), `release` (commits are waiting), `note` (no release note has ever joined
 # this target). An empty `needs` on every target is the quiet state.
+#
+# ── `day_token`: THE RATE BOUND, AND WHY THE DIGEST ALONE WAS NOT ONE (2026-08-18,
+#    ticket `20260818214615`) ──
+#
+# MEASURED, over the nine hours after the refs fix (PR #503) landed at 23:11 JST on
+# 2026-08-18: nine `📦` posts in nine consecutive hours, counts 10, 12, 14, 16, 18, 22,
+# 30, 2, 2 — and ONE request behind all nine, "cut a release for marketplace". Not one
+# hour was silent. So the refs fix cured the ACCURACY half (the 2721/181/165 swings are
+# gone) and left the RATE untouched, which closes the escape hatch the ticket left open
+# ("if the fix alone brought the rate down, the rest may be unnecessary").
+#
+# THE CAUSE. `unreleased_count` is in the digest's input, and on an active day a commit
+# lands on the base every hour, so the digest moves every hour and the dedup — which
+# prevents a REPEAT — never fires against an hourly RESTATEMENT of the same request.
+#
+# THE BOUND is a second, day-scoped token rather than a narrower digest: the digest's
+# derivation was deliberately settled earlier the same day (the doubtful redaction) and
+# re-cutting it a day later is the churn this ticket is about. `day_token` is
+# `<Asia/Tokyo day>:<hash of the per-target NEEDS sets>` — what the tick is ASKING FOR,
+# not how much of it there is. The consumer posts it beside `deploy:<digest>` and gates
+# on both (`workaholic:notify`, *the repository tick's one line*), so an unchanged ask is
+# said once a day while a NEW KIND of ask — a target that starts needing a confirmation
+# method, a target that appears — moves the token and is said the same hour.
+#
+# WHY A DAY, AND WHY TOKYO. It is this repository's existing floor for a recurring write
+# (`run-note-cadence.sh`) and matches `[Standup]`'s stated rule that a daily post is a
+# standing claim on attention. The container runs UTC while the workspace is Asia/Tokyo,
+# and "daily" without a zone is ambiguous by a day boundary. `WORKAHOLIC_DEPLOY_POST_TZ`
+# overrides it; a platform whose `date` cannot take a zone falls back to UTC and says so
+# in `tz`, because a wrong-by-nine-hours boundary is still a boundary.
+#
+# THE CASE FOR CHANGING NOTHING, recorded rather than dismissed: the request IS still
+# open every one of those hours, and a daily floor can leave a genuinely renewed ask
+# unsaid for the rest of the day. It loses to the measurement — nine identical asks in
+# nine hours is how a channel teaches its readers to stop reading it — and its one real
+# cost is bounded by keying on `needs` rather than on the clock alone.
+#
+# NOT A STORED CURSOR. The day comes from the clock and the memory comes from Slack's own
+# record, exactly as `deploy:<digest>` does. There is nothing to go stale and a fresh
+# container behaves identically.
 
 set -eu
 
@@ -114,7 +156,7 @@ SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 BASE="${1:-main}"
 
 if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-  echo '{"ok": false, "reason": "not_a_git_repo", "digest": ""}' >&2
+  echo '{"ok": false, "reason": "not_a_git_repo", "digest": "", "day_token": ""}' >&2
   exit 1
 fi
 
@@ -125,7 +167,25 @@ json_escape() {
 ROWS="${TMPDIR:-/tmp}/wh-deploy-status.$$"
 ERRS="${TMPDIR:-/tmp}/wh-deploy-status-err.$$"
 SUBST="${ROWS}.subst"
-trap 'rm -f "$ROWS" "$ERRS" "$SUBST"' EXIT INT TERM
+ASKS="${ROWS}.asks"
+trap 'rm -f "$ROWS" "$ERRS" "$SUBST" "$ASKS" "${ASKS}.in"' EXIT INT TERM
+
+# --- The Asia/Tokyo day the rate bound is scoped to (see the header) ----------
+# `date` in a POSIX shell has no zone flag, so the zone rides the environment — and a
+# container with no tzdata resolves any zone name to UTC WITHOUT failing. So the zone is
+# not asserted, it is READ BACK: `tz` reports the zone that actually answered, so a
+# container that silently fell back to UTC says UTC instead of claiming Tokyo. The cost
+# of a mixed fleet is bounded and stated: two containers straddling the boundary hour key
+# differently for that one hour, which posts one extra line a day, not an hourly one.
+DAY_TZ="${WORKAHOLIC_DEPLOY_POST_TZ:-Asia/Tokyo}"
+DAY=$(TZ="$DAY_TZ" date +%Y-%m-%d 2>/dev/null || true)
+DAY_OFFSET=$(TZ="$DAY_TZ" date +%z 2>/dev/null || true)
+if [ -z "$DAY" ]; then
+  DAY_TZ=UTC
+  DAY=$(date -u +%Y-%m-%d)
+elif [ "$DAY_OFFSET" = "+0000" ] && [ "$DAY_TZ" != UTC ]; then
+  DAY_TZ=UTC
+fi
 
 # --- Freshen the refs the boundary depends on (best-effort, non-fatal) -------
 # The base branch AND the tags: `read-deploy-state.sh` picks its boundary from the newest
@@ -156,7 +216,7 @@ fi
 if ! sh "${SCRIPT_DIR}/read-deploy-state.sh" --rows "$BASE" >"$ROWS" 2>"$ERRS"; then
   reason=$(head -n 1 "$ERRS" | tr -d '\n')
   [ -n "$reason" ] || reason=base_unresolvable
-  printf '{"ok": false, "reason": "%s", "digest": "", "refs": "%s", "refs_reason": "%s"}\n' \
+  printf '{"ok": false, "reason": "%s", "digest": "", "day_token": "", "refs": "%s", "refs_reason": "%s"}\n' \
     "$(json_escape "$reason")" "$REFS" "$REFS_REASON"
   exit 0
 fi
@@ -167,6 +227,7 @@ BASE_REV=$(printf '%s' "$BASE_LINE" | cut -d"$US" -f1)
 BASE_SHA=$(printf '%s' "$BASE_LINE" | cut -d"$US" -f2)
 
 : > "$SUBST"
+: > "$ASKS"
 out=""
 sep=""
 count=0
@@ -217,6 +278,17 @@ while IFS="$US" read -r slug title environment model model_reason \
     printf '%s|%s|%s|%s|%s|%s\n' "$slug" "$has_conf" "${n:-0}" "$since" "$note_path" "$note_match" >> "$SUBST"
   fi
 
+  # The day token's input: WHAT this target is asking for, never HOW MUCH of it. The
+  # count is absent on purpose — it is the field that moves every hour on an active base
+  # and made the digest restate one request hourly (see the header). A doubtful target
+  # redacts to the literal `doubtful` for the same reason the digest does: its needs are
+  # computed from numbers the consumer has just suppressed.
+  if [ "$t_doubtful" = true ]; then
+    printf '%s|doubtful\n' "$slug" >> "$ASKS"
+  else
+    printf '%s|%s\n' "$slug" "$(printf '%s' "$needs" | tr -d ' "')" >> "$ASKS"
+  fi
+
   out="${out}${sep}{\"slug\": \"$(json_escape "$slug")\", \"title\": \"$(json_escape "$title")\", \"environment\": \"$(json_escape "$environment")\", \"deploy_model\": \"$(json_escape "$model")\", \"deploy_model_reason\": \"$(json_escape "$model_reason")\", \"confirmation_method\": \"$(json_escape "$conf_method")\", \"has_confirmation\": ${has_conf:-false}, \"unreleased_count\": ${n:-0}, \"since\": \"$(json_escape "$since")\", \"since_reason\": \"$(json_escape "$since_reason")\", \"attribution\": \"$(json_escape "$attribution")\", \"latest_note\": \"$(json_escape "$note_path")\", \"note_match\": \"$(json_escape "$note_match")\", \"doubtful\": ${t_doubtful}, \"needs\": [${needs}]}"
   sep=", "
 done < "$ROWS"
@@ -224,6 +296,14 @@ done < "$ROWS"
 # git is the one hashing tool every caller of this plugin already has, and it is
 # deterministic across platforms in a way `cksum`'s 32 bits are not.
 DIGEST=$(git hash-object --stdin < "$SUBST")
+
+# The rate bound's key (see the header). `refs` leads it for the same reason it leads the
+# digest — a doubtful read must never dedup against a trusted one — and the day is
+# prefixed in the clear so a human reading the channel can see which day a line is
+# claiming without hashing anything.
+{ printf 'refs=%s\n' "$REFS"; sort "$ASKS"; } > "${ASKS}.in"
+DAY_TOKEN="${DAY}:$(git hash-object --stdin < "${ASKS}.in" | cut -c1-8)"
+rm -f "${ASKS}.in"
 
 # The target<->environment mapping rides this read rather than a second command
 # (2026-08-17): the per-target axis is the same question this report already
@@ -234,6 +314,7 @@ DIGEST=$(git hash-object --stdin < "$SUBST")
 MAPPING=$(sh "${SCRIPT_DIR}/read-deployments.sh" --mapping 2>/dev/null \
   || printf '{"ok": false, "reason": "mapping_unreadable"}')
 
-printf '{"ok": true, "base": "%s", "base_rev": "%s", "base_sha": "%s", "count": %d, "digest": "%s", "actionable": %s, "refs": "%s", "refs_reason": "%s", "doubtful": %s, "targets": [%s], "mapping": %s}\n' \
+printf '{"ok": true, "base": "%s", "base_rev": "%s", "base_sha": "%s", "count": %d, "digest": "%s", "day_token": "%s", "day": "%s", "tz": "%s", "actionable": %s, "refs": "%s", "refs_reason": "%s", "doubtful": %s, "targets": [%s], "mapping": %s}\n' \
   "$(json_escape "$BASE")" "$(json_escape "$BASE_REV")" "$(json_escape "$BASE_SHA")" \
-  "$count" "$DIGEST" "$actionable" "$REFS" "$REFS_REASON" "$doubtful" "$out" "$MAPPING"
+  "$count" "$DIGEST" "$DAY_TOKEN" "$DAY" "$(json_escape "$DAY_TZ")" \
+  "$actionable" "$REFS" "$REFS_REASON" "$doubtful" "$out" "$MAPPING"

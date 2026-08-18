@@ -917,6 +917,10 @@ cmd_verify_plan() {
 #                     printing a bare number (2026-08-18 — a container with no tags and
 #                     a five-day-stale base reported 2721, then 2950, then the true 4
 #                     for one unchanged repository, with the digest moving each time)
+#   status_rate       the post is bounded to one ask per Asia/Tokyo day: the day token
+#                     is well-formed and holds across two reads (2026-08-18 — nine posts
+#                     in nine consecutive hours for one request, because the count is in
+#                     the digest's input and a commit lands on the base every hour)
 #
 # It writes nothing anywhere — which is the routine's whole contract, so the drill
 # asserting it by construction is the point rather than a convenience.
@@ -973,6 +977,20 @@ cmd_verify_status() {
         add_row "status_refs_optout" true "the offline opt-out is honoured and named skipped" load
     else
         add_row "status_refs_optout" false "the opt-out did not report skipped: $(one_line "$_out4")" load
+    fi
+
+    # The rate bound. The digest is ALLOWED to move between reads of an advancing base --
+    # its derivation was deliberately left alone -- so what is checked here is that the
+    # day token is well-formed and that two reads of one state key identically. A token
+    # that moved every read would restore the hourly restatement the bound removed.
+    _day=$(printf '%s' "$_out" | sed -n 's/.*"day_token": "\([0-9a-f:-]*\)".*/\1/p')
+    _day2=$(printf '%s' "$_out2" | sed -n 's/.*"day_token": "\([0-9a-f:-]*\)".*/\1/p')
+    if printf '%s' "$_day" | grep -Eq '^[0-9]{4}-[0-9]{2}-[0-9]{2}:[0-9a-f]{8}$' \
+        && [ "$_day" = "$_day2" ]; then
+        _tz=$(printf '%s' "$_out" | sed -n 's/.*"tz": "\([A-Za-z/_+-]*\)".*/\1/p')
+        add_row "status_rate" true "the ask keys to ${_day} (${_tz}), so it is said once a day" load
+    else
+        add_row "status_rate" false "the day token is malformed or unstable: '${_day}' -> '${_day2}'" load
     fi
 
     if [ "$LOAD_FAILED" -gt 0 ]; then

@@ -14149,6 +14149,7 @@ const tests = [
   ["branching close-publish-tree: closes after either publish path, still guards the unpushed one", testClosePublishTreeReachability],
   ["ship/report-deploy-status.sh: the repository tick reads, and an idle tick is silent", testReportDeployStatus],
   ["ship/report-deploy-status.sh: the refs it read are freshened, or named", testReportDeployStatusRefs],
+  ["ship/report-deploy-status.sh: the post rate is bounded to one ask a day", testReportDeployStatusRateBound],
   ["prepare-release: the repository routine and its command are a reader", testPrepareReleaseIsAReader],
   ["prepare-release: the post shape reads the same in the catalog and the template", testPrepareReleasePostShape],
   ["release note draft: CI writes it, and the tick never attempts to", testTheDraftNoteWriterIsCi],
@@ -15833,6 +15834,93 @@ function testReportDeployStatusRefs() {
   }
 }
 
+// ---------- ship/report-deploy-status.sh: the rate bound (2026-08-18) ----------
+// THE DEFECT, measured over the nine hours after the refs fix landed at 23:11 JST on
+// 2026-08-18: nine `📦` posts in nine consecutive hours -- counts 10, 12, 14, 16, 18, 22,
+// 30, 2, 2 -- with ONE request behind all nine, "cut a release for marketplace". Not one
+// hour was silent. `unreleased_count` is in the digest's input, so on an active day where
+// a commit lands every hour the digest moves every hour: it prevents a REPEAT and never
+// fires against an hourly RESTATEMENT of the same request.
+//
+// THE BOUND is a second, day-scoped token rather than a narrower digest. The three
+// properties below are the ticket's acceptance criteria, and the first is the load-bearing
+// one -- a later change that "simplifies" the rate bound by folding it back into the
+// digest fails it.
+function testReportDeployStatusRateBound() {
+  const dir = makeRepo("main");
+  const bare = mkdtempSync(join(tmpdir(), "workaholic-smoke-rate-origin-"));
+  execSync(`git init -q --bare`, { cwd: bare });
+  execSync(`git remote add origin ${bare}`, { cwd: dir });
+  const publish = () => execSync(`git push -q origin main`, { cwd: dir });
+  const read = () => JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.reportDeployStatus}`).stdout);
+  const seed = (slug, extraFm = "") => {
+    mkdirSync(join(dir, ".workaholic/deployments"), { recursive: true });
+    writeFileSync(join(dir, `.workaholic/deployments/${slug}.md`),
+      `---\ntitle: ${slug}\nenvironment: production\nconfirmation_method: other\ncommand: probe\n${extraFm}---\n\n` +
+      "This is a deploy-on-merge target.\n\n## Procedure\n\n1. merge\n\n## Confirmation\n\n1. probe it\n");
+  };
+
+  try {
+    seed("prod");
+    execSync(`git add -A && git commit -q -m "Add the deployment target"`, { cwd: dir });
+    publish();
+    const first = read();
+
+    assertTrue("the day token is a Tokyo day joined to a short hash of the ask",
+      /^\d{4}-\d{2}-\d{2}:[0-9a-f]{8}$/.test(first.day_token), first.day_token);
+    assertEq("and the zone it actually got is reported, never assumed",
+      { d: first.day_token.slice(0, 10), tz: first.tz },
+      { d: first.day, tz: first.tz });
+
+    // 1. THE COUNT MOVES; THE ASK DOES NOT. This is the measured defect: every hour the
+    // base advanced, the digest moved, and one request was restated. The digest is
+    // ALLOWED to move here -- its derivation is unchanged on purpose -- and the day token
+    // is what must hold still.
+    writeFileSync(join(dir, "shipped.md"), "a change that ships\n");
+    execSync(`git add -A && git commit -q -m "Land a deployable change"`, { cwd: dir });
+    publish();
+    const advanced = read();
+    assertTrue("a commit landing on the base really does move the count",
+      advanced.targets[0].unreleased_count > first.targets[0].unreleased_count,
+      `${first.targets[0].unreleased_count} -> ${advanced.targets[0].unreleased_count}`);
+    assertTrue("and it still moves the digest — the derivation was NOT narrowed",
+      advanced.digest !== first.digest, `${advanced.digest} vs ${first.digest}`);
+    assertEq("but the ask is unchanged, so the day token holds and the hour is silent",
+      advanced.day_token, first.day_token);
+
+    // 2. A NEW KIND OF ASK IS STILL SAID THE SAME HOUR. The bound is on restatement, not
+    // on the day: a target that starts needing something else moves the token at once.
+    seed("staging");
+    execSync(`git add -A && git commit -q -m "Add a second deployment target"`, { cwd: dir });
+    publish();
+    const widened = read();
+    assertEq("the second target is read", widened.count, 2);
+    assertTrue("a new ask moves the day token within the same day",
+      widened.day_token !== advanced.day_token, `${widened.day_token} vs ${advanced.day_token}`);
+    assertEq("and it is the same day — only the ask half moved",
+      widened.day_token.slice(0, 10), advanced.day_token.slice(0, 10));
+
+    // 3. A DOUBTFUL READ REDACTS ITS ASK, exactly as the digest redacts its count: the
+    // needs are computed from numbers the consumer has just suppressed, so hashing them
+    // would let two containers with different stale refs key differently and both post.
+    const doubtful = JSON.parse(
+      run(dir, `WORKAHOLIC_DEPLOY_FETCH_TIMEOUT=0 ${POSIX_SH} ${SCRIPTS.reportDeployStatus}`).stdout);
+    assertEq("the opted-out read is the doubtful one", doubtful.doubtful, true);
+    assertTrue("a doubtful read never dedups against a trusted one",
+      doubtful.day_token !== widened.day_token, `${doubtful.day_token} vs ${widened.day_token}`);
+
+    // 4. A NAMED REFUSAL YIELDS NO TOKEN, for the same reason it yields no digest: a key
+    // over partial rows is one the consumer could post and never reproduce.
+    const bad = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.reportDeployStatus} no-such-base`).stdout);
+    assertEq("an unreadable base carries an empty day token",
+      { ok: bad.ok, t: bad.day_token }, { ok: false, t: "" });
+
+    // AND IT IS STILL A PURE READ.
+    assertEq("computing the bound leaves the working tree untouched",
+      execSync("git status --porcelain", { cwd: dir, encoding: "utf8" }).trim(), "");
+  } finally { cleanup(dir); cleanup(bare); }
+}
+
 // ---------- the prepare-release command and routine are a READER, end to end ----------
 // The routine's contract is what it must NOT do, so the machine-checkable half is the
 // absence of the write surfaces: no Write/Edit in `allowed_tools`, and no
@@ -15895,6 +15983,13 @@ function testPrepareReleasePostShape() {
     /refs not freshened/.test(degraded) && !/<N> commit/.test(degraded), degraded);
   assertTrue("both key on deploy:<digest>, which is what the dedup actually searches",
     catalogShapes.every((s) => /`deploy:<digest>`/.test(s)), JSON.stringify(catalogShapes));
+  // The rate bound (2026-08-18, ticket 20260818214615) rides the SAME line rather than a
+  // sixth one: the complaint that provoked it is about attention, so the fix must not make
+  // the post taller. Both shapes carry it, and the degraded one especially — it is the
+  // rarer of the two to see in a channel and so the likelier to be edited in one file only.
+  assertTrue("and both carry the day token beside it, on the same line",
+    catalogShapes.every((s) => /`deploy:<digest>` `deploy-day:<day_token>`/.test(s)),
+    JSON.stringify(catalogShapes));
   assertTrue("and neither carries a mention token of any kind",
     catalogShapes.every((s) => !/<@U/.test(s)), JSON.stringify(catalogShapes));
 

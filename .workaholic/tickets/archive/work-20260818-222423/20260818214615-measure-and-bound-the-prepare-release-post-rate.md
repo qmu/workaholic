@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-18T21:46:15+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -103,3 +104,88 @@ not prevent an *hourly restatement of the same request*.
   this one is frequent and is already clear.
 - Nothing here ingests a Slack reply back into the loop, and this ticket does not change
   that (the sibling ticket's Open Decision 2, ruled the same way).
+
+## Final Report
+
+Development completed as planned, with one stated deviation on the measurement window.
+
+**The measurement.** `#dev-workaholic` was read end to end (153 message blocks, back to
+2026-08-09). Every `📦` post, newest first, with its JST timestamp and count:
+
+| Window | Posts | Counts |
+| ------ | ----- | ------ |
+| After the #503 fix (23:11 JST 2026-08-18 → 07:47 JST 2026-08-19) | **9 in 9 consecutive hours** | 10, 12, 14, 16, 18, 22, 30, 2, 2 |
+| Before it (18:47 JST 2026-08-17 → 21:47 JST 2026-08-18) | 13, with gaps | 98, 91, 85, 81, 61, 201, 36, 25, 16, 9, 181, 165, 3 |
+
+**Distinct requests behind the nine post-fix posts: one** — "cut a release for
+marketplace". Not one hour was silent, and the two `2`s are the same request restating
+itself immediately after a release was cut at ~06:00 JST.
+
+**The deviation, stated rather than glossed:** the ticket asks for *a week* of counts
+after the fix. The fix landed 9 hours before this run (commit `c5dfedcd`,
+2026-08-18T14:11:52Z), so a week does not exist to measure and waiting for one would
+park the ticket for six days. Nine consecutive hours at 9/9 is not a sample that a
+longer window overturns: the mechanism is deterministic (`unreleased_count` is in the
+digest's input; a commit lands on the base every hour on an active day), and the
+pre-fix window confirms the same rate under a different defect. Recorded here so a
+reader knows the claim rests on 9 hours, not on 7 days.
+
+**The ruling.** Step 1's escape hatch — "if the #503 fix alone brought the rate down,
+the rest of this ticket may be unnecessary" — is measurably closed. The fix cured the
+**accuracy** half (the 2721/181/165 swings are gone; the post-fix counts are monotone
+and true) and left the **rate** untouched. The bound shipped is a **second, day-scoped
+token**: `` `deploy-day:<day_token>` ``, where `day_token` is
+`<Asia/Tokyo day>:<hash of the per-target `needs` sets>` — what the tick is *asking
+for*, not how much of it there is. Both token searches are required, still AND'd with
+`actionable || doubtful`.
+
+Rejected, with reasons recorded in `workaholic:ship` §7 and the script header:
+
+- **Narrowing the digest** (dropping `unreleased_count` from its input) — the obvious
+  fix, and refused. The derivation had been settled hours earlier the same day (the
+  doubtful redaction), and re-cutting a dedup key a day later is the churn this ticket
+  is about. It is also what the acceptance criterion forbids.
+- **A threshold on the change in the count** — the ask is no more urgent at 20 than at
+  10, so any constant would be arbitrary.
+- **Leaving it hourly** — the case for changing nothing, recorded rather than
+  dismissed: the request genuinely is open every one of those hours. It loses to the
+  measurement; nine identical asks in nine hours is how a channel teaches its readers
+  to stop reading it. Its one real cost — a renewed ask unsaid for the rest of the day
+  — is bounded by keying on `needs` rather than on the clock alone, so a **new kind** of
+  ask still posts the same hour.
+
+**Every constraint the ticket set is met.** An idle tick still posts nothing
+(`actionable` gate untouched); a `doubtful` read is still reported (untouched, and the
+day token redacts a doubtful target's needs exactly as the digest redacts its count);
+`deploy:<digest>` is unchanged in derivation and format (asserted by a test that would
+fail if a later change folded the bound back into it); the heading did not move; the
+`📦`, the mention-token rule and both existing gates are untouched. The token rides the
+**same line** as the digest, so the post that provoked a complaint about attention did
+not get taller.
+
+### Discovered Insights
+
+- **Insight**: A content-hash dedup is not a rate bound whenever any *quantity* is in
+  its input. `deploy:<digest>` hashed `unreleased_count`, which moves whenever a commit
+  lands, so the key changed hourly for a request that did not — the dedup worked exactly
+  as specified and still produced nine posts for one ask.
+  **Context**: The distinction that fixes it is *what is being asked for* versus *how
+  much of it there is*. `needs[]` was already computed and already the right granularity;
+  the bound needed no new state, only a second hash over the half that does not churn.
+  Any future recurring post in this system should be checked against the same question
+  before it is called deduplicated.
+
+- **Insight**: `TZ=<zone> date` does not fail on a container with no tzdata — it silently
+  answers UTC. A zone must be **read back** (`date +%z`), not asserted.
+  **Context**: `report-deploy-status.sh` reports `tz` as the zone that actually answered,
+  so a fallback container says `UTC` instead of claiming `Asia/Tokyo`. Without the
+  read-back the day boundary would be wrong by nine hours while every field said
+  otherwise — the same class of invisible degradation the refs fix (#503) had just
+  removed from the count.
+
+- **Insight**: The two shapes in `notify/reference/notifications.md` and the routine
+  template are pinned byte-for-byte by `test-workflow-scripts.mjs`, so a shape edit is
+  mechanically a two-file edit.
+  **Context**: The pin was added on 2026-08-18 after two heading renames in one day
+  landed in one copy. Any change to a post's tokens or lines must touch both files in the
+  same commit or the suite fails — which is what caught the degraded variant here.

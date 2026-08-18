@@ -53,3 +53,4 @@ one document carries plan → release → verification.
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-18 — ticket archived — 20260818202056-give-the-release-note-a-plan-seam-over-the-renderer.md

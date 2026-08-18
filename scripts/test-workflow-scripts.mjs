@@ -14153,6 +14153,7 @@ const tests = [
   ["prepare-release: the post shape reads the same in the catalog and the template", testPrepareReleasePostShape],
   ["release note draft: CI writes it, and the tick never attempts to", testTheDraftNoteWriterIsCi],
   ["release note: Key Changes says what landed, for every merge", testReleaseNoteKeyChangesFallback],
+  ["release note: the plan seam over the renderer", testReleaseNotePlanSeam],
   ["workaholify routines: one template set, applied per repository, drift named per field", testWorkaholifyRoutines],
   ["workaholify bootstrap: without it a web routine is configured but cannot work", testWorkaholifyBootstrap],
   ["workaholify: the wiring halves apply, they do not merely audit", testWorkaholifyApplies],
@@ -16027,6 +16028,140 @@ function testReleaseNoteKeyChangesFallback() {
     assertEq("a bodyless, story-less merge is still listed", bodyless.length, 5);
     assertTrue("naming the merge it could not summarise",
       bodyless.some((l) => l.includes("#43") && /no branch story/.test(l)), bodyless.join("\n"));
+  } finally {
+    cleanup(tmp);
+  }
+}
+
+// ---------- release note: the plan seam over the renderer ----------
+// (2026-08-18, issue #512) The renderer derives FACTS and its idempotency contract is
+// what the daily cadence rests on; what it structurally could not produce is a JUDGMENT
+// — what ships together, in what order, at what risk, what is held. `--plan` renders an
+// agent-authored arrangement OVER the derived facts, and the property that had to
+// survive is the one pinned first: with no plan, byte-for-byte the old output.
+function testReleaseNotePlanSeam() {
+  const tmp = mkdtempSync(join(tmpdir(), "workaholic-note-plan-"));
+  const repo = join(tmp, "repo");
+  const DRAFT = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/draft-release-note.sh")}`;
+  const keyChanges = (body) => {
+    const m = /## Key Changes\n([\s\S]*?)(?=\n## |$)/.exec(body);
+    return (m ? m[1] : "").trim();
+  };
+  const render = (args = "") => JSON.parse(run(repo, `${DRAFT}${args}`).stdout).targets[0];
+  const writePlan = (name, plan) => {
+    const p = join(tmp, name);
+    writeFileSync(p, JSON.stringify(plan));
+    return p;
+  };
+  try {
+    mkdirSync(join(repo, ".workaholic/stories"), { recursive: true });
+    mkdirSync(join(repo, ".workaholic/deployments"), { recursive: true });
+    execSync("git -c init.defaultBranch=main init -q", { cwd: repo });
+    execSync("git config user.email test@example.com", { cwd: repo });
+    execSync("git config user.name Test", { cwd: repo });
+    execSync("git config commit.gpgsign false", { cwd: repo });
+    writeFileSync(join(repo, ".workaholic/deployments/marketplace.md"),
+      "---\ntype: Deployment\ntarget: marketplace\nenvironment: production\ndeploy_model: deploy-on-merge\n---\n\n# marketplace\n\n## Procedure\n\n1. Merge.\n\n## Confirmation\n\nCheck the release exists.\n");
+    execSync("git add -A && git commit -q -m initial", { cwd: repo });
+    const merge = (branch, prnum, prTitle) => {
+      execSync(`git checkout -q -b ${branch}`, { cwd: repo });
+      writeFileSync(join(repo, `${branch}.txt`), "x\n");
+      execSync(`git add -A && git commit -q -m "Do the work on ${branch}"`, { cwd: repo });
+      execSync("git checkout -q main", { cwd: repo });
+      execSync(`git merge -q --no-ff ${branch} -m "Merge pull request #${prnum} from qmu/${branch}" -m "${prTitle}"`,
+        { cwd: repo });
+    };
+    merge("work-20260101-000000", 61, "Freshen the refs the count came from");
+    merge("work-20260102-000000", 62, "Recover the substance of story-less merges");
+    merge("work-20260103-000000", 63, "Bump version to v1.0.200");
+
+    const planless = render();
+    assertEq("with no plan the renderer says so, and names why",
+      planless.plan, { present: false, reason: "not_supplied" });
+    const derived = keyChanges(planless.body);
+    assertEq("and renders the derived list, one line per merge",
+      derived.split("\n").length, 3, derived);
+
+    // (a) THE ARRANGEMENT IS THE PLAN'S; THE LINES ARE THE RENDERER'S.
+    const baseSha = execSync("git rev-parse main", { cwd: repo, encoding: "utf8" }).trim();
+    const plan = writePlan("plan.json", {
+      target: "marketplace", base_sha: baseSha,
+      summary: "One release: the release-note reading path, then the version bump.",
+      groups: [{
+        title: "Release-note reading path", why: "They share a boundary.", risk: "moderate",
+        items: [{ pr: 61, note: "Ship first." }, { pr: 62 }],
+      }],
+      held_back: [{ pr: 63, why: "The tag would name a version nobody has cut." }],
+    });
+    const planned = render(` --plan ${plan}`);
+    assertEq("a plan that applies is reported as applied", planned.plan.present, true);
+    assertEq("...and is not stale against the base it names", planned.plan.stale, false);
+    const body = keyChanges(planned.body);
+    assertTrue("the plan's summary opens the section",
+      body.startsWith("One release: the release-note reading path"), body);
+    assertTrue("the group renders with its title, reason and risk",
+      /### 1\. Release-note reading path\n\nThey share a boundary\.\n\n\*\*Risk:\*\* moderate/.test(body), body);
+    assertTrue("the arrangement decides the order, not chronology",
+      body.indexOf("Freshen the refs") < body.indexOf("Recover the substance"), body);
+    assertTrue("an item's line is the DERIVED one, with the plan's note appended",
+      body.includes("- Freshen the refs the count came from (#61) — Ship first."), body);
+    assertTrue("a held-back merge is named as held back, with the plan's reason",
+      /### Held back[\s\S]*Bump version to v1\.0\.200 \(#63\) — The tag would name a version nobody has cut\./.test(body),
+      body);
+    assertEq("every merge is accounted for",
+      { a: planned.plan.arranged, h: planned.plan.held_back, u: planned.plan.unarranged },
+      { a: 2, h: 1, u: 0 });
+
+    // (b) NOTHING IS EVER DROPPED, AND NOTHING IS EVER INVENTED.
+    const partial = writePlan("partial.json", {
+      target: "marketplace", base_sha: baseSha,
+      groups: [{ title: "Only one", items: [{ pr: 61 }, { pr: 999 }] }],
+    });
+    const partialBody = keyChanges(render(` --plan ${partial}`).body);
+    // Unarranged merges keep the renderer's own order — newest first, the order the
+    // derived list has always had. A plan orders what it arranged; it does not get to
+    // reorder what it ignored.
+    assertTrue("a merge no group named is rendered under Not arranged by the plan",
+      /### Not arranged by the plan[\s\S]*Bump version to v1\.0\.200 \(#63\)\n- Recover the substance of story-less merges \(#62\)/.test(partialBody),
+      partialBody);
+    assertTrue("a plan reference outside the range is named, never fabricated",
+      /### Referenced but not in this range[\s\S]*Pull request #999/.test(partialBody), partialBody);
+    assertEq("and both are counted",
+      { u: render(` --plan ${partial}`).plan.unarranged, k: render(` --plan ${partial}`).plan.unknown },
+      { u: 2, k: 1 });
+
+    // (c) A PLAN FOR AN OLDER BASE IS RENDERED AS STALE, NOT AS CURRENT.
+    const stale = writePlan("stale.json", {
+      target: "marketplace", base_sha: "0".repeat(40),
+      groups: [{ title: "Written earlier", items: [{ pr: 61 }] }],
+    });
+    const staleRender = render(` --plan ${stale}`);
+    assertEq("the JSON says stale", staleRender.plan.stale, true);
+    assertTrue("and the note says which base it was written for",
+      /This plan was written for base `00000000`; the base is now `/.test(keyChanges(staleRender.body)),
+      keyChanges(staleRender.body));
+    assertTrue("with everything it could not have known about left unarranged",
+      /### Not arranged by the plan/.test(keyChanges(staleRender.body)), keyChanges(staleRender.body));
+
+    // (d) A PLAN THAT CANNOT BE APPLIED IS NOT APPLIED, AND THE NOTE FALLS BACK.
+    const other = writePlan("other.json", { target: "elsewhere", base_sha: baseSha, groups: [] });
+    const otherRender = render(` --plan ${other}`);
+    assertEq("a plan written for another target is refused by name",
+      otherRender.plan, { present: false, reason: "other_target" });
+    assertEq("...and the derived list renders unchanged", keyChanges(otherRender.body), derived);
+    writeFileSync(join(tmp, "broken.json"), "{not json");
+    const broken = render(` --plan ${join(tmp, "broken.json")}`);
+    assertEq("a malformed plan is refused by name", broken.plan.reason, "malformed");
+    assertEq("...and the derived list renders unchanged", keyChanges(broken.body), derived);
+    const missing = render(` --plan ${join(tmp, "nope.json")}`);
+    assertEq("an unreadable plan is refused by name", missing.plan.reason, "unreadable");
+    assertEq("...and the derived list renders unchanged", keyChanges(missing.body), derived);
+
+    // (e) THE CONTRACT, RESTATED: same base state PLUS same plan → byte-identical.
+    assertEq("two renders of an unchanged base and plan are identical",
+      run(repo, `${DRAFT} --plan ${plan}`).stdout, run(repo, `${DRAFT} --plan ${plan}`).stdout);
+    assertEq("and the planless render is unchanged by any of it",
+      keyChanges(render().body), derived);
   } finally {
     cleanup(tmp);
   }

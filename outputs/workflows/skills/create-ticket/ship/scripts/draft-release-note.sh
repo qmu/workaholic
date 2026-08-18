@@ -2,14 +2,15 @@
 # PER-TARGET DRAFT RELEASE NOTE: what the note would read like if this target
 # were deployed from the base right now. A pure renderer.
 #
-#   draft-release-note.sh [--target <slug>] [--out <dir>] [--enrich] [base]
+#   draft-release-note.sh [--target <slug>] [--out <dir>] [--enrich]
+#                         [--plan <path|->] [base]
 #
 # Output (one JSON line):
 #   {"ok": true, "base": "main", "base_rev": "origin/main", "base_sha": "abcd1234",
 #    "count": N,
 #    "targets": [{"slug","environment","deploy_model","attribution","since",
 #                 "since_reason","unreleased_count","empty":<bool>,
-#                 "body_sha":"<40-hex>","body":"...",
+#                 "body_sha":"<40-hex>","body":"...","plan":{...},
 #                 "changed": true|false|null, "path": "<out path>"|""}]}
 #   {"ok": false, "reason": "base_unresolvable"|"not_a_git_repo"|"no_targets"}
 #
@@ -36,6 +37,33 @@
 # the body would make every re-render a diff for a reader who cannot tell whether
 # the content changed. The same base state therefore renders byte-identical
 # output, which is the property the whole daily cadence rests on.
+#
+# THAT SENTENCE IS SUPERSEDED IN PLACE, NOT DELETED (2026-08-18, issue #512). It
+# now reads: THE SAME BASE STATE PLUS THE SAME PLAN RENDERS BYTE-IDENTICAL OUTPUT.
+# The property did not weaken and was never the defect -- the absence of judgment
+# was. `--plan` accepts an agent-authored ARRANGEMENT of the facts this script
+# derives (what ships together, in what order, at what risk, what is held back);
+# with no plan the output is byte-identical to what this renderer produced before
+# the seam existed, which is the one thing the seam had to prove. The plan is
+# rendered by `render-release-plan.sh`, its document is
+# `../reference/release-plan.md`, and a plan that cannot be applied (unreadable,
+# malformed, written for another target, no `python3`) is NOT applied: the derived
+# list renders and the named reason rides the JSON, because a note that looks
+# planned and was not is worse than one that says it is a list.
+#
+# A PLAN WRITTEN FOR AN OLDER BASE IS RENDERED AS STALE, NOT AS CURRENT. The plan
+# carries the `base_sha` it was written against; when that is not the base being
+# rendered, the note says so in a line naming both shas, and everything the plan
+# could not have known about falls into its *Not arranged by the plan* group. A
+# stale plan is never silently refreshed -- refreshing it would mean authoring the
+# judgment the plan exists to carry.
+#
+# THE PLAN'S HOME IS THE CALLER'S. This script reads `--plan` and looks in no
+# well-known location, exactly as `--out` does. What is fixed is that no home may
+# be inside git (SKILL.md §7's measured refusal applies unchanged: for a target
+# declaring no `paths:`, the commit storing the plan increments the very count the
+# plan is about) and that no home is trusted for freshness -- the document's own
+# `base_sha` is what answers that.
 #
 # THE STORY IS PREFERRED OVER THE COMMIT LIST. `.workaholic/stories/<branch>.md`
 # is the written record of WHY a branch happened; a commit list can only say what
@@ -95,11 +123,13 @@ SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 WANT_TARGET=""
 OUT_DIR=""
 ENRICH=0
+PLAN_PATH=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --target) WANT_TARGET="${2:-}"; shift 2 ;;
     --out) OUT_DIR="${2:-}"; shift 2 ;;
     --enrich) ENRICH=1; shift ;;
+    --plan) PLAN_PATH="${2:-}"; shift 2 ;;
     --) shift; break ;;
     -*) echo '{"ok": false, "reason": "usage"}' >&2; exit 1 ;;
     *) break ;;
@@ -136,7 +166,19 @@ TMP="${TMPDIR:-/tmp}/wh-draft-note.$$"
 ROWS="${TMP}.rows"
 BODY="${TMP}.body"
 ERRS="${TMP}.err"
-trap 'rm -f "$ROWS" "$BODY" "$ERRS"' EXIT INT TERM
+FACTS="${TMP}.facts"
+PLAN_FILE="${TMP}.plan"
+PLAN_OUT="${TMP}.planout"
+PLAN_STATUS="${TMP}.planstatus"
+trap 'rm -f "$ROWS" "$BODY" "$ERRS" "$FACTS" "$PLAN_FILE" "$PLAN_OUT" "$PLAN_STATUS"' EXIT INT TERM
+
+# `--plan -` is read ONCE, here: the render loop runs per target, and a stdin
+# plan consumed by the first target would leave every later one planless for a
+# reason nothing would report.
+if [ "$PLAN_PATH" = "-" ]; then
+  cat > "$PLAN_FILE"
+  PLAN_PATH="$PLAN_FILE"
+fi
 
 if ! sh "${SCRIPT_DIR}/read-deploy-state.sh" --rows "$BASE" >"$ROWS" 2>"$ERRS"; then
   reason=$(head -n 1 "$ERRS" | tr -d '\n')
@@ -175,6 +217,10 @@ while IFS="$US" read -r slug title environment model model_reason \
   fi
 
   : > "$BODY"
+  # Per target, because a plan names ONE target: a plan applied to the target it
+  # was written for says nothing about the next one in the same run.
+  PLAN_JSON='{"present": false, "reason": "not_supplied"}'
+  [ -z "$PLAN_PATH" ] || PLAN_JSON='{"present": false, "reason": "empty_range"}'
 
   {
     printf -- '---\n'
@@ -201,6 +247,7 @@ while IFS="$US" read -r slug title environment model model_reason \
   else
     # --- Key Changes: the stories behind the merges in the range ---------------
     stories=""
+    : > "$FACTS"
     if [ -n "$RANGE" ]; then
       # ONE LINE RULE, WRITTEN ONCE. Both sources of a `## Key Changes` line — the
       # story's Overview sentence and the merge body's pull request title — are cut
@@ -291,27 +338,33 @@ while IFS="$US" read -r slug title environment model model_reason \
               print clamp(out)
             }')
         fi
+        # ONE LINE, TWO CONSUMERS. The line is composed once and appended both to
+        # the derived list and to the facts file a plan arranges, so a planned
+        # note and a planless one can never disagree about what a merge says —
+        # a plan supplies arrangement, never a change's own text.
+        line=""
         if [ -n "$stitle" ]; then
-          stories="${stories}- ${stitle}
-"
+          line="$stitle"
         elif [ -n "$mtitle" ]; then
           # No story joined this merge — the structural case for every `/propose`
           # pull request, which auto-merges without ever running `/report`. The
           # merge commit's body is that pull request's own title, so the line says
           # what landed instead of saying that nothing says what landed.
           if [ -n "$prnum" ]; then
-            stories="${stories}- ${mtitle} (#${prnum})
-"
+            line="${mtitle} (#${prnum})"
           else
-            stories="${stories}- ${mtitle}
-"
+            line="$mtitle"
           fi
         elif [ -n "$prnum" ]; then
           # Neither a story nor a title: a merge commit whose body somebody
           # emptied. Say which merge, rather than dropping it — a silently
           # shortened list reads as "nothing else happened".
-          stories="${stories}- Pull request #${prnum} (\`${branch}\`) — no branch story on the base.
+          line="Pull request #${prnum} (\`${branch}\`) — no branch story on the base."
+        fi
+        if [ -n "$line" ]; then
+          stories="${stories}- ${line}
 "
+          printf '%s%s%s%s%s\n' "$prnum" "$US" "$branch" "$US" "$line" >> "$FACTS"
         fi
       done
       IFS=$OLD_IFS
@@ -329,7 +382,22 @@ while IFS="$US" read -r slug title environment model model_reason \
       printf '## Key Changes\n\n'
     } >> "$BODY"
 
-    if [ -n "$stories" ]; then
+    # A plan arranges this section or nothing does. `present: false` — including
+    # every refusal — falls through to the derived list below, unchanged.
+    if [ -n "$PLAN_PATH" ]; then
+      : > "$PLAN_OUT"
+      printf '{"present": false, "reason": "unreadable"}\n' > "$PLAN_STATUS"
+      sh "${SCRIPT_DIR}/render-release-plan.sh" --plan "$PLAN_PATH" --facts "$FACTS" \
+        --target "$slug" --base-sha "$BASE_SHA" --status-out "$PLAN_STATUS" \
+        > "$PLAN_OUT" 2>/dev/null || true
+      PLAN_JSON=$(cat "$PLAN_STATUS")
+    fi
+
+    if [ -n "$PLAN_PATH" ] && [ -s "$PLAN_OUT" ] \
+      && grep -q '"present": true' "$PLAN_STATUS" 2>/dev/null; then
+      cat "$PLAN_OUT" >> "$BODY"
+      printf '\n' >> "$BODY"
+    elif [ -n "$stories" ]; then
       printf '%s\n' "$stories" | sed '/^$/d' >> "$BODY"
       printf '\n' >> "$BODY"
     else
@@ -442,7 +510,7 @@ while IFS="$US" read -r slug title environment model model_reason \
 
   body_json=$(escape_file_json < "$BODY")
 
-  out="${out}${sep}{\"slug\": \"$(json_escape "$slug")\", \"environment\": \"$(json_escape "$environment")\", \"deploy_model\": \"$(json_escape "$model")\", \"attribution\": \"$(json_escape "$attribution")\", \"since\": \"$(json_escape "$since")\", \"since_reason\": \"$(json_escape "$since_reason")\", \"unreleased_count\": ${n:-0}, \"empty\": $( [ "${n:-0}" -eq 0 ] && echo true || echo false ), \"body_sha\": \"${BODY_SHA}\", \"changed\": ${changed}, \"path\": \"$(json_escape "$path")\", \"enriched\": $( [ "$ENRICH" -eq 1 ] && echo true || echo false ), \"body\": ${body_json}}"
+  out="${out}${sep}{\"slug\": \"$(json_escape "$slug")\", \"environment\": \"$(json_escape "$environment")\", \"deploy_model\": \"$(json_escape "$model")\", \"attribution\": \"$(json_escape "$attribution")\", \"since\": \"$(json_escape "$since")\", \"since_reason\": \"$(json_escape "$since_reason")\", \"unreleased_count\": ${n:-0}, \"empty\": $( [ "${n:-0}" -eq 0 ] && echo true || echo false ), \"body_sha\": \"${BODY_SHA}\", \"changed\": ${changed}, \"path\": \"$(json_escape "$path")\", \"enriched\": $( [ "$ENRICH" -eq 1 ] && echo true || echo false ), \"plan\": ${PLAN_JSON}, \"body\": ${body_json}}"
   sep=", "
 done < "$ROWS"
 

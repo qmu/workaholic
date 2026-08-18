@@ -1,11 +1,13 @@
 ---
 created_at: 2026-08-18T06:26:53+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
 feedback: [20260818062639-reopen-the-thread-lookup-it-bounds-the-search-when-only-the-acceptance-needs-bounding.md]
 merge_policy:
 verification_handoff: 
+claim: work-20260818-073640
 ---
 
 # Never query a URL this run created in the lookup
@@ -135,3 +137,54 @@ searching the **originating issue URL**, a string that existed before the run.
 - This ticket makes the failing case *less* likely, not impossible: a human-rooted thread with
   no issue link pasted into it stays unfindable until one of the two rulings above lands. The
   Final Report should say so rather than claim the symptom is fixed.
+
+## Final Report
+
+Development completed as planned. Case 3 of the lookup now names the **originating** Issue or
+pull-request URL — a string that existed before the run began — and prohibits querying a URL the
+run itself created, in one sentence, in the one place that owns the rule
+(`notify/SKILL.md`, *One thread per feedback item*). The lookup's history in
+`notify/reference/notifications.md` records PR #484's miss and states what was and was not
+changed in response.
+
+**The two operator rulings were NOT resolved by this run**, as the Gate requires stating
+explicitly: lifting the effort ceiling (the two-query bound, the no-history rule, the single
+search surface) and letting a thread carry its own key (`/propose`'s finish line carrying
+`fb:<stem>` into a root it did not write) each reverse something written deliberately
+(Q1, 2026-08-07; FB `20260811084130`), and both stay recorded in the feedback record for the
+operator. Nothing in this change touches either.
+
+**The symptom is made less likely, not impossible.** A human-rooted thread with no issue link
+pasted into it carries no `fb:<stem>` for case 2 and offers case 3 no URL to find, so it stays
+unfindable until one of those two rulings lands. Half of PR #484's miss is fixed by this ticket
+(case 3 searched a URL that could not pre-exist); the other half — a keyless human root — is not.
+
+**No routine template changed.** `workaholify/routines/fb.md` and `implement.md` name post
+formats and defer the lookup, so neither needed an edit; the byte-pins in
+`test-workflow-scripts.mjs` pass unchanged (2986 passed, 0 failed).
+
+**Neither call site needed a correction.** `propose/reference/workflow.md` step 12 and
+`propose/SKILL.md` *Notifier contract* defer the lookup to `workaholic:notify` and never restate
+case 3; step 12's "the message carries the **PR URL**" is post *content*, not a query, and was
+left untouched rather than annotated — a second statement of the rule is what this ticket's own
+acceptance criterion forbids. `drive/SKILL.md` §3/§7 likewise names the lookup by reference only.
+
+### Discovered Insights
+
+- **Insight**: The two lookup cases failed for structurally different reasons, and only one is a
+  specification defect. Case 2 missed because the thread's root is a human message that predates
+  the record and therefore can never carry the key; case 3 missed because the run queried a
+  string it had just minted. The first is a design consequence the ceiling rulings own; the
+  second was simply unwritten.
+  **Context**: Anyone re-reading the 2026-08-11 entry will see the same shape — "the run looked
+  in the wrong place" — and should resist reading it as evidence that search is unreliable. Both
+  entries are query specifications, not mechanism changes, which is why the two-query bound has
+  survived two corrections untouched.
+
+- **Insight**: `outputs/` did not change for this edit — `notify` is not in the `workflows`
+  bundle's skill closure (create-ticket, drive, report, ship, catch, mission, review-sections,
+  write-release-note), so the notification model reaches non-Claude agents not at all.
+  **Context**: A future change to notify's contract cannot be validated by the `Outputs
+  Freshness` CI, because there is nothing generated to diff. The byte-pins in
+  `test-workflow-scripts.mjs` against the routine templates are the only mechanical check that
+  the model and its copies agree.

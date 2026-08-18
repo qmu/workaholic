@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-17T11:37:53+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on: 20260817113750-add-the-housekeep-command-and-skill.md
@@ -118,3 +119,58 @@ side of each collision the operator meant.
   one place so the operator can change it without reading the implementation.
 - A proposal nobody asked for is the highest-risk output in this mission: the loop's trust
   rests on `/propose`'s false-positive cost being near zero. Prefer emitting less.
+
+## Final Report
+
+**Step 8 is deliberately left unbuilt, and the step says so in every report.** That is not a
+failure to implement it — it is the mission's own acceptance criterion carried out: *every step
+reversing a standing decision is ruled on by the operator or left unbuilt, never inferred.* No
+operator was present in this run, so the alternative the criterion names is the one taken. What
+shipped is the gate: `step-strategy-proposals.sh` reads the strategy set, emits **nothing**, and
+names the three outstanding rulings in its output — `no_strategies` today (the repository holds
+zero), `blocked` / `awaiting_operator_ruling` the moment one exists.
+
+The three Open Decisions, each recorded rather than resolved:
+
+1. **How far does this reverse the propose bar?** Not resolved here. The argument in favour is
+   real and is written down for the operator instead of acted on: `propose`'s bar exists because
+   the *repository's own state* — missions, queue, commits — produces plausible noise when swept
+   (the retired `[Propose Batch]`, and its recorded failure mode). A **strategy is not repository
+   state**: it is the operator's own resolved, dated, owned direction, which sits far closer to
+   feedback than to a backlog sweep. If the operator accepts it, option (a) is the coherent form —
+   state it in `workaholic:propose` as a second originator so there is one bar and not two.
+   Accepting it is their act, and the propose skill is left byte-identical; a test now asserts the
+   bar's wording is unchanged, so a later session cannot slip the reversal in sideways.
+2. **The Slack shape.** Not resolved here, and it could not take effect if it were:
+   `workaholic:notify`'s *the prompt is the ceiling* means no session may emit a shape the
+   routine's own prompt does not name, so a shape settled in this ticket alone would be inert.
+   Recorded for the ruling: `🟡` is the handoff finish line today and the start post was retired
+   on 2026-08-11 ("a routine posts its finish only"), so the ask's `🟡 Proposing` collides twice
+   and needs two separate rulings — whether a start post returns, and which emoji.
+3. **What counts as "negative feedback"?** Not resolved. Recorded with a recommendation: of the
+   four candidate triggers (a reaction, a token in a reply, a human closing the pull request, a
+   model's reading of a thread), an **explicit token** is the only one whose false-positive rate
+   is a property of the *rule* rather than of the *reader* — and an auto-close on a misread reply
+   destroys a proposal nobody rejected.
+
+The quality gate's four acceptance criteria hold vacuously and by construction: the step emits no
+proposal at all, so it cannot emit one inside a reaction window, cannot leave a closed pull
+request without a record, and cannot post an unnamed Slack shape. The fourth — "a clean no-op when
+the strategy set is empty" — is implemented and tested directly.
+
+### Discovered Insights
+
+- **Insight**: A step whose specification reverses a standing decision has a *buildable* form that
+  is neither "build it" nor "do nothing": build the gate, emit nothing, and name the rulings in
+  the machine-readable output so every tick's report carries them to whoever reads it.
+  **Context**: The alternative failure modes are both bad — inferring the ruling puts an
+  unauthorised reversal into an hourly unattended routine, and leaving the step absent loses the
+  fact that a decision is pending. The gate makes "waiting on a human" a first-class, reported
+  state, which is the same move `verification_handoff` makes for a unit.
+
+- **Insight**: `workaholic:notify`'s *the prompt is the ceiling* makes some documentation
+  decisions inert on their own — a post shape must be named in the **routine's own prompt** before
+  any session may emit it.
+  **Context**: This is why Open Decision 2 could not be usefully "resolved" in this ticket even in
+  principle: the ruling has to land in the routine template's prompt, which is a different file
+  and a different ticket, and a shape written only into a skill would never reach the wire.

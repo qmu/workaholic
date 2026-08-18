@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-17T11:37:55+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on: 20260817113750-add-the-housekeep-command-and-skill.md
@@ -118,3 +119,60 @@ not named in the prompt may not be emitted, however well documented it is elsewh
 - The routine cannot subscribe to a repository event: the API's trigger surface is
   `cron_expression` / `run_once_at` / API token only. Everything reactive in the ask has to
   be discovered by the tick itself, as `[Propose]`'s clock-fired discovery already is.
+
+## Final Report
+
+Development completed as planned. `/housekeep` is now an hourly routine: the template ships,
+both setup commands see it in exactly one scope, both post shapes are authorized and mirrored,
+and the routine is drillable on demand rather than verified by waiting an hour.
+
+**The scope Open Decision is resolved: `repository`, against the ask's own wording — and that
+sentence is answered rather than dismissed.** The ask said `/setup-dev-routines`, written before
+the nine steps were decomposed. Once they were, the balance is not close: **seven of the nine
+read the repository, not the developer**, and issue triage, auto-merge reminders and
+documentation drift produce identical findings from every copy while the check-in would ask five
+questions per copy per hour — the exact failure the `repository` scope was introduced for on
+2026-08-14 (issue #451), which the plugin **cannot detect**, because a routine is an
+account-level record no other account can list. The one real argument for `developer` was step
+8: per-developer copies would at least race under their own identities. That argument is **moot**
+— step 8 ships gated and emits nothing until the operator rules on it, so there is no proposal
+race to distribute.
+
+The two genuinely personal steps are not silently lost. The inbound sweep's Gmail, Drive and
+Slack connectors belong to whichever account runs the tick, and every surface is reported **by
+name** (`no_surface: gmail`), so one account's copy says exactly whose inboxes it could not see.
+The faithful way to have both is option (c) — a second, developer-scoped inbound template — which
+is a template to add rather than a value to change here. And the decision is cheap to revisit:
+moving this routine is a **one-line** `scope:` change, because both setup commands and both setup
+sheets read that one field.
+
+`autofix_on_pr_create: true` and the `Write`/`Edit` grant are stated in the template's own prose
+rather than inherited: this routine is not a pure reader like `[Release Status]` — it writes its
+tick log, and filing a finding publishes a record or a ticket behind a pull request, exactly as
+`/propose` does. Cron `50 * * * *`: an explicit non-zero minute (a bare `:00` is rewritten to
+server jitter) that collides with none of `15`/`30`/`45`, and lands last in the hour so the tick
+reads what the other three have just done.
+
+### Discovered Insights
+
+- **Insight**: The template set is discovered by scanning `routines/`, so a new template is
+  surveyed, rendered and drift-checked the moment its file exists — but three suite assertions
+  hard-code the *count* and the *id list*, and they are the registration.
+  **Context**: Adding a routine is one file plus those assertions plus the `CLAUDE.md` row; the
+  assertions failing is the intended notification, not an obstacle. The cron assertion now also
+  pins that **no two routines share a minute**, which is the property the staggering exists for
+  and which a list of literal times does not state.
+
+- **Insight**: A drill row that asserts "the checkout is clean" must assert a **delta**, not an
+  absolute — the operator runs the drill in whatever checkout they have, which may legitimately
+  be mid-edit.
+  **Context**: `verify-housekeep`'s first draft reported the operator's own uncommitted work as
+  the tick's doing, which is the class of false red that teaches people to ignore a drill. It now
+  snapshots `git status --porcelain` before and after and compares.
+
+- **Insight**: The nine-step decomposition is what settled the scope, and it could only be done
+  after the steps were built — the ask's own sentence was written when the steps were a list of
+  intentions.
+  **Context**: This is an argument for the mission's ordering (spine, then steps, then routine)
+  beyond dependency: the template ticket inherits *evidence* from the step tickets, and the same
+  question asked first would have been answered by the ask's wording alone.

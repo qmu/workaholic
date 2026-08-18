@@ -9,13 +9,14 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 1.8
 feedback: [20260817113647-add-housekeep-an-hourly-project-operation-routine.md]
 tickets: []
 stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260817-114453
 ---
 
 # Add the /housekeep hourly operations routine
@@ -39,11 +40,11 @@ most five a tick, never late at night — instead of a silent guess.
 
 <!-- PROPOSED — a sketch for discussion. Approval replans this to drive-ready. -->
 
-- [ ] The nine steps run end to end unattended, log to a registered `.workaholic/` area,
+- [x] The nine steps run end to end unattended, log to a registered `.workaholic/` area,
   and file findings through the existing seams. (#20260817113750-add-the-housekeep-command-and-skill.md)
-- [ ] The template ships with a declared scope and cron, is converged by that scope's setup
+- [x] The template ships with a declared scope and cron, is converged by that scope's setup
   command, and posts only shapes its prompt names. (#20260817113755-ship-the-housekeep-routine-template.md)
-- [ ] Every step reversing a standing decision is ruled on by the operator or left unbuilt,
+- [x] Every step reversing a standing decision is ruled on by the operator or left unbuilt,
   never inferred. (#20260817113753-implement-the-strategy-proposal-step.md)
 
 ## Changelog
@@ -51,3 +52,14 @@ most five a tick, never late at night — instead of a silent guess.
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 
 - 2026-08-17 — Proposed from issue #471.
+- 2026-08-17 — ticket archived — 20260817113749-register-the-housekeep-log-area.md
+- 2026-08-17 — ticket archived — 20260817113750-add-the-housekeep-command-and-skill.md
+- 2026-08-17 — ticket archived — 20260817113751-implement-the-inbound-sweep-steps.md
+- 2026-08-17 — ticket archived — 20260817113752-implement-the-repository-hygiene-steps.md
+- 2026-08-17 — ticket archived — 20260817113753-implement-the-strategy-proposal-step.md
+- 2026-08-17 — ticket archived — 20260817113754-implement-the-human-check-in-step.md
+- 2026-08-17 — ticket archived — 20260817113755-ship-the-housekeep-routine-template.md
+- 2026-08-17 — story written — work-20260817-114453.md
+- 2026-08-17 — run recorded (+1.8h) — implement-20260817-114453
+- 2026-08-17 — ticket archived — 20260817131500-persist-the-housekeep-tick-log.md
+- 2026-08-17 — story updated — work-20260817-114453.md

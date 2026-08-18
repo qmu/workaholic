@@ -32,6 +32,7 @@ Run every command from the repository root, on a clean `main`.
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-status --json` | the same targets read the `[Release Status]` way — proves the repository tick reads soundly and stays silent when nothing changed |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-cadence --json` | the same targets' **draft notes** — proves the daily generation renders, is idempotent and clock-free, and derives its stage |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-standup --json` | this checkout's strategies and their attributable work — proves the daily digest reads soundly, names its silence and writes nothing |
+| — | Any time | `sh scripts/e2e/loop-drill.sh verify-housekeep --json` | one `[Housekeep]` tick against a throwaway root — proves every step reports, the log carries one section per tick, and the checkout is untouched |
 | — | Any time | `sh scripts/e2e/loop-drill.sh status` | the drill's residue: issues, claim branches, tickets |
 | — | After an abort | `sh scripts/e2e/loop-drill.sh reset` | closes/deletes **drill-minted** residue only |
 
@@ -277,6 +278,28 @@ the channel; that is exactly why the stage exists.
 correct and still be the wrong artifact if it left something behind. The likeliest
 regression is a helper that starts caching its answer to a file "to be idempotent", which
 is the opposite of what a reader needs.
+
+## 5f. The `[Housekeep]` tick
+
+`verify-housekeep` needs no seed, no fire and no issue number, and it runs the tick against
+a **throwaway root** so a drill never appends to the operator's own
+`.workaholic/housekeeping/` log.
+
+`[Housekeep]` (repository scope, `50 * * * *`, configured by `/setup-repo-routines` from
+**one** account) runs `/housekeep`: nine steps, one log line each. On a healthy quiet
+repository its correct output is again *no Slack message at all*, so the channel cannot
+tell you whether it worked. Four load-bearing rows:
+
+| Row | Fails when | Read |
+| --- | ---------- | ---- |
+| `housekeep_steps` | fewer than nine steps reported | `skills/housekeep/scripts/run.sh` — the step list is the contract, and a step that goes missing must still emit a `degraded` row rather than vanish |
+| `housekeep_built` | a step still reports `not_implemented` | this checkout carries a half-landed mission — the step's own ticket names what is missing |
+| `housekeep_log` | the tick wrote no log, or more than one section, or not nine lines | `skills/housekeep/scripts/log-append.sh` — one `## <tick>` section per tick, idempotent per (tick, step) |
+| `housekeep_clean` | the tick changed the checkout | a maintenance tick that dirtied the tree would be writing to `main` hourly; findings become records and tickets through the publish seam, never a direct edit |
+
+`housekeep_steps` is this stage's `status_stable`: a single tick is still useful when it is
+red, and what breaks is the *coverage* property — an hourly report that silently covers
+eight of nine steps reads exactly like one that covers all nine.
 
 ## 6. Abort playbook
 

@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-17T11:37:54+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on: 20260817113750-add-the-housekeep-command-and-skill.md
@@ -103,3 +104,50 @@ watching, and the whole unattended contract turns on that. The question goes to 
 - The answer path is the harder half: a question posted with no way to record its answer
   produces a thread the loop cannot read back. Wiring the answer into a `kind: answer`
   record is what closes the loop.
+
+## Final Report
+
+Development completed as planned. Both Open Decisions resolved, with the reasoning recorded in
+`ask-question.sh` and `reference/workflow.md` where the next reader meets them.
+
+1. **What is "late-night", in whose clock? — One gate per tick, in the workspace's timezone.**
+   Default `Asia/Tokyo`, 22:00–08:00; both overridable (`WORKAHOLIC_QUIET_TZ`,
+   `WORKAHOLIC_QUIET_HOURS`). The per-recipient alternative the ticket named as most defensible —
+   each addressee's Slack profile timezone — was considered and not taken, for a reason the ticket
+   itself supplies: a suppressed question is **held, not dropped**, so a coarse gate costs a few
+   hours of delay rather than a lost question, while a per-recipient gate costs a profile read per
+   person per tick against a surface this project deliberately keeps to exact-string queries. The
+   gate is one function reading one zone, so swapping it later is a small change rather than a
+   rewrite.
+2. **Does an unanswered question escalate? — No, and silence is never treated as an answer.** A
+   question is asked once (content-keyed) and never re-posted. The red-alert `↳ still failing`
+   precedent covers a *machine-observable state that persists*; a question is a *demand on a
+   person's attention*, and repeating it hourly turns asking into nagging — which the
+   code-of-conduct policy names as a real cost. The unanswered set stays visible where humans
+   already look (the tick log, the run report) and the post is still sitting in its thread.
+
+The Consideration's second bound is implemented rather than noted: five per tick is 120 a day at
+the ceiling, so `--max-per-day` (default 10) is the bound the per-tick cap cannot aggregate past.
+Both are one constant each, in one place.
+
+### Discovered Insights
+
+- **Insight**: The tick log's idempotence is per `(tick, step)`, so a step that records **several**
+  facts in one tick cannot use one step id. Five questions in a tick are five ids
+  (`human-checkin-ask-<slug>`), and counting them needs the new `--step-prefix` on `log-read.sh`.
+  **Context**: This is the general shape for any future step that acts more than once per tick —
+  spell each act as its own id and count by prefix. Reusing one id would have silently capped the
+  step at one question per tick while appearing to work.
+
+- **Insight**: The gate/composer split is what makes a ceiling real. *Whether* something is worth
+  asking is a judgement (the Recommended-label test) and belongs to the model; *how many, when,
+  and was this asked before* are mechanical and belong to a script.
+  **Context**: A model asked to police its own volume does it inconsistently, and inconsistency in
+  this particular dimension is spent human attention. The same split is why `ask-question.sh`
+  hands back the `log_step` to record under rather than trusting the caller to invent it.
+
+- **Insight**: "Held, not dropped" needs a place to live, and the tick log is it —
+  `human-checkin-held-<slug>` written by the agent, read back by the step on the next eligible
+  tick, and dropping out once the question has been asked.
+  **Context**: Without that, quiet hours would be indistinguishable from a lost question, and the
+  cheap per-tick timezone gate would not have been affordable at all.

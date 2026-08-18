@@ -12,6 +12,7 @@
 #   loop-drill.sh verify-plan [--json]        # is the deployment-plan refresh sound?
 #   loop-drill.sh verify-status [--json]      # is the [Release Status] read sound and silent?
 #   loop-drill.sh verify-cadence [--json]     # is the daily note generation idempotent and clock-free?
+#   loop-drill.sh verify-housekeep [--json]   # is the [Housekeep] tick sound and write-free?
 #
 # Every outcome is ONE JSON line on stdout. A non-zero exit names the blocker in
 # `reason`; exit 0 means the subcommand did what it was asked.
@@ -1083,10 +1084,89 @@ cmd_verify_standup() {
     fi
     emit_verdict "standup" 0 "pass" 0
 }
+# ---------------------------------------------------------------- verify-housekeep
+# Is the maintenance tick sound — every step reported, one log entry, nothing written
+# outside the log? The drill runs the tick against a THROWAWAY root so the operator's
+# own `.workaholic/housekeeping/` is never appended to by a drill.
+cmd_verify_housekeep() {
+    _run="${REPO_ROOT}/plugins/workaholic/skills/housekeep/scripts/run.sh"
+    if [ ! -f "$_run" ]; then
+        emit_err "housekeep_unreadable" 4 "housekeep/scripts/run.sh is not present in this checkout"
+    fi
+
+    # A DELTA, NOT AN ABSOLUTE. The drill runs in whatever checkout the operator has,
+    # which may legitimately be mid-edit; reporting their own uncommitted work as the
+    # tick's doing is the kind of false red that teaches people to ignore a drill.
+    _before=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+
+    _root=$(mktemp -d)
+    mkdir -p "${_root}/.workaholic"
+    _tick=$(sh "${REPO_ROOT}/plugins/workaholic/skills/housekeep/scripts/tick-id.sh" | sed 's/.*"tick": "//; s/".*//')
+    _out=$(cd "$REPO_ROOT" && sh "$_run" --tick "$_tick" --root "$_root" 2>&1) || true
+
+    _steps=$(printf '%s' "$_out" | awk '{ n = gsub(/"step":/, "&"); print n + 0 }')
+    if [ "${_steps:-0}" -eq 9 ]; then
+        add_row "housekeep_steps" true "all nine steps reported" load
+    else
+        add_row "housekeep_steps" false "expected nine reported steps, got ${_steps:-0}: $(one_line "$_out")" load
+        rm -rf "$_root"
+        emit_verdict "housekeep" 0 "fail" 1
+    fi
+
+    # A step that cannot run says so BY NAME. `not_implemented` means the mission is
+    # half-landed in this checkout, which is a real finding rather than a pass.
+    if printf '%s' "$_out" | grep -q '"reason": "not_implemented"'; then
+        add_row "housekeep_built" false "a step still reports not_implemented in this checkout" load
+    else
+        add_row "housekeep_built" true "no step is left unimplemented" load
+    fi
+
+    _day=$(printf '%s' "$_tick" | sed 's/^\(....\)\(..\)\(..\)-.*$/\1-\2-\3/')
+    _log="${_root}/.workaholic/housekeeping/${_day}.md"
+    if [ -f "$_log" ]; then
+        _sections=$(grep -c '^## ' "$_log" || true)
+        # Nine step lines plus the closing act's own `persist-log` line.
+        _lines=$(grep -c '^- `' "$_log" || true)
+        if [ "$_sections" = "1" ] && [ "$_lines" = "10" ]; then
+            add_row "housekeep_log" true "one tick section carrying nine step lines and the persist" load
+        else
+            add_row "housekeep_log" false "expected 1 section and 10 lines, got ${_sections} and ${_lines}" load
+        fi
+    else
+        add_row "housekeep_log" false "the tick wrote no log at ${_log}" load
+    fi
+
+    # THE DRILL MUST NOT PUBLISH. The tick's closing act puts the log on the base, and
+    # the drill runs against a throwaway root from inside the operator's own checkout —
+    # so the one thing worth pinning here is that a root outside a repository is skipped
+    # BY NAME rather than committed into whatever repository the cwd happens to be.
+    if printf '%s' "$_out" | grep -q '"reason": "not_a_repo"'; then
+        add_row "housekeep_persist" true "the drill's throwaway root is skipped by name, never published" load
+    else
+        add_row "housekeep_persist" false "the persist did not report not_a_repo for a throwaway root: $(one_line "$_out")" load
+    fi
+
+    # Nothing outside the log: a maintenance tick that dirtied the checkout would be
+    # writing to `main` on an hourly schedule, which is the thing it must never do.
+    _after=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+    _dirty=$(printf '%s\n' "$_before" "$_after" | sort | uniq -u | head -5)
+    if [ -z "$_dirty" ]; then
+        add_row "housekeep_clean" true "the tick added nothing to the checkout's own state" load
+    else
+        add_row "housekeep_clean" false "the tick changed the checkout: $(one_line "$_dirty")" load
+    fi
+
+    rm -rf "$_root"
+
+    if [ "$LOAD_FAILED" -gt 0 ]; then
+        emit_verdict "housekeep" 0 "fail" 1
+    fi
+    emit_verdict "housekeep" 0 "pass" 0
+}
 
 # ---------------------------------------------------------------- dispatch
 
-USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-propose <issue>|verify-implement <issue>|verify-plan [--json]|verify-status [--json]|verify-cadence [--json]|verify-standup [--json]"}'
+USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-propose <issue>|verify-implement <issue>|verify-plan [--json]|verify-status [--json]|verify-cadence [--json]|verify-standup [--json]|verify-housekeep [--json]"}'
 
 CMD="${1:-}"
 [ -n "$CMD" ] || {
@@ -1119,6 +1199,7 @@ case "$CMD" in
     verify-status) cmd_verify_status "$@" ;;
     verify-cadence) cmd_verify_cadence "$@" ;;
     verify-standup) cmd_verify_standup "$@" ;;
+    verify-housekeep) cmd_verify_housekeep "$@" ;;
     *)
         echo "$USAGE" >&2
         exit 2

@@ -111,6 +111,47 @@ Draft note: <draft release URL>
 
 **Keyed on the date, not on the content.** A daily digest speaks for today even when today resembles yesterday; what the key prevents is two posts for one morning. Search the token exactly once (private-inclusive, `include_bots: true`): found ⇒ post nothing. `noop: true` from the digest posts nothing either, whatever the date says.
 
+### `/housekeep` — the maintenance tick's two shapes
+
+The stuck-pull-request reminder is a **top-level keyed root**, exactly as `📦 Release status` is
+and for the same reason: nobody *said* anything, the repository's own state did something, so
+there is no thread to land in and the post keys on its own content instead.
+
+```
+🔧 Needs a decision - <N> pull request(s) waiting on a human
+One sentence, max 25 words, what the decision is (resolve a conflict, review it, fix a check).
+`stuck:<digest>`
+<session URL>
+```
+
+**Two gates, both required, and an idle tick is silent.** Nothing waiting posts nothing; a state
+already posted (the `` `stuck:<digest>` `` search finds it) posts nothing. The digest hashes the
+sorted `<number>:<blocked_by>` set, so a pull request that is still stuck for the same reason
+next hour is not news while a new one — or the same one stuck for a *different* reason — is. The
+key is deliberately distinct from `` `deploy:<digest>` ``: one line reports what is waiting to
+deploy and this one what is waiting on a person, and a shared key would let either dedup the
+other away. **No mention token of any kind**: the line names a repository state, not a person's
+work.
+
+The check-in question is the opposite case — it is addressed to somebody, so it carries a
+resolved mention and lands in the thread of the item it is about (a new keyed root only when the
+lookup finds none):
+
+```
+❓ Question <@U…> - <what this tick could not decide>
+One sentence, max 25 words, the question itself, with the two options when there are two.
+`ask:<key>`
+<session URL>
+```
+
+**Asked once, never re-asked.** `` `ask:<key>` `` is the content key, and an unanswered question
+is not re-posted next hour: the red-alert `↳ still failing` escalation covers a machine-observable
+state that persists, while a question is a demand on a person's attention, and repeating it turns
+asking into nagging. Silence is never read as an answer — the unanswered set stays visible in the
+tick log and the run report, and the post is still sitting in its thread. The mention is a
+resolved `<@U…>` from the person's email; a bare `@name` pings nobody, and a Claude mention token
+on a routine's own post re-triggers the app.
+
 ### Precondition-stop — calm first, escalate on persistence
 
 A **first** report of a signature in the precondition-stop class (SKILL, *Post shapes, mentions, and the red-alert dedup* — `no_plugin_source`; `unbound_in_claude_session` and `loaded_version_behind_registry` left the class on 2026-08-12 by ceasing to be stops) posts calm rather than alarming, since the run stopped before it ever reached a unit:

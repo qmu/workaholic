@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-17T11:37:49+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -98,3 +99,47 @@ and why. It is what makes an unattended hourly routine auditable after the fact.
 - `converge-layout.sh` is the living-migration registry: if this change needs one for
   repositories that already carry a differently-named ad-hoc log directory, it ships with
   its registration in the same commit.
+
+## Final Report
+
+Development completed as planned. Both Open Decisions were resolved before anything was
+written, and the resolutions are the shape of the area:
+
+1. **Is a tick log an OKF knowledge artifact or an operational log?** — **Operational log.**
+   The area is `housekeeping/`; entries carry no frontmatter and no `type:`, and the area has
+   no `index.md`. This is the second deliberate exception to the OKF floor after `tickets/`,
+   and it is made on the same argument at a larger scale: twenty-four entries a day would
+   rewrite the bundle indexes on every tick, and an index over machine logs is not knowledge.
+   What the floor loses is bounded and named rather than inferred — `okf/scripts/refresh-index.sh`
+   links the directory bare from the bundle root exactly as it links `tickets/`, so the area is
+   reachable from the entry point without being index-managed.
+2. **Retention.** — **One file per UTC day, and the writer never prunes.** The day is derived
+   from the tick id, so a file holds ~24 sections, a day's log is one path a human opens, and
+   the name sorts. Pruning is the operator's act, never the routine's: an unattended run that
+   deleted its own audit trail would be deciding which evidence of itself survives, which is the
+   class of act this project puts behind a human — and git history keeps a deleted day file
+   recoverable, so no retention rule is lost by declining to automate one.
+
+### Discovered Insights
+
+- **Insight**: The OKF index refresh enumerates its areas explicitly in two separate loops —
+  one for the flat knowledge areas that get a generated `index.md`, one for the bundle-root
+  link list — so a new `.workaholic/` directory is invisible to it until named, and "not
+  index-managed" is achieved by adding the area to the root loop only.
+  **Context**: This is what makes an OKF exception cheap to state correctly: `tickets/` was
+  already carried this way, so `housekeeping/` needed one line in the root loop and none in the
+  entry-generating loop, rather than an opt-out flag threaded through the generator.
+
+- **Insight**: The layout allowlist is enforced by `validate-ticket.sh` on **every** `Write`/`Edit`
+  under `.workaholic/`, not only on tickets, and it hard-blocks (exit 2) with no opt-out.
+  **Context**: Registering the area is therefore a precondition of the first tick rather than
+  tidiness — a `/housekeep` run against an unregistered area would be denied its log write by a
+  hook on the very first step, with the run's only evidence being the thing that failed.
+
+- **Insight**: `log-append.sh` is idempotent per **(tick, step)**, not per tick: a tick is one
+  `## <tick-id>` section holding one line per step.
+  **Context**: A tick that dies half-way and is re-entered records the steps it had not yet
+  reached and skips the ones it had, which is the behaviour "two runs of the same tick produce
+  one entry" needs to mean for a nine-step run. Rewriting an existing line is deliberately not
+  offered — a step that genuinely ran twice with different outcomes is recorded under a distinct
+  step id rather than by mutating history.

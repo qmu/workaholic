@@ -119,3 +119,51 @@ stays, the token stays, and both posting gates stay.
 - This is the heading's second rename in one day. The value here is the developer's
   explicit ruling on the applied wording; the ticket's job is to apply it and record the
   sequence, not to relitigate either move.
+
+## Final Report
+
+Development completed as planned. The heading is `📦 Release Preparation - <N> commit(s)
+waiting on <target>` in both places that carry the shape, and the three prose citations
+(`notify/SKILL.md`, `standup/SKILL.md`, `housekeep/scripts/step-stuck-prs.sh`) name a heading
+that exists. The dedup key, both posting gates, the `📦`, the routine name `[Prepare Release]`
+and the command `/prepare-release` are untouched by the diff.
+
+### What the operator still has to do by hand
+
+The live `[Prepare Release]` routines' prompts carry the old format string. A routine is an
+account-level record and nothing in this repository can reach it, so **each account running
+the routine must edit its prompt's post block in the web UI** — one line, the heading only.
+It is a stated follow-up and not a blocker: the dedup is on `` `deploy:<digest>` ``, so a
+routine posting the old heading and one posting the new never duplicate or suppress each
+other; they simply read inconsistently until the prompts are updated. This is the same class
+of manual act the `renamed_from:` field carries for the routine's own name, and it is
+deliberately **not** given a second mechanical carrier: the routine name did not move, so
+there is no migration to detect.
+
+### Discovered Insights
+
+- **Insight**: the byte-identical pin CLAUDE.md claimed for every routine's post shape only
+  ever existed for `[Standup]`.
+  **Context**: "All are byte-identical to `notify/reference/notifications.md`'s copies and
+  pinned against drift by `test-workflow-scripts.mjs`" was true of one template out of five.
+  This ticket's own acceptance cited that pin as its proof, so the pin had to be written
+  before it could hold — `testPrepareReleasePostShape` now covers both of this template's
+  blocks. Worth checking the remaining three templates against the same claim; a documented
+  guarantee nothing enforces is how a shape drifts in one copy and not the other.
+
+- **Insight**: a rename's acceptance criterion and its own step 4 pulled in opposite
+  directions, and the step won.
+  **Context**: the acceptance said no file under `plugins/` may contain `📦 Prepare release`,
+  while step 4 required the naming history to be *extended* so the sequence reads as a record
+  — which means naming the retired heading in prose. The grep was scoped "outside `.workaholic/`
+  history", and a naming-history paragraph is history wherever it lives, so the mechanical
+  assertion was written against the **post shapes** rather than the files. A rename that
+  erased its own record would be the documentation defect this repository's own rule forbids,
+  which is the stronger reading of both instructions.
+
+- **Insight**: this is the heading's second rename in one day and the command's third in
+  three, and none of them cost anything.
+  **Context**: that is a property of the design, not luck — the dedup key was deliberately
+  put on content (`deploy:<digest>`) rather than on the visible prefix, so the words a human
+  reads are free to change. The 2026-08-17 decision that believed otherwise is the one that
+  cost something: it held a rename back for a duplicate post that was never possible.

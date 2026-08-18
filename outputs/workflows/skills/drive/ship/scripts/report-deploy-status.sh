@@ -8,9 +8,10 @@
 # Output (one JSON line):
 #   {"ok": true, "base": "main", "base_rev": "origin/main", "base_sha": "abcd1234",
 #    "count": N, "digest": "<40-hex>", "actionable": <bool>,
+#    "refs": "fresh"|"stale"|"skipped", "refs_reason": "...", "doubtful": <bool>,
 #    "targets": [{"slug","title","environment","deploy_model","has_confirmation",
 #                 "unreleased_count","since","since_reason","attribution",
-#                 "latest_note","note_match","needs":["..."]}],
+#                 "latest_note","note_match","doubtful","needs":["..."]}],
 #    "mapping": <read-deployments.sh --mapping, spliced verbatim>}
 #   {"ok": false, "reason": "not_a_git_repo"|"base_unresolvable"|..., "digest": ""}
 #
@@ -50,6 +51,58 @@
 # and finds its own previous post by it (`workaholic:notify`, the stateless lookup), so
 # the dedup needs no stored state anywhere.
 #
+# IT FRESHENS THE REFS THE BOUNDARY DEPENDS ON, AND SAYS WHETHER IT COULD (2026-08-18,
+# the reading half PR #499 deliberately left open). `read-deploy-state.sh` derives the
+# unreleased boundary from the newest reachable release tag and stays a PURE LOCAL READ —
+# it gains no network I/O here. The refresh belongs to THIS script because it is the one
+# entry the hourly tick reaches; `draft-deploy-plan.sh` and `draft-release-note.sh` reach
+# `read-deploy-state.sh` from a ship or from CI, whose checkout is defined rather than
+# inherited (`.github/workflows/release-note-draft.yml`, `fetch-depth: 0` + tags).
+#
+# Measured 2026-08-18 in a live `[Prepare Release]` container: the clone held NO TAGS and
+# an `origin/main` five days stale, and one unchanged repository reported 2721 commits
+# (`full_history`), then 2950 (`full_history`), then the true 4 (`latest_tag:v1.0.185`)
+# as refs were fetched — with a different `deploy:<digest>` each time. Both halves are
+# defects and the second is the worse one: the dedup key moved with the refs, so the
+# silence rule that exists to keep an unchanged repository quiet could post repeatedly.
+#
+# The refresh follows `catch/scripts/scan-window.sh`, which established this exact shape
+# here: a bounded best-effort `git fetch` plus a reported field, never fatal.
+# WORKAHOLIC_DEPLOY_FETCH_TIMEOUT (default 20) caps it where the `timeout` utility exists;
+# `0` skips the fetch entirely, for a container behind a filtering proxy or with no
+# network. Either degradation is REPORTED, never silently absorbed:
+#
+#   refs: fresh    the fetch ran and succeeded — the boundary was derived from current refs
+#   refs: stale    it failed, timed out, or there is no remote to fetch from
+#   refs: skipped  WORKAHOLIC_DEPLOY_FETCH_TIMEOUT=0 — the caller opted out
+#
+# `refs_reason` names the specific cause (`ok`, `no_remote`, `fetch_failed`, `opt_out`).
+#
+# A DOUBTFUL READ IS NOT AN ORDINARY BOUNDARY. Per target, `doubtful: true` when the
+# boundary is `full_history` or `unresolvable` AND `refs` is not `fresh` — those are
+# exactly the boundaries stale refs COLLAPSE to, and rendered plainly they are
+# indistinguishable from a repository that genuinely has no prior release, which is how
+# 2721 read as an ordinary number. A `latest_tag:` boundary under stale refs is not marked
+# doubtful: it is a real count between two real commits that may merely lag, not a
+# boundary that vanished. `doubtful` also rides the top level (true if ANY target is), and
+# it is repository-wide on purpose — one set of refs is behind every target's number, so
+# trusting one and doubting another would be incoherent.
+#
+# AND THE DIGEST HASHES WHAT THE READER IS WILLING TO SAY. Two changes, both narrow:
+# `refs` itself is hashed, so a doubtful read can never dedup against a trusted one; and a
+# doubtful target's `unreleased_count`/`since` are replaced by a literal marker rather than
+# hashed, because those are the values this script has just declined to publish. Hashing a
+# number the consumer suppresses would put the defect straight back — two containers
+# holding DIFFERENT stale refs would key differently for one real state and both post.
+# Redacted, every doubtful container converges on one digest and the state is said once.
+#
+# WHY THE BASE SHA IS STILL EXCLUDED WHILE THIS IS NOT. The two answer different
+# questions. The base sha describes WHAT the repository contains, and a base that merely
+# advanced is not news — hashing it would make every tick news. `refs` describes WHETHER
+# THE READER COULD SEE IT, and "8 commits are waiting" and "8 commits are waiting, from
+# refs I could not refresh" are two different claims about the same repository. The
+# exclusion is unchanged and its reasoning is intact.
+#
 # `needs[]` names, per target, what a human would have to do — never a forecast, only a
 # fact already in the rows: `confirmation_method` (the target declares none, so `/ship`
 # halts on it), `release` (commits are waiting), `note` (no release note has ever joined
@@ -74,10 +127,37 @@ ERRS="${TMPDIR:-/tmp}/wh-deploy-status-err.$$"
 SUBST="${ROWS}.subst"
 trap 'rm -f "$ROWS" "$ERRS" "$SUBST"' EXIT INT TERM
 
+# --- Freshen the refs the boundary depends on (best-effort, non-fatal) -------
+# The base branch AND the tags: `read-deploy-state.sh` picks its boundary from the newest
+# reachable release tag, so a clone with no tags reports a boundary that does not exist.
+# `set -eu` is active, so each attempt is wrapped in an `if` that neutralizes a non-zero
+# exit instead of terminating the read. Nothing here touches the working tree, the index
+# or any project file — only `refs/remotes/*` and `refs/tags/*`.
+REFS=stale
+REFS_REASON=fetch_failed
+FETCH_TIMEOUT="${WORKAHOLIC_DEPLOY_FETCH_TIMEOUT:-20}"
+if [ "$FETCH_TIMEOUT" = "0" ]; then
+  REFS=skipped
+  REFS_REASON=opt_out
+elif ! git remote get-url origin >/dev/null 2>&1; then
+  REFS_REASON=no_remote
+elif command -v timeout >/dev/null 2>&1; then
+  if timeout "$FETCH_TIMEOUT" git fetch --quiet --tags origin 2>/dev/null; then
+    REFS=fresh
+    REFS_REASON=ok
+  fi
+else
+  if git fetch --quiet --tags origin 2>/dev/null; then
+    REFS=fresh
+    REFS_REASON=ok
+  fi
+fi
+
 if ! sh "${SCRIPT_DIR}/read-deploy-state.sh" --rows "$BASE" >"$ROWS" 2>"$ERRS"; then
   reason=$(head -n 1 "$ERRS" | tr -d '\n')
   [ -n "$reason" ] || reason=base_unresolvable
-  printf '{"ok": false, "reason": "%s", "digest": ""}\n' "$(json_escape "$reason")"
+  printf '{"ok": false, "reason": "%s", "digest": "", "refs": "%s", "refs_reason": "%s"}\n' \
+    "$(json_escape "$reason")" "$REFS" "$REFS_REASON"
   exit 0
 fi
 
@@ -91,11 +171,26 @@ out=""
 sep=""
 count=0
 actionable=false
+doubtful=false
+
+# `refs` leads the digest's input so a doubtful read can never dedup against a trusted
+# one. See the header for why this is hashed while the base sha still is not.
+printf 'refs=%s\n' "$REFS" >> "$SUBST"
 
 while IFS="$US" read -r slug title environment model model_reason \
   conf_method conf_command has_conf attribution since since_reason n note_path note_match; do
   [ -n "$slug" ] || continue
   count=$((count + 1))
+
+  # A boundary that stale refs COLLAPSE to, derived from refs that were not freshened,
+  # is a doubtful read — not an ordinary `full_history`. A `latest_tag:` boundary is a
+  # real count between two real commits and is never marked, however stale the refs.
+  t_doubtful=false
+  if [ "$REFS" != fresh ]; then
+    case "$since_reason" in
+      full_history|unresolvable) t_doubtful=true; doubtful=true ;;
+    esac
+  fi
 
   needs=""
   nsep=""
@@ -110,11 +205,19 @@ while IFS="$US" read -r slug title environment model model_reason \
   fi
   [ -z "$needs" ] || actionable=true
 
-  # The digest's input: what a reader would ACT on. The base sha is absent on purpose —
-  # a base that merely advanced is not news, and hashing it would make every tick news.
-  printf '%s|%s|%s|%s|%s|%s\n' "$slug" "$has_conf" "${n:-0}" "$since" "$note_path" "$note_match" >> "$SUBST"
+  # The digest's input: what a reader would ACT on, and — since 2026-08-18 — only what
+  # this script is willing to SAY. The base sha is absent on purpose (a base that merely
+  # advanced is not news, and hashing it would make every tick news); a doubtful target's
+  # count and boundary are absent for the opposite reason, because the consumer suppresses
+  # them, and hashing a suppressed value would let two containers holding different stale
+  # refs key differently for one real state and both post.
+  if [ "$t_doubtful" = true ]; then
+    printf '%s|%s|doubtful|doubtful|%s|%s\n' "$slug" "$has_conf" "$note_path" "$note_match" >> "$SUBST"
+  else
+    printf '%s|%s|%s|%s|%s|%s\n' "$slug" "$has_conf" "${n:-0}" "$since" "$note_path" "$note_match" >> "$SUBST"
+  fi
 
-  out="${out}${sep}{\"slug\": \"$(json_escape "$slug")\", \"title\": \"$(json_escape "$title")\", \"environment\": \"$(json_escape "$environment")\", \"deploy_model\": \"$(json_escape "$model")\", \"deploy_model_reason\": \"$(json_escape "$model_reason")\", \"confirmation_method\": \"$(json_escape "$conf_method")\", \"has_confirmation\": ${has_conf:-false}, \"unreleased_count\": ${n:-0}, \"since\": \"$(json_escape "$since")\", \"since_reason\": \"$(json_escape "$since_reason")\", \"attribution\": \"$(json_escape "$attribution")\", \"latest_note\": \"$(json_escape "$note_path")\", \"note_match\": \"$(json_escape "$note_match")\", \"needs\": [${needs}]}"
+  out="${out}${sep}{\"slug\": \"$(json_escape "$slug")\", \"title\": \"$(json_escape "$title")\", \"environment\": \"$(json_escape "$environment")\", \"deploy_model\": \"$(json_escape "$model")\", \"deploy_model_reason\": \"$(json_escape "$model_reason")\", \"confirmation_method\": \"$(json_escape "$conf_method")\", \"has_confirmation\": ${has_conf:-false}, \"unreleased_count\": ${n:-0}, \"since\": \"$(json_escape "$since")\", \"since_reason\": \"$(json_escape "$since_reason")\", \"attribution\": \"$(json_escape "$attribution")\", \"latest_note\": \"$(json_escape "$note_path")\", \"note_match\": \"$(json_escape "$note_match")\", \"doubtful\": ${t_doubtful}, \"needs\": [${needs}]}"
   sep=", "
 done < "$ROWS"
 
@@ -131,6 +234,6 @@ DIGEST=$(git hash-object --stdin < "$SUBST")
 MAPPING=$(sh "${SCRIPT_DIR}/read-deployments.sh" --mapping 2>/dev/null \
   || printf '{"ok": false, "reason": "mapping_unreadable"}')
 
-printf '{"ok": true, "base": "%s", "base_rev": "%s", "base_sha": "%s", "count": %d, "digest": "%s", "actionable": %s, "targets": [%s], "mapping": %s}\n' \
+printf '{"ok": true, "base": "%s", "base_rev": "%s", "base_sha": "%s", "count": %d, "digest": "%s", "actionable": %s, "refs": "%s", "refs_reason": "%s", "doubtful": %s, "targets": [%s], "mapping": %s}\n' \
   "$(json_escape "$BASE")" "$(json_escape "$BASE_REV")" "$(json_escape "$BASE_SHA")" \
-  "$count" "$DIGEST" "$actionable" "$out" "$MAPPING"
+  "$count" "$DIGEST" "$actionable" "$REFS" "$REFS_REASON" "$doubtful" "$out" "$MAPPING"

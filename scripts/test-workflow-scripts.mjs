@@ -14148,7 +14148,9 @@ const tests = [
   ["a proposal carries its owner from the trigger (P6)", testProposalOwnershipChain],
   ["branching close-publish-tree: closes after either publish path, still guards the unpushed one", testClosePublishTreeReachability],
   ["ship/report-deploy-status.sh: the repository tick reads, and an idle tick is silent", testReportDeployStatus],
+  ["ship/report-deploy-status.sh: the refs it read are freshened, or named", testReportDeployStatusRefs],
   ["prepare-release: the repository routine and its command are a reader", testPrepareReleaseIsAReader],
+  ["prepare-release: the post shape reads the same in the catalog and the template", testPrepareReleasePostShape],
   ["release note draft: CI writes it, and the tick never attempts to", testTheDraftNoteWriterIsCi],
   ["release note: Key Changes says what landed, for every merge", testReleaseNoteKeyChangesFallback],
   ["workaholify routines: one template set, applied per repository, drift named per field", testWorkaholifyRoutines],
@@ -15635,14 +15637,27 @@ function testReportDeployStatus() {
   } finally { cleanup(noTargets); }
 
   const dir = makeRepo("main");
+  // A LOCAL BARE ORIGIN, so the freshen (2026-08-18) actually succeeds and the read below
+  // is a `refs: fresh` one. Without it every fixture would be a `no_remote` read, every
+  // boundary would be doubtful, and the count/`since` would be REDACTED out of the digest
+  // — which would silently gut the base-sha-exclusion assertion further down, since a
+  // digest that hashes neither could not notice a count that moved. It is hermetic: a
+  // `file://` push to a temp dir, no network.
+  const bare = mkdtempSync(join(tmpdir(), "workaholic-smoke-origin-"));
+  execSync(`git init -q --bare`, { cwd: bare });
+  execSync(`git remote add origin ${bare}`, { cwd: dir });
+  const publish = () => execSync(`git push -q origin main`, { cwd: dir });
   try {
     seedTarget(dir, "prod");
     execSync(`git add -A && git commit -q -m "Add the deployment target"`, { cwd: dir });
+    publish();
 
     const first = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.reportDeployStatus}`).stdout);
     const t = first.targets[0];
     assertEq("report-deploy-status reports the target and what it needs",
       { c: first.count, slug: t.slug, conf: t.has_confirmation }, { c: 1, slug: "prod", conf: true });
+    assertEq("a reachable remote makes the read a fresh one, named as such",
+      { r: first.refs, why: first.refs_reason, d: first.doubtful }, { r: "fresh", why: "ok", d: false });
     // Commits are waiting and no note has ever joined this target: both are facts already
     // in the rows, never a forecast.
     assertEq("needs[] names the facts a human would act on",
@@ -15666,11 +15681,13 @@ function testReportDeployStatus() {
     writeFileSync(join(dir, ".workaholic/deployments/prod.md"),
       readFileSync(join(dir, ".workaholic/deployments/prod.md"), "utf8").replace(/^---\n/, "---\npaths: src/\n"));
     execSync(`git add -A && git commit -q -m "Declare the target paths"`, { cwd: dir });
+    publish();
     const scoped = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.reportDeployStatus}`).stdout);
     assertEq("a path-scoped target attributes its range by declared paths",
       scoped.targets[0].attribution, "declared_paths");
     writeFileSync(join(dir, "unrelated.md"), "not a deploy-relevant change\n");
     execSync(`git add -A && git commit -q -m "Touch nothing the target ships"`, { cwd: dir });
+    publish();
     const advanced = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.reportDeployStatus}`).stdout);
     assertEq("a base advance that changes nothing deployable leaves the digest alone",
       advanced.digest, scoped.digest);
@@ -15683,7 +15700,137 @@ function testReportDeployStatus() {
     assertEq("an unreadable base is a named refusal with an empty digest",
       { ok: bad.ok, d: bad.digest }, { ok: false, d: "" });
     assertTrue("the refusal names its reason", (bad.reason || "").length > 0, JSON.stringify(bad));
-  } finally { cleanup(dir); }
+    assertEq("and it still names the freshness of the refs it read",
+      { r: bad.refs, why: bad.refs_reason }, { r: "fresh", why: "ok" });
+  } finally { cleanup(dir); cleanup(bare); }
+}
+
+// ---------- ship/report-deploy-status.sh: the refs it read, named (2026-08-18) ----------
+// THE DEFECT, measured in a live [Prepare Release] container: the reader never fetched, so
+// the boundary came from whatever refs the clone happened to arrive with. One unchanged
+// repository reported 2721 commits (`full_history`), then 2950 (`full_history`), then the
+// true 4 (`latest_tag:v1.0.185`) as refs were fetched — and the `deploy:<digest>` moved
+// with each, so the silence rule that keeps an unchanged repository quiet could post
+// repeatedly instead.
+//
+// Two properties are pinned, and the second is the one a later "tidy" would break:
+//   1. The freshen converges the read — a clone with no tags and a stale base reports the
+//      same count, boundary and digest as a current one, whenever the fetch succeeds.
+//   2. When it CANNOT run, the read says so by name AND the digest stops moving: a
+//      doubtful target's count and `since` are redacted out of the digest's input, so two
+//      containers holding DIFFERENT stale refs key identically for one real state. Hashing
+//      the number the consumer suppresses is exactly how the dedup broke.
+function testReportDeployStatusRefs() {
+  const seedTarget = (root) => {
+    mkdirSync(join(root, ".workaholic/deployments"), { recursive: true });
+    writeFileSync(join(root, ".workaholic/deployments/prod.md"),
+      "---\ntitle: prod\nenvironment: production\nconfirmation_method: other\ncommand: probe\n---\n\n" +
+      "This is a deploy-on-merge target.\n\n## Procedure\n\n1. merge\n\n## Confirmation\n\n1. probe it\n");
+  };
+
+  // The upstream every clone below is made from, tagged so a fetched clone can find a
+  // real boundary and an unfetched one cannot. All local: `file://`, no network.
+  const upstream = makeRepo("main");
+  const bare = mkdtempSync(join(tmpdir(), "workaholic-smoke-origin-"));
+  const clones = [];
+  try {
+    // `-c init.defaultBranch` on the BARE side too: its HEAD is what a clone checks out,
+    // and a bare repo defaulting to `master` while `main` is pushed leaves every clone
+    // below with no working tree at all — hence no `.workaholic/deployments/`, no targets,
+    // and a failure that looks like the reader's rather than the fixture's.
+    execSync(`git -c init.defaultBranch=main init -q --bare`, { cwd: bare });
+    execSync(`git remote add origin ${bare}`, { cwd: upstream });
+    seedTarget(upstream);
+    execSync(`git add -A && git commit -q -m "Add the deployment target"`, { cwd: upstream });
+    execSync(`git tag v1.0.0`, { cwd: upstream });
+    execSync(`git push -q origin main --tags`, { cwd: upstream });
+
+    // Two commits past the tag: the true unreleased count is 2, findable only with tags.
+    for (const n of [1, 2]) {
+      writeFileSync(join(upstream, `later-${n}.md`), "after the release\n");
+      execSync(`git add -A && git commit -q -m "Land change ${n}"`, { cwd: upstream });
+    }
+    execSync(`git push -q origin main`, { cwd: upstream });
+
+    const clone = (label, extraArgs) => {
+      const d = mkdtempSync(join(tmpdir(), `workaholic-smoke-${label}-`));
+      execSync(`git clone -q ${extraArgs} ${bare} ${d}`);
+      execSync(`git config user.email test@example.com`, { cwd: d });
+      execSync(`git config user.name Test`, { cwd: d });
+      clones.push(d);
+      return d;
+    };
+    const read = (d, env = "") =>
+      JSON.parse(run(d, `${env} ${POSIX_SH} ${SCRIPTS.reportDeployStatus}`).stdout);
+
+    // The container's shape: no tags, and a base ref rolled back behind the tip.
+    const stale = clone("stale", "--no-tags");
+    const behind = execSync(`git rev-parse v1.0.0`, { cwd: upstream, encoding: "utf8" }).trim();
+    execSync(`git update-ref refs/remotes/origin/main ${behind}`, { cwd: stale });
+    const current = clone("current", "");
+
+    // 1. THE FRESHEN CONVERGES THE READ. Same repository, two very different starting
+    // ref sets, one answer — which is the whole acceptance criterion.
+    const s = read(stale);
+    const c = read(current);
+    assertEq("a no-tags, stale-base clone freshens to a fresh read",
+      { r: s.refs, why: s.refs_reason, d: s.doubtful }, { r: "fresh", why: "ok", d: false });
+    assertEq("and reports the same boundary as a current clone",
+      { n: s.targets[0].unreleased_count, why: s.targets[0].since_reason },
+      { n: c.targets[0].unreleased_count, why: c.targets[0].since_reason });
+    assertEq("the true count is the one only tags can find", s.targets[0].unreleased_count, 2);
+    assertEq("and the two clones produce ONE digest", s.digest, c.digest);
+
+    // 2. WHEN IT CANNOT RUN, THE READ SAYS SO. The opt-out is the offline path a
+    // filtering proxy or a network-less container takes, and it must never hang.
+    const optedOut = clone("optout", "--no-tags");
+    execSync(`git update-ref refs/remotes/origin/main ${behind}`, { cwd: optedOut });
+    const o = read(optedOut, "WORKAHOLIC_DEPLOY_FETCH_TIMEOUT=0");
+    assertEq("an opted-out read names itself skipped, with its reason",
+      { r: o.refs, why: o.refs_reason }, { r: "skipped", why: "opt_out" });
+    assertEq("a boundary that stale refs collapsed to is reported doubtful, not ordinary",
+      { d: o.doubtful, td: o.targets[0].doubtful, why: o.targets[0].since_reason },
+      { d: true, td: true, why: "full_history" });
+
+    // A remote that does not answer is `stale`, named apart from the opt-out.
+    const noRemote = clone("noremote", "--no-tags");
+    execSync(`git update-ref refs/remotes/origin/main ${behind}`, { cwd: noRemote });
+    execSync(`git remote set-url origin ${join(noRemote, "does-not-exist")}`, { cwd: noRemote });
+    const nr = read(noRemote);
+    assertEq("an unreachable remote is stale, and doubtful with it",
+      { r: nr.refs, d: nr.doubtful }, { r: "stale", d: true });
+
+    // 2b. AND THE DIGEST STOPS MOVING. Two doubtful containers holding DIFFERENT stale
+    // refs — different counts — must key identically, or the dedup posts once per
+    // container for one real state. This is the assertion the defect would fail.
+    const other = clone("optout2", "--no-tags");
+    const midway = execSync(`git rev-parse HEAD~1`, { cwd: upstream, encoding: "utf8" }).trim();
+    execSync(`git update-ref refs/remotes/origin/main ${midway}`, { cwd: other });
+    const o2 = read(other, "WORKAHOLIC_DEPLOY_FETCH_TIMEOUT=0");
+    assertTrue("the two doubtful containers genuinely disagree about the count",
+      o.targets[0].unreleased_count !== o2.targets[0].unreleased_count,
+      `${o.targets[0].unreleased_count} vs ${o2.targets[0].unreleased_count}`);
+    assertEq("yet one real state keys to one digest", o2.digest, o.digest);
+
+    // And a doubtful read never dedups against a trusted one: the freshness is hashed.
+    assertTrue("a doubtful digest is distinct from the fresh one", o.digest !== s.digest,
+      `${o.digest} vs ${s.digest}`);
+
+    // IT IS STILL A PURE READ of the tree. The fetch touches refs/remotes and refs/tags
+    // and nothing else — no file, no index entry, no commit.
+    assertEq("the freshened read leaves the working tree untouched",
+      execSync("git status --porcelain", { cwd: stale, encoding: "utf8" }).trim(), "");
+
+    // read-deploy-state.sh GAINS NO NETWORK I/O. The freshen has exactly one home, and
+    // the pure-read header stays true — asserted against the source, not trusted from it.
+    const state = readFileSync(SCRIPTS.readDeployState, "utf8");
+    const code = state.split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+    assertTrue("read-deploy-state.sh performs no fetch of its own", !/git fetch/.test(code), code.slice(0, 200));
+    assertTrue("and its header still claims to be a pure read", /IT IS A PURE READ/.test(state), state.slice(0, 400));
+  } finally {
+    cleanup(upstream); cleanup(bare);
+    for (const d of clones) cleanup(d);
+  }
 }
 
 // ---------- the prepare-release command and routine are a READER, end to end ----------
@@ -15715,6 +15862,54 @@ function testPrepareReleaseIsAReader() {
   // edit cannot quietly hand the write back to the tick.
   assertTrue("it names the draft release, and CI as its writer",
     /draft/i.test(cmd) && /release/i.test(cmd) && /Release Note Draft|workflow/i.test(cmd), cmd);
+}
+
+// ---------- the [Prepare Release] post shape lives in exactly two places ----------
+// The same pin `[Standup]` has carried since 2026-08-17, extended to this template
+// (2026-08-18, issue #504) — and it was MISSING, while CLAUDE.md already claimed every
+// routine's shapes were "byte-identical to notify/reference/notifications.md's copies and
+// pinned against drift by test-workflow-scripts.mjs". The heading has now been renamed
+// twice in one day (`📦 Release status` → `📦 Prepare release` → `📦 Release
+// Preparation`), which is exactly the edit that lands in one copy and not the other: a
+// documented shape nobody is authorized to post, or a posted shape nothing documents.
+//
+// BOTH blocks are pinned, not just the first. The degraded variant (the read could not
+// freshen its refs, so the count is withheld) is the one a later edit is likeliest to
+// touch in only one file, because it is the rarer of the two to see in a channel.
+function testPrepareReleasePostShape() {
+  const tpl = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines/prepare-release.md"), "utf8");
+  const catalog = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/notify/reference/notifications.md"), "utf8");
+  const shapes = (body) =>
+    [...body.matchAll(/```\n(\u{1F4E6}[\s\S]*?)```/gu)].map((m) => m[1]);
+
+  const catalogShapes = shapes(catalog);
+  assertEq("the catalog carries both post shapes — the ordinary line and the degraded one",
+    catalogShapes.length, 2);
+  assertEq("and the template authorizes exactly those, byte for byte",
+    shapes(tpl), catalogShapes);
+
+  const [ordinary, degraded] = catalogShapes;
+  assertTrue("the heading is the noun phrase the developer ruled on",
+    ordinary.startsWith("\u{1F4E6} Release Preparation - <N> commit(s) waiting on <target>"), ordinary);
+  assertTrue("the degraded variant names the degradation and no count",
+    /refs not freshened/.test(degraded) && !/<N> commit/.test(degraded), degraded);
+  assertTrue("both key on deploy:<digest>, which is what the dedup actually searches",
+    catalogShapes.every((s) => /`deploy:<digest>`/.test(s)), JSON.stringify(catalogShapes));
+  assertTrue("and neither carries a mention token of any kind",
+    catalogShapes.every((s) => !/<@U/.test(s)), JSON.stringify(catalogShapes));
+
+  // The rename is the post's alone. The routine record's name is matched by convergence,
+  // so a rename there would create a SECOND routine rather than rename the existing one.
+  assertTrue("the routine record is still named [Prepare Release]",
+    /^name: "\[Prepare Release\] \{repo_name\}"$/m.test(tpl), tpl.slice(0, 400));
+  // Scoped to the SHAPES, not to the files: both documents cite the retired headings in
+  // their naming-history paragraphs on purpose, and a rename that erased its own record
+  // would be the documentation defect this repository's own rule forbids. What must not
+  // survive is a retired heading in a block a session is authorized to post.
+  assertTrue("no shape still posts a retired heading",
+    shapes(tpl).concat(catalogShapes).every(
+      (s) => !/\u{1F4E6} (Prepare release|Release status)/u.test(s)),
+    JSON.stringify(catalogShapes));
 }
 
 // The draft release note's writer is CI, and the tick must not attempt it (2026-08-18).

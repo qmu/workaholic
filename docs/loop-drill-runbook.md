@@ -219,18 +219,31 @@ construction is the point rather than a convenience.
 `[Prepare Release]` (repository scope, `45 * * * *`, configured by `/setup-repo-routines`
 from **one** account) runs `/prepare-release`, a pure read. On a healthy quiet repository
 its correct output is *no Slack message at all*, which makes "did it work?" unanswerable
-by watching the channel. Three load-bearing rows:
+by watching the channel. Five load-bearing rows:
 
 | Row | Fails when | Read |
 | --- | ---------- | ---- |
 | `status_read` | the consolidation could not read this checkout | `skills/ship/scripts/report-deploy-status.sh` over `read-deploy-state.sh` — an unresolvable base, or no `.workaholic/deployments/` target |
 | `status_stable` | two reads of an unchanged base returned different digests | `skills/ship/scripts/report-deploy-status.sh` — something varying leaked into the digest input; the routine would now post every hour, which is the idle tick `workaholic:notify`'s bright line refuses |
 | `status_degraded` | an unreadable base did not refuse cleanly | `skills/ship/scripts/report-deploy-status.sh` — a refusal must name its reason and yield an empty digest, never a digest over partial rows |
+| `status_refs` | the read reported no `refs` field | `skills/ship/scripts/report-deploy-status.sh` — the freshen and its report were removed or renamed; without them the count silently inherits whatever refs the container holds |
+| `status_refs_optout` | `WORKAHOLIC_DEPLOY_FETCH_TIMEOUT=0` did not report `skipped` | `skills/ship/scripts/report-deploy-status.sh` — the offline opt-out is load-bearing for a container behind a filtering proxy, and a fetch it cannot skip is one that can hang the tick |
 
 `status_stable` is this stage's `plan_idempotent`: a single read is still correct when it
 is red, and the *hourly* property is what breaks. The most likely regression is the base
 sha finding its way into the digest input — it is excluded on purpose, because a base
 that merely advanced is not news.
+
+`status_refs` and `status_refs_optout` are newer (2026-08-18) and cover the failure the
+other three could not see: the reader never fetched, so the boundary came from whatever
+refs the clone arrived with. Measured in a live container — **no tags** and an
+`origin/main` five days stale — one unchanged repository reported 2721 commits
+(`full_history`), then 2950 (`full_history`), then the true 4 (`latest_tag:v1.0.185`),
+with a different `deploy:<digest>` each time. `status_stable` stayed green throughout,
+because *within one container* the digest was perfectly stable; what moved was the answer
+*between* containers. Read a red row here as "the tick's number is now only as good as
+the clone", and the degraded rendering (`refs: stale|skipped` ⇒ the post withholds the
+count) as the part that keeps a wrong number from being published as a right one.
 
 ## 5d. The daily note cadence
 

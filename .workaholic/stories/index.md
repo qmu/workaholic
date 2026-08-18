@@ -194,3 +194,4 @@ Branch development narratives, one per branch, serving as the PR description and
 * [work-20260818-132434.md](work-20260818-132434.md) - A story sentence ends at a period followed by whitespace, so a backticked filename no longer cuts the line and leaves an unclosed backtick
 * [work-20260818-193646.md](work-20260818-193646.md) - The web bootstrap guards user.name on the local scope, so a routine commit renders the developer name instead of Claude
 * [work-20260818-213641.md](work-20260818-213641.md) - The housekeep reminder names the kind of finding in its first line, derived from blocked_by, with the stuck:<digest> key untouched
+* [work-20260818-215157.md](work-20260818-215157.md) - The five routine templates declare notifications: none and both setup commands converge it; the reported app notifications came from a different mechanism, named in the Handoff

@@ -12,6 +12,7 @@
 #   loop-drill.sh verify-plan [--json]        # is the deployment-plan refresh sound?
 #   loop-drill.sh verify-status [--json]      # is the [Prepare Release] read sound and silent?
 #   loop-drill.sh verify-cadence [--json]     # is the daily note generation idempotent and clock-free?
+#   loop-drill.sh verify-planner [--json]     # is the release-plan chain gated, honest and write-free?
 #   loop-drill.sh verify-housekeep [--json]   # is the [Housekeep] tick sound and write-free?
 #
 # Every outcome is ONE JSON line on stdout. A non-zero exit names the blocker in
@@ -1050,6 +1051,105 @@ cmd_verify_cadence() {
     emit_verdict "cadence" 0 "pass" 0
 }
 
+# --------------------------------------------------------------- verify-planner
+#
+# The RELEASE PLAN chain (2026-08-18, issue #512): the judgment half that CI runs
+# beside the writer. It proves what can be proved against this checkout without a
+# credential and without the network, and it NAMES what it could not exercise
+# rather than reporting it as passed:
+#
+#   planner_scripts    the planner and the plan renderer are present
+#   planner_gated      with no planner command reachable, the planner refuses BY
+#                      NAME (`no_planner`) and writes no plan -- which is what makes
+#                      an unset CI secret a visible degradation, not a broken job
+#   planner_authors    with a stub planner on PATH, a plan is authored and stamped
+#                      with this base sha
+#   planner_arranges   the rendered note reflects that plan's arrangement
+#   planner_visible    a plan that was EXPECTED and did not apply says so on the
+#                      note's face, so a broken planner is not mistaken for a list
+#   planner_clean      nothing in the checkout moved: the chain writes no file the
+#                      caller did not ask for
+#
+# A base with nothing unreleased cannot exercise the middle rows; they are then
+# reported `empty_range` as non-load-bearing rather than counted as passes.
+cmd_verify_planner() {
+    _planner="${REPO_ROOT}/plugins/workaholic/skills/ship/scripts/plan-release.sh"
+    _drafter="${REPO_ROOT}/plugins/workaholic/skills/ship/scripts/draft-release-note.sh"
+    _renderer="${REPO_ROOT}/plugins/workaholic/skills/ship/scripts/render-release-plan.sh"
+    if [ ! -f "$_planner" ] || [ ! -f "$_renderer" ] || [ ! -f "$_drafter" ]; then
+        emit_err "planner_unreadable" 4 "the release-plan scripts are not present in this checkout"
+    fi
+    add_row "planner_scripts" true "plan-release.sh and render-release-plan.sh are present" load
+
+    _slug=$(cd "$REPO_ROOT" && sh plugins/workaholic/skills/ship/scripts/read-deployments.sh --slugs 2>/dev/null | head -n 1)
+    if [ -z "$_slug" ]; then
+        add_row "planner_gated" false "no deployment target is declared, so nothing can be planned" load
+        emit_verdict "planner" 0 "fail" 1
+    fi
+
+    _dirty_before=$(cd "$REPO_ROOT" && git status --porcelain | wc -l | tr -d " ")
+    _work="${TMPDIR:-/tmp}/wh-drill-planner.$$"
+    mkdir -p "$_work/out" "$_work/bin"
+
+    # (1) THE GATE. A planner command that does not exist is the shape a CI run with
+    # no ANTHROPIC_API_KEY takes, and it must refuse by name rather than crash.
+    _g=$(cd "$REPO_ROOT" && WORKAHOLIC_PLANNER_CMD=wh-no-such-planner sh "$_planner" --target "$_slug" --out "$_work/out" "$BASE_BRANCH" 2>&1) || true
+    case "$_g" in
+        *'"reason": "no_planner"'*)
+            add_row "planner_gated" true "no planner reachable: refused as no_planner, no plan written" load ;;
+        *'"reason": "empty_range"'*)
+            add_row "planner_gated" true "nothing is unreleased for ${_slug}, so the planner correctly planned nothing" load ;;
+        *)
+            add_row "planner_gated" false "$(one_line "$_g")" load ;;
+    esac
+
+    if printf '%s' "$_g" | grep -q '"reason": "empty_range"'; then
+        add_row "planner_authors" true "unexercised: nothing is unreleased for ${_slug} on this base" info
+        add_row "planner_arranges" true "unexercised: nothing is unreleased for ${_slug} on this base" info
+        add_row "planner_visible" true "unexercised: nothing is unreleased for ${_slug} on this base" info
+    else
+        # (2) THE STUB. The planner command is pluggable precisely so the chain can be
+        # driven with no key and no network; the stub answers with one group holding
+        # every merge it was shown, in the order it was shown them.
+        printf '#!/bin/sh\nsed -n "s/^- #\\([0-9]*\\) .*/\\1/p" | awk "BEGIN{printf \"{\\"groups\\":[{\\"title\\":\\"Drill group\\",\\"items\\":[\"} {printf \"%%s{\\"pr\\":%%s}\", (n++?\",\":\"\"), \$1} END{print \"]}]}\"}"\n' > "$_work/bin/wh-drill-planner"
+        chmod +x "$_work/bin/wh-drill-planner"
+        _a=$(cd "$REPO_ROOT" && PATH="$_work/bin:$PATH" WORKAHOLIC_PLANNER_CMD=wh-drill-planner sh "$_planner" --target "$_slug" --out "$_work/out" "$BASE_BRANCH" 2>&1) || true
+        if printf '%s' "$_a" | grep -q '"planned": true'; then
+            add_row "planner_authors" true "a plan was authored for ${_slug} and stamped with this base" load
+        else
+            add_row "planner_authors" false "$(one_line "$_a")" load
+        fi
+
+        _r=$(cd "$REPO_ROOT" && sh "$_drafter" --target "$_slug" --plan "$_work/out/${_slug}.json" "$BASE_BRANCH" 2>&1) || true
+        if printf '%s' "$_r" | grep -q '"present": true'; then
+            add_row "planner_arranges" true "the note rendered that plan's arrangement" load
+        else
+            add_row "planner_arranges" false "$(one_line "$_r")" load
+        fi
+
+        # (3) THE VISIBLE FALLBACK. A plan EXPECTED and absent must be said out loud.
+        _f=$(cd "$REPO_ROOT" && sh "$_drafter" --target "$_slug" --plan "$_work/out/absent.json" "$BASE_BRANCH" 2>&1) || true
+        if printf '%s' "$_f" | grep -q "No release plan was applied"; then
+            add_row "planner_visible" true "an expected-but-absent plan is named on the note's face" load
+        else
+            add_row "planner_visible" false "the note fell back silently, so a broken planner reads as a deliberate list" load
+        fi
+    fi
+
+    rm -rf "$_work"
+    _dirty_after=$(cd "$REPO_ROOT" && git status --porcelain | wc -l | tr -d " ")
+    if [ "$_dirty_before" = "$_dirty_after" ]; then
+        add_row "planner_clean" true "the checkout is exactly as the drill found it" load
+    else
+        add_row "planner_clean" false "the chain left ${_dirty_after} changed path(s) where it found ${_dirty_before}" load
+    fi
+
+    if [ "$LOAD_FAILED" -gt 0 ]; then
+        emit_verdict "planner" 0 "fail" 1
+    fi
+    emit_verdict "planner" 0 "pass" 0
+}
+
 cmd_verify_standup() {
     # The [Standup] read. Like verify-status it needs no seed, no fire and no issue number,
     # and it writes nothing anywhere -- which is the routine's whole contract, so asserting
@@ -1192,7 +1292,7 @@ cmd_verify_housekeep() {
 
 # ---------------------------------------------------------------- dispatch
 
-USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-propose <issue>|verify-implement <issue>|verify-plan [--json]|verify-status [--json]|verify-cadence [--json]|verify-standup [--json]|verify-housekeep [--json]"}'
+USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-propose <issue>|verify-implement <issue>|verify-plan [--json]|verify-status [--json]|verify-cadence [--json]|verify-planner [--json]|verify-standup [--json]|verify-housekeep [--json]"}'
 
 CMD="${1:-}"
 [ -n "$CMD" ] || {
@@ -1224,6 +1324,7 @@ case "$CMD" in
     verify-plan) cmd_verify_plan "$@" ;;
     verify-status) cmd_verify_status "$@" ;;
     verify-cadence) cmd_verify_cadence "$@" ;;
+    verify-planner) cmd_verify_planner "$@" ;;
     verify-standup) cmd_verify_standup "$@" ;;
     verify-housekeep) cmd_verify_housekeep "$@" ;;
     *)

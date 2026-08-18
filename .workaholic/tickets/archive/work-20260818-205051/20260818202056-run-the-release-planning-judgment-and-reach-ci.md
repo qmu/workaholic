@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-18T20:20:56+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -141,3 +142,81 @@ unattended write that `workaholic:ship` §7 refused twice.
 - The ask says *continuously re-arranges*. Whatever seam is chosen, state plainly in
   the docs how often the plan actually refreshes, so nobody reads "continuous" into
   a daily or per-ship cadence.
+
+## Final Report
+
+Development completed as planned.
+
+### Open Decision 1 — where the planning agent runs: **(a), in CI, beside the writer**
+
+Recorded in `ship/SKILL.md` §7 as a table beside the three refusals it answers, and in
+`CLAUDE.md`. The reasoning, not the effort:
+
+- **(b) plan on the tick and commit the plan** is the class §7 refused twice — an
+  hourly unattended writer on `main` — and it contradicts `/prepare-release`'s own
+  contract ("it writes nothing, anywhere") in three documents. A plan file is not a
+  release, but it is a commit, and for a target declaring no `paths:` (0 of 1 here) the
+  commit storing it increments the very count the plan is about. Choosing it would have
+  reversed two measured decisions to avoid one secret.
+- **(c) author per unit at ship/report time** fails on its own terms twice over: it is
+  not continuous (a repository whose units are all `review` refreshes it rarely), and it
+  has **nowhere to put the result** — a per-unit plan must be committed for a later CI
+  run to read it, which is (b) wearing a different hat. It would also stitch per-unit
+  judgments rather than produce one view of the whole release.
+- **(a)** puts the judgment where the permission and the defined checkout already are.
+  Nothing crosses between planning and writing, so it answers all three §7 refusals by
+  name: no commit to `main`, no open pull request's branch written, `/ship` never run.
+
+Its cost — a credential in CI — is the operator's act, so it is **gated and paid
+visibly**: `WORKAHOLIC_PLANNER_CMD` (default `claude -p`) must be reachable, the
+workflow's planner steps are skipped when `ANTHROPIC_API_KEY` is unset, and the note
+falls back to the derived list. Nothing in this change requires the secret to exist; the
+repository behaves exactly as it did before until somebody sets it.
+
+### Open Decision 2 — a plan that never arrived: **the note says so on its face**
+
+Passing `--plan` **is** the expectation, so any non-application under it renders a line
+above the list: *"No release plan was applied to this draft (`<reason>`), so the merges
+below are listed as derived rather than arranged."* A render that expected no plan stays
+silent, and `empty_range` says nothing either — there is nothing to arrange when nothing
+is waiting. No reader has to open the JSON to tell a broken planner from a deliberate
+list, which was the whole of the decision.
+
+### What shipped
+
+`plan-release.sh` (the planner: facts from the renderer via `--facts-out`, a prompt, a
+pluggable planner command, and a validation pass that **stamps** `target` and `base_sha`
+rather than trusting an agent's copy of them), `list-due-targets.sh` (the spend gate),
+`--plan-dir` on the cadence, `--plan` on the sync, the visible fallback in the renderer,
+the workflow's three new steps, and `loop-drill.sh verify-planner`.
+
+**How often it refreshes, stated plainly** because the ask says *continuously*: exactly
+when the cadence would write — at most once per `Asia/Tokyo` day, plus whenever the
+release stage advances. The workflow asks what is due *before* it plans, so an idle base
+spends no agent budget.
+
+Verification: **3146 assertions** pass, including 19 new ones covering the gate, the
+authored plan, the stamping, the arrangement, all three named failures, the visible
+fallback, the spend gate, and that the planner leaves the checkout untouched.
+`sh scripts/e2e/loop-drill.sh verify-planner` passes on this repository (3 load-bearing
+rows; the three that need a non-empty range are reported **unexercised by name** rather
+than as passes, because this base has nothing unreleased). `posix-lint.sh`, `build.mjs`,
+`verify.mjs` are clean.
+
+### Discovered Insights
+
+- **Insight**: an agent's answer is untrusted text, and the two fields that decide
+  whether the renderer applies a plan at all (`target`, `base_sha`) are exactly the two
+  a planner has no business choosing.
+  **Context**: `plan-release.sh` stamps both after parsing and extracts the first
+  balanced JSON object from whatever prose or code fence surrounds it. A planner that
+  hallucinated a base sha would otherwise have rendered its own plan as stale.
+- **Insight**: a GitHub Actions step cannot gate on `env.X` for a secret referenced only
+  at step level.
+  **Context**: the key is declared at **job** level so `if: env.ANTHROPIC_API_KEY != ''`
+  resolves; without that the gate silently never fires and the planner runs keyless.
+- **Insight**: the drill runs against the live repository, where the range is often
+  empty (a tag sits on the base tip right after a version bump).
+  **Context**: the rows that need merges are reported `unexercised` as advisory rather
+  than counted as passes — a drill that reports "pass" for a check it could not run is
+  worse than one that says it could not run it.

@@ -14155,6 +14155,7 @@ const tests = [
   ["release note: Key Changes says what landed, for every merge", testReleaseNoteKeyChangesFallback],
   ["release note: a story-less merge keeps its substance", testReleaseNoteStoryLessSubstance],
   ["release note: the plan seam over the renderer", testReleaseNotePlanSeam],
+  ["release plan: the planner, its gate, and its visible failure", testReleasePlannerChain],
   ["workaholify routines: one template set, applied per repository, drift named per field", testWorkaholifyRoutines],
   ["workaholify bootstrap: without it a web routine is configured but cannot work", testWorkaholifyBootstrap],
   ["workaholify: the wiring halves apply, they do not merely audit", testWorkaholifyApplies],
@@ -16124,6 +16125,123 @@ function testReleaseNoteStoryLessSubstance() {
   }
 }
 
+// ---------- release plan: the planner, its gate, and its visible failure ----------
+// (2026-08-18, issue #512, Open Decision 1 ruled (a): the agent runs in CI, beside the
+// writer that already holds `contents: write` and a defined checkout.) Its cost is a
+// credential, so the planner is GATED on one being reachable — and every way it can fail
+// to produce a plan is named, with the note saying on its face that it fell back. The
+// planner command is pluggable (`WORKAHOLIC_PLANNER_CMD`), which is what lets the whole
+// chain be proved here with no network and no key.
+function testReleasePlannerChain() {
+  const tmp = mkdtempSync(join(tmpdir(), "workaholic-planner-"));
+  const repo = join(tmp, "repo");
+  const bin = join(tmp, "bin");
+  const out = join(tmp, "plans");
+  const PLAN = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/plan-release.sh")}`;
+  const DRAFT = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/draft-release-note.sh")}`;
+  const DUE = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/list-due-targets.sh")}`;
+  const stub = (name, body) => {
+    const p = join(bin, name);
+    writeFileSync(p, body);
+    chmodSync(p, 0o755);
+    return p;
+  };
+  try {
+    mkdirSync(bin, { recursive: true });
+    mkdirSync(out, { recursive: true });
+    mkdirSync(join(repo, ".workaholic/deployments"), { recursive: true });
+    execSync("git -c init.defaultBranch=main init -q", { cwd: repo });
+    execSync("git config user.email test@example.com", { cwd: repo });
+    execSync("git config user.name Test", { cwd: repo });
+    execSync("git config commit.gpgsign false", { cwd: repo });
+    writeFileSync(join(repo, ".workaholic/deployments/marketplace.md"),
+      "---\ntype: Deployment\ntarget: marketplace\nenvironment: production\ndeploy_model: deploy-on-merge\n---\n\n# marketplace\n\n## Procedure\n\n1. Merge.\n\n## Confirmation\n\nCheck it.\n");
+    execSync("git add -A && git commit -q -m initial", { cwd: repo });
+    const merge = (branch, prnum, prTitle) => {
+      execSync(`git checkout -q -b ${branch}`, { cwd: repo });
+      writeFileSync(join(repo, `${branch}.txt`), "x\n");
+      execSync(`git add -A && git commit -q -m "Work on ${branch}"`, { cwd: repo });
+      execSync("git checkout -q main", { cwd: repo });
+      execSync(`git merge -q --no-ff ${branch} -m "Merge pull request #${prnum} from qmu/${branch}" -m "${prTitle}"`,
+        { cwd: repo });
+    };
+    merge("work-20260301-000000", 81, "Freshen the refs");
+    merge("work-20260302-000000", 82, "Arrange the note");
+    const env = { ...process.env, PATH: `${bin}:${process.env.PATH}` };
+
+    // (1) THE GATE — the shape a CI run with no ANTHROPIC_API_KEY takes.
+    const gated = JSON.parse(run(repo, `${PLAN} --target marketplace --out ${out} main`,
+      { env: { ...env, WORKAHOLIC_PLANNER_CMD: "wh-absent-planner" } }).stdout);
+    assertEq("an unreachable planner refuses by name",
+      { ok: gated.ok, planned: gated.planned, reason: gated.reason },
+      { ok: true, planned: false, reason: "no_planner" });
+    assertTrue("...and writes no plan", !existsSync(join(out, "marketplace.json")));
+
+    // (2) THE STUB PLANNER — arranges what it was shown, and nothing else.
+    stub("wh-stub-planner", `#!/bin/sh\ncat > /dev/null\ncat <<'EOF'\nHere is the plan:\n\`\`\`json\n{"target":"ignored","base_sha":"ignored","summary":"One release.","groups":[{"title":"Everything","items":[{"pr":82},{"pr":81}]}]}\n\`\`\`\nEOF\n`);
+    const planned = JSON.parse(run(repo, `${PLAN} --target marketplace --out ${out} main`,
+      { env: { ...env, WORKAHOLIC_PLANNER_CMD: "wh-stub-planner" } }).stdout);
+    assertEq("a reachable planner authors a plan", { p: planned.planned, m: planned.merges }, { p: true, m: 2 });
+    const written = JSON.parse(readFileSync(join(out, "marketplace.json"), "utf8"));
+    const baseSha = execSync("git rev-parse main", { cwd: repo, encoding: "utf8" }).trim();
+    // The agent's answer is untrusted text: the target and base are STAMPED, never
+    // taken on trust, because those two decide whether the renderer applies it at all.
+    assertEq("the target is stamped, not trusted", written.target, "marketplace");
+    assertTrue("and so is the base it was planned against",
+      baseSha.startsWith(written.base_sha) || written.base_sha.startsWith(baseSha),
+      `${written.base_sha} vs ${baseSha}`);
+    assertTrue("the prose around the JSON is discarded", Array.isArray(written.groups));
+
+    const rendered = JSON.parse(run(repo, `${DRAFT} --target marketplace --plan ${join(out, "marketplace.json")} main`).stdout);
+    assertEq("and the note renders that arrangement", rendered.targets[0].plan.present, true);
+    assertTrue("in the planner's order, not chronology",
+      rendered.targets[0].body.indexOf("Arrange the note") < rendered.targets[0].body.indexOf("Freshen the refs"),
+      rendered.targets[0].body);
+
+    // (3) EVERY FAILURE IS NAMED, AND NONE OF THEM WRITES A PLAN.
+    stub("wh-broken-planner", "#!/bin/sh\ncat > /dev/null\necho 'I could not do it.'\n");
+    rmSync(join(out, "marketplace.json"));
+    const broken = JSON.parse(run(repo, `${PLAN} --target marketplace --out ${out} main`,
+      { env: { ...env, WORKAHOLIC_PLANNER_CMD: "wh-broken-planner" } }).stdout);
+    assertEq("an answer with no plan in it is invalid_plan", broken.reason, "invalid_plan");
+    assertTrue("...and still writes nothing", !existsSync(join(out, "marketplace.json")));
+    stub("wh-failing-planner", "#!/bin/sh\ncat > /dev/null\nexit 3\n");
+    assertEq("a planner that exits non-zero is planner_failed",
+      JSON.parse(run(repo, `${PLAN} --target marketplace --out ${out} main`,
+        { env: { ...env, WORKAHOLIC_PLANNER_CMD: "wh-failing-planner" } }).stdout).reason,
+      "planner_failed");
+
+    // (4) THE FALLBACK IS VISIBLE — Open Decision 2. Passing `--plan` IS the
+    // expectation, so a plan that did not apply is named on the note's face; a render
+    // that expected nothing stays silent.
+    const fallback = JSON.parse(run(repo, `${DRAFT} --target marketplace --plan ${join(out, "marketplace.json")} main`).stdout);
+    assertTrue("an expected-but-absent plan is named in the note",
+      /No release plan was applied to this draft \(`unreadable`\)/.test(fallback.targets[0].body),
+      fallback.targets[0].body);
+    assertTrue("...and the derived list still renders under it",
+      /- Arrange the note \(#82\)/.test(fallback.targets[0].body), fallback.targets[0].body);
+    assertTrue("a render that expected no plan says nothing about one",
+      !/No release plan was applied/.test(JSON.parse(run(repo, `${DRAFT} main`).stdout).targets[0].body));
+
+    // (5) THE SPEND GATE. The workflow asks what the cadence would write before it
+    // pays for a judgment about it, so an idle base spends nothing.
+    writeFileSync(join(tmp, "cadence.json"),
+      '{"ok": true, "targets": [{"slug": "a", "due": true}, {"slug": "b", "due": false}]}');
+    assertEq("only due targets are planned",
+      run(repo, `${DUE} ${join(tmp, "cadence.json")}`).stdout.trim(), "targets=a");
+    writeFileSync(join(tmp, "idle.json"), '{"ok": true, "targets": [{"slug": "a", "due": false}]}');
+    assertEq("an idle base names none", run(repo, `${DUE} ${join(tmp, "idle.json")}`).stdout.trim(), "targets=");
+    assertEq("and an unreadable answer names none rather than guessing",
+      run(repo, `${DUE} ${join(tmp, "nope.json")}`).stdout.trim(), "targets=");
+
+    // (6) IT WRITES ONLY WHERE IT WAS TOLD TO.
+    assertEq("the planner leaves the checkout untouched",
+      run(repo, "git status --porcelain").stdout.trim(), "");
+  } finally {
+    cleanup(tmp);
+  }
+}
+
 // ---------- release note: the plan seam over the renderer ----------
 // (2026-08-18, issue #512) The renderer derives FACTS and its idempotency contract is
 // what the daily cadence rests on; what it structurally could not produce is a JUDGMENT
@@ -16239,14 +16357,21 @@ function testReleaseNotePlanSeam() {
     const otherRender = render(` --plan ${other}`);
     assertEq("a plan written for another target is refused by name",
       otherRender.plan, { present: false, reason: "other_target" });
-    assertEq("...and the derived list renders unchanged", keyChanges(otherRender.body), derived);
+    assertEq("...and the derived list renders unchanged, under a notice naming the reason",
+      keyChanges(otherRender.body),
+      "> *No release plan was applied to this draft (`other_target`), so the merges below\n"
+      + "> are listed as derived rather than arranged.*\n\n" + derived);
     writeFileSync(join(tmp, "broken.json"), "{not json");
     const broken = render(` --plan ${join(tmp, "broken.json")}`);
     assertEq("a malformed plan is refused by name", broken.plan.reason, "malformed");
-    assertEq("...and the derived list renders unchanged", keyChanges(broken.body), derived);
+    assertTrue("...and the derived list renders unchanged under its notice",
+      keyChanges(broken.body).endsWith(derived) && keyChanges(broken.body).includes("(`malformed`)"),
+      keyChanges(broken.body));
     const missing = render(` --plan ${join(tmp, "nope.json")}`);
     assertEq("an unreadable plan is refused by name", missing.plan.reason, "unreadable");
-    assertEq("...and the derived list renders unchanged", keyChanges(missing.body), derived);
+    assertTrue("...and the derived list renders unchanged under its notice",
+      keyChanges(missing.body).endsWith(derived) && keyChanges(missing.body).includes("(`unreadable`)"),
+      keyChanges(missing.body));
 
     // (e) THE CONTRACT, RESTATED: same base state PLUS same plan → byte-identical.
     assertEq("two renders of an unchanged base and plan are identical",
@@ -16270,7 +16395,8 @@ function testTheDraftNoteWriterIsCi() {
   assertTrue("and naming why a target is not due from it", /writer_is_ci/.test(cadence), cadence);
 
   assertTrue("the workflow holds contents: write", /permissions:\s*\n\s*contents: write/.test(wf), wf);
-  assertTrue("it is the caller that passes --write", /run-note-cadence\.sh --write/.test(wf), wf);
+  assertTrue("it is the caller that passes --write",
+    /run-note-cadence\.sh[\s\\]*--write/.test(wf), wf);
   assertTrue("it defines its own checkout depth", /fetch-depth: 0/.test(wf), wf);
   assertTrue("and fetches tags, since the boundary is the latest release tag",
     /fetch-tags: true/.test(wf), wf);

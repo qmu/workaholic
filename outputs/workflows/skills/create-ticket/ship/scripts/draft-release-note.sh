@@ -3,7 +3,7 @@
 # were deployed from the base right now. A pure renderer.
 #
 #   draft-release-note.sh [--target <slug>] [--out <dir>] [--enrich]
-#                         [--plan <path|->] [base]
+#                         [--plan <path|->] [--facts-out <dir>] [base]
 #
 # Output (one JSON line):
 #   {"ok": true, "base": "main", "base_rev": "origin/main", "base_sha": "abcd1234",
@@ -144,12 +144,14 @@ WANT_TARGET=""
 OUT_DIR=""
 ENRICH=0
 PLAN_PATH=""
+FACTS_DIR=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --target) WANT_TARGET="${2:-}"; shift 2 ;;
     --out) OUT_DIR="${2:-}"; shift 2 ;;
     --enrich) ENRICH=1; shift ;;
     --plan) PLAN_PATH="${2:-}"; shift 2 ;;
+    --facts-out) FACTS_DIR="${2:-}"; shift 2 ;;
     --) shift; break ;;
     -*) echo '{"ok": false, "reason": "usage"}' >&2; exit 1 ;;
     *) break ;;
@@ -213,6 +215,10 @@ BASE_REV=$(printf '%s' "$BASE_LINE" | cut -d"$US" -f1)
 BASE_SHA=$(printf '%s' "$BASE_LINE" | cut -d"$US" -f2)
 
 [ -z "$OUT_DIR" ] || mkdir -p "$OUT_DIR"
+# `--facts-out` materialises exactly what the plan seam is handed, so a PLANNER
+# reads the same rows the renderer would render rather than deriving its own view
+# of the range. One derivation, two readers.
+[ -z "$FACTS_DIR" ] || mkdir -p "$FACTS_DIR"
 
 out=""
 sep=""
@@ -435,6 +441,8 @@ while IFS="$US" read -r slug title environment model model_reason \
       printf '## Key Changes\n\n'
     } >> "$BODY"
 
+    [ -z "$FACTS_DIR" ] || cp "$FACTS" "${FACTS_DIR}/${slug}.facts"
+
     # A plan arranges this section or nothing does. `present: false` — including
     # every refusal — falls through to the derived list below, unchanged.
     if [ -n "$PLAN_PATH" ]; then
@@ -450,11 +458,29 @@ while IFS="$US" read -r slug title environment model model_reason \
       && grep -q '"present": true' "$PLAN_STATUS" 2>/dev/null; then
       cat "$PLAN_OUT" >> "$BODY"
       printf '\n' >> "$BODY"
-    elif [ -n "$stories" ]; then
-      printf '%s\n' "$stories" | sed '/^$/d' >> "$BODY"
-      printf '\n' >> "$BODY"
     else
-      printf 'No merge in this range named a branch, so no story could be joined.\n\n' >> "$BODY"
+      # A PLAN WAS EXPECTED AND DID NOT ARRIVE: SAY SO ON THE NOTE'S FACE
+      # (2026-08-18, Open Decision 2 on the planner ticket). Passing `--plan` IS
+      # the expectation, so any non-application under it is visible here as well
+      # as in the JSON — otherwise a reader cannot tell a deliberate list from a
+      # planner that broke, which is the one thing this fallback must not hide. A
+      # render with no `--plan` at all expects nothing and stays silent.
+      if [ -n "$PLAN_PATH" ]; then
+        plan_reason=$(printf '%s' "$PLAN_JSON" | sed -n 's/.*"reason": "\([^"]*\)".*/\1/p')
+        case "${plan_reason:-unknown}" in
+          empty_range) : ;;
+          *)
+            printf '> *No release plan was applied to this draft (`%s`), so the merges below\n' \
+              "${plan_reason:-unknown}"
+            printf '> are listed as derived rather than arranged.*\n\n' ;;
+        esac >> "$BODY"
+      fi
+      if [ -n "$stories" ]; then
+        printf '%s\n' "$stories" | sed '/^$/d' >> "$BODY"
+        printf '\n' >> "$BODY"
+      else
+        printf 'No merge in this range named a branch, so no story could be joined.\n\n' >> "$BODY"
+      fi
     fi
 
     # --- Changes: grouped by the commit `Category:` trailer -------------------

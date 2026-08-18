@@ -43,7 +43,7 @@ one document carries plan → release → verification.
 
 <!-- PROPOSED criteria — a sketch for discussion. Approval replans this. -->
 
-- [ ] A target's draft note is an agent-authored release plan, not a byte-identical
+- [x] A target's draft note is an agent-authored release plan, not a byte-identical
   render of the merge range. (#20260818202056-run-the-release-planning-judgment-and-reach-ci.md)
 - [x] Every merge contributes its substance, including the story-less proposal
   merges that are this repository's most frequent kind. (#20260818202056-recover-the-substance-of-story-less-merges.md)
@@ -55,3 +55,4 @@ one document carries plan → release → verification.
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-18 — ticket archived — 20260818202056-give-the-release-note-a-plan-seam-over-the-renderer.md
 - 2026-08-18 — ticket archived — 20260818202056-recover-the-substance-of-story-less-merges.md
+- 2026-08-18 — ticket archived — 20260818202056-run-the-release-planning-judgment-and-reach-ci.md

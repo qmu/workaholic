@@ -44,7 +44,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/housekeep/scripts/log-append.sh \
 
 `<step>-filed` is a **second, distinct fact** from the probe's own line — what the tick found versus what it filed — and the log is idempotent per `(tick, step)`, so the two never overwrite each other. Both survive a re-entered tick.
 
-**Then persist again — this is the last thing a tick does** (2026-08-18, issue #497):
+**Then persist again — this is the last thing a tick does** (2026-08-18, PR #489):
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/housekeep/scripts/persist-log.sh --tick <tick>

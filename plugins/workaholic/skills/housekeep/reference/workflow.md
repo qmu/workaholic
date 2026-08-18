@@ -260,7 +260,7 @@ half-way still persists what it recorded on its next run, and it reports under t
   re-opens the publish tree at a freshly fetched base and appends only what the base is missing; a
   rejected push re-unions rather than replaying a patch. Attempts are bounded (default 3) because
   sustained divergence is something a human should see.
-- **The union is by `(tick, step)`, not by `(tick)`** (2026-08-18, issue #497). A `## <tick-id>`
+- **The union is by `(tick, step)`, not by `(tick)`** (2026-08-18, PR #489). A `## <tick-id>`
   section the base lacks is appended whole (`sections`); a section it already carries is merged
   **entry by entry**, appending only the steps its copy lacks, in the checkout's order, at the end
   of that section (`lines`). Nothing is rewritten, reordered or removed — a `(tick, step)` the base

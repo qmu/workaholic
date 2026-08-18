@@ -54,7 +54,7 @@
 # Attempts are bounded (`--attempts`, default 3): sustained divergence is
 # something a human should see, not something a loop should hide.
 #
-# THE UNION IS BY `(tick, step)`, NOT BY `(tick)` (2026-08-18, issue #497,
+# THE UNION IS BY `(tick, step)`, NOT BY `(tick)` (2026-08-18, PR #489,
 # ticket `20260818064158-carry-the-tick-log-step-filed-lines-to-the-base`). It
 # was by section until then, and that made a whole class of line permanently
 # unreachable: `run.sh` runs this script as its closing act, but the agent acts

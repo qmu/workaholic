@@ -6,6 +6,7 @@ depends_on:
 feedback: [20260818062117-rename-fullfill-to-prepare-release-and-update-the-routine-notification-heading.md]
 merge_policy:
 verification_handoff: 
+claim: work-20260818-063646
 ---
 
 # Rename /fullfill to /prepare-release

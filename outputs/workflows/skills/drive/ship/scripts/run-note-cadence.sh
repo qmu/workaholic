@@ -41,9 +41,12 @@
 # `full_history` and made the same repository state report 9, then 191, then the
 # true 8 unreleased commits as refs were fetched. The workflow checks out with
 # `fetch-depth: 0` and tags, so the render's input is defined rather than
-# inherited. What this does NOT fix is the READING half — `report-deploy-status.sh`
-# still reports against the container's refs — and that is deliberately left
-# untouched here rather than half-solved.
+# inherited. The READING half was left open here and closed the same day:
+# `report-deploy-status.sh` freshens the base branch and tags itself (bounded,
+# best-effort) and reports `refs`/`doubtful` when it could not, so the hourly
+# line no longer inherits the clone's refs either. The two fixes stay separate on
+# purpose — CI DEFINES its checkout because it can, and the tick FRESHENS AND
+# REPORTS because a container cannot be defined from inside it.
 #
 # ── ONE ROUTINE OR TWO (the Open Decision, ruled 2026-08-17) ──
 #

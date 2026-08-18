@@ -77,22 +77,35 @@ Exactly one finish per thread stays the rule (SKILL, *Which thread an `/implemen
 ### `/prepare-release` — the repository tick's one line
 
 ```
-📦 Prepare release - <N> commit(s) waiting on <target>
+📦 Release Preparation - <N> commit(s) waiting on <target>
 One sentence, max 25 words, what a human must do (cut a release, declare a confirmation method).
 Draft note: <draft release URL>
 `deploy:<digest>`
 <session URL>
 ```
 
+**And when the read is doubtful, the same root with the count withheld:**
+
+```
+📦 Release Preparation - refs not freshened (<refs_reason>); count unavailable on <target>
+One sentence, max 25 words, what a human must do (restore the container's network, then re-read).
+`deploy:<digest>`
+<session URL>
+```
+
 **A top-level keyed root, never a reply.** This event belongs to no feedback item — nobody *said* anything, the repository's own state changed — so it has no thread to land in and keys on its own `` `deploy:<digest>` `` instead, exactly as an `/implement` unit with no stem keys on `` `unit:<unit-id>` ``. The digest is `report-deploy-status.sh`'s, which hashes the substantive per-target state and **not** the base sha (`workaholic:ship` §7).
+
+**The doubtful variant posts the degradation and withholds the number** (2026-08-18, the Open Decision the ticket carried). It is used whenever the read reports `doubtful: true` — the boundary collapsed to `full_history`/`unresolvable` under refs that were not freshened. Both alternatives were weighed and both are wrong on their own: staying silent is indistinguishable from a quiet repository, which is the invisible degradation the change exists to remove, and posting the bare count endorses a number the reader has just flagged. So the line says what it could not do and names no count, and the `Draft note:` line is omitted with it — a draft rendered from refs this read distrusts is not an artifact to send anyone to. The remaining lines, the token and its shape are unchanged.
 
 **The dedup is the whole reason the line is postable at all.** Before posting, search `` `deploy:<digest>` `` exactly once (private-inclusive, `include_bots: true`, like every case-2 search): found ⇒ **post nothing**, because the answer has not changed since it was last said, and an hourly repeat of an unchanged status is the idle tick the bright line refuses. This is *not* the red-alert cool-down — there is no time window and no escalation; the key is the content itself, so a status that stops being true stops matching and a status that becomes true again posts once more.
 
-**`actionable: false` posts nothing either**, whatever the digest says: every target's `needs[]` empty means nothing is waiting and nobody has anything to do. A tick that reports a quiet repository is a tick that says nothing.
+**`actionable: false` posts nothing either**, whatever the digest says: every target's `needs[]` empty means nothing is waiting and nobody has anything to do. A tick that reports a quiet repository is a tick that says nothing. **One exception, and only one**: `doubtful: true` posts the degraded variant above even when nothing looks actionable — precisely because "nothing is waiting" is one of the things stale refs can fabricate, so the quiet this gate protects would be the unreliable half of the read speaking for the repository. The gate is therefore `actionable || doubtful`, still AND'd with the digest search, and a container stuck offline says it once rather than hourly: the doubtful digest redacts the values that move with the refs, so it stops changing (`workaholic:ship` §7).
 
 **No mention token of any kind** — no `<@U…>` for a person and none for the Claude app. The line names a repository state, not a person's work, and there is nobody whose turn it is; a mention would page whoever was named every hour for a condition that is nobody's in particular.
 
 **The heading was renamed with the command, and it was free to move** (2026-08-18, issue #485 — `📦 Release status` before it). The 2026-08-17 rename left it alone on the stated ground that "the prefix is the notify lookup's own exact-string dedup key", which was wrong: the search above is for `` `deploy:<digest>` `` and nothing queries the heading, so no cutover duplicate was ever at stake. The token, the two gates and the `📦` are unchanged; only the words a human reads moved, to match the command that posts them.
+
+**Then once more, from the verb to the noun** (2026-08-18, later the same day, issue #504). The record, in order: `📦 Release status` → `📦 Prepare release` → `📦 Release Preparation`. On seeing the second wording in a live post, the developer ruled the heading should **name the report** rather than repeat the command's imperative — a Slack root is something a human reads, not an instruction addressed to the machine. The reason a heading is free to move at all is the one stated above and is not restated per rename: nothing searches it. Deliberately **not** moved with it: the routine record's name (`[Prepare Release]` — convergence matches routines by name, so renaming it would create a second routine rather than rename the existing one), the command (`/prepare-release`), the `📦`, the `` `deploy:<digest>` `` token, and both posting gates.
 
 **The `Draft note:` line points at the artifact; it never restates it** (2026-08-17, issue #472). Since the repository tick keeps each target's draft release note current, the note is where the answer lives — what is waiting, the procedure, the verification required. A notification's job is to bring a human *to* the artifact, so the line carries the URL and nothing more: summarising the note's contents into the post would make the note redundant and re-create the fragmentation the ask is about. Omit the line entirely when no draft exists yet (a repository whose cadence has not run, or one with no `gh`) rather than posting a dead link — the shape's other four lines are unchanged and still stand alone.
 
@@ -107,7 +120,7 @@ Draft note: <draft release URL>
 <session URL>
 ```
 
-**A top-level keyed root, never a reply**, and **no mention token of any kind** — the same two reasons `📦 Prepare release` carries none: no feedback item said anything, and the line names the repository's state rather than a person's work.
+**A top-level keyed root, never a reply**, and **no mention token of any kind** — the same two reasons `📦 Release Preparation` carries none: no feedback item said anything, and the line names the repository's state rather than a person's work.
 
 **One strategy line each, in the digest's own order, capped.** A quiet strategy gets the explicit `no activity` line rather than being dropped — a strategy missing from the digest reads as a strategy nobody is working on, which is a different claim. `strategies_omitted` above the cap is stated as a trailing count, never silently cut. The final `not attributable` line is a **count** and rides only when it is non-zero; enumerating it would make this a repository changelog, which is `/catch`'s job.
 
@@ -115,7 +128,7 @@ Draft note: <draft release URL>
 
 ### `/housekeep` — the maintenance tick's two shapes
 
-The stuck-pull-request reminder is a **top-level keyed root**, exactly as `📦 Prepare release` is
+The stuck-pull-request reminder is a **top-level keyed root**, exactly as `📦 Release Preparation` is
 and for the same reason: nobody *said* anything, the repository's own state did something, so
 there is no thread to land in and the post keys on its own content instead.
 

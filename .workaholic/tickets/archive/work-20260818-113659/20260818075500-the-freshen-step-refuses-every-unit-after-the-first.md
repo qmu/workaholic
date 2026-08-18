@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-18T07:55:00+00:00
+status: done
 author: a@qmu.jp
 assignees: []
 depends_on:
@@ -123,3 +124,69 @@ routine's finish line because the second unit was never claimed.
   refused, not that refusing is wrong.
 - This ticket was minted by a run driving an unrelated documentation change, which is why it
   carries no `feedback:` reference — nobody reported it; a run tripped over it.
+
+## Final Report
+
+Development completed as planned. `sync-main.sh` gained **§1b**, the sequel to §1a: a **detached**,
+clean HEAD that is a strict **ancestor** of `origin/<base>` is fast-forwarded onto the base tip and
+reported `ok: true` with `advanced: true`, `fast_forwarded: true` and `previous_sha`. Every other
+off-base shape refuses `not_on_main` byte-unchanged.
+
+Driven together with `20260818070000-a-run-that-merges-cannot-survey-again.md`, which reports the
+same defect from the other side (that run measured it after merging PR #490; this one after PR
+#492). One fix answers both; each ticket's own Open Decisions are resolved below.
+
+### The Open Decisions, resolved
+
+**1. Fast-forward the checkout, or let the survey read `origin/main` directly? → Fast-forward the
+checkout (§1b).** The rejected shape is answered rather than ignored: reading the base ref instead
+of the working tree would give the repository **two** freshness paths beside the one the contract
+names, and the ticket's own text says why that is worse ("two of those eventually disagree"). It is
+also not a localized change — every consumer of the survey uses the returned ticket **paths**
+against the checkout (`claim.sh` stages those exact paths), so a survey that read `origin/main`
+would return paths the rest of the run cannot act on without a second checkout. The fast-forward is
+three lines in one script and keeps one freshness path.
+
+**Why it is not the licence the header withholds.** §1a's comment says "moving the caller's
+checkout is not this script's licence to take" — written about §1a, where HEAD already *equalled*
+the tip, so moving it would have been risk for no gain. §1b is the header's own rationale applied,
+not widened: the refusals rest on "a reset would discard a developer's local commits", and a
+detached clean HEAD that is a strict ancestor holds nothing to discard — no branch points at it, no
+commit on it is absent from the base, no edit is pending. `git checkout --detach <base-tip>` is a
+fast-forward of the working tree, the same operation §4 already performs on a base branch, and it
+refuses on its own if anything would be overwritten. **Detached is load-bearing**: a *named*
+off-base branch behind the base is a developer's branch, and moving it would rewrite a ref a person
+created and silently change which branch they are on — so it keeps refusing, which the suite
+asserts directly.
+
+**2. Should a mid-run freshen failure terminate the run when the first one passed? → No vocabulary
+change; the question is moot for this shape.** `workaholic:drive` §7 has no "degrade to survey what
+is known" state, and this fix removes the staleness rather than teaching the run to tolerate it —
+which is what Implementation Step 4 and ticket `20260818070000`'s Step 4 both require. A freshen
+that *still* fails mid-run now means a shape §1b deliberately refuses (dirty, ahead, diverged, a
+named branch), and those are exactly the states a run must not survey through. Inventing a partial
+state for them would reintroduce the staleness tolerance through the caller.
+
+### Measured, as both tickets asked
+
+Since the immediate-merge route landed (2026-08-11), the archive carries **41 PR-units across 41
+branches in 26 UTC hours that saw any drive at all — and 20 of those 26 hours carried exactly one
+unit**. The three ticks before this one (`work-20260818-063646`, `-073640`, `-083716`) each archived
+exactly one ticket. The number is suggestive rather than proof — an attended `/drive` from a
+non-detached checkout never hit this, and the archive does not record which entry point drove a
+branch — but it is the shape the ceiling predicts, and this run itself is the direct evidence: it
+was the fourth consecutive tick to face a four-ticket queue.
+
+### Discovered Insights
+
+- **Insight**: the two `not_on_main` cases §1a and §1b admit are the *same* container, eighteen
+  minutes apart — the difference is only whether the run has merged anything yet.
+  **Context**: §1a was written from a measurement taken at a tick's *start*, so the exact-tip proof
+  looked total. The defect only exists after a merge, which is why five days passed before anyone
+  saw it and why a tick that merges nothing still looks healthy. When a proof is derived from a
+  measurement, check whether the run's own actions can falsify it later in the same run.
+- **Insight**: the reproduction is only visible against the **base**, never against the checkout.
+  **Context**: the regression fixture advances `origin/main` by *archiving* a ticket — what a merged
+  unit actually does — and then asserts `plan-units.sh` no longer offers it. Asserting on
+  `sync-main.sh`'s JSON alone would have passed a fix that moved HEAD without making the survey
+  correct, which is the property the loop actually needs.

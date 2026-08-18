@@ -139,3 +139,45 @@ succeeding.
 - **A tick that merges nothing does not hit this**, so the symptom is invisible in exactly the
   runs an operator is most likely to inspect.
 - This ticket carries no `feedback:` reference: nobody reported it, a run tripped over it.
+
+## Final Report
+
+Development completed as planned, **jointly with
+`20260818075500-the-freshen-step-refuses-every-unit-after-the-first.md`** — the same defect
+minted twice by two ticks (this one measured it after merging PR #490, the other after PR #492).
+They were driven as one PR-unit because one change answers both; the full reasoning, the rejected
+alternative and the measurement live in that ticket's Final Report, and this report states the
+decision and what it means for this ticket's own gate.
+
+### The Open Decision, resolved
+
+**1. May `sync-main.sh` move a detached, clean, strictly-behind checkout to the base tip? → Yes,
+and that is what shipped (§1b).** This ticket's own framing is what carried it: "it is not a merge
+and not a reset — it discards nothing, because a detached clean HEAD with no local commits holds
+nothing to discard, and the same *provably absent rationale* test §5 already uses would apply."
+That is exactly the argument §5 was admitted on, applied to a narrower shape, and the standing-grant
+objection is answered by the **detached** requirement — a *named* off-base branch behind the base is
+a developer's branch and still refuses, byte-unchanged, so the grant does not widen to any ref a
+person created.
+
+**2. Or should the run re-derive freshness after each merge instead? → Rejected, for this ticket's
+own stated reason.** A second freshness path beside the one the contract names is two rules that
+eventually disagree. It is also more than a script change: every consumer of the survey uses the
+returned ticket **paths** against the checkout, so a survey reading `origin/main` directly would
+hand `claim.sh` paths the rest of the run cannot act on.
+
+**The survey was not taught to tolerate staleness** (this ticket's Step 4, and its second acceptance
+criterion): `current: false` still forbids `ok`, no path claims off a read known stale, and the fix
+removes the staleness instead of surveying through it. The regression fixture proves the difference
+by advancing `origin/main` through an *archive* — what a merged unit does — and asserting the
+merged unit's ticket is **absent** from the next survey's backlog.
+
+### Discovered Insights
+
+- **Insight**: this ticket and `20260818075500` are the same finding minted by two consecutive
+  ticks, neither of which could see the other's work.
+  **Context**: a run mints into a publish tree behind a pull request, so a defect the loop keeps
+  hitting gets re-minted every tick until one of those tickets is merged *and* driven. The duplicate
+  is the failure contract working as designed, not a bug — but it means a recurring structural
+  defect costs one ticket per tick until it is fixed, which is itself an argument for driving this
+  class first.

@@ -144,6 +144,17 @@ rendering the base state is the authority, and both stores are projections of it
 one input, so wherever both copies exist they are byte-identical by construction rather than by
 copying.
 
+**What `## Key Changes` carries, per merge in the range** (2026-08-18, issue #496). One line per
+merge — **no cap and no selection**, because a silently shortened list reads as "nothing else
+happened". The line prefers the branch story's Overview sentence (the written record of *why*);
+where no story joined the merge it falls back to the **merge commit's body**, which is that pull
+request's own title. The fallback is the common case, not the rare one: a `/propose` pull request
+auto-merges without ever running `/report`, so it structurally never has a story. It is the body
+and never the subject — the subject reads `Merge pull request #N from qmu/work-…`, which names
+the number and the branch and summarises nothing, which is what the old placeholder already did.
+Both sources are local git data, so the rule adds no network read and leaves `--enrich` off by
+default. Only a merge carrying neither a story nor a body falls through to naming itself.
+
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/sync-release-note.sh [--target <slug>] [--dry-run] [base]
 ```

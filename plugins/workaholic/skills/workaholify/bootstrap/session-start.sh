@@ -128,11 +128,24 @@
 # it resolves the session's GitHub login (`gh api user`) through the committed repo-root
 # `.claude/git-identities` mapping (`<login>=<email>`, one per line, `#` comments
 # tolerated; the emails are already public in git history, so the file discloses nothing
-# new) and sets the REPO-LOCAL `git config user.email` (and `user.name` from the login,
-# only when unset). It acts ONLY when the current email is empty or an @anthropic.com
-# default -- a developer's real local identity is never overwritten -- and, like the `gh`
-# step, every branch is non-fatal with one legible log line: an absent mapping file, a
-# missing `gh`, or a failed API call is the status quo, not a regression.
+# new) and sets the REPO-LOCAL `git config user.email` and `user.name`. It acts ONLY when
+# the current email is empty or an @anthropic.com default -- a developer's real local
+# identity is never overwritten -- and, like the `gh` step, every branch is non-fatal with
+# one legible log line: an absent mapping file, a missing `gh`, or a failed API call is
+# the status quo, not a regression.
+#
+# THE NAME HALF WAS SHIPPED DEAD (2026-08-18). The `user.name` line above was guarded by
+# `[ -z "$(git config user.name)" ]` -- the EFFECTIVE scope, which in a web container is
+# the global `Claude` and never empty -- so it never executed once. GitHub renders the
+# author NAME, so from outside the repository every routine commit read as Claude's while
+# the email underneath was the developer's all along; attributability through the email is
+# not what a reader sees. The guard now tests `git config --local user.name`, so a
+# container's global default no longer reads as "the developer already chose a name" while
+# a real repo-local name is still left alone, and the value prefers `gh api user --jq
+# .name` over the login. Forward-only: history already on `main` keeps `Claude`, and a
+# session already running keeps the name it started with -- the repair lands at the next
+# session start. `user.name` stays cosmetic to every workaholic mechanism (ownership,
+# claims and resumption all read `user.email`, which is why this is safe to move).
 #
 # HOME IS RESPECTED, NOT IMPOSED (`: "${HOME:=/root}"`): hardcoding /root breaks the moment
 # the hook runs as a non-root user, whose ~/.claude would be unwritable.
@@ -219,8 +232,25 @@ case "$GIT_EMAIL" in
       if [ -z "$MAPPED" ]; then
         log "git identity: no entry for '${LOGIN}' in ${IDMAP}; keeping '${GIT_EMAIL:-unset}'"
       elif git config user.email "$MAPPED" 2>>"$LOG"; then
-        if [ -z "$(git config user.name 2>/dev/null || true)" ]; then
-          git config user.name "$LOGIN" 2>>"$LOG" || log "git identity: setting user.name failed"
+        # The name is set on the same seam and under the same conditions as the email, and
+        # its guard reads the LOCAL scope on purpose (2026-08-18): `git config user.name`
+        # resolves the container's GLOBAL `Claude`, which is never empty, so this branch
+        # never fired and GitHub -- which renders the name, not the email -- showed every
+        # web commit as authored by Claude. A developer's own repo-local name is still
+        # never overwritten. The value prefers the account's real name (the mapping file
+        # carries none, and the login is already being fetched, so the success path costs
+        # no extra round trip) and falls back to the login; `--jq` prints `null` for an
+        # account that publishes no name, which is not a name either.
+        if [ -z "$(git config --local user.name 2>/dev/null || true)" ]; then
+          REALNAME=$(gh api user --jq .name 2>>"$LOG") || REALNAME=""
+          case "$REALNAME" in ""|null) REALNAME="$LOGIN" ;; esac
+          if git config user.name "$REALNAME" 2>>"$LOG"; then
+            log "git identity: user.name set to ${REALNAME} (repo-local name was unset)"
+          else
+            log "git identity: setting user.name failed"
+          fi
+        else
+          log "git identity: repo-local user.name kept"
         fi
         log "git identity: user.email set to ${MAPPED} (login ${LOGIN})"
       else

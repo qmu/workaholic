@@ -6,7 +6,8 @@
 # Output (stdout, always exit 0 for a reported outcome):
 #   {"ok": true,  "base": "origin/<base>", "sha": "<sha>", "advanced": true|false,
 #                 ["realigned": true, "previous_sha": "<sha>", "backup_ref": "<ref>"]
-#                 ["off_base": true, "branch": "<name>"]}
+#                 ["off_base": true, "branch": "<name>"]
+#                 ["fast_forwarded": true, "previous_sha": "<sha>"]}
 #   {"ok": false, "reason": "not_on_main"|"dirty_workspace"|"no_origin"
 #                          |"origin_unreachable"|"diverged", ...}
 #
@@ -21,7 +22,10 @@
 # §1a is the OTHER narrow exception, and it mutates nothing at all: a checkout
 # parked off the base branch entirely, but sitting on the base's exact tip with a
 # clean tree, is reported `ok` with `off_base: true` instead of refused. See its
-# own reasoning below.
+# own reasoning below. §1b is its sequel and the one place a parked checkout is
+# MOVED: a DETACHED, clean HEAD that is a strict ancestor of the base tip is
+# fast-forwarded onto it. See §1b's own reasoning for why that is not the licence
+# the header withholds above.
 #
 # The reasons ride stdout with exit 0 on purpose. Every one of them is a
 # legitimate state of a developer's checkout — on a branch, mid-edit — not a
@@ -122,15 +126,57 @@ if [ "$off_base" = true ]; then
   off_remote_sha=$(git rev-parse --verify --quiet "refs/remotes/origin/${base}^{commit}" || true)
   off_head_sha=$(git rev-parse --verify --quiet "HEAD^{commit}" || true)
   [ -n "$off_remote_sha" ] || refuse_off_base
-  [ "$off_head_sha" = "$off_remote_sha" ] || refuse_off_base
+  [ -n "$off_head_sha" ] || refuse_off_base
 
   off_ws=$(sh "${SCRIPT_DIR}/check-workspace.sh")
   off_clean=$(printf '%s\n' "$off_ws" | sed -n 's/.*"clean":[ ]*\([a-z]*\).*/\1/p')
   [ "$off_clean" = "true" ] || refuse_off_base
 
-  printf '{"ok": true, "base": "origin/%s", "sha": "%s", "advanced": false, "off_base": true, "branch": "%s"}\n' \
-    "$base" "$off_remote_sha" "$branch"
-  exit 0
+  if [ "$off_head_sha" = "$off_remote_sha" ]; then
+    printf '{"ok": true, "base": "origin/%s", "sha": "%s", "advanced": false, "off_base": true, "branch": "%s"}\n' \
+      "$base" "$off_remote_sha" "$branch"
+    exit 0
+  fi
+
+  # --- 1b. Parked off the base, DETACHED, clean, and strictly behind it ----------
+  # §1a admits the container's checkout only while it stands on the base's EXACT
+  # tip -- which is true for a run's first freshen and false for every one after it
+  # merges anything. Measured 2026-08-18 (tickets `20260818070000` and
+  # `20260818075500`, the second minted by the run the first describes): a tick
+  # surveyed two unrelated tickets, drove and merged the first (PR #492), and then
+  # refused `not_on_main` at its next freshen -- the same checkout §1a had admitted
+  # eighteen minutes earlier, with a claimable ticket queued and nothing wrong with
+  # the tree. An `/implement` run in a detached container therefore drove AT MOST ONE
+  # PR-unit per tick, and the obstacle was the run's own success: a tick that merges
+  # nothing never hits this.
+  #
+  # THE ADMISSION IS THE HEADER'S RATIONALE APPLIED, NOT WIDENED. The refusals above
+  # rest on one sentence: "a reset would discard a developer's local commits." A
+  # DETACHED HEAD that is a strict ANCESTOR of the base tip, with a clean tree, holds
+  # nothing to discard -- no branch points at it, no commit on it is absent from the
+  # base, no edit is pending. Moving it is a fast-forward of the working tree, the
+  # same operation §4 performs on a base branch, and NOT the `git reset --hard` §1
+  # forbids: `git checkout --detach <base-tip>` refuses on its own if anything would
+  # be overwritten. The header's "moving the caller's checkout is not this script's
+  # licence to take" is answered rather than dropped -- it was written about §1a,
+  # where HEAD already equalled the tip so moving it would have been pure risk for no
+  # gain; here refusing to move it is what costs the run.
+  #
+  # DETACHED IS LOAD-BEARING, AND IT IS THE PROOF, NOT A HARNESS GUESS. A NAMED
+  # off-base branch that is behind the base is a developer's branch -- moving it
+  # would rewrite a ref a person created and would silently change which branch they
+  # are on -- so it keeps refusing `not_on_main`, byte-unchanged, as do dirty, ahead
+  # and genuinely diverged. `fast_forwarded: true` and `previous_sha` ride the
+  # success beside `advanced: true` so the caller reports that the checkout MOVED
+  # rather than implying it never needed to.
+  if [ -z "$branch" ] && git merge-base --is-ancestor "$off_head_sha" "$off_remote_sha"; then
+    git checkout --quiet --detach "$off_remote_sha" >&2 || refuse_off_base
+    printf '{"ok": true, "base": "origin/%s", "sha": "%s", "advanced": true, "off_base": true, "branch": "", "fast_forwarded": true, "previous_sha": "%s"}\n' \
+      "$base" "$off_remote_sha" "$off_head_sha"
+    exit 0
+  fi
+
+  refuse_off_base
 fi
 
 # --- 2. Clean tree? ---------------------------------------------------------

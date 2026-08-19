@@ -525,4 +525,5 @@
 * [Fix the housekeep check-in's already-asked gate](20260819061902-fix-the-housekeep-check-in-s-already-asked-gate.md)
 * [/workaholify should converge the account's routines, not just render setup sheets](20260819103531-workaholify-should-converge-the-account-s-routines-not-just-render-setup-sheets.md)
 * [Generate stories/index.md like every other OKF area](20260819111841-generate-stories-index-md-like-every-other-okf-area.md)
+* [Command rename shipped without a version bump, so every routine resolves the stale plugin cache](20260819115551-command-rename-shipped-without-a-version-bump-so-every-routine-resolves-the-stale-plugin-cache.md)
 <!-- okf:generated:end -->

@@ -14294,6 +14294,7 @@ const tests = [
   ["release note draft: CI writes it, and the tick never attempts to", testTheDraftNoteWriterIsCi],
   ["release note: Key Changes says what landed, for every merge", testReleaseNoteKeyChangesFallback],
   ["workaholify routines: one template set, applied per repository, drift named per field", testWorkaholifyRoutines],
+  ["workaholify: the command converges routines, and a sheet is a refusal's recovery path", testWorkaholifyConvergesRoutines],
   ["workaholify bootstrap: without it a web routine is configured but cannot work", testWorkaholifyBootstrap],
   ["workaholify: the wiring halves apply, they do not merely audit", testWorkaholifyApplies],
   ["workaholify bootstrap: the session gets the developer's git identity", testBootstrapGitIdentity],
@@ -18111,6 +18112,37 @@ function testProposeRoutineTemplate() {
 // before they repeat the setup, that the routine cannot leak into either other scope, and
 // that its one authorized shape matches the catalog byte for byte. Nothing here touches an
 // account.
+// ---------- /workaholify converges the routines; the sheet is a refusal's recovery path ----------
+// (2026-08-19) MEASURED on a second repository: a /workaholify run rendered five setup sheets,
+// reported "whether any of them currently exist" as unanswerable, and finished — in a session
+// carrying a RemoteTrigger tool the whole time. The operator was handed paste-by-hand work for
+// a job the session could do, and the report's own limits paragraph was false in that session.
+//
+// The 2026-08-14 ruling (issue #445) — running the preparation command leaves the repository
+// PREPARED — had been applied to CLAUDE.md (§3), the layout (§3a) and the bootstrap (§4), and
+// to §5 not at all. This pins the fourth: the command converges, and a sheet is what a NAMED
+// refusal falls back to. Prose, because the flow is an agent's; what is mechanical is that
+// neither document can quietly go back to rendering as the ordinary outcome.
+function testWorkaholifyConvergesRoutines() {
+  const cmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/workaholify.md"), "utf8");
+  const skill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/SKILL.md"), "utf8");
+
+  assertTrue("the command says it converges the account's routines",
+    /converge the account's routines/i.test(cmd), cmd.slice(0, 600));
+  assertTrue("over every scope, not one", /every\*{0,2} scope/i.test(cmd), cmd.slice(0, 600));
+  assertTrue("and names the one refusal that falls back to a sheet",
+    /no_transport: `?RemoteTrigger-family tool/.test(cmd), cmd);
+  assertTrue("stating plainly that a sheet is not the ordinary outcome",
+    /never the outcome|never the ordinary outcome/i.test(cmd), cmd);
+  assertTrue("the skill carries the same contract, so the command is not the only place it lives",
+    /`\/workaholify` converges too/.test(skill), skill.slice(0, 400));
+
+  // What is genuinely unanswerable must still be said — the repository scope's one-account
+  // convention has no enforcement behind it, and this command is where a duplicate gets made.
+  assertTrue("and it still states the convention it cannot enforce",
+    /teammate already created|no account can list another/i.test(cmd), cmd);
+}
+
 function testWorkaholicRoutineTemplate() {
   const template = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines/workaholic.md"), "utf8");
   const catalog = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/notify/reference/notifications.md"), "utf8");

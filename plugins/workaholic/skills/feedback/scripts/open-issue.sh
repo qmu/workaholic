@@ -22,7 +22,7 @@
 # the project (`reference/crossing.md`, *The in-repo path*). Either way the judgement is
 # the caller's and none of it happens here.
 #
-# THE ASSIGNEE IS LOAD-BEARING, NOT COSMETIC. `[Propose]`'s discovery
+# THE ASSIGNEE IS LOAD-BEARING, NOT COSMETIC. `[Specificate]`'s discovery
 # (`propose/scripts/list-inbound-issues.sh`) lists only issues assigned to the running
 # identity and deliberately never unassigned ones, so an unassigned in-repo `[FB]` issue
 # would be ingested by nobody. THE LOGIN COMES FROM THE CALLER — `gh api user` is the
@@ -40,7 +40,7 @@
 # earlier route copied a ticket file into the target's working tree, which meant the
 # boundary crossing arrived as a file appearing in somebody else's `git status` — an
 # artifact its owners had no native way to see, triage, or decline. An issue is the
-# form the target already reads: its own [Propose] routine ingests it like any other
+# form the target already reads: its own [Specificate] routine ingests it like any other
 # inbound report, and the recording and the proposal judgment happen inside the
 # target's loop rather than ours.
 #

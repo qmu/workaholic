@@ -1,6 +1,6 @@
 # Proposal Loop Runbook
 
-How the proposal loop runs: the **`[Propose]` Claude Code Web routine**, which
+How the proposal loop runs: the **`[Specificate]` Claude Code Web routine**, which
 fires on a fixed hourly schedule (`15 * * * *`), takes an ask — one handed to the
 session, or one the tick discovered for itself (§3) — writes the feedback record,
 judges it, and opens **one** pull request carrying the record together with
@@ -65,7 +65,7 @@ left to read as sent.
 ## 3. Schedule the routine
 
 The loop runs **in the repository**, in an isolated cloud session started by the
-`[Propose]` routine, which fires on a **fixed hourly schedule** (`15 * * * *`;
+`[Specificate]` routine, which fires on a **fixed hourly schedule** (`15 * * * *`;
 FB `20260810085032` — the loop-engineering cadence, superseding the earlier GitHub
 issue-assignment trigger). A schedule fire hands the session nothing, so the run
 finds its own input: `/propose`'s *Clock-fired discovery*
@@ -83,7 +83,7 @@ otherwise (`skills/workaholify/SKILL.md`, *What a routine can be triggered by*).
 Provision it from an interactive session in the repository:
 
 ```
-/setup-dev-routines      # your own [Propose]/[Implement]: what runs, what is missing
+/setup-dev-routines      # your own [Specificate]/[Implement]: what runs, what is missing
 /workaholify             # the same survey inside the full standards pass
 ```
 

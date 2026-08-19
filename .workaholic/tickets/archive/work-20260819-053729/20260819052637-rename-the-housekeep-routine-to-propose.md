@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-19T05:26:37+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on: 20260819052637-rename-the-propose-routine-to-specificate.md
@@ -121,3 +122,76 @@ must say **rename the old one first**, not merely "rename, do not create a secon
   `` `fb:<stem>` ``, `` `stuck:<digest>` ``, `` `deploy:<digest>` `` and
   `` `standup:<date>` `` — so no post is deduped differently by this rename. Say so
   in the story rather than leaving it to be re-derived.
+
+## Final Report
+
+Development completed as planned, in the same PR-unit as the first rename and after it —
+which is what `depends_on` records. Step 1's precondition was checked against the tree the
+rename lands on: `routines/fb.md` reads `name: "[Specificate] {repo_name}"` before this
+ticket's first edit. The wording "confirm the first rename has **merged**" is satisfied here
+by same-unit ordering rather than by a separate merge: both tickets ride one branch and one
+pull request, so there is no window in which the second is on `main` without the first.
+
+`routines/housekeep.md` renders as `[Propose] <repo>` and declares
+`renamed_from: "[Housekeep] {repo_name}"`; `id` (`housekeep`), `scope`, `cron_expression`,
+`allowed_tools`, `mcp` and the whole `## Prompt` body are byte-identical to before. Every
+routine-name mention of `[Housekeep]` moved; no `/housekeep` *command* mention moved, and the
+two deliberate survivors are migration notes naming the old name on purpose (this template's
+own `renamed_from:` prose and `fb.md`'s statement of the swap).
+
+**The ordered cutover is derived, not written into prose.** `render-setup-sheet.sh` now
+compares each template's `renamed_from:` against every other template's `name:`, in both
+directions, and renders one extra line per side when they collide: the vacating routine's
+sheet says *do this one FIRST*, and the routine taking the name says *rename X to Y BEFORE
+creating this one*. An ordinary rename whose freed name nobody claims renders neither line —
+verified against `[Prepare Release]`, which is unchanged. Both setup commands state the same
+ordering in their report paths, and `test-workflow-scripts.mjs` pins all four properties;
+the swap assertions stop asserting the moment the fields are deleted, which is the intended
+end state.
+
+### Open Decisions — resolved
+
+1. **Which routine does issue #525 describe? — The one running `/propose` (today
+   `[Specificate]`), because #525 was filed before the swap.** #525 asks that the routine
+   filing `[FB]` issues stop posting PR-status notices and that such messaging be handled by
+   "the Propose routine". Read after this rename it looks satisfied by doing nothing, since
+   the tick posting those notices is now itself called `[Propose]` — that is the trap the
+   swap creates, and the resolution is to **read #525 by behaviour, not by name**: the tick
+   it constrains is the `/housekeep` one, and the routine it points work at is the `/propose`
+   one. Nothing about that changed; only the labels did. The decision is recorded here and in
+   `CLAUDE.md`, and the **behaviour change stays with the queued ticket**
+   `20260819052241-stop-the-housekeep-tick-posting-pr-status-notices`, which is a separate
+   unit — resolved together, as the ticket asked, means one ruling read by both, not the same
+   edit made twice.
+2. **Does the command rename too (`/housekeep` → `/propose`)? — No.** Same answer as the
+   first ticket, and stronger here: `/propose` is a **live command name**. Renaming
+   `/housekeep` onto it would collide head-on with an existing command rather than merely
+   reading oddly, and the ask says name only. The drill stages were checked for the same
+   reason and deliberately left alone — `verify-housekeep` and `verify-propose` name the
+   commands they run, not the routines that schedule them, and the runbook now says so in as
+   many words so a later reader does not re-derive it from the mismatch.
+3. **Does "exactly 3 per repository" retire `[Prepare Release]` and `[Standup]`? — No, and
+   nothing here assumes it.** The ask enumerates three routines in the course of describing a
+   rename; retiring two working, repository-scoped routines is a far larger act it never
+   states. The counts are unchanged: three repository-scoped templates (`[Prepare Release]`,
+   `[Standup]`, `[Propose]`) and two developer-scoped ones (`[Specificate]`, `[Implement]`).
+   The ask's enumeration is read as *which routines exist*, not as a scope assignment, on the
+   same ground the first ticket used — the ask says behaviour does not move, and scope is
+   behaviour.
+
+### Discovered Insights
+
+- **Insight**: the two halves of a swap are asymmetric in what their sheets must say, and the
+  two statements are derived from opposite directions of the same comparison — one template's
+  `renamed_from:` against another's `name:`. The routine **vacating** the name needs "go
+  first"; the routine **taking** it needs "rename that one before creating this".
+  **Context**: a single shared warning would be wrong for one side or the other, and hand-
+  writing either into prose would outlive the migration. Both are now computed from the
+  template set, so deleting the `renamed_from:` fields at cutover removes the ordering notes
+  and their tests together.
+- **Insight**: nothing in the loop deduplicates, threads or searches on a routine's name —
+  the Slack keys are `fb:<stem>`, `stuck:<digest>`, `deploy:<digest>` and `standup:<date>`.
+  **Context**: this is the second time in three days the question has come up (the
+  2026-08-17 release-tick rename was reversed the next day on the mistaken assumption that
+  something searched the heading). It is now stated in the template and in `CLAUDE.md` so the
+  next rename costs nothing to reason about.

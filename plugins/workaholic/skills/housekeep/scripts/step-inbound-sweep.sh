@@ -23,7 +23,7 @@
 # writes a **feedback record** through `feedback/scripts/create.sh`. It does NOT
 # open a GitHub issue here: the crossing flow is gated on a verbatim human
 # confirmation an unattended tick cannot give, and a self-filed assigned issue
-# would be re-discovered by `[Propose]` every hour forever — a record written
+# would be re-discovered by `[Specificate]` every hour forever — a record written
 # before the issue can never name it, which is the measured reason issue #443's
 # auto-file option was refused on 2026-08-14.
 #

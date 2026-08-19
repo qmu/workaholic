@@ -33,7 +33,7 @@ Every workflow script talks to GitHub through **one transport**,
 
 **Never `gh issue …`, `gh pr …`, or `gh repo …`.** Those subcommand families are
 GraphQL-backed, and a Claude Code Web session is *not guaranteed to serve that surface*:
-measured 2026-08-12 17:19 UTC in this repository's own `[Propose]` tick,
+measured 2026-08-12 17:19 UTC in this repository's own `[Specificate]` tick,
 
 > HTTP 403: This GraphQL query is not enabled for this session — only the pinned set of
 > PR-review operations is served. Use REST via `gh api repos/{owner}/{repo}/...` instead.

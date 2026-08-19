@@ -1,6 +1,6 @@
 ---
 name: propose
-description: Use when a session has an ask in hand — the [Propose] routine's clock tick that discovers one (the open GitHub issues assigned to this identity), or /propose by hand — to judge it against the conservative bar and emit, in one publish-tree pull request, the feedback record together with whatever the judgment warrants. Defines the clock-fired discovery, the judgment bar, the four forms a proposal takes, the proposal schema, and the scripts.
+description: Use when a session has an ask in hand — the [Specificate] routine's clock tick that discovers one (the open GitHub issues assigned to this identity), or /propose by hand — to judge it against the conservative bar and emit, in one publish-tree pull request, the feedback record together with whatever the judgment warrants. Defines the clock-fired discovery, the judgment bar, the four forms a proposal takes, the proposal schema, and the scripts.
 allowed-tools: Bash
 user-invocable: false
 skills:
@@ -20,7 +20,7 @@ The judgment happens in the session that receives the ask (developer's ruling, 2
 
 ## Clock-fired discovery
 
-Since `[Propose]` fires on an hourly schedule rather than a GitHub issue trigger (FB
+Since `[Specificate]` fires on an hourly schedule rather than a GitHub issue trigger (FB
 `20260810085032`), no event hands the session an issue — so a run that starts with
 nothing in hand **discovers its own asks** before conceding `nothing_in_hand`
 (developer's instruction, 2026-08-12, closing the gap the schedule migration left
@@ -76,7 +76,7 @@ envelope, and abort reason, is [`reference/workflow.md`](reference/workflow.md):
 
 1. **Take the ask in hand** — the command's argument, the record this session just
    wrote, or a record the caller named. **With none of those** — the clock-fired
-   `[Propose]` tick — **discover the inbound issues** (`list-inbound-issues.sh`; below,
+   `[Specificate]` tick — **discover the inbound issues** (`list-inbound-issues.sh`; below,
    *Clock-fired discovery*): each open GitHub issue assigned to this session's own
    identity is an ask in hand, taken oldest-first, each through the full run. Still
    none → `nothing_in_hand`; an ask assigned to someone else → `not_mine` (*Act only
@@ -173,7 +173,7 @@ A second class of strategy-shaped ask does not propose a *new* direction: it **a
 
 ## Act only on an ask that is yours
 
-When the ask arrives from a GitHub issue carrying an assignee, compare it against the session's own GitHub identity (`gh api user` — the credential the session already holds, never an env var); when they differ, report `{"proposed": 0, "reason": "not_mine"}` and stop (P8). An unassigned issue is anyone's, exactly as an unowned artifact is. The check lives in the command, never in the routine prompt: the routines UI offers no assignee filter, so every developer's `[Propose]` fires on every assigned issue, and the dedup only sees proposals that already reached a branch. (`/implement` filters at its *survey* because its artifacts already carry `assignees`; `/propose` filters at its *input* because it creates them — one rule, asked at the only place each command can ask it.)
+When the ask arrives from a GitHub issue carrying an assignee, compare it against the session's own GitHub identity (`gh api user` — the credential the session already holds, never an env var); when they differ, report `{"proposed": 0, "reason": "not_mine"}` and stop (P8). An unassigned issue is anyone's, exactly as an unowned artifact is. The check lives in the command, never in the routine prompt: the routines UI offers no assignee filter, so every developer's `[Specificate]` fires on every assigned issue, and the dedup only sees proposals that already reached a branch. (`/implement` filters at its *survey* because its artifacts already carry `assignees`; `/propose` filters at its *input* because it creates them — one rule, asked at the only place each command can ask it.)
 
 "Who" enters once, at the trigger, and rides the artifacts from there (P6):
 

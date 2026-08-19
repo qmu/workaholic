@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260819-053729
 ---
 
 # Rename the routine pair and add a per-user updater
@@ -37,13 +38,17 @@ by name instead of reporting success.
 
 ## Acceptance
 
-- [ ] The routine formerly named `[Propose]` is `[Specificate]`, carrying the
+- [x] The routine formerly named `[Propose]` is `[Specificate]`, carrying the
   `renamed_from:` cutover instruction into both the report and the setup sheet. (#20260819052637-rename-the-propose-routine-to-specificate.md)
-- [ ] The routine formerly named `[Housekeep]` is `[Propose]`, landing only after
+- [x] The routine formerly named `[Housekeep]` is `[Propose]`, landing only after
   the first rename has freed that name. (#20260819052637-rename-the-housekeep-routine-to-propose.md)
-- [ ] A per-user `[Workaholic]` routine exists with a scope of its own, or the run
+- [x] A per-user `[Workaholic]` routine exists with a scope of its own, or the run
   reports by name what the transport could not do. (#20260819052637-add-the-per-user-workaholic-updater-routine.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-19 — ticket archived — 20260819052637-rename-the-propose-routine-to-specificate.md
+- 2026-08-19 — ticket archived — 20260819052637-rename-the-housekeep-routine-to-propose.md
+- 2026-08-19 — ticket archived — 20260819052637-add-the-per-user-workaholic-updater-routine.md
+- 2026-08-19 — story — work-20260819-053729.md

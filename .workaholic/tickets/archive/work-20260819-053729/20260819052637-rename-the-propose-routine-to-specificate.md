@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-19T05:26:37+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -121,3 +122,50 @@ this migration today; copy it rather than inventing a second mechanism.
 - The template's `id` (`fb`) is already out of step with its name and stays that
   way here; changing it would move every `list-routine-templates.sh` consumer for
   no behaviour.
+
+## Final Report
+
+Development completed as planned. `routines/fb.md` renders as `[Specificate] <repo>` and
+declares `renamed_from: "[Propose] {repo_name}"`; `id`, `scope`, `cron_expression`, `model`,
+`allowed_tools`, `mcp` and the whole `## Prompt` body are byte-identical to before. Every
+routine-name mention of `[Propose]` across `plugins/`, `docs/`, `scripts/`, `CLAUDE.md` and
+`README.md` moved to `[Specificate]` (31 files); no `/propose` *command* mention moved, and
+the retired `[Propose Batch]` design keeps its name because it is a different routine.
+
+### Open Decisions — resolved
+
+1. **Does the command rename too? — No (fork (a): routine name only).** The ask states the
+   name changes and behaviour does not, twice and explicitly. Renaming `/propose` would move
+   the command, the skill namespace, every `workaholic:propose` reference, the ticket-spine
+   prose and the drill's stage names — a change an order of magnitude larger than what was
+   asked. It would also collide mid-migration: the second half of the swap gives the *tick*
+   the name `Propose`, so renaming the command at the same time would leave `/propose`
+   ambiguous between the two halves for the length of the change. The stated cost stands and
+   is recorded rather than glossed: `[Specificate]` runs `/propose`, which reads as a defect
+   to someone greping for either word, so `CLAUDE.md` says in as many words that the routine
+   and the command carry different names on purpose.
+2. **Does the scope move? — No, it stays `developer`.** "Per-repo" in the ask is read as
+   *named per repository*, which the template already is (`{repo_name}` in `name:`). The
+   substantive reading is refused on measured grounds: `/propose` acts only on issues
+   assigned to the running identity (`not_mine` at its input), so one repository-wide copy
+   would route every developer's assigned issues through whichever account created it. That
+   is the 2026-08-14 decision (issue #451) and nothing in this ask reopens it — the ask's own
+   sentence is "behavior and logic stay as-is, only the name changes", and the scope is
+   behaviour.
+
+### Discovered Insights
+
+- **Insight**: `renamed_from:` was written for a *single* rename and needs one more thing
+  when the rename is half of a swap — the **order**. The sheet's derived note says "rename,
+  do not create a second", which is sufficient when the freed name goes nowhere; here the
+  freed name is claimed by another template, so an account converging in the wrong order ends
+  up with two routines carrying one rendered name and convergence cannot tell them apart.
+  **Context**: the ordering is now stated in both setup commands and pinned by a test that
+  fires only while a `renamed_from:` value collides with some live template's `name:` — so it
+  asserts nothing once the swap's fields are deleted, which is the intended end state.
+- **Insight**: `sed` over the literal `[Propose]` reaches prose but not a JavaScript regex
+  literal, where the same token is written `\[Propose\]`.
+  **Context**: `test-workflow-scripts.mjs` pins several skill sentences by regex; a rename
+  sweep that only greps the plain token leaves those pins matching a string the sweep already
+  moved, and the suite fails on the *assertion text* rather than on the behaviour. Grep for
+  the escaped form too when renaming any bracketed identifier.

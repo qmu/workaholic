@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 0.6
 feedback: [20260819103531-workaholify-should-converge-the-account-s-routines-not-just-render-setup-sheets.md]
 tickets: []
 stories: []
@@ -50,3 +50,4 @@ Each routine's enabled state is stated, so a silently-off routine is legible.
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-19 — ticket archived — 20260819103847-make-workaholify-converge-the-routines-over-every-scope.md
 - 2026-08-19 — ticket archived — 20260819103851-report-each-routine-s-enabled-state-at-every-convergence-seam.md
+- 2026-08-19 — run recorded (+0.6h) — implement-20260819-113836

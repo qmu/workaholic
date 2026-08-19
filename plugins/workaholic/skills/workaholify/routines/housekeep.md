@@ -1,7 +1,8 @@
 ---
 type: Routine Template
 id: housekeep
-name: "[Housekeep] {repo_name}"
+name: "[Propose] {repo_name}"
+renamed_from: "[Housekeep] {repo_name}"
 scope: repository
 trigger: schedule-hourly
 trigger_kind: schedule
@@ -12,7 +13,28 @@ allowed_tools: [Bash, Read, Write, Edit, Glob, Grep]
 mcp: [Slack]
 ---
 
-# [Housekeep] — the maintenance tick, one copy for the repository
+# [Propose] — the maintenance tick, one copy for the repository
+
+**This routine was `[Housekeep]` until 2026-08-19, and its cutover is the ordered half of a
+swap** (issue #526). Behaviour did not move: it still runs `/housekeep`, still fires at `:50`,
+still declares `autofix_on_pr_create: true` and `scope: repository`, still names the same two
+post formats. Only `name:` moved — and it moved **into a name that was live until the same
+change**. The routine that held it, running `/propose` at `:15`, is now `[Specificate]`.
+
+**So the operator's act here is ordered, and that is the whole risk.** Convergence matches an
+account's routines by rendered name. An account that has not yet renamed its live
+`[Propose] <repo>` to `[Specificate] <repo>` and lets `/setup-repo-routines` converge this one
+ends up with **two routines called `[Propose] <repo>`** — one firing `/propose` at `:15`, one
+firing `/housekeep` at `:50` — which no convergence can tell apart and which no other account
+can list or delete. **Rename the old `[Propose]` first** (`/setup-dev-routines`' cutover), then
+this one. `renamed_from:` above carries the instruction into the sheet and both setup commands'
+reports; the field is deleted from this template once the fleet has cut over.
+
+**Nothing is deduped by a routine's name**, so no post changes frequency or threading under
+this rename: the Slack keys are `` `fb:<stem>` ``, `` `stuck:<digest>` ``, `` `deploy:<digest>` ``
+and `` `standup:<date>` ``, and nothing searches a heading or a routine name. This is stated
+here rather than left to be re-derived — the 2026-08-17 release-tick rename was reversed the
+next day on exactly that mistaken assumption.
 
 **`scope: repository`** — the repository needs exactly **one** of this routine, configured by
 one designated person or a project/service account through `/setup-repo-routines`.

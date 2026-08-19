@@ -10768,14 +10768,42 @@ function testRenderSetupSheet() {
     .filter((f) => f.endsWith(".md"))
     .map((f) => readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines", f), "utf8"));
   const liveNames = allTemplates.map((b) => (b.match(/^name:[ \t]*"?([^"\n]+)"?/m) || [])[1]);
+  const swapFiles = readdirSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines"))
+    .filter((f) => f.endsWith(".md"));
   for (const [file, body] of renamedTemplates) {
     const oldName = (body.match(/^renamed_from:[ \t]*"?([^"\n]+)"?/m) || [])[1];
     if (!liveNames.includes(oldName)) continue;
     for (const cmdPath of Object.values(cmdForScope)) {
       const cmd = readFileSync(join(REPO_ROOT, cmdPath), "utf8");
       assertTrue(`${cmdPath} states the ordered cutover for the swap ${file} is half of`,
-        /\*\*before\*\*/.test(cmd) || /ordering/.test(cmd), cmd.slice(0, 400));
+        /\*\*before\*\*/i.test(cmd) || /ordering/.test(cmd), cmd.slice(0, 400));
     }
+    // BOTH SHEETS carry it, and each from its own end of the swap: the routine vacating the
+    // name is told to go first, the routine taking it is told what to rename before creating
+    // it. Derived from the template set — an ordinary rename, whose freed name goes nowhere,
+    // renders neither line.
+    const vacating = sheet(file.replace(/\.md$/, ""));
+    assertTrue(`the sheet for ${file} tells the operator to rename it first`,
+      /Do this one FIRST/.test(vacating), vacating.slice(0, 900));
+    const takerFile = swapFiles.find((f) => {
+      const b = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines", f), "utf8");
+      return (b.match(/^name:[ \t]*"?([^"\n]+)"?/m) || [])[1] === oldName;
+    });
+    const taking = sheet(takerFile.replace(/\.md$/, ""));
+    assertTrue(`the sheet for ${takerFile} names what must be renamed before it is created`,
+      /BEFORE creating this one/.test(taking), taking.slice(0, 900));
+  }
+  // An ordinary rename renders NEITHER ordering line — the note is derived, so it cannot
+  // leak onto a template whose freed name nobody claims.
+  const claimedNames = renamedTemplates
+    .map(([, b]) => (b.match(/^renamed_from:[ \t]*"?([^"\n]+)"?/m) || [])[1]);
+  for (const [file, body] of renamedTemplates) {
+    const oldName = (body.match(/^renamed_from:[ \t]*"?([^"\n]+)"?/m) || [])[1];
+    const ownName = (body.match(/^name:[ \t]*"?([^"\n]+)"?/m) || [])[1];
+    if (liveNames.includes(oldName) || claimedNames.includes(ownName)) continue;
+    const plain = sheet(file.replace(/\.md$/, ""));
+    assertTrue(`the sheet for ${file} carries no ordering line it has no swap for`,
+      !/Do this one FIRST/.test(plain) && !/BEFORE creating this one/.test(plain), plain.slice(0, 900));
   }
   assertEq("an explicit template id outside the requested scope is refused, not rendered",
     run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.renderSetupSheet} fb ${WH} repository`).status !== 0, true);
@@ -14224,7 +14252,7 @@ const tests = [
   ["housekeep steps 4-7: report, never repair; remind once per state", testHousekeepHygieneSteps],
   ["housekeep step 8: a step reversing a standing decision stays unbuilt", testHousekeepStrategyStepIsGated],
   ["housekeep step 9: asking costs attention, so the gates are mechanical", testHousekeepCheckIn],
-  ["[Housekeep]: the template, its scope, and the shapes it authorizes", testHousekeepRoutineTemplate],
+  ["[Propose]: the template, its scope, and the shapes it authorizes", testHousekeepRoutineTemplate],
 ];
 
 // `await` matters even though almost every test is synchronous: without it an async
@@ -17940,7 +17968,7 @@ function testHousekeepCheckIn() {
   }
 }
 
-// ---------- [Housekeep]: the template, its scope, and the shapes it authorizes ----------
+// ---------- [Propose]: the template, its scope, and the shapes it authorizes ----------
 // (2026-08-17, issue #471) The prompt is the ceiling: a session may emit only the shapes its
 // own routine names, so a template and the shape catalog that disagree ship either a
 // documented shape nobody may post or a posted shape nothing documents. Byte for byte.
@@ -17975,7 +18003,7 @@ function testHousekeepRoutineTemplate() {
   assertTrue("the template is repository-scoped", /^scope: repository$/m.test(template));
   assertTrue("firing at :50, after the other three", /^cron_expression: 50 \* \* \* \*$/m.test(template));
   assertTrue("CLAUDE.md's routines table carries the same row",
-    /\| `housekeep\.md` \| `\[Housekeep\]` \| `repository` \| `50 \* \* \* \*` \| `\/setup-repo-routines` \|/.test(claudeMd),
+    /\| `housekeep\.md` \| `\[Propose\]` \| `repository` \| `50 \* \* \* \*` \| `\/setup-repo-routines` \|/.test(claudeMd),
     "the routines table and the template disagree");
   // Write/Edit are granted BECAUSE it writes — the reader routine's contract is the
   // contrast, and the template has to say which it is rather than inherit a list.

@@ -521,4 +521,5 @@
 * [Make the Housekeep notification reflect the tick's actual findings](20260818202549-make-the-housekeep-notification-reflect-the-tick-s-actual-findings.md)
 * [The Claude app notifies on routine results though routine reporting is Slack-only](20260818202939-the-claude-app-notifies-on-routine-results-though-routine-reporting-is-slack-only.md)
 * [Housekeep must post only FB issue filings, never PR-status notifications](20260819051828-housekeep-must-post-only-fb-issue-filings-never-pr-status-notifications.md)
+* [Routine registration should be three per-repository routines plus one per-user updater](20260819052547-routine-registration-should-be-three-per-repository-routines-plus-one-per-user-updater.md)
 <!-- okf:generated:end -->

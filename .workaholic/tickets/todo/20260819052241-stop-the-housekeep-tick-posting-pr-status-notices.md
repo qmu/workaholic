@@ -6,6 +6,7 @@ depends_on:
 feedback: [20260819051828-housekeep-must-post-only-fb-issue-filings-never-pr-status-notifications.md]
 merge_policy:
 verification_handoff: 
+claim: work-20260819-063001
 ---
 
 # Stop the housekeep tick posting PR-status notices

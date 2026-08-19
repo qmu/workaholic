@@ -6,6 +6,7 @@ depends_on:
 feedback: [20260819061902-fix-the-housekeep-check-in-s-already-asked-gate.md]
 merge_policy:
 verification_handoff: 
+claim: work-20260819-063001
 ---
 
 # Fix the housekeep check-in's already-asked gate

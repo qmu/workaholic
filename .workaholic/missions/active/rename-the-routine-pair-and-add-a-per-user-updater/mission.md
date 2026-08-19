@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 0.9
 feedback: [20260819052547-routine-registration-should-be-three-per-repository-routines-plus-one-per-user-updater.md]
 tickets: []
 stories: []
@@ -52,3 +52,4 @@ by name instead of reporting success.
 - 2026-08-19 — ticket archived — 20260819052637-rename-the-housekeep-routine-to-propose.md
 - 2026-08-19 — ticket archived — 20260819052637-add-the-per-user-workaholic-updater-routine.md
 - 2026-08-19 — story — work-20260819-053729.md
+- 2026-08-19 — run recorded (+0.9h) — cse_01HqtkcArPxsSxSgQJ8qQcAH

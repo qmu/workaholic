@@ -98,7 +98,7 @@ modified_at: <ISO 8601 timestamp>
 | `missions/`     | `type: Mission`, `title`, `slug`, `status`, `merge_policy`, `assignees` |
 | `release-notes/`| `type: Release Note`; `targets` (the deploy-target slugs the note plans for) is **stamped by `draft-deploy-plan.sh`**, never hand-written |
 | `releases/`     | `type: Release`, `release_branch`, `status` (`staging` / `confirmed` / `failed`), `base`, `cut_at`, `cut_sha`, `since_ref`, `since_reason`, `carried_count`; filled at confirmation: `confirmed_at`, `confirmation_method`, `confirmation_status`, `tag` |
-| `stories/`      | `type: Story`, `branch`, `started_at`, `ended_at`, metrics fields |
+| `stories/`      | `type: Story`, `branch`, `description` (the stories-index entry — the index is **generated** from it, never hand-edited, since 2026-08-19), `tickets_completed`, `mission`, `tickets` |
 | `strategies/`   | `type: Strategy`, `title`, `slug`, `status` (`active` / `achieved` / `abandoned`), `target_date` (the Schedule's bound, `YYYY-MM-DD`), non-empty `assignees` (the Assignee), optional `feedback` relation; body sections `## Aim` and `## Schedule` |
 | `terms/`        | `type: Term`, `title`, `description`, `category`       |
 | `tickets/`      | See `/ticket` command for full schema. **No `type:`** (the OKF exception); optional `status:` — absent means queued, `done` / `abandoned` / `icebox` mean archived with that outcome |

@@ -27,7 +27,7 @@
 #     and by this reader. A hard gate would fire on a legitimately larger mission, and a
 #     gate that refuses good work is worse than a norm that guides it -- the author is
 #     present, exercising judgment, and can be shown the measurement instead.
-#   - For a /propose DRAFT the ceiling is HARD, enforced by the batch on its own output.
+#   - For a /specificate DRAFT the ceiling is HARD, enforced by the batch on its own output.
 #     The batch writes unattended with no judgment to exercise and no author to show a
 #     measurement to, so "guidance" there is just an unenforced wish.
 #

@@ -1,5 +1,5 @@
 #!/bin/sh -eu
-# Read the `/housekeep` tick log — the answer to "did an earlier tick already do this?"
+# Read the `/propose` tick log — the answer to "did an earlier tick already do this?"
 #
 # WHY IT EXISTS (2026-08-17, issue #471). An hourly routine that cannot remember
 # what the last twenty-three ticks did re-files the same finding every hour. The

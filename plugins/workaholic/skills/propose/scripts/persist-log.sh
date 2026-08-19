@@ -79,7 +79,7 @@
 #
 #   - "Persist twice." Not an alternative but the other half of this one: a
 #     second persist is what the agent now runs after recording its `<step>-filed`
-#     lines (`workaholic:housekeep`, *The run*), and it is inert unless the union
+#     lines (`workaholic:propose`, *The run*), and it is inert unless the union
 #     can update a section that has already landed — which is this change. Both
 #     halves ship together; either alone fixes nothing.
 #   - "Move the agent's filing before the persist." Refused. It takes the closing
@@ -334,7 +334,7 @@ while [ "$attempt" -lt "$ATTEMPTS" ]; do
     fi
 
     commit_out=$(cd "$repo_root" && sh "${BRANCHING}/publish-tree-commit.sh" \
-        "Log the housekeep tick ${TICK}" \
+        "Log the propose tick ${TICK}" \
         "An hourly unattended tick's only audit trail is what it writes down, and the routine's container is discarded after the run." \
         "The ${DAY} housekeeping log on ${BASE} now carries this tick's steps, so the next tick's dedups and a human's audit read the same record." \
         "None" \

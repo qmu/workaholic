@@ -1,6 +1,6 @@
 ---
 type: Routine Template
-id: fb
+id: specificate
 name: "[Specificate] {repo_name}"
 renamed_from: "[Propose] {repo_name}"
 scope: developer
@@ -16,7 +16,7 @@ mcp: [Slack]
 # [Specificate] — turn a reported ask into a record and the work it warrants
 
 **This routine was `[Propose]` until 2026-08-19, and the rename owes the operator one
-manual act** (issue #526). Behaviour did not move: it still runs `/propose`, still fires at
+manual act** (issue #526). Behaviour did not move: it still runs `/specificate`, still fires at
 `:15`, still declares `autofix_on_pr_create: true`, still names the same two post formats.
 Only `name:` moved — and convergence matches an account's routines **by name**, so the next
 `/setup-dev-routines` run **creates a second routine** rather than renaming the existing
@@ -32,7 +32,7 @@ describes a migration rather than a routine. `[Prepare Release]` carried the fir
 **The rename is one half of a swap, and the other half takes this name.** The maintenance
 tick, `[Housekeep]`, becomes `[Propose]` — so an account that creates `[Specificate]`
 without first renaming its live `[Propose]` ends up with two routines called `[Propose]
-<repo>`, one firing `/propose` at `:15` and one firing `/housekeep` at `:50`, which
+<repo>`, one firing `/specificate` at `:15` and one firing `/propose` at `:50`, which
 convergence cannot tell apart. **Rename this one first**; the cutover is ordered, not merely
 "do not create a second".
 
@@ -46,10 +46,10 @@ ticket `20260810085347`, 2026-08-10: loop-engineering cadence over instant webho
 reaction, for both `[Specificate]` and `[Implement]` (the developer's explicit correction
 — an earlier draft of this ticket kept `[Specificate]` event-triggered on the reasoning
 below; the developer asked for both). Every developer's copy fires independently on
-its own tick, and the **data** decides whose work it is exactly as before: `/propose`
+its own tick, and the **data** decides whose work it is exactly as before: `/specificate`
 reads whatever ask is in hand and reports `not_mine` when it is not theirs.
 
-**A schedule fire carries nothing in hand, so `/propose` discovers its own asks**
+**A schedule fire carries nothing in hand, so `/specificate` discovers its own asks**
 (developer's instruction, 2026-08-12, closing the cost the schedule migration first
 stated as unresolved): a tick that starts with no argument, no fresh record and no
 trigger payload runs the propose skill's *Clock-fired discovery* —
@@ -69,7 +69,7 @@ fallback, and one literal finish shape carrying the session URL and the requeste
 mention — plus, since 2026-08-14, the description root the finish replies into when
 the lookup finds no thread, which the ceiling rule requires the prompt to name before
 any session may emit it) and states no rule
-a skill already owns: `workaholic:propose` owns the judgment, the single pull request
+a skill already owns: `workaholic:specificate` owns the judgment, the single pull request
 and the `[Proposal]` prefix; `workaholic:feedback` owns the record; `workaholic:notify`
 owns every notification rule; the always-loaded `rules/` own the standing
 prohibitions. The one literal format below stays embedded rather than deferred — Q2's
@@ -83,15 +83,15 @@ thread is **found**, never carried (Q1) — the notify SKILL's exact-token looku
 target read out of a triggering event and not a channel name in the prompt — so no
 repository is named here and the same prompt pastes into every project. A schedule
 fire carries no specific Issue in its payload (unlike the retired assignment
-trigger) — the issues come from `/propose`'s own clock-fired discovery — so the
-lookup runs once per ask `/propose` actually took in hand. `{repo}` in the format
+trigger) — the issues come from `/specificate`'s own clock-fired discovery — so the
+lookup runs once per ask `/specificate` actually took in hand. `{repo}` in the format
 lines is the developer's own placeholder for the issue and pull request links.
 
 ## Prompt
 
-Run `/propose`.
+Run `/specificate`.
 
-If the command or its skills did not load, do not stop: run `bash plugins/workaholic/skills/check-deps/scripts/plugin-src.sh` from the checkout, take its `src`, then read `<src>/commands/propose.md` and follow it with every script path under `<src>`.
+If the command or its skills did not load, do not stop: run `bash plugins/workaholic/skills/check-deps/scripts/plugin-src.sh` from the checkout, take its `src`, then read `<src>/commands/specificate.md` and follow it with every script path under `<src>`.
 
 If it finds an ask in hand, post one finish line into its reply thread (the workaholic:notify lookup):
 

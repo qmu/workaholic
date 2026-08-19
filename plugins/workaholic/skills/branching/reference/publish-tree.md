@@ -16,7 +16,7 @@ env vars that shape a pull request — and the design rationale behind the shape
 
 ## The env var that shapes a pull request
 
-**`WORKAHOLIC_PR_TITLE`** gives the pull request a title distinct from the commit subject. The two are different surfaces with different rules, and conflating them was a live defect: `check-subject.sh` forbids a `[bracket]` prefix, so `/propose`'s documented `[Proposal]` title could only be written by failing the commit gate. Unset, the title is the subject, which is what every other caller gets. It is an env var rather than a positional because the positionals belong to `commit.sh` and end in an open-ended `[files...]`, where an extra one could not be told from a filename (P4, 2026-08-06).
+**`WORKAHOLIC_PR_TITLE`** gives the pull request a title distinct from the commit subject. The two are different surfaces with different rules, and conflating them was a live defect: `check-subject.sh` forbids a `[bracket]` prefix, so `/specificate`'s documented `[Proposal]` title could only be written by failing the commit gate. Unset, the title is the subject, which is what every other caller gets. It is an env var rather than a positional because the positionals belong to `commit.sh` and end in an open-ended `[files...]`, where an extra one could not be told from a filename (P4, 2026-08-06).
 
 The second env var P4 added — a machine-readable notification-target line in the body, with a reader script beside the writer — is **retired** (Q1, 2026-08-07): the reply thread is found statelessly by the consumer (`workaholic:notify`, *One thread per feedback item*), never carried in a pull-request body. Do not reintroduce a carried target.
 

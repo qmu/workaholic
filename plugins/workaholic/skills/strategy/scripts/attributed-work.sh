@@ -28,10 +28,10 @@
 #   strategy.feedback[]  ∩  mission.feedback[], and the artifact names that mission
 #                                                        -> attribution "via_mission:<slug>"
 #
-# The second hop is not a convenience: `/propose` puts the `feedback:` refs on the MISSION
+# The second hop is not a convenience: `/specificate` puts the `feedback:` refs on the MISSION
 # and its ticket set carries `mission:` instead, so a one-hop reader would see almost
 # nothing. Both hops go through the existing single readers of their relations
-# (`propose/scripts/read-feedback-relation.sh`, `mission/scripts/read-relation.sh`); this
+# (`specificate/scripts/read-feedback-relation.sh`, `mission/scripts/read-relation.sh`); this
 # script parses neither field itself, which is what keeps a second parser from ever
 # disagreeing with the first.
 #
@@ -63,7 +63,7 @@
 set -eu
 
 SCRIPT_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
-READ_FEEDBACK="${SCRIPT_DIR}/../../propose/scripts/read-feedback-relation.sh"
+READ_FEEDBACK="${SCRIPT_DIR}/../../specificate/scripts/read-feedback-relation.sh"
 READ_MISSION="${SCRIPT_DIR}/../../mission/scripts/read-relation.sh"
 
 SLUG="${1:-}"

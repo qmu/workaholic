@@ -117,8 +117,8 @@ How the outcome's quality is assured, captured from the developer in Workflow §
 <Optional — a genuinely unrecommendable fork the writing session has no authority to
 resolve unattended, each item naming the fork and its live options. `/ticket` resolves
 this kind of fork by asking the developer directly in Workflow §4b, so it rarely needs
-this section; `/propose` cannot ask, so this is where it records one instead of silently
-choosing (`workaholic:propose`, *Open decisions*). Omit the section entirely when there
+this section; `/specificate` cannot ask, so this is where it records one instead of silently
+choosing (`workaholic:specificate`, *Open decisions*). Omit the section entirely when there
 is none.>
 
 - <The fork> — options: <A> vs <B>. <Why neither is clearly recommendable.>

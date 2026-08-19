@@ -46,7 +46,7 @@
 # pull request's own title (2026-08-18, issue #496). Until then this arm emitted
 # `Pull request #N (branch) — no branch story on the base.`, a line whose entire
 # content is the absence of a summary. It is not a rare fallback but a routine
-# one: a `/propose` pull request is published through the publish tree and
+# one: a `/specificate` pull request is published through the publish tree and
 # auto-merges without ever running `/report`, so it structurally never has a
 # story, and proposal merges are the most frequent merge kind in this repository.
 #
@@ -295,7 +295,7 @@ while IFS="$US" read -r slug title environment model model_reason \
           stories="${stories}- ${stitle}
 "
         elif [ -n "$mtitle" ]; then
-          # No story joined this merge — the structural case for every `/propose`
+          # No story joined this merge — the structural case for every `/specificate`
           # pull request, which auto-merges without ever running `/report`. The
           # merge commit's body is that pull request's own title, so the line says
           # what landed instead of saying that nothing says what landed.

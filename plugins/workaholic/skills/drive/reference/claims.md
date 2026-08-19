@@ -18,7 +18,7 @@ on another machine coordinates through exactly the same artifact.
   `origin/main` by the standard creator, stamping `claim: <branch>` into the claimed artifacts'
   frontmatter — the mission's `mission.md`, or each batched ticket file — pushed immediately. The
   stamp rides the **worktree** checkout only, so the runner's main checkout stays clean between
-  ticks (the `/propose` batch depends on that). **A stamp that reaches the base is history, never
+  ticks (the `/specificate` batch depends on that). **A stamp that reaches the base is history, never
   a claim** (decision M1, 2026-08-04): a `handoff` or `blocked` unit merges its PR with tickets
   still in `todo/`, so a base-side stamp on a live queue item is an ordinary state — the
   unmerged-branch scan is the only claim oracle, and it already reports a merged branch's claim as

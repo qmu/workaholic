@@ -14,13 +14,13 @@ to pursue (**Aim**), by when (**Schedule**), and who carries it (**Assignee**). 
 `.workaholic/strategies/<slug>.md`, one file per strategy, and is **operator-authored** — no
 command, hook, or routine puts one on `main` on its own.
 
-**The one drafting exemption** (2026-08-14): `/propose` may draft a strategy into its proposal
+**The one drafting exemption** (2026-08-14): `/specificate` may draft a strategy into its proposal
 pull request, and **that pull request never auto-merges**, so the file still reaches `main` only
 when a human merges it — the operator's merge is the authorship. Everything else holds unchanged:
 `create.sh` is still the only writer, `close.sh` still the only writer of an end state, `/drive`
-still never surveys a strategy, and the bar `/propose` must clear is all three parts present in
+still never surveys a strategy, and the bar `/specificate` must clear is all three parts present in
 the ask (a date, a named owner, an aim with no decomposable plan) or it emits nothing
-(`workaholic:propose`, *The strategy form, and the one rule it widens*). The same exemption
+(`workaholic:specificate`, *The strategy form, and the one rule it widens*). The same exemption
 covers `close.sh` when an ask **announces** that a named strategy ended — matched by explicit
 slug only, never by title similarity. There is still no third writer: nothing edits a live
 strategy's Aim, Schedule or Assignee, so an announced *change* is captured as feedback and
@@ -80,10 +80,10 @@ along the citation that already exists, and **no new field is added anywhere**.
 | 1 | The artifact's `feedback:` refs intersect the strategy's | `direct` |
 | 2 | A **mission** attributed by hop 1 is named by the artifact's `mission:` relation | `via_mission:<slug>` |
 
-Hop 2 is load-bearing, not a nicety: `/propose` puts the `feedback:` refs on the **mission** and its
+Hop 2 is load-bearing, not a nicety: `/specificate` puts the `feedback:` refs on the **mission** and its
 ticket set carries `mission:` instead, so a one-hop reader would see almost nothing. Both hops read
 their relation through that relation's existing single reader
-(`propose/scripts/read-feedback-relation.sh`, `mission/scripts/read-relation.sh`), so this script
+(`specificate/scripts/read-feedback-relation.sh`, `mission/scripts/read-relation.sh`), so this script
 parses neither field itself.
 
 **The direction is unchanged and stays one-way.** A strategy cites feedback; nothing cites a

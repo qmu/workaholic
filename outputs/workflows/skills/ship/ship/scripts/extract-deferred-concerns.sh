@@ -39,7 +39,7 @@
 #
 # THE DESTINATION IS EXPLICIT, NEVER INFERRED. The open-concern set is computed from
 # records on the BASE, so a record pushed anywhere else is invisible to /report's judge
-# and to /propose. This script used to commit and push on whatever branch it happened to
+# and to /specificate. This script used to commit and push on whatever branch it happened to
 # be standing on, with a header that assumed merge-pr.sh had already checked the base
 # out. On 2026-07-30 that assumption broke -- merge-pr.sh cannot check `main` out from
 # inside a claim worktree -- so PR #108's four concerns were committed and pushed to the

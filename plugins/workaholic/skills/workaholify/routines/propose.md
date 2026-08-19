@@ -1,6 +1,6 @@
 ---
 type: Routine Template
-id: housekeep
+id: propose
 name: "[Propose] {repo_name}"
 renamed_from: "[Housekeep] {repo_name}"
 scope: repository
@@ -16,16 +16,16 @@ mcp: [Slack]
 # [Propose] — the maintenance tick, one copy for the repository
 
 **This routine was `[Housekeep]` until 2026-08-19, and its cutover is the ordered half of a
-swap** (issue #526). Behaviour did not move: it still runs `/housekeep`, still fires at `:50`,
+swap** (issue #526). Behaviour did not move: it still runs `/propose`, still fires at `:50`,
 still declares `autofix_on_pr_create: true` and `scope: repository`, still names the same two
 post formats. Only `name:` moved — and it moved **into a name that was live until the same
-change**. The routine that held it, running `/propose` at `:15`, is now `[Specificate]`.
+change**. The routine that held it, running `/specificate` at `:15`, is now `[Specificate]`.
 
 **So the operator's act here is ordered, and that is the whole risk.** Convergence matches an
 account's routines by rendered name. An account that has not yet renamed its live
 `[Propose] <repo>` to `[Specificate] <repo>` and lets `/setup-repo-routines` converge this one
-ends up with **two routines called `[Propose] <repo>`** — one firing `/propose` at `:15`, one
-firing `/housekeep` at `:50` — which no convergence can tell apart and which no other account
+ends up with **two routines called `[Propose] <repo>`** — one firing `/specificate` at `:15`, one
+firing `/propose` at `:50` — which no convergence can tell apart and which no other account
 can list or delete. **Rename the old `[Propose]` first** (`/setup-dev-routines`' cutover), then
 this one. `renamed_from:` above carries the instruction into the sheet and both setup commands'
 reports; the field is deleted from this template once the fleet has cut over.
@@ -66,7 +66,7 @@ have just done.
 **`autofix_on_pr_create: true`, and `Write`/`Edit` are granted rather than inherited.** This
 routine is not a pure reader like `[Prepare Release]`: it writes its own tick log under
 `.workaholic/housekeeping/`, and filing a finding means writing a feedback record or a ticket —
-which publishes behind a pull request, exactly as `/propose` does. A pull request this routine
+which publishes behind a pull request, exactly as `/specificate` does. A pull request this routine
 opened and then left red is a stuck artifact nobody owns, so the flag is `true` for the same
 reason it is true on `[Specificate]`.
 
@@ -74,14 +74,14 @@ reason it is true on `[Specificate]`.
 clone; a log left in that checkout would take every dedup's memory with it and leave an hourly
 unattended process with no audit trail. `persist-log.sh` is the tick's closing act and the one
 thing this routine puts on `main` — an append to its own log, through the publish tree, leaving
-the checkout byte-identical and creating no branch (`workaholic:housekeep`, *The tick log*).
+the checkout byte-identical and creating no branch (`workaholic:propose`, *The tick log*).
 
 **What it never does**, and none of it is left to the prompt: it never merges a pull request,
 never pushes into a branch the claim protocol owns (step 4 reports conflict state and the claim
 holder resolves it), never edits a live strategy, never closes an issue, never rewrites a
 document on `main` — its own append-only tick log is the single exception, stated above — and
 never calls `AskUserQuestion` — step 9 asks humans **in Slack**. Every one of those rules lives
-in `workaholic:housekeep` and its `reference/workflow.md`, which is why this prompt does not
+in `workaholic:propose` and its `reference/workflow.md`, which is why this prompt does not
 restate them.
 
 **The prompt is the ceiling** (P3, Q2, P10): the two literal formats below are the only shapes a
@@ -90,9 +90,9 @@ mirrors both verbatim. A future edit to either copy is a drift to fix, never a s
 
 ## Prompt
 
-Run `/housekeep`.
+Run `/propose`.
 
-If the command or its skills did not load, do not stop: run `bash plugins/workaholic/skills/check-deps/scripts/plugin-src.sh` from the checkout, take its `src`, then read `<src>/commands/housekeep.md` and follow it with every script path under `<src>`.
+If the command or its skills did not load, do not stop: run `bash plugins/workaholic/skills/check-deps/scripts/plugin-src.sh` from the checkout, take its `src`, then read `<src>/commands/propose.md` and follow it with every script path under `<src>`.
 
 If pull requests are waiting on a human and the exact-string search for the state key finds no earlier post, post this one line as a new top-level message (the workaholic:notify lookup) — no mention token of any kind:
 

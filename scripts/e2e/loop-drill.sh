@@ -12,7 +12,11 @@
 #   loop-drill.sh verify-plan [--json]        # is the deployment-plan refresh sound?
 #   loop-drill.sh verify-status [--json]      # is the [Prepare Release] read sound and silent?
 #   loop-drill.sh verify-cadence [--json]     # is the daily note generation idempotent and clock-free?
-#   loop-drill.sh verify-housekeep [--json]   # is the [Housekeep] tick sound and write-free?
+#   loop-drill.sh verify-housekeep [--json]   # is the /housekeep tick (the [Propose]
+#                                             routine since 2026-08-19) sound and
+#                                             write-free? The stage names the COMMAND,
+#                                             which did not move in that rename; the
+#                                             routine that fires it did.
 #
 # Every outcome is ONE JSON line on stdout. A non-zero exit names the blocker in
 # `reason`; exit 0 means the subcommand did what it was asked.

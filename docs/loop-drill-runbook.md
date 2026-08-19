@@ -32,7 +32,7 @@ Run every command from the repository root, on a clean `main`.
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-status --json` | the same targets read the `[Prepare Release]` way — proves the repository tick reads soundly and stays silent when nothing changed |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-cadence --json` | the same targets' **draft notes** — proves the daily generation renders, is idempotent and clock-free, and derives its stage |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-standup --json` | this checkout's strategies and their attributable work — proves the daily digest reads soundly, names its silence and writes nothing |
-| — | Any time | `sh scripts/e2e/loop-drill.sh verify-housekeep --json` | one `[Housekeep]` tick against a throwaway root — proves every step reports, the log carries one section per tick, and the checkout is untouched |
+| — | Any time | `sh scripts/e2e/loop-drill.sh verify-housekeep --json` | one `[Propose]` tick against a throwaway root — proves every step reports, the log carries one section per tick, and the checkout is untouched |
 | — | Any time | `sh scripts/e2e/loop-drill.sh status` | the drill's residue: issues, claim branches, tickets |
 | — | After an abort | `sh scripts/e2e/loop-drill.sh reset` | closes/deletes **drill-minted** residue only |
 
@@ -292,13 +292,21 @@ correct and still be the wrong artifact if it left something behind. The likelie
 regression is a helper that starts caching its answer to a file "to be idempotent", which
 is the opposite of what a reader needs.
 
-## 5f. The `[Housekeep]` tick
+## 5f. The `[Propose]` tick (the `/housekeep` run)
+
+**The drill stages are named after the commands, and the commands did not move in the
+2026-08-19 rename** (issue #526): `verify-housekeep` drills `/housekeep`, which the
+`[Propose]` routine now fires, and `verify-propose` drills `/propose`, which the
+`[Specificate]` routine now fires. Renaming the stages would move an operator's muscle
+memory and every runbook reference for no behaviour, and would leave `verify-propose`
+pointing at a command whose routine is no longer called Propose either way. Read a stage
+name as the command it runs, never as the routine that schedules it.
 
 `verify-housekeep` needs no seed, no fire and no issue number, and it runs the tick against
 a **throwaway root** so a drill never appends to the operator's own
 `.workaholic/housekeeping/` log.
 
-`[Housekeep]` (repository scope, `50 * * * *`, configured by `/setup-repo-routines` from
+`[Propose]` (repository scope, `50 * * * *`, configured by `/setup-repo-routines` from
 **one** account) runs `/housekeep`: nine steps, one log line each. On a healthy quiet
 repository its correct output is again *no Slack message at all*, so the channel cannot
 tell you whether it worked. Four load-bearing rows:

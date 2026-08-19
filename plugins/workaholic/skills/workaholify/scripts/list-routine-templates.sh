@@ -5,7 +5,7 @@
 #
 # Output (one JSON line):
 #   {"count": N, "scope": "<filter or empty>",
-#    "templates": [{"id","name_pattern","scope","trigger","cron_expression","model","path"}]}
+#    "templates": [{"id","name_pattern","scope","trigger","cron_expression","model","notifications","path"}]}
 #
 # THE SCOPE IS THE TEMPLATE'S OWN FIELD, NOT THE COMMAND'S (2026-08-14, issue #451).
 # `/setup-dev-routines` and `/setup-repo-routines` differ only in which templates they
@@ -15,7 +15,7 @@
 #   developer   every developer needs their own copy, per repository ([Specificate],
 #               [Implement]) — configured by /setup-dev-routines
 #   repository  the repository needs exactly ONE copy, configured by one account
-#               ([Prepare Release], [Standup], [Propose]) — /setup-repo-routines
+#               ([Prepare Release], [Standup], [Moderate]) — /setup-repo-routines
 #   user        the ACCOUNT needs exactly ONE copy, across every repository it has set
 #               up ([Workaholic]) — /setup-user-routines (2026-08-19, issue #526)
 # An optional positional filters the set; absent, every template is listed. A template
@@ -92,10 +92,11 @@ for f in "$DIR"/*.md; do
   trigger=$(fm_field "$f" trigger)
   cron=$(fm_field "$f" cron_expression)
   model=$(fm_field "$f" model)
+  notifications=$(fm_field "$f" notifications)
 
   [ -z "$WANT_SCOPE" ] || [ "$scope" = "$WANT_SCOPE" ] || continue
 
-  entries="${entries}${sep}{\"id\": \"$(json_escape "$id")\", \"name_pattern\": \"$(json_escape "$name")\", \"scope\": \"$(json_escape "$scope")\", \"trigger\": \"$(json_escape "$trigger")\", \"cron_expression\": \"$(json_escape "$cron")\", \"model\": \"$(json_escape "$model")\", \"path\": \"$(json_escape "$f")\"}"
+  entries="${entries}${sep}{\"id\": \"$(json_escape "$id")\", \"name_pattern\": \"$(json_escape "$name")\", \"scope\": \"$(json_escape "$scope")\", \"trigger\": \"$(json_escape "$trigger")\", \"cron_expression\": \"$(json_escape "$cron")\", \"model\": \"$(json_escape "$model")\", \"notifications\": \"$(json_escape "$notifications")\", \"path\": \"$(json_escape "$f")\"}"
   sep=", "
   count=$((count + 1))
 done

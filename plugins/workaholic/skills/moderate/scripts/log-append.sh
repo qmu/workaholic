@@ -1,7 +1,7 @@
 #!/bin/sh -eu
-# Record one step of one `/propose` tick in the tick log.
+# Record one step of one `/moderate` tick in the tick log.
 #
-# WHY IT EXISTS (2026-08-17, issue #471). `/propose` runs hourly and unattended.
+# WHY IT EXISTS (2026-08-17, issue #471). `/moderate` runs hourly and unattended.
 # The only evidence such a run leaves is what it writes down, so every step says
 # what it checked, what it filed, and what it could not read — into a per-day file
 # under `.workaholic/housekeeping/`, the area registered for exactly this.
@@ -97,8 +97,8 @@ if [ ! -f "$FILE" ]; then
     cat > "$FILE" <<EOF
 # Housekeeping log — $DAY
 
-One section per \`/propose\` tick, one line per step: what it checked, what it
-filed, what it skipped and why. Written only by \`workaholic:propose\`; append-only,
+One section per \`/moderate\` tick, one line per step: what it checked, what it
+filed, what it skipped and why. Written only by \`workaholic:moderate\`; append-only,
 never pruned by a machine. This is an operational log, not an OKF knowledge
 artifact — it carries no \`type:\` and is not index-managed.
 EOF

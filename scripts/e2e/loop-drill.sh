@@ -12,7 +12,7 @@
 #   loop-drill.sh verify-plan [--json]        # is the deployment-plan refresh sound?
 #   loop-drill.sh verify-status [--json]      # is the [Prepare Release] read sound and silent?
 #   loop-drill.sh verify-cadence [--json]     # is the daily note generation idempotent and clock-free?
-#   loop-drill.sh verify-propose [--json]   # is the /propose tick (the [Propose]
+#   loop-drill.sh verify-propose [--json]   # is the /moderate tick (the [Moderate]
 #                                             routine since 2026-08-19) sound and
 #                                             write-free? The stage names the COMMAND,
 #                                             which did not move in that rename; the
@@ -1137,9 +1137,9 @@ cmd_verify_standup() {
 # outside the log? The drill runs the tick against a THROWAWAY root so the operator's
 # own `.workaholic/housekeeping/` is never appended to by a drill.
 cmd_verify_propose() {
-    _run="${REPO_ROOT}/plugins/workaholic/skills/propose/scripts/run.sh"
+    _run="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/run.sh"
     if [ ! -f "$_run" ]; then
-        emit_err "propose_unreadable" 4 "propose/scripts/run.sh is not present in this checkout"
+        emit_err "propose_unreadable" 4 "moderate/scripts/run.sh is not present in this checkout"
     fi
 
     # A DELTA, NOT AN ABSOLUTE. The drill runs in whatever checkout the operator has,
@@ -1149,7 +1149,7 @@ cmd_verify_propose() {
 
     _root=$(mktemp -d)
     mkdir -p "${_root}/.workaholic"
-    _tick=$(sh "${REPO_ROOT}/plugins/workaholic/skills/propose/scripts/tick-id.sh" | sed 's/.*"tick": "//; s/".*//')
+    _tick=$(sh "${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/tick-id.sh" | sed 's/.*"tick": "//; s/".*//')
     _out=$(cd "$REPO_ROOT" && sh "$_run" --tick "$_tick" --root "$_root" 2>&1) || true
 
     _steps=$(printf '%s' "$_out" | awk '{ n = gsub(/"step":/, "&"); print n + 0 }')

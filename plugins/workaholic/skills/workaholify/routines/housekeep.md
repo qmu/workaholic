@@ -84,9 +84,20 @@ never calls `AskUserQuestion` — step 9 asks humans **in Slack**. Every one of 
 in `workaholic:housekeep` and its `reference/workflow.md`, which is why this prompt does not
 restate them.
 
-**The prompt is the ceiling** (P3, Q2, P10): the two literal formats below are the only shapes a
+**It posts no pull-request status, merge-conflict or merge-readiness notice** (2026-08-19, issue
+#525). It found those and posted them until this change; the reporter asked that filing be this
+tick's job and that Slack not carry its merge-readiness reporting. The **finding did not go away** —
+`step-stuck-prs.sh` still resolves the stuck set, each row's `blocked_by` and the `headline`, into
+the tick's report and its log, and the `` `stuck:<digest>` `` derivation is untouched so a later
+relocation can reuse it verbatim. What went away is the authorization: no session running this
+routine may emit that shape, so with no post on the wire the **tick log alone** answers repetition.
+
+**The `❓` check-in question stays**, deliberately and not by omission: the ask's list is status,
+conflict and readiness *notices*, and a question addressed to a named person is none of those.
+
+**The prompt is the ceiling** (P3, Q2, P10): the one literal format below is the only shape a
 session running this routine may emit, and `workaholic:notify`'s `reference/notifications.md`
-mirrors both verbatim. A future edit to either copy is a drift to fix, never a second wording.
+mirrors it verbatim. A future edit to either copy is a drift to fix, never a second wording.
 
 ## Prompt
 
@@ -94,14 +105,7 @@ Run `/housekeep`.
 
 If the command or its skills did not load, do not stop: run `bash plugins/workaholic/skills/check-deps/scripts/plugin-src.sh` from the checkout, take its `src`, then read `<src>/commands/housekeep.md` and follow it with every script path under `<src>`.
 
-If pull requests are waiting on a human and the exact-string search for the state key finds no earlier post, post this one line as a new top-level message (the workaholic:notify lookup) — no mention token of any kind:
-
-```
-🔧 Needs a decision - <the step's headline: how many pull requests, and what is blocking them>
-One sentence, max 25 words, what the decision is (resolve a conflict, review it, fix a check).
-`stuck:<digest>`
-<session URL>
-```
+Pull requests waiting on a human are reported in the run's report and its tick log, never in Slack.
 
 For each question the check-in step is cleared to ask, post one message into the thread of the item it concerns, addressed to the resolved person:
 
@@ -112,4 +116,4 @@ One sentence, max 25 words, the question itself, with the two options when there
 <session URL>
 ```
 
-If nothing is waiting on a human, or that state was already posted, post nothing. If no question clears the check-in gate, ask nothing.
+If no question clears the check-in gate, ask nothing — and post nothing else, whatever the tick found.

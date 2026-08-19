@@ -4,35 +4,40 @@
 # WHAT MAKES THIS USEFUL IS THE SECOND HALF. "PR #12 is red" is a fact a human can
 # already see; "PR #12 needs a review that nobody has been asked for" is a
 # decision. So every row carries `blocked_by`, resolved mechanically from GitHub's
-# own mergeability fields, and the reminder the agent composes names the decision
+# own mergeability fields, and the report the agent composes names the decision
 # rather than the colour.
 #
-# ONE REMINDER PER DISTINCT STATE, exactly as `📦 Release Preparation` posts one line
-# per distinct deploy digest. The key is `stuck:<digest>` over the sorted
+# THIS STEP NO LONGER FEEDS A SLACK POST (2026-08-19, issue #525). It fed the
+# tick's `🔧 Needs a decision` reminder until then, and the reporter asked that
+# pull-request status, merge-conflict and merge-readiness messaging leave Slack.
+# THE FINDING STAYED AND THE POST WENT: everything below is unchanged and lands in
+# the run's report and the tick log instead. `action` reads `report` rather than
+# `remind` for exactly that reason — an unattended agent handed a row saying
+# "remind" would be told to do the thing the change removed.
+#
+# ONE REPORT PER DISTINCT STATE. The key is `stuck:<digest>` over the sorted
 # `<number>:<blocked_by>` set, so a pull request that is still stuck for the same
-# reason next hour earns no second post, while a NEW pull request or a CHANGED
-# reason does. Two gates, both required: something actionable, and no earlier post
-# for this exact state — the tick log answers the second, and `workaholic:notify`'s
-# stateless lookup answers it again on the wire before posting.
+# reason next hour earns no second row, while a NEW pull request or a CHANGED
+# reason does. THE DERIVATION IS LEFT BYTE-IDENTICAL to what it was when it keyed
+# a post, deliberately: re-cutting a settled dedup key is churn this repository has
+# recorded twice, and a later relocation of the post should reuse this verbatim.
+# With nothing on the wire there is no `workaholic:notify` search to run, so the
+# single gate is the tick log's own `stuck-prs-filed` entry.
 #
 # ITS KEY IS DELIBERATELY DISTINCT from `[Prepare Release]`'s `deploy:<digest>`:
 # one reports what is waiting to deploy, this reports what is waiting on a human,
 # and a shared key would let either dedup the other away.
 #
-# THE HEADLINE NAMES THE KIND, AND THE KEY DOES NOT MOVE (2026-08-18, issue #513).
-# The reminder's varying half was its second line while its first read
-# `<N> pull request(s) waiting on a human` every time, so a reader scanning the
-# channel saw one invariant heading whether the finding was a conflict, an un-run
-# auto-merge or a failing check. `headline` is derived from the `blocked_by` set
-# this script already computes, so a conflict finding and a review finding differ
-# at the first line. It is VISIBLE WORDING ONLY: `stuck:<digest>` is still the
-# sorted `<number>:<blocked_by>` set and nothing searches the heading — the
-# release tick's 2026-08-17 heading rename was reversed the next day precisely
-# because the heading was mistaken for the dedup key.
+# THE HEADLINE NAMES THE KIND (2026-08-18, issue #513). The finding's varying half
+# was its second line while its first read `<N> pull request(s) waiting on a human`
+# every time, so a reader saw one invariant heading whether the finding was a
+# conflict, an un-run auto-merge or a failing check. `headline` is derived from the
+# `blocked_by` set this script already computes, so a conflict finding and a review
+# finding differ at the first line.
 #
-# CONFLICTS RIDE THIS REMINDER TOO. Step 4 reports conflict state and posts
-# nothing; two Slack lines about one pull request in one tick is the noise the
-# gate exists to prevent.
+# CONFLICTS RIDE THIS ROW TOO. Step 4 reports conflict state and emits nothing of
+# its own; two reports about one pull request in one tick is the noise the gate
+# exists to prevent.
 #
 # Usage: step-stuck-prs.sh --tick <id> --root <repo-root> [--limit <n>]
 # Output: one JSON line {"step","status","reason","summary","headline","needs_agent":[...],"key":"stuck:<digest>"}
@@ -67,7 +72,7 @@ case "$state" in
     *)
         reason=$(printf '%s' "$state" | sed 's/.*"reason": "//; s/".*//')
         [ -n "$reason" ] || reason=gh_unavailable
-        printf '{"step": "stuck-prs", "status": "degraded", "reason": "%s", "summary": "pull requests unreadable — no reminder can be trusted this tick", "headline": "", "needs_agent": [], "key": ""}\n' "$reason"
+        printf '{"step": "stuck-prs", "status": "degraded", "reason": "%s", "summary": "pull requests unreadable — no stuck-set finding can be trusted this tick", "headline": "", "needs_agent": [], "key": ""}\n' "$reason"
         exit 0
         ;;
 esac
@@ -110,7 +115,7 @@ HEADLINE="${count} ${plural} ${what}"
 if [ -f "$LOG_READ" ]; then
     seen=$(sh "$LOG_READ" --root "$ROOT" --step stuck-prs-filed --contains "$KEY" 2>/dev/null | sed 's/.*"count": //; s/,.*//')
     if [ -n "$seen" ] && [ "$seen" != "0" ]; then
-        printf '{"step": "stuck-prs", "status": "ok", "reason": "already_filed", "summary": "%s pull request(s) stuck, unchanged since an earlier tick posted %s", "headline": "%s", "needs_agent": [], "key": "%s"}\n' \
+        printf '{"step": "stuck-prs", "status": "ok", "reason": "already_filed", "summary": "%s pull request(s) stuck, unchanged since an earlier tick reported %s", "headline": "%s", "needs_agent": [], "key": "%s"}\n' \
             "$count" "$KEY" "$HEADLINE" "$KEY"
         exit 0
     fi
@@ -128,9 +133,9 @@ needs=$(printf '%s' "$rows" | awk -v key="$KEY" '
         else if (b == "draft")  decision = "it is still a draft — the author must mark it ready or close it"
         else if (b == "behind") decision = "the base moved — the claim holder must update it"
         else if (b == "unknown") decision = "GitHub has not computed mergeability yet — re-read before acting"
-        printf "%s{\"action\": \"remind\", \"pull\": %s, \"url\": \"%s\", \"blocked_by\": \"%s\", \"decision\": \"%s\", \"key\": \"%s\"}",
+        printf "%s{\"action\": \"report\", \"pull\": %s, \"url\": \"%s\", \"blocked_by\": \"%s\", \"decision\": \"%s\", \"key\": \"%s\"}",
             (c++ ? ", " : ""), n, u, b, decision, key
     }')
 
-printf '{"step": "stuck-prs", "status": "blocked", "reason": "", "summary": "%s (%s) — reminder keyed %s", "headline": "%s", "needs_agent": [%s], "key": "%s"}\n' \
+printf '{"step": "stuck-prs", "status": "blocked", "reason": "", "summary": "%s (%s) — reported, keyed %s", "headline": "%s", "needs_agent": [%s], "key": "%s"}\n' \
     "$HEADLINE" "$(printf '%s' "$pairs" | sed 's/ $//')" "$KEY" "$HEADLINE" "$needs" "$KEY"

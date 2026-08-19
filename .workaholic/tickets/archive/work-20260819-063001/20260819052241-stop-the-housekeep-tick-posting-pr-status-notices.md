@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-19T05:22:41+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -175,3 +176,70 @@ dedup that log feeds with it.
   records twice.
 - Removing a post is cheap to reverse and quiet to get wrong: nothing downstream
   reads it, and no artifact depends on it having been sent.
+
+## Final Report
+
+Development completed as planned, diagnosis-first.
+
+### Steps 1-2 — reproduced, then localized
+
+**Reproduced** against this repository before anything was edited. `step-stuck-prs.sh` returned
+`status: blocked`, `headline: "4 pull requests with mergeability not yet computed"`,
+`key: "stuck:3750571617"` and four `needs_agent` rows each carrying `action: "remind"`,
+`blocked_by` and a `decision`; `step-merge-conflicts.sh` returned
+`"3 of 4 open pull request(s) conflicted (#521, #520, #509) — reported to their claim holders,
+never rebased here"` with `needs_agent: []`. That confirms the reporter's quoted wording is this
+step's `headline` — step 4 carries the "conflicting with main" phrasing into step 6's headline and
+posts nothing of its own — and not another surface's.
+
+**Localized.** `grep -rn "🔧" plugins/ CLAUDE.md README.md docs/ scripts/ outputs/` found the shape
+authorized in exactly the three documents the ticket named: `notify/reference/notifications.md`,
+`workaholify/routines/housekeep.md`'s `## Prompt`, and `housekeep/reference/workflow.md` step 6.
+No script calls Slack. **Two further sites were found and are recorded because the localization,
+not the assumption, decides the edit set**: `scripts/test-workflow-scripts.mjs` pins the shape
+byte-identically across the first two, and `notifications.md` cited `🔧` a second time as the
+precedent for "no mention token" in the `/setup-user-routines` section written earlier on this same
+branch — a citation that would have outlived the shape it names. Both were updated.
+
+### Step 3 — Open Decisions, resolved
+
+1. **Does the messaging move to `/propose`, or simply stop? — It stops (fork (a)), the ticket's own
+   default.** Two reasons beyond the default. The destination is self-defeating under Open
+   Decision 2: the routine that posted these notices *is* `[Propose]` as of this morning, so
+   "move it to Propose" would be satisfied by changing nothing while the removal is still asked
+   for. And re-authorizing the shape on `[Specificate]` — the other reading — is an edit to that
+   routine's prompt, which `workaholic:notify`'s *the prompt is the ceiling* makes a developer's
+   explicit authorization rather than an implementation detail a run may infer. **The stated cost
+   is recorded rather than glossed**: with the post gone, nobody is told in Slack that a pull
+   request is waiting on them. The finding is in the run report and the tick log, and the
+   `stuck:<digest>` derivation is left byte-identical so a later relocation reuses it.
+2. **Which routine will be called "Propose" when this lands? — The maintenance tick, and it landed
+   before this ticket did.** Issue #526's swap merged in this same run (PR #531), so the tick that
+   posts these notices is now `[Propose]` and the routine that ingests asks is `[Specificate]`.
+   Read *by name* the ask is satisfied by doing nothing; read *by behaviour* — which is how a
+   record filed seven minutes before the rename must be read — the reporter meant the tick that
+   posts them should stop, and that reading is what shipped. The same ruling is recorded in the
+   rename ticket's Final Report, so the decision was made once rather than twice, as both tickets
+   asked.
+3. **Does "sole responsibility is filing `[FB]` issues" retire the `❓` check-in? — No, and the
+   scope is stated rather than left to a grep.** The ask's explicit list is PR-status,
+   merge-conflict and merge-readiness *notices*; a question addressed to a named person is none of
+   those. Reading its first sentence as reaching step 9 would silently retire a step the developer
+   scoped on 2026-08-17 and re-measured on 2026-08-18, deciding then to leave it unchanged — and
+   would contradict the other ticket in this same PR-unit, which *fixes* that post's already-asked
+   gate. Both tickets were driven in one unit partly so this could not be answered two ways.
+
+### Discovered Insights
+
+- **Insight**: `step-stuck-prs.sh`'s `needs_agent[].action` read `"remind"`, which is an
+  instruction to post, and the ticket's step 4 scoped the script as untouched.
+  **Context**: leaving it would hand an unattended agent a row telling it to do the thing this
+  change removed, relying on the prompt ceiling to stop it — a latent contradiction rather than a
+  gate. `action` now reads `"report"`, and the digest, the `headline`, `blocked_by`, `decision`,
+  the status vocabulary and the `already_filed` gate are byte-identical. Removing a post means
+  removing every instruction to make it, not only the shape it would have taken.
+- **Insight**: a retired post shape leaves citations behind. `📦 Release Preparation` and this one
+  were each cited elsewhere as the precedent for "a keyed root with no mention token", and one of
+  those citations was written on this branch an hour before the shape was removed.
+  **Context**: when retiring a shape, grep for the emoji rather than the section — the references
+  are in other shapes' rationale paragraphs, not in the catalog entry being deleted.

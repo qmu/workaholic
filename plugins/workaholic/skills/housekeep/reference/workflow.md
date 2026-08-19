@@ -129,20 +129,24 @@ seam this file names for that step — recording what it actually did under the 
   `checks` → the author must fix a failing check or say it is expected; `draft` → mark it ready or
   close it; `behind` → the claim holder must update it; `unknown` → GitHub has not computed
   mergeability yet, re-read before acting.
-- **The heading names the kind, the key does not move** (2026-08-18, issue #513). `headline` is
-  derived from the same `blocked_by` set — `conflicting with main`, `waiting on review`, `with a
-  failing check`, `still in draft`, `behind main`, `with mergeability not yet computed`, and
-  `stuck: <kind>, <kind>` when one post covers several — and the `🔧` post's first line carries it,
-  so a conflict finding and an un-run auto-merge no longer share a heading. It is **wording only**:
-  the digest, the two gates and the post's frequency are untouched.
-- **One reminder per distinct state.** The key is `stuck:<digest>` over the sorted
-  `<number>:<blocked_by>` set, so an unchanged answer is never repeated while a new pull request or
-  a changed reason earns a post. **Two gates, both required**: something actionable, and no earlier
-  post for this exact state — the tick log answers the second, and `workaholic:notify`'s stateless
-  lookup answers it again on the wire. The key is deliberately distinct from `[Prepare Release]`'s
-  `deploy:<digest>`: one reports what is waiting to deploy, this what is waiting on a human, and a
-  shared key would let either dedup the other away.
-- **Aborts**: `gh_unavailable`. Already-posted state is `ok`/`already_filed`, not a second post.
+- **It posts nothing** (2026-08-19, issue #525). This step carried the tick's `🔧 Needs a decision`
+  reminder until then; the reporter asked that pull-request status, merge-conflict and
+  merge-readiness messaging leave Slack. **The finding stayed and the post went**: the step still
+  resolves every row above, and it reports them into the run's report and its tick log. Deleting the
+  step instead would have taken the finding out of the log too, and the dedup that log feeds with
+  it.
+- **The heading names the kind** (2026-08-18, issue #513). `headline` is derived from the same
+  `blocked_by` set — `conflicting with main`, `waiting on review`, `with a failing check`, `still in
+  draft`, `behind main`, `with mergeability not yet computed`, and `stuck: <kind>, <kind>` when one
+  finding covers several — so a conflict finding and an un-run auto-merge do not read alike in the
+  report.
+- **One report per distinct state, and the tick log alone answers repetition.** The key is
+  `stuck:<digest>` over the sorted `<number>:<blocked_by>` set, **left byte-identical** to what it
+  was when it keyed a post, so a later relocation reuses the derivation rather than cutting a new
+  key over a settled one. With nothing on the wire there is no `workaholic:notify` search to run,
+  so the single gate is the tick log's own `stuck-prs-filed` entry; the key stays deliberately
+  distinct from `[Prepare Release]`'s `deploy:<digest>` for the same reason as before.
+- **Aborts**: `gh_unavailable`. Already-reported state is `ok`/`already_filed`, not a second row.
 
 ## 7. `doc-drift` — the documentation against the current concept
 

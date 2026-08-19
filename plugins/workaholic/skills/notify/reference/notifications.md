@@ -134,43 +134,35 @@ One sentence, max 25 words, what a human must do (restore the container's networ
 
 **Keyed on the date, not on the content.** A daily digest speaks for today even when today resembles yesterday; what the key prevents is two posts for one morning. Search the token exactly once (private-inclusive, `include_bots: true`): found ⇒ post nothing. `noop: true` from the digest posts nothing either, whatever the date says.
 
-### `/housekeep` — the maintenance tick's two shapes
+### `/housekeep` — the maintenance tick's one shape
 
-The stuck-pull-request reminder is a **top-level keyed root**, exactly as `📦 Release Preparation` is
-and for the same reason: nobody *said* anything, the repository's own state did something, so
-there is no thread to land in and the post keys on its own content instead.
+**The stuck-pull-request reminder is retired** (2026-08-19, issue #525). It was a top-level keyed
+root on `` `stuck:<digest>` ``, and the reporter asked that this tick stop carrying pull-request
+status, merge-conflict and merge-readiness messaging into Slack. Removing a post is cheap to
+reverse and nothing downstream read it, so the shape is gone from here, from the routine prompt and
+from `workaholic:housekeep`'s step 6 — the three places that authorized it — rather than being left
+documented as a shape nobody may emit.
 
-```
-🔧 Needs a decision - <the step's headline: how many pull requests, and what is blocking them>
-One sentence, max 25 words, what the decision is (resolve a conflict, review it, fix a check).
-`stuck:<digest>`
-<session URL>
-```
+**What was removed is the post, never the finding.** `step-stuck-prs.sh` still resolves the stuck
+set, each row's `blocked_by` and the `headline`, and still keys them on `` `stuck:<digest>` `` — a
+derivation left byte-identical on purpose, so a later relocation reuses it rather than cutting a new
+key over a settled one. The finding lands in the tick's report and its log; with nothing on the
+wire, the **tick log alone** answers repetition, where two gates (something actionable, and no
+earlier post) used to. The stated cost is that nobody is told in Slack that a pull request is
+waiting on them.
 
-**The first line names the kind of finding, and the key does not move** (2026-08-18, issue #513).
-It read `<N> pull request(s) waiting on a human` every time, so the varying half — the sentence
-naming the decision — sat under an invariant heading and the post read the same whether the finding
-was a merge conflict, an un-run auto-merge or a failing check. The heading now carries
-`step-stuck-prs.sh`'s `headline`, derived from the `blocked_by` set the script already resolves
-(`conflicting with main` / `waiting on review` / `with a failing check` / `still in draft` /
-`behind main` / `with mergeability not yet computed`, and `stuck: <kind>, <kind>` when one post
-covers several). **Visible wording only**: `` `stuck:<digest>` `` is still the sorted
-`<number>:<blocked_by>` set, nothing searches the heading, and the 2026-08-17 release-tick rename
-was reversed the next day precisely because the heading was mistaken for the dedup key. Making the
-post more informative must not make it more frequent — both gates below are untouched.
+**It was not relocated, and that is a decision rather than an omission.** The ask says such
+messaging "should instead be handled by the Propose routine", and by the same reporter's next issue
+(#526) the routine that posted it *became* `[Propose]` — so the destination is satisfied by doing
+nothing while the removal is still asked for. Authorizing the shape on a different routine is an
+explicit edit to that routine's prompt plus the developer's confirmation (*The prompt is the
+ceiling*), never an inference a run may make; it is unbuilt until somebody scopes it.
 
-**Two gates, both required, and an idle tick is silent.** Nothing waiting posts nothing; a state
-already posted (the `` `stuck:<digest>` `` search finds it) posts nothing. The digest hashes the
-sorted `<number>:<blocked_by>` set, so a pull request that is still stuck for the same reason
-next hour is not news while a new one — or the same one stuck for a *different* reason — is. The
-key is deliberately distinct from `` `deploy:<digest>` ``: one line reports what is waiting to
-deploy and this one what is waiting on a person, and a shared key would let either dedup the
-other away. **No mention token of any kind**: the line names a repository state, not a person's
-work.
-
-The check-in question is the opposite case — it is addressed to somebody, so it carries a
-resolved mention and lands in the thread of the item it is about (a new keyed root only when the
-lookup finds none):
+**The check-in question survives, deliberately.** The ask's list is status, conflict and
+readiness *notices*; a question addressed to a named person is none of those, and reading the ask's
+first sentence as reaching it would silently retire a step the developer scoped in 2026-08-17 and
+re-measured a day later. It is addressed to somebody, so it carries a resolved mention and lands in
+the thread of the item it is about (a new keyed root only when the lookup finds none):
 
 ```
 ❓ Question <@U…> - <what this tick could not decide>
@@ -205,7 +197,7 @@ One sentence, max 25 words, which routines converged on which repositories, or w
 <session URL>
 ```
 
-**A top-level keyed root, never a reply, and no mention token of any kind** — the same reasons `📦 Release Preparation` and `🔧 Needs a decision` carry none: no feedback item said anything, and the line names the state of the account's routines rather than a person's work. There is no thread for it to land in — a `user`-scoped routine has no repository artifact to key on.
+**A top-level keyed root, never a reply, and no mention token of any kind** — the same reason `📦 Release Preparation` carries none: no feedback item said anything, and the line names the state of the account's routines rather than a person's work. There is no thread for it to land in — a `user`-scoped routine has no repository artifact to key on.
 
 **It posts only on a change or a refusal, and only once per distinct state.** A quiet fleet posts nothing at all; an hourly "nothing drifted" would be the standing claim on attention every idle tick in this catalog already refuses to make. The `` `fleet:<digest>` `` token is searched exactly once (private-inclusive, `include_bots: true`): found ⇒ post nothing. The digest covers what converged, on which repositories, and the refusal reason if there was one — so a *new* kind of drift, or a refusal that changes shape, is said the same hour, while an unchanged state is said once.
 

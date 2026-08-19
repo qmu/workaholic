@@ -18013,22 +18013,34 @@ function testHousekeepRoutineTemplate() {
     const m = body.match(new RegExp("```\\n(" + lead + "[\\s\\S]*?)```", "u"));
     return m ? m[1] : "";
   };
-  for (const [name, lead] of [["stuck-pull-request reminder", "🔧 Needs a decision"],
-                              ["check-in question", "❓ Question"]]) {
+  for (const [name, lead] of [["check-in question", "❓ Question"]]) {
     const c = block(catalog, lead);
     assertTrue(`the catalog carries the ${name}`, c !== "", "missing from notifications.md");
     assertEq(`the ${name} reads byte-identically in the template and the catalog`,
       block(template, lead), c);
   }
-
-  // The reminder names a repository state and mentions nobody; the question is addressed.
-  assertTrue("the reminder carries no mention token",
-    !/<@U/.test(block(catalog, "🔧 Needs a decision")), block(catalog, "🔧 Needs a decision"));
   assertTrue("the question carries a resolved mention",
     /<@U…>/.test(block(catalog, "❓ Question")), block(catalog, "❓ Question"));
-  // Its dedup key is its own, or [Prepare Release] and this would dedup each other away.
-  assertTrue("the reminder keys on stuck:<digest>, not deploy:<digest>",
-    /`stuck:<digest>`/.test(block(catalog, "🔧 Needs a decision")));
+
+  // ---- the stuck-pull-request reminder is RETIRED (2026-08-19, issue #525) ----
+  // The reporter asked that pull-request status, merge-conflict and merge-readiness
+  // messaging leave this tick. What must not survive is the AUTHORIZATION, in any of the
+  // three places that carried it — a shape left documented anywhere is a shape a later
+  // session can cite (`workaholic:notify`, *the prompt is the ceiling*).
+  const workflow = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/housekeep/reference/workflow.md"), "utf8");
+  for (const [where, body] of [["the routine prompt", template], ["the shape catalog", catalog]]) {
+    assertTrue(`${where} authorizes no stuck-pull-request post`,
+      !/🔧 Needs a decision/.test(body), body.slice(0, 400));
+  }
+  assertEq("and the catalog carries no such block at all", block(catalog, "🔧 Needs a decision"), "");
+  // THE FINDING SURVIVED THE POST. Deleting the step would have taken the stuck set out of
+  // the tick log too, and the dedup that log feeds with it.
+  assertTrue("step 6 still reports the finding into the run and the log",
+    /reports them into the run's report and its tick log/.test(workflow), workflow.slice(0, 400));
+  // The derivation is left byte-identical so a later relocation reuses it rather than
+  // re-cutting a settled dedup key — the churn CLAUDE.md records twice.
+  assertTrue("and keeps the stuck:<digest> derivation, distinct from deploy:<digest>",
+    /`stuck:<digest>`/.test(workflow) && /byte-identical/.test(workflow), workflow.slice(0, 400));
 
   // Scope, cron and the write grant are the template's own claims; CLAUDE.md's routines
   // table must state the same ones, since that table is where a human reads them.

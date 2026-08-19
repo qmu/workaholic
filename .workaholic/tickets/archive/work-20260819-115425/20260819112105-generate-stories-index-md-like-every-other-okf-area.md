@@ -1,11 +1,13 @@
 ---
 created_at: 2026-08-19T11:21:05+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
 feedback: [20260819111841-generate-stories-index-md-like-every-other-okf-area.md]
 merge_policy:
 verification_handoff: 
+claim: work-20260819-115425
 ---
 
 # Generate stories/index.md like every other OKF area

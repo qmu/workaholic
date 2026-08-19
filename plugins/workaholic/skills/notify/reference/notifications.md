@@ -80,7 +80,7 @@ Exactly one finish per thread stays the rule (SKILL, *Which thread an `/implemen
 📦 Release Preparation - <N> commit(s) waiting on <target>
 One sentence, max 25 words, what a human must do (cut a release, declare a confirmation method).
 Draft note: <draft release URL>
-`deploy:<digest>`
+`deploy:<digest>` `deploy-day:<day_token>`
 <session URL>
 ```
 
@@ -89,7 +89,7 @@ Draft note: <draft release URL>
 ```
 📦 Release Preparation - refs not freshened (<refs_reason>); count unavailable on <target>
 One sentence, max 25 words, what a human must do (restore the container's network, then re-read).
-`deploy:<digest>`
+`deploy:<digest>` `deploy-day:<day_token>`
 <session URL>
 ```
 
@@ -99,7 +99,15 @@ One sentence, max 25 words, what a human must do (restore the container's networ
 
 **The dedup is the whole reason the line is postable at all.** Before posting, search `` `deploy:<digest>` `` exactly once (private-inclusive, `include_bots: true`, like every case-2 search): found ⇒ **post nothing**, because the answer has not changed since it was last said, and an hourly repeat of an unchanged status is the idle tick the bright line refuses. This is *not* the red-alert cool-down — there is no time window and no escalation; the key is the content itself, so a status that stops being true stops matching and a status that becomes true again posts once more.
 
-**`actionable: false` posts nothing either**, whatever the digest says: every target's `needs[]` empty means nothing is waiting and nobody has anything to do. A tick that reports a quiet repository is a tick that says nothing. **One exception, and only one**: `doubtful: true` posts the degraded variant above even when nothing looks actionable — precisely because "nothing is waiting" is one of the things stale refs can fabricate, so the quiet this gate protects would be the unreliable half of the read speaking for the repository. The gate is therefore `actionable || doubtful`, still AND'd with the digest search, and a container stuck offline says it once rather than hourly: the doubtful digest redacts the values that move with the refs, so it stops changing (`workaholic:ship` §7).
+**And a second search bounds the rate, because the digest alone did not** (2026-08-18, ticket `20260818214615`). Search `` `deploy-day:<day_token>` `` exactly once as well — found ⇒ **post nothing**, whatever the digest says. Two searches is this section's whole query budget and both gates are required, AND'd with `actionable || doubtful`.
+
+*Measured, over the nine hours after the refs fix landed at 23:11 JST on 2026-08-18*: **nine posts in nine consecutive hours**, counts 10, 12, 14, 16, 18, 22, 30, 2, 2 — and **one** request behind all nine, "cut a release for marketplace". No hour was silent. The refs fix cured the accuracy half (the 2721/181/165 swings are gone) and left the rate untouched, because `unreleased_count` is in the digest's input and a commit lands on the base every hour on an active day: the digest prevents a *repeat* and never fired against an hourly *restatement*.
+
+`day_token` is `report-deploy-status.sh`'s, `<Asia/Tokyo day>:<hash of the per-target needs sets>` — **what the tick is asking for, not how much of it there is**. So an unchanged ask is said once a day, while a **new kind** of ask — a target that starts needing a confirmation method, a target that appears — moves the token and is said the same hour. The day matches `[Standup]`'s stated rule that a daily post is a standing claim on attention, and `run-note-cadence.sh`'s existing `Asia/Tokyo` floor; like both, it is derived (from the clock and from Slack's own record) and stores no cursor.
+
+**`deploy:<digest>` did not move.** Its derivation and format are unchanged — narrowing it was the obvious fix and was refused, because it had just been settled the same day (the doubtful redaction) and re-cutting a dedup key a day later is the churn this ticket exists to stop. The heading, the `📦`, the mention-token rule and the two existing gates are untouched too; the rate bound is a *third* condition, not a rewrite of the first two. **The case for changing nothing**, recorded rather than dismissed: the request genuinely is still open every one of those hours, and a daily floor can leave a renewed ask unsaid for the rest of the day. It loses to the measurement — nine identical asks in nine hours is how a channel teaches its readers to stop reading it — and the loss is bounded by keying on `needs` rather than on the clock alone.
+
+**`actionable: false` posts nothing either**, whatever either token says: every target's `needs[]` empty means nothing is waiting and nobody has anything to do. A tick that reports a quiet repository is a tick that says nothing. **One exception, and only one**: `doubtful: true` posts the degraded variant above even when nothing looks actionable — precisely because "nothing is waiting" is one of the things stale refs can fabricate, so the quiet this gate protects would be the unreliable half of the read speaking for the repository. The gate is therefore `actionable || doubtful`, still AND'd with the digest search, and a container stuck offline says it once rather than hourly: the doubtful digest redacts the values that move with the refs, so it stops changing (`workaholic:ship` §7).
 
 **No mention token of any kind** — no `<@U…>` for a person and none for the Claude app. The line names a repository state, not a person's work, and there is nobody whose turn it is; a mention would page whoever was named every hour for a condition that is nobody's in particular.
 

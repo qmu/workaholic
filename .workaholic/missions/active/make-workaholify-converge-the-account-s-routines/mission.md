@@ -39,7 +39,7 @@ Each routine's enabled state is stated, so a silently-off routine is legible.
 
 ## Acceptance
 
-- [ ] `/workaholify` §5 converges the account's routines over every scope, and
+- [x] `/workaholify` §5 converges the account's routines over every scope, and
       report-only happens solely under a named `no_transport` refusal. (#20260819103847-make-workaholify-converge-the-routines-over-every-scope.md)
 - [ ] Every routine the run touches or skips is reported with its enabled state. (#20260819103851-report-each-routine-s-enabled-state-at-every-convergence-seam.md)
 - [ ] Whether convergence renames a routine in place is ruled on, and
@@ -48,3 +48,4 @@ Each routine's enabled state is stated, so a silently-off routine is legible.
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-19 — ticket archived — 20260819103847-make-workaholify-converge-the-routines-over-every-scope.md

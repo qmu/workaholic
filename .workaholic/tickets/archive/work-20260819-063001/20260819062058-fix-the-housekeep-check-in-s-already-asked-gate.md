@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-19T06:20:58+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -139,3 +140,87 @@ the `❓` post shape, the quiet-hours gate, the caps and §9's contract are unto
 - **Do not widen the gate into a judgment.** What is worth asking stays the agent's call
   under the Recommended-label test; this ticket only makes the *was it already asked*
   half mechanical, which is what the script's own header already claims.
+
+## Final Report
+
+Development completed as planned, reproduction-first.
+
+### Step 1 — the miss, reproduced before anything changed
+
+In a throwaway tree, three probes against the shipped script (`ask-question.sh` before the fix):
+
+- A **long key** (`issue-524-unassigned-never-ingested`, 35 characters) logged in an earlier tick
+  under `human-checkin-ask-issue-524-unassigned-never-inges`, with the agent-style summary
+  *"asked whether the unassigned issue should be ingested"* → a later tick answered
+  `{"ask": true, ..., "asked_today": 2}`. **The reporter's measurement, reproduced.**
+- A **short key** (`issue-99`) whose summary happened to read *"asked about issue-99 directly"* →
+  `already_asked`. Same script, same log, opposite answer, decided by wording alone — which is
+  what shows the gate was not mechanical.
+- A **distinct key sharing the same 32-character prefix** → the *same* `log_step`
+  (`human-checkin-ask-issue-524-unassigned-never-inges`), the collision step 4 warned about.
+
+### Step 2 — the two causes, each confirmed by varying one input
+
+- **(a) The needle was matched against the summary.** `already=$(count_log_prefix
+  human-checkin-ask "$KEY")` passes the key as `--contains`, and `log-read.sh`'s awk is
+  `index(summary, needle)`. Holding the key fixed and changing only the summary flips the answer
+  (probes 1 and 2).
+- **(b) `cut -c1-32` truncated the slug.** Holding the summary fixed and changing only the key's
+  length changes whether the step id contains its own key, and two long keys collapse to one id
+  (probe 3).
+
+### Step 3 — the query, and step 4's remaining consequence
+
+`log-read.sh` already had the exact-step-id query the reporter proposed (`--step`, matched with
+`if (want_step != "" && step != want_step) next`), so **no reader changed** — the ticket's
+Considerations predicted this and the reproduction confirmed it. The gate now calls
+`count_log_step "$LOG_STEP"`; the write side records under the same `log_step` the script returns
+(`step-human-checkin.sh`'s `NEEDS` envelope), so the match is an identity through one code path.
+
+Truncation's remaining consequence is answered with a **digest suffix, not a longer bound**: the id
+keeps a readable 22-character slug and gains `cksum` of the **full key** *only when the truncation
+actually happened*, so a short key's id does not move at all and two long keys keep distinct ids.
+Lengthening `cut` was the alternative the reporter already rejected, and it only moves the
+collision to a new bound.
+
+**One thing the ticket did not ask for and the reproduction demanded**: entries written before the
+digest existed sit under the plain 32-character truncation, so an identity match alone would have
+asked the reporter's own measured question exactly one more time on the way to fixing it. A
+**bounded legacy tolerance** matches the old id when — and only when — truncation occurred. It
+reintroduces the prefix collision for pre-existing entries alone, strictly smaller than the
+collision that existed everywhere before, and it is commented as a branch to delete once no live
+log carries a truncated id.
+
+### Step 5 — the reproduction, re-run
+
+- Legacy log, the reporter's exact case → `already_asked`.
+- Fresh log, summary containing nothing of the key → `already_asked`.
+- Distinct key sharing a 32-character prefix → `ask: true`, with its own `log_step`.
+- A key merely mentioned in an unrelated entry's prose → `ask: true` (the inverse miss closed).
+- A never-asked key → `ask: true` (the gate did not become a blanket refusal).
+
+### Reported, not fixed — the `day_cap` observation
+
+The ticket's Considerations flagged that `asked_today` counts across **every** day file in the log
+area, not across today: `count_log_prefix human-checkin-ask` passes no `--since` and no `--tick`,
+so the "10 per day" backstop is an all-time ceiling that tightens as the log grows. **Confirmed
+still true after this change** — the volume gates were left exactly as they were, because they are
+not this ask and because narrowing them would change how many questions a tick may ask, which is
+the developer's dial. It did not block any acceptance criterion here (the regression passes
+`--max-per-day 99` for the same reason the existing block does). Reported as the ticket required;
+it needs its own ticket.
+
+### Discovered Insights
+
+- **Insight**: the two bugs were independent and each alone would have looked fixed. Matching the
+  step id without the digest suffix would have suppressed unrelated questions sharing a prefix;
+  adding the digest without moving off `--contains` would have left the gate wording-dependent.
+  **Context**: the ticket's step 2 asked for them to be confirmed *separately, one input at a
+  time*, and that is what made both visible — a single end-to-end "does the gate hold" probe
+  passes or fails without telling you which half is wrong.
+- **Insight**: a dedup keyed on an agent-composed summary is unobservable until it nags. Nothing
+  errored, no test failed, and the only thing that surfaced it was a human noticing the same
+  question twice in a channel.
+  **Context**: when a script's header claims a decision is "mechanical", the test for that claim is
+  whether varying the *prose* can change the answer — and that is now a regression rather than a
+  reading.

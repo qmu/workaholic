@@ -220,6 +220,20 @@ seam this file names for that step — recording what it actually did under the 
   dropped**. The gate is one function reading one zone, so it stays swappable.
 - **Held is not dropped**: a suppressed question is recorded as `human-checkin-held-<slug>` and
   handed back by this step on the next eligible tick; it drops out once it has been asked.
+- **`already_asked` is an identity, not a search over prose** (2026-08-19, issue #524's report).
+  The gate asked the log for `--step-prefix human-checkin-ask --contains <the key>`, and
+  `--contains` matches the **summary** — text the agent composes — so whether a question counted
+  as already asked depended on how the previous tick happened to word its log line; a tick asked
+  `ask:issue-524-unassigned-never-ingested` and an hour later the same key answered `ask: true`
+  with the question still unanswered in the channel. It now asks `--step <the exact step id>`,
+  and the write side records under the same `log_step` the script hands back, so the two sides
+  derive the id from the key through one code path and no wording can change the answer. The step
+  id keeps a readable truncated slug and gains a `cksum` of the **full** key whenever the
+  truncation actually happened, because `cut -c1-32` also gave two keys sharing a prefix one id —
+  an identity match over that would have suppressed a question nobody asked. A short key's id
+  does not move. Entries written before the digest existed are matched under their old truncated
+  id by a **bounded tolerance written to be deleted**, so the question the report measured is not
+  asked one more time on the way to being fixed.
 - **Silence is not consent, and it is not a reason to ask again** (resolved 2026-08-17). An
   unanswered question is never re-posted. The red-alert `↳ still failing` precedent covers a
   machine-observable state that persists; a question is a demand on a person's attention, and

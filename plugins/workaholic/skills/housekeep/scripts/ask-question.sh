@@ -10,7 +10,9 @@
 #
 # FOUR GATES, EACH ITS OWN REFUSAL:
 #   quiet_hours   inside the configured window; the question is HELD, never dropped
-#   already_asked this exact question key was asked in an earlier tick
+#   already_asked this exact question key was asked in an earlier tick — decided by an
+#                 EXACT step-id match, never by a substring search over the agent's
+#                 own log wording (2026-08-19; see the gate below for what that cost)
 #   tick_cap      five per tick, the ask's own ceiling
 #   day_cap       the bound the per-tick cap must not aggregate past (default 10)
 #
@@ -94,31 +96,73 @@ else
 fi
 
 count_log_prefix() {
-    # $1 step-id prefix, $2 needle ("" for all) -> count, 0 when the log is unreadable
+    # $1 step-id prefix -> count of entries under it, 0 when the log is unreadable.
+    # Used for the VOLUME gates only (tick_cap, day_cap), where every question counts
+    # and no identity is being asserted.
     if [ ! -f "$LOG_READ" ]; then printf '0'; return 0; fi
-    if [ -n "$2" ]; then
-        out=$(sh "$LOG_READ" --root "$ROOT" --step-prefix "$1" --contains "$2" 2>/dev/null || true)
-    else
-        out=$(sh "$LOG_READ" --root "$ROOT" --step-prefix "$1" 2>/dev/null || true)
-    fi
+    out=$(sh "$LOG_READ" --root "$ROOT" --step-prefix "$1" 2>/dev/null || true)
+    n=$(printf '%s' "$out" | sed 's/.*"count": //; s/,.*//')
+    case "$n" in ''|*[!0-9]*) n=0 ;; esac
+    printf '%s' "$n"
+}
+
+count_log_step() {
+    # $1 EXACT step id -> count, 0 when the log is unreadable. `--step` is an
+    # identity match against the step id, which is what the already-asked gate needs.
+    if [ ! -f "$LOG_READ" ]; then printf '0'; return 0; fi
+    out=$(sh "$LOG_READ" --root "$ROOT" --step "$1" 2>/dev/null || true)
     n=$(printf '%s' "$out" | sed 's/.*"count": //; s/,.*//')
     case "$n" in ''|*[!0-9]*) n=0 ;; esac
     printf '%s' "$n"
 }
 
 # One step id per question, because the log is idempotent per (tick, step): five
-# questions in a tick are five ids, and the count is a prefix query.
-SLUG=$(printf '%s' "$KEY" | tr 'A-Z' 'a-z' | sed 's/[^a-z0-9]\{1,\}/-/g; s/^-//; s/-$//' | cut -c1-32)
-[ -n "$SLUG" ] || SLUG=q
+# questions in a tick are five ids, and the volume count is a prefix query.
+#
+# THE ID IS AN IDENTITY, AND A LONG KEY KEEPS ITS OWN (2026-08-19, issue #524's
+# report). The id was `cut -c1-32` of the slug, which cost two things measured
+# together: a key longer than that produced an id that did not contain its own key,
+# and two keys sharing a 32-character prefix produced the SAME id. A truncated slug
+# is kept for readability and a `cksum` of the FULL key is appended whenever the
+# truncation actually happened, so distinct keys keep distinct ids and a short key's
+# id does not move at all.
+FULL_SLUG=$(printf '%s' "$KEY" | tr 'A-Z' 'a-z' | sed 's/[^a-z0-9]\{1,\}/-/g; s/^-//; s/-$//')
+[ -n "$FULL_SLUG" ] || FULL_SLUG=q
+LEGACY_SLUG=$(printf '%s' "$FULL_SLUG" | cut -c1-32)
+if [ "${#FULL_SLUG}" -gt 32 ]; then
+    SLUG="$(printf '%s' "$FULL_SLUG" | cut -c1-22)-$(printf '%s' "$KEY" | cksum | awk '{ print $1 }')"
+else
+    SLUG="$FULL_SLUG"
+fi
 LOG_STEP="human-checkin-ask-${SLUG}"
 
-already=$(count_log_prefix human-checkin-ask "$KEY")
+# THE GATE IS AN IDENTITY, NOT A SEARCH OVER PROSE. It read
+# `--step-prefix human-checkin-ask --contains "$KEY"`, and `--contains` matches the
+# SUMMARY — agent-composed text — so whether a question counted as already asked was
+# a property of how the last tick happened to word its log line. Measured: tick
+# `20260819-045108` asked `ask:issue-524-unassigned-never-ingested` and an hour later
+# the same key answered `ask: true` while the question still sat unanswered in Slack.
+# Both sides now derive the step id from the key through the code path above — the
+# caller records under the `log_step` this script returns — so the match is an
+# identity and no wording can change it.
+already=$(count_log_step "$LOG_STEP")
+# A BOUNDED LEGACY TOLERANCE, written to be deleted. Entries written before the id
+# gained its digest sit under the plain 32-character truncation, so without this a
+# long-key question already asked would be asked exactly once more — the very case
+# the report measured. It reintroduces the prefix collision for those entries only,
+# which is strictly smaller than the collision that existed everywhere before, and
+# it decays as the log ages: drop this branch once no live log carries a truncated
+# id.
+if [ "$already" = "0" ] && [ "$SLUG" != "$LEGACY_SLUG" ]; then
+    already=$(count_log_step "human-checkin-ask-${LEGACY_SLUG}")
+fi
 if [ "$already" != "0" ]; then
-    printf '{"ask": false, "reason": "already_asked", "hold": false, "key": "%s"}\n' "$KEY"
+    printf '{"ask": false, "reason": "already_asked", "hold": false, "key": "%s", "log_step": "%s"}\n' \
+        "$KEY" "$LOG_STEP"
     exit 0
 fi
 
-asked_today=$(count_log_prefix human-checkin-ask "")
+asked_today=$(count_log_prefix human-checkin-ask)
 asked_tick=0
 if [ -f "$LOG_READ" ]; then
     out=$(sh "$LOG_READ" --root "$ROOT" --step-prefix human-checkin-ask --tick "$TICK" 2>/dev/null || true)

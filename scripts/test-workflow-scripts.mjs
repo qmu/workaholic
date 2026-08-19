@@ -17971,6 +17971,33 @@ function testHousekeepCheckIn() {
     assertEq("an unanswered question is not re-asked next tick", a.ask, false);
     assertEq("named as already asked, not as answered", a.reason, "already_asked");
 
+    // ---- the gate is an IDENTITY, not a search over prose (2026-08-19, issue #524's report) ----
+    // It read `--step-prefix human-checkin-ask --contains <key>`, and `--contains` matches the
+    // SUMMARY, so whether a question counted as already asked was a property of how the last
+    // tick happened to word its log line. Measured live: one tick asked
+    // `ask:issue-524-unassigned-never-ingested`, and an hour later the same key answered
+    // `ask: true` while the question still sat unanswered in the channel.
+    const LONG_KEY = "ask:issue-524-unassigned-never-ingested-and-then-some";
+    const g1 = JSON.parse(run(repo, `${ASK} --tick 20260817-150000 --key ${LONG_KEY} --root . --hour 14 --max-per-day 99`).stdout);
+    assertTrue("a long key is asked the first time", g1.ask, JSON.stringify(g1));
+    // The summary deliberately contains NOTHING of the key: under the old gate this recorded
+    // an ask that the next tick could not see.
+    run(repo, `${LOG} --tick 20260817-150000 --step ${g1.log_step} --status filed --summary "wording that names nothing"`);
+    const g2 = JSON.parse(run(repo, `${ASK} --tick 20260817-160000 --key ${LONG_KEY} --root . --hour 14 --max-per-day 99`).stdout);
+    assertEq("and is already_asked next tick whatever the summary said", g2.reason, "already_asked");
+    // The truncation's other half: `cut -c1-32` gave two distinct keys ONE id, so an identity
+    // match alone would have suppressed a question nobody asked.
+    const SIBLING = LONG_KEY + "-but-a-different-question";
+    const g3 = JSON.parse(run(repo, `${ASK} --tick 20260817-160000 --key ${SIBLING} --root . --hour 14 --max-per-day 99`).stdout);
+    assertTrue("a distinct key sharing a 32-character prefix is not suppressed", g3.ask, JSON.stringify(g3));
+    assertTrue("because it keeps its own step id", g3.log_step !== g1.log_step, `${g3.log_step} ${g1.log_step}`);
+    // And the inverse miss: a summary that merely mentions a short key must not fake the gate.
+    run(repo, `${LOG} --tick 20260817-160000 --step human-checkin-ask-unrelated --status filed --summary "mentions q:sizing-2 in passing"`);
+    const g4 = JSON.parse(run(repo, `${ASK} --tick 20260817-170000 --key q:sizing-2 --root . --hour 14 --max-per-day 99`).stdout);
+    assertTrue("a key merely mentioned in another entry's prose is still asked", g4.ask, JSON.stringify(g4));
+    // A short key's id does not move at all — the digest suffix rides only on truncation.
+    assertEq("a short key keeps its plain readable id", g4.log_step, "human-checkin-ask-q-sizing-2");
+
     // The per-tick ceiling is real, and each ask gets its own log key so five fit.
     for (let i = 1; i <= 5; i++) {
       const g = JSON.parse(run(repo, `${ASK} --tick 20260817-140000 --key q:${i} --root . --hour 14 --max-per-day 50`).stdout);

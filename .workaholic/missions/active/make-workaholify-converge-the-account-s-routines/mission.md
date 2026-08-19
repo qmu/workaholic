@@ -41,7 +41,7 @@ Each routine's enabled state is stated, so a silently-off routine is legible.
 
 - [x] `/workaholify` §5 converges the account's routines over every scope, and
       report-only happens solely under a named `no_transport` refusal. (#20260819103847-make-workaholify-converge-the-routines-over-every-scope.md)
-- [ ] Every routine the run touches or skips is reported with its enabled state. (#20260819103851-report-each-routine-s-enabled-state-at-every-convergence-seam.md)
+- [x] Every routine the run touches or skips is reported with its enabled state. (#20260819103851-report-each-routine-s-enabled-state-at-every-convergence-seam.md)
 - [ ] Whether convergence renames a routine in place is ruled on, and
       `renamed_from:`'s standing states the answer. (#20260819103855-rule-on-renaming-a-live-routine-in-place.md)
 
@@ -49,3 +49,4 @@ Each routine's enabled state is stated, so a silently-off routine is legible.
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-19 — ticket archived — 20260819103847-make-workaholify-converge-the-routines-over-every-scope.md
+- 2026-08-19 — ticket archived — 20260819103851-report-each-routine-s-enabled-state-at-every-convergence-seam.md

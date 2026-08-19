@@ -3,6 +3,7 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [work-20260819-115425](work-20260819-115425.md) - Made `stories/` a generated OKF area so the one ledger index with no repairer got one — the description moved into each story's own `description:` frontmatter, `/report` stopped hand-writing bullets, and the existing index opted in via markers. Regenerating recovered **22 stories** the hand-maintained index had silently lost. Two narrow per-area knobs (`order`, `skip`) carry what stories need; the README skip is deliberately **per-area**, because `deployments/`, `release-notes/` and `terms/` each index their own README as a real entry — the ticket's claim that a global exclusion was safe was false on this tree. 3162 passing / 0 failed - 1 ticket
 * [work-20260819-053729](work-20260819-053729.md) - The routine pair swaps names (Propose to Specificate, Housekeep to Propose) with the cutover ordering derived from the templates, and a third user scope adds the per-account Workaholic updater
 * [work-20260818-222423](work-20260818-222423.md) - The release preparation post is bounded to one ask per Asia/Tokyo day by a second deploy-day token, with deploy:<digest> unchanged
 * [work-20260818-213641](work-20260818-213641.md) - The housekeep reminder names the kind of finding in its first line, derived from blocked_by, with the stuck:<digest> key untouched

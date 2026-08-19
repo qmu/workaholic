@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260819-053729
 ---
 
 # Rename the routine pair and add a per-user updater

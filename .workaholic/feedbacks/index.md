@@ -524,4 +524,5 @@
 * [Routine registration should be three per-repository routines plus one per-user updater](20260819052547-routine-registration-should-be-three-per-repository-routines-plus-one-per-user-updater.md)
 * [Fix the housekeep check-in's already-asked gate](20260819061902-fix-the-housekeep-check-in-s-already-asked-gate.md)
 * [/workaholify should converge the account's routines, not just render setup sheets](20260819103531-workaholify-should-converge-the-account-s-routines-not-just-render-setup-sheets.md)
+* [Generate stories/index.md like every other OKF area](20260819111841-generate-stories-index-md-like-every-other-okf-area.md)
 <!-- okf:generated:end -->

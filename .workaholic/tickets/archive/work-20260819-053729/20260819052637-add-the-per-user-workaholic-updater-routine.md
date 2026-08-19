@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-19T05:26:37+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -141,3 +142,102 @@ before designing around either answer.
 - The name collides with the plugin, the repository and the marketplace entry.
   Everything in the loop already reads `workaholic` as one of those three; a
   routine with the same name is one more meaning to disambiguate in every grep.
+
+## Final Report
+
+Development completed as planned. A `user`-scoped template (`routines/workaholic.md`), a third
+setup command (`/setup-user-routines`), the scope vocabulary in `list-routine-templates.sh` and
+`render-setup-sheet.sh`, one authorized post shape mirrored byte-identically in
+`notify/reference/notifications.md`, and the documentation in `workaholify/SKILL.md`,
+`CLAUDE.md` and `README.md`. Both other scopes are byte-unchanged in what they list and render.
+
+### Step 1 — the transport, measured
+
+**Measured from this container, which is a routine-fired `[Implement]` session — the same
+session class `[Workaholic]` would run in** (2026-08-19):
+
+- `ToolSearch` over the full tool surface for a `RemoteTrigger`-family tool (list/get/create/
+  update/run over **account** routines): **nothing**. Two queries, one by capability
+  (`RemoteTrigger routine account schedule list update`) and one name-anchored
+  (`+trigger remote create routine`); the matches returned were `TaskUpdate`,
+  `CronList`, `ListConnectors`, `ListPlugins`, `ListSkills`, `TaskList`, GitHub Actions tools
+  and `Monitor` — nothing that reaches a claude.ai account routine.
+- `CronCreate` / `CronList` / `CronDelete` are present, and are the **session-only, in-memory**
+  scheduler this repository has documented as unrelated to account routines since 2026-08-10.
+- The `claude` CLI is on PATH and exposes **no** routine/trigger/schedule/cron subcommand.
+
+So in the routine-fired class this routine **cannot converge anything**, which is the answer
+the ticket said the rest of its shape depends on. That answer did not make the routine
+pointless — an interactive session may carry the tool (FB `20260810214929`), and both existing
+setup commands are built on exactly that "attempt every time, name the refusal when it fails"
+shape — but it did decide two things: the honest degradation is a **named refusal that says it
+converged nothing**, not silence, and the routine gets **one** authorized post so a permanently
+refused routine says so once instead of firing on time and reading as healthy every hour.
+
+**On `verification_handoff:`** — the ticket's Considerations asked the driving session to say so
+if step 1 established the constraint. It did, partially, and this is stated for the operator to
+rule on rather than acted on: the **converging** half can only be observed against a real
+account's routine list, which no session of this class can reach. Everything this ticket
+actually ships — the template, the scope, the command, the sheet, the refusal path — is fully
+verifiable here and was verified. This run does **not** declare `verification_handoff:` for its
+own unit; a run declaring it for itself is what turns `handoff` into a soft landing, and the
+declaration belongs on the artifact at creation.
+
+### Open Decisions — resolved
+
+1. **Which command configures a `user`-scoped routine? — A third command,
+   `/setup-user-routines`.** The existing shape is one command per scope, with the scope read
+   from the template by both commands and every sheet; a third scope with no command of its own
+   would be unreachable. Widening `/setup-dev-routines` was rejected on two grounds beyond
+   *One behaviour per command*: the counting questions genuinely differ (`developer` multiplies
+   by developers **and** by repositories, `user` by neither), and a widened command run in a
+   second repository would re-converge an account-wide routine the first repository's run
+   already created — idempotent, but it makes the report unable to answer the one question the
+   scope field exists to answer. The cost is one more setup step, paid **once per account**
+   rather than once per repository, and the sheet's own header states that before a reader
+   repeats it.
+2. **How does the routine enumerate "all of that user's repos"? — The account's own routine
+   list.** Each routine names the repository it runs against, so the set of routines *is* the
+   domain to converge, and it needs precisely the transport the converging half already needs —
+   a session missing it is missing both halves together and reports **one** refusal. The two
+   alternatives were rejected with their reasons recorded: a GitHub repository listing
+   enumerates repositories that have no routine at all and cannot say which of them should have
+   one, and an operator-maintained list is a second source of truth that drifts silently — the
+   failure `list-routine-templates.sh`'s own header already argues against. The limit this
+   accepts is stated rather than glossed: **a repository the account never created a routine on
+   is invisible**, and the run reports that instead of implying coverage.
+3. **What counts as "an update to the routine definitions"? — The rendered diff per routine**
+   (name / prompt / model / `cron_expression` / `autofix_on_pr_create` / connectors), with a
+   plugin version bump usable as a cheap pre-filter that never gates. It is the only one of the
+   three that catches a template edit which did not bump a version, and this repository ships
+   those routinely — both halves of the rename in this same mission did. It is also not a new
+   mechanism: it is exactly the diff `/setup-dev-routines` step 2 already computes, so the
+   updater runs the existing comparison over more records rather than inventing a second notion
+   of drift. It needs the transport to read the live routine, which is the same requirement
+   everything else here has, so it costs nothing extra.
+
+### Discovered Insights
+
+- **Insight**: the fleet-safety concern ("a routine that updates other routines can take the
+  whole fleet down in one tick") has a cheap structural answer that costs no mechanism: the
+  updater **excludes its own record** from what it converges.
+  **Context**: without it, a bad definition propagates to the updater too and there is no tick
+  left that can repair the rest — the failure mode is unrecoverable rather than merely wide.
+  With it, whatever happens to the fleet, the one routine that can fix it is untouched, and its
+  own definition moves only when a person runs the command. The same reasoning is why
+  `/setup-repo-routines` is never run by a tick.
+- **Insight**: a routine whose entire job may be permanently unreachable is the one case where
+  "posts nothing when idle" is the wrong default.
+  **Context**: every other tick in this catalog is silent when idle, and that is right because
+  idle means *nothing to do*. Here idle and *cannot do anything* are indistinguishable from
+  outside, which is the "firing on time, doing nothing, and reading as healthy" failure
+  `workaholic:workaholify` §4 names about the web bootstrap. One keyed root (`fleet:<digest>`)
+  says the refusal once and stays silent thereafter, which is `[Prepare Release]`'s own
+  precedent applied to a state rather than to a count.
+- **Insight**: the name collides with the plugin, the repository and the marketplace entry, as
+  the ticket warned, and the collision is now four-way.
+  **Context**: it was kept because the ask names the routine `[Workaholic]` explicitly and a
+  routine name is operator-facing text an implementer should not quietly redesign. The cost is
+  real and lands on `grep`: `workaholic.md` under `routines/` is the routine, `plugins/
+  workaholic/` is the plugin, `qmu/workaholic` is the repository. Anything searching for the
+  routine should search the bracketed form `[Workaholic]`, which is unambiguous.

@@ -10697,7 +10697,7 @@ function testRenderSetupSheet() {
 
   const all = sheet("--all");
   for (const name of ["[Specificate] workaholic", "[Implement] workaholic", "[Prepare Release] workaholic",
-                      "[Standup] workaholic"]) {
+                      "[Standup] workaholic", "[Workaholic] workaholic"]) {
     assertTrue(`the sheet covers ${name}`, all.includes(`## ${name}`), all.slice(0, 200));
   }
   // ---- the scope filter (2026-08-14, issue #451) ----
@@ -10750,6 +10750,7 @@ function testRenderSetupSheet() {
   const cmdForScope = {
     developer: "plugins/workaholic/commands/setup-dev-routines.md",
     repository: "plugins/workaholic/commands/setup-repo-routines.md",
+    user: "plugins/workaholic/commands/setup-user-routines.md",
   };
   for (const [file, body] of renamedTemplates) {
     const scope = (body.match(/^scope:[ \t]*(\S+)/m) || [])[1];
@@ -10773,7 +10774,21 @@ function testRenderSetupSheet() {
   for (const [file, body] of renamedTemplates) {
     const oldName = (body.match(/^renamed_from:[ \t]*"?([^"\n]+)"?/m) || [])[1];
     if (!liveNames.includes(oldName)) continue;
-    for (const cmdPath of Object.values(cmdForScope)) {
+    // Only the two commands the swap actually runs through: the scope vacating the name and
+    // the scope taking it. A third, uninvolved scope's command has nothing to order.
+    const takerScope = (() => {
+      for (const f of readdirSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines"))) {
+        if (!f.endsWith(".md")) continue;
+        const b2 = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines", f), "utf8");
+        if ((b2.match(/^name:[ \t]*"?([^"\n]+)"?/m) || [])[1] === oldName) {
+          return (b2.match(/^scope:[ \t]*(\S+)/m) || [])[1];
+        }
+      }
+      return undefined;
+    })();
+    const involved = new Set([(body.match(/^scope:[ \t]*(\S+)/m) || [])[1], takerScope]);
+    for (const sc of involved) {
+      const cmdPath = cmdForScope[sc];
       const cmd = readFileSync(join(REPO_ROOT, cmdPath), "utf8");
       assertTrue(`${cmdPath} states the ordered cutover for the swap ${file} is half of`,
         /\*\*before\*\*/i.test(cmd) || /ordering/.test(cmd), cmd.slice(0, 400));
@@ -14253,6 +14268,7 @@ const tests = [
   ["housekeep step 8: a step reversing a standing decision stays unbuilt", testHousekeepStrategyStepIsGated],
   ["housekeep step 9: asking costs attention, so the gates are mechanical", testHousekeepCheckIn],
   ["[Propose]: the template, its scope, and the shapes it authorizes", testHousekeepRoutineTemplate],
+  ["[Workaholic]: the account updater's template, scope and one shape", testWorkaholicRoutineTemplate],
 ];
 
 // `await` matters even though almost every test is synchronous: without it an async
@@ -16240,9 +16256,10 @@ function testWorkaholifyRoutines() {
   const WH = "https://github.com/qmu/workaholic";
   try {
     const tpl = JSON.parse(run(dir, LIST).stdout);
-    assertEq("the plugin ships five routine templates", tpl.count, 5);
-    assertEq("and they are the five live patterns",
-      tpl.templates.map((t) => t.id).sort(), ["fb", "housekeep", "implement", "prepare-release", "standup"]);
+    assertEq("the plugin ships six routine templates", tpl.count, 6);
+    assertEq("and they are the six live patterns",
+      tpl.templates.map((t) => t.id).sort(),
+      ["fb", "housekeep", "implement", "prepare-release", "standup", "workaholic"]);
 
     // ---- the scope split (2026-08-14, issue #451) ----
     // The scope is the TEMPLATE's field, not a list written into two command bodies:
@@ -16250,8 +16267,19 @@ function testWorkaholifyRoutines() {
     // a command, its diff and its recovery sheet cannot disagree about what is in scope.
     // A template declaring no scope is a defect, never a silent default into either bucket.
     assertTrue("every template declares a scope",
-      tpl.templates.every((t) => t.scope === "developer" || t.scope === "repository"),
+      tpl.templates.every((t) => ["developer", "repository", "user"].includes(t.scope)),
       JSON.stringify(tpl.templates.map((t) => [t.id, t.scope])));
+    // `user` IS A THIRD VALUE, NOT A RENAME OF `developer` (2026-08-19, issue #526): the two
+    // answer different counting questions — `developer` multiplies by developers AND by
+    // repositories, `user` multiplies by neither — which is why it gets its own command
+    // rather than widening /setup-dev-routines.
+    assertEq("the routine an account needs exactly one of is user-scoped",
+      JSON.parse(run(dir, `${LIST} user`).stdout).templates.map((t) => t.id).sort(),
+      ["workaholic"]);
+    assertTrue("and it is absent from both other scopes",
+      !JSON.parse(run(dir, `${LIST} developer`).stdout).templates.some((t) => t.id === "workaholic") &&
+      !JSON.parse(run(dir, `${LIST} repository`).stdout).templates.some((t) => t.id === "workaholic"),
+      "the user-scoped template leaked into another scope");
     assertEq("the two routines every developer needs their own copy of are developer-scoped",
       JSON.parse(run(dir, `${LIST} developer`).stdout).templates.map((t) => t.id).sort(),
       ["fb", "implement"]);
@@ -16278,7 +16306,11 @@ function testWorkaholifyRoutines() {
     // "09:05, not 09:00" cannot later be read as a typo and rounded off.
     assertEq("the templates carry the staggered hourly schedule plus the daily digest",
       tpl.templates.map((t) => t.cron_expression).sort(),
-      ["15 * * * *", "30 * * * *", "45 * * * *", "5 0 * * *", "50 * * * *"]);
+      ["10 * * * *", "15 * * * *", "30 * * * *", "45 * * * *", "5 0 * * *", "50 * * * *"]);
+    // The updater lands FIRST in the hour, so a convergence reaches the four routines it
+    // converged before they next fire.
+    assertEq("the account updater fires before the routines it converges",
+      tpl.templates.find((t) => t.id === "workaholic").cron_expression, "10 * * * *");
     assertEq("the standup declares the daily schedule trigger",
       tpl.templates.find((t) => t.id === "standup").trigger, "schedule-daily");
     assertTrue("no template's cron minute is 0, which the API would rewrite to jitter",
@@ -18010,4 +18042,64 @@ function testHousekeepRoutineTemplate() {
   assertTrue("the write grant is justified in the template's own prose",
     /`Write`\/`Edit` are granted rather than inherited/.test(template), "the grant is unexplained");
   assertTrue("and the tools list carries them", /^allowed_tools: \[.*Write.*Edit.*\]$/m.test(template));
+}
+
+// ---------- [Workaholic]: the account updater's template, scope and one shape ----------
+// (2026-08-19, issue #526) The third scope's whole point is a COUNT that is neither per
+// developer nor per repository, so what is under test is that the count reaches a reader
+// before they repeat the setup, that the routine cannot leak into either other scope, and
+// that its one authorized shape matches the catalog byte for byte. Nothing here touches an
+// account.
+function testWorkaholicRoutineTemplate() {
+  const template = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines/workaholic.md"), "utf8");
+  const catalog = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/notify/reference/notifications.md"), "utf8");
+  const claudeMd = readFileSync(join(REPO_ROOT, "CLAUDE.md"), "utf8");
+  const block = (body, lead) => {
+    const m = body.match(new RegExp("```\\n(" + lead + "[\\s\\S]*?)```", "u"));
+    return m ? m[1] : "";
+  };
+  const shape = block(catalog, "🔄 Workaholic");
+  assertTrue("the catalog carries the account updater's line", shape !== "", "missing from notifications.md");
+  assertEq("it reads byte-identically in the template and the catalog", block(template, "🔄 Workaholic"), shape);
+  assertTrue("it carries no mention token", !/<@U/.test(shape), shape);
+  // Its own key, or it would dedup against the release tick and the maintenance tick.
+  assertTrue("it keys on fleet:<digest>, distinct from deploy: and stuck:",
+    /`fleet:<digest>`/.test(shape) && !/`deploy:/.test(shape) && !/`stuck:/.test(shape), shape);
+
+  assertTrue("the template is user-scoped", /^scope: user$/m.test(template));
+  assertTrue("firing at :10, before the routines it converges", /^cron_expression: 10 \* \* \* \*$/m.test(template));
+  assertTrue("CLAUDE.md's routines table carries the same row",
+    /\| `workaholic\.md` \| `\[Workaholic\]` \| `user` \| `10 \* \* \* \*` \| `\/setup-user-routines` \|/.test(claudeMd),
+    "the routines table and the template disagree");
+  // It opens no pull request and writes no file, so it is granted neither.
+  assertTrue("it is granted no Write/Edit", !/^allowed_tools: \[.*(Write|Edit).*\]$/m.test(template));
+  assertTrue("and declares no auto-fix", /^autofix_on_pr_create: false$/m.test(template));
+
+  // THE MEASURED REFUSAL IS THE POINT, not an aside: this is the one routine whose entire
+  // job may be permanently unreachable, and a routine firing on time while doing nothing
+  // reads as healthy. Both the template and the command it runs must say so.
+  const cmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/setup-user-routines.md"), "utf8");
+  assertTrue("the template names the transport refusal it measured",
+    /no_transport: `?RemoteTrigger-family tool/.test(template), "the refusal is unnamed");
+  assertTrue("and the command claims no convergence it did not perform",
+    /never a claim of convergence this run did not perform/.test(cmd), cmd.slice(0, 400));
+  assertTrue("the command states the enumeration's limit rather than implying coverage",
+    /never created a routine on is invisible to this run/.test(cmd), cmd.slice(0, 400));
+  assertTrue("and forbids a tick converging its own record",
+    /except its own record/.test(cmd), cmd.slice(0, 400));
+
+  // The sheet states the count BEFORE a reader repeats it per repository — the one place
+  // that expectation gets corrected in time to matter.
+  const WH = "https://github.com/qmu/workaholic";
+  const userSheet = run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.renderSetupSheet} --all ${WH} user`).stdout;
+  assertTrue("the user sheet says one per account, not one per repository",
+    /not one per repository, and not one per developer/.test(userSheet), userSheet.slice(0, 600));
+  assertTrue("and names its scope on the routine itself",
+    /Scope: \*\*user\*\*/.test(userSheet), userSheet.slice(0, 900));
+  assertTrue("the user-scoped routine appears in no other scope's sheet",
+    !run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.renderSetupSheet} --all ${WH} developer`).stdout.includes("## [Workaholic]") &&
+    !run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.renderSetupSheet} --all ${WH} repository`).stdout.includes("## [Workaholic]"),
+    "the account routine leaked into a per-repository sheet");
+  assertEq("an explicit id outside the user scope is refused, not rendered",
+    run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.renderSetupSheet} workaholic ${WH} developer`).status !== 0, true);
 }

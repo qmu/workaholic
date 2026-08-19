@@ -196,6 +196,21 @@ person answering another person, and **nothing ingests a Slack reply back into t
 an answer the loop itself consumes is a new mechanism, not a rewording, and it is unbuilt until
 somebody scopes it.
 
+### `/setup-user-routines` — the account updater's one line
+
+```
+🔄 Workaholic - <what changed, or the named refusal and what it could not read>
+One sentence, max 25 words, which routines converged on which repositories, or what is not being converged.
+`fleet:<digest>`
+<session URL>
+```
+
+**A top-level keyed root, never a reply, and no mention token of any kind** — the same reasons `📦 Release Preparation` and `🔧 Needs a decision` carry none: no feedback item said anything, and the line names the state of the account's routines rather than a person's work. There is no thread for it to land in — a `user`-scoped routine has no repository artifact to key on.
+
+**It posts only on a change or a refusal, and only once per distinct state.** A quiet fleet posts nothing at all; an hourly "nothing drifted" would be the standing claim on attention every idle tick in this catalog already refuses to make. The `` `fleet:<digest>` `` token is searched exactly once (private-inclusive, `include_bots: true`): found ⇒ post nothing. The digest covers what converged, on which repositories, and the refusal reason if there was one — so a *new* kind of drift, or a refusal that changes shape, is said the same hour, while an unchanged state is said once.
+
+**The refusal is a post, not a silence, and that is the point.** `[Workaholic]` is the one routine whose entire job may be permanently unreachable — no `RemoteTrigger`-family tool is exposed to the routine-fired session class (measured 2026-08-19), so in that class it converges nothing, every hour, forever. A routine firing on time and doing nothing reads as healthy, which is the exact failure `workaholic:workaholify` §4 names about the web bootstrap; one keyed line saying `no_transport` by name is the minimum that makes it legible, and the digest gate keeps it to one.
+
 ### Precondition-stop — calm first, escalate on persistence
 
 A **first** report of a signature in the precondition-stop class (SKILL, *Post shapes, mentions, and the red-alert dedup* — `no_plugin_source`; `unbound_in_claude_session` and `loaded_version_behind_registry` left the class on 2026-08-12 by ceasing to be stops) posts calm rather than alarming, since the run stopped before it ever reached a unit:

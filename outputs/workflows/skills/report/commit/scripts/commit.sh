@@ -272,7 +272,7 @@ append_section "Verify" "$VERIFY"
 # (`user.name` = `Claude` comes from the container's global config, `user.email` is
 # set repo-locally by the web bootstrap from `.claude/git-identities`), so the PERSON
 # is attributable today. What was genuinely unrecoverable is WHICH RUN produced the
-# commit -- `[Propose]` and `[Implement]` were indistinguishable.
+# commit -- `[Specificate]` and `[Implement]` were indistinguishable.
 #
 # The routine's NAME is not recoverable either, and that is a measurement, not a
 # choice: the container's whole environment was read in an `[Implement]` session and

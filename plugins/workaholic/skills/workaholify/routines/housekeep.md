@@ -1,7 +1,8 @@
 ---
 type: Routine Template
 id: housekeep
-name: "[Housekeep] {repo_name}"
+name: "[Propose] {repo_name}"
+renamed_from: "[Housekeep] {repo_name}"
 scope: repository
 trigger: schedule-hourly
 trigger_kind: schedule
@@ -12,7 +13,28 @@ allowed_tools: [Bash, Read, Write, Edit, Glob, Grep]
 mcp: [Slack]
 ---
 
-# [Housekeep] — the maintenance tick, one copy for the repository
+# [Propose] — the maintenance tick, one copy for the repository
+
+**This routine was `[Housekeep]` until 2026-08-19, and its cutover is the ordered half of a
+swap** (issue #526). Behaviour did not move: it still runs `/housekeep`, still fires at `:50`,
+still declares `autofix_on_pr_create: true` and `scope: repository`, still names the same two
+post formats. Only `name:` moved — and it moved **into a name that was live until the same
+change**. The routine that held it, running `/propose` at `:15`, is now `[Specificate]`.
+
+**So the operator's act here is ordered, and that is the whole risk.** Convergence matches an
+account's routines by rendered name. An account that has not yet renamed its live
+`[Propose] <repo>` to `[Specificate] <repo>` and lets `/setup-repo-routines` converge this one
+ends up with **two routines called `[Propose] <repo>`** — one firing `/propose` at `:15`, one
+firing `/housekeep` at `:50` — which no convergence can tell apart and which no other account
+can list or delete. **Rename the old `[Propose]` first** (`/setup-dev-routines`' cutover), then
+this one. `renamed_from:` above carries the instruction into the sheet and both setup commands'
+reports; the field is deleted from this template once the fleet has cut over.
+
+**Nothing is deduped by a routine's name**, so no post changes frequency or threading under
+this rename: the Slack keys are `` `fb:<stem>` ``, `` `stuck:<digest>` ``, `` `deploy:<digest>` ``
+and `` `standup:<date>` ``, and nothing searches a heading or a routine name. This is stated
+here rather than left to be re-derived — the 2026-08-17 release-tick rename was reversed the
+next day on exactly that mistaken assumption.
 
 **`scope: repository`** — the repository needs exactly **one** of this routine, configured by
 one designated person or a project/service account through `/setup-repo-routines`.
@@ -37,7 +59,7 @@ rather than a line to change. Moving this one is a **one-line** change to `scope
 commands and both setup sheets read this field, so nothing else has to move with it.
 
 **Fires at :50** — the API's minimum interval is one hour, a bare `:00` minute is rewritten to
-server jitter, and `15` / `30` / `45` are taken by `[Propose]`, `[Implement]` and
+server jitter, and `15` / `30` / `45` are taken by `[Specificate]`, `[Implement]` and
 `[Prepare Release]`. Landing last in the hour is deliberate: the tick reads what the other three
 have just done.
 
@@ -46,7 +68,7 @@ routine is not a pure reader like `[Prepare Release]`: it writes its own tick lo
 `.workaholic/housekeeping/`, and filing a finding means writing a feedback record or a ticket —
 which publishes behind a pull request, exactly as `/propose` does. A pull request this routine
 opened and then left red is a stuck artifact nobody owns, so the flag is `true` for the same
-reason it is true on `[Propose]`.
+reason it is true on `[Specificate]`.
 
 **Its container is discarded, so the tick commits its own log.** A routine tick runs in a fresh
 clone; a log left in that checkout would take every dedup's memory with it and leave an hourly

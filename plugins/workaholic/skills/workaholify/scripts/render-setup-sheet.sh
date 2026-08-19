@@ -60,7 +60,7 @@ ROUTINES_URL="https://claude.ai/code/routines"
 fm_field() { sed -n "2,/^---[ \t]*\$/p" "$1" | sed -n "s/^$2:[ \t]*//p" | head -n 1; }
 
 usage() {
-    echo 'usage: render-setup-sheet.sh <template-id|--all> <repo-url> [developer|repository]' >&2
+    echo 'usage: render-setup-sheet.sh <template-id|--all> <repo-url> [developer|repository|user]' >&2
     exit 2
 }
 
@@ -70,7 +70,7 @@ REPO_URL="$2"
 WANT_SCOPE="${3:-}"
 
 case "$WANT_SCOPE" in
-    ''|developer|repository) ;;
+    ''|developer|repository|user) ;;
     *) echo "unknown scope: ${WANT_SCOPE}" >&2; exit 2 ;;
 esac
 
@@ -104,13 +104,37 @@ sheet() {
     # instruction to a human, derived from the template like every other step here rather
     # than written into prose somebody has to remember to delete. The field is deleted from
     # the template once the fleet has cut over, and the note disappears with it.
-    _renamed_from=$(fm_field "$_file" renamed_from \
-        | sed -e 's/^"//' -e 's/"$//' -e "s#{repo_name}#${_repo_name}#g")
+    _renamed_from_raw=$(fm_field "$_file" renamed_from | sed -e 's/^"//' -e 's/"$//')
+    _renamed_from=$(printf '%s' "$_renamed_from_raw" | sed -e "s#{repo_name}#${_repo_name}#g")
+    # A SWAP IS NOT TWO INDEPENDENT RENAMES (2026-08-19, issue #526). When the name this
+    # template was renamed OUT of is the name another template now claims, the two cutovers
+    # are ORDERED: an account that creates the new holder of the old name before renaming
+    # its live routine ends up with two routines carrying one rendered name, which
+    # convergence matches by name and therefore cannot tell apart — and no other account can
+    # list or delete the duplicate. Derived from the template set, like every other step on
+    # this sheet, so the ordering disappears with the fields rather than outliving them in
+    # prose. Empty for an ordinary rename, where the freed name goes nowhere.
+    _name_raw=$(fm_field "$_file" name | sed -e 's/^"//' -e 's/"$//')
+    _takes_over=""   # another template CLAIMS the name this one is vacating
+    _held_by=""      # another routine still HOLDS the name this one is taking
+    for _o in "$ROUTINES_DIR"/*.md; do
+        [ -f "$_o" ] || continue
+        [ "$_o" != "$_file" ] || continue
+        _oname=$(fm_field "$_o" name | sed -e 's/^"//' -e 's/"$//')
+        _ofrom=$(fm_field "$_o" renamed_from | sed -e 's/^"//' -e 's/"$//')
+        if [ -n "$_renamed_from_raw" ] && [ "$_oname" = "$_renamed_from_raw" ]; then
+            _takes_over=$(printf '%s' "$_oname" | sed -e "s#{repo_name}#${_repo_name}#g")
+        fi
+        if [ -n "$_ofrom" ] && [ "$_ofrom" = "$_name_raw" ]; then
+            _held_by=$(printf '%s' "$_oname" | sed -e "s#{repo_name}#${_repo_name}#g")
+        fi
+    done
 
     printf '## %s\n\n' "$_name"
     case "$_scope" in
         repository) printf 'Scope: **repository** — exactly one account creates this one.\n\n' ;;
         developer)  printf 'Scope: **developer** — each developer creates their own copy.\n\n' ;;
+        user)       printf 'Scope: **user** — exactly one for your account, across every repository.\n\n' ;;
         *)          printf 'Scope: **undeclared** — the template declares no `scope:`; treat that as a defect.\n\n' ;;
     esac
     if [ -n "$_renamed_from" ]; then
@@ -120,6 +144,20 @@ sheet() {
         printf '> A routine is an account-level record: nothing in this plugin — and no other\n'
         printf '> account — can detect or delete your duplicate. Open the old routine, change its\n'
         printf '> name to `%s`, and apply the fields below to it.\n\n' "$_name"
+        if [ -n "$_takes_over" ]; then
+            printf '> **Do this one FIRST.** `%s` is not going away — another routine takes\n' "$_takes_over"
+            printf '> that name in this same change. Until you have renamed this one, creating\n'
+            printf '> the other leaves your account with two routines called `%s`,\n' "$_takes_over"
+            printf '> firing different commands on different schedules, and convergence matches\n'
+            printf '> by name and cannot tell them apart.\n\n'
+        fi
+    fi
+    if [ -n "$_held_by" ]; then
+        printf '> **Rename `%s` to `%s` BEFORE creating this one.**\n' "$_name" "$_held_by"
+        printf '> The name below is the one that routine holds until you rename it. Create this\n'
+        printf '> routine first and your account holds two called `%s`, firing\n' "$_name"
+        printf '> different commands on different schedules; convergence matches by name and\n'
+        printf '> cannot tell them apart, and no other account can list or delete the duplicate.\n\n'
     fi
     printf 'Open <%s> and click **New routine**, then:\n\n' "$ROUTINES_URL"
     printf '1. **Name**: `%s`\n' "$_name"
@@ -177,6 +215,20 @@ case "$WANT_SCOPE" in
             "$([ "$_repo_count" -eq 1 ] && echo is || echo are)" "$_repo_count" \
             "$([ "$_repo_count" -eq 1 ] && echo '' || echo s)"
         printf 'them. The per-developer setup burden is unchanged at two either way.\n\n'
+        ;;
+    user)
+        # THE COUNT HERE IS NOT PER REPOSITORY, and that is the whole reason the scope
+        # exists (2026-08-19, issue #526). A reader who has already set up two repositories
+        # will reasonably expect to repeat this sheet a third time; saying so in the header
+        # is the only place that expectation gets corrected before they act on it.
+        printf '# Account-scoped routine setup for %s\n\n' "$REPO_URL"
+        printf '**One for your whole account — not one per repository, and not one per developer.**\n'
+        printf 'If you have already created this routine while setting up another repository,\n'
+        printf 'you are done: it converges the routines on every repository your account has,\n'
+        printf 'so a second copy would do the same work twice and race itself.\n\n'
+        printf 'The **Repository** field below is the repository that holds the routine\n'
+        printf 'definitions, not the repository you are setting up — this routine reads what a\n'
+        printf 'routine should be from there and applies it to your account.\n\n'
         ;;
     *)
         printf '# Routine setup for %s\n\n' "$REPO_URL"

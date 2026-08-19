@@ -7,7 +7,7 @@ policy — shipped or merged at a PR (`docs/loop-engineering-workflow.md` G4).
 **The primary trigger is the `[Implement]` Claude Code Web routine**, which fires on
 a fixed hourly schedule (`30 * * * *`) from the shipped template
 `plugins/workaholic/skills/workaholify/routines/implement.md`. It is the execution
-sibling of the `[Propose]` routine, which fires hourly at `15 * * * *`
+sibling of the `[Specificate]` routine, which fires hourly at `15 * * * *`
 (`docs/proposal-loop-runbook.md`), and deliberately mirrors its shape. §3's server
 cron is the **machine-local fallback shape** for a runner outside the routines
 account; standing it up remains a developer's act (decision C1 — server cron first,

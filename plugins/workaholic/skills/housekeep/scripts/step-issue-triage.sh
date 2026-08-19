@@ -8,7 +8,7 @@
 # THREE MECHANICAL FACTS, NO VERDICTS:
 #   landed_but_open  an OPEN issue whose number an ARCHIVED ticket or a story
 #                    names — the work landed, so the issue is probably closable.
-#   never_ingested   an OPEN issue no feedback record names — `[Propose]` has not
+#   never_ingested   an OPEN issue no feedback record names — `[Specificate]` has not
 #                    taken it (it only takes issues assigned to the running
 #                    identity, so an unassigned or someone else's issue lands here
 #                    legitimately, which is why this is a fact and not a fault).

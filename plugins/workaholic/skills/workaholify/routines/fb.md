@@ -1,7 +1,8 @@
 ---
 type: Routine Template
 id: fb
-name: "[Propose] {repo_name}"
+name: "[Specificate] {repo_name}"
+renamed_from: "[Propose] {repo_name}"
 scope: developer
 trigger: schedule-hourly
 trigger_kind: schedule
@@ -12,7 +13,28 @@ allowed_tools: [Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch]
 mcp: [Slack]
 ---
 
-# [Propose] — turn a reported ask into a record and the work it warrants
+# [Specificate] — turn a reported ask into a record and the work it warrants
+
+**This routine was `[Propose]` until 2026-08-19, and the rename owes the operator one
+manual act** (issue #526). Behaviour did not move: it still runs `/propose`, still fires at
+`:15`, still declares `autofix_on_pr_create: true`, still names the same two post formats.
+Only `name:` moved — and convergence matches an account's routines **by name**, so the next
+`/setup-dev-routines` run **creates a second routine** rather than renaming the existing
+one, and a routine is an account-level record no other account can list or delete. An
+account already running `[Propose] <repo>` must **rename that routine in the web UI** to
+`[Specificate] <repo>`, not create a second. The instruction is carried mechanically rather
+than by prose somebody must remember: `renamed_from:` above, rendered by
+`render-setup-sheet.sh` as the sheet's first note and stated by `/setup-dev-routines`'
+report. The field is **deleted from this template once the fleet has cut over**, because it
+describes a migration rather than a routine. `[Prepare Release]` carried the first one
+(2026-08-18, issue #485); this is the second and the precedent was copied, not reinvented.
+
+**The rename is one half of a swap, and the other half takes this name.** The maintenance
+tick, `[Housekeep]`, becomes `[Propose]` — so an account that creates `[Specificate]`
+without first renaming its live `[Propose]` ends up with two routines called `[Propose]
+<repo>`, one firing `/propose` at `:15` and one firing `/housekeep` at `:50`, which
+convergence cannot tell apart. **Rename this one first**; the cutover is ordered, not merely
+"do not create a second".
 
 **`scope: developer`** — every developer needs their own copy, so `/setup-dev-routines`
 converges it and `/setup-repo-routines` never sees it. The scope is the template's own
@@ -21,8 +43,8 @@ field because both commands and both setup sheets have to read one source
 
 **Fires on a fixed hourly schedule (:15 — the API floor is one hour)** — FB `20260810085032`/issue #336,
 ticket `20260810085347`, 2026-08-10: loop-engineering cadence over instant webhook
-reaction, for both `[Propose]` and `[Implement]` (the developer's explicit correction
-— an earlier draft of this ticket kept `[Propose]` event-triggered on the reasoning
+reaction, for both `[Specificate]` and `[Implement]` (the developer's explicit correction
+— an earlier draft of this ticket kept `[Specificate]` event-triggered on the reasoning
 below; the developer asked for both). Every developer's copy fires independently on
 its own tick, and the **data** decides whose work it is exactly as before: `/propose`
 reads whatever ask is in hand and reports `not_mine` when it is not theirs.

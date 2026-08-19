@@ -11,7 +11,7 @@
 #   {"ok": false, "reason": "gh_unavailable" | "identity_unresolved" | "list_failed",
 #    "detail": "..."}
 #
-# WHY THIS EXISTS (2026-08-12, developer's instruction). [Propose] moved from a
+# WHY THIS EXISTS (2026-08-12, developer's instruction). [Specificate] moved from a
 # GitHub issue trigger to an hourly schedule (FB 20260810085032), and that
 # migration moved only the trigger: a pure clock tick carried nothing in hand
 # and reported `nothing_in_hand` every hour, while the developer's stated
@@ -24,7 +24,7 @@
 # time. Feedback remains the only input that can originate a proposal.
 #
 # ASSIGNED TO ME, NOT UNASSIGNED (decided, not omitted): every developer's copy
-# of [Propose] fires hourly, so an unassigned issue offered to every copy would
+# of [Specificate] fires hourly, so an unassigned issue offered to every copy would
 # have N runners race to propose it — the measured failure P8 exists for, with
 # only the after-the-fact branch dedup to catch the collision. An unassigned
 # issue still reaches /propose by hand (`/propose #<N>`), where a human chose

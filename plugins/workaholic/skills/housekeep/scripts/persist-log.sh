@@ -3,7 +3,7 @@
 #
 # WHY IT EXISTS (2026-08-17, issue #471, ticket
 # `20260817131500-persist-the-housekeep-tick-log`). `log-append.sh` writes into
-# the CHECKOUT, and a routine-fired `[Housekeep]` tick runs in a fresh container
+# the CHECKOUT, and a routine-fired `[Propose]` tick runs in a fresh container
 # cloned from the base. Without this step the log dies with the container, which
 # breaks two things at once: every dedup that reads the log (`stuck:<digest>`,
 # `doc-drift`'s already-filed set, the check-in's asked-once and held sets, the

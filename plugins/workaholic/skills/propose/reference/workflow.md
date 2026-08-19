@@ -7,7 +7,7 @@ and every abort reports a machine-readable reason.
 
 1. **Take the ask in hand.** An ask given as the command's argument, a feedback record
    this session just wrote, or a record named explicitly by the caller. **With none of
-   those** — the clock-fired `[Propose]` tick — **discover the inbound issues**
+   those** — the clock-fired `[Specificate]` tick — **discover the inbound issues**
    (SKILL.md, *Clock-fired discovery*):
    `bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/list-inbound-issues.sh`
    — the open GitHub issues assigned to this session's own identity, oldest-first,
@@ -230,7 +230,7 @@ and every abort reports a machine-readable reason.
     alone, unchanged; the tokened fallback posts the keyed finish line alone in either
     case, because it cannot thread. A no-op or failure never fails the run (SKILL.md,
     *Notifier contract*) — it is reported at step 13, never treated as posted. Inside the
-    `[Propose]` routine these are the routine's own connector posts; do not post twice.
+    `[Specificate]` routine these are the routine's own connector posts; do not post twice.
 
 13. **Report** one line: the form chosen (mission with N tickets / loose ticket /
     **strategy `<slug>`, PR left open for the operator** / **strategy `<slug>` closed

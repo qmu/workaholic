@@ -195,3 +195,4 @@ Branch development narratives, one per branch, serving as the PR description and
 * [work-20260818-193646.md](work-20260818-193646.md) - The web bootstrap guards user.name on the local scope, so a routine commit renders the developer name instead of Claude
 * [work-20260818-213641.md](work-20260818-213641.md) - The housekeep reminder names the kind of finding in its first line, derived from blocked_by, with the stuck:<digest> key untouched
 * [work-20260818-222423.md](work-20260818-222423.md) - The release preparation post is bounded to one ask per Asia/Tokyo day by a second deploy-day token, with deploy:<digest> unchanged
+* [work-20260819-053729.md](work-20260819-053729.md) - The routine pair swaps names (Propose to Specificate, Housekeep to Propose) with the cutover ordering derived from the templates, and a third user scope adds the per-account Workaholic updater

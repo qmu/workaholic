@@ -17,7 +17,7 @@ mcp: [Slack]
 **`scope: user`** — **exactly one for the account**, no matter how many repositories that
 account has set up (2026-08-19, issue #526). This is a third value, not a rename of either
 existing one: `developer` means one copy per developer **per repository**, `user` means one
-copy per **account, full stop**. `/workaholic` configures it, and neither
+copy per **account, full stop**. `/setup-user-routines` configures it, and neither
 `/setup-dev-routines` nor `/setup-repo-routines` ever sees it — the scope is read from this
 field by both setup commands and every setup sheet, so nothing has to be listed twice.
 
@@ -57,7 +57,7 @@ fleet down in one tick, and the failure worth designing against is a bad definit
 everywhere at once — not a missed update, which the next tick fixes for free. Excluding its own
 record is the cheap half of that: whatever it does to the fleet, there is still a tick left that
 can be repaired by hand and can repair the rest. Its own definition is converged by a person
-running `/workaholic`, exactly as `[Propose]` is converged by a person running
+running `/setup-user-routines`, exactly as `[Propose]` is converged by a person running
 `/setup-repo-routines` and never by a tick.
 
 **Where the transport is the whole question** (measured 2026-08-19 from a routine-fired
@@ -75,9 +75,9 @@ mirrors it verbatim. A future edit to either copy is a drift to fix, never a sec
 
 ## Prompt
 
-Run `/workaholic`.
+Run `/setup-user-routines`.
 
-If the command or its skills did not load, do not stop: run `bash plugins/workaholic/skills/check-deps/scripts/plugin-src.sh` from the checkout, take its `src`, then read `<src>/commands/workaholic.md` and follow it with every script path under `<src>`.
+If the command or its skills did not load, do not stop: run `bash plugins/workaholic/skills/check-deps/scripts/plugin-src.sh` from the checkout, take its `src`, then read `<src>/commands/setup-user-routines.md` and follow it with every script path under `<src>`.
 
 If the run converged a routine, or could not reach the transport at all, and the exact-string search for the state key finds no earlier post, post this one line as a new top-level message (the workaholic:notify lookup) — no mention token of any kind:
 

@@ -10750,7 +10750,7 @@ function testRenderSetupSheet() {
   const cmdForScope = {
     developer: "plugins/workaholic/commands/setup-dev-routines.md",
     repository: "plugins/workaholic/commands/setup-repo-routines.md",
-    user: "plugins/workaholic/commands/workaholic.md",
+    user: "plugins/workaholic/commands/setup-user-routines.md",
   };
   for (const [file, body] of renamedTemplates) {
     const scope = (body.match(/^scope:[ \t]*(\S+)/m) || [])[1];
@@ -18069,7 +18069,7 @@ function testWorkaholicRoutineTemplate() {
   assertTrue("the template is user-scoped", /^scope: user$/m.test(template));
   assertTrue("firing at :10, before the routines it converges", /^cron_expression: 10 \* \* \* \*$/m.test(template));
   assertTrue("CLAUDE.md's routines table carries the same row",
-    /\| `workaholic\.md` \| `\[Workaholic\]` \| `user` \| `10 \* \* \* \*` \| `\/workaholic` \|/.test(claudeMd),
+    /\| `workaholic\.md` \| `\[Workaholic\]` \| `user` \| `10 \* \* \* \*` \| `\/setup-user-routines` \|/.test(claudeMd),
     "the routines table and the template disagree");
   // It opens no pull request and writes no file, so it is granted neither.
   assertTrue("it is granted no Write/Edit", !/^allowed_tools: \[.*(Write|Edit).*\]$/m.test(template));
@@ -18078,7 +18078,7 @@ function testWorkaholicRoutineTemplate() {
   // THE MEASURED REFUSAL IS THE POINT, not an aside: this is the one routine whose entire
   // job may be permanently unreachable, and a routine firing on time while doing nothing
   // reads as healthy. Both the template and the command it runs must say so.
-  const cmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/workaholic.md"), "utf8");
+  const cmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/setup-user-routines.md"), "utf8");
   assertTrue("the template names the transport refusal it measured",
     /no_transport: `?RemoteTrigger-family tool/.test(template), "the refusal is unnamed");
   assertTrue("and the command claims no convergence it did not perform",

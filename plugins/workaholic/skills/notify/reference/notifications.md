@@ -196,7 +196,7 @@ person answering another person, and **nothing ingests a Slack reply back into t
 an answer the loop itself consumes is a new mechanism, not a rewording, and it is unbuilt until
 somebody scopes it.
 
-### `/workaholic` — the account updater's one line
+### `/setup-user-routines` — the account updater's one line
 
 ```
 🔄 Workaholic - <what changed, or the named refusal and what it could not read>

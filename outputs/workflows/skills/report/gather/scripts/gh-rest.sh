@@ -9,7 +9,7 @@
 # WHY THIS EXISTS (2026-08-12, feedback 20260812172522). `gh issue list`, `gh pr list`,
 # `gh pr create`, `gh pr merge` and `gh pr view` are backed by GraphQL, and a Claude Code
 # Web session is NOT guaranteed to serve that surface. Measured 2026-08-12 17:19 UTC in
-# this repository's own `[Propose]` tick:
+# this repository's own `[Specificate]` tick:
 #
 #   HTTP 403: This GraphQL query is not enabled for this session — only the pinned set
 #   of PR-review operations is served. Use REST via `gh api repos/{owner}/{repo}/...`

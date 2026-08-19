@@ -53,7 +53,7 @@ seam this file names for that step — recording what it actually did under the 
   `inbound-sweep-filed`, which the next tick's dedup reads.
 - **It does not open a GitHub issue** (resolved 2026-08-17, the ticket's first Open Decision). The
   crossing flow is gated on a verbatim human confirmation an unattended tick cannot give, and a
-  self-filed *assigned* issue would be re-discovered by `[Propose]` every hour forever — a record
+  self-filed *assigned* issue would be re-discovered by `[Specificate]` every hour forever — a record
   written before the issue can never name it, which is the measured reason issue #443's auto-file
   option was refused on 2026-08-14.
 - **Quoting rule: pointer and subject line only** (resolved 2026-08-17, the second Open Decision).
@@ -112,7 +112,7 @@ seam this file names for that step — recording what it actually did under the 
   `stories/`, `feedbacks/`.
 - **Three mechanical facts, no verdicts**: `landed_but_open` (an open issue an archived ticket or
   a story names — the work landed), `never_ingested` (an open issue no feedback record names —
-  `[Propose]` only takes issues assigned to the running identity, so someone else's issue lands
+  `[Specificate]` only takes issues assigned to the running identity, so someone else's issue lands
   here legitimately), and `oldest` (the least recently updated, with dates, for the agent to judge
   staleness against).
 - **Writes**: nothing. **It closes nothing and merges nothing** — an issue is somebody's words,

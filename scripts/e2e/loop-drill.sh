@@ -4,7 +4,7 @@
 #   loop-drill.sh seed                        # mint a fresh drill pair (issue + Slack root)
 #   loop-drill.sh status                      # report the drill's residue
 #   loop-drill.sh reset                       # recover an ABORTED run
-#   loop-drill.sh verify-propose  <issue> [--json]   # did the [Propose] fire land?
+#   loop-drill.sh verify-propose  <issue> [--json]   # did the [Specificate] fire land?
 #   loop-drill.sh verify-implement <issue> [--json]  # did the [Implement] fire land?
 #                                             (a drill ticket carrying
 #                                             `verification_handoff:` inverts the
@@ -255,7 +255,7 @@ EOF
 
     # --- preflight 2: no claim in flight ---------------------------------------
     # An unmerged work-* branch is BOTH a live claim and a dedup ref: the drill's
-    # `[Implement]` fire would take the other unit, and `[Propose]`'s dedup would see
+    # `[Implement]` fire would take the other unit, and `[Specificate]`'s dedup would see
     # a branch it must not collide with.
     branches="$(claim_branches)"
     if [ -n "$branches" ]; then

@@ -38,7 +38,7 @@ by name instead of reporting success.
 
 ## Acceptance
 
-- [ ] The routine formerly named `[Propose]` is `[Specificate]`, carrying the
+- [x] The routine formerly named `[Propose]` is `[Specificate]`, carrying the
   `renamed_from:` cutover instruction into both the report and the setup sheet. (#20260819052637-rename-the-propose-routine-to-specificate.md)
 - [ ] The routine formerly named `[Housekeep]` is `[Propose]`, landing only after
   the first rename has freed that name. (#20260819052637-rename-the-housekeep-routine-to-propose.md)
@@ -48,3 +48,4 @@ by name instead of reporting success.
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-19 — ticket archived — 20260819052637-rename-the-propose-routine-to-specificate.md

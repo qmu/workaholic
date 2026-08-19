@@ -13,7 +13,7 @@ metadata:
 
 # Housekeep
 
-The loop's **maintenance tick**. `[Propose]` turns asks into work and `[Implement]` drives it; nothing keeps the space *around* them tidy — stale issues, GitHub↔`.workaholic/` drift, pull requests stuck after a failed auto-merge, documentation that no longer matches the concept. `/housekeep` finds those, files them **through the existing seams**, and says what needs a human (issue #471).
+The loop's **maintenance tick**. `[Specificate]` turns asks into work and `[Implement]` drives it; nothing keeps the space *around* them tidy — stale issues, GitHub↔`.workaholic/` drift, pull requests stuck after a failed auto-merge, documentation that no longer matches the concept. `/housekeep` finds those, files them **through the existing seams**, and says what needs a human (issue #471).
 
 Relocated detail: [the nine-step contract](reference/workflow.md) — each step's inputs, what it may write, its abort reasons, and the ruling it is held to.
 

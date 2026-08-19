@@ -9243,7 +9243,7 @@ function testFbCrossRepoIssueMode() {
       argv.includes("--input") && argv[argv.indexOf("--input") + 1] === "-", argv.join(" "));
 
     // ---- 2a. the assignee, which is load-bearing rather than cosmetic ----
-    // `[Propose]`'s discovery lists only issues assigned to the running identity and
+    // `[Specificate]`'s discovery lists only issues assigned to the running identity and
     // deliberately never unassigned ones, so an unassigned in-repo `[FB]` issue would be
     // ingested by nobody. These cases pin both halves: the flag puts the login on the
     // wire, and its ABSENCE leaves the crossing's request body exactly what it was.
@@ -10696,7 +10696,7 @@ function testRenderSetupSheet() {
   const sheet = (target) => run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.renderSetupSheet} ${target} ${WH}`).stdout;
 
   const all = sheet("--all");
-  for (const name of ["[Propose] workaholic", "[Implement] workaholic", "[Prepare Release] workaholic",
+  for (const name of ["[Specificate] workaholic", "[Implement] workaholic", "[Prepare Release] workaholic",
                       "[Standup] workaholic"]) {
     assertTrue(`the sheet covers ${name}`, all.includes(`## ${name}`), all.slice(0, 200));
   }
@@ -10707,12 +10707,12 @@ function testRenderSetupSheet() {
   const scopedSheet = (sc) => run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.renderSetupSheet} --all ${WH} ${sc}`).stdout;
   const devSheet = scopedSheet("developer");
   assertTrue("the developer sheet covers both developer routines and neither repository one",
-    devSheet.includes("## [Propose] workaholic") && devSheet.includes("## [Implement] workaholic") &&
+    devSheet.includes("## [Specificate] workaholic") && devSheet.includes("## [Implement] workaholic") &&
     !devSheet.includes("## [Prepare Release] workaholic"), devSheet.slice(0, 300));
   const repoSheet = scopedSheet("repository");
   assertTrue("the repository sheet covers only the repository routines",
     repoSheet.includes("## [Prepare Release] workaholic") && repoSheet.includes("## [Standup] workaholic") &&
-    !repoSheet.includes("## [Propose] workaholic"), repoSheet.slice(0, 300));
+    !repoSheet.includes("## [Specificate] workaholic"), repoSheet.slice(0, 300));
   assertTrue("the repository sheet states the one-account convention it cannot enforce",
     /not every team member/i.test(repoSheet), repoSheet.slice(0, 400));
   // The scope grew from one routine to two on 2026-08-17 (ticket `20260817115233`), and the
@@ -10744,11 +10744,38 @@ function testRenderSetupSheet() {
   }
   // The same instruction has to reach the path that does NOT render a sheet: convergence
   // succeeds there, and a created routine beside a stale one is the failure it prevents.
-  if (renamedTemplates.length > 0) {
-    const repoCmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/setup-repo-routines.md"), "utf8");
-    assertTrue("the setup command's report path states the rename cutover too",
-      /renamed_from:/.test(repoCmd) && /rename it\*\* rather than create a second/.test(repoCmd),
-      repoCmd.slice(0, 400));
+  // It must reach the command of the RENAMED TEMPLATE'S OWN SCOPE (2026-08-19, issue #526):
+  // a developer-scoped rename stated only in `/setup-repo-routines` reaches nobody who runs
+  // the command that would create the duplicate.
+  const cmdForScope = {
+    developer: "plugins/workaholic/commands/setup-dev-routines.md",
+    repository: "plugins/workaholic/commands/setup-repo-routines.md",
+  };
+  for (const [file, body] of renamedTemplates) {
+    const scope = (body.match(/^scope:[ \t]*(\S+)/m) || [])[1];
+    const cmdPath = cmdForScope[scope];
+    assertTrue(`the renamed template ${file} declares a scope with a setup command`, !!cmdPath, scope);
+    const cmd = readFileSync(join(REPO_ROOT, cmdPath), "utf8");
+    assertTrue(`the ${scope} setup command's report path states the rename cutover too`,
+      /renamed_from:/.test(cmd) && /rename it\*\* rather than create a second/.test(cmd),
+      cmd.slice(0, 400));
+  }
+  // A SWAP is not two independent renames: when a template's `renamed_from:` names a routine
+  // another template now CLAIMS as its own name, an account that converges in the wrong order
+  // holds two routines with one rendered name and convergence cannot tell them apart. Both
+  // commands must therefore state the ORDER, not merely "do not create a second".
+  const allTemplates = readdirSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines"))
+    .filter((f) => f.endsWith(".md"))
+    .map((f) => readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines", f), "utf8"));
+  const liveNames = allTemplates.map((b) => (b.match(/^name:[ \t]*"?([^"\n]+)"?/m) || [])[1]);
+  for (const [file, body] of renamedTemplates) {
+    const oldName = (body.match(/^renamed_from:[ \t]*"?([^"\n]+)"?/m) || [])[1];
+    if (!liveNames.includes(oldName)) continue;
+    for (const cmdPath of Object.values(cmdForScope)) {
+      const cmd = readFileSync(join(REPO_ROOT, cmdPath), "utf8");
+      assertTrue(`${cmdPath} states the ordered cutover for the swap ${file} is half of`,
+        /\*\*before\*\*/.test(cmd) || /ordering/.test(cmd), cmd.slice(0, 400));
+    }
   }
   assertEq("an explicit template id outside the requested scope is refused, not rendered",
     run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.renderSetupSheet} fb ${WH} repository`).status !== 0, true);
@@ -14391,7 +14418,7 @@ function testExtractIssueNumber() {
 }
 
 // ---------- list-inbound-issues.sh (the clock-fired discovery) ----------
-// [Propose]'s schedule fire hands the session nothing, so /propose discovers its own
+// [Specificate]'s schedule fire hands the session nothing, so /propose discovers its own
 // asks: the open issues assigned to this identity, minus those a feedback record
 // already names. `gh` is ALWAYS stubbed — the suite never touches the network — and
 // the properties pinned are the ones a wrong inbox would corrupt silently:
@@ -14701,7 +14728,7 @@ function testStatelessThreadLookup() {
 
   // Case 4 posts TWO messages since 2026-08-14 (issue #443): a description root a human can
   // answer, then the finish line as a reply into it. The root's wording lives in exactly two
-  // places -- the shape catalog, and the [Propose] routine template whose prompt is the
+  // places -- the shape catalog, and the [Specificate] routine template whose prompt is the
   // ceiling on what a session may emit -- so a drift between them ships either a documented
   // shape nobody is authorized to post or a posted shape nothing documents. Byte for byte.
   const rootBlock = (body) => {
@@ -14712,7 +14739,7 @@ function testStatelessThreadLookup() {
   const proposeTemplate = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines/fb.md"), "utf8");
   const catalogRoot = rootBlock(catalog);
   assertTrue("the shape catalog carries the description root's block", catalogRoot !== "", catalog.slice(0, 200));
-  assertEq("the description root reads byte-identically in the catalog and the [Propose] template",
+  assertEq("the description root reads byte-identically in the catalog and the [Specificate] template",
     rootBlock(proposeTemplate), catalogRoot);
 
   // The root carries the lookup's own key -- case 2 searches for `fb:<stem>`, so moving the
@@ -14808,7 +14835,7 @@ function testFbFilesAnIssue() {
     /assigned to the running identity and never unassigned/.test(skill), "the discovery filter is not explained");
 
   // NO RECORD ON THE ISSUE PATH, and the reason is mechanical: a record naming the issue
-  // makes `[Propose]` skip it as `already_captured`, so the ask would sit unproposed
+  // makes `[Specificate]` skip it as `already_captured`, so the ask would sit unproposed
   // forever. Stating only "no record is written" would read as an omission.
   assertTrue("the skill states that no record is written on that path",
     /No feedback record is written on this path/.test(skill));
@@ -14861,7 +14888,7 @@ function testFbFallbackDecision() {
     { encoding: "utf8", shell: "/bin/sh" }));
 
   // THE HAPPY PATH NEVER WRITES A RECORD. A `/fb` that opened the issue AND wrote the
-  // record would make `[Propose]`'s discovery skip its own issue as `already_captured`,
+  // record would make `[Specificate]`'s discovery skip its own issue as `already_captured`,
   // and the ask would sit unproposed forever — the defect the in-repo path exists to avoid.
   assertEq("a filed issue does not fall back",
     decide("in-repo", '{"ok": true, "url": "https://example.test/issues/1"}').fallback, false);
@@ -14906,8 +14933,8 @@ function testFbFallbackDecision() {
   // unstated, a fallback reads as a full recovery and the ask goes quiet.
   const skill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/feedback/SKILL.md"), "utf8");
   const runbook = readFileSync(join(REPO_ROOT, "docs/proposal-loop-runbook.md"), "utf8");
-  assertTrue("the skill states a fallback record is not discovered by [Propose]",
-    /not discovered by `\[Propose\]`/.test(skill), "the consequence is not stated in the skill");
+  assertTrue("the skill states a fallback record is not discovered by [Specificate]",
+    /not discovered by `\[Specificate\]`/.test(skill), "the consequence is not stated in the skill");
   assertTrue("the runbook carries it as a failure mode",
     /discovery reads open issues, not files/.test(runbook), "the consequence is not stated in the runbook");
   // AND NO SWEEP WAS ADDED to paper over it: re-reading local records for something to
@@ -14958,7 +14985,7 @@ function testNoSubcommands() {
 }
 
 // ---------- ownership rides the chain from the trigger (P6, 2026-08-06) ----------
-// The [Propose] routine fires on an issue ASSIGNED TO A PERSON, so the owner is known
+// The [Specificate] routine fires on an issue ASSIGNED TO A PERSON, so the owner is known
 // before any artifact exists. Until P6 nothing carried it: every proposal-born artifact
 // was written unowned, which correctly means "claimable by anyone" -- so with several
 // developers on a repository, EVERY runner judged the work claimable and raced for it,
@@ -16210,11 +16237,11 @@ function testWorkaholifyRoutines() {
     // set the moment it does not. Nothing enumerates the ids in code, which is why both
     // adding `propose` and retiring it again needed no script change.
     // Both templates carry a fixed-interval schedule trigger (ticket 20260810085347,
-    // developer's explicit ask covering [Propose] as well as [Implement], 2026-08-10),
+    // developer's explicit ask covering [Specificate] as well as [Implement], 2026-08-10),
     // superseding the 2026-08-06 merge-trigger pin this block used to state.
     // Hourly since 2026-08-11: the routine API's minimum interval is one hour
     // (`0,30 * * * *` rejected as "cron interval too short", measured live), so the
-    // designed 30-minute cadence became a staggered hourly pair — [Propose] :15,
+    // designed 30-minute cadence became a staggered hourly pair — [Specificate] :15,
     // [Implement] :30.
     // Three staggered hourly ticks, plus the one DAILY digest. Its minute is non-zero for
     // the same measured reason theirs are (a bare `:00` is rewritten to server jitter), and
@@ -16258,7 +16285,7 @@ function testWorkaholifyRoutines() {
 
     const fb = JSON.parse(run(dir, `${RENDER} fb ${WH}`).stdout);
     // The template's trigger states the DESIGNED trigger (the record stores no such
-    // field): [Propose] fires on a fixed 30-minute schedule, same as [Implement]
+    // field): [Specificate] fires on a fixed 30-minute schedule, same as [Implement]
     // (ticket 20260810085347, developer's explicit ask covering both routines,
     // 2026-08-10, superseding the 2026-08-06 assigned-issue-only pin). The word is the
     // design, so it is pinned.

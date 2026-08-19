@@ -12,7 +12,7 @@
 # converge, so the split has to live where both of them — and both setup sheets — read
 # one source. Enumerating ids inside two commands would be the same list written twice,
 # and the drift between them would be invisible exactly the way template drift was.
-#   developer   every developer needs their own copy ([Propose], [Implement])
+#   developer   every developer needs their own copy ([Specificate], [Implement])
 #   repository  the repository needs exactly ONE copy, configured by one account
 # An optional positional filters the set; absent, every template is listed. A template
 # declaring no scope is reported with an empty one and is never silently folded into
@@ -20,7 +20,7 @@
 #
 # ONE SET OF TEMPLATES, MANY REPOSITORIES. The templates live in the PLUGIN
 # (`skills/workaholify/routines/*.md`), not in any repository's `.workaholic/`. That is
-# the whole shape of the thing: `[Propose]` and `[Implement]` are the two routines
+# the whole shape of the thing: `[Specificate]` and `[Implement]` are the two routines
 # every workaholic repository should have, and what differs between repositories is only which
 # repository they point at. A per-repository declaration would be one copy per repo of a
 # file that is identical in every repo except its own URL — and each copy free to drift.

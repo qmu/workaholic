@@ -24,7 +24,7 @@ Run every command from the repository root, on a clean `main`.
 | # | Stage | Command | Reads |
 | - | ----- | ------- | ----- |
 | 1 | Seed | `sh scripts/e2e/loop-drill.sh seed` | preflight (inbox + claims), then mints the issue and the `dev-workaholic` Slack root |
-| 2 | Fire `[Propose]` | run the `[Propose]` routine by its trigger id | — |
+| 2 | Fire `[Specificate]` | run the `[Specificate]` routine by its trigger id | — |
 | 3 | Verify propose | `sh scripts/e2e/loop-drill.sh verify-propose <issue> --json` | `origin/main`, REST issue + pull requests |
 | 4 | Fire `[Implement]` | run the `[Implement]` routine by its trigger id | — |
 | 5 | Verify implement | `sh scripts/e2e/loop-drill.sh verify-implement <issue> --json` | `origin/main`, REST pull requests, unmerged `work-*` branches |
@@ -44,7 +44,7 @@ else is carried between stages, because each relation is read back out of the ar
 **trigger ids** come from the trigger API's list (a `RemoteTrigger`-family tool, exposed
 to interactive sessions only — `workaholic:workaholify`, *Direct-apply when
 `RemoteTrigger` is exposed*), never from a value written down here. List the account's
-routines, take the id of `[Propose]` / `[Implement]`, run it, then read its session: the
+routines, take the id of `[Specificate]` / `[Implement]`, run it, then read its session: the
 run list first, then that run's log. A **scheduled** tick that happens to take the ask
 first verifies identically — the drill asserts artifacts, and the artifacts do not record
 which fire produced them.
@@ -56,17 +56,17 @@ hour, and a bare `:00` is rewritten to server jitter):
 
 | Routine | Cron | Avoid firing by hand around |
 | ------- | ---- | --------------------------- |
-| `[Propose]` | `15 * * * *` | **:10–:20** |
+| `[Specificate]` | `15 * * * *` | **:10–:20** |
 | `[Implement]` | `30 * * * *` | **:25–:40** |
 
 Inside those windows a scheduled tick and your manual fire can both take the same ask.
-Nothing corrupts — `[Propose]` dedups on the feedback stream and on unmerged branches, and
+Nothing corrupts — `[Specificate]` dedups on the feedback stream and on unmerged branches, and
 `[Implement]`'s claim protocol lets exactly one runner hold a unit — but the loser's
 session log reads like a failure (`already_captured`, `already_claimed`), which is a
 diagnosis you did not need. Fire in the quiet half of the hour and both logs stay
 readable.
 
-Between stages 2 and 3, wait for the `[Propose]` session to finish. A verify run against a
+Between stages 2 and 3, wait for the `[Specificate]` session to finish. A verify run against a
 still-running fire reports `pending`, not `fail` (§3) — it is safe to run early, just
 uninformative.
 
@@ -138,7 +138,7 @@ alone`. It is deliberately **not** load-bearing: the drill can see which form wa
 never which form the ask warranted, and a row that graded that choice would fail every
 correctly-record-alone proposal. Read it to understand a stage, never to judge one.
 
-## 4. Blame table — the `[Propose]` stage
+## 4. Blame table — the `[Specificate]` stage
 
 Every abort reason the propose workflow can report, and the **one file to read** for it.
 The reasons themselves are defined in `plugins/workaholic/skills/propose/SKILL.md` and

@@ -37,7 +37,7 @@ rather than a line to change. Moving this one is a **one-line** change to `scope
 commands and both setup sheets read this field, so nothing else has to move with it.
 
 **Fires at :50** — the API's minimum interval is one hour, a bare `:00` minute is rewritten to
-server jitter, and `15` / `30` / `45` are taken by `[Propose]`, `[Implement]` and
+server jitter, and `15` / `30` / `45` are taken by `[Specificate]`, `[Implement]` and
 `[Prepare Release]`. Landing last in the hour is deliberate: the tick reads what the other three
 have just done.
 
@@ -46,7 +46,7 @@ routine is not a pure reader like `[Prepare Release]`: it writes its own tick lo
 `.workaholic/housekeeping/`, and filing a finding means writing a feedback record or a ticket —
 which publishes behind a pull request, exactly as `/propose` does. A pull request this routine
 opened and then left red is a stuck artifact nobody owns, so the flag is `true` for the same
-reason it is true on `[Propose]`.
+reason it is true on `[Specificate]`.
 
 **Its container is discarded, so the tick commits its own log.** A routine tick runs in a fresh
 clone; a log left in that checkout would take every dedup's memory with it and leave an hourly

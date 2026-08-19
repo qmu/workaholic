@@ -1,5 +1,5 @@
 #!/bin/sh -eu
-# Discover the asks a clock-fired /propose run has in hand: the open GitHub
+# Discover the asks a clock-fired /specificate run has in hand: the open GitHub
 # issues on THIS repository assigned to the session's own identity.
 #
 #   list-inbound-issues.sh [feedbacks-dir]     # default: .workaholic/feedbacks
@@ -27,7 +27,7 @@
 # of [Specificate] fires hourly, so an unassigned issue offered to every copy would
 # have N runners race to propose it — the measured failure P8 exists for, with
 # only the after-the-fact branch dedup to catch the collision. An unassigned
-# issue still reaches /propose by hand (`/propose #<N>`), where a human chose
+# issue still reaches /specificate by hand (`/specificate #<N>`), where a human chose
 # the one session that acts. The server-side assignee filter also makes the
 # P8 `not_mine` verdict impossible on this path by construction.
 #

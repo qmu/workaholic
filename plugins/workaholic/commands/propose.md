@@ -1,18 +1,17 @@
 ---
 name: propose
-description: Judge the ask in hand and emit, in one publish-tree pull request, the feedback record together with whatever it warrants — a mission with its ticket set, a loose ticket, or the record alone.
+description: The hourly maintenance tick — find what has gone stale, stuck or drifted around the loop, file it through the existing seams, and say what needs a human. Never prompts; never merges; never rewrites another runner's branch.
 skills:
   - workaholic:propose
-  - workaholic:feedback
-  - workaholic:mission
-  - workaholic:gather
-  - workaholic:commit
+  - workaholic:notify
 ---
 
 # Propose
 
-Run the preloaded `workaholic:propose` skill's **Workflow** end to end (its `reference/workflow.md` carries every step). It acts on the ask **in hand** — this command's argument, a feedback record this session just wrote, or a record the caller named; with none of those it **discovers the inbound issues first** (the skill's *Clock-fired discovery*: the open GitHub issues assigned to this session's own identity, each taken as an ask through the full run), and only when that too returns nothing does it report `{"proposed": 0, "reason": "nothing_in_hand"}` and stop. It is unattended by contract: it never issues `AskUserQuestion`, and every abort reports a machine-readable reason.
+Run the preloaded `workaholic:propose` skill's **The run** section end to end: one tick — `run.sh` over the nine steps in order, one log line per step in `.workaholic/housekeeping/<UTC-day>.md`, then act on every `needs_agent` entry through the seam that step's section names, recording each as `<step>-filed`. The run's **closing act** puts that log on the base through the publish tree (`persist-log.sh`) — a routine's container is discarded, so a log left in the checkout blinds every dedup and leaves the tick with no audit trail. Finish with one report line per step, the persist's own outcome **by name**, and the counts.
 
-Two rulings the skill owns, applied here: an ask from a GitHub issue assigned to someone else is `not_mine` (*Act only on an ask that is yours*); otherwise the triggering issue's assignee rides both scaffolds — `scaffold-draft.sh --assignee <email>` and `scaffold-proposed-ticket.sh --assignee <email>` — and `--assignee` is omitted when nobody was assigned, never filled from the running identity.
+**Unattended by contract**, exactly as `/implement` and `/specificate` are: **no `AskUserQuestion` at any step**. Step 9 asks humans things and asks them in Slack — a routine-fired session has no question mechanism, and "ask a human" is not "prompt the operator".
+
+**It files; it does not decide on anyone's behalf.** A finding becomes a feedback record, work becomes a ticket or a mission through the seams that already publish them, a question becomes a Slack post. It **never merges a pull request**, never pushes into a branch the claim protocol owns, and never edits a live strategy; the one thing it commits to the base is its own append-only tick log. A degraded read — an absent connector, an unreadable inbox, a 403 — is reported **by name**, never rendered as a step that ran and found nothing.
 
 Invoke skills by their loaded `workaholic:` namespace; never read global plugin installs or guess retired namespaces.

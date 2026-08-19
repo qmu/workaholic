@@ -4,7 +4,7 @@
 #   loop-drill.sh seed                        # mint a fresh drill pair (issue + Slack root)
 #   loop-drill.sh status                      # report the drill's residue
 #   loop-drill.sh reset                       # recover an ABORTED run
-#   loop-drill.sh verify-propose  <issue> [--json]   # did the [Specificate] fire land?
+#   loop-drill.sh verify-specificate  <issue> [--json]   # did the [Specificate] fire land?
 #   loop-drill.sh verify-implement <issue> [--json]  # did the [Implement] fire land?
 #                                             (a drill ticket carrying
 #                                             `verification_handoff:` inverts the
@@ -12,7 +12,7 @@
 #   loop-drill.sh verify-plan [--json]        # is the deployment-plan refresh sound?
 #   loop-drill.sh verify-status [--json]      # is the [Prepare Release] read sound and silent?
 #   loop-drill.sh verify-cadence [--json]     # is the daily note generation idempotent and clock-free?
-#   loop-drill.sh verify-housekeep [--json]   # is the /housekeep tick (the [Propose]
+#   loop-drill.sh verify-propose [--json]   # is the /propose tick (the [Propose]
 #                                             routine since 2026-08-19) sound and
 #                                             write-free? The stage names the COMMAND,
 #                                             which did not move in that rename; the
@@ -241,7 +241,7 @@ cmd_seed() {
     resolve_slug
 
     # --- preflight 1: the inbox must be empty ---------------------------------
-    # Discovery has NO title filter (`propose/scripts/list-inbound-issues.sh`), so any
+    # Discovery has NO title filter (`specificate/scripts/list-inbound-issues.sh`), so any
     # stray assigned issue is taken as an ask and the drill would verify the wrong
     # artifact chain. Refuse loudly rather than seed into noise.
     read_assigned_open
@@ -490,7 +490,7 @@ main_show() {
 # ONE delimiter and strips leading ones: a genuinely empty middle field (an UNMERGED
 # pull request's `merged_at` -- exactly the row this drill has to recognise) shifts
 # every later field left by one, and the body arrives holding the title. Measured while
-# writing this: `verify-propose` reported "no pull request carries Closes #N" about a
+# writing this: `verify-specificate` reported "no pull request carries Closes #N" about a
 # pull request that carried it.
 PR_EMPTY="-"
 read_pulls() {
@@ -561,10 +561,10 @@ verify_prelude() {
     git -C "$REPO_ROOT" fetch --quiet origin >/dev/null 2>&1 || true
 }
 
-cmd_verify_propose() {
+cmd_verify_specificate() {
     ISSUE="${1:-}"
     case "$ISSUE" in
-        '' | *[!0-9]*) emit_err "usage" 2 "verify-propose needs an issue number" ;;
+        '' | *[!0-9]*) emit_err "usage" 2 "verify-specificate needs an issue number" ;;
     esac
     verify_prelude
     read_issue "$ISSUE"
@@ -578,7 +578,7 @@ cmd_verify_propose() {
     if [ -z "$record" ] && [ "$ISSUE_STATE" = "open" ]; then
         add_row "feedback_record" null "no record on origin/${BASE_BRANCH} names /issues/${ISSUE} and the issue is still open" load
         LOAD_FAILED=0
-        emit_verdict "propose" "$ISSUE" "pending" 5
+        emit_verdict "specificate" "$ISSUE" "pending" 5
     fi
 
     if [ -n "$record" ]; then
@@ -615,7 +615,7 @@ EOF
     fi
 
     # The artifacts the proposal emitted, in WHICHEVER of the three sanctioned shapes it
-    # chose (`workaholic:propose`, *The form follows the work's shape*): a loose ticket
+    # chose (`workaholic:specificate`, *The form follows the work's shape*): a loose ticket
     # naming the record, a mission naming the record whose tickets carry `mission: <slug>`,
     # or the record alone. Until 2026-08-12 only the first was looked for, so the
     # mission-shaped proposal (PR #407, measured 20:47 UTC) was reported as a missing
@@ -702,9 +702,9 @@ EOF
     slack_rows "/issues/${ISSUE}" "slack_seed_root"
 
     if [ "$LOAD_FAILED" -gt 0 ]; then
-        emit_verdict "propose" "$ISSUE" "fail" 1
+        emit_verdict "specificate" "$ISSUE" "fail" 1
     fi
-    emit_verdict "propose" "$ISSUE" "pass" 0
+    emit_verdict "specificate" "$ISSUE" "pass" 0
 }
 
 cmd_verify_implement() {
@@ -717,7 +717,7 @@ cmd_verify_implement() {
 
     record="$(main_grep ".workaholic/feedbacks" "/issues/${ISSUE}([^0-9]|\$)" | head -1)"
     if [ -z "$record" ]; then
-        add_row "feedback_record" null "the propose stage has not landed; run verify-propose first" load
+        add_row "feedback_record" null "the propose stage has not landed; run verify-specificate first" load
         LOAD_FAILED=0
         emit_verdict "implement" "$ISSUE" "pending" 5
     fi
@@ -1132,14 +1132,14 @@ cmd_verify_standup() {
     fi
     emit_verdict "standup" 0 "pass" 0
 }
-# ---------------------------------------------------------------- verify-housekeep
+# ---------------------------------------------------------------- verify-propose
 # Is the maintenance tick sound — every step reported, one log entry, nothing written
 # outside the log? The drill runs the tick against a THROWAWAY root so the operator's
 # own `.workaholic/housekeeping/` is never appended to by a drill.
-cmd_verify_housekeep() {
-    _run="${REPO_ROOT}/plugins/workaholic/skills/housekeep/scripts/run.sh"
+cmd_verify_propose() {
+    _run="${REPO_ROOT}/plugins/workaholic/skills/propose/scripts/run.sh"
     if [ ! -f "$_run" ]; then
-        emit_err "housekeep_unreadable" 4 "housekeep/scripts/run.sh is not present in this checkout"
+        emit_err "propose_unreadable" 4 "propose/scripts/run.sh is not present in this checkout"
     fi
 
     # A DELTA, NOT AN ABSOLUTE. The drill runs in whatever checkout the operator has,
@@ -1149,24 +1149,24 @@ cmd_verify_housekeep() {
 
     _root=$(mktemp -d)
     mkdir -p "${_root}/.workaholic"
-    _tick=$(sh "${REPO_ROOT}/plugins/workaholic/skills/housekeep/scripts/tick-id.sh" | sed 's/.*"tick": "//; s/".*//')
+    _tick=$(sh "${REPO_ROOT}/plugins/workaholic/skills/propose/scripts/tick-id.sh" | sed 's/.*"tick": "//; s/".*//')
     _out=$(cd "$REPO_ROOT" && sh "$_run" --tick "$_tick" --root "$_root" 2>&1) || true
 
     _steps=$(printf '%s' "$_out" | awk '{ n = gsub(/"step":/, "&"); print n + 0 }')
     if [ "${_steps:-0}" -eq 9 ]; then
-        add_row "housekeep_steps" true "all nine steps reported" load
+        add_row "propose_steps" true "all nine steps reported" load
     else
-        add_row "housekeep_steps" false "expected nine reported steps, got ${_steps:-0}: $(one_line "$_out")" load
+        add_row "propose_steps" false "expected nine reported steps, got ${_steps:-0}: $(one_line "$_out")" load
         rm -rf "$_root"
-        emit_verdict "housekeep" 0 "fail" 1
+        emit_verdict "propose" 0 "fail" 1
     fi
 
     # A step that cannot run says so BY NAME. `not_implemented` means the mission is
     # half-landed in this checkout, which is a real finding rather than a pass.
     if printf '%s' "$_out" | grep -q '"reason": "not_implemented"'; then
-        add_row "housekeep_built" false "a step still reports not_implemented in this checkout" load
+        add_row "propose_built" false "a step still reports not_implemented in this checkout" load
     else
-        add_row "housekeep_built" true "no step is left unimplemented" load
+        add_row "propose_built" true "no step is left unimplemented" load
     fi
 
     _day=$(printf '%s' "$_tick" | sed 's/^\(....\)\(..\)\(..\)-.*$/\1-\2-\3/')
@@ -1176,12 +1176,12 @@ cmd_verify_housekeep() {
         # Nine step lines plus the closing act's own `persist-log` line.
         _lines=$(grep -c '^- `' "$_log" || true)
         if [ "$_sections" = "1" ] && [ "$_lines" = "10" ]; then
-            add_row "housekeep_log" true "one tick section carrying nine step lines and the persist" load
+            add_row "propose_log" true "one tick section carrying nine step lines and the persist" load
         else
-            add_row "housekeep_log" false "expected 1 section and 10 lines, got ${_sections} and ${_lines}" load
+            add_row "propose_log" false "expected 1 section and 10 lines, got ${_sections} and ${_lines}" load
         fi
     else
-        add_row "housekeep_log" false "the tick wrote no log at ${_log}" load
+        add_row "propose_log" false "the tick wrote no log at ${_log}" load
     fi
 
     # THE DRILL MUST NOT PUBLISH. The tick's closing act puts the log on the base, and
@@ -1189,9 +1189,9 @@ cmd_verify_housekeep() {
     # so the one thing worth pinning here is that a root outside a repository is skipped
     # BY NAME rather than committed into whatever repository the cwd happens to be.
     if printf '%s' "$_out" | grep -q '"reason": "not_a_repo"'; then
-        add_row "housekeep_persist" true "the drill's throwaway root is skipped by name, never published" load
+        add_row "propose_persist" true "the drill's throwaway root is skipped by name, never published" load
     else
-        add_row "housekeep_persist" false "the persist did not report not_a_repo for a throwaway root: $(one_line "$_out")" load
+        add_row "propose_persist" false "the persist did not report not_a_repo for a throwaway root: $(one_line "$_out")" load
     fi
 
     # Nothing outside the log: a maintenance tick that dirtied the checkout would be
@@ -1199,22 +1199,22 @@ cmd_verify_housekeep() {
     _after=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
     _dirty=$(printf '%s\n' "$_before" "$_after" | sort | uniq -u | head -5)
     if [ -z "$_dirty" ]; then
-        add_row "housekeep_clean" true "the tick added nothing to the checkout's own state" load
+        add_row "propose_clean" true "the tick added nothing to the checkout's own state" load
     else
-        add_row "housekeep_clean" false "the tick changed the checkout: $(one_line "$_dirty")" load
+        add_row "propose_clean" false "the tick changed the checkout: $(one_line "$_dirty")" load
     fi
 
     rm -rf "$_root"
 
     if [ "$LOAD_FAILED" -gt 0 ]; then
-        emit_verdict "housekeep" 0 "fail" 1
+        emit_verdict "propose" 0 "fail" 1
     fi
-    emit_verdict "housekeep" 0 "pass" 0
+    emit_verdict "propose" 0 "pass" 0
 }
 
 # ---------------------------------------------------------------- dispatch
 
-USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-propose <issue>|verify-implement <issue>|verify-plan [--json]|verify-status [--json]|verify-cadence [--json]|verify-standup [--json]|verify-housekeep [--json]"}'
+USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-specificate <issue>|verify-implement <issue>|verify-plan [--json]|verify-status [--json]|verify-cadence [--json]|verify-standup [--json]|verify-propose [--json]"}'
 
 CMD="${1:-}"
 [ -n "$CMD" ] || {
@@ -1241,13 +1241,13 @@ case "$CMD" in
     seed) cmd_seed "$@" ;;
     status) cmd_status "$@" ;;
     reset) cmd_reset "$@" ;;
-    verify-propose) cmd_verify_propose "$@" ;;
+    verify-specificate) cmd_verify_specificate "$@" ;;
     verify-implement) cmd_verify_implement "$@" ;;
     verify-plan) cmd_verify_plan "$@" ;;
     verify-status) cmd_verify_status "$@" ;;
     verify-cadence) cmd_verify_cadence "$@" ;;
     verify-standup) cmd_verify_standup "$@" ;;
-    verify-housekeep) cmd_verify_housekeep "$@" ;;
+    verify-propose) cmd_verify_propose "$@" ;;
     *)
         echo "$USAGE" >&2
         exit 2

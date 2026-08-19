@@ -1,251 +1,289 @@
-# The propose run — step by step
+# The nine-step contract — reference
 
-The ordered contract `/propose` executes. Every step's rules live in the SKILL
-(`SKILL.md`); this file is the orchestration: which script, in which order, with which
-abort reason. The run is **unattended by contract** — no `AskUserQuestion` at any step,
-and every abort reports a machine-readable reason.
+Companion to [`../SKILL.md`](../SKILL.md). One section per step: what it reads, **what it may
+write**, what it returns in `needs_agent`, and the reasons it aborts with. The step ids are the
+tick log's keys and `run.sh`'s step list — they are stable, and a step is renamed only with its
+log history in mind.
 
-1. **Take the ask in hand.** An ask given as the command's argument, a feedback record
-   this session just wrote, or a record named explicitly by the caller. **With none of
-   those** — the clock-fired `[Specificate]` tick — **discover the inbound issues**
-   (SKILL.md, *Clock-fired discovery*):
-   `bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/list-inbound-issues.sh`
-   — the open GitHub issues assigned to this session's own identity, oldest-first,
-   minus those a feedback record already names (reported as `already_captured`). Each
-   returned issue is an ask in hand: run steps 2–13 **once per issue**, in the order
-   returned, its URL carried into step 3's record (the exclusion's contract) and its
-   number into step 10's `Closes #<N>`. An empty list is
-   `{"proposed": 0, "reason": "nothing_in_hand"}`, stop; an `ok: false` list is the
-   same stop with the script's `reason` reported beside it — an unreadable inbox is
-   never an empty one. Reading the repository's own state for something to propose
-   stays the retired design; this reads only the inbound ask channel. When the ask
-   came from a GitHub issue carrying an assignee, apply *Act only on an ask that is
-   yours* (SKILL.md): a differing assignee is `{"proposed": 0, "reason": "not_mine"}`,
-   stop (discovery-returned issues are assigned to this identity by construction).
-   Also capture the triggering issue's number, if any:
-   `bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/extract-issue-number.sh "<argument>"`
-   — `CCR_TRIGGER_ISSUE_NUMBER` under a routine, else a `#<N>`/issue URL in the
-   argument; an empty `issue_number` is the common case (most asks never had a
-   GitHub issue) and simply means step 10 threads nothing. Keep it in hand through
-   to step 10 — it names no closing behavior of its own, it only feeds the env var
-   that step reads.
+Every step returns one JSON line:
 
-2. **Open the publish tree.** `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/open-publish-tree.sh`.
-   On `ok: false`, abort reporting its reason. Everything written from here lands
-   **inside** the path it returns — a checkout of `origin/main` — so the caller's branch
-   and uncommitted work are untouched, and steps 3–4 read the base.
+```json
+{"step": "<id>", "status": "ok|filed|skipped|degraded|blocked", "reason": "<stable cause>",
+ "summary": "<one line for the log>", "needs_agent": []}
+```
 
-3. **Register the record**, inside the publish tree:
-   `printf '%s\n' "<body>" | bash ${CLAUDE_PLUGIN_ROOT}/skills/feedback/scripts/create.sh --subject <subject> "<title>" <kind> <source> [supersedes]`.
-   **The subject is the ask's author, never this session.** For a discovered inbound
-   issue that is `person:<the issue's author login or email>`; for an argument handed in
-   by a human it is that human. The runner's own identity is already recorded as
-   `author`, so writing it as `subject` too would assert that the machine holds every
-   opinion in the project — `create.sh` refuses an absent subject (`no_subject`) rather
-   than let that happen silently (`workaholic:feedback`, *Choosing the subject*).
-   Classify by the feedback skill's deciding rule — an ask is an `instruction`; a
-   `concern` is a worry with no ask attached (`workaholic:feedback`, *Choosing the
-   kind*). This session decides both the `kind` and the judgment, so a misclassification
-   silences its own proposal. The record is written **whatever step 7 concludes**.
-   When the ask came from a GitHub issue, the body **must name the issue's URL** (a
-   `Source:` line carrying its `/issues/<N>` form) — that line is what
-   `list-inbound-issues.sh` keys its `already_captured` exclusion on, so omitting it
-   re-proposes the same open issue every tick until its pull request merges.
+`status` is the tick log's closed vocabulary. `reason` is free-form but **stable per cause**, so a
+report can be read by grep: `not_implemented`, `budget`, `requested`, `step_missing`, `step_error`,
+`no_output`, `bad_output`, `no_connector`, `no_credentials`, `no_strategies`, `unreadable_inbox`,
+`quiet_hours`, `already_filed`.
 
-4. **Read the constraints**, from the publish tree:
-   `bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/survey-state.sh` — missions, todo
-   queue, recent base commits, with `since_reason`. Constraints, never triggers.
+**`needs_agent` is the seam between the script and the model.** A step script is non-interactive
+and composes no prose: it probes, it decides, and where the action is mechanical it files through
+an existing seam itself. Anything that needs *composition* (an issue body, a question, a proposal)
+or a *human surface* (Slack) is returned here, and the agent acts on it afterwards through the
+seam this file names for that step — recording what it actually did under the step id `<step>-filed`.
 
-5. **Discover**, before anything is scaffolded. When the ask names an existing
-   mechanism or builds on a prior decision — including any ask that reads as a
-   **failure report** (`workaholic:discover`, *Diagnosis-First Rule*) — run at least a
-   history-mode pass over that mechanism: `workaholic:discover`'s Discover History,
-   **inline in this session** (decided, not left open — `/ticket`'s three parallel
-   discovery modes benefit from `general-purpose` subagents because they fan out; a
-   single history-mode pass has nothing to fan out to, so it runs in the same
-   unattended session the Architecture Policy already permits a command to act in
-   directly). Carry the resulting `diagnosis_first` verdict into step 9's ticket steps.
-   When discovery surfaces a fork step 9's `/ticket`-equivalent §4b would interrogate a
-   human on, and this session has no way to ask, record it as an explicit
-   `## Open Decisions` item on the emitted ticket instead of resolving it silently
-   (*Open decisions*, SKILL.md) — never inherit the reporter's framing as the design by
-   default. Scoped to the ask already in hand: this reads context for that ask, not a
-   second sweep of the backlog (the retired `[Propose Batch]` design).
+---
 
-5b. **Read the strategy set**, from the publish tree:
-   `bash ${CLAUDE_PLUGIN_ROOT}/skills/strategy/scripts/list.sh` — pure read, run
-   before the judgment so an ask naming a strategy is matched against the **actual**
-   set rather than a remembered one (SKILL.md, *Strategy lifecycle announcements*).
-   An empty list is a real answer, not a degraded one: it means any slug the ask names
-   is `strategy_not_found`. Only an **explicit slug** matches; a title or a paraphrase
-   never does.
+## 1. `open-log` — open the tick's log
 
-6. **Dedup.** `bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/list-proposed-refs.sh`.
-   An ask that restates a record already referenced is **record-only**: stop after
-   step 3's record and go to step 10. Read this **before** scaffolding, since what this
-   session writes joins the set immediately.
+- **Reads**: the layout allowlist; `.workaholic/housekeeping/`.
+- **Writes**: nothing. The log line `run.sh` writes for it *is* the open.
+- **Aborts**: `no_workaholic_dir` (nothing here to keep), `area_unregistered` (this checkout's
+  plugin predates the area — the tick still runs, its log does not), `unwritable`.
+- **Never**: creates the area behind the layout gate's back. A step that made its own directory
+  would be routing around the gate rather than reporting it.
 
-7. **Judge** the ask against the SKILL's judgment bar, with the step-4 state, the
-   step-5 discovery and the step-5b strategy set in hand, and **decide the form**
-   (*The form follows the work's shape*).
+## 2. `inbound-sweep` — Gmail, Drive, Slack and GitHub
 
-   **First, is it a lifecycle announcement?** An ask that names an explicit strategy
-   slug and announces that it was created, changed or ended takes step 9c instead of
-   the four forms (SKILL.md, *Strategy lifecycle announcements*): a slug absent from
-   step 5b's set is record-only with `strategy_not_found` and the slug named; an
-   *ended* announcement that does not say achieved or abandoned is record-only with
-   `no_end_state`; a *changed* announcement about a slug already in the set is
-   record-only with `strategy_exists_no_update_writer`. An ask naming no slug is not
-   an announcement — judge it through the forms below.
+- **Reads**: GitHub itself, through `gather/scripts/gh-rest.sh` — repository-scoped, `since`-filtered,
+  pull requests dropped (they share the issue numbering space, and a sweep that kept them would
+  re-file the loop's own work). Slack, Gmail and Drive are **connectors held by the session, not by
+  the script**, so they come back in `needs_agent` as `probe_connector` entries carrying the bound
+  each is read under.
+- **The window is the last sweep, not a clock**: `--since` defaults to the previous tick that
+  recorded an `inbound-sweep` line, read out of the tick log; with no such tick, this tick's own UTC
+  day start. Anchoring to a fact in the log avoids `date -d`/`date -v`, which differ between the
+  developer's laptop and the routine's container.
+- **Writes**: nothing. The agent applies the **materiality bar** — a genuine problem or improvement
+  idea, or something that must not be overlooked; a passing remark is not filed — and writes what
+  passes as a **feedback record** (`feedback/scripts/create.sh`, `--subject` naming *whose* opinion
+  it is: `person:<them>` for a message someone wrote, `observer_ai:<identity>` for what the tick
+  noticed itself, **never** defaulted to the runner). What it filed is recorded as
+  `inbound-sweep-filed`, which the next tick's dedup reads.
+- **It does not open a GitHub issue** (resolved 2026-08-17, the ticket's first Open Decision). The
+  crossing flow is gated on a verbatim human confirmation an unattended tick cannot give, and a
+  self-filed *assigned* issue would be re-discovered by `[Specificate]` every hour forever — a record
+  written before the issue can never name it, which is the measured reason issue #443's auto-file
+  option was refused on 2026-08-14.
+- **Quoting rule: pointer and subject line only** (resolved 2026-08-17, the second Open Decision).
+  A candidate carries its surface, a stable identifier or permalink, and the title as written —
+  never a message body, an attachment, or a Drive file's contents. `.workaholic/` history is durable
+  and the leak scan matches only a hand-maintained denylist, so a `pass` there never means "no
+  sensitive content"; a pointer leaves the content behind its own access controls.
+- **Slack's bound is not advice**: exact-string search, at most two queries, **no channel history
+  read at any point** (`workaholic:notify`).
+- **Aborts**: `gh_unavailable` (GitHub named as unreadable while the three connector surfaces are
+  still handed over — three of four working is not "nothing found").
+- **Dedup**: an issue a feedback record already names, or one an earlier tick logged under
+  `inbound-sweep-filed`, is skipped and counted in the summary.
 
-   Otherwise, in this precedence: two or more units → a mission with its ticket set
-   (steps 8–9); atomic → one loose ticket (step 9's loose form, no mission); a
-   **date + an owner + an aim with no decomposable plan** → one strategy (step 9b);
-   none of those → record-only. When unsure, record-only — and name what made you
-   unsure in step 10's PR body.
+## 3. `workload-logs` — environments whose credentials are here
 
-8. **Draft the mission** (mission form only), in the publish tree:
-   - `bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/scaffold-draft.sh "<title>" --assignee <the triggering issue's assignee> <feedback-filename>...`
-     — the filename from step 3. Omit `--assignee` when no person was assigned (the
-     mission is then team-owned); never substitute the running identity.
-   - Fill `## Goal` / `## Scope` / `## Experience` and a **proposed** `## Acceptance`
-     sketch from the ask (Edit on the scaffold; clearly provisional — the PR's reviewer
-     interrogates it to drive-ready via `/mission <instruction>`). Never touch `status`
-     and never seed `assignees` beyond the flag or `merge_policy`.
+- **Reads**: `.workaholic/deployments/*.md`. A target declares its log source with the optional,
+  **non-secret** frontmatter locator `log_locator:` (a URL, endpoint or command *template*,
+  alongside the existing `url` / `endpoint` / `command`) and, when reading it needs a credential,
+  `log_credential_env:` — the NAME of an environment variable, never its value.
+- **It runs nothing** (decided 2026-08-17). A deployment record already carries executable prose,
+  and `/ship` runs it **only on the developer's instruction** (§5-D). An hourly unattended tick that
+  executed a repository-declared command would move that boundary quietly — arbitrary code out of a
+  file, every hour, with nobody watching. The step resolves *which* targets are readable *here* and
+  hands them to the agent, which reads them with the tools the session actually has.
+- **Writes**: nothing directly; a finding becomes a feedback record exactly as step 2's does, under
+  the same pointer-only quoting rule (the failing signal, never a log body, never a credential).
+- **Aborts**: `no_targets` (no deployment records), `no_log_source` (records exist, none declares a
+  locator this environment can read). **`no_credentials` is a checked claim**: it is reported per
+  target only after the named variable was looked for and found absent, and the report names the
+  variable — never "probably missing credentials".
 
-9. **Emit the tickets**, in the publish tree.
+## 4. `merge-conflicts` — pull requests whose merge is blocked
 
-   For a **mission** proposal, emit its whole set — two or more, always:
-   - `bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/scaffold-proposed-ticket.sh "<title>" <mission-slug> [type] [layer] --assignee <the same assignee>`,
-     once per ticket, in the order they would be driven.
-   - Stamp the links: `bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/link-acceptance.sh <slug> <item-selector> <ticket-filename>`
-     once per acceptance item the set satisfies — the pairing decided in step 7, never
-     inferred.
-   - Then the floor: `bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/check-floor.sh <slug>`.
-     Non-zero exit means this is **not** published as a mission — fall back to a loose
-     ticket or record-only, and report the script's `alternative`.
+- **Reads**: open pull requests through `pulls-state.sh`, the one reader steps 4 and 6 share.
+  Mergeability lives only on the single-pull endpoint, so the per-pull reads are bounded by
+  `--limit` (default 10) and the cap is **reported** — a busy repository is never silently
+  half-read. GitHub's lazily-computed `mergeable: null` is `unknown`, never `clean`.
+- **Writes**: **nothing to any branch, and no post of its own.** The finding rides step 6's
+  reminder; two Slack lines about one pull request in one tick is the noise a gated post exists
+  to prevent.
+- **It does not rebase** (resolved 2026-08-17, the ticket's Open Decision). A `work-*` branch
+  **is** a claim — the heartbeat is its tip and `archive.sh` pushes it after each archive commit —
+  so a third party rebasing it races the claim holder's own pushes and can strand or duplicate a
+  unit; it is one of the three unit-less writer designs `workaholic:ship` §7 measured and refused.
+  Rebasing only *unclaimed* branches would need a staleness rule the claim protocol deliberately
+  refuses to have (it reports staleness and never acts on it), and rebasing anything accepts the
+  race knowingly. The drive loop already assigns this repair to its owner: a merge-conflict notice
+  tells the **claim holder** to resolve it, which is the person who knows which side keeps its
+  behaviour.
+- **Aborts**: `gh_unavailable` — conflict state unknown is reported as unknown.
 
-   For an **atomic** direction, emit exactly one loose ticket — no mission, no wrapper:
-   - `bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/scaffold-proposed-ticket.sh "<title>" --loose [type] [layer] --feedback <record>... --assignee <the same assignee>`
-   - The `--feedback` refs are **mandatory** here (`no_feedback` otherwise).
+## 5. `issue-triage` — stale issues, and GitHub↔`.workaholic/` drift
 
-   Neither ticket form runs for the strategy form — a strategy carries no ticket plan
-   (step 9b).
+- **Reads**: open issues over REST (oldest-updated first); `.workaholic/tickets/archive/`,
+  `stories/`, `feedbacks/`.
+- **Three mechanical facts, no verdicts**: `landed_but_open` (an open issue an archived ticket or
+  a story names — the work landed), `never_ingested` (an open issue no feedback record names —
+  `[Specificate]` only takes issues assigned to the running identity, so someone else's issue lands
+  here legitimately), and `oldest` (the least recently updated, with dates, for the agent to judge
+  staleness against).
+- **Writes**: nothing. **It closes nothing and merges nothing** — an issue is somebody's words,
+  and a machine that closed them hourly would be deciding what the project heard. Consolidation is
+  a judgement: propose it, never perform it. "Remove" is never delete; the repository's history is
+  the durable record.
+- **Aborts**: `gh_unavailable`.
 
-   Either way, fill each ticket's Overview, Key Files, Implementation Steps, and the
-   provisional Quality Gate, and leave `merge_policy` empty (absent reads as `review`).
-   **Pass `--verification-handoff "<what cannot run here>"` when the ask itself states
-   that the work's real-world verification needs a credential, device or third-party
-   account an unattended run does not have** — the loop's own asks arrive that way
-   (issue #452). It is read off the ask, never inferred from the Quality Gate this
-   batch just wrote, and it makes `/drive` hand the finished unit to a person rather
-   than merge it and announce it verified (`workaholic:drive` §6).
-   **When step 5 found `diagnosis_first: true`**, open Implementation Steps with
-   reproducing and localizing the failure and record any reporter-proposed mechanism
-   under Considerations as a hypothesis, never as step 1's design
-   (`workaholic:discover`, *Diagnosis-First Rule*). **When step 5 recorded an
-   `open_decision`**, write it verbatim into the ticket's `## Open Decisions` section
-   (`reference/ticket-format.md`) rather than resolving it.
+## 6. `stuck-prs` — what failed to auto-merge, and what it needs
 
-9b. **Emit the strategy** (strategy form only), in the publish tree — instead of
-   step 9, never alongside it:
+- **Reads**: `pulls-state.sh`, as step 4 does — resolved once per tick, used twice.
+- **Every row names the decision, not the colour**: `conflict` → the claim holder must resolve it
+  and nobody else may push to that branch; `review` → a required review or gate is unsatisfied;
+  `checks` → the author must fix a failing check or say it is expected; `draft` → mark it ready or
+  close it; `behind` → the claim holder must update it; `unknown` → GitHub has not computed
+  mergeability yet, re-read before acting.
+- **The heading names the kind, the key does not move** (2026-08-18, issue #513). `headline` is
+  derived from the same `blocked_by` set — `conflicting with main`, `waiting on review`, `with a
+  failing check`, `still in draft`, `behind main`, `with mergeability not yet computed`, and
+  `stuck: <kind>, <kind>` when one post covers several — and the `🔧` post's first line carries it,
+  so a conflict finding and an un-run auto-merge no longer share a heading. It is **wording only**:
+  the digest, the two gates and the post's frequency are untouched.
+- **One reminder per distinct state.** The key is `stuck:<digest>` over the sorted
+  `<number>:<blocked_by>` set, so an unchanged answer is never repeated while a new pull request or
+  a changed reason earns a post. **Two gates, both required**: something actionable, and no earlier
+  post for this exact state — the tick log answers the second, and `workaholic:notify`'s stateless
+  lookup answers it again on the wire. The key is deliberately distinct from `[Prepare Release]`'s
+  `deploy:<digest>`: one reports what is waiting to deploy, this what is waiting on a human, and a
+  shared key would let either dedup the other away.
+- **Aborts**: `gh_unavailable`. Already-posted state is `ok`/`already_filed`, not a second post.
 
-   ```sh
-   printf '%s\n' "<aim prose, in the ask's own terms>" \
-     | bash ${CLAUDE_PLUGIN_ROOT}/skills/strategy/scripts/create.sh \
-         "<title>" <YYYY-MM-DD from the ask> "<the triggering issue's assignee>" \
-         "<schedule prose>" "<the step-3 record's filename>"
-   ```
+## 7. `doc-drift` — the documentation against the current concept
 
-   The three parts come from the **ask**, never from this session: the date is one the
-   ask states (no date → record-only, `no_target_date`), and the assignee is the
-   triggering issue's, never the running identity (unassigned → record-only,
-   `no_assignee`) — `create.sh` refuses an empty assignee list outright, which is the
-   floor, not a thing to work around. Any refusal it emits (`bad_target_date`,
-   `no_assignees`, `empty_schedule`, `empty_aim`, `exists`) **falls back to record-only
-   naming that reason**; never retry with a substituted value. The `feedback:` ref is
-   the record from step 3 — the citation runs strategy → feedback only, and nothing is
-   ever written back onto the record.
+- **Reads**: `report/scripts/doc-drift.sh` (structural presence changes versus the documents that
+  enumerate them) and `report/scripts/area-freshness.sh` (a hand-maintained record naming something
+  this repository retired). Reused, not re-implemented.
+- **The window is a git question**: the base is `git rev-list -1 --before=<the previous doc-drift
+  tick, as ISO> HEAD`, so no `date -d`/`date -v` arithmetic is involved. `no_baseline` when nothing
+  precedes that boundary — comparing against nothing would report every document as drifted.
+- **Writes**: nothing. Drift becomes a **ticket**, because fixing documentation is work and work
+  has a queue; an hourly agent rewriting `main`'s documents is the unattended-write class this
+  project has refused twice.
+- **Dedup is not optional here.** `terms/retired-terms.md` is a glossary *of* retired terms, so it
+  names retired terms by construction and `area-freshness.sh` reports it truthfully and forever.
+  A finding an earlier tick logged under `doc-drift-filed` is counted and dropped.
+- **Aborts**: `no_repo`, `no_baseline`, `drift_unreadable`.
 
-9c. **End the announced strategy** (an *ended* announcement only), in the publish
-   tree — instead of steps 8, 9 and 9b, never alongside them:
+## 8. `strategy-proposals` — GATED: it proposes nothing until the operator rules
 
-   ```sh
-   bash ${CLAUDE_PLUGIN_ROOT}/skills/strategy/scripts/close.sh <slug> achieved|abandoned
-   ```
+- **Reads**: `strategy/scripts/list.sh`. Nothing else, because it acts on nothing.
+- **Writes**: **nothing at all**, by decision (2026-08-17). Its own mission says why: *every step
+  reversing a standing decision is ruled on by the operator or left unbuilt, never inferred* — and
+  this step reverses one. `workaholic:specificate`'s judgment bar states that **missions, the queue and
+  commits are constraints, never triggers**; feedback is the only input that can originate a
+  proposal, and the retired `[Propose Batch]` routine was exactly the state-sweep this step
+  reintroduces, with a recorded failure mode of "a channel full of plausible noise".
+- **Three independent rulings are outstanding**, and the step names them in every report:
+  1. **Does a strategy originate a proposal at all?** The argument in favour is real and is
+     *recorded rather than acted on*: a strategy is not repository state — it is the operator's own
+     resolved, dated, owned direction, which sits far closer to feedback than to a backlog sweep.
+     If it is accepted, it belongs in `workaholic:specificate` as a second originator, so there is one
+     bar and not two. Accepting it is the operator's act.
+  2. **Which Slack shape?** The ask's `🟡 Proposing` collides twice — 🟡 is the handoff finish line
+     today, and the start post was retired on 2026-08-11 ("a routine posts its finish only"). And
+     `workaholic:notify`'s *the prompt is the ceiling* means no session may emit a shape the
+     routine's own prompt does not name, so a shape settled here alone would still be inert.
+  3. **What counts as "negative feedback"?** A reaction, a token in a reply, a human closing the
+     pull request, and a model's reading of a thread have four very different false-positive
+     rates, and an auto-close on a misread reply destroys a proposal nobody rejected. Of the four,
+     an **explicit token** is the only one whose false-positive rate is a property of the rule
+     rather than of the reader.
+- **Aborts**: `no_strategies` — today's actual state, reported rather than left silently empty;
+  `awaiting_operator_ruling` (`blocked`) once a strategy exists, because then the ruling is live;
+  `no_strategy_reader` when the strategy skill is absent.
+- **When it is built**: reuse `/specificate`'s emission machinery (publish tree → record → scaffold →
+  one pull request) rather than a second copy of it — only the *trigger* differs — put the ask's
+  "about a week" reaction window in **one named constant**, derive the in-flight state from the
+  open pull request's age rather than a stored cursor (the repository is the coordination medium),
+  and make a decline leave a record naming the reason **and** a closed pull request, never a closed
+  pull request alone.
 
-   The slug is the one the ask named and step 5b confirmed; the end state is the one
-   the ask stated. This is the **only** thing the run writes for an announcement — no
-   mission, no ticket, no second artifact, and nothing written back onto the feedback
-   record (the citation runs strategy → feedback only, and a close adds no pointer in
-   either direction; the pull request is what connects the close to its ask). Any
-   refusal (`not_found`, `already_ended`, `bad_status`) **falls back to record-only
-   naming it**.
+## 9. `human-checkin` — up to five questions, never late at night
 
-10. **Publish it all as one pull request, merged immediately.**
-   `WORKAHOLIC_AUTO_MERGE=1 WORKAHOLIC_PR_TITLE="[Proposal] <title>" WORKAHOLIC_CLOSES_ISSUE="<issue number from step 1>" bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/publish-tree-pr.sh "<title>" "<why>" "<changes>" "<concerns>" "<insights>" "<verify>"`
-   — **one call**, carrying the record and whatever the judgment added.
-   `WORKAHOLIC_AUTO_MERGE=1` merges the pull request right after opening it
-   (mission `auto-merge-propose-and-implement-prs-under-a-dev-release-branch-split`,
-   2026-08-11): the report's `merged`/`merge_reason` says what happened, and any
-   release-scan finding leaves the PR open for a human instead — report that as
-   the outcome, never retry the merge by hand in the same run. **Whenever this run
-   wrote under `.workaholic/strategies/` — step 9b's create or step 9c's close —
-   leave `WORKAHOLIC_AUTO_MERGE` unset**: a strategy-touching proposal is the one
-   kind this run deliberately does not merge, because the operator's merge is what
-   authors that artifact and what ends it (SKILL.md, *The strategy form, and the one
-   rule it widens*). Report the open PR as that form's outcome, never as a
-   merge failure, and never merge it by hand in the same run. Name the commit
-   subject for what it carries — `Propose mission <slug>`, `Propose ticket <slug>`,
-   `Propose strategy <slug>`, `Close strategy <slug>`, or
-   `Register feedback <stem>` for record-only — and give the pull request the same words
-   behind the `[Proposal]` prefix (`[提案]` for a Japanese title); the subject and the
-   title are separate surfaces (SKILL.md). No notification target rides the body — the
-   reply thread is found statelessly (Q1; `workaholic:notify`, *One thread per
-   feedback item*). `WORKAHOLIC_CLOSES_ISSUE` is empty whenever step 1 found no issue
-   number — the ordinary case — and the writer then emits no closing line, unchanged
-   from before this existed; when it is set, the body carries a `Closes #<N>` line so
-   merging the pull request auto-closes the originating "[FB] ***" issue. On
-   `ok: false`, report the reason; `pr_failed` means the artifact **is** pushed, so open
-   the PR by hand rather than re-publishing (which would duplicate it) — and if step 1
-   captured an issue number, include the same `Closes #<N>` line in the hand-opened
-   body, since GitHub's native behavior applies identically either way.
+- **Reads**: the tick log (held questions, what was already asked today) and the clock in the
+  workspace's timezone.
+- **Writes**: nothing to the repository. Questions are **Slack posts** — a routine-fired session
+  has no `AskUserQuestion`, and this skill's standing rule forbids one anyway.
+- **The script is the gate and the ledger; the agent composes and posts.** *Which* items are worth
+  asking is a judgement (`rules/interaction.md`'s Recommended-label test: an item you could
+  honestly mark "(Recommended)" is decided and recorded, never asked). *How many*, *when*, and
+  *was this asked before* are mechanical, and live in `ask-question.sh`, which answers
+  `ask: true|false` and hands back the `log_step` to record the ask under.
+- **Four gates, each its own refusal**: `quiet_hours`, `already_asked`, `tick_cap` (5), `day_cap`
+  (10 — the bound the per-tick cap must not aggregate past; five an hour is 120 a day at the
+  ceiling, and the cap alone protects nobody's attention).
+- **Quiet hours: one gate per tick, in the workspace's timezone** (resolved 2026-08-17), default
+  `Asia/Tokyo` 22:00–08:00, both overridable (`WORKAHOLIC_QUIET_TZ`, `WORKAHOLIC_QUIET_HOURS`).
+  The per-recipient alternative — each addressee's Slack profile timezone — is more precise and
+  was not taken: it costs a profile read per person per tick against a surface this project keeps
+  to exact-string queries, and it buys little, because a suppressed question is **held, not
+  dropped**. The gate is one function reading one zone, so it stays swappable.
+- **Held is not dropped**: a suppressed question is recorded as `human-checkin-held-<slug>` and
+  handed back by this step on the next eligible tick; it drops out once it has been asked.
+- **Silence is not consent, and it is not a reason to ask again** (resolved 2026-08-17). An
+  unanswered question is never re-posted. The red-alert `↳ still failing` precedent covers a
+  machine-observable state that persists; a question is a demand on a person's attention, and
+  repeating it hourly turns asking into nagging. The unanswered set stays visible where humans
+  already look — the tick log and the run report — and the post is still sitting in its thread.
+- **Mentions**: a resolved `<@U…>` from the owner's email, never a bare `@name` (it pings nobody),
+  and never a Claude mention token on a routine's own post (it re-triggers the app).
+- **Aborts**: `quiet_hours`. An answer that resolves something durable is recorded as a
+  `kind: answer` feedback record, which is what closes the loop the question opened.
 
-11. **Close the publish tree.** `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/close-publish-tree.sh`.
-    Run it whether or not the publish succeeded; it refuses rather than destroying
-    recoverable state.
+---
 
-12. **Notify** on the transport `workaholic:notify` selects (*The transport*): the
-    account's Slack connector where the session has one, and
-    `bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/notify-slack.sh "<message>"` as the
-    machine fallback for a caller with no connector (keyed root only — it cannot thread).
-    The message carries the title, this repo's label
-    (`bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/project-label.sh`), the **PR URL**,
-    and how to pick it up once merged (`/mission <slug>` for a mission; a loose ticket
-    simply joins the backlog). **When the lookup finds no thread (case 4), two messages
-    go out on the connector, in order**: the description root (`workaholic:notify`,
-    *The description root* — the feedback record's title and URL, the `` `fb:<stem>` ``
-    key, no mention token of any kind), then the `🔵 Proposed` finish line as a reply
-    whose `thread_ts` is that root's timestamp. A found thread takes the finish line
-    alone, unchanged; the tokened fallback posts the keyed finish line alone in either
-    case, because it cannot thread. A no-op or failure never fails the run (SKILL.md,
-    *Notifier contract*) — it is reported at step 13, never treated as posted. Inside the
-    `[Specificate]` routine these are the routine's own connector posts; do not post twice.
+## What `run.sh` guarantees around the steps
 
-13. **Report** one line: the form chosen (mission with N tickets / loose ticket /
-    **strategy `<slug>`, PR left open for the operator** / **strategy `<slug>` closed
-    `achieved|abandoned`, PR left open for the operator** / record-only, and for
-    record-only reached by a failed strategy bar or an unmatched announcement, the
-    part that was missing — `no_target_date` / `no_assignee` / `strategy_not_found`
-    with the slug / `no_end_state` / `strategy_exists_no_update_writer`) with its
-    reason, the record's filename, the
-    PR URL, and the
-    notification outcome — **which surface carried it** (connector or the tokened
-    fallback), **which lookup case it took**, and `notified` **per message** (the
-    description root and the finish reply are reported separately when case 4 sent
-    both), or the reason one did not post (`no_surface`, `no_token`, `slack_<error>`,
-    …). A run on the tokened fallback reports `could_not_thread` beside its one keyed
-    message rather than reading as if it had threaded. A message that did not reach
-    Slack is reported as unposted, never omitted; it does not make the run a failure
-    (`workaholic:drive` §7 states the same rule for `/implement`'s per-unit finish
-    lines).
+- **Every step is invoked and every step reports.** Missing script → `degraded`/`step_missing`;
+  non-zero exit → `degraded`/`step_error`; empty or unparseable output → `degraded`/`no_output` or
+  `bad_output`; a status outside the log vocabulary → `degraded`/`bad_output`. A step never
+  disappears from the report.
+- **One writer.** Step scripts write no log line; `run.sh` does. Two writers would race on
+  `(tick, step)` and make idempotence a property of caller discipline instead of of the code.
+- **`--only` / `--skip` are for the operator and the tests**, and a skipped step is still a
+  reported line (`skipped`/`requested`) — an unreported skip is the failure this whole design is
+  built against.
+
+---
+
+## The closing act — `persist-log.sh`
+
+Not a tenth step: the nine above are the ask's contract and the log's step keys, and this is the
+run's own bookkeeping. It runs **after** the ninth step has had its turn, so a tick that dies
+half-way still persists what it recorded on its next run, and it reports under the run's top-level
+`persist` key while logging under the step id `persist-log`.
+
+- **Reads**: the checkout's `.workaholic/housekeeping/<UTC-day>.md`, and the base's copy of the
+  same path.
+- **Writes**: that one file, on the base, through the publish tree — `open-publish-tree.sh` →
+  `publish-tree-commit.sh` → `close-publish-tree.sh`. Nothing else, anywhere. The caller's checkout
+  is byte-identical afterwards: no branch, no worktree, and no `publish-main` ref on origin, so the
+  claim protocol's branch scan never sees it.
+- **Who commits the log, and when**: this script, **twice** per tick. `run.sh` runs it as its
+  closing act, and the agent runs it again after recording its `<step>-filed` lines (`SKILL.md`,
+  *The run*) — the agent acts on `needs_agent` only after `run.sh` has returned, so the closing act
+  alone can never carry what the tick filed. It is the only writer to the base in the whole skill,
+  and it carries **every** section the checkout has and the base does not — so a tick whose persist
+  failed is carried up by the next tick in the same container.
+- **Concurrency is a union, not a rebase.** Two containers ticking on the same day both append to
+  the same file, and a textual rebase of two end-of-file appends conflicts. So each attempt
+  re-opens the publish tree at a freshly fetched base and appends only what the base is missing; a
+  rejected push re-unions rather than replaying a patch. Attempts are bounded (default 3) because
+  sustained divergence is something a human should see.
+- **The union is by `(tick, step)`, not by `(tick)`** (2026-08-18, PR #489). A `## <tick-id>`
+  section the base lacks is appended whole (`sections`); a section it already carries is merged
+  **entry by entry**, appending only the steps its copy lacks, in the checkout's order, at the end
+  of that section (`lines`). Nothing is rewritten, reordered or removed — a `(tick, step)` the base
+  already has wins over a differing local copy, the same append-only-in-substance rule
+  `log-append.sh` applies within a run. By section alone, the second persist above was inert: it
+  asked only whether the base had the section, it did, and every `<step>-filed` line died with the
+  container while the script reported `already_current` and was correct by its own rule.
+- **Aborts, each by name**: `not_a_repo` and `root_not_repo_root` (a `--root` outside the
+  repository — the drill's throwaway root — is never published into whatever repository the cwd
+  happens to be), `no_log` (nothing was recorded), `no_origin` (`skipped`: a local-only checkout
+  has no base, so nothing went wrong), and `origin_unreachable` / `base_unresolved` /
+  `dirty_publish_tree` / `diverged` / `push_failed` / `commit_failed` (`degraded`: the base exists
+  and the log did not reach it). A failed persist leaves the log in the checkout and says so; it
+  never half-writes.
+- **The last persist's own log line is not on the base, deliberately.** The outcome is known only after the push,
+  so recording it, pushing again, and recording *that* does not terminate. The base already carries
+  the answer: the tick's section is there iff its persist succeeded, and when it did not, the run
+  report names the reason. Full rationale, including the rejected pull-request-per-tick
+  alternative and the point-by-point contrast with the three writer designs `workaholic:ship` §7
+  refused, is in the script's header.

@@ -23,7 +23,7 @@
 # the caller's and none of it happens here.
 #
 # THE ASSIGNEE IS LOAD-BEARING, NOT COSMETIC. `[Specificate]`'s discovery
-# (`propose/scripts/list-inbound-issues.sh`) lists only issues assigned to the running
+# (`specificate/scripts/list-inbound-issues.sh`) lists only issues assigned to the running
 # identity and deliberately never unassigned ones, so an unassigned in-repo `[FB]` issue
 # would be ingested by nobody. THE LOGIN COMES FROM THE CALLER — `gh api user` is the
 # caller's source, never this script's — so this script keeps having no identity opinion,

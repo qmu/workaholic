@@ -26,7 +26,7 @@
 # RECORD; a single unit of work is a PLAIN TICKET.
 #
 # WHERE IT IS CALLED: the publish seam of every creation path -- the Creation
-# Interrogation and /propose -- and nowhere earlier. The tickets do not exist while the
+# Interrogation and /specificate -- and nowhere earlier. The tickets do not exist while the
 # mission is being authored, so a check at the write of mission.md would refuse the
 # normal authoring order every time; that is the same reasoning that put acceptance-link
 # stamping at the emitting seam, written after 37 items across six missions were found

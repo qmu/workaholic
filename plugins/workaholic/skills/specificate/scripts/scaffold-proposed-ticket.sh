@@ -170,7 +170,7 @@ SLUG=$(sh "${MISSION_SCRIPTS}/slug.sh" "$TITLE")
 [ -n "$SLUG" ] || { echo '{"created": false, "reason": "empty_slug"}'; exit 1; }
 
 # The FLAT queue since P2 (2026-08-06): a ticket's owner is its `assignees` field,
-# not its directory. A proposal is deliberately UNOWNED — `/propose` emits work
+# not its directory. A proposal is deliberately UNOWNED — `/specificate` emits work
 # nobody has taken on yet, and an unowned artifact is claimable by anyone, which is
 # the same reading its empty `merge_policy` already gets.
 # Empty means team-owned; `[<email>]` names the person the trigger assigned.

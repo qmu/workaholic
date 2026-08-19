@@ -29,7 +29,7 @@
 #
 # The reasons ride stdout with exit 0 on purpose. Every one of them is a
 # legitimate state of a developer's checkout — on a branch, mid-edit — not a
-# failure of this script, and the callers (`/propose` step 1, `/drive`'s
+# failure of this script, and the callers (`/specificate` step 1, `/drive`'s
 # freshness step) are command markdown that cannot branch: they hand the JSON to
 # an orchestrator that reads one uniform contract. A genuine misuse (not a git
 # repository) still exits non-zero with an "error" key.

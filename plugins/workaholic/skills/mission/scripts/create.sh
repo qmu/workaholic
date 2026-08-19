@@ -30,7 +30,7 @@
 #   seeds a different single owner instead; co-owners are added by editing the list.
 #   The singular `assignee:` key stays emitted but EMPTY (legacy readers only).
 #   Batch writers that need an UNOWNED mission write their own scaffold
-#   (propose/scripts/scaffold-draft.sh) — passing "" here is not supported.
+#   (specificate/scripts/scaffold-draft.sh) — passing "" here is not supported.
 #
 #   MERGE POLICY IS RECORDED AT CREATION (K2), adopting the ticket rule exactly: the
 #   optional third argument is `auto` or `review`, and ABSENT MEANS `review` — the

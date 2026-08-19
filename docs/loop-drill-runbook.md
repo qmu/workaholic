@@ -6,7 +6,7 @@ stage. One command owns the mechanics — `scripts/e2e/loop-drill.sh` — and th
 is the only one an operator needs from seed to a clean pass.
 
 **This runbook documents the drill, not the loop.** Every rule about how the loop itself
-behaves lives in the skill that owns it (`workaholic:propose`, `workaholic:drive`,
+behaves lives in the skill that owns it (`workaholic:specificate`, `workaholic:drive`,
 `workaholic:notify`); the blame tables below point at those files rather than restating
 them, so a rule change cannot leave a stale copy here.
 
@@ -25,14 +25,14 @@ Run every command from the repository root, on a clean `main`.
 | - | ----- | ------- | ----- |
 | 1 | Seed | `sh scripts/e2e/loop-drill.sh seed` | preflight (inbox + claims), then mints the issue and the `dev-workaholic` Slack root |
 | 2 | Fire `[Specificate]` | run the `[Specificate]` routine by its trigger id | — |
-| 3 | Verify propose | `sh scripts/e2e/loop-drill.sh verify-propose <issue> --json` | `origin/main`, REST issue + pull requests |
+| 3 | Verify propose | `sh scripts/e2e/loop-drill.sh verify-specificate <issue> --json` | `origin/main`, REST issue + pull requests |
 | 4 | Fire `[Implement]` | run the `[Implement]` routine by its trigger id | — |
 | 5 | Verify implement | `sh scripts/e2e/loop-drill.sh verify-implement <issue> --json` | `origin/main`, REST pull requests, unmerged `work-*` branches |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-plan --json` | this checkout's deployment targets and commit range — proves the plan refresh `[Implement]` carries |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-status --json` | the same targets read the `[Prepare Release]` way — proves the repository tick reads soundly and stays silent when nothing changed |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-cadence --json` | the same targets' **draft notes** — proves the daily generation renders, is idempotent and clock-free, and derives its stage |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-standup --json` | this checkout's strategies and their attributable work — proves the daily digest reads soundly, names its silence and writes nothing |
-| — | Any time | `sh scripts/e2e/loop-drill.sh verify-housekeep --json` | one `[Propose]` tick against a throwaway root — proves every step reports, the log carries one section per tick, and the checkout is untouched |
+| — | Any time | `sh scripts/e2e/loop-drill.sh verify-propose --json` | one `[Propose]` tick against a throwaway root — proves every step reports, the log carries one section per tick, and the checkout is untouched |
 | — | Any time | `sh scripts/e2e/loop-drill.sh status` | the drill's residue: issues, claim branches, tickets |
 | — | After an abort | `sh scripts/e2e/loop-drill.sh reset` | closes/deletes **drill-minted** residue only |
 
@@ -141,17 +141,17 @@ correctly-record-alone proposal. Read it to understand a stage, never to judge o
 ## 4. Blame table — the `[Specificate]` stage
 
 Every abort reason the propose workflow can report, and the **one file to read** for it.
-The reasons themselves are defined in `plugins/workaholic/skills/propose/SKILL.md` and
-[`reference/workflow.md`](../plugins/workaholic/skills/propose/reference/workflow.md).
+The reasons themselves are defined in `plugins/workaholic/skills/specificate/SKILL.md` and
+[`reference/workflow.md`](../plugins/workaholic/skills/specificate/reference/workflow.md).
 
 | Reason | Read |
 | ------ | ---- |
-| `nothing_in_hand` | `skills/propose/scripts/list-inbound-issues.sh` — the inbox was genuinely empty (did `seed` really assign the issue to the running identity?) |
-| `not_mine` | `skills/propose/SKILL.md` (*Clock-fired discovery*) — the ask is assigned to somebody else; a `/propose` run never takes it |
+| `nothing_in_hand` | `skills/specificate/scripts/list-inbound-issues.sh` — the inbox was genuinely empty (did `seed` really assign the issue to the running identity?) |
+| `not_mine` | `skills/specificate/SKILL.md` (*Clock-fired discovery*) — the ask is assigned to somebody else; a `/specificate` run never takes it |
 | `gh_unavailable` | `skills/gather/scripts/gh-rest.sh` — no `gh` on the runner's PATH |
 | `identity_unresolved` | `skills/gather/scripts/gh-rest.sh` — `gh api user` returned nothing; the session's credential is the problem |
 | `list_failed` | `skills/gather/scripts/gh-rest.sh` — REST itself failed; the `detail` carries the API's own message |
-| `already_captured` | `skills/propose/scripts/list-inbound-issues.sh` — a feedback record already names `/issues/<N>`; the ask is in flight, not new |
+| `already_captured` | `skills/specificate/scripts/list-inbound-issues.sh` — a feedback record already names `/issues/<N>`; the ask is in flight, not new |
 | `no_publish_tree` / `nothing_to_commit` | `skills/branching/scripts/open-publish-tree.sh` — the publish tree was never opened, or the run wrote nothing into it |
 | `commit_failed` | `skills/commit/scripts/check-subject.sh` — the commit subject failed the gate (present tense, ≤50 chars, no prefix) |
 | `branch_collision` | `skills/branching/scripts/publish-tree-pr.sh` — two publishers minted the same second's branch name; nothing was published and a re-run succeeds |
@@ -292,33 +292,33 @@ correct and still be the wrong artifact if it left something behind. The likelie
 regression is a helper that starts caching its answer to a file "to be idempotent", which
 is the opposite of what a reader needs.
 
-## 5f. The `[Propose]` tick (the `/housekeep` run)
+## 5f. The `[Propose]` tick (the `/propose` run)
 
 **The drill stages are named after the commands, and the commands did not move in the
-2026-08-19 rename** (issue #526): `verify-housekeep` drills `/housekeep`, which the
-`[Propose]` routine now fires, and `verify-propose` drills `/propose`, which the
+2026-08-19 rename** (issue #526): `verify-propose` drills `/propose`, which the
+`[Propose]` routine now fires, and `verify-specificate` drills `/specificate`, which the
 `[Specificate]` routine now fires. Renaming the stages would move an operator's muscle
-memory and every runbook reference for no behaviour, and would leave `verify-propose`
+memory and every runbook reference for no behaviour, and would leave `verify-specificate`
 pointing at a command whose routine is no longer called Propose either way. Read a stage
 name as the command it runs, never as the routine that schedules it.
 
-`verify-housekeep` needs no seed, no fire and no issue number, and it runs the tick against
+`verify-propose` needs no seed, no fire and no issue number, and it runs the tick against
 a **throwaway root** so a drill never appends to the operator's own
 `.workaholic/housekeeping/` log.
 
 `[Propose]` (repository scope, `50 * * * *`, configured by `/setup-repo-routines` from
-**one** account) runs `/housekeep`: nine steps, one log line each. On a healthy quiet
+**one** account) runs `/propose`: nine steps, one log line each. On a healthy quiet
 repository its correct output is again *no Slack message at all*, so the channel cannot
 tell you whether it worked. Four load-bearing rows:
 
 | Row | Fails when | Read |
 | --- | ---------- | ---- |
-| `housekeep_steps` | fewer than nine steps reported | `skills/housekeep/scripts/run.sh` — the step list is the contract, and a step that goes missing must still emit a `degraded` row rather than vanish |
-| `housekeep_built` | a step still reports `not_implemented` | this checkout carries a half-landed mission — the step's own ticket names what is missing |
-| `housekeep_log` | the tick wrote no log, or more than one section, or not nine lines | `skills/housekeep/scripts/log-append.sh` — one `## <tick>` section per tick, idempotent per (tick, step) |
-| `housekeep_clean` | the tick changed the checkout | a maintenance tick that dirtied the tree would be writing to `main` hourly; findings become records and tickets through the publish seam, never a direct edit |
+| `propose_steps` | fewer than nine steps reported | `skills/propose/scripts/run.sh` — the step list is the contract, and a step that goes missing must still emit a `degraded` row rather than vanish |
+| `propose_built` | a step still reports `not_implemented` | this checkout carries a half-landed mission — the step's own ticket names what is missing |
+| `propose_log` | the tick wrote no log, or more than one section, or not nine lines | `skills/propose/scripts/log-append.sh` — one `## <tick>` section per tick, idempotent per (tick, step) |
+| `propose_clean` | the tick changed the checkout | a maintenance tick that dirtied the tree would be writing to `main` hourly; findings become records and tickets through the publish seam, never a direct edit |
 
-`housekeep_steps` is this stage's `status_stable`: a single tick is still useful when it is
+`propose_steps` is this stage's `status_stable`: a single tick is still useful when it is
 red, and what breaks is the *coverage* property — an hourly report that silently covers
 eight of nine steps reads exactly like one that covers all nine.
 

@@ -38,10 +38,10 @@ const SCRIPTS = {
   migrateTodoOwners: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/migrate-todo-owners.sh"),
   owns: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/owns.sh"),
   listTodo: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/list-todo.sh"),
-  housekeepRun: join(REPO_ROOT, "plugins/workaholic/skills/housekeep/scripts/run.sh"),
-  housekeepLogAppend: join(REPO_ROOT, "plugins/workaholic/skills/housekeep/scripts/log-append.sh"),
-  housekeepLogRead: join(REPO_ROOT, "plugins/workaholic/skills/housekeep/scripts/log-read.sh"),
-  housekeepPersist: join(REPO_ROOT, "plugins/workaholic/skills/housekeep/scripts/persist-log.sh"),
+  proposeRun: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/run.sh"),
+  proposeLogAppend: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/log-append.sh"),
+  proposeLogRead: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/log-read.sh"),
+  proposePersist: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/persist-log.sh"),
   ticketSummary: join(REPO_ROOT, "plugins/workaholic/skills/create-ticket/scripts/summary.sh"),
   missionSummary: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/summary.sh"),
   missionCreate: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/create.sh"),
@@ -129,15 +129,15 @@ const SCRIPTS = {
   recordRunHours: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/record-run-hours.sh"),
   nextAcceptance: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/next-acceptance.sh"),
   feedbackCreate: join(REPO_ROOT, "plugins/workaholic/skills/feedback/scripts/create.sh"),
-  proposeReadFeedbackRelation: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/read-feedback-relation.sh"),
+  proposeReadFeedbackRelation: join(REPO_ROOT, "plugins/workaholic/skills/specificate/scripts/read-feedback-relation.sh"),
   renderSetupSheet: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/render-setup-sheet.sh"),
   unitFeedbackStems: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/unit-feedback-stems.sh"),
   unitAuthors: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/unit-authors.sh"),
-  proposeListRefs: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/list-proposed-refs.sh"),
-  proposeExtractIssueNumber: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/extract-issue-number.sh"),
-  proposeListInboundIssues: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/list-inbound-issues.sh"),
-  proposeScaffoldDraft: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/scaffold-draft.sh"),
-  proposeNotifySlack: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/notify-slack.sh"),
+  proposeListRefs: join(REPO_ROOT, "plugins/workaholic/skills/specificate/scripts/list-proposed-refs.sh"),
+  proposeExtractIssueNumber: join(REPO_ROOT, "plugins/workaholic/skills/specificate/scripts/extract-issue-number.sh"),
+  proposeListInboundIssues: join(REPO_ROOT, "plugins/workaholic/skills/specificate/scripts/list-inbound-issues.sh"),
+  proposeScaffoldDraft: join(REPO_ROOT, "plugins/workaholic/skills/specificate/scripts/scaffold-draft.sh"),
+  proposeNotifySlack: join(REPO_ROOT, "plugins/workaholic/skills/specificate/scripts/notify-slack.sh"),
   feedbackList: join(REPO_ROOT, "plugins/workaholic/skills/feedback/scripts/list.sh"),
   areaFreshness: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/area-freshness.sh"),
   migrateTicketStates: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/migrate-ticket-states.sh"),
@@ -161,8 +161,8 @@ const SCRIPTS = {
   reapWorktrees: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/reap-worktrees.sh"),
   pruneWorktreeArtifacts: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/prune-worktree-artifacts.sh"),
   missionSize: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/size.sh"),
-  surveyState: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/survey-state.sh"),
-  scaffoldProposedTicket: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/scaffold-proposed-ticket.sh"),
+  surveyState: join(REPO_ROOT, "plugins/workaholic/skills/specificate/scripts/survey-state.sh"),
+  scaffoldProposedTicket: join(REPO_ROOT, "plugins/workaholic/skills/specificate/scripts/scaffold-proposed-ticket.sh"),
   closePublishTree: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/close-publish-tree.sh"),
   cutReleaseBranch: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/cut-release-branch.sh"),
   recordReleaseCut: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/record-release-cut.sh"),
@@ -4738,7 +4738,7 @@ concerns: []
 }
 
 // ---------- mission/link-acceptance.sh (the acceptance-to-artifact link) ----------
-// An acceptance item is written BEFORE its ticket exists — that is what /propose does —
+// An acceptance item is written BEFORE its ticket exists — that is what /specificate does —
 // so the link is stamped by the seam that emits the ticket set, not typed by the author.
 // Measured 2026-08-03: 0 of 37 items across the six proposal-scaffolded missions carried
 // a link, against 19 of 19 on the interrogation-authored ones, and the only markerless
@@ -4857,7 +4857,7 @@ ${acceptance}
       return join(mdir, "mission.md");
     };
 
-    // A board written the way /propose writes one: every item markerless.
+    // A board written the way /specificate writes one: every item markerless.
     const stranded = seed("stranded", "- [ ] Nothing links this one\n- [ ] Nor this one, which wraps\n      onto a second line");
     let p = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionProgress} stranded`).stdout);
     assertEq("progress reports the stranded count beside checked/total", p, { checked: 0, total: 2, unlinked: 2 });
@@ -7943,7 +7943,7 @@ function testValidateMission() {
     assertEq("an empty scaffold written through Write/Edit is refused — the floor is the area now", invoke(), 2);
 
     // OWNERSHIP IS NOT A FLOOR (K2): an unowned mission is claimable by anyone, and
-    // /propose writes unowned proposals by design.
+    // /specificate writes unowned proposals by design.
     writeFileSync(join(dir, rel), mission({ ...full, assignee: "assignee:" }));
     assertEq("validate-mission accepts an UNOWNED active mission", invoke(), 0);
     writeFileSync(join(dir, rel), mission({ ...full, assignee: "assignees: []\nassignee:" }));
@@ -10838,8 +10838,8 @@ function testRenderSetupSheet() {
     all);
   // VERBATIM PROMPT. The sheet is worthless if the prompt is paraphrased: what the
   // developer pastes is what runs.
-  const fbSheet = sheet("fb");
-  const rendered = JSON.parse(run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.renderRoutine} fb ${WH}`).stdout).prompt;
+  const fbSheet = sheet("specificate");
+  const rendered = JSON.parse(run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.renderRoutine} specificate ${WH}`).stdout).prompt;
   assertTrue("the prompt appears verbatim in the sheet", fbSheet.includes(rendered.trim()), fbSheet.slice(0, 400));
   assertEq("an unknown template is refused",
     run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.renderSetupSheet} no-such ${WH}`).status !== 0, true);
@@ -10853,7 +10853,7 @@ function testRenderSetupSheet() {
 // (2026-08-04 ruling): proposing happens in the session that receives the ask, so
 // there is no window to advance a cursor over. What survives is everything the
 // capture seam still needs — which is exactly what remains below.
-function testProposeBatch() {
+function testSpecificateBatch() {
   const dir = makeRepo("main");
   try {
     const wk = (rel, body) => { mkdirSync(dirname(join(dir, rel)), { recursive: true }); writeFileSync(join(dir, rel), body); };
@@ -11210,7 +11210,7 @@ function testClaimProtocol() {
       claimed.artifacts, [".workaholic/missions/active/m1/mission.md"]);
 
     // THE STAMP RIDES THE WORKTREE, NEVER THE MAIN TREE. The runner's main checkout
-    // must stay clean between ticks — /propose commits on main and depends on it.
+    // must stay clean between ticks — /specificate commits on main and depends on it.
     assertEq("claiming leaves the main checkout clean",
       execSync("git status --porcelain", { cwd: A, encoding: "utf8" }).trim(), "");
     assertTrue("the claim stamp is absent from the main tree's mission.md",
@@ -11807,7 +11807,7 @@ function testPlanUnitsClosedMission() {
     mission("active", "m-live", "active");
     mission("archive", "m-closed", "achieved");
     // A mission still in active/ but carrying the retired draft word: ALIVE, because the
-    // area is the authority (K1). This is /propose's safety property in miniature.
+    // area is the authority (K1). This is /specificate's safety property in miniature.
     mission("active", "m-draft", "draft");
     const stranded = ticket("20260729000001-stranded.md", "m-closed");
     const member = ticket("20260729000002-live-member.md", "m-live");
@@ -12842,7 +12842,7 @@ function testMergedStampIsHistoryNotAClaim() {
 // ---------------------------------------------------------------------------
 // "Has a plan" means "has a ticket queue", not "has acceptance items".
 //
-// /propose writes a provisional acceptance SKETCH, so an item count is satisfied with
+// /specificate writes a provisional acceptance SKETCH, so an item count is satisfied with
 // zero tickets: on 2026-07-30 an approved mission carrying `merge_policy: auto`,
 // `tickets: []` and an acceptance block whose first line read "PROPOSED sketch -- not a
 // plan" was offered to /drive as claimable. The old fixtures could only express `0/0`
@@ -13216,7 +13216,7 @@ function testClaimAnnounces() {
     assertTrue("claim.sh makes no inline network call", !/\bcurl\b|\bwget\b/.test(code), "found curl/wget in claim.sh code");
     const src = readFileSync(SCRIPTS.claim, "utf8");
     assertTrue("claim.sh reaches the existing notifier script",
-      /propose\/scripts\/notify-slack\.sh/.test(src), "claim.sh does not reference notify-slack.sh");
+      /specificate\/scripts\/notify-slack\.sh/.test(src), "claim.sh does not reference notify-slack.sh");
   } finally { cleanup(origin); cleanup(A); cleanup(B); cleanup(stubDir); }
 }
 
@@ -14182,7 +14182,7 @@ const tests = [
   ["feedback/create.sh + list.sh + hooks/validate-feedback.sh", testFeedback],
   ["drive/unit-feedback-stems.sh: the unit's thread key", testUnitFeedbackStems],
   ["workaholify/render-setup-sheet.sh: the human's UI setup", testRenderSetupSheet],
-  ["propose: dedup set and draft scaffold", testProposeBatch],
+  ["propose: dedup set and draft scaffold", testSpecificateBatch],
   ["propose: the dedup set covers open pull requests", testProposedRefsCoverOpenPullRequests],
   ["propose/notify-slack.sh", testNotifySlack],
   ["drive claim protocol: two clones, one unit", testClaimProtocol],
@@ -14230,9 +14230,9 @@ const tests = [
   ["workaholify bootstrap: the session gets the developer's git identity", testBootstrapGitIdentity],
   ["branching worktree reclamation: merged AND clean, every skip named", testWorktreeReclamation],
   ["mission size norms: a ceiling on what a mission may say, and the floor it must not touch", testMissionSizeNorms],
-  ["propose: widened inputs, emitted tickets, and the mission_member safety property (J4)", testProposeWidenedBatch],
-  ["propose: an atomic direction becomes one loose ticket, and dedup unions both sides", testProposeLooseTicket],
-  ["propose: the capture seam publishes record and proposal in one commit", testProposeCaptureSeam],
+  ["propose: widened inputs, emitted tickets, and the mission_member safety property (J4)", testSpecificateWidenedBatch],
+  ["propose: an atomic direction becomes one loose ticket, and dedup unions both sides", testSpecificateLooseTicket],
+  ["propose: the capture seam publishes record and proposal in one commit", testSpecificateCaptureSeam],
   ["branching/check-worktrees.sh ignores the publish tree", testCheckWorktreesIgnoresPublishTree],
   ["/ticket publishes to main end to end (J1)", testTicketPublishesToMain],
   ["hooks/validate-ticket.sh resolves a mission in the publish tree", testValidateTicketResolvesInPublishTree],
@@ -14256,18 +14256,18 @@ const tests = [
   ["drive claim protocol: truncated history never invents a claim", testClaimScanShallowClone],
   ["e2e/loop-drill.sh: seed refuses a polluted base and mints a fresh pair", testLoopDrillSeed],
   ["e2e/loop-drill.sh: reset recovers only what the drill minted", testLoopDrillReset],
-  ["e2e/loop-drill.sh: verify-propose reads artifacts, and pending is not fail", testLoopDrillVerifyPropose],
+  ["e2e/loop-drill.sh: verify-specificate reads artifacts, and pending is not fail", testLoopDrillVerifySpecificate],
   ["e2e/loop-drill.sh: verify-implement reads the archive move, story, PR and claim", testLoopDrillVerifyImplement],
-  ["housekeep: the tick log is registered, append-only and idempotent", testHousekeepLog],
-  ["housekeep: the tick runs every step, and every step reports", testHousekeepRun],
-  ["housekeep: the tick log survives the container that wrote it", testHousekeepPersist],
-  ["housekeep: the lines written after the persist reach the base too", testHousekeepPersistCarriesLateLines],
-  ["housekeep: the unattended contract is in the files, not in intent", testHousekeepUnattendedContract],
-  ["housekeep steps 2-3: every surface is named, and nothing is executed", testHousekeepInboundSweep],
-  ["housekeep steps 4-7: report, never repair; remind once per state", testHousekeepHygieneSteps],
-  ["housekeep step 8: a step reversing a standing decision stays unbuilt", testHousekeepStrategyStepIsGated],
-  ["housekeep step 9: asking costs attention, so the gates are mechanical", testHousekeepCheckIn],
-  ["[Propose]: the template, its scope, and the shapes it authorizes", testHousekeepRoutineTemplate],
+  ["propose: the tick log is registered, append-only and idempotent", testProposeLog],
+  ["propose: the tick runs every step, and every step reports", testProposeRun],
+  ["propose: the tick log survives the container that wrote it", testProposePersist],
+  ["propose: the lines written after the persist reach the base too", testProposePersistCarriesLateLines],
+  ["propose: the unattended contract is in the files, not in intent", testProposeUnattendedContract],
+  ["propose steps 2-3: every surface is named, and nothing is executed", testProposeInboundSweep],
+  ["propose steps 4-7: report, never repair; remind once per state", testProposeHygieneSteps],
+  ["propose step 8: a step reversing a standing decision stays unbuilt", testProposeStrategyStepIsGated],
+  ["propose step 9: asking costs attention, so the gates are mechanical", testProposeCheckIn],
+  ["[Propose]: the template, its scope, and the shapes it authorizes", testProposeRoutineTemplate],
   ["[Workaholic]: the account updater's template, scope and one shape", testWorkaholicRoutineTemplate],
 ];
 
@@ -14462,7 +14462,7 @@ function testExtractIssueNumber() {
 }
 
 // ---------- list-inbound-issues.sh (the clock-fired discovery) ----------
-// [Specificate]'s schedule fire hands the session nothing, so /propose discovers its own
+// [Specificate]'s schedule fire hands the session nothing, so /specificate discovers its own
 // asks: the open issues assigned to this identity, minus those a feedback record
 // already names. `gh` is ALWAYS stubbed — the suite never touches the network — and
 // the properties pinned are the ones a wrong inbox would corrupt silently:
@@ -14666,7 +14666,7 @@ echo ""
 // ---------- the PR title is not the commit subject (P4's surviving half) ----------
 // P4 (2026-08-06) split two surfaces that had shared one string: `[Proposal]` is exactly
 // the shape check-subject.sh forbids on a commit subject, so passing one string to both
-// made /propose's own documented prefix unwritable -- the publish died at `commit_failed`
+// made /specificate's own documented prefix unwritable -- the publish died at `commit_failed`
 // before any pull request existed. The subject keeps the project rule; the title carries
 // the prefix the [Implement] trigger filters on. (P4's other half -- the carried
 // notification target -- is retired by Q1 and pinned in testStatelessThreadLookup.)
@@ -14780,7 +14780,7 @@ function testStatelessThreadLookup() {
     return m ? m[1] : "";
   };
   const catalog = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/notify/reference/notifications.md"), "utf8");
-  const proposeTemplate = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines/fb.md"), "utf8");
+  const proposeTemplate = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines/specificate.md"), "utf8");
   const catalogRoot = rootBlock(catalog);
   assertTrue("the shape catalog carries the description root's block", catalogRoot !== "", catalog.slice(0, 200));
   assertEq("the description root reads byte-identically in the catalog and the [Specificate] template",
@@ -15195,7 +15195,7 @@ function testClosePublishTreeReachability() {
 // is -- not by a new gate, but because plan-units.sh drops any mission-related ticket
 // as `mission_member` whatever the mission's status. If that exclusion is ever
 // narrowed, this test is the tripwire.
-function testProposeWidenedBatch() {
+function testSpecificateWidenedBatch() {
   const root = makeRepo();
   const SURVEY = `${POSIX_SH} ${SCRIPTS.surveyState}`;
   const SCAFFOLD_TICKET = `${POSIX_SH} ${SCRIPTS.scaffoldProposedTicket}`;
@@ -15262,7 +15262,7 @@ function testProposeWidenedBatch() {
 // over both the queue AND the archive. A set that read only missions would re-propose the
 // same record every tick; one that skipped the archive would re-propose the work it had
 // just finished driving.
-function testProposeLooseTicket() {
+function testSpecificateLooseTicket() {
   const root = makeRepo();
   const SCAFFOLD = `${POSIX_SH} ${SCRIPTS.scaffoldProposedTicket}`;
   const REFS = `${POSIX_SH} ${SCRIPTS.proposeListRefs}`;
@@ -15368,7 +15368,7 @@ function testProposeLooseTicket() {
 // produced the same empty result. The composition case below is what makes them
 // distinguishable, and the record-only case pins that the fallback still writes the
 // record. Hermetic: a bare local origin plus a `gh` stub, no network.
-function testProposeCaptureSeam() {
+function testSpecificateCaptureSeam() {
   const { origin, A } = makePublishFixture();
   const OPEN = `${POSIX_SH} ${SCRIPTS.openPublishTree}`;
   const PR = `${POSIX_SH} ${SCRIPTS.publishTreePr}`;
@@ -15663,7 +15663,7 @@ function testMissionSizeNorms() {
     // The template no longer scaffolds ## Scope, and the removal is documented.
     const createSrc = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/create.sh"), "utf8");
     assertTrue("create.sh no longer scaffolds a ## Scope section", !/^## Scope$/m.test(createSrc));
-    const draftSrc = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/scaffold-draft.sh"), "utf8");
+    const draftSrc = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/specificate/scripts/scaffold-draft.sh"), "utf8");
     assertTrue("scaffold-draft.sh no longer scaffolds a ## Scope section", !/^## Scope$/m.test(draftSrc));
 
     // A legacy mission that still carries ## Scope is history, never retro-blocked.
@@ -16084,7 +16084,7 @@ function testPrepareReleasePostShape() {
 // without `--write`, and exactly one caller may pass it.
 // ---------- release note: Key Changes says what landed, for every merge ----------
 // (2026-08-18, issue #496) The section emitted `Pull request #N (branch) — no branch
-// story on the base.` for any merge with no story, and a `/propose` pull request
+// story on the base.` for any merge with no story, and a `/specificate` pull request
 // structurally never has one — it auto-merges without ever running `/report` — so the
 // commonest merge kind in this repository rendered as a line whose entire content is the
 // absence of a summary. The fallback is the merge commit's BODY, where GitHub puts the
@@ -16106,7 +16106,7 @@ function testReleaseNoteKeyChangesFallback() {
     execSync("git config commit.gpgsign false", { cwd: repo });
     writeFileSync(join(repo, ".workaholic/deployments/marketplace.md"),
       "---\ntype: Deployment\ntarget: marketplace\nenvironment: production\ndeploy_model: deploy-on-merge\n---\n\n# marketplace\n\n## Procedure\n\n1. Merge.\n\n## Confirmation\n\nCheck the release exists.\n");
-    // A story for the first branch only. The second models a /propose merge: published
+    // A story for the first branch only. The second models a /specificate merge: published
     // through the publish tree, auto-merged, and so structurally story-less.
     writeFileSync(join(repo, ".workaholic/stories/work-20260101-000000.md"),
       "---\ntype: Story\nbranch: work-20260101-000000\n---\n\n## 1. Overview\n\nThe executor learned to survey again after merging its first unit. More prose that does not belong in the line.\n");
@@ -16259,7 +16259,7 @@ function testWorkaholifyRoutines() {
     assertEq("the plugin ships six routine templates", tpl.count, 6);
     assertEq("and they are the six live patterns",
       tpl.templates.map((t) => t.id).sort(),
-      ["fb", "housekeep", "implement", "prepare-release", "standup", "workaholic"]);
+      ["implement", "prepare-release", "propose", "specificate", "standup", "workaholic"]);
 
     // ---- the scope split (2026-08-14, issue #451) ----
     // The scope is the TEMPLATE's field, not a list written into two command bodies:
@@ -16282,10 +16282,10 @@ function testWorkaholifyRoutines() {
       "the user-scoped template leaked into another scope");
     assertEq("the two routines every developer needs their own copy of are developer-scoped",
       JSON.parse(run(dir, `${LIST} developer`).stdout).templates.map((t) => t.id).sort(),
-      ["fb", "implement"]);
+      ["implement", "specificate"]);
     assertEq("the routines the repository needs exactly one of each are repository-scoped",
       JSON.parse(run(dir, `${LIST} repository`).stdout).templates.map((t) => t.id).sort(),
-      ["housekeep", "prepare-release", "standup"]);
+      ["prepare-release", "propose", "standup"]);
     assertEq("an unknown scope is refused rather than treated as no filter",
       run(dir, `${LIST} nonsense`).status !== 0, true);
     // The template set is discovered by scanning the routines dir, so a template is
@@ -16321,8 +16321,8 @@ function testWorkaholifyRoutines() {
       new Set(tpl.templates.map((t) => t.cron_expression)).size, tpl.count);
     assertEq("implement declares the schedule trigger",
       tpl.templates.find((t) => t.id === "implement").trigger, "schedule-hourly");
-    assertEq("fb declares the schedule trigger",
-      tpl.templates.find((t) => t.id === "fb").trigger, "schedule-hourly");
+    assertEq("specificate declares the schedule trigger",
+      tpl.templates.find((t) => t.id === "specificate").trigger, "schedule-hourly");
 
     // ---- the three substitutions, each demanded by a real prompt ----
     const drive = JSON.parse(run(dir, `${RENDER} implement ${WH}`).stdout);
@@ -16343,13 +16343,13 @@ function testWorkaholifyRoutines() {
       drive.prompt.includes(`${WH}/pull/`), "missing pull link");
     assertTrue("no placeholder survives rendering", !/\{repo(_name|_slug)?\}/.test(drive.prompt), drive.prompt);
 
-    const fb = JSON.parse(run(dir, `${RENDER} fb ${WH}`).stdout);
+    const fb = JSON.parse(run(dir, `${RENDER} specificate ${WH}`).stdout);
     // The template's trigger states the DESIGNED trigger (the record stores no such
     // field): [Specificate] fires on a fixed 30-minute schedule, same as [Implement]
     // (ticket 20260810085347, developer's explicit ask covering both routines,
     // 2026-08-10, superseding the 2026-08-06 assigned-issue-only pin). The word is the
     // design, so it is pinned.
-    assertEq("the fb routine declares the schedule trigger, matching implement",
+    assertEq("the specificate routine declares the schedule trigger, matching implement",
       [fb.trigger, fb.cron_expression], ["schedule-hourly", "15 * * * *"]);
     assertEq("an unknown template is refused by name",
       JSON.parse(run(dir, `${RENDER} no-such ${WH}`).stdout).error, "unknown_template");
@@ -17009,7 +17009,7 @@ function testLoopDrillReset() {
   } finally { cleanup(fx.tmp); }
 }
 
-// ---------- loop-drill verify-propose / verify-implement ----------
+// ---------- loop-drill verify-specificate / verify-implement ----------
 // What these pin is the ROW CONTRACT, not prose: the `check` names, the three `pass`
 // values, which rows are load-bearing, and the three verdicts (`pass`, `fail`,
 // `pending`) with their distinct exit codes. A drill whose verdict cannot be read by a
@@ -17038,7 +17038,7 @@ function setPulls(fx, pulls) {
   writeFileSync(join(fx.state, "pulls.json"), JSON.stringify(pulls));
 }
 
-function testLoopDrillVerifyPropose() {
+function testLoopDrillVerifySpecificate() {
   const fx = makeDrillFixture();
   try {
     const seeded = JSON.parse(run(fx.repo, `${fx.DRILL} seed`, { env: fx.env }).stdout);
@@ -17046,7 +17046,7 @@ function testLoopDrillVerifyPropose() {
 
     // (1) NOT YET RUN. No record on the base, the ask still open — `pending`, exit 5,
     // and NOT a failure row count.
-    let r = run(fx.repo, `${fx.DRILL} verify-propose ${N}`, { env: fx.env });
+    let r = run(fx.repo, `${fx.DRILL} verify-specificate ${N}`, { env: fx.env });
     let j = JSON.parse(r.stdout);
     assertEq("an unfired stage is pending, not failed", j.verdict, "pending");
     assertEq("with its own exit code so a poller can tell wait from broken", r.status, 5);
@@ -17057,7 +17057,7 @@ function testLoopDrillVerifyPropose() {
     const stem = seedProposeArtifacts(fx, N);
     setPulls(fx, [{ number: 900, head: { ref: "work-20260812-190000" }, merged_at: null,
       title: "[Proposal] Record loop-drill run", body: `Closes #${N}` }]);
-    r = run(fx.repo, `${fx.DRILL} verify-propose ${N} --json`, { env: fx.env });
+    r = run(fx.repo, `${fx.DRILL} verify-specificate ${N} --json`, { env: fx.env });
     j = JSON.parse(r.stdout);
     assertEq("a landed-but-unmerged proposal is a FAIL", j.verdict, "fail");
     assertEq("with exit 1, distinct from pending", r.status, 1);
@@ -17077,18 +17077,18 @@ function testLoopDrillVerifyPropose() {
     setPulls(fx, [{ number: 900, head: { ref: "work-20260812-190000" }, merged_at: "2026-08-12T20:00:00Z",
       title: "[Proposal] Record loop-drill run", body: `Closes #${N}` }]);
     closeDrillIssue(fx, N);
-    r = run(fx.repo, `${fx.DRILL} verify-propose ${N} --json`, { env: fx.env });
+    r = run(fx.repo, `${fx.DRILL} verify-specificate ${N} --json`, { env: fx.env });
     j = JSON.parse(r.stdout);
     assertEq("a landed propose stage passes", j.verdict, "pass");
     assertEq("with exit 0", r.status, 0);
     assertEq("and every load-bearing row accounted for", j.load_bearing.failed, 0);
     assertTrue("the terse default carries only the actionable rows",
-      JSON.parse(run(fx.repo, `${fx.DRILL} verify-propose ${N}`, { env: fx.env }).stdout)
+      JSON.parse(run(fx.repo, `${fx.DRILL} verify-specificate ${N}`, { env: fx.env }).stdout)
         .rows.every((x) => x.pass !== true), "a passing row leaked into the terse output");
 
     // (4) A SLACK FAILURE NEVER FAILS A STAGE. The surface is unread, reported null.
     writeFileSync(join(fx.state, "qfs-fail"), "");
-    r = run(fx.repo, `${fx.DRILL} verify-propose ${N} --json`, { env: fx.env });
+    r = run(fx.repo, `${fx.DRILL} verify-specificate ${N} --json`, { env: fx.env });
     j = JSON.parse(r.stdout);
     assertEq("an unreadable Slack leaves the stage passing", j.verdict, "pass");
     assertEq("and exit 0", r.status, 0);
@@ -17109,7 +17109,7 @@ function testLoopDrillVerifyPropose() {
     execSync("git rm -q -r .workaholic/tickets", { cwd: fx.repo });
     execSync("git commit -q -m 'Drop the drill ticket'", { cwd: fx.repo });
     execSync("git push -q origin main", { cwd: fx.repo });
-    r = run(fx.repo, `${fx.DRILL} verify-propose ${N} --json`, { env: fx.env });
+    r = run(fx.repo, `${fx.DRILL} verify-specificate ${N} --json`, { env: fx.env });
     j = JSON.parse(r.stdout);
     assertEq("a record-alone proposal leaves the stage passing", j.verdict, "pass");
     let byCheck = Object.fromEntries(j.rows.map((x) => [x.check, x]));
@@ -17131,7 +17131,7 @@ function testLoopDrillVerifyPropose() {
       `---\nassignees: [operator]\nmission: ${slug}\n---\n\n# Drill member\n`);
     execSync("git add -A && git commit -q -m 'Add a mission-shaped proposal'", { cwd: fx.repo });
     execSync("git push -q origin main", { cwd: fx.repo });
-    r = run(fx.repo, `${fx.DRILL} verify-propose ${N} --json`, { env: fx.env });
+    r = run(fx.repo, `${fx.DRILL} verify-specificate ${N} --json`, { env: fx.env });
     j = JSON.parse(r.stdout);
     byCheck = Object.fromEntries(j.rows.map((x) => [x.check, x]));
     assertEq("a mission-shaped proposal passes", j.verdict, "pass");
@@ -17149,7 +17149,7 @@ function testLoopDrillVerifyPropose() {
     execSync("git rm -q -r .workaholic/tickets", { cwd: fx.repo });
     execSync("git commit -q -m 'Drop the member ticket'", { cwd: fx.repo });
     execSync("git push -q origin main", { cwd: fx.repo });
-    r = run(fx.repo, `${fx.DRILL} verify-propose ${N} --json`, { env: fx.env });
+    r = run(fx.repo, `${fx.DRILL} verify-specificate ${N} --json`, { env: fx.env });
     j = JSON.parse(r.stdout);
     byCheck = Object.fromEntries(j.rows.map((x) => [x.check, x]));
     assertEq("a mission with no member ticket fails the stage", j.verdict, "fail");
@@ -17167,7 +17167,7 @@ function testLoopDrillVerifyPropose() {
       `---\nassignees: [op@example.test]\nmission: ${slug}\n---\n\n# Drill member\n`);
     execSync("git add -A && git commit -q -m 'Assign by email, as the seam writes it'", { cwd: fx.repo });
     execSync("git push -q origin main", { cwd: fx.repo });
-    r = run(fx.repo, `${fx.DRILL} verify-propose ${N} --json`, { env: fx.env });
+    r = run(fx.repo, `${fx.DRILL} verify-specificate ${N} --json`, { env: fx.env });
     j = JSON.parse(r.stdout);
     byCheck = Object.fromEntries(j.rows.map((x) => [x.check, x]));
     assertEq("a ticket assigned by mapped email passes the assignee row", byCheck.ticket_assignee.pass, true);
@@ -17278,16 +17278,16 @@ function testLoopDrillVerifyImplement() {
   } finally { cleanup(fx.tmp); }
 }
 
-// ---------- housekeep: the tick log is registered, append-only and idempotent ----------
+// ---------- propose: the tick log is registered, append-only and idempotent ----------
 // (2026-08-17, issue #471) Three properties, because each one failing is a different
 // kind of damage: an UNREGISTERED area is hard-blocked by the layout gate on the very
 // first tick, a NON-idempotent writer doubles the record of a retried step, and a
 // reader that cannot answer "did an earlier tick file this?" makes an hourly routine
 // re-file the same finding twenty-four times a day.
-function testHousekeepLog() {
+function testProposeLog() {
   const repo = makeRepo();
-  const APPEND = `${POSIX_SH} ${SCRIPTS.housekeepLogAppend}`;
-  const READ = `${POSIX_SH} ${SCRIPTS.housekeepLogRead}`;
+  const APPEND = `${POSIX_SH} ${SCRIPTS.proposeLogAppend}`;
+  const READ = `${POSIX_SH} ${SCRIPTS.proposeLogRead}`;
   const HOOK = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/hooks/validate-ticket.sh")}`;
   try {
     // The closed layout admits the area — and still refuses a near-miss sibling, which
@@ -17354,15 +17354,15 @@ function testHousekeepLog() {
   }
 }
 
-// ---------- housekeep: the tick runs every step, and every step reports ----------
+// ---------- propose: the tick runs every step, and every step reports ----------
 // (2026-08-17, issue #471) The property under test is COVERAGE, not correctness of any
 // one step: an hourly unattended run is trustworthy only if a step that is missing,
 // crashes, prints nothing, or never got its turn is as visible in the report as one that
 // worked. Each of those is a separate row here because each is a separate way for a tick
 // to quietly under-report itself.
-function testHousekeepRun() {
+function testProposeRun() {
   const repo = makeRepo();
-  const RUN = `${POSIX_SH} ${SCRIPTS.housekeepRun}`;
+  const RUN = `${POSIX_SH} ${SCRIPTS.proposeRun}`;
   const STEPS = ["open-log", "inbound-sweep", "workload-logs", "merge-conflicts",
     "issue-triage", "stuck-prs", "doc-drift", "strategy-proposals", "human-checkin"];
   try {
@@ -17401,12 +17401,12 @@ function testHousekeepRun() {
 
     // The three ways a step can go silent are three named degradations.
     const broken = join(repo, "plugins-broken");
-    cpSync(join(REPO_ROOT, "plugins/workaholic/skills/housekeep"), join(broken, "housekeep"), { recursive: true });
+    cpSync(join(REPO_ROOT, "plugins/workaholic/skills/propose"), join(broken, "propose"), { recursive: true });
     cpSync(join(REPO_ROOT, "plugins/workaholic/hooks"), join(broken, "hooks"), { recursive: true });
-    const BROKEN_RUN = `${POSIX_SH} ${join(broken, "housekeep/scripts/run.sh")}`;
-    rmSync(join(broken, "housekeep/scripts/step-doc-drift.sh"), { force: true });
-    writeFileSync(join(broken, "housekeep/scripts/step-stuck-prs.sh"), "#!/bin/sh\nexit 3\n");
-    writeFileSync(join(broken, "housekeep/scripts/step-issue-triage.sh"), "#!/bin/sh\nexit 0\n");
+    const BROKEN_RUN = `${POSIX_SH} ${join(broken, "propose/scripts/run.sh")}`;
+    rmSync(join(broken, "propose/scripts/step-doc-drift.sh"), { force: true });
+    writeFileSync(join(broken, "propose/scripts/step-stuck-prs.sh"), "#!/bin/sh\nexit 3\n");
+    writeFileSync(join(broken, "propose/scripts/step-issue-triage.sh"), "#!/bin/sh\nexit 0\n");
     const b = JSON.parse(run(repo, `${BROKEN_RUN} --tick 20260817-100000`).stdout);
     const byStep = Object.fromEntries(b.steps.map((s) => [s.step, s]));
     assertEq("a missing step script is still a reported row", byStep["doc-drift"].reason, "step_missing");
@@ -17427,17 +17427,17 @@ function testHousekeepRun() {
   }
 }
 
-// ---------- housekeep: the tick log survives the container that wrote it ----------
+// ---------- propose: the tick log survives the container that wrote it ----------
 // (2026-08-17, ticket `20260817131500-persist-the-housekeep-tick-log`) A routine tick
 // runs in a fresh clone that is thrown away afterwards, so a log that stayed in the
 // checkout would leave every dedup blind and the run with no audit trail. The property
 // under test is that the log REACHES THE BASE, and that two containers ticking on the
 // same day do not overwrite each other — which is why the merge is a union by section
 // rather than a textual append that a rebase would have to reconcile.
-function testHousekeepPersist() {
+function testProposePersist() {
   const tmp = mkdtempSync(join(tmpdir(), "workaholic-hk-persist-"));
-  const PERSIST = `${POSIX_SH} ${SCRIPTS.housekeepPersist}`;
-  const APPEND = `${POSIX_SH} ${SCRIPTS.housekeepLogAppend}`;
+  const PERSIST = `${POSIX_SH} ${SCRIPTS.proposePersist}`;
+  const APPEND = `${POSIX_SH} ${SCRIPTS.proposeLogAppend}`;
   const origin = join(tmp, "origin.git");
   const A = join(tmp, "a");
   const B = join(tmp, "b");
@@ -17539,7 +17539,7 @@ exit 0
   }
 }
 
-// ---------- housekeep: the lines written after the persist reach the base too ----------
+// ---------- propose: the lines written after the persist reach the base too ----------
 // (2026-08-18, ticket `20260818064158-carry-the-tick-log-step-filed-lines-to-the-base`)
 // The agent acts on `needs_agent` only AFTER `run.sh` returns, so every `<step>-filed`
 // line is appended to the checkout after the closing act already ran. A union BY SECTION
@@ -17548,10 +17548,10 @@ exit 0
 // `(tick, step)`: a persist run again after the filing appends the missing LINES into a
 // section the base already carries. Asserted against the BASE, never the checkout: a
 // hand-run's checkout survives, which is exactly why the defect was invisible.
-function testHousekeepPersistCarriesLateLines() {
+function testProposePersistCarriesLateLines() {
   const tmp = mkdtempSync(join(tmpdir(), "workaholic-hk-late-"));
-  const PERSIST = `${POSIX_SH} ${SCRIPTS.housekeepPersist}`;
-  const APPEND = `${POSIX_SH} ${SCRIPTS.housekeepLogAppend}`;
+  const PERSIST = `${POSIX_SH} ${SCRIPTS.proposePersist}`;
+  const APPEND = `${POSIX_SH} ${SCRIPTS.proposeLogAppend}`;
   const origin = join(tmp, "origin.git");
   const A = join(tmp, "a");
   const B = join(tmp, "b");
@@ -17649,11 +17649,11 @@ function testHousekeepPersistCarriesLateLines() {
   }
 }
 
-// ---------- housekeep: the unattended contract is in the files, not in intent ----------
-function testHousekeepUnattendedContract() {
-  const skill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/housekeep/SKILL.md"), "utf8");
-  const command = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/housekeep.md"), "utf8");
-  const ref = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/housekeep/reference/workflow.md"), "utf8");
+// ---------- propose: the unattended contract is in the files, not in intent ----------
+function testProposeUnattendedContract() {
+  const skill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/propose/SKILL.md"), "utf8");
+  const command = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/propose.md"), "utf8");
+  const ref = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/propose/reference/workflow.md"), "utf8");
 
   // The skill bears scripts, so it is internal to the skills CLI; Claude Code ignores it.
   assertTrue("the skill is marked internal", /metadata:\s*\n\s*internal:\s*true/.test(skill), skill.slice(0, 400));
@@ -17663,15 +17663,15 @@ function testHousekeepUnattendedContract() {
   // prose is allowed to name it, and has to: what the skill and command say is that they
   // never use one, which is the sentence the next reader needs.
   const inScripts = run(REPO_ROOT,
-    `grep -rn AskUserQuestion plugins/workaholic/skills/housekeep/scripts || true`).stdout
+    `grep -rn AskUserQuestion plugins/workaholic/skills/propose/scripts || true`).stdout
     .trim().split("\n").filter(Boolean).filter((l) => !/^[^:]+:\d+:\s*#/.test(l));
-  assertEq("no AskUserQuestion in any housekeep script", inScripts, []);
+  assertEq("no AskUserQuestion in any propose script", inScripts, []);
   assertTrue("the skill states the unattended contract", /no `AskUserQuestion` at any step/.test(skill));
   assertTrue("and so does the command", /no `AskUserQuestion` at any step/.test(command));
 
   // Every script reference is plugin-root-anchored: a relative path does not resolve at
   // runtime, which is the failure mode that silently disables a step.
-  for (const [name, text] of [["SKILL.md", skill], ["housekeep.md", command]]) {
+  for (const [name, text] of [["SKILL.md", skill], ["propose.md", command]]) {
     const bad = [...text.matchAll(/bash\s+(\S*\/\S+)/g)].map((m) => m[1]).filter((x) => !x.startsWith("${CLAUDE_PLUGIN_ROOT}"));
     assertEq(`${name} anchors every script reference at the plugin root`, bad, []);
   }
@@ -17682,21 +17682,21 @@ function testHousekeepUnattendedContract() {
 
   // The reference states a contract per step, so a later ticket fills one in rather than
   // inventing one: every step id in run.sh must have a section.
-  const runSh = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/housekeep/scripts/run.sh"), "utf8");
+  const runSh = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/run.sh"), "utf8");
   const list = /^STEPS='([^']+)'/m.exec(runSh)[1].split(/\s+/);
   const missing = list.filter((s) => !new RegExp("`" + s + "`").test(ref));
   assertEq("every step run.sh drives has a stated contract", missing, []);
 }
 
-// ---------- housekeep steps 2-3: every surface is named, and nothing is executed ----------
+// ---------- propose steps 2-3: every surface is named, and nothing is executed ----------
 // (2026-08-17, issue #471) The acceptance the ask actually needs is NOT "the sweep found
 // things" — it is that an unavailable surface is never rendered as an empty one, that
 // "missing credentials" is a checked claim naming the variable, and that a repository
 // record's prose is never executed by an hourly unattended tick.
-function testHousekeepInboundSweep() {
+function testProposeInboundSweep() {
   const repo = makeRepo();
-  const SWEEP = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/housekeep/scripts/step-inbound-sweep.sh")}`;
-  const LOGS = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/housekeep/scripts/step-workload-logs.sh")}`;
+  const SWEEP = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/step-inbound-sweep.sh")}`;
+  const LOGS = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/step-workload-logs.sh")}`;
   try {
     mkdirSync(join(repo, ".workaholic/feedbacks"), { recursive: true });
 
@@ -17718,7 +17718,7 @@ function testHousekeepInboundSweep() {
     // The window is derived from the log, never from date arithmetic.
     assertEq("with no earlier sweep the window is the tick's own UTC day start",
       j.since, "2026-08-17T00:00:00Z");
-    run(repo, `${POSIX_SH} ${SCRIPTS.housekeepLogAppend} --tick 20260817-100000 --step inbound-sweep --status ok --summary swept`);
+    run(repo, `${POSIX_SH} ${SCRIPTS.proposeLogAppend} --tick 20260817-100000 --step inbound-sweep --status ok --summary swept`);
     const k = JSON.parse(run(repo, `${SWEEP} --tick 20260817-120000 --root .`).stdout);
     assertEq("an earlier sweep moves the window to that tick", k.since, "2026-08-17T10:00:00Z");
 
@@ -17760,15 +17760,15 @@ function testHousekeepInboundSweep() {
   }
 }
 
-// ---------- housekeep steps 4-7: report, never repair; remind once per state ----------
+// ---------- propose steps 4-7: report, never repair; remind once per state ----------
 // (2026-08-17, issue #471) Three properties the ask's own wording puts at risk: step 4
 // must not push into a branch the claim protocol owns, step 6 must not repeat an
 // unchanged reminder every hour, and step 7 must not re-file a finding that is true
 // forever. A fake GitHub gives the first two real data to work on.
-function testHousekeepHygieneSteps() {
+function testProposeHygieneSteps() {
   const repo = makeRepo();
   const bin = mkdtempSync(join(tmpdir(), "wh-gh-"));
-  const HK = join(REPO_ROOT, "plugins/workaholic/skills/housekeep/scripts");
+  const HK = join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts");
   try {
     mkdirSync(join(repo, ".workaholic/feedbacks"), { recursive: true });
     // `gh-rest.sh` resolves the repository from the git remote, so the fixture needs one
@@ -17821,7 +17821,7 @@ esac
     assertTrue("keyed distinctly from deploy:<digest>", !s6.key.startsWith("deploy:"), s6.key);
 
     // Once the agent records the post, the same state earns no second reminder.
-    run(repo, `${POSIX_SH} ${SCRIPTS.housekeepLogAppend} --tick 20260817-120000 --step stuck-prs-filed --status filed --summary "posted ${s6.key}"`);
+    run(repo, `${POSIX_SH} ${SCRIPTS.proposeLogAppend} --tick 20260817-120000 --step stuck-prs-filed --status filed --summary "posted ${s6.key}"`);
     const s6b = JSON.parse(run(repo, `${POSIX_SH} ${join(HK, "step-stuck-prs.sh")} --tick 20260817-130000 --root .`, { env }).stdout);
     assertEq("an unchanged state is not re-announced", s6b.needs_agent.length, 0);
     assertEq("and says why", s6b.reason, "already_filed");
@@ -17889,7 +17889,7 @@ esac
 
     // Step 7: a finding an earlier tick filed is not filed again.
     const s7key = ".workaholic/terms/retired-terms.md";
-    run(repo, `${POSIX_SH} ${SCRIPTS.housekeepLogAppend} --tick 20260817-110000 --step doc-drift-filed --status filed --summary "filed a ticket for ${s7key}"`);
+    run(repo, `${POSIX_SH} ${SCRIPTS.proposeLogAppend} --tick 20260817-110000 --step doc-drift-filed --status filed --summary "filed a ticket for ${s7key}"`);
     const s7 = JSON.parse(run(repo, `${POSIX_SH} ${join(HK, "step-doc-drift.sh")} --tick 20260817-120000 --root . --base HEAD`, { env }).stdout);
     assertTrue("an already-filed drift finding is dropped, not re-filed",
       !JSON.stringify(s7.needs_agent).includes(s7key), JSON.stringify(s7.needs_agent));
@@ -17899,14 +17899,14 @@ esac
   }
 }
 
-// ---------- housekeep step 8: a step that reverses a standing decision stays unbuilt ----------
+// ---------- propose step 8: a step that reverses a standing decision stays unbuilt ----------
 // (2026-08-17, issue #471) The mission's own acceptance is the property under test: a step
 // that reverses a standing decision is ruled on by the operator or LEFT UNBUILT, never
 // inferred. So the test is not "does it propose well" — it is that it proposes nothing,
 // names the rulings it is waiting on, and tells an empty strategy set apart from a live one.
-function testHousekeepStrategyStepIsGated() {
+function testProposeStrategyStepIsGated() {
   const repo = makeRepo();
-  const STEP = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/housekeep/scripts/step-strategy-proposals.sh")}`;
+  const STEP = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/step-strategy-proposals.sh")}`;
   try {
     mkdirSync(join(repo, ".workaholic"), { recursive: true });
     let j = JSON.parse(run(repo, `${STEP} --tick 20260817-120000 --root .`).stdout);
@@ -17928,7 +17928,7 @@ function testHousekeepStrategyStepIsGated() {
     assertEq("and no ticket queue was touched", existsSync(join(repo, ".workaholic/tickets")), false);
 
     // The propose skill's bar is UNCHANGED — the reversal was not slipped in sideways.
-    const propose = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/propose/SKILL.md"), "utf8");
+    const propose = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/specificate/SKILL.md"), "utf8");
     assertTrue("propose still says repository state never triggers a proposal",
       /constraints, never triggers/.test(propose), "the judgment bar was edited without a ruling");
   } finally {
@@ -17936,17 +17936,17 @@ function testHousekeepStrategyStepIsGated() {
   }
 }
 
-// ---------- housekeep step 9: asking costs attention, so the gates are mechanical ----------
+// ---------- propose step 9: asking costs attention, so the gates are mechanical ----------
 // (2026-08-17, issue #471) Four properties, and none of them is "the question was good":
 // nothing is posted inside the quiet window and the question is HELD rather than dropped, a
 // question is asked once rather than once an hour, the per-tick ceiling is real, and a
 // second bound stops the per-tick ceiling aggregating into 120 questions a day.
-function testHousekeepCheckIn() {
+function testProposeCheckIn() {
   const repo = makeRepo();
-  const HK = join(REPO_ROOT, "plugins/workaholic/skills/housekeep/scripts");
+  const HK = join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts");
   const STEP = `${POSIX_SH} ${join(HK, "step-human-checkin.sh")}`;
   const ASK = `${POSIX_SH} ${join(HK, "ask-question.sh")}`;
-  const LOG = `${POSIX_SH} ${SCRIPTS.housekeepLogAppend}`;
+  const LOG = `${POSIX_SH} ${SCRIPTS.proposeLogAppend}`;
   try {
     mkdirSync(join(repo, ".workaholic"), { recursive: true });
 
@@ -18004,8 +18004,8 @@ function testHousekeepCheckIn() {
 // (2026-08-17, issue #471) The prompt is the ceiling: a session may emit only the shapes its
 // own routine names, so a template and the shape catalog that disagree ship either a
 // documented shape nobody may post or a posted shape nothing documents. Byte for byte.
-function testHousekeepRoutineTemplate() {
-  const template = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines/housekeep.md"), "utf8");
+function testProposeRoutineTemplate() {
+  const template = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines/propose.md"), "utf8");
   const catalog = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/notify/reference/notifications.md"), "utf8");
   const claudeMd = readFileSync(join(REPO_ROOT, "CLAUDE.md"), "utf8");
 
@@ -18035,7 +18035,7 @@ function testHousekeepRoutineTemplate() {
   assertTrue("the template is repository-scoped", /^scope: repository$/m.test(template));
   assertTrue("firing at :50, after the other three", /^cron_expression: 50 \* \* \* \*$/m.test(template));
   assertTrue("CLAUDE.md's routines table carries the same row",
-    /\| `housekeep\.md` \| `\[Propose\]` \| `repository` \| `50 \* \* \* \*` \| `\/setup-repo-routines` \|/.test(claudeMd),
+    /\| `propose\.md` \| `\[Propose\]` \| `repository` \| `50 \* \* \* \*` \| `\/setup-repo-routines` \|/.test(claudeMd),
     "the routines table and the template disagree");
   // Write/Edit are granted BECAUSE it writes — the reader routine's contract is the
   // contrast, and the template has to say which it is rather than inherit a list.

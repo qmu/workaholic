@@ -1,5 +1,5 @@
 #!/bin/sh -eu
-# Run one `/housekeep` tick: every step in order, one log line each, one report.
+# Run one `/propose` tick: every step in order, one log line each, one report.
 #
 # WHY IT EXISTS (2026-08-17, issue #471). Nine steps in an hourly unattended run
 # is a long tick, and the failure that matters is not a step going wrong — it is a

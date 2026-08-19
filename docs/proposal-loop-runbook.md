@@ -6,7 +6,7 @@ session, or one the tick discovered for itself (§3) — writes the feedback rec
 judges it, and opens **one** pull request carrying the record together with
 whatever the judgment warranted — a mission with its ticket set, one loose ticket,
 one strategy, or the record alone
-(`docs/loop-engineering-workflow.md` §6.3; `plugins/workaholic/skills/propose/SKILL.md`).
+(`docs/loop-engineering-workflow.md` §6.3; `plugins/workaholic/skills/specificate/SKILL.md`).
 
 **That pull request merges as soon as it opens** (`WORKAHOLIC_AUTO_MERGE=1`), so
 what it publishes is claimable by the next `[Implement]` tick. There is no second
@@ -59,7 +59,7 @@ line disappears: with no token it records `{"notified": false, "reason": "no_tok
 and exits 0 (measured 2026-08-12, issue #406 — four runs whose posts never existed).
 Neither path is load-bearing: a proposal that opened its pull request is a success
 whether or not anyone was told — but an unposted message is **reported as unposted**
-(`/propose`'s `notified` flag, `/implement`'s per-unit notification outcome), never
+(`/specificate`'s `notified` flag, `/implement`'s per-unit notification outcome), never
 left to read as sent.
 
 ## 3. Schedule the routine
@@ -68,17 +68,17 @@ The loop runs **in the repository**, in an isolated cloud session started by the
 `[Specificate]` routine, which fires on a **fixed hourly schedule** (`15 * * * *`;
 FB `20260810085032` — the loop-engineering cadence, superseding the earlier GitHub
 issue-assignment trigger). A schedule fire hands the session nothing, so the run
-finds its own input: `/propose`'s *Clock-fired discovery*
-(`propose/scripts/list-inbound-issues.sh`) lists the repository's open GitHub
+finds its own input: `/specificate`'s *Clock-fired discovery*
+(`specificate/scripts/list-inbound-issues.sh`) lists the repository's open GitHub
 issues **assigned to the session's own identity** (never unassigned ones, never a
 title filter), oldest first, skips any a feedback record already names, and takes
 each remaining issue as an inbound ask through the full run
-(`skills/propose/SKILL.md`). An issue assigned to someone else is `not_mine`; an
+(`skills/specificate/SKILL.md`). An issue assigned to someone else is `not_mine`; an
 inbox that could not be read reports its reason rather than passing for empty. The
 schedule wiring is converged by `/setup-dev-routines` on every run where a
 `RemoteTrigger`-family tool is reachable, and set by hand in the routines web UI
 otherwise (`skills/workaholify/SKILL.md`, *What a routine can be triggered by*). Its prompt is the shipped template
-`plugins/workaholic/skills/workaholify/routines/fb.md` (template id `fb`).
+`plugins/workaholic/skills/workaholify/routines/specificate.md` (template id `fb`).
 
 Provision it from an interactive session in the repository:
 
@@ -196,13 +196,13 @@ Retired the day it shipped, by the developer's ruling
 (`.workaholic/feedbacks/20260804221328-propose-at-the-capture-seam-not-from-a-merged-main-window.md`).
 
 For part of one day the loop had a **second seat**: a `[Propose Batch]` cron
-template running `/propose` every 15 minutes over the feedback records merged to
+template running `/specificate` every 15 minutes over the feedback records merged to
 `main` since a shared cursor — the pushed ref `refs/workaholic/proposal-cursor`,
 advanced under `--force-with-lease` so overlapping runners resolved by push
 rather than by clock. Before it, decision C1 had prescribed a server crontab that
 was deliberately a human act to install and so was never installed anywhere.
 
-The reason it existed is the reason it was removed: `/propose` read only feedback
+The reason it existed is the reason it was removed: `/specificate` read only feedback
 **already merged to `main`**, so the record the capture session had just written
 was invisible to it *by construction* — and a sweeper had to exist to pick that
 record up later. The window was a defect, and the batch was its compensation.

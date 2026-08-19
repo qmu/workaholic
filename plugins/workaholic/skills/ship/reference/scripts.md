@@ -306,7 +306,7 @@ is exactly why its outcome must be read: on `pushed: false`, local `main` is ahe
 no-op is indistinguishable from success (PR #86 left `main` two commits ahead
 unnoticed). Read `destination` too: the open-concern set is computed from records on the
 **base**, so a record pushed anywhere else is invisible to `/report`'s judge and to
-`/propose` — PR #108's four concerns once went to the already-merged claim branch while
+`/specificate` — PR #108's four concerns once went to the already-merged claim branch while
 the script truthfully reported `pushed: true`. It now takes the base explicitly and,
 when not on it, extracts and publishes **through a publish tree**
 (`workaholic:branching`).

@@ -1,5 +1,5 @@
 #!/bin/sh -eu
-# Mint the id that names one `/housekeep` tick.
+# Mint the id that names one `/propose` tick.
 #
 # WHY IT EXISTS (2026-08-17, issue #471). A tick spans many separate shell
 # invocations — nine step scripts, then whatever the agent files afterwards — and

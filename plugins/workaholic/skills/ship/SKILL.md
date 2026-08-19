@@ -100,7 +100,7 @@ Ship the current branch's PR. **The flow's outcome is a drafted plan and a merge
 4. **Commit the merge artifacts** (pre-merge): `commit-release-note.sh` — a failed push is a pre-merge hard stop — then update the PR body (`report/scripts/create-or-update.sh`) so reviewers see the plan before the merge.
 5. **Merge PR**: `merge-pr.sh`. On failure, inform and stop. Read `commit_hash_source` before using `commit_hash`; the post-merge base checkout is best-effort and never load-bearing (`checked_out` is a reported field, not a gate). The merge is **not** a deployment and grants no authorization to start one.
 6. **Publish GitHub Release** (post-merge): `publish-release.sh` — defers to a CI release workflow; refuses to tag on `on_base: false` or `commit_hash_source: "branch_head"`.
-7. **Extract deferred concerns** (post-merge): `extract-deferred-concerns.sh`, passing the base explicitly. Report `extracted`, `pushed` (best-effort by design, so read it — on `false`, a `git push` is outstanding) and `destination` (a record pushed off-base is invisible to `/report`'s judge and `/propose`).
+7. **Extract deferred concerns** (post-merge): `extract-deferred-concerns.sh`, passing the base explicitly. Report `extracted`, `pushed` (best-effort by design, so read it — on `false`, a `git push` is outstanding) and `destination` (a record pushed off-base is invisible to `/report`'s judge and `/specificate`).
 8. **Summarize**: catch-up, scan result (with any recorded override), **the drafted plan and whether it changed**, merge status, release note, GitHub Release, concern extraction count with its `destination`, and `checked_out`/`checkout_reason` when the base was not checked out.
 
 ### 5-D. The instructed deployment
@@ -167,7 +167,7 @@ copying.
 merge — **no cap and no selection**, because a silently shortened list reads as "nothing else
 happened". The line prefers the branch story's Overview sentence (the written record of *why*);
 where no story joined the merge it falls back to the **merge commit's body**, which is that pull
-request's own title. The fallback is the common case, not the rare one: a `/propose` pull request
+request's own title. The fallback is the common case, not the rare one: a `/specificate` pull request
 auto-merges without ever running `/report`, so it structurally never has a story. It is the body
 and never the subject — the subject reads `Merge pull request #N from qmu/work-…`, which names
 the number and the branch and summarises nothing, which is what the old placeholder already did.

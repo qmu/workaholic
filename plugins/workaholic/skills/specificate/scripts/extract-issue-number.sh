@@ -10,7 +10,7 @@
 #   1. CCR_TRIGGER_ISSUE_NUMBER — set by a Claude Code Web routine invoked
 #      from a GitHub issue trigger.
 #   2. A `#<N>` reference or a `.../issues/<N>` URL inside the argument — a
-#      developer typing `/propose #319 ...` or pasting the issue link.
+#      developer typing `/specificate #319 ...` or pasting the issue link.
 #
 # Output (stdout, always exit 0 for a reported outcome):
 #   {"issue_number": "<N>"}   digits only, never the `#` or the URL

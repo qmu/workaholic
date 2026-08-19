@@ -1,11 +1,11 @@
 ---
-name: setup-user-routines
+name: workaholic
 description: Configure the routines an account needs exactly one copy of across every repository ([Workaholic]). Attempts the configuration itself every time; when this session carries no transport that can reach an account routine, reports that refusal by name and falls back to copy-paste setup sheets as the recovery path.
 skills:
   - workaholic:workaholify
 ---
 
-# Setup User Routines
+# Workaholic
 
 **Run this once for your account, not once per repository.** A `user`-scoped routine is one the *account* needs exactly one of, whatever number of repositories that account has set up: it converges the account's own workaholic routines across all of them. A second copy would do the same work twice on the same records and race itself. That count is the whole reason the scope exists, and it is why this is a third command rather than a widened `/setup-dev-routines`: `developer` multiplies by developers **and** by repositories, `user` multiplies by neither, and one command answering both questions could no longer report how many of a routine should exist.
 

@@ -28,7 +28,7 @@
 # The floor is about how the mission was created, not about what is left to do.
 #
 # WHY THIS EXISTS. Both drivability floors used to count `## Acceptance` ITEMS
-# (`progress.sh`'s `total`), and `/propose` writes a provisional acceptance sketch into
+# (`progress.sh`'s `total`), and `/specificate` writes a provisional acceptance sketch into
 # exactly that section -- so a proposal satisfied every floor with zero tickets. On
 # 2026-07-30 an approved mission carrying `merge_policy: auto`, `tickets: []` and an
 # acceptance block whose own first line read "PROPOSED sketch for discussion -- not a

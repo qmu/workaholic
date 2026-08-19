@@ -72,7 +72,7 @@ Follow the language's own linkage (`import`/`require` and `*.d.ts`, Python `impo
 ## Diagnosis-First Rule
 
 Stated once here because both ticket-writing seams — `/ticket`'s Workflow §5 and
-`/propose`'s Emit-the-tickets step — already read this skill before authoring
+`/specificate`'s Emit-the-tickets step — already read this skill before authoring
 Implementation Steps, and both would otherwise need to restate it.
 
 An ask reporting a **failure of an existing mechanism** (a lookup misses, a check fails,

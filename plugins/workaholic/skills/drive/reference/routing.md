@@ -93,7 +93,7 @@ not write a second story generator.
   unchanged). Under `/implement`, post the one `🟢 Implemented` finish line with the PR URL on the
   transport `workaholic:notify` selects (*The transport*): the account's Slack connector where the
   session has one — the only surface that can run the thread lookup and reply into a thread — and
-  `bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/notify-slack.sh "<message with the PR URL>"`
+  `bash ${CLAUDE_PLUGIN_ROOT}/skills/specificate/scripts/notify-slack.sh "<message with the PR URL>"`
   as the machine fallback for a caller with no connector, which can post a keyed root only. Never
   load-bearing either way: with no surface (or no token — the script records
   `{"notified": false, "reason": "no_token"}` and exits 0) the run continues and **reports the
@@ -129,7 +129,7 @@ value is the reason.** Non-empty means "the real-world verification this work ne
 where an unattended run executes", and the value names what cannot run — free text, because an
 enum could not say *which* verification is missing and the value is quoted verbatim into the
 pull request. Absent or empty is the ordinary route. It is recorded **at creation** by whoever
-writes the artifact (`workaholic:create-ticket`, `workaholic:propose`) and read at route time
+writes the artifact (`workaholic:create-ticket`, `workaholic:specificate`) and read at route time
 by `verification-handoff.sh`; like `merge_policy` it is never edited mid-run — a run that could
 declare its own unit unverifiable would have handed itself the soft landing `handoff` is
 written never to become. Any member declaring it carries the whole unit, because the unit is
@@ -221,7 +221,7 @@ moments.
   `posted` with the thread it landed in, or the failure named (`no_surface` when the session has
   neither connector nor token, `no_token` / `no_channel` / `http_<code>` / `slack_<error>` as the
   fallback script reports them, `posted_as_root` when no thread was found and a keyed root was
-  started instead). The shape follows `/propose`'s `notified` flag, which already reports this way.
+  started instead). The shape follows `/specificate`'s `notified` flag, which already reports this way.
   **A post that did not happen is stated, never omitted**: silence in this list read as success is
   the whole defect (measured 2026-08-12, issue #406 — the 18:48 UTC `[Implement]` run got
   `{"notified": false, "reason": "no_token"}` and nothing downstream said so).

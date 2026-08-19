@@ -12,7 +12,7 @@
 # extension here is the whole translation, and it happens in one place so no caller
 # invents a second spelling of the key.
 #
-# THE RELATION IS READ THROUGH ITS ONE READER (propose/scripts/read-feedback-relation.sh),
+# THE RELATION IS READ THROUGH ITS ONE READER (specificate/scripts/read-feedback-relation.sh),
 # never re-parsed. Two parsers of the same frontmatter field eventually disagree, and the
 # side that under-reads posts into a thread nobody is watching.
 #
@@ -31,7 +31,7 @@
 set -eu
 
 SCRIPT_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
-READER="${SCRIPT_DIR}/../../propose/scripts//read-feedback-relation.sh"
+READER="${SCRIPT_DIR}/../../specificate/scripts//read-feedback-relation.sh"
 
 emit() {
     printf '{"count": %s, "stems": [' "$1"

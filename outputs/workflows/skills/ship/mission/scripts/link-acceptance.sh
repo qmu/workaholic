@@ -2,7 +2,7 @@
 # Establish the acceptance-to-artifact link: stamp a "(#<artifact-filename>)" marker
 # onto one ## Acceptance item, so the ticker can later flip exactly that item.
 #
-# THIS EXISTS BECAUSE AN ACCEPTANCE ITEM IS WRITTEN BEFORE ITS TICKET. A /propose
+# THIS EXISTS BECAUSE AN ACCEPTANCE ITEM IS WRITTEN BEFORE ITS TICKET. A /specificate
 # proposal states its criteria before any ticket file exists, so a markerless item is a
 # valid intermediate state -- not a defect. The moment the ticket set IS emitted every
 # filename exists at once, and that is the seam that calls this. Measured 2026-08-03:

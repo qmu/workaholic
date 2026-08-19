@@ -28,7 +28,7 @@
 #   - OWNERSHIP IS NOT REQUIRED (K2). It used to be, because an unattended run
 #     "needs an owner"; it does not — an unowned mission on `main` is claimable by
 #     anyone, which is already how list.sh, summary.sh and the mission lens treat
-#     it (`relation: unassigned`), and /propose writes unowned proposals by design.
+#     it (`relation: unassigned`), and /specificate writes unowned proposals by design.
 #     A legacy `strategy:` key from the retired strategy layer (B3) is likewise
 #     tolerated and never required.
 #
@@ -79,7 +79,7 @@ case "$status" in
 esac
 
 # OWNERSHIP IS NOT CHECKED (K2): an unowned mission is claimable by anyone, and
-# /propose writes unowned proposals by design. (A legacy `strategy:` key from the
+# /specificate writes unowned proposals by design. (A legacy `strategy:` key from the
 # retired strategy layer is tolerated and ignored here too.)
 
 # ## Experience must have non-comment content (HTML-comment-only is scaffold).

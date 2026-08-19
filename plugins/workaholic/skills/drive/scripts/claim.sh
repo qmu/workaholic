@@ -45,7 +45,7 @@
 # claim.sh -- including `resume` below -- announces through one seam.
 #
 # THE STAMP RIDES THE WORKTREE, NEVER THE MAIN TREE. The runner's main checkout must
-# stay clean between ticks (the /propose batch commits on main and depends on that),
+# stay clean between ticks (the /specificate batch commits on main and depends on that),
 # and the claim is branch-only by design: main never shows a claim, so no merge ever
 # has to un-stamp one.
 #
@@ -221,7 +221,7 @@ if [ "$kind" = "resume" ]; then
         abort_resume "resume_race_lost" ', "unit": "'"${unit}"'", "branch": "'"${branch}"'", "detail": "another runner published its takeover of this unit first; nothing was resumed -- retry"'
     fi
 
-    r_notify="${WORKAHOLIC_NOTIFIER:-${SCRIPT_DIR}/../../propose/scripts/notify-slack.sh}"
+    r_notify="${WORKAHOLIC_NOTIFIER:-${SCRIPT_DIR}/../../specificate/scripts/notify-slack.sh}"
     r_out=$(sh "$r_notify" "Resumed ${unit} on ${branch} — an earlier run left it unfinished; driving it now" 2>/dev/null) || r_out=''
     case "$r_out" in
         *'"notified": true'*) r_announced=true ;;
@@ -452,7 +452,7 @@ announce_claim() {
     # is the house test seam (cf. WORKAHOLIC_SLACK_API_URL in notify-slack.sh) -- the
     # hermetic suite must be able to make the notifier FAIL, which is the whole point of
     # the never-load-bearing contract and is not reachable through a URL override.
-    _ac_script="${WORKAHOLIC_NOTIFIER:-${SCRIPT_DIR}/../../propose/scripts/notify-slack.sh}"
+    _ac_script="${WORKAHOLIC_NOTIFIER:-${SCRIPT_DIR}/../../specificate/scripts/notify-slack.sh}"
     if _ac_out=$(sh "$_ac_script" "$_ac_text" 2>/dev/null); then
         case "$_ac_out" in
             *'"notified": true'*) printf 'true\t' ;;

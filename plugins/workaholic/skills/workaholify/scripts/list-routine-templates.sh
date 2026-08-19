@@ -17,7 +17,7 @@
 #   repository  the repository needs exactly ONE copy, configured by one account
 #               ([Prepare Release], [Standup], [Propose]) — /setup-repo-routines
 #   user        the ACCOUNT needs exactly ONE copy, across every repository it has set
-#               up ([Workaholic]) — /setup-user-routines (2026-08-19, issue #526)
+#               up ([Workaholic]) — /workaholic (2026-08-19, issue #526)
 # An optional positional filters the set; absent, every template is listed. A template
 # declaring no scope is reported with an empty one and is never silently folded into
 # any bucket — a missing scope is a defect in the template, not a default.

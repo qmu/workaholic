@@ -3,7 +3,7 @@
 #
 # WHY THIS STEP DOES NOT PROPOSE (2026-08-17). Its own mission says it: "every step
 # reversing a standing decision is ruled on by the operator or left unbuilt, never
-# inferred." Step 8 reverses one. `workaholic:propose`'s judgment bar states that
+# inferred." Step 8 reverses one. `workaholic:specificate`'s judgment bar states that
 # **missions, the queue and commits are constraints, never triggers** — feedback is
 # the only input that can originate a proposal — and the retired `[Propose Batch]`
 # routine was exactly the state-sweep this step reintroduces, with a recorded
@@ -13,7 +13,7 @@
 #
 # THREE RULINGS ARE OUTSTANDING, and they are independent:
 #   1. Does a strategy become a SECOND legitimate originator (stated in the propose
-#      skill, so there is one bar and not two), a narrower bar inside /housekeep, or
+#      skill, so there is one bar and not two), a narrower bar inside /propose, or
 #      nothing at all? The argument FOR is real and is recorded rather than acted
 #      on: a strategy is not repository state — it is the operator's own resolved,
 #      dated, owned direction, which is much closer to feedback than to a backlog

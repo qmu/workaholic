@@ -16,9 +16,9 @@
 # They are different surfaces with different contracts, and conflating them was a
 # live defect. The commit subject is gated by `commit/scripts/check-subject.sh`:
 # present tense, <= 50 characters, and NO `[bracket]` prefix. The pull request
-# title is gated by nothing and is what `/propose` must prefix with `[Proposal]`
+# title is gated by nothing and is what `/specificate` must prefix with `[Proposal]`
 # — the string the `[Implement]` routine's GitHub trigger filters on. Passing one
-# string to both made those two rules contradict each other: `/propose` could
+# string to both made those two rules contradict each other: `/specificate` could
 # satisfy its own documented prefix only by writing a commit subject the gate
 # refuses, so the publish failed at `commit_failed` before the pull request
 # existed. Splitting them lets each surface keep its own rule.
@@ -274,7 +274,7 @@ if [ -z "$pr_url" ]; then
 fi
 
 # --- 5. Optional immediate merge (WORKAHOLIC_AUTO_MERGE=1) --------------------
-# Opt-in for /propose and /implement only (mission
+# Opt-in for /specificate and /implement only (mission
 # auto-merge-propose-and-implement-prs-under-a-dev-release-branch-split,
 # 2026-08-11): their pull requests merge immediately after opening, with the
 # release scan as the sole mechanical gate — ANY finding (secret hard, size/leak

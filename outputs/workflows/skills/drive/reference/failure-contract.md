@@ -115,7 +115,7 @@ still stops there for a human.
 answers, per ticket, "is this ticket's queue pre-authorized?" — being in flight plus a non-empty
 `## Acceptance`. The survey applies that floor to the mission before offering it, plus a second
 floor the acceptance count cannot express: at least one ticket must actually name the mission
-(`/propose` writes a provisional acceptance *sketch*, so an item count is satisfied with zero
+(`/specificate` writes a provisional acceptance *sketch*, so an item count is satisfied with zero
 tickets). With both, every ticket in a claimed mission unit passes the floor by construction. The
 resolver stays authoritative for any caller needing a per-ticket answer; the unified run never
 assembles a queue whose authorization it has not already established.

@@ -4,8 +4,11 @@
 # Writes the bundle-root .workaholic/index.md (frontmatter: okf_version — the one
 # index.md frontmatter the OKF spec permits) and a per-area index.md for the flat
 # knowledge areas and trips/, deriving every entry from what exists on disk.
-# stories/index.md (report-maintained) and the tickets/ tree (queue scripts and
-# structure guards own it) are linked, never written.
+# stories/ is one of those flat areas since 2026-08-19: its entries are generated
+# like every other area's, from each story's own `description:` frontmatter, so
+# the index has a repairer instead of resting on /report inserting a bullet by
+# hand. Only the tickets/ tree (queue scripts and structure guards own it) is
+# linked, never written.
 #
 # Ownership model for the flat knowledge areas (concerns, deployments, ...): the
 # generated entry list lives inside a MARKED region
@@ -130,11 +133,30 @@ index_is_pure_generated() {
 # Emit the generated region for a flat area: one entry line per *.md file, then
 # (blank-line separated) one link per tracked subdirectory. $2 is the existing
 # index, threaded through for the description fallback.
+#
+# Two per-area knobs, both narrow and both named by the caller rather than
+# branching on the area inside here:
+#   $3 order  asc (default) | desc  — entry ordering by filename.
+#   $4 skip   an extra basename to omit from the entries ("" = none).
+# Stories need both; every other area passes the defaults. The skip is
+# deliberately NOT global: deployments/, release-notes/ and terms/ each carry a
+# README.md that IS one of their entries (verified on this tree, inside their
+# markers), so excluding the name everywhere would silently delete three live
+# entries. stories/README.md documents the story format and is not a story.
 build_region() {
   region_dir="$1"
   region_old_index="${2:-}"
+  region_order="${3:-asc}"
+  region_skip="${4:-}"
   region=""
-  region_files=$(find "$region_dir" -maxdepth 1 -name '*.md' -type f ! -name 'index.md' 2>/dev/null | LC_ALL=C sort)
+  if [ -n "$region_skip" ]; then
+    region_files=$(find "$region_dir" -maxdepth 1 -name '*.md' -type f ! -name 'index.md' ! -name "$region_skip" 2>/dev/null | LC_ALL=C sort)
+  else
+    region_files=$(find "$region_dir" -maxdepth 1 -name '*.md' -type f ! -name 'index.md' 2>/dev/null | LC_ALL=C sort)
+  fi
+  if [ -n "$region_files" ] && [ "$region_order" = "desc" ]; then
+    region_files=$(printf '%s\n' "$region_files" | LC_ALL=C sort -r)
+  fi
   if [ -n "$region_files" ]; then
     for region_f in $region_files; do
       region="$region$(entry_line "$region_f" "$region_old_index")
@@ -184,11 +206,21 @@ write_index() {
 # around it survives; the region carries only directories git will actually ship.
 region_tmp=$(mktemp)
 trap 'rm -f "$region_tmp"' EXIT
-for area in deployments feedbacks release-notes releases strategies terms; do
+for area in deployments feedbacks release-notes releases stories strategies terms; do
   dir="$ROOT/$area"
   [ -d "$dir" ] || continue
   index="$dir/index.md"
-  region=$(build_region "$dir" "$index")
+  # Per-area knobs (see build_region). Stories read newest-first, because a
+  # story's filename is work-<UTC timestamp> and the index has always been
+  # ordered newest-first; and stories/README.md documents the story format
+  # rather than being a story. Descending filename order is deterministic but
+  # chronological only for the work-YYYYMMDD-HHMMSS shape — the area also holds
+  # legacy names (drive-*, feat-*, claude-*), which sort by prefix.
+  case "$area" in
+    stories) area_order="desc"; area_skip="README.md" ;;
+    *)       area_order="asc";  area_skip="" ;;
+  esac
+  region=$(build_region "$dir" "$index" "$area_order" "$area_skip")
 
   if [ -f "$index" ] && grep -qF "$BEGIN_MARK" "$index" && grep -qF "$END_MARK" "$index"; then
     # Marked index: regenerate only inside the markers; preserve prose outside.

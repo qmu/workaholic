@@ -24,14 +24,15 @@ sh ${CLAUDE_PLUGIN_ROOT}/skills/okf/scripts/refresh-index.sh
 Regenerates and git-stages:
 
 - `.workaholic/index.md` — the bundle root. Carries the one frontmatter block an OKF `index.md` may have (`okf_version: "0.1"`) and lists each knowledge area present.
-- `<area>/index.md` for the flat knowledge areas (`deployments`, `feedbacks`, `release-notes`, `releases`, `specs`, `terms`) — one `* [title](file.md) - description` entry per document, title/description read from the file's frontmatter (H1 and filename as fallbacks), plus links to subdirectories. The entry list lives inside a **marked generated region** (see below); prose outside it is preserved.
+- `<area>/index.md` for the flat knowledge areas (`deployments`, `feedbacks`, `release-notes`, `releases`, `stories`, `strategies`, `terms`) — one `* [title](file.md) - description` entry per document, title/description read from the file's frontmatter (H1 and filename as fallbacks), plus links to subdirectories. The entry list lives inside a **marked generated region** (see below); prose outside it is preserved.
 - `trips/index.md` — one entry per trip, linking its `plan.md`.
 - `missions/index.md` — one `## active` / `## archive` section per non-empty area, one entry per mission linking its `mission.md` (`<area>/<slug>/mission.md`), described by the mission's frontmatter `title`. Legacy flat mission dirs (a pre-migration tree) are listed at the top level until the mission scripts' living migration relocates them.
 
 It deliberately does **not** touch:
 
-- `stories/index.md` — maintained by the report workflow, whose hand-written per-story descriptions are richer than any frontmatter derivation (the root index links to it).
 - anything inside `tickets/` — the queue scripts and structure guards own that tree; the root index links the directory itself.
+
+**`stories/index.md` left this list on 2026-08-19.** It was excluded because a story's description existed nowhere but the index itself, so `/report` wrote the bullet by hand — which left the one ledger index with **no generator**: nothing repaired it after a merge disturbed it, nothing noticed a run that wrote its story and never added the bullet (22 stories were missing from this repository's own index when the area was first generated), and ordering degraded monotonically because every run inserted at the top. The exclusion's premise is what moved: the description now lives in the story's own `description:` frontmatter, so the generic derivation has something to read and the richness argument no longer distinguishes stories from any other area. Two narrow per-area knobs carry the rest (`build_region`'s `order` and `skip`): entries are ordered **newest-first**, and `stories/README.md` is not an entry — a skip that is per-area precisely because `deployments/`, `release-notes/` and `terms/` each index their own `README.md` as a real entry.
 
 ### Ownership model (flat areas)
 

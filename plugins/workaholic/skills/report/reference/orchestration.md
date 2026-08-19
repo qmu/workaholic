@@ -52,7 +52,7 @@ Wait for the spawn(s) of whichever path ran; track which role(s) succeeded and w
 
    Returns `[{"ticket": "<basename>.md", "commit": "<short-hash>"}]` — the commit that *added* each archived ticket, i.e. the commit that implemented it. Use those hashes for the Changes section's links. **Never read a ticket's `commit_hash` frontmatter**: a commit cannot carry its own hash, so old archive stamps are pre-amend hashes that were never pushed, and every link built from one 404s. A ticket whose `commit` comes back empty is not committed yet — surface that rather than dropping the ticket.
 3. Write the story per the [story structure](story-structure.md), including the frontmatter relations.
-4. Update `.workaholic/stories/index.md` (see the story structure reference).
+4. Nothing to do for the stories index — it is generated. The story's `description:` frontmatter (step 3) is the entry, and `refresh-index.sh` at the knowledge-commit seam writes it. Never edit `.workaholic/stories/index.md` by hand (see the story structure reference).
 
 ## Phase 4: Commit and Push Story
 

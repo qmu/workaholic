@@ -6617,6 +6617,75 @@ function testRefreshIndexPreservesContent() {
 
 }
 
+// ---------- okf/refresh-index.sh: the stories area (2026-08-19) ----------
+// stories/ joined the generated flat areas so the index has a repairer. It needs
+// two per-area knobs and nothing else: entries newest-first, and README.md is
+// not an entry. The last row is the one that keeps the skip from going global —
+// every other area indexes its own README.md as a real entry.
+function testRefreshIndexStoriesArea() {
+  const R = SCRIPTS.refreshIndex;
+
+  {
+    const dir = makeRepo("main");
+    try {
+      mkdirSync(join(dir, ".workaholic/stories"), { recursive: true });
+      const idx = join(dir, ".workaholic/stories/index.md");
+      writeFileSync(idx, "# Stories\n\nIntro a human wrote. See [README.md](README.md).\n\n"
+        + "<!-- okf:generated:begin -->\n"
+        + "* [work-20260101-000000.md](work-20260101-000000.md) - hand-written older desc\n"
+        + "<!-- okf:generated:end -->\n");
+      writeFileSync(join(dir, ".workaholic/stories/README.md"),
+        "---\ntype: Term\ntitle: Stories\n---\n# Stories\n");
+      // No description frontmatter: the prior region's text must carry over.
+      writeFileSync(join(dir, ".workaholic/stories/work-20260101-000000.md"),
+        "---\ntype: Story\nbranch: work-20260101-000000\n---\n");
+      // Newer, and carrying the new field: its entry comes from frontmatter.
+      writeFileSync(join(dir, ".workaholic/stories/work-20260202-000000.md"),
+        "---\ntype: Story\nbranch: work-20260202-000000\ndescription: newer story desc\n---\n");
+      execSync(`git add -A && git commit -q -m seed`, { cwd: dir });
+      run(dir, `${POSIX_SH} ${R}`);
+      const body = readFileSync(idx, "utf8");
+
+      assertTrue("a story file produces its entry with no /report run involved",
+        body.includes("](work-20260202-000000.md) - newer story desc"), body);
+      assertTrue("a story with no description keeps the prior region's text",
+        body.includes("](work-20260101-000000.md) - hand-written older desc"), body);
+      assertTrue("stories/README.md is never an entry",
+        !/^\* \[[^\]]*\]\(README\.md\)/m.test(body), body);
+      assertTrue("the hand-owned intro (and its README link) survives outside the markers",
+        body.includes("Intro a human wrote. See [README.md](README.md)."), body);
+
+      const order = [...body.matchAll(/^\* \[[^\]]*\]\((work-[^)]+)\)/gm)].map((m) => m[1]);
+      assertEq("entries come out newest-first",
+        order, ["work-20260202-000000.md", "work-20260101-000000.md"]);
+
+      execSync(`git add -A && git commit -q -m regenerated`, { cwd: dir });
+      run(dir, `${POSIX_SH} ${R}`);
+      assertEq("refresh idempotent over the stories area",
+        execSync(`git status --porcelain`, { cwd: dir, encoding: "utf8" }).trim(), "");
+    } finally { cleanup(dir); }
+  }
+
+  // The README skip is PER-AREA, not global: deployments/, release-notes/ and
+  // terms/ each carry a README.md that IS one of their entries, so a global
+  // exclusion would silently delete three live entries on this very repository.
+  {
+    const dir = makeRepo("main");
+    try {
+      mkdirSync(join(dir, ".workaholic/terms"), { recursive: true });
+      const idx = join(dir, ".workaholic/terms/index.md");
+      writeFileSync(idx, "# terms\n\n<!-- okf:generated:begin -->\n<!-- okf:generated:end -->\n");
+      writeFileSync(join(dir, ".workaholic/terms/README.md"),
+        "---\ntype: Term\ntitle: Terms\ndescription: the glossary\n---\n# Terms\n");
+      execSync(`git add -A && git commit -q -m seed`, { cwd: dir });
+      run(dir, `${POSIX_SH} ${R}`);
+      const body = readFileSync(idx, "utf8");
+      assertTrue("a non-stories area still indexes its own README.md",
+        body.includes("* [Terms](README.md) - the glossary"), body);
+    } finally { cleanup(dir); }
+  }
+}
+
 // ---------- report per-run artifacts (no shared constant /tmp paths) ----------
 // Source assertions pinning the fixed-path hazard shut: a future edit that
 // reintroduces a constant /tmp artifact path (the collision that fed one run
@@ -14119,6 +14188,7 @@ const tests = [
   ["ship/catchup-main.sh", testCatchupMain],
   ["report/apply-deferred-concern-verdicts.sh", testApplyVerdicts],
   ["okf/refresh-index.sh preserves content + prunes dead links", testRefreshIndexPreservesContent],
+  ["okf/refresh-index.sh generates the stories area", testRefreshIndexStoriesArea],
   ["report per-run artifacts (no shared /tmp paths)", testReportArtifacts],
   ["ship/extract-deferred-concerns.sh", testExtractDeferredConcerns],
   ["ship/extract-deferred-concerns.sh unicode titles", testExtractDeferredConcernsUnicodeTitles],

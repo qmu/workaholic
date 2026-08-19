@@ -35,7 +35,7 @@
 # gate exists to prevent.
 #
 # Usage: step-stuck-prs.sh --tick <id> --root <repo-root> [--limit <n>]
-# Output: one JSON line {"step","status","reason","summary","headline","needs_agent":[...],"key":"stuck:<digest>"}
+# Output: one JSON line {"step","status","reason","summary","headline","needs_agent":[...],"key":"","ask_key":"stuck-<digest>"}
 
 # ONE OBJECT PER LINE, VIA awk. `tr '}' '}\n'` looks like it splits the JSON and
 # does not: tr maps one character to one character, so the replacement's second
@@ -84,7 +84,7 @@ fi
 # same one blocked for a different reason, is a different answer and earns a post.
 pairs=$(printf '%s' "$rows" | sed 's/.*"number": \([0-9]*\).*"blocked_by": "\([a-z]*\)".*/\1:\2/' | sort | tr '\n' ' ')
 digest=$(printf '%s' "$pairs" | cksum | awk '{ print $1 }')
-KEY="stuck:${digest}"
+ASK_KEY="stuck-${digest}"
 
 # The heading's varying half. Derived from the SAME `blocked_by` set the digest is
 # taken over, but never fed back into it: this is wording, the key is the contract.
@@ -107,16 +107,7 @@ else
 fi
 HEADLINE="${count} ${plural} ${what}"
 
-if [ -f "$LOG_READ" ]; then
-    seen=$(sh "$LOG_READ" --root "$ROOT" --step stuck-prs-filed --contains "$KEY" 2>/dev/null | sed 's/.*"count": //; s/,.*//')
-    if [ -n "$seen" ] && [ "$seen" != "0" ]; then
-        printf '{"step": "stuck-prs", "status": "ok", "reason": "already_filed", "summary": "%s pull request(s) stuck, unchanged since an earlier tick posted %s", "headline": "%s", "needs_agent": [], "key": "%s"}\n' \
-            "$count" "$KEY" "$HEADLINE" "$KEY"
-        exit 0
-    fi
-fi
-
-needs=$(printf '%s' "$rows" | awk -v key="$KEY" '
+needs=$(printf '%s' "$rows" | awk -v key="$ASK_KEY" '
     NF {
         n = $0; sub(/.*"number": /, "", n); sub(/,.*/, "", n)
         b = $0; sub(/.*"blocked_by": "/, "", b); sub(/".*/, "", b)
@@ -128,9 +119,9 @@ needs=$(printf '%s' "$rows" | awk -v key="$KEY" '
         else if (b == "draft")  decision = "it is still a draft — the author must mark it ready or close it"
         else if (b == "behind") decision = "the base moved — the claim holder must update it"
         else if (b == "unknown") decision = "GitHub has not computed mergeability yet — re-read before acting"
-        printf "%s{\"action\": \"remind\", \"pull\": %s, \"url\": \"%s\", \"blocked_by\": \"%s\", \"decision\": \"%s\", \"key\": \"%s\"}",
+        printf "%s{\"action\": \"ask\", \"pull\": %s, \"url\": \"%s\", \"blocked_by\": \"%s\", \"decision\": \"%s\", \"key\": \"%s\"}",
             (c++ ? ", " : ""), n, u, b, decision, key
     }')
 
-printf '{"step": "stuck-prs", "status": "blocked", "reason": "", "summary": "%s (%s) — reminder keyed %s", "headline": "%s", "needs_agent": [%s], "key": "%s"}\n' \
-    "$HEADLINE" "$(printf '%s' "$pairs" | sed 's/ $//')" "$KEY" "$HEADLINE" "$needs" "$KEY"
+printf '{"step": "stuck-prs", "status": "blocked", "reason": "", "summary": "%s (%s) — candidates for step 10, never a status post", "headline": "%s", "needs_agent": [%s], "key": "", "ask_key": "%s"}\n' \
+    "$HEADLINE" "$(printf '%s' "$pairs" | sed 's/ $//')" "$HEADLINE" "$needs" "$ASK_KEY"

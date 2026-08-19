@@ -5,7 +5,7 @@
 #   render-routine.sh <template-id> <repo-url>
 #
 # Output (one JSON line):
-#   {"id","name","trigger","cron_expression","model","allowed_tools","mcp","prompt"}
+#   {"id","name","trigger","cron_expression","model","allowed_tools","mcp","notifications","prompt"}
 #   {"error": "unknown_template"|"no_repo_url", ...}
 #
 # THREE SUBSTITUTIONS, AND ONLY THREE — each one demanded by the live routines:
@@ -97,6 +97,11 @@ autofix=$(fm_field "$FILE" autofix_on_pr_create)
 model=$(fm_field "$FILE" model)
 tools=$(fm_field "$FILE" allowed_tools)
 mcp=$(fm_field "$FILE" mcp)
+# `notifications` is the Claude-app channel on the record, NOT a Slack post. Only the
+# account-level routine declares it (2026-08-19): its audience is its own operator, who is
+# also the only person who can act on its refusal. Absent means off, which is every other
+# template — a routine whose result already reaches a channel must not also push.
+notifications=$(fm_field "$FILE" notifications)
 
 # Everything after the `## Prompt` heading, verbatim, with the substitutions applied.
 prompt_raw=$(awk '
@@ -105,5 +110,5 @@ prompt_raw=$(awk '
 ' "$FILE" | sed -e '1{/^$/d}')
 prompt=$(subst "$prompt_raw")
 
-printf '{"id": "%s", "name": "%s", "scope": "%s", "trigger": "%s", "cron_expression": "%s", "autofix_on_pr_create": "%s", "model": "%s", "allowed_tools": "%s", "mcp": "%s", "repo": "%s", "repo_name": "%s", "repo_slug": "%s", "prompt": "%s"}\n' \
-  "$ID" "$name" "$scope" "$trigger" "$cron" "$autofix" "$model" "$tools" "$mcp" "$REPO" "$REPO_NAME" "$REPO_SLUG" "$(json_escape "$prompt")"
+printf '{"id": "%s", "name": "%s", "scope": "%s", "trigger": "%s", "cron_expression": "%s", "autofix_on_pr_create": "%s", "model": "%s", "allowed_tools": "%s", "mcp": "%s", "notifications": "%s", "repo": "%s", "repo_name": "%s", "repo_slug": "%s", "prompt": "%s"}\n' \
+  "$ID" "$name" "$scope" "$trigger" "$cron" "$autofix" "$model" "$tools" "$mcp" "$notifications" "$REPO" "$REPO_NAME" "$REPO_SLUG" "$(json_escape "$prompt")"

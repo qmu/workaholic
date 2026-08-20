@@ -18,6 +18,9 @@
 #                * gather/scripts/migrate-todo-owners.sh    todo/<user>/ -> todo/
 #                * gather/scripts/migrate-ticket-states.sh  abandoned|icebox ->
 #                                                           archive/unbranched/ + status:
+#                * gather/scripts/migrate-renamed-areas.sh  every `area` row of the
+#                                                           rename registry: git mv the
+#                                                           directory, fix the root index
 #
 #   REPORTED — everything that needs a JUDGMENT, named with the decision it needs
 #              and never guessed. Read straight out of layout-doctor.sh:
@@ -32,6 +35,14 @@
 #                    retry.
 #                * `undesignated` / everything else — already the doctor's
 #                    "owner decision required" class.
+#                * `rename_conversions` — the PROPOSED half of a rename. An `area` row
+#                    moves a machine-owned directory and is applied above; the same
+#                    rename's NAME survives in prose, in code comments and in a
+#                    consuming repository's own documents, and a name is vocabulary.
+#                    gather/scripts/rename-conversions.sh counts the survivors and
+#                    prints the bulk conversion; the operator runs it or declines. This
+#                    is the same line the `retired-area` class draws, applied to the
+#                    other axis: mechanical is applied, judgment is reported.
 #
 #   NOT ITS BUSINESS — the feedback `subject:` floor and the revived `strategies/`
 #              area need no migration at all: the floor applies to NEW writes only
@@ -51,7 +62,7 @@
 #
 # Usage: converge-layout.sh [repo-root]
 # Output: JSON {before: {...}, applied: [...], after: {...}, decisions: [...],
-#               legacy_strategies, changed, conforming}
+#               rename_conversions: [...], legacy_strategies, changed, conforming}
 # Always exits 0 — an audit that erroring stops a session is an audit nobody runs.
 
 set -eu
@@ -79,12 +90,16 @@ TICKETS_ROOT="${ROOT}/.workaholic/tickets"
 # migrations it composes (verify.mjs catches it).
 owners_out=$(sh "${SCRIPT_DIR}/../../gather/scripts/migrate-todo-owners.sh" "$TICKETS_ROOT" 2>/dev/null || printf '{"migrated": 0, "moves": []}')
 states_out=$(sh "${SCRIPT_DIR}/../../gather/scripts/migrate-ticket-states.sh" "$TICKETS_ROOT" 2>/dev/null || printf '{"migrated": 0, "moves": []}')
+# Takes the .workaholic root rather than the tickets root: it moves whole AREAS, of
+# which tickets/ is one.
+areas_out=$(sh "${SCRIPT_DIR}/../../gather/scripts/migrate-renamed-areas.sh" "${ROOT}/.workaholic" 2>/dev/null || printf '{"migrated": 0, "moves": [], "blocked": [], "links_updated": 0}')
 
-APPLIED="{\"migration\": \"migrate-todo-owners\", \"result\": ${owners_out}}, {\"migration\": \"migrate-ticket-states\", \"result\": ${states_out}}"
+APPLIED="{\"migration\": \"migrate-todo-owners\", \"result\": ${owners_out}}, {\"migration\": \"migrate-ticket-states\", \"result\": ${states_out}}, {\"migration\": \"migrate-renamed-areas\", \"result\": ${areas_out}}"
 
 owners_n=$(printf '%s' "$owners_out" | sed -n 's/.*"migrated": *\([0-9][0-9]*\).*/\1/p')
 states_n=$(printf '%s' "$states_out" | sed -n 's/.*"migrated": *\([0-9][0-9]*\).*/\1/p')
-CHANGED=$(( ${owners_n:-0} + ${states_n:-0} ))
+areas_n=$(printf '%s' "$areas_out" | sed -n 's/.*"migrated": *\([0-9][0-9]*\).*/\1/p')
+CHANGED=$(( ${owners_n:-0} + ${states_n:-0} + ${areas_n:-0} ))
 
 # --- after, and the decisions still owed --------------------------------------
 AFTER=$(doctor)
@@ -103,6 +118,14 @@ if [ -z "$DECISIONS" ]; then
     DECISIONS=$(printf '%s' "$AFTER" | sed -n 's/.*"findings":[ ]*\[\(.*\)\].*/\1/p')
 fi
 
+# --- the proposed half of every rename -----------------------------------------
+# Carried through verbatim, like the decisions above: what the operator sees is the
+# script's own counts and its own suggested command, not a paraphrase of them. An empty
+# list means every declared rename has been converted here -- which is also the signal
+# that the row can be deleted from the table (renames.tsv, *a migration record*).
+CONVERSIONS=$(sh "${SCRIPT_DIR}/../../gather/scripts/rename-conversions.sh" "$ROOT" 2>/dev/null || printf '{"conversions": []}')
+CONVERSIONS=$(printf '%s' "$CONVERSIONS" | sed -n 's/.*"conversions":[ ]*\[\(.*\)\][ ]*}.*/\1/p')
+
 # --- the one shape nothing converts -------------------------------------------
 # The legacy nested strategy tree. Its migration was RETIRED with the artifact's
 # revival (a living migration and a live artifact area cannot share a directory),
@@ -114,5 +137,5 @@ if [ -d "${ROOT}/.workaholic/strategies" ]; then
     fi
 fi
 
-printf '{"before": %s, "applied": [%s], "after": %s, "decisions": [%s], "legacy_strategies": %s, "changed": %s, "conforming": %s}\n' \
-    "$BEFORE" "$APPLIED" "$AFTER" "$DECISIONS" "$LEGACY_STRATEGIES" "$CHANGED" "$CONFORMING"
+printf '{"before": %s, "applied": [%s], "after": %s, "decisions": [%s], "rename_conversions": [%s], "legacy_strategies": %s, "changed": %s, "conforming": %s}\n' \
+    "$BEFORE" "$APPLIED" "$AFTER" "$DECISIONS" "$CONVERSIONS" "$LEGACY_STRATEGIES" "$CHANGED" "$CONFORMING"

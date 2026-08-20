@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-20T18:28:00+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -169,3 +170,60 @@ and its proof.
   siblings are the first rows. If the mechanism proves wrong under the first real
   rename, fix it here rather than working around it in the sibling — a registry with
   one hand-written exception is a sweep with extra steps.
+
+## Final Report
+
+Development completed as planned. Both step-1 constraints were confirmed before
+anything was designed, and both decided a real thing:
+
+- `build.mjs` copies a closure skill's **whole** `scripts/` directory with
+  `cpSync(..., { recursive: true })` and no extension filter, so the table lives at
+  `gather/scripts/renames.tsv` and reaches `outputs/workflows/*/gather/scripts/`
+  with its three consumers. Verified after the build: all four files are in every
+  bundle that carries the gather closure.
+- `layout-doctor.sh` is a hook and is in no bundle closure, so its read of a skill
+  data file is a boundary crossing. It is made once, through the skill's own
+  reader, and named in the script's header — the alternative was a second copy of
+  the table on the hooks side.
+
+The two judgment calls the ticket left open were both resolved toward keeping one
+behaviour per kind, and are recorded in the table's header and the doctor's:
+
+- **A retirement is not a rename.** `guides/`/`policies/`/`specs/` keep their own
+  `retired-area` branch rather than becoming rows. A row with an empty `new` would
+  make that column's meaning conditional and give `migrate-renamed-areas.sh` a
+  "skip if empty" branch — a second behaviour inside one kind — and would offer a
+  `git mv` into a directory that should not exist.
+- **`renamed-area` is checked before the allowlist**, not after. The moment a
+  rename lands the allowlist carries the *new* name, so the old one would otherwise
+  fall through to "not in the canonical allowlist" — the uninformative sentence the
+  registry exists to replace.
+
+Ships with the table empty. Tickets 2 and 3 of this mission add its first rows.
+
+### Discovered Insights
+
+- **Insight**: `build.mjs`'s `cpSync(sScripts, dScripts, { recursive: true })` makes
+  a skill's `scripts/` directory the only place under a skill root — besides
+  `reference/` — where a **non-script data file** reaches the portable bundle.
+  **Context**: this silently decides where any future shipped data file must live.
+  `skills/<x>/renames.tsv` looks tidier and would have been absent from every
+  bundle, so the shipped migration would have read an empty table on every
+  non-Claude agent and reported a clean no-op forever — a failure that is invisible
+  from the source tree.
+
+- **Insight**: the repository's own `.workaholic/` tree is the reason the proposal
+  half cannot be a simple `grep -r`. A story or an archived ticket names the old
+  word because it was true when written, and every floor here grandfathers
+  git-tracked history; offering those files for conversion would be offering to
+  edit the record of what happened. **Context**: the exclusion is not a
+  noise-reduction convenience — it is the same rule as `validate-story.sh`
+  grandfathering history, applied to a different tool, and a later change that
+  "improves" the search by widening it would quietly break it.
+
+- **Insight**: `WORKAHOLIC_RENAMES_TABLE` works as a whole-chain override only
+  because all three consumers reach the table through `list-renames.sh` rather than
+  parsing it themselves — including `layout-doctor.sh`, which is a hook.
+  **Context**: the one-reader rule is usually justified as drift prevention; here it
+  bought testability for free, which is a second argument for it the next
+  single-reader decision can cite.

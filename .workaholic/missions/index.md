@@ -6,6 +6,7 @@
 * [add-the-standup-daily-per-strategy-summary](active/add-the-standup-daily-per-strategy-summary/mission.md) - Add the standup daily per-strategy summary
 * [correct-the-release-note-automation-to-its-intended-design](active/correct-the-release-note-automation-to-its-intended-design/mission.md) - Correct the release note automation to its intended design
 * [give-propose-a-strategy-artifact-form](active/give-propose-a-strategy-artifact-form/mission.md) - Give /propose a Strategy artifact form
+* [make-a-rename-a-registry-entry-not-a-sweep](active/make-a-rename-a-registry-entry-not-a-sweep/mission.md) - Make a rename a registry entry, not a sweep
 * [make-the-draft-release-note-an-agent-s-release-plan](active/make-the-draft-release-note-an-agent-s-release-plan/mission.md) - Make the draft release note an agent's release plan
 * [make-workaholify-converge-the-account-s-routines](active/make-workaholify-converge-the-account-s-routines/mission.md) - Make /workaholify converge the account's routines
 * [make-workaholify-converge-the-repository-state](active/make-workaholify-converge-the-repository-state/mission.md) - Make workaholify converge the repository state

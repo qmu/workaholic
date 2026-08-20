@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-20T18:28:02+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on: 20260820182800-add-the-rename-registry-and-its-convergence-seam.md
@@ -149,3 +150,61 @@ so once per run.
   `run.sh` "reports" per step). The sweep is for the **namespace and the path**, not
   the word; a blind `sed` here is the failure mode, which is exactly why the registry
   proposes conversions rather than applying them.
+
+## Final Report
+
+Development completed as planned. The rename needed **five** registry rows rather
+than the two the ticket anticipated — `workaholic:report`, `skills/report/`,
+`report/scripts/`, `report/reference/` and `/report` — because the skill is
+referenced in four distinct written forms and only the namespaced one was obvious
+from the ticket. Adding a row and re-reading the conversions was how each of the
+other three was found; that is the registry earning its keep on its first real
+use, and it is worth stating that no single row would have been enough.
+
+**The Open Decision is left open, deliberately.** How long the `/report` alias
+lives is the developer's; the alias ships with no expiry and the question is
+recorded here rather than answered by a date this run invented. The registry row is
+what makes the eventual deletion cheap.
+
+**Two judgment calls, both recorded rather than guessed:**
+
+- **What the sweep must not touch.** `commands/report.md` (it is the alias and must
+  say `/report`), `CHANGELOG.md` and `docs/loop-engineering-workflow.md` — the
+  latter two are history, and `CLAUDE.md` names the second as a home of decision
+  history by that exact path.
+- **Script filenames did not move.** `doc-drift.sh`, `area-freshness.sh` and the
+  other seven are named for their jobs, are called by `/moderate` as well, and
+  moving them would widen this into a second sweep with no reader benefit.
+
+**What was renamed *toward*, not away from.** `type: Story`, `.workaholic/stories/`,
+`validate-story.sh`, `story-structure.md`, `story-sections.sh` and the
+`story reported` changelog event were already correct and did not move; the
+mission seam table's `report` **cells** did, because they name the seam.
+
+### Discovered Insights
+
+- **Insight**: the bulk conversion for `/report` corrupted two live strings the
+  same way and neither was visible as a broken word — `ship/scripts/report-deploy-status.sh`
+  became `story-deploy-status.sh` (the token matched `scripts/report-…`), and the JS
+  regex `/reported verbatim…/` became `/storyed verbatim…/`. **Context**: the first
+  was caught only by `verify.mjs`'s unresolved-reference check and the second only
+  by reading the diff; a `/story[a-z]` scan missed the first because the next
+  character was a hyphen. A token beginning with `/` is not a word boundary in any
+  useful sense, and any future `name` conversion should be followed by
+  `verify.mjs` plus a diff read rather than trusted.
+
+- **Insight**: `scripts/build-plugins/build.mjs` carries `DEFAULT_TARGETS`, a
+  hard-coded list of skill names, and it is the one place a skill rename fails
+  *loudly* — the build threw `No SKILL.md for target 'report'`. **Context**: it is
+  also the only such list; everything else resolved through path references the
+  sweep had already fixed. A skill rename is therefore a three-part change — the
+  directory, the references, and that array — and the build tells you about the
+  third immediately, which is worth knowing before someone adds a second list.
+
+- **Insight**: the registry's own documentation was itself swept twice — once in
+  ticket 2 and again here — because it used **live tokens as examples**
+  (`housekeep`, `workaholic:report`, `/report`). **Context**: a file explaining a
+  rename mechanism is inside the blast radius of every rename it explains. The rule
+  now written into `renames.tsv`'s header, `rename-conversions.sh`'s header and the
+  workaholify skill is that the registry never illustrates itself with a token that
+  exists; it describes the shape instead.

@@ -49,7 +49,7 @@ follow with nobody sweeping:
 
 - [x] One table row drives it all: the doctor names the old directory or token, `/workaholify` applies the `.workaholic/` half and prints the conversion for the rest, nothing else is rewritten unasked (#20260820182800-add-the-rename-registry-and-its-convergence-seam.md)
 - [x] `.workaholic/housekeeping/` is `moderations/`, and `housekeep` is absent from the live tree (#20260820182801-rename-the-housekeeping-area-to-moderations.md)
-- [ ] `/story` writes the story and opens the PR as `workaholic:story`; `/report` still runs it behind a deprecation notice (#20260820182802-rename-report-to-story-and-deprecate-report.md)
+- [x] `/story` writes the story and opens the PR as `workaholic:story`; `/report` still runs it behind a deprecation notice (#20260820182802-rename-report-to-story-and-deprecate-report.md)
 
 ## Changelog
 
@@ -60,3 +60,4 @@ follow with nobody sweeping:
 - 2026-08-20 — ticket added — 20260820182802-rename-report-to-story-and-deprecate-report.md
 - 2026-08-21 — ticket archived — 20260820182800-add-the-rename-registry-and-its-convergence-seam.md
 - 2026-08-21 — ticket archived — 20260820182801-rename-the-housekeeping-area-to-moderations.md
+- 2026-08-21 — ticket archived — 20260820182802-rename-report-to-story-and-deprecate-report.md

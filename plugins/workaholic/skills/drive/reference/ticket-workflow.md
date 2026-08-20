@@ -187,7 +187,7 @@ deletions. The `## Final Report` must be appended first: the archive commit is t
 permanent home. `<repo-url>` comes from the gather skill's `git-context.sh`; map the ticket and
 Final Report into the body args — `<why>` from the Overview, `<changes>` from what changed for
 users, `<concerns>` from Considerations (or "None"), `<insights>` from Discovered Insights (or
-"None"), `<verify>` from the verification you ran. These keys feed `/report` (Motivation /
+"None"), `<verify>` from the verification you ran. These keys feed `/story` (Motivation /
 Changes / Concerns / Successful Development Patterns). Message format: the **commit** skill's
 Message Format section.
 
@@ -206,11 +206,11 @@ invent the sentence that goes into permanent history.
 
 A driven ticket's frontmatter is read, never edited:
 
-- **`commit_hash`** — retired; derived from git even for history (`/report`'s
+- **`commit_hash`** — retired; derived from git even for history (`/story`'s
   `ticket-commits.sh`). The old stamp-then-amend recorded an orphaned pre-amend hash; do not
   re-introduce a stamp, and do not read the field where old archives carry it.
 - **`category`** — retired; lives only in the commit's `Category:` trailer (`archive.sh` →
-  `commit.sh --category` → `/report`'s `collect-commits.sh`). One surface, nothing can disagree.
+  `commit.sh --category` → `/story`'s `collect-commits.sh`). One surface, nothing can disagree.
 - **`effort`** — retired; a mission unit's wall-clock is recorded once by `record-run-hours.sh`.
 - **`merge_policy`** — recorded at ticket creation, read at route time through
   `effective-policy.sh`, never edited: changing it mid-run would let the run grant itself

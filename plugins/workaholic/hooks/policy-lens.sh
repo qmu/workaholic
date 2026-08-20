@@ -1,6 +1,6 @@
 #!/bin/sh -eu
 # UserPromptSubmit hook: the always-on engineering-policy LENS for the Workaholic
-# workflow commands (/ticket, /report, /ship, /drive, /implement, /catch, /explain).
+# workflow commands (/ticket, /story, /ship, /drive, /implement, /catch, /explain).
 #
 # This is a *referring* mechanism, not a safeguard: it injects a context block
 # pointing the agent at the project's policy skills and never blocks or rejects

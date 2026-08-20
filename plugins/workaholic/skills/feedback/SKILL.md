@@ -102,7 +102,7 @@ printf '%s' "<the open-issue envelope>" \
 
 ## Registering a record — the capture workflow
 
-The writers of `.workaholic/feedbacks/` are `/specificate` (one record on every run), `/ship`'s `extract-deferred-concerns.sh`, `/report`'s superseding resolutions, and `/fb`'s fallback — **not** `/fb`'s primary path. What each runs, in order:
+The writers of `.workaholic/feedbacks/` are `/specificate` (one record on every run), `/ship`'s `extract-deferred-concerns.sh`, `/story`'s superseding resolutions, and `/fb`'s fallback — **not** `/fb`'s primary path. What each runs, in order:
 
 1. **Gather the content** — write faithfully per *Body style*.
 2. **Classify — decide, do not ask**: derive `kind`/`source` per *Choosing the kind* and `subject` per *Choosing the subject*; find any mooted record via `list.sh` and name it in `supersedes`.

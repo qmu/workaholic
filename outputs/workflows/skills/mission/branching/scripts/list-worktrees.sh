@@ -13,7 +13,7 @@ count=0
 # REST, NOT `gh pr list` (2026-08-12, FB 20260812172522). This call site was NOT on the
 # ticket's list and was found by its sweep step — which is the argument for the
 # hermetic check added in the same change: a list of call sites goes stale, a check does
-# not. `/report`'s `worktree` context routes on `has_pr`, so a 403 here silently reported
+# not. `/story`'s `worktree` context routes on `has_pr`, so a 403 here silently reported
 # every claim worktree as un-PR'd.
 #
 # The slug is resolved ONCE, outside the loop: one worktree list can hold many branches

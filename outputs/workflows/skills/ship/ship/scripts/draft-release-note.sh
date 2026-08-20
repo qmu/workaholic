@@ -47,7 +47,7 @@
 # `Pull request #N (branch) — no branch story on the base.`, a line whose entire
 # content is the absence of a summary. It is not a rare fallback but a routine
 # one: a `/specificate` pull request is published through the publish tree and
-# auto-merges without ever running `/report`, so it structurally never has a
+# auto-merges without ever running `/story`, so it structurally never has a
 # story, and proposal merges are the most frequent merge kind in this repository.
 #
 # THE FALLBACK IS THE BODY, NOT THE SUBJECT, AND THAT DISTINCTION IS THE WHOLE
@@ -296,7 +296,7 @@ while IFS="$US" read -r slug title environment model model_reason \
 "
         elif [ -n "$mtitle" ]; then
           # No story joined this merge — the structural case for every `/specificate`
-          # pull request, which auto-merges without ever running `/report`. The
+          # pull request, which auto-merges without ever running `/story`. The
           # merge commit's body is that pull request's own title, so the line says
           # what landed instead of saying that nothing says what landed.
           if [ -n "$prnum" ]; then

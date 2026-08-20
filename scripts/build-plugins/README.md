@@ -25,7 +25,7 @@ node scripts/build-plugins/verify.mjs             # asserts every ref in outputs
 node scripts/build-plugins/validate-metadata.mjs  # asserts Codex marketplace + .codex-plugin manifests are well-formed and version-aligned with the Claude marketplace
 ```
 
-Default targets: `create-ticket`, `drive`, `report`, `ship` (plus the prose `review-sections` and `write-release-note`). Only the **argument-less** full build writes `outputs/`; passing explicit targets builds into a temp scratch dir for inspection and does not touch the committed output.
+Default targets: `create-ticket`, `drive`, `story`, `ship` (plus the prose `review-sections` and `write-release-note`). Only the **argument-less** full build writes `outputs/`; passing explicit targets builds into a temp scratch dir for inspection and does not touch the committed output.
 Output: `outputs/workflows/` — a committed, self-contained plugin (`.codex-plugin/plugin.json` + `skills/`) consumed by Codex (`.agents/plugins/marketplace.json`) and the `skills` CLI (`.claude-plugin/marketplace.json`).
 
 ## What it rewrites

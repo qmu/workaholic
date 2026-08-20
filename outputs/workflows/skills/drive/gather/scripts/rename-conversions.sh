@@ -8,9 +8,13 @@
 # consuming repository's own documents, and in vocabulary that may deliberately
 # differ from this plugin's. This repository's standing rule is that everything
 # needing a judgment is reported with the decision it needs and never guessed
-# (converge-layout.sh's header, and the `retired-area` class it names). `report` is
-# also an ordinary English word — `/catch` reports, a step "reports" its status — so a
-# blind sed is the failure mode this script exists to avoid rather than automate.
+# (converge-layout.sh's header, and the `retired-area` class it names). A renamed token
+# is routinely also an ordinary English word, so a blind sed is the failure mode this
+# script exists to avoid rather than automate.
+#
+# NO LIVE TOKEN APPEARS IN THIS HEADER AS AN EXAMPLE. A real rename's own bulk conversion
+# sweeps this file too, so an illustrative `oldname` here would be rewritten into the new
+# one and the sentence would stop making its point (measured 2026-08-20).
 #
 # It reports EVERY row, not just `name` rows: moving .workaholic/<old>/ does not move
 # the dozens of scripts and sentences that name the old area, and those are prose and
@@ -62,7 +66,7 @@ sep=""
 while IFS='	' read -r kind old new since why; do
     [ -n "${old:-}" ] || continue
 
-    # -F: the old name may contain / and . (`/report`, `workaholic:report`); it is a
+    # -F: the old name may contain / and . (a command name, a skill namespace); it is a
     # literal token, never a pattern.
     files=$(cd "$ROOT" && grep -rlF $EXCLUDES -- "$old" . 2>/dev/null | sed 's|^\./||' | sort || true)
     [ -n "$files" ] || continue

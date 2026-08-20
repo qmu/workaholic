@@ -26,7 +26,7 @@
 #   - EVERY severity is recorded (the promotion floor retired with the concern
 #     lifecycle machinery — the stream accumulates by design and curation is
 #     the reader's judgment; a legacy `Keep:` field is tolerated and ignored);
-#   - resolution is a SUPERSEDING record written by /report's judge seam
+#   - resolution is a SUPERSEDING record written by /story's judge seam
 #     (apply-deferred-concern-verdicts.sh), never an edit here.
 #
 # Runs the concern-corpus living migration first, so a repo with a legacy
@@ -38,7 +38,7 @@
 # consumer stability across the merger).
 #
 # THE DESTINATION IS EXPLICIT, NEVER INFERRED. The open-concern set is computed from
-# records on the BASE, so a record pushed anywhere else is invisible to /report's judge
+# records on the BASE, so a record pushed anywhere else is invisible to /story's judge
 # and to /specificate. This script used to commit and push on whatever branch it happened to
 # be standing on, with a header that assumed merge-pr.sh had already checked the base
 # out. On 2026-07-30 that assumption broke -- merge-pr.sh cannot check `main` out from

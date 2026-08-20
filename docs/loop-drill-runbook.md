@@ -187,7 +187,7 @@ from what the tick printed to the one file to read.
 | `branch_collision` on claim | `skills/drive/scripts/claim.sh` — nothing was claimed; the next tick succeeds |
 | `origin_unreachable` / `no_origin` | `skills/drive/scripts/claim.sh` — an unpushed claim is not a claim; the run correctly claims nothing |
 | `mission_missing` | `skills/drive/scripts/claim.sh` — wrong slug, or the checkout is behind the base |
-| `pr_error: gh_unavailable` | `skills/report/scripts/create-or-update.sh` — the work **is** pushed; only the pull request is missing |
+| `pr_error: gh_unavailable` | `skills/story/scripts/create-or-update.sh` — the work **is** pushed; only the pull request is missing |
 
 ## 5b. The deployment-plan refresh
 

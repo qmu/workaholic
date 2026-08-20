@@ -39,7 +39,7 @@ verification_handoff:                    # optional: what this work's verificati
 
 ### Retired (2026-08-07) — never written anew
 
-`type`, `layer`, `effort`, `commit_hash`, and `category` left the ticket schema in one change: `type`/`layer` classified rather than informed (nothing routed on them once ordering became `depends_on`-and-context and the `## Policies` section became the recorded lens), `effort` was an agent's rounded guess (mission time is recorded honestly by `record-run-hours.sh`), `commit_hash` is derived from git (`report/scripts/ticket-commits.sh` — a commit cannot carry its own hash), and `category` lives in the commit's `Category:` git trailer. Existing tickets carrying them — the whole archive and any grandfathered queue item — validate and drive unchanged; the fields are tolerated everywhere and required nowhere.
+`type`, `layer`, `effort`, `commit_hash`, and `category` left the ticket schema in one change: `type`/`layer` classified rather than informed (nothing routed on them once ordering became `depends_on`-and-context and the `## Policies` section became the recorded lens), `effort` was an agent's rounded guess (mission time is recorded honestly by `record-run-hours.sh`), `commit_hash` is derived from git (`story/scripts/ticket-commits.sh` — a commit cannot carry its own hash), and `category` lives in the commit's `Category:` git trailer. Existing tickets carrying them — the whole archive and any grandfathered queue item — validate and drive unchanged; the fields are tolerated everywhere and required nowhere.
 
 ## Common mistakes
 

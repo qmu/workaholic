@@ -146,8 +146,8 @@ seam this file names for that step — recording what it actually did under the 
 
 ## 7. `doc-drift` — the documentation against the current concept
 
-- **Reads**: `report/scripts/doc-drift.sh` (structural presence changes versus the documents that
-  enumerate them) and `report/scripts/area-freshness.sh` (a hand-maintained record naming something
+- **Reads**: `story/scripts/doc-drift.sh` (structural presence changes versus the documents that
+  enumerate them) and `story/scripts/area-freshness.sh` (a hand-maintained record naming something
   this repository retired). Reused, not re-implemented.
 - **The window is a git question**: the base is `git rev-list -1 --before=<the previous doc-drift
   tick, as ISO> HEAD`, so no `date -d`/`date -v` arithmetic is involved. `no_baseline` when nothing

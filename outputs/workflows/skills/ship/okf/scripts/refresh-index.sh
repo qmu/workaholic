@@ -6,7 +6,7 @@
 # knowledge areas and trips/, deriving every entry from what exists on disk.
 # stories/ is one of those flat areas since 2026-08-19: its entries are generated
 # like every other area's, from each story's own `description:` frontmatter, so
-# the index has a repairer instead of resting on /report inserting a bullet by
+# the index has a repairer instead of resting on /story inserting a bullet by
 # hand. Only the tickets/ tree (queue scripts and structure guards own it) is
 # linked, never written.
 #

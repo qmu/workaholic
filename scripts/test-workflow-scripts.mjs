@@ -91,20 +91,20 @@ const SCRIPTS = {
   reportDeployStatus: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/report-deploy-status.sh"),
   recordEvidence: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/record-evidence.sh"),
   catchupMain: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/catchup-main.sh"),
-  applyVerdicts: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/apply-deferred-concern-verdicts.sh"),
+  applyVerdicts: join(REPO_ROOT, "plugins/workaholic/skills/story/scripts/apply-deferred-concern-verdicts.sh"),
   listOpenConcerns: join(REPO_ROOT, "plugins/workaholic/skills/feedback/scripts/list-open-concerns.sh"),
   migrateConcerns: join(REPO_ROOT, "plugins/workaholic/skills/feedback/scripts/migrate-concerns.sh"),
   extractDeferredConcerns: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/extract-deferred-concerns.sh"),
   commitReleaseNote: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/commit-release-note.sh"),
-  shrinkPrBody: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/shrink-pr-body.sh"),
-  filterLowConcerns: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/filter-low-concerns.sh"),
-  docDrift: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/doc-drift.sh"),
+  shrinkPrBody: join(REPO_ROOT, "plugins/workaholic/skills/story/scripts/shrink-pr-body.sh"),
+  filterLowConcerns: join(REPO_ROOT, "plugins/workaholic/skills/story/scripts/filter-low-concerns.sh"),
+  docDrift: join(REPO_ROOT, "plugins/workaholic/skills/story/scripts/doc-drift.sh"),
   checkCapability: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/check-confirmation-capability.sh"),
   posixLint: join(REPO_ROOT, "plugins/workaholic/hooks/posix-lint.sh"),
-  ticketCommits: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/ticket-commits.sh"),
+  ticketCommits: join(REPO_ROOT, "plugins/workaholic/skills/story/scripts/ticket-commits.sh"),
   scanBranchSafety: join(REPO_ROOT, "plugins/workaholic/skills/release-scan/scripts/scan-branch-safety.sh"),
   gateDecision: join(REPO_ROOT, "plugins/workaholic/skills/release-scan/scripts/gate-decision.sh"),
-  collectCommits: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/collect-commits.sh"),
+  collectCommits: join(REPO_ROOT, "plugins/workaholic/skills/story/scripts/collect-commits.sh"),
   baseRef: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/base-ref.sh"),
   checkVersionBump: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/check-version-bump.sh"),
   gitContext: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/git-context.sh"),
@@ -144,7 +144,7 @@ const SCRIPTS = {
   proposeScaffoldDraft: join(REPO_ROOT, "plugins/workaholic/skills/specificate/scripts/scaffold-draft.sh"),
   proposeNotifySlack: join(REPO_ROOT, "plugins/workaholic/skills/specificate/scripts/notify-slack.sh"),
   feedbackList: join(REPO_ROOT, "plugins/workaholic/skills/feedback/scripts/list.sh"),
-  areaFreshness: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/area-freshness.sh"),
+  areaFreshness: join(REPO_ROOT, "plugins/workaholic/skills/story/scripts/area-freshness.sh"),
   migrateTicketStates: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/migrate-ticket-states.sh"),
   listIcebox: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/list-icebox.sh"),
   convergeLayout: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/converge-layout.sh"),
@@ -349,7 +349,7 @@ function testDetectContext() {
     // read "-> hybrid", which stated the defect as the contract: has_trips was a repo-wide
     // find for ANY trip directory, so the single March 2026 trip dir committed to main made
     // every branch after it report trip/hybrid forever. Observed on work-20260715-112717, a
-    // pure drive branch, where /report detected mode: "trip".
+    // pure drive branch, where /story detected mode: "trip".
     //
     // A work-* branch owns no trip by default: the trip<->branch associations the repo
     // records are the legacy trip/<name> naming and a plan.md `branch:` field (below).
@@ -360,7 +360,7 @@ function testDetectContext() {
       context: "work", branch: "work-20260528-foo", mode: "drive",
     });
 
-    // The exact state of work-20260715-112717 when /report misfired: unrelated trip dir,
+    // The exact state of work-20260715-112717 when /story misfired: unrelated trip dir,
     // no tickets of this user's. Must still be drive, not trip.
     rmSync(join(dir, `.workaholic/tickets/todo/${TEST_SLUG}/x.md`));
     r = run(dir, `${POSIX_SH} ${SCRIPTS.detectContext}`);
@@ -651,7 +651,7 @@ Development completed as planned.
 
     const archived = readFileSync(archivedPath, "utf8");
     // Nothing is written back into the ticket after the commit. commit_hash is
-    // derived from git by /report (ticket-commits.sh) — a commit cannot carry its
+    // derived from git by /story (ticket-commits.sh) — a commit cannot carry its
     // own hash — and category lives only in the commit's Category: trailer since
     // the ticket field was retired (2026-08-07).
     assertTrue("archive.sh does NOT stamp commit_hash", !/^commit_hash:/m.test(archived), archived.split("\n").slice(0, 12).join("\n"));
@@ -3338,7 +3338,7 @@ function testReleaseScanPerCommit() {
 // ---------- 8j2. report/ticket-commits.sh: the derived hash must be REACHABLE ----------
 // A commit cannot carry its own hash, so archive.sh no longer stamps commit_hash: the old
 // stamp-then-amend recorded a pre-amend commit that is orphaned and never pushed, which made
-// every /report commit link 404. The hash is derived from the commit that ADDED the archived
+// every /story commit link 404. The hash is derived from the commit that ADDED the archived
 // ticket. Reachability from the branch is the whole point — it is what "GitHub has it" means.
 function testTicketCommitsDerivation() {
   const dir = makeRepo("work-20260715-000001");
@@ -6786,7 +6786,7 @@ function testRefreshIndexStoriesArea() {
       run(dir, `${POSIX_SH} ${R}`);
       const body = readFileSync(idx, "utf8");
 
-      assertTrue("a story file produces its entry with no /report run involved",
+      assertTrue("a story file produces its entry with no /story run involved",
         body.includes("](work-20260202-000000.md) - newer story desc"), body);
       assertTrue("a story with no description keeps the prior region's text",
         body.includes("](work-20260101-000000.md) - hand-written older desc"), body);
@@ -6831,7 +6831,7 @@ function testRefreshIndexStoriesArea() {
 // reintroduces a constant /tmp artifact path (the collision that fed one run
 // another repo's data) goes red here.
 function testReportArtifacts() {
-  const createOrUpdate = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/create-or-update.sh"), "utf8");
+  const createOrUpdate = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/story/scripts/create-or-update.sh"), "utf8");
   assertTrue("create-or-update.sh has no constant /tmp/pr-body.md",
     !/\/tmp\/pr-body\.md/.test(createOrUpdate), "found /tmp/pr-body.md in create-or-update.sh");
   assertTrue("create-or-update.sh derives a per-run body file via mktemp",
@@ -6996,7 +6996,7 @@ function testFilterLowConcerns() {
 // A change applied to one mirror produces a story whose sections disagree with the
 // contract that generates them, which is invisible until a story is written.
 function testStoryTemplateMirrors() {
-  const report = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/report/SKILL.md"), "utf8");
+  const report = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/story/SKILL.md"), "utf8");
   const review = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/review-sections/SKILL.md"), "utf8");
 
   // 1. Historical Analysis is folded into Motivation: no section, in either mirror.
@@ -8400,7 +8400,7 @@ function testBaseRefResolution() {
 
 // ---------- report/collect-commits.sh (commit body is emitted, not dropped) ----------
 // Regression guard for the historical bug where the script computed the body then
-// dropped it, starving /report of the structured commit content.
+// dropped it, starving /story of the structured commit content.
 function testCollectCommits() {
   const dir = makeRepo("main");
   try {
@@ -13723,7 +13723,7 @@ esac
 `);
     chmodSync(join(binDir, "gh"), 0o755);
     const env = { ...process.env, PATH: `${binDir}:${process.env.PATH}` };
-    const CMD = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/create-or-update.sh")} work-20260801-000000 "Unfinished work"`;
+    const CMD = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/story/scripts/create-or-update.sh")} work-20260801-000000 "Unfinished work"`;
 
     const created = run(repo, CMD, { env });
     assertEq("with no PR yet, the create path runs", created.status, 0);
@@ -13780,7 +13780,7 @@ function testResumeParkedAndAdoption() {
       { res: r.claims[0].resumable, why: r.claims[0].resume_reason },
       { res: true, why: "heartbeat_lapsed" });
 
-    // ---- Now it REPORTS: /report commits the branch story as it opens the PR. ----
+    // ---- Now it REPORTS: /story commits the branch story as it opens the PR. ----
     mkdirSync(join(wt, ".workaholic/stories"), { recursive: true });
     writeFileSync(join(wt, `.workaholic/stories/${batch.branch}.md`),
       `---\ntype: Story\nbranch: ${batch.branch}\ntickets_completed: 1\nmission: []\ntickets: []\n---\n\n## 1. Overview\n\nparked\n`);
@@ -13998,7 +13998,7 @@ function testGhAbsentDegrades() {
       `---\ntype: Story\n---\n\n## 1. Overview\n\nwork that is already pushed\n`);
 
     // ---- report/create-or-update.sh: the seam that actually broke ----
-    const cou = run(repo, `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/create-or-update.sh")} work-20260801-000000 "T"`, { env: noGh });
+    const cou = run(repo, `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/story/scripts/create-or-update.sh")} work-20260801-000000 "T"`, { env: noGh });
     assertEq(`create-or-update exits 0 without gh instead of 127 (stderr: ${cou.stderr.trim()})`, cou.status, 0);
     // `/not found/`, not `/command not found/`: Ubuntu's /bin/sh is dash, which says
     // `sh: 1: sed: not found`. The narrower pattern matched bash's phrasing only, so this
@@ -16281,7 +16281,7 @@ function testPrepareReleaseRetired() {
 // ---------- release note: Key Changes says what landed, for every merge ----------
 // (2026-08-18, issue #496) The section emitted `Pull request #N (branch) — no branch
 // story on the base.` for any merge with no story, and a `/specificate` pull request
-// structurally never has one — it auto-merges without ever running `/report` — so the
+// structurally never has one — it auto-merges without ever running `/story` — so the
 // commonest merge kind in this repository rendered as a line whose entire content is the
 // absence of a summary. The fallback is the merge commit's BODY, where GitHub puts the
 // pull request's title: local data, so no network and no `--enrich`.

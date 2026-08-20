@@ -87,9 +87,9 @@ A rename used to cost a manual sweep plus a note somebody had to remember, and a
 | Kind | What it names | What happens |
 | ---- | ------------- | ------------ |
 | `area` | a `.workaholic/` top-level directory | **Applied.** `migrate-renamed-areas.sh` `git mv`s it and rewrites the generated root index's links. A machine-owned path has exactly one correct destination. |
-| `name` | a token (`workaholic:report`, `/report`) | **Proposed, never applied.** `rename-conversions.sh` counts the survivors and prints one bulk conversion command per row; the operator runs it or declines. |
+| `name` | a token — a command name, a skill namespace, a path fragment | **Proposed, never applied.** `rename-conversions.sh` counts the survivors and prints one bulk conversion command per row; the operator runs it or declines. |
 
-A name lives in prose a human wrote, in code comments, and in a consuming repository's own documents, where the vocabulary may deliberately differ. Rewriting those is the judgment this command reports rather than makes — the same line the `retired-area` class draws, on the other axis. `report` is also an ordinary English word, which is what a blind conversion gets wrong.
+A name lives in prose a human wrote, in code comments, and in a consuming repository's own documents, where the vocabulary may deliberately differ. Rewriting those is the judgment this command reports rather than makes — the same line the `retired-area` class draws, on the other axis. A renamed token is routinely also an ordinary English word, which is what a blind conversion gets wrong. For the same reason **no live token is used as an example** anywhere the registry documents itself: a real rename's own conversion sweeps those files too.
 
 **A retirement is not a rename.** `guides/`, `policies/` and `specs/` were deleted; their content had no destination. A row with an empty `new` would make that column's meaning conditional and give the migration a second behaviour inside one kind, so `layout-doctor.sh` keeps its distinct `retired-area` classification for those three — a fixed historical fact about three names, not a list that grows.
 

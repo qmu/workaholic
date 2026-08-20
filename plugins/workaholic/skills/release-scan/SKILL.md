@@ -1,6 +1,6 @@
 ---
 name: release-scan
-description: Deterministic branch-safety scan used by /report (warn) and /ship (block) to catch credentials, oversized/too-many files, and unrelated client-work terminology leakage before a branch reaches a public remote.
+description: Deterministic branch-safety scan used by /story (warn) and /ship (block) to catch credentials, oversized/too-many files, and unrelated client-work terminology leakage before a branch reaches a public remote.
 allowed-tools: Bash
 user-invocable: false
 metadata:
@@ -9,7 +9,7 @@ metadata:
 
 # Release Scan
 
-A deterministic, script-only guard that scans a branch's changes for content that must not ship, so `/report` can warn and `/ship` can block **before the merge**. It is a script (not a subagent) on purpose: a merge gate must be objective and reproducible, and every finding cites `file:line` + the matched rule — never a subjective judgment (`workaholic:implementation` / `objective-documentation`; `workaholic:design` / `defense-in-depth`).
+A deterministic, script-only guard that scans a branch's changes for content that must not ship, so `/story` can warn and `/ship` can block **before the merge**. It is a script (not a subagent) on purpose: a merge gate must be objective and reproducible, and every finding cites `file:line` + the matched rule — never a subjective judgment (`workaholic:implementation` / `objective-documentation`; `workaholic:design` / `defense-in-depth`).
 
 ## The scan
 
@@ -34,7 +34,7 @@ Output:
                   "evidence": "<redacted for secrets; the term/threshold otherwise>" } ] }
 ```
 
-`verdict` is `block` iff there is any finding. Secret evidence is **redacted** so the scan output does not itself leak the secret. The **severity** tells the consumer how hard to block, and both consumers key on it — never on the binary verdict alone: `/ship` enforces the tiers (secret = non-overridable, leak = confirm, size = overridable), and `/report` surfaces all findings but marks the branch not releasable only for `hard`/`confirm` findings — a branch whose only findings are `override`-tier stays releasable, with the findings recorded as warnings the developer will consciously accept at `/ship`.
+`verdict` is `block` iff there is any finding. Secret evidence is **redacted** so the scan output does not itself leak the secret. The **severity** tells the consumer how hard to block, and both consumers key on it — never on the binary verdict alone: `/ship` enforces the tiers (secret = non-overridable, leak = confirm, size = overridable), and `/story` surfaces all findings but marks the branch not releasable only for `hard`/`confirm` findings — a branch whose only findings are `override`-tier stays releasable, with the findings recorded as warnings the developer will consciously accept at `/ship`.
 
 ## Leak denylist
 

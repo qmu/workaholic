@@ -7,7 +7,7 @@ description: Generate the branch story's review content (a Motivation past-conte
 
 Guidelines for generating the branch story's review content from archived tickets: the past-context paragraph that folds into Motivation, plus the Outcome, Concerns, and Successful Development Patterns sections.
 
-Two rules govern every field, both stated canonically in `report`:
+Two rules govern every field, both stated canonically in `story`:
 
 - **Omit, never pad** (*Omit, never pad*): a section with nothing to report is **absent** from the story, never rendered as "None". Two of the fields below are empty far more often than not, and returning an empty string is the correct, expected answer. Never invent content to fill a heading, and never refer to a section by number — numbers are assigned sequentially over whichever sections survive.
 - **Budget, then omit** (*Every section has a line budget* carries the table and the reason): each section states a line budget, blank lines and heading included. A section over budget is **cut**, never justified with an extra sentence.
@@ -57,7 +57,7 @@ Risks, trade-offs, limitations, and forward-looking suggestions discovered durin
 Compose the section from two sources, in this order:
 
 1. **New concerns** — from the Considerations sections of this branch's tickets and the `Concerns:` keys of the collected commit bodies. Deduplicate where a ticket Consideration and a commit Concern describe the same issue.
-2. **Confirmed documentation drift** — drift the release-readiness role confirmed (its `doc-drift.sh` candidates judged real in `report`'s `## Assess Release Readiness`). Title the concern after the stale doc (e.g. `Documentation drift: CLAUDE.md skill index`), Description = which structural change landed without the doc updating, How to Fix = the specific edit needed. Default `severity: moderate`. Use only drift already confirmed — do NOT re-run or re-judge the script here (this skill stays script-free so it keeps resolving cross-agent via the `skills` CLI).
+2. **Confirmed documentation drift** — drift the release-readiness role confirmed (its `doc-drift.sh` candidates judged real in `story`'s `## Assess Release Readiness`). Title the concern after the stale doc (e.g. `Documentation drift: CLAUDE.md skill index`), Description = which structural change landed without the doc updating, How to Fix = the specific edit needed. Default `severity: moderate`. Use only drift already confirmed — do NOT re-run or re-judge the script here (this skill stays script-free so it keeps resolving cross-agent via the `skills` CLI).
 
 For new concerns:
 
@@ -65,7 +65,7 @@ For new concerns:
 - Frame the risk (Description) and the constructive suggestion (How to Fix) together — two angles on one insight.
 - Put the commit hash (if present in ticket frontmatter) and the file path inside the Description.
 - Seven lines per block, heading and severity included — about two lines of Description and two of How to Fix. Trim the words; never drop a concern to hit the budget.
-- Grade honestly in both directions: the story file keeps every severity, and the PR body drops the `low` ones (`report`, Concerns section) — a deflated `moderate` is a real risk hidden from review; an inflated `low` is noise in front of it.
+- Grade honestly in both directions: the story file keeps every severity, and the PR body drops the `low` ones (`story`, Concerns section) — a deflated `moderate` is a real risk hidden from review; an inflated `low` is noise in front of it.
 
 If both sources are empty, return `""` — the report workflow then writes no Concerns section. Never write "None".
 

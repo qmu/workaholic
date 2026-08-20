@@ -10,14 +10,14 @@ usage() {
     echo "  --skip-staging        Skip staging step (use when files are already staged)"
     echo "  --allow-empty         Record a commit that changes no file (coordination markers only)"
     echo "  --trailer <Key: Val>  Emit an extra git trailer (repeatable); for machine-read metadata"
-    echo "  --category <value>    Emit a 'Category: <Added|Changed|Removed>' git trailer for /report grouping"
+    echo "  --category <value>    Emit a 'Category: <Added|Changed|Removed>' git trailer for /story grouping"
     echo ""
     echo "Parameters:"
     echo "  title     - Commit title (present-tense verb, 50 chars max)"
-    echo "  why       - Why this change was needed: problem, trigger, approach (feeds /report Motivation; can be empty)"
+    echo "  why       - Why this change was needed: problem, trigger, approach (feeds /story Motivation; can be empty)"
     echo "  changes   - What users experience differently, before->after (or 'None')"
-    echo "  concerns  - Risks, follow-ups, deferred work surfaced by this change (feeds /report Concerns; 'None' or empty to omit)"
-    echo "  insights  - Non-obvious patterns or gotchas worth preserving (feeds /report Patterns; 'None' or empty to omit)"
+    echo "  concerns  - Risks, follow-ups, deferred work surfaced by this change (feeds /story Concerns; 'None' or empty to omit)"
+    echo "  insights  - Non-obvious patterns or gotchas worth preserving (feeds /story Patterns; 'None' or empty to omit)"
     echo "  verify    - Verification done or needed (or 'None')"
     echo "  files...  - Optional: specific files to stage (ignored with --skip-staging)"
 }
@@ -244,7 +244,7 @@ echo ""
 # Build the structured body section by section. Each present section is followed
 # by a blank line. The optional sections (Why, Concerns, Insights) are omitted
 # when empty or "None" so the log stays clean; Changes and Verify always render.
-# Keys are chosen to feed /report: Why->Motivation, Changes->Changes/Outcome,
+# Keys are chosen to feed /story: Why->Motivation, Changes->Changes/Outcome,
 # Concerns->Concerns, Insights->Successful Development Patterns.
 COMMIT_BODY=""
 

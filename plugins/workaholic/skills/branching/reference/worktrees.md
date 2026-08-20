@@ -12,8 +12,8 @@ mode-detection legacy and the env-carry detail.
 | Mode | Condition |
 | ---- | --------- |
 | `drive` | no trip artifacts for this branch — every branch created since the retirement |
-| `trip` | trip artifacts for this branch, no tickets in this user's todo (adds the rationale link to `.workaholic/trips/<name>/designs/` in `workaholic:report`) |
-| `hybrid` | both exist (same flow; `workaholic:report` collapses all three) |
+| `trip` | trip artifacts for this branch, no tickets in this user's todo (adds the rationale link to `.workaholic/trips/<name>/designs/` in `workaholic:story`) |
+| `hybrid` | both exist (same flow; `workaholic:story` collapses all three) |
 
 "For this branch" is narrow, and deliberately so: `branch_trip_dir()` reads exactly the two associations ever recorded — the legacy naming convention (branch `trip/<name>` owns `.workaholic/trips/<name>`) and the `branch:` field a trip's `plan.md` carries. Anything else reports `drive`, whatever exists under `.workaholic/trips/`. Before that narrowing, `has_trips` was a repo-wide `find`, so one stray trip dir on `main` made every later branch report `trip`/`hybrid` forever — a property of the repository masquerading as a property of the branch. Nothing writes a new association; `trips/` is read-only history. Legacy `drive-*` and `trip/*` branches are detected as `work` context for backward compatibility only — never created.
 

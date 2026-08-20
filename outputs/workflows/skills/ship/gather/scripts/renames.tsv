@@ -13,8 +13,11 @@
 #
 #   kind   `area` | `name`. Two kinds and no third.
 #   old    the name as it was. For `area`, a .workaholic/ top-level directory name
-#          (bare, no slash). For `name`, the token as it is written (`housekeep`,
-#          `workaholic:report`, `/report`).
+#          (bare, no slash). For `name`, the token as it is written -- a command
+#          (`/oldname`), a skill namespace (`plugin:oldname`), a path fragment.
+#          NEVER a live token as an EXAMPLE anywhere in this file: a real rename's
+#          own bulk conversion sweeps this file too and would rewrite the row it
+#          is explaining (measured 2026-08-20 on the suite's rename fixture).
 #   new    the name as it is now. NEVER empty — see "a retirement is not a rename".
 #   since  YYYY-MM-DD, the day the rename landed.
 #   why    one short clause. An issue number is ideal; a reader who meets the old name
@@ -33,10 +36,9 @@
 #          differ. rename-conversions.sh finds the survivors and PRINTS a bulk conversion
 #          command the operator runs or declines. This repository's standing rule is that
 #          everything needing a judgment is reported with the decision it needs and never
-#          guessed (converge-layout.sh's header); a script that rewrote `report` to
-#          `story` across somebody's documents would be exactly the act that rule refuses.
-#          `report` is also an ordinary English word — a blind sed here is the failure
-#          mode, which is why this half proposes.
+#          guessed (converge-layout.sh's header); a script that rewrote one ordinary
+#          English word into another across somebody's documents would be exactly the act
+#          that rule refuses. A blind sed is the failure mode this half exists to avoid.
 #
 # A RETIREMENT IS NOT A RENAME, and does not belong here. .workaholic/guides/,
 # policies/ and specs/ were DELETED on 2026-08-13 (issue #436); their content had no
@@ -53,3 +55,8 @@
 #
 # kind	old	new	since	why
 area	housekeeping	moderations	2026-08-20	the /moderate tick log is the Moderate routine's artifact; housekeep left the plugin 2026-08-19 (issue #526)
+name	workaholic:report	workaholic:story	2026-08-20	the skill writes a branch story; `/report` survives as a deprecated alias
+name	skills/report/	skills/story/	2026-08-20	the skill directory moved with its namespace
+name	report/scripts/	story/scripts/	2026-08-20	the cross-skill script path moved with the skill
+name	report/reference/	story/reference/	2026-08-20	the skill's reference directory moved with it
+name	/report	/story	2026-08-20	the command writes a branch story; /report stays as a working deprecated alias

@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-20T18:28:01+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on: 20260820182800-add-the-rename-registry-and-its-convergence-seam.md
@@ -141,3 +142,59 @@ rename registry's first `area` row and its first real proof.
   to the live tree for exactly that reason.
 - **`outputs/` is generated.** Its five `refresh-index.sh` copies change only through
   `build.mjs`; hand-editing them fails the `Outputs Freshness` CI.
+
+## Final Report
+
+Development completed as planned, and the registry drove it exactly as ticket 1
+promised: adding the row and running `converge-layout.sh` moved the two day files,
+rewrote the root index link, and returned the list of **17** files still naming the
+old word — the same set this ticket's Key Files had enumerated by hand. That
+agreement is the mission's proof, not a coincidence worth passing over.
+
+**Step 7 resolved: the two queued tickets keep their filenames.** A mission's
+`## Acceptance` items are tickable through a `(#<filename>)` link and
+`tick-acceptance.sh` keys on that link, so renaming a queued ticket's file would
+strand its mission's item — a real cost against pure tidiness. They also sit under
+`.workaholic/`, which the conversion never searches, so nothing reports them. What
+did move is `CLAUDE.md`'s reference to one of them: it now cites the ticket by its
+**timestamp id**, the form that file already uses elsewhere.
+
+**Two things kept the old word on purpose.** The suite's `type: housekeeping`
+fixture is the retired per-ticket `type:` field, not this area; it now carries a
+comment saying so, and `rename-conversions.sh` will keep reporting that one file
+until the row is deleted — which is the tool working, not a defect. And the
+registry row itself stays: this repository has cut over, consuming repositories
+have not, and the row is what tells them what the name became.
+
+No back-compat tolerance was added, as the ticket specified. Unlike the retired
+ticket-state directories, this area is written by a repository-scoped routine that
+shipped four days ago, so a permissive survivor would protect nobody and keep the
+word alive.
+
+### Discovered Insights
+
+- **Insight**: the bulk conversion swept `scripts/test-workflow-scripts.mjs` and
+  rewrote **both halves** of the rename fixture's `old -> new` pair into the same
+  word, leaving a test that seeded `moderations/` and then asserted `moderations/`
+  was gone. **Context**: a test whose fixture names a *real* rename is destroyed by
+  that rename's own conversion — silently, because the assertions still parse. Any
+  fixture for a rename mechanism must name a rename that does not exist. The
+  replacement pairs `terms` with `glossary`, which buys a second property: `terms`
+  is in the allowlist, so it is what proves the doctor consults the registry
+  **before** the allowlist rather than after.
+
+- **Insight**: `step-open-log.sh` probes the allowlist with a literal
+  `grep -q '^housekeeping$'` and, on a miss, degrades to `area_unregistered` — the
+  tick keeps running and only its log stops being written. **Context**: this is the
+  one silent-ish failure in the whole rename. The audit trail that would tell you
+  the log stopped *is* the log, so a half-applied rename here is invisible from the
+  outside; the probe and the allowlist have to move in the same commit, and a
+  reviewer should look for that pairing specifically.
+
+- **Insight**: `log-append.sh` writes `# Housekeeping log — <day>` as the day
+  file's own first line, so the old name lived in generated *content*, not only in
+  paths. **Context**: existing day files keep the old heading and nothing rewrites
+  them — correct, since they are history — which means the tree will hold both
+  headings for a while. Nothing reads the heading, so this costs nothing; the point
+  is that a rename sweep has to look for names a script *writes*, not just names it
+  *reads*.

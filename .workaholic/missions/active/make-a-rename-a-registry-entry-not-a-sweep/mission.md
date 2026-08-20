@@ -15,6 +15,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260821-035855
 ---
 
 # Make a rename a registry entry, not a sweep

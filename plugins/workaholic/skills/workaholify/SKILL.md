@@ -87,7 +87,7 @@ A rename used to cost a manual sweep plus a note somebody had to remember, and a
 | Kind | What it names | What happens |
 | ---- | ------------- | ------------ |
 | `area` | a `.workaholic/` top-level directory | **Applied.** `migrate-renamed-areas.sh` `git mv`s it and rewrites the generated root index's links. A machine-owned path has exactly one correct destination. |
-| `name` | a token (`housekeep`, `workaholic:report`, `/report`) | **Proposed, never applied.** `rename-conversions.sh` counts the survivors and prints one bulk conversion command per row; the operator runs it or declines. |
+| `name` | a token (`workaholic:report`, `/report`) | **Proposed, never applied.** `rename-conversions.sh` counts the survivors and prints one bulk conversion command per row; the operator runs it or declines. |
 
 A name lives in prose a human wrote, in code comments, and in a consuming repository's own documents, where the vocabulary may deliberately differ. Rewriting those is the judgment this command reports rather than makes — the same line the `retired-area` class draws, on the other axis. `report` is also an ordinary English word, which is what a blind conversion gets wrong.
 

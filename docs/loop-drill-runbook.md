@@ -304,7 +304,7 @@ name as the command it runs, never as the routine that schedules it.
 
 `verify-propose` needs no seed, no fire and no issue number, and it runs the tick against
 a **throwaway root** so a drill never appends to the operator's own
-`.workaholic/housekeeping/` log.
+`.workaholic/moderations/` log.
 
 `[Moderate]` (repository scope, `50 * * * *`, configured by `/setup-repo-routines` from
 **one** account) runs `/moderate`: nine steps, one log line each. On a healthy quiet

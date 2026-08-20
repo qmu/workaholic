@@ -55,7 +55,7 @@ while [ $# -gt 0 ]; do
     esac
 done
 
-DIR="$ROOT/.workaholic/housekeeping"
+DIR="$ROOT/.workaholic/moderations"
 if [ ! -d "$DIR" ]; then
     echo '{"read": false, "reason": "no_log_area", "count": 0, "days": 0, "entries": []}'
     exit 0

@@ -2,7 +2,7 @@
 # Put this tick's log sections on the base branch — the closing act of a tick.
 #
 # WHY IT EXISTS (2026-08-17, issue #471, ticket
-# `20260817131500-persist-the-housekeep-tick-log`). `log-append.sh` writes into
+# ticket `20260817131500`). `log-append.sh` writes into
 # the CHECKOUT, and a routine-fired `[Moderate]` tick runs in a fresh container
 # cloned from the base. Without this step the log dies with the container, which
 # breaks two things at once: every dedup that reads the log (`stuck:<digest>`,
@@ -171,7 +171,7 @@ report() {
 }
 
 DAY=$(printf '%s' "$TICK" | cut -c1-4)-$(printf '%s' "$TICK" | cut -c5-6)-$(printf '%s' "$TICK" | cut -c7-8)
-LOG_REL=".workaholic/housekeeping/${DAY}.md"
+LOG_REL=".workaholic/moderations/${DAY}.md"
 
 if [ ! -d "$ROOT" ]; then
     report false skipped not_a_repo "the log root ${ROOT} does not exist" 0 0 0 false '' false ''
@@ -336,7 +336,7 @@ while [ "$attempt" -lt "$ATTEMPTS" ]; do
     commit_out=$(cd "$repo_root" && sh "${BRANCHING}/publish-tree-commit.sh" \
         "Log the propose tick ${TICK}" \
         "An hourly unattended tick's only audit trail is what it writes down, and the routine's container is discarded after the run." \
-        "The ${DAY} housekeeping log on ${BASE} now carries this tick's steps, so the next tick's dedups and a human's audit read the same record." \
+        "The ${DAY} moderations log on ${BASE} now carries this tick's steps, so the next tick's dedups and a human's audit read the same record." \
         "None" \
         "None" \
         "Appended by section against a freshly fetched base, so concurrent ticks union rather than conflict." \

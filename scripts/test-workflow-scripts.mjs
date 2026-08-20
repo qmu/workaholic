@@ -3906,22 +3906,32 @@ function testRenameRegistry() {
   const table = join(dir, "fixture-renames.tsv");
   const env = { ...process.env, WORKAHOLIC_RENAMES_TABLE: table };
   try {
-    // --- the reader is the only parser, and it never fails on a bad table ---
+    // THE FIXTURE PAIR IS SYNTHETIC ON PURPOSE, and the 2026-08-20 housekeeping/ ->
+    // moderations/ rename is why: the bulk conversion for a REAL rename swept this file
+    // too and rewrote both halves of the fixture's old->new pair into the same word,
+    // leaving a test that seeded `moderations/` and then asserted `moderations/` was gone.
+    // A pair naming no real rename cannot be damaged by the next one.
+    //
+    // `terms` -> `glossary` specifically, because `terms` IS in the layout allowlist: it is
+    // what proves the doctor consults the registry BEFORE the allowlist. Get that order
+    // wrong and an old name that is still allowlisted is silently accepted.
+    const OLD = "terms", NEW = "glossary";
     writeFileSync(table, [
       "# comment",
       "",
-      "area\thousekeeping\tmoderations\t2026-08-20\tissue #471 follow-up",
-      "name\t/report\t/story\t2026-08-20\tthe command writes a story",
-      "bogus\tx\ty\tz\tw",              // unknown kind
+      `area\t${OLD}\t${NEW}\t2026-08-20\tthe fixture rename`,
+      "name\t/oldcmd\t/newcmd\t2026-08-20\tthe fixture command rename",
+      "bogus\tx\ty\tz\tw",                      // unknown kind
       "area\tonly\t\t2026-08-20\tno destination",  // empty `new`
     ].join("\n") + "\n");
 
+    // --- the reader is the only parser, and it never fails on a bad table ---
     let j = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.listRenames}`, { env }).stdout);
     assertEq("the reader keeps only well-formed rows", j.renames.length, 2);
     assertEq("an unknown kind is skipped", j.renames.some((r) => r.kind === "bogus"), false);
     assertEq("a row with no destination is skipped", j.renames.some((r) => r.old === "only"), false,
       "`new` is never empty by design — a retirement is not a rename and has no destination");
-    assertEq("the area row round-trips", j.renames[0].new, "moderations");
+    assertEq("the area row round-trips", j.renames[0].new, NEW);
 
     const rows = run(dir, `${POSIX_SH} ${SCRIPTS.listRenames} --rows --kind area`, { env }).stdout.trim();
     assertEq("--rows --kind narrows to one line", rows.split("\n").length, 1);
@@ -3935,16 +3945,21 @@ function testRenameRegistry() {
     assertEq("and reports no renames rather than erroring", gone.renames.length, 0);
 
     // --- layout-doctor names the renamed area, and does so BEFORE the allowlist ---
-    mkdirSync(join(dir, ".workaholic/housekeeping"), { recursive: true });
-    writeFileSync(join(dir, ".workaholic/housekeeping/2026-08-18.md"), "log\n");
-    writeFileSync(join(dir, ".workaholic/index.md"), "# Index\n\n* [housekeeping/](housekeeping/) - the tick log\n");
+    mkdirSync(join(dir, `.workaholic/${OLD}`), { recursive: true });
+    writeFileSync(join(dir, `.workaholic/${OLD}/entry.md`), "x\n");
+    writeFileSync(join(dir, ".workaholic/index.md"), `# Index\n\n* [${OLD}/](${OLD}/) - the area\n`);
     run(dir, "git add -A && git commit -q -m seed");
 
+    // Without the registry this directory is ALLOWLISTED and produces no finding at all.
+    const clean = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.layoutDoctor} ${dir}`,
+      { env: { ...process.env, WORKAHOLIC_RENAMES_TABLE: join(dir, "nope.tsv") } }).stdout);
+    assertEq("the old name alone is allowlisted and unremarkable", clean.conforming, true);
+
     const doc = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.layoutDoctor} ${dir}`, { env }).stdout);
-    const f = doc.findings.find((x) => x.path.endsWith("housekeeping"));
-    assertTrue("the doctor finds the renamed area", !!f, JSON.stringify(doc.findings));
-    assertEq("and classifies it as a rename, not as undesignated", f.classification, "renamed-area");
-    assertTrue("the finding names what it became", f.reason.includes("moderations"), f.reason);
+    const f = doc.findings.find((x) => x.path.endsWith(OLD));
+    assertTrue("the registry makes the doctor find it anyway", !!f, JSON.stringify(doc.findings));
+    assertEq("classified as a rename, not as undesignated", f.classification, "renamed-area");
+    assertTrue("the finding names what it became", f.reason.includes(NEW), f.reason);
     assertTrue("the finding names when", f.reason.includes("2026-08-20"), f.reason);
     assertTrue("the remediation is a command, not a decision",
       f.remediation.includes("migrate-renamed-areas.sh"), f.remediation);
@@ -3952,10 +3967,10 @@ function testRenameRegistry() {
     // --- the migration applies the area half, and only that ---
     let m = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.migrateRenamedAreas} ${join(dir, ".workaholic")}`, { env, cwd: dir }).stdout);
     assertEq("the area moves once", m.migrated, 1);
-    assertEq("the destination is the declared new name", existsSync(join(dir, ".workaholic/moderations/2026-08-18.md")), true);
-    assertEq("the old directory is gone", existsSync(join(dir, ".workaholic/housekeeping")), false);
-    assertEq("the generated root index's link follows", 
-      readFileSync(join(dir, ".workaholic/index.md"), "utf8").includes("(moderations/)"), true);
+    assertEq("the destination is the declared new name", existsSync(join(dir, `.workaholic/${NEW}/entry.md`)), true);
+    assertEq("the old directory is gone", existsSync(join(dir, `.workaholic/${OLD}`)), false);
+    assertEq("the generated root index's link follows",
+      readFileSync(join(dir, ".workaholic/index.md"), "utf8").includes(`(${NEW}/)`), true);
     assertEq("and the link count is reported", m.links_updated, 1);
 
     m = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.migrateRenamedAreas} ${join(dir, ".workaholic")}`, { env, cwd: dir }).stdout);
@@ -3963,19 +3978,19 @@ function testRenameRegistry() {
 
     // A destination that already exists is a MERGE, and which file wins is an owner's
     // decision — reported, never guessed.
-    mkdirSync(join(dir, ".workaholic/housekeeping"), { recursive: true });
-    writeFileSync(join(dir, ".workaholic/housekeeping/2026-08-19.md"), "log\n");
+    mkdirSync(join(dir, `.workaholic/${OLD}`), { recursive: true });
+    writeFileSync(join(dir, `.workaholic/${OLD}/second.md`), "x\n");
     m = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.migrateRenamedAreas} ${join(dir, ".workaholic")}`, { env, cwd: dir }).stdout);
     assertEq("a collision migrates nothing", m.migrated, 0);
     assertEq("and is reported by name", m.blocked[0]?.reason, "destination_exists");
-    assertEq("leaving the old directory untouched", existsSync(join(dir, ".workaholic/housekeeping/2026-08-19.md")), true);
-    rmSync(join(dir, ".workaholic/housekeeping"), { recursive: true, force: true });
+    assertEq("leaving the old directory untouched", existsSync(join(dir, `.workaholic/${OLD}/second.md`)), true);
+    rmSync(join(dir, `.workaholic/${OLD}`), { recursive: true, force: true });
 
     // --- the name half PROPOSES and writes nothing ---
-    writeFileSync(join(dir, "doc.md"), "run /report to open the PR\n");
+    writeFileSync(join(dir, "doc.md"), "run /oldcmd to open the PR\n");
     const before = readFileSync(join(dir, "doc.md"), "utf8");
     const c = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.renameConversions} ${dir}`, { env, cwd: dir }).stdout);
-    const conv = c.conversions.find((x) => x.old === "/report");
+    const conv = c.conversions.find((x) => x.old === "/oldcmd");
     assertTrue("the name row is reported", !!conv, JSON.stringify(c.conversions));
     assertTrue("with the file that still carries it", conv.files.includes("doc.md"), JSON.stringify(conv.files));
     assertTrue("and a ready-to-run bulk conversion", conv.command.includes("sed"), conv.command);
@@ -3984,9 +3999,9 @@ function testRenameRegistry() {
 
     // .workaholic/ is HISTORY and is never offered for conversion.
     mkdirSync(join(dir, ".workaholic/stories"), { recursive: true });
-    writeFileSync(join(dir, ".workaholic/stories/s.md"), "we ran /report here\n");
+    writeFileSync(join(dir, ".workaholic/stories/s.md"), "we ran /oldcmd here\n");
     const c2 = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.renameConversions} ${dir}`, { env, cwd: dir }).stdout);
-    const conv2 = c2.conversions.find((x) => x.old === "/report");
+    const conv2 = c2.conversions.find((x) => x.old === "/oldcmd");
     assertEq("a story naming the old name is not offered for rewriting",
       conv2.files.some((x) => x.startsWith(".workaholic/")), false, JSON.stringify(conv2.files));
 
@@ -3994,13 +4009,13 @@ function testRenameRegistry() {
     // Clear the destination this test's own earlier step created: the collision path is
     // proved above, and leaving it here would make the seam report `destination_exists`
     // and prove nothing about whether it composes the migration at all.
-    rmSync(join(dir, ".workaholic/moderations"), { recursive: true, force: true });
-    mkdirSync(join(dir, ".workaholic/housekeeping"), { recursive: true });
-    writeFileSync(join(dir, ".workaholic/housekeeping/2026-08-20.md"), "log\n");
+    rmSync(join(dir, `.workaholic/${NEW}`), { recursive: true, force: true });
+    mkdirSync(join(dir, `.workaholic/${OLD}`), { recursive: true });
+    writeFileSync(join(dir, `.workaholic/${OLD}/third.md`), "x\n");
     const cl = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.convergeLayout} ${dir}`, { env, cwd: dir }).stdout);
     assertTrue("converge-layout composes the rename migration",
       cl.applied.some((a) => a.migration === "migrate-renamed-areas"), JSON.stringify(cl.applied.map((a) => a.migration)));
-    assertEq("and applies it", existsSync(join(dir, ".workaholic/moderations/2026-08-20.md")), true);
+    assertEq("and applies it", existsSync(join(dir, `.workaholic/${NEW}/third.md`)), true);
     assertTrue("and reports the proposed half separately",
       Array.isArray(cl.rename_conversions) && cl.rename_conversions.length > 0, JSON.stringify(cl.rename_conversions));
 
@@ -8049,6 +8064,9 @@ function testValidateTicketResume() {
 
   const dir = makeRepo("main");
   try {
+    // `type: housekeeping` here is the RETIRED per-ticket `type:` field, not the tick-log
+    // area — which is why the 2026-08-20 housekeeping/ -> moderations/ rename left it
+    // alone. A grep-driven sweep will find it again; it is not that name.
     const body = (steps) => `---
 created_at: 2026-07-16T12:00:00+09:00
 author: a@qmu.jp
@@ -17470,17 +17488,17 @@ function testProposeLog() {
   try {
     // The closed layout admits the area — and still refuses a near-miss sibling, which
     // is the property that makes registration meaningful rather than decorative.
-    mkdirSync(join(repo, ".workaholic/housekeeping"), { recursive: true });
-    mkdirSync(join(repo, ".workaholic/housekeepin"), { recursive: true });
-    const ok = join(repo, ".workaholic/housekeeping/2026-08-17.md");
-    const bad = join(repo, ".workaholic/housekeepin/2026-08-17.md");
+    mkdirSync(join(repo, ".workaholic/moderations"), { recursive: true });
+    mkdirSync(join(repo, ".workaholic/moderationz"), { recursive: true });
+    const ok = join(repo, ".workaholic/moderations/2026-08-17.md");
+    const bad = join(repo, ".workaholic/moderationz/2026-08-17.md");
     writeFileSync(ok, "# log\n");
     writeFileSync(bad, "# log\n");
     assertEq("a write into the registered log area passes the layout gate",
       run(repo, `printf '{"tool_name":"Write","tool_input":{"file_path":"${ok}"}}' | ${HOOK}`, { shell: "/bin/sh" }).status, 0);
     assertEq("a write into an unregistered sibling is still denied",
       run(repo, `printf '{"tool_name":"Write","tool_input":{"file_path":"${bad}"}}' | ${HOOK}`, { shell: "/bin/sh" }).status, 2);
-    rmSync(join(repo, ".workaholic/housekeepin"), { recursive: true, force: true });
+    rmSync(join(repo, ".workaholic/moderationz"), { recursive: true, force: true });
     rmSync(ok, { force: true });
 
     // One entry per (tick, step): the second write of the same step is refused, and the
@@ -17489,7 +17507,7 @@ function testProposeLog() {
     let j = JSON.parse(run(repo, `${APPEND} --tick ${T1} --step stale-issues --status filed --summary 'commented on #123'`).stdout);
     assertEq("the first step of a tick opens the day file", j.created_file, true);
     assertEq("and its section", j.created_section, true);
-    assertTrue("named for the tick's UTC day", j.file.endsWith(".workaholic/housekeeping/2026-08-17.md"), j.file);
+    assertTrue("named for the tick's UTC day", j.file.endsWith(".workaholic/moderations/2026-08-17.md"), j.file);
     j = JSON.parse(run(repo, `${APPEND} --tick ${T1} --step drift --status ok --summary 'no drift'`).stdout);
     assertEq("a second step joins the same section", j.created_section, false);
     j = JSON.parse(run(repo, `${APPEND} --tick ${T1} --step drift --status ok --summary 'no drift'`).stdout);
@@ -17500,7 +17518,7 @@ function testProposeLog() {
     // inside that tick's section rather than at the tail of the file.
     run(repo, `${APPEND} --tick 20260817-130000 --step stale-issues --status skipped --summary 'inbox unreadable'`);
     run(repo, `${APPEND} --tick ${T1} --step docs --status degraded --summary 'could not read README'`);
-    const body = readFileSync(join(repo, ".workaholic/housekeeping/2026-08-17.md"), "utf8");
+    const body = readFileSync(join(repo, ".workaholic/moderations/2026-08-17.md"), "utf8");
     const firstSection = body.split("## 20260817-130000")[0];
     assertTrue("a re-entered tick appends inside its own section", firstSection.includes("`docs`: degraded"), body);
 
@@ -17523,9 +17541,9 @@ function testProposeLog() {
     // The area is an OKF exception: the index refresh links the directory and writes no
     // index into it, so a tick never churns the bundle indexes.
     run(repo, `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/okf/scripts/refresh-index.sh")}`);
-    assertEq("the log area gets no index.md", existsSync(join(repo, ".workaholic/housekeeping/index.md")), false);
+    assertEq("the log area gets no index.md", existsSync(join(repo, ".workaholic/moderations/index.md")), false);
     assertTrue("but the bundle root links it",
-      readFileSync(join(repo, ".workaholic/index.md"), "utf8").includes("housekeeping/"),
+      readFileSync(join(repo, ".workaholic/index.md"), "utf8").includes("moderations/"),
       readFileSync(join(repo, ".workaholic/index.md"), "utf8"));
   } finally {
     cleanup(repo);
@@ -17549,8 +17567,8 @@ function testProposeRun() {
     mkdirSync(join(repo, ".workaholic"), { recursive: true });
     const j = JSON.parse(run(repo, `${RUN} --tick 20260817-090000`).stdout);
     assertEq("every step of the ask is run and reported", j.steps.map((s) => s.step), STEPS);
-    assertEq("the tick writes its log", j.log, "./.workaholic/housekeeping/2026-08-17.md");
-    const log = readFileSync(join(repo, ".workaholic/housekeeping/2026-08-17.md"), "utf8");
+    assertEq("the tick writes its log", j.log, "./.workaholic/moderations/2026-08-17.md");
+    const log = readFileSync(join(repo, ".workaholic/moderations/2026-08-17.md"), "utf8");
     assertEq("one log section for the tick", (log.match(/^## /gm) || []).length, 1);
     // Nine step lines plus the closing act's own line. The persist is deliberately
     // NOT a tenth step (`steps[]` above is still exactly the nine), but its outcome
@@ -17574,7 +17592,7 @@ function testProposeRun() {
     // Re-running the same tick id re-reports every step and does not double the log.
     const again = JSON.parse(run(repo, `${RUN} --tick 20260817-090000`).stdout);
     assertEq("a re-entered tick still reports every step", again.steps.length, STEPS.length);
-    const log2 = readFileSync(join(repo, ".workaholic/housekeeping/2026-08-17.md"), "utf8");
+    const log2 = readFileSync(join(repo, ".workaholic/moderations/2026-08-17.md"), "utf8");
     assertEq("without doubling its log", log2, log);
 
     // The three ways a step can go silent are three named degradations.
@@ -17606,7 +17624,7 @@ function testProposeRun() {
 }
 
 // ---------- propose: the tick log survives the container that wrote it ----------
-// (2026-08-17, ticket `20260817131500-persist-the-housekeep-tick-log`) A routine tick
+// (2026-08-17, ticket `20260817131500`) A routine tick
 // runs in a fresh clone that is thrown away afterwards, so a log that stayed in the
 // checkout would leave every dedup blind and the run with no audit trail. The property
 // under test is that the log REACHES THE BASE, and that two containers ticking on the
@@ -17619,7 +17637,7 @@ function testProposePersist() {
   const origin = join(tmp, "origin.git");
   const A = join(tmp, "a");
   const B = join(tmp, "b");
-  const DAY = ".workaholic/housekeeping/2026-08-17.md";
+  const DAY = ".workaholic/moderations/2026-08-17.md";
   const clone = (path, email) => {
     execSync(`git clone -q ${origin} ${path}`);
     execSync(`git config user.email ${email}`, { cwd: path });
@@ -17698,7 +17716,7 @@ exit 0
     // runs a tick against a throwaway root from inside the operator's own checkout —
     // from committing a fixture's log to the operator's base.
     const loose = join(tmp, "loose");
-    mkdirSync(join(loose, ".workaholic/housekeeping"), { recursive: true });
+    mkdirSync(join(loose, ".workaholic/moderations"), { recursive: true });
     writeFileSync(join(loose, DAY), "# x\n\n## 20260817-140000\n\n- `open-log`: ok — x\n");
     const l = JSON.parse(run(A, `${PERSIST} --tick 20260817-140000 --root ${loose}`).stdout);
     assertEq("a root outside a repository is skipped, not published",
@@ -17733,7 +17751,7 @@ function testProposePersistCarriesLateLines() {
   const origin = join(tmp, "origin.git");
   const A = join(tmp, "a");
   const B = join(tmp, "b");
-  const DAY = ".workaholic/housekeeping/2026-08-17.md";
+  const DAY = ".workaholic/moderations/2026-08-17.md";
   const clone = (path, email) => {
     execSync(`git clone -q ${origin} ${path}`);
     execSync(`git config user.email ${email}`, { cwd: path });
@@ -17912,15 +17930,15 @@ function testProposeInboundSweep() {
     assertEq("and the target says which", w.targets[0].state, "no_log_source");
 
     writeFileSync(join(repo, ".workaholic/deployments/web.md"),
-      "---\ntype: Deployment\ntitle: Web\nconfirmation_method: browser\nlog_locator: https://logs.example.test/web\nlog_credential_env: HOUSEKEEP_TEST_LOG_TOKEN\n---\n\n# Web\n");
+      "---\ntype: Deployment\ntitle: Web\nconfirmation_method: browser\nlog_locator: https://logs.example.test/web\nlog_credential_env: MODERATE_TEST_LOG_TOKEN\n---\n\n# Web\n");
     w = JSON.parse(run(repo, `${LOGS} --tick 20260817-120000 --root .`).stdout);
     const web = w.targets.find((t) => t.target === "web");
     assertEq("a missing credential is a CHECKED claim", web.state, "no_credentials");
-    assertEq("naming the variable it looked for", web.credential_env, "HOUSEKEEP_TEST_LOG_TOKEN");
+    assertEq("naming the variable it looked for", web.credential_env, "MODERATE_TEST_LOG_TOKEN");
     assertEq("and nothing is handed over to read", w.needs_agent.length, 0);
 
     w = JSON.parse(run(repo, `${LOGS} --tick 20260817-120000 --root .`,
-      { env: { ...process.env, HOUSEKEEP_TEST_LOG_TOKEN: "present" } }).stdout);
+      { env: { ...process.env, MODERATE_TEST_LOG_TOKEN: "present" } }).stdout);
     assertEq("with the credential present the target becomes readable",
       w.targets.find((t) => t.target === "web").state, "readable");
     assertEq("and is handed to the agent rather than read here", w.needs_agent.length, 1);

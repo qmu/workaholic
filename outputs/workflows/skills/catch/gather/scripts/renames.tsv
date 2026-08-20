@@ -52,3 +52,4 @@
 # is the durable record of what a thing used to be called.
 #
 # kind	old	new	since	why
+area	housekeeping	moderations	2026-08-20	the /moderate tick log is the Moderate routine's artifact; housekeep left the plugin 2026-08-19 (issue #526)

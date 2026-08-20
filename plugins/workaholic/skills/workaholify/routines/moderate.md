@@ -14,14 +14,15 @@ mcp: [Slack]
 
 # [Moderate] — the maintenance tick, one copy for the repository
 
-**This routine was `[Housekeep]` until 2026-08-19, and its cutover is the ordered half of a
-swap** (issue #526). Behaviour did not move: it still runs `/moderate`, still fires at `:50`,
+**This routine was renamed on 2026-08-19, and its cutover was the ordered half of a swap**
+(issue #526; the names it held are in this file's git history). Behaviour did not move: it
+still runs `/moderate`, still fires at `:50`,
 still declares `autofix_on_pr_create: true` and `scope: repository`, still names the same two
 post formats. Only `name:` moved — and it moved **into a name that was live until the same
 change**. The routine that held it, running `/specificate` at `:15`, is now `[Specificate]`.
 
-**The cutover is done, and `renamed_from:` is gone with it** (2026-08-19). This routine was
-`[Housekeep]`, then briefly `[Propose]` — a name `[Specificate]` was vacating the same day,
+**The cutover is done, and `renamed_from:` is gone with it** (2026-08-19). This routine
+passed briefly through `[Propose]` — a name `[Specificate]` was vacating the same day,
 which made the two migrations ordered: converging this one before the other was renamed would
 have left two routines with one rendered name, indistinguishable to a convergence that matches
 by name. The field existed to carry that instruction into the sheet and both setup commands'
@@ -64,7 +65,7 @@ have just done.
 
 **`autofix_on_pr_create: true`, and `Write`/`Edit` are granted rather than inherited.** This
 routine is not a pure reader like `[Prepare Release]`: it writes its own tick log under
-`.workaholic/housekeeping/`, and filing a finding means writing a feedback record or a ticket —
+`.workaholic/moderations/`, and filing a finding means writing a feedback record or a ticket —
 which publishes behind a pull request, exactly as `/specificate` does. A pull request this routine
 opened and then left red is a stuck artifact nobody owns, so the flag is `true` for the same
 reason it is true on `[Specificate]`.

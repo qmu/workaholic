@@ -27,7 +27,7 @@ seam this file names for that step — recording what it actually did under the 
 
 ## 1. `open-log` — open the tick's log
 
-- **Reads**: the layout allowlist; `.workaholic/housekeeping/`.
+- **Reads**: the layout allowlist; `.workaholic/moderations/`.
 - **Writes**: nothing. The log line `run.sh` writes for it *is* the open.
 - **Aborts**: `no_workaholic_dir` (nothing here to keep), `area_unregistered` (this checkout's
   plugin predates the area — the tick still runs, its log does not), `unwritable`.
@@ -256,7 +256,7 @@ run's own bookkeeping. It runs **after** the ninth step has had its turn, so a t
 half-way still persists what it recorded on its next run, and it reports under the run's top-level
 `persist` key while logging under the step id `persist-log`.
 
-- **Reads**: the checkout's `.workaholic/housekeeping/<UTC-day>.md`, and the base's copy of the
+- **Reads**: the checkout's `.workaholic/moderations/<UTC-day>.md`, and the base's copy of the
   same path.
 - **Writes**: that one file, on the base, through the publish tree — `open-publish-tree.sh` →
   `publish-tree-commit.sh` → `close-publish-tree.sh`. Nothing else, anywhere. The caller's checkout

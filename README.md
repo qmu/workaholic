@@ -333,7 +333,7 @@ flowchart LR
   FBK["feedbacks/"]
   REL["release-notes/&lt;branch&gt;.md"]
   DEP["deployments/"]
-  HK["housekeeping/&lt;day&gt;.md"]
+  HK["moderations/&lt;day&gt;.md"]
 
   %% ---------- artifacts that land outside .workaholic/ (grey, dashed border) ----------
   EXT["issue in ANOTHER repo"]

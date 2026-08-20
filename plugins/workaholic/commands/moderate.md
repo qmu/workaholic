@@ -8,7 +8,7 @@ skills:
 
 # Moderate
 
-Run the preloaded `workaholic:moderate` skill's **The run** section end to end: one tick — `run.sh` over the nine steps in order, one log line per step in `.workaholic/housekeeping/<UTC-day>.md`, then act on every `needs_agent` entry through the seam that step's section names, recording each as `<step>-filed`. The run's **closing act** puts that log on the base through the publish tree (`persist-log.sh`) — a routine's container is discarded, so a log left in the checkout blinds every dedup and leaves the tick with no audit trail. Finish with one report line per step, the persist's own outcome **by name**, and the counts.
+Run the preloaded `workaholic:moderate` skill's **The run** section end to end: one tick — `run.sh` over the nine steps in order, one log line per step in `.workaholic/moderations/<UTC-day>.md`, then act on every `needs_agent` entry through the seam that step's section names, recording each as `<step>-filed`. The run's **closing act** puts that log on the base through the publish tree (`persist-log.sh`) — a routine's container is discarded, so a log left in the checkout blinds every dedup and leaves the tick with no audit trail. Finish with one report line per step, the persist's own outcome **by name**, and the counts.
 
 **Unattended by contract**, exactly as `/implement` and `/specificate` are: **no `AskUserQuestion` at any step**. Step 9 asks humans things and asks them in Slack — a routine-fired session has no question mechanism, and "ask a human" is not "prompt the operator".
 

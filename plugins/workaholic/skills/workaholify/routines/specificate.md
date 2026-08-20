@@ -29,7 +29,7 @@ describes a migration rather than a routine. `[Prepare Release]` carried the fir
 (2026-08-18, issue #485); this is the second and the precedent was copied, not reinvented.
 
 **The rename is one half of a swap, and the other half takes this name.** The maintenance
-tick, `[Housekeep]`, becomes `[Moderate]` — so an account that creates `[Specificate]`
+tick becomes `[Moderate]` — so an account that creates `[Specificate]`
 without first renaming its live `[Moderate]` ends up with two routines called `[Moderate]
 <repo>`, one firing `/specificate` at `:15` and one firing `/moderate` at `:50`, which
 convergence cannot tell apart. **Rename this one first**; the cutover is ordered, not merely

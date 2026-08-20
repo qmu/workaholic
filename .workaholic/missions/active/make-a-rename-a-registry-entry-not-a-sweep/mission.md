@@ -61,3 +61,4 @@ follow with nobody sweeping:
 - 2026-08-21 — ticket archived — 20260820182800-add-the-rename-registry-and-its-convergence-seam.md
 - 2026-08-21 — ticket archived — 20260820182801-rename-the-housekeeping-area-to-moderations.md
 - 2026-08-21 — ticket archived — 20260820182802-rename-report-to-story-and-deprecate-report.md
+- 2026-08-20 — story reported — work-20260821-035855.md

@@ -36,6 +36,11 @@ const SCRIPTS = {
   archive: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/archive.sh"),
   userSlug: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/user-slug.sh"),
   migrateTodoOwners: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/migrate-todo-owners.sh"),
+  layoutDoctor: join(REPO_ROOT, "plugins/workaholic/hooks/layout-doctor.sh"),
+  listRenames: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/list-renames.sh"),
+  migrateRenamedAreas: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/migrate-renamed-areas.sh"),
+  renameConversions: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/rename-conversions.sh"),
+  renamesTable: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/renames.tsv"),
   owns: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/owns.sh"),
   listTodo: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/list-todo.sh"),
   proposeRun: join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/run.sh"),
@@ -3885,6 +3890,126 @@ function testMissionDuration() {
   } finally { cleanup(dir); }
 }
 
+// ---------- the rename registry (renames.tsv + its three consumers) ----------
+// A rename used to cost a manual sweep plus a note somebody had to remember, and a
+// repository still holding the old name was told only that its directory was "not in the
+// canonical allowlist" — the least useful true sentence available. What is pinned here is
+// the LINE the registry draws, not its prose: an `area` row is APPLIED (a machine-owned
+// path with one correct destination), a `name` row is PROPOSED and never applied (prose,
+// code comments and a consuming repository's own vocabulary are a human judgment), and
+// nothing outside .workaholic/ is rewritten by any of it.
+//
+// Every fixture points the whole chain at its own table through WORKAHOLIC_RENAMES_TABLE,
+// so the shipped table is never mutated by a test run.
+function testRenameRegistry() {
+  const dir = makeRepo("main");
+  const table = join(dir, "fixture-renames.tsv");
+  const env = { ...process.env, WORKAHOLIC_RENAMES_TABLE: table };
+  try {
+    // --- the reader is the only parser, and it never fails on a bad table ---
+    writeFileSync(table, [
+      "# comment",
+      "",
+      "area\thousekeeping\tmoderations\t2026-08-20\tissue #471 follow-up",
+      "name\t/report\t/story\t2026-08-20\tthe command writes a story",
+      "bogus\tx\ty\tz\tw",              // unknown kind
+      "area\tonly\t\t2026-08-20\tno destination",  // empty `new`
+    ].join("\n") + "\n");
+
+    let j = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.listRenames}`, { env }).stdout);
+    assertEq("the reader keeps only well-formed rows", j.renames.length, 2);
+    assertEq("an unknown kind is skipped", j.renames.some((r) => r.kind === "bogus"), false);
+    assertEq("a row with no destination is skipped", j.renames.some((r) => r.old === "only"), false,
+      "`new` is never empty by design — a retirement is not a rename and has no destination");
+    assertEq("the area row round-trips", j.renames[0].new, "moderations");
+
+    const rows = run(dir, `${POSIX_SH} ${SCRIPTS.listRenames} --rows --kind area`, { env }).stdout.trim();
+    assertEq("--rows --kind narrows to one line", rows.split("\n").length, 1);
+    assertTrue("--rows is tab-separated", rows.includes("\t"), JSON.stringify(rows));
+
+    // A MISSING table is `readable: false`, not an error: the first consumer is a hook,
+    // and a doctor that failed closed on a data file would flag an entire tree.
+    const gone = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.listRenames}`,
+      { env: { ...process.env, WORKAHOLIC_RENAMES_TABLE: join(dir, "nope.tsv") } }).stdout);
+    assertEq("a missing table is readable:false, not a failure", gone.readable, false);
+    assertEq("and reports no renames rather than erroring", gone.renames.length, 0);
+
+    // --- layout-doctor names the renamed area, and does so BEFORE the allowlist ---
+    mkdirSync(join(dir, ".workaholic/housekeeping"), { recursive: true });
+    writeFileSync(join(dir, ".workaholic/housekeeping/2026-08-18.md"), "log\n");
+    writeFileSync(join(dir, ".workaholic/index.md"), "# Index\n\n* [housekeeping/](housekeeping/) - the tick log\n");
+    run(dir, "git add -A && git commit -q -m seed");
+
+    const doc = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.layoutDoctor} ${dir}`, { env }).stdout);
+    const f = doc.findings.find((x) => x.path.endsWith("housekeeping"));
+    assertTrue("the doctor finds the renamed area", !!f, JSON.stringify(doc.findings));
+    assertEq("and classifies it as a rename, not as undesignated", f.classification, "renamed-area");
+    assertTrue("the finding names what it became", f.reason.includes("moderations"), f.reason);
+    assertTrue("the finding names when", f.reason.includes("2026-08-20"), f.reason);
+    assertTrue("the remediation is a command, not a decision",
+      f.remediation.includes("migrate-renamed-areas.sh"), f.remediation);
+
+    // --- the migration applies the area half, and only that ---
+    let m = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.migrateRenamedAreas} ${join(dir, ".workaholic")}`, { env, cwd: dir }).stdout);
+    assertEq("the area moves once", m.migrated, 1);
+    assertEq("the destination is the declared new name", existsSync(join(dir, ".workaholic/moderations/2026-08-18.md")), true);
+    assertEq("the old directory is gone", existsSync(join(dir, ".workaholic/housekeeping")), false);
+    assertEq("the generated root index's link follows", 
+      readFileSync(join(dir, ".workaholic/index.md"), "utf8").includes("(moderations/)"), true);
+    assertEq("and the link count is reported", m.links_updated, 1);
+
+    m = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.migrateRenamedAreas} ${join(dir, ".workaholic")}`, { env, cwd: dir }).stdout);
+    assertEq("a second run is a clean no-op", m.migrated, 0);
+
+    // A destination that already exists is a MERGE, and which file wins is an owner's
+    // decision — reported, never guessed.
+    mkdirSync(join(dir, ".workaholic/housekeeping"), { recursive: true });
+    writeFileSync(join(dir, ".workaholic/housekeeping/2026-08-19.md"), "log\n");
+    m = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.migrateRenamedAreas} ${join(dir, ".workaholic")}`, { env, cwd: dir }).stdout);
+    assertEq("a collision migrates nothing", m.migrated, 0);
+    assertEq("and is reported by name", m.blocked[0]?.reason, "destination_exists");
+    assertEq("leaving the old directory untouched", existsSync(join(dir, ".workaholic/housekeeping/2026-08-19.md")), true);
+    rmSync(join(dir, ".workaholic/housekeeping"), { recursive: true, force: true });
+
+    // --- the name half PROPOSES and writes nothing ---
+    writeFileSync(join(dir, "doc.md"), "run /report to open the PR\n");
+    const before = readFileSync(join(dir, "doc.md"), "utf8");
+    const c = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.renameConversions} ${dir}`, { env, cwd: dir }).stdout);
+    const conv = c.conversions.find((x) => x.old === "/report");
+    assertTrue("the name row is reported", !!conv, JSON.stringify(c.conversions));
+    assertTrue("with the file that still carries it", conv.files.includes("doc.md"), JSON.stringify(conv.files));
+    assertTrue("and a ready-to-run bulk conversion", conv.command.includes("sed"), conv.command);
+    assertEq("but nothing is rewritten", readFileSync(join(dir, "doc.md"), "utf8"), before,
+      "a name is vocabulary — the operator runs the conversion or declines it");
+
+    // .workaholic/ is HISTORY and is never offered for conversion.
+    mkdirSync(join(dir, ".workaholic/stories"), { recursive: true });
+    writeFileSync(join(dir, ".workaholic/stories/s.md"), "we ran /report here\n");
+    const c2 = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.renameConversions} ${dir}`, { env, cwd: dir }).stdout);
+    const conv2 = c2.conversions.find((x) => x.old === "/report");
+    assertEq("a story naming the old name is not offered for rewriting",
+      conv2.files.some((x) => x.startsWith(".workaholic/")), false, JSON.stringify(conv2.files));
+
+    // --- the seam wires both halves ---
+    // Clear the destination this test's own earlier step created: the collision path is
+    // proved above, and leaving it here would make the seam report `destination_exists`
+    // and prove nothing about whether it composes the migration at all.
+    rmSync(join(dir, ".workaholic/moderations"), { recursive: true, force: true });
+    mkdirSync(join(dir, ".workaholic/housekeeping"), { recursive: true });
+    writeFileSync(join(dir, ".workaholic/housekeeping/2026-08-20.md"), "log\n");
+    const cl = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.convergeLayout} ${dir}`, { env, cwd: dir }).stdout);
+    assertTrue("converge-layout composes the rename migration",
+      cl.applied.some((a) => a.migration === "migrate-renamed-areas"), JSON.stringify(cl.applied.map((a) => a.migration)));
+    assertEq("and applies it", existsSync(join(dir, ".workaholic/moderations/2026-08-20.md")), true);
+    assertTrue("and reports the proposed half separately",
+      Array.isArray(cl.rename_conversions) && cl.rename_conversions.length > 0, JSON.stringify(cl.rename_conversions));
+
+    // --- the shipped table is a data file the shipped reader can read ---
+    const shipped = JSON.parse(run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.listRenames} ${SCRIPTS.renamesTable}`).stdout);
+    assertEq("the shipped table parses", shipped.readable, true);
+  } finally { cleanup(dir); }
+}
+
 // ---------- workaholify/converge-layout.sh (the migration seam) ----------
 // Issue #436 closes with "these migrations need to be applied through
 // /workaholify". What is pinned here is the LINE: it applies what is mechanical
@@ -3984,7 +4109,7 @@ function testConvergeLayout() {
     let r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.convergeLayout} .`).stdout);
     assertEq("the mechanical migrations all run", r.changed, 3);
     assertEq("each migration is composed, not reimplemented",
-      r.applied.map((a) => a.migration), ["migrate-todo-owners", "migrate-ticket-states"]);
+      r.applied.map((a) => a.migration), ["migrate-todo-owners", "migrate-ticket-states", "migrate-renamed-areas"]);
     assertTrue("the per-user queue is flattened",
       existsSync(join(dir, ".workaholic/tickets/todo/20260701000000-owned.md")));
     assertTrue("the retired ticket-state directories are folded",
@@ -14143,6 +14268,7 @@ const tests = [
   ["gather/commit-kpi.sh orchestration throughput", testCommitKpi],
   ["mission duration predict + record", testMissionDuration],
   ["gather/migrate-ticket-states.sh (the two-state ticket tree)", testMigrateTicketStates],
+  ["the rename registry (renames.tsv + its three consumers)", testRenameRegistry],
   ["workaholify/converge-layout.sh (the migration seam)", testConvergeLayout],
   ["the living-migration registry contract", testMigrationRegistryContract],
   ["report/area-freshness.sh (the two hand-maintained areas' upkeep seam)", testAreaFreshness],

@@ -16,6 +16,7 @@
 * [rename-the-routine-pair-and-add-a-per-user-updater](active/rename-the-routine-pair-and-add-a-per-user-updater/mission.md) - Rename the routine pair and add a per-user updater
 * [split-routine-setup-into-developer-and-repository-scopes](active/split-routine-setup-into-developer-and-repository-scopes/mission.md) - Split routine setup into developer and repository scopes
 * [stop-the-runner-from-taking-path-owned-legacy-tickets](active/stop-the-runner-from-taking-path-owned-legacy-tickets/mission.md) - Stop the runner from taking path-owned legacy tickets
+* [take-the-dedup-key-out-of-the-read-post](active/take-the-dedup-key-out-of-the-read-post/mission.md) - Take the dedup key out of the read post
 
 ## archive
 

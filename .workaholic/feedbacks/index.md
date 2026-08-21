@@ -529,4 +529,5 @@
 * [Command rename shipped without a version bump, so every routine resolves the stale plugin cache](20260819115551-command-rename-shipped-without-a-version-bump-so-every-routine-resolves-the-stale-plugin-cache.md)
 * [/workaholify cannot create a routine: the environment id and body shape are undocumented](20260821150124-workaholify-cannot-create-a-routine-the-environment-id-and-body-shape-are-undocumented.md)
 * [Auto-merge cannot merge in a web session while the connector can](20260821150642-auto-merge-cannot-merge-in-a-web-session-while-the-connector-can.md)
+* [Drop the fb: key line from every Slack post template](20260821150943-drop-the-fb-key-line-from-every-slack-post-template.md)
 <!-- okf:generated:end -->

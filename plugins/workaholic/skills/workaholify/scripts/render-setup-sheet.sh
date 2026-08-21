@@ -184,7 +184,23 @@ sheet() {
     fi
     printf '%s. **Connectors**: keep `%s`; remove the rest.\n' "$_n" "${_mcp:-none}"
     _n=$((_n + 1))
-    printf '%s. Have the Slack channel `dev-%s` ready — every post goes there and nowhere else.\n' "$_n" "$_repo_name"
+    # THE CHANNEL LINE IS DERIVED FROM `mcp:`, NEVER PRINTED UNCONDITIONALLY. A routine
+    # granted no connector posts nothing at all, so telling its operator to have a Slack
+    # channel ready describes a routine they are not creating -- and two templates are in
+    # that state now ([Workaholic], [Propose]), each because its audience is exactly one
+    # person who is already reached another way. A template declaring `notifications:` gets
+    # that step instead, from the same field the setup commands diff.
+    _notif=$(fm_field "$_file" notifications)
+    # `mcp: []` renders as the two-character list, not as an empty field: an explicitly
+    # empty connector list and a missing one mean the same thing here and must not diverge.
+    case "$_mcp" in ''|'[]'|none) _has_mcp="" ;; *) _has_mcp=1 ;; esac
+    if [ -n "$_has_mcp" ]; then
+        printf '%s. Have the Slack channel `dev-%s` ready — every post goes there and nowhere else.\n' "$_n" "$_repo_name"
+    elif [ -n "$_notif" ]; then
+        printf '%s. **Notifications**: set them to `%s`. This routine posts to no channel; its result reaches you here.\n' "$_n" "$_notif"
+    else
+        printf '%s. **No channel to prepare** — this routine holds no connector and posts nothing.\n' "$_n"
+    fi
     printf '\nPrompt to paste:\n\n````text\n'
     # The prompt, verbatim, from the same renderer -- read back out of the JSON string.
     printf '%s' "$_json" | python3 -c 'import json,sys; print(json.load(sys.stdin)["prompt"])'

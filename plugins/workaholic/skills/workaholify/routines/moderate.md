@@ -102,13 +102,21 @@ Run `/moderate`.
 
 If the command or its skills did not load, do not stop: run `bash plugins/workaholic/skills/check-deps/scripts/plugin-src.sh` from the checkout, take its `src`, then read `<src>/commands/moderate.md` and follow it with every script path under `<src>`.
 
-For each question the check-in step is cleared to ask, post one message into the thread of the item it concerns, addressed to the resolved person:
+When the tick's rendered post says to post, post this root as a new top-level message — no mention token of any kind on the root:
 
 ```
-🙋 Question <@U…> - <what this tick could not decide>
-One sentence, max 25 words, the question itself, with the two options when there are two.
-`ask:<key>`
+🔎 Moderation - <N> change(s), <M> question(s)
+<step>: <what it says now, one line per changed step>
+`tick:<tick-id>`
 <session URL>
 ```
 
-If no question clears the check-in gate, ask nothing — post nothing else, ever. A finding that is not a question addressed to a person belongs in the tick log, not in the channel.
+Then post each question the check-in step cleared as a reply into that root, addressed to the resolved person:
+
+```
+🙋 <@U…> - <what this tick could not decide>
+One sentence, max 25 words, the question itself, with the two options when there are two.
+`ask:<key>`
+```
+
+If the rendered post says not to post, post nothing at all — no root, no question, ever. An hour with nothing changed and nothing to ask is silent.

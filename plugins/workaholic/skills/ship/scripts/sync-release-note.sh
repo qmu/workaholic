@@ -2,7 +2,10 @@
 # SYNC THE TWO COPIES OF A TARGET'S RELEASE NOTE — the GitHub side and the
 # `.workaholic` side — and report every divergence by name before writing.
 #
-#   sync-release-note.sh [--target <slug>] [--dry-run] [base]
+#   sync-release-note.sh [--target <slug>] [--plan <path>] [--dry-run] [base]
+#
+# `--plan` is handed straight to `draft-release-note.sh` (the derivation is the
+# authority, so an arrangement changes what is derived, never what is stored).
 #
 # Output (one JSON line):
 #   {"ok": true, "authoritative": "derived", "count": N,
@@ -63,10 +66,12 @@ set -eu
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 
 WANT_TARGET=""
+PLAN_PATH=""
 DRY_RUN=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --target) WANT_TARGET="${2:-}"; shift 2 ;;
+    --plan) PLAN_PATH="${2:-}"; shift 2 ;;
     --dry-run) DRY_RUN=1; shift ;;
     --) shift; break ;;
     -*) echo '{"ok": false, "reason": "usage"}' >&2; exit 1 ;;
@@ -126,7 +131,7 @@ if ! command -v gh >/dev/null 2>&1; then
   exit 0
 fi
 
-DRAFT_JSON=$(sh "${SCRIPT_DIR}/draft-release-note.sh" ${WANT_TARGET:+--target "$WANT_TARGET"} "$BASE")
+DRAFT_JSON=$(sh "${SCRIPT_DIR}/draft-release-note.sh" ${WANT_TARGET:+--target "$WANT_TARGET"} ${PLAN_PATH:+--plan "$PLAN_PATH"} "$BASE")
 if ! printf '%s' "$DRAFT_JSON" | grep -q '"ok": true'; then
   reason=$(printf '%s' "$DRAFT_JSON" | sed -n 's/.*"reason": "\([^"]*\)".*/\1/p')
   printf '{"ok": false, "reason": "%s", "authoritative": "derived"}\n' "$(json_escape "${reason:-draft_failed}")"
@@ -144,7 +149,7 @@ for slug in $SLUGS; do
   tag="draft/${slug}"
 
   # The authoritative content: rendered fresh, never read back from a store.
-  sh "${SCRIPT_DIR}/draft-release-note.sh" --target "$slug" "$BASE" \
+  sh "${SCRIPT_DIR}/draft-release-note.sh" --target "$slug" ${PLAN_PATH:+--plan "$PLAN_PATH"} "$BASE" \
     | (python3 -c 'import json,sys; sys.stdout.write(json.load(sys.stdin)["targets"][0]["body"])' 2>/dev/null \
        || node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s).targets[0].body))' 2>/dev/null) \
     > "$DERIVED"

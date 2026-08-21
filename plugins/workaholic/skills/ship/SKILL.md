@@ -174,6 +174,20 @@ the number and the branch and summarises nothing, which is what the old placehol
 Both sources are local git data, so the rule adds no network read and leaves `--enrich` off by
 default. Only a merge carrying neither a story nor a body falls through to naming itself.
 
+**And a story-less merge keeps its substance** (2026-08-18, issue #512). The title rung was an
+improvement over the placeholder, and a title is still one clamped line where a story is a
+paragraph of *why* — on the **majority** path: measured over `v1.0.170..main`, **38 of 68 merges
+(56%) carry no story**, because a `/propose` pull request auto-merges without ever running
+`/report`. The substance is already on the base, and the merge's own diff against its first parent
+names where: `resolve-merge-substance.sh` reads the feedback record it published (`Asked for:` —
+labelled that way because a record states what somebody *asked for*, which is not always what the
+merge *did*), the mission it planned, and the count of tickets it queued. The detail renders as
+**sub-bullets on the same row**, so nothing is dropped, reordered or capped, a merge that published
+no artifact renders exactly as before, and a story-bearing merge is never asked at all. Local git
+plus base-tree reads only: `--enrich` stays off and the same base state renders the same detail.
+Neither the `feedback:` nor the `mission:` relation is parsed there — it discovers paths from a
+diff and reads a `title:` field, so each relation keeps its one reader.
+
 **Where the story's sentence ends** (2026-08-18, ticket `20260818131500`). A period **followed by
 whitespace or the end of the line** — so a period inside `check-version-bump.sh` is not one. The
 rule was "up to the first period", which cut inside such a filename and left an **unclosed
@@ -183,6 +197,8 @@ the whole corpus before the backtick-aware alternative: it fixes all 32 and mis-
 abbreviation in any of them, so the more general rule was not needed. Both sources are then cut to
 160 characters by **one shared clamp**, which never returns an odd number of backticks — a span it
 cut open is closed before the ellipsis.
+
+**The renderer derives the facts; a plan arranges them** (2026-08-18, issue #512). The report was that a deterministic renderer ships where planning judgment was asked for: one clamped line per merge, in merge order, with nothing deciding what ships together, in what order, or at what risk. The answer is a seam, not a rewrite — `draft-release-note.sh --plan <path|->` renders an **agent-authored arrangement** over the facts it already derives, and with no plan its output is **byte-identical** to what it produced before the seam existed (proved by diffing both renders of the same base). The idempotency contract is superseded in place rather than deleted: *the same base state **plus the same plan** renders byte-identical output* — determinism was never the defect, the absence of judgment was, and a re-render that diffs for no reason is a property the ask never wanted to lose. What a plan may carry, what it may never do (invent a change, drop a merge, move a fact), where it may live, and how a plan written for an older base renders as **stale** rather than as current: [reference/release-plan.md](reference/release-plan.md). A plan that cannot be applied — unreadable, malformed, written for another target, no `python3` — **is not applied**: the derived list renders and the reason rides the JSON under `plan`, because a note that looks planned and was not is worse than one that reads as a list. This ticket delivered the seam and its document; it authors no plan and runs no agent.
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/sync-release-note.sh [--target <slug>] [--dry-run] [base]
@@ -222,6 +238,30 @@ The ask was "run `/ship` once per hour to update the release notes". A `## Deplo
 | Run `/ship` itself, hourly | `/ship` **merges**. An unattended hourly sweep with a loose scope merges pull requests nobody expected, and a unit-less sweep mode is a second behaviour on a command that has one. |
 
 So the tick does the strongest thing a machine may honestly do to a document whose forward-looking half is a human's decision to act on: it checks it and says what it found. The precedent is this repository's own `story/scripts/area-freshness.sh` — *it reports, it never writes* — adopted 2026-08-13 for the same class of problem.
+
+### Plan → release → verification, in one document (2026-08-18, issue #512's fourth gap)
+
+The three records were separately correct and never joined: the **plan** in the target's draft, the **window** under `.workaholic/releases/` (written at the cut by `record-release-cut.sh`, at each attempt by `confirm-release.sh`), and the **per-target attempt** appended to `.workaholic/release-notes/<slug>.md` by `record-evidence.sh`. A reader opening a target's draft saw the plan and nothing that came after it.
+
+The join is a **derivation, not a copy**: `read-release-history.sh` reads those records where their own writers keep them, and `draft-release-note.sh` renders them into the note it already renders — `## Deployment Plan`, then `## Releases`, then `## Deployment Verification`, in that order. **No third store**, which is the whole constraint: two stores exist by decision and the derivation is the truth, so a third would drift inside a week. Append-only survives untouched because the projection never writes: `record-evidence.sh` remains the one writer of an attempt and `confirm-release.sh` of a confirmation, and a published release is still never overwritten.
+
+Two things it refuses to blur. A **window is repository-wide** — a `release/*` branch carries the whole batch — so the note says so rather than letting a batch confirmation read as "this target was checked"; the per-target evidence is the section below it. And **`fail`, `not_run` and `bypassed` render exactly as loudly as `pass`**: a continuity feature that showed only successes would make an unverified release look verified, which is the failure the verification section exists to prevent. An empty stage says so in words (*"No release has been cut yet"*), never by an absent section.
+
+### Where the judgment runs (the Open Decision on ticket `20260818202056-run-the-release-planning-judgment-and-reach-ci`, ruled 2026-08-18)
+
+**(a) — in CI, beside the writer.** The seam above renders a plan; this is where the plan is authored. The three candidates were weighed against the refusals in this section rather than against effort:
+
+| Seam | Ruling |
+| ---- | ------ |
+| **(b)** the agent plans on the `[Prepare Release]` tick and **commits** the plan for CI to read | **Refused.** That is the class refused twice here — an hourly unattended writer on `main` — and it contradicts the command's own contract ("it writes nothing, anywhere") in three documents. A plan file is not a release, but it is a commit, and for a target declaring no `paths:` the commit storing it increments the very count the plan is about. |
+| **(c)** the plan is authored per unit at ship/report time and accumulates | **Refused**, on two counts. It is not *continuous* re-arrangement — a repository whose units are all `review` would refresh it rarely — and it has nowhere to put the result: a per-unit plan must be committed for a later CI run to read it, which is (b) in a different costume. It would also stitch per-unit judgments together rather than produce one view of the whole release. |
+| **(a)** the agent runs in the `Release Note Draft` workflow | **Chosen.** That job already holds `contents: write` and a defined checkout, so the judgment and the write happen in one place and **nothing crosses between them**. It answers the three refusals by name: it commits nothing to `main`, writes no open pull request's branch, and never runs `/ship`. |
+
+**Its cost is a credential, and the cost is paid visibly.** An agent invocation in CI needs a key, which is the operator's act. So `plan-release.sh` is **gated**: `WORKAHOLIC_PLANNER_CMD` (default `claude -p`) must be reachable, the workflow's planner steps are skipped when `ANTHROPIC_API_KEY` is unset, and every way a plan fails to arrive is named — `no_planner`, `planner_failed`, `invalid_plan`, `empty_range`, `no_renderer`. **The fallback is visible on the note's face** (Open Decision 2, ruled the same day): passing `--plan` *is* the expectation, so a plan that did not apply renders a line saying the merges below are derived rather than arranged. A render that expected no plan stays silent. Nobody has to read the JSON to tell a broken planner from a deliberate list.
+
+**How often it actually refreshes**, stated plainly because the ask says *continuously*: exactly when the cadence would write — at most once per `Asia/Tokyo` day, plus whenever the release stage advances. The workflow asks the cadence what is due (`list-due-targets.sh` over a `--dry-run`) **before** it spends anything, so an idle base spends no agent budget. The planner command is pluggable, which is also what makes the whole chain provable with no key and no network: `sh scripts/e2e/loop-drill.sh verify-planner`, plus the hermetic fixtures.
+
+**`/prepare-release` is untouched by all of it.** It calls the cadence without `--write`, makes no `gh` call, and authors no plan — the judgment lives with the permission, and neither is in the tick.
 
 **Row 1 was answered on 2026-08-17; rows 2 and 3 stand.** The refusal above is against *committing* a regenerated document to `main`, and it was measured, not asserted: `paths:` is declared on 0 of 1 targets here, so a note commit is 100 % self-counted. The answer is not a better writer but a home that is not a commit — the per-target **GitHub draft release** (*The two copies, and which one is authoritative*, above). A draft that never enters git cannot increment the count it reports, so the self-reference goes to zero rather than being compensated for. Rows 2 and 3 are untouched by it: no open pull request's branch is ever written, and `/ship` is never run on a tick. The sentence this section used to carry — *"the release notes are not updated by any tick"* — is **no longer true and has been removed rather than left to rot**; what remains deliberately undelivered is that `.workaholic/release-notes/` is still written only at ship and release time, never by a tick.
 

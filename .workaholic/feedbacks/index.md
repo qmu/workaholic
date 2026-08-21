@@ -516,6 +516,7 @@
 * [Resolved: The tick log's step-filed lines can never reach the base](20260818125724-resolved-20260818064140-the-tick-log-s-step-filed-lines-can-never-reach-the-base.md)
 * [The release status reader trusts whatever refs its container holds](20260818132013-the-release-status-reader-trusts-whatever-refs-its-container-holds.md)
 * [Rename the repository tick's post heading to Release Preparation](20260818132525-rename-the-repository-tick-s-post-heading-to-release-preparation.md)
+* [The release-preparation tick reposts hourly because the digest hashes the commit count](20260818185347-the-release-preparation-tick-reposts-hourly-because-the-digest-hashes-the-commit-count.md)
 * [Commits display Claude as the author name instead of the developer](20260818191739-commits-display-claude-as-the-author-name-instead-of-the-developer.md)
 * [The draft release note must be an agent's arranged release plan, not a rendered commit list](20260818201731-the-draft-release-note-must-be-an-agent-s-arranged-release-plan-not-a-rendered-commit-list.md)
 * [Make the Housekeep notification reflect the tick's actual findings](20260818202549-make-the-housekeep-notification-reflect-the-tick-s-actual-findings.md)
@@ -525,4 +526,5 @@
 * [Fix the housekeep check-in's already-asked gate](20260819061902-fix-the-housekeep-check-in-s-already-asked-gate.md)
 * [/workaholify should converge the account's routines, not just render setup sheets](20260819103531-workaholify-should-converge-the-account-s-routines-not-just-render-setup-sheets.md)
 * [Generate stories/index.md like every other OKF area](20260819111841-generate-stories-index-md-like-every-other-okf-area.md)
+* [Command rename shipped without a version bump, so every routine resolves the stale plugin cache](20260819115551-command-rename-shipped-without-a-version-bump-so-every-routine-resolves-the-stale-plugin-cache.md)
 <!-- okf:generated:end -->

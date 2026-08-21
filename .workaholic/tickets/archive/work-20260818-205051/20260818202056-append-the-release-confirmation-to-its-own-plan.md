@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-18T20:20:56+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -101,3 +102,62 @@ release confirms into are not experienced as one thing.
   resolution — the confirmation join is the same work whichever way the planner runs.
 - `.workaholic/release-notes/` is written only at ship and release time, never by a
   tick. That is deliberate and this ticket does not change it.
+
+## Final Report
+
+Development completed as planned.
+
+**The map, written first** (step 1), because the value here is a join: the **plan** is
+derived by `draft-release-note.sh` and projected into the target's GitHub draft release
+by `sync-release-note.sh`; the **window** lives in `.workaholic/releases/<branch>.md`,
+written at the cut by `record-release-cut.sh` and at each attempt by
+`confirm-release.sh`; the **per-target attempt** is appended to
+`.workaholic/release-notes/<slug>.md` (and to the branch story) by `record-evidence.sh`,
+which is one writer with two destinations. Every one of those is correct and none of them
+knew about the others.
+
+**What "one continuous document" means here** (step 2): the note **derives** the other
+two rather than storing them. `read-release-history.sh` reads the records where their own
+writers keep them, and the renderer emits `## Deployment Plan` → `## Releases` →
+`## Deployment Verification` in that order. No third store — two exist by decision and
+the derivation is the truth, so a third would drift within a week — and no second source
+of truth, because nothing new is written anywhere.
+
+**Append-only survives by not writing at all** (steps 4 and 5). The projection cannot
+violate an order it never touches: `record-evidence.sh` is still the one writer of an
+attempt, `confirm-release.sh` of a confirmation, and no published-release overwrite path
+was added. `not_run` and `bypassed` render exactly as loudly as `pass`, and a *failed*
+window renders as loudly as a confirmed one — a continuity feature that showed only the
+successes would make an unverified release look verified, which is the failure the
+verification section exists to prevent.
+
+Two blurs are refused in the rendered prose rather than left to the reader: a release
+window is **repository-wide** (it carries the batch, so its confirmation is not a
+statement about one target), and an empty stage says so in words rather than by an absent
+section.
+
+Verification: **3158 assertions** pass, of which 13 are the new `release note: plan then
+release then verification, in one document` fixture — the empty state, a cut-and-confirmed
+window, a failed one, newest-first order, per-target attempts including `not_run`, the
+three sections in order, that the render writes nothing, and that two renders are
+byte-identical. `sh scripts/e2e/loop-drill.sh verify-cadence` passes (4/4 load-bearing),
+`verify-planner` passes, and `posix-lint.sh` / `build.mjs` / `verify.mjs` /
+`validate-metadata.mjs` / `layout-doctor.sh` are clean.
+
+### Discovered Insights
+
+- **Insight**: the two records have different **scopes**, and rendering them the same way
+  would have been the bug this ticket could most easily have shipped.
+  **Context**: a `release/*` window is repository-wide while a deployment attempt is
+  per-target, so a batch confirmation displayed under a target's plan would tell a reader
+  their target was checked when the batch containing it was. The note labels the
+  difference in the section's own prose.
+- **Insight**: continuity did not need any new writer, only a new **reader**.
+  **Context**: every record needed already existed and had exactly one writer. Adding a
+  reader keeps all three writers' invariants (append-only, never-overwrite-published,
+  one-writer-two-destinations) true by construction rather than by re-checking them.
+- **Insight**: `record-evidence.sh` appends its block at the **end of its section**, not
+  at EOF, precisely because the generated draft ends with `## Links`.
+  **Context**: the new `## Releases` section sits above `## Deployment Verification`, so
+  that 2026-08-17 fix keeps holding — an attempt still lands inside its own section, and
+  the join did not have to move it.

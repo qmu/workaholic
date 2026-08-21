@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-18T20:20:56+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -108,3 +109,57 @@ the writer and the planner both read.
 - Where the plan is stored is deliberately left to this ticket rather than assumed:
   the next ticket's Open Decision (where the agent runs) constrains it, so pick a
   storage that does not pre-commit that fork if you can.
+
+## Final Report
+
+Development completed as planned.
+
+**The seam.** `draft-release-note.sh --plan <path|->` renders an agent-authored
+arrangement over the facts the script already derives; `render-release-plan.sh` is the
+arranging half, split out so the renderer keeps its line-at-a-time shell shape and the
+plan gets a real parser. The line a merge renders as is composed **once** and appended
+both to the derived list and to the facts a plan arranges, so a planned note and a
+planless one can never disagree about what a merge says.
+
+**Storage was chosen by not choosing a path.** The plan is whatever file the caller
+hands over; the renderer looks in no well-known location, exactly as `--out` already
+behaves. What *is* fixed is what any home must respect: never inside git (§7's measured
+self-counting refusal applies unchanged — for a target declaring no `paths:`, the commit
+storing the plan increments the count the plan is about), addressable by both sides, and
+never trusted for freshness, which is why the document carries its own `base_sha`. That
+leaves the next ticket's Open Decision — where the planner runs — untouched, which the
+Considerations asked for.
+
+**Staleness** is a rendering state, not an error: a plan whose `base_sha` is not the
+rendered base is rendered *and* said to be stale, in the note (a line naming both shas)
+and in the JSON (`plan.stale`). Everything that landed after the plan's base falls into
+*Not arranged by the plan*, so the reader sees what the plan did not know about without
+comparing shas. A stale plan is never silently refreshed — that would mean authoring the
+judgment the plan exists to carry.
+
+Verification: the whole hermetic suite passes at **3120 assertions**, of which 25 are the
+new `release note: the plan seam over the renderer` fixture — arrangement, order, the
+derived line with the plan's note appended, held-back, unarranged, an out-of-range
+reference, staleness, three refusals, and the restated idempotency contract. The
+byte-identity of the no-plan path was proved against the **pre-change script itself**:
+`git show HEAD:…/draft-release-note.sh` and the new one rendered this repository's
+`marketplace` target into two directories and `diff -r` reported them identical, with the
+same `body_sha`. `posix-lint.sh` is clean, and `build.mjs` / `verify.mjs` /
+`validate-metadata.mjs` / `layout-doctor.sh` all pass.
+
+### Discovered Insights
+
+- **Insight**: the two sides of the staleness comparison legitimately carry different sha
+  widths — the renderer holds whatever `read-deploy-state.sh --base-rev` abbreviated it
+  to, while a planner running `git rev-parse` writes all forty.
+  **Context**: an equality test marked every current plan stale (caught by the fixture on
+  its first run). The comparison is by common prefix, which is also why the reference
+  document states the field is compared that way rather than leaving it to be discovered.
+- **Insight**: a plan can only address a merge that carries a pull request number, and the
+  renderer's own facts include merges that carry none.
+  **Context**: those merges are unaddressable by construction, so they land unarranged
+  rather than being dropped — the same no-selection doctrine that keeps the section
+  uncapped. A planner cannot make them disappear even by trying.
+- **Insight**: `--plan -` had to be slurped once at startup rather than per target.
+  **Context**: the render loop runs per target, so a stdin plan consumed by the first
+  target would leave every later one planless for a reason nothing would have reported.

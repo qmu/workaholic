@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-18T20:20:56+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -104,3 +105,56 @@ is for. This ticket makes those reachable to the planner for merges with no stor
   one.
 - Resist widening this into "make `/propose` run `/report`". Proposal pull requests
   auto-merge by a 2026-08-11 decision that this mission does not reopen.
+
+## Final Report
+
+Development completed as planned.
+
+**Measured first.** Over `v1.0.170..origin/main` this repository carries **68 merges, 38
+of which (56%) have no branch story** — the ask's assertion holds, and the majority of
+them are `[Proposal]` merges, which structurally never run `/report`. That is the number a
+later reader can act on, and it is why a thin rung on this path is expensive.
+
+**What a story-less merge resolves to.** `resolve-merge-substance.sh` takes the merge's
+own diff against its first parent — the files that merge brought in — and reads the base
+checkout for their titles, exactly as the story rung already reads
+`.workaholic/stories/`. Three rungs of detail, each labelled for what it actually is:
+`Asked for: <feedback title> (feedback \`<stem>\`)`, `Planned as: mission "<title>", N
+ticket(s) queued`, or `Queued: N ticket(s)`. The labels answer the Considerations' warning
+directly: a feedback record states what somebody *asked for*, which is not always what the
+merge *did*, so nothing here presents itself as a summary of the change.
+
+**No selection was introduced.** The detail renders as sub-bullets on the merge's own row.
+The top-level row count is unchanged, order is unchanged, nothing is capped, a merge that
+published no artifact renders byte-identically to before, and a merge that *has* a story is
+never asked — a second summary beside a story would only compete with it. Neither the
+`feedback:` nor the `mission:` relation is parsed: the script discovers paths from a diff
+and reads a `title:` field, so each relation keeps its single reader.
+
+The detail also reaches the plan seam. The facts a plan arranges carry it after the line
+(RS-separated), so a planned note and a planless one carry the same rows and the same
+detail — the plan decides only where each row sits.
+
+Verification: the suite passes at **3128 assertions**, of which 8 are the new `release
+note: a story-less merge keeps its substance` fixture — a proposal merge publishing a
+record, a mission and two tickets; a merge publishing nothing; a story-bearing merge; the
+row count; and a double render proving byte-identical output. `posix-lint.sh`, `build.mjs`,
+`verify.mjs` and `layout-doctor.sh` are clean.
+
+### Discovered Insights
+
+- **Insight**: the merge sha was not available where the substance is needed — the
+  renderer's per-merge record carried only the subject and the body.
+  **Context**: adding `%H` as a first field was the whole enabling change; without it the
+  detail would have needed a second traversal of the range, which the header explicitly
+  forbids ("the unreleased set comes from `read-deploy-state.sh` and is not re-derived").
+- **Insight**: reading the artifact's title from the **base checkout** rather than from the
+  merge commit is what keeps this consistent with the story rung.
+  **Context**: both then answer the same way when a file was later renamed or deleted —
+  the rung simply falls silent — instead of one rung describing a tree the reader cannot
+  see any more.
+- **Insight**: a proposal merge's diff is a reliable index of what it published, because
+  `/propose` publishes the record, the mission and the tickets in **one** pull request.
+  **Context**: that is a property of the publish tree, not a coincidence, so the resolution
+  is as stable as the publish seam itself — and a merge that published nothing simply
+  yields no lines.

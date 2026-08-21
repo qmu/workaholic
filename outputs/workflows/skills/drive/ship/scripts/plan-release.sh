@@ -223,9 +223,12 @@ then
   exit 0
 fi
 
-GROUPS=$(python3 -c 'import json,sys; print(len(json.load(open(sys.argv[1])).get("groups") or []))' "$PLAN")
+# NOT `GROUPS`: in bash-as-/bin/sh that name is a special variable, and assigning to it
+# under `set -e` exits 1 with no message (dash, which CI runs, has no such rule -- so the
+# defect passed CI and died on every developer machine whose /bin/sh is bash).
+GROUP_COUNT=$(python3 -c 'import json,sys; print(len(json.load(open(sys.argv[1])).get("groups") or []))' "$PLAN")
 cp "$PLAN" "${OUT_DIR}/${TARGET}.json"
 
 printf '{"ok": true, "target": "%s", "planned": true, "path": "%s", "base_sha": "%s", "merges": %s, "groups": %s}\n' \
   "$(json_escape "$TARGET")" "$(json_escape "${OUT_DIR}/${TARGET}.json")" \
-  "$(json_escape "$BASE_SHA")" "$MERGES" "$GROUPS"
+  "$(json_escape "$BASE_SHA")" "$MERGES" "$GROUP_COUNT"

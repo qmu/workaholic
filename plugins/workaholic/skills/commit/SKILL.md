@@ -24,9 +24,9 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/commit/scripts/commit.sh \
   "<title>" "<why>" "<changes>" "<concerns>" "<insights>" "<verify>" [files...]
 ```
 
-**Argument order is strict**: any flags come **first**, then the six positional args in exactly this order — `title why changes concerns insights verify` — then optional `[files...]`. A flag placed after the positionals is parsed as a filename, not a flag, and is silently dropped — a trailing `--category` loses its `Category:` trailer. Pass `--category` when the change maps cleanly to Added / Changed / Removed so `/report` can group it. The trailer block (including any `Co-Authored-By`) is whatever `commit.sh` emits — callers stay trailer-agnostic and add no attribution line themselves.
+**Argument order is strict**: any flags come **first**, then the six positional args in exactly this order — `title why changes concerns insights verify` — then optional `[files...]`. A flag placed after the positionals is parsed as a filename, not a flag, and is silently dropped — a trailing `--category` loses its `Category:` trailer. Pass `--category` when the change maps cleanly to Added / Changed / Removed so `/story` can group it. The trailer block (including any `Co-Authored-By`) is whatever `commit.sh` emits — callers stay trailer-agnostic and add no attribution line themselves.
 
-Each body section (except title) is a short paragraph of 3-5 sentences; the keys are chosen to feed `/report` (`Why` → Motivation, `Changes` → Changes/Outcome, `Concerns` → Concerns, `Insights` → Successful Development Patterns):
+Each body section (except title) is a short paragraph of 3-5 sentences; the keys are chosen to feed `/story` (`Why` → Motivation, `Changes` → Changes/Outcome, `Concerns` → Concerns, `Insights` → Successful Development Patterns):
 
 - `title` — present-tense verb, what changed, 50 chars max (see *Title* below)
 - `why` — the problem or gap, what triggered the work, the chosen approach and why it beat the alternatives (from ticket Overview); omitted from the message when empty
@@ -54,7 +54,7 @@ A commit is the smallest description layer: **one normalized change**, kept to a
 
 ## Message Format
 
-The keys map onto the report's narrative sections so `git log` alone gives a reviewer — and the `/report` overview-writer — enough signal without reading the diff. `Why`, `Concerns`, and `Insights` are omitted when empty or "None"; `Changes` and `Verify` always render.
+The keys map onto the report's narrative sections so `git log` alone gives a reviewer — and the `/story` overview-writer — enough signal without reading the diff. `Why`, `Concerns`, and `Insights` are omitted when empty or "None"; `Changes` and `Verify` always render.
 
 ```
 <title>
@@ -79,7 +79,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 
 | Trailer | Emitted when | Read by |
 | ------- | ------------ | ------- |
-| `Category:` | `--category` was passed | `/report`'s `collect-commits.sh`, for Added/Changed/Removed grouping |
+| `Category:` | `--category` was passed | `/story`'s `collect-commits.sh`, for Added/Changed/Removed grouping |
 | `Claude-Session:` | the process environment carries `CLAUDE_CODE_REMOTE_SESSION_ID` — a cloud session, which every routine-fired run is | a human auditing which run produced a commit |
 | `Co-Authored-By:` | always | GitHub's co-author attribution |
 

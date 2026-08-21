@@ -2,9 +2,9 @@
 # Step 7 — documentation against the current concept, starting from README.md.
 #
 # IT REUSES THE EXISTING CHECKERS rather than writing a third one:
-# `report/scripts/doc-drift.sh` for structural drift (a skill, command or hook
+# `story/scripts/doc-drift.sh` for structural drift (a skill, command or hook
 # appeared or vanished without the documents that enumerate them being touched)
-# and `report/scripts/area-freshness.sh` for the two hand-maintained areas (a
+# and `story/scripts/area-freshness.sh` for the two hand-maintained areas (a
 # record naming something this repository retired is not "possibly stale", it is
 # wrong).
 #
@@ -35,7 +35,7 @@
 set -eu
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "$0")" && pwd)
-REPORT="${SCRIPT_DIR}/../../report/scripts"
+REPORT="${SCRIPT_DIR}/../../story/scripts"
 LOG_READ="${SCRIPT_DIR}/log-read.sh"
 ROOT='.'
 TICK=''

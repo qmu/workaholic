@@ -73,7 +73,7 @@ The delta may rewrite `## Goal`/`## Experience` (and a legacy `## Scope`), appen
 
 ## Mission Position Report
 
-The one definition of "where does the mission stand"; every hand-off seam states it, none re-derives it. Exactly three things: **how far** (`checked/total` from `progress.sh` — computed, never narrated), **what is next** (`next-acceptance.sh`), and **how far a fresh session can proceed** (what is ready to drive, what waits on a decision or blocker — the part a later session cannot reconstruct). Read every figure through the scripts; the relation is many-valued, so report every mission the work advances (`read-relation.sh`). It is a report, never a "shall I proceed?". A `0/0` mission is reported honestly ("no criteria written yet"), not silenced as the lens does — deliberate divergence, since a handoff needs exactly that fact. Stated by `/mission-close` (before asking the outcome, and again on a carry) and by `/drive` for each unfinished mission unit (never fabricated for an unmissioned batch); deliberately **not** by `/report`/`/ship`, whose audience is the PR reviewer. Progress itself is derived, never stored: `progress.sh` computes `{checked, total, unlinked}` on demand — `unlinked` distinguishes "never wired to its tickets" from "nothing done", which look identical without it.
+The one definition of "where does the mission stand"; every hand-off seam states it, none re-derives it. Exactly three things: **how far** (`checked/total` from `progress.sh` — computed, never narrated), **what is next** (`next-acceptance.sh`), and **how far a fresh session can proceed** (what is ready to drive, what waits on a decision or blocker — the part a later session cannot reconstruct). Read every figure through the scripts; the relation is many-valued, so report every mission the work advances (`read-relation.sh`). It is a report, never a "shall I proceed?". A `0/0` mission is reported honestly ("no criteria written yet"), not silenced as the lens does — deliberate divergence, since a handoff needs exactly that fact. Stated by `/mission-close` (before asking the outcome, and again on a carry) and by `/drive` for each unfinished mission unit (never fabricated for an unmissioned batch); deliberately **not** by `/story`/`/ship`, whose audience is the PR reviewer. Progress itself is derived, never stored: `progress.sh` computes `{checked, total, unlinked}` on demand — `unlinked` distinguishes "never wired to its tickets" from "nothing done", which look identical without it.
 
 ## Scripts
 
@@ -112,8 +112,8 @@ Each seam reads the artifact's many-valued `mission:` relation through the singl
 | Seam | Trigger | Changelog event | Acceptance |
 | ---- | ------- | --------------- | ---------- |
 | `drive` (`archive.sh`) | a missioned ticket is archived | `ticket archived` | ticks the ticket's item |
-| `report` (story flow) | a missioned story is reported | `story reported` | reconciles the story's `tickets:` |
-| `report` (concern verdicts) | a missioned concern judged resolved | `concern resolved (unstuck)` | — |
+| `story` (story flow) | a missioned story is reported | `story reported` | reconciles the story's `tickets:` |
+| `story` (concern verdicts) | a missioned concern judged resolved | `concern resolved (unstuck)` | — |
 | `ship` (concern extraction) | a missioned concern is deferred | `concern deferred (stuck)` | — |
 
 Non-blocking is not silent: a seam never lets a mission problem block the work it is archiving, but a failed mutator is named loudly and a mutator that ran and changed nothing prints its `reason` (`"ticked": false` is not a failure, so a bare `|| true` never catches it) — never route a mutator's stdout, stderr, and exit code to `/dev/null`. Read-only consumers — `/catch`, and the always-on mission lens (`hooks/mission-lens.sh`, via `progress.sh`/`next-acceptance.sh`, gated on ownership through `gather/scripts/owners.sh`, worktree focus, and at least one acceptance item) — mutate nothing.

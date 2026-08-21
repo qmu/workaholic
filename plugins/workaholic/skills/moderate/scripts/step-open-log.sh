@@ -37,16 +37,16 @@ if [ ! -d "$ROOT/.workaholic" ]; then
     exit 0
 fi
 
-if [ -f "$ALLOWLIST" ] && ! grep -q '^housekeeping$' "$ALLOWLIST"; then
-    printf '{"step": "open-log", "status": "degraded", "reason": "area_unregistered", "summary": "housekeeping/ is not in this plugin'"'"'s layout allowlist — the tick runs, its log does not", "needs_agent": []}\n'
+if [ -f "$ALLOWLIST" ] && ! grep -q '^moderations$' "$ALLOWLIST"; then
+    printf '{"step": "open-log", "status": "degraded", "reason": "area_unregistered", "summary": "moderations/ is not in this plugin'"'"'s layout allowlist — the tick runs, its log does not", "needs_agent": []}\n'
     exit 0
 fi
 
-DIR="$ROOT/.workaholic/housekeeping"
+DIR="$ROOT/.workaholic/moderations"
 if ! mkdir -p "$DIR" 2>/dev/null || [ ! -w "$DIR" ]; then
-    printf '{"step": "open-log", "status": "degraded", "reason": "unwritable", "summary": "the housekeeping/ log area is not writable", "needs_agent": []}\n'
+    printf '{"step": "open-log", "status": "degraded", "reason": "unwritable", "summary": "the moderations/ log area is not writable", "needs_agent": []}\n'
     exit 0
 fi
 
 DAY=$(printf '%s' "$TICK" | cut -c1-4)-$(printf '%s' "$TICK" | cut -c5-6)-$(printf '%s' "$TICK" | cut -c7-8)
-printf '{"step": "open-log", "status": "ok", "reason": "", "summary": "tick log open at .workaholic/housekeeping/%s.md", "needs_agent": []}\n' "$DAY"
+printf '{"step": "open-log", "status": "ok", "reason": "", "summary": "tick log open at .workaholic/moderations/%s.md", "needs_agent": []}\n' "$DAY"

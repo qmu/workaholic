@@ -62,9 +62,9 @@ grown into the threaded post — see [`claims.md`](claims.md).
 
 ## Report (§5)
 
-Compose the branch story per `report`'s Write Story flow inside the worktree, run the
+Compose the branch story per `story`'s Write Story flow inside the worktree, run the
 branch-safety scan (warn tier — findings fold into the PR body, never a prompt), then
-`bash ../report/scripts/create-or-update.sh <branch> "<title>"`. If
+`bash ../story/scripts/create-or-update.sh <branch> "<title>"`. If
 report's context detection misreads inside a claim worktree, scope it explicitly by branch — do
 not write a second story generator.
 
@@ -82,7 +82,7 @@ not write a second story generator.
   `bash ../drive/scripts/verification-handoff.sh mission <slug>` /
   `… tickets <ticket-file>...`. See *The declared handoff* below.
 - **`review` → merge the PR immediately** (mission `auto-merge-propose-and-implement-prs-under-a-dev-release-branch-split`,
-  2026-08-11, superseding the earlier stop-at-the-PR route): once `/report` has opened the unit's
+  2026-08-11, superseding the earlier stop-at-the-PR route): once `/story` has opened the unit's
   pull request and the branch-safety scan verdict is `pass`, merge it (REST
   `PUT repos/{owner}/{repo}/pulls/{n}/merge` with `merge_method: merge`, through
   `gather/scripts/gh-rest.sh` — never the GraphQL-backed `gh pr merge`, which a web session
@@ -197,7 +197,7 @@ invocation (a branch-safe timestamp) and reuse it, so a mission driven across se
 records its time exactly once. The recorder is the **only** writer of `actual_hours` — never
 hand-edit the field. Report predicted vs actual per mission unit.
 
-**Handoff.** A handoff unit writes the Handoff section (`report`, *Story Content
+**Handoff.** A handoff unit writes the Handoff section (`story`, *Story Content
 Structure*), opens or updates its PR with the partial work pushed — an unpublished handoff is not
 a handoff — and, under `/implement`, posts the PR URL through the same notifier the `review`
 route uses; its 🟡 line is the unit's one finish post. On the **half-driven** path its undriven

@@ -249,8 +249,8 @@ for step in $STEPS; do
     emit_row "$step" "$status" "$reason" "$summary" "$needs" "$logged"
 done
 
-if [ "$DO_LOG" -eq 1 ] && [ -f "$ROOT/.workaholic/housekeeping/$DAY.md" ]; then
-    log_file="$ROOT/.workaholic/housekeeping/$DAY.md"
+if [ "$DO_LOG" -eq 1 ] && [ -f "$ROOT/.workaholic/moderations/$DAY.md" ]; then
+    log_file="$ROOT/.workaholic/moderations/$DAY.md"
 fi
 
 # --- The closing act: put the log where the next tick can read it -------------

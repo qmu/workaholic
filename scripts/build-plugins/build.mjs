@@ -47,7 +47,7 @@ const WORKFLOWS_PLUGIN = join(OUTPUTS_ROOT, "workflows"); // outputs/workflows
 // removed after a full build; left in place (and its path printed) for partial dev builds.
 const SCRATCH = mkdtempSync(join(tmpdir(), "workaholic-skills-"));
 
-const DEFAULT_TARGETS = ["create-ticket", "drive", "report", "ship", "catch", "mission"];
+const DEFAULT_TARGETS = ["create-ticket", "drive", "story", "ship", "catch", "mission"];
 // review-sections / write-release-note are pure prose (no scripts) but are skill-preload
 // dependencies of report, so they ship as their own skills alongside the workflows.
 const EXTRA_SKILLS = ["review-sections", "write-release-note"];

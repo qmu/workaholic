@@ -1,6 +1,6 @@
 #!/bin/sh -eu
 # List the OPEN concern set from the feedback stream — the single reader every
-# consumer (the /report judge flow, the proposal batch) goes through.
+# consumer (the /story judge flow, the proposal batch) goes through.
 #
 # A concern is OPEN iff:
 #   * it is a kind: concern feedback record, AND
@@ -15,7 +15,7 @@
 #                {path, concern_id, status, severity, owner, first_seen,
 #                 last_seen, origin_pr, origin_pr_url, origin_branch,
 #                 origin_commit, body} — the same envelope the retired
-# report-side lister carried, so the /report flow reads it unchanged. should_triage is permanently false: the triage machinery
+# report-side lister carried, so the /story flow reads it unchanged. should_triage is permanently false: the triage machinery
 # retired with the merger (curation is the reader's judgment over the stream).
 #
 # Runs migrate-concerns.sh first (best-effort), so a not-yet-migrated repo

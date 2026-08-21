@@ -6,7 +6,7 @@
 # knowledge areas and trips/, deriving every entry from what exists on disk.
 # stories/ is one of those flat areas since 2026-08-19: its entries are generated
 # like every other area's, from each story's own `description:` frontmatter, so
-# the index has a repairer instead of resting on /report inserting a bullet by
+# the index has a repairer instead of resting on /story inserting a bullet by
 # hand. Only the tickets/ tree (queue scripts and structure guards own it) is
 # linked, never written.
 #
@@ -340,13 +340,13 @@ The development knowledge this project's workaholic workflows generate and maint
 organized as an Open Knowledge Format bundle. Enter any area through its index.
 
 "
-for area in tickets housekeeping stories missions feedbacks strategies deployments release-notes releases terms trips; do
+for area in tickets moderations stories missions feedbacks strategies deployments release-notes releases terms trips; do
   dir="$ROOT/$area"
   [ -d "$dir" ] || continue
   case "$area" in
     tickets)       root_body="$root_body* [tickets/](tickets/) - implementation tickets (two states: todo / archive; the outcome is the status: field)
 " ;;
-    housekeeping)  root_body="$root_body* [housekeeping/](housekeeping/) - the /moderate tick log, one file per UTC day (an operational log, not knowledge: no type:, no index)
+    moderations)  root_body="$root_body* [moderations/](moderations/) - the /moderate tick log, one file per UTC day (an operational log, not knowledge: no type:, no index)
 " ;;
     stories)       root_body="$root_body* [stories](stories/index.md) - branch development narratives (PR descriptions and historical record)
 " ;;

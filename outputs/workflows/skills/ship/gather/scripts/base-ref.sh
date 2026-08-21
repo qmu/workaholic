@@ -1,5 +1,5 @@
 #!/bin/sh -eu
-# Resolve the base ref that "this branch" is measured against, for /report and
+# Resolve the base ref that "this branch" is measured against, for /story and
 # release-scan. This is the SINGLE place the base is decided; every caller
 # (git-context.sh, collect-commits.sh, scan-branch-safety.sh) asks here rather than
 # re-deriving a `${1:-main}` default of its own.

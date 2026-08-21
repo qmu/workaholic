@@ -1235,7 +1235,7 @@ cmd_verify_standup() {
 # ---------------------------------------------------------------- verify-propose
 # Is the maintenance tick sound — every step reported, one log entry, nothing written
 # outside the log? The drill runs the tick against a THROWAWAY root so the operator's
-# own `.workaholic/housekeeping/` is never appended to by a drill.
+# own `.workaholic/moderations/` is never appended to by a drill.
 cmd_verify_propose() {
     _run="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/run.sh"
     if [ ! -f "$_run" ]; then
@@ -1270,7 +1270,7 @@ cmd_verify_propose() {
     fi
 
     _day=$(printf '%s' "$_tick" | sed 's/^\(....\)\(..\)\(..\)-.*$/\1-\2-\3/')
-    _log="${_root}/.workaholic/housekeeping/${_day}.md"
+    _log="${_root}/.workaholic/moderations/${_day}.md"
     if [ -f "$_log" ]; then
         _sections=$(grep -c '^## ' "$_log" || true)
         # Nine step lines plus the closing act's own `persist-log` line.

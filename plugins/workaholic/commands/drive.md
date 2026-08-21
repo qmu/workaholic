@@ -3,7 +3,7 @@ name: drive
 description: Interactively survey the claimable missions and unclaimed backlog, ask which units to take, then claim, implement, and route each by merge policy.
 skills:
   - workaholic:drive
-  - workaholic:report
+  - workaholic:story
   - workaholic:ship
 ---
 

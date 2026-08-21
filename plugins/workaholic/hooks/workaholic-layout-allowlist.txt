@@ -24,7 +24,7 @@
 # policy). The same lockstep applies to removing one.
 deployments
 feedbacks
-housekeeping
+moderations
 missions
 release-notes
 releases

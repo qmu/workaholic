@@ -3,7 +3,7 @@ name: implement
 description: Unattended executor - survey the claimable missions and unclaimed backlog, claim each PR-unit, implement it, and route it by merge policy, with no prompt at any step.
 skills:
   - workaholic:drive
-  - workaholic:report
+  - workaholic:story
   - workaholic:ship
 ---
 

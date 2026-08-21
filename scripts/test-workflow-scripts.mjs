@@ -36,6 +36,11 @@ const SCRIPTS = {
   archive: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/archive.sh"),
   userSlug: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/user-slug.sh"),
   migrateTodoOwners: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/migrate-todo-owners.sh"),
+  layoutDoctor: join(REPO_ROOT, "plugins/workaholic/hooks/layout-doctor.sh"),
+  listRenames: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/list-renames.sh"),
+  migrateRenamedAreas: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/migrate-renamed-areas.sh"),
+  renameConversions: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/rename-conversions.sh"),
+  renamesTable: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/renames.tsv"),
   owns: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/owns.sh"),
   listTodo: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/list-todo.sh"),
   proposeRun: join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/run.sh"),
@@ -86,20 +91,20 @@ const SCRIPTS = {
   reportDeployStatus: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/report-deploy-status.sh"),
   recordEvidence: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/record-evidence.sh"),
   catchupMain: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/catchup-main.sh"),
-  applyVerdicts: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/apply-deferred-concern-verdicts.sh"),
+  applyVerdicts: join(REPO_ROOT, "plugins/workaholic/skills/story/scripts/apply-deferred-concern-verdicts.sh"),
   listOpenConcerns: join(REPO_ROOT, "plugins/workaholic/skills/feedback/scripts/list-open-concerns.sh"),
   migrateConcerns: join(REPO_ROOT, "plugins/workaholic/skills/feedback/scripts/migrate-concerns.sh"),
   extractDeferredConcerns: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/extract-deferred-concerns.sh"),
   commitReleaseNote: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/commit-release-note.sh"),
-  shrinkPrBody: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/shrink-pr-body.sh"),
-  filterLowConcerns: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/filter-low-concerns.sh"),
-  docDrift: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/doc-drift.sh"),
+  shrinkPrBody: join(REPO_ROOT, "plugins/workaholic/skills/story/scripts/shrink-pr-body.sh"),
+  filterLowConcerns: join(REPO_ROOT, "plugins/workaholic/skills/story/scripts/filter-low-concerns.sh"),
+  docDrift: join(REPO_ROOT, "plugins/workaholic/skills/story/scripts/doc-drift.sh"),
   checkCapability: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/check-confirmation-capability.sh"),
   posixLint: join(REPO_ROOT, "plugins/workaholic/hooks/posix-lint.sh"),
-  ticketCommits: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/ticket-commits.sh"),
+  ticketCommits: join(REPO_ROOT, "plugins/workaholic/skills/story/scripts/ticket-commits.sh"),
   scanBranchSafety: join(REPO_ROOT, "plugins/workaholic/skills/release-scan/scripts/scan-branch-safety.sh"),
   gateDecision: join(REPO_ROOT, "plugins/workaholic/skills/release-scan/scripts/gate-decision.sh"),
-  collectCommits: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/collect-commits.sh"),
+  collectCommits: join(REPO_ROOT, "plugins/workaholic/skills/story/scripts/collect-commits.sh"),
   baseRef: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/base-ref.sh"),
   checkVersionBump: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/check-version-bump.sh"),
   gitContext: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/git-context.sh"),
@@ -139,7 +144,7 @@ const SCRIPTS = {
   proposeScaffoldDraft: join(REPO_ROOT, "plugins/workaholic/skills/specificate/scripts/scaffold-draft.sh"),
   proposeNotifySlack: join(REPO_ROOT, "plugins/workaholic/skills/specificate/scripts/notify-slack.sh"),
   feedbackList: join(REPO_ROOT, "plugins/workaholic/skills/feedback/scripts/list.sh"),
-  areaFreshness: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/area-freshness.sh"),
+  areaFreshness: join(REPO_ROOT, "plugins/workaholic/skills/story/scripts/area-freshness.sh"),
   migrateTicketStates: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/migrate-ticket-states.sh"),
   listIcebox: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/list-icebox.sh"),
   convergeLayout: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/converge-layout.sh"),
@@ -344,7 +349,7 @@ function testDetectContext() {
     // read "-> hybrid", which stated the defect as the contract: has_trips was a repo-wide
     // find for ANY trip directory, so the single March 2026 trip dir committed to main made
     // every branch after it report trip/hybrid forever. Observed on work-20260715-112717, a
-    // pure drive branch, where /report detected mode: "trip".
+    // pure drive branch, where /story detected mode: "trip".
     //
     // A work-* branch owns no trip by default: the trip<->branch associations the repo
     // records are the legacy trip/<name> naming and a plan.md `branch:` field (below).
@@ -355,7 +360,7 @@ function testDetectContext() {
       context: "work", branch: "work-20260528-foo", mode: "drive",
     });
 
-    // The exact state of work-20260715-112717 when /report misfired: unrelated trip dir,
+    // The exact state of work-20260715-112717 when /story misfired: unrelated trip dir,
     // no tickets of this user's. Must still be drive, not trip.
     rmSync(join(dir, `.workaholic/tickets/todo/${TEST_SLUG}/x.md`));
     r = run(dir, `${POSIX_SH} ${SCRIPTS.detectContext}`);
@@ -646,7 +651,7 @@ Development completed as planned.
 
     const archived = readFileSync(archivedPath, "utf8");
     // Nothing is written back into the ticket after the commit. commit_hash is
-    // derived from git by /report (ticket-commits.sh) — a commit cannot carry its
+    // derived from git by /story (ticket-commits.sh) — a commit cannot carry its
     // own hash — and category lives only in the commit's Category: trailer since
     // the ticket field was retired (2026-08-07).
     assertTrue("archive.sh does NOT stamp commit_hash", !/^commit_hash:/m.test(archived), archived.split("\n").slice(0, 12).join("\n"));
@@ -3333,7 +3338,7 @@ function testReleaseScanPerCommit() {
 // ---------- 8j2. report/ticket-commits.sh: the derived hash must be REACHABLE ----------
 // A commit cannot carry its own hash, so archive.sh no longer stamps commit_hash: the old
 // stamp-then-amend recorded a pre-amend commit that is orphaned and never pushed, which made
-// every /report commit link 404. The hash is derived from the commit that ADDED the archived
+// every /story commit link 404. The hash is derived from the commit that ADDED the archived
 // ticket. Reachability from the branch is the whole point — it is what "GitHub has it" means.
 function testTicketCommitsDerivation() {
   const dir = makeRepo("work-20260715-000001");
@@ -3885,6 +3890,141 @@ function testMissionDuration() {
   } finally { cleanup(dir); }
 }
 
+// ---------- the rename registry (renames.tsv + its three consumers) ----------
+// A rename used to cost a manual sweep plus a note somebody had to remember, and a
+// repository still holding the old name was told only that its directory was "not in the
+// canonical allowlist" — the least useful true sentence available. What is pinned here is
+// the LINE the registry draws, not its prose: an `area` row is APPLIED (a machine-owned
+// path with one correct destination), a `name` row is PROPOSED and never applied (prose,
+// code comments and a consuming repository's own vocabulary are a human judgment), and
+// nothing outside .workaholic/ is rewritten by any of it.
+//
+// Every fixture points the whole chain at its own table through WORKAHOLIC_RENAMES_TABLE,
+// so the shipped table is never mutated by a test run.
+function testRenameRegistry() {
+  const dir = makeRepo("main");
+  const table = join(dir, "fixture-renames.tsv");
+  const env = { ...process.env, WORKAHOLIC_RENAMES_TABLE: table };
+  try {
+    // THE FIXTURE PAIR IS SYNTHETIC ON PURPOSE, and the 2026-08-20 housekeeping/ ->
+    // moderations/ rename is why: the bulk conversion for a REAL rename swept this file
+    // too and rewrote both halves of the fixture's old->new pair into the same word,
+    // leaving a test that seeded `moderations/` and then asserted `moderations/` was gone.
+    // A pair naming no real rename cannot be damaged by the next one.
+    //
+    // `terms` -> `glossary` specifically, because `terms` IS in the layout allowlist: it is
+    // what proves the doctor consults the registry BEFORE the allowlist. Get that order
+    // wrong and an old name that is still allowlisted is silently accepted.
+    const OLD = "terms", NEW = "glossary";
+    writeFileSync(table, [
+      "# comment",
+      "",
+      `area\t${OLD}\t${NEW}\t2026-08-20\tthe fixture rename`,
+      "name\t/oldcmd\t/newcmd\t2026-08-20\tthe fixture command rename",
+      "bogus\tx\ty\tz\tw",                      // unknown kind
+      "area\tonly\t\t2026-08-20\tno destination",  // empty `new`
+    ].join("\n") + "\n");
+
+    // --- the reader is the only parser, and it never fails on a bad table ---
+    let j = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.listRenames}`, { env }).stdout);
+    assertEq("the reader keeps only well-formed rows", j.renames.length, 2);
+    assertEq("an unknown kind is skipped", j.renames.some((r) => r.kind === "bogus"), false);
+    assertEq("a row with no destination is skipped", j.renames.some((r) => r.old === "only"), false,
+      "`new` is never empty by design — a retirement is not a rename and has no destination");
+    assertEq("the area row round-trips", j.renames[0].new, NEW);
+
+    const rows = run(dir, `${POSIX_SH} ${SCRIPTS.listRenames} --rows --kind area`, { env }).stdout.trim();
+    assertEq("--rows --kind narrows to one line", rows.split("\n").length, 1);
+    assertTrue("--rows is tab-separated", rows.includes("\t"), JSON.stringify(rows));
+
+    // A MISSING table is `readable: false`, not an error: the first consumer is a hook,
+    // and a doctor that failed closed on a data file would flag an entire tree.
+    const gone = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.listRenames}`,
+      { env: { ...process.env, WORKAHOLIC_RENAMES_TABLE: join(dir, "nope.tsv") } }).stdout);
+    assertEq("a missing table is readable:false, not a failure", gone.readable, false);
+    assertEq("and reports no renames rather than erroring", gone.renames.length, 0);
+
+    // --- layout-doctor names the renamed area, and does so BEFORE the allowlist ---
+    mkdirSync(join(dir, `.workaholic/${OLD}`), { recursive: true });
+    writeFileSync(join(dir, `.workaholic/${OLD}/entry.md`), "x\n");
+    writeFileSync(join(dir, ".workaholic/index.md"), `# Index\n\n* [${OLD}/](${OLD}/) - the area\n`);
+    run(dir, "git add -A && git commit -q -m seed");
+
+    // Without the registry this directory is ALLOWLISTED and produces no finding at all.
+    const clean = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.layoutDoctor} ${dir}`,
+      { env: { ...process.env, WORKAHOLIC_RENAMES_TABLE: join(dir, "nope.tsv") } }).stdout);
+    assertEq("the old name alone is allowlisted and unremarkable", clean.conforming, true);
+
+    const doc = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.layoutDoctor} ${dir}`, { env }).stdout);
+    const f = doc.findings.find((x) => x.path.endsWith(OLD));
+    assertTrue("the registry makes the doctor find it anyway", !!f, JSON.stringify(doc.findings));
+    assertEq("classified as a rename, not as undesignated", f.classification, "renamed-area");
+    assertTrue("the finding names what it became", f.reason.includes(NEW), f.reason);
+    assertTrue("the finding names when", f.reason.includes("2026-08-20"), f.reason);
+    assertTrue("the remediation is a command, not a decision",
+      f.remediation.includes("migrate-renamed-areas.sh"), f.remediation);
+
+    // --- the migration applies the area half, and only that ---
+    let m = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.migrateRenamedAreas} ${join(dir, ".workaholic")}`, { env, cwd: dir }).stdout);
+    assertEq("the area moves once", m.migrated, 1);
+    assertEq("the destination is the declared new name", existsSync(join(dir, `.workaholic/${NEW}/entry.md`)), true);
+    assertEq("the old directory is gone", existsSync(join(dir, `.workaholic/${OLD}`)), false);
+    assertEq("the generated root index's link follows",
+      readFileSync(join(dir, ".workaholic/index.md"), "utf8").includes(`(${NEW}/)`), true);
+    assertEq("and the link count is reported", m.links_updated, 1);
+
+    m = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.migrateRenamedAreas} ${join(dir, ".workaholic")}`, { env, cwd: dir }).stdout);
+    assertEq("a second run is a clean no-op", m.migrated, 0);
+
+    // A destination that already exists is a MERGE, and which file wins is an owner's
+    // decision — reported, never guessed.
+    mkdirSync(join(dir, `.workaholic/${OLD}`), { recursive: true });
+    writeFileSync(join(dir, `.workaholic/${OLD}/second.md`), "x\n");
+    m = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.migrateRenamedAreas} ${join(dir, ".workaholic")}`, { env, cwd: dir }).stdout);
+    assertEq("a collision migrates nothing", m.migrated, 0);
+    assertEq("and is reported by name", m.blocked[0]?.reason, "destination_exists");
+    assertEq("leaving the old directory untouched", existsSync(join(dir, `.workaholic/${OLD}/second.md`)), true);
+    rmSync(join(dir, `.workaholic/${OLD}`), { recursive: true, force: true });
+
+    // --- the name half PROPOSES and writes nothing ---
+    writeFileSync(join(dir, "doc.md"), "run /oldcmd to open the PR\n");
+    const before = readFileSync(join(dir, "doc.md"), "utf8");
+    const c = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.renameConversions} ${dir}`, { env, cwd: dir }).stdout);
+    const conv = c.conversions.find((x) => x.old === "/oldcmd");
+    assertTrue("the name row is reported", !!conv, JSON.stringify(c.conversions));
+    assertTrue("with the file that still carries it", conv.files.includes("doc.md"), JSON.stringify(conv.files));
+    assertTrue("and a ready-to-run bulk conversion", conv.command.includes("sed"), conv.command);
+    assertEq("but nothing is rewritten", readFileSync(join(dir, "doc.md"), "utf8"), before,
+      "a name is vocabulary — the operator runs the conversion or declines it");
+
+    // .workaholic/ is HISTORY and is never offered for conversion.
+    mkdirSync(join(dir, ".workaholic/stories"), { recursive: true });
+    writeFileSync(join(dir, ".workaholic/stories/s.md"), "we ran /oldcmd here\n");
+    const c2 = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.renameConversions} ${dir}`, { env, cwd: dir }).stdout);
+    const conv2 = c2.conversions.find((x) => x.old === "/oldcmd");
+    assertEq("a story naming the old name is not offered for rewriting",
+      conv2.files.some((x) => x.startsWith(".workaholic/")), false, JSON.stringify(conv2.files));
+
+    // --- the seam wires both halves ---
+    // Clear the destination this test's own earlier step created: the collision path is
+    // proved above, and leaving it here would make the seam report `destination_exists`
+    // and prove nothing about whether it composes the migration at all.
+    rmSync(join(dir, `.workaholic/${NEW}`), { recursive: true, force: true });
+    mkdirSync(join(dir, `.workaholic/${OLD}`), { recursive: true });
+    writeFileSync(join(dir, `.workaholic/${OLD}/third.md`), "x\n");
+    const cl = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.convergeLayout} ${dir}`, { env, cwd: dir }).stdout);
+    assertTrue("converge-layout composes the rename migration",
+      cl.applied.some((a) => a.migration === "migrate-renamed-areas"), JSON.stringify(cl.applied.map((a) => a.migration)));
+    assertEq("and applies it", existsSync(join(dir, `.workaholic/${NEW}/third.md`)), true);
+    assertTrue("and reports the proposed half separately",
+      Array.isArray(cl.rename_conversions) && cl.rename_conversions.length > 0, JSON.stringify(cl.rename_conversions));
+
+    // --- the shipped table is a data file the shipped reader can read ---
+    const shipped = JSON.parse(run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.listRenames} ${SCRIPTS.renamesTable}`).stdout);
+    assertEq("the shipped table parses", shipped.readable, true);
+  } finally { cleanup(dir); }
+}
+
 // ---------- workaholify/converge-layout.sh (the migration seam) ----------
 // Issue #436 closes with "these migrations need to be applied through
 // /workaholify". What is pinned here is the LINE: it applies what is mechanical
@@ -3984,7 +4124,7 @@ function testConvergeLayout() {
     let r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.convergeLayout} .`).stdout);
     assertEq("the mechanical migrations all run", r.changed, 3);
     assertEq("each migration is composed, not reimplemented",
-      r.applied.map((a) => a.migration), ["migrate-todo-owners", "migrate-ticket-states"]);
+      r.applied.map((a) => a.migration), ["migrate-todo-owners", "migrate-ticket-states", "migrate-renamed-areas"]);
     assertTrue("the per-user queue is flattened",
       existsSync(join(dir, ".workaholic/tickets/todo/20260701000000-owned.md")));
     assertTrue("the retired ticket-state directories are folded",
@@ -6646,7 +6786,7 @@ function testRefreshIndexStoriesArea() {
       run(dir, `${POSIX_SH} ${R}`);
       const body = readFileSync(idx, "utf8");
 
-      assertTrue("a story file produces its entry with no /report run involved",
+      assertTrue("a story file produces its entry with no /story run involved",
         body.includes("](work-20260202-000000.md) - newer story desc"), body);
       assertTrue("a story with no description keeps the prior region's text",
         body.includes("](work-20260101-000000.md) - hand-written older desc"), body);
@@ -6691,7 +6831,7 @@ function testRefreshIndexStoriesArea() {
 // reintroduces a constant /tmp artifact path (the collision that fed one run
 // another repo's data) goes red here.
 function testReportArtifacts() {
-  const createOrUpdate = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/create-or-update.sh"), "utf8");
+  const createOrUpdate = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/story/scripts/create-or-update.sh"), "utf8");
   assertTrue("create-or-update.sh has no constant /tmp/pr-body.md",
     !/\/tmp\/pr-body\.md/.test(createOrUpdate), "found /tmp/pr-body.md in create-or-update.sh");
   assertTrue("create-or-update.sh derives a per-run body file via mktemp",
@@ -6856,7 +6996,7 @@ function testFilterLowConcerns() {
 // A change applied to one mirror produces a story whose sections disagree with the
 // contract that generates them, which is invisible until a story is written.
 function testStoryTemplateMirrors() {
-  const report = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/report/SKILL.md"), "utf8");
+  const report = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/story/SKILL.md"), "utf8");
   const review = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/review-sections/SKILL.md"), "utf8");
 
   // 1. Historical Analysis is folded into Motivation: no section, in either mirror.
@@ -7924,6 +8064,9 @@ function testValidateTicketResume() {
 
   const dir = makeRepo("main");
   try {
+    // `type: housekeeping` here is the RETIRED per-ticket `type:` field, not the tick-log
+    // area — which is why the 2026-08-20 housekeeping/ -> moderations/ rename left it
+    // alone. A grep-driven sweep will find it again; it is not that name.
     const body = (steps) => `---
 created_at: 2026-07-16T12:00:00+09:00
 author: a@qmu.jp
@@ -8257,7 +8400,7 @@ function testBaseRefResolution() {
 
 // ---------- report/collect-commits.sh (commit body is emitted, not dropped) ----------
 // Regression guard for the historical bug where the script computed the body then
-// dropped it, starving /report of the structured commit content.
+// dropped it, starving /story of the structured commit content.
 function testCollectCommits() {
   const dir = makeRepo("main");
   try {
@@ -13580,7 +13723,7 @@ esac
 `);
     chmodSync(join(binDir, "gh"), 0o755);
     const env = { ...process.env, PATH: `${binDir}:${process.env.PATH}` };
-    const CMD = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/create-or-update.sh")} work-20260801-000000 "Unfinished work"`;
+    const CMD = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/story/scripts/create-or-update.sh")} work-20260801-000000 "Unfinished work"`;
 
     const created = run(repo, CMD, { env });
     assertEq("with no PR yet, the create path runs", created.status, 0);
@@ -13637,7 +13780,7 @@ function testResumeParkedAndAdoption() {
       { res: r.claims[0].resumable, why: r.claims[0].resume_reason },
       { res: true, why: "heartbeat_lapsed" });
 
-    // ---- Now it REPORTS: /report commits the branch story as it opens the PR. ----
+    // ---- Now it REPORTS: /story commits the branch story as it opens the PR. ----
     mkdirSync(join(wt, ".workaholic/stories"), { recursive: true });
     writeFileSync(join(wt, `.workaholic/stories/${batch.branch}.md`),
       `---\ntype: Story\nbranch: ${batch.branch}\ntickets_completed: 1\nmission: []\ntickets: []\n---\n\n## 1. Overview\n\nparked\n`);
@@ -13855,7 +13998,7 @@ function testGhAbsentDegrades() {
       `---\ntype: Story\n---\n\n## 1. Overview\n\nwork that is already pushed\n`);
 
     // ---- report/create-or-update.sh: the seam that actually broke ----
-    const cou = run(repo, `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/create-or-update.sh")} work-20260801-000000 "T"`, { env: noGh });
+    const cou = run(repo, `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/story/scripts/create-or-update.sh")} work-20260801-000000 "T"`, { env: noGh });
     assertEq(`create-or-update exits 0 without gh instead of 127 (stderr: ${cou.stderr.trim()})`, cou.status, 0);
     // `/not found/`, not `/command not found/`: Ubuntu's /bin/sh is dash, which says
     // `sh: 1: sed: not found`. The narrower pattern matched bash's phrasing only, so this
@@ -14143,6 +14286,7 @@ const tests = [
   ["gather/commit-kpi.sh orchestration throughput", testCommitKpi],
   ["mission duration predict + record", testMissionDuration],
   ["gather/migrate-ticket-states.sh (the two-state ticket tree)", testMigrateTicketStates],
+  ["the rename registry (renames.tsv + its three consumers)", testRenameRegistry],
   ["workaholify/converge-layout.sh (the migration seam)", testConvergeLayout],
   ["the living-migration registry contract", testMigrationRegistryContract],
   ["report/area-freshness.sh (the two hand-maintained areas' upkeep seam)", testAreaFreshness],
@@ -16141,7 +16285,7 @@ function testPrepareReleaseRetired() {
 // ---------- release note: Key Changes says what landed, for every merge ----------
 // (2026-08-18, issue #496) The section emitted `Pull request #N (branch) — no branch
 // story on the base.` for any merge with no story, and a `/specificate` pull request
-// structurally never has one — it auto-merges without ever running `/report` — so the
+// structurally never has one — it auto-merges without ever running `/story` — so the
 // commonest merge kind in this repository rendered as a line whose entire content is the
 // absence of a summary. The fallback is the merge commit's BODY, where GitHub puts the
 // pull request's title: local data, so no network and no `--enrich`.
@@ -17793,17 +17937,17 @@ function testProposeLog() {
   try {
     // The closed layout admits the area — and still refuses a near-miss sibling, which
     // is the property that makes registration meaningful rather than decorative.
-    mkdirSync(join(repo, ".workaholic/housekeeping"), { recursive: true });
-    mkdirSync(join(repo, ".workaholic/housekeepin"), { recursive: true });
-    const ok = join(repo, ".workaholic/housekeeping/2026-08-17.md");
-    const bad = join(repo, ".workaholic/housekeepin/2026-08-17.md");
+    mkdirSync(join(repo, ".workaholic/moderations"), { recursive: true });
+    mkdirSync(join(repo, ".workaholic/moderationz"), { recursive: true });
+    const ok = join(repo, ".workaholic/moderations/2026-08-17.md");
+    const bad = join(repo, ".workaholic/moderationz/2026-08-17.md");
     writeFileSync(ok, "# log\n");
     writeFileSync(bad, "# log\n");
     assertEq("a write into the registered log area passes the layout gate",
       run(repo, `printf '{"tool_name":"Write","tool_input":{"file_path":"${ok}"}}' | ${HOOK}`, { shell: "/bin/sh" }).status, 0);
     assertEq("a write into an unregistered sibling is still denied",
       run(repo, `printf '{"tool_name":"Write","tool_input":{"file_path":"${bad}"}}' | ${HOOK}`, { shell: "/bin/sh" }).status, 2);
-    rmSync(join(repo, ".workaholic/housekeepin"), { recursive: true, force: true });
+    rmSync(join(repo, ".workaholic/moderationz"), { recursive: true, force: true });
     rmSync(ok, { force: true });
 
     // One entry per (tick, step): the second write of the same step is refused, and the
@@ -17812,7 +17956,7 @@ function testProposeLog() {
     let j = JSON.parse(run(repo, `${APPEND} --tick ${T1} --step stale-issues --status filed --summary 'commented on #123'`).stdout);
     assertEq("the first step of a tick opens the day file", j.created_file, true);
     assertEq("and its section", j.created_section, true);
-    assertTrue("named for the tick's UTC day", j.file.endsWith(".workaholic/housekeeping/2026-08-17.md"), j.file);
+    assertTrue("named for the tick's UTC day", j.file.endsWith(".workaholic/moderations/2026-08-17.md"), j.file);
     j = JSON.parse(run(repo, `${APPEND} --tick ${T1} --step drift --status ok --summary 'no drift'`).stdout);
     assertEq("a second step joins the same section", j.created_section, false);
     j = JSON.parse(run(repo, `${APPEND} --tick ${T1} --step drift --status ok --summary 'no drift'`).stdout);
@@ -17823,7 +17967,7 @@ function testProposeLog() {
     // inside that tick's section rather than at the tail of the file.
     run(repo, `${APPEND} --tick 20260817-130000 --step stale-issues --status skipped --summary 'inbox unreadable'`);
     run(repo, `${APPEND} --tick ${T1} --step docs --status degraded --summary 'could not read README'`);
-    const body = readFileSync(join(repo, ".workaholic/housekeeping/2026-08-17.md"), "utf8");
+    const body = readFileSync(join(repo, ".workaholic/moderations/2026-08-17.md"), "utf8");
     const firstSection = body.split("## 20260817-130000")[0];
     assertTrue("a re-entered tick appends inside its own section", firstSection.includes("`docs`: degraded"), body);
 
@@ -17846,9 +17990,9 @@ function testProposeLog() {
     // The area is an OKF exception: the index refresh links the directory and writes no
     // index into it, so a tick never churns the bundle indexes.
     run(repo, `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/okf/scripts/refresh-index.sh")}`);
-    assertEq("the log area gets no index.md", existsSync(join(repo, ".workaholic/housekeeping/index.md")), false);
+    assertEq("the log area gets no index.md", existsSync(join(repo, ".workaholic/moderations/index.md")), false);
     assertTrue("but the bundle root links it",
-      readFileSync(join(repo, ".workaholic/index.md"), "utf8").includes("housekeeping/"),
+      readFileSync(join(repo, ".workaholic/index.md"), "utf8").includes("moderations/"),
       readFileSync(join(repo, ".workaholic/index.md"), "utf8"));
   } finally {
     cleanup(repo);
@@ -17872,8 +18016,8 @@ function testProposeRun() {
     mkdirSync(join(repo, ".workaholic"), { recursive: true });
     const j = JSON.parse(run(repo, `${RUN} --tick 20260817-090000`).stdout);
     assertEq("every step of the ask is run and reported", j.steps.map((s) => s.step), STEPS);
-    assertEq("the tick writes its log", j.log, "./.workaholic/housekeeping/2026-08-17.md");
-    const log = readFileSync(join(repo, ".workaholic/housekeeping/2026-08-17.md"), "utf8");
+    assertEq("the tick writes its log", j.log, "./.workaholic/moderations/2026-08-17.md");
+    const log = readFileSync(join(repo, ".workaholic/moderations/2026-08-17.md"), "utf8");
     assertEq("one log section for the tick", (log.match(/^## /gm) || []).length, 1);
     // Nine step lines plus the closing act's own line. The persist is deliberately
     // NOT a tenth step (`steps[]` above is still exactly the nine), but its outcome
@@ -17897,7 +18041,7 @@ function testProposeRun() {
     // Re-running the same tick id re-reports every step and does not double the log.
     const again = JSON.parse(run(repo, `${RUN} --tick 20260817-090000`).stdout);
     assertEq("a re-entered tick still reports every step", again.steps.length, STEPS.length);
-    const log2 = readFileSync(join(repo, ".workaholic/housekeeping/2026-08-17.md"), "utf8");
+    const log2 = readFileSync(join(repo, ".workaholic/moderations/2026-08-17.md"), "utf8");
     assertEq("without doubling its log", log2, log);
 
     // The three ways a step can go silent are three named degradations.
@@ -17929,7 +18073,7 @@ function testProposeRun() {
 }
 
 // ---------- propose: the tick log survives the container that wrote it ----------
-// (2026-08-17, ticket `20260817131500-persist-the-housekeep-tick-log`) A routine tick
+// (2026-08-17, ticket `20260817131500`) A routine tick
 // runs in a fresh clone that is thrown away afterwards, so a log that stayed in the
 // checkout would leave every dedup blind and the run with no audit trail. The property
 // under test is that the log REACHES THE BASE, and that two containers ticking on the
@@ -17942,7 +18086,7 @@ function testProposePersist() {
   const origin = join(tmp, "origin.git");
   const A = join(tmp, "a");
   const B = join(tmp, "b");
-  const DAY = ".workaholic/housekeeping/2026-08-17.md";
+  const DAY = ".workaholic/moderations/2026-08-17.md";
   const clone = (path, email) => {
     execSync(`git clone -q ${origin} ${path}`);
     execSync(`git config user.email ${email}`, { cwd: path });
@@ -18021,7 +18165,7 @@ exit 0
     // runs a tick against a throwaway root from inside the operator's own checkout —
     // from committing a fixture's log to the operator's base.
     const loose = join(tmp, "loose");
-    mkdirSync(join(loose, ".workaholic/housekeeping"), { recursive: true });
+    mkdirSync(join(loose, ".workaholic/moderations"), { recursive: true });
     writeFileSync(join(loose, DAY), "# x\n\n## 20260817-140000\n\n- `open-log`: ok — x\n");
     const l = JSON.parse(run(A, `${PERSIST} --tick 20260817-140000 --root ${loose}`).stdout);
     assertEq("a root outside a repository is skipped, not published",
@@ -18056,7 +18200,7 @@ function testProposePersistCarriesLateLines() {
   const origin = join(tmp, "origin.git");
   const A = join(tmp, "a");
   const B = join(tmp, "b");
-  const DAY = ".workaholic/housekeeping/2026-08-17.md";
+  const DAY = ".workaholic/moderations/2026-08-17.md";
   const clone = (path, email) => {
     execSync(`git clone -q ${origin} ${path}`);
     execSync(`git config user.email ${email}`, { cwd: path });
@@ -18235,15 +18379,15 @@ function testProposeInboundSweep() {
     assertEq("and the target says which", w.targets[0].state, "no_log_source");
 
     writeFileSync(join(repo, ".workaholic/deployments/web.md"),
-      "---\ntype: Deployment\ntitle: Web\nconfirmation_method: browser\nlog_locator: https://logs.example.test/web\nlog_credential_env: HOUSEKEEP_TEST_LOG_TOKEN\n---\n\n# Web\n");
+      "---\ntype: Deployment\ntitle: Web\nconfirmation_method: browser\nlog_locator: https://logs.example.test/web\nlog_credential_env: MODERATE_TEST_LOG_TOKEN\n---\n\n# Web\n");
     w = JSON.parse(run(repo, `${LOGS} --tick 20260817-120000 --root .`).stdout);
     const web = w.targets.find((t) => t.target === "web");
     assertEq("a missing credential is a CHECKED claim", web.state, "no_credentials");
-    assertEq("naming the variable it looked for", web.credential_env, "HOUSEKEEP_TEST_LOG_TOKEN");
+    assertEq("naming the variable it looked for", web.credential_env, "MODERATE_TEST_LOG_TOKEN");
     assertEq("and nothing is handed over to read", w.needs_agent.length, 0);
 
     w = JSON.parse(run(repo, `${LOGS} --tick 20260817-120000 --root .`,
-      { env: { ...process.env, HOUSEKEEP_TEST_LOG_TOKEN: "present" } }).stdout);
+      { env: { ...process.env, MODERATE_TEST_LOG_TOKEN: "present" } }).stdout);
     assertEq("with the credential present the target becomes readable",
       w.targets.find((t) => t.target === "web").state, "readable");
     assertEq("and is handed to the agent rather than read here", w.needs_agent.length, 1);

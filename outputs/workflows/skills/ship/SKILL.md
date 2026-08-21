@@ -90,14 +90,14 @@ Run `bash ship/scripts/check-todo.sh`. On `clean: false`, print **one** non-bloc
 
 Ship the current branch's PR. **The flow's outcome is a drafted plan and a merged PR; it deploys nothing.** Full per-step detail — JSON fields, failure branches, evidence and bypass invocations: [`reference/flow.md`](reference/flow.md).
 
-1. **Pre-check** (`pre-check.sh`): no PR ⇒ "run `/report` first", stop; already merged ⇒ warn, proceed to the drafting phase only. Capture `pr_number`/`url`.
+1. **Pre-check** (`pre-check.sh`): no PR ⇒ "run `/story` first", stop; already merged ⇒ warn, proceed to the drafting phase only. Capture `pr_number`/`url`.
 2. **Catch up with `main`** (`catchup-main.sh`, mandatory) and apply the version-collision guard. `mechanical` ⇒ reconcile yourself as routine, no prompt; `content` ⇒ halt for the user; `merge_failed` ⇒ fix the working tree and re-run. Never present reconciliation as optional.
 2b. **Branch-safety scan gate** (pre-merge, blocks like §1-4): `release-scan`'s `scan-branch-safety.sh | gate-decision.sh`. `overridable: false` (`secret`) ⇒ non-overridable hard stop, no bypass ever; `overridable: true` (`size`/`leak`) ⇒ fix and re-run, or the developer overrides with the accepted risk recorded via `record-evidence.sh … "bypassed"`.
 3. **Draft the deployment plan** (the phase that replaced the deploy step): apply §1-4, then generate the release note (`write-release-note`, passing the PR `url`) and run `draft-deploy-plan.sh <note-path>` over it. Report the plan — per target, what is waiting and the verification required. A degraded read (`ok: false`) is **reported and skipped**, never half-written. Run the capability check (`check-confirmation-capability.sh`) for each target's method and report an incapable environment: the plan says the check *would* run there.
-4. **Commit the merge artifacts** (pre-merge): `commit-release-note.sh` — a failed push is a pre-merge hard stop — then update the PR body (`report/scripts/create-or-update.sh`) so reviewers see the plan before the merge.
+4. **Commit the merge artifacts** (pre-merge): `commit-release-note.sh` — a failed push is a pre-merge hard stop — then update the PR body (`story/scripts/create-or-update.sh`) so reviewers see the plan before the merge.
 5. **Merge PR**: `merge-pr.sh`. On failure, inform and stop. Read `commit_hash_source` before using `commit_hash`; the post-merge base checkout is best-effort and never load-bearing (`checked_out` is a reported field, not a gate). The merge is **not** a deployment and grants no authorization to start one.
 6. **Publish GitHub Release** (post-merge): `publish-release.sh` — defers to a CI release workflow; refuses to tag on `on_base: false` or `commit_hash_source: "branch_head"`.
-7. **Extract deferred concerns** (post-merge): `extract-deferred-concerns.sh`, passing the base explicitly. Report `extracted`, `pushed` (best-effort by design, so read it — on `false`, a `git push` is outstanding) and `destination` (a record pushed off-base is invisible to `/report`'s judge and `/specificate`).
+7. **Extract deferred concerns** (post-merge): `extract-deferred-concerns.sh`, passing the base explicitly. Report `extracted`, `pushed` (best-effort by design, so read it — on `false`, a `git push` is outstanding) and `destination` (a record pushed off-base is invisible to `/story`'s judge and `/specificate`).
 8. **Summarize**: catch-up, scan result (with any recorded override), **the drafted plan and whether it changed**, merge status, release note, GitHub Release, concern extraction count with its `destination`, and `checked_out`/`checkout_reason` when the base was not checked out.
 
 ### 5-D. The instructed deployment
@@ -165,7 +165,7 @@ merge — **no cap and no selection**, because a silently shortened list reads a
 happened". The line prefers the branch story's Overview sentence (the written record of *why*);
 where no story joined the merge it falls back to the **merge commit's body**, which is that pull
 request's own title. The fallback is the common case, not the rare one: a `/specificate` pull request
-auto-merges without ever running `/report`, so it structurally never has a story. It is the body
+auto-merges without ever running `/story`, so it structurally never has a story. It is the body
 and never the subject — the subject reads `Merge pull request #N from qmu/work-…`, which names
 the number and the branch and summarises nothing, which is what the old placeholder already did.
 Both sources are local git data, so the rule adds no network read and leaves `--enrich` off by
@@ -234,7 +234,7 @@ The ask was "run `/ship` once per hour to update the release notes". A `## Deplo
 | Push the refresh into each open PR's branch | Those branches are not this routine's to write. A `work-*` branch under a live claim is pushed by `archive.sh` and `heartbeat.sh` on the driving session's own schedule, so an hourly third writer races the claim protocol and the developer for nothing. |
 | Run `/ship` itself, hourly | `/ship` **merges**. An unattended hourly sweep with a loose scope merges pull requests nobody expected, and a unit-less sweep mode is a second behaviour on a command that has one. |
 
-So the tick does the strongest thing a machine may honestly do to a document whose forward-looking half is a human's decision to act on: it checks it and says what it found. The precedent is this repository's own `report/scripts/area-freshness.sh` — *it reports, it never writes* — adopted 2026-08-13 for the same class of problem.
+So the tick does the strongest thing a machine may honestly do to a document whose forward-looking half is a human's decision to act on: it checks it and says what it found. The precedent is this repository's own `story/scripts/area-freshness.sh` — *it reports, it never writes* — adopted 2026-08-13 for the same class of problem.
 
 ### Plan → release → verification, in one document (2026-08-18, issue #512's fourth gap)
 

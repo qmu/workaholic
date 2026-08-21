@@ -12,6 +12,7 @@ organized as an Open Knowledge Format bundle. Enter any area through its index.
 * [stories](stories/index.md) - branch development narratives (PR descriptions and historical record)
 * [missions](missions/index.md) - optional epic-equivalent batches of tickets, with acceptance progress and an append-only changelog
 * [feedbacks](feedbacks/index.md) - the inbound feedback stream: immutable records of insights, instructions, concerns, and customer material
+* [strategies](strategies/index.md) - outbound, resolved direction: one aim per file, with the date it is bound by and who carries it
 * [deployments](deployments/index.md) - deployment targets and confirmation methods
 * [release-notes](release-notes/index.md) - per-branch release notes, one per shipped unit
 * [terms](terms/index.md) - domain terminology

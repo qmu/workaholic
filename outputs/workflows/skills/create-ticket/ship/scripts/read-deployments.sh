@@ -52,7 +52,7 @@
 # record from the repository's shape. A generated record would make the next
 # `/ship` gate on a machine's guess about how production is reached, which is
 # the one thing the confirmation gate exists to prevent. The precedent is
-# `report/scripts/area-freshness.sh`: it reports, it never writes.
+# `story/scripts/area-freshness.sh`: it reports, it never writes.
 #
 # Every mapping field therefore carries a `source`:
 #   declared        - the record states it

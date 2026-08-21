@@ -22,7 +22,7 @@
 set -eu
 
 print_skill_reference() {
-  echo "See: plugins/workaholic/skills/report/SKILL.md (Story Frontmatter)" >&2
+  echo "See: plugins/workaholic/skills/story/SKILL.md (Story Frontmatter)" >&2
 }
 
 input=$(cat)

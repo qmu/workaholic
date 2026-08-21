@@ -4,7 +4,7 @@
 # WHY IT EXISTS (2026-08-17, issue #471). `/moderate` runs hourly and unattended.
 # The only evidence such a run leaves is what it writes down, so every step says
 # what it checked, what it filed, and what it could not read — into a per-day file
-# under `.workaholic/housekeeping/`, the area registered for exactly this.
+# under `.workaholic/moderations/`, the area registered for exactly this.
 #
 # THE LOG IS AN OPERATIONAL LOG, NOT AN OKF KNOWLEDGE ARTIFACT. Entries carry no
 # `type:` and no per-area `index.md`: they are the second deliberate exception to
@@ -86,7 +86,7 @@ esac
 SUMMARY=$(printf '%s' "$SUMMARY" | tr '\n\r\t' '   ' | sed 's/  */ /g; s/^ //; s/ $//')
 
 DAY=$(printf '%s' "$TICK" | cut -c1-4)-$(printf '%s' "$TICK" | cut -c5-6)-$(printf '%s' "$TICK" | cut -c7-8)
-DIR="$ROOT/.workaholic/housekeeping"
+DIR="$ROOT/.workaholic/moderations"
 FILE="$DIR/$DAY.md"
 
 created_file=false
@@ -95,7 +95,7 @@ created_section=false
 if [ ! -f "$FILE" ]; then
     mkdir -p "$DIR"
     cat > "$FILE" <<EOF
-# Housekeeping log — $DAY
+# Moderation log — $DAY
 
 One section per \`/moderate\` tick, one line per step: what it checked, what it
 filed, what it skipped and why. Written only by \`workaholic:moderate\`; append-only,

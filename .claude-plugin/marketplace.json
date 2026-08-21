@@ -9,7 +9,7 @@
   "plugins": [
     {
       "name": "workaholic",
-      "description": "Structured development workflows and engineering standards in one plugin: ticket/drive/commit/report/ship/mission commands, hooks, and the 設計 / 実装 / 運用 policy skills (design, implementation, operation) mirrored from qmu.co.jp.",
+      "description": "Structured development workflows and engineering standards in one plugin: ticket/drive/commit/story/ship/mission commands, hooks, and the 設計 / 実装 / 運用 policy skills (design, implementation, operation) mirrored from qmu.co.jp.",
       "version": "1.0.190",
       "author": {
         "name": "tamurayoshiya",
@@ -25,7 +25,7 @@
     },
     {
       "name": "workflows",
-      "description": "Portable cross-agent build of the ticket/drive/report/ship/catch/mission workflow skills (self-contained, generated). For Codex, OpenCode, and other agents; Claude Code users install the workaholic plugin instead.",
+      "description": "Portable cross-agent build of the ticket/drive/story/ship/catch/mission workflow skills (self-contained, generated). For Codex, OpenCode, and other agents; Claude Code users install the workaholic plugin instead.",
       "version": "1.0.190",
       "author": {
         "name": "tamurayoshiya",
@@ -37,7 +37,7 @@
       "skills": [
         "./skills/create-ticket",
         "./skills/drive",
-        "./skills/report",
+        "./skills/story",
         "./skills/ship",
         "./skills/catch",
         "./skills/mission",

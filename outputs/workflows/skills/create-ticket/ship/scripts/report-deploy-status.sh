@@ -42,7 +42,7 @@
 #
 # So the repository-scoped tick does the strongest thing a machine may honestly do to a
 # document whose forward-looking half is a human's decision to act on: it CHECKS it and
-# says what it found. The precedent is this repository's own `report/scripts/area-
+# says what it found. The precedent is this repository's own `story/scripts/area-
 # freshness.sh` — "it reports, it never writes" — adopted 2026-08-13 for the same class
 # of problem. What is deliberately NOT delivered, rather than glossed: the release notes
 # are not updated. That write is left to the operator, with (a)-(c) above as its input.

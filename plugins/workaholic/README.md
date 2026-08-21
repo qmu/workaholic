@@ -6,7 +6,7 @@ Shared commands and skills for cross-workflow operations. Provides context-aware
 
 | Command | Description |
 | ------- | ----------- |
-| `/report` | Context-aware report generation and PR creation |
+| `/story` | Context-aware branch story generation and PR creation (`/report` is a deprecated alias for it) |
 | `/ship` | Context-aware: merge PR, deploy, and verify |
 
 ## Skills

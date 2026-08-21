@@ -20,7 +20,7 @@ Relocated detail: [the nine-step contract](reference/workflow.md) — each step'
 ## Standing rules
 
 - **Unattended by contract**, exactly as `/implement` and `/specificate` are: **no `AskUserQuestion` at any step**. Step 9 asks humans things, and it asks them *in Slack* — a routine-fired session has no question mechanism, so "ask a human" and "prompt the operator" are different acts here.
-- **It files, it does not invent a home.** A finding becomes a **feedback record** (`workaholic:feedback`), work becomes a **ticket** or a **mission** through the seams that already publish them, and a question becomes a **Slack post** (`workaholic:notify`). The tick log records that it did; nothing else is ever written into `housekeeping/`.
+- **It files, it does not invent a home.** A finding becomes a **feedback record** (`workaholic:feedback`), work becomes a **ticket** or a **mission** through the seams that already publish them, and a question becomes a **Slack post** (`workaholic:notify`). The tick log records that it did; nothing else is ever written into `moderations/`.
 - **A degraded read is reported and skipped, never half-applied.** An unreachable connector, an unreadable inbox and a 403 are each reported **by name** — never rendered as a step that ran and found nothing. That distinction is the one `list-inbound-issues.sh` already makes, and an hourly routine lives on it: a tick that reports "nothing to do" when it could not look is a tick that lies about its own coverage.
 - **GitHub over REST only** — `gather/scripts/gh-rest.sh`. Never `gh issue …`, `gh pr …` or `gh repo …`: they are GraphQL-backed and a Claude Code Web session may 403 mid-run (`rules/shell.md`).
 - **It never merges, never pushes into somebody else's branch, and never edits a live strategy.** The claim protocol owns `work-*` branches and the strategy layer has exactly two writers; this tick reports what it finds in both and lets their owners act.
@@ -31,7 +31,7 @@ Relocated detail: [the nine-step contract](reference/workflow.md) — each step'
 bash ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/run.sh
 ```
 
-One invocation is one **tick**. It mints the tick id (`tick-id.sh`, UTC — every later write in the same tick is passed that id), runs the nine steps **in order**, writes **one log line per step** into `.workaholic/housekeeping/<UTC-day>.md`, and returns the report as JSON. The step list lives in `run.sh`, not in this prose: every step is invoked and every step contributes a line, so a step that is missing, crashes, or prints nothing is reported `degraded` with its reason instead of vanishing from the report.
+One invocation is one **tick**. It mints the tick id (`tick-id.sh`, UTC — every later write in the same tick is passed that id), runs the nine steps **in order**, writes **one log line per step** into `.workaholic/moderations/<UTC-day>.md`, and returns the report as JSON. The step list lives in `run.sh`, not in this prose: every step is invoked and every step contributes a line, so a step that is missing, crashes, or prints nothing is reported `degraded` with its reason instead of vanishing from the report.
 
 `--deadline-seconds <n>` bounds a tick. Steps not reached are logged `skipped` with reason `budget`, **by name** — a step that ran out of clock and a step that found nothing must never read the same.
 
@@ -56,7 +56,7 @@ Finally report, in the session, one line per step: `<n> <step> <status> — <sum
 
 ## The tick log
 
-`.workaholic/housekeeping/<YYYY-MM-DD>.md`, one `## <tick-id>` section per tick, one line per step. It is an **operational log, not an OKF knowledge artifact** — no `type:`, no `index.md`, the bundle root links the directory bare — and it is **append-only, never pruned by a machine**. Writer: `log-append.sh` (idempotent per `(tick, step)`). Reader: `log-read.sh`, which is how a step answers *"did an earlier tick already file this?"* instead of re-filing the same finding every hour:
+`.workaholic/moderations/<YYYY-MM-DD>.md`, one `## <tick-id>` section per tick, one line per step. It is an **operational log, not an OKF knowledge artifact** — no `type:`, no `index.md`, the bundle root links the directory bare — and it is **append-only, never pruned by a machine**. Writer: `log-append.sh` (idempotent per `(tick, step)`). Reader: `log-read.sh`, which is how a step answers *"did an earlier tick already file this?"* instead of re-filing the same finding every hour:
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/log-read.sh --step issue-triage --contains "#471"

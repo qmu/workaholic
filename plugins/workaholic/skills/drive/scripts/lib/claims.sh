@@ -351,7 +351,7 @@ claims_has_work() {
 # Did this unit already REPORT -- i.e. reach the story+PR seam? $1 = branch ref,
 # $2 = the short branch name. Echoes true|false.
 #
-# `/report` commits `.workaholic/stories/<branch>.md` as part of opening the pull request,
+# `/story` commits `.workaholic/stories/<branch>.md` as part of opening the pull request,
 # so that file at the branch tip is durable, offline evidence that the unit got as far as a
 # PR. That matters because "parked at its PR, waiting for a human" and "died mid-drive" are
 # the same shape to every other signal: a `review` unit stops at its PR by design, its

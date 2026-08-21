@@ -9,12 +9,13 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours: 0.75
-actual_hours:
+actual_hours: 1.3
 tickets: []
 stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260821-035855
 ---
 
 # Make a rename a registry entry, not a sweep
@@ -46,9 +47,9 @@ follow with nobody sweeping:
 
 ## Acceptance
 
-- [ ] One table row drives it all: the doctor names the old directory or token, `/workaholify` applies the `.workaholic/` half and prints the conversion for the rest, nothing else is rewritten unasked (#20260820182800-add-the-rename-registry-and-its-convergence-seam.md)
-- [ ] `.workaholic/housekeeping/` is `moderations/`, and `housekeep` is absent from the live tree (#20260820182801-rename-the-housekeeping-area-to-moderations.md)
-- [ ] `/story` writes the story and opens the PR as `workaholic:story`; `/report` still runs it behind a deprecation notice (#20260820182802-rename-report-to-story-and-deprecate-report.md)
+- [x] One table row drives it all: the doctor names the old directory or token, `/workaholify` applies the `.workaholic/` half and prints the conversion for the rest, nothing else is rewritten unasked (#20260820182800-add-the-rename-registry-and-its-convergence-seam.md)
+- [x] `.workaholic/housekeeping/` is `moderations/`, and `housekeep` is absent from the live tree (#20260820182801-rename-the-housekeeping-area-to-moderations.md)
+- [x] `/story` writes the story and opens the PR as `workaholic:story`; `/report` still runs it behind a deprecation notice (#20260820182802-rename-report-to-story-and-deprecate-report.md)
 
 ## Changelog
 
@@ -57,3 +58,8 @@ follow with nobody sweeping:
 - 2026-08-20 — ticket added — 20260820182800-add-the-rename-registry-and-its-convergence-seam.md
 - 2026-08-20 — ticket added — 20260820182801-rename-the-housekeeping-area-to-moderations.md
 - 2026-08-20 — ticket added — 20260820182802-rename-report-to-story-and-deprecate-report.md
+- 2026-08-21 — ticket archived — 20260820182800-add-the-rename-registry-and-its-convergence-seam.md
+- 2026-08-21 — ticket archived — 20260820182801-rename-the-housekeeping-area-to-moderations.md
+- 2026-08-21 — ticket archived — 20260820182802-rename-report-to-story-and-deprecate-report.md
+- 2026-08-20 — story reported — work-20260821-035855.md
+- 2026-08-21 — run recorded (+1.3h) — drive-20260820-1900

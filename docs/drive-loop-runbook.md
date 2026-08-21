@@ -44,7 +44,7 @@ Two things the loop never does, and both are deliberate:
   *route*, not whether a merge happens: a unit whose members all record `auto` goes
   through the full `/ship` doctrine (catch up with `main`, deploy, confirm in
   production, record the evidence, *then* merge), while a `review` unit — which is
-  also what an absent policy means — merges its pull request as soon as `/report`
+  also what an absent policy means — merges its pull request as soon as `/story`
   opens it and the scan passes. Since 2026-08-11 `main` is the continuously
   auto-merged development branch and **quality is gated at the `release/*` QA
   window**, so what a `review` policy withholds is the deploy-and-confirm doctrine,
@@ -227,7 +227,7 @@ not of surveying: a runner without one still reads the whole queue, reports
   A handoff tick terminates `pending`, and the unit is exactly the shape a later run
   resumes (below) — one story, not two mechanisms.
 - **PRs** are the loop's output: one per unit, and **both routes merge on the tick
-  that opened them**. A `review` unit's PR is merged as soon as `/report` opens it and
+  that opened them**. A `review` unit's PR is merged as soon as `/story` opens it and
   the branch-safety scan passes — a scan finding is the one thing that leaves it open,
   and that open PR is then the unit's reported outcome. An `auto` unit's PR is merged
   through the full `/ship` doctrine instead. Either way the URL rides the unit's finish

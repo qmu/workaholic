@@ -27,7 +27,7 @@ seam this file names for that step — recording what it actually did under the 
 
 ## 1. `open-log` — open the tick's log
 
-- **Reads**: the layout allowlist; `.workaholic/housekeeping/`.
+- **Reads**: the layout allowlist; `.workaholic/moderations/`.
 - **Writes**: nothing. The log line `run.sh` writes for it *is* the open.
 - **Aborts**: `no_workaholic_dir` (nothing here to keep), `area_unregistered` (this checkout's
   plugin predates the area — the tick still runs, its log does not), `unwritable`.
@@ -146,8 +146,8 @@ seam this file names for that step — recording what it actually did under the 
 
 ## 7. `doc-drift` — the documentation against the current concept
 
-- **Reads**: `report/scripts/doc-drift.sh` (structural presence changes versus the documents that
-  enumerate them) and `report/scripts/area-freshness.sh` (a hand-maintained record naming something
+- **Reads**: `story/scripts/doc-drift.sh` (structural presence changes versus the documents that
+  enumerate them) and `story/scripts/area-freshness.sh` (a hand-maintained record naming something
   this repository retired). Reused, not re-implemented.
 - **The window is a git question**: the base is `git rev-list -1 --before=<the previous doc-drift
   tick, as ISO> HEAD`, so no `date -d`/`date -v` arithmetic is involved. `no_baseline` when nothing
@@ -256,7 +256,7 @@ run's own bookkeeping. It runs **after** the ninth step has had its turn, so a t
 half-way still persists what it recorded on its next run, and it reports under the run's top-level
 `persist` key while logging under the step id `persist-log`.
 
-- **Reads**: the checkout's `.workaholic/housekeeping/<UTC-day>.md`, and the base's copy of the
+- **Reads**: the checkout's `.workaholic/moderations/<UTC-day>.md`, and the base's copy of the
   same path.
 - **Writes**: that one file, on the base, through the publish tree — `open-publish-tree.sh` →
   `publish-tree-commit.sh` → `close-publish-tree.sh`. Nothing else, anywhere. The caller's checkout

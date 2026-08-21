@@ -103,7 +103,7 @@ ARCHIVE_DIR="${TICKETS_ROOT}/archive/${SAFE_BRANCH}"
 TICKET_FILENAME=$(basename "$TICKET")
 
 # The category is derived from the commit verb and emitted ONLY as the commit's
-# `Category:` git trailer (via commit.sh --category), which is what /report's
+# `Category:` git trailer (via commit.sh --category), which is what /story's
 # collect-commits.sh and the release-note grouping read. It is NOT stamped into the
 # ticket frontmatter any more — the `category` ticket field was retired with
 # type/layer/effort/commit_hash (2026-08-07); archived tickets that already carry it
@@ -286,7 +286,7 @@ sh "$COMMIT_SCRIPT" --skip-staging --category "$CATEGORY" "$COMMIT_MSG" "$WHY" "
 # deliberately NOT stamped — a commit cannot contain its own hash: writing it and
 # amending changes the hash, so the recorded value named a pre-amend commit that is
 # orphaned and never pushed. The hash is derived instead, from the commit that ADDED
-# the archived ticket — see `report/scripts/ticket-commits.sh`, the single source of
+# the archived ticket — see `story/scripts/ticket-commits.sh`, the single source of
 # truth for it. And `category` lives only in the commit's `Category:` trailer (above),
 # since the ticket field was retired — which is also what removed the stamp-then-amend
 # dance this script used to end with.

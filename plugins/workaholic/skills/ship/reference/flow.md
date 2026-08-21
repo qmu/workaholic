@@ -52,7 +52,7 @@ must be stated, not left absent.
 ## The steps
 
 1. **Pre-check**: `bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/pre-check.sh "<branch>"`.
-   If `found` is `false`: inform the user "No PR found for this branch. Run `/report`
+   If `found` is `false`: inform the user "No PR found for this branch. Run `/story`
    first." and stop. If `merged` is `true`: the PR is already on `main` and this
    flow has nothing further to land — warn, then proceed only to the drafting phase and
    the release publish for the already-merged commit. Capture `pr_number` and `url`.
@@ -130,7 +130,7 @@ must be stated, not left absent.
      push stops the ship here, pre-merge** (`fatal: "release_note_not_on_remote"`; only
      `no_remote` is soft): resolve the named `push_error`, push, re-run.
    - Update the PR body so reviewers see the plan before merge:
-     `bash ${CLAUDE_PLUGIN_ROOT}/skills/report/scripts/create-or-update.sh "<branch>" "<title>"`.
+     `bash ${CLAUDE_PLUGIN_ROOT}/skills/story/scripts/create-or-update.sh "<branch>" "<title>"`.
 
 5. **Merge PR**:
    `bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/merge-pr.sh "<pr-number>" [<base-branch>]`.

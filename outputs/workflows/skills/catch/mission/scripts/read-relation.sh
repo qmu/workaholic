@@ -22,7 +22,7 @@
 # must keep parsing untouched. Emission is forward-only; nothing backfills them.
 #
 # Why a list at all: an artifact can genuinely advance two missions, and the field used to
-# hold one. `report` resolved that by asking the developer to pick a mission and discard
+# hold one. The story flow resolved that by asking the developer to pick a mission and discard
 # the rest, which made the mission graph depend on which option someone clicked and
 # under-counted the mission that lost. Every other relation in the model was already
 # plural (`tickets: []`, `stories: []`); this one was the odd one out.

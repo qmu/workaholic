@@ -193,7 +193,7 @@ emit_tickets() {
     # commit_hash ties an archived ticket to the commit that implemented it. Derive it
     # from git — the commit that ADDED the archived ticket — never from frontmatter: a
     # commit cannot carry its own hash, so the value archive.sh used to stamp named a
-    # pre-amend commit that is orphaned and never pushed (see report/scripts/ticket-commits.sh,
+    # pre-amend commit that is orphaned and never pushed (see story/scripts/ticket-commits.sh,
     # the single source of truth for this derivation). Only archived tickets have one.
     commit_hash=""
     if [ "$scope" = archive ]; then

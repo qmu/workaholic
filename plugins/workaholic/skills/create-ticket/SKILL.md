@@ -31,7 +31,7 @@ In THIS repository, always — never another checkout by any route (`rules/gener
 - `.workaholic/tickets/todo/` — the active queue, **flat**: assignment is the plural `assignees` frontmatter field (empty = team-owned/claimable), read only through `gather/scripts/owners.sh`, never a per-user directory.
 - `.workaholic/tickets/icebox/` — deferred, only when the request explicitly targets it.
 
-Never write a ticket anywhere else under `.workaholic/` (not `stories/`, `specs/`, `RFDs/`, …): the drive/archive/report pipeline scans `.workaholic/tickets/` exclusively, and `hooks/validate-ticket.sh` rejects ticket-shaped files outside it. Archive paths are written by the drive archive script, never by this skill.
+Never write a ticket anywhere else under `.workaholic/` (not `stories/`, `specs/`, `RFDs/`, …): the drive/archive/story pipeline scans `.workaholic/tickets/` exclusively, and `hooks/validate-ticket.sh` rejects ticket-shaped files outside it. Archive paths are written by the drive archive script, never by this skill.
 
 ## Workflow
 

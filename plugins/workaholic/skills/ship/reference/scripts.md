@@ -286,7 +286,7 @@ skipped, never rewritten and never resurrected.
 
 **The committed story file is the only source, and it carries every severity.** The PR
 body is a rendering with the `low`-severity blocks dropped for the reviewer
-(`workaholic:report`); this script never reads it, so filtering at render can never make
+(`workaholic:story`); this script never reads it, so filtering at render can never make
 a record go missing. If extraction ever read the PR body instead, every `low` concern
 would stop being recorded silently — invisible for weeks.
 
@@ -305,7 +305,7 @@ is exactly why its outcome must be read: on `pushed: false`, local `main` is ahe
 `origin/main` and a `git push` is outstanding; name the `push_error` cause. A silent
 no-op is indistinguishable from success (PR #86 left `main` two commits ahead
 unnoticed). Read `destination` too: the open-concern set is computed from records on the
-**base**, so a record pushed anywhere else is invisible to `/report`'s judge and to
+**base**, so a record pushed anywhere else is invisible to `/story`'s judge and to
 `/specificate` — PR #108's four concerns once went to the already-merged claim branch while
 the script truthfully reported `pushed: true`. It now takes the base explicitly and,
 when not on it, extracts and publishes **through a publish tree**

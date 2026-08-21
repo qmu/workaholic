@@ -7,7 +7,16 @@
 # and dirs made with bare `mkdir`, which never trip a Write/Edit hook).
 #
 # Reads the SAME single source of truth the hook reads — the sibling
-# workaholic-layout-allowlist.txt — so the two never diverge.
+# workaholic-layout-allowlist.txt — so the two never diverge, plus the rename registry
+# (skills/gather/scripts/renames.tsv, through its one reader) so a repository still
+# holding a renamed area is told WHAT IT BECAME rather than that it is unrecognised.
+#
+# A RETIREMENT IS NOT A RENAME, and the two classifications stay distinct: `renamed-area`
+# has a destination and a mechanical remediation, `retired-area` has neither and its
+# content decision belongs to the owner. Folding guides/policies/specs into the registry
+# would need a row with an empty destination — a second behaviour inside one kind — so
+# they keep the branch below (a fixed historical fact about three names, not a list that
+# grows).
 #
 # Usage: layout-doctor.sh [path]
 #   [path] — a .workaholic directory, or a repo root that contains one.
@@ -21,6 +30,13 @@ set -eu
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 ALLOWLIST="${SCRIPT_DIR}/workaholic-layout-allowlist.txt"
+# The rename registry lives with the skill that owns its scripts, not here: its reader
+# and its migration ship to non-Claude agents through the bundle, and build.mjs carries
+# a skill's whole scripts/ directory (any extension) while nothing carries hooks/. The
+# doctor is the one consumer that reaches ACROSS that boundary, deliberately and in one
+# place -- a hook reading a skill's data file -- because the alternative is a second
+# copy of the table on this side of it.
+RENAMES_READER="${SCRIPT_DIR}/../skills/gather/scripts/list-renames.sh"
 
 # Fail safe: never audit against a list we cannot read (would flag everything).
 if [ ! -f "$ALLOWLIST" ]; then
@@ -47,6 +63,21 @@ fi
 esc() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'; }
 
 in_allowlist() { grep -qxF "$1" "$ALLOWLIST"; }
+
+# Renamed areas, as `old<TAB>new<TAB>since` lines. Best-effort by design: a missing or
+# unreadable registry leaves this empty and every classification below falls back to
+# what it did before the registry existed. A doctor that failed closed on a data file
+# would flag an entire tree because a tab went missing.
+RENAMED_AREAS=""
+if [ -r "$RENAMES_READER" ]; then
+  RENAMED_AREAS=$(sh "$RENAMES_READER" --rows --kind area 2>/dev/null || true)
+fi
+
+# Echo "<new>\t<since>" when $1 is a renamed area, nothing otherwise.
+renamed_to() {
+  [ -n "$RENAMED_AREAS" ] || return 0
+  printf '%s\n' "$RENAMED_AREAS" | awk -F '\t' -v want="$1" '$2 == want { print $3 "\t" $4; exit }'
+}
 
 findings=""
 advisories=""
@@ -88,8 +119,22 @@ for entry in "$WH"/* "$WH"/.*; do
 
   [ -d "$entry" ] || continue
 
-  if in_allowlist "$name"; then
+  renamed=$(renamed_to "$name")
+
+  if in_allowlist "$name" && [ -z "$renamed" ]; then
     : # allowed top-level directory
+  elif [ -n "$renamed" ]; then
+    # A RENAME, declared in the registry (skills/gather/scripts/renames.tsv). Checked
+    # BEFORE the allowlist, because the moment a rename lands the allowlist carries the
+    # NEW name and the old one would otherwise fall through to the generic
+    # "not in the canonical allowlist" reason -- which is exactly the uninformative
+    # answer the registry exists to replace. The remediation is mechanical and safe, so
+    # unlike `retired-area` it names a command rather than a decision.
+    new_name=$(printf '%s' "$renamed" | cut -f1)
+    since=$(printf '%s' "$renamed" | cut -f2)
+    add_finding ".workaholic/${name}" "renamed-area" \
+      "the ${name}/ area was renamed to ${new_name}/ on ${since}" \
+      "bash \${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/migrate-renamed-areas.sh   # git mv ${name}/ -> ${new_name}/, or run /workaholify"
   elif [ "$name" = "guides" ] || [ "$name" = "policies" ] || [ "$name" = "specs" ]; then
     # The three documentation areas retired 2026-08-13 (issue #436). A consuming
     # repository's plugin updates before its tree does, so it meets the de-listed

@@ -171,6 +171,7 @@ Flatten the release-readiness JSON's `concerns[]`, `instructions.pre_release[]`,
 ---
 type: Story
 branch: <branch-name>
+description: <one line summarising the branch work — the stories index entry>
 tickets_completed: <count of tickets>
 mission: [<slug-a>, <slug-b>]       # optional — every mission this branch advances (empty when none)
 tickets: [<ticket-a.md>, <ticket-b.md>]   # the archived ticket filenames this story covers
@@ -188,8 +189,10 @@ tickets: [<ticket-a.md>, <ticket-b.md>]   # the archived ticket filenames this s
 - Connect tickets into a narrative arc, not a list; highlight decision points and trade-offs
 - Journey summary: 50-100 words
 
-## Updating the stories index
+## The stories index writes itself
 
-Add to `.workaholic/stories/index.md`: `* [<branch-name>.md](<branch-name>.md) - Brief description of the branch work`
+**Do not edit `.workaholic/stories/index.md`** (2026-08-19). Write the story's `description:` frontmatter — one line summarising the branch work — and the entry appears when `okf/scripts/refresh-index.sh` runs, which `/report` already does at its knowledge-commit seam. `stories/` is a generated flat area like every other one: the description comes from that field, falling back to whatever the prior region already carried for the link, so no existing entry degrades to a bare link on the first regeneration.
 
-`index.md` is the OKF reserved index filename. Keep it in OKF index form: no frontmatter, a heading, one `* [link](target) - description` entry per story. If the directory still carries its story list in a legacy `README.md`, migrate the entries into `index.md` in the same commit; a README may stay as a prose document, but then it needs frontmatter with a non-empty `type`.
+Writing a bullet by hand as well is actively harmful, not merely redundant: the region is regenerated, so a hand-inserted line is either overwritten or duplicated depending on where it landed.
+
+`index.md` is the OKF reserved index filename. Everything outside the `<!-- okf:generated:begin -->` / `<!-- okf:generated:end -->` markers — the area's intro paragraph and its `README.md` link — is hand-owned and survives verbatim. Entries come out newest-first by filename, and `README.md` is not one of them.

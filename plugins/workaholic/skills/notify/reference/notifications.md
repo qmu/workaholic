@@ -4,9 +4,9 @@ Companion to `SKILL.md` (*One thread per feedback item*, *Post shapes, mentions,
 
 ## The shapes of the runner's posts
 
-A template names its postable events and defers the line formats here. This file is the **catalog** a template draws from when it explicitly names an event — never blanket authorization: a shape's presence here does not permit a session to emit it unprompted (SKILL, *The prompt is the ceiling — no self-authorized shapes*). `<@U…>` follows the SKILL's mention rule; `<repo>` is the repository the session is running in, which it derives itself rather than being told. Two events (`/propose` finish, `/implement` unit finish) carry the **sole sanctioned** wording — the literal templates from issue #300, reconciled below with the shapes that predate them (P10, 2026-08-07), aligned against the developer's dictated wording in issue #333, and **narrowed to the finish alone on 2026-08-11** (issue #351 / mission `auto-merge-propose-and-implement-prs-under-a-dev-release-branch-split`): the start shapes `📐 Proposing` and `🟠 Implementing` are **retired** — a routine posts its finish only, and the live routine records were edited to match the same day. Every other event keeps its pre-existing shape unchanged.
+A template names its postable events and defers the line formats here. This file is the **catalog** a template draws from when it explicitly names an event — never blanket authorization: a shape's presence here does not permit a session to emit it unprompted (SKILL, *The prompt is the ceiling — no self-authorized shapes*). `<@U…>` follows the SKILL's mention rule; `<repo>` is the repository the session is running in, which it derives itself rather than being told. Two events (`/specificate` finish, `/implement` unit finish) carry the **sole sanctioned** wording — the literal templates from issue #300, reconciled below with the shapes that predate them (P10, 2026-08-07), aligned against the developer's dictated wording in issue #333, and **narrowed to the finish alone on 2026-08-11** (issue #351 / mission `auto-merge-propose-and-implement-prs-under-a-dev-release-branch-split`): the start shapes `📐 Proposing` and `🟠 Implementing` are **retired** — a routine posts its finish only, and the live routine records were edited to match the same day. Every other event keeps its pre-existing shape unchanged.
 
-### `/propose` — the finish, plus a description root when no thread was found
+### `/specificate` — the finish, plus a description root when no thread was found
 
 ```
 🔵 Proposed - [#123 [Proposal] PR Title](<repo-url>/pull/123)
@@ -15,9 +15,9 @@ by the [routine](<session URL>) of <@U…>
 
 `🔵 Proposed` retires the earlier `🟢 Proposed to <@U…> - ...` shape. Since 2026-08-14 it is a **reply** in every connector case — into the thread the stateless lookup found, or into the description root below when it found none. It is a keyed top-level line only on the tokened fallback, which cannot thread; there it carries `` `fb:<stem>` `` on its own line, never dropped. The retired `📐 Proposing` start once preceded it; nothing replaces it.
 
-#### The description root — `/propose`, case 4 only
+#### The description root — `/specificate`, case 4 only
 
-The root the run posts **before** the finish line when the lookup found no thread (SKILL, *One thread per feedback item* case 4, *The description root*). `/implement`'s case-4 finish line is unaffected and stays its own keyed root. Byte-identical in `workaholify/routines/fb.md`; a diff between the two copies is a drift to fix, never a second wording:
+The root the run posts **before** the finish line when the lookup found no thread (SKILL, *One thread per feedback item* case 4, *The description root*). `/implement`'s case-4 finish line is unaffected and stays its own keyed root. Byte-identical in `workaholify/routines/specificate.md`; a diff between the two copies is a drift to fix, never a second wording:
 
 ```
 📝 FB - [<feedback title>](<repo-url>/blob/main/.workaholic/feedbacks/<stem>.md)
@@ -28,7 +28,7 @@ One sentence, max 30 words, what the feedback asks for.
 
 Then `🔵 Proposed` above as a reply whose `thread_ts` is this message's timestamp, without the `` `fb:<stem>` `` line — the key lives on the root, which is what case 2 searches for. **No mention token of any kind appears on the root**: a `<@U…>` resolving to the Claude app would re-trigger the Slack app on the routine's own post, and a person's mention belongs on the reply that names them. The title and the sentence come from the feedback record the run just wrote; nothing is invented for the post.
 
-**Why the root links the record and not an auto-filed issue** (the ticket's Open Decision, ruled 2026-08-14 — issue #443). The report's title asked for a short `[FB]` issue to be filed so the root had a URL to point at; the record's own file URL answers the same need without either of that option's costs. An issue filed **assigned** is re-discovered as an inbound ask by `/propose`'s clock-fired discovery on the next tick and **cannot be excluded** — `list-inbound-issues.sh` subtracts issues a feedback record already names, and the record naming this one was written *before* it, immutably; an **unassigned** issue is never discovered, which makes it safe and also makes it a page nobody is asked to act on. Opening an issue on this repository unattended would additionally be a new class of write: the confinement rule reserves issue-opening for `/fb`'s cross-repository mode behind a verbatim human confirmation. The accepted cost of linking the record instead: the `main` blob URL 404s until the proposal's pull request merges — which it does on opening, so the window is seconds, except when a scan finding holds the PR open, and then the run reports the link as pending rather than claiming it resolves.
+**Why the root links the record and not an auto-filed issue** (the ticket's Open Decision, ruled 2026-08-14 — issue #443). The report's title asked for a short `[FB]` issue to be filed so the root had a URL to point at; the record's own file URL answers the same need without either of that option's costs. An issue filed **assigned** is re-discovered as an inbound ask by `/specificate`'s clock-fired discovery on the next tick and **cannot be excluded** — `list-inbound-issues.sh` subtracts issues a feedback record already names, and the record naming this one was written *before* it, immutably; an **unassigned** issue is never discovered, which makes it safe and also makes it a page nobody is asked to act on. Opening an issue on this repository unattended would additionally be a new class of write: the confinement rule reserves issue-opening for `/fb`'s cross-repository mode behind a verbatim human confirmation. The accepted cost of linking the record instead: the `main` blob URL 404s until the proposal's pull request merges — which it does on opening, so the window is seconds, except when a scan finding holds the PR open, and then the run reports the link as pending rather than claiming it resolves.
 
 **Why two messages do not breach the event bar.** *The event bar's two precedents* below and the SKILL's bright line both hold: the proposal is still **one** event. The root is not a second announcement — it is the same announcement's readable header, split off so the thread opens with something a human can answer instead of a status line. A found thread still receives exactly one message.
 
@@ -74,40 +74,21 @@ One sentence, max 25 words, what failed and what a human must do.
 
 Exactly one finish per thread stays the rule (SKILL, *Which thread an `/implement` unit's posts land in*): a unit posts `🟢 Implemented` **or** one of the three outcome shapes above, never both — `handoff` is the finish, never a third post, and the same holds for a blocked or merged unit.
 
-### `/prepare-release` — the repository tick's one line
+### `/prepare-release` — retired, and nothing replaced it
 
-```
-📦 Release Preparation - <N> commit(s) waiting on <target>
-One sentence, max 25 words, what a human must do (cut a release, declare a confirmation method).
-Draft note: <draft release URL>
-`deploy:<digest>`
-<session URL>
-```
+**The `📦 Release Preparation` root is gone** (2026-08-19, the developer's instruction). The
+`[Prepare Release]` routine was merged into the maintenance tick as two of its steps, and the
+post did not come with it. What it said — how many commits are waiting on which target — is a
+**status line addressed to nobody**, and the channel measured what that produces: ten `📦` lines
+in ten consecutive hours on 2026-08-19 for one unchanged request, the count rising 10 → 12 → 14
+→ 16 → 18 → 22 → 30, none of them answered. The `deploy:<digest>` and `deploy-day:<day_token>`
+gates worked exactly as designed and were beside the point; a post nobody is asked to act on is
+noise at any frequency.
 
-**And when the read is doubtful, the same root with the count withheld:**
-
-```
-📦 Release Preparation - refs not freshened (<refs_reason>); count unavailable on <target>
-One sentence, max 25 words, what a human must do (restore the container's network, then re-read).
-`deploy:<digest>`
-<session URL>
-```
-
-**A top-level keyed root, never a reply.** This event belongs to no feedback item — nobody *said* anything, the repository's own state changed — so it has no thread to land in and keys on its own `` `deploy:<digest>` `` instead, exactly as an `/implement` unit with no stem keys on `` `unit:<unit-id>` ``. The digest is `report-deploy-status.sh`'s, which hashes the substantive per-target state and **not** the base sha (`workaholic:ship` §7).
-
-**The doubtful variant posts the degradation and withholds the number** (2026-08-18, the Open Decision the ticket carried). It is used whenever the read reports `doubtful: true` — the boundary collapsed to `full_history`/`unresolvable` under refs that were not freshened. Both alternatives were weighed and both are wrong on their own: staying silent is indistinguishable from a quiet repository, which is the invisible degradation the change exists to remove, and posting the bare count endorses a number the reader has just flagged. So the line says what it could not do and names no count, and the `Draft note:` line is omitted with it — a draft rendered from refs this read distrusts is not an artifact to send anyone to. The remaining lines, the token and its shape are unchanged.
-
-**The dedup is the whole reason the line is postable at all.** Before posting, search `` `deploy:<digest>` `` exactly once (private-inclusive, `include_bots: true`, like every case-2 search): found ⇒ **post nothing**, because the answer has not changed since it was last said, and an hourly repeat of an unchanged status is the idle tick the bright line refuses. This is *not* the red-alert cool-down — there is no time window and no escalation; the key is the content itself, so a status that stops being true stops matching and a status that becomes true again posts once more.
-
-**`actionable: false` posts nothing either**, whatever the digest says: every target's `needs[]` empty means nothing is waiting and nobody has anything to do. A tick that reports a quiet repository is a tick that says nothing. **One exception, and only one**: `doubtful: true` posts the degraded variant above even when nothing looks actionable — precisely because "nothing is waiting" is one of the things stale refs can fabricate, so the quiet this gate protects would be the unreliable half of the read speaking for the repository. The gate is therefore `actionable || doubtful`, still AND'd with the digest search, and a container stuck offline says it once rather than hourly: the doubtful digest redacts the values that move with the refs, so it stops changing (`workaholic:ship` §7).
-
-**No mention token of any kind** — no `<@U…>` for a person and none for the Claude app. The line names a repository state, not a person's work, and there is nobody whose turn it is; a mention would page whoever was named every hour for a condition that is nobody's in particular.
-
-**The heading was renamed with the command, and it was free to move** (2026-08-18, issue #485 — `📦 Release status` before it). The 2026-08-17 rename left it alone on the stated ground that "the prefix is the notify lookup's own exact-string dedup key", which was wrong: the search above is for `` `deploy:<digest>` `` and nothing queries the heading, so no cutover duplicate was ever at stake. The token, the two gates and the `📦` are unchanged; only the words a human reads moved, to match the command that posts them.
-
-**Then once more, from the verb to the noun** (2026-08-18, later the same day, issue #504). The record, in order: `📦 Release status` → `📦 Prepare release` → `📦 Release Preparation`. On seeing the second wording in a live post, the developer ruled the heading should **name the report** rather than repeat the command's imperative — a Slack root is something a human reads, not an instruction addressed to the machine. The reason a heading is free to move at all is the one stated above and is not restated per rename: nothing searches it. Deliberately **not** moved with it: the routine record's name (`[Prepare Release]` — convergence matches routines by name, so renaming it would create a second routine rather than rename the existing one), the command (`/prepare-release`), the `📦`, the `` `deploy:<digest>` `` token, and both posting gates.
-
-**The `Draft note:` line points at the artifact; it never restates it** (2026-08-17, issue #472). Since the repository tick keeps each target's draft release note current, the note is where the answer lives — what is waiting, the procedure, the verification required. A notification's job is to bring a human *to* the artifact, so the line carries the URL and nothing more: summarising the note's contents into the post would make the note redundant and re-create the fragmentation the ask is about. Omit the line entirely when no draft exists yet (a repository whose cadence has not run, or one with no `gh`) rather than posting a dead link — the shape's other four lines are unchanged and still stand alone.
+The state itself did not stop being worth knowing. It is read every tick by
+`step-release-status.sh` and `step-note-cadence.sh`, written to the tick log, and — when it
+genuinely needs a person — turned into a `🙋 Question` addressed to somebody with the options
+named. `/prepare-release` survives as a command a human runs on demand; it posts nothing.
 
 ### `/standup` — the daily per-strategy digest
 
@@ -126,67 +107,61 @@ One sentence, max 25 words, what a human must do (restore the container's networ
 
 **Keyed on the date, not on the content.** A daily digest speaks for today even when today resembles yesterday; what the key prevents is two posts for one morning. Search the token exactly once (private-inclusive, `include_bots: true`): found ⇒ post nothing. `noop: true` from the digest posts nothing either, whatever the date says.
 
-### `/housekeep` — the maintenance tick's two shapes
+### `/moderate` — the maintenance tick's one shape
 
-The stuck-pull-request reminder is a **top-level keyed root**, exactly as `📦 Release Preparation` is
-and for the same reason: nobody *said* anything, the repository's own state did something, so
-there is no thread to land in and the post keys on its own content instead.
+**One shape, and the reason is measured** (2026-08-19, the developer's instruction). This tick
+used to emit a second root, `🔧 Needs a decision`, keyed `` `stuck:<digest>` `` — a top-level post
+carrying no mention token, saying how many pull requests were blocked and on what. It is retired
+for the same reason `📦 Release Preparation` is: **a status line addressed to nobody is noise**,
+and its dedup key never made it otherwise. The finding survives; only the broadcast is gone.
+`step-stuck-prs.sh` still resolves every blocked pull request and the decision each one needs,
+and hands them to step 10 as `action: "ask"` candidates carrying an `ask_key` — where they either
+become a question addressed to a person, or stay in the tick log.
 
-```
-🔧 Needs a decision - <the step's headline: how many pull requests, and what is blocking them>
-One sentence, max 25 words, what the decision is (resolve a conflict, review it, fix a check).
-`stuck:<digest>`
-<session URL>
-```
+That is the tick's whole rule now: **it speaks only to ask somebody something.** A finding it
+cannot turn into a question with a name on it does not reach Slack — it is a log row, and where
+it is work, a ticket.
 
-**The first line names the kind of finding, and the key does not move** (2026-08-18, issue #513).
-It read `<N> pull request(s) waiting on a human` every time, so the varying half — the sentence
-naming the decision — sat under an invariant heading and the post read the same whether the finding
-was a merge conflict, an un-run auto-merge or a failing check. The heading now carries
-`step-stuck-prs.sh`'s `headline`, derived from the `blocked_by` set the script already resolves
-(`conflicting with main` / `waiting on review` / `with a failing check` / `still in draft` /
-`behind main` / `with mergeability not yet computed`, and `stuck: <kind>, <kind>` when one post
-covers several). **Visible wording only**: `` `stuck:<digest>` `` is still the sorted
-`<number>:<blocked_by>` set, nothing searches the heading, and the 2026-08-17 release-tick rename
-was reversed the next day precisely because the heading was mistaken for the dedup key. Making the
-post more informative must not make it more frequent — both gates below are untouched.
-
-**Two gates, both required, and an idle tick is silent.** Nothing waiting posts nothing; a state
-already posted (the `` `stuck:<digest>` `` search finds it) posts nothing. The digest hashes the
-sorted `<number>:<blocked_by>` set, so a pull request that is still stuck for the same reason
-next hour is not news while a new one — or the same one stuck for a *different* reason — is. The
-key is deliberately distinct from `` `deploy:<digest>` ``: one line reports what is waiting to
-deploy and this one what is waiting on a person, and a shared key would let either dedup the
-other away. **No mention token of any kind**: the line names a repository state, not a person's
-work.
-
-The check-in question is the opposite case — it is addressed to somebody, so it carries a
-resolved mention and lands in the thread of the item it is about (a new keyed root only when the
-lookup finds none):
+The check-in question is a **reply into the thread of the item it concerns**, and it is the one
+post in this file that **carries a mention token**, because it is the one post that needs a
+specific person to do something.
 
 ```
-❓ Question <@U…> - <what this tick could not decide>
+🙋 Question <@U…> - <what this tick could not decide>
 One sentence, max 25 words, the question itself, with the two options when there are two.
 `ask:<key>`
 <session URL>
 ```
 
-**Asked once, never re-asked.** `` `ask:<key>` `` is the content key, and an unanswered question
-is not re-posted next hour: the red-alert `↳ still failing` escalation covers a machine-observable
-state that persists, while a question is a demand on a person's attention, and repeating it turns
-asking into nagging. Silence is never read as an answer — the unanswered set stays visible in the
-tick log and the run report, and the post is still sitting in its thread. The mention is a
-resolved `<@U…>` from the person's email; a bare `@name` pings nobody, and a Claude mention token
-on a routine's own post re-triggers the app.
+**The emoji moved from `❓` on 2026-08-19**, when this became the tick's only voice: a mark a
+reader should recognise as "my turn to answer" rather than as one more machine notice. Nothing
+searches the heading — the key is `` `ask:<key>` `` — so the change cost nothing, the same
+property the 2026-08-17 release-tick rename got wrong and the 2026-08-18 one got right.
 
-**The shape was measured against the channel and deliberately left as it is** (2026-08-18, issue
-#513). Both `❓` posts `#dev-workaholic` has ever carried named their two options in one sentence,
-exactly as the shape requires, and neither drew a reply — so the evidence says the wording is not
-what silence is about, and tightening an instruction both examples already satisfy would be a
-change with nothing behind it. What a reply is *for* was ruled on at the same time: a reply is a
-person answering another person, and **nothing ingests a Slack reply back into the loop**. Building
-an answer the loop itself consumes is a new mechanism, not a rewording, and it is unbuilt until
-somebody scopes it.
+**Asked once, never re-asked.** `` `ask:<key>` `` is the content key, and an unanswered question
+is not re-posted next hour: a question is a demand on a person's attention, and repeating it
+turns asking into nagging. Silence is never read as an answer — the unanswered set stays visible
+in the tick log. `ask-question.sh` holds the per-tick cap, the daily bound and the quiet-hours
+window; a question it suppresses is recorded as held and handed back on the next eligible tick,
+which is what makes suppression a delay rather than a loss.
+
+### `/setup-user-routines` — posts nothing, and the reason is the audience
+
+**The `🔄 Workaholic` keyed root is retired** (2026-08-19, the developer's correction). The
+`[Workaholic]` routine has no Slack connector and emits no post of any kind.
+
+The reasoning is the one that retired `🔧 Needs a decision` and `📦 Release Preparation` from
+`/moderate`, plus one thing specific to this routine. The shared half: a status line addressed
+to nobody is noise whatever its dedup key, and "which of your routines I updated this hour" is
+a status line. The specific half: this is an **account-level** routine acting on the operator's
+**own** account, so its audience is exactly one person — the one who is also the only person
+who can act on a refusal it reports. A channel of colleagues is the wrong room for it.
+
+**Its result reaches that person as a Claude notification instead** — `notifications: push` on
+the routine record, declared by its template and diffed by the setup commands like any other
+field. It is the **only** routine that declares it. Every other one is a channel's business,
+and pushing a copy of a Slack post to a phone is the same noise twice.
+
 
 ### Precondition-stop — calm first, escalate on persistence
 
@@ -206,7 +181,7 @@ Every post carries the Claude Code Web session URL that did the work — the sam
 
 ## Mention resolution — how a session resolves a person
 
-Look the person up through the Slack connector the routine already loads — `slack_search_users` on the identity in hand, `slack_read_user_profile` to confirm the match; a display-name search is the last resort, and a match that cannot be confirmed is not a match. When a session holds only a GitHub login, resolve through the email git records for the person (the merge or claim commit's author) and search on that. Which identity each routine starts from: `[Implement]`'s merge lines hold the merging user, `[Propose]` holds the repository's developer, and the handoff line names whoever the unit is handed to. Nothing about resolution may block, delay, or retry-loop a post.
+Look the person up through the Slack connector the routine already loads — `slack_search_users` on the identity in hand, `slack_read_user_profile` to confirm the match; a display-name search is the last resort, and a match that cannot be confirmed is not a match. When a session holds only a GitHub login, resolve through the email git records for the person (the merge or claim commit's author) and search on that. Which identity each routine starts from: `[Implement]`'s merge lines hold the merging user, `[Specificate]` holds the repository's developer, and the handoff line names whoever the unit is handed to. Nothing about resolution may block, delay, or retry-loop a post.
 
 ## Red-alert dedup — history and rejected alternatives
 
@@ -228,8 +203,8 @@ The "an event earns its post" line reuses two precedents from this repository ra
 
 ## Finding the thread — history
 
-The lookup's normative statement lives in the SKILL (*One thread per feedback item*); this is how it got its shape. Re-deriving the thread by search put a reply in the wrong place on 2026-08-05: the search was a *guess*, and a guess in a notification path produces a message that looks right and is unrelated to the event. P4 (2026-08-06) removed the guess by **carrying** the answer — a labelled line in the pull-request body, written by `/propose` and read back by `/implement`. Q1 (2026-08-07, developer's ruling) reversed the direction while keeping what P4 taught: statelessness removes the guess **by defining the search so that it cannot guess** — ordered exact-string searches only, a prohibition on fuzzy/recency matching by name, a written query bound, and a not-found branch that posts a new keyed root instead of picking the closest thing. Two of propagation's benefits were given up knowingly: no target is carried between routines (each pays its own bounded lookup), and the thread URL left the public bodies (the withdrawal above).
+The lookup's normative statement lives in the SKILL (*One thread per feedback item*); this is how it got its shape. Re-deriving the thread by search put a reply in the wrong place on 2026-08-05: the search was a *guess*, and a guess in a notification path produces a message that looks right and is unrelated to the event. P4 (2026-08-06) removed the guess by **carrying** the answer — a labelled line in the pull-request body, written by `/specificate` and read back by `/implement`. Q1 (2026-08-07, developer's ruling) reversed the direction while keeping what P4 taught: statelessness removes the guess **by defining the search so that it cannot guess** — ordered exact-string searches only, a prohibition on fuzzy/recency matching by name, a written query bound, and a not-found branch that posts a new keyed root instead of picking the closest thing. Two of propagation's benefits were given up knowingly: no target is carried between routines (each pays its own bounded lookup), and the thread URL left the public bodies (the withdrawal above).
 
 **Ticket `20260810163359` (2026-08-11) found the actual defect was never the design above — it was one unwritten detail underneath it.** Issue #360 kept reporting the same symptom Q1 was supposed to have fixed: a lookup that found nothing and posted a new root. FB `20260811084546` measured why, live: `dev-<repo>` is a **private** Slack channel, and `slack_search_public` — the connector's default, consent-free search tool — covers public channels only, so an exact `` `fb:<stem>` `` query against it returns zero results **by construction**, regardless of how faithfully the root carries the key (verified: the same query returned 0 via `slack_search_public` and an instant exact hit via `slack_search_public_and_private`). Q1 pinned the query shape — ordered, exact-string, bounded, no fuzzy matching — but never pinned the search *surface*, and the gap read as "search is unreliable" when it was "search never looked here." The fix is a one-line specification, not a mechanism change: cases 2 and 3 now name `slack_search_public_and_private` with `include_bots: true` explicitly, carried as a standing developer consent rather than re-asked per run (an unattended routine has no one to ask). A **persisted-key mechanism was drafted first** — a `thread_ref` field committed to the feedback record, checked before any search ran — and was independently ruled out by the developer the same day, before it shipped (FB `20260811084130`): a Slack thread coordinate committed to this **public** repository is exactly the exposure the P9 withdrawal (above) already found irretractable, under a new name. Both correction commits landed on `main` while a first implementation attempt of the persisted-key design was already in flight on an open pull request; that PR was closed unmerged rather than shipping a barred design once the correction was found. The scope-corrected search is the whole fix unless it is measured to still miss — and only then does a persisted key reopen as a question, constrained from the start to a store outside the repository (SKILL, above).
 
-**Ticket `20260818062653` (2026-08-18) added the query-source clause to case 3 — the same shape of defect as the entry above: the run looked in the wrong place.** An `/implement` run merged PR #484 and posted its `🟢 Implemented` line top-level, mentioning the developer, while a live thread for the same feedback item already existed (`p1786960288121629`). Both searches missed for reasons the design permitted: case 2's `` `fb:<stem>` `` could not match because that thread's root is a **human** message written before the record existed, so it carries no key; and case 3 searched the URL of **the pull request the run had just opened**, a string no message in Slack could have contained, because it did not exist until minutes earlier. The `/propose` run that wrote the ticket corroborated it from the other side — its own case 3 found the developer's existing thread by searching the **originating issue** URL, which existed before the run. The correction is a **query-source specification, not a mechanism change**: case 3 now says the URL it searches is one that pre-existed the run and that a self-created URL is never a query. The lookup's other constraints are deliberately untouched — the two-query bound, the private-inclusive surface, the fuzzy-matching prohibition, and case 4's keyed root — and this makes the failing case *less* likely rather than impossible: a human-rooted thread with no issue link pasted into it stays unfindable. Two reversals the ask also raised (lifting the effort ceiling, and letting `/propose`'s reply carry the `` `fb:<stem>` `` key into a root it did not write) each reverse something written deliberately (Q1, 2026-08-07; FB `20260811084130`) and were left to the operator, unresolved by the run that made this change.
+**Ticket `20260818062653` (2026-08-18) added the query-source clause to case 3 — the same shape of defect as the entry above: the run looked in the wrong place.** An `/implement` run merged PR #484 and posted its `🟢 Implemented` line top-level, mentioning the developer, while a live thread for the same feedback item already existed (`p1786960288121629`). Both searches missed for reasons the design permitted: case 2's `` `fb:<stem>` `` could not match because that thread's root is a **human** message written before the record existed, so it carries no key; and case 3 searched the URL of **the pull request the run had just opened**, a string no message in Slack could have contained, because it did not exist until minutes earlier. The `/specificate` run that wrote the ticket corroborated it from the other side — its own case 3 found the developer's existing thread by searching the **originating issue** URL, which existed before the run. The correction is a **query-source specification, not a mechanism change**: case 3 now says the URL it searches is one that pre-existed the run and that a self-created URL is never a query. The lookup's other constraints are deliberately untouched — the two-query bound, the private-inclusive surface, the fuzzy-matching prohibition, and case 4's keyed root — and this makes the failing case *less* likely rather than impossible: a human-rooted thread with no issue link pasted into it stays unfindable. Two reversals the ask also raised (lifting the effort ceiling, and letting `/specificate`'s reply carry the `` `fb:<stem>` `` key into a root it did not write) each reverse something written deliberately (Q1, 2026-08-07; FB `20260811084130`) and were left to the operator, unresolved by the run that made this change.

@@ -294,7 +294,7 @@ exclude() {
 # ## Acceptance authorizes work against no bar at all, so the offer applies that
 # floor -- a planless mission is never handed to an unattended run.
 #
-# BUT ACCEPTANCE ITEMS ARE NOT A QUEUE, and the offer needs both floors. `/propose`
+# BUT ACCEPTANCE ITEMS ARE NOT A QUEUE, and the offer needs both floors. `/specificate`
 # writes a provisional acceptance SKETCH, which satisfies an item count with zero
 # tickets: on 2026-07-30 an approved mission with `merge_policy: auto`, `tickets: []`
 # and an acceptance block reading "PROPOSED sketch -- not a plan" was offered here as

@@ -98,7 +98,7 @@ only while **at least one** mission it names is still active — the test is ANY
 ticket naming one live mission and one closed one is still a member and is never double-offered.
 Liveness is asked of `mission/scripts/read-active-relation.sh`, a pure reader beside
 `read-relation.sh` whose contract is untouched; it keys on the **area**, so a `status: draft`
-mission still in `active/` counts as alive and `/propose`'s safety property (a ticket proposed
+mission still in `active/` counts as alive and `/specificate`'s safety property (a ticket proposed
 under a not-yet-driven mission is unclaimable) holds unchanged. A ticket whose missions have all
 closed appears in **`backlog`** carrying `mission_closed` — the closed slugs that used to suppress
 it. It is deliberately not an `excluded` reason: `excluded[]` means the survey saw an item and

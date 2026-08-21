@@ -70,8 +70,8 @@ the project has decided to defer.
 ### 1. Read and understand the ticket
 
 - Read the ticket: requirements, Key Files, implementation steps.
-- **If the ticket carries a non-empty `## Open Decisions` section** (`propose`,
-  *Open decisions* — mainly a `/propose`-emitted ticket, since `/ticket` resolves the
+- **If the ticket carries a non-empty `## Open Decisions` section** (`specificate`,
+  *Open decisions* — mainly a `/specificate`-emitted ticket, since `/ticket` resolves the
   same kind of fork by asking a human directly), resolve each item explicitly before
   implementing it and record the resolution and its reasoning in the Final Report. An
   item this session cannot resolve with reasoning it can defend is not a silent guess —

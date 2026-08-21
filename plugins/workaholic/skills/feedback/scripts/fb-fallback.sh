@@ -21,8 +21,8 @@
 # only question is whether we lose it.
 #
 # WHAT A `true` COSTS, stated here because the caller must report it: a fallback record is
-# NOT discovered by `[Propose]`, whose discovery reads open issues rather than files
-# (`propose/scripts/list-inbound-issues.sh`). The ask is captured but not proposed until
+# NOT discovered by `[Specificate]`, whose discovery reads open issues rather than files
+# (`specificate/scripts/list-inbound-issues.sh`). The ask is captured but not proposed until
 # someone files it or re-runs. That is a deliberate limit, not an oversight — the
 # alternative is a sweep that re-reads local records looking for something to propose,
 # which is the retired `[Propose Batch]` design.

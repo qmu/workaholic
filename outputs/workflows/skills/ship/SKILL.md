@@ -97,7 +97,7 @@ Ship the current branch's PR. **The flow's outcome is a drafted plan and a merge
 4. **Commit the merge artifacts** (pre-merge): `commit-release-note.sh` — a failed push is a pre-merge hard stop — then update the PR body (`report/scripts/create-or-update.sh`) so reviewers see the plan before the merge.
 5. **Merge PR**: `merge-pr.sh`. On failure, inform and stop. Read `commit_hash_source` before using `commit_hash`; the post-merge base checkout is best-effort and never load-bearing (`checked_out` is a reported field, not a gate). The merge is **not** a deployment and grants no authorization to start one.
 6. **Publish GitHub Release** (post-merge): `publish-release.sh` — defers to a CI release workflow; refuses to tag on `on_base: false` or `commit_hash_source: "branch_head"`.
-7. **Extract deferred concerns** (post-merge): `extract-deferred-concerns.sh`, passing the base explicitly. Report `extracted`, `pushed` (best-effort by design, so read it — on `false`, a `git push` is outstanding) and `destination` (a record pushed off-base is invisible to `/report`'s judge and `/propose`).
+7. **Extract deferred concerns** (post-merge): `extract-deferred-concerns.sh`, passing the base explicitly. Report `extracted`, `pushed` (best-effort by design, so read it — on `false`, a `git push` is outstanding) and `destination` (a record pushed off-base is invisible to `/report`'s judge and `/specificate`).
 8. **Summarize**: catch-up, scan result (with any recorded override), **the drafted plan and whether it changed**, merge status, release note, GitHub Release, concern extraction count with its `destination`, and `checked_out`/`checkout_reason` when the base was not checked out.
 
 ### 5-D. The instructed deployment
@@ -132,6 +132,15 @@ Per target: `unreleased_count` and the `since` boundary with its `since_reason`,
 
 **The `digest` is what makes an idle tick silent.** It hashes the substantive per-target state and deliberately **not** the base sha, so a base that merely advanced is not news. The consumer posts it as the `deploy:<digest>` token and finds its own previous post by it (`notify`, *One thread per feedback item* — the same stateless lookup, no stored state anywhere): token found ⇒ post nothing.
 
+### The rate the digest did not bound (2026-08-18)
+
+**Measured over the nine hours after the refs fix above landed** (23:11 JST, 2026-08-18): nine `📦` posts in nine consecutive hours, counts 10, 12, 14, 16, 18, 22, 30, 2, 2 — and **one** request behind all nine, "cut a release for marketplace". Not one hour was silent. The refs fix cured the accuracy half and left the rate untouched, which closes the escape hatch the ticket left open ("if the fix alone brought the rate down, the rest may be unnecessary"). The cause is structural: `unreleased_count` is in the digest's input, and on an active day a commit lands on the base every hour, so the digest — which prevents a *repeat* — never fires against an hourly *restatement of the same request*.
+
+- **`day_token` is the bound**: `<Asia/Tokyo day>:<hash of the per-target `needs` sets>`, posted beside the digest as `deploy-day:<day_token>` and searched with it. Both gates are required, still AND'd with `actionable || doubtful`. It keys on **what the tick is asking for, not how much of it there is**, so an unchanged ask is said once a day while a **new kind** of ask — a target that starts needing a confirmation method, a target that appears — moves the token and is said the same hour. A doubtful target redacts its needs to the literal `doubtful`, for the same reason the digest redacts its count.
+- **The digest was not narrowed**, and that is the decision rather than an omission: dropping `unreleased_count` out of it is the obvious fix, but the digest's derivation had been settled hours earlier the same day (the doubtful redaction), and re-cutting a dedup key a day later is exactly the churn this bound exists to stop. A second key costs one more exact-string search and leaves the first one's reasoning intact.
+- **A day, and Tokyo**: it is this repository's existing floor for a recurring write (`run-note-cadence.sh`) and matches `[Standup]`'s stated rule that a daily post is a standing claim on attention. The container runs UTC while the workspace is `Asia/Tokyo`, so the zone is named; `WORKAHOLIC_DEPLOY_POST_TZ` overrides it, and a container with no tzdata reports `tz: UTC` rather than claiming a zone it did not get. Like every floor here it is **derived** — from the clock and from Slack's own record — and stores no cursor.
+- **The case for changing nothing, recorded rather than dismissed**: the request genuinely is open every one of those hours, and a daily floor can leave a renewed ask unsaid for the rest of the day. It loses to the measurement — nine identical asks in nine hours is how a channel teaches its readers to stop reading it — and the loss is bounded by keying on `needs` rather than on the clock alone. Rejected with it: a threshold on the *change* in the count (the ask is no more urgent at 20 than at 10, so any constant would be arbitrary), and leaving it hourly.
+
 ### The refs the count came from, freshened or named (2026-08-18)
 
 The boundary is derived from the newest reachable release tag, and until now the reader took whatever refs its container happened to hold. Measured in a live `[Prepare Release]` container: **no tags at all** and an `origin/main` five days stale, so one unchanged repository reported 2721 commits (`full_history`), then 2950 (`full_history`), then the true 4 (`latest_tag:v1.0.185`) as refs were fetched — with a **different `deploy:<digest>` each time**, which is the worse half: the dedup key moved with the refs, so the silence rule that exists to keep an unchanged repository quiet could post repeatedly.
@@ -155,7 +164,7 @@ copying.
 merge — **no cap and no selection**, because a silently shortened list reads as "nothing else
 happened". The line prefers the branch story's Overview sentence (the written record of *why*);
 where no story joined the merge it falls back to the **merge commit's body**, which is that pull
-request's own title. The fallback is the common case, not the rare one: a `/propose` pull request
+request's own title. The fallback is the common case, not the rare one: a `/specificate` pull request
 auto-merges without ever running `/report`, so it structurally never has a story. It is the body
 and never the subject — the subject reads `Merge pull request #N from qmu/work-…`, which names
 the number and the branch and summarises nothing, which is what the old placeholder already did.

@@ -26,7 +26,7 @@
 # not read `status`: a mission reaches `active/` on `main` only by merging its pull
 # request, and `close.sh` -- the only writer of an end state -- is what moves it out. A
 # `status: draft` mission still in `active/` is therefore ALIVE here, which is what keeps
-# `/propose`'s safety property intact: a ticket proposed under a not-yet-driven mission
+# `/specificate`'s safety property intact: a ticket proposed under a not-yet-driven mission
 # stays unclaimable, because its mission is in the active area whatever word it carries.
 #
 # IT IS A PURE READER. `plan-units.sh` calls it, and that script must stay side-effect

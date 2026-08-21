@@ -30,7 +30,7 @@ per-field detail, the classification rationale, and the concern producer extensi
 
 Added 2026-08-13 (issue #436). Before it, the stream recorded the *channel* and the
 *capture identity* and nothing at all about **who the opinion belonged to** — and since
-`/propose` and the routines write most of the stream, `author` on the majority of
+`/specificate` and the routines write most of the stream, `author` on the majority of
 records was a runner rather than a human with an opinion.
 
 **Shape**: `subject: <kind>[:<identity>]`. The **kind is a closed set** —
@@ -55,7 +55,7 @@ The field is only worth its cost if it is filled honestly at capture.
 | Writer | Subject |
 | ------ | ------- |
 | `/fb`, in-repo capture | The human whose words these are (`person:<email or name>`), or the meeting (`meeting:<when/what>`) |
-| `/propose` | The **triggering issue's author** — the person whose ask it is — never the running identity |
+| `/specificate` | The **triggering issue's author** — the person whose ask it is — never the running identity |
 | `ship`'s `extract-deferred-concerns.sh` | `observer_ai:<author email>`: the loop observed its own leftover; no human formed it |
 
 **Grandfathered.** Records written before the axis existed carry no `subject`, are never
@@ -69,7 +69,7 @@ Rejected: *inbox* (a place, not a record), *log* (implies machine events), *insi
 
 ## Choosing the kind — why the entry, and not the reader, decides
 
-`/propose` deliberately treats `instruction` (and a substantial `insight` naming
+`/specificate` deliberately treats `instruction` (and a substantial `insight` naming
 concrete work) as able to originate a proposal, while a lone `concern` never can —
 concerns feed replans and planning sessions. That asymmetry is what keeps an unattended
 judgment from proposing on every worry anyone ever recorded, so it must not be loosened;

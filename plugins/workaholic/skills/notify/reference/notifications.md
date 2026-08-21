@@ -94,57 +94,40 @@ named. `/prepare-release` survives as a command a human runs on demand; it posts
 <session URL>
 ```
 
-**A top-level keyed root, never a reply**, and **no mention token of any kind** — the same two reasons `📦 Release Preparation` carries none: no feedback item said anything, and the line names the repository's state rather than a person's work.
+**A top-level keyed root, never a reply**, and **no mention token of any kind** — the same two reasons the moderator's `🔎 Moderation` root carries none: no feedback item said anything, and the line names the repository's state rather than a person's work.
 
 **One strategy line each, in the digest's own order, capped.** A quiet strategy gets the explicit `no activity` line rather than being dropped — a strategy missing from the digest reads as a strategy nobody is working on, which is a different claim. `strategies_omitted` above the cap is stated as a trailing count, never silently cut. The final `not attributable` line is a **count** and rides only when it is non-zero; enumerating it would make this a repository changelog, which is `/catch`'s job.
 
 **Keyed on the date, not on the content.** A daily digest speaks for today even when today resembles yesterday; what the key prevents is two posts for one morning. Search the token exactly once (private-inclusive, `include_bots: true`): found ⇒ post nothing. `noop: true` from the digest posts nothing either, whatever the date says.
 
-### `/moderate` — the maintenance tick's one shape
+### `/moderate` — the moderator's hourly thread: one root, its questions inside it
 
-**One shape, and the reason is measured** (2026-08-19, the developer's instruction). This tick
-used to emit a second root, `🔧 Needs a decision`, keyed `` `stuck:<digest>` `` — a top-level post
-carrying no mention token, saying how many pull requests were blocked and on what. It is retired
-for the same reason `📦 Release Preparation` is: **a status line addressed to nobody is noise**,
-and its dedup key never made it otherwise. The finding survives; only the broadcast is gone.
-`step-stuck-prs.sh` still resolves every blocked pull request and the decision each one needs,
-and hands them to step 10 as `action: "ask"` candidates carrying an `ask_key` — where they either
-become a question addressed to a person, or stay in the tick log.
-
-That is the tick's whole rule now: **it speaks only to ask somebody something.** A finding it
-cannot turn into a question with a name on it does not reach Slack — it is a log row, and where
-it is work, a ticket.
-
-The check-in question is a **reply into the thread of the item it concerns**, and it is the one
-post in this file that **carries a mention token**, because it is the one post that needs a
-specific person to do something.
+**One thread per tick, and two speech acts told apart by position** (2026-08-21, the developer's design). The tick posts a **root** carrying what changed in the hour, and every question it has goes out as a **mentioned reply inside that root's thread**. The root is orientation and is addressed to nobody; the replies are directed and carry a name. Two kinds of speech, one place to look, no second routine.
 
 ```
-🙋 Question <@U…> - <what this tick could not decide>
-One sentence, max 25 words, the question itself, with the two options when there are two.
-`ask:<key>`
+🔎 Moderation - <N> change(s), <M> question(s)
+<step>: <what it says now, one line per changed step>
+`tick:<tick-id>`
 <session URL>
 ```
 
-**The emoji moved from `❓` on 2026-08-19**, when this became the tick's only voice: a mark a
-reader should recognise as "my turn to answer" rather than as one more machine notice. Nothing
-searches the heading — the key is `` `ask:<key>` `` — so the change cost nothing, the same
-property the 2026-08-17 release-tick rename got wrong and the 2026-08-18 one got right.
+```
+🙋 <@U…> - <what this tick could not decide>
+One sentence, max 25 words, the question itself, with the two options when there are two.
+`ask:<key>`
+```
 
-**Asked once, never re-asked.** `` `ask:<key>` `` is the content key, and an unanswered question
-is not re-posted next hour: a question is a demand on a person's attention, and repeating it
-turns asking into nagging. Silence is never read as an answer — the unanswered set stays visible
-in the tick log. `ask-question.sh` holds the per-tick cap, the daily bound and the quiet-hours
-window; a question it suppresses is recorded as held and handed back on the next eligible tick,
-which is what makes suppression a delay rather than a loss.
+**The root is rendered, never composed freehand** — `moderate/scripts/render-tick-post.sh` emits `root_text`, and the session posts that. The session URL rides the root only; a reply inside a thread whose root already carries it would be the same link twice.
 
-### `/propose` — posts nothing, and the reason is the audience again
+**A change is a step whose summary differs from the same step's summary in the previous tick** — nothing else, no field added to any step, and no cursor stored, because the previous tick is already in the log this tick keeps. That derivation is the reason an hourly root is admissible at all: `📦 Release Preparation` was retired for restating an unchanged answer ten hours running, and a diff against the last tick cannot do that by construction.
 
-**No shape, no key, no connector** (2026-08-21, issue #555). The `[Propose]` routine is granted `mcp: []` and emits no Slack post of any kind.
+**Two gates, and an idle hour is silent.** The root posts when there is at least one question **or** at least one changed step. `idle` posts nothing; so do `no_previous_tick` (everything would read as changed, the loudest and least informative first impression) and `no_log` — a mechanism that could not read must never announce quiet.
 
-The reasoning is exactly `/setup-user-routines`', reached independently: the issue `/propose` opens is **assigned to one person** — the running identity, whose own strategies it read — and GitHub already delivers it to them. A Slack line saying "I opened an issue you have already been notified about" is the same noise twice, and a status line addressed to nobody is what retired `🔧 Needs a decision` and `📦 Release Preparation`. The tie goes to silence, and here it is not even close.
+**What was retired to get here.** The tick used to reply its one question into the thread of the **item** it concerned, with no root of its own; before that it emitted two status roots, `🔧 Needs a decision` and `📦 Release Preparation`, both retired on 2026-08-19 because a status line addressed to nobody is noise whatever its dedup key (measured on `#dev-workaholic`: ten `📦` lines in ten consecutive hours for one unchanged request, none answered). That measurement stands and this root does not reverse it — **this root is not addressed to nobody in the same sense**: it exists to carry the questions under it, and it never posts on an hour with neither a question nor a change. The cost that was paid is stated rather than hidden: a person following one item's own thread no longer sees the tick's question there, so every root line links the item it is about.
 
-**Its result reaches that person as a Claude notification instead** — `notifications: push` on the routine record, the **second** template to declare it. A refusal it reports (`inbox_unreadable`, `no_evolutionary_move`, or a whole survey of named gate refusals) concerns only its own operator, who is also the only person who can act on it.
+**Asked once, never re-asked.** `` `ask:<key>` `` is the content key, and an unanswered question is not re-posted next hour: a question is a demand on a person's attention, and repeating it turns asking into nagging. Silence is never read as an answer — the unanswered set stays visible in the tick log. `ask-question.sh` holds the per-tick cap, the daily bound, **the working-day gate and the quiet-hours window**; a question it suppresses is recorded as held and handed back on the next eligible tick, which is what makes suppression a delay rather than a loss.
+
+**Working days, not only working hours** (2026-08-21). The gate checked the clock alone, so a question found at 10:00 on a Sunday was posted into a channel nobody was reading — and its own asked-once gate then guaranteed it was never posted again on a day somebody was. `WORKAHOLIC_WORK_DAYS` (default `1-5`) holds the weekend, and held is not dropped: the finding waits for Monday.
 
 ### `/setup-user-routines` — posts nothing, and the reason is the audience
 

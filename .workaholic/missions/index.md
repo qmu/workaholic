@@ -12,6 +12,7 @@
 * [make-workaholify-converge-the-account-s-routines](active/make-workaholify-converge-the-account-s-routines/mission.md) - Make /workaholify converge the account's routines
 * [make-workaholify-converge-the-repository-state](active/make-workaholify-converge-the-repository-state/mission.md) - Make workaholify converge the repository state
 * [name-the-session-type-that-cannot-merge](active/name-the-session-type-that-cannot-merge/mission.md) - Name the session type that cannot merge
+* [refuse-a-commit-that-splits-a-rename](active/refuse-a-commit-that-splits-a-rename/mission.md) - Refuse a commit that splits a rename
 * [refuse-ok-under-a-placeholder-identity](active/refuse-ok-under-a-placeholder-identity/mission.md) - Refuse ok under a placeholder identity
 * [register-every-fb-as-an-issue](active/register-every-fb-as-an-issue/mission.md) - Register every /fb as an issue
 * [rename-the-routine-pair-and-add-a-per-user-updater](active/rename-the-routine-pair-and-add-a-per-user-updater/mission.md) - Rename the routine pair and add a per-user updater

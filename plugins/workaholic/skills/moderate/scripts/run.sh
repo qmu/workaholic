@@ -1,5 +1,5 @@
 #!/bin/sh -eu
-# Run one `/propose` tick: every step in order, one log line each, one report.
+# Run one `/moderate` tick: every step in order, one log line each, one report.
 #
 # WHY IT EXISTS (2026-08-17, issue #471). Nine steps in an hourly unattended run
 # is a long tick, and the failure that matters is not a step going wrong — it is a
@@ -67,7 +67,7 @@ PERSIST_LOG="${SCRIPT_DIR}/persist-log.sh"
 # The step list IS the contract (reference/workflow.md states each one's inputs,
 # what it may write, and its abort reasons). Order is the ask's order, which is
 # also cheapest-first: the log, then the reads, then the writes, then the ask.
-STEPS='open-log inbound-sweep workload-logs merge-conflicts issue-triage stuck-prs doc-drift strategy-proposals human-checkin'
+STEPS='open-log inbound-sweep workload-logs merge-conflicts issue-triage stuck-prs doc-drift release-status note-cadence human-checkin'
 
 TICK=''
 ROOT='.'

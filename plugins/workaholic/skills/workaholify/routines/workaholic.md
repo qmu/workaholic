@@ -1,7 +1,7 @@
 ---
 type: Routine Template
 id: workaholic
-name: "[Workaholic] {repo_name}"
+name: "[Workaholic]"
 scope: user
 trigger: schedule-hourly
 trigger_kind: schedule
@@ -9,10 +9,11 @@ cron_expression: 10 * * * *
 autofix_on_pr_create: false
 model: claude-opus-5
 allowed_tools: [Bash, Read, Glob, Grep]
-mcp: [Slack]
+mcp: []
+notifications: push
 ---
 
-# [Workaholic] — the account's one updater, and it converges routines, not repositories
+# [Workaholic] — the account's one updater, and it belongs to no repository
 
 **`scope: user`** — **exactly one for the account**, no matter how many repositories that
 account has set up (2026-08-19, issue #526). This is a third value, not a rename of either
@@ -21,10 +22,18 @@ copy per **account, full stop**. `/setup-user-routines` configures it, and neith
 `/setup-dev-routines` nor `/setup-repo-routines` ever sees it — the scope is read from this
 field by both setup commands and every setup sheet, so nothing has to be listed twice.
 
-**Its repository field is the repository holding the definitions**, not whichever repository
-the operator happened to be standing in. This routine reads the workaholic repository's
-`skills/workaholify/routines/` for what a routine *should* be; the routines it converges live
-on other repositories and are reached through the account, not through a checkout.
+**Its name carries no repository, because it is not a repository's routine** (2026-08-19, the
+developer's correction). Every other template renders `[Name] {repo_name}` and means it: there
+is one `[Implement] foo` and one `[Implement] bar`, and each drives the repository it names.
+This one is `[Workaholic]`, full stop — an **account-level** record whose subject is *the
+account's routine list*, not any tree. Rendering a repository into its name made it look like
+the fifth per-repository routine and invited exactly the wrong question ("which repository is
+this one for?"), when the answer is "none of them, and all of them".
+
+**The repository it checks out is an implementation detail, not its identity.** It needs a
+working copy of the workaholic repository to read `skills/workaholify/routines/` — that is
+where the answer to *what a routine should look like* lives. That checkout is a `sources`
+field on the record; it is not what the routine is about, and it must not appear in the name.
 
 **What it does, hourly:** enumerate the account's own workaholic routines, render each one's
 template for the repository that routine names, diff the rendered `name` / prompt / `model` /
@@ -57,7 +66,7 @@ fleet down in one tick, and the failure worth designing against is a bad definit
 everywhere at once — not a missed update, which the next tick fixes for free. Excluding its own
 record is the cheap half of that: whatever it does to the fleet, there is still a tick left that
 can be repaired by hand and can repair the rest. Its own definition is converged by a person
-running `/setup-user-routines`, exactly as `[Propose]` is converged by a person running
+running `/setup-user-routines`, exactly as `[Moderate]` is converged by a person running
 `/setup-repo-routines` and never by a tick.
 
 **Where the transport is the whole question** (measured 2026-08-19 from a routine-fired
@@ -69,9 +78,20 @@ the honest shape is the one below, not a routine that quietly does nothing hourl
 `no_transport: RemoteTrigger-family tool` by name, states that it therefore could not read the
 account's routines and converged nothing, and **claims no convergence it did not perform**.
 
-**The prompt is the ceiling** (P3, Q2, P10): the one literal format below is the only shape a
-session running this routine may emit, and `workaholic:notify`'s `reference/notifications.md`
-mirrors it verbatim. A future edit to either copy is a drift to fix, never a second wording.
+**It posts nothing to Slack, and it is granted no Slack connector** (2026-08-19, the
+developer's instruction). It used to emit a `🔄 Workaholic` keyed root; that shape is retired
+and `mcp` is empty. The reasoning is the same one that retired `🔧 Needs a decision` and
+`📦 Release Preparation` from `[Moderate]`: a status line addressed to nobody is noise
+whatever its dedup key, and "which of your routines I updated this hour" is a report to its
+own operator, not a message to a channel of colleagues.
+
+**Its result reaches its operator through Claude's own notification instead** —
+`notifications: push` on the record, which is why this template declares that field at all and
+why the setup commands diff it. This is the one routine where that is right: it is an
+**account-level** routine acting on the operator's **own** account, so the operator is both
+the only audience and the only person who can act on a refusal. Every other routine declares
+notifications off, because their audience is a channel and duplicating a Slack post into a
+push notification is the same noise twice.
 
 ## Prompt
 
@@ -79,13 +99,8 @@ Run `/setup-user-routines`.
 
 If the command or its skills did not load, do not stop: run `bash plugins/workaholic/skills/check-deps/scripts/plugin-src.sh` from the checkout, take its `src`, then read `<src>/commands/setup-user-routines.md` and follow it with every script path under `<src>`.
 
-If the run converged a routine, or could not reach the transport at all, and the exact-string search for the state key finds no earlier post, post this one line as a new top-level message (the workaholic:notify lookup) — no mention token of any kind:
-
-```
-🔄 Workaholic - <what changed, or the named refusal and what it could not read>
-One sentence, max 25 words, which routines converged on which repositories, or what is not being converged.
-`fleet:<digest>`
-<session URL>
-```
-
-If nothing drifted, or that state was already posted, post nothing.
+Post nothing, anywhere. Report which routines you converged, by name and by what changed in
+each — or, if no transport could reach an account routine, report `no_transport:
+RemoteTrigger-family tool`, say that the account's routines could therefore not be read and
+that nothing was converged, and claim no convergence you did not perform. The run's own report
+is the deliverable; this account gets it as a Claude notification.

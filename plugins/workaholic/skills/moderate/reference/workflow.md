@@ -160,41 +160,48 @@ seam this file names for that step — recording what it actually did under the 
   A finding an earlier tick logged under `doc-drift-filed` is counted and dropped.
 - **Aborts**: `no_repo`, `no_baseline`, `drift_unreadable`.
 
-## 8. `strategy-proposals` — GATED: it proposes nothing until the operator rules
+## 8. `release-status` — what is waiting to reach a deployment target
 
-- **Reads**: `strategy/scripts/list.sh`. Nothing else, because it acts on nothing.
-- **Writes**: **nothing at all**, by decision (2026-08-17). Its own mission says why: *every step
-  reversing a standing decision is ruled on by the operator or left unbuilt, never inferred* — and
-  this step reverses one. `workaholic:specificate`'s judgment bar states that **missions, the queue and
-  commits are constraints, never triggers**; feedback is the only input that can originate a
-  proposal, and the retired `[Propose Batch]` routine was exactly the state-sweep this step
-  reintroduces, with a recorded failure mode of "a channel full of plausible noise".
-- **Three independent rulings are outstanding**, and the step names them in every report:
-  1. **Does a strategy originate a proposal at all?** The argument in favour is real and is
-     *recorded rather than acted on*: a strategy is not repository state — it is the operator's own
-     resolved, dated, owned direction, which sits far closer to feedback than to a backlog sweep.
-     If it is accepted, it belongs in `workaholic:specificate` as a second originator, so there is one
-     bar and not two. Accepting it is the operator's act.
-  2. **Which Slack shape?** The ask's `🟡 Proposing` collides twice — 🟡 is the handoff finish line
-     today, and the start post was retired on 2026-08-11 ("a routine posts its finish only"). And
-     `workaholic:notify`'s *the prompt is the ceiling* means no session may emit a shape the
-     routine's own prompt does not name, so a shape settled here alone would still be inert.
-  3. **What counts as "negative feedback"?** A reaction, a token in a reply, a human closing the
-     pull request, and a model's reading of a thread have four very different false-positive
-     rates, and an auto-close on a misread reply destroys a proposal nobody rejected. Of the four,
-     an **explicit token** is the only one whose false-positive rate is a property of the rule
-     rather than of the reader.
-- **Aborts**: `no_strategies` — today's actual state, reported rather than left silently empty;
-  `awaiting_operator_ruling` (`blocked`) once a strategy exists, because then the ruling is live;
-  `no_strategy_reader` when the strategy skill is absent.
-- **When it is built**: reuse `/specificate`'s emission machinery (publish tree → record → scaffold →
-  one pull request) rather than a second copy of it — only the *trigger* differs — put the ask's
-  "about a week" reaction window in **one named constant**, derive the in-flight state from the
-  open pull request's age rather than a stored cursor (the repository is the coordination medium),
-  and make a decline leave a record naming the reason **and** a closed pull request, never a closed
-  pull request alone.
+**Inputs**: `ship/scripts/report-deploy-status.sh`, which freshens the base branch and tags
+before deriving the boundary from them and reports `refs: fresh|stale|skipped`.
 
-## 9. `human-checkin` — up to five questions, never late at night
+**May write**: nothing. This is a read.
+
+**Where it came from**: the `[Prepare Release]` routine, merged into this tick on 2026-08-19.
+The question it answers — what has landed and not shipped, and on whom that waits — is the
+same question the rest of this tick asks about the repository's progress, so it stopped being
+a routine of its own.
+
+**It posts nothing.** The retired routine's `📦 Release Preparation` root did not come with
+it. Measured on `#dev-workaholic` the same day: ten `📦` lines in ten consecutive hours for
+one unchanged request, the count rising 10 → 12 → 14 → 16 → 18 → 22 → 30, none answered by
+anyone. Its two gates (`deploy:<digest>` and `deploy-day:<day_token>`) worked exactly as
+designed and were beside the point — **a status line addressed to nobody is noise at any
+frequency**. What is worth a person's attention becomes a question at step 10, addressed to
+somebody, with the options named; what is not stays in the log.
+
+**Abort reasons**: `reader_missing` (the script is not in this checkout), the reader's own
+`reason` when it could not read, and `doubtful` — the boundary was derived from refs the
+reader could not freshen, so **the count is withheld rather than rendered**. Two containers
+holding different stale refs would otherwise report two different truths about one base.
+
+## 9. `note-cadence` — where each target's draft release note stands
+
+**Inputs**: `ship/scripts/run-note-cadence.sh`, **without `--write`**.
+
+**May write**: nothing, and not by convention — by construction. `--write` is passed by the
+`Release Note Draft` GitHub workflow and by nothing else. A routine's container cannot write
+a release at all (`gh release` is refused as GraphQL; REST answers *"Creating, editing, or
+deleting releases is not permitted for this session type"*), which is why the 2026-08-17
+design that put the write on a tick failed on every tick until it was corrected.
+
+**It posts nothing**, for the same reason as step 8.
+
+**Abort reasons**: `reader_missing`, and the reader's own `reason` when the cadence could not
+be read.
+
+
+## 10. `human-checkin` — up to five questions, never late at night
 
 - **Reads**: the tick log (held questions, what was already asked today) and the clock in the
   workspace's timezone.

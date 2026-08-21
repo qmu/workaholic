@@ -2,7 +2,6 @@
 type: Routine Template
 id: specificate
 name: "[Specificate] {repo_name}"
-renamed_from: "[Propose] {repo_name}"
 scope: developer
 trigger: schedule-hourly
 trigger_kind: schedule
@@ -15,13 +14,13 @@ mcp: [Slack]
 
 # [Specificate] — turn a reported ask into a record and the work it warrants
 
-**This routine was `[Propose]` until 2026-08-19, and the rename owes the operator one
+**This routine was `[Moderate]` until 2026-08-19, and the rename owes the operator one
 manual act** (issue #526). Behaviour did not move: it still runs `/specificate`, still fires at
 `:15`, still declares `autofix_on_pr_create: true`, still names the same two post formats.
 Only `name:` moved — and convergence matches an account's routines **by name**, so the next
 `/setup-dev-routines` run **creates a second routine** rather than renaming the existing
 one, and a routine is an account-level record no other account can list or delete. An
-account already running `[Propose] <repo>` must **rename that routine in the web UI** to
+account already running `[Moderate] <repo>` must **rename that routine in the web UI** to
 `[Specificate] <repo>`, not create a second. The instruction is carried mechanically rather
 than by prose somebody must remember: `renamed_from:` above, rendered by
 `render-setup-sheet.sh` as the sheet's first note and stated by `/setup-dev-routines`'
@@ -30,9 +29,9 @@ describes a migration rather than a routine. `[Prepare Release]` carried the fir
 (2026-08-18, issue #485); this is the second and the precedent was copied, not reinvented.
 
 **The rename is one half of a swap, and the other half takes this name.** The maintenance
-tick, `[Housekeep]`, becomes `[Propose]` — so an account that creates `[Specificate]`
-without first renaming its live `[Propose]` ends up with two routines called `[Propose]
-<repo>`, one firing `/specificate` at `:15` and one firing `/propose` at `:50`, which
+tick, `[Housekeep]`, becomes `[Moderate]` — so an account that creates `[Specificate]`
+without first renaming its live `[Moderate]` ends up with two routines called `[Moderate]
+<repo>`, one firing `/specificate` at `:15` and one firing `/moderate` at `:50`, which
 convergence cannot tell apart. **Rename this one first**; the cutover is ordered, not merely
 "do not create a second".
 

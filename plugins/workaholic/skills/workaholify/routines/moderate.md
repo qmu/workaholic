@@ -1,8 +1,7 @@
 ---
 type: Routine Template
-id: propose
-name: "[Propose] {repo_name}"
-renamed_from: "[Housekeep] {repo_name}"
+id: moderate
+name: "[Moderate] {repo_name}"
 scope: repository
 trigger: schedule-hourly
 trigger_kind: schedule
@@ -13,22 +12,22 @@ allowed_tools: [Bash, Read, Write, Edit, Glob, Grep]
 mcp: [Slack]
 ---
 
-# [Propose] — the maintenance tick, one copy for the repository
+# [Moderate] — the maintenance tick, one copy for the repository
 
 **This routine was `[Housekeep]` until 2026-08-19, and its cutover is the ordered half of a
-swap** (issue #526). Behaviour did not move: it still runs `/propose`, still fires at `:50`,
+swap** (issue #526). Behaviour did not move: it still runs `/moderate`, still fires at `:50`,
 still declares `autofix_on_pr_create: true` and `scope: repository`, still names the same two
 post formats. Only `name:` moved — and it moved **into a name that was live until the same
 change**. The routine that held it, running `/specificate` at `:15`, is now `[Specificate]`.
 
-**So the operator's act here is ordered, and that is the whole risk.** Convergence matches an
-account's routines by rendered name. An account that has not yet renamed its live
-`[Propose] <repo>` to `[Specificate] <repo>` and lets `/setup-repo-routines` converge this one
-ends up with **two routines called `[Propose] <repo>`** — one firing `/specificate` at `:15`, one
-firing `/propose` at `:50` — which no convergence can tell apart and which no other account
-can list or delete. **Rename the old `[Propose]` first** (`/setup-dev-routines`' cutover), then
-this one. `renamed_from:` above carries the instruction into the sheet and both setup commands'
-reports; the field is deleted from this template once the fleet has cut over.
+**The cutover is done, and `renamed_from:` is gone with it** (2026-08-19). This routine was
+`[Housekeep]`, then briefly `[Propose]` — a name `[Specificate]` was vacating the same day,
+which made the two migrations ordered: converging this one before the other was renamed would
+have left two routines with one rendered name, indistinguishable to a convergence that matches
+by name. The field existed to carry that instruction into the sheet and both setup commands'
+reports. The fleet has cut over, so it is **deleted from this template**, exactly as the rule
+requires — it described a migration, not a routine. The mechanism is unchanged and documented
+in `workaholic:workaholify` §5 for the next rename that needs it.
 
 **Nothing is deduped by a routine's name**, so no post changes frequency or threading under
 this rename: the Slack keys are `` `fb:<stem>` ``, `` `stuck:<digest>` ``, `` `deploy:<digest>` ``
@@ -74,42 +73,41 @@ reason it is true on `[Specificate]`.
 clone; a log left in that checkout would take every dedup's memory with it and leave an hourly
 unattended process with no audit trail. `persist-log.sh` is the tick's closing act and the one
 thing this routine puts on `main` — an append to its own log, through the publish tree, leaving
-the checkout byte-identical and creating no branch (`workaholic:propose`, *The tick log*).
+the checkout byte-identical and creating no branch (`workaholic:moderate`, *The tick log*).
 
 **What it never does**, and none of it is left to the prompt: it never merges a pull request,
 never pushes into a branch the claim protocol owns (step 4 reports conflict state and the claim
 holder resolves it), never edits a live strategy, never closes an issue, never rewrites a
 document on `main` — its own append-only tick log is the single exception, stated above — and
 never calls `AskUserQuestion` — step 9 asks humans **in Slack**. Every one of those rules lives
-in `workaholic:propose` and its `reference/workflow.md`, which is why this prompt does not
+in `workaholic:moderate` and its `reference/workflow.md`, which is why this prompt does not
 restate them.
 
-**The prompt is the ceiling** (P3, Q2, P10): the two literal formats below are the only shapes a
+**The prompt is the ceiling** (P3, Q2, P10): the one literal format below is the only shape a
 session running this routine may emit, and `workaholic:notify`'s `reference/notifications.md`
-mirrors both verbatim. A future edit to either copy is a drift to fix, never a second wording.
+mirrors it verbatim. A future edit to either copy is a drift to fix, never a second wording.
+
+**One shape, because a status line addressed to nobody is noise** (2026-08-19, the developer's
+instruction). This routine used to emit a second, `🔧 Needs a decision`, and the merged-in
+release tick a third, `📦 Release Preparation`; both were top-level roots carrying no mention
+token. Measured on `#dev-workaholic` the same day: ten `📦` lines in ten consecutive hours for
+one unchanged request, none answered by anyone. Both are retired. A finding this tick cannot
+turn into a question addressed to somebody does not reach Slack at all — it stays in the tick
+log and, where it is work, becomes a ticket.
 
 ## Prompt
 
-Run `/propose`.
+Run `/moderate`.
 
-If the command or its skills did not load, do not stop: run `bash plugins/workaholic/skills/check-deps/scripts/plugin-src.sh` from the checkout, take its `src`, then read `<src>/commands/propose.md` and follow it with every script path under `<src>`.
-
-If pull requests are waiting on a human and the exact-string search for the state key finds no earlier post, post this one line as a new top-level message (the workaholic:notify lookup) — no mention token of any kind:
-
-```
-🔧 Needs a decision - <the step's headline: how many pull requests, and what is blocking them>
-One sentence, max 25 words, what the decision is (resolve a conflict, review it, fix a check).
-`stuck:<digest>`
-<session URL>
-```
+If the command or its skills did not load, do not stop: run `bash plugins/workaholic/skills/check-deps/scripts/plugin-src.sh` from the checkout, take its `src`, then read `<src>/commands/moderate.md` and follow it with every script path under `<src>`.
 
 For each question the check-in step is cleared to ask, post one message into the thread of the item it concerns, addressed to the resolved person:
 
 ```
-❓ Question <@U…> - <what this tick could not decide>
+🙋 Question <@U…> - <what this tick could not decide>
 One sentence, max 25 words, the question itself, with the two options when there are two.
 `ask:<key>`
 <session URL>
 ```
 
-If nothing is waiting on a human, or that state was already posted, post nothing. If no question clears the check-in gate, ask nothing.
+If no question clears the check-in gate, ask nothing — post nothing else, ever. A finding that is not a question addressed to a person belongs in the tick log, not in the channel.

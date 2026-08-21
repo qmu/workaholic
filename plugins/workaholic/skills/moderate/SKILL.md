@@ -1,6 +1,6 @@
 ---
-name: propose
-description: Use when a session runs `/propose` — the hourly maintenance tick that keeps the space around the loop judgeable. Defines the nine-step run, what each step may write, the tick log it leaves behind, and the rulings the ask's steps are held to.
+name: moderate
+description: Use when a session runs `/moderate` — the hourly maintenance tick that keeps the space around the loop judgeable. Defines the nine-step run, what each step may write, the tick log it leaves behind, and the rulings the ask's steps are held to.
 allowed-tools: Bash
 user-invocable: false
 skills:
@@ -11,9 +11,9 @@ metadata:
   internal: true
 ---
 
-# Propose
+# Moderate
 
-The loop's **maintenance tick**. `[Specificate]` turns asks into work and `[Implement]` drives it; nothing keeps the space *around* them tidy — stale issues, GitHub↔`.workaholic/` drift, pull requests stuck after a failed auto-merge, documentation that no longer matches the concept. `/propose` finds those, files them **through the existing seams**, and says what needs a human (issue #471).
+The loop's **maintenance tick**. `[Specificate]` turns asks into work and `[Implement]` drives it; nothing keeps the space *around* them tidy — stale issues, GitHub↔`.workaholic/` drift, pull requests stuck after a failed auto-merge, documentation that no longer matches the concept. `/moderate` finds those, files them **through the existing seams**, and says what needs a human (issue #471).
 
 Relocated detail: [the nine-step contract](reference/workflow.md) — each step's inputs, what it may write, its abort reasons, and the ruling it is held to.
 
@@ -28,7 +28,7 @@ Relocated detail: [the nine-step contract](reference/workflow.md) — each step'
 ## The run
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/run.sh
+bash ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/run.sh
 ```
 
 One invocation is one **tick**. It mints the tick id (`tick-id.sh`, UTC — every later write in the same tick is passed that id), runs the nine steps **in order**, writes **one log line per step** into `.workaholic/housekeeping/<UTC-day>.md`, and returns the report as JSON. The step list lives in `run.sh`, not in this prose: every step is invoked and every step contributes a line, so a step that is missing, crashes, or prints nothing is reported `degraded` with its reason instead of vanishing from the report.
@@ -38,7 +38,7 @@ One invocation is one **tick**. It mints the tick id (`tick-id.sh`, UTC — ever
 Then, for every step that returned entries in `needs_agent`, act on them through the seam that step's section names and record what you actually did:
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/log-append.sh \
+bash ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/log-append.sh \
   --tick <tick> --step <step>-filed --status filed --summary "<what was filed, with its id>"
 ```
 
@@ -47,7 +47,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/log-append.sh \
 **Then persist again — this is the last thing a tick does** (2026-08-18, PR #489):
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/persist-log.sh --tick <tick>
+bash ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/persist-log.sh --tick <tick>
 ```
 
 `run.sh` ran the persist as its closing act *before* you filed anything, because you act on `needs_agent` only after it returns — so without this second call every `<step>-filed` line dies with the container, and the dedups those lines exist to feed read an empty memory forever. It is idempotent: a tick that filed nothing gets `already_current` and writes no commit. Report its outcome in the session; it is deliberately not logged (recording it would need a third persist, and so on). If it comes back `degraded`, say so **by name** in the report — the lines are still in the checkout, and the next tick in the same container carries them up.
@@ -59,7 +59,7 @@ Finally report, in the session, one line per step: `<n> <step> <status> — <sum
 `.workaholic/housekeeping/<YYYY-MM-DD>.md`, one `## <tick-id>` section per tick, one line per step. It is an **operational log, not an OKF knowledge artifact** — no `type:`, no `index.md`, the bundle root links the directory bare — and it is **append-only, never pruned by a machine**. Writer: `log-append.sh` (idempotent per `(tick, step)`). Reader: `log-read.sh`, which is how a step answers *"did an earlier tick already file this?"* instead of re-filing the same finding every hour:
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/log-read.sh --step issue-triage --contains "#471"
+bash ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/log-read.sh --step issue-triage --contains "#471"
 ```
 
 Full rationale for both decisions (why it is not knowledge, why nothing prunes it): `plugins/workaholic/rules/workaholic.md`.

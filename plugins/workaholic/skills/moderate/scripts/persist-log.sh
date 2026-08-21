@@ -3,7 +3,7 @@
 #
 # WHY IT EXISTS (2026-08-17, issue #471, ticket
 # `20260817131500-persist-the-housekeep-tick-log`). `log-append.sh` writes into
-# the CHECKOUT, and a routine-fired `[Propose]` tick runs in a fresh container
+# the CHECKOUT, and a routine-fired `[Moderate]` tick runs in a fresh container
 # cloned from the base. Without this step the log dies with the container, which
 # breaks two things at once: every dedup that reads the log (`stuck:<digest>`,
 # `doc-drift`'s already-filed set, the check-in's asked-once and held sets, the
@@ -79,7 +79,7 @@
 #
 #   - "Persist twice." Not an alternative but the other half of this one: a
 #     second persist is what the agent now runs after recording its `<step>-filed`
-#     lines (`workaholic:propose`, *The run*), and it is inert unless the union
+#     lines (`workaholic:moderate`, *The run*), and it is inert unless the union
 #     can update a section that has already landed — which is this change. Both
 #     halves ship together; either alone fixes nothing.
 #   - "Move the agent's filing before the persist." Refused. It takes the closing

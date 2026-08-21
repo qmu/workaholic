@@ -2,14 +2,15 @@
 # PER-TARGET DRAFT RELEASE NOTE: what the note would read like if this target
 # were deployed from the base right now. A pure renderer.
 #
-#   draft-release-note.sh [--target <slug>] [--out <dir>] [--enrich] [base]
+#   draft-release-note.sh [--target <slug>] [--out <dir>] [--enrich]
+#                         [--plan <path|->] [--facts-out <dir>] [base]
 #
 # Output (one JSON line):
 #   {"ok": true, "base": "main", "base_rev": "origin/main", "base_sha": "abcd1234",
 #    "count": N,
 #    "targets": [{"slug","environment","deploy_model","attribution","since",
 #                 "since_reason","unreleased_count","empty":<bool>,
-#                 "body_sha":"<40-hex>","body":"...",
+#                 "body_sha":"<40-hex>","body":"...","plan":{...},
 #                 "changed": true|false|null, "path": "<out path>"|""}]}
 #   {"ok": false, "reason": "base_unresolvable"|"not_a_git_repo"|"no_targets"}
 #
@@ -37,6 +38,33 @@
 # the content changed. The same base state therefore renders byte-identical
 # output, which is the property the whole daily cadence rests on.
 #
+# THAT SENTENCE IS SUPERSEDED IN PLACE, NOT DELETED (2026-08-18, issue #512). It
+# now reads: THE SAME BASE STATE PLUS THE SAME PLAN RENDERS BYTE-IDENTICAL OUTPUT.
+# The property did not weaken and was never the defect -- the absence of judgment
+# was. `--plan` accepts an agent-authored ARRANGEMENT of the facts this script
+# derives (what ships together, in what order, at what risk, what is held back);
+# with no plan the output is byte-identical to what this renderer produced before
+# the seam existed, which is the one thing the seam had to prove. The plan is
+# rendered by `render-release-plan.sh`, its document is
+# `../reference/release-plan.md`, and a plan that cannot be applied (unreadable,
+# malformed, written for another target, no `python3`) is NOT applied: the derived
+# list renders and the named reason rides the JSON, because a note that looks
+# planned and was not is worse than one that says it is a list.
+#
+# A PLAN WRITTEN FOR AN OLDER BASE IS RENDERED AS STALE, NOT AS CURRENT. The plan
+# carries the `base_sha` it was written against; when that is not the base being
+# rendered, the note says so in a line naming both shas, and everything the plan
+# could not have known about falls into its *Not arranged by the plan* group. A
+# stale plan is never silently refreshed -- refreshing it would mean authoring the
+# judgment the plan exists to carry.
+#
+# THE PLAN'S HOME IS THE CALLER'S. This script reads `--plan` and looks in no
+# well-known location, exactly as `--out` does. What is fixed is that no home may
+# be inside git (SKILL.md §7's measured refusal applies unchanged: for a target
+# declaring no `paths:`, the commit storing the plan increments the very count the
+# plan is about) and that no home is trusted for freshness -- the document's own
+# `base_sha` is what answers that.
+#
 # THE STORY IS PREFERRED OVER THE COMMIT LIST. `.workaholic/stories/<branch>.md`
 # is the written record of WHY a branch happened; a commit list can only say what
 # moved. Each merge in the range names its branch, the branch names its story,
@@ -57,6 +85,26 @@
 # said. GitHub puts the pull request's TITLE in the merge commit's body, so the
 # informative string is local git data already in the range: no network, no
 # `--enrich`, and byte-identical for an unchanged base.
+#
+# THE FALLBACK CHAIN, IN ORDER, AND WHY EACH RUNG EXISTS (2026-08-18, issue #512):
+#
+#   1. The branch story's Overview sentence -- the written record of WHY, and the
+#      only rung a human authored about this change specifically.
+#   2. The merge commit body's pull request title -- what the change was called.
+#      Reached by every `/propose` merge, which never has a story; measured on this
+#      repository over `v1.0.170..main`, 38 of 68 merges (56%) land here.
+#   3. `Pull request #N (branch)` -- a merge whose body somebody emptied. Named
+#      rather than dropped: a shortened list reads as "nothing else happened".
+#
+# Rungs 2 and 3 then gain SUB-BULLETS from `resolve-merge-substance.sh`: what that
+# merge published on the base -- the feedback record it wrote (`Asked for:`), the
+# mission it planned, the tickets it queued. A story-bearing merge is never asked,
+# because the story is the better answer and a second summary beside it would only
+# compete with it. The labels are honest by design: a feedback record says what
+# somebody ASKED FOR, which is not always what the merge DID, and a wrong summary
+# is worse than a thin one. The detail rides the same row, so no merge is dropped,
+# reordered or capped by it, and it is local git plus base-tree reads, so `--enrich`
+# stays off by default and the same base state renders the same detail.
 #
 # "PREFER MERGES THAT HAVE A STORY" INTRODUCES NO SELECTION (the ticket's Open
 # Decision, resolved here). Three readings were on the table; this is (a),
@@ -95,11 +143,15 @@ SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 WANT_TARGET=""
 OUT_DIR=""
 ENRICH=0
+PLAN_PATH=""
+FACTS_DIR=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --target) WANT_TARGET="${2:-}"; shift 2 ;;
     --out) OUT_DIR="${2:-}"; shift 2 ;;
     --enrich) ENRICH=1; shift ;;
+    --plan) PLAN_PATH="${2:-}"; shift 2 ;;
+    --facts-out) FACTS_DIR="${2:-}"; shift 2 ;;
     --) shift; break ;;
     -*) echo '{"ok": false, "reason": "usage"}' >&2; exit 1 ;;
     *) break ;;
@@ -136,7 +188,19 @@ TMP="${TMPDIR:-/tmp}/wh-draft-note.$$"
 ROWS="${TMP}.rows"
 BODY="${TMP}.body"
 ERRS="${TMP}.err"
-trap 'rm -f "$ROWS" "$BODY" "$ERRS"' EXIT INT TERM
+FACTS="${TMP}.facts"
+PLAN_FILE="${TMP}.plan"
+PLAN_OUT="${TMP}.planout"
+PLAN_STATUS="${TMP}.planstatus"
+trap 'rm -f "$ROWS" "$BODY" "$ERRS" "$FACTS" "$PLAN_FILE" "$PLAN_OUT" "$PLAN_STATUS"' EXIT INT TERM
+
+# `--plan -` is read ONCE, here: the render loop runs per target, and a stdin
+# plan consumed by the first target would leave every later one planless for a
+# reason nothing would report.
+if [ "$PLAN_PATH" = "-" ]; then
+  cat > "$PLAN_FILE"
+  PLAN_PATH="$PLAN_FILE"
+fi
 
 if ! sh "${SCRIPT_DIR}/read-deploy-state.sh" --rows "$BASE" >"$ROWS" 2>"$ERRS"; then
   reason=$(head -n 1 "$ERRS" | tr -d '\n')
@@ -151,6 +215,10 @@ BASE_REV=$(printf '%s' "$BASE_LINE" | cut -d"$US" -f1)
 BASE_SHA=$(printf '%s' "$BASE_LINE" | cut -d"$US" -f2)
 
 [ -z "$OUT_DIR" ] || mkdir -p "$OUT_DIR"
+# `--facts-out` materialises exactly what the plan seam is handed, so a PLANNER
+# reads the same rows the renderer would render rather than deriving its own view
+# of the range. One derivation, two readers.
+[ -z "$FACTS_DIR" ] || mkdir -p "$FACTS_DIR"
 
 out=""
 sep=""
@@ -175,6 +243,10 @@ while IFS="$US" read -r slug title environment model model_reason \
   fi
 
   : > "$BODY"
+  # Per target, because a plan names ONE target: a plan applied to the target it
+  # was written for says nothing about the next one in the same run.
+  PLAN_JSON='{"present": false, "reason": "not_supplied"}'
+  [ -z "$PLAN_PATH" ] || PLAN_JSON='{"present": false, "reason": "empty_range"}'
 
   {
     printf -- '---\n'
@@ -201,6 +273,7 @@ while IFS="$US" read -r slug title environment model model_reason \
   else
     # --- Key Changes: the stories behind the merges in the range ---------------
     stories=""
+    : > "$FACTS"
     if [ -n "$RANGE" ]; then
       # ONE LINE RULE, WRITTEN ONCE. Both sources of a `## Key Changes` line — the
       # story's Overview sentence and the merge body's pull request title — are cut
@@ -225,20 +298,27 @@ while IFS="$US" read -r slug title environment model model_reason \
       # keeps its line-at-a-time shape: records are separated by RS, the two fields
       # by US, and the body is reduced to its first non-empty line (GitHub writes
       # the pull request's title there).
-      MERGE_FMT='%x1e%s%x1f%b'
+      # THE SHA RIDES THE RECORD (2026-08-18, issue #512), because a story-less
+      # merge's substance is resolved from that merge's own diff and there is no
+      # second traversal to recover it from.
+      MERGE_FMT='%x1e%H%x1f%s%x1f%b'
       merge_split='
         BEGIN { RS = "\036" }
         {
           if ($0 !~ /[^ \t\n]/) next
           i = index($0, "\037")
-          if (i == 0) { subj = $0; body = "" }
-          else        { subj = substr($0, 1, i - 1); body = substr($0, i + 1) }
+          if (i == 0) next
+          sha = substr($0, 1, i - 1); rest = substr($0, i + 1)
+          gsub(/[ \t\n]/, "", sha)
+          j = index(rest, "\037")
+          if (j == 0) { subj = rest; body = "" }
+          else        { subj = substr(rest, 1, j - 1); body = substr(rest, j + 1) }
           gsub(/\n/, " ", subj)
           sub(/^[ \t]+/, "", subj); sub(/[ \t]+$/, "", subj)
           n = split(body, line, "\n"); t = ""
-          for (j = 1; j <= n; j++) { if (line[j] ~ /[^ \t]/) { t = line[j]; break } }
+          for (k = 1; k <= n; k++) { if (line[k] ~ /[^ \t]/) { t = line[k]; break } }
           sub(/^[ \t]+/, "", t); sub(/[ \t]+$/, "", t)
-          print subj "\037" clamp(t)
+          print sha "\037" subj "\037" clamp(t)
         }'
       if [ -n "$PATHSPEC" ]; then
         # shellcheck disable=SC2086 - PATHSPEC is a built argument list.
@@ -250,9 +330,11 @@ while IFS="$US" read -r slug title environment model model_reason \
       OLD_IFS=$IFS; IFS='
 '
       for mrecord in $merges; do
-        msubject=${mrecord%%"$US"*}
-        mtitle=${mrecord#*"$US"}
-        [ "$mtitle" != "$mrecord" ] || mtitle=''
+        msha=${mrecord%%"$US"*}
+        mrest=${mrecord#*"$US"}
+        msubject=${mrest%%"$US"*}
+        mtitle=${mrest#*"$US"}
+        [ "$mtitle" != "$mrest" ] || mtitle=''
         branch=$(printf '%s' "$msubject" | sed -n 's|.*from [^/]*/\(work-[0-9-]*\).*|\1|p')
         [ -n "$branch" ] || continue
         prnum=$(printf '%s' "$msubject" | sed -n 's|.*pull request #\([0-9]*\).*|\1|p')
@@ -291,27 +373,57 @@ while IFS="$US" read -r slug title environment model model_reason \
               print clamp(out)
             }')
         fi
+        # ONE LINE, TWO CONSUMERS. The line is composed once and appended both to
+        # the derived list and to the facts file a plan arranges, so a planned
+        # note and a planless one can never disagree about what a merge says —
+        # a plan supplies arrangement, never a change's own text.
+        line=""
         if [ -n "$stitle" ]; then
-          stories="${stories}- ${stitle}
-"
+          line="$stitle"
         elif [ -n "$mtitle" ]; then
           # No story joined this merge — the structural case for every `/specificate`
           # pull request, which auto-merges without ever running `/report`. The
           # merge commit's body is that pull request's own title, so the line says
           # what landed instead of saying that nothing says what landed.
           if [ -n "$prnum" ]; then
-            stories="${stories}- ${mtitle} (#${prnum})
-"
+            line="${mtitle} (#${prnum})"
           else
-            stories="${stories}- ${mtitle}
-"
+            line="$mtitle"
           fi
         elif [ -n "$prnum" ]; then
           # Neither a story nor a title: a merge commit whose body somebody
           # emptied. Say which merge, rather than dropping it — a silently
           # shortened list reads as "nothing else happened".
-          stories="${stories}- Pull request #${prnum} (\`${branch}\`) — no branch story on the base.
+          line="Pull request #${prnum} (\`${branch}\`) — no branch story on the base."
+        fi
+        # A STORY-LESS MERGE IS ASKED WHAT ELSE IT PUBLISHED (2026-08-18, issue
+        # #512). 38 of 68 merges over `v1.0.170..main` carry no story — the
+        # majority path — and the substance is already on the base: the proposal's
+        # feedback record, the mission it planned, the tickets it queued. The
+        # detail rides the SAME row as sub-bullets: no merge is dropped, reordered
+        # or capped by it, and a merge that published nothing renders unchanged.
+        # A merge WITH a story is never asked — the story is the better answer and
+        # a second summary beside it would only compete with it.
+        detail=""
+        if [ -z "$stitle" ] && [ -n "$line" ]; then
+          detail=$(sh "${SCRIPT_DIR}/resolve-merge-substance.sh" "$msha" 2>/dev/null \
+            | awk "${CLAMP_FN}"'NF { print clamp($0) }' || true)
+        fi
+        if [ -n "$line" ]; then
+          stories="${stories}- ${line}
 "
+          factline="$line"
+          if [ -n "$detail" ]; then
+            OLD_IFS2=$IFS; IFS='
+'
+            for dline in $detail; do
+              stories="${stories}  - ${dline}
+"
+              factline="${factline}$(printf '\036')${dline}"
+            done
+            IFS=$OLD_IFS2
+          fi
+          printf '%s%s%s%s%s\n' "$prnum" "$US" "$branch" "$US" "$factline" >> "$FACTS"
         fi
       done
       IFS=$OLD_IFS
@@ -329,11 +441,46 @@ while IFS="$US" read -r slug title environment model model_reason \
       printf '## Key Changes\n\n'
     } >> "$BODY"
 
-    if [ -n "$stories" ]; then
-      printf '%s\n' "$stories" | sed '/^$/d' >> "$BODY"
+    [ -z "$FACTS_DIR" ] || cp "$FACTS" "${FACTS_DIR}/${slug}.facts"
+
+    # A plan arranges this section or nothing does. `present: false` — including
+    # every refusal — falls through to the derived list below, unchanged.
+    if [ -n "$PLAN_PATH" ]; then
+      : > "$PLAN_OUT"
+      printf '{"present": false, "reason": "unreadable"}\n' > "$PLAN_STATUS"
+      sh "${SCRIPT_DIR}/render-release-plan.sh" --plan "$PLAN_PATH" --facts "$FACTS" \
+        --target "$slug" --base-sha "$BASE_SHA" --status-out "$PLAN_STATUS" \
+        > "$PLAN_OUT" 2>/dev/null || true
+      PLAN_JSON=$(cat "$PLAN_STATUS")
+    fi
+
+    if [ -n "$PLAN_PATH" ] && [ -s "$PLAN_OUT" ] \
+      && grep -q '"present": true' "$PLAN_STATUS" 2>/dev/null; then
+      cat "$PLAN_OUT" >> "$BODY"
       printf '\n' >> "$BODY"
     else
-      printf 'No merge in this range named a branch, so no story could be joined.\n\n' >> "$BODY"
+      # A PLAN WAS EXPECTED AND DID NOT ARRIVE: SAY SO ON THE NOTE'S FACE
+      # (2026-08-18, Open Decision 2 on the planner ticket). Passing `--plan` IS
+      # the expectation, so any non-application under it is visible here as well
+      # as in the JSON — otherwise a reader cannot tell a deliberate list from a
+      # planner that broke, which is the one thing this fallback must not hide. A
+      # render with no `--plan` at all expects nothing and stays silent.
+      if [ -n "$PLAN_PATH" ]; then
+        plan_reason=$(printf '%s' "$PLAN_JSON" | sed -n 's/.*"reason": "\([^"]*\)".*/\1/p')
+        case "${plan_reason:-unknown}" in
+          empty_range) : ;;
+          *)
+            printf '> *No release plan was applied to this draft (`%s`), so the merges below\n' \
+              "${plan_reason:-unknown}"
+            printf '> are listed as derived rather than arranged.*\n\n' ;;
+        esac >> "$BODY"
+      fi
+      if [ -n "$stories" ]; then
+        printf '%s\n' "$stories" | sed '/^$/d' >> "$BODY"
+        printf '\n' >> "$BODY"
+      else
+        printf 'No merge in this range named a branch, so no story could be joined.\n\n' >> "$BODY"
+      fi
     fi
 
     # --- Changes: grouped by the commit `Category:` trailer -------------------
@@ -413,6 +560,29 @@ while IFS="$US" read -r slug title environment model model_reason \
     printf '> nothing this note could report as verified.*\n\n' >> "$BODY"
   fi
 
+  # --- Releases: what the plan above turned into ------------------------------
+  # THE JOIN (2026-08-18, issue #512's fourth gap). The plan, the release and the
+  # verification were three correct records in three places, so no single document
+  # carried a release through its life. They are DERIVED here rather than copied:
+  # `read-release-history.sh` reads the records their own writers own, so this adds
+  # no third store and cannot violate their append-only order — it never writes.
+  releases=$(sh "${SCRIPT_DIR}/read-release-history.sh" --releases 2>/dev/null || true)
+  {
+    printf '## Releases\n\n'
+    printf 'Derived from `.workaholic/releases/` — the durable ship records, written at the\n'
+    printf 'cut by `record-release-cut.sh` and at each confirmation attempt by\n'
+    printf '`confirm-release.sh`. A window is **repository-wide**: it carries the whole\n'
+    printf 'batch, so a confirmation here says the batch containing `%s` reached\n' "$slug"
+    printf 'production, not that this target was checked on its own — the per-target\n'
+    printf 'evidence is the section below.\n\n'
+  } >> "$BODY"
+  if [ -n "$releases" ]; then
+    printf '%s\n\n' "$releases" >> "$BODY"
+  else
+    printf 'No release has been cut yet, so nothing above has left the base.\n\n' >> "$BODY"
+  fi
+
+  attempts=$(sh "${SCRIPT_DIR}/read-release-history.sh" --attempts --target "$slug" 2>/dev/null || true)
   {
     printf '## Deployment Verification\n\n'
     printf 'Append-only; one block per attempt, written by `record-evidence.sh` — the one\n'
@@ -420,8 +590,22 @@ while IFS="$US" read -r slug title environment model model_reason \
     printf 'names the target, the declared method, the exact check that ran, the observed\n'
     printf 'result, and one of `pass` / `fail` / `not_run` / `bypassed`. A later attempt\n'
     printf 'adds a block and never rewrites an earlier one.\n\n'
-    printf 'No attempt has been recorded against this draft — a draft describes a release\n'
-    printf 'that has not happened.\n\n'
+  } >> "$BODY"
+  if [ -n "$attempts" ]; then
+    # Every recorded outcome, in the order it was recorded — `fail`, `not_run` and
+    # `bypassed` exactly as visible as `pass`, because a continuity feature that
+    # showed only successes would make an unverified release read as a verified one.
+    {
+      printf 'Recorded against `%s` so far, derived from\n' "$slug"
+      printf '`.workaholic/release-notes/%s.md` (its own writer appends there; this is a\n' "$slug"
+      printf 'projection and never a second record):\n\n'
+    } >> "$BODY"
+    printf '%s\n\n' "$attempts" >> "$BODY"
+  else
+    printf 'No attempt has been recorded against this target — a draft describes a release\n' >> "$BODY"
+    printf 'that has not happened.\n\n' >> "$BODY"
+  fi
+  {
     printf '## Links\n\n'
     printf -- '- [Deployment record](.workaholic/deployments/%s.md)\n' "$slug"
   } >> "$BODY"
@@ -442,7 +626,7 @@ while IFS="$US" read -r slug title environment model model_reason \
 
   body_json=$(escape_file_json < "$BODY")
 
-  out="${out}${sep}{\"slug\": \"$(json_escape "$slug")\", \"environment\": \"$(json_escape "$environment")\", \"deploy_model\": \"$(json_escape "$model")\", \"attribution\": \"$(json_escape "$attribution")\", \"since\": \"$(json_escape "$since")\", \"since_reason\": \"$(json_escape "$since_reason")\", \"unreleased_count\": ${n:-0}, \"empty\": $( [ "${n:-0}" -eq 0 ] && echo true || echo false ), \"body_sha\": \"${BODY_SHA}\", \"changed\": ${changed}, \"path\": \"$(json_escape "$path")\", \"enriched\": $( [ "$ENRICH" -eq 1 ] && echo true || echo false ), \"body\": ${body_json}}"
+  out="${out}${sep}{\"slug\": \"$(json_escape "$slug")\", \"environment\": \"$(json_escape "$environment")\", \"deploy_model\": \"$(json_escape "$model")\", \"attribution\": \"$(json_escape "$attribution")\", \"since\": \"$(json_escape "$since")\", \"since_reason\": \"$(json_escape "$since_reason")\", \"unreleased_count\": ${n:-0}, \"empty\": $( [ "${n:-0}" -eq 0 ] && echo true || echo false ), \"body_sha\": \"${BODY_SHA}\", \"changed\": ${changed}, \"path\": \"$(json_escape "$path")\", \"enriched\": $( [ "$ENRICH" -eq 1 ] && echo true || echo false ), \"plan\": ${PLAN_JSON}, \"body\": ${body_json}}"
   sep=", "
 done < "$ROWS"
 

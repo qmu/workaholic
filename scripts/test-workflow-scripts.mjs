@@ -14293,6 +14293,10 @@ const tests = [
   ["prepare-release: the routine is retired, and its post shape with it", testPrepareReleaseRetired],
   ["release note draft: CI writes it, and the tick never attempts to", testTheDraftNoteWriterIsCi],
   ["release note: Key Changes says what landed, for every merge", testReleaseNoteKeyChangesFallback],
+  ["release note: a story-less merge keeps its substance", testReleaseNoteStoryLessSubstance],
+  ["release note: the plan seam over the renderer", testReleaseNotePlanSeam],
+  ["release note: plan then release then verification, in one document", testReleaseNoteLifecycleJoin],
+  ["release plan: the planner, its gate, and its visible failure", testReleasePlannerChain],
   ["workaholify routines: one template set, applied per repository, drift named per field", testWorkaholifyRoutines],
   ["workaholify: the command converges routines, and a sheet is a refusal's recovery path", testWorkaholifyConvergesRoutines],
   ["workaholify bootstrap: without it a web routine is configured but cannot work", testWorkaholifyBootstrap],
@@ -16250,6 +16254,450 @@ function testReleaseNoteKeyChangesFallback() {
   }
 }
 
+// ---------- release note: a story-less merge keeps its substance ----------
+// (2026-08-18, issue #512) A `/propose` pull request auto-merges without ever running
+// `/report`, so it structurally never has a branch story — measured on this repository,
+// 38 of 68 merges over `v1.0.170..main` (56%) carry none. The merge's own diff still
+// names what it published: the feedback record, the mission, the tickets. That substance
+// rides the SAME row as sub-bullets — no merge is dropped, reordered or capped by it.
+function testReleaseNoteStoryLessSubstance() {
+  const tmp = mkdtempSync(join(tmpdir(), "workaholic-note-substance-"));
+  const repo = join(tmp, "repo");
+  const DRAFT = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/draft-release-note.sh")}`;
+  const keyChanges = (body) => {
+    const m = /## Key Changes\n([\s\S]*?)(?=\n## |$)/.exec(body);
+    return (m ? m[1] : "").trim();
+  };
+  try {
+    mkdirSync(join(repo, ".workaholic/stories"), { recursive: true });
+    mkdirSync(join(repo, ".workaholic/deployments"), { recursive: true });
+    mkdirSync(join(repo, ".workaholic/feedbacks"), { recursive: true });
+    mkdirSync(join(repo, ".workaholic/missions/active/plan-the-release"), { recursive: true });
+    mkdirSync(join(repo, ".workaholic/tickets/todo"), { recursive: true });
+    execSync("git -c init.defaultBranch=main init -q", { cwd: repo });
+    execSync("git config user.email test@example.com", { cwd: repo });
+    execSync("git config user.name Test", { cwd: repo });
+    execSync("git config commit.gpgsign false", { cwd: repo });
+    writeFileSync(join(repo, ".workaholic/deployments/marketplace.md"),
+      "---\ntype: Deployment\ntarget: marketplace\nenvironment: production\ndeploy_model: deploy-on-merge\n---\n\n# marketplace\n\n## Procedure\n\n1. Merge.\n\n## Confirmation\n\nCheck it.\n");
+    execSync("git add -A && git commit -q -m initial", { cwd: repo });
+
+    // A proposal merge: publishes a feedback record, a mission and two tickets, and —
+    // like every /propose pull request — no story.
+    execSync("git checkout -q -b work-20260201-000000", { cwd: repo });
+    writeFileSync(join(repo, ".workaholic/feedbacks/20260201-the-note-must-be-a-plan.md"),
+      "---\ntype: Feedback\ntitle: The draft release note must be an arranged release plan\nkind: instruction\n---\n\nBody.\n");
+    writeFileSync(join(repo, ".workaholic/missions/active/plan-the-release/mission.md"),
+      "---\ntype: Mission\ntitle: Make the draft note an agent's release plan\nslug: plan-the-release\nstatus: active\n---\n\n# m\n");
+    writeFileSync(join(repo, ".workaholic/tickets/todo/20260201000000-a.md"), "---\n---\n\n# A\n");
+    writeFileSync(join(repo, ".workaholic/tickets/todo/20260201000001-b.md"), "---\n---\n\n# B\n");
+    execSync('git add -A && git commit -q -m "Publish the proposal"', { cwd: repo });
+    execSync("git checkout -q main", { cwd: repo });
+    execSync('git merge -q --no-ff work-20260201-000000 -m "Merge pull request #71 from qmu/work-20260201-000000" -m "[Proposal] Make the draft note an agent\'s release plan"',
+      { cwd: repo });
+
+    // A merge that published nothing an artifact reader can name.
+    execSync("git checkout -q -b work-20260202-000000", { cwd: repo });
+    writeFileSync(join(repo, "src.txt"), "x\n");
+    execSync('git add -A && git commit -q -m "Do the work"', { cwd: repo });
+    execSync("git checkout -q main", { cwd: repo });
+    execSync('git merge -q --no-ff work-20260202-000000 -m "Merge pull request #72 from qmu/work-20260202-000000" -m "Fix the thing"',
+      { cwd: repo });
+
+    const body = keyChanges(JSON.parse(run(repo, DRAFT).stdout).targets[0].body);
+    const rows = body.split("\n").filter((l) => l.startsWith("- "));
+    assertEq("one top-level row per merge — nothing dropped, nothing capped", rows.length, 2);
+
+    assertTrue("the proposal's feedback record is named, labelled as what was ASKED FOR",
+      body.includes("  - Asked for: The draft release note must be an arranged release plan (feedback `20260201-the-note-must-be-a-plan`)."),
+      body);
+    assertTrue("...and the mission it planned, with the tickets it queued",
+      body.includes("  - Planned as: mission \"Make the draft note an agent's release plan\", 2 ticket(s) queued."),
+      body);
+    assertTrue("the detail sits UNDER its own row, not as a row of its own",
+      /- \[Proposal\] Make the draft note an agent's release plan \(#71\)\n {2}- Asked for:/.test(body), body);
+    assertTrue("a merge that published no artifact renders exactly as before",
+      /- Fix the thing \(#72\)$/m.test(body) && !/Fix the thing \(#72\)\n {2}- /.test(body), body);
+
+    // Local reads only, so the contract holds: same base state, same detail.
+    assertEq("two renders of an unchanged base are byte-identical",
+      run(repo, DRAFT).stdout, run(repo, DRAFT).stdout);
+
+    // A merge WITH a story is never asked — the story is the better answer, and a
+    // second summary beside it would only compete with it.
+    execSync("git checkout -q -b work-20260203-000000", { cwd: repo });
+    writeFileSync(join(repo, ".workaholic/stories/work-20260203-000000.md"),
+      "---\ntype: Story\nbranch: work-20260203-000000\n---\n\n## 1. Overview\n\nThe run learned to arrange. More prose.\n");
+    writeFileSync(join(repo, ".workaholic/feedbacks/20260203-another.md"),
+      "---\ntype: Feedback\ntitle: Another ask entirely\n---\n\nBody.\n");
+    execSync('git add -A && git commit -q -m "Do it"', { cwd: repo });
+    execSync("git checkout -q main", { cwd: repo });
+    execSync('git merge -q --no-ff work-20260203-000000 -m "Merge pull request #73 from qmu/work-20260203-000000" -m "Arrange the note"',
+      { cwd: repo });
+    const withStory = keyChanges(JSON.parse(run(repo, DRAFT).stdout).targets[0].body);
+    assertTrue("a story-bearing merge still renders its story sentence alone",
+      /- The run learned to arrange\.$/m.test(withStory), withStory);
+    assertTrue("...with no substance sub-bullets under it",
+      !/Another ask entirely/.test(withStory), withStory);
+  } finally {
+    cleanup(tmp);
+  }
+}
+
+// ---------- release note: plan → release → verification, in one document ----------
+// (2026-08-18, issue #512's fourth gap) The three records were separately correct and
+// never joined: the plan in the draft, the window under `.workaholic/releases/`, the
+// per-target attempt in `.workaholic/release-notes/`. They are DERIVED into the one
+// document rather than copied — no third store, and the writers keep their append-only
+// order because the projection never writes. The unflattering outcomes (`fail`,
+// `not_run`, `bypassed`) render exactly as loudly as `pass`.
+function testReleaseNoteLifecycleJoin() {
+  const tmp = mkdtempSync(join(tmpdir(), "workaholic-note-join-"));
+  const repo = join(tmp, "repo");
+  const DRAFT = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/draft-release-note.sh")}`;
+  const body = () => JSON.parse(run(repo, DRAFT).stdout).targets[0].body;
+  const section = (b, name) => {
+    const m = new RegExp(`## ${name}\\n([\\s\\S]*?)(?=\\n## |$)`).exec(b);
+    return (m ? m[1] : "").trim();
+  };
+  try {
+    mkdirSync(join(repo, ".workaholic/deployments"), { recursive: true });
+    mkdirSync(join(repo, ".workaholic/releases"), { recursive: true });
+    mkdirSync(join(repo, ".workaholic/release-notes"), { recursive: true });
+    execSync("git -c init.defaultBranch=main init -q", { cwd: repo });
+    execSync("git config user.email test@example.com", { cwd: repo });
+    execSync("git config user.name Test", { cwd: repo });
+    execSync("git config commit.gpgsign false", { cwd: repo });
+    writeFileSync(join(repo, ".workaholic/deployments/marketplace.md"),
+      "---\ntype: Deployment\ntarget: marketplace\nenvironment: production\ndeploy_model: deploy-on-merge\n---\n\n# marketplace\n\n## Procedure\n\n1. Merge.\n\n## Confirmation\n\nCheck it.\n");
+    execSync("git add -A && git commit -q -m initial", { cwd: repo });
+
+    // (1) NOTHING YET: both stages say so in words, never by an absent section.
+    let b = body();
+    assertTrue("a draft with no release says so plainly",
+      /No release has been cut yet/.test(section(b, "Releases")), section(b, "Releases"));
+    assertTrue("and one with no attempt says that too",
+      /No attempt has been recorded against this target/.test(section(b, "Deployment Verification")),
+      section(b, "Deployment Verification"));
+    assertTrue("the three stages read in order: plan, then release, then verification",
+      b.indexOf("## Deployment Plan") < b.indexOf("## Releases")
+      && b.indexOf("## Releases") < b.indexOf("## Deployment Verification"), b);
+
+    // (2) A WINDOW IS CUT, THEN CONFIRMED — repository-wide, and labelled as such.
+    writeFileSync(join(repo, ".workaholic/releases/release-20260301-000000.md"),
+      "---\ntype: Release\nrelease_branch: release/20260301-000000\nstatus: confirmed\ncut_at: 2026-03-01T00:00:00+00:00\ncarried_count: 7\nconfirmed_at: 2026-03-01T01:00:00+00:00\nconfirmation_method: browser\nconfirmation_status: pass\ntag: v1.0.200\n---\n\n# release\n");
+    b = body();
+    assertTrue("the window renders with its verdict, method and tag",
+      /`release\/20260301-000000` — cut 2026-03-01T00:00:00\+00:00, 7 commit\(s\), \*\*confirmed\*\*; confirmation pass at 2026-03-01T01:00:00\+00:00 \(`browser`\), tag `v1\.0\.200`/
+        .test(section(b, "Releases")), section(b, "Releases"));
+    assertTrue("and the note says a window is repository-wide, not per target",
+      /repository-wide/.test(section(b, "Releases")), section(b, "Releases"));
+
+    // A FAILED confirmation is recorded, never erased — and renders as loudly.
+    writeFileSync(join(repo, ".workaholic/releases/release-20260302-000000.md"),
+      "---\ntype: Release\nrelease_branch: release/20260302-000000\nstatus: failed\ncut_at: 2026-03-02T00:00:00+00:00\ncarried_count: 2\nconfirmed_at: 2026-03-02T01:00:00+00:00\nconfirmation_method: browser\nconfirmation_status: fail\ntag:\n---\n\n# release\n");
+    b = body();
+    assertTrue("a failed window is as visible as a confirmed one",
+      /`release\/20260302-000000`[^\n]*\*\*failed\*\*[^\n]*confirmation fail/.test(section(b, "Releases")),
+      section(b, "Releases"));
+    assertTrue("newest first", section(b, "Releases").indexOf("20260302") < section(b, "Releases").indexOf("20260301"),
+      section(b, "Releases"));
+
+    // (3) PER-TARGET ATTEMPTS, from the note their own writer appends to.
+    writeFileSync(join(repo, ".workaholic/release-notes/marketplace.md"),
+      ["---", "type: Release Note", "target: marketplace", "---", "", "# note", "",
+        "## Deployment Verification", "",
+        "### Attempt — marketplace (not_run)", "",
+        "- **When:** 2026-03-01T02:00:00+00:00", "- **By:** test@example.com",
+        "- **Target:** marketplace", "- **Method declared:** browser",
+        "- **Status:** not_run", "- **Observed:** no browser in this environment", "",
+        "### Attempt — marketplace (pass)", "",
+        "- **When:** 2026-03-03T02:00:00+00:00", "- **By:** test@example.com",
+        "- **Target:** marketplace", "- **Method declared:** browser",
+        "- **Status:** pass", "- **Observed:** 200 OK", "",
+        "## Links", ""].join("\n"));
+    b = body();
+    const ver = section(b, "Deployment Verification");
+    assertTrue("every recorded attempt reaches the draft that planned it",
+      /2026-03-01T02:00:00\+00:00 — \*\*not_run\*\* \(`browser`\)/.test(ver)
+      && /2026-03-03T02:00:00\+00:00 — \*\*pass\*\* \(`browser`\)/.test(ver), ver);
+    assertTrue("in the order they were recorded, the unflattering one first",
+      ver.indexOf("not_run") < ver.indexOf("**pass**"), ver);
+    assertTrue("and the projection names the record it is projecting",
+      /projection and never a second record/.test(ver), ver);
+
+    // (4) STILL A PROJECTION: no store was created, nothing was appended, and the
+    // same base state still renders byte-identically.
+    // The fixture's own files are untracked by construction; what must not move is
+    // anything the RENDER touched, so the comparison is across a render.
+    const beforeRender = run(repo, "git status --porcelain").stdout;
+    body();
+    assertEq("the join writes nothing into the checkout",
+      run(repo, "git status --porcelain").stdout, beforeRender);
+    assertEq("and two renders are byte-identical", run(repo, DRAFT).stdout, run(repo, DRAFT).stdout);
+  } finally {
+    cleanup(tmp);
+  }
+}
+
+// ---------- release plan: the planner, its gate, and its visible failure ----------
+// (2026-08-18, issue #512, Open Decision 1 ruled (a): the agent runs in CI, beside the
+// writer that already holds `contents: write` and a defined checkout.) Its cost is a
+// credential, so the planner is GATED on one being reachable — and every way it can fail
+// to produce a plan is named, with the note saying on its face that it fell back. The
+// planner command is pluggable (`WORKAHOLIC_PLANNER_CMD`), which is what lets the whole
+// chain be proved here with no network and no key.
+function testReleasePlannerChain() {
+  const tmp = mkdtempSync(join(tmpdir(), "workaholic-planner-"));
+  const repo = join(tmp, "repo");
+  const bin = join(tmp, "bin");
+  const out = join(tmp, "plans");
+  const PLAN = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/plan-release.sh")}`;
+  const DRAFT = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/draft-release-note.sh")}`;
+  const DUE = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/list-due-targets.sh")}`;
+  const stub = (name, body) => {
+    const p = join(bin, name);
+    writeFileSync(p, body);
+    chmodSync(p, 0o755);
+    return p;
+  };
+  try {
+    mkdirSync(bin, { recursive: true });
+    mkdirSync(out, { recursive: true });
+    mkdirSync(join(repo, ".workaholic/deployments"), { recursive: true });
+    execSync("git -c init.defaultBranch=main init -q", { cwd: repo });
+    execSync("git config user.email test@example.com", { cwd: repo });
+    execSync("git config user.name Test", { cwd: repo });
+    execSync("git config commit.gpgsign false", { cwd: repo });
+    writeFileSync(join(repo, ".workaholic/deployments/marketplace.md"),
+      "---\ntype: Deployment\ntarget: marketplace\nenvironment: production\ndeploy_model: deploy-on-merge\n---\n\n# marketplace\n\n## Procedure\n\n1. Merge.\n\n## Confirmation\n\nCheck it.\n");
+    execSync("git add -A && git commit -q -m initial", { cwd: repo });
+    const merge = (branch, prnum, prTitle) => {
+      execSync(`git checkout -q -b ${branch}`, { cwd: repo });
+      writeFileSync(join(repo, `${branch}.txt`), "x\n");
+      execSync(`git add -A && git commit -q -m "Work on ${branch}"`, { cwd: repo });
+      execSync("git checkout -q main", { cwd: repo });
+      execSync(`git merge -q --no-ff ${branch} -m "Merge pull request #${prnum} from qmu/${branch}" -m "${prTitle}"`,
+        { cwd: repo });
+    };
+    merge("work-20260301-000000", 81, "Freshen the refs");
+    merge("work-20260302-000000", 82, "Arrange the note");
+    const env = { ...process.env, PATH: `${bin}:${process.env.PATH}` };
+
+    // (1) THE GATE — the shape a CI run with no ANTHROPIC_API_KEY takes.
+    const gated = JSON.parse(run(repo, `${PLAN} --target marketplace --out ${out} main`,
+      { env: { ...env, WORKAHOLIC_PLANNER_CMD: "wh-absent-planner" } }).stdout);
+    assertEq("an unreachable planner refuses by name",
+      { ok: gated.ok, planned: gated.planned, reason: gated.reason },
+      { ok: true, planned: false, reason: "no_planner" });
+    assertTrue("...and writes no plan", !existsSync(join(out, "marketplace.json")));
+
+    // (2) THE STUB PLANNER — arranges what it was shown, and nothing else.
+    stub("wh-stub-planner", `#!/bin/sh\ncat > /dev/null\ncat <<'EOF'\nHere is the plan:\n\`\`\`json\n{"target":"ignored","base_sha":"ignored","summary":"One release.","groups":[{"title":"Everything","items":[{"pr":82},{"pr":81}]}]}\n\`\`\`\nEOF\n`);
+    const planned = JSON.parse(run(repo, `${PLAN} --target marketplace --out ${out} main`,
+      { env: { ...env, WORKAHOLIC_PLANNER_CMD: "wh-stub-planner" } }).stdout);
+    assertEq("a reachable planner authors a plan", { p: planned.planned, m: planned.merges }, { p: true, m: 2 });
+    const written = JSON.parse(readFileSync(join(out, "marketplace.json"), "utf8"));
+    const baseSha = execSync("git rev-parse main", { cwd: repo, encoding: "utf8" }).trim();
+    // The agent's answer is untrusted text: the target and base are STAMPED, never
+    // taken on trust, because those two decide whether the renderer applies it at all.
+    assertEq("the target is stamped, not trusted", written.target, "marketplace");
+    assertTrue("and so is the base it was planned against",
+      baseSha.startsWith(written.base_sha) || written.base_sha.startsWith(baseSha),
+      `${written.base_sha} vs ${baseSha}`);
+    assertTrue("the prose around the JSON is discarded", Array.isArray(written.groups));
+
+    const rendered = JSON.parse(run(repo, `${DRAFT} --target marketplace --plan ${join(out, "marketplace.json")} main`).stdout);
+    assertEq("and the note renders that arrangement", rendered.targets[0].plan.present, true);
+    assertTrue("in the planner's order, not chronology",
+      rendered.targets[0].body.indexOf("Arrange the note") < rendered.targets[0].body.indexOf("Freshen the refs"),
+      rendered.targets[0].body);
+
+    // (3) EVERY FAILURE IS NAMED, AND NONE OF THEM WRITES A PLAN.
+    stub("wh-broken-planner", "#!/bin/sh\ncat > /dev/null\necho 'I could not do it.'\n");
+    rmSync(join(out, "marketplace.json"));
+    const broken = JSON.parse(run(repo, `${PLAN} --target marketplace --out ${out} main`,
+      { env: { ...env, WORKAHOLIC_PLANNER_CMD: "wh-broken-planner" } }).stdout);
+    assertEq("an answer with no plan in it is invalid_plan", broken.reason, "invalid_plan");
+    assertTrue("...and still writes nothing", !existsSync(join(out, "marketplace.json")));
+    stub("wh-failing-planner", "#!/bin/sh\ncat > /dev/null\nexit 3\n");
+    assertEq("a planner that exits non-zero is planner_failed",
+      JSON.parse(run(repo, `${PLAN} --target marketplace --out ${out} main`,
+        { env: { ...env, WORKAHOLIC_PLANNER_CMD: "wh-failing-planner" } }).stdout).reason,
+      "planner_failed");
+
+    // (4) THE FALLBACK IS VISIBLE — Open Decision 2. Passing `--plan` IS the
+    // expectation, so a plan that did not apply is named on the note's face; a render
+    // that expected nothing stays silent.
+    const fallback = JSON.parse(run(repo, `${DRAFT} --target marketplace --plan ${join(out, "marketplace.json")} main`).stdout);
+    assertTrue("an expected-but-absent plan is named in the note",
+      /No release plan was applied to this draft \(`unreadable`\)/.test(fallback.targets[0].body),
+      fallback.targets[0].body);
+    assertTrue("...and the derived list still renders under it",
+      /- Arrange the note \(#82\)/.test(fallback.targets[0].body), fallback.targets[0].body);
+    assertTrue("a render that expected no plan says nothing about one",
+      !/No release plan was applied/.test(JSON.parse(run(repo, `${DRAFT} main`).stdout).targets[0].body));
+
+    // (5) THE SPEND GATE. The workflow asks what the cadence would write before it
+    // pays for a judgment about it, so an idle base spends nothing.
+    writeFileSync(join(tmp, "cadence.json"),
+      '{"ok": true, "targets": [{"slug": "a", "due": true}, {"slug": "b", "due": false}]}');
+    assertEq("only due targets are planned",
+      run(repo, `${DUE} ${join(tmp, "cadence.json")}`).stdout.trim(), "targets=a");
+    writeFileSync(join(tmp, "idle.json"), '{"ok": true, "targets": [{"slug": "a", "due": false}]}');
+    assertEq("an idle base names none", run(repo, `${DUE} ${join(tmp, "idle.json")}`).stdout.trim(), "targets=");
+    assertEq("and an unreadable answer names none rather than guessing",
+      run(repo, `${DUE} ${join(tmp, "nope.json")}`).stdout.trim(), "targets=");
+
+    // (6) IT WRITES ONLY WHERE IT WAS TOLD TO.
+    assertEq("the planner leaves the checkout untouched",
+      run(repo, "git status --porcelain").stdout.trim(), "");
+  } finally {
+    cleanup(tmp);
+  }
+}
+
+// ---------- release note: the plan seam over the renderer ----------
+// (2026-08-18, issue #512) The renderer derives FACTS and its idempotency contract is
+// what the daily cadence rests on; what it structurally could not produce is a JUDGMENT
+// — what ships together, in what order, at what risk, what is held. `--plan` renders an
+// agent-authored arrangement OVER the derived facts, and the property that had to
+// survive is the one pinned first: with no plan, byte-for-byte the old output.
+function testReleaseNotePlanSeam() {
+  const tmp = mkdtempSync(join(tmpdir(), "workaholic-note-plan-"));
+  const repo = join(tmp, "repo");
+  const DRAFT = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/draft-release-note.sh")}`;
+  const keyChanges = (body) => {
+    const m = /## Key Changes\n([\s\S]*?)(?=\n## |$)/.exec(body);
+    return (m ? m[1] : "").trim();
+  };
+  const render = (args = "") => JSON.parse(run(repo, `${DRAFT}${args}`).stdout).targets[0];
+  const writePlan = (name, plan) => {
+    const p = join(tmp, name);
+    writeFileSync(p, JSON.stringify(plan));
+    return p;
+  };
+  try {
+    mkdirSync(join(repo, ".workaholic/stories"), { recursive: true });
+    mkdirSync(join(repo, ".workaholic/deployments"), { recursive: true });
+    execSync("git -c init.defaultBranch=main init -q", { cwd: repo });
+    execSync("git config user.email test@example.com", { cwd: repo });
+    execSync("git config user.name Test", { cwd: repo });
+    execSync("git config commit.gpgsign false", { cwd: repo });
+    writeFileSync(join(repo, ".workaholic/deployments/marketplace.md"),
+      "---\ntype: Deployment\ntarget: marketplace\nenvironment: production\ndeploy_model: deploy-on-merge\n---\n\n# marketplace\n\n## Procedure\n\n1. Merge.\n\n## Confirmation\n\nCheck the release exists.\n");
+    execSync("git add -A && git commit -q -m initial", { cwd: repo });
+    const merge = (branch, prnum, prTitle) => {
+      execSync(`git checkout -q -b ${branch}`, { cwd: repo });
+      writeFileSync(join(repo, `${branch}.txt`), "x\n");
+      execSync(`git add -A && git commit -q -m "Do the work on ${branch}"`, { cwd: repo });
+      execSync("git checkout -q main", { cwd: repo });
+      execSync(`git merge -q --no-ff ${branch} -m "Merge pull request #${prnum} from qmu/${branch}" -m "${prTitle}"`,
+        { cwd: repo });
+    };
+    merge("work-20260101-000000", 61, "Freshen the refs the count came from");
+    merge("work-20260102-000000", 62, "Recover the substance of story-less merges");
+    merge("work-20260103-000000", 63, "Bump version to v1.0.200");
+
+    const planless = render();
+    assertEq("with no plan the renderer says so, and names why",
+      planless.plan, { present: false, reason: "not_supplied" });
+    const derived = keyChanges(planless.body);
+    assertEq("and renders the derived list, one line per merge",
+      derived.split("\n").length, 3, derived);
+
+    // (a) THE ARRANGEMENT IS THE PLAN'S; THE LINES ARE THE RENDERER'S.
+    const baseSha = execSync("git rev-parse main", { cwd: repo, encoding: "utf8" }).trim();
+    const plan = writePlan("plan.json", {
+      target: "marketplace", base_sha: baseSha,
+      summary: "One release: the release-note reading path, then the version bump.",
+      groups: [{
+        title: "Release-note reading path", why: "They share a boundary.", risk: "moderate",
+        items: [{ pr: 61, note: "Ship first." }, { pr: 62 }],
+      }],
+      held_back: [{ pr: 63, why: "The tag would name a version nobody has cut." }],
+    });
+    const planned = render(` --plan ${plan}`);
+    assertEq("a plan that applies is reported as applied", planned.plan.present, true);
+    assertEq("...and is not stale against the base it names", planned.plan.stale, false);
+    const body = keyChanges(planned.body);
+    assertTrue("the plan's summary opens the section",
+      body.startsWith("One release: the release-note reading path"), body);
+    assertTrue("the group renders with its title, reason and risk",
+      /### 1\. Release-note reading path\n\nThey share a boundary\.\n\n\*\*Risk:\*\* moderate/.test(body), body);
+    assertTrue("the arrangement decides the order, not chronology",
+      body.indexOf("Freshen the refs") < body.indexOf("Recover the substance"), body);
+    assertTrue("an item's line is the DERIVED one, with the plan's note appended",
+      body.includes("- Freshen the refs the count came from (#61) — Ship first."), body);
+    assertTrue("a held-back merge is named as held back, with the plan's reason",
+      /### Held back[\s\S]*Bump version to v1\.0\.200 \(#63\) — The tag would name a version nobody has cut\./.test(body),
+      body);
+    assertEq("every merge is accounted for",
+      { a: planned.plan.arranged, h: planned.plan.held_back, u: planned.plan.unarranged },
+      { a: 2, h: 1, u: 0 });
+
+    // (b) NOTHING IS EVER DROPPED, AND NOTHING IS EVER INVENTED.
+    const partial = writePlan("partial.json", {
+      target: "marketplace", base_sha: baseSha,
+      groups: [{ title: "Only one", items: [{ pr: 61 }, { pr: 999 }] }],
+    });
+    const partialBody = keyChanges(render(` --plan ${partial}`).body);
+    // Unarranged merges keep the renderer's own order — newest first, the order the
+    // derived list has always had. A plan orders what it arranged; it does not get to
+    // reorder what it ignored.
+    assertTrue("a merge no group named is rendered under Not arranged by the plan",
+      /### Not arranged by the plan[\s\S]*Bump version to v1\.0\.200 \(#63\)\n- Recover the substance of story-less merges \(#62\)/.test(partialBody),
+      partialBody);
+    assertTrue("a plan reference outside the range is named, never fabricated",
+      /### Referenced but not in this range[\s\S]*Pull request #999/.test(partialBody), partialBody);
+    assertEq("and both are counted",
+      { u: render(` --plan ${partial}`).plan.unarranged, k: render(` --plan ${partial}`).plan.unknown },
+      { u: 2, k: 1 });
+
+    // (c) A PLAN FOR AN OLDER BASE IS RENDERED AS STALE, NOT AS CURRENT.
+    const stale = writePlan("stale.json", {
+      target: "marketplace", base_sha: "0".repeat(40),
+      groups: [{ title: "Written earlier", items: [{ pr: 61 }] }],
+    });
+    const staleRender = render(` --plan ${stale}`);
+    assertEq("the JSON says stale", staleRender.plan.stale, true);
+    assertTrue("and the note says which base it was written for",
+      /This plan was written for base `00000000`; the base is now `/.test(keyChanges(staleRender.body)),
+      keyChanges(staleRender.body));
+    assertTrue("with everything it could not have known about left unarranged",
+      /### Not arranged by the plan/.test(keyChanges(staleRender.body)), keyChanges(staleRender.body));
+
+    // (d) A PLAN THAT CANNOT BE APPLIED IS NOT APPLIED, AND THE NOTE FALLS BACK.
+    const other = writePlan("other.json", { target: "elsewhere", base_sha: baseSha, groups: [] });
+    const otherRender = render(` --plan ${other}`);
+    assertEq("a plan written for another target is refused by name",
+      otherRender.plan, { present: false, reason: "other_target" });
+    assertEq("...and the derived list renders unchanged, under a notice naming the reason",
+      keyChanges(otherRender.body),
+      "> *No release plan was applied to this draft (`other_target`), so the merges below\n"
+      + "> are listed as derived rather than arranged.*\n\n" + derived);
+    writeFileSync(join(tmp, "broken.json"), "{not json");
+    const broken = render(` --plan ${join(tmp, "broken.json")}`);
+    assertEq("a malformed plan is refused by name", broken.plan.reason, "malformed");
+    assertTrue("...and the derived list renders unchanged under its notice",
+      keyChanges(broken.body).endsWith(derived) && keyChanges(broken.body).includes("(`malformed`)"),
+      keyChanges(broken.body));
+    const missing = render(` --plan ${join(tmp, "nope.json")}`);
+    assertEq("an unreadable plan is refused by name", missing.plan.reason, "unreadable");
+    assertTrue("...and the derived list renders unchanged under its notice",
+      keyChanges(missing.body).endsWith(derived) && keyChanges(missing.body).includes("(`unreadable`)"),
+      keyChanges(missing.body));
+
+    // (e) THE CONTRACT, RESTATED: same base state PLUS same plan → byte-identical.
+    assertEq("two renders of an unchanged base and plan are identical",
+      run(repo, `${DRAFT} --plan ${plan}`).stdout, run(repo, `${DRAFT} --plan ${plan}`).stdout);
+    assertEq("and the planless render is unchanged by any of it",
+      keyChanges(render().body), derived);
+  } finally {
+    cleanup(tmp);
+  }
+}
+
 function testTheDraftNoteWriterIsCi() {
   const cadence = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/run-note-cadence.sh"), "utf8");
   const wf = readFileSync(join(REPO_ROOT, ".github/workflows/release-note-draft.yml"), "utf8");
@@ -16262,7 +16710,8 @@ function testTheDraftNoteWriterIsCi() {
   assertTrue("and naming why a target is not due from it", /writer_is_ci/.test(cadence), cadence);
 
   assertTrue("the workflow holds contents: write", /permissions:\s*\n\s*contents: write/.test(wf), wf);
-  assertTrue("it is the caller that passes --write", /run-note-cadence\.sh --write/.test(wf), wf);
+  assertTrue("it is the caller that passes --write",
+    /run-note-cadence\.sh[\s\\]*--write/.test(wf), wf);
   assertTrue("it defines its own checkout depth", /fetch-depth: 0/.test(wf), wf);
   assertTrue("and fetches tags, since the boundary is the latest release tag",
     /fetch-tags: true/.test(wf), wf);

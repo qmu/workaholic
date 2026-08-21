@@ -11,6 +11,7 @@
 * [make-the-routine-create-body-documented-and-buildable](active/make-the-routine-create-body-documented-and-buildable/mission.md) - Make the routine create body documented and buildable
 * [make-workaholify-converge-the-account-s-routines](active/make-workaholify-converge-the-account-s-routines/mission.md) - Make /workaholify converge the account's routines
 * [make-workaholify-converge-the-repository-state](active/make-workaholify-converge-the-repository-state/mission.md) - Make workaholify converge the repository state
+* [name-the-session-type-that-cannot-merge](active/name-the-session-type-that-cannot-merge/mission.md) - Name the session type that cannot merge
 * [register-every-fb-as-an-issue](active/register-every-fb-as-an-issue/mission.md) - Register every /fb as an issue
 * [rename-the-routine-pair-and-add-a-per-user-updater](active/rename-the-routine-pair-and-add-a-per-user-updater/mission.md) - Rename the routine pair and add a per-user updater
 * [split-routine-setup-into-developer-and-repository-scopes](active/split-routine-setup-into-developer-and-repository-scopes/mission.md) - Split routine setup into developer and repository scopes

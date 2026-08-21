@@ -3792,12 +3792,34 @@ function testReleaseScanGateDecision() {
     d = decide('{"verdict":"pass","findings":[]}');
     assertEq("clean -> pass, nothing to block", { decision: d.decision, overridable: d.overridable, total: d.total }, { decision: "pass", overridable: true, total: 0 });
 
+    // ---- `override_only`: the tier a consumer must not read as a verdict (2026-08-21) ----
+    // `/drive`'s review route read `verdict == "pass"` and therefore held a merge open on
+    // the `size` tier, which this scan's own skill calls "a granularity nudge, not a hard
+    // block". Measured on a documentation repository: three `too-large-commit` findings on
+    // 42 documentation pages in two languages, nothing else, and the unattended run that
+    // reported the stuck unit went on to ask a human whether to merge. The counting lives
+    // here rather than in each of the three consumers, because three copies of a tier rule
+    // is how one rule becomes three.
+    d = decide('{"verdict":"block","findings":[{"category":"size","severity":"override"},{"category":"size","severity":"override"}]}');
+    assertEq("size-only is override_only, so a review unit may merge", d.override_only, true);
+    d = decide('{"verdict":"block","findings":[{"category":"size","severity":"override"},{"category":"leak","severity":"confirm"}]}');
+    assertEq("a leak beside a size finding is NOT override_only", d.override_only, false);
+    d = decide('{"verdict":"block","findings":[{"category":"size","severity":"override"},{"category":"secret","severity":"hard"}]}');
+    assertEq("a secret beside a size finding is NOT override_only", d.override_only, false);
+    // "nothing was found" and "only granularity notes were found" are different answers,
+    // and conflating them would be the same mistake in the other direction.
+    d = decide('{"verdict":"pass","findings":[]}');
+    assertEq("a clean scan is not override_only, it is pass", d.override_only, false);
+    d = decide('{"verdict":"block","findings":[{"category":"leak","severity":"confirm"}]}');
+    assertEq("the confirm tier is counted so a consumer can tell it apart", d.confirm, 1);
+
     // End-to-end: a real secret branch through scan | gate-decision is a hard block.
     execSync(`git checkout -q -b work-20260714-000009`, { cwd: dir });
     writeFileSync(join(dir, "creds.txt"), "token=supersecretvalue123\n");
     execSync(`git add -A && git commit -q -m x`, { cwd: dir });
     const e2e = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.scanBranchSafety} main | ${POSIX_SH} ${SCRIPTS.gateDecision}`).stdout);
     assertEq("scan | gate-decision on a real secret -> non-overridable block", { decision: e2e.decision, overridable: e2e.overridable }, { decision: "block", overridable: false });
+    assertEq("and a real secret is never override_only", e2e.override_only, false);
   } finally { cleanup(dir); }
 }
 

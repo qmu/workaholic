@@ -36,14 +36,59 @@ concurrency:
 jobs:
   draft:
     runs-on: ubuntu-latest
+    # Job-level so the planner steps can gate on its PRESENCE (`env.X != ''` is not
+    # available for a secret referenced only at step level). An absent key skips the
+    # planner and is reported by the note, never by a failing job.
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           fetch-tags: true
 
+      # THE JUDGMENT RUNS HERE TOO, BESIDE THE WRITER (2026-08-18, issue #512).
+      # A deterministic renderer cannot decide what ships together, in what order
+      # or at what risk; an agent can. This is the one place that holds both the
+      # write permission and a defined checkout, so the plan and the write happen
+      # together and nothing crosses between them — which is how it answers
+      # `workaholic:ship` §7's three refusals by name: nothing is committed to
+      # `main`, no open pull request's branch is written, and `/ship` never runs.
+      #
+      # IT IS GATED ON THE CREDENTIAL AND ON WHAT IS DUE. With no
+      # ANTHROPIC_API_KEY the planner step is skipped entirely, the note falls back
+      # to the derived list, and the fallback SAYS SO on its face — a named,
+      # visible degradation rather than a broken job. The dry run first asks the
+      # cadence what it would write, so an idle base spends no agent budget.
+      - name: What would the cadence write?
+        id: due
+        run: |
+          bash plugins/workaholic/skills/ship/scripts/run-note-cadence.sh \
+            --write --dry-run main > cadence-dry.json
+          cat cadence-dry.json
+          bash plugins/workaholic/skills/ship/scripts/list-due-targets.sh cadence-dry.json \
+            >> "$GITHUB_OUTPUT"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install the planner
+        if: steps.due.outputs.targets != '' && env.ANTHROPIC_API_KEY != ''
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Author each due target's release plan
+        if: steps.due.outputs.targets != '' && env.ANTHROPIC_API_KEY != ''
+        run: |
+          mkdir -p .release-plans
+          for slug in ${{ steps.due.outputs.targets }}; do
+            bash plugins/workaholic/skills/ship/scripts/plan-release.sh \
+              --target "$slug" --out .release-plans main
+          done
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Refresh each target's draft release note
         run: |
-          bash plugins/workaholic/skills/ship/scripts/run-note-cadence.sh --write main
+          bash plugins/workaholic/skills/ship/scripts/run-note-cadence.sh \
+            --write --plan-dir .release-plans main
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

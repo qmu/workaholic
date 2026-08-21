@@ -1,7 +1,14 @@
 #!/bin/sh -eu
 # THE DAILY PER-TARGET NOTE CADENCE — the generation half of the repository tick.
 #
-#   run-note-cadence.sh [--write] [--target <slug>] [--dry-run] [--force] [base]
+#   run-note-cadence.sh [--write] [--target <slug>] [--plan-dir <dir>] [--dry-run]
+#                       [--force] [base]
+#
+# `--plan-dir <dir>` hands each target the plan at `<dir>/<slug>.json` when one is
+# there (`ship/reference/release-plan.md`). A directory with no file for a target
+# is not an error: the renderer reports `unreadable` and the note says on its face
+# that no plan was applied, which is what keeps a broken planner distinguishable
+# from a deliberate list.
 #
 # Output (one JSON line):
 #   {"ok": true, "tz": "Asia/Tokyo", "day": "YYYY-MM-DD", "idle": <bool>,
@@ -99,12 +106,14 @@ SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 TZ_NAME="${WORKAHOLIC_NOTE_CADENCE_TZ:-Asia/Tokyo}"
 
 WANT_TARGET=""
+PLAN_DIR=""
 DRY_RUN=""
 FORCE=0
 WRITE=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --target) WANT_TARGET="${2:-}"; shift 2 ;;
+    --plan-dir) PLAN_DIR="${2:-}"; shift 2 ;;
     --dry-run) DRY_RUN=--dry-run; shift ;;
     --force) FORCE=1; shift ;;
     --write) WRITE=1; shift ;;
@@ -206,7 +215,11 @@ for slug in $SLUGS; do
   divs="[]"
 
   if [ "$due" = true ]; then
-    res=$(sh "${SCRIPT_DIR}/sync-release-note.sh" --target "$slug" ${DRY_RUN:+$DRY_RUN} "$BASE" 2>/dev/null || true)
+    plan_arg=""
+    if [ -n "$PLAN_DIR" ] && [ -f "${PLAN_DIR}/${slug}.json" ]; then
+      plan_arg="${PLAN_DIR}/${slug}.json"
+    fi
+    res=$(sh "${SCRIPT_DIR}/sync-release-note.sh" --target "$slug" ${plan_arg:+--plan "$plan_arg"} ${DRY_RUN:+$DRY_RUN} "$BASE" 2>/dev/null || true)
     if printf '%s' "$res" | grep -q '"ok": true'; then
       changed=$(printf '%s' "$res" | sed -n 's/.*"changed": \([a-z]*\).*/\1/p' | head -n 1)
       written=$(printf '%s' "$res" | sed -n 's/.*"written": \([a-z]*\).*/\1/p' | head -n 1)

@@ -155,6 +155,10 @@ const SCRIPTS = {
   publishTreeCommit: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/publish-tree-commit.sh"),
   publishTreePr: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/publish-tree-pr.sh"),
   listRoutineTemplates: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/list-routine-templates.sh"),
+  proposeSurvey: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/survey-strategies.sh"),
+  proposeOpen: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/open-proposal.sh"),
+  proposeListOpen: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/list-open-proposals.sh"),
+  strategyCreate: join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/create.sh"),
   renderRoutine: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/render-routine.sh"),
   checkSlackChannel: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/check-slack-channel.sh"),
   resolveRepoUrl: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/resolve-repo-url.sh"),
@@ -4566,6 +4570,203 @@ function testStandupDigest() {
     assertTrue("the post token keys on the date", /^standup:\d{4}-\d{2}-\d{2}$/.test(d.token), d.token);
     assertEq("the token and the reported date agree", d.token, `standup:${d.date}`);
   } finally { cleanup(dir); }
+}
+
+// ---------- /propose: the routine that supplies the loop's own ask (issue #555) ----------
+// WHAT IS PINNED HERE is the BRAKE, because `/propose` is the first unattended routine in
+// this repository to drop the standing conservative bar (`workaholic:specificate`, *The
+// judgment bar*) on purpose. What replaces the bar is not a softer judgment but a set of
+// mechanical gates, and a gate that silently stops gating is indistinguishable from a
+// routine working normally -- right up to the hour it opens an issue per strategy per tick.
+// Every gate below is therefore exercised against a real strategy tree.
+function testProposeGates() {
+  const dir = makeRepo("main");
+  const WH = join(dir, ".workaholic");
+  const OPEN = join(dir, "open.json");
+  const SURVEY = `${POSIX_SH} ${SCRIPTS.proposeSurvey}`;
+  const mkStrategy = (slug, fields, refs) => {
+    mkdirSync(join(WH, "strategies"), { recursive: true });
+    writeFileSync(join(WH, "strategies", `${slug}.md`), [
+      "---", "type: Strategy", `title: ${slug}`, `slug: ${slug}`,
+      `status: ${fields.status}`, `target_date: ${fields.target_date}`,
+      `assignees: [${fields.assignees}]`, `feedback: [${refs.join(", ")}]`,
+      "---", "", `# ${slug}`, "", "## Aim", "", "aim", "", "## Schedule", "", "s", "",
+    ].join("\n"));
+  };
+  const mkFeedback = (name) => {
+    mkdirSync(join(WH, "feedbacks"), { recursive: true });
+    writeFileSync(join(WH, "feedbacks", name), "---\ntype: Feedback\n---\n\nbody\n");
+  };
+  const noneOpen = () => writeFileSync(OPEN, JSON.stringify({ ok: true, identity: "me", slug: "o/n", proposals: [] }));
+  const survey = (extra = "") =>
+    JSON.parse(run(dir, `${SURVEY} --open-proposals ${OPEN} ${extra} "30 days ago" ${WH}`).stdout);
+
+  try {
+    run(dir, `git config user.email me@example.com`);
+    const future = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
+    const past = new Date(Date.now() - 2 * 86400000).toISOString().slice(0, 10);
+    noneOpen();
+
+    // The base case: active, mine, dated ahead, citing a record, nothing in flight.
+    mkFeedback("20260101000000-a.md");
+    mkStrategy("live", { status: "active", target_date: future, assignees: "me@example.com" },
+      ["20260101000000-a.md"]);
+    let r = survey();
+    assertEq("an active, owned, dated, citing strategy is eligible", r.selected, ["live"]);
+    // `no_citing_artifacts` IS NOT A REFUSAL and this is the assertion that says so: a
+    // brand-new strategy is exactly when a proposal is most wanted. Only `no_feedback_refs`
+    // -- no way to see work, ever -- makes a strategy illegible.
+    assertEq("a strategy nothing has answered YET is proposed against, not refused",
+      r.eligible[0].empty_reason, "no_citing_artifacts");
+
+    // Each gate, one at a time, reported BY NAME. A silently-skipped strategy and a refused
+    // one must never look alike -- that distinction is the whole reporting contract.
+    mkStrategy("closed", { status: "achieved", target_date: future, assignees: "me@example.com" },
+      ["20260101000000-a.md"]);
+    mkStrategy("theirs", { status: "active", target_date: future, assignees: "you@example.com" },
+      ["20260101000000-a.md"]);
+    mkStrategy("late", { status: "active", target_date: past, assignees: "me@example.com" },
+      ["20260101000000-a.md"]);
+    mkStrategy("blind", { status: "active", target_date: future, assignees: "me@example.com" }, []);
+    r = survey();
+    const reason = (slug) => (r.refused.find((x) => x.slug === slug) || {}).reason;
+    // The survey reads EVERY strategy, not only the active ones: a closed direction that
+    // simply vanished from the survey would be indistinguishable from one that was never
+    // there, and "refused, by name" is the whole reporting contract.
+    assertEq("a closed direction is refused as not_active", reason("closed"), "not_active");
+    assertTrue("and the survey counted it even though it refused it",
+      r.surveyed_count > r.active_count, JSON.stringify([r.surveyed_count, r.active_count]));
+    assertEq("someone else's direction is refused as not_mine", reason("theirs"), "not_mine");
+    assertEq("a direction past its date is refused as past_target_date", reason("late"), "past_target_date");
+    assertEq("a direction citing no feedback record is refused as no_feedback_refs",
+      reason("blind"), "no_feedback_refs");
+
+    // ONE PROPOSAL PER TICK ACROSS ALL STRATEGIES, nearest date first -- a developer with
+    // eight directions must not wake to eight issues. A capped strategy is a DELAY, so it
+    // is reported rather than dropped.
+    const sooner = new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 10);
+    mkStrategy("urgent", { status: "active", target_date: sooner, assignees: "me@example.com" },
+      ["20260101000000-a.md"]);
+    r = survey();
+    assertEq("the tick takes one strategy by default", r.selected.length, 1);
+    assertEq("and it is the one whose date is nearest", r.selected, ["urgent"]);
+    assertEq("the strategy it left is reported as delayed, not dropped", reason("live"), "over_cap");
+    assertEq("raising the cap takes more of them",
+      JSON.parse(run(dir, `WORKAHOLIC_PROPOSE_MAX=2 ${SURVEY} --open-proposals ${OPEN} "30 days ago" ${WH}`).stdout)
+        .selected.length, 2);
+
+    // The in-flight half that lives on GitHub. Together with `work_waiting` below it gives
+    // "one proposal per strategy in flight at a time" with no cursor and no stored state.
+    writeFileSync(OPEN, JSON.stringify({ ok: true, identity: "me", slug: "o/n",
+      proposals: [{ number: 7, url: "u", strategy: "urgent", move: "depth", title: "t" }] }));
+    r = survey();
+    assertEq("a strategy whose last proposal is still open is refused", reason("urgent"), "open_proposal");
+    assertEq("and the tick moves on to the next one", r.selected, ["live"]);
+
+    // A GATE THAT CANNOT BE READ IS NOT A GATE: an unreadable inbox refuses the whole tick
+    // rather than falling through to a permissive default, which is the one failure mode
+    // that would turn the dropped bar into an unbounded routine.
+    writeFileSync(OPEN, JSON.stringify({ ok: false, reason: "list_failed" }));
+    const blind = JSON.parse(run(dir, `${SURVEY} --open-proposals ${OPEN} "30 days ago" ${WH}`).stdout);
+    assertEq("an unreadable open-proposal list refuses the tick", [blind.ok, blind.reason],
+      [false, "inbox_unreadable"]);
+    writeFileSync(OPEN, "not json at all");
+    assertEq("so does a malformed one",
+      JSON.parse(run(dir, `${SURVEY} --open-proposals ${OPEN} "30 days ago" ${WH}`).stdout).reason,
+      "inbox_unreadable");
+  } finally { cleanup(dir); }
+}
+
+// The write floor. `open-proposal.sh` is the ONE writer, its only write is a GitHub issue,
+// and everything asserted here happens BEFORE any network call -- which is also why the
+// suite can hold it to its contract without touching `gh`.
+function testProposeWriteFloor() {
+  const dir = makeRepo("main");
+  const WH = join(dir, ".workaholic");
+  const body = join(dir, "body.md");
+  const OPEN_SH = `${POSIX_SH} ${SCRIPTS.proposeOpen}`;
+  const call = (args) => JSON.parse(run(dir, `${OPEN_SH} ${args}`).stdout);
+  try {
+    mkdirSync(join(WH, "strategies"), { recursive: true });
+    writeFileSync(join(WH, "strategies", "live.md"), [
+      "---", "type: Strategy", "title: live", "slug: live", "status: active",
+      "target_date: 2099-01-01", "assignees: [me@example.com]",
+      "feedback: [20260101000000-a.md]", "---", "", "# live", "", "## Aim", "", "a", "",
+      "## Schedule", "", "s", "",
+    ].join("\n"));
+    writeFileSync(body, ["## What to change", "", "x", "",
+      "## Why this commits to the strategy", "", "y", "",
+      "## What this is chosen against", "", "z", ""].join("\n"));
+
+    // The MOVE is required and closed-set: a proposal that cannot say which of depth,
+    // breadth or contraction it is has not made an evolutionary claim at all.
+    assertEq("a proposal with no move is refused",
+      call(`--strategy live --title t --workaholic-root ${WH} ${body}`).reason, "no_move");
+    assertEq("and a move outside the closed set is refused by name",
+      call(`--strategy live --move sideways --title t --workaholic-root ${WH} ${body}`).reason,
+      "unknown_move");
+
+    // THE ANTI-HEDGING FLOOR, and the one that does the most work against housekeeping:
+    // "tidy this up" is chosen against NOTHING -- nobody argues for the mess -- so a body
+    // that cannot name its fork is either uncontroversial or unformed.
+    for (const missing of ["## What to change", "## Why this commits to the strategy",
+                           "## What this is chosen against"]) {
+      const partial = join(dir, "partial.md");
+      writeFileSync(partial, readFileSync(body, "utf8").replace(missing + "\n", ""));
+      assertEq(`a body with no '${missing}' section is refused`,
+        call(`--strategy live --move depth --title t --workaholic-root ${WH} ${partial}`).reason,
+        "missing_section");
+    }
+
+    assertEq("an unknown strategy is refused",
+      call(`--strategy nope --move depth --title t --workaholic-root ${WH} ${body}`).reason,
+      "strategy_not_found");
+    assertEq("an empty title is refused",
+      call(`--strategy live --move depth --workaholic-root ${WH} ${body}`).reason, "no_title");
+    assertEq("a missing body file is refused, never treated as an empty one",
+      call(`--strategy live --move depth --title t --workaholic-root ${WH} ${dir}/absent.md`).reason,
+      "no_body");
+
+    // A strategy citing nothing cannot have work attributed back to it, so a proposal
+    // against it would land invisible -- refused at the writer as well as at the survey,
+    // because the writer is reachable by hand.
+    writeFileSync(join(WH, "strategies", "blind.md"),
+      readFileSync(join(WH, "strategies", "live.md"), "utf8")
+        .replace("slug: live", "slug: blind").replace(/^feedback: .*$/m, "feedback: []"));
+    // `read.sh` emits `feedback` as the raw frontmatter STRING while `attributed-work.sh`
+    // emits an array; the writer accepts both, and this is the case that caught it.
+    assertEq("a strategy citing no feedback record is refused at the writer too",
+      call(`--strategy blind --move depth --title t --workaholic-root ${WH} ${body}`).reason,
+      "no_feedback_refs");
+
+    // Every refusal EXITS 0: a tick reports it and continues to the next strategy rather
+    // than dying mid-run.
+    assertEq("a refusal exits 0",
+      run(dir, `${OPEN_SH} --strategy nope --move depth --title t --workaholic-root ${WH} ${body}`).status, 0);
+  } finally { cleanup(dir); }
+}
+
+// The routine template and the two contracts that only its frontmatter can carry: what it
+// is allowed to write, and what it is allowed to say.
+function testProposeRoutineTemplate() {
+  const tpl = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines/propose.md"), "utf8");
+  const fm = tpl.slice(0, tpl.indexOf("\n---", 4));
+  assertTrue("it is developer-scoped, like the identity-filtered routine it feeds",
+    /^scope: developer$/m.test(fm), fm);
+  assertTrue("it carries no write tool, because its only write is a GitHub issue",
+    !/Write|Edit/.test(fm.match(/^allowed_tools:.*$/m)[0]), fm);
+  assertTrue("it declares no auto-fix, since it opens no pull request",
+    /^autofix_on_pr_create: false$/m.test(fm), fm);
+  // NO CONNECTOR AND NO POST. The issue is assigned to exactly one person whom GitHub
+  // already notifies, so a Slack copy is the same noise twice -- the argument that gives
+  // [Workaholic] no connector. Its result reaches that one reader by notification instead.
+  assertTrue("it holds no Slack connector", /^mcp: \[\]$/m.test(fm), fm);
+  assertTrue("and declares the notification that reaches its one reader instead",
+    /^notifications: push$/m.test(fm), fm);
+  const prompt = tpl.slice(tpl.indexOf("## Prompt"));
+  assertTrue("its prompt invokes the command and nothing else", /\/propose\b/.test(prompt), prompt);
+  assertTrue("and authorizes no post shape at all, because it emits none",
+    !/```/.test(prompt) && /Post nothing/.test(prompt), prompt);
 }
 
 // ---------- the [Standup] routine template (ticket `20260817115233`) ----------
@@ -10909,7 +11110,7 @@ function testRenderSetupSheet() {
 
   const all = sheet("--all");
   for (const name of ["[Specificate] workaholic", "[Implement] workaholic", "[Moderate] workaholic",
-                      "[Standup] workaholic", "[Workaholic]"]) {
+                      "[Standup] workaholic", "[Propose] workaholic", "[Workaholic]"]) {
     assertTrue(`the sheet covers ${name}`, all.includes(`## ${name}`), all.slice(0, 200));
   }
   // ---- the scope filter (2026-08-14, issue #451) ----
@@ -10918,9 +11119,19 @@ function testRenderSetupSheet() {
   // of a repository routine get created, which nothing in the product can detect or refuse.
   const scopedSheet = (sc) => run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.renderSetupSheet} --all ${WH} ${sc}`).stdout;
   const devSheet = scopedSheet("developer");
-  assertTrue("the developer sheet covers both developer routines and neither repository one",
+  assertTrue("the developer sheet covers every developer routine and no repository one",
     devSheet.includes("## [Specificate] workaholic") && devSheet.includes("## [Implement] workaholic") &&
+    devSheet.includes("## [Propose] workaholic") &&
     !devSheet.includes("## [Moderate] workaholic"), devSheet.slice(0, 300));
+  // The channel step is DERIVED from `mcp:`, so a routine granted no connector is never told
+  // to prepare a Slack channel it will never post to -- two templates are in that state now
+  // ([Workaholic], [Propose]) and both reach their one reader by notification instead.
+  const proposeSheet = sheet("propose");
+  assertTrue("a connector-less routine's sheet names its notification, not a Slack channel",
+    !/Have the Slack channel/.test(proposeSheet) && /\*\*Notifications\*\*: set them to `push`/.test(proposeSheet),
+    proposeSheet.slice(0, 900));
+  assertTrue("a connector-carrying routine's sheet still names its channel",
+    /Have the Slack channel `dev-workaholic` ready/.test(sheet("implement")), "implement sheet lost its channel step");
   const repoSheet = scopedSheet("repository");
   assertTrue("the repository sheet covers only the repository routines",
     repoSheet.includes("## [Moderate] workaholic") && repoSheet.includes("## [Standup] workaholic") &&
@@ -14293,6 +14504,9 @@ const tests = [
   ["strategy skill (the artifact revived 2026-08-13)", testStrategySkill],
   ["strategy/attributed-work.sh (the ONE attribution reader)", testStrategyAttributedWork],
   ["standup/digest.sh (the daily per-strategy digest)", testStandupDigest],
+  ["propose: the gates that replace the dropped judgment bar", testProposeGates],
+  ["propose: the write floor and its named refusals", testProposeWriteFloor],
+  ["propose: the [Propose] routine template writes nothing and posts nothing", testProposeRoutineTemplate],
   ["standup: the command and skill are a reader", testStandupIsAReader],
   ["standup: the [Standup] routine template and its one post shape", testStandupRoutineTemplate],
   ["hooks/validate-strategy.sh (the write-time floor)", testValidateStrategy],
@@ -14395,8 +14609,8 @@ const tests = [
   ["feedback/create.sh + list.sh + hooks/validate-feedback.sh", testFeedback],
   ["drive/unit-feedback-stems.sh: the unit's thread key", testUnitFeedbackStems],
   ["workaholify/render-setup-sheet.sh: the human's UI setup", testRenderSetupSheet],
-  ["propose: dedup set and draft scaffold", testSpecificateBatch],
-  ["propose: the dedup set covers open pull requests", testProposedRefsCoverOpenPullRequests],
+  ["specificate: dedup set and draft scaffold", testSpecificateBatch],
+  ["specificate: the dedup set covers open pull requests", testProposedRefsCoverOpenPullRequests],
   ["propose/notify-slack.sh", testNotifySlack],
   ["drive claim protocol: two clones, one unit", testClaimProtocol],
   ["drive release-claim where the remote refuses deletes", testReleaseClaimDenyDeletes],
@@ -14448,9 +14662,9 @@ const tests = [
   ["workaholify bootstrap: the session gets the developer's git identity", testBootstrapGitIdentity],
   ["branching worktree reclamation: merged AND clean, every skip named", testWorktreeReclamation],
   ["mission size norms: a ceiling on what a mission may say, and the floor it must not touch", testMissionSizeNorms],
-  ["propose: widened inputs, emitted tickets, and the mission_member safety property (J4)", testSpecificateWidenedBatch],
-  ["propose: an atomic direction becomes one loose ticket, and dedup unions both sides", testSpecificateLooseTicket],
-  ["propose: the capture seam publishes record and proposal in one commit", testSpecificateCaptureSeam],
+  ["specificate: widened inputs, emitted tickets, and the mission_member safety property (J4)", testSpecificateWidenedBatch],
+  ["specificate: an atomic direction becomes one loose ticket, and dedup unions both sides", testSpecificateLooseTicket],
+  ["specificate: the capture seam publishes record and proposal in one commit", testSpecificateCaptureSeam],
   ["branching/check-worktrees.sh ignores the publish tree", testCheckWorktreesIgnoresPublishTree],
   ["/ticket publishes to main end to end (J1)", testTicketPublishesToMain],
   ["hooks/validate-ticket.sh resolves a mission in the publish tree", testValidateTicketResolvesInPublishTree],
@@ -14476,16 +14690,16 @@ const tests = [
   ["e2e/loop-drill.sh: reset recovers only what the drill minted", testLoopDrillReset],
   ["e2e/loop-drill.sh: verify-specificate reads artifacts, and pending is not fail", testLoopDrillVerifySpecificate],
   ["e2e/loop-drill.sh: verify-implement reads the archive move, story, PR and claim", testLoopDrillVerifyImplement],
-  ["propose: the tick log is registered, append-only and idempotent", testProposeLog],
-  ["propose: the tick runs every step, and every step reports", testProposeRun],
-  ["propose: the tick log survives the container that wrote it", testProposePersist],
-  ["propose: the lines written after the persist reach the base too", testProposePersistCarriesLateLines],
-  ["propose: the unattended contract is in the files, not in intent", testProposeUnattendedContract],
+  ["moderate: the tick log is registered, append-only and idempotent", testModerateLog],
+  ["moderate: the tick runs every step, and every step reports", testModerateRun],
+  ["moderate: the tick log survives the container that wrote it", testModeratePersist],
+  ["moderate: the lines written after the persist reach the base too", testModeratePersistCarriesLateLines],
+  ["moderate: the unattended contract is in the files, not in intent", testModerateUnattendedContract],
   ["propose steps 2-3: every surface is named, and nothing is executed", testProposeInboundSweep],
   ["propose steps 4-7: report, never repair; remind once per state", testProposeHygieneSteps],
   ["moderate: the gated strategy step is deleted, not carried", testStrategyStepIsDeleted],
   ["propose step 9: asking costs attention, so the gates are mechanical", testProposeCheckIn],
-  ["[Moderate]: the template, its scope, and the shapes it authorizes", testProposeRoutineTemplate],
+  ["[Moderate]: the template, its scope, and the shapes it authorizes", testModerateRoutineTemplate],
   ["[Workaholic]: the account updater's template, scope and one shape", testWorkaholicRoutineTemplate],
 ];
 
@@ -16402,7 +16616,7 @@ function testReleaseNoteKeyChangesFallback() {
 }
 
 // ---------- release note: a story-less merge keeps its substance ----------
-// (2026-08-18, issue #512) A `/propose` pull request auto-merges without ever running
+// (2026-08-18, issue #512) A `/specificate` pull request auto-merges without ever running
 // `/report`, so it structurally never has a branch story — measured on this repository,
 // 38 of 68 merges over `v1.0.170..main` (56%) carry none. The merge's own diff still
 // names what it published: the feedback record, the mission, the tickets. That substance
@@ -16430,7 +16644,7 @@ function testReleaseNoteStoryLessSubstance() {
     execSync("git add -A && git commit -q -m initial", { cwd: repo });
 
     // A proposal merge: publishes a feedback record, a mission and two tickets, and —
-    // like every /propose pull request — no story.
+    // like every /specificate pull request — no story.
     execSync("git checkout -q -b work-20260201-000000", { cwd: repo });
     writeFileSync(join(repo, ".workaholic/feedbacks/20260201-the-note-must-be-a-plan.md"),
       "---\ntype: Feedback\ntitle: The draft release note must be an arranged release plan\nkind: instruction\n---\n\nBody.\n");
@@ -16904,10 +17118,10 @@ function testWorkaholifyRoutines() {
   const WH = "https://github.com/qmu/workaholic";
   try {
     const tpl = JSON.parse(run(dir, LIST).stdout);
-    assertEq("the plugin ships five routine templates", tpl.count, 5);
-    assertEq("and they are the five live patterns",
+    assertEq("the plugin ships six routine templates", tpl.count, 6);
+    assertEq("and they are the six live patterns",
       tpl.templates.map((t) => t.id).sort(),
-      ["implement", "moderate", "specificate", "standup", "workaholic"]);
+      ["implement", "moderate", "propose", "specificate", "standup", "workaholic"]);
 
     // ---- the scope split (2026-08-14, issue #451) ----
     // The scope is the TEMPLATE's field, not a list written into two command bodies:
@@ -16928,9 +17142,13 @@ function testWorkaholifyRoutines() {
       !JSON.parse(run(dir, `${LIST} developer`).stdout).templates.some((t) => t.id === "workaholic") &&
       !JSON.parse(run(dir, `${LIST} repository`).stdout).templates.some((t) => t.id === "workaholic"),
       "the user-scoped template leaked into another scope");
-    assertEq("the two routines every developer needs their own copy of are developer-scoped",
+    // THREE since 2026-08-21 (issue #555): `propose` supplies the loop's own ask, and it is
+    // developer-scoped for the reason `specificate` is -- it acts on the strategies assigned
+    // to the RUNNING IDENTITY and opens issues assigned to it, so one repository-wide copy
+    // would route every developer's directions through whichever account created it.
+    assertEq("the routines every developer needs their own copy of are developer-scoped",
       JSON.parse(run(dir, `${LIST} developer`).stdout).templates.map((t) => t.id).sort(),
-      ["implement", "specificate"]);
+      ["implement", "propose", "specificate"]);
     assertEq("the routines the repository needs exactly one of each are repository-scoped",
       JSON.parse(run(dir, `${LIST} repository`).stdout).templates.map((t) => t.id).sort(),
       ["moderate", "standup"]);
@@ -16954,7 +17172,26 @@ function testWorkaholifyRoutines() {
     // "09:05, not 09:00" cannot later be read as a typo and rounded off.
     assertEq("the templates carry the staggered hourly schedule plus the daily digest",
       tpl.templates.map((t) => t.cron_expression).sort(),
-      ["10 * * * *", "15 * * * *", "30 * * * *", "5 0 * * *", "50 * * * *"]);
+      ["10 * * * *", "15 * * * *", "30 * * * *", "40 * * * *", "5 0 * * *", "50 * * * *"]);
+    // The LOOP's order is the point of `:40`, not the minute itself: the judgment is made
+    // against what actually landed, so `[Propose]` must fire AFTER `[Implement]` drives and
+    // before the next hour's `[Specificate]` ingests. A tidy-up that moved it earlier would
+    // judge each hour against the state that hour was about to change.
+    assertTrue("the ask-supplying routine fires after the executor it reads the result of",
+      Number(tpl.templates.find((t) => t.id === "propose").cron_expression.split(" ")[0]) >
+      Number(tpl.templates.find((t) => t.id === "implement").cron_expression.split(" ")[0]),
+      JSON.stringify(tpl.templates.map((t) => [t.id, t.cron_expression])));
+    // CONVERGENCE MATCHES BY RENDERED `name`, so two templates rendering one name can be
+    // neither told apart nor repaired by it. This is the permanent guard that replaced the
+    // per-occasion `renamed_from:` note when `[Propose]` was RECLAIMED (2026-08-21, issue
+    // #555): it catches the collision itself rather than one instance of it.
+    // The pattern, not the rendered string: `{repo_name}` resolves identically for every
+    // template in a given repository, so two templates collide iff their patterns do.
+    const namePatterns = tpl.templates.map((t) => t.name_pattern);
+    assertEq("every template declares a name pattern",
+      namePatterns.filter(Boolean).length, tpl.count);
+    assertEq("no two templates render the same routine name",
+      new Set(namePatterns).size, namePatterns.length);
     // The updater lands FIRST in the hour, so a convergence reaches the four routines it
     // converged before they next fire.
     assertEq("the account updater fires before the routines it converges",
@@ -17932,7 +18169,7 @@ function testLoopDrillVerifyImplement() {
 // first tick, a NON-idempotent writer doubles the record of a retried step, and a
 // reader that cannot answer "did an earlier tick file this?" makes an hourly routine
 // re-file the same finding twenty-four times a day.
-function testProposeLog() {
+function testModerateLog() {
   const repo = makeRepo();
   const APPEND = `${POSIX_SH} ${SCRIPTS.proposeLogAppend}`;
   const READ = `${POSIX_SH} ${SCRIPTS.proposeLogRead}`;
@@ -18008,7 +18245,7 @@ function testProposeLog() {
 // crashes, prints nothing, or never got its turn is as visible in the report as one that
 // worked. Each of those is a separate row here because each is a separate way for a tick
 // to quietly under-report itself.
-function testProposeRun() {
+function testModerateRun() {
   const repo = makeRepo();
   const RUN = `${POSIX_SH} ${SCRIPTS.proposeRun}`;
   const STEPS = ["open-log", "inbound-sweep", "workload-logs", "merge-conflicts",
@@ -18082,7 +18319,7 @@ function testProposeRun() {
 // under test is that the log REACHES THE BASE, and that two containers ticking on the
 // same day do not overwrite each other — which is why the merge is a union by section
 // rather than a textual append that a rebase would have to reconcile.
-function testProposePersist() {
+function testModeratePersist() {
   const tmp = mkdtempSync(join(tmpdir(), "workaholic-hk-persist-"));
   const PERSIST = `${POSIX_SH} ${SCRIPTS.proposePersist}`;
   const APPEND = `${POSIX_SH} ${SCRIPTS.proposeLogAppend}`;
@@ -18196,7 +18433,7 @@ exit 0
 // `(tick, step)`: a persist run again after the filing appends the missing LINES into a
 // section the base already carries. Asserted against the BASE, never the checkout: a
 // hand-run's checkout survives, which is exactly why the defect was invisible.
-function testProposePersistCarriesLateLines() {
+function testModeratePersistCarriesLateLines() {
   const tmp = mkdtempSync(join(tmpdir(), "workaholic-hk-late-"));
   const PERSIST = `${POSIX_SH} ${SCRIPTS.proposePersist}`;
   const APPEND = `${POSIX_SH} ${SCRIPTS.proposeLogAppend}`;
@@ -18298,7 +18535,7 @@ function testProposePersistCarriesLateLines() {
 }
 
 // ---------- propose: the unattended contract is in the files, not in intent ----------
-function testProposeUnattendedContract() {
+function testModerateUnattendedContract() {
   const skill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/moderate/SKILL.md"), "utf8");
   const command = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/moderate.md"), "utf8");
   const ref = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/moderate/reference/workflow.md"), "utf8");
@@ -18653,7 +18890,7 @@ function testProposeCheckIn() {
 // (2026-08-17, issue #471) The prompt is the ceiling: a session may emit only the shapes its
 // own routine names, so a template and the shape catalog that disagree ship either a
 // documented shape nobody may post or a posted shape nothing documents. Byte for byte.
-function testProposeRoutineTemplate() {
+function testModerateRoutineTemplate() {
   const template = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines/moderate.md"), "utf8");
   const catalog = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/notify/reference/notifications.md"), "utf8");
   const claudeMd = readFileSync(join(REPO_ROOT, "CLAUDE.md"), "utf8");
@@ -18773,12 +19010,22 @@ function testWorkaholicRoutineTemplate() {
   // declares it, because it is the one whose audience is a person rather than a channel.
   assertTrue("it declares the push notification that replaces the post",
     /^notifications: push$/m.test(template), template.slice(0, 400));
-  assertEq("and it is the only template that declares one",
-    readdirSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines"))
-      .filter((f) => f.endsWith(".md"))
-      .filter((f) => /^notifications:/m.test(readFileSync(
-        join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines", f), "utf8"))),
-    ["workaholic.md"]);
+  // A SECOND template declares it since 2026-08-21 (issue #555), and the rule the field
+  // tracks is unchanged rather than widened: a routine declares `notifications:` exactly
+  // when its audience is one PERSON rather than a channel, which is the same condition as
+  // holding no Slack connector. So the pin moved from "only this template" to the
+  // BICONDITIONAL, which is the property that was actually meant -- a connector-less
+  // routine with no notification reports to nobody, and a connector-carrying one that also
+  // pushed would be the same noise twice.
+  const routineFiles = readdirSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines"))
+    .filter((f) => f.endsWith(".md"))
+    .map((f) => [f, readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines", f), "utf8")]);
+  assertEq("a template declares a notification exactly when it holds no connector",
+    routineFiles.filter(([, b]) => /^notifications:/m.test(b)).map(([f]) => f).sort(),
+    routineFiles.filter(([, b]) => /^mcp: \[\]$/m.test(b)).map(([f]) => f).sort());
+  assertTrue("and both of the connector-less routines are accounted for",
+    routineFiles.filter(([, b]) => /^notifications:/m.test(b)).length === 2,
+    JSON.stringify(routineFiles.filter(([, b]) => /^notifications:/m.test(b)).map(([f]) => f)));
   assertEq("and the renderer carries it, so the setup commands can diff it",
     rendered.notifications, "push");
 

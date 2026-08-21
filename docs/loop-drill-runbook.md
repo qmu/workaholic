@@ -32,7 +32,8 @@ Run every command from the repository root, on a clean `main`.
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-status --json` | the same targets read the `[Prepare Release]` way — proves the repository tick reads soundly and stays silent when nothing changed |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-cadence --json` | the same targets' **draft notes** — proves the daily generation renders, is idempotent and clock-free, and derives its stage |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-standup --json` | this checkout's strategies and their attributable work — proves the daily digest reads soundly, names its silence and writes nothing |
-| — | Any time | `sh scripts/e2e/loop-drill.sh verify-propose --json` | one `[Moderate]` tick against a throwaway root — proves every step reports, the log carries one section per tick, and the checkout is untouched |
+| — | Any time | `sh scripts/e2e/loop-drill.sh verify-moderate --json` | one `[Moderate]` tick against a throwaway root — proves every step reports, the log carries one section per tick, and the checkout is untouched |
+| — | Any time | `sh scripts/e2e/loop-drill.sh verify-propose --json` | a throwaway strategy tree and a synthetic open-proposal list — proves every gate of `/propose`'s brake refuses by name, and that it writes nothing |
 | — | Any time | `sh scripts/e2e/loop-drill.sh status` | the drill's residue: issues, claim branches, tickets |
 | — | After an abort | `sh scripts/e2e/loop-drill.sh reset` | closes/deletes **drill-minted** residue only |
 
@@ -294,33 +295,64 @@ is the opposite of what a reader needs.
 
 ## 5f. The `[Moderate]` tick (the `/moderate` run)
 
-**The drill stages are named after the commands, and the commands did not move in the
-2026-08-19 rename** (issue #526): `verify-propose` drills `/moderate`, which the
-`[Moderate]` routine now fires, and `verify-specificate` drills `/specificate`, which the
-`[Specificate]` routine now fires. Renaming the stages would move an operator's muscle
-memory and every runbook reference for no behaviour, and would leave `verify-specificate`
-pointing at a command whose routine is no longer called Propose either way. Read a stage
-name as the command it runs, never as the routine that schedules it.
+**The drill stages are named after the commands, and this one was renamed on 2026-08-21**
+(issue #555). It was `verify-propose` — the verb the maintenance tick kept from the name
+it held before the 2026-08-19 rename — and the 2026-08-19 decision to leave it alone was
+right at the time, because the freed name was claimed by nobody and moving an operator's
+muscle memory for no behaviour is a bad trade. That is no longer the situation: `/propose`
+is a real, different command with its own drill below, so the old verb named the wrong
+command outright, which is worse than an ugly one. `verify-specificate` is untouched and
+still drills `/specificate`. Read a stage name as the command it runs, never as the
+routine that schedules it.
 
-`verify-propose` needs no seed, no fire and no issue number, and it runs the tick against
+`verify-moderate` needs no seed, no fire and no issue number, and it runs the tick against
 a **throwaway root** so a drill never appends to the operator's own
 `.workaholic/moderations/` log.
 
 `[Moderate]` (repository scope, `50 * * * *`, configured by `/setup-repo-routines` from
-**one** account) runs `/moderate`: nine steps, one log line each. On a healthy quiet
+**one** account) runs `/moderate`: **ten** steps, one log line each (the count moved when
+the release-status and note-cadence steps merged in on 2026-08-19; the drill's own
+expectation was left at nine and has been corrected). On a healthy quiet
 repository its correct output is again *no Slack message at all*, so the channel cannot
-tell you whether it worked. Four load-bearing rows:
+tell you whether it worked. Five load-bearing rows:
 
 | Row | Fails when | Read |
 | --- | ---------- | ---- |
-| `propose_steps` | fewer than nine steps reported | `skills/moderate/scripts/run.sh` — the step list is the contract, and a step that goes missing must still emit a `degraded` row rather than vanish |
-| `propose_built` | a step still reports `not_implemented` | this checkout carries a half-landed mission — the step's own ticket names what is missing |
-| `propose_log` | the tick wrote no log, or more than one section, or not nine lines | `skills/moderate/scripts/log-append.sh` — one `## <tick>` section per tick, idempotent per (tick, step) |
-| `propose_clean` | the tick changed the checkout | a maintenance tick that dirtied the tree would be writing to `main` hourly; findings become records and tickets through the publish seam, never a direct edit |
+| `moderate_steps` | fewer than ten steps reported | `skills/moderate/scripts/run.sh` — the step list is the contract, and a step that goes missing must still emit a `degraded` row rather than vanish |
+| `moderate_built` | a step still reports `not_implemented` | this checkout carries a half-landed mission — the step's own ticket names what is missing |
+| `moderate_log` | the tick wrote no log, or more than one section, or not eleven lines | `skills/moderate/scripts/log-append.sh` — one `## <tick>` section per tick, idempotent per (tick, step) |
+| `moderate_persist` | the throwaway root was not skipped by name | `skills/moderate/scripts/persist-log.sh` — a drill must never publish |
+| `moderate_clean` | the tick changed the checkout | a maintenance tick that dirtied the tree would be writing to `main` hourly; findings become records and tickets through the publish seam, never a direct edit |
 
-`propose_steps` is this stage's `status_stable`: a single tick is still useful when it is
+`moderate_steps` is this stage's `status_stable`: a single tick is still useful when it is
 red, and what breaks is the *coverage* property — an hourly report that silently covers
-eight of nine steps reads exactly like one that covers all nine.
+nine of ten steps reads exactly like one that covers all ten.
+
+## 5g. The `[Propose]` brake (the `/propose` run)
+
+`verify-propose` needs no seed, no fire, no issue number and **no network**: it builds a
+throwaway strategy tree, hands the survey a synthetic open-proposal list through
+`--open-proposals`, and checks that each gate refuses **by name**.
+
+It is the drill that matters most on this routine, and for a reason none of the others
+have: `/propose` is the one routine here that drops the standing *when unsure, record
+only* bar on purpose, so what bounds it is not a judgment but this gate list. A gate that
+quietly stops gating looks exactly like a routine working normally — right up to the hour
+it opens one issue per strategy per tick.
+
+| Row | Fails when | Read |
+| --- | ---------- | ---- |
+| `propose_nearest_first` | the tick took a direction other than the one whose `target_date` is nearest | `survey-strategies.sh` — eligible strategies sort by `days_to_target` ascending |
+| `propose_gate_<slug>` | a strategy that should have been refused was not, or was refused as something else | the gate table in `workaholic:propose`; each row names one of `not_active`, `not_mine`, `past_target_date`, `no_feedback_refs`, `over_cap` |
+| `propose_in_flight` | a strategy whose last proposal is still open was proposed against again | the in-flight half of the brake — with `work_waiting` it gives *one proposal per strategy at a time*, and losing it is what would make the dropped bar unbounded |
+| `propose_unreadable_inbox` | an unreadable open-proposal list did not refuse the whole tick | a gate that cannot be read is not a gate; the tick must never fall through to a permissive default |
+| `propose_floor_sections` | a body naming no fork it is chosen against was accepted | the anti-housekeeping floor — "tidy this up" is chosen against nothing |
+| `propose_floor_move` | a proposal declaring no `depth`/`breadth`/`contraction` move was accepted | a proposal that cannot say which evolutionary move it is has made no claim on the strategy |
+| `propose_clean` | the drill changed the checkout | `/propose` writes nothing into the repository; its only write is a GitHub issue |
+
+`propose_in_flight` and `propose_unreadable_inbox` are this stage's `status_stable` pair:
+either one going red means the routine is no longer bounded, which is the only failure here
+that gets worse every hour it runs.
 
 ## 6. Abort playbook
 

@@ -2,7 +2,15 @@
   "env": {
     "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
   },
-  "permissions": {},
+  "permissions": {
+    "allow": [
+      "Bash(gh api:*)",
+      "Bash(git rebase:*)",
+      "Bash(git push:*)",
+      "Bash(git merge:*)",
+      "Bash(sh:*)"
+    ]
+  },
   "enabledPlugins": {
     "workaholic@workaholic": true
   },

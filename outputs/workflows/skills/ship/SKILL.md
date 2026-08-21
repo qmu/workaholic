@@ -174,7 +174,7 @@ default. Only a merge carrying neither a story nor a body falls through to namin
 **And a story-less merge keeps its substance** (2026-08-18, issue #512). The title rung was an
 improvement over the placeholder, and a title is still one clamped line where a story is a
 paragraph of *why* — on the **majority** path: measured over `v1.0.170..main`, **38 of 68 merges
-(56%) carry no story**, because a `/propose` pull request auto-merges without ever running
+(56%) carry no story**, because a `/specificate` pull request auto-merges without ever running
 `/report`. The substance is already on the base, and the merge's own diff against its first parent
 names where: `resolve-merge-substance.sh` reads the feedback record it published (`Asked for:` —
 labelled that way because a record states what somebody *asked for*, which is not always what the

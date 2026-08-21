@@ -52,6 +52,22 @@ and every abort reports a machine-readable reason.
    `list-inbound-issues.sh` keys its `already_captured` exclusion on, so omitting it
    re-proposes the same open issue every tick until its pull request merges.
 
+3b. **Carry the ask's own feedback refs forward**, when it names any. An ask whose body
+   carries a `feedback: <ref>, <ref>` line names records that already exist in this
+   repository's stream — a `[Propose]` proposal names the **strategy's** refs, which is
+   how the work this run emits stays attributable to the direction that asked for it
+   (`workaholic:propose`, *How the loop closes*). Read the line, verify each ref exists
+   under `.workaholic/feedbacks/`, and pass the surviving refs to steps 8 and 9
+   **alongside** the record written in step 3 — `scaffold-draft.sh` and
+   `scaffold-proposed-ticket.sh --feedback` are both variadic, so this needs no new flag
+   and no new field on any artifact. A ref that does not resolve is dropped and named in
+   step 10's pull-request body; it is never invented and never blocks the proposal.
+
+   **The direction stays one-way.** This carries a *feedback* ref onto a *mission* — the
+   relation both artifacts already have. Nothing gains a pointer to a strategy, so the
+   retired `strategy:` relation and its ownership hop stay retired
+   (`workaholic:strategy`, *Its relation to missions*).
+
 4. **Read the constraints**, from the publish tree:
    `bash ${CLAUDE_PLUGIN_ROOT}/skills/specificate/scripts/survey-state.sh` — missions, todo
    queue, recent base commits, with `since_reason`. Constraints, never triggers.
@@ -106,8 +122,9 @@ and every abort reports a machine-readable reason.
 
 8. **Draft the mission** (mission form only), in the publish tree:
    - `bash ${CLAUDE_PLUGIN_ROOT}/skills/specificate/scripts/scaffold-draft.sh "<title>" --assignee <the triggering issue's assignee> <feedback-filename>...`
-     — the filename from step 3. Omit `--assignee` when no person was assigned (the
-     mission is then team-owned); never substitute the running identity.
+     — the filename from step 3, **followed by any refs step 3b carried forward**. Omit
+     `--assignee` when no person was assigned (the mission is then team-owned); never
+     substitute the running identity.
    - Fill `## Goal` / `## Scope` / `## Experience` and a **proposed** `## Acceptance`
      sketch from the ask (Edit on the scaffold; clearly provisional — the PR's reviewer
      interrogates it to drive-ready via `/mission <instruction>`). Never touch `status`
@@ -127,7 +144,8 @@ and every abort reports a machine-readable reason.
 
    For an **atomic** direction, emit exactly one loose ticket — no mission, no wrapper:
    - `bash ${CLAUDE_PLUGIN_ROOT}/skills/specificate/scripts/scaffold-proposed-ticket.sh "<title>" --loose [type] [layer] --feedback <record>... --assignee <the same assignee>`
-   - The `--feedback` refs are **mandatory** here (`no_feedback` otherwise).
+   - The `--feedback` refs are **mandatory** here (`no_feedback` otherwise), and they are
+     step 3's record **plus** anything step 3b carried forward.
 
    Neither ticket form runs for the strategy form — a strategy carries no ticket plan
    (step 9b).

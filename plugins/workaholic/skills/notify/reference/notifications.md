@@ -138,6 +138,14 @@ in the tick log. `ask-question.sh` holds the per-tick cap, the daily bound and t
 window; a question it suppresses is recorded as held and handed back on the next eligible tick,
 which is what makes suppression a delay rather than a loss.
 
+### `/propose` — posts nothing, and the reason is the audience again
+
+**No shape, no key, no connector** (2026-08-21, issue #555). The `[Propose]` routine is granted `mcp: []` and emits no Slack post of any kind.
+
+The reasoning is exactly `/setup-user-routines`', reached independently: the issue `/propose` opens is **assigned to one person** — the running identity, whose own strategies it read — and GitHub already delivers it to them. A Slack line saying "I opened an issue you have already been notified about" is the same noise twice, and a status line addressed to nobody is what retired `🔧 Needs a decision` and `📦 Release Preparation`. The tie goes to silence, and here it is not even close.
+
+**Its result reaches that person as a Claude notification instead** — `notifications: push` on the routine record, the **second** template to declare it. A refusal it reports (`inbox_unreadable`, `no_evolutionary_move`, or a whole survey of named gate refusals) concerns only its own operator, who is also the only person who can act on it.
+
 ### `/setup-user-routines` — posts nothing, and the reason is the audience
 
 **The `🔄 Workaholic` keyed root is retired** (2026-08-19, the developer's correction). The

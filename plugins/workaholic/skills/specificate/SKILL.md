@@ -184,6 +184,14 @@ scaffold-proposed-ticket.sh "<title>" <mission-slug> --assignee <email>
 
 Both write `assignees: [<email>]`; both write an empty field when no assignee is given — team-owned, claimable by anyone, a real state that stays available. Do not fall back to the running identity: that stamps whichever container executed the batch and silently assigns work to a runner rather than a person (measured: every unowned proposal had every developer's runner racing for it, whose push landed first deciding whose job it was).
 
+## Carry the ask's own feedback refs forward
+
+An ask whose body carries a `feedback: <ref>, <ref>` line names records that already exist in this repository's stream, and those refs ride the emitted artifacts **alongside** the record this run writes — step 3b of [reference/workflow.md](reference/workflow.md). Both scaffolds already take a variadic ref list, so this adds no flag, no field and no migration.
+
+**It is what closes the improvement loop.** A `[Propose]` proposal (`workaholic:propose`) names the **strategy's** own refs on that line, because `attributed-work.sh` attributes work to a strategy through `strategy.feedback[] ∩ artifact.feedback[]`. Without the carry-forward, a mission proposed for a strategy would cite only the new record, the intersection would be empty, and the loop would turn leaving no trace on the direction that asked for it.
+
+**The direction stays one-way**: this puts a *feedback* ref on a *mission*, the relation both artifacts already have. Nothing gains a pointer to a strategy, so the `strategy:` relation retired on 2026-07-28 and its ownership hop stay retired. A ref that does not resolve under `.workaholic/feedbacks/` is dropped and named in the pull-request body — never invented, and never a reason to refuse the proposal.
+
 ## Unattended — the defining constraint
 
 - **No `AskUserQuestion`, ever.** A situation that would need a human is an abort with a machine-readable reason; an ask too vague to judge is record-only, its ambiguity reported in the pull request.

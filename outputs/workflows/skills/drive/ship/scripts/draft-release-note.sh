@@ -91,7 +91,7 @@
 #   1. The branch story's Overview sentence -- the written record of WHY, and the
 #      only rung a human authored about this change specifically.
 #   2. The merge commit body's pull request title -- what the change was called.
-#      Reached by every `/propose` merge, which never has a story; measured on this
+#      Reached by every `/specificate` merge, which never has a story; measured on this
 #      repository over `v1.0.170..main`, 38 of 68 merges (56%) land here.
 #   3. `Pull request #N (branch)` -- a merge whose body somebody emptied. Named
 #      rather than dropped: a shortened list reads as "nothing else happened".

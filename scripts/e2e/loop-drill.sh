@@ -13,7 +13,7 @@
 #   loop-drill.sh verify-status [--json]      # is the [Prepare Release] read sound and silent?
 #   loop-drill.sh verify-cadence [--json]     # is the daily note generation idempotent and clock-free?
 #   loop-drill.sh verify-planner [--json]     # is the release-plan chain gated, honest and write-free?
-#   loop-drill.sh verify-propose [--json]   # is the /moderate tick (the [Moderate]
+#   loop-drill.sh verify-moderate [--json]  # is the /moderate tick (the [Moderate]
 #                                             routine since 2026-08-19) sound and
 #                                             write-free? The stage names the COMMAND,
 #                                             which did not move in that rename; the
@@ -1232,14 +1232,18 @@ cmd_verify_standup() {
     fi
     emit_verdict "standup" 0 "pass" 0
 }
-# ---------------------------------------------------------------- verify-propose
+# --------------------------------------------------------------- verify-moderate
+# RENAMED FROM `verify-propose` on 2026-08-21 (issue #555): the maintenance tick kept the
+# verb from the name it held before the 2026-08-19 rename, and `/propose` is now a real,
+# different command with its own drill below. A drill verb that names the wrong command is
+# worse than an ugly one.
 # Is the maintenance tick sound — every step reported, one log entry, nothing written
 # outside the log? The drill runs the tick against a THROWAWAY root so the operator's
 # own `.workaholic/moderations/` is never appended to by a drill.
-cmd_verify_propose() {
+cmd_verify_moderate() {
     _run="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/run.sh"
     if [ ! -f "$_run" ]; then
-        emit_err "propose_unreadable" 4 "moderate/scripts/run.sh is not present in this checkout"
+        emit_err "moderate_unreadable" 4 "moderate/scripts/run.sh is not present in this checkout"
     fi
 
     # A DELTA, NOT AN ABSOLUTE. The drill runs in whatever checkout the operator has,
@@ -1252,36 +1256,38 @@ cmd_verify_propose() {
     _tick=$(sh "${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/tick-id.sh" | sed 's/.*"tick": "//; s/".*//')
     _out=$(cd "$REPO_ROOT" && sh "$_run" --tick "$_tick" --root "$_root" 2>&1) || true
 
+    # TEN since the release-status and note-cadence steps merged in (2026-08-19); the count
+    # was left at nine and the drill has failed on every run since. Corrected 2026-08-21.
     _steps=$(printf '%s' "$_out" | awk '{ n = gsub(/"step":/, "&"); print n + 0 }')
-    if [ "${_steps:-0}" -eq 9 ]; then
-        add_row "propose_steps" true "all nine steps reported" load
+    if [ "${_steps:-0}" -eq 10 ]; then
+        add_row "moderate_steps" true "all ten steps reported" load
     else
-        add_row "propose_steps" false "expected nine reported steps, got ${_steps:-0}: $(one_line "$_out")" load
+        add_row "moderate_steps" false "expected ten reported steps, got ${_steps:-0}: $(one_line "$_out")" load
         rm -rf "$_root"
-        emit_verdict "propose" 0 "fail" 1
+        emit_verdict "moderate" 0 "fail" 1
     fi
 
     # A step that cannot run says so BY NAME. `not_implemented` means the mission is
     # half-landed in this checkout, which is a real finding rather than a pass.
     if printf '%s' "$_out" | grep -q '"reason": "not_implemented"'; then
-        add_row "propose_built" false "a step still reports not_implemented in this checkout" load
+        add_row "moderate_built" false "a step still reports not_implemented in this checkout" load
     else
-        add_row "propose_built" true "no step is left unimplemented" load
+        add_row "moderate_built" true "no step is left unimplemented" load
     fi
 
     _day=$(printf '%s' "$_tick" | sed 's/^\(....\)\(..\)\(..\)-.*$/\1-\2-\3/')
     _log="${_root}/.workaholic/moderations/${_day}.md"
     if [ -f "$_log" ]; then
         _sections=$(grep -c '^## ' "$_log" || true)
-        # Nine step lines plus the closing act's own `persist-log` line.
+        # Ten step lines plus the closing act's own `persist-log` line.
         _lines=$(grep -c '^- `' "$_log" || true)
-        if [ "$_sections" = "1" ] && [ "$_lines" = "10" ]; then
-            add_row "propose_log" true "one tick section carrying nine step lines and the persist" load
+        if [ "$_sections" = "1" ] && [ "$_lines" = "11" ]; then
+            add_row "moderate_log" true "one tick section carrying ten step lines and the persist" load
         else
-            add_row "propose_log" false "expected 1 section and 10 lines, got ${_sections} and ${_lines}" load
+            add_row "moderate_log" false "expected 1 section and 11 lines, got ${_sections} and ${_lines}" load
         fi
     else
-        add_row "propose_log" false "the tick wrote no log at ${_log}" load
+        add_row "moderate_log" false "the tick wrote no log at ${_log}" load
     fi
 
     # THE DRILL MUST NOT PUBLISH. The tick's closing act puts the log on the base, and
@@ -1289,9 +1295,9 @@ cmd_verify_propose() {
     # so the one thing worth pinning here is that a root outside a repository is skipped
     # BY NAME rather than committed into whatever repository the cwd happens to be.
     if printf '%s' "$_out" | grep -q '"reason": "not_a_repo"'; then
-        add_row "propose_persist" true "the drill's throwaway root is skipped by name, never published" load
+        add_row "moderate_persist" true "the drill's throwaway root is skipped by name, never published" load
     else
-        add_row "propose_persist" false "the persist did not report not_a_repo for a throwaway root: $(one_line "$_out")" load
+        add_row "moderate_persist" false "the persist did not report not_a_repo for a throwaway root: $(one_line "$_out")" load
     fi
 
     # Nothing outside the log: a maintenance tick that dirtied the checkout would be
@@ -1299,13 +1305,144 @@ cmd_verify_propose() {
     _after=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
     _dirty=$(printf '%s\n' "$_before" "$_after" | sort | uniq -u | head -5)
     if [ -z "$_dirty" ]; then
-        add_row "propose_clean" true "the tick added nothing to the checkout's own state" load
+        add_row "moderate_clean" true "the tick added nothing to the checkout's own state" load
     else
-        add_row "propose_clean" false "the tick changed the checkout: $(one_line "$_dirty")" load
+        add_row "moderate_clean" false "the tick changed the checkout: $(one_line "$_dirty")" load
     fi
 
     rm -rf "$_root"
 
+    if [ "$LOAD_FAILED" -gt 0 ]; then
+        emit_verdict "moderate" 0 "fail" 1
+    fi
+    emit_verdict "moderate" 0 "pass" 0
+}
+
+# ----------------------------------------------------------------- verify-propose
+# Is the BRAKE sound? `/propose` is the one routine here that drops the standing
+# conservative bar on purpose, so what is worth drilling is not that it can propose but
+# that it REFUSES when it must. The drill builds a throwaway strategy tree, hands the
+# survey a synthetic open-proposal list (`--open-proposals`, so no network is touched),
+# and checks each gate by name — including the two that would turn the dropped bar into an
+# unbounded routine if they ever stopped holding: the in-flight gate and the unreadable
+# inbox.
+cmd_verify_propose() {
+    _survey="${REPO_ROOT}/plugins/workaholic/skills/propose/scripts/survey-strategies.sh"
+    _open_sh="${REPO_ROOT}/plugins/workaholic/skills/propose/scripts/open-proposal.sh"
+    if [ ! -f "$_survey" ] || [ ! -f "$_open_sh" ]; then
+        emit_err "propose_unreadable" 4 "propose/scripts is not present in this checkout"
+    fi
+
+    _before=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+
+    _root=$(mktemp -d)
+    mkdir -p "${_root}/strategies" "${_root}/feedbacks"
+    printf -- '---\ntype: Feedback\n---\n\nx\n' > "${_root}/feedbacks/20260101000000-a.md"
+    _far=$(date -u -d "+30 days" +%Y-%m-%d 2>/dev/null || echo 2099-01-01)
+    _near=$(date -u -d "+3 days" +%Y-%m-%d 2>/dev/null || echo 2098-01-01)
+    _gone=$(date -u -d "-2 days" +%Y-%m-%d 2>/dev/null || echo 2000-01-01)
+    _mk() { # slug status target assignee refs
+        cat > "${_root}/strategies/$1.md" <<EOF
+---
+type: Strategy
+title: $1
+slug: $1
+status: $2
+target_date: $3
+assignees: [$4]
+feedback: [$5]
+---
+
+# $1
+
+## Aim
+
+a
+
+## Schedule
+
+s
+EOF
+    }
+    _me=$(cd "$REPO_ROOT" && git config user.email 2>/dev/null || echo drill@example.com)
+    _mk live   active   "$_far"  "$_me"             20260101000000-a.md
+    _mk urgent active   "$_near" "$_me"             20260101000000-a.md
+    _mk closed achieved "$_far"  "$_me"             20260101000000-a.md
+    _mk theirs active   "$_far"  "somebody@else.tld" 20260101000000-a.md
+    _mk late   active   "$_gone" "$_me"             20260101000000-a.md
+    _mk blind  active   "$_far"  "$_me"             ""
+
+    _open="${_root}/open.json"
+    printf '{"ok": true, "identity": "drill", "slug": "o/n", "proposals": []}\n' > "$_open"
+    _out=$(cd "$REPO_ROOT" && sh "$_survey" --open-proposals "$_open" "30 days ago" "$_root" 2>&1) || true
+
+    _reason() { printf '%s' "$_out" | sed -n "s/.*{\"slug\": *\"$1\", *\"reason\": *\"\([a-z_]*\)\".*/\1/p" | head -1; }
+    _sel=$(printf '%s' "$_out" | sed -n 's/.*"selected": *\[\([^]]*\)\].*/\1/p')
+
+    if printf '%s' "$_sel" | grep -q '"urgent"'; then
+        add_row "propose_nearest_first" true "the tick takes the direction whose date is nearest" load
+    else
+        add_row "propose_nearest_first" false "expected urgent to be selected, got: $(one_line "$_sel")" load
+    fi
+
+    for _pair in "closed:not_active" "theirs:not_mine" "late:past_target_date" "blind:no_feedback_refs" "live:over_cap"; do
+        _slug=${_pair%%:*}; _want=${_pair#*:}
+        _got=$(_reason "$_slug")
+        if [ "$_got" = "$_want" ]; then
+            add_row "propose_gate_${_slug}" true "${_slug} refused as ${_want}" load
+        else
+            add_row "propose_gate_${_slug}" false "expected ${_want} for ${_slug}, got '${_got:-nothing}'" load
+        fi
+    done
+
+    # THE IN-FLIGHT GATE. One proposal per strategy at a time is what bounds a routine
+    # whose judgment bar was deliberately dropped; if this stops holding, nothing else does.
+    printf '{"ok": true, "identity": "drill", "slug": "o/n", "proposals": [{"number": 1, "url": "u", "strategy": "urgent", "move": "depth", "title": "t"}]}\n' > "$_open"
+    _out=$(cd "$REPO_ROOT" && sh "$_survey" --open-proposals "$_open" "30 days ago" "$_root" 2>&1) || true
+    if [ "$(_reason urgent)" = "open_proposal" ]; then
+        add_row "propose_in_flight" true "a strategy with a proposal still open is refused" load
+    else
+        add_row "propose_in_flight" false "the in-flight gate did not hold: $(one_line "$_out")" load
+    fi
+
+    # A GATE THAT CANNOT BE READ IS NOT A GATE: the whole tick refuses rather than
+    # falling through to a permissive default.
+    printf '{"ok": false, "reason": "list_failed"}\n' > "$_open"
+    _out=$(cd "$REPO_ROOT" && sh "$_survey" --open-proposals "$_open" "30 days ago" "$_root" 2>&1) || true
+    if printf '%s' "$_out" | grep -q '"reason": "inbox_unreadable"'; then
+        add_row "propose_unreadable_inbox" true "an unreadable open-proposal list refuses the whole tick" load
+    else
+        add_row "propose_unreadable_inbox" false "the tick did not refuse an unreadable inbox: $(one_line "$_out")" load
+    fi
+
+    # The write floor, on the paths that run before any network call.
+    _body="${_root}/body.md"
+    printf '%s\n' "## What to change" "" "x" "" "## Why this commits to the strategy" "" "y" "" > "$_body"
+    _r=$(cd "$REPO_ROOT" && sh "$_open_sh" --strategy live --move depth --title t --workaholic-root "$_root" "$_body" 2>&1) || true
+    if printf '%s' "$_r" | grep -q '"reason": "missing_section"'; then
+        add_row "propose_floor_sections" true "a body that names no fork it is chosen against is refused" load
+    else
+        add_row "propose_floor_sections" false "the section floor did not hold: $(one_line "$_r")" load
+    fi
+    printf '%s\n' "## What this is chosen against" "" "z" "" >> "$_body"
+    _r=$(cd "$REPO_ROOT" && sh "$_open_sh" --strategy live --title t --workaholic-root "$_root" "$_body" 2>&1) || true
+    if printf '%s' "$_r" | grep -q '"reason": "no_move"'; then
+        add_row "propose_floor_move" true "a proposal declaring no evolutionary move is refused" load
+    else
+        add_row "propose_floor_move" false "the move floor did not hold: $(one_line "$_r")" load
+    fi
+
+    # /propose writes NOTHING into the repository — the property that keeps it out of the
+    # unattended-main-writer class.
+    _after=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+    _dirty=$(printf '%s\n' "$_before" "$_after" | sort | uniq -u | head -5)
+    if [ -z "$_dirty" ]; then
+        add_row "propose_clean" true "the survey and the writer added nothing to the checkout" load
+    else
+        add_row "propose_clean" false "the drill changed the checkout: $(one_line "$_dirty")" load
+    fi
+
+    rm -rf "$_root"
     if [ "$LOAD_FAILED" -gt 0 ]; then
         emit_verdict "propose" 0 "fail" 1
     fi
@@ -1314,7 +1451,7 @@ cmd_verify_propose() {
 
 # ---------------------------------------------------------------- dispatch
 
-USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-specificate <issue>|verify-implement <issue>|verify-plan [--json]|verify-status [--json]|verify-cadence [--json]|verify-planner [--json]|verify-standup [--json]|verify-propose [--json]"}'
+USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-specificate <issue>|verify-implement <issue>|verify-plan [--json]|verify-status [--json]|verify-cadence [--json]|verify-planner [--json]|verify-standup [--json]|verify-moderate [--json]|verify-propose [--json]"}'
 
 CMD="${1:-}"
 [ -n "$CMD" ] || {
@@ -1348,6 +1485,7 @@ case "$CMD" in
     verify-cadence) cmd_verify_cadence "$@" ;;
     verify-planner) cmd_verify_planner "$@" ;;
     verify-standup) cmd_verify_standup "$@" ;;
+    verify-moderate) cmd_verify_moderate "$@" ;;
     verify-propose) cmd_verify_propose "$@" ;;
     *)
         echo "$USAGE" >&2

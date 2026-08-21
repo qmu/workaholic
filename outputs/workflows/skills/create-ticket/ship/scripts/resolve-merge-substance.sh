@@ -9,7 +9,7 @@
 #
 # WHY IT EXISTS (2026-08-18, issue #512). `## Key Changes` prefers a branch story
 # and falls back to the merge body's pull request title. The fallback is not rare:
-# a `/propose` pull request is published through the publish tree and auto-merges
+# a `/specificate` pull request is published through the publish tree and auto-merges
 # without ever running `/report`, so it structurally never has a story. Measured on
 # this repository over `v1.0.170..main`: **38 of 68 merges (56%) carry no story** —
 # the majority path, rendered as one clamped title where a story is a paragraph of

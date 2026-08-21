@@ -39,19 +39,12 @@ Then `🔵 Proposed` above as a reply whose `thread_ts` is this message's timest
 by the [routine](<session URL>) of <@U…>
 ```
 
-**The authorship line is conditional, and it is a body line on every finish shape — never a fifth shape and never a second post** (2026-08-14, issue #454). A unit whose tickets are all the runner's own adds nothing; otherwise the finish line carries exactly one extra line, appended last:
+**The authorship line is retired from the post; the fact stays in the run report** (2026-08-21, the developer's instruction). Between 2026-08-14 and this change a unit whose tickets were not the runner's appended one body line — `tickets authored by <identity>`, or `ticket authorship unresolved` — to its finish post. It is gone from every finish shape. Two reasons, and the second is the stronger one:
 
-```
-tickets authored by <identity>
-```
+- **It was noise on a post this repository spends effort keeping short.** The finish line exists so a human can see one event at a glance; a second line about provenance is not that event, and Slack renders a bare email as a `mailto:` link, so the disclosure arrived as link furniture rather than as a sentence.
+- **It printed a value that meant its own absence.** A cloud container whose `.claude/git-identities` mapping is missing keeps `noreply@anthropic.com`, so the line read `tickets authored by noreply@anthropic.com` — a placeholder rendered as an author. `unresolved` existed to keep "could not tell" distinct from "mine", and the post said the opposite of what the runner knew (issue #547).
 
-or, when this runner has no identity to compare against:
-
-```
-ticket authorship unresolved
-```
-
-The fact comes from `drive/scripts/unit-authors.sh` (`foreign` / `unresolved` / `mine`), which compares by slug through the one comparison `owns.sh` already uses. **It carries no mention token**: a `<@U…>` on a routine's own post has re-triggered the Slack app before, and the identity here is a plain email or slug for exactly that reason. `unresolved` is kept distinct from "authored by me" for the same reason `owns.sh` keeps it — a runner that cannot tell must not render as one that checked. This is **disclosure, not a policy change**: an empty `assignees:` still means claimable by anyone, and nothing about which units a run takes moved.
+**What did not change**: `unit-authors.sh` still returns `foreign` / `unresolved` / `mine`, and `/implement`'s per-unit run report still names the authors — the surface a person reads when they want the provenance. Disclosure moved to where it is read on purpose; it was not dropped.
 
 `🟢 Implemented` is the finish shape for the **ordinary** case: the unit's pull request opened and merged (the immediate-merge route; a scan finding that held the merge still finishes with this line, the open PR URL saying the rest) — it retires the earlier `🟢 Merge Requested for <@U…> - ...` shape, which announced exactly the same event in more words, and the `🟠 Implementing` start post (with the older `🟠 drive started - <unit-id>` it had itself retired); nothing replaces the start. Three outcomes keep their own finish shape rather than collapsing into `🟢 Implemented`, because each carries information the generic line would lose — whether an unattended merge happened, whether the unit is genuinely unfinished, or what named blocker stopped it (the bright line in the SKILL: *an event earns its post*):
 

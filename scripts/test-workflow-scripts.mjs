@@ -15057,16 +15057,19 @@ function testUnitAuthorsDisclosure() {
   // word, or a session would post a shape its own routine never authorized.
   const catalog = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/notify/reference/notifications.md"), "utf8");
   const template = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines/implement.md"), "utf8");
-  for (const line of ["tickets authored by <identity>", "ticket authorship unresolved"]) {
-    assertTrue(`the catalog carries the line verbatim: ${line}`, catalog.includes(line), "missing from the catalog");
-    assertTrue(`the [Implement] template authorizes it verbatim: ${line}`, template.includes(line), "missing from the template");
+  // The authorship line is RETIRED from the post (2026-08-21). What is pinned is its
+  // absence from the two machine-consumed surfaces: a routine prompt authorizes exactly
+  // the post shapes it lists, so a line left in either one is a line a run may emit.
+  for (const line of ["tickets authored by", "ticket authorship unresolved"]) {
+    assertTrue(`the [Implement] template authorizes no authorship line: ${line}`,
+      !template.includes(line), "the retired line is still authorized by the template");
   }
-  // No mention token on the added line — a <@U…> on a routine's own post has
-  // re-triggered the Slack app before.
-  assertTrue("the authorship line carries no mention token",
-    !/tickets authored by[^\n]*<@U/.test(catalog) && !/tickets authored by[^\n]*<@U/.test(template));
-  assertTrue("the catalog states it is a body line, never a fifth shape or a second post",
-    /never a fifth shape and never a second post/.test(catalog), "the one-finish-per-thread rule is not stated");
+  assertTrue("the catalog authorizes no authorship line in a finish shape",
+    !/```[^`]*tickets authored by/.test(catalog), "a finish shape still carries the retired line");
+  // The fact itself did not disappear -- it moved to the run report, and the script that
+  // computes it is untouched.
+  assertTrue("the script that computes the fact is still shipped",
+    existsSync(SCRIPTS.unitAuthors), "unit-authors.sh is gone");
 }
 
 // ---------- /fb files an issue, whatever the destination (2026-08-17) ----------

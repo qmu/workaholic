@@ -83,14 +83,18 @@ not write a second story generator.
   `… tickets <ticket-file>...`. See *The declared handoff* below.
 - **`review` → merge the PR immediately** (mission `auto-merge-propose-and-implement-prs-under-a-dev-release-branch-split`,
   2026-08-11, superseding the earlier stop-at-the-PR route): once `/story` has opened the unit's
-  pull request and the branch-safety scan verdict is `pass`, merge it (REST
+  pull request, read the scan through `release-scan`'s `gate-decision.sh` — never the raw
+  `verdict` — and merge it when that reader says `decision: pass` or `override_only: true` (REST
   `PUT repos/{owner}/{repo}/pulls/{n}/merge` with `merge_method: merge`, through
   `gather/scripts/gh-rest.sh` — never the GraphQL-backed `gh pr merge`, which a web session
   may 403) with
   no human confirmation and tear the claim down exactly as `auto` does below — quality is gated
-  downstream at the `release/*` QA window, not at merge time. A scan finding is the one thing that
-  leaves the PR open instead (there is no human here to override — the demotion doctrine below is
-  unchanged). Under `/implement`, post the one `🟢 Implemented` finish line with the PR URL on the
+  downstream at the `release/*` QA window, not at merge time. A `hard` (`secret`) or `confirm`
+  (`leak`) finding is what leaves the PR open instead (there is no human here to override — the
+  demotion doctrine below is unchanged); an `override_only` scan does **not** hold the merge, and
+  its findings are reported in the run report and in the pull-request body `/story` writes.
+  The tier, never the binary verdict, is what this route reads — `drive` §6 carries the
+  measurement that made the distinction load-bearing. Under `/implement`, post the one `🟢 Implemented` finish line with the PR URL on the
   transport `notify` selects (*The transport*): the account's Slack connector where the
   session has one — the only surface that can run the thread lookup and reply into a thread — and
   `bash ../specificate/scripts/notify-slack.sh "<message with the PR URL>"`

@@ -34,7 +34,9 @@ Output:
                   "evidence": "<redacted for secrets; the term/threshold otherwise>" } ] }
 ```
 
-`verdict` is `block` iff there is any finding. Secret evidence is **redacted** so the scan output does not itself leak the secret. The **severity** tells the consumer how hard to block, and both consumers key on it — never on the binary verdict alone: `/ship` enforces the tiers (secret = non-overridable, leak = confirm, size = overridable), and `/story` surfaces all findings but marks the branch not releasable only for `hard`/`confirm` findings — a branch whose only findings are `override`-tier stays releasable, with the findings recorded as warnings the developer will consciously accept at `/ship`.
+`verdict` is `block` iff there is any finding. Secret evidence is **redacted** so the scan output does not itself leak the secret. The **severity** tells the consumer how hard to block, and both consumers key on it — never on the binary verdict alone: `/ship` enforces the tiers (secret = non-overridable, leak = confirm, size = overridable), `/story` surfaces all findings but marks the branch not releasable only for `hard`/`confirm` findings — a branch whose only findings are `override`-tier stays releasable, with the findings recorded as warnings the developer will consciously accept at `/ship` — and **`/drive`'s `review` route merges on `pass` or on `override_only`** and holds the pull request open for `hard`/`confirm` only.
+
+**There are three consumers now, and the third one got this wrong until 2026-08-21.** `/drive`'s `review` route read `verdict == "pass"`, so a `size`-only branch — the tier this skill calls *a granularity nudge, not a hard block* two sections down — held its merge open indefinitely, and the unattended run reporting it asked a human what to do. The counting no longer happens in each consumer: `gate-decision.sh` computes `override_only` alongside `overridable`, because three copies of a tier rule is how one rule becomes three. The measurement that forced it is in `workaholic:drive` §6 and in that script's header.
 
 ## Leak denylist
 

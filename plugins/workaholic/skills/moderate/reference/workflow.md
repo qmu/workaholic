@@ -1,4 +1,4 @@
-# The nine-step contract — reference
+# The ten-step contract — reference
 
 Companion to [`../SKILL.md`](../SKILL.md). One section per step: what it reads, **what it may
 write**, what it returns in `needs_agent`, and the reasons it aborts with. The step ids are the
@@ -201,7 +201,7 @@ design that put the write on a tick failed on every tick until it was corrected.
 be read.
 
 
-## 10. `human-checkin` — up to five questions, never late at night
+## 10. `human-checkin` — the tick's voice: one root, up to five questions inside it
 
 - **Reads**: the tick log (held questions, what was already asked today) and the clock in the
   workspace's timezone.
@@ -212,7 +212,7 @@ be read.
   honestly mark "(Recommended)" is decided and recorded, never asked). *How many*, *when*, and
   *was this asked before* are mechanical, and live in `ask-question.sh`, which answers
   `ask: true|false` and hands back the `log_step` to record the ask under.
-- **Four gates, each its own refusal**: `quiet_hours`, `already_asked`, `tick_cap` (5), `day_cap`
+- **Five gates, each its own refusal**: `off_day` (the working-week gate, `WORKAHOLIC_WORK_DAYS`, default `1-5`), `quiet_hours`, `already_asked`, `tick_cap` (5), `day_cap`
   (10 — the bound the per-tick cap must not aggregate past; five an hour is 120 a day at the
   ceiling, and the cap alone protects nobody's attention).
 - **Quiet hours: one gate per tick, in the workspace's timezone** (resolved 2026-08-17), default
@@ -235,6 +235,28 @@ be read.
 
 ---
 
+### The post this step produces
+
+**One root per tick, questions as replies inside it** (2026-08-21). The step no longer replies each
+question into the thread of the item it concerns; it posts the tick's own root and hangs its
+questions under it.
+
+1. Render the root: `run.sh`'s JSON | `render-tick-post.sh --tick <id> --root <repo-root> --questions <n>`.
+   It returns `post`, a `reason`, the `changes[]` it found and the `root_text` to post verbatim.
+2. `post: false` ⇒ **post nothing**, whatever the reason (`idle`, `no_previous_tick`, `no_log`,
+   `no_rows`). Report the reason in the run.
+3. `post: true` ⇒ post `root_text` as a top-level message carrying `` `tick:<tick-id>` `` and the
+   session URL, then post each cleared question as a **reply into that root**, carrying the
+   person's `<@U…>` and `` `ask:<key>` `` — and no session URL, which the root already carries.
+
+**A change is a diff against the previous tick**, read from the log; no step declares its own
+novelty and no cursor is stored. **The gates are `questions >= 1` or `changes >= 1`.**
+
+**This step is exempt from `--deadline-seconds`.** The deadline cuts steps in order and this one is
+last, so a slow tick used to read nine things and say nothing — the one step whose absence nobody
+can see was the first to go. By the time it runs the other steps have handed it their findings, and
+asking with nine of them beats asking with none.
+
 ## What `run.sh` guarantees around the steps
 
 - **Every step is invoked and every step reports.** Missing script → `degraded`/`step_missing`;
@@ -251,8 +273,8 @@ be read.
 
 ## The closing act — `persist-log.sh`
 
-Not a tenth step: the nine above are the ask's contract and the log's step keys, and this is the
-run's own bookkeeping. It runs **after** the ninth step has had its turn, so a tick that dies
+Not an eleventh step: the ten above are the contract and the log's step keys, and this is the
+run's own bookkeeping. It runs **after** the last step has had its turn, so a tick that dies
 half-way still persists what it recorded on its next run, and it reports under the run's top-level
 `persist` key while logging under the step id `persist-log`.
 

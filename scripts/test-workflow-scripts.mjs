@@ -155,6 +155,7 @@ const SCRIPTS = {
   publishTreeCommit: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/publish-tree-commit.sh"),
   publishTreePr: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/publish-tree-pr.sh"),
   listRoutineTemplates: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/list-routine-templates.sh"),
+  renderTickPost: join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/render-tick-post.sh"),
   proposeSurvey: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/survey-strategies.sh"),
   proposeOpen: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/open-proposal.sh"),
   proposeListOpen: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/list-open-proposals.sh"),
@@ -4592,6 +4593,111 @@ function testStandupDigest() {
     assertTrue("the post token keys on the date", /^standup:\d{4}-\d{2}-\d{2}$/.test(d.token), d.token);
     assertEq("the token and the reported date agree", d.token, `standup:${d.date}`);
   } finally { cleanup(dir); }
+}
+
+// ---------- /moderate: the tick's own voice, one root an hour (2026-08-21) ----------
+// WHAT IS PINNED is the gate, not the wording. An hourly root is only admissible here
+// because an idle hour is silent, and the thing that makes it silent is that a "change"
+// is a DIFF AGAINST THE PREVIOUS TICK rather than a restatement of the current state.
+// `📦 Release Preparation` was retired for exactly the failure this test exists to
+// prevent: ten posts in ten hours for one unchanged request, none answered.
+function testModerateTickPost() {
+  const dir = makeRepo("main");
+  const LOG = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/log-append.sh")}`;
+  const RENDER = `${POSIX_SH} ${SCRIPTS.renderTickPost}`;
+  const rows = (pairs) => JSON.stringify({
+    rows: pairs.map(([step, summary]) => ({ step, status: "ok", summary })),
+  });
+  // Through a FILE, not an inline shell string: the payload is JSON full of quotes and the
+  // point of the test is the parsing, not the quoting.
+  const render = (json, args) => {
+    writeFileSync(join(dir, "rows.json"), json);
+    return JSON.parse(run(dir, `${RENDER} ${args} --root . < rows.json`).stdout);
+  };
+  try {
+    mkdirSync(join(dir, ".workaholic", "moderations"), { recursive: true });
+    // No predecessor: everything would read as changed — the loudest possible first
+    // impression and the least informative — so the tick says nothing and names why. The
+    // log is READABLE here and holds only this tick's own line, which is the real
+    // first-tick-ever shape: `open-log` is step 1, so step 10 always sees itself.
+    run(dir, `${LOG} --tick 20260821-100000 --step open-log --status ok --summary "opened" --root .`);
+    let r = render(rows([["doc-drift", "no drift"]]), "--tick 20260821-100000");
+    assertEq("a tick with no previous tick posts nothing", [r.post, r.reason], [false, "no_previous_tick"]);
+
+    run(dir, `${LOG} --tick 20260821-090000 --step issue-triage --status ok --summary "3 stale issues" --root .`);
+    run(dir, `${LOG} --tick 20260821-090000 --step doc-drift --status ok --summary "no drift" --root .`);
+
+    // The whole point: an unchanged hour is silent, however alarming its wording.
+    r = render(rows([["issue-triage", "3 stale issues"], ["doc-drift", "no drift"]]), "--tick 20260821-100000");
+    assertEq("an hour that changed nothing is silent", [r.post, r.reason], [false, "idle"]);
+    assertEq("and it found the previous tick to compare against", r.previous_tick, "20260821-090000");
+
+    // Every changed step contributes a line — including the last one, which a missing
+    // trailing newline dropped on this script's first run.
+    r = render(rows([["issue-triage", "5 stale issues"], ["doc-drift", "2 documents drifted"]]), "--tick 20260821-100000");
+    assertEq("both changed steps are counted", [r.post, r.change_count], [true, 2]);
+    assertTrue("and both reach the root text",
+      /issue-triage: 5 stale issues/.test(r.root_text) && /doc-drift: 2 documents drifted/.test(r.root_text),
+      r.root_text);
+    assertTrue("the root is valid JSON with its newlines escaped", typeof r.root_text === "string" && r.root_text.includes("\n"), r.root_text);
+
+    // A question alone earns the root: the root exists to carry the questions under it.
+    r = render(rows([["issue-triage", "3 stale issues"], ["doc-drift", "no drift"]]), "--tick 20260821-100000 --questions 1");
+    assertEq("a question with no change still earns the root", [r.post, r.change_count, r.questions], [true, 0, 1]);
+
+    // The asking step's own summary is not news ABOUT THE REPOSITORY, and its questions
+    // are already the thread's replies — counting it would make every tick "changed".
+    r = render(rows([["human-checkin", "asked 2"], ["doc-drift", "no drift"]]), "--tick 20260821-100000");
+    assertEq("the check-in's own line never counts as a change", [r.post, r.reason], [false, "idle"]);
+
+    // A mechanism that could not read must never announce quiet.
+    const bare = makeRepo("main");
+    try {
+      writeFileSync(join(bare, "rows.json"), rows([["doc-drift", "x"]]));
+      const n = JSON.parse(run(bare, `${RENDER} --tick 20260821-100000 --root . < rows.json`).stdout);
+      assertTrue("an unreadable log is named, never rendered as idle",
+        n.post === false && n.reason !== "idle", JSON.stringify(n));
+    } finally { cleanup(bare); }
+  } finally { cleanup(dir); }
+}
+
+// The working-week gate, and the reason it is not cosmetic: a question posted at 10:00 on
+// a Sunday reaches nobody, and the asked-once gate then guarantees it is never posted
+// again on a day somebody is reading. Held is not dropped — it waits for Monday.
+function testModerateWorkingDays() {
+  const dir = makeRepo("main");
+  const ASK = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/ask-question.sh")}`;
+  const ask = (args) => JSON.parse(run(dir, `${ASK} --tick 20260821-100000 --key q:x --root . ${args}`).stdout);
+  try {
+    let a = ask("--hour 10 --weekday 6");
+    assertEq("a Saturday finding is not asked", [a.ask, a.reason], [false, "off_day"]);
+    assertEq("and it is held, not dropped", a.hold, true);
+    a = ask("--hour 10 --weekday 7");
+    assertEq("nor a Sunday one", a.reason, "off_day");
+    a = ask("--hour 10 --weekday 1");
+    assertEq("Monday inside working hours asks", a.ask, true);
+    a = ask("--hour 23 --weekday 1");
+    assertEq("a working day still respects the quiet window", a.reason, "quiet_hours");
+    // The day gate is read BEFORE the hour gate, so a weekend night reports the day —
+    // the reason a reader acts on is "nobody is here", not "it is late".
+    a = ask("--hour 23 --weekday 6");
+    assertEq("a weekend night reports the day, not the hour", a.reason, "off_day");
+    const all = JSON.parse(run(dir, `WORKAHOLIC_WORK_DAYS=1-7 ${ASK} --tick 20260821-100000 --key q:y --root . --hour 10 --weekday 7`).stdout);
+    assertEq("the gate can be opted out of entirely", all.ask, true);
+  } finally { cleanup(dir); }
+}
+
+// The deadline cuts steps IN ORDER and the asking step is last, so the one step whose
+// absence nobody can see was the first to go. A tick that reads nine things and says
+// nothing is the failure this exemption exists to prevent.
+function testModerateAskSurvivesDeadline() {
+  const run_sh = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/run.sh"), "utf8");
+  const gate = run_sh.slice(run_sh.indexOf("$DEADLINE") - 400, run_sh.indexOf("$DEADLINE") + 200);
+  assertTrue("the asking step is exempt from the tick's budget",
+    /human-checkin/.test(gate) && /DEADLINE/.test(gate), gate);
+  const steps = (run_sh.match(/^STEPS='([^']+)'/m) || [])[1] || "";
+  assertEq("and it is still the last step, so it asks with every finding in hand",
+    steps.trim().split(/\s+/).pop(), "human-checkin");
 }
 
 // ---------- /propose: the routine that supplies the loop's own ask (issue #555) ----------
@@ -14526,6 +14632,9 @@ const tests = [
   ["strategy skill (the artifact revived 2026-08-13)", testStrategySkill],
   ["strategy/attributed-work.sh (the ONE attribution reader)", testStrategyAttributedWork],
   ["standup/digest.sh (the daily per-strategy digest)", testStandupDigest],
+  ["moderate: the tick's own root, and the diff that keeps it silent", testModerateTickPost],
+  ["moderate: the working-week gate holds the weekend without losing the question", testModerateWorkingDays],
+  ["moderate: the tick's voice is never starved by the deadline", testModerateAskSurvivesDeadline],
   ["propose: the gates that replace the dropped judgment bar", testProposeGates],
   ["propose: the write floor and its named refusals", testProposeWriteFloor],
   ["propose: the [Propose] routine template writes nothing and posts nothing", testProposeRoutineTemplate],
@@ -18870,6 +18979,15 @@ function testProposeCheckIn() {
     run(repo, `${LOG} --tick 20260817-020000 --step human-checkin-held-q-sizing --status skipped --summary "held q:sizing"`);
     j = JSON.parse(run(repo, `${STEP} --tick 20260817-120000 --root . --hour 14`).stdout);
     assertEq("a held question is handed back when the window clears", j.held, ["q-sizing"]);
+    // THE ASK IS RECORDED UNDER THE ID THE SCRIPT RETURNS, and that is now the whole gate
+    // (2026-08-21, ticket `20260819062058`). It used to search the log's SUMMARY text for
+    // the raw key, which nothing ever required a writer to put there — so the gate rested
+    // on free text a contract never asked for and measurably did not hold: one tick asked
+    // `ask:issue-524-unassigned-never-ingested`, and an hour later the same key answered
+    // `ask: true` with the question still unanswered in the channel.
+    const sizing = JSON.parse(run(repo, `${ASK} --tick 20260817-120000 --key q:sizing --root . --hour 14`).stdout);
+    assertTrue("the held question is allowed once the window clears", sizing.ask, JSON.stringify(sizing));
+    run(repo, `${LOG} --tick 20260817-120000 --step ${sizing.log_step} --status filed --summary "asked q:sizing"`);
     run(repo, `${LOG} --tick 20260817-120000 --step human-checkin-ask-q-sizing --status filed --summary "asked q:sizing"`);
     j = JSON.parse(run(repo, `${STEP} --tick 20260817-130000 --root . --hour 14`).stdout);
     assertEq("and stops being held once it has been asked", j.held, []);
@@ -18883,7 +19001,11 @@ function testProposeCheckIn() {
     for (let i = 1; i <= 5; i++) {
       const g = JSON.parse(run(repo, `${ASK} --tick 20260817-140000 --key q:${i} --root . --hour 14 --max-per-day 50`).stdout);
       assertTrue(`question ${i} of five is allowed`, g.ask, JSON.stringify(g));
-      assertEq(`question ${i} gets its own log key`, g.log_step, `human-checkin-ask-q-${i}`);
+      // The id carries a digest of the WHOLE key, because the gate now reads the id: the
+      // 32-character slug was not injective, and a collision there silently suppresses a
+      // question rather than merely miscounting one.
+      assertTrue(`question ${i} gets its own log key`,
+        g.log_step.startsWith(`human-checkin-ask-q-${i}-`), g.log_step);
       run(repo, `${LOG} --tick 20260817-140000 --step ${g.log_step} --status filed --summary "asked q:${i}"`);
     }
     a = JSON.parse(run(repo, `${ASK} --tick 20260817-140000 --key q:6 --root . --hour 14 --max-per-day 50`).stdout);
@@ -18926,15 +19048,28 @@ function testModerateRoutineTemplate() {
   // measured on the channel as ten 📦 lines in ten consecutive hours for one unchanged
   // request, none answered. Both retired roots are pinned as ABSENT from both documents,
   // because a retired shape that survives in either one is a shape somebody will post.
+  // TWO SHAPES SINCE 2026-08-21, and they are two speech acts told apart by POSITION in
+  // one thread: the root is orientation addressed to nobody, the reply is a question
+  // addressed by name. The retired roots stay retired — what returned is not a status line
+  // but the carrier the questions hang from, and it cannot restate an unchanged answer,
+  // because a change is a diff against the previous tick rather than a hash of this one.
   {
-    const c = block(catalog, "🙋 Question");
+    const c = block(catalog, "🙋 <@U…>");
     assertTrue("the catalog carries the check-in question", c !== "", "missing from notifications.md");
     assertEq("the check-in question reads byte-identically in the template and the catalog",
-      block(template, "🙋 Question"), c);
+      block(template, "🙋 <@U…>"), c);
+    const r = block(catalog, "🔎 Moderation");
+    assertTrue("the catalog carries the tick's root", r !== "", "missing from notifications.md");
+    assertEq("the root reads byte-identically in the template and the catalog",
+      block(template, "🔎 Moderation"), r);
+    assertTrue("the root carries the tick token, not a content hash",
+      /`tick:<tick-id>`/.test(r), r);
+    assertTrue("and no mention token of any kind", !/<@U/.test(r), r);
   }
-  assertEq("and it is the ONLY shape the template authorizes",
+  assertEq("and they are the only two shapes the template authorizes",
     [...template.matchAll(/```\n([^\n]*)/gu)].map((m) => m[1]).filter((l) => /^[^\s`]/.test(l)),
-    ["🙋 Question <@U…> - <what this tick could not decide>"]);
+    ["🔎 Moderation - <N> change(s), <M> question(s)",
+     "🙋 <@U…> - <what this tick could not decide>"]);
   for (const retired of ["🔧 Needs a decision", "📦 Release Preparation"]) {
     assertEq(`no session may post ${retired} any more — the template`, block(template, retired), "");
     assertEq(`no session may post ${retired} any more — the catalog`, block(catalog, retired), "");
@@ -18943,9 +19078,9 @@ function testModerateRoutineTemplate() {
   // The question is the one post in the model that names a person, because it is the one
   // post that needs a specific person to do something.
   assertTrue("the question carries a resolved mention",
-    /<@U…>/.test(block(catalog, "🙋 Question")), block(catalog, "🙋 Question"));
+    /<@U…>/.test(block(catalog, "🙋 <@U…>")), block(catalog, "🙋 <@U…>"));
   assertTrue("and keys on ask:<key>, the content key its already-asked ledger searches",
-    /`ask:<key>`/.test(block(catalog, "🙋 Question")), block(catalog, "🙋 Question"));
+    /`ask:<key>`/.test(block(catalog, "🙋 <@U…>")), block(catalog, "🙋 <@U…>"));
 
   // Scope, cron and the write grant are the template's own claims; CLAUDE.md's routines
   // table must state the same ones, since that table is where a human reads them.

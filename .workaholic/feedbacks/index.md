@@ -530,4 +530,5 @@
 * [/workaholify cannot create a routine: the environment id and body shape are undocumented](20260821150124-workaholify-cannot-create-a-routine-the-environment-id-and-body-shape-are-undocumented.md)
 * [Auto-merge cannot merge in a web session while the connector can](20260821150642-auto-merge-cannot-merge-in-a-web-session-while-the-connector-can.md)
 * [Drop the fb: key line from every Slack post template](20260821150943-drop-the-fb-key-line-from-every-slack-post-template.md)
+* [A survey run under a placeholder git identity returns an indistinguishable ok](20260821151227-a-survey-run-under-a-placeholder-git-identity-returns-an-indistinguishable-ok.md)
 <!-- okf:generated:end -->

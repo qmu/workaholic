@@ -527,4 +527,5 @@
 * [/workaholify should converge the account's routines, not just render setup sheets](20260819103531-workaholify-should-converge-the-account-s-routines-not-just-render-setup-sheets.md)
 * [Generate stories/index.md like every other OKF area](20260819111841-generate-stories-index-md-like-every-other-okf-area.md)
 * [Command rename shipped without a version bump, so every routine resolves the stale plugin cache](20260819115551-command-rename-shipped-without-a-version-bump-so-every-routine-resolves-the-stale-plugin-cache.md)
+* [/workaholify cannot create a routine: the environment id and body shape are undocumented](20260821150124-workaholify-cannot-create-a-routine-the-environment-id-and-body-shape-are-undocumented.md)
 <!-- okf:generated:end -->

@@ -199,7 +199,13 @@ for step in $STEPS; do
         emit_row "$step" skipped requested "$summary" 0 "$logged"
         continue
     fi
-    if [ "$DEADLINE" -gt 0 ] && [ $(( $(date -u +%s) - started )) -ge "$DEADLINE" ]; then
+    # THE TICK'S VOICE IS NEVER STARVED (2026-08-21). The deadline cuts steps in order and
+    # `human-checkin` is last, so a slow tick used to read nine things, log them, and say
+    # nothing to anybody — the one step whose absence nobody can see was the first to go.
+    # It is exempt: by the time it runs the other steps have already handed it their
+    # findings, and asking with nine of them is strictly better than asking with none.
+    if [ "$step" != "human-checkin" ] \
+       && [ "$DEADLINE" -gt 0 ] && [ $(( $(date -u +%s) - started )) -ge "$DEADLINE" ]; then
         summary="not reached within the tick's ${DEADLINE}s budget"
         logged=$(log_step "$step" skipped "$summary")
         emit_row "$step" skipped budget "$summary" 0 "$logged"

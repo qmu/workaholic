@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-22T22:41:39+09:00
+status: done
 author: a@qmu.jp
 assignees: 
 depends_on:
@@ -7,6 +8,7 @@ mission:
 merge_policy:
 feedback: [20260822224122-one-proposal-per-tick-starves-the-slower-direction.md]
 verification_handoff: 
+claim: work-20260822-224335
 ---
 
 # Propose against every eligible strategy in the tick

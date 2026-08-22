@@ -4632,9 +4632,21 @@ function testModerateTickPost() {
     assertEq("an hour that changed nothing is silent", [r.post, r.reason], [false, "idle"]);
     assertEq("and it found the previous tick to compare against", r.previous_tick, "20260821-090000");
 
+    // A QUESTION IS THE GATE (2026-08-22, issue #569). Changes alone no longer earn a
+    // post: the root exists to CARRY the questions beneath it, so `0 question(s)` made it
+    // the status line addressed to nobody that two keyed roots were already retired for.
+    // Measured four consecutive hours on a consuming repository, every post reading
+    // `2 change(s), 0 question(s)`. The changes are still counted and reported — they are
+    // simply not a reason to speak.
+    r = render(rows([["issue-triage", "5 stale issues"], ["doc-drift", "2 documents drifted"]]), "--tick 20260821-100000");
+    assertEq("changes with nothing to ask are counted and stay silent",
+      [r.post, r.reason, r.change_count], [false, "no_question", 2]);
+    assertTrue("no_question is distinct from idle, so a silent hour says which kind it was",
+      r.reason !== "idle", JSON.stringify(r));
+
     // Every changed step contributes a line — including the last one, which a missing
     // trailing newline dropped on this script's first run.
-    r = render(rows([["issue-triage", "5 stale issues"], ["doc-drift", "2 documents drifted"]]), "--tick 20260821-100000");
+    r = render(rows([["issue-triage", "5 stale issues"], ["doc-drift", "2 documents drifted"]]), "--tick 20260821-100000 --questions 1");
     assertEq("both changed steps are counted", [r.post, r.change_count], [true, 2]);
     assertTrue("and both reach the root text",
       /issue-triage: 5 stale issues/.test(r.root_text) && /doc-drift: 2 documents drifted/.test(r.root_text),
@@ -4644,6 +4656,34 @@ function testModerateTickPost() {
     // A question alone earns the root: the root exists to carry the questions under it.
     r = render(rows([["issue-triage", "3 stale issues"], ["doc-drift", "no drift"]]), "--tick 20260821-100000 --questions 1");
     assertEq("a question with no change still earns the root", [r.post, r.change_count, r.questions], [true, 0, 1]);
+
+    // THE DIFF IS TAKEN OVER A STABLE FORM. `inbound-sweep` embeds an ISO8601 timestamp
+    // and `doc-drift` a sha, so a raw compare made both "changed" on every tick BY
+    // CONSTRUCTION and the derivation's own claim — that a diff cannot restate an
+    // unchanged answer — did not hold. Measured four consecutive hours on a consuming
+    // repository, every post reading `2 change(s), 0 question(s)`.
+    run(dir, `${LOG} --tick 20260821-090000 --step inbound-sweep --status ok --summary "GitHub read since 2026-08-21T08:00:00Z: 1 updated" --root .`);
+    run(dir, `${LOG} --tick 20260821-090000 --step note-cadence --status ok --summary "no new drift since abc1234def5678" --root .`);
+    r = render(rows([
+      ["issue-triage", "3 stale issues"],
+      ["doc-drift", "no drift"],
+      ["inbound-sweep", "GitHub read since 2026-08-21T09:00:00Z: 1 updated"],
+      ["note-cadence", "no new drift since 9f8e7d6c5b4a39"],
+    ]), "--tick 20260821-100000");
+    assertEq("a summary whose only difference is a timestamp or a sha is not a change",
+      [r.post, r.reason, r.change_count], [false, "idle", 0]);
+
+    // ...and a REAL change beside a moving value is still a change: the normalization is
+    // a short named list, not a general scrub, because hiding a real change behind noise
+    // is the opposite defect.
+    r = render(rows([
+      ["issue-triage", "3 stale issues"],
+      ["doc-drift", "no drift"],
+      ["inbound-sweep", "GitHub read since 2026-08-21T09:00:00Z: 4 updated"],
+      ["note-cadence", "no new drift since 9f8e7d6c5b4a39"],
+    ]), "--tick 20260821-100000 --questions 1");
+    assertEq("a real difference beside a moving value still counts",
+      [r.post, r.change_count], [true, 1]);
 
     // The asking step's own summary is not news ABOUT THE REPOSITORY, and its questions
     // are already the thread's replies — counting it would make every tick "changed".

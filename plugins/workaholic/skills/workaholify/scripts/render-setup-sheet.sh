@@ -60,7 +60,7 @@ ROUTINES_URL="https://claude.ai/code/routines"
 fm_field() { sed -n "2,/^---[ \t]*\$/p" "$1" | sed -n "s/^$2:[ \t]*//p" | head -n 1; }
 
 usage() {
-    echo 'usage: render-setup-sheet.sh <template-id|--all> <repo-url> [developer|repository|user]' >&2
+    echo 'usage: render-setup-sheet.sh <template-id|--all> <repo-url> [developer|repository]' >&2
     exit 2
 }
 
@@ -70,7 +70,7 @@ REPO_URL="$2"
 WANT_SCOPE="${3:-}"
 
 case "$WANT_SCOPE" in
-    ''|developer|repository|user) ;;
+    ''|developer|repository) ;;
     *) echo "unknown scope: ${WANT_SCOPE}" >&2; exit 2 ;;
 esac
 
@@ -134,7 +134,6 @@ sheet() {
     case "$_scope" in
         repository) printf 'Scope: **repository** — exactly one account creates this one.\n\n' ;;
         developer)  printf 'Scope: **developer** — each developer creates their own copy.\n\n' ;;
-        user)       printf 'Scope: **user** — exactly one for your account, across every repository.\n\n' ;;
         *)          printf 'Scope: **undeclared** — the template declares no `scope:`; treat that as a defect.\n\n' ;;
     esac
     if [ -n "$_renamed_from" ]; then
@@ -231,20 +230,6 @@ case "$WANT_SCOPE" in
             "$([ "$_repo_count" -eq 1 ] && echo is || echo are)" "$_repo_count" \
             "$([ "$_repo_count" -eq 1 ] && echo '' || echo s)"
         printf 'them. The per-developer setup burden is unchanged at two either way.\n\n'
-        ;;
-    user)
-        # THE COUNT HERE IS NOT PER REPOSITORY, and that is the whole reason the scope
-        # exists (2026-08-19, issue #526). A reader who has already set up two repositories
-        # will reasonably expect to repeat this sheet a third time; saying so in the header
-        # is the only place that expectation gets corrected before they act on it.
-        printf '# Account-scoped routine setup for %s\n\n' "$REPO_URL"
-        printf '**One for your whole account — not one per repository, and not one per developer.**\n'
-        printf 'If you have already created this routine while setting up another repository,\n'
-        printf 'you are done: it converges the routines on every repository your account has,\n'
-        printf 'so a second copy would do the same work twice and race itself.\n\n'
-        printf 'The **Repository** field below is the repository that holds the routine\n'
-        printf 'definitions, not the repository you are setting up — this routine reads what a\n'
-        printf 'routine should be from there and applies it to your account.\n\n'
         ;;
     *)
         printf '# Routine setup for %s\n\n' "$REPO_URL"

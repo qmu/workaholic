@@ -11238,7 +11238,7 @@ function testRenderSetupSheet() {
 
   const all = sheet("--all");
   for (const name of ["[Specificate] workaholic", "[Implement] workaholic", "[Moderate] workaholic",
-                      "[Standup] workaholic", "[Propose] workaholic", "[Workaholic]"]) {
+                      "[Standup] workaholic", "[Propose] workaholic"]) {
     assertTrue(`the sheet covers ${name}`, all.includes(`## ${name}`), all.slice(0, 200));
   }
   // ---- the scope filter (2026-08-14, issue #451) ----
@@ -11301,7 +11301,6 @@ function testRenderSetupSheet() {
   const cmdForScope = {
     developer: "plugins/workaholic/commands/setup-dev-routines.md",
     repository: "plugins/workaholic/commands/setup-repo-routines.md",
-    user: "plugins/workaholic/commands/setup-user-routines.md",
   };
   for (const [file, body] of renamedTemplates) {
     const scope = (body.match(/^scope:[ \t]*(\S+)/m) || [])[1];
@@ -14831,7 +14830,7 @@ const tests = [
   ["moderate: the gated strategy step is deleted, not carried", testStrategyStepIsDeleted],
   ["propose step 9: asking costs attention, so the gates are mechanical", testProposeCheckIn],
   ["[Moderate]: the template, its scope, and the shapes it authorizes", testModerateRoutineTemplate],
-  ["[Workaholic]: the account updater's template, scope and one shape", testWorkaholicRoutineTemplate],
+  ["[Workaholic]: retired, and the scope retired with it", testUserScopeRetired],
 ];
 
 // `await` matters even though almost every test is synchronous: without it an async
@@ -17249,10 +17248,10 @@ function testWorkaholifyRoutines() {
   const WH = "https://github.com/qmu/workaholic";
   try {
     const tpl = JSON.parse(run(dir, LIST).stdout);
-    assertEq("the plugin ships six routine templates", tpl.count, 6);
-    assertEq("and they are the six live patterns",
+    assertEq("the plugin ships five routine templates", tpl.count, 5);
+    assertEq("and they are the five live patterns",
       tpl.templates.map((t) => t.id).sort(),
-      ["implement", "moderate", "propose", "specificate", "standup", "workaholic"]);
+      ["implement", "moderate", "propose", "specificate", "standup"]);
 
     // ---- the scope split (2026-08-14, issue #451) ----
     // The scope is the TEMPLATE's field, not a list written into two command bodies:
@@ -17260,19 +17259,8 @@ function testWorkaholifyRoutines() {
     // a command, its diff and its recovery sheet cannot disagree about what is in scope.
     // A template declaring no scope is a defect, never a silent default into either bucket.
     assertTrue("every template declares a scope",
-      tpl.templates.every((t) => ["developer", "repository", "user"].includes(t.scope)),
+      tpl.templates.every((t) => ["developer", "repository"].includes(t.scope)),
       JSON.stringify(tpl.templates.map((t) => [t.id, t.scope])));
-    // `user` IS A THIRD VALUE, NOT A RENAME OF `developer` (2026-08-19, issue #526): the two
-    // answer different counting questions — `developer` multiplies by developers AND by
-    // repositories, `user` multiplies by neither — which is why it gets its own command
-    // rather than widening /setup-dev-routines.
-    assertEq("the routine an account needs exactly one of is user-scoped",
-      JSON.parse(run(dir, `${LIST} user`).stdout).templates.map((t) => t.id).sort(),
-      ["workaholic"]);
-    assertTrue("and it is absent from both other scopes",
-      !JSON.parse(run(dir, `${LIST} developer`).stdout).templates.some((t) => t.id === "workaholic") &&
-      !JSON.parse(run(dir, `${LIST} repository`).stdout).templates.some((t) => t.id === "workaholic"),
-      "the user-scoped template leaked into another scope");
     // THREE since 2026-08-21 (issue #555): `propose` supplies the loop's own ask, and it is
     // developer-scoped for the reason `specificate` is -- it acts on the strategies assigned
     // to the RUNNING IDENTITY and opens issues assigned to it, so one repository-wide copy
@@ -17303,7 +17291,7 @@ function testWorkaholifyRoutines() {
     // "09:05, not 09:00" cannot later be read as a typo and rounded off.
     assertEq("the templates carry the staggered hourly schedule plus the daily digest",
       tpl.templates.map((t) => t.cron_expression).sort(),
-      ["10 * * * *", "15 * * * *", "30 * * * *", "40 * * * *", "5 0 * * *", "50 * * * *"]);
+      ["15 * * * *", "30 * * * *", "40 * * * *", "5 0 * * *", "50 * * * *"]);
     // The LOOP's order is the point of `:40`, not the minute itself: the judgment is made
     // against what actually landed, so `[Propose]` must fire AFTER `[Implement]` drives and
     // before the next hour's `[Specificate]` ingests. A tidy-up that moved it earlier would
@@ -17323,10 +17311,6 @@ function testWorkaholifyRoutines() {
       namePatterns.filter(Boolean).length, tpl.count);
     assertEq("no two templates render the same routine name",
       new Set(namePatterns).size, namePatterns.length);
-    // The updater lands FIRST in the hour, so a convergence reaches the four routines it
-    // converged before they next fire.
-    assertEq("the account updater fires before the routines it converges",
-      tpl.templates.find((t) => t.id === "workaholic").cron_expression, "10 * * * *");
     assertEq("the standup declares the daily schedule trigger",
       tpl.templates.find((t) => t.id === "standup").trigger, "schedule-daily");
     assertTrue("no template's cron minute is 0, which the API would rewrite to jitter",
@@ -18959,6 +18943,10 @@ function testStrategyStepIsDeleted() {
 // question is asked once rather than once an hour, the per-tick ceiling is real, and a
 // second bound stops the per-tick ceiling aggregating into 120 questions a day.
 function testProposeCheckIn() {
+  // THE WEEKDAY IS PINNED, like the hour, and for the same reason: a step that reads the
+  // wall clock is a step whose tests pass or fail by the day they are run on. The
+  // working-week gate's first suite run landed on a Saturday and reported `off_day` for
+  // every question these tests expect to be asked.
   const repo = makeRepo();
   const HK = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts");
   const STEP = `${POSIX_SH} ${join(HK, "step-human-checkin.sh")}`;
@@ -18968,16 +18956,16 @@ function testProposeCheckIn() {
     mkdirSync(join(repo, ".workaholic"), { recursive: true });
 
     // Quiet hours: nothing asked, and the window is named rather than implied.
-    let j = JSON.parse(run(repo, `${STEP} --tick 20260817-020000 --root . --hour 2`).stdout);
+    let j = JSON.parse(run(repo, `${STEP} --tick 20260817-020000 --root . --hour 2 --weekday 3`).stdout);
     assertEq("inside the quiet window the step asks nothing", j.needs_agent.length, 0);
     assertEq("and says why", j.reason, "quiet_hours");
-    let a = JSON.parse(run(repo, `${ASK} --tick 20260817-020000 --key q:sizing --root . --hour 2`).stdout);
+    let a = JSON.parse(run(repo, `${ASK} --tick 20260817-020000 --key q:sizing --root . --hour 2 --weekday 3`).stdout);
     assertEq("a question inside the window is refused", a.ask, false);
     assertEq("as a HOLD, not a drop", a.hold, true);
 
     // The held question comes back on the next eligible tick, then stops once asked.
     run(repo, `${LOG} --tick 20260817-020000 --step human-checkin-held-q-sizing --status skipped --summary "held q:sizing"`);
-    j = JSON.parse(run(repo, `${STEP} --tick 20260817-120000 --root . --hour 14`).stdout);
+    j = JSON.parse(run(repo, `${STEP} --tick 20260817-120000 --root . --hour 14 --weekday 3`).stdout);
     assertEq("a held question is handed back when the window clears", j.held, ["q-sizing"]);
     // THE ASK IS RECORDED UNDER THE ID THE SCRIPT RETURNS, and that is now the whole gate
     // (2026-08-21, ticket `20260819062058`). It used to search the log's SUMMARY text for
@@ -18985,21 +18973,21 @@ function testProposeCheckIn() {
     // on free text a contract never asked for and measurably did not hold: one tick asked
     // `ask:issue-524-unassigned-never-ingested`, and an hour later the same key answered
     // `ask: true` with the question still unanswered in the channel.
-    const sizing = JSON.parse(run(repo, `${ASK} --tick 20260817-120000 --key q:sizing --root . --hour 14`).stdout);
+    const sizing = JSON.parse(run(repo, `${ASK} --tick 20260817-120000 --key q:sizing --root . --hour 14 --weekday 3`).stdout);
     assertTrue("the held question is allowed once the window clears", sizing.ask, JSON.stringify(sizing));
     run(repo, `${LOG} --tick 20260817-120000 --step ${sizing.log_step} --status filed --summary "asked q:sizing"`);
     run(repo, `${LOG} --tick 20260817-120000 --step human-checkin-ask-q-sizing --status filed --summary "asked q:sizing"`);
-    j = JSON.parse(run(repo, `${STEP} --tick 20260817-130000 --root . --hour 14`).stdout);
+    j = JSON.parse(run(repo, `${STEP} --tick 20260817-130000 --root . --hour 14 --weekday 3`).stdout);
     assertEq("and stops being held once it has been asked", j.held, []);
 
     // Asked once, not once an hour. Silence is not a reason to re-ask.
-    a = JSON.parse(run(repo, `${ASK} --tick 20260817-130000 --key q:sizing --root . --hour 14`).stdout);
+    a = JSON.parse(run(repo, `${ASK} --tick 20260817-130000 --key q:sizing --root . --hour 14 --weekday 3`).stdout);
     assertEq("an unanswered question is not re-asked next tick", a.ask, false);
     assertEq("named as already asked, not as answered", a.reason, "already_asked");
 
     // The per-tick ceiling is real, and each ask gets its own log key so five fit.
     for (let i = 1; i <= 5; i++) {
-      const g = JSON.parse(run(repo, `${ASK} --tick 20260817-140000 --key q:${i} --root . --hour 14 --max-per-day 50`).stdout);
+      const g = JSON.parse(run(repo, `${ASK} --tick 20260817-140000 --key q:${i} --root . --hour 14 --weekday 3 --max-per-day 50`).stdout);
       assertTrue(`question ${i} of five is allowed`, g.ask, JSON.stringify(g));
       // The id carries a digest of the WHOLE key, because the gate now reads the id: the
       // 32-character slug was not injective, and a collision there silently suppresses a
@@ -19008,12 +18996,12 @@ function testProposeCheckIn() {
         g.log_step.startsWith(`human-checkin-ask-q-${i}-`), g.log_step);
       run(repo, `${LOG} --tick 20260817-140000 --step ${g.log_step} --status filed --summary "asked q:${i}"`);
     }
-    a = JSON.parse(run(repo, `${ASK} --tick 20260817-140000 --key q:6 --root . --hour 14 --max-per-day 50`).stdout);
+    a = JSON.parse(run(repo, `${ASK} --tick 20260817-140000 --key q:6 --root . --hour 14 --weekday 3 --max-per-day 50`).stdout);
     assertEq("the sixth question in a tick is refused", a.reason, "tick_cap");
     assertEq("and held rather than lost", a.hold, true);
 
     // The daily bound the per-tick cap must not aggregate past.
-    a = JSON.parse(run(repo, `${ASK} --tick 20260817-150000 --key q:7 --root . --hour 14 --max-per-day 5`).stdout);
+    a = JSON.parse(run(repo, `${ASK} --tick 20260817-150000 --key q:7 --root . --hour 14 --weekday 3 --max-per-day 5`).stdout);
     assertEq("a fresh tick still respects the daily bound", a.reason, "day_cap");
 
     // No AskUserQuestion anywhere in the step's surface EXCEPT where the scripts say
@@ -19133,93 +19121,44 @@ function testWorkaholifyConvergesRoutines() {
     /teammate already created|no account can list another/i.test(cmd), cmd);
 }
 
-function testWorkaholicRoutineTemplate() {
-  const template = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines/workaholic.md"), "utf8");
-  const catalog = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/notify/reference/notifications.md"), "utf8");
-  const claudeMd = readFileSync(join(REPO_ROOT, "CLAUDE.md"), "utf8");
-  const block = (body, lead) => {
-    const m = body.match(new RegExp("```\\n(" + lead + "[\\s\\S]*?)```", "u"));
-    return m ? m[1] : "";
-  };
-  // IT POSTS NOTHING (2026-08-19, the developer's correction). The `🔄 Workaholic` keyed
-  // root is retired: a status line addressed to nobody is noise whatever its dedup key, and
-  // this routine's audience is exactly one person — its own operator, who is also the only
-  // person who can act on a refusal it reports. The pin is on the ABSENCE in both documents
-  // and on the connector, because a shape that survives in either is a shape somebody posts.
-  assertEq("no 🔄 shape survives in the catalog", block(catalog, "🔄 Workaholic"), "");
-  assertEq("nor in the template", block(template, "🔄 Workaholic"), "");
-  assertEq("and it authorizes no post shape at all",
-    [...template.matchAll(/```\n([^\n]*)/gu)].map((m) => m[1]).filter((l) => /^[^\s`]/.test(l)), []);
-  assertTrue("it is granted no Slack connector to post through", /^mcp: \[\]$/m.test(template), template.slice(0, 400));
-
-  // ITS NAME CARRIES NO REPOSITORY, because it is not a repository's routine. Every other
-  // template renders `[Name] {repo_name}` and means it; this one is an account-level record
-  // whose subject is the account's routine list. The checkout it reads definitions from is a
-  // `sources` field, not its identity — rendering it into the name made this look like a
-  // fifth per-repository routine.
-  assertTrue("the name carries no repository placeholder",
-    /^name: "\[Workaholic\]"$/m.test(template), template.slice(0, 400));
-  const rendered = JSON.parse(run(REPO_ROOT,
-    `${POSIX_SH} ${SCRIPTS.renderRoutine} workaholic https://github.com/qmu/workaholic`).stdout);
-  assertEq("and renders the same for any repository", rendered.name, "[Workaholic]");
-
-  // The result reaches its operator as a Claude notification instead — the one routine that
-  // declares it, because it is the one whose audience is a person rather than a channel.
-  assertTrue("it declares the push notification that replaces the post",
-    /^notifications: push$/m.test(template), template.slice(0, 400));
-  // A SECOND template declares it since 2026-08-21 (issue #555), and the rule the field
-  // tracks is unchanged rather than widened: a routine declares `notifications:` exactly
-  // when its audience is one PERSON rather than a channel, which is the same condition as
-  // holding no Slack connector. So the pin moved from "only this template" to the
-  // BICONDITIONAL, which is the property that was actually meant -- a connector-less
-  // routine with no notification reports to nobody, and a connector-carrying one that also
-  // pushed would be the same noise twice.
-  const routineFiles = readdirSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines"))
-    .filter((f) => f.endsWith(".md"))
-    .map((f) => [f, readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines", f), "utf8")]);
-  assertEq("a template declares a notification exactly when it holds no connector",
-    routineFiles.filter(([, b]) => /^notifications:/m.test(b)).map(([f]) => f).sort(),
-    routineFiles.filter(([, b]) => /^mcp: \[\]$/m.test(b)).map(([f]) => f).sort());
-  assertTrue("and both of the connector-less routines are accounted for",
-    routineFiles.filter(([, b]) => /^notifications:/m.test(b)).length === 2,
-    JSON.stringify(routineFiles.filter(([, b]) => /^notifications:/m.test(b)).map(([f]) => f)));
-  assertEq("and the renderer carries it, so the setup commands can diff it",
-    rendered.notifications, "push");
-
-  assertTrue("the template is user-scoped", /^scope: user$/m.test(template));
-  assertTrue("firing at :10, before the routines it converges", /^cron_expression: 10 \* \* \* \*$/m.test(template));
-  assertTrue("CLAUDE.md's routines table carries the same row",
-    /\| `workaholic\.md` \| `\[Workaholic\]` \| `user` \| `10 \* \* \* \*` \| `\/setup-user-routines` \|/.test(claudeMd),
-    "the routines table and the template disagree");
-  // It opens no pull request and writes no file, so it is granted neither.
-  assertTrue("it is granted no Write/Edit", !/^allowed_tools: \[.*(Write|Edit).*\]$/m.test(template));
-  assertTrue("and declares no auto-fix", /^autofix_on_pr_create: false$/m.test(template));
-
-  // THE MEASURED REFUSAL IS THE POINT, not an aside: this is the one routine whose entire
-  // job may be permanently unreachable, and a routine firing on time while doing nothing
-  // reads as healthy. Both the template and the command it runs must say so.
-  const cmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/setup-user-routines.md"), "utf8");
-  assertTrue("the template names the transport refusal it measured",
-    /no_transport: `?RemoteTrigger-family tool/.test(template), "the refusal is unnamed");
-  assertTrue("and the command claims no convergence it did not perform",
-    /never a claim of convergence this run did not perform/.test(cmd), cmd.slice(0, 400));
-  assertTrue("the command states the enumeration's limit rather than implying coverage",
-    /never created a routine on is invisible to this run/.test(cmd), cmd.slice(0, 400));
-  assertTrue("and forbids a tick converging its own record",
-    /except its own record/.test(cmd), cmd.slice(0, 400));
-
-  // The sheet states the count BEFORE a reader repeats it per repository — the one place
-  // that expectation gets corrected in time to matter.
-  const WH = "https://github.com/qmu/workaholic";
-  const userSheet = run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.renderSetupSheet} --all ${WH} user`).stdout;
-  assertTrue("the user sheet says one per account, not one per repository",
-    /not one per repository, and not one per developer/.test(userSheet), userSheet.slice(0, 600));
-  assertTrue("and names its scope on the routine itself",
-    /Scope: \*\*user\*\*/.test(userSheet), userSheet.slice(0, 900));
-  assertTrue("the user-scoped routine appears in no other scope's sheet",
-    !run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.renderSetupSheet} --all ${WH} developer`).stdout.includes("## [Workaholic]") &&
-    !run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.renderSetupSheet} --all ${WH} repository`).stdout.includes("## [Workaholic]"),
-    "the account routine leaked into a per-repository sheet");
-  assertEq("an explicit id outside the user scope is refused, not rendered",
-    run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.renderSetupSheet} workaholic ${WH} developer`).status !== 0, true);
+// ---------- [Workaholic]: RETIRED, and what its removal must not take with it ----------
+// (2026-08-22, issue #557) The account-level updater is gone, and with it the `user` scope
+// and `/setup-user-routines`. Its own argument retired it: no `RemoteTrigger`-family tool is
+// exposed to a clock-fired container, so it converged ZERO routines on every tick of its
+// life, and its only possible output was a push notification saying so -- the status line
+// addressed to nobody that the same commit retired two keyed roots for.
+//
+// What is pinned here is the REMOVAL being complete rather than half-done: a scope value
+// nothing declares is dead code that reads as a feature.
+function testUserScopeRetired() {
+  const dir = makeRepo("main");
+  const LIST = `${POSIX_SH} ${SCRIPTS.listRoutineTemplates}`;
+  const SHEET = `${POSIX_SH} ${SCRIPTS.renderSetupSheet}`;
+  try {
+    assertEq("the template is gone",
+      existsSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines/workaholic.md")), false);
+    assertEq("and so is the command that configured it",
+      existsSync(join(REPO_ROOT, "plugins/workaholic/commands/setup-user-routines.md")), false);
+    // The refusal rides stderr with a non-zero-free exit, exactly as it did for any other
+    // unknown scope: an empty stdout is what a caller must NOT be able to read as "no
+    // templates in that scope".
+    const refused = run(dir, `${LIST} user`);
+    assertEq("stdout stays empty, so an unknown scope cannot read as an empty set", refused.stdout.trim(), "");
+    assertTrue("and the refusal names the scope",
+      /unknown_scope/.test(refused.stderr), refused.stderr);
+    const sheetRefused = run(REPO_ROOT, `${SHEET} --all https://github.com/qmu/workaholic user`);
+    assertTrue("and by the sheet renderer",
+      /unknown scope/.test(sheetRefused.stdout + sheetRefused.stderr),
+      "the sheet still accepts the retired scope");
+    assertTrue("no template declares it",
+      JSON.parse(run(dir, LIST).stdout).templates.every((t) => t.scope !== "user"),
+      "a template still claims the retired scope");
+    // `notifications: push` outlived the routine that introduced it -- the field was never
+    // the problem, the transport was -- and exactly one template declares it now.
+    const decl = readdirSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines"))
+      .filter((f) => f.endsWith(".md"))
+      .filter((f) => /^notifications:/m.test(readFileSync(
+        join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines", f), "utf8")));
+    assertEq("the notification field survives on exactly one template", decl, ["propose.md"]);
+  } finally { cleanup(dir); }
 }

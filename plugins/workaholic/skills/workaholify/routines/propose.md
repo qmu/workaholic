@@ -42,10 +42,11 @@ repository whose conflicts are resolved append-only.
 
 **It is granted no Slack connector (`mcp: []`) and posts nothing.** The issue it opens is
 assigned to exactly one person — the running identity — and GitHub already delivers it to them;
-a Slack copy would be the same noise twice, the argument that gives `[Workaholic]` no
-connector, and a status line addressed to nobody is what retired `🔧 Needs a decision` and
-`📦 Release Preparation`. Its result reaches its one reader as a Claude notification
-(`notifications: push`) instead — the second template to declare the field.
+a Slack copy would be the same noise twice — the argument that gave the retired
+`[Workaholic]` no connector — and a status line addressed to nobody is what retired
+`🔧 Needs a decision` and `📦 Release Preparation`. Its result reaches its one reader as a
+Claude notification (`notifications: push`) instead; since 2026-08-22 (issue #557) this is
+the only template that declares the field.
 
 **The name was vacated on 2026-08-19 and this takes it back.** `[Propose] {repo_name}` was the
 maintenance tick's rendered name until it became `[Moderate]`, and `/propose` was the command

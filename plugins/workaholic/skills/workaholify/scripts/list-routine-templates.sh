@@ -15,38 +15,22 @@
 #   developer   every developer needs their own copy, per repository ([Specificate],
 #               [Implement]) — configured by /setup-dev-routines
 #   repository  the repository needs exactly ONE copy, configured by one account
-#               ([Prepare Release], [Standup], [Moderate]) — /setup-repo-routines
-#   user        the ACCOUNT needs exactly ONE copy, across every repository it has set
-#               up ([Workaholic]) — /setup-user-routines (2026-08-19, issue #526)
+#               ([Standup], [Moderate]) — /setup-repo-routines
 # An optional positional filters the set; absent, every template is listed. A template
 # declaring no scope is reported with an empty one and is never silently folded into
 # any bucket — a missing scope is a defect in the template, not a default.
 #
-# `user` IS A THIRD VALUE, NOT A RENAME OF `developer`. The two answer different counting
-# questions: `developer` multiplies by developers AND by repositories, `user` multiplies by
-# neither. That difference is exactly what the third scope exists to record, so it gets its
-# own command rather than widening /setup-dev-routines — a widened command run in a second
-# repository would re-converge an account-wide routine the first repository's run already
-# created, and its report could no longer answer "how many of these should exist".
+# THE `user` SCOPE IS RETIRED (2026-08-22, issue #557). It existed for exactly one
+# template, `[Workaholic]`, an hourly routine that converged the account's other routines
+# — and it could not: no `RemoteTrigger`-family tool is exposed to a clock-fired container,
+# measured on the day it shipped and again from one of its own ticks. It converged zero
+# routines on every tick of its life. Deleting the template emptied the scope, so the scope
+# and its command went with it rather than surviving as a value nothing declares.
 #
-# ONE SET OF TEMPLATES, MANY REPOSITORIES. The templates live in the PLUGIN
-# (`skills/workaholify/routines/*.md`), not in any repository's `.workaholic/`. That is
-# the whole shape of the thing: `[Specificate]` and `[Implement]` are the two routines
-# every workaholic repository should have, and what differs between repositories is only which
-# repository they point at. A per-repository declaration would be one copy per repo of a
-# file that is identical in every repo except its own URL — and each copy free to drift.
-#
-# THE PROMPT BODY IS THE TEMPLATE. Everything below the `## Prompt` heading of a template
-# file is the routine's prompt, verbatim, with `{repo}` (full URL) and `{repo_name}` (bare
-# name, used for the `dev-<name>` Slack channel) as the only substitutions. Keeping it as
-# readable markdown rather than an embedded JSON string is deliberate: the prompt IS the
-# routine — the issue that asked for this called template freshness the point — and a
-# prompt nobody can read in a diff is a prompt nobody will keep current.
-#
-# THIS SCRIPT NEVER TALKS TO THE API. Fetching and writing routines is the `RemoteTrigger`
-# tool's job, which only the command (main-agent) can call; a shell script cannot. So the
-# split is: scripts own the template reading and the comparison, the command owns the API
-# calls and the confirmation.
+# The counting distinction it recorded was real and is kept in git history rather than in a
+# dead branch here: `developer` multiplies by developers AND by repositories, `user` by
+# neither. If a template ever needs that shape again, this is the commit to read; a scope
+# with no template is not a place to put one, it is dead code.
 
 set -eu
 
@@ -55,7 +39,7 @@ DIR="${SCRIPT_DIR}/../routines"
 WANT_SCOPE="${1:-}"
 
 case "$WANT_SCOPE" in
-  ''|developer|repository|user) ;;
+  ''|developer|repository) ;;
   *) printf '{"error": "unknown_scope", "scope": "%s"}\n' "$WANT_SCOPE" >&2; exit 2 ;;
 esac
 

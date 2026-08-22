@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260822-195727
 ---
 
 # Refuse the move that describes the aim instead of advancing it
@@ -41,10 +42,12 @@ flight. A decomposable ask is planned, and the run says which rule decided.
 
 ## Acceptance
 
-- [ ] A decomposable ask reaches a mission rather than record-only, and the deciding rule is named (#20260822194728-let-the-precedence-rule-beat-the-record-only-default.md)
-- [ ] A describing move against a building aim is refused by name (#20260822194728-refuse-a-describing-move-against-a-building-aim.md)
+- [x] A decomposable ask reaches a mission rather than record-only, and the deciding rule is named (#20260822194728-let-the-precedence-rule-beat-the-record-only-default.md)
+- [x] A describing move against a building aim is refused by name (#20260822194728-refuse-a-describing-move-against-a-building-aim.md)
 - [ ] A strategy with only descriptive work attributed to it is not gated as work-in-flight (#20260822194728-tell-describing-work-from-advancing-work.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-22 — ticket archived — 20260822194728-let-the-precedence-rule-beat-the-record-only-default.md
+- 2026-08-22 — ticket archived — 20260822194728-refuse-a-describing-move-against-a-building-aim.md

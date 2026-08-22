@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260822-232014
 ---
 
 # Take the dedup key out of the read post

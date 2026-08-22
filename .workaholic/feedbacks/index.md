@@ -536,4 +536,5 @@
 * [/implement blocked on an Open Decision its own source document already answered](20260822125408-implement-blocked-on-an-open-decision-its-own-source-document-already-answered.md)
 * [One event, announced twice, the second time as a naked status line](20260822130157-one-event-announced-twice-the-second-time-as-a-naked-status-line.md)
 * [/moderate の記録の口が、定時実行では何も残さない](20260822141342-moderate.md)
+* [A blocking check-in question is asked once and then never again](20260822155142-a-blocking-check-in-question-is-asked-once-and-then-never-again.md)
 <!-- okf:generated:end -->

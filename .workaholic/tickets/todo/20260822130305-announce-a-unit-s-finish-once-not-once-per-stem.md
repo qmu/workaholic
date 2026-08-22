@@ -13,15 +13,27 @@ verification_handoff:
 ## Overview
 
 `workaholic:notify`'s SKILL says: "Several stems → post into each thread, once per stem per
-event." A measured unit resolved to two stems and the channel carried the identical finish
-line twice within four seconds — one into the thread that was found, one as a new root
-because the second stem matched nothing.
+event." Measured twice, and the second measurement is the one that sets the scope.
 
-The rule reads as "one announcement per audience", but the two stems were two records of
-**one** request, captured months apart by different seams. So what the rule actually
-delivers is "announce an event as many times as the corpus happens to hold records of it" —
-a property of capture history, not of who needs telling. Nothing in the corpus prevents a
-third record of the same ask appearing tomorrow and making it three.
+**First report**: a unit resolved to two stems and the channel carried the identical finish
+line twice within four seconds — one into the thread that was found, one as a new root because
+the second stem matched nothing. There the two stems were two records of one request, captured
+months apart by different seams, so the rule delivered "announce an event as many times as the
+corpus happens to hold records of it".
+
+**Second measurement (2026-08-22), and it makes this deterministic rather than incidental.**
+The same duplicate appeared 22 seconds apart on a unit whose second stem was a **strategy's
+carried-forward `feedback:` ref**. That carry-forward is deliberate and load-bearing:
+`/specificate` puts the strategy's refs onto every mission it emits, because
+`attributed-work.sh` attributes work back to a direction through
+`strategy.feedback[] ∩ artifact.feedback[]` and there is no other link. So
+`unit-feedback-stems.sh` now resolves **every strategy-attributed unit** to two or more stems,
+and "once per stem per event" turns each of them into two announcements — the second one always
+the naked root, because a strategy's stem has no description root of its own to thread into.
+
+The duplicate is therefore not a corpus accident that a tidier stream would remove. It is
+guaranteed for every unit the loop produces on its own, and it grows with the number of refs a
+strategy carries.
 
 ## Policies
 

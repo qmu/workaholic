@@ -40,7 +40,7 @@ Two silences, both `noop: true`, and the reason is always named:
 
 ## The one post
 
-Under the `[Standup]` routine only, and only when the digest is not a no-op: one `📣 Standup` line as a **top-level keyed root** on the transport `workaholic:notify` selects, keyed on `` `standup:<YYYY-MM-DD>` ``. Exact shape: `workaholic:notify`, *The daily standup digest*, mirrored verbatim in the routine template's prompt.
+Under the `[Standup]` routine only, and only when the digest is not a no-op: one `📣 Standup` line as a **top-level keyed root** on the transport `workaholic:notify` selects, keyed on `` a `📣 Standup` search bounded to today ``. Exact shape: `workaholic:notify`, *The daily standup digest*, mirrored verbatim in the routine template's prompt.
 
 - **Keyed on the date, not on a content hash** — unlike `deploy:<digest>`. The two dedups answer different questions: a release status must not repeat an unchanged answer, and a *daily* digest is expected to say today's morning even when it resembles yesterday's. What must never happen is two posts for one morning, which is the failure the repository scope cannot prevent by itself (N copies of a repository routine), so the key is the morning itself.
 - **No mention token of any kind.** The line names the repository's state, not a person's work — the same reason `📦 Release Preparation` carries none. A strategy's `assignees` is *in* the digest as a fact; nobody is paged by it.

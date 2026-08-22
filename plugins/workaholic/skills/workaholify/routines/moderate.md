@@ -31,8 +31,9 @@ requires — it described a migration, not a routine. The mechanism is unchanged
 in `workaholic:workaholify` §5 for the next rename that needs it.
 
 **Nothing is deduped by a routine's name**, so no post changes frequency or threading under
-this rename: the Slack keys are `` `fb:<stem>` ``, `` `stuck:<digest>` ``, `` `deploy:<digest>` ``
-and `` `standup:<date>` ``, and nothing searches a heading or a routine name. This is stated
+this rename: nothing searches a heading or a routine name. (The printed key lines were removed
+from every post on 2026-08-22 — case 2 searches the record filename the root already links, and
+the tick and question keys were searched by nothing at all.) This is stated
 here rather than left to be re-derived — the 2026-08-17 release-tick rename was reversed the
 next day on exactly that mistaken assumption.
 
@@ -107,7 +108,6 @@ When the tick's rendered post says to post, post this root as a new top-level me
 ```
 🔎 Moderation - <N> change(s), <M> question(s)
 <step>: <what it says now, one line per changed step>
-`tick:<tick-id>`
 <session URL>
 ```
 
@@ -116,7 +116,6 @@ Then post each question the check-in step cleared as a reply into that root, add
 ```
 🙋 <@U…> - <what this tick could not decide>
 One sentence, max 25 words, the question itself, with the two options when there are two.
-`ask:<key>`
 ```
 
 If the rendered post says not to post, post nothing at all — no root, no question, ever. An hour with nothing changed and nothing to ask is silent.

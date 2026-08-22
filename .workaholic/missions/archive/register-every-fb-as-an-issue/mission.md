@@ -2,7 +2,7 @@
 type: Mission
 title: Register every /fb as an issue
 slug: register-every-fb-as-an-issue
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-17T13:31:32+00:00
 author: a@qmu.jp
@@ -54,3 +54,4 @@ captured rather than lost, and the command says which path it took.
 - 2026-08-17 — ticket archived — 20260817133224-keep-the-record-as-fb-s-fallback-when-the-issue-fails.md
 - 2026-08-17 — story — work-20260817-173706.md
 - 2026-08-17 — run recorded (+0.5h) — implement-20260817-173706
+- 2026-08-22 — mission achieved — mission.md

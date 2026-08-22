@@ -2,7 +2,7 @@
 type: Mission
 title: Stop the runner from taking path-owned legacy tickets
 slug: stop-the-runner-from-taking-path-owned-legacy-tickets
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-14T10:29:59+00:00
 author: a@qmu.jp
@@ -54,3 +54,4 @@ authored by someone else says so where a human reads it.
 - 2026-08-14 — ticket archived — 20260814103051-name-a-unit-whose-tickets-are-not-the-runner-s.md
 - 2026-08-14 — Story written (3 tickets; all acceptance items met) — work-20260814-110344.md
 - 2026-08-14 — run recorded (+0.55h) — run-20260814-110344
+- 2026-08-22 — mission achieved — mission.md

@@ -2,7 +2,7 @@
 type: Mission
 title: Add the /housekeep hourly operations routine
 slug: add-the-housekeep-hourly-operations-routine
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-17T11:36:57+00:00
 author: a@qmu.jp
@@ -63,3 +63,4 @@ most five a tick, never late at night — instead of a silent guess.
 - 2026-08-17 — run recorded (+1.8h) — implement-20260817-114453
 - 2026-08-17 — ticket archived — 20260817131500-persist-the-housekeep-tick-log.md
 - 2026-08-17 — story updated — work-20260817-114453.md
+- 2026-08-22 — mission achieved — mission.md

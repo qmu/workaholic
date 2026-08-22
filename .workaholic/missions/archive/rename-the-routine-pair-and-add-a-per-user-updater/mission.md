@@ -2,7 +2,7 @@
 type: Mission
 title: Rename the routine pair and add a per-user updater
 slug: rename-the-routine-pair-and-add-a-per-user-updater
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-19T05:26:06+00:00
 author: a@qmu.jp
@@ -53,3 +53,4 @@ by name instead of reporting success.
 - 2026-08-19 — ticket archived — 20260819052637-add-the-per-user-workaholic-updater-routine.md
 - 2026-08-19 — story — work-20260819-053729.md
 - 2026-08-19 — run recorded (+0.9h) — cse_01HqtkcArPxsSxSgQJ8qQcAH
+- 2026-08-22 — mission achieved — mission.md

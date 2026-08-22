@@ -39,7 +39,7 @@ post, every line names something that happened to the repository.
 ## Acceptance
 
 - [x] An hour whose steps found the same thing as the hour before produces no change (#20260822175131-diff-the-tick-s-steps-on-a-stable-form.md)
-- [ ] A root with no question posts only for a named class of change, never for a differing
+- [x] A root with no question posts only for a named class of change, never for a differing
       summary string (#20260822175131-make-a-question-less-root-earn-its-post.md)
 - [ ] Every rendered line names a repository event, not a tick counter (#20260822175131-say-what-happened-not-what-the-tick-counted.md)
 
@@ -47,3 +47,4 @@ post, every line names something that happened to the repository.
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-22 — ticket archived — 20260822175131-diff-the-tick-s-steps-on-a-stable-form.md
+- 2026-08-22 — ticket archived — 20260822175131-make-a-question-less-root-earn-its-post.md

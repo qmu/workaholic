@@ -71,7 +71,6 @@
 
 | Minute | Routine | What it does |
 | ------ | ------- | ------------ |
-| `:10` | `[Workaholic]` | converges the account's own routine records |
 | `:15` | `[Specificate]` | takes an ask in hand → record + the work it warrants, in one PR |
 | `:30` | `[Implement]` | drives the queued work → pull request → merge |
 | `:40` | **`[Propose]`** | reads the strategies → opens the next ask |
@@ -133,7 +132,7 @@ than one occasion of it.
   issues, not files, and it excludes an issue a record already names — so a record would both
   fail to be discovered and suppress the issue's discovery. Measured once already on `/fb`.
 - **A Slack post.** One person, already notified by GitHub, and the same-noise-twice argument
-  that gives `[Workaholic]` no connector.
+  that gave the retired `[Workaholic]` no connector.
 - **A repository scope for the routine.** `/propose` acts on strategies assigned to the
   running identity and opens issues assigned to it; one repository-wide copy would route every
   developer's directions through whichever account created it — the measured 2026-08-14

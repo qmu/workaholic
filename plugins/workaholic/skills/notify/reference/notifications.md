@@ -129,23 +129,13 @@ One sentence, max 25 words, the question itself, with the two options when there
 
 **Working days, not only working hours** (2026-08-21). The gate checked the clock alone, so a question found at 10:00 on a Sunday was posted into a channel nobody was reading — and its own asked-once gate then guaranteed it was never posted again on a day somebody was. `WORKAHOLIC_WORK_DAYS` (default `1-5`) holds the weekend, and held is not dropped: the finding waits for Monday.
 
-### `/setup-user-routines` — posts nothing, and the reason is the audience
+### `[Workaholic]` — retired, and nothing replaced it
 
-**The `🔄 Workaholic` keyed root is retired** (2026-08-19, the developer's correction). The
-`[Workaholic]` routine has no Slack connector and emits no post of any kind.
+**The routine is gone** (2026-08-22, issue #557), and with it the `user` scope and `/setup-user-routines`. It held no Slack connector and posted nothing, so no shape leaves this catalog; what leaves is the entry describing why it was silent.
 
-The reasoning is the one that retired `🔧 Needs a decision` and `📦 Release Preparation` from
-`/moderate`, plus one thing specific to this routine. The shared half: a status line addressed
-to nobody is noise whatever its dedup key, and "which of your routines I updated this hour" is
-a status line. The specific half: this is an **account-level** routine acting on the operator's
-**own** account, so its audience is exactly one person — the one who is also the only person
-who can act on a refusal it reports. A channel of colleagues is the wrong room for it.
+The reasoning that kept it silent is still the right reasoning and is kept for the shapes that still rely on it: an account-level routine acting on the operator's **own** account has an audience of exactly one person — the only person who could act on a refusal it reported — and a channel of colleagues is the wrong room for that. Its result reached that person as a Claude notification (`notifications: push`) instead.
 
-**Its result reaches that person as a Claude notification instead** — `notifications: push` on
-the routine record, declared by its template and diffed by the setup commands like any other
-field. It is the **only** routine that declares it. Every other one is a channel's business,
-and pushing a copy of a Slack post to a phone is the same noise twice.
-
+What retired the routine is the other half of the same rule. Its only possible hourly output was *"could not read your routines, converged nothing"* — a status line addressed to nobody, with no dedup key at all — and it was measurably the only output it could ever produce: no `RemoteTrigger`-family tool is exposed to a clock-fired container, so it converged zero routines on every tick of its life. `notifications: push` survives as a template field and `[Propose]` is now its **only** declarer.
 
 ### Precondition-stop — calm first, escalate on persistence
 

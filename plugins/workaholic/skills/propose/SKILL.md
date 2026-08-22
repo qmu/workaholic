@@ -130,6 +130,6 @@ with the clock placement, the name reclamation, and the alternatives that were r
 
 The issue is assigned to exactly one person, who is the running identity, and GitHub already
 delivers it to them. A Slack copy would be the same noise twice — the argument that gives
-`[Workaholic]` no connector — and a status line addressed to nobody is the noise that retired
+the retired `[Workaholic]` no connector — and a status line addressed to nobody is the noise that retired
 `🔧 Needs a decision` and `📦 Release Preparation`. The routine's result reaches its one reader
-as a **Claude notification** (`notifications: push`), the second template to declare it.
+as a **Claude notification** (`notifications: push`) — since `[Workaholic]` retired on 2026-08-22 (issue #557), the only template that declares the field.

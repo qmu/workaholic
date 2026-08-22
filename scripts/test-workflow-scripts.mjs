@@ -4835,6 +4835,27 @@ function testProposeGates() {
       JSON.parse(run(dir, `WORKAHOLIC_PROPOSE_MAX=0 ${SURVEY} --open-proposals ${OPEN} "30 days ago" ${WH}`).stdout)
         .selected.length, 2);
 
+    // PACE: THE ONE READING THAT IS NOT A BRAKE (2026-08-22). Every gate reduces
+    // proposals; none asked whether the direction will ARRIVE, so a strategy could be
+    // perfectly gated and still reach its date with nothing built. `late` needs no
+    // threshold: nothing landed over a period as long as the one that remains.
+    assertTrue("every surveyed row carries a pace reading",
+      (r.eligible || []).every((x) => ["late", "on_course", "unknown"].includes(x.pace)),
+      JSON.stringify((r.eligible || []).map((x) => [x.slug, x.pace])));
+    // Nothing has landed for any of these fixtures, so a date inside the window is late
+    // and one beyond it is not -- the two halves of the derivation, pinned separately.
+    assertEq("a direction with nothing landed and less time left than the window is late",
+      (r.eligible.find((x) => x.slug === "urgent") || {}).pace, "late");
+    // ORDER, NEVER ELIGIBILITY: late sorts first, and a gated direction stays gated.
+    assertEq("the tick advances the direction least likely to arrive first",
+      r.selected[0], "urgent");
+    // The starving case is late AND refused -- a direction that will not arrive and is
+    // gated produces no proposal, so `refused` must carry the reading too or a consumer
+    // reading only `eligible` never sees it.
+    assertTrue("refused rows carry pace as well",
+      (r.refused || []).every((x) => x.reason === "over_cap" || "pace" in x),
+      JSON.stringify(r.refused));
+
     // The in-flight half that lives on GitHub. Together with `work_waiting` below it gives
     // "one proposal per strategy in flight at a time" with no cursor and no stored state.
     writeFileSync(OPEN, JSON.stringify({ ok: true, identity: "me", slug: "o/n",
@@ -18430,7 +18451,10 @@ function testModerateRun() {
   const repo = makeRepo();
   const RUN = `${POSIX_SH} ${SCRIPTS.proposeRun}`;
   const STEPS = ["open-log", "inbound-sweep", "workload-logs", "merge-conflicts",
-    "issue-triage", "stuck-prs", "doc-drift", "release-status", "note-cadence", "human-checkin"];
+    "issue-triage", "stuck-prs", "doc-drift", "release-status", "note-cadence",
+    // `strategy-pace` is step 10 (2026-08-22): the surface that tells a person a direction
+    // will not arrive. It sits before `human-checkin` because the check-in is what asks.
+    "strategy-pace", "human-checkin"];
   try {
     // A tick only makes sense in a repository the loop already writes to; step 1 is the
     // probe that says so, and it never creates the tree behind the layout gate's back.

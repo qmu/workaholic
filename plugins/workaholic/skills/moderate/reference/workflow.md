@@ -201,7 +201,39 @@ design that put the write on a tick failed on every tick until it was corrected.
 be read.
 
 
-## 10. `human-checkin` — the tick's voice: one root, up to five questions inside it
+## 10. `strategy-pace` — a direction that will not arrive, said to its owner
+
+```bash
+sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/step-strategy-pace.sh --tick <id> [--root <repo-root>]
+```
+
+Reads `propose/scripts/survey-strategies.sh` — a pure read of the same script `/propose` uses,
+with no stored state and no second derivation — and returns every surveyed strategy whose `pace`
+is `late`: nothing landed over a period as long as the one that remains
+(`workaholic:propose`, *Pace: the one reading that is not a brake*).
+
+**It reads `eligible` and `refused` both.** A direction that will not arrive *and* is gated
+produces no proposal at all, and that is exactly the case that starves — a consumer reading only
+the eligible rows would never see it.
+
+**It asks; it never proposes and never lifts a gate.** A late direction that is `work_waiting`
+stays `work_waiting`: the answer to *the work is in flight but not moving* is a person, not
+another proposal. The candidate goes to step 11 as `needs_agent`, one question per strategy,
+addressed to its assignee.
+
+**`unknown` is not asked about.** A pace that could not be read is counted in the summary and
+nothing else — spending a person's attention on our own degradation is not a question.
+
+**Why this step and not `/propose`'s own report** (the ticket's Open Decision, ruled while
+driving it): an hourly routine's run report is read by whoever opens the session, which on the
+day it matters is nobody — measured with `over_cap`, which named itself on every single tick and
+still hid a day of starvation. Carrying the reading on the proposal issue was refused for the
+opposite reason: it says nothing precisely when the direction is gated.
+
+A survey that refuses, or a missing script, is `degraded` with the reason named — never an `ok`
+step that found nothing.
+
+## 11. `human-checkin` — the tick's voice: one root, up to five questions inside it
 
 - **Reads**: the tick log (held questions, what was already asked today) and the clock in the
   workspace's timezone.

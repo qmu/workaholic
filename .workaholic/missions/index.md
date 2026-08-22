@@ -4,7 +4,6 @@
 
 * [add-the-housekeep-hourly-operations-routine](active/add-the-housekeep-hourly-operations-routine/mission.md) - Add the /housekeep hourly operations routine
 * [add-the-standup-daily-per-strategy-summary](active/add-the-standup-daily-per-strategy-summary/mission.md) - Add the standup daily per-strategy summary
-* [announce-one-event-once-and-give-its-root-a-shape](active/announce-one-event-once-and-give-its-root-a-shape/mission.md) - Announce one event once, and give its root a shape
 * [correct-the-release-note-automation-to-its-intended-design](active/correct-the-release-note-automation-to-its-intended-design/mission.md) - Correct the release note automation to its intended design
 * [give-propose-a-strategy-artifact-form](active/give-propose-a-strategy-artifact-form/mission.md) - Give /propose a Strategy artifact form
 * [give-the-tick-a-route-for-the-records-it-writes](active/give-the-tick-a-route-for-the-records-it-writes/mission.md) - Give the tick a route for the records it writes
@@ -28,6 +27,7 @@
 ## archive
 
 * [adopt-a-git-flow-branching-model-with-durable-ship-records](archive/adopt-a-git-flow-branching-model-with-durable-ship-records/mission.md) - Adopt a release-branch staging tier with durable ship records
+* [announce-one-event-once-and-give-its-root-a-shape](archive/announce-one-event-once-and-give-its-root-a-shape/mission.md) - Announce one event once, and give its root a shape
 * [auto-merge-propose-and-implement-prs-under-a-dev-release-branch-split](archive/auto-merge-propose-and-implement-prs-under-a-dev-release-branch-split/mission.md) - Auto-merge propose and implement PRs under a dev/release branch split
 * [color-code-the-notify-post-shapes-by-state](archive/color-code-the-notify-post-shapes-by-state/mission.md) - Color-code the notify post shapes by state
 * [configure-routines-automatically-via-remotetrigger](archive/configure-routines-automatically-via-remotetrigger/mission.md) - Configure routines automatically via RemoteTrigger

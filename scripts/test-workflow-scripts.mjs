@@ -15347,6 +15347,12 @@ function testStatelessThreadLookup() {
   assertTrue("the shape catalog carries the description root's block", catalogRoot !== "", catalog.slice(0, 200));
   assertEq("the description root reads byte-identically in the catalog and the [Specificate] template",
     rootBlock(proposeTemplate), catalogRoot);
+  // BOTH callers post it since 2026-08-22. The [Implement] case-4 root was a status
+  // emoji, a PR number and a bare machine key; the developer ruled it unusable on
+  // sight, so the template moved in the same change and is pinned to the same wording.
+  const implementTemplate = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines/implement.md"), "utf8");
+  assertEq("the description root reads byte-identically in the catalog and the [Implement] template",
+    rootBlock(implementTemplate), catalogRoot);
 
   // The root carries the lookup's own key -- case 2 searches for `fb:<stem>`, so moving the
   // key onto the root is safe only while the root keeps it -- and carries no mention token,
@@ -15414,6 +15420,14 @@ function testUnitAuthorsDisclosure() {
   // computes it is untouched.
   assertTrue("the script that computes the fact is still shipped",
     existsSync(SCRIPTS.unitAuthors), "unit-authors.sh is gone");
+
+  // ONE FINISH PER UNIT, NOT ONE PER STEM (2026-08-22). The old rule announced an
+  // event as many times as the corpus held records of it, and a strategy's
+  // carried-forward refs made that deterministic for every unit the loop produced.
+  // Pinned on the machine-consumed surface: the template is what authorizes the wire
+  // shape, so a prompt still saying "per stem" is a run still allowed to duplicate.
+  assertTrue("the [Implement] template authorizes one line per unit, not per stem",
+    /never one per feedback stem/.test(template), "the template still authorizes a per-stem post");
 }
 
 // ---------- /fb files an issue, whatever the destination (2026-08-17) ----------

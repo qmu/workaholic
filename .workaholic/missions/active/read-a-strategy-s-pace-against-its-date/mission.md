@@ -45,9 +45,10 @@ first, and names a direction that will not arrive rather than being silent about
 
 - [x] Each surveyed strategy carries a pace reading derived from what has landed and the days
       remaining (#20260822225204-report-a-strategy-s-pace-against-its-remaining-days.md)
-- [ ] The tick orders by lateness, and a direction that will not arrive is reported by name (#20260822225204-order-the-tick-by-lateness-and-name-a-direction-that-will-not-arrive.md)
+- [x] The tick orders by lateness, and a direction that will not arrive is reported by name (#20260822225204-order-the-tick-by-lateness-and-name-a-direction-that-will-not-arrive.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-22 — ticket archived — 20260822225204-report-a-strategy-s-pace-against-its-remaining-days.md
+- 2026-08-22 — ticket archived — 20260822225204-order-the-tick-by-lateness-and-name-a-direction-that-will-not-arrive.md

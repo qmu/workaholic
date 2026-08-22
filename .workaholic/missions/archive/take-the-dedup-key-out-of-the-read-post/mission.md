@@ -2,7 +2,7 @@
 type: Mission
 title: Take the dedup key out of the read post
 slug: take-the-dedup-key-out-of-the-read-post
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-21T15:09:58+09:00
 author: a@qmu.jp
@@ -56,3 +56,4 @@ item's thread and replies into it, exactly once.
 - 2026-08-22 — ticket archived — 20260821151007-find-which-path-printed-the-visible-key.md
 - 2026-08-22 — ticket archived — 20260821151007-measure-what-the-slack-search-surface-matches.md
 - 2026-08-22 — ticket archived — 20260821151007-take-the-key-out-of-the-post-body.md
+- 2026-08-22 — mission achieved — mission.md

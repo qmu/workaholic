@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260822-175716
 ---
 
 # Announce one event once, and give its root a shape

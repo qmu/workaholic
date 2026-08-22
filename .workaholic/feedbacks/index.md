@@ -538,4 +538,5 @@
 * [/moderate の記録の口が、定時実行では何も残さない](20260822141342-moderate.md)
 * [A blocking check-in question is asked once and then never again](20260822155142-a-blocking-check-in-question-is-asked-once-and-then-never-again.md)
 * [The Moderation root posts every hour by construction and says nothing actionable](20260822175026-the-moderation-root-posts-every-hour-by-construction-and-says-nothing-actionable.md)
+* [Nothing closes a finished mission so completion accumulates in the active area](20260822182237-nothing-closes-a-finished-mission-so-completion-accumulates-in-the-active-area.md)
 <!-- okf:generated:end -->

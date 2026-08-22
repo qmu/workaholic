@@ -42,6 +42,32 @@ name which one it is emits nothing:
 | **`breadth`** | Go into a part of the aim nothing has touched yet. |
 | **`contraction`** | Remove or unify something the landed work made inconsistent with the aim. |
 
+**A move that DESCRIBES the aim instead of advancing it is refused by name** (2026-08-22).
+A strategy whose Aim names something to be **built** may not be answered with a proposal whose
+move would produce **documentation about that Aim**. The refusal is reported like every other
+gate (`describing_move`), and a tick refused for it opens nothing rather than reading as idle.
+
+*Why the housekeeping refusal below does not already catch it.* That one works because
+housekeeping is chosen against **nothing** — nobody argues for the mess — so the body floor's
+`## What this is chosen against` section catches it. A new page about the Aim passes that floor
+honestly: it is chosen against something real (the Aim is undocumented here), it commits in the
+imperative, and it is a textbook `depth` move — *go further into what the aim already covers than
+the landed work has gone*, and a document about what the aim covers is further than no document.
+Measured over weeks on a consuming repository whose strategy Aim was to build an application
+platform: every mission attributed to it produced documentation, and the deployment worker's own
+config still said it had no code of its own. The loop was obeyed, not broken.
+
+*The test, and it is the exemption that makes it checkable rather than a matter of taste.* Read
+the strategy's Aim. **A strategy whose Aim is itself documentation is unaffected** — there a page
+*is* the advance, and refusing it would be refusing the direction. The refusal applies only where
+the Aim names a thing to be built and the move would produce prose about it instead.
+
+*Documentation is not banned.* A build strategy legitimately needs some, and a proposal may carry
+it alongside what it builds. What is refused is documentation as **the move** — chosen instead of
+the build, which is the shape that repeats forever. The judgement is the run's and is stated in
+the proposal body, where a human can argue with it; do not try to detect "is this a document"
+from a file extension, because the proposal declares what it will produce.
+
 **Housekeeping is refused by name.** "Tidy this up", "the docs drifted", "add a test",
 "rename for consistency" are `/moderate`'s job. What they have in common is that they are
 chosen against **nothing** — nobody would argue for the mess — which is why the body floor
@@ -61,6 +87,12 @@ propose housekeeping. What replaces the bar is not a softer judgment but a set o
 
 `not_active` · `not_mine` · `past_target_date` · `no_feedback_refs` · `work_waiting` ·
 `open_proposal` · `over_cap` · `attribution_unreadable`
+
+**`describing_move` is reported beside them and is not one of them.** Those eight are computed by
+`survey-strategies.sh` and the running session cannot decide them differently; the describing
+refusal is the run's own **judgement**, stated in words and arguable by a reader — which is why it
+is named here rather than folded into the mechanical list. It is a refusal on the same standing as
+housekeeping's, and like it, it is reported by name so a tick refused for it never reads as idle.
 
 Three of them carry the design:
 

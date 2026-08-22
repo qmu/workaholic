@@ -117,7 +117,7 @@ and every abort reports a machine-readable reason.
    Otherwise, in this precedence: two or more units → a mission with its ticket set
    (steps 8–9); atomic → one loose ticket (step 9's loose form, no mission); a
    **date + an owner + an aim with no decomposable plan** → one strategy (step 9b);
-   none of those → record-only. When unsure, record-only — and name what made you
+   none of those → record-only. **The four are an ordered rule and are consulted first**; *when unsure, record-only* applies only to an ask they did not resolve, never over one they did (SKILL.md, *The form follows the work's shape*). Uncertainty about how to decompose is not uncertainty about whether it decomposes. Name which rule decided — `precedence:<form>` or `unsure:<what>` — and name what made you
    unsure in step 10's PR body.
 
 8. **Draft the mission** (mission form only), in the publish tree:
@@ -250,7 +250,12 @@ and every abort reports a machine-readable reason.
     *Notifier contract*) — it is reported at step 13, never treated as posted. Inside the
     `[Specificate]` routine these are the routine's own connector posts; do not post twice.
 
-13. **Report** one line: the form chosen (mission with N tickets / loose ticket /
+13. **Report** one line, opening with **the rule that decided the form** —
+    `precedence:<form>` when one of the four ordered rows answered, `unsure:<what>` when
+    the record-only default did (2026-08-22). A record-only outcome whose line says
+    `precedence:record_only` is a claim a reader can argue with; one that says nothing is
+    indistinguishable from a run that never reached the rule. Then the form chosen
+    (mission with N tickets / loose ticket /
     **strategy `<slug>`, PR left open for the operator** / **strategy `<slug>` closed
     `achieved|abandoned`, PR left open for the operator** / record-only, and for
     record-only reached by a failed strategy bar or an unmatched announcement, the

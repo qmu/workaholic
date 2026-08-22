@@ -46,8 +46,11 @@
 #
 # ═══ THE POST GATE ════════════════════════════════════════════════════════════════
 #
-#   post: true   at least one question to ask, OR at least one changed step
-#   post: false  reasons: `idle` (nothing changed, nothing to ask), `no_previous_tick`,
+#   post: true   at least one question to ask AND (since 2026-08-22) nothing else
+#                required -- a changed step no longer earns a post on its own
+#   post: false  reasons: `idle` (nothing changed, nothing to ask), `no_question`
+#                (changes, but nothing to ask -- the root carries questions, and with
+#                none it is a status line addressed to nobody), `no_previous_tick`,
 #                `no_log` (the tick log could not be read — never rendered as idle)
 #
 # An idle hour says nothing at all. That is not politeness, it is the condition on which
@@ -123,6 +126,28 @@ PREV=$(printf '%s\n' "$LOG" | tr '{' '\n' | sed -n 's/.*"tick": *"\([^"]*\)".*/\
 printf '%s\n' "$LOG" | tr '{' '\n' \
   | sed -n "s/.*\"tick\": *\"${PREV}\".*\"step\": *\"\([^\"]*\)\".*\"summary\": *\"\([^\"]*\)\".*/\1\t\2/p" > "${TMP}/prev"
 
+# THE DIFF IS TAKEN OVER A STABLE FORM, NOT THE RAW SUMMARY (2026-08-22, issue #569).
+# A change is a step whose summary differs from the same step's an hour ago, and it was
+# a raw string compare. Two steps embed a value that moves on its own inside that text:
+# `inbound-sweep` carries an ISO8601 timestamp (`GitHub read since <ts>`) and `doc-drift`
+# carries a sha (`no new documentation drift since <sha>`). Both therefore differed on
+# every tick BY CONSTRUCTION, so both were always "changed" and the root always posted --
+# measured four consecutive hours on a consuming repository, every post reading
+# `2 change(s), 0 question(s)` with nothing behind it. That is exactly what this
+# derivation exists to make impossible: `📦 Release Preparation` was retired for restating
+# an unchanged answer ten hours running, and the header below claims a diff cannot do that.
+#
+# The normalization strips only values that move WITHOUT the repository moving -- an
+# ISO8601 timestamp, a bare hex object name of 7 characters or more, and a clock time.
+# Stripping more would hide a real change behind noise, which is the opposite defect and
+# the reason this is a short, named list rather than a general scrub.
+stabilize() {
+    printf '%s' "$1" | sed -E \
+        -e 's/[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]+)?(Z|z|[+-][0-9]{2}:?[0-9]{2})?/<ts>/g' \
+        -e 's/\b[0-9a-f]{7,40}\b/<sha>/g' \
+        -e 's/\b[0-9]{2}:[0-9]{2}(:[0-9]{2})?\b/<time>/g'
+}
+
 changes=''
 count=0
 lines=''
@@ -134,15 +159,34 @@ while IFS="$TAB" read -r step summary || [ -n "$step" ]; do
     [ "$step" = "human-checkin" ] && continue
     [ "$step" = "open-log" ] && continue
     was=$(awk -F"$TAB" -v s="$step" '$1 == s { print $2; exit }' "${TMP}/prev")
-    [ "$was" = "$summary" ] && continue
+    [ "$(stabilize "$was")" = "$(stabilize "$summary")" ] && continue
     changes="${changes:+${changes}, }{\"step\": \"$(json_escape "$step")\", \"summary\": \"$(json_escape "$summary")\"}"
     lines="${lines}${step}: ${summary}
 "
     count=$((count + 1))
 done < "${TMP}/now"
 
-if [ "$count" -eq 0 ] && [ "$QUESTIONS" -eq 0 ]; then
-    emit false idle "" 0 "$PREV" ""
+# A QUESTION IS THE ROOT'S PRECONDITION (2026-08-22, issue #569 -- the ticket's Open
+# Decision, ruled here). The gates were OR: a question, OR a changed step. The root's
+# stated reason to exist is that it CARRIES the tick's questions beneath it, told apart
+# from them by position in the thread; with `0 question(s)` it is a status line addressed
+# to nobody, which is precisely what `🔧 Needs a decision` and `📦 Release Preparation`
+# were retired for -- "noise whatever its dedup key".
+#
+# The alternative weighed and rejected: let a NAMED CLASS of change (a merge conflict
+# appearing, an auto-merge failing, a target starting to need a human) earn a
+# question-less root. It is defensible, but it keeps a line nobody is asked to act on,
+# needs a list maintained per step, and the developer -- shown this post twice -- said it
+# was of no use to anybody. A change worth a person's attention can be asked about; one
+# that cannot be is a log entry, and the tick log already keeps every one of them.
+#
+# THE COST, STATED RATHER THAN HIDDEN: a real change with no question attached is visible
+# only in `.workaholic/moderations/`. That is the trade this ruling makes.
+if [ "$QUESTIONS" -eq 0 ]; then
+    if [ "$count" -eq 0 ]; then
+        emit false idle "" 0 "$PREV" ""
+    fi
+    emit false no_question "$changes" "$count" "$PREV" ""
 fi
 
 HEAD="🔎 Moderation - ${count} change(s), ${QUESTIONS} question(s)"

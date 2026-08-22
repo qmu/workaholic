@@ -2,7 +2,7 @@
 type: Mission
 title: Announce one event once, and give its root a shape
 slug: announce-one-event-once-and-give-its-root-a-shape
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-22T13:02:31+09:00
 author: a@qmu.jp
@@ -46,3 +46,4 @@ item is — the same readable shape `/specificate`'s root already has.
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-22 — ticket archived — 20260822130305-announce-a-unit-s-finish-once-not-once-per-stem.md
 - 2026-08-22 — ticket archived — 20260822130305-give-the-implement-no-thread-root-a-readable-shape.md
+- 2026-08-22 — mission achieved — mission.md

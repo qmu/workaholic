@@ -13,7 +13,7 @@ A template names its postable events and defers the line formats here. This file
 by the [routine](<session URL>) of <@U…>
 ```
 
-`🔵 Proposed` retires the earlier `🟢 Proposed to <@U…> - ...` shape. Since 2026-08-14 it is a **reply** in every connector case — into the thread the stateless lookup found, or into the description root below when it found none. It is a keyed top-level line only on the tokened fallback, which cannot thread; there it carries `` `fb:<stem>` `` on its own line, never dropped. The retired `📐 Proposing` start once preceded it; nothing replaces it.
+`🔵 Proposed` retires the earlier `🟢 Proposed to <@U…> - ...` shape. Since 2026-08-14 it is a **reply** in every connector case — into the thread the stateless lookup found, or into the description root below when it found none. It is a top-level line only on the tokened fallback, which cannot thread; there it carries the **record's URL** (`<repo-url>/blob/main/.workaholic/feedbacks/<stem>.md`) rather than a bare key — the same identifier, in the one form that is also readable, so the fallback post stays attributable without printing a machine token at a person (2026-08-22). The retired `📐 Proposing` start once preceded it; nothing replaces it.
 
 #### The description root — every case 4
 
@@ -22,11 +22,10 @@ The root the run posts **before** the finish line when the lookup found no threa
 ```
 📝 FB - [<feedback title>](<repo-url>/blob/main/.workaholic/feedbacks/<stem>.md)
 One sentence, max 30 words, what the feedback asks for.
-`fb:<stem>`
 <session URL>
 ```
 
-Then the run's finish line — `🔵 Proposed` for `/specificate`, `🟢`/`🚀`/`🟡`/`🔴` for `/implement` — as a reply whose `thread_ts` is this message's timestamp, without the `` `fb:<stem>` `` line — the key lives on the root, which is what case 2 searches for. **No mention token of any kind appears on the root**: a `<@U…>` resolving to the Claude app would re-trigger the Slack app on the routine's own post, and a person's mention belongs on the reply that names them. The title and the sentence come from the feedback record the run just wrote; nothing is invented for the post.
+Then the run's finish line — `🔵 Proposed` for `/specificate`, `🟢`/`🚀`/`🟡`/`🔴` for `/implement` — as a reply whose `thread_ts` is this message's timestamp. **Neither carries a printed key** (2026-08-22): case 2 searches `` <stem>.md ``, which the root carries inside the URL it links, so the identifier a machine needs is already there and does not have to be shown to a person twice. **No mention token of any kind appears on the root**: a `<@U…>` resolving to the Claude app would re-trigger the Slack app on the routine's own post, and a person's mention belongs on the reply that names them. The title and the sentence come from the feedback record the run just wrote; nothing is invented for the post.
 
 **Why the root links the record and not an auto-filed issue** (the ticket's Open Decision, ruled 2026-08-14 — issue #443). The report's title asked for a short `[FB]` issue to be filed so the root had a URL to point at; the record's own file URL answers the same need without either of that option's costs. An issue filed **assigned** is re-discovered as an inbound ask by `/specificate`'s clock-fired discovery on the next tick and **cannot be excluded** — `list-inbound-issues.sh` subtracts issues a feedback record already names, and the record naming this one was written *before* it, immutably; an **unassigned** issue is never discovered, which makes it safe and also makes it a page nobody is asked to act on. Opening an issue on this repository unattended would additionally be a new class of write: the confinement rule reserves issue-opening for `/fb`'s cross-repository mode behind a verbatim human confirmation. The accepted cost of linking the record instead: the `main` blob URL 404s until the proposal's pull request merges — which it does on opening, so the window is seconds, except when a scan finding holds the PR open, and then the run reports the link as pending rather than claiming it resolves.
 
@@ -90,7 +89,6 @@ named. `/prepare-release` survives as a command a human runs on demand; it posts
 <Strategy title> (<days> to <target_date>): one line, what moved and what waits.
 <Strategy title>: no activity.
 <K> item(s) not attributable to any strategy.
-`standup:<YYYY-MM-DD>`
 <session URL>
 ```
 
@@ -107,14 +105,12 @@ named. `/prepare-release` survives as a command a human runs on demand; it posts
 ```
 🔎 Moderation - <N> change(s), <M> question(s)
 <step>: <what it says now, one line per changed step>
-`tick:<tick-id>`
 <session URL>
 ```
 
 ```
 🙋 <@U…> - <what this tick could not decide>
 One sentence, max 25 words, the question itself, with the two options when there are two.
-`ask:<key>`
 ```
 
 **The root is rendered, never composed freehand** — `moderate/scripts/render-tick-post.sh` emits `root_text`, and the session posts that. The session URL rides the root only; a reply inside a thread whose root already carries it would be the same link twice.
@@ -125,7 +121,7 @@ One sentence, max 25 words, the question itself, with the two options when there
 
 **What was retired to get here.** The tick used to reply its one question into the thread of the **item** it concerned, with no root of its own; before that it emitted two status roots, `🔧 Needs a decision` and `📦 Release Preparation`, both retired on 2026-08-19 because a status line addressed to nobody is noise whatever its dedup key (measured on `#dev-workaholic`: ten `📦` lines in ten consecutive hours for one unchanged request, none answered). That measurement stands and this root does not reverse it — **this root is not addressed to nobody in the same sense**: it exists to carry the questions under it, and it never posts on an hour with neither a question nor a change. The cost that was paid is stated rather than hidden: a person following one item's own thread no longer sees the tick's question there, so every root line links the item it is about.
 
-**Asked once, never re-asked.** `` `ask:<key>` `` is the content key, and an unanswered question is not re-posted next hour: a question is a demand on a person's attention, and repeating it turns asking into nagging. Silence is never read as an answer — the unanswered set stays visible in the tick log. `ask-question.sh` holds the per-tick cap, the daily bound, **the working-day gate and the quiet-hours window**; a question it suppresses is recorded as held and handed back on the next eligible tick, which is what makes suppression a delay rather than a loss.
+**Asked once, never re-asked**, and **the ledger is the tick log, never the post** (the `` `ask:<key>` `` line was printed at the reader until 2026-08-22 and searched by nothing — `ask-question.sh` matches the step id derived from the key, in `.workaholic/moderations/`, and has read Slack at no point). An unanswered question is not re-posted next hour: a question is a demand on a person's attention, and repeating it turns asking into nagging. Silence is never read as an answer — the unanswered set stays visible in the tick log. `ask-question.sh` holds the per-tick cap, the daily bound, **the working-day gate and the quiet-hours window**; a question it suppresses is recorded as held and handed back on the next eligible tick, which is what makes suppression a delay rather than a loss.
 
 **Working days, not only working hours** (2026-08-21). The gate checked the clock alone, so a question found at 10:00 on a Sunday was posted into a channel nobody was reading — and its own asked-once gate then guaranteed it was never posted again on a day somebody was. `WORKAHOLIC_WORK_DAYS` (default `1-5`) holds the weekend, and held is not dropped: the finding waits for Monday.
 

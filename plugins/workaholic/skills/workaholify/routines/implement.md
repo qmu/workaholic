@@ -75,7 +75,6 @@ If that lookup finds no thread, post this description root first and the finish 
 ```
 📝 FB - [<feedback title>](<repo-url>/blob/main/.workaholic/feedbacks/<stem>.md)
 One sentence, max 30 words, what the feedback asks for.
-`fb:<stem>`
 <session URL>
 ```
 

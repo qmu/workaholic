@@ -43,9 +43,9 @@ timed, which is what makes that safe.
 **Two gates make an idle morning silent**, and they are why a recurring post is allowed at all
 under `workaholic:notify`'s bright line: the digest's own `noop` (no active strategy, or
 nothing moved with no `target_date` inside the horizon) posts nothing, and a digest already
-posted for this date (the `standup:<YYYY-MM-DD>` search finds it) posts nothing. The key is
-the **morning**, not a content hash — a daily digest speaks for today even when today
-resembles yesterday, and what the key prevents is two posts for one morning, which is exactly
+posted for this date (a `📣 Standup` search bounded to today finds it) posts nothing. The check
+is the **morning**, not a content hash — a daily digest speaks for today even when today
+resembles yesterday, and what the check prevents is two posts for one morning, which is exactly
 what the repository scope cannot prevent on its own.
 
 **The prompt is the developer's own** (P3, Q2) and states no rule a skill already owns. The one
@@ -69,7 +69,6 @@ If the digest is not a no-op and the exact-string search for today's token finds
 <Strategy title> (<days> to <target_date>): one line, what moved and what waits.
 <Strategy title>: no activity.
 <K> item(s) not attributable to any strategy.
-`standup:<YYYY-MM-DD>`
 <session URL>
 ```
 

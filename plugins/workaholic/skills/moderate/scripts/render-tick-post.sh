@@ -5,6 +5,12 @@
 # Usage: run.sh ... | render-tick-post.sh --tick <id> [--root <repo-root>] [--questions <n>]
 # Output: one JSON object
 #   {"post": bool, "reason": "...", "tick": "...", "token": "tick:<id>",
+#
+# `token` IS NOT PRINTED AT A READER (2026-08-22). It was rendered as a `tick:<id>` line on
+# the root until then, and NOTHING EVER SEARCHED IT -- the already-asked ledger matches the
+# step id in `.workaholic/moderations/` and reads Slack at no point. The field stays because
+# it identifies the tick to any machine consumer that wants it; what left is the line at a
+# person. The developer said it plainly and more than once: stop mixing strange ids into Slack.
 #    "changes": [{"step","summary"}], "change_count": N, "questions": N,
 #    "previous_tick": "<id>|", "root_text": "..."}
 #

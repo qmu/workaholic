@@ -2,7 +2,7 @@
 type: Mission
 title: Read a strategy's pace against its date
 slug: read-a-strategy-s-pace-against-its-date
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-22T22:51:55+09:00
 author: a@qmu.jp
@@ -52,3 +52,4 @@ first, and names a direction that will not arrive rather than being silent about
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-22 — ticket archived — 20260822225204-report-a-strategy-s-pace-against-its-remaining-days.md
 - 2026-08-22 — ticket archived — 20260822225204-order-the-tick-by-lateness-and-name-a-direction-that-will-not-arrive.md
+- 2026-08-22 — mission achieved — mission.md

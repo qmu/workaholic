@@ -3,6 +3,7 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [work-20260822-225608](work-20260822-225608.md) - The loop gains its first reading that is not a brake — whether a direction will arrive — and a person is told when one will not
 * [work-20260822-224335](work-20260822-224335.md) - A tick proposes against every eligible strategy — the per-tick cap starved whichever direction was slowest, which is the one that most needed its next move
 * [work-20260822-200945](work-20260822-200945.md) - The hourly Moderation root stops posting by construction — the diff runs on a stable form, and a question is now the root's precondition
 * [work-20260822-195727](work-20260822-195727.md) - The loop stops answering a build strategy with documents — a describing move is refused by name, and a decomposable ask is planned instead of recorded

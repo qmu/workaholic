@@ -2,7 +2,7 @@
 type: Mission
 title: Give /propose a Strategy artifact form
 slug: give-propose-a-strategy-artifact-form
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-14T06:44:42+00:00
 author: a@qmu.jp
@@ -49,3 +49,4 @@ announcement that a strategy was created, changed or ended lands on that strateg
 - 2026-08-14 — ticket archived — 20260814064513-add-the-strategy-form-to-propose-s-judgment-and-emit-path.md
 - 2026-08-14 — ticket archived — 20260814064513-capture-strategy-lifecycle-announcements-as-asks.md
 - 2026-08-14 — story — work-20260814-074927.md
+- 2026-08-22 — mission achieved — mission.md

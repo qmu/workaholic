@@ -2,7 +2,7 @@
 type: Mission
 title: Split routine setup into developer and repository scopes
 slug: split-routine-setup-into-developer-and-repository-scopes
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-14T06:48:49+00:00
 author: a@qmu.jp
@@ -51,3 +51,4 @@ plainly it is not for everyone, since N copies of a repo routine is the failure.
 - 2026-08-14 — ticket archived — 20260814064854-add-the-hourly-release-note-repo-routine.md
 - 2026-08-14 — story written — work-20260814-084725.md
 - 2026-08-14 — run recorded (+0.5h) — run-20260814-084725
+- 2026-08-22 — mission achieved — mission.md

@@ -2,7 +2,7 @@
 type: Mission
 title: Make a rename a registry entry, not a sweep
 slug: make-a-rename-a-registry-entry-not-a-sweep
-status: active
+status: achieved
 merge_policy: auto
 created_at: 2026-08-21T03:27:49+09:00
 author: a@qmu.jp
@@ -63,3 +63,4 @@ follow with nobody sweeping:
 - 2026-08-21 — ticket archived — 20260820182802-rename-report-to-story-and-deprecate-report.md
 - 2026-08-20 — story reported — work-20260821-035855.md
 - 2026-08-21 — run recorded (+1.3h) — drive-20260820-1900
+- 2026-08-22 — mission achieved — mission.md

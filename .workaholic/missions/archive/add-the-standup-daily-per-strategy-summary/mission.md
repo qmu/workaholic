@@ -2,7 +2,7 @@
 type: Mission
 title: Add the standup daily per-strategy summary
 slug: add-the-standup-daily-per-strategy-summary
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-17T11:52:01+00:00
 author: a@qmu.jp
@@ -54,3 +54,4 @@ strategies authored, the routine says nothing at all rather than posting an empt
 - 2026-08-17 — ticket archived — 20260817115231-resolve-strategy-to-activity-attribution.md
 - 2026-08-17 — ticket archived — 20260817115232-add-the-standup-command-and-skill.md
 - 2026-08-17 — ticket archived — 20260817115233-ship-the-standup-routine-template.md
+- 2026-08-22 — mission achieved — mission.md

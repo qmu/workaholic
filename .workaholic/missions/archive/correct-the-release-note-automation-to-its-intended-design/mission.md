@@ -2,7 +2,7 @@
 type: Mission
 title: Correct the release note automation to its intended design
 slug: correct-the-release-note-automation-to-its-intended-design
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-17T11:45:09+00:00
 author: a@qmu.jp
@@ -60,3 +60,4 @@ the fragmented notification is gone.
 - 2026-08-17 — ticket archived — 20260817114541-implement-the-daily-note-generation-cadence.md
 - 2026-08-17 — ticket archived — 20260817114542-replace-the-fragmented-status-notification.md
 - 2026-08-17 — run recorded (+1.1h) — run-20260817-163715
+- 2026-08-22 — mission achieved — mission.md

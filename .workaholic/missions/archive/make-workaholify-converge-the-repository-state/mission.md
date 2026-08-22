@@ -2,7 +2,7 @@
 type: Mission
 title: Make workaholify converge the repository state
 slug: make-workaholify-converge-the-repository-state
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-14T19:38:00+09:00
 author: a@qmu.jp
@@ -43,3 +43,4 @@ An operator runs `/workaholify` in a repository that predates recent structural 
 - 2026-08-14 — ticket archived — 20260814193833-state-the-living-migration-registry-contract.md
 - 2026-08-14 — Story written (2 tickets; both acceptance items met) — work-20260814-104347.md
 - 2026-08-14 — run recorded (+0.32h) — run-20260814-104347
+- 2026-08-22 — mission achieved — mission.md

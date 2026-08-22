@@ -2,7 +2,7 @@
 type: Mission
 title: Make the draft release note an agent's release plan
 slug: make-the-draft-release-note-an-agent-s-release-plan
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-18T20:20:13+00:00
 author: a@qmu.jp
@@ -58,3 +58,4 @@ one document carries plan → release → verification.
 - 2026-08-18 — ticket archived — 20260818202056-run-the-release-planning-judgment-and-reach-ci.md
 - 2026-08-18 — ticket archived — 20260818202056-append-the-release-confirmation-to-its-own-plan.md
 - 2026-08-18 — run recorded (+1.5h) — implement-20260818-2050
+- 2026-08-22 — mission achieved — mission.md

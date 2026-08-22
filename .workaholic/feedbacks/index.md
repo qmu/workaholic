@@ -540,4 +540,5 @@
 * [The Moderation root posts every hour by construction and says nothing actionable](20260822175026-the-moderation-root-posts-every-hour-by-construction-and-says-nothing-actionable.md)
 * [Nothing closes a finished mission so completion accumulates in the active area](20260822182237-nothing-closes-a-finished-mission-so-completion-accumulates-in-the-active-area.md)
 * [The loop refuses housekeeping but not documentation so a build strategy produces only documents](20260822194700-the-loop-refuses-housekeeping-but-not-documentation-so-a-build-strategy-produces-only-documents.md)
+* [One proposal per tick starves the slower direction](20260822224122-one-proposal-per-tick-starves-the-slower-direction.md)
 <!-- okf:generated:end -->

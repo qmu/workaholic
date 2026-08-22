@@ -535,4 +535,5 @@
 * [An autonomous improvement loop run by the routines](20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md)
 * [/implement blocked on an Open Decision its own source document already answered](20260822125408-implement-blocked-on-an-open-decision-its-own-source-document-already-answered.md)
 * [One event, announced twice, the second time as a naked status line](20260822130157-one-event-announced-twice-the-second-time-as-a-naked-status-line.md)
+* [/moderate の記録の口が、定時実行では何も残さない](20260822141342-moderate.md)
 <!-- okf:generated:end -->

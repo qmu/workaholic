@@ -7,6 +7,7 @@
 * [announce-one-event-once-and-give-its-root-a-shape](active/announce-one-event-once-and-give-its-root-a-shape/mission.md) - Announce one event once, and give its root a shape
 * [correct-the-release-note-automation-to-its-intended-design](active/correct-the-release-note-automation-to-its-intended-design/mission.md) - Correct the release note automation to its intended design
 * [give-propose-a-strategy-artifact-form](active/give-propose-a-strategy-artifact-form/mission.md) - Give /propose a Strategy artifact form
+* [give-the-tick-a-route-for-the-records-it-writes](active/give-the-tick-a-route-for-the-records-it-writes/mission.md) - Give the tick a route for the records it writes
 * [make-a-rename-a-registry-entry-not-a-sweep](active/make-a-rename-a-registry-entry-not-a-sweep/mission.md) - Make a rename a registry entry, not a sweep
 * [make-an-open-decision-a-question-to-answer-not-a-ruling](active/make-an-open-decision-a-question-to-answer-not-a-ruling/mission.md) - Make an Open Decision a question to answer, not a ruling
 * [make-the-draft-release-note-an-agent-s-release-plan](active/make-the-draft-release-note-an-agent-s-release-plan/mission.md) - Make the draft release note an agent's release plan

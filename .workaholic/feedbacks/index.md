@@ -534,4 +534,5 @@
 * [A convergent migration lands its deletions and leaves its additions untracked](20260821151526-a-convergent-migration-lands-its-deletions-and-leaves-its-additions-untracked.md)
 * [An autonomous improvement loop run by the routines](20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md)
 * [/implement blocked on an Open Decision its own source document already answered](20260822125408-implement-blocked-on-an-open-decision-its-own-source-document-already-answered.md)
+* [One event, announced twice, the second time as a naked status line](20260822130157-one-event-announced-twice-the-second-time-as-a-naked-status-line.md)
 <!-- okf:generated:end -->

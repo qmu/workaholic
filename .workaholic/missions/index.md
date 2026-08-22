@@ -4,6 +4,7 @@
 
 * [add-the-housekeep-hourly-operations-routine](active/add-the-housekeep-hourly-operations-routine/mission.md) - Add the /housekeep hourly operations routine
 * [add-the-standup-daily-per-strategy-summary](active/add-the-standup-daily-per-strategy-summary/mission.md) - Add the standup daily per-strategy summary
+* [announce-one-event-once-and-give-its-root-a-shape](active/announce-one-event-once-and-give-its-root-a-shape/mission.md) - Announce one event once, and give its root a shape
 * [correct-the-release-note-automation-to-its-intended-design](active/correct-the-release-note-automation-to-its-intended-design/mission.md) - Correct the release note automation to its intended design
 * [give-propose-a-strategy-artifact-form](active/give-propose-a-strategy-artifact-form/mission.md) - Give /propose a Strategy artifact form
 * [make-a-rename-a-registry-entry-not-a-sweep](active/make-a-rename-a-registry-entry-not-a-sweep/mission.md) - Make a rename a registry entry, not a sweep

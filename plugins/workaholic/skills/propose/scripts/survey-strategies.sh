@@ -61,11 +61,32 @@
 # holds; from that merge onward the tickets it produced are queued and `work_waiting` holds;
 # when they are driven and archived, the strategy is free and the next turn begins.
 #
-# ONE PROPOSAL PER TICK, ACROSS ALL STRATEGIES (`WORKAHOLIC_PROPOSE_MAX`, default 1). A
-# developer carrying eight strategies must not wake to eight issues at :40. The tick
-# advances the MOST URGENT eligible direction — eligible strategies are ordered by
-# `days_to_target` ascending, nearest date first — and says in `refused` what it left for
-# the next hour (`over_cap`), so a suppressed strategy is a delay and never a loss.
+# EVERY ELIGIBLE STRATEGY, IN THE SAME TICK (2026-08-22, the developer's ruling). The tick
+# proposes against ALL of them -- everything it can conclude at that moment. Eligible
+# strategies are still ordered by `days_to_target` ascending, nearest date first, so a tick
+# that dies partway has advanced the most urgent direction rather than an arbitrary one.
+#
+# THIS REPLACES "one proposal per tick, across all strategies" (`WORKAHOLIC_PROPOSE_MAX`,
+# default 1), and the reasoning that carried it is ANSWERED rather than dropped. That
+# reasoning was: a developer carrying eight strategies must not wake to eight issues at
+# :40. But the volume bound was never this cap's to provide -- `work_waiting` and
+# `open_proposal` together already give ONE PROPOSAL PER STRATEGY IN FLIGHT AT A TIME, so
+# eight issues can only arrive when all eight directions are idle, and then eight
+# directions each genuinely need their next move.
+#
+# WHAT THE CAP ACTUALLY DID, AND WHY IT RAN BACKWARDS. It reduced no total; it fixed an
+# ORDER, putting some directions permanently behind others. And the ordering it produced
+# was the wrong way round: a strategy is skipped while its OWN work is in flight, so the
+# direction whose work takes LONGER is proposed against LESS often. The direction that
+# most needs its next move is the one the cap starves. Measured on a consuming repository:
+# two active strategies sharing a `target_date`, one building a platform whose build work
+# sat queued for hours (`work_waiting` on every tick) and one documentation direction that
+# drained fast and was therefore eligible on every tick. The channel filled with one
+# direction's output for a day while the other never got a turn.
+#
+# The ceiling on issues opened per tick is raised, and that is the intent: the loop's
+# output should be what it can conclude, and the brake belongs on work in flight PER
+# DIRECTION, which already exists and is untouched here.
 #
 # WHY THE WINDOW IS 14 DAYS AND NOT THE STANDUP'S ONE. `landed[]` is not a changelog here;
 # it is the evidence the judgment is made against — "how far has this direction actually
@@ -98,9 +119,15 @@ done
 WINDOW="${1:-14 days ago}"
 ROOT="${2:-.workaholic}"
 
-CAP="${WORKAHOLIC_PROPOSE_MAX:-1}"
+# UNBOUNDED BY DEFAULT (2026-08-22). `WORKAHOLIC_PROPOSE_MAX` survives as an explicit
+# opt-in bound for an operator who really does want fewer; its default is NO BOUND, and
+# the default is the point -- a default of 1 is what produced the starvation described in
+# the header. An unset, empty or non-numeric value means unbounded; `0` also means
+# unbounded rather than "propose nothing", because a cap of zero would silence the only
+# routine that originates work and no operator asking for a bound means that.
+CAP="${WORKAHOLIC_PROPOSE_MAX:-}"
 case "$CAP" in
-  ''|*[!0-9]*) CAP=1 ;;
+  ''|*[!0-9]*|0) CAP=-1 ;;
 esac
 
 emit_err() {
@@ -189,8 +216,8 @@ jq -sc \
            else "" end)} ]
   | sort_by(if .days_to_target == null then 99999 else .days_to_target end)
   | (map(select(.refusal == "")) ) as $ok
-  | ($ok[0:$cap]) as $take
-  | ($ok[$cap:] | map({slug, reason: "over_cap"})) as $spill
+  | (if $cap < 0 then $ok else $ok[0:$cap] end) as $take
+  | (if $cap < 0 then [] else ($ok[$cap:] | map({slug, reason: "over_cap"})) end) as $spill
   | {ok: true, identity: $identity, window: $window, cap: $cap,
      active_count: ([.[] | select(.status == "active")] | length),
      surveyed_count: ($list.strategies | length),

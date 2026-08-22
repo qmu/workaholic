@@ -4809,18 +4809,30 @@ function testProposeGates() {
     assertEq("a direction citing no feedback record is refused as no_feedback_refs",
       reason("blind"), "no_feedback_refs");
 
-    // ONE PROPOSAL PER TICK ACROSS ALL STRATEGIES, nearest date first -- a developer with
-    // eight directions must not wake to eight issues. A capped strategy is a DELAY, so it
-    // is reported rather than dropped.
+    // EVERY ELIGIBLE STRATEGY, IN THE SAME TICK (2026-08-22). The cap reduced no total --
+    // work_waiting + open_proposal already bound the volume to one proposal per strategy
+    // in flight -- it fixed an ORDER, and backwards: a strategy is skipped while its own
+    // work is in flight, so the direction whose work took LONGER was proposed against
+    // LESS often. Measured on a consuming repository, the fast documentation direction
+    // won every tick for a day while the slow platform one never got a turn.
     const sooner = new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 10);
     mkStrategy("urgent", { status: "active", target_date: sooner, assignees: "me@example.com" },
       ["20260101000000-a.md"]);
     r = survey();
-    assertEq("the tick takes one strategy by default", r.selected.length, 1);
-    assertEq("and it is the one whose date is nearest", r.selected, ["urgent"]);
-    assertEq("the strategy it left is reported as delayed, not dropped", reason("live"), "over_cap");
-    assertEq("raising the cap takes more of them",
-      JSON.parse(run(dir, `WORKAHOLIC_PROPOSE_MAX=2 ${SURVEY} --open-proposals ${OPEN} "30 days ago" ${WH}`).stdout)
+    assertEq("the tick takes every eligible strategy", r.selected.length, 2);
+    assertEq("and the nearest date is still first, so a tick dying partway advanced the most urgent",
+      r.selected[0], "urgent");
+    assertTrue("nothing is refused as over_cap any more",
+      !r.refused.some((x) => x.reason === "over_cap"), JSON.stringify(r.refused));
+    // The bound survives as an explicit opt-in, and ONLY as one: the default is unbounded,
+    // because a default of 1 is what produced the starvation.
+    assertEq("an operator who asks for a bound still gets one",
+      JSON.parse(run(dir, `WORKAHOLIC_PROPOSE_MAX=1 ${SURVEY} --open-proposals ${OPEN} "30 days ago" ${WH}`).stdout)
+        .selected.length, 1);
+    // A cap of zero would silence the only routine that originates work, and no operator
+    // asking for a bound means that.
+    assertEq("a cap of zero reads as unbounded, never as silence",
+      JSON.parse(run(dir, `WORKAHOLIC_PROPOSE_MAX=0 ${SURVEY} --open-proposals ${OPEN} "30 days ago" ${WH}`).stdout)
         .selected.length, 2);
 
     // The in-flight half that lives on GitHub. Together with `work_waiting` below it gives

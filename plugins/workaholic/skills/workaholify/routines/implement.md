@@ -63,11 +63,20 @@ Run `/implement`.
 
 If the command or its skills did not load, do not stop: run `bash plugins/workaholic/skills/check-deps/scripts/plugin-src.sh` from the checkout, take its `src`, then read `<src>/commands/implement.md` and follow it with every script path under `<src>`.
 
-Post one finish line per claimed PR-unit into its reply thread (the workaholic:notify lookup):
+Post one finish line per claimed PR-unit into its reply thread (the workaholic:notify lookup) — one line per unit, never one per feedback stem:
 
 ```
 🟢 Implemented - [#123 Title]({repo}/pull/123)
 by the [routine](https://claude.ai/code/session_***) of <@U…>
+```
+
+If that lookup finds no thread, post this description root first and the finish line above as a reply into it — no mention token of any kind on the root:
+
+```
+📝 FB - [<feedback title>](<repo-url>/blob/main/.workaholic/feedbacks/<stem>.md)
+One sentence, max 30 words, what the feedback asks for.
+`fb:<stem>`
+<session URL>
 ```
 
 If the run stops before claiming anything, post notify's precondition-stop shape instead.

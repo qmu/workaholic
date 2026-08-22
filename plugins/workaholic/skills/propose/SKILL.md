@@ -123,6 +123,57 @@ Three of them carry the design:
   repository: two active strategies sharing a `target_date`, one building a platform whose build
   work sat queued for hours and one documentation direction that drained fast; the fast one won
   every tick for a day while the other never got a turn.
+### Pace: the one reading that is not a brake
+
+Every gate above **reduces** proposals. None of them asked whether the direction will
+**arrive**, so a strategy could be perfectly gated — every brake correct, every tick silent for
+a correct reason — and reach its date with nothing built. `target_date` was read only by
+`past_target_date` (*it has passed*), never *will it be met*; `landed[]` only by
+`no_citing_artifacts` and `work_waiting`. Both were already in the survey; nothing put them
+together.
+
+**Measured** on a consuming repository: a platform strategy seven days from its `target_date`
+whose 19 attributed artifacts were all specification pages, with no `tsconfig` and a deployment
+config still stating that the worker had no code of its own. Every gate was correct on every
+tick.
+
+`survey-strategies.sh` now emits **`pace`** on every surveyed row — eligible **and** refused,
+because a direction that will not arrive *and* is gated produces no proposal, and that is the
+case that starves.
+
+| `pace` | Meaning |
+| ------ | ------- |
+| `late` | Nothing landed over a period **as long as the one that remains** — one window looked back over, nothing in it, and fewer days left than that window |
+| `on_course` | Something landed in the window, or more runway remains than the window can see |
+| `unknown` | The attribution read was degraded, or the strategy has no resolvable `target_date` |
+
+**The derivation needs no threshold, which is what makes it defensible.** Both of its terms are
+already justified here: the window is *the evidence the judgment is made against*, and the
+remaining days are the strategy's own date. A ratio would imply an accuracy `landed[]` cannot
+support — its own reader states attribution is transitive and **lossy**.
+
+**It is evidence, never a verdict.** `unknown` is a real third answer and never collapses into
+either other one: a degraded read cannot tell a stalled direction from a moving one, and an
+undated strategy is malformed rather than late.
+
+**It does not judge what landed.** Whether documentation advances a build aim is
+`describing_move`'s question, answered there. This is rate and remaining time only.
+
+**It changes order, never eligibility.** Eligible strategies sort **late first**, then nearest
+`target_date`, so a tick that dies partway has advanced the direction least likely to arrive.
+`unknown` orders exactly where it did before. A late direction that is `work_waiting` is still
+`work_waiting` — the temptation to let lateness *lift* a gate is refused, because that produces
+two proposals for one direction and the answer to "the work is in flight but not moving" is a
+person, not another proposal.
+
+**Who is told, and why not here.** `/propose` posts nothing and its run report is read by
+whoever opens the session — on the day it matters, nobody. So the `late` reading is carried by
+`/moderate`'s `strategy-pace` step, which calls this same script (a pure read, no stored state,
+no second derivation) and asks the strategy's assignee once. The alternatives were weighed:
+`/propose`'s own report is the invisibility this exists to end — measured with `over_cap`, which
+named itself on every tick and still hid a day of starvation — and the proposal issue says
+nothing precisely when the direction is gated.
+
 - **`no_feedback_refs` is the answer to the lossy reader.** `attributed-work.sh` walks
   `strategy.feedback[] ∩ artifact.feedback[]` plus one hop through a mission and admits it
   cannot see everything. A strategy citing **no** record can never have anything attributed

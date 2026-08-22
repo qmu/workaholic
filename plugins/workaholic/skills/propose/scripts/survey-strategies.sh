@@ -12,10 +12,11 @@
 # Output (one JSON object):
 #   {ok, identity, window, cap, active_count,
 #    eligible: [{slug, title, target_date, days_to_target, assignees, feedback_refs[],
-#                empty_reason, count, active_count, waiting_count,
+#                empty_reason, count, active_count, waiting_count, pace,
 #                landed: [{kind, title, state, attribution, last_change}],
 #                path}],
-#    refused: [{slug, reason}], errors: [], selected: [<slug>...]}
+#    refused: [{slug, reason, pace, title, assignees, days_to_target}],
+#    errors: [], selected: [<slug>...]}
 #   or {ok: false, reason, detail} when a gate could not be read at all.
 #
 # ═══ THE GATES ARE THE BRAKE, AND THE BRAKE IS THE WHOLE DESIGN ═══════════════════════
@@ -88,6 +89,35 @@
 # output should be what it can conclude, and the brake belongs on work in flight PER
 # DIRECTION, which already exists and is untouched here.
 #
+# PACE: THE ONE READING THAT IS NOT A BRAKE (2026-08-22). Every gate above reduces
+# proposals. None asked whether the direction will ARRIVE, so a strategy could be
+# perfectly gated and still reach its date with nothing built -- measured on a consuming
+# repository, a platform strategy seven days from its date whose 19 attributed artifacts
+# were all specification pages and whose deploy config still said the worker had no code
+# of its own. Every gate was correct on every tick.
+#
+# THE DERIVATION NEEDS NO THRESHOLD, WHICH IS WHAT MAKES IT DEFENSIBLE. `late` means "no
+# evidence of movement over a period as long as the one that remains": one window was
+# looked back over, nothing landed in it, and fewer days remain than that window. Both
+# terms are already justified here -- the window is the evidence the judgment is made
+# against, and the remaining days are the strategy's own date. A ratio would imply an
+# accuracy `landed[]` cannot support, since its own reader states attribution is
+# transitive and LOSSY.
+#
+# IT IS EVIDENCE, NEVER A VERDICT. `unknown` is a real third answer and must not collapse
+# into either other one: a degraded attribution read cannot tell a stalled direction from a
+# moving one, and a strategy with no resolvable `target_date` is not late -- it is
+# malformed, since the artifact requires a date.
+#
+# IT DOES NOT JUDGE WHAT LANDED. Whether nineteen documentation pages advance a build aim
+# is `describing_move`'s question and is answered there. This reading is rate and remaining
+# time only; one judgement in two places is how they drift.
+#
+# IT CHANGES ORDER, NEVER ELIGIBILITY. A late direction that is `work_waiting` is still
+# `work_waiting`. The temptation is to let lateness LIFT a gate; that would produce two
+# proposals for one direction, which is what `work_waiting` exists to prevent, and the
+# answer to "the work is in flight but not moving" is not more proposals.
+#
 # WHY THE WINDOW IS 14 DAYS AND NOT THE STANDUP'S ONE. `landed[]` is not a changelog here;
 # it is the evidence the judgment is made against — "how far has this direction actually
 # got" — and a direction is not a morning. The window bounds what is SHOWN, never what is
@@ -117,6 +147,13 @@ while [ $# -gt 0 ]; do
 done
 
 WINDOW="${1:-14 days ago}"
+# The window in DAYS, for the pace reading. It is derived from the same `$WINDOW` the
+# evidence is gathered over rather than being a second, independently-tunable number --
+# "no movement over a period as long as the one that remains" only means anything while
+# the two are the same period. A window with no leading integer falls back to 14, which
+# is the documented default.
+WINDOW_DAYS="$(printf '%s' "$WINDOW" | sed -n 's/^\([0-9][0-9]*\).*/\1/p')"
+[ -n "$WINDOW_DAYS" ] || WINDOW_DAYS=14
 ROOT="${2:-.workaholic}"
 
 # UNBOUNDED BY DEFAULT (2026-08-22). `WORKAHOLIC_PROPOSE_MAX` survives as an explicit
@@ -185,7 +222,8 @@ jq -sc \
   --arg today "$TODAY" \
   --arg window "$WINDOW" \
   --arg identity "$IDENTITY" \
-  --argjson cap "$CAP" '
+  --argjson cap "$CAP" \
+  --argjson window_days "$WINDOW_DAYS" '
   def days($t): if ($t | test("^[0-9]{4}-[0-9]{2}-[0-9]{2}$"))
       then (((($t + "T00:00:00Z") | fromdateiso8601) - (($today + "T00:00:00Z") | fromdateiso8601)) / 86400 | floor)
       else null end;
@@ -205,6 +243,17 @@ jq -sc \
          queued: (($w.artifacts // []) | map(select(.kind == "ticket" and .state == "queued"))
                   | map({title})),
          unreadable: ($w.unreadable // false)}
+      | . + {pace:
+          # PACE -- WILL THIS DIRECTION ARRIVE? (2026-08-22.) Every other gate here is a
+          # brake. None of them asked this, so a strategy could be perfectly gated (every
+          # brake correct, every tick silent for a correct reason) and reach its date with
+          # nothing built. `days_to_target` was read ONLY by `past_target_date` -- it HAS
+          # PASSED -- never WILL IT BE MET; `landed[]` was read only by
+          # `no_citing_artifacts` and `work_waiting`. Both were already here; nothing put
+          # them together. Full reasoning: SKILL.md, *Pace: the one gate that is not a brake*.
+          (if .unreadable or (.days_to_target == null) then "unknown"
+           elif ((.landed | length) == 0) and (.days_to_target <= $window_days) then "late"
+           else "on_course" end)}
       | . + {refusal:
           (if .unreadable then "attribution_unreadable"
            elif .status != "active" then "not_active"
@@ -214,7 +263,12 @@ jq -sc \
            elif ((.waiting_count // 0) > 0) then "work_waiting"
            elif ($held | index($w.slug)) then "open_proposal"
            else "" end)} ]
-  | sort_by(if .days_to_target == null then 99999 else .days_to_target end)
+  # LATE FIRST, then nearest date. A tick that dies partway must have advanced the
+  # direction least likely to arrive, not merely the one with the nearest deadline.
+  # `unknown` orders exactly where it ordered before this existed: a pace that could not
+  # be read must neither promote nor demote a direction on a guess.
+  | sort_by([(if .pace == "late" then 0 else 1 end),
+             (if .days_to_target == null then 99999 else .days_to_target end)])
   | (map(select(.refusal == "")) ) as $ok
   | (if $cap < 0 then $ok else $ok[0:$cap] end) as $take
   | (if $cap < 0 then [] else ($ok[$cap:] | map({slug, reason: "over_cap"})) end) as $spill
@@ -222,7 +276,13 @@ jq -sc \
      active_count: ([.[] | select(.status == "active")] | length),
      surveyed_count: ($list.strategies | length),
      eligible: ($take | map(del(.refusal, .unreadable, .owns))),
-     refused: ((map(select(.refusal != "")) | map({slug, reason: .refusal})) + $spill),
+     # `refused` gains `pace`, `title`, `assignees` and `days_to_target` -- additive, so
+     # every existing reader that took {slug, reason} still reads what it always did. It is
+     # load-bearing for the STARVING case: a direction that will not arrive AND is gated
+     # produces no proposal, so a consumer reading only `eligible` would never see it.
+     refused: ((map(select(.refusal != ""))
+                | map({slug, reason: .refusal, pace, title, assignees, days_to_target}))
+               + $spill),
      selected: ($take | map(.slug)),
      errors: []}
   ' "${TMP}/rows"

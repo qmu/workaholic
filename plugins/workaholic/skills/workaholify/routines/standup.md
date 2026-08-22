@@ -62,7 +62,7 @@ Run `/standup`.
 
 If the command or its skills did not load, do not stop: run `bash plugins/workaholic/skills/check-deps/scripts/plugin-src.sh` from the checkout, take its `src`, then read `<src>/commands/standup.md` and follow it with every script path under `<src>`.
 
-If the digest is not a no-op and the exact-string search for today's token finds no earlier post, post this one message as a new top-level message (the workaholic:notify lookup) — no mention token of any kind:
+If the digest is not a no-op and a `📣 Standup` search bounded to today finds no earlier post, post this one message as a new top-level message (the workaholic:notify lookup) — no mention token of any kind:
 
 ```
 📣 Standup - <N> strategy/strategies, <M> moved since yesterday
@@ -72,4 +72,4 @@ If the digest is not a no-op and the exact-string search for today's token finds
 <session URL>
 ```
 
-If the digest is a no-op, or that search finds today's token already posted, post nothing.
+If the digest is a no-op, or that search finds today's digest already posted, post nothing.

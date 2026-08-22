@@ -221,7 +221,7 @@ moments.
   was handed, and the commits.
 - PR per unit — the URL, or the `pr_error` if creation failed.
 - **Notification outcome per unit** (`/implement` only — an attended `/drive` posts nothing, so it
-  reports nothing): for each thread the unit posted into, the surface used and the result —
+  reports nothing): for the one thread the unit posted into, the surface used and the result —
   `posted` with the thread it landed in, or the failure named (`no_surface` when the session has
   neither connector nor token, `no_token` / `no_channel` / `http_<code>` / `slack_<error>` as the
   fallback script reports them, `posted_as_root` when no thread was found and a keyed root was

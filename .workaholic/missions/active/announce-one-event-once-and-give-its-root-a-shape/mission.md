@@ -38,9 +38,10 @@ item is — the same readable shape `/specificate`'s root already has.
 
 ## Acceptance
 
-- [ ] A unit resolving to several stems posts one finish line, not one per stem (#20260822130305-announce-a-unit-s-finish-once-not-once-per-stem.md)
+- [x] A unit resolving to several stems posts one finish line, not one per stem (#20260822130305-announce-a-unit-s-finish-once-not-once-per-stem.md)
 - [ ] `/implement`'s no-thread root carries a linked title and a description sentence (#20260822130305-give-the-implement-no-thread-root-a-readable-shape.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-22 — ticket archived — 20260822130305-announce-a-unit-s-finish-once-not-once-per-stem.md

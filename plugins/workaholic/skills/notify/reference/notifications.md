@@ -15,9 +15,9 @@ by the [routine](<session URL>) of <@U…>
 
 `🔵 Proposed` retires the earlier `🟢 Proposed to <@U…> - ...` shape. Since 2026-08-14 it is a **reply** in every connector case — into the thread the stateless lookup found, or into the description root below when it found none. It is a keyed top-level line only on the tokened fallback, which cannot thread; there it carries `` `fb:<stem>` `` on its own line, never dropped. The retired `📐 Proposing` start once preceded it; nothing replaces it.
 
-#### The description root — `/specificate`, case 4 only
+#### The description root — every case 4
 
-The root the run posts **before** the finish line when the lookup found no thread (SKILL, *One thread per feedback item* case 4, *The description root*). `/implement`'s case-4 finish line is unaffected and stays its own keyed root. Byte-identical in `workaholify/routines/specificate.md`; a diff between the two copies is a drift to fix, never a second wording:
+The root the run posts **before** the finish line when the lookup found no thread (SKILL, *One thread per feedback item* case 4, *The description root*). **`/implement` posts it too, since 2026-08-22** — the shipped alternative was a top-level line opening with a status emoji and a pull request number and ending in a bare machine key, which the developer ruled unusable on sight. Byte-identical in `workaholify/routines/specificate.md` and `workaholify/routines/implement.md`; a diff between the copies is a drift to fix, never a second wording:
 
 ```
 📝 FB - [<feedback title>](<repo-url>/blob/main/.workaholic/feedbacks/<stem>.md)
@@ -26,7 +26,7 @@ One sentence, max 30 words, what the feedback asks for.
 <session URL>
 ```
 
-Then `🔵 Proposed` above as a reply whose `thread_ts` is this message's timestamp, without the `` `fb:<stem>` `` line — the key lives on the root, which is what case 2 searches for. **No mention token of any kind appears on the root**: a `<@U…>` resolving to the Claude app would re-trigger the Slack app on the routine's own post, and a person's mention belongs on the reply that names them. The title and the sentence come from the feedback record the run just wrote; nothing is invented for the post.
+Then the run's finish line — `🔵 Proposed` for `/specificate`, `🟢`/`🚀`/`🟡`/`🔴` for `/implement` — as a reply whose `thread_ts` is this message's timestamp, without the `` `fb:<stem>` `` line — the key lives on the root, which is what case 2 searches for. **No mention token of any kind appears on the root**: a `<@U…>` resolving to the Claude app would re-trigger the Slack app on the routine's own post, and a person's mention belongs on the reply that names them. The title and the sentence come from the feedback record the run just wrote; nothing is invented for the post.
 
 **Why the root links the record and not an auto-filed issue** (the ticket's Open Decision, ruled 2026-08-14 — issue #443). The report's title asked for a short `[FB]` issue to be filed so the root had a URL to point at; the record's own file URL answers the same need without either of that option's costs. An issue filed **assigned** is re-discovered as an inbound ask by `/specificate`'s clock-fired discovery on the next tick and **cannot be excluded** — `list-inbound-issues.sh` subtracts issues a feedback record already names, and the record naming this one was written *before* it, immutably; an **unassigned** issue is never discovered, which makes it safe and also makes it a page nobody is asked to act on. Opening an issue on this repository unattended would additionally be a new class of write: the confinement rule reserves issue-opening for `/fb`'s cross-repository mode behind a verbatim human confirmation. The accepted cost of linking the record instead: the `main` blob URL 404s until the proposal's pull request merges — which it does on opening, so the window is seconds, except when a scan finding holds the PR open, and then the run reports the link as pending rather than claiming it resolves.
 

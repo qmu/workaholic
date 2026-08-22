@@ -12,7 +12,6 @@
 * [refuse-a-commit-that-splits-a-rename](active/refuse-a-commit-that-splits-a-rename/mission.md) - Refuse a commit that splits a rename
 * [refuse-ok-under-a-placeholder-identity](active/refuse-ok-under-a-placeholder-identity/mission.md) - Refuse ok under a placeholder identity
 * [refuse-the-move-that-describes-the-aim-instead-of-advancing-it](active/refuse-the-move-that-describes-the-aim-instead-of-advancing-it/mission.md) - Refuse the move that describes the aim instead of advancing it
-* [take-the-dedup-key-out-of-the-read-post](active/take-the-dedup-key-out-of-the-read-post/mission.md) - Take the dedup key out of the read post
 * [tell-an-unanswered-question-from-an-answered-one](active/tell-an-unanswered-question-from-an-answered-one/mission.md) - Tell an unanswered question from an answered one
 
 ## archive
@@ -62,3 +61,4 @@
 * [split-routine-setup-into-developer-and-repository-scopes](archive/split-routine-setup-into-developer-and-repository-scopes/mission.md) - Split routine setup into developer and repository scopes
 * [stop-a-routine-finish-line-from-vanishing-on-the-script-path](archive/stop-a-routine-finish-line-from-vanishing-on-the-script-path/mission.md) - Stop a routine finish line from vanishing on the script path
 * [stop-the-runner-from-taking-path-owned-legacy-tickets](archive/stop-the-runner-from-taking-path-owned-legacy-tickets/mission.md) - Stop the runner from taking path-owned legacy tickets
+* [take-the-dedup-key-out-of-the-read-post](archive/take-the-dedup-key-out-of-the-read-post/mission.md) - Take the dedup key out of the read post

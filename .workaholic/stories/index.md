@@ -3,6 +3,7 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [work-20260822-195727](work-20260822-195727.md) - The loop stops answering a build strategy with documents — a describing move is refused by name, and a decomposable ask is planned instead of recorded
 * [work-20260822-175716](work-20260822-175716.md) - A unit's finish is announced once per channel instead of once per feedback stem, and the thread it opens now has something a human can read
 * [work-20260821-035855](work-20260821-035855.md) - A rename becomes one row in a shipped registry, and the last two old names — the housekeeping area and the report command — are its first users
 * [work-20260819-115425](work-20260819-115425.md) - Made `stories/` a generated OKF area so the one ledger index with no repairer got one — the description moved into each story's own `description:` frontmatter, `/report` stopped hand-writing bullets, and the existing index opted in via markers. Regenerating recovered **22 stories** the hand-maintained index had silently lost. Two narrow per-area knobs (`order`, `skip`) carry what stories need; the README skip is deliberately **per-area**, because `deployments/`, `release-notes/` and `terms/` each index their own README as a real entry — the ticket's claim that a global exclusion was safe was false on this tree. 3162 passing / 0 failed - 1 ticket

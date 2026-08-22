@@ -1385,7 +1385,7 @@ EOF
         add_row "propose_nearest_first" false "expected urgent to be selected, got: $(one_line "$_sel")" load
     fi
 
-    for _pair in "closed:not_active" "theirs:not_mine" "late:past_target_date" "blind:no_feedback_refs" "live:over_cap"; do
+    for _pair in "closed:not_active" "theirs:not_mine" "late:past_target_date" "blind:no_feedback_refs"; do
         _slug=${_pair%%:*}; _want=${_pair#*:}
         _got=$(_reason "$_slug")
         if [ "$_got" = "$_want" ]; then

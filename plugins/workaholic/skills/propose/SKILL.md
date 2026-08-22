@@ -86,7 +86,7 @@ propose housekeeping. What replaces the bar is not a softer judgment but a set o
 (`survey-strategies.sh`; each refusal is reported by name):
 
 `not_active` · `not_mine` · `past_target_date` · `no_feedback_refs` · `work_waiting` ·
-`open_proposal` · `over_cap` · `attribution_unreadable`
+`open_proposal` · `attribution_unreadable`
 
 **`describing_move` is reported beside them and is not one of them.** Those eight are computed by
 `survey-strategies.sh` and the running session cannot decide them differently; the describing
@@ -103,10 +103,26 @@ Three of them carry the design:
   A per-day bound was considered and refused: the ask is for three routines turning an
   **hourly** loop, and a daily cap on the only routine that originates work would cap the loop
   itself at one turn a day.
-- **`over_cap`** — one proposal per tick across *all* strategies (`WORKAHOLIC_PROPOSE_MAX`,
-  default 1), taking the eligible strategy with the nearest `target_date`. A developer
-  carrying eight directions must not wake to eight issues at `:40`. A capped strategy is
-  reported, so suppression is a delay and never a loss.
+- **`over_cap` is retired** (2026-08-22, the developer's ruling: one proposal per tick is not
+  enough — the tick should propose everything it can conclude at that moment). A tick now
+  proposes against **every** eligible strategy, still ordered nearest `target_date` first so a
+  tick that dies partway has advanced the most urgent direction. `WORKAHOLIC_PROPOSE_MAX`
+  survives as an explicit opt-in bound and its **default is unbounded** — the default is the
+  point, because a default of 1 is what produced the starvation below.
+
+  **The old reasoning is answered, not dropped.** It was: a developer carrying eight directions
+  must not wake to eight issues at `:40`. The volume bound was never this cap's to provide —
+  `work_waiting` and `open_proposal` already give *one proposal per strategy in flight at a
+  time*, so eight issues arrive only when all eight directions are idle, and then all eight
+  genuinely need their next move.
+
+  **And the cap ran backwards.** It reduced no total; it fixed an *order*, putting some
+  directions permanently behind others — and a strategy is skipped while its *own* work is in
+  flight, so the direction whose work takes **longer** was proposed against **less** often. The
+  direction that most needs its next move was the one being starved. Measured on a consuming
+  repository: two active strategies sharing a `target_date`, one building a platform whose build
+  work sat queued for hours and one documentation direction that drained fast; the fast one won
+  every tick for a day while the other never got a turn.
 - **`no_feedback_refs` is the answer to the lossy reader.** `attributed-work.sh` walks
   `strategy.feedback[] ∩ artifact.feedback[]` plus one hop through a mission and admits it
   cannot see everything. A strategy citing **no** record can never have anything attributed

@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260822-225608
 ---
 
 # Read a strategy's pace against its date

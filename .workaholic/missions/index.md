@@ -11,6 +11,7 @@
 * [name-the-session-type-that-cannot-merge](active/name-the-session-type-that-cannot-merge/mission.md) - Name the session type that cannot merge
 * [refuse-a-commit-that-splits-a-rename](active/refuse-a-commit-that-splits-a-rename/mission.md) - Refuse a commit that splits a rename
 * [refuse-ok-under-a-placeholder-identity](active/refuse-ok-under-a-placeholder-identity/mission.md) - Refuse ok under a placeholder identity
+* [refuse-the-move-that-describes-the-aim-instead-of-advancing-it](active/refuse-the-move-that-describes-the-aim-instead-of-advancing-it/mission.md) - Refuse the move that describes the aim instead of advancing it
 * [take-the-dedup-key-out-of-the-read-post](active/take-the-dedup-key-out-of-the-read-post/mission.md) - Take the dedup key out of the read post
 * [tell-an-unanswered-question-from-an-answered-one](active/tell-an-unanswered-question-from-an-answered-one/mission.md) - Tell an unanswered question from an answered one
 

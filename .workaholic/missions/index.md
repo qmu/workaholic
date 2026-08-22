@@ -9,6 +9,7 @@
 * [make-the-tick-s-root-earn-its-hour](active/make-the-tick-s-root-earn-its-hour/mission.md) - Make the tick's root earn its hour
 * [make-workaholify-converge-the-account-s-routines](active/make-workaholify-converge-the-account-s-routines/mission.md) - Make /workaholify converge the account's routines
 * [name-the-session-type-that-cannot-merge](active/name-the-session-type-that-cannot-merge/mission.md) - Name the session type that cannot merge
+* [read-a-strategy-s-pace-against-its-date](active/read-a-strategy-s-pace-against-its-date/mission.md) - Read a strategy's pace against its date
 * [refuse-a-commit-that-splits-a-rename](active/refuse-a-commit-that-splits-a-rename/mission.md) - Refuse a commit that splits a rename
 * [refuse-ok-under-a-placeholder-identity](active/refuse-ok-under-a-placeholder-identity/mission.md) - Refuse ok under a placeholder identity
 * [refuse-the-move-that-describes-the-aim-instead-of-advancing-it](active/refuse-the-move-that-describes-the-aim-instead-of-advancing-it/mission.md) - Refuse the move that describes the aim instead of advancing it

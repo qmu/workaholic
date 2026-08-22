@@ -4590,6 +4590,9 @@ function testStandupDigest() {
     // The token is the MORNING, not a content hash — the one place this shape deliberately
     // differs from `deploy:<digest>`: a daily digest speaks for today even when today
     // resembles yesterday, and what must be prevented is two posts for one morning.
+    // The token identifies the morning to a MACHINE. It is no longer printed at a reader
+    // (2026-08-22): the digest is deduped by a `📣 Standup` search bounded to today, so the
+    // morning is expressed as a search bound and nothing machine-shaped reaches the channel.
     assertTrue("the post token keys on the date", /^standup:\d{4}-\d{2}-\d{2}$/.test(d.token), d.token);
     assertEq("the token and the reported date agree", d.token, `standup:${d.date}`);
   } finally { cleanup(dir); }
@@ -5010,8 +5013,17 @@ function testStandupRoutineTemplate() {
   assertTrue("the shape catalog carries the standup block", catalogShape !== "", catalog.slice(0, 200));
   assertEq("the post reads byte-identically in the catalog and the [Standup] template",
     shape(tpl), catalogShape);
-  assertTrue("the line keys on the morning, not on a content hash",
-    /`standup:<YYYY-MM-DD>`/.test(catalogShape), catalogShape);
+  // THE MORNING IS A SEARCH BOUND, NOT A PRINTED KEY (2026-08-22, the developer's
+  // instruction, repeated: stop mixing strange ids into Slack). What is pinned is the
+  // ABSENCE -- a rendered post must carry no machine token -- and the property the key
+  // protected (one post per morning) is unchanged, expressed as a `📣 Standup` search
+  // bounded to today. The same removal took `fb:<stem>` off the description root (case 2
+  // searches the record filename the root already links; Slack indexes link URLs, measured)
+  // and `tick:<tick-id>` / `ask:<key>` off the moderation shapes, which NOTHING searched.
+  assertTrue("no rendered post carries a printed dedup key",
+    !/`(standup|fb|tick|ask|unit|stuck|deploy):/.test(catalogShape), catalogShape);
+  assertTrue("and the skill states the morning is a search bound",
+    /bounded to today/.test(readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/notify/SKILL.md"), "utf8")));
   assertTrue("and it carries no mention token of any kind",
     !/<@U/.test(catalogShape), catalogShape);
 }
@@ -15430,7 +15442,16 @@ function testStatelessThreadLookup() {
   // The root carries the lookup's own key -- case 2 searches for `fb:<stem>`, so moving the
   // key onto the root is safe only while the root keeps it -- and carries no mention token,
   // since mentioning the Claude app would re-trigger it on the routine's own post.
-  assertTrue("the description root carries the fb:<stem> key", /`fb:<stem>`/.test(catalogRoot), catalogRoot);
+  // NO PRINTED KEY REACHES A READER (2026-08-22). The root links the record at
+  // `.../feedbacks/<stem>.md`, and Slack indexes link URLs -- MEASURED, by searching
+  // `<stem>.md`, a string present nowhere in the message but inside that URL, and getting
+  // the message back. So case 2 searches the filename the root already carries and the
+  // separate `fb:<stem>` line was the same identifier printed twice, once at a machine and
+  // once at a person. What is pinned is the absence AND the surviving link, because the
+  // link is what makes the removal safe.
+  assertTrue("the description root prints no dedup key", !/`fb:<stem>`/.test(catalogRoot), catalogRoot);
+  assertTrue("and still links the record, which is what case 2 now searches",
+    /feedbacks\/<stem>\.md/.test(catalogRoot), catalogRoot);
   assertTrue("the notify skill states the root's no-Claude-mention rule",
     /no Claude mention token/i.test(notifySkill));
 }
@@ -19140,8 +19161,10 @@ function testModerateRoutineTemplate() {
     assertTrue("the catalog carries the tick's root", r !== "", "missing from notifications.md");
     assertEq("the root reads byte-identically in the template and the catalog",
       block(template, "🔎 Moderation"), r);
-    assertTrue("the root carries the tick token, not a content hash",
-      /`tick:<tick-id>`/.test(r), r);
+    // `tick:<tick-id>` was printed at the reader until 2026-08-22 and searched by NOTHING.
+    // The token survives in render-tick-post.sh's JSON for a machine consumer; the line at
+    // a person is gone.
+    assertTrue("the root prints no tick key", !/`tick:/.test(r), r);
     assertTrue("and no mention token of any kind", !/<@U/.test(r), r);
   }
   assertEq("and they are the only two shapes the template authorizes",
@@ -19157,8 +19180,12 @@ function testModerateRoutineTemplate() {
   // post that needs a specific person to do something.
   assertTrue("the question carries a resolved mention",
     /<@U…>/.test(block(catalog, "🙋 <@U…>")), block(catalog, "🙋 <@U…>"));
-  assertTrue("and keys on ask:<key>, the content key its already-asked ledger searches",
-    /`ask:<key>`/.test(block(catalog, "🙋 <@U…>")), block(catalog, "🙋 <@U…>"));
+  // The already-asked ledger is the TICK LOG, not the post: `ask-question.sh` matches the
+  // step id in `.workaholic/moderations/` and reads Slack at no point, so the printed
+  // `ask:<key>` line was noise from the day the ledger moved (2026-08-19). Removed
+  // 2026-08-22.
+  assertTrue("the question prints no key", !/`ask:/.test(block(catalog, "🙋 <@U…>")),
+    block(catalog, "🙋 <@U…>"));
 
   // Scope, cron and the write grant are the template's own claims; CLAUDE.md's routines
   // table must state the same ones, since that table is where a human reads them.

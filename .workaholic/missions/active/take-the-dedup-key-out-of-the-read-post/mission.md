@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260822-232014
 ---
 
 # Take the dedup key out of the read post
@@ -45,10 +46,13 @@ item's thread and replies into it, exactly once.
 
 ## Acceptance
 
-- [ ] The path that printed the observed key is identified, not assumed (#20260821151007-find-which-path-printed-the-visible-key.md)
-- [ ] What the Slack search surface matches is measured before anything is designed on it (#20260821151007-measure-what-the-slack-search-surface-matches.md)
-- [ ] No post carries a key a human reads, and one item still owns exactly one thread (#20260821151007-take-the-key-out-of-the-post-body.md)
+- [x] The path that printed the observed key is identified, not assumed (#20260821151007-find-which-path-printed-the-visible-key.md)
+- [x] What the Slack search surface matches is measured before anything is designed on it (#20260821151007-measure-what-the-slack-search-surface-matches.md)
+- [x] No post carries a key a human reads, and one item still owns exactly one thread (#20260821151007-take-the-key-out-of-the-post-body.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-22 — ticket archived — 20260821151007-find-which-path-printed-the-visible-key.md
+- 2026-08-22 — ticket archived — 20260821151007-measure-what-the-slack-search-surface-matches.md
+- 2026-08-22 — ticket archived — 20260821151007-take-the-key-out-of-the-post-body.md

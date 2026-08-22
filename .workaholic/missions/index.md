@@ -12,6 +12,7 @@
 * [make-an-open-decision-a-question-to-answer-not-a-ruling](active/make-an-open-decision-a-question-to-answer-not-a-ruling/mission.md) - Make an Open Decision a question to answer, not a ruling
 * [make-the-draft-release-note-an-agent-s-release-plan](active/make-the-draft-release-note-an-agent-s-release-plan/mission.md) - Make the draft release note an agent's release plan
 * [make-the-routine-create-body-documented-and-buildable](active/make-the-routine-create-body-documented-and-buildable/mission.md) - Make the routine create body documented and buildable
+* [make-the-tick-s-root-earn-its-hour](active/make-the-tick-s-root-earn-its-hour/mission.md) - Make the tick's root earn its hour
 * [make-workaholify-converge-the-account-s-routines](active/make-workaholify-converge-the-account-s-routines/mission.md) - Make /workaholify converge the account's routines
 * [make-workaholify-converge-the-repository-state](active/make-workaholify-converge-the-repository-state/mission.md) - Make workaholify converge the repository state
 * [name-the-session-type-that-cannot-merge](active/name-the-session-type-that-cannot-merge/mission.md) - Name the session type that cannot merge

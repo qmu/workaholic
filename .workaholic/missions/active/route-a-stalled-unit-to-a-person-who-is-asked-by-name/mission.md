@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260823-112419
 ---
 
 # Route a stalled unit to a person who is asked by name

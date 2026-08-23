@@ -16,7 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
-claim: work-20260822-200945
+claim: work-20260823-161806
 ---
 
 # Make the tick's root earn its hour

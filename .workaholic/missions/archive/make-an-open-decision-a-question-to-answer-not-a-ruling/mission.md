@@ -2,7 +2,7 @@
 type: Mission
 title: Make an Open Decision a question to answer, not a ruling
 slug: make-an-open-decision-a-question-to-answer-not-a-ruling
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-22T12:58:05+09:00
 author: a@qmu.jp
@@ -47,3 +47,4 @@ the sources it read and why they did not answer the item.
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-23 — ticket archived — 20260822125851-require-reading-an-open-decision-s-sources-before-blocking.md
 - 2026-08-23 — ticket archived — 20260822125851-stop-writing-a-self-certifying-open-decision.md
+- 2026-08-23 — mission achieved — mission.md

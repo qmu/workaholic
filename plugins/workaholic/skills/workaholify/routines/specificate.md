@@ -96,7 +96,7 @@ If it finds an ask in hand, post one finish line into its reply thread (the work
 
 ```
 🔵 Proposed - [#123 [Proposal] PR Title]({repo}/pull/123)
-by the [routine](https://claude.ai/code/session_***) of <@U…>
+by the [routine](https://claude.ai/code/session_***)
 ```
 
 If that lookup finds no thread, post this description root first and the finish line above as a reply into it — no mention token of any kind on the root:

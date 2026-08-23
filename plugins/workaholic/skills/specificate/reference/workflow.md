@@ -229,7 +229,15 @@ and every abort reports a machine-readable reason.
    (mission `auto-merge-propose-and-implement-prs-under-a-dev-release-branch-split`,
    2026-08-11): the report's `merged`/`merge_reason` says what happened, and any
    release-scan finding leaves the PR open for a human instead — report that as
-   the outcome, never retry the merge by hand in the same run. **Whenever this run
+   the outcome, never retry the merge by hand in the same run.
+   **`merge_reason: session_type_cannot_merge` is the one exception, and it is not a
+   failure** (2026-08-23): a Claude Code Web session is answered `403 "Merging pull
+   requests is not permitted for this session type"`, which is the execution class
+   saying no — not a fault in the change, not a conflict, not a race. Retry that one
+   through `mcp__github__merge_pull_request` (`rules/shell.md`, *The one qualification*),
+   **once**, and report both outcomes by name: merged through the connector, or the
+   pull request left open with the REST refusal and the connector's own. Every other
+   `merge_reason` is reported as-is and never retried; a scan finding least of all. **Whenever this run
    wrote under `.workaholic/strategies/` — step 9b's create or step 9c's close —
    leave `WORKAHOLIC_AUTO_MERGE` unset**: a strategy-touching proposal is the one
    kind this run deliberately does not merge, because the operator's merge is what

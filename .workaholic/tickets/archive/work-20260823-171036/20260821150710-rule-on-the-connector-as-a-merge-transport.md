@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-21T15:07:10+09:00
+status: done
 author: a@qmu.jp
 assignees: [tamura.yoshiya@gmail.com]
 depends_on:
@@ -98,3 +99,63 @@ either way — including "no", with the reasoning recorded, which is a complete 
    recoverable state. Resolve it in the Final Report; do not adopt the connector merely because
    it worked once.
 
+
+## Final Report
+
+**Done. Open Decision 1 is resolved: yes, narrowly.**
+
+### The ruling
+
+A REST merge refused with `session_type_cannot_merge` — and **only** that refusal — may be
+retried once through `mcp__github__merge_pull_request`. A second attempt behind REST, never a
+replacement. Reads, writes and pull-request creation stay REST-only; `gh issue|pr|repo` stays
+banned and the suite's tripwire is untouched. Written into `rules/shell.md` as a qualification
+of the REST rule, into `specificate/reference/workflow.md` step 10 as the seam, and into
+`CLAUDE.md`.
+
+The rejected side is recorded rather than dismissed, because it was not obviously worse: keep
+the rule absolute and let a web-session proposal stay open with an honest reason. What lost it
+is that **the honest reason had nobody to reach.** A finished, green unit sat at an open pull
+request and the only party who could act was a human who was never told. "Recoverable" describes
+a state a person is looking at; nothing was looking at this one.
+
+The cost is stated rather than absorbed: a script cannot call an MCP tool, so this moves one
+step into the calling agent, against this repository's own no-inline-shell grain. It is bought
+narrowly — one tool, one named precondition, one act — and the script reports the refusal rather
+than pretending it merged. That tension was the substance of the decision, exactly as the
+Considerations said, and it is answered by making the exception too small to grow.
+
+### The measurement, and where it stops
+
+Step 1's precondition was that the evidence come from **the tick's execution class**, not an
+interactive one. It does, partly, and the gap is reported rather than papered over:
+
+- **Routine-fired container, connector present and working — measured.** The `[Implement]` tick
+  of 2026-08-23 07:33 UTC (`cse_01MTFyJuBmo1GpmnJozsYHZi`) successfully called
+  `mcp__github__list_pull_requests` and `mcp__github__pull_request_read`. The connector is not a
+  fiction in a tick.
+- **A merge through it is measured only in an interactive session** — the reporter's own
+  observation, 200 on the pull request REST had just refused. No tick has been observed merging.
+- **And a connector is not universal**: this driving session had **no GitHub connector exposed
+  at all**. That is not a footnote — it is the reason the shape had to be *retry behind REST*
+  and not *use the connector*, and it is why the design reports **both** outcomes by name
+  instead of assuming the second attempt is available.
+
+So the seam is written to be correct when the tool is absent, present-and-refusing, and
+present-and-merging, and the run says which happened. Adopting it because it worked once is
+what the Open Decision warned against; what is adopted is a fallback that names its own
+absence.
+
+### Verification
+
+`node scripts/test-workflow-scripts.mjs` — **3426 passed, 0 failed** (read from the log tally,
+not the exit code), including the REST-only tripwire, which the ruling does not weaken: the
+qualification is agent-level and no script gained a non-REST call. `build.mjs` + `verify.mjs`
+clean.
+
+### Not done, and why
+
+Step 4's clause ("if the ruling is no, note it in the routine templates") does not apply. The
+templates' `mcp` lists are untouched: `[Specificate]` and `[Implement]` already carry the
+connector, and adding it to `[Propose]` — which writes nothing and merges nothing — would widen
+a surface for no act.

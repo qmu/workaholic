@@ -22,9 +22,54 @@ opens that judgment as a **GitHub issue assigned to that identity** — the one 
 `/specificate`'s unattended entrance actually reads.
 
 **It is a pure reader of this repository.** No file, no commit, no branch, no pull request, no
-merge, no deployment, and no `AskUserQuestion` at any step. Its only write is the issue, and
-that write lands on GitHub, not in the tree — the same contract `/standup` and
+merge, no deployment, and no `AskUserQuestion` at any step. Its only writes are issues, and
+every one lands on GitHub, not in the tree — the same contract `/standup` and
 `/prepare-release` hold, and the reason it adds no unattended-`main`-writer class.
+
+## The inbound sweep — the channel is read, not mentioned
+
+**Before the strategy judgment, the run sweeps the repository's designated Slack channel for
+asks nobody addressed to any bot** (2026-08-23, the developer's instruction). The loop's two
+inbound surfaces are now **GitHub issues** — which `[Specificate]`'s hourly discovery already
+reads — and **the channel**, which this sweep converges onto that same issue surface. The
+Claude Tag route (an ask captured only when a person wrote `@Claude`) is retired as a
+dependency: it cost a tagged session per ask and stopped capturing entirely at the usage
+limit, so an ask's arrival depended on a budget. This sweep reads the channel **as the running
+identity through the Slack connector** — no mention required, no tagged session spent — and
+files the same `[FB]` issue the tag produced, so the deliverable is unchanged and everything
+downstream (`[Specificate]`'s ingestion, the record, the proposal) is untouched.
+
+**The channel** is `WORKAHOLIC_INBOUND_SLACK_CHANNEL`, defaulting to the repository's own
+`dev-<repo_name>` — the channel `workaholic:notify` already holds standing consent to read.
+**The window** is `WORKAHOLIC_INBOUND_SLACK_WINDOW_HOURS` (default 26): wider than the hourly
+tick by a day so a missed tick drops nothing, and the dedup below is what makes the overlap
+free.
+
+**What is FB-worthy is the feedback skill's own bar** (`workaholic:feedback`, *Whether this
+merits filing*): a genuine ask, instruction, concern or must-not-miss item written by a
+person. Three exclusions, each by shape rather than judgment: **the loop's own posts** (the
+routine roots, replies and finish lines this plugin's skills emit — a machine's post is never
+an opinion to capture); **messages a filed issue already names**, matched by the
+`slack-ref: <channel>:<ts>` marker `list-swept-slack-refs.sh` reads back out of the issue
+ledger; and **answers to the tick's own questions**, which belong to `/moderate`'s
+`record-answer.sh`, not to a new issue. When unsure whether a message is an ask, the standing
+bar applies — this sweep captures, it does not originate, so *when unsure, skip and say what
+made you unsure* costs one hour, not the ask.
+
+**Each capture goes through one writer**: `file-inbound-ask.sh` stamps the three-axis header
+(`source: slack` fixed; `subject` is the message author's — `person:<display name>`, never the
+machine), the `slack-ref:` dedup marker and the message's permalink, then hands the body to
+`feedback/scripts/open-issue.sh` — same title stamp, same `--assignee <running identity>`, same
+REST transport as every other capture. The next `[Specificate]` tick ingests it like any
+issue.
+
+**Degradations are named, and the strategy flow never waits for them**: no Slack connector in
+the session → `no_slack_transport`, sweep skipped and said; an unreadable channel →
+`channel_unreadable` with the transport's own error; an unreadable issue ledger →
+`sweep_dedup_unreadable`, and the sweep is **skipped** rather than run blind — filing against
+an unreadable dedup is how the same ask arrives twice an hour. The run report names every
+message filed (issue URL), every one excluded (reason), and every degradation. The sweep
+happening or not never changes what the strategy half proposes.
 
 **It is not the `/propose` this repository retired.** That name belonged to what is now
 `/specificate` (renamed 2026-08-19), and `[Propose]` belonged to what is now `[Moderate]`.
@@ -220,12 +265,24 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/list-open-proposals.sh
 # The ONE writer, and its only write is a GitHub issue.
 bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/open-proposal.sh \
   --strategy <slug> --move depth|breadth|contraction --title "<title>" <body-file>
+
+# The inbound sweep's dedup ledger: which channel messages are already an issue.
+bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/list-swept-slack-refs.sh
+
+# The inbound sweep's ONE writer: one FB-worthy message -> one [FB] issue.
+bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/file-inbound-ask.sh \
+  --slack-ref <channel>:<ts> --permalink <url> \
+  --subject 'person:<name>' --assignee <login> <owner/name> "<title>" <body-file>
 ```
 
 The run itself is five steps: [reference/loop.md](reference/loop.md) carries them, together
 with the clock placement, the name reclamation, and the alternatives that were refused.
 
 ## It posts nothing to Slack
+
+**It reads Slack since 2026-08-23 — the inbound sweep above — and still posts nothing**: the
+sweep consumes the channel and writes only issues. The distinction is load-bearing, because
+the reasons below are all about *posting*.
 
 The issue is assigned to exactly one person, who is the running identity, and GitHub already
 delivers it to them. A Slack copy would be the same noise twice — the argument that gives

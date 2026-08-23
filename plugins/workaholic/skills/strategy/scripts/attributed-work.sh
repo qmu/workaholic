@@ -8,6 +8,7 @@
 #
 # Output (one JSON object):
 #   {slug, found, window, feedback_refs[], count, active_count, waiting_count,
+#    waiting_kind, waiting_describing, waiting_advancing,
 #    artifacts: [{kind, path, title, state, attribution, changed_in_window, last_change}],
 #    empty, empty_reason}
 #
@@ -227,17 +228,36 @@ ARTIFACTS=$(emit_records < "${TMP}/hits" | jq -Rs '
     | sort_by([(if .changed_in_window then 0 else 1 end), .kind, .path])')
 [ -n "$ARTIFACTS" ] || ARTIFACTS='[]'
 
+# WHAT KIND OF WORK IS QUEUED (2026-08-23). A page ABOUT the work cites the same feedback ref
+# the work would, so attribution alone cannot tell them apart — and `work_waiting` reading the
+# undifferentiated count is what let a documentation queue block the proposal that would have
+# built something. `work-kind.sh` classifies each queued ticket from its own `## Key Files`
+# paths; this stays the ONE reader of attribution and gains no second path to it, because the
+# classification asks what a ticket IS, never whose strategy it belongs to.
+QUEUED_PATHS=$(printf '%s' "$ARTIFACTS" | jq -r '.[] | select(.kind == "ticket" and .state == "queued") | .path' 2>/dev/null || true)
+KIND_JSON='{"kind": "unknown", "counts": {"describing": 0, "advancing": 0, "unknown": 0}, "tickets": []}'
+if [ -n "$QUEUED_PATHS" ]; then
+    # shellcheck disable=SC2086
+    KIND_JSON=$(sh "${SCRIPT_DIR}/work-kind.sh" $QUEUED_PATHS 2>/dev/null || printf '%s' "$KIND_JSON")
+fi
+printf '%s' "$KIND_JSON" > "${TMP}/kind.json"
+
 printf '%s' "$ARTIFACTS" > "${TMP}/artifacts.json"
 jq -nc \
     --arg slug "$SLUG" \
     --arg window "$WINDOW" \
     --argjson refs "$REFS_JSON" \
-    --slurpfile arts "${TMP}/artifacts.json" '
+    --slurpfile arts "${TMP}/artifacts.json" \
+    --slurpfile kind "${TMP}/kind.json" '
     ($arts[0]) as $a
+    | ($kind[0]) as $k
     | ($a | map(select(.changed_in_window)) | length) as $active
     | ($a | map(select(.kind == "ticket" and .state == "queued")) | length) as $waiting
     | {slug: $slug, found: true, window: $window, feedback_refs: $refs,
        count: ($a | length), active_count: $active, waiting_count: $waiting,
+       waiting_kind: ($k.kind // "unknown"),
+       waiting_describing: ($k.counts.describing // 0),
+       waiting_advancing: (($k.counts.advancing // 0) + ($k.counts.unknown // 0)),
        artifacts: $a,
        empty: (($a | length) == 0),
        empty_reason: (if ($a | length) == 0 then "no_citing_artifacts"

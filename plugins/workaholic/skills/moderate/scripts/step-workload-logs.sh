@@ -56,8 +56,14 @@ fm_field() {
 }
 
 emit() {
-    printf '{"step": "workload-logs", "status": "%s", "reason": "%s", "summary": "%s", "needs_agent": [%s], "targets": [%s]}\n' \
-        "$1" "$2" "$(json_escape "$3")" "$4" "$5"
+    # `event` is the POST-facing phrase, beside the LOG-facing `summary` and never instead of it
+# (2026-08-23). Two audiences: the log is an audit trail a maintainer reads when the tick
+# misbehaves and keeps every counter; the root is read by a person scanning a channel, who
+# needs the repository's event. This step supplies it because it knows what its finding means.
+# **Empty means nothing happened here** — the renderer then emits no line at all, independently
+# of the change diff.
+printf '{"step": "workload-logs", "status": "%s", "reason": "%s", "summary": "%s", "needs_agent": [%s], "targets": [%s], "event": "%s"}\n' \
+        "$1" "$2" "$(json_escape "$3")" "$4" "$5" "$(json_escape "${6:-}")"
     exit 0
 }
 
@@ -114,4 +120,5 @@ fi
 
 emit ok "" \
     "${total} target(s): ${readable} readable, ${no_source} without a log_locator, ${no_creds} without credentials here" \
-    "$needs" "$targets"
+    "$needs" "$targets" \
+    "${readable} deployment target(s) have a workload log this environment can read"

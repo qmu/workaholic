@@ -70,8 +70,14 @@ json_escape() {
 
 emit() {
     # $1 status  $2 reason  $3 summary  $4 needs_agent body  $5 surfaces body
-    printf '{"step": "inbound-sweep", "status": "%s", "reason": "%s", "summary": "%s", "needs_agent": [%s], "surfaces": {%s}, "since": "%s"}\n' \
-        "$1" "$2" "$(json_escape "$3")" "$4" "$5" "$(json_escape "$SINCE")"
+    # `event` is the POST-facing phrase, beside the LOG-facing `summary` and never instead of it
+# (2026-08-23). Two audiences: the log is an audit trail a maintainer reads when the tick
+# misbehaves and keeps every counter; the root is read by a person scanning a channel, who
+# needs the repository's event. This step supplies it because it knows what its finding means.
+# **Empty means nothing happened here** — the renderer then emits no line at all, independently
+# of the change diff.
+printf '{"step": "inbound-sweep", "status": "%s", "reason": "%s", "summary": "%s", "needs_agent": [%s], "surfaces": {%s}, "since": "%s", "event": "%s"}\n' \
+        "$1" "$2" "$(json_escape "$3")" "$4" "$5" "$(json_escape "$SINCE")" "$(json_escape "${6:-}")"
     exit 0
 }
 
@@ -149,6 +155,11 @@ if [ -n "$candidates" ]; then
     count=$(printf '%s' "$candidates" | awk '{ print gsub(/"surface": "github"/, "&") }')
 fi
 
+# The event names only what ARRIVED. `seen`, `skipped` and the surfaces left to probe are
+# the tick's own bookkeeping and stay in the log; an hour with nothing new to judge leaves
+# the event empty and renders no line.
+INBOUND_EVENT=""
+[ "${count:-0}" -gt 0 ] && INBOUND_EVENT="${count} new inbound ask(s) arrived on GitHub"
 emit ok "" \
     "GitHub read since ${SINCE}: ${seen} updated, ${skipped} already captured, ${count} to judge; slack/gmail/drive left for the agent to probe" \
-    "${candidates:+${candidates}, }$AGENT_SURFACES" "\"github\": \"read\", $SURFACES"
+    "${candidates:+${candidates}, }$AGENT_SURFACES" "\"github\": \"read\", $SURFACES" "$INBOUND_EVENT"

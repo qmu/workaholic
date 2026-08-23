@@ -71,9 +71,15 @@ while [ $# -gt 0 ]; do
 done
 : "${TICK:?}"
 
+# `event` is the POST-facing phrase, beside the LOG-facing `summary` and never instead of it
+# (2026-08-23). Two audiences: the log is an audit trail a maintainer reads when the tick
+# misbehaves and keeps every counter; the root is read by a person scanning a channel, who
+# needs the repository's event. This step supplies it because it knows what its finding means.
+# **Empty means nothing happened here** — the renderer then emits no line at all, independently
+# of the change diff.
 emit() {
-    printf '{"step": "closable-missions", "status": "%s", "reason": "%s", "summary": "%s", "needs_agent": [%s]}\n' \
-        "$1" "$2" "$3" "${4:-}"
+    printf '{"step": "closable-missions", "status": "%s", "reason": "%s", "summary": "%s", "needs_agent": [%s], "event": "%s"}\n' \
+        "$1" "$2" "$3" "${4:-}" "${5:-}"
     exit 0
 }
 
@@ -117,4 +123,5 @@ needs=$(printf '[%s]' "$closable" | jq -c '{action: "tell_the_operator_these_mis
     bound: "report only; never close one — close.sh is the single writer of an end state and the archive gate owns the one case a machine may end",
     closable: .}' 2>/dev/null || echo '{}')
 
-emit ok "" "${n} mission(s) finished and still open, of ${scanned} active" "$needs"
+emit ok "" "${n} mission(s) finished and still open, of ${scanned} active" "$needs" \
+    "${n} mission(s) are finished and still open"

@@ -2,7 +2,7 @@
 type: Mission
 title: Make the tick's root earn its hour
 slug: make-the-tick-s-root-earn-its-hour
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-22T17:50:45+09:00
 author: a@qmu.jp
@@ -41,10 +41,12 @@ post, every line names something that happened to the repository.
 - [x] An hour whose steps found the same thing as the hour before produces no change (#20260822175131-diff-the-tick-s-steps-on-a-stable-form.md)
 - [x] A root with no question posts only for a named class of change, never for a differing
       summary string (#20260822175131-make-a-question-less-root-earn-its-post.md)
-- [ ] Every rendered line names a repository event, not a tick counter (#20260822175131-say-what-happened-not-what-the-tick-counted.md)
+- [x] Every rendered line names a repository event, not a tick counter (#20260822175131-say-what-happened-not-what-the-tick-counted.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-22 — ticket archived — 20260822175131-diff-the-tick-s-steps-on-a-stable-form.md
 - 2026-08-22 — ticket archived — 20260822175131-make-a-question-less-root-earn-its-post.md
+- 2026-08-23 — ticket archived — 20260822175131-say-what-happened-not-what-the-tick-counted.md
+- 2026-08-23 — mission achieved — mission.md

@@ -4729,8 +4729,15 @@ function testModerateTickPost() {
   const dir = makeRepo("main");
   const LOG = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/log-append.sh")}`;
   const RENDER = `${POSIX_SH} ${SCRIPTS.renderTickPost}`;
+  // A row carries BOTH lines since 2026-08-23: `summary` is what the diff reads (the log's
+  // own text) and `event` is what the root renders. A pair with no third element gets an
+  // event derived from its summary, because these cases are about the DIFF; the cases about
+  // the event's own rules pass it explicitly, including the empty string.
   const rows = (pairs) => JSON.stringify({
-    rows: pairs.map(([step, summary]) => ({ step, status: "ok", summary })),
+    rows: pairs.map(([step, summary, event]) => ({
+      step, status: "ok", summary,
+      event: event === undefined ? `${step} says ${summary}` : event,
+    })),
   });
   // Through a FILE, not an inline shell string: the payload is JSON full of quotes and the
   // point of the test is the parsing, not the quoting.
@@ -4772,9 +4779,22 @@ function testModerateTickPost() {
     // trailing newline dropped on this script's first run.
     r = render(rows([["issue-triage", "5 stale issues"], ["doc-drift", "2 documents drifted"]]), "--tick 20260821-100000 --questions 1");
     assertEq("both changed steps are counted", [r.post, r.change_count], [true, 2]);
-    assertTrue("and both reach the root text",
-      /issue-triage: 5 stale issues/.test(r.root_text) && /doc-drift: 2 documents drifted/.test(r.root_text),
+    // THE LINE IS THE EVENT, NOT `<step>: <summary>` (2026-08-23). A root line used to be the
+    // step's LOG summary rendered verbatim, prefixed by the step id — an audit trail shown to
+    // a person scanning a channel.
+    assertTrue("and both reach the root text as their events",
+      /issue-triage says 5 stale issues/.test(r.root_text) && /doc-drift says 2 documents drifted/.test(r.root_text),
       r.root_text);
+    assertTrue("with no step-id prefix and no log counter",
+      !/issue-triage: /.test(r.root_text), r.root_text);
+
+    // A STEP WITH NO EVENT RENDERS NO LINE, independently of the diff: its summary changed
+    // here and it still contributes nothing, which is the guard a regression in the diff
+    // cannot undo.
+    const q = render(rows([["issue-triage", "7 stale issues", "7 issues are stale"],
+                           ["doc-drift", "no new drift", ""]]), "--tick 20260821-100000 --questions 1");
+    assertEq("a changed step with no event is not counted", q.change_count, 1);
+    assertTrue("and contributes no line", !/doc-drift/.test(q.root_text), q.root_text);
     assertTrue("the root is valid JSON with its newlines escaped", typeof r.root_text === "string" && r.root_text.includes("\n"), r.root_text);
 
     // A question alone earns the root: the root exists to carry the questions under it.

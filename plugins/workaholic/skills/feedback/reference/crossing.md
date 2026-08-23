@@ -80,7 +80,9 @@ The command owns every `AskUserQuestion` (one-level fan-out; subagents cannot pr
    bash ${CLAUDE_PLUGIN_ROOT}/skills/feedback/scripts/fb-title.sh "<title>"
    ```
    Confirming one string and sending another is not a verbatim confirmation, and this
-   gate is the crossing's only human one.
+   gate is the crossing's only human one. **Name the assignee the send will request**
+   (step 7) beside the destination: it decides whether the target's loop sees the ask or a
+   person must, so it is a material fact of the act being confirmed.
 
 5. **Scan it** as an independent second layer:
    ```bash
@@ -97,16 +99,37 @@ The command owns every `AskUserQuestion` (one-level fan-out; subagents cannot pr
    On a refusal, mask and **re-confirm from step 4** — a body that changed after the
    developer read it has not been confirmed.
 
-7. **Send it.**
+7. **Send it, offering the assignment.**
    ```bash
-   bash ${CLAUDE_PLUGIN_ROOT}/skills/feedback/scripts/open-issue.sh <owner/name> "<title>" <body-file>
+   bash ${CLAUDE_PLUGIN_ROOT}/skills/feedback/scripts/open-issue.sh --assignee <login> <owner/name> "<title>" <body-file>
    ```
-   Returns `{ok, url, slug, requested_assignee, assignees, assigned}`. A refusal from
-   `gh` — issues disabled, no access for this identity — is reported verbatim and never
-   worked around. **The crossing passes no `--assignee`**: naming one of *our* identities
-   on somebody else's tracker would be composing in our vocabulary, and the target's
-   maintainers assign their own work. Without the flag the request body is what it has
-   always been, and `assignees` comes back empty.
+   `<login>` is the invoking identity (`gh-rest.sh available`). Returns
+   `{ok, url, slug, requested_assignee, assignees, assigned}`. A refusal from `gh` —
+   issues disabled, no access for this identity — is reported verbatim and never worked
+   around.
+
+   **The crossing offers the assignment and lets GitHub decide** (2026-08-23, measured).
+   The rule here until then was that it passed no `--assignee`, on the ground that naming
+   one of *our* identities on somebody else's tracker composes in our vocabulary. That
+   holds for a stranger's repository and is enforced by GitHub rather than by us: the API
+   **drops** a login without access instead of refusing the request, so the flag is
+   self-limiting — on a tracker we cannot be assigned on, the issue arrives exactly as it
+   always did and `assigned: false` says so.
+
+   What the old rule cost is the case that matters: **a target running this same loop.**
+   `[Specificate]`'s discovery lists only issues assigned to the running identity and
+   deliberately never unassigned ones, so an unassigned crossing issue was captured and
+   proposed by nobody — the same "captured but not discovered" failure the in-repo
+   fallback documents as its one cost, except here it was the *ordinary* path. Measured on
+   an operator's ruling that three blocked tickets were waiting for: filed correctly,
+   scanned, confirmed, and ingested by nothing until a human assigned it by hand.
+
+   **Report `assigned` either way, in the one-line report.** A dropped assignment is not a
+   failure and never fails issue creation; it is the fact that decides whether the target's
+   loop will see the ask or a person must. The stated cost of the new default: on a
+   repository where the invoking identity *is* a collaborator but does not run the loop, we
+   have assigned ourselves an issue we filed. That is visible, reversible in one click, and
+   strictly better than an ask that reaches nobody.
 
 8. **Report** the issue URL in one line, and say that the target's loop takes it from
    here. Do not follow it, do not comment on it, and do not commit anything in the

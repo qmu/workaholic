@@ -49,7 +49,7 @@
 #
 # Output: one JSON line
 #   {"tick": "...", "log": "<path>|", "steps": [
-#      {"step","status","reason","summary","needs_agent":[...],"logged":true|false}, ...],
+#      {"step","status","reason","summary","event","needs_agent":[...],"logged":true|false}, ...],
 #    "counts": {"ok":n,"filed":n,"skipped":n,"degraded":n,"blocked":n},
 #    "needs_agent": <total>,
 #    "persist": {"status","reason","summary","persisted","logged"}}
@@ -164,8 +164,14 @@ log_file=''
 ok=0; filed=0; skipped=0; degraded=0; blocked=0; needs_total=0
 
 emit_row() {
-    # $1 step  $2 status  $3 reason  $4 summary  $5 needs_agent count  $6 logged
-    rows="$rows${rows:+, }{\"step\": \"$1\", \"status\": \"$2\", \"reason\": \"$(json_escape "$3")\", \"summary\": \"$(json_escape "$4")\", \"needs_agent\": $5, \"logged\": $6}"
+    # $1 step  $2 status  $3 reason  $4 summary  $5 needs_agent count  $6 logged  $7 event
+    # `event` (2026-08-23) is the POST-facing phrase, carried beside the LOG-facing
+    # `summary` and never instead of it. Two audiences: the log is an audit trail a
+    # maintainer reads when the tick misbehaves, and it keeps every counter; the root is
+    # read by a person scanning a channel, who needs the repository's events. The step
+    # supplies it because the step knows what its finding MEANS and the renderer does not.
+    # Empty means "nothing happened here" and renders no line at all.
+    rows="$rows${rows:+, }{\"step\": \"$1\", \"status\": \"$2\", \"reason\": \"$(json_escape "$3")\", \"summary\": \"$(json_escape "$4")\", \"needs_agent\": $5, \"logged\": $6, \"event\": \"$(json_escape "${7:-}")\"}"
     case "$2" in
         ok)       ok=$((ok + 1)) ;;
         filed)    filed=$((filed + 1)) ;;
@@ -237,6 +243,7 @@ for step in $STEPS; do
     status=$(json_field status "$out")
     reason=$(json_field reason "$out")
     summary=$(json_field summary "$out")
+    event=$(json_field event "$out")
     needs=$(json_array_len needs_agent "$out")
     [ -n "$needs" ] || needs=0
 
@@ -252,7 +259,7 @@ for step in $STEPS; do
     [ -n "$summary" ] || summary="(the step reported no summary)"
 
     logged=$(log_step "$step" "$status" "$summary")
-    emit_row "$step" "$status" "$reason" "$summary" "$needs" "$logged"
+    emit_row "$step" "$status" "$reason" "$summary" "$needs" "$logged" "$event"
 done
 
 if [ "$DO_LOG" -eq 1 ] && [ -f "$ROOT/.workaholic/moderations/$DAY.md" ]; then

@@ -128,9 +128,21 @@ named. `/prepare-release` survives as a command a human runs on demand; it posts
 
 ```
 🔎 Moderation - <N> change(s), <M> question(s)
-<step>: <what it says now, one line per changed step>
+<what happened to the repository, one line per changed step that has an event>
 <session URL>
 ```
+
+**Each line names a repository event, not the tick's bookkeeping** (2026-08-23). A line used to be
+the step's own **log** summary rendered verbatim — an audit trail written for a maintainer
+diagnosing the tick, and it read like one: `1 to judge`, `0 already captured`, `0 finding(s)
+already filed by an earlier tick`, and `no new documentation drift` reporting that *nothing
+happened* while being rendered as a change. The audit trail is not the wrong artifact; it is the
+wrong audience. Each step now supplies a second field, `event`, beside `summary`: the step knows
+what its finding means and the renderer does not, and **the log keeps its summaries unchanged** —
+it loses nothing. **A step with no event renders no line**, which is the independent guard against
+a "nothing happened" line reaching the root even if the change diff calls it changed. The diff
+still reads `summary`, because that is what tells this hour from the last one.
+
 
 ```
 🙋 <@U…> - <what this tick could not decide>

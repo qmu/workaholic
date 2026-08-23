@@ -107,7 +107,7 @@ When the tick's rendered post says to post, post this root as a new top-level me
 
 ```
 🔎 Moderation - <N> change(s), <M> question(s)
-<step>: <what it says now, one line per changed step>
+<what happened to the repository, one line per changed step that has an event>
 <session URL>
 ```
 

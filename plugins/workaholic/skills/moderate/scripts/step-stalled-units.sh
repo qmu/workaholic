@@ -90,9 +90,15 @@ while [ $# -gt 0 ]; do
 done
 : "${TICK:?}"
 
+# `event` is the POST-facing phrase, beside the LOG-facing `summary` and never instead of it
+# (2026-08-23). Two audiences: the log is an audit trail a maintainer reads when the tick
+# misbehaves and keeps every counter; the root is read by a person scanning a channel, who
+# needs the repository's event. This step supplies it because it knows what its finding means.
+# **Empty means nothing happened here** — the renderer then emits no line at all, independently
+# of the change diff.
 emit() {
-    printf '{"step": "stalled-units", "status": "%s", "reason": "%s", "summary": "%s", "needs_agent": [%s]}\n' \
-        "$1" "$2" "$3" "${4:-}"
+    printf '{"step": "stalled-units", "status": "%s", "reason": "%s", "summary": "%s", "needs_agent": [%s], "event": "%s"}\n' \
+        "$1" "$2" "$3" "${4:-}" "${5:-}"
     exit 0
 }
 
@@ -177,4 +183,5 @@ needs=$(printf '%s' "$stalled" | jq -c '{action: "ask_the_owner_whether_this_sta
     compose: "name what is stuck and what the run could not decide — a signature is not a problem — and say the answer is given in this session, through the link on the question",
     stalled: .}' 2>/dev/null || echo '{}')
 
-emit ok "" "$summary" "$needs"
+emit ok "" "$summary" "$needs" \
+    "${n_stalled} claimed unit(s) have not moved for a day or more"

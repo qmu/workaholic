@@ -6,11 +6,19 @@ Companion to `SKILL.md` (*One thread per feedback item*, *Post shapes, mentions,
 
 A template names its postable events and defers the line formats here. This file is the **catalog** a template draws from when it explicitly names an event — never blanket authorization: a shape's presence here does not permit a session to emit it unprompted (SKILL, *The prompt is the ceiling — no self-authorized shapes*). `<@U…>` follows the SKILL's mention rule; `<repo>` is the repository the session is running in, which it derives itself rather than being told. Two events (`/specificate` finish, `/implement` unit finish) carry the **sole sanctioned** wording — the literal templates from issue #300, reconciled below with the shapes that predate them (P10, 2026-08-07), aligned against the developer's dictated wording in issue #333, and **narrowed to the finish alone on 2026-08-11** (issue #351 / mission `auto-merge-propose-and-implement-prs-under-a-dev-release-branch-split`): the start shapes `📐 Proposing` and `🟠 Implementing` are **retired** — a routine posts its finish only, and the live routine records were edited to match the same day. Every other event keeps its pre-existing shape unchanged.
 
+### A post never mentions the identity it is posted as
+
+**A self-mention notifies nobody, so it is not a mention — it is decoration** (2026-08-23, the developer's instruction). Every routine post reaches Slack **as the developer's own account** (connector primary, or the tokened fallback bound to the same person), so a `<@U…>` resolving to that same account produces no notification, no badge and no unread: Slack does not notify you of your own message. The attribution line `by the [routine](<session URL>) of <@U…>` had carried that token on every `🔵 Proposed` and `🟢 Implemented` since the shapes were written, and `🟡 Handoff <@U…>` named the runner the same way. All three drop it. **The session URL stays** — it is the whole point of the line, and the surface the developer opens to answer.
+
+The rule generalises rather than enumerating three shapes: **resolve the mention target and the posting identity, and emit no `<@U…>` when they are the same.** Mentioning *someone else* is untouched and is exactly what a mention is for — which is why `🙋 <@U…>`, the maintenance tick's question, keeps its token unconditionally: it addresses a named assignee, it is the one post whose entire purpose is to reach a person, and a loop whose blockers reach nobody is the defect that produced issue #584. Nothing else in the catalog mentions anyone: the `📝 FB` description root, `🚀 Auto Merge`, `🔴 Blocked`, `⚪ Paused` and `📣 Standup` carry no token by their own prior rules, and this change does not give them one.
+
+The measured cost, stated rather than hidden: a reader can no longer tell from the finish line alone *which* account's routine posted it in a channel several people's routines post into. That was already only readable as the mention, which rendered as the reader's own name and read as self-addressed; the account is the message's own author, which Slack shows, and the run report names it in words.
+
 ### `/specificate` — the finish, plus a description root when no thread was found
 
 ```
 🔵 Proposed - [#123 [Proposal] PR Title](<repo-url>/pull/123)
-by the [routine](<session URL>) of <@U…>
+by the [routine](<session URL>)
 ```
 
 `🔵 Proposed` retires the earlier `🟢 Proposed to <@U…> - ...` shape. Since 2026-08-14 it is a **reply** in every connector case — into the thread the stateless lookup found, or into the description root below when it found none. It is a top-level line only on the tokened fallback, which cannot thread; there it carries the **record's URL** (`<repo-url>/blob/main/.workaholic/feedbacks/<stem>.md`) rather than a bare key — the same identifier, in the one form that is also readable, so the fallback post stays attributable without printing a machine token at a person (2026-08-22). The retired `📐 Proposing` start once preceded it; nothing replaces it.
@@ -35,7 +43,7 @@ Then the run's finish line — `🔵 Proposed` for `/specificate`, `🟢`/`🚀`
 
 ```
 🟢 Implemented - [#123 Title](<repo-url>/pull/123)
-by the [routine](<session URL>) of <@U…>
+by the [routine](<session URL>)
 ```
 
 **The authorship line is retired from the post; the fact stays in the run report** (2026-08-21, the developer's instruction). Between 2026-08-14 and this change a unit whose tickets were not the runner's appended one body line — `tickets authored by <identity>`, or `ticket authorship unresolved` — to its finish post. It is gone from every finish shape. Two reasons, and the second is the stronger one:
@@ -52,7 +60,7 @@ by the [routine](<session URL>) of <@U…>
 `from-branch` → `to-branch`, one sentence, max 40 words, what the PR does only.
 <session URL>
 
-🟡 Handoff <@U…> - [#123 Issue Title](<repo-url>/pull/123)
+🟡 Handoff - [#123 Issue Title](<repo-url>/pull/123)
 The next run resumes it automatically; `git fetch && git checkout <branch>` to take it sooner. One sentence, max 25 words, what remains only.
 <session URL>
 

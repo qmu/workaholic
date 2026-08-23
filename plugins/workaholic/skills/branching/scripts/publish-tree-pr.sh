@@ -298,11 +298,13 @@ if [ "${WORKAHOLIC_AUTO_MERGE:-}" = "1" ]; then
         merged=true
         merge_reason="merged"
       else
-        case "$merge_resp" in
-          *405*) merge_reason="merge_not_allowed" ;;
-          *409*) merge_reason="head_moved" ;;
-          *) merge_reason="merge_failed" ;;
-        esac
+        # THE LADDER LIVES IN ITS OWN SCRIPT (2026-08-23) so every rung is testable
+        # without making a real merge fail: `merge-reason.sh` is a pure function over the
+        # response text, and its header states what each reason means and what a reader
+        # should do about it. `session_type_cannot_merge` is the rung added that day — the
+        # execution class saying no, which `rules/shell.md` allows the CALLER to retry
+        # through a connector; this script never does, and reports it instead.
+        merge_reason=$(sh "${SCRIPT_DIR}/merge-reason.sh" "$merge_resp")
       fi
       ;;
     *'"verdict": "block"'*) merge_reason="scan_finding" ;;

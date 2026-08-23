@@ -154,6 +154,7 @@ const SCRIPTS = {
   openPublishTree: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/open-publish-tree.sh"),
   publishTreeCommit: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/publish-tree-commit.sh"),
   publishTreePr: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/publish-tree-pr.sh"),
+  mergeReason: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/merge-reason.sh"),
   listRoutineTemplates: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/list-routine-templates.sh"),
   renderTickPost: join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/render-tick-post.sh"),
   proposeSurvey: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/survey-strategies.sh"),
@@ -15017,6 +15018,7 @@ const tests = [
   ["branching/sync-main.sh §1b: a detached checkout behind the base is fast-forwarded", testSyncMainDetachedBehind],
   ["branching publish tree: publication never touches the caller's checkout (J2)", testPublishTree],
   ["branching publish-tree-pr: an artifact lands on a work-* branch behind a PR (J4)", testPublishTreePr],
+  ["branching merge-reason: a refused merge is classified by what a reader must do next", testMergeReason],
   ["branching publish-tree-pr: the ## Artifacts section is a counts summary, not a file-path list", testPublishTreePrArtifactsSummary],
   ["propose extract-issue-number: captures a triggering GitHub issue number from env or argument", testExtractIssueNumber],
   ["propose list-inbound-issues: the clock-fired discovery reads the inbox, never invents one", testListInboundIssues],
@@ -15106,6 +15108,56 @@ for (const [label, fn] of tests) {
 
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
+
+// ---------- branching/merge-reason.sh: the refused-merge ladder (2026-08-23) ----------
+// WHY THIS IS A SCRIPT AND NOT A REGEX OVER publish-tree-pr.sh. The ladder was inline, so
+// the only way to exercise a rung was to make a real merge fail against a real remote —
+// which the hermetic suite may not do. Pulled out, it is a pure function over a string and
+// every rung runs here for real.
+//
+// THE RUNGS ARE DIFFERENT NEXT ACTIONS, which is the whole reason they are not one
+// `merge_failed`. The one added on 2026-08-23 is `session_type_cannot_merge`: a Claude Code
+// Web container is answered 403 "Merging pull requests is not permitted for this session
+// type", and reporting that as a generic failure sends a reader to look for a defect in a
+// pull request that is finished, green and correct. Measured: an [Implement] tick found a
+// `merge_policy: review` unit — the route that says merge immediately — and left it open with
+// no honest reason to give, because §6 named no other transport.
+function testMergeReason() {
+  const cases = [
+    // 405 first: GitHub refusing the merge itself.
+    ["HTTP 405: Pull Request is not mergeable", "merge_not_allowed"],
+    ["HTTP 409: Head branch was modified", "head_moved"],
+    // The session-type rung is keyed on the MESSAGE. Its status is 403, so the generic 403
+    // rung must sit BEHIND it or this collapses into `merge_forbidden`.
+    ['HTTP 403: {"message":"Merging pull requests is not permitted for this session type"}',
+      "session_type_cannot_merge"],
+    // A bare 403 is a different next action — a permission or a protected branch, which a
+    // person must change outside the pull request.
+    ["HTTP 403: Resource not accessible by integration", "merge_forbidden"],
+    // Unclassified, and honest about it.
+    ["curl: (7) Failed to connect", "merge_failed"],
+  ];
+  for (const [resp, want] of cases) {
+    const r = run(REPO_ROOT, `sh '${SCRIPTS.mergeReason}' ${JSON.stringify(resp)}`);
+    assertEq(`merge-reason(${JSON.stringify(resp).slice(0, 46)}…) is ${want}`, r.stdout.trim(), want);
+  }
+
+  // Reading it on stdin is the same function — publish-tree-pr.sh passes an argument, but a
+  // response with a newline in it must not have to be flattened first.
+  const piped = run(REPO_ROOT,
+    `printf '%s' 'HTTP 403\nMerging pull requests is not permitted for this session type' | sh '${SCRIPTS.mergeReason}'`);
+  assertEq("a multi-line response on stdin still reaches the session-type rung",
+    piped.stdout.trim(), "session_type_cannot_merge");
+
+  // AND THE LADDER IS ACTUALLY WIRED IN. A pure function nothing calls classifies nothing;
+  // this is the one assertion about publish-tree-pr.sh's source, and it is here rather than
+  // as a prose pin because what it protects is a call, not a wording.
+  const wired = readFileSync(SCRIPTS.publishTreePr, "utf8");
+  assertTrue("publish-tree-pr.sh derives merge_reason through merge-reason.sh",
+    /merge_reason=\$\(sh "\$\{SCRIPT_DIR\}\/merge-reason\.sh"/.test(wired));
+  assertTrue("publish-tree-pr.sh keeps no second copy of the ladder",
+    !/merge_reason="merge_not_allowed"/.test(wired));
+}
 
 // ---------- branching/publish-tree-pr.sh + propose's widened batch (J4) ----------
 // The project standard: every workaholic artifact reaches the base through a MERGED

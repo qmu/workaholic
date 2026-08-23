@@ -48,9 +48,15 @@ json_escape() {
     printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' -e 's/	/\\t/g'
 }
 
+# `event` is the POST-facing phrase, beside the LOG-facing `summary` and never instead of it
+# (2026-08-23). Two audiences: the log is an audit trail a maintainer reads when the tick
+# misbehaves and keeps every counter; the root is read by a person scanning a channel, who
+# needs the repository's event. This step supplies it because it knows what its finding means.
+# **Empty means nothing happened here** — the renderer then emits no line at all, independently
+# of the change diff.
 emit() {
-    printf '{"step": "issue-triage", "status": "%s", "reason": "%s", "summary": "%s", "needs_agent": [%s]}\n' \
-        "$1" "$2" "$(json_escape "$3")" "$4"
+    printf '{"step": "issue-triage", "status": "%s", "reason": "%s", "summary": "%s", "needs_agent": [%s], "event": "%s"}\n' \
+        "$1" "$2" "$(json_escape "$3")" "$4" "$(json_escape "${5:-}")"
     exit 0
 }
 
@@ -108,4 +114,5 @@ fi
 
 emit ok "" \
     "${open_count} open issue(s): ${landed} landed but still open, ${never} never ingested, ${oldest_shown} oldest for a staleness judgement" \
-    "$needs"
+    "$needs" \
+    "${landed} issue(s) whose work has landed are still open; ${never} have never been ingested"

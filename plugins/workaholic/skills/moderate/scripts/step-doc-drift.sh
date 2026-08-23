@@ -55,8 +55,14 @@ json_escape() {
 }
 
 emit() {
-    printf '{"step": "doc-drift", "status": "%s", "reason": "%s", "summary": "%s", "needs_agent": [%s], "base": "%s"}\n' \
-        "$1" "$2" "$(json_escape "$3")" "$4" "$(json_escape "$BASE")"
+    # `event` is the POST-facing phrase, beside the LOG-facing `summary` and never instead of it
+# (2026-08-23). Two audiences: the log is an audit trail a maintainer reads when the tick
+# misbehaves and keeps every counter; the root is read by a person scanning a channel, who
+# needs the repository's event. This step supplies it because it knows what its finding means.
+# **Empty means nothing happened here** — the renderer then emits no line at all, independently
+# of the change diff.
+printf '{"step": "doc-drift", "status": "%s", "reason": "%s", "summary": "%s", "needs_agent": [%s], "base": "%s", "event": "%s"}\n' \
+        "$1" "$2" "$(json_escape "$3")" "$4" "$(json_escape "$BASE")" "$(json_escape "${5:-}")"
     exit 0
 }
 
@@ -144,4 +150,5 @@ fi
 
 emit ok "" \
     "${fresh_cands} structural drift candidate(s) since ${BASE}, ${fresh_wrong} record(s) naming something retired, ${dropped} already filed — each to be filed as a ticket, never edited here" \
-    "$needs"
+    "$needs" \
+    "documentation drifted from the code in ${fresh_cands} place(s); ${fresh_wrong} record(s) name something retired"

@@ -71,6 +71,7 @@ if [ "$n" -eq 0 ]; then
 fi
 
 slugs=$(printf '%s' "$due" | sed 's/.*"slug": "//; s/".*//' | tr '\n' ' ' | sed 's/ $//')
-printf '{"step": "note-cadence", "status": "blocked", "reason": "note_due", "summary": "%s target(s) have a draft note due: %s — written by the Release Note Draft workflow, never by this tick", "needs_agent": ["note-cadence-due"], "stale": [%s]}\n' \
+printf '{"step": "note-cadence", "status": "blocked", "reason": "note_due", "summary": "%s target(s) have a draft note due: %s — written by the Release Note Draft workflow, never by this tick", "needs_agent": ["note-cadence-due"], "stale": [%s], "event": "%s deployment target(s) have a release note due: %s"}\n' \
     "$n" "$(json_escape "$(printf '%s' "$slugs" | sed 's/ /, /g')")" \
-    "$(printf '%s' "$slugs" | tr ' ' '\n' | awk 'NF { printf "%s\"%s\"", (n++ ? ", " : ""), $0 }')"
+    "$(printf '%s' "$slugs" | tr ' ' '\n' | awk 'NF { printf "%s\"%s\"", (n++ ? ", " : ""), $0 }')" \
+    "$n" "$(json_escape "$(printf '%s' "$slugs" | sed 's/ /, /g')")"

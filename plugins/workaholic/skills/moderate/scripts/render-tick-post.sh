@@ -11,7 +11,7 @@
 # step id in `.workaholic/moderations/` and reads Slack at no point. The field stays because
 # it identifies the tick to any machine consumer that wants it; what left is the line at a
 # person. The developer said it plainly and more than once: stop mixing strange ids into Slack.
-#    "changes": [{"step","summary"}], "change_count": N, "questions": N,
+#    "changes": [{"step","summary","event"}], "change_count": N, "questions": N,
 #    "previous_tick": "<id>|", "root_text": "..."}
 #
 # ═══ WHY THE TICK NEEDED A VOICE OF ITS OWN ═══════════════════════════════════════
@@ -115,6 +115,27 @@ printf '%s\n' "$INPUT" \
   | tr '{' '\n' \
   | sed -n 's/.*"step": *"\([^"]*\)".*"summary": *"\([^"]*\)".*/\1\t\2/p' > "${TMP}/now"
 
+# THE POST-FACING PHRASE, read beside the log-facing summary (2026-08-23). Each root line
+# used to be a step's LOG summary rendered verbatim — an audit trail, written for a
+# maintainer diagnosing the tick, and it read like one: `1 to judge`, `0 already captured`,
+# `0 finding(s) already filed by an earlier tick` are counters that exist only inside the
+# tick, and `no new documentation drift` reports that NOTHING happened while being rendered
+# as a change. The audit trail is not the wrong artifact; it is the wrong audience.
+#
+# THE DIFF STILL READS `summary`. A step's log summary is what tells this hour from the last
+# one, and it is the richer signal; the event is what a person is shown once the diff has
+# decided there is something to show. Diffing the event instead would hide a real change
+# behind a phrase that happens to be worded the same.
+#
+# A STEP WITH NO EVENT RENDERS NO LINE, and this is the independent guard the ticket asks
+# for: a step whose finding is "nothing happened" leaves it empty, so it cannot reach the
+# root even if the diff calls it changed. A step that has not been given an event yet is
+# silent too, deliberately — silence is the safe failure here, and the tick log keeps every
+# line regardless.
+printf '%s\n' "$INPUT" \
+  | tr '{' '\n' \
+  | sed -n 's/.*"step": *"\([^"]*\)".*"event": *"\([^"]*\)".*/\1\t\2/p' > "${TMP}/events"
+
 [ -s "${TMP}/now" ] || emit false no_rows "" 0 "" ""
 
 # The previous tick: every tick id in the log that sorts before this one, largest first.
@@ -166,8 +187,12 @@ while IFS="$TAB" read -r step summary || [ -n "$step" ]; do
     [ "$step" = "open-log" ] && continue
     was=$(awk -F"$TAB" -v s="$step" '$1 == s { print $2; exit }' "${TMP}/prev")
     [ "$(stabilize "$was")" = "$(stabilize "$summary")" ] && continue
-    changes="${changes:+${changes}, }{\"step\": \"$(json_escape "$step")\", \"summary\": \"$(json_escape "$summary")\"}"
-    lines="${lines}${step}: ${summary}
+    event=$(awk -F"$TAB" -v s="$step" '$1 == s { print $2; exit }' "${TMP}/events")
+    # No event: the step says nothing happened to the repository, or has not been given a
+    # post-facing phrase. Either way it is not news, and the log already has its summary.
+    [ -n "$event" ] || continue
+    changes="${changes:+${changes}, }{\"step\": \"$(json_escape "$step")\", \"summary\": \"$(json_escape "$summary")\", \"event\": \"$(json_escape "$event")\"}"
+    lines="${lines}${event}
 "
     count=$((count + 1))
 done < "${TMP}/now"

@@ -47,9 +47,15 @@ while [ $# -gt 0 ]; do
     esac
 done
 
+# `event` is the POST-facing phrase, beside the LOG-facing `summary` and never instead of it
+# (2026-08-23). Two audiences: the log is an audit trail a maintainer reads when the tick
+# misbehaves and keeps every counter; the root is read by a person scanning a channel, who
+# needs the repository's event. This step supplies it because it knows what its finding means.
+# **Empty means nothing happened here** — the renderer then emits no line at all, independently
+# of the change diff.
 emit() {
-    printf '{"step": "strategy-pace", "status": "%s", "reason": "%s", "summary": "%s", "needs_agent": [%s]}\n' \
-        "$1" "$2" "$3" "${4:-}"
+    printf '{"step": "strategy-pace", "status": "%s", "reason": "%s", "summary": "%s", "needs_agent": [%s], "event": "%s"}\n' \
+        "$1" "$2" "$3" "${4:-}" "${5:-}"
     exit 0
 }
 
@@ -81,4 +87,5 @@ fi
 needs=$(printf '%s' "$late" | jq -c '{action: "ask_the_owner_whether_this_direction_will_arrive",
     bound: "one question per strategy, addressed to its assignee; never a proposal, and never a reason to lift a gate",
     late: .}' 2>/dev/null || echo '{}')
-emit ok "" "${count} direction(s) will not arrive at this pace; ${unknown} reading(s) unknown" "$needs"
+emit ok "" "${count} direction(s) will not arrive at this pace; ${unknown} reading(s) unknown" "$needs" \
+    "${count} direction(s) will not arrive by their date at this pace"

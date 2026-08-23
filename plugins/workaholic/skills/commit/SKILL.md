@@ -14,6 +14,17 @@ Safe commit workflow with multi-contributor awareness. All commits in the Workah
 
 You are not the only one working in this repository — multiple developers and agents may have uncommitted changes in the working directory. Before committing: run the pre-flight check to understand what will be committed, review the staged changes so only intended files are included, and identify changes that may belong to another contributor.
 
+**A commit that would be half a rename is refused** (2026-08-23). With default staging, a staged
+deletion co-existing with an untracked file is what half a migration looks like — the additions
+written untracked, the originals deleted — and `git add -u` takes only the deletions. `commit.sh`
+warned about this and the commit went through, because a warning's enforcement is a human reading
+it and an unattended run has no such human. It now **refuses**, names both halves and the concrete
+repair, commits nothing, and leaves the working tree untouched (it does not `git reset` — that
+would discard whatever the caller had staged before calling). Untracked files alone never trigger
+it: the co-existence is the signal, and a genuine delete-here-add-there commit is refused too, with
+the repair being to name the files — which is the caller stating its set, the outcome wanted in
+both cases. It never fires when the caller already named `files...`.
+
 **Never stage an untracked file without confirmation** — it may belong to another contributor. When untracked files belong in the commit, list them and confirm with the user first (a selectable prompt, its `question` body prefixed with the `[<project label>]` from `bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/project-label.sh`), then pass them explicitly as trailing `[files...]` arguments to `commit.sh`.
 
 ## Usage
@@ -35,6 +46,17 @@ Each body section (except title) is a short paragraph of 3-5 sentences; the keys
 - `insights` — non-obvious patterns, gotchas, hidden coupling, institutional knowledge worth preserving: what *worked* and why, or the surprising constraint that shaped the implementation — never a restatement of the change (from ticket Discovered Insights). "None"/empty omits
 - `verify` — what verification was done or should be done: manual checks and their results, tests added/run, edge cases considered, how external interactions were validated. "None" only for trivial changes
 - `files...` — specific files to stage (omitted: all tracked changes)
+
+**A caller that has just written a NEW file passes it in `files...`** (2026-08-23). Default staging
+is `git add -u`, which by its own semantics stages tracked modifications and deletions and **cannot**
+pick up a file that did not exist before — so a seam that writes a file and then calls `commit.sh`
+bare commits everything except the thing it just made. Measured: a story body written by a run was
+dropped while its index entry merged, and 50 concern records lost their content on `main` the same
+way. The rule is stated here and **referenced** by each seam rather than restated, and it is a
+procedure — the mechanical half is the split-rename refusal below, which catches a seam that forgets.
+Three shapes already satisfy it and need no `files...`: a caller that staged the file itself and
+passes `--skip-staging`, one that passes `--allow-empty` for a marker commit, and a wrapper that
+forwards its own caller's `"$@"`.
 
 ### Staging Behavior
 

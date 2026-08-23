@@ -2,7 +2,7 @@
 type: Mission
 title: Refuse a commit that splits a rename
 slug: refuse-a-commit-that-splits-a-rename
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-21T15:15:41+09:00
 author: a@qmu.jp
@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260823-151809
 ---
 
 # Refuse a commit that splits a rename
@@ -46,9 +47,12 @@ that writes a story never lands the index without the story.
 
 ## Acceptance
 
-- [ ] A split rename is refused mechanically, not warned about (#20260821151550-refuse-a-commit-that-splits-a-rename.md)
-- [ ] The seams that write new files name them, so default staging is never load-bearing (#20260821151550-name-the-files-the-writing-seams-must-stage.md)
+- [x] A split rename is refused mechanically, not warned about (#20260821151550-refuse-a-commit-that-splits-a-rename.md)
+- [x] The seams that write new files name them, so default staging is never load-bearing (#20260821151550-name-the-files-the-writing-seams-must-stage.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-23 — ticket archived — 20260821151550-refuse-a-commit-that-splits-a-rename.md
+- 2026-08-23 — ticket archived — 20260821151550-name-the-files-the-writing-seams-must-stage.md
+- 2026-08-23 — mission achieved — mission.md

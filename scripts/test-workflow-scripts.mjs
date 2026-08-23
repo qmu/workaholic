@@ -15056,6 +15056,7 @@ const tests = [
   ["moderate: the tick runs every step, and every step reports", testModerateRun],
   ["moderate/step-stalled-units.sh: what is claimed and how long it has not moved", testStalledUnitsStep],
   ["moderate: a question is never_asked, asked, or answered", testQuestionAnswerStates],
+  ["moderate: liveness, and the one bounded re-ask", testQuestionLivenessAndReask],
   ["drive/archive.sh: closes a mission it can prove is finished", testArchiveClosesAProvenMission],
   ["moderate/step-closable-missions.sh: finished, and still open", testClosableMissionsStep],
   ["moderate: the tick log survives the container that wrote it", testModeratePersist],
@@ -18646,6 +18647,74 @@ function testModerateLog() {
   } finally {
     cleanup(repo);
   }
+}
+
+// ---------- moderate: liveness, and the one bounded re-ask (2026-08-23) ----------
+// The gate could not tell "asked and settled" from "asked and still blocking": measured, a
+// question went unanswered for twenty hours across twenty ticks with nothing carrying it.
+// Pinned: the three-valued reading (unknown never collapsing into either other answer), and
+// that the re-ask happens EXACTLY ONCE, at the next working day, behind the hold gates.
+function testQuestionLivenessAndReask() {
+  const M = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts");
+  const LIVE = `${POSIX_SH} ${join(M, "question-liveness.sh")}`;
+  const ASK = `${POSIX_SH} ${join(M, "ask-question.sh")}`;
+  const APPEND = `${POSIX_SH} ${join(M, "log-append.sh")}`;
+  const dir = mkdtempSync(join(tmpdir(), "wh-live-"));
+  mkdirSync(join(dir, ".workaholic"), { recursive: true });
+  const K = "stalled-unit:m1";
+  const liveRun = join(dir, "live.json");
+  const goneRun = join(dir, "gone.json");
+  writeFileSync(liveRun, JSON.stringify({ steps: [{ step: "stalled-units", status: "ok", needs_agent: [{ stalled: [{ key: K }] }] }] }));
+  writeFileSync(goneRun, JSON.stringify({ steps: [{ step: "stalled-units", status: "ok", needs_agent: [] }] }));
+  const degRun = join(dir, "deg.json");
+  writeFileSync(degRun, JSON.stringify({ steps: [{ step: "stalled-units", status: "degraded", needs_agent: [] }] }));
+  const lv = (run, step) => JSON.parse(execSync(`${LIVE} --key '${K}' --step ${step} --run ${run}`, { encoding: "utf8" }));
+  const ask = (tick, hour, weekday, run) => JSON.parse(execSync(
+    `${ASK} --tick ${tick} --root ${dir} --key '${K}' --to a@example.com --hour ${hour} --weekday ${weekday}` +
+    (run ? ` --run ${run} --asked-step stalled-units` : ""), { encoding: "utf8" }));
+  try {
+    assertEq("a subject the step raised again is live", lv(liveRun, "stalled-units").liveness, "live");
+    assertEq("a subject a healthy step did not raise is settled", lv(goneRun, "stalled-units").liveness, "settled");
+    // `unknown` IS LOAD-BEARING: a step that could not report has not proved the subject gone.
+    assertEq("a degraded step is unknown, not settled",
+      [lv(degRun, "stalled-units").liveness, lv(degRun, "stalled-units").reason], ["unknown", "step_degraded"]);
+    assertEq("a step absent from the run is unknown", lv(liveRun, "never-ran").liveness, "unknown");
+
+    const first = ask("20260822-100000", 10, 1);
+    assertEq("the first ask goes through", first.ask, true);
+    execSync(`${APPEND} --root ${dir} --tick 20260822-100000 --step ${first.log_step} --status ok --summary asked`, { stdio: "ignore" });
+
+    assertEq("the same day is not a re-ask", ask("20260822-110000", 11, 1, liveRun).reason, "already_asked");
+    // THE HOLD GATES COME FIRST: a re-ask decided before them would post at 03:00 on a Sunday.
+    assertEq("quiet hours hold the re-ask", ask("20260823-030000", 3, 1, liveRun).ask, false);
+    assertEq("and so does a non-working day", ask("20260823-100000", 10, 7, liveRun).ask, false);
+
+    const again = ask("20260823-100000", 10, 1, liveRun);
+    assertEq("the next working day re-asks once, naming when it was first asked",
+      [again.ask, again.reason, again.first_asked], [true, "outstanding", "20260822"]);
+    assertTrue("under its own step id, so a third is impossible by construction",
+      /^human-checkin-reasked-/.test(again.log_step), again.log_step);
+    execSync(`${APPEND} --root ${dir} --tick 20260823-100000 --step ${again.log_step} --status ok --summary reasked`, { stdio: "ignore" });
+    assertEq("and never again", ask("20260824-100000", 10, 1, liveRun).reason, "already_asked");
+
+    // A CALLER THAT PASSES NO RUN GETS THE BEHAVIOUR IT ALWAYS HAD.
+    const bare = ask("20260825-100000", 10, 1);
+    assertEq("no run report means unknown, and no re-ask",
+      [bare.ask, bare.reason, bare.liveness], [false, "already_asked", "unknown"]);
+  } finally { cleanup(dir); }
+
+  // A SETTLED SUBJECT IS NEVER RE-ASKED — its own repository, so the ledger is clean.
+  const d2 = mkdtempSync(join(tmpdir(), "wh-live2-"));
+  mkdirSync(join(d2, ".workaholic"), { recursive: true });
+  const K2 = "stalled-unit:m2";
+  const gone2 = join(d2, "gone.json");
+  writeFileSync(gone2, JSON.stringify({ steps: [{ step: "stalled-units", status: "ok", needs_agent: [] }] }));
+  try {
+    const f = JSON.parse(execSync(`${ASK} --tick 20260822-100000 --root ${d2} --key '${K2}' --to a@example.com --hour 10 --weekday 1`, { encoding: "utf8" }));
+    execSync(`${APPEND} --root ${d2} --tick 20260822-100000 --step ${f.log_step} --status ok --summary asked`, { stdio: "ignore" });
+    const r = JSON.parse(execSync(`${ASK} --tick 20260823-100000 --root ${d2} --key '${K2}' --to a@example.com --hour 10 --weekday 1 --run ${gone2} --asked-step stalled-units`, { encoding: "utf8" }));
+    assertEq("a settled subject is refused, not re-asked", [r.ask, r.liveness], [false, "settled"]);
+  } finally { cleanup(d2); }
 }
 
 // ---------- moderate: a question's three states (2026-08-23, issue #584) ----------

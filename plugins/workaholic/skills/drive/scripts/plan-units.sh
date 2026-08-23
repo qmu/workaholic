@@ -374,9 +374,17 @@ if [ -d ".workaholic/missions/active" ]; then
         # over adding a reader; it turned out to need no extension at all).
         #
         # NEITHER IS CLAIMABLE -- only the reported reason differs. A drained mission has
-        # nothing to drive, and the close is a HUMAN judgment (`achieved` / `carried` /
-        # `abandoned`): of the four closed on 2026-08-04, one turned out not to be
-        # achieved at all, so an automated close would have recorded it wrongly.
+        # nothing to drive.
+        #
+        # THE CLOSE IS A HUMAN JUDGMENT FOR TWO OF THE THREE OUTCOMES (narrowed 2026-08-23).
+        # `carried` and `abandoned` assert something about intent and stay the operator's:
+        # of the four missions closed by hand on 2026-08-04, one turned out not to be
+        # achieved at all, so an automated close on judgment would have recorded it wrongly.
+        # `achieved` is the one that is arithmetic -- every acceptance item ticked, none
+        # unlinked, nothing queued -- and `archive.sh` now closes exactly that case at the
+        # gate, on a proof the 2026-08-04 mission would have failed. A mission reaching this
+        # branch as `queue_drained` is therefore one whose acceptance is NOT complete, or one
+        # finished by a path that archived no ticket.
         qs=$(sh "${MISSION_SCRIPTS}/queue-size.sh" "$slug" 2>/dev/null || true)
         queued=$(printf '%s' "$qs" | sed -n 's/.*"todo": *\([0-9][0-9]*\).*/\1/p')
         [ -n "$queued" ] || queued=0

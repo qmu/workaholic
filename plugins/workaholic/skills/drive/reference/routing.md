@@ -229,6 +229,14 @@ moments.
   **A post that did not happen is stated, never omitted**: silence in this list read as success is
   the whole defect (measured 2026-08-12, issue #406 — the 18:48 UTC `[Implement]` run got
   `{"notified": false, "reason": "no_token"}` and nothing downstream said so).
+- **Missions closed at the archive gate** (2026-08-23), one line each: the slug, the accepted count,
+  and that the queue was empty. `archive.sh` closes a mission `achieved` — through `close.sh`, the
+  only writer of an end state — when archiving a ticket leaves its acceptance fully checked
+  (`progress.sh`) and nothing queued (`queue-size.sh`). Only `achieved`, because it is the one of
+  the three outcomes that is arithmetic; `abandoned` and `carried` assert intent and stay the
+  operator's. **A refusal from `close.sh` is reported by name**, never swallowed: a mission that
+  could not be closed must not read as one that was. A mission failing any part of the proof is
+  untouched and the run says nothing about it.
 - Tickets minted mid-run (`deferred`), one line each: what was found, which ticket provoked it,
   the new filename. Additional to the unit's queue; never silent.
 - Deferred decisions — every judgment call the run met and recorded instead of asking. This list

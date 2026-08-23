@@ -2,7 +2,6 @@
 
 ## active
 
-* [close-a-mission-the-run-can-prove-is-finished](active/close-a-mission-the-run-can-prove-is-finished/mission.md) - Close a mission the run can prove is finished
 * [give-the-tick-a-route-for-the-records-it-writes](active/give-the-tick-a-route-for-the-records-it-writes/mission.md) - Give the tick a route for the records it writes
 * [make-an-open-decision-a-question-to-answer-not-a-ruling](active/make-an-open-decision-a-question-to-answer-not-a-ruling/mission.md) - Make an Open Decision a question to answer, not a ruling
 * [make-the-routine-create-body-documented-and-buildable](active/make-the-routine-create-body-documented-and-buildable/mission.md) - Make the routine create body documented and buildable
@@ -22,6 +21,7 @@
 * [adopt-a-git-flow-branching-model-with-durable-ship-records](archive/adopt-a-git-flow-branching-model-with-durable-ship-records/mission.md) - Adopt a release-branch staging tier with durable ship records
 * [announce-one-event-once-and-give-its-root-a-shape](archive/announce-one-event-once-and-give-its-root-a-shape/mission.md) - Announce one event once, and give its root a shape
 * [auto-merge-propose-and-implement-prs-under-a-dev-release-branch-split](archive/auto-merge-propose-and-implement-prs-under-a-dev-release-branch-split/mission.md) - Auto-merge propose and implement PRs under a dev/release branch split
+* [close-a-mission-the-run-can-prove-is-finished](archive/close-a-mission-the-run-can-prove-is-finished/mission.md) - Close a mission the run can prove is finished
 * [color-code-the-notify-post-shapes-by-state](archive/color-code-the-notify-post-shapes-by-state/mission.md) - Color-code the notify post shapes by state
 * [configure-routines-automatically-via-remotetrigger](archive/configure-routines-automatically-via-remotetrigger/mission.md) - Configure routines automatically via RemoteTrigger
 * [correct-the-release-note-automation-to-its-intended-design](archive/correct-the-release-note-automation-to-its-intended-design/mission.md) - Correct the release note automation to its intended design

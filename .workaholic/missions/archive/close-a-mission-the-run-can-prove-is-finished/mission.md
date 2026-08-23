@@ -2,7 +2,7 @@
 type: Mission
 title: Close a mission the run can prove is finished
 slug: close-a-mission-the-run-can-prove-is-finished
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-22T18:22:55+09:00
 author: a@qmu.jp
@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260823-131214
 ---
 
 # Close a mission the run can prove is finished
@@ -40,10 +41,13 @@ finding it in a lens.
 
 ## Acceptance
 
-- [ ] A mission whose last ticket is archived, whose acceptance is fully checked and whose queue
+- [x] A mission whose last ticket is archived, whose acceptance is fully checked and whose queue
       is empty is closed `achieved` through `close.sh`, and the close is in the run report (#20260822182303-close-a-fully-accepted-mission-at-the-archive-gate.md)
-- [ ] Missions at full acceptance the seam did not close are reported as a named set (#20260822182303-report-the-missions-waiting-to-be-closed.md)
+- [x] Missions at full acceptance the seam did not close are reported as a named set (#20260822182303-report-the-missions-waiting-to-be-closed.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-23 — ticket archived — 20260822182303-close-a-fully-accepted-mission-at-the-archive-gate.md
+- 2026-08-23 — ticket archived — 20260822182303-report-the-missions-waiting-to-be-closed.md
+- 2026-08-23 — mission achieved — mission.md

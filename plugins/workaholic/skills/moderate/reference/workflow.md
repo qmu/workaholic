@@ -1,4 +1,4 @@
-# The twelve-step contract — reference
+# The thirteen-step contract — reference
 
 Companion to [`../SKILL.md`](../SKILL.md). One section per step: what it reads, **what it may
 write**, what it returns in `needs_agent`, and the reasons it aborts with. The step ids are the
@@ -274,11 +274,11 @@ the meaning in the words this step needs: *a tip older than the threshold says "
 "take it"*. Asking a person to look **is** that. A fixed tick count was refused for inventing an
 arbitrary constant beside a justified one; a working-day boundary for making a unit that stalls at
 09:05 wait nearly a full day, when the measured failure *was* a day of silence — `stale` has that
-option's shape without its cliff, and the working-week half of it survives downstream, in step 12's
+option's shape without its cliff, and the working-week half of it survives downstream, in step 13's
 own weekend hold; two-ticks-plus-an-open-decision for naming one blocker class when a missing
 credential stalls a unit exactly as hard.
 
-**It asks; it never claims, drives or resolves.** The candidate goes to step 12 as `needs_agent`,
+**It asks; it never claims, drives or resolves.** The candidate goes to step 13 as `needs_agent`,
 keyed `stalled-unit:<unit>` — stable across ticks, which is what lets `ask-question.sh`'s ledger
 ask exactly once — with the claim holder's email to address it to. Nothing here touches a claim.
 
@@ -299,9 +299,52 @@ the only claim oracle could not be reached — not that nothing is stalled; `sha
 merged unit is indistinguishable from a held one. A missing or unparseable reader is `degraded`
 with its reason.
 
-It posts nothing itself and touches no claim: the post is step 12's, through the `🙋 <@U…>` shape
+It posts nothing itself and touches no claim: the post is step 13's, through the `🙋 <@U…>` shape
 that already names a person, rides the tick's own thread, carries the session URL and is asked
 once.
+
+## 12. `closable-missions` — finished, and still open
+
+```bash
+sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/step-closable-missions.sh --tick <id> [--root <repo-root>]
+```
+
+`archive.sh` closes a mission `achieved` when it archives the mission's **last** ticket. That seam
+cannot catch a mission that reached full acceptance any other way — items ticked by a different
+seam, tickets archived before the seam shipped, a branch that never ran the gate. **Eleven such
+missions had accumulated and nobody was told**; they were found because the mission lens printed
+all of them on every prompt and the list had grown long enough to read as wrong. This step makes
+the residue legible before it is large.
+
+- **Reads**: three **pure** readers — `summary.sh` (the active set with its `checked`/`total`),
+  `progress.sh` (`unlinked`) and `queue-size.sh` (the queue count, which is the reader
+  `plan-units.sh` itself uses for that number). No new parser of the many-valued `mission:`
+  relation, which `read-relation.sh` owns.
+- **`plan-units.sh` was the obvious composition and is refused**: its `queue_drained` exclusion is
+  exactly this candidate set, but the survey runs the living migrations and **stages** what they
+  change — measured by this step's own test, which caught the report leaving a modified mission in
+  the index. A step whose contract is *writes nothing* may not reach it through something that
+  writes.
+- **Writes**: nothing — no file, no commit, no status.
+- **Reports** each entry with the two facts that make it closable, `checked/total` and the queued
+  count, and nothing else.
+
+**It never closes one**, even though the arithmetic is identical to the archive gate's: two writers
+of an end state is exactly what `close.sh`'s single-writer rule exists to prevent, and the gate owns
+the one case a machine may end.
+
+**Why this tick and not `/story`** (ruled 2026-08-23 while driving it; the ticket required the home
+to be decided and recorded). `story/scripts/area-freshness.sh` is the exact precedent for a
+reporting-only upkeep seam and was the other candidate. This tick wins on audience and on shape:
+the residue accumulates over **time** rather than at a merge, so a per-merge report names it only
+when somebody happens to merge something unrelated — which is how eleven went unseen; closing a
+mission is the operator's act and this is the surface that reaches an operator hourly with a dated
+log; and it is silent by construction when the set is empty, because it contributes a report line
+and never a question.
+
+A survey that could not be read, or a backlog it could not read, is `degraded` **by name** — it has
+not found "nothing waiting to be closed", it has found nothing at all. A mission whose progress
+cannot be read is skipped rather than reported closable, and the scanned count says the rest.
 
 ### A question has three states, and an answer is one of them
 
@@ -344,7 +387,7 @@ indistinguishable from a mis-click, and it would clear the gate on a question st
 log reads `never_asked` — a repository with no tick history has asked nothing — while a log that
 exists and cannot be read is `unreadable`, named, because only one of those is calm.
 
-## 12. `human-checkin` — the tick's voice: one root, up to five questions inside it
+## 13. `human-checkin` — the tick's voice: one root, up to five questions inside it
 
 - **Reads**: the tick log (held questions, what was already asked today) and the clock in the
   workspace's timezone.

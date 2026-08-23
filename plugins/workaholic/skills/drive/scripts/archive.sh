@@ -257,6 +257,50 @@ elif [ -n "$MISSION_SLUGS" ]; then
         report_mission_roll "$MISSION_SLUG" changelog "$CL_RC" "$CL_OUT"
         TK_OUT=$(sh "${MISSION_SCRIPTS}/tick-acceptance.sh" "$MISSION_FILE" "$TICKET_FILENAME" 2>&1) && TK_RC=0 || TK_RC=$?
         report_mission_roll "$MISSION_SLUG" acceptance "$TK_RC" "$TK_OUT"
+
+        # CLOSE A MISSION THIS ARCHIVE JUST FINISHED (2026-08-23). This seam already knew
+        # a mission had moved — it ticked the item this ticket satisfies, one line up —
+        # and stopped one step short of noticing it was the last one. A fully-accepted
+        # mission with an empty queue then sat `active` until a human ran
+        # `/mission-close`, and the survey went on listing it.
+        #
+        # THE SINGLE-WRITER RULE DOES NOT MOVE. `close.sh` is still the only writer of an
+        # end state, and this calls it rather than writing a status. Only `achieved` is
+        # ever passed, never `abandoned` and never `carried`: those two assert something
+        # about *intent* and a run that just merged its own work is a poor judge of which
+        # applies. `achieved` is the one of the three that is **arithmetic**.
+        #
+        # THE MEASURED OBJECTION IS ANSWERED, NOT IGNORED. `plan-units.sh` records that of
+        # four missions closed by hand on 2026-08-04, one turned out not to be achieved at
+        # all. That is exactly what this proof refuses: it does not ask whether the work
+        # was good, it asks whether every acceptance item is ticked, none is unlinked, and
+        # nothing is queued. The 2026-08-04 mission would have failed it.
+        #
+        # EVERY PART COMES FROM AN EXISTING READER — no new parser, and in particular no
+        # fresh grep for `mission: <slug>`, which would be a second reader of a
+        # many-valued relation `read-relation.sh` already owns.
+        PROG=$(sh "${MISSION_SCRIPTS}/progress.sh" "$MISSION_FILE" 2>/dev/null || true)
+        QSZ=$(sh "${MISSION_SCRIPTS}/queue-size.sh" "$MISSION_SLUG" 2>/dev/null || true)
+        M_CHECKED=$(printf '%s' "$PROG" | sed -n 's/.*"checked": *\([0-9][0-9]*\).*/\1/p')
+        M_TOTAL=$(printf '%s' "$PROG" | sed -n 's/.*"total": *\([0-9][0-9]*\).*/\1/p')
+        M_UNLINKED=$(printf '%s' "$PROG" | sed -n 's/.*"unlinked": *\([0-9][0-9]*\).*/\1/p')
+        M_TODO=$(printf '%s' "$QSZ" | sed -n 's/.*"todo": *\([0-9][0-9]*\).*/\1/p')
+        # An unreadable reader is NOT a proof: a missing number leaves the mission alone.
+        if [ -n "$M_CHECKED" ] && [ -n "$M_TOTAL" ] && [ -n "$M_UNLINKED" ] && [ -n "$M_TODO" ] \
+           && [ "$M_TOTAL" -gt 0 ] && [ "$M_CHECKED" -eq "$M_TOTAL" ] \
+           && [ "$M_UNLINKED" -eq 0 ] && [ "$M_TODO" -eq 0 ]; then
+            CLOSE_OUT=$(sh "${MISSION_SCRIPTS}/close.sh" "$MISSION_FILE" achieved 2>&1) && CLOSE_RC=0 || CLOSE_RC=$?
+            if [ "$CLOSE_RC" -ne 0 ]; then
+                CLOSE_REASON=$(printf '%s' "$CLOSE_OUT" | sed -n 's/.*"reason"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+                echo "    ! mission ${MISSION_SLUG}: proved finished but NOT closed (${CLOSE_REASON:-exit ${CLOSE_RC}}); archive proceeds"
+            elif printf '%s' "$CLOSE_OUT" | grep -Eq '"closed"[[:space:]]*:[[:space:]]*true'; then
+                echo "    mission ${MISSION_SLUG}: achieved — ${M_CHECKED}/${M_TOTAL} accepted, queue empty; closed"
+            else
+                # Idempotent, like the two mutators above: a mission already ended is a
+                # no-op rather than an error.
+                echo "    ~ mission ${MISSION_SLUG}: already ended; close changed nothing"
+            fi
+        fi
     done <<EOF
 $MISSION_SLUGS
 EOF

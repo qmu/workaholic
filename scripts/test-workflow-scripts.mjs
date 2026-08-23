@@ -474,6 +474,124 @@ function testUpdate() {
 // converges whether or not the ticket names a mission, it is scoped to the archived
 // ticket's own tree, it changes nothing in a converged repository, and it never
 // strands an archive.
+// ---------- moderate/step-closable-missions.sh (2026-08-23) ----------
+// The archive gate closes a mission whose LAST ticket it archives; this names the residue
+// that reached full acceptance any other way. Eleven had accumulated with nobody told.
+// Pinned: exactly the closable one is named, the report WRITES NOTHING, and an unreadable
+// survey is degraded by name rather than an empty set.
+function testClosableMissionsStep() {
+  const STEP = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-closable-missions.sh")}`;
+  // A plain repository, not the claim fixture: this step reads no claims (that was the
+  // plan-units design, refused above), and the fixture's own mission carries no `status:`,
+  // so the mission readers' living migration would converge it and the "writes nothing"
+  // assertion would be measuring somebody else's convergence.
+  const A = makeRepo("main");
+  const mk = (slug, items, todo) => {
+    mkdirSync(join(A, `.workaholic/missions/active/${slug}`), { recursive: true });
+    writeFileSync(join(A, `.workaholic/missions/active/${slug}/mission.md`),
+      `---\ntype: Mission\ntitle: ${slug}\nslug: ${slug}\nstatus: active\ncreated_at: 2026-08-01T00:00:00+09:00\nauthor: test@example.com\nassignees: [test@example.com]\n---\n\n# ${slug}\n\n## Experience\n\nx\n\n## Acceptance\n\n${items}\n\n## Changelog\n\n`);
+    mkdirSync(join(A, `.workaholic/tickets/archive/seed`), { recursive: true });
+    writeFileSync(join(A, `.workaholic/tickets/archive/seed/${slug}-done.md`),
+      `---\ncreated_at: 2026-08-01T00:00:00+09:00\nauthor: test@example.com\nassignees: [test@example.com]\nmission: ${slug}\nstatus: done\n---\n\n# d\n`);
+    if (todo) {
+      mkdirSync(join(A, ".workaholic/tickets/todo"), { recursive: true });
+      writeFileSync(join(A, `.workaholic/tickets/todo/${slug}-queued.md`),
+        `---\ncreated_at: 2026-08-01T00:00:00+09:00\nauthor: test@example.com\nassignees: [test@example.com]\nmission: ${slug}\n---\n\n# q\n`);
+    }
+  };
+  try {
+    mk("done1", "- [x] one (#a.md)", false);            // finished and open
+    mk("unmet", "- [x] one (#a.md)\n- [ ] two (#b.md)", false);  // acceptance incomplete
+    mk("busy", "- [x] one (#a.md)", true);              // still has a queued ticket
+    execSync("git add -A && git commit -q -m seed", { cwd: A });
+
+    const j = JSON.parse(run(A, `${STEP} --tick 20260823-000000 --root ${A}`).stdout);
+    assertEq("the step reports", [j.step, j.status], ["closable-missions", "ok"]);
+    const set = j.needs_agent[0].closable.map((c) => c.slug).sort();
+    assertEq("exactly the finished-and-open mission is named", set, ["done1"]);
+    assertEq("with the two facts that make it closable",
+      [j.needs_agent[0].closable[0].checked, j.needs_agent[0].closable[0].total, j.needs_agent[0].closable[0].queued],
+      [1, 1, 0]);
+    // IT REPORTS AND NEVER CLOSES. Two writers of an end state is what the single-writer
+    // rule exists to prevent.
+    assertTrue("the mission is still active", existsSync(join(A, ".workaholic/missions/active/done1/mission.md")));
+    assertEq("and the report wrote nothing at all",
+      execSync("git status --porcelain", { cwd: A, encoding: "utf8" }).trim(), "");
+
+    // A SURVEY THAT COULD NOT BE READ IS NOT AN EMPTY SET.
+    const bad = JSON.parse(run(A, `${STEP} --tick 20260823-000000 --root ${join(A, "nope")}`).stdout);
+    assertEq("an unreadable survey is degraded, by name", bad.status, "degraded");
+    assertTrue("and never reads as nothing waiting",
+      !/no mission is waiting/.test(bad.summary), bad.summary);
+  } finally { cleanup(A); }
+}
+
+// ---------- archive.sh closes a mission it can PROVE is finished (2026-08-23) ----------
+// The gate already ticked the acceptance item and stopped one step short of noticing it was
+// the last one, so a finished mission sat `active` and the survey kept listing it. What is
+// pinned is the PROOF: every part arithmetic, no partial credit, and a mission failing any
+// part left byte-identical. `abandoned` and `carried` are never reachable from here.
+function testArchiveClosesAProvenMission() {
+  const ARCHIVE = (dir, ticket, subject) =>
+    run(dir, `${POSIX_SH} ${SCRIPTS.archive} ${ticket} "${subject}" https://example.com/r "why" "changes" "None" "None" "verify"`);
+  const seed = (dir, slug, items, tickets) => {
+    mkdirSync(join(dir, `.workaholic/missions/active/${slug}`), { recursive: true });
+    mkdirSync(join(dir, ".workaholic/tickets/todo"), { recursive: true });
+    writeFileSync(join(dir, `.workaholic/missions/active/${slug}/mission.md`),
+      `---\ntype: Mission\ntitle: M\nslug: ${slug}\nstatus: active\nmerge_policy:\ncreated_at: 2026-08-01T00:00:00+09:00\nauthor: a@example.com\nassignees: [a@example.com]\n---\n\n# M\n\n## Experience\n\nx\n\n## Acceptance\n\n${items}\n\n## Changelog\n\n`);
+    for (const t of tickets) {
+      writeFileSync(join(dir, `.workaholic/tickets/todo/${t}`),
+        `---\ncreated_at: 2026-08-01T00:00:00+09:00\nauthor: a@example.com\nassignees: [a@example.com]\nmission: ${slug}\n---\n\n# t\n`);
+    }
+    execSync("git add -A && git commit -q -m seed", { cwd: dir });
+  };
+  const status = (dir, slug, area) =>
+    readFileSync(join(dir, `.workaholic/missions/${area}/${slug}/mission.md`), "utf8")
+      .match(/^status: (\S+)/m)[1];
+
+  // THE PROVEN CASE: last ticket archived, every item ticked, queue empty.
+  {
+    const dir = makeRepo("work-20260801-000000");
+    try {
+      seed(dir, "m1", "- [ ] one (#20260801000000-a.md)", ["20260801000000-a.md"]);
+      const out = ARCHIVE(dir, ".workaholic/tickets/todo/20260801000000-a.md", "Archive the last ticket").stdout;
+      assertTrue("the mission left the active area",
+        !existsSync(join(dir, ".workaholic/missions/active/m1/mission.md")));
+      assertEq("and is ended achieved", status(dir, "m1", "archive"), "achieved");
+      assertTrue("the close is reported by name", /mission m1: achieved/.test(out), out.slice(-600));
+      // The archive commit carries the close, so the run's own commit is the record.
+      assertEq("nothing is left uncommitted",
+        execSync("git status --porcelain", { cwd: dir, encoding: "utf8" }).trim(), "");
+    } finally { cleanup(dir); }
+  }
+
+  // NO PARTIAL CREDIT: an unmet acceptance item leaves the mission alone and silent.
+  {
+    const dir = makeRepo("work-20260801-000000");
+    try {
+      seed(dir, "m2", "- [ ] one (#20260801000000-a.md)\n- [ ] two (#20260801000009-never.md)",
+        ["20260801000000-a.md"]);
+      const before = readFileSync(join(dir, ".workaholic/missions/active/m2/mission.md"), "utf8");
+      const out = ARCHIVE(dir, ".workaholic/tickets/todo/20260801000000-a.md", "Archive one of two").stdout;
+      assertEq("a mission with an unmet item stays active", status(dir, "m2", "active"), "active");
+      assertTrue("and the run says nothing about closing it", !/achieved/.test(out), out.slice(-400));
+      assertTrue("only the acceptance tick changed it",
+        readFileSync(join(dir, ".workaholic/missions/active/m2/mission.md"), "utf8") !== before);
+    } finally { cleanup(dir); }
+  }
+
+  // A NON-EMPTY QUEUE IS NOT FINISHED, even with every LINKED item ticked.
+  {
+    const dir = makeRepo("work-20260801-000000");
+    try {
+      seed(dir, "m3", "- [ ] one (#20260801000000-a.md)",
+        ["20260801000000-a.md", "20260801000001-b.md"]);
+      ARCHIVE(dir, ".workaholic/tickets/todo/20260801000000-a.md", "Archive with one still queued");
+      assertEq("a mission with a queued ticket stays active", status(dir, "m3", "active"), "active");
+    } finally { cleanup(dir); }
+  }
+}
+
 function testArchiveConvergesTodoLayout() {
   const ARCHIVE = (dir, ticket, subject) =>
     run(dir, `${POSIX_SH} ${SCRIPTS.archive} ${ticket} "${subject}" https://example.com/r "why" "changes" "None" "None" "verify"`);
@@ -1701,7 +1819,10 @@ function testMissionResolutionFollowsTicket() {
     execSync(`git worktree add -q .worktrees/gamma -b work-20260717-160000`, { cwd: d3 });
     const wt = join(d3, ".worktrees/gamma");
     const ticketName = "20260717160000-feat.md";
-    const acc = (slug) => `---\ntype: Mission\ntitle: ${slug}\nslug: ${slug}\nstatus: active\nassignee: a@qmu.jp\ntickets: []\nstories: []\nconcerns: []\n---\n\n# ${slug}\n\n## Acceptance\n\n- [ ] Ship it (#${ticketName})\n\n## Changelog\n`;
+    // The second, unlinked item keeps this fixture MID-mission on purpose: since 2026-08-23
+    // archive.sh closes a mission whose acceptance the archive completes, and a fixture that
+    // closed would move out of active/ and stop testing the thing this test is about.
+    const acc = (slug) => `---\ntype: Mission\ntitle: ${slug}\nslug: ${slug}\nstatus: active\nassignee: a@qmu.jp\ntickets: []\nstories: []\nconcerns: []\n---\n\n# ${slug}\n\n## Acceptance\n\n- [ ] Ship it (#${ticketName})\n- [ ] And the next thing (#20260717999999-later.md)\n\n## Changelog\n`;
     const wtMd = join(wt, ".workaholic/missions/active/rt/mission.md");
     mkdirSync(dirname(wtMd), { recursive: true });
     writeFileSync(wtMd, acc("rt"));
@@ -5908,7 +6029,7 @@ function testArchiveMissionReporting() {
   // is reported with its reason, and archiving still completes (exit 0, ticket committed).
   const dirB = makeRepo("main");
   try {
-    seed(dirB, { missionVal: "mm", acceptance: `- [ ] Ship it (#${ticketName})`, changelog: "" });
+    seed(dirB, { missionVal: "mm", acceptance: `- [ ] Ship it (#${ticketName})\n- [ ] And the next thing (#20260717999999-later.md)`, changelog: "" });
     const r = archiveCmd(dirB);
     assertEq("failure case: archive.sh exits 0", r.status, 0);
     assertTrue("failure case: ticket archived despite the mutator failure", existsSync(archivedPath(dirB)));
@@ -5923,7 +6044,7 @@ function testArchiveMissionReporting() {
   // archive must not become a wall of noise the next reader learns to skim past).
   const dirC = makeRepo("main");
   try {
-    seed(dirC, { missionVal: "mm", acceptance: `- [ ] Ship it (#${ticketName})`, changelog: "## Changelog\n" });
+    seed(dirC, { missionVal: "mm", acceptance: `- [ ] Ship it (#${ticketName})\n- [ ] And the next thing (#20260717999999-later.md)`, changelog: "## Changelog\n" });
     const r = archiveCmd(dirC);
     assertEq("success case: archive.sh exits 0", r.status, 0);
     const mbody = readFileSync(join(dirC, ".workaholic/missions/active/mm/mission.md"), "utf8");
@@ -14935,6 +15056,8 @@ const tests = [
   ["moderate: the tick runs every step, and every step reports", testModerateRun],
   ["moderate/step-stalled-units.sh: what is claimed and how long it has not moved", testStalledUnitsStep],
   ["moderate: a question is never_asked, asked, or answered", testQuestionAnswerStates],
+  ["drive/archive.sh: closes a mission it can prove is finished", testArchiveClosesAProvenMission],
+  ["moderate/step-closable-missions.sh: finished, and still open", testClosableMissionsStep],
   ["moderate: the tick log survives the container that wrote it", testModeratePersist],
   ["moderate: the lines written after the persist reach the base too", testModeratePersistCarriesLateLines],
   ["moderate: the unattended contract is in the files, not in intent", testModerateUnattendedContract],
@@ -18660,7 +18783,12 @@ function testModerateRun() {
     // check-in learn a claimed unit has stopped. Before it, a loop stalled for eleven
     // consecutive ticks and the one surface that names a person never heard about it.
     // Same placement, same reason — it reads, the check-in asks.
-    "stalled-units", "human-checkin"];
+    "stalled-units",
+    // `closable-missions` is step 12 (2026-08-23): the archive gate closes a mission whose
+    // LAST ticket it archives, and this names the residue that reached full acceptance any
+    // other way. It reports and never closes — two writers of an end state is what
+    // close.sh's single-writer rule exists to prevent.
+    "closable-missions", "human-checkin"];
   try {
     // A tick only makes sense in a repository the loop already writes to; step 1 is the
     // probe that says so, and it never creates the tree behind the layout gate's back.

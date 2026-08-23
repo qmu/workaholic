@@ -43,7 +43,14 @@ downstream (`[Specificate]`'s ingestion, the record, the proposal) is untouched.
 `dev-<repo_name>` — the channel `workaholic:notify` already holds standing consent to read.
 **The window** is `WORKAHOLIC_INBOUND_SLACK_WINDOW_HOURS` (default 26): wider than the hourly
 tick by a day so a missed tick drops nothing, and the dedup below is what makes the overlap
-free.
+free. **This read is a bounded channel-history read, and it is the one place that has
+one**: `workaholic:notify`'s no-history-read bound governs thread *lookups*, where history is a
+guessing surface — here the history *is* the inbox, the developer instructed it read, and the
+bound that replaces the lookup rule is the window plus the one designated channel. `/moderate`'s
+Slack half keeps its two-query search bound unchanged; and unlike that step's record-writing
+sweep, this one files **only the issue** — the `/fb` shape, chosen for the same measured reason
+(`/fb`, *One artifact, two addresses*): a record written before its issue exists can never name
+it, and would be re-discovered forever.
 
 **What is FB-worthy is the feedback skill's own bar** (`workaholic:feedback`, *Whether this
 merits filing*): a genuine ask, instruction, concern or must-not-miss item written by a

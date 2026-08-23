@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-21T15:07:10+09:00
+status: done
 author: a@qmu.jp
 assignees: [tamura.yoshiya@gmail.com]
 depends_on:

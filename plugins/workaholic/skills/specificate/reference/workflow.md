@@ -85,7 +85,12 @@ and every abort reports a machine-readable reason.
    human on, and this session has no way to ask, record it as an explicit
    `## Open Decisions` item on the emitted ticket instead of resolving it silently
    (*Open decisions*, SKILL.md) — never inherit the reporter's framing as the design by
-   default. Scoped to the ask already in hand: this reads context for that ask, not a
+   default. **The pass must have covered the item's own subject before the item may be
+   written, and the item must name the sources it consulted and what they said**
+   (`create-ticket/reference/ticket-format.md`): an item that only asserts a fork is
+   unresolvable is self-certifying, and the driving run has no way to tell that claim from
+   a checked one. **Read the whole of any page the item cites** — the measured failure was
+   a partial read of one table whose answer sat fifty lines further down. Scoped to the ask already in hand: this reads context for that ask, not a
    second sweep of the backlog (the retired `[Propose Batch]` design).
 
 5b. **Read the strategy set**, from the publish tree:

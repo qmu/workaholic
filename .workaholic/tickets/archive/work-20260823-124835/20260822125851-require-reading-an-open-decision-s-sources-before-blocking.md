@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-22T12:58:51+09:00
+status: done
 author: a@qmu.jp
 assignees: 
 depends_on:
@@ -95,3 +96,37 @@ takes that declaration as evidence rather than as a claim to check.
 - This is a prose contract, not a script gate. No mechanical check can tell a real read
   from a claimed one; what it buys is that a blocked report with no sources named is
   visibly non-conformant.
+
+## Final Report
+
+Development completed as planned, as a prose contract in the three documents that govern the
+driving run — deliberately, because no mechanical check can tell a real read from a claimed one.
+What the change buys is that a blocked report naming no source is visibly non-conformant by the
+contract's own words.
+
+`drive/reference/ticket-workflow.md` §1 now states that **an Open Decision is a question to
+answer, not a ruling that the question is unanswerable**, and that before a run may honour one as
+a blocker it must read **the sources the item is about** — the documents, files and prior
+decisions the item names, and **the whole of any page it cites**, not the paragraph the item
+quotes. The requirement is scoped to exactly that: it is not "read everything", and an item naming
+no source at all is a defect in the item (the sibling ticket's subject) rather than a licence to
+skip the read.
+
+`drive/SKILL.md`'s run-report contract and the `blocked` finish now require the sources read and
+what they said. **A block that cannot name a source it read is not a block.**
+
+`drive/reference/failure-contract.md`'s external-blocker bucket now says a named authority is
+**necessary and not sufficient**: naming who must decide is free — a session can do it without
+ever having looked — so what qualifies a unit for that bucket is the evidence of the read. The
+"declining to decide" line gained its matching clause: a written Open Decision does not lift it,
+because an item an earlier automated seam declared unresolvable is a claim to check rather than
+evidence to cite.
+
+**The measured shape.** An `/implement` tick honoured an item whose answer sat fifty lines further
+down the very page the ticket named, recorded the unit `blocked` without an attempt, and ended
+`pending`. On a consuming repository the same shape ran **eleven consecutive ticks** for zero
+lines of implementation while the operator's own answer sat unread in the same tree. Both were
+conformant with the old text, which is why the text moved rather than the runs being blamed.
+
+**Verification**: `node scripts/test-workflow-scripts.mjs` — 3360 passed, 0 failed;
+`build.mjs` + `verify.mjs` clean (the reference files ship in the generated bundle).

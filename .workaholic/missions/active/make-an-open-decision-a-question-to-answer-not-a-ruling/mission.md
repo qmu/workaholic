@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260823-124835
 ---
 
 # Make an Open Decision a question to answer, not a ruling
@@ -36,11 +37,13 @@ the sources it read and why they did not answer the item.
 
 ## Acceptance
 
-- [ ] Honouring an Open Decision as a blocker requires reading its named sources first, and
+- [x] Honouring an Open Decision as a blocker requires reading its named sources first, and
       the report states what they said (#20260822125851-require-reading-an-open-decision-s-sources-before-blocking.md)
-- [ ] An Open Decision this session writes names the sources a driving run must read, and
+- [x] An Open Decision this session writes names the sources a driving run must read, and
       never declares itself unresolvable (#20260822125851-stop-writing-a-self-certifying-open-decision.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-23 — ticket archived — 20260822125851-require-reading-an-open-decision-s-sources-before-blocking.md
+- 2026-08-23 — ticket archived — 20260822125851-stop-writing-a-self-certifying-open-decision.md

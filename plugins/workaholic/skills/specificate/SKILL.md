@@ -145,6 +145,17 @@ discounted the request contradicting it because *the ask came from `[Propose]`, 
 operator* — correct about `[Propose]`, and the operator's actual instruction was sitting unread
 in the same feedback stream.
 
+**1b. An item that survives must not certify itself.** Three required parts
+(`create-ticket/reference/ticket-format.md`): **the question**, **the sources consulted and what
+they said**, and **the fork's sides**. It may name whose ruling would settle it; it may **not**
+state that the question is unanswerable, and it may **not** instruct a later session not to
+decide. The history-mode discovery pass must have covered the item's own subject before the item
+is written, and **the whole of any page the item cites must have been read** — the measured
+failure was a partial read of one table, with the answer fifty lines further down the same page.
+Carry what the pass found into the item: that is the "sources consulted" part, and it is what
+turns the item from a ruling back into a question. The escape hatch is intact — a genuinely
+unrecommendable fork is still recordable, with its sources named.
+
 **2. An unresolved fork never enters `## Quality Gate`.** It is recorded in `## Open Decisions`,
 where a human reads it, and the ticket declares **`verification_handoff: <the decision needed>`**
 — the field that already routes the unit to the `handoff` route: the pull request opens and

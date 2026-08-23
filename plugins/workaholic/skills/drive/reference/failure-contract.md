@@ -21,6 +21,16 @@ Exactly two buckets may be deferred **without** an attempt:
   decision requiring a named human's professional judgement. State concretely what is missing and
   who must provide it.
 
+  **A named authority is necessary and not sufficient** (2026-08-23). Naming who must decide is
+  free — a session can do it without ever having looked — so what qualifies a unit for this bucket
+  is the **evidence of the read**: the sources consulted and what they said. Where the blocker is
+  a written `## Open Decisions` item, those sources are the ones the item names, plus the whole of
+  any page it cites (`reference/ticket-workflow.md` §1). **A block that cannot name a source it
+  read is not a block** — it is the declining-to-decide this contract already refuses, one level
+  further up. Measured: an item was honoured whose answer sat fifty lines below on the very page
+  the ticket named, and on a consuming repository that shape ran eleven consecutive ticks for zero
+  lines of implementation while the operator's own answer sat unread in the same tree.
+
 ## The four outcomes
 
 Every ticket handed to a unit ends as exactly one, and the totals reconcile to the unit's queue.
@@ -128,7 +138,9 @@ developer-only ruling surfacing mid-run (authorization for an irreversible outwa
 security-boundary value, an unfabricatable secret, a true evidence-free fork) is deferred and
 recorded in the final report — once — never asked. If you cannot name which of those you are
 missing, you are not blocked on the developer; you are declining to decide
-(`rules/interaction.md`).
+(`rules/interaction.md`). **A written Open Decision does not lift that**: it is a question to
+answer, not a ruling that the question is unanswerable, and an item an earlier automated seam
+declared unresolvable is a claim to check rather than evidence to cite.
 
 **This governs execution-time choices only — never planning-time requirements.** Drawing out the
 developer's requirements before a plan is committed is mandatory and the opposite of offloading:

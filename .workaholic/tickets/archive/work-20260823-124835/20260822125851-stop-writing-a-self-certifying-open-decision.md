@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-22T12:58:51+09:00
+status: done
 author: a@qmu.jp
 assignees: 
 depends_on:
@@ -84,3 +85,36 @@ writing one sentence.
   unread. Drive them in this mission's order.
 - `/ticket` is deliberately untouched — it resolves the same kind of fork by asking a human
   directly, so it never writes a self-certifying item.
+
+## Final Report
+
+Development completed as planned. `create-ticket/reference/ticket-format.md` now states the
+**three required parts** of an `## Open Decisions` item — **the question**, **the sources
+consulted and what they said**, and **the fork's sides** — with the item template rewritten to
+carry them. An item may name whose ruling would settle it. It may **not** state that the question
+is unanswerable, and it may **not** instruct a later session not to decide.
+
+`specificate/SKILL.md`'s *Open decisions* gained rule **1b** and `reference/workflow.md` step 5
+gained the matching sentence: the history-mode discovery pass must have covered the item's own
+subject before the item may be written, **the whole of any page the item cites must have been
+read**, and what the pass found is carried into the item as the "sources consulted" part. That
+part is what turns the item from a ruling back into a question.
+
+**The escape hatch is intact and deliberately so**: a genuinely unrecommendable fork is still
+recordable, with its sources named. What is removed is the self-certification, not the section.
+`/ticket` is untouched — it resolves the same kind of fork by asking a human directly in Workflow
+§4b, so it never writes a self-certifying item.
+
+**Why the parts had to be required.** The item was self-certifying: the writing seam declared a
+fork unresolvable and the driving run took that declaration as evidence rather than as a claim to
+check, so a fork whose answer already existed produced `blocked` on every tick forever. Measured —
+a tick honoured an item whose answer sat fifty lines further down the very page the ticket named,
+which is also why "read the whole of a cited page" is stated rather than left implied; on a
+consuming repository the same shape ran eleven consecutive ticks for zero lines of implementation.
+
+**This ticket and its sibling are complementary and neither is sufficient alone**: this one stops
+new self-certifying items being written, the sibling stops existing ones being honoured unread.
+They were driven in the mission's order.
+
+**Verification**: `node scripts/test-workflow-scripts.mjs` — 3360 passed, 0 failed;
+`build.mjs` + `verify.mjs` clean.

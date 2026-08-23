@@ -303,6 +303,47 @@ It posts nothing itself and touches no claim: the post is step 12's, through the
 that already names a person, rides the tick's own thread, carries the session URL and is asked
 once.
 
+### A question has three states, and an answer is one of them
+
+```bash
+sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/record-answer.sh --tick <id> --key <content-key> --answer "<their words>" [--root <repo-root>]
+sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/question-state.sh --key <content-key> [--root <repo-root>]
+```
+
+The developer's flow ends where the plugin had nothing (2026-08-23, issue #584): they open the
+session link on the question and answer **inside the moderator's own session**. The tick had no
+notion of an answer — `ask-question.sh` recorded that a key *was asked* and refused to ask it
+again, and nothing recorded that it was *answered* — so an answered question and one nobody will
+ever answer were the same state, and the person's words died with the container. That is the same
+shape as the defect that made the tick's own feedback records evaporate.
+
+| State | In the log |
+| --- | --- |
+| `never_asked` | no `human-checkin-ask-<slug>` line |
+| `asked` | that line, and no answer beside it |
+| `answered` | `human-checkin-answered-<slug>`, whose **summary is the person's words** |
+
+**No new store.** The answer rides `log-append.sh` — the log's only writer, append-only,
+idempotent per (tick, step) — and `persist-log.sh` carries it to the base with no branch and no
+claim, exactly as it carries every other line. Recording twice in one tick is a no-op; a
+correction in a later tick appends its own line and the reader takes the newest, so nothing on the
+base is ever rewritten and both remain as the audit trail.
+
+**One derivation of the id**, in `lib/question-id.sh`, sourced by the gate, the writer and the
+reader: a question whose id differed between them would silently be a different question, and an
+answer filed under one id would never clear a gate reading another.
+
+**`answered` is its own refusal at the gate**, not a kind of `already_asked`. Both refuse and
+neither holds, so volume behaviour is unchanged — but the caller, the run report and the log can
+now tell *a person resolved this* from *nobody ever will*, and the refusal carries the words so the
+next run can act on them. **Nothing parses the answer**: it is a person's prose, and acting on it
+stays the next run's judgement. What this owes is that the words survive and are found.
+
+**An empty answer is refused** (`no_answer`) rather than recorded: "answered with nothing" is
+indistinguishable from a mis-click, and it would clear the gate on a question still open. A missing
+log reads `never_asked` — a repository with no tick history has asked nothing — while a log that
+exists and cannot be read is `unreadable`, named, because only one of those is calm.
+
 ## 12. `human-checkin` — the tick's voice: one root, up to five questions inside it
 
 - **Reads**: the tick log (held questions, what was already asked today) and the clock in the

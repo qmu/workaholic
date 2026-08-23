@@ -68,6 +68,22 @@ The next run resumes it automatically; `git fetch && git checkout <branch>` to t
 One sentence, max 25 words, what failed and what a human must do.
 ```
 
+**A `🔴 Blocked` root re-posted when the cool-down expires names the duration** (2026-08-23):
+
+```
+🔴 Blocked - `<signature>`, failing since <time>, <N> ticks
+One sentence, max 25 words, what failed and what a human must do.
+```
+
+The first report keeps the shape above, unchanged. This second form exists only at expiry, because
+by then the news is **how long** it has been failing — a root identical to yesterday's is the
+restatement this repository retires posts for. When the cool-down expires is the SKILL's rule
+(*Post shapes, mentions, and the red-alert dedup*): the earlier of 24 hours after the first report
+and the start of the next working day, composed from the check-in gate's own `WORKAHOLIC_WORK_DAYS`,
+`WORKAHOLIC_QUIET_HOURS` and `WORKAHOLIC_QUIET_TZ` rather than a second definition. The
+`↳ still failing` reply, its exemption from rate-limiting, the first-report rule and the
+unreadable-history rule are all untouched.
+
 `🚀 Auto Merge` names no person and carries no mention token — a developer scanning the thread must be able to tell what merged without approval from what a person approved. It keeps the pre-existing merge shape's `from-branch → to-branch` body line verbatim; only the base template it extends moved from `🟢 Merge Requested` to `🟢 Implemented`'s simpler two-line form. `🟡 Handoff` and `🔴 Blocked` are unchanged from the shapes that predate this reconciliation.
 
 **A human merge is not announced by `/implement` at all** — that was `[Consent]`'s job, and `[Consent]` is retired (`workaholic:workaholify`, *Routines*): "a human-merged pull request is now announced by nobody." The `Merged by <@U…>` purple-circle shape this section once documented erased with it (2026-08-09, qmu/workaholic#317) rather than being reassigned — nothing in the current system posts a human-merge finish line, so keeping the shape on the books described a post nobody makes. The auto/human distinction the shape used to carry survives anyway, in the silence itself: `🚀 Auto Merge` is the only merge line `/implement` ever posts, so its presence in a thread means the run shipped the unit unattended; a `review` unit's thread ends at `🟢 Implemented` and stays there even after a human merges the PR later, and the merge itself is always readable on GitHub regardless. A developer telling the two apart reads the thread, not a second emoji.

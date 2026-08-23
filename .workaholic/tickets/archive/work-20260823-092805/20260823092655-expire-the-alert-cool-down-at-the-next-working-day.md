@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-23T09:26:55+09:00
+status: done
 author: a@qmu.jp
 assignees: 
 depends_on:
@@ -101,3 +102,33 @@ repeated twenty times reads as nothing at all.*
 - Resist keying the escalation on the tick count instead. A count threshold is an arbitrary
   constant, and the thing that actually went wrong is that the person's working day passed with
   nothing to see — which is a boundary the repository already knows how to compute.
+
+## Final Report
+
+Development completed as planned. The red-alert cool-down now expires at the **earlier** of 24
+hours after the first report and the **start of the next working day** — the first hour inside
+`WORKAHOLIC_WORK_DAYS` (default `1-5`) at the end of `WORKAHOLIC_QUIET_HOURS` (default `22-08`, so
+08:00) in `WORKAHOLIC_QUIET_TZ` (default `Asia/Tokyo`).
+
+**No new constant and no second timezone.** Those three variables are the check-in gate's own; the
+rule composes them rather than defining a day boundary a second time, which is what the ticket's
+Considerations asked for and what keeps the two gates from drifting apart.
+
+**A root re-posted at expiry names the duration** — `🔴 Blocked - <signature>, failing since
+<time>, <N> ticks`. The first report's shape is unchanged; this second form exists only at expiry,
+because by then the news is how long it has been failing, and a root identical to yesterday's is
+exactly the restatement this repository has retired posts for.
+
+**What was deliberately left alone**, stated because the ticket required it: the `↳ still failing`
+threaded reply and its exemption from rate-limiting; the rule that a changed signature or a first
+report always posts a root; and the rule that an unreadable history posts the alert anyway, because
+silence must never be produced by a failure of the mechanism that decides to be silent. A signature
+first reported *during* the working day is also untouched — the 24-hour term is still the earlier
+one there, so nothing about that case moves.
+
+The stated cost is the intended one: at most one extra post per signature per working day, against
+the ten hours of stalled loop the old expiry bought. The failure being re-announced is by
+construction one nobody has acted on.
+
+**Verification**: `node scripts/test-workflow-scripts.mjs` — 3360 passed, 0 failed;
+`build.mjs` + `verify.mjs` clean.

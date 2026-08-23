@@ -27,14 +27,44 @@
 # cursor, a mission field — would give the claim protocol two clocks, and the one that
 # drifted would be believed.
 #
-# IT REPORTS EVERY CLAIM AND FILTERS NOTHING. What counts as *long enough to matter* is a
-# judgement, and it belongs to the step that asks (`human-checkin`), not to the step that
-# reads. A threshold here would decide in a script what a person should be asked about, and
-# the eleven-tick stall is what happens when that judgement is made silently.
+# IT REPORTS EVERY CLAIM AND NARROWS ONLY WHAT IT ASKS ABOUT. The summary counts every
+# claimed unit, whatever its age; only the `needs_agent` candidates are filtered, by the
+# threshold below. Nothing is dropped from the reading — a reader who wants the whole picture
+# gets it, and the narrowing is visible in the same line as the total.
 #
-# IT CHANGES NO OBSERVABLE BEHAVIOUR. It posts nothing, asks nothing, touches no claim, and
-# emits an empty `needs_agent`: the asking is its sibling ticket's subject, and shipping the
-# reading first means this lands provable and inert.
+# IT READS, AND IT HANDS THE STALE ONES TO THE CHECK-IN TO ASK ABOUT. The reading shipped
+# inert first; the asking is the second half, and it is the whole point of the step.
+#
+# THE THRESHOLD IS THE CLAIM PROTOCOL'S OWN `stale`, and none of the three options the
+# ticket listed (ruled 2026-08-23 while driving it; the ticket required an explicit ruling).
+# `lib/claims.sh` already decides when a claim branch has not moved long enough that a human
+# should look — `WORKAHOLIC_CLAIM_STALE_HOURS`, default 24 — and its header states the
+# meaning in the exact words this step needs: *a tip older than the threshold says "look at
+# this", not "take it"*. Asking a person to look IS that, so the reuse is principled rather
+# than convenient, and it beats each listed option on that option's own cost:
+#
+#   (a) a fixed tick count — refused: it invents an arbitrary constant beside one that
+#       already exists, already has a justification, and is already configurable.
+#   (b) across a working-day boundary — refused: it composes a boundary this plugin owns,
+#       which is right, but a unit stalling at 09:05 then waits nearly a full day before
+#       anyone hears, and the measured failure WAS a day of silence. `stale` is 24 hours
+#       from the stall rather than 24 hours to the next boundary, so it has that option's
+#       shape without its cliff. The working-week half of (b) is not lost either: it lives
+#       downstream in `step-human-checkin.sh`, which holds a question over the weekend
+#       already, so this threshold does not need to know about days at all.
+#   (c) two ticks plus an unresolved Open Decision — refused: fast, but it names one blocker
+#       class. A missing credential and a failing gate stall a unit exactly as hard and need
+#       a person exactly as much.
+#
+# IT ASKS; IT NEVER CLAIMS, DRIVES OR RESOLVES. The candidate goes to the check-in as
+# `needs_agent` and nothing else happens here — no claim is touched, no branch is written,
+# no blocker is cleared. The tick has no second route into work.
+#
+# THE ALERT SHAPES ARE UNCHANGED, DELIBERATELY. `🔴 Blocked` and `↳ still failing` still
+# carry no mention token. They are the run's record of an outcome; this question is a demand
+# on a person's attention. Two speech acts, and making the record louder is the direction
+# this repository has already retired twice — the failure was never volume, it was that
+# nothing addressed anybody.
 #
 # A DEGRADED READ IS NAMED, NEVER RENDERED AS CALM. `fetched: false` means the claim scan
 # could not reach the remote, and unmerged remote branches are the *only* claim oracle — so
@@ -97,24 +127,26 @@ shallow=$(printf '%s' "$out" | jq -r '.shallow // false')
 # reading a stalled-unit reader must never get wrong.
 now=$(date +%s)
 rows='[]'
-tsv=$(printf '%s' "$out" | jq -r '.claims[]? | [.unit, .branch, (.author // "unknown"), (.last_commit_at // ""), (.reported // false), (.resume_reason // "")] | @tsv' 2>/dev/null || true)
+tsv=$(printf '%s' "$out" | jq -r '.claims[]? | [.unit, .branch, (.author // "unknown"), (.last_commit_at // ""), (.reported // false), (.resume_reason // ""), (.stale // false)] | @tsv' 2>/dev/null || true)
 if [ -n "$tsv" ]; then
     rows=$(
-        printf '%s\n' "$tsv" | while IFS='	' read -r u b o at rep rr; do
+        printf '%s\n' "$tsv" | while IFS='	' read -r u b o at rep rr st; do
             [ -n "$u" ] || continue
             hours=null
             if [ -n "$at" ] && [ "$at" != "unknown" ]; then
                 epoch=$(date -d "$at" +%s 2>/dev/null || true)
                 [ -n "$epoch" ] && hours=$(( (now - epoch) / 3600 ))
             fi
-            printf '%s\n' "$u" "$b" "$o" "$at" "$rep" "$rr" "$hours" \
+            printf '%s\n' "$u" "$b" "$o" "$at" "$rep" "$rr" "$st" \
                 | jq -Rn --argjson h "$hours" '
                     [inputs] as $f
                     | {unit: $f[0], branch: $f[1], owner: $f[2],
                        last_commit_at: (if $f[3] == "" then "unknown" else $f[3] end),
                        stalled_hours: $h,
                        has_pull_request: ($f[4] == "true"),
-                       resume_reason: $f[5]}'
+                       resume_reason: $f[5],
+                       stale: ($f[6] == "true"),
+                       key: ("stalled-unit:" + $f[0])}'
         done | jq -sc '.'
     )
 fi
@@ -129,5 +161,20 @@ unknown_age=$(printf '%s' "$rows" | jq '[.[] | select(.stalled_hours == null)] |
 oldest=$(printf '%s' "$rows" | jq '[.[] | .stalled_hours // 0] | max // 0')
 with_pr=$(printf '%s' "$rows" | jq '[.[] | select(.has_pull_request)] | length')
 
-emit ok "" \
-  "${count} claimed unit(s); oldest stopped ${oldest}h, ${with_pr} at a pull request, ${unknown_age} of unknown age"
+# THE THRESHOLD IS `stale`, THE CLAIM PROTOCOL'S OWN (see the header): a branch that has not
+# moved for `WORKAHOLIC_CLAIM_STALE_HOURS` (default 24) is already the protocol's way of
+# saying "look at this". The content key is `stalled-unit:<unit>` — stable across ticks, which
+# is what makes `ask-question.sh`'s already-asked ledger able to ask exactly once.
+stalled=$(printf '%s' "$rows" | jq -c '[.[] | select(.stale)]')
+n_stalled=$(printf '%s' "$stalled" | jq 'length')
+
+summary="${count} claimed unit(s); oldest stopped ${oldest}h, ${with_pr} at a pull request, ${unknown_age} of unknown age; ${n_stalled} past the claim protocol's staleness threshold"
+
+[ "$n_stalled" -eq 0 ] && emit ok "" "$summary"
+
+needs=$(printf '%s' "$stalled" | jq -c '{action: "ask_the_owner_whether_this_stalled_unit_still_needs_them",
+    bound: "one question per unit, addressed to the claim holder, keyed on `key` so it is asked once; the tick asks and never claims, drives, or resolves the blocker itself",
+    compose: "name what is stuck and what the run could not decide — a signature is not a problem — and say the answer is given in this session, through the link on the question",
+    stalled: .}' 2>/dev/null || echo '{}')
+
+emit ok "" "$summary" "$needs"

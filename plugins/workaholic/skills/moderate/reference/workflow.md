@@ -1,4 +1,4 @@
-# The ten-step contract — reference
+# The twelve-step contract — reference
 
 Companion to [`../SKILL.md`](../SKILL.md). One section per step: what it reads, **what it may
 write**, what it returns in `needs_agent`, and the reasons it aborts with. The step ids are the
@@ -263,9 +263,29 @@ would give the claim protocol two clocks. It is computed with `date`, not jq's
 and parsing those in jq reported five of seven live claims as *unknown age* on this step's first
 run.
 
-**It reports every claim and filters nothing.** What counts as *long enough to matter* is a
-judgement and it belongs to step 12, not to a threshold in a script — deciding it silently here is
-the shape of the failure this step exists to end.
+**It reports every claim and narrows only what it asks about.** The summary counts every claimed
+unit whatever its age; the `needs_agent` candidates are the **stale** ones, and the narrowing is
+visible in the same line as the total.
+
+**The threshold is the claim protocol's own `stale`** — `WORKAHOLIC_CLAIM_STALE_HOURS`, default 24
+— and none of the three the ticket offered (ruled 2026-08-23 while driving it). `lib/claims.sh`
+already decides when a claim branch has not moved long enough that a human should look, and states
+the meaning in the words this step needs: *a tip older than the threshold says "look at this", not
+"take it"*. Asking a person to look **is** that. A fixed tick count was refused for inventing an
+arbitrary constant beside a justified one; a working-day boundary for making a unit that stalls at
+09:05 wait nearly a full day, when the measured failure *was* a day of silence — `stale` has that
+option's shape without its cliff, and the working-week half of it survives downstream, in step 12's
+own weekend hold; two-ticks-plus-an-open-decision for naming one blocker class when a missing
+credential stalls a unit exactly as hard.
+
+**It asks; it never claims, drives or resolves.** The candidate goes to step 12 as `needs_agent`,
+keyed `stalled-unit:<unit>` — stable across ticks, which is what lets `ask-question.sh`'s ledger
+ask exactly once — with the claim holder's email to address it to. Nothing here touches a claim.
+
+**`🔴 Blocked` and `↳ still failing` are unchanged**, and that is the decision rather than an
+omission: they are the run's record of an outcome, and this question is a demand on a person's
+attention. Making the record louder is the direction this repository has retired twice — the
+failure was never volume, it was that nothing addressed anybody.
 
 **`has_pull_request` is offline.** It is the claim oracle's own `reported` field, derived from the
 story file `/story` commits when it opens the pull request, so a tick with no GitHub reach still
@@ -279,8 +299,9 @@ the only claim oracle could not be reached — not that nothing is stalled; `sha
 merged unit is indistinguishable from a held one. A missing or unparseable reader is `degraded`
 with its reason.
 
-It emits an **empty `needs_agent`** and changes no observable behaviour: it posts nothing, asks
-nothing, and touches no claim. The asking is step 12's subject.
+It posts nothing itself and touches no claim: the post is step 12's, through the `🙋 <@U…>` shape
+that already names a person, rides the tick's own thread, carries the session URL and is asked
+once.
 
 ## 12. `human-checkin` — the tick's voice: one root, up to five questions inside it
 

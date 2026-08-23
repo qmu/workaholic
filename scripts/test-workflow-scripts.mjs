@@ -14934,6 +14934,7 @@ const tests = [
   ["moderate: the tick log is registered, append-only and idempotent", testModerateLog],
   ["moderate: the tick runs every step, and every step reports", testModerateRun],
   ["moderate/step-stalled-units.sh: what is claimed and how long it has not moved", testStalledUnitsStep],
+  ["moderate: a question is never_asked, asked, or answered", testQuestionAnswerStates],
   ["moderate: the tick log survives the container that wrote it", testModeratePersist],
   ["moderate: the lines written after the persist reach the base too", testModeratePersistCarriesLateLines],
   ["moderate: the unattended contract is in the files, not in intent", testModerateUnattendedContract],
@@ -18522,6 +18523,64 @@ function testModerateLog() {
   } finally {
     cleanup(repo);
   }
+}
+
+// ---------- moderate: a question's three states (2026-08-23, issue #584) ----------
+// The developer answers in the moderator's own session, and the tick had no notion of an
+// answer: `asked` and `answered` were the same state and the person's words died with the
+// container. What is pinned is that the three states are distinguishable, that the WORDS
+// survive (a flag nobody can read is the same failure at one remove), and that the log
+// stays append-only.
+function testQuestionAnswerStates() {
+  const M = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts");
+  const ASK = `${POSIX_SH} ${join(M, "ask-question.sh")}`;
+  const REC = `${POSIX_SH} ${join(M, "record-answer.sh")}`;
+  const STATE = `${POSIX_SH} ${join(M, "question-state.sh")}`;
+  const APPEND = `${POSIX_SH} ${join(M, "log-append.sh")}`;
+  const dir = mkdtempSync(join(tmpdir(), "wh-qstate-"));
+  mkdirSync(join(dir, ".workaholic"), { recursive: true });
+  const K = "stalled-unit:m1";
+  const st = () => JSON.parse(execSync(`${STATE} --root ${dir} --key '${K}'`, { encoding: "utf8" }));
+  try {
+    assertEq("a key nobody asked about is never_asked", st().state, "never_asked");
+
+    const gate = JSON.parse(execSync(`${ASK} --tick 20260823-100000 --root ${dir} --key '${K}' --to a@example.com --hour 10 --weekday 1`, { encoding: "utf8" }));
+    assertEq("the gate lets a fresh question through", gate.ask, true);
+    execSync(`${APPEND} --root ${dir} --tick 20260823-100000 --step ${gate.log_step} --status ok --summary asked`, { stdio: "ignore" });
+    assertEq("once asked, the state is asked", st().state, "asked");
+    assertEq("and the gate refuses it as already_asked",
+      JSON.parse(execSync(`${ASK} --tick 20260823-110000 --root ${dir} --key '${K}' --to a@example.com --hour 11 --weekday 1`, { encoding: "utf8" })).reason,
+      "already_asked");
+
+    // THE WORDS ARE THE POINT. A recorded answer nobody can read is the same failure at
+    // one remove: the next run must be able to act on it.
+    const words = "Release the claim - the lab moved to packages/app.";
+    assertEq("an answer is recorded",
+      JSON.parse(execSync(`${REC} --root ${dir} --tick 20260823-110000 --key '${K}' --answer '${words}'`, { encoding: "utf8" })).recorded, true);
+    assertEq("the state becomes answered and carries the words",
+      [st().state, st().answer], ["answered", words]);
+    // `answered` is its OWN refusal, not a kind of already_asked: both refuse and neither
+    // holds, but the loop can now tell "a person resolved this" from "nobody ever will".
+    const after = JSON.parse(execSync(`${ASK} --tick 20260823-120000 --root ${dir} --key '${K}' --to a@example.com --hour 12 --weekday 1`, { encoding: "utf8" }));
+    assertEq("the gate refuses an answered question by its own name and does not hold it",
+      [after.ask, after.reason, after.hold], [false, "answered", false]);
+    assertEq("and the refusal carries the answer", after.answer, words);
+
+    // An empty answer would clear the gate on a question still open.
+    assertEq("an empty answer is refused, not recorded",
+      JSON.parse(execSync(`${REC} --root ${dir} --tick 20260823-130000 --key 'stalled-unit:m2' --answer ''`, { encoding: "utf8" })).reason, "no_answer");
+    assertEq("so that key is still never_asked",
+      JSON.parse(execSync(`${STATE} --root ${dir} --key 'stalled-unit:m2'`, { encoding: "utf8" })).state, "never_asked");
+
+    // APPEND-ONLY: a correction in a later tick appends and the newest wins; the earlier
+    // line is still there, which is the audit trail.
+    const day = readdirSync(join(dir, ".workaholic/moderations"))[0];
+    const before = readFileSync(join(dir, ".workaholic/moderations", day), "utf8");
+    execSync(`${REC} --root ${dir} --tick 20260823-140000 --key '${K}' --answer 'Actually keep it open.'`, { stdio: "ignore" });
+    const nowLog = readFileSync(join(dir, ".workaholic/moderations", day), "utf8");
+    assertTrue("no line already written is rewritten", nowLog.startsWith(before), nowLog.slice(0, 400));
+    assertEq("and the newest answer wins", st().answer, "Actually keep it open.");
+  } finally { cleanup(dir); }
 }
 
 // ---------- moderate/step-stalled-units.sh (2026-08-23, issue #584) ----------

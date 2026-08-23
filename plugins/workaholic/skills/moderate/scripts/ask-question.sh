@@ -10,7 +10,8 @@
 #
 # FOUR GATES, EACH ITS OWN REFUSAL:
 #   quiet_hours   inside the configured window; the question is HELD, never dropped
-#   already_asked this exact question key was asked in an earlier tick
+#   answered      a person answered it in the moderator session; never asked again
+#   already_asked this exact question key was asked in an earlier tick, unanswered
 #   tick_cap      five per tick, the ask's own ceiling
 #   day_cap       the bound the per-tick cap must not aggregate past (default 10)
 #
@@ -40,7 +41,7 @@
 # Output: one JSON line
 #   {"ask": true, "key": "...", "log_step": "human-checkin-ask-<slug>",
 #    "mention_email": "...", "asked_this_tick": n, "asked_today": n}
-#   {"ask": false, "reason": "off_day|quiet_hours|already_asked|tick_cap|day_cap|no_key",
+#   {"ask": false, "reason": "answered|off_day|quiet_hours|already_asked|tick_cap|day_cap|no_key",
 #    "hold": true|false, "window": "22-08 Asia/Tokyo", ...}
 #
 # `mention_email` is what the CALLER resolves to a `<@U…>` mention: a bare `@name`
@@ -51,6 +52,8 @@ set -eu
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "$0")" && pwd)
 LOG_READ="${SCRIPT_DIR}/log-read.sh"
+. "${SCRIPT_DIR}/lib/question-id.sh"
+QUESTION_STATE="${SCRIPT_DIR}/question-state.sh"
 
 TICK=''
 KEY=''
@@ -145,10 +148,11 @@ count_log_step() {
 # key is appended so that cannot happen. The ids therefore changed shape on 2026-08-21:
 # a question asked under the old id is asked once more, which is the one-off cost of
 # making the gate mechanical.
-SLUG=$(printf '%s' "$KEY" | tr 'A-Z' 'a-z' | sed 's/[^a-z0-9]\{1,\}/-/g; s/^-//; s/-$//' | cut -c1-24)
-[ -n "$SLUG" ] || SLUG=q
-DIGEST=$(printf '%s' "$KEY" | cksum | cut -d' ' -f1)
-LOG_STEP="human-checkin-ask-${SLUG}-${DIGEST}"
+# THE DERIVATION MOVED TO A LIBRARY on 2026-08-23 and did not change: three scripts key on
+# this identity now (this gate, `record-answer.sh`, `question-state.sh`), and a question
+# whose id differed between them would silently be a different question — an answer filed
+# under one id would never clear a gate reading another.
+LOG_STEP="human-checkin-ask-$(question_slug "$KEY")"
 
 # THE GATE MATCHES THE STEP ID, NEVER THE SUMMARY TEXT (2026-08-21, ticket
 # `20260819062058`). It used to ask the log for a line whose SUMMARY contained the raw
@@ -158,6 +162,20 @@ LOG_STEP="human-checkin-ask-${SLUG}-${DIGEST}"
 # tick `20260819-045108` asked `ask:issue-524-unassigned-never-ingested`, and an hour
 # later the same key answered `{"ask": true}` with the question still unanswered in the
 # channel. Reading the id makes the gate mechanical, which is what a ceiling needs.
+# ANSWERED IS ITS OWN REFUSAL, NOT A KIND OF `already_asked` (2026-08-23, issue #584). Both
+# refuse and neither holds, so the volume behaviour is identical — but the caller, the run
+# report and the tick log can now tell "a person resolved this" from "nobody ever will",
+# which is the whole distinction the loop was missing.
+if [ -f "$QUESTION_STATE" ]; then
+    qs=$(sh "$QUESTION_STATE" --root "$ROOT" --key "$KEY" 2>/dev/null || true)
+    case "$qs" in
+        *'"state": "answered"'*)
+            printf '{"ask": false, "reason": "answered", "hold": false, "key": "%s", "answer": %s}\n' \
+                "$KEY" "$(printf '%s' "$qs" | jq -c '.answer' 2>/dev/null || printf '""')"
+            exit 0 ;;
+    esac
+fi
+
 already=$(count_log_step "$LOG_STEP")
 if [ "$already" != "0" ]; then
     printf '{"ask": false, "reason": "already_asked", "hold": false, "key": "%s"}\n' "$KEY"

@@ -96,6 +96,16 @@ and every abort reports a machine-readable reason.
    is `strategy_not_found`. Only an **explicit slug** matches; a title or a paraphrase
    never does.
 
+   **The same read answers a second question, and it is the one that stalled a loop for
+   nine hours** (2026-08-23, issue #83): before step 5 may declare a fork *operator-only*,
+   check whether the operator already ruled. Read each `status: active` strategy's Aim and
+   the `subject: person:` records it cites
+   (`bash ${CLAUDE_PLUGIN_ROOT}/skills/feedback/scripts/list.sh`). **A direction found
+   there is binding — cite it and proceed**, never reopen it: a strategy is the operator's
+   *resolved* direction by definition, and a proposal has no standing to reopen one. Pure
+   read, no write, and an unreadable set is reported by name rather than treated as
+   "the operator has not ruled" (SKILL.md, *Open decisions*).
+
 6. **Dedup.** `bash ${CLAUDE_PLUGIN_ROOT}/skills/specificate/scripts/list-proposed-refs.sh`.
    An ask that restates a record already referenced is **record-only**: stop after
    step 3's record and go to step 10. Read this **before** scaffolding, since what this
@@ -162,8 +172,15 @@ and every abort reports a machine-readable reason.
    reproducing and localizing the failure and record any reporter-proposed mechanism
    under Considerations as a hypothesis, never as step 1's design
    (`workaholic:discover`, *Diagnosis-First Rule*). **When step 5 recorded an
-   `open_decision`**, write it verbatim into the ticket's `## Open Decisions` section
-   (`reference/ticket-format.md`) rather than resolving it.
+   `open_decision`** — which it may only do once step 5b's operator-record check came back
+   empty — write it verbatim into the ticket's `## Open Decisions` section
+   (`reference/ticket-format.md`) rather than resolving it, and declare
+   `verification_handoff: <the decision needed>` on that ticket. **Never write it as a
+   `## Quality Gate` item**: nothing in the unattended loop can clear one, so a gate item is
+   re-claimed and re-failed every tick forever, while the handoff route opens a pull request
+   that stays open, quotes the reason in a non-droppable `## Handoff`, and leaves a standing
+   claim the survey does not re-offer (SKILL.md, *Open decisions*; measured, nine ticks and
+   1.6 agent-hours for zero work).
 
 9b. **Emit the strategy** (strategy form only), in the publish tree — instead of
    step 9, never alongside it:

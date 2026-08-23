@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-22T18:23:03+09:00
+status: done
 author: a@qmu.jp
 assignees: 
 depends_on:
@@ -86,3 +87,56 @@ the seam handles the ordinary case, and this makes the residue legible instead o
   ordinarily-silent report look like a list.
 - Resist making this close anything, even when the arithmetic is identical to the sibling's. Two
   writers of an end state is exactly what `close.sh`'s single-writer rule exists to prevent.
+
+## Final Report
+
+Development completed as planned. `moderate/scripts/step-closable-missions.sh` is step 12 of the
+tick: it names every active mission whose acceptance is fully checked with nothing queued, with
+its `checked/total` and queued count, and **never closes one**.
+
+### The home, ruled: this tick, not `/story`
+
+`story/scripts/area-freshness.sh` is the exact precedent for a reporting-only upkeep seam and was
+the real alternative. This tick wins on audience and on shape, and the ticket asked for the reason
+to be recorded:
+
+- **The residue accumulates over time, not at a merge.** A per-merge report names it only when
+  somebody happens to merge something unrelated — which is precisely how eleven went unseen.
+- **Closing a mission is the operator's act**, and this is the surface that reaches an operator
+  hourly and keeps a dated log of what it saw.
+- **It is silent by construction when the set is empty**: it contributes a report line and never a
+  question, and the tick posts only when it has a question to ask. Tuning against today's residue
+  would have made an ordinarily-silent report look like a list, which the Considerations warned of.
+
+### The composition changed mid-drive, and the step's own test is why
+
+The first implementation read the survey's `queue_drained` exclusion — the obvious composition,
+and exactly this candidate set. The test then caught the report leaving
+`M .workaholic/missions/active/<slug>/mission.md` in the index: `plan-units.sh` runs the living
+migrations and **stages** what they change. A step whose contract is *writes nothing* may not
+reach it through something that writes, so the set is now composed from three pure readers —
+`summary.sh` (the active set with `checked`/`total`), `progress.sh` (`unlinked`) and
+`queue-size.sh` (the queue count, which is the number `plan-units.sh` itself reads). Still no new
+parser of the many-valued `mission:` relation.
+
+**One exception to "writes nothing" is stated rather than hidden**: on a non-conformant tree — a
+mission outside `active/`/`archive/`, or one carrying a legacy `status:` — the mission readers'
+living migration converges it and stages the change, as any other mission-script touch does. That
+is the migration's contract, not this step's behaviour; on a converged repository the index is left
+byte-identical, which the test now asserts on a conformant fixture.
+
+### It reports and never closes
+
+Even though the arithmetic is identical to the sibling's. Two writers of an end state is exactly
+what `close.sh`'s single-writer rule exists to prevent, and the sibling owns the one case a machine
+may end. A degraded read is named (`missions_unreadable`, `missions_unparseable`,
+`no_mission_reader`) and never rendered as an empty set; a mission whose progress cannot be read is
+skipped rather than reported closable, and the scanned count says the rest.
+
+**Measured live while driving it**: run against this repository it named exactly the two missions
+completed today that were sitting `active` — `2 mission(s) finished and still open, of 9 active`.
+
+**Verification**: `node scripts/test-workflow-scripts.mjs` — 3375 passed, 0 failed, with a
+three-mission fixture (finished-and-open, unmet acceptance, still-queued) asserting exactly one
+entry, that the mission stays active, that `git status` is clean afterwards, and that an unreadable
+survey is `degraded` by name rather than an empty set.

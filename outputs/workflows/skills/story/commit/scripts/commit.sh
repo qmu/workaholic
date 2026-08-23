@@ -1,0 +1,414 @@
+#!/bin/sh -eu
+# Safe commit workflow with multi-contributor awareness
+
+set -eu
+
+usage() {
+    echo "Usage: commit.sh [--skip-staging] [--allow-empty] [--category <Added|Changed|Removed>] <title> <why> <changes> <concerns> <insights> <verify> [files...]"
+    echo ""
+    echo "Options:"
+    echo "  --skip-staging        Skip staging step (use when files are already staged)"
+    echo "  --allow-empty         Record a commit that changes no file (coordination markers only)"
+    echo "  --trailer <Key: Val>  Emit an extra git trailer (repeatable); for machine-read metadata"
+    echo "  --category <value>    Emit a 'Category: <Added|Changed|Removed>' git trailer for /story grouping"
+    echo ""
+    echo "Parameters:"
+    echo "  title     - Commit title (present-tense verb, 50 chars max)"
+    echo "  why       - Why this change was needed: problem, trigger, approach (feeds /story Motivation; can be empty)"
+    echo "  changes   - What users experience differently, before->after (or 'None')"
+    echo "  concerns  - Risks, follow-ups, deferred work surfaced by this change (feeds /story Concerns; 'None' or empty to omit)"
+    echo "  insights  - Non-obvious patterns or gotchas worth preserving (feeds /story Patterns; 'None' or empty to omit)"
+    echo "  verify    - Verification done or needed (or 'None')"
+    echo "  files...  - Optional: specific files to stage (ignored with --skip-staging)"
+}
+
+# Parse flags. Unknown -* arguments are refused rather than falling through to
+# become the title: a typo'd flag (or --help itself) must never silently turn
+# into a commit whose message is that flag.
+SKIP_STAGING=false
+ALLOW_EMPTY=false
+CATEGORY=""
+EXTRA_TRAILERS=""
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --skip-staging)
+            SKIP_STAGING=true
+            shift
+            ;;
+        # A commit that changes NO FILE, for the claim protocol's coordination markers
+        # (a takeover, a heartbeat): the fact being recorded is who is driving and when,
+        # not a change to the tree, so it must not appear in the PR diff. Opt-in and
+        # narrow -- without the flag, "nothing staged" stays the warning it has always
+        # been, so an ordinary commit whose staging silently failed can never masquerade
+        # as a successful empty one.
+        --allow-empty)
+            ALLOW_EMPTY=true
+            shift
+            ;;
+        # An extra machine-readable trailer, repeatable. This exists because a value a
+        # script must read back cannot live in the SUBJECT: the subject is capped at 50
+        # characters, and a value that outgrows the cap makes the commit unrepresentable
+        # rather than merely ugly. `git log --format='%(trailers:key=X,valueonly)'` reads
+        # a trailer back exactly, with no length limit and no parsing by hand.
+        --trailer)
+            if [ $# -lt 2 ]; then
+                echo "Error: --trailer requires a value of the form 'Key: Value'"
+                exit 1
+            fi
+            case "$2" in
+                *": "*) : ;;
+                *) echo "Error: --trailer must be of the form 'Key: Value' (got: $2)"; exit 1 ;;
+            esac
+            EXTRA_TRAILERS="${EXTRA_TRAILERS}${2}
+"
+            shift 2
+            ;;
+        --category)
+            if [ $# -lt 2 ]; then
+                echo "Error: --category requires a value"
+                echo ""
+                usage
+                exit 1
+            fi
+            CATEGORY="$2"
+            shift 2
+            ;;
+        -h|--help)
+            usage
+            exit 1
+            ;;
+        -*)
+            echo "Error: unknown option: $1"
+            echo ""
+            usage
+            exit 1
+            ;;
+        *)
+            break
+            ;;
+    esac
+done
+
+# Validate the optional change category (emitted as a git trailer). Fail-fast on
+# a typo so the closed Added|Changed|Removed schema can't silently drift.
+if [ -n "$CATEGORY" ]; then
+    case "$CATEGORY" in
+        Added|Changed|Removed) : ;;
+        *)
+            echo "Error: --category must be one of: Added, Changed, Removed (got: $CATEGORY)"
+            exit 1
+            ;;
+    esac
+fi
+
+# All six positional fields are required (empty strings are fine -- optional
+# sections default below). Without this floor, an under-supplied call would
+# leave the unconsumed fields in "$@" and the staging loop would try to stage
+# them as file paths -- the same silently-reinterpreted-input defect as a
+# trailing flag.
+if [ $# -lt 6 ]; then
+    echo "Error: expected six positional arguments (title why changes concerns insights verify), got $#"
+    echo ""
+    usage
+    exit 1
+fi
+
+TITLE="$1"
+WHY="$2"
+CHANGES="${3:-None}"
+CONCERNS="$4"
+INSIGHTS="$5"
+VERIFY="${6:-None}"
+shift 6
+
+if [ -z "$TITLE" ]; then
+    usage
+    exit 1
+fi
+
+# Anything left in "$@" is the optional files list. Refuse any flag trailing
+# the positional args by name: it would otherwise fall into the staging loop
+# and be skipped as a missing file, silently dropping e.g. a --category.
+for arg in "$@"; do
+    case "$arg" in
+        -*)
+            echo "Error: unknown option: $arg (options must precede the positional arguments)"
+            echo ""
+            usage
+            exit 1
+            ;;
+    esac
+done
+
+# Subject gate -- MUST run before the staging section below so a refused
+# subject never mutates the index. commit.sh is the script-wrapped path the
+# PreToolUse commit guard deliberately does not inspect, so the script runs
+# the shared subject rule itself; the validator is the same-dir canonical copy
+# (the git hooks reach it via the hooks/lib delegator).
+SCRIPT_DIR=$(cd -- "$(dirname -- "$0")" && pwd)
+if reason=$(sh "${SCRIPT_DIR}/check-subject.sh" "$TITLE"); then
+    :
+else
+    echo "Error: rejected off-policy subject (${reason})."
+    echo "  Subject: \"${TITLE}\""
+    echo ""
+    echo "Subject policy (plugins/workaholic/skills/commit/SKILL.md):"
+    echo "  - present-tense, 50 characters or fewer"
+    echo "  - no Conventional-Commit prefix (feat:/fix:/docs: ...)"
+    echo "  - no leading [bracket] tag"
+    exit 1
+fi
+
+# Pre-flight check: verify on a branch
+BRANCH=$(git branch --show-current)
+if [ -z "$BRANCH" ]; then
+    echo "Error: Cannot commit: not on a named branch (detached HEAD state)"
+    exit 1
+fi
+
+echo "==> Pre-commit check on branch: ${BRANCH}"
+
+# Stage files (unless --skip-staging).
+#
+# Both staging paths once had a hole through which a file the caller meant to commit
+# could vanish while the run still reported success. Both are closed here: a named path
+# that cannot be staged is a fatal error, and an untracked file excluded by `git add -u`
+# is named rather than silently dropped.
+if [ "$SKIP_STAGING" = "false" ] && [ "$ALLOW_EMPTY" = "false" ]; then
+    if [ $# -gt 0 ]; then
+        echo "==> Staging specified files..."
+        # An explicitly-named path is the caller's strongest statement of intent. If ANY
+        # named path cannot be staged, refuse the whole commit: report every missing path
+        # and exit non-zero having staged and committed nothing. There is no reading of
+        # `commit.sh foo.md` where silently committing without foo.md is what the caller
+        # wanted, so this is a fatal error, not a skipped-with-a-warning. Missing paths are
+        # collected in a first pass so nothing is staged before we know they all resolve.
+        MISSING=""
+        for file in "$@"; do
+            if [ -e "$file" ] || git ls-files --deleted --error-unmatch "$file" >/dev/null 2>&1; then
+                :
+            else
+                MISSING="${MISSING}${file}
+"
+            fi
+        done
+        if [ -n "$MISSING" ]; then
+            echo "Error: refusing to commit -- named path(s) cannot be staged:" >&2
+            printf '%s' "$MISSING" | sed 's/^/    ! not found: /' >&2
+            echo "Nothing was staged and no commit was created. Fix the path(s) and retry." >&2
+            exit 1
+        fi
+        for file in "$@"; do
+            git add "$file"
+            echo "    + $file"
+        done
+    else
+        echo "==> Staging all tracked changes (git add -u)..."
+        git add -u
+        # `git add -u` stages tracked modifications ONLY -- an untracked file is left out
+        # of the commit with no mention. That silent omission is the defect this guard
+        # closes: a commit reported as done while a file the work depends on is missing.
+        # Keep -u's safety (a stray file in a shared working tree does not ride in), but
+        # make the omission impossible to miss by naming every untracked file. The caller
+        # then decides whether to re-run naming it explicitly; commit.sh never drops it in
+        # silence. `--exclude-standard` respects .gitignore, so ignored scratch files are
+        # not noise here.
+        UNTRACKED=$(git ls-files --others --exclude-standard)
+        if [ -n "$UNTRACKED" ]; then
+            # A SPLIT RENAME IS REFUSED, NOT WARNED ABOUT (2026-08-23).
+            #
+            # A convergent migration writes its additions UNTRACKED and deletes the
+            # originals, so `git add -u` takes exactly half of it. That half merged: 50
+            # concern records lost their content on `main`, and a story body written the
+            # same run was dropped while its index entry landed. The warning above fired on
+            # both, and the commit went through — a warning's enforcement is a human reading
+            # it, and an unattended run has no such human.
+            #
+            # THE SIGNAL IS THE CO-EXISTENCE, not the untracked file. Untracked files are
+            # routine and harmless on their own; a refusal keyed on them alone would fire
+            # constantly and be disabled within a day. A staged DELETION beside one is the
+            # specific shape, because that is what half a move looks like.
+            #
+            # REFUSED IN `commit.sh`, NOT BY UNSTAGING IN THE MIGRATION (Open Decision 1,
+            # ruled while driving it). Leaving `migrate-concerns.sh`'s deletion half
+            # unstaged is precise and local, but it is ONE migration's fix that every future
+            # migration must remember, and it edges against that script's measured "never
+            # touch the caller's index" contract (a read that staged its writes once
+            # enlarged a two-file commit to 154). One gate catches every migration,
+            # including the ones not yet written.
+            #
+            # THE FALSE POSITIVE HAS A ONE-STEP, EXPLICIT ESCAPE. A legitimate
+            # delete-here-add-there commit is refused too, and the repair is to name the
+            # files — which is the caller stating the set rather than inheriting it. That is
+            # the outcome this guard wants in both cases, so the "false" positive still ends
+            # somewhere better than the silent half-commit did.
+            #
+            # IT NEVER FIRES WHEN THE CALLER NAMED FILES: that branch is above, and a caller
+            # that named its set has already made this decision.
+            DELETED=$(git diff --cached --name-only --diff-filter=D)
+            if [ -n "$DELETED" ]; then
+                echo "" >&2
+                echo "Error: refusing to commit -- this looks like half a rename." >&2
+                echo "  staged deletion(s):" >&2
+                printf '%s\n' "$DELETED" | sed 's/^/    - /' >&2
+                echo "  untracked file(s) NOT staged by git add -u:" >&2
+                printf '%s\n' "$UNTRACKED" | sed 's/^/    ? /' >&2
+                echo "" >&2
+                echo "A migration that writes its additions untracked and deletes the originals loses" >&2
+                echo "half of itself here. Nothing was committed and the tree is unchanged." >&2
+                echo "" >&2
+                echo "Repair, whichever is true:" >&2
+                echo "  - both halves belong together -> re-run naming them:" >&2
+                BOTH=$(printf '%s\n%s\n' "$DELETED" "$UNTRACKED" | grep -v '^$' | tr '\n' ' ' | sed 's/ $//')
+                echo "      commit.sh \"<subject>\" ... ${BOTH}" >&2
+                echo "  - the untracked file is unrelated -> re-run naming only what belongs:" >&2
+                echo "      commit.sh \"<subject>\" ... <the paths for this commit>" >&2
+                echo "  - the migration is incomplete -> finish it, then commit its whole output" >&2
+                # NO `git reset`. The working tree is untouched either way — nothing was
+                # committed and no file was written — and unstaging would discard whatever
+                # the CALLER had staged before invoking this script, which this branch
+                # cannot distinguish from what `git add -u` just added. Leaving the index
+                # as it stands is also the more useful state: `git status` shows the caller
+                # exactly the halves this message names.
+                exit 1
+            fi
+            echo ""
+            echo "Warning: untracked files are NOT part of this commit (git add -u stages tracked changes only):"
+            printf '%s\n' "$UNTRACKED" | sed 's/^/    ? /'
+            echo "If any belongs in this commit, re-run commit.sh naming it as a trailing [files...] argument."
+        fi
+    fi
+fi
+
+# Check if anything is staged
+STAGED=$(git diff --cached --stat)
+if [ -z "$STAGED" ] && [ "$ALLOW_EMPTY" = "false" ]; then
+    echo ""
+    echo "Warning: Nothing staged for commit"
+    echo "Run 'git status' to see working tree state"
+    exit 0
+fi
+
+echo ""
+if [ -z "$STAGED" ]; then
+    echo "==> Recording an empty commit (no file changes, by --allow-empty)"
+else
+    echo "==> Changes to be committed:"
+    git diff --cached --stat
+fi
+echo ""
+
+# Build the structured body section by section. Each present section is followed
+# by a blank line. The optional sections (Why, Concerns, Insights) are omitted
+# when empty or "None" so the log stays clean; Changes and Verify always render.
+# Keys are chosen to feed /story: Why->Motivation, Changes->Changes/Outcome,
+# Concerns->Concerns, Insights->Successful Development Patterns.
+COMMIT_BODY=""
+
+append_section() {
+    COMMIT_BODY="${COMMIT_BODY}${1}: ${2}
+
+"
+}
+
+case "$WHY" in ""|None|none) : ;; *) append_section "Why" "$WHY" ;; esac
+append_section "Changes" "$CHANGES"
+case "$CONCERNS" in ""|None|none) : ;; *) append_section "Concerns" "$CONCERNS" ;; esac
+case "$INSIGHTS" in ""|None|none) : ;; *) append_section "Insights" "$INSIGHTS" ;; esac
+append_section "Verify" "$VERIFY"
+
+# Trailer block (last paragraph): a machine-readable Category trailer (when set),
+# the run's own session trailer (when the environment carries one), and the
+# Co-Authored-By trailer. `git log --format='%(trailers:key=Category,valueonly)'`
+# can then read the Added/Changed/Removed grouping straight from the log.
+#
+# WHY A SESSION TRAILER AND NOT A ROUTINE NAME (issue #453, measured 2026-08-14 while
+# driving the ticket, in a live `[Implement]` container). The report was that every
+# web-routine commit reads as "Claude" and cannot be attributed. Half of that is
+# already false and stays that way: the author EMAIL is the developer's own
+# (`user.name` = `Claude` comes from the container's global config, `user.email` is
+# set repo-locally by the web bootstrap from `.claude/git-identities`), so the PERSON
+# is attributable today. What was genuinely unrecoverable is WHICH RUN produced the
+# commit -- `[Specificate]` and `[Implement]` were indistinguishable.
+#
+# The routine's NAME is not recoverable either, and that is a measurement, not a
+# choice: the container's whole environment was read in an `[Implement]` session and
+# nothing in it names the routine. `CLAUDE_CODE_REMOTE_SESSION_ID`,
+# `CLAUDE_CODE_SESSION_ID` and `CLAUDE_CODE_CONTAINER_ID` identify the run and the
+# container; no variable identifies the standing routine record that started them. So
+# a `Routine:` trailer could only be fed by the caller, and the two candidate paths
+# both fail: an env var does not survive between a session's separate shell
+# invocations, and a `--routine` flag would have to be threaded through every seam
+# (`archive.sh`, `claim.sh`, `heartbeat.sh`) and remembered at every call site -- one
+# forgotten prefix and the commit lies by omission.
+#
+# The session id needs no cooperation from any caller: it is in the process
+# environment of every invocation, so ONE writer picks it up and every seam inherits
+# it. It resolves to its routine in the routines UI, which is the auditability the
+# report asked for, reached by a different route. This is not a credential (the same
+# URL is already posted into Slack by every finish line) and it is absent outside a
+# cloud session, where the trailer is simply omitted rather than faked.
+#
+# THE AUTHOR EMAIL IS NOT TOUCHED, deliberately: `drive/scripts/lib/claims.sh`
+# resolves claim ownership and resumption from `git config user.email`, so changing it
+# would move the claim oracle underneath a running fleet.
+TRAILERS="Co-Authored-By: Claude <noreply@anthropic.com>"
+SESSION_ID="${CLAUDE_CODE_REMOTE_SESSION_ID:-}"
+if [ -n "$SESSION_ID" ]; then
+    TRAILERS="Claude-Session: https://claude.ai/code/${SESSION_ID}
+${TRAILERS}"
+fi
+if [ -n "$CATEGORY" ]; then
+    TRAILERS="Category: ${CATEGORY}
+${TRAILERS}"
+fi
+if [ -n "$EXTRA_TRAILERS" ]; then
+    TRAILERS="${EXTRA_TRAILERS}${TRAILERS}"
+fi
+COMMIT_BODY="${COMMIT_BODY}${TRAILERS}"
+
+# Commit
+echo "==> Committing..."
+if [ "$ALLOW_EMPTY" = "true" ]; then
+    # --allow-empty MEANS EMPTY HERE, not "empty is tolerated".
+    #
+    # `git commit --allow-empty` only PERMITS a commit with no changes; it still commits
+    # whatever the index happens to hold. This flag's only callers are the claim
+    # protocol's coordination markers (heartbeat.sh, the resume marker), which document
+    # themselves as changing no file and therefore never reaching the PR diff. During a
+    # drive the index is frequently non-empty -- a `git rm` staged mid-ticket, a partially
+    # staged edit -- and a heartbeat then swept that work into a commit subjected
+    # `Refresh heartbeat`. Nothing caught it: the commit succeeded, the branch content was
+    # correct, and only the MESSAGE was wrong, so the story and `git log` attributed real
+    # work to coordination noise (observed 2026-08-04).
+    #
+    # A scratch index seeded from HEAD makes the commit's tree equal HEAD's tree by
+    # construction, so the result is empty whatever the caller had staged -- and the real
+    # index is left byte-identical, because `git commit` writes only to GIT_INDEX_FILE.
+    # Refusing instead would be worse: a run mid-ticket is exactly when the index is dirty
+    # and exactly when the beat must not be skipped, since a missed beat makes a working
+    # unit look abandoned.
+    #
+    # On a repository with no commits yet there is no HEAD tree to seed from, and an
+    # index-less root commit is empty anyway, so that case takes the plain path.
+    if git rev-parse --verify --quiet HEAD >/dev/null 2>&1; then
+        _empty_index=$(mktemp)
+        GIT_INDEX_FILE="$_empty_index" git read-tree HEAD
+        GIT_INDEX_FILE="$_empty_index" git commit --allow-empty -m "${TITLE}
+
+${COMMIT_BODY}"
+        rm -f "$_empty_index"
+    else
+        git commit --allow-empty -m "${TITLE}
+
+${COMMIT_BODY}"
+    fi
+else
+    git commit -m "${TITLE}
+
+${COMMIT_BODY}"
+fi
+
+COMMIT_HASH=$(git rev-parse --short HEAD)
+echo ""
+echo "Done! Commit: ${COMMIT_HASH}"

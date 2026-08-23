@@ -233,7 +233,56 @@ opposite reason: it says nothing precisely when the direction is gated.
 A survey that refuses, or a missing script, is `degraded` with the reason named — never an `ok`
 step that found nothing.
 
-## 11. `human-checkin` — the tick's voice: one root, up to five questions inside it
+## 11. `stalled-units` — what is claimed, and how long it has not moved
+
+```bash
+sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/step-stalled-units.sh --tick <id> [--root <repo-root>]
+```
+
+Reads `drive/scripts/list-claims.sh` — the claim oracle, a pure read over unmerged remote
+branches — and returns, per claimed unit: the unit, its branch, **who holds it**, **how many hours
+since the branch last moved**, and **whether it ever reached a pull request**.
+
+**Why the step exists** (2026-08-23, issue #584): a consuming repository's loop stopped for eleven
+consecutive ticks. Every tick ran, reported `blocked` correctly, and spent agent-hours; the only
+outbound signal was a mention-less reply in a feedback thread from the previous day, so Slack
+notified nobody. `/implement` cannot ask — no `AskUserQuestion` anywhere, at any step — and this
+tick's check-in, the one surface here that names a person, asked only about what its own steps had
+found. **No step read the state of claimed work**, so the surface that could ask never learned
+there was anything to ask about.
+
+**The coupling is a reader, not a handoff** — the same shape as `strategy-pace`. A `/implement`
+run's container is discarded and it writes nothing into the tree about its own blockers, so it
+could not hand anything over; this step calls the oracle itself. Two readers of one script is not
+two sources of truth.
+
+**The age comes from the claim branch tip and nowhere else.** The heartbeat already advances that
+tip, so the protocol already records when a unit last moved; a second notion of last activity
+would give the claim protocol two clocks. It is computed with `date`, not jq's
+`fromdateiso8601` — the oracle emits git's `%cI`, which carries the committing machine's offset,
+and parsing those in jq reported five of seven live claims as *unknown age* on this step's first
+run.
+
+**It reports every claim and filters nothing.** What counts as *long enough to matter* is a
+judgement and it belongs to step 12, not to a threshold in a script — deciding it silently here is
+the shape of the failure this step exists to end.
+
+**`has_pull_request` is offline.** It is the claim oracle's own `reported` field, derived from the
+story file `/story` commits when it opens the pull request, so a tick with no GitHub reach still
+answers. That field was hoisted onto every claim row in the same change: it had been consulted
+only where the resumable verdict forked, so `queue_drained` — the commonest state of a
+finished-but-unmerged unit — short-circuited before it and a reader could not tell a unit parked at
+a pull request from one that never opened any.
+
+**A degraded read is named, never rendered as calm.** `origin_unreachable` (`fetched: false`) means
+the only claim oracle could not be reached — not that nothing is stalled; `shallow_history` means a
+merged unit is indistinguishable from a held one. A missing or unparseable reader is `degraded`
+with its reason.
+
+It emits an **empty `needs_agent`** and changes no observable behaviour: it posts nothing, asks
+nothing, and touches no claim. The asking is step 12's subject.
+
+## 12. `human-checkin` — the tick's voice: one root, up to five questions inside it
 
 - **Reads**: the tick log (held questions, what was already asked today) and the clock in the
   workspace's timezone.

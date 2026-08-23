@@ -14933,6 +14933,7 @@ const tests = [
   ["e2e/loop-drill.sh: verify-implement reads the archive move, story, PR and claim", testLoopDrillVerifyImplement],
   ["moderate: the tick log is registered, append-only and idempotent", testModerateLog],
   ["moderate: the tick runs every step, and every step reports", testModerateRun],
+  ["moderate/step-stalled-units.sh: what is claimed and how long it has not moved", testStalledUnitsStep],
   ["moderate: the tick log survives the container that wrote it", testModeratePersist],
   ["moderate: the lines written after the persist reach the base too", testModeratePersistCarriesLateLines],
   ["moderate: the unattended contract is in the files, not in intent", testModerateUnattendedContract],
@@ -18523,6 +18524,46 @@ function testModerateLog() {
   }
 }
 
+// ---------- moderate/step-stalled-units.sh (2026-08-23, issue #584) ----------
+// The step that lets the check-in learn a claimed unit has stopped. Before it, a loop
+// stalled for eleven consecutive ticks while the one surface that names a person heard
+// nothing. What is pinned is the reading and its DEGRADATIONS: a reader that cannot reach
+// the claim oracle must never render as "nothing is stalled", which is the exact shape of
+// silence the step exists to end.
+function testStalledUnitsStep() {
+  const STEP = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-stalled-units.sh")}`;
+  const { A } = makeClaimFixture();
+  const CLAIM = `${POSIX_SH} ${SCRIPTS.claim}`;
+  try {
+    let j = JSON.parse(run(A, `${STEP} --tick 20260823-000000 --root ${A}`).stdout);
+    assertEq("nothing claimed is an ok step that says so",
+      [j.step, j.status, j.needs_agent.length], ["stalled-units", "ok", 0]);
+    assertTrue("and says nothing is claimed rather than nothing is stalled",
+      /nothing is claimed/.test(j.summary), j.summary);
+
+    run(A, `${CLAIM} mission m1`);
+    j = JSON.parse(run(A, `${STEP} --tick 20260823-000000 --root ${A}`).stdout);
+    assertTrue("a live claim is counted", /1 claimed unit\(s\)/.test(j.summary), j.summary);
+    // THE AGE MUST BE READ, NOT GUESSED. git's `%cI` carries the committing machine's
+    // offset, and jq's fromdateiso8601 accepts only `Z` -- parsing those in jq reported
+    // five of seven live claims as unknown age on this step's first run.
+    assertTrue("its age is read, not reported unknown", /0 of unknown age/.test(j.summary), j.summary);
+    // The step reads and nothing else: no post, no question, no claim touched.
+    assertEq("the reading step asks for nothing", j.needs_agent, []);
+    assertEq("and leaves the checkout clean",
+      execSync("git status --porcelain", { cwd: A, encoding: "utf8" }).trim(), "");
+
+    // A DEGRADED READ IS NAMED. Unmerged remote branches are the only claim oracle, so a
+    // scan that could not reach the remote has found nothing at all -- not "nothing".
+    execSync("git remote remove origin", { cwd: A });
+    j = JSON.parse(run(A, `${STEP} --tick 20260823-000000 --root ${A}`).stdout);
+    assertEq("an unreachable origin is degraded, by name",
+      [j.status, j.reason], ["degraded", "origin_unreachable"]);
+    assertTrue("and never reads as calm",
+      !/nothing is claimed/.test(j.summary) && !/no unit is stopped/.test(j.summary), j.summary);
+  } finally { cleanup(A); }
+}
+
 // ---------- propose: the tick runs every step, and every step reports ----------
 // (2026-08-17, issue #471) The property under test is COVERAGE, not correctness of any
 // one step: an hourly unattended run is trustworthy only if a step that is missing,
@@ -18536,7 +18577,12 @@ function testModerateRun() {
     "issue-triage", "stuck-prs", "doc-drift", "release-status", "note-cadence",
     // `strategy-pace` is step 10 (2026-08-22): the surface that tells a person a direction
     // will not arrive. It sits before `human-checkin` because the check-in is what asks.
-    "strategy-pace", "human-checkin"];
+    "strategy-pace",
+    // `stalled-units` is step 11 (2026-08-23, issue #584): the reading that lets the
+    // check-in learn a claimed unit has stopped. Before it, a loop stalled for eleven
+    // consecutive ticks and the one surface that names a person never heard about it.
+    // Same placement, same reason — it reads, the check-in asks.
+    "stalled-units", "human-checkin"];
   try {
     // A tick only makes sense in a repository the loop already writes to; step 1 is the
     // probe that says so, and it never creates the tree behind the layout gate's back.

@@ -6646,6 +6646,32 @@ function testGuardWorkingDirectory() {
   assertTrue("guard-workdir stays silent on an absolute-path command",
     !denies("cat /etc/hostname"), invoke("cat /etc/hostname"));
   assertTrue("guard-workdir stays silent on a plain command", !denies("git status"), invoke("git status"));
+
+  // A `cd` that LANDS ON a repository root restores the ground rule rather than breaking
+  // it, so it passes (2026-08-23, measured). Until then the guard refused the one command
+  // that repairs the invariant it enforces: a session whose cwd had been moved into a
+  // worktree could not get back, and the scripts that read the cwd operated on the wrong
+  // tree — create.sh switched a CLAIM worktree off its claim branch.
+  const cd = "c" + "d";  // not a literal `cd ` in this file: the guard reads its own suite
+  assertTrue("guard-workdir allows a cd that lands on the repository root",
+    !denies(`${cd} ${REPO_ROOT}`), invoke(`${cd} ${REPO_ROOT}`));
+  assertTrue("and allows it with the command it carries",
+    !denies(`${cd} ${REPO_ROOT} && git status`), invoke(`${cd} ${REPO_ROOT} && git status`));
+  assertTrue("and accepts the quoted form",
+    !denies(`${cd} '${REPO_ROOT}'`), invoke(`${cd} '${REPO_ROOT}'`));
+  // Only the ROOT. A directory inside the repository is still a move away from it.
+  assertTrue("guard-workdir still denies a cd into a subdirectory",
+    denies(`${cd} ${REPO_ROOT}/plugins`), invoke(`${cd} ${REPO_ROOT}/plugins`));
+  // A chained mid-command cd is the surprising shape and stays denied whatever its target;
+  // nothing needs it to reach a root.
+  assertTrue("guard-workdir still denies a chained cd even to the root",
+    denies(`ls && ${cd} ${REPO_ROOT}`), invoke(`ls && ${cd} ${REPO_ROOT}`));
+  // Unresolvable without evaluating it — denied rather than guessed. A false deny costs
+  // one subshell; a false allow silently moves the cwd.
+  assertTrue("guard-workdir denies a cd whose target it cannot resolve",
+    denies(`${cd} $HOME`), invoke(`${cd} $HOME`));
+  // Bare `cd` goes to $HOME. It matched nothing at all before this change and passed.
+  assertTrue("guard-workdir denies a bare cd", denies(cd), invoke(cd));
 }
 
 // ---------- hooks/guard-askuserquestion-label.sh (PreToolUse AskUserQuestion) ----------
@@ -15477,8 +15503,12 @@ function testStatelessThreadLookup() {
     assertTrue(`🟢 Implemented mentions nobody in the ${what}`, !/<@U/.test(b), b);
     assertTrue(`and still carries its session URL in the ${what}`, /routine\]\(/.test(b), b);
   }
+  // Scoped to the FENCED SHAPES, not the whole file: the section recording this decision
+  // quotes the retired shape by name, and a document-wide match would read its own
+  // history as the live wire format.
+  const fencedShapes = [...catalog.matchAll(/```\n([\s\S]*?)```/gu)].map((m) => m[1]).join("\n");
   assertTrue("🟡 Handoff no longer names the runner it mentioned",
-    !/🟡 Handoff <@U/u.test(catalog), "the runner's self-mention survives on the handoff shape");
+    !/🟡 Handoff <@U/u.test(fencedShapes), "the runner's self-mention survives on the handoff shape");
   // The rule is "not yourself", never "nobody": the maintenance tick's question addresses
   // a named assignee and is the one post whose whole purpose is to reach a person.
   assertTrue("the maintenance tick's question keeps its mention",

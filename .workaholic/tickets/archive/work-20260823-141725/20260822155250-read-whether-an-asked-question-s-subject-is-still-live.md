@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-22T15:52:50+09:00
+status: done
 author: a@qmu.jp
 assignees: 
 depends_on:
@@ -88,3 +89,35 @@ subject, so this one can land and change no observable behaviour.
   exists to end.
 - Do not make the gate re-read the repository for every asked key — that turns an hourly tick
   into a scan. The tick's own findings are the source.
+
+## Final Report
+
+Development completed as planned. `question-liveness.sh` answers `live` / `settled` / `unknown`
+for an already-asked key, and `ask-question.sh`'s `already_asked` refusal now carries it. **The
+refusal itself is unchanged** — an already-asked question is still refused, still not held, still
+asked once — which is what this ticket required; spending the answer is the sibling's subject.
+
+### Where the answer comes from, and why (step 3's ruling)
+
+**Re-derived from the tick's own step findings, not carried on the log line.** Every question this
+tick can ask comes from a step that ran this tick, so that step's `needs_agent` *is* the set of
+subjects still live. That costs no new state, adds no field the log did not have, keeps the log
+append-only with nothing rewritten, and — the Considerations' explicit bound — performs **no
+repository scan**: it reads one JSON document the caller already has.
+
+**The owning step is an argument, not a guess.** The caller composed the question from a step's
+`needs_agent`, so it knows which step raised it. Deriving the step from the key's prefix would be a
+second, fuzzy naming contract (`stalled-unit:` is not the step id `stalled-units`), and a wrong
+guess would answer `settled` about a subject nobody looked at — the one answer this script must
+never invent.
+
+**`unknown` is load-bearing and never collapses.** A step absent from the run (the deadline never
+reached it, or it is not in `STEPS`), a step reporting `degraded` or `blocked`, an unreadable or
+unparseable run, a missing key or step — each answers `unknown` with its reason named. Treating any
+of them as `settled` would re-create the exact silence this mission exists to end.
+
+**Backward compatible by construction**: a caller passing no `--run`/`--asked-step` gets `unknown`
+and the byte-identical refusal it had before.
+
+**Verification**: `node scripts/test-workflow-scripts.mjs` — 3388 passed, 0 failed, pinning all
+three values and both `unknown` causes; `build.mjs` + `verify.mjs` clean.

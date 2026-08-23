@@ -533,8 +533,23 @@ claims_scan() {
             _cs_reason=heartbeat_lapsed
         fi
 
-        printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+        # WHETHER THIS UNIT REACHED ITS PULL REQUEST, on every row rather than on the
+        # one branch that happened to need it (2026-08-23). `claims_has_story` was
+        # consulted only where the resumable verdict forked, so `queue_drained` — the
+        # commonest state of a finished-but-unmerged unit — short-circuited before it and
+        # a reader could not tell a unit parked at a pull request from one that never
+        # opened any. The maintenance tick's stalled-unit step needs exactly that
+        # distinction, and deriving it a second time would give the claim protocol two
+        # answers to one question. It is the same offline signal (`/story` commits
+        # `.workaholic/stories/<branch>.md` when it opens the pull request), so hoisting it
+        # costs one `git ls-tree` per claim and no network call.
+        _cs_reported=$(claims_has_story "$_cs_ref" "$_cs_branch")
+
+        # `reported` sits BEFORE the artifact list, never after it: the artifact list is
+        # last because a trailing empty field is the one case `read` handles correctly
+        # (see the note above), so a new column appended after it would land inside it.
+        printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
             "$_cs_unit" "$_cs_branch" "$_cs_at" "$_cs_stale" \
-            "$_cs_author" "$_cs_resumable" "$_cs_reason" "$_cs_artifacts"
+            "$_cs_author" "$_cs_resumable" "$_cs_reason" "$_cs_reported" "$_cs_artifacts"
     done
 }

@@ -206,7 +206,7 @@ CLAIM_REASONS=""
 if [ -n "$ROWS" ]; then
     sep=""
     r_sep=""
-    while IFS='	' read -r c_unit c_branch c_at c_stale c_author c_resumable c_reason c_arts; do
+    while IFS='	' read -r c_unit c_branch c_at c_stale c_author c_resumable c_reason c_reported c_arts; do
         [ -n "$c_unit" ] || continue
         CLAIMED_UNITS="${CLAIMED_UNITS}${c_unit}
 "
@@ -234,7 +234,7 @@ if [ -n "$ROWS" ]; then
 "
         done
         IFS="$old_ifs"
-        CLAIMED_JSON="${CLAIMED_JSON}${sep}{\"unit\": \"${c_unit}\", \"branch\": \"${c_branch}\", \"stale\": ${c_stale}, \"resumable\": ${c_resumable}, \"resume_reason\": \"${c_reason}\"}"
+        CLAIMED_JSON="${CLAIMED_JSON}${sep}{\"unit\": \"${c_unit}\", \"branch\": \"${c_branch}\", \"stale\": ${c_stale}, \"resumable\": ${c_resumable}, \"resume_reason\": \"${c_reason}\", \"reported\": ${c_reported}}"
         sep=", "
         # A RESUMABLE UNIT IS CLAIMABLE WORK, so it is offered rather than dropped --
         # in its own group, deliberately not merged into `missions`/`backlog`. Those

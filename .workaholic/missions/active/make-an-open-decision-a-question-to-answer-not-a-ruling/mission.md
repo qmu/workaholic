@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260823-124835
 ---
 
 # Make an Open Decision a question to answer, not a ruling

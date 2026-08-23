@@ -34,6 +34,44 @@ seam this file names for that step — recording what it actually did under the 
 - **Never**: creates the area behind the layout gate's back. A step that made its own directory
   would be routing around the gate rather than reporting it.
 
+## The route a record takes to the base
+
+A record the tick writes reaches the base **on the log's own commit** (2026-08-23).
+`feedback/scripts/create.sh` stages a file and stops, and a routine's container is discarded, so
+before this a finding the sweep or the triage wrote was reported filed and then lost.
+
+```bash
+sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/persist-log.sh --tick <id> --record <repo-relative-path> [--record ...]
+```
+
+- **The same seam, widened by one argument.** No `work-*` branch, no claim, no pull request, no
+  merge — exactly how the log itself travels, and every heavy prohibition is unmoved.
+- **Scoped to the tick's own records**, named one by one. Never a sweep of whatever is staged: that
+  would let an unrelated container file ride an unattended commit to the base, which is the one
+  thing this seam must never become.
+- **A record already on the base is left untouched** — a feedback record is immutable by its own
+  skill's rule — so "already there" is success and two concurrent ticks both land.
+- The report names each record's state: `carried`, `already_on_base`, `missing`, `unreadable`.
+
+**A `<step>-filed` line proves nothing on its own.** Measured: the persist reported both records
+`filed` and `persisted` and the log reached the base, while the base carried the log section and
+**not one record** — and the next tick read those lines, concluded both findings were captured, and
+did not re-derive them. The dedup keyed on a *claim* rather than on the artifact the claim names.
+
+```bash
+sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/filed-records.sh --step <step-slug> [--root <repo-root>]
+```
+
+It reads the paths a `<step>-filed` line names and asks the tree whether they are there: `landed`
+dedups, **`unlanded` is treated as not filed so the next tick re-derives the finding**. A container
+is a fresh clone of the base, so present-in-the-tree is on-the-base. **`readable: false` is not an
+empty set** — a caller must not read "could not look" as "nothing was filed", which is the same
+conflation. The writer's half of the contract: a `<step>-filed` summary **names the repo-relative
+path** of each artifact it filed; a line naming none proves nothing and is not honoured.
+
+The log stays append-only throughout: nothing rewrites a line already on the base, and what changed
+is only what a line is allowed to prove.
+
 ## 2. `inbound-sweep` — Gmail, Drive, Slack and GitHub
 
 - **Reads**: GitHub itself, through `gather/scripts/gh-rest.sh` — repository-scoped, `since`-filtered,

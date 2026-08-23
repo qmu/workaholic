@@ -15057,6 +15057,7 @@ const tests = [
   ["moderate/step-stalled-units.sh: what is claimed and how long it has not moved", testStalledUnitsStep],
   ["moderate: a question is never_asked, asked, or answered", testQuestionAnswerStates],
   ["moderate: liveness, and the one bounded re-ask", testQuestionLivenessAndReask],
+  ["moderate: the tick's records reach the base", testTickRecordsReachTheBase],
   ["drive/archive.sh: closes a mission it can prove is finished", testArchiveClosesAProvenMission],
   ["moderate/step-closable-missions.sh: finished, and still open", testClosableMissionsStep],
   ["moderate: the tick log survives the container that wrote it", testModeratePersist],
@@ -18647,6 +18648,65 @@ function testModerateLog() {
   } finally {
     cleanup(repo);
   }
+}
+
+// ---------- moderate: the tick's records reach the base, and a claim is not a fact ----------
+// (2026-08-23) `create.sh` stages a record and stops, and a routine's container is discarded,
+// so a finding was reported filed and then lost — and the next tick read the `-filed` line,
+// concluded it was captured, and did not re-derive it. Pinned: the record lands on the log's
+// own commit with no branch, an unrelated staged file does NOT ride, and an unlanded record
+// reads as not filed.
+function testTickRecordsReachTheBase() {
+  const M = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts");
+  const PERSIST = `${POSIX_SH} ${join(M, "persist-log.sh")}`;
+  const FILED = `${POSIX_SH} ${join(M, "filed-records.sh")}`;
+  const APPEND = `${POSIX_SH} ${join(M, "log-append.sh")}`;
+  const base = mkdtempSync(join(tmpdir(), "wh-rec-"));
+  const origin = join(base, "origin.git");
+  const c = join(base, "c");
+  execSync(`git init -q --bare ${origin}`);
+  execSync(`git clone -q ${origin} ${c}`, { stdio: "ignore" });
+  execSync("git config user.email t@example.com && git config user.name T && git config commit.gpgsign false", { cwd: c });
+  const rec = ".workaholic/feedbacks/20260823100000-t.md";
+  try {
+    mkdirSync(join(c, ".workaholic/feedbacks"), { recursive: true });
+    mkdirSync(join(c, ".workaholic/moderations"), { recursive: true });
+    writeFileSync(join(c, "README.md"), "# seed\n");
+    execSync("git add -A && git commit -q -m seed && git branch -M main && git push -q -u origin main", { cwd: c });
+
+    writeFileSync(join(c, ".workaholic/moderations/2026-08-23.md"), "## 20260823-100000\n\n- `open-log`: ok — opened\n");
+    writeFileSync(join(c, rec), "---\ntype: Feedback\n---\n\n# t\n");
+    // An unrelated staged file must NOT ride an unattended commit to the base.
+    writeFileSync(join(c, "unrelated.txt"), "not the tick's\n");
+    execSync("git add unrelated.txt", { cwd: c });
+
+    const j = JSON.parse(execSync(`${PERSIST} --tick 20260823-100000 --root . --record ${rec}`, { cwd: c, encoding: "utf8" }));
+    assertEq("the persist reports the record carried",
+      [j.persisted, j.records[0].path, j.records[0].state], [true, rec, "carried"]);
+    const onBase = execSync(`git -C ${origin} ls-tree -r --name-only main`, { encoding: "utf8" });
+    assertTrue("the record is on the base", onBase.includes(rec), onBase);
+    assertTrue("and the unrelated staged file is not", !onBase.includes("unrelated.txt"), onBase);
+    // NO BRANCH, NO CLAIM, NO PULL REQUEST — the same seam the log already travels.
+    assertEq("no branch but the base exists on origin",
+      execSync(`git -C ${origin} for-each-ref --format='%(refname:short)' refs/heads`, { encoding: "utf8" }).trim(), "main");
+
+    // IMMUTABLE: a second run leaves it alone rather than rewriting it.
+    const again = JSON.parse(execSync(`${PERSIST} --tick 20260823-100000 --root . --record ${rec}`, { cwd: c, encoding: "utf8" }));
+    assertEq("a record already on the base is left untouched", again.records[0].state, "already_on_base");
+    // A NAMED RECORD THAT IS NOT THERE IS REPORTED, NOT INVENTED.
+    const miss = JSON.parse(execSync(`${PERSIST} --tick 20260823-110000 --root . --record .workaholic/feedbacks/nope.md`, { cwd: c, encoding: "utf8" }));
+    assertEq("a missing record is named", miss.records[0].state, "missing");
+
+    // A CLAIM IS NOT A FACT: the line names two records and only one is in the tree.
+    execSync(`${APPEND} --root . --tick 20260823-100000 --step inbound-sweep-filed --status filed --summary "filed ${rec} and .workaholic/feedbacks/20260823100001-lost.md"`, { cwd: c, stdio: "ignore" });
+    const f = JSON.parse(execSync(`${FILED} --root . --step inbound-sweep`, { cwd: c, encoding: "utf8" }));
+    assertEq("the landed record dedups", f.landed, [rec]);
+    assertEq("and the one that never landed reads as not filed",
+      f.unlanded, [".workaholic/feedbacks/20260823100001-lost.md"]);
+    // "COULD NOT LOOK" IS NOT "NOTHING WAS FILED" — the same conflation, one level up.
+    assertEq("an unreadable root is named, not rendered empty",
+      JSON.parse(execSync(`${FILED} --root ${join(base, "nope")} --step inbound-sweep`, { encoding: "utf8" })).readable, false);
+  } finally { cleanup(base); }
 }
 
 // ---------- moderate: liveness, and the one bounded re-ask (2026-08-23) ----------

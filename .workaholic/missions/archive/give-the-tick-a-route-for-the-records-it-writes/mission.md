@@ -2,7 +2,7 @@
 type: Mission
 title: Give the tick a route for the records it writes
 slug: give-the-tick-a-route-for-the-records-it-writes
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-22T14:14:02+09:00
 author: a@qmu.jp
@@ -42,10 +42,12 @@ tick re-derives the finding instead of trusting a line that was never true.
 
 - [x] A feedback record written during a tick reaches the base without a `work-*` branch, a
       claim or a pull request (#20260822141436-persist-the-tick-s-own-feedback-records-to-the-base.md)
-- [ ] A record that did not reach the base is reported by name, and the dedup does not treat
+- [x] A record that did not reach the base is reported by name, and the dedup does not treat
       it as filed (#20260822141436-stop-reporting-a-record-the-tick-did-not-persist.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-23 — ticket archived — 20260822141436-persist-the-tick-s-own-feedback-records-to-the-base.md
+- 2026-08-23 — ticket archived — 20260822141436-stop-reporting-a-record-the-tick-did-not-persist.md
+- 2026-08-23 — mission achieved — mission.md

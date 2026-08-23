@@ -43,9 +43,10 @@ nobody re-reads their own diff looking for the cause.
 
 ## Acceptance
 
-- [ ] A session-type refusal has its own `merge_reason`, distinct from `merge_failed` (#20260821150710-name-the-session-type-merge-refusal.md)
+- [x] A session-type refusal has its own `merge_reason`, distinct from `merge_failed` (#20260821150710-name-the-session-type-merge-refusal.md)
 - [ ] Whether a connector may merge is ruled on in writing, with the reasoning recorded (#20260821150710-rule-on-the-connector-as-a-merge-transport.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-23 — ticket archived — 20260821150710-name-the-session-type-merge-refusal.md

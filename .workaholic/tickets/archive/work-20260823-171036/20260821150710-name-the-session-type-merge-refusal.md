@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-21T15:07:10+09:00
+status: done
 author: a@qmu.jp
 assignees: [tamura.yoshiya@gmail.com]
 depends_on:
@@ -79,3 +80,48 @@ This ticket adds the third rung. It changes no transport.
 - This ticket deliberately leaves the pull request open. Making it merge is the other ticket's
   question, and shipping the honest reason is worth doing whichever way that one lands.
 
+
+## Final Report
+
+**Done.** The ladder is a third rung, and it moved out of `publish-tree-pr.sh` into its own
+script to get there.
+
+**The 403 was captured, not copied** (step 1's precondition). The `[Implement]` tick of
+2026-08-23 07:33 UTC (session `cse_01MTFyJuBmo1GpmnJozsYHZi`) hit it on a real unit: a
+`merge_policy: review` pull request — the route whose contract is *merge immediately* —
+finished, green, and left open because the container's `PUT .../pulls/N/merge` was answered
+`403 {"message":"Merging pull requests is not permitted for this session type"}`. Both halves
+of the reporter's quote held.
+
+**Which half the rung keys on, and why it is not a coin toss.** The message, with the status
+behind it. 403 alone is *also* what a missing permission and a protected branch return, so the
+status cannot carry this meaning by itself — a rung keyed on 403 would swallow two different
+next actions into one word. The sentence can carry it. The brittleness the Considerations
+worried about is real and is answered by **ordering**: the generic `merge_forbidden` rung sits
+directly behind, so an upstream rewording degrades to *"a 403, still not a fault in the
+change"* rather than to `merge_failed`. The class is never mistaken for a defect either way.
+
+**It became `branching/scripts/merge-reason.sh`** — a pure function over the response text, no
+network, no git, no state. Not tidiness: the ladder was inline, so the only way to exercise a
+rung was to make a real merge fail against a real remote, which the hermetic suite may not do.
+Pinning it would have meant a regex over the source — the prose-pinning this repository refuses.
+Pulled out, all five rungs run for real in the suite. `publish-tree-pr.sh` keeps no second copy,
+and the one source assertion left is that the call exists, because what that protects is a call
+and not a wording.
+
+The five reasons are five different next actions, which is the whole argument against one
+`merge_failed`: `merge_not_allowed` (405 — look at the pull request), `head_moved` (409 —
+re-read and retry), `session_type_cannot_merge` (the execution class; the pull request is fine
+and another caller can merge it unchanged), `merge_forbidden` (any other 403 — a person must
+change something outside the pull request), `merge_failed` (unclassified, and honest about it).
+
+**Verification.** `node scripts/test-workflow-scripts.mjs` — **3426 passed, 0 failed**, read
+from the log's own tally rather than the exit code. `build.mjs` and `verify.mjs` clean; the
+generated bundle carries `merge-reason.sh` into all six skill closures that ship
+`publish-tree-pr.sh`.
+
+**What this ticket deliberately did not do**, exactly as its Overview said: it changes no
+transport and leaves the pull request open. Making it merge was the sibling ticket's question,
+and shipping the honest reason was worth doing whichever way that one landed. It landed yes,
+narrowly — but this rung is what that answer is keyed on, so the order was load-bearing rather
+than incidental.

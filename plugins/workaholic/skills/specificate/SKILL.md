@@ -116,10 +116,47 @@ hand — this is not a second sweep of the backlog (the retired `[Propose Batch]
 `/ticket` resolves a genuinely unrecommendable fork by asking the developer directly
 (§4b); `/specificate` cannot ask anyone. When discovery surfaces that kind of fork, record it
 verbatim as an item in the emitted ticket's `## Open Decisions` section
-(`create-ticket/reference/ticket-format.md`) instead of choosing for the reporter — the
-driving session resolves it explicitly and records the resolution in its Final Report,
-never a silent guess. Most proposals carry none; write the section only when a fork this
-session cannot recommend one side of actually surfaced.
+(`create-ticket/reference/ticket-format.md`) instead of choosing for the reporter. Most
+proposals carry none; write the section only when a fork this session cannot recommend one
+side of actually surfaced — and only after the two rules below, both written on a measured
+deadlock (2026-08-23, issue #83).
+
+**The premise that the driving session resolves it was false, and it is retired.** This
+section used to end *the driving session resolves it explicitly and records the resolution in
+its Final Report*. The driving session is `/implement`, and `workaholic:drive` forbids both
+moves it would need: **no `AskUserQuestion` anywhere, at any step**, and **the run never
+overrides a gate**. So a fork written as a gate item is handed to a driver structurally
+incapable of clearing it, and the only reachable outcomes are `blocked` and `handoff`, every
+tick, forever. Each skill was internally consistent; the deadlock lived in the seam. Measured:
+one unit resumed **nine consecutive times** over nine hours — nine claims, nine resume commits,
+1.6 recorded agent-hours, zero lines of implementation, 0/3 acceptance.
+
+**1. Check whether the operator already ruled, before declaring a fork operator-only.**
+Step 5b already reads the strategy set before the judgment; read the operator's own records in
+the same breath — an `status: active` strategy's Aim, and the `subject: person:` records it
+cites (`feedback/scripts/list.sh`). **An operator direction found there is binding: cite it and
+proceed.** A strategy is *the operator's outbound, resolved direction* by `workaholic:strategy`'s
+own definition, and a proposal has no standing to reopen one. Measured: a run declared "may this
+repository host implementation code" an operator-only fork on 2026-08-22 while the operator's
+own words — `subject: person:`, `source: slack`, 2026-08-21 — said a merge to this repository's
+`main` deploys the Worker, which *is* the answer; every later run copied the framing forward, so
+one run's caution became a permanent stall. Note what that framing produced: the ticket
+discounted the request contradicting it because *the ask came from `[Propose]`, not the
+operator* — correct about `[Propose]`, and the operator's actual instruction was sitting unread
+in the same feedback stream.
+
+**2. An unresolved fork never enters `## Quality Gate`.** It is recorded in `## Open Decisions`,
+where a human reads it, and the ticket declares **`verification_handoff: <the decision needed>`**
+— the field that already routes the unit to the `handoff` route: the pull request opens and
+stays open, the non-droppable `## Handoff` quotes the reason, the claim stays standing, and a
+standing claim is not re-surveyed, so **the unit costs nothing per tick** instead of being
+re-claimed hourly. A gate item, by contrast, is re-claimed and re-failed forever.
+
+This does not soften `verification_handoff`'s standing rule that *a run never declares it for
+its own unit*. The rule exists so a driver cannot excuse its own work; here the declarer is
+`/specificate`, the **writer**, ruling at creation about a unit it will not drive — which is
+exactly the case the field was written for, one axis over from a credential. The bar is
+unchanged and it is high: the fork must have survived rule 1.
 
 ## The form follows the work's shape
 

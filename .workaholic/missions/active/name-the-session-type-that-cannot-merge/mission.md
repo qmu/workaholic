@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260823-171036
 ---
 
 # Name the session type that cannot merge

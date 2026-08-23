@@ -2,7 +2,6 @@
 
 ## active
 
-* [give-the-tick-a-route-for-the-records-it-writes](active/give-the-tick-a-route-for-the-records-it-writes/mission.md) - Give the tick a route for the records it writes
 * [make-an-open-decision-a-question-to-answer-not-a-ruling](active/make-an-open-decision-a-question-to-answer-not-a-ruling/mission.md) - Make an Open Decision a question to answer, not a ruling
 * [make-the-routine-create-body-documented-and-buildable](active/make-the-routine-create-body-documented-and-buildable/mission.md) - Make the routine create body documented and buildable
 * [make-the-tick-s-root-earn-its-hour](active/make-the-tick-s-root-earn-its-hour/mission.md) - Make the tick's root earn its hour
@@ -30,6 +29,7 @@
 * [drop-the-draft-gate-and-make-drive-own-its-worktree-from-refreshed-main](archive/drop-the-draft-gate-and-make-drive-own-its-worktree-from-refreshed-main/mission.md) - Drop the draft gate and make /drive own its worktree from refreshed main
 * [give-propose-a-strategy-artifact-form](archive/give-propose-a-strategy-artifact-form/mission.md) - Give /propose a Strategy artifact form
 * [give-propose-and-ticket-a-diagnosis-first-discovery-pass](archive/give-propose-and-ticket-a-diagnosis-first-discovery-pass/mission.md) - Give /propose and /ticket a diagnosis-first discovery pass
+* [give-the-tick-a-route-for-the-records-it-writes](archive/give-the-tick-a-route-for-the-records-it-writes/mission.md) - Give the tick a route for the records it writes
 * [loop-engineering-foundation](archive/loop-engineering-foundation/mission.md) - Loop engineering foundation
 * [loop-engineering-proposal-loop](archive/loop-engineering-proposal-loop/mission.md) - Loop engineering proposal loop
 * [loop-engineering-unified-drive](archive/loop-engineering-unified-drive/mission.md) - Loop engineering unified drive

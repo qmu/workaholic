@@ -3,6 +3,7 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [Give the tick a route for the records it writes](work-20260823-144244.md)
 * [Tell an unanswered question from an answered one](work-20260823-141725.md)
 * [Close a mission the run can prove is finished](work-20260823-131214.md)
 * [Make an Open Decision a question to answer, not a ruling](work-20260823-124835.md)

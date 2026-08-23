@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-22T14:14:36+09:00
+status: done
 author: a@qmu.jp
 assignees: 
 depends_on:
@@ -91,3 +92,41 @@ landed, landed".
 - Do not "fix" this by having the dedup re-read the base for every candidate: that turns an
   hourly tick into a repository scan. The `-filed` line stays the dedup's index; what changes
   is that it must be true when written.
+
+## Final Report
+
+Development completed as planned, on both halves the localization found load-bearing.
+
+**The report now states the two facts separately.** `persist-log.sh` reports whether the **log**
+reached the base and, per record, whether **that record** did — `carried`, `already_on_base`,
+`missing`, `unreadable` — so a record that did not land is named with its reason, the same shape the
+SKILL already requires for a degraded read.
+
+**A `<step>-filed` line no longer proves a filing.** `filed-records.sh` takes the paths a line names
+and asks the **tree** whether they are there: `landed` may be deduped, **`unlanded` is treated as not
+filed** so the next tick re-derives the finding. Re-deriving is cheap; losing the finding is not.
+
+**Why the tree is the oracle.** A routine's container is a fresh clone of the base, so a record
+present in the checkout is a record on the base — the same equivalence the persist relies on in the
+other direction. No network call, no second store, and — this is what decided it — **it works on
+lines already on the base**, which matters because the log is append-only and those lines cannot be
+corrected. Making the `-filed` line itself truthful at write time would have fixed only the future.
+
+**`readable: false` is not an empty set.** A caller pointed at a root that is not there would
+otherwise be told nothing was ever filed — the identical conflation of *could not look* with
+*nothing there* that this ticket exists to end, one level up. It was caught by exercising the
+script, not by reading it: the first implementation answered `readable: true` with empty sets.
+
+**The writer's half of the contract is stated**: a `<step>-filed` summary names the repo-relative
+path of each artifact it filed. A line naming none yields no landed filings — it claims nothing this
+reader can check, and treating an uncheckable claim as a fact is the defect itself. Paths are
+extracted from the summary rather than parsed at a fixed position, because a summary is prose a human
+also reads and pinning a column in it is the free-text dependency the already-asked gate was fixed
+off in the first place.
+
+**The log stays append-only and never-pruning**: nothing rewrites a line already on the base. What
+changed is only what a line is allowed to prove.
+
+**Verification**: `node scripts/test-workflow-scripts.mjs` — 3397 passed, 0 failed, with a fixture
+whose `-filed` line names two records whose only difference is that one is in the tree: it dedups
+and the other reads as not filed, and an unreadable root reports `readable: false`.

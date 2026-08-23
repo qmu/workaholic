@@ -19,6 +19,15 @@
 #     log, each asking a human to approve a line that records what a machine
 #     already did. A review with no possible verdict is not a gate, it is noise
 #     that trains its reviewer to stop looking.
+# IT CARRIES THE TICK'S FEEDBACK RECORDS TOO (2026-08-23). `create.sh` stages a
+# record and stops, so a finding the inbound sweep or issue triage wrote died with
+# the container while the tick reported it filed. The records ride this same
+# commit, named one by one with `--record <repo-relative-path>` — never a sweep of
+# whatever is staged, which would let an unrelated container file reach the base.
+# A record already on the base is left untouched (a feedback record is immutable),
+# so two concurrent ticks both land and nothing is rewritten. Every prohibition is
+# unmoved: no `work-*` branch, no claim, no pull request, no merge.
+#
 #   - `publish-tree-commit.sh`, the direct (non-PR) form. Chosen. Its
 #     "post-merge seams only" wording is about WHEN a direct commit is owed no
 #     approval, and an append-only operational log is that case by construction:
@@ -142,6 +151,7 @@ TICK=''
 ROOT='.'
 BASE='main'
 ATTEMPTS=3
+RECORDS=''
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -149,6 +159,8 @@ while [ $# -gt 0 ]; do
         --root)     ROOT="${2:-}"; shift 2 ;;
         --base)     BASE="${2:-}"; shift 2 ;;
         --attempts) ATTEMPTS="${2:-3}"; shift 2 ;;
+        --record)   RECORDS="${RECORDS}${2:-}
+"; shift 2 ;;
         *) printf '{"persisted": false, "status": "degraded", "reason": "unknown_argument", "summary": "unknown argument: %s"}\n' "$1"; exit 1 ;;
     esac
 done
@@ -165,8 +177,8 @@ json_escape() {
 report() {
     # $1 persisted  $2 status  $3 reason  $4 summary  $5 sections  $6 lines
     # $7 attempts  $8 changed  $9 sha  $10 closed  $11 close_reason
-    printf '{"persisted": %s, "status": "%s", "reason": "%s", "summary": "%s", "sections": %s, "lines": %s, "attempts": %s, "changed": %s, "sha": "%s", "closed": %s, "close_reason": "%s"}\n' \
-        "$1" "$2" "$3" "$(json_escape "$4")" "$5" "$6" "$7" "$8" "$9" "${10}" "${11}"
+    printf '{"persisted": %s, "status": "%s", "reason": "%s", "summary": "%s", "sections": %s, "lines": %s, "attempts": %s, "changed": %s, "sha": "%s", "closed": %s, "close_reason": "%s", "records": [%s]}\n' \
+        "$1" "$2" "$3" "$(json_escape "$4")" "$5" "$6" "$7" "$8" "$9" "${10}" "${11}" "${RECORDS_JSON:-}"
     exit 0
 }
 
@@ -328,7 +340,58 @@ while [ "$attempt" -lt "$ATTEMPTS" ]; do
         done
     fi
 
-    if [ -z "$(git -C "$publish_path" status --porcelain -- "$LOG_REL" 2>/dev/null)" ]; then
+    # --- the tick's own records --------------------------------------------
+    # THE SAME SEAM, WIDENED BY ONE ARGUMENT (2026-08-23). `create.sh` stages a
+    # feedback record and stops, and a routine's container is discarded, so a
+    # record the inbound sweep or issue triage wrote never reached the base — the
+    # finding was made, reported as filed, and lost. This carries those records on
+    # the log's own commit: no `work-*` branch, no claim, no pull request, and no
+    # merge, exactly as the log itself travels.
+    #
+    # SCOPED TO THE TICK'S OWN RECORDS, NAMED ONE BY ONE (`--record`), never a
+    # sweep of whatever happens to be staged — a sweep would let an unrelated file
+    # in the container ride an unattended commit to the base, which is the one
+    # thing this seam must never become.
+    #
+    # A RECORD ON THE BASE IS NEVER REWRITTEN. A feedback record is immutable by
+    # its own skill's rule, so "already there" is success, not a conflict, and two
+    # concurrent ticks writing different records both land because they touch
+    # different files. Only the paths that actually changed the tree are handed to
+    # the commit.
+    RECORD_PATHS=''
+    RECORDS_JSON=''
+    _rsep=''
+    if [ -n "$RECORDS" ]; then
+        printf '%s\n' "$RECORDS" | while IFS= read -r _r; do
+            [ -n "$_r" ] || continue
+            printf '%s\n' "$_r"
+        done > "$WORK/records" 2>/dev/null || : > "$WORK/records"
+        while IFS= read -r rel; do
+            [ -n "$rel" ] || continue
+            src="${root_abs}/${rel}"
+            dst="${publish_path}/${rel}"
+            if [ ! -f "$src" ]; then
+                RECORDS_JSON="${RECORDS_JSON}${_rsep}$(printf '{"path": "%s", "state": "missing"}' "$(json_escape "$rel")")"
+                _rsep=', '
+                continue
+            fi
+            if [ -f "$dst" ]; then
+                RECORDS_JSON="${RECORDS_JSON}${_rsep}$(printf '{"path": "%s", "state": "already_on_base"}' "$(json_escape "$rel")")"
+                _rsep=', '
+                continue
+            fi
+            mkdir -p "$(dirname -- "$dst")" 2>/dev/null || true
+            if cp "$src" "$dst" 2>/dev/null; then
+                RECORD_PATHS="${RECORD_PATHS} ${rel}"
+                RECORDS_JSON="${RECORDS_JSON}${_rsep}$(printf '{"path": "%s", "state": "carried"}' "$(json_escape "$rel")")"
+            else
+                RECORDS_JSON="${RECORDS_JSON}${_rsep}$(printf '{"path": "%s", "state": "unreadable"}' "$(json_escape "$rel")")"
+            fi
+            _rsep=', '
+        done < "$WORK/records"
+    fi
+
+    if [ -z "$(git -C "$publish_path" status --porcelain -- "$LOG_REL" $RECORD_PATHS 2>/dev/null)" ]; then
         close_tree
         report true ok already_current "every line of ${DAY} is already on ${BASE}" 0 0 "$attempt" false '' "$CLOSED" "$CLOSE_REASON"
     fi
@@ -340,13 +403,14 @@ while [ "$attempt" -lt "$ATTEMPTS" ]; do
         "None" \
         "None" \
         "Appended by section against a freshly fetched base, so concurrent ticks union rather than conflict." \
-        "$LOG_REL" 2>/dev/null || true)
+        "$LOG_REL" $RECORD_PATHS 2>/dev/null || true)
 
     case "$commit_out" in
         *'"ok": true'*)
             sha=$(printf '%s' "$commit_out" | sed -n 's/.*"sha": "\([^"]*\)".*/\1/p')
             close_tree
-            report true filed persisted "${carried} tick section(s) and ${merged_lines} late line(s) of ${DAY} recorded on ${BASE}" "$carried" "$merged_lines" "$attempt" true "$sha" "$CLOSED" "$CLOSE_REASON"
+            _nrec=$(printf '%s' "$RECORD_PATHS" | wc -w | tr -d ' ')
+            report true filed persisted "${carried} tick section(s), ${merged_lines} late line(s) of ${DAY} and ${_nrec} record(s) recorded on ${BASE}" "$carried" "$merged_lines" "$attempt" true "$sha" "$CLOSED" "$CLOSE_REASON"
             ;;
         *'"reason": "nothing_to_commit"'*)
             close_tree

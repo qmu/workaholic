@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-22T14:14:36+09:00
+status: done
 author: a@qmu.jp
 assignees: 
 depends_on:
@@ -101,3 +102,37 @@ to cover the feedback records the same tick wrote. The heavy prohibitions are un
   is owed no approval**. A feedback record is a capture, not a decision — the same ground the
   log stands on — but say so in the header rather than leaving the widening to look like an
   exemption.
+
+## Final Report
+
+Development completed as planned, by the narrow route the report asked for: `persist-log.sh` gained
+a repeatable `--record <repo-relative-path>` and carries the tick's own feedback records **on the
+log's own commit**. No new seam, no new prohibition lifted.
+
+**Every heavy prohibition is intact and now stated rather than implied**: no `work-*` branch, no
+claim touched, no pull request, no merge — exactly how the log itself has travelled since
+2026-08-17. `create.sh` stays a stager; the route is the caller's.
+
+**Scoped to the tick's own records, named one by one.** Never a sweep of whatever happens to be
+staged: a sweep would let an unrelated file in the container ride an unattended commit to the base,
+which is the one thing this seam must never become. Proved: a staged `unrelated.txt` did not reach
+the base while the named record did.
+
+**A record already on the base is left untouched.** A feedback record is immutable by its own
+skill's rule, so "already there" is success rather than a conflict, and two concurrent ticks land
+because they touch different files. Each record is reported by state — `carried`,
+`already_on_base`, `missing`, `unreadable` — so a record that did not travel is named rather than
+implied.
+
+**It runs twice, as the log already does**, because the agent acts on `needs_agent` only after
+`run.sh` returns: a record written after the first persist still lands on the second.
+
+The cheaper alternative the report named — stop writing records on a tick and route findings into
+the check-in — was **not** taken and is recorded here rather than substituted silently: it drops the
+inbound-sweep half of the feedback stream, and the primary route turned out to be reachable in one
+argument.
+
+**Verification**: `node scripts/test-workflow-scripts.mjs` — 3397 passed, 0 failed, with a hermetic
+bare-origin fixture asserting the record on the base, the unrelated staged file absent, `main` as
+the only branch on origin, the second run reporting `already_on_base`, and a named-but-missing
+record reported rather than invented. `build.mjs` + `verify.mjs` clean.

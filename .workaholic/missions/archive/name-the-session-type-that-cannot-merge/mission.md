@@ -2,7 +2,7 @@
 type: Mission
 title: Name the session type that cannot merge
 slug: name-the-session-type-that-cannot-merge
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-21T15:07:02+09:00
 author: a@qmu.jp
@@ -44,9 +44,11 @@ nobody re-reads their own diff looking for the cause.
 ## Acceptance
 
 - [x] A session-type refusal has its own `merge_reason`, distinct from `merge_failed` (#20260821150710-name-the-session-type-merge-refusal.md)
-- [ ] Whether a connector may merge is ruled on in writing, with the reasoning recorded (#20260821150710-rule-on-the-connector-as-a-merge-transport.md)
+- [x] Whether a connector may merge is ruled on in writing, with the reasoning recorded (#20260821150710-rule-on-the-connector-as-a-merge-transport.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-23 — ticket archived — 20260821150710-name-the-session-type-merge-refusal.md
+- 2026-08-23 — ticket archived — 20260821150710-rule-on-the-connector-as-a-merge-transport.md
+- 2026-08-23 — mission achieved — mission.md

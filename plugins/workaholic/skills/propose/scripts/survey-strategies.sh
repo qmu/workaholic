@@ -137,9 +137,17 @@ GATHER_SCRIPTS="${SCRIPT_DIR}/../../gather/scripts"
 # not parse, or whose `ok` is not true, refuses the tick exactly as an unreadable inbox
 # does, because a gate supplied wrong and a gate unread are the same missing gate.
 OPEN_FILE=""
+# THE AIM IS A JUDGMENT AND STAYS WHERE IT IS ALREADY MADE (2026-08-23). Nothing here can
+# read an Aim and say whether it is to build or to document — `/propose` makes exactly that
+# call for `describing_move`, so it passes the answer in rather than a second place guessing
+# it. Absent, `unknown` keeps the pre-2026-08-23 gate byte-for-byte: `work_waiting` off the
+# undifferentiated count.
+AIM_KIND=unknown
+
 while [ $# -gt 0 ]; do
   case "$1" in
     --open-proposals) OPEN_FILE="${2:-}"; shift 2 ;;
+    --aim-kind) AIM_KIND="${2:-unknown}"; shift 2 ;;
     --) shift; break ;;
     -*) echo '{"ok": false, "reason": "usage", "detail": "unknown flag"}'; exit 0 ;;
     *) break ;;
@@ -223,7 +231,8 @@ jq -sc \
   --arg window "$WINDOW" \
   --arg identity "$IDENTITY" \
   --argjson cap "$CAP" \
-  --argjson window_days "$WINDOW_DAYS" '
+  --argjson window_days "$WINDOW_DAYS" \
+  --arg aim_kind "$AIM_KIND" '
   def days($t): if ($t | test("^[0-9]{4}-[0-9]{2}-[0-9]{2}$"))
       then (((($t + "T00:00:00Z") | fromdateiso8601) - (($today + "T00:00:00Z") | fromdateiso8601)) / 86400 | floor)
       else null end;
@@ -238,6 +247,16 @@ jq -sc \
          empty_reason: ($w.empty_reason // ""),
          count: ($w.count // 0), active_count: ($w.active_count // 0),
          waiting_count: ($w.waiting_count // 0),
+         # WHICH KIND OF WORK THE GATE SAW, on every row, gated or not: a strategy
+         # suppressed — or not suppressed — says why.
+         waiting_kind: ($w.waiting_kind // "unknown"),
+         waiting_describing: ($w.waiting_describing // 0),
+         waiting_advancing: ($w.waiting_advancing // $w.waiting_count // 0),
+         # WHICH KIND OF WORK THE GATE SAW (2026-08-23), on every row, gated or not: a
+         # strategy suppressed — or not suppressed — says why.
+         waiting_kind: ($w.waiting_kind // "unknown"),
+         waiting_describing: ($w.waiting_describing // 0),
+         waiting_advancing: ($w.waiting_advancing // $w.waiting_count // 0),
          landed: (($w.artifacts // []) | map(select(.changed_in_window))
                   | map({kind, title, state, attribution, last_change})),
          queued: (($w.artifacts // []) | map(select(.kind == "ticket" and .state == "queued"))
@@ -260,7 +279,8 @@ jq -sc \
            elif .owns != "mine" then "not_mine"
            elif ((.days_to_target != null) and (.days_to_target < 0)) then "past_target_date"
            elif ((.feedback_refs | length) == 0) then "no_feedback_refs"
-           elif ((.waiting_count // 0) > 0) then "work_waiting"
+           elif ((if $aim_kind == "building" then (.waiting_advancing // .waiting_count // 0)
+                  else (.waiting_count // 0) end) > 0) then "work_waiting"
            elif ($held | index($w.slug)) then "open_proposal"
            else "" end)} ]
   # LATE FIRST, then nearest date. A tick that dies partway must have advanced the

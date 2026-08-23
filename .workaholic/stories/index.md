@@ -3,6 +3,7 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [Tell describing work from advancing work](work-20260823-155258.md)
 * [Refuse a commit that splits a rename](work-20260823-151809.md)
 * [Give the tick a route for the records it writes](work-20260823-144244.md)
 * [Tell an unanswered question from an answered one](work-20260823-141725.md)

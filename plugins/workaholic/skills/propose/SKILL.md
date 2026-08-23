@@ -232,3 +232,41 @@ delivers it to them. A Slack copy would be the same noise twice — the argument
 the retired `[Workaholic]` no connector — and a status line addressed to nobody is the noise that retired
 `🔧 Needs a decision` and `📦 Release Preparation`. The routine's result reaches its one reader
 as a **Claude notification** (`notifications: push`) — since `[Workaholic]` retired on 2026-08-22 (issue #557), the only template that declares the field.
+
+## Describing work does not gate a building aim
+
+`attributed-work.sh` attributes work through `strategy.feedback[] ∩ artifact.feedback[]`, and **a
+page about the work cites the same ref the work would** — so the two are indistinguishable by
+construction. `work_waiting` reading that undifferentiated count is what made the measured loop
+self-sustaining: each documentation mission queued documentation tickets, which kept the gate
+closed against the proposal that might have been the build; when they merged the gate lifted and
+the next documenting move was named.
+
+**The kind is derived from the ticket's own paths** (2026-08-23, the ticket's Open Decision, ruled
+while driving it). `strategy/scripts/work-kind.sh` reads each queued ticket's `## Key Files`:
+every path under a documentation area → `describing`; any path outside them → `advancing`; no
+section, no path, or an unreadable file → `unknown`. `attributed-work.sh` reports
+`waiting_kind` / `waiting_describing` / `waiting_advancing` beside `waiting_count`, and
+**`unknown` counts toward advancing at the gate** — mislabelling build work as descriptive lets
+parallel proposals accumulate, the failure the gate exists to prevent, while the opposite error
+delays one proposal by a tick.
+
+Two shapes were refused. Carrying the proposal's `move` onto what `/specificate` emits can only
+label work **the loop itself produced** — work a person filed stays indistinguishable, and that
+residue is what the mechanism had to be chosen against — and it puts a field on the mission that
+the 2026-08-17 no-new-field ruling refused. Dropping `work_waiting` for a build-aim strategy
+outright removes its in-flight brake entirely.
+
+**The stated cost, and why it is covered**: a repository whose product *is* documentation inverts
+the heuristic. That is the same inversion `describing_move` exempts **by Aim**, and the same
+exemption covers it here, because the distinction is consulted only for a building aim.
+
+**The Aim stays a judgment, in the one place that already makes it.** No script can read an Aim and
+say whether it is to build or to document; this run already makes that call for `describing_move`,
+so it passes the answer to the survey (`survey-strategies.sh --aim-kind building|documentation`).
+Absent the flag the gate is byte-for-byte what it was — `work_waiting` off the undifferentiated
+count — so nothing changes for a caller that does not judge.
+
+`attributed-work.sh` remains the **one** reader of attribution: `work-kind.sh` asks what a ticket
+*is*, never whose strategy it belongs to, and reads no relation at all. The retired `strategy:`
+relation does not return.

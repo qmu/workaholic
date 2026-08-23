@@ -58,7 +58,7 @@ Inside the worktree, order the queue — dependency toposort → context groupin
 
 ### 5. Report
 
-From inside the worktree, generate the story per `workaholic:story`'s Write Story flow, run the branch-safety scan (warn tier — findings fold into the PR body, never a prompt), then `bash ${CLAUDE_PLUGIN_ROOT}/skills/story/scripts/create-or-update.sh <branch> "<title>"`. **Compose `/story`; never fork or absorb it** — if context detection misreads, scope by branch, do not write a second story generator. A PR-creation failure (including `gh_unavailable`) is its own report item, never a change to the unit's outcome — though a unit that was going to ship demotes to the PR path ([reference/routing.md](reference/routing.md)).
+From inside the worktree, generate the story per `workaholic:story`'s Write Story flow, run the branch-safety scan (warn tier — findings fold into the PR body, never a prompt), then `bash ${CLAUDE_PLUGIN_ROOT}/skills/story/scripts/create-or-update.sh <branch> "<title>"`. The story file it writes is **new**, so whatever commits it names it in `commit.sh`'s `files...` — default staging cannot pick up a file that did not exist (`workaholic:commit`). **Compose `/story`; never fork or absorb it** — if context detection misreads, scope by branch, do not write a second story generator. A PR-creation failure (including `gh_unavailable`) is its own report item, never a change to the unit's outcome — though a unit that was going to ship demotes to the PR path ([reference/routing.md](reference/routing.md)).
 
 ### 6. Route by effective merge policy
 

@@ -7,7 +7,6 @@
 * [make-the-tick-s-root-earn-its-hour](active/make-the-tick-s-root-earn-its-hour/mission.md) - Make the tick's root earn its hour
 * [make-workaholify-converge-the-account-s-routines](active/make-workaholify-converge-the-account-s-routines/mission.md) - Make /workaholify converge the account's routines
 * [name-the-session-type-that-cannot-merge](active/name-the-session-type-that-cannot-merge/mission.md) - Name the session type that cannot merge
-* [refuse-a-commit-that-splits-a-rename](active/refuse-a-commit-that-splits-a-rename/mission.md) - Refuse a commit that splits a rename
 * [refuse-ok-under-a-placeholder-identity](active/refuse-ok-under-a-placeholder-identity/mission.md) - Refuse ok under a placeholder identity
 * [refuse-the-move-that-describes-the-aim-instead-of-advancing-it](active/refuse-the-move-that-describes-the-aim-instead-of-advancing-it/mission.md) - Refuse the move that describes the aim instead of advancing it
 * [route-a-stalled-unit-to-a-person-who-is-asked-by-name](active/route-a-stalled-unit-to-a-person-who-is-asked-by-name/mission.md) - Route a stalled unit to a person who is asked by name
@@ -51,6 +50,7 @@
 * [read-a-strategy-s-pace-against-its-date](archive/read-a-strategy-s-pace-against-its-date/mission.md) - Read a strategy's pace against its date
 * [reduce-the-loop-to-two-routines-and-one-behaviour-per-command](archive/reduce-the-loop-to-two-routines-and-one-behaviour-per-command/mission.md) - Reduce the loop to two routines and one behaviour per command
 * [refresh-the-outdated-documentation-to-match-current-behavior](archive/refresh-the-outdated-documentation-to-match-current-behavior/mission.md) - Refresh the outdated documentation to match current behavior
+* [refuse-a-commit-that-splits-a-rename](archive/refuse-a-commit-that-splits-a-rename/mission.md) - Refuse a commit that splits a rename
 * [register-every-fb-as-an-issue](archive/register-every-fb-as-an-issue/mission.md) - Register every /fb as an issue
 * [rename-the-routine-pair-and-add-a-per-user-updater](archive/rename-the-routine-pair-and-add-a-per-user-updater/mission.md) - Rename the routine pair and add a per-user updater
 * [reorganize-missions-under-strategies](archive/reorganize-missions-under-strategies/mission.md) - Reorganize missions under strategies

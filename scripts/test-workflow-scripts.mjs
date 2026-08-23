@@ -15058,6 +15058,7 @@ const tests = [
   ["moderate: a question is never_asked, asked, or answered", testQuestionAnswerStates],
   ["moderate: liveness, and the one bounded re-ask", testQuestionLivenessAndReask],
   ["moderate: the tick's records reach the base", testTickRecordsReachTheBase],
+  ["commit.sh: refuses a commit that splits a rename", testCommitRefusesSplitRename],
   ["drive/archive.sh: closes a mission it can prove is finished", testArchiveClosesAProvenMission],
   ["moderate/step-closable-missions.sh: finished, and still open", testClosableMissionsStep],
   ["moderate: the tick log survives the container that wrote it", testModeratePersist],
@@ -18647,6 +18648,88 @@ function testModerateLog() {
       readFileSync(join(repo, ".workaholic/index.md"), "utf8"));
   } finally {
     cleanup(repo);
+  }
+}
+
+// ---------- commit.sh refuses half a rename (2026-08-23) ----------
+// A convergent migration writes its additions UNTRACKED and deletes the originals, so
+// `git add -u` takes exactly half. The warning fired and the commit went through — 50
+// concern records lost their content on `main`, a story body dropped while its index entry
+// merged. Pinned: the split shape refuses and commits nothing, and the ORDINARY case (an
+// unrelated untracked file beside a normal edit) still succeeds, because a guard that fires
+// on that is disabled within a day.
+function testCommitRefusesSplitRename() {
+  const COMMIT = `${POSIX_SH} ${SCRIPTS.commit}`;
+  const args = `"Move x to y" "why" "changes" "None" "None" "verify"`;
+
+  // THE SPLIT SHAPE: an untracked addition beside a tracked deletion.
+  {
+    const dir = makeRepo("main");
+    try {
+      mkdirSync(join(dir, "old"), { recursive: true });
+      mkdirSync(join(dir, "new"), { recursive: true });
+      writeFileSync(join(dir, "old/x.md"), "a\n");
+      execSync("git add -A && git commit -q -m seed", { cwd: dir });
+      const head = execSync("git rev-parse HEAD", { cwd: dir, encoding: "utf8" }).trim();
+      writeFileSync(join(dir, "new/y.md"), "a\n");
+      rmSync(join(dir, "old/x.md"));
+
+      const r = run(dir, `${COMMIT} ${args}`);
+      assertTrue("the split shape is refused, not warned about", r.status !== 0, `status ${r.status}`);
+      assertTrue("the refusal names it as half a rename", /half a rename/.test(r.stderr), r.stderr.slice(0, 300));
+      assertTrue("and names both halves", /old\/x\.md/.test(r.stderr) && /new\/y\.md/.test(r.stderr), r.stderr.slice(0, 400));
+      // THE REPAIR IS CONCRETE, not a restatement of the rule.
+      assertTrue("and the concrete repair, with the paths on one line",
+        /commit\.sh "<subject>" \.\.\. old\/x\.md new\/y\.md/.test(r.stderr), r.stderr.slice(0, 600));
+      assertEq("nothing was committed", execSync("git rev-parse HEAD", { cwd: dir, encoding: "utf8" }).trim(), head);
+      assertTrue("and the working tree is untouched",
+        existsSync(join(dir, "new/y.md")) && !existsSync(join(dir, "old/x.md")));
+    } finally { cleanup(dir); }
+  }
+
+  // NAMING THE FILES IS THE ESCAPE, and it is the outcome the guard wants.
+  {
+    const dir = makeRepo("main");
+    try {
+      mkdirSync(join(dir, "old"), { recursive: true });
+      mkdirSync(join(dir, "new"), { recursive: true });
+      writeFileSync(join(dir, "old/x.md"), "a\n");
+      execSync("git add -A && git commit -q -m seed", { cwd: dir });
+      writeFileSync(join(dir, "new/y.md"), "a\n");
+      rmSync(join(dir, "old/x.md"));
+      const r = run(dir, `${COMMIT} ${args} old/x.md new/y.md`);
+      assertEq("naming both halves commits them", r.status, 0);
+      // `--no-renames`: git DETECTS the rename and `--name-only` then shows the new path
+      // alone, which would read as half the commit having been dropped again.
+      const files = execSync("git show --name-only --format= --no-renames HEAD", { cwd: dir, encoding: "utf8" });
+      assertTrue("and both halves are in the commit",
+        files.includes("new/y.md") && files.includes("old/x.md"), files);
+    } finally { cleanup(dir); }
+  }
+
+  // THE ORDINARY CASE MUST NOT BREAK: untracked files are routine on their own.
+  {
+    const dir = makeRepo("main");
+    try {
+      writeFileSync(join(dir, "tracked.md"), "a\n");
+      execSync("git add -A && git commit -q -m seed", { cwd: dir });
+      writeFileSync(join(dir, "tracked.md"), "a\nb\n");
+      writeFileSync(join(dir, "untracked.txt"), "scratch\n");
+      const r = run(dir, `${COMMIT} "Edit the tracked file" "why" "changes" "None" "None" "verify"`);
+      assertEq("an edit beside an unrelated untracked file still commits", r.status, 0);
+      assertTrue("and the untracked file stays out", !execSync("git show --name-only --format= HEAD", { cwd: dir, encoding: "utf8" }).includes("untracked.txt"));
+    } finally { cleanup(dir); }
+  }
+
+  // A DELETION WITH NO UNTRACKED FILE IS AN ORDINARY DELETION.
+  {
+    const dir = makeRepo("main");
+    try {
+      writeFileSync(join(dir, "gone.md"), "a\n");
+      execSync("git add -A && git commit -q -m seed", { cwd: dir });
+      rmSync(join(dir, "gone.md"));
+      assertEq("a plain deletion commits", run(dir, `${COMMIT} "Remove the file" "why" "changes" "None" "None" "verify"`).status, 0);
+    } finally { cleanup(dir); }
   }
 }
 

@@ -15454,6 +15454,37 @@ function testStatelessThreadLookup() {
     /feedbacks\/<stem>\.md/.test(catalogRoot), catalogRoot);
   assertTrue("the notify skill states the root's no-Claude-mention rule",
     /no Claude mention token/i.test(notifySkill));
+
+  // NO POST MENTIONS THE IDENTITY IT IS POSTED AS (2026-08-23, the developer's
+  // instruction). Every routine post reaches Slack as the developer's own account, and
+  // Slack notifies nobody of their own message — so the `<@U…>` the attribution line
+  // carried notified nobody. What is pinned is the absence from the two machine-consumed
+  // surfaces (the catalog and each template authorizes exactly the shapes it prints) AND
+  // the surviving session URL, because the link is the whole reason the line exists.
+  const shapeBlock = (body, lead) => {
+    const m = body.match(new RegExp("```\\n(" + lead + "[\\s\\S]*?)```", "u"));
+    return m ? m[1] : "";
+  };
+  for (const [what, body] of [["catalog", catalog], ["[Specificate] template", proposeTemplate]]) {
+    const b = shapeBlock(body, "🔵 Proposed");
+    assertTrue(`the ${what} carries the 🔵 Proposed shape`, b !== "", what);
+    assertTrue(`🔵 Proposed mentions nobody in the ${what}`, !/<@U/.test(b), b);
+    assertTrue(`and still carries its session URL in the ${what}`, /routine\]\(/.test(b), b);
+  }
+  for (const [what, body] of [["catalog", catalog], ["[Implement] template", implementTemplate]]) {
+    const b = shapeBlock(body, "🟢 Implemented");
+    assertTrue(`the ${what} carries the 🟢 Implemented shape`, b !== "", what);
+    assertTrue(`🟢 Implemented mentions nobody in the ${what}`, !/<@U/.test(b), b);
+    assertTrue(`and still carries its session URL in the ${what}`, /routine\]\(/.test(b), b);
+  }
+  assertTrue("🟡 Handoff no longer names the runner it mentioned",
+    !/🟡 Handoff <@U/u.test(catalog), "the runner's self-mention survives on the handoff shape");
+  // The rule is "not yourself", never "nobody": the maintenance tick's question addresses
+  // a named assignee and is the one post whose whole purpose is to reach a person.
+  assertTrue("the maintenance tick's question keeps its mention",
+    /🙋 <@U…>/u.test(catalog), "the check-in question lost the token that makes it reach anyone");
+  assertTrue("the notify skill states the no-self-mention rule",
+    /Never mention the identity you are posting as/i.test(notifySkill));
 }
 
 // ---------- the authorship disclosure (issue #454) ----------

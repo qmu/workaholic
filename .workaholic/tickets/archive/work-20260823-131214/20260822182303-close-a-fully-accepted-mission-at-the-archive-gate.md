@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-22T18:23:03+09:00
+status: done
 author: a@qmu.jp
 assignees: 
 depends_on:
@@ -96,3 +97,43 @@ this asserts only completion.
   the relation is many-valued.
 - A mission can be finished by a path that archives no ticket. The seam will not catch that, which
   is what the sibling ticket reports rather than hides.
+
+## Final Report
+
+Development completed as planned. `archive.sh` now closes a mission at the gate it already
+reaches: after ticking the acceptance item this ticket satisfies, it computes the proof and, when
+it holds, calls `close.sh <slug> achieved`.
+
+**The proof, every part from an existing reader**: `progress.sh` gives `checked == total` with
+`total > 0` and `unlinked == 0`; `queue-size.sh` gives `todo == 0` — the same reader
+`plan-units.sh` uses for that number, so the queue half is the survey's own read rather than a
+fresh grep for `mission: <slug>` (a second parser of a relation `read-relation.sh` owns, and one
+that is many-valued). No partial credit: a mission failing any part is untouched and the run says
+nothing about it, and an **unreadable** reader is not a proof — a missing number leaves the
+mission alone.
+
+**The single-writer rule does not move.** The run calls `close.sh`, never a status, and only ever
+passes `achieved`. `abandoned` and `carried` assert something about *intent*, and a run that just
+merged its own work is a poor judge of which applies.
+
+**The measured objection is answered rather than ignored.** `plan-units.sh` recorded that of four
+missions closed by hand on 2026-08-04, one turned out not to be achieved at all, so an automated
+close would have recorded it wrongly. That objection is about **judgment**; this proof makes none.
+It does not ask whether the work was good, only whether every acceptance item is ticked, none is
+unlinked, and nothing is queued — and the 2026-08-04 mission would have failed it. That script's
+comment was rewritten in the same commit rather than left overstating the rule it now shares.
+
+**Idempotent and safe to repeat**, like the two mutators beside it: `close.sh` on an
+already-ended mission is a no-op, reported as one. Slug resolution searches `active/` then
+`archive/`, so every later lookup in the run survives the move, and the mutators' `git add -A`
+carries the close into the archive commit — the run's own commit is the record.
+
+**Two existing tests failed on the change and were corrected, not suppressed.** Both fixtures were
+single-acceptance missions that the archive completes, so closing them was the new behaviour
+working; each gained a second, unmet item to stay mid-mission, because each test is about
+something else (resolution follows the ticket; the mission roll is reported) and a fixture that
+closed would stop testing it.
+
+**Verification**: `node scripts/test-workflow-scripts.mjs` — 3375 passed, 0 failed, including a
+hermetic three-case fixture (proven → `achieved` and reported by name; an unmet item → untouched
+and silent; a queued ticket → untouched). `build.mjs` + `verify.mjs` clean.

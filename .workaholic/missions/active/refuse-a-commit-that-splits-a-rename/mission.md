@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260823-151809
 ---
 
 # Refuse a commit that splits a rename

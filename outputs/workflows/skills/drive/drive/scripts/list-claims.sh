@@ -83,7 +83,7 @@ rows=$(claims_scan "$base")
 if [ -n "$rows" ]; then
     # Read the TSV the shared scan produced. `read -r` with a tab IFS keeps the
     # artifact list intact in the last field.
-    while IFS='	' read -r unit branch last_at stale author resumable resume_reason artifacts; do
+    while IFS='	' read -r unit branch last_at stale author resumable resume_reason reported artifacts; do
         [ -n "$unit" ] || continue
         arts=""
         asep=""
@@ -95,7 +95,7 @@ if [ -n "$rows" ]; then
             asep=", "
         done
         IFS="$old_ifs"
-        claims="${claims}${sep}{\"unit\": \"${unit}\", \"branch\": \"${branch}\", \"artifacts\": [${arts}], \"last_commit_at\": \"${last_at}\", \"stale\": ${stale}, \"author\": \"${author}\", \"resumable\": ${resumable}, \"resume_reason\": \"${resume_reason}\"}"
+        claims="${claims}${sep}{\"unit\": \"${unit}\", \"branch\": \"${branch}\", \"artifacts\": [${arts}], \"last_commit_at\": \"${last_at}\", \"stale\": ${stale}, \"author\": \"${author}\", \"resumable\": ${resumable}, \"resume_reason\": \"${resume_reason}\", \"reported\": ${reported}}"
         sep=", "
     done <<EOF
 $rows

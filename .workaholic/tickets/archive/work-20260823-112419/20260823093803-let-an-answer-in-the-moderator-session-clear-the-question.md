@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-23T09:38:03+09:00
+status: done
 author: a@qmu.jp
 assignees: 
 depends_on:
@@ -79,3 +80,48 @@ done inside a routine's container reaches nobody unless something carries it to 
 - The answer is a person's words in a session, so nothing can parse it into a decision
   automatically. What this ticket owes is that the words **survive and are found** — acting on
   them stays the next run's judgement.
+
+## Final Report
+
+Development completed as planned. A question now has three states, distinguishable from the tick
+log alone and with **no new store**:
+
+| State | In the log |
+| --- | --- |
+| `never_asked` | no `human-checkin-ask-<slug>` line |
+| `asked` | that line, and no answer beside it |
+| `answered` | `human-checkin-answered-<slug>`, whose **summary is the person's words** |
+
+`record-answer.sh` writes the answer through `log-append.sh` — the log's only writer, append-only,
+idempotent per (tick, step) — so `persist-log.sh` carries it to the base with no branch and no
+claim, exactly as it carries every other line. `question-state.sh` reads the three states back.
+`ask-question.sh` consults it before the asked-once ledger and refuses an answered question under
+its **own** reason, `answered`, carrying the words.
+
+**Why `answered` is its own refusal rather than a kind of `already_asked`.** Both refuse and
+neither holds, so the volume behaviour is byte-for-byte what it was — but *a person resolved this*
+and *nobody ever will* were the same state, and that was the defect. Making them one reason again
+would have shipped the flag without the distinction it exists for.
+
+**The words, not the flag.** A recorded answer nobody can read is the same failure at one remove,
+so the answer rides in the log summary and comes back on both the state read and the gate's
+refusal. **Nothing parses it**: it is a person's prose, and acting on it stays the next run's
+judgement — what this ticket owed is that the words survive and are found.
+
+**One derivation of the question id**, extracted to `lib/question-id.sh` and sourced by the gate,
+the writer and the reader. Three scripts key on that identity now, and a question whose id differed
+between them would silently be a different question — an answer filed under one id would never
+clear a gate reading another. The derivation itself did not change, so no live question's id moved.
+
+**Append-only is preserved by construction.** Recording the same answer twice in one tick is a
+no-op; a correction in a later tick appends its own line and the reader takes the newest, so no
+line already on the base is ever rewritten and both remain as the audit trail. An **empty** answer
+is refused (`no_answer`) rather than recorded: it is indistinguishable from a mis-click and would
+clear the gate on a question still open. A missing log reads `never_asked` — a repository with no
+tick history has asked nothing — while a log that exists and cannot be read is `unreadable`, named,
+because only one of those is calm.
+
+**Verification**: `node scripts/test-workflow-scripts.mjs` — 3360 passed, 0 failed, with a
+hermetic two-tick fixture that walks never_asked → asked → answered, asserts the words come back
+on both surfaces, asserts an empty answer is refused and leaves the key untouched, and asserts
+that a later correction appends without rewriting the earlier line.

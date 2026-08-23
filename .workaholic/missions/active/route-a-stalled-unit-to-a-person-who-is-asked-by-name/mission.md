@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260823-112419
 ---
 
 # Route a stalled unit to a person who is asked by name
@@ -40,11 +41,14 @@ and the next tick sees it answered rather than re-holding it.
 
 ## Acceptance
 
-- [ ] The tick reads what is claimed and how long it has been stopped (#20260823093803-read-what-is-claimed-and-how-long-it-has-been-stopped.md)
-- [ ] A long-stalled unit is asked about by name, through the check-in (#20260823093803-ask-the-owner-of-a-stalled-unit-by-name-through-the-tick.md)
-- [ ] An answer given in the moderator session stops the question being re-held, and is
+- [x] The tick reads what is claimed and how long it has been stopped (#20260823093803-read-what-is-claimed-and-how-long-it-has-been-stopped.md)
+- [x] A long-stalled unit is asked about by name, through the check-in (#20260823093803-ask-the-owner-of-a-stalled-unit-by-name-through-the-tick.md)
+- [x] An answer given in the moderator session stops the question being re-held, and is
       distinguishable from never having been asked (#20260823093803-let-an-answer-in-the-moderator-session-clear-the-question.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-23 — ticket archived — 20260823093803-read-what-is-claimed-and-how-long-it-has-been-stopped.md
+- 2026-08-23 — ticket archived — 20260823093803-ask-the-owner-of-a-stalled-unit-by-name-through-the-tick.md
+- 2026-08-23 — ticket archived — 20260823093803-let-an-answer-in-the-moderator-session-clear-the-question.md

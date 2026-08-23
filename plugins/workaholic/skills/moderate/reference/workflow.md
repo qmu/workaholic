@@ -1,4 +1,4 @@
-# The ten-step contract — reference
+# The twelve-step contract — reference
 
 Companion to [`../SKILL.md`](../SKILL.md). One section per step: what it reads, **what it may
 write**, what it returns in `needs_agent`, and the reasons it aborts with. The step ids are the
@@ -233,7 +233,118 @@ opposite reason: it says nothing precisely when the direction is gated.
 A survey that refuses, or a missing script, is `degraded` with the reason named — never an `ok`
 step that found nothing.
 
-## 11. `human-checkin` — the tick's voice: one root, up to five questions inside it
+## 11. `stalled-units` — what is claimed, and how long it has not moved
+
+```bash
+sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/step-stalled-units.sh --tick <id> [--root <repo-root>]
+```
+
+Reads `drive/scripts/list-claims.sh` — the claim oracle, a pure read over unmerged remote
+branches — and returns, per claimed unit: the unit, its branch, **who holds it**, **how many hours
+since the branch last moved**, and **whether it ever reached a pull request**.
+
+**Why the step exists** (2026-08-23, issue #584): a consuming repository's loop stopped for eleven
+consecutive ticks. Every tick ran, reported `blocked` correctly, and spent agent-hours; the only
+outbound signal was a mention-less reply in a feedback thread from the previous day, so Slack
+notified nobody. `/implement` cannot ask — no `AskUserQuestion` anywhere, at any step — and this
+tick's check-in, the one surface here that names a person, asked only about what its own steps had
+found. **No step read the state of claimed work**, so the surface that could ask never learned
+there was anything to ask about.
+
+**The coupling is a reader, not a handoff** — the same shape as `strategy-pace`. A `/implement`
+run's container is discarded and it writes nothing into the tree about its own blockers, so it
+could not hand anything over; this step calls the oracle itself. Two readers of one script is not
+two sources of truth.
+
+**The age comes from the claim branch tip and nowhere else.** The heartbeat already advances that
+tip, so the protocol already records when a unit last moved; a second notion of last activity
+would give the claim protocol two clocks. It is computed with `date`, not jq's
+`fromdateiso8601` — the oracle emits git's `%cI`, which carries the committing machine's offset,
+and parsing those in jq reported five of seven live claims as *unknown age* on this step's first
+run.
+
+**It reports every claim and narrows only what it asks about.** The summary counts every claimed
+unit whatever its age; the `needs_agent` candidates are the **stale** ones, and the narrowing is
+visible in the same line as the total.
+
+**The threshold is the claim protocol's own `stale`** — `WORKAHOLIC_CLAIM_STALE_HOURS`, default 24
+— and none of the three the ticket offered (ruled 2026-08-23 while driving it). `lib/claims.sh`
+already decides when a claim branch has not moved long enough that a human should look, and states
+the meaning in the words this step needs: *a tip older than the threshold says "look at this", not
+"take it"*. Asking a person to look **is** that. A fixed tick count was refused for inventing an
+arbitrary constant beside a justified one; a working-day boundary for making a unit that stalls at
+09:05 wait nearly a full day, when the measured failure *was* a day of silence — `stale` has that
+option's shape without its cliff, and the working-week half of it survives downstream, in step 12's
+own weekend hold; two-ticks-plus-an-open-decision for naming one blocker class when a missing
+credential stalls a unit exactly as hard.
+
+**It asks; it never claims, drives or resolves.** The candidate goes to step 12 as `needs_agent`,
+keyed `stalled-unit:<unit>` — stable across ticks, which is what lets `ask-question.sh`'s ledger
+ask exactly once — with the claim holder's email to address it to. Nothing here touches a claim.
+
+**`🔴 Blocked` and `↳ still failing` are unchanged**, and that is the decision rather than an
+omission: they are the run's record of an outcome, and this question is a demand on a person's
+attention. Making the record louder is the direction this repository has retired twice — the
+failure was never volume, it was that nothing addressed anybody.
+
+**`has_pull_request` is offline.** It is the claim oracle's own `reported` field, derived from the
+story file `/story` commits when it opens the pull request, so a tick with no GitHub reach still
+answers. That field was hoisted onto every claim row in the same change: it had been consulted
+only where the resumable verdict forked, so `queue_drained` — the commonest state of a
+finished-but-unmerged unit — short-circuited before it and a reader could not tell a unit parked at
+a pull request from one that never opened any.
+
+**A degraded read is named, never rendered as calm.** `origin_unreachable` (`fetched: false`) means
+the only claim oracle could not be reached — not that nothing is stalled; `shallow_history` means a
+merged unit is indistinguishable from a held one. A missing or unparseable reader is `degraded`
+with its reason.
+
+It posts nothing itself and touches no claim: the post is step 12's, through the `🙋 <@U…>` shape
+that already names a person, rides the tick's own thread, carries the session URL and is asked
+once.
+
+### A question has three states, and an answer is one of them
+
+```bash
+sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/record-answer.sh --tick <id> --key <content-key> --answer "<their words>" [--root <repo-root>]
+sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/question-state.sh --key <content-key> [--root <repo-root>]
+```
+
+The developer's flow ends where the plugin had nothing (2026-08-23, issue #584): they open the
+session link on the question and answer **inside the moderator's own session**. The tick had no
+notion of an answer — `ask-question.sh` recorded that a key *was asked* and refused to ask it
+again, and nothing recorded that it was *answered* — so an answered question and one nobody will
+ever answer were the same state, and the person's words died with the container. That is the same
+shape as the defect that made the tick's own feedback records evaporate.
+
+| State | In the log |
+| --- | --- |
+| `never_asked` | no `human-checkin-ask-<slug>` line |
+| `asked` | that line, and no answer beside it |
+| `answered` | `human-checkin-answered-<slug>`, whose **summary is the person's words** |
+
+**No new store.** The answer rides `log-append.sh` — the log's only writer, append-only,
+idempotent per (tick, step) — and `persist-log.sh` carries it to the base with no branch and no
+claim, exactly as it carries every other line. Recording twice in one tick is a no-op; a
+correction in a later tick appends its own line and the reader takes the newest, so nothing on the
+base is ever rewritten and both remain as the audit trail.
+
+**One derivation of the id**, in `lib/question-id.sh`, sourced by the gate, the writer and the
+reader: a question whose id differed between them would silently be a different question, and an
+answer filed under one id would never clear a gate reading another.
+
+**`answered` is its own refusal at the gate**, not a kind of `already_asked`. Both refuse and
+neither holds, so volume behaviour is unchanged — but the caller, the run report and the log can
+now tell *a person resolved this* from *nobody ever will*, and the refusal carries the words so the
+next run can act on them. **Nothing parses the answer**: it is a person's prose, and acting on it
+stays the next run's judgement. What this owes is that the words survive and are found.
+
+**An empty answer is refused** (`no_answer`) rather than recorded: "answered with nothing" is
+indistinguishable from a mis-click, and it would clear the gate on a question still open. A missing
+log reads `never_asked` — a repository with no tick history has asked nothing — while a log that
+exists and cannot be read is `unreadable`, named, because only one of those is calm.
+
+## 12. `human-checkin` — the tick's voice: one root, up to five questions inside it
 
 - **Reads**: the tick log (held questions, what was already asked today) and the clock in the
   workspace's timezone.

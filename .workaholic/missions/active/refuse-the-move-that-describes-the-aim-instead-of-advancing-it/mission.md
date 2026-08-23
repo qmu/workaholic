@@ -16,7 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
-claim: work-20260822-195727
+claim: work-20260823-155258
 ---
 
 # Refuse the move that describes the aim instead of advancing it

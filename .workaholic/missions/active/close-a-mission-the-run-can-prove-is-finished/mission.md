@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260823-131214
 ---
 
 # Close a mission the run can prove is finished

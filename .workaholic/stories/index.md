@@ -3,6 +3,7 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [Make an Open Decision a question to answer, not a ruling](work-20260823-124835.md)
 * [Route a stalled unit to a person who is asked by name](work-20260823-112419.md)
 * [Expire the alert cool-down at the next working day](work-20260823-092805.md)
 * [work-20260822-232014](work-20260822-232014.md) - No Slack post ends in a machine identifier any more — the constraint that had blocked this for a day was never tested, and one search disproved it

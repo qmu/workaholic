@@ -77,6 +77,33 @@ the project has decided to defer.
   item this session cannot resolve with reasoning it can defend is not a silent guess —
   it is a named blocker under the failure contract (`blocked` or `handoff`), never
   resolved by picking a side without saying so.
+
+  **An Open Decision is a question to answer, not a ruling that the question is
+  unanswerable** (2026-08-23). Before a run may honour one as a blocker it must **read the
+  sources the item is about**: the documents, files and prior decisions the item names, and
+  **the whole of any page it cites**, not the paragraph the item quotes. The requirement is
+  scoped to exactly that — it is not "read everything", and an item naming no source at all
+  is a defect in the item rather than a licence to skip the read.
+
+  **A block reached through an Open Decision must state what those sources said** — which
+  were read, and why they did not answer the item — in the run report and in the `blocked`
+  finish. **A block that cannot name a source it read is not a block.**
+
+  Why the rule needed adding: an Open Decision written by an earlier automated seam was
+  **self-certifying**. `/specificate` declared an item unresolvable and the driving run took
+  that declaration as evidence rather than as a claim to check — and the failure contract's
+  own words ("Decide it from the evidence and the stated intent"; "if you cannot name which
+  of those you are missing, you are not blocked on the developer; you are declining to
+  decide") were satisfied on their face, because a session can name an authority without
+  ever having read the sources. Measured: a tick honoured an item whose answer sat fifty
+  lines further down the very page the ticket named, recorded the unit `blocked` without an
+  attempt, and ended `pending`; on a consuming repository that shape cost eleven consecutive
+  ticks and 2.1 agent-hours for zero lines of implementation, and the answer had been in the
+  operator's own record since the day before.
+
+  This is a **prose contract, not a script gate**, deliberately: no mechanical check can
+  tell a real read from a claimed one. What it buys is that a blocked report naming no
+  source is visibly non-conformant, by the contract's own words.
 - **Read its `## Policies` section** — the recorded list of engineering policies this ticket
   answers to. Step 3 opens each named `policies/<slug>.md` before writing code.
 - **Read its `## Quality Gate` section** (if present) — the developer-agreed acceptance criteria

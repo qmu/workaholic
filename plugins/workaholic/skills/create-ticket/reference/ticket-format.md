@@ -121,7 +121,25 @@ this section; `/specificate` cannot ask, so this is where it records one instead
 choosing (`workaholic:specificate`, *Open decisions*). Omit the section entirely when there
 is none.>
 
-- <The fork> — options: <A> vs <B>. <Why neither is clearly recommendable.>
+**Each item has three required parts** (2026-08-23): **the question**; **the sources
+consulted and what they said**; **the fork's sides**. An item may name whose ruling would
+settle it. **It may not state that the question is unanswerable, and it may not instruct a
+later session not to decide** — an Open Decision is a question to answer, not a ruling that
+the question is unanswerable, and the driving run must read the item's named sources before
+it may honour one as a blocker (`workaholic:drive`, `reference/ticket-workflow.md` §1).
+
+Why the parts are required: an item was **self-certifying**. The writing seam declared a
+fork unresolvable and the driving run took the declaration as evidence rather than as a
+claim to check, so a fork whose answer already existed produced `blocked` on every tick
+forever. Measured — a tick honoured an item whose answer sat fifty lines further down the
+very page the ticket named; on a consuming repository the same shape ran eleven consecutive
+ticks for zero lines of implementation while the operator's own answer sat unread in the
+same tree. **The escape hatch is intact**: a genuinely unrecommendable fork is still
+recordable. What is removed is the self-certification, not the section.
+
+- <The question> — consulted: <source> said <what>; <source> said <what>. Options: <A> vs
+  <B>. <Why neither is clearly recommendable given what those sources said.> <Optionally:
+  whose ruling would settle it.>
 
 ## Considerations
 

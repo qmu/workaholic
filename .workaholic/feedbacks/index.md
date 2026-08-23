@@ -543,4 +543,5 @@
 * [One proposal per tick starves the slower direction](20260822224122-one-proposal-per-tick-starves-the-slower-direction.md)
 * [Every propose gate is a brake and none asks whether the aim will be reached](20260822225137-every-propose-gate-is-a-brake-and-none-asks-whether-the-aim-will-be-reached.md)
 * [The alert cool-down swallows a whole working day when a failure starts in the evening](20260823092638-the-alert-cool-down-swallows-a-whole-working-day-when-a-failure-starts-in-the-evening.md)
+* [A blocked unit's escalation reaches nobody and the moderator never learns of it](20260823093733-a-blocked-unit-s-escalation-reaches-nobody-and-the-moderator-never-learns-of-it.md)
 <!-- okf:generated:end -->

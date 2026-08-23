@@ -18548,9 +18548,28 @@ function testStalledUnitsStep() {
     // offset, and jq's fromdateiso8601 accepts only `Z` -- parsing those in jq reported
     // five of seven live claims as unknown age on this step's first run.
     assertTrue("its age is read, not reported unknown", /0 of unknown age/.test(j.summary), j.summary);
-    // The step reads and nothing else: no post, no question, no claim touched.
-    assertEq("the reading step asks for nothing", j.needs_agent, []);
-    assertEq("and leaves the checkout clean",
+    // A FRESH claim is not asked about: the threshold is the claim protocol's own `stale`
+    // (WORKAHOLIC_CLAIM_STALE_HOURS, default 24), reused rather than reinvented because
+    // lib/claims.sh already means by it "a tip older than this says look at this".
+    assertEq("a fresh claim produces no question", j.needs_agent, []);
+    assertTrue("and the summary says none is past the threshold",
+      /0 past the claim protocol's staleness threshold/.test(j.summary), j.summary);
+    // PAST THE THRESHOLD, THE OWNER IS ASKED BY NAME. This is the whole point: before it
+    // there was no path from "the loop is stuck" to "a person is asked".
+    const stale = JSON.parse(run(A, `WORKAHOLIC_CLAIM_STALE_HOURS=0 ${STEP} --tick 20260823-000000 --root ${A}`).stdout);
+    assertEq("past the threshold the step hands one candidate to the check-in",
+      stale.needs_agent.length, 1);
+    const cand = stale.needs_agent[0].stalled;
+    assertEq("one candidate per stalled unit", cand.length, 1);
+    assertEq("the candidate names the unit and its holder",
+      [cand[0].unit, cand[0].owner], ["m1", "test@example.com"]);
+    // The key must be STABLE ACROSS TICKS or ask-question.sh's ledger cannot ask once.
+    assertEq("and carries a key stable across ticks", cand[0].key, "stalled-unit:m1");
+    const again = JSON.parse(run(A, `WORKAHOLIC_CLAIM_STALE_HOURS=0 ${STEP} --tick 20260823-010000 --root ${A}`).stdout);
+    assertEq("the same unit keys the same on a later tick",
+      again.needs_agent[0].stalled[0].key, cand[0].key);
+    // IT ASKS; IT NEVER CLAIMS, DRIVES OR RESOLVES.
+    assertEq("asking touches no claim",
       execSync("git status --porcelain", { cwd: A, encoding: "utf8" }).trim(), "");
 
     // A DEGRADED READ IS NAMED. Unmerged remote branches are the only claim oracle, so a

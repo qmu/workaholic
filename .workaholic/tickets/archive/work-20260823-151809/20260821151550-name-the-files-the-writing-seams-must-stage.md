@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-21T15:15:50+09:00
+status: done
 author: a@qmu.jp
 assignees: 
 depends_on:
@@ -80,3 +81,45 @@ everywhere.
   two sites the report happens to name would leave the next seam to be found by another
   incident.
 
+
+## Final Report
+
+### The enumeration, from reading the callers (step 1)
+
+Eight call sites, not the two the report named. Seven already satisfy the rule, each for its own
+reason, and the eighth is the gap:
+
+| Call site | Why it is safe, or not |
+| --- | --- |
+| `branching/scripts/publish-tree-commit.sh` | forwards its caller's `"$@"`; the caller names the paths (`persist-log.sh` passes the log and each record) |
+| `branching/scripts/publish-tree-pr.sh` | same forwarding shape |
+| `drive/scripts/claim.sh` (claim commit) | forwards `"$@"`; its stamp edits a tracked `mission.md` |
+| `drive/scripts/claim.sh` (resume) | `--allow-empty` marker commit |
+| `drive/scripts/heartbeat.sh` | `--allow-empty`, an empty commit by construction |
+| `drive/scripts/archive.sh` | `--skip-staging` after its own `git add -A`, which takes untracked |
+| `ship/scripts/record-release-cut.sh`, `confirm-release.sh` | `--skip-staging` after an explicit `git add "$FILE"` |
+| `feedback/SKILL.md`'s capture workflow | `create.sh` git-stages the record it writes |
+| **`story` Phase 4** | **writes `.workaholic/stories/<branch>.md` — new — then commits bare.** The gap. |
+
+`/drive` §5 is the same gap seen from the other side: it delegates the story to `/story`, so it
+gains a one-sentence reference rather than a second rule.
+
+**Three shapes satisfy the rule without `files...`** and are named in the skill so a later reader
+does not "fix" them: a caller that staged the file itself and passes `--skip-staging`, one that
+passes `--allow-empty`, and a wrapper forwarding its caller's `"$@"`.
+
+### The rule, stated once
+
+`workaholic:commit` now carries it beside the `files...` contract: **a caller that has just written
+a NEW file passes it in `files...`**, because default staging is `git add -u` and by its own
+semantics cannot pick up a file that did not exist. `/story` Phase 4 and `/drive` §5 **reference**
+it with one sentence each saying why, so the next editor does not simplify the name back out.
+
+### It does not replace the sibling, and the sibling does not replace it
+
+A rule holds where somebody follows it; a refusal holds everywhere. With the sibling landed, a seam
+that forgets the name now **fails loudly** instead of silently — which is exactly the ordering the
+Considerations asked for, and it is how this ticket got cheap to verify.
+
+**Verification**: every `commit.sh` call site grepped and checked against the enumeration above;
+`node scripts/test-workflow-scripts.mjs` — 3408 passed, 0 failed; `build.mjs` + `verify.mjs` clean.

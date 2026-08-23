@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-23T09:38:03+09:00
+status: done
 author: a@qmu.jp
 assignees: 
 depends_on:
@@ -83,3 +84,40 @@ changes no observable behaviour.
   second notion of "last activity" would give the claim protocol two clocks.
 - Resist filtering here. What counts as *long enough to matter* is the sibling's judgement; this
   step reports every claimed unit and its age.
+
+## Final Report
+
+Development completed as planned. `moderate/scripts/step-stalled-units.sh` is step 11 of the
+tick: it calls `drive/scripts/list-claims.sh` — the claim oracle, unchanged — and reports, per
+claimed unit, the unit, its branch, its owner, the hours since the branch last moved, and whether
+it ever reached a pull request.
+
+**Two things the reading needed that the pieces did not yet give.**
+
+The **PR distinction** was computed inside `lib/claims.sh` but only on the branch where the
+resumable verdict forked, so `queue_drained` — the commonest state of a finished-but-unmerged
+unit — short-circuited before it and no reader could tell a unit parked at a pull request from one
+that never opened any. `claims_has_story` is now evaluated for every row and emitted as
+`reported`, before the artifact list (a new column after it would land inside it, which the
+header's own no-empty-field note explains). One derivation, exposed; no second oracle, no network
+call. `list-claims.sh`, `plan-units.sh` and `claim.sh` read the new column; `release-claim.sh` and
+`land-unit.sh` read only the first two fields and were unaffected.
+
+The **age** is computed with `date`, not jq's `fromdateiso8601`. The oracle emits git's `%cI`,
+which carries the committing machine's offset, and that builtin accepts only the `Z` form — the
+first run of this step reported five of seven live claims as *unknown age*, which is precisely the
+reading a stalled-unit reader must never get wrong. Measured after the fix on this repository's own
+claims: `7 claimed unit(s); oldest stopped 100h, 4 at a pull request, 0 of unknown age`.
+
+**No observable behaviour changed**, as the ticket required: `needs_agent` is empty, nothing is
+posted, nothing is asked, no claim is touched, and the checkout is left clean. The asking is the
+sibling ticket's subject.
+
+Registered in `run.sh`'s `STEPS` before `human-checkin`, given its contract section in
+`reference/workflow.md`, and the step count updated in `CLAUDE.md`, `README.md` and the moderate
+skill in the same commit.
+
+**Verification**: `node scripts/test-workflow-scripts.mjs` — 3342 passed, 0 failed, including a
+new fixture that pins the empty case, a live claim's age being read rather than guessed, the empty
+`needs_agent`, and — the property that matters most — that an unreachable origin reports
+`degraded: origin_unreachable` and never renders as "nothing is claimed".

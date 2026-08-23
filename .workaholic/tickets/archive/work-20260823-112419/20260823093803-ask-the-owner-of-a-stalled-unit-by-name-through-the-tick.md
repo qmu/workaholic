@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-23T09:38:03+09:00
+status: done
 author: a@qmu.jp
 assignees: 
 depends_on:
@@ -103,3 +104,49 @@ louder is the direction this repository has twice retired — the failure was ne
   signature is not naming the problem.
 - Do not let this become a second route into work. The tick asks; it never claims, never drives
   and never resolves a blocker itself.
+
+## Final Report
+
+Development completed as planned. `step-stalled-units.sh` now hands every stale claim to the
+check-in as a candidate: the unit, its branch, the claim holder's email, the hours it has been
+stopped, whether it reached a pull request, and a content key `stalled-unit:<unit>` that is stable
+across ticks — which is what lets `ask-question.sh`'s ledger ask exactly once. Every existing gate
+is untouched and applies downstream unchanged: the five-per-tick cap, the day cap, quiet hours and
+the working-week hold. A held question is still held, never dropped.
+
+### The Open Decision, ruled: none of (a), (b) or (c) — the threshold is `stale`
+
+The claim protocol already owns this decision. `lib/claims.sh` computes `stale` from
+`WORKAHOLIC_CLAIM_STALE_HOURS` (default 24) and its header states the meaning in the exact words
+this step needs: **a tip older than the threshold says "look at this", not "take it"**. Asking a
+person to look *is* that, so reusing it is principled rather than convenient — and it beats each
+offered option on that option's own stated cost:
+
+- **(a) a fixed tick count** — refused. It invents an arbitrary constant beside one that already
+  exists, is already justified, and is already configurable per repository.
+- **(b) across a working-day boundary** — refused, though it was the closest. It composes a
+  boundary this plugin owns, which is right; but a unit stalling at 09:05 then waits nearly a full
+  day before anyone hears, and the measured failure *was* a day of silence. `stale` is 24 hours
+  **from the stall** rather than 24 hours **to the next boundary**: the same shape without the
+  cliff. The working-week half of (b) is not lost — it lives downstream in
+  `step-human-checkin.sh`, which already holds a question over the weekend, so this threshold does
+  not need to know about days at all.
+- **(c) two ticks plus an unresolved `## Open Decisions` item** — refused. Fast, but it names one
+  blocker class; a missing credential or a failing gate stalls a unit exactly as hard and needs a
+  person exactly as much. The measured stall happened to be an Open Decision, and building the
+  threshold around that would have fixed the instance rather than the class.
+
+### What was deliberately not changed
+
+`🔴 Blocked` and `↳ still failing` still carry no mention token, and the SKILL and the step header
+now say why: they are the run's record of an outcome, and this question is a demand on a person's
+attention. Two speech acts. Making the record louder is the direction this repository has retired
+twice — the failure was never volume, it was that nothing addressed anybody.
+
+The tick gained no second route into work: the step emits a candidate and nothing else. No claim is
+touched, no branch written, no blocker resolved.
+
+**Verification**: `node scripts/test-workflow-scripts.mjs` — 3348 passed, 0 failed, with fixtures
+pinning that a fresh claim produces no question, that past the threshold exactly one candidate is
+produced naming the holder, that the key is identical on a later tick (the property the
+asked-once ledger depends on), and that asking leaves the checkout clean.

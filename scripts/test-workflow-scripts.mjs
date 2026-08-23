@@ -14933,6 +14933,8 @@ const tests = [
   ["e2e/loop-drill.sh: verify-implement reads the archive move, story, PR and claim", testLoopDrillVerifyImplement],
   ["moderate: the tick log is registered, append-only and idempotent", testModerateLog],
   ["moderate: the tick runs every step, and every step reports", testModerateRun],
+  ["moderate/step-stalled-units.sh: what is claimed and how long it has not moved", testStalledUnitsStep],
+  ["moderate: a question is never_asked, asked, or answered", testQuestionAnswerStates],
   ["moderate: the tick log survives the container that wrote it", testModeratePersist],
   ["moderate: the lines written after the persist reach the base too", testModeratePersistCarriesLateLines],
   ["moderate: the unattended contract is in the files, not in intent", testModerateUnattendedContract],
@@ -18523,6 +18525,123 @@ function testModerateLog() {
   }
 }
 
+// ---------- moderate: a question's three states (2026-08-23, issue #584) ----------
+// The developer answers in the moderator's own session, and the tick had no notion of an
+// answer: `asked` and `answered` were the same state and the person's words died with the
+// container. What is pinned is that the three states are distinguishable, that the WORDS
+// survive (a flag nobody can read is the same failure at one remove), and that the log
+// stays append-only.
+function testQuestionAnswerStates() {
+  const M = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts");
+  const ASK = `${POSIX_SH} ${join(M, "ask-question.sh")}`;
+  const REC = `${POSIX_SH} ${join(M, "record-answer.sh")}`;
+  const STATE = `${POSIX_SH} ${join(M, "question-state.sh")}`;
+  const APPEND = `${POSIX_SH} ${join(M, "log-append.sh")}`;
+  const dir = mkdtempSync(join(tmpdir(), "wh-qstate-"));
+  mkdirSync(join(dir, ".workaholic"), { recursive: true });
+  const K = "stalled-unit:m1";
+  const st = () => JSON.parse(execSync(`${STATE} --root ${dir} --key '${K}'`, { encoding: "utf8" }));
+  try {
+    assertEq("a key nobody asked about is never_asked", st().state, "never_asked");
+
+    const gate = JSON.parse(execSync(`${ASK} --tick 20260823-100000 --root ${dir} --key '${K}' --to a@example.com --hour 10 --weekday 1`, { encoding: "utf8" }));
+    assertEq("the gate lets a fresh question through", gate.ask, true);
+    execSync(`${APPEND} --root ${dir} --tick 20260823-100000 --step ${gate.log_step} --status ok --summary asked`, { stdio: "ignore" });
+    assertEq("once asked, the state is asked", st().state, "asked");
+    assertEq("and the gate refuses it as already_asked",
+      JSON.parse(execSync(`${ASK} --tick 20260823-110000 --root ${dir} --key '${K}' --to a@example.com --hour 11 --weekday 1`, { encoding: "utf8" })).reason,
+      "already_asked");
+
+    // THE WORDS ARE THE POINT. A recorded answer nobody can read is the same failure at
+    // one remove: the next run must be able to act on it.
+    const words = "Release the claim - the lab moved to packages/app.";
+    assertEq("an answer is recorded",
+      JSON.parse(execSync(`${REC} --root ${dir} --tick 20260823-110000 --key '${K}' --answer '${words}'`, { encoding: "utf8" })).recorded, true);
+    assertEq("the state becomes answered and carries the words",
+      [st().state, st().answer], ["answered", words]);
+    // `answered` is its OWN refusal, not a kind of already_asked: both refuse and neither
+    // holds, but the loop can now tell "a person resolved this" from "nobody ever will".
+    const after = JSON.parse(execSync(`${ASK} --tick 20260823-120000 --root ${dir} --key '${K}' --to a@example.com --hour 12 --weekday 1`, { encoding: "utf8" }));
+    assertEq("the gate refuses an answered question by its own name and does not hold it",
+      [after.ask, after.reason, after.hold], [false, "answered", false]);
+    assertEq("and the refusal carries the answer", after.answer, words);
+
+    // An empty answer would clear the gate on a question still open.
+    assertEq("an empty answer is refused, not recorded",
+      JSON.parse(execSync(`${REC} --root ${dir} --tick 20260823-130000 --key 'stalled-unit:m2' --answer ''`, { encoding: "utf8" })).reason, "no_answer");
+    assertEq("so that key is still never_asked",
+      JSON.parse(execSync(`${STATE} --root ${dir} --key 'stalled-unit:m2'`, { encoding: "utf8" })).state, "never_asked");
+
+    // APPEND-ONLY: a correction in a later tick appends and the newest wins; the earlier
+    // line is still there, which is the audit trail.
+    const day = readdirSync(join(dir, ".workaholic/moderations"))[0];
+    const before = readFileSync(join(dir, ".workaholic/moderations", day), "utf8");
+    execSync(`${REC} --root ${dir} --tick 20260823-140000 --key '${K}' --answer 'Actually keep it open.'`, { stdio: "ignore" });
+    const nowLog = readFileSync(join(dir, ".workaholic/moderations", day), "utf8");
+    assertTrue("no line already written is rewritten", nowLog.startsWith(before), nowLog.slice(0, 400));
+    assertEq("and the newest answer wins", st().answer, "Actually keep it open.");
+  } finally { cleanup(dir); }
+}
+
+// ---------- moderate/step-stalled-units.sh (2026-08-23, issue #584) ----------
+// The step that lets the check-in learn a claimed unit has stopped. Before it, a loop
+// stalled for eleven consecutive ticks while the one surface that names a person heard
+// nothing. What is pinned is the reading and its DEGRADATIONS: a reader that cannot reach
+// the claim oracle must never render as "nothing is stalled", which is the exact shape of
+// silence the step exists to end.
+function testStalledUnitsStep() {
+  const STEP = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-stalled-units.sh")}`;
+  const { A } = makeClaimFixture();
+  const CLAIM = `${POSIX_SH} ${SCRIPTS.claim}`;
+  try {
+    let j = JSON.parse(run(A, `${STEP} --tick 20260823-000000 --root ${A}`).stdout);
+    assertEq("nothing claimed is an ok step that says so",
+      [j.step, j.status, j.needs_agent.length], ["stalled-units", "ok", 0]);
+    assertTrue("and says nothing is claimed rather than nothing is stalled",
+      /nothing is claimed/.test(j.summary), j.summary);
+
+    run(A, `${CLAIM} mission m1`);
+    j = JSON.parse(run(A, `${STEP} --tick 20260823-000000 --root ${A}`).stdout);
+    assertTrue("a live claim is counted", /1 claimed unit\(s\)/.test(j.summary), j.summary);
+    // THE AGE MUST BE READ, NOT GUESSED. git's `%cI` carries the committing machine's
+    // offset, and jq's fromdateiso8601 accepts only `Z` -- parsing those in jq reported
+    // five of seven live claims as unknown age on this step's first run.
+    assertTrue("its age is read, not reported unknown", /0 of unknown age/.test(j.summary), j.summary);
+    // A FRESH claim is not asked about: the threshold is the claim protocol's own `stale`
+    // (WORKAHOLIC_CLAIM_STALE_HOURS, default 24), reused rather than reinvented because
+    // lib/claims.sh already means by it "a tip older than this says look at this".
+    assertEq("a fresh claim produces no question", j.needs_agent, []);
+    assertTrue("and the summary says none is past the threshold",
+      /0 past the claim protocol's staleness threshold/.test(j.summary), j.summary);
+    // PAST THE THRESHOLD, THE OWNER IS ASKED BY NAME. This is the whole point: before it
+    // there was no path from "the loop is stuck" to "a person is asked".
+    const stale = JSON.parse(run(A, `WORKAHOLIC_CLAIM_STALE_HOURS=0 ${STEP} --tick 20260823-000000 --root ${A}`).stdout);
+    assertEq("past the threshold the step hands one candidate to the check-in",
+      stale.needs_agent.length, 1);
+    const cand = stale.needs_agent[0].stalled;
+    assertEq("one candidate per stalled unit", cand.length, 1);
+    assertEq("the candidate names the unit and its holder",
+      [cand[0].unit, cand[0].owner], ["m1", "test@example.com"]);
+    // The key must be STABLE ACROSS TICKS or ask-question.sh's ledger cannot ask once.
+    assertEq("and carries a key stable across ticks", cand[0].key, "stalled-unit:m1");
+    const again = JSON.parse(run(A, `WORKAHOLIC_CLAIM_STALE_HOURS=0 ${STEP} --tick 20260823-010000 --root ${A}`).stdout);
+    assertEq("the same unit keys the same on a later tick",
+      again.needs_agent[0].stalled[0].key, cand[0].key);
+    // IT ASKS; IT NEVER CLAIMS, DRIVES OR RESOLVES.
+    assertEq("asking touches no claim",
+      execSync("git status --porcelain", { cwd: A, encoding: "utf8" }).trim(), "");
+
+    // A DEGRADED READ IS NAMED. Unmerged remote branches are the only claim oracle, so a
+    // scan that could not reach the remote has found nothing at all -- not "nothing".
+    execSync("git remote remove origin", { cwd: A });
+    j = JSON.parse(run(A, `${STEP} --tick 20260823-000000 --root ${A}`).stdout);
+    assertEq("an unreachable origin is degraded, by name",
+      [j.status, j.reason], ["degraded", "origin_unreachable"]);
+    assertTrue("and never reads as calm",
+      !/nothing is claimed/.test(j.summary) && !/no unit is stopped/.test(j.summary), j.summary);
+  } finally { cleanup(A); }
+}
+
 // ---------- propose: the tick runs every step, and every step reports ----------
 // (2026-08-17, issue #471) The property under test is COVERAGE, not correctness of any
 // one step: an hourly unattended run is trustworthy only if a step that is missing,
@@ -18536,7 +18655,12 @@ function testModerateRun() {
     "issue-triage", "stuck-prs", "doc-drift", "release-status", "note-cadence",
     // `strategy-pace` is step 10 (2026-08-22): the surface that tells a person a direction
     // will not arrive. It sits before `human-checkin` because the check-in is what asks.
-    "strategy-pace", "human-checkin"];
+    "strategy-pace",
+    // `stalled-units` is step 11 (2026-08-23, issue #584): the reading that lets the
+    // check-in learn a claimed unit has stopped. Before it, a loop stalled for eleven
+    // consecutive ticks and the one surface that names a person never heard about it.
+    // Same placement, same reason — it reads, the check-in asks.
+    "stalled-units", "human-checkin"];
   try {
     // A tick only makes sense in a repository the loop already writes to; step 1 is the
     // probe that says so, and it never creates the tree behind the layout gate's back.

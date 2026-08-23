@@ -288,7 +288,7 @@ artifact_rels=$(printf '%s' "$artifact_rels" | grep -v '^$' || true)
 # already took under a different batch id.
 rows=$(claims_scan "$base")
 if [ -n "$rows" ]; then
-    while IFS='	' read -r held_unit held_branch _held_at _held_stale _held_author _held_resumable _held_reason held_arts; do
+    while IFS='	' read -r held_unit held_branch _held_at _held_stale _held_author _held_resumable _held_reason _held_reported held_arts; do
         [ -n "$held_unit" ] || continue
         if [ "$held_unit" = "$unit" ]; then
             fail "already_claimed" ', "unit": "'"${unit}"'", "holder_branch": "'"${held_branch}"'", "holder_unit": "'"${held_unit}"'"'

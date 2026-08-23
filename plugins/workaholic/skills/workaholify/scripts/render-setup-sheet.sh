@@ -194,7 +194,17 @@ sheet() {
     # empty connector list and a missing one mean the same thing here and must not diverge.
     case "$_mcp" in ''|'[]'|none) _has_mcp="" ;; *) _has_mcp=1 ;; esac
     if [ -n "$_has_mcp" ]; then
-        printf '%s. Have the Slack channel `dev-%s` ready — every post goes there and nowhere else.\n' "$_n" "$_repo_name"
+        # "posts and reads" since 2026-08-23: [Propose]'s inbound sweep READS the channel
+        # and posts nothing, so the old "every post goes there" claimed a post the routine
+        # never makes. The line's job is unchanged — the channel must exist.
+        printf '%s. Have the Slack channel `dev-%s` ready — the routine'"'"'s posts and reads happen there and nowhere else.\n' "$_n" "$_repo_name"
+        # A connector routine may ALSO declare a notification ([Propose] since 2026-08-23:
+        # the connector is for the sweep's read, the result still reaches its reader by
+        # push) — the two lines are not alternatives when the template declares both.
+        if [ -n "$_notif" ]; then
+            _n=$((_n + 1))
+            printf '%s. **Notifications**: set them to `%s` — the routine posts nothing; its result reaches you here.\n' "$_n" "$_notif"
+        fi
     elif [ -n "$_notif" ]; then
         printf '%s. **Notifications**: set them to `%s`. This routine posts to no channel; its result reaches you here.\n' "$_n" "$_notif"
     else

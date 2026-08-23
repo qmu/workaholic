@@ -1,6 +1,19 @@
 # The run, the clock, and the name
 
-## The run — five steps, no prompt at any of them
+## The run — the inbound sweep, then five steps, no prompt at any of them
+
+0. **Sweep the channel** (2026-08-23, the developer's instruction to drop the Claude Tag
+   dependency; the full rules are the skill's *The inbound sweep* section). Read
+   `WORKAHOLIC_INBOUND_SLACK_CHANNEL` (default `dev-<repo_name>`) through the Slack
+   connector over the last `WORKAHOLIC_INBOUND_SLACK_WINDOW_HOURS` (default 26) hours.
+   Fetch the dedup ledger first — `list-swept-slack-refs.sh`; `ok: false` skips the sweep
+   as `sweep_dedup_unreadable`, never runs it blind. For each human message that clears
+   the feedback skill's filing bar and is not the loop's own post, not already in the
+   ledger, and not an answer to a tick's question: file it with `file-inbound-ask.sh`
+   (`--slack-ref <channel>:<ts>`, `--subject person:<author>`, `--assignee` the running
+   identity). No mention is required — that is the point. Report each filed URL and each
+   named exclusion; a missing connector is `no_slack_transport`, an unreadable channel
+   `channel_unreadable`, and **every sweep outcome leaves steps 1-5 untouched**.
 
 1. **Survey.**
    `bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/survey-strategies.sh [window]`

@@ -117,6 +117,8 @@ const SCRIPTS = {
   checkOutboundBody: join(REPO_ROOT, "plugins/workaholic/skills/feedback/scripts/check-outbound-body.sh"),
   scanOutboundBody: join(REPO_ROOT, "plugins/workaholic/skills/feedback/scripts/scan-outbound-body.sh"),
   openIssue: join(REPO_ROOT, "plugins/workaholic/skills/feedback/scripts/open-issue.sh"),
+  fileInboundAsk: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/file-inbound-ask.sh"),
+  listSweptSlackRefs: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/list-swept-slack-refs.sh"),
   fbTitle: join(REPO_ROOT, "plugins/workaholic/skills/feedback/scripts/fb-title.sh"),
   fbFallback: join(REPO_ROOT, "plugins/workaholic/skills/feedback/scripts/fb-fallback.sh"),
   guardAskLabel: join(REPO_ROOT, "plugins/workaholic/hooks/guard-askuserquestion-label.sh"),
@@ -5103,10 +5105,12 @@ function testProposeRoutineTemplate() {
     !/Write|Edit/.test(fm.match(/^allowed_tools:.*$/m)[0]), fm);
   assertTrue("it declares no auto-fix, since it opens no pull request",
     /^autofix_on_pr_create: false$/m.test(fm), fm);
-  // NO CONNECTOR AND NO POST. The issue is assigned to exactly one person whom GitHub
-  // already notifies, so a Slack copy is the same noise twice -- the argument that gives
-  // [Workaholic] no connector. Its result reaches that one reader by notification instead.
-  assertTrue("it holds no Slack connector", /^mcp: \[\]$/m.test(fm), fm);
+  // A CONNECTOR TO READ, AND STILL NO POST (2026-08-23, the Claude Tag removal). The
+  // inbound sweep reads the channel through the Slack connector, so the template must
+  // carry it -- and the no-posting contract is now carried by the prompt's own words
+  // rather than by the connector's absence, which is what the assertions below pin.
+  assertTrue("it holds the Slack connector the inbound sweep reads through",
+    /^mcp: \[Slack\]$/m.test(fm), fm);
   assertTrue("and declares the notification that reaches its one reader instead",
     /^notifications: push$/m.test(fm), fm);
   const prompt = tpl.slice(tpl.indexOf("## Prompt"));
@@ -11504,12 +11508,13 @@ function testRenderSetupSheet() {
     devSheet.includes("## [Specificate] workaholic") && devSheet.includes("## [Implement] workaholic") &&
     devSheet.includes("## [Propose] workaholic") &&
     !devSheet.includes("## [Moderate] workaholic"), devSheet.slice(0, 300));
-  // The channel step is DERIVED from `mcp:`, so a routine granted no connector is never told
-  // to prepare a Slack channel it will never post to -- two templates are in that state now
-  // ([Workaholic], [Propose]) and both reach their one reader by notification instead.
+  // The channel step is DERIVED from `mcp:`. [Propose] carries the connector since
+  // 2026-08-23 -- the inbound sweep READS the channel, so the sheet telling the operator to
+  // have it ready is now correct for it too -- and it still reaches its one reader by
+  // notification, so both lines must render.
   const proposeSheet = sheet("propose");
-  assertTrue("a connector-less routine's sheet names its notification, not a Slack channel",
-    !/Have the Slack channel/.test(proposeSheet) && /\*\*Notifications\*\*: set them to `push`/.test(proposeSheet),
+  assertTrue("the sweep-carrying routine's sheet names both the channel and its notification",
+    /Have the Slack channel/.test(proposeSheet) && /\*\*Notifications\*\*: set them to `push`/.test(proposeSheet),
     proposeSheet.slice(0, 900));
   assertTrue("a connector-carrying routine's sheet still names its channel",
     /Have the Slack channel `dev-workaholic` ready/.test(sheet("implement")), "implement sheet lost its channel step");
@@ -15022,6 +15027,7 @@ const tests = [
   ["branching publish-tree-pr: the ## Artifacts section is a counts summary, not a file-path list", testPublishTreePrArtifactsSummary],
   ["propose extract-issue-number: captures a triggering GitHub issue number from env or argument", testExtractIssueNumber],
   ["propose list-inbound-issues: the clock-fired discovery reads the inbox, never invents one", testListInboundIssues],
+  ["propose inbound sweep: one marker writer, and the ledger read never runs blind", testInboundSweep],
   ["branching publish-tree-pr: threads a native Closes #<N> keyword when an issue number is in hand", testPublishTreePrClosesIssue],
   ["the PR title is not the commit subject (P4's surviving half)", testPrTitleSeparateFromSubject],
   ["the reply thread is found, not carried (Q1)", testStatelessThreadLookup],
@@ -15345,6 +15351,86 @@ function testExtractIssueNumber() {
 //   - an exclusion is REPORTED, never silently dropped;
 //   - a missing gh is ok:false, because an unreadable inbox must never render as an
 //     empty one (the same rule plan-units.sh applies to an unreadable queue).
+// ---------- propose's inbound Slack sweep (2026-08-23) ----------
+// The developer's instruction: drop the Claude Tag dependency. An ask in the channel is
+// captured by /propose reading the channel as the account itself, filed as the same [FB]
+// issue the tag produced. Two properties are load-bearing enough to pin: the dedup marker
+// has ONE writer whose format the ledger reader actually matches, and a refusal in the
+// wrapper leaves nothing half-filed.
+function testInboundSweep() {
+  const tmp = mkdtempSync(join(tmpdir(), "wh-sweep-"));
+  const repo = join(tmp, "repo");
+  const git = (cwd, args) => execSync(`git ${args}`, { cwd, stdio: "ignore" });
+  mkdirSync(repo, { recursive: true });
+  git(repo, "init -q");
+  git(repo, "config user.email a@qmu.jp");
+  git(repo, "config user.name t");
+  writeFileSync(join(repo, "a.md"), "x\n");
+  git(repo, "add -A");
+  git(repo, "-c commit.gpgsign=false commit -qm base");
+  git(repo, "remote add origin git@github.com:acme-org/source-repo.git");
+
+  const bin = join(tmp, "bin");
+  mkdirSync(bin, { recursive: true });
+  const ghStdin = join(tmp, "gh-stdin.txt");
+  writeFileSync(join(bin, "gh"), `#!/bin/sh\ncat > "${ghStdin}" 2>/dev/null || true\nprintf '{"html_url": "https://github.com/acme-org/source-repo/issues/7", "assignees": [{"login": "octo"}]}\\n'\n`);
+  chmodSync(join(bin, "gh"), 0o755);
+  const env = { ...process.env, PATH: `${bin}:${process.env.PATH}` };
+  const sh = (script, args, opts = {}) => {
+    try {
+      return { out: execSync(`${POSIX_SH} ${script} ${args}`, { cwd: repo, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"], env, ...opts }), status: 0 };
+    } catch (e) { return { out: (e.stdout || "").toString(), status: e.status ?? 1 }; }
+  };
+
+  try {
+    const ask = join(tmp, "ask.md");
+    writeFileSync(ask, "Please stop depending on the tagged bot for capture.\n");
+
+    // ---- the one marker writer ----
+    const filed = sh(SCRIPTS.fileInboundAsk,
+      `--slack-ref C0AB12CD3:1724371200.000100 --permalink https://example.slack.com/archives/C0AB12CD3/p1724371200000100 --subject "person:Tamura" --assignee octo "acme-org/source-repo" "Drop the tag dependency" "${ask}"`);
+    assertEq("file-inbound-ask reports the opened issue", JSON.parse(filed.out).ok, true);
+    const sent = JSON.parse(readFileSync(ghStdin, "utf8"));
+    assertTrue("the body opens with the three-axis header, source fixed to slack",
+      /^kind: feedback \/ source: slack \/ subject: person:Tamura\n/.test(sent.body), sent.body.slice(0, 80));
+    assertTrue("and carries the slack-ref marker the ledger reader matches",
+      /\nslack-ref: C0AB12CD3:1724371200\.000100\n/.test(sent.body), sent.body.slice(0, 160));
+    assertTrue("and the human's own permalink",
+      sent.body.includes("slack-link: https://example.slack.com/archives/C0AB12CD3/p1724371200000100"));
+    assertTrue("the ask itself rides below the header", sent.body.includes("stop depending on the tagged bot"));
+
+    // ---- the ledger reader matches what the writer wrote ----
+    // The dedup would silently stop matching if the two ever drifted, so the round trip
+    // is asserted against a body in the ISSUE LISTING shape the reader parses.
+    writeFileSync(join(bin, "gh"), `#!/bin/sh\nprintf '[{"number": 7, "body": "kind: feedback / source: slack / subject: person:Tamura\\nslack-ref: C0AB12CD3:1724371200.000100\\n\\nbody"}]\\n'\n`);
+    chmodSync(join(bin, "gh"), 0o755);
+    const ledger = JSON.parse(sh(SCRIPTS.listSweptSlackRefs, "").out);
+    assertEq("the ledger read reports ok", ledger.ok, true);
+    assertTrue("and reads back exactly the ref the writer stamped",
+      (ledger.refs || []).includes("C0AB12CD3:1724371200.000100"), JSON.stringify(ledger.refs));
+
+    // ---- refusals leave nothing half-filed ----
+    const noSubject = sh(SCRIPTS.fileInboundAsk,
+      `--slack-ref C0AB12CD3:1.2 --assignee octo "acme-org/source-repo" "T" "${ask}"`);
+    assertEq("a capture with no subject is refused, never defaulted to the machine",
+      JSON.parse(noSubject.out).error, "no_subject");
+    const noRef = sh(SCRIPTS.fileInboundAsk,
+      `--subject "person:T" --assignee octo "acme-org/source-repo" "T" "${ask}"`);
+    assertEq("a capture with no slack-ref is refused — an unmarked issue breaks the dedup",
+      JSON.parse(noRef.out).error, "no_slack_ref");
+
+    // ---- an unreadable ledger is a named refusal, never an empty set ----
+    writeFileSync(join(bin, "gh"), `#!/bin/sh\necho 'boom' >&2\nexit 1\n`);
+    chmodSync(join(bin, "gh"), 0o755);
+    const broken = JSON.parse(sh(SCRIPTS.listSweptSlackRefs, "").out);
+    assertEq("an unreadable issue listing reports ok: false", broken.ok, false);
+    assertTrue("with a named reason the caller must skip the sweep on",
+      ["list_failed", "slug_unresolved"].includes(broken.reason), broken.reason);
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
 function testListInboundIssues() {
   const SCRIPT = SCRIPTS.proposeListInboundIssues;
   const tmp = mkdtempSync(join(tmpdir(), "wh-inbound-"));

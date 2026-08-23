@@ -9,7 +9,7 @@ cron_expression: 40 * * * *
 autofix_on_pr_create: false
 model: claude-opus-5
 allowed_tools: [Bash, Read, Glob, Grep, WebFetch, WebSearch]
-mcp: []
+mcp: [Slack]
 notifications: push
 ---
 
@@ -40,13 +40,19 @@ is a GitHub issue, and that lands outside the tree — the contract `/standup` a
 `/prepare-release` already hold, and the reason this adds no unattended-`main`-writer class to a
 repository whose conflicts are resolved append-only.
 
-**It is granted no Slack connector (`mcp: []`) and posts nothing.** The issue it opens is
-assigned to exactly one person — the running identity — and GitHub already delivers it to them;
-a Slack copy would be the same noise twice — the argument that gave the retired
-`[Workaholic]` no connector — and a status line addressed to nobody is what retired
-`🔧 Needs a decision` and `📦 Release Preparation`. Its result reaches its one reader as a
-Claude notification (`notifications: push`) instead; since 2026-08-22 (issue #557) this is
-the only template that declares the field.
+**It carries the Slack connector to read, and it still posts nothing** (2026-08-23, the
+developer's instruction to drop the Claude Tag dependency). Before the strategy judgment the
+run sweeps the repository's designated channel (`WORKAHOLIC_INBOUND_SLACK_CHANNEL`, default
+`dev-<repo_name>`) for asks a person wrote **without mentioning any bot**, and files each as
+the same `[FB]` issue the Claude Tag route produced — assigned to the running identity, so the
+next `[Specificate]` ingests it (`workaholic:propose`, *The inbound sweep*). The tag route
+cost a tagged session per ask and stopped capturing at the usage limit; this reads the channel
+as the account itself. The no-posting argument is unchanged and still holds: the issues are
+each assigned to exactly one person whom GitHub already notifies, a Slack copy would be the
+same noise twice, and a status line addressed to nobody is what retired `🔧 Needs a decision`
+and `📦 Release Preparation`. Its result reaches its one reader as a Claude notification
+(`notifications: push`); since 2026-08-22 (issue #557) this is the only template that
+declares the field.
 
 **The name was vacated on 2026-08-19 and this takes it back.** `[Propose] {repo_name}` was the
 maintenance tick's rendered name until it became `[Moderate]`, and `/propose` was the command
@@ -68,4 +74,4 @@ Run `/propose`.
 
 If the command or its skills did not load, do not stop: run `bash plugins/workaholic/skills/check-deps/scripts/plugin-src.sh` from the checkout, take its `src`, then read `<src>/commands/propose.md` and follow it with every script path under `<src>`.
 
-Post nothing to Slack. Report the proposal's issue URL and its move, or the named reason nothing was proposed.
+Read Slack only through the Slack connector; the inbound sweep needs no mention to capture an ask. Post nothing to Slack. Report each swept ask's issue URL or named exclusion, then the proposal's issue URL and its move, or the named reason nothing was proposed.

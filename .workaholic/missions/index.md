@@ -2,12 +2,10 @@
 
 ## active
 
-* [make-an-open-decision-a-question-to-answer-not-a-ruling](active/make-an-open-decision-a-question-to-answer-not-a-ruling/mission.md) - Make an Open Decision a question to answer, not a ruling
 * [make-the-routine-create-body-documented-and-buildable](active/make-the-routine-create-body-documented-and-buildable/mission.md) - Make the routine create body documented and buildable
 * [make-workaholify-converge-the-account-s-routines](active/make-workaholify-converge-the-account-s-routines/mission.md) - Make /workaholify converge the account's routines
 * [name-the-session-type-that-cannot-merge](active/name-the-session-type-that-cannot-merge/mission.md) - Name the session type that cannot merge
 * [refuse-ok-under-a-placeholder-identity](active/refuse-ok-under-a-placeholder-identity/mission.md) - Refuse ok under a placeholder identity
-* [route-a-stalled-unit-to-a-person-who-is-asked-by-name](active/route-a-stalled-unit-to-a-person-who-is-asked-by-name/mission.md) - Route a stalled unit to a person who is asked by name
 
 ## archive
 
@@ -33,6 +31,7 @@
 * [make-a-mission-impossible-to-create-without-its-ticket-set](archive/make-a-mission-impossible-to-create-without-its-ticket-set/mission.md) - Make a mission impossible to create without its ticket set
 * [make-a-rename-a-registry-entry-not-a-sweep](archive/make-a-rename-a-registry-entry-not-a-sweep/mission.md) - Make a rename a registry entry, not a sweep
 * [make-acceptance-ticking-measure-satisfaction-not-marker-shape](archive/make-acceptance-ticking-measure-satisfaction-not-marker-shape/mission.md) - Make acceptance ticking measure satisfaction, not marker shape
+* [make-an-open-decision-a-question-to-answer-not-a-ruling](archive/make-an-open-decision-a-question-to-answer-not-a-ruling/mission.md) - Make an Open Decision a question to answer, not a ruling
 * [make-routine-notifications-one-semantic-story](archive/make-routine-notifications-one-semantic-story/mission.md) - Make routine notifications one semantic story
 * [make-scheduled-routines-a-configurable-inspectable-part-of-a-repository](archive/make-scheduled-routines-a-configurable-inspectable-part-of-a-repository/mission.md) - Make scheduled routines a configurable, inspectable part of a repository
 * [make-the-branch-story-concise-by-default](archive/make-the-branch-story-concise-by-default/mission.md) - Make the branch story concise by default
@@ -57,6 +56,7 @@
 * [retire-routine-management-into-a-setup-sheet](archive/retire-routine-management-into-a-setup-sheet/mission.md) - Retire routine management into a setup sheet
 * [revive-strategy-and-reshape-the-workaholic-artifact-set](archive/revive-strategy-and-reshape-the-workaholic-artifact-set/mission.md) - Revive Strategy and reshape the .workaholic artifact set
 * [right-size-report-to-single-ticket-per-pr-granularity](archive/right-size-report-to-single-ticket-per-pr-granularity/mission.md) - Right-size /report to single-ticket-per-PR granularity
+* [route-a-stalled-unit-to-a-person-who-is-asked-by-name](archive/route-a-stalled-unit-to-a-person-who-is-asked-by-name/mission.md) - Route a stalled unit to a person who is asked by name
 * [slim-commands-skills-and-docs-for-ai-agent-use](archive/slim-commands-skills-and-docs-for-ai-agent-use/mission.md) - Slim commands, skills, and docs for AI-agent use
 * [split-routine-setup-into-developer-and-repository-scopes](archive/split-routine-setup-into-developer-and-repository-scopes/mission.md) - Split routine setup into developer and repository scopes
 * [stop-a-routine-finish-line-from-vanishing-on-the-script-path](archive/stop-a-routine-finish-line-from-vanishing-on-the-script-path/mission.md) - Stop a routine finish line from vanishing on the script path

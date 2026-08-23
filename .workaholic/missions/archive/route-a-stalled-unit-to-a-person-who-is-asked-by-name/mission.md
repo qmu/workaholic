@@ -2,7 +2,7 @@
 type: Mission
 title: Route a stalled unit to a person who is asked by name
 slug: route-a-stalled-unit-to-a-person-who-is-asked-by-name
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-23T09:37:55+09:00
 author: a@qmu.jp
@@ -52,3 +52,4 @@ and the next tick sees it answered rather than re-holding it.
 - 2026-08-23 — ticket archived — 20260823093803-read-what-is-claimed-and-how-long-it-has-been-stopped.md
 - 2026-08-23 — ticket archived — 20260823093803-ask-the-owner-of-a-stalled-unit-by-name-through-the-tick.md
 - 2026-08-23 — ticket archived — 20260823093803-let-an-answer-in-the-moderator-session-clear-the-question.md
+- 2026-08-23 — mission achieved — mission.md

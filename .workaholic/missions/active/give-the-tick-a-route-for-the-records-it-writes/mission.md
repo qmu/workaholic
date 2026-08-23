@@ -40,7 +40,7 @@ tick re-derives the finding instead of trusting a line that was never true.
 
 ## Acceptance
 
-- [ ] A feedback record written during a tick reaches the base without a `work-*` branch, a
+- [x] A feedback record written during a tick reaches the base without a `work-*` branch, a
       claim or a pull request (#20260822141436-persist-the-tick-s-own-feedback-records-to-the-base.md)
 - [ ] A record that did not reach the base is reported by name, and the dedup does not treat
       it as filed (#20260822141436-stop-reporting-a-record-the-tick-did-not-persist.md)
@@ -48,3 +48,4 @@ tick re-derives the finding instead of trusting a line that was never true.
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-23 — ticket archived — 20260822141436-persist-the-tick-s-own-feedback-records-to-the-base.md

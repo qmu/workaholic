@@ -11,7 +11,9 @@
 # FOUR GATES, EACH ITS OWN REFUSAL:
 #   quiet_hours   inside the configured window; the question is HELD, never dropped
 #   answered      a person answered it in the moderator session; never asked again
-#   already_asked this exact question key was asked in an earlier tick, unanswered
+#   already_asked this exact question key was asked in an earlier tick, unanswered; the
+#                 refusal carries `liveness` (live | settled | unknown) when the caller
+#                 passed --run and --asked-step, and `unknown` otherwise
 #   tick_cap      five per tick, the ask's own ceiling
 #   day_cap       the bound the per-tick cap must not aggregate past (default 10)
 #
@@ -37,9 +39,13 @@
 #   ask-question.sh --tick <id> --key <content-key> [--root <repo-root>]
 #                   [--to <email>] [--hour <0-23>] [--weekday <1-7>]
 #                   [--max-per-tick 5] [--max-per-day 10]
+#                   [--run <run-report.json>] [--asked-step <owning-step-id>]
 #
 # Output: one JSON line
 #   {"ask": true, "key": "...", "log_step": "human-checkin-ask-<slug>",
+#    ...} — or, for the one bounded re-ask of a still-`live` question first asked on an
+#    earlier day, `reason: "outstanding"` with `log_step: human-checkin-reasked-<slug>`
+#    and `first_asked`, so the composer can put the age in the question
 #    "mention_email": "...", "asked_this_tick": n, "asked_today": n}
 #   {"ask": false, "reason": "answered|off_day|quiet_hours|already_asked|tick_cap|day_cap|no_key",
 #    "hold": true|false, "window": "22-08 Asia/Tokyo", ...}
@@ -54,6 +60,7 @@ SCRIPT_DIR=$(cd -- "$(dirname -- "$0")" && pwd)
 LOG_READ="${SCRIPT_DIR}/log-read.sh"
 . "${SCRIPT_DIR}/lib/question-id.sh"
 QUESTION_STATE="${SCRIPT_DIR}/question-state.sh"
+LIVENESS="${SCRIPT_DIR}/question-liveness.sh"
 
 TICK=''
 KEY=''
@@ -61,6 +68,8 @@ ROOT='.'
 TO=''
 HOUR=''
 WEEKDAY=''
+RUN_REPORT=''
+ASKED_STEP=''
 MAX_TICK=5
 MAX_DAY=10
 
@@ -70,6 +79,8 @@ while [ $# -gt 0 ]; do
         --key)          KEY="${2:-}"; shift 2 ;;
         --root)         ROOT="${2:-}"; shift 2 ;;
         --to)           TO="${2:-}"; shift 2 ;;
+        --run)  RUN_REPORT="${2:-}"; shift 2 ;;
+        --asked-step) ASKED_STEP="${2:-}"; shift 2 ;;
         --hour)         HOUR="${2:-}"; shift 2 ;;
         --weekday)      WEEKDAY="${2:-}"; shift 2 ;;
         --max-per-tick) MAX_TICK="${2:-5}"; shift 2 ;;
@@ -176,9 +187,73 @@ if [ -f "$QUESTION_STATE" ]; then
     esac
 fi
 
+# WHETHER THE SUBJECT IS STILL LIVE RIDES THE REFUSAL, AND CHANGES NOTHING YET
+# (2026-08-23). The refusal itself is unmoved — an already-asked question is still refused,
+# still not held, still asked exactly once. What is added is the second axis the gate could
+# not express: `live` (the owning step raised it again this tick), `settled` (the step ran
+# and did not), `unknown` (nobody could look). It is re-derived from the tick's own run
+# report by `question-liveness.sh`, so no state is stored and the log gains no field; a
+# caller that passes no `--run`/`--asked-step` gets `unknown` and the byte-identical
+# behaviour it had before.
 already=$(count_log_step "$LOG_STEP")
 if [ "$already" != "0" ]; then
-    printf '{"ask": false, "reason": "already_asked", "hold": false, "key": "%s"}\n' "$KEY"
+    liveness=unknown
+    if [ -n "$RUN_REPORT" ] && [ -n "$ASKED_STEP" ] && [ -f "$LIVENESS" ]; then
+        lv=$(sh "$LIVENESS" --key "$KEY" --step "$ASKED_STEP" --run "$RUN_REPORT" 2>/dev/null || true)
+        parsed=$(printf '%s' "$lv" | sed -n 's/.*"liveness": "\([a-z]*\)".*/\1/p')
+        [ -n "$parsed" ] && liveness="$parsed"
+    fi
+
+    # ONE RE-ASK, AT THE NEXT WORKING DAY, THEN NEVER (2026-08-23; the ticket's Open
+    # Decision, ruled while driving it). The fork was (a) re-ask on persistence, bounded,
+    # versus (b) never re-ask and carry a standing `N outstanding, oldest <age>` line on the
+    # root. **(a).** The one property both retired status roots lacked is being ADDRESSED TO
+    # A PERSON, and (b) reproduces exactly that lack — a count addressed to nobody is the
+    # shape this repository has retired twice, and putting an age on it does not change who
+    # it reaches. The measured harm was a question unanswered for twenty hours across twenty
+    # ticks with nothing carrying it; only a mentioned reply reaches anybody.
+    #
+    # THE INTERVAL IS THE SMALLEST THAT ANSWERS THE MEASUREMENT. Ticket `20260819061902`
+    # removed UNBOUNDED re-asking — the same key re-asked every hour with the question still
+    # open — and that removal stands: this is at most ONE extra ask, ever, and it is logged
+    # under its own step id so a third is impossible by construction. The boundary is the
+    # working day the quiet-hours gate already owns (`WORKAHOLIC_QUIET_TZ`), so no constant
+    # is invented, exactly as the alert cool-down was fixed the same day.
+    #
+    # ONLY WHEN THE SUBJECT IS STILL `live`. `settled` needs nobody, and `unknown` is a
+    # reading we could not make — spending a person's attention on our own degradation is the
+    # rule `strategy-pace` already applies to its own `unknown`.
+    #
+    # IT ADDS NO POSTING RULE. A re-ask is a question, so it rides the tick's existing "post
+    # when there is at least one question" gate; an hour with nothing to ask stays silent by
+    # construction, and the `🙋` shape does not move.
+    REASK_STEP="human-checkin-reasked-$(question_slug "$KEY")"
+    if [ "$liveness" = "live" ] && [ "$(count_log_step "$REASK_STEP")" = "0" ]; then
+        asked_day=''
+        if [ -f "$QUESTION_STATE" ]; then
+            asked_day=$(printf '%s' "${qs:-}" | sed -n 's/.*"asked_tick": "\([0-9]\{8\}\)-.*/\1/p')
+        fi
+        # THE DAY COMES FROM THE TICK, NOT THE WALL CLOCK. Both sides are then tick ids
+        # minted by the same script on the same axis, a re-entered tick answers the same way
+        # twice, and the comparison is testable at all — reading `date` here made a tick
+        # dated yesterday re-ask itself on its own first run.
+        today=$(printf '%s' "$TICK" | sed -n 's/^\([0-9]\{8\}\)-.*/\1/p')
+        [ -n "$today" ] || today=$(TZ="$ZONE" date +%Y%m%d)
+        # THE HOLD GATES COME FIRST, as they do for a first ask. `already_asked` returns
+        # before the off-day and quiet-hours checks, so a re-ask decided here would post at
+        # 03:00 on a Sunday — the exact failure `WORKAHOLIC_WORK_DAYS` exists to prevent.
+        # Held is not dropped: the re-ask is logged only when it is actually asked, so it
+        # waits for the next eligible tick and is still bounded to one.
+        if [ "$offday" != "true" ] && [ "$quiet" != "true" ] \
+           && [ -n "$asked_day" ] && [ "$asked_day" -lt "$today" ] 2>/dev/null; then
+            printf '{"ask": true, "reason": "outstanding", "key": "%s", "log_step": "%s", "mention_email": "%s", "liveness": "live", "first_asked": "%s", "asked_this_tick": %s, "asked_today": %s, "window": "%s %s"}\n' \
+                "$KEY" "$REASK_STEP" "$TO" "$asked_day" "$(count_log_prefix human-checkin-ask "")" "$(count_log_prefix human-checkin-ask "")" "$WINDOW" "$ZONE"
+            exit 0
+        fi
+    fi
+
+    printf '{"ask": false, "reason": "already_asked", "hold": false, "key": "%s", "liveness": "%s"}\n' \
+        "$KEY" "$liveness"
     exit 0
 fi
 

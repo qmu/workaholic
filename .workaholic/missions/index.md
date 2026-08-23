@@ -12,7 +12,6 @@
 * [refuse-ok-under-a-placeholder-identity](active/refuse-ok-under-a-placeholder-identity/mission.md) - Refuse ok under a placeholder identity
 * [refuse-the-move-that-describes-the-aim-instead-of-advancing-it](active/refuse-the-move-that-describes-the-aim-instead-of-advancing-it/mission.md) - Refuse the move that describes the aim instead of advancing it
 * [route-a-stalled-unit-to-a-person-who-is-asked-by-name](active/route-a-stalled-unit-to-a-person-who-is-asked-by-name/mission.md) - Route a stalled unit to a person who is asked by name
-* [tell-an-unanswered-question-from-an-answered-one](active/tell-an-unanswered-question-from-an-answered-one/mission.md) - Tell an unanswered question from an answered one
 
 ## archive
 
@@ -63,3 +62,4 @@
 * [stop-a-routine-finish-line-from-vanishing-on-the-script-path](archive/stop-a-routine-finish-line-from-vanishing-on-the-script-path/mission.md) - Stop a routine finish line from vanishing on the script path
 * [stop-the-runner-from-taking-path-owned-legacy-tickets](archive/stop-the-runner-from-taking-path-owned-legacy-tickets/mission.md) - Stop the runner from taking path-owned legacy tickets
 * [take-the-dedup-key-out-of-the-read-post](archive/take-the-dedup-key-out-of-the-read-post/mission.md) - Take the dedup key out of the read post
+* [tell-an-unanswered-question-from-an-answered-one](archive/tell-an-unanswered-question-from-an-answered-one/mission.md) - Tell an unanswered question from an answered one

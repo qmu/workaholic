@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-22T15:52:50+09:00
+status: done
 author: a@qmu.jp
 assignees: 
 depends_on:
@@ -100,3 +101,59 @@ surface anywhere carrying its age.
 - Drive this after its sibling; without the liveness read there is nothing to surface.
 - Whichever shape is chosen, the failure to avoid is a third silent state — a question that is
   neither re-asked nor counted because its subject resolved to `unknown`.
+
+## Final Report
+
+Development completed as planned. A still-`live` question first asked on an earlier day is
+re-asked **once**, at the next working day, and never again.
+
+### The Open Decision, ruled: (a) re-ask on persistence, bounded
+
+The ask named both shapes and declined to recommend one, so this is a real fork and the ruling is
+recorded rather than assumed.
+
+**(b) — a standing `N questions outstanding, oldest <age>` line on the root — is refused.** The one
+property both retired status roots lacked is being **addressed to a person**. A count addressed to
+nobody reproduces exactly that lack, and putting an age on it does not change who it reaches; it is
+the shape this repository has retired twice, most recently for restating an unchanged answer ten
+hours running. The measured harm here was twenty hours and twenty ticks with **nothing** carrying
+the question — and only a mentioned reply reaches anybody.
+
+**(a) is taken with the smallest interval that answers the measurement**: one re-ask, at the next
+working day, then never. Ticket `20260819061902` removed *unbounded* re-asking — the same key every
+hour with the question still open — and that removal stands: this is at most **one** extra ask,
+ever, logged under its own step id `human-checkin-reasked-<slug>`, so a third is impossible by
+construction rather than by a counter somebody must maintain. The boundary is the working day the
+quiet-hours gate already owns, so no constant is invented — the same composition that fixed the
+alert cool-down the same day.
+
+### What the drive corrected in itself
+
+Two defects were caught by exercising it rather than by reading it:
+
+- **The day was read from the wall clock**, so a tick dated yesterday re-asked itself on its own
+  first run. It now comes from the **tick id**, putting both sides on one axis and making a
+  re-entered tick answer the same way twice.
+- **The re-ask was decided before the hold gates.** `already_asked` returns before the off-day and
+  quiet-hours checks, so the re-ask would have posted at 03:00 on a Sunday — the exact failure
+  `WORKAHOLIC_WORK_DAYS` exists to prevent. It is now gated on both, and held is not dropped: the
+  re-ask is logged only when actually asked, so it waits for the next eligible tick and stays
+  bounded to one.
+
+### What did not change
+
+**Only a `live` subject is re-asked.** `settled` needs nobody, and `unknown` is a reading that could
+not be made — spending a person's attention on our own degradation is the rule `strategy-pace`
+already applies to its own `unknown`.
+
+**No posting rule and no post shape moved.** A re-ask is a question, so it rides the existing "post
+when there is at least one question" gate: an hour with nothing changed and nothing to ask is still
+silent, by construction rather than by a new exception. It goes out as the same `🙋 <@U…>` reply
+with its age in the question's own sentence (`first_asked` rides the gate's answer), so the root's
+wording is untouched and the copies in `notify/reference/notifications.md` and
+`workaholify/routines/moderate.md` stay byte-identical — the suite's pin passes unchanged.
+
+**Verification**: `node scripts/test-workflow-scripts.mjs` — 3388 passed, 0 failed, including a
+multi-tick fixture asserting no re-ask the same day, the quiet-hours and off-day holds, exactly one
+re-ask on the next working day naming when it was first asked, silence after that, and that a
+settled subject is never re-asked.

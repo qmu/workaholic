@@ -387,6 +387,57 @@ indistinguishable from a mis-click, and it would clear the gate on a question st
 log reads `never_asked` — a repository with no tick history has asked nothing — while a log that
 exists and cannot be read is `unreadable`, named, because only one of those is calm.
 
+### An outstanding question is asked once more, and only once
+
+```bash
+sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/question-liveness.sh --key <content-key> --step <owning-step-id> --run <run-report.json|->
+sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/ask-question.sh ... --run <run-report.json> --asked-step <owning-step-id>
+```
+
+The gate could not tell **asked and settled** from **asked and still blocking**: it read one fact,
+was this key asked before, and refused. Measured: a question saying the loop could not start went
+unanswered for twenty hours across twenty ticks, every tick reporting itself healthy, with no
+surface anywhere carrying its age.
+
+**Liveness is re-derived, never stored** (the ticket's step 3, ruled here): the owning step ran
+this tick, so its `needs_agent` *is* the set of subjects still live. `question-liveness.sh` reads
+the tick's own run report and answers `live` / `settled` / `unknown`. No log field, nothing to keep
+in sync, no append-only line rewritten, and **no repository scan** — re-reading the tree per asked
+key is what turns an hourly tick into a scan. The owning step is an **argument**, not a guess from
+the key's prefix: `stalled-unit:` is not the step id `stalled-units`, and a wrong guess would answer
+`settled` about a subject nobody looked at. **`unknown` is load-bearing** — a step that degraded or
+was never reached cannot report its finding, and treating that as `settled` re-creates the exact
+silence this exists to end.
+
+**The shape, ruled: (a) re-ask on persistence, bounded — not (b) a standing outstanding line.** The
+ask named both and declined to recommend one. The one property both retired status roots lacked is
+being **addressed to a person**, and (b) — `N questions outstanding, oldest <age>` on the root —
+reproduces exactly that lack; putting an age on a line addressed to nobody does not change who it
+reaches. Only a mentioned reply reaches anybody, and the measured harm was twenty hours with
+nothing carrying the question at all.
+
+**The interval is the smallest that answers the measurement**: one re-ask, at the **next working
+day**, then never. Ticket `20260819061902` removed *unbounded* re-asking and that removal stands —
+this is at most one extra ask, ever, logged under its own step id
+(`human-checkin-reasked-<slug>`) so a third is impossible by construction. The boundary is the
+working day the quiet-hours gate already owns, so no constant is invented. The day is read from the
+**tick id**, not the wall clock, so a re-entered tick answers the same way twice.
+
+**Only a `live` subject is re-asked.** `settled` needs nobody; `unknown` is a reading that could not
+be made, and spending a person's attention on our own degradation is the rule `strategy-pace`
+already applies to its own `unknown`.
+
+**The hold gates come first.** `already_asked` returns before the off-day and quiet-hours checks, so
+a re-ask decided there would post at 03:00 on a Sunday. It is gated on both, and held is not
+dropped: the re-ask is logged only when actually asked, so it waits for the next eligible tick and
+is still bounded to one.
+
+**It adds no posting rule and no new shape.** A re-ask is a question, so it rides the existing
+"post when there is at least one question" gate — an hour with nothing to ask stays silent by
+construction — and it goes out as the same `🙋 <@U…>` reply, with its age in the question's own
+sentence (`first_asked` rides the gate's answer). The root's wording does not move, so the copy in
+`notify/reference/notifications.md` and the routine template stay byte-identical.
+
 ## 13. `human-checkin` — the tick's voice: one root, up to five questions inside it
 
 - **Reads**: the tick log (held questions, what was already asked today) and the clock in the

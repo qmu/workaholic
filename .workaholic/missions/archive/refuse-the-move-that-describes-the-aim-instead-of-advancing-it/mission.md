@@ -2,7 +2,7 @@
 type: Mission
 title: Refuse the move that describes the aim instead of advancing it
 slug: refuse-the-move-that-describes-the-aim-instead-of-advancing-it
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-22T19:47:20+09:00
 author: a@qmu.jp
@@ -44,10 +44,12 @@ flight. A decomposable ask is planned, and the run says which rule decided.
 
 - [x] A decomposable ask reaches a mission rather than record-only, and the deciding rule is named (#20260822194728-let-the-precedence-rule-beat-the-record-only-default.md)
 - [x] A describing move against a building aim is refused by name (#20260822194728-refuse-a-describing-move-against-a-building-aim.md)
-- [ ] A strategy with only descriptive work attributed to it is not gated as work-in-flight (#20260822194728-tell-describing-work-from-advancing-work.md)
+- [x] A strategy with only descriptive work attributed to it is not gated as work-in-flight (#20260822194728-tell-describing-work-from-advancing-work.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-22 — ticket archived — 20260822194728-let-the-precedence-rule-beat-the-record-only-default.md
 - 2026-08-22 — ticket archived — 20260822194728-refuse-a-describing-move-against-a-building-aim.md
+- 2026-08-23 — ticket archived — 20260822194728-tell-describing-work-from-advancing-work.md
+- 2026-08-23 — mission achieved — mission.md

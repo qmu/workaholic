@@ -15059,6 +15059,7 @@ const tests = [
   ["moderate: liveness, and the one bounded re-ask", testQuestionLivenessAndReask],
   ["moderate: the tick's records reach the base", testTickRecordsReachTheBase],
   ["commit.sh: refuses a commit that splits a rename", testCommitRefusesSplitRename],
+  ["strategy/work-kind.sh: describing work does not gate a building aim", testDescribingWorkDoesNotGateABuildingAim],
   ["drive/archive.sh: closes a mission it can prove is finished", testArchiveClosesAProvenMission],
   ["moderate/step-closable-missions.sh: finished, and still open", testClosableMissionsStep],
   ["moderate: the tick log survives the container that wrote it", testModeratePersist],
@@ -18649,6 +18650,44 @@ function testModerateLog() {
   } finally {
     cleanup(repo);
   }
+}
+
+// ---------- describing work must not gate a building aim (2026-08-23) ----------
+// A page ABOUT the work cites the same feedback ref the work would, so attribution cannot
+// tell them apart — and `work_waiting` reading the undifferentiated count is what made the
+// measured loop self-sustaining: each documentation mission queued documentation tickets,
+// which kept the gate closed against the proposal that would have built something.
+function testDescribingWorkDoesNotGateABuildingAim() {
+  const KIND = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/work-kind.sh")}`;
+  const dir = mkdtempSync(join(tmpdir(), "wh-kind-"));
+  const t = (name, keyfiles) => {
+    const f = join(dir, name);
+    writeFileSync(f, `---\ncreated_at: 2026-08-01T00:00:00+09:00\n---\n\n# t\n\n## Key Files\n\n${keyfiles}\n\n## Quality Gate\n`);
+    return f;
+  };
+  const k = (...fs) => JSON.parse(execSync(`${KIND} ${fs.join(" ")}`, { encoding: "utf8" }));
+  try {
+    const doc = t("doc.md", "- `docs/ja/v3/platform.md` — the page\n- `README.md` — and this");
+    const build = t("build.md", "- `packages/app/src/index.ts` — the Worker\n- `docs/en/x.md` — mentioned");
+    const none = t("none.md", "");
+
+    assertEq("a ticket touching only documentation paths describes", k(doc).kind, "describing");
+    // ONE product path is enough: a build ticket that also edits a page is still the build.
+    assertEq("a ticket touching one product path advances", k(build).kind, "advancing");
+    assertEq("a ticket naming no path is unknown", k(none).kind, "unknown");
+    assertEq("a path that is not there is unknown", k(join(dir, "nope.md")).kind, "unknown");
+    assertEq("a mixed set advances", k(doc, build).kind, "advancing");
+
+    // `unknown` COUNTS TOWARD ADVANCING AT THE GATE, never toward describing: mislabelling
+    // build work as descriptive lets parallel proposals accumulate — the failure the gate
+    // exists to prevent — while the opposite error only delays one proposal by a tick.
+    assertEq("the counts separate the three", [k(doc, build, none).counts.describing,
+      k(doc, build, none).counts.advancing, k(doc, build, none).counts.unknown], [1, 1, 1]);
+
+    // IT IS NOT A SECOND ATTRIBUTION PATH: it never reads a `feedback:` or `strategy:` field.
+    const src = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/work-kind.sh"), "utf8");
+    assertTrue("work-kind.sh reads no relation", !/feedback:|strategy:/.test(src.replace(/^#.*$/gm, "")), "a relation is read");
+  } finally { cleanup(dir); }
 }
 
 // ---------- commit.sh refuses half a rename (2026-08-23) ----------

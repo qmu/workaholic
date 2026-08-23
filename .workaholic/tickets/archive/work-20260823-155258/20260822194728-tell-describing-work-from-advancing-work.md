@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-22T19:47:28+09:00
+status: done
 author: a@qmu.jp
 assignees: 
 depends_on:
@@ -108,3 +109,53 @@ have been the build; when they merged, the gate lifted and the next documentatio
   and the mechanism should be chosen against the residue rather than against today's backlog.
 - Whatever is ruled, resist reintroducing the `strategy:` relation. It was retired deliberately and
   the attribution reader exists to make it unnecessary.
+
+## Final Report
+
+### The Open Decision, ruled: (b) derive it from the ticket's own paths
+
+**(a) carry the proposal's `move` onto what `/specificate` emits — refused.** It can label only
+work **the loop itself produced**. Work a person filed carries no move and stays indistinguishable,
+and that residue is exactly what the Considerations say to design the mechanism against — measured
+the same day on a consuming repository, where seven documentation asks entered the queue as
+hand-filed issues carrying no marker at all. It also puts a field on the mission, which the
+2026-08-17 no-new-field ruling refused and which this does not need.
+
+**(c) drop `work_waiting` for a build-aim strategy — refused.** That strategy then loses its
+in-flight brake and can accumulate parallel proposals, which is the failure the gate was added to
+prevent.
+
+**(b) taken.** `strategy/scripts/work-kind.sh` reads each queued ticket's own `## Key Files`: every
+path under a documentation area → `describing`, any path outside them → `advancing`, no section /
+no path / unreadable → `unknown`. No field, no relation, no stored state, and it classifies a
+ticket however it entered the queue.
+
+**The stated inversion, and how the Aim exemption covers it.** A repository whose product *is*
+documentation inverts the heuristic — every ticket would read `describing` while being the real
+work. That is the same inversion the sibling exempts **by Aim**, and the same exemption covers it
+here because the distinction is consulted **only for a building aim**. The exemption is therefore
+not a second rule; it is the first one, applied one layer down.
+
+**`unknown` counts toward advancing at the gate**, never toward describing: mislabelling build work
+as descriptive lets parallel proposals accumulate — the failure the gate exists to prevent — while
+the opposite error only delays one proposal by a tick.
+
+**The Aim stays a judgment, in the one place that already makes it.** No script can read an Aim and
+say whether it is to build or to document; `/propose` already makes that call for `describing_move`,
+so it passes the answer in (`survey-strategies.sh --aim-kind building|documentation`). Absent the
+flag the gate is **byte-for-byte** what it was — `work_waiting` off the undifferentiated count — so
+a caller that does not judge sees no change.
+
+**One attribution reader, and no retired relation returns.** `work-kind.sh` asks what a ticket *is*,
+never whose strategy it belongs to; it reads no `feedback:` and no `strategy:` field, which the
+suite pins. `attributed-work.sh` stays the single reader of attribution and simply reports the
+counts beside `waiting_count`.
+
+**The survey names what it saw**: every row, gated or not, carries `waiting_kind`,
+`waiting_describing` and `waiting_advancing`, so a strategy suppressed — or not suppressed — says
+which kind of work the gate read.
+
+**Verification**: `node scripts/test-workflow-scripts.mjs` — 3415 passed, 0 failed, with fixtures
+for a documentation-only ticket, a build ticket that also edits a page (one product path is enough),
+a ticket naming no path, a missing file, a mixed set, and the pin that the classifier reads no
+relation. `build.mjs` + `verify.mjs` clean.

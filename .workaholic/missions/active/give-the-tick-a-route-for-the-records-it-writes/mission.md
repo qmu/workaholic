@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260823-144244
 ---
 
 # Give the tick a route for the records it writes

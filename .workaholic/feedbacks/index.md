@@ -542,4 +542,5 @@
 * [The loop refuses housekeeping but not documentation so a build strategy produces only documents](20260822194700-the-loop-refuses-housekeeping-but-not-documentation-so-a-build-strategy-produces-only-documents.md)
 * [One proposal per tick starves the slower direction](20260822224122-one-proposal-per-tick-starves-the-slower-direction.md)
 * [Every propose gate is a brake and none asks whether the aim will be reached](20260822225137-every-propose-gate-is-a-brake-and-none-asks-whether-the-aim-will-be-reached.md)
+* [The alert cool-down swallows a whole working day when a failure starts in the evening](20260823092638-the-alert-cool-down-swallows-a-whole-working-day-when-a-failure-starts-in-the-evening.md)
 <!-- okf:generated:end -->

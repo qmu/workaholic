@@ -215,6 +215,63 @@ if [ "$SKIP_STAGING" = "false" ] && [ "$ALLOW_EMPTY" = "false" ]; then
         # not noise here.
         UNTRACKED=$(git ls-files --others --exclude-standard)
         if [ -n "$UNTRACKED" ]; then
+            # A SPLIT RENAME IS REFUSED, NOT WARNED ABOUT (2026-08-23).
+            #
+            # A convergent migration writes its additions UNTRACKED and deletes the
+            # originals, so `git add -u` takes exactly half of it. That half merged: 50
+            # concern records lost their content on `main`, and a story body written the
+            # same run was dropped while its index entry landed. The warning above fired on
+            # both, and the commit went through — a warning's enforcement is a human reading
+            # it, and an unattended run has no such human.
+            #
+            # THE SIGNAL IS THE CO-EXISTENCE, not the untracked file. Untracked files are
+            # routine and harmless on their own; a refusal keyed on them alone would fire
+            # constantly and be disabled within a day. A staged DELETION beside one is the
+            # specific shape, because that is what half a move looks like.
+            #
+            # REFUSED IN `commit.sh`, NOT BY UNSTAGING IN THE MIGRATION (Open Decision 1,
+            # ruled while driving it). Leaving `migrate-concerns.sh`'s deletion half
+            # unstaged is precise and local, but it is ONE migration's fix that every future
+            # migration must remember, and it edges against that script's measured "never
+            # touch the caller's index" contract (a read that staged its writes once
+            # enlarged a two-file commit to 154). One gate catches every migration,
+            # including the ones not yet written.
+            #
+            # THE FALSE POSITIVE HAS A ONE-STEP, EXPLICIT ESCAPE. A legitimate
+            # delete-here-add-there commit is refused too, and the repair is to name the
+            # files — which is the caller stating the set rather than inheriting it. That is
+            # the outcome this guard wants in both cases, so the "false" positive still ends
+            # somewhere better than the silent half-commit did.
+            #
+            # IT NEVER FIRES WHEN THE CALLER NAMED FILES: that branch is above, and a caller
+            # that named its set has already made this decision.
+            DELETED=$(git diff --cached --name-only --diff-filter=D)
+            if [ -n "$DELETED" ]; then
+                echo "" >&2
+                echo "Error: refusing to commit -- this looks like half a rename." >&2
+                echo "  staged deletion(s):" >&2
+                printf '%s\n' "$DELETED" | sed 's/^/    - /' >&2
+                echo "  untracked file(s) NOT staged by git add -u:" >&2
+                printf '%s\n' "$UNTRACKED" | sed 's/^/    ? /' >&2
+                echo "" >&2
+                echo "A migration that writes its additions untracked and deletes the originals loses" >&2
+                echo "half of itself here. Nothing was committed and the tree is unchanged." >&2
+                echo "" >&2
+                echo "Repair, whichever is true:" >&2
+                echo "  - both halves belong together -> re-run naming them:" >&2
+                BOTH=$(printf '%s\n%s\n' "$DELETED" "$UNTRACKED" | grep -v '^$' | tr '\n' ' ' | sed 's/ $//')
+                echo "      commit.sh \"<subject>\" ... ${BOTH}" >&2
+                echo "  - the untracked file is unrelated -> re-run naming only what belongs:" >&2
+                echo "      commit.sh \"<subject>\" ... <the paths for this commit>" >&2
+                echo "  - the migration is incomplete -> finish it, then commit its whole output" >&2
+                # NO `git reset`. The working tree is untouched either way — nothing was
+                # committed and no file was written — and unstaging would discard whatever
+                # the CALLER had staged before invoking this script, which this branch
+                # cannot distinguish from what `git add -u` just added. Leaving the index
+                # as it stands is also the more useful state: `git status` shows the caller
+                # exactly the halves this message names.
+                exit 1
+            fi
             echo ""
             echo "Warning: untracked files are NOT part of this commit (git add -u stages tracked changes only):"
             printf '%s\n' "$UNTRACKED" | sed 's/^/    ? /'

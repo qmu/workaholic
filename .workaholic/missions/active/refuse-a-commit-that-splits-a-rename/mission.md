@@ -47,9 +47,10 @@ that writes a story never lands the index without the story.
 
 ## Acceptance
 
-- [ ] A split rename is refused mechanically, not warned about (#20260821151550-refuse-a-commit-that-splits-a-rename.md)
+- [x] A split rename is refused mechanically, not warned about (#20260821151550-refuse-a-commit-that-splits-a-rename.md)
 - [ ] The seams that write new files name them, so default staging is never load-bearing (#20260821151550-name-the-files-the-writing-seams-must-stage.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-23 — ticket archived — 20260821151550-refuse-a-commit-that-splits-a-rename.md

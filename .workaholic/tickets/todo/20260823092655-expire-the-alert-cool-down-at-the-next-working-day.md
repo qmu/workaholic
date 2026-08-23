@@ -7,6 +7,7 @@ mission:
 merge_policy:
 feedback: [20260823092638-the-alert-cool-down-swallows-a-whole-working-day-when-a-failure-starts-in-the-evening.md]
 verification_handoff: 
+claim: work-20260823-092805
 ---
 
 # Expire the alert cool-down at the next working day

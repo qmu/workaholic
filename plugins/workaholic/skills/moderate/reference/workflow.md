@@ -1,4 +1,4 @@
-# The thirteen-step contract — reference
+# The fourteen-step contract — reference
 
 Companion to [`../SKILL.md`](../SKILL.md). One section per step: what it reads, **what it may
 write**, what it returns in `needs_agent`, and the reasons it aborts with. The step ids are the
@@ -562,6 +562,28 @@ novelty and no cursor is stored. **The gates are `questions >= 1` or `changes >=
 last, so a slow tick used to read nine things and say nothing — the one step whose absence nobody
 can see was the first to go. By the time it runs the other steps have handed it their findings, and
 asking with nine of them beats asking with none.
+
+## 14. `strategy-digest` — the integrated standup, on the morning root
+
+```bash
+sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/step-strategy-digest.sh --tick <id> [--root <repo-root>]
+```
+
+The per-strategy morning digest, integrated into this tick (2026-08-24, the developer's ruling —
+the separate `[Standup]` routine they had already deleted was mistakenly re-created that day, and
+the digest belongs in the one thread they read). Once per Asia/Tokyo day, on the first tick at or
+after 09:00 (both read from the **tick id**, never the wall clock), the step reads
+`standup/scripts/digest.sh` — the same pure read `/standup` uses, one derivation with two
+consumers — and hands the digest to the agent to render at the **top of the Moderation root**, in
+the developer's specified form: numbered strategies, bold title on its own line, headline is
+`commit_count`, honesty line naming tickets and the window. The render is logged
+(`strategy-digest-rendered:<jst-day>`) so a second morning render is impossible; before 09:00 the
+step reports `before_morning`; a no-op digest (`no_strategies` / `no_activity`) rides nothing; an
+unreadable digest is `digest_unreadable`, named rather than rendered as a quiet morning.
+
+**The digest is the root's second gate**: a morning tick with a digest posts its root even with
+zero questions — the day's opening statement, the exception the developer asked for — while every
+other hour the question gate stands alone.
 
 ## What `run.sh` guarantees around the steps
 

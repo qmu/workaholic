@@ -119,8 +119,13 @@ done
 
 [ "$n" -eq 0 ] && emit ok "" "no mission is waiting to be closed (${scanned} active mission(s) scanned)"
 
-needs=$(printf '[%s]' "$closable" | jq -c '{action: "tell_the_operator_these_missions_are_finished_and_still_open",
-    bound: "report only; never close one — close.sh is the single writer of an end state and the archive gate owns the one case a machine may end",
+# CLOSE, NOT ONLY TELL (2026-08-24, the developer's ruling — a mission the arithmetic
+# proves finished is closed automatically). The single-writer rule holds: the agent
+# re-proves each candidate in a publish tree and runs close.sh — the one writer — there,
+# landing the closes through publish-tree-pr.sh. Only `achieved`, only on the re-proof;
+# a candidate the re-proof rejects is reported, and abandoned/carried stay /mission-close's.
+needs=$(printf '[%s]' "$closable" | jq -c '{action: "close_these_finished_missions_achieved",
+    bound: "re-prove each in a publish tree (progress.sh checked==total unlinked==0, queue-size.sh todo==0), run close.sh <slug> achieved there, land via publish-tree-pr.sh; only achieved, never abandoned or carried; a rejected re-proof is reported not closed",
     closable: .}' 2>/dev/null || echo '{}')
 
 emit ok "" "${n} mission(s) finished and still open, of ${scanned} active" "$needs" \

@@ -118,4 +118,11 @@ Then post each question the check-in step cleared as a reply into that root, add
 One sentence, max 25 words, the question itself, with the two options when there are two.
 ```
 
+For each previously asked question whose subject the check-in read as settled this tick, post one confirmation as a reply into the thread where it was asked — no mention token, once ever per question:
+
+```
+✅ 解消を確認 - <the question's subject, one line>
+One sentence: what the tick measured that says it settled.
+```
+
 If the rendered post says not to post, post nothing at all — no root, no question, ever. An hour with nothing changed and nothing to ask is silent.

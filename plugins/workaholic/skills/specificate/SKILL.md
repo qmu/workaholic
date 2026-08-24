@@ -185,6 +185,19 @@ The judgment decides cardinality before anything else, and there are exactly fou
 - **A mission is never one ticket** — the ticket floor, checked at the publish seam (`mission/scripts/check-floor.sh <slug>`; non-zero exit means this candidate is not published as a mission — fall back to a loose ticket or record-only and report the script's `alternative`), not in `scaffold-draft.sh`, which runs before any ticket exists.
 - A **loose ticket** lands in the flat `todo/` behind the same pull request, carries no `mission:` key — so `plan-units.sh` offers it as ordinary backlog, while a mission's tickets are excluded from the loose offer as `mission_member` and driven only in their mission's unit — and its `feedback:` refs are mandatory (`no_feedback`): with no mission to hold the relation they are the only record of what it answers, and without them a re-asked direction has nothing to collide with.
 - Do not dress a decomposable direction as one loose ticket, or an atomic one as a mission, to get something published: both trade the artifact's honesty for a publication. Nothing here is claimable before the pull request merges, and everything is after.
+- **A strategy is not a mission factory** (2026-08-24, the developer's ruling, measured on a
+  consuming repository where one strategy had accumulated missions faster than anyone could
+  read them). The intended scale of a strategy's plan is **one mission of roughly 7–8 tickets,
+  extended by at most one follow-up mission of 3–4 repair tickets** — and the way row 1 honours
+  that is by **extending before minting**: when the ask advances a strategy that already has an
+  **active mission** attributed to it (`strategy/scripts/attributed-work.sh`, the one reader),
+  the decomposition lands as **tickets into that mission** (each carrying the `mission:`
+  relation, appended to its plan) rather than as a new mission beside it. A new mission is
+  minted only when the existing one is closed, or when the ask opens work the existing
+  mission's `## Experience` cannot honestly cover — and the run reports which of the two it
+  judged, so the choice can be argued with. The numbers are a target, not a gate: nothing
+  refuses a ninth ticket, but a second *concurrent* mission under one strategy is the smell
+  this rule exists to stop.
 
 ### The strategy form, and the one rule it widens
 

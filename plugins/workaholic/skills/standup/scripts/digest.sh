@@ -8,8 +8,8 @@
 #           "what moved since yesterday".
 #
 # Output (one JSON object):
-#   {window, date, token, strategy_count, active_strategy_count, due_soon_count,
-#    target_horizon_days, noop, noop_reason,
+#   {window, date, token, commit_count, strategy_count, active_strategy_count,
+#    due_soon_count, target_horizon_days, noop, noop_reason,
 #    strategies: [{slug, title, status, target_date, days_to_target, assignees,
 #                  count, active_count, waiting_count, empty_reason,
 #                  moved: [{kind, title, state}], waiting: [{kind, title, state}],
@@ -59,6 +59,14 @@ HORIZON="${STANDUP_TARGET_HORIZON:-14}"
 TODAY=$(date -u +%Y-%m-%d)
 TOKEN="standup:${TODAY}"
 
+# THE HEADLINE NUMBER IS COMMITS (2026-08-24, the developer's question the morning the
+# first digest posted: a bare "67 moved" was read as nothing in particular). One repository
+# commit count over the window — a unit a reader already owns — where the per-strategy
+# `count` stays what attribution can actually see (artifacts). Offline-safe: an unreadable
+# log renders 0 rather than failing the morning.
+COMMIT_COUNT=$(git rev-list --count --since="$WINDOW" HEAD 2>/dev/null || printf '0')
+case "$COMMIT_COUNT" in ''|*[!0-9]*) COMMIT_COUNT=0 ;; esac
+
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 trap 'rm -rf "$TMP"; exit 130' INT
@@ -75,6 +83,7 @@ emit() {
     printf '%s' "$7" > "${TMP}/unattributed.json"
     jq -nc \
         --arg window "$WINDOW" --arg date "$TODAY" --arg token "$TOKEN" \
+        --argjson commits "$COMMIT_COUNT" \
         --argjson omitted "$2" --argjson noop "$3" --arg reason "$4" \
         --argjson total "$5" --argjson active "$6" --argjson due "$8" \
         --argjson horizon "$HORIZON" \
@@ -82,6 +91,7 @@ emit() {
         --slurpfile u "${TMP}/unattributed.json" \
         --rawfile errs "${TMP}/errors" '
         {window: $window, date: $date, token: $token,
+         commit_count: $commits,
          strategy_count: $total, active_strategy_count: $active,
          due_soon_count: $due, target_horizon_days: $horizon,
          noop: $noop, noop_reason: $reason,

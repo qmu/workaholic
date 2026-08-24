@@ -363,13 +363,25 @@ the residue legible before it is large.
   change — measured by this step's own test, which caught the report leaving a modified mission in
   the index. A step whose contract is *writes nothing* may not reach it through something that
   writes.
-- **Writes**: nothing — no file, no commit, no status.
+- **Writes**: nothing in the step script — the step stays the pure read it was; what changed on
+  2026-08-24 is what the agent does with its report (below).
 - **Reports** each entry with the two facts that make it closable, `checked/total` and the queued
   count, and nothing else.
 
-**It never closes one**, even though the arithmetic is identical to the archive gate's: two writers
-of an end state is exactly what `close.sh`'s single-writer rule exists to prevent, and the gate owns
-the one case a machine may end.
+**The tick closes what the step proved** (2026-08-24, the developer's ruling, reversing the
+2026-08-23 report-only stance — its reasoning is answered, not dropped). The old rule was *two
+writers of an end state is what the single-writer rule exists to prevent*; the answer is that the
+single **writer** never multiplied — every close still goes through `mission/scripts/close.sh`,
+and what multiplied is the *proof sites*, which was already true the day the archive gate shipped.
+The proof is the same arithmetic the archive gate runs (`checked == total`, `unlinked == 0`,
+`todo == 0`), the verdict is always `achieved` and never an intent word, and the measured cost of
+report-only was eleven finished missions accumulating while a question about them was asked and
+re-asked — the developer's ruling is that a proof this mechanical needs no human turn. The agent
+acts on the step's `needs_agent`: for each candidate it re-proves through the same three readers
+in a **publish tree**, runs `close.sh <slug> achieved` there, and lands the closes through
+`publish-tree-pr.sh` (the ordinary auto-merge proposal path — a scan finding leaves it open). A
+candidate the re-proof rejects is reported, never closed; `abandoned` and `carried` stay
+`/mission-close`'s alone.
 
 **Why this tick and not `/story`** (ruled 2026-08-23 while driving it; the ticket required the home
 to be decided and recorded). `story/scripts/area-freshness.sh` is the exact precedent for a
@@ -461,9 +473,28 @@ this is at most one extra ask, ever, logged under its own step id
 working day the quiet-hours gate already owns, so no constant is invented. The day is read from the
 **tick id**, not the wall clock, so a re-entered tick answers the same way twice.
 
-**Only a `live` subject is re-asked.** `settled` needs nobody; `unknown` is a reading that could not
-be made, and spending a person's attention on our own degradation is the rule `strategy-pace`
-already applies to its own `unknown`.
+**Only a `live` subject is re-asked.** `unknown` is a reading that could not be made, and spending a
+person's attention on our own degradation is the rule `strategy-pace` already applies to its own
+`unknown`.
+
+**A `settled` subject is confirmed where it was asked — once** (2026-08-24, the developer's
+instruction: *if it is resolved, moderate should catch that and signal it in the thread*). A
+question with state `asked` (never `answered` — the person already knows) whose liveness reads
+`settled` this tick gets **one reply into the thread that asked it**:
+
+```
+✅ 解消を確認 - <the question's subject, one line>
+<one sentence: what the tick measured that says it settled>
+```
+
+The thread is found the way every reply thread is found (`workaholic:notify`'s exact-string
+search over the question's own first line, at most two queries, never a similarity match); a
+lookup that finds no thread posts nothing and reports `thread_not_found` — a confirmation in the
+wrong thread is worse than none. It is logged under `human-checkin-confirmed-<slug>` so a second
+confirmation is impossible by construction, it carries **no mention token** (it closes a loop
+rather than demanding attention), and it is exempt from nothing: the off-day and quiet-hours
+holds apply, held is not dropped. An `answered` question is never confirmed — the person's own
+words already closed it — and `unknown` never confirms, for the reason above.
 
 **The hold gates come first.** `already_asked` returns before the off-day and quiet-hours checks, so
 a re-ask decided there would post at 03:00 on a Sunday. It is gated on both, and held is not

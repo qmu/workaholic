@@ -109,12 +109,21 @@ named. `/prepare-release` survives as a command a human runs on demand; it posts
 ### `/standup` — the daily per-strategy digest
 
 ```
-📣 Standup - <N> strategy/strategies, <M> moved since yesterday
-<Strategy title> (<days> to <target_date>): one line, what moved and what waits.
-<Strategy title>: no activity.
-<K> item(s) not attributable to any strategy.
+📣 Standup - <N> strategy/strategies, <M> commit(s) since yesterday
+1. **<Strategy title>** (<days> to <target_date>)
+One line, what moved and what waits.
+2. **<Strategy title>**
+No activity.
+Under no strategy: <a> ticket(s) changed in the window, <b> queued.
 <session URL>
 ```
+
+**The units are named because the old ones were asked about** (2026-08-24, the developer's
+question the same morning the first digest posted): `<M>` is the repository's **commit count**
+in the window (`git log --since`, the digest's `commit_count`), not the artifact count the
+line used to carry as a bare "moved"; strategies are **numbered, their titles bold, the title
+on its own line**; and the honesty line names *what* it counts (tickets) and *when* (changed
+in the window / queued now) instead of "item(s)".
 
 **A top-level keyed root, never a reply**, and **no mention token of any kind** — the same two reasons the moderator's `🔎 Moderation` root carries none: no feedback item said anything, and the line names the repository's state rather than a person's work.
 
@@ -147,6 +156,17 @@ still reads `summary`, because that is what tells this hour from the last one.
 ```
 🙋 <@U…> - <what this tick could not decide>
 One sentence, max 25 words, the question itself, with the two options when there are two.
+```
+
+And a previously asked question whose subject settled this tick is confirmed **once**, as a reply
+into the thread that asked it — no mention token, because it closes a loop rather than demanding
+attention (2026-08-24, the developer's instruction; the rules — `asked`-not-`answered` only, the
+exact-string thread lookup, `human-checkin-confirmed-<slug>`, the off-day and quiet-hours holds —
+live in `workaholic:moderate`'s workflow reference):
+
+```
+✅ 解消を確認 - <the question's subject, one line>
+One sentence: what the tick measured that says it settled.
 ```
 
 **The root is rendered, never composed freehand** — `moderate/scripts/render-tick-post.sh` emits `root_text`, and the session posts that. The session URL rides the root only; a reply inside a thread whose root already carries it would be the same link twice.

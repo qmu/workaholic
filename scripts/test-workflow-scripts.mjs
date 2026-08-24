@@ -19889,10 +19889,21 @@ function testModerateRoutineTemplate() {
     assertTrue("the root prints no tick key", !/`tick:/.test(r), r);
     assertTrue("and no mention token of any kind", !/<@U/.test(r), r);
   }
-  assertEq("and they are the only two shapes the template authorizes",
+  // THREE SHAPES SINCE 2026-08-24 (the developer's instruction): the settled-confirmation
+  // reply joined the root and the question — it closes a loop in the thread that opened it,
+  // carries no mention token, and is posted once ever per question.
+  {
+    const conf = block(catalog, "✅ 解消を確認");
+    assertTrue("the catalog carries the settled confirmation", conf !== "", "missing from notifications.md");
+    assertEq("the confirmation reads byte-identically in the template and the catalog",
+      block(template, "✅ 解消を確認"), conf);
+    assertTrue("and it carries no mention token", !/<@U/.test(conf), conf);
+  }
+  assertEq("and they are the only three shapes the template authorizes",
     [...template.matchAll(/```\n([^\n]*)/gu)].map((m) => m[1]).filter((l) => /^[^\s`]/.test(l)),
     ["🔎 Moderation - <N> change(s), <M> question(s)",
-     "🙋 <@U…> - <what this tick could not decide>"]);
+     "🙋 <@U…> - <what this tick could not decide>",
+     "✅ 解消を確認 - <the question's subject, one line>"]);
   for (const retired of ["🔧 Needs a decision", "📦 Release Preparation"]) {
     assertEq(`no session may post ${retired} any more — the template`, block(template, retired), "");
     assertEq(`no session may post ${retired} any more — the catalog`, block(catalog, retired), "");

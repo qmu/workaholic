@@ -54,7 +54,7 @@ It was two gates, OR'd — a question **or** a changed step — and the second h
 bash ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/run.sh
 ```
 
-One invocation is one **tick**. It mints the tick id (`tick-id.sh`, UTC — every later write in the same tick is passed that id), runs the thirteen steps **in order**, writes **one log line per step** into `.workaholic/moderations/<UTC-day>.md`, and returns the report as JSON. The step list lives in `run.sh`, not in this prose: every step is invoked and every step contributes a line, so a step that is missing, crashes, or prints nothing is reported `degraded` with its reason instead of vanishing from the report.
+One invocation is one **tick**. It mints the tick id (`tick-id.sh`, UTC — every later write in the same tick is passed that id), runs the fourteen steps **in order**, writes **one log line per step** into `.workaholic/moderations/<UTC-day>.md`, and returns the report as JSON. The step list lives in `run.sh`, not in this prose: every step is invoked and every step contributes a line, so a step that is missing, crashes, or prints nothing is reported `degraded` with its reason instead of vanishing from the report.
 
 `--deadline-seconds <n>` bounds a tick. Steps not reached are logged `skipped` with reason `budget`, **by name** — a step that ran out of clock and a step that found nothing must never read the same.
 
@@ -91,7 +91,7 @@ Full rationale for both decisions (why it is not knowledge, why nothing prunes i
 
 ## What the ask asked for, and what this is held to
 
-The ask (issue #471) named nine steps (there are thirteen: the release reads merged in, and `stalled-units` and `closable-missions` were added 2026-08-23) and, at five points, met a decision the loop had already made. None of them is resolved by this skill quietly:
+The ask (issue #471) named nine steps (there are fourteen: the release reads merged in, `stalled-units` and `closable-missions` were added 2026-08-23, and `strategy-digest` — the integrated standup — on 2026-08-24) and, at five points, met a decision the loop had already made. None of them is resolved by this skill quietly:
 
 - **Step 8 inverts the propose bar.** `workaholic:specificate` states that missions, the queue and commits are *constraints, never triggers* — feedback is the only input that can originate a proposal, and the retired `[Propose Batch]` design was exactly a sweep of the repository's own state for something to propose. Proposing *from a strategy* is a reversal, not an addition, and it is ruled on in its own ticket.
 - **`🟡 Proposing` collides with two standing shapes** — 🟡 is the handoff finish line, and the start post was retired on 2026-08-11 by the developer's order. Reintroducing a start post and reusing 🟡 are two separate rulings.

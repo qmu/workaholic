@@ -107,6 +107,7 @@ When the tick's rendered post says to post, post this root as a new top-level me
 
 ```
 🔎 Moderation - <N> change(s), <M> question(s)
+<on the morning tick only, first: the per-strategy digest — numbered strategies, bold title on its own line, headline commits since yesterday, honesty line naming tickets and the window>
 <what happened to the repository, one line per changed step that has an event>
 <session URL>
 ```

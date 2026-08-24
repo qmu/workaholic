@@ -108,15 +108,12 @@ named. `/prepare-release` survives as a command a human runs on demand; it posts
 
 ### `/standup` — the daily per-strategy digest
 
-```
-📣 Standup - <N> strategy/strategies, <M> commit(s) since yesterday
-1. **<Strategy title>** (<days> to <target_date>)
-One line, what moved and what waits.
-2. **<Strategy title>**
-No activity.
-Under no strategy: <a> ticket(s) changed in the window, <b> queued.
-<session URL>
-```
+**Retired 2026-08-24** (the developer's ruling: the standup is integrated into the moderation
+tick, and the separate `[Standup]` routine they had already deleted was mistakenly re-created
+that day). The per-strategy digest now rides the **morning `🔎 Moderation` root** — once per
+Asia/Tokyo day, on the first tick at or after 09:00, rendered by `/moderate`'s
+`strategy-digest` step in the numbered form above the change lines. `/standup` survives as a
+command a human runs on demand; no routine posts a `📣 Standup` root any more.
 
 **The units are named because the old ones were asked about** (2026-08-24, the developer's
 question the same morning the first digest posted): `<M>` is the repository's **commit count**
@@ -137,6 +134,7 @@ in the window / queued now) instead of "item(s)".
 
 ```
 🔎 Moderation - <N> change(s), <M> question(s)
+<on the morning tick only, first: the per-strategy digest — numbered strategies, bold title on its own line, headline commits since yesterday, honesty line naming tickets and the window>
 <what happened to the repository, one line per changed step that has an event>
 <session URL>
 ```

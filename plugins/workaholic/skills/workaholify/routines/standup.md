@@ -65,10 +65,12 @@ If the command or its skills did not load, do not stop: run `bash plugins/workah
 If the digest is not a no-op and a `📣 Standup` search bounded to today finds no earlier post, post this one message as a new top-level message (the workaholic:notify lookup) — no mention token of any kind:
 
 ```
-📣 Standup - <N> strategy/strategies, <M> moved since yesterday
-<Strategy title> (<days> to <target_date>): one line, what moved and what waits.
-<Strategy title>: no activity.
-<K> item(s) not attributable to any strategy.
+📣 Standup - <N> strategy/strategies, <M> commit(s) since yesterday
+1. **<Strategy title>** (<days> to <target_date>)
+One line, what moved and what waits.
+2. **<Strategy title>**
+No activity.
+Under no strategy: <a> ticket(s) changed in the window, <b> queued.
 <session URL>
 ```
 

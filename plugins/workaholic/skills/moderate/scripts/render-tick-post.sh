@@ -213,7 +213,17 @@ done < "${TMP}/now"
 #
 # THE COST, STATED RATHER THAN HIDDEN: a real change with no question attached is visible
 # only in `.workaholic/moderations/`. That is the trade this ruling makes.
-if [ "$QUESTIONS" -eq 0 ]; then
+# THE MORNING DIGEST IS THE SECOND GATE (2026-08-24, the developer's design: the
+# per-strategy standup was integrated into this tick, and the morning root is where they
+# asked to find it). A tick whose `strategy-digest` step emitted a digest posts its root
+# even with zero questions — once per JST day, the day's opening statement. Every other
+# hour the question gate stands alone, unchanged.
+digest_ready=0
+grep -q '"step": *"strategy-digest".*"reason": *""' "${TMP}/now" 2>/dev/null || true
+case "$INPUT" in
+    *'"step": "strategy-digest"'*'render_the_morning_digest_at_the_top_of_the_root'*) digest_ready=1 ;;
+esac
+if [ "$QUESTIONS" -eq 0 ] && [ "$digest_ready" -eq 0 ]; then
     if [ "$count" -eq 0 ]; then
         emit false idle "" 0 "$PREV" ""
     fi

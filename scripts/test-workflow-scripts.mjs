@@ -5127,51 +5127,23 @@ function testProposeRoutineTemplate() {
 // on what a session may emit), so a drift between them ships either a documented shape
 // nobody is authorized to post or a posted shape nothing documents. Byte for byte.
 function testStandupRoutineTemplate() {
-  const tpl = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines/standup.md"), "utf8");
+  // RETIRED 2026-08-24 (the developer's ruling): the standup is integrated into the
+  // moderation tick — /moderate's strategy-digest step renders the per-strategy digest at
+  // the top of the JST-morning Moderation root, and the separate [Standup] routine the
+  // developer had already deleted from their account is not to be re-created. What is
+  // pinned is the RETIREMENT: no template file, no 📣 Standup shape left in the catalog as
+  // a postable block, and the catalog says where the digest went.
   const catalog = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/notify/reference/notifications.md"), "utf8");
-  const fm = tpl.slice(0, tpl.indexOf("\n---", 4));
-
-  assertTrue("the digest describes the repository, so the template is repository-scoped",
-    /^scope: repository$/m.test(fm), fm);
-  assertTrue("it carries no write tool", !/Write|Edit/.test(fm.match(/^allowed_tools:.*$/m)[0]), fm);
-  assertTrue("it declares no auto-fix, since it opens no pull request",
-    /^autofix_on_pr_create: false$/m.test(fm), fm);
-  assertTrue("its prompt invokes the reader command and nothing else",
-    /\/standup\b/.test(tpl.slice(tpl.indexOf("## Prompt"))), tpl);
-
-  // 09:00 Asia/Tokyo, expressed in the only thing the API stores: a bare UTC cron with a
-  // non-zero minute. Both halves are the resolved Open Decision, and both are the kind of
-  // detail a later edit "tidies" into a bug — `9 * * *` would post at 18:00 in Tokyo and
-  // `0 0 * * *` would be rewritten to a server-chosen minute.
-  assertTrue("the cron is daily at 00:05 UTC — 09:05 Asia/Tokyo",
-    /^cron_expression: 5 0 \* \* \*$/m.test(fm), fm);
-  assertTrue("the template says whose 09:00 it is and why the minute is not 0",
-    /Asia\/Tokyo/.test(tpl) && /minute cannot be `0`/.test(tpl), tpl);
-
-  // An idle morning posts nothing — the gate that lets a recurring post exist at all.
-  assertTrue("the prompt makes the no-op silent", /post nothing/.test(tpl), tpl);
-
-  const shape = (body) => {
-    const m = body.match(/```\n(\u{1F4E3} Standup[\s\S]*?)```/u);
-    return m ? m[1] : "";
-  };
-  const catalogShape = shape(catalog);
-  assertTrue("the shape catalog carries the standup block", catalogShape !== "", catalog.slice(0, 200));
-  assertEq("the post reads byte-identically in the catalog and the [Standup] template",
-    shape(tpl), catalogShape);
-  // THE MORNING IS A SEARCH BOUND, NOT A PRINTED KEY (2026-08-22, the developer's
-  // instruction, repeated: stop mixing strange ids into Slack). What is pinned is the
-  // ABSENCE -- a rendered post must carry no machine token -- and the property the key
-  // protected (one post per morning) is unchanged, expressed as a `📣 Standup` search
-  // bounded to today. The same removal took `fb:<stem>` off the description root (case 2
-  // searches the record filename the root already links; Slack indexes link URLs, measured)
-  // and `tick:<tick-id>` / `ask:<key>` off the moderation shapes, which NOTHING searched.
-  assertTrue("no rendered post carries a printed dedup key",
-    !/`(standup|fb|tick|ask|unit|stuck|deploy):/.test(catalogShape), catalogShape);
-  assertTrue("and the skill states the morning is a search bound",
-    /bounded to today/.test(readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/notify/SKILL.md"), "utf8")));
-  assertTrue("and it carries no mention token of any kind",
-    !/<@U/.test(catalogShape), catalogShape);
+  assertTrue("the [Standup] routine template is gone",
+    !existsSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines/standup.md")));
+  assertTrue("the catalog carries no postable 📣 Standup block",
+    !/```\n📣 Standup/u.test(catalog), "a fenced 📣 Standup shape survives in notifications.md");
+  assertTrue("and it says the digest rides the morning Moderation root",
+    /strategy-digest/.test(catalog) && /Retired 2026-08-24/.test(catalog));
+  // The moderation step that replaced it exists and is registered in the run.
+  const runsh = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/run.sh"), "utf8");
+  assertTrue("run.sh registers strategy-digest before the check-in",
+    /strategy-digest human-checkin/.test(runsh), runsh.match(/^STEPS=.*$/m)?.[0] ?? "");
 }
 
 // The command and the skill state the reader contract where a human and a diff can see it,
@@ -11495,7 +11467,7 @@ function testRenderSetupSheet() {
 
   const all = sheet("--all");
   for (const name of ["[Specificate] workaholic", "[Implement] workaholic", "[Moderate] workaholic",
-                      "[Standup] workaholic", "[Propose] workaholic"]) {
+                      "[Propose] workaholic"]) {
     assertTrue(`the sheet covers ${name}`, all.includes(`## ${name}`), all.slice(0, 200));
   }
   // ---- the scope filter (2026-08-14, issue #451) ----
@@ -11519,16 +11491,15 @@ function testRenderSetupSheet() {
   assertTrue("a connector-carrying routine's sheet still names its channel",
     /Have the Slack channel `dev-workaholic` ready/.test(sheet("implement")), "implement sheet lost its channel step");
   const repoSheet = scopedSheet("repository");
-  assertTrue("the repository sheet covers only the repository routines",
-    repoSheet.includes("## [Moderate] workaholic") && repoSheet.includes("## [Standup] workaholic") &&
+  assertTrue("the repository sheet covers only the repository routine",
+    repoSheet.includes("## [Moderate] workaholic") && !repoSheet.includes("## [Standup] workaholic") &&
     !repoSheet.includes("## [Specificate] workaholic"), repoSheet.slice(0, 300));
   assertTrue("the repository sheet states the one-account convention it cannot enforce",
     /not every team member/i.test(repoSheet), repoSheet.slice(0, 400));
-  // The scope grew from one routine to two on 2026-08-17 (ticket `20260817115233`), and the
-  // sheet states the COUNT rather than leaving a reader to discover the second by scrolling:
-  // creating the first and stopping leaves the repository half-configured silently.
+  // Back to ONE routine on 2026-08-24: [Standup] retired into the moderation tick. The
+  // sheet still states the count, so the convention stays checkable.
   assertTrue("the repository sheet states how many routines the one account must create",
-    /There are \*\*2\*\* routines in this scope/.test(repoSheet), repoSheet.slice(0, 600));
+    /There (are \*\*1\*\*|is \*\*1\*\*) routines? in this scope/.test(repoSheet), repoSheet.slice(0, 600));
   assertTrue("each sheet names the scope of the routine it describes",
     /Scope: \*\*repository\*\*/.test(repoSheet) && /Scope: \*\*developer\*\*/.test(devSheet),
     repoSheet.slice(0, 600));
@@ -11639,7 +11610,7 @@ function testRenderSetupSheet() {
   assertTrue("each schedule trigger renders its own cron step",
     /\*\*Trigger\*\* — \*Select a trigger\* → \*\*Schedule\*\*, cron `15 \* \* \* \*`/.test(all) &&
     /\*\*Trigger\*\* — \*Select a trigger\* → \*\*Schedule\*\*, cron `30 \* \* \* \*`/.test(all) &&
-    /\*\*Trigger\*\* — \*Select a trigger\* → \*\*Schedule\*\*, cron `5 0 \* \* \*`/.test(all) &&
+    /\*\*Trigger\*\* — \*Select a trigger\* → \*\*Schedule\*\*, cron `50 \* \* \* \*`/.test(all) &&
     !/Event: `issues\.assigned`/.test(all) &&
     !/Event: `pull_request\.closed`/.test(all),
     all);
@@ -17704,10 +17675,12 @@ function testWorkaholifyRoutines() {
   const WH = "https://github.com/qmu/workaholic";
   try {
     const tpl = JSON.parse(run(dir, LIST).stdout);
-    assertEq("the plugin ships five routine templates", tpl.count, 5);
-    assertEq("and they are the five live patterns",
+    // FOUR since 2026-08-24: [Standup] retired into the moderation tick (the developer's
+    // ruling — the digest rides the morning Moderation root's strategy-digest step).
+    assertEq("the plugin ships four routine templates", tpl.count, 4);
+    assertEq("and they are the four live patterns",
       tpl.templates.map((t) => t.id).sort(),
-      ["implement", "moderate", "propose", "specificate", "standup"]);
+      ["implement", "moderate", "propose", "specificate"]);
 
     // ---- the scope split (2026-08-14, issue #451) ----
     // The scope is the TEMPLATE's field, not a list written into two command bodies:
@@ -17724,9 +17697,9 @@ function testWorkaholifyRoutines() {
     assertEq("the routines every developer needs their own copy of are developer-scoped",
       JSON.parse(run(dir, `${LIST} developer`).stdout).templates.map((t) => t.id).sort(),
       ["implement", "propose", "specificate"]);
-    assertEq("the routines the repository needs exactly one of each are repository-scoped",
+    assertEq("the routine the repository needs exactly one of is repository-scoped",
       JSON.parse(run(dir, `${LIST} repository`).stdout).templates.map((t) => t.id).sort(),
-      ["moderate", "standup"]);
+      ["moderate"]);
     assertEq("an unknown scope is refused rather than treated as no filter",
       run(dir, `${LIST} nonsense`).status !== 0, true);
     // The template set is discovered by scanning the routines dir, so a template is
@@ -17740,14 +17713,13 @@ function testWorkaholifyRoutines() {
     // (`0,30 * * * *` rejected as "cron interval too short", measured live), so the
     // designed 30-minute cadence became a staggered hourly pair — [Specificate] :15,
     // [Implement] :30.
-    // Three staggered hourly ticks, plus the one DAILY digest. Its minute is non-zero for
-    // the same measured reason theirs are (a bare `:00` is rewritten to server jitter), and
-    // its hour is `0` UTC because the routines API carries no timezone field and the target
-    // is 09:00 Asia/Tokyo — ticket `20260817115233`'s resolved Open Decision, pinned here so
-    // "09:05, not 09:00" cannot later be read as a typo and rounded off.
-    assertEq("the templates carry the staggered hourly schedule plus the daily digest",
+    // Four staggered hourly ticks. The daily digest's cron left with the [Standup]
+    // template (2026-08-24 — the digest rides the morning Moderation root instead); every
+    // minute is non-zero for the same measured reason (a bare `:00` is rewritten to
+    // server jitter).
+    assertEq("the templates carry the staggered hourly schedule",
       tpl.templates.map((t) => t.cron_expression).sort(),
-      ["15 * * * *", "30 * * * *", "40 * * * *", "5 0 * * *", "50 * * * *"]);
+      ["15 * * * *", "30 * * * *", "40 * * * *", "50 * * * *"]);
     // The LOOP's order is the point of `:40`, not the minute itself: the judgment is made
     // against what actually landed, so `[Propose]` must fire AFTER `[Implement]` drives and
     // before the next hour's `[Specificate]` ingests. A tidy-up that moved it earlier would
@@ -17767,8 +17739,6 @@ function testWorkaholifyRoutines() {
       namePatterns.filter(Boolean).length, tpl.count);
     assertEq("no two templates render the same routine name",
       new Set(namePatterns).size, namePatterns.length);
-    assertEq("the standup declares the daily schedule trigger",
-      tpl.templates.find((t) => t.id === "standup").trigger, "schedule-daily");
     assertTrue("no template's cron minute is 0, which the API would rewrite to jitter",
       tpl.templates.every((t) => t.cron_expression.split(" ")[0] !== "0"),
       JSON.stringify(tpl.templates.map((t) => t.cron_expression)));
@@ -19195,9 +19165,14 @@ function testModerateRun() {
     "stalled-units",
     // `closable-missions` is step 12 (2026-08-23): the archive gate closes a mission whose
     // LAST ticket it archives, and this names the residue that reached full acceptance any
-    // other way. It reports and never closes — two writers of an end state is what
-    // close.sh's single-writer rule exists to prevent.
-    "closable-missions", "human-checkin"];
+    // other way. Since 2026-08-24 (the developer's ruling) the agent CLOSES what the step
+    // proves, through close.sh in a publish tree — the single writer never multiplied.
+    "closable-missions",
+    // `strategy-digest` is step 13's neighbour (2026-08-24): the integrated standup. Once
+    // per JST day, on the first tick at or after 09:00, it hands the per-strategy digest to
+    // the agent to render at the top of the Moderation root — and that digest is the root's
+    // second gate beside the question gate.
+    "strategy-digest", "human-checkin"];
   try {
     // A tick only makes sense in a repository the loop already writes to; step 1 is the
     // probe that says so, and it never creates the tree behind the layout gate's back.

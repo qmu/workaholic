@@ -2,7 +2,7 @@
 type: Mission
 title: Attribute an inbound ask to the direction it answers
 slug: attribute-an-inbound-ask-to-the-direction-it-answers
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-26T04:18:55+00:00
 author: a@qmu.jp
@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260826-043020
 ---
 
 # Attribute an inbound ask to the direction it answers
@@ -41,13 +42,20 @@ already reads — and reports it, `unattributed` included.
      plan. Approval replans this mission to drive-ready; only then may it be
      authorized. -->
 
-- [ ] An ask filed by the sweep or by `/fb` carries the direction it answers on the
+- [x] An ask filed by the sweep or by `/fb` carries the direction it answers on the
       `feedback:` line, written in one place (#20260826042021-carry-the-direction-onto-a-swept-ask.md)
-- [ ] `/specificate` decides the direction for an ask that names none, and reports the
+- [x] `/specificate` decides the direction for an ask that names none, and reports the
       decision — the slug or `unattributed` — on both its surfaces (#20260826042021-decide-and-report-the-direction-for-an-ask-that-names-none.md)
-- [ ] The chain test walks the sweep's ask, and every document the change moves states
+- [x] The chain test walks the sweep's ask, and every document the change moves states
       the extended bound and its limits (#20260826042021-walk-the-sweep-s-ask-in-the-chain-test.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-26 — ticket archived — 20260826042021-write-the-ask-s-feedback-line-in-one-place.md
+- 2026-08-26 — ticket archived — 20260826042021-carry-the-direction-onto-a-swept-ask.md
+- 2026-08-26 — ticket archived — 20260826042021-carry-the-direction-onto-an-fb-ask.md
+- 2026-08-26 — ticket archived — 20260826042021-decide-and-report-the-direction-for-an-ask-that-names-none.md
+- 2026-08-26 — ticket archived — 20260826042021-walk-the-sweep-s-ask-in-the-chain-test.md
+- 2026-08-26 — mission achieved — mission.md
+- 2026-08-26 — story reported — work-20260826-043020.md

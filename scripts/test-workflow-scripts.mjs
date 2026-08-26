@@ -139,6 +139,7 @@ const SCRIPTS = {
   feedbackCreate: join(REPO_ROOT, "plugins/workaholic/skills/feedback/scripts/create.sh"),
   proposeReadFeedbackRelation: join(REPO_ROOT, "plugins/workaholic/skills/specificate/scripts/read-feedback-relation.sh"),
   readAskFeedbackRefs: join(REPO_ROOT, "plugins/workaholic/skills/specificate/scripts/read-ask-feedback-refs.sh"),
+  askFeedbackLine: join(REPO_ROOT, "plugins/workaholic/skills/feedback/scripts/ask-feedback-line.sh"),
   checkCarryFloor: join(REPO_ROOT, "plugins/workaholic/skills/specificate/scripts/check-carry-floor.sh"),
   renderSetupSheet: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/render-setup-sheet.sh"),
   unitFeedbackStems: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/unit-feedback-stems.sh"),
@@ -15377,6 +15378,7 @@ const tests = [
   ["specificate/check-carry-floor.sh: the carry, floored at the publish seam", testCarryFloor],
   ["no_citing_artifacts is a provable reading: ask -> reader -> scaffold -> floor", testCarryChainIsProvable],
   ["strategy/mission-strategy.sh: which direction a mission belongs to", testMissionStrategy],
+  ["feedback/ask-feedback-line.sh: one writer for the line one reader reads", testAskFeedbackLine],
 ];
 
 // `await` matters even though almost every test is synchronous: without it an async
@@ -15676,6 +15678,41 @@ function testInboundSweep() {
     assertTrue("and the human's own permalink",
       sent.body.includes("slack-link: https://example.slack.com/archives/C0AB12CD3/p1724371200000100"));
     assertTrue("the ask itself rides below the header", sent.body.includes("stop depending on the tagged bot"));
+
+    // ---- the direction the ask answers (2026-08-26) ----
+    // Without this line, work born on the channel intersected every strategy's `feedback[]`
+    // at nothing — measured, a five-ticket mission left its strategy's `waiting_count` at 0
+    // and the in-flight brake stood open over it.
+    const noDirection = sent.body;
+    assertTrue("with no direction the composed body carries no feedback: line at all",
+      !/\nfeedback:/.test(noDirection), noDirection.slice(0, 200));
+
+    writeFileSync(join(bin, "gh"), `#!/bin/sh\ncat > "${ghStdin}" 2>/dev/null || true\nprintf '{"html_url": "https://github.com/acme-org/source-repo/issues/8", "assignees": [{"login": "octo"}]}\\n'\n`);
+    chmodSync(join(bin, "gh"), 0o755);
+    const attributed = sh(SCRIPTS.fileInboundAsk,
+      `--slack-ref C0AB12CD3:1724371200.000100 --permalink https://example.slack.com/archives/C0AB12CD3/p1724371200000100 --subject "person:Tamura" --assignee octo --feedback "20260821162443-a.md, 20260826021619-b.md" "acme-org/source-repo" "Drop the tag dependency" "${ask}"`);
+    assertEq("an attributed capture still reports the opened issue", JSON.parse(attributed.out).ok, true);
+    const withDirection = JSON.parse(readFileSync(ghStdin, "utf8")).body;
+    assertTrue("and its body carries the direction's own refs, in the one writer's shape",
+      /\nfeedback: 20260821162443-a\.md, 20260826021619-b\.md\n/.test(withDirection),
+      withDirection.slice(0, 240));
+
+    // The line must be recoverable by the ONE reader, or the carry-forward cannot see it.
+    const bodyFile = join(tmp, "swept-body.md");
+    writeFileSync(bodyFile, withDirection);
+    assertEq("and read-ask-feedback-refs.sh recovers exactly those refs from the swept ask",
+      JSON.parse(execSync(`${POSIX_SH} ${SCRIPTS.readAskFeedbackRefs} < ${bodyFile}`,
+        { cwd: repo, encoding: "utf8" })).dropped.map((d) => d.ref),
+      ["20260821162443-a.md", "20260826021619-b.md"]);
+
+    // THE DEDUP MUST NOT CARE. `slack-ref:` is what the ledger matches, and it sits above
+    // the new line in both shapes.
+    assertTrue("the slack-ref marker is unmoved by the new line",
+      /\nslack-ref: C0AB12CD3:1724371200\.000100\n/.test(withDirection), withDirection.slice(0, 240));
+    // And the no-direction body is byte-identical to what it was before the flag existed:
+    // over identical inputs the two composed bodies differ by exactly the one line.
+    assertEq("the two bodies differ by exactly the feedback: line",
+      withDirection.split("\n").filter((l) => !/^feedback:/.test(l)).join("\n"), noDirection);
 
     // ---- the ledger reader matches what the writer wrote ----
     // The dedup would silently stop matching if the two ever drifted, so the round trip
@@ -20600,6 +20637,73 @@ function testCarryChainIsProvable() {
     assertEq("and it is still a named answer with exit 0, never an error",
       run(dir, `${ATTR} quiet`).status, 0);
 
+    // ── THE BOUND COVERS THE LOOP'S OTHER TWO WRITERS (2026-08-26) ──
+    // The guarantee is bounded to work the loop emitted from an ask whose refs resolved, and
+    // the sweep and `/fb`'s in-repo path are the loop's own writers — so an ask either filed
+    // belongs INSIDE that bound. The same four links, over their header shapes; the fixtures
+    // differ only in the block above the refs, which is why this test is extended rather
+    // than copied.
+    const shapes = {
+      swept: [
+        "kind: feedback / source: slack / subject: person:Tamura",
+        "slack-ref: C0AB12CD3:1724371200.000100",
+        "slack-link: https://example.slack.com/archives/C0AB12CD3/p1724371200000100",
+      ],
+      fb: ["kind: instruction / source: discussion / subject: person:a@qmu.jp"],
+    };
+    for (const [name, header] of Object.entries(shapes)) {
+      const p = join(dir, `${name}-ask.md`);
+      writeFileSync(p, [...header, `feedback: ${DIRECTION}`, "", "The ask itself.", ""].join("\n"));
+      const r = JSON.parse(run(dir, `${READ} < ${p}`).stdout);
+      assertEq(`the reader recovers the direction from a ${name} ask`,
+        { line_found: r.line_found, carried: r.carried }, { line_found: true, carried: [DIRECTION] });
+
+      const m = JSON.parse(run(dir, `${DRAFT} "Close the loop from ${name}" ${RECORD} ${r.carried.join(" ")}`).stdout);
+      assertEq(`a mission scaffolded from a ${name} ask carries it`,
+        run(dir, `${FLOOR} --refs "${r.carried.join(",")}" ${m.path}`).status, 0);
+
+      const lost2 = JSON.parse(run(dir, `${DRAFT} "Lose the loop from ${name}" ${RECORD}`).stdout);
+      const refused2 = run(dir, `${FLOOR} --refs "${r.carried.join(",")}" ${lost2.path}`);
+      assertEq(`and the floor refuses the same ${name} ask published without it`,
+        [JSON.parse(refused2.stderr).reason, refused2.status], ["carried_ref_missing", 1]);
+    }
+
+    // An UNATTRIBUTED swept ask is a real pass, never a failure: the judgment is reported,
+    // not enforced, so an ask answering no live direction publishes work carrying nothing.
+    const sweptNone = join(dir, "swept-none.md");
+    writeFileSync(sweptNone, [...shapes.swept, "", "The ask itself.", ""].join("\n"));
+    const sweptNoneRefs = JSON.parse(run(dir, `${READ} < ${sweptNone}`).stdout);
+    assertEq("an unattributed swept ask reads back no line",
+      { line_found: sweptNoneRefs.line_found, carried: sweptNoneRefs.carried },
+      { line_found: false, carried: [] });
+    const sweptFloor = run(dir, `${FLOOR} --refs "${sweptNoneRefs.carried.join(",")}" ${draft.path}`);
+    assertEq("and the floor passes it with checked: 0",
+      [JSON.parse(sweptFloor.stdout).ok, JSON.parse(sweptFloor.stdout).checked, sweptFloor.status],
+      [true, 0, 0]);
+
+    // AN ASK NAMING NO DIRECTION IS JUDGED, AND THE FLOOR STAYS OUT OF IT (2026-08-26). The
+    // judgment is a reading, not a promise the ask made, so `check-carry-floor.sh` must keep
+    // checking only refs the ASK carried — flooring an inference would turn a reported
+    // reading into a publish refusal.
+    const bare = join(dir, "bare-ask.md");
+    writeFileSync(bare, "Please make the loop turn at mission granularity.\n");
+    const bareRefs = JSON.parse(run(dir, `${READ} < ${bare}`).stdout);
+    assertEq("an ask naming no direction reads back no line and no refs",
+      { line_found: bareRefs.line_found, carried: bareRefs.carried }, { line_found: false, carried: [] });
+    const bareFloor = run(dir, `${FLOOR} --refs "${bareRefs.carried.join(",")}" ${draft.path}`);
+    assertEq("so the floor has nothing to check and passes for the right reason",
+      [JSON.parse(bareFloor.stdout).reason, bareFloor.status], ["no_refs_carried", 0]);
+
+    // The contract that carries the rest is prose, and prose is what a later reader changes
+    // by accident. Pin the three claims a wrong edit would silently drop.
+    const flow = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/specificate/reference/workflow.md"), "utf8");
+    assertTrue("a line beats a judgment, so /propose's path stays byte-identical",
+      /A line beats a judgment/.test(flow), "the precedence between a line and a judgment is unstated");
+    assertTrue("the floor is stated to check only the refs the ask carried",
+      /only the refs the ASK carried/.test(flow), "the floor's scope against a judged direction is unstated");
+    assertTrue("and both surfaces report how the direction was decided",
+      /direction:<slug>:<line\|slug\|aim>/.test(flow), "the report shape omits how it was decided");
+
     // The single attribution reader did not gain a state, and no artifact gained a field.
     const attrSrc = readFileSync(SCRIPTS.strategyAttributedWork, "utf8");
     assertEq("attributed-work.sh's empty_reason vocabulary is unchanged",
@@ -20689,5 +20793,86 @@ function testMissionStrategy() {
     assertEq("the reader leaves the tree clean", run(dir, "git status --porcelain").stdout.trim(), "");
     assertEq("and exits 0 even with no strategies at all",
       run(makeRepo("main"), READ).status, 0);
+  } finally { cleanup(dir); }
+}
+
+// ---------- feedback/ask-feedback-line.sh: the writing side gets one writer too ----------
+// (2026-08-26) The inbound ask's `feedback:` line had one reader
+// (`read-ask-feedback-refs.sh`) and one writer, inlined in `open-proposal.sh`. Two more
+// callers want it — the Slack sweep and `/fb`'s in-repo path — so the writing side is given
+// the same single-writer treatment BEFORE it is multiplied rather than after, which is the
+// rule the reader's own header states and this repository has paid for twice.
+//
+// The round trip is the point: what this writer emits, that reader must recover exactly.
+function testAskFeedbackLine() {
+  const dir = makeRepo("main");
+  const WRITE = `${POSIX_SH} ${SCRIPTS.askFeedbackLine}`;
+  const READ = `${POSIX_SH} ${SCRIPTS.readAskFeedbackRefs}`;
+  try {
+    const fbdir = join(dir, ".workaholic/feedbacks");
+    mkdirSync(fbdir, { recursive: true });
+    for (const f of ["20260821162443-a.md", "20260826021619-b.md"]) {
+      writeFileSync(join(fbdir, f), "---\ntype: Feedback\n---\n\nx\n");
+    }
+    const roundTrip = (args) => {
+      const line = run(dir, `${WRITE} ${args}`).stdout;
+      writeFileSync(join(dir, "body.md"), line + "\nprose\n");
+      return { line, read: JSON.parse(run(dir, `${READ} < ${join(dir, "body.md")}`).stdout) };
+    };
+
+    const two = roundTrip('"20260821162443-a.md, 20260826021619-b.md"');
+    assertEq("the writer emits the canonical single line",
+      two.line, "feedback: 20260821162443-a.md, 20260826021619-b.md\n");
+    assertEq("and the one reader recovers exactly those refs",
+      two.read.carried, ["20260821162443-a.md", "20260826021619-b.md"]);
+
+    assertEq("variadic and comma-separated forms produce the same line",
+      run(dir, `${WRITE} 20260821162443-a.md 20260826021619-b.md`).stdout, two.line);
+    assertEq("and so does the inline-list form the artifact side uses",
+      run(dir, `${WRITE} "[20260821162443-a.md, 20260826021619-b.md]"`).stdout, two.line);
+
+    // AN EMPTY REF SET EMITS NO LINE, never an empty one. The reader distinguishes three
+    // states, and an empty line would report "named a direction and lost it" for an ask
+    // that never had one.
+    for (const empty of ['""', "", '"  "', '","']) {
+      assertEq(`an empty ref set (${empty || "no args"}) emits nothing`,
+        run(dir, `${WRITE} ${empty}`).stdout, "");
+    }
+    writeFileSync(join(dir, "none.md"), "prose only\n");
+    assertEq("so an ask written without it reads back line_found: false",
+      JSON.parse(run(dir, `${READ} < ${join(dir, "none.md")}`).stdout).line_found, false);
+    assertEq("and every case exits 0", run(dir, `${WRITE}`).status, 0);
+
+    // `open-issue.sh` COMPOSES NOTHING, and must keep composing nothing (2026-08-26). Both
+    // `/fb` halves and the sweep hand it a finished body; teaching it a header opinion would
+    // make the one issue-opening seam a second router, and the crossing — which must NEVER
+    // carry this line — passes through the same seam.
+    const openIssue = readFileSync(SCRIPTS.openIssue, "utf8");
+    assertTrue("open-issue.sh formats no feedback: line of its own",
+      !/feedback:/.test(openIssue.replace(/^#.*$/gm, "")), "open-issue.sh grew a header opinion");
+
+    // The crossing's exemption is a written decision, not an omission: the line would name
+    // records the target cannot resolve, in our vocabulary rather than theirs.
+    const crossing = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/feedback/reference/crossing.md"), "utf8");
+    assertTrue("the crossing states that it never carries the line",
+      /never carries a `feedback:` line/.test(crossing), crossing.slice(0, 400));
+    const fbSkill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/feedback/SKILL.md"), "utf8");
+    assertTrue("and the in-repo path emits it through the one writer",
+      /ask-feedback-line\.sh/.test(fbSkill), "the /fb path composes the line by hand");
+    assertTrue("reporting the direction beside the assignee",
+      /direction:<slug>` or `direction:unattributed/.test(fbSkill), "the /fb report omits the direction");
+
+    // THE INLINE EMITTER IS GONE. A second formatter is exactly what the reader's header
+    // forbids, and the whole point of extracting this one was to have no survivor.
+    const proposal = readFileSync(SCRIPTS.proposeOpen, "utf8");
+    assertTrue("open-proposal.sh composes the line through this writer",
+      /ask-feedback-line\.sh/.test(proposal), proposal.slice(0, 200));
+    assertTrue("and formats none of its own",
+      !/printf 'feedback:/.test(proposal), "a second formatter survives in open-proposal.sh");
+    // The rewiring had to be observationally free: the composed issue body is what a human
+    // and the next tick both read.
+    const oldWay = "feedback: 20260821162443-a.md, 20260826021619-b.md\n\n";
+    assertEq("and the composed body is byte-identical to the inline emitter's",
+      two.line + "\n", oldWay);
   } finally { cleanup(dir); }
 }

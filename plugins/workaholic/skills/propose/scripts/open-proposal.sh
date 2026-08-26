@@ -40,6 +40,9 @@
 #   strategy: <slug> / move: <move>
 #   feedback: <ref>, <ref>
 #
+# Line 3 is emitted by `feedback/scripts/ask-feedback-line.sh`, the ONE writer of this
+# line (2026-08-26) — lines 1 and 2 stay here, because they are this script's own markers.
+#
 # Line 1 carries the judgment axes `/specificate` would otherwise have to guess, in the
 # shape `/fb` already uses. Line 2 is the marker `list-open-proposals.sh` reads for the
 # in-flight gate. Line 3 is what CLOSES THE LOOP and it is the least obvious line in this
@@ -166,7 +169,11 @@ trap 'rm -f "$COMPOSED"' EXIT INT TERM
 {
   printf 'kind: instruction / source: development / subject: observer_ai:[Propose] routine\n'
   printf 'strategy: %s / move: %s\n' "$STRATEGY" "$MOVE"
-  printf 'feedback: %s\n\n' "$REFS"
+  # Line 3 goes through the ONE writer of this line (2026-08-26): the sweep and `/fb` are
+  # about to want the same line, and the reader's own header forbids a second parser --
+  # so the writing side gets the same single-writer treatment before it is multiplied.
+  sh "${FEEDBACK_SCRIPTS}/ask-feedback-line.sh" "$REFS"
+  printf '\n'
   printf 'This ask was opened by the `[Propose]` routine against the strategy named above.\n'
   printf 'Carry the `feedback:` refs on that line onto whatever this proposal becomes, so the\n'
   printf 'work stays attributable to the direction that asked for it.\n\n'

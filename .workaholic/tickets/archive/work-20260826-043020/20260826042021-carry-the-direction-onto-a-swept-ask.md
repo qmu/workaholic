@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-26T04:20:21+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -97,3 +98,33 @@ direction each message answers, reporting the decision — `unattributed` includ
   is the same invisible-loss shape this mission exists to remove. Name it.
 - The line carries the strategy's **refs**, not its slug, because `attributed-work.sh`
   intersects `feedback[]` sets and a slug would be the retired relation under a new name.
+
+## Final Report
+
+Development completed as planned. `file-inbound-ask.sh` gained `--feedback`, emitted through
+`feedback/scripts/ask-feedback-line.sh` (the one writer) inside the same composed block after
+`slack-link:`; absent, no line is written and the body is byte-identical to what it was before
+the flag existed — pinned by a fixture that composes both bodies from identical inputs and
+asserts they differ by exactly that line. `propose/SKILL.md`'s sweep section states the judgment
+in order (explicit slug → the `active` set → `unattributed`), that the line carries the
+strategy's **refs** and never its slug, that it is reported and never enforced
+(`direction:<slug>` / `direction:unattributed` per filed issue), and that an unreadable strategy
+set is named rather than collapsed into `unattributed`. `commands/propose.md` and `CLAUDE.md`'s
+`/propose` row carry the same contract.
+
+The `slack-ref:` dedup is unaffected and proved so: the marker sits above the new line in both
+shapes, and `read-ask-feedback-refs.sh` recovers exactly the refs the writer stamped out of a
+swept body.
+
+### Discovered Insights
+
+- **Insight**: The strongest form of "byte-identical when absent" is a fixture that composes
+  **both** bodies from identical inputs and diffs them.
+  **Context**: The first attempt omitted `--permalink` from the attributed call, so `slack-link:`
+  differed too and the assertion had to filter two lines — which would have hidden a real
+  regression in the second. Holding every other input constant makes the assertion say what it
+  means.
+- **Insight**: The judgment is deliberately unenforced, and that is what makes it safe to add.
+  **Context**: Nothing is refused for naming no direction, so a wrong guess costs a reported
+  line rather than a suppressed ask — which is why the reporting obligation, not a floor, is the
+  deliverable here.

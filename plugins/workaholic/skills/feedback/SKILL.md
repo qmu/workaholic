@@ -72,10 +72,17 @@ Free prose in the contributor's own words; a leading `# <title>` and nothing els
 
 1. **Gather the content** — the given argument, or the conclusion/instruction the conversation just reached; write faithfully per *Body style*.
 2. **Classify — decide, do not ask** (`rules/interaction.md`): derive `kind`/`source` per *Choosing the kind* and `subject` per *Choosing the subject*. **The judgment goes in the issue body**, as a short leading `kind: … / source: … / subject: …` line, so the receiving `/specificate` inherits it rather than re-deriving it from prose it did not witness.
+2b. **Name the direction it answers, on the next line** (2026-08-26). A human filing an ask about a live direction otherwise produces work that cites that direction at nothing — the same hole the inbound Slack sweep had, and the same fix. Judge it exactly as the sweep does (`workaholic:propose`, *The inbound sweep*): an explicit strategy **slug** in the ask wins outright; otherwise judge it against the `active` set read through `bash ${CLAUDE_PLUGIN_ROOT}/skills/strategy/scripts/list.sh`; an ask answering no live direction is **`unattributed`** and gets no line at all. Emit it through the one writer, never by hand:
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/feedback/scripts/ask-feedback-line.sh "<that strategy's own feedback refs>"
+```
+
+It carries the strategy's **refs**, never its slug — `attributed-work.sh` walks `strategy.feedback[] ∩ artifact.feedback[]`, and nothing here adds a relation or a field. **`open-issue.sh` is not taught to compose it**: it has no destination opinion and no identity opinion, and a header opinion would make the one issue-opening seam a second router. The composer belongs to the caller that knows the destination. **The crossing never gets this line** — see below.
 3. **Resolve the destination and the assignee** — `sh ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/gh-rest.sh slug` for this repository, and `sh ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/gh-rest.sh available` for `login`, the invoking identity. **The assignee is load-bearing**: `[Specificate]`'s discovery lists only issues assigned to the running identity and never unassigned ones, so an unassigned issue would be ingested by nobody.
 4. **Scan the body** — `bash ${CLAUDE_PLUGIN_ROOT}/skills/feedback/scripts/scan-outbound-body.sh <body-file>`. A `secret` finding hard-stops, never overridden; a `leak` finding is fixed, or overridden with the reason recorded.
 5. **Send** — `bash ${CLAUDE_PLUGIN_ROOT}/skills/feedback/scripts/open-issue.sh --assignee <login> <this-slug> "<title>" <body-file>`. On anything other than `ok: true`, take *The fallback* below.
-6. **Report** the issue URL and the assignee in one line, and stop. The command does not comment on the issue, does not commit, and does not wait for the tick.
+6. **Report** the issue URL, the assignee and the **direction** — `direction:<slug>` or `direction:unattributed` — in one line, and stop. The command does not comment on the issue, does not commit, and does not wait for the tick.
 
 **No feedback record is written on this path, and the reason is mechanical rather than aesthetic.** `[Specificate]`'s discovery excludes any open issue a record already names (`already_captured`, keyed on the record's `/issues/<N>` line), so a `/fb` that opened the issue *and* wrote the record would suppress its own ingestion and the issue would sit unproposed forever. The record still gets written one seam later, by `/specificate` when it takes the issue in hand.
 

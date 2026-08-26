@@ -25,6 +25,15 @@ the ask still makes its point, the detail was never load-bearing.
 
 ## Compose in the target's vocabulary — do not carry ours at all
 
+**A cross-repository issue never carries a `feedback:` line** (2026-08-26). The in-repo path
+stamps one naming the direction the ask answers, and the crossing is exempt for both of this
+section's own reasons at once: the line names records under **our** `.workaholic/feedbacks/`,
+which the target cannot resolve and has no business resolving, and it composes in our vocabulary
+rather than theirs — which is the one thing this whole section forbids. `open-issue.sh` composes
+nothing either way, so the exemption costs no code: the caller that knows the destination is the
+caller that decides, and on this path it decides not to.
+
+
 Masking is compose-then-remove, and removal can be forgotten. The stronger shape is to
 build the ask from the **target** repo's own vocabulary plus synthetic placeholders, so
 there is nothing to remove. Reach for that first; fall back to masking only when the ask

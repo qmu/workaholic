@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-26T04:20:21+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -87,3 +88,38 @@ ask falls under adds no reader, no relation and no field to any artifact.
   inferred one without a new field.
 - An unreadable strategy set at step 5b is already reported by name there; this step must
   not collapse it into `unattributed`.
+
+## Final Report
+
+Development completed as planned, and step 4's instruction — leave the floor alone — is what the
+change is built around. `reference/workflow.md` step 7 now opens with the direction judgment for
+an ask step 3b found no line on: explicit slug first, else the `active` Aims step 5b has already
+read, else `unattributed`. It costs **no new reader**: step 5b's read is the same one. A decided
+direction's own refs ride steps 8 and 9 through the variadic scaffold arguments step 3b already
+uses — no new flag, no new field.
+
+Three properties are stated where a later reader meets them, and pinned by a test because they
+are prose:
+
+- **A line beats a judgment, outright.** When step 3b found a line the judgment does not run,
+  which is what keeps `/propose`'s path byte-identical.
+- **The floor checks only the refs the ask carried.** `check-carry-floor.sh` is unchanged in
+  behaviour; a judgment is a reading, not a promise the ask made, and flooring it would turn a
+  reported inference into a publish refusal.
+- **Both surfaces report how it was decided** — `direction:<slug>:<line|slug|aim>` or
+  `direction:unattributed` — so a later reader tells a stamped attribution from an inferred one
+  with no new field. A record-only outcome reports the direction it would have carried.
+
+An unreadable strategy set stays named at step 5b and does not collapse into `unattributed`.
+
+### Discovered Insights
+
+- **Insight**: The reporting shape carries the *provenance* of the attribution, not just its
+  value.
+  **Context**: `direction:<slug>:aim` and `direction:<slug>:line` are different claims — one is
+  a reader's inference and the other the writer's statement — and the alternative to encoding
+  that in the report was a frontmatter field, which the 2026-08-17 ruling refuses.
+- **Insight**: The judgment is free because step 5b's operator-record check already pays for it.
+  **Context**: That check reads every `active` strategy's Aim and the `subject: person:` records
+  it cites, and those Aims are already binding on the run. Asking which one an ask falls under
+  reuses a read that has already happened, which is why this adds no reader and no relation.

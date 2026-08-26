@@ -31,6 +31,13 @@ failure. **A move that would produce documentation *about* an Aim whose subject 
 something is refused as `describing_move`** — a page about the aim is a perfect `depth` move and
 would otherwise repeat forever; a strategy whose Aim is itself documentation is unaffected.
 
+**The inbound sweep names the direction each ask answers.** A swept message naming an explicit
+strategy slug is attributed to it; one naming none is judged against the `active` set; one
+answering no live direction is `unattributed`. The strategy's own `feedback:` refs ride the filed
+issue through `file-inbound-ask.sh --feedback`, and the run report carries `direction:<slug>` or
+`direction:unattributed` per filed issue. An unreadable strategy set is named, never read as "no
+direction".
+
 Every refusal is reported by name and every gate is mechanical: a strategy that is closed, not
 yours, past its date, citing no feedback record, already carrying queued work, already carrying
 an open proposal, or under-planned is skipped with that reason stated. A tick that

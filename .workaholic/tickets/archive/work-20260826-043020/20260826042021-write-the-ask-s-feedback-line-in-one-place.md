@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-26T04:20:21+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -85,3 +86,30 @@ byte-identical.
 - Byte-identity is the whole gate here. This ticket is deliberately a no-op for every
   observable surface — what it delivers is that the next two tickets add a *caller* rather
   than a parser.
+
+## Final Report
+
+Development completed as planned. `feedback/scripts/ask-feedback-line.sh` is the one writer of
+the inbound ask's `feedback:` line: variadic or comma-separated refs in, one canonical
+`feedback: <ref>, <ref>` line out, **nothing at all** for an empty ref set, exit 0 always.
+`open-proposal.sh` composes line 3 through it and formats none of its own; the suite asserts no
+second formatter survives.
+
+Byte-identity — the whole gate here — is proved twice: directly, by rendering the old inline
+`printf 'feedback: %s\n\n'` and the new `ask-feedback-line.sh` + `printf '\n'` over the same
+refs and comparing (identical for every shape `strategy/scripts/read.sh` emits, which already
+normalises to the canonical comma-space form), and in the hermetic suite, which pins the
+composed two-line block against the inline emitter's literal output.
+
+### Discovered Insights
+
+- **Insight**: `read.sh` already emits the canonical `a.md, b.md` form, brackets stripped.
+  **Context**: That is why normalising inside the writer costs no byte-identity — the only
+  caller was already handing it canonical input. A writer that preserved its argument verbatim
+  would have been the safer-looking choice and the worse one, since the next two callers build
+  their ref lists from different sources.
+- **Insight**: The empty case is the one worth a test per shape.
+  **Context**: `""`, no args, whitespace and a bare comma must all emit *no line*, because the
+  reader distinguishes three states and an empty line reports the middle one — "named a
+  direction and lost it" — for an ask that never named one. That is the same invisible-loss
+  shape this mission exists to remove.

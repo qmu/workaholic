@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-26T04:20:21+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -83,3 +84,35 @@ over-claimed.
   the first within two changes; the fixtures differ only in the ask's header block.
 - Stating the limits is half the deliverable. A bound that reads as exhaustive is worse
   than one that names what it misses, and the previous mission's own record says so.
+
+## Final Report
+
+Development completed as planned. `testCarryChainIsProvable` is **extended, not copied**: the
+sweep's header block (`kind`/`source`/`subject`, `slack-ref:`, `slack-link:`) and `/fb`'s in-repo
+block are driven through the same four links — reader recovers the refs, scaffold carries them,
+floor passes, and the same ask published without them is refused — from one loop over the two
+shapes, because the fixtures differ only in the block above the refs. The negative that matters
+is there too: an **unattributed** swept ask reads back `line_found: false`, emits work carrying
+nothing, and the floor passes it with `checked: 0` — a real pass, never a failure.
+
+The extended bound and its limits are stated in `strategy/SKILL.md`, `propose/SKILL.md`,
+`specificate/SKILL.md` and `CLAUDE.md`, in this same commit: it covers work the loop emitted from
+an ask filed by `/propose`, the sweep, or `/fb`'s in-repo path whose refs resolved, and **not**
+work a run never emitted, an ask judged to answer no direction, a ref that did not resolve, an
+artifact written by hand outside `/specificate`, or a direction `/specificate` **judged** rather
+than read off a line — that last limit is new with this mission and is the one a reader is most
+likely to over-read.
+
+`attributed-work.sh` is **unchanged**: the suite still asserts its `empty_reason` vocabulary.
+
+### Discovered Insights
+
+- **Insight**: One loop over a table of header shapes is what keeps the test from becoming three.
+  **Context**: The four links are identical across writers; only the header block differs. A
+  second near-identical test function would have drifted from the first within two changes,
+  which is exactly what the ticket predicted.
+- **Insight**: The judged direction had to be added to the *limits*, not to the guarantee.
+  **Context**: The previous ticket made `/specificate` infer a direction for an ask naming none,
+  and the floor deliberately does not check it. Left unstated, a reader would take
+  `no_citing_artifacts` as proof for inferred attributions too — which is precisely the
+  over-reading the limits exist to prevent.

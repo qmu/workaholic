@@ -131,6 +131,23 @@ and every abort reports a machine-readable reason.
    step-5 discovery and the step-5b strategy set in hand, and **decide the form**
    (*The form follows the work's shape*).
 
+   **First, decide the direction when step 3b found no line** (2026-08-26). An ask can
+   arrive naming none — a human typing into the GitHub UI, another tool, an older issue.
+   Step 5b has already read the `active` strategies and their Aims, so this costs **no new
+   reader**: an explicit strategy **slug** in the ask wins outright; otherwise judge which
+   `active` Aim the ask falls under; otherwise it is **`unattributed`**. When a direction is
+   decided, carry **that strategy's** `feedback:` refs onto what steps 8 and 9 emit,
+   alongside this run's record, through the same variadic scaffold arguments step 3b
+   already uses — no new flag, no new field.
+
+   **A line beats a judgment, outright.** When step 3b found a line, that line decides and
+   this judgment does not run: the writer's explicit statement beats the reader's inference,
+   which is also what keeps `/propose`'s path byte-identical. A judged direction is weaker
+   evidence than a carried one, so steps 10 and 13 report **how** it was decided (`slug` or
+   `aim`) — a later reader tells a stamped attribution from an inferred one without a new
+   field. An unreadable strategy set is already reported by name at step 5b and must **not**
+   collapse into `unattributed` here.
+
    **First, is it a lifecycle announcement?** An ask that names an explicit strategy
    slug and announces that it was created, changed or ended takes step 9c instead of
    the four forms (SKILL.md, *Strategy lifecycle announcements*): a slug absent from
@@ -200,8 +217,10 @@ and every abort reports a machine-readable reason.
      --refs "<step 3b's carried refs, comma-separated>" <the emitted artifact>
    ```
 
-   The artifact named is **the mission when there is one, the loose ticket when there is
-   not** — a mission's tickets need not repeat its refs, because `attributed-work.sh`
+   **The floor checks only the refs the ASK carried**, never a direction step 7 judged: a
+   judgment is a reading, not a promise the ask made, and flooring it would turn a reported
+   inference into a publish refusal. The artifact named is **the mission when there is one,
+   the loose ticket when there is not** — a mission's tickets need not repeat its refs, because `attributed-work.sh`
    already reaches them through `via_mission:<slug>`. Non-zero exit is a **run failure to
    report, never a demotion**: the record is already written and the artifacts are already
    scaffolded, so the correct action is to put the missing refs on what exists (the
@@ -273,7 +292,9 @@ and every abort reports a machine-readable reason.
    `WORKAHOLIC_AUTO_MERGE=1 WORKAHOLIC_PR_TITLE="[Proposal] <title>" WORKAHOLIC_CLOSES_ISSUE="<issue number from step 1>" bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/publish-tree-pr.sh "<title>" "<why>" "<changes>" "<concerns>" "<insights>" "<verify>"`
    — **one call**, carrying the record and whatever the judgment added.
    **The body names step 3b's two sets**, in `<changes>`, per emitted artifact: the refs
-   **carried** onto it, and every ref **dropped** with its reason. Keep it to what is true —
+   **carried** onto it, and every ref **dropped** with its reason. **And the direction** —
+   `direction:<slug>` with how it was decided (`line`, `slug` or `aim`), or
+   `direction:unattributed`. Keep it to what is true —
    a proposal that carried nothing because the ask named nothing says so in one clause, not
    as a warning. **A record-only outcome names the refs it *would* have carried and that
    nothing was emitted**, so a dropped link and an unproposed ask do not look alike here
@@ -347,7 +368,10 @@ and every abort reports a machine-readable reason.
     with the slug / `no_end_state` / `strategy_exists_no_update_writer`) with its
     reason, the record's filename, **the carry** —
     `carried:<artifact>:<n>` per emitted artifact and `dropped:<ref>:<reason>` per drop,
-    taken from step 3b's script output and never re-read by eye. A **count** for the carried
+    taken from step 3b's script output and never re-read by eye — and **the direction**,
+    `direction:<slug>:<line|slug|aim>` or `direction:unattributed`, so a stamped attribution
+    and an inferred one are told apart without a new field. A record-only outcome reports the
+    direction it would have carried, exactly as it already reports the refs. A **count** for the carried
     set and a **name** for each drop: the carry is the ordinary case and the drop is the
     rare, actionable one, and a per-artifact ref dump nobody reads is the noise this
     repository has twice retired status roots for. `carried:none` when the ask named no

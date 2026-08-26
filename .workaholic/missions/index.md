@@ -2,7 +2,6 @@
 
 ## active
 
-* [attribute-an-inbound-ask-to-the-direction-it-answers](active/attribute-an-inbound-ask-to-the-direction-it-answers/mission.md) - Attribute an inbound ask to the direction it answers
 * [make-the-routine-create-body-documented-and-buildable](active/make-the-routine-create-body-documented-and-buildable/mission.md) - Make the routine create body documented and buildable
 * [make-workaholify-converge-the-account-s-routines](active/make-workaholify-converge-the-account-s-routines/mission.md) - Make /workaholify converge the account's routines
 * [refuse-ok-under-a-placeholder-identity](active/refuse-ok-under-a-placeholder-identity/mission.md) - Refuse ok under a placeholder identity
@@ -13,6 +12,7 @@
 * [add-the-standup-daily-per-strategy-summary](archive/add-the-standup-daily-per-strategy-summary/mission.md) - Add the standup daily per-strategy summary
 * [adopt-a-git-flow-branching-model-with-durable-ship-records](archive/adopt-a-git-flow-branching-model-with-durable-ship-records/mission.md) - Adopt a release-branch staging tier with durable ship records
 * [announce-one-event-once-and-give-its-root-a-shape](archive/announce-one-event-once-and-give-its-root-a-shape/mission.md) - Announce one event once, and give its root a shape
+* [attribute-an-inbound-ask-to-the-direction-it-answers](archive/attribute-an-inbound-ask-to-the-direction-it-answers/mission.md) - Attribute an inbound ask to the direction it answers
 * [auto-merge-propose-and-implement-prs-under-a-dev-release-branch-split](archive/auto-merge-propose-and-implement-prs-under-a-dev-release-branch-split/mission.md) - Auto-merge propose and implement PRs under a dev/release branch split
 * [close-a-mission-the-run-can-prove-is-finished](archive/close-a-mission-the-run-can-prove-is-finished/mission.md) - Close a mission the run can prove is finished
 * [color-code-the-notify-post-shapes-by-state](archive/color-code-the-notify-post-shapes-by-state/mission.md) - Color-code the notify post shapes by state

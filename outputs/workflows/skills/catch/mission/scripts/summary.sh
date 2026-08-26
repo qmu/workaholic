@@ -4,9 +4,8 @@
 # ROLE NOTE (2026-07-22): the `/mission summary` command mode this powered is
 # retired — the bare /mission view now renders the developer-centric partition
 # from list.sh's `relation` field. This script stays as the canonical statement
-# of the shared assignee gate ("not somebody else's") that the mission lens and
-# /drive's survey answer to, and as the business-set reader for programmatic
-# callers.
+# of the shared assignee gate ("not somebody else's") that /drive's survey
+# answers to, and as the business-set reader for programmatic callers.
 #
 # That means "not somebody else's", NOT "matches my email exactly". Two readings of
 # "assigned to me" were possible and this is the one that matches what the summary is
@@ -36,8 +35,8 @@
 # Output: JSON array [{slug, title, checked, total, next, assignee, path}];
 #         the caller's own missions first, then unassigned ones, each sorted by slug.
 #         `assignee` is "" for an unassigned mission -- the payload carries the fact so
-#         both consumers (commands/mission.md and hooks/mission-lens.sh) read it from
-#         one place instead of each re-deriving it from frontmatter.
+#         its consumers (commands/mission.md and moderate's closable-missions step)
+#         read it from one place instead of each re-deriving it from frontmatter.
 #         [] when no active mission is the current user's business.
 
 set -eu

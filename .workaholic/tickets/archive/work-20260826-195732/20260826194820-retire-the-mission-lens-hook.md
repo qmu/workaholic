@@ -1,11 +1,13 @@
 ---
 created_at: 2026-08-26T19:48:20+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
 mission:
 merge_policy: auto
 verification_handoff:
+claim: work-20260826-195732
 ---
 
 # Retire the mission-lens hook
@@ -126,3 +128,22 @@ Decided: verification is the repository's own five-command local sequence plus a
 - No renames.tsv row (a retirement is not a rename), no layout-allowlist change (no `.workaholic/` directory involved), no check-deps change (it tracks only the three guards), no migration script (the hook creates nothing in a consuming tree).
 - `testMissionLensWorktreeFocus` is the only local user of `SCRIPTS.createMissionWorktree`/`cleanupMissionWorktree` in its block — confirm those keep coverage elsewhere before deleting the function (`scripts/test-workflow-scripts.mjs` lines ~2846-2938).
 - The commit is deletion-dominated; if any new file is created (should not be needed), name it in `commit.sh`'s `files...` to avoid the half-a-rename refusal (`plugins/workaholic/skills/commit/SKILL.md`).
+
+## Final Report
+
+Development completed as planned. The hook, its two hooks.json registrations
+(the whole `Stop` key deleted — the plugin now registers no Stop hook, which is
+intended), the SCRIPTS constant, three test functions with their registry rows,
+and the embedded resolve.sh pin were removed; the pin's absolute-path-caller
+coverage was re-pointed at `progress.sh` invoked from an unrelated cwd. Eleven
+live-behavior documents and script comments were corrected; historical decision
+records (`docs/loop-engineering-workflow.md`, the closable-missions rationale)
+were re-voiced as history, keeping the eleven-missions measurement. `outputs/`
+regenerated; all five verification commands green (3523 tests, 0 failed).
+
+### Discovered Insights
+
+- **Insight**: `summary.sh`'s header claimed `hooks/mission-lens.sh` as a consumer, but the hook never invoked it — it read `owners.sh`/`progress.sh`/`next-acceptance.sh` directly.
+  **Context**: a consumer list in a script header is a claim, not a fact; grep for the actual invocation before treating one as coverage.
+- **Insight**: the lens was the only always-on hook wired into a code path that writes (`lib/resolve.sh`'s living migration `git add`s), which is what made the 2026-08-04 stale-install outage fire on every prompt. With it gone, that migration still runs but only when a mission script is invoked.
+  **Context**: `docs/drive-loop-runbook.md`'s `dirty_workspace` row was re-anchored on the migration rather than the hook.

@@ -6,8 +6,9 @@
 # mission that reached full acceptance any other way — items ticked by a different seam, a
 # mission whose tickets were archived before the seam shipped, one finished on a branch
 # that never ran the gate. **Eleven such missions had accumulated and nobody was told.**
-# They were found because the mission lens printed all of them on every prompt and the list
-# had grown long enough to read as wrong. The gap is a reporting one: an accumulation must
+# They were found because the mission lens — the always-on hook retired on 2026-08-26,
+# once this step owned the job — printed all of them on every prompt and the list had
+# grown long enough to read as wrong. The gap is a reporting one: an accumulation must
 # be visible before it is large.
 #
 # WHERE IT LIVES, AND WHY HERE RATHER THAN `/story` (ruled 2026-08-23 while driving it; the

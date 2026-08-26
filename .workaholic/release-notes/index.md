@@ -96,4 +96,5 @@
 * [The hourly drive routine stops repeating the same red alert](work-20260804-113101.md)
 * [Gate audit: no other gate reports on a shape instead of a failure](work-20260804-113856.md)
 * [Two routines, one behaviour per command](work-20260807-004323.md)
+* [Retire the always-on mission-lens hook](work-20260826-195732.md)
 <!-- okf:generated:end -->

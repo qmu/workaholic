@@ -1,6 +1,6 @@
 ---
 name: propose
-description: Use when a session runs `/propose` or the `[Propose]` routine's clock fires — read the running identity's own active strategies, judge the one evolutionary move that would bring the nearest one closer to its aim, and open that judgment as a GitHub issue the next `/specificate` tick will ingest. Defines the eligibility gates, the three moves, the refusal of housekeeping, and the scripts.
+description: Use when a session runs `/propose` or the `[Propose]` routine's clock fires — read the running identity's own active strategies, plan the one mission whose evolutionary move would bring the nearest one closer to its aim, and open that plan as a GitHub issue the next `/specificate` tick will ingest. Defines the mission grain, the eligibility gates, the three moves, the refusal of housekeeping, and the scripts.
 allowed-tools: Bash
 user-invocable: false
 skills:
@@ -16,10 +16,11 @@ warrants; `[Implement]` (`:30`) drives that work to a pull request; **`[Propose]
 supplies the ask** — so the loop turns without a person having to write the next ticket, and
 what a person supplies instead is the **direction**.
 
-It reads the running identity's own `status: active` strategies, judges the single
-**evolutionary move** that would bring the nearest one closer to its aim before its date, and
-opens that judgment as a **GitHub issue assigned to that identity** — the one surface
-`/specificate`'s unattended entrance actually reads.
+It reads the running identity's own `status: active` strategies, plans the single **mission**
+whose **evolutionary move** would bring the nearest one closer to its aim before its date, and
+opens that plan as a **GitHub issue assigned to that identity** — the one surface
+`/specificate`'s unattended entrance actually reads. The unit is a mission, not a change
+(*The unit is a mission, not a change*, below).
 
 **It is a pure reader of this repository.** No file, no commit, no branch, no pull request, no
 merge, no deployment, and no `AskUserQuestion` at any step. Its only writes are issues, and
@@ -83,6 +84,34 @@ happening or not never changes what the strategy half proposes.
 Both were vacated in the same change and neither is claimed by any live template
 (`reference/loop.md`, *Taking the name back*).
 
+## The unit is a mission, not a change
+
+**One proposal plans one mission** (2026-08-26, the operator's ask). The issue names a mission
+**title**, the **experience** it demands once it lands, and its **ordered ticket set** — held to
+the ruled scale, roughly **7–8 tickets**, with a follow-up repair mission of 3–4 available and a
+second concurrent mission refused (`workaholic:specificate`, *A strategy is not a mission
+factory*). `/specificate` emits that plan rather than re-deriving one.
+
+**The move vocabulary and every refusal built on it are unchanged; only the scale of the unit
+they are declared over moves.** A move is now what the *mission* does to the Aim, and
+`## What this is chosen against` names the rival **mission**, not the rival edit. The
+anti-housekeeping effect is expected to come from the scale as much as from the refusals: a
+mission-sized proposal cannot be "add a test" without saying so out loud.
+
+**The body floor gains two sections and one count** (`open-proposal.sh`): `## Experience` and
+`## Tickets` join the three below, and a `## Tickets` section naming fewer than **two** tickets
+is refused `under_planned` with the alternative named — the discipline
+`mission/scripts/check-floor.sh` already applies at the publish seam, applied here at the
+proposing seam, because a proposal naming one unit of work is a plain ticket's worth of
+direction. The **ceiling stays a judgement**: a floor is checkable and "roughly seven" is not,
+and this floor has never graded a proposal.
+
+**`/propose` plans; `/specificate` writes.** The operator's ask is that this routine *take charge
+of planning*, and planning is not writing: the publish-tree seam, the ticket floor, the carry
+floor and the pull request all live on the `/specificate` side, and moving the write here would
+duplicate every one of them and give the tree a second unattended writer. The granularity moved;
+the architecture did not. `/propose` stays a **pure reader** whose only write is a GitHub issue.
+
 ## The one thing it is for: an evolutionary move, never housekeeping
 
 Every proposal declares exactly one **move** against the strategy's Aim, and a run that cannot
@@ -96,7 +125,9 @@ name which one it is emits nothing:
 
 **A move that DESCRIBES the aim instead of advancing it is refused by name** (2026-08-22).
 A strategy whose Aim names something to be **built** may not be answered with a proposal whose
-move would produce **documentation about that Aim**. The refusal is reported like every other
+move would produce **documentation about that Aim**. At the mission grain the test is the same
+one: a *mission* whose whole ticket set would produce documentation about a building Aim is
+refused exactly as a single documenting change was. The refusal is reported like every other
 gate (`describing_move`), and a tick refused for it opens nothing rather than reading as idle.
 
 *Why the housekeeping refusal below does not already catch it.* That one works because
@@ -121,7 +152,9 @@ the proposal body, where a human can argue with it; do not try to detect "is thi
 from a file extension, because the proposal declares what it will produce.
 
 **Housekeeping is refused by name.** "Tidy this up", "the docs drifted", "add a test",
-"rename for consistency" are `/moderate`'s job. What they have in common is that they are
+"rename for consistency" are `/moderate`'s job. A mission-shaped proposal makes this
+easier to see rather than harder: a housekeeping direction decomposed into seven tickets is
+seven pieces of housekeeping, and `## What this is chosen against` still has nothing to name. What they have in common is that they are
 chosen against **nothing** — nobody would argue for the mess — which is why the body floor
 requires a `## What this is chosen against` section: a proposal that cannot name the fork it
 did not take is either uncontroversial or unformed, and both are the safe small change the ask
@@ -288,6 +321,8 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/list-open-proposals.sh
 # The ONE writer, and its only write is a GitHub issue.
 bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/open-proposal.sh \
   --strategy <slug> --move depth|breadth|contraction --title "<title>" <body-file>
+#   body sections: What to change / Why this commits to the strategy /
+#                  What this is chosen against / Experience / Tickets (two or more)
 
 # The inbound sweep's dedup ledger: which channel messages are already an issue.
 bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/list-swept-slack-refs.sh

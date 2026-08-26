@@ -5044,9 +5044,14 @@ function testProposeWriteFloor() {
       "feedback: [20260101000000-a.md]", "---", "", "# live", "", "## Aim", "", "a", "",
       "## Schedule", "", "s", "",
     ].join("\n"));
+    // The mission shape, since 2026-08-26: the unit a proposal declares its move over is a
+    // whole mission, so the body names the experience it demands and its ordered ticket set
+    // beside the three commitment sections.
     writeFileSync(body, ["## What to change", "", "x", "",
       "## Why this commits to the strategy", "", "y", "",
-      "## What this is chosen against", "", "z", ""].join("\n"));
+      "## What this is chosen against", "", "z", "",
+      "## Experience", "", "e", "",
+      "## Tickets", "", "1. first", "2. second", ""].join("\n"));
 
     // The MOVE is required and closed-set: a proposal that cannot say which of depth,
     // breadth or contraction it is has not made an evolutionary claim at all.
@@ -5060,13 +5065,35 @@ function testProposeWriteFloor() {
     // "tidy this up" is chosen against NOTHING -- nobody argues for the mess -- so a body
     // that cannot name its fork is either uncontroversial or unformed.
     for (const missing of ["## What to change", "## Why this commits to the strategy",
-                           "## What this is chosen against"]) {
+                           "## What this is chosen against", "## Experience", "## Tickets"]) {
       const partial = join(dir, "partial.md");
       writeFileSync(partial, readFileSync(body, "utf8").replace(missing + "\n", ""));
       assertEq(`a body with no '${missing}' section is refused`,
         call(`--strategy live --move depth --title t --workaholic-root ${WH} ${partial}`).reason,
         "missing_section");
     }
+
+    // THE TWO-TICKET FLOOR at the proposing seam, mirroring `mission/scripts/check-floor.sh`
+    // at the publish seam: a proposal naming one unit of work is a plain ticket's worth of
+    // direction, not a mission -- and, like that floor, the refusal names the alternative
+    // rather than restating the rule.
+    const thin = join(dir, "thin.md");
+    writeFileSync(thin, readFileSync(body, "utf8").replace("2. second\n", ""));
+    const under = call(`--strategy live --move depth --title t --workaholic-root ${WH} ${thin}`);
+    assertEq("a proposal naming one ticket is refused as under-planned", under.reason, "under_planned");
+    assertTrue("and the refusal names what to do instead", /plain ticket/.test(under.detail), under.detail);
+    const none = join(dir, "none.md");
+    writeFileSync(none, readFileSync(body, "utf8").replace("1. first\n", "").replace("2. second\n", ""));
+    assertEq("an empty ticket set is refused the same way",
+      call(`--strategy live --move depth --title t --workaholic-root ${WH} ${none}`).reason, "under_planned");
+    // The CEILING is deliberately not a floor: "roughly 7-8" is a judgement, and this
+    // script has never graded a proposal. A long set passes the write floor.
+    const many = join(dir, "many.md");
+    writeFileSync(many, readFileSync(body, "utf8").replace("2. second\n",
+      [...Array(11).keys()].map((i) => `${i + 2}. ticket ${i + 2}`).join("\n") + "\n"));
+    assertTrue("a set well over the ruled scale is not refused by the floor",
+      call(`--strategy live --move depth --title t --workaholic-root ${WH} ${many}`).reason !== "under_planned",
+      "the floor grew a ceiling");
 
     assertEq("an unknown strategy is refused",
       call(`--strategy nope --move depth --title t --workaholic-root ${WH} ${body}`).reason,

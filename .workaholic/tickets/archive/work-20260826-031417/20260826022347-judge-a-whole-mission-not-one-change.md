@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-26T02:23:47+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -88,3 +89,38 @@ the move is declared over**: one mission, with its ordered ticket set, rather th
   the reasoning, not as an unresolved question.
 - The anti-housekeeping effect is expected to come from the **scale** as much as from the
   refusals: a mission-sized proposal cannot be "add a test" without saying so out loud.
+
+## Final Report
+
+Development completed as planned. `/propose`'s unit is now a mission: `propose/SKILL.md` opens
+with *The unit is a mission, not a change*, the body floor in `open-proposal.sh` gained
+`## Experience` and `## Tickets` beside the three commitment sections, and a `## Tickets`
+section naming fewer than two tickets is refused `under_planned` with the alternative named —
+`mission/scripts/check-floor.sh`'s discipline applied at the proposing seam. `describing_move`,
+`no_evolutionary_move` and the chosen-against floor are restated at the mission grain and still
+refuse. `commands/propose.md` carries the same contract; `verify-propose` drills both new
+refusals with no network.
+
+The fork the ticket named is settled the way its Considerations recommended, and the reasoning
+is recorded in the SKILL rather than left implicit: **`/propose` plans, `/specificate` writes**.
+Moving the write here would duplicate the publish-tree seam, the ticket floor, the carry floor
+and the pull request, and would give the tree a second unattended writer.
+
+The routine template `workaholify/routines/propose.md` is **unchanged**, deliberately: it names
+no post format (`/propose` posts nothing) and its environment did not move, and the templates
+are pinned byte-identical by the suite.
+
+### Discovered Insights
+
+- **Insight**: The floor is a floor and not a ceiling, and a test pins that.
+  **Context**: The ruled scale is "roughly 7–8 tickets", which no script can check; a set of
+  twelve passes the write floor on purpose. Adding a ceiling here would be the first time this
+  script graded a proposal rather than checking presence.
+- **Insight**: `no_move` is refused before the body is read, so the drill's existing
+  move-floor case survived the new headings untouched.
+  **Context**: The argument-validation order in `open-proposal.sh` is load-bearing for every
+  fixture that hands it a partial body; a later reader adding a check should keep cheap
+  argument refusals ahead of body parsing.
+- **Insight**: A `## Tickets` count has to be scoped to its own section.
+  **Context**: Ordered-list lines appear throughout a proposal body; counting them globally
+  would let prose satisfy the mission floor.

@@ -1432,6 +1432,36 @@ EOF
         add_row "propose_floor_move" false "the move floor did not hold: $(one_line "$_r")" load
     fi
 
+    # THE MISSION FLOOR (2026-08-26). The unit a proposal declares its move over is a whole
+    # mission, so the body must name the experience and the ordered ticket set, and a set of
+    # fewer than two tickets is not a mission. Both refusals run BEFORE any network call,
+    # which is what makes them drillable here.
+    _mbody="${_root}/mission-body.md"
+    printf '%s\n' "## What to change" "" "x" "" "## Why this commits to the strategy" "" "y" "" \
+        "## What this is chosen against" "" "z" "" > "$_mbody"
+    _r=$(cd "$REPO_ROOT" && sh "$_open_sh" --strategy live --move depth --title t --workaholic-root "$_root" "$_mbody" 2>&1) || true
+    if printf '%s' "$_r" | grep -q '"reason": "missing_section"'; then
+        add_row "propose_floor_mission_shape" true "a body naming no experience and no ticket set is refused" load
+    else
+        add_row "propose_floor_mission_shape" false "the mission-shape floor did not hold: $(one_line "$_r")" load
+    fi
+
+    printf '%s\n' "## Experience" "" "e" "" "## Tickets" "" "1. only one" "" >> "$_mbody"
+    _r=$(cd "$REPO_ROOT" && sh "$_open_sh" --strategy live --move depth --title t --workaholic-root "$_root" "$_mbody" 2>&1) || true
+    if printf '%s' "$_r" | grep -q '"reason": "under_planned"'; then
+        add_row "propose_floor_two_tickets" true "a proposal naming one ticket is refused as under-planned" load
+    else
+        add_row "propose_floor_two_tickets" false "the two-ticket floor did not hold: $(one_line "$_r")" load
+    fi
+
+    # And the refusal NAMES THE ALTERNATIVE — a refusal stating only the rule leaves the
+    # caller retrying the same thing, which is `check-floor.sh`'s own recorded discipline.
+    if printf '%s' "$_r" | grep -q 'plain ticket'; then
+        add_row "propose_floor_alternative" true "the under-planned refusal names what to do instead" load
+    else
+        add_row "propose_floor_alternative" false "the refusal states only the rule: $(one_line "$_r")" load
+    fi
+
     # /propose writes NOTHING into the repository — the property that keeps it out of the
     # unattended-main-writer class.
     _after=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)

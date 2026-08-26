@@ -45,7 +45,7 @@ that strategy's mission is finished, so the loop turns one mission per strategy 
      plan. Approval replans this mission to drive-ready; only then may it be
      authorized. -->
 
-- [ ] `/propose` proposes a **mission**: the issue names a title, an experience and an
+- [x] `/propose` proposes a **mission**: the issue names a title, an experience and an
       ordered ticket set at the ruled 7–8 scale, and the housekeeping brakes hold at that grain (#20260826022347-judge-a-whole-mission-not-one-change.md)
 - [ ] `/specificate` emits the mission the ask names rather than re-deriving it, and the
       strategy→mission link is visible on the roadmap with no field added to any artifact (#20260826022347-emit-the-mission-the-ask-already-planned.md)
@@ -55,3 +55,4 @@ that strategy's mission is finished, so the loop turns one mission per strategy 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-26 — ticket archived — 20260826022347-judge-a-whole-mission-not-one-change.md

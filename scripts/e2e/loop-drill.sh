@@ -1676,7 +1676,151 @@ EOF
     emit_verdict "direction-health" 0 "pass" 0
 }
 
-USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-specificate <issue>|verify-implement <issue>|verify-plan [--json]|verify-status [--json]|verify-cadence [--json]|verify-planner [--json]|verify-standup [--json]|verify-moderate [--json]|verify-propose [--json]|verify-direction-health [--json]"}'
+# --------------------------------------------------------- verify-merged-claim
+# Can the oracle tell a MERGED claim from a live one, at both grains? A squash merge leaves
+# the content on the base and no commit on it, so `base..ref` stays positive forever and a
+# finished unit is claimed forever — and until 2026-08-26 every MISSION claim was out of
+# scope by construction. Measured here the same day: three of five claims headed pull
+# requests #521, #537 and #546, all merged, all mission units, one offered `resumable: true`
+# five days after its own pull request merged.
+#
+# FOUR READINGS, NO NETWORK AND NO CREDENTIAL. The batch grain is answered from the tree, so
+# it needs nothing stubbed at all. The mission grain is answered by `claim-merged.sh`, the
+# protocol's one network read, so the transport is stubbed on PATH — `merged` for the third
+# row, and a refusing stub for the fourth, which is the reading the drill exists to keep
+# honest: an answer we could not make must leave the row's verdict exactly where it was.
+#
+# THE FIXTURE IS A REAL SQUASH MERGE, not a simulated one. A normal merge takes `base..ref`
+# to zero and `claims_scan` drops the branch before any verdict is reached, so the drill
+# would pass while proving nothing.
+cmd_verify_merged_claim() {
+    _lister="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/list-claims.sh"
+    _reader="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/claim-merged.sh"
+    if [ ! -f "$_lister" ] || [ ! -f "$_reader" ]; then
+        emit_err "merged_claim_unreadable" 4 "list-claims.sh or claim-merged.sh is not present in this checkout"
+    fi
+
+    _before=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+
+    _tmp=$(mktemp -d)
+    _origin="${_tmp}/origin"; _work="${_tmp}/work"; _read="${_tmp}/read"; _bin="${_tmp}/bin"
+    mkdir -p "$_origin" "$_bin"
+    _me=$(cd "$REPO_ROOT" && git config user.email 2>/dev/null || echo drill@example.com)
+    _git() { git -c user.email="$_me" -c user.name=Drill -c commit.gpgsign=false "$@"; }
+
+    ( cd "$_origin" && git -c init.defaultBranch=main init -q --bare ) || true
+    ( cd "$_tmp" && git clone -q "$_origin" work ) || true
+    mkdir -p "${_work}/.workaholic/tickets/todo" "${_work}/.workaholic/missions/active/drilled"
+    printf -- '---\ntype: Mission\ntitle: D\nslug: drilled\nstatus: active\nassignees: [%s]\nclaim: work-20260101-000000\n---\n\n# D\n' "$_me" \
+        > "${_work}/.workaholic/missions/active/drilled/mission.md"
+    printf -- '---\ncreated_at: 2026-01-01T00:00:00+09:00\nauthor: %s\nclaim: work-20260101-000001\n---\n\n# T\n' "$_me" \
+        > "${_work}/.workaholic/tickets/todo/20260101000001-t.md"
+    ( cd "$_work" && _git add -A && _git commit -qm seed && git push -q origin main ) || true
+
+    # Two claim branches, each ONE commit that both edits the artifact and carries the fixed
+    # `Claim a PR-unit` subject with its `Unit:` trailer — the shape `claims_scan` actually
+    # reads. The claim commit must TOUCH the stamped file, because the artifact list is
+    # "files this commit touched that still carry the stamp at the tip".
+    ( cd "$_work" && git checkout -q -b work-20260101-000000 main \
+      && printf -- '---\ntype: Mission\ntitle: D\nslug: drilled\nstatus: active\nassignees: [%s]\nclaim: work-20260101-000000\n---\n\n# D\n\nclaimed\n' "$_me" \
+        > .workaholic/missions/active/drilled/mission.md \
+      && _git commit -qam "Claim a PR-unit" -m "Unit: drilled" \
+      && git push -q origin work-20260101-000000 ) >/dev/null 2>&1 || true
+    ( cd "$_work" && git checkout -q -b work-20260101-000001 main \
+      && printf -- '---\ncreated_at: 2026-01-01T00:00:00+09:00\nauthor: %s\nclaim: work-20260101-000001\n---\n\n# T\n\nclaimed\n' "$_me" \
+        > .workaholic/tickets/todo/20260101000001-t.md \
+      && _git commit -qam "Claim a PR-unit" -m "Unit: batch-20260101000001" \
+      && git push -q origin work-20260101-000001 ) >/dev/null 2>&1 || true
+
+    # The BATCH unit is driven and its ticket archived, then BOTH branches are squash-merged
+    # so their content is on the base and their commits are not.
+    ( cd "$_work" && git checkout -q work-20260101-000001 \
+      && mkdir -p .workaholic/tickets/archive/work-20260101-000001 \
+      && git mv .workaholic/tickets/todo/20260101000001-t.md .workaholic/tickets/archive/work-20260101-000001/ \
+      && _git commit -qm "Archive the ticket" && git push -q origin work-20260101-000001 ) >/dev/null 2>&1 || true
+    ( cd "$_work" && git checkout -q main \
+      && git merge --squash -q work-20260101-000000 && _git commit -qm "Squash the mission claim" ) >/dev/null 2>&1 || true
+    ( cd "$_work" && git merge --squash -q work-20260101-000001 && _git commit -qm "Squash the batch claim" \
+      && git push -q origin main ) >/dev/null 2>&1 || true
+
+    ( cd "$_tmp" && git clone -q "$_origin" read ) >/dev/null 2>&1 || true
+    ( cd "$_read" && git config user.email "$_me" && git config user.name Drill ) || true
+
+    _ahead=$( ( cd "$_read" && git rev-list --count origin/main..origin/work-20260101-000000 ) 2>/dev/null || echo 0 )
+    if [ "${_ahead:-0}" -gt 0 ]; then
+        add_row "merged_claim_fixture" true "the squash-merged claim branch is still ahead of the base, which is the shape under test" load
+    else
+        add_row "merged_claim_fixture" false "the fixture is not a squash merge (ahead=${_ahead}); the drill would prove nothing" load
+        rm -rf "$_tmp"
+        emit_verdict "merged-claim" 0 "fail" 1
+    fi
+
+    _stub() { printf '#!/bin/sh\n%s\n' "$1" > "${_bin}/gh"; chmod +x "${_bin}/gh"; }
+    _verdict() { # unit
+        printf '%s' "$_claims" | tr '{' '\n' | grep "\"unit\": \"$1\"" \
+            | sed -n 's/.*"resume_reason": *"\([a-z_]*\)".*/\1/p' | head -1
+    }
+    _scan() { _claims=$( ( cd "$_read" && PATH="${_bin}:$PATH" \
+        WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES=0 sh "$_lister" ) 2>&1 || true ); }
+
+    # 1 + 2. A MERGED BATCH CLAIM, answered from the tree with no transport at all — and a
+    # LIVE claim beside it, which is what keeps this from being a blanket verdict.
+    _stub "echo '[]'"
+    _scan
+    if [ "$(_verdict batch-20260101000001)" = "superseded" ]; then
+        add_row "merged_claim_batch" true "a squash-merged batch claim reads superseded, with no network" load
+    else
+        add_row "merged_claim_batch" false "expected superseded for the batch grain, got '$(_verdict batch-20260101000001)': $(one_line "$_claims")" load
+    fi
+    _live=$(_verdict drilled)
+    if [ -n "$_live" ] && [ "$_live" != "superseded" ]; then
+        add_row "merged_claim_live" true "with no merged pull request the mission claim keeps its local verdict (${_live})" load
+    else
+        add_row "merged_claim_live" false "a claim with no merged pull request read '${_live:-nothing}': $(one_line "$_claims")" load
+    fi
+
+    # 3. A MERGED MISSION CLAIM — the reading this mission exists for, and the one no local
+    # signal can reach: `mission.md` is never archived, so only the pull request answers.
+    _stub "echo '[{\"number\":1,\"merged_at\":\"2026-08-26T00:00:00Z\"}]'"
+    _scan
+    if [ "$(_verdict drilled)" = "superseded" ]; then
+        add_row "merged_claim_mission" true "a merged pull request makes a mission claim superseded" load
+    else
+        add_row "merged_claim_mission" false "expected superseded for the mission grain, got '$(_verdict drilled)': $(one_line "$_claims")" load
+    fi
+
+    # 4. AN UNANSWERABLE READ leaves the verdict exactly where it was and is NAMED. This is
+    # the row that keeps the offline contract honest: a wrong `merged` releases work still in
+    # flight, a wrong `in flight` only delays a claim.
+    _stub "echo boom >&2; exit 1"
+    _scan
+    if [ "$(_verdict drilled)" = "$_live" ]; then
+        add_row "merged_claim_unanswerable" true "a refused lookup leaves the mission claim on its local verdict (${_live})" load
+    else
+        add_row "merged_claim_unanswerable" false "a refused lookup changed the verdict to '$(_verdict drilled)': $(one_line "$_claims")" load
+    fi
+    if printf '%s' "$_claims" | grep -q '"branch": "work-20260101-000000", "reason": "transport_error"'; then
+        add_row "merged_claim_named" true "and the claim it could not answer for is named, with its reason" load
+    else
+        add_row "merged_claim_named" false "the unanswered claim was not named: $(one_line "$_claims")" load
+    fi
+
+    # NO `gh` CALL REACHES A NETWORK, and the drill writes nothing into the checkout.
+    _after=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+    if [ "$_before" = "$_after" ]; then
+        add_row "merged_claim_writes_nothing" true "the checkout is byte-identical after the drill" load
+    else
+        add_row "merged_claim_writes_nothing" false "the drill changed the working tree" load
+    fi
+
+    rm -rf "$_tmp"
+    if [ "$LOAD_FAILED" -gt 0 ]; then
+        emit_verdict "merged-claim" 0 "fail" 1
+    fi
+    emit_verdict "merged-claim" 0 "pass" 0
+}
+
+USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-specificate <issue>|verify-implement <issue>|verify-plan [--json]|verify-status [--json]|verify-cadence [--json]|verify-planner [--json]|verify-standup [--json]|verify-moderate [--json]|verify-propose [--json]|verify-direction-health [--json]|verify-merged-claim [--json]"}'
 
 CMD="${1:-}"
 [ -n "$CMD" ] || {
@@ -1713,6 +1857,7 @@ case "$CMD" in
     verify-moderate) cmd_verify_moderate "$@" ;;
     verify-propose) cmd_verify_propose "$@" ;;
     verify-direction-health) cmd_verify_direction_health "$@" ;;
+    verify-merged-claim) cmd_verify_merged_claim "$@" ;;
     *)
         echo "$USAGE" >&2
         exit 2

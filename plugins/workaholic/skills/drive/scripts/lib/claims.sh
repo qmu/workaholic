@@ -188,8 +188,47 @@
 # must FAIL the writer loudly (claim.sh), because a claim that was not pushed is not
 # a claim. False "unclaimed" is the dangerous error: it double-picks work. A stale
 # reader over-reports claims, which merely makes a runner wait.
+#
+# THE MERGED LOOKUP BELOW RUNS THE SAME ASYMMETRY, and this is the sentence to read before
+# changing it (2026-08-26): a wrong `merged` RELEASES work that is still in flight, a wrong
+# `in flight` only delays a claim — so a lookup we could not make leaves the row precisely
+# the verdict it would have had without it, and is reported by name instead.
+
+# WHETHER THE LAST FETCH ACTUALLY RAN, for the one consumer inside this library that has to
+# know: the merged-claim lookup below, which is a NETWORK read and must not be attempted on a
+# run that has just proved it has no network.
+#
+# THE CALLER ASSIGNS IT, right after its `fetched=$(claims_fetch)` line, and that is not a
+# convenience — it is the only thing that works. `claims_fetch` is invoked in a command
+# substitution, so the assignment it makes to this variable happens in a SUBSHELL and never
+# reaches the parent; `claims_scan` then runs in a subshell of its own, which inherits the
+# parent's value but cannot write one back. So the flag has to be set in the parent, between
+# the two calls. It defaults to `false`, which is the safe direction: a caller that forgets
+# skips the lookup and keeps every verdict local.
+CLAIMS_FETCH_OK=false
+
+# Where this library itself lives — what locates the sibling `claim-merged.sh` the merged
+# lookup runs.
+#
+# THE CALLER SETS IT, and the `$0` walk below is only a fallback. A sourced file cannot ask
+# where it is: `$0` is the CALLER's script, and the caller may sit in a worktree, a publish
+# tree or the installed plugin cache. Every sourcer already computes its own script directory
+# in order to source this file at all, so passing it costs one line and is the only form that
+# is right by construction rather than by coincidence.
+CLAIMS_LIB_DIR="${CLAIMS_LIB_DIR:-}"
+if [ -z "$CLAIMS_LIB_DIR" ]; then
+    for _cl_cand in "$(dirname -- "$0")/lib" "$(dirname -- "$0")"; do
+        if [ -f "${_cl_cand}/claims.sh" ]; then
+            CLAIMS_LIB_DIR=$(CDPATH= cd -- "$_cl_cand" && pwd)
+            break
+        fi
+    done
+    unset _cl_cand
+fi
+
 claims_fetch() {
     if ! git config --get remote.origin.url >/dev/null 2>&1; then
+        CLAIMS_FETCH_OK=false
         printf 'false'
         return 0
     fi
@@ -202,8 +241,10 @@ claims_fetch() {
         git fetch --unshallow --prune --quiet origin >/dev/null 2>&1 || true
     fi
     if git fetch --prune --quiet origin >/dev/null 2>&1; then
+        CLAIMS_FETCH_OK=true
         printf 'true'
     else
+        CLAIMS_FETCH_OK=false
         printf 'false'
     fi
 }
@@ -437,6 +478,9 @@ claims_has_story() {
 claims_superseded() {
     _csp_base="$1"
     _csp_arts="${2:-}"
+    # $3 = the claim's SHORT branch name, for the merged-pull-request lookup a non-ticket
+    # artifact routes to. Optional: a caller with no branch in hand keeps the local test only.
+    _csp_branch="${3:-}"
     [ -n "$_csp_arts" ] || { printf 'false'; return 0; }
 
     # One listing per claim, reused for every artifact -- the archive is the largest path
@@ -452,11 +496,31 @@ claims_superseded() {
     for _csp_p in $_csp_arts; do
         case "$_csp_p" in
             .workaholic/tickets/*) ;;
-            # A mission unit (or anything else a claim may come to stamp) is out of scope:
-            # answer `false` rather than guessing, so its verdict is untouched.
+            # A NON-TICKET ARTIFACT — in practice a mission claim's `mission.md` — is answered
+            # by the merged-pull-request lookup instead (2026-08-26). It used to answer `false`
+            # outright, on the ground that the equivalent local test would need a second parser
+            # of the many-valued `mission:` relation "for a shape nothing has measured". The
+            # shape has since been measured: three of five claims on this repository headed
+            # pull requests #521, #537 and #546, all merged, all mission units, one of them
+            # offered `resumable: true` five days after its own pull request merged. The
+            # reasoning is replaced rather than deleted — the relation is still not parsed
+            # twice, because the lookup reads no artifact at all; it asks whether a merged
+            # pull request has this branch as its head, which is grain-agnostic by
+            # construction.
+            #
+            # THE LOCAL TEST STAYS FIRST AND STAYS NETWORK-FREE for a batch unit: the loop only
+            # reaches here on an artifact that is not a ticket, so an offline batch verdict is
+            # byte-identical to what it has always been.
+            #
+            # AN `unanswerable` LOOKUP ANSWERS `false`, which is precisely today's verdict for
+            # this grain — the degradation contract, not a new state.
             *)
                 IFS="$_csp_old_ifs"
-                printf 'false'
+                if [ "$(claims_merged_state "$_csp_branch")" = "merged" ]; then
+                    printf 'true'
+                else
+                    printf 'false'
+                fi
                 return 0
                 ;;
         esac
@@ -482,6 +546,80 @@ claims_superseded() {
     else
         printf 'false'
     fi
+}
+
+# Has this claim branch's work reached the base through a MERGED pull request? $1 = branch
+# name. Echoes `merged`, `not_merged` or `unanswerable`, and never fails.
+#
+# THIS IS THE CLAIM PROTOCOL'S ONE NETWORK READ, and every rule around it exists to keep
+# that from costing the reader its offline contract (`list-claims.sh`: *the reader degrades
+# offline*). `claims_superseded` above answers the same question from the tree and cannot
+# answer it for a mission claim; this can, because a pull request has a head branch whatever
+# the unit's grain.
+#
+# THE ASYMMETRY IS THE WHOLE DESIGN, and it runs the same way as `claims_fetch`'s: a wrong
+# `merged` RELEASES work that is still in flight, and the release is what double-picks a
+# colleague's unit. A wrong `in flight` only makes a runner wait. So an answer we could not
+# read is NEVER promoted to `merged` — it leaves the row exactly the verdict it would have
+# had before this lookup existed.
+#
+# IT IS SKIPPED, BY NAME, WHENEVER IT CANNOT SUCCEED. A run whose fetch just failed has
+# proved it has no network, so spending a call per claim to be told so again is pure latency
+# on the path a degraded runner is already on; `WORKAHOLIC_CLAIM_MERGED_LOOKUP=0` is the
+# explicit opt-out for a caller that wants the scan purely local. Both are reported as
+# reasons rather than silently answering `not_merged`.
+#
+# AT MOST ONE CALL PER CLAIM. It is invoked from exactly one place in the verdict chain, and
+# the chain short-circuits before it whenever a cheaper gate already decided.
+claims_merged_state() {
+    _cms_branch="${1:-}"
+    [ -n "$_cms_branch" ] || { printf 'unanswerable'; return 0; }
+
+    _cms_enabled="${WORKAHOLIC_CLAIM_MERGED_LOOKUP:-1}"
+    if [ "$_cms_enabled" = "0" ]; then
+        claims_note_unanswered "$_cms_branch" disabled
+        printf 'unanswerable'
+        return 0
+    fi
+    if [ "${CLAIMS_FETCH_OK:-false}" != "true" ]; then
+        claims_note_unanswered "$_cms_branch" offline
+        printf 'unanswerable'
+        return 0
+    fi
+
+    _cms_reader="${CLAIMS_LIB_DIR}/../claim-merged.sh"
+    if [ ! -f "$_cms_reader" ]; then
+        claims_note_unanswered "$_cms_branch" no_reader_script
+        printf 'unanswerable'
+        return 0
+    fi
+
+    _cms_out=$(sh "$_cms_reader" "$_cms_branch" 2>/dev/null || true)
+    _cms_state=$(printf '%s' "$_cms_out" | sed -n 's/.*"state": "\([^"]*\)".*/\1/p')
+    case "$_cms_state" in
+        merged|not_merged)
+            printf '%s' "$_cms_state"
+            ;;
+        *)
+            _cms_reason=$(printf '%s' "$_cms_out" | sed -n 's/.*"reason": "\([^"]*\)".*/\1/p')
+            claims_note_unanswered "$_cms_branch" "${_cms_reason:-unreadable}"
+            printf 'unanswerable'
+            ;;
+    esac
+}
+
+# Record one claim the merged lookup could not answer for, so the scan can REPORT what it
+# could not read rather than leaving it indistinguishable from what it read as live.
+#
+# IT GOES TO A FILE THE CALLER NAMES, not to a variable and not to an extra TSV column.
+# `claims_scan` runs inside a command substitution, so a variable it sets dies with the
+# subshell; and the row's field count is load-bearing — the header's longest warning is
+# about exactly what happens when a column is added. A caller that wants the set creates a
+# file, exports `CLAIMS_UNANSWERED_FILE`, and reads it afterwards; a caller that does not
+# care sets nothing and this is a no-op.
+claims_note_unanswered() {
+    [ -n "${CLAIMS_UNANSWERED_FILE:-}" ] || return 0
+    printf '%s\t%s\n' "$1" "$2" >> "$CLAIMS_UNANSWERED_FILE" 2>/dev/null || true
 }
 
 # Scan the remote branches for claims. $1 = base ref (from claims_base).
@@ -650,7 +788,7 @@ claims_scan() {
         elif [ $((_cs_now - _cs_ct)) -lt "$_cs_hb_threshold" ]; then
             _cs_resumable=false
             _cs_reason=claim_active
-        elif [ "$(claims_superseded "$_cs_base" "$_cs_artifacts")" = "true" ]; then
+        elif [ "$(claims_superseded "$_cs_base" "$_cs_artifacts" "$_cs_branch")" = "true" ]; then
             # The unit's work is already on the base by another route (see
             # claims_superseded). It sits AFTER `claim_active` on purpose: liveness is what
             # gates a takeover, so a run that is still committing keeps the reading that

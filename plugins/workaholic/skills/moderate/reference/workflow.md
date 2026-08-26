@@ -320,6 +320,22 @@ credential stalls a unit exactly as hard.
 keyed `stalled-unit:<unit>` — stable across ticks, which is what lets `ask-question.sh`'s ledger
 ask exactly once — with the claim holder's email to address it to. Nothing here touches a claim.
 
+**A `superseded` claim is a fact, not a question** (2026-08-26). Its work already reached the
+base, so there is nothing for a person to look at and nothing for them to decide; it is counted
+in the summary as a finding and never reaches the question set. The cost of getting this wrong is
+not neutral: the asked-once ledger means the one *real* stalled unit then arrives inside a stream
+a person has learned to skip. Measured — three merged pull requests were each being asked about.
+The keying is untouched: `stalled-unit:<unit>` still keys a genuine stall, and only which rows
+reach it moved.
+
+**The summary carries no age, and that is a correctness requirement** (same change). The root
+calls a step changed when its summary differs from the same step's an hour ago, and
+`render-tick-post.sh` normalises out a timestamp, a bare hex object name and a clock time — and
+**only** those. `oldest stopped 27h` increments every tick, so it made this step changed *hourly
+by construction* and the root restated the same stalled units four times in one day: the shape
+`📦 Release Preparation` was retired for. The age is still computed and still reaches the person,
+in the question that names the unit; the `event` carries none either, for the same reason.
+
 **`🔴 Blocked` and `↳ still failing` are unchanged**, and that is the decision rather than an
 omission: they are the run's record of an outcome, and this question is a demand on a person's
 attention. Making the record louder is the direction this repository has retired twice — the

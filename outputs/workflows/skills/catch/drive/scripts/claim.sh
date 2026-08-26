@@ -60,6 +60,7 @@
 set -eu
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "$0")" && pwd)
+CLAIMS_LIB_DIR="${SCRIPT_DIR}/lib"
 . "${SCRIPT_DIR}/lib/claims.sh"
 
 fail() {
@@ -96,6 +97,11 @@ git config --get remote.origin.url >/dev/null 2>&1 \
     || fail "no_origin" ', "detail": "a claim is a pushed branch; this repository has no origin remote"'
 [ "$(claims_fetch)" = "true" ] \
     || fail "origin_unreachable" ', "detail": "refusing to claim a unit without a reachable origin -- an unpushed claim is not a claim"'
+# The writer refuses without a reachable origin, so reaching this line means the fetch ran.
+# The flag has to be set HERE because `claims_fetch` above runs in a command substitution and
+# the value it sets dies with that subshell (see lib/claims.sh); without it the merged lookup
+# is skipped as `offline` and `resume` cannot see a `superseded` claim at all.
+CLAIMS_FETCH_OK=true
 
 base=$(claims_base)
 
@@ -145,8 +151,27 @@ if [ "$kind" = "resume" ]; then
             queue_drained)
                 fail "queue_drained" ', "unit": "'"${unit}"'", "branch": "'"${r_branch}"'", "detail": "this unit has nothing left to drive AND it reported -- its story is committed and its PR is open, so it is waiting on a human, not on a runner; resuming it would only add an empty takeover commit to a branch under review. A drained unit that never reported is a different state and IS resumable (report_incomplete)"'
                 ;;
-            *)
+            # A CLAIM WHOSE WORK IS ALREADY ON THE BASE (2026-08-26). Named on its own rather
+            # than left to the default, because the operator reading this refusal needs to
+            # learn that the pull request MERGED -- a generic denial sends them looking for a
+            # live run that does not exist. Measured: a mission unit was offered as resumable
+            # five days after its own pull request merged, and taking that offer costs a full
+            # story-and-pull-request cycle whose only correct outcome is to be closed.
+            superseded)
+                fail "superseded" ', "unit": "'"${unit}"'", "branch": "'"${r_branch}"'", "detail": "this unit'"'"'s work already reached the base -- a merged pull request has this branch as its head, or every one of its tickets is archived on the base. There is nothing left to drive and nothing for a human to merge; nothing here deletes the branch or closes the pull request, so an operator closes it out"'
+                ;;
+            shallow_history)
+                fail "shallow_history" ', "unit": "'"${unit}"'", "branch": "'"${r_branch}"'", "detail": "this clone'"'"'s history is truncated, so whether the branch already merged is unanswerable here -- the verdict is suppressed rather than guessed. Deepen the clone (a reachable origin does it automatically) and ask again"'
+                ;;
+            # THE DEFAULT NO LONGER ASSERTS A CAUSE. It named `identity_unresolved` for every
+            # unrecognised reason, so a verdict added to the scan without a case here was
+            # reported as a missing git identity -- which is what `superseded` and
+            # `shallow_history` were both doing until this change.
+            identity_unresolved)
                 fail "identity_unresolved" ', "unit": "'"${unit}"'", "branch": "'"${r_branch}"'", "detail": "this checkout has no git config user.email, so it cannot establish the claim is its own"'
+                ;;
+            *)
+                fail "not_resumable" ', "unit": "'"${unit}"'", "branch": "'"${r_branch}"'", "resume_reason": "'"${r_reason}"'", "detail": "the shared scan reports this claim as not resumable; the reason it gave is carried above verbatim"'
                 ;;
         esac
     fi

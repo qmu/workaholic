@@ -2,7 +2,7 @@
 type: Mission
 title: Tell a merged claim from a live one at both grains
 slug: tell-a-merged-claim-from-a-live-one-at-both-grains
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-26T11:31:32+00:00
 author: a@qmu.jp
@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260826-122328
 ---
 
 # Tell a merged claim from a live one at both grains
@@ -37,13 +38,23 @@ behind it is re-surveyable. Nothing deletes a branch or closes a pull request.
 
 ## Acceptance
 
-- [ ] A claim whose work is on the base reads as finished whatever its grain; the three
+- [x] A claim whose work is on the base reads as finished whatever its grain; the three
       merged units measured today are no longer stale. (#20260826113204-answer-superseded-for-a-mission-claim.md)
-- [ ] No question and no resumption offer names a claim whose pull request is merged,
+- [x] No question and no resumption offer names a claim whose pull request is merged,
       and the mission behind one is re-surveyable. (#20260826113204-never-offer-a-merged-claim-for-resumption.md)
-- [ ] A reading that cannot be made names the claim and the reason, and that claim keeps
+- [x] A reading that cannot be made names the claim and the reason, and that claim keeps
       exactly today's verdict. (#20260826113204-make-the-oracle-degrade-by-name-not-by-guess.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-26 — ticket archived — 20260826113204-pin-the-merged-claim-shape-with-a-fixture.md
+- 2026-08-26 — ticket archived — 20260826113204-read-whether-a-claim-s-work-reached-the-base.md
+- 2026-08-26 — ticket archived — 20260826113204-make-the-oracle-degrade-by-name-not-by-guess.md
+- 2026-08-26 — ticket archived — 20260826113204-answer-superseded-for-a-mission-claim.md
+- 2026-08-26 — ticket archived — 20260826113204-never-offer-a-merged-claim-for-resumption.md
+- 2026-08-26 — ticket archived — 20260826113204-re-survey-a-mission-behind-a-merged-claim.md
+- 2026-08-26 — ticket archived — 20260826113204-stop-asking-about-a-finished-claim.md
+- 2026-08-26 — ticket archived — 20260826113204-drill-the-merged-claim-readings-with-no-network.md
+- 2026-08-26 — mission achieved — mission.md
+- 2026-08-26 — story reported — work-20260826-122328.md

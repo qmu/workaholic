@@ -47,7 +47,7 @@ that strategy's mission is finished, so the loop turns one mission per strategy 
 
 - [x] `/propose` proposes a **mission**: the issue names a title, an experience and an
       ordered ticket set at the ruled 7–8 scale, and the housekeeping brakes hold at that grain (#20260826022347-judge-a-whole-mission-not-one-change.md)
-- [ ] `/specificate` emits the mission the ask names rather than re-deriving it, and the
+- [x] `/specificate` emits the mission the ask names rather than re-deriving it, and the
       strategy→mission link is visible on the roadmap with no field added to any artifact (#20260826022347-emit-the-mission-the-ask-already-planned.md)
 - [x] `/propose`'s brake bounds one mission in flight per strategy, and every affected
       document is updated in the same change (#20260826022347-bound-the-brake-to-one-mission-per-strategy.md)
@@ -57,3 +57,4 @@ that strategy's mission is finished, so the loop turns one mission per strategy 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-26 — ticket archived — 20260826022347-judge-a-whole-mission-not-one-change.md
 - 2026-08-26 — ticket archived — 20260826022347-bound-the-brake-to-one-mission-per-strategy.md
+- 2026-08-26 — ticket archived — 20260826022347-emit-the-mission-the-ask-already-planned.md

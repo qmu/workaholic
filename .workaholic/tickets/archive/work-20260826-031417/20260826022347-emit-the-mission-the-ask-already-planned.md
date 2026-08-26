@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-26T02:23:47+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on: 20260826022347-judge-a-whole-mission-not-one-change.md
@@ -81,3 +82,32 @@ match the proposal they approved.
   planned**. An ask it judges unbuildable is still record-only, reported with its reason.
 - Watch the mission ceiling: a 7–8 ticket plan compressed into ≤3 acceptance items is the
   binding constraint, and it is the reason the acceptance sketch is a sketch.
+
+## Final Report
+
+Development completed as planned. `specificate/SKILL.md` now states the rule beside the four
+forms — an ask naming a mission's title, experience and ordered ticket set is emitted as **that**
+plan, in that order, and the run does not re-decompose it — and `reference/workflow.md` carries it
+at steps 7, 8 and 9. Every gate stays over the top of the named plan and is listed rather than
+implied (the two-ticket floor, the mission ceiling, the carry floor, `verification_handoff`,
+`## Open Decisions`); a named plan that breaches one is **demoted and reported by name**, never
+trimmed to fit. Step 9 opens with the extend-or-mint judgment reconciling this with *A strategy is
+not a mission factory*: a mission-shaped ask against a strategy whose active mission still exists
+lands as tickets **into** that mission — read through `attributed-work.sh`'s new
+`waiting_mission_slugs`, the one attribution reader — and the run reports which of the two it
+judged.
+
+`sh scripts/e2e/loop-drill.sh verify-specificate` is in the Quality Gate but needs a seeded issue
+number and a live loop (`verify-specificate <issue>`); it is not runnable from an unattended
+container without opening a GitHub issue, so it was **not run**. The change is prose in two
+documents with no script behind it, and the hermetic suite, the build and the verifier all pass.
+
+### Discovered Insights
+
+- **Insight**: The extend-or-mint judgment belongs at the **top** of step 9, not at step 8.
+  **Context**: Step 8 drafts the mission; if the judgment lived there, an *extend* outcome would
+  already have scaffolded one. Putting it first makes "skip step 8 entirely" the natural reading.
+- **Insight**: The rule this ticket adds is a *subtraction* from the run's job, not an addition.
+  **Context**: Row 1 of the precedence already sent a decomposable ask to the mission form. What
+  was missing was only the instruction not to re-derive a plan the ask had already made — which is
+  why the change is prose and no scaffold invocation moved.

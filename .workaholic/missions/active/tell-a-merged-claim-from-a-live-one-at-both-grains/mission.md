@@ -54,3 +54,4 @@ behind it is re-surveyable. Nothing deletes a branch or closes a pull request.
 - 2026-08-26 — ticket archived — 20260826113204-answer-superseded-for-a-mission-claim.md
 - 2026-08-26 — ticket archived — 20260826113204-never-offer-a-merged-claim-for-resumption.md
 - 2026-08-26 — ticket archived — 20260826113204-re-survey-a-mission-behind-a-merged-claim.md
+- 2026-08-26 — ticket archived — 20260826113204-stop-asking-about-a-finished-claim.md

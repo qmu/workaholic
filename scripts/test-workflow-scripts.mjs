@@ -20001,6 +20001,51 @@ function testStalledUnitsStep() {
     assertEq("asking touches no claim",
       execSync("git status --porcelain", { cwd: A, encoding: "utf8" }).trim(), "");
 
+    // A `superseded` CLAIM IS A FACT, NOT A QUESTION (2026-08-26). Its work already reached
+    // the base, so there is nothing to look at and nothing to decide. The cost of asking
+    // anyway is not neutral: the asked-once ledger then delivers the one REAL stalled unit
+    // inside a stream a person has learned to skip. Measured — three merged pull requests
+    // were each being asked about.
+    //
+    // The batch claim's tickets are archived on the base, which is the local, network-free
+    // route to `superseded`; the mission claim stays an ordinary stall beside it, so the
+    // assertion shows the filter is on the verdict and not on claims in general.
+    {
+      const t1 = `.workaholic/tickets/todo/${TEST_SLUG}/20260729000001-t1.md`;
+      const b = JSON.parse(run(A, `${CLAIM} batch ${t1}`).stdout);
+      const arch = `.workaholic/tickets/archive/work-20260101-000000`;
+      mkdirSync(join(A, arch), { recursive: true });
+      writeFileSync(join(A, arch, "20260729000001-t1.md"), "---\nstatus: done\n---\n\n# T1\n");
+      execSync(`git add -A && git commit -q -m "Land it elsewhere" && git push -q origin main`, { cwd: A });
+      // The heartbeat window has to be opened too, not just the staleness threshold: the
+      // verdict chain checks `claim_active` BEFORE `superseded`, so a claim made seconds ago
+      // never reaches the verdict under test.
+      const OPEN = "WORKAHOLIC_CLAIM_STALE_HOURS=0 WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES=0";
+      const s = JSON.parse(run(A, `${OPEN} ${STEP} --tick 20260823-020000 --root ${A}`).stdout);
+      const asked = s.needs_agent[0].stalled.map((x) => x.unit);
+      assertTrue("a superseded claim is never asked about",
+        !asked.includes(b.unit), JSON.stringify(asked));
+      assertTrue("while the genuinely stalled unit beside it still is",
+        asked.includes("m1"), JSON.stringify(asked));
+      assertTrue("and it is counted in the log as a finding instead",
+        /1 finished \(superseded\)/.test(s.summary), s.summary);
+
+      // THE SUMMARY CARRIES NO AGE, so the moderation diff cannot call this step changed
+      // hourly by construction — the shape `📦 Release Preparation` was retired for. The
+      // renderer normalises out a timestamp, a bare hex name and a clock time, and ONLY
+      // those, so an age in hours would survive normalisation and move every tick.
+      assertTrue("the summary carries no age in hours", !/\d+h/.test(s.summary), s.summary);
+      assertTrue("and neither does the root event", !/\d+h/.test(s.event), s.event);
+      assertTrue("the event names the repository event",
+        /have not moved for a day or more|has not moved for a day or more/.test(s.event), s.event);
+
+      // TWO CONSECUTIVE TICKS OVER AN UNCHANGED SET PRODUCE AN UNCHANGED SUMMARY, which is
+      // exactly what the diff compares.
+      const later = JSON.parse(run(A, `${OPEN} ${STEP} --tick 20260823-030000 --root ${A}`).stdout);
+      assertEq("an unchanged stalled set produces an identical summary an hour later",
+        later.summary, s.summary);
+    }
+
     // A DEGRADED READ IS NAMED. Unmerged remote branches are the only claim oracle, so a
     // scan that could not reach the remote has found nothing at all -- not "nothing".
     execSync("git remote remove origin", { cwd: A });

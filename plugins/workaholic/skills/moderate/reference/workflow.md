@@ -631,6 +631,22 @@ loss** — a repository with several expired directions can fill a tick and hold
 next hour, and held is not dropped; no cap of this step's own is invented for a load nobody has
 measured.
 
+**What it puts on the root.** `event` names a repository event — *a direction has run past its
+date*, *the repository has no live direction* — never a counter of what the step examined, and it
+**links each direction it names** (the base URL is derived from the local remote, so no network
+call; an absent remote degrades to the repo-relative path rather than to a broken link). A tick
+on which **every** direction reads `live` supplies the empty string and therefore renders no line
+at all — the independent guard against a "nothing happened" line reaching the root even when the
+change diff calls the step changed. **So does a tick whose only non-`live` reading is
+`unreadable`**: that is our own degradation rather than something that happened to the
+repository, the same reason it is never asked about, and it stays in the log-facing `summary`,
+which keeps every count.
+
+`/standup`'s `no_strategies` no-op is left untouched, and the asymmetry is written down in
+`workaholic:standup` rather than left to be re-derived: this tick turns *no live direction* into a
+question addressed to a person, while a daily digest about nothing teaches its readers to skip the
+surface.
+
 A reader that refuses, or a missing script, is `degraded` with the reason named — never an `ok`
 step that found nothing.
 

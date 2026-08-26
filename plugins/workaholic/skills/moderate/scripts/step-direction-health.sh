@@ -156,7 +156,47 @@ needs=$(printf '%s' "$subjects" | jq -c '{action: "ask_the_owner_what_becomes_of
     compose: "post `heading` as the 🙋 subject and `body` as the one sentence beneath it, per workaholic:notify; the three parts are already in that order and must not be re-invented here",
     directions: .}' 2>/dev/null || echo '{}')
 
-event="${n_overdue} direction(s) past their date, ${n_dormant} with nothing answering them"
+# THE EVENT NAMES A REPOSITORY EVENT, NOT A COUNTER OF WHAT THE STEP EXAMINED (2026-08-23's
+# rule, applied here). `0 overdue, 0 dormant` is the tick's bookkeeping and belongs in the log;
+# what the root carries is *a direction has run past its date*. The step supplies it because it
+# knows what its reading means, and the renderer does not.
+#
+# AN ALL-`live` TICK SUPPLIES THE EMPTY STRING and therefore renders no line — the early
+# `emit ok "" "$summary"` above, which is the independent guard against a "nothing happened"
+# line reaching the root even when the change diff calls this step changed.
+#
+# AND SO DOES A TICK WHOSE ONLY NON-`live` READING IS `unreadable`. That is our own degradation,
+# not something that happened to the repository, and it is the same reason `unreadable` is never
+# asked about; it stays in the log-facing summary, which keeps every count.
+phrase=""
+if [ "$n_overdue" -gt 0 ]; then
+    if [ "$n_overdue" -eq 1 ]; then phrase="a direction has run past its date"
+    else phrase="${n_overdue} directions have run past their date"; fi
+fi
+if [ "$n_dormant" -gt 0 ]; then
+    if [ "$n_dormant" -eq 1 ]; then dphrase="a direction has nothing answering it"
+    else dphrase="${n_dormant} directions have nothing answering them"; fi
+    phrase="${phrase:+${phrase}; }${dphrase}"
+fi
+
+# EVERY ROOT LINE LINKS ITS ITEM, so a person following the direction reaches the artifact
+# rather than the tick. The base URL is derived from the local remote — no network call — and
+# an absent remote degrades to the repo-relative path rather than to a broken link.
+remote=$(git config --get remote.origin.url 2>/dev/null || true)
+case "$remote" in
+    git@*:*) base="https://github.com/$(printf '%s' "$remote" | sed 's/^git@[^:]*://; s/\.git$//')" ;;
+    https://*) base=$(printf '%s' "$remote" | sed 's/\.git$//') ;;
+    *) base="" ;;
+esac
+links=$(printf '%s' "$subjects" | jq -r --arg base "$base" '
+    [ .[] | select(.slug != "")
+      | if $base == "" then ".workaholic/strategies/" + .slug + ".md"
+        else "<" + $base + "/blob/main/.workaholic/strategies/" + .slug + ".md|" + .slug + ">" end ]
+    | (if (length > 3) then (.[0:3] + ["and " + ((length - 3) | tostring) + " more"]) else . end)
+    | join(", ")' 2>/dev/null || echo "")
+
+event="${phrase}${links:+ — ${links}}"
+# The repository-level reading has no strategy to link: there is none, which is the finding.
 [ "$repository" = "none" ] && event="the repository has no live direction"
 
 emit ok "" "$summary" "$needs" "$event"

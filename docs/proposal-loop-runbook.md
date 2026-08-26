@@ -138,7 +138,13 @@ which is minted per second (§5).
    (`list-proposed-refs.sh`, read **before** anything is scaffolded).
 4. Judges against the propose skill's conservative bar and picks the form: a
    mission with its ordered ticket set, one loose backlog ticket, one strategy,
-   or the record alone. The **strategy form** (2026-08-14) needs all three parts
+   or the record alone. **An ask that already names a mission** — a title,
+   the experience it demands and an ordered ticket set, the shape `/propose` has
+   written since 2026-08-26 — is emitted as *that* plan, in that order, rather
+   than re-decomposed; every floor still applies over the top of it and a breach
+   is demoted and reported by name. A mission-shaped ask against a strategy whose
+   active mission still exists lands as tickets **into** that mission, and the run
+   reports which of the two it judged. The **strategy form** (2026-08-14) needs all three parts
    present in the ask — a `YYYY-MM-DD` date, a named owner, an aim with no
    decomposable plan — and its pull request is the one proposal that does not
    auto-merge, so the operator's merge stays the act that authors the artifact.

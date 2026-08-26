@@ -336,7 +336,13 @@ throwaway strategy tree, hands the survey a synthetic open-proposal list through
 
 It is the drill that matters most on this routine, and for a reason none of the others
 have: `/propose` is the one routine here that drops the standing *when unsure, record
-only* bar on purpose, so what bounds it is not a judgment but this gate list. A gate that
+only* bar on purpose, so what bounds it is not a judgment but this gate list. **Since
+2026-08-26 the bounded thing is a mission**: a proposal plans a whole mission with an
+ordered ticket set, and `work_waiting` reads an *active attributed mission* as well as a
+queued ticket — so the drill covers the case the change-grain gate left open (a mission
+whose queue is drained while its work is at a pull request) and the case that proves the
+gate still releases (a closed mission). The chain end to end is
+`verify-propose` plus `verify-specificate <issue>`; only the first runs with no network. A gate that
 quietly stops gating looks exactly like a routine working normally — right up to the hour
 it opens one issue per strategy per tick.
 
@@ -344,7 +350,12 @@ it opens one issue per strategy per tick.
 | --- | ---------- | ---- |
 | `propose_nearest_first` | the tick took a direction other than the one whose `target_date` is nearest | `survey-strategies.sh` — eligible strategies sort by `days_to_target` ascending |
 | `propose_gate_<slug>` | a strategy that should have been refused was not, or was refused as something else | the gate table in `workaholic:propose`; each row names one of `not_active`, `not_mine`, `past_target_date`, `no_feedback_refs`, `over_cap` |
-| `propose_in_flight` | a strategy whose last proposal is still open was proposed against again | the in-flight half of the brake — with `work_waiting` it gives *one proposal per strategy at a time*, and losing it is what would make the dropped bar unbounded |
+| `propose_in_flight` | a strategy whose last proposal is still open was proposed against again | the in-flight half of the brake — with `work_waiting` it gives *one **mission** per strategy at a time* (2026-08-26; *one proposal* while the unit was a change), and losing it is what would make the dropped bar unbounded |
+| `propose_mission_in_flight` | a strategy whose attributed mission is active with a **drained** queue was proposed against again | the window the change-grain gate left open: the mission's last ticket is at a pull request, so no ticket is queued and a second mission would be proposed |
+| `propose_mission_released` | a strategy whose mission has been closed is still gated | "one mission at a time" has to release, or it is a stall rather than a brake |
+| `propose_floor_mission_shape` | a body naming no `## Experience` and no `## Tickets` was accepted | the proposal's unit is a mission, so a body that names neither has not planned one |
+| `propose_floor_two_tickets` | a proposal naming fewer than two tickets was accepted | the proposing seam's own ticket floor, mirroring `check-floor.sh` at the publish seam |
+| `propose_floor_alternative` | the `under_planned` refusal states only the rule | a refusal that does not name the alternative leaves the caller retrying the same thing |
 | `propose_unreadable_inbox` | an unreadable open-proposal list did not refuse the whole tick | a gate that cannot be read is not a gate; the tick must never fall through to a permissive default |
 | `propose_floor_sections` | a body naming no fork it is chosen against was accepted | the anti-housekeeping floor — "tidy this up" is chosen against nothing |
 | `propose_floor_move` | a proposal declaring no `depth`/`breadth`/`contraction` move was accepted | a proposal that cannot say which evolutionary move it is has made no claim on the strategy |

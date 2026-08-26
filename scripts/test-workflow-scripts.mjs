@@ -5096,10 +5096,24 @@ function testProposeRoutineTemplate() {
   const catalogued = [...catalog.matchAll(/```\n(\u{1F4E5}[\s\S]*?)```/gu)].map((m) => m[1]);
   assertEq("the catalog carries that shape exactly once", catalogued.length, 1);
   assertEq("byte for byte, template against catalog", blocks[0], catalogued[0]);
+  // THE REACTION, PINNED TO THE SAME SINGLE SOURCE (2026-08-26). The reply closed half the
+  // gap: it lives INSIDE a thread, so from a channel scroll a filed ask and an ignored one
+  // still looked identical. The reaction is the same receipt at a glance -- and because it
+  // is a Slack write, the prompt is its ceiling too, so the emoji is named once in the
+  // catalog and read from there by the template rather than restated beside it.
+  const reactions = [...catalog.matchAll(/reaction on the message itself: `(:[a-z_]+:)`/g)]
+    .map((m) => m[1]);
+  assertEq("the catalog names the reaction exactly once", reactions.length, 1);
+  assertTrue("and the template's prompt authorizes that same reaction",
+    prompt.includes(reactions[0]), prompt);
+  assertTrue("the reaction rides the coordinate already in hand, never a lookup",
+    /no lookup and no search/.test(prompt.slice(prompt.indexOf(reactions[0]))), prompt);
   // The receipt is the ONLY thing it may say: everything the no-posting argument covered is
   // still covered, and the prompt is where that ceiling is written.
   assertTrue("and the prompt still forbids every other post",
     /Post nothing else to Slack/.test(prompt), prompt);
+  assertTrue("and every other reaction, now that it may add one",
+    /add no other reaction/.test(prompt), prompt);
   assertTrue("including a receipt for a message it did not file this run",
     /already-swept/.test(prompt), prompt);
   assertTrue("and states the receipt never blocks the capture",
@@ -15639,6 +15653,15 @@ function testInboundSweep() {
     assertEq("the ledger read reports ok", ledger.ok, true);
     assertTrue("and reads back exactly the ref the writer stamped",
       (ledger.refs || []).includes("C0AB12CD3:1724371200.000100"), JSON.stringify(ledger.refs));
+    // AND THAT SAME ROUND TRIP IS WHAT WITHHOLDS THE RECEIPT (2026-08-26). The reply and the
+    // reaction go only to a message THIS run filed; an already-swept one gets neither, because
+    // its receipt is on the issue that already exists. The exclusion has no separate mechanism
+    // -- it is this ledger membership -- so a ref that reads back is a message the sweep skips
+    // and therefore a message no reaction lands on.
+    assertEq("so an already-swept ref is excluded from the sweep, receipt and all",
+      ["C0AB12CD3:1724371200.000100", "C0AB12CD3:1724374800.000200"]
+        .filter((ref) => !(ledger.refs || []).includes(ref)),
+      ["C0AB12CD3:1724374800.000200"]);
 
     // ---- refusals leave nothing half-filed ----
     const noSubject = sh(SCRIPTS.fileInboundAsk,

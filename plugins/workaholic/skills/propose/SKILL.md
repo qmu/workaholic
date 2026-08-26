@@ -114,13 +114,28 @@ two-query bound is never touched (`workaholic:notify`, *The inbound sweep's rece
 message with no thread gets one rooted on itself, which is where a person reading that message
 looks.
 
+**And a reaction on the message itself, beside the reply** (2026-08-26). The reply closed half
+the gap and left the other half open: a reply lives *inside* a thread, so from a channel scroll
+a captured ask and an ignored one still look identical — a person has to open the thread to find
+out which happened. The reaction is the same receipt at a glance, in the place someone scrolling
+the channel is already looking. The emoji is named **once**, in `workaholic:notify`'s catalog
+(*The inbound sweep's receipt*), so the skill, the routine template and the drift pin read one
+source; it is the emoji the reply already speaks with, because one event keeps one vocabulary.
+
+It is added **after** `file-inbound-ask.sh` returns `ok: true`, on the `slack-ref` that wrapper
+just wrote — so, like the reply, **no lookup, no search and no second query**. It is a **second
+signal for a second audience**, never a substitute: a reaction carries no link and is invisible
+to anyone reading the issue rather than the channel, while the reply carries the issue URL and
+is invisible to anyone scrolling past.
+
 **Only a message this run filed, and never load-bearing.** An **already-swept** message gets
-nothing — its receipt is on the issue that already exists, and a second one an hour later is
-the hourly restatement this repository retires posts for; an exclusion, a degradation and the
-strategy half of the tick post nothing at all. The issue is open before the reply is attempted,
-so a reply that fails is reported per message as `ack_failed: <reason>` and changes nothing
-about the filing, the dedup marker or what `/specificate` ingests. A capture that landed and a
-receipt that did not are two facts and the run report states both.
+nothing — **neither reply nor reaction**; its receipt is on the issue that already exists, and a
+second one an hour later is the hourly restatement this repository retires posts for; an
+exclusion, a degradation and the strategy half of the tick post nothing at all. The issue is
+open before either is attempted, so a reply or a reaction that fails is reported per message as
+`ack_failed: <reason>` — one outcome each, so a landed reaction and a failed one are two facts —
+and changes nothing about the filing, the dedup marker or what `/specificate` ingests. A capture
+that landed and a receipt that did not are two facts and the run report states both.
 
 **Degradations are named, and the strategy flow never waits for them**: no Slack connector in
 the session → `no_slack_transport`, sweep skipped and said; an unreadable channel →
@@ -483,7 +498,8 @@ with the clock placement, the name reclamation, and the alternatives that were r
 
 ## The one thing it posts to Slack, and everything it still does not
 
-**It posts exactly one shape — the sweep's `📥 受理` receipt — and nothing else** (2026-08-26).
+**It posts exactly one shape — the sweep's `📥 受理` receipt, with its reaction — and nothing
+else** (2026-08-26).
 It read Slack and posted nothing at all from 2026-08-23 until then; what changed is narrow and
 the reasons that kept it silent are unchanged for everything else, so they are restated rather
 than dropped.

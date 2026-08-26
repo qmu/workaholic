@@ -93,7 +93,8 @@ envelope, and abort reason, is [`reference/workflow.md`](reference/workflow.md):
    triggering issue number — its merge then auto-closes that issue), close the
    publish tree,
    **notify**, and **report** one line: the form chosen with its reason, the record's
-   filename, the PR URL, and the `notified` flag.
+   filename, **the carry** (what each emitted artifact carried, and every dropped ref with
+   its reason), the PR URL, and the `notified` flag.
 
 ## Discovery before scaffolding
 
@@ -255,6 +256,8 @@ An ask whose body carries a `feedback: <ref>, <ref>` line names records that alr
 **It is what closes the improvement loop.** A `[Propose]` proposal (`workaholic:propose`) names the **strategy's** own refs on that line, because `attributed-work.sh` attributes work to a strategy through `strategy.feedback[] ∩ artifact.feedback[]`. Without the carry-forward, a mission proposed for a strategy would cite only the new record, the intersection would be empty, and the loop would turn leaving no trace on the direction that asked for it.
 
 **And the carry is floored, not merely instructed.** Reading the line and reporting it still leaves the failure reachable — a run that reads the refs and forgets to pass them to a scaffold publishes a mission missing them, and the loss reaches `main`. `check-carry-floor.sh` is read at the publish seam beside the two-ticket floor: when the ask carried refs that **resolved** and the run emitted a mission or a loose ticket, those refs must be on what it emitted, or the seam refuses with the repair named. The floor is on the **emitted artifact** — the mission when there is one, the loose ticket when there is not; a mission's tickets need not repeat its refs, since `attributed-work.sh` reaches them through `via_mission:<slug>`. It checks a string in a file and never whether the work advances the direction, which stays a judgment.
+
+**And the carry is reported, on both surfaces.** The obligation lives beside the carrying obligation because a turn that lost the link would otherwise report success on the turn that lost it: the **run report** names, per emitted artifact, what it carried (a count) and every ref it dropped (by name, with its reason), and the **pull-request body** carries the same two sets. A **record-only** outcome emits no artifact, so it reports the refs it *would* have carried and that nothing was emitted — without that clause a dropped link and an unproposed ask read alike in the report too. Both surfaces read `read-ask-feedback-refs.sh`'s output, never a re-read by eye. Keep it short: a per-artifact ref dump nobody reads is the noise this repository has twice retired status roots for.
 
 **The direction stays one-way**: this puts a *feedback* ref on a *mission*, the relation both artifacts already have. Nothing gains a pointer to a strategy, so the `strategy:` relation retired on 2026-07-28 and its ownership hop stay retired. A ref that does not resolve under `.workaholic/feedbacks/` is dropped and named in the pull-request body — never invented, and never a reason to refuse the proposal.
 

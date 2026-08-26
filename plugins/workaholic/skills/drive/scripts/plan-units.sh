@@ -57,7 +57,8 @@
 #
 # NOTHING IS EXCLUDED SILENTLY. Every mission and ticket the survey drops is reported
 # in `excluded` with its reason (`claimed_active`, `claimed_reported`,
-# `claimed_by_other`, `claimed_resumable`, `owned_by_other`, `no_plan`, `no_tickets`,
+# `claimed_by_other`, `claimed_resumable`, `claimed_superseded`, `owned_by_other`,
+# `no_plan`, `no_tickets`,
 # `queue_drained`, `mission_member`; `not_approved` was retired with the draft gate --
 # K1), because a
 # queue item that vanishes from an unattended run's offer with no trace is
@@ -84,6 +85,22 @@
 # taken over. The four names are read straight out of cron logs, so each one has to
 # imply its own next action -- and `claimed_reported` exists because folding it into
 # `claimed_active` said "a run is on it" about a unit no run will ever touch again.
+#
+# `claimed_superseded` IS THE FIFTH, AND IT NAMES A CLAIM WITH NOTHING IN IT (2026-08-26).
+# The unit's tickets are already archived on the base, delivered by another route -- a
+# hand recovery, a re-application, a revert-and-redo. Its own next action is neither
+# `wait`, `review`, `never` nor `resume` but *close it out*, and it must NOT forbid `ok`:
+# a claim holding no work is the opposite of outstanding work. It follows the same rule
+# every other reason here does -- the verdict is the shared scan's (`claims_superseded`),
+# never re-derived, and nothing acts on it.
+#
+# `claimed_reported` NOW MEANS WHAT IT SAYS (2026-08-19). It used to be emitted for every
+# `queue_drained` unit, including one that died between §4 and §5 -- drained, pushed, and
+# with no pull request anywhere -- so it asserted a report that never happened and the
+# work was reachable by nobody: not by resumption (refused), not by a fresh claim (its
+# tickets were excluded here). Such a unit now reads `report_incomplete` in the shared
+# scan, which is `resumable: true`, so it lands in `claimed_resumable` and in the offer.
+# No branch here changed: the classification below already keys on `resumable` first.
 #
 # `resumable[]` is a THIRD offer alongside `missions`/`backlog`, not a fourth kind of
 # exclusion: those two are claimed fresh from the base, a resumable unit is taken over
@@ -220,6 +237,8 @@ if [ -n "$ROWS" ]; then
             c_exc=claimed_by_other
         elif [ "$c_reason" = "queue_drained" ]; then
             c_exc=claimed_reported
+        elif [ "$c_reason" = "superseded" ]; then
+            c_exc=claimed_superseded
         else
             c_exc=claimed_active
         fi

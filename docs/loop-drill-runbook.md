@@ -185,6 +185,8 @@ from what the tick printed to the one file to read.
 | `already_claimed` / `claimed_active` / `claimed_reported` / `claimed_by_other` | `skills/drive/scripts/list-claims.sh` — another runner holds the unit; expected, no action |
 | `deferred_by_operator` | `skills/drive/SKILL.md` §2 — cannot occur in a drill: the fire is `/implement`, which asks nothing. Seeing it means an attended `/drive` took the unit instead |
 | `claimed_resumable` / `heartbeat_lapsed` | `skills/drive/reference/claims.md` — your own dropped claim; `claim.sh resume <unit-id>` continues it |
+| `claimed_superseded` / `superseded` | `skills/drive/scripts/lib/claims.sh` — the claim's tickets are already archived on the base by another route; it holds no work, nothing acts on it, and it does not forbid `ok` |
+| `report_incomplete` | `skills/drive/scripts/lib/claims.sh` — your own claim whose queue is drained and whose branch carries no story: the run died before opening the pull request. `claim.sh resume <unit-id>` takes it over and enters at §5, re-driving nothing |
 | `branch_collision` on claim | `skills/drive/scripts/claim.sh` — nothing was claimed; the next tick succeeds |
 | `origin_unreachable` / `no_origin` | `skills/drive/scripts/claim.sh` — an unpushed claim is not a claim; the run correctly claims nothing |
 | `mission_missing` | `skills/drive/scripts/claim.sh` — wrong slug, or the checkout is behind the base |

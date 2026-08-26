@@ -17,7 +17,11 @@
 #                                         path ran, and `resume_reason` so an operator can
 #                                         see WHY the unit was offered -- notably
 #                                         `parked_with_pr`, a unit that reported and opened
-#                                         its PR rather than one that died mid-drive.
+#                                         its PR rather than one that died mid-drive, and
+#                                         `report_incomplete`, a unit whose queue is
+#                                         drained and which never opened one at all, so it
+#                                         re-enters the Unified Run at §5 with nothing left
+#                                         to drive.
 #
 # One unit <-> one branch <-> one worktree <-> one PR. The sequence is fixed:
 #   1. fetch origin (a claim that cannot be pushed is not a claim -- see below);
@@ -121,7 +125,11 @@ if [ "$kind" = "resume" ]; then
     r_author=$(printf '%s' "$resume_row" | cut -f5)
     r_resumable=$(printf '%s' "$resume_row" | cut -f6)
     r_reason=$(printf '%s' "$resume_row" | cut -f7)
-    r_arts=$(printf '%s' "$resume_row" | cut -f8)
+    # FIELD 9, NOT 8. The artifact list is the row's LAST field, and `reported` was
+    # inserted before it (2026-08-23) -- so this read was silently returning `true`/`false`
+    # as the unit's whole artifact list. It is the tail by construction (see lib/claims.sh's
+    # no-empty-field rule), which is what makes a fixed index safe at all.
+    r_arts=$(printf '%s' "$resume_row" | cut -f9)
 
     # The verdict is the SHARED scan's, never re-derived here. A writer that decided
     # resumability for itself could take over a unit the reader still reports as
@@ -135,7 +143,7 @@ if [ "$kind" = "resume" ]; then
                 fail "foreign_identity" ', "unit": "'"${unit}"'", "branch": "'"${r_branch}"'", "author": "'"${r_author}"'", "detail": "another identity holds this claim; it is never resumable here, at any age"'
                 ;;
             queue_drained)
-                fail "queue_drained" ', "unit": "'"${unit}"'", "branch": "'"${r_branch}"'", "detail": "this unit has nothing left to drive -- it finished and is waiting on a human at its PR, not on a runner; resuming it would only add an empty takeover commit to a branch under review"'
+                fail "queue_drained" ', "unit": "'"${unit}"'", "branch": "'"${r_branch}"'", "detail": "this unit has nothing left to drive AND it reported -- its story is committed and its PR is open, so it is waiting on a human, not on a runner; resuming it would only add an empty takeover commit to a branch under review. A drained unit that never reported is a different state and IS resumable (report_incomplete)"'
                 ;;
             *)
                 fail "identity_unresolved" ', "unit": "'"${unit}"'", "branch": "'"${r_branch}"'", "detail": "this checkout has no git config user.email, so it cannot establish the claim is its own"'
@@ -207,7 +215,7 @@ if [ "$kind" = "resume" ]; then
     ( cd "$worktree_path" && sh "${SCRIPT_DIR}/../../commit/scripts//commit.sh" --allow-empty \
         --trailer "Unit: ${unit}" \
         "Resume a PR-unit" \
-        "An earlier run claimed this unit and stopped without finishing it; its branch tip fell outside the heartbeat window, so the unit was offered as resumable and this runner took it over" \
+        "An earlier run claimed this unit and stopped before delivering it -- mid-drive, or with its queue drained and no pull request opened; its branch tip fell outside the heartbeat window, so the unit was offered as resumable and this runner took it over" \
         "None -- coordination only; the takeover changes no file and never reaches the PR diff" \
         "None" "None" \
         "list-claims.sh reports this unit as claim_active again once the takeover is pushed" ) >&2 \

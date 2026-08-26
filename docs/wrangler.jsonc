@@ -1,0 +1,21 @@
+{
+  // The Worker that serves the built VitePress site at https://workaholic.qmu.co.jp.
+  //
+  // It is an assets-only Worker: there is no handler script, because everything this
+  // site serves is a file VitePress already rendered. `npm run docs:build` writes those
+  // files to `.vitepress/dist` (relative to this file), which is what `assets.directory`
+  // below points at — the real build output, not an assumed path.
+  //
+  // Provable with no Cloudflare credential: `npx wrangler deploy --dry-run` from `docs/`.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "workaholic-docs",
+  "compatibility_date": "2026-08-26",
+  "assets": {
+    "directory": ".vitepress/dist",
+    // VitePress emits real .html files per page and a 404.html beside them, so a missing
+    // path is a genuine 404 and must be served as one. The SPA form
+    // (`single-page-application`) would rewrite every unknown path to index.html and
+    // answer 200, turning each dead deep link into a soft 404 that no smoke test catches.
+    "not_found_handling": "404-page"
+  }
+}

@@ -2,7 +2,7 @@
 type: Mission
 title: Tell a merged claim from a live one at both grains
 slug: tell-a-merged-claim-from-a-live-one-at-both-grains
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-26T11:31:32+00:00
 author: a@qmu.jp
@@ -55,3 +55,5 @@ behind it is re-surveyable. Nothing deletes a branch or closes a pull request.
 - 2026-08-26 — ticket archived — 20260826113204-never-offer-a-merged-claim-for-resumption.md
 - 2026-08-26 — ticket archived — 20260826113204-re-survey-a-mission-behind-a-merged-claim.md
 - 2026-08-26 — ticket archived — 20260826113204-stop-asking-about-a-finished-claim.md
+- 2026-08-26 — ticket archived — 20260826113204-drill-the-merged-claim-readings-with-no-network.md
+- 2026-08-26 — mission achieved — mission.md

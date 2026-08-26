@@ -20012,7 +20012,13 @@ function testStalledUnitsStep() {
     // assertion shows the filter is on the verdict and not on claims in general.
     {
       const t1 = `.workaholic/tickets/todo/${TEST_SLUG}/20260729000001-t1.md`;
-      const b = JSON.parse(run(A, `${CLAIM} batch ${t1}`).stdout);
+      // The claim branch name is minted from the clock TO THE SECOND, so a second claim
+      // inside the same second collides on the name and is refused — nondeterministically,
+      // which is exactly the flake this stepped off the boundary to avoid.
+      tickSecond();
+      const claimed = run(A, `${CLAIM} batch ${t1}`);
+      assertEq("the second claim in this fixture is accepted", claimed.status, 0);
+      const b = JSON.parse(claimed.stdout);
       const arch = `.workaholic/tickets/archive/work-20260101-000000`;
       mkdirSync(join(A, arch), { recursive: true });
       writeFileSync(join(A, arch, "20260729000001-t1.md"), "---\nstatus: done\n---\n\n# T1\n");

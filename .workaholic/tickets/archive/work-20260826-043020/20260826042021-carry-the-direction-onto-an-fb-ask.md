@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-26T04:20:21+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -82,3 +83,34 @@ and composing in the target's vocabulary is that path's standing rule.
   the caller that knows the destination.
 - `/fb`'s fallback record path (`fb-fallback.sh`) is out of scope: it writes a record, not
   an issue, and a record's own `feedback:` relation is a different surface.
+
+## Final Report
+
+Development completed as planned. `/fb`'s in-repo path gained step 2b: judge the direction the
+ask answers exactly as the sweep judges it (explicit slug → the `active` set → `unattributed`,
+no line), and emit that strategy's own refs through `feedback/scripts/ask-feedback-line.sh` —
+the one writer. `open-issue.sh` was **not** taught to compose it, and the suite now pins that it
+formats no `feedback:` line of its own. The one-line report names `direction:<slug>` or
+`direction:unattributed` beside `assigned`. `CLAUDE.md`'s `/fb` row carries the same contract.
+
+**The exemption is the interesting half and it is written down**: `reference/crossing.md` opens
+its vocabulary section by stating that a cross-repository issue never carries the line — it would
+name records under our `.workaholic/feedbacks/` that the target cannot resolve, in our vocabulary
+rather than theirs, which is the one thing that section forbids. Pinned by a test.
+
+**One correction to the ticket's Key Files, worth recording rather than silently working
+around**: it named `plugins/workaholic/skills/fb/SKILL.md`, which does not exist. `/fb` is a
+command backed by `workaholic:feedback`, so the in-repo path's body composition lives in
+`skills/feedback/SKILL.md` (*Filing an ask — what `/fb` runs*) and the crossing's gates in
+`skills/feedback/reference/crossing.md`. Both were edited; nothing was skipped.
+
+### Discovered Insights
+
+- **Insight**: The exemption and the rule share one reason, so they belong in one place.
+  **Context**: The crossing does not carry the line because of the *same* vocabulary rule that
+  governs everything else it composes — so stating it at the head of that section costs a
+  paragraph, where a separate "exceptions" note would have drifted from the rule it excepts.
+- **Insight**: `open-issue.sh`'s "no opinion" contract is what makes three callers cheap.
+  **Context**: The sweep, `/fb`'s in-repo path and the crossing all pass through it with three
+  different header requirements. The moment it composed one of them, the other two would need a
+  flag to opt out — which is how a seam becomes a router.

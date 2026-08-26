@@ -56,12 +56,23 @@ and every abort reports a machine-readable reason.
    carries a `feedback: <ref>, <ref>` line names records that already exist in this
    repository's stream — a `[Propose]` proposal names the **strategy's** refs, which is
    how the work this run emits stays attributable to the direction that asked for it
-   (`workaholic:propose`, *How the loop closes*). Read the line, verify each ref exists
-   under `.workaholic/feedbacks/`, and pass the surviving refs to steps 8 and 9
-   **alongside** the record written in step 3 — `scaffold-draft.sh` and
-   `scaffold-proposed-ticket.sh --feedback` are both variadic, so this needs no new flag
-   and no new field on any artifact. A ref that does not resolve is dropped and named in
-   step 10's pull-request body; it is never invented and never blocks the proposal.
+   (`workaholic:propose`, *How the loop closes*). **Read the line through the one reader,
+   never by eye:**
+
+   ```sh
+   printf '%s\n' "<the ask body>" \
+     | bash ${CLAUDE_PLUGIN_ROOT}/skills/specificate/scripts/read-ask-feedback-refs.sh
+   ```
+
+   — `{"line_found", "carried": [...], "dropped": [{"ref", "reason"}]}`, exit 0 in every
+   case including no line at all (the ordinary case for an ask a human typed). Pass the
+   **`carried`** refs to steps 8 and 9 **alongside** the record written in step 3 —
+   `scaffold-draft.sh` and `scaffold-proposed-ticket.sh --feedback` are both variadic, so
+   this needs no new flag and no new field on any artifact. A ref that does not resolve is
+   **`dropped` with its reason** (`not_found` / `unreadable` / `dir_missing` /
+   `not_a_filename`); it is never invented, never rewritten, and never blocks the
+   proposal. Keep both sets in hand: step 9 checks the carry floor against them, step 10's
+   pull-request body names them, and step 13's report line does too.
 
    **The direction stays one-way.** This carries a *feedback* ref onto a *mission* — the
    relation both artifacts already have. Nothing gains a pointer to a strategy, so the
@@ -120,6 +131,23 @@ and every abort reports a machine-readable reason.
    step-5 discovery and the step-5b strategy set in hand, and **decide the form**
    (*The form follows the work's shape*).
 
+   **First, decide the direction when step 3b found no line** (2026-08-26). An ask can
+   arrive naming none — a human typing into the GitHub UI, another tool, an older issue.
+   Step 5b has already read the `active` strategies and their Aims, so this costs **no new
+   reader**: an explicit strategy **slug** in the ask wins outright; otherwise judge which
+   `active` Aim the ask falls under; otherwise it is **`unattributed`**. When a direction is
+   decided, carry **that strategy's** `feedback:` refs onto what steps 8 and 9 emit,
+   alongside this run's record, through the same variadic scaffold arguments step 3b
+   already uses — no new flag, no new field.
+
+   **A line beats a judgment, outright.** When step 3b found a line, that line decides and
+   this judgment does not run: the writer's explicit statement beats the reader's inference,
+   which is also what keeps `/propose`'s path byte-identical. A judged direction is weaker
+   evidence than a carried one, so steps 10 and 13 report **how** it was decided (`slug` or
+   `aim`) — a later reader tells a stamped attribution from an inferred one without a new
+   field. An unreadable strategy set is already reported by name at step 5b and must **not**
+   collapse into `unattributed` here.
+
    **First, is it a lifecycle announcement?** An ask that names an explicit strategy
    slug and announces that it was created, changed or ended takes step 9c instead of
    the four forms (SKILL.md, *Strategy lifecycle announcements*): a slug absent from
@@ -132,10 +160,20 @@ and every abort reports a machine-readable reason.
    Otherwise, in this precedence: two or more units → a mission with its ticket set
    (steps 8–9); atomic → one loose ticket (step 9's loose form, no mission); a
    **date + an owner + an aim with no decomposable plan** → one strategy (step 9b);
-   none of those → record-only. **The four are an ordered rule and are consulted first**; *when unsure, record-only* applies only to an ask they did not resolve, never over one they did (SKILL.md, *The form follows the work's shape*). Uncertainty about how to decompose is not uncertainty about whether it decomposes. Name which rule decided — `precedence:<form>` or `unsure:<what>` — and name what made you
+   none of those → record-only. **An ask that already names a mission —
+   a title, the experience it demands and an ordered ticket set, the shape `/propose`
+   writes since 2026-08-26 — takes row 1 and is emitted as *that* plan, in that order**
+   (SKILL.md, *An ask that already names a mission is emitted as that mission*): the run
+   does not re-decompose it, and it reports `precedence:mission` naming the ask as the
+   plan's source. Every floor still applies over the top of it, and a named plan that
+   breaches one is **demoted and reported by name**, never trimmed to fit. **The four are an ordered rule and are consulted first**; *when unsure, record-only* applies only to an ask they did not resolve, never over one they did (SKILL.md, *The form follows the work's shape*). Uncertainty about how to decompose is not uncertainty about whether it decomposes. Name which rule decided — `precedence:<form>` or `unsure:<what>` — and name what made you
    unsure in step 10's PR body.
 
-8. **Draft the mission** (mission form only), in the publish tree:
+8. **Draft the mission** (mission form only, and only when step 9's extend-or-mint judgment
+   says *mint*), in the publish tree. **When the ask named the mission**, its title,
+   `## Experience` and acceptance sketch come from the ask rather than from a fresh reading
+   of it — the run fills the scaffold with the plan it was handed, and reports
+   `precedence:mission` naming the ask as its source:
    - `bash ${CLAUDE_PLUGIN_ROOT}/skills/specificate/scripts/scaffold-draft.sh "<title>" --assignee <the triggering issue's assignee> <feedback-filename>...`
      — the filename from step 3, **followed by any refs step 3b carried forward**. Omit
      `--assignee` when no person was assigned (the mission is then team-owned); never
@@ -146,6 +184,14 @@ and every abort reports a machine-readable reason.
      and never seed `assignees` beyond the flag or `merge_policy`.
 
 9. **Emit the tickets**, in the publish tree.
+
+   **First, extend or mint** (SKILL.md, *A strategy is not a mission factory*). When the ask
+   advances a strategy that already has an **active** mission attributed to it
+   (`strategy/scripts/attributed-work.sh`, the one reader — read `waiting_mission_slugs`),
+   the decomposition lands as **tickets into that mission**: emit them with that mission's
+   slug, stamp their acceptance links there, and skip step 8 entirely. Mint a new mission
+   only when the existing one is closed, or when its `## Experience` cannot honestly cover
+   the work. **Report which of the two you judged**, either way.
 
    For a **mission** proposal, emit its whole set — two or more, always:
    - `bash ${CLAUDE_PLUGIN_ROOT}/skills/specificate/scripts/scaffold-proposed-ticket.sh "<title>" <mission-slug> [type] [layer] --assignee <the same assignee>`,
@@ -161,6 +207,26 @@ and every abort reports a machine-readable reason.
    - `bash ${CLAUDE_PLUGIN_ROOT}/skills/specificate/scripts/scaffold-proposed-ticket.sh "<title>" --loose [type] [layer] --feedback <record>... --assignee <the same assignee>`
    - The `--feedback` refs are **mandatory** here (`no_feedback` otherwise), and they are
      step 3's record **plus** anything step 3b carried forward.
+
+   **Then the carry floor, beside the ticket floor** — both floors are read at the same
+   seam, for the same reason: the artifacts do not all exist while any one of them is being
+   authored, so this is the only place either question is answerable.
+
+   ```sh
+   bash ${CLAUDE_PLUGIN_ROOT}/skills/specificate/scripts/check-carry-floor.sh \
+     --refs "<step 3b's carried refs, comma-separated>" <the emitted artifact>
+   ```
+
+   **The floor checks only the refs the ASK carried**, never a direction step 7 judged: a
+   judgment is a reading, not a promise the ask made, and flooring it would turn a reported
+   inference into a publish refusal. The artifact named is **the mission when there is one,
+   the loose ticket when there is not** — a mission's tickets need not repeat its refs, because `attributed-work.sh`
+   already reaches them through `via_mission:<slug>`. Non-zero exit is a **run failure to
+   report, never a demotion**: the record is already written and the artifacts are already
+   scaffolded, so the correct action is to put the missing refs on what exists (the
+   script's `repair` names which scaffold call and which refs) and re-check before step 10
+   publishes. Nothing to check — no refs carried, or a record-only outcome — is `ok: true`
+   with `checked: 0`, a real pass. A ref step 3b already **dropped** is never required here.
 
    Neither ticket form runs for the strategy form — a strategy carries no ticket plan
    (step 9b).
@@ -225,6 +291,15 @@ and every abort reports a machine-readable reason.
 10. **Publish it all as one pull request, merged immediately.**
    `WORKAHOLIC_AUTO_MERGE=1 WORKAHOLIC_PR_TITLE="[Proposal] <title>" WORKAHOLIC_CLOSES_ISSUE="<issue number from step 1>" bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/publish-tree-pr.sh "<title>" "<why>" "<changes>" "<concerns>" "<insights>" "<verify>"`
    — **one call**, carrying the record and whatever the judgment added.
+   **The body names step 3b's two sets**, in `<changes>`, per emitted artifact: the refs
+   **carried** onto it, and every ref **dropped** with its reason. **And the direction** —
+   `direction:<slug>` with how it was decided (`line`, `slug` or `aim`), or
+   `direction:unattributed`. Keep it to what is true —
+   a proposal that carried nothing because the ask named nothing says so in one clause, not
+   as a warning. **A record-only outcome names the refs it *would* have carried and that
+   nothing was emitted**, so a dropped link and an unproposed ask do not look alike here
+   either. This is the pull-request half of the same obligation step 13 carries; both read
+   `read-ask-feedback-refs.sh`'s output, never a re-read by eye.
    `WORKAHOLIC_AUTO_MERGE=1` merges the pull request right after opening it
    (mission `auto-merge-propose-and-implement-prs-under-a-dev-release-branch-split`,
    2026-08-11): the report's `merged`/`merge_reason` says what happened, and any
@@ -291,7 +366,18 @@ and every abort reports a machine-readable reason.
     record-only reached by a failed strategy bar or an unmatched announcement, the
     part that was missing — `no_target_date` / `no_assignee` / `strategy_not_found`
     with the slug / `no_end_state` / `strategy_exists_no_update_writer`) with its
-    reason, the record's filename, the
+    reason, the record's filename, **the carry** —
+    `carried:<artifact>:<n>` per emitted artifact and `dropped:<ref>:<reason>` per drop,
+    taken from step 3b's script output and never re-read by eye — and **the direction**,
+    `direction:<slug>:<line|slug|aim>` or `direction:unattributed`, so a stamped attribution
+    and an inferred one are told apart without a new field. A record-only outcome reports the
+    direction it would have carried, exactly as it already reports the refs. A **count** for the carried
+    set and a **name** for each drop: the carry is the ordinary case and the drop is the
+    rare, actionable one, and a per-artifact ref dump nobody reads is the noise this
+    repository has twice retired status roots for. `carried:none` when the ask named no
+    refs; for a record-only outcome the refs it **would** have carried, beside
+    `emitted:none`, because otherwise a lost link and an unproposed ask read the same in the
+    report too — the
     PR URL, and the
     notification outcome — **which surface carried it** (connector or the tokened
     fallback), **which lookup case it took**, and `notified` **per message** (the

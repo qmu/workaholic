@@ -253,11 +253,45 @@ jq -nc \
     | ($kind[0]) as $k
     | ($a | map(select(.changed_in_window)) | length) as $active
     | ($a | map(select(.kind == "ticket" and .state == "queued")) | length) as $waiting
+    # THE MISSION GRAIN (2026-08-26). `/propose` proposes a whole mission, so its brake
+    # asks whether this strategy already has a mission IN FLIGHT — not how many tickets are
+    # queued. An ACTIVE attributed mission is an unfinished one: it exists from the moment
+    # the pull request carrying that proposal merges (which is exactly when `open_proposal`
+    # releases, so the two halves still hand off with no window) until `close.sh` ends it — since
+    # 2026-08-23 the archive gate closes an achieved mission on its own arithmetic, so
+    # "finished" is mechanical rather than a judgement.
+    #
+    # It is strictly WIDER than the queued-ticket count it sits beside, and deliberately:
+    # a mission whose last ticket has been claimed and archived has `waiting_count == 0`
+    # while its work is still in flight at a pull request, which is the window a
+    # mission-grain brake must not leave open.
+    #
+    # THE DESCRIBING/ADVANCING FIX SURVIVES INTACT (2026-08-23): a mission is classified by
+    # its own queued tickets, and a mission with none is `unknown` — which counts toward
+    # advancing, exactly as an unknown ticket does, because mislabelling build work as
+    # descriptive is the failure the gate exists to prevent.
+    | ($k.tickets // []) as $kt
+    | ($a | map(select(.kind == "mission" and .state == "active"))
+          | map(. + {mission_slug: (.path | split("/") | .[-2])})) as $mw
+    | ($mw | map(. + {work_kind:
+          ((.mission_slug) as $s
+           | ($a | map(select(.kind == "ticket" and .state == "queued"
+                              and .attribution == ("via_mission:" + $s))) | map(.path)) as $paths
+           | if ($paths | length) == 0 then "unknown"
+             elif ($kt | map(select((.path as $p | $paths | index($p)) and .kind == "advancing"))
+                       | length) > 0 then "advancing"
+             elif ($kt | map(select((.path as $p | $paths | index($p)) and .kind == "unknown"))
+                       | length) > 0 then "unknown"
+             else "describing" end)})) as $mk
     | {slug: $slug, found: true, window: $window, feedback_refs: $refs,
        count: ($a | length), active_count: $active, waiting_count: $waiting,
        waiting_kind: ($k.kind // "unknown"),
        waiting_describing: ($k.counts.describing // 0),
        waiting_advancing: (($k.counts.advancing // 0) + ($k.counts.unknown // 0)),
+       waiting_missions: ($mk | length),
+       waiting_missions_describing: ($mk | map(select(.work_kind == "describing")) | length),
+       waiting_missions_advancing: ($mk | map(select(.work_kind != "describing")) | length),
+       waiting_mission_slugs: ($mk | map(.mission_slug)),
        artifacts: $a,
        empty: (($a | length) == 0),
        empty_reason: (if ($a | length) == 0 then "no_citing_artifacts"

@@ -12,10 +12,10 @@
 # Output (one JSON object):
 #   {ok, identity, window, cap, active_count,
 #    eligible: [{slug, title, target_date, days_to_target, assignees, feedback_refs[],
-#                empty_reason, count, active_count, waiting_count, pace,
+#                empty_reason, count, active_count, waiting_count, pace, overdue, dormant,
 #                landed: [{kind, title, state, attribution, last_change}],
 #                path}],
-#    refused: [{slug, reason, pace, title, assignees, days_to_target}],
+#    refused: [{slug, reason, pace, overdue, dormant, title, assignees, days_to_target}],
 #    errors: [], selected: [<slug>...]}
 #   or {ok: false, reason, detail} when a gate could not be read at all.
 #
@@ -42,9 +42,12 @@
 #                     invisible and the loop could not close. Refused with the repair named
 #                     rather than proposed into blindly. THIS IS THE ONE GATE THAT ANSWERS
 #                     THE LOSSY READER: the judgment is made only where the reader can see.
-#   work_waiting      attributable tickets are queued. The previous turn of the loop has
-#                     not landed, so this one does not start. Together with `open_proposal`
-#                     this is "one proposal per strategy IN FLIGHT at a time" — see below.
+#   work_waiting      a MISSION attributed to this strategy is still in flight, or an
+#                     attributable ticket is still queued (2026-08-26: the grain moved to
+#                     the mission, because a proposal now plans one). The previous turn of
+#                     the loop has not landed, so this one does not start. Together with
+#                     `open_proposal` this is "ONE MISSION PER STRATEGY IN FLIGHT AT A
+#                     TIME" -- see below.
 #   open_proposal     an open issue already carries this strategy's marker: the last
 #                     proposal has not been ingested yet.
 #
@@ -59,8 +62,18 @@
 # unnecessary and, worse, harmful: the ask is for three routines turning an HOURLY loop, and
 # a daily cap on the only routine that originates work would cap the loop at one turn a day.
 # From the issue opening until its `[Specificate]` pull request merges, `open_proposal`
-# holds; from that merge onward the tickets it produced are queued and `work_waiting` holds;
-# when they are driven and archived, the strategy is free and the next turn begins.
+# holds; THAT SAME MERGE puts the mission on `main`, so `work_waiting` holds from the same
+# instant -- the handoff is window-free by construction rather than by timing. It then holds
+# until the mission is closed, which since 2026-08-23 the archive gate does on its own
+# arithmetic when the acceptance is complete and the queue is empty. Then the strategy is
+# free and the next turn begins.
+#
+# THE MISSION TERM IS WIDER THAN THE TICKET TERM IT SITS BESIDE, and that is the point: a
+# mission whose last ticket has been claimed and archived has NO queued tickets while its
+# work is still in flight at a pull request. Under the change-grain gate that gap was the
+# design (the next change could start); under the mission grain it is exactly the window a
+# second mission would slip through. The ticket term stays because a loose ticket emitted
+# with no mission around it must still brake.
 #
 # EVERY ELIGIBLE STRATEGY, IN THE SAME TICK (2026-08-22, the developer's ruling). The tick
 # proposes against ALL of them -- everything it can conclude at that moment. Eligible
@@ -257,6 +270,13 @@ jq -sc \
          waiting_kind: ($w.waiting_kind // "unknown"),
          waiting_describing: ($w.waiting_describing // 0),
          waiting_advancing: ($w.waiting_advancing // $w.waiting_count // 0),
+         # THE MISSION GRAIN (2026-08-26), reported on every row for the same reason: the
+         # brake now asks whether a mission is in flight, so a reader must be able to see
+         # which one held it. Named, never a bare count.
+         waiting_missions: ($w.waiting_missions // 0),
+         waiting_missions_describing: ($w.waiting_missions_describing // 0),
+         waiting_missions_advancing: ($w.waiting_missions_advancing // $w.waiting_missions // 0),
+         waiting_mission_slugs: ($w.waiting_mission_slugs // []),
          landed: (($w.artifacts // []) | map(select(.changed_in_window))
                   | map({kind, title, state, attribution, last_change})),
          queued: (($w.artifacts // []) | map(select(.kind == "ticket" and .state == "queued"))
@@ -273,14 +293,71 @@ jq -sc \
           (if .unreadable or (.days_to_target == null) then "unknown"
            elif ((.landed | length) == 0) and (.days_to_target <= $window_days) then "late"
            else "on_course" end)}
+      | . + {overdue:
+          # OVERDUE -- HAS THE DATE PASSED? (2026-08-26.) `pace` cannot carry this and must
+          # not be asked to: `late` requires `(.landed | length) == 0`, so a direction that
+          # sailed past its date WHILE PRODUCING WORK reads `on_course`, is refused
+          # `past_target_date` for a correct reason, and produces no proposal and no
+          # question -- forever. One field answering two questions is how the two drift:
+          # `pace` answers WILL THIS ARRIVE, `overdue` answers HAS THE DATE PASSED.
+          #
+          # It is emitted on EVERY row, eligible and refused alike, because the refused
+          # case is the whole point -- a reader that saw only `eligible` would never see a
+          # direction whose date has gone. It is computed BEFORE `refusal` so that
+          # expression stays byte-identical, and it changes no gate, no eligibility and no
+          # sort: `past_target_date` refuses exactly what it refused before.
+          #
+          # A row with no resolvable `target_date` is never `overdue` -- `days_to_target`
+          # is `null` there, and a malformed strategy is not a late one. `days_to_target`
+          # is computed against a UTC `$today`, so a direction expiring TODAY reads `0`
+          # and is not yet overdue. That is the correct boundary, stated rather than tuned.
+          ((.days_to_target != null) and (.days_to_target < 0))}
+      | . + {dormant:
+          # DORMANT -- A LIVE DIRECTION NOTHING IS ANSWERING (2026-08-26). `/propose` reports
+          # `no_evolutionary_move` when it cannot name a move against an eligible direction --
+          # the honest answer -- into a run report that on the day it matters is read by
+          # nobody, and the direction stays eligible on every tick while producing nothing.
+          # The state is byte-identical to a healthy idle hour, which is the whole defect.
+          #
+          # EVERY TERM IS ALREADY COMPUTED HERE OR BY `attributed-work.sh` BENEATH IT: no new
+          # counter, no field on any artifact, and no second derivation of `pace`. It is a
+          # conjunction of what the row already holds -- legible, active, owned, in date, with
+          # something the reader could have seen, nothing landed in the window, nothing
+          # waiting at either grain, and no proposal already open.
+          #
+          # IT IS NOT `pace: late`, which needs the date to be NEAR (`days_to_target <=
+          # $window_days`); a direction a year out with nothing happening is dormant and not
+          # late. It is not `no_citing_artifacts` either -- that reading is explicitly NOT a
+          # refusal here (see the header), and this is not one: a dormant direction stays
+          # eligible, which is precisely what makes its silence a FINDING rather than a gate.
+          #
+          # THE TWO PERIODS ARE DIFFERENT AND THAT IS INHERITED, NOT RECONCILED: `landed` is
+          # bounded by `$WINDOW` while `waiting_*` is computed over the queue. The reading
+          # therefore means "nothing landed in the window and nothing is waiting at all".
+          (if (.unreadable or (.status != "active") or (.owns != "mine")) then false
+           elif ((.days_to_target != null) and (.days_to_target < 0)) then false
+           elif ((.feedback_refs | length) == 0) then false
+           elif ((.landed | length) > 0) then false
+           elif (((.waiting_missions // 0) + (.waiting_count // 0)) > 0) then false
+           elif ($held | index($w.slug)) then false
+           else true end)}
       | . + {refusal:
           (if .unreadable then "attribution_unreadable"
            elif .status != "active" then "not_active"
            elif .owns != "mine" then "not_mine"
            elif ((.days_to_target != null) and (.days_to_target < 0)) then "past_target_date"
            elif ((.feedback_refs | length) == 0) then "no_feedback_refs"
-           elif ((if $aim_kind == "building" then (.waiting_advancing // .waiting_count // 0)
-                  else (.waiting_count // 0) end) > 0) then "work_waiting"
+           # WORK_WAITING AT THE MISSION GRAIN (2026-08-26). A proposal is a whole mission,
+           # so the brake asks whether one is already in flight. Two terms, OR'"'"'d, and both
+           # are needed: the MISSION term (an active attributed mission) is what makes the
+           # gate hold while the last ticket sits at a pull request with the queue drained,
+           # and the TICKET term still catches a loose ticket the run emitted with no
+           # mission around it. Neither counts: `> 0` is the whole question, exactly as
+           # before — the grain moved, the arithmetic did not.
+           elif ((if $aim_kind == "building"
+                  then (.waiting_missions_advancing // .waiting_missions // 0)
+                       + (.waiting_advancing // .waiting_count // 0)
+                  else (.waiting_missions // 0) + (.waiting_count // 0) end) > 0) then "work_waiting"
            elif ($held | index($w.slug)) then "open_proposal"
            else "" end)} ]
   # LATE FIRST, then nearest date. A tick that dies partway must have advanced the
@@ -301,7 +378,7 @@ jq -sc \
      # load-bearing for the STARVING case: a direction that will not arrive AND is gated
      # produces no proposal, so a consumer reading only `eligible` would never see it.
      refused: ((map(select(.refusal != ""))
-                | map({slug, reason: .refusal, pace, title, assignees, days_to_target}))
+                | map({slug, reason: .refusal, pace, overdue, dormant, title, assignees, days_to_target}))
                + $spill),
      selected: ($take | map(.slug)),
      errors: []}

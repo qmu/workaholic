@@ -12,6 +12,7 @@
 * [add-the-standup-daily-per-strategy-summary](archive/add-the-standup-daily-per-strategy-summary/mission.md) - Add the standup daily per-strategy summary
 * [adopt-a-git-flow-branching-model-with-durable-ship-records](archive/adopt-a-git-flow-branching-model-with-durable-ship-records/mission.md) - Adopt a release-branch staging tier with durable ship records
 * [announce-one-event-once-and-give-its-root-a-shape](archive/announce-one-event-once-and-give-its-root-a-shape/mission.md) - Announce one event once, and give its root a shape
+* [attribute-an-inbound-ask-to-the-direction-it-answers](archive/attribute-an-inbound-ask-to-the-direction-it-answers/mission.md) - Attribute an inbound ask to the direction it answers
 * [auto-merge-propose-and-implement-prs-under-a-dev-release-branch-split](archive/auto-merge-propose-and-implement-prs-under-a-dev-release-branch-split/mission.md) - Auto-merge propose and implement PRs under a dev/release branch split
 * [close-a-mission-the-run-can-prove-is-finished](archive/close-a-mission-the-run-can-prove-is-finished/mission.md) - Close a mission the run can prove is finished
 * [color-code-the-notify-post-shapes-by-state](archive/color-code-the-notify-post-shapes-by-state/mission.md) - Color-code the notify post shapes by state
@@ -45,6 +46,7 @@
 * [move-the-propose-and-implement-routines-to-a-fixed-interval-schedule](archive/move-the-propose-and-implement-routines-to-a-fixed-interval-schedule/mission.md) - Move the Propose and Implement routines to a fixed-interval schedule
 * [name-the-session-type-that-cannot-merge](archive/name-the-session-type-that-cannot-merge/mission.md) - Name the session type that cannot merge
 * [propose-at-the-capture-seam](archive/propose-at-the-capture-seam/mission.md) - Propose at the capture seam
+* [prove-the-loop-s-closing-link](archive/prove-the-loop-s-closing-link/mission.md) - Prove the loop's closing link
 * [read-a-strategy-s-pace-against-its-date](archive/read-a-strategy-s-pace-against-its-date/mission.md) - Read a strategy's pace against its date
 * [reduce-the-loop-to-two-routines-and-one-behaviour-per-command](archive/reduce-the-loop-to-two-routines-and-one-behaviour-per-command/mission.md) - Reduce the loop to two routines and one behaviour per command
 * [refresh-the-outdated-documentation-to-match-current-behavior](archive/refresh-the-outdated-documentation-to-match-current-behavior/mission.md) - Refresh the outdated documentation to match current behavior
@@ -57,9 +59,11 @@
 * [revive-strategy-and-reshape-the-workaholic-artifact-set](archive/revive-strategy-and-reshape-the-workaholic-artifact-set/mission.md) - Revive Strategy and reshape the .workaholic artifact set
 * [right-size-report-to-single-ticket-per-pr-granularity](archive/right-size-report-to-single-ticket-per-pr-granularity/mission.md) - Right-size /report to single-ticket-per-PR granularity
 * [route-a-stalled-unit-to-a-person-who-is-asked-by-name](archive/route-a-stalled-unit-to-a-person-who-is-asked-by-name/mission.md) - Route a stalled unit to a person who is asked by name
+* [say-when-the-loop-has-run-out-of-direction](archive/say-when-the-loop-has-run-out-of-direction/mission.md) - Say when the loop has run out of direction
 * [slim-commands-skills-and-docs-for-ai-agent-use](archive/slim-commands-skills-and-docs-for-ai-agent-use/mission.md) - Slim commands, skills, and docs for AI-agent use
 * [split-routine-setup-into-developer-and-repository-scopes](archive/split-routine-setup-into-developer-and-repository-scopes/mission.md) - Split routine setup into developer and repository scopes
 * [stop-a-routine-finish-line-from-vanishing-on-the-script-path](archive/stop-a-routine-finish-line-from-vanishing-on-the-script-path/mission.md) - Stop a routine finish line from vanishing on the script path
 * [stop-the-runner-from-taking-path-owned-legacy-tickets](archive/stop-the-runner-from-taking-path-owned-legacy-tickets/mission.md) - Stop the runner from taking path-owned legacy tickets
 * [take-the-dedup-key-out-of-the-read-post](archive/take-the-dedup-key-out-of-the-read-post/mission.md) - Take the dedup key out of the read post
 * [tell-an-unanswered-question-from-an-answered-one](archive/tell-an-unanswered-question-from-an-answered-one/mission.md) - Tell an unanswered question from an answered one
+* [turn-the-loop-at-mission-granularity](archive/turn-the-loop-at-mission-granularity/mission.md) - Turn the loop at mission granularity

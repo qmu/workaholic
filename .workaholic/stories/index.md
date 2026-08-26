@@ -3,6 +3,12 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [work-20260826-084111](work-20260826-084111.md) - The direction layer gets a lifecycle reading and a voice — overdue, dormant and none are read once and asked about by name, and three refusals are pinned by a test and a drill.
+* [work-20260826-043020](work-20260826-043020.md) - Every inbound mouth of the loop now names the direction its ask answers, from one writer, so work born on the channel or filed by hand stops citing its strategy at nothing.
+* [work-20260826-041037](work-20260826-041037.md) - Report a claim whose content already reached the base as superseded, so the survey stops offering a branch that cannot land
+* [work-20260826-034037](work-20260826-034037.md) - Split the drained-queue verdict on the story signal so a run that died before opening its pull request is recoverable instead of stranded
+* [work-20260826-031417](work-20260826-031417.md) - The loop's unit of work moves from a change to a mission — `/propose` plans one, `/specificate` emits it, the brake bounds one per strategy, and the roadmap names the direction each mission serves.
+* [work-20260826-023535](work-20260826-023535.md) - The loop's carry-forward link becomes mechanical, reported and floored, so `no_citing_artifacts` can only mean nothing has answered this direction yet.
 * [Say what happened, not what the tick counted](work-20260823-161806.md)
 * [Tell describing work from advancing work](work-20260823-155258.md)
 * [Refuse a commit that splits a rename](work-20260823-151809.md)

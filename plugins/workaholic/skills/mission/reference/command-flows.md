@@ -99,7 +99,13 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/close-publish-tree.sh
 
 Bare `/mission` opens a **working planning session**, not just a report. Its arc is fixed: status → replan loop → reconciliation → roadmap gaps → execution hand-off. This is the daytime half of the overnight model: `/mission` makes everything drive-ready, `/implement` executes it unattended. Read the whole roadmap once via `list.sh`; every field the session needs is computed there — `relation` (`mine`/`unassigned`/`others`), `next`, `merge_policy`, `ready`/`ready_reason` (`no_plan`/`not_active`) — **never re-derive any of them** from `assignees`/`status`/`checked` yourself.
 
-**1. Status — weighted toward the caller** (most of the output is the caller's business; others' work stays visible but compact — de-emphasized, never hidden):
+**1. Status — weighted toward the caller** (most of the output is the caller's business; others' work stays visible but compact — de-emphasized, never hidden). **Every mission line names the strategy it belongs to** (2026-08-26) — read once, before rendering:
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/strategy/scripts/mission-strategy.sh
+```
+
+A mission the reader could attribute renders `— <strategy title>`; one it could not renders an explicit **`— no strategy`**, never a blank, because "belongs to no direction" and "could not be attributed" must not look alike. The attribution is **transitive and lossy** (`exhaustive: false`), so close the section with the honest line the reader supplies: how many missions could not be attributed, and any strategy named in `unreadable` — a direction that could not be read must never render as an absent one. **No mission gained a field**: this is `attributed-work.sh`'s own citation walk, inverted.
 
 - **Full treatment** for the caller's **`mine` and `unassigned` in-flight** missions (mine first, then unassigned): `title` (`slug`) — `checked/total`, the `next` item, the drive-ready state (ready, or the `ready_reason` blocker), and the most recent few `## Changelog` lines from the entry's `path`. Mark an `unassigned` entry as unclaimed and claimable.
 - **One line each — everything else** (`others`, and any archived mission), under a compact trailing section: `title` (`slug`) — `status` — `checked/total`. No changelog, no paragraphs.

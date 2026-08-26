@@ -99,12 +99,37 @@ A quiet strategy is a real answer, not an error: `empty_reason` is `no_feedback_
 nothing), `no_citing_artifacts` (nothing cites it back) or `no_activity_in_window` (attributable work
 exists, none of it moved) — never an empty result with no reason, and never a guess.
 
+**It reports the mission grain beside the ticket grain** (2026-08-26). `waiting_missions`,
+`waiting_missions_advancing`, `waiting_missions_describing` and `waiting_mission_slugs` sit
+beside `waiting_count` / `waiting_advancing` / `waiting_describing`: an *active* attributed
+mission is one still in flight, whether or not any of its tickets are still queued. `/propose`'s
+brake reads it, because a proposal is now a whole mission and a mission whose last ticket sits
+at a pull request with the queue drained is not finished. A mission is classified by its own
+queued tickets, and one with none is `unknown` — which counts toward advancing, the same rule an
+unknown ticket follows. This adds no relation and no artifact field: the mission set is the
+attributed artifacts already walked, filtered on the lifecycle field `close.sh` writes.
+
+**`no_citing_artifacts` is bounded, and the bound is stated rather than implied** (2026-08-26). After `/specificate`'s carry floor it means *nothing has answered this direction yet* — for work the loop emitted from an ask filed by `/propose`, by the inbound Slack sweep, or by `/fb`'s in-repo path, whose refs resolved. It says nothing about work a run never emitted, an ask judged to answer no direction, a ref that did not resolve, or an artifact written by hand outside `/specificate`. A hermetic test walks ask → reader → scaffold → floor for each writer's header shape and fails when the ref is dropped, so the reading is a fact a change can lose rather than a claim.
+
+**And the inverse is readable, so the link is visible where missions are read** (2026-08-26).
+`mission-strategy.sh` answers *which strategy does this mission belong to* by composing the same
+walk — no second walker, no relation of its own, and no field on any artifact, which is what
+keeps the `strategy:` relation retired for the third time. `/mission`'s bare roadmap names each
+mission's strategy and renders an explicit **no strategy** where it could not attribute one: the
+answer is as lossy as what it composes, `exhaustive` is `false` by construction, and a strategy
+whose own read failed is named in `unreadable` rather than contributing silence. A mission may
+belong to more than one strategy and is not de-duplicated across them — attribution is not a
+partition.
+
 ## Scripts
 
 ```bash
 # Create — the only writer. Body (the ## Aim prose) arrives on stdin.
 printf '%s\n' "<aim prose>" | bash ${CLAUDE_PLUGIN_ROOT}/skills/strategy/scripts/create.sh \
   "<title>" <target-date YYYY-MM-DD> "<assignee-email>[,<assignee-email>...]" "<schedule prose>" ["<feedback-ref>,..."]
+
+# Which strategy a mission belongs to — the inverse of the attribution walk. Pure read.
+bash ${CLAUDE_PLUGIN_ROOT}/skills/strategy/scripts/mission-strategy.sh [--root <dir>] [<mission-slug>...]
 
 # List — every strategy with its status, target date and assignees, as JSON.
 bash ${CLAUDE_PLUGIN_ROOT}/skills/strategy/scripts/list.sh [--status active|achieved|abandoned]
@@ -117,12 +142,65 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/strategy/scripts/close.sh <slug> achieved|aban
 
 # Attributed work — the ONE reader of "which work belongs to strategy X in window W".
 bash ${CLAUDE_PLUGIN_ROOT}/skills/strategy/scripts/attributed-work.sh <slug> [window] [workaholic-root]
+
+# Direction state — the ONE reader of "what is the lifecycle state of this direction".
+bash ${CLAUDE_PLUGIN_ROOT}/skills/strategy/scripts/direction-state.sh [--open-proposals <file>] [window] [workaholic-root]
 ```
 
 Every script is POSIX `#!/bin/sh -eu`, takes an optional trailing `.workaholic` root so it can be
 pointed at another tree, and emits one JSON object. `create.sh` refuses an empty aim, an empty
 assignee list, a non-`YYYY-MM-DD` target date, and an existing slug — the same presence floor
 `validate-strategy.sh` enforces at the write seam, so a refusal is never a surprise later.
+
+## The lifecycle state of a direction — one reader, composed, never re-derived
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/strategy/scripts/direction-state.sh [--open-proposals <file>] [window] [workaholic-root]
+```
+
+`propose/scripts/survey-strategies.sh` emits two readings — `overdue` and `dormant` — beside
+`pace` and the refusal list. A consumer assembling a lifecycle answer out of them would be a
+**second derivation** of a state this repository insists has one reader, exactly as
+`attributed-work.sh` is the only walker of the attribution. So `direction-state.sh` **composes**
+that survey and re-derives nothing: no date arithmetic, no attribution walk, every state a
+projection of a field the survey emitted.
+
+| Answer | Meaning |
+| ------ | ------- |
+| `live` | active, in date, and something is happening against it |
+| `overdue` | the `target_date` has passed (`survey-strategies.sh`'s `overdue`) |
+| `dormant` | live, in date, legible — and nothing landed, nothing waiting, no proposal open |
+| `unreadable` | the attribution could not be read; **never** folded into any other answer |
+| `none` | **repository-level**: no `status: active` strategy exists at all |
+
+**The precedence is the only thing this script owns**, and it is fixed: `unreadable` > `overdue` >
+`dormant` > `live`. `unreadable` first because a reading we could not make must never be dressed
+as one we did; `overdue` before `dormant` because a direction past its date is the operator's to
+re-date or close whatever else is true of it, and one direction reported twice under two names
+would double the question a consumer asks about it.
+
+**`none` rides the same output as the per-strategy list** on purpose: a caller asking *what is
+the direction layer doing* must not have to call twice to learn that it is empty.
+
+**What it does not answer.** It never closes, never proposes, never lifts a gate and writes
+nothing — the artifact still has exactly two writers. It is not a second `pace`: `pace` answers
+*will this arrive*, `overdue` answers *has the date passed*, `dormant` answers *is anything
+answering this at all*. It inherits the survey's lossiness and reports it: `dormant` requires
+`owns == "mine"` upstream, so **another identity's direction can only ever read `live` or
+`overdue` here** — that limit is stated in the script's header rather than left to be discovered.
+
+**It makes no second network call.** The survey's one call is the open-proposal gate; a caller
+already holding that read passes `--open-proposals` through. A survey that refuses yields
+`readable: false`, `repository: "unreadable"`, the survey's own reason carried through, and
+**exit 0** — a reader that could not read is reported, never rendered as quiet.
+
+**The refusals are pinned mechanically, not by this prose** (2026-08-26). The two-writers rule on
+this artifact has been re-decided three times, so `scripts/test-workflow-scripts.mjs` now fails if
+`/moderate`'s `direction-health` step writes anywhere under `.workaholic/strategies/`, if its
+closure reaches `close.sh` or `open-proposal.sh`, if a **third** writer of the strategy file
+appears under `strategy/scripts/`, or if running the step changes any `/propose` gate outcome. The
+writer count is a grep and its bound is stated in the test: a writer reached *indirectly* would
+pass it, so it catches the failure that has actually happened rather than every possible one.
 
 ## The write-time floor
 

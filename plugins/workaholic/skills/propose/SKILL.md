@@ -1,6 +1,6 @@
 ---
 name: propose
-description: Use when a session runs `/propose` or the `[Propose]` routine's clock fires — read the running identity's own active strategies, judge the one evolutionary move that would bring the nearest one closer to its aim, and open that judgment as a GitHub issue the next `/specificate` tick will ingest. Defines the eligibility gates, the three moves, the refusal of housekeeping, and the scripts.
+description: Use when a session runs `/propose` or the `[Propose]` routine's clock fires — read the running identity's own active strategies, plan the one mission whose evolutionary move would bring the nearest one closer to its aim, and open that plan as a GitHub issue the next `/specificate` tick will ingest. Defines the mission grain, the eligibility gates, the three moves, the refusal of housekeeping, and the scripts.
 allowed-tools: Bash
 user-invocable: false
 skills:
@@ -16,10 +16,11 @@ warrants; `[Implement]` (`:30`) drives that work to a pull request; **`[Propose]
 supplies the ask** — so the loop turns without a person having to write the next ticket, and
 what a person supplies instead is the **direction**.
 
-It reads the running identity's own `status: active` strategies, judges the single
-**evolutionary move** that would bring the nearest one closer to its aim before its date, and
-opens that judgment as a **GitHub issue assigned to that identity** — the one surface
-`/specificate`'s unattended entrance actually reads.
+It reads the running identity's own `status: active` strategies, plans the single **mission**
+whose **evolutionary move** would bring the nearest one closer to its aim before its date, and
+opens that plan as a **GitHub issue assigned to that identity** — the one surface
+`/specificate`'s unattended entrance actually reads. The unit is a mission, not a change
+(*The unit is a mission, not a change*, below).
 
 **It is a pure reader of this repository.** No file, no commit, no branch, no pull request, no
 merge, no deployment, and no `AskUserQuestion` at any step. Its only writes are issues, and
@@ -70,6 +71,33 @@ machine), the `slack-ref:` dedup marker and the message's permalink, then hands 
 REST transport as every other capture. The next `[Specificate]` tick ingests it like any
 issue.
 
+**And it carries the direction the ask answers** (2026-08-26). Until then the sweep — the loop's
+own writer and its majority inbound path — filed an issue with no `feedback:` line at all, so
+work born on the channel intersected every strategy's `feedback[]` at nothing. Measured on this
+repository the same day: a message became issue #604, `/specificate` emitted a five-ticket
+mission from it, and `attributed-work.sh` still reported that strategy's `waiting_count: 0` — the
+in-flight brake stood open over a whole queued mission.
+
+**The judgment, in order.** A message naming an explicit strategy **slug** is attributed to it —
+explicit slug only, the same rule the lifecycle recognition already holds, never a title and
+never a paraphrase. A message naming none is judged against the `active` set read through
+`strategy/scripts/list.sh`, the same read the strategy half already makes. A message that answers
+no live direction is **`unattributed`** — an ordinary answer, never forced, because nothing is
+refused for naming no direction.
+
+**What rides the issue is the strategy's own refs**, passed as `file-inbound-ask.sh --feedback`
+and emitted through `feedback/scripts/ask-feedback-line.sh`, the one writer of that line — never
+a strategy slug, never a new field, so the retired `strategy:` relation stays retired. With no
+direction the flag is absent and the composed body is byte-identical to what it was before the
+flag existed.
+
+**It is reported, not enforced.** Every filed issue's line in the run report carries
+`direction:<slug>` or `direction:unattributed` beside its existing outcome — the judgment can be
+wrong, and the only new obligation is that the loop say which direction it decided or that it
+decided none. An **unreadable strategy set is named** (`strategy_list_unreadable`) rather than
+collapsed into `unattributed`: reading nothing and finding nothing are different facts, and
+blurring them is the invisible loss this whole change exists to remove.
+
 **Degradations are named, and the strategy flow never waits for them**: no Slack connector in
 the session → `no_slack_transport`, sweep skipped and said; an unreadable channel →
 `channel_unreadable` with the transport's own error; an unreadable issue ledger →
@@ -82,6 +110,34 @@ happening or not never changes what the strategy half proposes.
 `/specificate` (renamed 2026-08-19), and `[Propose]` belonged to what is now `[Moderate]`.
 Both were vacated in the same change and neither is claimed by any live template
 (`reference/loop.md`, *Taking the name back*).
+
+## The unit is a mission, not a change
+
+**One proposal plans one mission** (2026-08-26, the operator's ask). The issue names a mission
+**title**, the **experience** it demands once it lands, and its **ordered ticket set** — held to
+the ruled scale, roughly **7–8 tickets**, with a follow-up repair mission of 3–4 available and a
+second concurrent mission refused (`workaholic:specificate`, *A strategy is not a mission
+factory*). `/specificate` emits that plan rather than re-deriving one.
+
+**The move vocabulary and every refusal built on it are unchanged; only the scale of the unit
+they are declared over moves.** A move is now what the *mission* does to the Aim, and
+`## What this is chosen against` names the rival **mission**, not the rival edit. The
+anti-housekeeping effect is expected to come from the scale as much as from the refusals: a
+mission-sized proposal cannot be "add a test" without saying so out loud.
+
+**The body floor gains two sections and one count** (`open-proposal.sh`): `## Experience` and
+`## Tickets` join the three below, and a `## Tickets` section naming fewer than **two** tickets
+is refused `under_planned` with the alternative named — the discipline
+`mission/scripts/check-floor.sh` already applies at the publish seam, applied here at the
+proposing seam, because a proposal naming one unit of work is a plain ticket's worth of
+direction. The **ceiling stays a judgement**: a floor is checkable and "roughly seven" is not,
+and this floor has never graded a proposal.
+
+**`/propose` plans; `/specificate` writes.** The operator's ask is that this routine *take charge
+of planning*, and planning is not writing: the publish-tree seam, the ticket floor, the carry
+floor and the pull request all live on the `/specificate` side, and moving the write here would
+duplicate every one of them and give the tree a second unattended writer. The granularity moved;
+the architecture did not. `/propose` stays a **pure reader** whose only write is a GitHub issue.
 
 ## The one thing it is for: an evolutionary move, never housekeeping
 
@@ -96,7 +152,9 @@ name which one it is emits nothing:
 
 **A move that DESCRIBES the aim instead of advancing it is refused by name** (2026-08-22).
 A strategy whose Aim names something to be **built** may not be answered with a proposal whose
-move would produce **documentation about that Aim**. The refusal is reported like every other
+move would produce **documentation about that Aim**. At the mission grain the test is the same
+one: a *mission* whose whole ticket set would produce documentation about a building Aim is
+refused exactly as a single documenting change was. The refusal is reported like every other
 gate (`describing_move`), and a tick refused for it opens nothing rather than reading as idle.
 
 *Why the housekeeping refusal below does not already catch it.* That one works because
@@ -121,7 +179,9 @@ the proposal body, where a human can argue with it; do not try to detect "is thi
 from a file extension, because the proposal declares what it will produce.
 
 **Housekeeping is refused by name.** "Tidy this up", "the docs drifted", "add a test",
-"rename for consistency" are `/moderate`'s job. What they have in common is that they are
+"rename for consistency" are `/moderate`'s job. A mission-shaped proposal makes this
+easier to see rather than harder: a housekeeping direction decomposed into seven tickets is
+seven pieces of housekeeping, and `## What this is chosen against` still has nothing to name. What they have in common is that they are
 chosen against **nothing** — nobody would argue for the mess — which is why the body floor
 requires a `## What this is chosen against` section: a proposal that cannot name the fork it
 did not take is either uncontroversial or unformed, and both are the safe small change the ask
@@ -150,11 +210,38 @@ Three of them carry the design:
 
 - **`work_waiting` + `open_proposal` are one gate in two halves, and they hand off with no
   window** — from the issue opening until its `/specificate` pull request merges the issue is
-  open; from that merge onward the tickets it produced are queued. So **one proposal per
-  strategy is in flight at a time**, enforced continuously with no cursor and no stored state.
-  A per-day bound was considered and refused: the ask is for three routines turning an
+  open; **that same merge puts the mission on `main`**, so `work_waiting` holds from the same
+  instant. The handoff is window-free by construction rather than by timing. So **one mission
+  per strategy is in flight at a time**, enforced continuously with no cursor and no stored
+  state. A per-day bound was considered and refused: the ask is for three routines turning an
   **hourly** loop, and a daily cap on the only routine that originates work would cap the loop
   itself at one turn a day.
+
+  **`work_waiting` reads the mission grain since 2026-08-26**, in two OR'd terms and neither is
+  redundant. The **mission** term — an *active* attributed mission — is what holds the gate
+  while a mission's last ticket sits at a pull request with its queue already drained; under the
+  change-grain arithmetic that gap was the design (the next *change* could start) and at the
+  mission grain it is exactly the window a second mission would slip through. The **ticket**
+  term stays because a loose ticket emitted with no mission around it must still brake. Neither
+  counts: `> 0` is the whole question, so a mission's seven queued tickets are one mission in
+  flight and not seven units of waiting work. It releases when the mission **closes**, which
+  since 2026-08-23 the archive gate does on its own arithmetic — so *re-proposed when that
+  mission finishes* is mechanical, not a judgement. Both terms are derived from the readers that
+  already exist: `attributed-work.sh` for attribution (still the **one** attribution reader) and
+  each ticket's own `## Key Files` for its kind. No counter was added and no artifact gained a
+  field.
+
+  **The describing/advancing distinction survives at the new grain** (2026-08-23): a mission is
+  classified by its own queued tickets, so a mission whose queue is entirely `describing` does
+  not gate an advancing proposal against a building Aim. A mission with **no** queued tickets is
+  `unknown`, and `unknown` counts toward advancing — the same rule a single unknown ticket
+  follows, and for the same reason: mislabelling build work as descriptive is the failure the
+  gate exists to prevent.
+
+  **`open_proposal` needed no change to match.** `list-open-proposals.sh` reads the
+  `strategy: <slug> / move: <move>` marker `open-proposal.sh` stamps, and a mission-shaped
+  proposal carries that marker exactly as a change-shaped one did — so an open mission-shaped
+  proposal gates its strategy without the remote half learning anything about the grain.
 - **`over_cap` is retired** (2026-08-22, the developer's ruling: one proposal per tick is not
   enough — the tick should propose everything it can conclude at that moment). A tick now
   proposes against **every** eligible strategy, still ordered nearest `target_date` first so a
@@ -226,6 +313,65 @@ no second derivation) and asks the strategy's assignee once. The alternatives we
 named itself on every tick and still hid a day of starvation — and the proposal issue says
 nothing precisely when the direction is gated.
 
+### Overdue: has the date passed
+
+`pace` answers *will this direction arrive*. It cannot answer *has its date already gone*, and
+must not be asked to: `late` requires `(.landed | length) == 0`, so a direction that sailed past
+its `target_date` **while producing work** reads `on_course`. It is then refused
+`past_target_date` — a correct refusal — and produces no proposal and no question, forever.
+
+`survey-strategies.sh` emits **`overdue`** as its own boolean on every surveyed row, eligible and
+refused alike, `true` exactly when `days_to_target < 0`. The refused case is the whole point: a
+reader that saw only `eligible` would never see a direction whose date has gone.
+
+**It changes no gate.** `overdue` is computed *before* `refusal`, so `past_target_date` refuses
+exactly the strategies it refused before, `pace` is byte-identical, the sort is untouched, and
+`selected` does not move. Folding it into `pace` as a fourth value is refused: one field
+answering two questions is how the two drift.
+
+**Boundaries, stated rather than tuned.** A row with no resolvable `target_date` has a `null`
+`days_to_target` and is never `overdue` — a malformed strategy is not a late one. `days_to_target`
+is computed against a UTC `$today`, so a direction expiring **today** reads `0` and is not yet
+overdue.
+
+Who is told is `/moderate`'s business, not this routine's, for the reason `pace` records above.
+
+### Dormant: a live direction nothing is answering
+
+A direction can be perfectly legible, perfectly in date, perfectly eligible — and have nothing
+happening against it. `/propose` reports `no_evolutionary_move`, which is the honest answer, into
+a run report that on the day it matters is read by nobody; the direction stays eligible on every
+tick and produces nothing. That state is byte-identical to a healthy idle hour, which is the
+defect.
+
+`survey-strategies.sh` emits **`dormant`** on every surveyed row. It is `true` only when *all* of
+these hold, and every one is already computed here or by `attributed-work.sh` beneath it — no new
+counter, no field on any artifact, no second derivation of `pace`:
+
+| Term | Meaning |
+| ---- | ------- |
+| not `unreadable` | the attribution could be read at all — a degraded read is never dormant |
+| `status == "active"`, `owns == "mine"` | a live direction of this identity's |
+| `days_to_target >= 0` | not already `overdue`; that reading is its own |
+| `feedback_refs` non-empty | something the reader *could* have seen, so silence means silence |
+| `(.landed \| length) == 0` | nothing landed inside the window |
+| `waiting_missions + waiting_count == 0` | nothing waiting at either grain |
+| no open proposal | the last turn is not still sitting in the inbox |
+
+**It is not `pace: late`**, which requires the date to be *near* (`days_to_target <=` the window):
+a direction a year out with nothing happening is dormant and not late. **It is not
+`no_citing_artifacts`** either — that reading is explicitly *not* a refusal here, and neither is
+this: a dormant direction stays **eligible**, which is precisely what makes its silence a
+*finding* rather than a gate. `refusal`, `pace`, the sort and `selected` are untouched.
+
+**The two periods differ, and that is inherited rather than reconciled.** `landed` is bounded by
+the survey's window while `waiting_*` is computed over the queue, so the reading means *nothing
+landed in the window and nothing is waiting at all*.
+
+**A direction filed an hour ago reads dormant immediately.** That is correct — it is exactly the
+"nothing is answering this" state a person should be told about — but it is a description of the
+direction, never an accusation, and the question's wording is held to that (`workaholic:moderate`).
+
 - **`no_feedback_refs` is the answer to the lossy reader.** `attributed-work.sh` walks
   `strategy.feedback[] ∩ artifact.feedback[]` plus one hop through a mission and admits it
   cannot see everything. A strategy citing **no** record can never have anything attributed
@@ -233,6 +379,30 @@ nothing precisely when the direction is gated.
   invisible. Such a strategy is refused with the repair named. **`no_citing_artifacts` is not
   a refusal** — that is a strategy nothing has answered *yet*, which is exactly when a
   proposal is most wanted. One means "no work yet"; the other means "no way to see work".
+
+  **That sentence rests on a proof, not on prose** (2026-08-26, mission
+  `prove-the-loop-s-closing-link`). It used to be ambiguous, and dangerously so: the reading
+  also covered a direction whose answer *was* published with the carry-forward link dropped,
+  and treating that as "not a refusal" made the loss self-perpetuating — the loop kept
+  proposing against a direction it could no longer see its own work on. The hole is closed at
+  the writing end (`workaholic:specificate`, *Carry the ask's own feedback refs forward*):
+  the ask's line is read by a script, the carry is reported on both surfaces, and
+  `check-carry-floor.sh` refuses a publish whose emitted artifact lost a **resolved** ref.
+  The whole chain — ask → reader → scaffold → floor — is pinned by a hermetic test, so the
+  guarantee is a fact that can be lost rather than a claim.
+
+  **What it does not cover**, and must not be over-read: work a run never emitted, an ask
+  that named no refs, a ref that did not resolve, and any artifact written by hand outside
+  `/specificate`. Those are uncited for ordinary reasons, and the attribution stays
+  transitive and lossy exactly as it was.
+
+  **The bound widened on 2026-08-26 and its limits did not.** It now covers work emitted from
+  an ask filed by `/propose`, by this routine's own **inbound sweep**, or by **`/fb`'s in-repo
+  path** — the loop's three writers, each of which now stamps the `feedback:` line through one
+  writer — and the chain test walks each header shape. Still outside it: work a run never
+  emitted, an ask judged to answer no direction, a ref that did not resolve, an artifact
+  written by hand, and a direction `/specificate` **judged** rather than read off a line,
+  because the floor is keyed on the ask's own refs.
 
 **A gate that cannot be read is not a gate**: if the open-proposal list cannot be fetched, the
 whole tick refuses (`inbox_unreadable`) rather than proposing blind.
@@ -272,6 +442,8 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/list-open-proposals.sh
 # The ONE writer, and its only write is a GitHub issue.
 bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/open-proposal.sh \
   --strategy <slug> --move depth|breadth|contraction --title "<title>" <body-file>
+#   body sections: What to change / Why this commits to the strategy /
+#                  What this is chosen against / Experience / Tickets (two or more)
 
 # The inbound sweep's dedup ledger: which channel messages are already an issue.
 bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/list-swept-slack-refs.sh

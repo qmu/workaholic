@@ -59,6 +59,40 @@ on another machine coordinates through exactly the same artifact.
     the hourly runner re-took one such unit three times, adding empty `Resume` commits to a
     branch under human review). Such a unit reports `queue_drained` and is excluded as
     `claimed_reported`.
+  - **A claim whose content already reached the base is neither.** "In flight" is
+    `git rev-list --count base..ref`, so a branch whose *commits* never landed is claimed
+    forever even when its *content* did — a unit recovered by hand onto a fresh claim
+    branch, a change re-applied, a revert-and-redo. `claims_superseded` reports it:
+    **`superseded`**, `resumable: false`, excluded `claimed_superseded`. **Reported, never
+    acted on** — nothing here deletes the branch or closes its pull request, exactly as
+    `stale` has worked since the protocol shipped; an operator closes it out, and the
+    verdict exists so the survey stops offering it. It must **not** forbid `ok`: a claim
+    holding no work is the opposite of outstanding work. The signal is *the unit's tickets
+    are archived on the base* (every one of them, under any branch directory — which
+    branch delivered them is exactly what the test must not care about), chosen over "the
+    branch's diff is contained in the base" because the measured recovery landed
+    **refined** rather than verbatim and containment would have answered `false` on the
+    very branch that provoked the rule. It **answers for batch units and leaves mission
+    units on today's reading**, stated rather than implied: a mission claim stamps only
+    `mission.md`, which driving never archives, and the equivalent would need a second
+    parser of the many-valued `mission:` relation for a shape nothing has measured.
+    Measured 2026-08-26, on the first run to hold the `report_incomplete` tier: it resumed
+    `batch-20260819063000` exactly as designed, and the unit had been recovered onto
+    `work-20260821-221006` five days earlier — ten merge conflicts, three of them
+    `modify/delete` against a directory the base had deleted in a rename, and a full
+    story-and-pull-request cycle spent on a pull request whose only correct outcome was to
+    be closed.
+  - **A drained queue is two states, split on the same story signal.** "Finished" covers a unit
+    that **reported** — story committed at the tip, pull request open, waiting on a human — and a
+    run that died **after** archiving its last ticket and **before** opening anything, whose work
+    is pushed and which nobody has been told about. Both answered `queue_drained`, so both were
+    untouchable *and* both had their tickets excluded `claimed_reported` at every later survey:
+    the second was reachable by no path at all (measured 2026-08-19, `batch-20260819063000` — two
+    tickets archived and pushed, no story, no PR, four `[Implement]` ticks that each surveyed a
+    clean checkout and drove nothing). A story at the tip now keeps `queue_drained`, unchanged;
+    its absence reports **`report_incomplete`**, `resumable: true`, offered as `claimed_resumable`
+    and taken over at §5 with nothing left to drive. This **narrows** the drained gate rather than
+    reversing it — the case it was built for is byte-identical.
   - **Complete history, or no verdict at all.** "Unmerged" is `git rev-list --count
     <base>..<ref>`, which cannot be reduced across a shallow graft — in a shallow clone a fully
     merged branch still counts as ahead (measured 2026-08-04: a merged branch counted 154 ahead
@@ -93,7 +127,10 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/list-claims.sh
 ```
 
 Pure read. Emits `{fetched, shallow, stale_hours, heartbeat_stale_minutes, base, claims: [{unit,
-branch, artifacts, last_commit_at, stale, author, resumable, resume_reason}]}`. The survey
+branch, artifacts, last_commit_at, stale, author, resumable, resume_reason, reported}]}`, where
+`resume_reason` is one of `heartbeat_lapsed` / `report_incomplete` / `parked_with_pr` (resumable)
+or `claim_active` / `superseded` / `queue_drained` / `foreign_identity` /
+`identity_unresolved` / `shallow_history`. The survey
 (`plan-units.sh`) reads the same scan through the shared library rather than re-parsing this
 output. This script takes nothing over; it exists so the state is readable without a survey.
 
@@ -129,13 +166,19 @@ resumability decision observed (same-machine resume is the common case, and the 
 `worktree already exists` refusal used to break it), and otherwise **creates** one **at the pushed
 branch tip** — never from the base — so archived tickets are not re-driven. It then publishes an
 empty `Resume a PR-unit` commit; that push **is** the race arbiter — two racing runners resolve
-non-fast-forward, never by comparing clocks. An abort never tears down an adopted worktree. The
-unit re-enters the Unified Run at step 4: its remaining tickets are whatever is still in `todo/`
-on that branch, and step 5 updates the existing PR rather than opening a second one.
+non-fast-forward, never by comparing clocks. An abort never tears down an adopted worktree.
+
+**Where the unit re-enters is decided by its tier, not by the takeover.** A `heartbeat_lapsed` or
+`parked_with_pr` unit re-enters at **step 4**: its remaining tickets are whatever is still in
+`todo/` on that branch, and step 5 updates the existing PR rather than opening a second one. A
+**`report_incomplete`** unit has an empty queue by definition, so step 4 has nothing to do and it
+re-enters at **step 5** — write the story, run the scan, open the pull request the dead run never
+opened — then routes normally at step 6.
 
 Emits `{claimed, resumed, unit, branch, worktree_path, adopted_worktree, resume_reason,
 announced, announce_reason, artifacts}`, or refuses with `not_claimed`, `claim_active` (naming
-the tip time), `queue_drained` (it finished; its PR waits on a human), `foreign_identity`,
+the tip time), `queue_drained` (it finished **and reported**; its PR waits on a human — a drained
+unit that never reported is `report_incomplete` and is accepted), `foreign_identity`,
 `identity_unresolved`, or `resume_race_lost` (having taken nothing).
 
 ## Release a claim deliberately

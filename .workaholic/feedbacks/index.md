@@ -561,4 +561,5 @@
 * [Make /moderate answer what is waiting, and fix where acceptance is visible](20260826112010-make-moderate-answer-what-is-waiting-and-fix-where-acceptance-is-visible.md)
 * [Deploy the docs site to a Cloudflare Worker on merge to main](20260826112627-deploy-the-docs-site-to-a-cloudflare-worker-on-merge-to-main.md)
 * [Tell a merged claim from a live one at both grains](20260826113034-tell-a-merged-claim-from-a-live-one-at-both-grains.md)
+* [Drive the work the loop wrote: one resolution of who a person is](20260826152017-drive-the-work-the-loop-wrote-one-resolution-of-who-a-person-is.md)
 <!-- okf:generated:end -->

@@ -194,6 +194,14 @@ already holding that read passes `--open-proposals` through. A survey that refus
 `readable: false`, `repository: "unreadable"`, the survey's own reason carried through, and
 **exit 0** — a reader that could not read is reported, never rendered as quiet.
 
+**The refusals are pinned mechanically, not by this prose** (2026-08-26). The two-writers rule on
+this artifact has been re-decided three times, so `scripts/test-workflow-scripts.mjs` now fails if
+`/moderate`'s `direction-health` step writes anywhere under `.workaholic/strategies/`, if its
+closure reaches `close.sh` or `open-proposal.sh`, if a **third** writer of the strategy file
+appears under `strategy/scripts/`, or if running the step changes any `/propose` gate outcome. The
+writer count is a grep and its bound is stated in the test: a writer reached *indirectly* would
+pass it, so it catches the failure that has actually happened rather than every possible one.
+
 ## The write-time floor
 
 `hooks/validate-strategy.sh` (PostToolUse `Write|Edit`) holds any file under

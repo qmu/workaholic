@@ -55,3 +55,4 @@ lifts no gate.
 - 2026-08-26 — ticket archived — 20260826082029-add-the-moderate-step-direction-health.md
 - 2026-08-26 — ticket archived — 20260826082029-make-the-direction-question-actionable-in-its-body.md
 - 2026-08-26 — ticket archived — 20260826082029-render-the-direction-reading-on-the-moderation-root.md
+- 2026-08-26 — ticket archived — 20260826082029-pin-the-three-refusals-with-a-hermetic-test.md

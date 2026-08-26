@@ -139,6 +139,7 @@ const SCRIPTS = {
   feedbackCreate: join(REPO_ROOT, "plugins/workaholic/skills/feedback/scripts/create.sh"),
   proposeReadFeedbackRelation: join(REPO_ROOT, "plugins/workaholic/skills/specificate/scripts/read-feedback-relation.sh"),
   readAskFeedbackRefs: join(REPO_ROOT, "plugins/workaholic/skills/specificate/scripts/read-ask-feedback-refs.sh"),
+  askFeedbackLine: join(REPO_ROOT, "plugins/workaholic/skills/feedback/scripts/ask-feedback-line.sh"),
   checkCarryFloor: join(REPO_ROOT, "plugins/workaholic/skills/specificate/scripts/check-carry-floor.sh"),
   renderSetupSheet: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/render-setup-sheet.sh"),
   unitFeedbackStems: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/unit-feedback-stems.sh"),
@@ -15377,6 +15378,7 @@ const tests = [
   ["specificate/check-carry-floor.sh: the carry, floored at the publish seam", testCarryFloor],
   ["no_citing_artifacts is a provable reading: ask -> reader -> scaffold -> floor", testCarryChainIsProvable],
   ["strategy/mission-strategy.sh: which direction a mission belongs to", testMissionStrategy],
+  ["feedback/ask-feedback-line.sh: one writer for the line one reader reads", testAskFeedbackLine],
 ];
 
 // `await` matters even though almost every test is synchronous: without it an async
@@ -20689,5 +20691,67 @@ function testMissionStrategy() {
     assertEq("the reader leaves the tree clean", run(dir, "git status --porcelain").stdout.trim(), "");
     assertEq("and exits 0 even with no strategies at all",
       run(makeRepo("main"), READ).status, 0);
+  } finally { cleanup(dir); }
+}
+
+// ---------- feedback/ask-feedback-line.sh: the writing side gets one writer too ----------
+// (2026-08-26) The inbound ask's `feedback:` line had one reader
+// (`read-ask-feedback-refs.sh`) and one writer, inlined in `open-proposal.sh`. Two more
+// callers want it — the Slack sweep and `/fb`'s in-repo path — so the writing side is given
+// the same single-writer treatment BEFORE it is multiplied rather than after, which is the
+// rule the reader's own header states and this repository has paid for twice.
+//
+// The round trip is the point: what this writer emits, that reader must recover exactly.
+function testAskFeedbackLine() {
+  const dir = makeRepo("main");
+  const WRITE = `${POSIX_SH} ${SCRIPTS.askFeedbackLine}`;
+  const READ = `${POSIX_SH} ${SCRIPTS.readAskFeedbackRefs}`;
+  try {
+    const fbdir = join(dir, ".workaholic/feedbacks");
+    mkdirSync(fbdir, { recursive: true });
+    for (const f of ["20260821162443-a.md", "20260826021619-b.md"]) {
+      writeFileSync(join(fbdir, f), "---\ntype: Feedback\n---\n\nx\n");
+    }
+    const roundTrip = (args) => {
+      const line = run(dir, `${WRITE} ${args}`).stdout;
+      writeFileSync(join(dir, "body.md"), line + "\nprose\n");
+      return { line, read: JSON.parse(run(dir, `${READ} < ${join(dir, "body.md")}`).stdout) };
+    };
+
+    const two = roundTrip('"20260821162443-a.md, 20260826021619-b.md"');
+    assertEq("the writer emits the canonical single line",
+      two.line, "feedback: 20260821162443-a.md, 20260826021619-b.md\n");
+    assertEq("and the one reader recovers exactly those refs",
+      two.read.carried, ["20260821162443-a.md", "20260826021619-b.md"]);
+
+    assertEq("variadic and comma-separated forms produce the same line",
+      run(dir, `${WRITE} 20260821162443-a.md 20260826021619-b.md`).stdout, two.line);
+    assertEq("and so does the inline-list form the artifact side uses",
+      run(dir, `${WRITE} "[20260821162443-a.md, 20260826021619-b.md]"`).stdout, two.line);
+
+    // AN EMPTY REF SET EMITS NO LINE, never an empty one. The reader distinguishes three
+    // states, and an empty line would report "named a direction and lost it" for an ask
+    // that never had one.
+    for (const empty of ['""', "", '"  "', '","']) {
+      assertEq(`an empty ref set (${empty || "no args"}) emits nothing`,
+        run(dir, `${WRITE} ${empty}`).stdout, "");
+    }
+    writeFileSync(join(dir, "none.md"), "prose only\n");
+    assertEq("so an ask written without it reads back line_found: false",
+      JSON.parse(run(dir, `${READ} < ${join(dir, "none.md")}`).stdout).line_found, false);
+    assertEq("and every case exits 0", run(dir, `${WRITE}`).status, 0);
+
+    // THE INLINE EMITTER IS GONE. A second formatter is exactly what the reader's header
+    // forbids, and the whole point of extracting this one was to have no survivor.
+    const proposal = readFileSync(SCRIPTS.proposeOpen, "utf8");
+    assertTrue("open-proposal.sh composes the line through this writer",
+      /ask-feedback-line\.sh/.test(proposal), proposal.slice(0, 200));
+    assertTrue("and formats none of its own",
+      !/printf 'feedback:/.test(proposal), "a second formatter survives in open-proposal.sh");
+    // The rewiring had to be observationally free: the composed issue body is what a human
+    // and the next tick both read.
+    const oldWay = "feedback: 20260821162443-a.md, 20260826021619-b.md\n\n";
+    assertEq("and the composed body is byte-identical to the inline emitter's",
+      two.line + "\n", oldWay);
   } finally { cleanup(dir); }
 }

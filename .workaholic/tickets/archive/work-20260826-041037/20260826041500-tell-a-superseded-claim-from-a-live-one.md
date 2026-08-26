@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-26T04:15:00+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -130,3 +131,78 @@ the protocol shipped, and a superseded verdict is the same kind of fact.
 
 - The suite is green, the generated `outputs/` diff is committed, and the reproduction from
   step 1 flips from `report_incomplete` to the new verdict on the same fixture.
+
+## Final Report
+
+Development completed as planned, reproduction-first.
+
+### Step 1 — reproduced before anything changed
+
+The hand-recovery shape, hermetically: drive both tickets on a claim branch, push, then
+land the *same* tickets on the base from a different branch directory. Today's scan
+reported the claim `resumable: true`, `resume_reason: report_incomplete` — a mandatory
+takeover of a branch that cannot land. That assertion is kept in the test as the premise
+the new verdict has to displace.
+
+### Step 2 — the signal, decided by the reproduction rather than by preference
+
+**Archived-on-the-base**, not diff-containment. The fixture writes the recovered tickets
+with *different content* on purpose, because the measured 2026-08-21 recovery landed
+**refined** rather than verbatim (`question_slug` gained an unconditional digest and a
+different slug bound): a containment test would have answered `false` on the very branch
+that provoked the rule. One `git ls-tree` against the base per claim, offline, matching by
+**basename** — filenames are unique in the tree by construction — and deliberately **not**
+comparing the branch directory under `archive/`, because which branch delivered the work is
+exactly what the test must not care about. **Every** ticket must be archived, not any: a
+half-recovered unit still has work, and the test asserts it keeps its own verdict.
+
+It **answers for batch units and leaves mission units on today's reading**, stated in the
+script header, in `reference/claims.md` and in the runbook rather than left to be
+discovered. A mission claim stamps only `mission.md`, which driving never archives; the
+equivalent would need a second parser of the many-valued `mission:` relation for a shape
+nothing has measured. A unit carrying any non-ticket artifact answers `false`, so a mission
+claim's verdict is byte-identical.
+
+### Step 3 — the rung, and where it sits
+
+`superseded`, `resumable: false`, excluded `claimed_superseded`. It sits **after**
+`claim_active` and before the drained fork. The ticket asked for "after identity and
+ancestry"; `claim_active` was kept ahead of it as well, because liveness is what gates a
+takeover and a run still committing should keep the reading that protects it. Both of the
+drained fork's answers would be wrong here — `queue_drained` says a human waits at a pull
+request that need not exist, and `report_incomplete` offers the mandatory takeover this
+ticket exists to prevent.
+
+`claim.sh` needed no change: its refusal ladder runs only when `resumable != true`, and
+`superseded` is `resumable: false`, so a resume attempt refuses through the existing
+`identity_unresolved` arm's default. That is the one rough edge and it is recorded as a
+concern rather than papered over.
+
+### Steps 4-6 — reported never acted on, the docs, the tests
+
+Nothing deletes a branch, closes a pull request or releases a claim — asserted in the test
+(`the branch still exists after the verdict`). `SKILL.md` §1 and §7 (it does **not** forbid
+`ok`), `reference/claims.md`, `reference/survey.md`, `docs/drive-loop-runbook.md` (vocabulary
+plus a troubleshooting row) and `docs/loop-drill-runbook.md` all name it.
+
+Verified against production as well as the fixture: `batch-20260819063000` — the branch that
+provoked this ticket — reads `superseded`, while the three mission claims keep
+`queue_drained` / `parked_with_pr` and the two live claims keep theirs.
+
+### Discovered Insights
+
+- **Insight**: the fixture that proves the `claimed_superseded` *exclusion* has to copy
+  rather than move, and that is a statement about `plan-units.sh`, not about the scan.
+  **Context**: `excluded[]` is keyed by **artifact** for a batch unit (only a mission unit
+  appears under its own id), and the artifacts are base-side `todo/` paths — which a real
+  move-based recovery removes. So a genuine recovery produces no `excluded[]` row at all,
+  and the claim row's own `superseded` verdict is the only surface carrying the fact. The
+  test says so in a comment, because a later reader finding no row would otherwise read it
+  as the classification failing.
+- **Insight**: the new rung's real risk was never a false positive — it was making the rung
+  below unreachable, and the way to see that is a fixture that walks the whole ladder.
+  **Context**: `testSupersededLeavesEveryOtherVerdictAlone` moves one input at a time
+  through `claim_active` → `heartbeat_lapsed` → half-recovered → `queue_drained` →
+  `superseded` → `foreign_identity` on **one** claim, so each verdict is asserted on a
+  fixture that genuinely reaches it. Asserting the new verdict alone would have proved
+  nothing about the four it sits beside.

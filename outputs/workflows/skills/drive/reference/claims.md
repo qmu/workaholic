@@ -59,6 +59,29 @@ on another machine coordinates through exactly the same artifact.
     the hourly runner re-took one such unit three times, adding empty `Resume` commits to a
     branch under human review). Such a unit reports `queue_drained` and is excluded as
     `claimed_reported`.
+  - **A claim whose content already reached the base is neither.** "In flight" is
+    `git rev-list --count base..ref`, so a branch whose *commits* never landed is claimed
+    forever even when its *content* did — a unit recovered by hand onto a fresh claim
+    branch, a change re-applied, a revert-and-redo. `claims_superseded` reports it:
+    **`superseded`**, `resumable: false`, excluded `claimed_superseded`. **Reported, never
+    acted on** — nothing here deletes the branch or closes its pull request, exactly as
+    `stale` has worked since the protocol shipped; an operator closes it out, and the
+    verdict exists so the survey stops offering it. It must **not** forbid `ok`: a claim
+    holding no work is the opposite of outstanding work. The signal is *the unit's tickets
+    are archived on the base* (every one of them, under any branch directory — which
+    branch delivered them is exactly what the test must not care about), chosen over "the
+    branch's diff is contained in the base" because the measured recovery landed
+    **refined** rather than verbatim and containment would have answered `false` on the
+    very branch that provoked the rule. It **answers for batch units and leaves mission
+    units on today's reading**, stated rather than implied: a mission claim stamps only
+    `mission.md`, which driving never archives, and the equivalent would need a second
+    parser of the many-valued `mission:` relation for a shape nothing has measured.
+    Measured 2026-08-26, on the first run to hold the `report_incomplete` tier: it resumed
+    `batch-20260819063000` exactly as designed, and the unit had been recovered onto
+    `work-20260821-221006` five days earlier — ten merge conflicts, three of them
+    `modify/delete` against a directory the base had deleted in a rename, and a full
+    story-and-pull-request cycle spent on a pull request whose only correct outcome was to
+    be closed.
   - **A drained queue is two states, split on the same story signal.** "Finished" covers a unit
     that **reported** — story committed at the tip, pull request open, waiting on a human — and a
     run that died **after** archiving its last ticket and **before** opening anything, whose work
@@ -106,8 +129,8 @@ bash ../drive/scripts/list-claims.sh
 Pure read. Emits `{fetched, shallow, stale_hours, heartbeat_stale_minutes, base, claims: [{unit,
 branch, artifacts, last_commit_at, stale, author, resumable, resume_reason, reported}]}`, where
 `resume_reason` is one of `heartbeat_lapsed` / `report_incomplete` / `parked_with_pr` (resumable)
-or `claim_active` / `queue_drained` / `foreign_identity` / `identity_unresolved` /
-`shallow_history`. The survey
+or `claim_active` / `superseded` / `queue_drained` / `foreign_identity` /
+`identity_unresolved` / `shallow_history`. The survey
 (`plan-units.sh`) reads the same scan through the shared library rather than re-parsing this
 output. This script takes nothing over; it exists so the state is readable without a survey.
 

@@ -50,3 +50,4 @@ lifts no gate.
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-26 — ticket archived — 20260826082029-add-the-overdue-reading-to-the-strategy-survey.md
+- 2026-08-26 — ticket archived — 20260826082029-add-the-dormant-reading-to-the-strategy-survey.md

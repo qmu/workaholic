@@ -336,6 +336,42 @@ overdue.
 
 Who is told is `/moderate`'s business, not this routine's, for the reason `pace` records above.
 
+### Dormant: a live direction nothing is answering
+
+A direction can be perfectly legible, perfectly in date, perfectly eligible — and have nothing
+happening against it. `/propose` reports `no_evolutionary_move`, which is the honest answer, into
+a run report that on the day it matters is read by nobody; the direction stays eligible on every
+tick and produces nothing. That state is byte-identical to a healthy idle hour, which is the
+defect.
+
+`survey-strategies.sh` emits **`dormant`** on every surveyed row. It is `true` only when *all* of
+these hold, and every one is already computed here or by `attributed-work.sh` beneath it — no new
+counter, no field on any artifact, no second derivation of `pace`:
+
+| Term | Meaning |
+| ---- | ------- |
+| not `unreadable` | the attribution could be read at all — a degraded read is never dormant |
+| `status == "active"`, `owns == "mine"` | a live direction of this identity's |
+| `days_to_target >= 0` | not already `overdue`; that reading is its own |
+| `feedback_refs` non-empty | something the reader *could* have seen, so silence means silence |
+| `(.landed \| length) == 0` | nothing landed inside the window |
+| `waiting_missions + waiting_count == 0` | nothing waiting at either grain |
+| no open proposal | the last turn is not still sitting in the inbox |
+
+**It is not `pace: late`**, which requires the date to be *near* (`days_to_target <=` the window):
+a direction a year out with nothing happening is dormant and not late. **It is not
+`no_citing_artifacts`** either — that reading is explicitly *not* a refusal here, and neither is
+this: a dormant direction stays **eligible**, which is precisely what makes its silence a
+*finding* rather than a gate. `refusal`, `pace`, the sort and `selected` are untouched.
+
+**The two periods differ, and that is inherited rather than reconciled.** `landed` is bounded by
+the survey's window while `waiting_*` is computed over the queue, so the reading means *nothing
+landed in the window and nothing is waiting at all*.
+
+**A direction filed an hour ago reads dormant immediately.** That is correct — it is exactly the
+"nothing is answering this" state a person should be told about — but it is a description of the
+direction, never an accusation, and the question's wording is held to that (`workaholic:moderate`).
+
 - **`no_feedback_refs` is the answer to the lossy reader.** `attributed-work.sh` walks
   `strategy.feedback[] ∩ artifact.feedback[]` plus one hop through a mission and admits it
   cannot see everything. A strategy citing **no** record can never have anything attributed

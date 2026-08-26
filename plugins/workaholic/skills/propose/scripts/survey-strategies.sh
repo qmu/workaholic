@@ -12,10 +12,10 @@
 # Output (one JSON object):
 #   {ok, identity, window, cap, active_count,
 #    eligible: [{slug, title, target_date, days_to_target, assignees, feedback_refs[],
-#                empty_reason, count, active_count, waiting_count, pace, overdue,
+#                empty_reason, count, active_count, waiting_count, pace, overdue, dormant,
 #                landed: [{kind, title, state, attribution, last_change}],
 #                path}],
-#    refused: [{slug, reason, pace, overdue, title, assignees, days_to_target}],
+#    refused: [{slug, reason, pace, overdue, dormant, title, assignees, days_to_target}],
 #    errors: [], selected: [<slug>...]}
 #   or {ok: false, reason, detail} when a gate could not be read at all.
 #
@@ -312,6 +312,35 @@ jq -sc \
           # is computed against a UTC `$today`, so a direction expiring TODAY reads `0`
           # and is not yet overdue. That is the correct boundary, stated rather than tuned.
           ((.days_to_target != null) and (.days_to_target < 0))}
+      | . + {dormant:
+          # DORMANT -- A LIVE DIRECTION NOTHING IS ANSWERING (2026-08-26). `/propose` reports
+          # `no_evolutionary_move` when it cannot name a move against an eligible direction --
+          # the honest answer -- into a run report that on the day it matters is read by
+          # nobody, and the direction stays eligible on every tick while producing nothing.
+          # The state is byte-identical to a healthy idle hour, which is the whole defect.
+          #
+          # EVERY TERM IS ALREADY COMPUTED HERE OR BY `attributed-work.sh` BENEATH IT: no new
+          # counter, no field on any artifact, and no second derivation of `pace`. It is a
+          # conjunction of what the row already holds -- legible, active, owned, in date, with
+          # something the reader could have seen, nothing landed in the window, nothing
+          # waiting at either grain, and no proposal already open.
+          #
+          # IT IS NOT `pace: late`, which needs the date to be NEAR (`days_to_target <=
+          # $window_days`); a direction a year out with nothing happening is dormant and not
+          # late. It is not `no_citing_artifacts` either -- that reading is explicitly NOT a
+          # refusal here (see the header), and this is not one: a dormant direction stays
+          # eligible, which is precisely what makes its silence a FINDING rather than a gate.
+          #
+          # THE TWO PERIODS ARE DIFFERENT AND THAT IS INHERITED, NOT RECONCILED: `landed` is
+          # bounded by `$WINDOW` while `waiting_*` is computed over the queue. The reading
+          # therefore means "nothing landed in the window and nothing is waiting at all".
+          (if (.unreadable or (.status != "active") or (.owns != "mine")) then false
+           elif ((.days_to_target != null) and (.days_to_target < 0)) then false
+           elif ((.feedback_refs | length) == 0) then false
+           elif ((.landed | length) > 0) then false
+           elif (((.waiting_missions // 0) + (.waiting_count // 0)) > 0) then false
+           elif ($held | index($w.slug)) then false
+           else true end)}
       | . + {refusal:
           (if .unreadable then "attribution_unreadable"
            elif .status != "active" then "not_active"
@@ -349,7 +378,7 @@ jq -sc \
      # load-bearing for the STARVING case: a direction that will not arrive AND is gated
      # produces no proposal, so a consumer reading only `eligible` would never see it.
      refused: ((map(select(.refusal != ""))
-                | map({slug, reason: .refusal, pace, overdue, title, assignees, days_to_target}))
+                | map({slug, reason: .refusal, pace, overdue, dormant, title, assignees, days_to_target}))
                + $spill),
      selected: ($take | map(.slug)),
      errors: []}

@@ -4,6 +4,7 @@ Branch development narratives, one per branch, serving as the PR description and
 
 <!-- okf:generated:begin -->
 * [work-20260826-195732](work-20260826-195732.md) - Retire the always-on mission-lens hook — its roster surfacing now lives in /moderate's closable-missions step and the on-demand /mission roadmap
+* [work-20260826-134108](work-20260826-134108.md) - The docs site gains a Worker, a deploy-on-merge workflow and a registered deployment target — complete but unverifiable without the Cloudflare account.
 * [work-20260826-114429](work-20260826-114429.md) - The loop says what it accepted and asks about what is still waiting — a reaction on every swept message, a tick step for unanswered channel asks, and the surface language rule.
 * [work-20260826-084111](work-20260826-084111.md) - The direction layer gets a lifecycle reading and a voice — overdue, dormant and none are read once and asked about by name, and three refusals are pinned by a test and a drill.
 * [work-20260826-043020](work-20260826-043020.md) - Every inbound mouth of the loop now names the direction its ask answers, from one writer, so work born on the channel or filed by hand stops citing its strategy at nothing.

@@ -197,11 +197,14 @@ not of surveying: a runner without one still reads the whole queue, reports
 
   Each entry names the unit, its branch, the claimed artifacts, whether the branch
   tip has gone stale, and whether the unit is **resumable**. `resume_reason` is never
-  empty and names either the one resumable verdict — `heartbeat_lapsed` — or the
-  condition that refused it: `claim_active` / `foreign_identity` /
-  `identity_unresolved` / `shallow_history` / `queue_drained`. (`plan-units.sh`'s
-  `resumable[]` adds the second, softer tier, `parked_with_pr` — reportable rather
-  than mandatory, and it does not forbid `ok`.) The top-level `shallow` says whether
+  empty and names either a resumable verdict — `heartbeat_lapsed` (a run that died
+  mid-drive) or `report_incomplete` (a run that died with its queue drained and no
+  pull request opened: the work is pushed and nobody was told) — or the condition
+  that refused it: `claim_active` / `foreign_identity` / `identity_unresolved` /
+  `shallow_history` / `queue_drained` (drained **and reported**, so a human is what
+  it waits for). Both resumable verdicts are mandatory takeovers and forbid `ok`;
+  `plan-units.sh`'s `resumable[]` adds the third, softer tier, `parked_with_pr` —
+  reportable rather than mandatory, and it does not forbid `ok`. The top-level `shallow` says whether
   this clone's history was complete enough to answer at all. `Claim <unit-id>`
   commits on unmerged branches are the loop's ledger — `git log --oneline --all
   --grep='^Claim '` reads it from git alone.
@@ -262,7 +265,8 @@ not of surveying: a runner without one still reads the whole queue, reports
 | `gh: command not found`, or a unit reporting `pr_error: gh_unavailable` after its branch was pushed | the cloud container the routine runs in has no GitHub CLI | the work is pushed and safe: the seams report `gh_unavailable` and exit 0 rather than dying, the unit is demoted to the PR path, and the pull request is opened by hand (or by an agent through its MCP server). Installing `gh` in the runner image is the real fix; the guards are the floor, since a container can always lose it again |
 | `pre-check.sh` reporting `found: false` | either the branch genuinely has no PR, **or** `gh` is absent | read `reason`: `gh_unavailable` means PR state could not be read at all. The two were once the same output, and a ship flow read the second as the first |
 | a unit sits claimed for days, `stale: true` | the runner died mid-run, or the work genuinely stalled | nothing auto-breaks a claim on staleness alone — reclaiming a *colleague's* work can silently duplicate it. If the claim is **yours**, the loop already recovers it: once the heartbeat lapses the survey offers it in `resumable[]` and the next tick takes it over with `claim.sh resume <unit-id>`, continuing from the pushed branch tip. Otherwise inspect the branch and leave it to its owner |
-| a unit is **not** offered as resumable although its run is clearly gone | its `resume_reason` says which condition failed | `claim_active` = the tip is still inside the heartbeat window (wait it out, or shorten `WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES`); `foreign_identity` = the claim is another developer's and is never resumable here at any age; `identity_unresolved` = this checkout has no `git config user.email`; `shallow_history` = the clone is truncated and origin was unreachable, so "is this branch merged" could not be answered — restore network access and re-run, and the reader deepens itself |
+| a unit is **not** offered as resumable although its run is clearly gone | its `resume_reason` says which condition failed | `claim_active` = the tip is still inside the heartbeat window (wait it out, or shorten `WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES`); `foreign_identity` = the claim is another developer's and is never resumable here at any age; `identity_unresolved` = this checkout has no `git config user.email`; `shallow_history` = the clone is truncated and origin was unreachable, so "is this branch merged" could not be answered — restore network access and re-run, and the reader deepens itself; `queue_drained` = every ticket was driven **and** the branch carries a story, so its pull request is open and a human is what it waits for (check the PR) |
+| a unit's tickets are all archived and pushed, but no pull request exists and no tick ever picks it up | the run died between §4 and §5 — it never wrote the story and never opened the PR | `list-claims.sh` reports it `resume_reason: report_incomplete`, `resumable: true`, and the survey offers it: the next tick takes it over with `claim.sh resume <unit-id>` and enters at §5 with an empty queue, re-driving nothing. Before 2026-08-19 it read `queue_drained` and was reachable by no path at all (measured: `batch-20260819063000`, four ticks that drove nothing while its two tickets sat undelivered) |
 | a **merged, shipped** unit is offered as `resumable`, or the tick never reports `ok` | the clone is shallow, so `base..ref` cannot be reduced and a merged branch counts as ahead (measured 2026-08-04: 154 ahead while shallow, 0 after `--unshallow`) | the reader now deepens itself before scanning, so this should self-heal on the next tick. If `shallow: true` persists, origin is unreachable — fix that first; `git fetch --unshallow` by hand is the manual equivalent |
 | `resume_race_lost` in the log | two runners saw the same unit as resumable and both pushed a takeover | expected; git rejected the loser's push and it took nothing. The winner is driving the unit |
 | `release-claim.sh` used to "recover" an interrupted unit | it is the **discard** path, not the recovery path — it deletes the remote branch | use `claim.sh resume <unit-id>` to continue an interrupted unit. Reserve `release-claim.sh` for a unit that will genuinely not be finished |

@@ -1,11 +1,13 @@
 ---
 created_at: 2026-08-19T10:41:15+00:00
+status: done
 author: a@qmu.jp
 assignees:
 depends_on:
 mission:
 merge_policy: review
 verification_handoff:
+claim: work-20260826-034037
 ---
 
 # Tell a dead unit from a reported one
@@ -127,3 +129,58 @@ human review. What follows narrows that gate rather than reversing it.
 
 - The suite is green, the generated `outputs/` diff is committed, and the reproduction from
   step 1 flips from `queue_drained` to `report_incomplete` on the same fixture.
+
+## Final Report
+
+Development completed as planned. The drained arm of `claims_scan` now splits on
+`claims_has_story`: a story at the tip keeps `queue_drained` / `resumable: false`
+(the 2026-08-01 gate, byte-identical), its absence reports the new
+`report_incomplete` / `resumable: true`. `_cs_reported` moved above the verdict
+block — it was already computed on every row since 2026-08-23, and it is now an
+input to the verdict rather than a fact reported beside it, so one
+`claims_has_story` call answers both forks and no extra git call was added.
+
+`claim.sh resume` needed no new acceptance branch: its refusal ladder only runs
+when `resumable != true`, so the new reason passes through by construction. Its
+`queue_drained` refusal detail now says *drained **and** reported* and names the
+other state. `plan-units.sh` needed no code change either — its classification
+keys on `resumable` first, so a `report_incomplete` unit lands in
+`claimed_resumable` and in `resumable[]` automatically.
+
+Verified against the real measured unit, not only the fixture:
+`batch-20260819063000` flips `queue_drained` → `report_incomplete`
+(`reported: false`, 2 artifacts), while the three units with stories at their tips
+(`work-20260818-205051` / `#521`, `work-20260818-215157` / `#520`,
+`make-a-rename-a-registry-entry-not-a-sweep`) keep `queue_drained` and
+`make-workaholify-converge-the-account-s-routines` keeps `parked_with_pr`.
+
+### Discovered Insights
+
+- **Insight**: `claim.sh resume` was reading the claim row's artifact list at
+  `cut -f8`, which has been the `reported` column since it was inserted on
+  2026-08-23 — so every takeover reported `artifacts: ["true"]` or
+  `["false"]` instead of the unit's files. Fixed to `-f9` here, and asserted.
+  **Context**: `lib/claims.sh`'s header defends the artifact list's position as
+  *last* because a trailing empty field is the one case `read` handles correctly
+  — and that protection is real for the three consumers that read the row with
+  `while IFS='<TAB>' read -r ...` named fields, which all picked up the new
+  column for free. It does nothing for a **fixed `cut -f<N>` index**, and this
+  resume path is the codebase's only one. A column added to a TSV whose readers
+  are mixed-style is a silent breakage for exactly the fixed-index half.
+
+- **Insight**: the stranded unit was invisible to `/moderate` as well as to the
+  survey, and for a reason that generalizes: `step-stuck-prs.sh` and
+  `step-merge-conflicts.sh` both read **pull requests**, and the defining
+  property of this state is that no pull request exists.
+  **Context**: a state defined by an *absent* artifact cannot be found by any
+  reader keyed on that artifact's presence, so it needs a reader over what *is*
+  present — here the claim branch. That is why the fix belongs in the claim
+  oracle rather than in a new maintenance step.
+
+- **Insight**: two of the suite's existing claim tests reached `queue_drained` by
+  archiving every ticket and never writing a story, so they were asserting the
+  protected case through a fixture that was actually the *unprotected* one.
+  **Context**: `testResumeSkipsDrainedUnit` and `testClaimSurvivesUndetectedRename`
+  now commit a branch story before asserting. Neither test's subject moved — the
+  fixture had simply been under-specified in a way only this split could expose,
+  which is the ordinary cost of a verdict gaining a new input.

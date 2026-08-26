@@ -128,18 +128,36 @@ not `excluded[]` entries, because `excluded[]` names items the survey saw and dr
 `fetched: false` means origin was unreachable and the claim set is the last-known one — survey
 anyway, but expect the claim step to refuse: the reader degrades offline, the writer does not.
 
-## The resumable offer — two tiers
+## The resumable offer — three tiers
 
 `resumable[]` is a third offer, not a report. Its members are already stamped and partly driven,
-so a takeover (`claim.sh resume <unit-id>`) skips steps 2-3 and enters at step 4. Read each row's
-`resume_reason`:
+so a takeover (`claim.sh resume <unit-id>`) skips steps 2-3. Read each row's `resume_reason`:
 
 - **`heartbeat_lapsed`** — a run that died mid-drive. Take it over **before claiming anything
-  fresh**; left untaken it **forbids `ok`** exactly as an unclaimed ticket does.
+  fresh**; left untaken it **forbids `ok`** exactly as an unclaimed ticket does. Enters at
+  **step 4**: its remaining tickets are whatever is still in `todo/` on that branch.
+- **`report_incomplete`** — a run that died **between step 4 and step 5**: every ticket archived
+  and pushed, no story at the tip and therefore no pull request. Equally **mandatory**, and left
+  untaken it **forbids `ok`** — nothing is waiting on a human here, because no human was ever
+  told the work exists. Enters at **step 5**, with an empty queue: write the story, run the scan,
+  open the pull request, route normally at step 6. It re-drives no archived ticket.
 - **`parked_with_pr`** — a unit that reached its PR and has follow-up work on its branch (its
   story file is committed at the tip). Legitimately resumable but **reportable rather than
   mandatory**: it does not outrank fresh work and does not forbid `ok` when left untaken. (The
   mandatory reading was measured humanly wrong — an attended run spent ~40 minutes reopening a
-  PR the developer considered parked while their actual WIP waited, 2026-08-05.)
+  PR the developer considered parked while their actual WIP waited, 2026-08-05.) Enters at
+  **step 4** for the follow-up tickets.
 
-Both tiers are takeovers, never fresh claims: resuming continues from the pushed branch tip.
+All three tiers are takeovers, never fresh claims: resuming continues from the pushed branch tip.
+
+**The third tier narrows the drained gate; it does not reverse it.** A drained queue used to be
+one word (`queue_drained`, `resumable: false`) whatever the branch carried, so a unit that
+reported and one that died before reporting were equally untouchable — and the second was
+reachable by nothing at all, since its tickets were excluded `claimed_reported` at every later
+survey too. Measured 2026-08-19 on this repository: `batch-20260819063000` had two tickets
+archived and pushed at 06:48 UTC with no story and no pull request, and the four `[Implement]`
+ticks that followed each surveyed a clean, current checkout, found `missions: []`, `backlog: []`,
+`resumable: []`, and drove nothing while that work sat undelivered. The signal is the story file
+`/story` commits when it opens the pull request — the same offline check `parked_with_pr` already
+read one branch below — so a unit that **did** report keeps `queue_drained` and stays a human's
+business, which is exactly what the 2026-08-01 fix protects.

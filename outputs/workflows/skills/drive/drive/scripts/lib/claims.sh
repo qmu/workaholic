@@ -125,6 +125,18 @@
 #      versus "a review unit at a PR"; the resumability verdict simply had not learned
 #      it.
 #
+#      AND A DRAINED QUEUE IS NOT ONE STATE (2026-08-19). The gate above answers "did the
+#      run die, or did the unit finish?" -- but "finished" itself covers a unit that
+#      REPORTED (story at the tip, pull request open, a human is what it waits for) and a
+#      run that died AFTER archiving its last ticket and BEFORE opening anything, whose
+#      work is pushed and which nobody has been told about. Both answered
+#      `queue_drained`, so both were untouchable AND both had their tickets excluded
+#      `claimed_reported` at every later survey -- no fresh claim reached them either.
+#      The distinguishing signal is the one condition 3's own fork already reads: the
+#      story file. Present => `queue_drained` (unchanged, this is what the 2026-08-01
+#      gate protects); absent => `report_incomplete`, resumable, entering at §5 with an
+#      empty queue. This NARROWS the gate; it does not reverse it.
+#
 #      How "left to drive" is read differs by unit kind, because a claim stamps
 #      different things: a BATCH claims its ticket files, so the test is whether any of
 #      them is still under todo/ at the tip (archive.sh renames a driven ticket, and the
@@ -138,9 +150,9 @@
 # after a day is not a recovery path, which is why the heartbeat threshold is in minutes.
 #
 # `resume_reason` always answers "why is it in this state", and is NEVER empty (see the
-# no-empty-field rule below): `heartbeat_lapsed` or `parked_with_pr` when resumable, else
-# `claim_active`, `foreign_identity`, `identity_unresolved`, `shallow_history`, or
-# `queue_drained`.
+# no-empty-field rule below): `heartbeat_lapsed`, `parked_with_pr` or `report_incomplete`
+# when resumable, else `claim_active`, `foreign_identity`, `identity_unresolved`,
+# `shallow_history`, or `queue_drained`.
 # `parked_with_pr` splits the RESUMABLE case in two: a unit that reached its PR (its story
 # file is committed at the branch tip) and merely has follow-up work, versus a run that
 # died mid-drive. Both MAY be taken over; only the latter is a MANDATORY takeover, because
@@ -153,6 +165,12 @@
 # operator responses: `claim_active` means wait for the run, `queue_drained` means the
 # work is done and a human -- not a runner -- is what it is waiting for. It is reported rather than merely implied
 # so an operator can read WHY a unit is untouchable straight out of list-claims.sh.
+# `report_incomplete` is the DRAINED case where no human is waiting, because none was ever
+# told: the queue is empty and there is no story at the tip, so the run died between §4
+# and §5 and its work sits pushed and undelivered. It is resumable and MANDATORY like
+# `heartbeat_lapsed` -- a dead run's remains, not a unit waiting on a person -- and it
+# narrows the 2026-08-01 drained gate rather than reversing it: a unit that DID report
+# still answers `queue_drained` and is still untouchable.
 #
 # Paths are assumed free of tabs, commas, quotes and backslashes -- true of every
 # .workaholic/ artifact by construction (the ticket/mission filename rules), and the
@@ -498,6 +516,23 @@ claims_scan() {
         [ -n "$_cs_author" ] || _cs_author="unknown"
         [ -n "$_cs_at" ] || _cs_at="unknown"
 
+        # WHETHER THIS UNIT REACHED ITS PULL REQUEST, on every row rather than on the
+        # one branch that happened to need it (2026-08-23). `claims_has_story` was
+        # consulted only where the resumable verdict forked, so `queue_drained` — the
+        # commonest state of a finished-but-unmerged unit — short-circuited before it and
+        # a reader could not tell a unit parked at a pull request from one that never
+        # opened any. The maintenance tick's stalled-unit step needs exactly that
+        # distinction, and deriving it a second time would give the claim protocol two
+        # answers to one question. It is the same offline signal (`/story` commits
+        # `.workaholic/stories/<branch>.md` when it opens the pull request), so hoisting it
+        # costs one `git ls-tree` per claim and no network call.
+        #
+        # IT IS READ BEFORE THE VERDICT, NOT AFTER IT (2026-08-19). The verdict now forks
+        # on it twice -- drained/reported below, and parked/dead after that -- so it is
+        # an INPUT to the verdict rather than a fact reported beside it. One call still
+        # answers both forks, and the row's value is unchanged.
+        _cs_reported=$(claims_has_story "$_cs_ref" "$_cs_branch")
+
         # The resumability verdict (see the header). Identity first: a foreign claim is
         # untouchable at any age, so its liveness never even needs measuring. The queue
         # check runs last because it is the only one that costs git calls.
@@ -519,9 +554,27 @@ claims_scan() {
             _cs_resumable=false
             _cs_reason=claim_active
         elif [ "$(claims_has_work "$_cs_ref" "$_cs_artifacts_tip")" = "false" ]; then
-            _cs_resumable=false
-            _cs_reason=queue_drained
-        elif [ "$(claims_has_story "$_cs_ref" "$_cs_branch")" = "true" ]; then
+            # A DRAINED QUEUE IS TWO DIFFERENT STATES, TOLD APART BY THE SAME STORY SIGNAL
+            # the parked/dead fork below already reads (2026-08-19). With a story at the
+            # tip the unit REPORTED -- its pull request is open and a human, not a runner,
+            # is what it waits for; that is the 2026-08-01 gate and it is unchanged. With
+            # NO story the run died BETWEEN §4 and §5: every ticket archived and pushed,
+            # nothing opened, nobody told. That is a dead run's remains, and it was
+            # equally untouchable -- resumption refused it, and its tickets were excluded
+            # `claimed_reported` at every later survey, so no fresh claim reached them
+            # either. Measured 2026-08-19: unit `batch-20260819063000` sat undelivered
+            # while four consecutive `[Implement]` ticks surveyed a clean checkout, found
+            # nothing, and drove nothing. The takeover re-drives no ticket (the queue is
+            # empty) and re-enters the Unified Run at §5, writing the story and opening
+            # the pull request the dead run never did.
+            if [ "$_cs_reported" = "true" ]; then
+                _cs_resumable=false
+                _cs_reason=queue_drained
+            else
+                _cs_resumable=true
+                _cs_reason=report_incomplete
+            fi
+        elif [ "$_cs_reported" = "true" ]; then
             # Resumable, but PARKED rather than dead: it reported and opened a PR, and the
             # follow-up tickets on its branch are why it still has work. Taking it over is
             # legitimate; being FORCED to take it over ahead of fresh work is not, so the
@@ -532,18 +585,6 @@ claims_scan() {
             _cs_resumable=true
             _cs_reason=heartbeat_lapsed
         fi
-
-        # WHETHER THIS UNIT REACHED ITS PULL REQUEST, on every row rather than on the
-        # one branch that happened to need it (2026-08-23). `claims_has_story` was
-        # consulted only where the resumable verdict forked, so `queue_drained` — the
-        # commonest state of a finished-but-unmerged unit — short-circuited before it and
-        # a reader could not tell a unit parked at a pull request from one that never
-        # opened any. The maintenance tick's stalled-unit step needs exactly that
-        # distinction, and deriving it a second time would give the claim protocol two
-        # answers to one question. It is the same offline signal (`/story` commits
-        # `.workaholic/stories/<branch>.md` when it opens the pull request), so hoisting it
-        # costs one `git ls-tree` per claim and no network call.
-        _cs_reported=$(claims_has_story "$_cs_ref" "$_cs_branch")
 
         # `reported` sits BEFORE the artifact list, never after it: the artifact list is
         # last because a trailing empty field is the one case `read` handles correctly

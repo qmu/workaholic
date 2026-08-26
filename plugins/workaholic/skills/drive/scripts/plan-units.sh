@@ -162,8 +162,8 @@ if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     exit 1
 fi
 
-MISSION_SCRIPTS="${SCRIPT_DIR}/../../mission/scripts/"
-GATHER_SCRIPTS="${SCRIPT_DIR}/../../gather/scripts/"
+MISSION_SCRIPTS="${SCRIPT_DIR}/../../mission/scripts"
+GATHER_SCRIPTS="${SCRIPT_DIR}/../../gather/scripts"
 
 # JSON-escape a value (backslash and double-quote only; titles are plain text --
 # the same assumption list.sh makes about .workaholic/ artifacts).

@@ -56,3 +56,4 @@ guarantee is pinned by a test rather than asserted in prose.
 - 2026-08-26 — ticket archived — 20260826021825-report-every-carried-and-dropped-feedback-ref.md
 - 2026-08-26 — ticket archived — 20260826021825-make-no-citing-artifacts-a-provable-reading.md
 - 2026-08-26 — mission achieved — mission.md
+- 2026-08-26 — story reported — work-20260826-023535.md

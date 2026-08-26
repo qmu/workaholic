@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 0.62
 feedback: [20260826021619-prove-the-loop-s-closing-link-make-the-feedback-carry-forward-mechanical-and-reported.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
@@ -57,3 +57,4 @@ guarantee is pinned by a test rather than asserted in prose.
 - 2026-08-26 — ticket archived — 20260826021825-make-no-citing-artifacts-a-provable-reading.md
 - 2026-08-26 — mission achieved — mission.md
 - 2026-08-26 — story reported — work-20260826-023535.md
+- 2026-08-26 — run recorded (+0.62h) — cse_01CXYzWiNLZMLNGoaN1K9vAG

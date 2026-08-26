@@ -23,6 +23,12 @@ __pycache__/
 # "could not check" reporting exists to avoid.
 .routines/
 
+# VitePress site under docs/ — installed dependencies, build cache and build output
+# are regenerated from docs/package.json and never committed.
+docs/node_modules/
+docs/.vitepress/cache/
+docs/.vitepress/dist/
+
 # Developer-maintained leak denylist for release-scan (client names must never ship)
 .workaholic/leak-denylist
 

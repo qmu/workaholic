@@ -60,8 +60,8 @@
 # so closing a mission never doubles as a destructive action. A carry likewise does NOT
 # hand a worktree to the successor. The successor has a new slug, and .worktrees/<slug> is
 # keyed 1:1 to the unit slug by slug.sh; a successor living in the predecessor's directory
-# silently SILENCES the mission lens inside that very worktree (the lens reads a worktree
-# whose basename names no active mission as a /drive worktree and says nothing at all).
+# would break that keying — every consumer that maps a worktree basename to its mission
+# (claim teardown, the surveys) would read the wrong unit or none at all.
 # The successor gets its own worktree when it is CLAIMED; in-flight state and the port are
 # not carried.
 #

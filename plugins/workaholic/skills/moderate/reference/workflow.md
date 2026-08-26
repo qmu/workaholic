@@ -350,9 +350,10 @@ sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/step-closable-missions.sh --tic
 `archive.sh` closes a mission `achieved` when it archives the mission's **last** ticket. That seam
 cannot catch a mission that reached full acceptance any other way — items ticked by a different
 seam, tickets archived before the seam shipped, a branch that never ran the gate. **Eleven such
-missions had accumulated and nobody was told**; they were found because the mission lens printed
-all of them on every prompt and the list had grown long enough to read as wrong. This step makes
-the residue legible before it is large.
+missions had accumulated and nobody was told**; they were found because the mission lens — the
+always-on hook retired on 2026-08-26, once this step owned the job — printed all of them on every
+prompt and the list had grown long enough to read as wrong. This step makes the residue legible
+before it is large.
 
 - **Reads**: three **pure** readers — `summary.sh` (the active set with its `checked`/`total`),
   `progress.sh` (`unlinked`) and `queue-size.sh` (the queue count, which is the reader

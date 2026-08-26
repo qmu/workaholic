@@ -142,7 +142,7 @@
 # EVERY ARTIFACT IS FILTERED BY THE SAME OWNERSHIP RULE, through the one oracle every
 # other consumer reads (gather/scripts/owns.sh over gather/scripts/owners.sh --
 # plural `assignees`, legacy fallback to the singular `assignee`, compared by slug).
-# The gate is the mission lens's, verbatim, and now applies to a ticket identically:
+# The gate is the roadmap's ("not somebody else's"), and applies to a ticket identically:
 # an artifact is offerable when the runner's identity is AMONG its owners, or it has
 # no owners at all (team-owned = claimable); one owned solely by others is dropped as
 # `owned_by_other`. Without this the executor was the single ownership consumer

@@ -556,4 +556,6 @@
 * [The stuck-prs ask key moves with GitHub's uncomputed mergeability so one pull request can be asked twice](20260826095437-the-stuck-prs-ask-key-moves-with-github-s-uncomputed-mergeability-so-one-pull-request-can-be-asked-twice.md)
 * [A question asked before lib/question-id.sh reads never_asked so the asked-once ledger can be bypassed](20260826095604-a-question-asked-before-lib-question-id-sh-reads-never-asked-so-the-asked-once-ledger-can-be-bypassed.md)
 * [question-liveness reads settled for every live question](20260826102232-question-liveness-reads-settled-for-every-live-question.md)
+* [A permission prompt in a routine container is a silent stall](20260826103445-a-permission-prompt-in-a-routine-container-is-a-silent-stall.md)
+* [A squash-merged claim branch still reads as a live claim](20260826103508-a-squash-merged-claim-branch-still-reads-as-a-live-claim.md)
 <!-- okf:generated:end -->

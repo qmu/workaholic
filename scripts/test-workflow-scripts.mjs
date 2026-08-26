@@ -20776,6 +20776,25 @@ function testAskFeedbackLine() {
       JSON.parse(run(dir, `${READ} < ${join(dir, "none.md")}`).stdout).line_found, false);
     assertEq("and every case exits 0", run(dir, `${WRITE}`).status, 0);
 
+    // `open-issue.sh` COMPOSES NOTHING, and must keep composing nothing (2026-08-26). Both
+    // `/fb` halves and the sweep hand it a finished body; teaching it a header opinion would
+    // make the one issue-opening seam a second router, and the crossing — which must NEVER
+    // carry this line — passes through the same seam.
+    const openIssue = readFileSync(SCRIPTS.openIssue, "utf8");
+    assertTrue("open-issue.sh formats no feedback: line of its own",
+      !/feedback:/.test(openIssue.replace(/^#.*$/gm, "")), "open-issue.sh grew a header opinion");
+
+    // The crossing's exemption is a written decision, not an omission: the line would name
+    // records the target cannot resolve, in our vocabulary rather than theirs.
+    const crossing = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/feedback/reference/crossing.md"), "utf8");
+    assertTrue("the crossing states that it never carries the line",
+      /never carries a `feedback:` line/.test(crossing), crossing.slice(0, 400));
+    const fbSkill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/feedback/SKILL.md"), "utf8");
+    assertTrue("and the in-repo path emits it through the one writer",
+      /ask-feedback-line\.sh/.test(fbSkill), "the /fb path composes the line by hand");
+    assertTrue("reporting the direction beside the assignee",
+      /direction:<slug>` or `direction:unattributed/.test(fbSkill), "the /fb report omits the direction");
+
     // THE INLINE EMITTER IS GONE. A second formatter is exactly what the reader's header
     // forbids, and the whole point of extracting this one was to have no survivor.
     const proposal = readFileSync(SCRIPTS.proposeOpen, "utf8");

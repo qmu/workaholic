@@ -54,3 +54,4 @@ already reads — and reports it, `unattributed` included.
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-26 — ticket archived — 20260826042021-write-the-ask-s-feedback-line-in-one-place.md
 - 2026-08-26 — ticket archived — 20260826042021-carry-the-direction-onto-a-swept-ask.md
+- 2026-08-26 — ticket archived — 20260826042021-carry-the-direction-onto-an-fb-ask.md

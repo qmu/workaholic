@@ -1515,7 +1515,156 @@ EOF
 
 # ---------------------------------------------------------------- dispatch
 
-USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-specificate <issue>|verify-implement <issue>|verify-plan [--json]|verify-status [--json]|verify-cadence [--json]|verify-planner [--json]|verify-standup [--json]|verify-moderate [--json]|verify-propose [--json]"}'
+# ------------------------------------------------------ verify-direction-health
+# Does the loop SAY when it has run out of direction? Three states used to be silent and
+# each was byte-identical to a healthy idle hour, so "did it work?" is unanswerable by
+# watching a channel — an hour with no post looks the same whether the reading fired or
+# the step is broken. These rows answer it instead, with NO NETWORK and NO CREDENTIAL.
+#
+# THE OPEN-PROPOSAL READ IS SUPPLIED, NOT STUBBED. `survey-strategies.sh` makes exactly one
+# network call (the open-proposal gate) and refuses the whole tick rather than proceed
+# without it. Handing the answer in through `--open-proposals` drills the real path; faking
+# the transport would drill a path that does not exist.
+cmd_verify_direction_health() {
+    _reader="${REPO_ROOT}/plugins/workaholic/skills/strategy/scripts/direction-state.sh"
+    _step="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/step-direction-health.sh"
+    _ask="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/ask-question.sh"
+    if [ ! -f "$_reader" ] || [ ! -f "$_step" ]; then
+        emit_err "direction_health_unreadable" 4 "direction-state.sh or step-direction-health.sh is not present in this checkout"
+    fi
+
+    _before=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+
+    _root=$(mktemp -d)
+    mkdir -p "${_root}/.workaholic/strategies" "${_root}/.workaholic/feedbacks"
+    printf -- '---\ntype: Feedback\n---\n\nx\n' > "${_root}/.workaholic/feedbacks/20260101000000-a.md"
+    _gone=$(date -u -d "-30 days" +%Y-%m-%d 2>/dev/null || echo 2000-01-01)
+    _far=$(date -u -d "+300 days" +%Y-%m-%d 2>/dev/null || echo 2099-01-01)
+    _me=$(cd "$REPO_ROOT" && git config user.email 2>/dev/null || echo drill@example.com)
+    _mk() { # slug target
+        cat > "${_root}/.workaholic/strategies/$1.md" <<EOF
+---
+type: Strategy
+title: T $1
+slug: $1
+status: active
+target_date: $2
+assignees: [${_me}]
+feedback: [20260101000000-a.md]
+---
+
+# $1
+
+## Aim
+
+a
+
+## Schedule
+
+s
+EOF
+    }
+    # `gone` is the case `pace` CANNOT carry: past its date WHILE PRODUCING WORK, so `pace`
+    # reads `on_course` and nobody was ever told. The landed work is a mission attributed
+    # through the same feedback ref, which is what `attributed-work.sh` walks.
+    _mk gone "$_gone"
+    _mk quiet "$_far"
+    mkdir -p "${_root}/.workaholic/missions/archive/landed"
+    printf -- '---\ntype: Mission\ntitle: Landed\nslug: landed\nstatus: achieved\nfeedback: [20260101000000-a.md]\n---\n\n# Landed\n' \
+        > "${_root}/.workaholic/missions/archive/landed/mission.md"
+    _open="${_root}/open.json"
+    printf '{"ok": true, "identity": "drill", "slug": "o/n", "proposals": []}\n' > "$_open"
+
+    _state=$(cd "$REPO_ROOT" && sh "$_reader" --open-proposals "$_open" "14 days ago" "${_root}/.workaholic" 2>&1) || true
+    # The readers emit two formattings — jq's compact one and the shell printf's spaced
+    # one — so every match below tolerates the optional space rather than assuming a producer.
+    _stateof() { printf '%s' "$_state" | sed -n "s/.*\"slug\": *\"$1\", *[^}]*\"state\": *\"\([a-z]*\)\".*/\1/p" | head -1; }
+
+    for _pair in "gone:overdue" "quiet:dormant"; do
+        _slug=${_pair%%:*}; _want=${_pair#*:}
+        _got=$(_stateof "$_slug")
+        if [ "$_got" = "$_want" ]; then
+            add_row "direction_state_${_slug}" true "${_slug} reads ${_want}" load
+        else
+            add_row "direction_state_${_slug}" false "expected ${_want} for ${_slug}, got '${_got:-nothing}': $(one_line "$_state")" load
+        fi
+    done
+
+    # `none` is the REPOSITORY-level reading: no active strategy at all.
+    _empty=$(mktemp -d); mkdir -p "${_empty}/.workaholic"
+    _none=$(cd "$REPO_ROOT" && sh "$_reader" --open-proposals "$_open" "14 days ago" "${_empty}/.workaholic" 2>&1) || true
+    if printf '%s' "$_none" | grep -q '"repository":[ ]*"none"'; then
+        add_row "direction_state_none" true "a tree with no active strategy reads none at the repository level" load
+    else
+        add_row "direction_state_none" false "expected repository none: $(one_line "$_none")" load
+    fi
+
+    # A READING THAT COULD NOT BE MADE IS NAMED, never folded into any other answer.
+    printf '{"ok": false, "reason": "list_failed"}\n' > "${_root}/bad.json"
+    _bad=$(cd "$REPO_ROOT" && sh "$_reader" --open-proposals "${_root}/bad.json" "14 days ago" "${_root}/.workaholic" 2>&1) || true
+    if printf '%s' "$_bad" | grep -q '"readable":[ ]*false' && printf '%s' "$_bad" | grep -q '"repository":[ ]*"unreadable"'; then
+        add_row "direction_state_unreadable" true "a survey that refused is reported unreadable, never as quiet" load
+    else
+        add_row "direction_state_unreadable" false "a refused survey was not named: $(one_line "$_bad")" load
+    fi
+
+    # THE QUESTION KEYS. They are what `ask-question.sh`'s asked-once ledger keys on, so a
+    # key that drifts is a question asked twice or never.
+    _out=$(cd "$REPO_ROOT" && sh "$_step" --tick 20260101-000000 --root "$_root" --open-proposals "$_open" 2>&1) || true
+    _keys=$(printf '%s' "$_out" | tr ',' '\n' | sed -n 's/.*"key": *"\([^"]*\)".*/\1/p' | sort | tr '\n' ' ')
+    if [ "$_keys" = "direction-dormant:quiet direction-overdue:gone " ]; then
+        add_row "direction_health_keys" true "the step asks exactly direction-overdue:gone and direction-dormant:quiet" load
+    else
+        add_row "direction_health_keys" false "unexpected question keys: '${_keys}'" load
+    fi
+    _nout=$(cd "$REPO_ROOT" && sh "$_step" --tick 20260101-000000 --root "$_empty" --open-proposals "$_open" 2>&1) || true
+    if printf '%s' "$_nout" | grep -q '"key":[ ]*"direction-none"'; then
+        add_row "direction_health_key_none" true "an empty tree asks direction-none, addressed to nobody" load
+    else
+        add_row "direction_health_key_none" false "the repository-level key is missing: $(one_line "$_nout")" load
+    fi
+
+    # ASKED ONCE. The gate is the check-in's, not this step's, so the drill exercises the
+    # gate with this step's key: the first ask is allowed, the second is refused by name.
+    _qroot=$(mktemp -d); mkdir -p "${_qroot}/.workaholic/moderations"
+    _a1=$(cd "$REPO_ROOT" && sh "$_ask" --tick 20260101-000000 --key "direction-overdue:gone" --root "$_qroot" --to "$_me" --hour 10 --weekday 1 2>&1) || true
+    _logstep=$(printf '%s' "$_a1" | sed -n 's/.*"log_step": *"\([^"]*\)".*/\1/p')
+    if printf '%s' "$_a1" | grep -q '"ask": true'; then
+        sh "${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/log-append.sh" --root "$_qroot" \
+           --tick 20260101-000000 --step "$_logstep" --status ok --summary "asked" >/dev/null 2>&1 || true
+        _a2=$(cd "$REPO_ROOT" && sh "$_ask" --tick 20260101-010000 --key "direction-overdue:gone" --root "$_qroot" --to "$_me" --hour 10 --weekday 1 2>&1) || true
+        if printf '%s' "$_a2" | grep -q '"ask": false'; then
+            add_row "direction_health_asked_once" true "the same key is refused on a later tick: $(printf '%s' "$_a2" | sed -n 's/.*"reason": *"\([a-z_]*\)".*/\1/p')" load
+        else
+            add_row "direction_health_asked_once" false "the asked-once gate did not hold: $(one_line "$_a2")" load
+        fi
+    else
+        add_row "direction_health_asked_once" false "the first ask was refused: $(one_line "$_a1")" load
+    fi
+
+    # IT WROTE NOTHING, `.workaholic/strategies/` INCLUDED. The fixtures are outside the
+    # checkout, so the checkout must be byte-identical to what it was before the drill.
+    _after=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+    if [ "$_before" = "$_after" ]; then
+        add_row "direction_health_writes_nothing" true "the checkout is byte-identical after the drill" load
+    else
+        add_row "direction_health_writes_nothing" false "the drill changed the working tree" load
+    fi
+    _seeded=$(ls "${_root}/.workaholic/strategies" | sort | tr '\n' ' ')
+    if [ "$_seeded" = "gone.md quiet.md " ]; then
+        add_row "direction_health_fixtures_intact" true "the seeded strategies area is untouched by the reader and the step" load
+    else
+        add_row "direction_health_fixtures_intact" false "the fixture strategies area changed: '${_seeded}'" load
+    fi
+
+    rm -rf "$_root" "$_empty" "$_qroot"
+    if [ "$LOAD_FAILED" -gt 0 ]; then
+        emit_verdict "direction-health" 0 "fail" 1
+    fi
+    emit_verdict "direction-health" 0 "pass" 0
+}
+
+USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-specificate <issue>|verify-implement <issue>|verify-plan [--json]|verify-status [--json]|verify-cadence [--json]|verify-planner [--json]|verify-standup [--json]|verify-moderate [--json]|verify-propose [--json]|verify-direction-health [--json]"}'
 
 CMD="${1:-}"
 [ -n "$CMD" ] || {
@@ -1551,6 +1700,7 @@ case "$CMD" in
     verify-standup) cmd_verify_standup "$@" ;;
     verify-moderate) cmd_verify_moderate "$@" ;;
     verify-propose) cmd_verify_propose "$@" ;;
+    verify-direction-health) cmd_verify_direction_health "$@" ;;
     *)
         echo "$USAGE" >&2
         exit 2

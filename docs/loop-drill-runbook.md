@@ -34,6 +34,7 @@ Run every command from the repository root, on a clean `main`.
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-standup --json` | this checkout's strategies and their attributable work — proves the daily digest reads soundly, names its silence and writes nothing |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-moderate --json` | one `[Moderate]` tick against a throwaway root — proves every step reports, the log carries one section per tick, and the checkout is untouched |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-propose --json` | a throwaway strategy tree and a synthetic open-proposal list — proves every gate of `/propose`'s brake refuses by name, and that it writes nothing |
+| — | Any time | `sh scripts/e2e/loop-drill.sh verify-direction-health --json` | a throwaway strategy tree, one overdue direction and one dormant one — proves the four lifecycle readings, the three question keys, the asked-once gate, and that nothing was written |
 | — | Any time | `sh scripts/e2e/loop-drill.sh status` | the drill's residue: issues, claim branches, tickets |
 | — | After an abort | `sh scripts/e2e/loop-drill.sh reset` | closes/deletes **drill-minted** residue only |
 
@@ -366,6 +367,44 @@ it opens one issue per strategy per tick.
 `propose_in_flight` and `propose_unreadable_inbox` are this stage's `status_stable` pair:
 either one going red means the routine is no longer bounded, which is the only failure here
 that gets worse every hour it runs.
+
+## 5h. The direction layer's own health (the `direction-health` step)
+
+`verify-direction-health` needs no seed, no fire, no issue number and **no network**: it
+builds a throwaway strategy tree — one direction **past its date while carrying landed
+work**, one live and unanswered — hands the survey a synthetic open-proposal list through
+`--open-proposals`, and reads `direction-state.sh` and `step-direction-health.sh` over it.
+
+The overdue fixture is the one that matters: it is the case `pace` *cannot* carry, because
+`late` requires nothing to have landed, so a direction that sailed past its date while
+producing work reads `on_course` and used to be told to nobody. And the failure mode this
+drill exists for is the one no channel can show you: **an hour with no post looks exactly
+the same whether the reading fired and found everything healthy or the step is broken.**
+
+The open-proposal read is **supplied, not stubbed** — `survey-strategies.sh` refuses the
+whole tick rather than proceed without it, so faking the transport would drill a path that
+does not exist.
+
+| Row | Fails when | Read |
+| --- | ---------- | ---- |
+| `direction_state_gone` | a direction past its `target_date` does not read `overdue` | `survey-strategies.sh`'s `overdue`, projected by `direction-state.sh`; check `days_to_target` first |
+| `direction_state_quiet` | a live, in-date, legible direction with nothing landed and nothing waiting does not read `dormant` | the `dormant` conjunction in `survey-strategies.sh` — one term of it stopped holding |
+| `direction_state_none` | a tree with no `active` strategy does not read `none` at the repository level | `direction-state.sh`'s repository field, which reads the survey's `active_count` |
+| `direction_state_unreadable` | a survey that refused was not reported `unreadable` | `direction-state.sh`'s degrade path — a reader that could not read must never render as quiet |
+| `direction_health_keys` | the step's question keys are not exactly `direction-overdue:<slug>` and `direction-dormant:<slug>` | `step-direction-health.sh`; the keys are what the asked-once ledger keys on, so a drifted key is a question asked twice or never |
+| `direction_health_key_none` | an empty tree does not ask `direction-none` | the repository-level branch of the same step |
+| `direction_health_asked_once` | the same key is asked again on a later tick | `ask-question.sh`'s ledger, not this step — the step supplies subjects and the check-in owns the gate |
+| `direction_health_writes_nothing` | the drill changed the checkout | the reader and the step are pure reads; the strategy artifact has exactly two writers and neither is here |
+| `direction_health_fixtures_intact` | the seeded `strategies/` area changed | the same refusal, measured on the tree the step actually looked at rather than on the checkout |
+
+**Two proofs, and they are not the same one.** This drill is the **operator's**, run on
+demand in a checkout; the hermetic suite's `testDirectionHealthRefusals` is what **CI**
+enforces on every change. The drill exercises the real script closure end to end with the
+real survey beneath it; the suite pins the three refusals mechanically (nothing written
+under `.workaholic/strategies/`, no reach to `close.sh` or `open-proposal.sh`, exactly two
+writers, no `/propose` gate outcome moved). Neither replaces the other: the drill ships to
+no other agent and CI never runs it, and the suite cannot prove an operator's checkout
+behaves.
 
 ## 6. Abort playbook
 

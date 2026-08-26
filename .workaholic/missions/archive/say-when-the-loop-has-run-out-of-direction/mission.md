@@ -2,7 +2,7 @@
 type: Mission
 title: Say when the loop has run out of direction
 slug: say-when-the-loop-has-run-out-of-direction
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-26T08:19:15+00:00
 author: a@qmu.jp
@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260826-084111
 ---
 
 # Say when the loop has run out of direction
@@ -39,12 +40,22 @@ lifts no gate.
 
 ## Acceptance
 
-- [ ] `direction-state.sh` answers `live | overdue | dormant | unreadable`, plus the
+- [x] `direction-state.sh` answers `live | overdue | dormant | unreadable`, plus the
       repository-level `none` (#20260826082029-write-direction-state-sh-the-one-lifecycle-reader.md)
-- [ ] `direction-health` asks the assignee once per non-`live` reading and renders it
+- [x] `direction-health` asks the assignee once per non-`live` reading and renders it
       on the root (#20260826082029-render-the-direction-reading-on-the-moderation-root.md)
-- [ ] A test and a drill prove nothing was written and no gate lifted (#20260826082029-drill-direction-health-with-no-network.md)
+- [x] A test and a drill prove nothing was written and no gate lifted (#20260826082029-drill-direction-health-with-no-network.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-26 — ticket archived — 20260826082029-add-the-overdue-reading-to-the-strategy-survey.md
+- 2026-08-26 — ticket archived — 20260826082029-add-the-dormant-reading-to-the-strategy-survey.md
+- 2026-08-26 — ticket archived — 20260826082029-write-direction-state-sh-the-one-lifecycle-reader.md
+- 2026-08-26 — ticket archived — 20260826082029-add-the-moderate-step-direction-health.md
+- 2026-08-26 — ticket archived — 20260826082029-make-the-direction-question-actionable-in-its-body.md
+- 2026-08-26 — ticket archived — 20260826082029-render-the-direction-reading-on-the-moderation-root.md
+- 2026-08-26 — ticket archived — 20260826082029-pin-the-three-refusals-with-a-hermetic-test.md
+- 2026-08-26 — ticket archived — 20260826082029-drill-direction-health-with-no-network.md
+- 2026-08-26 — mission achieved — mission.md
+- 2026-08-26 — story reported — work-20260826-084111

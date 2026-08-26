@@ -140,8 +140,8 @@
 set -eu
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-STRATEGY_SCRIPTS="${SCRIPT_DIR}/../../strategy/scripts"
-GATHER_SCRIPTS="${SCRIPT_DIR}/../../gather/scripts"
+STRATEGY_SCRIPTS="${SCRIPT_DIR}/../../strategy/scripts/"
+GATHER_SCRIPTS="${SCRIPT_DIR}/../../gather/scripts/"
 
 # `--open-proposals <file>` lets a caller supply the remote read it has ALREADY performed
 # rather than making it twice: the run's first act is often `list-open-proposals.sh` in its

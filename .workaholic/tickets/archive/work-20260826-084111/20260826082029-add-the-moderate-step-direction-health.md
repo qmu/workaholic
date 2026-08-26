@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-26T08:20:29+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -92,3 +93,34 @@ attention on our own degradation.
   worth stating in the step header rather than tuning a cap nobody has measured.
 - `direction-none` has no assignee to address. It should be asked without a mention
   token rather than aimed at whoever happens to run the tick.
+
+## Final Report
+
+Development completed as planned.
+
+`step-direction-health.sh` reads `direction-state.sh` and hands every non-`live` reading to the
+check-in as `needs_agent`, keyed `direction-overdue:<slug>` / `direction-dormant:<slug>` /
+`direction-none`. `unreadable` is counted in the summary and never asked about. It is registered
+in `run.sh`'s `STEPS` immediately after `strategy-pace`, with `human-checkin` still last and
+still deadline-exempt; the contract is stated in `moderate/reference/workflow.md`, the step count
+moved in `moderate/SKILL.md` and `CLAUDE.md`, and the hermetic suite's own `STEPS` list carries
+the new id.
+
+The step file itself landed one commit early, in the `dormant` ticket's archive commit —
+`archive.sh` stages by default and the file was already written. Its registration, its
+documentation, its verification and this report are this ticket's.
+
+### Discovered Insights
+
+- **Insight**: `reference/workflow.md`'s section numbers are the order the sections were
+  *written* in, not `run.sh`'s run order — `human-checkin` is `## 13` while running last, because
+  `strategy-digest` was appended as `## 14` rather than renumbering.
+  **Context**: this step follows that precedent (`## 15`, running eleventh) and says so in its own
+  section, so a later reader does not take the heading number for the position. The mechanical
+  check that actually holds is the suite's: every id in `STEPS` must have a section, and
+  `human-checkin` must be the last id.
+- **Insight**: the step takes `--open-proposals` and forwards it to the reader.
+  **Context**: the survey beneath makes exactly one network call (the open-proposal gate) and
+  refuses the tick rather than proceed without it, so a drill that wants to exercise the real path
+  with no network must supply that read rather than stub the transport. Without the passthrough
+  the step would be undrillable offline.

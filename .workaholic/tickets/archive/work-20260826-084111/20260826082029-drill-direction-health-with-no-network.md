@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-26T08:20:29+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -87,3 +88,35 @@ watching a channel for an hour.
 - The drill is operator tooling and ships to no other agent; the hermetic suite (this
   mission's previous ticket) is what CI enforces. Both exist on purpose and the split
   should be stated in the runbook rather than left to be inferred.
+
+## Final Report
+
+Development completed as planned.
+
+`scripts/e2e/loop-drill.sh verify-direction-health` builds a throwaway strategy tree — one
+direction past its date **while carrying landed work**, one live and unanswered — plus an empty
+tree, hands the survey a synthetic open-proposal list through `--open-proposals`, and asserts
+nine load-bearing rows: the four readings (`overdue`, `dormant`, `none`, `unreadable`), the three
+question keys, the asked-once gate, and a byte-identical checkout with the seeded
+`.workaholic/strategies/` area untouched. `docs/loop-drill-runbook.md` gains the command row, the
+procedure section (5h) and the blame table, and `CLAUDE.md`'s verb list names it.
+
+**The no-network claim was proved, not asserted**: the whole drill was re-run under `env -i` with
+`gh` absent from `PATH` and both proxies pointed at a dead port (`http://127.0.0.1:1`), and all
+nine rows still passed. The drill's own closure names no `gh`, `curl` or `wget`.
+
+### Discovered Insights
+
+- **Insight**: the two readers in this chain emit **two different JSON formattings** — the happy
+  paths come from `jq -c` (no space after the colon) and the degrade paths from shell `printf`
+  (spaced) — so every matcher in the drill has to tolerate the optional space.
+  **Context**: caught by two rows that failed while the behaviour underneath was correct, which
+  is the worst kind of red. The same trap is documented in `render-tick-post.sh`, whose field
+  patterns were widened for exactly this reason; a drill written against one producer's spacing
+  breaks the first time it reads the other.
+- **Insight**: "a second run of the same tick asks nothing further" cannot be drilled on the step
+  — the step is stateless and re-emits its subjects every tick. The gate lives in
+  `ask-question.sh`, so the drill exercises *that* with this step's key.
+  **Context**: it is the right place for it: the step supplies subjects and the check-in owns the
+  ledger, so a drill asserting once-only behaviour on the step would have been asserting a
+  property the step deliberately does not have.

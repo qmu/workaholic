@@ -58,3 +58,4 @@ lifts no gate.
 - 2026-08-26 — ticket archived — 20260826082029-pin-the-three-refusals-with-a-hermetic-test.md
 - 2026-08-26 — ticket archived — 20260826082029-drill-direction-health-with-no-network.md
 - 2026-08-26 — mission achieved — mission.md
+- 2026-08-26 — story reported — work-20260826-084111

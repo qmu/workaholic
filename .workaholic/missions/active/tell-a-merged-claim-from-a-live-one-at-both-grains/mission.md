@@ -38,7 +38,7 @@ behind it is re-surveyable. Nothing deletes a branch or closes a pull request.
 
 ## Acceptance
 
-- [ ] A claim whose work is on the base reads as finished whatever its grain; the three
+- [x] A claim whose work is on the base reads as finished whatever its grain; the three
       merged units measured today are no longer stale. (#20260826113204-answer-superseded-for-a-mission-claim.md)
 - [ ] No question and no resumption offer names a claim whose pull request is merged,
       and the mission behind one is re-surveyable. (#20260826113204-never-offer-a-merged-claim-for-resumption.md)
@@ -51,3 +51,4 @@ behind it is re-surveyable. Nothing deletes a branch or closes a pull request.
 - 2026-08-26 — ticket archived — 20260826113204-pin-the-merged-claim-shape-with-a-fixture.md
 - 2026-08-26 — ticket archived — 20260826113204-read-whether-a-claim-s-work-reached-the-base.md
 - 2026-08-26 — ticket archived — 20260826113204-make-the-oracle-degrade-by-name-not-by-guess.md
+- 2026-08-26 — ticket archived — 20260826113204-answer-superseded-for-a-mission-claim.md

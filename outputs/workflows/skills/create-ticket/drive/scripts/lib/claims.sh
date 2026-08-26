@@ -196,9 +196,15 @@
 
 # WHETHER THE LAST FETCH ACTUALLY RAN, for the one consumer inside this library that has to
 # know: the merged-claim lookup below, which is a NETWORK read and must not be attempted on a
-# run that has just proved it has no network. `claims_fetch` echoes the same answer to its
-# caller; this is the copy `claims_scan` can see, because command substitution puts the scan
-# in a subshell of its own and nothing it sets could travel back.
+# run that has just proved it has no network.
+#
+# THE CALLER ASSIGNS IT, right after its `fetched=$(claims_fetch)` line, and that is not a
+# convenience — it is the only thing that works. `claims_fetch` is invoked in a command
+# substitution, so the assignment it makes to this variable happens in a SUBSHELL and never
+# reaches the parent; `claims_scan` then runs in a subshell of its own, which inherits the
+# parent's value but cannot write one back. So the flag has to be set in the parent, between
+# the two calls. It defaults to `false`, which is the safe direction: a caller that forgets
+# skips the lookup and keeps every verdict local.
 CLAIMS_FETCH_OK=false
 
 # Where this library itself lives — what locates the sibling `claim-merged.sh` the merged
@@ -472,6 +478,9 @@ claims_has_story() {
 claims_superseded() {
     _csp_base="$1"
     _csp_arts="${2:-}"
+    # $3 = the claim's SHORT branch name, for the merged-pull-request lookup a non-ticket
+    # artifact routes to. Optional: a caller with no branch in hand keeps the local test only.
+    _csp_branch="${3:-}"
     [ -n "$_csp_arts" ] || { printf 'false'; return 0; }
 
     # One listing per claim, reused for every artifact -- the archive is the largest path
@@ -487,11 +496,31 @@ claims_superseded() {
     for _csp_p in $_csp_arts; do
         case "$_csp_p" in
             .workaholic/tickets/*) ;;
-            # A mission unit (or anything else a claim may come to stamp) is out of scope:
-            # answer `false` rather than guessing, so its verdict is untouched.
+            # A NON-TICKET ARTIFACT — in practice a mission claim's `mission.md` — is answered
+            # by the merged-pull-request lookup instead (2026-08-26). It used to answer `false`
+            # outright, on the ground that the equivalent local test would need a second parser
+            # of the many-valued `mission:` relation "for a shape nothing has measured". The
+            # shape has since been measured: three of five claims on this repository headed
+            # pull requests #521, #537 and #546, all merged, all mission units, one of them
+            # offered `resumable: true` five days after its own pull request merged. The
+            # reasoning is replaced rather than deleted — the relation is still not parsed
+            # twice, because the lookup reads no artifact at all; it asks whether a merged
+            # pull request has this branch as its head, which is grain-agnostic by
+            # construction.
+            #
+            # THE LOCAL TEST STAYS FIRST AND STAYS NETWORK-FREE for a batch unit: the loop only
+            # reaches here on an artifact that is not a ticket, so an offline batch verdict is
+            # byte-identical to what it has always been.
+            #
+            # AN `unanswerable` LOOKUP ANSWERS `false`, which is precisely today's verdict for
+            # this grain — the degradation contract, not a new state.
             *)
                 IFS="$_csp_old_ifs"
-                printf 'false'
+                if [ "$(claims_merged_state "$_csp_branch")" = "merged" ]; then
+                    printf 'true'
+                else
+                    printf 'false'
+                fi
                 return 0
                 ;;
         esac
@@ -759,7 +788,7 @@ claims_scan() {
         elif [ $((_cs_now - _cs_ct)) -lt "$_cs_hb_threshold" ]; then
             _cs_resumable=false
             _cs_reason=claim_active
-        elif [ "$(claims_superseded "$_cs_base" "$_cs_artifacts")" = "true" ]; then
+        elif [ "$(claims_superseded "$_cs_base" "$_cs_artifacts" "$_cs_branch")" = "true" ]; then
             # The unit's work is already on the base by another route (see
             # claims_superseded). It sits AFTER `claim_active` on purpose: liveness is what
             # gates a takeover, so a run that is still committing keeps the reading that

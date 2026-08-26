@@ -13903,15 +13903,40 @@ function testMergedClaimShapeAtBothGrains() {
     assertTrue("both claims are still reported", !!by[fx.mission.unit] && !!by[fx.batch.unit],
       JSON.stringify(r.claims.map((c) => c.unit)));
 
-    // THE BATCH GRAIN: answered today, and it must stay answered.
-    assertEq("batch grain: a squash-merged batch claim reads superseded",
+    // THE BATCH GRAIN: answered locally, network-free, and UNTOUCHED by the mission-grain
+    // change. This assertion is the proof nothing regressed — the fixture's origin is a local
+    // directory, so no lookup can succeed here and this verdict is reached from the tree alone.
+    assertEq("batch grain: a squash-merged batch claim reads superseded, with no network",
       [by[fx.batch.unit].resume_reason, by[fx.batch.unit].resumable], ["superseded", false]);
 
-    // THE MISSION GRAIN: today's answer, and the one this mission changes.
-    assertEq("mission grain: a squash-merged mission claim does NOT read superseded today",
+    // THE MISSION GRAIN: the answer this mission changed. It is reached through the
+    // merged-pull-request lookup, so in this offline fixture it is `unanswerable` and the row
+    // keeps today's verdict — which is the degradation contract holding, not the old scope rule.
+    assertEq("mission grain: with no reachable lookup the row keeps its local verdict",
       by[fx.mission.unit].resume_reason !== "superseded", true);
-    assertEq("mission grain: and it is offered as resumable today",
-      by[fx.mission.unit].resumable, true);
+    assertTrue("and the lookup names the mission claim it could not answer for",
+      (r.merged_lookup_unanswered || []).some((u) => u.branch === fx.mission.branch),
+      JSON.stringify(r.merged_lookup_unanswered));
+    assertTrue("while the batch claim needed no lookup at all",
+      !(r.merged_lookup_unanswered || []).some((u) => u.branch === fx.batch.branch),
+      JSON.stringify(r.merged_lookup_unanswered));
+
+    // AND WITH THE LOOKUP ANSWERING `merged`, THE MISSION GRAIN NOW READS `superseded` —
+    // the behaviour the mission exists for. The transport is stubbed, so the suite stays
+    // offline; what is driven is the real chain: claims_scan -> claims_superseded ->
+    // claims_merged_state -> claim-merged.sh.
+    const bin = join(fx.B, ".stub-bin");
+    mkdirSync(bin, { recursive: true });
+    writeFileSync(join(bin, "gh"), `#!/bin/sh\necho '[{"number":1,"merged_at":"2026-08-26T00:00:00Z"}]'\n`);
+    chmodSync(join(bin, "gh"), 0o755);
+    const merged = JSON.parse(run(fx.B, `${POSIX_SH} ${SCRIPTS.listClaims}`, {
+      env: { ...process.env, PATH: `${bin}:${process.env.PATH}` },
+    }).stdout);
+    const m = Object.fromEntries(merged.claims.map((c) => [c.unit, c]));
+    assertEq("mission grain: a merged pull request makes the claim superseded",
+      [m[fx.mission.unit].resume_reason, m[fx.mission.unit].resumable], ["superseded", false]);
+    assertEq("and the batch grain is unchanged by it",
+      [m[fx.batch.unit].resume_reason, m[fx.batch.unit].resumable], ["superseded", false]);
   } finally {
     for (const d of [fx.origin, fx.A, fx.B]) rmSync(d, { recursive: true, force: true });
   }

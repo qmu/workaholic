@@ -15074,6 +15074,7 @@ const tests = [
   ["[Workaholic]: retired, and the scope retired with it", testUserScopeRetired],
   ["specificate/read-ask-feedback-refs.sh: the ask's own feedback line", testReadAskFeedbackRefs],
   ["specificate/check-carry-floor.sh: the carry, floored at the publish seam", testCarryFloor],
+  ["no_citing_artifacts is a provable reading: ask -> reader -> scaffold -> floor", testCarryChainIsProvable],
 ];
 
 // `await` matters even though almost every test is synchronous: without it an async
@@ -20185,5 +20186,125 @@ function testCarryFloor() {
       /read-feedback-relation\.sh/.test(src) && !/\bfeedback:\[\^\]\|awk .*\^feedback:/.test(src), src.slice(0, 400));
     assertTrue("and it adds no field to any artifact: the retired strategy: relation stays retired",
       !/strategy:[ \t]*</.test(src), src);
+  } finally { cleanup(dir); }
+}
+
+// ---------- `no_citing_artifacts` is a PROVABLE reading, not an asserted one ----------
+// (2026-08-26, mission `prove-the-loop-s-closing-link`) `attributed-work.sh` answers
+// `no_citing_artifacts` for two situations a reader cannot tell apart: a direction nothing
+// has answered YET, and a direction whose answer was published with the link dropped.
+// `workaholic:propose` treats the first as explicitly NOT a refusal -- "exactly when a
+// proposal is most wanted" -- so the second was invisible and self-perpetuating.
+//
+// The reader, the report and the floor close the hole at the WRITING end. What this test
+// does is turn the resulting guarantee into a fact that can be LOST: it walks the whole
+// chain -- ask body -> reader -> scaffolded mission -> floor -- and then walks it again with
+// the ref dropped from the mission, so a future change that reopens the hole fails here
+// rather than being discovered as a silent `no_citing_artifacts` months later.
+//
+// `attributed-work.sh` is deliberately NOT changed. It is the single attribution reader and
+// its transitive, lossy shape is a written decision; adding a state to it to describe a hole
+// the floor already closed would be a second mechanism for one guarantee.
+function testCarryChainIsProvable() {
+  const dir = makeRepo("main");
+  const READ = `${POSIX_SH} ${SCRIPTS.readAskFeedbackRefs}`;
+  const FLOOR = `${POSIX_SH} ${SCRIPTS.checkCarryFloor}`;
+  const DRAFT = `${POSIX_SH} ${SCRIPTS.proposeScaffoldDraft}`;
+  const ATTR = `${POSIX_SH} ${SCRIPTS.strategyAttributedWork}`;
+  try {
+    const wf = (rel, body) => {
+      const abs = join(dir, rel);
+      mkdirSync(dirname(abs), { recursive: true });
+      writeFileSync(abs, body);
+    };
+    const DIRECTION = "20260821162443-an-autonomous-improvement-loop.md";
+    const RECORD = "20260826021619-the-ask-this-run-captured.md";
+    for (const f of [DIRECTION, RECORD]) {
+      wf(`.workaholic/feedbacks/${f}`,
+        `---\ntype: Feedback\ntitle: ${f}\nkind: instruction\nsource: development\nsubject: person:a@qmu.jp\ncreated_at: 2026-08-21T00:00:00+09:00\nauthor: a@qmu.jp\nsupersedes:\n---\n\n# ${f}\n\nbody\n`);
+    }
+    wf(".workaholic/feedbacks/index.md", "# feedbacks\n");
+    wf(".workaholic/strategies/turn-the-loop.md",
+      `---\ntype: Strategy\ntitle: Turn the loop\nslug: turn-the-loop\nstatus: active\n` +
+      `target_date: 2026-12-31\nassignees: [a@qmu.jp]\nfeedback: [${DIRECTION}]\n---\n\n` +
+      `# Turn the loop\n\n## Aim\n\nx\n\n## Schedule\n\ny\n`);
+
+    // ── Link 1: the ask. This is the shape `open-proposal.sh` writes, byte for byte. ──
+    const ask = join(dir, "ask.md");
+    writeFileSync(ask, [
+      "kind: instruction / source: development / subject: observer_ai:[Propose] routine",
+      "strategy: turn-the-loop / move: depth",
+      `feedback: ${DIRECTION}`,
+      "",
+      "## What to change",
+      "",
+      "Close the loop.",
+      "",
+    ].join("\n"));
+
+    // ── Link 2: the reader returns the strategy's own ref. ──
+    const refs = JSON.parse(run(dir, `${READ} < ${ask}`).stdout);
+    assertEq("the reader recovers the direction's ref from the ask",
+      { line_found: refs.line_found, carried: refs.carried, dropped: refs.dropped },
+      { line_found: true, carried: [DIRECTION], dropped: [] });
+
+    // ── Link 3: the scaffold carries them alongside this run's own record. ──
+    const carried = refs.carried.join(" ");
+    const draft = JSON.parse(run(dir, `${DRAFT} "Close the loop" ${RECORD} ${carried}`).stdout);
+    assertEq("the mission is scaffolded", draft.created, true);
+
+    // ── Link 4: the floor proves the carry landed. ──
+    const held = run(dir, `${FLOOR} --refs "${carried}" ${draft.path}`);
+    assertEq("the floor passes on a mission that carried the ref",
+      [JSON.parse(held.stdout).ok, held.status], [true, 0]);
+
+    // ── And the same chain with the ref dropped: the floor is what fails. ──
+    const lost = JSON.parse(run(dir, `${DRAFT} "Close the loop twice" ${RECORD}`).stdout);
+    const refused = run(dir, `${FLOOR} --refs "${carried}" ${lost.path}`);
+    assertEq("and refuses the same mission published without it",
+      [JSON.parse(refused.stderr).reason, refused.status], ["carried_ref_missing", 1]);
+
+    execSync("git add -A && git commit -q -m seed", {
+      cwd: dir,
+      env: { ...process.env, GIT_COMMITTER_DATE: "2026-01-01T00:00:00+00:00", GIT_AUTHOR_DATE: "2026-01-01T00:00:00+00:00" },
+    });
+
+    // ── What the chain buys downstream: the carried mission IS attributed. ──
+    const attributed = JSON.parse(run(dir, `${ATTR} turn-the-loop "1 day ago"`).stdout);
+    assertTrue("the carried mission is attributed back to the direction that asked for it",
+      attributed.artifacts.some((a) => a.path === draft.path.replace(`${dir}/`, "") || a.path.endsWith("close-the-loop/mission.md")),
+      JSON.stringify(attributed.artifacts));
+    assertTrue("and the mission published WITHOUT the ref is not — which is the loss the floor now refuses",
+      !attributed.artifacts.some((a) => a.path.includes("close-the-loop-twice")),
+      JSON.stringify(attributed.artifacts));
+
+    // ── The reading itself is UNCHANGED. A direction with refs that nothing has answered
+    // yet still answers `no_citing_artifacts` -- that is the meaning being preserved, and
+    // `/propose` must go on treating it as not a refusal. Only its ambiguity is gone.
+    wf(".workaholic/strategies/unanswered.md",
+      `---\ntype: Strategy\ntitle: Unanswered\nslug: unanswered\nstatus: active\n` +
+      `target_date: 2026-12-31\nassignees: [a@qmu.jp]\nfeedback: [${RECORD}]\n---\n\n` +
+      `# Unanswered\n\n## Aim\n\nx\n\n## Schedule\n\ny\n`);
+    // Nothing cites RECORD except the two drafts above, so use a ref nothing cites at all.
+    wf(".workaholic/feedbacks/20260826999999-nobody-answered.md",
+      "---\ntype: Feedback\ntitle: nobody\nkind: instruction\nsource: development\nsubject: person:a@qmu.jp\ncreated_at: 2026-08-26T00:00:00+09:00\nauthor: a@qmu.jp\nsupersedes:\n---\n\n# nobody\n");
+    wf(".workaholic/strategies/quiet.md",
+      "---\ntype: Strategy\ntitle: Quiet\nslug: quiet\nstatus: active\n" +
+      "target_date: 2026-12-31\nassignees: [a@qmu.jp]\nfeedback: [20260826999999-nobody-answered.md]\n---\n\n" +
+      "# Quiet\n\n## Aim\n\nx\n\n## Schedule\n\ny\n");
+    const quiet = JSON.parse(run(dir, `${ATTR} quiet "1 day ago"`).stdout);
+    assertEq("a direction with refs and nothing citing them still answers no_citing_artifacts",
+      [quiet.empty, quiet.empty_reason], [true, "no_citing_artifacts"]);
+    assertEq("and it is still a named answer with exit 0, never an error",
+      run(dir, `${ATTR} quiet`).status, 0);
+
+    // The single attribution reader did not gain a state, and no artifact gained a field.
+    const attrSrc = readFileSync(SCRIPTS.strategyAttributedWork, "utf8");
+    assertEq("attributed-work.sh's empty_reason vocabulary is unchanged",
+      ["no_slug", "not_found", "no_feedback_refs", "no_citing_artifacts", "no_activity_in_window"]
+        .every((r) => attrSrc.includes(r)), true);
+    assertTrue("and the retired strategy: relation did not return",
+      !/^\s*strategy:\s/m.test(readFileSync(join(dir, draft.path.replace(`${dir}/`, "")), "utf8")),
+      "a scaffolded mission gained a strategy: field");
   } finally { cleanup(dir); }
 }

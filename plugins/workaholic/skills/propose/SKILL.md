@@ -234,6 +234,22 @@ nothing precisely when the direction is gated.
   a refusal** — that is a strategy nothing has answered *yet*, which is exactly when a
   proposal is most wanted. One means "no work yet"; the other means "no way to see work".
 
+  **That sentence rests on a proof, not on prose** (2026-08-26, mission
+  `prove-the-loop-s-closing-link`). It used to be ambiguous, and dangerously so: the reading
+  also covered a direction whose answer *was* published with the carry-forward link dropped,
+  and treating that as "not a refusal" made the loss self-perpetuating — the loop kept
+  proposing against a direction it could no longer see its own work on. The hole is closed at
+  the writing end (`workaholic:specificate`, *Carry the ask's own feedback refs forward*):
+  the ask's line is read by a script, the carry is reported on both surfaces, and
+  `check-carry-floor.sh` refuses a publish whose emitted artifact lost a **resolved** ref.
+  The whole chain — ask → reader → scaffold → floor — is pinned by a hermetic test, so the
+  guarantee is a fact that can be lost rather than a claim.
+
+  **What it does not cover**, and must not be over-read: work a run never emitted, an ask
+  that named no refs, a ref that did not resolve, and any artifact written by hand outside
+  `/specificate`. Those are uncited for ordinary reasons, and the attribution stays
+  transitive and lossy exactly as it was.
+
 **A gate that cannot be read is not a gate**: if the open-proposal list cannot be fetched, the
 whole tick refuses (`inbox_unreadable`) rather than proposing blind.
 

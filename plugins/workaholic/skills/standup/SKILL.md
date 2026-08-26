@@ -36,6 +36,8 @@ Two silences, both `noop: true`, and the reason is always named:
 | `no_activity` | nothing moved under any strategy **and** no strategy's `target_date` is inside `STANDUP_TARGET_HORIZON` (14 days, overdue included) | An idle morning. |
 | `strategy_list_unreadable` | the strategies area could not be read | Nothing is claimed about a tree that was not read; the reason rides `errors[]`. |
 
+**`no_strategies` stays a no-op here even though `/moderate` now asks about it** (2026-08-26, mission `say-when-the-loop-has-run-out-of-direction`). The tick's `direction-health` step turns *this repository has no live direction* into a **question addressed to a person**, and that is precisely why this surface does not also carry it: a *daily digest about nothing* teaches its readers to skip the surface, and the same fact said twice in two places is the noise two status roots were already retired for. The asymmetry is a decision, not an oversight — a question demands an answer and terminates when it gets one; a digest line about an empty tree would repeat every morning forever with nobody asked to act on it.
+
 **Waiting work alone is deliberately not news.** A queued ticket that sat there yesterday will sit there tomorrow, and a digest repeating it every morning is exactly the recurring post `workaholic:notify`'s bright line refuses — so it rides a digest that had another reason to exist, and never creates one. **An approaching date is news daily, and it terminates**: "a dated, owned direction approaching its date with no activity" is the single most useful line this command can produce, and the horizon bounds how long it can repeat. `unattributed` work never breaks the silence either.
 
 ## The one post

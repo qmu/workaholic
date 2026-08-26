@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-26T08:20:29+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -89,3 +90,30 @@ is why this reading goes to the question surface instead.
   that may not post. That is the existing design's stated cost — a real change with no
   question attached is visible only in the tick log — and this step inherits it rather
   than arguing it again.
+
+## Final Report
+
+Development completed as planned.
+
+`direction-health` supplies `event` beside its log-facing `summary`, worded as a repository event
+(*a direction has run past its date*, *the repository has no live direction*) rather than as a
+counter of what the step examined, with each named direction linked. A tick on which every
+direction reads `live` supplies the empty string and renders no line — verified by piping the
+step's output through `render-tick-post.sh` against a seeded previous tick. `render-tick-post.sh`
+needed no change, exactly as the ticket predicted. `standup/SKILL.md` now records why its
+`no_strategies` no-op stands.
+
+### Discovered Insights
+
+- **Insight**: no other step's `event` carries a URL, so "every root line links its item" was an
+  aspiration the shipped steps did not implement. This one derives the base URL from
+  `remote.origin.url` locally — no network call — and degrades to the repo-relative path when
+  there is no remote.
+  **Context**: worth knowing before someone concludes from this line that the renderer resolves
+  links. It does not: the event is a plain string and the linking is the step's own doing, so a
+  future step wanting the same must do the same.
+- **Insight**: a tick whose only non-`live` reading is `unreadable` also renders no line, and
+  that is a third case the ticket did not enumerate.
+  **Context**: it follows from the same rule that keeps `unreadable` out of the questions — our
+  own degradation is not a repository event — and it is stated in the step and in the reference
+  so it is not later read as a hole.

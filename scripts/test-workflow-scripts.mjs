@@ -15679,6 +15679,41 @@ function testInboundSweep() {
       sent.body.includes("slack-link: https://example.slack.com/archives/C0AB12CD3/p1724371200000100"));
     assertTrue("the ask itself rides below the header", sent.body.includes("stop depending on the tagged bot"));
 
+    // ---- the direction the ask answers (2026-08-26) ----
+    // Without this line, work born on the channel intersected every strategy's `feedback[]`
+    // at nothing — measured, a five-ticket mission left its strategy's `waiting_count` at 0
+    // and the in-flight brake stood open over it.
+    const noDirection = sent.body;
+    assertTrue("with no direction the composed body carries no feedback: line at all",
+      !/\nfeedback:/.test(noDirection), noDirection.slice(0, 200));
+
+    writeFileSync(join(bin, "gh"), `#!/bin/sh\ncat > "${ghStdin}" 2>/dev/null || true\nprintf '{"html_url": "https://github.com/acme-org/source-repo/issues/8", "assignees": [{"login": "octo"}]}\\n'\n`);
+    chmodSync(join(bin, "gh"), 0o755);
+    const attributed = sh(SCRIPTS.fileInboundAsk,
+      `--slack-ref C0AB12CD3:1724371200.000100 --permalink https://example.slack.com/archives/C0AB12CD3/p1724371200000100 --subject "person:Tamura" --assignee octo --feedback "20260821162443-a.md, 20260826021619-b.md" "acme-org/source-repo" "Drop the tag dependency" "${ask}"`);
+    assertEq("an attributed capture still reports the opened issue", JSON.parse(attributed.out).ok, true);
+    const withDirection = JSON.parse(readFileSync(ghStdin, "utf8")).body;
+    assertTrue("and its body carries the direction's own refs, in the one writer's shape",
+      /\nfeedback: 20260821162443-a\.md, 20260826021619-b\.md\n/.test(withDirection),
+      withDirection.slice(0, 240));
+
+    // The line must be recoverable by the ONE reader, or the carry-forward cannot see it.
+    const bodyFile = join(tmp, "swept-body.md");
+    writeFileSync(bodyFile, withDirection);
+    assertEq("and read-ask-feedback-refs.sh recovers exactly those refs from the swept ask",
+      JSON.parse(execSync(`${POSIX_SH} ${SCRIPTS.readAskFeedbackRefs} < ${bodyFile}`,
+        { cwd: repo, encoding: "utf8" })).dropped.map((d) => d.ref),
+      ["20260821162443-a.md", "20260826021619-b.md"]);
+
+    // THE DEDUP MUST NOT CARE. `slack-ref:` is what the ledger matches, and it sits above
+    // the new line in both shapes.
+    assertTrue("the slack-ref marker is unmoved by the new line",
+      /\nslack-ref: C0AB12CD3:1724371200\.000100\n/.test(withDirection), withDirection.slice(0, 240));
+    // And the no-direction body is byte-identical to what it was before the flag existed:
+    // over identical inputs the two composed bodies differ by exactly the one line.
+    assertEq("the two bodies differ by exactly the feedback: line",
+      withDirection.split("\n").filter((l) => !/^feedback:/.test(l)).join("\n"), noDirection);
+
     // ---- the ledger reader matches what the writer wrote ----
     // The dedup would silently stop matching if the two ever drifted, so the round trip
     // is asserted against a body in the ISSUE LISTING shape the reader parses.

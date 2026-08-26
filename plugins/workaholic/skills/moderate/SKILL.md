@@ -15,16 +15,18 @@ metadata:
 
 The loop's **maintenance tick**. `[Specificate]` turns asks into work and `[Implement]` drives it; nothing keeps the space *around* them tidy — stale issues, GitHub↔`.workaholic/` drift, pull requests stuck after a failed auto-merge, documentation that no longer matches the concept. `/moderate` finds those, files them **through the existing seams**, and says what needs a human (issue #471).
 
-Relocated detail: [the fifteen-step contract](reference/workflow.md) — each step's inputs, what it may write, its abort reasons, and the ruling it is held to.
+Relocated detail: [the sixteen-step contract](reference/workflow.md) — each step's inputs, what it may write, its abort reasons, and the ruling it is held to.
 
 ## The tick has a voice, and it is one thread an hour
 
-**Root, then its questions inside it** (2026-08-21, the developer's design). Nine steps read and log; the tenth speaks. What it posts is **one root per tick** carrying what changed in the hour, with every question of that tick as a **mentioned reply inside that root's thread**:
+**Root, then its questions inside it** (2026-08-21, the developer's design). Every step but the last reads and logs; the last one speaks. What it posts is **one root per tick** carrying what changed in the hour, with every question of that tick as a **mentioned reply inside that root's thread**:
 
 - the **root** is orientation — addressed to nobody, no mention token, keyed `` `tick:<tick-id>` ``;
 - the **replies** are directed — one named person each, keyed `` `ask:<key>` ``, asked once and never re-asked.
 
 Two speech acts, one place to look, told apart by **position in the thread** rather than by two routines. Exact shapes: `workaholic:notify`, *The moderator's hourly thread*.
+
+**What it can ask about is what its steps read**, which is why the asking steps were added one at a time and each is named where it lives: `stalled-units` (a claim that has not moved), `direction-health` (a direction out of date or unanswered) and, since 2026-08-26, **`unanswered-asks`** — a message on the repository's channel that nobody has answered, **mention or no mention**. Before it, the one surface in this plugin that names a person could not learn that a person was waiting: a question written in the channel reached somebody only if one of the tick's own readers happened to produce a row about it (`reference/workflow.md` §16).
 
 **A change is derived, never declared.** `render-tick-post.sh` calls a step changed when its summary differs from **the same step's summary in the previous tick** — read out of the log this tick already keeps. No step gained a field, no cursor is stored, and an unchanged answer cannot be restated, which is the property that lets an hourly root exist at all (`📦 Release Preparation` was retired for exactly that failure).
 
@@ -63,7 +65,7 @@ Like the `## Open Decisions` floor, this is a **prose contract, not a script gat
 bash ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/run.sh
 ```
 
-One invocation is one **tick**. It mints the tick id (`tick-id.sh`, UTC — every later write in the same tick is passed that id), runs the fifteen steps **in order**, writes **one log line per step** into `.workaholic/moderations/<UTC-day>.md`, and returns the report as JSON. The step list lives in `run.sh`, not in this prose: every step is invoked and every step contributes a line, so a step that is missing, crashes, or prints nothing is reported `degraded` with its reason instead of vanishing from the report.
+One invocation is one **tick**. It mints the tick id (`tick-id.sh`, UTC — every later write in the same tick is passed that id), runs the sixteen steps **in order**, writes **one log line per step** into `.workaholic/moderations/<UTC-day>.md`, and returns the report as JSON. The step list lives in `run.sh`, not in this prose: every step is invoked and every step contributes a line, so a step that is missing, crashes, or prints nothing is reported `degraded` with its reason instead of vanishing from the report.
 
 `--deadline-seconds <n>` bounds a tick. Steps not reached are logged `skipped` with reason `budget`, **by name** — a step that ran out of clock and a step that found nothing must never read the same.
 
@@ -100,7 +102,7 @@ Full rationale for both decisions (why it is not knowledge, why nothing prunes i
 
 ## What the ask asked for, and what this is held to
 
-The ask (issue #471) named nine steps (there are fifteen: the release reads merged in, `stalled-units` and `closable-missions` were added 2026-08-23, `strategy-digest` — the integrated standup — on 2026-08-24, and `direction-health` on 2026-08-26) and, at five points, met a decision the loop had already made. None of them is resolved by this skill quietly:
+The ask (issue #471) named nine steps (there are sixteen: the release reads merged in, `stalled-units` and `closable-missions` were added 2026-08-23, `strategy-digest` — the integrated standup — on 2026-08-24, and `direction-health` and `unanswered-asks` on 2026-08-26) and, at five points, met a decision the loop had already made. None of them is resolved by this skill quietly:
 
 - **Step 8 inverts the propose bar.** `workaholic:specificate` states that missions, the queue and commits are *constraints, never triggers* — feedback is the only input that can originate a proposal, and the retired `[Propose Batch]` design was exactly a sweep of the repository's own state for something to propose. Proposing *from a strategy* is a reversal, not an addition, and it is ruled on in its own ticket.
 - **`🟡 Proposing` collides with two standing shapes** — 🟡 is the handoff finish line, and the start post was retired on 2026-08-11 by the developer's order. Reintroducing a start post and reusing 🟡 are two separate rulings.

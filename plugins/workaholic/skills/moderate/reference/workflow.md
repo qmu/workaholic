@@ -1,4 +1,4 @@
-# The fifteen-step contract — reference
+# The sixteen-step contract — reference
 
 Companion to [`../SKILL.md`](../SKILL.md). One section per step: what it reads, **what it may
 write**, what it returns in `needs_agent`, and the reasons it aborts with. The step ids are the
@@ -650,6 +650,73 @@ surface.
 
 A reader that refuses, or a missing script, is `degraded` with the reason named — never an `ok`
 step that found nothing.
+
+## 16. `unanswered-asks` — a message on the channel that nobody has answered
+
+```bash
+sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/step-unanswered-asks.sh --tick <id> [--root <repo-root>]
+```
+
+**It runs immediately before `human-checkin`** — fifteenth in `run.sh`'s `STEPS`, which is the
+contract; the numbering of these sections is the order they were written in.
+
+**Why the step exists** (2026-08-26, mission
+`answer-what-is-waiting-and-stamp-what-was-accepted`): the tick's question set was bounded by
+what its **own** steps found. `stalled-units` reads claims, `direction-health` reads strategies,
+and nothing read the channel — so a question, request or opinion written on `#dev-<repo>` reached
+a person only if one of the tick's readers happened to produce a row about it. Measured: the tick
+of 19:18 JST saw the developer's message in its inbound sweep, filed nothing, deferred to the
+`:40` sweep, and told nobody; the developer asked in session why it had not been handled.
+
+**No mention is required, anywhere** — the same premise the inbound sweep was rebuilt on. A person
+writing in the repository's own channel does not have to summon a bot for what they wrote to
+count.
+
+**The split is `inbound-sweep`'s, for `inbound-sweep`'s reason.** Slack is a connector held by the
+**session**, not by a script, so this step owns the mechanical half and hands the judgement half
+back in `needs_agent`:
+
+| Half | Owner | What it is |
+| ---- | ----- | ---------- |
+| which channel, which window | the script | `WORKAHOLIC_INBOUND_SLACK_CHANNEL` (default `dev-<repo_name>`), `WORKAHOLIC_INBOUND_SLACK_WINDOW_HOURS` (default 26) |
+| which refs an earlier tick asked about | the script | its own `unanswered-asks-filed` lines, read through `log-read.sh` |
+| is this a question, a request, an opinion — and has anything answered it | the agent | the probe returned in `needs_agent` |
+
+**The channel and the window are the inbound sweep's own, unchanged.** One channel and one window
+mean the two readings cannot disagree about which messages the loop had a chance to see; a second
+pair of variables is exactly how they would. The cost is stated rather than hidden: a message
+already older than the window when this step first runs is never asked about, and nothing
+backfills it. Every message arriving afterwards is asked about exactly once.
+
+**The ledger is the tick log and there is no second one.** The already-asked refs are an
+optimisation handed to the agent so it does not re-derive them; the **gate** is
+`ask-question.sh`'s own asked-once ledger, keyed mechanically on `unanswered-ask:<channel>:<ts>`,
+which is what guarantees "exactly once". Nothing here re-implements the per-tick cap of five, the
+daily bound, the quiet hours or the working-day hold.
+
+**An absent log and an unreadable one are different answers.** `no_log_area` is *readable* —
+there is definitively nothing recorded — and yields an empty set. Any other refusal from the
+reader, a missing reader, or unparseable output is `degraded` with the reason named and **asks
+nothing**: filing against a ledger that could not be read is how one person is asked the same
+question every hour. The Slack-side degradations belong to the agent and are named by it —
+`no_slack_transport`, `channel_unreadable` — never rendered as a channel with nothing waiting.
+
+**It asks; it never answers, files or captures.** Turning a channel message into an `[FB]` issue
+is the `:40` sweep's job (`workaholic:propose`) and stays there. The two overlap by design — the
+sweep runs at `:40` and this at `:50`, so a message captured this hour normally already has an
+issue — and that is a reason to read **whether anything answered it**, not a reason to skip it:
+an issue nobody has replied to is still a person waiting.
+
+**Its `event` is always the empty string, and that is a deliberate divergence** from
+`direction-health` and `stalled-units`, which settle their readings in the shell and can name a
+repository event. This one cannot: at the moment `run.sh` reads its line, nobody has looked at
+the channel yet, so any event would be a claim about a reading it has not made. A step with no
+event renders no root line — which is right here, because the finding's whole delivery is the
+question, and a question is already a reply inside that root.
+
+**The ask said "reacted to".** The tick's way of reacting to something is to ask a named person
+about it inside its root; a second status surface would be the line addressed to nobody this
+repository has retired twice.
 
 ## What `run.sh` guarantees around the steps
 

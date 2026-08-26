@@ -54,7 +54,10 @@ least be racing under their own identities; that argument is moot, because step 
 Two steps genuinely are personal — the inbound sweep's Gmail, Drive and Slack connectors belong
 to whichever account runs the tick — and they degrade **honestly** rather than silently: each
 surface is reported by name (`no_surface: gmail`), so a single account's copy says exactly whose
-inboxes it could and could not see. If the operator wants both, the faithful shape is a split
+inboxes it could and could not see. The `unanswered-asks` step added on 2026-08-26 reads the
+repository's **own** channel rather than anyone's inbox, so it belongs to this scope and not to a
+personal one; it degrades by the same rule (`no_slack_transport`, `channel_unreadable` — never an
+unread channel reported as a quiet one). If the operator wants both, the faithful shape is a split
 (a developer-scoped inbound routine and this repository-scoped one), which is a template to add
 rather than a line to change. Moving this one is a **one-line** change to `scope:`; both setup
 commands and both setup sheets read this field, so nothing else has to move with it.
@@ -102,6 +105,8 @@ log and, where it is work, becomes a ticket.
 Run `/moderate`.
 
 If the command or its skills did not load, do not stop: run `bash plugins/workaholic/skills/check-deps/scripts/plugin-src.sh` from the checkout, take its `src`, then read `<src>/commands/moderate.md` and follow it with every script path under `<src>`.
+
+Read Slack only through the Slack connector, and only as a step asks: the `unanswered-asks` step names one channel and one window and hands that read back to you — no mention of any bot is required for a message to count, and you never reply to, react to, or capture a message you read there. Emit only the shapes below.
 
 When the tick's rendered post says to post, post this root as a new top-level message — no mention token of any kind on the root:
 

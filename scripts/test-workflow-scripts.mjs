@@ -13,7 +13,7 @@
 // state, and cleans up. No network, no real remotes, no GitHub token, no
 // mutation of the developer's working tree. Run with `node scripts/test-workflow-scripts.mjs`.
 
-import { cpSync, mkdtempSync, rmSync, writeFileSync, appendFileSync, readFileSync, mkdirSync, existsSync, statSync, chmodSync, readdirSync, realpathSync, symlinkSync } from "node:fs";
+import { cpSync, copyFileSync, mkdtempSync, rmSync, writeFileSync, appendFileSync, readFileSync, mkdirSync, existsSync, statSync, chmodSync, readdirSync, realpathSync, symlinkSync } from "node:fs";
 import { execSync } from "node:child_process";
 import { join, resolve, dirname, basename } from "node:path";
 import { tmpdir } from "node:os";
@@ -639,6 +639,117 @@ function testDirectionHealthRefusals() {
     // a future edit that lets a READING lift a GATE, is the one the ask names by name.
     assertEq("the survey's gate outcomes are unchanged by the step", surveyOf(), before);
   } finally { cleanup(A); }
+}
+
+// ---------- moderate/step-unanswered-asks.sh (2026-08-26) ----------
+// The tick could only ask about what its OWN steps found, so a question written on the channel
+// reached a person only if one of those readers happened to produce a row about it. Measured:
+// the 19:18 JST tick saw the developer's message in its inbound sweep, filed nothing, and told
+// nobody.
+//
+// WHAT IS PINNED IS EVERYTHING THE SCRIPT CAN OWN. Slack is a connector held by the session, so
+// the probe itself is not testable here and is not pretended to be: what is testable is the key
+// shape (which is what makes the asked-once gate work at all), the already-asked set read out of
+// the tick log, the difference between an ABSENT log and an UNREADABLE one, the always-empty
+// event, and that the step writes nothing and files nothing.
+function testUnansweredAsksStep() {
+  const STEP = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-unanswered-asks.sh")}`;
+  const LOG = `${POSIX_SH} ${SCRIPTS.proposeLogAppend}`;
+  const dir = makeRepo("main");
+  try {
+    execSync("git remote add origin git@github.com:acme-org/source-repo.git", { cwd: dir });
+
+    // ---- an ABSENT log is a READABLE answer: nothing has been asked ----
+    // The distinction is load-bearing. Treating absence as a failure would make the very first
+    // tick of a repository unable to ask; treating a genuine refusal as absence would ask the
+    // same person the same question every hour.
+    let j = JSON.parse(run(dir, `${STEP} --tick 20260826-120000 --root ${dir}`).stdout);
+    assertEq("with no tick log at all the step still reports ok",
+      [j.step, j.status, j.reason], ["unanswered-asks", "ok", ""]);
+    assertEq("and hands back exactly one probe", j.needs_agent.length, 1);
+    assertEq("with an empty already-asked set", j.needs_agent[0].already_asked, []);
+
+    // ---- the channel and the window are the INBOUND SWEEP's own, not new names ----
+    assertEq("the channel defaults to the repository's own dev- channel",
+      j.needs_agent[0].channel, "dev-source-repo");
+    assertEq("and the window is the sweep's default", j.needs_agent[0].window_hours, 26);
+    const overridden = JSON.parse(run(dir, `${STEP} --tick 20260826-120000 --root ${dir}`, {
+      env: { ...process.env, WORKAHOLIC_INBOUND_SLACK_CHANNEL: "dev-elsewhere",
+             WORKAHOLIC_INBOUND_SLACK_WINDOW_HOURS: "48" },
+    }).stdout);
+    assertEq("both are the inbound sweep's variables, read here unchanged",
+      [overridden.needs_agent[0].channel, overridden.needs_agent[0].window_hours],
+      ["dev-elsewhere", 48]);
+
+    // ---- THE KEY SHAPE IS WHAT MAKES `asked exactly once` MECHANICAL ----
+    assertEq("the key shape is stable and carries the message's own coordinate",
+      j.needs_agent[0].key_shape, "unanswered-ask:<channel>:<ts>");
+    assertTrue("and the probe routes through the existing gate rather than re-implementing it",
+      /ask-question\.sh/.test(j.needs_agent[0].compose), j.needs_agent[0].compose);
+
+    // ---- NO MENTION IS REQUIRED. That is the whole premise; a later edit must not quietly
+    // narrow it back to mentions, so it is asserted rather than left to the prose.
+    assertTrue("no mention of any bot is required for a message to count",
+      /NO mention of any bot is required/.test(j.needs_agent[0].bound), j.needs_agent[0].bound);
+
+    // ---- THE ALREADY-ASKED SET IS THE TICK LOG, AND THERE IS NO SECOND LEDGER ----
+    // `log-append.sh` refuses outside a repository the loop already writes to, so the area is
+    // seeded exactly as step 1 of a real tick leaves it.
+    mkdirSync(join(dir, ".workaholic"), { recursive: true });
+    run(dir, `${LOG} --root ${dir} --tick 20260826-110000 --step unanswered-asks-filed --status filed --summary "asked unanswered-ask:C0AB12CD3:1724371200.000100 and unanswered-ask:C0AB12CD3:1724374800.000200"`);
+    j = JSON.parse(run(dir, `${STEP} --tick 20260826-120000 --root ${dir}`).stdout);
+    assertEq("the refs an earlier tick recorded are read back out of its own filed lines",
+      j.needs_agent[0].already_asked.slice().sort(),
+      ["C0AB12CD3:1724371200.000100", "C0AB12CD3:1724374800.000200"]);
+    assertTrue("and the summary counts them", /2 already asked about/.test(j.summary), j.summary);
+    // A line belonging to ANOTHER step is not this step's ledger.
+    run(dir, `${LOG} --root ${dir} --tick 20260826-110000 --step inbound-sweep-filed --status filed --summary "filed unanswered-ask:C0AB12CD3:1724999999.000300"`);
+    j = JSON.parse(run(dir, `${STEP} --tick 20260826-120000 --root ${dir}`).stdout);
+    assertTrue("another step's filed line is never read as this step's ledger",
+      !j.needs_agent[0].already_asked.includes("C0AB12CD3:1724999999.000300"),
+      JSON.stringify(j.needs_agent[0].already_asked));
+
+    // ---- AN UNREADABLE LEDGER IS NAMED, AND ASKS NOTHING ----
+    // Absence was ok above; a reader that cannot answer is not, and the two must never render
+    // the same. The reader is removed rather than corrupted: what is being pinned is that the
+    // step refuses when it cannot consult the ledger, whatever the cause.
+    const broken = join(dir, "broken");
+    mkdirSync(join(broken, "moderate/scripts"), { recursive: true });
+    copyFileSync(join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-unanswered-asks.sh"),
+      join(broken, "moderate/scripts/step-unanswered-asks.sh"));
+    j = JSON.parse(run(dir, `${POSIX_SH} ${join(broken, "moderate/scripts/step-unanswered-asks.sh")} --tick 20260826-120000 --root ${dir}`).stdout);
+    assertEq("a ledger it cannot consult is degraded, by name",
+      [j.status, j.reason], ["degraded", "no_log_reader"]);
+    assertEq("and it hands back no probe at all", j.needs_agent, []);
+
+    // ---- THE EVENT IS ALWAYS EMPTY, DELIBERATELY ----
+    // At the moment run.sh reads this line nobody has looked at the channel, so any event would
+    // be a claim about a reading the step has not made. Empty means the renderer emits no root
+    // line — right here, because the finding's delivery IS the question, already a reply in
+    // that root.
+    for (const line of [`${STEP} --tick 20260826-120000 --root ${dir}`]) {
+      assertEq("the step never supplies a root event", JSON.parse(run(dir, line).stdout).event, "");
+    }
+
+    // ---- IT WRITES NOTHING AND FILES NOTHING ----
+    execSync("git add -A && git commit -q -m seed", { cwd: dir });
+    run(dir, `${STEP} --tick 20260826-130000 --root ${dir}`);
+    assertEq("the step leaves the tree byte-identical",
+      execSync("git status --porcelain", { cwd: dir, encoding: "utf8" }).trim(), "");
+    const body = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-unanswered-asks.sh"), "utf8")
+      .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+    for (const forbidden of ["file-inbound-ask.sh", "create.sh", "open-issue.sh", "AskUserQuestion"]) {
+      assertTrue(`the step never reaches ${forbidden}`, !body.includes(forbidden), forbidden);
+    }
+    assertTrue("and makes no gh call of any kind", !/\bgh\b/.test(body), body.slice(0, 200));
+
+    // ---- IT IS REGISTERED, AND `human-checkin` IS STILL LAST ----
+    const steps = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/run.sh"), "utf8")
+      .match(/^STEPS='([^']+)'/m)[1].split(" ");
+    assertTrue("the step is in run.sh's list", steps.includes("unanswered-asks"), steps.join(" "));
+    assertEq("immediately before the check-in, which stays last",
+      steps.slice(-2), ["unanswered-asks", "human-checkin"]);
+  } finally { cleanup(dir); }
 }
 
 // ---------- archive.sh closes a mission it can PROVE is finished (2026-08-23) ----------
@@ -5143,8 +5254,13 @@ function testStandupRoutineTemplate() {
     /strategy-digest/.test(catalog) && /Retired 2026-08-24/.test(catalog));
   // The moderation step that replaced it exists and is registered in the run.
   const runsh = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/run.sh"), "utf8");
+  // ORDER, NOT ADJACENCY. It was an adjacency match until 2026-08-26, when `unanswered-asks`
+  // landed between the two and failed an assertion that never meant to say anything about what
+  // sits beside the digest — only that it runs before the tick speaks.
+  const order = runsh.match(/^STEPS='([^']+)'/m)[1].split(" ");
   assertTrue("run.sh registers strategy-digest before the check-in",
-    /strategy-digest human-checkin/.test(runsh), runsh.match(/^STEPS=.*$/m)?.[0] ?? "");
+    order.indexOf("strategy-digest") >= 0
+      && order.indexOf("strategy-digest") < order.indexOf("human-checkin"), order.join(" "));
 }
 
 // The command and the skill state the reader contract where a human and a diff can see it,
@@ -15295,6 +15411,7 @@ const tests = [
   ["drive/archive.sh: closes a mission it can prove is finished", testArchiveClosesAProvenMission],
   ["moderate/step-closable-missions.sh: finished, and still open", testClosableMissionsStep],
   ["moderate/step-direction-health.sh: the three refusals hold", testDirectionHealthRefusals],
+  ["moderate/step-unanswered-asks.sh: what is waiting, asked exactly once", testUnansweredAsksStep],
   ["moderate: the tick log survives the container that wrote it", testModeratePersist],
   ["moderate: the lines written after the persist reach the base too", testModeratePersistCarriesLateLines],
   ["moderate: the unattended contract is in the files, not in intent", testModerateUnattendedContract],
@@ -19459,7 +19576,13 @@ function testModerateRun() {
     // per JST day, on the first tick at or after 09:00, it hands the per-strategy digest to
     // the agent to render at the top of the Moderation root — and that digest is the root's
     // second gate beside the question gate.
-    "strategy-digest", "human-checkin"];
+    "strategy-digest",
+    // `unanswered-asks` runs last before the check-in (2026-08-26): a message on the
+    // repository's channel that nobody has answered, mention or no mention. It is the third
+    // step whose whole output is a question, and it is placed here because it is the only one
+    // whose reading the agent completes — the script names the channel, the window and the
+    // already-asked refs, and hands the probe back.
+    "unanswered-asks", "human-checkin"];
   try {
     // A tick only makes sense in a repository the loop already writes to; step 1 is the
     // probe that says so, and it never creates the tree behind the layout gate's back.

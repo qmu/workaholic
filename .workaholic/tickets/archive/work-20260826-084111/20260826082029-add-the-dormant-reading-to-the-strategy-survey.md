@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-26T08:20:29+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -85,3 +86,30 @@ no new counter, no new field on any artifact, and no second derivation of `pace`
   correct — it is exactly the "no direction is being answered" state a person should be
   told about — but the question's wording (the fifth ticket) must not accuse anybody of
   neglect on the day a direction is filed.
+
+## Final Report
+
+Development completed as planned.
+
+`survey-strategies.sh` emits `dormant` on every surveyed row, derived only from terms the row
+already holds — not `unreadable`, `status: active`, `owns: mine`, `days_to_target >= 0`,
+non-empty `feedback_refs`, nothing landed in the window, `waiting_missions + waiting_count == 0`,
+and the slug absent from the open-proposal set. It touches neither `refusal`, the sort, nor
+eligibility: a dormant direction stays **eligible**, which is what makes its silence a finding
+rather than a gate. Stated in `propose/SKILL.md` beside `pace` and `overdue`, and in `CLAUDE.md`.
+
+### Discovered Insights
+
+- **Insight**: the conjunction deliberately re-states four terms the `refusal` expression also
+  reads (`unreadable`, `status`, `owns`, `feedback_refs`) rather than being written as "eligible
+  and quiet".
+  **Context**: keying `dormant` off `refusal == ""` would have coupled the reading to the gate
+  list, so adding a future gate would silently narrow what counts as dormant. The terms are
+  cheap and the independence is the point — a reading that changes when a *gate* changes is a
+  gate wearing a reading's name.
+- **Insight**: the two periods behind the reading are different and stay different — `landed` is
+  bounded by the survey's window, `waiting_*` is computed over the whole queue.
+  **Context**: the asymmetry is upstream in `attributed-work.sh` and reconciling it here would
+  have meant a second derivation. The reading is therefore precisely "nothing landed in the
+  window **and** nothing is waiting at all", and it says so in both documents rather than
+  implying a single period.

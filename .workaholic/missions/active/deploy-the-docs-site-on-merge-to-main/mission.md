@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260826-134108
 ---
 
 # Deploy the docs site on merge to main

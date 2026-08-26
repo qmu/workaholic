@@ -2,7 +2,7 @@
 type: Mission
 title: Answer what is waiting, and stamp what was accepted
 slug: answer-what-is-waiting-and-stamp-what-was-accepted
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-26T11:22:29+00:00
 author: a@qmu.jp
@@ -37,7 +37,7 @@ the language they read it in.
 
 ## Acceptance
 
-- [ ] A message on the channel sitting unanswered reaches a named person through the
+- [x] A message on the channel sitting unanswered reaches a named person through the
       tick's check-in, mention or no mention, and is asked exactly once. (#20260826112310-ask-about-a-message-that-has-been-sitting-unanswered.md)
 - [x] A message the inbound sweep files carries a reaction stamp on the message itself. (#20260826112310-stamp-a-swept-message-with-a-reaction.md)
 - [x] `CLAUDE.md` states the language rule: Japanese for `#dev-workaholic` reasoning and
@@ -48,3 +48,5 @@ the language they read it in.
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-26 — ticket archived — 20260826112310-write-the-surface-language-rule-into-claude-md.md
 - 2026-08-26 — ticket archived — 20260826112310-stamp-a-swept-message-with-a-reaction.md
+- 2026-08-26 — ticket archived — 20260826112310-ask-about-a-message-that-has-been-sitting-unanswered.md
+- 2026-08-26 — mission achieved — mission.md

@@ -52,3 +52,4 @@ guarantee is pinned by a test rather than asserted in prose.
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-26 — ticket archived — 20260826021825-read-the-ask-s-feedback-line-through-one-script.md
+- 2026-08-26 — ticket archived — 20260826021825-floor-the-carry-at-the-publish-seam.md

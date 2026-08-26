@@ -173,6 +173,24 @@ and every abort reports a machine-readable reason.
    - The `--feedback` refs are **mandatory** here (`no_feedback` otherwise), and they are
      step 3's record **plus** anything step 3b carried forward.
 
+   **Then the carry floor, beside the ticket floor** — both floors are read at the same
+   seam, for the same reason: the artifacts do not all exist while any one of them is being
+   authored, so this is the only place either question is answerable.
+
+   ```sh
+   bash ${CLAUDE_PLUGIN_ROOT}/skills/specificate/scripts/check-carry-floor.sh \
+     --refs "<step 3b's carried refs, comma-separated>" <the emitted artifact>
+   ```
+
+   The artifact named is **the mission when there is one, the loose ticket when there is
+   not** — a mission's tickets need not repeat its refs, because `attributed-work.sh`
+   already reaches them through `via_mission:<slug>`. Non-zero exit is a **run failure to
+   report, never a demotion**: the record is already written and the artifacts are already
+   scaffolded, so the correct action is to put the missing refs on what exists (the
+   script's `repair` names which scaffold call and which refs) and re-check before step 10
+   publishes. Nothing to check — no refs carried, or a record-only outcome — is `ok: true`
+   with `checked: 0`, a real pass. A ref step 3b already **dropped** is never required here.
+
    Neither ticket form runs for the strategy form — a strategy carries no ticket plan
    (step 9b).
 

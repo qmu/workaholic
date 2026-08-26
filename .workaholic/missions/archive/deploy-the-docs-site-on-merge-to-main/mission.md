@@ -2,7 +2,7 @@
 type: Mission
 title: Deploy the docs site on merge to main
 slug: deploy-the-docs-site-on-merge-to-main
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-26T11:27:41+00:00
 author: a@qmu.jp
@@ -38,7 +38,7 @@ build path, and the site behind that hostname serves what is on the base.
 - [x] The Worker configuration builds from `docs/.vitepress/dist` and is provable
       offline, with no credential and no deploy. (#20260826112804-configure-the-worker-that-serves-the-built-docs-site.md)
 - [x] A merge to `main` builds `docs/` and deploys it; a push elsewhere does not. (#20260826112804-build-and-deploy-the-docs-site-on-merge-to-main.md)
-- [ ] The site is a registered deployment target, so `/prepare-release` reports it and
+- [x] The site is a registered deployment target, so `/prepare-release` reports it and
       `/ship` reads its confirmation. (#20260826112804-register-the-docs-site-as-a-deployment-target.md)
 
 ## Changelog
@@ -46,3 +46,5 @@ build path, and the site behind that hostname serves what is on the base.
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-26 — ticket archived — 20260826112804-configure-the-worker-that-serves-the-built-docs-site.md
 - 2026-08-26 — ticket archived — 20260826112804-build-and-deploy-the-docs-site-on-merge-to-main.md
+- 2026-08-26 — ticket archived — 20260826112804-register-the-docs-site-as-a-deployment-target.md
+- 2026-08-26 — mission achieved — mission.md

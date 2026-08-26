@@ -2,7 +2,6 @@
 
 ## active
 
-* [deploy-the-docs-site-on-merge-to-main](active/deploy-the-docs-site-on-merge-to-main/mission.md) - Deploy the docs site on merge to main
 * [make-the-routine-create-body-documented-and-buildable](active/make-the-routine-create-body-documented-and-buildable/mission.md) - Make the routine create body documented and buildable
 * [make-workaholify-converge-the-account-s-routines](active/make-workaholify-converge-the-account-s-routines/mission.md) - Make /workaholify converge the account's routines
 * [refuse-ok-under-a-placeholder-identity](active/refuse-ok-under-a-placeholder-identity/mission.md) - Refuse ok under a placeholder identity
@@ -22,6 +21,7 @@
 * [configure-routines-automatically-via-remotetrigger](archive/configure-routines-automatically-via-remotetrigger/mission.md) - Configure routines automatically via RemoteTrigger
 * [correct-the-release-note-automation-to-its-intended-design](archive/correct-the-release-note-automation-to-its-intended-design/mission.md) - Correct the release note automation to its intended design
 * [cross-the-repo-boundary-as-an-issue](archive/cross-the-repo-boundary-as-an-issue/mission.md) - Cross the repo boundary as an issue
+* [deploy-the-docs-site-on-merge-to-main](archive/deploy-the-docs-site-on-merge-to-main/mission.md) - Deploy the docs site on merge to main
 * [draft-deployment-plans-in-the-release-note-before-deploying](archive/draft-deployment-plans-in-the-release-note-before-deploying/mission.md) - Draft deployment plans in the Release Note before deploying
 * [drive-on-a-merged-proposal-and-report-it-in-that-proposal-s-thread](archive/drive-on-a-merged-proposal-and-report-it-in-that-proposal-s-thread/mission.md) - Drive on a merged proposal, and report it in that proposal's thread
 * [drop-the-draft-gate-and-make-drive-own-its-worktree-from-refreshed-main](archive/drop-the-draft-gate-and-make-drive-own-its-worktree-from-refreshed-main/mission.md) - Drop the draft gate and make /drive own its worktree from refreshed main

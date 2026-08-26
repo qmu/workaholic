@@ -188,8 +188,41 @@
 # must FAIL the writer loudly (claim.sh), because a claim that was not pushed is not
 # a claim. False "unclaimed" is the dangerous error: it double-picks work. A stale
 # reader over-reports claims, which merely makes a runner wait.
+#
+# THE MERGED LOOKUP BELOW RUNS THE SAME ASYMMETRY, and this is the sentence to read before
+# changing it (2026-08-26): a wrong `merged` RELEASES work that is still in flight, a wrong
+# `in flight` only delays a claim — so a lookup we could not make leaves the row precisely
+# the verdict it would have had without it, and is reported by name instead.
+
+# WHETHER THE LAST FETCH ACTUALLY RAN, for the one consumer inside this library that has to
+# know: the merged-claim lookup below, which is a NETWORK read and must not be attempted on a
+# run that has just proved it has no network. `claims_fetch` echoes the same answer to its
+# caller; this is the copy `claims_scan` can see, because command substitution puts the scan
+# in a subshell of its own and nothing it sets could travel back.
+CLAIMS_FETCH_OK=false
+
+# Where this library itself lives — what locates the sibling `claim-merged.sh` the merged
+# lookup runs.
+#
+# THE CALLER SETS IT, and the `$0` walk below is only a fallback. A sourced file cannot ask
+# where it is: `$0` is the CALLER's script, and the caller may sit in a worktree, a publish
+# tree or the installed plugin cache. Every sourcer already computes its own script directory
+# in order to source this file at all, so passing it costs one line and is the only form that
+# is right by construction rather than by coincidence.
+CLAIMS_LIB_DIR="${CLAIMS_LIB_DIR:-}"
+if [ -z "$CLAIMS_LIB_DIR" ]; then
+    for _cl_cand in "$(dirname -- "$0")/lib" "$(dirname -- "$0")"; do
+        if [ -f "${_cl_cand}/claims.sh" ]; then
+            CLAIMS_LIB_DIR=$(CDPATH= cd -- "$_cl_cand" && pwd)
+            break
+        fi
+    done
+    unset _cl_cand
+fi
+
 claims_fetch() {
     if ! git config --get remote.origin.url >/dev/null 2>&1; then
+        CLAIMS_FETCH_OK=false
         printf 'false'
         return 0
     fi
@@ -202,8 +235,10 @@ claims_fetch() {
         git fetch --unshallow --prune --quiet origin >/dev/null 2>&1 || true
     fi
     if git fetch --prune --quiet origin >/dev/null 2>&1; then
+        CLAIMS_FETCH_OK=true
         printf 'true'
     else
+        CLAIMS_FETCH_OK=false
         printf 'false'
     fi
 }
@@ -482,6 +517,80 @@ claims_superseded() {
     else
         printf 'false'
     fi
+}
+
+# Has this claim branch's work reached the base through a MERGED pull request? $1 = branch
+# name. Echoes `merged`, `not_merged` or `unanswerable`, and never fails.
+#
+# THIS IS THE CLAIM PROTOCOL'S ONE NETWORK READ, and every rule around it exists to keep
+# that from costing the reader its offline contract (`list-claims.sh`: *the reader degrades
+# offline*). `claims_superseded` above answers the same question from the tree and cannot
+# answer it for a mission claim; this can, because a pull request has a head branch whatever
+# the unit's grain.
+#
+# THE ASYMMETRY IS THE WHOLE DESIGN, and it runs the same way as `claims_fetch`'s: a wrong
+# `merged` RELEASES work that is still in flight, and the release is what double-picks a
+# colleague's unit. A wrong `in flight` only makes a runner wait. So an answer we could not
+# read is NEVER promoted to `merged` — it leaves the row exactly the verdict it would have
+# had before this lookup existed.
+#
+# IT IS SKIPPED, BY NAME, WHENEVER IT CANNOT SUCCEED. A run whose fetch just failed has
+# proved it has no network, so spending a call per claim to be told so again is pure latency
+# on the path a degraded runner is already on; `WORKAHOLIC_CLAIM_MERGED_LOOKUP=0` is the
+# explicit opt-out for a caller that wants the scan purely local. Both are reported as
+# reasons rather than silently answering `not_merged`.
+#
+# AT MOST ONE CALL PER CLAIM. It is invoked from exactly one place in the verdict chain, and
+# the chain short-circuits before it whenever a cheaper gate already decided.
+claims_merged_state() {
+    _cms_branch="${1:-}"
+    [ -n "$_cms_branch" ] || { printf 'unanswerable'; return 0; }
+
+    _cms_enabled="${WORKAHOLIC_CLAIM_MERGED_LOOKUP:-1}"
+    if [ "$_cms_enabled" = "0" ]; then
+        claims_note_unanswered "$_cms_branch" disabled
+        printf 'unanswerable'
+        return 0
+    fi
+    if [ "${CLAIMS_FETCH_OK:-false}" != "true" ]; then
+        claims_note_unanswered "$_cms_branch" offline
+        printf 'unanswerable'
+        return 0
+    fi
+
+    _cms_reader="${CLAIMS_LIB_DIR}/../claim-merged.sh"
+    if [ ! -f "$_cms_reader" ]; then
+        claims_note_unanswered "$_cms_branch" no_reader_script
+        printf 'unanswerable'
+        return 0
+    fi
+
+    _cms_out=$(sh "$_cms_reader" "$_cms_branch" 2>/dev/null || true)
+    _cms_state=$(printf '%s' "$_cms_out" | sed -n 's/.*"state": "\([^"]*\)".*/\1/p')
+    case "$_cms_state" in
+        merged|not_merged)
+            printf '%s' "$_cms_state"
+            ;;
+        *)
+            _cms_reason=$(printf '%s' "$_cms_out" | sed -n 's/.*"reason": "\([^"]*\)".*/\1/p')
+            claims_note_unanswered "$_cms_branch" "${_cms_reason:-unreadable}"
+            printf 'unanswerable'
+            ;;
+    esac
+}
+
+# Record one claim the merged lookup could not answer for, so the scan can REPORT what it
+# could not read rather than leaving it indistinguishable from what it read as live.
+#
+# IT GOES TO A FILE THE CALLER NAMES, not to a variable and not to an extra TSV column.
+# `claims_scan` runs inside a command substitution, so a variable it sets dies with the
+# subshell; and the row's field count is load-bearing — the header's longest warning is
+# about exactly what happens when a column is added. A caller that wants the set creates a
+# file, exports `CLAIMS_UNANSWERED_FILE`, and reads it afterwards; a caller that does not
+# care sets nothing and this is a no-op.
+claims_note_unanswered() {
+    [ -n "${CLAIMS_UNANSWERED_FILE:-}" ] || return 0
+    printf '%s\t%s\n' "$1" "$2" >> "$CLAIMS_UNANSWERED_FILE" 2>/dev/null || true
 }
 
 # Scan the remote branches for claims. $1 = base ref (from claims_base).

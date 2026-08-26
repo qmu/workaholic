@@ -126,11 +126,24 @@ verifies through it.
 bash ../drive/scripts/list-claims.sh
 ```
 
-Pure read. Emits `{fetched, shallow, stale_hours, heartbeat_stale_minutes, base, claims: [{unit,
+Pure read. Emits `{fetched, shallow, stale_hours, heartbeat_stale_minutes, base,
+merged_lookup_unanswered, claims: [{unit,
 branch, artifacts, last_commit_at, stale, author, resumable, resume_reason, reported}]}`, where
 `resume_reason` is one of `heartbeat_lapsed` / `report_incomplete` / `parked_with_pr` (resumable)
 or `claim_active` / `superseded` / `queue_drained` / `foreign_identity` /
-`identity_unresolved` / `shallow_history`. The survey
+`identity_unresolved` / `shallow_history`.
+
+`merged_lookup_unanswered` is `[{branch, reason}]` — every claim the **merged-pull-request
+lookup** could not answer for (2026-08-26). That lookup, `claim-merged.sh`, is the claim
+protocol's one **network** read: it asks whether a merged pull request has the claim branch as
+its head, which answers *has this unit's work reached the base?* at both grains without reading
+any artifact. Its three values are `merged` / `not_merged` / `unanswerable`, and the third is
+the point — **a read we could not make leaves the row precisely the verdict it would have had
+without the lookup, and is named here instead.** The direction of failure is chosen: a wrong
+`merged` releases work still in flight, a wrong `in flight` only delays a claim. Reasons:
+`offline` (the fetch failed, so no call is spent), `disabled`
+(`WORKAHOLIC_CLAIM_MERGED_LOOKUP=0`), `gh_unavailable`, `rate_limited`, `session_refused`,
+`transport_error`, `unparseable_response`, `slug_unresolved`, `no_reader_script`. The survey
 (`plan-units.sh`) reads the same scan through the shared library rather than re-parsing this
 output. This script takes nothing over; it exists so the state is readable without a survey.
 

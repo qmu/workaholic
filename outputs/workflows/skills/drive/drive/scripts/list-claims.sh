@@ -32,6 +32,15 @@
 # reader stays useful offline, while the writer (claim.sh) refuses to claim at all
 # without a reachable origin. See lib/claims.sh for why the asymmetry runs that way.
 #
+# `merged_lookup_unanswered` names every claim the merged-pull-request lookup could not
+# answer for, with its reason (`offline`, `disabled`, `gh_unavailable`, `rate_limited`,
+# `session_refused`, `transport_error`, `unparseable_response`, `slug_unresolved`,
+# `no_reader_script`). It is the claim protocol's ONE network read, and this field is how the
+# reader keeps its offline promise honestly: an unanswered claim keeps precisely the verdict
+# it would have had without the lookup, and is NAMED here rather than rendered as a claim
+# that is simply still in flight. A wrong `merged` releases work still in flight; a wrong
+# `in flight` only delays a claim — so the failure direction is chosen, not accidental.
+#
 # `stale: true` is a REPORT, never an action. Nothing here breaks a claim.
 #
 # `resumable` IS ALSO A REPORT HERE -- this script takes nothing over. It exists so an
@@ -47,6 +56,7 @@
 set -eu
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "$0")" && pwd)
+CLAIMS_LIB_DIR="${SCRIPT_DIR}/lib"
 . "${SCRIPT_DIR}/lib/claims.sh"
 
 if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
@@ -80,6 +90,14 @@ fetched=$(claims_fetch)
 shallow=$(claims_shallow)
 base=$(claims_base)
 
+# THE MERGED LOOKUP'S UNANSWERED SET (2026-08-26). The scan now asks GitHub whether a claim
+# branch's work reached the base through a merged pull request — the claim protocol's one
+# network read — and a read it could not make must be REPORTED, never rendered as a claim
+# that is simply still in flight. The scan appends `<branch>\t<reason>` here; a caller that
+# does not set the variable pays nothing.
+CLAIMS_UNANSWERED_FILE=$(mktemp 2>/dev/null || printf '')
+export CLAIMS_UNANSWERED_FILE
+
 claims=""
 sep=""
 rows=$(claims_scan "$base")
@@ -105,5 +123,16 @@ $rows
 EOF
 fi
 
-printf '{"fetched": %s, "shallow": %s, "stale_hours": %s, "heartbeat_stale_minutes": %s, "base": "%s", "claims": [%s]}\n' \
-    "$fetched" "$shallow" "$stale_hours" "$heartbeat_minutes" "$base" "$claims"
+unanswered=""
+usep=""
+if [ -n "$CLAIMS_UNANSWERED_FILE" ] && [ -f "$CLAIMS_UNANSWERED_FILE" ]; then
+    while IFS='	' read -r ubranch ureason; do
+        [ -n "$ubranch" ] || continue
+        unanswered="${unanswered}${usep}{\"branch\": \"${ubranch}\", \"reason\": \"${ureason}\"}"
+        usep=", "
+    done < "$CLAIMS_UNANSWERED_FILE"
+    rm -f "$CLAIMS_UNANSWERED_FILE"
+fi
+
+printf '{"fetched": %s, "shallow": %s, "stale_hours": %s, "heartbeat_stale_minutes": %s, "base": "%s", "merged_lookup_unanswered": [%s], "claims": [%s]}\n' \
+    "$fetched" "$shallow" "$stale_hours" "$heartbeat_minutes" "$base" "$unanswered" "$claims"

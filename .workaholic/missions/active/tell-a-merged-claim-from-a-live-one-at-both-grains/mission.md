@@ -42,7 +42,7 @@ behind it is re-surveyable. Nothing deletes a branch or closes a pull request.
       merged units measured today are no longer stale. (#20260826113204-answer-superseded-for-a-mission-claim.md)
 - [ ] No question and no resumption offer names a claim whose pull request is merged,
       and the mission behind one is re-surveyable. (#20260826113204-never-offer-a-merged-claim-for-resumption.md)
-- [ ] A reading that cannot be made names the claim and the reason, and that claim keeps
+- [x] A reading that cannot be made names the claim and the reason, and that claim keeps
       exactly today's verdict. (#20260826113204-make-the-oracle-degrade-by-name-not-by-guess.md)
 
 ## Changelog
@@ -50,3 +50,4 @@ behind it is re-surveyable. Nothing deletes a branch or closes a pull request.
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-26 — ticket archived — 20260826113204-pin-the-merged-claim-shape-with-a-fixture.md
 - 2026-08-26 — ticket archived — 20260826113204-read-whether-a-claim-s-work-reached-the-base.md
+- 2026-08-26 — ticket archived — 20260826113204-make-the-oracle-degrade-by-name-not-by-guess.md

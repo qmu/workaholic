@@ -5,6 +5,7 @@
 * [make-the-routine-create-body-documented-and-buildable](active/make-the-routine-create-body-documented-and-buildable/mission.md) - Make the routine create body documented and buildable
 * [make-workaholify-converge-the-account-s-routines](active/make-workaholify-converge-the-account-s-routines/mission.md) - Make /workaholify converge the account's routines
 * [refuse-ok-under-a-placeholder-identity](active/refuse-ok-under-a-placeholder-identity/mission.md) - Refuse ok under a placeholder identity
+* [say-when-the-loop-has-run-out-of-direction](active/say-when-the-loop-has-run-out-of-direction/mission.md) - Say when the loop has run out of direction
 
 ## archive
 

@@ -30,7 +30,6 @@ const SCRIPTS = {
   listAllWorktrees: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/list-all-worktrees.sh"),
   listWorktrees: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/list-worktrees.sh"),
   checkWorktrees: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/check-worktrees.sh"),
-  missionLens: join(REPO_ROOT, "plugins/workaholic/hooks/mission-lens.sh"),
   detectContext: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/detect-context.sh"),
   checkWorkspace: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/check-workspace.sh"),
   archive: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/archive.sh"),
@@ -1890,13 +1889,12 @@ function testMissionResolutionFollowsTicket() {
     assertTrue("the resolved path is absolute", resolveWith(elsewhere, wtRoot, "alpha").startsWith("/"),
       resolveWith(elsewhere, wtRoot, "alpha"));
 
-    // Row: mission-lens.sh (an absolute-path caller) is unaffected -- pin it. Inside the
-    // worktree it surfaces only that worktree's mission, reading progress via the absolute
-    // fast path.
-    const lensEnv = { ...process.env, CLAUDE_PLUGIN_ROOT: join(REPO_ROOT, "plugins/workaholic") };
-    const lens = run(wt, `printf '%s' '{"hook_event_name":"UserPromptSubmit"}' | ${POSIX_SH} ${SCRIPTS.missionLens}`, { env: lensEnv }).stdout;
-    assertTrue("mission-lens still surfaces the worktree mission (absolute-path caller intact)",
-      /alpha/.test(lens), lens);
+    // Row: progress.sh (an absolute-path caller) is unaffected -- pin it. Handed the
+    // worktree mission's absolute path from an unrelated cwd, it reads that file via the
+    // absolute fast path, never the cwd's tree.
+    const prog = JSON.parse(run(elsewhere, `${POSIX_SH} ${SCRIPTS.missionProgress} ${wtMd}`).stdout);
+    assertEq("progress.sh reads the worktree mission by absolute path (absolute-path caller intact)",
+      { checked: prog.checked, total: prog.total }, { checked: 0, total: 1 });
   } finally { cleanup(dir); cleanup(elsewhere); }
 
   // Row: missions_migrate_layout moves the tree the CALLER named, not the cwd's tree. A
@@ -2209,120 +2207,6 @@ function testMissionSummaryUnassigned() {
     execSync(`git config user.email ${OTHER}`, { cwd: dir });
     const asOther = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionSummary}`).stdout).map((m) => m.slug);
     assertEq("another developer sees their own first, then the same unclaimed work", asOther, ["theirs", "absent", "empty"]);
-  } finally { cleanup(dir); }
-}
-
-// ---------- 8b-3. mission-lens.sh follows the summary on unassigned missions ----------
-// The lens fires on every prompt, so what it says about unclaimed work gets said
-// constantly: it must read as an invitation, not an error. It follows summary.sh's
-// "not somebody else's" gate, while its OTHER two gates (location, signal) are untouched.
-function testMissionLensUnassigned() {
-  const dir = makeRepo("main");
-  const ME = "me@example.com";
-  try {
-    const mission = (slug, assigneeLine, acceptance) => {
-      const d = join(dir, `.workaholic/missions/active/${slug}`);
-      mkdirSync(d, { recursive: true });
-      writeFileSync(join(d, "mission.md"),
-        `---\ntype: Mission\ntitle: ${slug} title\nstatus: active\n${assigneeLine}---\n\n` +
-        `## Goal\n\ng\n\n## Acceptance\n\n${acceptance}`);
-    };
-    mission("mine", `assignee: ${ME}\n`, "- [x] A\n- [ ] B\n");
-    mission("unclaimed", "", "- [ ] Claim me\n");
-    mission("theirs", "assignee: other@example.com\n", "- [ ] Not yours\n");
-    // Signal gate: no acceptance criteria -> silent even though it is unassigned.
-    mission("no-signal", "", "");
-    execSync(`git config user.email ${ME}`, { cwd: dir });
-
-    const env = { ...process.env, CLAUDE_PLUGIN_ROOT: join(REPO_ROOT, "plugins/workaholic") };
-    const out = execSync(`${POSIX_SH} ${SCRIPTS.missionLens}`, {
-      cwd: dir, input: JSON.stringify({ hook_event_name: "UserPromptSubmit" }), encoding: "utf8", env,
-    });
-
-    assertTrue("lens surfaces the developer's own mission", out.includes("mine title"), out);
-    assertTrue("lens surfaces an UNASSIGNED mission", out.includes("unclaimed title"), out);
-    assertTrue("lens still stays silent about another developer's mission", !out.includes("theirs title"), out);
-    assertTrue("lens signal gate still holds: an unassigned 0/0 mission stays silent",
-      !out.includes("no-signal title"), out);
-    // An offer, not a defect -- this is printed above every answer.
-    assertTrue("lens marks unclaimed work as claimable, not as an error",
-      out.includes("unclaimed — yours to take") || out.includes("unclaimed \\u2014 yours to take"), out);
-    assertTrue("lens shows mine before the unclaimed offer",
-      out.indexOf("mine title") < out.indexOf("unclaimed title"), out);
-  } finally { cleanup(dir); }
-}
-
-// ---------- 8b-4. mission-lens.sh summarizes on change (buries no message under redundant context) ----------
-// Under a long /goal Stop condition the hook re-fires on essentially every turn. Re-injecting
-// the whole roster each time buries the developer's own message. So the FULL block is emitted
-// only when the roster CHANGED since the last turn of this session; an unchanged turn collapses
-// to a compact one-liner (count + the single next action + a /mission summary pointer). Keyed by
-// session_id AND event; absent session_id cannot dedupe and stays full (backward compatible).
-function testMissionLensOnChange() {
-  const dir = makeRepo("main");
-  const ME = "me@example.com";
-  try {
-    // Isolate the change-detector's state under a repo-local TMPDIR (cleaned with the repo).
-    const stateDir = join(dir, ".lens-tmp");
-    mkdirSync(stateDir, { recursive: true });
-    const env = { ...process.env, CLAUDE_PLUGIN_ROOT: join(REPO_ROOT, "plugins/workaholic"), TMPDIR: stateDir };
-
-    const mission = (slug, acceptance) => {
-      const d = join(dir, `.workaholic/missions/active/${slug}`);
-      mkdirSync(d, { recursive: true });
-      writeFileSync(join(d, "mission.md"),
-        `---\ntype: Mission\ntitle: ${slug} title\nstatus: active\nassignee: ${ME}\n---\n\n` +
-        `## Goal\n\ng\n\n## Acceptance\n\n${acceptance}`);
-    };
-    mission("aaa", "- [ ] alpha step\n- [ ] alpha two\n");
-    mission("bbb", "- [ ] beta step\n");
-    execSync(`git config user.email ${ME}`, { cwd: dir });
-
-    const SID = "sess-onchange-1";
-    const lens = (event = "UserPromptSubmit", session = SID) => execSync(`${POSIX_SH} ${SCRIPTS.missionLens}`, {
-      cwd: dir, input: JSON.stringify(session ? { hook_event_name: event, session_id: session } : { hook_event_name: event }),
-      encoding: "utf8", env,
-    });
-
-    // Turn 1: first sight -> FULL block, every qualifying mission enumerated.
-    const first = lens();
-    assertTrue("first turn emits the full roster (aaa)", first.includes("aaa title"), first);
-    assertTrue("first turn emits the full roster (bbb)", first.includes("bbb title"), first);
-    assertTrue("first turn is not the compact form", !first.includes("Roadmap unchanged"), first);
-
-    // Turn 2: roster unchanged -> COMPACT one-liner. Lead's next action stays visible; the
-    // rest is folded into a count, materially shrinking the per-turn injection.
-    const second = lens();
-    assertTrue("unchanged turn collapses to the compact reminder", second.includes("Roadmap unchanged"), second);
-    assertTrue("compact keeps the single next action visible", second.includes("aaa title"), second);
-    assertTrue("compact does NOT re-enumerate the rest of the roster", !second.includes("bbb title"), second);
-    // `summary` mode retired 2026-07-22: the compact pointer now names bare /mission,
-    // whose full tier carries the on-demand detail the summary mode used to hold.
-    assertTrue("compact points at bare /mission for the detail", second.includes("/mission for the full list"), second);
-    assertTrue("compact is materially shorter than the full roster", second.length < first.length, `${first} || ${second}`);
-
-    // Turn 3: roster CHANGES (tick an acceptance item) -> FULL block returns, so a real
-    // change is never hidden behind the compact form.
-    writeFileSync(join(dir, ".workaholic/missions/active/aaa/mission.md"),
-      `---\ntype: Mission\ntitle: aaa title\nstatus: active\nassignee: ${ME}\n---\n\n` +
-      `## Goal\n\ng\n\n## Acceptance\n\n- [x] alpha step\n- [ ] alpha two\n`);
-    const third = lens();
-    assertTrue("a changed roster re-emits the full block", third.includes("bbb title"), third);
-    assertTrue("changed roster is not the compact form", !third.includes("Roadmap unchanged"), third);
-
-    // Turn 4: settled again -> compact again.
-    assertTrue("returns to compact after the change settles", lens().includes("Roadmap unchanged"));
-
-    // The Stop event dedupes independently of UserPromptSubmit: its first sight is full.
-    const stopFirst = lens("Stop");
-    assertTrue("Stop's first emit is full, independent of UserPromptSubmit state",
-      stopFirst.includes("bbb title") && !stopFirst.includes("Roadmap unchanged"), stopFirst);
-
-    // Without a session_id the hook cannot dedupe -> always full (backward compatible).
-    assertTrue("no session_id: first call full", lens("UserPromptSubmit", null).includes("bbb title"));
-    const repeat = lens("UserPromptSubmit", null);
-    assertTrue("no session_id: still full on repeat (never deduped)",
-      repeat.includes("bbb title") && !repeat.includes("Roadmap unchanged"), repeat);
   } finally { cleanup(dir); }
 }
 
@@ -2841,100 +2725,6 @@ function testCheckVersionBumpBaseResolution() {
         r.already_bumped, true);
     } finally { cleanup(origin); cleanup(clone); }
   }
-}
-
-// ---------- 8e. mission-lens worktree focus ----------
-// Inside a mission's worktree the lens surfaces only that mission; in the main
-// tree it hides missions that own a worktree and shows only worktree-less ones.
-//
-// RE-PINNED FOR J1. The rule is unchanged, but what a worktree MEANS changed: creation
-// no longer makes one, so owning `.worktrees/<slug>` now means "a runner has CLAIMED
-// this mission". The common case therefore inverted — an ordinary unclaimed mission is
-// worktree-less and is surfaced in the main tree, which is what a developer wants to see
-// on every turn. `alpha` below models a claimed mission and `gamma` an unclaimed one.
-function testMissionLensWorktreeFocus() {
-  const dir = makeRepo("main");
-  const PLUGIN_ROOT = join(REPO_ROOT, "plugins/workaholic");
-  try {
-    const mk = (slug, title) => {
-      const d = join(dir, `.workaholic/missions/active/${slug}`);
-      mkdirSync(d, { recursive: true });
-      writeFileSync(join(d, "mission.md"), `---
-type: Mission
-title: ${title}
-slug: ${slug}
-status: active
-created_at: 2026-07-14T00:00:00+09:00
-author: test@example.com
-assignee: test@example.com
-tickets: []
-stories: []
-concerns: []
----
-
-# ${title}
-
-## Acceptance
-
-- [ ] first (#a.md)
-
-## Changelog
-`);
-    };
-    mk("alpha", "Alpha Mission");
-    mk("gamma", "Gamma Mission");
-    execSync(`git add -A && git commit -q -m seed`, { cwd: dir });
-
-    // alpha is CLAIMED (a claim worktree exists for it); gamma is unclaimed, which
-    // after J1 is the state every mission is in until /drive picks it up.
-    JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.createMissionWorktree} alpha`).stdout);
-
-    const env = { ...process.env, CLAUDE_PLUGIN_ROOT: PLUGIN_ROOT };
-    const runLens = (cwd) => run(cwd, `printf '%s' '{"hook_event_name":"Stop"}' | ${POSIX_SH} ${SCRIPTS.missionLens}`, { env }).stdout;
-
-    // Main tree: only gamma (alpha is worktree-owned and stays silent here).
-    const mainOut = runLens(dir);
-    assertTrue("main-tree lens surfaces an UNCLAIMED mission (gamma) — the J1 common case",
-      mainOut.includes("Gamma Mission"), mainOut);
-    assertTrue("main-tree lens still hides a CLAIMED mission (alpha)", !mainOut.includes("Alpha Mission"), mainOut);
-
-    // Inside .worktrees/alpha: only alpha.
-    const alphaOut = runLens(join(dir, ".worktrees/alpha"));
-    assertTrue("alpha worktree lens shows alpha", alphaOut.includes("Alpha Mission"), alphaOut);
-    assertTrue("alpha worktree lens hides other missions (gamma)", !alphaOut.includes("Gamma Mission"), alphaOut);
-
-    // A mission assigned to someone else is never surfaced (gate intact).
-    mkdirSync(join(dir, ".workaholic/missions/active/delta"), { recursive: true });
-    writeFileSync(join(dir, ".workaholic/missions/active/delta/mission.md"),
-      `---\ntype: Mission\ntitle: Delta Mission\nslug: delta\nstatus: active\ncreated_at: 2026-07-14T00:00:00+09:00\nauthor: other@example.com\nassignee: other@example.com\ntickets: []\nstories: []\nconcerns: []\n---\n\n# Delta Mission\n\n## Acceptance\n\n- [ ] x (#a.md)\n\n## Changelog\n`);
-    assertTrue("lens never surfaces another user's mission", !runLens(dir).includes("Delta Mission"));
-
-    // A mission whose ## Acceptance is empty says nothing worth reading: progress is
-    // 0/0 and next-acceptance has nothing to offer, so the line would report a
-    // technical condition (the section was never filled in) with no next step. Stay
-    // silent — `/mission summary` is the on-demand view where it is still visible.
-    const empty = join(dir, ".workaholic/missions/active/epsilon");
-    mkdirSync(empty, { recursive: true });
-    writeFileSync(join(empty, "mission.md"),
-      `---\ntype: Mission\ntitle: Epsilon Mission\nslug: epsilon\nstatus: active\ncreated_at: 2026-07-15T00:00:00+09:00\nauthor: test@example.com\nassignee: test@example.com\ntickets: []\nstories: []\nconcerns: []\n---\n\n# Epsilon Mission\n\n## Acceptance\n\n## Changelog\n`);
-    const withEmpty = runLens(dir);
-    assertTrue("lens stays silent on a mission with no acceptance criteria",
-      !withEmpty.includes("Epsilon Mission"), withEmpty);
-    assertTrue("lens still shows a sibling that has criteria",
-      withEmpty.includes("Gamma Mission"), withEmpty);
-
-    // A worktree that names no mission is a /drive worktree: it is focused on one
-    // ticket, and the roadmap is not its business. Without this the lens falls through
-    // to the main-tree branch and shows the whole list to a session that asked for none
-    // of it.
-    const driveWt = join(dir, ".worktrees/work-20260714-005155");
-    execSync(`git worktree add -q "${driveWt}" -b work-20260714-005155`, { cwd: dir });
-    const driveOut = runLens(driveWt);
-    assertEq("lens is silent in a worktree that owns no mission", driveOut.trim(), "");
-    execSync(`git worktree remove --force "${driveWt}"`, { cwd: dir });
-
-    run(dir, `${POSIX_SH} ${SCRIPTS.cleanupMissionWorktree} alpha`);
-  } finally { cleanup(dir); }
 }
 
 // ---------- 8f. /mission create worktree+kickoff scriptable spine ----------
@@ -15234,15 +15024,12 @@ const tests = [
   ["drive/list-todo.sh", testListTodo],
   ["create-ticket/summary.sh + mission/summary.sh (summary mode)", testSummaryMode],
   ["mission/summary.sh surfaces unassigned missions", testMissionSummaryUnassigned],
-  ["hooks/mission-lens.sh surfaces unassigned missions", testMissionLensUnassigned],
-  ["hooks/mission-lens.sh summarizes on change", testMissionLensOnChange],
   ["mission create never branches (J1)", testMissionCreateNeverBranches],
   ["branching mission worktree primitive", testMissionWorktreePrimitive],
   ["worktree env-file carrying (root/subdir/none/declaration)", testWorktreeEnvCarry],
   ["mission worktree lands on the branch it reports", testMissionWorktreeNoLocalMain],
   ["mission worktree starts from the merged base (fetch-first)", testMissionWorktreeFetchFirst],
   ["check-version-bump measures against the merged base", testCheckVersionBumpBaseResolution],
-  ["mission-lens worktree focus", testMissionLensWorktreeFocus],
   ["mission create publish spine: batch to main, no worktree (J1)", testMissionCreatePublishFlow],
   ["mission worktree ship reset", testMissionWorktreeShipReset],
   ["mission/close.sh carried (carry the remainder forward)", testMissionCloseCarried],

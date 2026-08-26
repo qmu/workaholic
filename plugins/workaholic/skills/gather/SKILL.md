@@ -50,7 +50,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/read-assignees.sh <file>    # t
 
 `unresolved` is its own answer, never folded into `other`: both imply "do not offer it", but "somebody else's" and "I cannot tell whose" are different facts and must never render identically in a survey. Comparison is by slug (`user-slug.sh`), not string equality, so `A@Qmu.jp` matches `a@qmu.jp` and a migration-stamped `a-qmu-jp` still matches its owner's email.
 
-Every consumer reads through these — `/drive`'s survey, `/ticket`'s summary, `ship`'s todo check and concern lane, `list.sh`'s `relation`, `summary.sh`, the mission lens — which is what keeps the queue a runner drains and the roadmap a developer sees from disagreeing about whose work it is.
+Every consumer reads through these — `/drive`'s survey, `/ticket`'s summary, `ship`'s todo check and concern lane, `list.sh`'s `relation`, `summary.sh` — which is what keeps the queue a runner drains and the roadmap a developer sees from disagreeing about whose work it is.
 
 ### The living migration
 

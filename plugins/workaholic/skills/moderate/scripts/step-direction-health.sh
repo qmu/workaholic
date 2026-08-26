@@ -1,6 +1,7 @@
 #!/bin/sh -eu
-# Step 11 — a direction that has run out of date, or that nothing is answering, said to the
-# person who owns it.
+# direction-health — a direction that has run out of date, or that nothing is answering, said
+# to the person who owns it. It runs beside `strategy-pace` and before the check-in, which is
+# what asks; `reference/workflow.md` states its contract.
 #
 # WHY THIS STEP EXISTS (2026-08-26, mission `say-when-the-loop-has-run-out-of-direction`).
 # Three states of the direction layer were silent, and each was byte-identical to a healthy

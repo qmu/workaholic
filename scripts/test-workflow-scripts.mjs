@@ -14530,6 +14530,147 @@ function testReportIncompleteUnitIsRecoverable() {
   } finally { cleanup(origin); cleanup(A); cleanup(B); }
 }
 
+// ---------- a claim whose content already reached the base holds no work ----------
+// "In flight" is `git rev-list --count base..ref`, the right question for a branch whose
+// work is outstanding and the wrong one for a branch whose CONTENT landed some other way:
+// a hand recovery, a re-application, a revert-and-redo. Such a branch is unmerged forever,
+// so it is claimed forever. The cost was theoretical while `queue_drained` made every
+// drained claim untouchable, and it stopped being theoretical the moment
+// `report_incomplete` made a drained, unreported claim a MANDATORY takeover — measured
+// 2026-08-26, on the first run to hold that tier: it resumed a unit that had been
+// recovered by hand five days earlier and spent a whole story-and-pull-request cycle on a
+// pull request whose only correct outcome was to be closed.
+//
+// The fixture is the hand-recovery shape exactly: drive the ticket on the claim branch,
+// then land the SAME ticket on the base from a DIFFERENT branch.
+function testSupersededClaimIsNotOffered() {
+  const { origin, A, B } = makeClaimFixture();
+  const CLAIM = `${POSIX_SH} ${SCRIPTS.claim}`;
+  const LIST = `${POSIX_SH} ${SCRIPTS.listClaims}`;
+  const PLAN = `${POSIX_SH} ${SCRIPTS.planUnits}`;
+  const lapsed = { ...process.env, WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES: "0" };
+  try {
+    const t1 = `.workaholic/tickets/todo/${TEST_SLUG}/20260729000001-t1.md`;
+    const t2 = `.workaholic/tickets/todo/${TEST_SLUG}/20260729000002-t2.md`;
+    const batch = JSON.parse(run(A, `${CLAIM} batch ${t1} ${t2}`).stdout);
+    const wt = join(A, ".worktrees", batch.unit);
+
+    // Drive the whole queue on the claim branch and push it. With no story at the tip this
+    // is the `report_incomplete` shape — asserted, because that is the verdict the new one
+    // has to displace and the reason this matters at all.
+    for (const t of [t1, t2]) {
+      run(wt, `${POSIX_SH} ${SCRIPTS.update} ${t} effort 0.1h`);
+      run(wt, `${POSIX_SH} ${SCRIPTS.archive} ${t} "Drive ${t.endsWith("t1.md") ? "t1" : "t2"}" https://example.test/repo why changes None None verify`);
+    }
+    execSync(`git push -q origin ${batch.branch}`, { cwd: wt });
+
+    let r = JSON.parse(run(B, LIST, { env: lapsed }).stdout);
+    assertEq("before the recovery lands, the claim is a mandatory takeover",
+      { res: r.claims[0].resumable, why: r.claims[0].resume_reason },
+      { res: true, why: "report_incomplete" });
+
+    // THE HAND RECOVERY: the same two tickets archived on the BASE, under a different
+    // branch directory, with different content — the measured recovery landed REFINED, not
+    // verbatim, which is why the signal cannot be "the diff is contained in the base".
+    const recovery = ".workaholic/tickets/archive/work-20260821-221006";
+    mkdirSync(join(B, recovery), { recursive: true });
+    for (const n of [1, 2]) {
+      writeFileSync(join(B, recovery, `2026072900000${n}-t${n}.md`),
+        `---\ncreated_at: 2026-07-29T00:00:0${n}+09:00\nauthor: test@example.com\nstatus: done\n---\n\n# T${n}\n\nRecovered by hand, and refined on the way.\n`);
+    }
+    execSync(`git add -A && git commit -q -m "Recover the stranded unit" && git push -q origin main`, { cwd: B });
+    execSync("git fetch -q origin", { cwd: B });
+
+    r = JSON.parse(run(B, LIST, { env: lapsed }).stdout);
+    assertEq("once its tickets are on the base by another route, the claim is superseded",
+      { res: r.claims[0].resumable, why: r.claims[0].resume_reason },
+      { res: false, why: "superseded" });
+    assertTrue("it is still LISTED — the verdict is suppressed, never the row",
+      r.claims.length === 1 && r.claims[0].unit === batch.unit, JSON.stringify(r.claims));
+
+    const plan = JSON.parse(run(B, PLAN, { env: lapsed }).stdout);
+    assertEq("the survey no longer offers it for takeover", plan.resumable.length, 0);
+    // The exclusion is keyed by ARTIFACT for a batch unit (only a mission unit appears in
+    // `excluded[]` under its own id). This fixture deliberately COPIES rather than moves,
+    // so the base still carries the todo/ paths and the row is observable; a real
+    // move-based recovery leaves no todo/ entry and so no row, and the claim's own
+    // `superseded` verdict above is what carries the fact there.
+    assertTrue("and names its tickets claimed_superseded rather than claimed_reported",
+      plan.excluded.some((e) => e.id === t1 && e.reason === "claimed_superseded"),
+      JSON.stringify(plan.excluded));
+    assertTrue("neither ticket is offered as fresh backlog either",
+      !plan.backlog.some((x) => x.path === t1 || x.path === t2), JSON.stringify(plan.backlog));
+
+    // NOTHING ACTS ON IT. The branch and its commits are exactly where they were.
+    assertTrue("the branch still exists after the verdict",
+      execSync(`git branch --list ${batch.branch}`, { cwd: origin, encoding: "utf8" }).trim() !== "");
+  } finally { cleanup(origin); cleanup(A); cleanup(B); }
+}
+
+// The verdict must not swallow the four it sits beside. Each is re-asserted on a fixture
+// that reaches it, because a new rung in a verdict ladder is exactly how the rung below
+// stops being reachable.
+function testSupersededLeavesEveryOtherVerdictAlone() {
+  const { origin, A, B } = makeClaimFixture();
+  const CLAIM = `${POSIX_SH} ${SCRIPTS.claim}`;
+  const LIST = `${POSIX_SH} ${SCRIPTS.listClaims}`;
+  const lapsed = { ...process.env, WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES: "0" };
+  try {
+    const t1 = `.workaholic/tickets/todo/${TEST_SLUG}/20260729000001-t1.md`;
+    const t2 = `.workaholic/tickets/todo/${TEST_SLUG}/20260729000002-t2.md`;
+    const batch = JSON.parse(run(A, `${CLAIM} batch ${t1} ${t2}`).stdout);
+    const wt = join(A, ".worktrees", batch.unit);
+    const verdict = (env) => {
+      const r = JSON.parse(run(B, LIST, { env }).stdout);
+      return { res: r.claims[0].resumable, why: r.claims[0].resume_reason };
+    };
+
+    assertEq("a live claim still reads claim_active, ahead of the new rung",
+      verdict(process.env), { res: false, why: "claim_active" });
+    assertEq("an undriven, lapsed claim still reads heartbeat_lapsed",
+      verdict(lapsed), { res: true, why: "heartbeat_lapsed" });
+
+    // Half the queue archived on the base: HALF is not superseded — the other half is
+    // still work, and calling the unit superseded would hide it.
+    const recovery = ".workaholic/tickets/archive/work-20260821-221006";
+    mkdirSync(join(B, recovery), { recursive: true });
+    writeFileSync(join(B, recovery, "20260729000001-t1.md"),
+      "---\ncreated_at: 2026-07-29T00:00:01+09:00\nauthor: test@example.com\nstatus: done\n---\n\n# T1\n");
+    execSync(`git add -A && git commit -q -m "Recover half the unit" && git push -q origin main`, { cwd: B });
+    execSync("git fetch -q origin", { cwd: B });
+    assertEq("a unit whose tickets landed only in part keeps its own verdict",
+      verdict(lapsed), { res: true, why: "heartbeat_lapsed" });
+
+    // A drained-and-REPORTED unit: the 2026-08-01 gate, still untouchable, and reached
+    // before the new rung can claim it (its tickets are not on the base).
+    for (const t of [t1, t2]) {
+      run(wt, `${POSIX_SH} ${SCRIPTS.update} ${t} effort 0.1h`);
+      run(wt, `${POSIX_SH} ${SCRIPTS.archive} ${t} "Drive ${t.endsWith("t1.md") ? "t1" : "t2"}" https://example.test/repo why changes None None verify`);
+    }
+    mkdirSync(join(wt, ".workaholic/stories"), { recursive: true });
+    writeFileSync(join(wt, `.workaholic/stories/${batch.branch}.md`),
+      `---\ntype: Story\nbranch: ${batch.branch}\ntickets_completed: 2\nmission: []\ntickets: []\n---\n\n## 1. Overview\n\nreported\n`);
+    execSync(`git add -A && git commit -q -m "Add branch story"`, { cwd: wt });
+    execSync(`git push -q origin ${batch.branch}`, { cwd: wt });
+    // t1 is on the base, t2 is not — so the unit is not superseded and the drained fork
+    // decides, exactly as it did before this rung existed.
+    assertEq("a drained unit that reported still reads queue_drained",
+      verdict(lapsed), { res: false, why: "queue_drained" });
+
+    // A foreign claim wins over everything below it, superseded included: archive BOTH on
+    // the base, then ask as a different identity.
+    writeFileSync(join(B, recovery, "20260729000002-t2.md"),
+      "---\ncreated_at: 2026-07-29T00:00:02+09:00\nauthor: test@example.com\nstatus: done\n---\n\n# T2\n");
+    execSync(`git add -A && git commit -q -m "Recover the other half" && git push -q origin main`, { cwd: B });
+    execSync("git fetch -q origin", { cwd: B });
+    assertEq("with both on the base and a story at the tip, superseded wins over queue_drained",
+      verdict(lapsed), { res: false, why: "superseded" });
+    assertEq("but a foreign identity still wins over superseded",
+      verdict({ ...lapsed, GIT_CONFIG_COUNT: "1", GIT_CONFIG_KEY_0: "user.email", GIT_CONFIG_VALUE_0: "someone-else@example.com" }),
+      { res: false, why: "foreign_identity" });
+  } finally { cleanup(origin); cleanup(A); cleanup(B); }
+}
+
 // ---------- an archive git could not PROVE was a rename is still a rename ----------
 // testClaimSurvivesArchive above moves tickets with a bare `git mv`, so git pairs the
 // delete and the add at 100% similarity and the rename map always has a row. Real
@@ -15132,6 +15273,8 @@ const tests = [
   ["drive/heartbeat.sh keeps a working unit out of the resumable offer", testHeartbeat],
   ["drive claim protocol: a finished unit is not resumed again", testResumeSkipsDrainedUnit],
   ["drive claim protocol: a unit that died before reporting is recoverable", testReportIncompleteUnitIsRecoverable],
+  ["drive claim protocol: a claim whose content reached the base is superseded", testSupersededClaimIsNotOffered],
+  ["drive claim protocol: superseded leaves every other verdict alone", testSupersededLeavesEveryOtherVerdictAlone],
   ["drive claim protocol: parked-at-PR is not died-mid-drive, and same-machine resume adopts", testResumeParkedAndAdoption],
   ["drive claim protocol: an archive git cannot prove is a rename keeps its artifact", testClaimSurvivesUndetectedRename],
   ["drive claim protocol: a mission artifact never resolves by basename", testMissionArtifactNeverResolvesByBasename],

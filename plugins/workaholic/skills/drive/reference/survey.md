@@ -81,8 +81,12 @@ the unclaimed active missions this runner may take and the unclaimed todo ticket
 everything a claim already holds subtracted through the shared claim reader.
 
 **`excluded[]` names every drop and why**: `claimed_active`, `claimed_reported`,
-`claimed_by_other`, `claimed_resumable`, `owned_by_other`, `no_plan`, `no_tickets`,
-`queue_drained`, `mission_member`. It does not read `status` for the offer — a mission on `main`
+`claimed_by_other`, `claimed_resumable`, `claimed_superseded`, `owned_by_other`, `no_plan`,
+`no_tickets`, `queue_drained`, `mission_member`. **`claimed_superseded`** (2026-08-26) names a
+claim with nothing in it: the unit's tickets are already archived on the base, delivered by
+another route, so the branch is unmerged forever and holds no work. It is reported and never
+acted on — nothing deletes the branch or closes its pull request — and it does **not** forbid
+`ok`. It does not read `status` for the offer — a mission on `main`
 was accepted when its pull request merged (K1); the area is the authority. `no_plan`,
 `no_tickets`, and `queue_drained` are deliberately distinct because each names a different next
 action: write the acceptance criteria, emit the ticket set, or decide the close — a mission whose

@@ -254,6 +254,13 @@ and every abort reports a machine-readable reason.
 10. **Publish it all as one pull request, merged immediately.**
    `WORKAHOLIC_AUTO_MERGE=1 WORKAHOLIC_PR_TITLE="[Proposal] <title>" WORKAHOLIC_CLOSES_ISSUE="<issue number from step 1>" bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/publish-tree-pr.sh "<title>" "<why>" "<changes>" "<concerns>" "<insights>" "<verify>"`
    — **one call**, carrying the record and whatever the judgment added.
+   **The body names step 3b's two sets**, in `<changes>`, per emitted artifact: the refs
+   **carried** onto it, and every ref **dropped** with its reason. Keep it to what is true —
+   a proposal that carried nothing because the ask named nothing says so in one clause, not
+   as a warning. **A record-only outcome names the refs it *would* have carried and that
+   nothing was emitted**, so a dropped link and an unproposed ask do not look alike here
+   either. This is the pull-request half of the same obligation step 13 carries; both read
+   `read-ask-feedback-refs.sh`'s output, never a re-read by eye.
    `WORKAHOLIC_AUTO_MERGE=1` merges the pull request right after opening it
    (mission `auto-merge-propose-and-implement-prs-under-a-dev-release-branch-split`,
    2026-08-11): the report's `merged`/`merge_reason` says what happened, and any
@@ -320,7 +327,15 @@ and every abort reports a machine-readable reason.
     record-only reached by a failed strategy bar or an unmatched announcement, the
     part that was missing — `no_target_date` / `no_assignee` / `strategy_not_found`
     with the slug / `no_end_state` / `strategy_exists_no_update_writer`) with its
-    reason, the record's filename, the
+    reason, the record's filename, **the carry** —
+    `carried:<artifact>:<n>` per emitted artifact and `dropped:<ref>:<reason>` per drop,
+    taken from step 3b's script output and never re-read by eye. A **count** for the carried
+    set and a **name** for each drop: the carry is the ordinary case and the drop is the
+    rare, actionable one, and a per-artifact ref dump nobody reads is the noise this
+    repository has twice retired status roots for. `carried:none` when the ask named no
+    refs; for a record-only outcome the refs it **would** have carried, beside
+    `emitted:none`, because otherwise a lost link and an unproposed ask read the same in the
+    report too — the
     PR URL, and the
     notification outcome — **which surface carried it** (connector or the tokened
     fallback), **which lookup case it took**, and `notified` **per message** (the

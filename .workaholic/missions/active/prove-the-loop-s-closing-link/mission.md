@@ -43,7 +43,7 @@ guarantee is pinned by a test rather than asserted in prose.
 
 - [x] One script parses an ask's `feedback:` line and returns carried and dropped with a
       reason per drop; step 3b invokes it instead of reading by eye (#20260826021825-read-the-ask-s-feedback-line-through-one-script.md)
-- [ ] The run report and the pull-request body name each carried and each dropped ref, and
+- [x] The run report and the pull-request body name each carried and each dropped ref, and
       the publish seam refuses a proposal whose resolved refs are missing from what it emitted (#20260826021825-report-every-carried-and-dropped-feedback-ref.md)
 - [ ] `no_citing_artifacts` is a provable reading, pinned by a hermetic test and stated in
       the documents that describe the loop (#20260826021825-make-no-citing-artifacts-a-provable-reading.md)
@@ -53,3 +53,4 @@ guarantee is pinned by a test rather than asserted in prose.
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-26 — ticket archived — 20260826021825-read-the-ask-s-feedback-line-through-one-script.md
 - 2026-08-26 — ticket archived — 20260826021825-floor-the-carry-at-the-publish-seam.md
+- 2026-08-26 — ticket archived — 20260826021825-report-every-carried-and-dropped-feedback-ref.md

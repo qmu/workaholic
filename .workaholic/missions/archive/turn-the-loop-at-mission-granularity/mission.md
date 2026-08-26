@@ -61,3 +61,4 @@ that strategy's mission is finished, so the loop turns one mission per strategy 
 - 2026-08-26 — ticket archived — 20260826022347-make-the-strategy-a-mission-belongs-to-visible.md
 - 2026-08-26 — ticket archived — 20260826022347-update-every-document-the-mission-grain-moves.md
 - 2026-08-26 — mission achieved — mission.md
+- 2026-08-26 — story reported — work-20260826-031417.md

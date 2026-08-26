@@ -3,6 +3,7 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [work-20260826-031417](work-20260826-031417.md) - The loop's unit of work moves from a change to a mission — `/propose` plans one, `/specificate` emits it, the brake bounds one per strategy, and the roadmap names the direction each mission serves.
 * [work-20260826-023535](work-20260826-023535.md) - The loop's carry-forward link becomes mechanical, reported and floored, so `no_citing_artifacts` can only mean nothing has answered this direction yet.
 * [Say what happened, not what the tick counted](work-20260823-161806.md)
 * [Tell describing work from advancing work](work-20260823-155258.md)

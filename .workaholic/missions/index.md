@@ -6,6 +6,7 @@
 * [make-workaholify-converge-the-account-s-routines](active/make-workaholify-converge-the-account-s-routines/mission.md) - Make /workaholify converge the account's routines
 * [prove-the-loop-s-closing-link](active/prove-the-loop-s-closing-link/mission.md) - Prove the loop's closing link
 * [refuse-ok-under-a-placeholder-identity](active/refuse-ok-under-a-placeholder-identity/mission.md) - Refuse ok under a placeholder identity
+* [turn-the-loop-at-mission-granularity](active/turn-the-loop-at-mission-granularity/mission.md) - Turn the loop at mission granularity
 
 ## archive
 

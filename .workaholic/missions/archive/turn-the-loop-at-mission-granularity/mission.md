@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 1.05
 feedback: [20260826022235-tie-missions-to-strategies-and-let-propose-plan-them.md]
 tickets: []
 stories: []
@@ -62,3 +62,4 @@ that strategy's mission is finished, so the loop turns one mission per strategy 
 - 2026-08-26 — ticket archived — 20260826022347-update-every-document-the-mission-grain-moves.md
 - 2026-08-26 — mission achieved — mission.md
 - 2026-08-26 — story reported — work-20260826-031417.md
+- 2026-08-26 — run recorded (+1.05h) — cse_01CXYzWiNLZMLNGoaN1K9vAG

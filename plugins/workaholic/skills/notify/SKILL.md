@@ -39,6 +39,14 @@ Case 4 posts **two messages, not one**: the description root, then the run's fin
 - **The tokened fallback posts one message, not two.** `notify-slack.sh` cannot thread (*The transport* below), so it posts the keyed finish line alone exactly as before, and the run reports that it could not thread rather than reporting a root it never posted.
 - Exact wording, and what a template must copy verbatim: [reference/notifications.md](reference/notifications.md).
 
+### The inbound sweep's receipt — case 1, with the coordinates already in hand
+
+`/propose`'s inbound Slack sweep turns a person's channel message into an `[FB]` issue, and since 2026-08-26 it **replies into that message's own thread** to say so. It is the one post in this model that needs no lookup at all: the `slack-ref` the run writes into the issue body **is** `<channel>:<ts>`, so the thread coordinate is the sweep's own input — **case 1**, the session's own trigger message, not a search. The two-query bound is untouched because no query is made.
+
+**Why it earns a post at all**, against the bright line's tie-goes-to-silence: without it the channel cannot distinguish an ask that was captured from one nobody read, and the person who wrote it has no way to find out except by searching GitHub. That is not a status line addressed to nobody — it is addressed to the one person who wrote the message, in the place they wrote it, exactly once, and only when this run filed something.
+
+**Only for a message this run filed.** An already-swept message gets nothing (its receipt is on the issue that already exists), and no exclusion or degradation posts. The receipt is never load-bearing: the issue is open before the reply is attempted, and a failed reply is reported as `ack_failed` rather than retried or escalated. Shape: [reference/notifications.md](reference/notifications.md), *`/propose` — the inbound sweep's receipt*.
+
 ### Which thread an `/implement` unit's posts land in
 
 These posts are the unattended run's (`/implement` — the routine and any caller-side loop): they exist so an absent operator can tell a working fleet from a dead one. **An attended `/drive` session posts nothing to Slack** — the developer is watching the run, and its report is the session's.
@@ -116,4 +124,4 @@ A session may emit only the notification events and post shapes its own routine 
 
 ## The bright line — what earns a post
 
-Slack is the only surface — the repository's `dev-<repo_name>` channel; no mobile or push notification. An event earns its post by being something a developer must act on or stay aware of: post a unit started, a proposal opened, a merge, a handoff, a blocked-on-precondition failure, a **changed** release status with something waiting; do not post an idle tick, a claim, a heartbeat, a ticket archived, a commit, a passing test, or a build — the tie goes to silence. The moderator's `🔎 Moderation` root is the one recurring post, and it survives this rule only because both of its gates make an idle tick silent: an hour with nothing changed and nothing to ask posts nothing, and a change is a diff against the previous tick rather than a restatement of the current state.
+Slack is the only surface — the repository's `dev-<repo_name>` channel; no mobile or push notification. An event earns its post by being something a developer must act on or stay aware of: post a unit started, a proposal opened, a merge, a handoff, a blocked-on-precondition failure, a **changed** release status with something waiting, **an inbound ask this run captured — as a receipt in that ask's own thread**; do not post an idle tick, a claim, a heartbeat, a ticket archived, a commit, a passing test, or a build — the tie goes to silence. The moderator's `🔎 Moderation` root is the one recurring post, and it survives this rule only because both of its gates make an idle tick silent: an hour with nothing changed and nothing to ask posts nothing, and a change is a diff against the previous tick rather than a restatement of the current state.

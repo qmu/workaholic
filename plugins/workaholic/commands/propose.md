@@ -23,6 +23,12 @@ The ceiling stays this run's judgement. `/propose` plans; `/specificate` writes.
 merge, no deployment — and it never issues `AskUserQuestion`. Its only write is the GitHub
 issue, assigned to the running identity so `/specificate`'s discovery ingests it.
 
+**It posts exactly one Slack shape and no other.** For each ask the sweep **files this run**, it
+replies `📥 受理` into that message's own thread, so the channel shows what was received — the
+`slack-ref` just written is the thread coordinate, so no lookup runs. An already-swept message,
+an exclusion, a degradation, the proposal itself and an idle tick all post nothing. A failed
+receipt is reported as `ack_failed` and never blocks the capture.
+
 **It is not housekeeping, and it is not a document about the aim.** A drifted document, a
 missing test, an inconsistent name are `/moderate`'s work. A proposal must commit to the
 strategy: it names what it is chosen against, or it is not emitted. A tick that cannot name one

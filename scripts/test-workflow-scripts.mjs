@@ -5293,8 +5293,27 @@ function testProposeRoutineTemplate() {
     /^notifications: push$/m.test(fm), fm);
   const prompt = tpl.slice(tpl.indexOf("## Prompt"));
   assertTrue("its prompt invokes the command and nothing else", /\/propose\b/.test(prompt), prompt);
-  assertTrue("and authorizes no post shape at all, because it emits none",
-    !/```/.test(prompt) && /Post nothing/.test(prompt), prompt);
+  // ONE SHAPE, AND THE CATALOG IS ITS ONLY SOURCE (2026-08-26). The routine posted nothing
+  // until the sweep's receipt, which is the whole fix: a filed ask and an ignored one were
+  // byte-identical from the channel. A post shape lives in exactly two places — the catalog
+  // and this prompt, the ceiling on what a session may emit — so a drift between them ships
+  // either a documented shape nobody may post or a posted shape nothing documents.
+  const blocks = [...prompt.matchAll(/```\n([\s\S]*?)```/gu)].map((m) => m[1]);
+  assertEq("its prompt authorizes exactly one post shape", blocks.length, 1);
+  assertTrue("and that shape is the sweep's receipt", /^\u{1F4E5} 受理 - /u.test(blocks[0]), blocks[0]);
+  const catalog = readFileSync(
+    join(REPO_ROOT, "plugins/workaholic/skills/notify/reference/notifications.md"), "utf8");
+  const catalogued = [...catalog.matchAll(/```\n(\u{1F4E5}[\s\S]*?)```/gu)].map((m) => m[1]);
+  assertEq("the catalog carries that shape exactly once", catalogued.length, 1);
+  assertEq("byte for byte, template against catalog", blocks[0], catalogued[0]);
+  // The receipt is the ONLY thing it may say: everything the no-posting argument covered is
+  // still covered, and the prompt is where that ceiling is written.
+  assertTrue("and the prompt still forbids every other post",
+    /Post nothing else to Slack/.test(prompt), prompt);
+  assertTrue("including a receipt for a message it did not file this run",
+    /already-swept/.test(prompt), prompt);
+  assertTrue("and states the receipt never blocks the capture",
+    /ack_failed/.test(prompt), prompt);
 }
 
 // ---------- the [Standup] routine template (ticket `20260817115233`) ----------

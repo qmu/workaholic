@@ -6,6 +6,7 @@ depends_on:
 mission:
 merge_policy: review
 verification_handoff:
+claim: work-20260826-034037
 ---
 
 # Tell a dead unit from a reported one

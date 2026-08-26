@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-26T08:20:29+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -82,3 +83,36 @@ test is what stops a fourth re-decision.
 - Step 5's before/after comparison is the weakest assertion, because the step is a pure
   read and could pass it trivially. It is kept because the failure it guards against —
   a future edit that lets a reading lift a gate — is the one the ask names by name.
+
+## Final Report
+
+Development completed as planned.
+
+`scripts/test-workflow-scripts.mjs` gains `testDirectionHealthRefusals`, ten assertions in a
+throwaway repository seeded with an overdue direction and a dormant one. It fails if the step
+writes anywhere under `.workaholic/strategies/` (or anywhere at all), if its closure reaches
+`close.sh` or `open-proposal.sh` (no allowlist), if a third writer of the strategy file appears
+under `strategy/scripts/`, or if running the step moves any `/propose` gate outcome. The
+open-proposal read is **supplied** through `--open-proposals` rather than stubbed, so the drilled
+path is the real one and no network is touched. The mechanical pin is recorded in
+`strategy/SKILL.md` beside the reader it protects.
+
+**Each assertion was falsified before being trusted**, in a scratch copy, since a test that cannot
+fail proves nothing: appending a byte to a seeded strategy made `git status --porcelain` non-empty;
+adding a `close.sh` call to a copy of the step made the closure grep find it; dropping a rogue
+writer into a copy of `strategy/scripts/` made the writer set read
+`["close.sh","create.sh","rogue.sh"]`; and opening a proposal between the two survey reads moved
+`selected: ["quiet"]` to `refused: ["quiet:open_proposal"]`.
+
+### Discovered Insights
+
+- **Insight**: "which scripts write the strategy file" cannot be greped for a path — `read.sh` and
+  `attributed-work.sh` both build `${ROOT}/strategies/${slug}.md` and only read it, and `create.sh`
+  builds it in two hops (`DIR=` then `FILE=`).
+  **Context**: the detection resolves path variables transitively and then asks what is *done*
+  with them (a redirect into, or an `mv` onto). A naive path grep would have reported four writers
+  and been disabled the first time it fired.
+- **Insight**: the closure grep must strip comment lines before searching.
+  **Context**: the step's own header names `close.sh` twice, deliberately — explaining why it must
+  never reach it is exactly the prose worth keeping. A grep over the raw file would have made the
+  documentation of the refusal indistinguishable from its violation.

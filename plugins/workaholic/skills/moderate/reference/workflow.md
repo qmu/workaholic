@@ -1,4 +1,4 @@
-# The fourteen-step contract — reference
+# The fifteen-step contract — reference
 
 Companion to [`../SKILL.md`](../SKILL.md). One section per step: what it reads, **what it may
 write**, what it returns in `needs_agent`, and the reasons it aborts with. The step ids are the
@@ -584,6 +584,71 @@ unreadable digest is `digest_unreadable`, named rather than rendered as a quiet 
 **The digest is the root's second gate**: a morning tick with a digest posts its root even with
 zero questions — the day's opening statement, the exception the developer asked for — while every
 other hour the question gate stands alone.
+
+## 15. `direction-health` — a direction out of date, or with nothing answering it
+
+```bash
+sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/step-direction-health.sh --tick <id> [--root <repo-root>] [--open-proposals <file>]
+```
+
+**It runs beside `strategy-pace`** — tenth in `run.sh`'s `STEPS`, immediately after it and well
+before `human-checkin`, which must stay last. (The numbering of these sections is the order they
+were written in, not the run order; `STEPS` is the contract.)
+
+Reads `strategy/scripts/direction-state.sh` — the one lifecycle reader, which composes
+`survey-strategies.sh` and re-derives nothing — and hands every **non-`live`** reading to the
+check-in as a question addressed to that direction's assignee:
+
+| Reading | Question key | Addressed to |
+| ------- | ------------ | ------------ |
+| `overdue` | `direction-overdue:<slug>` | the strategy's `assignees` |
+| `dormant` | `direction-dormant:<slug>` | the strategy's `assignees` |
+| `none` (repository-level) | `direction-none` | nobody — there is no direction to own |
+| `unreadable` | — | **never asked about** |
+
+**Why the step exists** (2026-08-26, mission `say-when-the-loop-has-run-out-of-direction`): three
+states of the direction layer were silent and each was byte-identical to a healthy idle hour — a
+direction past its date (refused `past_target_date` while `pace` reads `on_course`, because work
+*did* land), a live direction nothing is answering (`no_evolutionary_move`, into a run report
+nobody opens), and a repository with no live direction at all (`no_strategies`, a no-op
+everywhere).
+
+**The coupling is a reader, not a handoff** — the same shape as `strategy-pace` and
+`stalled-units`. `/propose` writes nothing into the tree and could not leave a finding here; this
+step calls the reader itself. Two readers of one script is not two sources of truth.
+
+**It asks; it never closes, never proposes, never lifts a gate.** The strategy artifact has
+exactly two writers and this is neither: a dormant direction stays eligible, an overdue one stays
+refused, and *ending* a direction is announced by the operator and reaches `close.sh` through
+`/specificate`. **`unreadable` is not asked about** — counted in the summary and nothing else, the
+rule `strategy-pace` already applies to its own `unknown`.
+
+**The check-in's machinery applies unchanged**: the working-day and quiet-hour holds, the per-tick
+cap of five and the daily bound of ten, the asked-once ledger, the three-state answer reader and
+the once-more re-ask. This step supplies subjects and their content keys; the gate and the ask
+stay with `ask-question.sh` and `step-human-checkin.sh`. The cap is a **latency cost here, not a
+loss** — a repository with several expired directions can fill a tick and hold the rest to the
+next hour, and held is not dropped; no cap of this step's own is invented for a load nobody has
+measured.
+
+**What it puts on the root.** `event` names a repository event — *a direction has run past its
+date*, *the repository has no live direction* — never a counter of what the step examined, and it
+**links each direction it names** (the base URL is derived from the local remote, so no network
+call; an absent remote degrades to the repo-relative path rather than to a broken link). A tick
+on which **every** direction reads `live` supplies the empty string and therefore renders no line
+at all — the independent guard against a "nothing happened" line reaching the root even when the
+change diff calls the step changed. **So does a tick whose only non-`live` reading is
+`unreadable`**: that is our own degradation rather than something that happened to the
+repository, the same reason it is never asked about, and it stays in the log-facing `summary`,
+which keeps every count.
+
+`/standup`'s `no_strategies` no-op is left untouched, and the asymmetry is written down in
+`workaholic:standup` rather than left to be re-derived: this tick turns *no live direction* into a
+question addressed to a person, while a daily digest about nothing teaches its readers to skip the
+surface.
+
+A reader that refuses, or a missing script, is `degraded` with the reason named — never an `ok`
+step that found nothing.
 
 ## What `run.sh` guarantees around the steps
 

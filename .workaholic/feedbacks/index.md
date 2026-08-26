@@ -558,4 +558,5 @@
 * [question-liveness reads settled for every live question](20260826102232-question-liveness-reads-settled-for-every-live-question.md)
 * [A permission prompt in a routine container is a silent stall](20260826103445-a-permission-prompt-in-a-routine-container-is-a-silent-stall.md)
 * [A squash-merged claim branch still reads as a live claim](20260826103508-a-squash-merged-claim-branch-still-reads-as-a-live-claim.md)
+* [Make /moderate answer what is waiting, and fix where acceptance is visible](20260826112010-make-moderate-answer-what-is-waiting-and-fix-where-acceptance-is-visible.md)
 <!-- okf:generated:end -->

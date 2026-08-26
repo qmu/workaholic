@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260826-031417
 ---
 
 # Turn the loop at mission granularity

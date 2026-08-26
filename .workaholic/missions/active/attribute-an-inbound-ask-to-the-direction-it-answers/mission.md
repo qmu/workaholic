@@ -44,7 +44,7 @@ already reads — and reports it, `unattributed` included.
 
 - [x] An ask filed by the sweep or by `/fb` carries the direction it answers on the
       `feedback:` line, written in one place (#20260826042021-carry-the-direction-onto-a-swept-ask.md)
-- [ ] `/specificate` decides the direction for an ask that names none, and reports the
+- [x] `/specificate` decides the direction for an ask that names none, and reports the
       decision — the slug or `unattributed` — on both its surfaces (#20260826042021-decide-and-report-the-direction-for-an-ask-that-names-none.md)
 - [ ] The chain test walks the sweep's ask, and every document the change moves states
       the extended bound and its limits (#20260826042021-walk-the-sweep-s-ask-in-the-chain-test.md)
@@ -55,3 +55,4 @@ already reads — and reports it, `unattributed` included.
 - 2026-08-26 — ticket archived — 20260826042021-write-the-ask-s-feedback-line-in-one-place.md
 - 2026-08-26 — ticket archived — 20260826042021-carry-the-direction-onto-a-swept-ask.md
 - 2026-08-26 — ticket archived — 20260826042021-carry-the-direction-onto-an-fb-ask.md
+- 2026-08-26 — ticket archived — 20260826042021-decide-and-report-the-direction-for-an-ask-that-names-none.md

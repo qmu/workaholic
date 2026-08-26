@@ -20637,6 +20637,29 @@ function testCarryChainIsProvable() {
     assertEq("and it is still a named answer with exit 0, never an error",
       run(dir, `${ATTR} quiet`).status, 0);
 
+    // AN ASK NAMING NO DIRECTION IS JUDGED, AND THE FLOOR STAYS OUT OF IT (2026-08-26). The
+    // judgment is a reading, not a promise the ask made, so `check-carry-floor.sh` must keep
+    // checking only refs the ASK carried — flooring an inference would turn a reported
+    // reading into a publish refusal.
+    const bare = join(dir, "bare-ask.md");
+    writeFileSync(bare, "Please make the loop turn at mission granularity.\n");
+    const bareRefs = JSON.parse(run(dir, `${READ} < ${bare}`).stdout);
+    assertEq("an ask naming no direction reads back no line and no refs",
+      { line_found: bareRefs.line_found, carried: bareRefs.carried }, { line_found: false, carried: [] });
+    const bareFloor = run(dir, `${FLOOR} --refs "${bareRefs.carried.join(",")}" ${draft.path}`);
+    assertEq("so the floor has nothing to check and passes for the right reason",
+      [JSON.parse(bareFloor.stdout).reason, bareFloor.status], ["no_refs_carried", 0]);
+
+    // The contract that carries the rest is prose, and prose is what a later reader changes
+    // by accident. Pin the three claims a wrong edit would silently drop.
+    const flow = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/specificate/reference/workflow.md"), "utf8");
+    assertTrue("a line beats a judgment, so /propose's path stays byte-identical",
+      /A line beats a judgment/.test(flow), "the precedence between a line and a judgment is unstated");
+    assertTrue("the floor is stated to check only the refs the ask carried",
+      /only the refs the ASK carried/.test(flow), "the floor's scope against a judged direction is unstated");
+    assertTrue("and both surfaces report how the direction was decided",
+      /direction:<slug>:<line\|slug\|aim>/.test(flow), "the report shape omits how it was decided");
+
     // The single attribution reader did not gain a state, and no artifact gained a field.
     const attrSrc = readFileSync(SCRIPTS.strategyAttributedWork, "utf8");
     assertEq("attributed-work.sh's empty_reason vocabulary is unchanged",

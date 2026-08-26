@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 0.3
 feedback: [20260826112627-deploy-the-docs-site-to-a-cloudflare-worker-on-merge-to-main.md]
 tickets: []
 stories: []
@@ -49,3 +49,4 @@ build path, and the site behind that hostname serves what is on the base.
 - 2026-08-26 — ticket archived — 20260826112804-register-the-docs-site-as-a-deployment-target.md
 - 2026-08-26 — mission achieved — mission.md
 - 2026-08-26 — story reported — work-20260826-134108
+- 2026-08-26 — run recorded (+0.3h) — cse_0177h8andUsuekcZXPCf1Ykw

@@ -48,3 +48,4 @@ behind it is re-surveyable. Nothing deletes a branch or closes a pull request.
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-26 — ticket archived — 20260826113204-pin-the-merged-claim-shape-with-a-fixture.md

@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-26T11:32:04+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -81,3 +82,41 @@ ticket 4 is what changes the answer.
 - Asserting the *current* answer feels backwards and is deliberate: without it, ticket 4's
   change cannot be shown to have changed anything, and a later regression has nothing to
   fail against.
+
+## Final Report
+
+Development completed as planned. `testMergedClaimShapeAtBothGrains`, with its
+`makeSquashMergedClaims` builder, is the mission's baseline: it reproduces a squash-merged
+mission claim and a squash-merged batch claim in the hermetic harness and asserts what today's
+oracle answers for each.
+
+**The premise is asserted before the verdicts.** The fixture first proves that both branches
+are still ahead of the base by commit count while the batch's tickets are on the base under its
+archive directory — otherwise a later `git merge --squash` behaviour change could quietly turn
+this into a test of nothing.
+
+**Two assertions are written to flip.** `mission grain: a squash-merged mission claim does NOT
+read superseded today` and `mission grain: and it is offered as resumable today` are today's
+answer, not the intended one, and ticket 4 is what changes them. The messages name the grain so
+a failure says which half moved.
+
+**Two mechanical details the fixture had to get right**, both discovered by reading
+`claims_scan` before building it: the tips are moved past the heartbeat window with a backdated
+empty commit, because otherwise both claims stop at `claim_active` and never reach the gates
+this fixture is about; and the squash has to be a squash, because a normal merge takes
+`base..ref` to zero and `claims_scan` drops the branch before any verdict exists.
+
+### Discovered Insights
+
+- **Insight**: The ordering inside `claims_scan`'s verdict chain is what the fixture has to
+  navigate, not just the individual predicates: `claim_active` short-circuits before
+  `superseded`, which short-circuits before the drained fork.
+  **Context**: Any future fixture about a late-chain verdict must age the claim tip first. The
+  ordering is deliberate (liveness gates a takeover), so the right move is to age the fixture,
+  never to reorder the chain.
+- **Insight**: A mission claim in this harness reads `heartbeat_lapsed` rather than
+  `queue_drained`, because `claims_has_work` answers `true` for a mission whose slug still
+  matches a queued ticket on the branch — `seedMissionTicket` gives `m1` exactly one.
+  **Context**: That is why the baseline asserts `resumable: true` rather than a specific reason
+  for the mission grain: the reason depends on the mission's queue, while resumability is the
+  property the measured failure was about.

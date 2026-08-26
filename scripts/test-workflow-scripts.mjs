@@ -13645,6 +13645,95 @@ function testClaimSurvivesArchive() {
   }
 }
 
+// ---------------------------------------------------------------------------
+// THE MERGED-CLAIM SHAPE, AT BOTH GRAINS (2026-08-26, mission
+// `tell-a-merged-claim-from-a-live-one-at-both-grains`).
+//
+// `claims_superseded`'s header gives "a shape nothing has measured" as the reason mission
+// claims are out of scope. The shape has since been measured on this repository — three of
+// five claims headed pull requests #521, #537 and #546, all merged, all mission units, one
+// of them offered `resumable: true` five days after its own pull request merged — and this
+// fixture is what turns that evidence into something that fails when the behaviour regresses.
+//
+// IT ASSERTS TODAY'S ANSWER, NOT THE INTENDED ONE, and that is deliberate: without a
+// baseline, the change that fixes the mission grain cannot be shown to have changed
+// anything, and a later regression has nothing to fail against. The assertions that must
+// flip when it lands say so by name.
+//
+// THE MERGE IS A SQUASH, WHICH IS THE WHOLE POINT. A normal merge puts the branch's commits
+// on the base, so `git rev-list --count base..ref` goes to zero and `claims_scan` drops the
+// branch before any verdict is reached. A squash leaves the CONTENT on the base and the
+// COMMITS unreachable, so the branch is unmerged forever — the state that made a finished
+// unit look claimed.
+function makeSquashMergedClaims() {
+  const fx = makeClaimFixture();
+  const t1 = `.workaholic/tickets/todo/${TEST_SLUG}/20260729000001-t1.md`;
+  const t2 = `.workaholic/tickets/todo/${TEST_SLUG}/20260729000002-t2.md`;
+  const mission = JSON.parse(run(fx.A, `${POSIX_SH} ${SCRIPTS.claim} mission m1`).stdout);
+  tickSecond();
+  const batch = JSON.parse(run(fx.A, `${POSIX_SH} ${SCRIPTS.claim} batch ${t1} ${t2}`).stdout);
+
+  // Drive the batch to a drained queue: both tickets archived on its own branch, exactly
+  // as `archive.sh` leaves them.
+  const archDir = `.workaholic/tickets/archive/${batch.branch}`;
+  execSync(`mkdir -p ${archDir} && git mv ${t1} ${archDir}/20260729000001-t1.md`
+    + ` && git mv ${t2} ${archDir}/20260729000002-t2.md`
+    + ` && git commit -q -m "Archive the batch" && git push -q origin ${batch.branch}`,
+    { cwd: batch.worktree_path });
+
+  // SQUASH both claim branches onto the base, from a clone that holds neither claim.
+  execSync("git fetch -q origin && git checkout -q main", { cwd: fx.B });
+  for (const br of [mission.branch, batch.branch]) {
+    execSync(`git merge --squash -q origin/${br} && git commit -q -m "Squash ${br}"`, { cwd: fx.B });
+  }
+  execSync("git push -q origin main", { cwd: fx.B });
+
+  // Move each tip past the heartbeat window, so the verdict reaches the gates this fixture
+  // is about rather than stopping at `claim_active`. The claim COMMIT's author is what
+  // decides ownership, so an extra empty commit changes nothing the scan reads but the date.
+  const old = "2026-08-01T00:00:00+00:00";
+  for (const wt of [mission.worktree_path, batch.worktree_path]) {
+    execSync('git commit -q --allow-empty -m "Heartbeat" && git push -q origin HEAD', {
+      cwd: wt, env: { ...process.env, GIT_COMMITTER_DATE: old, GIT_AUTHOR_DATE: old },
+    });
+  }
+  execSync("git fetch -q --prune origin", { cwd: fx.B });
+  return { ...fx, mission, batch, t1, t2 };
+}
+
+function testMergedClaimShapeAtBothGrains() {
+  const fx = makeSquashMergedClaims();
+  try {
+    // The premise: unmerged by commit count, delivered by content.
+    for (const br of [fx.mission.branch, fx.batch.branch]) {
+      const ahead = execSync(`git rev-list --count origin/main..origin/${br}`,
+        { cwd: fx.B, encoding: "utf8" }).trim();
+      assertTrue(`${br} is still ahead of the base after a squash merge`,
+        Number(ahead) > 0, `ahead=${ahead}`);
+    }
+    assertTrue("and the batch's tickets are on the base under its archive directory",
+      execSync("git ls-tree -r --name-only origin/main -- .workaholic/tickets/archive",
+        { cwd: fx.B, encoding: "utf8" }).includes("20260729000001-t1.md"));
+
+    const r = JSON.parse(run(fx.B, `${POSIX_SH} ${SCRIPTS.listClaims}`).stdout);
+    const by = Object.fromEntries(r.claims.map((c) => [c.unit, c]));
+    assertTrue("both claims are still reported", !!by[fx.mission.unit] && !!by[fx.batch.unit],
+      JSON.stringify(r.claims.map((c) => c.unit)));
+
+    // THE BATCH GRAIN: answered today, and it must stay answered.
+    assertEq("batch grain: a squash-merged batch claim reads superseded",
+      [by[fx.batch.unit].resume_reason, by[fx.batch.unit].resumable], ["superseded", false]);
+
+    // THE MISSION GRAIN: today's answer, and the one this mission changes.
+    assertEq("mission grain: a squash-merged mission claim does NOT read superseded today",
+      by[fx.mission.unit].resume_reason !== "superseded", true);
+    assertEq("mission grain: and it is offered as resumable today",
+      by[fx.mission.unit].resumable, true);
+  } finally {
+    for (const d of [fx.origin, fx.A, fx.B]) rmSync(d, { recursive: true, force: true });
+  }
+}
+
 // A MISSION unit's mission.md is not moved by archive.sh, so its artifact list was never
 // hit by this defect -- asserted rather than assumed, because the unit-id check would
 // mask an artifact-list regression there.
@@ -15321,6 +15410,7 @@ const tests = [
   ["drive release-claim where the remote refuses deletes", testReleaseClaimDenyDeletes],
   ["drive/land-unit.sh: the third route, and the human gate that guards it", testLandUnit],
   ["drive claim protocol: a claim survives its tickets being archived", testClaimSurvivesArchive],
+  ["drive claim protocol: the merged-claim shape at both grains", testMergedClaimShapeAtBothGrains],
   ["drive claim protocol: a mission claim's artifact is unaffected", testMissionClaimArtifactsUnaffected],
   ["drive claim protocol: a merged stamp is history, not a claim", testMergedStampIsHistoryNotAClaim],
   ["drive claim protocol: offline reader/writer asymmetry", testClaimOfflineAsymmetry],

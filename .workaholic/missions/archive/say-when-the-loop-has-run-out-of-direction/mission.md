@@ -2,7 +2,7 @@
 type: Mission
 title: Say when the loop has run out of direction
 slug: say-when-the-loop-has-run-out-of-direction
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-26T08:19:15+00:00
 author: a@qmu.jp
@@ -44,7 +44,7 @@ lifts no gate.
       repository-level `none` (#20260826082029-write-direction-state-sh-the-one-lifecycle-reader.md)
 - [x] `direction-health` asks the assignee once per non-`live` reading and renders it
       on the root (#20260826082029-render-the-direction-reading-on-the-moderation-root.md)
-- [ ] A test and a drill prove nothing was written and no gate lifted (#20260826082029-drill-direction-health-with-no-network.md)
+- [x] A test and a drill prove nothing was written and no gate lifted (#20260826082029-drill-direction-health-with-no-network.md)
 
 ## Changelog
 
@@ -56,3 +56,5 @@ lifts no gate.
 - 2026-08-26 — ticket archived — 20260826082029-make-the-direction-question-actionable-in-its-body.md
 - 2026-08-26 — ticket archived — 20260826082029-render-the-direction-reading-on-the-moderation-root.md
 - 2026-08-26 — ticket archived — 20260826082029-pin-the-three-refusals-with-a-hermetic-test.md
+- 2026-08-26 — ticket archived — 20260826082029-drill-direction-health-with-no-network.md
+- 2026-08-26 — mission achieved — mission.md

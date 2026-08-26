@@ -13942,6 +13942,106 @@ function testMergedClaimShapeAtBothGrains() {
   }
 }
 
+// ---------------------------------------------------------------------------
+// A MERGED CLAIM IS NEVER OFFERED FOR RESUMPTION (2026-08-26).
+//
+// `parked_with_pr` and `report_incomplete` both answer `resumable: true`, and both were
+// reachable for a claim whose pull request had already merged. Measured: a mission unit was
+// offered `parked_with_pr` five days after its pull request merged, and taking that offer
+// costs a full story-and-pull-request cycle whose only correct outcome is to be closed.
+//
+// BOTH PATHS ARE COVERED, because they are different branches of the verdict chain: one has
+// work left on its branch, the other has a drained queue and never reported. And the last
+// assertion is the one that keeps this from being a blanket refusal — a claim that is
+// genuinely in flight is still offered.
+function testMergedClaimIsNeverResumable() {
+  const fx = makeSquashMergedClaims();
+  const bin = join(fx.B, ".stub-bin");
+  mkdirSync(bin, { recursive: true });
+  const stub = (body) => {
+    writeFileSync(join(bin, "gh"), `#!/bin/sh\n${body}\n`);
+    chmodSync(join(bin, "gh"), 0o755);
+  };
+  const withStub = { env: { ...process.env, PATH: `${bin}:${process.env.PATH}` } };
+  try {
+    // `parked_with_pr`: work left on the branch AND a story at the tip. The MISSION claim is
+    // driven to that shape, because it is the grain the local test cannot answer for — a
+    // batch claim's verdict comes from the tree and never reaches the lookup at all.
+    mkdirSync(join(fx.mission.worktree_path, ".workaholic/stories"), { recursive: true });
+    writeFileSync(join(fx.mission.worktree_path, `.workaholic/stories/${fx.mission.branch}.md`),
+      "---\ntype: Story\n---\n\n# s\n");
+    mkdirSync(join(fx.mission.worktree_path, ".workaholic/tickets/todo"), { recursive: true });
+    writeFileSync(join(fx.mission.worktree_path, ".workaholic/tickets/todo/20260729000099-more.md"),
+      "---\ncreated_at: 2026-07-29T00:00:99+09:00\nauthor: test@example.com\nmission: m1\n---\n\n# more\n");
+    const old = "2026-08-01T00:00:00+00:00";
+    execSync('git add -A && git commit -q -m "Report and queue more" && git push -q origin HEAD', {
+      cwd: fx.mission.worktree_path,
+      env: { ...process.env, GIT_COMMITTER_DATE: old, GIT_AUTHOR_DATE: old },
+    });
+    execSync("git fetch -q --prune origin", { cwd: fx.B });
+
+    stub("echo '[]'");
+    let by = Object.fromEntries(JSON.parse(run(fx.B, `${POSIX_SH} ${SCRIPTS.listClaims}`, withStub).stdout)
+      .claims.map((c) => [c.unit, c]));
+    assertEq("with no merged pull request the mission claim is offered, parked at its PR",
+      [by[fx.mission.unit].resume_reason, by[fx.mission.unit].resumable], ["parked_with_pr", true]);
+
+    stub(`echo '[{"number":1,"merged_at":"2026-08-26T00:00:00Z"}]'`);
+    by = Object.fromEntries(JSON.parse(run(fx.B, `${POSIX_SH} ${SCRIPTS.listClaims}`, withStub).stdout)
+      .claims.map((c) => [c.unit, c]));
+    assertEq("but a merged pull request makes it superseded, never parked_with_pr",
+      [by[fx.mission.unit].resume_reason, by[fx.mission.unit].resumable], ["superseded", false]);
+
+    // `report_incomplete`: a drained queue with NO story — the MANDATORY takeover tier, and
+    // the one that made this defect reachable at all. Same mission claim, driven to that
+    // shape: the story removed and the queue emptied.
+    execSync(`git rm -q .workaholic/stories/${fx.mission.branch}.md`
+      + " .workaholic/tickets/todo/20260729000099-more.md"
+      + " .workaholic/tickets/todo/20260729000009-m1-step.md"
+      + ' && git commit -q -m "Drain the queue" && git push -q origin HEAD', {
+      cwd: fx.mission.worktree_path,
+      env: { ...process.env, GIT_COMMITTER_DATE: old, GIT_AUTHOR_DATE: old },
+    });
+    execSync("git fetch -q --prune origin", { cwd: fx.B });
+
+    stub("echo '[]'");
+    by = Object.fromEntries(JSON.parse(run(fx.B, `${POSIX_SH} ${SCRIPTS.listClaims}`, withStub).stdout)
+      .claims.map((c) => [c.unit, c]));
+    assertEq("with no merged pull request a drained, unreported claim is a mandatory takeover",
+      [by[fx.mission.unit].resume_reason, by[fx.mission.unit].resumable], ["report_incomplete", true]);
+
+    stub(`echo '[{"number":1,"merged_at":"2026-08-26T00:00:00Z"}]'`);
+    by = Object.fromEntries(JSON.parse(run(fx.B, `${POSIX_SH} ${SCRIPTS.listClaims}`, withStub).stdout)
+      .claims.map((c) => [c.unit, c]));
+    assertEq("but a merged pull request makes it superseded, never report_incomplete",
+      [by[fx.mission.unit].resume_reason, by[fx.mission.unit].resumable], ["superseded", false]);
+
+    // THE SURVEY EXCLUDES IT BY NAME, with the reason that already exists.
+    const plan = JSON.parse(run(fx.B, `${POSIX_SH} ${SCRIPTS.planUnits}`, withStub).stdout);
+    assertTrue("the survey names the superseded claim rather than dropping it silently",
+      (plan.claimed || []).some((c) => c.unit === fx.mission.unit && c.resume_reason === "superseded"),
+      JSON.stringify(plan.claimed));
+
+    // `claim.sh resume` REFUSES IT BY NAME, so an operator learns the pull request merged
+    // rather than reading a generic denial (it reported `identity_unresolved` before).
+    const refused = run(fx.B, `${POSIX_SH} ${SCRIPTS.claim} resume ${fx.mission.unit}`, withStub);
+    const err = JSON.parse((refused.stderr || refused.stdout).trim());
+    assertEq("resume refuses a superseded claim under its own reason", err.reason, "superseded");
+    assertTrue("and says the work already reached the base",
+      /already reached the base/.test(err.detail || ""), err.detail);
+
+    // AND THIS IS NOT A BLANKET REFUSAL: with the lookup answering `not_merged` the same
+    // claim is resumable again — asserted last, because a change that simply stopped
+    // offering claims would pass every assertion above it.
+    stub("echo '[]'");
+    by = Object.fromEntries(JSON.parse(run(fx.B, `${POSIX_SH} ${SCRIPTS.listClaims}`, withStub).stdout)
+      .claims.map((c) => [c.unit, c]));
+    assertEq("a genuinely in-flight claim is still offered", by[fx.mission.unit].resumable, true);
+  } finally {
+    for (const d of [fx.origin, fx.A, fx.B]) rmSync(d, { recursive: true, force: true });
+  }
+}
+
 // A MISSION unit's mission.md is not moved by archive.sh, so its artifact list was never
 // hit by this defect -- asserted rather than assumed, because the unit-id check would
 // mask an artifact-list regression there.
@@ -15621,6 +15721,7 @@ const tests = [
   ["drive/claim-merged.sh: merged, not merged, or unanswerable", testClaimMergedReader],
   ["drive claim protocol: the merged lookup degrades by name", testMergedLookupDegradesByName],
   ["drive claim protocol: the merged-claim shape at both grains", testMergedClaimShapeAtBothGrains],
+  ["drive claim protocol: a merged claim is never offered for resumption", testMergedClaimIsNeverResumable],
   ["drive claim protocol: a mission claim's artifact is unaffected", testMissionClaimArtifactsUnaffected],
   ["drive claim protocol: a merged stamp is history, not a claim", testMergedStampIsHistoryNotAClaim],
   ["drive claim protocol: offline reader/writer asymmetry", testClaimOfflineAsymmetry],

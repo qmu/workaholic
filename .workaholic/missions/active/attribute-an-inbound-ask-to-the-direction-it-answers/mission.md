@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260826-043020
 ---
 
 # Attribute an inbound ask to the direction it answers

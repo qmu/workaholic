@@ -50,3 +50,4 @@ the language they read it in.
 - 2026-08-26 — ticket archived — 20260826112310-stamp-a-swept-message-with-a-reaction.md
 - 2026-08-26 — ticket archived — 20260826112310-ask-about-a-message-that-has-been-sitting-unanswered.md
 - 2026-08-26 — mission achieved — mission.md
+- 2026-08-26 — story reported — work-20260826-114429.md

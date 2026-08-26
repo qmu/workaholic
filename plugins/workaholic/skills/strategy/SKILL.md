@@ -142,12 +142,57 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/strategy/scripts/close.sh <slug> achieved|aban
 
 # Attributed work — the ONE reader of "which work belongs to strategy X in window W".
 bash ${CLAUDE_PLUGIN_ROOT}/skills/strategy/scripts/attributed-work.sh <slug> [window] [workaholic-root]
+
+# Direction state — the ONE reader of "what is the lifecycle state of this direction".
+bash ${CLAUDE_PLUGIN_ROOT}/skills/strategy/scripts/direction-state.sh [--open-proposals <file>] [window] [workaholic-root]
 ```
 
 Every script is POSIX `#!/bin/sh -eu`, takes an optional trailing `.workaholic` root so it can be
 pointed at another tree, and emits one JSON object. `create.sh` refuses an empty aim, an empty
 assignee list, a non-`YYYY-MM-DD` target date, and an existing slug — the same presence floor
 `validate-strategy.sh` enforces at the write seam, so a refusal is never a surprise later.
+
+## The lifecycle state of a direction — one reader, composed, never re-derived
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/strategy/scripts/direction-state.sh [--open-proposals <file>] [window] [workaholic-root]
+```
+
+`propose/scripts/survey-strategies.sh` emits two readings — `overdue` and `dormant` — beside
+`pace` and the refusal list. A consumer assembling a lifecycle answer out of them would be a
+**second derivation** of a state this repository insists has one reader, exactly as
+`attributed-work.sh` is the only walker of the attribution. So `direction-state.sh` **composes**
+that survey and re-derives nothing: no date arithmetic, no attribution walk, every state a
+projection of a field the survey emitted.
+
+| Answer | Meaning |
+| ------ | ------- |
+| `live` | active, in date, and something is happening against it |
+| `overdue` | the `target_date` has passed (`survey-strategies.sh`'s `overdue`) |
+| `dormant` | live, in date, legible — and nothing landed, nothing waiting, no proposal open |
+| `unreadable` | the attribution could not be read; **never** folded into any other answer |
+| `none` | **repository-level**: no `status: active` strategy exists at all |
+
+**The precedence is the only thing this script owns**, and it is fixed: `unreadable` > `overdue` >
+`dormant` > `live`. `unreadable` first because a reading we could not make must never be dressed
+as one we did; `overdue` before `dormant` because a direction past its date is the operator's to
+re-date or close whatever else is true of it, and one direction reported twice under two names
+would double the question a consumer asks about it.
+
+**`none` rides the same output as the per-strategy list** on purpose: a caller asking *what is
+the direction layer doing* must not have to call twice to learn that it is empty.
+
+**What it does not answer.** It never closes, never proposes, never lifts a gate and writes
+nothing — the artifact still has exactly two writers. It is not a second `pace`: `pace` answers
+*will this arrive*, `overdue` answers *has the date passed*, `dormant` answers *is anything
+answering this at all*. It inherits the survey's lossiness and reports it: `dormant` requires
+`owns == "mine"` upstream, so **another identity's direction can only ever read `live` or
+`overdue` here** — that limit is stated in the script's header rather than left to be discovered.
+
+**It makes no second network call.** The survey's one call is the open-proposal gate; a caller
+already holding that read passes `--open-proposals` through. A survey that refuses yields
+`readable: false`, `repository: "unreadable"`, the survey's own reason carried through, and
+**exit 0** — a reader that could not read is reported, never rendered as quiet.
 
 ## The write-time floor
 

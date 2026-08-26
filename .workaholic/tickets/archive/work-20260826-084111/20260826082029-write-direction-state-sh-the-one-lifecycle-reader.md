@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-26T08:20:29+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -88,3 +89,38 @@ plus the repository-level `none` when no `active` strategy exists at all.
 - `none` is a repository-level answer while the others are per-strategy. Keeping both in
   one output is deliberate — a caller asking "what is the direction layer doing" must not
   have to call twice to learn it is empty.
+
+## Final Report
+
+Development completed as planned.
+
+`strategy/scripts/direction-state.sh` composes `survey-strategies.sh` and answers
+`live | overdue | dormant | unreadable` per active strategy, plus the repository-level `none`,
+in one JSON object. It contains no date arithmetic and no attribution walk: every state is a
+projection of a field the survey emitted, and the only thing the script owns is the precedence
+(`unreadable` > `overdue` > `dormant` > `live`), stated in its header and in
+`strategy/SKILL.md`. It writes nothing, makes no network call the survey does not already make
+(`--open-proposals` passes a held read through), and a survey that answers `ok: false` yields
+`readable: false` with the survey's own reason and exit 0.
+
+The script file itself landed one commit early, in the `dormant` ticket's archive commit —
+`archive.sh` stages by default and the file was already written. Its documentation, its
+verification and this report are this ticket's.
+
+### Discovered Insights
+
+- **Insight**: "every `active` strategy" cannot be read off a `status` field here, because the
+  survey deletes `status`/`owns`/`unreadable` from its `eligible` rows and `refused` rows carry
+  only a reason. The set is therefore derived as *every surveyed row whose refusal is not
+  `not_active`* — which also, deliberately, keeps a row refused `attribution_unreadable`, whose
+  status nobody can know.
+  **Context**: that is the honest reading rather than a convenience: precedence puts
+  `unreadable` first, so a row we could not classify is reported as unclassifiable instead of
+  being dropped from the answer or guessed into `live`.
+- **Insight**: the survey's lossiness propagates asymmetrically — `dormant` requires
+  `owns == "mine"` upstream, so another identity's direction can only ever read `live` or
+  `overdue` through this reader.
+  **Context**: it is a real limit on a repository with several developers: this reader can see
+  that a colleague's direction has run out of date and cannot see whether anything is answering
+  it. Stated in the header and the skill rather than discovered later by someone trusting a
+  `live`.

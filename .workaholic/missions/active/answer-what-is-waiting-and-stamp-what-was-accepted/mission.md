@@ -40,9 +40,10 @@ the language they read it in.
 - [ ] A message on the channel sitting unanswered reaches a named person through the
       tick's check-in, mention or no mention, and is asked exactly once. (#20260826112310-ask-about-a-message-that-has-been-sitting-unanswered.md)
 - [ ] A message the inbound sweep files carries a reaction stamp on the message itself. (#20260826112310-stamp-a-swept-message-with-a-reaction.md)
-- [ ] `CLAUDE.md` states the language rule: Japanese for `#dev-workaholic` reasoning and
+- [x] `CLAUDE.md` states the language rule: Japanese for `#dev-workaholic` reasoning and
       Claude Code Web routines, English for GitHub and `.workaholic/` artifacts. (#20260826112310-write-the-surface-language-rule-into-claude-md.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-26 — ticket archived — 20260826112310-write-the-surface-language-rule-into-claude-md.md

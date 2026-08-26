@@ -8,6 +8,7 @@ This file states **current behavior only**. Decision history and rationale live 
 
 - Edit `plugins/`, not `.claude/` — this repo develops plugins; changes go to `plugins/` unless explicitly requested otherwise.
 - **Update the docs in the same change.** When a change alters behavior, structure, commands, skills, or conventions, update every affected document (`README.md`, `.workaholic/README.md`, `CLAUDE.md`, `plugins/workaholic/rules/*.md`) in the same commit. Outdated documentation is a defect; `/story` runs `doc-drift.sh` and `area-freshness.sh` only as backstops.
+- **Write each surface in the language its audience reads.** Reasoning on the `#dev-workaholic` channel and in Claude Code Web routines is **Japanese** — the developer reads it there. GitHub artifacts (issues, pull requests, commit messages) and `.workaholic/` artifacts are **English** — they are the durable, shared record, read by tooling and by whoever arrives later. The rule covers those surfaces and no others: code, code comments and this repository's `docs/` tree are untouched by it.
 
 ## Project Structure
 

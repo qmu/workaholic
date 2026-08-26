@@ -71,6 +71,33 @@ machine), the `slack-ref:` dedup marker and the message's permalink, then hands 
 REST transport as every other capture. The next `[Specificate]` tick ingests it like any
 issue.
 
+**And it carries the direction the ask answers** (2026-08-26). Until then the sweep — the loop's
+own writer and its majority inbound path — filed an issue with no `feedback:` line at all, so
+work born on the channel intersected every strategy's `feedback[]` at nothing. Measured on this
+repository the same day: a message became issue #604, `/specificate` emitted a five-ticket
+mission from it, and `attributed-work.sh` still reported that strategy's `waiting_count: 0` — the
+in-flight brake stood open over a whole queued mission.
+
+**The judgment, in order.** A message naming an explicit strategy **slug** is attributed to it —
+explicit slug only, the same rule the lifecycle recognition already holds, never a title and
+never a paraphrase. A message naming none is judged against the `active` set read through
+`strategy/scripts/list.sh`, the same read the strategy half already makes. A message that answers
+no live direction is **`unattributed`** — an ordinary answer, never forced, because nothing is
+refused for naming no direction.
+
+**What rides the issue is the strategy's own refs**, passed as `file-inbound-ask.sh --feedback`
+and emitted through `feedback/scripts/ask-feedback-line.sh`, the one writer of that line — never
+a strategy slug, never a new field, so the retired `strategy:` relation stays retired. With no
+direction the flag is absent and the composed body is byte-identical to what it was before the
+flag existed.
+
+**It is reported, not enforced.** Every filed issue's line in the run report carries
+`direction:<slug>` or `direction:unattributed` beside its existing outcome — the judgment can be
+wrong, and the only new obligation is that the loop say which direction it decided or that it
+decided none. An **unreadable strategy set is named** (`strategy_list_unreadable`) rather than
+collapsed into `unattributed`: reading nothing and finding nothing are different facts, and
+blurring them is the invisible loss this whole change exists to remove.
+
 **Degradations are named, and the strategy flow never waits for them**: no Slack connector in
 the session → `no_slack_transport`, sweep skipped and said; an unreadable channel →
 `channel_unreadable` with the transport's own error; an unreadable issue ledger →

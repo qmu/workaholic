@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260826-154116
 ---
 
 # Drive the work the loop wrote: one resolution of who a person is

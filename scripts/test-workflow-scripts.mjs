@@ -138,6 +138,7 @@ const SCRIPTS = {
   feedbackCreate: join(REPO_ROOT, "plugins/workaholic/skills/feedback/scripts/create.sh"),
   proposeReadFeedbackRelation: join(REPO_ROOT, "plugins/workaholic/skills/specificate/scripts/read-feedback-relation.sh"),
   readAskFeedbackRefs: join(REPO_ROOT, "plugins/workaholic/skills/specificate/scripts/read-ask-feedback-refs.sh"),
+  checkCarryFloor: join(REPO_ROOT, "plugins/workaholic/skills/specificate/scripts/check-carry-floor.sh"),
   renderSetupSheet: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/render-setup-sheet.sh"),
   unitFeedbackStems: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/unit-feedback-stems.sh"),
   unitAuthors: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/unit-authors.sh"),
@@ -15072,6 +15073,7 @@ const tests = [
   ["[Moderate]: the template, its scope, and the shapes it authorizes", testModerateRoutineTemplate],
   ["[Workaholic]: retired, and the scope retired with it", testUserScopeRetired],
   ["specificate/read-ask-feedback-refs.sh: the ask's own feedback line", testReadAskFeedbackRefs],
+  ["specificate/check-carry-floor.sh: the carry, floored at the publish seam", testCarryFloor],
 ];
 
 // `await` matters even though almost every test is synchronous: without it an async
@@ -20093,5 +20095,95 @@ function testReadAskFeedbackRefs() {
       run(dir, `${POSIX_SH} ${SCRIPTS.proposeReadFeedbackRelation} ${join(mdir, "mission.md")}`)
         .stdout.split("\n").filter(Boolean),
       read(proposal).json.carried);
+  } finally { cleanup(dir); }
+}
+
+// ---------- specificate/check-carry-floor.sh: the carry, floored at the publish seam ----------
+// (2026-08-26, mission `prove-the-loop-s-closing-link`) Reading the ask's refs and reporting
+// them still leaves the failure reachable: a run that reads them and forgets to pass them to
+// a scaffold publishes a mission missing the strategy's refs, and the loss reaches `main`.
+// Downstream that reads as `no_citing_artifacts` -- byte-identical to a direction nothing has
+// answered yet, which `/propose` treats as explicitly NOT a refusal. So the loss is invisible
+// AND self-perpetuating.
+//
+// The floor mirrors `mission/scripts/check-floor.sh` deliberately: same seam, same exit
+// discipline (refusal on stderr, exit 1, so a caller that ignores the JSON still fails), same
+// obligation to name the repair rather than only the rule.
+function testCarryFloor() {
+  const dir = makeRepo("main");
+  const FLOOR = `${POSIX_SH} ${SCRIPTS.checkCarryFloor}`;
+  try {
+    const wk = (rel, body) => { mkdirSync(dirname(join(dir, rel)), { recursive: true }); writeFileSync(join(dir, rel), body); };
+    const A = "20260821162443-an-autonomous-improvement-loop.md";
+    const B = "20260826021619-prove-the-loop-s-closing-link.md";
+
+    wk(`.workaholic/missions/active/carried/mission.md`,
+      `---\ntype: Mission\ntitle: Carried\nfeedback: [${A}, ${B}]\n---\n\n# Carried\n`);
+    wk(`.workaholic/missions/active/lost/mission.md`,
+      `---\ntype: Mission\ntitle: Lost\nfeedback: [${A}]\n---\n\n# Lost\n`);
+    wk(`.workaholic/tickets/todo/20260826010101-loose.md`,
+      `---\ncreated_at: 2026-08-26T01:01:01+00:00\nfeedback: [${A}, ${B}]\n---\n\n# Loose\n`);
+
+    const floor = (args) => {
+      const r = run(dir, `${FLOOR} ${args}`);
+      return { json: JSON.parse(r.stdout || r.stderr), status: r.status };
+    };
+
+    const ok = floor(`--refs "${A},${B}" .workaholic/missions/active/carried/mission.md`);
+    assertEq("a mission carrying every resolved ref passes",
+      { ok: ok.json.ok, checked: ok.json.checked, missing: ok.json.missing, status: ok.status },
+      { ok: true, checked: 2, missing: [], status: 0 });
+
+    const bad = floor(`--refs "${A},${B}" .workaholic/missions/active/lost/mission.md`);
+    assertEq("a dropped ref is refused, named by artifact and ref",
+      { ok: bad.json.ok, reason: bad.json.reason, missing: bad.json.missing },
+      { ok: false, reason: "carried_ref_missing",
+        missing: [{ artifact: ".workaholic/missions/active/lost/mission.md", ref: B }] });
+    assertEq("and the exit is non-zero, so a seam ignoring the JSON still fails", bad.status, 1);
+    assertTrue("the refusal names the repair, not only the rule",
+      /scaffold-draft\.sh/.test(bad.json.repair) && bad.json.repair.includes(B), bad.json.repair);
+    assertTrue("and says explicitly not to fall back to record-only",
+      /not fall back to record-only/.test(bad.json.repair), bad.json.repair);
+
+    // The loose form: the floor is on the emitted artifact, whichever kind it is.
+    assertEq("a loose ticket carrying the refs passes the same way",
+      floor(`--refs "${A},${B}" .workaholic/tickets/todo/20260826010101-loose.md`).json.ok, true);
+
+    // Nothing to check is a REAL PASS with its reason named -- not a degradation, and not
+    // something a caller has to distinguish by counting.
+    assertEq("an ask that carried no refs is nothing to check",
+      floor(".workaholic/missions/active/lost/mission.md").json,
+      { ok: true, checked: 0, missing: [], reason: "no_refs_carried" });
+    assertEq("a record-only outcome emits no artifact, so there is nothing to check",
+      floor(`--refs "${A}"`).json,
+      { ok: true, checked: 0, missing: [], reason: "record_only" });
+
+    // A named artifact the floor cannot read is its own refusal: the caller asserted it
+    // emitted that file, and nothing can be proved about a file that is not there.
+    const gone = floor(`--refs "${A}" .workaholic/missions/active/never/mission.md`);
+    assertEq("an unreadable artifact is refused by name, never passed silently",
+      { ok: gone.json.ok, reason: gone.json.reason, status: gone.status },
+      { ok: false, reason: "artifact_unreadable", status: 1 });
+
+    // The floor must not refuse over a difference in how the refs were written down: both
+    // sides of the comparison normalise exactly as the two readers of this relation do.
+    assertEq("the inline-list and spacing forms normalise before comparing",
+      floor(`--refs "[ ${A} , ${B} ]" .workaholic/missions/active/carried/mission.md`).json.ok, true);
+
+    // A ref that is a SUFFIX of another must not satisfy the floor -- a substring test would
+    // pass here, which is why the comparison is line-exact.
+    wk(`.workaholic/missions/active/suffix/mission.md`,
+      `---\ntype: Mission\nfeedback: [x-${A}]\n---\n\n# Suffix\n`);
+    assertEq("a suffix match does not count as carrying the ref",
+      floor(`--refs "${A}" .workaholic/missions/active/suffix/mission.md`).json.ok, false);
+
+    // The relation is read through its ONE reader. If this script grew a second frontmatter
+    // parser the two would drift, and the drift would be invisible until a correct publish
+    // was refused (or a broken one passed).
+    const src = readFileSync(SCRIPTS.checkCarryFloor, "utf8");
+    assertTrue("it composes read-feedback-relation.sh rather than parsing frontmatter itself",
+      /read-feedback-relation\.sh/.test(src) && !/\bfeedback:\[\^\]\|awk .*\^feedback:/.test(src), src.slice(0, 400));
+    assertTrue("and it adds no field to any artifact: the retired strategy: relation stays retired",
+      !/strategy:[ \t]*</.test(src), src);
   } finally { cleanup(dir); }
 }

@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-26T11:32:04+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -78,3 +79,54 @@ never mistaken for one that was never claimed.
 - Freeing the tickets while the old branch still exists means two branches could carry
   work for one mission. That is correct and already the protocol's shape: the superseded
   branch holds nothing, and a fresh claim is how the remaining tickets get driven.
+
+## Final Report
+
+Development completed as planned. A mission whose claim is `superseded` — and the tickets queued
+behind it — are offered again, and the survey names what it stepped over.
+
+**The distinction step 1 asks about is the whole change.** Excluding the *unit* is right for
+every other claim reason; excluding its *queued tickets* is right for every reason except this
+one, because `superseded` means the claim holds no work at all. `is_superseded` is the one
+predicate, applied at both loops, and everything else still excludes: `claimed_active` is being
+driven now, `claimed_by_other` is not this runner's, `claimed_reported` waits on a human,
+`claimed_resumable` is taken over rather than re-claimed.
+
+**`resurveyed[]` is its own field, not an exclusion reason.** `excluded[]` names what the survey
+saw and *dropped*, so a freed unit reported there would say the opposite of what happened — the
+same reasoning that put a repaired ticket's `mission_closed` on its offered row. Each entry is
+`{kind, id, claim}` and carries the **dead claim branch**, so a unit that came back is never
+mistaken for one that was never claimed.
+
+**It frees the work; it does not revive the branch.** The claim row stays `superseded`,
+`resumable: false`, `resumable[]` stays empty, and nothing deletes the branch or closes its pull
+request. A run takes the freed tickets on a **fresh** claim — the only correct route, because
+the old branch cannot land.
+
+**Two existing assertions flipped, and they are the same measurement.** The test that shipped
+with `superseded` asserted its tickets were excluded `claimed_superseded` and offered nowhere.
+That was the defect this ticket names, so both now assert the opposite and the comment records
+why. The guard that keeps this from freeing every claimed mission is asserted last, on a claim
+made live again.
+
+**Measured on this repository after the change**: `make-workaholify-converge-the-account-s-routines`
+— `active` at 2/3 acceptance, behind a claim whose pull request merged five days ago — is
+offered again and reported `resurveyed` with `work-20260819-113836` named as its dead claim.
+
+### Discovered Insights
+
+- **Insight**: The survey's claim bookkeeping was keyed by reason but not by branch, so naming
+  the dead claim in the report needed one more parallel accumulator (`CLAIM_BRANCHES`) rather
+  than a lookup.
+  **Context**: The claim rows are consumed in a `while read` loop whose output is a set of
+  newline-delimited tables; anything a later stage needs about a claim has to be recorded during
+  that pass. Adding a table is cheap and local — re-parsing the scan later would give the survey
+  a second reading of the same rows.
+- **Insight**: A verdict added to a ladder needs a second decision nobody asks for — not only
+  *what does the row say*, but *what does the survey do with the work behind it*. `superseded`
+  shipped with the first answered and the second inherited from the reasons beside it, and the
+  inherited answer was wrong.
+  **Context**: The two questions are genuinely independent: `claimed_reported` and
+  `claimed_superseded` agree that the unit is not resumable and disagree completely about
+  whether its tickets are free. Any future claim verdict should be asked both questions
+  explicitly.

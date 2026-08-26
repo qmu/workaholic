@@ -28,9 +28,24 @@
 # drifted would be believed.
 #
 # IT REPORTS EVERY CLAIM AND NARROWS ONLY WHAT IT ASKS ABOUT. The summary counts every
-# claimed unit, whatever its age; only the `needs_agent` candidates are filtered, by the
-# threshold below. Nothing is dropped from the reading — a reader who wants the whole picture
-# gets it, and the narrowing is visible in the same line as the total.
+# claimed unit; only the `needs_agent` candidates are filtered. Nothing is dropped from the
+# reading — a reader who wants the whole picture gets it, and the narrowing is visible in the
+# same line as the total.
+#
+# TWO FILTERS, NOT ONE (2026-08-26). The threshold below, and `superseded`: a claim whose work
+# already reached the base is FINISHED, so there is nothing for a person to look at and nothing
+# for them to decide. Asking anyway is the question layer crying wolf, and it is not free —
+# the asked-once ledger means the one real stalled unit then arrives inside a stream a person
+# has learned to skip. Measured: three merged pull requests were each being asked about. They
+# are counted in the summary as a finding instead, which is where a fact belongs.
+#
+# THE SUMMARY CARRIES NO AGE, AND THAT IS A CORRECTNESS REQUIREMENT (2026-08-26). The
+# moderation root calls a step changed when its summary differs from the same step's an hour
+# ago, and `render-tick-post.sh` normalises out a timestamp, a bare hex object name and a clock
+# time — and ONLY those. `oldest stopped 27h` increments every tick, so it made this step
+# changed HOURLY by construction and the root restated the same stalled units four times in one
+# day: exactly the shape `📦 Release Preparation` was retired for. The age is still
+# computed and still reaches the person, in the question that names the unit.
 #
 # IT READS, AND IT HANDS THE STALE ONES TO THE CHECK-IN TO ASK ABOUT. The reading shipped
 # inert first; the asking is the second half, and it is the whole point of the step.
@@ -171,17 +186,45 @@ with_pr=$(printf '%s' "$rows" | jq '[.[] | select(.has_pull_request)] | length')
 # moved for `WORKAHOLIC_CLAIM_STALE_HOURS` (default 24) is already the protocol's way of
 # saying "look at this". The content key is `stalled-unit:<unit>` — stable across ticks, which
 # is what makes `ask-question.sh`'s already-asked ledger able to ask exactly once.
-stalled=$(printf '%s' "$rows" | jq -c '[.[] | select(.stale)]')
+# A `superseded` CLAIM IS A FACT, NOT A QUESTION (2026-08-26). Its work already reached the
+# base, so there is nothing for the person to look at and nothing for them to decide —
+# asking them to is the question layer crying wolf, and the asked-once ledger then delivers
+# the REAL stalled unit inside a stream a person has learned to skip. Measured: three merged
+# pull requests were each being asked about. They stay in the log as a counted finding, which
+# is where a fact belongs.
+finished=$(printf '%s' "$rows" | jq -c '[.[] | select(.resume_reason == "superseded")]')
+n_finished=$(printf '%s' "$finished" | jq 'length')
+stalled=$(printf '%s' "$rows" | jq -c '[.[] | select(.stale) | select(.resume_reason != "superseded")]')
 n_stalled=$(printf '%s' "$stalled" | jq 'length')
 
-summary="${count} claimed unit(s); oldest stopped ${oldest}h, ${with_pr} at a pull request, ${unknown_age} of unknown age; ${n_stalled} past the claim protocol's staleness threshold"
+# THE AGE IS DELIBERATELY ABSENT FROM THE SUMMARY (2026-08-26). The moderation root calls a
+# step changed when its summary differs from the same step's an hour ago, and
+# `render-tick-post.sh` normalises out a timestamp, a bare hex object name and a clock time —
+# and ONLY those. `oldest stopped 27h` increments every tick, so it made this step changed
+# hourly BY CONSTRUCTION and the root restated the same stalled units four times in one day:
+# exactly the shape `📦 Release Preparation` was retired for. What the maintainer needs from
+# the age is in the question, which names the unit; what the diff needs is a summary that
+# moves only when the finding does.
+summary="${count} claimed unit(s); ${with_pr} at a pull request, ${unknown_age} of unknown age; ${n_finished} finished (superseded), ${n_stalled} past the claim protocol's staleness threshold"
 
-[ "$n_stalled" -eq 0 ] && emit ok "" "$summary"
+if [ "$n_stalled" -eq 0 ]; then
+    # A finished claim never earns a root line either: nothing happened TO the repository, and
+    # a step with no event renders no line.
+    emit ok "" "$summary"
+fi
 
 needs=$(printf '%s' "$stalled" | jq -c '{action: "ask_the_owner_whether_this_stalled_unit_still_needs_them",
     bound: "one question per unit, addressed to the claim holder, keyed on `key` so it is asked once; the tick asks and never claims, drives, or resolves the blocker itself",
     compose: "name what is stuck and what the run could not decide — a signature is not a problem — and say the answer is given in this session, through the link on the question",
     stalled: .}' 2>/dev/null || echo '{}')
 
-emit ok "" "$summary" "$needs" \
-    "${n_stalled} claimed unit(s) have not moved for a day or more"
+# THE EVENT NAMES THE REPOSITORY EVENT AND CARRIES NO AGE, for the reason above: the root is
+# read by a person scanning a channel, and `N units have not moved for a day or more` is the
+# event; `oldest stopped 27h` is bookkeeping that would make every hour look like news.
+if [ "$n_stalled" -eq 1 ]; then
+    event="a claimed unit has not moved for a day or more"
+else
+    event="${n_stalled} claimed units have not moved for a day or more"
+fi
+
+emit ok "" "$summary" "$needs" "$event"

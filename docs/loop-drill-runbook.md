@@ -35,6 +35,7 @@ Run every command from the repository root, on a clean `main`.
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-moderate --json` | one `[Moderate]` tick against a throwaway root — proves every step reports, the log carries one section per tick, and the checkout is untouched |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-propose --json` | a throwaway strategy tree and a synthetic open-proposal list — proves every gate of `/propose`'s brake refuses by name, and that it writes nothing |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-direction-health --json` | a throwaway strategy tree, one overdue direction and one dormant one — proves the four lifecycle readings, the three question keys, the asked-once gate, and that nothing was written |
+| — | Any time | `sh scripts/e2e/loop-drill.sh verify-merged-claim --json` | a throwaway repository carrying a **squash-merged** mission claim and batch claim — proves all four merged-claim readings (merged batch, merged mission, live, unanswerable) with the transport stubbed, so no `gh` call is made |
 | — | Any time | `sh scripts/e2e/loop-drill.sh status` | the drill's residue: issues, claim branches, tickets |
 | — | After an abort | `sh scripts/e2e/loop-drill.sh reset` | closes/deletes **drill-minted** residue only |
 
@@ -463,3 +464,39 @@ whoever ran the pass, at the end of it, using the run id `seed` minted.
 | ------ | ---- | ----- | ------- |
 | `20260812-215314` | 2026-08-12 | [#419](https://github.com/qmu/workaholic/issues/419) | exercised the propose–implement loop end to end |
 | `20260812-221056` | 2026-08-12 | [#423](https://github.com/qmu/workaholic/issues/423) | exercised the propose–implement loop end to end |
+
+## 5i. The merged-claim readings (the claim oracle's two grains)
+
+`verify-merged-claim` needs no seed, no fire, no issue number and **no network**: it builds a
+throwaway repository whose mission claim and batch claim are both **squash-merged** onto the
+base, then reads `list-claims.sh` over it with the GitHub transport stubbed on `PATH`.
+
+**The squash is the whole fixture.** A normal merge takes `base..ref` to zero and
+`claims_scan` drops the branch before any verdict is reached, so the drill would pass while
+proving nothing. A squash leaves the content on the base and the commits unreachable, which is
+the state that made a finished unit look claimed forever — measured here on 2026-08-26: three
+of five claims headed pull requests #521, #537 and #546, all merged, all mission units, one
+offered `resumable: true` five days after its own pull request merged. `merged_claim_fixture`
+asserts the premise before anything else, so a `git merge --squash` behaviour change turns the
+drill red rather than hollow.
+
+**The two grains are answered by different means, and the drill keeps them apart.** A batch
+claim is answered from the tree (its tickets are archived on the base), so it needs no
+transport at all; a mission claim stamps only `mission.md`, which driving never archives, so
+only a merged pull request can answer — and that is the one network read, stubbed here.
+
+| Row | Fails when | Read |
+| --- | ---------- | ---- |
+| `merged_claim_fixture` | the claim branch is not still ahead of the base | the fixture is not a squash merge; every row below it would prove nothing |
+| `merged_claim_batch` | a squash-merged batch claim does not read `superseded` with no transport | `claims_superseded`'s local test in `lib/claims.sh` — the archived-on-the-base filename match |
+| `merged_claim_live` | a claim with no merged pull request does not keep its local verdict | the lookup answered `merged` for a branch with none, or the verdict chain short-circuited above `superseded` |
+| `merged_claim_mission` | a merged pull request does not make a mission claim `superseded` | `claim-merged.sh` and the non-ticket branch of `claims_superseded` — the behaviour this mission exists for |
+| `merged_claim_unanswerable` | a refused lookup changed the verdict | the degradation contract: a wrong `merged` releases work still in flight, a wrong `in flight` only delays a claim, so an unread answer must change nothing |
+| `merged_claim_named` | the claim the lookup could not answer for is not named with its reason | `list-claims.sh`'s `merged_lookup_unanswered`, fed by `claims_note_unanswered` |
+| `merged_claim_writes_nothing` | the drill changed the checkout | every fixture lives outside the checkout; the oracle is a pure read |
+
+**Two proofs, and they are not the same one** — the same split as §5h. This drill is the
+**operator's**, exercising the real closure in a checkout; the hermetic suite's
+`testMergedClaimShapeAtBothGrains`, `testMergedLookupDegradesByName` and
+`testMergedClaimIsNeverResumable` are what **CI** enforces on every change. The drill ships to
+no other agent and CI never runs it; the suite cannot prove an operator's checkout behaves.

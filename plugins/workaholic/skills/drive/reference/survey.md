@@ -75,7 +75,8 @@ confidently (decision J3). Each `ok: false` is a reported decision, never a prom
 ## The survey (`drive/scripts/plan-units.sh`)
 
 Emits `{fetched, shallow, base, surveyed_sha, base_sha, current, user_slug, backlog_error,
-backlog_size, owner_unresolved, claimed[], resumable[], missions[], backlog[], excluded[]}`,
+backlog_size, owner_unresolved, claimed[], resumable[], resurveyed[], missions[], backlog[],
+excluded[]}`,
 each backlog row `{path, title, merge_policy, depends_on, mission_closed}` —
 the unclaimed active missions this runner may take and the unclaimed todo tickets, with
 everything a claim already holds subtracted through the shared claim reader.
@@ -83,10 +84,24 @@ everything a claim already holds subtracted through the shared claim reader.
 **`excluded[]` names every drop and why**: `claimed_active`, `claimed_reported`,
 `claimed_by_other`, `claimed_resumable`, `claimed_superseded`, `owned_by_other`, `no_plan`,
 `no_tickets`, `queue_drained`, `mission_member`. **`claimed_superseded`** (2026-08-26) names a
-claim with nothing in it: the unit's tickets are already archived on the base, delivered by
-another route, so the branch is unmerged forever and holds no work. It is reported and never
-acted on — nothing deletes the branch or closes its pull request — and it does **not** forbid
-`ok`. It does not read `status` for the offer — a mission on `main`
+claim with nothing in it: the unit's work already reached the base — every one of its tickets
+archived there, or (at the mission grain) a merged pull request with that branch as its head —
+so the branch is unmerged forever and holds no work. It is reported and never acted on —
+nothing deletes the branch or closes its pull request — and it does **not** forbid `ok`.
+
+**`resurveyed[]` is what the survey stepped OVER, and it has its own field for a reason**
+(2026-08-26). A claim proved empty must not hold its work either, so the queued tickets behind
+a `superseded` claim — and the mission they belong to — are offered again as ordinary backlog.
+`excluded[]` is the wrong home by its own definition (it names what the survey saw and
+*dropped*), so each freed unit is reported as `{kind, id, claim}` instead, naming the dead claim
+branch: **a unit that came back is never mistaken for one that was never claimed.** This frees
+the work and does not revive the branch — the claim row stays `superseded` and
+`resumable: false`, and a run takes the freed tickets on a **fresh** claim, because the old
+branch cannot land. Every other reason still excludes: `claimed_active` is being driven now,
+`claimed_by_other` is not this runner's, `claimed_reported` waits on a human, and
+`claimed_resumable` is taken over rather than re-claimed. Measured: a mission sat `active` at
+2/3 acceptance with queued tickets behind a claim whose pull request had merged five days
+earlier, and no survey would offer any of it. It does not read `status` for the offer — a mission on `main`
 was accepted when its pull request merged (K1); the area is the authority. `no_plan`,
 `no_tickets`, and `queue_drained` are deliberately distinct because each names a different next
 action: write the acceptance criteria, emit the ticket set, or decide the close — a mission whose

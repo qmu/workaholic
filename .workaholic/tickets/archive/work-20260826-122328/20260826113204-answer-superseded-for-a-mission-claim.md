@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-26T11:32:04+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -85,3 +86,53 @@ is the opposite of outstanding work.
   header rather than leaving it to be discovered.
 - Diff-containment was refused when `superseded` shipped, because the measured recovery
   landed refined rather than verbatim. Do not reintroduce it here.
+
+## Final Report
+
+Development completed as planned, and the mission-grain answer has changed. `claims_superseded`'s
+early-`false` for a non-ticket artifact is gone; a mission claim now routes to
+`claims_merged_state`, which asks whether a merged pull request has this branch as its head.
+
+**The reason was replaced, not just the code.** The early-`false` said the equivalent would need
+a second parser of the many-valued `mission:` relation "for a shape nothing has measured". Both
+halves are answered: the shape was measured (three of five claims here headed pull requests
+#521, #537 and #546, all merged, all mission units, one offered `resumable: true` five days
+after its own merged), and the relation still has exactly one parser, because the lookup reads
+**no artifact at all**.
+
+**The local test stays first and stays network-free.** The loop reaches the lookup only on an
+artifact that is not a ticket, so a batch verdict is byte-identical to what it has always been —
+and the fixture proves that rather than asserting it: its origin is a local directory, so no
+lookup can succeed there, and the batch assertion is untouched from ticket 1.
+
+**Ticket 1's mission-grain assertions flipped as designed**, and the fixture now covers both
+sides: with no reachable lookup the row keeps its local verdict and the branch is named in
+`merged_lookup_unanswered`; with a stubbed transport answering `merged`, the mission claim reads
+`superseded`, `resumable: false`. The batch claim is asserted to need no lookup at all.
+
+**Everything the row promised is unchanged**: `resumable: false`, reported and never acted on,
+and it still does not forbid `ok` — a claim holding no work is the opposite of outstanding work.
+
+**One defect found and fixed while proving this.** `claims_fetch` sets `CLAIMS_FETCH_OK`, and
+every caller invokes it as `fetched=$(claims_fetch)` — a command substitution, so the assignment
+happened in a subshell and never reached the parent. The lookup therefore read `offline` on
+every run and was skipped unconditionally, which is exactly why the first run of the stubbed
+assertion still reported `heartbeat_lapsed`. The flag is now assigned by the caller between its
+two calls, and the library's header says why that is the only form that works.
+
+### Discovered Insights
+
+- **Insight**: In this library the subshell boundary is the design constraint, not a detail.
+  `claims_fetch` and `claims_scan` are both consumed through command substitution, so nothing
+  either sets can travel outward — which is why the fetch flag is set by the caller and the
+  unanswered set goes to a file rather than a variable.
+  **Context**: Anything added to this library that needs to communicate sideways has exactly
+  three options: the TSV row (whose field count is load-bearing), a file the caller names, or a
+  variable the caller sets before the call. A fourth does not exist, and reaching for one is how
+  the fetch flag silently disabled the whole lookup.
+- **Insight**: A gate that fails closed can look identical to a gate that is working. The
+  stubbed-transport assertion is what exposed the flag defect; the offline assertions all passed
+  throughout, because "skipped" and "answered not_merged" produce the same verdict.
+  **Context**: For any skip-when-degraded mechanism, the test that matters is the one where the
+  mechanism is supposed to *fire*. Asserting only the degraded path proves the fallback, never
+  the feature.

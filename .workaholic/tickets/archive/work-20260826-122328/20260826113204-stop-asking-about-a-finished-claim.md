@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-26T11:32:04+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -83,3 +84,52 @@ shape `📦 Release Preparation` was retired for.
 - The two halves are one change because they share a cause — the step announcing what is
   not news — and because splitting them would leave the root restating a set the first
   half just shrank.
+
+## Final Report
+
+Development completed as planned. Two changes to one step, for the one reason the ticket names:
+the question channel was being spent on things that are not questions.
+
+**A `superseded` claim never reaches the question set.** Its work already reached the base, so
+there is nothing for a person to look at and nothing for them to decide. It is counted in the
+summary as `N finished (superseded)` — a fact, in the place facts belong. The cost of getting
+this wrong is not neutral and is worth restating: the asked-once ledger means the one *real*
+stalled unit then arrives inside a stream a person has learned to skip.
+
+**The age left the summary, and that is a correctness fix rather than a tidy-up.** The
+moderation root calls a step changed when its summary differs from the same step's an hour ago,
+and `render-tick-post.sh` normalises out a timestamp, a bare hex object name and a clock time —
+and **only** those. `oldest stopped 27h` survives normalisation and increments every tick, so
+this step was changed *hourly by construction* and the root restated the same stalled units four
+times in one day: exactly the shape `📦 Release Preparation` was retired for. The age is still
+computed and still reaches the person, in the question that names the unit.
+
+**The `event` is now distinct from the `summary`** and carries no age either, for the same
+reason: the root is read by someone scanning a channel, who needs *N claimed units have not
+moved for a day or more*, not the tick's bookkeeping. A step with no stalled unit supplies no
+event and renders no line, and a tick whose only finding is a finished claim renders none
+either — nothing happened *to* the repository.
+
+**The keying is untouched.** `stalled-unit:<unit>` still keys a genuine stall; only which rows
+reach it moved. The test asserts the key is stable across ticks, exactly as before.
+
+**Measured on this repository after the change**: 7 claimed units, 4 of them finished
+(superseded) and silent, 1 genuine stall producing its one question — where all five would
+previously have been asked about.
+
+### Discovered Insights
+
+- **Insight**: The step's own test needed `WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES=0` as well
+  as `WORKAHOLIC_CLAIM_STALE_HOURS=0`, because `claim_active` short-circuits the verdict chain
+  before `superseded` and a claim created seconds ago never reaches the verdict under test.
+  **Context**: `stale` and the heartbeat window are different clocks answering different
+  questions — *should a human look* versus *is a run still working it* — and a fixture about a
+  late-chain verdict has to open both. Opening only the first produces a claim that is reported
+  stale and still reads `claim_active`, which is a coherent state and not the one being tested.
+- **Insight**: A counter in a step's `summary` is load-bearing for the moderation diff, not just
+  for a human reading the log. Anything monotonic in it — an age, an elapsed time, a running
+  total — makes that step permanently "changed".
+  **Context**: The renderer's normalisation list is deliberately short (timestamp, hex object
+  name, clock time), so it cannot be relied on to absorb a new monotonic value. The rule for any
+  future step is the same one applied here: the summary moves when the *finding* moves, and
+  everything else goes in the question or the log line that names the item.

@@ -13645,6 +13645,460 @@ function testClaimSurvivesArchive() {
   }
 }
 
+// ---------------------------------------------------------------------------
+// THE MERGED-CLAIM READER (2026-08-26). One question — is there a MERGED pull request whose
+// head is this branch? — answered at both grains without reading a single artifact, and
+// three-valued so a degraded read never masquerades as `not_merged`.
+//
+// EVERY CASE IS DRIVEN THROUGH A STUBBED `gh` ON PATH, so the suite stays offline. What is
+// pinned is the vocabulary the consumer will report and the exit status the scan depends on.
+function testClaimMergedReader() {
+  const READER = join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/claim-merged.sh");
+  const tmp = mkdtempSync(join(tmpdir(), "wh-claim-merged-"));
+  const bin = join(tmp, "bin");
+  const repo = join(tmp, "repo");
+  const plain = join(tmp, "plain");
+  mkdirSync(bin, { recursive: true });
+  mkdirSync(repo, { recursive: true });
+  mkdirSync(plain, { recursive: true });
+  execSync("git init -q . && git remote add origin git@github.com:acme-org/source-repo.git", { cwd: repo });
+  const env = { ...process.env, PATH: `${bin}:${process.env.PATH}` };
+  const stub = (body) => {
+    writeFileSync(join(bin, "gh"), `#!/bin/sh\n${body}\n`);
+    chmodSync(join(bin, "gh"), 0o755);
+  };
+  const read = (cwd = repo, branch = "work-20260101-000000") => {
+    const r = run(cwd, `${POSIX_SH} ${READER} ${branch}`, { env });
+    return { ...JSON.parse(r.stdout), status: r.status };
+  };
+  try {
+    // MERGED — and the mixed payload matters: a closed-but-unmerged pull request on the same
+    // branch is emphatically not this branch's work reaching the base.
+    stub(`echo '[{"number":1,"merged_at":"2026-08-20T00:00:00Z"},{"number":2,"merged_at":null}]'`);
+    assertEq("a branch with a merged pull request reads merged",
+      [read().state, read().reason, read().status], ["merged", "", 0]);
+
+    stub(`echo '[{"number":2,"merged_at":null}]'`);
+    assertEq("a branch whose only pull request was closed unmerged reads not_merged",
+      [read().state, read().status], ["not_merged", 0]);
+
+    stub("echo '[]'");
+    assertEq("and a branch with no pull request at all reads not_merged",
+      [read().state, read().status], ["not_merged", 0]);
+
+    // THE THIRD VALUE. Each degradation is OURS, not the repository's, and each is named
+    // distinctly enough for the consuming step to report it.
+    const degraded = [
+      [`echo "API rate limit exceeded" >&2; exit 1`, "rate_limited"],
+      [`echo "HTTP 403: This GraphQL query is not enabled for this session" >&2; exit 1`, "session_refused"],
+      // `gh-rest.sh` emits this exact line and exits 127 when `gh` is absent; the stub
+      // reproduces the message because a stub cannot reproduce its own absence.
+      [`echo "gh is not on PATH" >&2; exit 127`, "gh_unavailable"],
+      [`echo boom >&2; exit 1`, "transport_error"],
+      [`echo 'not json at all'`, "unparseable_response"],
+      [`echo '{"message":"Not Found"}'`, "unparseable_response"],
+    ];
+    for (const [body, reason] of degraded) {
+      stub(body);
+      const r = read();
+      assertEq(`a degraded read is unanswerable, named ${reason}`,
+        [r.state, r.reason, r.status], ["unanswerable", reason, 0]);
+    }
+
+    // NEITHER ARGUMENT NOR REPOSITORY IS ASSUMED.
+    stub("echo '[]'");
+    assertEq("no branch argument is unanswerable, never not_merged",
+      [read(repo, "").state, read(repo, "").reason], ["unanswerable", "no_branch"]);
+    assertEq("and a tree with no resolvable remote names that instead of guessing",
+      [read(plain).state, read(plain).reason], ["unanswerable", "slug_unresolved"]);
+
+    // IT READS NO ARTIFACT AND NO RELATION. That constraint is what keeps it from becoming a
+    // second parser of the many-valued `mission:` field, so it is asserted rather than trusted.
+    const body = readFileSync(READER, "utf8").split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+    for (const f of ["mission:", "read-relation.sh", "ls-tree", "tickets/archive"]) {
+      assertTrue(`the reader never reaches ${f}`, !body.includes(f), f);
+    }
+    assertTrue("and it reaches GitHub only through the one transport",
+      !/\bgh (issue|pr|repo|api)\b/.test(body) && body.includes("gh-rest.sh"), body.slice(0, 300));
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// THE MERGED LOOKUP DEGRADES BY NAME, NOT BY GUESS (2026-08-26).
+//
+// `list-claims.sh` promises the reader degrades offline. The merged lookup makes a NETWORK
+// call, so that promise has to be kept explicitly rather than inherited — and the direction
+// of failure is chosen: a wrong `merged` RELEASES work still in flight, a wrong `in flight`
+// only delays a claim. So an unread answer is never promoted, and is reported instead.
+//
+// The byte-identity assertion is the load-bearing one: the offline output is PROVED
+// identical to the pre-lookup output rather than asserted to be.
+function testMergedLookupDegradesByName() {
+  const LIB = join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/lib");
+  const tmp = mkdtempSync(join(tmpdir(), "wh-merged-degrade-"));
+  const bin = join(tmp, "bin");
+  const repo = join(tmp, "repo");
+  mkdirSync(bin, { recursive: true });
+  mkdirSync(repo, { recursive: true });
+  execSync("git init -q . && git remote add origin git@github.com:acme-org/source-repo.git", { cwd: repo });
+  const stub = (body) => {
+    writeFileSync(join(bin, "gh"), `#!/bin/sh\n${body}\n`);
+    chmodSync(join(bin, "gh"), 0o755);
+  };
+  // Drive `claims_merged_state` directly: it is a sourced function, so the harness sources
+  // the library the same way `list-claims.sh` does and calls it with the fetch flag set.
+  const state = (branch, { fetched = "true", env = {}, notes = null } = {}) => {
+    // `CLAIMS_LIB_DIR` is set the way every real sourcer sets it — a sourced file cannot
+    // ask where it is, so the caller passes it (see the library's own note).
+    const script = `CLAIMS_LIB_DIR=${LIB}; . ${LIB}/claims.sh; CLAIMS_FETCH_OK=${fetched}`
+      + (notes ? `; CLAIMS_UNANSWERED_FILE=${notes}; export CLAIMS_UNANSWERED_FILE` : "")
+      + `; claims_merged_state ${branch}`;
+    return run(repo, `${POSIX_SH} -c '${script}'`,
+      { env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, ...env } }).stdout.trim();
+  };
+  try {
+    stub(`echo '[{"number":1,"merged_at":"2026-08-20T00:00:00Z"}]'`);
+    assertEq("with a reachable transport the lookup answers merged", state("work-1"), "merged");
+    stub("echo '[]'");
+    assertEq("and not_merged when nothing merged", state("work-1"), "not_merged");
+
+    // A RUN THAT JUST PROVED IT HAS NO NETWORK DOES NOT SPEND A CALL PER CLAIM.
+    stub(`echo '[{"number":1,"merged_at":"2026-08-20T00:00:00Z"}]'; echo CALLED >> ${join(tmp, "calls")}`);
+    const notes = join(tmp, "notes.tsv");
+    assertEq("a fetch that failed skips the lookup entirely",
+      state("work-1", { fetched: "false", notes }), "unanswerable");
+    assertTrue("without making the call", !existsSync(join(tmp, "calls")));
+    assertTrue("and names the skip as offline",
+      readFileSync(notes, "utf8").includes("work-1\toffline"), readFileSync(notes, "utf8"));
+
+    // AND THE EXPLICIT OPT-OUT IS NAMED TOO, not silently answered `not_merged`.
+    const notes2 = join(tmp, "notes2.tsv");
+    assertEq("the opt-out yields unanswerable",
+      state("work-1", { env: { WORKAHOLIC_CLAIM_MERGED_LOOKUP: "0" }, notes: notes2 }), "unanswerable");
+    assertTrue("named as disabled", readFileSync(notes2, "utf8").includes("work-1\tdisabled"));
+    assertTrue("and still without making the call", !existsSync(join(tmp, "calls")));
+
+    // A READER FAILURE CARRIES THE READER'S OWN REASON THROUGH.
+    stub("echo boom >&2; exit 1");
+    const notes3 = join(tmp, "notes3.tsv");
+    assertEq("a failed read is unanswerable, never not_merged",
+      state("work-1", { notes: notes3 }), "unanswerable");
+    assertTrue("carrying the reader's own reason",
+      readFileSync(notes3, "utf8").includes("work-1\ttransport_error"), readFileSync(notes3, "utf8"));
+
+    // NOTHING IS RECORDED WHEN THE CALLER ASKED FOR NOTHING — the file is the caller's.
+    assertEq("a caller that sets no file still gets an answer",
+      state("work-1", { fetched: "false" }), "unanswerable");
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+
+  // THE VERDICTS ARE PROVED IDENTICAL, over a fixture carrying real claims of both grains:
+  // the whole claims array with the lookup disabled must be byte-identical to the array the
+  // scan produces with it enabled but unable to reach anything. The fixture's origin is a
+  // local directory, so the lookup cannot succeed there whatever it is allowed to try —
+  // which is exactly the degraded run this contract is about.
+  const fx = makeSquashMergedClaims();
+  try {
+    const raw = (env) => {
+      const j = JSON.parse(run(fx.B, `${POSIX_SH} ${SCRIPTS.listClaims}`, {
+        env: { ...process.env, ...env },
+      }).stdout);
+      return { claims: JSON.stringify(j.claims), unanswered: j.merged_lookup_unanswered };
+    };
+    const off = raw({ WORKAHOLIC_CLAIM_MERGED_LOOKUP: "0" });
+    const on = raw({});
+    assertTrue("the fixture carries claims to compare",
+      JSON.parse(off.claims).length >= 2, off.claims.slice(0, 200));
+    assertEq("a degraded lookup leaves every row byte-identical to the local-only answer",
+      on.claims, off.claims);
+    assertTrue("and no claim is ever reported superseded on a read that did not happen",
+      !JSON.parse(on.claims).some((c) => c.resume_reason === "superseded" && c.unit === fx.mission.unit),
+      on.claims.slice(0, 300));
+
+    // The reporting surface exists and is a list, whether or not anything filled it — the
+    // scan's call site lands with the mission-grain verdict it feeds.
+    assertTrue("the reader reports an unanswered set as its own field",
+      Array.isArray(off.unanswered) && Array.isArray(on.unanswered),
+      JSON.stringify([off.unanswered, on.unanswered]));
+  } finally {
+    for (const d of [fx.origin, fx.A, fx.B]) rmSync(d, { recursive: true, force: true });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// THE MERGED-CLAIM SHAPE, AT BOTH GRAINS (2026-08-26, mission
+// `tell-a-merged-claim-from-a-live-one-at-both-grains`).
+//
+// `claims_superseded`'s header gives "a shape nothing has measured" as the reason mission
+// claims are out of scope. The shape has since been measured on this repository — three of
+// five claims headed pull requests #521, #537 and #546, all merged, all mission units, one
+// of them offered `resumable: true` five days after its own pull request merged — and this
+// fixture is what turns that evidence into something that fails when the behaviour regresses.
+//
+// IT ASSERTS TODAY'S ANSWER, NOT THE INTENDED ONE, and that is deliberate: without a
+// baseline, the change that fixes the mission grain cannot be shown to have changed
+// anything, and a later regression has nothing to fail against. The assertions that must
+// flip when it lands say so by name.
+//
+// THE MERGE IS A SQUASH, WHICH IS THE WHOLE POINT. A normal merge puts the branch's commits
+// on the base, so `git rev-list --count base..ref` goes to zero and `claims_scan` drops the
+// branch before any verdict is reached. A squash leaves the CONTENT on the base and the
+// COMMITS unreachable, so the branch is unmerged forever — the state that made a finished
+// unit look claimed.
+function makeSquashMergedClaims() {
+  const fx = makeClaimFixture();
+  const t1 = `.workaholic/tickets/todo/${TEST_SLUG}/20260729000001-t1.md`;
+  const t2 = `.workaholic/tickets/todo/${TEST_SLUG}/20260729000002-t2.md`;
+  const mission = JSON.parse(run(fx.A, `${POSIX_SH} ${SCRIPTS.claim} mission m1`).stdout);
+  tickSecond();
+  const batch = JSON.parse(run(fx.A, `${POSIX_SH} ${SCRIPTS.claim} batch ${t1} ${t2}`).stdout);
+
+  // Drive the batch to a drained queue: both tickets archived on its own branch, exactly
+  // as `archive.sh` leaves them.
+  const archDir = `.workaholic/tickets/archive/${batch.branch}`;
+  execSync(`mkdir -p ${archDir} && git mv ${t1} ${archDir}/20260729000001-t1.md`
+    + ` && git mv ${t2} ${archDir}/20260729000002-t2.md`
+    + ` && git commit -q -m "Archive the batch" && git push -q origin ${batch.branch}`,
+    { cwd: batch.worktree_path });
+
+  // SQUASH both claim branches onto the base, from a clone that holds neither claim.
+  execSync("git fetch -q origin && git checkout -q main", { cwd: fx.B });
+  for (const br of [mission.branch, batch.branch]) {
+    execSync(`git merge --squash -q origin/${br} && git commit -q -m "Squash ${br}"`, { cwd: fx.B });
+  }
+  execSync("git push -q origin main", { cwd: fx.B });
+
+  // Move each tip past the heartbeat window, so the verdict reaches the gates this fixture
+  // is about rather than stopping at `claim_active`. The claim COMMIT's author is what
+  // decides ownership, so an extra empty commit changes nothing the scan reads but the date.
+  const old = "2026-08-01T00:00:00+00:00";
+  for (const wt of [mission.worktree_path, batch.worktree_path]) {
+    execSync('git commit -q --allow-empty -m "Heartbeat" && git push -q origin HEAD', {
+      cwd: wt, env: { ...process.env, GIT_COMMITTER_DATE: old, GIT_AUTHOR_DATE: old },
+    });
+  }
+  execSync("git fetch -q --prune origin", { cwd: fx.B });
+  return { ...fx, mission, batch, t1, t2 };
+}
+
+function testMergedClaimShapeAtBothGrains() {
+  const fx = makeSquashMergedClaims();
+  try {
+    // The premise: unmerged by commit count, delivered by content.
+    for (const br of [fx.mission.branch, fx.batch.branch]) {
+      const ahead = execSync(`git rev-list --count origin/main..origin/${br}`,
+        { cwd: fx.B, encoding: "utf8" }).trim();
+      assertTrue(`${br} is still ahead of the base after a squash merge`,
+        Number(ahead) > 0, `ahead=${ahead}`);
+    }
+    assertTrue("and the batch's tickets are on the base under its archive directory",
+      execSync("git ls-tree -r --name-only origin/main -- .workaholic/tickets/archive",
+        { cwd: fx.B, encoding: "utf8" }).includes("20260729000001-t1.md"));
+
+    const r = JSON.parse(run(fx.B, `${POSIX_SH} ${SCRIPTS.listClaims}`).stdout);
+    const by = Object.fromEntries(r.claims.map((c) => [c.unit, c]));
+    assertTrue("both claims are still reported", !!by[fx.mission.unit] && !!by[fx.batch.unit],
+      JSON.stringify(r.claims.map((c) => c.unit)));
+
+    // THE BATCH GRAIN: answered locally, network-free, and UNTOUCHED by the mission-grain
+    // change. This assertion is the proof nothing regressed — the fixture's origin is a local
+    // directory, so no lookup can succeed here and this verdict is reached from the tree alone.
+    assertEq("batch grain: a squash-merged batch claim reads superseded, with no network",
+      [by[fx.batch.unit].resume_reason, by[fx.batch.unit].resumable], ["superseded", false]);
+
+    // THE MISSION GRAIN: the answer this mission changed. It is reached through the
+    // merged-pull-request lookup, so in this offline fixture it is `unanswerable` and the row
+    // keeps today's verdict — which is the degradation contract holding, not the old scope rule.
+    assertEq("mission grain: with no reachable lookup the row keeps its local verdict",
+      by[fx.mission.unit].resume_reason !== "superseded", true);
+    assertTrue("and the lookup names the mission claim it could not answer for",
+      (r.merged_lookup_unanswered || []).some((u) => u.branch === fx.mission.branch),
+      JSON.stringify(r.merged_lookup_unanswered));
+    assertTrue("while the batch claim needed no lookup at all",
+      !(r.merged_lookup_unanswered || []).some((u) => u.branch === fx.batch.branch),
+      JSON.stringify(r.merged_lookup_unanswered));
+
+    // AND WITH THE LOOKUP ANSWERING `merged`, THE MISSION GRAIN NOW READS `superseded` —
+    // the behaviour the mission exists for. The transport is stubbed, so the suite stays
+    // offline; what is driven is the real chain: claims_scan -> claims_superseded ->
+    // claims_merged_state -> claim-merged.sh.
+    const bin = join(fx.B, ".stub-bin");
+    mkdirSync(bin, { recursive: true });
+    writeFileSync(join(bin, "gh"), `#!/bin/sh\necho '[{"number":1,"merged_at":"2026-08-26T00:00:00Z"}]'\n`);
+    chmodSync(join(bin, "gh"), 0o755);
+    const merged = JSON.parse(run(fx.B, `${POSIX_SH} ${SCRIPTS.listClaims}`, {
+      env: { ...process.env, PATH: `${bin}:${process.env.PATH}` },
+    }).stdout);
+    const m = Object.fromEntries(merged.claims.map((c) => [c.unit, c]));
+    assertEq("mission grain: a merged pull request makes the claim superseded",
+      [m[fx.mission.unit].resume_reason, m[fx.mission.unit].resumable], ["superseded", false]);
+    assertEq("and the batch grain is unchanged by it",
+      [m[fx.batch.unit].resume_reason, m[fx.batch.unit].resumable], ["superseded", false]);
+  } finally {
+    for (const d of [fx.origin, fx.A, fx.B]) rmSync(d, { recursive: true, force: true });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// A MERGED CLAIM IS NEVER OFFERED FOR RESUMPTION (2026-08-26).
+//
+// `parked_with_pr` and `report_incomplete` both answer `resumable: true`, and both were
+// reachable for a claim whose pull request had already merged. Measured: a mission unit was
+// offered `parked_with_pr` five days after its pull request merged, and taking that offer
+// costs a full story-and-pull-request cycle whose only correct outcome is to be closed.
+//
+// BOTH PATHS ARE COVERED, because they are different branches of the verdict chain: one has
+// work left on its branch, the other has a drained queue and never reported. And the last
+// assertion is the one that keeps this from being a blanket refusal — a claim that is
+// genuinely in flight is still offered.
+function testMergedClaimIsNeverResumable() {
+  const fx = makeSquashMergedClaims();
+  const bin = join(fx.B, ".stub-bin");
+  mkdirSync(bin, { recursive: true });
+  const stub = (body) => {
+    writeFileSync(join(bin, "gh"), `#!/bin/sh\n${body}\n`);
+    chmodSync(join(bin, "gh"), 0o755);
+  };
+  const withStub = { env: { ...process.env, PATH: `${bin}:${process.env.PATH}` } };
+  try {
+    // `parked_with_pr`: work left on the branch AND a story at the tip. The MISSION claim is
+    // driven to that shape, because it is the grain the local test cannot answer for — a
+    // batch claim's verdict comes from the tree and never reaches the lookup at all.
+    mkdirSync(join(fx.mission.worktree_path, ".workaholic/stories"), { recursive: true });
+    writeFileSync(join(fx.mission.worktree_path, `.workaholic/stories/${fx.mission.branch}.md`),
+      "---\ntype: Story\n---\n\n# s\n");
+    mkdirSync(join(fx.mission.worktree_path, ".workaholic/tickets/todo"), { recursive: true });
+    writeFileSync(join(fx.mission.worktree_path, ".workaholic/tickets/todo/20260729000099-more.md"),
+      "---\ncreated_at: 2026-07-29T00:00:99+09:00\nauthor: test@example.com\nmission: m1\n---\n\n# more\n");
+    const old = "2026-08-01T00:00:00+00:00";
+    execSync('git add -A && git commit -q -m "Report and queue more" && git push -q origin HEAD', {
+      cwd: fx.mission.worktree_path,
+      env: { ...process.env, GIT_COMMITTER_DATE: old, GIT_AUTHOR_DATE: old },
+    });
+    execSync("git fetch -q --prune origin", { cwd: fx.B });
+
+    stub("echo '[]'");
+    let by = Object.fromEntries(JSON.parse(run(fx.B, `${POSIX_SH} ${SCRIPTS.listClaims}`, withStub).stdout)
+      .claims.map((c) => [c.unit, c]));
+    assertEq("with no merged pull request the mission claim is offered, parked at its PR",
+      [by[fx.mission.unit].resume_reason, by[fx.mission.unit].resumable], ["parked_with_pr", true]);
+
+    stub(`echo '[{"number":1,"merged_at":"2026-08-26T00:00:00Z"}]'`);
+    by = Object.fromEntries(JSON.parse(run(fx.B, `${POSIX_SH} ${SCRIPTS.listClaims}`, withStub).stdout)
+      .claims.map((c) => [c.unit, c]));
+    assertEq("but a merged pull request makes it superseded, never parked_with_pr",
+      [by[fx.mission.unit].resume_reason, by[fx.mission.unit].resumable], ["superseded", false]);
+
+    // `report_incomplete`: a drained queue with NO story — the MANDATORY takeover tier, and
+    // the one that made this defect reachable at all. Same mission claim, driven to that
+    // shape: the story removed and the queue emptied.
+    execSync(`git rm -q .workaholic/stories/${fx.mission.branch}.md`
+      + " .workaholic/tickets/todo/20260729000099-more.md"
+      + " .workaholic/tickets/todo/20260729000009-m1-step.md"
+      + ' && git commit -q -m "Drain the queue" && git push -q origin HEAD', {
+      cwd: fx.mission.worktree_path,
+      env: { ...process.env, GIT_COMMITTER_DATE: old, GIT_AUTHOR_DATE: old },
+    });
+    execSync("git fetch -q --prune origin", { cwd: fx.B });
+
+    stub("echo '[]'");
+    by = Object.fromEntries(JSON.parse(run(fx.B, `${POSIX_SH} ${SCRIPTS.listClaims}`, withStub).stdout)
+      .claims.map((c) => [c.unit, c]));
+    assertEq("with no merged pull request a drained, unreported claim is a mandatory takeover",
+      [by[fx.mission.unit].resume_reason, by[fx.mission.unit].resumable], ["report_incomplete", true]);
+
+    stub(`echo '[{"number":1,"merged_at":"2026-08-26T00:00:00Z"}]'`);
+    by = Object.fromEntries(JSON.parse(run(fx.B, `${POSIX_SH} ${SCRIPTS.listClaims}`, withStub).stdout)
+      .claims.map((c) => [c.unit, c]));
+    assertEq("but a merged pull request makes it superseded, never report_incomplete",
+      [by[fx.mission.unit].resume_reason, by[fx.mission.unit].resumable], ["superseded", false]);
+
+    // THE SURVEY EXCLUDES IT BY NAME, with the reason that already exists.
+    const plan = JSON.parse(run(fx.B, `${POSIX_SH} ${SCRIPTS.planUnits}`, withStub).stdout);
+    assertTrue("the survey names the superseded claim rather than dropping it silently",
+      (plan.claimed || []).some((c) => c.unit === fx.mission.unit && c.resume_reason === "superseded"),
+      JSON.stringify(plan.claimed));
+
+    // `claim.sh resume` REFUSES IT BY NAME, so an operator learns the pull request merged
+    // rather than reading a generic denial (it reported `identity_unresolved` before).
+    const refused = run(fx.B, `${POSIX_SH} ${SCRIPTS.claim} resume ${fx.mission.unit}`, withStub);
+    const err = JSON.parse((refused.stderr || refused.stdout).trim());
+    assertEq("resume refuses a superseded claim under its own reason", err.reason, "superseded");
+    assertTrue("and says the work already reached the base",
+      /already reached the base/.test(err.detail || ""), err.detail);
+
+    // AND THIS IS NOT A BLANKET REFUSAL: with the lookup answering `not_merged` the same
+    // claim is resumable again — asserted last, because a change that simply stopped
+    // offering claims would pass every assertion above it.
+    stub("echo '[]'");
+    by = Object.fromEntries(JSON.parse(run(fx.B, `${POSIX_SH} ${SCRIPTS.listClaims}`, withStub).stdout)
+      .claims.map((c) => [c.unit, c]));
+    assertEq("a genuinely in-flight claim is still offered", by[fx.mission.unit].resumable, true);
+  } finally {
+    for (const d of [fx.origin, fx.A, fx.B]) rmSync(d, { recursive: true, force: true });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// A MISSION BEHIND A MERGED CLAIM IS SURVEYED AGAIN (2026-08-26).
+//
+// `claimed_superseded` kept the unit out of the offer, which is right for every OTHER claim
+// reason and wrong for this one: the claim holds no work, so its queued tickets are ordinary
+// backlog. Measured: a mission was still `active` at 2/3 acceptance with queued tickets behind
+// a claim whose pull request had merged five days earlier, and no survey would offer any of it.
+//
+// The last assertion is the guard: a mission behind a genuinely LIVE claim is still excluded,
+// so this is not a change that frees every claimed mission.
+function testSupersededMissionIsResurveyed() {
+  const fx = makeSquashMergedClaims();
+  const bin = join(fx.B, ".stub-bin");
+  mkdirSync(bin, { recursive: true });
+  const stub = (body) => {
+    writeFileSync(join(bin, "gh"), `#!/bin/sh\n${body}\n`);
+    chmodSync(join(bin, "gh"), 0o755);
+  };
+  const withStub = { env: { ...process.env, PATH: `${bin}:${process.env.PATH}` } };
+  const survey = () => JSON.parse(run(fx.B, `${POSIX_SH} ${SCRIPTS.planUnits}`, withStub).stdout);
+  try {
+    // WHILE THE CLAIM IS LIVE (no merged pull request) the mission stays out of the offer.
+    stub("echo '[]'");
+    let plan = survey();
+    assertTrue("a mission behind a live claim is not offered",
+      !plan.missions.some((m) => m.slug === "m1"), JSON.stringify(plan.missions.map((m) => m.slug)));
+    assertEq("and nothing is reported as re-surveyed", plan.resurveyed, []);
+
+    // ONCE THE CLAIM IS SUPERSEDED the mission comes back, and says so.
+    stub(`echo '[{"number":1,"merged_at":"2026-08-26T00:00:00Z"}]'`);
+    plan = survey();
+    assertTrue("a mission behind a superseded claim is offered again",
+      plan.missions.some((m) => m.slug === "m1"), JSON.stringify(plan.missions.map((m) => m.slug)));
+    assertTrue("and it is named as re-surveyed, with the dead claim branch",
+      plan.resurveyed.some((r) => r.kind === "mission" && r.id === "m1" && r.claim === fx.mission.branch),
+      JSON.stringify(plan.resurveyed));
+    assertTrue("never as an exclusion — excluded[] names what the survey DROPPED",
+      !plan.excluded.some((e) => e.id === "m1"), JSON.stringify(plan.excluded));
+
+    // THE CLAIM ROW IS UNTOUCHED: this frees the work, it does not revive the branch.
+    const claimed = plan.claimed.find((c) => c.unit === fx.mission.unit);
+    assertEq("the claim row stays superseded and not resumable",
+      [claimed.resume_reason, claimed.resumable], ["superseded", false]);
+    assertEq("and it is offered for no takeover", plan.resumable, []);
+
+    // THE GUARD: only `superseded` is stepped over. `m1`'s claim answers through the lookup,
+    // so flipping the stub back is enough to put it behind a live claim again.
+    stub("echo '[]'");
+    plan = survey();
+    assertTrue("with the claim live again the mission is excluded once more",
+      plan.excluded.some((e) => e.id === "m1" && e.reason.startsWith("claimed")),
+      JSON.stringify(plan.excluded));
+  } finally {
+    for (const d of [fx.origin, fx.A, fx.B]) rmSync(d, { recursive: true, force: true });
+  }
+}
+
 // A MISSION unit's mission.md is not moved by archive.sh, so its artifact list was never
 // hit by this defect -- asserted rather than assumed, because the unit-id check would
 // mask an artifact-list regression there.
@@ -14710,11 +15164,20 @@ function testSupersededClaimIsNotOffered() {
     // so the base still carries the todo/ paths and the row is observable; a real
     // move-based recovery leaves no todo/ entry and so no row, and the claim's own
     // `superseded` verdict above is what carries the fact there.
-    assertTrue("and names its tickets claimed_superseded rather than claimed_reported",
-      plan.excluded.some((e) => e.id === t1 && e.reason === "claimed_superseded"),
-      JSON.stringify(plan.excluded));
-    assertTrue("neither ticket is offered as fresh backlog either",
-      !plan.backlog.some((x) => x.path === t1 || x.path === t2), JSON.stringify(plan.backlog));
+    // ITS TICKETS COME BACK TO THE OFFER (2026-08-26, mission
+    // `tell-a-merged-claim-from-a-live-one-at-both-grains`). They were excluded
+    // `claimed_superseded` when the verdict shipped, which left a mission `active` at 2/3
+    // acceptance with queued tickets nobody could reach behind a dead claim. A claim proved
+    // empty must not hold its work either, so the tickets are ordinary backlog again — and a
+    // run takes them on a FRESH claim, because the old branch cannot land.
+    assertTrue("its tickets are offered again as ordinary backlog",
+      plan.backlog.some((x) => x.path === t1) && plan.backlog.some((x) => x.path === t2),
+      JSON.stringify(plan.backlog));
+    assertTrue("named as re-surveyed, with the dead claim branch",
+      plan.resurveyed.some((x) => x.id === t1 && x.claim === batch.branch),
+      JSON.stringify(plan.resurveyed));
+    assertTrue("and never as an exclusion — excluded[] names what the survey DROPPED",
+      !plan.excluded.some((e) => e.id === t1 || e.id === t2), JSON.stringify(plan.excluded));
 
     // NOTHING ACTS ON IT. The branch and its commits are exactly where they were.
     assertTrue("the branch still exists after the verdict",
@@ -15321,6 +15784,11 @@ const tests = [
   ["drive release-claim where the remote refuses deletes", testReleaseClaimDenyDeletes],
   ["drive/land-unit.sh: the third route, and the human gate that guards it", testLandUnit],
   ["drive claim protocol: a claim survives its tickets being archived", testClaimSurvivesArchive],
+  ["drive/claim-merged.sh: merged, not merged, or unanswerable", testClaimMergedReader],
+  ["drive claim protocol: the merged lookup degrades by name", testMergedLookupDegradesByName],
+  ["drive claim protocol: the merged-claim shape at both grains", testMergedClaimShapeAtBothGrains],
+  ["drive claim protocol: a merged claim is never offered for resumption", testMergedClaimIsNeverResumable],
+  ["drive survey: a mission behind a merged claim is surveyed again", testSupersededMissionIsResurveyed],
   ["drive claim protocol: a mission claim's artifact is unaffected", testMissionClaimArtifactsUnaffected],
   ["drive claim protocol: a merged stamp is history, not a claim", testMergedStampIsHistoryNotAClaim],
   ["drive claim protocol: offline reader/writer asymmetry", testClaimOfflineAsymmetry],
@@ -19532,6 +20000,57 @@ function testStalledUnitsStep() {
     // IT ASKS; IT NEVER CLAIMS, DRIVES OR RESOLVES.
     assertEq("asking touches no claim",
       execSync("git status --porcelain", { cwd: A, encoding: "utf8" }).trim(), "");
+
+    // A `superseded` CLAIM IS A FACT, NOT A QUESTION (2026-08-26). Its work already reached
+    // the base, so there is nothing to look at and nothing to decide. The cost of asking
+    // anyway is not neutral: the asked-once ledger then delivers the one REAL stalled unit
+    // inside a stream a person has learned to skip. Measured — three merged pull requests
+    // were each being asked about.
+    //
+    // The batch claim's tickets are archived on the base, which is the local, network-free
+    // route to `superseded`; the mission claim stays an ordinary stall beside it, so the
+    // assertion shows the filter is on the verdict and not on claims in general.
+    {
+      const t1 = `.workaholic/tickets/todo/${TEST_SLUG}/20260729000001-t1.md`;
+      // The claim branch name is minted from the clock TO THE SECOND, so a second claim
+      // inside the same second collides on the name and is refused — nondeterministically,
+      // which is exactly the flake this stepped off the boundary to avoid.
+      tickSecond();
+      const claimed = run(A, `${CLAIM} batch ${t1}`);
+      assertEq("the second claim in this fixture is accepted", claimed.status, 0);
+      const b = JSON.parse(claimed.stdout);
+      const arch = `.workaholic/tickets/archive/work-20260101-000000`;
+      mkdirSync(join(A, arch), { recursive: true });
+      writeFileSync(join(A, arch, "20260729000001-t1.md"), "---\nstatus: done\n---\n\n# T1\n");
+      execSync(`git add -A && git commit -q -m "Land it elsewhere" && git push -q origin main`, { cwd: A });
+      // The heartbeat window has to be opened too, not just the staleness threshold: the
+      // verdict chain checks `claim_active` BEFORE `superseded`, so a claim made seconds ago
+      // never reaches the verdict under test.
+      const OPEN = "WORKAHOLIC_CLAIM_STALE_HOURS=0 WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES=0";
+      const s = JSON.parse(run(A, `${OPEN} ${STEP} --tick 20260823-020000 --root ${A}`).stdout);
+      const asked = s.needs_agent[0].stalled.map((x) => x.unit);
+      assertTrue("a superseded claim is never asked about",
+        !asked.includes(b.unit), JSON.stringify(asked));
+      assertTrue("while the genuinely stalled unit beside it still is",
+        asked.includes("m1"), JSON.stringify(asked));
+      assertTrue("and it is counted in the log as a finding instead",
+        /1 finished \(superseded\)/.test(s.summary), s.summary);
+
+      // THE SUMMARY CARRIES NO AGE, so the moderation diff cannot call this step changed
+      // hourly by construction — the shape `📦 Release Preparation` was retired for. The
+      // renderer normalises out a timestamp, a bare hex name and a clock time, and ONLY
+      // those, so an age in hours would survive normalisation and move every tick.
+      assertTrue("the summary carries no age in hours", !/\d+h/.test(s.summary), s.summary);
+      assertTrue("and neither does the root event", !/\d+h/.test(s.event), s.event);
+      assertTrue("the event names the repository event",
+        /have not moved for a day or more|has not moved for a day or more/.test(s.event), s.event);
+
+      // TWO CONSECUTIVE TICKS OVER AN UNCHANGED SET PRODUCE AN UNCHANGED SUMMARY, which is
+      // exactly what the diff compares.
+      const later = JSON.parse(run(A, `${OPEN} ${STEP} --tick 20260823-030000 --root ${A}`).stdout);
+      assertEq("an unchanged stalled set produces an identical summary an hour later",
+        later.summary, s.summary);
+    }
 
     // A DEGRADED READ IS NAMED. Unmerged remote branches are the only claim oracle, so a
     // scan that could not reach the remote has found nothing at all -- not "nothing".

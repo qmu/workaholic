@@ -2,7 +2,7 @@
 type: Mission
 title: Attribute an inbound ask to the direction it answers
 slug: attribute-an-inbound-ask-to-the-direction-it-answers
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-26T04:18:55+00:00
 author: a@qmu.jp
@@ -46,7 +46,7 @@ already reads — and reports it, `unattributed` included.
       `feedback:` line, written in one place (#20260826042021-carry-the-direction-onto-a-swept-ask.md)
 - [x] `/specificate` decides the direction for an ask that names none, and reports the
       decision — the slug or `unattributed` — on both its surfaces (#20260826042021-decide-and-report-the-direction-for-an-ask-that-names-none.md)
-- [ ] The chain test walks the sweep's ask, and every document the change moves states
+- [x] The chain test walks the sweep's ask, and every document the change moves states
       the extended bound and its limits (#20260826042021-walk-the-sweep-s-ask-in-the-chain-test.md)
 
 ## Changelog
@@ -56,3 +56,5 @@ already reads — and reports it, `unattributed` included.
 - 2026-08-26 — ticket archived — 20260826042021-carry-the-direction-onto-a-swept-ask.md
 - 2026-08-26 — ticket archived — 20260826042021-carry-the-direction-onto-an-fb-ask.md
 - 2026-08-26 — ticket archived — 20260826042021-decide-and-report-the-direction-for-an-ask-that-names-none.md
+- 2026-08-26 — ticket archived — 20260826042021-walk-the-sweep-s-ask-in-the-chain-test.md
+- 2026-08-26 — mission achieved — mission.md

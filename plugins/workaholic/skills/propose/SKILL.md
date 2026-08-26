@@ -337,6 +337,14 @@ nothing precisely when the direction is gated.
   `/specificate`. Those are uncited for ordinary reasons, and the attribution stays
   transitive and lossy exactly as it was.
 
+  **The bound widened on 2026-08-26 and its limits did not.** It now covers work emitted from
+  an ask filed by `/propose`, by this routine's own **inbound sweep**, or by **`/fb`'s in-repo
+  path** — the loop's three writers, each of which now stamps the `feedback:` line through one
+  writer — and the chain test walks each header shape. Still outside it: work a run never
+  emitted, an ask judged to answer no direction, a ref that did not resolve, an artifact
+  written by hand, and a direction `/specificate` **judged** rather than read off a line,
+  because the floor is keyed on the ask's own refs.
+
 **A gate that cannot be read is not a gate**: if the open-proposal list cannot be fetched, the
 whole tick refuses (`inbox_unreadable`) rather than proposing blind.
 

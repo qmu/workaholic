@@ -533,6 +533,115 @@ function testClosableMissionsStep() {
   } finally { cleanup(A); }
 }
 
+// ---------- direction-health: the three refusals, pinned (2026-08-26) ----------
+// The three refusals are the reason this reading was admissible at all, and PROSE HAS NOT HELD
+// THEM: the two-writers rule on the strategy artifact has been re-decided three times. A test is
+// what stops a fourth. Pinned here: the step writes nothing under `.workaholic/strategies/`, its
+// closure reaches neither `close.sh` nor `open-proposal.sh`, the artifact still has exactly two
+// writers, and running the step changes no `/propose` gate outcome.
+//
+// BOUND, STATED RATHER THAN IMPLIED (the same spirit as `attributed-work.sh` naming its own
+// lossiness): the writer count is a grep over `strategy/scripts/`, so a writer reached
+// INDIRECTLY — through a helper that itself writes — would pass. It catches the failure that has
+// actually happened three times (a new script that writes the file directly), not every possible
+// one.
+function testDirectionHealthRefusals() {
+  const STEP = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-direction-health.sh");
+  const SURVEY = join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/survey-strategies.sh");
+  const STRATEGY_SCRIPTS = join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts");
+  const A = makeRepo("main");
+  const day = (n) => {
+    const d = new Date(Date.UTC(2026, 7, 26) + n * 86400000);
+    return d.toISOString().slice(0, 10);
+  };
+  const mk = (slug, target) => {
+    mkdirSync(join(A, ".workaholic/strategies"), { recursive: true });
+    writeFileSync(join(A, `.workaholic/strategies/${slug}.md`),
+      `---\ntype: Strategy\ntitle: T ${slug}\nslug: ${slug}\nstatus: active\ntarget_date: ${target}\n` +
+      `assignees: [test@example.com]\nfeedback: [20260101000000-a.md]\n---\n\n## Aim\n\na\n\n## Schedule\n\ns\n`);
+  };
+  try {
+    mkdirSync(join(A, ".workaholic/feedbacks"), { recursive: true });
+    writeFileSync(join(A, ".workaholic/feedbacks/20260101000000-a.md"), "---\ntype: Feedback\n---\n\nx\n");
+    mk("gone", day(-400));   // past its target date
+    mk("quiet", day(400));   // live, in date, nothing answering it
+    // The open-proposal gate is the survey's one network call, so it is SUPPLIED rather than
+    // stubbed: the drilled path is the real one.
+    const open = join(A, "open.json");
+    writeFileSync(open, '{"ok": true, "identity": "test", "proposals": []}\n');
+    execSync("git add -A && git commit -q -m seed", { cwd: A });
+
+    // The gate outcomes BEFORE the step runs.
+    const surveyOf = () => {
+      const j = JSON.parse(run(A, `${POSIX_SH} ${SURVEY} --open-proposals ${open} "14 days ago" ${join(A, ".workaholic")}`).stdout);
+      return {
+        selected: j.selected.slice().sort(),
+        eligible: j.eligible.map((r) => r.slug).sort(),
+        refused: j.refused.map((r) => `${r.slug}:${r.reason}`).sort(),
+      };
+    };
+    const before = surveyOf();
+    const treeOf = () => execSync("git -c core.fileMode=false status --porcelain -- .workaholic/strategies",
+      { cwd: A, encoding: "utf8" }).trim();
+    const treeBefore = treeOf();
+
+    const j = JSON.parse(run(A, `${POSIX_SH} ${STEP} --tick 20260826-000000 --root ${A} --open-proposals ${open}`).stdout);
+    assertEq("the step reports", [j.step, j.status], ["direction-health", "ok"]);
+    assertEq("and names exactly the two non-live readings",
+      j.needs_agent[0].directions.map((d) => d.key).sort(),
+      ["direction-dormant:quiet", "direction-overdue:gone"]);
+
+    // 1. IT WRITES NOTHING UNDER `.workaholic/strategies/`.
+    assertEq("the strategies area is byte-identical after the step", treeOf(), treeBefore);
+    assertEq("and the step wrote nothing anywhere",
+      execSync("git status --porcelain", { cwd: A, encoding: "utf8" }).trim(), "");
+
+    // 2. ITS CLOSURE REACHES NEITHER WRITER. No allowlist, on purpose.
+    const closure = [STEP, join(STRATEGY_SCRIPTS, "direction-state.sh")]
+      .map((f) => readFileSync(f, "utf8"))
+      .join("\n")
+      // Comments are prose ABOUT the refusal and naming it there is the point; the test reads
+      // what the step can execute.
+      .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+    for (const forbidden of ["close.sh", "open-proposal.sh"]) {
+      assertTrue(`the step's closure never reaches ${forbidden}`,
+        !closure.includes(forbidden), closure.split("\n").filter((l) => l.includes(forbidden)).join("\n"));
+    }
+
+    // 3. THE ARTIFACT STILL HAS EXACTLY TWO WRITERS, and the reader is not one of them.
+    // A writer is a script that REDIRECTS INTO or `mv`s ONTO a path under `strategies/`.
+    // Reading that path is not writing it — `read.sh` and `attributed-work.sh` both open the
+    // same file — so the detection resolves the path variables first (one hop, `DIR` then
+    // `FILE`) and then asks what is done with them.
+    const pathVars = (body) => {
+      const assigns = [...body.matchAll(/^\s*([A-Za-z_][A-Za-z0-9_]*)=(.*)$/gm)].map((m) => [m[1], m[2]]);
+      const set = new Set();
+      for (let i = 0; i < 4; i++) {
+        for (const [n, v] of assigns) {
+          if (/strategies/.test(v) || [...set].some((x) => v.includes("$" + x) || v.includes("${" + x))) set.add(n);
+        }
+      }
+      return [...set];
+    };
+    const writers = readdirSync(STRATEGY_SCRIPTS)
+      .filter((f) => f.endsWith(".sh"))
+      .filter((f) => {
+        const body = readFileSync(join(STRATEGY_SCRIPTS, f), "utf8")
+          .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+        return pathVars(body).some((v) =>
+          new RegExp(`(>\\s*"?\\$\\{?${v}\\b)|(\\bmv\\s+[^\\n]*"?\\$\\{?${v}\\b)`).test(body));
+      })
+      .sort();
+    assertEq("the strategy artifact still has exactly two writers", writers, ["close.sh", "create.sh"]);
+    assertTrue("and direction-state.sh is not one of them", !writers.includes("direction-state.sh"), writers.join(","));
+
+    // 4. NO `/propose` GATE OUTCOME MOVED. The weakest assertion of the four — the step is a
+    // pure read and could pass it trivially — and kept because the failure it guards against,
+    // a future edit that lets a READING lift a GATE, is the one the ask names by name.
+    assertEq("the survey's gate outcomes are unchanged by the step", surveyOf(), before);
+  } finally { cleanup(A); }
+}
+
 // ---------- archive.sh closes a mission it can PROVE is finished (2026-08-23) ----------
 // The gate already ticked the acceptance item and stopped one step short of noticing it was
 // the last one, so a finished mission sat `active` and the survey kept listing it. What is
@@ -15365,6 +15474,7 @@ const tests = [
   ["strategy/work-kind.sh: describing work does not gate a building aim", testDescribingWorkDoesNotGateABuildingAim],
   ["drive/archive.sh: closes a mission it can prove is finished", testArchiveClosesAProvenMission],
   ["moderate/step-closable-missions.sh: finished, and still open", testClosableMissionsStep],
+  ["moderate/step-direction-health.sh: the three refusals hold", testDirectionHealthRefusals],
   ["moderate: the tick log survives the container that wrote it", testModeratePersist],
   ["moderate: the lines written after the persist reach the base too", testModeratePersistCarriesLateLines],
   ["moderate: the unattended contract is in the files, not in intent", testModerateUnattendedContract],

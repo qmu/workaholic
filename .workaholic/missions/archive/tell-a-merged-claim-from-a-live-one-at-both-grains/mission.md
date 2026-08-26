@@ -57,3 +57,4 @@ behind it is re-surveyable. Nothing deletes a branch or closes a pull request.
 - 2026-08-26 — ticket archived — 20260826113204-stop-asking-about-a-finished-claim.md
 - 2026-08-26 — ticket archived — 20260826113204-drill-the-merged-claim-readings-with-no-network.md
 - 2026-08-26 — mission achieved — mission.md
+- 2026-08-26 — story reported — work-20260826-122328.md

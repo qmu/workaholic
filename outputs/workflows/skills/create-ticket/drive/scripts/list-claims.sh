@@ -16,8 +16,9 @@
 #            {"unit": "...", "branch": "work-...", "artifacts": ["..."],
 #             "last_commit_at": "2026-...", "stale": false, "author": "...",
 #             "resumable": false, "resume_reason": "claim_active"}, ...]}
-# `resume_reason` is never empty: `heartbeat_lapsed` (resumable), `claim_active`,
-# `foreign_identity`, `identity_unresolved`, `shallow_history`, or `queue_drained`.
+# `resume_reason` is never empty: `heartbeat_lapsed`, `parked_with_pr` or
+# `report_incomplete` (all resumable), `claim_active`, `foreign_identity`,
+# `identity_unresolved`, `shallow_history`, or `queue_drained`.
 #
 # `shallow: true` means this clone's history is TRUNCATED, so "is this branch merged"
 # was not answerable for every branch. lib/claims.sh deepens a shallow clone before
@@ -36,10 +37,12 @@
 # `resumable` IS ALSO A REPORT HERE -- this script takes nothing over. It exists so an
 # operator can read a unit's recoverability, and the reason it is not recoverable,
 # WITHOUT running a survey or a takeover: `claim_active` says a run is still working it,
-# `queue_drained` says the unit FINISHED and is waiting on a human (its PR), not on a
-# runner, `foreign_identity` says it is not this runner's to take at any age, and
-# `identity_unresolved` says this checkout cannot say who it is. Acting on the verdict is
-# claim.sh's `resume` path.
+# `queue_drained` says the unit FINISHED and REPORTED and is waiting on a human (its PR),
+# not on a runner, `report_incomplete` says its queue is drained but it never opened a
+# pull request -- a run that died between the drive and the report, whose work is pushed
+# and which nobody has been told about, and which IS recoverable --, `foreign_identity`
+# says it is not this runner's to take at any age, and `identity_unresolved` says this
+# checkout cannot say who it is. Acting on the verdict is claim.sh's `resume` path.
 
 set -eu
 

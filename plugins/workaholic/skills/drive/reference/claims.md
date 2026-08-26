@@ -72,10 +72,18 @@ on another machine coordinates through exactly the same artifact.
     branch delivered them is exactly what the test must not care about), chosen over "the
     branch's diff is contained in the base" because the measured recovery landed
     **refined** rather than verbatim and containment would have answered `false` on the
-    very branch that provoked the rule. It **answers for batch units and leaves mission
-    units on today's reading**, stated rather than implied: a mission claim stamps only
-    `mission.md`, which driving never archives, and the equivalent would need a second
-    parser of the many-valued `mission:` relation for a shape nothing has measured.
+    very branch that provoked the rule. **It answers at both grains since 2026-08-26.**
+    A batch claim is answered from the tree, first and network-free, exactly as before.
+    A **mission** claim — which stamps only `mission.md`, a file driving never archives —
+    is answered by the merged-pull-request lookup (`claim-merged.sh`, above): *is there a
+    merged pull request whose head is this branch?* is grain-agnostic and reads no
+    artifact, so the many-valued `mission:` relation still has exactly one parser. The
+    earlier scope rule (`false` for any non-ticket artifact, "a shape nothing has
+    measured") is **replaced along with its reason**: the shape was measured on this
+    repository the same day — three of five claims headed pull requests #521, #537 and
+    #546, all merged, all mission units, one offered `resumable: true` five days after its
+    own pull request merged. An `unanswerable` lookup answers `false`, which is precisely
+    the verdict that grain had before, so a degraded run loses nothing and gains nothing.
     Measured 2026-08-26, on the first run to hold the `report_incomplete` tier: it resumed
     `batch-20260819063000` exactly as designed, and the unit had been recovered onto
     `work-20260821-221006` five days earlier — ten merge conflicts, three of them

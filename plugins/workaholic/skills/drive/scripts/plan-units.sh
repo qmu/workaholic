@@ -191,6 +191,9 @@ doc_title() {
 
 # --- the claims in flight -----------------------------------------------------
 FETCHED=$(claims_fetch)
+# The merged lookup reads this in the parent shell: `claims_fetch` runs in a command
+# substitution, so the flag it sets there dies with that subshell (see lib/claims.sh).
+CLAIMS_FETCH_OK="$FETCHED"
 # Read AFTER the fetch, which deepens when it can: this must describe the history the
 # scan below actually saw, not the one the container was cloned with.
 SHALLOW=$(claims_shallow)

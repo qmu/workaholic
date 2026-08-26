@@ -85,6 +85,9 @@ case "$heartbeat_minutes" in
 esac
 
 fetched=$(claims_fetch)
+# The merged lookup reads this in the parent shell: `claims_fetch` runs in a command
+# substitution, so the flag it sets there dies with that subshell (see lib/claims.sh).
+CLAIMS_FETCH_OK="$fetched"
 # AFTER the fetch: claims_fetch deepens when it can, so this reports the state the scan
 # below actually ran against rather than the one the container started in.
 shallow=$(claims_shallow)

@@ -143,10 +143,20 @@ and every abort reports a machine-readable reason.
    Otherwise, in this precedence: two or more units → a mission with its ticket set
    (steps 8–9); atomic → one loose ticket (step 9's loose form, no mission); a
    **date + an owner + an aim with no decomposable plan** → one strategy (step 9b);
-   none of those → record-only. **The four are an ordered rule and are consulted first**; *when unsure, record-only* applies only to an ask they did not resolve, never over one they did (SKILL.md, *The form follows the work's shape*). Uncertainty about how to decompose is not uncertainty about whether it decomposes. Name which rule decided — `precedence:<form>` or `unsure:<what>` — and name what made you
+   none of those → record-only. **An ask that already names a mission —
+   a title, the experience it demands and an ordered ticket set, the shape `/propose`
+   writes since 2026-08-26 — takes row 1 and is emitted as *that* plan, in that order**
+   (SKILL.md, *An ask that already names a mission is emitted as that mission*): the run
+   does not re-decompose it, and it reports `precedence:mission` naming the ask as the
+   plan's source. Every floor still applies over the top of it, and a named plan that
+   breaches one is **demoted and reported by name**, never trimmed to fit. **The four are an ordered rule and are consulted first**; *when unsure, record-only* applies only to an ask they did not resolve, never over one they did (SKILL.md, *The form follows the work's shape*). Uncertainty about how to decompose is not uncertainty about whether it decomposes. Name which rule decided — `precedence:<form>` or `unsure:<what>` — and name what made you
    unsure in step 10's PR body.
 
-8. **Draft the mission** (mission form only), in the publish tree:
+8. **Draft the mission** (mission form only, and only when step 9's extend-or-mint judgment
+   says *mint*), in the publish tree. **When the ask named the mission**, its title,
+   `## Experience` and acceptance sketch come from the ask rather than from a fresh reading
+   of it — the run fills the scaffold with the plan it was handed, and reports
+   `precedence:mission` naming the ask as its source:
    - `bash ${CLAUDE_PLUGIN_ROOT}/skills/specificate/scripts/scaffold-draft.sh "<title>" --assignee <the triggering issue's assignee> <feedback-filename>...`
      — the filename from step 3, **followed by any refs step 3b carried forward**. Omit
      `--assignee` when no person was assigned (the mission is then team-owned); never
@@ -157,6 +167,14 @@ and every abort reports a machine-readable reason.
      and never seed `assignees` beyond the flag or `merge_policy`.
 
 9. **Emit the tickets**, in the publish tree.
+
+   **First, extend or mint** (SKILL.md, *A strategy is not a mission factory*). When the ask
+   advances a strategy that already has an **active** mission attributed to it
+   (`strategy/scripts/attributed-work.sh`, the one reader — read `waiting_mission_slugs`),
+   the decomposition lands as **tickets into that mission**: emit them with that mission's
+   slug, stamp their acceptance links there, and skip step 8 entirely. Mint a new mission
+   only when the existing one is closed, or when its `## Experience` cannot honestly cover
+   the work. **Report which of the two you judged**, either way.
 
    For a **mission** proposal, emit its whole set — two or more, always:
    - `bash ${CLAUDE_PLUGIN_ROOT}/skills/specificate/scripts/scaffold-proposed-ticket.sh "<title>" <mission-slug> [type] [layer] --assignee <the same assignee>`,

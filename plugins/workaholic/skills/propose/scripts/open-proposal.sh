@@ -57,11 +57,27 @@
 # become is a machine conversation a person cannot follow.
 #
 # ═══ THE FLOOR IS PRESENCE, NEVER QUALITY — AND THAT IS THE POINT ════════════════════
-# `--move` is required and closed-set, and the body must carry three headings:
+# `--move` is required and closed-set, and the body must carry five headings:
 #
 #   ## What to change                       the change, in the imperative
 #   ## Why this commits to the strategy     the tie to the Aim, not to the codebase
 #   ## What this is chosen against          the fork not taken
+#   ## Experience                           what the mission demands, once it lands
+#   ## Tickets                              the ordered set, two or more
+#
+# THE UNIT IS A MISSION, NOT A CHANGE (2026-08-26, the operator's ask). A proposal plans a
+# whole mission — a title (the issue's), the experience it demands, and an ordered ticket
+# set — and the move is declared over that mission rather than over one edit. The
+# anti-housekeeping effect comes from the SCALE as much as from the refusals: a
+# mission-sized proposal cannot be "add a test" without saying so out loud.
+#
+# `## Tickets` carries a **two-or-more** floor, `under_planned`, mirroring
+# `mission/scripts/check-floor.sh` in both discipline and wording: the count is judged in
+# one place and the refusal NAMES THE ALTERNATIVE, because a proposal naming one unit of
+# work is a plain ticket's worth of direction, not a mission's. The ruled scale — roughly
+# 7–8 tickets, with a follow-up repair mission of 3–4 available — is stated in
+# `SKILL.md` and stays the RUN'S JUDGEMENT: a floor is checkable, "roughly seven" is not,
+# and this script has never pretended to grade a proposal.
 #
 # The third is the anti-hedging floor and the one that does the most work. `/propose` is
 # defined against housekeeping: "tidy this up", "the docs drifted", "add a test" are
@@ -111,9 +127,21 @@ esac
 [ -n "$BODY_FILE" ] && [ -f "$BODY_FILE" ] || refuse "no_body" "a readable body file is required"
 [ -s "$BODY_FILE" ] || refuse "no_body" "the body file is empty"
 
-for heading in "## What to change" "## Why this commits to the strategy" "## What this is chosen against"; do
+for heading in "## What to change" "## Why this commits to the strategy" "## What this is chosen against" "## Experience" "## Tickets"; do
   grep -qxF "$heading" "$BODY_FILE" || refuse "missing_section" "the body carries no '${heading}' section"
 done
+
+# The ticket floor, counted over the `## Tickets` section only — an ordered list item or a
+# bullet, up to the next `## ` heading.
+TICKETS=$(awk '
+/^## Tickets[ \t]*$/ { inside = 1; next }
+inside && /^## / { inside = 0 }
+inside && /^[ \t]*([0-9]+\.|[-*])[ \t]+[^ \t]/ { n++ }
+END { print n + 0 }
+' "$BODY_FILE")
+if [ "$TICKETS" -lt 2 ]; then
+  refuse "under_planned" "the '## Tickets' section names ${TICKETS} ticket(s); a mission is proposed with two or more. One unit of work is a plain ticket's worth of direction - say so in the body and propose a mission that decomposes, or let /fb carry the bare direction."
+fi
 
 READ="$(sh "${STRATEGY_SCRIPTS}/read.sh" "$STRATEGY" "$ROOT" 2>/dev/null || true)"
 [ -n "$READ" ] || refuse "strategy_unreadable" "read.sh produced no output for ${STRATEGY}"

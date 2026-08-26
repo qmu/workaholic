@@ -2,7 +2,7 @@
 type: Mission
 title: Turn the loop at mission granularity
 slug: turn-the-loop-at-mission-granularity
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-26T02:23:22+00:00
 author: a@qmu.jp
@@ -59,3 +59,5 @@ that strategy's mission is finished, so the loop turns one mission per strategy 
 - 2026-08-26 — ticket archived — 20260826022347-bound-the-brake-to-one-mission-per-strategy.md
 - 2026-08-26 — ticket archived — 20260826022347-emit-the-mission-the-ask-already-planned.md
 - 2026-08-26 — ticket archived — 20260826022347-make-the-strategy-a-mission-belongs-to-visible.md
+- 2026-08-26 — ticket archived — 20260826022347-update-every-document-the-mission-grain-moves.md
+- 2026-08-26 — mission achieved — mission.md

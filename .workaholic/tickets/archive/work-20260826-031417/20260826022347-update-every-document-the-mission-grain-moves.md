@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-26T02:23:47+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on: 20260826022347-bound-the-brake-to-one-mission-per-strategy.md
@@ -86,3 +87,51 @@ change at a time.
 - The per-commit changed-lines ceiling (500 additions) is a real constraint on a documentation
   sweep. Split by surface — `CLAUDE.md`, the READMEs, the runbooks, the drill — rather than
   taking one `override`-tier finding for the whole thing.
+
+## Final Report
+
+Development completed as planned, split by surface into four commits so the documentation sweep
+does not take one `override`-tier finding for the whole thing:
+
+- `CLAUDE.md` — the `/propose` and `/specificate` rows and the `.workaholic/` attribution
+  paragraph state the mission grain, the re-expressed brake, the named-plan rule and the inverse
+  strategy read.
+- `README.md` and `.workaholic/README.md` — the loop as a reader first meets it.
+- `docs/loop-engineering-workflow.md` (a **fourteenth round**, S1–S6, recording the ruling and
+  every rejected fork), `docs/proposal-loop-runbook.md` (§4's form step) and
+  `docs/loop-drill-runbook.md` (§5g and five new row entries).
+- `plugins/workaholic/rules/workaholic.md` — the strategy↔mission link is derived, never stored.
+
+Two surfaces were checked and deliberately **not** touched, which is what the ticket asked for
+rather than a silent omission:
+
+- **The routine templates.** `workaholify/routines/propose.md` and `specificate.md` name post
+  formats and an environment; `/propose` posts nothing and neither template's prompt shape or
+  environment moved, and the templates are pinned byte-identical against
+  `notify/reference/notifications.md` by the suite. Touching them would have been churn.
+- **`docs/drive-loop-runbook.md`** — it does not mention `/propose` at all, and the drive loop's
+  mechanics did not move.
+
+`scripts/e2e/loop-drill.sh` was extended in the two earlier tickets of this mission
+(`verify-propose` gained the mission-shape floor, the two-ticket floor, the refusal's
+alternative, the drained-queue gate and its release — 15 load-bearing rows, all passing, no
+network). The chain's second half, `verify-specificate`, requires a seeded issue number and a
+live loop, so *the mission-grain chain end to end* is drillable only with a seed; the runbook now
+says so in §5g rather than implying otherwise.
+
+R4 of the thirteenth round was **answered in place rather than rewritten**: its `over_cap` and
+"one proposal per strategy" clauses are superseded, and the paragraph now says so and points at
+S5, as that document's convention requires.
+
+### Discovered Insights
+
+- **Insight**: One prose reference expanded the generated bundle by ~40,000 lines.
+  **Context**: Naming `${CLAUDE_PLUGIN_ROOT}/skills/strategy/scripts/mission-strategy.sh` in
+  `mission/reference/command-flows.md` pulled strategy's whole transitive script closure — and
+  through it drive, ship, story, specificate, check-deps and system-safety — into the `mission`
+  and `catch` bundles. The build is correct (a portable bundle must be self-contained) and
+  idempotent, but a reference in a reference document is not a cheap edit here.
+- **Insight**: A superseded decision row is answered in place, not deleted.
+  **Context**: `docs/loop-engineering-workflow.md` is a record of rulings, so R4 keeps its own
+  words and gains a parenthetical naming what moved and where. Deleting it would erase the
+  reasoning the new round is arguing with.

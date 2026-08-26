@@ -313,6 +313,29 @@ no second derivation) and asks the strategy's assignee once. The alternatives we
 named itself on every tick and still hid a day of starvation — and the proposal issue says
 nothing precisely when the direction is gated.
 
+### Overdue: has the date passed
+
+`pace` answers *will this direction arrive*. It cannot answer *has its date already gone*, and
+must not be asked to: `late` requires `(.landed | length) == 0`, so a direction that sailed past
+its `target_date` **while producing work** reads `on_course`. It is then refused
+`past_target_date` — a correct refusal — and produces no proposal and no question, forever.
+
+`survey-strategies.sh` emits **`overdue`** as its own boolean on every surveyed row, eligible and
+refused alike, `true` exactly when `days_to_target < 0`. The refused case is the whole point: a
+reader that saw only `eligible` would never see a direction whose date has gone.
+
+**It changes no gate.** `overdue` is computed *before* `refusal`, so `past_target_date` refuses
+exactly the strategies it refused before, `pace` is byte-identical, the sort is untouched, and
+`selected` does not move. Folding it into `pace` as a fourth value is refused: one field
+answering two questions is how the two drift.
+
+**Boundaries, stated rather than tuned.** A row with no resolvable `target_date` has a `null`
+`days_to_target` and is never `overdue` — a malformed strategy is not a late one. `days_to_target`
+is computed against a UTC `$today`, so a direction expiring **today** reads `0` and is not yet
+overdue.
+
+Who is told is `/moderate`'s business, not this routine's, for the reason `pace` records above.
+
 - **`no_feedback_refs` is the answer to the lossy reader.** `attributed-work.sh` walks
   `strategy.feedback[] ∩ artifact.feedback[]` plus one hop through a mission and admits it
   cannot see everything. A strategy citing **no** record can never have anything attributed

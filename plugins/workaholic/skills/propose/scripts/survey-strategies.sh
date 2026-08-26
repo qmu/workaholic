@@ -12,10 +12,10 @@
 # Output (one JSON object):
 #   {ok, identity, window, cap, active_count,
 #    eligible: [{slug, title, target_date, days_to_target, assignees, feedback_refs[],
-#                empty_reason, count, active_count, waiting_count, pace,
+#                empty_reason, count, active_count, waiting_count, pace, overdue,
 #                landed: [{kind, title, state, attribution, last_change}],
 #                path}],
-#    refused: [{slug, reason, pace, title, assignees, days_to_target}],
+#    refused: [{slug, reason, pace, overdue, title, assignees, days_to_target}],
 #    errors: [], selected: [<slug>...]}
 #   or {ok: false, reason, detail} when a gate could not be read at all.
 #
@@ -293,6 +293,25 @@ jq -sc \
           (if .unreadable or (.days_to_target == null) then "unknown"
            elif ((.landed | length) == 0) and (.days_to_target <= $window_days) then "late"
            else "on_course" end)}
+      | . + {overdue:
+          # OVERDUE -- HAS THE DATE PASSED? (2026-08-26.) `pace` cannot carry this and must
+          # not be asked to: `late` requires `(.landed | length) == 0`, so a direction that
+          # sailed past its date WHILE PRODUCING WORK reads `on_course`, is refused
+          # `past_target_date` for a correct reason, and produces no proposal and no
+          # question -- forever. One field answering two questions is how the two drift:
+          # `pace` answers WILL THIS ARRIVE, `overdue` answers HAS THE DATE PASSED.
+          #
+          # It is emitted on EVERY row, eligible and refused alike, because the refused
+          # case is the whole point -- a reader that saw only `eligible` would never see a
+          # direction whose date has gone. It is computed BEFORE `refusal` so that
+          # expression stays byte-identical, and it changes no gate, no eligibility and no
+          # sort: `past_target_date` refuses exactly what it refused before.
+          #
+          # A row with no resolvable `target_date` is never `overdue` -- `days_to_target`
+          # is `null` there, and a malformed strategy is not a late one. `days_to_target`
+          # is computed against a UTC `$today`, so a direction expiring TODAY reads `0`
+          # and is not yet overdue. That is the correct boundary, stated rather than tuned.
+          ((.days_to_target != null) and (.days_to_target < 0))}
       | . + {refusal:
           (if .unreadable then "attribution_unreadable"
            elif .status != "active" then "not_active"
@@ -330,7 +349,7 @@ jq -sc \
      # load-bearing for the STARVING case: a direction that will not arrive AND is gated
      # produces no proposal, so a consumer reading only `eligible` would never see it.
      refused: ((map(select(.refusal != ""))
-                | map({slug, reason: .refusal, pace, title, assignees, days_to_target}))
+                | map({slug, reason: .refusal, pace, overdue, title, assignees, days_to_target}))
                + $spill),
      selected: ($take | map(.slug)),
      errors: []}

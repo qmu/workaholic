@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-26T08:20:29+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -87,3 +88,30 @@ today, and `overdue` never collapses into `late`, `on_course` or `unknown`.
   passed*, and one field answering two questions is how the two drift.
 - `days_to_target` is computed against a UTC `$today`; a direction expiring today reads
   `0`, not `overdue`. That is the correct boundary and should be stated, not tuned.
+
+## Final Report
+
+Development completed as planned.
+
+`survey-strategies.sh` emits `overdue` as its own boolean on every surveyed row — eligible
+and refused alike — derived from `days_to_target < 0` and computed **before** `refusal`, so
+the refusal expression, `pace`, the sort and `selected` are byte-identical to before. The
+reading is stated in `propose/SKILL.md` (a section of its own beside *Pace*) and in
+`CLAUDE.md`'s `/propose` row, in the same change.
+
+### Discovered Insights
+
+- **Insight**: `refused[]` carries two row shapes, not one — the real refusals get
+  `{slug, reason, pace, overdue, title, assignees, days_to_target}`, while the `over_cap`
+  spill rows appended after them carry only `{slug, reason}`.
+  **Context**: `pace` set that precedent when it landed, and `overdue` follows it rather
+  than widening the spill. The spill is unreachable by default anyway (`WORKAHOLIC_PROPOSE_MAX`
+  defaults to unbounded), so a consumer that reads `overdue` off a `refused` row must tolerate
+  its absence rather than assume every refused row is fully populated.
+- **Insight**: the `pace: late` and `overdue: true` readings overlap only by accident. A
+  direction past its date with nothing landed reads both; the case this ticket exists for —
+  past its date **while producing work** — reads `on_course` and `overdue: true`, which is
+  precisely the pair `pace` alone could never express.
+  **Context**: verified against a seeded tree rather than argued: `days_to_target: -237` with
+  no landed work gave `pace: late, overdue: true`, and an undated strategy gave
+  `pace: unknown, overdue: false`.

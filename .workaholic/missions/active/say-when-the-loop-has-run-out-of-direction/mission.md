@@ -52,3 +52,4 @@ lifts no gate.
 - 2026-08-26 — ticket archived — 20260826082029-add-the-overdue-reading-to-the-strategy-survey.md
 - 2026-08-26 — ticket archived — 20260826082029-add-the-dormant-reading-to-the-strategy-survey.md
 - 2026-08-26 — ticket archived — 20260826082029-write-direction-state-sh-the-one-lifecycle-reader.md
+- 2026-08-26 — ticket archived — 20260826082029-add-the-moderate-step-direction-health.md

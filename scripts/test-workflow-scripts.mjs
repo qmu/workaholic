@@ -19502,6 +19502,10 @@ function testModerateRun() {
     // `strategy-pace` is step 10 (2026-08-22): the surface that tells a person a direction
     // will not arrive. It sits before `human-checkin` because the check-in is what asks.
     "strategy-pace",
+    // `direction-health` (2026-08-26): the three silent states of the DIRECTION layer — a
+    // direction past its date, a live one nothing is answering, a repository with none at
+    // all. Same placement and same reason as its neighbour: it reads, the check-in asks.
+    "direction-health",
     // `stalled-units` is step 11 (2026-08-23, issue #584): the reading that lets the
     // check-in learn a claimed unit has stopped. Before it, a loop stalled for eleven
     // consecutive ticks and the one surface that names a person never heard about it.

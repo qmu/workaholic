@@ -37,7 +37,7 @@ build path, and the site behind that hostname serves what is on the base.
 
 - [x] The Worker configuration builds from `docs/.vitepress/dist` and is provable
       offline, with no credential and no deploy. (#20260826112804-configure-the-worker-that-serves-the-built-docs-site.md)
-- [ ] A merge to `main` builds `docs/` and deploys it; a push elsewhere does not. (#20260826112804-build-and-deploy-the-docs-site-on-merge-to-main.md)
+- [x] A merge to `main` builds `docs/` and deploys it; a push elsewhere does not. (#20260826112804-build-and-deploy-the-docs-site-on-merge-to-main.md)
 - [ ] The site is a registered deployment target, so `/prepare-release` reports it and
       `/ship` reads its confirmation. (#20260826112804-register-the-docs-site-as-a-deployment-target.md)
 
@@ -45,3 +45,4 @@ build path, and the site behind that hostname serves what is on the base.
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-26 — ticket archived — 20260826112804-configure-the-worker-that-serves-the-built-docs-site.md
+- 2026-08-26 — ticket archived — 20260826112804-build-and-deploy-the-docs-site-on-merge-to-main.md

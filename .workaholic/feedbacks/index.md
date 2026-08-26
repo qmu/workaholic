@@ -549,4 +549,5 @@
 * [A squash-merged unit's claim branch reads as a standing claim forever](20260826025656-a-squash-merged-unit-s-claim-branch-reads-as-a-standing-claim-forever.md)
 * [The strategy-digest render marker names a step id log-append.sh refuses](20260826025833-the-strategy-digest-render-marker-names-a-step-id-log-append-sh-refuses.md)
 * [persist-log.sh carries a record to the base but never its OKF index entry](20260826030018-persist-log-sh-carries-a-record-to-the-base-but-never-its-okf-index-entry.md)
+* [Attribute an inbound ask to the direction it answers](20260826041650-attribute-an-inbound-ask-to-the-direction-it-answers.md)
 <!-- okf:generated:end -->

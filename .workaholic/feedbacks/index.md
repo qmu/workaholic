@@ -545,4 +545,5 @@
 * [The alert cool-down swallows a whole working day when a failure starts in the evening](20260823092638-the-alert-cool-down-swallows-a-whole-working-day-when-a-failure-starts-in-the-evening.md)
 * [A blocked unit's escalation reaches nobody and the moderator never learns of it](20260823093733-a-blocked-unit-s-escalation-reaches-nobody-and-the-moderator-never-learns-of-it.md)
 * [Prove the loop's closing link: make the feedback carry-forward mechanical and reported](20260826021619-prove-the-loop-s-closing-link-make-the-feedback-carry-forward-mechanical-and-reported.md)
+* [Tie missions to strategies and let /propose plan them](20260826022235-tie-missions-to-strategies-and-let-propose-plan-them.md)
 <!-- okf:generated:end -->

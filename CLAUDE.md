@@ -43,7 +43,7 @@ outputs/                 # GENERATED, committed cross-agent artifacts — never 
   workflows/             # Self-contained portable workflows plugin (+ .codex-plugin/plugin.json)
   okf/                   # OKF v0.1 bundle of the four pillars' policies
 .agents/plugins/marketplace.json  # Codex plugin list (workflows -> ./outputs/workflows)
-docs/                    # Documentation (dependencies/ = dependency-decision logs)
+docs/                    # Documentation; VitePress site (.vitepress/ + articles; dependencies/ = dependency-decision logs)
 ```
 
 ### Hooks (all shipped active in hooks.json)

@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260826-114429
 ---
 
 # Answer what is waiting, and stamp what was accepted

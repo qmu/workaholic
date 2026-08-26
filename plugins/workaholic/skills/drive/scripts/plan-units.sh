@@ -224,6 +224,8 @@ RESUMABLE=""
 # Why each claimed unit/artifact is not freshly claimable, keyed by unit id AND by
 # artifact path, so the exclusion vocabulary below can stay specific.
 CLAIM_REASONS=""
+# The branch each claimed unit/artifact sits on, for the resurveyed report line.
+CLAIM_BRANCHES=""
 if [ -n "$ROWS" ]; then
     sep=""
     r_sep=""
@@ -248,12 +250,16 @@ if [ -n "$ROWS" ]; then
         fi
         CLAIM_REASONS="${CLAIM_REASONS}${c_unit}	${c_exc}
 "
+        CLAIM_BRANCHES="${CLAIM_BRANCHES}${c_unit}	${c_branch}
+"
         old_ifs="$IFS"
         IFS=','
         for art in $c_arts; do
             CLAIMED_ARTIFACTS="${CLAIMED_ARTIFACTS}${art}
 "
             CLAIM_REASONS="${CLAIM_REASONS}${art}	${c_exc}
+"
+            CLAIM_BRANCHES="${CLAIM_BRANCHES}${art}	${c_branch}
 "
         done
         IFS="$old_ifs"
@@ -288,6 +294,42 @@ is_claimed_unit() {
 }
 is_claimed_artifact() {
     printf '%s' "$CLAIMED_ARTIFACTS" | grep -qx -- "$1" 2>/dev/null
+}
+
+# A CLAIM THAT HOLDS NOTHING MUST NOT HOLD ITS WORK EITHER (2026-08-26).
+#
+# `claimed_superseded` says the unit's work already reached the base — so the claim is a dead
+# branch, and the queued tickets sitting behind it are ordinary backlog that nothing is
+# driving. Excluding them was correct for every other claim reason and wrong for this one:
+# measured, a mission was still `active` at 2/3 acceptance with queued tickets behind a claim
+# whose pull request had merged five days earlier, and no survey would offer any of it.
+#
+# THIS FREES THE WORK; IT DOES NOT REVIVE THE BRANCH. The claim row stays `superseded` and
+# `resumable: false`, nothing deletes it, and a run that takes the freed tickets claims them
+# FRESH — a new branch, a new worktree, a new pull request. That is the only correct route: the
+# old branch cannot land.
+#
+# AND IT IS NARROW BY CONSTRUCTION. Every other reason still excludes: `claimed_active` is being
+# driven now, `claimed_by_other` is not this runner's, `claimed_reported` is waiting on a human,
+# `claimed_resumable` is taken over rather than re-claimed. Only a claim proved empty is stepped
+# over.
+is_superseded() {
+    [ "$(claim_reason_for "$1")" = "claimed_superseded" ]
+}
+
+# What the survey stepped over, reported so a unit that CAME BACK is never mistaken for one that
+# was never claimed. `excluded[]` is the wrong home by its own definition — it names what the
+# survey saw and DROPPED — so this is its own field, the same reasoning that put a repaired
+# ticket's `mission_closed` on the offered row rather than in the exclusions.
+RESURVEYED=""
+rs_sep=""
+note_resurveyed() {
+    RESURVEYED="${RESURVEYED}${rs_sep}{\"kind\": \"${1}\", \"id\": \"$(json_escape "$2")\", \"claim\": \"$(json_escape "$3")\"}"
+    rs_sep=", "
+}
+# The branch a unit's superseded claim sits on, for the report line above.
+superseded_branch_for() {
+    printf '%s' "$CLAIM_BRANCHES" | awk -F'\t' -v k="$1" '$1 == k { print $2; exit }'
 }
 # The specific reason a claimed unit/artifact is excluded. `claimed_active` is the
 # fallback if a row is somehow missing: never offer, always report.
@@ -365,12 +407,19 @@ if [ -d ".workaholic/missions/active" ]; then
                 ;;
         esac
         if is_claimed_unit "$slug"; then
-            exclude mission "$slug" "$(claim_reason_for "$slug")"
-            continue
-        fi
-        if is_claimed_artifact "$f"; then
-            exclude mission "$slug" "$(claim_reason_for "$f")"
-            continue
+            if is_superseded "$slug"; then
+                note_resurveyed mission "$slug" "$(superseded_branch_for "$slug")"
+            else
+                exclude mission "$slug" "$(claim_reason_for "$slug")"
+                continue
+            fi
+        elif is_claimed_artifact "$f"; then
+            if is_superseded "$f"; then
+                note_resurveyed mission "$slug" "$(superseded_branch_for "$f")"
+            else
+                exclude mission "$slug" "$(claim_reason_for "$f")"
+                continue
+            fi
         fi
         progress=$(sh "${MISSION_SCRIPTS}/progress.sh" "$f" 2>/dev/null || true)
         checked=$(printf '%s' "$progress" | sed -n 's/.*"checked": *\([0-9][0-9]*\).*/\1/p')
@@ -467,8 +516,14 @@ for t in $TODO_LIST; do
             ;;
     esac
     if is_claimed_artifact "$t"; then
-        exclude ticket "$t" "$(claim_reason_for "$t")"
-        continue
+        # A superseded claim holds no work, so its tickets are ordinary backlog (see
+        # `is_superseded`). Every other claim reason still excludes.
+        if is_superseded "$t"; then
+            note_resurveyed ticket "$t" "$(superseded_branch_for "$t")"
+        else
+            exclude ticket "$t" "$(claim_reason_for "$t")"
+            continue
+        fi
     fi
     # A MISSION MEMBER ONLY WHILE A MISSION IT NAMES IS STILL ALIVE (2026-08-12,
     # qmu/workaholic#382). The exclusion rests on a premise -- "it will be offered inside
@@ -505,7 +560,7 @@ for t in $TODO_LIST; do
     b_sep=", "
 done
 
-printf '{"fetched": %s, "shallow": %s, "base": "%s", "surveyed_sha": "%s", "base_sha": "%s", "current": %s, "user_slug": "%s", "backlog_error": "%s", "backlog_size": %d, "owner_unresolved": %s, "claimed": [%s], "resumable": [%s], "missions": [%s], "backlog": [%s], "excluded": [%s]}\n' \
+printf '{"fetched": %s, "shallow": %s, "base": "%s", "surveyed_sha": "%s", "base_sha": "%s", "current": %s, "user_slug": "%s", "backlog_error": "%s", "backlog_size": %d, "owner_unresolved": %s, "claimed": [%s], "resumable": [%s], "resurveyed": [%s], "missions": [%s], "backlog": [%s], "excluded": [%s]}\n' \
     "$FETCHED" "$SHALLOW" "$BASE" "$SURVEYED_SHA" "$BASE_SHA" "$CURRENT" "$(json_escape "$USER_SLUG")" "$BACKLOG_ERROR" \
     "$BACKLOG_SIZE" "$OWNER_UNRESOLVED" \
-    "$CLAIMED_JSON" "$RESUMABLE" "$MISSIONS" "$BACKLOG" "$EXCLUDED"
+    "$CLAIMED_JSON" "$RESUMABLE" "$RESURVEYED" "$MISSIONS" "$BACKLOG" "$EXCLUDED"

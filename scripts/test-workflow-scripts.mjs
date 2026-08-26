@@ -14042,6 +14042,63 @@ function testMergedClaimIsNeverResumable() {
   }
 }
 
+// ---------------------------------------------------------------------------
+// A MISSION BEHIND A MERGED CLAIM IS SURVEYED AGAIN (2026-08-26).
+//
+// `claimed_superseded` kept the unit out of the offer, which is right for every OTHER claim
+// reason and wrong for this one: the claim holds no work, so its queued tickets are ordinary
+// backlog. Measured: a mission was still `active` at 2/3 acceptance with queued tickets behind
+// a claim whose pull request had merged five days earlier, and no survey would offer any of it.
+//
+// The last assertion is the guard: a mission behind a genuinely LIVE claim is still excluded,
+// so this is not a change that frees every claimed mission.
+function testSupersededMissionIsResurveyed() {
+  const fx = makeSquashMergedClaims();
+  const bin = join(fx.B, ".stub-bin");
+  mkdirSync(bin, { recursive: true });
+  const stub = (body) => {
+    writeFileSync(join(bin, "gh"), `#!/bin/sh\n${body}\n`);
+    chmodSync(join(bin, "gh"), 0o755);
+  };
+  const withStub = { env: { ...process.env, PATH: `${bin}:${process.env.PATH}` } };
+  const survey = () => JSON.parse(run(fx.B, `${POSIX_SH} ${SCRIPTS.planUnits}`, withStub).stdout);
+  try {
+    // WHILE THE CLAIM IS LIVE (no merged pull request) the mission stays out of the offer.
+    stub("echo '[]'");
+    let plan = survey();
+    assertTrue("a mission behind a live claim is not offered",
+      !plan.missions.some((m) => m.slug === "m1"), JSON.stringify(plan.missions.map((m) => m.slug)));
+    assertEq("and nothing is reported as re-surveyed", plan.resurveyed, []);
+
+    // ONCE THE CLAIM IS SUPERSEDED the mission comes back, and says so.
+    stub(`echo '[{"number":1,"merged_at":"2026-08-26T00:00:00Z"}]'`);
+    plan = survey();
+    assertTrue("a mission behind a superseded claim is offered again",
+      plan.missions.some((m) => m.slug === "m1"), JSON.stringify(plan.missions.map((m) => m.slug)));
+    assertTrue("and it is named as re-surveyed, with the dead claim branch",
+      plan.resurveyed.some((r) => r.kind === "mission" && r.id === "m1" && r.claim === fx.mission.branch),
+      JSON.stringify(plan.resurveyed));
+    assertTrue("never as an exclusion — excluded[] names what the survey DROPPED",
+      !plan.excluded.some((e) => e.id === "m1"), JSON.stringify(plan.excluded));
+
+    // THE CLAIM ROW IS UNTOUCHED: this frees the work, it does not revive the branch.
+    const claimed = plan.claimed.find((c) => c.unit === fx.mission.unit);
+    assertEq("the claim row stays superseded and not resumable",
+      [claimed.resume_reason, claimed.resumable], ["superseded", false]);
+    assertEq("and it is offered for no takeover", plan.resumable, []);
+
+    // THE GUARD: only `superseded` is stepped over. `m1`'s claim answers through the lookup,
+    // so flipping the stub back is enough to put it behind a live claim again.
+    stub("echo '[]'");
+    plan = survey();
+    assertTrue("with the claim live again the mission is excluded once more",
+      plan.excluded.some((e) => e.id === "m1" && e.reason.startsWith("claimed")),
+      JSON.stringify(plan.excluded));
+  } finally {
+    for (const d of [fx.origin, fx.A, fx.B]) rmSync(d, { recursive: true, force: true });
+  }
+}
+
 // A MISSION unit's mission.md is not moved by archive.sh, so its artifact list was never
 // hit by this defect -- asserted rather than assumed, because the unit-id check would
 // mask an artifact-list regression there.
@@ -15107,11 +15164,20 @@ function testSupersededClaimIsNotOffered() {
     // so the base still carries the todo/ paths and the row is observable; a real
     // move-based recovery leaves no todo/ entry and so no row, and the claim's own
     // `superseded` verdict above is what carries the fact there.
-    assertTrue("and names its tickets claimed_superseded rather than claimed_reported",
-      plan.excluded.some((e) => e.id === t1 && e.reason === "claimed_superseded"),
-      JSON.stringify(plan.excluded));
-    assertTrue("neither ticket is offered as fresh backlog either",
-      !plan.backlog.some((x) => x.path === t1 || x.path === t2), JSON.stringify(plan.backlog));
+    // ITS TICKETS COME BACK TO THE OFFER (2026-08-26, mission
+    // `tell-a-merged-claim-from-a-live-one-at-both-grains`). They were excluded
+    // `claimed_superseded` when the verdict shipped, which left a mission `active` at 2/3
+    // acceptance with queued tickets nobody could reach behind a dead claim. A claim proved
+    // empty must not hold its work either, so the tickets are ordinary backlog again — and a
+    // run takes them on a FRESH claim, because the old branch cannot land.
+    assertTrue("its tickets are offered again as ordinary backlog",
+      plan.backlog.some((x) => x.path === t1) && plan.backlog.some((x) => x.path === t2),
+      JSON.stringify(plan.backlog));
+    assertTrue("named as re-surveyed, with the dead claim branch",
+      plan.resurveyed.some((x) => x.id === t1 && x.claim === batch.branch),
+      JSON.stringify(plan.resurveyed));
+    assertTrue("and never as an exclusion — excluded[] names what the survey DROPPED",
+      !plan.excluded.some((e) => e.id === t1 || e.id === t2), JSON.stringify(plan.excluded));
 
     // NOTHING ACTS ON IT. The branch and its commits are exactly where they were.
     assertTrue("the branch still exists after the verdict",
@@ -15722,6 +15788,7 @@ const tests = [
   ["drive claim protocol: the merged lookup degrades by name", testMergedLookupDegradesByName],
   ["drive claim protocol: the merged-claim shape at both grains", testMergedClaimShapeAtBothGrains],
   ["drive claim protocol: a merged claim is never offered for resumption", testMergedClaimIsNeverResumable],
+  ["drive survey: a mission behind a merged claim is surveyed again", testSupersededMissionIsResurveyed],
   ["drive claim protocol: a mission claim's artifact is unaffected", testMissionClaimArtifactsUnaffected],
   ["drive claim protocol: a merged stamp is history, not a claim", testMergedStampIsHistoryNotAClaim],
   ["drive claim protocol: offline reader/writer asymmetry", testClaimOfflineAsymmetry],

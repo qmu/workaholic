@@ -6,6 +6,7 @@ depends_on:
 mission:
 merge_policy: review
 verification_handoff:
+claim: work-20260826-041037
 ---
 
 # Tell a superseded claim from a live one

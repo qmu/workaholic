@@ -4608,6 +4608,44 @@ function testStrategyAttributedWork() {
     assertTrue("the mover sorts to the front",
       moved.artifacts[0].path.endsWith("20260810000001-queued.md"), JSON.stringify(moved.artifacts));
 
+    // THE MISSION GRAIN (2026-08-26). `/propose` proposes a whole mission, so its brake asks
+    // whether one is in flight rather than how many tickets are queued. The case that matters
+    // is the one the change-grain count left open: a mission whose queue is DRAINED while its
+    // work is still at a pull request.
+    assertEq("an active attributed mission is reported as a waiting mission",
+      { missions: alpha.waiting_missions, slugs: alpha.waiting_mission_slugs,
+        advancing: alpha.waiting_missions_advancing },
+      { missions: 1, slugs: ["m-one"], advancing: 1 });
+
+    const drainedDir = join(dir, ".workaholic/tickets/todo");
+    const queued = join(drainedDir, "20260810000001-queued.md");
+    const parked = join(dir, ".workaholic/tickets/archive/work-x/20260810000001-queued.md");
+    execSync(`git mv ${queued} ${parked}`, { cwd: dir });
+    execSync("git commit -q -m 'Archive the queued ticket'", { cwd: dir });
+    const drained = JSON.parse(run(dir, `${READ} alpha "1 day ago"`).stdout);
+    assertEq("a drained queue still reports its mission in flight — the window a second mission would slip through",
+      { waiting: drained.waiting_count, missions: drained.waiting_missions },
+      { waiting: 0, missions: 1 });
+
+    // And the kind survives the grain: a mission whose queue is all documentation must not
+    // gate an advancing proposal, exactly as a single documenting ticket must not.
+    wf(".workaholic/tickets/todo/20260813000001-doc.md",
+      "---\ncreated_at: 2026-08-13T00:00:00+00:00\nmission: m-one\n---\n\n# Doc\n\n## Key Files\n\n- `docs/x.md` - x\n");
+    execSync("git add -A && git commit -q -m 'Queue a documentation ticket'", { cwd: dir });
+    const describing = JSON.parse(run(dir, `${READ} alpha "1 day ago"`).stdout);
+    assertEq("a mission whose queue is all documentation is classified describing",
+      { d: describing.waiting_missions_describing, a: describing.waiting_missions_advancing },
+      { d: 1, a: 0 });
+
+    // A CLOSED mission frees the strategy — "one mission at a time" has to release, or it is
+    // a stall rather than a brake. Closed through `close.sh`, the ONE writer of an end state,
+    // rather than by hand: it moves the file and writes the field together, which is exactly
+    // why reading the field alone is safe here.
+    run(dir, `${POSIX_SH} ${SCRIPTS.missionClose} m-one achieved`);
+    execSync("git add -A && git commit -q -m 'Close the mission'", { cwd: dir });
+    assertEq("a closed mission is no longer in flight",
+      JSON.parse(run(dir, `${READ} alpha "1 day ago"`).stdout).waiting_missions, 0);
+
     // The three degradations, each named rather than blank.
     assertEq("a strategy citing nothing says so instead of returning a silent empty set",
       JSON.parse(run(dir, `${READ} silent`).stdout).empty_reason, "no_feedback_refs");

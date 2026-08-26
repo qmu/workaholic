@@ -1405,6 +1405,40 @@ EOF
         add_row "propose_in_flight" false "the in-flight gate did not hold: $(one_line "$_out")" load
     fi
 
+    # THE MISSION GRAIN (2026-08-26). The brake asks whether a MISSION is in flight, and the
+    # case that matters is the one the change-grain gate left open: a mission whose queue is
+    # DRAINED — its last ticket claimed and archived — while its work is still at a pull
+    # request. Under the old arithmetic that strategy was eligible and a second mission
+    # would have been proposed against it.
+    printf '{"ok": true, "identity": "drill", "slug": "o/n", "proposals": []}\n' > "$_open"
+    mkdir -p "${_root}/missions/active/drained" "${_root}/tickets/archive/work-x"
+    printf -- '---\ntype: Mission\ntitle: Drained\nslug: drained\nstatus: active\nfeedback: [20260101000000-a.md]\n---\n\n# Drained\n' \
+        > "${_root}/missions/active/drained/mission.md"
+    printf -- '---\ncreated_at: 2026-08-26T00:00:00+00:00\nstatus: done\nmission: drained\n---\n\n# Done\n' \
+        > "${_root}/tickets/archive/work-x/20260826000001-done.md"
+    _out=$(cd "$REPO_ROOT" && sh "$_survey" --open-proposals "$_open" "30 days ago" "$_root" 2>&1) || true
+    if [ "$(_reason live)" = "work_waiting" ]; then
+        add_row "propose_mission_in_flight" true "a strategy whose mission is active with a drained queue is still gated" load
+    else
+        add_row "propose_mission_in_flight" false "the mission-grain gate did not hold: $(one_line "$_out")" load
+    fi
+
+    # And it LIFTS when the mission is closed — the whole point of "one mission per strategy
+    # at a time" is that the next turn begins, so a gate that never released would be a stall
+    # rather than a brake.
+    mkdir -p "${_root}/missions/archive/drained"
+    mv "${_root}/missions/active/drained/mission.md" "${_root}/missions/archive/drained/mission.md"
+    sed -i.bak 's/^status: active$/status: achieved/' "${_root}/missions/archive/drained/mission.md" 2>/dev/null \
+        || sed -i '' 's/^status: active$/status: achieved/' "${_root}/missions/archive/drained/mission.md"
+    rm -rf "${_root}/missions/active/drained" "${_root}/missions/archive/drained/mission.md.bak"
+    _out=$(cd "$REPO_ROOT" && sh "$_survey" --open-proposals "$_open" "30 days ago" "$_root" 2>&1) || true
+    if [ -z "$(_reason live)" ]; then
+        add_row "propose_mission_released" true "a closed mission frees the strategy for its next turn" load
+    else
+        add_row "propose_mission_released" false "the gate did not release: $(one_line "$_out")" load
+    fi
+    rm -rf "${_root}/tickets"
+
     # A GATE THAT CANNOT BE READ IS NOT A GATE: the whole tick refuses rather than
     # falling through to a permissive default.
     printf '{"ok": false, "reason": "list_failed"}\n' > "$_open"

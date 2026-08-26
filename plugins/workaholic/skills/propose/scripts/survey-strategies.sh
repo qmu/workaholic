@@ -42,9 +42,12 @@
 #                     invisible and the loop could not close. Refused with the repair named
 #                     rather than proposed into blindly. THIS IS THE ONE GATE THAT ANSWERS
 #                     THE LOSSY READER: the judgment is made only where the reader can see.
-#   work_waiting      attributable tickets are queued. The previous turn of the loop has
-#                     not landed, so this one does not start. Together with `open_proposal`
-#                     this is "one proposal per strategy IN FLIGHT at a time" — see below.
+#   work_waiting      a MISSION attributed to this strategy is still in flight, or an
+#                     attributable ticket is still queued (2026-08-26: the grain moved to
+#                     the mission, because a proposal now plans one). The previous turn of
+#                     the loop has not landed, so this one does not start. Together with
+#                     `open_proposal` this is "ONE MISSION PER STRATEGY IN FLIGHT AT A
+#                     TIME" -- see below.
 #   open_proposal     an open issue already carries this strategy's marker: the last
 #                     proposal has not been ingested yet.
 #
@@ -59,8 +62,18 @@
 # unnecessary and, worse, harmful: the ask is for three routines turning an HOURLY loop, and
 # a daily cap on the only routine that originates work would cap the loop at one turn a day.
 # From the issue opening until its `[Specificate]` pull request merges, `open_proposal`
-# holds; from that merge onward the tickets it produced are queued and `work_waiting` holds;
-# when they are driven and archived, the strategy is free and the next turn begins.
+# holds; THAT SAME MERGE puts the mission on `main`, so `work_waiting` holds from the same
+# instant -- the handoff is window-free by construction rather than by timing. It then holds
+# until the mission is closed, which since 2026-08-23 the archive gate does on its own
+# arithmetic when the acceptance is complete and the queue is empty. Then the strategy is
+# free and the next turn begins.
+#
+# THE MISSION TERM IS WIDER THAN THE TICKET TERM IT SITS BESIDE, and that is the point: a
+# mission whose last ticket has been claimed and archived has NO queued tickets while its
+# work is still in flight at a pull request. Under the change-grain gate that gap was the
+# design (the next change could start); under the mission grain it is exactly the window a
+# second mission would slip through. The ticket term stays because a loose ticket emitted
+# with no mission around it must still brake.
 #
 # EVERY ELIGIBLE STRATEGY, IN THE SAME TICK (2026-08-22, the developer's ruling). The tick
 # proposes against ALL of them -- everything it can conclude at that moment. Eligible
@@ -257,6 +270,13 @@ jq -sc \
          waiting_kind: ($w.waiting_kind // "unknown"),
          waiting_describing: ($w.waiting_describing // 0),
          waiting_advancing: ($w.waiting_advancing // $w.waiting_count // 0),
+         # THE MISSION GRAIN (2026-08-26), reported on every row for the same reason: the
+         # brake now asks whether a mission is in flight, so a reader must be able to see
+         # which one held it. Named, never a bare count.
+         waiting_missions: ($w.waiting_missions // 0),
+         waiting_missions_describing: ($w.waiting_missions_describing // 0),
+         waiting_missions_advancing: ($w.waiting_missions_advancing // $w.waiting_missions // 0),
+         waiting_mission_slugs: ($w.waiting_mission_slugs // []),
          landed: (($w.artifacts // []) | map(select(.changed_in_window))
                   | map({kind, title, state, attribution, last_change})),
          queued: (($w.artifacts // []) | map(select(.kind == "ticket" and .state == "queued"))
@@ -279,8 +299,17 @@ jq -sc \
            elif .owns != "mine" then "not_mine"
            elif ((.days_to_target != null) and (.days_to_target < 0)) then "past_target_date"
            elif ((.feedback_refs | length) == 0) then "no_feedback_refs"
-           elif ((if $aim_kind == "building" then (.waiting_advancing // .waiting_count // 0)
-                  else (.waiting_count // 0) end) > 0) then "work_waiting"
+           # WORK_WAITING AT THE MISSION GRAIN (2026-08-26). A proposal is a whole mission,
+           # so the brake asks whether one is already in flight. Two terms, OR'"'"'d, and both
+           # are needed: the MISSION term (an active attributed mission) is what makes the
+           # gate hold while the last ticket sits at a pull request with the queue drained,
+           # and the TICKET term still catches a loose ticket the run emitted with no
+           # mission around it. Neither counts: `> 0` is the whole question, exactly as
+           # before — the grain moved, the arithmetic did not.
+           elif ((if $aim_kind == "building"
+                  then (.waiting_missions_advancing // .waiting_missions // 0)
+                       + (.waiting_advancing // .waiting_count // 0)
+                  else (.waiting_missions // 0) + (.waiting_count // 0) end) > 0) then "work_waiting"
            elif ($held | index($w.slug)) then "open_proposal"
            else "" end)} ]
   # LATE FIRST, then nearest date. A tick that dies partway must have advanced the

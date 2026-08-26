@@ -183,11 +183,38 @@ Three of them carry the design:
 
 - **`work_waiting` + `open_proposal` are one gate in two halves, and they hand off with no
   window** — from the issue opening until its `/specificate` pull request merges the issue is
-  open; from that merge onward the tickets it produced are queued. So **one proposal per
-  strategy is in flight at a time**, enforced continuously with no cursor and no stored state.
-  A per-day bound was considered and refused: the ask is for three routines turning an
+  open; **that same merge puts the mission on `main`**, so `work_waiting` holds from the same
+  instant. The handoff is window-free by construction rather than by timing. So **one mission
+  per strategy is in flight at a time**, enforced continuously with no cursor and no stored
+  state. A per-day bound was considered and refused: the ask is for three routines turning an
   **hourly** loop, and a daily cap on the only routine that originates work would cap the loop
   itself at one turn a day.
+
+  **`work_waiting` reads the mission grain since 2026-08-26**, in two OR'd terms and neither is
+  redundant. The **mission** term — an *active* attributed mission — is what holds the gate
+  while a mission's last ticket sits at a pull request with its queue already drained; under the
+  change-grain arithmetic that gap was the design (the next *change* could start) and at the
+  mission grain it is exactly the window a second mission would slip through. The **ticket**
+  term stays because a loose ticket emitted with no mission around it must still brake. Neither
+  counts: `> 0` is the whole question, so a mission's seven queued tickets are one mission in
+  flight and not seven units of waiting work. It releases when the mission **closes**, which
+  since 2026-08-23 the archive gate does on its own arithmetic — so *re-proposed when that
+  mission finishes* is mechanical, not a judgement. Both terms are derived from the readers that
+  already exist: `attributed-work.sh` for attribution (still the **one** attribution reader) and
+  each ticket's own `## Key Files` for its kind. No counter was added and no artifact gained a
+  field.
+
+  **The describing/advancing distinction survives at the new grain** (2026-08-23): a mission is
+  classified by its own queued tickets, so a mission whose queue is entirely `describing` does
+  not gate an advancing proposal against a building Aim. A mission with **no** queued tickets is
+  `unknown`, and `unknown` counts toward advancing — the same rule a single unknown ticket
+  follows, and for the same reason: mislabelling build work as descriptive is the failure the
+  gate exists to prevent.
+
+  **`open_proposal` needed no change to match.** `list-open-proposals.sh` reads the
+  `strategy: <slug> / move: <move>` marker `open-proposal.sh` stamps, and a mission-shaped
+  proposal carries that marker exactly as a change-shaped one did — so an open mission-shaped
+  proposal gates its strategy without the remote half learning anything about the grain.
 - **`over_cap` is retired** (2026-08-22, the developer's ruling: one proposal per tick is not
   enough — the tick should propose everything it can conclude at that moment). A tick now
   proposes against **every** eligible strategy, still ordered nearest `target_date` first so a

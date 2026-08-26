@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-26T02:23:47+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on: 20260826022347-judge-a-whole-mission-not-one-change.md
@@ -87,3 +88,45 @@ a strategy whose first is still being driven.
   false before `open_proposal` becomes true, a tick proposes a second mission against a
   strategy that already has one. That seam is the ticket's real risk and is why it is verified
   rather than reasoned about.
+
+## Final Report
+
+Development completed as planned. `work_waiting` now reads the mission grain: `attributed-work.sh`
+reports `waiting_missions` / `waiting_missions_advancing` / `waiting_missions_describing` /
+`waiting_mission_slugs` beside the ticket-grain counts, and `survey-strategies.sh` gates on the
+**mission** term OR'd with the existing **ticket** term. Both are needed and the header says why —
+the mission term holds the gate while a mission's last ticket sits at a pull request with its queue
+already drained, and the ticket term still brakes a loose ticket emitted with no mission around it.
+Neither counts: `> 0` is the whole question, so a mission's seven queued tickets are one mission in
+flight rather than seven units of waiting work.
+
+`describing` versus `advancing` survives intact: a mission is classified by its own queued tickets,
+and a mission with none is `unknown`, which counts toward advancing — the same rule a single
+unknown ticket follows. Every refusal is still reported by name and `pace` still changes order,
+never eligibility.
+
+`open_proposal` needed **no change** to match, and that is stated rather than assumed:
+`list-open-proposals.sh` reads the `strategy: <slug> / move: <move>` marker `open-proposal.sh`
+stamps, and a mission-shaped proposal carries it exactly as a change-shaped one did.
+
+The ticket's named risk — a widened window — was the seam actually verified rather than reasoned
+about. It is closed by construction: the merge that releases `open_proposal` is the same merge that
+puts the mission on `main`, so `work_waiting` begins at the same instant. `verify-propose` drills
+both the drained-queue gate and its release; no per-day cap was reintroduced.
+
+### Discovered Insights
+
+- **Insight**: The gap the old gate left open was not the ticket count but the *drained* queue.
+  **Context**: `waiting_count > 0` already treated seven tickets and one alike, so the count was
+  never the defect. What the change grain permitted was a second proposal in the interval between
+  the last ticket being archived and the mission being closed — which at the mission grain is
+  precisely one mission too many.
+- **Insight**: Reading the lifecycle field alone is safe because `close.sh` moves the file and
+  writes the field in one act.
+  **Context**: The first draft of the test moved a mission into `archive/` by hand and it stayed
+  "in flight" — the fixture, not the filter, was wrong. Closing through the single writer is both
+  the realistic fixture and the reason the filter needs no second path check.
+- **Insight**: A mission with no queued tickets classifies as `unknown`, not `describing`.
+  **Context**: Falling back to `describing` would have let a drained documentation-looking mission
+  stop gating a building aim, which inverts the 2026-08-23 rule that unknown counts toward
+  advancing.

@@ -29,20 +29,25 @@
 # a degraded read into a failed scan, and a failed scan reports no claims at all — the one
 # outcome worse than an over-reported claim.
 #
-# WHY IT IS EXECUTED RATHER THAN SOURCED, against the `lib/` convention beside it
-# (`claims.sh` is sourced, never run). This is the claim protocol's ONE network read, and
+# WHY IT IS EXECUTED RATHER THAN SOURCED. This is the claim protocol's ONE network read, and
 # keeping it a separate process is what makes it separable: a caller can decide not to spend
 # it, a test can stub `gh` on PATH and drive all three states, and nothing it defines can
 # leak into `claims_scan`'s variable space, which is a shell library sharing one flat
-# namespace with a loop that already carries thirty `_cs_` locals. It stays in `lib/`
-# because its only consumer is `claims.sh`.
+# namespace with a loop that already carries thirty `_cs_` locals.
+#
+# WHY IT SITS BESIDE `lib/` RATHER THAN INSIDE IT, though `claims.sh` is its only consumer:
+# the bundle build detects a cross-skill closure by the literal form
+# `${SCRIPT_DIR}/../../<skill>/scripts/`, which is only writable from `scripts/`. From inside
+# `lib/` the same reference needs a third `../` and `verify.mjs` reports it as undetectable —
+# so a reader in `lib/` would ship to every non-Claude agent with its transport missing. The
+# convention bends to the build, and the build's rule is the one with a failure mode.
 #
 # Usage: claim-merged.sh <branch-name>
 # Output: one JSON line
 #   {"branch", "state": "merged|not_merged|unanswerable", "reason"}
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-GH_REST="${SCRIPT_DIR}/../../../gather/scripts/gh-rest.sh"
+GH_REST="${SCRIPT_DIR}/../../gather/scripts/gh-rest.sh"
 
 BRANCH="${1:-}"
 

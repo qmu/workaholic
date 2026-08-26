@@ -13653,7 +13653,7 @@ function testClaimSurvivesArchive() {
 // EVERY CASE IS DRIVEN THROUGH A STUBBED `gh` ON PATH, so the suite stays offline. What is
 // pinned is the vocabulary the consumer will report and the exit status the scan depends on.
 function testClaimMergedReader() {
-  const READER = join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/lib/claim-merged.sh");
+  const READER = join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/claim-merged.sh");
   const tmp = mkdtempSync(join(tmpdir(), "wh-claim-merged-"));
   const bin = join(tmp, "bin");
   const repo = join(tmp, "repo");
@@ -13722,6 +13722,109 @@ function testClaimMergedReader() {
       !/\bgh (issue|pr|repo|api)\b/.test(body) && body.includes("gh-rest.sh"), body.slice(0, 300));
   } finally {
     rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// THE MERGED LOOKUP DEGRADES BY NAME, NOT BY GUESS (2026-08-26).
+//
+// `list-claims.sh` promises the reader degrades offline. The merged lookup makes a NETWORK
+// call, so that promise has to be kept explicitly rather than inherited — and the direction
+// of failure is chosen: a wrong `merged` RELEASES work still in flight, a wrong `in flight`
+// only delays a claim. So an unread answer is never promoted, and is reported instead.
+//
+// The byte-identity assertion is the load-bearing one: the offline output is PROVED
+// identical to the pre-lookup output rather than asserted to be.
+function testMergedLookupDegradesByName() {
+  const LIB = join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/lib");
+  const tmp = mkdtempSync(join(tmpdir(), "wh-merged-degrade-"));
+  const bin = join(tmp, "bin");
+  const repo = join(tmp, "repo");
+  mkdirSync(bin, { recursive: true });
+  mkdirSync(repo, { recursive: true });
+  execSync("git init -q . && git remote add origin git@github.com:acme-org/source-repo.git", { cwd: repo });
+  const stub = (body) => {
+    writeFileSync(join(bin, "gh"), `#!/bin/sh\n${body}\n`);
+    chmodSync(join(bin, "gh"), 0o755);
+  };
+  // Drive `claims_merged_state` directly: it is a sourced function, so the harness sources
+  // the library the same way `list-claims.sh` does and calls it with the fetch flag set.
+  const state = (branch, { fetched = "true", env = {}, notes = null } = {}) => {
+    // `CLAIMS_LIB_DIR` is set the way every real sourcer sets it — a sourced file cannot
+    // ask where it is, so the caller passes it (see the library's own note).
+    const script = `CLAIMS_LIB_DIR=${LIB}; . ${LIB}/claims.sh; CLAIMS_FETCH_OK=${fetched}`
+      + (notes ? `; CLAIMS_UNANSWERED_FILE=${notes}; export CLAIMS_UNANSWERED_FILE` : "")
+      + `; claims_merged_state ${branch}`;
+    return run(repo, `${POSIX_SH} -c '${script}'`,
+      { env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, ...env } }).stdout.trim();
+  };
+  try {
+    stub(`echo '[{"number":1,"merged_at":"2026-08-20T00:00:00Z"}]'`);
+    assertEq("with a reachable transport the lookup answers merged", state("work-1"), "merged");
+    stub("echo '[]'");
+    assertEq("and not_merged when nothing merged", state("work-1"), "not_merged");
+
+    // A RUN THAT JUST PROVED IT HAS NO NETWORK DOES NOT SPEND A CALL PER CLAIM.
+    stub(`echo '[{"number":1,"merged_at":"2026-08-20T00:00:00Z"}]'; echo CALLED >> ${join(tmp, "calls")}`);
+    const notes = join(tmp, "notes.tsv");
+    assertEq("a fetch that failed skips the lookup entirely",
+      state("work-1", { fetched: "false", notes }), "unanswerable");
+    assertTrue("without making the call", !existsSync(join(tmp, "calls")));
+    assertTrue("and names the skip as offline",
+      readFileSync(notes, "utf8").includes("work-1\toffline"), readFileSync(notes, "utf8"));
+
+    // AND THE EXPLICIT OPT-OUT IS NAMED TOO, not silently answered `not_merged`.
+    const notes2 = join(tmp, "notes2.tsv");
+    assertEq("the opt-out yields unanswerable",
+      state("work-1", { env: { WORKAHOLIC_CLAIM_MERGED_LOOKUP: "0" }, notes: notes2 }), "unanswerable");
+    assertTrue("named as disabled", readFileSync(notes2, "utf8").includes("work-1\tdisabled"));
+    assertTrue("and still without making the call", !existsSync(join(tmp, "calls")));
+
+    // A READER FAILURE CARRIES THE READER'S OWN REASON THROUGH.
+    stub("echo boom >&2; exit 1");
+    const notes3 = join(tmp, "notes3.tsv");
+    assertEq("a failed read is unanswerable, never not_merged",
+      state("work-1", { notes: notes3 }), "unanswerable");
+    assertTrue("carrying the reader's own reason",
+      readFileSync(notes3, "utf8").includes("work-1\ttransport_error"), readFileSync(notes3, "utf8"));
+
+    // NOTHING IS RECORDED WHEN THE CALLER ASKED FOR NOTHING — the file is the caller's.
+    assertEq("a caller that sets no file still gets an answer",
+      state("work-1", { fetched: "false" }), "unanswerable");
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+
+  // THE VERDICTS ARE PROVED IDENTICAL, over a fixture carrying real claims of both grains:
+  // the whole claims array with the lookup disabled must be byte-identical to the array the
+  // scan produces with it enabled but unable to reach anything. The fixture's origin is a
+  // local directory, so the lookup cannot succeed there whatever it is allowed to try —
+  // which is exactly the degraded run this contract is about.
+  const fx = makeSquashMergedClaims();
+  try {
+    const raw = (env) => {
+      const j = JSON.parse(run(fx.B, `${POSIX_SH} ${SCRIPTS.listClaims}`, {
+        env: { ...process.env, ...env },
+      }).stdout);
+      return { claims: JSON.stringify(j.claims), unanswered: j.merged_lookup_unanswered };
+    };
+    const off = raw({ WORKAHOLIC_CLAIM_MERGED_LOOKUP: "0" });
+    const on = raw({});
+    assertTrue("the fixture carries claims to compare",
+      JSON.parse(off.claims).length >= 2, off.claims.slice(0, 200));
+    assertEq("a degraded lookup leaves every row byte-identical to the local-only answer",
+      on.claims, off.claims);
+    assertTrue("and no claim is ever reported superseded on a read that did not happen",
+      !JSON.parse(on.claims).some((c) => c.resume_reason === "superseded" && c.unit === fx.mission.unit),
+      on.claims.slice(0, 300));
+
+    // The reporting surface exists and is a list, whether or not anything filled it — the
+    // scan's call site lands with the mission-grain verdict it feeds.
+    assertTrue("the reader reports an unanswered set as its own field",
+      Array.isArray(off.unanswered) && Array.isArray(on.unanswered),
+      JSON.stringify([off.unanswered, on.unanswered]));
+  } finally {
+    for (const d of [fx.origin, fx.A, fx.B]) rmSync(d, { recursive: true, force: true });
   }
 }
 
@@ -15490,7 +15593,8 @@ const tests = [
   ["drive release-claim where the remote refuses deletes", testReleaseClaimDenyDeletes],
   ["drive/land-unit.sh: the third route, and the human gate that guards it", testLandUnit],
   ["drive claim protocol: a claim survives its tickets being archived", testClaimSurvivesArchive],
-  ["drive/lib/claim-merged.sh: merged, not merged, or unanswerable", testClaimMergedReader],
+  ["drive/claim-merged.sh: merged, not merged, or unanswerable", testClaimMergedReader],
+  ["drive claim protocol: the merged lookup degrades by name", testMergedLookupDegradesByName],
   ["drive claim protocol: the merged-claim shape at both grains", testMergedClaimShapeAtBothGrains],
   ["drive claim protocol: a mission claim's artifact is unaffected", testMissionClaimArtifactsUnaffected],
   ["drive claim protocol: a merged stamp is history, not a claim", testMergedStampIsHistoryNotAClaim],

@@ -1405,6 +1405,40 @@ EOF
         add_row "propose_in_flight" false "the in-flight gate did not hold: $(one_line "$_out")" load
     fi
 
+    # THE MISSION GRAIN (2026-08-26). The brake asks whether a MISSION is in flight, and the
+    # case that matters is the one the change-grain gate left open: a mission whose queue is
+    # DRAINED — its last ticket claimed and archived — while its work is still at a pull
+    # request. Under the old arithmetic that strategy was eligible and a second mission
+    # would have been proposed against it.
+    printf '{"ok": true, "identity": "drill", "slug": "o/n", "proposals": []}\n' > "$_open"
+    mkdir -p "${_root}/missions/active/drained" "${_root}/tickets/archive/work-x"
+    printf -- '---\ntype: Mission\ntitle: Drained\nslug: drained\nstatus: active\nfeedback: [20260101000000-a.md]\n---\n\n# Drained\n' \
+        > "${_root}/missions/active/drained/mission.md"
+    printf -- '---\ncreated_at: 2026-08-26T00:00:00+00:00\nstatus: done\nmission: drained\n---\n\n# Done\n' \
+        > "${_root}/tickets/archive/work-x/20260826000001-done.md"
+    _out=$(cd "$REPO_ROOT" && sh "$_survey" --open-proposals "$_open" "30 days ago" "$_root" 2>&1) || true
+    if [ "$(_reason live)" = "work_waiting" ]; then
+        add_row "propose_mission_in_flight" true "a strategy whose mission is active with a drained queue is still gated" load
+    else
+        add_row "propose_mission_in_flight" false "the mission-grain gate did not hold: $(one_line "$_out")" load
+    fi
+
+    # And it LIFTS when the mission is closed — the whole point of "one mission per strategy
+    # at a time" is that the next turn begins, so a gate that never released would be a stall
+    # rather than a brake.
+    mkdir -p "${_root}/missions/archive/drained"
+    mv "${_root}/missions/active/drained/mission.md" "${_root}/missions/archive/drained/mission.md"
+    sed -i.bak 's/^status: active$/status: achieved/' "${_root}/missions/archive/drained/mission.md" 2>/dev/null \
+        || sed -i '' 's/^status: active$/status: achieved/' "${_root}/missions/archive/drained/mission.md"
+    rm -rf "${_root}/missions/active/drained" "${_root}/missions/archive/drained/mission.md.bak"
+    _out=$(cd "$REPO_ROOT" && sh "$_survey" --open-proposals "$_open" "30 days ago" "$_root" 2>&1) || true
+    if [ -z "$(_reason live)" ]; then
+        add_row "propose_mission_released" true "a closed mission frees the strategy for its next turn" load
+    else
+        add_row "propose_mission_released" false "the gate did not release: $(one_line "$_out")" load
+    fi
+    rm -rf "${_root}/tickets"
+
     # A GATE THAT CANNOT BE READ IS NOT A GATE: the whole tick refuses rather than
     # falling through to a permissive default.
     printf '{"ok": false, "reason": "list_failed"}\n' > "$_open"
@@ -1430,6 +1464,36 @@ EOF
         add_row "propose_floor_move" true "a proposal declaring no evolutionary move is refused" load
     else
         add_row "propose_floor_move" false "the move floor did not hold: $(one_line "$_r")" load
+    fi
+
+    # THE MISSION FLOOR (2026-08-26). The unit a proposal declares its move over is a whole
+    # mission, so the body must name the experience and the ordered ticket set, and a set of
+    # fewer than two tickets is not a mission. Both refusals run BEFORE any network call,
+    # which is what makes them drillable here.
+    _mbody="${_root}/mission-body.md"
+    printf '%s\n' "## What to change" "" "x" "" "## Why this commits to the strategy" "" "y" "" \
+        "## What this is chosen against" "" "z" "" > "$_mbody"
+    _r=$(cd "$REPO_ROOT" && sh "$_open_sh" --strategy live --move depth --title t --workaholic-root "$_root" "$_mbody" 2>&1) || true
+    if printf '%s' "$_r" | grep -q '"reason": "missing_section"'; then
+        add_row "propose_floor_mission_shape" true "a body naming no experience and no ticket set is refused" load
+    else
+        add_row "propose_floor_mission_shape" false "the mission-shape floor did not hold: $(one_line "$_r")" load
+    fi
+
+    printf '%s\n' "## Experience" "" "e" "" "## Tickets" "" "1. only one" "" >> "$_mbody"
+    _r=$(cd "$REPO_ROOT" && sh "$_open_sh" --strategy live --move depth --title t --workaholic-root "$_root" "$_mbody" 2>&1) || true
+    if printf '%s' "$_r" | grep -q '"reason": "under_planned"'; then
+        add_row "propose_floor_two_tickets" true "a proposal naming one ticket is refused as under-planned" load
+    else
+        add_row "propose_floor_two_tickets" false "the two-ticket floor did not hold: $(one_line "$_r")" load
+    fi
+
+    # And the refusal NAMES THE ALTERNATIVE — a refusal stating only the rule leaves the
+    # caller retrying the same thing, which is `check-floor.sh`'s own recorded discipline.
+    if printf '%s' "$_r" | grep -q 'plain ticket'; then
+        add_row "propose_floor_alternative" true "the under-planned refusal names what to do instead" load
+    else
+        add_row "propose_floor_alternative" false "the refusal states only the rule: $(one_line "$_r")" load
     fi
 
     # /propose writes NOTHING into the repository — the property that keeps it out of the

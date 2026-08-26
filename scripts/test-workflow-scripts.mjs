@@ -63,6 +63,7 @@ const SCRIPTS = {
   strategyRead: join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/read.sh"),
   strategyClose: join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/close.sh"),
   strategyAttributedWork: join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/attributed-work.sh"),
+  missionStrategy: join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/mission-strategy.sh"),
   standupDigest: join(REPO_ROOT, "plugins/workaholic/skills/standup/scripts/digest.sh"),
   validateStrategy: join(REPO_ROOT, "plugins/workaholic/hooks/validate-strategy.sh"),
   missionClose: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/close.sh"),
@@ -4608,6 +4609,44 @@ function testStrategyAttributedWork() {
     assertTrue("the mover sorts to the front",
       moved.artifacts[0].path.endsWith("20260810000001-queued.md"), JSON.stringify(moved.artifacts));
 
+    // THE MISSION GRAIN (2026-08-26). `/propose` proposes a whole mission, so its brake asks
+    // whether one is in flight rather than how many tickets are queued. The case that matters
+    // is the one the change-grain count left open: a mission whose queue is DRAINED while its
+    // work is still at a pull request.
+    assertEq("an active attributed mission is reported as a waiting mission",
+      { missions: alpha.waiting_missions, slugs: alpha.waiting_mission_slugs,
+        advancing: alpha.waiting_missions_advancing },
+      { missions: 1, slugs: ["m-one"], advancing: 1 });
+
+    const drainedDir = join(dir, ".workaholic/tickets/todo");
+    const queued = join(drainedDir, "20260810000001-queued.md");
+    const parked = join(dir, ".workaholic/tickets/archive/work-x/20260810000001-queued.md");
+    execSync(`git mv ${queued} ${parked}`, { cwd: dir });
+    execSync("git commit -q -m 'Archive the queued ticket'", { cwd: dir });
+    const drained = JSON.parse(run(dir, `${READ} alpha "1 day ago"`).stdout);
+    assertEq("a drained queue still reports its mission in flight — the window a second mission would slip through",
+      { waiting: drained.waiting_count, missions: drained.waiting_missions },
+      { waiting: 0, missions: 1 });
+
+    // And the kind survives the grain: a mission whose queue is all documentation must not
+    // gate an advancing proposal, exactly as a single documenting ticket must not.
+    wf(".workaholic/tickets/todo/20260813000001-doc.md",
+      "---\ncreated_at: 2026-08-13T00:00:00+00:00\nmission: m-one\n---\n\n# Doc\n\n## Key Files\n\n- `docs/x.md` - x\n");
+    execSync("git add -A && git commit -q -m 'Queue a documentation ticket'", { cwd: dir });
+    const describing = JSON.parse(run(dir, `${READ} alpha "1 day ago"`).stdout);
+    assertEq("a mission whose queue is all documentation is classified describing",
+      { d: describing.waiting_missions_describing, a: describing.waiting_missions_advancing },
+      { d: 1, a: 0 });
+
+    // A CLOSED mission frees the strategy — "one mission at a time" has to release, or it is
+    // a stall rather than a brake. Closed through `close.sh`, the ONE writer of an end state,
+    // rather than by hand: it moves the file and writes the field together, which is exactly
+    // why reading the field alone is safe here.
+    run(dir, `${POSIX_SH} ${SCRIPTS.missionClose} m-one achieved`);
+    execSync("git add -A && git commit -q -m 'Close the mission'", { cwd: dir });
+    assertEq("a closed mission is no longer in flight",
+      JSON.parse(run(dir, `${READ} alpha "1 day ago"`).stdout).waiting_missions, 0);
+
     // The three degradations, each named rather than blank.
     assertEq("a strategy citing nothing says so instead of returning a silent empty set",
       JSON.parse(run(dir, `${READ} silent`).stdout).empty_reason, "no_feedback_refs");
@@ -5044,9 +5083,14 @@ function testProposeWriteFloor() {
       "feedback: [20260101000000-a.md]", "---", "", "# live", "", "## Aim", "", "a", "",
       "## Schedule", "", "s", "",
     ].join("\n"));
+    // The mission shape, since 2026-08-26: the unit a proposal declares its move over is a
+    // whole mission, so the body names the experience it demands and its ordered ticket set
+    // beside the three commitment sections.
     writeFileSync(body, ["## What to change", "", "x", "",
       "## Why this commits to the strategy", "", "y", "",
-      "## What this is chosen against", "", "z", ""].join("\n"));
+      "## What this is chosen against", "", "z", "",
+      "## Experience", "", "e", "",
+      "## Tickets", "", "1. first", "2. second", ""].join("\n"));
 
     // The MOVE is required and closed-set: a proposal that cannot say which of depth,
     // breadth or contraction it is has not made an evolutionary claim at all.
@@ -5060,13 +5104,35 @@ function testProposeWriteFloor() {
     // "tidy this up" is chosen against NOTHING -- nobody argues for the mess -- so a body
     // that cannot name its fork is either uncontroversial or unformed.
     for (const missing of ["## What to change", "## Why this commits to the strategy",
-                           "## What this is chosen against"]) {
+                           "## What this is chosen against", "## Experience", "## Tickets"]) {
       const partial = join(dir, "partial.md");
       writeFileSync(partial, readFileSync(body, "utf8").replace(missing + "\n", ""));
       assertEq(`a body with no '${missing}' section is refused`,
         call(`--strategy live --move depth --title t --workaholic-root ${WH} ${partial}`).reason,
         "missing_section");
     }
+
+    // THE TWO-TICKET FLOOR at the proposing seam, mirroring `mission/scripts/check-floor.sh`
+    // at the publish seam: a proposal naming one unit of work is a plain ticket's worth of
+    // direction, not a mission -- and, like that floor, the refusal names the alternative
+    // rather than restating the rule.
+    const thin = join(dir, "thin.md");
+    writeFileSync(thin, readFileSync(body, "utf8").replace("2. second\n", ""));
+    const under = call(`--strategy live --move depth --title t --workaholic-root ${WH} ${thin}`);
+    assertEq("a proposal naming one ticket is refused as under-planned", under.reason, "under_planned");
+    assertTrue("and the refusal names what to do instead", /plain ticket/.test(under.detail), under.detail);
+    const none = join(dir, "none.md");
+    writeFileSync(none, readFileSync(body, "utf8").replace("1. first\n", "").replace("2. second\n", ""));
+    assertEq("an empty ticket set is refused the same way",
+      call(`--strategy live --move depth --title t --workaholic-root ${WH} ${none}`).reason, "under_planned");
+    // The CEILING is deliberately not a floor: "roughly 7-8" is a judgement, and this
+    // script has never graded a proposal. A long set passes the write floor.
+    const many = join(dir, "many.md");
+    writeFileSync(many, readFileSync(body, "utf8").replace("2. second\n",
+      [...Array(11).keys()].map((i) => `${i + 2}. ticket ${i + 2}`).join("\n") + "\n"));
+    assertTrue("a set well over the ruled scale is not refused by the floor",
+      call(`--strategy live --move depth --title t --workaholic-root ${WH} ${many}`).reason !== "under_planned",
+      "the floor grew a ceiling");
 
     assertEq("an unknown strategy is refused",
       call(`--strategy nope --move depth --title t --workaholic-root ${WH} ${body}`).reason,
@@ -15310,6 +15376,7 @@ const tests = [
   ["specificate/read-ask-feedback-refs.sh: the ask's own feedback line", testReadAskFeedbackRefs],
   ["specificate/check-carry-floor.sh: the carry, floored at the publish seam", testCarryFloor],
   ["no_citing_artifacts is a provable reading: ask -> reader -> scaffold -> floor", testCarryChainIsProvable],
+  ["strategy/mission-strategy.sh: which direction a mission belongs to", testMissionStrategy],
 ];
 
 // `await` matters even though almost every test is synchronous: without it an async
@@ -20541,5 +20608,86 @@ function testCarryChainIsProvable() {
     assertTrue("and the retired strategy: relation did not return",
       !/^\s*strategy:\s/m.test(readFileSync(join(dir, draft.path.replace(`${dir}/`, "")), "utf8")),
       "a scaffolded mission gained a strategy: field");
+  } finally { cleanup(dir); }
+}
+
+// ---------- strategy/mission-strategy.sh: the link, made visible ----------
+// (2026-08-26) The operator asked that missions be designed to hang off a strategy — the
+// normal case, explicitly NOT mandatory. The link already existed and needed no new field;
+// what was missing is that nobody could SEE it, because every reader rendered a mission with
+// no indication of which direction it serves.
+//
+// What is pinned here is the shape of the answer, not just the happy path: the inverse read
+// composes `attributed-work.sh` rather than walking anything itself, an unattributed mission
+// is a distinct state from an unreadable strategy, and `exhaustive` is false by construction
+// so no consumer can render the answer as complete.
+function testMissionStrategy() {
+  const dir = makeRepo("main");
+  const READ = `${POSIX_SH} ${SCRIPTS.missionStrategy}`;
+  try {
+    const wf = (rel, body) => {
+      const abs = join(dir, rel);
+      mkdirSync(dirname(abs), { recursive: true });
+      writeFileSync(abs, body);
+    };
+    const REF = "20260801000001-the-direction.md";
+    wf(`.workaholic/feedbacks/${REF}`, "---\ntype: Feedback\n---\n\nx\n");
+    wf(".workaholic/strategies/turn-the-loop.md",
+      `---\ntype: Strategy\ntitle: Turn the loop\nslug: turn-the-loop\nstatus: active\n` +
+      `target_date: 2099-12-31\nassignees: [a@qmu.jp]\nfeedback: [${REF}]\n---\n\n` +
+      `# Turn the loop\n\n## Aim\n\na\n\n## Schedule\n\ns\n`);
+    // A strategy citing a record nothing else does: it reads fine and attributes nothing,
+    // which must not be confused with a strategy that could not be read.
+    wf(".workaholic/feedbacks/20260801000002-unanswered.md", "---\ntype: Feedback\n---\n\nx\n");
+    wf(".workaholic/strategies/quiet.md",
+      "---\ntype: Strategy\ntitle: Quiet\nslug: quiet\nstatus: active\n" +
+      "target_date: 2099-12-31\nassignees: [a@qmu.jp]\nfeedback: [20260801000002-unanswered.md]\n---\n\n" +
+      "# Quiet\n\n## Aim\n\na\n\n## Schedule\n\ns\n");
+    wf(".workaholic/missions/active/carried/mission.md",
+      `---\ntype: Mission\ntitle: Carried\nslug: carried\nstatus: active\nfeedback: [${REF}]\n---\n\n# Carried\n`);
+    wf(".workaholic/missions/active/lonely/mission.md",
+      "---\ntype: Mission\ntitle: Lonely\nslug: lonely\nstatus: active\nfeedback: []\n---\n\n# Lonely\n");
+    execSync("git add -A && git commit -q -m seed", { cwd: dir });
+
+    const all = JSON.parse(run(dir, READ).stdout);
+    const by = (slug) => all.missions.find((m) => m.slug === slug);
+    assertEq("a mission carrying the strategy's ref names that strategy",
+      { attributed: by("carried").attributed, slugs: by("carried").strategies.map((x) => x.slug) },
+      { attributed: true, slugs: ["turn-the-loop"] });
+    assertEq("and it carries the hop that caught it, so the render can be honest about how",
+      by("carried").strategies[0].attribution, "direct");
+    assertEq("a mission carrying no ref is an explicit unattributed state, not a missing entry",
+      { present: by("lonely") !== undefined, attributed: by("lonely").attributed,
+        strategies: by("lonely").strategies },
+      { present: true, attributed: false, strategies: [] });
+
+    // A strategy whose refs resolve to nothing is READ successfully and attributes nothing.
+    // It must not appear in `unreadable`: "nothing has answered this yet" and "could not be
+    // read" are different findings, and the whole point of the render is not to blur them.
+    assertEq("a strategy whose refs resolve to nothing is read, not reported unreadable",
+      { read: all.strategies_read, unreadable: all.unreadable }, { read: 2, unreadable: [] });
+
+    // The answer is as lossy as what it composes, and says so on every call.
+    assertEq("the answer never claims to be exhaustive", all.exhaustive, false);
+
+    // Named missions only, when named.
+    assertEq("it answers for exactly the missions it was asked about",
+      JSON.parse(run(dir, `${READ} carried`).stdout).missions.map((m) => m.slug), ["carried"]);
+    assertEq("and a mission it has never heard of is answered, not errored",
+      JSON.parse(run(dir, `${READ} nope`).stdout).missions,
+      [{ slug: "nope", strategies: [], attributed: false }]);
+
+    // It composes the ONE attribution reader rather than walking the relation itself — the
+    // rule that keeps the retired `strategy:` relation retired.
+    const src = readFileSync(SCRIPTS.missionStrategy, "utf8");
+    assertTrue("it composes attributed-work.sh", /attributed-work\.sh/.test(src), src.slice(0, 200));
+    assertEq("no mission gained a strategy field",
+      /^strategy:/m.test(readFileSync(join(dir, ".workaholic/missions/active/carried/mission.md"), "utf8")),
+      false);
+
+    // It is a READER: the roadmap it feeds runs on the operator's own checkout.
+    assertEq("the reader leaves the tree clean", run(dir, "git status --porcelain").stdout.trim(), "");
+    assertEq("and exits 0 even with no strategies at all",
+      run(makeRepo("main"), READ).status, 0);
   } finally { cleanup(dir); }
 }

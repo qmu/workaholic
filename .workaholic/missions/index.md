@@ -6,7 +6,6 @@
 * [make-the-routine-create-body-documented-and-buildable](active/make-the-routine-create-body-documented-and-buildable/mission.md) - Make the routine create body documented and buildable
 * [make-workaholify-converge-the-account-s-routines](active/make-workaholify-converge-the-account-s-routines/mission.md) - Make /workaholify converge the account's routines
 * [refuse-ok-under-a-placeholder-identity](active/refuse-ok-under-a-placeholder-identity/mission.md) - Refuse ok under a placeholder identity
-* [turn-the-loop-at-mission-granularity](active/turn-the-loop-at-mission-granularity/mission.md) - Turn the loop at mission granularity
 
 ## archive
 
@@ -66,3 +65,4 @@
 * [stop-the-runner-from-taking-path-owned-legacy-tickets](archive/stop-the-runner-from-taking-path-owned-legacy-tickets/mission.md) - Stop the runner from taking path-owned legacy tickets
 * [take-the-dedup-key-out-of-the-read-post](archive/take-the-dedup-key-out-of-the-read-post/mission.md) - Take the dedup key out of the read post
 * [tell-an-unanswered-question-from-an-answered-one](archive/tell-an-unanswered-question-from-an-answered-one/mission.md) - Tell an unanswered question from an answered one
+* [turn-the-loop-at-mission-granularity](archive/turn-the-loop-at-mission-granularity/mission.md) - Turn the loop at mission granularity

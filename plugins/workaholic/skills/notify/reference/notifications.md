@@ -90,7 +90,7 @@ unreadable-history rule are all untouched.
 
 Exactly one finish per thread stays the rule (SKILL, *Which thread an `/implement` unit's posts land in*): a unit posts `🟢 Implemented` **or** one of the three outcome shapes above, never both — `handoff` is the finish, never a third post, and the same holds for a blocked or merged unit.
 
-### `/propose` — the inbound sweep's receipt, in the swept message's own thread
+### `/propose` — the inbound sweep's receipt: a reply in the swept message's thread, a reaction on the message
 
 **A capture the channel cannot see did not happen, as far as the person who wrote it is concerned** (2026-08-26, the developer's instruction). The sweep filed the `[FB]` issue and left **nothing** on the message it filed — so from `#dev-<repo>` a message that became an issue and a message nobody read are byte-identical. Measured the same day: two asks written at 18:56 and 19:20 JST were both captured as issues #620 and #621 within the hour, and the developer, seeing no trace in the channel, asked why neither had been treated as feedback. The capture worked; only its receipt was missing.
 
@@ -102,6 +102,10 @@ Exactly one finish per thread stays the rule (SKILL, *Which thread an `/implemen
 **One reply per filed issue, into the swept message's own thread** — `thread_ts` is the `ts` half of the `slack-ref` the run just wrote into the issue body, so the coordinates are already in hand and **no lookup runs**: this is the model's case 1 (SKILL, *One thread per feedback item*), not a search, and the two-query bound is untouched because no query is made. A message with no thread gets one, rooted on itself, which is exactly where a person looking at that message will find it.
 
 **It carries no mention token**, by the standing rule: the reply reaches Slack as the developer's own account and the person it would name is normally the message's own author, so a `<@U…>` there notifies nobody. Slack's own thread-participation notice reaches the author, which is the whole mechanism this receipt relies on.
+
+**And a reaction on the message itself: `:inbox_tray:`** (2026-08-26). A reply lives *inside* a thread, so from a channel scroll a captured ask and an ignored one still look identical — a person has to open the thread to find out which happened. The reaction is the same receipt at a glance, in the one place someone scrolling the channel is already looking. It is the emoji the reply already speaks with (`📥`), so one event keeps one vocabulary, and **this line is the single source for the name**: the routine template and the drift pin read it from here rather than restating it.
+
+It rides the same coordinate and the same bounds as the reply — `<channel>:<ts>` from the `slack-ref` the run just wrote, so still **no lookup and no second query**; **only a message this run filed**, so an already-swept one gets neither reply nor reaction; and **never load-bearing**, reported per message as `ack_failed: <reason>` beside the reply's own outcome, so a landed reaction and a failed one are two facts exactly as a landed reply and a failed one are. It is a **second signal for a second audience**, never a substitute for the reply: a reaction carries no link and is invisible to anyone reading the issue rather than the channel.
 
 **Only a message this run actually filed.** A message excluded as already swept gets **nothing** — the receipt is on the issue that already exists, posted by the run that filed it, and a second one an hour later would be the hourly restatement this catalog retires posts for. Nor does an exclusion, a degradation or the strategy half of the tick ever post: `no_slack_transport`, `channel_unreadable` and `sweep_dedup_unreadable` are reported in the run report and said nowhere else.
 

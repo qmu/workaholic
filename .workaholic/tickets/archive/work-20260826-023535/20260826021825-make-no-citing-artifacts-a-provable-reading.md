@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-26T02:18:25+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on: 20260826021825-floor-the-carry-at-the-publish-seam.md
@@ -92,3 +93,32 @@ to trust.
 - The guarantee is bounded by what the floor can see — work published by `/specificate` from
   an ask carrying resolvable refs. Hand-written missions and asks with no refs are outside it,
   and the documents must say so rather than implying attribution is now exhaustive.
+
+## Final Report
+
+Development completed as planned, and step 4's condition came back negative:
+`attributed-work.sh` is **unchanged**. The previous three tickets close the hole at the
+writing end, so adding a state to the single attribution reader would have been a second
+mechanism for one guarantee — the ticket's own Considerations say to resist exactly that, and
+nothing measured here argued for it. A test asserts its `empty_reason` vocabulary is
+unchanged, so a later change to it is a deliberate act rather than a drift.
+
+What shipped is the end-to-end hermetic case — ask body → `read-ask-feedback-refs.sh` →
+`scaffold-draft.sh` → `check-carry-floor.sh`, passing when the ref rides and refusing when it
+is dropped, with `attributed-work.sh` then attributing the carried mission and not the
+dropped one — plus the preserved negative (a strategy with refs and nothing citing them still
+answers `no_citing_artifacts`, exit 0), and the guarantee stated with its limits in
+`specificate/SKILL.md`, `propose/SKILL.md` and `CLAUDE.md` (twice: the attribution paragraph
+and the `/propose` row).
+
+### Discovered Insights
+
+- **Insight**: The chain test's value is in the *negative* half — the same chain with the ref
+  omitted from the mission.
+  **Context**: The passing half only shows the scripts agree today. The failing half is what
+  makes the guarantee losable: a future change that reopens the hole fails here instead of
+  surfacing months later as an ambiguous `no_citing_artifacts`.
+- **Insight**: Stating the limits was the load-bearing half of the documentation change.
+  **Context**: The guarantee is bounded to work the loop itself emitted from an ask whose
+  refs resolved. Written without that clause it reads as "attribution is now exhaustive",
+  which is a stronger and false claim about a reader whose lossiness is a written decision.

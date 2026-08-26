@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-26T02:18:25+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on: 20260826021825-read-the-ask-s-feedback-line-through-one-script.md
@@ -90,3 +91,35 @@ mission or a ticket, those refs must be on what it emitted.
   refs on (the mission when there is one; the loose ticket when there is not), rather than
   demanding them everywhere and forcing noise into every ticket's frontmatter.
 - Nothing here adds a field to any artifact and the retired `strategy:` relation stays retired.
+
+## Final Report
+
+Development completed as planned. `check-carry-floor.sh` takes the resolved carried refs and
+the emitted artifact paths, reads each artifact's relation through
+`read-feedback-relation.sh`, and emits `{ok, checked, missing:[{artifact, ref}], reason,
+repair}` — exit 1 with the refusal on stderr when a resolved ref is absent, mirroring
+`mission/scripts/check-floor.sh`'s exit discipline. `reference/workflow.md` step 9 invokes it
+beside the ticket floor; the SKILL's carry section and Scripts list state the obligation.
+
+The scope question the ticket left open is answered in the script header and in step 9: the
+floor is on **the mission when there is one, the loose ticket when there is not**. A mission's
+tickets are not required to repeat its refs, because `attributed-work.sh` already reaches them
+through `via_mission:<slug>` — demanding them everywhere would force noise into every ticket's
+frontmatter to buy an attribution that already works.
+
+### Discovered Insights
+
+- **Insight**: The membership test is line-exact (`grep -qxF`), not a substring test.
+  **Context**: Feedback filenames share long date-stamped prefixes and one can be a suffix of
+  another; a substring test would let a near-miss satisfy the floor. The suffix case is
+  pinned by a test.
+- **Insight**: "Nothing to check" needed two distinct reasons (`no_refs_carried`,
+  `record_only`) rather than one.
+  **Context**: They are different facts — the ask named nothing, versus the run emitted
+  nothing — and the report line for a record-only outcome has to say which refs it *would*
+  have carried. One reason would have collapsed the two at the seam where the distinction
+  is needed.
+- **Insight**: A refusal here is a run failure to report, never a demotion to record-only.
+  **Context**: By step 9 the record is already written and the artifacts already scaffolded;
+  demoting would abandon work that exists, so the repair is to put the refs on what exists
+  and re-check before step 10 publishes.

@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-26T02:18:25+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -92,3 +93,29 @@ relation and it has no reader at all. Add it.
   before the judgment as well as after.
 - Scope discipline: this ticket adds the reader and its wiring only. What the run *says*
   about the result is the next ticket; refusing a publish that lost a ref is the one after.
+
+## Final Report
+
+Development completed as planned. `read-ask-feedback-refs.sh` reads the ask body on stdin,
+parses the first line-initial `feedback:` line in the shape `open-proposal.sh` writes it,
+resolves each ref under the feedbacks directory, and emits
+`{line_found, carried, dropped:[{ref, reason}]}` with exit 0 in every case. Step 3b of
+`reference/workflow.md` and the SKILL's *Carry the ask's own feedback refs forward* section
+invoke it instead of instructing a read by eye; the SKILL's Scripts list carries it.
+
+### Discovered Insights
+
+- **Insight**: A line with no refs and no line at all both reduce to the empty string
+  through `$(...)`, so the awk pass prefixes its answer with a flag byte.
+  **Context**: The three states — no line, a line naming nothing, a line naming refs — are
+  three different facts about an ask, and the run reports which. Any later reader of a
+  single-line frontmatter-ish surface faces the same collapse.
+- **Insight**: The normalisation (`tr -d '[]'` → `tr ',' '\n'` → trim → drop empties) is
+  copied verbatim from `read-feedback-relation.sh` rather than re-derived.
+  **Context**: The two readers of this relation sit on opposite surfaces (ask, artifact)
+  and their outputs are compared directly by the carry floor. Diverging on what a ref *is*
+  would make the floor refuse a correct publish.
+- **Insight**: A ref carrying a path separator is dropped as `not_a_filename` rather than
+  resolved.
+  **Context**: The relation holds bare filenames; resolving a path-shaped ref would also
+  let a body reach outside `.workaholic/feedbacks/`.

@@ -40,6 +40,15 @@ It was two gates, OR'd — a question **or** a changed step — and the second h
 
 **What it costs, stated rather than hidden**: a person following one item's own thread no longer sees the tick's question there. Every root line links the item it is about.
 
+**A question names three things, in this order** (2026-08-26): the **reading** — what is true, in the repository's own terms; the **item** it is about, by slug or number; and the **operator's own next act**. A question a person cannot answer without opening a skill is a question that waits, so the step supplies the wording, because it is what knows what its finding means; the shape it is poured into (`🙋 <@U…>`, the mention token, one sentence beneath) is `workaholic:notify`'s and is not a step's to move.
+
+- **The act is named in the operator's vocabulary, never in ours** — *announce that it ended*, not *call `close.sh`*. The announcement is the sanctioned route and the script is not theirs to run.
+- **Every question says what the loop will not do**, so that *it still stands* reads as a complete answer that costs nothing further. No question offers a button, and none implies the tick will act on the answer itself.
+- **It describes the state, never the person.** A direction filed an hour ago reads `dormant` correctly; "nothing has answered it yet" is a fact about the direction, and an accusation would be a fact about nobody.
+- **Nothing parses the answer.** `record-answer.sh` stores prose exactly as it always has; acting on it stays the next run's judgement.
+
+Like the `## Open Decisions` floor, this is a **prose contract, not a script gate** — no mechanical check tells a real three-part question from a padded one. What it buys is that a question missing one of the three is visibly non-conformant.
+
 ## Standing rules
 
 - **Unattended by contract**, exactly as `/implement` and `/specificate` are: **no `AskUserQuestion` at any step**. Step 10 asks humans things, and it asks them *in Slack* — a routine-fired session has no question mechanism, so "ask a human" and "prompt the operator" are different acts here.

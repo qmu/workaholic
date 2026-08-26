@@ -13646,6 +13646,86 @@ function testClaimSurvivesArchive() {
 }
 
 // ---------------------------------------------------------------------------
+// THE MERGED-CLAIM READER (2026-08-26). One question — is there a MERGED pull request whose
+// head is this branch? — answered at both grains without reading a single artifact, and
+// three-valued so a degraded read never masquerades as `not_merged`.
+//
+// EVERY CASE IS DRIVEN THROUGH A STUBBED `gh` ON PATH, so the suite stays offline. What is
+// pinned is the vocabulary the consumer will report and the exit status the scan depends on.
+function testClaimMergedReader() {
+  const READER = join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/lib/claim-merged.sh");
+  const tmp = mkdtempSync(join(tmpdir(), "wh-claim-merged-"));
+  const bin = join(tmp, "bin");
+  const repo = join(tmp, "repo");
+  const plain = join(tmp, "plain");
+  mkdirSync(bin, { recursive: true });
+  mkdirSync(repo, { recursive: true });
+  mkdirSync(plain, { recursive: true });
+  execSync("git init -q . && git remote add origin git@github.com:acme-org/source-repo.git", { cwd: repo });
+  const env = { ...process.env, PATH: `${bin}:${process.env.PATH}` };
+  const stub = (body) => {
+    writeFileSync(join(bin, "gh"), `#!/bin/sh\n${body}\n`);
+    chmodSync(join(bin, "gh"), 0o755);
+  };
+  const read = (cwd = repo, branch = "work-20260101-000000") => {
+    const r = run(cwd, `${POSIX_SH} ${READER} ${branch}`, { env });
+    return { ...JSON.parse(r.stdout), status: r.status };
+  };
+  try {
+    // MERGED — and the mixed payload matters: a closed-but-unmerged pull request on the same
+    // branch is emphatically not this branch's work reaching the base.
+    stub(`echo '[{"number":1,"merged_at":"2026-08-20T00:00:00Z"},{"number":2,"merged_at":null}]'`);
+    assertEq("a branch with a merged pull request reads merged",
+      [read().state, read().reason, read().status], ["merged", "", 0]);
+
+    stub(`echo '[{"number":2,"merged_at":null}]'`);
+    assertEq("a branch whose only pull request was closed unmerged reads not_merged",
+      [read().state, read().status], ["not_merged", 0]);
+
+    stub("echo '[]'");
+    assertEq("and a branch with no pull request at all reads not_merged",
+      [read().state, read().status], ["not_merged", 0]);
+
+    // THE THIRD VALUE. Each degradation is OURS, not the repository's, and each is named
+    // distinctly enough for the consuming step to report it.
+    const degraded = [
+      [`echo "API rate limit exceeded" >&2; exit 1`, "rate_limited"],
+      [`echo "HTTP 403: This GraphQL query is not enabled for this session" >&2; exit 1`, "session_refused"],
+      // `gh-rest.sh` emits this exact line and exits 127 when `gh` is absent; the stub
+      // reproduces the message because a stub cannot reproduce its own absence.
+      [`echo "gh is not on PATH" >&2; exit 127`, "gh_unavailable"],
+      [`echo boom >&2; exit 1`, "transport_error"],
+      [`echo 'not json at all'`, "unparseable_response"],
+      [`echo '{"message":"Not Found"}'`, "unparseable_response"],
+    ];
+    for (const [body, reason] of degraded) {
+      stub(body);
+      const r = read();
+      assertEq(`a degraded read is unanswerable, named ${reason}`,
+        [r.state, r.reason, r.status], ["unanswerable", reason, 0]);
+    }
+
+    // NEITHER ARGUMENT NOR REPOSITORY IS ASSUMED.
+    stub("echo '[]'");
+    assertEq("no branch argument is unanswerable, never not_merged",
+      [read(repo, "").state, read(repo, "").reason], ["unanswerable", "no_branch"]);
+    assertEq("and a tree with no resolvable remote names that instead of guessing",
+      [read(plain).state, read(plain).reason], ["unanswerable", "slug_unresolved"]);
+
+    // IT READS NO ARTIFACT AND NO RELATION. That constraint is what keeps it from becoming a
+    // second parser of the many-valued `mission:` field, so it is asserted rather than trusted.
+    const body = readFileSync(READER, "utf8").split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+    for (const f of ["mission:", "read-relation.sh", "ls-tree", "tickets/archive"]) {
+      assertTrue(`the reader never reaches ${f}`, !body.includes(f), f);
+    }
+    assertTrue("and it reaches GitHub only through the one transport",
+      !/\bgh (issue|pr|repo|api)\b/.test(body) && body.includes("gh-rest.sh"), body.slice(0, 300));
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
+// ---------------------------------------------------------------------------
 // THE MERGED-CLAIM SHAPE, AT BOTH GRAINS (2026-08-26, mission
 // `tell-a-merged-claim-from-a-live-one-at-both-grains`).
 //
@@ -15410,6 +15490,7 @@ const tests = [
   ["drive release-claim where the remote refuses deletes", testReleaseClaimDenyDeletes],
   ["drive/land-unit.sh: the third route, and the human gate that guards it", testLandUnit],
   ["drive claim protocol: a claim survives its tickets being archived", testClaimSurvivesArchive],
+  ["drive/lib/claim-merged.sh: merged, not merged, or unanswerable", testClaimMergedReader],
   ["drive claim protocol: the merged-claim shape at both grains", testMergedClaimShapeAtBothGrains],
   ["drive claim protocol: a mission claim's artifact is unaffected", testMissionClaimArtifactsUnaffected],
   ["drive claim protocol: a merged stamp is history, not a claim", testMergedStampIsHistoryNotAClaim],

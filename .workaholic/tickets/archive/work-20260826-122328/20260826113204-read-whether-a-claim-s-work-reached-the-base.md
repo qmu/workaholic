@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-26T11:32:04+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -84,3 +85,51 @@ is what lets ticket 3 keep the oracle's "degrades offline" contract instead of g
   possible.
 - A branch deleted after merge still has its pull request, so head-branch lookup survives
   branch cleanup. Confirm this against a real merged branch before relying on it.
+
+## Final Report
+
+Development completed as planned. `drive/scripts/lib/claim-merged.sh` takes a branch name and
+answers `{branch, state, reason}` where `state` is `merged` / `not_merged` / `unanswerable`,
+exiting 0 in every case.
+
+**It asks the pull request, not the tree.** "Is there a merged pull request whose head is this
+branch?" answers at both grains without reading a `mission:` relation, a ticket or any artifact
+— the constraint the ask names, and the thing that keeps this from becoming a second parser of
+a many-valued field. A hermetic assertion pins it: the reader's body may not contain `mission:`,
+`read-relation.sh`, `ls-tree` or `tickets/archive`.
+
+**Two decisions worth recording.**
+
+*No separate availability probe.* Step 5 asks for `no gh` to be named distinctly, and the
+obvious route is `gh-rest.sh available` first. It was not taken: this reader runs once per
+claim, so the probe would double the scan's network cost to learn what the call itself reports
+— and it is the only classification that stays honest when the transport dies between a probe
+and the call. The one call's failure is classified instead, into `gh_unavailable`,
+`rate_limited`, `session_refused` and `transport_error`, with `unparseable_response` and
+`slug_unresolved` beside them.
+
+*Executed rather than sourced*, against the `lib/` convention beside it (`claims.sh` is sourced,
+never run). This is the claim protocol's one network read, and a separate process is what makes
+it separable: a caller can decide not to spend it, a test can stub `gh` on PATH and drive every
+state, and nothing it defines leaks into `claims_scan`'s flat namespace, which already carries
+about thirty `_cs_` locals. Stated in the file's own header so the divergence is deliberate.
+
+**The lookup is repository-scoped and filtered locally**, as `rules/shell.md` requires of a
+bound session: `repos/<slug>/pulls?state=closed&head=<owner>:<branch>`, then `merged_at != null`
+in `jq`. `state=closed` is the superset of merged, and `merged_at` is what separates a merged
+pull request from one somebody closed without merging — which is emphatically not this branch's
+work reaching the base, and is asserted with a mixed payload.
+
+### Discovered Insights
+
+- **Insight**: A closed pull request and a merged one are the same `state` in the REST API;
+  only `merged_at` separates them.
+  **Context**: A reader that filtered on `state=closed` alone would report a rejected branch as
+  delivered — the most dangerous possible false positive here, since the consumer stops
+  offering the unit for resumption. The mixed-payload test exists to keep that distinction.
+- **Insight**: `gh-rest.sh slug` needs no `gh` at all — it reads `remote.origin.url` — so slug
+  resolution and transport availability are genuinely separate failures and deserve separate
+  reasons.
+  **Context**: That is why `slug_unresolved` is answered before any network call is attempted:
+  a tree with no remote is not a degraded transport, and reporting it as one would send a reader
+  looking for a connectivity problem that does not exist.

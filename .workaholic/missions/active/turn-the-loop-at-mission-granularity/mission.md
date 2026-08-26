@@ -58,3 +58,4 @@ that strategy's mission is finished, so the loop turns one mission per strategy 
 - 2026-08-26 — ticket archived — 20260826022347-judge-a-whole-mission-not-one-change.md
 - 2026-08-26 — ticket archived — 20260826022347-bound-the-brake-to-one-mission-per-strategy.md
 - 2026-08-26 — ticket archived — 20260826022347-emit-the-mission-the-ask-already-planned.md
+- 2026-08-26 — ticket archived — 20260826022347-make-the-strategy-a-mission-belongs-to-visible.md

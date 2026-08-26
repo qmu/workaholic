@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-26T11:23:10+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -108,3 +109,42 @@ same event, not a replacement: the reply carries the issue link, the reaction ca
   second signal for a second audience, never a substitute for the reply.
 - Adding a reaction is a Slack **write**, and the routine's prompt is the ceiling on what
   it may emit. Extending the ceiling is part of the work, not a precondition to it.
+
+## Final Report
+
+Development completed as planned. The inbound sweep's receipt is now two signals on one event:
+the threaded `📥 受理` reply it already posted, and a reaction on the message itself.
+
+**The emoji is named once.** `:inbox_tray:` — the `📥` the reply already speaks with — is stated
+in `workaholic:notify`'s catalog and nowhere else. The routine template's prompt authorizes it by
+that name, and the drift pin extracts it from the catalog rather than restating it, so template
+and catalog cannot diverge and no third copy exists to go stale.
+
+**It inherits the reply's three bounds unchanged**, which is what kept the change narrow: the
+`slack-ref` just written is the coordinate, so no lookup and no second query; only a message this
+run filed, so an already-swept one gets neither reply nor reaction; and never load-bearing, with
+the reply's and the reaction's outcomes reported per message as `ack_failed: <reason>` — two
+facts, not one.
+
+**`file-inbound-ask.sh` was read and not touched**, as the ticket requires: it is the marker's one
+writer, and the marker is already the coordinate.
+
+### Discovered Insights
+
+- **Insight**: The drift pin between a routine template and the notify catalog works by extracting
+  fenced code blocks from both and comparing them byte for byte — so a Slack behaviour that is not
+  a *post* (a reaction, an emoji name) has no fenced block to compare and needs its own extraction
+  rule to be pinned at all.
+  **Context**: The pin here matches the catalog sentence `reaction on the message itself:
+  `:emoji:`` and asserts the template's prompt contains that same token. Any future non-post Slack
+  act — a bookmark, a pin, a canvas edit — needs the same treatment: name it once in the catalog
+  in a matchable shape, then pin the template against that shape. Without it the template's prompt
+  can authorize a shape the catalog never documented, which is the exact failure the fenced-block
+  pin was built to prevent for posts.
+- **Insight**: The "only a message this run filed" exclusion has no mechanism of its own — it is
+  membership in the `slack-ref` ledger that `list-swept-slack-refs.sh` reads back out of the
+  issues themselves.
+  **Context**: That is why the reaction needed no new dedup: a ref that reads back is a message
+  the sweep skips, so no reaction can land on it. Anything later added to the receipt inherits the
+  same exclusion for free, and anything that wanted a *different* exclusion would need a second
+  ledger — which the tick's design refuses.

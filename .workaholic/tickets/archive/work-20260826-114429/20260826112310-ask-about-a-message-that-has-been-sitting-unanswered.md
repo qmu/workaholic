@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-26T11:23:10+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -118,3 +119,75 @@ addressed to a named person, keyed so it is asked exactly once.
 - The inbound sweep runs on `[Propose]` at `:40` and this step on `[Moderate]` at `:50`,
   so a message the sweep captured this hour will normally already have an issue. That is
   a reason to read whether anything answered it, not a reason to skip it.
+
+## Final Report
+
+Development completed as planned. `step-unanswered-asks.sh` is the tick's sixteenth step,
+registered immediately before `human-checkin`, and it turns a message nobody has answered into a
+question addressed to a person — mention or no mention.
+
+**Two decisions the ticket asked to be written down.**
+
+*The unanswered reading.* The channel and the window are the **inbound sweep's own** —
+`WORKAHOLIC_INBOUND_SLACK_CHANNEL` (default `dev-<repo_name>`) and
+`WORKAHOLIC_INBOUND_SLACK_WINDOW_HOURS` (default 26) — read here unchanged rather than duplicated
+under new names, so the two readings cannot disagree about which messages the loop had a chance
+to see. The cost is stated in the step's own header: a message already older than the window when
+the step first runs is never asked about, and nothing backfills it. Everything arriving afterwards
+is asked about exactly once.
+
+*The ledger.* The already-asked refs come out of the step's own `unanswered-asks-filed` lines
+through `log-read.sh` — the `<step>-filed` convention `step-inbound-sweep.sh` already uses, so no
+second ledger exists. It is an **optimisation**, not the gate: the gate is `ask-question.sh`'s own
+asked-once ledger, keyed mechanically on `unanswered-ask:<channel>:<ts>`, which is what actually
+guarantees "exactly once" and which also carries the per-tick cap, the daily bound, the quiet
+hours and the working-day hold, none of them re-implemented here.
+
+**One deliberate divergence from the shape of the two steps beside it** (the ticket's step 1 asks
+for divergences to be deliberate): this step's `event` is **always** the empty string, so it
+never renders a root line. `direction-health` and `stalled-units` settle their readings in the
+shell and can therefore name a repository event; this one cannot — at the moment `run.sh` reads
+its line nobody has looked at the channel yet, so any event would be a claim about a reading it
+has not made. That is right rather than merely honest: the finding's whole delivery is the
+question, which is already a reply inside that root.
+
+**An absent log and an unreadable one are different answers.** `no_log_area` is a *readable*
+answer — nothing has been asked — and yields an empty set, so the first tick of a repository can
+still ask. Any other refusal, a missing reader, or unparseable output is `degraded` by name and
+asks nothing.
+
+**Two pre-existing defects were repaired rather than worked around**, both in
+`scripts/e2e/loop-drill.sh`'s `verify-moderate`: `moderate_steps` and `moderate_log` compared
+against **literal** counts (10 and 11) while the tick has had fifteen steps since 2026-08-24, so
+the drill had been red on every run for two days for a reason unrelated to what it drills — the
+exact failure the row's own comment records happening once before. Both now derive the count from
+`run.sh`'s `STEPS`, so a step added tomorrow needs no edit here and a step that stops reporting
+still fails. `docs/loop-drill-runbook.md` records the change.
+
+**Reported, not fixed** (out of this ticket's scope): `README.md`'s `/moderate` row still
+describes the tick's Slack output as "its one Slack shape is `🙋 Question <@U…>`, a reply in the
+thread of the item it concerns", which the 2026-08-21 root-plus-replies design superseded. The
+step enumeration and count in that row were corrected here because this change moves them; the
+post shape is a separate correction with its own pins.
+
+### Discovered Insights
+
+- **Insight**: A drill or test assertion that pins a *count* of a registered list goes stale on
+  the next addition and turns red for its own bookkeeping — `verify-moderate` did it twice, and
+  its own comment records the first time as if it were a one-off.
+  **Context**: The property worth pinning was never the number but that *every registered step
+  reports*, which is derivable from `run.sh`'s `STEPS`. The same shape appears in
+  `test-workflow-scripts.mjs`, where the step list is a literal array — kept deliberately there,
+  because that test's purpose is to state the contract a reviewer reads, and it fails loudly with
+  a diff naming the added step. The drill's purpose is different, so its derivation is different.
+- **Insight**: `log-append.sh` refuses with `no_workaholic_dir` outside a repository the loop
+  already writes to, so any hermetic fixture that seeds a tick log has to create `.workaholic/`
+  first — exactly as the tick's own `open-log` step does.
+  **Context**: A test that skips it gets a silently empty ledger and an assertion that fails for
+  the wrong reason, which is how the first run of this ticket's own test failed.
+- **Insight**: A single quote inside a single-quoted `jq` program silently ends the program and
+  hands the rest to the shell, which then reports something unrelated (`cannot open channel: No
+  such file`).
+  **Context**: The step's `needs_agent` body is composed with `jq -n` and carries English prose,
+  so every apostrophe in it is a live hazard. The prose here is written without them on purpose;
+  a future edit that adds one will produce an error message that names none of this.

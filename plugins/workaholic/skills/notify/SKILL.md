@@ -45,7 +45,9 @@ Case 4 posts **two messages, not one**: the description root, then the run's fin
 
 **Why it earns a post at all**, against the bright line's tie-goes-to-silence: without it the channel cannot distinguish an ask that was captured from one nobody read, and the person who wrote it has no way to find out except by searching GitHub. That is not a status line addressed to nobody — it is addressed to the one person who wrote the message, in the place they wrote it, exactly once, and only when this run filed something.
 
-**Only for a message this run filed.** An already-swept message gets nothing (its receipt is on the issue that already exists), and no exclusion or degradation posts. The receipt is never load-bearing: the issue is open before the reply is attempted, and a failed reply is reported as `ack_failed` rather than retried or escalated. Shape: [reference/notifications.md](reference/notifications.md), *`/propose` — the inbound sweep's receipt*.
+**And a reaction on the message itself**, beside the reply (2026-08-26). A reply lives inside a thread, so from a channel scroll a captured ask and an ignored one still look identical; the reaction is the same receipt at a glance, on the same coordinate, with no lookup and no second query. It is a second signal for a second audience, never a substitute for the reply — it carries no link. The emoji is named once, in the catalog.
+
+**Only for a message this run filed.** An already-swept message gets nothing — neither reply nor reaction (its receipt is on the issue that already exists) — and no exclusion or degradation posts. The receipt is never load-bearing: the issue is open before either is attempted, and a failure of either is reported per message as `ack_failed` rather than retried or escalated. Shape: [reference/notifications.md](reference/notifications.md), *`/propose` — the inbound sweep's receipt*.
 
 ### Which thread an `/implement` unit's posts land in
 

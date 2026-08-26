@@ -313,23 +313,26 @@ a **throwaway root** so a drill never appends to the operator's own
 `.workaholic/moderations/` log.
 
 `[Moderate]` (repository scope, `50 * * * *`, configured by `/setup-repo-routines` from
-**one** account) runs `/moderate`: **ten** steps, one log line each (the count moved when
-the release-status and note-cadence steps merged in on 2026-08-19; the drill's own
-expectation was left at nine and has been corrected). On a healthy quiet
-repository its correct output is again *no Slack message at all*, so the channel cannot
-tell you whether it worked. Five load-bearing rows:
+**one** account) runs `/moderate`: one log line per registered step. **The drill no longer
+carries the number** (2026-08-26): it was a literal here and in `loop-drill.sh`, it went stale
+on every step the tick gained — nine, then ten, then a fifteen-step tick still drilled against
+ten — and a drill that is red for its own bookkeeping teaches people to ignore it. Both rows
+now derive the count from `run.sh`'s own `STEPS`, so a step added tomorrow needs no edit and a
+step that stops reporting still fails. On a healthy quiet repository its correct output is again
+*no Slack message at all*, so the channel cannot tell you whether it worked. Five load-bearing
+rows:
 
 | Row | Fails when | Read |
 | --- | ---------- | ---- |
-| `moderate_steps` | fewer than ten steps reported | `skills/moderate/scripts/run.sh` — the step list is the contract, and a step that goes missing must still emit a `degraded` row rather than vanish |
+| `moderate_steps` | fewer steps reported than `run.sh` registers | `skills/moderate/scripts/run.sh` — the step list is the contract, and a step that goes missing must still emit a `degraded` row rather than vanish |
 | `moderate_built` | a step still reports `not_implemented` | this checkout carries a half-landed mission — the step's own ticket names what is missing |
-| `moderate_log` | the tick wrote no log, or more than one section, or not eleven lines | `skills/moderate/scripts/log-append.sh` — one `## <tick>` section per tick, idempotent per (tick, step) |
+| `moderate_log` | the tick wrote no log, or more than one section, or not one line per registered step plus the persist | `skills/moderate/scripts/log-append.sh` — one `## <tick>` section per tick, idempotent per (tick, step) |
 | `moderate_persist` | the throwaway root was not skipped by name | `skills/moderate/scripts/persist-log.sh` — a drill must never publish |
 | `moderate_clean` | the tick changed the checkout | a maintenance tick that dirtied the tree would be writing to `main` hourly; findings become records and tickets through the publish seam, never a direct edit |
 
 `moderate_steps` is this stage's `status_stable`: a single tick is still useful when it is
-red, and what breaks is the *coverage* property — an hourly report that silently covers
-nine of ten steps reads exactly like one that covers all ten.
+red, and what breaks is the *coverage* property — an hourly report that silently covers all
+but one of its steps reads exactly like one that covers every step.
 
 ## 5g. The `[Propose]` brake (the `/propose` run)
 

@@ -14,13 +14,16 @@
    identity). No mention is required — that is the point.
 
    **Then acknowledge it where it was written** (2026-08-26): for each message this run
-   filed, post the `📥 受理` shape as a reply into that message's own thread —
-   `thread_ts` is the `ts` half of the `slack-ref` just written, so no lookup runs
-   (`workaholic:notify`, *The inbound sweep's receipt*). Only a message this run filed:
-   an already-swept one, an exclusion and a degradation post nothing. The reply is never
-   load-bearing — the issue is already open, and a failure is reported as `ack_failed`.
+   filed, post the `📥 受理` shape as a reply into that message's own thread **and add the
+   catalog's reaction to the message itself** — both coordinates are the `slack-ref` just
+   written, so no lookup runs (`workaholic:notify`, *The inbound sweep's receipt*). The
+   reply carries the issue link for whoever opens the thread; the reaction says the same
+   thing to whoever is only scrolling the channel. Only a message this run filed: an
+   already-swept one, an exclusion and a degradation get neither. Neither is ever
+   load-bearing — the issue is already open, and a failure of either is reported per
+   message as `ack_failed`.
 
-   Report each filed URL **and whether its receipt landed**, and each
+   Report each filed URL **and whether its receipt landed** (reply and reaction each), and each
    named exclusion; a missing connector is `no_slack_transport`, an unreadable channel
    `channel_unreadable`, and **every sweep outcome leaves steps 1-5 untouched**.
 

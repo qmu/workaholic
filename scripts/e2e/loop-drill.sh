@@ -1256,13 +1256,21 @@ cmd_verify_moderate() {
     _tick=$(sh "${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/tick-id.sh" | sed 's/.*"tick": "//; s/".*//')
     _out=$(cd "$REPO_ROOT" && sh "$_run" --tick "$_tick" --root "$_root" 2>&1) || true
 
-    # TEN since the release-status and note-cadence steps merged in (2026-08-19); the count
-    # was left at nine and the drill has failed on every run since. Corrected 2026-08-21.
+    # THE EXPECTED COUNT IS DERIVED FROM `run.sh`'s OWN `STEPS`, NOT WRITTEN HERE (2026-08-26).
+    # It was a literal — nine, then ten — and it went stale every single time a step was added,
+    # which is twice more since it was last corrected: the drill has read `expected ten` against
+    # a fifteen-step tick since 2026-08-24 and failed on every run, exactly the defect its own
+    # previous comment records. The property worth drilling was never the number; it is that
+    # EVERY registered step contributes a reported line, so the drill now asks `run.sh` how many
+    # it registers and compares. A step added tomorrow needs no edit here, and a step that stops
+    # reporting still fails the drill.
+    _want=$(sed -n "s/^STEPS='\([^']*\)'.*/\1/p" \
+                "${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/run.sh" | wc -w | tr -d ' ')
     _steps=$(printf '%s' "$_out" | awk '{ n = gsub(/"step":/, "&"); print n + 0 }')
-    if [ "${_steps:-0}" -eq 10 ]; then
-        add_row "moderate_steps" true "all ten steps reported" load
+    if [ "${_want:-0}" -gt 0 ] && [ "${_steps:-0}" -eq "$_want" ]; then
+        add_row "moderate_steps" true "all ${_want} registered steps reported" load
     else
-        add_row "moderate_steps" false "expected ten reported steps, got ${_steps:-0}: $(one_line "$_out")" load
+        add_row "moderate_steps" false "expected ${_want:-?} reported steps (run.sh's own STEPS), got ${_steps:-0}: $(one_line "$_out")" load
         rm -rf "$_root"
         emit_verdict "moderate" 0 "fail" 1
     fi
@@ -1279,12 +1287,16 @@ cmd_verify_moderate() {
     _log="${_root}/.workaholic/moderations/${_day}.md"
     if [ -f "$_log" ]; then
         _sections=$(grep -c '^## ' "$_log" || true)
-        # Ten step lines plus the closing act's own `persist-log` line.
+        # One line per registered step plus the closing act's own `persist-log` line — derived
+        # from `run.sh`'s `STEPS` for the same reason the count above is (2026-08-26): a literal
+        # here goes stale on the next step and turns the drill red for a reason that has nothing
+        # to do with what it drills.
+        _want_lines=$((_want + 1))
         _lines=$(grep -c '^- `' "$_log" || true)
-        if [ "$_sections" = "1" ] && [ "$_lines" = "11" ]; then
-            add_row "moderate_log" true "one tick section carrying ten step lines and the persist" load
+        if [ "$_sections" = "1" ] && [ "$_lines" = "$_want_lines" ]; then
+            add_row "moderate_log" true "one tick section carrying ${_want} step lines and the persist" load
         else
-            add_row "moderate_log" false "expected 1 section and 11 lines, got ${_sections} and ${_lines}" load
+            add_row "moderate_log" false "expected 1 section and ${_want_lines} lines, got ${_sections} and ${_lines}" load
         fi
     else
         add_row "moderate_log" false "the tick wrote no log at ${_log}" load

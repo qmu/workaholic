@@ -53,8 +53,11 @@ as the account itself.
 instruction). Until then it posted nothing at all, which made a captured ask and an ignored one
 byte-identical from the channel — measured the same day, two asks became issues within the hour
 and the developer, seeing no trace in the thread, asked why neither had been treated as
-feedback. The prompt names that one shape and no other, which is the ceiling on what this
-routine may emit. **The no-posting argument is unchanged for everything else** and is why
+feedback. The receipt is **two signals for two audiences on one event**: the threaded reply,
+which carries the issue link for whoever opens the thread, and a **reaction on the message
+itself**, which says the same thing to whoever is only scrolling the channel — a reply lives
+inside a thread and is invisible from a scroll. The prompt names that one shape and that one
+reaction and nothing else, which is the ceiling on what this routine may emit. **The no-posting argument is unchanged for everything else** and is why
 nothing else moved: the proposal issue is assigned to exactly one person whom GitHub already
 notifies, a Slack copy would be the same noise twice, and a status line addressed to nobody is
 what retired `🔧 Needs a decision` and `📦 Release Preparation`. The receipt is none of those —
@@ -76,8 +79,8 @@ is the inverse of what `renamed_from:` instructs, and no template carries the fi
 `workaholic:propose` owns the gates, the three moves and the refusal of housekeeping,
 `workaholic:strategy` owns the artifact, and the always-loaded `rules/` own the standing
 prohibitions. It names **one** post format — the sweep's receipt — byte-identical to
-`workaholic:notify`'s catalog copy, and that one shape is the ceiling on what a session running
-this routine may emit.
+`workaholic:notify`'s catalog copy, plus the one **reaction** that catalog names, and those are
+the ceiling on what a session running this routine may emit.
 
 ## Prompt
 
@@ -94,6 +97,8 @@ For each ask the sweep files **in this run**, post one reply into that message's
 <session URL>
 ```
 
-Post nothing else to Slack: not for an already-swept message, not for an exclusion, not for a degradation, not for the proposal, and not on an idle tick. A reply that fails is reported as `ack_failed` and never blocks the capture.
+Then add the reaction `:inbox_tray:` to that same message, on the same coordinate — again no lookup and no search.
 
-Report each swept ask's issue URL and whether its receipt landed, or its named exclusion, then the proposal's issue URL and its move, or the named reason nothing was proposed.
+Post nothing else to Slack and add no other reaction: not for an already-swept message, not for an exclusion, not for a degradation, not for the proposal, and not on an idle tick. A reply or a reaction that fails is reported as `ack_failed` and never blocks the capture.
+
+Report each swept ask's issue URL and whether its receipt landed — the reply and the reaction each — or its named exclusion, then the proposal's issue URL and its move, or the named reason nothing was proposed.

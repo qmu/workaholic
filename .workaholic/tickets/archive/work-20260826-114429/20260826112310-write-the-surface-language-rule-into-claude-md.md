@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-26T11:23:10+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -91,3 +92,33 @@ record read by tooling and by anyone who arrives later, so they are **English**.
 - Several shipped Slack shapes are already Japanese and several are English. The rule
   makes that inconsistency visible, which is its point; resolving it is separate work,
   because the shapes are pinned byte-identical against four routine templates.
+
+## Final Report
+
+Development completed as planned. The rule is written into `CLAUDE.md`'s `## Important`
+block as current behaviour, with both clauses and the exclusion clause.
+
+**Where it lives.** `plugins/workaholic/rules/general.md` was read first, as step 1 asks. The
+rule stays in `CLAUDE.md`: it names `#dev-workaholic`, this repository's own channel, so
+mirroring it into `rules/` would ship a clause about a channel a consuming repository does not
+have. `outputs/` therefore needed no rebuild.
+
+**Divergence between the rule and the shipped post shapes** (step 4 — reported, not fixed).
+Of the eleven shapes in the notify catalog, exactly two are Japanese: `📥 受理` (the inbound
+sweep's receipt) and `✅ 解消を確認` (the moderation tick's settled-question confirmation).
+The other nine are English and, by the rule, are on the wrong side of it: `🔵 Proposed`,
+`📝 FB`, `🟢 Implemented`, `🚀 Auto Merge`, `🟡 Handoff`, `🔴 Blocked`, `🔎 Moderation`,
+`🙋 <@U…>` and `⚪ Paused`. Moving any of them changes what four routine templates are pinned
+byte-identical against, so it is its own change with its own drift pins to update — the ticket
+forbids doing it here, and this report is the record that it is outstanding.
+
+### Discovered Insights
+
+- **Insight**: The catalog's post shapes are pinned byte-identical against the routine
+  templates by `testProposeRoutineTemplate` and its siblings in
+  `scripts/test-workflow-scripts.mjs`, which extract fenced blocks from the template prompt and
+  compare them to fenced blocks in `notifications.md`.
+  **Context**: Any language change to a post shape is a two-file edit plus a test the pin will
+  fail on until both sides move together. That is why a language *rule* can land on its own and
+  the *shapes* cannot — the rule costs one paragraph, the shapes cost a coordinated edit across
+  the catalog, four templates and the pins.

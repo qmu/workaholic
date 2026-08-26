@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-26T02:18:25+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on: 20260826021825-read-the-ask-s-feedback-line-through-one-script.md
@@ -85,3 +86,31 @@ emitted artifact.
 - Keep the report line short. It is read in a routine's container log and in a finish post's
   neighbourhood; a per-artifact ref dump that nobody reads is the noise this repository has
   twice retired status roots for.
+
+## Final Report
+
+Development completed as planned. Step 13's report contract now names, per emitted artifact,
+what was carried (`carried:<artifact>:<n>`) and every dropped ref by name with its reason
+(`dropped:<ref>:<reason>`), taken from step 3b's script output rather than a re-read by eye;
+step 10's pull-request body carries the same two sets in `<changes>`. The record-only case is
+stated explicitly on both surfaces — the refs it *would* have carried, beside `emitted:none`
+— so a dropped link and an unproposed ask do not read alike. The SKILL's *Carry the ask's own
+feedback refs forward* section now holds the reporting obligation beside the carrying one,
+its Workflow summary step 5 agrees, and `CLAUDE.md`'s `/specificate` row states the whole
+mechanism in the same change.
+
+`commands/specificate.md` was checked and left unchanged: its contract names no report shape,
+so nothing there drifted.
+
+### Discovered Insights
+
+- **Insight**: The carried set is reported as a **count** and each drop by **name**.
+  **Context**: The ticket asked for both sets and also for a short line; those pull against
+  each other. The carry is the ordinary case and the drop is the rare actionable one, so the
+  split is where the information actually is — the same reasoning that retired two keyed
+  status roots for restating unchanged answers.
+- **Insight**: The record-only clause is what makes the report honest, not the carried/dropped
+  pair.
+  **Context**: With no artifact emitted there is nothing to attach a carry to, so without an
+  explicit "would have carried … emitted:none" a lost link and an ask nobody proposed produce
+  identical report lines — which is the same collapse the mission exists to close downstream.

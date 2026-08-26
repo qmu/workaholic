@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-26T08:20:29+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -85,3 +86,32 @@ stays the next run's judgement.
 - The three parts are a prose contract, not a script gate — the same class as this
   repository's `## Open Decisions` floor. What it buys is that a question missing one of
   them is visibly non-conformant.
+
+## Final Report
+
+Development completed as planned.
+
+Each `direction-health` subject now carries its own `heading` and `body`, composed by the step
+because the step is what knows what its reading means. The three parts run in the required
+order — the reading, the slug (or explicitly *this repository* for `direction-none`), and the
+operator's own next act — and the act is named in the operator's vocabulary (*announce that it
+ended*, never *call `close.sh`*). Every body states what the loop will **not** do, so *it still
+stands* reads as a complete answer. The post shape, the mention token and the threading are
+untouched: `heading` fills `workaholic:notify`'s `🙋 <@U…> - <…>` line and `body` is the one
+sentence beneath it, all three inside the 25-word bound (20 / 20 / 24 words as rendered). The
+rule is stated in `moderate/SKILL.md` so a later step reusing this surface inherits it.
+
+### Discovered Insights
+
+- **Insight**: the wording had to be split into `heading` and `body` rather than being one
+  string, because `workaholic:notify`'s question shape is itself two parts — the subject on the
+  `🙋 <@U…>` line and one sentence under it.
+  **Context**: a step that emitted one blob would have forced the composing agent to cut it in
+  two, which is exactly the "re-invented here" failure the ticket's step 1 warns against. The
+  split makes the notify shape the consumer of the step's fields rather than a thing the agent
+  re-derives.
+- **Insight**: "the operator's next act" for a `dormant` direction is *file its next move*, not
+  *file the next direction* — the direction is still live and still theirs.
+  **Context**: only the `overdue` and `none` readings put a direction's *existence* in question.
+  Conflating the three acts would have told somebody to replace a direction that had merely gone
+  quiet, which is the accusation the wording rule exists to avoid.

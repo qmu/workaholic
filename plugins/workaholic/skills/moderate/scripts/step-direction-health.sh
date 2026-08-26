@@ -98,19 +98,50 @@ n_live=$(printf '%s' "$out" | jq -r '.counts.live // 0' 2>/dev/null || echo 0)
 
 # THE SUBJECTS. One per non-`live` reading, each carrying the content key `ask-question.sh`'s
 # already-asked ledger keys on. `unreadable` rows are deliberately absent from this list.
-subjects=$(printf '%s' "$out" | jq -c '
+#
+# EACH SUBJECT CARRIES ITS OWN WORDING, IN THREE PARTS AND IN THIS ORDER: the READING (what is
+# true of the direction), the SLUG it is about, and the OPERATOR'S OWN NEXT ACT. A question a
+# person cannot answer without opening a skill is a question that waits, and the step is what
+# supplies the wording because it is what knows what its reading means.
+#
+#   heading -> the `🙋 <@U…> - <…>` line's subject: the reading and the slug
+#   body    -> one sentence, the operator's act, inside `workaholic:notify`'s 25-word bound
+#
+# THE ACT IS NAMED IN THE OPERATOR'S VOCABULARY, never in ours: *announce that it ended*, not
+# *call `close.sh`* — the announcement is the sanctioned route (`/specificate` reaches the
+# writer) and the script is not the operator's to run. Every body also says what the loop will
+# NOT do, because "it still stands" must read as a complete answer that costs nothing further.
+#
+# IT DESCRIBES THE STATE, NEVER THE PERSON. A direction filed an hour ago reads `dormant`
+# immediately and correctly; "nothing has answered it yet" is a fact about the direction, and
+# an accusation would be a fact about nobody.
+#
+# NOTHING PARSES THE ANSWER. It is prose, recorded by `record-answer.sh` exactly as every other
+# answer is; acting on it stays the next run's judgement. No button, no automation.
+subjects=$(printf '%s' "$out" | jq -c --arg window "14 days" '
     [ .strategies[]
       | select(.state == "overdue" or .state == "dormant")
+      | . as $s
       | {key: ("direction-" + .state + ":" + .slug),
          slug: .slug, title: .title, assignees: .assignees,
-         reading: .state, days_to_target: .days_to_target} ]' 2>/dev/null || echo '[]')
+         reading: .state, days_to_target: .days_to_target,
+         heading: (if .state == "overdue"
+                   then "the direction `" + .slug + "` has run past its target date"
+                        + (if (.days_to_target != null)
+                           then " (" + ((-.days_to_target) | tostring) + " day(s) ago)" else "" end)
+                   else "nothing has answered the direction `" + .slug + "` in the last " + $window
+                   end),
+         body: (if .state == "overdue"
+                then "Announce that it ended, or say it still stands — the loop will not close or change it either way."
+                else "File its next move, or say it still stands — the loop will not close or change it either way."
+                end)} ]' 2>/dev/null || echo '[]')
 n_subjects=$(printf '%s' "$subjects" | jq 'length' 2>/dev/null || echo 0)
 
 if [ "$repository" = "none" ]; then
     # THE REPOSITORY-LEVEL READING. There is no strategy to name and nobody to address: the
     # loop has no direction at all, which is the one state where the question is about the
     # tree rather than about somebody's direction.
-    subjects='[{"key": "direction-none", "slug": "", "title": "", "assignees": "", "reading": "none", "days_to_target": null}]'
+    subjects='[{"key": "direction-none", "slug": "", "title": "", "assignees": "", "reading": "none", "days_to_target": null, "heading": "this repository has no live direction", "body": "File the next one when there is one, or say the loop is deliberately idle — it will not file a direction for you."}]'
     n_subjects=1
 fi
 
@@ -122,7 +153,7 @@ fi
 
 needs=$(printf '%s' "$subjects" | jq -c '{action: "ask_the_owner_what_becomes_of_this_direction",
     bound: "one question per reading, addressed to the strategy'"'"'s assignee (direction-none is addressed to nobody), keyed on `key` so it is asked once; the tick asks and never closes a strategy, never proposes, and never lifts a gate",
-    compose: "name the reading, the slug it is about, and the act that is the operator'"'"'s — announcing that the direction ended, filing the next one, or saying it still stands",
+    compose: "post `heading` as the 🙋 subject and `body` as the one sentence beneath it, per workaholic:notify; the three parts are already in that order and must not be re-invented here",
     directions: .}' 2>/dev/null || echo '{}')
 
 event="${n_overdue} direction(s) past their date, ${n_dormant} with nothing answering them"

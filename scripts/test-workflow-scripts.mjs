@@ -20637,6 +20637,50 @@ function testCarryChainIsProvable() {
     assertEq("and it is still a named answer with exit 0, never an error",
       run(dir, `${ATTR} quiet`).status, 0);
 
+    // ── THE BOUND COVERS THE LOOP'S OTHER TWO WRITERS (2026-08-26) ──
+    // The guarantee is bounded to work the loop emitted from an ask whose refs resolved, and
+    // the sweep and `/fb`'s in-repo path are the loop's own writers — so an ask either filed
+    // belongs INSIDE that bound. The same four links, over their header shapes; the fixtures
+    // differ only in the block above the refs, which is why this test is extended rather
+    // than copied.
+    const shapes = {
+      swept: [
+        "kind: feedback / source: slack / subject: person:Tamura",
+        "slack-ref: C0AB12CD3:1724371200.000100",
+        "slack-link: https://example.slack.com/archives/C0AB12CD3/p1724371200000100",
+      ],
+      fb: ["kind: instruction / source: discussion / subject: person:a@qmu.jp"],
+    };
+    for (const [name, header] of Object.entries(shapes)) {
+      const p = join(dir, `${name}-ask.md`);
+      writeFileSync(p, [...header, `feedback: ${DIRECTION}`, "", "The ask itself.", ""].join("\n"));
+      const r = JSON.parse(run(dir, `${READ} < ${p}`).stdout);
+      assertEq(`the reader recovers the direction from a ${name} ask`,
+        { line_found: r.line_found, carried: r.carried }, { line_found: true, carried: [DIRECTION] });
+
+      const m = JSON.parse(run(dir, `${DRAFT} "Close the loop from ${name}" ${RECORD} ${r.carried.join(" ")}`).stdout);
+      assertEq(`a mission scaffolded from a ${name} ask carries it`,
+        run(dir, `${FLOOR} --refs "${r.carried.join(",")}" ${m.path}`).status, 0);
+
+      const lost2 = JSON.parse(run(dir, `${DRAFT} "Lose the loop from ${name}" ${RECORD}`).stdout);
+      const refused2 = run(dir, `${FLOOR} --refs "${r.carried.join(",")}" ${lost2.path}`);
+      assertEq(`and the floor refuses the same ${name} ask published without it`,
+        [JSON.parse(refused2.stderr).reason, refused2.status], ["carried_ref_missing", 1]);
+    }
+
+    // An UNATTRIBUTED swept ask is a real pass, never a failure: the judgment is reported,
+    // not enforced, so an ask answering no live direction publishes work carrying nothing.
+    const sweptNone = join(dir, "swept-none.md");
+    writeFileSync(sweptNone, [...shapes.swept, "", "The ask itself.", ""].join("\n"));
+    const sweptNoneRefs = JSON.parse(run(dir, `${READ} < ${sweptNone}`).stdout);
+    assertEq("an unattributed swept ask reads back no line",
+      { line_found: sweptNoneRefs.line_found, carried: sweptNoneRefs.carried },
+      { line_found: false, carried: [] });
+    const sweptFloor = run(dir, `${FLOOR} --refs "${sweptNoneRefs.carried.join(",")}" ${draft.path}`);
+    assertEq("and the floor passes it with checked: 0",
+      [JSON.parse(sweptFloor.stdout).ok, JSON.parse(sweptFloor.stdout).checked, sweptFloor.status],
+      [true, 0, 0]);
+
     // AN ASK NAMING NO DIRECTION IS JUDGED, AND THE FLOOR STAYS OUT OF IT (2026-08-26). The
     // judgment is a reading, not a promise the ask made, so `check-carry-floor.sh` must keep
     // checking only refs the ASK carried — flooring an inference would turn a reported

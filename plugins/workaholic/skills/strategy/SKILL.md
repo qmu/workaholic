@@ -109,6 +109,8 @@ queued tickets, and one with none is `unknown` — which counts toward advancing
 unknown ticket follows. This adds no relation and no artifact field: the mission set is the
 attributed artifacts already walked, filtered on the lifecycle field `close.sh` writes.
 
+**`no_citing_artifacts` is bounded, and the bound is stated rather than implied** (2026-08-26). After `/specificate`'s carry floor it means *nothing has answered this direction yet* — for work the loop emitted from an ask filed by `/propose`, by the inbound Slack sweep, or by `/fb`'s in-repo path, whose refs resolved. It says nothing about work a run never emitted, an ask judged to answer no direction, a ref that did not resolve, or an artifact written by hand outside `/specificate`. A hermetic test walks ask → reader → scaffold → floor for each writer's header shape and fails when the ref is dropped, so the reading is a fact a change can lose rather than a claim.
+
 **And the inverse is readable, so the link is visible where missions are read** (2026-08-26).
 `mission-strategy.sh` answers *which strategy does this mission belong to* by composing the same
 walk — no second walker, no relation of its own, and no field on any artifact, which is what

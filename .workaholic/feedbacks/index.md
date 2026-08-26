@@ -550,4 +550,7 @@
 * [The strategy-digest render marker names a step id log-append.sh refuses](20260826025833-the-strategy-digest-render-marker-names-a-step-id-log-append-sh-refuses.md)
 * [persist-log.sh carries a record to the base but never its OKF index entry](20260826030018-persist-log-sh-carries-a-record-to-the-base-but-never-its-okf-index-entry.md)
 * [Attribute an inbound ask to the direction it answers](20260826041650-attribute-an-inbound-ask-to-the-direction-it-answers.md)
+* [Give a mission claim the superseded reading a batch claim already has](20260826065623-give-a-mission-claim-the-superseded-reading-a-batch-claim-already-has.md)
+* [question-liveness reads an array run.sh never emits, so every asked question reads settled](20260826065731-question-liveness-reads-an-array-run-sh-never-emits-so-every-asked-question-reads-settled.md)
+* [Say when the loop has run out of direction](20260826071745-say-when-the-loop-has-run-out-of-direction.md)
 <!-- okf:generated:end -->

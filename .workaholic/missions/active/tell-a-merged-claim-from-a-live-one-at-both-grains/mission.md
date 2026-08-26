@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260826-122328
 ---
 
 # Tell a merged claim from a live one at both grains

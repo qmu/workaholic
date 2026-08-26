@@ -152,7 +152,7 @@
 # `resume_reason` always answers "why is it in this state", and is NEVER empty (see the
 # no-empty-field rule below): `heartbeat_lapsed`, `parked_with_pr` or `report_incomplete`
 # when resumable, else `claim_active`, `foreign_identity`, `identity_unresolved`,
-# `shallow_history`, or `queue_drained`.
+# `shallow_history`, `superseded`, or `queue_drained`.
 # `parked_with_pr` splits the RESUMABLE case in two: a unit that reached its PR (its story
 # file is committed at the branch tip) and merely has follow-up work, versus a run that
 # died mid-drive. Both MAY be taken over; only the latter is a MANDATORY takeover, because
@@ -171,6 +171,9 @@
 # `heartbeat_lapsed` -- a dead run's remains, not a unit waiting on a person -- and it
 # narrows the 2026-08-01 drained gate rather than reversing it: a unit that DID report
 # still answers `queue_drained` and is still untouchable.
+# `superseded` is the claim whose CONTENT already reached the base by another route, so
+# there is nothing in it to drive and nothing for a human to merge (`claims_superseded`).
+# It is reported and never acted on, exactly like `stale`, and it must not forbid `ok`.
 #
 # Paths are assumed free of tabs, commas, quotes and backslashes -- true of every
 # .workaholic/ artifact by construction (the ticket/mission filename rules), and the
@@ -387,6 +390,100 @@ claims_has_story() {
     git cat-file -e "${1}:.workaholic/stories/${2}.md" 2>/dev/null && printf 'true' || printf 'false'
 }
 
+# Has this claim's work already reached the BASE by another route? $1 = base ref,
+# $2 = the comma-separated CLAIM-SIDE artifact paths. Echoes true|false.
+#
+# "In flight" is `git rev-list --count base..ref` -- the right question for a branch whose
+# work is genuinely outstanding, and the wrong one for a branch whose CONTENT reached the
+# base some other way: a unit recovered by hand onto a fresh claim branch, a change
+# re-applied, a revert-and-redo. Such a branch is unmerged forever, so it is claimed
+# forever, and every consumer reads it as work.
+#
+# The cost was theoretical while `queue_drained` made every drained claim untouchable, and
+# it stopped being theoretical the moment `report_incomplete` made a drained, unreported
+# claim a MANDATORY takeover. Measured 2026-08-26, on the first run to hold that tier: it
+# resumed `batch-20260819063000` exactly as designed, and the unit had been recovered by
+# hand onto `work-20260821-221006` five days earlier -- both tickets already archived on
+# the base, the behaviour shipped and refined since, and `git merge-tree` reporting ten
+# conflicts of which three were `modify/delete` against a directory the base had deleted in
+# a rename. The run spent a full story-and-pull-request cycle to produce a pull request
+# whose only correct outcome was to be closed.
+#
+# THE SIGNAL IS "THE UNIT'S TICKETS ARE ARCHIVED ON THE BASE", NOT "THE DIFF IS CONTAINED".
+# Containment is the more general test and it is WRONG for this case: the measured recovery
+# landed REFINED rather than verbatim (the digest suffix became unconditional and the slug
+# bound moved), so a containment test would have answered `false` on the very branch that
+# provoked the rule. Archived-on-the-base asks the question the unit is actually about --
+# was this work driven and delivered? -- and answers it with one `git ls-tree` against the
+# base, offline, at the same cost as the resolution `claims_resolve_at_tip` already makes.
+# Filenames are unique in the tree by construction (the `YYYYMMDDHHMMSS-slug.md` rule), and
+# the branch directory under `archive/` is deliberately NOT compared: a ticket archived
+# under ANY branch is delivered, and which branch delivered it is exactly what this test
+# must not care about.
+#
+# IT ANSWERS FOR BATCH UNITS AND LEAVES MISSION UNITS ON TODAY'S READING, deliberately and
+# in the open. A batch claim stamps its ticket files, so "are they archived?" is a direct
+# question about the unit's own artifacts. A mission claim stamps only `mission.md`, which
+# driving never archives -- the equivalent would have to walk every ticket on the base and
+# read its `mission:` relation, which is a second parser of a many-valued relation for a
+# shape nothing has measured. A unit carrying any non-ticket artifact answers `false`, so a
+# mission claim keeps precisely the verdict it has today.
+#
+# REPORTED, NEVER ACTED ON. Nothing here deletes a branch, closes a pull request or breaks
+# a claim -- `stale` has been reported-never-acted-on since the protocol shipped and this is
+# the same kind of fact. It is `resumable: false` because there is nothing to drive, and for
+# the same reason it must NOT forbid `ok` (drive/SKILL.md §7): a claim holding no work is
+# the opposite of outstanding work.
+claims_superseded() {
+    _csp_base="$1"
+    _csp_arts="${2:-}"
+    [ -n "$_csp_arts" ] || { printf 'false'; return 0; }
+
+    # One listing per claim, reused for every artifact -- the archive is the largest path
+    # in the tree and this is the scan's most expensive gate, which is why it sits last
+    # among the conditions that can still change the verdict.
+    _csp_listed=""
+    _csp_have_list=false
+    _csp_total=0
+    _csp_archived=0
+
+    _csp_old_ifs="$IFS"
+    IFS=','
+    for _csp_p in $_csp_arts; do
+        case "$_csp_p" in
+            .workaholic/tickets/*) ;;
+            # A mission unit (or anything else a claim may come to stamp) is out of scope:
+            # answer `false` rather than guessing, so its verdict is untouched.
+            *)
+                IFS="$_csp_old_ifs"
+                printf 'false'
+                return 0
+                ;;
+        esac
+        if [ "$_csp_have_list" = "false" ]; then
+            _csp_listed=$(git ls-tree -r --name-only "$_csp_base" -- .workaholic/tickets/archive 2>/dev/null || true)
+            _csp_have_list=true
+        fi
+        _csp_total=$((_csp_total + 1))
+        _csp_bn="${_csp_p##*/}"
+        if printf '%s\n' "$_csp_listed" | awk -v b="$_csp_bn" '
+            { n = length($0); m = length(b); if (n > m && substr($0, n - m) == "/" b) { found = 1; exit } }
+            END { exit found ? 0 : 1 }
+        '; then
+            _csp_archived=$((_csp_archived + 1))
+        fi
+    done
+    IFS="$_csp_old_ifs"
+
+    # EVERY ticket, not any: a unit half of whose tickets landed elsewhere still has work,
+    # and calling it superseded would hide that half.
+    if [ "$_csp_total" -gt 0 ] && [ "$_csp_total" -eq "$_csp_archived" ]; then
+        printf 'true'
+    else
+        printf 'false'
+    fi
+}
+
 # Scan the remote branches for claims. $1 = base ref (from claims_base).
 claims_scan() {
     _cs_base="${1:-}"
@@ -553,6 +650,17 @@ claims_scan() {
         elif [ $((_cs_now - _cs_ct)) -lt "$_cs_hb_threshold" ]; then
             _cs_resumable=false
             _cs_reason=claim_active
+        elif [ "$(claims_superseded "$_cs_base" "$_cs_artifacts")" = "true" ]; then
+            # The unit's work is already on the base by another route (see
+            # claims_superseded). It sits AFTER `claim_active` on purpose: liveness is what
+            # gates a takeover, so a run that is still committing keeps the reading that
+            # protects it, and only a lapsed claim is relabelled. It sits BEFORE the drained
+            # fork because both of that fork's answers would be wrong here -- `queue_drained`
+            # says a human is waiting at a pull request that need not exist, and
+            # `report_incomplete` would offer a mandatory takeover of a branch that cannot
+            # land.
+            _cs_resumable=false
+            _cs_reason=superseded
         elif [ "$(claims_has_work "$_cs_ref" "$_cs_artifacts_tip")" = "false" ]; then
             # A DRAINED QUEUE IS TWO DIFFERENT STATES, TOLD APART BY THE SAME STORY SIGNAL
             # the parked/dead fork below already reads (2026-08-19). With a story at the

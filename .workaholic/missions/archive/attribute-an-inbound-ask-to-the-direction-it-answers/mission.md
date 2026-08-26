@@ -58,3 +58,4 @@ already reads — and reports it, `unattributed` included.
 - 2026-08-26 — ticket archived — 20260826042021-decide-and-report-the-direction-for-an-ask-that-names-none.md
 - 2026-08-26 — ticket archived — 20260826042021-walk-the-sweep-s-ask-in-the-chain-test.md
 - 2026-08-26 — mission achieved — mission.md
+- 2026-08-26 — story reported — work-20260826-043020.md

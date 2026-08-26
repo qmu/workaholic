@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 0.68
 feedback: [20260826041650-attribute-an-inbound-ask-to-the-direction-it-answers.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
@@ -59,3 +59,4 @@ already reads — and reports it, `unattributed` included.
 - 2026-08-26 — ticket archived — 20260826042021-walk-the-sweep-s-ask-in-the-chain-test.md
 - 2026-08-26 — mission achieved — mission.md
 - 2026-08-26 — story reported — work-20260826-043020.md
+- 2026-08-26 — run recorded (+0.68h) — cse_01CXYzWiNLZMLNGoaN1K9vAG

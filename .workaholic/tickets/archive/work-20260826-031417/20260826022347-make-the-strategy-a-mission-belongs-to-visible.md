@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-26T02:23:47+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -87,3 +88,37 @@ mandatory frontmatter field would also contradict the ask's own "必須でなく
 - This ticket is the one that makes "missions hang off strategies" *true to a reader*. The
   mechanism that makes it true to a machine is the carry-forward, already being floored by
   the mission `prove-the-loop-s-closing-link`; the two are complementary, not duplicates.
+
+## Final Report
+
+Development completed as planned. `strategy/scripts/mission-strategy.sh` answers *which strategy
+does this mission belong to* by **composing** `attributed-work.sh` — no second walker, no relation
+of its own, no field on any artifact — and `/mission`'s bare roadmap (`command-flows.md`, the
+planning session's Status step) now names each mission's strategy, rendering an explicit
+**`— no strategy`** where nothing could be attributed so that "belongs to no direction" and "could
+not be attributed" never look alike. The section closes with the honest line the reader supplies:
+how many missions could not be attributed, and any strategy named in `unreadable`.
+
+Step 1's "if a per-mission entry point is genuinely absent, add one thin script beside it" is what
+happened: `attributed-work.sh` answers strategy → work and has no inverse, so the inverse is a
+reader over the reader. `exhaustive: false` is emitted on every call, by construction.
+
+The `strategy:` field was **not** added and the pre-retirement survivors were checked:
+`git grep -n "^strategy:"` finds it only in three archived missions written before the 2026-07-28
+retirement (history, not a return) and in `propose/SKILL.md`'s illustration of the issue *body*
+marker, which is not an artifact field.
+
+### Discovered Insights
+
+- **Insight**: "Read successfully and attributed nothing" and "could not be read" needed to be two
+  outputs, not one.
+  **Context**: A strategy citing a record nothing answers is the ordinary early state; folding it
+  into `unreadable` would have made a healthy new direction render as a broken one — the same
+  blur `no_citing_artifacts` versus `no_feedback_refs` already exists to prevent.
+- **Insight**: The inverse read is O(strategies), not O(missions).
+  **Context**: `attributed-work.sh` is a per-strategy walk, so the inverse runs it once per active
+  strategy and pivots the result. That is what keeps it a composition rather than a second walker,
+  and it is why the render reads it **once** before rendering rather than per mission line.
+- **Insight**: A mission is not de-duplicated across strategies.
+  **Context**: `attributed-work.sh` already states that attribution is not a partition; the render
+  therefore has to tolerate a mission naming two directions rather than picking one.

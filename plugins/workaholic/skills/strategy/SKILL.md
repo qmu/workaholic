@@ -109,12 +109,25 @@ queued tickets, and one with none is `unknown` — which counts toward advancing
 unknown ticket follows. This adds no relation and no artifact field: the mission set is the
 attributed artifacts already walked, filtered on the lifecycle field `close.sh` writes.
 
+**And the inverse is readable, so the link is visible where missions are read** (2026-08-26).
+`mission-strategy.sh` answers *which strategy does this mission belong to* by composing the same
+walk — no second walker, no relation of its own, and no field on any artifact, which is what
+keeps the `strategy:` relation retired for the third time. `/mission`'s bare roadmap names each
+mission's strategy and renders an explicit **no strategy** where it could not attribute one: the
+answer is as lossy as what it composes, `exhaustive` is `false` by construction, and a strategy
+whose own read failed is named in `unreadable` rather than contributing silence. A mission may
+belong to more than one strategy and is not de-duplicated across them — attribution is not a
+partition.
+
 ## Scripts
 
 ```bash
 # Create — the only writer. Body (the ## Aim prose) arrives on stdin.
 printf '%s\n' "<aim prose>" | bash ${CLAUDE_PLUGIN_ROOT}/skills/strategy/scripts/create.sh \
   "<title>" <target-date YYYY-MM-DD> "<assignee-email>[,<assignee-email>...]" "<schedule prose>" ["<feedback-ref>,..."]
+
+# Which strategy a mission belongs to — the inverse of the attribution walk. Pure read.
+bash ${CLAUDE_PLUGIN_ROOT}/skills/strategy/scripts/mission-strategy.sh [--root <dir>] [<mission-slug>...]
 
 # List — every strategy with its status, target date and assignees, as JSON.
 bash ${CLAUDE_PLUGIN_ROOT}/skills/strategy/scripts/list.sh [--status active|achieved|abandoned]

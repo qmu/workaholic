@@ -63,6 +63,7 @@ const SCRIPTS = {
   strategyRead: join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/read.sh"),
   strategyClose: join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/close.sh"),
   strategyAttributedWork: join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/attributed-work.sh"),
+  missionStrategy: join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/mission-strategy.sh"),
   standupDigest: join(REPO_ROOT, "plugins/workaholic/skills/standup/scripts/digest.sh"),
   validateStrategy: join(REPO_ROOT, "plugins/workaholic/hooks/validate-strategy.sh"),
   missionClose: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/close.sh"),
@@ -15140,6 +15141,7 @@ const tests = [
   ["specificate/read-ask-feedback-refs.sh: the ask's own feedback line", testReadAskFeedbackRefs],
   ["specificate/check-carry-floor.sh: the carry, floored at the publish seam", testCarryFloor],
   ["no_citing_artifacts is a provable reading: ask -> reader -> scaffold -> floor", testCarryChainIsProvable],
+  ["strategy/mission-strategy.sh: which direction a mission belongs to", testMissionStrategy],
 ];
 
 // `await` matters even though almost every test is synchronous: without it an async
@@ -20371,5 +20373,86 @@ function testCarryChainIsProvable() {
     assertTrue("and the retired strategy: relation did not return",
       !/^\s*strategy:\s/m.test(readFileSync(join(dir, draft.path.replace(`${dir}/`, "")), "utf8")),
       "a scaffolded mission gained a strategy: field");
+  } finally { cleanup(dir); }
+}
+
+// ---------- strategy/mission-strategy.sh: the link, made visible ----------
+// (2026-08-26) The operator asked that missions be designed to hang off a strategy — the
+// normal case, explicitly NOT mandatory. The link already existed and needed no new field;
+// what was missing is that nobody could SEE it, because every reader rendered a mission with
+// no indication of which direction it serves.
+//
+// What is pinned here is the shape of the answer, not just the happy path: the inverse read
+// composes `attributed-work.sh` rather than walking anything itself, an unattributed mission
+// is a distinct state from an unreadable strategy, and `exhaustive` is false by construction
+// so no consumer can render the answer as complete.
+function testMissionStrategy() {
+  const dir = makeRepo("main");
+  const READ = `${POSIX_SH} ${SCRIPTS.missionStrategy}`;
+  try {
+    const wf = (rel, body) => {
+      const abs = join(dir, rel);
+      mkdirSync(dirname(abs), { recursive: true });
+      writeFileSync(abs, body);
+    };
+    const REF = "20260801000001-the-direction.md";
+    wf(`.workaholic/feedbacks/${REF}`, "---\ntype: Feedback\n---\n\nx\n");
+    wf(".workaholic/strategies/turn-the-loop.md",
+      `---\ntype: Strategy\ntitle: Turn the loop\nslug: turn-the-loop\nstatus: active\n` +
+      `target_date: 2099-12-31\nassignees: [a@qmu.jp]\nfeedback: [${REF}]\n---\n\n` +
+      `# Turn the loop\n\n## Aim\n\na\n\n## Schedule\n\ns\n`);
+    // A strategy citing a record nothing else does: it reads fine and attributes nothing,
+    // which must not be confused with a strategy that could not be read.
+    wf(".workaholic/feedbacks/20260801000002-unanswered.md", "---\ntype: Feedback\n---\n\nx\n");
+    wf(".workaholic/strategies/quiet.md",
+      "---\ntype: Strategy\ntitle: Quiet\nslug: quiet\nstatus: active\n" +
+      "target_date: 2099-12-31\nassignees: [a@qmu.jp]\nfeedback: [20260801000002-unanswered.md]\n---\n\n" +
+      "# Quiet\n\n## Aim\n\na\n\n## Schedule\n\ns\n");
+    wf(".workaholic/missions/active/carried/mission.md",
+      `---\ntype: Mission\ntitle: Carried\nslug: carried\nstatus: active\nfeedback: [${REF}]\n---\n\n# Carried\n`);
+    wf(".workaholic/missions/active/lonely/mission.md",
+      "---\ntype: Mission\ntitle: Lonely\nslug: lonely\nstatus: active\nfeedback: []\n---\n\n# Lonely\n");
+    execSync("git add -A && git commit -q -m seed", { cwd: dir });
+
+    const all = JSON.parse(run(dir, READ).stdout);
+    const by = (slug) => all.missions.find((m) => m.slug === slug);
+    assertEq("a mission carrying the strategy's ref names that strategy",
+      { attributed: by("carried").attributed, slugs: by("carried").strategies.map((x) => x.slug) },
+      { attributed: true, slugs: ["turn-the-loop"] });
+    assertEq("and it carries the hop that caught it, so the render can be honest about how",
+      by("carried").strategies[0].attribution, "direct");
+    assertEq("a mission carrying no ref is an explicit unattributed state, not a missing entry",
+      { present: by("lonely") !== undefined, attributed: by("lonely").attributed,
+        strategies: by("lonely").strategies },
+      { present: true, attributed: false, strategies: [] });
+
+    // A strategy whose refs resolve to nothing is READ successfully and attributes nothing.
+    // It must not appear in `unreadable`: "nothing has answered this yet" and "could not be
+    // read" are different findings, and the whole point of the render is not to blur them.
+    assertEq("a strategy whose refs resolve to nothing is read, not reported unreadable",
+      { read: all.strategies_read, unreadable: all.unreadable }, { read: 2, unreadable: [] });
+
+    // The answer is as lossy as what it composes, and says so on every call.
+    assertEq("the answer never claims to be exhaustive", all.exhaustive, false);
+
+    // Named missions only, when named.
+    assertEq("it answers for exactly the missions it was asked about",
+      JSON.parse(run(dir, `${READ} carried`).stdout).missions.map((m) => m.slug), ["carried"]);
+    assertEq("and a mission it has never heard of is answered, not errored",
+      JSON.parse(run(dir, `${READ} nope`).stdout).missions,
+      [{ slug: "nope", strategies: [], attributed: false }]);
+
+    // It composes the ONE attribution reader rather than walking the relation itself — the
+    // rule that keeps the retired `strategy:` relation retired.
+    const src = readFileSync(SCRIPTS.missionStrategy, "utf8");
+    assertTrue("it composes attributed-work.sh", /attributed-work\.sh/.test(src), src.slice(0, 200));
+    assertEq("no mission gained a strategy field",
+      /^strategy:/m.test(readFileSync(join(dir, ".workaholic/missions/active/carried/mission.md"), "utf8")),
+      false);
+
+    // It is a READER: the roadmap it feeds runs on the operator's own checkout.
+    assertEq("the reader leaves the tree clean", run(dir, "git status --porcelain").stdout.trim(), "");
+    assertEq("and exits 0 even with no strategies at all",
+      run(makeRepo("main"), READ).status, 0);
   } finally { cleanup(dir); }
 }

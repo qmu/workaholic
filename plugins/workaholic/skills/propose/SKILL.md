@@ -98,13 +98,37 @@ decided none. An **unreadable strategy set is named** (`strategy_list_unreadable
 collapsed into `unattributed`: reading nothing and finding nothing are different facts, and
 blurring them is the invisible loss this whole change exists to remove.
 
+**And every capture is acknowledged where it was written** (2026-08-26, the developer's
+instruction). Filing an issue and leaving no trace on the message makes a captured ask and an
+ignored one **byte-identical from the channel** — the person who wrote it cannot tell which
+happened without going to look on GitHub. Measured the same day: the developer's 18:56 and
+19:20 JST messages became issues #620 and #621 within the hour, and, seeing nothing in the
+thread, they asked why neither had been treated as feedback. The capture had worked; only its
+receipt was missing.
+
+After `file-inbound-ask.sh` returns `ok: true`, the run posts **one reply into that message's
+own thread** — the `📥 受理` shape in `workaholic:notify`'s catalog, carrying the issue link and
+the session URL. It needs **no lookup**: the `slack-ref` the wrapper just wrote *is*
+`<channel>:<ts>`, so the thread coordinate is the sweep's own input and the model's
+two-query bound is never touched (`workaholic:notify`, *The inbound sweep's receipt*). A
+message with no thread gets one rooted on itself, which is where a person reading that message
+looks.
+
+**Only a message this run filed, and never load-bearing.** An **already-swept** message gets
+nothing — its receipt is on the issue that already exists, and a second one an hour later is
+the hourly restatement this repository retires posts for; an exclusion, a degradation and the
+strategy half of the tick post nothing at all. The issue is open before the reply is attempted,
+so a reply that fails is reported per message as `ack_failed: <reason>` and changes nothing
+about the filing, the dedup marker or what `/specificate` ingests. A capture that landed and a
+receipt that did not are two facts and the run report states both.
+
 **Degradations are named, and the strategy flow never waits for them**: no Slack connector in
 the session → `no_slack_transport`, sweep skipped and said; an unreadable channel →
 `channel_unreadable` with the transport's own error; an unreadable issue ledger →
 `sweep_dedup_unreadable`, and the sweep is **skipped** rather than run blind — filing against
 an unreadable dedup is how the same ask arrives twice an hour. The run report names every
-message filed (issue URL), every one excluded (reason), and every degradation. The sweep
-happening or not never changes what the strategy half proposes.
+message filed (issue URL **and** whether its receipt landed), every one excluded (reason), and
+every degradation. The sweep happening or not never changes what the strategy half proposes.
 
 **It is not the `/propose` this repository retired.** That name belonged to what is now
 `/specificate` (renamed 2026-08-19), and `[Propose]` belonged to what is now `[Moderate]`.
@@ -457,17 +481,27 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/file-inbound-ask.sh \
 The run itself is five steps: [reference/loop.md](reference/loop.md) carries them, together
 with the clock placement, the name reclamation, and the alternatives that were refused.
 
-## It posts nothing to Slack
+## The one thing it posts to Slack, and everything it still does not
 
-**It reads Slack since 2026-08-23 — the inbound sweep above — and still posts nothing**: the
-sweep consumes the channel and writes only issues. The distinction is load-bearing, because
-the reasons below are all about *posting*.
+**It posts exactly one shape — the sweep's `📥 受理` receipt — and nothing else** (2026-08-26).
+It read Slack and posted nothing at all from 2026-08-23 until then; what changed is narrow and
+the reasons that kept it silent are unchanged for everything else, so they are restated rather
+than dropped.
 
-The issue is assigned to exactly one person, who is the running identity, and GitHub already
-delivers it to them. A Slack copy would be the same noise twice — the argument that gives
-the retired `[Workaholic]` no connector — and a status line addressed to nobody is the noise that retired
-`🔧 Needs a decision` and `📦 Release Preparation`. The routine's result reaches its one reader
-as a **Claude notification** (`notifications: push`) — since `[Workaholic]` retired on 2026-08-22 (issue #557), the only template that declares the field.
+**The proposal is still announced by nobody.** The issue is assigned to exactly one person, who
+is the running identity, and GitHub already delivers it to them. A Slack copy would be the same
+noise twice — the argument that gives the retired `[Workaholic]` no connector — and a status
+line addressed to nobody is the noise that retired `🔧 Needs a decision` and `📦 Release
+Preparation`. The routine's result reaches its one reader as a **Claude notification**
+(`notifications: push`) — since `[Workaholic]` retired on 2026-08-22 (issue #557), the only
+template that declares the field. Nothing about the strategy half posts, and neither does a
+refusal, a degradation or an idle tick.
+
+**Why the receipt is not that same noise, stated rather than assumed.** It is **addressed to the
+one person who wrote the message**, in the thread they wrote it in, **exactly once**, and only
+when this run captured something — it is a reply to a human, not a status line. The three
+properties every retired post lacked are each present, and the failure it fixes was measured:
+without it, a captured ask and an ignored one look identical from the channel.
 
 ## Describing work does not gate a building aim
 

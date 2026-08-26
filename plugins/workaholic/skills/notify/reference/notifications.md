@@ -90,6 +90,23 @@ unreadable-history rule are all untouched.
 
 Exactly one finish per thread stays the rule (SKILL, *Which thread an `/implement` unit's posts land in*): a unit posts `🟢 Implemented` **or** one of the three outcome shapes above, never both — `handoff` is the finish, never a third post, and the same holds for a blocked or merged unit.
 
+### `/propose` — the inbound sweep's receipt, in the swept message's own thread
+
+**A capture the channel cannot see did not happen, as far as the person who wrote it is concerned** (2026-08-26, the developer's instruction). The sweep filed the `[FB]` issue and left **nothing** on the message it filed — so from `#dev-<repo>` a message that became an issue and a message nobody read are byte-identical. Measured the same day: two asks written at 18:56 and 19:20 JST were both captured as issues #620 and #621 within the hour, and the developer, seeing no trace in the channel, asked why neither had been treated as feedback. The capture worked; only its receipt was missing.
+
+```
+📥 受理 - [#123 [FB] Issue title](<repo-url>/issues/123)
+<session URL>
+```
+
+**One reply per filed issue, into the swept message's own thread** — `thread_ts` is the `ts` half of the `slack-ref` the run just wrote into the issue body, so the coordinates are already in hand and **no lookup runs**: this is the model's case 1 (SKILL, *One thread per feedback item*), not a search, and the two-query bound is untouched because no query is made. A message with no thread gets one, rooted on itself, which is exactly where a person looking at that message will find it.
+
+**It carries no mention token**, by the standing rule: the reply reaches Slack as the developer's own account and the person it would name is normally the message's own author, so a `<@U…>` there notifies nobody. Slack's own thread-participation notice reaches the author, which is the whole mechanism this receipt relies on.
+
+**Only a message this run actually filed.** A message excluded as already swept gets **nothing** — the receipt is on the issue that already exists, posted by the run that filed it, and a second one an hour later would be the hourly restatement this catalog retires posts for. Nor does an exclusion, a degradation or the strategy half of the tick ever post: `no_slack_transport`, `channel_unreadable` and `sweep_dedup_unreadable` are reported in the run report and said nowhere else.
+
+**The receipt never gates the capture.** The issue is already open when the reply is attempted; a reply that fails is reported as `ack_failed: <reason>` per message and changes nothing about the filing, the dedup marker, or what `/specificate` ingests next. A capture that landed and a receipt that did not are two facts, and the run states both.
+
 ### `/prepare-release` — retired, and nothing replaced it
 
 **The `📦 Release Preparation` root is gone** (2026-08-19, the developer's instruction). The

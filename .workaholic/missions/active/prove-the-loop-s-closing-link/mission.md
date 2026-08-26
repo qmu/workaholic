@@ -41,7 +41,7 @@ guarantee is pinned by a test rather than asserted in prose.
 
 ## Acceptance
 
-- [ ] One script parses an ask's `feedback:` line and returns carried and dropped with a
+- [x] One script parses an ask's `feedback:` line and returns carried and dropped with a
       reason per drop; step 3b invokes it instead of reading by eye (#20260826021825-read-the-ask-s-feedback-line-through-one-script.md)
 - [ ] The run report and the pull-request body name each carried and each dropped ref, and
       the publish seam refuses a proposal whose resolved refs are missing from what it emitted (#20260826021825-report-every-carried-and-dropped-feedback-ref.md)
@@ -51,3 +51,4 @@ guarantee is pinned by a test rather than asserted in prose.
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-26 — ticket archived — 20260826021825-read-the-ask-s-feedback-line-through-one-script.md

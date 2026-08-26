@@ -137,6 +137,7 @@ const SCRIPTS = {
   nextAcceptance: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/next-acceptance.sh"),
   feedbackCreate: join(REPO_ROOT, "plugins/workaholic/skills/feedback/scripts/create.sh"),
   proposeReadFeedbackRelation: join(REPO_ROOT, "plugins/workaholic/skills/specificate/scripts/read-feedback-relation.sh"),
+  readAskFeedbackRefs: join(REPO_ROOT, "plugins/workaholic/skills/specificate/scripts/read-ask-feedback-refs.sh"),
   renderSetupSheet: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/render-setup-sheet.sh"),
   unitFeedbackStems: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/unit-feedback-stems.sh"),
   unitAuthors: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/unit-authors.sh"),
@@ -15070,6 +15071,7 @@ const tests = [
   ["propose step 9: asking costs attention, so the gates are mechanical", testProposeCheckIn],
   ["[Moderate]: the template, its scope, and the shapes it authorizes", testModerateRoutineTemplate],
   ["[Workaholic]: retired, and the scope retired with it", testUserScopeRetired],
+  ["specificate/read-ask-feedback-refs.sh: the ask's own feedback line", testReadAskFeedbackRefs],
 ];
 
 // `await` matters even though almost every test is synchronous: without it an async
@@ -19985,5 +19987,111 @@ function testUserScopeRetired() {
       .filter((f) => /^notifications:/m.test(readFileSync(
         join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines", f), "utf8")));
     assertEq("the notification field survives on exactly one template", decl, ["propose.md"]);
+  } finally { cleanup(dir); }
+}
+
+// ---------- specificate/read-ask-feedback-refs.sh: the ask's own `feedback:` line ----------
+// (2026-08-26, mission `prove-the-loop-s-closing-link`) The loop's fourth link -- work
+// `/specificate` emits staying attributable to the direction that asked for it -- was
+// carried by a paragraph telling the run to read the line BY EYE. The relation had one
+// reader on the artifact side and none on the ask side, so the surface most likely to be
+// forgotten was the one with no mechanism at all.
+//
+// What is pinned here is the reader's DISCIPLINE, not just its happy path: a ref that does
+// not resolve is dropped WITH A REASON rather than guessed at, a missing line is reported
+// as a missing line rather than as an empty one, and every case exits 0 -- an ask with no
+// `feedback:` line is the ordinary case and must never read as a failure.
+function testReadAskFeedbackRefs() {
+  const dir = makeRepo("main");
+  const READ = `${POSIX_SH} ${SCRIPTS.readAskFeedbackRefs}`;
+  try {
+    const fbdir = join(dir, ".workaholic/feedbacks");
+    mkdirSync(fbdir, { recursive: true });
+    writeFileSync(join(fbdir, "20260821162443-a-direction.md"), "---\ntype: Feedback\n---\n\nbody\n");
+
+    const ask = (name, body) => {
+      const p = join(dir, name);
+      writeFileSync(p, body);
+      return p;
+    };
+    const read = (path) => {
+      const r = run(dir, `${READ} < ${path}`);
+      return { json: JSON.parse(r.stdout), status: r.status };
+    };
+
+    // The shape `/propose` writes: the line is body text, third line, comma-separated.
+    const proposal = ask("proposal.md", [
+      "kind: instruction / source: development / subject: observer_ai:[Propose] routine",
+      "strategy: turn-the-loop / move: depth",
+      "feedback: 20260821162443-a-direction.md, 20260101000000-gone.md",
+      "",
+      "## What to change",
+      "",
+      "Something. This paragraph mentions feedback: not-a-ref.md in prose.",
+      "",
+    ].join("\n"));
+    const one = read(proposal);
+    assertEq("a resolvable ref is carried and an absent one is dropped by name",
+      one.json, {
+        line_found: true,
+        carried: ["20260821162443-a-direction.md"],
+        dropped: [{ ref: "20260101000000-gone.md", reason: "not_found" }],
+      });
+    assertEq("and the read exits 0 even though a ref was lost", one.status, 0);
+
+    // A LATER line-initial `feedback:` must not be reachable: an ask is prose, and reading
+    // every match would let an ordinary sentence inject refs into a published artifact.
+    // (The prose line above is mid-sentence, so it is out of reach twice over.)
+    const second = ask("second.md", [
+      "feedback: 20260821162443-a-direction.md",
+      "",
+      "feedback: 20260101000000-gone.md",
+      "",
+    ].join("\n"));
+    assertEq("only the first line-initial feedback: line is read",
+      read(second).json.carried, ["20260821162443-a-direction.md"]);
+
+    // The ordinary case: most asks are typed by a human and name nothing.
+    const bare = ask("bare.md", "Please make the loop turn at mission granularity.\n");
+    const none = read(bare);
+    assertEq("an ask with no line reports line_found: false with empty sets",
+      none.json, { line_found: false, carried: [], dropped: [] });
+    assertEq("and exits 0 -- the ordinary case is not a failure", none.status, 0);
+
+    // A line WITH NO REFS is a third state, and it must not collapse into "no line": the
+    // writer emitted a line and named nothing, which is a different fact about the ask.
+    assertEq("an empty line is found, and carries nothing",
+      read(ask("empty.md", "feedback:\n")).json,
+      { line_found: true, carried: [], dropped: [] });
+
+    // Malformed input: the inline-list form, stray whitespace, a repeat, and a ref that is
+    // not a bare filename. Nothing is invented, nothing is rewritten, and the path-shaped
+    // ref is refused rather than resolved outside the directory.
+    const messy = ask("messy.md",
+      "feedback: [ 20260821162443-a-direction.md ,, ../../etc/passwd, 20260821162443-a-direction.md ]\n");
+    assertEq("the inline-list form normalises, a repeat is carried once, a path is refused",
+      read(messy).json, {
+        line_found: true,
+        carried: ["20260821162443-a-direction.md"],
+        dropped: [{ ref: "../../etc/passwd", reason: "not_a_filename" }],
+      });
+
+    // A missing feedbacks directory is a DEGRADED READ, not the statement "this record
+    // does not exist" -- the two are different findings and must not render alike.
+    const missing = run(dir, `${READ} ${join(dir, "nowhere")} < ${proposal}`);
+    assertEq("an absent feedbacks directory is named as such, not as not_found",
+      JSON.parse(missing.stdout).dropped.map((d) => d.reason), ["dir_missing", "dir_missing"]);
+    assertEq("and it still exits 0", missing.status, 0);
+
+    // The two surfaces of one relation must agree on what a ref IS. Round-trip the
+    // artifact reader over a mission carrying the same normalised forms.
+    const mdir = join(dir, ".workaholic/missions/active/x");
+    mkdirSync(mdir, { recursive: true });
+    writeFileSync(join(mdir, "mission.md"),
+      "---\ntype: Mission\nfeedback: [20260821162443-a-direction.md]\n---\n\n# x\n");
+    assertEq("the artifact reader reads back exactly what the ask reader carried",
+      run(dir, `${POSIX_SH} ${SCRIPTS.proposeReadFeedbackRelation} ${join(mdir, "mission.md")}`)
+        .stdout.split("\n").filter(Boolean),
+      read(proposal).json.carried);
   } finally { cleanup(dir); }
 }

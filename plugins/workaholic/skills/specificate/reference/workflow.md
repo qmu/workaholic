@@ -56,12 +56,23 @@ and every abort reports a machine-readable reason.
    carries a `feedback: <ref>, <ref>` line names records that already exist in this
    repository's stream — a `[Propose]` proposal names the **strategy's** refs, which is
    how the work this run emits stays attributable to the direction that asked for it
-   (`workaholic:propose`, *How the loop closes*). Read the line, verify each ref exists
-   under `.workaholic/feedbacks/`, and pass the surviving refs to steps 8 and 9
-   **alongside** the record written in step 3 — `scaffold-draft.sh` and
-   `scaffold-proposed-ticket.sh --feedback` are both variadic, so this needs no new flag
-   and no new field on any artifact. A ref that does not resolve is dropped and named in
-   step 10's pull-request body; it is never invented and never blocks the proposal.
+   (`workaholic:propose`, *How the loop closes*). **Read the line through the one reader,
+   never by eye:**
+
+   ```sh
+   printf '%s\n' "<the ask body>" \
+     | bash ${CLAUDE_PLUGIN_ROOT}/skills/specificate/scripts/read-ask-feedback-refs.sh
+   ```
+
+   — `{"line_found", "carried": [...], "dropped": [{"ref", "reason"}]}`, exit 0 in every
+   case including no line at all (the ordinary case for an ask a human typed). Pass the
+   **`carried`** refs to steps 8 and 9 **alongside** the record written in step 3 —
+   `scaffold-draft.sh` and `scaffold-proposed-ticket.sh --feedback` are both variadic, so
+   this needs no new flag and no new field on any artifact. A ref that does not resolve is
+   **`dropped` with its reason** (`not_found` / `unreadable` / `dir_missing` /
+   `not_a_filename`); it is never invented, never rewritten, and never blocks the
+   proposal. Keep both sets in hand: step 9 checks the carry floor against them, step 10's
+   pull-request body names them, and step 13's report line does too.
 
    **The direction stays one-way.** This carries a *feedback* ref onto a *mission* — the
    relation both artifacts already have. Nothing gains a pointer to a strategy, so the

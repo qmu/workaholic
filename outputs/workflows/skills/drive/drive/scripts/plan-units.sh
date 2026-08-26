@@ -85,6 +85,14 @@
 # imply its own next action -- and `claimed_reported` exists because folding it into
 # `claimed_active` said "a run is on it" about a unit no run will ever touch again.
 #
+# `claimed_reported` NOW MEANS WHAT IT SAYS (2026-08-19). It used to be emitted for every
+# `queue_drained` unit, including one that died between §4 and §5 -- drained, pushed, and
+# with no pull request anywhere -- so it asserted a report that never happened and the
+# work was reachable by nobody: not by resumption (refused), not by a fresh claim (its
+# tickets were excluded here). Such a unit now reads `report_incomplete` in the shared
+# scan, which is `resumable: true`, so it lands in `claimed_resumable` and in the offer.
+# No branch here changed: the classification below already keys on `resumable` first.
+#
 # `resumable[]` is a THIRD offer alongside `missions`/`backlog`, not a fourth kind of
 # exclusion: those two are claimed fresh from the base, a resumable unit is taken over
 # at its pushed branch tip. A resumable unit left untaken is claimable work outstanding

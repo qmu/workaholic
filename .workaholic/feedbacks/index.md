@@ -546,4 +546,7 @@
 * [A blocked unit's escalation reaches nobody and the moderator never learns of it](20260823093733-a-blocked-unit-s-escalation-reaches-nobody-and-the-moderator-never-learns-of-it.md)
 * [Prove the loop's closing link: make the feedback carry-forward mechanical and reported](20260826021619-prove-the-loop-s-closing-link-make-the-feedback-carry-forward-mechanical-and-reported.md)
 * [Tie missions to strategies and let /propose plan them](20260826022235-tie-missions-to-strategies-and-let-propose-plan-them.md)
+* [A squash-merged unit's claim branch reads as a standing claim forever](20260826025656-a-squash-merged-unit-s-claim-branch-reads-as-a-standing-claim-forever.md)
+* [The strategy-digest render marker names a step id log-append.sh refuses](20260826025833-the-strategy-digest-render-marker-names-a-step-id-log-append-sh-refuses.md)
+* [persist-log.sh carries a record to the base but never its OKF index entry](20260826030018-persist-log-sh-carries-a-record-to-the-base-but-never-its-okf-index-entry.md)
 <!-- okf:generated:end -->

@@ -14416,10 +14416,16 @@ function testResumeSkipsDrainedUnit() {
       { res: r.claims[0].resumable, why: r.claims[0].resume_reason },
       { res: true, why: "heartbeat_lapsed" });
 
-    // Drive the last one. Now the queue is drained: the unit is finished and whatever
-    // it is waiting for, it is not a runner.
+    // Drive the last one AND report it. Now the queue is drained and the pull request is
+    // open: the unit is finished and whatever it is waiting for, it is not a runner.
+    // (The story is what makes this the protected case rather than a dead run's remains —
+    // see testReportIncompleteUnitIsRecoverable for the other half of that fork.)
     run(wt, `${POSIX_SH} ${SCRIPTS.update} ${t2} effort 0.1h`);
     run(wt, `${POSIX_SH} ${SCRIPTS.archive} ${t2} "Drive t2" https://example.test/repo why changes None None verify`);
+    mkdirSync(join(wt, ".workaholic/stories"), { recursive: true });
+    writeFileSync(join(wt, `.workaholic/stories/${batch.branch}.md`),
+      `---\ntype: Story\nbranch: ${batch.branch}\ntickets_completed: 2\nmission: []\ntickets: []\n---\n\n## 1. Overview\n\nreported\n`);
+    execSync(`git add -A && git commit -q -m "Add branch story"`, { cwd: wt });
     execSync(`git push -q origin ${batch.branch}`, { cwd: wt });
 
     r = JSON.parse(run(B, LIST, { env: lapsed }).stdout);
@@ -14444,6 +14450,83 @@ function testResumeSkipsDrainedUnit() {
     assertTrue("the refused resume built no worktree", !existsSync(join(B, ".worktrees", batch.unit)));
     assertEq("and added no commit to the branch under review",
       execSync(`git log --format=%s ${batch.branch}`, { cwd: origin, encoding: "utf8" }), before);
+  } finally { cleanup(origin); cleanup(A); cleanup(B); }
+}
+
+// ---------- a unit that DIED between §4 and §5 is not one waiting on a human ----------
+// `queue_drained` answered two different questions with one word. A unit that REPORTED
+// (story committed, pull request open) is correctly non-resumable -- that is the
+// 2026-08-01 fix testResumeSkipsDrainedUnit protects. A unit that died AFTER archiving
+// its last ticket and BEFORE opening its pull request reported the same word and was
+// equally untouchable, while its tickets were excluded `claimed_reported` at every later
+// survey -- so no fresh claim reached them either and the work was stranded until a
+// person noticed. Measured 2026-08-19 on this repository: unit `batch-20260819063000`,
+// two tickets archived and pushed at 06:48 UTC, no story at the tip, no pull request,
+// and the four `[Implement]` ticks that followed each surveyed a clean checkout and
+// drove nothing.
+//
+// The distinguishing signal was already computed one branch below -- `claims_has_story`,
+// the same offline file check the `parked_with_pr` tier reads.
+function testReportIncompleteUnitIsRecoverable() {
+  const { origin, A, B } = makeClaimFixture();
+  const CLAIM = `${POSIX_SH} ${SCRIPTS.claim}`;
+  const LIST = `${POSIX_SH} ${SCRIPTS.listClaims}`;
+  const PLAN = `${POSIX_SH} ${SCRIPTS.planUnits}`;
+  const lapsed = { ...process.env, WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES: "0" };
+  try {
+    const t1 = `.workaholic/tickets/todo/${TEST_SLUG}/20260729000001-t1.md`;
+    const t2 = `.workaholic/tickets/todo/${TEST_SLUG}/20260729000002-t2.md`;
+    const batch = JSON.parse(run(A, `${CLAIM} batch ${t1} ${t2}`).stdout);
+    const wt = join(A, ".worktrees", batch.unit);
+
+    // Drive the whole queue and push it -- then stop, exactly where the measured run
+    // stopped: after §4, before §5 wrote the story and opened the pull request.
+    for (const t of [t1, t2]) {
+      run(wt, `${POSIX_SH} ${SCRIPTS.update} ${t} effort 0.1h`);
+      run(wt, `${POSIX_SH} ${SCRIPTS.archive} ${t} "Drive ${t.endsWith("t1.md") ? "t1" : "t2"}" https://example.test/repo why changes None None verify`);
+    }
+    execSync(`git push -q origin ${batch.branch}`, { cwd: wt });
+    assertTrue("the premise holds: this branch carries no story at its tip",
+      !existsSync(join(wt, `.workaholic/stories/${batch.branch}.md`)));
+
+    const r = JSON.parse(run(B, LIST, { env: lapsed }).stdout);
+    assertEq("a drained unit that never reported reads as a dead run's remains",
+      { res: r.claims[0].resumable, why: r.claims[0].resume_reason, rep: r.claims[0].reported },
+      { res: true, why: "report_incomplete", rep: false });
+
+    const plan = JSON.parse(run(B, PLAN, { env: lapsed }).stdout);
+    assertEq("and the survey OFFERS it rather than dropping it",
+      plan.resumable.map((x) => [x.unit, x.resume_reason]), [[batch.unit, "report_incomplete"]]);
+    assertTrue("its tickets are held as claimed_resumable, not claimed_reported",
+      plan.excluded.some((e) => e.id === t1 && e.reason === "claimed_resumable"),
+      JSON.stringify(plan.excluded));
+
+    // The takeover continues from the PUSHED TIP, so nothing already archived is
+    // re-driven: it enters the Unified Run at §5 with an empty queue.
+    const tipBefore = execSync(`git rev-parse ${batch.branch}`, { cwd: origin, encoding: "utf8" }).trim();
+    const resumed = JSON.parse(run(A, `${CLAIM} resume ${batch.unit}`, { env: lapsed }).stdout);
+    assertEq("resume accepts the new reason and carries it into the takeover",
+      { c: resumed.claimed, res: resumed.resumed, why: resumed.resume_reason },
+      { c: true, res: true, why: "report_incomplete" });
+    assertEq("the takeover names the claim's artifacts, not a shifted TSV field",
+      resumed.artifacts, [t1, t2]);
+    assertEq("it re-drives no archived ticket: the takeover commit changes no file",
+      execSync("git show --name-only --format= HEAD", { cwd: wt, encoding: "utf8" }).trim(), "");
+    assertTrue("and neither ticket came back to todo/ on the branch",
+      !existsSync(join(wt, t1)) && !existsSync(join(wt, t2)));
+    assertTrue("the takeover advanced the branch it was standing on",
+      execSync(`git rev-parse ${batch.branch}`, { cwd: origin, encoding: "utf8" }).trim() !== tipBefore);
+
+    // Once it HAS reported, the protected case returns: the same drained branch with a
+    // story at its tip is a human's business again.
+    mkdirSync(join(wt, ".workaholic/stories"), { recursive: true });
+    writeFileSync(join(wt, `.workaholic/stories/${batch.branch}.md`),
+      `---\ntype: Story\nbranch: ${batch.branch}\ntickets_completed: 2\nmission: []\ntickets: []\n---\n\n## 1. Overview\n\nreported\n`);
+    execSync(`git add -A && git commit -q -m "Add branch story" && git push -q origin ${batch.branch}`, { cwd: wt });
+    const after = JSON.parse(run(B, LIST, { env: lapsed }).stdout);
+    assertEq("a drained unit that DID report keeps queue_drained",
+      { res: after.claims[0].resumable, why: after.claims[0].resume_reason },
+      { res: false, why: "queue_drained" });
   } finally { cleanup(origin); cleanup(A); cleanup(B); }
 }
 
@@ -14476,6 +14559,14 @@ function testClaimSurvivesUndetectedRename() {
     writeFileSync(src, `${readFileSync(src, "utf8")}\n## Final Report\n\n${report}\n`);
     run(wt, `${POSIX_SH} ${SCRIPTS.update} ${t1} effort 0.1h`);
     run(wt, `${POSIX_SH} ${SCRIPTS.archive} ${t1} "Drive t1" https://example.test/repo why changes None None verify`);
+    // ...and REPORT it, so the drained verdict below is the protected `queue_drained`
+    // case rather than the recoverable `report_incomplete` one (2026-08-19). This test's
+    // subject is artifact resolution, not the drained fork; the story keeps it pointed at
+    // what it was written to assert.
+    mkdirSync(join(wt, ".workaholic/stories"), { recursive: true });
+    writeFileSync(join(wt, `.workaholic/stories/${batch.branch}.md`),
+      `---\ntype: Story\nbranch: ${batch.branch}\ntickets_completed: 1\nmission: []\ntickets: []\n---\n\n## 1. Overview\n\nreported\n`);
+    execSync(`git add -A && git commit -q -m "Add branch story"`, { cwd: wt });
     execSync(`git push -q origin ${batch.branch}`, { cwd: wt });
 
     // The premise: git itself does NOT see a rename here. If this ever stops holding the
@@ -15040,6 +15131,7 @@ const tests = [
   ["drive claim protocol: two runners racing to resume, one takeover", testResumeRace],
   ["drive/heartbeat.sh keeps a working unit out of the resumable offer", testHeartbeat],
   ["drive claim protocol: a finished unit is not resumed again", testResumeSkipsDrainedUnit],
+  ["drive claim protocol: a unit that died before reporting is recoverable", testReportIncompleteUnitIsRecoverable],
   ["drive claim protocol: parked-at-PR is not died-mid-drive, and same-machine resume adopts", testResumeParkedAndAdoption],
   ["drive claim protocol: an archive git cannot prove is a rename keeps its artifact", testClaimSurvivesUndetectedRename],
   ["drive claim protocol: a mission artifact never resolves by basename", testMissionArtifactNeverResolvesByBasename],

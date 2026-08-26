@@ -6,6 +6,7 @@ depends_on:
 mission:
 merge_policy: auto
 verification_handoff:
+claim: work-20260826-195732
 ---
 
 # Retire the mission-lens hook

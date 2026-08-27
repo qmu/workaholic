@@ -103,6 +103,31 @@ not write a second story generator.
   `{"notified": false, "reason": "no_token"}` and exits 0) the run continues and **reports the
   notification outcome** in its per-unit report below. Under `/drive` the developer is the human
   loop — report the URL in the session and post nothing.
+
+  **The merge attempt's result is carried into the run report, per unit** (2026-08-27, mission
+  `close-the-units-the-loop-already-finished`). This route reported **which route it took** and
+  never **whether the merge landed**, so a run refused the merge produced the same line as one
+  that merged — measured 2026-08-27, four green units (#622, #625, #633, #635) sitting open with
+  `ok` in a report nobody opens. The outcome is one of three, and they are three because they are
+  three different next actions:
+
+  | Outcome | What it means |
+  | ------- | ------------- |
+  | `merged` | the `PUT` succeeded; the claim is released by the merge |
+  | `merge_refused: <word>` | the `PUT` was attempted and refused. `<word>` is `merge-reason.sh`'s, unchanged in derivation and format: `merge_not_allowed` / `head_moved` / `session_type_cannot_merge` / `merge_forbidden` / `merge_failed` |
+  | `merge_not_attempted: <tier>` | a `hard` (`secret`) or `confirm` (`leak`) finding held the pull request, so no merge was attempted at all |
+
+  **The third is not a merge failure and must never be reported as one.** A scan-held pull
+  request is the gate working; a refused one is the loop stopping. Collapsing them would hide
+  exactly the failure this row exists to surface, and is the same distinction the `auto` route
+  already draws between "shipped" and "demoted to PR, with the gate that caused it" — the wording
+  is reused rather than a parallel vocabulary minted for one difference.
+
+  **`session_type_cannot_merge` is the one refusal with a second attempt** (`rules/shell.md`):
+  retry it once through `mcp__github__merge_pull_request`, then report the outcome of *that*
+  attempt — `merged`, or `merge_refused: session_type_cannot_merge` when the connector could not
+  merge either. Reporting the REST refusal after a successful connector merge would name a
+  failure that did not happen.
 - **`auto` → ship** through `ship`'s Ship Flow with no prompts (its *Unattended
   routing* section factors each interactive seam): catch up with `main`, prove the deploy
   contract, confirm in production, record the evidence, **then** merge, then release and extract
@@ -220,6 +245,13 @@ moments.
 - Per unit: members, effective policy, route taken, ticket outcomes reconciling to the queue it
   was handed, and the commits.
 - PR per unit — the URL, or the `pr_error` if creation failed.
+- **Merge outcome per `review` unit** (2026-08-27): `merged`, `merge_refused: <merge-reason.sh
+  word>`, or `merge_not_attempted: <hard|confirm>` when a scan finding held the pull request. The
+  three are defined in §6's `review` route above and are never collapsed — a scan-held pull
+  request is the gate working, a refused merge is the loop stopping, and reporting the route
+  alone made those two identical at the only surface that records the run. An `auto` unit reports
+  `shipped` or its demotion exactly as before; this row is the `review` route's equivalent and
+  adds nothing to that one.
 - **Notification outcome per unit** (`/implement` only — an attended `/drive` posts nothing, so it
   reports nothing): for the one thread the unit posted into, the surface used and the result —
   `posted` with the thread it landed in, or the failure named (`no_surface` when the session has

@@ -16028,6 +16028,37 @@ function testMergeReason() {
     /merge_reason=\$\(sh "\$\{SCRIPT_DIR\}\/merge-reason\.sh"/.test(wired));
   assertTrue("publish-tree-pr.sh keeps no second copy of the ladder",
     !/merge_reason="merge_not_allowed"/.test(wired));
+
+  // AND THE `review` ROUTE CARRIES THE OUTCOME INTO THE RUN REPORT (2026-08-27, mission
+  // `close-the-units-the-loop-already-finished`). The route is prose — the agent performs the
+  // merge and writes the report — so what is checkable is that the contract NAMES each outcome
+  // and that the two documents cannot drift apart on the vocabulary. Measured 2026-08-27: four
+  // green units open and undelivered while the run reported `ok`, because the route reported
+  // which route it took and never whether the merge landed.
+  const routing = readFileSync(
+    join(REPO_ROOT, "plugins/workaholic/skills/drive/reference/routing.md"), "utf8");
+  const driveSkill = readFileSync(
+    join(REPO_ROOT, "plugins/workaholic/skills/drive/SKILL.md"), "utf8");
+  for (const doc of [["routing.md", routing], ["drive/SKILL.md", driveSkill]]) {
+    for (const outcome of ["merged", "merge_refused", "merge_not_attempted"]) {
+      assertTrue(`${doc[0]} names the \`${outcome}\` merge outcome`,
+        doc[1].includes(outcome), outcome);
+    }
+    // EVERY RUNG IS NAMED WHERE THE REPORT IS DEFINED, so a reader of the contract can render
+    // any refusal the ladder produces without going to read the script.
+    for (const [, word] of cases) {
+      assertTrue(`${doc[0]} names the \`${word}\` rung`, doc[1].includes(word), word);
+    }
+  }
+  // THE SCAN-HELD CASE IS NOT A MERGE FAILURE, and both documents say so rather than leaving it
+  // to be inferred — collapsing the two hides the one failure the outcome exists to surface.
+  // Emphasis markers are stripped first: the claim is about the sentence, and `**not** a merge
+  // failure` is the same sentence as `not a merge failure`.
+  for (const doc of [["routing.md", routing], ["drive/SKILL.md", driveSkill]]) {
+    assertTrue(`${doc[0]} states a scan-held pull request is not a merge failure`,
+      /not a merge failure|never be reported as one/.test(doc[1].replace(/[*_`]/g, "")),
+      doc[0]);
+  }
 }
 
 // ---------- branching/publish-tree-pr.sh + propose's widened batch (J4) ----------

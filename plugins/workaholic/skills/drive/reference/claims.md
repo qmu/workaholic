@@ -159,6 +159,31 @@ on another machine coordinates through exactly the same artifact.
     (write the story, open the pull request); this one has already done both. `claim.sh resume`
     refuses it under its own name rather than `queue_drained`'s wording, which would send the
     reader to wait for a human who is not coming.
+  - **And a *reported* unit with work left is two states as well** (2026-08-27, mission
+    `stop-re-resuming-a-declared-handoff-unit`). `parked_with_pr`'s own contract says *the
+    follow-up tickets on its branch are why it still has work. Taking it over is legitimate* —
+    and that sentence is **false by declaration** for a unit whose remaining queued work carries
+    `verification_handoff:`. §6 routed it to the **handoff** route precisely because nothing
+    unattended can finish it, leaving the pull request open and the claim standing on purpose;
+    the oracle then offered the takeover anyway, on every tick. Measured on PR #647: routed at
+    02:14 UTC, taken over again at 06:43 for nothing. The new verdict is
+    **`awaiting_verification`**, excluded `claimed_awaiting_verification`, `resumable: false`,
+    and it does **not** forbid `ok`.
+    **A sibling word, not a narrowed `parked_with_pr`**, on the `report_undelivered` precedent:
+    the two states call for different next actions — take it over versus satisfy the declared
+    verification — and one word answering both is what made this invisible. `claim.sh resume`
+    refuses it under its own name; refusing under `queue_drained` would send the reader to wait
+    for a merge that is not what is owed.
+    **Nothing new is derived, and no artifact gained a field.** `verification-handoff.sh` already
+    reads the declaration and stays its only reader: `claims_declared_handoff` materialises the
+    tip-side blobs of the unit's still-queued work — plus the mission's own `mission.md`, since
+    any member declaring it carries the whole unit — and hands them to that script. The set comes
+    from `claims_remaining_tickets`, the walk `claims_has_work` already made, lifted out so the
+    two readings cannot answer from two different ticket sets.
+    **It releases itself.** The declaration is read from the work still *queued*, never the
+    archived work, so driving that ticket makes the same reader answer `false` and the unit reads
+    `parked_with_pr` or `queue_drained` again — no stored state, no cursor to reset. `superseded`
+    keeps its precedence over it: a claim proved empty is still superseded, whatever it declares.
   - **A drained queue is two states, split on the same story signal.** "Finished" covers a unit
     that **reported** — story committed at the tip, pull request open, waiting on a human — and a
     run that died **after** archiving its last ticket and **before** opening anything, whose work
@@ -207,8 +232,11 @@ Pure read. Emits `{fetched, shallow, stale_hours, heartbeat_stale_minutes, base,
 merged_lookup_unanswered, claims: [{unit,
 branch, artifacts, last_commit_at, stale, author, resumable, resume_reason, reported}]}`, where
 `resume_reason` is one of `heartbeat_lapsed` / `report_incomplete` / `parked_with_pr` (resumable)
-or `claim_active` / `superseded` / `queue_drained` / `foreign_identity` /
-`identity_unresolved` / `shallow_history`.
+or `claim_active` / `superseded` / `awaiting_verification` / `queue_drained` /
+`report_undelivered` / `foreign_identity` / `identity_unresolved` / `shallow_history`. Each row
+also carries `declared_handoff`, whether the work this claim still has **queued** was declared
+unverifiable here — read through the one script that owns `verification_handoff:`, from the
+branch tip, with no network call.
 
 `merged_lookup_unanswered` is `[{branch, reason}]` — every claim the **merged-pull-request
 lookup** could not answer for (2026-08-26). That lookup, `claim-merged.sh`, is the claim

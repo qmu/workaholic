@@ -39,7 +39,7 @@ with nothing written, and the ask still lands as a record.
 
 ## Acceptance
 
-- [ ] A *changed* announcement naming a live slug opens a pull request carrying exactly
+- [x] A *changed* announcement naming a live slug opens a pull request carrying exactly
       that revision, and it does not auto-merge. (#20260827112528-route-the-changed-announcement-to-amend-sh.md)
 - [x] `amend.sh` is the one writer of a live direction's three parts, refusing an
       immutable field, a closed direction and a floor breach with nothing written. (#20260827112528-write-amend-sh-the-one-writer-of-a-live-direction.md)
@@ -53,3 +53,4 @@ with nothing written, and the ask still lands as a record.
 - 2026-08-27 — ticket archived — 20260827112528-hold-a-revised-strategy-to-the-write-time-floor.md
 - 2026-08-27 — ticket archived — 20260827112528-record-what-a-revision-moved-in-the-schedule-prose.md
 - 2026-08-27 — ticket archived — 20260827112528-pin-that-a-strategy-revision-can-never-auto-merge.md
+- 2026-08-27 — ticket archived — 20260827112528-route-the-changed-announcement-to-amend-sh.md

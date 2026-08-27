@@ -566,4 +566,5 @@
 * [Close the units the loop already finished](20260827011638-close-the-units-the-loop-already-finished.md)
 * [Deliver and retire what the loop already proved finished](20260827052027-deliver-and-retire-what-the-loop-already-proved-finished.md)
 * [A declared handoff unit is re-resumed every tick](20260827081849-a-declared-handoff-unit-is-re-resumed-every-tick.md)
+* [Let the operator revise a live direction through the loop](20260827112022-let-the-operator-revise-a-live-direction-through-the-loop.md)
 <!-- okf:generated:end -->

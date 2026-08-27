@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-27T00:45:00+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -99,3 +100,42 @@ forbids `ok` on every later tick.
 - The two readings must be derived in **one** place. Deciding "is this claim superseded"
   separately in the survey and in the claim writer is how they came to disagree in the first
   place.
+
+## Final Report
+
+Development completed as planned.
+
+**Reproduced first.** The three commands in the Overview were run against the live repository
+and disagreed exactly as recorded: `plan-units.sh` offered
+`make-workaholify-converge-the-account-s-routines` and named it in `resurveyed[]`;
+`list-claims.sh` read its only holder `work-20260819-113836` as `superseded`,
+`resumable: false`; `claim.sh mission <slug>` answered `already_claimed` naming that branch;
+`claim.sh resume <unit>` answered `superseded`.
+
+The refusal loop in `claim.sh` §3 already had the verdict in hand — `_held_reason` is one of
+the fields it reads off each `claims_scan` row — and threw it away. It now skips a row whose
+verdict is `superseded`, before both the unit-id check and the artifact-overlap check, so the
+reading is taken from `lib/claims.sh` and never re-derived: the survey's offer and this
+refusal read one derivation and cannot disagree again.
+
+**It frees the work, not the branch.** `superseded` stays *reported, never acted on*: the old
+branch is not deleted, its pull request is not closed, its claim is not released, and the new
+claim is an ordinary `work-*` branch beside it. Every other refusal is where it was — a live
+claim (by unit id and by artifact overlap), a colleague's claim, `queue_drained` and
+`report_incomplete` all refuse exactly as before, which is what bounds the change to a claim
+already **proved** to hold nothing.
+
+### Discovered Insights
+
+- **Insight**: verifying a claim-writer change against the live repository *creates a real
+  claim*. Doing so left `work-20260827-003544` standing on the mission under test, and
+  `release-claim.sh` resolved the unit to the older branch rather than the new one, so the
+  accidental claim outlived the check.
+  **Context**: a writer's happy path is not safely testable in place. The hermetic fixture
+  (`makeSquashMergedClaims`) already builds exactly this shape and costs nothing to extend;
+  the live check should have been the reproduction only, never the verification.
+
+- **Insight**: `fx.A` and `fx.B` in that fixture are two clones and the squash merges land in
+  `fx.B`, so any test queueing new work in `fx.A` has to bring it onto the base first.
+  **Context**: the push is rejected non-fast-forward, which reads as a fixture bug rather than
+  the missing `git merge --ff-only origin/main` it actually is.

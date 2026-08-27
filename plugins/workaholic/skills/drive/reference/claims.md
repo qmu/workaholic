@@ -67,7 +67,17 @@ on another machine coordinates through exactly the same artifact.
     acted on** — nothing here deletes the branch or closes its pull request, exactly as
     `stale` has worked since the protocol shipped; an operator closes it out, and the
     verdict exists so the survey stops offering it. It must **not** forbid `ok`: a claim
-    holding no work is the opposite of outstanding work. The signal is *the unit's tickets
+    holding no work is the opposite of outstanding work. **And a fresh claim may be taken
+    over it** (2026-08-27): `claim.sh` skipped this verdict and answered `already_claimed`,
+    so the work `resurveyed[]` re-offered was reachable by no path — a fresh claim refused
+    here, and `resume` refused it as `superseded` by design. The refusal loop now skips a
+    row whose verdict is `superseded`, reading the same `lib/claims.sh` derivation the
+    survey reads, so the offer and the refusal cannot disagree again. It frees the **work,
+    not the branch**: nothing here deletes the old branch, closes its pull request or
+    releases its claim, and the new claim is an ordinary `work-*` branch beside it. Every
+    other refusal is untouched — a live claim, a colleague's, a `queue_drained` one and a
+    `report_incomplete` one all refuse exactly as before, because only a claim already
+    **proved** to hold nothing may be claimed over. The signal is *the unit's tickets
     are archived on the base* (every one of them, under any branch directory — which
     branch delivered them is exactly what the test must not care about), chosen over "the
     branch's diff is contained in the base" because the measured recovery landed

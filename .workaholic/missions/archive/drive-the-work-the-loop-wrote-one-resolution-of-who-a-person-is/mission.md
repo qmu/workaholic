@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 1.5
 feedback: [20260826152017-drive-the-work-the-loop-wrote-one-resolution-of-who-a-person-is.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
@@ -56,3 +56,4 @@ units are back in the queue; a colleague's is not.
 - 2026-08-27 — ticket archived — 20260826152533-drill-the-identity-hand-off-with-no-network.md
 - 2026-08-27 — mission achieved — mission.md
 - 2026-08-27 — story reported — work-20260826-154116.md
+- 2026-08-27 — run recorded (+1.5h) — implement-20260827-0035

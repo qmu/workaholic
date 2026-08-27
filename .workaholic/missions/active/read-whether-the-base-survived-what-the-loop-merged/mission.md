@@ -42,7 +42,7 @@ than passing for green. Nothing merges differently and the QA window owns qualit
 
 - [x] One reader answers `green`/`red`/`unanswerable`, and a red base names the
       merge that turned it red or answers `unattributable` (#20260827161954-write-read-base-checks-sh-the-one-checks-reader.md)
-- [ ] A red base reaches the attributed author once per commit, renders as an
+- [x] A red base reaches the attributed author once per commit, renders as an
       event, and is named in the driving run's report (#20260827161956-add-the-moderate-step-base-health.md)
 - [ ] The reading gates nothing, is pinned as a judgement, and a network-free
       drill proves it (#20260827162003-drill-the-base-reading-with-no-network.md)
@@ -52,3 +52,4 @@ than passing for green. Nothing merges differently and the QA window owns qualit
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-27 — ticket archived — 20260827161954-write-read-base-checks-sh-the-one-checks-reader.md
 - 2026-08-27 — ticket archived — 20260827161955-name-the-merge-that-turned-the-base-red.md
+- 2026-08-27 — ticket archived — 20260827161956-add-the-moderate-step-base-health.md

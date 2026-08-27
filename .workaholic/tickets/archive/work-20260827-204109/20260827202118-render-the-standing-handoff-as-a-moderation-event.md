@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-27T20:21:18+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -79,3 +80,30 @@ renders nothing.
 - Once the key is spent, later ticks still see the finding and still render the event while
   asking nothing. Check that this does not reintroduce an hourly restatement; if it does, the
   event belongs only on the tick that asks.
+
+## Final Report
+
+`step-handoff-units.sh` supplies `event` as the `emit` helper's fifth argument, **only** on the
+branch where at least one standing handoff was found and could be named. The `ok`-with-nothing
+path, the reason-unresolvable path and every degraded path leave it empty, so the renderer emits
+no line at all — the independent guard, working regardless of what the change diff decides.
+
+Worded as a repository event on `step-undelivered-units.sh`'s singular/plural pair: *a finished
+unit is waiting on a verification only a person can run* / *N finished units are waiting on
+verifications only a person can run*. The declared reason and the pull request are deliberately
+**out** of it — the root line links the item, the question beneath it carries the detail.
+
+**The Consideration is answered by construction, and checked rather than assumed.** Once the
+`handoff-unit:<unit>` key is spent, later ticks still see the finding, and render nothing:
+`render-tick-post.sh` calls a step changed when its **summary** differs from the same step's an
+hour ago, and this summary is counts only — no age, no timestamp, nothing the normalisation would
+have to strip. So the event does not need to be restricted to the tick that asks.
+
+Verified end to end over a scratch tick log, three consecutive ticks:
+
+- unchanged summary + event → `change_count: 0`, no root line (`root_text` is the header alone)
+- changed summary + event → `change_count: 1`, exactly one line, the event verbatim
+- no standing handoff (empty event) → `change_count: 0`, no line
+
+`node scripts/test-workflow-scripts.mjs` — 4111 passed, 0 failed. The step's contract, including
+the event rule, is stated in `moderate/reference/workflow.md` §21.

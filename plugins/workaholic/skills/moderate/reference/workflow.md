@@ -1,4 +1,4 @@
-# The twenty-step contract — reference
+# The twenty-one-step contract — reference
 
 Companion to [`../SKILL.md`](../SKILL.md). One section per step: what it reads, **what it may
 write**, what it returns in `needs_agent`, and the reasons it aborts with. The step ids are the
@@ -1019,7 +1019,7 @@ and an absent remote degrades to the bare short sha rather than to a broken link
 
 ## The closing act — `persist-log.sh`
 
-Not a step at all: the twenty above are the contract and the log's step keys, and this is the
+Not a step at all: the twenty-one above are the contract and the log's step keys, and this is the
 run's own bookkeeping. It runs **after** the last step has had its turn, so a tick that dies
 half-way still persists what it recorded on its next run, and it reports under the run's top-level
 `persist` key while logging under the step id `persist-log`.
@@ -1062,3 +1062,72 @@ half-way still persists what it recorded on its next run, and it reports under t
   report names the reason. Full rationale, including the rejected pull-request-per-tick
   alternative and the point-by-point contrast with the three writer designs `workaholic:ship` §7
   refused, is in the script's header.
+
+## 21. `handoff-units` — a finished unit waiting on a verification only a person can run
+
+```sh
+sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/step-handoff-units.sh --tick <id> [--root <repo-root>]
+```
+
+Every claim the oracle reads **`awaiting_verification`**: a reported unit whose still-**queued**
+work was *declared* unverifiable in an unattended environment at creation
+(`verification_handoff:`). `workaholic:drive` §6 routes such a unit to the **handoff** route on
+purpose — the pull request opens and stays open, the claim stands — and the one act that moves it
+is a person running the declared verification.
+
+**Nothing read the verdict again** (2026-08-27, mission
+`ask-for-the-one-act-a-declared-handoff-is-waiting-on`). `awaiting_verification` appeared nowhere
+outside `drive/`, so the only surface in this plugin that reaches a person by name never learned
+there was anything to say; and once the tip went stale, `stalled-units` asked the *wrong*
+question about it — *a claimed unit has not moved for a day or more*, which sends somebody to
+look at a claim rather than telling them the act. Measured: three units parked on a human act,
+queued since 2026-08-18, 2026-08-19 and 2026-08-26, none mentioned to the account holder since
+the hour each routed.
+
+**Which sibling it follows, on each axis:**
+
+| Axis | Follows | Why |
+| ---- | ------- | --- |
+| whose question | `stalled-units` | the **claim holder** drove this unit and is the person who can run the declared verification or hand it on |
+| the running identity | `undrivable-units` | never consulted — the claim's own `author` is the addressee, so an hourly repository-scoped question does not answer differently per account |
+| what it may read | `undrivable-units` | `list-claims.sh` is a pure read; **`plan-units.sh` is refused**, because the survey reaches the mission readers, which carry the living migrations and **stage** what they converge — the composition `closable-missions` already refused |
+
+**The question names the declared reason verbatim**, which is the whole point of the step: a
+boolean says a unit is waiting, only the string says what for. It is resolved per candidate by
+`drive/scripts/declared-handoff-detail.sh`, which composes `verification-handoff.sh` — still the
+**one** reader of the field — over the set `claims_remaining_tickets` already derives, so this
+reading and the oracle's cannot answer from two different ticket sets. Resolving it **per
+candidate rather than on every claim row** is deliberate: `stalled-units`, `undelivered-units`
+and `retire-claims` all read `list-claims.sh` and none of them wants the string.
+
+**The pull request's coordinates cost one lookup per candidate**, through `claim-merged.sh`. An
+`unanswerable` read leaves them unstated and **keeps** the candidate — the unit waits on a person
+whether or not we could name its URL. A candidate whose declared **reason** could not be resolved
+is counted in the summary and **not** asked about: asking somebody to satisfy a verification
+nobody named is worse than not asking.
+
+**The summary carries no age and no timestamp**, for the correctness reason `stalled-units`'
+header records: an incrementing age would make this step changed hourly by construction.
+
+**The event is supplied only where a standing handoff was found**, and it names the repository
+event rather than the step's counters: *a finished unit is waiting on a verification only a
+person can run*. The `ok`-with-nothing path and every degraded path leave it **empty**, so the
+renderer emits no line at all — the independent guard against a nothing-happened line reaching
+the root even when the diff calls the step changed. The declared reason and the pull request stay
+**out** of it: the root line links the item and the question beneath it carries the detail, and a
+root line that restated the question is the duplication the two-speech-act design exists to
+avoid. Once the `handoff-unit:<unit>` key is spent, later ticks still see the finding — and
+render nothing, because a change is a **diff** against the previous tick's summary for the same
+step, and an unchanged standing handoff produces an unchanged summary. That is what keeps a
+standing handoff from becoming the hourly restatement `📦 Release Preparation` was retired for.
+
+**It asks and nothing else.** `awaiting_verification` is a **judgement**
+(`workaholic:drive`'s `reference/claims.md`, *Proofs and judgements*), so nothing here clears a
+handoff, retries a verification, merges or closes the pull request, touches the claim, or
+withdraws the declaration — and the field keeps its two writers, `/ticket` and `/specificate`,
+with a run never declaring it for its own unit. Each question is keyed `handoff-unit:<unit>`
+through `ask-question.sh`, so the asked-once gate, the per-tick cap, the quiet hours and the
+working-day hold all apply unchanged and no second ledger exists. `stalled-units` filters the
+same verdict out of its own candidates and counts it instead, so one unit never produces two
+questions in two vocabularies. A degraded read (`no_claim_reader`, `claims_unreadable`,
+`claims_unparseable`, `origin_unreachable`, `shallow_history`) is named and asks nothing.

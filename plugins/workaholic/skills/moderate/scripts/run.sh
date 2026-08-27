@@ -67,7 +67,7 @@ PERSIST_LOG="${SCRIPT_DIR}/persist-log.sh"
 # The step list IS the contract (reference/workflow.md states each one's inputs,
 # what it may write, and its abort reasons). Order is the ask's order, which is
 # also cheapest-first: the log, then the reads, then the writes, then the ask.
-STEPS='open-log inbound-sweep workload-logs merge-conflicts issue-triage stuck-prs doc-drift release-status note-cadence strategy-pace direction-health stalled-units undrivable-units undelivered-units retire-claims closable-missions base-health strategy-digest unanswered-asks human-checkin'
+STEPS='open-log inbound-sweep workload-logs merge-conflicts issue-triage stuck-prs doc-drift release-status note-cadence strategy-pace direction-health stalled-units undrivable-units undelivered-units handoff-units retire-claims closable-missions base-health strategy-digest unanswered-asks human-checkin'
 
 TICK=''
 ROOT='.'

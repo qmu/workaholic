@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-27T20:21:19+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -84,3 +85,35 @@ property to preserve, and a second vocabulary is exactly what would drift.
   was already true rather than adding an edit to make the sentence come out right.
 - Resist making this a token change. That is a separate ruling with its own recorded reasoning,
   and reversing it here would put `ok` out of reach for as long as a person takes.
+
+## Final Report
+
+**The discovery finding is confirmed, and it is what this ticket delivered against.** Run over
+this repository's live queue, `plan-units.sh` already emits
+
+```
+"backlog_all_excluded": {"excluded": true, "backlog_size": 14, "reasons": [
+  {"reason": "claimed_active", "count": 1},
+  {"reason": "claimed_awaiting_verification", "count": 1}, ...]}
+```
+
+The per-reason counts are derived from whatever `excluded[]` carries, so the row was already
+there by construction. **No script change was made**, and none was needed: step 2's conditional
+never fired, and `grep` confirms no hand-maintained list of reasons anywhere in `plan-units.sh`.
+Adding an edit to make the sentence come out right would have introduced exactly the second
+vocabulary the derivation's own header names as the property to preserve.
+
+What was missing was the **report contract**, and that is what was written:
+
+- `drive/SKILL.md` §7 — one clause beside `claimed_undelivered`'s: a queue held by a declared
+  handoff is a **person's** business, not the protocol working quietly; the unit is finished as
+  far as anything unattended can take it and the repair is the declared verification, run where
+  the credentials exist.
+- The same clause states that it **moves no token**, and why — a unit waiting on a declared human
+  verification is the gate *working*, so `ok` stays reachable over a queue held only by them.
+  This records the existing ruling where the count is read; it does not change it, and reversing
+  it here would put `ok` out of reach for as long as a person takes.
+- `CLAUDE.md`'s `/implement` row carries the same statement, in the same commit.
+
+`node scripts/test-workflow-scripts.mjs` — 4111 passed, 0 failed. `build.mjs` / `verify.mjs` /
+`validate-metadata.mjs` clean; `outputs/` regenerated.

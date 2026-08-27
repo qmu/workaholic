@@ -489,13 +489,50 @@ claims_remaining_tickets() {
 # A READ THAT CANNOT BE MADE ANSWERS `false` AND NEVER GUESSES. An absent reader script, an
 # unreadable blob, an empty artifact list: none of them is a declaration, and inventing one would
 # stop a merge on a typo exactly as `../verification-handoff.sh` refuses to.
+#
+# TWO READINGS, ONE MATERIALISATION (2026-08-27, mission
+# `ask-for-the-one-act-a-declared-handoff-is-waiting-on`). The boolean was all the scan ever
+# wanted, so the reader's `reason` -- the declared string, in the words the ticket wrote it in --
+# was computed and thrown away, and the question a person must be asked names exactly that
+# string. `claims_declared_reading` is the one derivation and echoes the reader's own JSON line;
+# `claims_declared_handoff` and `claims_declared_reason` are both thin reads OF IT, so there is
+# still one materialisation, one call to the one reader of the field, and no second parser.
 claims_declared_handoff() {
+    case "$(claims_declared_reading "$@")" in
+        *'"handoff": true'*) printf 'true' ;;
+        *) printf 'false' ;;
+    esac
+}
+
+# THE DECLARED REASON, VERBATIM ("" when nothing is declared, or when the read could not be
+# made). Same arguments as `claims_declared_handoff`.
+#
+# It is sliced out of the reader's own line between the two keys the reader always prints in
+# that order, rather than by a JSON parser this library does not have and rather than by
+# re-reading the frontmatter -- re-reading it would be the second parser of `verification_handoff:`
+# that this whole shape exists to forbid. The value is JSON-escaped on the way out of the reader,
+# so the two escapes it can carry are undone on the way back in.
+claims_declared_reason() {
+    _cdr_line=$(claims_declared_reading "$@")
+    case "$_cdr_line" in
+        *'"reason": "'*) ;;
+        *) return 0 ;;
+    esac
+    _cdr_v=${_cdr_line#*'"reason": "'}
+    _cdr_v=${_cdr_v%%'", "member"'*}
+    printf '%s' "$_cdr_v" | sed -e 's/\\"/"/g' -e 's/\\\\/\\/g'
+}
+
+# The shared derivation: materialise the still-queued work (plus the mission's own `mission.md`)
+# from the branch tip and hand it to the ONE reader of `verification_handoff:`. Echoes that
+# reader's JSON line, or nothing at all when the read could not be made.
+claims_declared_reading() {
     _cdh_ref="$1"
     _cdh_arts="${2:-}"
-    [ -n "$_cdh_arts" ] || { printf 'false'; return 0; }
+    [ -n "$_cdh_arts" ] || return 0
 
     _cdh_reader="${CLAIMS_LIB_DIR}/../verification-handoff.sh"
-    [ -f "$_cdh_reader" ] || { printf 'false'; return 0; }
+    [ -f "$_cdh_reader" ] || return 0
 
     if [ "$#" -ge 3 ]; then
         _cdh_rem="$3"
@@ -516,10 +553,10 @@ claims_declared_handoff() {
     IFS="$_cdh_old_ifs"
 
     _cdh_paths=$(printf '%s%s' "$_cdh_own" "$_cdh_rem")
-    [ -n "$_cdh_paths" ] || { printf 'false'; return 0; }
+    [ -n "$_cdh_paths" ] || return 0
 
     _cdh_dir=$(mktemp -d 2>/dev/null || printf '')
-    [ -n "$_cdh_dir" ] || { printf 'false'; return 0; }
+    [ -n "$_cdh_dir" ] || return 0
 
     _cdh_n=0
     _cdh_files=""
@@ -530,15 +567,13 @@ claims_declared_handoff() {
         fi
     done
 
-    _cdh_answer=false
+    _cdh_out=""
     if [ -n "$_cdh_files" ]; then
         # shellcheck disable=SC2086 -- the paths are mktemp's own and carry no whitespace.
-        case "$(sh "$_cdh_reader" tickets $_cdh_files 2>/dev/null || true)" in
-            *'"handoff": true'*) _cdh_answer=true ;;
-        esac
+        _cdh_out=$(sh "$_cdh_reader" tickets $_cdh_files 2>/dev/null || true)
     fi
     rm -rf "$_cdh_dir" 2>/dev/null || true
-    printf '%s' "$_cdh_answer"
+    printf '%s' "$_cdh_out"
 }
 
 # Did this unit already REPORT -- i.e. reach the story+PR seam? $1 = branch ref,

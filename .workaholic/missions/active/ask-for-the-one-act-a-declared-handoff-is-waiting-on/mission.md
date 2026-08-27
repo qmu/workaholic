@@ -45,7 +45,7 @@ gate lifted, no handoff declared or withdrawn by any run.
 - [x] Every `awaiting_verification` claim reaches its holder as one question naming the
       declared reason and the pull request, asked exactly once (#20260827202118-add-the-moderate-step-handoff-units.md)
 - [x] `stalled-units` asks nothing about a declared handoff, counting it as a finding (#20260827202118-stop-stalled-units-asking-about-a-declared-handoff.md)
-- [ ] The consumer is pinned report-and-ask only, drilled offline, and documented (#20260827202119-pin-the-new-consumer-as-report-and-ask-only.md)
+- [x] The consumer is pinned report-and-ask only, drilled offline, and documented (#20260827202119-pin-the-new-consumer-as-report-and-ask-only.md)
 
 ## Changelog
 
@@ -55,3 +55,4 @@ gate lifted, no handoff declared or withdrawn by any run.
 - 2026-08-27 — ticket archived — 20260827202118-render-the-standing-handoff-as-a-moderation-event.md
 - 2026-08-27 — ticket archived — 20260827202118-stop-stalled-units-asking-about-a-declared-handoff.md
 - 2026-08-27 — ticket archived — 20260827202119-name-claimed-awaiting-verification-in-the-run-report.md
+- 2026-08-27 — ticket archived — 20260827202119-pin-the-new-consumer-as-report-and-ask-only.md

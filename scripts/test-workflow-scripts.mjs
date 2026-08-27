@@ -23841,6 +23841,75 @@ function testProofJudgementSplit() {
       classified.get(m[1]), "proof");
   }
 
+  // ---- A JUDGEMENT'S *REPORTING* CONSUMERS (2026-08-27, mission
+  // `ask-for-the-one-act-a-declared-handoff-is-waiting-on`) ----
+  //
+  // The two rows above pin the consumers that ACT, each on a proof. This pins the other shape: a
+  // consumer that may only REPORT or ASK. `awaiting_verification` gained its first such consumer
+  // when `/moderate`'s `handoff-units` step started asking the claim holder about a standing
+  // handoff, and prose cannot stop a later change from making that consumer act.
+  //
+  // KEYED ON THE VERDICT WORD, NOT ON A STEP NAME SPELLED TWICE. The classification assertion
+  // reads the word out of the table; the consumer file is named once, in the enumeration, for
+  // the same reason the acting consumers are — a glob would quietly pass a consumer added with
+  // no rule at all.
+  //
+  // Proved able to fail, each break turning exactly one row red:
+  //
+  //   the `awaiting_verification` row changed to **proof**  -> `... is still a judgement`
+  //   `retire-claim.sh` called from step-handoff-units.sh   -> `... never reaches retire-claim.sh`
+  //   the `!= "awaiting_verification"` filter removed from
+  //     step-stalled-units.sh                               -> `stalled-units no longer asks ...`
+  const HANDOFF_WORD = "awaiting_verification";
+  assertEq(`${HANDOFF_WORD} is still a judgement, so its consumers may only report or ask`,
+    classified.get(HANDOFF_WORD), "judgement");
+
+  // What "acting" means for this verdict: merging or closing the pull request, retiring or
+  // releasing the claim, resuming it, or writing anywhere but the tick's own log. Call sites,
+  // never words — the step's own prose says in English that it never does these things.
+  const HANDOFF_ACTS = ["/merge", "merge_pull_request", "retire-claim.sh", "release-claim.sh",
+    "claim.sh resume", "git push", "git revert", "git reset --hard", "close.sh",
+    "publish-tree-commit.sh", "publish-tree-pr.sh", "--method PUT", "--method PATCH",
+    "--method DELETE", "record-merge-outcome.sh", "archive.sh"];
+  for (const file of ["plugins/workaholic/skills/moderate/scripts/step-handoff-units.sh"]) {
+    const src = readFileSync(join(REPO_ROOT, file), "utf8")
+      .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+    assertTrue(`${file.split("/").pop()} is a consumer of ${HANDOFF_WORD}`,
+      src.includes(HANDOFF_WORD),
+      "the enumerated reporting consumer no longer reads the verdict it is registered for");
+    for (const act of HANDOFF_ACTS) {
+      assertTrue(`${file.split("/").pop()} reports and asks — it never reaches ${act}`,
+        !src.includes(act),
+        `a judgement licenses reporting and asking, never ${act}`);
+    }
+  }
+
+  // ONE STEP ASKS AND THE OTHER FILTERS, and either half alone is a defect: with the filter gone
+  // the same unit draws two differently-worded questions, and with the asking step gone the
+  // filter turns the finding back into silence. Both halves are read from their own source.
+  const stalledSrc = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/moderate/scripts/step-stalled-units.sh"), "utf8")
+    .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+  assertTrue(`stalled-units no longer asks about ${HANDOFF_WORD}`,
+    new RegExp(`resume_reason\\s*!=\\s*"${HANDOFF_WORD}"`).test(stalledSrc),
+    "the filter is gone, so one unit now draws two questions in two vocabularies");
+  const handoffSrc = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/moderate/scripts/step-handoff-units.sh"), "utf8");
+  assertTrue("...and handoff-units is the step that does ask",
+    /handoff-unit:/.test(handoffSrc),
+    "the asking half is gone, so the filter above turns the finding into silence");
+
+  // NO CLASSIFIER, ANYWHERE. The table is the one place the classification lives, and a function
+  // returning `proof`/`judgement` would be the second derivation it exists to prevent. Comments
+  // are stripped first, so the library's own prose about the split is not what is being banned.
+  for (const f of ["lib/claims.sh", "list-claims.sh", "plan-units.sh", "claim.sh",
+    "retire-claim.sh", "retry-undelivered.sh", "declared-handoff-detail.sh"]) {
+    const src = readFileSync(join(REPO_ROOT, `plugins/workaholic/skills/drive/scripts/${f}`), "utf8")
+      .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+    assertTrue(`${f} carries no proof/judgement classifier`, !/proof|judgement/.test(src),
+      "the classification lives in claims.md and nowhere else");
+  }
+
   // ---- THE BASE READING'S VOCABULARY (2026-08-27) ----
   // Same two directions as above, over the second vocabulary: a word emitted and not classified
   // leaves a consumer with no rule, and a word classified and never emitted is a rule about

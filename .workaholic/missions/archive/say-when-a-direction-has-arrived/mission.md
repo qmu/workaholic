@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 0.8
 feedback: [20260827142027-say-when-a-direction-has-arrived.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
@@ -60,3 +60,4 @@ dry is still dormant, and nothing closes a direction on its own reading.
 - 2026-08-27 — ticket archived — 20260827142444-write-the-arrival-reading-into-the-documents.md
 - 2026-08-27 — mission achieved — mission.md
 - 2026-08-27 — story reported — work-20260827-144111.md
+- 2026-08-27 — run recorded (+0.8h) — implement-20260827-144111

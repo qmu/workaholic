@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-27T05:22:37+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -75,3 +76,42 @@ the refusal, and the **scan-held** case is untouched and still reports `ok`.
   request and a refused merge identical at the only surface recording the run.
 - Resist a `retried: true` field on any artifact. The report is the surface; the branch story
   already carries the durable answer.
+
+## Final Report
+
+Development completed as planned.
+
+§7's token table gains three rows and the report contract one bullet, all keyed on §6's existing
+three words. The 2026-08-27 rule the ticket asked to extend rather than reopen is untouched:
+`merge_refused` forbids `ok`, `merge_not_attempted` never does. The one genuinely new fact is
+that a unit the retry **delivered** stops forbidding `ok` — without that row the loop could fix
+the very problem that withheld the token and still report the token of a run that had not, which
+is the shape that makes a token stop being read.
+
+The third new row covers the retry's own named refusals and deliberately routes each back to a
+rule that already exists rather than inventing a fourth: `scan_held` is the unchanged
+scan-held row (a pull request waiting on a person by design), and every other refusal leaves a
+claim still reading `report_undelivered`, which the survey row further down the table already
+makes `pending`. So the retry adds no way for a unit to become invisible to the token.
+
+No artifact gained a `retried` field, as the Considerations required.
+
+### Discovered Insights
+
+- **Insight**: A still-refused retry must name **two** refusals, not one.
+  **Context**: The same word twice and a different word carry different instructions — the first
+  says the transport has not changed and a person must open the pull request, the second says
+  something moved and the new word is where to look. Reporting only the new one loses that
+  distinction at the only surface recording the run, which is the same class of collapse the
+  route/outcome split was written against in the first place.
+
+- **Insight**: The retry's refusals needed no token rows of their own.
+  **Context**: Every one of them leaves the claim's verdict exactly as it was, so the existing
+  survey row (`the survey still offers ... a claim reading report_undelivered`) already withholds
+  `ok`. Adding a parallel set would have been a second derivation of one fact — the same
+  objection ticket 1's table records against a `proof`/`judgement` classifier function.
+
+- **Insight**: `recorded: false` belongs beside the outcome, not in it.
+  **Context**: A failed record does not change what happened to the merge, so folding it into the
+  outcome word would misreport a landed merge. But it does mean the branch's durable answer is
+  stale, which the next survey and `/moderate`'s question will read — so it is named, separately.

@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-27T05:22:37+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -93,3 +94,52 @@ nothing and pushes into no branch.
   the base's own history; the worktree is local. State that in the header rather than relying
   on the reader knowing it.
 - Prefer composing `cleanup-mission-worktree.sh` over a second reaper.
+
+## Final Report
+
+Development completed as planned.
+
+`drive/scripts/retire-claim.sh` is the one retirement writer. It resolves the unit through
+`claims_unit_resolution` / `claims_unit_row` — the live-row rule, never first-match — which the
+ticket named as the gate, and which matters here more than anywhere else it is used: a unit held
+by a `superseded` branch and a live one is exactly what a fresh claim over a superseded one
+creates, and first-match returns the oldest, so retiring on it would tear down whichever branch
+sorted first regardless of which is alive.
+
+Refusals are named individually as required: `not_superseded:<verdict>` carries the verdict's own
+word, and `ambiguous_claim` and `unanswerable:<reason>` are separate. The unanswerable case
+needed the lookup's own record — `CLAIMS_UNANSWERED_FILE`, which `list-claims.sh` already uses —
+because such a branch keeps whatever verdict the local read gave it, so a plain
+`not_superseded:queue_drained` would send a reader to a claim that looks live rather than to the
+lookup that failed.
+
+The three acts run in the ticket's order (close, delete, reap), each idempotent and each
+reporting its own word, with `already_closed` / `already_gone` / `absent` as successes rather
+than degradations. Verified by hand against three live claims on this repository: a nonexistent
+unit, a `queue_drained` unit and this run's own `claim_active` unit were each refused by name
+with nothing touched, and a repeated run reported identically.
+
+### Discovered Insights
+
+- **Insight**: The refusal path must not report `failed` or `absent` for acts it never attempted.
+  **Context**: The first draft reused the success vocabulary on refusal, so a refused retirement
+  reported `remote_branch_deleted: failed` — a finding about the world made by a gate that never
+  looked. `not_attempted` is a fourth value on each of the three fields, and it is what lets the
+  caller (ticket 5) report what happened rather than assert something it was never told.
+
+- **Insight**: This script's step order is the *reverse* of `release-claim.sh`'s, and the reason
+  is the difference between the two acts rather than a preference.
+  **Context**: `release-claim.sh` discards **unfinished** work, so it tears the worktree down
+  first and must never publish "this unit is free" over unpushed commits. A `superseded` claim
+  has no such work by construction, and its local reap is the one step refusable for a reason
+  outside the runner's control (the cleaner refuses a dirty tree, and must) — so putting the reap
+  last leaves a refusal there with both remote facts already correct and a re-run finishing the
+  job. Copying the existing order would have been the wrong half to lose.
+
+- **Insight**: `CLAIMS_FETCH_OK` must be set after `claims_fetch`, or a mission-grain claim never
+  reads `superseded` at all.
+  **Context**: `claims_fetch` runs inside a command substitution, so the flag it sets dies with
+  the subshell; without it the merged-pull-request lookup is skipped `offline`, and a mission
+  claim — whose only proof of supersession is that lookup — falls back to a judgement verdict.
+  The script would then refuse the exact verdict it exists to act on. `claim.sh` and
+  `release-claim.sh` both carry the same line for the same reason.

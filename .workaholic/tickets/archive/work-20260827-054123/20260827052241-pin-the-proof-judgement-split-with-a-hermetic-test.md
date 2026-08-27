@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-27T05:22:41+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -74,3 +75,53 @@ table and its two consumers disagree about a word.
   is a machine-readable classification `lib/claims.sh` emits — but that is the second
   derivation ticket 1 weighed and set aside, so reopening it is a decision to record in the
   ticket's own Considerations, not a silent change of plan.
+
+## Final Report
+
+Development completed as planned.
+
+`testProofJudgementSplit` reads the real seams rather than a restated copy, which is what the
+Considerations required: the word set comes out of `lib/claims.sh`'s own emissions, the
+classification out of the table's own rows, and each consumer's gate out of that consumer's own
+source. A test carrying its own list of words would prove only that the list matches itself.
+
+The set equality is asserted in **both** directions. A word emitted and not classified leaves a
+consumer with no rule; a word classified and never emitted is a rule about nothing, and that is
+how a table starts lying about the code it describes.
+
+The machine-readable classifier the Considerations named as the fallback was **not** needed and
+is not introduced: reading a shell gate from a Node test turned out to be neither brittle nor
+indirect, because each gate is a single literal comparison on one line. Ticket 1's decision to
+keep the classification as prose over a word the library already emits therefore stands
+unchanged.
+
+All three failure modes were demonstrated, not asserted:
+
+- `retire-claim.sh`'s gate changed to `queue_drained` → `retire-claim.sh gates on a proof` red.
+- the `parked_with_pr` row deleted → `every verdict word the library emits is classified` red.
+- an invented word added to the table → `the table classifies no word the library never emits` red.
+
+Each turned exactly one row red and nothing else; the tree was restored after each and the suite
+re-run green (3911 passed, 0 failed).
+
+### Discovered Insights
+
+- **Insight**: The library emits its vocabulary in three different shapes, and the test has to
+  match each rather than one.
+  **Context**: The resumability verdict is `_cs_reason=<word>`; the unit resolution is
+  `printf '<word>\n'`; the merged lookup forwards two of its words through a `case` pattern
+  (`merged|not_merged)`) and prints the third with no trailing newline. A single pattern silently
+  missed the third family, and the test caught it as three phantom rows — which is exactly the
+  direction of the check that would otherwise have looked redundant.
+
+- **Insight**: `stale` is allowed by name, never by a wildcard.
+  **Context**: It is the one classified row that is a boolean field rather than an emitted word.
+  Exempting it with a general escape hatch would let a second unemitted row slip in behind it, so
+  the test names it and separately asserts `_cs_stale=true` is still set — if the flag ever goes
+  away, the row stops describing anything and the test says so.
+
+- **Insight**: Naming the two consumers explicitly beats discovering them.
+  **Context**: A glob over the scripts directory would quietly pass when a third consumer is
+  added with no gate at all — the failure the pin exists to prevent. The explicit list fails
+  loudly when a named consumer loses its gate, and adding a consumer means adding a row here,
+  which is the reminder rather than the obstacle.

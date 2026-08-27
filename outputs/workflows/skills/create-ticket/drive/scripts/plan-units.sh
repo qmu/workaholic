@@ -116,6 +116,28 @@
 # retry, not a takeover -- and it forbids `ok` (drive/SKILL.md §7), which `queue_drained`
 # deliberately does not.
 #
+# `undelivered[]` IS WHERE THAT RETRY IS OFFERED (2026-08-27, mission
+# `deliver-and-retire-what-the-loop-already-proved-finished`). Naming the state was half the
+# repair: the unit was excluded honestly and still offered to nothing, so it was delivered by
+# nobody until a person happened to open the pull request. `[{unit, branch, merge_outcome}]`,
+# one entry per `report_undelivered` claim, carrying the refusal the run that made the attempt
+# recorded on its own branch.
+#
+# A FIELD, NOT A LOOSENED EXCLUSION -- the choice this script makes and states. Loosening
+# `claimed_undelivered` would return the unit's ARCHIVED tickets to `backlog[]`, where a run
+# would claim them fresh and re-drive work already written, pushed and sitting in an open pull
+# request. The offer here is a merge attempt on an existing branch and nothing else: no
+# takeover, no worktree, no ticket. It sits beside `resurveyed[]` for that field's own reason
+# -- `excluded[]` names what the survey saw and DROPPED, and neither of these is dropped -- and
+# `claimed_undelivered` stays in `excluded[]` unchanged, because the unit is still not
+# claimable and the count that says so still means what it said.
+#
+# ONLY A PROOF REACHES IT. `report_undelivered` is one of the two verdicts the claim protocol
+# classifies as a proof (`drive/reference/claims.md`, *Proofs and judgements*): the refusal is
+# recorded, not inferred. `queue_drained` is a judgement meaning *waiting on a person* and is
+# never widened into this, and a scan-held pull request never reaches the verdict at all --
+# its recorded outcome is `merge_not_attempted: …`, which the chain routes to `queue_drained`.
+#
 # `resumable[]` is a THIRD offer alongside `missions`/`backlog`, not a fourth kind of
 # exclusion: those two are claimed fresh from the base, a resumable unit is taken over
 # at its pushed branch tip. A resumable unit left untaken is claimable work outstanding
@@ -267,6 +289,10 @@ RESUMABLE=""
 CLAIM_REASONS=""
 # The branch each claimed unit/artifact sits on, for the resurveyed report line.
 CLAIM_BRANCHES=""
+# The units this run may re-attempt a MERGE on -- never a drive. See the `report_undelivered`
+# branch below for why this is a field of its own rather than a loosened exclusion.
+UNDELIVERED=""
+u_sep=""
 if [ -n "$ROWS" ]; then
     sep=""
     r_sep=""
@@ -306,6 +332,34 @@ if [ -n "$ROWS" ]; then
         elif [ "$c_reason" = "queue_drained" ]; then
             c_exc=claimed_reported
         elif [ "$c_reason" = "report_undelivered" ]; then
+            # AND IT IS OFFERED FOR A MERGE RETRY, IN A FIELD OF ITS OWN (2026-08-27, mission
+            # `deliver-and-retire-what-the-loop-already-proved-finished`). The exclusion above
+            # is correct and does not move: the queue is drained and every ticket is archived,
+            # so there is nothing to DRIVE and a takeover would push an empty `Resume` commit
+            # onto a branch whose pull request is open (the 2026-08-01 gate). What was missing
+            # is that no path offered the one action this unit does need -- re-attempting the
+            # merge the transport refused -- so a finished, green, undelivered unit was
+            # delivered by nobody.
+            #
+            # A NAMED FIELD, NOT A LOOSENED EXCLUSION. Loosening `claimed_undelivered` would
+            # put the unit's archived tickets back into `backlog[]`, where a run would claim
+            # them fresh and re-drive work that is already written and pushed. The field says
+            # exactly what it offers -- a merge attempt on an existing branch -- and says it
+            # beside `resurveyed[]`, which is the same shape for the same reason: `excluded[]`
+            # by its own definition names what the survey saw and DROPPED, and this is not
+            # dropped.
+            #
+            # THE RECORDED OUTCOME RIDES ALONG so the retry gates on a refusal rather than
+            # re-deriving one. It is one `git cat-file` over a blob the scan already fetched,
+            # spent only on rows already reading `report_undelivered`, and it is the answer of
+            # the run that MADE the attempt -- which is why the retry may not go looking for a
+            # fresher one. A scan-held pull request never reaches here at all (its recorded
+            # outcome is `merge_not_attempted: …`, which the verdict chain routes to
+            # `queue_drained`), and the retry still refuses it by name: a gate holding a pull
+            # request open is the gate working, and this run has no human to override it.
+            c_outcome=$(claims_merge_outcome "origin/${c_branch}" "$c_branch")
+            UNDELIVERED="${UNDELIVERED}${u_sep}{\"unit\": \"$(json_escape "$c_unit")\", \"branch\": \"$(json_escape "$c_branch")\", \"merge_outcome\": \"$(json_escape "$c_outcome")\"}"
+            u_sep=", "
             # THE LOOP'S OWN UNDELIVERED WORK, not a human's business (2026-08-27, mission
             # `close-the-units-the-loop-already-finished`). `claimed_reported` said *waiting on
             # a person* and was covering this too: a unit the loop finished whose merge the
@@ -669,7 +723,7 @@ if [ "$BACKLOG_SIZE" -gt 0 ] && [ -z "$BACKLOG" ] && [ -n "$EXCLUDED" ]; then
 fi
 ALL_EXCLUDED_JSON="{\"excluded\": ${ALL_EXCLUDED}, \"backlog_size\": ${BACKLOG_SIZE}, \"reasons\": [${EXCLUDED_REASONS}]}"
 
-printf '{"fetched": %s, "shallow": %s, "base": "%s", "surveyed_sha": "%s", "base_sha": "%s", "current": %s, "user_slug": "%s", "backlog_error": "%s", "backlog_size": %d, "owner_unresolved": %s, "claimed": [%s], "resumable": [%s], "resurveyed": [%s], "missions": [%s], "backlog": [%s], "excluded": [%s], "backlog_all_excluded": %s}\n' \
+printf '{"fetched": %s, "shallow": %s, "base": "%s", "surveyed_sha": "%s", "base_sha": "%s", "current": %s, "user_slug": "%s", "backlog_error": "%s", "backlog_size": %d, "owner_unresolved": %s, "claimed": [%s], "resumable": [%s], "resurveyed": [%s], "undelivered": [%s], "missions": [%s], "backlog": [%s], "excluded": [%s], "backlog_all_excluded": %s}\n' \
     "$FETCHED" "$SHALLOW" "$BASE" "$SURVEYED_SHA" "$BASE_SHA" "$CURRENT" "$(json_escape "$USER_SLUG")" "$BACKLOG_ERROR" \
     "$BACKLOG_SIZE" "$OWNER_UNRESOLVED" \
-    "$CLAIMED_JSON" "$RESUMABLE" "$RESURVEYED" "$MISSIONS" "$BACKLOG" "$EXCLUDED" "$ALL_EXCLUDED_JSON"
+    "$CLAIMED_JSON" "$RESUMABLE" "$RESURVEYED" "$UNDELIVERED" "$MISSIONS" "$BACKLOG" "$EXCLUDED" "$ALL_EXCLUDED_JSON"

@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-27T05:22:41+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -79,3 +80,49 @@ seam** that proves the drill can fail — a drill that passes over a broken seam
   other agent. Keep them out of the plugin.
 - A drill that needs the network is a drill nobody runs. That is why the stub is a requirement
   rather than a convenience.
+
+## Final Report
+
+Development completed as planned.
+
+Both drills follow `verify-close`'s solved shapes rather than re-solving them: the same local
+bare origin, the same `PATH` stub for `gh`, the same literal branch names, the same
+`_before`/`_after` checkout comparison, and the same deliberately-broken-row discipline. Neither
+makes a network call — proved by the fixture being local and the transport stubbed, and by both
+drills passing identically with no remote of any kind reachable.
+
+`verify-retire`: 8 load-bearing rows. `verify-delivery-retry`: 6.
+
+Both broken seams were demonstrated rather than asserted. Replacing `retire-claim.sh`'s verdict
+test with `if false` turned `retire_refuses_a_judgement` red while every other row stayed green —
+and retired a live claim's branch, which is exactly the damage the gate prevents. Removing
+`retry-undelivered.sh`'s verdict test turned two rows red together. Both scripts were restored
+and both drills re-run green.
+
+### Discovered Insights
+
+- **Insight**: The retirement is not idempotent in the sense the ticket assumed, and the drill
+  found it.
+  **Context**: The first draft asserted that a second run reports `already_gone`. It does not: a
+  completed retirement **deletes the branch**, and the claim oracle is the set of unmerged remote
+  branches, so the row is simply gone and the honest answer is `no_such_claim` with all three
+  acts `not_attempted`. `already_gone` and `already_closed` are reachable only on a **partial**
+  retirement — the measured case where a cloud container may push but not delete a branch — so
+  the drill now asserts both properties separately, on two different superseded claims.
+
+- **Insight**: The retry's "redundant" second gate is the live backstop, not dead code.
+  **Context**: Widening the verdict gate for the broken-seam proof made the scan-held unit stop
+  at `scan_held:hard` — the gate whose own header calls it redundant by construction. So the
+  defence-in-depth argument recorded in ticket 2 is demonstrably right: with the first gate gone,
+  the second is what stands between an unattended run and a merge past a secret finding. The
+  runbook records this so a later reader does not delete it as unreachable.
+
+- **Insight**: `no_open_pull_request` is a *positive* assertion in the retry drill.
+  **Context**: With the stub answering every pulls query with an empty list, an undelivered unit
+  reaching that refusal proves both gates passed and the merge seam was entered — which is the
+  strongest statement available without a real pull request, and it costs no network.
+
+- **Insight**: A fixture needs two superseded claims, not one.
+  **Context**: Because each retirement consumes its own claim, any second property about a
+  superseded claim needs a second one to be proved on. This is the same reason `verify-close`
+  builds three units rather than reusing one.

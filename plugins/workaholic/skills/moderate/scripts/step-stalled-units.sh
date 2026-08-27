@@ -32,12 +32,29 @@
 # reading — a reader who wants the whole picture gets it, and the narrowing is visible in the
 # same line as the total.
 #
-# TWO FILTERS, NOT ONE (2026-08-26). The threshold below, and `superseded`: a claim whose work
-# already reached the base is FINISHED, so there is nothing for a person to look at and nothing
-# for them to decide. Asking anyway is the question layer crying wolf, and it is not free —
-# the asked-once ledger means the one real stalled unit then arrives inside a stream a person
-# has learned to skip. Measured: three merged pull requests were each being asked about. They
-# are counted in the summary as a finding instead, which is where a fact belongs.
+# THREE FILTERS, NOT ONE. The threshold below, and two verdicts:
+#
+#   `superseded` (2026-08-26) — a claim whose work already reached the base is FINISHED, so
+#   there is nothing for a person to look at and nothing for them to decide. Asking anyway is
+#   the question layer crying wolf, and it is not free: the asked-once ledger means the one real
+#   stalled unit then arrives inside a stream a person has learned to skip. Measured: three
+#   merged pull requests were each being asked about.
+#
+#   `awaiting_verification` (2026-08-27, mission
+#   `ask-for-the-one-act-a-declared-handoff-is-waiting-on`) — the same argument one verdict over.
+#   Such a unit is not stalled by accident: it was DECLARED unverifiable in an unattended
+#   environment at creation, and §6 left its pull request open and its claim standing on purpose.
+#   "A claimed unit has not moved for a day or more" sends the person to look at a claim when
+#   what they need is the one act it waits on, and `handoff-units` now asks in the vocabulary of
+#   that act. Left here it would be worse than redundant: the real question would arrive beside a
+#   differently-worded one about the same unit, which is exactly the cost the first filter exists
+#   to prevent. ONE STEP ASKS AND THE OTHER FILTERS is the invariant, and either half alone is a
+#   defect — the mission's pin keeps the pair honest.
+#
+# Both are counted in the summary as findings instead, which is where a fact belongs. The filter
+# is NOT widened to "any non-resumable verdict": `queue_drained` and `report_undelivered` are
+# different states with different owners, and a blanket filter would silently drop a class
+# nobody covers.
 #
 # THE SUMMARY CARRIES NO AGE, AND THAT IS A CORRECTNESS REQUIREMENT (2026-08-26). The
 # moderation root calls a step changed when its summary differs from the same step's an hour
@@ -192,9 +209,16 @@ with_pr=$(printf '%s' "$rows" | jq '[.[] | select(.has_pull_request)] | length')
 # the REAL stalled unit inside a stream a person has learned to skip. Measured: three merged
 # pull requests were each being asked about. They stay in the log as a counted finding, which
 # is where a fact belongs.
+# AND A `awaiting_verification` CLAIM IS A FACT WITH ANOTHER STEP'S QUESTION ON IT (2026-08-27).
+# It was DECLARED unverifiable here at creation, so the honest question names the declared act,
+# which `handoff-units` asks. Filtered in the SAME expression as `superseded` — one rule with two
+# verdicts, not two mechanisms — and counted here, so nothing is dropped from the reading.
 finished=$(printf '%s' "$rows" | jq -c '[.[] | select(.resume_reason == "superseded")]')
 n_finished=$(printf '%s' "$finished" | jq 'length')
-stalled=$(printf '%s' "$rows" | jq -c '[.[] | select(.stale) | select(.resume_reason != "superseded")]')
+declared=$(printf '%s' "$rows" | jq -c '[.[] | select(.resume_reason == "awaiting_verification")]')
+n_declared=$(printf '%s' "$declared" | jq 'length')
+stalled=$(printf '%s' "$rows" | jq -c '[.[] | select(.stale)
+    | select(.resume_reason != "superseded" and .resume_reason != "awaiting_verification")]')
 n_stalled=$(printf '%s' "$stalled" | jq 'length')
 
 # THE AGE IS DELIBERATELY ABSENT FROM THE SUMMARY (2026-08-26). The moderation root calls a
@@ -205,11 +229,12 @@ n_stalled=$(printf '%s' "$stalled" | jq 'length')
 # exactly the shape `📦 Release Preparation` was retired for. What the maintainer needs from
 # the age is in the question, which names the unit; what the diff needs is a summary that
 # moves only when the finding does.
-summary="${count} claimed unit(s); ${with_pr} at a pull request, ${unknown_age} of unknown age; ${n_finished} finished (superseded), ${n_stalled} past the claim protocol's staleness threshold"
+summary="${count} claimed unit(s); ${with_pr} at a pull request, ${unknown_age} of unknown age; ${n_finished} finished (superseded), ${n_declared} awaiting a declared verification, ${n_stalled} past the claim protocol's staleness threshold"
 
 if [ "$n_stalled" -eq 0 ]; then
-    # A finished claim never earns a root line either: nothing happened TO the repository, and
-    # a step with no event renders no line.
+    # A finished claim never earns a root line either, and neither does a declared handoff:
+    # nothing happened TO the repository here, and a step with no event renders no line. The
+    # standing handoff's own event belongs to `handoff-units`, which owns its question too.
     emit ok "" "$summary"
 fi
 

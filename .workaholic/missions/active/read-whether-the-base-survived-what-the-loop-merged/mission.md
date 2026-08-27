@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260827-164139
 ---
 
 # Read whether the base survived what the loop merged

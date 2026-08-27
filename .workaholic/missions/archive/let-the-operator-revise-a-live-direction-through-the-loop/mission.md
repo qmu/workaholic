@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 0.8
 feedback: [20260827112022-let-the-operator-revise-a-live-direction-through-the-loop.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
@@ -59,3 +59,4 @@ with nothing written, and the ask still lands as a record.
 - 2026-08-27 — ticket archived — 20260827112528-drill-the-strategy-revision-end-to-end-with-no-network.md
 - 2026-08-27 — mission achieved — mission.md
 - 2026-08-27 — story reported — work-20260827-114104.md
+- 2026-08-27 — run recorded (+0.8h) — cse_01W23fiuh1JuorUSNDXWbAK6

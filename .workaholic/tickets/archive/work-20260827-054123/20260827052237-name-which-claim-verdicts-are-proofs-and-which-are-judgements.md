@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-27T05:22:37+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -78,3 +79,47 @@ is still a person's or a takeover's business.
 - Adding a machine-readable classifier function to `lib/claims.sh` is the tempting
   alternative. Weigh it against the mission's own rule that a consumer keys on the word:
   a function that returns `proof`/`judgement` is a second derivation of the same fact.
+
+## Final Report
+
+Development completed as planned.
+
+The verdict chain in `lib/claims.sh` was read end to end and the table keyed on the word set it
+actually emits, not on the seven words the Overview named. That set is larger than the ticket
+assumed: the resumability verdict alone emits ten words (`identity_unresolved`,
+`foreign_identity`, `shallow_history`, `claim_active`, `superseded`, `report_undelivered`,
+`queue_drained`, `report_incomplete`, `parked_with_pr`, `heartbeat_lapsed`), beside the `stale`
+boolean, the merged lookup's three values (`merged` / `not_merged` / `unanswerable`) and the
+five unit-resolution words (`none` / `single` / `live` / `superseded_only` / `ambiguous`).
+Nineteen rows in three tables grouped by which reading emits them, each classified and each
+carrying the sentence saying what established it and what a consumer may therefore do.
+
+`superseded` and `report_undelivered` are the only rows classified `proof`. No frontmatter field
+was added, no script was written, and no classifier function was added to `lib/claims.sh` — the
+Considerations named that alternative and it is refused in the table's own text, because a
+function returning `proof`/`judgement` is a second derivation of the fact the table exists to
+hold once.
+
+### Discovered Insights
+
+- **Insight**: The unit-resolution words (`none` / `single` / `live` / `superseded_only` /
+  `ambiguous`) sit on a different axis from the resumability verdict — they answer *which row a
+  writer may read*, never *is this unit's work finished*.
+  **Context**: Flattening them into one list would have made `live` look like a licence to act,
+  when what it licenses is reading that row's own verdict. The table keeps them in a separate
+  section that says so, which is what stops a later consumer from acting on the resolution word
+  instead of the verdict behind it.
+
+- **Insight**: Three of the judgements — `identity_unresolved`, `shallow_history` and
+  `unanswerable` — are the **absence** of a reading rather than a reading that says *look at
+  this*.
+  **Context**: They are the strongest argument for the split's direction: acting on an absence is
+  the exact failure the three-valued merged lookup was designed to avoid, and stating the reason
+  per row means a later change cannot promote one to a proof without contradicting the sentence
+  beside it.
+
+- **Insight**: An absent merge-outcome section keeps `queue_drained` rather than producing a
+  third word.
+  **Context**: `report_undelivered` is claimed only on positive evidence, so `queue_drained` is
+  *not* "the merge was not refused" — it is "no refusal was recorded". The table states this,
+  because a consumer reading it as proof of delivery would act on silence.

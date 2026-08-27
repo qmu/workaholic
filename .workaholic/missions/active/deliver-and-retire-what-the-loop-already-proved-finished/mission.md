@@ -39,10 +39,11 @@ is asked about is only ever a reading that needed their judgement.
 
 ## Acceptance
 
-- [ ] Proofs and judgements are named once and read by every consumer (#20260827052237-name-which-claim-verdicts-are-proofs-and-which-are-judgements.md)
+- [x] Proofs and judgements are named once and read by every consumer (#20260827052237-name-which-claim-verdicts-are-proofs-and-which-are-judgements.md)
 - [ ] A later run re-attempts an undelivered unit's merge and reports the outcome (#20260827052237-re-attempt-an-undelivered-unit-s-merge-in-a-later-driving-run.md)
 - [ ] A claim proved `superseded` is retired by one writer after re-proof (#20260827052237-write-retire-claim-sh-the-one-retirement-writer.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-27 — ticket archived — 20260827052237-name-which-claim-verdicts-are-proofs-and-which-are-judgements.md

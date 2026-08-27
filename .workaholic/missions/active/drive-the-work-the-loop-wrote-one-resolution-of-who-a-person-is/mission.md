@@ -40,10 +40,11 @@ units are back in the queue; a colleague's is not.
 ## Acceptance
 
 - [x] One reader resolves a person's addresses, for writer and ownership oracle alike (#20260826152528-read-a-person-s-addresses-through-one-script.md)
-- [ ] An unmapped assignee produces named team-owned work, never a guess (#20260826152528-stamp-only-an-address-the-loop-can-drive.md)
+- [x] An unmapped assignee produces named team-owned work, never a guess (#20260826152528-stamp-only-an-address-the-loop-can-drive.md)
 - [ ] An excluded backlog says so; the stranded units are recovered (#20260826152528-recover-the-work-stranded-on-an-unmapped-address.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-27 — ticket archived — 20260826152528-read-a-person-s-addresses-through-one-script.md
+- 2026-08-27 — ticket archived — 20260826152528-stamp-only-an-address-the-loop-can-drive.md

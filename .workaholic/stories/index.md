@@ -4,6 +4,7 @@ Branch development narratives, one per branch, serving as the PR description and
 
 <!-- okf:generated:begin -->
 * [work-20260827-014149](work-20260827-014149.md) - A unit held by a superseded claim and a live one now resolves to the live branch, derived once and read by every writer.
+* [work-20260827-003544](work-20260827-003544.md) - The mission's last ticket is declared unverifiable in an unattended container; the unit is handed to a person with the transport check recorded.
 * [Let a fresh claim take a superseded claim's work](work-20260827-003503.md) - The survey re-offered work behind a superseded claim that both claim paths refused; a fresh claim may now take it.
 * [work-20260826-195732](work-20260826-195732.md) - Retire the always-on mission-lens hook — its roster surfacing now lives in /moderate's closable-missions step and the on-demand /mission roadmap
 * ["Drive the work the loop wrote: one resolution of who a person is"](work-20260826-154116.md) - A person's addresses are named once and read through one script, so work the loop writes is work the loop can drive.

@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-27T14:24:44+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on: 20260827142444-ask-the-operator-once-whether-an-arrived-direction-is-done.md
@@ -61,3 +62,33 @@ announcing that nothing changed.
 
 - The event is the post-facing phrase and the summary is the log-facing one; keeping the counts out
   of the event is deliberate, not an omission.
+
+## Final Report
+
+Development completed as planned. `step-direction-health.sh` supplies the arrival in `event`:
+*a direction has its work in* / *N directions have their work in*, **leading** the phrase in the
+reader's own precedence order, then the overdue clause, then the dormant one. Reading an arrival
+after a lateness clause about a different direction is how a success gets read as a failure,
+which is the defect the reading removes. The links construction was already keyed on
+`slug != ""`, so every arrived direction is linked with no change to it.
+
+`summary` keeps every count and gains `arrived` beside live/overdue/dormant/unreadable — the
+audit trail loses nothing, which is the standing split between the two fields.
+
+The empty-event path is demonstrated rather than asserted: a tree whose only strategy reads
+`live` emits `{"status": "ok", "summary": "1 live, 0 arrived, 0 overdue, 0 dormant, 0
+unreadable; repository ok; 0 to ask", "event": "", ...}` through the step's early `emit ok`, so
+no root line can be rendered. The `repository == none` override is untouched.
+
+Verified: `node scripts/test-workflow-scripts.mjs` — 4031 passed, 0 failed; the step run over an
+arrived fixture (non-empty event naming and linking the direction) and over an all-`live`
+fixture (empty event). Both are pinned by `loop-drill.sh verify-arrival`.
+
+### Discovered Insights
+
+- **Insight**: the existing phrase construction assigned the first clause with `phrase="..."`
+  and appended later ones with `phrase="${phrase:+${phrase}; }..."`, so inserting a new clause
+  **before** the first one silently discards it unless the old first clause is converted to the
+  append form.
+  **Context**: the two-clause shape hid this — it only breaks when a third clause is prepended.
+  Any future reading added ahead of `overdue` must convert its successor the same way.

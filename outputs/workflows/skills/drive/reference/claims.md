@@ -353,6 +353,67 @@ measured 2026-08-05), and a bare `released: false` cannot say how:
 Two rejected alternatives (a tombstone release commit; inverting the teardown/delete order) are
 recorded in the script's header — read it before re-proposing either.
 
+## Retire a claim proved empty
+
+```bash
+bash ../drive/scripts/retire-claim.sh <unit-id>
+```
+
+The **one** writer of a claim's retirement, and the second consumer of the proof/judgement table
+above. Given a claim the oracle proved **`superseded`**, it closes the pull request, deletes the
+remote branch and reaps the worktree — three acts, each reporting its own word. Emits
+`{retired, unit, branch, pull_request, pull_request_closed, remote_branch_deleted,
+worktree_reaped, reason}` and **always exits 0**: a refusal is an answer, and its caller reports
+it rather than dying on it.
+
+`superseded` has been *reported, never acted on* since it shipped, and that left the claim table
+only ever growing — measured on this repository on 2026-08-27: 7 claims, **4 of them
+`superseded`**, two naming missions archived days ago, the oldest branch last touched 2026-08-21.
+What changed is not the verdict's standing but that one act now follows from it; nothing else
+about `superseded` moved.
+
+**It acts on the proof and refuses every judgement by its own name.** `not_superseded:<verdict>`
+carries the verdict word itself, so `stale`, `queue_drained` and `claim_active` are each visible
+as what they are rather than folded into a generic denial — acting on any of them is how a runner
+tears down work somebody is still driving. **`ambiguous_claim`** is its own refusal (two live
+claims cannot arise from the sanctioned path, and picking one silently is the failure), and
+**`unanswerable:<reason>`** is its own refusal too: a branch whose merged-pull-request lookup
+came back unanswerable kept the verdict it would have had without the lookup, and naming the
+local verdict there would send a reader to a claim that looks live instead of to the lookup that
+failed.
+
+**The unit resolves through the live-row rule, never first-match.** A unit held by a `superseded`
+branch *and* a live one is exactly what a fresh claim over a superseded one creates, and
+`claims_scan` walks refs in name order — so first-match is the oldest. Here that is the dangerous
+direction: it would retire whichever branch sorted first regardless of which is alive.
+`claims_unit_resolution` / `claims_unit_row` are the shared derivation, so the survey's offer,
+`claim.sh`'s refusal and this retirement cannot disagree about which branch a unit is.
+
+**Order: close, delete, reap** — the reverse of `release-claim.sh`'s, on purpose. That script
+tears the worktree down first because it discards *unfinished* work and must not publish "this
+unit is free" over unpushed commits. Here there is no such work by construction, and the local
+reap is the one step refusable for a reason outside this runner's control (the sanctioned cleaner
+refuses a dirty tree, and must). Putting it last leaves a refusal there with both **remote** facts
+already correct, and a re-run finishes the job.
+
+**Every step is idempotent, and each says which kind of success it had.** An already-closed pull
+request (`already_closed`), an already-deleted branch (`already_gone`) and an absent worktree
+(`absent`) are real successes, not degradations. A step that fails is named and the other two are
+attempted on their own merits — the three acts are independent, so one failure is no evidence
+about the others. A **refusal** reports `not_attempted` for all three rather than `failed` or
+`absent`: those are findings about the world, and a gate that never ran made no finding.
+
+**How reversible each act is**, stated rather than assumed: a closed pull request is reopenable
+with its review history intact; a deleted remote branch is recoverable from the base's own history
+(its content *is* on the base — that is what `superseded` means) and from any clone's reflog; the
+worktree is local and `claim.sh resume` rebuilds one at a branch tip. None of the three destroys
+work — a property of acting only on the proof, never a licence to widen the verdict set.
+
+**It merges nothing, pushes into no branch, and touches no `.workaholic/` artifact.** Its only
+writes are one REST `PATCH` closing a pull request and one branch delete: no commit anywhere, no
+mission closed, no ticket moved, no story edited. Run it from the main checkout — git cannot
+remove the worktree you are standing in.
+
 ## Heartbeat mechanics
 
 `heartbeat.sh` pushes an empty commit through `commit.sh --allow-empty`, so coordination markers

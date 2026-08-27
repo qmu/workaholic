@@ -23728,11 +23728,45 @@ function testRecordMergeOutcome() {
 // emitted and not classified leaves a consumer with no rule, and a word classified and never
 // emitted is a rule about nothing — which is how a table starts lying about the code it
 // describes.
+//
+// EXTENDED TO THE BASE READING'S VOCABULARY (2026-08-27, mission
+// `read-whether-the-base-survived-what-the-loop-merged`). `green` / `red` / `unattributable` /
+// `unanswerable` are a SECOND vocabulary in the same home — the section's own sub-table — and
+// they are parsed apart from the claim words because one column cannot classify two different
+// questions. Every one of them is a judgement, which is the load-bearing claim: a check run is
+// designed to be re-runnable, so each reading can become false by looking again, the one property
+// a proof must not have. Both consumers are enumerated for the same reason the claim consumers
+// are — a glob would quietly pass a consumer added with no rule at all.
+//
+// This half was proved able to fail too, each failure turning exactly one row red:
+//
+//   `red` promoted to **proof** in the sub-table   -> `no base reading is a proof`
+//   the `unattributable` row deleted               -> `every word the base reading emits ...`
+//   an invented word added to the sub-table        -> `the sub-table classifies no word ...`
+//   `git revert` added to step-base-health.sh      -> `step-base-health.sh acts on nothing ...`
+//
+// The fourth also turns `the step never reaches git revert` red in the step's own test, which is
+// the guard working twice: the step's test bans the call site in that one file, and this pin bans
+// it across every enumerated consumer of the reading. The fifth mode — deleting the
+// gates-nothing sentence from `drive/SKILL.md` — was verified against the assertion's own regex
+// rather than by a whole suite run, since the prose row reads one file and nothing else.
 function testProofJudgementSplit() {
   const lib = readFileSync(join(REPO_ROOT,
     "plugins/workaholic/skills/drive/scripts/lib/claims.sh"), "utf8");
-  const table = readFileSync(join(REPO_ROOT,
+  const wholeTable = readFileSync(join(REPO_ROOT,
     "plugins/workaholic/skills/drive/reference/claims.md"), "utf8");
+
+  // TWO VOCABULARIES, ONE HOME (2026-08-27). The section carries the claim protocol's tables and,
+  // since the base reading shipped, a sub-table keyed on what the base's CHECKS said. They are
+  // parsed apart rather than together: one column cannot classify two different questions, and a
+  // single parse would report every base word as a claim word the library never emits.
+  const BASE_HEADING = "### The base's own checks";
+  const baseAt = wholeTable.indexOf(BASE_HEADING);
+  assertTrue("the base reading's sub-table is still in the one home", baseAt > 0,
+    "claims.md no longer carries the base reading's classification");
+  const table = wholeTable.slice(0, baseAt);
+  const baseEnd = wholeTable.indexOf("\n## ", baseAt);
+  const baseTable = wholeTable.slice(baseAt, baseEnd > 0 ? baseEnd : undefined);
 
   // The word set, from the library's own emissions. `_cs_reason=` is the resumability verdict;
   // the two `printf '<word>\n'` families are the unit resolution and the merged lookup.
@@ -23800,6 +23834,72 @@ function testProofJudgementSplit() {
     assertEq(`${file.split("/").pop()} gates on a proof, never a judgement`,
       classified.get(m[1]), "proof");
   }
+
+  // ---- THE BASE READING'S VOCABULARY (2026-08-27) ----
+  // Same two directions as above, over the second vocabulary: a word emitted and not classified
+  // leaves a consumer with no rule, and a word classified and never emitted is a rule about
+  // nothing. The word set comes out of the two scripts' own `emit` calls rather than a list this
+  // test carries, which would prove only that the list matches itself.
+  const baseEmitted = new Set();
+  for (const f of ["read-base-checks.sh", "attribute-base-red.sh"]) {
+    const src = readFileSync(join(REPO_ROOT, `plugins/workaholic/skills/drive/scripts/${f}`), "utf8")
+      .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+    for (const m of src.matchAll(/\bemit (green|red|unattributable|unanswerable)\b/g)) {
+      baseEmitted.add(m[1]);
+    }
+  }
+  assertEq("the base reading's vocabulary parses out of the two scripts",
+    [...baseEmitted].sort().join(","), "green,red,unanswerable,unattributable");
+
+  const baseClassified = new Map();
+  for (const m of baseTable.matchAll(/^\|\s*`([a-z_]+)`\s*\|\s*(?:\*\*)?(proof|judgement)(?:\*\*)?\s*\|/gm)) {
+    assertTrue(`the base sub-table classifies ${m[1]} exactly once`, !baseClassified.has(m[1]),
+      "a second row for the same word is two rules for one fact");
+    baseClassified.set(m[1], m[2]);
+  }
+  assertEq("every word the base reading emits is classified exactly once",
+    [...baseEmitted].filter((w) => !baseClassified.has(w)).sort().join(","), "");
+  assertEq("and the sub-table classifies no word the base reading never emits",
+    [...baseClassified.keys()].filter((w) => !baseEmitted.has(w)).sort().join(","), "");
+
+  // THERE IS NO PROOF IN THIS VOCABULARY, and that is the load-bearing claim: a check run is
+  // designed to be re-runnable, so every reading here can become false by looking again — the
+  // one property a proof must not have. A row promoted to `proof` fails right here.
+  assertEq("no base reading is a proof — every one of them is a judgement",
+    [...baseClassified.entries()].filter(([, k]) => k === "proof").map(([w]) => w).sort().join(","), "");
+
+  // EVERY CONSUMER OF THE BASE READING IS ENUMERATED, so a new one must be registered here
+  // rather than slipping in unclassified — the same reason the two claim consumers are named
+  // explicitly above instead of discovered by glob. Each is read from its own source.
+  //
+  // What "acting" means for this vocabulary: re-running a check, reverting a commit, merging,
+  // or gating the run on the reading. Call sites, never words — the step's own prose says in
+  // English that it never reverts or re-runs, so a word-level ban would fail on the sentence
+  // that states the rule.
+  const ACTS = ["/rerun", "rerun-failed-jobs", "actions/runs", "git revert", "git reset --hard",
+    "/merge", "merge_pull_request", "retire-claim.sh", "release-claim.sh"];
+  const stepSrc = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/moderate/scripts/step-base-health.sh"), "utf8")
+    .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+  for (const act of ACTS) {
+    assertTrue(`step-base-health.sh acts on nothing — it never reaches ${act}`,
+      !stepSrc.includes(act),
+      `a judgement licenses reporting and asking, never ${act}`);
+  }
+  // The driving run is the second consumer, and its rule is prose in the skill it lives in. What
+  // is pinned is the sentence a later change would have to delete to start gating on it.
+  const driveSkill = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/drive/SKILL.md"), "utf8");
+  assertTrue("workaholic:drive states that the base reading gates nothing",
+    /base's health[\s\S]{0,4000}?It gates nothing/.test(driveSkill),
+    "the gates-nothing statement is gone from drive/SKILL.md");
+  assertTrue("...and that it moves no token", /base[\s\S]{0,400}?moves no token/.test(driveSkill),
+    "the moves-no-token statement is gone from drive/SKILL.md");
+  const moderateSkill = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/moderate/SKILL.md"), "utf8");
+  assertTrue("workaholic:moderate states that its step asks and acts on nothing",
+    /base-health[\s\S]{0,1200}?asks and nothing else/.test(moderateSkill),
+    "the asks-and-nothing-else statement is gone from moderate/SKILL.md");
 }
 
 // ---------- moderate/undelivered-units: the loop's own undelivered work (2026-08-27) ----------

@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-27T16:20:02+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on: 20260827162001-name-the-base-s-health-in-the-driving-run-s-report.md
@@ -91,3 +92,57 @@ than shipping.
   vocabulary: read-straight-off looks like `superseded`'s property, but a proof is a
   reading that **cannot** become false by looking again, and a check run is designed to.
 - Keep the sub-table short. Its value is that it is the one place, not that it is thorough.
+
+## Final Report
+
+Development completed as planned. The classification lives in **one** place —
+`drive/reference/claims.md`, *Proofs and judgements* — as its own sub-table beside the claim
+protocol's, exactly as the ticket recommended: one section, two keyed tables, because one column
+cannot classify two different questions and a second document would be the second home the split
+exists to prevent.
+
+All four words are classified `judgement`, each with its reason: `green` and `red` because a
+re-run can turn either into the other; `unattributable` because it is a reading about the walk's
+reach; `unanswerable` because it is the **absence** of a reading, the reason the section already
+gives. **There is no proof in this vocabulary**, which the pin asserts directly.
+
+`workaholic:drive` (**Claims**) and `workaholic:moderate` both state the consequence: no consumer
+may revert, re-run, block, gate, hold or merge on the reading.
+
+The existing pin was **extended**, never duplicated. `testProofJudgementSplit` now splits
+`claims.md` at the base sub-table's heading and parses the two vocabularies apart; the base word
+set comes out of the two scripts' own `emit` calls rather than a list the test carries; and both
+consumers are **enumerated by name** (the `/moderate` step by call site, the driving run by the
+sentence a change would have to delete), so a third consumer must be registered rather than
+slipping in unclassified. No script gained a `proof`/`judgement` classifier and no artifact gained
+a field.
+
+**The pin was demonstrated to fail, not asserted to.** Four modes were introduced and the whole
+suite run against each, every one turning exactly the expected row red:
+
+| Break | Row that went red |
+| ----- | ----------------- |
+| `red` promoted to `**proof**` | `no base reading is a proof — every one of them is a judgement` |
+| the `unattributable` row deleted | `every word the base reading emits is classified exactly once` |
+| an invented `probably_red` row added | `and the sub-table classifies no word the base reading never emits` |
+| `git revert` added to `step-base-health.sh` | `step-base-health.sh acts on nothing — it never reaches git revert` (**and** the step's own test's `the step never reaches git revert`) |
+
+The fifth mode — deleting the gates-nothing sentence from `drive/SKILL.md` — was verified against
+the assertion's own regex rather than by a whole suite run, and the header says so rather than
+claiming a run that did not happen. The existing claims pin passes untouched (4111 passed, 0
+failed).
+
+### Discovered Insights
+
+- **Insight**: the original pin parsed `| \`word\` | proof|judgement |` rows out of the **whole**
+  of `claims.md`, so adding any second vocabulary to that file breaks it in both directions at
+  once — every new word reads as a claim word the library never emits.
+  **Context**: that coupling is why the extension had to split the document at a heading before
+  adding a row, and it is the mechanism that makes "one home, two tables" safe: a third
+  vocabulary added without splitting fails loudly rather than silently widening the first table.
+
+- **Insight**: the acting-call-site ban had to be written as **call sites** (`git revert`,
+  `/rerun`, `merge_pull_request`), never as words.
+  **Context**: `step-base-health.sh`'s own `bound` string says in English that the tick never
+  re-runs a check or reverts — so a word-level ban fails on the very sentence that states the
+  rule, and the stricter a consumer's own wording gets the more certainly such a test breaks.

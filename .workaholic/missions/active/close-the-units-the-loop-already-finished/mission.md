@@ -56,3 +56,4 @@ business from the loop's undelivered work, and `ok` stops covering the second.
 - 2026-08-27 — ticket archived — 20260827012035-never-report-ok-over-an-undelivered-unit.md
 - 2026-08-27 — ticket archived — 20260827012036-split-the-exclusion-that-hides-the-difference.md
 - 2026-08-27 — ticket archived — 20260827012037-name-undelivered-units-in-backlog-all-excluded.md
+- 2026-08-27 — ticket archived — 20260827012038-ask-a-person-about-a-unit-that-could-not-be-delivered.md

@@ -58,3 +58,4 @@ with nothing written, and the ask still lands as a record.
 - 2026-08-27 — ticket archived — 20260827112528-write-the-third-writer-reversal-into-the-documents.md
 - 2026-08-27 — ticket archived — 20260827112528-drill-the-strategy-revision-end-to-end-with-no-network.md
 - 2026-08-27 — mission achieved — mission.md
+- 2026-08-27 — story reported — work-20260827-114104.md

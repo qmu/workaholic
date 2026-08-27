@@ -48,3 +48,4 @@ nothing stored anywhere, once that declaration no longer holds.
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-27 — ticket archived — 20260827082244-reproduce-the-handoff-re-resume-and-pin-it.md
+- 2026-08-27 — ticket archived — 20260827082244-read-the-declared-handoff-in-the-claim-scan.md

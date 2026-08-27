@@ -36,6 +36,7 @@ Run every command from the repository root, on a clean `main`.
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-propose --json` | a throwaway strategy tree and a synthetic open-proposal list — proves every gate of `/propose`'s brake refuses by name, and that it writes nothing |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-direction-health --json` | a throwaway strategy tree, one overdue direction and one dormant one — proves the four lifecycle readings, the three question keys, the asked-once gate, and that nothing was written |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-merged-claim --json` | a throwaway repository carrying a **squash-merged** mission claim and batch claim — proves all four merged-claim readings (merged batch, merged mission, live, unanswerable) with the transport stubbed, so no `gh` call is made |
+| — | Any time | `sh scripts/e2e/loop-drill.sh verify-identity-handoff --json` | a throwaway repository with a two-address mapping — walks issue assignee → the address the writer stamps → the survey that offers the unit, for a canonical address, a mapped alias and an unmapped login, with no network and no credential |
 | — | Any time | `sh scripts/e2e/loop-drill.sh status` | the drill's residue: issues, claim branches, tickets |
 | — | After an abort | `sh scripts/e2e/loop-drill.sh reset` | closes/deletes **drill-minted** residue only |
 
@@ -500,3 +501,37 @@ only a merged pull request can answer — and that is the one network read, stub
 `testMergedClaimShapeAtBothGrains`, `testMergedLookupDegradesByName` and
 `testMergedClaimIsNeverResumable` are what **CI** enforces on every change. The drill ships to
 no other agent and CI never runs it; the suite cannot prove an operator's checkout behaves.
+
+## 5j. The identity hand-off (issue assignee → stamped address → survey)
+
+`verify-identity-handoff` needs no seed, no fire, no issue number and **no network**: it builds
+a throwaway repository whose committed mapping names one person's two addresses, then walks the
+real writers and the real survey over it.
+
+**It drills a seam, not a component.** The link runs across three of them — the issue's
+assignee, the address `/specificate` stamps, and the survey that offers the unit — and it broke
+*between* them: each component was internally consistent, nothing tested the walk, and the break
+was invisible for five days while every hourly tick reported a clean survey. Measured
+2026-08-26: `backlog_size: 10` with `backlog: []` and `owned_by_other` ×7, including the mission
+whose own job was to repair the other half of the defect.
+
+**The mission half and the loose half are drilled for different things.** A mission is not
+drivable until it carries an acceptance plan (`no_plan`), and that plan is a human's
+interrogation rather than anything this seam writes — so the mission is checked for the address
+it *stamps*, and a loose ticket for the address the survey *acts on*.
+
+| Row | Fails when | Read |
+| --- | ---------- | ---- |
+| `identity_handoff_canonical_mission` / `_stamped` | an issue assigned to the canonical address does not stamp it | `identity.sh`'s login/address pass, and the writer passing its `canonical` through |
+| `identity_handoff_canonical_offered` | the survey does not offer that unit | `owns.sh` over `owners.sh` — the ownership chain the survey filters on |
+| `identity_handoff_alias_mission` / `_stamped` | a **mapped alias** does not resolve to the canonical address | `identity.sh`'s pass 2, the reading the whole change exists for |
+| `identity_handoff_alias_offered` | the alias's unit is not offered | `owns.sh`'s canonicalisation of both sides |
+| `identity_handoff_unmapped_team_owned` | an unmapped login stamps anything at all | `/specificate`'s refusal to guess: `assignees: []` is claimable, a wrong address is not |
+| `identity_handoff_unmapped_offered` | team-owned work is not offered | `owners.sh`'s empty-means-team-owned rule |
+| `identity_handoff_fails_when_dropped` | an address the mapping does not name is still offered | **the drill's own honesty**: a test that only proves the happy path would have passed throughout the five stranded days |
+| `identity_handoff_writes_nothing` | the drill changed the checkout | every fixture lives outside the checkout |
+
+**Two proofs, and they are not the same one** — the same split as §5i. This drill is the
+**operator's**; the hermetic suite's `testIdentityReader`, `testOwnsResolvesAliases` and
+`testSpecificateStampsResolvableAddresses` are what **CI** enforces on every change. The drill
+ships to no other agent and CI never runs it.

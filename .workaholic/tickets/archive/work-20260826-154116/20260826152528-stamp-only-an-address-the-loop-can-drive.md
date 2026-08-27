@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-26T15:25:28+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on: 20260826152528-read-a-person-s-addresses-through-one-script.md
@@ -88,3 +89,36 @@ state that any run can pick up.
 - The strategy form's `no_assignee` rule is untouched: `create.sh` refuses an empty assignee
   list, so an unmapped assignee makes a strategy record-only exactly as an unassigned issue
   does. Check that path explicitly rather than assuming the mission/ticket fix covers it.
+
+## Final Report
+
+Development completed as planned.
+
+**Reproduced first, as step 1 required.** The defect is not a wrong lookup — there is no
+lookup at all. `reference/workflow.md` step 8 read `--assignee <the triggering issue's
+assignee>`, a prose instruction the running session fills by judgement, with nothing in the
+chain converting a GitHub login to a git address. That is why the judgement produced a
+person's second address and why no test could have caught it.
+
+The assignee is now resolved through `identity.sh` before either scaffold is called, once,
+and reused for every call in step 9. Resolvable passes the canonical address; unresolvable
+passes **no** `--assignee` at all and reports `assignee_unmapped: <login>` in the run report
+and the pull-request body. Both scaffolds already wrote an empty field with no flag, so the
+unresolvable path needed no new behaviour from either. The strategy form's path was checked
+explicitly rather than assumed: `create.sh` refuses an empty assignee list, so an unmapped
+assignee makes a strategy record-only reporting `assignee_unmapped`, exactly as an unassigned
+issue makes it record-only reporting `no_assignee`.
+
+### Discovered Insights
+
+- **Insight**: the two team-owned outcomes are reported under different names because only one
+  of them has a repair. An unassigned issue is nobody's work; an unmapped assignee is
+  somebody's, unresolvably, and the fix is one line in `.claude/git-identities`.
+  **Context**: folding them into one reason would tell an operator that work is team-owned
+  without telling them it is team-owned *by mistake* — which is the difference between a
+  decision somebody made and a defect nobody was told about.
+
+- **Insight**: the ticket scaffold writes `assignees:` bare when empty while the mission
+  scaffold writes `assignees: []`; both read back as unowned through `owners.sh`.
+  **Context**: a test asserting the literal `[]` on a ticket fails for a reason that has
+  nothing to do with the behaviour under test. Assert through the oracle, not the shape.

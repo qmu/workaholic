@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-26T15:25:28+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on: 20260826152528-read-a-person-s-addresses-through-one-script.md
@@ -82,3 +83,51 @@ and leaves every other repository to discover the same defect on its own.
   `validate-strategy.sh` would otherwise reject a strategy this migration touched.
 - The migration is registered to run at `/workaholify`'s converge step, so a consuming
   repository gets the recovery when it converges rather than by being told to run something.
+
+## Final Report
+
+Development completed as planned, with one part of the verification deliberately left to the
+operator — stated below rather than worked around.
+
+`gather/scripts/migrate-assignee-aliases.sh` rewrites an `assignees:` entry the mapping names
+**as an alias** onto that entry's canonical address, across `tickets/`, `missions/` and
+`strategies/`, resolving through `identity.sh` and never parsing the mapping itself. It
+touches nothing it cannot resolve and reports every such address by name; an already-canonical
+entry is left byte-identical, so a second consecutive run is an empty delta; a tree with no
+mapping file comes out byte-identical, because `identity.sh` is the identity function there.
+It stages and never commits, and touches nothing in the caller's index beyond the files it
+rewrote. It is registered in `converge-layout.sh` in this same commit and the registry's
+mechanical check sees it (`testMigrationRegistryContract` walks the naming convention).
+
+A strategy's `assignees:` is the one field where empty is a refusal rather than team-owned;
+the migration rewrites an alias onto a canonical address and never empties a field, and the
+suite asserts that rather than relying on it.
+
+**What is not verified here, and why.** The ticket's second verification — *run it on this
+repository and confirm the seven stranded artifacts resolve to `a@qmu.jp`* — cannot pass until
+`.claude/git-identities` names `tamura.yoshiya@gmail.com` as an alias of `a@qmu.jp`. Run here,
+the migration reports `migrated: 0` with `unresolved: [noreply@anthropic.com,
+tamura.yoshiya@gmail.com]` — correct behaviour, and exactly the report it is designed to
+produce. Writing that mapping line is an assertion that two addresses are one person, and this
+mission's own tickets rule that out for an unattended path: *whether an address belongs to a
+person is a human's ruling, so an unattended path must never write one unaided*. So the
+recovery is complete as **mechanism** and pending as **data**, and the mission routes that one
+line to the operator through the two surfaces built beside it — `/workaholify`'s coverage audit
+proposes it with the address already filled in, and `/moderate`'s `undrivable-units` step asks
+about it once. The seven artifacts resolve the moment the line lands, with no further code.
+
+### Discovered Insights
+
+- **Insight**: `noreply@anthropic.com` — the container's placeholder identity — appears in this
+  tree's `assignees:` on six artifacts, and the migration reports it beside the real stranded
+  address.
+  **Context**: it is genuinely uncovered and genuinely should not be mapped, which is a useful
+  proof that "report, never rewrite" is the right default: a migration willing to guess would
+  have had to invent an owner for a placeholder.
+
+- **Insight**: the migration rewrites only the frontmatter's first `assignees:` line, matched
+  the way `read-assignees.sh` matches it, so a body line beginning `assignees:` is prose and
+  stays prose.
+  **Context**: `.workaholic/` artifacts routinely quote frontmatter keys in their own text —
+  this very ticket does — so a whole-file substitution would corrupt the documents that
+  describe the field.

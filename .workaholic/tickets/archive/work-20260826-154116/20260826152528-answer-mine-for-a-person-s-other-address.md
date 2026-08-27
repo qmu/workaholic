@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-26T15:25:28+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on: 20260826152528-read-a-person-s-addresses-through-one-script.md
@@ -86,3 +87,41 @@ deliberately.
 - A mapping entry is a claim that two addresses are one person, and anyone who can commit can
   make it. That is the same trust boundary the file already carries for `<login>=<email>`, so
   the change adds no new authority — worth stating in the header rather than discovering later.
+
+## Final Report
+
+Development completed as planned.
+
+**Reproduced first**: with the committed mapping in place, `owns.sh` answered `other` for an
+artifact owned by a mapped alias of the runner's own address — one line of output, and the
+whole defect.
+
+Both sides are now canonicalised through `identity.sh` before the existing slug comparison,
+which is the smallest change that could work: the comparison itself did not move, so every
+other answer is exactly where it was. The negative cases are pinned as explicitly as the
+positive one — an address the mapping does not name still answers `other`, `unowned` and
+`unresolved` are untouched, the ticket-only `todo/<user-slug>/` tolerance tier is untouched,
+and with **no mapping file present** every answer is byte-identical to what it was, because
+`identity.sh` is the identity function there.
+
+Step 4's header note is in place. `refuse-ok-under-a-placeholder-identity`'s `## Scope` was
+read whole first: it is right about its own case — a container holding `noreply@anthropic.com`,
+a placeholder, against which no comparison should answer `mine` — and this is a different case,
+a real identity with a present mapping entry and a second address of the same person. A
+placeholder gains no new way to answer `mine` here, because a placeholder appears in no entry,
+and that is asserted rather than argued.
+
+### Discovered Insights
+
+- **Insight**: the loosening is bounded by the committed file rather than by a rule, which is
+  what keeps the 2026-08-14 strictness intact. Only addresses **one entry** names for **one
+  login** become one person, and a colleague's address appears in no entry of the runner's.
+  **Context**: this is the ticket that could have re-opened the incident where ~10 PR-units
+  were driven out of colleagues' queues. It cannot, because the widening is per-entry data a
+  human commits rather than a heuristic the oracle applies.
+
+- **Insight**: a mapping entry is a claim that two addresses are one person, and anyone who can
+  commit can make it — the same trust boundary the file already carried for `<login>=<email>`.
+  **Context**: the second field widens what one entry can *say*, not who may say it, which is
+  why it needed no new authorization anywhere and is worth stating in the header rather than
+  being rediscovered as a question later.

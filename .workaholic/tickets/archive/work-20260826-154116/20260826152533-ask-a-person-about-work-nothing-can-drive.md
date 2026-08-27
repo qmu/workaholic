@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-26T15:25:33+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on: 20260826152533-say-when-a-survey-excluded-its-whole-backlog.md
@@ -90,3 +91,52 @@ addressed to a named person, keyed so each is asked exactly once.
 - Ordering against ticket 5 is real: this reads `plan-units.sh` directly, so it does not need
   ticket 5's field — but landing 5 first means the fact is visible in the run report while this
   step is still being written. Kept as a `depends_on` for that reason, not a technical one.
+
+## Final Report
+
+Development completed as planned, with one named departure from the ticket's Key Files —
+stated here because a later reader must not have to guess which of two statements is stale.
+
+`step-undrivable-units.sh` reads the ownership chain, resolves each owner through
+`identity.sh`, and hands every artifact owned by an address **no entry names** to the check-in
+as a question addressed to the direction's assignee, keyed `undrivable-unit:<artifact path>`
+so the asked-once gate, the per-tick cap, the quiet hours and the working-day hold all apply
+unchanged. It is registered in `run.sh` between `stalled-units` and `closable-missions`, and
+`/moderate`'s step count and both documents moved with it.
+
+**The departure.** The ticket names `plan-units.sh` as "the reader (a pure read)". It is not
+one: the survey reaches the mission readers, which carry this repository's living migrations
+and **stage** what they converge — the same composition `step-closable-missions.sh` refused,
+for the reason its own header records (*a step whose contract is writes nothing may not reach
+it through something that writes*), caught by that step's test leaving a modified mission in
+the index. The ticket's stated intent — step 4, *it asks and nothing else* — and the recorded
+ruling agree with each other and against its Key Files, so the candidate set is derived from
+the readers the survey itself uses for ownership (`owners.sh` over `identity.sh`), walking
+`tickets/todo/` and `missions/active/` directly. No ownership rule is re-implemented; only the
+enumeration is. The suite asserts the step reaches no writer and leaves the index untouched.
+
+A second, smaller departure with the same cause: the finding is about the **repository**, not
+the runner, so the runner's identity is never consulted. An owner no entry names is undrivable
+by every account, and this tick is repository-scoped — one copy for the whole team — so keying
+it on `owns.sh`'s three-way answer would make an hourly repository-wide question answer
+differently depending on which container asked it.
+
+Run against this repository the step names exactly the seven artifacts the mission's own
+feedback record measured.
+
+### Discovered Insights
+
+- **Insight**: the summary must be stable across ticks with unchanged state, and that is a
+  correctness requirement rather than a preference — the moderation root calls a step changed
+  when its summary differs from the same step's an hour ago, and normalises out only a
+  timestamp, a bare hex object name and a clock time.
+  **Context**: `step-stalled-units.sh` records the measurement (`oldest stopped 27h` marked it
+  changed hourly by construction). Any counter that can move without the finding moving has
+  the same effect, so the summary carries counts of the finding and nothing else.
+
+- **Insight**: a step that asks about a colleague's ordinary queue is muted within a day, and
+  the asked-once ledger then delivers the one real finding inside a stream a person has learned
+  to skip.
+  **Context**: this is the same reasoning that made `superseded` claims a counted fact rather
+  than a question in `stalled-units` three days earlier. The narrowing is not politeness; it is
+  what keeps the question layer worth reading at all.

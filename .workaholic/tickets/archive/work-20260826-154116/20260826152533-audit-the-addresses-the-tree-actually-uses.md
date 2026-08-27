@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-26T15:25:33+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on: 20260826152528-read-a-person-s-addresses-through-one-script.md
@@ -84,3 +85,48 @@ that would cover it**, applied on one confirmation.
   step 1 is a read of the other ticket rather than a note at the end.
 - A repository with legitimately team-owned work (`assignees: []`) has nothing to cover; empty
   is not an uncovered address and must not be reported as one.
+
+## Final Report
+
+Development completed as planned. Step 1's coordination was the first act and its decision is
+recorded here, in the ticket that lands second — which turned out to be this one.
+
+**The coordination.** `20260821151250-install-and-audit-the-identity-mapping.md` was read
+whole. It is still queued, and it is one of the units this mission's own defect stranded (its
+mission, `refuse-ok-under-a-placeholder-identity`, is excluded `owned_by_other`), so it could
+not land first. The ask requires the two checks be **one check, not two**, so both names are
+emitted from one place — `workaholify/scripts/audit-identity-coverage.sh` — and carried through
+`check-bootstrap.sh` in one vocabulary: `identity_map_missing` (the file is absent, so the
+hook's step 0b is a permanent no-op — that ticket's own premise) and `identity_map_uncovered`
+(it exists and names no entry for an address the tree uses). A later session driving that
+ticket **extends this set** rather than adding a rival one; the instruction is in
+`audit-identity-coverage.sh`'s header, which is that ticket's own first Key File.
+
+The audit walks every `assignees:` value under `tickets/`, `missions/` and `strategies/`
+through `identity.sh`, and names each uncovered address **with the mapping line that would
+cover it** — with a `<login>` placeholder, because which account an address belongs to is a
+fact only a human has. `assignees: []` names nobody and is never reported as uncovered.
+`apply-bootstrap.sh` scaffolds the file's header when absent and appends each proposed line as
+a **comment**, under the same single confirmation as every other repair; an unwritable mapping
+refuses `unwritable` with nothing written, hook included.
+
+**One decision the ticket did not settle, made here and recorded.** Neither problem gates `ok`.
+`identity_map_uncovered` can only be settled by a human, so gating a completion signal on it
+makes `ok` unreachable by any machine — and `/workaholify`'s report-only outcome is a named
+refusal's recovery path rather than the ordinary one. Whether `identity_map_missing` should
+gate belongs to the queued ticket that owns the existence check, and is left to it so one
+mission does not land another's ruling. Both ride `check-bootstrap.sh`'s `advisories` field.
+
+### Discovered Insights
+
+- **Insight**: a commented proposal is not an entry — `identity.sh` skips comments — so a
+  repository that applies the repair and never edits the file behaves exactly as it did before,
+  and `identity_map_uncovered` stays reported until a person completes the line.
+  **Context**: that persistence is the design, not a failure of the repair. It gives the
+  operator the format without letting a machine assert who somebody is, which is the line every
+  ticket in this mission draws in a different place.
+
+- **Insight**: run on this repository the audit names `noreply@anthropic.com` beside the real
+  stranded address — a placeholder identity carried in six artifacts' `assignees:`.
+  **Context**: it is an uncovered address that genuinely must never be mapped, which is a live
+  demonstration that proposing a line and applying one have to stay different acts.

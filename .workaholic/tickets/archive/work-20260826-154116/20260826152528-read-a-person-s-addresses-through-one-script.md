@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-26T15:25:28+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -85,3 +86,38 @@ first so no consumer has to invent its own resolution while waiting for it.
   exception cheap — the hook's cut is a no-op on today's file.
 - The emails are already public in git history, which is why the file is committed; adding
   aliases discloses nothing new.
+
+## Final Report
+
+Development completed as planned.
+
+The format gained its second field (`<login>=<canonical>[,<alias>...]`, first field canonical)
+and `gather/scripts/identity.sh` is its one reader, resolving a login or an address. A line
+with no comma resolves exactly as it did, which is what made the change safe to land before
+any consumer. The reader never guesses: an absent file, an absent entry and an unparseable
+line each answer `resolved: false` and echo the input back as `canonical` — the identity
+function — so a caller that resolves unconditionally behaves byte-for-byte as the tree
+behaved before this existed, and a caller that must act on the difference reads `resolved`
+and the named `reason`. An unparseable line is counted rather than fatal.
+
+The bootstrap hook's step 0b now takes the canonical field with `cut -d, -f1`, and both it and
+`identity.sh` state in their headers why that one place parses the format itself: the hook is
+copied to `.claude/hooks/` and runs at SessionStart, before the plugin is installed, so it
+cannot reach the reader. The repository's own installed copy was refreshed with it, so
+`matches_canonical` still holds. `workaholify/SKILL.md` §4, `reference/bootstrap.md`,
+`render-setup-sheet.sh` and the mapping file's own comment now all state the same format.
+
+### Discovered Insights
+
+- **Insight**: matching an address by slug (`user-slug.sh`) rather than by string is what lets
+  one reader serve both the login side and the address side without a second comparison rule.
+  **Context**: `owns.sh` has compared by slug since the migration stamped directory-derived
+  owners; reusing that rule here means `A@Qmu.jp` and `a@qmu.jp` are one address in the mapping
+  for exactly the same reason they are one owner in the oracle, so the two cannot drift.
+
+- **Insight**: a POSIX `for` loop over a here-document is the shape that survives; a `for` over
+  a newline-`IFS` list silently stops splitting the inner comma list, because `IFS` applies to
+  every unquoted expansion in scope.
+  **Context**: the first cut of pass 2 matched no address at all for that reason. `owns.sh`'s
+  own header already records why it avoids `while read` over a pipe (the subshell swallows the
+  match); the here-document form has neither problem and is what both loops use now.

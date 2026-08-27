@@ -21,6 +21,14 @@
 #                * gather/scripts/migrate-renamed-areas.sh  every `area` row of the
 #                                                           rename registry: git mv the
 #                                                           directory, fix the root index
+#                * gather/scripts/migrate-assignee-aliases.sh  an `assignees:` entry naming
+#                                                           a person's ALIAS address ->
+#                                                           that person's canonical one.
+#                                                           Touches nothing the committed
+#                                                           mapping cannot resolve and
+#                                                           reports every address it left
+#                                                           alone, because inventing an
+#                                                           entry is a human's ruling.
 #
 #   REPORTED — everything that needs a JUDGMENT, named with the decision it needs
 #              and never guessed. Read straight out of layout-doctor.sh:
@@ -93,13 +101,17 @@ states_out=$(sh "${SCRIPT_DIR}/../../gather/scripts/migrate-ticket-states.sh" "$
 # Takes the .workaholic root rather than the tickets root: it moves whole AREAS, of
 # which tickets/ is one.
 areas_out=$(sh "${SCRIPT_DIR}/../../gather/scripts/migrate-renamed-areas.sh" "${ROOT}/.workaholic" 2>/dev/null || printf '{"migrated": 0, "moves": [], "blocked": [], "links_updated": 0}')
+# Also the .workaholic root: `assignees:` lives on three areas (tickets, missions,
+# strategies), so this one is not scoped to the ticket tree either.
+aliases_out=$(sh "${SCRIPT_DIR}/../../gather/scripts/migrate-assignee-aliases.sh" "${ROOT}/.workaholic" 2>/dev/null || printf '{"migrated": 0, "rewrites": [], "unresolved": []}')
 
-APPLIED="{\"migration\": \"migrate-todo-owners\", \"result\": ${owners_out}}, {\"migration\": \"migrate-ticket-states\", \"result\": ${states_out}}, {\"migration\": \"migrate-renamed-areas\", \"result\": ${areas_out}}"
+APPLIED="{\"migration\": \"migrate-todo-owners\", \"result\": ${owners_out}}, {\"migration\": \"migrate-ticket-states\", \"result\": ${states_out}}, {\"migration\": \"migrate-renamed-areas\", \"result\": ${areas_out}}, {\"migration\": \"migrate-assignee-aliases\", \"result\": ${aliases_out}}"
 
 owners_n=$(printf '%s' "$owners_out" | sed -n 's/.*"migrated": *\([0-9][0-9]*\).*/\1/p')
 states_n=$(printf '%s' "$states_out" | sed -n 's/.*"migrated": *\([0-9][0-9]*\).*/\1/p')
 areas_n=$(printf '%s' "$areas_out" | sed -n 's/.*"migrated": *\([0-9][0-9]*\).*/\1/p')
-CHANGED=$(( ${owners_n:-0} + ${states_n:-0} + ${areas_n:-0} ))
+aliases_n=$(printf '%s' "$aliases_out" | sed -n 's/.*"migrated": *\([0-9][0-9]*\).*/\1/p')
+CHANGED=$(( ${owners_n:-0} + ${states_n:-0} + ${areas_n:-0} + ${aliases_n:-0} ))
 
 # --- after, and the decisions still owed --------------------------------------
 AFTER=$(doctor)

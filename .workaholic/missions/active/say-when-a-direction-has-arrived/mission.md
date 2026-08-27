@@ -56,3 +56,4 @@ dry is still dormant, and nothing closes a direction on its own reading.
 - 2026-08-27 — ticket archived — 20260827142444-ask-the-operator-once-whether-an-arrived-direction-is-done.md
 - 2026-08-27 — ticket archived — 20260827142444-pin-that-no-reading-ever-closes-a-direction.md
 - 2026-08-27 — ticket archived — 20260827142444-report-the-arrival-as-a-moderation-event.md
+- 2026-08-27 — ticket archived — 20260827142444-drill-the-arrival-readings-with-no-network.md

@@ -15860,6 +15860,7 @@ const tests = [
   ["drive claim protocol: a unit resolves to its live claim branch", testUnitResolvesToItsLiveClaimBranch],
   ["drive claim protocol: a reported claim is two states", testReportedClaimIsTwoStates],
   ["story/record-merge-outcome.sh: the durable home for a merge outcome", testRecordMergeOutcome],
+  ["claims: two verdicts are proofs, and every consumer gates on one", testProofJudgementSplit],
   ["moderate/undelivered-units: the loop's own undelivered work reaches a person", testUndeliveredUnitsStep],
   ["branching/ensure-worktree.sh never shadows a published branch", testEnsureWorktreeNeverShadowsRemote],
   ["drive survey: a mission behind a merged claim is surveyed again", testSupersededMissionIsResurveyed],
@@ -22705,6 +22706,105 @@ function testRecordMergeOutcome() {
     assertEq("a missing story is refused by name",
       JSON.parse(missing.stdout || missing.stderr).reason, "story_not_found");
   } finally { rmSync(dir, { recursive: true, force: true }); }
+}
+
+// ---------- the proof/judgement split, pinned (2026-08-27) ----------
+//
+// `drive/reference/claims.md`'s *Proofs and judgements* table says which of the oracle's verdict
+// words a consumer may ACT on and which it may only report or ask about. That is prose, and
+// prose cannot enforce itself: nothing stopped a later change from acting on a judgement, or
+// from adding a word to `lib/claims.sh` the table never classifies. This makes the split a fact
+// a change can LOSE — the standing the `/specificate` carry chain got when its ask → reader →
+// scaffold → floor walk was pinned.
+//
+// IT READS THE REAL SEAMS, NEVER A RESTATED COPY. The word set comes out of `lib/claims.sh`'s
+// own assignments and printfs; the classification comes out of the table's own rows; each
+// consumer's gate comes out of that consumer's own source. A test carrying its own list of
+// words would prove only that the list matches itself.
+//
+// PROVED ABLE TO FAIL, not asserted able to. All three failure modes were introduced and run
+// before this shipped, each turning exactly one row red and nothing else:
+//
+//   retire-claim.sh's gate changed to `queue_drained`  -> `retire-claim.sh gates on a proof`
+//   the `parked_with_pr` row deleted from the table    -> `every verdict word ... is classified`
+//   an invented word added to the table                -> `the table classifies no word ...`
+//
+// The second and third are the two directions of the same rule, and both are needed: a word
+// emitted and not classified leaves a consumer with no rule, and a word classified and never
+// emitted is a rule about nothing — which is how a table starts lying about the code it
+// describes.
+function testProofJudgementSplit() {
+  const lib = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/drive/scripts/lib/claims.sh"), "utf8");
+  const table = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/drive/reference/claims.md"), "utf8");
+
+  // The word set, from the library's own emissions. `_cs_reason=` is the resumability verdict;
+  // the two `printf '<word>\n'` families are the unit resolution and the merged lookup.
+  const emitted = new Set();
+  for (const m of lib.matchAll(/^\s*_cs_reason=([a-z_]+)\s*$/gm)) emitted.add(m[1]);
+  for (const m of lib.matchAll(/printf '(none|single|live|superseded_only|ambiguous)\\n'/g)) {
+    emitted.add(m[1]);
+  }
+  // The merged lookup forwards its reader's two states through a case pattern and prints the
+  // third itself — a different emission shape, matched on its own rather than folded into the
+  // pattern above, so a change to either shape shows up here as an unclassified word.
+  for (const m of lib.matchAll(/^\s*(merged)\|(not_merged)\)\s*$/gm)) {
+    emitted.add(m[1]);
+    emitted.add(m[2]);
+  }
+  if (/printf 'unanswerable'/.test(lib)) emitted.add("unanswerable");
+  assertTrue("the library's verdict vocabulary parses", emitted.size >= 15,
+    `only ${emitted.size} words found`);
+
+  // `stale` is the one classified row that is a BOOLEAN field rather than an emitted word, and
+  // the table says so. It is allowed by name rather than by a wildcard, so a second unemitted
+  // row cannot slip in behind it.
+  assertTrue("the stale flag is still a boolean the library sets", /_cs_stale=true/.test(lib),
+    "_cs_stale=true is gone, so the table's one unemitted row no longer describes anything");
+  emitted.add("stale");
+
+  // The classification, from the table's own rows: | `word` | proof|judgement | … |
+  const classified = new Map();
+  for (const m of table.matchAll(/^\|\s*`([a-z_]+)`\s*\|\s*(?:\*\*)?(proof|judgement)(?:\*\*)?\s*\|/gm)) {
+    assertTrue(`the table classifies ${m[1]} exactly once`, !classified.has(m[1]),
+      "a second row for the same word is two rules for one fact");
+    classified.set(m[1], m[2]);
+  }
+  assertTrue("the proof/judgement table parses", classified.size > 0,
+    "no classified rows were found in claims.md");
+
+  // BOTH DIRECTIONS. A word emitted and not classified leaves a consumer with no rule; a word
+  // classified and never emitted is a rule about nothing, which is how a table starts lying.
+  const unclassified = [...emitted].filter((w) => !classified.has(w)).sort();
+  assertEq("every verdict word the library emits is classified exactly once",
+    unclassified.join(","), "");
+  const phantom = [...classified.keys()].filter((w) => !emitted.has(w)).sort();
+  assertEq("and the table classifies no word the library never emits", phantom.join(","), "");
+
+  const proofs = [...classified.entries()].filter(([, k]) => k === "proof")
+    .map(([w]) => w).sort();
+  assertEq("superseded and report_undelivered are the only proofs",
+    proofs.join(","), "report_undelivered,superseded");
+
+  // EVERY CONSUMER GATES ON A PROOF. The gate is read out of the consumer's own source, so a
+  // change that widens it to a judgement fails here rather than in production. Both consumers
+  // are named explicitly: a discovered-by-glob list would quietly pass when a consumer is added
+  // with no gate at all.
+  for (const [file, re] of [
+    ["plugins/workaholic/skills/drive/scripts/retire-claim.sh",
+      /^\s*if \[ "\$verdict" != "([a-z_]+)" \]; then/m],
+    ["plugins/workaholic/skills/drive/scripts/retry-undelivered.sh",
+      /^\s*\[ "\$verdict" = "([a-z_]+)" \] \|\| report false/m],
+  ]) {
+    const src = readFileSync(join(REPO_ROOT, file), "utf8");
+    const m = src.match(re);
+    assertTrue(`${file.split("/").pop()} carries a readable verdict gate`, !!m,
+      "the gate could not be read out of the consumer's own source");
+    if (!m) continue;
+    assertEq(`${file.split("/").pop()} gates on a proof, never a judgement`,
+      classified.get(m[1]), "proof");
+  }
 }
 
 // ---------- moderate/undelivered-units: the loop's own undelivered work (2026-08-27) ----------

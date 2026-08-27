@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 1.3
 feedback: [20260827201719-ask-for-the-one-act-a-declared-handoff-is-waiting-on.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
@@ -60,3 +60,4 @@ gate lifted, no handoff declared or withdrawn by any run.
 - 2026-08-27 — ticket archived — 20260827202119-write-the-asking-half-into-the-documents.md
 - 2026-08-27 — mission achieved — mission.md
 - 2026-08-27 — story reported — work-20260827-204109
+- 2026-08-27 — run recorded (+1.3h) — implement-20260827-204109

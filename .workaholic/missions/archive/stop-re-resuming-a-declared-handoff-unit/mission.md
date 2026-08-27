@@ -53,3 +53,4 @@ nothing stored anywhere, once that declaration no longer holds.
 - 2026-08-27 — ticket archived — 20260827082244-exclude-a-declared-handoff-from-the-survey-offer.md
 - 2026-08-27 — ticket archived — 20260827082245-classify-the-verdict-and-update-the-documents.md
 - 2026-08-27 — mission achieved — mission.md
+- 2026-08-27 — story reported — work-20260827-084115.md

@@ -896,6 +896,16 @@ that could not reach the remote has not found *nothing to retire* — it has fou
 and a proof that could not be read is not a proof (`no_claim_reader`, `no_retirement_writer`,
 `claims_unreadable`, `claims_unparseable`, `origin_unreachable`, `shallow_history`).
 
+**A retirement is a repository event, and a tick that retired nothing supplies none.** The step
+names what it retired — a pull request closed, a branch deleted — because it knows what its
+finding means and the renderer does not; a tick whose re-proofs all *rejected* is in the same
+class as one that found nothing, because a refusal is the step's own bookkeeping and belongs in
+the log. **The line is not a posting gate**: the root posts only when the tick has at least one
+question, and this step never has one, so its line rides a root some *other* step's question
+opened. On a tick with no questions the retirement is visible in the log alone — which is
+correct, because a retirement addressed to nobody is exactly the status line two keyed roots were
+retired for.
+
 **The summary carries no age and no timestamp**, for the correctness reason `stalled-units`'
 header records. A count of what was retired this tick is stable when nothing happens, which is
 what the root's hour-to-hour diff needs.

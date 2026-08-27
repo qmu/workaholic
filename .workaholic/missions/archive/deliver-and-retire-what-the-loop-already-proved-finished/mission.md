@@ -2,7 +2,7 @@
 type: Mission
 title: Deliver and retire what the loop already proved finished
 slug: deliver-and-retire-what-the-loop-already-proved-finished
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-27T05:22:01+00:00
 author: a@qmu.jp
@@ -53,3 +53,5 @@ is asked about is only ever a reading that needed their judgement.
 - 2026-08-27 — ticket archived — 20260827052241-add-the-moderate-step-that-retires-a-proved-claim.md
 - 2026-08-27 — ticket archived — 20260827052241-drill-both-acts-with-no-network.md
 - 2026-08-27 — ticket archived — 20260827052241-pin-the-proof-judgement-split-with-a-hermetic-test.md
+- 2026-08-27 — ticket archived — 20260827052241-render-the-retirement-as-a-moderation-event.md
+- 2026-08-27 — mission achieved — mission.md

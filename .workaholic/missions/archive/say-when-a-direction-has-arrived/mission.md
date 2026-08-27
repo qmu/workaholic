@@ -2,7 +2,7 @@
 type: Mission
 title: Say when a direction has arrived
 slug: say-when-a-direction-has-arrived
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-27T14:22:51+00:00
 author: a@qmu.jp
@@ -57,3 +57,5 @@ dry is still dormant, and nothing closes a direction on its own reading.
 - 2026-08-27 — ticket archived — 20260827142444-pin-that-no-reading-ever-closes-a-direction.md
 - 2026-08-27 — ticket archived — 20260827142444-report-the-arrival-as-a-moderation-event.md
 - 2026-08-27 — ticket archived — 20260827142444-drill-the-arrival-readings-with-no-network.md
+- 2026-08-27 — ticket archived — 20260827142444-write-the-arrival-reading-into-the-documents.md
+- 2026-08-27 — mission achieved — mission.md

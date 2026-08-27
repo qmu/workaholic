@@ -542,8 +542,9 @@ function testClosableMissionsStep() {
 // The three refusals are the reason this reading was admissible at all, and PROSE HAS NOT HELD
 // THEM: the writer rule on the strategy artifact has been re-decided three times. A test is
 // what stops a fourth. Pinned here: the step writes nothing under `.workaholic/strategies/`, its
-// closure reaches neither `close.sh` nor `open-proposal.sh`, the artifact has exactly three
-// writers, and running the step changes no `/propose` gate outcome.
+// closure reaches NO strategy writer and not `open-proposal.sh`, the artifact has exactly three
+// writers, running the step changes no `/propose` gate outcome, and — since 2026-08-27 —
+// `close.sh` is reached from exactly one place in the plugin.
 //
 // THE COUNT IS THREE SINCE 2026-08-27 and the move is recorded at the assertion itself. What the
 // step's own refusal pins is unchanged and is the load-bearing half here: `direction-health`
@@ -617,7 +618,14 @@ function testDirectionHealthRefusals() {
     // a direction's lifecycle state, and the writer that revises one now exists. Conflating the
     // two would let a reading amend the operator's direction, which is the failure the whole
     // pin was built against.
-    for (const forbidden of ["close.sh", "amend.sh", "open-proposal.sh"]) {
+    //
+    // `create.sh` JOINED THE SAME DAY (mission `say-when-a-direction-has-arrived`), which
+    // completes the set rather than widening it: the rule is *this step reaches NO strategy
+    // writer*, and a list naming two of three left the third catchable only by accident. The
+    // mission that added `arrived` is exactly the change that tempts a fourth writer — a
+    // reading that says a direction looks finished is one small step from a routine that
+    // closes it — so a later `create.sh` call must fail as loudly as a `close.sh` one.
+    for (const forbidden of ["close.sh", "amend.sh", "create.sh", "open-proposal.sh"]) {
       assertTrue(`the step's closure never reaches ${forbidden}`,
         !closure.includes(forbidden), closure.split("\n").filter((l) => l.includes(forbidden)).join("\n"));
     }
@@ -665,6 +673,36 @@ function testDirectionHealthRefusals() {
     // pure read and could pass it trivially — and kept because the failure it guards against,
     // a future edit that lets a READING lift a GATE, is the one the ask names by name.
     assertEq("the survey's gate outcomes are unchanged by the step", surveyOf(), before);
+
+    // 5. `close.sh` HAS EXACTLY ONE CALLER, AND IT IS `/specificate`'s *ended* ROUTE
+    // (2026-08-27, mission `say-when-a-direction-has-arrived`). Check 3 pins how many scripts
+    // WRITE the artifact; nothing pinned how many places REACH the one that ends it. That
+    // gap is precisely what this mission tempts: a reading that says a direction looks
+    // finished is one small step from a routine that closes it, and the step above would
+    // still pass while some OTHER step gained the call.
+    //
+    // A CALL SITE IS PATH-QUALIFIED; A MENTION IS NOT. `workaholic:moderate` says in prose
+    // *announce that it ended, not call `close.sh`* and `rules/workaholic.md` names the
+    // writer set — both bare, neither a call. Every real invocation carries the path
+    // (`strategy/scripts/close.sh` directly, or through `${CLAUDE_PLUGIN_ROOT}`), so the
+    // path is what the scan keys on. The strategy skill's own tree is excluded: it is the
+    // writer documenting and refusing itself, not a caller.
+    const pluginRoot = join(REPO_ROOT, "plugins/workaholic");
+    const callers = [];
+    const walk = (dir) => {
+      for (const e of readdirSync(dir, { withFileTypes: true })) {
+        const p = join(dir, e.name);
+        if (e.isDirectory()) { if (e.name !== "node_modules") walk(p); continue; }
+        if (!/\.(sh|md|mjs|js|json)$/.test(e.name)) continue;
+        const rel = p.slice(pluginRoot.length + 1);
+        if (rel.startsWith("skills/strategy/")) continue;
+        if (/strategy\/scripts\/close\.sh/.test(readFileSync(p, "utf8"))) callers.push(rel);
+      }
+    };
+    walk(pluginRoot);
+    assertEq("strategy/scripts/close.sh is reached only from /specificate's ended route",
+      callers.sort(),
+      ["skills/specificate/SKILL.md", "skills/specificate/reference/workflow.md"]);
   } finally { cleanup(A); }
 }
 

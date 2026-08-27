@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-27T14:24:44+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on: 20260827142444-project-quiescent-as-the-arrived-lifecycle-state.md
@@ -68,3 +69,40 @@ it never closes a strategy, never proposes, never amends and never lifts a gate.
 
 - A direction can be arrived on one tick and not the next (new work lands). The asked-once gate
   means the operator is asked once regardless; that is the intended bound, not a bug.
+
+## Final Report
+
+Development completed as planned. `step-direction-health.sh` gains the `arrived` subject, keyed
+`direction-arrived:<slug>`, addressed to the strategy's `assignees`. The heading names the
+direction and, when there is something to name, **what landed and the date**
+(`(1 item(s) landed, dated 2027-06-23)`); the body — 23 words, inside notify's 25-word bound —
+says everything attributed has landed and nothing is waiting, and asks whether it ended, closing
+with *the loop closes nothing*. It asserts nothing about the direction being finished. `arrived`
+joins the summary counts beside live/overdue/dormant/unreadable, and no gate moved: the
+asked-once ledger, the per-tick cap, the quiet hours and the working-day hold all still come
+from `ask-question.sh`.
+
+**One dependency this ticket did not anticipate**: the body must name what landed and the date,
+and neither reached the step. `direction-state.sh` composes only, and the survey's `refused`
+rows — the shape an arrived-and-overdue direction arrives in — carried neither `landed` nor
+`target_date`. Both are now **projected**: `survey-strategies.sh` adds `landed_count` and
+`target_date` to the refused map (additive, the same shape `quiescent` took), and
+`direction-state.sh` projects `landed` and `target_date` onto every row. Nothing counts anything
+twice, and no artifact gained a field.
+
+Verified: over the arrived fixtures the step emits exactly one subject per arrived direction,
+addressed to its assignee; `ask-question.sh` allows the first ask under
+`direction-arrived:arrived` and refuses the second `already_asked`; `unreadable` is counted and
+never asked about. `node scripts/test-workflow-scripts.mjs` — 4031 passed, 0 failed.
+
+**Gate**: the step reaches no strategy writer. Its closure (the step plus `direction-state.sh`,
+comments stripped) names none of `create.sh`, `amend.sh`, `close.sh` — pinned by the suite and
+by `loop-drill.sh verify-arrival`.
+
+### Discovered Insights
+
+- **Insight**: a reading that must be *quoted to a person* needs the facts it quotes projected
+  all the way through the composing readers, and the refused rows are where that breaks.
+  **Context**: the useful case for `arrived` is a direction whose date has passed, which is
+  refused, and the refused projection is a hand-written `map({...})`. A reading added only to
+  the row is invisible to exactly the consumer that needed it.

@@ -2,7 +2,7 @@
 type: Mission
 title: Say when a direction has arrived
 slug: say-when-a-direction-has-arrived
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-27T14:22:51+00:00
 author: a@qmu.jp
@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260827-144111
 ---
 
 # Say when a direction has arrived
@@ -41,11 +42,21 @@ dry is still dormant, and nothing closes a direction on its own reading.
 
 ## Acceptance
 
-- [ ] `quiescent` on every row, projected as `arrived` at `unreadable > arrived > overdue >
+- [x] `quiescent` on every row, projected as `arrived` at `unreadable > arrived > overdue >
       dormant > live`, every gate and the sort unchanged. (#20260827142444-add-the-quiescent-reading-to-the-strategy-survey.md)
-- [ ] An arrived direction reaches its assignee once, as a description of the reading. (#20260827142444-ask-the-operator-once-whether-an-arrived-direction-is-done.md)
-- [ ] No reading closes a direction, pinned by a test. (#20260827142444-pin-that-no-reading-ever-closes-a-direction.md)
+- [x] An arrived direction reaches its assignee once, as a description of the reading. (#20260827142444-ask-the-operator-once-whether-an-arrived-direction-is-done.md)
+- [x] No reading closes a direction, pinned by a test. (#20260827142444-pin-that-no-reading-ever-closes-a-direction.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-27 — ticket archived — 20260827142444-add-the-quiescent-reading-to-the-strategy-survey.md
+- 2026-08-27 — ticket archived — 20260827142444-project-quiescent-as-the-arrived-lifecycle-state.md
+- 2026-08-27 — ticket archived — 20260827142444-say-what-propose-is-proposing-against.md
+- 2026-08-27 — ticket archived — 20260827142444-ask-the-operator-once-whether-an-arrived-direction-is-done.md
+- 2026-08-27 — ticket archived — 20260827142444-pin-that-no-reading-ever-closes-a-direction.md
+- 2026-08-27 — ticket archived — 20260827142444-report-the-arrival-as-a-moderation-event.md
+- 2026-08-27 — ticket archived — 20260827142444-drill-the-arrival-readings-with-no-network.md
+- 2026-08-27 — ticket archived — 20260827142444-write-the-arrival-reading-into-the-documents.md
+- 2026-08-27 — mission achieved — mission.md
+- 2026-08-27 — story reported — work-20260827-144111.md

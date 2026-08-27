@@ -3,6 +3,7 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [work-20260827-144111](work-20260827-144111.md) - The direction layer gains `arrived` — a direction whose work is all in is told to its owner once, instead of being reported as overdue.
 * [work-20260827-114104](work-20260827-114104.md) - Give a live strategy a third writer so the operator revises a direction through the loop, bounded by refusals and by a publish seam that never auto-merges it.
 * [work-20260827-084115](work-20260827-084115.md) - A claim whose remaining queued work declares verification_handoff: gets its own verdict, awaiting_verification, so the standing handoff claim is no longer offered for a takeover that could drive nothing.
 * [work-20260827-054123](work-20260827-054123.md) - Act on the two claim verdicts that are proofs — retry an undelivered unit's merge and retire a claim already on the base — instead of reporting them and stopping.

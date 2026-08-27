@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-27T14:24:44+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on: 20260827142444-report-the-arrival-as-a-moderation-event.md
@@ -64,3 +65,42 @@ this repository carries one.
 
 - Fixtures must not depend on the wall clock for the overdue case, or the drill rots on a fixed
   date; pass the dates in as the sibling drills do.
+
+## Final Report
+
+Development completed as planned. `scripts/e2e/loop-drill.sh verify-arrival` ships with 15 rows,
+registered in the usage string and the dispatch, and documented in `docs/loop-drill-runbook.md`
+(the stage table row plus §5i, with a blame table naming what to read for each row).
+
+Five fixtures, one per reading: `arrived`, `latearrived` (arrived **and** past its date — the
+case the mission exists for, proving `arrived` outranks `overdue`), `quiet` (`dormant`), `gone`
+(`overdue`), and `busy` — the **deliberately broken seam**, carrying landed work *and* a queued
+ticket behind an active mission, which must read `live`. The asked-once gate is drilled across
+two `ask-question.sh` calls under `direction-arrived:arrived`. `arrival_fixture` guards the whole
+drill: if no attributed work landed in the window, it fails immediately rather than letting every
+arrival row pass vacuously.
+
+**Dates are passed in** (`date -u -d "-30 days"` / `"+300 days"` at fixture-build time), never
+read inside an assertion, so the drill does not rot on a fixed date.
+
+Verified:
+
+- `sh scripts/e2e/loop-drill.sh verify-arrival` → `pass`, 15/15 load-bearing rows.
+- **No network**: re-run with `gh`, `curl` and `wget` replaced by stubs that log every
+  invocation and exit 1 — still `pass`, 15/15, and the log file was never created.
+- **The broken seam fails the drill**: with the waiting terms removed from `quiescent`,
+  `verify-arrival` returns `fail` on `arrival_waiting_work_is_not_arrival`
+  (*a direction with waiting work read 'arrived'*), plus `arrival_question_keys` and
+  `arrival_all_live_renders_no_line`. Restored → `pass`, 15/15.
+
+### Discovered Insights
+
+- **Insight**: `sed`'s greedy leading `.*` makes `s/.*"slug": *"X",.*"field": *\([0-9]*\).*/\1/p`
+  match the **last** `"field"` on the line and capture empty, because `[0-9]*` accepts zero
+  digits.
+  **Context**: the sibling drills use `[^}]*` to stay inside the JSON object; copying that, plus
+  `[0-9][0-9]*`, is what makes a numeric field extraction from `jq -c` output correct.
+- **Insight**: a body containing a comma cannot be extracted with `tr ',' '\n'`, which is how the
+  sibling drills split key/value pairs out of compact JSON.
+  **Context**: the arrival body has one. A direct `sed -n 's/.*"body": *"\(<prefix>[^"]*\)".*/\1/p'`
+  over the whole output is what survives punctuation in the value.

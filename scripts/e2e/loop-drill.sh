@@ -1879,6 +1879,240 @@ EOF
     emit_verdict "direction-health" 0 "pass" 0
 }
 
+# ------------------------------------------------------------- verify-arrival
+# Does the loop SAY when a direction has arrived? Every reading the direction layer carried
+# before this answered *is this direction in trouble* — `pace`, `overdue`, `dormant`. None
+# answered *has it arrived*, so a direction whose work was all in looked exactly like one still
+# running, and once its date passed the loop reported that SUCCESS as an hourly
+# `direction-overdue` question. These rows answer it, with NO NETWORK and NO CREDENTIAL.
+#
+# THE FIXTURE IS A GIT REPOSITORY, and it has to be. `landed[]` is `attributed-work.sh`'s set of
+# attributed artifacts that CHANGED INSIDE THE WINDOW, and that reading is `git log --since`. A
+# fixture that is only a directory tree yields an empty `landed[]` for every strategy, so
+# `quiescent` would be `false` everywhere and every row below would pass while proving nothing.
+#
+# THE OPEN-PROPOSAL READ IS SUPPLIED, NOT STUBBED — `verify-direction-health`'s rule, for its
+# reason: the survey makes exactly one network call and refuses the tick rather than proceed
+# without it, so handing the answer in through `--open-proposals` drills the real path.
+#
+# THE DATES ARE PASSED IN, never taken from the wall clock inside an assertion, so the drill
+# does not rot on a fixed date.
+#
+# AND ONE FIXTURE DELIBERATELY BREAKS THE SEAM: `busy` has landed work AND work still waiting.
+# It must read `live`, never `arrived`. If `quiescent` ever stopped reading `waiting_missions +
+# waiting_count`, every other row here would still pass — which is exactly how a drill converts
+# an unproven claim into a believed one.
+cmd_verify_arrival() {
+    _survey="${REPO_ROOT}/plugins/workaholic/skills/propose/scripts/survey-strategies.sh"
+    _reader="${REPO_ROOT}/plugins/workaholic/skills/strategy/scripts/direction-state.sh"
+    _step="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/step-direction-health.sh"
+    _ask="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/ask-question.sh"
+    for _f in "$_survey" "$_reader" "$_step" "$_ask"; do
+        [ -f "$_f" ] || emit_err "arrival_seam_unreadable" 4 "${_f} is not present in this checkout"
+    done
+
+    _before=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+
+    _root=$(mktemp -d)
+    _me=$(cd "$REPO_ROOT" && git config user.email 2>/dev/null || echo drill@example.com)
+    _gone=$(date -u -d "-30 days" +%Y-%m-%d 2>/dev/null || echo 2000-01-01)
+    _far=$(date -u -d "+300 days" +%Y-%m-%d 2>/dev/null || echo 2099-01-01)
+    mkdir -p "${_root}/.workaholic/strategies" "${_root}/.workaholic/feedbacks" \
+             "${_root}/.workaholic/missions/archive" "${_root}/.workaholic/missions/active" \
+             "${_root}/.workaholic/tickets/todo"
+    _mkfb() { printf -- '---\ntype: Feedback\n---\n\nx\n' > "${_root}/.workaholic/feedbacks/2026010100000$1-$1.md"; }
+    _mkst() { # slug target feedback-ref
+        cat > "${_root}/.workaholic/strategies/$1.md" <<EOF
+---
+type: Strategy
+title: T $1
+slug: $1
+status: active
+target_date: $2
+assignees: [${_me}]
+feedback: [$3]
+---
+
+# $1
+
+## Aim
+
+a
+
+## Schedule
+
+s
+EOF
+    }
+    _mkmission() { # slug status area feedback-ref
+        mkdir -p "${_root}/.workaholic/missions/$3/$1"
+        printf -- '---\ntype: Mission\ntitle: M %s\nslug: %s\nstatus: %s\nfeedback: [%s]\n---\n\n# M %s\n' \
+            "$1" "$1" "$2" "$4" "$1" > "${_root}/.workaholic/missions/$3/$1/mission.md"
+    }
+    for _r in a b c d; do _mkfb "$_r"; done
+    _mkst arrived     "$_far"  2026010100000a-a.md
+    _mkst latearrived "$_gone" 2026010100000a-a.md
+    _mkst quiet       "$_far"  2026010100000b-b.md
+    _mkst gone        "$_gone" 2026010100000c-c.md
+    _mkst busy        "$_far"  2026010100000d-d.md
+    _mkmission landed  achieved archive 2026010100000a-a.md
+    _mkmission shipped achieved archive 2026010100000d-d.md
+    _mkmission running active   active  2026010100000d-d.md
+    printf -- '---\nmission: running\n---\n\n# Q\n' > "${_root}/.workaholic/tickets/todo/20260101000001-q.md"
+    _open="${_root}/open.json"
+    printf '{"ok": true, "identity": "drill", "slug": "o/n", "proposals": []}\n' > "$_open"
+    printf '{"ok": false, "reason": "list_failed"}\n' > "${_root}/bad.json"
+    ( cd "$_root" && git -c init.defaultBranch=main init -q . \
+        && git config user.email "$_me" && git config user.name Drill \
+        && git -c commit.gpgsign=false add -A \
+        && git -c commit.gpgsign=false commit -qm seed ) >/dev/null 2>&1 || true
+
+    _state=$(cd "$_root" && sh "$_reader" --open-proposals "$_open" "14 days ago" "${_root}/.workaholic" 2>&1) || true
+    # The readers emit two formattings — jq's compact one and the shell printf's spaced one —
+    # so every match tolerates the optional space rather than assuming a producer.
+    _stateof() { printf '%s' "$_state" | sed -n "s/.*\"slug\": *\"$1\", *[^}]*\"state\": *\"\([a-z]*\)\".*/\1/p" | head -1; }
+    _landedof() { printf '%s' "$_state" | sed -n "s/.*\"slug\": *\"$1\", *[^}]*\"landed\": *\([0-9][0-9]*\).*/\1/p" | head -1; }
+
+    # THE FIXTURE HAS TO BE THE SHAPE UNDER TEST. `landed[]` is a `git log --since` reading, so
+    # a fixture that produced none would make every arrival row below vacuously true.
+    if [ "$(_landedof arrived)" != "0" ] && [ -n "$(_landedof arrived)" ]; then
+        add_row "arrival_fixture" true "the fixture really produces attributed work inside the window ($(_landedof arrived) item(s))" load
+    else
+        add_row "arrival_fixture" false "no attributed work landed in the fixture, so no arrival row would prove anything: $(one_line "$_state")" load
+        rm -rf "$_root"
+        emit_verdict "arrival" 0 "fail" 1
+    fi
+
+    # THE FOUR READINGS. `latearrived` is the one the mission exists for: past its date AND
+    # finished, which must read `arrived` rather than `overdue`.
+    for _pair in "arrived:arrived" "latearrived:arrived" "quiet:dormant" "gone:overdue"; do
+        _slug=${_pair%%:*}; _want=${_pair#*:}
+        _got=$(_stateof "$_slug")
+        if [ "$_got" = "$_want" ]; then
+            add_row "arrival_state_${_slug}" true "${_slug} reads ${_want}" load
+        else
+            add_row "arrival_state_${_slug}" false "expected ${_want} for ${_slug}, got '${_got:-nothing}': $(one_line "$_state")" load
+        fi
+    done
+
+    # THE DELIBERATELY BROKEN SEAM. `busy` has landed work AND a queued ticket behind an active
+    # mission. If `quiescent` ever stopped reading the waiting terms, this is the only row that
+    # would notice — every other row here would still pass.
+    if [ "$(_stateof busy)" = "live" ]; then
+        add_row "arrival_waiting_work_is_not_arrival" true "a direction with work still waiting reads live, never arrived -- this drill can fail" load
+    else
+        add_row "arrival_waiting_work_is_not_arrival" false "a direction with waiting work read '$(_stateof busy)', so arrival is being asserted over work in flight" load
+    fi
+
+    # A READING WE COULD NOT MAKE IS NAMED, never dressed as an arrival.
+    _bad=$(cd "$_root" && sh "$_reader" --open-proposals "${_root}/bad.json" "14 days ago" "${_root}/.workaholic" 2>&1) || true
+    if printf '%s' "$_bad" | grep -q '"readable":[ ]*false' \
+        && printf '%s' "$_bad" | grep -q '"repository":[ ]*"unreadable"' \
+        && printf '%s' "$_bad" | grep -q '"arrived":[ ]*0'; then
+        add_row "arrival_state_unreadable" true "a survey that refused is unreadable with zero arrivals, never a silent arrival" load
+    else
+        add_row "arrival_state_unreadable" false "a refused survey was not named: $(one_line "$_bad")" load
+    fi
+
+    # THE QUESTION KEY. It is what `ask-question.sh`'s asked-once ledger keys on, so a key that
+    # drifts is a question asked twice or never.
+    _out=$(cd "$_root" && sh "$_step" --tick 20260101-000000 --root "$_root" --open-proposals "$_open" 2>&1) || true
+    _keys=$(printf '%s' "$_out" | tr ',' '\n' | sed -n 's/.*"key": *"\([^"]*\)".*/\1/p' | sort | tr '\n' ' ')
+    if [ "$_keys" = "direction-arrived:arrived direction-arrived:latearrived direction-dormant:quiet direction-overdue:gone " ]; then
+        add_row "arrival_question_keys" true "the step asks direction-arrived for both arrived directions and nothing about the live one" load
+    else
+        add_row "arrival_question_keys" false "unexpected question keys: '${_keys}'" load
+    fi
+
+    # THE BODY IS A DESCRIPTION OF THE READING. It names WHAT LANDED and THE DATE, stays inside
+    # notify's 25-word bound, and asserts NOTHING about the direction being finished -- the
+    # discipline `dormant` is already held to.
+    _abody=$(printf '%s' "$_out" | sed -n 's/.*"body": *"\(Everything attributed[^"]*\)".*/\1/p' | head -1)
+    _awords=$(printf '%s' "$_abody" | wc -w | tr -d ' ')
+    if printf '%s' "$_out" | grep -q 'item(s) landed, dated ' \
+        && [ -n "$_abody" ] && [ "$_awords" -le 25 ] \
+        && printf '%s' "$_abody" | grep -q 'the loop closes nothing' \
+        && ! printf '%s' "$_abody" | grep -qi 'is finished\|is done\|has been achieved'; then
+        add_row "arrival_body_describes_the_reading" true "the arrival question names what landed and the date in ${_awords} words, and claims nothing about being finished" load
+    else
+        add_row "arrival_body_describes_the_reading" false "the arrival body is wrong (${_awords} words): $(one_line "$_abody")" load
+    fi
+
+    # THE ROOT LINE NAMES A REPOSITORY EVENT and links the direction; an all-`live` tick renders
+    # no line at all, which is the independent guard against a nothing-happened line.
+    if printf '%s' "$_out" | grep -q '"event": "[^"]*direction[s]* ha[sve][^"]*work in' \
+        && printf '%s' "$_out" | grep -q 'strategies/arrived.md'; then
+        add_row "arrival_event" true "the tick reports the arrival as a repository event and links the direction" load
+    else
+        add_row "arrival_event" false "the arrival did not reach the root: $(one_line "$_out")" load
+    fi
+    _live=$(mktemp -d)
+    mkdir -p "${_live}/.workaholic/strategies" "${_live}/.workaholic/feedbacks" \
+             "${_live}/.workaholic/missions/active" "${_live}/.workaholic/tickets/todo"
+    cp "${_root}/.workaholic/feedbacks/2026010100000d-d.md" "${_live}/.workaholic/feedbacks/"
+    cp "${_root}/.workaholic/strategies/busy.md" "${_live}/.workaholic/strategies/"
+    cp -r "${_root}/.workaholic/missions/active/running" "${_live}/.workaholic/missions/active/"
+    cp "${_root}/.workaholic/tickets/todo/20260101000001-q.md" "${_live}/.workaholic/tickets/todo/"
+    ( cd "$_live" && git -c init.defaultBranch=main init -q . \
+        && git config user.email "$_me" && git config user.name Drill \
+        && git -c commit.gpgsign=false add -A && git -c commit.gpgsign=false commit -qm seed ) >/dev/null 2>&1 || true
+    _lout=$(cd "$_live" && sh "$_step" --tick 20260101-000000 --root "$_live" --open-proposals "$_open" 2>&1) || true
+    if printf '%s' "$_lout" | grep -q '"event": ""'; then
+        add_row "arrival_all_live_renders_no_line" true "a tick with nothing but live directions supplies an empty event" load
+    else
+        add_row "arrival_all_live_renders_no_line" false "an all-live tick produced an event: $(one_line "$_lout")" load
+    fi
+
+    # ASKED ONCE. The gate is the check-in's, not this step's, so the drill exercises the gate
+    # with this step's new key: the first ask is allowed, the second refused by name.
+    _qroot=$(mktemp -d); mkdir -p "${_qroot}/.workaholic/moderations"
+    _a1=$(cd "$REPO_ROOT" && sh "$_ask" --tick 20260101-000000 --key "direction-arrived:arrived" --root "$_qroot" --to "$_me" --hour 10 --weekday 1 2>&1) || true
+    _logstep=$(printf '%s' "$_a1" | sed -n 's/.*"log_step": *"\([^"]*\)".*/\1/p')
+    if printf '%s' "$_a1" | grep -q '"ask": true'; then
+        sh "${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/log-append.sh" --root "$_qroot" \
+           --tick 20260101-000000 --step "$_logstep" --status ok --summary "asked" >/dev/null 2>&1 || true
+        _a2=$(cd "$REPO_ROOT" && sh "$_ask" --tick 20260101-010000 --key "direction-arrived:arrived" --root "$_qroot" --to "$_me" --hour 10 --weekday 1 2>&1) || true
+        if printf '%s' "$_a2" | grep -q '"ask": false'; then
+            add_row "arrival_asked_once" true "the same key is refused on a later tick: $(printf '%s' "$_a2" | sed -n 's/.*"reason": *"\([a-z_]*\)".*/\1/p')" load
+        else
+            add_row "arrival_asked_once" false "the asked-once gate did not hold: $(one_line "$_a2")" load
+        fi
+    else
+        add_row "arrival_asked_once" false "the first ask was refused: $(one_line "$_a1")" load
+    fi
+
+    # NO READING CLOSES A DIRECTION. The mission that added `arrived` is exactly the one that
+    # tempts a fourth writer, so the drill checks what the step can EXECUTE rather than what its
+    # prose promises. `test-workflow-scripts.mjs` holds the same line; both is deliberate.
+    _closure=$(sed 's/^[[:space:]]*#.*$//' "$_step" "${REPO_ROOT}/plugins/workaholic/skills/strategy/scripts/direction-state.sh")
+    if printf '%s' "$_closure" | grep -q 'close\.sh\|amend\.sh\|create\.sh'; then
+        add_row "arrival_closes_nothing" false "the step's closure reaches a strategy writer" load
+    else
+        add_row "arrival_closes_nothing" true "neither the step nor the reader can reach create.sh, amend.sh or close.sh" load
+    fi
+
+    # IT WROTE NOTHING. The fixtures are outside the checkout, so the checkout must be
+    # byte-identical, and the seeded strategies area must be untouched by reader and step alike.
+    _after=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+    if [ "$_before" = "$_after" ]; then
+        add_row "arrival_writes_nothing" true "the checkout is byte-identical after the drill" load
+    else
+        add_row "arrival_writes_nothing" false "the drill changed the working tree" load
+    fi
+    _seeded=$(cd "$_root" && git status --porcelain -- .workaholic/strategies | tr -d '\n')
+    if [ -z "$_seeded" ]; then
+        add_row "arrival_fixtures_intact" true "the seeded strategies area is untouched by the reader and the step" load
+    else
+        add_row "arrival_fixtures_intact" false "the fixture strategies area changed: '${_seeded}'" load
+    fi
+
+    rm -rf "$_root" "$_live" "$_qroot"
+    if [ "$LOAD_FAILED" -gt 0 ]; then
+        emit_verdict "arrival" 0 "fail" 1
+    fi
+    emit_verdict "arrival" 0 "pass" 0
+}
+
 # --------------------------------------------------------- verify-merged-claim
 # Can the oracle tell a MERGED claim from a live one, at both grains? A squash merge leaves
 # the content on the base and no commit on it, so `base..ref` stays positive forever and a
@@ -2752,7 +2986,7 @@ cmd_verify_delivery_retry() {
     emit_verdict "delivery-retry" 0 "pass" 0
 }
 
-USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-specificate <issue>|verify-implement <issue>|verify-plan [--json]|verify-status [--json]|verify-cadence [--json]|verify-planner [--json]|verify-standup [--json]|verify-moderate [--json]|verify-propose [--json]|verify-direction-health [--json]|verify-revision [--json]|verify-merged-claim [--json]|verify-identity-handoff [--json]|verify-close [--json]|verify-retire [--json]|verify-delivery-retry [--json]"}'
+USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-specificate <issue>|verify-implement <issue>|verify-plan [--json]|verify-status [--json]|verify-cadence [--json]|verify-planner [--json]|verify-standup [--json]|verify-moderate [--json]|verify-propose [--json]|verify-direction-health [--json]|verify-arrival [--json]|verify-revision [--json]|verify-merged-claim [--json]|verify-identity-handoff [--json]|verify-close [--json]|verify-retire [--json]|verify-delivery-retry [--json]"}'
 
 CMD="${1:-}"
 [ -n "$CMD" ] || {
@@ -2789,6 +3023,7 @@ case "$CMD" in
     verify-moderate) cmd_verify_moderate "$@" ;;
     verify-propose) cmd_verify_propose "$@" ;;
     verify-direction-health) cmd_verify_direction_health "$@" ;;
+    verify-arrival) cmd_verify_arrival "$@" ;;
     verify-revision) cmd_verify_revision "$@" ;;
     verify-merged-claim) cmd_verify_merged_claim "$@" ;;
     verify-identity-handoff) cmd_verify_identity_handoff "$@" ;;

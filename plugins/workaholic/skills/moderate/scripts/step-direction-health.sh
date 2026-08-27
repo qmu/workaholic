@@ -1,7 +1,7 @@
 #!/bin/sh -eu
-# direction-health — a direction that has run out of date, or that nothing is answering, said
-# to the person who owns it. It runs beside `strategy-pace` and before the check-in, which is
-# what asks; `reference/workflow.md` states its contract.
+# direction-health — a direction that has run out of date, that nothing is answering, or whose
+# work is all in, said to the person who owns it. It runs beside `strategy-pace` and before the
+# check-in, which is what asks; `reference/workflow.md` states its contract.
 #
 # WHY THIS STEP EXISTS (2026-08-26, mission `say-when-the-loop-has-run-out-of-direction`).
 # Three states of the direction layer were silent, and each was byte-identical to a healthy
@@ -12,6 +12,19 @@
 #   * a live direction NOTHING IS ANSWERING — `/propose` reports `no_evolutionary_move`, the
 #     honest answer, into a run report that on the day it matters is read by nobody;
 #   * a repository with NO LIVE DIRECTION at all — `no_strategies`, a no-op everywhere.
+#
+# A FOURTH READING SINCE 2026-08-27 (mission `say-when-a-direction-has-arrived`): a direction
+# whose work is ALL IN. Every reading above answers *is this direction in trouble*; none
+# answered *has it arrived*, so a finished direction looked exactly like one still running —
+# and once its date passed, the loop reported that SUCCESS as an hourly `direction-overdue`
+# question. `arrived` outranks `overdue` in the reader's precedence for that reason, and the
+# question keyed `direction-arrived:<slug>` is what reaches the one person who can rule on it.
+#
+# THE `arrived` BODY IS A DESCRIPTION OF THE READING, NEVER AN ASSERTION THAT THE DIRECTION IS
+# FINISHED. A strategy's "Reached when" is prose no script reads, so the reading is a CANDIDATE:
+# it says everything attributed has landed and nothing is waiting, and asks. The same discipline
+# `dormant` is held to — describe the state, never the person, and never claim more than the
+# reading supports.
 #
 # THE SURFACE IS THE SAME ONE `strategy-pace` CHOSE, ON THE SAME GROUNDS. Read that step's
 # header: `/propose`'s own run report is the invisibility this exists to end, and the proposal
@@ -104,6 +117,7 @@ if [ "$readable" != "true" ]; then
 fi
 
 repository=$(printf '%s' "$out" | jq -r '.repository // ""' 2>/dev/null || echo "")
+n_arrived=$(printf '%s' "$out" | jq -r '.counts.arrived // 0' 2>/dev/null || echo 0)
 n_overdue=$(printf '%s' "$out" | jq -r '.counts.overdue // 0' 2>/dev/null || echo 0)
 n_dormant=$(printf '%s' "$out" | jq -r '.counts.dormant // 0' 2>/dev/null || echo 0)
 n_unreadable=$(printf '%s' "$out" | jq -r '.counts.unreadable // 0' 2>/dev/null || echo 0)
@@ -133,7 +147,7 @@ n_live=$(printf '%s' "$out" | jq -r '.counts.live // 0' 2>/dev/null || echo 0)
 # answer is; acting on it stays the next run's judgement. No button, no automation.
 subjects=$(printf '%s' "$out" | jq -c --arg window "14 days" '
     [ .strategies[]
-      | select(.state == "overdue" or .state == "dormant")
+      | select(.state == "overdue" or .state == "dormant" or .state == "arrived")
       | . as $s
       | {key: ("direction-" + .state + ":" + .slug),
          slug: .slug, title: .title, assignees: .assignees,
@@ -142,10 +156,18 @@ subjects=$(printf '%s' "$out" | jq -c --arg window "14 days" '
                    then "the direction `" + .slug + "` has run past its target date"
                         + (if (.days_to_target != null)
                            then " (" + ((-.days_to_target) | tostring) + " day(s) ago)" else "" end)
+                   elif .state == "arrived"
+                   then "the direction `" + .slug + "` has its work in"
+                        + (if ((.landed // 0) > 0)
+                           then " (" + ((.landed) | tostring) + " item(s) landed" +
+                                (if (.target_date != "") then ", dated " + .target_date else "" end) + ")"
+                           else "" end)
                    else "nothing has answered the direction `" + .slug + "` in the last " + $window
                    end),
          body: (if .state == "overdue"
                 then "Re-date it, announce that it ended, or say it still stands — the loop carries what you announce and never decides either for you."
+                elif .state == "arrived"
+                then "Everything attributed to it has landed and nothing is waiting. Announce that it ended, or say it still stands — the loop closes nothing."
                 else "File its next move, or say it still stands — the loop will not close or change it either way."
                 end)} ]' 2>/dev/null || echo '[]')
 n_subjects=$(printf '%s' "$subjects" | jq 'length' 2>/dev/null || echo 0)
@@ -158,7 +180,7 @@ if [ "$repository" = "none" ]; then
     n_subjects=1
 fi
 
-summary="${n_live} live, ${n_overdue} overdue, ${n_dormant} dormant, ${n_unreadable} unreadable; repository ${repository}; ${n_subjects} to ask"
+summary="${n_live} live, ${n_arrived} arrived, ${n_overdue} overdue, ${n_dormant} dormant, ${n_unreadable} unreadable; repository ${repository}; ${n_subjects} to ask"
 
 if [ "$n_subjects" -eq 0 ]; then
     emit ok "" "$summary"
@@ -181,10 +203,20 @@ needs=$(printf '%s' "$subjects" | jq -c '{action: "ask_the_owner_what_becomes_of
 # AND SO DOES A TICK WHOSE ONLY NON-`live` READING IS `unreadable`. That is our own degradation,
 # not something that happened to the repository, and it is the same reason `unreadable` is never
 # asked about; it stays in the log-facing summary, which keeps every count.
+#
+# `arrived` LEADS THE PHRASE, in the reader's own precedence order. *A direction's work is all
+# in* is a repository event in the fullest sense — something finished — and reading it after a
+# lateness clause about a different direction is how a success gets read as a failure, which is
+# the defect this reading exists to remove.
 phrase=""
+if [ "$n_arrived" -gt 0 ]; then
+    if [ "$n_arrived" -eq 1 ]; then phrase="a direction has its work in"
+    else phrase="${n_arrived} directions have their work in"; fi
+fi
 if [ "$n_overdue" -gt 0 ]; then
-    if [ "$n_overdue" -eq 1 ]; then phrase="a direction has run past its date"
-    else phrase="${n_overdue} directions have run past their date"; fi
+    if [ "$n_overdue" -eq 1 ]; then ophrase="a direction has run past its date"
+    else ophrase="${n_overdue} directions have run past their date"; fi
+    phrase="${phrase:+${phrase}; }${ophrase}"
 fi
 if [ "$n_dormant" -gt 0 ]; then
     if [ "$n_dormant" -eq 1 ]; then dphrase="a direction has nothing answering it"

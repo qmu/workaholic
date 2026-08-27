@@ -1,0 +1,3 @@
+# <github-login>=<canonical-email>[,<alias-email>...], one per line: the web bootstrap (.claude/hooks/session-start.sh) maps the session GitHub login to the developer git identity so personally-assigned tickets are claimable; committed because these emails are already public in git history.
+# The FIRST address is canonical; every address after it is another address of the SAME person, which is how a survey stops answering `other` for work stamped with someone's second address. Read it through gather/scripts/identity.sh — never by hand.
+tamurayoshiya=a@qmu.jp

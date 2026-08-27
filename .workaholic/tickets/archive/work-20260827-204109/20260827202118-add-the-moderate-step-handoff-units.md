@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-27T20:21:18+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -91,3 +92,29 @@ quoting the declared reason from the previous ticket's reading. It asks and noth
 - It asks and never acts. Nothing here clears a handoff, retries a verification, merges the
   pull request or withdraws the declaration: `awaiting_verification` is a **judgement**, and a
   consumer may only report it or ask about it.
+
+## Final Report
+
+`step-handoff-units.sh` written on `step-undelivered-units.sh`'s shape: one `list-claims.sh`
+read, every degraded scan refused by name (`no_claim_reader`, `claims_unreadable`,
+`claims_unparseable`, `origin_unreachable`, `shallow_history`), candidates filtered on
+`resume_reason == "awaiting_verification"`.
+
+- **The reason and the pull request** come from the previous ticket's reading
+  (`drive/scripts/declared-handoff-detail.sh`) — one resolution per candidate; an
+  `unanswerable` lookup leaves the coordinates unstated and keeps the candidate.
+- **`needs_agent`** is keyed `handoff-unit:<unit>`, addressed to the claim's own `author`, and
+  carries the declared reason verbatim. The running identity is never consulted.
+- **A candidate whose reason could not be resolved is counted, not asked about** — asking
+  somebody to satisfy a verification nobody named is worse than not asking.
+- **Summary** counts every claimed unit and how many await a declared verification, with no age
+  and no timestamp (`step-stalled-units.sh`'s recorded correctness reason).
+- Registered in `run.sh`'s `STEPS` beside `undelivered-units`, and its contract stated in
+  `moderate/reference/workflow.md` §21 — a step run.sh drives without one fails the suite.
+
+Verified live against this repository's own claim set: 8 claimed units, 1 awaiting a declared
+verification, the question addressed to `a@qmu.jp`, quoting the declared reason verbatim and
+linking PR #647 — the measured unit this mission exists for.
+`node scripts/test-workflow-scripts.mjs` — 4111 passed, 0 failed.
+`grep -n plan-units step-handoff-units.sh` returns only the header line **stating the refusal**,
+which is the sibling's own shape; there is no call site.

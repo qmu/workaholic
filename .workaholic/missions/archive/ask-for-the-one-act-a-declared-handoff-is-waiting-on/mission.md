@@ -2,7 +2,7 @@
 type: Mission
 title: Ask for the one act a declared handoff is waiting on
 slug: ask-for-the-one-act-a-declared-handoff-is-waiting-on
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-27T20:19:53+00:00
 author: a@qmu.jp
@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260827-204109
 ---
 
 # Ask for the one act a declared handoff is waiting on
@@ -41,11 +42,21 @@ gate lifted, no handoff declared or withdrawn by any run.
 
 ## Acceptance
 
-- [ ] Every `awaiting_verification` claim reaches its holder as one question naming the
+- [x] Every `awaiting_verification` claim reaches its holder as one question naming the
       declared reason and the pull request, asked exactly once (#20260827202118-add-the-moderate-step-handoff-units.md)
-- [ ] `stalled-units` asks nothing about a declared handoff, counting it as a finding (#20260827202118-stop-stalled-units-asking-about-a-declared-handoff.md)
-- [ ] The consumer is pinned report-and-ask only, drilled offline, and documented (#20260827202119-pin-the-new-consumer-as-report-and-ask-only.md)
+- [x] `stalled-units` asks nothing about a declared handoff, counting it as a finding (#20260827202118-stop-stalled-units-asking-about-a-declared-handoff.md)
+- [x] The consumer is pinned report-and-ask only, drilled offline, and documented (#20260827202119-pin-the-new-consumer-as-report-and-ask-only.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-27 — ticket archived — 20260827202118-read-a-claim-s-declared-handoff-and-its-pull-request.md
+- 2026-08-27 — ticket archived — 20260827202118-add-the-moderate-step-handoff-units.md
+- 2026-08-27 — ticket archived — 20260827202118-render-the-standing-handoff-as-a-moderation-event.md
+- 2026-08-27 — ticket archived — 20260827202118-stop-stalled-units-asking-about-a-declared-handoff.md
+- 2026-08-27 — ticket archived — 20260827202119-name-claimed-awaiting-verification-in-the-run-report.md
+- 2026-08-27 — ticket archived — 20260827202119-pin-the-new-consumer-as-report-and-ask-only.md
+- 2026-08-27 — ticket archived — 20260827202119-drill-the-handoff-question-with-no-network.md
+- 2026-08-27 — ticket archived — 20260827202119-write-the-asking-half-into-the-documents.md
+- 2026-08-27 — mission achieved — mission.md
+- 2026-08-27 — story reported — work-20260827-204109

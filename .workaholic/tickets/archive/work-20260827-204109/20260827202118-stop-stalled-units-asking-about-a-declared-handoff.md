@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-27T20:21:18+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -78,3 +79,33 @@ stream a person has learned to skip — the exact cost the `superseded` filter w
 - The filter and the new step must be kept honest together: if `handoff-units` ever stops
   asking, this filter turns the finding back into silence. The pin in the mission's later
   ticket is what keeps that pair visible.
+
+## Final Report
+
+**Reproduced first.** Against this repository's own claims with
+`WORKAHOLIC_CLAIM_STALE_HOURS=1`, `step-stalled-units.sh` emitted
+`stalled-unit:make-workaholify-converge-the-account-s-routines` — the `awaiting_verification`
+claim behind PR #647 — under *a claimed unit has not moved for a day or more*.
+
+`awaiting_verification` is now filtered from the `stalled` candidate set **in the same
+expression** as `superseded` (`select(.resume_reason != "superseded" and .resume_reason !=
+"awaiting_verification")`), so a reader sees one rule with two verdicts rather than two
+mechanisms, and it is counted in the summary as its own finding beside the `superseded` count —
+a fact belongs in the log; only the question moved. The header's *TWO FILTERS, NOT ONE* note is
+now *THREE FILTERS, NOT ONE*, naming the verdict, its date and the reason, and recording that the
+filter is **not** widened to "any non-resumable verdict": `queue_drained` and `report_undelivered`
+are different states with different owners and a blanket filter would silently drop a class
+nobody covers.
+
+Verified over the live claim set at a 1-hour staleness threshold:
+
+- `stalled-units` — `1 awaiting a declared verification`, and its questions are
+  `stalled-unit:batch-20260818215156` and `stalled-unit:deploy-the-docs-site-on-merge-to-main`
+  only: the genuinely stale claims, asked about exactly as before.
+- `handoff-units` in the same tick — one question,
+  `handoff-unit:make-workaholify-converge-the-account-s-routines`.
+- **Exactly one `needs_agent` entry across the pair for that unit**, in one vocabulary.
+- With `n_stalled == 0` the step emits `ok` with an empty `event`, so a tick whose only claims are
+  filtered renders no root line.
+
+`node scripts/test-workflow-scripts.mjs` — 4111 passed, 0 failed.

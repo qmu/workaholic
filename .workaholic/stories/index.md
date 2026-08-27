@@ -3,6 +3,7 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [work-20260827-204109](work-20260827-204109.md) - The declared-handoff verdict now reaches the claim holder as one question naming the act it waits on, and stalled-units stops asking the wrong one.
 * [work-20260827-164139](work-20260827-164139.md) - The loop reads whether the base survived what it merged — one checks reader, an attribution walk, a /moderate question keyed on the broken commit, and a reading that gates nothing
 * [work-20260827-144111](work-20260827-144111.md) - The direction layer gains `arrived` — a direction whose work is all in is told to its owner once, instead of being reported as overdue.
 * [work-20260827-114104](work-20260827-114104.md) - Give a live strategy a third writer so the operator revises a direction through the loop, bounded by refusals and by a publish seam that never auto-merges it.

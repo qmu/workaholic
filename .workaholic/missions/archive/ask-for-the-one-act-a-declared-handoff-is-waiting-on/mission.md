@@ -59,3 +59,4 @@ gate lifted, no handoff declared or withdrawn by any run.
 - 2026-08-27 — ticket archived — 20260827202119-drill-the-handoff-question-with-no-network.md
 - 2026-08-27 — ticket archived — 20260827202119-write-the-asking-half-into-the-documents.md
 - 2026-08-27 — mission achieved — mission.md
+- 2026-08-27 — story reported — work-20260827-204109

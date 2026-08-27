@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260827-084115
 ---
 
 # Stop re-resuming a declared handoff unit

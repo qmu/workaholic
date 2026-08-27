@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260827-234102
 ---
 
 # Finish the retirement the loop cannot complete

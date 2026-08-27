@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260827-204109
 ---
 
 # Ask for the one act a declared handoff is waiting on

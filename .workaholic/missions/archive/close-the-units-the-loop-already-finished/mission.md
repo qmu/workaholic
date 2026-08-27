@@ -59,3 +59,4 @@ business from the loop's undelivered work, and `ok` stops covering the second.
 - 2026-08-27 — ticket archived — 20260827012038-ask-a-person-about-a-unit-that-could-not-be-delivered.md
 - 2026-08-27 — ticket archived — 20260827012039-drill-the-closing-seam-with-no-network.md
 - 2026-08-27 — mission achieved — mission.md
+- 2026-08-27 — story reported — work-20260827-021918

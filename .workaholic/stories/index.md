@@ -3,6 +3,7 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [work-20260827-021918](work-20260827-021918.md) - A unit the loop finishes now reaches main, or the run names the refusal that stopped it — in the report, in the survey, and once to a person by name.
 * [work-20260827-014149](work-20260827-014149.md) - A unit held by a superseded claim and a live one now resolves to the live branch, derived once and read by every writer.
 * [Let a fresh claim take a superseded claim's work](work-20260827-003503.md) - The survey re-offered work behind a superseded claim that both claim paths refused; a fresh claim may now take it.
 * [work-20260826-195732](work-20260826-195732.md) - Retire the always-on mission-lens hook — its roster surfacing now lives in /moderate's closable-missions step and the on-demand /mission roadmap

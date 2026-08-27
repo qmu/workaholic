@@ -570,4 +570,5 @@
 * [A superseded claim is closed but its branch cannot be deleted, so the claim never leaves the table](20260827115923-a-superseded-claim-is-closed-but-its-branch-cannot-be-deleted-so-the-claim-never-leaves-the-table.md)
 * [Say when a direction has arrived](20260827142027-say-when-a-direction-has-arrived.md)
 * [Read whether the base survived what the loop merged](20260827161640-read-whether-the-base-survived-what-the-loop-merged.md)
+* [Ask for the one act a declared handoff is waiting on](20260827201719-ask-for-the-one-act-a-declared-handoff-is-waiting-on.md)
 <!-- okf:generated:end -->

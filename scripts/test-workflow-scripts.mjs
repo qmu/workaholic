@@ -15857,6 +15857,8 @@ const tests = [
   ["drive claim protocol: a merged claim is never offered for resumption", testMergedClaimIsNeverResumable],
   ["drive claim protocol: a fresh claim takes a superseded claim's work", testFreshClaimOverSupersededClaim],
   ["drive claim protocol: a unit resolves to its live claim branch", testUnitResolvesToItsLiveClaimBranch],
+  ["drive claim protocol: a reported claim is two states", testReportedClaimIsTwoStates],
+  ["story/record-merge-outcome.sh: the durable home for a merge outcome", testRecordMergeOutcome],
   ["branching/ensure-worktree.sh never shadows a published branch", testEnsureWorktreeNeverShadowsRemote],
   ["drive survey: a mission behind a merged claim is surveyed again", testSupersededMissionIsResurveyed],
   ["drive claim protocol: a mission claim's artifact is unaffected", testMissionClaimArtifactsUnaffected],
@@ -22515,4 +22517,154 @@ function testEnsureWorktreeNeverShadowsRemote() {
     const ok = run(fx.B, `${POSIX_SH} ${SCRIPTS.ensureWorktree} work-20260827-000001`);
     assertEq("an unpublished canonical name still creates a worktree", ok.status, 0);
   } finally { cleanup(fx.A); cleanup(fx.B); cleanup(fx.origin); }
+}
+
+// ---------- a reported claim is two states (2026-08-27) ----------
+//
+// `claimed_reported` covered a unit legitimately waiting on a person (a scan finding holds its
+// pull request) AND the loop's own undelivered work (the transport refused the merge). Both are
+// drained, both reported, both at an open pull request, and no later survey offers either — so
+// the second was reachable by nothing and `ok` was reported over it. Measured 2026-08-27: four
+// green pull requests unmerged.
+//
+// THE SPLIT IS READ OFF THE BRANCH, which is what makes it testable with no network at all: the
+// run that attempted the merge records its outcome into the branch story, and the oracle reads
+// that line back out of a blob it already fetches.
+function testReportedClaimIsTwoStates() {
+  const fx = makeClaimFixture();
+  const RECORDER = join(REPO_ROOT,
+    "plugins/workaholic/skills/story/scripts/record-merge-outcome.sh");
+  try {
+    // Two claims, each driven to a drained queue with a story at the tip — the shape both
+    // states share, and the reason they were indistinguishable.
+    const t1 = `.workaholic/tickets/todo/${TEST_SLUG}/20260729000001-t1.md`;
+    const t2 = `.workaholic/tickets/todo/${TEST_SLUG}/20260729000002-t2.md`;
+    const drive = (ticket, outcome) => {
+      const c = JSON.parse(run(fx.A, `${POSIX_SH} ${SCRIPTS.claim} batch ${ticket}`).stdout);
+      const wt = c.worktree_path;
+      const arch = `.workaholic/tickets/archive/${c.branch}`;
+      execSync(`mkdir -p ${arch} && git mv ${ticket} ${arch}/`, { cwd: wt });
+      // The story file is what `claims_has_story` reads; without it the claim reads
+      // `report_incomplete` and never reaches the fork this test is about.
+      mkdirSync(join(wt, ".workaholic/stories"), { recursive: true });
+      writeFileSync(join(wt, `.workaholic/stories/${c.branch}.md`),
+        `---\ntype: Story\nbranch: ${c.branch}\n---\n\n## 1. Overview\n\ndone\n`);
+      if (outcome) {
+        const r = JSON.parse(run(wt, `${POSIX_SH} ${RECORDER} `
+          + `.workaholic/stories/${c.branch}.md ${JSON.stringify(outcome)}`).stdout);
+        assertEq(`the outcome was recorded for ${c.branch}`, r.recorded, true);
+      }
+      execSync(`git add -A && git commit -q -m "Report the unit" && git push -q origin ${c.branch}`,
+        { cwd: wt });
+      // Age the tip past the heartbeat window so the verdict reaches the drained fork.
+      const old = "2026-08-01T00:00:00+00:00";
+      execSync('git commit -q --allow-empty -m "Heartbeat" && git push -q origin HEAD',
+        { cwd: wt, env: { ...process.env, GIT_COMMITTER_DATE: old, GIT_AUTHOR_DATE: old } });
+      return c;
+    };
+    // A unit the transport refused, and one a scan finding held.
+    const refused = drive(t1, "merge_refused: session_type_cannot_merge");
+    tickSecond();
+    const held = drive(t2, "merge_not_attempted: hard");
+    execSync("git fetch -q --prune origin", { cwd: fx.A });
+
+    const rows = Object.fromEntries(
+      JSON.parse(run(fx.A, `${POSIX_SH} ${SCRIPTS.listClaims}`).stdout)
+        .claims.map((c) => [c.unit, c]));
+    assertEq("a refused merge reads report_undelivered",
+      [rows[refused.unit].resume_reason, rows[refused.unit].resumable],
+      ["report_undelivered", false]);
+    assertEq("a scan-held pull request still reads queue_drained, unchanged",
+      [rows[held.unit].resume_reason, rows[held.unit].resumable],
+      ["queue_drained", false]);
+
+    // THE SURVEY AGREES, because it reads the same derivation rather than its own.
+    const plan = JSON.parse(run(fx.A, `${POSIX_SH} ${SCRIPTS.planUnits}`).stdout);
+    const reasonFor = (unit) =>
+      (plan.claimed.find((c) => c.unit === unit) || {}).resume_reason;
+    assertEq("plan-units.sh sees the same two reasons",
+      [reasonFor(refused.unit), reasonFor(held.unit)],
+      ["report_undelivered", "queue_drained"]);
+    const excFor = (id) => (plan.excluded.find((e) => e.id === id) || {}).reason;
+    assertEq("and maps them to distinct exclusion reasons",
+      [excFor(t1), excFor(t2)], ["claimed_undelivered", "claimed_reported"]);
+
+    // `claim.sh resume` REFUSES IT BY ITS OWN NAME — `queue_drained`'s wording would send the
+    // reader to wait for a human who is not coming.
+    const res = JSON.parse(run(fx.A, `${POSIX_SH} ${SCRIPTS.claim} resume ${refused.unit}`).stdout
+      || run(fx.A, `${POSIX_SH} ${SCRIPTS.claim} resume ${refused.unit}`).stderr);
+    assertEq("resume refuses report_undelivered under its own reason",
+      [res.claimed, res.reason], [false, "report_undelivered"]);
+
+    // AN ABSENT SECTION KEEPS `queue_drained` — the new reason is claimed only on positive
+    // evidence, so every story written before this section behaves exactly as it did.
+    tickSecond();
+    execSync("git fetch -q origin && git checkout -q main && git merge -q --ff-only origin/main",
+      { cwd: fx.A });
+    const t3 = `.workaholic/tickets/todo/${TEST_SLUG}/20260729000003-t3.md`;
+    mkdirSync(dirname(join(fx.A, t3)), { recursive: true });
+    writeFileSync(join(fx.A, t3),
+      "---\ncreated_at: 2026-07-29T00:00:03+09:00\nauthor: test@example.com\n---\n\n# t3\n");
+    execSync('git add -A && git commit -q -m "Queue a ticket" && git push -q origin main',
+      { cwd: fx.A });
+    const silent = drive(t3, null);
+    execSync("git fetch -q --prune origin", { cwd: fx.A });
+    const after = Object.fromEntries(
+      JSON.parse(run(fx.A, `${POSIX_SH} ${SCRIPTS.listClaims}`).stdout)
+        .claims.map((c) => [c.unit, c]));
+    assertEq("a story with no Merge Outcome section keeps queue_drained",
+      after[silent.unit].resume_reason, "queue_drained");
+  } finally { cleanup(fx.A); cleanup(fx.B); cleanup(fx.origin); }
+}
+
+// ---------- story/record-merge-outcome.sh (2026-08-27) ----------
+// The durable home for §6's merge outcome. It is the only reason the claim oracle can tell the
+// loop's undelivered work from a unit waiting on a person, so its refusals matter as much as its
+// writes: a malformed outcome that round-trips as "no section" would restore the exact silence.
+function testRecordMergeOutcome() {
+  const RECORDER = join(REPO_ROOT,
+    "plugins/workaholic/skills/story/scripts/record-merge-outcome.sh");
+  const dir = mkdtempSync(join(tmpdir(), "wh-merge-outcome-"));
+  const story = join(dir, "s.md");
+  const body = "---\ntype: Story\n---\n\n## 1. Overview\n\nwork\n";
+  const call = (arg) => {
+    const r = run(dir, `${POSIX_SH} ${RECORDER} ${story} ${JSON.stringify(arg)}`);
+    return { ...JSON.parse(r.stdout || r.stderr), status: r.status };
+  };
+  const section = () =>
+    (readFileSync(story, "utf8").match(/^## Merge Outcome\n\n(.*)$/m) || [])[1];
+  try {
+    writeFileSync(story, body);
+    const first = call("merge_refused: session_type_cannot_merge");
+    assertEq("the outcome is recorded", [first.recorded, first.changed], [true, true]);
+    assertEq("and reads back verbatim", section(), "merge_refused: session_type_cannot_merge");
+    assertTrue("the story's own body is untouched",
+      readFileSync(story, "utf8").startsWith(body.trimEnd()), readFileSync(story, "utf8"));
+
+    // IDEMPOTENT PER OUTCOME: re-recording the same answer rewrites nothing.
+    const again = call("merge_refused: session_type_cannot_merge");
+    assertEq("re-recording the same outcome changes nothing",
+      [again.recorded, again.changed], [true, false]);
+
+    // A LATER, DIFFERENT ANSWER REPLACES — two answers in one file is the ambiguity this
+    // removes, so the section must never stack.
+    call("merge_not_attempted: hard");
+    assertEq("a different outcome replaces the section", section(), "merge_not_attempted: hard");
+    assertEq("and does not stack a second one",
+      (readFileSync(story, "utf8").match(/^## Merge Outcome$/gm) || []).length, 1);
+
+    // REFUSALS, each named and each leaving the file alone.
+    const before = readFileSync(story, "utf8");
+    // The newline has to reach the SHELL, so it is built there: a JSON-escaped `\n` inside
+    // double quotes is two literal characters to `sh`, which is one line and correctly accepted.
+    const multi = run(dir,
+      `${POSIX_SH} ${RECORDER} ${story} "$(printf 'merge_refused: a\\nb')"`);
+    assertEq("a multi-line outcome is refused",
+      JSON.parse(multi.stdout || multi.stderr).reason, "outcome_not_one_line");
+    assertEq("an empty outcome is refused", call("").reason, "no_outcome_argument");
+    assertEq("the file is untouched by a refusal", readFileSync(story, "utf8"), before);
+    const missing = run(dir, `${POSIX_SH} ${RECORDER} ${join(dir, "nope.md")} "merged"`);
+    assertEq("a missing story is refused by name",
+      JSON.parse(missing.stdout || missing.stderr).reason, "story_not_found");
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 }

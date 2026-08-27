@@ -567,4 +567,6 @@
 * [Deliver and retire what the loop already proved finished](20260827052027-deliver-and-retire-what-the-loop-already-proved-finished.md)
 * [A declared handoff unit is re-resumed every tick](20260827081849-a-declared-handoff-unit-is-re-resumed-every-tick.md)
 * [Let the operator revise a live direction through the loop](20260827112022-let-the-operator-revise-a-live-direction-through-the-loop.md)
+* [A superseded claim is closed but its branch cannot be deleted, so the claim never leaves the table](20260827115923-a-superseded-claim-is-closed-but-its-branch-cannot-be-deleted-so-the-claim-never-leaves-the-table.md)
+* [Say when a direction has arrived](20260827142027-say-when-a-direction-has-arrived.md)
 <!-- okf:generated:end -->

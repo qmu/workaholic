@@ -3,7 +3,6 @@
 ## active
 
 * [deploy-the-docs-site-on-merge-to-main](active/deploy-the-docs-site-on-merge-to-main/mission.md) - Deploy the docs site on merge to main
-* [drive-the-work-the-loop-wrote-one-resolution-of-who-a-person-is](active/drive-the-work-the-loop-wrote-one-resolution-of-who-a-person-is/mission.md) - Drive the work the loop wrote: one resolution of who a person is
 * [make-the-routine-create-body-documented-and-buildable](active/make-the-routine-create-body-documented-and-buildable/mission.md) - Make the routine create body documented and buildable
 * [make-workaholify-converge-the-account-s-routines](active/make-workaholify-converge-the-account-s-routines/mission.md) - Make /workaholify converge the account's routines
 * [refuse-ok-under-a-placeholder-identity](active/refuse-ok-under-a-placeholder-identity/mission.md) - Refuse ok under a placeholder identity
@@ -24,6 +23,7 @@
 * [cross-the-repo-boundary-as-an-issue](archive/cross-the-repo-boundary-as-an-issue/mission.md) - Cross the repo boundary as an issue
 * [draft-deployment-plans-in-the-release-note-before-deploying](archive/draft-deployment-plans-in-the-release-note-before-deploying/mission.md) - Draft deployment plans in the Release Note before deploying
 * [drive-on-a-merged-proposal-and-report-it-in-that-proposal-s-thread](archive/drive-on-a-merged-proposal-and-report-it-in-that-proposal-s-thread/mission.md) - Drive on a merged proposal, and report it in that proposal's thread
+* [drive-the-work-the-loop-wrote-one-resolution-of-who-a-person-is](archive/drive-the-work-the-loop-wrote-one-resolution-of-who-a-person-is/mission.md) - Drive the work the loop wrote: one resolution of who a person is
 * [drop-the-draft-gate-and-make-drive-own-its-worktree-from-refreshed-main](archive/drop-the-draft-gate-and-make-drive-own-its-worktree-from-refreshed-main/mission.md) - Drop the draft gate and make /drive own its worktree from refreshed main
 * [give-propose-a-strategy-artifact-form](archive/give-propose-a-strategy-artifact-form/mission.md) - Give /propose a Strategy artifact form
 * [give-propose-and-ticket-a-diagnosis-first-discovery-pass](archive/give-propose-and-ticket-a-diagnosis-first-discovery-pass/mission.md) - Give /propose and /ticket a diagnosis-first discovery pass

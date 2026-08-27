@@ -45,6 +45,7 @@ const SCRIPTS = {
   identity: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/identity.sh"),
   auditIdentityCoverage: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/audit-identity-coverage.sh"),
   stepUndrivableUnits: join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-undrivable-units.sh"),
+  stepUndeliveredUnits: join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-undelivered-units.sh"),
   listTodo: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/list-todo.sh"),
   proposeRun: join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/run.sh"),
   proposeLogAppend: join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/log-append.sh"),
@@ -15859,6 +15860,7 @@ const tests = [
   ["drive claim protocol: a unit resolves to its live claim branch", testUnitResolvesToItsLiveClaimBranch],
   ["drive claim protocol: a reported claim is two states", testReportedClaimIsTwoStates],
   ["story/record-merge-outcome.sh: the durable home for a merge outcome", testRecordMergeOutcome],
+  ["moderate/undelivered-units: the loop's own undelivered work reaches a person", testUndeliveredUnitsStep],
   ["branching/ensure-worktree.sh never shadows a published branch", testEnsureWorktreeNeverShadowsRemote],
   ["drive survey: a mission behind a merged claim is surveyed again", testSupersededMissionIsResurveyed],
   ["drive claim protocol: a mission claim's artifact is unaffected", testMissionClaimArtifactsUnaffected],
@@ -20250,6 +20252,12 @@ function testModerateRun() {
     // no path from *the loop cannot drive its own output* to *a person is told*. Same
     // placement and same reason as its neighbours: it reads, the check-in asks.
     "undrivable-units",
+    // `undelivered-units` (2026-08-27): a unit the loop drove to a green pull request whose
+    // MERGE the transport refused. No other step saw it — `stuck-prs` finds an open, green
+    // pull request and `stalled-units` reads STALE rows, and this claim's heartbeat advanced
+    // right up to the moment it finished. Same placement and same reason: it reads, the
+    // check-in asks.
+    "undelivered-units",
     // `closable-missions` is step 12 (2026-08-23): the archive gate closes a mission whose
     // LAST ticket it archives, and this names the residue that reached full acceptance any
     // other way. Since 2026-08-24 (the developer's ruling) the agent CLOSES what the step
@@ -22689,4 +22697,106 @@ function testRecordMergeOutcome() {
     assertEq("a missing story is refused by name",
       JSON.parse(missing.stdout || missing.stderr).reason, "story_not_found");
   } finally { rmSync(dir, { recursive: true, force: true }); }
+}
+
+// ---------- moderate/undelivered-units: the loop's own undelivered work (2026-08-27) ----------
+//
+// `/implement` may not ask anyone anything, so an undelivered unit's story ended in a run report
+// nobody opens — and no step of this tick saw the shape: `stuck-prs` and `merge-conflicts` read
+// pull requests and find one open and green, `stalled-units` reads STALE rows and this claim's
+// heartbeat advanced right up to the moment it finished. Measured 2026-08-27: four green pull
+// requests unmerged, offered by no survey and told to nobody.
+//
+// THE FIXTURE IS THE SAME TWO-CLAIM SHAPE the oracle test uses, driven through the real step, so
+// what is proved is the whole chain: record the outcome → the oracle splits the verdict → the
+// step asks the holder. No network: the fixture's origin is a local directory, so the pull
+// request lookup is `unanswerable` and the step must keep the candidate anyway.
+function testUndeliveredUnitsStep() {
+  const fx = makeClaimFixture();
+  const RECORDER = join(REPO_ROOT,
+    "plugins/workaholic/skills/story/scripts/record-merge-outcome.sh");
+  try {
+    const drive = (ticket, outcome) => {
+      const c = JSON.parse(run(fx.A, `${POSIX_SH} ${SCRIPTS.claim} batch ${ticket}`).stdout);
+      const wt = c.worktree_path;
+      execSync(`mkdir -p .workaholic/tickets/archive/${c.branch} `
+        + `&& git mv ${ticket} .workaholic/tickets/archive/${c.branch}/`, { cwd: wt });
+      mkdirSync(join(wt, ".workaholic/stories"), { recursive: true });
+      writeFileSync(join(wt, `.workaholic/stories/${c.branch}.md`),
+        `---\ntype: Story\nbranch: ${c.branch}\n---\n\n## 1. Overview\n\ndone\n`);
+      if (outcome) {
+        run(wt, `${POSIX_SH} ${RECORDER} .workaholic/stories/${c.branch}.md `
+          + `${JSON.stringify(outcome)}`);
+      }
+      execSync(`git add -A && git commit -q -m "Report the unit" && git push -q origin ${c.branch}`,
+        { cwd: wt });
+      const old = "2026-08-01T00:00:00+00:00";
+      execSync('git commit -q --allow-empty -m "Heartbeat" && git push -q origin HEAD',
+        { cwd: wt, env: { ...process.env, GIT_COMMITTER_DATE: old, GIT_AUTHOR_DATE: old } });
+      return c;
+    };
+    const refused = drive(`.workaholic/tickets/todo/${TEST_SLUG}/20260729000001-t1.md`,
+      "merge_refused: session_type_cannot_merge");
+    tickSecond();
+    const held = drive(`.workaholic/tickets/todo/${TEST_SLUG}/20260729000002-t2.md`,
+      "merge_not_attempted: hard");
+    execSync("git fetch -q --prune origin", { cwd: fx.A });
+
+    const step = (extra = "") => JSON.parse(run(fx.A,
+      `${POSIX_SH} ${SCRIPTS.stepUndeliveredUnits} --tick 20260827-030000 --root ${fx.A}${extra}`
+    ).stdout);
+
+    const r = step();
+    assertEq("the step runs ok", r.status, "ok");
+    const rows = (r.needs_agent[0] || {}).undelivered || [];
+    assertEq("exactly one unit is handed to the check-in", rows.length, 1);
+    assertEq("and it is the refused one, not the scan-held one", rows[0].unit, refused.unit);
+    assertTrue("the scan-held unit is not a candidate",
+      !rows.some((x) => x.unit === held.unit), JSON.stringify(rows));
+
+    // ADDRESSED TO THE CLAIM HOLDER, and naming the refusal — a count addressed to nobody is
+    // the property both retired status roots lacked.
+    assertEq("the question is addressed to the claim holder", rows[0].owner, "test@example.com");
+    assertEq("and names the refusal that stopped the merge",
+      rows[0].refusal, "merge_refused: session_type_cannot_merge");
+    assertEq("keyed once per unit", rows[0].key, `undelivered-unit:${refused.unit}`);
+    // The lookup cannot succeed against a local-directory origin, and the candidate SURVIVES it:
+    // the finding is that the unit is undelivered, which the oracle established offline.
+    assertEq("an unanswerable lookup leaves the coordinates unstated, not the finding dropped",
+      [rows[0].pull_request, rows[0].open_hours], ["unknown", null]);
+
+    // THE SUMMARY CARRIES NO AGE AND NO TIMESTAMP — an incrementing summary makes the step
+    // "changed" hourly by construction and the root restates it all day.
+    assertTrue("the summary carries no hour count", !/\d+\s*h\b/.test(r.summary), r.summary);
+    assertTrue("and no timestamp", !/\d{4}-\d{2}-\d{2}|\d{2}:\d{2}/.test(r.summary), r.summary);
+    assertTrue("the event names the repository event", /never delivered/.test(r.event), r.event);
+
+    // A SECOND TICK OVER THE SAME UNIT FINDS THE SAME ROW — the asked-once gate is
+    // `ask-question.sh`'s ledger, not this step's, so the step is deliberately stateless and
+    // its key is what makes the gate able to refuse. The key is stable across ticks.
+    const again = step();
+    assertEq("the key is stable across ticks",
+      ((again.needs_agent[0] || {}).undelivered || [])[0].key, rows[0].key);
+
+    // THE STEP WRITES NOTHING. Its contract is a pure read, and the fixture's index proves it.
+    assertEq("git status is clean after the step ran",
+      execSync("git status --porcelain", { cwd: fx.A, encoding: "utf8" }).trim(), "");
+
+    // A DEGRADED READ ASKS NOTHING AND IS NAMED — a scan that could not reach the remote has
+    // not found "nothing undelivered", it has found nothing at all.
+    const plain = mkdtempSync(join(tmpdir(), "wh-undelivered-plain-"));
+    execSync("git init -q .", { cwd: plain });
+    const deg = JSON.parse(run(plain,
+      `${POSIX_SH} ${SCRIPTS.stepUndeliveredUnits} --tick 20260827-030000 --root ${plain}`).stdout);
+    assertEq("a repository with no origin degrades by name",
+      [deg.status, deg.needs_agent.length], ["degraded", 0]);
+    assertTrue("and the reason is named", deg.reason.length > 0, JSON.stringify(deg));
+    rmSync(plain, { recursive: true, force: true });
+
+    // AND IT IS REGISTERED, in order, beside the sibling it follows.
+    const runSh = readFileSync(
+      join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/run.sh"), "utf8");
+    assertTrue("run.sh invokes the step",
+      /undrivable-units undelivered-units/.test(runSh), "not registered in order");
+  } finally { cleanup(fx.A); cleanup(fx.B); cleanup(fx.origin); }
 }

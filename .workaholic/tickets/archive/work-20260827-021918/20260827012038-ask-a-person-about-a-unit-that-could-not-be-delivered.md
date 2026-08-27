@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-27T01:20:38+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -88,3 +89,43 @@ property both retired status roots lacked.
   changed-step diff by construction.
 - The question is the delivery. A root line without it reproduces the status-line-addressed-to-
   nobody shape this repository has retired twice.
+
+## Final Report
+
+Development completed as planned.
+
+**Which sibling it follows, stated per axis** (step 1, and the ticket required it explicitly):
+
+| Axis | Follows | Why |
+| ---- | ------- | --- |
+| whose question | `stalled-units` | the claim holder is a real person who drove this unit and can retry its merge |
+| the running identity | `undrivable-units` | never consulted — the claim's own `author` is the addressee, so an hourly repository-scoped question does not answer differently per account |
+| what it may read | `undrivable-units` | `list-claims.sh` is a pure read; `plan-units.sh` is refused, because the survey reaches the mission readers, which carry the living migrations and **stage** what they converge |
+
+The candidate set is the sibling ticket's split reason (`report_undelivered`) and the refusal
+rides on the claim row as `merge_outcome` — surfaced by `list-claims.sh` through the same
+`claims_merge_outcome` the oracle already calls, so no second derivation exists to drift. The
+pull request's coordinates cost one `claim-merged.sh` lookup **per candidate**, and an
+`unanswerable` read leaves them unstated rather than dropping the finding: the unit is
+undelivered whether or not we could name its URL.
+
+The summary carries no age and no timestamp, for the correctness reason `stalled-units`' header
+records, and the step registers in `run.sh` beside `undrivable-units` — eighteen steps now, with
+the count corrected in `moderate/SKILL.md`, its `reference/workflow.md` and `CLAUDE.md`.
+
+### Discovered Insights
+
+- **Insight**: The claim row was the right place to carry the refusal, and the TSV was not.
+  **Context**: `claims_scan`'s row has a load-bearing field count — the library's longest
+  warning is about what happens when a column is added, and an empty middle field silently
+  shifts every field after it. `merge_outcome` is only ever wanted by a caller rendering the
+  operator's view, so `list-claims.sh` reads it per row with a `git cat-file` over a blob the
+  scan already reached: no new column, no network call, and one derivation.
+
+- **Insight**: An `unanswerable` coordinate lookup must not drop the candidate, and that is a
+  different rule from `claim-merged.sh`'s own.
+  **Context**: The three-valued contract exists because a wrong `merged` releases work still in
+  flight — there, an unread answer must not change the verdict. Here the verdict is already made
+  offline by the oracle, and the lookup only decorates the question. Applying the same "leave it
+  alone" instinct to the candidate itself would have suppressed the finding on exactly the runs
+  where the network is worst, which is the opposite of what the contract is for.

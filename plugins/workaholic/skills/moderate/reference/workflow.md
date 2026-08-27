@@ -792,6 +792,56 @@ A tree with no `.workaholic/` is an ordinary `ok`; readers absent from the skill
 `degraded` by name. A queue every owner of which the mapping names supplies **no `event`**,
 so the root renders no line: nothing happened to the repository.
 
+## 18. `undelivered-units` — a unit the loop finished and could not deliver
+
+```sh
+sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/step-undelivered-units.sh --tick <id> [--root <repo-root>]
+```
+
+Every claim the oracle reads **`report_undelivered`**: a unit the loop drove to a green pull
+request whose **merge the transport refused**. Its work is pushed, its story is committed, its
+pull request is open — and nothing will pick it up, because a drained claim is excluded at every
+later survey.
+
+**No step saw this shape** (2026-08-27). `stuck-prs` and `merge-conflicts` read pull requests and
+find one that is open and green; `stalled-units` reads the claim oracle's **stale** rows and this
+claim is not stale — its heartbeat advanced right up to the moment it finished. So an undelivered
+unit reached a person through nothing at all, while `/implement`, which may not ask anyone
+anything, reported `ok` over it. Measured 2026-08-27: four pull requests (#622, #625, #633, #635)
+green and unmerged, offered by no survey and told to nobody.
+
+**Which sibling it follows, on each axis:**
+
+| Axis | Follows | Why |
+| ---- | ------- | --- |
+| whose question | `stalled-units` | the **claim holder** is a real person who drove this unit and can retry its merge |
+| the running identity | `undrivable-units` | never consulted — the claim's own `author` is the addressee, so an hourly repository-scoped question does not answer differently per account |
+| what it may read | `undrivable-units` | `list-claims.sh` is a pure read; **`plan-units.sh` is refused**, because the survey reaches the mission readers, which carry the living migrations and **stage** what they converge — the composition `closable-missions` already refused |
+
+**The candidate set is the split reason, not a re-derivation.** `report_undelivered` is the claim
+oracle's own verdict and the refusal rides on the row as `merge_outcome`, read off the branch
+story the run recorded it in (`story/scripts/record-merge-outcome.sh`). Two readers of one script
+is not two sources of truth, and a second opinion about whether a pull request is held by a gate
+or by a transport is exactly the disagreement that would reintroduce the silence.
+
+**The pull request's coordinates cost one lookup per candidate**, through `claim-merged.sh` — the
+claim protocol's one network read. It is three-valued, and an `unanswerable` read **does not drop
+the candidate**: the finding is that the unit is undelivered, which the oracle already
+established offline; the URL and the age are simply left unstated, which is the honest rendering
+of a read we could not make.
+
+**The summary carries no age and no timestamp**, for the correctness reason `stalled-units`'
+header records: the root calls a step changed when its summary differs from the same step's an
+hour ago, and an incrementing age would make this step changed hourly by construction. The age
+still reaches the person, in the question that names the unit.
+
+**It asks and nothing else.** It never merges, never retries, never drives and never resolves the
+blocker itself. Each question is keyed `undelivered-unit:<unit>` through `ask-question.sh`, so
+the asked-once gate, the per-tick cap, the quiet hours and the working-day hold all apply
+unchanged and no second ledger exists. A degraded read (`no_claim_reader`, `claims_unreadable`,
+`claims_unparseable`, `origin_unreachable`, `shallow_history`) is named and asks nothing — a scan
+that could not reach the remote has not found *nothing undelivered*, it has found nothing at all.
+
 ## What `run.sh` guarantees around the steps
 
 - **Every step is invoked and every step reports.** Missing script → `degraded`/`step_missing`;

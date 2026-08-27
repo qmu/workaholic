@@ -48,3 +48,4 @@ units are back in the queue; a colleague's is not.
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-27 — ticket archived — 20260826152528-read-a-person-s-addresses-through-one-script.md
 - 2026-08-27 — ticket archived — 20260826152528-stamp-only-an-address-the-loop-can-drive.md
+- 2026-08-27 — ticket archived — 20260826152528-answer-mine-for-a-person-s-other-address.md

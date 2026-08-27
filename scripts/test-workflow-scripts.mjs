@@ -613,7 +613,11 @@ function testDirectionHealthRefusals() {
       // Comments are prose ABOUT the refusal and naming it there is the point; the test reads
       // what the step can execute.
       .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
-    for (const forbidden of ["close.sh", "open-proposal.sh"]) {
+    // `amend.sh` joined the list on 2026-08-27 and is the sharpest of the three: the step READS
+    // a direction's lifecycle state, and the writer that revises one now exists. Conflating the
+    // two would let a reading amend the operator's direction, which is the failure the whole
+    // pin was built against.
+    for (const forbidden of ["close.sh", "amend.sh", "open-proposal.sh"]) {
       assertTrue(`the step's closure never reaches ${forbidden}`,
         !closure.includes(forbidden), closure.split("\n").filter((l) => l.includes(forbidden)).join("\n"));
     }
@@ -16370,6 +16374,7 @@ const tests = [
   ["propose list-inbound-issues: the clock-fired discovery reads the inbox, never invents one", testListInboundIssues],
   ["propose inbound sweep: one marker writer, and the ledger read never runs blind", testInboundSweep],
   ["branching publish-tree-pr: threads a native Closes #<N> keyword when an issue number is in hand", testPublishTreePrClosesIssue],
+  ["branching publish-tree-pr: a strategy-touching publish never auto-merges", testPublishTreePrStrategyExemption],
   ["the PR title is not the commit subject (P4's surviving half)", testPrTitleSeparateFromSubject],
   ["the reply thread is found, not carried (Q1)", testStatelessThreadLookup],
   ["one behaviour per command: no dispatch on a literal first word (P5)", testNoSubcommands],
@@ -16753,6 +16758,82 @@ echo ""
     rmSync(A, { recursive: true, force: true });
     rmSync(binDir, { recursive: true, force: true });
   }
+}
+
+// ---------- publish-tree-pr.sh never auto-merges a strategy-touching publish (2026-08-27) ----------
+// The exemption has stood since 2026-08-14 and was PROSE ONLY: `/specificate`'s step 10 said
+// "leave WORKAHOLIC_AUTO_MERGE unset", and nothing stopped a run from setting it. `amend.sh`
+// makes it load-bearing — it is the entire premise on which a third writer of a LIVE direction
+// is admissible — so the refusal moved into the seam and is pinned here.
+//
+// The three rows are the whole contract: a strategy-touching tree does not merge WITH
+// `WORKAHOLIC_AUTO_MERGE=1` SET (setting it is the point — an unset variable would pass this
+// test with the refusal deleted); a tree touching no strategy merges exactly as before; and the
+// refusal is reported as its own outcome rather than as a failure.
+//
+// EACH SCENARIO GETS ITS OWN FIXTURE, for the reason `testPublishTreePrClosesIssue` already
+// records: the work branch is `work-$(date +%Y%m%d-%H%M%S)`, so two publishes landing in the
+// same wall-clock second against the SAME origin collide (`branch_collision`). Independent
+// origins never share that namespace, so this is not a race to sleep around.
+function publishOneArtifact(relPath, body, title) {
+  const { origin, A } = makePublishFixture();
+  const binDir = mkdtempSync(join(tmpdir(), "wh-gh-strategy-"));
+  try {
+    // The stub answers `slug`, the pull-request POST, and — deliberately — a SUCCESSFUL merge.
+    // A stub that refused would let the refusal pass for the wrong reason.
+    writeFileSync(join(binDir, "gh"), `#!/bin/sh
+case "$1 $2" in
+  "api user") printf 'tester\\n'; exit 0 ;;
+esac
+case "$*" in
+  *pulls*POST*) echo '{"html_url":"https://example.test/pr/7","number":7}'; exit 0 ;;
+  *merge*) echo '{"merged":true}'; exit 0 ;;
+esac
+echo ""
+`);
+    chmodSync(join(binDir, "gh"), 0o755);
+    const env = { ...process.env, PATH: `${binDir}:${process.env.PATH}`, WORKAHOLIC_AUTO_MERGE: "1" };
+    run(A, `${POSIX_SH} ${SCRIPTS.openPublishTree}`);
+    const target = join(A, ".publish", relPath);
+    mkdirSync(dirname(target), { recursive: true });
+    writeFileSync(target, body);
+    const out = run(A,
+      `${POSIX_SH} ${SCRIPTS.publishTreePr} "${title}" "why" "None" "None" "None" "verify" ${relPath}`,
+      { env }).stdout;
+    run(A, `${POSIX_SH} ${SCRIPTS.closePublishTree}`);
+    return JSON.parse(out || "{}");
+  } finally {
+    rmSync(origin, { recursive: true, force: true });
+    rmSync(A, { recursive: true, force: true });
+    rmSync(binDir, { recursive: true, force: true });
+  }
+}
+
+function testPublishTreePrStrategyExemption() {
+  // 1. A PUBLISH THAT TOUCHES `.workaholic/strategies/` DOES NOT MERGE.
+  const held = publishOneArtifact(".workaholic/strategies/ship-it.md",
+    "---\ntype: Strategy\nslug: ship-it\nstatus: active\ntarget_date: 2026-12-31\n" +
+    "assignees: [a@example.com]\n---\n\n## Aim\n\na\n\n## Schedule\n\ns\n",
+    "Propose strategy ship-it");
+  assertEq("a strategy-touching publish reports its own outcome, not a failure",
+    [held.ok, held.merged, held.merge_reason], [true, false, "strategy_touching"]);
+  assertTrue("and the pull request is left open for the operator",
+    typeof held.pr_url === "string" && held.pr_url.length > 0, JSON.stringify(held));
+
+  // 2. AND EVERY OTHER PATH IS BYTE-IDENTICAL. Same stub, same variable, no strategy.
+  const ordinary = publishOneArtifact(".workaholic/feedbacks/20260827000000-x.md",
+    "---\ntype: Feedback\n---\n\nx\n", "Register feedback 20260827000000");
+  assertEq("a publish touching no strategy still merges under WORKAHOLIC_AUTO_MERGE=1",
+    [ordinary.ok, ordinary.merged, ordinary.merge_reason], [true, true, "merged"]);
+
+  // 3. THE REFUSAL IS DERIVED FROM THE TREE, NEVER FROM A CALLER-SUPPLIED FLAG — a flag is
+  //    the same prose one layer down, which is the thing this change replaces.
+  const src = readFileSync(SCRIPTS.publishTreePr, "utf8")
+    .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+  assertTrue("the seam derives it from a diff against the base",
+    /strategy_touching/.test(src) && /git diff --name-only "origin\/\$\{base\}" HEAD/.test(src), src);
+  assertTrue("and reads no environment variable of its own for it",
+    !/WORKAHOLIC_(SKIP|NO)_[A-Z_]*STRATEGY/.test(src), src);
 }
 
 // ---------- extract-issue-number.sh (the FB-auto-close ticket) ----------

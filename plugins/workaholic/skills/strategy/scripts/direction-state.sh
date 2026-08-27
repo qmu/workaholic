@@ -37,8 +37,11 @@
 #
 # ═══ WHAT IT DOES NOT ANSWER ══════════════════════════════════════════════════════════
 #
-# It never closes a strategy, never proposes, never lifts a gate and never edits anything: the
-# artifact has exactly two writers (`create.sh` creates, `close.sh` ends) and this is neither.
+# It never closes a strategy, never proposes, never amends one, never lifts a gate and never
+# edits anything: the artifact has three writers (`create.sh` creates, `amend.sh` revises the
+# three revisable parts, `close.sh` ends) and this is none of them. Reading a direction's state
+# and writing one are different acts; `amend.sh` is reached only from `/specificate`'s
+# announcement route, never from a reader's own judgement that a direction looks stale.
 # It is NOT a second `pace`: `pace` answers *will this arrive*, `overdue` answers *has the date
 # passed*, `dormant` answers *is anything answering this at all*.
 #

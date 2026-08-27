@@ -53,3 +53,4 @@ than passing for green. Nothing merges differently and the QA window owns qualit
 - 2026-08-27 — ticket archived — 20260827161954-write-read-base-checks-sh-the-one-checks-reader.md
 - 2026-08-27 — ticket archived — 20260827161955-name-the-merge-that-turned-the-base-red.md
 - 2026-08-27 — ticket archived — 20260827161956-add-the-moderate-step-base-health.md
+- 2026-08-27 — ticket archived — 20260827161957-render-the-base-s-health-as-a-moderation-event.md

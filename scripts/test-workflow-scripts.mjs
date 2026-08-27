@@ -942,10 +942,28 @@ function testBaseHealthStep() {
     assertTrue("and says so rather than naming a merge it did not identify",
       /^unattributable: /.test(j.needs_agent[0].base.attribution), j.needs_agent[0].base.attribution);
 
+    // ---- THE ROOT EVENT: ONLY A RED BASE SUPPLIES ONE, AND IT LINKS THE COMMIT ----
+    // `a step with no event renders no line` is the renderer's independent guard against a
+    // nothing-happened line reaching the root, so what a green and a degraded read supply is
+    // asserted to be nothing at all rather than trusted to the prose.
+    set({ [tip]: RED, [c2]: GREEN, [c1]: GREEN });
+    j = step();
+    assertTrue("a red base contributes a root line naming the reading",
+      /^the base went red at /.test(j.event), j.event);
+    assertTrue("...linking the commit", j.event.includes(`/commit/${tip}|${tip.slice(0, 7)}>`), j.event);
+    assertTrue("...naming the failing checks", j.event.includes("Validate Plugins failing"), j.event);
+    assertTrue("...and the merge it came from", j.event.includes("https://x/7"), j.event);
+
+    set({ [tip]: RED, [c2]: RED, [c1]: RED });
+    j = step();
+    assertTrue("an unattributable red base still contributes a line, saying so",
+      /could not be attributed$/.test(j.event) && j.event.includes(`/commit/${tip}`), j.event);
+
     // ---- A GREEN BASE IS SILENCE ----
     set({ [tip]: GREEN });
     j = step();
     assertEq("a green base asks nothing at all", [j.status, j.needs_agent], ["ok", []]);
+    assertEq("and contributes no root event, so a healthy hour renders no line", j.event, "");
 
     // ---- AND A DEGRADED READ IS NAMED, AND ASKS NOTHING ----
     // The two must never render alike: a reading we could not make is not a finding about the

@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-27T16:19:57+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on: 20260827161956-add-the-moderate-step-base-health.md
@@ -88,3 +89,35 @@ line reaching the root even when the tick's diff calls the step changed.
   only posts when there is a question to carry.
 - Resist putting the failing check names in the `summary` **and** the `event` in a form
   that reorders between reads — an unstable ordering makes every tick look changed.
+
+## Final Report
+
+Development completed as planned. `step-base-health.sh` now supplies an `event` for a red base
+only. The root line reads *the base went red at `<commit>` — `<checks>` failing, from that merge*,
+with the commit linked and the pull request linked when the walk named one; an `unattributable`
+red base contributes a line that says in words the merge could not be attributed.
+
+The guard the ticket asked not to weaken is asserted rather than trusted: a green base and every
+degraded read supply **no** event, which the suite pins with its own case, so a healthy hour
+renders no line at all whatever the tick's diff says about this step. The posting gate is
+untouched — the root posts on at least one question, and on a red tick this step has already
+supplied one, so the event never opens a root by itself.
+
+Diff stability: the `summary` is unchanged in kind and carries the reading plus the failing check
+names. The commit sha it embeds is one of the three forms `render-tick-post.sh` normalises out
+(timestamp, bare hex object name, clock time), so two ticks over one unchanged red reading compare
+equal and do not read as two changes. The check names come out of `read-base-checks.sh`'s
+`failing` array in the order GitHub returned them, joined once — one ordering, used by both the
+summary and the event.
+
+`reference/workflow.md` §20 gained the event paragraph in the same change.
+
+### Discovered Insights
+
+- **Insight**: the repository-URL derivation for a root link is a **local** `git config --get
+  remote.origin.url` read with two `sed` cases, and `step-direction-health.sh` is where that
+  pattern already lives.
+  **Context**: reaching for `gh-rest.sh slug` or `git-context.sh` instead would have put either a
+  `gh` invocation or a base-ref resolution that fails loud into a step whose whole contract is to
+  read the walk and nothing else. The local form also degrades to a bare short sha rather than to
+  a broken link when there is no remote.

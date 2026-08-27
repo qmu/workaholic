@@ -39,7 +39,7 @@ nothing stored anywhere, once that declaration no longer holds.
 - [x] The claim scan reads the declaration, answers its own verdict with `resumable: false`,
       refuses `resume` under that name, and reverts once the declared ticket is driven —
       proved over a hermetic fixture. (#20260827082244-give-a-declared-handoff-its-own-claim-verdict.md)
-- [ ] The survey excludes it by name and offers it in no takeover list, and `ok` stays
+- [x] The survey excludes it by name and offers it in no takeover list, and `ok` stays
       reachable while it waits, since a person is what it waits for. (#20260827082244-exclude-a-declared-handoff-from-the-survey-offer.md)
 - [ ] The new word is classified in `claims.md`'s *Proofs and judgements* table and named in
       `drive/SKILL.md` §6 and `CLAUDE.md`, with the suite failing on a disagreement. (#20260827082245-classify-the-verdict-and-update-the-documents.md)
@@ -50,3 +50,4 @@ nothing stored anywhere, once that declaration no longer holds.
 - 2026-08-27 — ticket archived — 20260827082244-reproduce-the-handoff-re-resume-and-pin-it.md
 - 2026-08-27 — ticket archived — 20260827082244-read-the-declared-handoff-in-the-claim-scan.md
 - 2026-08-27 — ticket archived — 20260827082244-give-a-declared-handoff-its-own-claim-verdict.md
+- 2026-08-27 — ticket archived — 20260827082244-exclude-a-declared-handoff-from-the-survey-offer.md

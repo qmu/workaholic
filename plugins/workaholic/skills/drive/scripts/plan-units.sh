@@ -59,7 +59,7 @@
 #
 # NOTHING IS EXCLUDED SILENTLY. Every mission and ticket the survey drops is reported
 # in `excluded` with its reason (`claimed_active`, `claimed_reported`,
-# `claimed_undelivered`,
+# `claimed_undelivered`, `claimed_awaiting_verification`,
 # `claimed_by_other`, `claimed_resumable`, `claimed_superseded`, `owned_by_other`,
 # `no_plan`, `no_tickets`,
 # `queue_drained`, `mission_member`; `not_approved` was retired with the draft gate --
@@ -116,6 +116,20 @@
 # retry, not a takeover -- and it forbids `ok` (drive/SKILL.md §7), which `queue_drained`
 # deliberately does not.
 #
+# `claimed_awaiting_verification` IS THE SEVENTH, AND IT NAMES A UNIT WAITING ON A PERSON
+# (2026-08-27, mission `stop-re-resuming-a-declared-handoff-unit`). The work still queued behind
+# the claim was DECLARED unverifiable in an unattended environment at creation, so §6 routed the
+# unit to the handoff route and its pull request is open, and its claim standing, by design. It
+# read `claimed_resumable` until then -- the survey offered the takeover on every tick and the
+# takeover could drive nothing, measured on PR #647: routed at 02:14 UTC, taken over again at
+# 06:43. Its next action is a person running the declared verification, which is neither
+# `claimed_reported`'s merge nor `claimed_active`'s wait.
+#
+# IT MUST NOT FORBID `ok` (drive/SKILL.md §7). A unit waiting on a declared human verification is
+# the gate WORKING, exactly like a pull request a scan finding holds open; making it `pending`
+# would put `ok` out of reach on precisely the runs where the machinery did its job -- and, since
+# the claim stands until a person acts, out of reach for as long as that takes.
+#
 # `undelivered[]` IS WHERE THAT RETRY IS OFFERED (2026-08-27, mission
 # `deliver-and-retire-what-the-loop-already-proved-finished`). Naming the state was half the
 # repair: the unit was excluded honestly and still offered to nothing, so it was delivered by
@@ -171,7 +185,7 @@
 #                       them (`backlog[]` empty), and something was excluded. It carries
 #                       a count PER EXCLUSION REASON, because `owned_by_other` is one
 #                       reason among several (`claimed_active`, `claimed_reported`,
-#                       `claimed_undelivered`,
+#                       `claimed_undelivered`, `claimed_awaiting_verification`,
 #                       `claimed_superseded`, `mission_member`, `owner_unresolved`, ...)
 #                       and the answers differ: a queue emptied by claims is the protocol
 #                       working, a queue emptied by ownership is work nothing can drive.
@@ -368,6 +382,20 @@ if [ -n "$ROWS" ]; then
             # a review -- and because a completion token must not cover it (`drive/SKILL.md`
             # §7).
             c_exc=claimed_undelivered
+        elif [ "$c_reason" = "awaiting_verification" ]; then
+            # A UNIT WAITING ON A DECLARED HUMAN VERIFICATION (2026-08-27, mission
+            # `stop-re-resuming-a-declared-handoff-unit`). Its remaining queued work carries
+            # `verification_handoff:`, so §6 routed it to the handoff route: the pull request is
+            # open on purpose, the claim stands on purpose, and the next action belongs to a
+            # PERSON running the verification this environment cannot. `resumable: false` already
+            # keeps it out of `resumable[]`; what this adds is a reason a cron log can act on,
+            # because `claimed_reported` would say a merge is what it waits for and
+            # `claimed_active` would say a run is on it. Neither is true.
+            #
+            # NOTHING ELSE IS OFFERED FOR IT EITHER: it is not a takeover, not a merge retry
+            # (`undelivered[]` takes only `report_undelivered`, a proof), and not work that came
+            # back (`resurveyed[]` takes only `superseded`). One exclusion, one next action.
+            c_exc=claimed_awaiting_verification
         elif [ "$c_reason" = "superseded" ]; then
             c_exc=claimed_superseded
         else

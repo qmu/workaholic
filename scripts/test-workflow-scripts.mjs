@@ -15132,6 +15132,88 @@ function testDeclaredHandoffGetsItsOwnVerdict() {
   } finally { cleanup(origin); cleanup(A); cleanup(B); }
 }
 
+// ---------- the verdict, carried to the survey ----------
+// `plan-units.sh` classifies on `resumable` first, so the new verdict already fell out of
+// `resumable[]` the moment it shipped. What is left is to name the exclusion HONESTLY — a reason
+// is read straight out of a cron log and has to imply its own next action, and neither
+// `claimed_reported` (a merge is what it waits for) nor `claimed_active` (a run is on it) is true
+// of a unit waiting on a person to run a declared verification.
+//
+// AND TO SETTLE WHAT IT DOES TO THE TOKEN: nothing. Such a pull request is open BY DESIGN, like
+// one a scan finding holds, so a run whose only outstanding item is this still reports `ok`.
+//
+// THE OTHER THREE LISTS MUST STAY EMPTY OF IT. It is not a takeover (`resumable[]`), not a merge
+// retry (`undelivered[]`, which takes only the `report_undelivered` proof), and not work that
+// came back (`resurveyed[]`, which takes only `superseded`).
+function testDeclaredHandoffIsExcludedFromTheOffer() {
+  const { origin, A, B } = makeClaimFixture();
+  const CLAIM = `${POSIX_SH} ${SCRIPTS.claim}`;
+  const PLAN = `${POSIX_SH} ${SCRIPTS.planUnits}`;
+  const lapsed = { ...process.env, WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES: "0" };
+  // Every exclusion reason the survey reported, with its count — read out of `excluded[]`
+  // itself, exactly as `backlog_all_excluded` derives its own counts.
+  const tally = (plan) => {
+    const out = {};
+    for (const e of plan.excluded) out[e.reason] = (out[e.reason] || 0) + 1;
+    return out;
+  };
+  try {
+    const t1 = `.workaholic/tickets/todo/${TEST_SLUG}/20260729000001-t1.md`;
+    const t2 = `.workaholic/tickets/todo/${TEST_SLUG}/20260729000002-t2.md`;
+    const batch = JSON.parse(run(A, `${CLAIM} batch ${t1} ${t2}`).stdout);
+    const wt = join(A, ".worktrees", batch.unit);
+
+    run(wt, `${POSIX_SH} ${SCRIPTS.archive} ${t1} "Drive t1" https://example.test/repo why changes None None verify`);
+    mkdirSync(join(wt, ".workaholic/stories"), { recursive: true });
+    writeFileSync(join(wt, `.workaholic/stories/${batch.branch}.md`),
+      `---\ntype: Story\nbranch: ${batch.branch}\ntickets_completed: 1\nmission: []\ntickets: []\n---\n\n## 1. Overview\n\nreported\n`);
+    execSync(`git add -A && git commit -q -m "Add branch story" && git push -q origin ${batch.branch}`, { cwd: wt });
+
+    // THE BASELINE, with no declaration anywhere: an ordinary parked unit, offered.
+    const before = JSON.parse(run(B, PLAN, { env: lapsed }).stdout);
+    assertEq("without a declaration the unit is offered for takeover",
+      before.resumable.map((x) => x.unit), [batch.unit]);
+    // BOTH of the unit's tickets, because the survey reads the BASE: the archive of t1 lives on
+    // the claim branch, so on main the queue still holds the pair the claim stamped.
+    assertEq("and its exclusion says a takeover is available",
+      tally(before).claimed_resumable, 2);
+
+    const t2AtTip = `.workaholic/tickets/todo/${basename(t2)}`;
+    setVerificationHandoff(wt, t2AtTip, "a signed build the release device produces");
+    execSync(`git add -A && git commit -q -m "Declare the handoff" && git push -q origin ${batch.branch}`, { cwd: wt });
+
+    const after = JSON.parse(run(B, PLAN, { env: lapsed }).stdout);
+    assertTrue("the claim is still reported in flight, under its own verdict",
+      after.claimed.some((c) => c.unit === batch.unit
+        && c.resume_reason === "awaiting_verification" && c.resumable === false),
+      JSON.stringify(after.claimed));
+    assertTrue("and its ticket is excluded under a reason naming what it waits for",
+      after.excluded.some((e) => e.reason === "claimed_awaiting_verification"
+        && e.id.endsWith("20260729000002-t2.md")),
+      JSON.stringify(after.excluded));
+    assertEq("it is a takeover in no list: not resumable, not a merge retry, not work that came back",
+      { r: after.resumable.length, u: after.undelivered.length, rs: after.resurveyed.length },
+      { r: 0, u: 0, rs: 0 });
+
+    // ONE REASON CHANGED NAME; NOTHING ELSE MOVED.
+    const a = tally(after);
+    const b = tally(before);
+    assertEq("the takeover reason is gone", a.claimed_resumable, undefined);
+    assertEq("replaced one-for-one by the new one", a.claimed_awaiting_verification, 2);
+    delete a.claimed_awaiting_verification;
+    delete b.claimed_resumable;
+    assertEq("and every other exclusion reason's count is unchanged", a, b);
+
+    // THE DERIVED READING PICKS IT UP WITH NO SECOND VOCABULARY — the counts come from
+    // whatever `excluded[]` carries, so a new reason lands there by construction.
+    assertTrue("a queue offering nothing still says so", after.backlog_all_excluded.excluded,
+      JSON.stringify(after.backlog_all_excluded));
+    assertEq("and counts the new reason among the others",
+      after.backlog_all_excluded.reasons.find((r) => r.reason === "claimed_awaiting_verification"),
+      { reason: "claimed_awaiting_verification", count: 2 });
+  } finally { cleanup(origin); cleanup(A); cleanup(B); }
+}
+
 // One claim row out of a list-claims.sh run.
 function rowOf(result, unit) {
   return JSON.parse(result.stdout).claims.find((c) => c.unit === unit);
@@ -16156,6 +16238,7 @@ const tests = [
   ["drive claim protocol: parked-at-PR is not died-mid-drive, and same-machine resume adopts", testResumeParkedAndAdoption],
   ["drive claim protocol: a declared handoff unit gets its own verdict", testDeclaredHandoffGetsItsOwnVerdict],
   ["drive claim protocol: the claim scan reads the declared handoff", testClaimScanReadsTheDeclaredHandoff],
+  ["drive claim protocol: a declared handoff is excluded from the offer", testDeclaredHandoffIsExcludedFromTheOffer],
   ["drive claim protocol: an archive git cannot prove is a rename keeps its artifact", testClaimSurvivesUndetectedRename],
   ["drive claim protocol: a mission artifact never resolves by basename", testMissionArtifactNeverResolvesByBasename],
   ["PR seams degrade when the runner has no gh", testGhAbsentDegrades],

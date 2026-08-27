@@ -52,3 +52,4 @@ with nothing written, and the ask still lands as a record.
 - 2026-08-27 — ticket archived — 20260827112528-write-amend-sh-the-one-writer-of-a-live-direction.md
 - 2026-08-27 — ticket archived — 20260827112528-hold-a-revised-strategy-to-the-write-time-floor.md
 - 2026-08-27 — ticket archived — 20260827112528-record-what-a-revision-moved-in-the-schedule-prose.md
+- 2026-08-27 — ticket archived — 20260827112528-pin-that-a-strategy-revision-can-never-auto-merge.md

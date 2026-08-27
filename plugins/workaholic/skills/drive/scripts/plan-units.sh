@@ -59,6 +59,7 @@
 #
 # NOTHING IS EXCLUDED SILENTLY. Every mission and ticket the survey drops is reported
 # in `excluded` with its reason (`claimed_active`, `claimed_reported`,
+# `claimed_undelivered`,
 # `claimed_by_other`, `claimed_resumable`, `claimed_superseded`, `owned_by_other`,
 # `no_plan`, `no_tickets`,
 # `queue_drained`, `mission_member`; `not_approved` was retired with the draft gate --
@@ -104,6 +105,17 @@
 # scan, which is `resumable: true`, so it lands in `claimed_resumable` and in the offer.
 # No branch here changed: the classification below already keys on `resumable` first.
 #
+# `claimed_undelivered` IS THE SAME SPLIT, ONE STATE LATER (2026-08-27, mission
+# `close-the-units-the-loop-already-finished`). `claimed_reported` was still covering two
+# next actions: a pull request a scan finding holds is a PERSON'S business, and a pull
+# request the transport refused to merge is the LOOP'S OWN undelivered work -- offered by
+# nothing, told to nobody, and reported `ok` over. Measured 2026-08-27: four such pull
+# requests green and unmerged. The shared scan tells them apart from the merge outcome the
+# run that tried recorded in the branch story, so this maps one more reason and re-derives
+# nothing. It is `resumable: false` like `queue_drained` -- the next action is a merge
+# retry, not a takeover -- and it forbids `ok` (drive/SKILL.md §7), which `queue_drained`
+# deliberately does not.
+#
 # `resumable[]` is a THIRD offer alongside `missions`/`backlog`, not a fourth kind of
 # exclusion: those two are claimed fresh from the base, a resumable unit is taken over
 # at its pushed branch tip. A resumable unit left untaken is claimable work outstanding
@@ -137,6 +149,7 @@
 #                       them (`backlog[]` empty), and something was excluded. It carries
 #                       a count PER EXCLUSION REASON, because `owned_by_other` is one
 #                       reason among several (`claimed_active`, `claimed_reported`,
+#                       `claimed_undelivered`,
 #                       `claimed_superseded`, `mission_member`, `owner_unresolved`, ...)
 #                       and the answers differ: a queue emptied by claims is the protocol
 #                       working, a queue emptied by ownership is work nothing can drive.
@@ -292,6 +305,15 @@ if [ -n "$ROWS" ]; then
             c_exc=claimed_by_other
         elif [ "$c_reason" = "queue_drained" ]; then
             c_exc=claimed_reported
+        elif [ "$c_reason" = "report_undelivered" ]; then
+            # THE LOOP'S OWN UNDELIVERED WORK, not a human's business (2026-08-27, mission
+            # `close-the-units-the-loop-already-finished`). `claimed_reported` said *waiting on
+            # a person* and was covering this too: a unit the loop finished whose merge the
+            # transport refused, excluded at every later survey, offered by nothing, told to
+            # nobody. Its own reason, because its next action is its own -- a merge retry, not
+            # a review -- and because a completion token must not cover it (`drive/SKILL.md`
+            # §7).
+            c_exc=claimed_undelivered
         elif [ "$c_reason" = "superseded" ]; then
             c_exc=claimed_superseded
         else
@@ -360,6 +382,7 @@ is_claimed_artifact() {
 #
 # AND IT IS NARROW BY CONSTRUCTION. Every other reason still excludes: `claimed_active` is being
 # driven now, `claimed_by_other` is not this runner's, `claimed_reported` is waiting on a human,
+# `claimed_undelivered` is finished work no merge landed,
 # `claimed_resumable` is taken over rather than re-claimed. Only a claim proved empty is stepped
 # over.
 is_superseded() {
@@ -615,6 +638,19 @@ done
 # offer none of it" never render alike again. The per-reason counts are what make the
 # reading actionable: a queue emptied by claims is the protocol working; one emptied by
 # ownership is work nothing can drive. It moves no token (see the header).
+#
+# THE COUNTS ARE DERIVED FROM WHATEVER `excluded[]` CARRIES, so a new exclusion reason is
+# counted here by construction and needs no edit (2026-08-27, confirmed while adding
+# `claimed_undelivered`). That genericity is the property to preserve: a hand-maintained list
+# of reasons in this loop would be a second vocabulary to keep in step with the mapping above,
+# and the one that drifted would silently drop a reason from the reading rather than fail.
+#
+# `claimed_undelivered` IS THE COUNT THAT MEANS THE LOOP'S OWN WORK. The others say a human is
+# on it, a colleague owns it, or the protocol is working; that one says the loop finished a unit
+# and could not deliver it, which is the reading `backlog_all_excluded` existed for and could
+# not express while the reason was folded into `claimed_reported`. It still moves no token --
+# that is `../SKILL.md` §7's own row, keyed on the units THIS RUN finished, and merging the two
+# would turn an hourly survey reading into a completion gate.
 ALL_EXCLUDED=false
 EXCLUDED_REASONS=""
 if [ "$BACKLOG_SIZE" -gt 0 ] && [ -z "$BACKLOG" ] && [ -n "$EXCLUDED" ]; then

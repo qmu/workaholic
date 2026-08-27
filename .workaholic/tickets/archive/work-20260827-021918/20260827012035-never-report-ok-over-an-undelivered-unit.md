@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-27T01:20:35+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -85,3 +86,43 @@ run's remains, not a unit waiting on a person) — and `claimed_superseded`, whi
 - Getting this wrong in the permissive direction restores today's silence; getting it wrong in the
   strict direction makes `ok` unreachable and trains the operator to ignore the token. The
   scan-held carve-out is what keeps it reachable, so implement it in the same change, not after.
+
+## Final Report
+
+Development completed as planned.
+
+§7's token table was read whole first and the two new rows were added as **siblings** of the
+readings already there, not as a second mechanism:
+
+- A `review` unit this run finished reporting **`merge_refused: <word>`** → `pending`. Its work
+  is on a pushed branch behind an open pull request and the transport, not a person, is what
+  stopped it — the `report_incomplete` precedent exactly (a dead run's remains, not a unit
+  waiting on a person).
+- A pull request held by a **`hard` or `confirm`** finding (`merge_not_attempted`) → **unchanged**,
+  still not `pending` on its own. That pull request waits on a person by design.
+
+The carve-out shipped in the same change rather than after, as the Considerations required: the
+strict-direction failure is the more expensive one, because an `ok` that is unreachable on runs
+where every gate worked is a token an operator learns to ignore.
+
+The token is keyed on **the outcome the route already recorded** (the sibling ticket's
+`merge_refused`), never re-derived — the run that made the merge attempt is the only thing that
+knows what happened to it — and a withheld token says which unit and which refusal.
+`backlog_all_excluded` still moves no token, untouched: a survey that could offer nothing is a
+different fact from a unit *this run* finished.
+
+### Discovered Insights
+
+- **Insight**: The undelivered unit satisfied every other row of the table, which is why the
+  silence was total rather than intermittent.
+  **Context**: Its queue is drained, its claim is excluded `claimed_reported`, nothing is
+  claimable, the survey is current and readable — so `ok` was not a bug in any single reading,
+  it was the correct answer to every question the table asked. That is what makes a *new row*
+  the right shape and a tweak to an existing one wrong: no reading was misfiring.
+
+- **Insight**: The two states are told apart by the tier the route already read, so no new
+  derivation was needed anywhere.
+  **Context**: `gate-decision.sh` produces `hard` / `confirm` / `override_only`, §6's route turns
+  that into `merge_not_attempted: <tier>` or attempts the merge, and §7 keys on the outcome. One
+  reading, three consumers, no second opinion about whether a pull request is held by a gate or
+  by a transport — which is exactly the disagreement that would reintroduce the silence.

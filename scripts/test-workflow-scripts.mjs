@@ -45,6 +45,7 @@ const SCRIPTS = {
   identity: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/identity.sh"),
   auditIdentityCoverage: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/audit-identity-coverage.sh"),
   stepUndrivableUnits: join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-undrivable-units.sh"),
+  stepUndeliveredUnits: join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-undelivered-units.sh"),
   listTodo: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/list-todo.sh"),
   proposeRun: join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/run.sh"),
   proposeLogAppend: join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/log-append.sh"),
@@ -13724,6 +13725,61 @@ function testClaimMergedReader() {
     }
     assertTrue("and it reaches GitHub only through the one transport",
       !/\bgh (issue|pr|repo|api)\b/.test(body) && body.includes("gh-rest.sh"), body.slice(0, 300));
+
+    // WHAT BECAME OF THE PULL REQUEST (2026-08-27). `state=closed` made an OPEN pull request
+    // return an empty array, so `open`, `closed-unmerged` and `no pull request at all` all
+    // read `not_merged` — measured on #622/#625/#633/#635, four green units indistinguishable
+    // from four branches nobody ever opened one for.
+    const NOW = Math.floor(Date.now() / 1000);
+    const iso = (hoursAgo) => new Date((NOW - hoursAgo * 3600) * 1000).toISOString();
+
+    stub(`echo '[{"number":9,"state":"open","merged_at":null,"created_at":"${iso(12)}","html_url":"https://x/9"}]'`);
+    const open = read();
+    assertEq("an open pull request is `open`, with its number and url",
+      [open.state, open.pr_state, open.pr_number, open.pr_url],
+      ["not_merged", "open", 9, "https://x/9"]);
+    assertTrue("and its age is read in whole hours", open.open_hours >= 11 && open.open_hours <= 13,
+      String(open.open_hours));
+
+    stub(`echo '[{"number":8,"state":"closed","merged_at":null,"created_at":"${iso(30)}","html_url":"https://x/8"}]'`);
+    assertEq("a closed-unmerged pull request is `closed`, with no age",
+      [read().pr_state, read().pr_number, read().open_hours], ["closed", 8, null]);
+
+    stub(`echo '[{"number":7,"state":"closed","merged_at":"2026-08-20T00:00:00Z","created_at":"${iso(50)}","html_url":"https://x/7"}]'`);
+    assertEq("a merged one is `merged`, and carries no age either",
+      [read().state, read().pr_state, read().pr_number, read().open_hours],
+      ["merged", "merged", 7, null]);
+
+    // `none` IS A FACT, NOT A DEGRADATION — it is precisely the answer `not_merged` hid.
+    stub("echo '[]'");
+    assertEq("a lookup that found no pull request says `none`, never unanswerable",
+      [read().state, read().pr_state, read().pr_number, read().pr_url, read().open_hours],
+      ["not_merged", "none", null, "", null]);
+
+    // A MERGED ONE WINS OVER AN OPEN ONE on a re-proposed head: the fixed order is what stops
+    // two runs over one branch disagreeing.
+    stub(`echo '[{"number":5,"state":"open","merged_at":null,"created_at":"${iso(2)}","html_url":"https://x/5"},`
+      + `{"number":4,"state":"closed","merged_at":"2026-08-20T00:00:00Z","created_at":"${iso(80)}","html_url":"https://x/4"}]'`);
+    assertEq("a merged pull request wins over an open one on the same head",
+      [read().state, read().pr_state, read().pr_number], ["merged", "merged", 4]);
+
+    // AN UNPARSEABLE DATE IS null, NEVER 0 — a pull request whose age we could not read is
+    // exactly the one a reader must not call fresh.
+    stub(`echo '[{"number":3,"state":"open","merged_at":null,"created_at":"not-a-date","html_url":"https://x/3"}]'`);
+    assertEq("an unreadable created_at leaves the age null, not zero",
+      [read().pr_state, read().open_hours], ["open", null]);
+
+    // EVERY DEGRADATION CARRIES THE FIELDS TOO, so a consumer never reads a missing key as a
+    // state. `unanswerable` is the pr_state of a read that did not happen.
+    stub(`echo "API rate limit exceeded" >&2; exit 1`);
+    assertEq("a degraded read is unanswerable in both fields",
+      [read().state, read().pr_state, read().pr_number, read().open_hours],
+      ["unanswerable", "unanswerable", null, null]);
+
+    // AND THE ORIGINAL QUESTION IS UNTOUCHED: `state` still means "did this branch's work
+    // reach the base", which every existing consumer reads and none of this may move.
+    assertTrue("the reader still asks the pulls collection narrowed by head",
+      /pulls\?state=all&head=/.test(readFileSync(READER, "utf8")), "the lookup shape moved");
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }
@@ -15802,6 +15858,9 @@ const tests = [
   ["drive claim protocol: a merged claim is never offered for resumption", testMergedClaimIsNeverResumable],
   ["drive claim protocol: a fresh claim takes a superseded claim's work", testFreshClaimOverSupersededClaim],
   ["drive claim protocol: a unit resolves to its live claim branch", testUnitResolvesToItsLiveClaimBranch],
+  ["drive claim protocol: a reported claim is two states", testReportedClaimIsTwoStates],
+  ["story/record-merge-outcome.sh: the durable home for a merge outcome", testRecordMergeOutcome],
+  ["moderate/undelivered-units: the loop's own undelivered work reaches a person", testUndeliveredUnitsStep],
   ["branching/ensure-worktree.sh never shadows a published branch", testEnsureWorktreeNeverShadowsRemote],
   ["drive survey: a mission behind a merged claim is surveyed again", testSupersededMissionIsResurveyed],
   ["drive claim protocol: a mission claim's artifact is unaffected", testMissionClaimArtifactsUnaffected],
@@ -15973,6 +16032,93 @@ function testMergeReason() {
     /merge_reason=\$\(sh "\$\{SCRIPT_DIR\}\/merge-reason\.sh"/.test(wired));
   assertTrue("publish-tree-pr.sh keeps no second copy of the ladder",
     !/merge_reason="merge_not_allowed"/.test(wired));
+
+  // AND THE `review` ROUTE CARRIES THE OUTCOME INTO THE RUN REPORT (2026-08-27, mission
+  // `close-the-units-the-loop-already-finished`). The route is prose — the agent performs the
+  // merge and writes the report — so what is checkable is that the contract NAMES each outcome
+  // and that the two documents cannot drift apart on the vocabulary. Measured 2026-08-27: four
+  // green units open and undelivered while the run reported `ok`, because the route reported
+  // which route it took and never whether the merge landed.
+  const routing = readFileSync(
+    join(REPO_ROOT, "plugins/workaholic/skills/drive/reference/routing.md"), "utf8");
+  const driveSkill = readFileSync(
+    join(REPO_ROOT, "plugins/workaholic/skills/drive/SKILL.md"), "utf8");
+  for (const doc of [["routing.md", routing], ["drive/SKILL.md", driveSkill]]) {
+    for (const outcome of ["merged", "merge_refused", "merge_not_attempted"]) {
+      assertTrue(`${doc[0]} names the \`${outcome}\` merge outcome`,
+        doc[1].includes(outcome), outcome);
+    }
+    // EVERY RUNG IS NAMED WHERE THE REPORT IS DEFINED, so a reader of the contract can render
+    // any refusal the ladder produces without going to read the script.
+    for (const [, word] of cases) {
+      assertTrue(`${doc[0]} names the \`${word}\` rung`, doc[1].includes(word), word);
+    }
+  }
+  // THE SCAN-HELD CASE IS NOT A MERGE FAILURE, and both documents say so rather than leaving it
+  // to be inferred — collapsing the two hides the one failure the outcome exists to surface.
+  // Emphasis markers are stripped first: the claim is about the sentence, and `**not** a merge
+  // failure` is the same sentence as `not a merge failure`.
+  for (const doc of [["routing.md", routing], ["drive/SKILL.md", driveSkill]]) {
+    assertTrue(`${doc[0]} states a scan-held pull request is not a merge failure`,
+      /not a merge failure|never be reported as one/.test(doc[1].replace(/[*_`]/g, "")),
+      doc[0]);
+  }
+
+  // THE CONNECTOR RETRY IS A STEP OF THE ROUTE, NOT A SENTENCE IN A RULES FILE (2026-08-27,
+  // the same mission). `rules/shell.md`'s qualification permits it; until this change nothing
+  // required it or recorded whether it was taken, so the loop's closing act was optional in
+  // practice. It is prose — no script may call an MCP tool, which is the whole reason the gap
+  // existed — so what is checkable is that the route states the precondition, the bound and the
+  // outcome, and that its bounds still match the rule that authorizes it.
+  const shellRules = readFileSync(join(REPO_ROOT, "plugins/workaholic/rules/shell.md"), "utf8");
+  for (const doc of [["routing.md", routing], ["drive/SKILL.md", driveSkill]]) {
+    assertTrue(`${doc[0]} names the one tool the retry may use`,
+      doc[1].includes("mcp__github__merge_pull_request"), doc[0]);
+    assertTrue(`${doc[0]} states the retry's precondition`,
+      doc[1].includes("session_type_cannot_merge"), doc[0]);
+    assertTrue(`${doc[0]} bounds the retry to one attempt`,
+      /at most once|one attempt/.test(doc[1]), doc[0]);
+    assertTrue(`${doc[0]} makes a missing retry outcome non-conformant`,
+      /non-conformant/.test(doc[1]), doc[0]);
+  }
+  // THE BOUNDS MATCH THE RULE THAT AUTHORIZES THEM. Widening the permission at the route while
+  // `rules/shell.md` still says otherwise is the drift this pin exists to catch.
+  assertTrue("rules/shell.md still authorizes exactly this one tool and precondition",
+    shellRules.includes("mcp__github__merge_pull_request")
+      && shellRules.includes("session_type_cannot_merge"), "the authorizing rule moved");
+
+  // AND NO SCRIPT GAINED AN MCP CALL. The retry is the agent's step precisely because a script
+  // cannot make it; a wrapper shelling out to one would be the same gap with more moving parts.
+  const skillScripts = execSync(
+    "git ls-files 'plugins/workaholic/skills/**/*.sh' 'plugins/workaholic/hooks/**/*.sh'",
+    { cwd: REPO_ROOT, encoding: "utf8" }).split("\n").filter(Boolean);
+  const withMcp = skillScripts.filter((f) =>
+    readFileSync(join(REPO_ROOT, f), "utf8")
+      .split("\n").filter((l) => !l.trimStart().startsWith("#"))
+      .some((l) => l.includes("mcp__")));
+  assertEq("no shipped script calls an MCP tool", withMcp.join(","), "");
+
+  // AND `ok` NEVER COVERS AN UNDELIVERED UNIT (2026-08-27, the same mission). The token table is
+  // §7's, and the two states it now tells apart are the ticket: a transport refusal is
+  // outstanding work and forbids `ok`; a scan-held pull request is a human's business and leaves
+  // `ok` exactly as it was. Both rows must exist, because getting this wrong in the strict
+  // direction makes `ok` unreachable and trains the operator to ignore the token.
+  const tokenTable = driveSkill.slice(driveSkill.indexOf("| State at the end of the run |"));
+  const refusedRow = tokenTable.split("\n").find((l) => l.includes("merge_refused"));
+  const heldRow = tokenTable.split("\n").find((l) => l.includes("merge_not_attempted"));
+  assertTrue("§7's token table carries a merge_refused row", !!refusedRow, "row missing");
+  assertTrue("and it is `pending`", /`pending`/.test(refusedRow || ""), refusedRow || "");
+  assertTrue("§7's token table carries a merge_not_attempted row", !!heldRow, "row missing");
+  assertTrue("and it is explicitly NOT pending on its own",
+    /not by itself.*`pending`/.test(heldRow || ""), heldRow || "");
+  assertTrue("a withheld token names the unit and the refusal",
+    /(names?|says) which unit and which refusal/.test(driveSkill.replace(/[*_`]/g, "")),
+    "the withheld token's reason is not required to be named");
+  // `backlog_all_excluded` still moves no token — this change is about a unit THIS RUN finished,
+  // which is a different fact from a survey that could offer nothing.
+  assertTrue("backlog_all_excluded still moves no token",
+    /`backlog_all_excluded`[\s\S]{0,400}?moves no token|moves no token/.test(driveSkill),
+    "the no-token reading was disturbed");
 }
 
 // ---------- branching/publish-tree-pr.sh + propose's widened batch (J4) ----------
@@ -20106,6 +20252,12 @@ function testModerateRun() {
     // no path from *the loop cannot drive its own output* to *a person is told*. Same
     // placement and same reason as its neighbours: it reads, the check-in asks.
     "undrivable-units",
+    // `undelivered-units` (2026-08-27): a unit the loop drove to a green pull request whose
+    // MERGE the transport refused. No other step saw it — `stuck-prs` finds an open, green
+    // pull request and `stalled-units` reads STALE rows, and this claim's heartbeat advanced
+    // right up to the moment it finished. Same placement and same reason: it reads, the
+    // check-in asks.
+    "undelivered-units",
     // `closable-missions` is step 12 (2026-08-23): the archive gate closes a mission whose
     // LAST ticket it archives, and this names the residue that reached full acceptance any
     // other way. Since 2026-08-24 (the developer's ruling) the agent CLOSES what the step
@@ -22372,5 +22524,296 @@ function testEnsureWorktreeNeverShadowsRemote() {
     // A NAME NOBODY PUBLISHED IS UNCHANGED — the refusal is bounded to the shadowing case.
     const ok = run(fx.B, `${POSIX_SH} ${SCRIPTS.ensureWorktree} work-20260827-000001`);
     assertEq("an unpublished canonical name still creates a worktree", ok.status, 0);
+  } finally { cleanup(fx.A); cleanup(fx.B); cleanup(fx.origin); }
+}
+
+// ---------- a reported claim is two states (2026-08-27) ----------
+//
+// `claimed_reported` covered a unit legitimately waiting on a person (a scan finding holds its
+// pull request) AND the loop's own undelivered work (the transport refused the merge). Both are
+// drained, both reported, both at an open pull request, and no later survey offers either — so
+// the second was reachable by nothing and `ok` was reported over it. Measured 2026-08-27: four
+// green pull requests unmerged.
+//
+// THE SPLIT IS READ OFF THE BRANCH, which is what makes it testable with no network at all: the
+// run that attempted the merge records its outcome into the branch story, and the oracle reads
+// that line back out of a blob it already fetches.
+function testReportedClaimIsTwoStates() {
+  const fx = makeClaimFixture();
+  const RECORDER = join(REPO_ROOT,
+    "plugins/workaholic/skills/story/scripts/record-merge-outcome.sh");
+  try {
+    // Two claims, each driven to a drained queue with a story at the tip — the shape both
+    // states share, and the reason they were indistinguishable.
+    const t1 = `.workaholic/tickets/todo/${TEST_SLUG}/20260729000001-t1.md`;
+    const t2 = `.workaholic/tickets/todo/${TEST_SLUG}/20260729000002-t2.md`;
+    const drive = (ticket, outcome) => {
+      const c = JSON.parse(run(fx.A, `${POSIX_SH} ${SCRIPTS.claim} batch ${ticket}`).stdout);
+      const wt = c.worktree_path;
+      const arch = `.workaholic/tickets/archive/${c.branch}`;
+      execSync(`mkdir -p ${arch} && git mv ${ticket} ${arch}/`, { cwd: wt });
+      // The story file is what `claims_has_story` reads; without it the claim reads
+      // `report_incomplete` and never reaches the fork this test is about.
+      mkdirSync(join(wt, ".workaholic/stories"), { recursive: true });
+      writeFileSync(join(wt, `.workaholic/stories/${c.branch}.md`),
+        `---\ntype: Story\nbranch: ${c.branch}\n---\n\n## 1. Overview\n\ndone\n`);
+      if (outcome) {
+        const r = JSON.parse(run(wt, `${POSIX_SH} ${RECORDER} `
+          + `.workaholic/stories/${c.branch}.md ${JSON.stringify(outcome)}`).stdout);
+        assertEq(`the outcome was recorded for ${c.branch}`, r.recorded, true);
+      }
+      execSync(`git add -A && git commit -q -m "Report the unit" && git push -q origin ${c.branch}`,
+        { cwd: wt });
+      // Age the tip past the heartbeat window so the verdict reaches the drained fork.
+      const old = "2026-08-01T00:00:00+00:00";
+      execSync('git commit -q --allow-empty -m "Heartbeat" && git push -q origin HEAD',
+        { cwd: wt, env: { ...process.env, GIT_COMMITTER_DATE: old, GIT_AUTHOR_DATE: old } });
+      return c;
+    };
+    // A unit the transport refused, and one a scan finding held.
+    const refused = drive(t1, "merge_refused: session_type_cannot_merge");
+    tickSecond();
+    const held = drive(t2, "merge_not_attempted: hard");
+    execSync("git fetch -q --prune origin", { cwd: fx.A });
+
+    const rows = Object.fromEntries(
+      JSON.parse(run(fx.A, `${POSIX_SH} ${SCRIPTS.listClaims}`).stdout)
+        .claims.map((c) => [c.unit, c]));
+    assertEq("a refused merge reads report_undelivered",
+      [rows[refused.unit].resume_reason, rows[refused.unit].resumable],
+      ["report_undelivered", false]);
+    assertEq("a scan-held pull request still reads queue_drained, unchanged",
+      [rows[held.unit].resume_reason, rows[held.unit].resumable],
+      ["queue_drained", false]);
+
+    // THE SURVEY AGREES, because it reads the same derivation rather than its own.
+    const plan = JSON.parse(run(fx.A, `${POSIX_SH} ${SCRIPTS.planUnits}`).stdout);
+    const reasonFor = (unit) =>
+      (plan.claimed.find((c) => c.unit === unit) || {}).resume_reason;
+    assertEq("plan-units.sh sees the same two reasons",
+      [reasonFor(refused.unit), reasonFor(held.unit)],
+      ["report_undelivered", "queue_drained"]);
+    const excFor = (id) => (plan.excluded.find((e) => e.id === id) || {}).reason;
+    assertEq("and maps them to distinct exclusion reasons",
+      [excFor(t1), excFor(t2)], ["claimed_undelivered", "claimed_reported"]);
+
+    // `claim.sh resume` REFUSES IT BY ITS OWN NAME — `queue_drained`'s wording would send the
+    // reader to wait for a human who is not coming.
+    const res = JSON.parse(run(fx.A, `${POSIX_SH} ${SCRIPTS.claim} resume ${refused.unit}`).stdout
+      || run(fx.A, `${POSIX_SH} ${SCRIPTS.claim} resume ${refused.unit}`).stderr);
+    assertEq("resume refuses report_undelivered under its own reason",
+      [res.claimed, res.reason], [false, "report_undelivered"]);
+
+    // AN ABSENT SECTION KEEPS `queue_drained` — the new reason is claimed only on positive
+    // evidence, so every story written before this section behaves exactly as it did.
+    tickSecond();
+    execSync("git fetch -q origin && git checkout -q main && git merge -q --ff-only origin/main",
+      { cwd: fx.A });
+    const t3 = `.workaholic/tickets/todo/${TEST_SLUG}/20260729000003-t3.md`;
+    mkdirSync(dirname(join(fx.A, t3)), { recursive: true });
+    writeFileSync(join(fx.A, t3),
+      "---\ncreated_at: 2026-07-29T00:00:03+09:00\nauthor: test@example.com\n---\n\n# t3\n");
+    execSync('git add -A && git commit -q -m "Queue a ticket" && git push -q origin main',
+      { cwd: fx.A });
+    const silent = drive(t3, null);
+    execSync("git fetch -q --prune origin", { cwd: fx.A });
+    const after = Object.fromEntries(
+      JSON.parse(run(fx.A, `${POSIX_SH} ${SCRIPTS.listClaims}`).stdout)
+        .claims.map((c) => [c.unit, c]));
+    assertEq("a story with no Merge Outcome section keeps queue_drained",
+      after[silent.unit].resume_reason, "queue_drained");
+
+    // AND `backlog_all_excluded` NAMES IT (2026-08-27). The reading exists so that "the queue
+    // is empty" and "the queue is full and I can offer none of it" never render alike; with the
+    // reason folded into `claimed_reported` it could not say that the loop's own finished work
+    // was what emptied the offer. Measured: `backlog_size: 11`, `backlog: []`, hour after hour.
+    const finalPlan = JSON.parse(run(fx.A, `${POSIX_SH} ${SCRIPTS.planUnits}`).stdout);
+    const reading = finalPlan.backlog_all_excluded;
+    assertEq("the whole backlog is excluded", [reading.excluded, finalPlan.backlog.length],
+      [true, 0]);
+    const counted = Object.fromEntries(reading.reasons.map((r) => [r.reason, r.count]));
+    assertTrue("and the undelivered reason is named with its count",
+      counted.claimed_undelivered >= 1, JSON.stringify(reading.reasons));
+    assertTrue("beside the reasons that were already counted",
+      counted.claimed_reported >= 1, JSON.stringify(reading.reasons));
+    // THE COUNTS RECONCILE TO `excluded[]` — the reading is derived from it, so a reason it
+    // carries and the reading omits would be a silent drop rather than a failure.
+    assertEq("every excluded reason is counted",
+      reading.reasons.reduce((n, r) => n + r.count, 0), finalPlan.excluded.length);
+    // AND IT STILL MOVES NO TOKEN: the reading is a survey fact, not a completion gate. The
+    // script emits no token at all, which is the structural form of that guarantee.
+    assertTrue("plan-units.sh emits no terminal token of its own",
+      !("token" in finalPlan) && !("ok" in finalPlan), Object.keys(finalPlan).join(","));
+  } finally { cleanup(fx.A); cleanup(fx.B); cleanup(fx.origin); }
+}
+
+// ---------- story/record-merge-outcome.sh (2026-08-27) ----------
+// The durable home for §6's merge outcome. It is the only reason the claim oracle can tell the
+// loop's undelivered work from a unit waiting on a person, so its refusals matter as much as its
+// writes: a malformed outcome that round-trips as "no section" would restore the exact silence.
+function testRecordMergeOutcome() {
+  const RECORDER = join(REPO_ROOT,
+    "plugins/workaholic/skills/story/scripts/record-merge-outcome.sh");
+  const dir = mkdtempSync(join(tmpdir(), "wh-merge-outcome-"));
+  const story = join(dir, "s.md");
+  const body = "---\ntype: Story\n---\n\n## 1. Overview\n\nwork\n";
+  const call = (arg) => {
+    const r = run(dir, `${POSIX_SH} ${RECORDER} ${story} ${JSON.stringify(arg)}`);
+    return { ...JSON.parse(r.stdout || r.stderr), status: r.status };
+  };
+  const section = () =>
+    (readFileSync(story, "utf8").match(/^## Merge Outcome\n\n(.*)$/m) || [])[1];
+  try {
+    writeFileSync(story, body);
+    const first = call("merge_refused: session_type_cannot_merge");
+    assertEq("the outcome is recorded", [first.recorded, first.changed], [true, true]);
+    assertEq("and reads back verbatim", section(), "merge_refused: session_type_cannot_merge");
+    assertTrue("the story's own body is untouched",
+      readFileSync(story, "utf8").startsWith(body.trimEnd()), readFileSync(story, "utf8"));
+
+    // IDEMPOTENT PER OUTCOME: re-recording the same answer rewrites nothing.
+    const again = call("merge_refused: session_type_cannot_merge");
+    assertEq("re-recording the same outcome changes nothing",
+      [again.recorded, again.changed], [true, false]);
+
+    // A LATER, DIFFERENT ANSWER REPLACES — two answers in one file is the ambiguity this
+    // removes, so the section must never stack.
+    call("merge_not_attempted: hard");
+    assertEq("a different outcome replaces the section", section(), "merge_not_attempted: hard");
+    assertEq("and does not stack a second one",
+      (readFileSync(story, "utf8").match(/^## Merge Outcome$/gm) || []).length, 1);
+
+    // REFUSALS, each named and each leaving the file alone.
+    const before = readFileSync(story, "utf8");
+    // The newline has to reach the SHELL, so it is built there: a JSON-escaped `\n` inside
+    // double quotes is two literal characters to `sh`, which is one line and correctly accepted.
+    const multi = run(dir,
+      `${POSIX_SH} ${RECORDER} ${story} "$(printf 'merge_refused: a\\nb')"`);
+    assertEq("a multi-line outcome is refused",
+      JSON.parse(multi.stdout || multi.stderr).reason, "outcome_not_one_line");
+    assertEq("an empty outcome is refused", call("").reason, "no_outcome_argument");
+    assertEq("the file is untouched by a refusal", readFileSync(story, "utf8"), before);
+    const missing = run(dir, `${POSIX_SH} ${RECORDER} ${join(dir, "nope.md")} "merged"`);
+    assertEq("a missing story is refused by name",
+      JSON.parse(missing.stdout || missing.stderr).reason, "story_not_found");
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+}
+
+// ---------- moderate/undelivered-units: the loop's own undelivered work (2026-08-27) ----------
+//
+// `/implement` may not ask anyone anything, so an undelivered unit's story ended in a run report
+// nobody opens — and no step of this tick saw the shape: `stuck-prs` and `merge-conflicts` read
+// pull requests and find one open and green, `stalled-units` reads STALE rows and this claim's
+// heartbeat advanced right up to the moment it finished. Measured 2026-08-27: four green pull
+// requests unmerged, offered by no survey and told to nobody.
+//
+// THE FIXTURE IS THE SAME TWO-CLAIM SHAPE the oracle test uses, driven through the real step, so
+// what is proved is the whole chain: record the outcome → the oracle splits the verdict → the
+// step asks the holder. No network: the fixture's origin is a local directory, so the pull
+// request lookup is `unanswerable` and the step must keep the candidate anyway.
+function testUndeliveredUnitsStep() {
+  const fx = makeClaimFixture();
+  const RECORDER = join(REPO_ROOT,
+    "plugins/workaholic/skills/story/scripts/record-merge-outcome.sh");
+  try {
+    const drive = (ticket, outcome) => {
+      const c = JSON.parse(run(fx.A, `${POSIX_SH} ${SCRIPTS.claim} batch ${ticket}`).stdout);
+      const wt = c.worktree_path;
+      execSync(`mkdir -p .workaholic/tickets/archive/${c.branch} `
+        + `&& git mv ${ticket} .workaholic/tickets/archive/${c.branch}/`, { cwd: wt });
+      mkdirSync(join(wt, ".workaholic/stories"), { recursive: true });
+      writeFileSync(join(wt, `.workaholic/stories/${c.branch}.md`),
+        `---\ntype: Story\nbranch: ${c.branch}\n---\n\n## 1. Overview\n\ndone\n`);
+      if (outcome) {
+        run(wt, `${POSIX_SH} ${RECORDER} .workaholic/stories/${c.branch}.md `
+          + `${JSON.stringify(outcome)}`);
+      }
+      execSync(`git add -A && git commit -q -m "Report the unit" && git push -q origin ${c.branch}`,
+        { cwd: wt });
+      const old = "2026-08-01T00:00:00+00:00";
+      execSync('git commit -q --allow-empty -m "Heartbeat" && git push -q origin HEAD',
+        { cwd: wt, env: { ...process.env, GIT_COMMITTER_DATE: old, GIT_AUTHOR_DATE: old } });
+      return c;
+    };
+    const refused = drive(`.workaholic/tickets/todo/${TEST_SLUG}/20260729000001-t1.md`,
+      "merge_refused: session_type_cannot_merge");
+    tickSecond();
+    const held = drive(`.workaholic/tickets/todo/${TEST_SLUG}/20260729000002-t2.md`,
+      "merge_not_attempted: hard");
+    execSync("git fetch -q --prune origin", { cwd: fx.A });
+
+    const step = (extra = "") => JSON.parse(run(fx.A,
+      `${POSIX_SH} ${SCRIPTS.stepUndeliveredUnits} --tick 20260827-030000 --root ${fx.A}${extra}`
+    ).stdout);
+
+    const r = step();
+    assertEq("the step runs ok", r.status, "ok");
+    const rows = (r.needs_agent[0] || {}).undelivered || [];
+    assertEq("exactly one unit is handed to the check-in", rows.length, 1);
+    assertEq("and it is the refused one, not the scan-held one", rows[0].unit, refused.unit);
+    assertTrue("the scan-held unit is not a candidate",
+      !rows.some((x) => x.unit === held.unit), JSON.stringify(rows));
+
+    // ADDRESSED TO THE CLAIM HOLDER, and naming the refusal — a count addressed to nobody is
+    // the property both retired status roots lacked.
+    assertEq("the question is addressed to the claim holder", rows[0].owner, "test@example.com");
+    assertEq("and names the refusal that stopped the merge",
+      rows[0].refusal, "merge_refused: session_type_cannot_merge");
+    assertEq("keyed once per unit", rows[0].key, `undelivered-unit:${refused.unit}`);
+    // The lookup cannot succeed against a local-directory origin, and the candidate SURVIVES it:
+    // the finding is that the unit is undelivered, which the oracle established offline.
+    assertEq("an unanswerable lookup leaves the coordinates unstated, not the finding dropped",
+      [rows[0].pull_request, rows[0].open_hours], ["unknown", null]);
+
+    // THE SUMMARY CARRIES NO AGE AND NO TIMESTAMP — an incrementing summary makes the step
+    // "changed" hourly by construction and the root restates it all day.
+    assertTrue("the summary carries no hour count", !/\d+\s*h\b/.test(r.summary), r.summary);
+    assertTrue("and no timestamp", !/\d{4}-\d{2}-\d{2}|\d{2}:\d{2}/.test(r.summary), r.summary);
+    assertTrue("the event names the repository event", /never delivered/.test(r.event), r.event);
+
+    // A SECOND TICK OVER THE SAME UNIT FINDS THE SAME ROW — the asked-once gate is
+    // `ask-question.sh`'s ledger, not this step's, so the step is deliberately stateless and
+    // its key is what makes the gate able to refuse. The key is stable across ticks.
+    const again = step();
+    assertEq("the key is stable across ticks",
+      ((again.needs_agent[0] || {}).undelivered || [])[0].key, rows[0].key);
+
+    // THE STEP WRITES NOTHING. Its contract is a pure read, and the fixture's index proves it.
+    assertEq("git status is clean after the step ran",
+      execSync("git status --porcelain", { cwd: fx.A, encoding: "utf8" }).trim(), "");
+
+    // A DEGRADED READ ASKS NOTHING AND IS NAMED — a scan that could not reach the remote has
+    // not found "nothing undelivered", it has found nothing at all.
+    const plain = mkdtempSync(join(tmpdir(), "wh-undelivered-plain-"));
+    execSync("git init -q .", { cwd: plain });
+    const deg = JSON.parse(run(plain,
+      `${POSIX_SH} ${SCRIPTS.stepUndeliveredUnits} --tick 20260827-030000 --root ${plain}`).stdout);
+    assertEq("a repository with no origin degrades by name",
+      [deg.status, deg.needs_agent.length], ["degraded", 0]);
+    assertTrue("and the reason is named", deg.reason.length > 0, JSON.stringify(deg));
+    rmSync(plain, { recursive: true, force: true });
+
+    // AND IT IS REGISTERED, in order, beside the sibling it follows.
+    const runSh = readFileSync(
+      join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/run.sh"), "utf8");
+    assertTrue("run.sh invokes the step",
+      /undrivable-units undelivered-units/.test(runSh), "not registered in order");
+
+    // AND THE DRILL EXISTS, is dispatched by its verb, and is documented — the same three pins
+    // every other verify target carries, so a drill that is written and never wired reads
+    // exactly like one that runs.
+    const drill = readFileSync(join(REPO_ROOT, "scripts/e2e/loop-drill.sh"), "utf8");
+    assertTrue("verify-close is in loop-drill.sh", /cmd_verify_close\(\)/.test(drill),
+      "verify-close is not in loop-drill.sh");
+    assertTrue("and is dispatched by its verb", /verify-close\)/.test(drill),
+      "the drill's verb is not wired");
+    assertTrue("and its usage line names it", /verify-close \[--json\]/.test(drill),
+      "the drill is not in the usage line");
+    const runbook = readFileSync(join(REPO_ROOT, "docs/loop-drill-runbook.md"), "utf8");
+    assertTrue("and the runbook documents it alongside the others",
+      /verify-close/.test(runbook), "the drill is undocumented");
+    assertTrue("with the deliberately-broken row named as the proof it is",
+      /close_unrecorded_stays_silent/.test(runbook) && /close_unrecorded_stays_silent/.test(drill),
+      "the failing row is missing from the drill or the runbook");
   } finally { cleanup(fx.A); cleanup(fx.B); cleanup(fx.origin); }
 }

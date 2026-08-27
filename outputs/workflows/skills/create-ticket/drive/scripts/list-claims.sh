@@ -119,7 +119,15 @@ if [ -n "$rows" ]; then
             asep=", "
         done
         IFS="$old_ifs"
-        claims="${claims}${sep}{\"unit\": \"${unit}\", \"branch\": \"${branch}\", \"artifacts\": [${arts}], \"last_commit_at\": \"${last_at}\", \"stale\": ${stale}, \"author\": \"${author}\", \"resumable\": ${resumable}, \"resume_reason\": \"${resume_reason}\", \"reported\": ${reported}}"
+        # WHY THE MERGE OUTCOME IS READ HERE AND NOT CARRIED IN THE TSV (2026-08-27, mission
+        # `close-the-units-the-loop-already-finished`). The scan's row has a load-bearing field
+        # count -- the library's longest warning is about exactly what happens when a column is
+        # added -- and this value is only ever wanted by a caller rendering the operator's view.
+        # `claims_merge_outcome` is a `git cat-file` over a blob the scan already reached, so
+        # reading it per row here costs no network call and adds no second derivation. Empty for
+        # every claim that recorded nothing, which is every claim but an undelivered one.
+        merge_outcome=$(claims_merge_outcome "origin/${branch}" "$branch")
+        claims="${claims}${sep}{\"unit\": \"${unit}\", \"branch\": \"${branch}\", \"artifacts\": [${arts}], \"last_commit_at\": \"${last_at}\", \"stale\": ${stale}, \"author\": \"${author}\", \"resumable\": ${resumable}, \"resume_reason\": \"${resume_reason}\", \"reported\": ${reported}, \"merge_outcome\": \"${merge_outcome}\"}"
         sep=", "
     done <<EOF
 $rows

@@ -431,6 +431,39 @@ claims_has_story() {
     git cat-file -e "${1}:.workaholic/stories/${2}.md" 2>/dev/null && printf 'true' || printf 'false'
 }
 
+# Why is this reported unit's pull request still open? $1 = branch ref, $2 = short branch name.
+# Echoes the outcome line `record-merge-outcome.sh` wrote into the branch story, or empty.
+#
+# `claimed_reported` COVERED TWO STATES WITH OPPOSITE NEXT ACTIONS (2026-08-27, mission
+# `close-the-units-the-loop-already-finished`). A unit whose pull request a `hard`/`confirm`
+# scan finding holds is waiting on a PERSON — the gate did its job and the override is a human
+# ruling. A unit whose merge the TRANSPORT refused is the loop's own undelivered work, which
+# nothing will pick up: it is drained, its claim is excluded, no later survey offers it, and
+# nobody was told. Measured 2026-08-27: four such pull requests green and unmerged with `ok`
+# reported over all of them. This is the shape the 2026-08-19 `report_incomplete` split already
+# fixed one layer up, and that split's own header states the rule it rests on — a reason must
+# imply its own next action, and folding two next actions into one word is what makes the
+# invisible half invisible.
+#
+# IT IS READ OFF THE BRANCH, NOT RE-DERIVED AND NOT RE-FETCHED. The scan cannot be re-run here:
+# `scan-branch-safety.sh` diffs `<base>..HEAD` of the CURRENT checkout, and the oracle stands in
+# the main tree, so answering "would the scan have held this branch?" would mean checking the
+# branch out inside a pure read. And a fresh lookup is worse than the run's own answer, for the
+# reason `claim-merged.sh`'s three-valued contract exists: a wrong verdict here releases work
+# still in flight. So the run that made the merge attempt records what happened, in the branch
+# story it already committed, and this reads that blob — offline, no network call, no second
+# derivation of anything.
+#
+# AN ABSENT SECTION IS NOT A REFUSAL. Every unit whose story predates this section, and every
+# unit whose run died before it could record, answers empty — and empty keeps `queue_drained`,
+# exactly the verdict it had before. The asymmetry is the same one the rest of this library
+# runs on: over-reporting a claim as a human's business makes a runner wait, under-reporting it
+# hides work nobody will deliver, so the NEW reason is claimed only on positive evidence.
+claims_merge_outcome() {
+    git cat-file blob "${1}:.workaholic/stories/${2}.md" 2>/dev/null \
+        | sed -n '/^## Merge Outcome$/{n;n;p;}' 2>/dev/null || true
+}
+
 # Has this claim's work already reached the BASE by another route? $1 = base ref,
 # $2 = the comma-separated CLAIM-SIDE artifact paths. Echoes true|false.
 #
@@ -814,8 +847,31 @@ claims_scan() {
             # empty) and re-enters the Unified Run at §5, writing the story and opening
             # the pull request the dead run never did.
             if [ "$_cs_reported" = "true" ]; then
-                _cs_resumable=false
-                _cs_reason=queue_drained
+                # AND A REPORTED UNIT IS ITSELF TWO STATES (2026-08-27, see
+                # `claims_merge_outcome`). `queue_drained` means *waiting on a person*, and it
+                # was also covering the loop's own undelivered work — a unit whose merge the
+                # transport refused, which no later survey offers and nobody was told about.
+                # The split is read off the branch story the run already committed, so it costs
+                # no network call and cannot disagree with the run that made the attempt.
+                #
+                # `resumable: false`, and the reason is NOT the one `queue_drained` gives.
+                # The next action here is a MERGE RETRY, which is not a takeover: `claim.sh
+                # resume` would push an empty `Resume` commit onto a branch whose pull request
+                # is open, which is precisely the 2026-08-01 gate. The 2026-08-19 split went
+                # `resumable: true` because its unit had never reported and the takeover had
+                # real work to do (write the story, open the pull request); this one has
+                # already done both. So it is REPORTED and it forbids `ok` (`../SKILL.md` §7)
+                # rather than being offered as a takeover.
+                case "$(claims_merge_outcome "$_cs_ref" "$_cs_branch")" in
+                    merge_refused*)
+                        _cs_resumable=false
+                        _cs_reason=report_undelivered
+                        ;;
+                    *)
+                        _cs_resumable=false
+                        _cs_reason=queue_drained
+                        ;;
+                esac
             else
                 _cs_resumable=true
                 _cs_reason=report_incomplete

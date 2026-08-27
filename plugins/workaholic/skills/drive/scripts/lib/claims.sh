@@ -70,7 +70,8 @@
 #
 # `claims_scan` emits, tab-separated, one row per claim:
 #   unit <TAB> branch <TAB> last_commit_at <TAB> stale <TAB> author <TAB>
-#   resumable <TAB> resume_reason <TAB> artifact,artifact,...
+#   resumable <TAB> resume_reason <TAB> reported <TAB> declared_handoff <TAB>
+#   artifact,artifact,...
 # where `branch` is the SHORT name (no `origin/` prefix -- the name the stamp carries),
 # `stale` is true|false against WORKAHOLIC_CLAIM_STALE_HOURS (default 24), and the
 # artifact list is comma-separated repo-relative paths (empty when a claim commit
@@ -379,35 +380,155 @@ claims_has_work() {
     _chw_ref="$1"
     _chw_arts="${2:-}"
     [ -n "$_chw_arts" ] || { printf 'true'; return 0; }
+    # $3 = OPTIONAL precomputed `claims_remaining_tickets` output, so a caller that already
+    # needs the set (the scan does, for the declared-handoff reading below) derives it once.
+    if [ "$#" -ge 3 ]; then
+        _chw_rem="$3"
+    else
+        _chw_rem=$(claims_remaining_tickets "$_chw_ref" "$_chw_arts")
+    fi
+    if [ -n "$_chw_rem" ]; then
+        printf 'true'
+    else
+        printf 'false'
+    fi
+}
 
-    _chw_mission=""
-    _chw_old_ifs="$IFS"
+# THE UNIT'S STILL-QUEUED TICKETS AT THE TIP, one path per line (empty = nothing queued).
+# $1 = branch ref, $2 = the comma-separated TIP-side artifact paths.
+#
+# This is the walk `claims_has_work` has always made, LIFTED OUT so the two readings built on
+# it -- "is there anything left to drive?" and "was the remaining work declared unverifiable
+# here?" -- cannot answer from two different ticket sets. Deriving the set a second way would
+# give the protocol two answers to one question, which is the failure this whole library is
+# written against.
+#
+# The grain split is the one the header describes and does not move: a BATCH claim stamps its
+# ticket files, so its queued work is whichever artifacts are still under
+# `.workaholic/tickets/todo/` at the tip (archive.sh drives a ticket by renaming it out); a
+# MISSION claim stamps only `mission.md`, which never sits under todo/, so its queued work is
+# every ticket at the tip whose `mission:` names the slug. `mission.md` itself is NOT queued
+# work and is deliberately absent from this list -- a caller that needs the mission's own
+# frontmatter (the handoff reading does) picks it out of the artifacts.
+#
+# An empty artifact list yields nothing, and the callers -- not this -- decide what that
+# unknown means; `claims_has_work` reads it as `true` exactly as it always has.
+claims_remaining_tickets() {
+    _crt2_ref="$1"
+    _crt2_arts="${2:-}"
+    [ -n "$_crt2_arts" ] || return 0
+
+    _crt2_mission=""
+    _crt2_old_ifs="$IFS"
     IFS=','
-    for _chw_p in $_chw_arts; do
-        case "$_chw_p" in
+    for _crt2_p in $_crt2_arts; do
+        case "$_crt2_p" in
             .workaholic/tickets/todo/*)
-                IFS="$_chw_old_ifs"
-                printf 'true'
-                return 0
+                printf '%s\n' "$_crt2_p"
                 ;;
             */missions/*/mission.md)
                 # Strip to the directory name: .../missions/<area>/<slug>/mission.md
-                _chw_mission="${_chw_p%/mission.md}"
-                _chw_mission="${_chw_mission##*/}"
+                _crt2_mission="${_crt2_p%/mission.md}"
+                _crt2_mission="${_crt2_mission##*/}"
                 ;;
         esac
     done
-    IFS="$_chw_old_ifs"
+    IFS="$_crt2_old_ifs"
 
-    [ -n "$_chw_mission" ] || { printf 'false'; return 0; }
+    [ -n "$_crt2_mission" ] || return 0
 
-    for _chw_t in $(git ls-tree -r --name-only "$_chw_ref" -- .workaholic/tickets/todo 2>/dev/null || true); do
-        case "$(claims_blob_field "$_chw_ref" "$_chw_t" mission)" in
+    for _crt2_t in $(git ls-tree -r --name-only "$_crt2_ref" -- .workaholic/tickets/todo 2>/dev/null || true); do
+        case "$(claims_blob_field "$_crt2_ref" "$_crt2_t" mission)" in
             "") continue ;;
-            *"$_chw_mission"*) printf 'true'; return 0 ;;
+            *"$_crt2_mission"*) printf '%s\n' "$_crt2_t" ;;
         esac
     done
-    printf 'false'
+}
+
+# WAS THE WORK STILL QUEUED BEHIND THIS CLAIM DECLARED UNVERIFIABLE HERE? $1 = branch ref,
+# $2 = the comma-separated TIP-side artifact paths, $3 = OPTIONAL precomputed
+# `claims_remaining_tickets` output. Echoes true|false, never fails.
+#
+# `verification_handoff:` is declared at CREATION and names a credential, device or account an
+# unattended run does not have (`../verification-handoff.sh`). §6 reads it before merge policy
+# and routes such a unit to the HANDOFF route: the pull request opens and stays open, the claim
+# stays standing, and a person runs the verification. The route honoured it and THE ORACLE NEVER
+# CONSULTED IT AGAIN -- so once `/story` committed the branch story the claim read
+# `parked_with_pr`, `resumable: true`, and every later survey offered the takeover. Measured on
+# PR #647 (2026-08-27): routed at 02:14 UTC, taken over again at 06:43 for nothing.
+#
+# NOTHING NEW IS DERIVED. The declaration is already read by exactly one script, and this hands
+# it the blobs rather than parsing the field a second time -- a second parser of one field is
+# what this repository forbids by name. The blobs are materialised from the BRANCH TIP into a
+# throwaway directory, because the reader takes files and the tip is the only space in which
+# "still queued behind this claim" is a question at all: the working tree belongs to whichever
+# checkout happens to be running the scan.
+#
+# BOTH GRAINS, from `claims_remaining_tickets`'s one split. A mission's OWN
+# `verification_handoff:` counts too -- any member declaring it carries the whole unit, which is
+# the reader's own rule -- so `mission.md` is added from the artifact list even though it is
+# never queued work.
+#
+# IT IS READ FROM THE REMAINING QUEUED WORK, NEVER THE ARCHIVED WORK, and that is what makes the
+# reading SELF-RELEASING: once the declared ticket is driven the same reader answers `false`,
+# with nothing stored anywhere and no cursor to reset.
+#
+# OFFLINE BY CONSTRUCTION -- `git ls-tree`/`git show` against an already-fetched ref and one
+# local script, no network call -- so every verdict stays byte-identical on a run with no origin.
+#
+# A READ THAT CANNOT BE MADE ANSWERS `false` AND NEVER GUESSES. An absent reader script, an
+# unreadable blob, an empty artifact list: none of them is a declaration, and inventing one would
+# stop a merge on a typo exactly as `../verification-handoff.sh` refuses to.
+claims_declared_handoff() {
+    _cdh_ref="$1"
+    _cdh_arts="${2:-}"
+    [ -n "$_cdh_arts" ] || { printf 'false'; return 0; }
+
+    _cdh_reader="${CLAIMS_LIB_DIR}/../verification-handoff.sh"
+    [ -f "$_cdh_reader" ] || { printf 'false'; return 0; }
+
+    if [ "$#" -ge 3 ]; then
+        _cdh_rem="$3"
+    else
+        _cdh_rem=$(claims_remaining_tickets "$_cdh_ref" "$_cdh_arts")
+    fi
+
+    # The mission's own declaration, from the artifact list: any member carries the unit.
+    _cdh_own=""
+    _cdh_old_ifs="$IFS"
+    IFS=','
+    for _cdh_p in $_cdh_arts; do
+        case "$_cdh_p" in
+            */missions/*/mission.md) _cdh_own="${_cdh_own}${_cdh_p}
+" ;;
+        esac
+    done
+    IFS="$_cdh_old_ifs"
+
+    _cdh_paths=$(printf '%s%s' "$_cdh_own" "$_cdh_rem")
+    [ -n "$_cdh_paths" ] || { printf 'false'; return 0; }
+
+    _cdh_dir=$(mktemp -d 2>/dev/null || printf '')
+    [ -n "$_cdh_dir" ] || { printf 'false'; return 0; }
+
+    _cdh_n=0
+    _cdh_files=""
+    for _cdh_f in $_cdh_paths; do
+        _cdh_n=$((_cdh_n + 1))
+        if git show "${_cdh_ref}:${_cdh_f}" > "${_cdh_dir}/${_cdh_n}.md" 2>/dev/null; then
+            _cdh_files="${_cdh_files} ${_cdh_dir}/${_cdh_n}.md"
+        fi
+    done
+
+    _cdh_answer=false
+    if [ -n "$_cdh_files" ]; then
+        # shellcheck disable=SC2086 -- the paths are mktemp's own and carry no whitespace.
+        case "$(sh "$_cdh_reader" tickets $_cdh_files 2>/dev/null || true)" in
+            *'"handoff": true'*) _cdh_answer=true ;;
+        esac
+    fi
+    rm -rf "$_cdh_dir" 2>/dev/null || true
+    printf '%s' "$_cdh_answer"
 }
 
 # Did this unit already REPORT -- i.e. reach the story+PR seam? $1 = branch ref,
@@ -801,6 +922,16 @@ claims_scan() {
         # answers both forks, and the row's value is unchanged.
         _cs_reported=$(claims_has_story "$_cs_ref" "$_cs_branch")
 
+        # WHAT THIS UNIT STILL HAS QUEUED, DERIVED ONCE (2026-08-27, mission
+        # `stop-re-resuming-a-declared-handoff-unit`). Two readings below are built on the same
+        # set -- "is there anything left to drive?" and "was that remaining work declared
+        # unverifiable here?" -- so it is computed here and passed to both rather than walked
+        # twice. The declaration is reported on EVERY row, on the precedent `_cs_reported` set
+        # one change earlier: a reader that consults a signal only where one branch happens to
+        # need it leaves every other consumer to derive it again.
+        _cs_remaining=$(claims_remaining_tickets "$_cs_ref" "$_cs_artifacts_tip")
+        _cs_declared_handoff=$(claims_declared_handoff "$_cs_ref" "$_cs_artifacts_tip" "$_cs_remaining")
+
         # The resumability verdict (see the header). Identity first: a foreign claim is
         # untouchable at any age, so its liveness never even needs measuring. The queue
         # check runs last because it is the only one that costs git calls.
@@ -832,7 +963,7 @@ claims_scan() {
             # land.
             _cs_resumable=false
             _cs_reason=superseded
-        elif [ "$(claims_has_work "$_cs_ref" "$_cs_artifacts_tip")" = "false" ]; then
+        elif [ "$(claims_has_work "$_cs_ref" "$_cs_artifacts_tip" "$_cs_remaining")" = "false" ]; then
             # A DRAINED QUEUE IS TWO DIFFERENT STATES, TOLD APART BY THE SAME STORY SIGNAL
             # the parked/dead fork below already reads (2026-08-19). With a story at the
             # tip the unit REPORTED -- its pull request is open and a human, not a runner,
@@ -888,12 +1019,15 @@ claims_scan() {
             _cs_reason=heartbeat_lapsed
         fi
 
-        # `reported` sits BEFORE the artifact list, never after it: the artifact list is
-        # last because a trailing empty field is the one case `read` handles correctly
-        # (see the note above), so a new column appended after it would land inside it.
-        printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+        # `reported` and `declared_handoff` sit BEFORE the artifact list, never after it: the
+        # artifact list is last because a trailing empty field is the one case `read` handles
+        # correctly (see the note above), so a new column appended after it would land inside
+        # it. Both are always `true` or `false`, so neither can be the empty middle field that
+        # rule exists to forbid.
+        printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
             "$_cs_unit" "$_cs_branch" "$_cs_at" "$_cs_stale" \
-            "$_cs_author" "$_cs_resumable" "$_cs_reason" "$_cs_reported" "$_cs_artifacts"
+            "$_cs_author" "$_cs_resumable" "$_cs_reason" "$_cs_reported" \
+            "$_cs_declared_handoff" "$_cs_artifacts"
     done
 }
 

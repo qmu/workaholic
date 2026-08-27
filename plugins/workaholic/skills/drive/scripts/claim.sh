@@ -142,11 +142,12 @@ if [ "$kind" = "resume" ]; then
     r_author=$(printf '%s' "$resume_row" | cut -f5)
     r_resumable=$(printf '%s' "$resume_row" | cut -f6)
     r_reason=$(printf '%s' "$resume_row" | cut -f7)
-    # FIELD 9, NOT 8. The artifact list is the row's LAST field, and `reported` was
-    # inserted before it (2026-08-23) -- so this read was silently returning `true`/`false`
-    # as the unit's whole artifact list. It is the tail by construction (see lib/claims.sh's
-    # no-empty-field rule), which is what makes a fixed index safe at all.
-    r_arts=$(printf '%s' "$resume_row" | cut -f9)
+    # FIELD 10, NOT 8. The artifact list is the row's LAST field, and two booleans have been
+    # inserted before it -- `reported` (2026-08-23) and `declared_handoff` (2026-08-27) -- so
+    # this read once silently returned `true`/`false` as the unit's whole artifact list. It is
+    # the tail by construction (see lib/claims.sh's no-empty-field rule), which is what makes a
+    # fixed index safe at all; every insertion moves it, and this line moves with it.
+    r_arts=$(printf '%s' "$resume_row" | cut -f10)
 
     # The verdict is the SHARED scan's, never re-derived here. A writer that decided
     # resumability for itself could take over a unit the reader still reports as
@@ -364,7 +365,7 @@ artifact_rels=$(printf '%s' "$artifact_rels" | grep -v '^$' || true)
 # claimable over.
 rows=$(claims_scan "$base")
 if [ -n "$rows" ]; then
-    while IFS='	' read -r held_unit held_branch _held_at _held_stale _held_author _held_resumable _held_reason _held_reported held_arts; do
+    while IFS='	' read -r held_unit held_branch _held_at _held_stale _held_author _held_resumable _held_reason _held_reported _held_handoff held_arts; do
         [ -n "$held_unit" ] || continue
         if [ "$_held_reason" = "superseded" ]; then
             continue

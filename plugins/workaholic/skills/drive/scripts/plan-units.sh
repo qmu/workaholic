@@ -296,7 +296,7 @@ u_sep=""
 if [ -n "$ROWS" ]; then
     sep=""
     r_sep=""
-    while IFS='	' read -r c_unit c_branch c_at c_stale c_author c_resumable c_reason c_reported c_arts; do
+    while IFS='	' read -r c_unit c_branch c_at c_stale c_author c_resumable c_reason c_reported c_handoff c_arts; do
         [ -n "$c_unit" ] || continue
 
         # A DEAD BRANCH BESIDE A LIVE ONE GOVERNS NOTHING (2026-08-27). Since a fresh claim

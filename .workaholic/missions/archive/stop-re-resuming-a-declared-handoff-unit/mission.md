@@ -2,7 +2,7 @@
 type: Mission
 title: Stop re-resuming a declared handoff unit
 slug: stop-re-resuming-a-declared-handoff-unit
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-27T08:22:04+00:00
 author: a@qmu.jp
@@ -41,7 +41,7 @@ nothing stored anywhere, once that declaration no longer holds.
       proved over a hermetic fixture. (#20260827082244-give-a-declared-handoff-its-own-claim-verdict.md)
 - [x] The survey excludes it by name and offers it in no takeover list, and `ok` stays
       reachable while it waits, since a person is what it waits for. (#20260827082244-exclude-a-declared-handoff-from-the-survey-offer.md)
-- [ ] The new word is classified in `claims.md`'s *Proofs and judgements* table and named in
+- [x] The new word is classified in `claims.md`'s *Proofs and judgements* table and named in
       `drive/SKILL.md` §6 and `CLAUDE.md`, with the suite failing on a disagreement. (#20260827082245-classify-the-verdict-and-update-the-documents.md)
 
 ## Changelog
@@ -51,3 +51,5 @@ nothing stored anywhere, once that declaration no longer holds.
 - 2026-08-27 — ticket archived — 20260827082244-read-the-declared-handoff-in-the-claim-scan.md
 - 2026-08-27 — ticket archived — 20260827082244-give-a-declared-handoff-its-own-claim-verdict.md
 - 2026-08-27 — ticket archived — 20260827082244-exclude-a-declared-handoff-from-the-survey-offer.md
+- 2026-08-27 — ticket archived — 20260827082245-classify-the-verdict-and-update-the-documents.md
+- 2026-08-27 — mission achieved — mission.md

@@ -45,7 +45,7 @@ dry is still dormant, and nothing closes a direction on its own reading.
 - [x] `quiescent` on every row, projected as `arrived` at `unreadable > arrived > overdue >
       dormant > live`, every gate and the sort unchanged. (#20260827142444-add-the-quiescent-reading-to-the-strategy-survey.md)
 - [x] An arrived direction reaches its assignee once, as a description of the reading. (#20260827142444-ask-the-operator-once-whether-an-arrived-direction-is-done.md)
-- [ ] No reading closes a direction, pinned by a test. (#20260827142444-pin-that-no-reading-ever-closes-a-direction.md)
+- [x] No reading closes a direction, pinned by a test. (#20260827142444-pin-that-no-reading-ever-closes-a-direction.md)
 
 ## Changelog
 
@@ -54,3 +54,4 @@ dry is still dormant, and nothing closes a direction on its own reading.
 - 2026-08-27 — ticket archived — 20260827142444-project-quiescent-as-the-arrived-lifecycle-state.md
 - 2026-08-27 — ticket archived — 20260827142444-say-what-propose-is-proposing-against.md
 - 2026-08-27 — ticket archived — 20260827142444-ask-the-operator-once-whether-an-arrived-direction-is-done.md
+- 2026-08-27 — ticket archived — 20260827142444-pin-that-no-reading-ever-closes-a-direction.md

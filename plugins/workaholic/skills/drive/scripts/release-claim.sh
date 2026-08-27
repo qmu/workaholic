@@ -31,7 +31,8 @@
 #                 delete the branch; nothing in the loop can. The unit stays claimed and
 #                 is re-offered as `resumable` once its heartbeat lapses, which is the
 #                 honest state rather than a leak.
-#   untouched     nothing was changed (unreachable origin, or a refused teardown)
+#   untouched     nothing was changed (unreachable origin, a refused teardown, or a unit
+#                 held by two live claims -- `ambiguous_claim`, see below)
 #
 # TWO RULINGS RECORDED HERE so they are not silently re-litigated (2026-08-05):
 #
@@ -73,23 +74,33 @@ if git config --get remote.origin.url >/dev/null 2>&1; then
         echo '{"released": false, "state": "untouched", "reason": "origin_unreachable", "detail": "the remote claim branch could not be deleted; nothing was torn down"}' >&2
         exit 1
     fi
+    # `claims_fetch` above runs in a command substitution, so the flag it sets dies with
+    # that subshell (see lib/claims.sh) -- and without it the merged-pull-request lookup is
+    # skipped as `offline`, so a MISSION-grain claim whose pull request merged never reads
+    # `superseded` here. That is what `claim.sh` sets it for, and this script needs it for
+    # the same reason: with the verdict missing, a unit held by a dead branch and a live one
+    # reads as two live claims and the release refuses `ambiguous_claim`.
+    CLAIMS_FETCH_OK=true
 fi
 
 # Resolve the claim branch: the reader is the authority (it is what every other
 # runner sees), with the local worktree's HEAD as the fallback for a claim whose
 # remote branch is already gone -- releasing that is still a legitimate cleanup.
+#
+# THE LIVE BRANCH, NOT THE FIRST ONE (2026-08-27). This took the first row the scan
+# emitted, which for a unit held by both a superseded claim and a live one is the older,
+# dead branch -- so a release tore down the dead branch's worktree, reported
+# `half_released`, and left the live claim standing. The resolution is the shared one in
+# lib/claims.sh; two live claims are refused rather than picked between, because releasing
+# is a discard and discarding the wrong one of two in-flight branches is unrecoverable.
 branch=""
 rows=$(claims_scan "$(claims_base)")
-if [ -n "$rows" ]; then
-    while IFS='	' read -r held_unit held_branch _at _stale _arts; do
-        if [ "$held_unit" = "$unit" ]; then
-            branch="$held_branch"
-            break
-        fi
-    done <<EOF
-$rows
-EOF
+if [ "$(claims_unit_resolution "$rows" "$unit")" = "ambiguous" ]; then
+    printf '{"released": false, "state": "untouched", "reason": "ambiguous_claim", "unit": "%s", "branches": "%s", "detail": "two or more LIVE claims hold this unit; nothing was torn down. A release is a discard, so the branch is never guessed at -- a human decides which branch is the unit"}\n' \
+        "$unit" "$(claims_unit_live_branches "$rows" "$unit")" >&2
+    exit 1
 fi
+branch=$(claims_unit_row "$rows" "$unit" | cut -f2)
 worktree_path="${repo_root}/.worktrees/${unit}"
 if [ -z "$branch" ] && [ -d "$worktree_path" ]; then
     branch="$(git -C "$worktree_path" rev-parse --abbrev-ref HEAD 2>/dev/null || true)"

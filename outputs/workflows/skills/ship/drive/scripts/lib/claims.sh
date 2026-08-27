@@ -840,3 +840,76 @@ claims_scan() {
             "$_cs_author" "$_cs_resumable" "$_cs_reason" "$_cs_reported" "$_cs_artifacts"
     done
 }
+
+# ---------------------------------------------------------------------------
+# RESOLVING A UNIT ID TO THE ONE CLAIM ROW A WRITER MAY ACT ON (2026-08-27).
+#
+# A unit can legitimately be held by TWO claim branches since 2026-08-26: a `superseded`
+# one the survey ignores, and the fresh one a later run took its work on. Every writer
+# resolved a unit to *a* branch by taking the FIRST match out of `claims_scan`, and
+# `claims_scan` walks refs in name order -- so the first match is the OLDEST branch, which
+# for this shape is precisely the dead one. Measured 2026-08-27 on this repository, on unit
+# `make-workaholify-converge-the-account-s-routines` held by `work-20260819-113836`
+# (superseded) and `work-20260827-003544` (claim_active): `claim.sh resume` refused on the
+# superseded branch's verdict, so the LIVE claim could not be resumed by anything, and
+# `release-claim.sh` tore down the superseded branch and reported `half_released` while the
+# live claim stood.
+#
+# The two-branch shape is NEW, which is why first-match was right until now: before a fresh
+# claim could be taken over a superseded one, a unit had exactly one branch.
+#
+# ONE DERIVATION, THREE VIEWS. The resolution lives here rather than in each caller because
+# three copies of a lookup is exactly how these three disagreed. Callers read
+# `claims_unit_resolution` to decide whether they may act, and `claims_unit_row` for the row.
+#
+#   none            no claim in flight for this unit
+#   single          exactly one claim, whatever its verdict -- byte-identical to first-match
+#   live            one live claim beside one or more superseded ones -- the live one wins
+#   superseded_only every claim for this unit is superseded; the first is returned, so a
+#                   caller keeps refusing under `superseded` exactly as it did before
+#   ambiguous       TWO OR MORE LIVE CLAIMS. Reported, never picked. The protocol settles a
+#                   race by the push (two runners cannot both land a claim commit on one
+#                   branch), so this state cannot arise from the sanctioned path at all --
+#                   and picking one of two live branches silently is how a runner would
+#                   resume, or release, work another run is still driving. Refusing costs
+#                   nothing that ever legitimately happens and names both branches instead.
+
+# Every claim row for this unit, in scan order. $1 = rows, $2 = unit.
+claims_unit_all_rows() {
+    printf '%s\n' "$1" | awk -F'\t' -v u="$2" '$1 == u && NF > 1'
+}
+
+# The branches of this unit's LIVE (non-superseded) claims, comma-joined -- what an
+# `ambiguous` refusal reports so a human sees both. $1 = rows, $2 = unit.
+claims_unit_live_branches() {
+    claims_unit_all_rows "$1" "$2" \
+        | awk -F'\t' '$7 != "superseded" { printf "%s%s", (n++ ? "," : ""), $2 } END { printf "\n" }'
+}
+
+# One of the words above. $1 = rows, $2 = unit.
+claims_unit_resolution() {
+    _cu_all=$(claims_unit_all_rows "$1" "$2")
+    _cu_total=$(printf '%s\n' "$_cu_all" | grep -c . || true)
+    [ "$_cu_total" -gt 0 ] || { printf 'none\n'; return 0; }
+    _cu_live=$(printf '%s\n' "$_cu_all" | awk -F'\t' '$7 != "superseded"' | grep -c . || true)
+    if [ "$_cu_live" -eq 0 ]; then
+        printf 'superseded_only\n'
+    elif [ "$_cu_live" -gt 1 ]; then
+        printf 'ambiguous\n'
+    elif [ "$_cu_total" -eq 1 ]; then
+        printf 'single\n'
+    else
+        printf 'live\n'
+    fi
+}
+
+# The row to act on -- the live one when there is one, else the first superseded one.
+# EMPTY for `none` and for `ambiguous`: a caller that gets no row must refuse rather than
+# fall back to a guess. $1 = rows, $2 = unit.
+claims_unit_row() {
+    case "$(claims_unit_resolution "$1" "$2")" in
+        none | ambiguous) return 0 ;;
+        superseded_only) claims_unit_all_rows "$1" "$2" | head -n 1 ;;
+        *) claims_unit_all_rows "$1" "$2" | awk -F'\t' '$7 != "superseded" { print; exit }' ;;
+    esac
+}

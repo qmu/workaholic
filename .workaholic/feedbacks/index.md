@@ -562,4 +562,6 @@
 * [Deploy the docs site to a Cloudflare Worker on merge to main](20260826112627-deploy-the-docs-site-to-a-cloudflare-worker-on-merge-to-main.md)
 * [Tell a merged claim from a live one at both grains](20260826113034-tell-a-merged-claim-from-a-live-one-at-both-grains.md)
 * [Drive the work the loop wrote: one resolution of who a person is](20260826152017-drive-the-work-the-loop-wrote-one-resolution-of-who-a-person-is.md)
+* [The moderation check-in can no longer ask, and its morning root cannot open](20260827005850-the-moderation-check-in-can-no-longer-ask-and-its-morning-root-cannot-open.md)
+* [Close the units the loop already finished](20260827011638-close-the-units-the-loop-already-finished.md)
 <!-- okf:generated:end -->

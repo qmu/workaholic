@@ -446,6 +446,58 @@ direction, never an accusation, and the question's wording is held to that (`wor
 **A gate that cannot be read is not a gate**: if the open-proposal list cannot be fetched, the
 whole tick refuses (`inbox_unreadable`) rather than proposing blind.
 
+### Quiescent: a direction whose work is all in
+
+`pace`, `overdue` and `dormant` all answer *is this direction in trouble*. None answers **has it
+arrived**, so a direction that produced its work and has nothing left in flight is byte-identical
+to one still running — and when its date passes, the loop reports that success as an hourly
+`direction-overdue` question. Naming a success as a failure is the defect this reading removes.
+
+`survey-strategies.sh` emits **`quiescent`** on every surveyed row, eligible and refused alike —
+the refused case is the point, because a direction past its date is refused `past_target_date` and
+would otherwise never show its arrival to anyone. It is `true` only when *all* of these hold, and
+every one is already on the row — no new counter, no field on any artifact, no second derivation:
+
+| Term | Meaning |
+| ---- | ------- |
+| not `unreadable` | the attribution could be read at all |
+| `status == "active"`, `owns == "mine"` | a live direction of this identity's |
+| `feedback_refs` non-empty | something the reader *could* have seen |
+| `(.landed \| length) > 0` | **its answers are in** — the one term that separates it from `dormant` |
+| `waiting_missions + waiting_count == 0` | nothing waiting at either grain |
+| no open proposal | the last turn is not still sitting in the inbox |
+
+**It is the complement of `dormant` on exactly one term** — `landed` empty versus non-empty — and
+the two are mutually exclusive by construction. Nothing enforces that: deriving each from the row
+independently is what keeps them from drifting.
+
+**It carries no date term at all**, deliberately, unlike `dormant` (which is `false` once
+`days_to_target < 0`). Arrival is independent of the date — a direction that finished late has
+still finished — and that independence is why the projected lifecycle state ranks `arrived` above
+`overdue` (`workaholic:strategy`). Folding a date term in here would make that projection
+unreachable for the one case it exists to serve.
+
+#### Quiescent changes no gate — and the reason is recorded so it is not changed by reflex
+
+`quiescent` **lifts and closes no gate.** An arrived direction stays **eligible**; `refusal`,
+`pace`, `overdue`, `dormant`, the sort and `selected` are byte-identical, and `/propose` keeps
+proposing against it. What changes is only that the run report **says** it is doing so:
+a tick that proposes against a `quiescent: true` strategy names `arrived` beside that proposal,
+as evidence, in the same voice `pace` uses (`reference/loop.md`, step 5).
+
+**The gate that eventually holds is `not_active`, after a *person* closes the direction.** That is
+the operator's act, not a reading's — and the whole point of the reading is to *reach* that
+person, not to pre-empt them.
+
+**The obvious next request will be to gate on `arrived`, and it should be refused
+deliberately rather than by accident.** Silencing the one routine that originates work on a
+machine's guess is exactly what `pace` already refuses: `arrived` is a **candidate, not a
+verdict** (a strategy's "Reached when" is prose no script reads, so nothing here can know the
+aim was met — only that everything attributed has landed and nothing is queued), and a wrong
+guess would stop the direction producing work while the operator was never asked. The reading's
+job is to raise the question with a name on it — `/moderate`'s `direction-arrived:<slug>` — and
+nothing else.
+
 ## How the loop closes — and it closes with no new field
 
 `open-proposal.sh` writes the issue's first three lines itself, and the third is the

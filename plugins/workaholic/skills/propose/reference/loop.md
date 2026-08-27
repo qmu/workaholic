@@ -90,7 +90,12 @@
    one that moves the direction now.
    ```
 
-   Report the URL, the move, and the assignment outcome. Post nothing.
+   Report the URL, the move, and the assignment outcome. **And, when the strategy this
+   proposal was made against reads `quiescent: true` on its survey row, report `arrived`
+   beside it** — as *evidence*, in the same voice `pace` uses, never as a refusal: the
+   direction was still eligible, the proposal was still made, and the report says so
+   because a reader otherwise cannot tell a direction whose work is all in from one that
+   is mid-flight. Post nothing.
 
 ## Where it lands in the hour, and why the loop closes across hours
 

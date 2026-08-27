@@ -42,7 +42,7 @@ dry is still dormant, and nothing closes a direction on its own reading.
 
 ## Acceptance
 
-- [ ] `quiescent` on every row, projected as `arrived` at `unreadable > arrived > overdue >
+- [x] `quiescent` on every row, projected as `arrived` at `unreadable > arrived > overdue >
       dormant > live`, every gate and the sort unchanged. (#20260827142444-add-the-quiescent-reading-to-the-strategy-survey.md)
 - [ ] An arrived direction reaches its assignee once, as a description of the reading. (#20260827142444-ask-the-operator-once-whether-an-arrived-direction-is-done.md)
 - [ ] No reading closes a direction, pinned by a test. (#20260827142444-pin-that-no-reading-ever-closes-a-direction.md)
@@ -50,3 +50,4 @@ dry is still dormant, and nothing closes a direction on its own reading.
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-27 — ticket archived — 20260827142444-add-the-quiescent-reading-to-the-strategy-survey.md

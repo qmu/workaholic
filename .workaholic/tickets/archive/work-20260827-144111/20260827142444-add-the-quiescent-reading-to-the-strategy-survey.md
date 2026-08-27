@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-27T14:24:44+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -74,3 +75,34 @@ the projected state must outrank lateness in the next ticket.
 - `dormant` and `quiescent` are mutually exclusive by construction (`landed` empty versus
   non-empty), but nothing needs to enforce that — deriving each from the row independently is what
   keeps them from drifting.
+
+## Final Report
+
+Development completed as planned. `survey-strategies.sh` emits `quiescent` on every surveyed
+row — after `dormant`, before `refusal` — under the full conjunction: readable, `active`,
+`mine`, non-empty `feedback_refs`, **non-empty** `landed[]`, `waiting_missions +
+waiting_count == 0`, no open proposal. No date term. The `refused` map carries it too, which
+is the case the reading exists for. The header records why it carries no date term and how it
+differs from `dormant` on the single term that separates them; `workaholic:propose` records it
+beside `pace` / `overdue` / `dormant`.
+
+Verified by running the survey over the same fixture before and after and diffing every field
+but `quiescent`: identical. `node scripts/test-workflow-scripts.mjs` — 4029 passed, 0 failed.
+Over a git-backed fixture: `quiescent: true` on two eligible rows and on the one refused
+`past_target_date`, `false` wherever `landed[]` is empty.
+
+### Discovered Insights
+
+- **Insight**: `landed[]` is `attributed-work.sh`'s set of attributed artifacts whose
+  `changed_in_window` is true, and that flag is a `git log --since` read run in the **caller's
+  cwd**.
+  **Context**: a `.workaholic/` fixture that is not itself a git repository yields an empty
+  `landed[]` for every strategy, so `quiescent` is `false` everywhere and any test over such a
+  tree passes vacuously. Every fixture that must exercise `landed` has to be `git init`ed with
+  a `user.email` matching the strategies' `assignees` (otherwise `owns.sh` answers `not_mine`
+  and the rows are refused before the reading is reached).
+- **Insight**: the whole jq program in these scripts is a single-quoted shell string, so a
+  lone apostrophe anywhere in a jq-block comment terminates it and the script dies with a
+  shell syntax error far from the edit.
+  **Context**: the existing code escapes one as `'"'"'`. Rewording to avoid the apostrophe is
+  cheaper and keeps the comment readable; header comments outside the jq block are unaffected.

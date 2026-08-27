@@ -6,6 +6,7 @@ depends_on:
 mission:
 merge_policy:
 verification_handoff: 
+claim: work-20260827-003503
 ---
 
 # Let a fresh claim take a superseded claim's work

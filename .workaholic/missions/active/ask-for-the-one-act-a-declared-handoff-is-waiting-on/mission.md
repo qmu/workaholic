@@ -56,3 +56,4 @@ gate lifted, no handoff declared or withdrawn by any run.
 - 2026-08-27 — ticket archived — 20260827202118-stop-stalled-units-asking-about-a-declared-handoff.md
 - 2026-08-27 — ticket archived — 20260827202119-name-claimed-awaiting-verification-in-the-run-report.md
 - 2026-08-27 — ticket archived — 20260827202119-pin-the-new-consumer-as-report-and-ask-only.md
+- 2026-08-27 — ticket archived — 20260827202119-drill-the-handoff-question-with-no-network.md

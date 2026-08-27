@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 1.8
 feedback: [20260827081849-a-declared-handoff-unit-is-re-resumed-every-tick.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
@@ -54,3 +54,4 @@ nothing stored anywhere, once that declaration no longer holds.
 - 2026-08-27 — ticket archived — 20260827082245-classify-the-verdict-and-update-the-documents.md
 - 2026-08-27 — mission achieved — mission.md
 - 2026-08-27 — story reported — work-20260827-084115.md
+- 2026-08-27 — run recorded (+1.8h) — session_016AcHaK6FP7vGBEG9T5PRwy

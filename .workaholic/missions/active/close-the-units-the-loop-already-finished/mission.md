@@ -55,3 +55,4 @@ business from the loop's undelivered work, and `ok` stops covering the second.
 - 2026-08-27 — ticket archived — 20260827012033-make-the-connector-retry-a-step-of-the-route.md
 - 2026-08-27 — ticket archived — 20260827012035-never-report-ok-over-an-undelivered-unit.md
 - 2026-08-27 — ticket archived — 20260827012036-split-the-exclusion-that-hides-the-difference.md
+- 2026-08-27 — ticket archived — 20260827012037-name-undelivered-units-in-backlog-all-excluded.md

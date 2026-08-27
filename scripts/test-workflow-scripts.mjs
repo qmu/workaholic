@@ -15018,6 +15018,311 @@ function testResumeParkedAndAdoption() {
   } finally { cleanup(origin); cleanup(A); cleanup(B); }
 }
 
+// Set (or clear) `verification_handoff:` on a ticket inside a claim worktree, preserving every
+// other frontmatter line — the `claim:` stamp included, since dropping that would take the
+// artifact out of the claim and change the very reading under test.
+function setVerificationHandoff(worktree, rel, value) {
+  const abs = join(worktree, rel);
+  const src = readFileSync(abs, "utf8");
+  const line = `verification_handoff: ${value}`;
+  writeFileSync(abs, /^verification_handoff:.*$/m.test(src)
+    ? src.replace(/^verification_handoff:.*$/m, line)
+    : src.replace(/^---\n/, `---\n${line}\n`));
+}
+
+// ---------- drive claim protocol: a DECLARED handoff unit gets its own verdict ----------
+// THE REPRODUCTION, INVERTED (2026-08-27, mission `stop-re-resuming-a-declared-handoff-unit`).
+// This case shipped one ticket earlier asserting the DEFECT — a unit whose remaining ticket
+// declares `verification_handoff:` reading `parked_with_pr`, `resumable: true`, and offered for
+// takeover on every survey (measured on PR #647: routed at 02:14 UTC, taken over again at 06:43
+// for nothing). The assertions below are the same fixture with the expectations turned over,
+// which is what makes the defect a fact this change LOST rather than a claim in prose.
+//
+// WHAT PRODUCED THE OLD VERDICT, recorded by the reproduction and unchanged by the fix:
+// `claims_has_story` answers true (the row's `reported` field is that same reading) and
+// `claims_has_work` answers true because a queued ticket still names the unit. Both are still
+// true here. What changed is that the chain now also reads the declaration, and `parked_with_pr`
+// — whose own contract says *taking it over is legitimate* — is false by declaration for it.
+//
+// BOTH ARMS, so the word is keyed on the DECLARATION and not on the fixture's shape: an
+// otherwise byte-identical branch with the field emptied still reads `parked_with_pr`.
+//
+// Hermetic: a bare origin and two clones, no `gh`, no network (`makeClaimFixture`).
+function testDeclaredHandoffGetsItsOwnVerdict() {
+  const { origin, A, B } = makeClaimFixture();
+  const CLAIM = `${POSIX_SH} ${SCRIPTS.claim}`;
+  const LIST = `${POSIX_SH} ${SCRIPTS.listClaims}`;
+  const PLAN = `${POSIX_SH} ${SCRIPTS.planUnits}`;
+  const lapsed = { ...process.env, WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES: "0" };
+  try {
+    const t1 = `.workaholic/tickets/todo/${TEST_SLUG}/20260729000001-t1.md`;
+    const t2 = `.workaholic/tickets/todo/${TEST_SLUG}/20260729000002-t2.md`;
+    const batch = JSON.parse(run(A, `${CLAIM} batch ${t1} ${t2}`).stdout);
+    const wt = join(A, ".worktrees", batch.unit);
+
+    // The shape §6 leaves behind when it routes a declared unit to the handoff route: the work
+    // that COULD be driven is driven and pushed, the story is committed, the pull request is
+    // open, and the ticket whose verification cannot run here is still queued.
+    run(wt, `${POSIX_SH} ${SCRIPTS.update} ${t1} effort 0.1h`);
+    run(wt, `${POSIX_SH} ${SCRIPTS.archive} ${t1} "Drive t1" https://example.test/repo why changes None None verify`);
+    // `archive.sh` runs the todo-layout migration, so the surviving ticket is flat by the time
+    // the declaration goes on it — the tip path, which is the only space this reading works in.
+    const t2AtTip = `.workaholic/tickets/todo/${basename(t2)}`;
+    setVerificationHandoff(wt, t2AtTip, "the staging device is not attached to a routine container");
+    mkdirSync(join(wt, ".workaholic/stories"), { recursive: true });
+    writeFileSync(join(wt, `.workaholic/stories/${batch.branch}.md`),
+      `---\ntype: Story\nbranch: ${batch.branch}\ntickets_completed: 1\nmission: []\ntickets: []\n---\n\n## 1. Overview\n\nhanded off\n`);
+    execSync(`git add -A && git commit -q -m "Add branch story" && git push -q origin ${batch.branch}`, { cwd: wt });
+
+    let r = JSON.parse(run(B, LIST, { env: lapsed }).stdout);
+    const row = r.claims.find((c) => c.unit === batch.unit);
+    assertEq("a unit whose remaining ticket declares a handoff gets its own verdict",
+      { res: row.resumable, why: row.resume_reason },
+      { res: false, why: "awaiting_verification" });
+
+    // The two readings that produced the OLD verdict are both still true — the fix added a
+    // third input rather than changing either of them.
+    assertEq("the story at the tip still puts it on the reported side of the fork",
+      row.reported, true);
+    assertTrue("and a queued ticket still names the unit, which is what claims_has_work reads",
+      execSync(`git ls-tree -r --name-only origin/${batch.branch} -- .workaholic/tickets/todo`,
+        { cwd: B, encoding: "utf8" }).includes("20260729000002-t2.md"));
+    assertTrue("while the declaration itself is on that queued ticket at the tip",
+      execSync(`git show origin/${batch.branch}:${t2AtTip}`, { cwd: B, encoding: "utf8" })
+        .includes("verification_handoff: the staging device"));
+    assertEq("and the row still reports the declaration it keyed on",
+      row.declared_handoff, true);
+
+    let plan = JSON.parse(run(B, PLAN, { env: lapsed }).stdout);
+    assertEq("the survey offers the takeover on this tick and on no later one either",
+      plan.resumable.map((x) => [x.unit, x.resume_reason]), []);
+
+    // THE REFUSAL IS BY ITS OWN NAME. Refusing under `parked_with_pr` would say a takeover is
+    // legitimate; refusing under `queue_drained` would send the reader to wait for a merge.
+    // Both send a person to the wrong next action, which is what the sibling word exists for.
+    const before = execSync(`git log --format=%s ${batch.branch}`, { cwd: origin, encoding: "utf8" });
+    const refused = run(A, `${CLAIM} resume ${batch.unit}`, { env: lapsed });
+    assertTrue("resuming a declared-handoff unit exits non-zero", refused.status !== 0, `status ${refused.status}`);
+    assertEq("and is refused under the new word, not another verdict's wording",
+      JSON.parse(refused.stderr.trim().split("\n").pop()).reason, "awaiting_verification");
+    assertEq("the refused resume added no commit to the open pull request's branch",
+      execSync(`git log --format=%s ${batch.branch}`, { cwd: origin, encoding: "utf8" }), before);
+
+    // THE SECOND ARM. An otherwise byte-identical branch with the field emptied is untouched:
+    // the word is keyed on the declaration, not on this fixture's shape.
+    setVerificationHandoff(wt, t2AtTip, "");
+    execSync(`git add -A && git commit -q -m "Clear the declaration" && git push -q origin ${batch.branch}`, { cwd: wt });
+    r = JSON.parse(run(B, LIST, { env: lapsed }).stdout);
+    const bare = r.claims.find((c) => c.unit === batch.unit);
+    assertEq("with the field EMPTY the same unit reads parked_with_pr, exactly as before",
+      { res: bare.resumable, why: bare.resume_reason }, { res: true, why: "parked_with_pr" });
+    plan = JSON.parse(run(B, PLAN, { env: lapsed }).stdout);
+    assertEq("and is offered for takeover again",
+      plan.resumable.map((x) => [x.unit, x.resume_reason]), [[batch.unit, "parked_with_pr"]]);
+
+    // AND `superseded` KEEPS ITS PRECEDENCE: a claim proved empty is still superseded, whatever
+    // it declares. Redeclare, then put every one of the unit's tickets on the base.
+    setVerificationHandoff(wt, t2AtTip, "the staging device is not attached to a routine container");
+    execSync(`git add -A && git commit -q -m "Redeclare the handoff" && git push -q origin ${batch.branch}`, { cwd: wt });
+    assertEq("the declared unit reads its own word again",
+      rowOf(run(B, LIST, { env: lapsed }), batch.unit).resume_reason, "awaiting_verification");
+    archiveOnBase(B, [basename(t1), basename(t2)], batch.branch);
+    assertEq("but once its content is on the base, superseded wins",
+      rowOf(run(B, LIST, { env: lapsed }), batch.unit).resume_reason, "superseded");
+  } finally { cleanup(origin); cleanup(A); cleanup(B); }
+}
+
+// ---------- the verdict, carried to the survey ----------
+// `plan-units.sh` classifies on `resumable` first, so the new verdict already fell out of
+// `resumable[]` the moment it shipped. What is left is to name the exclusion HONESTLY — a reason
+// is read straight out of a cron log and has to imply its own next action, and neither
+// `claimed_reported` (a merge is what it waits for) nor `claimed_active` (a run is on it) is true
+// of a unit waiting on a person to run a declared verification.
+//
+// AND TO SETTLE WHAT IT DOES TO THE TOKEN: nothing. Such a pull request is open BY DESIGN, like
+// one a scan finding holds, so a run whose only outstanding item is this still reports `ok`.
+//
+// THE OTHER THREE LISTS MUST STAY EMPTY OF IT. It is not a takeover (`resumable[]`), not a merge
+// retry (`undelivered[]`, which takes only the `report_undelivered` proof), and not work that
+// came back (`resurveyed[]`, which takes only `superseded`).
+function testDeclaredHandoffIsExcludedFromTheOffer() {
+  const { origin, A, B } = makeClaimFixture();
+  const CLAIM = `${POSIX_SH} ${SCRIPTS.claim}`;
+  const PLAN = `${POSIX_SH} ${SCRIPTS.planUnits}`;
+  const lapsed = { ...process.env, WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES: "0" };
+  // Every exclusion reason the survey reported, with its count — read out of `excluded[]`
+  // itself, exactly as `backlog_all_excluded` derives its own counts.
+  const tally = (plan) => {
+    const out = {};
+    for (const e of plan.excluded) out[e.reason] = (out[e.reason] || 0) + 1;
+    return out;
+  };
+  try {
+    const t1 = `.workaholic/tickets/todo/${TEST_SLUG}/20260729000001-t1.md`;
+    const t2 = `.workaholic/tickets/todo/${TEST_SLUG}/20260729000002-t2.md`;
+    const batch = JSON.parse(run(A, `${CLAIM} batch ${t1} ${t2}`).stdout);
+    const wt = join(A, ".worktrees", batch.unit);
+
+    run(wt, `${POSIX_SH} ${SCRIPTS.archive} ${t1} "Drive t1" https://example.test/repo why changes None None verify`);
+    mkdirSync(join(wt, ".workaholic/stories"), { recursive: true });
+    writeFileSync(join(wt, `.workaholic/stories/${batch.branch}.md`),
+      `---\ntype: Story\nbranch: ${batch.branch}\ntickets_completed: 1\nmission: []\ntickets: []\n---\n\n## 1. Overview\n\nreported\n`);
+    execSync(`git add -A && git commit -q -m "Add branch story" && git push -q origin ${batch.branch}`, { cwd: wt });
+
+    // THE BASELINE, with no declaration anywhere: an ordinary parked unit, offered.
+    const before = JSON.parse(run(B, PLAN, { env: lapsed }).stdout);
+    assertEq("without a declaration the unit is offered for takeover",
+      before.resumable.map((x) => x.unit), [batch.unit]);
+    // BOTH of the unit's tickets, because the survey reads the BASE: the archive of t1 lives on
+    // the claim branch, so on main the queue still holds the pair the claim stamped.
+    assertEq("and its exclusion says a takeover is available",
+      tally(before).claimed_resumable, 2);
+
+    const t2AtTip = `.workaholic/tickets/todo/${basename(t2)}`;
+    setVerificationHandoff(wt, t2AtTip, "a signed build the release device produces");
+    execSync(`git add -A && git commit -q -m "Declare the handoff" && git push -q origin ${batch.branch}`, { cwd: wt });
+
+    const after = JSON.parse(run(B, PLAN, { env: lapsed }).stdout);
+    assertTrue("the claim is still reported in flight, under its own verdict",
+      after.claimed.some((c) => c.unit === batch.unit
+        && c.resume_reason === "awaiting_verification" && c.resumable === false),
+      JSON.stringify(after.claimed));
+    assertTrue("and its ticket is excluded under a reason naming what it waits for",
+      after.excluded.some((e) => e.reason === "claimed_awaiting_verification"
+        && e.id.endsWith("20260729000002-t2.md")),
+      JSON.stringify(after.excluded));
+    assertEq("it is a takeover in no list: not resumable, not a merge retry, not work that came back",
+      { r: after.resumable.length, u: after.undelivered.length, rs: after.resurveyed.length },
+      { r: 0, u: 0, rs: 0 });
+
+    // ONE REASON CHANGED NAME; NOTHING ELSE MOVED.
+    const a = tally(after);
+    const b = tally(before);
+    assertEq("the takeover reason is gone", a.claimed_resumable, undefined);
+    assertEq("replaced one-for-one by the new one", a.claimed_awaiting_verification, 2);
+    delete a.claimed_awaiting_verification;
+    delete b.claimed_resumable;
+    assertEq("and every other exclusion reason's count is unchanged", a, b);
+
+    // THE DERIVED READING PICKS IT UP WITH NO SECOND VOCABULARY — the counts come from
+    // whatever `excluded[]` carries, so a new reason lands there by construction.
+    assertTrue("a queue offering nothing still says so", after.backlog_all_excluded.excluded,
+      JSON.stringify(after.backlog_all_excluded));
+    assertEq("and counts the new reason among the others",
+      after.backlog_all_excluded.reasons.find((r) => r.reason === "claimed_awaiting_verification"),
+      { reason: "claimed_awaiting_verification", count: 2 });
+  } finally { cleanup(origin); cleanup(A); cleanup(B); }
+}
+
+// One claim row out of a list-claims.sh run.
+function rowOf(result, unit) {
+  return JSON.parse(result.stdout).claims.find((c) => c.unit === unit);
+}
+
+// Put a unit's tickets on the BASE under some other branch's archive directory — the signal
+// `claims_superseded` reads: delivered by another route, whichever branch delivered them.
+function archiveOnBase(clone, basenames, underBranch) {
+  const dir = `.workaholic/tickets/archive/${underBranch}`;
+  execSync(`git checkout -q main && git pull -q origin main`, { cwd: clone });
+  mkdirSync(join(clone, dir), { recursive: true });
+  for (const b of basenames) writeFileSync(join(clone, dir, b), `---\nstatus: done\n---\n\n# archived elsewhere\n`);
+  execSync(`git add -A && git commit -q -m "Recover the unit by hand" && git push -q origin main`, { cwd: clone });
+}
+
+// ---------- the declaration, carried into the claim scan ----------
+// The oracle had no input for "was the work still queued behind this claim declared
+// unverifiable here?", so it could not tell the state apart however the verdict was written.
+// `verification-handoff.sh` already answers that question from the artifact; this carries the
+// answer to the one place that never consulted it, and NOTHING ELSE: no verdict moves here.
+//
+// AT BOTH GRAINS, because a claim stamps different things. A batch claims its ticket files, so
+// its queued work is whichever are still under todo/ at the tip. A mission claims only
+// `mission.md`, so its queued work is the tickets at the tip that name it — and the mission's
+// own declaration counts too, since any member declaring it carries the whole unit.
+//
+// KEYED ON THE DECLARATION, NOT THE FIXTURE'S SHAPE: each grain is asserted twice, once with a
+// value and once with the field emptied, over a branch that is otherwise byte-identical.
+//
+// AND OFFLINE: the whole reading is `git ls-tree`/`git show` against an already-fetched ref plus
+// one local script, so the last arm runs the scan with the merged lookup disabled and the remote
+// unreachable and asserts the answer does not move.
+function testClaimScanReadsTheDeclaredHandoff() {
+  const { origin, A, B } = makeClaimFixture();
+  const CLAIM = `${POSIX_SH} ${SCRIPTS.claim}`;
+  const LIST = `${POSIX_SH} ${SCRIPTS.listClaims}`;
+  const lapsed = { ...process.env, WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES: "0" };
+  const rowFor = (dir, unit, env = lapsed) =>
+    JSON.parse(run(dir, LIST, { env }).stdout).claims.find((c) => c.unit === unit);
+  try {
+    const t1 = `.workaholic/tickets/todo/${TEST_SLUG}/20260729000001-t1.md`;
+    const t2 = `.workaholic/tickets/todo/${TEST_SLUG}/20260729000002-t2.md`;
+
+    // ---- BATCH grain: the declaration sits on a claimed ticket still under todo/. ----
+    const batch = JSON.parse(run(A, `${CLAIM} batch ${t1} ${t2}`).stdout);
+    const bwt = join(A, ".worktrees", batch.unit);
+    assertEq("a batch claim declaring nothing reads declared_handoff: false",
+      rowFor(B, batch.unit).declared_handoff, false);
+
+    setVerificationHandoff(bwt, t2, "a paid third-party account this container has no key for");
+    execSync(`git add -A && git commit -q -m "Declare the handoff" && git push -q origin ${batch.branch}`, { cwd: bwt });
+    let row = rowFor(B, batch.unit);
+    assertEq("with the declaration on a queued ticket it reads true", row.declared_handoff, true);
+    assertEq("and NO verdict moved in this change",
+      { res: row.resumable, why: row.resume_reason }, { res: true, why: "heartbeat_lapsed" });
+
+    setVerificationHandoff(bwt, t2, "");
+    execSync(`git add -A && git commit -q -m "Empty the declaration" && git push -q origin ${batch.branch}`, { cwd: bwt });
+    assertEq("an EMPTY value is no declaration — the same rule the one reader already applies",
+      rowFor(B, batch.unit).declared_handoff, false);
+
+    // ---- MISSION grain: the claim stamps only mission.md, so the tickets are found by relation. ----
+    tickSecond();
+    const mission = JSON.parse(run(A, `${CLAIM} mission m1`).stdout);
+    const mwt = join(A, ".worktrees", "m1");
+    const step = `.workaholic/tickets/todo/20260729000009-m1-step.md`;
+    assertEq("a mission claim declaring nothing reads declared_handoff: false",
+      rowFor(B, "m1").declared_handoff, false);
+
+    setVerificationHandoff(mwt, step, "the production dashboard needs a human to read it");
+    execSync(`git add -A && git commit -q -m "Declare on the queued step" && git push -q origin ${mission.branch}`, { cwd: mwt });
+    assertEq("a queued ticket NAMING the mission is what the mission grain reads",
+      rowFor(B, "m1").declared_handoff, true);
+
+    setVerificationHandoff(mwt, step, "");
+    setVerificationHandoff(mwt, ".workaholic/missions/active/m1/mission.md", "the device is not attached here");
+    execSync(`git add -A && git commit -q -m "Declare on the mission itself" && git push -q origin ${mission.branch}`, { cwd: mwt });
+    assertEq("and the mission's OWN declaration carries the unit — any member does",
+      rowFor(B, "m1").declared_handoff, true);
+
+    setVerificationHandoff(mwt, ".workaholic/missions/active/m1/mission.md", "");
+    execSync(`git add -A && git commit -q -m "Empty both declarations" && git push -q origin ${mission.branch}`, { cwd: mwt });
+    row = rowFor(B, "m1");
+    assertEq("with both emptied the mission grain reads false again",
+      row.declared_handoff, false);
+    assertEq("and the mission claim's verdict is untouched by any of it",
+      { res: row.resumable, why: row.resume_reason }, { res: true, why: "heartbeat_lapsed" });
+
+    // ---- The reading is self-releasing: drive the declared ticket and it answers false. ----
+    setVerificationHandoff(bwt, t2, "a paid third-party account this container has no key for");
+    execSync(`git add -A && git commit -q -m "Redeclare the handoff" && git push -q origin ${batch.branch}`, { cwd: bwt });
+    assertEq("the batch reads true again", rowFor(B, batch.unit).declared_handoff, true);
+    run(bwt, `${POSIX_SH} ${SCRIPTS.archive} ${t2} "Drive t2" https://example.test/repo why changes None None verify`);
+    execSync(`git push -q origin ${batch.branch}`, { cwd: bwt });
+    assertEq("once the declared ticket is DRIVEN the same reader answers false, storing nothing",
+      rowFor(B, batch.unit).declared_handoff, false);
+
+    // ---- Offline: no network, no merged lookup, byte-identical answer. ----
+    const offline = { ...lapsed, WORKAHOLIC_CLAIM_MERGED_LOOKUP: "0" };
+    execSync(`git remote set-url origin ${join(origin, "nope")}`, { cwd: B });
+    const off = JSON.parse(run(B, LIST, { env: offline }).stdout);
+    assertEq("the reading survives an unreachable origin unchanged", off.fetched, false);
+    assertEq("and answers exactly as it did online",
+      off.claims.filter((c) => [batch.unit, "m1"].includes(c.unit))
+        .map((c) => [c.unit, c.declared_handoff]).sort(),
+      [["m1", false], [batch.unit, false]].sort());
+  } finally { cleanup(origin); cleanup(A); cleanup(B); }
+}
+
 function testResumeSkipsDrainedUnit() {
   const { origin, A, B } = makeClaimFixture();
   const CLAIM = `${POSIX_SH} ${SCRIPTS.claim}`;
@@ -15931,6 +16236,9 @@ const tests = [
   ["drive claim protocol: a claim whose content reached the base is superseded", testSupersededClaimIsNotOffered],
   ["drive claim protocol: superseded leaves every other verdict alone", testSupersededLeavesEveryOtherVerdictAlone],
   ["drive claim protocol: parked-at-PR is not died-mid-drive, and same-machine resume adopts", testResumeParkedAndAdoption],
+  ["drive claim protocol: a declared handoff unit gets its own verdict", testDeclaredHandoffGetsItsOwnVerdict],
+  ["drive claim protocol: the claim scan reads the declared handoff", testClaimScanReadsTheDeclaredHandoff],
+  ["drive claim protocol: a declared handoff is excluded from the offer", testDeclaredHandoffIsExcludedFromTheOffer],
   ["drive claim protocol: an archive git cannot prove is a rename keeps its artifact", testClaimSurvivesUndetectedRename],
   ["drive claim protocol: a mission artifact never resolves by basename", testMissionArtifactNeverResolvesByBasename],
   ["PR seams degrade when the runner has no gh", testGhAbsentDegrades],

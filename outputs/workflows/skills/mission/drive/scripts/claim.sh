@@ -142,11 +142,12 @@ if [ "$kind" = "resume" ]; then
     r_author=$(printf '%s' "$resume_row" | cut -f5)
     r_resumable=$(printf '%s' "$resume_row" | cut -f6)
     r_reason=$(printf '%s' "$resume_row" | cut -f7)
-    # FIELD 9, NOT 8. The artifact list is the row's LAST field, and `reported` was
-    # inserted before it (2026-08-23) -- so this read was silently returning `true`/`false`
-    # as the unit's whole artifact list. It is the tail by construction (see lib/claims.sh's
-    # no-empty-field rule), which is what makes a fixed index safe at all.
-    r_arts=$(printf '%s' "$resume_row" | cut -f9)
+    # FIELD 10, NOT 8. The artifact list is the row's LAST field, and two booleans have been
+    # inserted before it -- `reported` (2026-08-23) and `declared_handoff` (2026-08-27) -- so
+    # this read once silently returned `true`/`false` as the unit's whole artifact list. It is
+    # the tail by construction (see lib/claims.sh's no-empty-field rule), which is what makes a
+    # fixed index safe at all; every insertion moves it, and this line moves with it.
+    r_arts=$(printf '%s' "$resume_row" | cut -f10)
 
     # The verdict is the SHARED scan's, never re-derived here. A writer that decided
     # resumability for itself could take over a unit the reader still reports as
@@ -167,6 +168,14 @@ if [ "$kind" = "resume" ]; then
             # commit onto a branch whose pull request is open, the 2026-08-01 gate exactly.
             report_undelivered)
                 fail "report_undelivered" ', "unit": "'"${unit}"'", "branch": "'"${r_branch}"'", "detail": "this unit finished, reported and opened its pull request, and the merge was REFUSED by the transport -- its branch story records which refusal. Nothing is under review and no takeover would help: the next action is retrying the merge on the open pull request. The survey reports it and forbids `ok`; resuming it would only add an empty commit to a branch that is already done"'
+                ;;
+            # A UNIT WHOSE REMAINING WORK NOBODY UNATTENDED CAN FINISH (2026-08-27, mission
+            # `stop-re-resuming-a-declared-handoff-unit`). Named on its own rather than left to
+            # `parked_with_pr`'s wording, which says a takeover is legitimate -- false by
+            # declaration here. Refusing under `queue_drained` would be no better: it sends the
+            # reader to wait for a merge, when what is owed is a verification a person must run.
+            awaiting_verification)
+                fail "awaiting_verification" ', "unit": "'"${unit}"'", "branch": "'"${r_branch}"'", "detail": "the work still queued behind this claim was DECLARED unverifiable in an unattended environment (verification_handoff:), so the run routed it to the handoff route: its pull request is open and stays open, and its claim stays standing on purpose. A takeover would drive nothing -- the next action is a person running the declared verification. Once that ticket is driven the claim reads resumable again on its own"'
                 ;;
             queue_drained)
                 fail "queue_drained" ', "unit": "'"${unit}"'", "branch": "'"${r_branch}"'", "detail": "this unit has nothing left to drive AND it reported -- its story is committed and its PR is open, so it is waiting on a human, not on a runner; resuming it would only add an empty takeover commit to a branch under review. A drained unit that never reported is a different state and IS resumable (report_incomplete)"'
@@ -364,7 +373,7 @@ artifact_rels=$(printf '%s' "$artifact_rels" | grep -v '^$' || true)
 # claimable over.
 rows=$(claims_scan "$base")
 if [ -n "$rows" ]; then
-    while IFS='	' read -r held_unit held_branch _held_at _held_stale _held_author _held_resumable _held_reason _held_reported held_arts; do
+    while IFS='	' read -r held_unit held_branch _held_at _held_stale _held_author _held_resumable _held_reason _held_reported _held_handoff held_arts; do
         [ -n "$held_unit" ] || continue
         if [ "$_held_reason" = "superseded" ]; then
             continue

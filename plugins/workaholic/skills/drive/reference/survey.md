@@ -82,8 +82,23 @@ the unclaimed active missions this runner may take and the unclaimed todo ticket
 everything a claim already holds subtracted through the shared claim reader.
 
 **`excluded[]` names every drop and why**: `claimed_active`, `claimed_reported`,
+`claimed_undelivered`, `claimed_awaiting_verification`,
 `claimed_by_other`, `claimed_resumable`, `claimed_superseded`, `owned_by_other`, `no_plan`,
-`no_tickets`, `queue_drained`, `mission_member`. **`claimed_superseded`** (2026-08-26) names a
+`no_tickets`, `queue_drained`, `mission_member`.
+
+**`claimed_awaiting_verification`** (2026-08-27) names a unit **waiting on a person, by design**:
+the work still queued behind its claim was *declared* unverifiable in an unattended environment
+at creation (`verification_handoff:`), so the run routed it to the **handoff** route — its pull
+request is open on purpose and its claim stands on purpose. It read `claimed_resumable` until
+then, so the survey offered a takeover that could drive nothing, on every tick forever (measured
+on PR #647: routed at 02:14 UTC, taken over again at 06:43). It appears in `claimed[]` and here,
+and in **neither** `resumable[]`, `undelivered[]` nor `resurveyed[]` — it is not a takeover, not
+a merge retry and not work that came back. It does **not** forbid `ok`, on the scan-held pull
+request's own reasoning: a unit waiting on a declared human verification is the gate *working*.
+The reading releases itself — the declaration is taken from the still-queued work, so driving
+that ticket returns the unit to `claimed_resumable` with nothing stored anywhere.
+
+**`claimed_superseded`** (2026-08-26) names a
 claim with nothing in it: the unit's work already reached the base — every one of its tickets
 archived there, or (at the mission grain) a merged pull request with that branch as its head —
 so the branch is unmerged forever and holds no work. It is reported and never acted on —
@@ -162,8 +177,10 @@ so a takeover (`claim.sh resume <unit-id>`) skips steps 2-3. Read each row's `re
   told the work exists. Enters at **step 5**, with an empty queue: write the story, run the scan,
   open the pull request, route normally at step 6. It re-drives no archived ticket.
 - **`parked_with_pr`** — a unit that reached its PR and has follow-up work on its branch (its
-  story file is committed at the tip). Legitimately resumable but **reportable rather than
-  mandatory**: it does not outrank fresh work and does not forbid `ok` when left untaken. (The
+  story file is committed at the tip) **that nothing declared unverifiable here**; when the
+  remaining work *is* declared, the row reads `awaiting_verification` instead, is `resumable:
+  false`, and appears in no tier of this offer at all. Legitimately resumable but **reportable
+  rather than mandatory**: it does not outrank fresh work and does not forbid `ok` when left untaken. (The
   mandatory reading was measured humanly wrong — an attended run spent ~40 minutes reopening a
   PR the developer considered parked while their actual WIP waited, 2026-08-05.) Enters at
   **step 4** for the follow-up tickets.

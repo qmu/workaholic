@@ -991,6 +991,18 @@ it, which is reported as unreached — never as green.
 It names the reading and the failing checks; the commit sha it carries is normalised out of the
 root's hour-to-hour diff, so two ticks over one unchanged red reading do not read as two changes.
 
+**Only a red base supplies an `event`**, and it names the repository event rather than the tick's
+bookkeeping: *the base went red at `<commit>` — `<checks>` failing, from that merge*, with the
+commit linked (and the pull request too, when the walk named one) so the root line is followed
+rather than merely read. A green base and a degraded read supply **none**, so a healthy hour
+renders no line at all — the renderer's own rule, *a step with no event renders no line*, is the
+independent guard against a nothing-happened line reaching the root even on a tick whose diff
+calls this step changed. An `unattributable` red base supplies a line too, saying in words that
+the merge could not be attributed. **It is not a second posting gate**: the root posts when the
+tick has at least one question, and on a red tick this step has already supplied one. The base URL
+is derived from the **local** remote (`step-direction-health.sh`'s precedent) — no network call —
+and an absent remote degrades to the bare short sha rather than to a broken link.
+
 ## What `run.sh` guarantees around the steps
 
 - **Every step is invoked and every step reports.** Missing script → `degraded`/`step_missing`;

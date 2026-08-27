@@ -163,9 +163,46 @@ row=$(printf '%s' "$out" | jq -c \
       key: ("base-red:" + $commit)}' 2>/dev/null || printf '')
 [ -n "$row" ] || emit degraded walk_unparseable "the base attribution could not be turned into a question"
 
+# THE ROOT LINE — supplied ONLY for a red base (2026-08-27, the mission's fourth ticket). A
+# green base supplies none, so a healthy hour renders nothing at all; a degraded read supplies
+# none either, because it is OUR failure to read rather than a repository event, and it is
+# already named in `summary`. That is the independent guard the renderer's own rule states: **a
+# step with no event renders no line** — so a nothing-happened line cannot reach the root even
+# on a tick whose diff calls this step changed.
+#
+# IT IS NOT A SECOND POSTING GATE. The root posts when the tick has at least one question; this
+# event never opens one on its own, and on a red tick this step has supplied the question anyway.
+#
+# EVERY ROOT LINE LINKS ITS ITEM, so a person following the line reaches the commit rather than
+# the tick. The base URL is derived from the LOCAL remote — no network call, `step-direction
+# -health.sh`'s precedent — and an absent remote degrades to the bare short sha rather than to a
+# broken link.
+remote=$( ( cd "$ROOT" && git config --get remote.origin.url ) 2>/dev/null || true )
+case "$remote" in
+    git@*:*) repo_base="https://github.com/$(printf '%s' "$remote" | sed 's/^git@[^:]*://; s/\.git$//')" ;;
+    https://*) repo_base=$(printf '%s' "$remote" | sed 's/\.git$//') ;;
+    *) repo_base="" ;;
+esac
+short=$(printf '%s' "$commit" | cut -c1-7)
+if [ -n "$repo_base" ]; then
+    commit_link="<${repo_base}/commit/${commit}|${short}>"
+else
+    commit_link="$short"
+fi
+
+if [ "$state" = "red" ]; then
+    if [ -n "$pull_request" ]; then
+        event="the base went red at ${commit_link} — ${names} failing, from <${pull_request}|that merge>"
+    else
+        event="the base went red at ${commit_link} — ${names} failing"
+    fi
+else
+    event="the base is red at ${commit_link} — ${names} failing; the merge that broke it could not be attributed"
+fi
+
 needs=$(printf '%s' "$row" | jq -c '{action: "tell_the_attributed_author_the_base_is_red",
     bound: "one question per red commit, addressed to `owner` (nobody when it is `unknown`), keyed on `key` so it is asked once however many ticks see the same red commit; the tick asks and never re-runs a check, reverts, merges or touches a claim",
     compose: "name the commit, its pull request, the failing checks, and that a re-run may clear it -- this is a reading, not a verdict; when `attribution` is not `attributed`, say plainly that the walk could not name the merge and why, and do not send anyone after a merge this step did not identify",
     base: .}' 2>/dev/null || echo '{}')
 
-emit ok "" "$summary" "$needs"
+emit ok "" "$summary" "$needs" "$event"

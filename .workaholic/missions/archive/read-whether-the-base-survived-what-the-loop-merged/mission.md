@@ -2,7 +2,7 @@
 type: Mission
 title: Read whether the base survived what the loop merged
 slug: read-whether-the-base-survived-what-the-loop-merged
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-27T16:19:11+00:00
 author: a@qmu.jp
@@ -57,3 +57,5 @@ than passing for green. Nothing merges differently and the QA window owns qualit
 - 2026-08-27 — ticket archived — 20260827162001-name-the-base-s-health-in-the-driving-run-s-report.md
 - 2026-08-27 — ticket archived — 20260827162002-classify-the-base-reading-as-a-judgement-and-pin-it.md
 - 2026-08-27 — ticket archived — 20260827162003-drill-the-base-reading-with-no-network.md
+- 2026-08-27 — ticket archived — 20260827162004-write-the-base-reading-into-the-documents.md
+- 2026-08-27 — mission achieved — mission.md

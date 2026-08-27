@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-27T16:20:04+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on: 20260827162003-drill-the-base-reading-with-no-network.md
@@ -95,3 +96,56 @@ carries the repository-level documents and reconciles the whole.
   reference document or this mission's story — resist writing the decision history there.
 - If any earlier ticket shipped without its own document update, fix it here and say so;
   do not silently absorb it.
+
+## Final Report
+
+Development completed as planned, written from what shipped in tickets 1–7 rather than from this
+ticket's plan.
+
+- **`CLAUDE.md`'s `/moderate` row**: the step count reads **twenty**, `base-health` is named in
+  the opening enumeration beside its siblings, and it has its own paragraph — what it reads, whose
+  question it is, the `base-red:<commit>` key, why `unattributable` still asks and a degraded read
+  does not, and that it asks and nothing else.
+- **`CLAUDE.md`'s `/implement` row**: the reading is named, once per run and at the top of the
+  report, with the three words; it **moves no token**, with the reason stated (a red base is not a
+  fact about the unit this run drove) so a later reader does not read the omission as an
+  oversight; and it **gates nothing**.
+- **`CLAUDE.md`'s loop-drill verb list** and **`docs/loop-drill-runbook.md`** (§5n, written with
+  ticket 7) both carry `verify-base-health`.
+- **`CLAUDE.md`'s proofs-and-judgements paragraph** is reconciled with what ticket 6 wrote: the
+  base's checks are a second vocabulary in the same home, holding **no proof at all**, with the
+  reason (a check run is designed to be re-runnable) and the pin's four failure modes.
+- **`README.md`** was **already three counts stale** at "seventeen steps" before this mission
+  began — said here rather than absorbed. It now reads twenty, names the three most recent steps
+  including this one, and states that what the tick reads about the base is a reading rather than
+  a verdict.
+- **`.workaholic/README.md`** and **`plugins/workaholic/rules/*.md`**: checked. `rules/workaholic.md`
+  describes the `moderations/` area and its writers, none of which moved — the one edit there is
+  the stale ordinal below. Nothing else in either needed a word.
+
+**One pre-existing drift fixed and named**: three documents said `persist-log.sh` runs "after the
+ninth step" and `reference/workflow.md` called it "not an eleventh step". Both ordinals were wrong
+before this mission and wronger after it, so they now read "after the last step" and "not a step at
+all: the twenty above are the contract".
+
+**What this reading does not do**, stated in every place it is described: it gates nothing, the
+merge is untouched, `/ship` is untouched, no check is re-run, no commit reverted, and quality
+stays gated at the `release/*` QA window.
+
+Verification chain, all green: `build.mjs` + `verify.mjs` (self-contained, policy index in sync),
+`validate-metadata.mjs`, `test-workflow-scripts.mjs` (4111 passed, 0 failed),
+`layout-doctor.sh .` (`conforming: true`; the three advisories are the pre-existing legacy
+`trips/` naming and are untouched by this mission), and
+`sh scripts/e2e/loop-drill.sh verify-base-health` (14/14).
+
+### Discovered Insights
+
+- **Insight**: a step count is repeated in **six** places — `CLAUDE.md`'s `/moderate` row,
+  `README.md`'s, `moderate/SKILL.md` three times (frontmatter description, the relocated-detail
+  link, the run paragraph) and `reference/workflow.md`'s title — and nothing checks them against
+  `run.sh`'s `STEPS=` line.
+  **Context**: `README.md` was three additions stale and two files carried ordinals from when the
+  tick had nine steps. The suite already parses `STEPS=` for other assertions, so a count pin is
+  cheap; it was not added here because it is a change to the tick's own contract rather than to
+  this mission's reading, and inventing it inside a documentation ticket would be the widening the
+  failure contract refuses.

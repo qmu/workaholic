@@ -1019,7 +1019,7 @@ and an absent remote degrades to the bare short sha rather than to a broken link
 
 ## The closing act — `persist-log.sh`
 
-Not an eleventh step: the ten above are the contract and the log's step keys, and this is the
+Not a step at all: the twenty above are the contract and the log's step keys, and this is the
 run's own bookkeeping. It runs **after** the last step has had its turn, so a tick that dies
 half-way still persists what it recorded on its next run, and it reports under the run's top-level
 `persist` key while logging under the step id `persist-log`.

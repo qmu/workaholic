@@ -305,6 +305,36 @@ on the resolution word.
 | `superseded_only` | judgement | Every claim for this unit is superseded, and the first is returned — so a caller keeps refusing under `superseded` exactly as it did before. |
 | `ambiguous` | judgement | Two or more live claims (`ambiguous_claim` where a caller reports it). **Reported, never picked between**: the protocol settles a race by the push, so this cannot arise from the sanctioned path, and choosing silently is how a runner would resume — or discard — work another run is still driving. Refuse and name both branches. |
 
+### The base's own checks (`read-base-checks.sh`, `attribute-base-red.sh`)
+
+A **second vocabulary in the same home** (2026-08-27, mission
+`read-whether-the-base-survived-what-the-loop-merged`). The tables above are keyed on the claim
+protocol's `resume_reason`; this one is keyed on what the base's checks said about a commit. One
+section, two keyed tables — opening a second document would be the second home the whole split
+exists to prevent, and folding the two into one table would key two different questions on one
+column.
+
+**There is no proof in this vocabulary, and that is the point.** A check run is *designed* to be
+re-runnable, so every reading here can become false by somebody looking again — which is exactly
+the property a proof must not have. The tempting error is to call `red` a proof because it is read
+straight off GitHub; `awaiting_verification`'s row above records the same trap for the claim
+vocabulary, and the answer is the same: read-straight-off is not the test.
+
+| Word | Class | What established it, and what a consumer may do |
+| ---- | ----- | ----------------------------------------------- |
+| `green` | judgement | Every completed check on the commit succeeded (or was neutral/skipped) and none is pending. A re-run, a re-triggered workflow or a newly required check can turn it `red`, so it proves nothing durable. **Report it.** It licenses no merge, no release and no skipped gate — the `release/*` QA window still owns quality. |
+| `red` | judgement | A completed check on the commit concluded in failure. It says *look at this*, not *this commit is bad*: a re-run can turn it green, and the failure may be in infrastructure rather than in the change. A consumer may **report** it and **ask about** it — `/moderate`'s `base-health` step asks the attributed author. Nothing may revert, re-run, block, gate, hold or merge on it. |
+| `unattributable` | judgement | The base is red and the walk could not name the merge that broke it — its bound was exhausted, it reached the start of history, or a commit inside the walk was unreadable. **Never the tip by default**: blaming the head because the walk ran out of room is the failure this word exists to prevent. Report it, ask about it, name the reason. |
+| `unanswerable` | judgement | The **absence** of a reading — no `gh`, a refused transport, a rate limit, an unparseable response, a commit with no checks at all, checks still running. Acting on an absence is the failure the three-valued shape exists to avoid, and the direction of failure is chosen: it must never be reported as `green`, because a base nobody looked at would then be indistinguishable from a base that passed. |
+
+**Its consumers report and ask, and nothing else.** `/moderate`'s `base-health` step hands a red
+base to the check-in as one question and writes nothing but its own tick-log line; the driving
+run names the reading at the top of its report and **gates nothing** — no stop, no skip, no hold,
+and the terminal token is byte-identical on a red base and a green one (`workaholic:drive` §1 and
+§7). `scripts/test-workflow-scripts.mjs` pins this table the way it pins the one above: it fails
+when a word either script emits is unclassified, when the table classifies a word neither emits,
+when any row is called a `proof`, or when a consumer reaches an acting call site.
+
 **Its two consumers read this table rather than restating it.** The delivery retry acts on
 `report_undelivered` and no other word; the retirement writer acts on `superseded` and no other
 word. `scripts/test-workflow-scripts.mjs` fails when the table and either consumer disagree

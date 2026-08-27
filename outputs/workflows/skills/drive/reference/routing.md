@@ -323,6 +323,14 @@ moments.
 **The run report is the deliverable** — always emitted, terminal or not (`implementation`
 / `observability`). Before the reconciliation line, state:
 
+- **The base's own reading, first and once** (2026-08-27, mission
+  `read-whether-the-base-survived-what-the-loop-merged`): `green`, `red` — naming the attributed
+  merge (commit, pull request, author) and the failing checks, or `unattributable` with its
+  reason — or `unanswerable` with the reader's own reason. It sits **before** the per-unit
+  outcomes because it is context for everything that follows rather than an outcome of any one
+  unit, and it is read **once per run**: one fact about the repository, where a per-unit read
+  would spend N calls to say the same thing. A degraded read is reported as degraded and **never
+  as green**. **It moves no token and gates nothing** — see §7's table row and §1.
 - Per unit: members, effective policy, route taken, ticket outcomes reconciling to the queue it
   was handed, and the commits.
 - PR per unit — the URL, or the `pr_error` if creation failed.

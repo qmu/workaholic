@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-27T16:20:01+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on: 20260827161955-name-the-merge-that-turned-the-base-red.md
@@ -88,3 +89,40 @@ a base somebody else broke still reports `ok`, and names the red base while doin
   is gated at the QA window. Read and say; never gate.
 - An `/implement` run report is read by nobody on the day it matters — which is why
   ticket 3's question exists and this ticket is not a substitute for it.
+
+## Final Report
+
+Development completed as planned. The driving run now reads the base's health **once**, in §1 of
+the Unified Run, and names it at the **top** of the run report, before the per-unit outcomes.
+
+- **The three words are the reader's own** — `green`, `red` (with the attributed merge and the
+  failing checks, or `unattributable` with its reason), `unanswerable` with the reader's reason.
+  A degraded read is reported as degraded and never as green.
+- **Once per run, not once per unit.** It is one fact about the repository; the attribution walk
+  is called **only** when the reader answers `red`, so a green base costs one call.
+- **No token rule changed, and §7 says so explicitly** with the reason — a red base is not a fact
+  about the unit this run drove, so `ok` stays reachable and a run that drove cleanly onto a base
+  somebody else broke reports `ok` while naming it. The new table row states this rather than
+  leaving the omission to be "fixed" later.
+- **Nothing is gated.** §1's own paragraph says the run keeps driving onto a red base: no stop,
+  no skip, no hold, no revert, no re-run, no different merge. `main` stays the continuously
+  auto-merged development branch and the `release/*` window still owns quality.
+
+Documents updated: `drive/SKILL.md` (§1's read and its gates-nothing paragraph, §7's report
+opening and its token-table row) and `drive/reference/routing.md` (the run report's field list).
+`commands/implement.md` is deliberately untouched — it is a thin pointer naming the skill and the
+§7 contract, and the report's shape has never been stated there.
+
+### Discovered Insights
+
+- **Insight**: the attribution walk is called **conditionally**, on `red` only, which is what
+  keeps this reading at one network call on the overwhelmingly common path.
+  **Context**: `attribute-base-red.sh` reads the tip itself before deciding whether to walk, so
+  calling it unconditionally would be correct but would double the cost of every green tick. The
+  reader answers the question the report needs; the walk answers the question only a red base
+  raises.
+
+- **Insight**: §7's token table now carries a row for a reading that **never** moves the token.
+  **Context**: every other row states a condition and its token. This one exists precisely because
+  the absence of a row reads as an oversight — the table is the contract a caller-side loop waits
+  on, and a later reader finding a reported reading with no row would reasonably add one.

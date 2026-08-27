@@ -2824,6 +2824,257 @@ cmd_verify_retire() {
     emit_verdict "retire" 0 "pass" 0
 }
 
+# --------------------------------------------------------- verify-base-health
+# Did the base survive what the loop merged -- and does that reading stay a READING? The loop
+# merges its own work onto `main` every half hour and nothing read a check run, so a green base
+# and a base nobody looked at were one reading.
+#
+# NO NETWORK: a local bare origin and a `gh` stub on PATH that answers out of a fixture
+# directory. The drill ASSERTS the stub is what `gh` resolves to rather than assuming it.
+#
+# WHAT IT PROVES:
+#   1. the reader's three states       green, red with the failing check names, and every
+#                                      `unanswerable` reason -- including a commit with NO
+#                                      checks at all, which must never read as green
+#   2. the walk's two outcomes         a red tip attributed to a mid-walk merge with its pull
+#                                      request and author, and the `unattributable` tail
+#   3. the asked-once gate             two ticks over one red commit, one question, keyed
+#                                      `base-red:<commit>`; a degraded read asks nothing
+#   4. the reading gates NOTHING       the survey the terminal token is derived from is
+#                                      byte-identical over a red base and a green one, and no
+#                                      script in the driving chain reaches either reader
+#
+# AND ONE ROW THAT DELIBERATELY BREAKS THE SEAM: the reader is handed a commit the fixture gives
+# no checks for -- the single most tempting wrong answer, since an empty check list looks like
+# "nothing failed". If it ever answers `green`, `base_health_can_fail` goes red. That row is the
+# INTENTIONAL one: an operator reading a red drill should look at it first.
+cmd_verify_base_health() {
+    _reader="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/read-base-checks.sh"
+    _walk="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/attribute-base-red.sh"
+    _step="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/step-base-health.sh"
+    _ask="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/ask-question.sh"
+    _plan="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/plan-units.sh"
+    for _f in "$_reader" "$_walk" "$_step" "$_ask" "$_plan"; do
+        [ -f "$_f" ] || emit_err "base_health_seam_unreadable" 4 "${_f} is not present in this checkout"
+    done
+
+    _before=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+
+    _tmp=$(mktemp -d)
+    _origin="${_tmp}/origin"; _work="${_tmp}/work"; _read="${_tmp}/read"
+    _bin="${_tmp}/bin"; _st="${_tmp}/stubs"
+    mkdir -p "$_origin" "$_bin" "$_st"
+    _me=$(cd "$REPO_ROOT" && git config user.email 2>/dev/null || echo drill@example.com)
+    _git() { git -c user.email="$_me" -c user.name=Drill -c commit.gpgsign=false "$@"; }
+
+    ( cd "$_origin" && git -c init.defaultBranch=main init -q --bare ) || true
+    ( cd "$_tmp" && git clone -q "$_origin" work ) || true
+    mkdir -p "${_work}/.workaholic/tickets/todo"
+    printf -- '---\ncreated_at: 2026-01-01T00:00:01+09:00\nauthor: %s\n---\n\n# T\n' "$_me" \
+        > "${_work}/.workaholic/tickets/todo/20260101000001-t.md"
+    ( cd "$_work" && _git add -A && _git commit -qm seed ) >/dev/null 2>&1 || true
+    for _n in 2 3 4 5; do
+        ( cd "$_work" && _git commit -q --allow-empty -m "merge ${_n}" ) >/dev/null 2>&1 || true
+    done
+    ( cd "$_work" && git push -q origin main ) >/dev/null 2>&1 || true
+    ( cd "$_tmp" && git clone -q "$_origin" read ) >/dev/null 2>&1 || true
+    ( cd "$_read" && git config user.email "$_me" && git config user.name Drill ) || true
+
+    # Newest first, exactly the order the walk visits them in.
+    _shas=$(cd "$_read" && git rev-list origin/main)
+    _tip=$(printf '%s\n' "$_shas" | sed -n 1p)
+    _c4=$(printf '%s\n' "$_shas" | sed -n 2p)
+    _c3=$(printf '%s\n' "$_shas" | sed -n 3p)
+    _c2=$(printf '%s\n' "$_shas" | sed -n 4p)
+    _c1=$(printf '%s\n' "$_shas" | sed -n 5p)
+
+    # The stub answers per commit out of a fixture directory, so a case is set by writing files
+    # rather than by branching inside the stub. A sha with no fixture answers an EMPTY check
+    # list -- which is the deliberately broken seam's input.
+    printf '#!/bin/sh\ncase "$2" in\n  */check-runs*) _s=$(echo "$2" | sed "s|.*/commits/||; s|/check-runs.*||")\n     if [ -f "%s/$_s.json" ]; then cat "%s/$_s.json"; else echo %s; fi ;;\n  */pulls*) cat "%s/pulls" 2>/dev/null || { echo "no pulls" >&2; exit 1; } ;;\n  user) printf "tester\\n" ;;\n  *) echo "unexpected $2" >&2; exit 1 ;;\nesac\n' \
+        "$_st" "$_st" "'{\"total_count\":0,\"check_runs\":[]}'" "$_st" > "${_bin}/gh"
+    chmod +x "${_bin}/gh"
+    printf '[{"number":42,"merged_at":"2026-01-02T00:00:00Z","html_url":"https://example.invalid/pull/42","user":{"login":"tester"}}]\n' \
+        > "${_st}/pulls"
+
+    _GREEN='{"total_count":1,"check_runs":[{"name":"CI","status":"completed","conclusion":"success"}]}'
+    _RED='{"total_count":2,"check_runs":[{"name":"Validate Plugins","status":"completed","conclusion":"failure"},{"name":"CI","status":"completed","conclusion":"success"}]}'
+    _PENDING='{"total_count":1,"check_runs":[{"name":"CI","status":"in_progress","conclusion":null}]}'
+    _set() { printf '%s\n' "$2" > "${_st}/$1.json"; }
+    _clear() { rm -f "${_st}/$1.json"; }
+
+    _run() { ( cd "$_read" && PATH="${_bin}:$PATH" "$@" ) 2>&1 || true; }
+    _field() { printf '%s' "$1" | sed -n 's/.*"'"$2"'": *"\([^"]*\)".*/\1/p' | head -1; }
+    _read_at() { _run sh "$_reader" "$1"; }
+
+    # 0. THE TRANSPORT IS THE STUB. Asserted rather than assumed: a drill that silently reached
+    # the network would prove nothing about the offline contract it claims to check.
+    _which=$( ( cd "$_read" && PATH="${_bin}:$PATH" command -v gh ) 2>/dev/null || true )
+    if [ "$_which" = "${_bin}/gh" ]; then
+        add_row "base_health_offline" true "gh resolves to the drill's stub, so no network call is made" load
+    else
+        add_row "base_health_offline" false "gh resolved to '${_which}', not the drill's stub" load
+    fi
+
+    # 1. THE READER'S THREE STATES.
+    _set "$_tip" "$_GREEN"
+    _g=$(_read_at "$_tip")
+    if [ "$(_field "$_g" state)" = "green" ]; then
+        add_row "base_health_reads_green" true "every completed check passing reads green" load
+    else
+        add_row "base_health_reads_green" false "a passing commit did not read green: $(one_line "$_g")" load
+    fi
+
+    _set "$_tip" "$_RED"
+    _r=$(_read_at "$_tip")
+    if [ "$(_field "$_r" state)" = "red" ] \
+        && printf '%s' "$_r" | grep -q '"name":"Validate Plugins"'; then
+        add_row "base_health_reads_red_with_names" true "a failing check reads red and the failing check is named" load
+    else
+        add_row "base_health_reads_red_with_names" false "a failing commit did not read red-with-names: $(one_line "$_r")" load
+    fi
+
+    _set "$_tip" "$_PENDING"
+    _p=$(_read_at "$_tip")
+    _clear "$_tip"
+    _n=$(_read_at "$_tip")
+    _u=$(_run sh "$_reader" 0000000000000000000000000000000000000000)
+    if [ "$(_field "$_p" reason)" = "checks_pending" ] \
+        && [ "$(_field "$_n" state)" = "unanswerable" ] \
+        && [ "$(_field "$_n" reason)" = "no_checks" ] \
+        && [ "$(_field "$_u" state)" = "unanswerable" ]; then
+        add_row "base_health_unanswerable_by_name" true "a running check, a checkless commit and an unknown commit are each unanswerable by their own reason" load
+    else
+        add_row "base_health_unanswerable_by_name" false "a degradation did not read unanswerable by name: $(one_line "$_p") / $(one_line "$_n")" load
+    fi
+
+    # 2. THE WALK. Red tip, red middle, green behind -- the culprit is the OLDEST red after the
+    # last green, never the tip.
+    _set "$_tip" "$_RED"; _set "$_c4" "$_RED"; _set "$_c3" "$_RED"
+    _set "$_c2" "$_GREEN"; _set "$_c1" "$_GREEN"
+    _w=$(_run sh "$_walk")
+    if [ "$(_field "$_w" state)" = "red" ] \
+        && printf '%s' "$_w" | grep -q "\"commit\": \"${_c3}\"" \
+        && printf '%s' "$_w" | grep -q '"pull_request": "https://example.invalid/pull/42"' \
+        && printf '%s' "$_w" | grep -q '"author": "tester"'; then
+        add_row "base_health_attributes_the_merge" true "the oldest red commit after the last green one is named, with its pull request and author" load
+    else
+        add_row "base_health_attributes_the_merge" false "the walk did not attribute the mid-walk merge: $(one_line "$_w")" load
+    fi
+
+    _wb=$( ( cd "$_read" && PATH="${_bin}:$PATH" WORKAHOLIC_BASE_ATTRIBUTION_MAX=2 \
+        sh "$_walk" ) 2>&1 || true )
+    if [ "$(_field "$_wb" state)" = "unattributable" ] \
+        && [ "$(_field "$_wb" reason)" = "bound_exhausted" ] \
+        && printf '%s' "$_wb" | grep -q '"attributed": null'; then
+        add_row "base_health_unattributable_tail" true "a walk that exhausts its bound answers unattributable, never the tip" load
+    else
+        add_row "base_health_unattributable_tail" false "an exhausted walk did not answer unattributable: $(one_line "$_wb")" load
+    fi
+
+    # 3. THE STEP, AND THE ASKED-ONCE GATE.
+    _s=$( ( cd "$_read" && PATH="${_bin}:$PATH" sh "$_step" --tick 20260101-000000 --root "$_read" ) 2>&1 || true )
+    _key=$(printf '%s' "$_s" | sed -n 's/.*"key": *"\([^"]*\)".*/\1/p' | head -1)
+    if [ "$_key" = "base-red:${_c3}" ] && printf '%s' "$_s" | grep -q '"status": "ok"'; then
+        add_row "base_health_step_asks_once_per_commit" true "the step keys its question on the attributed commit, not on the tick or the day" load
+    else
+        add_row "base_health_step_asks_once_per_commit" false "the step's question key is wrong: $(one_line "$_s")" load
+    fi
+
+    _qroot=$(mktemp -d); mkdir -p "${_qroot}/.workaholic/moderations"
+    _a1=$(cd "$REPO_ROOT" && sh "$_ask" --tick 20260101-000000 --key "$_key" --root "$_qroot" --to "$_me" --hour 10 --weekday 1 2>&1) || true
+    _logstep=$(printf '%s' "$_a1" | sed -n 's/.*"log_step": *"\([^"]*\)".*/\1/p')
+    if printf '%s' "$_a1" | grep -q '"ask": true'; then
+        sh "${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/log-append.sh" --root "$_qroot" \
+           --tick 20260101-000000 --step "$_logstep" --status ok --summary "asked" >/dev/null 2>&1 || true
+        _a2=$(cd "$REPO_ROOT" && sh "$_ask" --tick 20260101-010000 --key "$_key" --root "$_qroot" --to "$_me" --hour 10 --weekday 1 2>&1) || true
+        if printf '%s' "$_a2" | grep -q '"ask": false'; then
+            add_row "base_health_asked_once" true "a second tick over the same red commit is refused: $(printf '%s' "$_a2" | sed -n 's/.*"reason": *"\([a-z_]*\)".*/\1/p')" load
+        else
+            add_row "base_health_asked_once" false "the asked-once gate did not hold: $(one_line "$_a2")" load
+        fi
+    else
+        add_row "base_health_asked_once" false "the first ask was refused: $(one_line "$_a1")" load
+    fi
+    rm -rf "$_qroot"
+
+    # A DEGRADED READ ASKS NOTHING. Our own blindness is not a finding about the repository.
+    for _sha in "$_tip" "$_c4" "$_c3" "$_c2" "$_c1"; do _clear "$_sha"; done
+    _sd=$( ( cd "$_read" && PATH="${_bin}:$PATH" sh "$_step" --tick 20260101-000000 --root "$_read" ) 2>&1 || true )
+    if printf '%s' "$_sd" | grep -q '"status": "degraded"' \
+        && printf '%s' "$_sd" | grep -q '"needs_agent": \[\]' \
+        && printf '%s' "$_sd" | grep -q '"event": ""'; then
+        add_row "base_health_degraded_asks_nothing" true "a read we could not make asks nobody and renders no line" load
+    else
+        add_row "base_health_degraded_asks_nothing" false "a degraded read still asked or rendered: $(one_line "$_sd")" load
+    fi
+
+    # A GREEN BASE IS SILENCE.
+    _set "$_tip" "$_GREEN"
+    _sg=$( ( cd "$_read" && PATH="${_bin}:$PATH" sh "$_step" --tick 20260101-000000 --root "$_read" ) 2>&1 || true )
+    if printf '%s' "$_sg" | grep -q '"needs_agent": \[\]' && printf '%s' "$_sg" | grep -q '"event": ""'; then
+        add_row "base_health_green_is_silent" true "a green base asks nobody and renders no root line" load
+    else
+        add_row "base_health_green_is_silent" false "a green base was not silent: $(one_line "$_sg")" load
+    fi
+
+    # 4. THE READING GATES NOTHING. Proved two ways, because the token is derived from the
+    # SURVEY and the survey is the only thing the token can move with: the survey's own output
+    # is byte-identical over a red base and a green one (the base's checks are a GitHub fact and
+    # the tree is the same either way), and no script in the driving chain reaches either
+    # reader at all -- so there is nothing for a gate to be built out of.
+    _set "$_tip" "$_GREEN"
+    _pg=$( ( cd "$_read" && PATH="${_bin}:$PATH" sh "$_plan" ) 2>&1 || true )
+    _set "$_tip" "$_RED"
+    _pr=$( ( cd "$_read" && PATH="${_bin}:$PATH" sh "$_plan" ) 2>&1 || true )
+    if [ -n "$_pg" ] && [ "$_pg" = "$_pr" ]; then
+        add_row "base_health_survey_unmoved" true "the survey the terminal token is derived from is byte-identical over a red base and a green one" load
+    else
+        add_row "base_health_survey_unmoved" false "the survey differed between a red base and a green one" load
+    fi
+
+    _reached=""
+    for _f in plan-units.sh claim.sh archive.sh effective-policy.sh verification-handoff.sh \
+              retry-undelivered.sh retire-claim.sh land-unit.sh; do
+        _p="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/${_f}"
+        [ -f "$_p" ] || continue
+        if grep -v '^[[:space:]]*#' "$_p" | grep -q 'read-base-checks.sh\|attribute-base-red.sh'; then
+            _reached="${_reached} ${_f}"
+        fi
+    done
+    if [ -z "$_reached" ]; then
+        add_row "base_health_gates_nothing" true "no script in the driving chain reaches either reader, so no gate can be built out of it" load
+    else
+        add_row "base_health_gates_nothing" false "the driving chain reaches the base reading:${_reached}" load
+    fi
+
+    # THE DELIBERATELY BROKEN ROW, and the one an operator reading a red drill should look at
+    # first. The fixture gives this commit NO checks at all -- the most tempting wrong answer,
+    # because an empty check list looks exactly like "nothing failed". If the reader ever calls
+    # it green, a base nobody looked at becomes indistinguishable from a base that passed, and
+    # this row is what goes red.
+    _clear "$_c4"
+    _broken=$(_read_at "$_c4")
+    if [ "$(_field "$_broken" state)" = "unanswerable" ] && [ "$(_field "$_broken" ok)" != "true" ]; then
+        add_row "base_health_can_fail" true "INTENTIONAL CASE: a commit with no checks is unanswerable, never green -- this drill can fail" load
+    else
+        add_row "base_health_can_fail" false "INTENTIONAL CASE: a commit with no checks did not read unanswerable: $(one_line "$_broken")" load
+    fi
+
+    _after=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+    if [ "$_before" = "$_after" ]; then
+        add_row "base_health_writes_nothing" true "the checkout is byte-identical after the drill" load
+    else
+        add_row "base_health_writes_nothing" false "the drill changed the working tree" load
+    fi
+
+    rm -rf "$_tmp"
+    if [ "$LOAD_FAILED" -gt 0 ]; then
+        emit_verdict "base-health" 0 "fail" 1
+    fi
+    emit_verdict "base-health" 0 "pass" 0
+}
+
 # ------------------------------------------------------- verify-delivery-retry
 # Does a unit an EARLIER run could not deliver get its merge re-attempted? Naming
 # `report_undelivered` was half the repair; nothing offered the unit its one remaining action,
@@ -2986,7 +3237,7 @@ cmd_verify_delivery_retry() {
     emit_verdict "delivery-retry" 0 "pass" 0
 }
 
-USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-specificate <issue>|verify-implement <issue>|verify-plan [--json]|verify-status [--json]|verify-cadence [--json]|verify-planner [--json]|verify-standup [--json]|verify-moderate [--json]|verify-propose [--json]|verify-direction-health [--json]|verify-arrival [--json]|verify-revision [--json]|verify-merged-claim [--json]|verify-identity-handoff [--json]|verify-close [--json]|verify-retire [--json]|verify-delivery-retry [--json]"}'
+USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-specificate <issue>|verify-implement <issue>|verify-plan [--json]|verify-status [--json]|verify-cadence [--json]|verify-planner [--json]|verify-standup [--json]|verify-moderate [--json]|verify-propose [--json]|verify-direction-health [--json]|verify-arrival [--json]|verify-revision [--json]|verify-merged-claim [--json]|verify-identity-handoff [--json]|verify-close [--json]|verify-retire [--json]|verify-delivery-retry [--json]|verify-base-health [--json]"}'
 
 CMD="${1:-}"
 [ -n "$CMD" ] || {
@@ -3030,6 +3281,7 @@ case "$CMD" in
     verify-close) cmd_verify_close "$@" ;;
     verify-retire) cmd_verify_retire "$@" ;;
     verify-delivery-retry) cmd_verify_delivery_retry "$@" ;;
+    verify-base-health) cmd_verify_base_health "$@" ;;
     *)
         echo "$USAGE" >&2
         exit 2

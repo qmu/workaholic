@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-27T16:20:03+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on: 20260827162002-classify-the-base-reading-as-a-judgement-and-pin-it.md
@@ -93,3 +94,53 @@ failed proves nothing about the thing it claims to check.
   that must run everywhere.
 - Do not duplicate `test-workflow-scripts.mjs`. The suite pins the contracts; the drill
   walks the chain end to end for a person who wants to see it work.
+
+## Final Report
+
+Development completed as planned. `sh scripts/e2e/loop-drill.sh verify-base-health` ships with
+**14 load-bearing rows**, over a local bare origin and a `gh` stub answering per commit out of a
+fixture directory. It follows `cmd_verify_retire`'s scaffolding rather than inventing a second
+style, and is registered in the dispatch case and in `USAGE`.
+
+Every part the ticket asked for is drilled:
+
+- **No network, asserted rather than assumed** — `base_health_offline` checks that `gh` resolves
+  to the drill's own stub.
+- **The reader's three states**, including a commit with **no checks at all** and a still-running
+  check, each `unanswerable` under its own reason.
+- **The walk's two outcomes** — a red tip attributed to a mid-walk merge with its pull request
+  and author, and the `unattributable` tail where the bound is exhausted.
+- **The asked-once gate** — the step's key is `base-red:<attributed commit>`, and two consecutive
+  simulated ticks over it produce exactly one question (the second refused `already_asked`). A
+  degraded read asks nothing and a green base is silent.
+- **The gates-nothing property**, proved two ways: the survey the terminal token is derived from
+  is **byte-identical** over a red base and a green one, and **no script in the driving chain**
+  reaches either reader, so there is nothing for a gate to be built out of.
+- **The deliberately broken row**, `base_health_can_fail`, labelled `INTENTIONAL CASE:` in its
+  own detail text so an operator reading a red drill knows which one it is.
+
+**Both failure modes were observed, not asserted.** Making the reader answer `green` for a
+checkless commit turned three rows red together (`base_health_can_fail`,
+`base_health_unanswerable_by_name`, `base_health_degraded_asks_nothing`); adding a reference to
+`read-base-checks.sh` inside `plan-units.sh` turned `base_health_gates_nothing` red and named the
+offending script. Both breakages were reverted and the drill re-run green (14/14).
+
+`docs/loop-drill-runbook.md` gained the verb's index row and its own §5n with the full
+failure-reason → file blame table.
+
+### Discovered Insights
+
+- **Insight**: the gates-nothing property cannot be drilled by comparing two terminal tokens,
+  because the token is produced by an agent following §7's table rather than by any script.
+  **Context**: what *is* mechanically checkable is the pair the token is derived from — the
+  survey's own output, byte-identical over a red base and a green one, and the absence of any
+  reference to either reader anywhere in the driving chain. The second is the stronger of the
+  two: a gate cannot be built out of a script nothing calls.
+
+- **Insight**: a stub that answers an **empty check list** for any sha it has no fixture for
+  makes the deliberately broken seam free — the "no checks" case is simply a sha the drill never
+  wrote a fixture for.
+  **Context**: it also means a typo in a fixture filename silently becomes the checkless case
+  rather than an error, which is why `base_health_reads_green` and
+  `base_health_reads_red_with_names` assert the *positive* readings first: between them they
+  prove the fixture directory is being read at all.

@@ -864,6 +864,154 @@ function testStrategyAmend() {
   } finally { cleanup(A); }
 }
 
+// ---------- moderate/step-base-health.sh (2026-08-27) ----------
+// A red base reached a person through no path at all: `/implement` may not ask, `stuck-prs` and
+// `merge-conflicts` read PULL REQUESTS and find nothing wrong with one that already merged, and
+// `stalled-units` reads claims a red base does not have.
+//
+// WHAT IS PINNED is the direction of every answer. A green base and a degraded read must ask
+// NOTHING — one because there is nothing to say, the other because a reading we could not make is
+// not a finding about the repository — while a red base must always produce exactly one question,
+// keyed on the COMMIT, with `unattributable` still asking rather than vanishing.
+function testBaseHealthStep() {
+  const STEP = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-base-health.sh");
+  const tmp = mkdtempSync(join(tmpdir(), "wh-base-health-"));
+  const bin = join(tmp, "bin");
+  const stubs = join(tmp, "stubs");
+  const dir = join(tmp, "repo");
+  mkdirSync(bin, { recursive: true });
+  mkdirSync(stubs, { recursive: true });
+  mkdirSync(dir, { recursive: true });
+  execSync("git init -q -b main . && git remote add origin git@github.com:acme-org/source-repo.git",
+    { cwd: dir });
+  for (let i = 1; i <= 3; i++) execSync(`git commit -q --allow-empty -m c${i}`, { cwd: dir });
+  execSync("git update-ref refs/remotes/origin/main HEAD", { cwd: dir });
+  const [tip, c2, c1] =
+    execSync("git rev-list origin/main", { cwd: dir, encoding: "utf8" }).trim().split("\n");
+
+  writeFileSync(join(bin, "gh"), [
+    "#!/bin/sh",
+    'p="$2"',
+    'case "$p" in',
+    '  */check-runs*) sha=$(echo "$p" | sed "s|.*/commits/||; s|/check-runs.*||")',
+    `     if [ -f "${stubs}/$sha.json" ]; then cat "${stubs}/$sha.json"; else echo '{"total_count":0,"check_runs":[]}'; fi ;;`,
+    `  */pulls*) echo '[{"number":7,"merged_at":"2026-08-27T00:00:00Z","html_url":"https://x/7","user":{"login":"someone-else"}}]' ;;`,
+    '  *) exit 1 ;;',
+    "esac",
+  ].join("\n"));
+  chmodSync(join(bin, "gh"), 0o755);
+  const env = { ...process.env, PATH: `${bin}:${process.env.PATH}` };
+
+  const GREEN = '{"total_count":1,"check_runs":[{"name":"CI","status":"completed","conclusion":"success"}]}';
+  const RED = '{"total_count":1,"check_runs":[{"name":"Validate Plugins","status":"completed","conclusion":"failure"}]}';
+  const set = (states) => {
+    rmSync(stubs, { recursive: true, force: true });
+    mkdirSync(stubs, { recursive: true });
+    for (const [sha, b] of Object.entries(states)) writeFileSync(join(stubs, `${sha}.json`), b);
+  };
+  const step = (tick = "20260827-170000") =>
+    JSON.parse(run(dir, `${POSIX_SH} ${STEP} --tick ${tick} --root ${dir}`, { env }).stdout);
+
+  try {
+    // ---- A RED BASE IS ONE QUESTION, KEYED ON THE COMMIT AND ADDRESSED TO ITS AUTHOR ----
+    mkdirSync(join(dir, ".claude"), { recursive: true });
+    writeFileSync(join(dir, ".claude/git-identities"), "someone-else=someone@example.com\n");
+    set({ [tip]: RED, [c2]: GREEN, [c1]: GREEN });
+    let j = step();
+    assertEq("a red base reports ok and hands back exactly one question",
+      [j.step, j.status, j.reason, j.needs_agent.length], ["base-health", "ok", "", 1]);
+    const base = j.needs_agent[0].base;
+    assertEq("keyed on the attributed commit, not on the tick and not on the day",
+      base.key, `base-red:${tip}`);
+    assertEq("naming the merge, its pull request, its author and the failing checks",
+      [base.attribution, base.commit, base.pull_request, base.owner, base.failing],
+      ["attributed", tip, "https://x/7", "someone@example.com", "Validate Plugins"]);
+
+    // ---- THE ADDRESSEE IS AN ADDRESS, AND AN UNMAPPED LOGIN IS NEVER GUESSED AT ----
+    writeFileSync(join(dir, ".claude/git-identities"), "someone-who-is-not-them=x@example.com\n");
+    assertEq("a login the mapping does not name leaves the question addressed to nobody",
+      step().needs_agent[0].base.owner, "unknown");
+    writeFileSync(join(dir, ".claude/git-identities"), "someone-else=someone@example.com\n");
+
+    // ---- `unattributable` STILL ASKS, KEYED ON THE TIP ----
+    set({ [tip]: RED, [c2]: RED, [c1]: RED });
+    j = step();
+    assertEq("a walk that could not attribute still asks, keyed on the tip",
+      [j.status, j.needs_agent.length, j.needs_agent[0].base.key],
+      ["ok", 1, `base-red:${tip}`]);
+    assertTrue("and says so rather than naming a merge it did not identify",
+      /^unattributable: /.test(j.needs_agent[0].base.attribution), j.needs_agent[0].base.attribution);
+
+    // ---- THE ROOT EVENT: ONLY A RED BASE SUPPLIES ONE, AND IT LINKS THE COMMIT ----
+    // `a step with no event renders no line` is the renderer's independent guard against a
+    // nothing-happened line reaching the root, so what a green and a degraded read supply is
+    // asserted to be nothing at all rather than trusted to the prose.
+    set({ [tip]: RED, [c2]: GREEN, [c1]: GREEN });
+    j = step();
+    assertTrue("a red base contributes a root line naming the reading",
+      /^the base went red at /.test(j.event), j.event);
+    assertTrue("...linking the commit", j.event.includes(`/commit/${tip}|${tip.slice(0, 7)}>`), j.event);
+    assertTrue("...naming the failing checks", j.event.includes("Validate Plugins failing"), j.event);
+    assertTrue("...and the merge it came from", j.event.includes("https://x/7"), j.event);
+
+    set({ [tip]: RED, [c2]: RED, [c1]: RED });
+    j = step();
+    assertTrue("an unattributable red base still contributes a line, saying so",
+      /could not be attributed$/.test(j.event) && j.event.includes(`/commit/${tip}`), j.event);
+
+    // ---- A GREEN BASE IS SILENCE ----
+    set({ [tip]: GREEN });
+    j = step();
+    assertEq("a green base asks nothing at all", [j.status, j.needs_agent], ["ok", []]);
+    assertEq("and contributes no root event, so a healthy hour renders no line", j.event, "");
+
+    // ---- AND A DEGRADED READ IS NAMED, AND ASKS NOTHING ----
+    // The two must never render alike: a reading we could not make is not a finding about the
+    // repository, and asking about our own blindness is what `strategy-pace` already refuses.
+    set({});
+    j = step();
+    assertEq("a base it could not read is degraded by name, asking nothing",
+      [j.status, j.reason, j.needs_agent], ["degraded", "base_unreadable:tip_no_checks", []]);
+
+    const broken = join(tmp, "broken");
+    mkdirSync(join(broken, "moderate/scripts"), { recursive: true });
+    copyFileSync(STEP, join(broken, "moderate/scripts/step-base-health.sh"));
+    j = JSON.parse(run(dir,
+      `${POSIX_SH} ${join(broken, "moderate/scripts/step-base-health.sh")} --tick 20260827-170000 --root ${dir}`,
+      { env }).stdout);
+    assertEq("a walk it cannot reach is degraded by name too",
+      [j.status, j.reason, j.needs_agent], ["degraded", "no_walker", []]);
+
+    // ---- IT ASKS AND NOTHING ELSE, AND WRITES NOTHING ----
+    set({ [tip]: RED, [c2]: GREEN, [c1]: GREEN });
+    execSync("git add -A && git commit -q -m seed", { cwd: dir });
+    step("20260827-180000");
+    assertEq("the step leaves the tree byte-identical",
+      execSync("git status --porcelain", { cwd: dir, encoding: "utf8" }).trim(), "");
+    const body = readFileSync(STEP, "utf8").split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+    // Call sites, not prose: the step's own `bound` string says in words that it never reverts
+    // or re-runs, so a word-level ban would fail on the very sentence that states the rule.
+    for (const forbidden of ["plan-units.sh", "AskUserQuestion", "close.sh", "retire-claim.sh",
+                             "release-claim.sh", "actions/runs", "/rerun", "git revert"]) {
+      assertTrue(`the step never reaches ${forbidden}`, !body.includes(forbidden), forbidden);
+    }
+    assertTrue("and makes no gh call of its own — the walk is its only reach",
+      !/\bgh\b/.test(body), body.slice(0, 200));
+    assertTrue("check state has one derivation, and it is not here",
+      !/check.runs|conclusion/.test(body), body.slice(0, 300));
+
+    // ---- IT IS REGISTERED, AND `human-checkin` IS STILL LAST ----
+    const steps = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/run.sh"), "utf8")
+      .match(/^STEPS='([^']+)'/m)[1].split(" ");
+    assertTrue("the step is in run.sh's list", steps.includes("base-health"), steps.join(" "));
+    assertTrue("before the check-in, which stays last",
+      steps.indexOf("base-health") < steps.indexOf("human-checkin")
+        && steps[steps.length - 1] === "human-checkin", steps.join(" "));
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
 // ---------- moderate/step-unanswered-asks.sh (2026-08-26) ----------
 // The tick could only ask about what its OWN steps found, so a question written on the channel
 // reached a person only if one of those readers happened to produce a row about it. Measured:
@@ -14004,6 +14152,240 @@ function testClaimMergedReader() {
 }
 
 // ---------------------------------------------------------------------------
+// THE BASE-CHECKS READER (2026-08-27, mission
+// `read-whether-the-base-survived-what-the-loop-merged`). One question — what did the base's
+// checks say about THIS commit? — answered in three words, with the third one carrying every
+// reading we could not make.
+//
+// WHAT IS PINNED IS THE DIRECTION OF THE FAILURE. `green` is the only answer that can lie
+// silently: a base nobody looked at reading `green` is indistinguishable from a base that
+// passed, which is the whole defect the reader exists to close. So every degradation, a
+// commit with no checks at all, and a check still running are each asserted to be
+// `unanswerable` by name — never `green`, and never a non-zero exit.
+function testReadBaseChecks() {
+  const READER = join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/read-base-checks.sh");
+  const tmp = mkdtempSync(join(tmpdir(), "wh-base-checks-"));
+  const bin = join(tmp, "bin");
+  const repo = join(tmp, "repo");
+  const plain = join(tmp, "plain");
+  mkdirSync(bin, { recursive: true });
+  mkdirSync(repo, { recursive: true });
+  mkdirSync(plain, { recursive: true });
+  execSync("git init -q . && git remote add origin git@github.com:acme-org/source-repo.git", { cwd: repo });
+  const env = { ...process.env, PATH: `${bin}:${process.env.PATH}` };
+  const stub = (body) => {
+    writeFileSync(join(bin, "gh"), `#!/bin/sh\n${body}\n`);
+    chmodSync(join(bin, "gh"), 0o755);
+  };
+  const payload = (runs, total) => `echo '${JSON.stringify({
+    total_count: total === undefined ? runs.length : total, check_runs: runs })}'`;
+  const done = (name, conclusion) => ({ name, status: "completed", conclusion });
+  const read = (cwd = repo, sha = "d80b75aba229f9e61abd11bf7eeaf969ec97221f") => {
+    const r = run(cwd, `${POSIX_SH} ${READER} ${sha}`, { env });
+    return { ...JSON.parse(r.stdout), status: r.status };
+  };
+  try {
+    // GREEN. `neutral` and `skipped` are successes for this purpose: a check that deliberately
+    // did not apply says nothing bad about the commit.
+    stub(payload([done("build", "success"), done("lint", "neutral"), done("docs", "skipped")]));
+    assertEq("every completed check passing reads green",
+      [read().state, read().ok, read().reason, read().failing.length, read().status],
+      ["green", true, "", 0, 0]);
+
+    // RED NAMES THE FAILING CHECKS — the whole point of the answer, since a red tip with no
+    // names sends a person to the Actions tab to re-derive what the reader already knew.
+    stub(payload([done("build", "success"), done("Validate Plugins", "failure"),
+                  done("Outputs Freshness", "timed_out")]));
+    const red = read();
+    assertEq("a failing check reads red", [red.state, red.ok, red.status], ["red", true, 0]);
+    assertEq("and the failing checks are named with their conclusions",
+      red.failing, [{ name: "Validate Plugins", conclusion: "failure" },
+                    { name: "Outputs Freshness", conclusion: "timed_out" }]);
+
+    // RED OUTRANKS A PENDING SIBLING. A completed failure is a reading we DID make, and a
+    // check that has not finished cannot un-fail it.
+    stub(payload([done("build", "failure"), { name: "slow", status: "in_progress", conclusion: null }]));
+    assertEq("a failure beside a running check still reads red", read().state, "red");
+
+    // A COMMIT NOTHING CHECKED IS NOT A GREEN COMMIT. This is the reading the whole mission
+    // turns on: `no_checks` and `green` must never be the same word.
+    stub(payload([], 0));
+    assertEq("a commit with no checks at all is unanswerable, never green",
+      [read().state, read().ok, read().reason, read().status],
+      ["unanswerable", false, "no_checks", 0]);
+
+    // NOR IS A COMMIT STILL BEING CHECKED. The base has not finished answering yet.
+    stub(payload([done("build", "success"), { name: "slow", status: "queued", conclusion: null }]));
+    assertEq("a still-running check is unanswerable, never green",
+      [read().state, read().reason], ["unanswerable", "checks_pending"]);
+
+    // A PAGE WE DID NOT SEE IS A READING WE DID NOT MAKE.
+    stub(payload([done("build", "success")], 200));
+    assertEq("a truncated page is unanswerable, never green",
+      [read().state, read().reason], ["unanswerable", "checks_truncated"]);
+
+    // EVERY DEGRADATION IS OURS, AND EACH IS NAMED DISTINCTLY ENOUGH TO REPORT.
+    const degraded = [
+      [`echo "API rate limit exceeded" >&2; exit 1`, "rate_limited"],
+      [`echo "HTTP 403: This GraphQL query is not enabled for this session" >&2; exit 1`, "session_refused"],
+      // `gh-rest.sh` emits this exact line and exits 127 when `gh` is absent; the stub
+      // reproduces the message because a stub cannot reproduce its own absence.
+      [`echo "gh is not on PATH" >&2; exit 127`, "gh_unavailable"],
+      [`echo "gh: Not Found (HTTP 404)" >&2; exit 1`, "commit_not_found"],
+      [`echo boom >&2; exit 1`, "transport_error"],
+      [`echo 'not json at all'`, "unparseable_response"],
+      [`echo '{"message":"Bad credentials"}'`, "unparseable_response"],
+    ];
+    for (const [body, reason] of degraded) {
+      stub(body);
+      const r = read();
+      assertEq(`a degraded read is unanswerable, named ${reason}`,
+        [r.state, r.ok, r.reason, r.status], ["unanswerable", false, reason, 0]);
+    }
+
+    // NEITHER ARGUMENT NOR REPOSITORY IS ASSUMED.
+    stub(payload([done("build", "success")]));
+    assertEq("no commit argument is unanswerable, never green",
+      [read(repo, "").state, read(repo, "").reason], ["unanswerable", "no_commit"]);
+    assertEq("and a tree with no resolvable remote names that instead of guessing",
+      [read(plain).state, read(plain).reason], ["unanswerable", "slug_unresolved"]);
+
+    // GITHUB IS REACHED ONLY THROUGH THE ONE TRANSPORT (`rules/shell.md`).
+    const body = readFileSync(READER, "utf8").split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+    assertTrue("the reader reaches GitHub only through gh-rest.sh",
+      !/\bgh (issue|pr|repo|api)\b/.test(body) && body.includes("gh-rest.sh"), body.slice(0, 300));
+    assertTrue("...on a repository-scoped check-runs endpoint",
+      /repos\/\$\{slug\}\/commits\/\$\{COMMIT\}\/check-runs/.test(body), "the endpoint moved");
+    assertTrue("...and never through search, which a bound session refuses outright",
+      !/["' ]search\//.test(body), body.slice(0, 300));
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// THE ATTRIBUTION WALK (2026-08-27, mission
+// `read-whether-the-base-survived-what-the-loop-merged`). A red tip says the base is broken;
+// this says WHAT BROKE IT — the oldest red commit after the last green one — or says
+// `unattributable`, which is the answer this test exists to protect.
+//
+// The load-bearing assertions are the negative ones: the tip is never blamed because the walk
+// ran out of room, and a commit the reader could not read STOPS the walk rather than promoting
+// whatever red it happened to have seen.
+function testAttributeBaseRed() {
+  const WALK = join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/attribute-base-red.sh");
+  const tmp = mkdtempSync(join(tmpdir(), "wh-attribute-red-"));
+  const bin = join(tmp, "bin");
+  const stubs = join(tmp, "stubs");
+  const repo = join(tmp, "repo");
+  mkdirSync(bin, { recursive: true });
+  mkdirSync(stubs, { recursive: true });
+  mkdirSync(repo, { recursive: true });
+  execSync("git init -q -b main . && git remote add origin git@github.com:acme-org/source-repo.git",
+    { cwd: repo });
+  for (let i = 1; i <= 5; i++) execSync(`git commit -q --allow-empty -m c${i}`, { cwd: repo });
+  execSync("git update-ref refs/remotes/origin/main HEAD", { cwd: repo });
+  // Newest first, exactly the order the walk visits them in.
+  const [tip, c4, c3, c2, c1] =
+    execSync("git rev-list origin/main", { cwd: repo, encoding: "utf8" }).trim().split("\n");
+
+  // The `gh` stub answers per commit out of a directory of fixtures, so a walk's shape is set
+  // by writing files rather than by branching inside the stub.
+  writeFileSync(join(bin, "gh"), [
+    "#!/bin/sh",
+    'p="$2"',
+    'case "$p" in',
+    '  */check-runs*) sha=$(echo "$p" | sed "s|.*/commits/||; s|/check-runs.*||")',
+    `     if [ -f "${stubs}/$sha.json" ]; then cat "${stubs}/$sha.json"; else echo '{"total_count":0,"check_runs":[]}'; fi ;;`,
+    '  */pulls*) if [ -f "' + stubs + '/pulls" ]; then cat "' + stubs + '/pulls"; else echo "pulls refused" >&2; exit 1; fi ;;',
+    '  *) echo "unexpected $p" >&2; exit 1 ;;',
+    "esac",
+  ].join("\n"));
+  chmodSync(join(bin, "gh"), 0o755);
+  const env = { ...process.env, PATH: `${bin}:${process.env.PATH}` };
+
+  const GREEN = '{"total_count":1,"check_runs":[{"name":"CI","status":"completed","conclusion":"success"}]}';
+  const RED = '{"total_count":1,"check_runs":[{"name":"Validate Plugins","status":"completed","conclusion":"failure"}]}';
+  const NONE = '{"total_count":0,"check_runs":[]}';
+  const set = (states) => {
+    for (const [sha, body] of Object.entries(states)) writeFileSync(join(stubs, `${sha}.json`), body);
+  };
+  const walk = (extra = {}) => JSON.parse(
+    run(repo, `${POSIX_SH} ${WALK}`, { env: { ...env, ...extra } }).stdout);
+
+  try {
+    writeFileSync(join(stubs, "pulls"),
+      '[{"number":42,"merged_at":"2026-08-27T00:00:00Z","html_url":"https://x/42","user":{"login":"someone"}}]');
+
+    // A RED TIP IS ATTRIBUTED TO THE MID-WALK MERGE — the first thing that broke, not the last
+    // thing that was pushed.
+    set({ [tip]: RED, [c4]: RED, [c3]: RED, [c2]: GREEN, [c1]: GREEN });
+    const r = walk();
+    assertEq("a red tip attributes the oldest red commit after the last green one",
+      [r.state, r.attributed.commit, r.last_green], ["red", c3, c2]);
+    assertEq("...naming its pull request and author",
+      [r.attributed.pull_request, r.attributed.pull_request_number, r.attributed.author],
+      ["https://x/42", 42, "someone"]);
+    assertEq("and the bound it walked under is reported", r.bound, { max_commits: 20 });
+
+    // A FAILED PULL-REQUEST LOOKUP KEEPS THE FINDING. The attribution is still real without a
+    // URL; dropping it would lose a true reading over a missing nicety.
+    rmSync(join(stubs, "pulls"));
+    const noPr = walk();
+    assertEq("a refused pull-request lookup leaves the coordinates unstated, keeping the finding",
+      [noPr.state, noPr.attributed.commit, noPr.attributed.pull_request,
+       noPr.attributed.pull_request_number, noPr.attributed.author],
+      ["red", c3, "", null, ""]);
+    writeFileSync(join(stubs, "pulls"),
+      '[{"number":42,"merged_at":"2026-08-27T00:00:00Z","html_url":"https://x/42","user":{"login":"someone"}}]');
+
+    // A GREEN TIP HAS NOTHING TO ATTRIBUTE, and costs exactly one reader call.
+    set({ [tip]: GREEN });
+    assertEq("a green tip attributes nothing and walks one commit",
+      [walk().state, walk().attributed, walk().walked], ["green", null, 1]);
+
+    // THE BOUND IS NEVER THE TIP'S FAULT. This is the outcome the answer exists for.
+    set({ [tip]: RED, [c4]: RED, [c3]: RED, [c2]: GREEN, [c1]: GREEN });
+    const bounded = walk({ WORKAHOLIC_BASE_ATTRIBUTION_MAX: "2" });
+    assertEq("a walk that exhausts its bound is unattributable, never the tip",
+      [bounded.state, bounded.attributed, bounded.reason, bounded.bound],
+      ["unattributable", null, "bound_exhausted", { max_commits: 2 }]);
+
+    // NOR IS THE START OF HISTORY.
+    set({ [tip]: RED, [c4]: RED, [c3]: RED, [c2]: RED, [c1]: RED });
+    const exhausted = walk();
+    assertEq("a walk that reaches the start of history is unattributable too",
+      [exhausted.state, exhausted.attributed, exhausted.reason],
+      ["unattributable", null, "history_start"]);
+
+    // A COMMIT WE COULD NOT READ MAY ITSELF BE RED, so promoting the oldest red we happen to
+    // have seen would be a guess wearing an attribution's clothes.
+    set({ [tip]: RED, [c4]: RED, [c3]: NONE, [c2]: GREEN, [c1]: GREEN });
+    const blind = walk();
+    assertEq("an unreadable commit inside the walk stops it rather than blaming a guess",
+      [blind.state, blind.attributed, blind.reason],
+      ["unattributable", null, "unanswerable_in_walk:no_checks"]);
+
+    // AND A TIP WE COULD NOT READ IS OUR OWN DEGRADATION, never a finding about the base.
+    set({ [tip]: NONE });
+    const dark = walk();
+    assertEq("an unreadable tip is unanswerable, carrying the reader's own reason",
+      [dark.state, dark.ok, dark.reason], ["unanswerable", false, "tip_no_checks"]);
+
+    // CHECK STATE HAS EXACTLY ONE DERIVATION. The walk asks WHICH COMMIT, never WHAT STATE —
+    // a second parser of a check run is what this constraint exists to prevent.
+    const body = readFileSync(WALK, "utf8").split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+    assertTrue("the walk derives no check state of its own",
+      !/check.runs|conclusion|check-runs/.test(body), body.slice(0, 400));
+    assertTrue("...it composes the one reader instead", body.includes("read-base-checks.sh"), body.slice(0, 400));
+    assertTrue("and reaches GitHub only through the one transport",
+      !/\bgh (issue|pr|repo|api)\b/.test(body) && body.includes("gh-rest.sh"), body.slice(0, 400));
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
+// ---------------------------------------------------------------------------
 // THE MERGED LOOKUP DEGRADES BY NAME, NOT BY GUESS (2026-08-26).
 //
 // `list-claims.sh` promises the reader degrades offline. The merged lookup makes a NETWORK
@@ -16376,6 +16758,8 @@ const tests = [
   ["drive/land-unit.sh: the third route, and the human gate that guards it", testLandUnit],
   ["drive claim protocol: a claim survives its tickets being archived", testClaimSurvivesArchive],
   ["drive/claim-merged.sh: merged, not merged, or unanswerable", testClaimMergedReader],
+  ["drive/read-base-checks.sh: green, red, or unanswerable", testReadBaseChecks],
+  ["drive/attribute-base-red.sh: the merge that turned the base red", testAttributeBaseRed],
   ["drive claim protocol: the merged lookup degrades by name", testMergedLookupDegradesByName],
   ["drive claim protocol: the merged-claim shape at both grains", testMergedClaimShapeAtBothGrains],
   ["drive claim protocol: a merged claim is never offered for resumption", testMergedClaimIsNeverResumable],
@@ -16483,6 +16867,7 @@ const tests = [
   ["moderate/step-direction-health.sh: the three refusals hold", testDirectionHealthRefusals],
   ["strategy/amend.sh: the third writer, bounded", testStrategyAmend],
   ["moderate/step-unanswered-asks.sh: what is waiting, asked exactly once", testUnansweredAsksStep],
+  ["moderate/step-base-health.sh: a red base, asked exactly once per commit", testBaseHealthStep],
   ["moderate: the tick log survives the container that wrote it", testModeratePersist],
   ["moderate: the lines written after the persist reach the base too", testModeratePersistCarriesLateLines],
   ["moderate: the unattended contract is in the files, not in intent", testModerateUnattendedContract],
@@ -20876,6 +21261,12 @@ function testModerateRun() {
     // other way. Since 2026-08-24 (the developer's ruling) the agent CLOSES what the step
     // proves, through close.sh in a publish tree — the single writer never multiplied.
     "closable-missions",
+    // `base-health` (2026-08-27): the base's own checks. The loop merges onto `main` every
+    // half hour and nothing read a check run, so a green base and a base nobody looked at were
+    // one reading — and no other step could see it, because `stuck-prs` and `merge-conflicts`
+    // read PULL REQUESTS and find nothing wrong with one that already merged. Same placement
+    // and same reason as its asking neighbours: it reads, the check-in asks.
+    "base-health",
     // `strategy-digest` is step 13's neighbour (2026-08-24): the integrated standup. Once
     // per JST day, on the first tick at or after 09:00, it hands the per-strategy digest to
     // the agent to render at the top of the Moderation root — and that digest is the root's
@@ -23337,11 +23728,45 @@ function testRecordMergeOutcome() {
 // emitted and not classified leaves a consumer with no rule, and a word classified and never
 // emitted is a rule about nothing — which is how a table starts lying about the code it
 // describes.
+//
+// EXTENDED TO THE BASE READING'S VOCABULARY (2026-08-27, mission
+// `read-whether-the-base-survived-what-the-loop-merged`). `green` / `red` / `unattributable` /
+// `unanswerable` are a SECOND vocabulary in the same home — the section's own sub-table — and
+// they are parsed apart from the claim words because one column cannot classify two different
+// questions. Every one of them is a judgement, which is the load-bearing claim: a check run is
+// designed to be re-runnable, so each reading can become false by looking again, the one property
+// a proof must not have. Both consumers are enumerated for the same reason the claim consumers
+// are — a glob would quietly pass a consumer added with no rule at all.
+//
+// This half was proved able to fail too, each failure turning exactly one row red:
+//
+//   `red` promoted to **proof** in the sub-table   -> `no base reading is a proof`
+//   the `unattributable` row deleted               -> `every word the base reading emits ...`
+//   an invented word added to the sub-table        -> `the sub-table classifies no word ...`
+//   `git revert` added to step-base-health.sh      -> `step-base-health.sh acts on nothing ...`
+//
+// The fourth also turns `the step never reaches git revert` red in the step's own test, which is
+// the guard working twice: the step's test bans the call site in that one file, and this pin bans
+// it across every enumerated consumer of the reading. The fifth mode — deleting the
+// gates-nothing sentence from `drive/SKILL.md` — was verified against the assertion's own regex
+// rather than by a whole suite run, since the prose row reads one file and nothing else.
 function testProofJudgementSplit() {
   const lib = readFileSync(join(REPO_ROOT,
     "plugins/workaholic/skills/drive/scripts/lib/claims.sh"), "utf8");
-  const table = readFileSync(join(REPO_ROOT,
+  const wholeTable = readFileSync(join(REPO_ROOT,
     "plugins/workaholic/skills/drive/reference/claims.md"), "utf8");
+
+  // TWO VOCABULARIES, ONE HOME (2026-08-27). The section carries the claim protocol's tables and,
+  // since the base reading shipped, a sub-table keyed on what the base's CHECKS said. They are
+  // parsed apart rather than together: one column cannot classify two different questions, and a
+  // single parse would report every base word as a claim word the library never emits.
+  const BASE_HEADING = "### The base's own checks";
+  const baseAt = wholeTable.indexOf(BASE_HEADING);
+  assertTrue("the base reading's sub-table is still in the one home", baseAt > 0,
+    "claims.md no longer carries the base reading's classification");
+  const table = wholeTable.slice(0, baseAt);
+  const baseEnd = wholeTable.indexOf("\n## ", baseAt);
+  const baseTable = wholeTable.slice(baseAt, baseEnd > 0 ? baseEnd : undefined);
 
   // The word set, from the library's own emissions. `_cs_reason=` is the resumability verdict;
   // the two `printf '<word>\n'` families are the unit resolution and the merged lookup.
@@ -23409,6 +23834,72 @@ function testProofJudgementSplit() {
     assertEq(`${file.split("/").pop()} gates on a proof, never a judgement`,
       classified.get(m[1]), "proof");
   }
+
+  // ---- THE BASE READING'S VOCABULARY (2026-08-27) ----
+  // Same two directions as above, over the second vocabulary: a word emitted and not classified
+  // leaves a consumer with no rule, and a word classified and never emitted is a rule about
+  // nothing. The word set comes out of the two scripts' own `emit` calls rather than a list this
+  // test carries, which would prove only that the list matches itself.
+  const baseEmitted = new Set();
+  for (const f of ["read-base-checks.sh", "attribute-base-red.sh"]) {
+    const src = readFileSync(join(REPO_ROOT, `plugins/workaholic/skills/drive/scripts/${f}`), "utf8")
+      .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+    for (const m of src.matchAll(/\bemit (green|red|unattributable|unanswerable)\b/g)) {
+      baseEmitted.add(m[1]);
+    }
+  }
+  assertEq("the base reading's vocabulary parses out of the two scripts",
+    [...baseEmitted].sort().join(","), "green,red,unanswerable,unattributable");
+
+  const baseClassified = new Map();
+  for (const m of baseTable.matchAll(/^\|\s*`([a-z_]+)`\s*\|\s*(?:\*\*)?(proof|judgement)(?:\*\*)?\s*\|/gm)) {
+    assertTrue(`the base sub-table classifies ${m[1]} exactly once`, !baseClassified.has(m[1]),
+      "a second row for the same word is two rules for one fact");
+    baseClassified.set(m[1], m[2]);
+  }
+  assertEq("every word the base reading emits is classified exactly once",
+    [...baseEmitted].filter((w) => !baseClassified.has(w)).sort().join(","), "");
+  assertEq("and the sub-table classifies no word the base reading never emits",
+    [...baseClassified.keys()].filter((w) => !baseEmitted.has(w)).sort().join(","), "");
+
+  // THERE IS NO PROOF IN THIS VOCABULARY, and that is the load-bearing claim: a check run is
+  // designed to be re-runnable, so every reading here can become false by looking again — the
+  // one property a proof must not have. A row promoted to `proof` fails right here.
+  assertEq("no base reading is a proof — every one of them is a judgement",
+    [...baseClassified.entries()].filter(([, k]) => k === "proof").map(([w]) => w).sort().join(","), "");
+
+  // EVERY CONSUMER OF THE BASE READING IS ENUMERATED, so a new one must be registered here
+  // rather than slipping in unclassified — the same reason the two claim consumers are named
+  // explicitly above instead of discovered by glob. Each is read from its own source.
+  //
+  // What "acting" means for this vocabulary: re-running a check, reverting a commit, merging,
+  // or gating the run on the reading. Call sites, never words — the step's own prose says in
+  // English that it never reverts or re-runs, so a word-level ban would fail on the sentence
+  // that states the rule.
+  const ACTS = ["/rerun", "rerun-failed-jobs", "actions/runs", "git revert", "git reset --hard",
+    "/merge", "merge_pull_request", "retire-claim.sh", "release-claim.sh"];
+  const stepSrc = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/moderate/scripts/step-base-health.sh"), "utf8")
+    .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+  for (const act of ACTS) {
+    assertTrue(`step-base-health.sh acts on nothing — it never reaches ${act}`,
+      !stepSrc.includes(act),
+      `a judgement licenses reporting and asking, never ${act}`);
+  }
+  // The driving run is the second consumer, and its rule is prose in the skill it lives in. What
+  // is pinned is the sentence a later change would have to delete to start gating on it.
+  const driveSkill = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/drive/SKILL.md"), "utf8");
+  assertTrue("workaholic:drive states that the base reading gates nothing",
+    /base's health[\s\S]{0,4000}?It gates nothing/.test(driveSkill),
+    "the gates-nothing statement is gone from drive/SKILL.md");
+  assertTrue("...and that it moves no token", /base[\s\S]{0,400}?moves no token/.test(driveSkill),
+    "the moves-no-token statement is gone from drive/SKILL.md");
+  const moderateSkill = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/moderate/SKILL.md"), "utf8");
+  assertTrue("workaholic:moderate states that its step asks and acts on nothing",
+    /base-health[\s\S]{0,1200}?asks and nothing else/.test(moderateSkill),
+    "the asks-and-nothing-else statement is gone from moderate/SKILL.md");
 }
 
 // ---------- moderate/undelivered-units: the loop's own undelivered work (2026-08-27) ----------

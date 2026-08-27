@@ -2,7 +2,7 @@
 type: Mission
 title: Drive the work the loop wrote: one resolution of who a person is
 slug: drive-the-work-the-loop-wrote-one-resolution-of-who-a-person-is
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-26T15:23:17+00:00
 author: a@qmu.jp
@@ -53,3 +53,5 @@ units are back in the queue; a colleague's is not.
 - 2026-08-27 — ticket archived — 20260826152533-say-when-a-survey-excluded-its-whole-backlog.md
 - 2026-08-27 — ticket archived — 20260826152533-audit-the-addresses-the-tree-actually-uses.md
 - 2026-08-27 — ticket archived — 20260826152533-ask-a-person-about-work-nothing-can-drive.md
+- 2026-08-27 — ticket archived — 20260826152533-drill-the-identity-hand-off-with-no-network.md
+- 2026-08-27 — mission achieved — mission.md

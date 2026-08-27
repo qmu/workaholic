@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-26T15:25:33+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -77,3 +78,39 @@ belongs to `refuse-ok-under-a-placeholder-identity`, which owns that table.
   editing one table. State the boundary in the report's own wording so the next reader sees the
   fact is reported and the token deliberately is not.
 - `backlog_size: 0` with everything claimed is a different, healthy state; do not fold it in.
+
+## Final Report
+
+Development completed as planned.
+
+The reading was confirmed against the live numbers first: a non-zero `backlog_size` with an
+empty `backlog[]` and a populated `excluded[]` is already in the survey's output — measured
+here as `backlog_size: 10`, `backlog: []`, `owned_by_other` x7.
+
+`plan-units.sh` emits `backlog_all_excluded` as its own top-level key, carrying the queue's
+size and a **count per exclusion reason**. The per-reason breakdown is the part that makes the
+reading actionable rather than merely true: a queue emptied by claims is the protocol working,
+one emptied by `owned_by_other` is work nothing can drive, and the two need different answers.
+It is a top-level key rather than an `excluded[]` entry for the reason the script's own header
+gives for `resurveyed[]` — `excluded[]` names what the survey saw and *dropped*, and this
+reading drops nothing of its own. No new scan, no stored state, no field on any artifact.
+
+**This ticket moves no token, and the boundary is stated in the report's own wording.** §7's
+table is owned by `refuse-ok-under-a-placeholder-identity`, which is itself one of the stranded
+units; two missions editing one table is how a table stops meaning one thing. The suite asserts
+the token table gained no row for this reading, so the boundary is checked rather than promised.
+
+### Discovered Insights
+
+- **Insight**: `wc -l` counts newlines, and the last fragment of a comma-split JSON string
+  carries none — so the first cut of the per-reason count undercounted every reason by exactly
+  one and still looked plausible.
+  **Context**: `grep -c` counts matching lines either way. Any count derived by splitting an
+  emitted JSON fragment in shell has this shape; the failure is silent and off-by-one, which is
+  the hardest kind to notice in a field nobody reads until something has gone wrong.
+
+- **Insight**: `backlog_size: 0` with everything claimed is a healthy state that looks
+  superficially like the defect, and folding it in would have made the reading fire on every
+  well-run repository with work in flight.
+  **Context**: the reading requires a non-empty `excluded[]` as well as an empty `backlog[]`,
+  which is what keeps it a finding rather than a status line.

@@ -153,7 +153,8 @@
 # `resume_reason` always answers "why is it in this state", and is NEVER empty (see the
 # no-empty-field rule below): `heartbeat_lapsed`, `parked_with_pr` or `report_incomplete`
 # when resumable, else `claim_active`, `foreign_identity`, `identity_unresolved`,
-# `shallow_history`, `superseded`, or `queue_drained`.
+# `shallow_history`, `superseded`, `awaiting_verification`, `report_undelivered`, or
+# `queue_drained`.
 # `parked_with_pr` splits the RESUMABLE case in two: a unit that reached its PR (its story
 # file is committed at the branch tip) and merely has follow-up work, versus a run that
 # died mid-drive. Both MAY be taken over; only the latter is a MANDATORY takeover, because
@@ -175,6 +176,15 @@
 # `superseded` is the claim whose CONTENT already reached the base by another route, so
 # there is nothing in it to drive and nothing for a human to merge (`claims_superseded`).
 # It is reported and never acted on, exactly like `stale`, and it must not forbid `ok`.
+# `awaiting_verification` is the REPORTED unit whose remaining queued work was DECLARED
+# unverifiable here at creation (`claims_declared_handoff`). It splits `parked_with_pr`, whose
+# own wording -- *taking it over is legitimate* -- is false by declaration for such a unit: §6
+# routed it to the handoff route because nothing unattended can finish it, so the next action is
+# a PERSON satisfying the declared verification, never a takeover. `resumable: false`, excluded
+# `claimed_awaiting_verification`, and it must NOT forbid `ok`: a unit waiting on a declared
+# human verification is the gate working, exactly like a scan-held pull request. It RELEASES
+# ITSELF -- the declaration is read from the still-queued work, so driving that ticket returns
+# the unit to `parked_with_pr` or `queue_drained` with nothing stored anywhere.
 #
 # Paths are assumed free of tabs, commas, quotes and backslashes -- true of every
 # .workaholic/ artifact by construction (the ticket/mission filename rules), and the
@@ -1008,12 +1018,38 @@ claims_scan() {
                 _cs_reason=report_incomplete
             fi
         elif [ "$_cs_reported" = "true" ]; then
-            # Resumable, but PARKED rather than dead: it reported and opened a PR, and the
-            # follow-up tickets on its branch are why it still has work. Taking it over is
-            # legitimate; being FORCED to take it over ahead of fresh work is not, so the
-            # reason is distinct and /drive treats it as reportable rather than mandatory.
-            _cs_resumable=true
-            _cs_reason=parked_with_pr
+            if [ "$_cs_declared_handoff" = "true" ]; then
+                # AND A *REPORTED* UNIT WITH WORK LEFT IS TWO STATES TOO (2026-08-27, mission
+                # `stop-re-resuming-a-declared-handoff-unit`). `parked_with_pr`'s own contract
+                # says *the follow-up tickets on its branch are why it still has work. Taking it
+                # over is legitimate* -- and that sentence is FALSE BY DECLARATION for a unit
+                # whose remaining work carries `verification_handoff:`. §6 routed it to the
+                # handoff route precisely because nothing unattended can finish it, and the
+                # oracle then offered the takeover anyway: measured on PR #647, routed at 02:14
+                # UTC and taken over again at 06:43 for nothing.
+                #
+                # A SIBLING WORD, NOT A NARROWED `parked_with_pr`, on the `report_undelivered`
+                # precedent: the two states call for different next actions -- take it over
+                # versus satisfy the declared verification -- and one word answering both is
+                # what made this invisible for thirteen days.
+                #
+                # `resumable: false`, for its own reason: the next action belongs to a PERSON,
+                # and resuming would push an empty `Resume` commit onto a branch whose pull
+                # request is open -- the 2026-08-01 gate exactly.
+                #
+                # IT RELEASES ITSELF. The declaration is read from the work still QUEUED, so
+                # once that ticket is driven the reading answers `false` and the unit reads
+                # `parked_with_pr` or `queue_drained` again, with nothing stored anywhere.
+                _cs_resumable=false
+                _cs_reason=awaiting_verification
+            else
+                # Resumable, but PARKED rather than dead: it reported and opened a PR, and the
+                # follow-up tickets on its branch are why it still has work. Taking it over is
+                # legitimate; being FORCED to take it over ahead of fresh work is not, so the
+                # reason is distinct and /drive treats it as reportable rather than mandatory.
+                _cs_resumable=true
+                _cs_reason=parked_with_pr
+            fi
         else
             _cs_resumable=true
             _cs_reason=heartbeat_lapsed

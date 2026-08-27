@@ -51,3 +51,4 @@ than passing for green. Nothing merges differently and the QA window owns qualit
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-27 — ticket archived — 20260827161954-write-read-base-checks-sh-the-one-checks-reader.md
+- 2026-08-27 — ticket archived — 20260827161955-name-the-merge-that-turned-the-base-red.md

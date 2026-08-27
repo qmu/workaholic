@@ -14116,6 +14116,128 @@ function testReadBaseChecks() {
 }
 
 // ---------------------------------------------------------------------------
+// THE ATTRIBUTION WALK (2026-08-27, mission
+// `read-whether-the-base-survived-what-the-loop-merged`). A red tip says the base is broken;
+// this says WHAT BROKE IT — the oldest red commit after the last green one — or says
+// `unattributable`, which is the answer this test exists to protect.
+//
+// The load-bearing assertions are the negative ones: the tip is never blamed because the walk
+// ran out of room, and a commit the reader could not read STOPS the walk rather than promoting
+// whatever red it happened to have seen.
+function testAttributeBaseRed() {
+  const WALK = join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/attribute-base-red.sh");
+  const tmp = mkdtempSync(join(tmpdir(), "wh-attribute-red-"));
+  const bin = join(tmp, "bin");
+  const stubs = join(tmp, "stubs");
+  const repo = join(tmp, "repo");
+  mkdirSync(bin, { recursive: true });
+  mkdirSync(stubs, { recursive: true });
+  mkdirSync(repo, { recursive: true });
+  execSync("git init -q -b main . && git remote add origin git@github.com:acme-org/source-repo.git",
+    { cwd: repo });
+  for (let i = 1; i <= 5; i++) execSync(`git commit -q --allow-empty -m c${i}`, { cwd: repo });
+  execSync("git update-ref refs/remotes/origin/main HEAD", { cwd: repo });
+  // Newest first, exactly the order the walk visits them in.
+  const [tip, c4, c3, c2, c1] =
+    execSync("git rev-list origin/main", { cwd: repo, encoding: "utf8" }).trim().split("\n");
+
+  // The `gh` stub answers per commit out of a directory of fixtures, so a walk's shape is set
+  // by writing files rather than by branching inside the stub.
+  writeFileSync(join(bin, "gh"), [
+    "#!/bin/sh",
+    'p="$2"',
+    'case "$p" in',
+    '  */check-runs*) sha=$(echo "$p" | sed "s|.*/commits/||; s|/check-runs.*||")',
+    `     if [ -f "${stubs}/$sha.json" ]; then cat "${stubs}/$sha.json"; else echo '{"total_count":0,"check_runs":[]}'; fi ;;`,
+    '  */pulls*) if [ -f "' + stubs + '/pulls" ]; then cat "' + stubs + '/pulls"; else echo "pulls refused" >&2; exit 1; fi ;;',
+    '  *) echo "unexpected $p" >&2; exit 1 ;;',
+    "esac",
+  ].join("\n"));
+  chmodSync(join(bin, "gh"), 0o755);
+  const env = { ...process.env, PATH: `${bin}:${process.env.PATH}` };
+
+  const GREEN = '{"total_count":1,"check_runs":[{"name":"CI","status":"completed","conclusion":"success"}]}';
+  const RED = '{"total_count":1,"check_runs":[{"name":"Validate Plugins","status":"completed","conclusion":"failure"}]}';
+  const NONE = '{"total_count":0,"check_runs":[]}';
+  const set = (states) => {
+    for (const [sha, body] of Object.entries(states)) writeFileSync(join(stubs, `${sha}.json`), body);
+  };
+  const walk = (extra = {}) => JSON.parse(
+    run(repo, `${POSIX_SH} ${WALK}`, { env: { ...env, ...extra } }).stdout);
+
+  try {
+    writeFileSync(join(stubs, "pulls"),
+      '[{"number":42,"merged_at":"2026-08-27T00:00:00Z","html_url":"https://x/42","user":{"login":"someone"}}]');
+
+    // A RED TIP IS ATTRIBUTED TO THE MID-WALK MERGE — the first thing that broke, not the last
+    // thing that was pushed.
+    set({ [tip]: RED, [c4]: RED, [c3]: RED, [c2]: GREEN, [c1]: GREEN });
+    const r = walk();
+    assertEq("a red tip attributes the oldest red commit after the last green one",
+      [r.state, r.attributed.commit, r.last_green], ["red", c3, c2]);
+    assertEq("...naming its pull request and author",
+      [r.attributed.pull_request, r.attributed.pull_request_number, r.attributed.author],
+      ["https://x/42", 42, "someone"]);
+    assertEq("and the bound it walked under is reported", r.bound, { max_commits: 20 });
+
+    // A FAILED PULL-REQUEST LOOKUP KEEPS THE FINDING. The attribution is still real without a
+    // URL; dropping it would lose a true reading over a missing nicety.
+    rmSync(join(stubs, "pulls"));
+    const noPr = walk();
+    assertEq("a refused pull-request lookup leaves the coordinates unstated, keeping the finding",
+      [noPr.state, noPr.attributed.commit, noPr.attributed.pull_request,
+       noPr.attributed.pull_request_number, noPr.attributed.author],
+      ["red", c3, "", null, ""]);
+    writeFileSync(join(stubs, "pulls"),
+      '[{"number":42,"merged_at":"2026-08-27T00:00:00Z","html_url":"https://x/42","user":{"login":"someone"}}]');
+
+    // A GREEN TIP HAS NOTHING TO ATTRIBUTE, and costs exactly one reader call.
+    set({ [tip]: GREEN });
+    assertEq("a green tip attributes nothing and walks one commit",
+      [walk().state, walk().attributed, walk().walked], ["green", null, 1]);
+
+    // THE BOUND IS NEVER THE TIP'S FAULT. This is the outcome the answer exists for.
+    set({ [tip]: RED, [c4]: RED, [c3]: RED, [c2]: GREEN, [c1]: GREEN });
+    const bounded = walk({ WORKAHOLIC_BASE_ATTRIBUTION_MAX: "2" });
+    assertEq("a walk that exhausts its bound is unattributable, never the tip",
+      [bounded.state, bounded.attributed, bounded.reason, bounded.bound],
+      ["unattributable", null, "bound_exhausted", { max_commits: 2 }]);
+
+    // NOR IS THE START OF HISTORY.
+    set({ [tip]: RED, [c4]: RED, [c3]: RED, [c2]: RED, [c1]: RED });
+    const exhausted = walk();
+    assertEq("a walk that reaches the start of history is unattributable too",
+      [exhausted.state, exhausted.attributed, exhausted.reason],
+      ["unattributable", null, "history_start"]);
+
+    // A COMMIT WE COULD NOT READ MAY ITSELF BE RED, so promoting the oldest red we happen to
+    // have seen would be a guess wearing an attribution's clothes.
+    set({ [tip]: RED, [c4]: RED, [c3]: NONE, [c2]: GREEN, [c1]: GREEN });
+    const blind = walk();
+    assertEq("an unreadable commit inside the walk stops it rather than blaming a guess",
+      [blind.state, blind.attributed, blind.reason],
+      ["unattributable", null, "unanswerable_in_walk:no_checks"]);
+
+    // AND A TIP WE COULD NOT READ IS OUR OWN DEGRADATION, never a finding about the base.
+    set({ [tip]: NONE });
+    const dark = walk();
+    assertEq("an unreadable tip is unanswerable, carrying the reader's own reason",
+      [dark.state, dark.ok, dark.reason], ["unanswerable", false, "tip_no_checks"]);
+
+    // CHECK STATE HAS EXACTLY ONE DERIVATION. The walk asks WHICH COMMIT, never WHAT STATE —
+    // a second parser of a check run is what this constraint exists to prevent.
+    const body = readFileSync(WALK, "utf8").split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+    assertTrue("the walk derives no check state of its own",
+      !/check.runs|conclusion|check-runs/.test(body), body.slice(0, 400));
+    assertTrue("...it composes the one reader instead", body.includes("read-base-checks.sh"), body.slice(0, 400));
+    assertTrue("and reaches GitHub only through the one transport",
+      !/\bgh (issue|pr|repo|api)\b/.test(body) && body.includes("gh-rest.sh"), body.slice(0, 400));
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
+// ---------------------------------------------------------------------------
 // THE MERGED LOOKUP DEGRADES BY NAME, NOT BY GUESS (2026-08-26).
 //
 // `list-claims.sh` promises the reader degrades offline. The merged lookup makes a NETWORK
@@ -16489,6 +16611,7 @@ const tests = [
   ["drive claim protocol: a claim survives its tickets being archived", testClaimSurvivesArchive],
   ["drive/claim-merged.sh: merged, not merged, or unanswerable", testClaimMergedReader],
   ["drive/read-base-checks.sh: green, red, or unanswerable", testReadBaseChecks],
+  ["drive/attribute-base-red.sh: the merge that turned the base red", testAttributeBaseRed],
   ["drive claim protocol: the merged lookup degrades by name", testMergedLookupDegradesByName],
   ["drive claim protocol: the merged-claim shape at both grains", testMergedClaimShapeAtBothGrains],
   ["drive claim protocol: a merged claim is never offered for resumption", testMergedClaimIsNeverResumable],

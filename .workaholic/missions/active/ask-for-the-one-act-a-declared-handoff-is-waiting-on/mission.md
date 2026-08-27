@@ -50,3 +50,4 @@ gate lifted, no handoff declared or withdrawn by any run.
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-27 — ticket archived — 20260827202118-read-a-claim-s-declared-handoff-and-its-pull-request.md

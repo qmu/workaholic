@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-27T20:21:18+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -90,3 +91,35 @@ two answers cannot diverge and the reading releases itself when that ticket is d
   caller of `list-claims.sh` pay a tip read for a string three of the four never use.
 - The reason is free text quoted verbatim into `## Handoff`; it can contain quotes and
   newlines. Whatever carries it must survive that without mangling the person's own words.
+
+## Final Report
+
+Reproduced first: `list-claims.sh` over this repository's live claims carried
+`declared_handoff: true` on `work-20260827-003544` and the declared string appeared nowhere in
+its output — the boolean was all there was.
+
+**Where the resolution lives, and the choice recorded.** Per candidate, in a new reader, not on
+the claim row. `stalled-units`, `undelivered-units` and `retire-claims` all call `list-claims.sh`
+and none of them wants the string, so putting it on the row would cost every reader of the oracle
+a value three of the four never use. `drive/scripts/declared-handoff-detail.sh <branch>
+[<artifact>...]` resolves it only for the rows a consumer will ask about.
+
+**One materialisation, one parser.** `lib/claims.sh`'s `claims_declared_handoff` was split into
+`claims_declared_reading` (materialise the still-queued blobs at the tip, hand them to
+`verification-handoff.sh`) with `claims_declared_handoff` and the new `claims_declared_reason`
+as thin reads of that one line. `verification-handoff.sh` remains the only reader of the field;
+the reason is sliced out of the reader's own JSON between the two keys it always prints in order,
+never by re-reading frontmatter. The reason is read off the work still **queued**
+(`claims_remaining_tickets`, reused rather than re-walked), so it releases itself.
+
+**Pull request:** one `claim-merged.sh` lookup per candidate; `unanswerable` leaves the
+coordinates unstated and keeps the candidate. `--no-lookup` makes the reading fully offline.
+
+**Degradations named:** `no_branch`, `no_branch_ref`, `no_artifacts`, `no_handoff_reader`,
+`not_declared`, `reason_empty`, `no_merged_reader`, `merged_lookup_unreadable`.
+
+Verified: `node scripts/test-workflow-scripts.mjs` — 4111 passed, 0 failed. `list-claims.sh`
+output over the live claim set is unchanged. `grep -rn "verification_handoff"
+plugins/workaholic/skills/ | grep -v verification-handoff.sh` returns comments, prose and
+scaffolds only — no second parser. Live read of `work-20260827-003544` returns the declared
+reason verbatim and PR #647.

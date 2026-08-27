@@ -44,7 +44,7 @@ than passing for green. Nothing merges differently and the QA window owns qualit
       merge that turned it red or answers `unattributable` (#20260827161954-write-read-base-checks-sh-the-one-checks-reader.md)
 - [x] A red base reaches the attributed author once per commit, renders as an
       event, and is named in the driving run's report (#20260827161956-add-the-moderate-step-base-health.md)
-- [ ] The reading gates nothing, is pinned as a judgement, and a network-free
+- [x] The reading gates nothing, is pinned as a judgement, and a network-free
       drill proves it (#20260827162003-drill-the-base-reading-with-no-network.md)
 
 ## Changelog
@@ -56,3 +56,4 @@ than passing for green. Nothing merges differently and the QA window owns qualit
 - 2026-08-27 — ticket archived — 20260827161957-render-the-base-s-health-as-a-moderation-event.md
 - 2026-08-27 — ticket archived — 20260827162001-name-the-base-s-health-in-the-driving-run-s-report.md
 - 2026-08-27 — ticket archived — 20260827162002-classify-the-base-reading-as-a-judgement-and-pin-it.md
+- 2026-08-27 — ticket archived — 20260827162003-drill-the-base-reading-with-no-network.md

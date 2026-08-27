@@ -1109,6 +1109,18 @@ nobody named is worse than not asking.
 **The summary carries no age and no timestamp**, for the correctness reason `stalled-units`'
 header records: an incrementing age would make this step changed hourly by construction.
 
+**The event is supplied only where a standing handoff was found**, and it names the repository
+event rather than the step's counters: *a finished unit is waiting on a verification only a
+person can run*. The `ok`-with-nothing path and every degraded path leave it **empty**, so the
+renderer emits no line at all — the independent guard against a nothing-happened line reaching
+the root even when the diff calls the step changed. The declared reason and the pull request stay
+**out** of it: the root line links the item and the question beneath it carries the detail, and a
+root line that restated the question is the duplication the two-speech-act design exists to
+avoid. Once the `handoff-unit:<unit>` key is spent, later ticks still see the finding — and
+render nothing, because a change is a **diff** against the previous tick's summary for the same
+step, and an unchanged standing handoff produces an unchanged summary. That is what keeps a
+standing handoff from becoming the hourly restatement `📦 Release Preparation` was retired for.
+
 **It asks and nothing else.** `awaiting_verification` is a **judgement**
 (`workaholic:drive`'s `reference/claims.md`, *Proofs and judgements*), so nothing here clears a
 handoff, retries a verification, merges or closes the pull request, touches the claim, or

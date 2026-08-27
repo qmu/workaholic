@@ -76,7 +76,7 @@ confidently (decision J3). Each `ok: false` is a reported decision, never a prom
 
 Emits `{fetched, shallow, base, surveyed_sha, base_sha, current, user_slug, backlog_error,
 backlog_size, owner_unresolved, claimed[], resumable[], resurveyed[], missions[], backlog[],
-excluded[]}`,
+excluded[], backlog_all_excluded}`,
 each backlog row `{path, title, merge_policy, depends_on, mission_closed}` —
 the unclaimed active missions this runner may take and the unclaimed todo tickets, with
 everything a claim already holds subtracted through the shared claim reader.
@@ -142,6 +142,7 @@ not `excluded[]` entries, because `excluded[]` names items the survey saw and dr
 | `shallow` | `true` = the claim scan ran over truncated history (a shallow clone whose origin was unreachable, so it could not deepen). **Forbids `ok`** on a different axis from `current`: "can I tell which branches reached the base at all". See [`claims.md`](claims.md). |
 | `backlog_error` | `""` when the queue was read; `unreadable` otherwise. **Forbids `ok`** — a run that never learned the queue's contents has established nothing about it. |
 | `backlog_size` | ticket count before filtering — what makes *nothing for me* and *nothing at all* distinguishable from outside. |
+| `backlog_all_excluded` | `{excluded, backlog_size, reasons[{reason, count}]}` — a **derived reading** over the fields above: the queue holds tickets, the survey offers none of them, and something was excluded. Reported by both entry points' run reports so *the queue is empty* and *the queue is full and I can offer none of it* never render alike. The **per-reason counts** are what make it actionable — a queue emptied by claims is the protocol working, one emptied by `owned_by_other` is work nothing can drive. A genuinely empty queue (`backlog_size: 0`) and a survey offering some of its backlog both read `excluded: false`. It is a top-level key rather than an `excluded[]` entry for the reason `resurveyed[]` is: `excluded[]` names what the survey saw and *dropped*, and this drops nothing of its own. **It moves no token** — whether it forbids `ok` belongs to the mission that owns §7's table, and two missions editing one table is how a table stops meaning one thing. Measured 2026-08-26: `backlog_size: 10`, `backlog: []`, `owned_by_other` x7, reported `ok` hourly for five days. |
 | `owner_unresolved` | the queue **was** read but this runner has no identity to judge ownership against: unowned artifacts are still offered, owned ones excluded as `owner_unresolved`. **Forbids `ok`** but does not terminate the run. (`identity_unresolved` left this vocabulary with the per-user directory layout, P2.) |
 
 `fetched: false` means origin was unreachable and the claim set is the last-known one — survey

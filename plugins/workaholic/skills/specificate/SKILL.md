@@ -250,6 +250,20 @@ scaffold-proposed-ticket.sh "<title>" <mission-slug> --assignee <email>
 
 Both write `assignees: [<email>]`; both write an empty field when no assignee is given — team-owned, claimable by anyone, a real state that stays available. Do not fall back to the running identity: that stamps whichever container executed the batch and silently assigns work to a runner rather than a person (measured: every unowned proposal had every developer's runner racing for it, whose push landed first deciding whose job it was).
 
+**Stamp only an address the loop can resolve** (2026-08-26). The issue carries a GitHub **login**; the artifact needs a git **address**; and until this rule nothing in the run converted one to the other, so the running session resolved it by *judgement*. Measured on this repository: the judgement produced a person's second address for the login `tamurayoshiya`, whose committed mapping names their first — and an artifact stamped that way is excluded from every survey, permanently, because `owns.sh` answers `other` for an address no entry names. The mission that would have repaired the other half of the defect was itself one of the seven stranded units.
+
+So the assignee is resolved through **`gather/scripts/identity.sh`**, the mapping's one reader, before either scaffold is called:
+
+| The issue's assignee | What the run stamps | What it reports |
+| -------------------- | ------------------- | --------------- |
+| a login the mapping names (by its canonical address **or** an alias) | `--assignee <the canonical address>` | nothing extra |
+| a login **no entry names** | **no `--assignee` at all** — the artifact is team-owned | `assignee_unmapped: <the login>`, in the run report and the pull-request body |
+| no assignee at all | no `--assignee` — team-owned | the existing unassigned wording |
+
+**An unassigned issue and an unmapped assignee both produce team-owned work, and they are different facts.** The first is nobody's; the second is somebody's, unresolvably — and only the second is repaired by adding a line to `.claude/git-identities`, which is why they are reported under different names rather than folded into one. The refusal to substitute the running identity is untouched and applies here with the same force: a **wrong** address is silently unrecoverable, while `assignees: []` is a documented, claimable state any run can pick up.
+
+The **strategy form** is the one place this does not produce team-owned work: `create.sh` refuses an empty assignee list — the one artifact where empty is a refusal rather than team-owned — so an unmapped assignee makes a strategy **record-only**, reported `assignee_unmapped`, exactly as an unassigned issue makes it record-only reported `no_assignee`.
+
 ## Carry the ask's own feedback refs forward
 
 An ask whose body carries a `feedback: <ref>, <ref>` line names records that already exist in this repository's stream, and those refs ride the emitted artifacts **alongside** the record this run writes — step 3b of [reference/workflow.md](reference/workflow.md). Both scaffolds already take a variadic ref list, so this adds no flag, no field and no migration.

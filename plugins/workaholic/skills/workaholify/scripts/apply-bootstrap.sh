@@ -21,6 +21,20 @@
 #                              install can exceed the default).
 #   enabled_plugin             add workaholic@workaholic to enabledPlugins.
 #   marketplace                add workaholic to extraKnownMarketplaces.
+#   identity_map_missing       scaffold .claude/git-identities — the comment header and
+#                              NO entries. The file's absence makes the hook's identity
+#                              step a permanent no-op; its CONTENTS are the operator's.
+#   identity_map_uncovered     append the proposed line for each uncovered address, as a
+#                              COMMENT the operator uncompletes and uncomments. Which
+#                              GitHub account an address belongs to is a fact only a human
+#                              has, so this repair proposes and never decides — the same
+#                              line the check already reports, put where the fix is made.
+#
+# THE MAPPING REPAIR NEVER WRITES AN ENTRY UNAIDED. A commented proposal is not an entry:
+# `identity.sh` skips comments, so a repository that runs this apply and never edits the
+# file behaves exactly as it did before. Inventing `<login>` would be the guess the whole
+# identity change exists to remove — a wrong entry silently makes one person's work
+# another's, while an uncovered address is merely still uncovered.
 #
 # A hook that already `matches_canonical` reports no problem, so it is never
 # touched: the installed file is only ever overwritten when the check said it
@@ -41,6 +55,8 @@
 # Usage: apply-bootstrap.sh [repo-root]
 # Output: JSON {changed, applied:[...], refused, ok, problems_before, problems_after}
 #   refused: "" | settings_unparseable | hook_source_missing | unwritable
+#            `unwritable` covers an unwritable mapping too: nothing is written at all,
+#            the hook included, exactly as the other refusals do.
 
 set -eu
 
@@ -84,6 +100,16 @@ if [ ! -w "$ROOT" ]; then
   exit 0
 fi
 
+# An existing mapping this run cannot write to is refused BEFORE anything moves, on the
+# same principle as `settings_unparseable`: a half-applied bootstrap is worse than an
+# unapplied one, and the operator's recovery path is the report.
+IDMAP_REL=".claude/git-identities"
+IDMAP="${ROOT}/${IDMAP_REL}"
+if [ -f "$IDMAP" ] && [ ! -w "$IDMAP" ]; then
+  emit_refusal unwritable
+  exit 0
+fi
+
 applied=''
 add_applied() {
   if [ -n "$applied" ]; then
@@ -97,6 +123,14 @@ problems=$(printf '%s' "$before" | sed -n 's/.*"problems": *\[\(.*\)\].*/\1/p')
 
 has_problem() {
   printf '%s' "$problems" | grep -q "\"$1" 2>/dev/null
+}
+
+# The identity mapping's problems are ADVISORIES on the check (they do not gate `ok` — see
+# that script's note), so they are read from their own field rather than from `problems`.
+advisories=$(printf '%s' "$before" | sed -n 's/.*"advisories": *\[\(.*\)\].*/\1/p')
+
+has_advisory() {
+  printf '%s' "$advisories" | grep -q "\"$1" 2>/dev/null
 }
 
 # --- the hook file ------------------------------------------------------------
@@ -160,6 +194,43 @@ PY
   for p in not_registered matcher timeout enabled_plugin marketplace; do
     if has_problem "$p"; then add_applied "$p"; fi
   done
+fi
+
+# --- the identity mapping -----------------------------------------------------
+# Scaffold it when absent (header only, no entries), and append each uncovered address as
+# a COMMENTED proposal. Neither writes an entry: which account an address belongs to is a
+# human's ruling, and the repair's whole job is to put the line where the fix is made.
+if has_advisory identity_map_missing; then
+  mkdir -p "${ROOT}/.claude"
+  {
+    printf '# <github-login>=<canonical-email>[,<alias-email>...], one per line: the web bootstrap
+'
+    printf '# (.claude/hooks/session-start.sh) maps the session GitHub login to the developer git
+'
+    printf '# identity so personally-assigned tickets are claimable; committed because these emails
+'
+    printf '# are already public in git history.
+'
+    printf '# The FIRST address is canonical; every address after it is another address of the SAME
+'
+    printf '# person. Read it through gather/scripts/identity.sh — never by hand.
+'
+  } > "$IDMAP"
+  add_applied identity_map_missing
+fi
+
+if has_advisory identity_map_uncovered; then
+  audit=$(sh "${SCRIPT_DIR}/audit-identity-coverage.sh" "$ROOT" 2>/dev/null || printf '{"uncovered": []}')
+  proposed=0
+  for line in $(printf '%s' "$audit" | tr ',' '\n' | sed -n 's/.*"line": "\([^"]*\)".*/\1/p'); do
+    # Idempotent: a proposal already in the file is never repeated.
+    if ! grep -qF "proposed: ${line}" "$IDMAP" 2>/dev/null; then
+      printf '# proposed: %s  (fill in the GitHub login and uncomment; a commented line is not an entry)\n' \
+        "$line" >> "$IDMAP"
+      proposed=$((proposed + 1))
+    fi
+  done
+  [ "$proposed" -gt 0 ] && add_applied identity_map_uncovered
 fi
 
 after=$(sh "${SCRIPT_DIR}/check-bootstrap.sh" "$ROOT")

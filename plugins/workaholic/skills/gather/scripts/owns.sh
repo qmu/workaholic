@@ -32,6 +32,40 @@
 # the living migration stamps an owner derived from a directory name, so a
 # `assignees: [a-qmu-jp]` left by the migration must still match the runner's
 # `a@qmu.jp`. Comparing raw strings would silently orphan every migrated ticket.
+#
+# A PERSON'S SECOND ADDRESS IS THE SAME PERSON, WHEN THE MAPPING SAYS SO
+# (2026-08-26). The slug rule makes one SPELLING of an address one person; it
+# cannot make two different addresses one person, because nothing told it they
+# were. Both sides are now resolved through `gather/scripts/identity.sh` — the one
+# reader of the committed `.claude/git-identities` mapping — BEFORE the existing
+# slug comparison, so a mapped alias lands on the same canonical address and the
+# comparison below answers `mine` unchanged. Measured: `tamurayoshiya=a@qmu.jp` was
+# committed while two active missions and five queued tickets carried that person's
+# other address, so this oracle answered `other` for all seven and `plan-units.sh`
+# excluded them as `owned_by_other` for five days — including the mission whose own
+# job was to repair the other half of the defect.
+#
+# EVERY OTHER ANSWER STAYS EXACTLY WHERE IT IS, and that is the whole care here.
+# An address the mapping does not name still answers `other`; `unowned` and
+# `unresolved` are untouched; the tier-3 tolerance is untouched; and with NO mapping
+# file present identity.sh is the identity function, so every answer is
+# byte-identical to what it was before this paragraph existed. The 2026-08-14
+# incident — ~10 PR-units driven out of colleagues' queues — is why `other` is
+# conservative, and the loosening is bounded by the committed mapping: only
+# addresses ONE ENTRY names for ONE login become one person, and a colleague's
+# address appears in no entry of the runner's. A mapping entry is a claim that two
+# addresses are one person, and anyone who can commit can make it — the same trust
+# boundary the file already carried for `<login>=<email>`, widened in what one entry
+# can say rather than in who may say it.
+#
+# THIS IS NOT THE CHANGE `refuse-ok-under-a-placeholder-identity` SCOPED OUT. That
+# mission's `## Scope` reads "Not `owns.sh`'s comparison, which is correct", and it
+# is right about its own case: a container holding `noreply@anthropic.com`, a
+# PLACEHOLDER, against which no comparison should answer `mine` at all. This is a
+# different case — a real identity, a present mapping entry, and a second address
+# of the same person. A placeholder gains no new way to answer `mine` here, because
+# a placeholder appears in no entry. A later reader finding both statements should
+# read them as two cases, not as one of them being stale.
 
 set -eu
 
@@ -57,7 +91,17 @@ if [ -z "$ME" ]; then
     exit 0
 fi
 
-my_slug=$(sh "${SCRIPT_DIR}/user-slug.sh" "$ME" 2>/dev/null || true)
+# Resolve an address to its person's canonical address before slugging it. With no
+# mapping file, no entry, or an unparseable line, identity.sh echoes its input back —
+# the identity function — so this is a no-op wherever the mapping cannot answer.
+canonicalize() {
+    _out=$(sh "${SCRIPT_DIR}/identity.sh" "$1" 2>/dev/null || true)
+    _canon=$(printf '%s' "$_out" | sed -n 's/.*"canonical": "\([^"]*\)".*/\1/p')
+    if [ -n "$_canon" ]; then printf '%s\n' "$_canon"; else printf '%s\n' "$1"; fi
+}
+
+my_canonical=$(canonicalize "$ME")
+my_slug=$(sh "${SCRIPT_DIR}/user-slug.sh" "$my_canonical" 2>/dev/null || true)
 [ -n "$my_slug" ] || { printf 'unresolved\n'; exit 0; }
 
 # Word splitting is safe here: an owner is an email or a slug, and neither can
@@ -66,7 +110,7 @@ my_slug=$(sh "${SCRIPT_DIR}/user-slug.sh" "$ME" 2>/dev/null || true)
 # that `set -e` turns into an abort on no-match.
 found=0
 for owner in $owners; do
-    owner_slug=$(sh "${SCRIPT_DIR}/user-slug.sh" "$owner" 2>/dev/null || true)
+    owner_slug=$(sh "${SCRIPT_DIR}/user-slug.sh" "$(canonicalize "$owner")" 2>/dev/null || true)
     if [ "$owner_slug" = "$my_slug" ]; then
         found=1
         break

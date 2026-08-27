@@ -35,12 +35,16 @@ const SCRIPTS = {
   archive: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/archive.sh"),
   userSlug: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/user-slug.sh"),
   migrateTodoOwners: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/migrate-todo-owners.sh"),
+  migrateAssigneeAliases: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/migrate-assignee-aliases.sh"),
   layoutDoctor: join(REPO_ROOT, "plugins/workaholic/hooks/layout-doctor.sh"),
   listRenames: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/list-renames.sh"),
   migrateRenamedAreas: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/migrate-renamed-areas.sh"),
   renameConversions: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/rename-conversions.sh"),
   renamesTable: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/renames.tsv"),
   owns: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/owns.sh"),
+  identity: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/identity.sh"),
+  auditIdentityCoverage: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/audit-identity-coverage.sh"),
+  stepUndrivableUnits: join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-undrivable-units.sh"),
   listTodo: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/list-todo.sh"),
   proposeRun: join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/run.sh"),
   proposeLogAppend: join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/log-append.sh"),
@@ -4289,7 +4293,7 @@ function testConvergeLayout() {
     let r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.convergeLayout} .`).stdout);
     assertEq("the mechanical migrations all run", r.changed, 3);
     assertEq("each migration is composed, not reimplemented",
-      r.applied.map((a) => a.migration), ["migrate-todo-owners", "migrate-ticket-states", "migrate-renamed-areas"]);
+      r.applied.map((a) => a.migration), ["migrate-todo-owners", "migrate-ticket-states", "migrate-renamed-areas", "migrate-assignee-aliases"]);
     assertTrue("the per-user queue is flattened",
       existsSync(join(dir, ".workaholic/tickets/todo/20260701000000-owned.md")));
     assertTrue("the retired ticket-state directories are folded",
@@ -15631,7 +15635,15 @@ const tests = [
   ["commit/commit.sh never silently omits a file", testCommitStaging],
   ["gather/user-slug.sh", testUserSlug],
   ["gather/migrate-todo-owners.sh", testMigrateTodoOwners],
+  ["gather/identity.sh (the mapping's one reader)", testIdentityReader],
   ["gather/owns.sh", testOwns],
+  ["gather/owns.sh resolves a person's other address", testOwnsResolvesAliases],
+  ["/specificate stamps only an address the loop can drive", testSpecificateStampsResolvableAddresses],
+  ["gather/migrate-assignee-aliases.sh (the recovery)", testMigrateAssigneeAliases],
+  ["the survey says when it excluded its whole backlog", testSurveySaysItExcludedEverything],
+  ["workaholify: the mapping's coverage audit", testIdentityCoverageAudit],
+  ["/moderate asks about work nothing can drive", testModerateAsksAboutUndrivableUnits],
+  ["the identity hand-off, end to end", testIdentityHandOffEndToEnd],
   ["the survey excludes a legacy path-owned ticket", testSurveyExcludesLegacyPathOwnedTickets],
   ["drive/list-todo.sh", testListTodo],
   ["create-ticket/summary.sh + mission/summary.sh (summary mode)", testSummaryMode],
@@ -20086,6 +20098,11 @@ function testModerateRun() {
     // consecutive ticks and the one surface that names a person never heard about it.
     // Same placement, same reason — it reads, the check-in asks.
     "stalled-units",
+    // `undrivable-units` (2026-08-26): queued work whose owner is an address no entry of the
+    // committed mapping names — undrivable by every runner, and until this step reachable by
+    // no path from *the loop cannot drive its own output* to *a person is told*. Same
+    // placement and same reason as its neighbours: it reads, the check-in asks.
+    "undrivable-units",
     // `closable-missions` is step 12 (2026-08-23): the archive gate closes a mission whose
     // LAST ticket it archives, and this names the residue that reached full acceptance any
     // other way. Since 2026-08-24 (the developer's ruling) the agent CLOSES what the step
@@ -21459,5 +21476,691 @@ function testAskFeedbackLine() {
     const oldWay = "feedback: 20260821162443-a.md, 20260826021619-b.md\n\n";
     assertEq("and the composed body is byte-identical to the inline emitter's",
       two.line + "\n", oldWay);
+  } finally { cleanup(dir); }
+}
+
+// ---------- gather/identity.sh (the mapping's one reader) ----------
+//
+// The mapping could name only one address per login until 2026-08-26, so a person with a
+// second address had no way to say the two are one person and every consumer that compares
+// addresses answered `other`. These cases pin the format's backward compatibility (a line
+// with no comma resolves exactly as it did), the alias resolution, and — the part that
+// matters most — that an input the mapping does not name is never guessed at.
+function testIdentityReader() {
+  const dir = makeRepo("main");
+  try {
+    const map = (body) => {
+      const p = join(dir, "map");
+      writeFileSync(p, body);
+      return p;
+    };
+    const id = (input, path) =>
+      JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.identity} ${input === "" ? "''" : input} ${path}`).stdout);
+
+    // A single-address line is the format as it stood, and must resolve as it did.
+    const one = map("# a comment\nbob=b@example.com\n");
+    assertEq("a login with no comma resolves to its one address",
+      id("bob", one).canonical, "b@example.com");
+    assertEq("and reports that one address as the whole person",
+      id("bob", one).addresses, ["b@example.com"]);
+    assertEq("the address side resolves too", id("b@example.com", one).canonical, "b@example.com");
+    assertEq("and names the login it matched", id("b@example.com", one).login, "bob");
+
+    // The second field: two addresses, one person.
+    const two = map("tamurayoshiya=a@qmu.jp,tamura.yoshiya@gmail.com\nbob=b@example.com\n");
+    assertEq("the canonical address is the first field",
+      id("tamurayoshiya", two).canonical, "a@qmu.jp");
+    assertEq("an ALIAS resolves to the canonical address",
+      id("tamura.yoshiya@gmail.com", two).canonical, "a@qmu.jp");
+    assertEq("the canonical address resolves to itself",
+      id("a@qmu.jp", two).canonical, "a@qmu.jp");
+    assertEq("both addresses are reported as one person",
+      id("tamura.yoshiya@gmail.com", two).addresses, ["a@qmu.jp", "tamura.yoshiya@gmail.com"]);
+    // Comparison is by slug, the same rule owns.sh has always used, so one casing of an
+    // address is not a different person from another.
+    assertEq("case does not make it a different address",
+      id("A@Qmu.JP", two).canonical, "a@qmu.jp");
+    assertEq("an alias input is reported as an address, not a login",
+      id("tamura.yoshiya@gmail.com", two).kind, "address");
+
+    // IT NEVER GUESSES. Each refusal is named, and `canonical` echoes the input back —
+    // the identity function, so a caller that resolves unconditionally behaves exactly as
+    // the tree behaved before this reader existed.
+    const absent = id("nobody@example.com", two);
+    assertEq("an address no entry names is not resolved", absent.resolved, false);
+    assertEq("and says why by name", absent.reason, "no_entry");
+    assertEq("and is echoed back rather than replaced", absent.canonical, "nobody@example.com");
+
+    const noFile = id("a@qmu.jp", join(dir, "no-such-map"));
+    assertEq("an absent mapping file is its own named reason", noFile.reason, "no_mapping_file");
+    assertEq("and still echoes the input", noFile.canonical, "a@qmu.jp");
+    assertEq("and resolves nothing", noFile.resolved, false);
+
+    // A malformed line is counted rather than fatal: one bad row must not make the whole
+    // mapping unreadable, and skipping it silently would hide what an operator has to fix.
+    const bad = map("tamurayoshiya=a@qmu.jp,tamura.yoshiya@gmail.com\nthis-line-has-no-equals\nempty=\n");
+    assertEq("an unparseable line does not stop the good ones",
+      id("tamura.yoshiya@gmail.com", bad).canonical, "a@qmu.jp");
+    assertEq("and is counted so it can be reported", id("bob", bad).unparseable_lines, 2);
+
+    assertEq("no input at all is its own reason", id("", two).reason, "no_input");
+    assertEq("every case exits 0",
+      run(dir, `${POSIX_SH} ${SCRIPTS.identity} nobody@example.com ${two}`).status, 0);
+  } finally { cleanup(dir); }
+}
+
+// ---------- gather/owns.sh resolves a person's other address (2026-08-26) ----------
+//
+// The slug rule made one SPELLING of an address one person. It could not make two
+// different addresses one person, so work stamped with a developer's second address
+// answered `other` and the survey excluded it as a colleague's — measured on this
+// repository across two active missions and five queued tickets, for five days.
+//
+// The care is entirely in what must NOT move: the 2026-08-14 incident (~10 PR-units
+// driven out of colleagues' queues) is why `other` is conservative, so the negative
+// cases are asserted as explicitly as the positive one.
+function testOwnsResolvesAliases() {
+  const dir = makeRepo("main");
+  try {
+    const mapPath = join(dir, ".claude/git-identities");
+    mkdirSync(dirname(mapPath), { recursive: true });
+    const withMap = () => writeFileSync(mapPath,
+      "tamurayoshiya=a@qmu.jp,tamura.yoshiya@gmail.com\ncolleague=b@example.com\n");
+    withMap();
+
+    const f = (name, owner) => {
+      writeFileSync(join(dir, name), `---\nassignees:${owner === null ? "" : ` [${owner}]`}\n---\n\n# x\n`);
+      return name;
+    };
+    const owns = (name, who) =>
+      run(dir, `${POSIX_SH} ${SCRIPTS.owns} ${name} ${who}`).stdout.trim();
+
+    const alias = f("alias.md", "tamura.yoshiya@gmail.com");
+    const canonical = f("canonical.md", "a@qmu.jp");
+    const colleague = f("colleague.md", "b@example.com");
+    const stranger = f("stranger.md", "unknown@nowhere.test");
+    const unowned = f("unowned.md", null);
+
+    assertEq("an artifact owned by a mapped ALIAS of my address is mine",
+      owns(alias, "a@qmu.jp"), "mine");
+    assertEq("and so it is when I am standing on the alias myself",
+      owns(canonical, "tamura.yoshiya@gmail.com"), "mine");
+    assertEq("the canonical address still answers mine",
+      owns(canonical, "a@qmu.jp"), "mine");
+
+    // The negatives, which are the reason the change is bounded by a committed file.
+    assertEq("a COLLEAGUE the mapping names is still not me",
+      owns(colleague, "a@qmu.jp"), "other");
+    assertEq("an address in NO entry is still other",
+      owns(stranger, "a@qmu.jp"), "other");
+    assertEq("and a placeholder identity gains no way to answer mine",
+      owns(alias, "noreply@anthropic.com"), "other");
+    assertEq("unowned is untouched", owns(unowned, "a@qmu.jp"), "unowned");
+
+    // WITH NO MAPPING FILE every answer must be byte-identical to what it was before
+    // this resolution existed — identity.sh is the identity function there, which is
+    // what makes the change safe to land in a repository that has no mapping at all.
+    rmSync(mapPath);
+    assertEq("with no mapping, an alias is a stranger again", owns(alias, "a@qmu.jp"), "other");
+    assertEq("with no mapping, my own address still answers mine",
+      owns(canonical, "a@qmu.jp"), "mine");
+    assertEq("with no mapping, a colleague is still other", owns(colleague, "a@qmu.jp"), "other");
+    assertEq("with no mapping, unowned is still unowned", owns(unowned, "a@qmu.jp"), "unowned");
+
+    // The header must say why this is not the change `refuse-ok-under-a-placeholder-identity`
+    // scoped out, or a later reader has to guess which of the two statements is stale.
+    const src = readFileSync(SCRIPTS.owns, "utf8");
+    assertTrue("owns.sh names the placeholder-identity boundary",
+      /refuse-ok-under-a-placeholder-identity/.test(src), "the boundary note is missing");
+  } finally { cleanup(dir); }
+}
+
+// ---------- /specificate stamps only an address the loop can drive (2026-08-26) ----------
+//
+// The issue carries a LOGIN, the artifact needs an ADDRESS, and nothing in the run
+// converted one to the other — so the session resolved it by judgement and stamped a
+// person's second address, which every survey then excluded as a colleague's. This walks
+// the writer's half for all three inputs: canonical, mapped alias, and a login no entry
+// names.
+//
+// The unmapped row is the one that matters. `assignees: []` is a documented, claimable
+// state any run can pick up; a WRONG address is silently unrecoverable. So the contract is
+// to stamp nothing and say so, never to guess.
+function testSpecificateStampsResolvableAddresses() {
+  const dir = makeRepo("main");
+  const DRAFT = `${POSIX_SH} ${SCRIPTS.proposeScaffoldDraft}`;
+  const TICKET = `${POSIX_SH} ${SCRIPTS.scaffoldProposedTicket}`;
+  const ID = `${POSIX_SH} ${SCRIPTS.identity}`;
+  try {
+    mkdirSync(join(dir, ".claude"), { recursive: true });
+    writeFileSync(join(dir, ".claude/git-identities"),
+      "tamurayoshiya=a@qmu.jp,tamura.yoshiya@gmail.com\n");
+    mkdirSync(join(dir, ".workaholic/feedbacks"), { recursive: true });
+    writeFileSync(join(dir, ".workaholic/feedbacks/20260826000000-ask.md"),
+      "---\ntype: Feedback\nkind: instruction\nsource: slack\n---\n\n# Ask\n");
+    const REC = "20260826000000-ask.md";
+
+    // The run's own step: resolve, then pass ONLY what resolved.
+    const stampFor = (assignee) => {
+      const r = JSON.parse(run(dir, `${ID} ${assignee}`).stdout);
+      return r.resolved ? `--assignee ${r.canonical}` : "";
+    };
+
+    // Row 1 and 2: a login the mapping names, and the person's ALIAS address. Both stamp
+    // the canonical address — the one an ownership oracle and a survey both answer to.
+    for (const [label, input] of [["a mapped login", "tamurayoshiya"],
+                                  ["a mapped alias address", "tamura.yoshiya@gmail.com"],
+                                  ["the canonical address itself", "a@qmu.jp"]]) {
+      const m = JSON.parse(run(dir, `${DRAFT} "Proposal for ${input}" ${stampFor(input)} ${REC}`).stdout);
+      assertEq(`${label} stamps the canonical address on the mission`, m.assignees, "a@qmu.jp");
+      const t = JSON.parse(run(dir, `${TICKET} "Step for ${input}" ${m.slug} ${stampFor(input)}`).stdout);
+      assertEq(`${label} stamps it on the ticket too`, t.assignees, "a@qmu.jp");
+      // The whole point: the survey's oracle must then answer `mine` for that person,
+      // whichever of their addresses the runner is standing on.
+      assertEq(`${label} produces work that identity can drive`,
+        run(dir, `${POSIX_SH} ${SCRIPTS.owns} ${t.path} tamura.yoshiya@gmail.com`).stdout.trim(), "mine");
+    }
+
+    // Row 3: a login NO entry names. Team-owned and reported, never guessed.
+    const unmapped = JSON.parse(run(dir, `${ID} stranger`).stdout);
+    assertEq("an unmapped login does not resolve", unmapped.resolved, false);
+    assertEq("and is refused by name, not silently", unmapped.reason, "no_entry");
+    const mu = JSON.parse(run(dir, `${DRAFT} "Proposal for a stranger" ${stampFor("stranger")} ${REC}`).stdout);
+    assertTrue("so the mission is written team-owned",
+      /^assignees: \[\]$/m.test(readFileSync(join(dir, mu.path), "utf8")));
+    const tu = JSON.parse(run(dir, `${TICKET} "Step for a stranger" ${mu.slug} ${stampFor("stranger")}`).stdout);
+    // The ticket scaffold writes the field BARE when empty and the mission scaffold
+    // writes `[]`; both read back as unowned through the one oracle, which is the
+    // property that matters here.
+    assertTrue("and so is its ticket",
+      /^assignees:[ \t]*(\[\])?[ \t]*$/m.test(readFileSync(join(dir, tu.path), "utf8")),
+      readFileSync(join(dir, tu.path), "utf8"));
+    assertEq("team-owned means claimable, not excluded",
+      run(dir, `${POSIX_SH} ${SCRIPTS.owns} ${tu.path} anyone@example.com`).stdout.trim(), "unowned");
+
+    // NO PATH STAMPS AN ADDRESS THE MAPPING DOES NOT NAME. The failure being repaired was
+    // exactly this: a plausible-looking address nobody could drive.
+    for (const p of [mu.path, tu.path]) {
+      const line = (readFileSync(join(dir, p), "utf8").match(/^assignees:.*$/m) || [""])[0];
+      assertTrue("nothing invented an address for an unmapped login",
+        !/stranger/.test(line), `${p}: ${line}`);
+    }
+
+    // The contract has to be stated where the run reads it, or the next session resolves
+    // it by judgement again — which is the defect, not a symptom of it.
+    const skill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/specificate/SKILL.md"), "utf8");
+    assertTrue("the skill names the resolver",
+      /gather\/scripts\/identity\.sh/.test(skill), "the assignee contract names no resolver");
+    assertTrue("and names the unmapped outcome",
+      /assignee_unmapped/.test(skill), "the unmapped outcome is unnamed");
+    assertTrue("and keeps the unassigned and unmapped facts apart",
+      /different facts/.test(skill), "the two team-owned facts are folded together");
+    const wf = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/specificate/reference/workflow.md"), "utf8");
+    assertTrue("the workflow resolves before it scaffolds",
+      /identity\.sh <the triggering issue's assignee>/.test(wf), "step 8 still stamps by judgement");
+    assertTrue("and reports it in both surfaces",
+      (wf.match(/assignee_unmapped/g) || []).length >= 3, "the report line is missing a surface");
+  } finally { cleanup(dir); }
+}
+
+// ---------- gather/migrate-assignee-aliases.sh (the recovery) ----------
+//
+// Teaching the tree that two addresses are one person does not rewrite what was already
+// written under the wrong one, and the defect had been producing artifacts for five days.
+// The care is in the second criterion: an address the mapping does NOT name is left
+// byte-identical and reported, because rewriting it would be exactly the guess the
+// writer-side rule refuses.
+function testMigrateAssigneeAliases() {
+  const dir = makeRepo("main");
+  const MIGRATE = `${POSIX_SH} ${SCRIPTS.migrateAssigneeAliases}`;
+  try {
+    const write = (rel, body) => {
+      const p = join(dir, rel);
+      mkdirSync(dirname(p), { recursive: true });
+      writeFileSync(p, body);
+      return p;
+    };
+    const mapPath = join(dir, ".claude/git-identities");
+    mkdirSync(dirname(mapPath), { recursive: true });
+    writeFileSync(mapPath, "tamurayoshiya=a@qmu.jp,tamura.yoshiya@gmail.com\n");
+
+    const ticket = write(".workaholic/tickets/todo/20260826000000-t.md",
+      "---\ncreated_at: 2026-08-26T00:00:00+00:00\nassignees: [tamura.yoshiya@gmail.com]\n---\n\n# t\n\nassignees: this line is prose\n");
+    const mission = write(".workaholic/missions/active/m/mission.md",
+      "---\ntype: Mission\nassignees: [tamura.yoshiya@gmail.com]\n---\n\n# m\n");
+    const strategy = write(".workaholic/strategies/s.md",
+      "---\ntype: Strategy\nassignees: [stranger@nowhere.test, tamura.yoshiya@gmail.com]\n---\n\n# s\n");
+    const canonical = write(".workaholic/tickets/todo/20260826000001-c.md",
+      "---\ncreated_at: 2026-08-26T00:00:01+00:00\nassignees: [a@qmu.jp]\n---\n\n# c\n");
+    const untouchedBefore = readFileSync(canonical, "utf8");
+    execSync("git add -A && git commit -qm fixture", { cwd: dir });
+
+    const first = JSON.parse(run(dir, `${MIGRATE} .workaholic`).stdout);
+    assertEq("it rewrote every alias across all three areas", first.migrated, 3);
+    assertTrue("the ticket now names the canonical address",
+      /^assignees: \[a@qmu\.jp\]$/m.test(readFileSync(ticket, "utf8")));
+    assertTrue("and so does the mission",
+      /^assignees: \[a@qmu\.jp\]$/m.test(readFileSync(mission, "utf8")));
+    assertTrue("and the strategy, without losing the address it could not resolve",
+      /^assignees: \[stranger@nowhere\.test, a@qmu\.jp\]$/m.test(readFileSync(strategy, "utf8")));
+    // The strategy is the one artifact where an EMPTY assignees list is a refusal rather
+    // than team-owned, so a migration that emptied one would be rejected by its own floor.
+    assertTrue("no strategy is left with an empty assignees list",
+      !/^assignees: \[\]$/m.test(readFileSync(strategy, "utf8")), readFileSync(strategy, "utf8"));
+
+    assertEq("an address no entry names is reported rather than guessed at",
+      first.unresolved.map((u) => u.address), ["stranger@nowhere.test"]);
+    assertEq("and named with the reader's own reason", first.unresolved[0].reason, "no_entry");
+
+    // A body line starting `assignees:` is prose. Only the frontmatter field moves.
+    assertTrue("a prose line is not mistaken for the field",
+      /^assignees: this line is prose$/m.test(readFileSync(ticket, "utf8")));
+    assertEq("an already-canonical entry is left byte-identical",
+      readFileSync(canonical, "utf8"), untouchedBefore);
+
+    // Stage, never commit — the discipline every other living migration keeps, so a
+    // caller's own staged work is never swept or reset.
+    const staged = execSync("git diff --cached --name-only", { cwd: dir, encoding: "utf8" }).split("\n").filter(Boolean);
+    assertTrue("every rewrite is staged", staged.includes(".workaholic/tickets/todo/20260826000000-t.md"), staged.join(","));
+    assertEq("and nothing is committed",
+      execSync("git log --oneline | wc -l", { cwd: dir, encoding: "utf8" }).trim(), "2");
+
+    const second = JSON.parse(run(dir, `${MIGRATE} .workaholic`).stdout);
+    assertEq("a second consecutive run is an empty delta", second.migrated, 0);
+
+    // A tree with no mapping file must come out byte-identical: identity.sh is the
+    // identity function there, so there is nothing this migration is entitled to move.
+    rmSync(mapPath);
+    const before = readFileSync(strategy, "utf8");
+    const noMap = JSON.parse(run(dir, `${MIGRATE} .workaholic`).stdout);
+    assertEq("with no mapping file nothing migrates", noMap.migrated, 0);
+    assertEq("and the tree is byte-identical", readFileSync(strategy, "utf8"), before);
+  } finally { cleanup(dir); }
+}
+
+// ---------- the survey says when it excluded its whole backlog (2026-08-26) ----------
+//
+// `backlog_size` and `backlog[]` were both already computed; nothing named the
+// COMBINATION. Measured on this repository they read 10 and [], which renders in a run
+// report exactly like a repository with an empty queue — so an hourly runner reported `ok`
+// for five days while ten units sat undrivable.
+//
+// The reading is derived from what the survey already has: no new scan, no stored state,
+// no field on any artifact. It reports the fact and MOVES NO TOKEN; that table belongs to
+// one mission at a time.
+function testSurveySaysItExcludedEverything() {
+  const PLAN = `${POSIX_SH} ${SCRIPTS.planUnits}`;
+  const ME = "test@example.com", OTHER = "other@example.com";
+  const seedTicket = (dir, stamp, owner) => {
+    const p = join(dir, `.workaholic/tickets/todo/${stamp}-t.md`);
+    mkdirSync(dirname(p), { recursive: true });
+    writeFileSync(p, `---\ncreated_at: 2026-08-26T00:00:00+00:00\nassignees: [${owner}]\n---\n\n# ${stamp}\n`);
+  };
+
+  // Shape 1: a full queue, none of it offerable.
+  let dir = makeRepo("main");
+  try {
+    seedTicket(dir, "20260826000001", OTHER);
+    seedTicket(dir, "20260826000002", OTHER);
+    execSync("git add -A && git commit -q -m seed", { cwd: dir });
+    const plan = JSON.parse(run(dir, PLAN).stdout);
+    assertEq("the queue holds work", plan.backlog_size, 2);
+    assertEq("and none of it is offered", plan.backlog, []);
+    assertEq("so the survey says its whole backlog was excluded",
+      plan.backlog_all_excluded.excluded, true);
+    assertEq("carrying the queue's size", plan.backlog_all_excluded.backlog_size, 2);
+    // The per-reason count is what makes the reading actionable: a queue emptied by
+    // CLAIMS is the protocol working; one emptied by OWNERSHIP is work nothing can drive.
+    assertEq("and a count per exclusion reason",
+      plan.backlog_all_excluded.reasons, [{ reason: "owned_by_other", count: 2 }]);
+  } finally { cleanup(dir); }
+
+  // Shape 2: a genuinely empty queue is a different, healthy state and must not read alike.
+  dir = makeRepo("main");
+  try {
+    mkdirSync(join(dir, ".workaholic/tickets/todo"), { recursive: true });
+    writeFileSync(join(dir, ".workaholic/tickets/todo/.keep"), "");
+    execSync("git add -A && git commit -q -m seed", { cwd: dir });
+    const plan = JSON.parse(run(dir, PLAN).stdout);
+    assertEq("an empty queue is empty", plan.backlog_size, 0);
+    assertEq("and does not emit the reading", plan.backlog_all_excluded.excluded, false);
+    assertEq("with no reasons to report", plan.backlog_all_excluded.reasons, []);
+  } finally { cleanup(dir); }
+
+  // Shape 3: a queue the survey can offer SOME of does not emit it either.
+  dir = makeRepo("main");
+  try {
+    seedTicket(dir, "20260826000003", ME);
+    seedTicket(dir, "20260826000004", OTHER);
+    execSync("git add -A && git commit -q -m seed", { cwd: dir });
+    const plan = JSON.parse(run(dir, PLAN).stdout);
+    assertEq("some of the queue is offered", plan.backlog.length, 1);
+    assertEq("so the reading does not fire", plan.backlog_all_excluded.excluded, false);
+  } finally { cleanup(dir); }
+
+  // THE TOKEN DOES NOT MOVE IN THIS CHANGE. §7's table is owned by one mission at a time,
+  // and this ticket deliberately reports the fact without taking the token with it.
+  const skill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/drive/SKILL.md"), "utf8");
+  assertTrue("the run report names the reading",
+    /backlog_all_excluded/.test(skill), "the run report does not name the reading");
+  assertTrue("and says out loud that it moves no token",
+    /moves no token/.test(skill), "the boundary with the token table is unstated");
+  assertTrue("and the token table gained no row for it",
+    !/\|[^|\n]*backlog_all_excluded[^|\n]*\| `pending` \|/.test(skill),
+    "the token table grew a row this ticket must not add");
+}
+
+// ---------- workaholify: the mapping's coverage audit (2026-08-26) ----------
+//
+// The recovery migration reports the addresses it could not resolve and stops, correctly.
+// That report needed a home a human reads, and /workaholify is the command that audits and
+// then applies. The care is in what the repair may NOT do: which GitHub account an address
+// belongs to is a fact only a human has, so this proposes a line and never writes an entry.
+function testIdentityCoverageAudit() {
+  const AUDIT = `${POSIX_SH} ${SCRIPTS.auditIdentityCoverage}`;
+  const CHECK = `${POSIX_SH} ${SCRIPTS.checkBootstrap}`;
+  const APPLY = `${POSIX_SH} ${SCRIPTS.applyBootstrap}`;
+
+  const seed = (dir, mapBody) => {
+    const t = join(dir, ".workaholic/tickets/todo/20260826000000-t.md");
+    mkdirSync(dirname(t), { recursive: true });
+    writeFileSync(t, "---\nassignees: [tamura.yoshiya@gmail.com]\n---\n\n# t\n");
+    const m = join(dir, ".workaholic/missions/active/m/mission.md");
+    mkdirSync(dirname(m), { recursive: true });
+    writeFileSync(m, "---\ntype: Mission\nassignees: [a@qmu.jp]\n---\n\n# m\n");
+    // Team-owned work names nobody: it has nothing to cover and must not be reported.
+    const u = join(dir, ".workaholic/tickets/todo/20260826000001-u.md");
+    writeFileSync(u, "---\nassignees: []\n---\n\n# u\n");
+    if (mapBody !== null) {
+      mkdirSync(join(dir, ".claude"), { recursive: true });
+      writeFileSync(join(dir, ".claude/git-identities"), mapBody);
+    }
+  };
+
+  // Full coverage: the mapping names both of the person's addresses.
+  let dir = makeRepo("main");
+  try {
+    seed(dir, "tamurayoshiya=a@qmu.jp,tamura.yoshiya@gmail.com\n");
+    const a = JSON.parse(run(dir, `${AUDIT} .`).stdout);
+    assertEq("every address the tree uses is resolved", a.addresses, 2);
+    assertEq("and all of them are covered", a.covered, 2);
+    assertEq("so nothing is reported uncovered", a.uncovered, []);
+    assertEq("and the audit raises no problem", a.problems, []);
+  } finally { cleanup(dir); }
+
+  // Partial coverage: an address the mapping does not name, reported WITH its repair.
+  dir = makeRepo("main");
+  try {
+    seed(dir, "tamurayoshiya=a@qmu.jp\n");
+    const a = JSON.parse(run(dir, `${AUDIT} .`).stdout);
+    assertEq("an address no entry names is uncovered",
+      a.uncovered.map((u) => u.address), ["tamura.yoshiya@gmail.com"]);
+    assertEq("counted by how many artifacts name it", a.uncovered[0].artifacts, 1);
+    // A report naming a problem without its repair leaves an operator guessing at a
+    // format that is itself new — and the login half stays a PLACEHOLDER, because which
+    // account an address belongs to is not a thing this script may decide.
+    assertEq("and named with the line that would cover it",
+      a.uncovered[0].line, "<login>=tamura.yoshiya@gmail.com");
+    assertTrue("the audit raises it as its own named problem",
+      a.problems.some((p) => p.startsWith("identity_map_uncovered")), JSON.stringify(a.problems));
+    assertTrue("and team-owned work is not reported as an uncovered address",
+      !JSON.stringify(a.uncovered).includes("[]"), JSON.stringify(a.uncovered));
+
+    // ONE CHECK, NOT TWO: the bootstrap check carries the same vocabulary.
+    const c = JSON.parse(run(dir, `${CHECK} .`).stdout);
+    // Carried as an ADVISORY, not in `problems`: coverage can only be settled by a human,
+    // so gating `ok` on it would make a completion signal no machine can ever reach.
+    assertTrue("check-bootstrap.sh carries the mapping's problems verbatim",
+      c.advisories.some((p) => p.startsWith("identity_map_uncovered")), JSON.stringify(c.advisories));
+    assertEq("and leaves `ok` exactly where it was", c.problems.filter((p) => p.startsWith("identity_map")), []);
+    assertEq("and reports the mapping's own state beside the hook's",
+      c.identity_map.uncovered.length, 1);
+  } finally { cleanup(dir); }
+
+  // No mapping file at all: its own named problem, and the repair scaffolds a header
+  // with NO entries.
+  dir = makeRepo("main");
+  try {
+    seed(dir, null);
+    const c = JSON.parse(run(dir, `${CHECK} .`).stdout);
+    assertTrue("an absent mapping is its own named problem",
+      c.advisories.some((p) => p.startsWith("identity_map_missing")), JSON.stringify(c.advisories));
+
+    const applied = JSON.parse(run(dir, `${APPLY} .`).stdout);
+    assertEq("the apply is not refused", applied.refused, "");
+    assertTrue("it scaffolds the mapping", applied.applied.includes("identity_map_missing"));
+    const map = readFileSync(join(dir, ".claude/git-identities"), "utf8");
+    assertTrue("the scaffold documents the format",
+      /<github-login>=<canonical-email>\[,<alias-email>\.\.\.\]/.test(map), map);
+    assertTrue("and writes no entry of its own",
+      !map.split("\n").some((l) => l.trim() && !l.trimStart().startsWith("#")), map);
+    // The proposal is a COMMENT. identity.sh skips comments, so a repository that applies
+    // this and never edits the file behaves exactly as it did before.
+    assertTrue("each uncovered address is proposed as a commented line",
+      /^# proposed: <login>=tamura\.yoshiya@gmail\.com/m.test(map), map);
+    const id = JSON.parse(run(dir,
+      `${POSIX_SH} ${SCRIPTS.identity} tamura.yoshiya@gmail.com .claude/git-identities`).stdout);
+    assertEq("a commented proposal is not an entry", id.resolved, false);
+
+    // It stays reported until a human fills the line in — that persistence is the point.
+    const after = JSON.parse(run(dir, `${CHECK} .`).stdout);
+    assertTrue("so the uncovered problem survives the repair",
+      after.advisories.some((p) => p.startsWith("identity_map_uncovered")), JSON.stringify(after.advisories));
+
+    // Idempotent: a proposal already in the file is never repeated.
+    const again = JSON.parse(run(dir, `${APPLY} .`).stdout);
+    assertTrue("a second apply proposes nothing new",
+      !again.applied.includes("identity_map_uncovered"), JSON.stringify(again.applied));
+    assertEq("and the mapping is byte-identical",
+      readFileSync(join(dir, ".claude/git-identities"), "utf8"), map);
+  } finally { cleanup(dir); }
+
+  // An unwritable mapping refuses with NOTHING written — the hook included, exactly as
+  // the existing refusals do.
+  dir = makeRepo("main");
+  try {
+    seed(dir, "tamurayoshiya=a@qmu.jp\n");
+    chmodSync(join(dir, ".claude/git-identities"), 0o444);
+    const before = readdirSync(join(dir, ".claude"));
+    const r = JSON.parse(run(dir, `${APPLY} .`).stdout);
+    // Running as root defeats a read-only file, so only assert the refusal where the
+    // permission actually bites; the applied set is asserted either way.
+    if (r.refused === "unwritable") {
+      assertEq("an unwritable mapping refuses by name", r.refused, "unwritable");
+      assertEq("and writes nothing at all", r.applied, []);
+      assertEq("leaving the tree as it was", readdirSync(join(dir, ".claude")), before);
+    } else {
+      assertTrue("the refusal path exists in the script",
+        /if \[ -f "\$IDMAP" \] && \[ ! -w "\$IDMAP" \]; then/.test(readFileSync(SCRIPTS.applyBootstrap, "utf8")),
+        "no unwritable-mapping refusal in apply-bootstrap.sh");
+    }
+    chmodSync(join(dir, ".claude/git-identities"), 0o644);
+  } finally { cleanup(dir); }
+
+  // The named-problems list must stay complete in both documents, or an operator meets a
+  // problem name the documentation does not carry.
+  for (const doc of ["plugins/workaholic/skills/workaholify/SKILL.md",
+                     "plugins/workaholic/skills/workaholify/reference/bootstrap.md"]) {
+    const body = readFileSync(join(REPO_ROOT, doc), "utf8");
+    for (const p of ["identity_map_missing", "identity_map_uncovered"]) {
+      assertTrue(`${doc} names ${p}`, body.includes(p), `${p} is undocumented in ${doc}`);
+    }
+  }
+}
+
+// ---------- /moderate asks about work nothing can drive (2026-08-26) ----------
+//
+// The survey's reading lands in a run report, and a run report is read by nobody on the day
+// it matters. `/implement` may not ask. So this step is the only path from *the loop cannot
+// drive its own output* to *a person is told*.
+//
+// A COLLEAGUE'S QUEUE MUST PRODUCE NO QUESTION, or the step becomes an hourly complaint
+// about ordinary team ownership and is muted within a day — after which the one real
+// finding arrives inside a stream a person has learned to skip.
+function testModerateAsksAboutUndrivableUnits() {
+  const STEP = `${POSIX_SH} ${SCRIPTS.stepUndrivableUnits} --tick 20260826T120000Z --root .`;
+  const seed = (dir, mapBody) => {
+    const t = (name, owner) => {
+      const p = join(dir, `.workaholic/tickets/todo/${name}`);
+      mkdirSync(dirname(p), { recursive: true });
+      writeFileSync(p, `---\nassignees:${owner === null ? " []" : ` [${owner}]`}\n---\n\n# ${name}\n`);
+    };
+    t("20260826000001-unmapped.md", "tamura.yoshiya@gmail.com");
+    t("20260826000002-colleague.md", "b@example.com");
+    t("20260826000003-team.md", null);
+    mkdirSync(join(dir, ".claude"), { recursive: true });
+    writeFileSync(join(dir, ".claude/git-identities"), mapBody);
+  };
+
+  let dir = makeRepo("main");
+  try {
+    seed(dir, "tamurayoshiya=a@qmu.jp\ncolleague=b@example.com\n");
+    const r = JSON.parse(run(dir, STEP).stdout);
+    assertEq("the step runs clean", r.status, "ok");
+    const asked = r.needs_agent[0].undrivable.map((u) => u.artifact);
+    assertEq("only the unit owned by an unmapped address is asked about",
+      asked, [".workaholic/tickets/todo/20260826000001-unmapped.md"]);
+    // The two negatives, which are the whole care in the step.
+    assertTrue("a colleague the mapping names produces no question",
+      !JSON.stringify(asked).includes("colleague"), JSON.stringify(asked));
+    assertTrue("and team-owned work produces none either",
+      !JSON.stringify(asked).includes("team"), JSON.stringify(asked));
+    assertEq("the key is per unit, so the asked-once gate can hold",
+      r.needs_agent[0].undrivable[0].key,
+      "undrivable-unit:.workaholic/tickets/todo/20260826000001-unmapped.md");
+    assertTrue("it counts every owned artifact and narrows only what it asks about",
+      /2 queued artifact\(s\) name an owner; 1 name an address/.test(r.summary), r.summary);
+    assertTrue("and names the repository event for the root", r.event.length > 0, r.event);
+
+    // The summary must be STABLE across ticks with unchanged state, or the root marks the
+    // step changed every hour by construction — the shape two status roots were retired for.
+    const again = JSON.parse(run(dir, STEP).stdout);
+    assertEq("two consecutive ticks produce an identical summary", again.summary, r.summary);
+    assertEq("and an identical question set",
+      JSON.stringify(again.needs_agent), JSON.stringify(r.needs_agent));
+
+    // IT WRITES NOTHING. A reporting step that quietly becomes a writer is how the tick
+    // grows a second route into work — and reaching the survey would have made it one.
+    // Compared before/after rather than against empty: the fixture itself is uncommitted,
+    // and what must be true is that the STEP moved nothing.
+    const before = execSync("git status --porcelain", { cwd: dir, encoding: "utf8" });
+    run(dir, STEP);
+    const after = execSync("git status --porcelain", { cwd: dir, encoding: "utf8" });
+    assertEq("the step leaves the working tree and index alone", after, before);
+    const src = readFileSync(SCRIPTS.stepUndrivableUnits, "utf8");
+    const code = src.split("\n").filter((l) => !l.trimStart().startsWith("#")).join("\n");
+    assertTrue("it reaches no writer to get its reading",
+      !/plan-units\.sh/.test(code), "the step reaches the survey, which stages the living migrations");
+    assertTrue("and resolves ownership through the one oracle",
+      /owners\.sh/.test(code) && /identity\.sh/.test(code), "the step re-implements ownership");
+  } finally { cleanup(dir); }
+
+  // A fully covered mapping is the healthy state: no question, and NO event, so the root
+  // renders no line at all.
+  dir = makeRepo("main");
+  try {
+    seed(dir, "tamurayoshiya=a@qmu.jp,tamura.yoshiya@gmail.com\ncolleague=b@example.com\n");
+    const r = JSON.parse(run(dir, STEP).stdout);
+    assertEq("a covered queue asks nothing", r.needs_agent, []);
+    assertEq("and supplies no event, so no root line is rendered", r.event, "");
+    assertEq("while still counting what it saw", r.status, "ok");
+  } finally { cleanup(dir); }
+
+  // The step must be invoked by run.sh, or it is a script nothing runs.
+  const runner = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/run.sh"), "utf8");
+  assertTrue("run.sh invokes the step", /undrivable-units/.test(runner), "the step is not in the step list");
+  const wf = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/moderate/reference/workflow.md"), "utf8");
+  assertTrue("and the step contract documents it", /`undrivable-units`/.test(wf), "the step is undocumented");
+}
+
+// ---------- the identity hand-off, end to end (2026-08-26) ----------
+//
+// The link runs across three components — the issue's assignee, the address the writer
+// stamps, and the survey that offers the unit — and it broke IN THE SEAM. Each component was
+// internally consistent; nothing tested the walk, so the break was invisible for five days
+// while every hourly tick reported a clean, current survey.
+//
+// Per-script tests will not catch the next one. This pins the WALK, so the link can still be
+// lost but can no longer be lost silently — the same move `prove-the-loop-s-closing-link`
+// made for the carry-forward chain.
+function testIdentityHandOffEndToEnd() {
+  const DRAFT = `${POSIX_SH} ${SCRIPTS.proposeScaffoldDraft}`;
+  const TICKET = `${POSIX_SH} ${SCRIPTS.scaffoldProposedTicket}`;
+  const ID = `${POSIX_SH} ${SCRIPTS.identity}`;
+  const PLAN = `${POSIX_SH} ${SCRIPTS.planUnits}`;
+  const dir = makeRepo("main");
+  try {
+    execSync("git config user.email a@qmu.jp", { cwd: dir });
+    mkdirSync(join(dir, ".claude"), { recursive: true });
+    writeFileSync(join(dir, ".claude/git-identities"),
+      "tamurayoshiya=a@qmu.jp,tamura.yoshiya@gmail.com\n");
+    mkdirSync(join(dir, ".workaholic/feedbacks"), { recursive: true });
+    writeFileSync(join(dir, ".workaholic/feedbacks/20260826000000-ask.md"),
+      "---\ntype: Feedback\nkind: instruction\nsource: slack\n---\n\n# Ask\n");
+
+    // The run's own step: resolve, then pass ONLY what resolved.
+    const flagFor = (assignee) => {
+      const r = JSON.parse(run(dir, `${ID} ${assignee}`).stdout);
+      return r.resolved ? `--assignee ${r.canonical}` : "";
+    };
+    // A LOOSE ticket is what the survey offers as ordinary backlog: a mission is not
+    // drivable until a human's interrogation gives it an acceptance plan, so the mission is
+    // walked for the address it STAMPS and the loose ticket for the one the survey ACTS on.
+    const emit = (title, assignee) => {
+      const flag = flagFor(assignee);
+      const m = JSON.parse(run(dir, `${DRAFT} "${title}" ${flag} 20260826000000-ask.md`).stdout);
+      const t = JSON.parse(run(dir,
+        `${TICKET} "${title} step" --loose --feedback 20260826000000-ask.md ${flag}`).stdout);
+      return { mission: m.path, ticket: t.path };
+    };
+    const offered = (path) =>
+      JSON.parse(run(dir, PLAN).stdout).backlog.some((b) => b.path === path);
+    const stamped = (path) =>
+      (readFileSync(join(dir, path), "utf8").match(/^assignees:[ \t]*(.*)$/m) || ["", ""])[1].trim();
+
+    for (const [label, input] of [["a canonical address", "a@qmu.jp"],
+                                  ["a mapped alias", "tamura.yoshiya@gmail.com"],
+                                  ["the login itself", "tamurayoshiya"]]) {
+      const { mission, ticket } = emit(`Walk ${input}`, input);
+      assertEq(`${label} stamps the canonical address on the mission`, stamped(mission), "[a@qmu.jp]");
+      assertEq(`${label} stamps it on the ticket`, stamped(ticket), "[a@qmu.jp]");
+      assertTrue(`${label} reaches the survey as work this identity can drive`,
+        offered(ticket), `${ticket} was not offered`);
+    }
+
+    // An UNMAPPED login: team-owned, offered as claimable rather than excluded, and stamped
+    // with no invented address. `assignees: []` is a documented, claimable state; a wrong
+    // address is silently unrecoverable.
+    const stranger = emit("Walk a stranger", "stranger");
+    assertEq("an unmapped login stamps nothing on the mission", stamped(stranger.mission), "[]");
+    assertEq("and nothing on the ticket", stamped(stranger.ticket), "");
+    assertTrue("team-owned work is offered as claimable, not excluded",
+      offered(stranger.ticket), `${stranger.ticket} was not offered`);
+
+    // THE FAILURE DIRECTION, and it is the point. A walk that only proved the happy path
+    // would have passed throughout the five stranded days: stamping the address straight off
+    // the issue, without resolving it, must make the unit unreachable.
+    const dropped = JSON.parse(run(dir,
+      `${TICKET} "Walk unresolved" --loose --feedback 20260826000000-ask.md --assignee tamura.yoshiya@gmail.com`).stdout);
+    assertEq("an unresolved stamp writes the address verbatim",
+      stamped(dropped.path), "[tamura.yoshiya@gmail.com]");
+    writeFileSync(join(dir, ".claude/git-identities"), "tamurayoshiya=a@qmu.jp\n");
+    assertTrue("and with the mapping no longer naming it, the survey excludes the unit",
+      !offered(dropped.path), "an address the mapping does not name was still offered");
+    const plan = JSON.parse(run(dir, PLAN).stdout);
+    assertTrue("which the survey now says out loud rather than rendering as an empty queue",
+      plan.backlog_all_excluded.excluded === true
+        || plan.excluded.some((e) => e.reason === "owned_by_other"),
+      JSON.stringify(plan.excluded));
+
+    // The operator's drill covers the same walk in a checkout; CI enforces this one.
+    const drill = readFileSync(join(REPO_ROOT, "scripts/e2e/loop-drill.sh"), "utf8");
+    assertTrue("the offline drill exists", /cmd_verify_identity_handoff\(\)/.test(drill),
+      "verify-identity-handoff is not in loop-drill.sh");
+    assertTrue("and is dispatched by its verb", /verify-identity-handoff\)/.test(drill),
+      "the drill's verb is not wired");
+    const runbook = readFileSync(join(REPO_ROOT, "docs/loop-drill-runbook.md"), "utf8");
+    assertTrue("and the runbook documents it alongside the others",
+      /verify-identity-handoff/.test(runbook), "the drill's verb is undocumented");
   } finally { cleanup(dir); }
 }

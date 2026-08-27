@@ -734,6 +734,64 @@ question, and a question is already a reply inside that root.
 about it inside its root; a second status surface would be the line addressed to nobody this
 repository has retired twice.
 
+## 17. `undrivable-units` — work the loop wrote and cannot drive
+
+```sh
+sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/step-undrivable-units.sh --tick <id> [--root <repo-root>]
+```
+
+Queued work whose owner is an address **no entry of the committed `.claude/git-identities`
+mapping names**. Such a unit is undrivable by every runner: `owns.sh` answers `other` for an
+address it cannot resolve to the person asking, so the survey excludes it as
+`owned_by_other` — correctly, and forever.
+
+**There was no path from *the loop cannot drive its own output* to *a person is told***
+(2026-08-26). `plan-units.sh` learned to report `backlog_all_excluded` in the same change,
+which puts the fact in a run report; a run report is read by nobody on the day it matters,
+the same reason `/propose`'s report was refused as the surface for `strategy-pace`. And
+`/implement` may not ask. Measured on this repository: ten units sat undrivable for five
+days while every hourly tick reported a clean, current survey — including the mission whose
+own job was to repair the other half of the defect.
+
+**A colleague's queue produces no question**, and that is the step's whole care. Work owned
+by somebody the mapping *names* is a colleague's queue working exactly as designed; an
+hourly complaint about ordinary team ownership is muted within a day, and the one real
+finding then arrives inside a stream a person has learned to skip. The mapping is what tells
+the two apart, which is why the step reads `gather/scripts/identity.sh` rather than the raw
+address. `assignees: []` is team-owned work naming nobody and is never a candidate.
+
+**It does not read `plan-units.sh`, and the ticket that asked for this named it as "a pure
+read".** It is not one: the survey reaches the mission readers, which carry this repository's
+living migrations and **stage** what they converge — the same composition
+`closable-missions` refused, for the reason its header records (*a step whose contract is
+writes nothing may not reach it through something that writes*, caught by that step's own
+test leaving a modified mission in the index). The candidate set is derived instead from the
+readers the survey itself uses for ownership — `gather/scripts/owners.sh` over
+`identity.sh` — walking `tickets/todo/` and `missions/active/` directly. No ownership rule
+is re-implemented; only the enumeration is, which is what keeps the contract true.
+
+**The finding is about the repository, not the runner**, so the runner's own identity is
+never consulted: an owner no entry names is undrivable by every account, and this tick is
+repository-scoped — one copy for the whole team. Keying it on `owns.sh`'s three-way answer
+would make an hourly repository-wide question depend on which container asked it.
+
+**It asks and nothing else** — no reassignment, no artifact, no claim touched, no gate
+lifted. The repair is one line in the mapping, and `/workaholify`'s coverage audit
+(`workaholify/scripts/audit-identity-coverage.sh`) proposes it with the address already
+filled in. Each candidate is keyed `undrivable-unit:<artifact path>` through
+`ask-question.sh`, so the asked-once gate, the per-tick cap, the quiet hours and the
+working-day hold all apply unchanged and no second ledger exists.
+
+**The summary carries no age and no timestamp**, for the correctness reason
+`stalled-units`' header records: the root calls a step changed when its summary differs from
+the same step's an hour ago, and a summary that moves every tick marks the step changed
+hourly by construction. It counts **every** owned artifact and narrows only what it asks
+about, so the whole picture and the narrowing sit on one line.
+
+A tree with no `.workaholic/` is an ordinary `ok`; readers absent from the skill are
+`degraded` by name. A queue every owner of which the mapping names supplies **no `event`**,
+so the root renders no line: nothing happened to the repository.
+
 ## What `run.sh` guarantees around the steps
 
 - **Every step is invoked and every step reports.** Missing script → `degraded`/`step_missing`;

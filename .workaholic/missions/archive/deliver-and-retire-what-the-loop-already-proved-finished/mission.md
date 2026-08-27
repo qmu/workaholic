@@ -55,3 +55,4 @@ is asked about is only ever a reading that needed their judgement.
 - 2026-08-27 — ticket archived — 20260827052241-pin-the-proof-judgement-split-with-a-hermetic-test.md
 - 2026-08-27 — ticket archived — 20260827052241-render-the-retirement-as-a-moderation-event.md
 - 2026-08-27 — mission achieved — mission.md
+- 2026-08-27 — story reported — work-20260827-054123.md

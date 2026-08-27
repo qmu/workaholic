@@ -54,3 +54,4 @@ with nothing written, and the ask still lands as a record.
 - 2026-08-27 — ticket archived — 20260827112528-record-what-a-revision-moved-in-the-schedule-prose.md
 - 2026-08-27 — ticket archived — 20260827112528-pin-that-a-strategy-revision-can-never-auto-merge.md
 - 2026-08-27 — ticket archived — 20260827112528-route-the-changed-announcement-to-amend-sh.md
+- 2026-08-27 — ticket archived — 20260827112528-name-the-revision-act-in-the-direction-health-questions.md

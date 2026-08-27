@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-27T11:25:28+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -77,3 +78,32 @@ name it. This ticket moves the wording and nothing else.
   worth stating where the change is recorded.
 - The step still asks and nothing else — it never closes, proposes, lifts a gate, or now
   amends.
+
+## Final Report
+
+Development completed as planned. The `overdue` body now names three acts — *"Re-date it,
+announce that it ended, or say it still stands — the loop carries what you announce and never
+decides either for you."* — 23 words, inside `workaholic:notify`'s 25-word bound, in the
+operator's own vocabulary (*re-date it*, never *run `amend.sh`*), and with the closing clause
+restated rather than dropped: the loop carries the revision the operator announces and decides
+none, which is what "it will not change it either way" always meant. The `dormant` body was
+**not** widened — a direction nothing is answering is not thereby mis-dated — and the step's
+header says so rather than leaving the omission to be read as an oversight. Nothing else moved:
+the question keys, the asked-once gate, the per-tick cap, the quiet hours and the working-day
+hold are byte-identical. `verify-direction-health` gained two rows for it and passes with 11
+load-bearing rows.
+
+The wording landed in the auto-merge ticket's archive commit (one worktree, default staging);
+this report records the question half of it.
+
+### Discovered Insights
+
+- **Insight**: changing a question's body does **not** re-ask it — the ledger keys on the step
+  id derived from `key`, not on the text — so an operator already asked about an overdue
+  direction will never see the new wording for that direction.
+  **Context**: correct, and worth stating where the change is recorded: any future wording fix
+  reaches only directions nobody has been asked about yet.
+- **Insight**: the drill asserts the word bound against the literal in the script rather than
+  against the emitted JSON.
+  **Context**: the emitted body is comma-bearing prose and the drill's field extraction is
+  line-oriented; reading the source keeps the assertion about the sentence a person will see.

@@ -6,6 +6,7 @@ depends_on:
 mission:
 merge_policy:
 verification_handoff: 
+claim: work-20260827-014149
 ---
 
 # Resolve a unit to its live claim branch

@@ -565,4 +565,5 @@
 * [The moderation check-in can no longer ask, and its morning root cannot open](20260827005850-the-moderation-check-in-can-no-longer-ask-and-its-morning-root-cannot-open.md)
 * [Close the units the loop already finished](20260827011638-close-the-units-the-loop-already-finished.md)
 * [Deliver and retire what the loop already proved finished](20260827052027-deliver-and-retire-what-the-loop-already-proved-finished.md)
+* [A declared handoff unit is re-resumed every tick](20260827081849-a-declared-handoff-unit-is-re-resumed-every-tick.md)
 <!-- okf:generated:end -->

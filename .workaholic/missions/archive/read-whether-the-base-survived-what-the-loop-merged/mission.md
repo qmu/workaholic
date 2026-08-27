@@ -59,3 +59,4 @@ than passing for green. Nothing merges differently and the QA window owns qualit
 - 2026-08-27 — ticket archived — 20260827162003-drill-the-base-reading-with-no-network.md
 - 2026-08-27 — ticket archived — 20260827162004-write-the-base-reading-into-the-documents.md
 - 2026-08-27 — mission achieved — mission.md
+- 2026-08-27 — story reported — work-20260827-164139.md

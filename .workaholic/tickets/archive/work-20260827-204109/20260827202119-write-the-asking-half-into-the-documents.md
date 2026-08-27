@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-27T20:21:19+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -86,3 +87,44 @@ rather than after it.
 - The ask's rival — one unified "what the loop is blocked on" report over the four vocabularies
   — was refused with its reason. Record that refusal once, where a future reader would
   otherwise propose it again.
+
+## Final Report
+
+One statement per document, and the step count made consistent with `run.sh`'s `STEPS` (now 21).
+
+- **`CLAUDE.md`** — the `/moderate` row's count moved to **twenty-one** and enumerates
+  `handoff-units` beside `undelivered-units`, in the neighbours' shape: which reading it consumes,
+  **whose** question it is, that the running identity is never consulted, and that it reads
+  `list-claims.sh` and never `plan-units.sh`. The claim protocol's `awaiting_verification`
+  paragraph, which ended at *"`claim.sh resume` refuses it by its own name"*, now carries the
+  asking half and the fact that `stalled-units` no longer asks the wrong question.
+- **`moderate/SKILL.md`** — the `twenty-step` description, the relocated-detail link and the
+  in-order sentence updated; one paragraph beside `base-health`'s stating the step's contract.
+- **`moderate/reference/workflow.md`** — §21, the full per-step contract (landed with the step,
+  since the suite fails a step `run.sh` drives without one); title and closing note renumbered.
+- **`drive/reference/claims.md`** — the `awaiting_verification` row names
+  `step-handoff-units.sh` as its one enumerated **reporting** consumer. The classification is not
+  restated and no second table was added — the row already says a consumer may only report or ask.
+- **`drive/SKILL.md`** — §1's claim paragraph gains the asking half; §7's exclusion-meaning
+  sentence landed with ticket `20260827202119-name-claimed-awaiting-verification…`.
+
+**What it still refuses**, stated plainly in each place it is named: it never clears a handoff,
+retries a verification, merges or closes the pull request, withdraws or declares the field,
+touches a claim, or writes anywhere but its own tick-log line.
+
+**What did not move**, recorded once: `verification-handoff.sh` is still the one reader of the
+field, `/ticket` and `/specificate` are still its only writers, a run never declares it for its
+own unit, and the verdict still does not forbid `ok`.
+
+**The rival was refused and the refusal recorded once** (`moderate/SKILL.md`, with `CLAUDE.md`
+carrying the same clause): one unified *what the loop is blocked on* report across the four
+vocabularies loses the property that makes any of them work — the four verdicts call for four
+different acts by four different people, and a single report addressed to nobody is exactly what
+`🔧 Needs a decision` and `📦 Release Preparation` were retired for.
+
+Verified: `run.sh`'s `STEPS` holds 21 entries and every document says twenty-one. No document
+says the verdict is read nowhere outside `drive/` (the drill runbook's one hit is dated
+*"until 2026-08-27"*, which is history rather than a claim about now). `doc-drift.sh` reports no
+candidates; its one `structural_changes` entry (`mission-lens.sh` removed) is not from this
+branch. `node scripts/test-workflow-scripts.mjs` — 4138 passed, 0 failed; `build.mjs` /
+`verify.mjs` / `validate-metadata.mjs` clean, `layout-doctor.sh` conforming.

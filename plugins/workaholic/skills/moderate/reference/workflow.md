@@ -1,4 +1,4 @@
-# The twenty-step contract — reference
+# The twenty-one-step contract — reference
 
 Companion to [`../SKILL.md`](../SKILL.md). One section per step: what it reads, **what it may
 write**, what it returns in `needs_agent`, and the reasons it aborts with. The step ids are the
@@ -1019,7 +1019,7 @@ and an absent remote degrades to the bare short sha rather than to a broken link
 
 ## The closing act — `persist-log.sh`
 
-Not a step at all: the twenty above are the contract and the log's step keys, and this is the
+Not a step at all: the twenty-one above are the contract and the log's step keys, and this is the
 run's own bookkeeping. It runs **after** the last step has had its turn, so a tick that dies
 half-way still persists what it recorded on its next run, and it reports under the run's top-level
 `persist` key while logging under the step id `persist-log`.

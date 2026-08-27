@@ -16,7 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
-claim: work-20260819-113836
+claim: work-20260827-003544
 ---
 
 # Make /workaholify converge the account's routines

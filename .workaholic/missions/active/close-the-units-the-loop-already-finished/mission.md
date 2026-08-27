@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260827-021918
 ---
 
 # Close the units the loop already finished

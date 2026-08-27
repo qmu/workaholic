@@ -16059,6 +16059,40 @@ function testMergeReason() {
       /not a merge failure|never be reported as one/.test(doc[1].replace(/[*_`]/g, "")),
       doc[0]);
   }
+
+  // THE CONNECTOR RETRY IS A STEP OF THE ROUTE, NOT A SENTENCE IN A RULES FILE (2026-08-27,
+  // the same mission). `rules/shell.md`'s qualification permits it; until this change nothing
+  // required it or recorded whether it was taken, so the loop's closing act was optional in
+  // practice. It is prose — no script may call an MCP tool, which is the whole reason the gap
+  // existed — so what is checkable is that the route states the precondition, the bound and the
+  // outcome, and that its bounds still match the rule that authorizes it.
+  const shellRules = readFileSync(join(REPO_ROOT, "plugins/workaholic/rules/shell.md"), "utf8");
+  for (const doc of [["routing.md", routing], ["drive/SKILL.md", driveSkill]]) {
+    assertTrue(`${doc[0]} names the one tool the retry may use`,
+      doc[1].includes("mcp__github__merge_pull_request"), doc[0]);
+    assertTrue(`${doc[0]} states the retry's precondition`,
+      doc[1].includes("session_type_cannot_merge"), doc[0]);
+    assertTrue(`${doc[0]} bounds the retry to one attempt`,
+      /at most once|one attempt/.test(doc[1]), doc[0]);
+    assertTrue(`${doc[0]} makes a missing retry outcome non-conformant`,
+      /non-conformant/.test(doc[1]), doc[0]);
+  }
+  // THE BOUNDS MATCH THE RULE THAT AUTHORIZES THEM. Widening the permission at the route while
+  // `rules/shell.md` still says otherwise is the drift this pin exists to catch.
+  assertTrue("rules/shell.md still authorizes exactly this one tool and precondition",
+    shellRules.includes("mcp__github__merge_pull_request")
+      && shellRules.includes("session_type_cannot_merge"), "the authorizing rule moved");
+
+  // AND NO SCRIPT GAINED AN MCP CALL. The retry is the agent's step precisely because a script
+  // cannot make it; a wrapper shelling out to one would be the same gap with more moving parts.
+  const skillScripts = execSync(
+    "git ls-files 'plugins/workaholic/skills/**/*.sh' 'plugins/workaholic/hooks/**/*.sh'",
+    { cwd: REPO_ROOT, encoding: "utf8" }).split("\n").filter(Boolean);
+  const withMcp = skillScripts.filter((f) =>
+    readFileSync(join(REPO_ROOT, f), "utf8")
+      .split("\n").filter((l) => !l.trimStart().startsWith("#"))
+      .some((l) => l.includes("mcp__")));
+  assertEq("no shipped script calls an MCP tool", withMcp.join(","), "");
 }
 
 // ---------- branching/publish-tree-pr.sh + propose's widened batch (J4) ----------

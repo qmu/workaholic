@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-27T01:20:33+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -89,3 +90,41 @@ naming no attempt is visibly wrong.
   outcomes by name rather than assume the retry succeeds.
 - Do not make the retry a script. The rule that a script cannot call an MCP tool is what created
   this ticket; a wrapper that shells out to one would be the same gap with more moving parts.
+
+## Final Report
+
+Development completed as planned.
+
+`rules/shell.md`'s bounds were read in full and written down before anything moved, then restated
+at the route without widening: **one named tool** (`mcp__github__merge_pull_request`), **one named
+precondition** (`merge_reason == session_type_cannot_merge`), **one act** — reads, writes and
+pull-request creation stay REST, and every other rung (`merge_not_allowed`, `head_moved`,
+`merge_forbidden`, `merge_failed`) is reported as-is and never retried, because each names a
+conflict, a race, a permission or an unclassified failure and none of those is fixed by a
+different transport.
+
+The retry is now three numbered steps of the `review` route — precondition, one attempt through
+one tool, and the retry's own reported outcome — with the closing rule stated in both contract
+documents and in `CLAUDE.md`'s `/implement` row: **a run that reports
+`session_type_cannot_merge` and no retry outcome is non-conformant on its face.** That is the
+whole enforcement, deliberately, and it is the Open-Decision contract's shape for a prose rule no
+script can enforce.
+
+### Discovered Insights
+
+- **Insight**: The enforcement had to stay prose, and the test had to prove the bounds rather
+  than the behaviour.
+  **Context**: The gap exists precisely because a script cannot call an MCP tool, so any
+  mechanical enforcement would be a wrapper shelling out to one — the same gap with more moving
+  parts, which the ticket's Considerations name. What a test *can* do is pin that the route
+  states the precondition, the one-attempt bound, the one tool and the non-conformance rule, and
+  that `rules/shell.md` still authorizes exactly those — so widening the permission at the route
+  while the rule says otherwise now fails.
+
+- **Insight**: The "no script gained an MCP call" gate did not exist and is worth more than the
+  wording pins.
+  **Context**: The suite already bans `gh issue|pr|repo` under `skills/` and `hooks/`; nothing
+  banned `mcp__`. A new check walks every shipped script and asserts none references an MCP tool
+  outside a comment. It passes today with the allowlist empty, which is the point: the one place
+  the connector may be reached is the agent's step, and a script quietly acquiring one is exactly
+  the drift this mission's ticket warned about.

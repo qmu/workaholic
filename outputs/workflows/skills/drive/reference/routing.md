@@ -123,11 +123,37 @@ not write a second story generator.
   already draws between "shipped" and "demoted to PR, with the gate that caused it" — the wording
   is reused rather than a parallel vocabulary minted for one difference.
 
-  **`session_type_cannot_merge` is the one refusal with a second attempt** (`rules/shell.md`):
-  retry it once through `mcp__github__merge_pull_request`, then report the outcome of *that*
-  attempt — `merged`, or `merge_refused: session_type_cannot_merge` when the connector could not
-  merge either. Reporting the REST refusal after a successful connector merge would name a
-  failure that did not happen.
+  **`session_type_cannot_merge` is the one refusal with a second attempt, and that attempt is a
+  step of this route** (2026-08-27, mission `close-the-units-the-loop-already-finished`). It was
+  a sentence in `rules/shell.md` and nothing more, so the closing act was one the agent could
+  simply not take with nothing anywhere recording that it had not — measured 2026-08-27, four
+  pull requests the loop opened on 2026-08-26 green and unmerged, `ok` reported over all of them.
+  It is now numbered, mandatory and reported, which is the shape the Open-Decision contract
+  already uses for a prose rule no script can enforce ([ticket-workflow.md](ticket-workflow.md)
+  §1): no mechanical check tells a real attempt from a claimed one, and what it buys is that a
+  report naming no attempt is visibly wrong.
+
+  1. **Precondition, and nothing else.** The REST `PUT` returned `merge_reason ==
+     session_type_cannot_merge`. Every other word — `merge_not_allowed`, `head_moved`,
+     `merge_forbidden`, `merge_failed` — is reported as-is and **never** retried: those name a
+     conflict, a race, a permission or an unclassified failure, none of which a different
+     transport fixes.
+  2. **One attempt, one tool.** `mcp__github__merge_pull_request`, at most once. No other
+     connector tool, no second try, and nothing else moves to the connector — reads, writes and
+     pull-request creation stay REST (`rules/shell.md`, *The one qualification*: one named tool,
+     one named precondition, one act).
+  3. **Report the outcome of that attempt.** `merged` when the connector merged it; otherwise the
+     pull request stays open and **both** refusals are named — the REST one
+     (`session_type_cannot_merge`) and the connector's own. Reporting the REST refusal after a
+     successful connector merge would name a failure that did not happen; reporting only the REST
+     one after a failed retry hides that the retry was made.
+
+  **A run that reports `session_type_cannot_merge` and no retry outcome is non-conformant on its
+  face.** That is the whole enforcement, and it is deliberate: the rule that a script cannot call
+  an MCP tool is what created this step, so a wrapper shelling out to one would be the same gap
+  with more moving parts. **A merge through the connector is measured only in an interactive
+  session** — a routine container is measured only for the connector's *read* tools — which is
+  why step 3 reports both outcomes by name rather than assuming the retry succeeds.
 - **`auto` → ship** through `ship`'s Ship Flow with no prompts (its *Unattended
   routing* section factors each interactive seam): catch up with `main`, prove the deploy
   contract, confirm in production, record the evidence, **then** merge, then release and extract

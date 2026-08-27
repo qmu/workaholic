@@ -15801,6 +15801,8 @@ const tests = [
   ["drive claim protocol: the merged-claim shape at both grains", testMergedClaimShapeAtBothGrains],
   ["drive claim protocol: a merged claim is never offered for resumption", testMergedClaimIsNeverResumable],
   ["drive claim protocol: a fresh claim takes a superseded claim's work", testFreshClaimOverSupersededClaim],
+  ["drive claim protocol: a unit resolves to its live claim branch", testUnitResolvesToItsLiveClaimBranch],
+  ["branching/ensure-worktree.sh never shadows a published branch", testEnsureWorktreeNeverShadowsRemote],
   ["drive survey: a mission behind a merged claim is surveyed again", testSupersededMissionIsResurveyed],
   ["drive claim protocol: a mission claim's artifact is unaffected", testMissionClaimArtifactsUnaffected],
   ["drive claim protocol: a merged stamp is history, not a claim", testMergedStampIsHistoryNotAClaim],
@@ -22240,4 +22242,135 @@ function testFreshClaimOverSupersededClaim() {
       !/rev-list --count/.test(code) || /claims_scan/.test(code),
       "claim.sh grew a second derivation of the superseded reading");
   } finally { cleanup(fx.A); cleanup(fx.B); }
+}
+
+// ---------- a unit resolves to its LIVE claim branch (2026-08-27) ----------
+//
+// The 2026-08-26 `superseded` verdict made a unit legitimately reachable by TWO claim
+// branches: the dead one and the fresh one a later run took its work on. Three writers
+// resolved a unit to *a* branch by taking the FIRST row out of `claims_scan`, which walks
+// refs in name order — so first-match is the OLDEST branch, i.e. the dead one. Measured
+// 2026-08-27 on `make-workaholify-converge-the-account-s-routines`: `resume` refused on the
+// dead branch's own verdict so the live claim could be resumed by nothing, and
+// `release-claim.sh` tore the dead branch down and reported `half_released` while the live
+// claim stood.
+//
+// THE BRANCH-AWARE STUB IS THE FIXTURE'S POINT: only the ORIGINAL mission claim reads as
+// merged, so the fresh claim beside it stays live — which is the two-branch shape. Swapping
+// in a stub that reports nothing merged makes BOTH rows live, which is the `ambiguous` case.
+function testUnitResolvesToItsLiveClaimBranch() {
+  const fx = makeSquashMergedClaims();
+  const stub = (name, body) => {
+    const bin = join(fx.A, name);
+    mkdirSync(bin, { recursive: true });
+    writeFileSync(join(bin, "gh"), body);
+    chmodSync(join(bin, "gh"), 0o755);
+    return { env: { ...process.env, PATH: `${bin}:${process.env.PATH}` } };
+  };
+  const MERGED = `[{"number":1,"merged_at":"2026-08-26T00:00:00Z"}]`;
+  // Only the first mission branch is merged; everything else answers "no pull request".
+  const oneMerged = stub(".stub-one",
+    `#!/bin/sh\ncase "$*" in\n  *${fx.mission.branch}*) echo '${MERGED}' ;;\n  *) echo '[]' ;;\nesac\n`);
+  const noneMerged = stub(".stub-none", `#!/bin/sh\necho '[]'\n`);
+  const unit = fx.mission.unit;
+  try {
+    const reasonOf = (env, branch) => (Object.fromEntries(
+      JSON.parse(run(fx.A, `${POSIX_SH} ${SCRIPTS.listClaims}`, env).stdout)
+        .claims.map((c) => [c.branch, c.resume_reason])))[branch];
+    const json = (r) => JSON.parse(r.stdout || r.stderr);
+
+    assertEq("baseline: the mission's only claim reads superseded",
+      reasonOf(oneMerged, fx.mission.branch), "superseded");
+
+    // A UNIT WITH ONE CLAIM BEHAVES BYTE-IDENTICALLY TO FIRST-MATCH — the property the
+    // resolution had to preserve. It resolves to that claim and refuses on its own verdict.
+    const one = json(run(fx.A, `${POSIX_SH} ${SCRIPTS.claim} resume ${unit}`, oneMerged));
+    assertEq("one claim: resume resolves to it and refuses on its own verdict",
+      [one.claimed, one.reason, one.branch], [false, "superseded", fx.mission.branch]);
+
+    // Build the two-branch shape: a fresh claim over the superseded one. The old worktree
+    // goes first, exactly as it is gone on a machine that recovered the unit elsewhere.
+    execSync(`git worktree remove --force ${fx.mission.worktree_path}`, { cwd: fx.A });
+    execSync("git fetch -q origin && git checkout -q main && git merge -q --ff-only origin/main",
+      { cwd: fx.A });
+    tickSecond();
+    const fresh = json(run(fx.A, `${POSIX_SH} ${SCRIPTS.claim} mission ${unit}`, oneMerged));
+    assertEq("a fresh claim lands beside the superseded one", fresh.claimed, true);
+    assertTrue("on a branch of its own", fresh.branch !== fx.mission.branch,
+      `${fresh.branch} === ${fx.mission.branch}`);
+    assertEq("and that new branch is live", reasonOf(oneMerged, fresh.branch), "claim_active");
+    assertEq("while the old one still reads superseded",
+      reasonOf(oneMerged, fx.mission.branch), "superseded");
+
+    // CRITERION 1: resume reaches the LIVE branch. Before the fix it named the SUPERSEDED
+    // branch and refused with that branch's verdict, so the live claim was unreachable.
+    const res = json(run(fx.A, `${POSIX_SH} ${SCRIPTS.claim} resume ${unit}`, oneMerged));
+    assertEq("resume resolves the unit to its live branch",
+      [res.branch, res.reason], [fresh.branch, "claim_active"]);
+
+    // AND THE SURVEY DOES NOT OFFER A UNIT ANOTHER RUN IS DRIVING. `claimed_superseded`
+    // resurveys a dead claim's work, and the dead row governed the unit — so the mission was
+    // offered as fresh backlog while its live claim held it. Observed live on this
+    // repository: one mission in `missions[]`, `resumable[]` and `resurveyed[]` at once.
+    const plan = JSON.parse(run(fx.A, `${POSIX_SH} ${SCRIPTS.planUnits}`, oneMerged).stdout);
+    assertTrue("the survey does not offer a mission its live claim holds",
+      !plan.missions.some((m) => m.slug === unit), JSON.stringify(plan.missions));
+    assertTrue("and does not resurvey it out from under that claim either",
+      !(plan.resurveyed || []).some((r) => r.id === unit), JSON.stringify(plan.resurveyed));
+    assertEq("while still reporting BOTH claims — superseded stays reported, never acted on",
+      plan.claimed.filter((c) => c.unit === unit).length, 2);
+
+    // TWO LIVE CLAIMS ARE REPORTED, NEVER PICKED BETWEEN. With nothing merged, both mission
+    // branches are live — a state the sanctioned path cannot produce, and one where choosing
+    // silently would resume or discard work another run is still driving.
+    const amb = json(run(fx.A, `${POSIX_SH} ${SCRIPTS.claim} resume ${unit}`, noneMerged));
+    assertEq("two live claims: resume refuses by name", [amb.claimed, amb.reason],
+      [false, "ambiguous_claim"]);
+    assertTrue("naming both branches", amb.branches.includes(fresh.branch)
+      && amb.branches.includes(fx.mission.branch), amb.branches);
+    const ambRel = json(run(fx.A, `${POSIX_SH} ${SCRIPTS.releaseClaim} ${unit}`, noneMerged));
+    assertEq("two live claims: release refuses by name, touching nothing",
+      [ambRel.released, ambRel.state, ambRel.reason], [false, "untouched", "ambiguous_claim"]);
+    assertTrue("and the live worktree is still there", existsSync(fresh.worktree_path));
+
+    // CRITERION 2: release targets the LIVE branch, never the superseded one.
+    const rel = json(run(fx.A, `${POSIX_SH} ${SCRIPTS.releaseClaim} ${unit}`, oneMerged));
+    assertEq("release resolves the unit to its live branch", rel.branch, fresh.branch);
+    assertTrue("and the superseded branch is untouched by it",
+      execSync(`git ls-remote --heads ${fx.origin} ${fx.mission.branch}`,
+        { encoding: "utf8" }).includes(fx.mission.branch));
+  } finally { cleanup(fx.A); cleanup(fx.B); cleanup(fx.origin); }
+}
+
+// ---------- ensure-worktree.sh never shadows a published branch (2026-08-27) ----------
+//
+// It creates a branch (`git worktree add -b … HEAD`), and on a name that already exists on
+// origin it minted a LOCAL branch at HEAD that diverged from the remote one — measured on
+// `work-20260827-003544`, HEAD at the base tip while origin/<branch> carried a live claim's
+// work. The next push from that worktree would have clobbered the claim. It refuses instead:
+// attaching to a published branch is `create-mission-worktree.sh --branch`'s job, and the
+// silent third option is the one outcome that must not exist.
+function testEnsureWorktreeNeverShadowsRemote() {
+  const fx = makeClaimFixture();
+  try {
+    const claimed = JSON.parse(run(fx.A, `${POSIX_SH} ${SCRIPTS.claim} mission m1`).stdout);
+    execSync(`git fetch -q origin`, { cwd: fx.B });
+    const before = execSync(`git rev-parse origin/${claimed.branch}`,
+      { cwd: fx.B, encoding: "utf8" }).trim();
+
+    const r = run(fx.B, `${POSIX_SH} ${SCRIPTS.ensureWorktree} ${claimed.branch}`);
+    assertEq("ensure-worktree refuses a name that exists on origin", r.status, 1);
+    assertTrue("and says so rather than diverging silently",
+      /already exists on origin/.test(r.stdout + r.stderr), r.stdout + r.stderr);
+    assertTrue("no worktree was created", !existsSync(join(fx.B, ".worktrees", claimed.branch)));
+    assertTrue("and no local branch was minted at HEAD",
+      execSync(`git branch --list ${claimed.branch}`, { cwd: fx.B, encoding: "utf8" }).trim() === "");
+    assertEq("the published claim tip never moved",
+      execSync(`git rev-parse origin/${claimed.branch}`, { cwd: fx.B, encoding: "utf8" }).trim(),
+      before);
+
+    // A NAME NOBODY PUBLISHED IS UNCHANGED — the refusal is bounded to the shadowing case.
+    const ok = run(fx.B, `${POSIX_SH} ${SCRIPTS.ensureWorktree} work-20260827-000001`);
+    assertEq("an unpublished canonical name still creates a worktree", ok.status, 0);
+  } finally { cleanup(fx.A); cleanup(fx.B); cleanup(fx.origin); }
 }

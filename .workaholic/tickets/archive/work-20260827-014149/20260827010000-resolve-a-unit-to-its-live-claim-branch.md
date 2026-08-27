@@ -1,11 +1,13 @@
 ---
 created_at: 2026-08-27T01:00:00+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
 mission:
 merge_policy:
 verification_handoff: 
+claim: work-20260827-014149
 ---
 
 # Resolve a unit to its live claim branch
@@ -100,3 +102,45 @@ always right.
   that mission is claimable-but-undrivable until this lands or an operator removes the branch.
   This session cannot delete a remote branch (`git push --delete` is refused by the session
   type), which is why it is recorded here rather than tidied away.
+
+## Final Report
+
+Development completed as planned, with one addition the reproduction turned up.
+
+The resolution is derived once, in `drive/scripts/lib/claims.sh` —
+`claims_unit_resolution` (`none` / `single` / `live` / `superseded_only` / `ambiguous`),
+`claims_unit_row` and `claims_unit_live_branches` — and every caller reads it rather than
+re-deriving a first-match lookup. `claim.sh resume` and `release-claim.sh` now reach the
+**live** branch; a unit with exactly one claim resolves byte-identically to first-match, and
+`superseded_only` returns that superseded row so each caller keeps refusing under
+`superseded` exactly as before.
+
+Step 3's explicit ruling: **two live claims are reported, never picked between**
+(`ambiguous_claim`, naming both branches). The protocol settles a race by the push, so the
+state cannot arise from the sanctioned path at all — and picking one silently is how a
+runner would resume, or discard, work another run is still driving. Refusing costs nothing
+that legitimately happens.
+
+Step 4: `ensure-worktree.sh` **refuses** a name that already exists on origin rather than
+checking it out. Its contract is to create a worktree on a *new* branch; attaching to a
+published one has different safety requirements (pin the observed tip, fetch it first,
+resolve the race) and `create-mission-worktree.sh --branch` already does exactly that. What
+had to stop existing was the silent third option.
+
+### Discovered Insights
+
+- **Insight**: `plan-units.sh` had the same first-match defect, and it was the dangerous one.
+  **Context**: Its `claimed_superseded` **resurvey** was keyed on the first row for a unit, so
+  a dead branch beside a live one made the survey offer as fresh backlog a mission another
+  run was driving. Observed live on this repository during the run that fixed this: the same
+  mission in `missions[]`, `resumable[]` and `resurveyed[]` at once. The ticket named three
+  scripts; the fourth is where a wrong answer becomes a double-drive rather than a refusal.
+
+- **Insight**: `release-claim.sh` never set `CLAIMS_FETCH_OK`, so the merged-pull-request
+  lookup was skipped `offline` there on every invocation.
+  **Context**: `claims_fetch` runs in a command substitution and the flag it sets dies with
+  that subshell — `claim.sh`, `list-claims.sh` and `plan-units.sh` each set it in the parent
+  and `release-claim.sh` did not. The consequence was invisible until this change: a
+  mission-grain `superseded` claim read as live there, so a unit with exactly one live branch
+  refused `ambiguous_claim`. A degradation that only ever made a verdict more conservative
+  hides until something starts reading that verdict.

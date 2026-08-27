@@ -15800,6 +15800,7 @@ const tests = [
   ["drive claim protocol: the merged lookup degrades by name", testMergedLookupDegradesByName],
   ["drive claim protocol: the merged-claim shape at both grains", testMergedClaimShapeAtBothGrains],
   ["drive claim protocol: a merged claim is never offered for resumption", testMergedClaimIsNeverResumable],
+  ["drive claim protocol: a fresh claim takes a superseded claim's work", testFreshClaimOverSupersededClaim],
   ["drive survey: a mission behind a merged claim is surveyed again", testSupersededMissionIsResurveyed],
   ["drive claim protocol: a mission claim's artifact is unaffected", testMissionClaimArtifactsUnaffected],
   ["drive claim protocol: a merged stamp is history, not a claim", testMergedStampIsHistoryNotAClaim],
@@ -22163,4 +22164,80 @@ function testIdentityHandOffEndToEnd() {
     assertTrue("and the runbook documents it alongside the others",
       /verify-identity-handoff/.test(runbook), "the drill's verb is undocumented");
   } finally { cleanup(dir); }
+}
+
+// ---------- a fresh claim takes a superseded claim's work (2026-08-27) ----------
+//
+// The 2026-08-26 `superseded` change shipped half its own stated intent. `plan-units.sh`
+// resurveys the mission and tickets behind such a claim — `resurveyed[]` names them, and
+// `workaholic:drive` §1 says *a fresh claim drives them, because the old branch cannot
+// land* — but `claim.sh` still answered `already_claimed`, so the work it re-offered was
+// reachable by NO path: a fresh claim refused, and `resume` refused it as `superseded` by
+// design. Measured 2026-08-27 on this repository, on a unit offered and named in
+// `resurveyed[]` whose only holder had read `superseded` since the day before.
+//
+// It frees the WORK, not the branch: `superseded` stays reported, never acted on.
+function testFreshClaimOverSupersededClaim() {
+  const fx = makeSquashMergedClaims();
+  const bin = join(fx.A, ".stub-bin");
+  mkdirSync(bin, { recursive: true });
+  writeFileSync(join(bin, "gh"), "#!/bin/sh\necho '[]'\n");
+  chmodSync(join(bin, "gh"), 0o755);
+  const withStub = { env: { ...process.env, PATH: `${bin}:${process.env.PATH}` } };
+  try {
+    // The BATCH claim is superseded from the tree, with no transport involved at all —
+    // every one of its tickets is archived on the base.
+    const claims = Object.fromEntries(
+      JSON.parse(run(fx.A, `${POSIX_SH} ${SCRIPTS.listClaims}`, withStub).stdout)
+        .claims.map((c) => [c.unit, c]));
+    assertEq("the batch claim reads superseded", claims[fx.batch.unit].resume_reason, "superseded");
+
+    // THE DEFECT: the survey re-offers that work, so a fresh claim over it must succeed.
+    // The squash merges landed from the other clone, so bring this one onto the base
+    // before queueing anything on it.
+    execSync("git fetch -q origin && git checkout -q main && git merge -q --ff-only origin/main",
+      { cwd: fx.A });
+    const t3 = `.workaholic/tickets/todo/${TEST_SLUG}/20260729000003-t3.md`;
+    mkdirSync(dirname(join(fx.A, t3)), { recursive: true });
+    writeFileSync(join(fx.A, t3),
+      "---\ncreated_at: 2026-07-29T00:00:03+09:00\nauthor: test@example.com\n---\n\n# t3\n");
+    execSync(`git add -A && git commit -q -m "Queue another ticket" && git push -q origin main`,
+      { cwd: fx.A });
+    tickSecond();
+    const fresh = JSON.parse(run(fx.A, `${POSIX_SH} ${SCRIPTS.claim} batch ${t3}`, withStub).stdout);
+    assertEq("a fresh claim beside a superseded one succeeds", fresh.claimed, true);
+    assertTrue("on a new work-* branch of its own",
+      fresh.branch !== fx.batch.branch, `${fresh.branch} === ${fx.batch.branch}`);
+
+    // IT FREES THE WORK, NOT THE BRANCH. `superseded` has been reported-never-acted-on since
+    // it shipped, and this change does not touch that.
+    const after = Object.fromEntries(
+      JSON.parse(run(fx.A, `${POSIX_SH} ${SCRIPTS.listClaims}`, withStub).stdout)
+        .claims.map((c) => [c.branch, c]));
+    assertTrue("the superseded branch is still there, untouched",
+      Object.prototype.hasOwnProperty.call(after, fx.batch.branch), Object.keys(after).join(","));
+    assertEq("and still reads superseded", after[fx.batch.branch].resume_reason, "superseded");
+
+    // EVERY OTHER REFUSAL IS UNTOUCHED — the bound that makes claiming over it safe is that
+    // the claim was PROVED to hold nothing.
+    const live = JSON.parse(run(fx.A, `${POSIX_SH} ${SCRIPTS.claim} batch ${t3}`, withStub).stdout
+      || run(fx.A, `${POSIX_SH} ${SCRIPTS.claim} batch ${t3}`, withStub).stderr);
+    assertEq("a LIVE claim still refuses a second claim on the same artifact",
+      [live.claimed, live.reason], [false, "already_claimed"]);
+
+    // And the unit-id check refuses a live claim too, not only the artifact overlap.
+    const sameUnit = JSON.parse(
+      run(fx.A, `${POSIX_SH} ${SCRIPTS.claim} mission m1`, withStub).stdout
+      || run(fx.A, `${POSIX_SH} ${SCRIPTS.claim} mission m1`, withStub).stderr);
+    assertEq("and a mission held by a live claim refuses by unit id",
+      sameUnit.claimed, false);
+
+    // The verdict is derived in ONE place, or the survey's offer and this refusal drift
+    // apart again — which is exactly how the defect arose.
+    const src = readFileSync(SCRIPTS.claim, "utf8");
+    const code = src.split("\n").filter((l) => !l.trimStart().startsWith("#")).join("\n");
+    assertTrue("claim.sh reads the verdict rather than re-deriving it",
+      !/rev-list --count/.test(code) || /claims_scan/.test(code),
+      "claim.sh grew a second derivation of the superseded reading");
+  } finally { cleanup(fx.A); cleanup(fx.B); }
 }

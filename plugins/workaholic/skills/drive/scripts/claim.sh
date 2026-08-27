@@ -319,10 +319,36 @@ artifact_rels=$(printf '%s' "$artifact_rels" | grep -v '^$' || true)
 # Both checks matter: the unit id catches a second runner claiming the same mission,
 # and the artifact overlap catches a batch that scoops up a ticket another branch
 # already took under a different batch id.
+#
+# A `superseded` CLAIM IS NOT IN FLIGHT, AND SKIPPING IT IS THE OTHER HALF OF THE
+# 2026-08-26 CHANGE (2026-08-27). `plan-units.sh` already resurveys the mission and
+# tickets behind such a claim -- its `resurveyed[]` field names them, and `workaholic:drive`
+# §1 says in as many words *a fresh claim drives them, because the old branch cannot land*.
+# This loop read the verdict (`_held_reason` is right here) and ignored it, so the survey
+# offered a unit that BOTH claim paths refused: a fresh claim answered `already_claimed`
+# and `claim.sh resume` answered `superseded`, by design. Measured 2026-08-27 on this
+# repository: mission `make-workaholify-converge-the-account-s-routines` was offered and
+# named in `resurveyed[]` while its only holder, `work-20260819-113836`, had read
+# `superseded` since the day before -- reachable by no path at all, and forbidding `ok` on
+# every later tick. That is the shape `report_incomplete` was added to remove in
+# 2026-08-19, one layer up.
+#
+# IT FREES THE WORK, NOT THE BRANCH. `superseded` stays *reported, never acted on*: nothing
+# here deletes the old branch, closes its pull request or releases its claim, and the new
+# claim is an ordinary `work-*` branch beside it. The bound is the one `resurveyed[]`
+# already relies on and is derived in exactly one place (`lib/claims.sh`), so the survey's
+# offer and this refusal cannot disagree again: every one of the unit's tickets is archived
+# on the base, or a merged pull request has that branch as its head. Every other refusal is
+# untouched -- a live claim, a colleague's, a `queue_drained` one and a `report_incomplete`
+# one all refuse exactly as before, because only a claim already PROVED to hold nothing is
+# claimable over.
 rows=$(claims_scan "$base")
 if [ -n "$rows" ]; then
     while IFS='	' read -r held_unit held_branch _held_at _held_stale _held_author _held_resumable _held_reason _held_reported held_arts; do
         [ -n "$held_unit" ] || continue
+        if [ "$_held_reason" = "superseded" ]; then
+            continue
+        fi
         if [ "$held_unit" = "$unit" ]; then
             fail "already_claimed" ', "unit": "'"${unit}"'", "holder_branch": "'"${held_branch}"'", "holder_unit": "'"${held_unit}"'"'
         fi

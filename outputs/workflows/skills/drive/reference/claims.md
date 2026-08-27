@@ -132,6 +132,33 @@ on another machine coordinates through exactly the same artifact.
     shadows it: its contract is to create a worktree on a *new* branch, attaching to a
     published one is `create-mission-worktree.sh --branch`'s job, and the silent third
     option turned the next push into a claim-clobbering force-of-fact.
+  - **And a *reported* unit is two states as well** (2026-08-27, mission
+    `close-the-units-the-loop-already-finished`). `queue_drained` means *waiting on a person* and
+    was also covering the loop's **own undelivered work**: a unit whose merge the transport
+    refused, whose claim every later survey excludes `claimed_reported`, which no path offers and
+    nobody was told about. Measured 2026-08-27: four pull requests the loop opened the day before
+    were green and unmerged, with `ok` reported over all of them. This is the 2026-08-19 split's
+    shape one state later, and it rests on that split's own rule — **a reason must imply its own
+    next action**, and folding two next actions into one word is what makes the invisible half
+    invisible. The new verdict is **`report_undelivered`**, excluded `claimed_undelivered`, and
+    it **forbids `ok`**.
+    **It is read off the branch, not re-derived and not re-fetched.** The scan cannot be re-run
+    here — `scan-branch-safety.sh` diffs `<base>..HEAD` of the *current* checkout and the oracle
+    stands in the main tree — and a fresh lookup is worse than the run's own answer for the
+    reason `claim-merged.sh` is three-valued: a wrong verdict here releases work still in flight.
+    So the run that attempted the merge records its outcome into the branch story it already
+    committed (`story/scripts/record-merge-outcome.sh`, idempotent, replacing rather than
+    stacking), and `claims_merge_outcome` reads that one line out of a blob the oracle already
+    fetches. **An absent section keeps `queue_drained`** — every story written before this
+    section, and every run that died before recording, answers empty, and the new reason is
+    claimed only on positive evidence.
+    **`resumable: false`, and for a different reason than `queue_drained`'s.** The next action is
+    a **merge retry**, which is not a takeover: resuming would push an empty `Resume` commit onto
+    a branch whose pull request is open — the 2026-08-01 gate exactly. The 2026-08-19 split went
+    `resumable: true` because its unit had never reported and the takeover had real work to do
+    (write the story, open the pull request); this one has already done both. `claim.sh resume`
+    refuses it under its own name rather than `queue_drained`'s wording, which would send the
+    reader to wait for a human who is not coming.
   - **A drained queue is two states, split on the same story signal.** "Finished" covers a unit
     that **reported** — story committed at the tip, pull request open, waiting on a human — and a
     run that died **after** archiving its last ticket and **before** opening anything, whose work

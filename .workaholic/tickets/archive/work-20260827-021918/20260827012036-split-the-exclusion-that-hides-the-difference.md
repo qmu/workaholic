@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-27T01:20:36+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -83,3 +84,60 @@ one word is what makes the invisible half invisible. Give the undelivered state 
 - Resist deriving the split from a fresh network read per claim. `claim-merged.sh`'s three-valued
   `unanswerable` contract exists because a wrong verdict here releases work still in flight; an
   answer the run already recorded is stronger evidence than one re-fetched later.
+
+## Final Report
+
+Development completed as planned, with one design decision the ticket left open and one defect
+found while testing.
+
+**The position, written down first** (step 1): the new verdict sits **inside** the drained fork's
+`reported == true` branch, so every gate ahead of it is untouched — `identity_unresolved`,
+`foreign_identity`, `shallow_history`, `claim_active` and `superseded` all still win first, in
+that order, each for the reason `lib/claims.sh`'s header records. Nothing before the fork moved.
+
+**Where the reading comes from, and the decision the ticket left open.** Step 2 says derive it
+from "the run's own recorded merge outcome" — which did not exist durably: the sibling ticket put
+that outcome in the run report, and a run report dies with its container. Two alternatives were
+rejected before the third was taken:
+
+- **Re-run the scan** to ask whether a `hard`/`confirm` finding would have held the pull request.
+  Impossible here: `scan-branch-safety.sh` diffs `<base>..HEAD` of the *current* checkout, and
+  the oracle stands in the main tree, so answering for another branch means checking it out
+  inside what is contractually a pure read.
+- **A fresh lookup per claim.** Weaker evidence than the run's own answer, and the ticket's own
+  Considerations say so: a wrong verdict here releases work still in flight.
+
+So the run that attempted the merge **records the outcome into the branch story it already
+committed** (`story/scripts/record-merge-outcome.sh`), and `claims_merge_outcome` reads that one
+line out of a blob the oracle already fetches — no network call, no second derivation, and it
+cannot disagree with the run that made the attempt. No new artifact type: the story is the
+branch's own record and is already what `claims_has_story` reads.
+
+**Resumability, decided and stated** (step 4): `resumable: false`, and for a *different* reason
+than `queue_drained`'s. The next action is a **merge retry**, which is not a takeover — resuming
+would push an empty `Resume` commit onto a branch whose pull request is open, the 2026-08-01 gate
+exactly. The 2026-08-19 split went `resumable: true` because its unit had never reported and the
+takeover had real work to do; this one has already written its story and opened its pull request.
+`claim.sh resume` refuses it under its own name rather than `queue_drained`'s wording, which
+would send the reader to wait for a human who is not coming.
+
+**An absent section keeps `queue_drained`.** Every story written before this section, and every
+run that died before recording, answers empty — so the new reason is claimed only on positive
+evidence, and the regression bar the Considerations set (every existing verdict byte-identical
+over the existing fixtures) is met by construction and asserted directly.
+
+### Discovered Insights
+
+- **Insight**: The refusal for a malformed outcome was itself malformed.
+  **Context**: `record-merge-outcome.sh` interpolated the outcome raw into its JSON, so the one
+  input it refuses for containing a newline produced a refusal that was not parseable JSON — a
+  caller got a syntax error instead of `outcome_not_one_line`. Caught only because the test
+  parsed the refusal rather than grepping it. The emitter now escapes quotes and backslashes and
+  collapses control characters, so every emission is parseable whatever was passed in.
+
+- **Insight**: A shell-level newline cannot be passed through `JSON.stringify` in these tests.
+  **Context**: `JSON.stringify("a\nb")` yields `"a\nb"` with a literal backslash-n, and `sh`
+  inside double quotes does not interpret it — so the argument is one line and the script was
+  right to accept it. The first version of this test asserted a refusal that should never have
+  happened. Any test of a multi-line argument has to build it in the shell (`"$(printf 'a\nb')"`),
+  which is worth knowing before the next one reads as a script defect.

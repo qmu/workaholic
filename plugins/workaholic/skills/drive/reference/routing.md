@@ -117,6 +117,18 @@ not write a second story generator.
   | `merge_refused: <word>` | the `PUT` was attempted and refused. `<word>` is `merge-reason.sh`'s, unchanged in derivation and format: `merge_not_allowed` / `head_moved` / `session_type_cannot_merge` / `merge_forbidden` / `merge_failed` |
   | `merge_not_attempted: <tier>` | a `hard` (`secret`) or `confirm` (`leak`) finding held the pull request, so no merge was attempted at all |
 
+  **An outcome that is not `merged` is recorded on the branch, not only in the run report**
+  (2026-08-27, mission `close-the-units-the-loop-already-finished`): from inside the worktree,
+  `bash ${CLAUDE_PLUGIN_ROOT}/skills/story/scripts/record-merge-outcome.sh
+  .workaholic/stories/<branch>.md "<outcome>"`, then commit and push it. The run report dies
+  with the container, and without a durable answer the claim oracle cannot tell this unit from
+  one legitimately waiting on a person — both are drained, both reported, both at an open pull
+  request, and `claimed_reported` covered both. The writer is idempotent per outcome and
+  replaces rather than stacks, and `lib/claims.sh` reads that one line out of the story blob it
+  already fetches: no network call, no second derivation, and it cannot disagree with the run
+  that made the attempt. **A merged unit records nothing** — the merge releases the claim, so
+  the oracle never sees it.
+
   **The third is not a merge failure and must never be reported as one.** A scan-held pull
   request is the gate working; a refused one is the loop stopping. Collapsing them would hide
   exactly the failure this row exists to surface, and is the same distinction the `auto` route

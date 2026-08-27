@@ -159,6 +159,15 @@ if [ "$kind" = "resume" ]; then
             foreign_identity)
                 fail "foreign_identity" ', "unit": "'"${unit}"'", "branch": "'"${r_branch}"'", "author": "'"${r_author}"'", "detail": "another identity holds this claim; it is never resumable here, at any age"'
                 ;;
+            # THE LOOP'S OWN UNDELIVERED WORK (2026-08-27, mission
+            # `close-the-units-the-loop-already-finished`). Named on its own rather than left to
+            # `queue_drained`'s wording, which sends the reader to wait for a human who is not
+            # coming: nothing here is under review — the merge was REFUSED, and the next action
+            # is retrying it, not taking the unit over. Resuming would push an empty `Resume`
+            # commit onto a branch whose pull request is open, the 2026-08-01 gate exactly.
+            report_undelivered)
+                fail "report_undelivered" ', "unit": "'"${unit}"'", "branch": "'"${r_branch}"'", "detail": "this unit finished, reported and opened its pull request, and the merge was REFUSED by the transport -- its branch story records which refusal. Nothing is under review and no takeover would help: the next action is retrying the merge on the open pull request. The survey reports it and forbids `ok`; resuming it would only add an empty commit to a branch that is already done"'
+                ;;
             queue_drained)
                 fail "queue_drained" ', "unit": "'"${unit}"'", "branch": "'"${r_branch}"'", "detail": "this unit has nothing left to drive AND it reported -- its story is committed and its PR is open, so it is waiting on a human, not on a runner; resuming it would only add an empty takeover commit to a branch under review. A drained unit that never reported is a different state and IS resumable (report_incomplete)"'
                 ;;

@@ -43,7 +43,7 @@ business from the loop's undelivered work, and `ok` stops covering the second.
 
 - [x] A `review` unit's report names its merge outcome — `merged` or the `merge-reason.sh` word —
       and the connector retry's. (#20260827012032-give-a-unit-s-close-its-own-reported-outcome.md)
-- [ ] `/implement` refuses `ok` over a unit it left undelivered, and still reports `ok` over one a
+- [x] `/implement` refuses `ok` over a unit it left undelivered, and still reports `ok` over one a
       scan finding holds. (#20260827012035-never-report-ok-over-an-undelivered-unit.md)
 - [ ] `loop-drill.sh verify-close` proves all four closing outcomes with no network. (#20260827012039-drill-the-closing-seam-with-no-network.md)
 
@@ -53,3 +53,4 @@ business from the loop's undelivered work, and `ok` stops covering the second.
 - 2026-08-27 — ticket archived — 20260827012031-read-whether-a-reported-unit-ever-landed.md
 - 2026-08-27 — ticket archived — 20260827012032-give-a-unit-s-close-its-own-reported-outcome.md
 - 2026-08-27 — ticket archived — 20260827012033-make-the-connector-retry-a-step-of-the-route.md
+- 2026-08-27 — ticket archived — 20260827012035-never-report-ok-over-an-undelivered-unit.md

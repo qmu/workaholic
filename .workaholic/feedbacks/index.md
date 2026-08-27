@@ -571,4 +571,5 @@
 * [Say when a direction has arrived](20260827142027-say-when-a-direction-has-arrived.md)
 * [Read whether the base survived what the loop merged](20260827161640-read-whether-the-base-survived-what-the-loop-merged.md)
 * [Ask for the one act a declared handoff is waiting on](20260827201719-ask-for-the-one-act-a-declared-handoff-is-waiting-on.md)
+* [Finish the retirement the loop cannot complete](20260827231916-finish-the-retirement-the-loop-cannot-complete.md)
 <!-- okf:generated:end -->

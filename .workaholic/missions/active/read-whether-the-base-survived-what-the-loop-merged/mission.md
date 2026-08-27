@@ -40,7 +40,7 @@ than passing for green. Nothing merges differently and the QA window owns qualit
 
 <!-- PROPOSED sketch. Approval replans this to drive-ready. -->
 
-- [ ] One reader answers `green`/`red`/`unanswerable`, and a red base names the
+- [x] One reader answers `green`/`red`/`unanswerable`, and a red base names the
       merge that turned it red or answers `unattributable` (#20260827161954-write-read-base-checks-sh-the-one-checks-reader.md)
 - [ ] A red base reaches the attributed author once per commit, renders as an
       event, and is named in the driving run's report (#20260827161956-add-the-moderate-step-base-health.md)
@@ -50,3 +50,4 @@ than passing for green. Nothing merges differently and the QA window owns qualit
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-27 — ticket archived — 20260827161954-write-read-base-checks-sh-the-one-checks-reader.md

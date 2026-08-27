@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-27T16:19:54+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -105,3 +106,40 @@ and it never dresses a read it could not make as a green one.
   order, and it keeps the reader's contract arguable before any consumer depends on it.
 - Do not add a fourth value, and do not let `red` mean "probably red". A re-run can
   turn a red check green — which is exactly why the next tickets only report it.
+
+## Final Report
+
+Development completed as planned. `read-base-checks.sh` ships beside `claim-merged.sh`,
+answering `green` / `red` / `unanswerable` for one commit over
+`repos/{owner}/{repo}/commits/{sha}/check-runs` through `gather/scripts/gh-rest.sh`, exit 0
+in every case. Nothing calls it yet — that is the mission's order.
+
+Decisions taken and recorded in the script's header rather than left implicit:
+
+- **Check runs only, never the legacy combined-status endpoint.** Two calls per commit would
+  double the cost of the attribution walk that composes this reader. The limit is stated:
+  a repository whose CI reports only legacy commit statuses reads `no_checks`, hence
+  `unanswerable`, never `green`.
+- **A still-running check is `checks_pending`, not green** (the ticket's recommendation), and
+  **`red` outranks it** — a completed failure is a reading we did make and a later check
+  cannot un-fail it.
+- **`neutral` and `skipped` are successes**; `failure`, `timed_out`, `cancelled`,
+  `action_required` and `stale` are failures.
+- **A truncated page is `checks_truncated`**, not green — a green derived from a partial set
+  is exactly the confident wrong answer the reader exists to refuse.
+
+### Discovered Insights
+
+- **Insight**: `set -e` makes `[ cond ] && emit …` a script-ending statement when the
+  condition is false, because the compound's own status is 1 and it is not a condition.
+  **Context**: every early-exit in this file is written `if [ … ]; then emit …; fi` for that
+  reason. `claim-merged.sh` avoids it by structure rather than by rule, so a later reader
+  copying its shape into a guard chain would hit this silently — the script would exit 0 with
+  no output, which every JSON-parsing caller reads as a crash.
+
+- **Insight**: `verify.mjs`'s cross-skill closure detection keys on the literal
+  `${SCRIPT_DIR}/../../<skill>/scripts/` form, which is only writable from a skill's own
+  `scripts/` directory.
+  **Context**: this is why the reader is not in `lib/` despite reading like a library. The
+  build fans the closure out into six consuming skills under `outputs/workflows/`; from
+  `lib/` the reference needs a third `../` and ships with its transport missing.

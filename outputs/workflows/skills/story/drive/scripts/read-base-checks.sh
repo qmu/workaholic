@@ -1,0 +1,145 @@
+#!/bin/sh -eu
+# What did the base's checks say about ONE commit? The single reader of a check run in this
+# plugin, answering exactly that and nothing else.
+#
+# WHY IT EXISTS (2026-08-27, mission `read-whether-the-base-survived-what-the-loop-merged`).
+# Nothing here read a check run. The loop merges its own work onto `main` every half hour
+# and never learned what the base's checks then said, so a green base and a base nobody
+# looked at were one reading. The single approximation was `moderate/scripts/pulls-state.sh`,
+# which infers `blocked_by: checks` from one PULL REQUEST's `mergeable_state == unstable` —
+# a different question, asked of a different object, and unanswerable for a commit that is
+# already on the base.
+#
+# IT IS THREE-VALUED, AND THE THIRD VALUE IS THE POINT. `green` and `red` are facts about
+# the repository; `unanswerable` is a fact about US — no `gh`, a refused transport, a rate
+# limit, a response we could not parse, a commit nothing has checked, checks still running.
+# Collapsing any of those into `green` is the one failure this reader exists to prevent: a
+# base nobody looked at would then read exactly like a base that passed. `claim-merged.sh`
+# is the precedent and this copies its shape deliberately.
+#
+# A COMMIT WITH NO CHECKS IS NOT A GREEN COMMIT. It is `unanswerable` (`no_checks`) — the
+# reading was not made, and the most likely causes are that CI has not started yet or does
+# not run on this ref at all.
+#
+# A STILL-RUNNING CHECK IS `unanswerable` (`checks_pending`), NOT GREEN. The base has not
+# finished answering. The one exception is a check that has ALREADY concluded in failure:
+# `red` wins over `checks_pending`, because a completed failure is a reading we DID make and
+# a later check cannot un-fail it.
+#
+# IT READS CHECK RUNS ONLY, never the legacy combined-status endpoint. Two calls per commit
+# would double the cost of the attribution walk that composes this reader, and GitHub Actions
+# — which is what this repository and its consumers run — reports check runs. The limit is
+# stated rather than hidden: a repository whose CI reports ONLY legacy commit statuses reads
+# `no_checks`, hence `unanswerable`, and never `green`. That is the honest degradation; add
+# the second call when a repository that needs it is measured, not before.
+#
+# IT EXITS 0 IN EVERY CASE, INCLUDING EVERY DEGRADATION. A non-zero exit turns a degraded
+# read into a failed one for every caller downstream, and the callers here (a `/moderate`
+# step, a driving run's report) must be able to say what they could not read rather than
+# stop.
+#
+# WHY IT SITS IN `scripts/` RATHER THAN `lib/`, though a shell library would read naturally:
+# the bundle build detects a cross-skill closure only by the literal form
+# `${SCRIPT_DIR}/../../<skill>/scripts/`, which is only writable from `scripts/`. From inside
+# `lib/` the same reference needs a third `../` and `verify.mjs` reports it as undetectable —
+# so a reader in `lib/` would ship to every non-Claude agent with its transport missing. The
+# convention bends to the build, and the build's rule is the one with a failure mode.
+#
+# NOTHING MAY ACT ON WHAT THIS ANSWERS. All three words are JUDGEMENTS, not proofs — a
+# re-run can turn a red check green and a green one red, which is precisely the property a
+# proof must not have (`drive/reference/claims.md`, *Proofs and judgements*). Report it, ask
+# about it; never revert, re-run, gate, hold or merge on it.
+#
+# Usage: read-base-checks.sh <commit-sha>
+# Output: one JSON line
+#   {"ok": bool, "commit", "state": "green|red|unanswerable", "reason",
+#    "failing": [{"name", "conclusion"}]}
+#
+#   ok       false exactly when `state` is `unanswerable`; a reading we could not make.
+#   failing  non-empty only on `red`, naming every completed check that failed.
+
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+GH_REST="${SCRIPT_DIR}/../../gather/scripts//gh-rest.sh"
+
+COMMIT="${1:-}"
+
+# $1 state, $2 reason, $3 failing (JSON array). `ok` is derived from the state rather than
+# passed, so no call site can report a degradation as a successful read by forgetting a flag.
+emit() {
+    _ok=true
+    if [ "$1" = "unanswerable" ]; then _ok=false; fi
+    printf '{"ok": %s, "commit": "%s", "state": "%s", "reason": "%s", "failing": %s}\n' \
+        "$_ok" "$COMMIT" "$1" "${2:-}" "${3:-[]}"
+    exit 0
+}
+
+[ -n "$COMMIT" ] || emit unanswerable no_commit
+[ -f "$GH_REST" ] || emit unanswerable no_transport_script
+
+# NO SEPARATE AVAILABILITY PROBE, for `claim-merged.sh`'s reason: the probe would spend a
+# round trip to learn what the call itself reports, and this reader runs once per commit in a
+# walk. The failure of the one call is classified instead.
+slug=$(sh "$GH_REST" slug 2>/dev/null || true)
+case "$slug" in
+    */*) ;;
+    *) emit unanswerable slug_unresolved ;;
+esac
+
+# REPOSITORY-SCOPED REST, never `gh pr`/`gh issue`/`gh repo` (GraphQL-backed, and a web
+# session may 403 them mid-run — `rules/shell.md`). `search/*` is refused outright to a bound
+# session, so nothing here searches.
+if ! body=$(sh "$GH_REST" api \
+        "repos/${slug}/commits/${COMMIT}/check-runs?per_page=100" 2>&1); then
+    case "$body" in
+        *"not on PATH"*) emit unanswerable gh_unavailable ;;
+        *"rate limit"*|*"rate_limit"*|*"API rate"*) emit unanswerable rate_limited ;;
+        *"not enabled for this session"*|*"not permitted for this session"*)
+            emit unanswerable session_refused ;;
+        *"Not Found"*|*"404"*) emit unanswerable commit_not_found ;;
+        *) emit unanswerable transport_error ;;
+    esac
+fi
+
+# An unparseable body is ours too: it is never evidence that the checks passed.
+printf '%s' "$body" | jq -e 'type == "object" and (.check_runs | type == "array")' \
+    >/dev/null 2>&1 || emit unanswerable unparseable_response
+
+runs=$(printf '%s' "$body" | jq '.check_runs | length' 2>/dev/null || echo "")
+case "$runs" in ''|*[!0-9]*) emit unanswerable unparseable_response ;; esac
+
+total=$(printf '%s' "$body" | jq '.total_count // (.check_runs | length)' 2>/dev/null || echo "")
+case "$total" in ''|*[!0-9]*) total="$runs" ;; esac
+
+# WHAT COUNTS AS A FAILURE. `neutral` and `skipped` are successes for this purpose — a check
+# that deliberately did not apply says nothing bad about the commit — while `cancelled`,
+# `timed_out`, `action_required` and `stale` are named beside `failure` because each of them
+# means the check did not pass and a person would call the base broken.
+failing=$(printf '%s' "$body" | jq -c '
+    [ .check_runs[]
+      | select(.status == "completed")
+      | select(.conclusion == "failure" or .conclusion == "timed_out"
+               or .conclusion == "cancelled" or .conclusion == "action_required"
+               or .conclusion == "stale")
+      | {name: (.name // ""), conclusion: (.conclusion // "")} ]' 2>/dev/null || true)
+[ -n "$failing" ] || emit unanswerable unparseable_response
+
+failing_count=$(printf '%s' "$failing" | jq 'length' 2>/dev/null || echo "")
+case "$failing_count" in ''|*[!0-9]*) emit unanswerable unparseable_response ;; esac
+
+# RED FIRST, and deliberately: a completed failure is a reading we made, and neither a
+# pending sibling check nor a truncated page can make it false.
+if [ "$failing_count" -gt 0 ]; then emit red "" "$failing"; fi
+
+if [ "$runs" -eq 0 ]; then emit unanswerable no_checks; fi
+
+pending=$(printf '%s' "$body" | jq '[.check_runs[] | select(.status != "completed")] | length' \
+    2>/dev/null || echo "")
+case "$pending" in ''|*[!0-9]*) emit unanswerable unparseable_response ;; esac
+if [ "$pending" -gt 0 ]; then emit unanswerable checks_pending; fi
+
+# A PAGE WE DID NOT SEE IS A READING WE DID NOT MAKE. One page holds a hundred check runs, so
+# this is a corner — but a green derived from a partial set is exactly the confident wrong
+# answer this reader exists to refuse.
+if [ "$total" -gt "$runs" ]; then emit unanswerable checks_truncated; fi
+
+emit green

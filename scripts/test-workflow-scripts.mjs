@@ -14004,6 +14004,118 @@ function testClaimMergedReader() {
 }
 
 // ---------------------------------------------------------------------------
+// THE BASE-CHECKS READER (2026-08-27, mission
+// `read-whether-the-base-survived-what-the-loop-merged`). One question — what did the base's
+// checks say about THIS commit? — answered in three words, with the third one carrying every
+// reading we could not make.
+//
+// WHAT IS PINNED IS THE DIRECTION OF THE FAILURE. `green` is the only answer that can lie
+// silently: a base nobody looked at reading `green` is indistinguishable from a base that
+// passed, which is the whole defect the reader exists to close. So every degradation, a
+// commit with no checks at all, and a check still running are each asserted to be
+// `unanswerable` by name — never `green`, and never a non-zero exit.
+function testReadBaseChecks() {
+  const READER = join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/read-base-checks.sh");
+  const tmp = mkdtempSync(join(tmpdir(), "wh-base-checks-"));
+  const bin = join(tmp, "bin");
+  const repo = join(tmp, "repo");
+  const plain = join(tmp, "plain");
+  mkdirSync(bin, { recursive: true });
+  mkdirSync(repo, { recursive: true });
+  mkdirSync(plain, { recursive: true });
+  execSync("git init -q . && git remote add origin git@github.com:acme-org/source-repo.git", { cwd: repo });
+  const env = { ...process.env, PATH: `${bin}:${process.env.PATH}` };
+  const stub = (body) => {
+    writeFileSync(join(bin, "gh"), `#!/bin/sh\n${body}\n`);
+    chmodSync(join(bin, "gh"), 0o755);
+  };
+  const payload = (runs, total) => `echo '${JSON.stringify({
+    total_count: total === undefined ? runs.length : total, check_runs: runs })}'`;
+  const done = (name, conclusion) => ({ name, status: "completed", conclusion });
+  const read = (cwd = repo, sha = "d80b75aba229f9e61abd11bf7eeaf969ec97221f") => {
+    const r = run(cwd, `${POSIX_SH} ${READER} ${sha}`, { env });
+    return { ...JSON.parse(r.stdout), status: r.status };
+  };
+  try {
+    // GREEN. `neutral` and `skipped` are successes for this purpose: a check that deliberately
+    // did not apply says nothing bad about the commit.
+    stub(payload([done("build", "success"), done("lint", "neutral"), done("docs", "skipped")]));
+    assertEq("every completed check passing reads green",
+      [read().state, read().ok, read().reason, read().failing.length, read().status],
+      ["green", true, "", 0, 0]);
+
+    // RED NAMES THE FAILING CHECKS — the whole point of the answer, since a red tip with no
+    // names sends a person to the Actions tab to re-derive what the reader already knew.
+    stub(payload([done("build", "success"), done("Validate Plugins", "failure"),
+                  done("Outputs Freshness", "timed_out")]));
+    const red = read();
+    assertEq("a failing check reads red", [red.state, red.ok, red.status], ["red", true, 0]);
+    assertEq("and the failing checks are named with their conclusions",
+      red.failing, [{ name: "Validate Plugins", conclusion: "failure" },
+                    { name: "Outputs Freshness", conclusion: "timed_out" }]);
+
+    // RED OUTRANKS A PENDING SIBLING. A completed failure is a reading we DID make, and a
+    // check that has not finished cannot un-fail it.
+    stub(payload([done("build", "failure"), { name: "slow", status: "in_progress", conclusion: null }]));
+    assertEq("a failure beside a running check still reads red", read().state, "red");
+
+    // A COMMIT NOTHING CHECKED IS NOT A GREEN COMMIT. This is the reading the whole mission
+    // turns on: `no_checks` and `green` must never be the same word.
+    stub(payload([], 0));
+    assertEq("a commit with no checks at all is unanswerable, never green",
+      [read().state, read().ok, read().reason, read().status],
+      ["unanswerable", false, "no_checks", 0]);
+
+    // NOR IS A COMMIT STILL BEING CHECKED. The base has not finished answering yet.
+    stub(payload([done("build", "success"), { name: "slow", status: "queued", conclusion: null }]));
+    assertEq("a still-running check is unanswerable, never green",
+      [read().state, read().reason], ["unanswerable", "checks_pending"]);
+
+    // A PAGE WE DID NOT SEE IS A READING WE DID NOT MAKE.
+    stub(payload([done("build", "success")], 200));
+    assertEq("a truncated page is unanswerable, never green",
+      [read().state, read().reason], ["unanswerable", "checks_truncated"]);
+
+    // EVERY DEGRADATION IS OURS, AND EACH IS NAMED DISTINCTLY ENOUGH TO REPORT.
+    const degraded = [
+      [`echo "API rate limit exceeded" >&2; exit 1`, "rate_limited"],
+      [`echo "HTTP 403: This GraphQL query is not enabled for this session" >&2; exit 1`, "session_refused"],
+      // `gh-rest.sh` emits this exact line and exits 127 when `gh` is absent; the stub
+      // reproduces the message because a stub cannot reproduce its own absence.
+      [`echo "gh is not on PATH" >&2; exit 127`, "gh_unavailable"],
+      [`echo "gh: Not Found (HTTP 404)" >&2; exit 1`, "commit_not_found"],
+      [`echo boom >&2; exit 1`, "transport_error"],
+      [`echo 'not json at all'`, "unparseable_response"],
+      [`echo '{"message":"Bad credentials"}'`, "unparseable_response"],
+    ];
+    for (const [body, reason] of degraded) {
+      stub(body);
+      const r = read();
+      assertEq(`a degraded read is unanswerable, named ${reason}`,
+        [r.state, r.ok, r.reason, r.status], ["unanswerable", false, reason, 0]);
+    }
+
+    // NEITHER ARGUMENT NOR REPOSITORY IS ASSUMED.
+    stub(payload([done("build", "success")]));
+    assertEq("no commit argument is unanswerable, never green",
+      [read(repo, "").state, read(repo, "").reason], ["unanswerable", "no_commit"]);
+    assertEq("and a tree with no resolvable remote names that instead of guessing",
+      [read(plain).state, read(plain).reason], ["unanswerable", "slug_unresolved"]);
+
+    // GITHUB IS REACHED ONLY THROUGH THE ONE TRANSPORT (`rules/shell.md`).
+    const body = readFileSync(READER, "utf8").split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+    assertTrue("the reader reaches GitHub only through gh-rest.sh",
+      !/\bgh (issue|pr|repo|api)\b/.test(body) && body.includes("gh-rest.sh"), body.slice(0, 300));
+    assertTrue("...on a repository-scoped check-runs endpoint",
+      /repos\/\$\{slug\}\/commits\/\$\{COMMIT\}\/check-runs/.test(body), "the endpoint moved");
+    assertTrue("...and never through search, which a bound session refuses outright",
+      !/["' ]search\//.test(body), body.slice(0, 300));
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
+// ---------------------------------------------------------------------------
 // THE MERGED LOOKUP DEGRADES BY NAME, NOT BY GUESS (2026-08-26).
 //
 // `list-claims.sh` promises the reader degrades offline. The merged lookup makes a NETWORK
@@ -16376,6 +16488,7 @@ const tests = [
   ["drive/land-unit.sh: the third route, and the human gate that guards it", testLandUnit],
   ["drive claim protocol: a claim survives its tickets being archived", testClaimSurvivesArchive],
   ["drive/claim-merged.sh: merged, not merged, or unanswerable", testClaimMergedReader],
+  ["drive/read-base-checks.sh: green, red, or unanswerable", testReadBaseChecks],
   ["drive claim protocol: the merged lookup degrades by name", testMergedLookupDegradesByName],
   ["drive claim protocol: the merged-claim shape at both grains", testMergedClaimShapeAtBothGrains],
   ["drive claim protocol: a merged claim is never offered for resumption", testMergedClaimIsNeverResumable],

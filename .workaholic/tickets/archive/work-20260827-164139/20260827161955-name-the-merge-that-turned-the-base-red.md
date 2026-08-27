@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-27T16:19:55+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on: 20260827161954-write-read-base-checks-sh-the-one-checks-reader.md
@@ -97,3 +98,43 @@ tip because the walk ran out of room is the failure this outcome exists to preve
   say so in the header rather than encoding the assumption silently.
 - Attribution is a **judgement about a judgement**: the underlying red can be falsified
   by a re-run, so nothing downstream may act on this. Ticket 6 pins that.
+
+## Final Report
+
+Development completed as planned. `attribute-base-red.sh` walks the base tip backwards through
+ticket 1's reader, stops at the first `green`, and names the oldest `red` commit after it —
+with the pull request that landed it and that pull request's author, resolved over
+`repos/{owner}/{repo}/commits/{sha}/pulls`.
+
+Decisions taken, each recorded in the script's header:
+
+- **`state` carries `unattributable` as a fourth word** beside `green` / `red` /
+  `unanswerable`. `red` means a culprit was named; `unattributable` means the base *is* red
+  and no culprit could be. Three reasons, each distinct: `bound_exhausted`, `history_start`,
+  `unanswerable_in_walk:<reader reason>`.
+- **An unreadable commit inside the walk stops it.** That commit may itself be red, so the
+  oldest red seen so far is not provably the first one. Promoting it would be a guess wearing
+  an attribution's clothes — the exact failure `unattributable` exists to prevent.
+- **The bound is a commit count** (`WORKAHOLIC_BASE_ATTRIBUTION_MAX`, default 20), reported in
+  the output as `bound: {"max_commits": N}`. A time window was not added: one knob is enough,
+  and the ticket asked for "and/or".
+- **No local fetch.** The caller freshens; the tip walked is reported, so a stale ref is
+  visible rather than silently assumed current.
+- **`tip` is emitted** beside the shape the ticket named — ticket 3 keys its `unattributable`
+  question on the tip commit and would otherwise have to re-derive it.
+
+### Discovered Insights
+
+- **Insight**: the reader is called **once** per commit and both `state` and `reason` come out
+  of that one call (`read_commit` setting two globals), not from two invocations.
+  **Context**: the obvious `state_of` / `reason_of` pair doubles the walk's network cost — the
+  dominant cost of this script — and the two calls can genuinely disagree, because a check run
+  can conclude between them. A later reader adding a third field should extend `read_commit`
+  rather than add a fourth accessor.
+
+- **Insight**: `git rev-list --max-count=$((MAX + 1))` asks for one commit more than the bound
+  allows, which is what lets the walk tell `bound_exhausted` from `history_start` without a
+  second git call.
+  **Context**: the two answers send a person to different places — raise the bound, versus
+  this base has never been green in living memory — so collapsing them would lose the only
+  actionable half.

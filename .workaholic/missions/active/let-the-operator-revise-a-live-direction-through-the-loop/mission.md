@@ -41,7 +41,7 @@ with nothing written, and the ask still lands as a record.
 
 - [ ] A *changed* announcement naming a live slug opens a pull request carrying exactly
       that revision, and it does not auto-merge. (#20260827112528-route-the-changed-announcement-to-amend-sh.md)
-- [ ] `amend.sh` is the one writer of a live direction's three parts, refusing an
+- [x] `amend.sh` is the one writer of a live direction's three parts, refusing an
       immutable field, a closed direction and a floor breach with nothing written. (#20260827112528-write-amend-sh-the-one-writer-of-a-live-direction.md)
 - [ ] The reversal is pinned mechanically and written into every document recording
       "two writers and no third". (#20260827112528-write-the-third-writer-reversal-into-the-documents.md)
@@ -49,3 +49,4 @@ with nothing written, and the ask still lands as a record.
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-27 — ticket archived — 20260827112528-write-amend-sh-the-one-writer-of-a-live-direction.md

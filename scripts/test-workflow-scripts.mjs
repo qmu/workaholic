@@ -66,6 +66,7 @@ const SCRIPTS = {
   strategyList: join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/list.sh"),
   strategyRead: join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/read.sh"),
   strategyClose: join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/close.sh"),
+  strategyAmend: join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/amend.sh"),
   strategyAttributedWork: join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/attributed-work.sh"),
   missionStrategy: join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/mission-strategy.sh"),
   standupDigest: join(REPO_ROOT, "plugins/workaholic/skills/standup/scripts/digest.sh"),
@@ -539,10 +540,15 @@ function testClosableMissionsStep() {
 
 // ---------- direction-health: the three refusals, pinned (2026-08-26) ----------
 // The three refusals are the reason this reading was admissible at all, and PROSE HAS NOT HELD
-// THEM: the two-writers rule on the strategy artifact has been re-decided three times. A test is
+// THEM: the writer rule on the strategy artifact has been re-decided three times. A test is
 // what stops a fourth. Pinned here: the step writes nothing under `.workaholic/strategies/`, its
-// closure reaches neither `close.sh` nor `open-proposal.sh`, the artifact still has exactly two
+// closure reaches neither `close.sh` nor `open-proposal.sh`, the artifact has exactly three
 // writers, and running the step changes no `/propose` gate outcome.
+//
+// THE COUNT IS THREE SINCE 2026-08-27 and the move is recorded at the assertion itself. What the
+// step's own refusal pins is unchanged and is the load-bearing half here: `direction-health`
+// still never amends. It is `/specificate`'s *changed* route that reaches `amend.sh`, and
+// conflating a READING with a WRITE is precisely what this assertion exists to hold.
 //
 // BOUND, STATED RATHER THAN IMPLIED (the same spirit as `attributed-work.sh` naming its own
 // lossiness): the writer count is a grep over `strategy/scripts/`, so a writer reached
@@ -612,7 +618,19 @@ function testDirectionHealthRefusals() {
         !closure.includes(forbidden), closure.split("\n").filter((l) => l.includes(forbidden)).join("\n"));
     }
 
-    // 3. THE ARTIFACT STILL HAS EXACTLY TWO WRITERS, and the reader is not one of them.
+    // 3. THE ARTIFACT HAS EXACTLY THREE WRITERS, and the reader is not one of them.
+    // THE COUNT MOVED DELIBERATELY (2026-08-27, mission
+    // `let-the-operator-revise-a-live-direction-through-the-loop`): `amend.sh` joined
+    // `create.sh` and `close.sh` as the one writer of a LIVE direction's three revisable
+    // parts. The pin exists so a re-decision cannot happen silently, and moving it
+    // silently is exactly what it was written to catch — so what bounds the third writer
+    // is recorded here beside the number. `amend.sh` may touch `## Aim`, `target_date:` /
+    // `## Schedule` and `assignees:` and nothing else; it refuses a closed direction
+    // (`not_active`), asserts the immutable frontmatter over its own candidate before
+    // writing, and writes nothing on any refusal. The two-writer rule's PREMISE survives
+    // untouched: it existed to stop a machine AUTHORING the operator's direction, and a
+    // machine still only ever CARRIES a revision the operator announced, onto a pull
+    // request that never auto-merges (`publish-tree-pr.sh`, `strategy_touching`).
     // A writer is a script that REDIRECTS INTO or `mv`s ONTO a path under `strategies/`.
     // Reading that path is not writing it — `read.sh` and `attributed-work.sh` both open the
     // same file — so the detection resolves the path variables first (one hop, `DIR` then
@@ -636,13 +654,171 @@ function testDirectionHealthRefusals() {
           new RegExp(`(>\\s*"?\\$\\{?${v}\\b)|(\\bmv\\s+[^\\n]*"?\\$\\{?${v}\\b)`).test(body));
       })
       .sort();
-    assertEq("the strategy artifact still has exactly two writers", writers, ["close.sh", "create.sh"]);
+    assertEq("the strategy artifact has exactly three writers", writers, ["amend.sh", "close.sh", "create.sh"]);
     assertTrue("and direction-state.sh is not one of them", !writers.includes("direction-state.sh"), writers.join(","));
 
     // 4. NO `/propose` GATE OUTCOME MOVED. The weakest assertion of the four — the step is a
     // pure read and could pass it trivially — and kept because the failure it guards against,
     // a future edit that lets a READING lift a GATE, is the one the ask names by name.
     assertEq("the survey's gate outcomes are unchanged by the step", surveyOf(), before);
+  } finally { cleanup(A); }
+}
+
+// ---------- strategy/amend.sh: the third writer, bounded (2026-08-27) ----------
+// The strategy artifact had two writers and no third, so an announced *change* was
+// record-only and the operator applied it BY HAND on `main` — the one act in this
+// repository that required a person to edit the base directly. `amend.sh` is the third
+// writer, and its whole admissibility rests on a set of refusals rather than on prose:
+// it touches only the three revisable parts, refuses a closed direction, and WRITES
+// NOTHING on any refusal.
+//
+// The byte-identity assertions are the point, not decoration. The tempting shape is to
+// write first and revert on a breach; a revert is a SECOND WRITE, and what this artifact
+// needs is the guarantee that a refusal never wrote at all.
+function testStrategyAmend() {
+  const A = makeRepo("main");
+  const F = join(A, ".workaholic/strategies/ship-the-platform.md");
+  const REL = ".workaholic/strategies/ship-the-platform.md";
+  const read = () => readFileSync(F, "utf8");
+  const amend = (args) =>
+    JSON.parse(run(A, `${POSIX_SH} ${SCRIPTS.strategyAmend} ${args} .workaholic`).stdout || "{}");
+  const fm = (body, key) => (body.match(new RegExp(`^${key}:.*$`, "m")) || [""])[0];
+  try {
+    run(A, `printf 'Build the platform.\\n' | ${POSIX_SH} ${SCRIPTS.strategyCreate} ` +
+      `'Ship the platform' 2026-09-30 'a@example.com' 'Start now, freeze in October.' ` +
+      `'20260101000000-x.md' .workaholic`);
+    assertTrue("the fixture strategy exists", existsSync(F));
+    const created = read();
+
+    // 1. EACH REVISABLE PART, ALONE. Every other field stays byte-identical — that is
+    //    what "bounded to three parts" has to mean at the file, not at the interface.
+    const untouched = (body, why) => {
+      for (const key of ["type", "title", "slug", "status", "feedback", "created_at", "author"]) {
+        assertEq(`${why}: ${key} is byte-identical`, fm(body, key), fm(created, key));
+      }
+    };
+
+    assertEq("a moved date is reported as one revision",
+      amend("ship-the-platform --target-date 2026-10-31").revised, ["target_date"]);
+    let body = read();
+    assertEq("and the frontmatter date moved", fm(body, "target_date"), "target_date: 2026-10-31");
+    assertTrue("and the Schedule states the date once, not twice",
+      body.includes("Target: 2026-10-31") && !body.includes("Target: 2026-09-30"), body);
+    untouched(body, "after a date revision");
+
+    assertEq("a sharpened aim is reported as one revision",
+      amend("ship-the-platform --aim 'Build the platform, not a document about it.'").revised, ["aim"]);
+    body = read();
+    assertTrue("and the Aim prose is the new one",
+      /## Aim\n\nBuild the platform, not a document about it\.\n/.test(body), body);
+    untouched(body, "after an aim revision");
+
+    assertEq("a changed assignee is reported as one revision",
+      amend("ship-the-platform --assignees 'b@example.com, c@example.com'").revised, ["assignees"]);
+    body = read();
+    assertEq("and the owner moved", fm(body, "assignees"), "assignees: [b@example.com, c@example.com]");
+    untouched(body, "after an assignee revision");
+
+    assertEq("the Schedule prose is revisable too",
+      amend("ship-the-platform --schedule 'Two milestones, then a freeze.'").revised, ["schedule"]);
+    body = read();
+    assertTrue("and the operator's prose replaced the old", body.includes("Two milestones, then a freeze."), body);
+    assertTrue("while the Target line survived the replacement", body.includes("Target: 2026-10-31"), body);
+    untouched(body, "after a schedule revision");
+
+    // 2. TOGETHER, in one call.
+    assertEq("several parts move in one call",
+      amend("ship-the-platform --target-date 2026-11-15 --assignees 'a@example.com'").revised,
+      ["target_date", "assignees"]);
+    const applied = read();
+    untouched(applied, "after a combined revision");
+
+    // 3. IDEMPOTENT. A revision already applied leaves the file byte-identical and
+    //    reports `already`, exactly as close.sh does on a re-close.
+    const again = amend("ship-the-platform --target-date 2026-11-15 --assignees 'a@example.com'");
+    assertEq("a re-applied revision reports already", [again.amended, again.reason], [true, "already"]);
+    assertEq("and the file is byte-identical", read(), applied);
+
+    // 4. EVERY REFUSAL, BY NAME, WITH NOTHING WRITTEN. `bad_target_date` / `no_assignees`
+    //    / `empty_schedule` / `empty_aim` are create.sh's names verbatim: one artifact
+    //    must not acquire two names for one refusal.
+    const refusals = [
+      ["ship-the-platform --target-date not-a-date", "bad_target_date"],
+      ["ship-the-platform --assignees '  ,  '", "no_assignees"],
+      ["ship-the-platform --schedule '   '", "empty_schedule"],
+      ["ship-the-platform --aim '  '", "empty_aim"],
+      ["ship-the-platform", "no_revision"],
+      ["absent-direction --target-date 2027-01-01", "not_found"],
+      ["ship-the-platform --bogus x", "bad_option"],
+    ];
+    for (const [args, reason] of refusals) {
+      assertEq(`refused ${reason}`, amend(args).reason, reason);
+      assertEq(`and ${reason} wrote nothing`, read(), applied);
+    }
+
+    // 5. A CLOSED DIRECTION IS HISTORY. `close.sh` stays the only writer of an end state,
+    //    and re-opening is not offered here either.
+    run(A, `${POSIX_SH} ${SCRIPTS.strategyClose} ship-the-platform achieved .workaholic`);
+    const closed = read();
+    assertEq("a closed direction is refused not_active",
+      amend("ship-the-platform --target-date 2027-01-01").reason, "not_active");
+    assertEq("and the closed file is byte-identical", read(), closed);
+
+    // 6. THE REVISION IS RECORDED IN THE SCHEDULE PROSE, APPEND-ONLY. A reader who sees
+    //    only the current values cannot tell a direction that has always said this from
+    //    one re-dated twice, so one short line goes where the history already lives.
+    const revLines = (body) => body.split("\n").filter((l) => /^Revised \d{4}-\d{2}-\d{2}: /.test(l));
+    const lines = revLines(applied);
+    assertEq("each revision appended exactly one line", lines.length, 5);
+    assertTrue("naming what moved and when",
+      /^Revised \d{4}-\d{2}-\d{2}: target date, assignee\.$/.test(lines[4]), lines.join("\n"));
+    assertEq("in order, the first unrewritten", lines[0], `Revised ${lines[0].slice(8, 18)}: target date.`);
+    assertTrue("inside the Schedule section, after the operator's prose",
+      applied.indexOf("Two milestones, then a freeze.") < applied.indexOf(lines[4]) &&
+      applied.indexOf("## Schedule") < applied.indexOf(lines[0]), applied);
+    assertEq("and a no-op appended nothing", revLines(read()).length, 5);
+
+    // 7. THE FLOOR HOLDS AT THE WRITER, over the POST-REVISION artifact.
+    //    `hooks/validate-strategy.sh` GRANDFATHERS git-tracked files, and every strategy
+    //    an amendment touches is git-tracked — so the hook is silent on exactly this
+    //    class of write and the writer must carry the floor itself.
+    const hollow = join(A, ".workaholic/strategies/hollow.md");
+    writeFileSync(hollow,
+      "---\ntype: Strategy\ntitle: Hollow\nslug: hollow\nstatus: active\ntarget_date: 2026-09-30\n" +
+      "assignees: [a@example.com]\nfeedback: []\n---\n\n# Hollow\n\n## Aim\n\n## Schedule\n\nTarget: 2026-09-30\n");
+    const hollowBefore = readFileSync(hollow, "utf8");
+    const floored = JSON.parse(run(A,
+      `${POSIX_SH} ${SCRIPTS.strategyAmend} hollow --target-date 2026-10-31 .workaholic`).stdout);
+    assertEq("a post-revision floor breach is refused by create.sh's own name",
+      [floored.amended, floored.reason], [false, "empty_aim"]);
+    assertEq("and nothing was written", readFileSync(hollow, "utf8"), hollowBefore);
+
+    //    And a valid amendment satisfies the hook BY CONSTRUCTION — asserted against the
+    //    hook itself rather than against a remembered list of its properties. The amended
+    //    content is probed at an UNTRACKED path on purpose: at its own path the hook would
+    //    exit 0 by GRANDFATHERING, which proves nothing about the content and is exactly
+    //    the silence the writer-side floor exists to cover.
+    const probe = join(A, ".workaholic/strategies/probe-amended.md");
+    writeFileSync(probe, applied);
+    const hookOf = (p) => run(A,
+      `printf '%s' '${JSON.stringify({ tool_input: { file_path: p } })}' | ${POSIX_SH} ${SCRIPTS.validateStrategy}`);
+    assertEq("an amended strategy passes validate-strategy.sh on its content", hookOf(probe).status, 0);
+    rmSync(probe);
+    const hollowProbe = join(A, ".workaholic/strategies/probe-hollow.md");
+    writeFileSync(hollowProbe, hollowBefore);
+    assertEq("and the fixture the writer refused is one the hook would refuse too",
+      hookOf(hollowProbe).status, 2);
+    rmSync(hollowProbe);
+
+    // 8. THE IMMUTABLE FIELDS ARE UNREACHABLE FROM THE INTERFACE. Not a restatement of
+    //    the assertion above: that one reads the file, this one reads what a caller can
+    //    ASK for. A flag that named `status` or `feedback` would be the third writer
+    //    becoming a second author.
+    const src = readFileSync(SCRIPTS.strategyAmend, "utf8")
+      .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+    const flags = [...src.matchAll(/^\s*(--[a-z-]+)\)/gm)].map((m) => m[1]).sort();
+    assertEq("the interface offers exactly the revisable parts", flags,
+      ["--aim", "--assignees", "--schedule", "--target-date"]);
   } finally { cleanup(A); }
 }
 
@@ -16262,6 +16438,7 @@ const tests = [
   ["drive/archive.sh: closes a mission it can prove is finished", testArchiveClosesAProvenMission],
   ["moderate/step-closable-missions.sh: finished, and still open", testClosableMissionsStep],
   ["moderate/step-direction-health.sh: the three refusals hold", testDirectionHealthRefusals],
+  ["strategy/amend.sh: the third writer, bounded", testStrategyAmend],
   ["moderate/step-unanswered-asks.sh: what is waiting, asked exactly once", testUnansweredAsksStep],
   ["moderate: the tick log survives the container that wrote it", testModeratePersist],
   ["moderate: the lines written after the persist reach the base too", testModeratePersistCarriesLateLines],

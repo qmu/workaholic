@@ -473,6 +473,55 @@ writes are one REST `PATCH` closing a pull request and one branch delete: no com
 mission closed, no ticket moved, no story edited. Run it from the main checkout — git cannot
 remove the worktree you are standing in.
 
+### When an act of the retirement is refused
+
+**Each blocked act reports its own word** (2026-08-27, mission
+`finish-the-retirement-the-loop-cannot-complete`). The closing branch answered
+`partial_retirement` for all three until then, so a refused pull-request close, a refused branch
+delete and a dirty worktree read alike and only the first kept a note — measured on this
+repository, three units reported `partial_retirement` for a **branch delete** and nothing in the
+tick log said so. The words are `gh_unavailable` / `slug_unresolved` /
+`pull_request_close_failed` for the close, **`branch_delete_failed`** for the delete, and
+`worktree_reap_refused` for the reap; they are derived from the three act states already on the
+row, in act order, so the reason names the first blocked act while the row's states show every
+one. `partial_retirement` is retired.
+
+**The new word belongs to the retirement's vocabulary, not the oracle's.** It is not a
+`resume_reason` and must never be added to the tables above: `lib/claims.sh` does not emit it,
+nothing keys a takeover or a survey on it, and `superseded`'s classification as a **proof** is
+untouched by it. What the word describes is the outcome of an act taken *because* of the proof —
+a different axis from what the claim reads.
+
+**Act 2 is refused in the container the loop runs in, and no transport can take it.** Measured
+2026-08-27 in a routine-fired container, against a claim already proved `superseded` here:
+
+| Transport | Answer |
+| --------- | ------ |
+| `git push origin --delete <branch>` | `error: RPC failed; HTTP 403 curl 22 The requested URL returned error: 403` |
+| `DELETE /repos/{owner}/{repo}/git/refs/heads/{branch}` via `gh-rest.sh` | `403 {"message":"Write access to this GitHub API path is not permitted through this proxy."}` |
+
+The two transports **agree**, and the refusal is a **session-type** one — not a protection rule
+(which answers `422` naming the rule) and not a missing scope (which answers a permissions
+message). An ordinary `git push` of the same branch succeeds in the same container, so it is the
+delete specifically that is refused. The 2026-08-05 note in `retire-claim.sh` predicted this and
+called it "not fatal"; it is fatal to the mechanism's purpose, since unmerged remote branches are
+the only claim oracle.
+
+**No second transport exists, and that is the recorded finding rather than an open gap.** REST is
+refused above, and the GitHub connector exposes `create_branch` and `list_branches` but **no
+branch- or ref-delete surface at all** — so there is nothing for a `rules/shell.md`-style bounded
+retry to attempt, in the script or in its caller. A second REST attempt is deliberately **not**
+made: it is measured to answer 403, and a call that cannot succeed is noise with a cost. A later
+session looking for a retry should find this paragraph rather than re-derive it; if the connector
+ever gains a ref-delete surface, that is when the question reopens.
+
+**So the blocked retirement is reported and asked about, and nothing more.** The caller renders
+the acts that stand beside the act that is blocked, and `/moderate`'s `retire-claims` step asks
+the **claim holder** once — keyed `retire-blocked:<unit>`, naming the exact branch left on origin
+— which is the whole licence a blocked act carries. Nothing releases the claim, reopens the pull
+request, re-runs the delete on the strength of an answer, or touches the `superseded` verdict.
+Drilled with no network by `sh scripts/e2e/loop-drill.sh verify-retire`.
+
 ## Heartbeat mechanics
 
 `heartbeat.sh` pushes an empty commit through `commit.sh --allow-empty`, so coordination markers

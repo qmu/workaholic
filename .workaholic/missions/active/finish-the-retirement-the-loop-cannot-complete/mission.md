@@ -51,3 +51,4 @@ blocked, and a standing blocked retirement stops reading as a fresh hourly findi
 ## Changelog
 
 - 2026-08-27: proposed from issue #667 (`depth`).
+- 2026-08-27 — ticket archived — 20260827232222-reproduce-the-refused-branch-delete-and-name-it.md

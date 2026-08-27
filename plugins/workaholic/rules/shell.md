@@ -86,6 +86,29 @@ This is a **conversion, not a fallback**. A REST-after-GraphQL ladder would keep
 behaviours to reason about and still fail whenever the 403 arrived in a shape the ladder
 did not expect. One always-available transport cannot drift.
 
+**The qualification was not extended to a branch delete, and the reason is measured** (2026-08-27,
+mission `finish-the-retirement-the-loop-cannot-complete`). `retire-claim.sh`'s Act 2 is refused on
+every tick in the container the loop runs in, so it is the obvious next candidate for a bounded
+second attempt. It gets none, because **no second transport can take the act**:
+
+| Transport | Answer, measured in a routine-fired container |
+| --------- | -------------------------------------------- |
+| `git push origin --delete <branch>` | `error: RPC failed; HTTP 403 curl 22 The requested URL returned error: 403` |
+| `DELETE /repos/{owner}/{repo}/git/refs/heads/{branch}` via `gh-rest.sh` | `403 {"message":"Write access to this GitHub API path is not permitted through this proxy."}` |
+| the GitHub connector | **no branch- or ref-delete surface exists** — it exposes `create_branch` and `list_branches` and nothing that removes a ref |
+
+The refusal is a **session-type** one on both transports — not a protection rule (`422`, naming
+the rule) and not a missing scope (a permissions message) — and an ordinary `git push` of the same
+branch succeeds in the same container, so it is the delete specifically that is refused. There is
+therefore nothing to retry: a second REST attempt is measured to answer 403, and a call that
+cannot succeed is noise with a cost. **This is the finding, not a gap left open** — a later
+session looking for the retry should stop here rather than re-derive it. The blocked act is
+reported by its own word (`branch_delete_failed`) and reaches its claim holder as one question,
+which is the whole repair available; full record in
+`skills/drive/reference/claims.md`, *When an act of the retirement is refused*. If the connector
+ever gains a ref-delete surface, the question reopens on exactly the bounds above: one tool, one
+named precondition, one act, both outcomes reported.
+
 `gh release …` is **not** covered — it is REST-backed, and `ship/scripts/publish-release.sh`
 uses it correctly.
 

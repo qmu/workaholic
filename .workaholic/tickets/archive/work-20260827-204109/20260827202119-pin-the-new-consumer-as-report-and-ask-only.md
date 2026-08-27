@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-27T20:21:19+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -79,3 +80,37 @@ site.
   it. The pin must not be written in a way that blesses acting on it.
 - Keep the assertion keyed on the verdict word the scripts emit, not on a step name spelled
   twice; a renamed step should still be covered.
+
+## Final Report
+
+The existing pin was read end to end first: it already enumerates the two **acting** consumers
+(`retire-claim.sh`, `retry-undelivered.sh`), each gating on a proof read out of its own source,
+and covers the base-health sub-table. What it had no shape for was a **reporting** consumer, and
+that is what this ticket added to `testProofJudgementSplit`:
+
+- `awaiting_verification` is asserted still classified `judgement`, read out of the table.
+- `step-handoff-units.sh` is enumerated as its reporting consumer — named once, not discovered by
+  glob — asserted to actually read the verdict, and asserted to reach **no** acting call site:
+  `/merge`, `merge_pull_request`, `retire-claim.sh`, `release-claim.sh`, `claim.sh resume`,
+  `git push`, `git revert`, `git reset --hard`, `close.sh`, `publish-tree-commit.sh`,
+  `publish-tree-pr.sh`, `--method PUT|PATCH|DELETE`, `record-merge-outcome.sh`, `archive.sh`.
+- The pair from the third ticket cannot drift: `stalled-units` is asserted to carry the
+  `!= "awaiting_verification"` filter, and `handoff-units` to carry the `handoff-unit:` key —
+  one step asks and the other filters, and either half alone is a defect.
+- **No classifier function**: seven drive scripts are asserted to carry neither `proof` nor
+  `judgement` on a non-comment line, so the classification stays in `claims.md` and nowhere else.
+  No artifact field was introduced.
+
+The assertions are keyed on the **verdict word**, not on a step name spelled twice.
+
+**All three breaks were introduced and observed to fail** (a pin nobody has seen fail is a pin
+nobody knows works):
+
+| Break | Row that went red |
+| ----- | ----------------- |
+| the `awaiting_verification` row changed to **proof** | `awaiting_verification is still a judgement…` (and, as expected, `superseded and report_undelivered are the only proofs`) |
+| `retire-claim.sh` called from `step-handoff-units.sh` | `step-handoff-units.sh reports and asks — it never reaches retire-claim.sh` |
+| the `!= "awaiting_verification"` filter deleted | `stalled-units no longer asks about awaiting_verification` |
+
+Each was reverted after observation. Unbroken: `node scripts/test-workflow-scripts.mjs` — 4138
+passed, 0 failed.

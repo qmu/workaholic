@@ -21248,6 +21248,12 @@ function testModerateRun() {
     // right up to the moment it finished. Same placement and same reason: it reads, the
     // check-in asks.
     "undelivered-units",
+    // `handoff-units` (2026-08-27): a unit whose still-queued work was DECLARED unverifiable in
+    // an unattended environment at creation. §6 routes it to the handoff route — pull request
+    // open on purpose, claim standing on purpose — and until this step nothing read the verdict
+    // again, so the one surface that names a person never learned there was anything to say.
+    // Same placement and same reason as its neighbours: it reads, the check-in asks.
+    "handoff-units",
     // `retire-claims` (2026-08-27): the one step beside these that ACTS instead of asking. A
     // claim the oracle reads `superseded` is PROVED to hold nothing, so there is no judgement
     // for a person to make — and `superseded` had been reported-never-acted-on since it

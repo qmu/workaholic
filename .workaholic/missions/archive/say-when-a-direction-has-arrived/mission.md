@@ -59,3 +59,4 @@ dry is still dormant, and nothing closes a direction on its own reading.
 - 2026-08-27 — ticket archived — 20260827142444-drill-the-arrival-readings-with-no-network.md
 - 2026-08-27 — ticket archived — 20260827142444-write-the-arrival-reading-into-the-documents.md
 - 2026-08-27 — mission achieved — mission.md
+- 2026-08-27 — story reported — work-20260827-144111.md

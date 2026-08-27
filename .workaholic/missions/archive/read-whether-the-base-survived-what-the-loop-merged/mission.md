@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 0.8
 feedback: [20260827161640-read-whether-the-base-survived-what-the-loop-merged.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
@@ -60,3 +60,4 @@ than passing for green. Nothing merges differently and the QA window owns qualit
 - 2026-08-27 — ticket archived — 20260827162004-write-the-base-reading-into-the-documents.md
 - 2026-08-27 — mission achieved — mission.md
 - 2026-08-27 — story reported — work-20260827-164139.md
+- 2026-08-27 — run recorded (+0.8h) — session_01Tyi8dsN6Y8P6qUknVe8UyA

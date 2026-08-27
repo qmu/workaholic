@@ -17,14 +17,36 @@ command, hook, or routine puts one on `main` on its own.
 **The one drafting exemption** (2026-08-14): `/specificate` may draft a strategy into its proposal
 pull request, and **that pull request never auto-merges**, so the file still reaches `main` only
 when a human merges it — the operator's merge is the authorship. Everything else holds unchanged:
-`create.sh` is still the only writer, `close.sh` still the only writer of an end state, `/drive`
+`close.sh` is still the only writer of an end state, `/drive`
 still never surveys a strategy, and the bar `/specificate` must clear is all three parts present in
 the ask (a date, a named owner, an aim with no decomposable plan) or it emits nothing
 (`workaholic:specificate`, *The strategy form, and the one rule it widens*). The same exemption
 covers `close.sh` when an ask **announces** that a named strategy ended — matched by explicit
-slug only, never by title similarity. There is still no third writer: nothing edits a live
-strategy's Aim, Schedule or Assignee, so an announced *change* is captured as feedback and
-applied by the operator.
+slug only, never by title similarity.
+
+**There are three writers, and the third arrived on 2026-08-27** (mission
+`let-the-operator-revise-a-live-direction-through-the-loop`): `create.sh` creates, **`amend.sh`
+revises a live direction's `## Aim`, Schedule and Assignee**, `close.sh` ends. Nothing else writes
+the file. Until then an announced *change* was captured as feedback and applied by the operator by
+hand on `main` — the one act in this repository that required a person to edit the base directly.
+
+**What did not move, and why the authorship premise survives.** The two-writer rule was written to
+stop a machine **authoring** the operator's direction, and it holds: `amend.sh` carries a revision
+the operator **announced by explicit slug** (`/specificate` step 9d), onto a pull request that
+**never auto-merges** — and since the same change that is the publish seam's own refusal
+(`publish-tree-pr.sh` → `merge_reason: strategy_touching`) rather than a caller's judgement, so
+the operator's merge is still the authorship. No routine amends on its own reading of a direction:
+`/moderate`'s `direction-health` step asks a person and writes nothing. `close.sh` is still the
+only writer of an end state and re-opening is offered nowhere. `/drive` still never surveys a
+strategy. Matching is still by explicit slug only. The citation still runs strategy → feedback one
+way, and the retired `strategy:` relation stays retired.
+
+**The third writer is bounded, and the bounds are the reason it is admissible.** Only the three
+parts this model calls revisable are reachable from its interface; `slug`, `type`, `status`,
+`created_at`, `author` and `feedback:` are asserted immutable over its own candidate before it
+writes. A closed direction is refused `not_active`. Every floor breach is refused with **nothing
+written** — no partial write, no staged half, no write-then-revert. And each revision appends one
+dated line to `## Schedule` saying what moved, so the artifact carries its own history.
 
 ## The model
 
@@ -124,9 +146,14 @@ partition.
 ## Scripts
 
 ```bash
-# Create — the only writer. Body (the ## Aim prose) arrives on stdin.
+# Create — the writer that mints one. Body (the ## Aim prose) arrives on stdin.
 printf '%s\n' "<aim prose>" | bash ${CLAUDE_PLUGIN_ROOT}/skills/strategy/scripts/create.sh \
   "<title>" <target-date YYYY-MM-DD> "<assignee-email>[,<assignee-email>...]" "<schedule prose>" ["<feedback-ref>,..."]
+
+# Amend — the ONLY writer of a LIVE direction's three revisable parts. Aim prose on
+# stdin with `--aim -`. At least one revision, or it refuses `no_revision`.
+bash ${CLAUDE_PLUGIN_ROOT}/skills/strategy/scripts/amend.sh <slug> \
+  [--target-date <YYYY-MM-DD>] [--schedule "<prose>"] [--assignees "<a>[,<b>...]"] [--aim -]
 
 # Which strategy a mission belongs to — the inverse of the attribution walk. Pure read.
 bash ${CLAUDE_PLUGIN_ROOT}/skills/strategy/scripts/mission-strategy.sh [--root <dir>] [<mission-slug>...]
@@ -182,8 +209,9 @@ would double the question a consumer asks about it.
 **`none` rides the same output as the per-strategy list** on purpose: a caller asking *what is
 the direction layer doing* must not have to call twice to learn that it is empty.
 
-**What it does not answer.** It never closes, never proposes, never lifts a gate and writes
-nothing — the artifact still has exactly two writers. It is not a second `pace`: `pace` answers
+**What it does not answer.** It never closes, never proposes, never **amends**, never lifts a gate
+and writes nothing — reading a direction's state and writing one are different acts, and
+`amend.sh` is reached only from `/specificate`'s announcement route. It is not a second `pace`: `pace` answers
 *will this arrive*, `overdue` answers *has the date passed*, `dormant` answers *is anything
 answering this at all*. It inherits the survey's lossiness and reports it: `dormant` requires
 `owns == "mine"` upstream, so **another identity's direction can only ever read `live` or
@@ -194,13 +222,17 @@ already holding that read passes `--open-proposals` through. A survey that refus
 `readable: false`, `repository: "unreadable"`, the survey's own reason carried through, and
 **exit 0** — a reader that could not read is reported, never rendered as quiet.
 
-**The refusals are pinned mechanically, not by this prose** (2026-08-26). The two-writers rule on
-this artifact has been re-decided three times, so `scripts/test-workflow-scripts.mjs` now fails if
-`/moderate`'s `direction-health` step writes anywhere under `.workaholic/strategies/`, if its
-closure reaches `close.sh` or `open-proposal.sh`, if a **third** writer of the strategy file
-appears under `strategy/scripts/`, or if running the step changes any `/propose` gate outcome. The
-writer count is a grep and its bound is stated in the test: a writer reached *indirectly* would
-pass it, so it catches the failure that has actually happened rather than every possible one.
+**The refusals are pinned mechanically, not by this prose** (2026-08-26, count moved 2026-08-27).
+The writer rule on this artifact has been re-decided three times, so
+`scripts/test-workflow-scripts.mjs` fails if `/moderate`'s `direction-health` step writes anywhere
+under `.workaholic/strategies/`, if its closure reaches `close.sh`, `amend.sh` or
+`open-proposal.sh`, if the set of writers under `strategy/scripts/` is anything other than
+`amend.sh`, `close.sh`, `create.sh`, or if running the step changes any `/propose` gate outcome.
+**The count moved from two to three deliberately and the move is recorded at the assertion
+itself** — the pin exists so a re-decision cannot happen silently, and moving it silently is
+exactly what it was written to catch, so a **fourth** writer still fails it. The writer count is a
+grep and its bound is stated in the test: a writer reached *indirectly* would pass it, so it
+catches the failure that has actually happened rather than every possible one.
 
 ## The write-time floor
 
@@ -209,3 +241,12 @@ pass it, so it catches the failure that has actually happened rather than every 
 `YYYY-MM-DD` `target_date`, non-empty `assignees`, and non-empty `## Aim` and `## Schedule`
 sections. Like its siblings it checks **presence, never quality**, and **git-tracked files are
 grandfathered** — history is never retro-blocked.
+
+**The hook does not cover an amendment, and `amend.sh` carries the floor instead** (2026-08-27).
+Every strategy an amendment touches is by definition already git-tracked, so the grandfathering
+makes the hook silent on exactly that class of write — the one class where the file was not
+freshly authored by a human looking at it. `amend.sh` therefore evaluates the three properties
+over its **post-revision candidate** before touching the artifact, refusing under `create.sh`'s
+own names (`bad_target_date` / `no_assignees` / `empty_schedule` / `empty_aim`) with **nothing
+written**. Write-then-revert is refused as a design: a revert is a second write, and what this
+artifact needs is that a refusal never wrote.

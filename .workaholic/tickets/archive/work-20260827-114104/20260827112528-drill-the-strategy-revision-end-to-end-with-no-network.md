@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-27T11:25:28+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -71,3 +72,37 @@ makes on the operator's behalf, and its whole safety rests on a set of refusals.
 - The drill is operator tooling outside the plugin and assumes the server's full `gh` and
   `qfs`; it ships to no other agent. Keep the plugin's own hermetic suite the place where
   `amend.sh`'s unit behaviour is pinned, and keep this drill about the path.
+
+## Final Report
+
+Development completed as planned. `verify-revision` runs over local fixtures with the transport
+stubbed and **no network**: the strategy half is local files, the publish half a local bare
+origin with `gh` on `PATH`. Eleven load-bearing rows. The three successes are drilled separately
+— a date moved (both the frontmatter and the `Target:` line, one recorded line), an aim sharpened
+through the stdin form, an assignee changed — each asserting the revised part changed, every
+other field byte-identical and the `## Schedule` line appended in order. The refusals are drilled
+by name with the artifact's hash asserted untouched: `no_revision`, a floor breach
+(`no_assignees`), an immutable field (`bad_option`), a closed direction (`not_active`), plus the
+no-op appending nothing. The exemption is drilled beside them: a publish whose tree touches
+`.workaholic/strategies/` reports `strategy_touching` and stays open with
+`WORKAHOLIC_AUTO_MERGE=1` set — the stub answers a **successful** merge on purpose, so the
+refusal cannot pass for the wrong reason.
+
+**The deliberately broken row is `revision_immutable_field_unreachable`, and it was observed
+failing**: adding a `--status` case to `amend.sh`'s option loop turned exactly that row red
+(10 passed, 1 failed) while every other row stayed green, and the writer was restored
+byte-identical. The drill was also run with every proxy variable unset and passed unchanged,
+which is what makes the no-network claim a measurement rather than an assertion. Registered in
+`docs/loop-drill-runbook.md` (§5l-bis, the summary table, and a failure-reason → file blame row
+for each of the eleven) and in `CLAUDE.md`'s drill enumeration.
+
+### Discovered Insights
+
+- **Insight**: a row that only checked the refusal *word* would pass a writer that wrote and
+  then rolled back, so every refusal row asserts the artifact's hash across the call.
+  **Context**: "a refusal never wrote" and "a refusal left no net change" are different
+  contracts, and only the first is what this artifact needs.
+- **Insight**: the drill's own `revision_writes_nothing` row is what catches a fixture that
+  escaped its temp directory — every path here is under `mktemp -d`, including the publish
+  origin, so the drill can be run from a dirty checkout without confusing its own result.
+  **Context**: the same shape `verify-retire` uses; worth copying rather than re-deriving.

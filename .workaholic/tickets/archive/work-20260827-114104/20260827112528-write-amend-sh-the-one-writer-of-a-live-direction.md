@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-27T11:25:28+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -93,3 +94,29 @@ model calls revisable.
 - `validate-strategy.sh` grandfathers git-tracked files, so it will not catch a malformed
   amendment of a committed strategy. The floor must therefore be enforced in the writer,
   which is the next ticket's subject.
+
+## Final Report
+
+Development completed as planned. `strategy/scripts/amend.sh` is the third writer, POSIX
+`#!/bin/sh -eu`, optional trailing `.workaholic` root, one JSON object, `reason: already`
+on a no-op — indistinguishable from `create.sh` and `close.sh` in dialect and shape. It
+revises `## Aim`, `target_date:` / `## Schedule` and `assignees:`, alone or together, and
+refuses `no_slug` / `not_found` / `not_active` / `no_revision` / `bad_target_date` /
+`no_assignees` / `empty_schedule` / `empty_aim` / `immutable_field` / `bad_option` /
+`missing_value` with nothing written. It stages the one path and never commits.
+`testDirectionHealthRefusals`' writer assertion now names three writers, with the reason
+the count moved and what bounds the third writer recorded beside it.
+
+### Discovered Insights
+
+- **Insight**: the suite's writer detection resolves path variables one hop (`DIR` then
+  `FILE`) and then asks whether the script redirects into or `mv`s onto them. Composing the
+  candidate under `mktemp -d` and finishing with `mv "$CAND" "$FILE"` is still detected,
+  because the regex keys on the *destination* variable.
+  **Context**: the "write nowhere until the last act" shape and the mechanical writer pin
+  are compatible — a future writer need not choose between passing the pin and never
+  half-writing the artifact.
+- **Insight**: `create.sh` renders the target date **twice** — `target_date:` in the
+  frontmatter and a `Target: <date>` line at the head of `## Schedule`.
+  **Context**: `target_date:` and `## Schedule` are one revisable part for exactly this
+  reason; a writer that moved only the field would leave the artifact stating two dates.

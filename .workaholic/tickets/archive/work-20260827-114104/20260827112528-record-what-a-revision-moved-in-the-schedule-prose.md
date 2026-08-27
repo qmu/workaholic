@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-27T11:25:28+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -71,3 +72,30 @@ changelog area** — a strategy is small enough that its whole history is the fi
   prose section already exists to carry exactly this.
 - The line is written by `amend.sh` and by nothing else — a second appender would be the
   fourth writer this mission is careful not to create.
+
+## Final Report
+
+Development completed as planned. A successful revision appends exactly one line to
+`## Schedule` — `Revised <YYYY-MM-DD>: <parts>.` — in the artifact's own date vocabulary,
+naming what moved. It is append-only: a previous line is never rewritten and never
+reordered, and the line goes at the end of the section, which is what puts it after the
+operator's new prose when the revision touched the prose itself. It is idempotent with the
+revision because the append is reached only past the `already` return, so a no-op appends
+nothing and the file cannot grow a line per tick. No frontmatter key, no second artifact,
+no changelog area, and `amend.sh` is the only appender.
+
+The code landed in the first ticket's archive commit (one worktree, default staging); this
+report records the Schedule half of it.
+
+### Discovered Insights
+
+- **Insight**: replacing `## Schedule`'s prose had to be taught the section's three parts
+  — the `Target:` line, the operator's prose, and the trailing `Revised …` block — because
+  a naive replacement would have dropped the history the same script had just written.
+  **Context**: append-only is a property of the *section*, not of the append; any future
+  editor of that section owes the block the same care.
+- **Insight**: the date comes from `gather/scripts/ticket-metadata.sh`'s `created_at`,
+  truncated to ten characters, with `date -u` behind it — the same provenance `create.sh`
+  uses for its own stamps.
+  **Context**: one clock for the artifact's dates, and a fallback rather than a hard
+  dependency, so the writer works where the metadata seam does not.

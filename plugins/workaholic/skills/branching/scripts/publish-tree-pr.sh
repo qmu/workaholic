@@ -281,9 +281,41 @@ fi
 # confirm) leaves the PR open instead, because there is no human here to
 # override, exactly the /implement demotion doctrine. Default off, so /ticket,
 # /mission, and every other publish-tree caller keep their human-merged PR.
+#
+# A STRATEGY-TOUCHING PUBLICATION NEVER MERGES, AND THAT IS THE SEAM'S RULE RATHER
+# THAN THE CALLER'S (2026-08-27, mission
+# `let-the-operator-revise-a-live-direction-through-the-loop`). The exemption has
+# stood since 2026-08-14 — the operator's merge is what AUTHORS that artifact — and
+# it was PROSE ONLY: `/specificate`'s step 10 said "leave WORKAHOLIC_AUTO_MERGE
+# unset", and nothing stopped a run from setting it. That was tolerable while the
+# only strategy writes were a create and a close, both rare. `amend.sh` made the
+# exemption load-bearing — it is the entire premise on which a THIRD writer of a
+# live direction is admissible — so it moved into the seam.
+#
+# It is derived from the TREE BEING PUBLISHED, never from a caller-supplied flag: a
+# flag is the same prose one layer down. `merged: false` with
+# `merge_reason: strategy_touching` is NOT A FAILURE and must not read as one — it
+# is the exemption, and the pull request is left open for the operator exactly as it
+# was before. A create (step 9b), a close (step 9c) and an amendment (step 9d) are
+# all covered by the one refusal, which strengthens an existing rule rather than
+# introducing a new behaviour for any of them. Every other path is byte-identical:
+# a publication touching no strategy still merges under WORKAHOLIC_AUTO_MERGE=1, and
+# a scan finding still holds a pull request open under its own reason.
 merged=false
 merge_reason="not_requested"
 if [ "${WORKAHOLIC_AUTO_MERGE:-}" = "1" ]; then
+  touches_strategy=$( cd "$publish_path" && \
+    { git diff --name-only "origin/${base}" HEAD 2>/dev/null \
+      || git show --name-only --format='' HEAD 2>/dev/null; } \
+    | grep -c '^\.workaholic/strategies/' 2>/dev/null || true )
+  case "${touches_strategy:-0}" in
+    ''|0) : ;;
+    *)
+      printf '{"ok": true, "sha": "%s", "branch": "%s", "pr_url": "%s", "base": "%s", "merged": false, "merge_reason": "strategy_touching"}\n' \
+        "$after_sha" "$work_branch" "$pr_url" "$base"
+      exit 0
+      ;;
+  esac
   scan_json=$( cd "$publish_path" && sh "${SCRIPT_DIR}/../../release-scan/scripts/scan-branch-safety.sh" "origin/${base}" 2>/dev/null || true )
   case "$scan_json" in
     *'"verdict": "pass"'*)

@@ -50,3 +50,4 @@ units are back in the queue; a colleague's is not.
 - 2026-08-27 — ticket archived — 20260826152528-stamp-only-an-address-the-loop-can-drive.md
 - 2026-08-27 — ticket archived — 20260826152528-answer-mine-for-a-person-s-other-address.md
 - 2026-08-27 — ticket archived — 20260826152528-recover-the-work-stranded-on-an-unmapped-address.md
+- 2026-08-27 — ticket archived — 20260826152533-say-when-a-survey-excluded-its-whole-backlog.md

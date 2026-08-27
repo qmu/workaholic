@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-27T01:20:31+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -90,3 +91,38 @@ and the oldest ticket excluded `claimed_reported`
 - The reader is deliberately blind to *why* a pull request is open. A scan finding holding it and
   a transport refusal look identical here — telling them apart is the later tickets' job, and
   putting that judgement in this script would give two tickets one answer.
+
+## Final Report
+
+Development completed as planned, by the route the ticket's own Considerations preferred.
+
+**Reproduced first** (step 1): `list-claims.sh` on a current checkout reported
+`work-20260818-215157` and `work-20260826-134108` excluded `claimed_reported`, and
+`claim-merged.sh` answered `not_merged` for both. Checked by hand against GitHub, #622, #625,
+#633 and #635 were all **open** and unmerged — exactly the measurement in the Overview.
+
+**Localized** (step 2): the reader queries `repos/<slug>/pulls?state=closed&head=<owner>:<branch>`,
+so an open pull request returns an empty array. `open`, `closed-without-merging` and *no pull
+request at all* therefore collapse into one `not_merged`, and no age is read anywhere.
+
+**Widened rather than joined by a second reader.** The Considerations asked for exactly this
+test — pay for a second network read only if the question genuinely differs — and it does not
+have to: `state=all` is a superset of `state=closed`, so the merged test is unchanged and the
+same single call now answers all three states plus the age. `state` and `reason` are
+byte-identical, and every existing consumer is untouched.
+
+### Discovered Insights
+
+- **Insight**: The `not_merged` value was carrying two different kinds of claim at once.
+  **Context**: For a *merged-claim* question, "no pull request" and "closed unmerged" are
+  correctly the same answer — the work did not reach the base. For a *reported-unit* question
+  they are opposite facts: one is a unit waiting on a person, the other is a unit nobody was
+  ever told about. Widening the reader is safe only because `state` keeps the first meaning
+  and the new `pr_state` carries the second; collapsing them into one field would have made
+  the reader answer neither question well.
+
+- **Insight**: The degraded paths needed the new fields as much as the successful ones.
+  **Context**: `emit`'s defaults are the degraded shape (`pr_state: "unanswerable"`,
+  `pr_number: null`), so every pre-existing `emit unanswerable <reason>` call stayed exactly
+  as written and no consumer can read a missing key as a state. A widened reader whose
+  failure paths emit a narrower object is how an `unanswerable` gets read as `none`.

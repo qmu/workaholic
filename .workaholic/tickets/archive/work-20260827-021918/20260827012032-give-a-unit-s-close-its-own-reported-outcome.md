@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-27T01:20:32+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -80,3 +81,43 @@ run report**, per unit.
   #625 in the measurement is a `[Proposal]`, not a driven unit. That seam is **out of this
   ticket's scope** (the ask names the `review` route), but the shape chosen here should not make
   the same fix there harder.
+
+## Final Report
+
+Development completed as planned.
+
+The `review` route now carries its merge attempt's result into the run report, per unit, as one
+of three outcomes: `merged`, `merge_refused: <word>` (the word being `merge-reason.sh`'s own,
+unchanged in derivation and format), and `merge_not_attempted: <hard|confirm>` when a scan
+finding held the pull request and no merge was tried. The three are defined once in
+`drive/reference/routing.md` §6 and named in `drive/SKILL.md` §6 and §7.
+
+The scan-held case is stated as **not** a merge failure in both documents rather than left to be
+inferred. That is the ticket's second acceptance criterion and the one a later reader is most
+likely to collapse: a scan-held pull request is the gate working, a refused merge is the loop
+stopping, and one word for both would hide the failure the outcome exists to surface. The `auto`
+route's existing `shipped` / `demoted, with the gate that caused it` wording is reused for the
+same distinction, per the Considerations.
+
+`session_type_cannot_merge` is documented with its sanctioned second attempt
+(`mcp__github__merge_pull_request`, `rules/shell.md`) and the rule that the **retry's** outcome
+is what gets reported — reporting the REST refusal after a successful connector merge would name
+a failure that did not happen.
+
+### Discovered Insights
+
+- **Insight**: The route is prose, so the checkable half is that the contract names the
+  vocabulary and that its two documents cannot drift apart on it.
+  **Context**: The agent performs the merge and writes the report, so no script produces the
+  outcome and no fixture can assert one. What a test *can* pin is that `routing.md` and
+  `drive/SKILL.md` each name all three outcomes, all five `merge-reason.sh` rungs, and the
+  sentence separating the scan-held case from a refusal — asserted against the same `cases`
+  array the ladder itself is tested with, so adding a rung to the script fails the doc pin until
+  both documents name it.
+
+- **Insight**: The `/specificate` seam hits the identical refusal and was deliberately left out.
+  **Context**: The measurement behind this mission includes #625, a `[Proposal]` published by
+  `WORKAHOLIC_AUTO_MERGE` rather than a driven unit. The ticket scoped that out, and the shape
+  chosen here does not make it harder: `publish-tree-pr.sh` already reports `merged` /
+  `merge_reason` in exactly this vocabulary, so that seam needs a reporting change and no new
+  words.

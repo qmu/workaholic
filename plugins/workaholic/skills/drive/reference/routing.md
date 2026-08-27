@@ -103,6 +103,69 @@ not write a second story generator.
   `{"notified": false, "reason": "no_token"}` and exits 0) the run continues and **reports the
   notification outcome** in its per-unit report below. Under `/drive` the developer is the human
   loop — report the URL in the session and post nothing.
+
+  **The merge attempt's result is carried into the run report, per unit** (2026-08-27, mission
+  `close-the-units-the-loop-already-finished`). This route reported **which route it took** and
+  never **whether the merge landed**, so a run refused the merge produced the same line as one
+  that merged — measured 2026-08-27, four green units (#622, #625, #633, #635) sitting open with
+  `ok` in a report nobody opens. The outcome is one of three, and they are three because they are
+  three different next actions:
+
+  | Outcome | What it means |
+  | ------- | ------------- |
+  | `merged` | the `PUT` succeeded; the claim is released by the merge |
+  | `merge_refused: <word>` | the `PUT` was attempted and refused. `<word>` is `merge-reason.sh`'s, unchanged in derivation and format: `merge_not_allowed` / `head_moved` / `session_type_cannot_merge` / `merge_forbidden` / `merge_failed` |
+  | `merge_not_attempted: <tier>` | a `hard` (`secret`) or `confirm` (`leak`) finding held the pull request, so no merge was attempted at all |
+
+  **An outcome that is not `merged` is recorded on the branch, not only in the run report**
+  (2026-08-27, mission `close-the-units-the-loop-already-finished`): from inside the worktree,
+  `bash ${CLAUDE_PLUGIN_ROOT}/skills/story/scripts/record-merge-outcome.sh
+  .workaholic/stories/<branch>.md "<outcome>"`, then commit and push it. The run report dies
+  with the container, and without a durable answer the claim oracle cannot tell this unit from
+  one legitimately waiting on a person — both are drained, both reported, both at an open pull
+  request, and `claimed_reported` covered both. The writer is idempotent per outcome and
+  replaces rather than stacks, and `lib/claims.sh` reads that one line out of the story blob it
+  already fetches: no network call, no second derivation, and it cannot disagree with the run
+  that made the attempt. **A merged unit records nothing** — the merge releases the claim, so
+  the oracle never sees it.
+
+  **The third is not a merge failure and must never be reported as one.** A scan-held pull
+  request is the gate working; a refused one is the loop stopping. Collapsing them would hide
+  exactly the failure this row exists to surface, and is the same distinction the `auto` route
+  already draws between "shipped" and "demoted to PR, with the gate that caused it" — the wording
+  is reused rather than a parallel vocabulary minted for one difference.
+
+  **`session_type_cannot_merge` is the one refusal with a second attempt, and that attempt is a
+  step of this route** (2026-08-27, mission `close-the-units-the-loop-already-finished`). It was
+  a sentence in `rules/shell.md` and nothing more, so the closing act was one the agent could
+  simply not take with nothing anywhere recording that it had not — measured 2026-08-27, four
+  pull requests the loop opened on 2026-08-26 green and unmerged, `ok` reported over all of them.
+  It is now numbered, mandatory and reported, which is the shape the Open-Decision contract
+  already uses for a prose rule no script can enforce ([ticket-workflow.md](ticket-workflow.md)
+  §1): no mechanical check tells a real attempt from a claimed one, and what it buys is that a
+  report naming no attempt is visibly wrong.
+
+  1. **Precondition, and nothing else.** The REST `PUT` returned `merge_reason ==
+     session_type_cannot_merge`. Every other word — `merge_not_allowed`, `head_moved`,
+     `merge_forbidden`, `merge_failed` — is reported as-is and **never** retried: those name a
+     conflict, a race, a permission or an unclassified failure, none of which a different
+     transport fixes.
+  2. **One attempt, one tool.** `mcp__github__merge_pull_request`, at most once. No other
+     connector tool, no second try, and nothing else moves to the connector — reads, writes and
+     pull-request creation stay REST (`rules/shell.md`, *The one qualification*: one named tool,
+     one named precondition, one act).
+  3. **Report the outcome of that attempt.** `merged` when the connector merged it; otherwise the
+     pull request stays open and **both** refusals are named — the REST one
+     (`session_type_cannot_merge`) and the connector's own. Reporting the REST refusal after a
+     successful connector merge would name a failure that did not happen; reporting only the REST
+     one after a failed retry hides that the retry was made.
+
+  **A run that reports `session_type_cannot_merge` and no retry outcome is non-conformant on its
+  face.** That is the whole enforcement, and it is deliberate: the rule that a script cannot call
+  an MCP tool is what created this step, so a wrapper shelling out to one would be the same gap
+  with more moving parts. **A merge through the connector is measured only in an interactive
+  session** — a routine container is measured only for the connector's *read* tools — which is
+  why step 3 reports both outcomes by name rather than assuming the retry succeeds.
 - **`auto` → ship** through `workaholic:ship`'s Ship Flow with no prompts (its *Unattended
   routing* section factors each interactive seam): catch up with `main`, prove the deploy
   contract, confirm in production, record the evidence, **then** merge, then release and extract
@@ -220,6 +283,13 @@ moments.
 - Per unit: members, effective policy, route taken, ticket outcomes reconciling to the queue it
   was handed, and the commits.
 - PR per unit — the URL, or the `pr_error` if creation failed.
+- **Merge outcome per `review` unit** (2026-08-27): `merged`, `merge_refused: <merge-reason.sh
+  word>`, or `merge_not_attempted: <hard|confirm>` when a scan finding held the pull request. The
+  three are defined in §6's `review` route above and are never collapsed — a scan-held pull
+  request is the gate working, a refused merge is the loop stopping, and reporting the route
+  alone made those two identical at the only surface that records the run. An `auto` unit reports
+  `shipped` or its demotion exactly as before; this row is the `review` route's equivalent and
+  adds nothing to that one.
 - **Notification outcome per unit** (`/implement` only — an attended `/drive` posts nothing, so it
   reports nothing): for the one thread the unit posted into, the surface used and the result —
   `posted` with the thread it landed in, or the failure named (`no_surface` when the session has

@@ -132,8 +132,10 @@ case "$recorded_outcome" in
     *)                    report false "unrecognized_outcome:${recorded_outcome}" ;;
 esac
 
-[ -x "$GH_REST" ] || [ -f "$GH_REST" ] || report false no_transport
-sh "$GH_REST" available >/dev/null 2>&1 || report false gh_unavailable
+[ -f "$GH_REST" ] || report false no_transport
+# `available` exits 0 even when it answers `ok: false`, so the FIELD is what is read — the exit
+# status would call an absent `gh` available and send the merge into a transport that is not there.
+sh "$GH_REST" available 2>/dev/null | grep -q '"ok": true' || report false gh_unavailable
 
 SLUG=$(sh "$GH_REST" slug 2>/dev/null || true)
 [ -n "$SLUG" ] || report false slug_unresolved

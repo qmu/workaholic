@@ -160,7 +160,10 @@ fi
 
 # --- Act 1: close the pull request -------------------------------------------------------
 PR_STATE="unknown"
-if [ ! -f "$GH_REST" ] || ! sh "$GH_REST" available >/dev/null 2>&1; then
+# `available` EXITS 0 EVEN WHEN IT ANSWERS `ok: false`, so the field is what is read here.
+# Keying on the exit status would have called an absent `gh` available and sent the close
+# straight into a transport that is not there.
+if [ ! -f "$GH_REST" ] || ! sh "$GH_REST" available 2>/dev/null | grep -q '"ok": true'; then
     PR_STATE="failed"
     pr_note="gh_unavailable"
 else

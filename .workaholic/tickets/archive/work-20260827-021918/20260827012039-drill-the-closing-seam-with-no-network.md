@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-27T01:20:39+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -85,3 +86,49 @@ no drill.
   avoid.
 - Drive this last. It is the mission's proof, and a drill written against a seam that has not
   settled is rewritten with every ticket above it.
+
+## Final Report
+
+Development completed as planned, driven last exactly as the Considerations required.
+
+`sh scripts/e2e/loop-drill.sh verify-close` builds a throwaway repository with three units
+driven to the **identical** finished shape — drained queue, story at the tip, pull request open
+— because that identity is the defect this mission removed. Nine load-bearing rows, no network,
+nothing written into the checkout:
+
+- **merged** is proved as an **absence**. A merged unit's branch is released by its merge, so
+  the oracle never sees it and nothing is recorded — the row therefore asks who the tick asks
+  about rather than what a merged claim reads.
+- **session-type, retryable** and the four **unretryable** rungs are pure functions over a
+  refusal string, so each is exercised for real rather than asserted from the source.
+- **scan-held** reads `override_only`, not the binary verdict — an `override`-tier finding still
+  answers `decision: block`, and reading `decision` alone is precisely the 2026-08-21 defect.
+- **refused-and-unretryable** walks the durable half end to end: `record-merge-outcome.sh` →
+  `claims_merge_outcome` → `report_undelivered` → the tick's question.
+
+**The deliberately broken row is the drill's point.** `close_unrecorded_stays_silent` drives the
+same finished shape with **nothing recorded** and requires the oracle to fall back to
+`queue_drained` — the silence this mission removed. That is what proves the verdict is claimed
+only on positive evidence, and it is the row that would have failed had the seam been built to
+assert rather than to read.
+
+Verified it can fail rather than assuming it: removing the `merge_refused*` branch from
+`lib/claims.sh` turns `close_refused_is_undelivered` and `close_asks_about_the_refused_one` red
+together (7 passed, 2 failed); restoring it returns the drill to `pass`.
+
+### Discovered Insights
+
+- **Insight**: A fixture that switches branches loses `.workaholic/stories/` silently.
+  **Context**: Git tracks no empty directory, so the seed commit carries no `stories/`, and
+  checking out `main` for the next branch removes the one the previous branch created. The
+  redirect that keeps a drill quiet (`>/dev/null 2>&1 || true`) then swallowed the failure and
+  the fixture simply produced one claim instead of three. Every `_report` call now recreates the
+  directory; the general lesson is that a silenced fixture step needs its *premise* asserted,
+  which is what `close_fixture` does.
+
+- **Insight**: The tier row had to read `override_only`, and getting it wrong the first time
+  reproduced the exact defect the route was fixed for.
+  **Context**: The first version asserted `decision == "pass"` for an override-tier finding and
+  failed, because `gate-decision.sh` answers `block` with `override_only: true`. That is the
+  2026-08-21 measurement in miniature — a tier read as a verdict — and it is worth noting that
+  the natural way to write the assertion is the wrong way.

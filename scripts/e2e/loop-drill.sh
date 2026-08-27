@@ -1950,7 +1950,212 @@ cmd_verify_identity_handoff() {
     emit_verdict "identity-handoff" 0 "pass" 0
 }
 
-USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-specificate <issue>|verify-implement <issue>|verify-plan [--json]|verify-status [--json]|verify-cadence [--json]|verify-planner [--json]|verify-standup [--json]|verify-moderate [--json]|verify-propose [--json]|verify-direction-health [--json]|verify-merged-claim [--json]|verify-identity-handoff [--json]"}'
+# ---------------------------------------------------------------- verify-close
+# Does a unit the loop FINISHES actually close? The closing seam is the one the loop cannot
+# prove by running: a real refusal needs a real session class, and waiting for a tick to
+# reproduce one is exactly what let four undelivered pull requests (#622, #625, #633, #635)
+# accumulate unnoticed while every run reported `ok`.
+#
+# FOUR OUTCOMES, ONE FIXTURE, NO NETWORK. The seam's whole vocabulary is a pure function of a
+# refusal string and a scan tier, so all four are reachable with the transport stubbed:
+#
+#   1. merged                     the REST merge succeeds; nothing is recorded and the claim
+#                                 is released by the merge itself, so the oracle never sees it.
+#   2. session-type, then retried `merge-reason.sh` answers `session_type_cannot_merge` -- the
+#                                 ONE refusal `rules/shell.md` allows a connector retry for.
+#   3. refused, unretryable       any other rung: no retry, the refusal is recorded, and the
+#                                 claim reads `report_undelivered`.
+#   4. scan-held                  a `hard`/`confirm` finding held the pull request; no merge
+#                                 was attempted, the claim stays `queue_drained`, `ok` stands.
+#
+# AND ONE ROW THAT DELIBERATELY BREAKS THE SEAM, the property `verify-merged-claim` and
+# `verify-identity-handoff` both carry: a drill that passes over a broken seam is worse than no
+# drill, because it converts an unproven claim into a believed one.
+cmd_verify_close() {
+    _reason="${REPO_ROOT}/plugins/workaholic/skills/branching/scripts/merge-reason.sh"
+    _gate="${REPO_ROOT}/plugins/workaholic/skills/release-scan/scripts/gate-decision.sh"
+    _recorder="${REPO_ROOT}/plugins/workaholic/skills/story/scripts/record-merge-outcome.sh"
+    _lister="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/list-claims.sh"
+    _step="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/step-undelivered-units.sh"
+    for _f in "$_reason" "$_gate" "$_recorder" "$_lister" "$_step"; do
+        [ -f "$_f" ] || emit_err "close_seam_unreadable" 4 "${_f} is not present in this checkout"
+    done
+
+    _before=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+
+    # ---- the vocabulary half: pure functions over a refusal string and a scan verdict ----
+    _word() { sh "$_reason" "$1" 2>/dev/null || true; }
+
+    # 2. THE ONE REFUSAL WITH A SECOND ATTEMPT. Keyed on the MESSAGE, with a bare 403 behind
+    # it -- that one is a missing permission, which a different transport does not fix.
+    if [ "$(_word 'HTTP 403: {"message":"Merging pull requests is not permitted for this session type"}')" \
+        = "session_type_cannot_merge" ]; then
+        add_row "close_retryable_refusal" true "the session-type refusal reaches the one rung a connector retry may answer" load
+    else
+        add_row "close_retryable_refusal" false "the session-type refusal did not reach its own rung" load
+    fi
+
+    # 3. EVERY OTHER RUNG IS UNRETRYABLE, and each is a different next action -- which is the
+    # whole reason they are not one `merge_failed`.
+    _unretryable_ok=true
+    if [ "$(_word 'HTTP 405: Pull Request is not mergeable')" != "merge_not_allowed" ]; then _unretryable_ok=false; fi
+    if [ "$(_word 'HTTP 409: Head branch was modified')" != "head_moved" ]; then _unretryable_ok=false; fi
+    if [ "$(_word 'HTTP 403: Resource not accessible by integration')" != "merge_forbidden" ]; then _unretryable_ok=false; fi
+    if [ "$(_word 'curl: (7) Failed to connect')" != "merge_failed" ]; then _unretryable_ok=false; fi
+    if [ "$_unretryable_ok" = true ]; then
+        add_row "close_unretryable_refusals" true "every other rung classifies to its own word and none reaches the retry" load
+    else
+        add_row "close_unretryable_refusals" false "a refusal rung did not classify to its own word" load
+    fi
+
+    # 4. THE SCAN-HELD ROW. `hard`/`confirm` holds the pull request and NO merge is attempted;
+    # `override_only` is a granularity nudge and does not hold it.
+    # THE ROUTE MERGES ON `pass` OR `override_only`, never on the binary verdict -- so that is
+    # what this row reads. An `override`-tier finding still answers `decision: block`; what
+    # makes it not hold the merge is `override_only: true`.
+    _mergeable() {
+        printf '%s' "$1" | sh "$_gate" 2>/dev/null \
+            | sed -n 's/.*"decision": *"\([a-z_]*\)".*"override_only": *\([a-z]*\).*/\1 \2/p'
+    }
+    _held=$(_mergeable '{"verdict": "fail", "findings": [{"category": "secret", "severity": "hard"}]}')
+    _nudge=$(_mergeable '{"verdict": "fail", "findings": [{"category": "size", "severity": "override"}]}')
+    if [ "$_held" = "block false" ] && [ "$_nudge" = "block true" ]; then
+        add_row "close_scan_held" true "a hard finding holds the merge while an override-tier one is a nudge the route merges through" load
+    else
+        add_row "close_scan_held" false "the tier reading did not separate a hard finding (${_held}) from an override one (${_nudge})" load
+    fi
+
+    # ---- the durable half: the outcome a run records, and what the oracle reads back ----
+    _tmp=$(mktemp -d)
+    _origin="${_tmp}/origin"; _work="${_tmp}/work"; _read="${_tmp}/read"; _bin="${_tmp}/bin"
+    mkdir -p "$_origin" "$_bin"
+    _me=$(cd "$REPO_ROOT" && git config user.email 2>/dev/null || echo drill@example.com)
+    _git() { git -c user.email="$_me" -c user.name=Drill -c commit.gpgsign=false "$@"; }
+
+    ( cd "$_origin" && git -c init.defaultBranch=main init -q --bare ) || true
+    ( cd "$_tmp" && git clone -q "$_origin" work ) || true
+    mkdir -p "${_work}/.workaholic/tickets/todo" "${_work}/.workaholic/stories"
+    printf -- '---\ncreated_at: 2026-01-01T00:00:01+09:00\nauthor: %s\n---\n\n# T1\n' "$_me" \
+        > "${_work}/.workaholic/tickets/todo/20260101000001-t.md"
+    printf -- '---\ncreated_at: 2026-01-01T00:00:02+09:00\nauthor: %s\n---\n\n# T2\n' "$_me" \
+        > "${_work}/.workaholic/tickets/todo/20260101000002-t.md"
+    printf -- '---\ncreated_at: 2026-01-01T00:00:03+09:00\nauthor: %s\n---\n\n# T3\n' "$_me" \
+        > "${_work}/.workaholic/tickets/todo/20260101000003-t.md"
+    ( cd "$_work" && _git add -A && _git commit -qm seed && git push -q origin main ) || true
+
+    # Three units driven to the SAME shape -- drained queue, story at the tip, pull request
+    # open. That identity is the defect: `claimed_reported` covered all of them, so the loop's
+    # own undelivered work and a unit waiting on a person were one word.
+    _report() { # $1 = branch, $2 = ticket basename, $3 = outcome ("" records nothing)
+        # `.workaholic/stories/` is recreated on every call: git tracks no empty directory,
+        # so the seed commit carries none and checking out `main` for the next branch removes
+        # the one the previous branch created.
+        ( cd "$_work" \
+          && mkdir -p ".workaholic/tickets/archive/$1" ".workaholic/stories" \
+          && git mv ".workaholic/tickets/todo/$2" ".workaholic/tickets/archive/$1/" \
+          && printf -- '---\ntype: Story\nbranch: %s\n---\n\n## 1. Overview\n\ndone\n' "$1" \
+            > ".workaholic/stories/$1.md" \
+          && { [ -z "$3" ] || sh "$_recorder" ".workaholic/stories/$1.md" "$3" >/dev/null; } \
+          && _git add -A && _git commit -qm "Report the unit" \
+          && git push -q origin "$1" ) >/dev/null 2>&1 || true
+    }
+
+    # A unit whose merge the TRANSPORT refused. The branch names are literal, as in every other
+    # drill here: they are the canonical pattern the guard enforces.
+    ( cd "$_work" && git checkout -q -B work-20260101-000000 main \
+      && printf -- '---\ncreated_at: 2026-01-01T00:00:01+09:00\nauthor: %s\nclaim: work-20260101-000000\n---\n\n# T1\n\nclaimed\n' "$_me" \
+        > .workaholic/tickets/todo/20260101000001-t.md \
+      && _git commit -qam "Claim a PR-unit" -m "Unit: batch-refused" ) >/dev/null 2>&1 || true
+    _report work-20260101-000000 20260101000001-t.md "merge_refused: session_type_cannot_merge"
+
+    # A unit a SCAN FINDING held -- the same shape, the opposite next action.
+    ( cd "$_work" && git checkout -q -B work-20260102-000000 main \
+      && printf -- '---\ncreated_at: 2026-01-01T00:00:02+09:00\nauthor: %s\nclaim: work-20260102-000000\n---\n\n# T2\n\nclaimed\n' "$_me" \
+        > .workaholic/tickets/todo/20260101000002-t.md \
+      && _git commit -qam "Claim a PR-unit" -m "Unit: batch-held" ) >/dev/null 2>&1 || true
+    _report work-20260102-000000 20260101000002-t.md "merge_not_attempted: hard"
+
+    # THE DELIBERATELY BROKEN SEAM: the same finished shape with NOTHING recorded.
+    ( cd "$_work" && git checkout -q -B work-20260103-000000 main \
+      && printf -- '---\ncreated_at: 2026-01-01T00:00:03+09:00\nauthor: %s\nclaim: work-20260103-000000\n---\n\n# T3\n\nclaimed\n' "$_me" \
+        > .workaholic/tickets/todo/20260101000003-t.md \
+      && _git commit -qam "Claim a PR-unit" -m "Unit: batch-silent" ) >/dev/null 2>&1 || true
+    _report work-20260103-000000 20260101000003-t.md ""
+
+    ( cd "$_tmp" && git clone -q "$_origin" read ) >/dev/null 2>&1 || true
+    ( cd "$_read" && git config user.email "$_me" && git config user.name Drill ) || true
+    printf '#!/bin/sh\necho "[]"\n' > "${_bin}/gh"; chmod +x "${_bin}/gh"
+    _claims=$( ( cd "$_read" && PATH="${_bin}:$PATH" \
+        WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES=0 sh "$_lister" ) 2>&1 || true )
+    _verdict() {
+        printf '%s' "$_claims" | tr '{' '\n' | grep "\"unit\": \"$1\"" \
+            | sed -n 's/.*"resume_reason": *"\([a-z_]*\)".*/\1/p' | head -1
+    }
+
+    # The fixture has to BE the shape under test, or every row below proves nothing.
+    if [ -n "$(_verdict batch-refused)" ] && [ -n "$(_verdict batch-held)" ]; then
+        add_row "close_fixture" true "three finished units are claimed, drained and reported -- the shape under test" load
+    else
+        add_row "close_fixture" false "the fixture did not produce reported claims (refused='$(_verdict batch-refused)' held='$(_verdict batch-held)' silent='$(_verdict batch-silent)')" load
+        rm -rf "$_tmp"
+        emit_verdict "close" 0 "fail" 1
+    fi
+
+    # 3 (durable). A REFUSED MERGE reads its own verdict, so the survey stops calling it a
+    # human's business and the token stops covering it.
+    if [ "$(_verdict batch-refused)" = "report_undelivered" ]; then
+        add_row "close_refused_is_undelivered" true "a unit whose merge was refused reads report_undelivered, with no network" load
+    else
+        add_row "close_refused_is_undelivered" false "expected report_undelivered, got '$(_verdict batch-refused)': $(one_line "$_claims")" load
+    fi
+
+    # 4 (durable). A SCAN-HELD PULL REQUEST IS UNCHANGED -- it waits on a person by design, and
+    # making it anything else puts `ok` out of reach on runs where every gate worked.
+    if [ "$(_verdict batch-held)" = "queue_drained" ]; then
+        add_row "close_held_is_unchanged" true "a scan-held pull request still reads queue_drained, exactly as before" load
+    else
+        add_row "close_held_is_unchanged" false "expected queue_drained, got '$(_verdict batch-held)': $(one_line "$_claims")" load
+    fi
+
+    # 1. THE MERGED OUTCOME, proved as an ABSENCE. A merged unit's branch is released by the
+    # merge, so the oracle never sees it and nothing is recorded -- which is why this row asks
+    # who the tick ASKS ABOUT rather than what a merged claim reads.
+    _asked=$( ( cd "$_read" && PATH="${_bin}:$PATH" WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES=0 \
+        sh "$_step" --tick 20260101-000000 --root "$_read" ) 2>&1 || true )
+    if printf '%s' "$_asked" | grep -q '"unit": *"batch-refused"' \
+        && ! printf '%s' "$_asked" | grep -q '"unit": *"batch-held"'; then
+        add_row "close_asks_about_the_refused_one" true "the tick asks a person about the undelivered unit and about neither the scan-held nor the merged one" load
+    else
+        add_row "close_asks_about_the_refused_one" false "the question set was wrong: $(one_line "$_asked")" load
+    fi
+
+    # THE DELIBERATELY BROKEN ROW. A drill that only walks the happy path would have passed
+    # throughout the days those four pull requests sat open. With the outcome NOT recorded the
+    # oracle must fall back to `queue_drained` -- the silence this mission removed -- because
+    # the new verdict is claimed only on positive evidence. Proving that the silence returns
+    # when the record is missing is what proves this drill can fail.
+    if [ "$(_verdict batch-silent)" = "queue_drained" ]; then
+        add_row "close_unrecorded_stays_silent" true "an unrecorded outcome falls back to queue_drained, so the verdict is never asserted without evidence -- this drill can fail" load
+    else
+        add_row "close_unrecorded_stays_silent" false "an unrecorded outcome read '$(_verdict batch-silent)', so the verdict is being asserted without evidence" load
+    fi
+
+    # NO NETWORK, AND NOTHING WRITTEN INTO THE CHECKOUT.
+    _after=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+    if [ "$_before" = "$_after" ]; then
+        add_row "close_writes_nothing" true "the checkout is byte-identical after the drill" load
+    else
+        add_row "close_writes_nothing" false "the drill changed the working tree" load
+    fi
+
+    rm -rf "$_tmp"
+    if [ "$LOAD_FAILED" -gt 0 ]; then
+        emit_verdict "close" 0 "fail" 1
+    fi
+    emit_verdict "close" 0 "pass" 0
+}
+
+USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-specificate <issue>|verify-implement <issue>|verify-plan [--json]|verify-status [--json]|verify-cadence [--json]|verify-planner [--json]|verify-standup [--json]|verify-moderate [--json]|verify-propose [--json]|verify-direction-health [--json]|verify-merged-claim [--json]|verify-identity-handoff [--json]|verify-close [--json]"}'
 
 CMD="${1:-}"
 [ -n "$CMD" ] || {
@@ -1989,6 +2194,7 @@ case "$CMD" in
     verify-direction-health) cmd_verify_direction_health "$@" ;;
     verify-merged-claim) cmd_verify_merged_claim "$@" ;;
     verify-identity-handoff) cmd_verify_identity_handoff "$@" ;;
+    verify-close) cmd_verify_close "$@" ;;
     *)
         echo "$USAGE" >&2
         exit 2

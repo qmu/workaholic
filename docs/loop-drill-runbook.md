@@ -37,6 +37,7 @@ Run every command from the repository root, on a clean `main`.
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-direction-health --json` | a throwaway strategy tree, one overdue direction and one dormant one — proves the four lifecycle readings, the three question keys, the asked-once gate, and that nothing was written |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-merged-claim --json` | a throwaway repository carrying a **squash-merged** mission claim and batch claim — proves all four merged-claim readings (merged batch, merged mission, live, unanswerable) with the transport stubbed, so no `gh` call is made |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-identity-handoff --json` | a throwaway repository with a two-address mapping — walks issue assignee → the address the writer stamps → the survey that offers the unit, for a canonical address, a mapped alias and an unmapped login, with no network and no credential |
+| — | Any time | `sh scripts/e2e/loop-drill.sh verify-close --json` | a throwaway repository carrying three finished units — proves all four closing outcomes (merged, session-type-refused-then-retryable, refused-and-unretryable, scan-held) with the transport stubbed, plus one row that deliberately breaks the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh status` | the drill's residue: issues, claim branches, tickets |
 | — | After an abort | `sh scripts/e2e/loop-drill.sh reset` | closes/deletes **drill-minted** residue only |
 
@@ -501,6 +502,39 @@ only a merged pull request can answer — and that is the one network read, stub
 `testMergedClaimShapeAtBothGrains`, `testMergedLookupDegradesByName` and
 `testMergedClaimIsNeverResumable` are what **CI** enforces on every change. The drill ships to
 no other agent and CI never runs it; the suite cannot prove an operator's checkout behaves.
+
+
+## 5k. The closing seam (does a unit the loop finishes actually close?)
+
+`verify-close` needs no seed, no fire, no issue number and **no network**. The closing seam is
+the one the loop cannot prove by running: a real refusal needs a real session class, and waiting
+for a tick to reproduce one is exactly what let four undelivered pull requests (#622, #625, #633,
+#635) accumulate unnoticed on 2026-08-27 while every run reported `ok`.
+
+**The whole vocabulary is a pure function**, which is what makes all four outcomes reachable
+offline: `merge-reason.sh` classifies a refusal string, `gate-decision.sh` reads a scan's tiers,
+and `record-merge-outcome.sh` → `claims_merge_outcome` carries the answer from the run that
+attempted the merge to the oracle that reads it back. The fixture builds three units driven to
+the **same** shape — drained queue, story at the tip, pull request open — because that identity
+is the defect: `claimed_reported` covered all of them.
+
+| Row | Fails when | Read |
+| --- | ---------- | ---- |
+| `close_retryable_refusal` | the session-type refusal does not reach its own rung | `merge-reason.sh` — keyed on the message, with a bare 403 behind it, because that one is a missing permission a different transport does not fix |
+| `close_unretryable_refusals` | any other rung does not classify to its own word | the four remaining rungs are four different next actions; collapsing them is what `merge_failed` alone would do |
+| `close_scan_held` | a `hard` finding and an `override` one are not separated | `gate-decision.sh`'s `override_only` — the route merges on `pass` **or** `override_only`, never on the binary verdict |
+| `close_fixture` | the three units are not claimed, drained and reported | the fixture is not the shape under test; every row below it would prove nothing |
+| `close_refused_is_undelivered` | a refused merge does not read `report_undelivered` | `claims_merge_outcome` and the drained fork in `lib/claims.sh` — the split this mission exists for |
+| `close_held_is_unchanged` | a scan-held pull request does not still read `queue_drained` | the carve-out that keeps `ok` reachable: that pull request waits on a person **by design** |
+| `close_asks_about_the_refused_one` | the tick asks about the wrong unit, or about none | `step-undelivered-units.sh` — the merged outcome is proved as an **absence** here, since a merged claim is released by its merge and the oracle never sees it |
+| `close_unrecorded_stays_silent` | an **unrecorded** outcome does *not* fall back to `queue_drained` | **the deliberately broken seam.** The new verdict is claimed only on positive evidence, so with nothing recorded the old silence must return — proving this drill can fail |
+| `close_writes_nothing` | the drill changed the checkout | every fixture lives outside the checkout |
+
+**The deliberately failing row is the point of the drill, not a curiosity.** A drill that only
+walks the happy path would have passed throughout the days those four pull requests sat open,
+and would have converted an unproven claim into a believed one. Breaking any seam this mission
+touched turns `close_refused_is_undelivered` and `close_asks_about_the_refused_one` red together
+— verified by removing the `merge_refused*` branch from `lib/claims.sh` and watching both fail.
 
 ## 5j. The identity hand-off (issue assignee → stamped address → survey)
 

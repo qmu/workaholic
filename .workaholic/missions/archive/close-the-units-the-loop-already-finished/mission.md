@@ -2,7 +2,7 @@
 type: Mission
 title: Close the units the loop already finished
 slug: close-the-units-the-loop-already-finished
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-27T01:18:41+00:00
 author: a@qmu.jp
@@ -45,7 +45,7 @@ business from the loop's undelivered work, and `ok` stops covering the second.
       and the connector retry's. (#20260827012032-give-a-unit-s-close-its-own-reported-outcome.md)
 - [x] `/implement` refuses `ok` over a unit it left undelivered, and still reports `ok` over one a
       scan finding holds. (#20260827012035-never-report-ok-over-an-undelivered-unit.md)
-- [ ] `loop-drill.sh verify-close` proves all four closing outcomes with no network. (#20260827012039-drill-the-closing-seam-with-no-network.md)
+- [x] `loop-drill.sh verify-close` proves all four closing outcomes with no network. (#20260827012039-drill-the-closing-seam-with-no-network.md)
 
 ## Changelog
 
@@ -57,3 +57,5 @@ business from the loop's undelivered work, and `ok` stops covering the second.
 - 2026-08-27 — ticket archived — 20260827012036-split-the-exclusion-that-hides-the-difference.md
 - 2026-08-27 — ticket archived — 20260827012037-name-undelivered-units-in-backlog-all-excluded.md
 - 2026-08-27 — ticket archived — 20260827012038-ask-a-person-about-a-unit-that-could-not-be-delivered.md
+- 2026-08-27 — ticket archived — 20260827012039-drill-the-closing-seam-with-no-network.md
+- 2026-08-27 — mission achieved — mission.md

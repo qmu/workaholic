@@ -55,3 +55,4 @@ units are back in the queue; a colleague's is not.
 - 2026-08-27 — ticket archived — 20260826152533-ask-a-person-about-work-nothing-can-drive.md
 - 2026-08-27 — ticket archived — 20260826152533-drill-the-identity-hand-off-with-no-network.md
 - 2026-08-27 — mission achieved — mission.md
+- 2026-08-27 — story reported — work-20260826-154116.md

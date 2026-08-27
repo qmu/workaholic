@@ -569,4 +569,5 @@
 * [Let the operator revise a live direction through the loop](20260827112022-let-the-operator-revise-a-live-direction-through-the-loop.md)
 * [A superseded claim is closed but its branch cannot be deleted, so the claim never leaves the table](20260827115923-a-superseded-claim-is-closed-but-its-branch-cannot-be-deleted-so-the-claim-never-leaves-the-table.md)
 * [Say when a direction has arrived](20260827142027-say-when-a-direction-has-arrived.md)
+* [Read whether the base survived what the loop merged](20260827161640-read-whether-the-base-survived-what-the-loop-merged.md)
 <!-- okf:generated:end -->

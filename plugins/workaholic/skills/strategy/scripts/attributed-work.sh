@@ -43,9 +43,12 @@
 #       that, and a read-only morning summary is not worth reopening the ownership model.
 #   (b) THIS ONE. It adds no field, so it cannot rebuild the hop; the citation stays
 #       one-way; nothing new needs a write floor, a hook or a migration.
-#   (c) A strategy-side list of slugs — the artifact has exactly two writers and neither
-#       edits a live strategy, so keeping such a list current needs a third writer, which
-#       the design refuses.
+#   (c) A strategy-side list of slugs — refused when this was written because the artifact
+#       had no writer of a live direction, and STILL refused now that `amend.sh` is one
+#       (2026-08-27): that writer is bounded to the three parts the model calls revisable
+#       and is driven by an operator's announcement, so nothing would keep such a list
+#       current as work landed. The reason moved from "impossible" to "still nobody's job";
+#       the refusal did not.
 #   (d) No attribution, repository-scoped digest — ships without a ruling, and is not what
 #       was asked for.
 #

@@ -1528,6 +1528,187 @@ EOF
 
 # ---------------------------------------------------------------- dispatch
 
+# ------------------------------------------------------------- verify-revision
+# Can the operator revise a LIVE direction through the loop, and does the machine refuse
+# everything it must? This is the first write into `.workaholic/strategies/` a machine makes on
+# the operator's behalf, and its whole safety rests on a set of REFUSALS — so the refusals are
+# drilled by name, each asserting the artifact is byte-identical afterwards, and the exemption
+# that keeps the operator's merge the authorship is drilled beside them.
+#
+# NO NETWORK AND NO CREDENTIAL. The strategy half is local files; the publish half runs against a
+# bare local origin with `gh` stubbed, and the stub answers a SUCCESSFUL merge on purpose — a stub
+# that refused would let the exemption pass for the wrong reason.
+#
+# THE DELIBERATELY BROKEN ROW is `revision_immutable_field_unreachable`. It hands the writer a
+# flag for a field the model calls immutable. If the interface were widened — a `--status`, a
+# `--feedback`, a `--slug` — this row goes red, and it must: that is the difference between a
+# machine CARRYING the operator's revision and a machine AUTHORING their direction.
+cmd_verify_revision() {
+    _amend="${REPO_ROOT}/plugins/workaholic/skills/strategy/scripts/amend.sh"
+    _create="${REPO_ROOT}/plugins/workaholic/skills/strategy/scripts/create.sh"
+    _close="${REPO_ROOT}/plugins/workaholic/skills/strategy/scripts/close.sh"
+    _pub="${REPO_ROOT}/plugins/workaholic/skills/branching/scripts"
+    for _f in "$_amend" "$_create" "$_close"; do
+        [ -f "$_f" ] || emit_err "revision_seam_unreadable" 4 "${_f} is not present in this checkout"
+    done
+
+    _before=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+
+    _tmp=$(mktemp -d)
+    _root="${_tmp}/tree"; _bin="${_tmp}/bin"
+    mkdir -p "${_root}/.workaholic" "$_bin"
+    ( cd "$_root" && git -c init.defaultBranch=main init -q . \
+      && git config user.email drill@example.com && git config user.name Drill \
+      && git config commit.gpgsign false ) >/dev/null 2>&1 || true
+
+    _file="${_root}/.workaholic/strategies/ship-the-platform.md"
+    _hash() { git -C "$_root" hash-object "$_file" 2>/dev/null || echo missing; }
+    _amendit() { ( cd "$_root" && sh "$_amend" "$@" .workaholic ) 2>&1 || true; }
+    _field() { printf '%s' "$1" | sed -n 's/.*"'"$2"'": *"\([^"]*\)".*/\1/p' | head -1; }
+    _fm() { grep -m1 "^$1:" "$_file" 2>/dev/null || true; }
+    _revlines() { grep -c '^Revised [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]: ' "$_file" 2>/dev/null || true; }
+
+    ( cd "$_root" && printf 'Build the platform.\n' | sh "$_create" \
+        "Ship the platform" 2026-09-30 "a@example.com" "Start now, freeze in October." \
+        "20260101000000-x.md" .workaholic ) >/dev/null 2>&1 || true
+
+    if [ -f "$_file" ] && [ "$(_fm status)" = "status: active" ]; then
+        add_row "revision_fixture" true "a live direction exists -- the shape under test" load
+    else
+        add_row "revision_fixture" false "create.sh did not leave a live direction at ${_file}" load
+        rm -rf "$_tmp"
+        emit_verdict "revision" 0 "fail" 1
+    fi
+
+    _slug0=$(_fm slug); _type0=$(_fm type); _created0=$(_fm created_at); _fb0=$(_fm feedback)
+    _untouched() { # $1 = row context
+        [ "$(_fm slug)" = "$_slug0" ] && [ "$(_fm type)" = "$_type0" ] \
+            && [ "$(_fm created_at)" = "$_created0" ] && [ "$(_fm feedback)" = "$_fb0" ]
+    }
+
+    # 1. THE DATE MOVED. The revised part changed, every other field is byte-identical, and one
+    # line was appended to the Schedule.
+    _o=$(_amendit ship-the-platform --target-date 2026-10-31)
+    if printf '%s' "$_o" | grep -q '"amended": true' && [ "$(_fm target_date)" = "target_date: 2026-10-31" ] \
+        && _untouched && [ "$(_revlines)" = "1" ] && grep -q '^Target: 2026-10-31$' "$_file"; then
+        add_row "revision_date_moved" true "the date moved in the frontmatter and in the Schedule, and one line records it" load
+    else
+        add_row "revision_date_moved" false "the date revision did not land cleanly: $(one_line "$_o")" load
+    fi
+
+    # 2. THE AIM SHARPENED, through the stdin form the model documents.
+    _o=$( ( cd "$_root" && printf 'Build the platform, not a document about it.\n' \
+        | sh "$_amend" ship-the-platform --aim - .workaholic ) 2>&1 || true )
+    if printf '%s' "$_o" | grep -q '"amended": true' \
+        && grep -q '^Build the platform, not a document about it\.$' "$_file" \
+        && _untouched && [ "$(_fm target_date)" = "target_date: 2026-10-31" ] && [ "$(_revlines)" = "2" ]; then
+        add_row "revision_aim_sharpened" true "the aim moved on stdin, the date did not, and a second line records it" load
+    else
+        add_row "revision_aim_sharpened" false "the aim revision did not land cleanly: $(one_line "$_o")" load
+    fi
+
+    # 3. THE ASSIGNEE CHANGED.
+    _o=$(_amendit ship-the-platform --assignees "b@example.com, c@example.com")
+    if printf '%s' "$_o" | grep -q '"amended": true' \
+        && [ "$(_fm assignees)" = "assignees: [b@example.com, c@example.com]" ] \
+        && _untouched && [ "$(_revlines)" = "3" ]; then
+        add_row "revision_assignee_changed" true "the owner moved and a third line records it, in order" load
+    else
+        add_row "revision_assignee_changed" false "the assignee revision did not land cleanly: $(one_line "$_o")" load
+    fi
+
+    # 4. A NO-OP APPENDS NOTHING. Without this the file grows a line on every tick that re-ran
+    # the same ask, which is how an append-only record becomes noise.
+    _h=$(_hash)
+    _o=$(_amendit ship-the-platform --assignees "b@example.com, c@example.com")
+    if [ "$(_field "$_o" reason)" = "already" ] && [ "$_h" = "$(_hash)" ]; then
+        add_row "revision_noop_appends_nothing" true "a re-applied revision reports already and leaves the file byte-identical" load
+    else
+        add_row "revision_noop_appends_nothing" false "a no-op was not idempotent: $(one_line "$_o")" load
+    fi
+
+    # 5. AN ASK NAMING NOTHING REVISABLE. "This is going well" is not a revision.
+    _h=$(_hash)
+    _o=$(_amendit ship-the-platform)
+    if [ "$(_field "$_o" reason)" = "no_revision" ] && [ "$_h" = "$(_hash)" ]; then
+        add_row "revision_no_revision_refused" true "an ask naming nothing revisable is refused no_revision with nothing written" load
+    else
+        add_row "revision_no_revision_refused" false "expected no_revision with the file untouched: $(one_line "$_o")" load
+    fi
+
+    # 6. A FLOOR BREACH. The write-time hook GRANDFATHERS git-tracked files, so it is silent on
+    # exactly these writes and the writer carries the floor itself.
+    _h=$(_hash)
+    _o=$(_amendit ship-the-platform --assignees "  ,  ")
+    if [ "$(_field "$_o" reason)" = "no_assignees" ] && [ "$_h" = "$(_hash)" ]; then
+        add_row "revision_floor_breach_refused" true "a floor breach is refused by create.sh's own name with nothing written" load
+    else
+        add_row "revision_floor_breach_refused" false "expected no_assignees with the file untouched: $(one_line "$_o")" load
+    fi
+
+    # THE DELIBERATELY BROKEN ROW. A flag for a field the model calls immutable. A drill that
+    # cannot fail proves nothing, and this is the row that would go red if the interface were
+    # widened into authoring the operator's direction rather than carrying their revision.
+    _h=$(_hash)
+    _o=$(_amendit ship-the-platform --status achieved)
+    if [ "$(_field "$_o" reason)" = "bad_option" ] && [ "$_h" = "$(_hash)" ] \
+        && [ "$(_fm status)" = "status: active" ]; then
+        add_row "revision_immutable_field_unreachable" true "an immutable field is unreachable from the interface -- this drill can fail" load
+    else
+        add_row "revision_immutable_field_unreachable" false "an immutable field was reachable: $(one_line "$_o")" load
+    fi
+
+    # 7. A CLOSED DIRECTION IS HISTORY. `close.sh` stays the only writer of an end state, and
+    # re-opening is offered nowhere.
+    ( cd "$_root" && sh "$_close" ship-the-platform achieved .workaholic ) >/dev/null 2>&1 || true
+    _h=$(_hash)
+    _o=$(_amendit ship-the-platform --target-date 2027-01-01)
+    if [ "$(_field "$_o" reason)" = "not_active" ] && [ "$_h" = "$(_hash)" ]; then
+        add_row "revision_not_active_refused" true "a closed direction is refused not_active with nothing written" load
+    else
+        add_row "revision_not_active_refused" false "expected not_active with the file untouched: $(one_line "$_o")" load
+    fi
+
+    # 8. THE EXEMPTION. A publish whose tree touches `.workaholic/strategies/` does not merge
+    # even with WORKAHOLIC_AUTO_MERGE=1 -- the operator's merge is what authors that artifact,
+    # and since 2026-08-27 that is the seam's refusal rather than the caller's judgement.
+    _origin="${_tmp}/origin"; _pubtree="${_tmp}/pub"
+    git -c init.defaultBranch=main init -q --bare "$_origin" >/dev/null 2>&1 || true
+    git clone -q "$_origin" "$_pubtree" >/dev/null 2>&1 || true
+    ( cd "$_pubtree" && git config user.email drill@example.com && git config user.name Drill \
+      && git config commit.gpgsign false && echo seed > README.md \
+      && git add -A && git commit -qm seed && git push -q origin main ) >/dev/null 2>&1 || true
+    printf '#!/bin/sh\ncase "$1 $2" in\n  "api user") printf "tester\\n"; exit 0 ;;\nesac\ncase "$*" in\n  *pulls*POST*) echo %s; exit 0 ;;\n  *merge*) echo %s; exit 0 ;;\nesac\necho ""\n' \
+        "'{\"html_url\":\"https://drill.invalid/pr/1\",\"number\":1}'" "'{\"merged\":true}'" > "${_bin}/gh"
+    chmod +x "${_bin}/gh"
+    _pubout=$( ( cd "$_pubtree" && sh "${_pub}/open-publish-tree.sh" >/dev/null 2>&1
+        mkdir -p .publish/.workaholic/strategies
+        cp "$_file" .publish/.workaholic/strategies/ship-the-platform.md
+        PATH="${_bin}:$PATH" WORKAHOLIC_AUTO_MERGE=1 sh "${_pub}/publish-tree-pr.sh" \
+            "Propose strategy ship-the-platform" why None None None verify \
+            .workaholic/strategies/ship-the-platform.md 2>/dev/null
+        sh "${_pub}/close-publish-tree.sh" >/dev/null 2>&1 ) | grep '"merge_reason"' | tail -1 )
+    if [ "$(_field "$_pubout" merge_reason)" = "strategy_touching" ] \
+        && printf '%s' "$_pubout" | grep -q '"merged": false'; then
+        add_row "revision_publish_never_merges" true "a strategy-touching publish is left open even with WORKAHOLIC_AUTO_MERGE=1" load
+    else
+        add_row "revision_publish_never_merges" false "a strategy-touching publish was not held open: $(one_line "$_pubout")" load
+    fi
+
+    _after=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+    if [ "$_before" = "$_after" ]; then
+        add_row "revision_writes_nothing" true "the checkout is byte-identical after the drill" load
+    else
+        add_row "revision_writes_nothing" false "the drill changed the working tree" load
+    fi
+
+    rm -rf "$_tmp"
+    if [ "$LOAD_FAILED" -gt 0 ]; then
+        emit_verdict "revision" 0 "fail" 1
+    fi
+    emit_verdict "revision" 0 "pass" 0
+}
+
 # ------------------------------------------------------ verify-direction-health
 # Does the loop SAY when it has run out of direction? Three states used to be silent and
 # each was byte-identical to a healthy idle hour, so "did it work?" is unanswerable by
@@ -1630,6 +1811,27 @@ EOF
     else
         add_row "direction_health_keys" false "unexpected question keys: '${_keys}'" load
     fi
+    # THE ACT NAMED IN THE `overdue` BODY (2026-08-27). Re-dating is something the operator can
+    # now do THROUGH the loop, so the question about an expired direction must offer it -- in
+    # THEIR vocabulary (*re-date it*, never *run amend.sh*), inside notify's 25-word bound, and
+    # with the closing clause restated rather than dropped. The `dormant` body deliberately does
+    # NOT move: a direction nothing is answering is not thereby mis-dated.
+    _obody=$(sed -n 's/.*then "\(Re-date it[^"]*\)".*/\1/p' "$_step" | head -1)
+    _owords=$(printf '%s' "$_obody" | wc -w | tr -d ' ')
+    if printf '%s' "$_out" | grep -q 'Re-date it, announce that it ended, or say it still stands' \
+        && printf '%s' "$_out" | grep -q 'the loop carries what you announce' \
+        && [ -n "$_obody" ] && [ "$_owords" -le 25 ] \
+        && ! printf '%s' "$_obody" | grep -q 'amend.sh'; then
+        add_row "direction_health_overdue_names_the_revision" true "the overdue body names re-dating, in the operator's vocabulary, in ${_owords} words" load
+    else
+        add_row "direction_health_overdue_names_the_revision" false "the overdue body does not name the revision act inside the bound (${_owords} words): $(one_line "$_obody")" load
+    fi
+    if printf '%s' "$_out" | grep -q 'File its next move, or say it still stands'; then
+        add_row "direction_health_dormant_unchanged" true "the dormant body was not widened by reflex" load
+    else
+        add_row "direction_health_dormant_unchanged" false "the dormant body moved: $(one_line "$_out")" load
+    fi
+
     _nout=$(cd "$REPO_ROOT" && sh "$_step" --tick 20260101-000000 --root "$_empty" --open-proposals "$_open" 2>&1) || true
     if printf '%s' "$_nout" | grep -q '"key":[ ]*"direction-none"'; then
         add_row "direction_health_key_none" true "an empty tree asks direction-none, addressed to nobody" load
@@ -2550,7 +2752,7 @@ cmd_verify_delivery_retry() {
     emit_verdict "delivery-retry" 0 "pass" 0
 }
 
-USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-specificate <issue>|verify-implement <issue>|verify-plan [--json]|verify-status [--json]|verify-cadence [--json]|verify-planner [--json]|verify-standup [--json]|verify-moderate [--json]|verify-propose [--json]|verify-direction-health [--json]|verify-merged-claim [--json]|verify-identity-handoff [--json]|verify-close [--json]|verify-retire [--json]|verify-delivery-retry [--json]"}'
+USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-specificate <issue>|verify-implement <issue>|verify-plan [--json]|verify-status [--json]|verify-cadence [--json]|verify-planner [--json]|verify-standup [--json]|verify-moderate [--json]|verify-propose [--json]|verify-direction-health [--json]|verify-revision [--json]|verify-merged-claim [--json]|verify-identity-handoff [--json]|verify-close [--json]|verify-retire [--json]|verify-delivery-retry [--json]"}'
 
 CMD="${1:-}"
 [ -n "$CMD" ] || {
@@ -2587,6 +2789,7 @@ case "$CMD" in
     verify-moderate) cmd_verify_moderate "$@" ;;
     verify-propose) cmd_verify_propose "$@" ;;
     verify-direction-health) cmd_verify_direction_health "$@" ;;
+    verify-revision) cmd_verify_revision "$@" ;;
     verify-merged-claim) cmd_verify_merged_claim "$@" ;;
     verify-identity-handoff) cmd_verify_identity_handoff "$@" ;;
     verify-close) cmd_verify_close "$@" ;;

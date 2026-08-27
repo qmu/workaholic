@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-27T11:25:28+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -78,3 +79,34 @@ prose into the seam and pins it.
 - A close (`9c`) and a create (`9b`) are covered by the same refusal, which is a
   strengthening of an existing rule rather than a new one — say so where the rule is
   recorded, so a reader does not read it as a change in their behaviour.
+
+## Final Report
+
+Development completed as planned. `publish-tree-pr.sh` section 5 now asks, before the
+auto-merge branch, whether the commit it is publishing touches any path under
+`.workaholic/strategies/` — derived from a diff against the base, never from a
+caller-supplied flag — and when it does it skips the merge and reports `merged: false`,
+`merge_reason: strategy_touching` with the pull request left open. Every other path is
+byte-identical: a proposal touching no strategy still merges under
+`WORKAHOLIC_AUTO_MERGE=1`, and a scan finding still holds a pull request open under its own
+reason. A create, a close and an amendment are covered by the one refusal, which is stated
+where the rule is recorded as a strengthening rather than a change in anyone's behaviour.
+`/specificate`'s step 10 is restated as belt and seam: the caller still leaves the variable
+unset, and the seam refuses regardless.
+
+**The deliberate break was observed.** Neutralising the refusal (forcing the derived count
+to zero) made the strategy-touching publish report `merged: true, merge_reason: merged` —
+which is assertion 1 of the new test — and the seam was restored byte-identical afterwards.
+
+### Discovered Insights
+
+- **Insight**: two `publish-tree-pr.sh` calls in the same wall-clock second against one
+  origin collide on `work-$(date +%Y%m%d-%H%M%S)` and report `branch_collision`. The new
+  test hit it and now gives each scenario its own fixture, exactly as
+  `testPublishTreePrClosesIssue` already documents.
+  **Context**: independent origins never share that namespace, so this is a fixture rule
+  rather than a race to sleep around — worth knowing before writing any two-publish test.
+- **Insight**: the refusal returns before the scan runs, so a strategy-touching publish
+  spends no scan and reports no scan reason.
+  **Context**: the exemption is about *authorship*, not safety; conflating the two would
+  have made `strategy_touching` look like a finding.

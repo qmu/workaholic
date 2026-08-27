@@ -153,8 +153,10 @@ which is minted per second (§5).
    strategy it names: identification is by explicit slug, read through
    `strategy/scripts/list.sh`, and an unmatched slug is record-only naming
    `strategy_not_found` rather than a guessed match. *Ended* reaches `close.sh`,
-   *changed* is record-only (there is no third writer), and any strategy-touching
-   pull request stays un-auto-merged.
+   *changed* reaches `amend.sh` (step 9d, since 2026-08-27 — record-only under
+   `not_active` or `no_revision`), and any strategy-touching pull request stays
+   un-auto-merged, which `publish-tree-pr.sh` now enforces itself
+   (`merge_reason: strategy_touching`) rather than leaving to the caller.
 5. Publishes everything in **one** `publish-tree-pr.sh` call, then posts the
    `🔵 Proposed` finish line into the item's thread — preceded by a description
    root when the lookup found none, which is the only case that sends two

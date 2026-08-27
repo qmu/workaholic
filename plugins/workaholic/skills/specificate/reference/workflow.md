@@ -149,13 +149,16 @@ and every abort reports a machine-readable reason.
    collapse into `unattributed` here.
 
    **First, is it a lifecycle announcement?** An ask that names an explicit strategy
-   slug and announces that it was created, changed or ended takes step 9c instead of
-   the four forms (SKILL.md, *Strategy lifecycle announcements*): a slug absent from
-   step 5b's set is record-only with `strategy_not_found` and the slug named; an
+   slug and announces that it was created, changed or ended takes step 9b, 9c or 9d
+   instead of the four forms (SKILL.md, *Strategy lifecycle announcements*): a slug absent
+   from step 5b's set is record-only with `strategy_not_found` and the slug named; an
    *ended* announcement that does not say achieved or abandoned is record-only with
-   `no_end_state`; a *changed* announcement about a slug already in the set is
-   record-only with `strategy_exists_no_update_writer`. An ask naming no slug is not
-   an announcement — judge it through the forms below.
+   `no_end_state`; a *changed* announcement about a slug already in the set **reaches
+   `amend.sh` at step 9d** (2026-08-27), and is record-only with `not_active` when the
+   named direction is closed or `no_revision` when it names nothing revisable. An ask
+   naming no slug is not an announcement — judge it through the forms below.
+   **Every recognition rule above is unchanged**: matching is by **explicit slug only**, a
+   title or a paraphrase never matches, and this run never amends on its own reading.
 
    Otherwise, in this precedence: two or more units → a mission with its ticket set
    (steps 8–9); atomic → one loose ticket (step 9's loose form, no mission); a
@@ -300,6 +303,36 @@ and every abort reports a machine-readable reason.
    refusal (`not_found`, `already_ended`, `bad_status`) **falls back to record-only
    naming it**.
 
+9d. **Revise the announced strategy** (a *changed* announcement only), in the publish
+   tree — instead of steps 8, 9, 9b and 9c, never alongside them:
+
+   ```sh
+   bash ${CLAUDE_PLUGIN_ROOT}/skills/strategy/scripts/amend.sh <slug> \
+     [--target-date <YYYY-MM-DD>] [--schedule "<prose>"] [--assignees "<a>[,<b>...]"] [--aim -]
+   ```
+
+   The slug is the one the ask named and step 5b confirmed; the revised values are the ones
+   the ask states, never this session's reading. Only the three revisable parts are
+   reachable — `## Aim`, the Schedule (`target_date:` and its prose) and `assignees:` — and
+   `amend.sh` asserts the immutable half over its own candidate, so `slug`, `type`,
+   `status`, `created_at`, `author` and `feedback:` cannot move here. This is the **only**
+   thing the run writes for an announcement — no mission, no ticket, no second artifact, and
+   nothing written back onto the feedback record (the citation runs strategy → feedback only;
+   the pull request is what connects the revision to its ask).
+
+   **Two record-only outcomes are the announcement's own**, each reported by name:
+   `not_active` when the named direction is closed (a closed strategy is history and
+   `close.sh` stays the only writer of an end state), and `no_revision` when the ask names
+   the slug but nothing revisable — an announcement that says only "this is going well" is
+   not a revision. Every other `amend.sh` refusal (`bad_target_date`, `no_assignees`,
+   `empty_schedule`, `empty_aim`, `immutable_field`, `not_found`) **falls back to record-only
+   naming that reason**; never retry with a substituted value, exactly as 9b and 9c require.
+
+   **A run never amends on its own judgement.** The route fires on an explicit announcement
+   and on nothing else — never on this run's own reading that a direction looks stale,
+   mis-dated or unanswered. Reading a direction's state is `/moderate`'s `direction-health`
+   step, which asks a person and writes nothing.
+
 10. **Publish it all as one pull request, merged immediately.**
    `WORKAHOLIC_AUTO_MERGE=1 WORKAHOLIC_PR_TITLE="[Proposal] <title>" WORKAHOLIC_CLOSES_ISSUE="<issue number from step 1>" bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/publish-tree-pr.sh "<title>" "<why>" "<changes>" "<concerns>" "<insights>" "<verify>"`
    — **one call**, carrying the record and whatever the judgment added.
@@ -329,11 +362,15 @@ and every abort reports a machine-readable reason.
    **once**, and report both outcomes by name: merged through the connector, or the
    pull request left open with the REST refusal and the connector's own. Every other
    `merge_reason` is reported as-is and never retried; a scan finding least of all. **Whenever this run
-   wrote under `.workaholic/strategies/` — step 9b's create or step 9c's close —
-   leave `WORKAHOLIC_AUTO_MERGE` unset**: a strategy-touching proposal is the one
+   wrote under `.workaholic/strategies/` — step 9b's create, step 9c's close or step 9d's
+   amendment — leave `WORKAHOLIC_AUTO_MERGE` unset**: a strategy-touching proposal is the one
    kind this run deliberately does not merge, because the operator's merge is what
-   authors that artifact and what ends it (SKILL.md, *The strategy form, and the one
-   rule it widens*). Report the open PR as that form's outcome, never as a
+   authors that artifact, what revises it and what ends it (SKILL.md, *The strategy form, and
+   the one rule it widens*). **Belt and seam** (2026-08-27): the caller leaving it unset is a
+   judgement, and `publish-tree-pr.sh` now **refuses regardless** — it derives from the tree it
+   is publishing whether any path under `.workaholic/strategies/` is touched, and reports
+   `merged: false`, `merge_reason: strategy_touching` with the pull request left open. That is
+   the exemption working, not a failure. Report the open PR as that form's outcome, never as a
    merge failure, and never merge it by hand in the same run. Name the commit
    subject for what it carries — `Propose mission <slug>`, `Propose ticket <slug>`,
    `Propose strategy <slug>`, `Close strategy <slug>`, or
@@ -378,11 +415,12 @@ and every abort reports a machine-readable reason.
     indistinguishable from a run that never reached the rule. Then the form chosen
     (mission with N tickets / loose ticket /
     **strategy `<slug>`, PR left open for the operator** / **strategy `<slug>` closed
-    `achieved|abandoned`, PR left open for the operator** / record-only, and for
+    `achieved|abandoned`, PR left open for the operator** / **strategy `<slug>` revised
+    (`<parts>`), PR left open for the operator** / record-only, and for
     record-only reached by a failed strategy bar or an unmatched announcement, the
     part that was missing — `no_target_date` / `no_assignee` / `assignee_unmapped` with
     the login / `strategy_not_found`
-    with the slug / `no_end_state` / `strategy_exists_no_update_writer`) with its
+    with the slug / `no_end_state` / `not_active` / `no_revision`) with its
     reason, the record's filename, **the carry** —
     `carried:<artifact>:<n>` per emitted artifact and `dropped:<ref>:<reason>` per drop,
     taken from step 3b's script output and never re-read by eye — and **the direction**,

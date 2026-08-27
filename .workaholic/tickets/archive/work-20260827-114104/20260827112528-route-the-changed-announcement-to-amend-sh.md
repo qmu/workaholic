@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-27T11:25:28+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -79,3 +80,33 @@ reaching `amend.sh` inside the publish tree.
   request that carries both.
 - A run must not amend on its own judgement. The route fires on an explicit announcement
   and on nothing else — never on a run's own reading that a direction looks stale.
+
+## Final Report
+
+Development completed as planned. `reference/workflow.md` gained **step 9d**: an announcement
+naming a slug present in step 5b's set and stating a revision to the Aim, the Schedule/date or
+the assignee runs `amend.sh` inside the publish tree, instead of steps 8, 9, 9b and 9c and never
+alongside them. Every existing recognition rule is byte-identical — explicit slug only, an absent
+slug record-only with `strategy_not_found`, an ask naming no slug not an announcement at all —
+and step 7's lifecycle paragraph now names all three branches instead of pointing every one of
+them at 9c. Two record-only outcomes are the announcement's own and each is reported by name:
+`not_active` for a closed direction and `no_revision` for an ask that names the slug but nothing
+revisable. Every other `amend.sh` refusal falls back to record-only naming that reason, never a
+retry with a substituted value. The SKILL's third table row, its retirement note for
+`strategy_exists_no_update_writer`, step 13's outcome vocabulary and `/specificate`'s row in
+`CLAUDE.md` moved in the same change.
+
+The code and prose landed in the previous ticket's archive commit (one worktree, default
+staging); this report records the routing half of it.
+
+### Discovered Insights
+
+- **Insight**: the retired reason named an **absence**, not a rule — there was no writer of a
+  live direction — so retiring it required saying what replaced it *and* why the two-writer
+  rule's premise survives, in the same place a reader meets the row.
+  **Context**: a reason that describes a missing capability reads as policy once the capability
+  exists. That is the shape worth catching in any future retirement of a `*_no_*` reason.
+- **Insight**: the route is stated as firing on an explicit announcement and on nothing else,
+  with the contrast drawn against `/moderate`'s `direction-health` in the same paragraph.
+  **Context**: the two are one step apart in the loop and the tempting failure is a run reading
+  a direction as stale and amending it — which is the pin, not just the prose.

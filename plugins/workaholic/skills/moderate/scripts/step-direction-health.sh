@@ -23,10 +23,23 @@
 # `strategy/scripts/direction-state.sh` itself — the one lifecycle reader, which composes the
 # same survey and re-derives nothing. Two readers of one script is not two sources of truth.
 #
-# IT ASKS; IT NEVER CLOSES, NEVER PROPOSES AND NEVER LIFTS A GATE. The strategy artifact has
-# exactly two writers (`create.sh` creates, `close.sh` ends) and this is neither. A dormant
-# direction stays eligible; an overdue one stays refused. Ending a direction is announced by
-# the operator and reaches `close.sh` through `/specificate`, never from here.
+# IT ASKS; IT NEVER CLOSES, NEVER PROPOSES, NEVER AMENDS AND NEVER LIFTS A GATE. The strategy
+# artifact has three writers (`create.sh` creates, `amend.sh` revises the three revisable parts,
+# `close.sh` ends) and this is none of them. A dormant direction stays eligible; an overdue one
+# stays refused. Ending or revising a direction is announced by the operator and reaches
+# `close.sh` or `amend.sh` through `/specificate`, never from here — the pin in
+# `test-workflow-scripts.mjs` holds exactly that separation, and conflating a READING with a
+# WRITE is what it exists to catch.
+#
+# THE `overdue` BODY NAMES THREE ACTS SINCE 2026-08-27, and the `dormant` body deliberately
+# names two. Re-dating became something the operator can do THROUGH the loop, so the question
+# about an expired direction must offer it. A direction nothing is answering is not thereby
+# mis-dated, so widening `dormant` by reflex would name an act its reading gives no reason to
+# take. The closing clause is restated rather than dropped: the loop carries the revision the
+# operator announces and decides none, which is what "it will not change it either way" always
+# meant. Changing a body does NOT re-ask the question — the ledger keys on the step id derived
+# from `key`, not on the text, so an operator already asked about an overdue direction will not
+# see the new wording for that direction.
 #
 # `unreadable` IS NOT ASKED ABOUT. A reading that could not be made is counted in the summary
 # and nothing else — spending a person's attention on our own degradation is the rule
@@ -132,7 +145,7 @@ subjects=$(printf '%s' "$out" | jq -c --arg window "14 days" '
                    else "nothing has answered the direction `" + .slug + "` in the last " + $window
                    end),
          body: (if .state == "overdue"
-                then "Announce that it ended, or say it still stands — the loop will not close or change it either way."
+                then "Re-date it, announce that it ended, or say it still stands — the loop carries what you announce and never decides either for you."
                 else "File its next move, or say it still stands — the loop will not close or change it either way."
                 end)} ]' 2>/dev/null || echo '[]')
 n_subjects=$(printf '%s' "$subjects" | jq 'length' 2>/dev/null || echo 0)

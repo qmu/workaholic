@@ -634,10 +634,12 @@ everywhere).
 `stalled-units`. `/propose` writes nothing into the tree and could not leave a finding here; this
 step calls the reader itself. Two readers of one script is not two sources of truth.
 
-**It asks; it never closes, never proposes, never lifts a gate.** The strategy artifact has
-exactly two writers and this is neither: a dormant direction stays eligible, an overdue one stays
-refused, and *ending* a direction is announced by the operator and reaches `close.sh` through
-`/specificate`. **`unreadable` is not asked about** — counted in the summary and nothing else, the
+**It asks; it never closes, never proposes, never amends, never lifts a gate.** The strategy
+artifact has three writers and this is none of them: a dormant direction stays eligible, an
+overdue one stays refused, and *ending* or *revising* a direction is announced by the operator
+and reaches `close.sh` or `amend.sh` through `/specificate`. Since 2026-08-27 the `overdue`
+question names re-dating as one of the operator's three acts; the `dormant` one deliberately does
+not, and the question keys, the asked-once gate and every hold are byte-identical. **`unreadable` is not asked about** — counted in the summary and nothing else, the
 rule `strategy-pace` already applies to its own `unknown`.
 
 **The check-in's machinery applies unchanged**: the working-day and quiet-hour holds, the per-tick

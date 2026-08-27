@@ -20,6 +20,16 @@
 # retro-blocked; only an UNTRACKED (freshly written) file is held to the floor.
 # Outside a git repo the hook fails open, exactly like validate-feedback.sh.
 #
+# THIS HOOK DOES NOT COVER AN AMENDMENT, AND THE WRITER CARRIES THE FLOOR INSTEAD
+# (2026-08-27). Every strategy `strategy/scripts/amend.sh` revises is by definition
+# already git-tracked, so the grandfathering above makes this hook silent on exactly
+# that class of write — the one class where the file was NOT freshly authored by a
+# human looking at it. Do not read "the hook validates strategies" as covering it.
+# `amend.sh` therefore evaluates the three properties below over its POST-REVISION
+# candidate before touching the artifact, using create.sh's refusal names verbatim
+# (`bad_target_date` / `no_assignees` / `empty_schedule` / `empty_aim`), so a breach
+# is refused with nothing written rather than written and reverted.
+#
 # Scope: *.workaholic/strategies/*.md, excluding the reserved index.md and README*.
 
 set -eu

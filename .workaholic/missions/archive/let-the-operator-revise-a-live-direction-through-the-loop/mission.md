@@ -2,7 +2,7 @@
 type: Mission
 title: Let the operator revise a live direction through the loop
 slug: let-the-operator-revise-a-live-direction-through-the-loop
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-27T11:23:01+00:00
 author: a@qmu.jp
@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260827-114104
 ---
 
 # Let the operator revise a live direction through the loop
@@ -38,13 +39,23 @@ with nothing written, and the ask still lands as a record.
 
 ## Acceptance
 
-- [ ] A *changed* announcement naming a live slug opens a pull request carrying exactly
+- [x] A *changed* announcement naming a live slug opens a pull request carrying exactly
       that revision, and it does not auto-merge. (#20260827112528-route-the-changed-announcement-to-amend-sh.md)
-- [ ] `amend.sh` is the one writer of a live direction's three parts, refusing an
+- [x] `amend.sh` is the one writer of a live direction's three parts, refusing an
       immutable field, a closed direction and a floor breach with nothing written. (#20260827112528-write-amend-sh-the-one-writer-of-a-live-direction.md)
-- [ ] The reversal is pinned mechanically and written into every document recording
+- [x] The reversal is pinned mechanically and written into every document recording
       "two writers and no third". (#20260827112528-write-the-third-writer-reversal-into-the-documents.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-27 — ticket archived — 20260827112528-write-amend-sh-the-one-writer-of-a-live-direction.md
+- 2026-08-27 — ticket archived — 20260827112528-hold-a-revised-strategy-to-the-write-time-floor.md
+- 2026-08-27 — ticket archived — 20260827112528-record-what-a-revision-moved-in-the-schedule-prose.md
+- 2026-08-27 — ticket archived — 20260827112528-pin-that-a-strategy-revision-can-never-auto-merge.md
+- 2026-08-27 — ticket archived — 20260827112528-route-the-changed-announcement-to-amend-sh.md
+- 2026-08-27 — ticket archived — 20260827112528-name-the-revision-act-in-the-direction-health-questions.md
+- 2026-08-27 — ticket archived — 20260827112528-write-the-third-writer-reversal-into-the-documents.md
+- 2026-08-27 — ticket archived — 20260827112528-drill-the-strategy-revision-end-to-end-with-no-network.md
+- 2026-08-27 — mission achieved — mission.md
+- 2026-08-27 — story reported — work-20260827-114104.md

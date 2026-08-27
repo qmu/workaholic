@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-27T11:25:28+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -82,3 +83,44 @@ authorship premise survives.
 - This ticket is where the mission is most easily under-delivered: the code works without
   it, and the cost of skipping it is invisible for weeks and then expensive. Treat the
   documents as part of the change, not as a follow-up.
+
+## Final Report
+
+Development completed as planned. Every place recording "exactly two writers and no third" now
+states the rule as it is — **three** writers, `create.sh` creates, `amend.sh` revises the three
+revisable parts, `close.sh` ends, and nothing else writes the file — and each says what did
+**not** move: the operator's merge is still the authorship, a strategy-touching proposal still
+never auto-merges (and since this mission that is the seam's refusal, not the caller's), `/drive`
+still never surveys a strategy, matching is still by explicit slug only, the citation still runs
+strategy → feedback one way, the retired `strategy:` relation stays retired, and no routine
+amends on its own judgement. The two-writer reasoning is **answered rather than deleted**: it
+existed to stop a machine authoring the operator's direction, and it holds — what changed is that
+a machine can now carry a revision the operator announced, onto a pull request only they can
+merge.
+
+Rewritten: `CLAUDE.md`'s Strategy bullet and `/moderate` row; `strategy/SKILL.md`'s drafting
+exemption, its Scripts block, *What it does not answer*, the refusal pins and the write-time
+floor; `specificate/SKILL.md`'s announcement table and its retirement note;
+`moderate/SKILL.md`'s never-edits clause; `moderate/reference/workflow.md`;
+`rules/workaholic.md`; `direction-state.sh`'s and `attributed-work.sh`'s headers;
+`docs/proposal-loop-runbook.md`; `docs/loop-drill-runbook.md`. `direction-health`'s clause is
+precise: **the step still never amends** — it is `/specificate`'s route that does. The mechanical
+pins agree: the closure list now forbids `amend.sh` beside `close.sh`, and the writer set is
+pinned at three so a **fourth** still fails. `outputs/` was regenerated and `verify.mjs` is
+clean; a grep for the retired sentence returns only history.
+
+The prose landed in the auto-merge ticket's archive commit (one worktree, default staging); this
+report records the documentation half of it.
+
+### Discovered Insights
+
+- **Insight**: `attributed-work.sh`'s header refused a strategy-side list of slugs *because*
+  nothing edited a live strategy. That premise is now false and the refusal still holds — for a
+  different reason, which the header now states: `amend.sh` is bounded and operator-driven, so
+  nothing would keep such a list current as work landed.
+  **Context**: a reason that rests on an impossibility needs re-deriving, not deleting, the day
+  the impossibility ends. Deleting it would have made the option look newly available.
+- **Insight**: the closure pin forbidding `amend.sh` in `direction-health` is the sharpest of the
+  three, because reading a direction's lifecycle state and writing one are now one script apart.
+  **Context**: the pin was written when no writer of a live direction existed; it becomes
+  load-bearing exactly now.

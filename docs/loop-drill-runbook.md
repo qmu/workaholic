@@ -35,6 +35,7 @@ Run every command from the repository root, on a clean `main`.
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-moderate --json` | one `[Moderate]` tick against a throwaway root — proves every step reports, the log carries one section per tick, and the checkout is untouched |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-propose --json` | a throwaway strategy tree and a synthetic open-proposal list — proves every gate of `/propose`'s brake refuses by name, and that it writes nothing |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-direction-health --json` | a throwaway strategy tree, one overdue direction and one dormant one — proves the four lifecycle readings, the three question keys, the asked-once gate, and that nothing was written |
+| — | Any time | `sh scripts/e2e/loop-drill.sh verify-revision --json` | a throwaway strategy tree and a local bare origin — proves the three revisions land, that every refusal leaves the artifact byte-identical, and that a strategy-touching publish never auto-merges, with the transport stubbed and one row that deliberately breaks the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-merged-claim --json` | a throwaway repository carrying a **squash-merged** mission claim and batch claim — proves all four merged-claim readings (merged batch, merged mission, live, unanswerable) with the transport stubbed, so no `gh` call is made |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-identity-handoff --json` | a throwaway repository with a two-address mapping — walks issue assignee → the address the writer stamps → the survey that offers the unit, for a canonical address, a mapped alias and an unmapped login, with no network and no credential |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-close --json` | a throwaway repository carrying three finished units — proves all four closing outcomes (merged, session-type-refused-then-retryable, refused-and-unretryable, scan-held) with the transport stubbed, plus one row that deliberately breaks the seam |
@@ -402,7 +403,9 @@ does not exist.
 | `direction_health_keys` | the step's question keys are not exactly `direction-overdue:<slug>` and `direction-dormant:<slug>` | `step-direction-health.sh`; the keys are what the asked-once ledger keys on, so a drifted key is a question asked twice or never |
 | `direction_health_key_none` | an empty tree does not ask `direction-none` | the repository-level branch of the same step |
 | `direction_health_asked_once` | the same key is asked again on a later tick | `ask-question.sh`'s ledger, not this step — the step supplies subjects and the check-in owns the gate |
-| `direction_health_writes_nothing` | the drill changed the checkout | the reader and the step are pure reads; the strategy artifact has exactly two writers and neither is here |
+| `direction_health_writes_nothing` | the drill changed the checkout | the reader and the step are pure reads; the strategy artifact has three writers (`create.sh`, `amend.sh`, `close.sh`) and none of them is here |
+| `direction_health_overdue_names_the_revision` | the `overdue` body does not offer re-dating, names `amend.sh` instead of the operator's own act, or breaks the 25-word bound | `step-direction-health.sh`'s `subjects` block — the act is named in the operator's vocabulary, and the script is not theirs to run |
+| `direction_health_dormant_unchanged` | the `dormant` body was widened by reflex | the same block; a direction nothing is answering is not thereby mis-dated, so its question keeps two acts |
 | `direction_health_fixtures_intact` | the seeded `strategies/` area changed | the same refusal, measured on the tree the step actually looked at rather than on the checkout |
 
 **Two proofs, and they are not the same one.** This drill is the **operator's**, run on
@@ -563,6 +566,32 @@ nothing but the proof gets through.
 | `retire_idle_renders_no_line` | a tick that retired **nothing** still supplies an `event` | the half that is easy to leave unasserted, and exactly the 2026-08-23 failure: `no new documentation drift` announced that nothing happened while the diff rendered it as a change |
 | `retire_refuses_a_judgement` | a **live** claim is not refused by its own verdict word | **the deliberately broken seam.** Widen the gate to any claim and this row goes red while every other row stays green — verified by replacing `retire-claim.sh`'s verdict test with `if false`, which retired `batch-live`'s branch and failed exactly this row |
 | `retire_writes_nothing` | the drill changed the checkout | every fixture lives outside the checkout |
+
+## 5l-bis. The revision (can the operator revise a live direction through the loop?)
+
+`verify-revision` needs no seed, no fire, no issue number and **no network**: the strategy half
+is local files, and the publish half runs against a local bare origin with `gh` stubbed on
+`PATH`. The stub answers a **successful** merge on purpose — a stub that refused would let the
+auto-merge exemption pass for the wrong reason.
+
+**This is the first write into `.workaholic/strategies/` a machine makes on the operator's
+behalf**, and its whole safety is a set of refusals. So the refusals are drilled by name and each
+one asserts the artifact is byte-identical afterwards: write-then-revert is not the contract, and
+a row that only checked the reason word would pass a writer that wrote and rolled back.
+
+| Row | Fails when | Read |
+| --- | ---------- | ---- |
+| `revision_fixture` | `create.sh` did not leave a live direction | the fixture is not the shape under test; every row below it would prove nothing |
+| `revision_date_moved` | the date does not move in both the frontmatter and the `Target:` line, or no line records it | `amend.sh` — `target_date:` and `## Schedule` are one revisable part, so a strategy states its date once, not twice |
+| `revision_aim_sharpened` | the stdin form does not replace the Aim, or it moves something else | the `--aim -` path, the shape `create.sh` uses for the same prose |
+| `revision_assignee_changed` | the owner does not move, or the record is out of order | the append-only `Revised …` block: a previous line is never rewritten and never reordered |
+| `revision_noop_appends_nothing` | a re-applied revision writes | the `already` return sits **before** the append, so the file cannot grow a line on every tick that re-ran the same ask |
+| `revision_no_revision_refused` | an ask naming nothing revisable is not refused `no_revision` | "this is going well" is an announcement, not a revision |
+| `revision_floor_breach_refused` | a floor breach is not refused by `create.sh`'s own name with nothing written | the write-time hook **grandfathers git-tracked files**, so it is silent on exactly these writes and `amend.sh` carries the floor itself |
+| `revision_immutable_field_unreachable` | a flag reaches a field the model calls immutable | **the deliberately broken seam.** Widen the interface — a `--status`, a `--feedback`, a `--slug` — and this row goes red while every other row stays green; verified by adding a `--status` case to the option loop, which turned exactly this row red |
+| `revision_not_active_refused` | a closed direction is amended | `close.sh` stays the only writer of an end state, and re-opening is offered nowhere |
+| `revision_publish_never_merges` | a strategy-touching publish merges under `WORKAHOLIC_AUTO_MERGE=1` | `publish-tree-pr.sh` → `merge_reason: strategy_touching`. This is the premise the third writer rests on: the operator's merge is what authors the artifact, so the exemption had to move from prose into the seam |
+| `revision_writes_nothing` | the drill changed the checkout | every fixture lives outside the checkout |
 
 ## 5m. The delivery retry (does an undelivered unit get its merge re-attempted?)
 

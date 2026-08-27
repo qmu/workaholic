@@ -2195,7 +2195,7 @@ cmd_verify_retire() {
     ( cd "$_origin" && git -c init.defaultBranch=main init -q --bare ) || true
     ( cd "$_tmp" && git clone -q "$_origin" work ) || true
     mkdir -p "${_work}/.workaholic/tickets/todo"
-    for _n in 1 2 3 4 5; do
+    for _n in 1 2 3 4 5 6; do
         printf -- '---\ncreated_at: 2026-01-01T00:00:0%s+09:00\nauthor: %s\n---\n\n# T%s\n' \
             "$_n" "$_me" "$_n" > "${_work}/.workaholic/tickets/todo/2026010100000${_n}-t.md"
     done
@@ -2220,10 +2220,18 @@ cmd_verify_retire() {
       && _stamp work-20260101-000004 20260101000005-t.md \
       && _git commit -qam "Claim a PR-unit" -m "Unit: batch-superseded-two" \
       && git push -q origin work-20260101-000004 ) >/dev/null 2>&1 || true
+    # A THIRD, reserved for the STEP. The step retires every superseded row it finds, so the
+    # rows that drive the writer directly must not be the same claims -- and the event assertion
+    # needs one superseded claim still standing when the step runs.
+    ( cd "$_work" && git checkout -q -b work-20260101-000005 main \
+      && _stamp work-20260101-000005 20260101000006-t.md \
+      && _git commit -qam "Claim a PR-unit" -m "Unit: batch-superseded-three" \
+      && git push -q origin work-20260101-000005 ) >/dev/null 2>&1 || true
     ( cd "$_work" && git checkout -q main \
       && mkdir -p .workaholic/tickets/archive/work-20260101-000000 \
       && git mv .workaholic/tickets/todo/20260101000001-t.md .workaholic/tickets/archive/work-20260101-000000/ \
       && git mv .workaholic/tickets/todo/20260101000005-t.md .workaholic/tickets/archive/work-20260101-000000/ \
+      && git mv .workaholic/tickets/todo/20260101000006-t.md .workaholic/tickets/archive/work-20260101-000000/ \
       && _git commit -qm "Archive the tickets elsewhere" && git push -q origin main ) >/dev/null 2>&1 || true
 
     # A JUDGEMENT beside it: a live claim whose ticket is still queued.
@@ -2328,6 +2336,30 @@ cmd_verify_retire() {
         add_row "retire_step_asks_nothing" true "the step carries an empty needs_agent -- it acts and reports, it never asks" load
     else
         add_row "retire_step_asks_nothing" false "the step produced a question: $(one_line "$_stepout")" load
+    fi
+
+    # 6. A RETIREMENT IS A REPOSITORY EVENT, so the root gets a line naming what was retired.
+    # The run above still had `batch-superseded-three` standing, which is why the third
+    # superseded claim exists.
+    if printf '%s' "$_stepout" | grep -q '"event": "[^"]' \
+        && printf '%s' "$_stepout" | grep -q 'retired'; then
+        add_row "retire_step_renders_an_event" true "a tick that retired a claim supplies an event naming what it retired" load
+    else
+        add_row "retire_step_renders_an_event" false "a tick that retired a claim supplied no event: $(one_line "$_stepout")" load
+    fi
+
+    # 7. AND A TICK THAT RETIRED NOTHING SUPPLIES NO EVENT AT ALL, so the renderer emits no
+    # line. This is the half that is easy to leave unasserted and is exactly the failure the
+    # 2026-08-23 rule exists against: `no new documentation drift` announced that NOTHING
+    # HAPPENED while the diff rendered it as a change. Every superseded claim is retired by
+    # now, so this run is the nothing-happened case.
+    _idle=$( ( cd "$_read" && PATH="${_bin}:$PATH" WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES=0 \
+        sh "$_step" --tick 20260101-000001 --root "$_read" ) 2>&1 || true )
+    if printf '%s' "$_idle" | grep -q '"event": ""' \
+        && printf '%s' "$_idle" | grep -q '"status": "ok"'; then
+        add_row "retire_idle_renders_no_line" true "a tick that retired nothing supplies no event, so the root renders no line" load
+    else
+        add_row "retire_idle_renders_no_line" false "a tick that retired nothing still supplied an event: $(one_line "$_idle")" load
     fi
 
     # THE DELIBERATELY BROKEN ROW. A LIVE claim handed straight to the writer. If the gate were

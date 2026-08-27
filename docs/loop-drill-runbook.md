@@ -559,6 +559,8 @@ nothing but the proof gets through.
 | `retire_already_closed_is_success` | an already-closed pull request is treated as a degradation | the idempotence that matters in practice: a cloud container may PUSH but not DELETE a branch (measured 2026-08-05), so a partial retirement must be finishable by the next tick |
 | `retire_ambiguous_refused` | a unit held by two live claims is picked between | `claims_unit_resolution` — the protocol settles a race by the push, so this state cannot arise from the sanctioned path and choosing silently tears down work another run is driving |
 | `retire_step_asks_nothing` | the step carries a question | `step-retire-claims.sh` — a retirement is *proved*, so there is nothing for a person to rule on; it acts and reports |
+| `retire_step_renders_an_event` | a tick that retired a claim supplies no `event` | a retirement **is** a repository event — a pull request closed, a branch deleted — and the step supplies the phrase because it knows what its finding means and the renderer does not |
+| `retire_idle_renders_no_line` | a tick that retired **nothing** still supplies an `event` | the half that is easy to leave unasserted, and exactly the 2026-08-23 failure: `no new documentation drift` announced that nothing happened while the diff rendered it as a change |
 | `retire_refuses_a_judgement` | a **live** claim is not refused by its own verdict word | **the deliberately broken seam.** Widen the gate to any claim and this row goes red while every other row stays green — verified by replacing `retire-claim.sh`'s verdict test with `if false`, which retired `batch-live`'s branch and failed exactly this row |
 | `retire_writes_nothing` | the drill changed the checkout | every fixture lives outside the checkout |
 

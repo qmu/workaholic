@@ -40,6 +40,13 @@
 # that could not reach the remote has not found "nothing to retire" — it has found nothing at
 # all, and a proof that could not be read is not a proof. Reported `degraded` by name.
 #
+# A RETIREMENT IS A REPOSITORY EVENT, AND THIS LINE IS NOT A POSTING GATE. The root posts only
+# when the tick has at least one QUESTION, and this step never has one — so its line is visible
+# on a root some OTHER step's question already opened, and on a tick with no questions it is
+# visible only in the log below. That is correct and deliberate: the root exists to carry
+# questions, and a retirement addressed to nobody is exactly the status line two keyed roots were
+# already retired for. Stated here so a later reader does not read the event as a reason to post.
+#
 # THE SUMMARY CARRIES NO AGE AND NO TIMESTAMP, for the correctness reason `stalled-units`'
 # header records: the root calls a step changed when its summary differs from the same step's an
 # hour ago, and only a timestamp, a bare hex object name and a clock time are normalised out. A

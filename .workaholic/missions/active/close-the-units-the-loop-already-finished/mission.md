@@ -50,3 +50,4 @@ business from the loop's undelivered work, and `ok` stops covering the second.
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-27 — ticket archived — 20260827012031-read-whether-a-reported-unit-ever-landed.md

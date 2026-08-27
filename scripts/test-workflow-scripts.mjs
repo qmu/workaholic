@@ -13724,6 +13724,61 @@ function testClaimMergedReader() {
     }
     assertTrue("and it reaches GitHub only through the one transport",
       !/\bgh (issue|pr|repo|api)\b/.test(body) && body.includes("gh-rest.sh"), body.slice(0, 300));
+
+    // WHAT BECAME OF THE PULL REQUEST (2026-08-27). `state=closed` made an OPEN pull request
+    // return an empty array, so `open`, `closed-unmerged` and `no pull request at all` all
+    // read `not_merged` — measured on #622/#625/#633/#635, four green units indistinguishable
+    // from four branches nobody ever opened one for.
+    const NOW = Math.floor(Date.now() / 1000);
+    const iso = (hoursAgo) => new Date((NOW - hoursAgo * 3600) * 1000).toISOString();
+
+    stub(`echo '[{"number":9,"state":"open","merged_at":null,"created_at":"${iso(12)}","html_url":"https://x/9"}]'`);
+    const open = read();
+    assertEq("an open pull request is `open`, with its number and url",
+      [open.state, open.pr_state, open.pr_number, open.pr_url],
+      ["not_merged", "open", 9, "https://x/9"]);
+    assertTrue("and its age is read in whole hours", open.open_hours >= 11 && open.open_hours <= 13,
+      String(open.open_hours));
+
+    stub(`echo '[{"number":8,"state":"closed","merged_at":null,"created_at":"${iso(30)}","html_url":"https://x/8"}]'`);
+    assertEq("a closed-unmerged pull request is `closed`, with no age",
+      [read().pr_state, read().pr_number, read().open_hours], ["closed", 8, null]);
+
+    stub(`echo '[{"number":7,"state":"closed","merged_at":"2026-08-20T00:00:00Z","created_at":"${iso(50)}","html_url":"https://x/7"}]'`);
+    assertEq("a merged one is `merged`, and carries no age either",
+      [read().state, read().pr_state, read().pr_number, read().open_hours],
+      ["merged", "merged", 7, null]);
+
+    // `none` IS A FACT, NOT A DEGRADATION — it is precisely the answer `not_merged` hid.
+    stub("echo '[]'");
+    assertEq("a lookup that found no pull request says `none`, never unanswerable",
+      [read().state, read().pr_state, read().pr_number, read().pr_url, read().open_hours],
+      ["not_merged", "none", null, "", null]);
+
+    // A MERGED ONE WINS OVER AN OPEN ONE on a re-proposed head: the fixed order is what stops
+    // two runs over one branch disagreeing.
+    stub(`echo '[{"number":5,"state":"open","merged_at":null,"created_at":"${iso(2)}","html_url":"https://x/5"},`
+      + `{"number":4,"state":"closed","merged_at":"2026-08-20T00:00:00Z","created_at":"${iso(80)}","html_url":"https://x/4"}]'`);
+    assertEq("a merged pull request wins over an open one on the same head",
+      [read().state, read().pr_state, read().pr_number], ["merged", "merged", 4]);
+
+    // AN UNPARSEABLE DATE IS null, NEVER 0 — a pull request whose age we could not read is
+    // exactly the one a reader must not call fresh.
+    stub(`echo '[{"number":3,"state":"open","merged_at":null,"created_at":"not-a-date","html_url":"https://x/3"}]'`);
+    assertEq("an unreadable created_at leaves the age null, not zero",
+      [read().pr_state, read().open_hours], ["open", null]);
+
+    // EVERY DEGRADATION CARRIES THE FIELDS TOO, so a consumer never reads a missing key as a
+    // state. `unanswerable` is the pr_state of a read that did not happen.
+    stub(`echo "API rate limit exceeded" >&2; exit 1`);
+    assertEq("a degraded read is unanswerable in both fields",
+      [read().state, read().pr_state, read().pr_number, read().open_hours],
+      ["unanswerable", "unanswerable", null, null]);
+
+    // AND THE ORIGINAL QUESTION IS UNTOUCHED: `state` still means "did this branch's work
+    // reach the base", which every existing consumer reads and none of this may move.
+    assertTrue("the reader still asks the pulls collection narrowed by head",
+      /pulls\?state=all&head=/.test(readFileSync(READER, "utf8")), "the lookup shape moved");
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }

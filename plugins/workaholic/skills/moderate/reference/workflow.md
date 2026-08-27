@@ -842,6 +842,64 @@ unchanged and no second ledger exists. A degraded read (`no_claim_reader`, `clai
 `claims_unparseable`, `origin_unreachable`, `shallow_history`) is named and asks nothing — a scan
 that could not reach the remote has not found *nothing undelivered*, it has found nothing at all.
 
+## 19. `retire-claims` — a claim proved empty, taken off the table
+
+```sh
+sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/step-retire-claims.sh --tick <id> [--root <repo-root>]
+```
+
+Every claim the oracle reads **`superseded`**: the unit's content already reached the base, so
+the branch can never land and holds no work. The step hands each to
+`drive/scripts/retire-claim.sh` — its **only** caller, deliberately, because one caller is what
+keeps the retirement's bounds checkable — which closes the pull request, deletes the remote
+branch and reaps the worktree.
+
+**Why it exists** (2026-08-27, mission `deliver-and-retire-what-the-loop-already-proved-finished`).
+`superseded` has been *reported, never acted on* since it shipped, so nothing retired the **claim
+itself** and the claim table only ever grew. Measured 2026-08-27 on this repository: 7 claims, **4
+of them `superseded`**, two naming missions archived days ago, the oldest branch last touched
+2026-08-21. The verdict's standing did not move; one act now follows from it.
+
+**It asks nobody anything, and `needs_agent` is empty for that reason.** A retirement is not a
+person's business: the claim is *proved* empty, so there is no judgement to make and nothing for a
+human to weigh. That is the sharpest contrast with `stalled-units`, `undrivable-units` and
+`undelivered-units` beside it — each of those hands a person a reading it cannot act on, while
+this one acts and reports. Spending a question on a fact nobody needs to rule on is what
+`strategy-pace` already refuses to do.
+
+**It acts directly rather than handing off**, which is where it diverges from `closable-missions`.
+That step hands its act to the agent because `close.sh` **writes into the tree** and needs a
+publish tree to do it. `retire-claim.sh` writes nothing into the tree at all — one REST `PATCH`,
+one branch delete, one local worktree reap — so there is no tree seam to cross, and the tick's
+*writes nothing but its own log line* contract is intact.
+
+**The re-proof is the writer's own, at the moment of the act.** This step reads `list-claims.sh`
+once for candidates; `retire-claim.sh` then re-reads the oracle and re-derives the verdict before
+touching anything, so a row that went stale between the two reads is refused by the writer rather
+than acted on from this step's snapshot. That is the `closable-missions` precedent (2026-08-24)
+applied where it belongs — the proof re-taken where the act happens, not trusted from an earlier
+read. **A row the re-proof rejects is reported, not retired.**
+
+**It reads `list-claims.sh`, never `plan-units.sh`** — `undelivered-units`' and
+`undrivable-units`' rule, first recorded by `closable-missions`: the survey reaches the mission
+readers, which run the living migrations and **stage** what they converge, and a step whose
+contract is *writes nothing into the tree* may not reach it through something that writes.
+
+**The per-row detail lives in `summary`**, the log-facing field, because the tick log is the audit
+trail and these outcomes are what somebody diagnosing a retirement needs. A retired row names all
+three acts (`pr closed, branch deleted, worktree reaped`) and a refused row names its reason, so
+neither count is a bare number to go digging behind. `needs_agent` is not the home for it: that
+field is a request to the agent, and a payload with no action would be read as one.
+
+**A degraded read retires nothing.** Unmerged remote branches are the only claim oracle, so a scan
+that could not reach the remote has not found *nothing to retire* — it has found nothing at all,
+and a proof that could not be read is not a proof (`no_claim_reader`, `no_retirement_writer`,
+`claims_unreadable`, `claims_unparseable`, `origin_unreachable`, `shallow_history`).
+
+**The summary carries no age and no timestamp**, for the correctness reason `stalled-units`'
+header records. A count of what was retired this tick is stable when nothing happens, which is
+what the root's hour-to-hour diff needs.
+
 ## What `run.sh` guarantees around the steps
 
 - **Every step is invoked and every step reports.** Missing script → `degraded`/`step_missing`;

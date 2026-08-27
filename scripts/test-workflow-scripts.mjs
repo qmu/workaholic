@@ -20258,6 +20258,14 @@ function testModerateRun() {
     // right up to the moment it finished. Same placement and same reason: it reads, the
     // check-in asks.
     "undelivered-units",
+    // `retire-claims` (2026-08-27): the one step beside these that ACTS instead of asking. A
+    // claim the oracle reads `superseded` is PROVED to hold nothing, so there is no judgement
+    // for a person to make — and `superseded` had been reported-never-acted-on since it
+    // shipped, leaving a claim table that only ever grew (measured: 7 claims, 4 superseded,
+    // the oldest branch six days untouched). It acts directly rather than handing off, because
+    // `retire-claim.sh` writes nothing into the tree — the seam `closable-missions` must cross
+    // and this one does not.
+    "retire-claims",
     // `closable-missions` is step 12 (2026-08-23): the archive gate closes a mission whose
     // LAST ticket it archives, and this names the residue that reached full acceptance any
     // other way. Since 2026-08-24 (the developer's ruling) the agent CLOSES what the step

@@ -602,7 +602,7 @@ unreadable digest is `digest_unreadable`, named rather than rendered as a quiet 
 zero questions — the day's opening statement, the exception the developer asked for — while every
 other hour the question gate stands alone.
 
-## 15. `direction-health` — a direction out of date, or with nothing answering it
+## 15. `direction-health` — a direction out of date, with nothing answering it, or with its work all in
 
 ```bash
 sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/step-direction-health.sh --tick <id> [--root <repo-root>] [--open-proposals <file>]
@@ -618,6 +618,7 @@ check-in as a question addressed to that direction's assignee:
 
 | Reading | Question key | Addressed to |
 | ------- | ------------ | ------------ |
+| `arrived` | `direction-arrived:<slug>` | the strategy's `assignees` |
 | `overdue` | `direction-overdue:<slug>` | the strategy's `assignees` |
 | `dormant` | `direction-dormant:<slug>` | the strategy's `assignees` |
 | `none` (repository-level) | `direction-none` | nobody — there is no direction to own |
@@ -629,6 +630,20 @@ direction past its date (refused `past_target_date` while `pace` reads `on_cours
 *did* land), a live direction nothing is answering (`no_evolutionary_move`, into a run report
 nobody opens), and a repository with no live direction at all (`no_strategies`, a no-op
 everywhere).
+
+**A fourth reading since 2026-08-27** (mission `say-when-a-direction-has-arrived`): a direction
+whose work is **all in**. Every reading above answers *is this direction in trouble*; none
+answered *has it arrived*, so a finished direction looked exactly like one still running — and
+once its date passed, the loop reported that **success** as an hourly `direction-overdue`
+question. `arrived` outranks `overdue` in the reader's precedence for that reason
+(`workaholic:strategy`), so a direction that finished late asks the arrival question rather than
+the lateness one.
+
+**The `arrived` body is a description of the reading, never an assertion that the direction is
+finished** — the discipline `dormant` is already held to. A strategy's "Reached when" is prose no
+script reads, so the reading is a **candidate**: the body says everything attributed has landed
+and nothing is waiting, names **what landed and the date**, and asks. The operator answers by
+announcing that it ended, or by saying it still stands; **the tick closes nothing** either way.
 
 **The coupling is a reader, not a handoff** — the same shape as `strategy-pace` and
 `stalled-units`. `/propose` writes nothing into the tree and could not leave a finding here; this
@@ -650,7 +665,8 @@ loss** — a repository with several expired directions can fill a tick and hold
 next hour, and held is not dropped; no cap of this step's own is invented for a load nobody has
 measured.
 
-**What it puts on the root.** `event` names a repository event — *a direction has run past its
+**What it puts on the root.** `event` names a repository event — *a direction has its work in*,
+*a direction has run past its
 date*, *the repository has no live direction* — never a counter of what the step examined, and it
 **links each direction it names** (the base URL is derived from the local remote, so no network
 call; an absent remote degrades to the repo-relative path rather than to a broken link). A tick
@@ -660,6 +676,11 @@ change diff calls the step changed. **So does a tick whose only non-`live` readi
 `unreadable`**: that is our own degradation rather than something that happened to the
 repository, the same reason it is never asked about, and it stays in the log-facing `summary`,
 which keeps every count.
+
+**`arrived` leads the phrase**, in the reader's own precedence order. *A direction's work is all
+in* is a repository event in the fullest sense — something finished — and reading it after a
+lateness clause about a different direction is how a success gets read as a failure, which is the
+defect the reading exists to remove.
 
 `/standup`'s `no_strategies` no-op is left untouched, and the asymmetry is written down in
 `workaholic:standup` rather than left to be re-derived: this tick turns *no live direction* into a

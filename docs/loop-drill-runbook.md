@@ -35,6 +35,7 @@ Run every command from the repository root, on a clean `main`.
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-moderate --json` | one `[Moderate]` tick against a throwaway root — proves every step reports, the log carries one section per tick, and the checkout is untouched |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-propose --json` | a throwaway strategy tree and a synthetic open-proposal list — proves every gate of `/propose`'s brake refuses by name, and that it writes nothing |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-direction-health --json` | a throwaway strategy tree, one overdue direction and one dormant one — proves the four lifecycle readings, the three question keys, the asked-once gate, and that nothing was written |
+| — | Any time | `sh scripts/e2e/loop-drill.sh verify-arrival --json` | a throwaway **git** strategy tree carrying landed work — proves `arrived`, that it outranks `overdue`, that `dormant`, `overdue` and `live` are unchanged, the `direction-arrived:<slug>` key and its asked-once gate, and that no reading closes a direction, with no network and one row that deliberately breaks the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-revision --json` | a throwaway strategy tree and a local bare origin — proves the three revisions land, that every refusal leaves the artifact byte-identical, and that a strategy-touching publish never auto-merges, with the transport stubbed and one row that deliberately breaks the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-merged-claim --json` | a throwaway repository carrying a **squash-merged** mission claim and batch claim — proves all four merged-claim readings (merged batch, merged mission, live, unanswerable) with the transport stubbed, so no `gh` call is made |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-identity-handoff --json` | a throwaway repository with a two-address mapping — walks issue assignee → the address the writer stamps → the survey that offers the unit, for a canonical address, a mapped alias and an unmapped login, with no network and no credential |
@@ -416,6 +417,49 @@ under `.workaholic/strategies/`, no reach to `close.sh` or `open-proposal.sh`, e
 writers, no `/propose` gate outcome moved). Neither replaces the other: the drill ships to
 no other agent and CI never runs it, and the suite cannot prove an operator's checkout
 behaves.
+
+## 5i. The direction that has arrived (`verify-arrival`)
+
+`verify-arrival` needs no seed, no fire, no issue number and **no network**: it builds a
+throwaway strategy tree — and, unlike `verify-direction-health`'s, that tree is a **git
+repository**, because `landed[]` is a `git log --since` reading and a fixture that is only a
+directory would yield an empty `landed[]` for every strategy, making every arrival row pass
+while proving nothing.
+
+Five directions, one per reading: `arrived` (work landed, nothing waiting), `latearrived`
+(the same, **past its date** — the case the whole mission exists for), `quiet` (nothing
+landed → `dormant`), `gone` (past its date with nothing landed → `overdue`), and `busy`
+(landed work **and** a queued ticket → `live`). The last is the **deliberately broken
+seam**: if `quiescent` ever stopped reading the waiting terms, `busy` is the only fixture
+that would notice, and every other row here would still pass.
+
+The failure this drill exists for is the loop reporting a **success as a failure**: a
+direction whose work is all in used to read `overdue` once its date passed, so the operator
+was asked hourly to re-date or close something that had already finished.
+
+| Row | Fails when | Read |
+| --- | ---------- | ---- |
+| `arrival_fixture` | the fixture produced no attributed work inside the window | the fixture is not a git repository, or `attributed-work.sh`'s `changed_in_window` read moved — every row below would be vacuous |
+| `arrival_state_arrived` | a legible, live, cited direction with work landed and nothing waiting does not read `arrived` | the `quiescent` conjunction in `survey-strategies.sh`, projected by `direction-state.sh` |
+| `arrival_state_latearrived` | a direction both **arrived and overdue** does not read `arrived` | `direction-state.sh`'s precedence — `arrived` outranks `overdue` on purpose, and reordering it is the change this row catches |
+| `arrival_state_quiet` | a direction with nothing landed stopped reading `dormant` | the `dormant` conjunction; `landed` empty versus non-empty is the one term separating the two readings |
+| `arrival_state_gone` | a direction past its date with nothing landed stopped reading `overdue` | `survey-strategies.sh`'s `overdue`; check `days_to_target` first |
+| `arrival_waiting_work_is_not_arrival` | a direction with work still waiting reads `arrived` | the waiting terms of `quiescent` — **the broken seam**: arrival is being asserted over work in flight |
+| `arrival_state_unreadable` | a survey that refused was not reported `unreadable`, or reported an arrival anyway | `direction-state.sh`'s degrade path and its `counts` zero-object |
+| `arrival_question_keys` | the step's keys are not exactly `direction-arrived:<slug>` for each arrived direction, beside the existing two | `step-direction-health.sh`'s `subjects` block; the key is what the asked-once ledger keys on |
+| `arrival_body_describes_the_reading` | the body does not name what landed and the date, breaks the 25-word bound, or asserts the direction is finished | the same block — the reading is a **candidate**, never a verdict, because "Reached when" is prose no script reads |
+| `arrival_event` | the arrival does not reach the `🔎 Moderation` root, or is not linked | the step's `event` phrase; `arrived` leads it, in the reader's own precedence order |
+| `arrival_all_live_renders_no_line` | a tick with nothing but `live` directions supplies a non-empty `event` | the step's early `emit ok` — the independent guard against a "nothing happened" line reaching the root |
+| `arrival_asked_once` | the same key is asked again on a later tick | `ask-question.sh`'s ledger, not this step — the step supplies subjects and the check-in owns the gate |
+| `arrival_closes_nothing` | the step's or the reader's closure reaches `create.sh`, `amend.sh` or `close.sh` | a reading that says a direction looks finished is one step from a routine that closes it; the strategy artifact has three writers and neither of these is one |
+| `arrival_writes_nothing` | the drill changed the checkout | both scripts are pure reads; the fixtures live outside the checkout |
+| `arrival_fixtures_intact` | the seeded `strategies/` area changed | the same refusal, measured on the tree the step actually looked at |
+
+**Two proofs, and they are not the same one** — the split `verify-direction-health` records
+above holds here unchanged. `arrival_closes_nothing` is the drill's half of the rule; the
+hermetic suite's `testDirectionHealthRefusals` is CI's, and since 2026-08-27 it also pins
+that `strategy/scripts/close.sh` is reached from exactly one place in the plugin —
+`/specificate`'s *ended* route.
 
 ## 6. Abort playbook
 

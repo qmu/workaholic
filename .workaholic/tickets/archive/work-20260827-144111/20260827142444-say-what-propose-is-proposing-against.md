@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-27T14:24:44+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on: 20260827142444-add-the-quiescent-reading-to-the-strategy-survey.md
@@ -65,3 +66,30 @@ direction — which is the operator's act, not a reading's.
 
 - The obvious next request will be to gate on `arrived`. The recorded reason is what a future
   reader needs in order to refuse it deliberately rather than by accident.
+
+## Final Report
+
+Development completed as planned. `reference/loop.md` step 5 now says that a tick proposing
+against a strategy whose row reads `quiescent: true` reports `arrived` beside it — as
+**evidence**, in the same voice `pace` uses, never as a refusal. `workaholic:propose` gains
+*Quiescent changes no gate*, recording that the direction stays eligible, that `refusal`,
+`pace`, `overdue`, `dormant`, the sort and `selected` are byte-identical, and that the gate
+which eventually holds is `not_active` — after a **person** closes the direction.
+
+The reason is recorded so a later change refuses gating on it deliberately rather than by
+accident: silencing the one routine that originates work on a machine's guess is what `pace`
+already refuses, and `arrived` is a candidate rather than a verdict because "Reached when" is
+prose no script reads.
+
+Verified: over the arrived fixtures both arrived directions remain **eligible** and appear in
+`selected`, and the before/after survey diff shows no refusal reason, no sort order and no
+`selected` value moving. `node scripts/test-workflow-scripts.mjs` — 4031 passed, 0 failed.
+
+### Discovered Insights
+
+- **Insight**: `/propose`'s run report is agent-composed prose, not a script's output, so
+  "name it in the run report" is implemented by writing the obligation into `reference/loop.md`
+  where the run reads its own steps.
+  **Context**: there is no report-rendering script to extend. The same is true of the
+  three-part question rule in `workaholic:moderate` — both are prose contracts whose
+  enforcement is that a report omitting the fact is visibly non-conformant.

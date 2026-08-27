@@ -185,7 +185,8 @@ assignee list, a non-`YYYY-MM-DD` target date, and an existing slug — the same
 bash ${CLAUDE_PLUGIN_ROOT}/skills/strategy/scripts/direction-state.sh [--open-proposals <file>] [window] [workaholic-root]
 ```
 
-`propose/scripts/survey-strategies.sh` emits two readings — `overdue` and `dormant` — beside
+`propose/scripts/survey-strategies.sh` emits three readings — `overdue`, `dormant` and
+`quiescent` — beside
 `pace` and the refusal list. A consumer assembling a lifecycle answer out of them would be a
 **second derivation** of a state this repository insists has one reader, exactly as
 `attributed-work.sh` is the only walker of the attribution. So `direction-state.sh` **composes**
@@ -195,16 +196,33 @@ projection of a field the survey emitted.
 | Answer | Meaning |
 | ------ | ------- |
 | `live` | active, in date, and something is happening against it |
+| `arrived` | live, legible — and **its work has landed** with nothing waiting (`survey-strategies.sh`'s `quiescent`) |
 | `overdue` | the `target_date` has passed (`survey-strategies.sh`'s `overdue`) |
 | `dormant` | live, in date, legible — and nothing landed, nothing waiting, no proposal open |
 | `unreadable` | the attribution could not be read; **never** folded into any other answer |
 | `none` | **repository-level**: no `status: active` strategy exists at all |
 
-**The precedence is the only thing this script owns**, and it is fixed: `unreadable` > `overdue` >
+**The precedence is the only thing this script owns**, and it is fixed: `unreadable` > `arrived` >
+`overdue` >
 `dormant` > `live`. `unreadable` first because a reading we could not make must never be dressed
 as one we did; `overdue` before `dormant` because a direction past its date is the operator's to
 re-date or close whatever else is true of it, and one direction reported twice under two names
 would double the question a consumer asks about it.
+
+**`arrived` outranks `overdue`, and a later reader must not quietly reorder them.** `quiescent`
+carries no date term, so a direction that finished late is both `quiescent` and `overdue` and the
+precedence has to choose. The two states ask a person for **different acts**: `overdue` says
+*re-date this or close it*, `arrived` says *your work is in — is this done?*. A direction whose
+work is all in is the operator's to **close** whatever its date says, and reporting that success
+as lateness is naming a success as a failure — the defect the reading was added to remove.
+Ranking `overdue` first would make `arrived` unreachable for the one case it exists to serve,
+since a finished direction is very often a late one.
+
+**`arrived` is a candidate, never a verdict.** A strategy's "Reached when" is prose no script
+reads, so nothing can know the aim was met — only that everything attributed to the direction has
+landed and nothing is queued. The reading says *this looks finished*; the operator's answer
+decides. **No reading closes a direction**, and that is pinned mechanically rather than by this
+sentence (below).
 
 **`none` rides the same output as the per-strategy list** on purpose: a caller asking *what is
 the direction layer doing* must not have to call twice to learn that it is empty.
@@ -213,7 +231,8 @@ the direction layer doing* must not have to call twice to learn that it is empty
 and writes nothing — reading a direction's state and writing one are different acts, and
 `amend.sh` is reached only from `/specificate`'s announcement route. It is not a second `pace`: `pace` answers
 *will this arrive*, `overdue` answers *has the date passed*, `dormant` answers *is anything
-answering this at all*. It inherits the survey's lossiness and reports it: `dormant` requires
+answering this at all*, and `arrived` answers *has its work all come in*. It inherits the survey's
+lossiness and reports it: `dormant` **and `quiescent`** require
 `owns == "mine"` upstream, so **another identity's direction can only ever read `live` or
 `overdue` here** — that limit is stated in the script's header rather than left to be discovered.
 

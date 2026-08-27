@@ -13,9 +13,11 @@
 #   {ok, identity, window, cap, active_count,
 #    eligible: [{slug, title, target_date, days_to_target, assignees, feedback_refs[],
 #                empty_reason, count, active_count, waiting_count, pace, overdue, dormant,
+#                quiescent,
 #                landed: [{kind, title, state, attribution, last_change}],
 #                path}],
-#    refused: [{slug, reason, pace, overdue, dormant, title, assignees, days_to_target}],
+#    refused: [{slug, reason, pace, overdue, dormant, quiescent, title, assignees,
+#               days_to_target, target_date, landed_count}],
 #    errors: [], selected: [<slug>...]}
 #   or {ok: false, reason, detail} when a gate could not be read at all.
 #
@@ -341,6 +343,45 @@ jq -sc \
            elif (((.waiting_missions // 0) + (.waiting_count // 0)) > 0) then false
            elif ($held | index($w.slug)) then false
            else true end)}
+      | . + {quiescent:
+          # QUIESCENT -- A DIRECTION WHOSE WORK IS ALL IN (2026-08-27). Every other reading
+          # here answers IS THIS DIRECTION IN TROUBLE: `pace` asks whether it will arrive,
+          # `overdue` whether its date has gone, `dormant` whether anything is answering it.
+          # None asked WHETHER IT HAS ARRIVED, so a direction that produced its work and has
+          # nothing left in flight is byte-identical to one still running -- and when its
+          # date passes, the loop reports that SUCCESS as an hourly `direction-overdue`
+          # question. Naming a success as a failure is the defect this reading removes.
+          #
+          # IT IS THE COMPLEMENT OF `dormant` ON ONE TERM, and only one: `landed` EMPTY (nothing
+          # has answered this direction) versus `landed` NON-EMPTY (its answers are all in).
+          # Every other term is shared and every term is already on the row -- no new
+          # counter, no field on any artifact, no second derivation. The two are mutually
+          # exclusive by construction, and nothing enforces that: deriving each from the row
+          # independently is what keeps them from drifting.
+          #
+          # IT CARRIES NO DATE TERM AT ALL, deliberately, unlike `dormant` (which is `false`
+          # once `days_to_target < 0`). ARRIVAL IS INDEPENDENT OF THE DATE -- a direction
+          # that finished late has still finished -- and that independence is exactly why
+          # the projected lifecycle state (`direction-state.sh`) ranks `arrived` ABOVE
+          # `overdue`. Folding a date term in here would make the projection unreachable for
+          # the one case it exists to serve.
+          #
+          # IT IS EMITTED ON EVERY ROW, eligible and refused alike, for the reason `overdue`
+          # is: the refused case is the point, since a direction whose date has passed is
+          # refused `past_target_date` and would otherwise never show its arrival to anyone.
+          # It is computed BEFORE `refusal` so that expression, `pace`, `overdue`, `dormant`,
+          # the sort and `selected` stay byte-identical.
+          #
+          # IT LIFTS AND CLOSES NO GATE. An arrived direction stays eligible and `/propose`
+          # keeps proposing against it; the gate that eventually holds is `not_active`, after
+          # A PERSON closes the direction. A reading of arrival made by a machine is not a
+          # decision that the direction is done.
+          (if (.unreadable or (.status != "active") or (.owns != "mine")) then false
+           elif ((.feedback_refs | length) == 0) then false
+           elif ((.landed | length) == 0) then false
+           elif (((.waiting_missions // 0) + (.waiting_count // 0)) > 0) then false
+           elif ($held | index($w.slug)) then false
+           else true end)}
       | . + {refusal:
           (if .unreadable then "attribution_unreadable"
            elif .status != "active" then "not_active"
@@ -377,8 +418,15 @@ jq -sc \
      # every existing reader that took {slug, reason} still reads what it always did. It is
      # load-bearing for the STARVING case: a direction that will not arrive AND is gated
      # produces no proposal, so a consumer reading only `eligible` would never see it.
+     # `landed_count` and `target_date` ride the refused rows too (2026-08-27), for the
+     # reason `quiescent` itself does: the AN ARRIVED DIRECTION PAST ITS DATE is refused
+     # `past_target_date`, so a consumer that had to say WHAT LANDED and BY WHEN would have
+     # nothing to say for exactly the row that matters most. `landed_count` is a count
+     # rather than the list, because the list is the evidence a proposal is judged against
+     # and a refused row is not being proposed against.
      refused: ((map(select(.refusal != ""))
-                | map({slug, reason: .refusal, pace, overdue, dormant, title, assignees, days_to_target}))
+                | map({slug, reason: .refusal, pace, overdue, dormant, quiescent, title, assignees,
+                       days_to_target, target_date, landed_count: ((.landed // []) | length)}))
                + $spill),
      selected: ($take | map(.slug)),
      errors: []}

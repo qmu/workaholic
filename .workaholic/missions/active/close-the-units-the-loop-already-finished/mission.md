@@ -41,7 +41,7 @@ business from the loop's undelivered work, and `ok` stops covering the second.
 
 ## Acceptance
 
-- [ ] A `review` unit's report names its merge outcome — `merged` or the `merge-reason.sh` word —
+- [x] A `review` unit's report names its merge outcome — `merged` or the `merge-reason.sh` word —
       and the connector retry's. (#20260827012032-give-a-unit-s-close-its-own-reported-outcome.md)
 - [ ] `/implement` refuses `ok` over a unit it left undelivered, and still reports `ok` over one a
       scan finding holds. (#20260827012035-never-report-ok-over-an-undelivered-unit.md)
@@ -51,3 +51,4 @@ business from the loop's undelivered work, and `ok` stops covering the second.
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-27 — ticket archived — 20260827012031-read-whether-a-reported-unit-ever-landed.md
+- 2026-08-27 — ticket archived — 20260827012032-give-a-unit-s-close-its-own-reported-outcome.md

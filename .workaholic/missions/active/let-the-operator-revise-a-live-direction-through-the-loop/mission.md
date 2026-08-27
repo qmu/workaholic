@@ -50,3 +50,4 @@ with nothing written, and the ask still lands as a record.
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-27 — ticket archived — 20260827112528-write-amend-sh-the-one-writer-of-a-live-direction.md
+- 2026-08-27 — ticket archived — 20260827112528-hold-a-revised-strategy-to-the-write-time-floor.md

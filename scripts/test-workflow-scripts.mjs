@@ -16093,6 +16093,28 @@ function testMergeReason() {
       .split("\n").filter((l) => !l.trimStart().startsWith("#"))
       .some((l) => l.includes("mcp__")));
   assertEq("no shipped script calls an MCP tool", withMcp.join(","), "");
+
+  // AND `ok` NEVER COVERS AN UNDELIVERED UNIT (2026-08-27, the same mission). The token table is
+  // §7's, and the two states it now tells apart are the ticket: a transport refusal is
+  // outstanding work and forbids `ok`; a scan-held pull request is a human's business and leaves
+  // `ok` exactly as it was. Both rows must exist, because getting this wrong in the strict
+  // direction makes `ok` unreachable and trains the operator to ignore the token.
+  const tokenTable = driveSkill.slice(driveSkill.indexOf("| State at the end of the run |"));
+  const refusedRow = tokenTable.split("\n").find((l) => l.includes("merge_refused"));
+  const heldRow = tokenTable.split("\n").find((l) => l.includes("merge_not_attempted"));
+  assertTrue("§7's token table carries a merge_refused row", !!refusedRow, "row missing");
+  assertTrue("and it is `pending`", /`pending`/.test(refusedRow || ""), refusedRow || "");
+  assertTrue("§7's token table carries a merge_not_attempted row", !!heldRow, "row missing");
+  assertTrue("and it is explicitly NOT pending on its own",
+    /not by itself.*`pending`/.test(heldRow || ""), heldRow || "");
+  assertTrue("a withheld token names the unit and the refusal",
+    /(names?|says) which unit and which refusal/.test(driveSkill.replace(/[*_`]/g, "")),
+    "the withheld token's reason is not required to be named");
+  // `backlog_all_excluded` still moves no token — this change is about a unit THIS RUN finished,
+  // which is a different fact from a survey that could offer nothing.
+  assertTrue("backlog_all_excluded still moves no token",
+    /`backlog_all_excluded`[\s\S]{0,400}?moves no token|moves no token/.test(driveSkill),
+    "the no-token reading was disturbed");
 }
 
 // ---------- branching/publish-tree-pr.sh + propose's widened batch (J4) ----------

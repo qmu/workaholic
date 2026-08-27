@@ -51,3 +51,4 @@ is asked about is only ever a reading that needed their judgement.
 - 2026-08-27 — ticket archived — 20260827052237-report-the-retry-s-outcome-and-move-the-token-only-when-it-delivered.md
 - 2026-08-27 — ticket archived — 20260827052237-write-retire-claim-sh-the-one-retirement-writer.md
 - 2026-08-27 — ticket archived — 20260827052241-add-the-moderate-step-that-retires-a-proved-claim.md
+- 2026-08-27 — ticket archived — 20260827052241-drill-both-acts-with-no-network.md

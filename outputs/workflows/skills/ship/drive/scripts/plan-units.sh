@@ -638,6 +638,19 @@ done
 # offer none of it" never render alike again. The per-reason counts are what make the
 # reading actionable: a queue emptied by claims is the protocol working; one emptied by
 # ownership is work nothing can drive. It moves no token (see the header).
+#
+# THE COUNTS ARE DERIVED FROM WHATEVER `excluded[]` CARRIES, so a new exclusion reason is
+# counted here by construction and needs no edit (2026-08-27, confirmed while adding
+# `claimed_undelivered`). That genericity is the property to preserve: a hand-maintained list
+# of reasons in this loop would be a second vocabulary to keep in step with the mapping above,
+# and the one that drifted would silently drop a reason from the reading rather than fail.
+#
+# `claimed_undelivered` IS THE COUNT THAT MEANS THE LOOP'S OWN WORK. The others say a human is
+# on it, a colleague owns it, or the protocol is working; that one says the loop finished a unit
+# and could not deliver it, which is the reading `backlog_all_excluded` existed for and could
+# not express while the reason was folded into `claimed_reported`. It still moves no token --
+# that is `../SKILL.md` §7's own row, keyed on the units THIS RUN finished, and merging the two
+# would turn an hourly survey reading into a completion gate.
 ALL_EXCLUDED=false
 EXCLUDED_REASONS=""
 if [ "$BACKLOG_SIZE" -gt 0 ] && [ -z "$BACKLOG" ] && [ -n "$EXCLUDED" ]; then

@@ -22614,6 +22614,28 @@ function testReportedClaimIsTwoStates() {
         .claims.map((c) => [c.unit, c]));
     assertEq("a story with no Merge Outcome section keeps queue_drained",
       after[silent.unit].resume_reason, "queue_drained");
+
+    // AND `backlog_all_excluded` NAMES IT (2026-08-27). The reading exists so that "the queue
+    // is empty" and "the queue is full and I can offer none of it" never render alike; with the
+    // reason folded into `claimed_reported` it could not say that the loop's own finished work
+    // was what emptied the offer. Measured: `backlog_size: 11`, `backlog: []`, hour after hour.
+    const finalPlan = JSON.parse(run(fx.A, `${POSIX_SH} ${SCRIPTS.planUnits}`).stdout);
+    const reading = finalPlan.backlog_all_excluded;
+    assertEq("the whole backlog is excluded", [reading.excluded, finalPlan.backlog.length],
+      [true, 0]);
+    const counted = Object.fromEntries(reading.reasons.map((r) => [r.reason, r.count]));
+    assertTrue("and the undelivered reason is named with its count",
+      counted.claimed_undelivered >= 1, JSON.stringify(reading.reasons));
+    assertTrue("beside the reasons that were already counted",
+      counted.claimed_reported >= 1, JSON.stringify(reading.reasons));
+    // THE COUNTS RECONCILE TO `excluded[]` — the reading is derived from it, so a reason it
+    // carries and the reading omits would be a silent drop rather than a failure.
+    assertEq("every excluded reason is counted",
+      reading.reasons.reduce((n, r) => n + r.count, 0), finalPlan.excluded.length);
+    // AND IT STILL MOVES NO TOKEN: the reading is a survey fact, not a completion gate. The
+    // script emits no token at all, which is the structural form of that guarantee.
+    assertTrue("plan-units.sh emits no terminal token of its own",
+      !("token" in finalPlan) && !("ok" in finalPlan), Object.keys(finalPlan).join(","));
   } finally { cleanup(fx.A); cleanup(fx.B); cleanup(fx.origin); }
 }
 

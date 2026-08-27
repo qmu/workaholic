@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-27T01:20:37+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -68,3 +69,40 @@ with the reason breakdown the only thing that could have said why.
   merging the two would make an hourly survey reading into a completion gate.
 - This ticket is only worth driving after the split lands; without a distinct reason there is
   nothing new to count.
+
+## Final Report
+
+Development completed as planned — and step 1's confirmation turned out to be most of the answer.
+
+The derivation was read first, as the ticket required, and it is a pure reading over
+`backlog_size`, `backlog[]` and `excluded[]` that counts **whatever reasons `excluded[]`
+carries**. So `claimed_undelivered` is counted here by construction: no edit to the loop, no
+parallel derivation, no scan, no stored state and no field on any artifact. That genericity is
+now recorded in the script beside the derivation, because it is the property worth preserving —
+a hand-maintained list of reasons in that loop would be a second vocabulary to keep in step with
+the mapping above it, and the one that drifted would silently drop a reason from the reading
+rather than fail.
+
+What was actually missing was the **reading**, not the count: the report named a reason without
+saying that this one is different in kind. `drive/SKILL.md` §7 and `CLAUDE.md` now say it — the
+other reasons mean a human is on it, a colleague owns it, or the protocol is working;
+`claimed_undelivered` means the loop **finished a unit and could not deliver it**, which is
+exactly the reading `backlog_all_excluded` was created for and could not express while the
+reason was folded into `claimed_reported`.
+
+The token separation the Considerations insist on is untouched and asserted: the reading moves
+no token, and the run's completion gate keys on the units *this run* finished.
+
+### Discovered Insights
+
+- **Insight**: The right verification for a generic derivation is that its output reconciles to
+  its input, not that it contains a particular reason.
+  **Context**: Asserting only "`claimed_undelivered` appears" would pass just as well against a
+  hand-maintained list that had quietly dropped some other reason. The test also asserts that
+  the counts sum to `excluded[]`'s length, which is the property that actually fails when the
+  derivation stops being generic — and which no per-reason assertion can catch.
+
+- **Insight**: "It moves no token" has a structural form worth asserting rather than a prose one.
+  **Context**: `plan-units.sh` emits no token field at all, so the guarantee is not a rule
+  someone must remember when editing it — it is the shape of the output. The test asserts the
+  absence, which fails loudly the first time somebody adds a completion signal to a survey.

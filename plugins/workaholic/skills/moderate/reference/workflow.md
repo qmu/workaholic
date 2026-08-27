@@ -1,4 +1,4 @@
-# The sixteen-step contract — reference
+# The twenty-step contract — reference
 
 Companion to [`../SKILL.md`](../SKILL.md). One section per step: what it reads, **what it may
 write**, what it returns in `needs_agent`, and the reasons it aborts with. The step ids are the
@@ -933,6 +933,76 @@ retired for.
 header records. A count of what was retired this tick is stable when nothing happens, which is
 what the root's hour-to-hour diff needs.
 
+## 20. `base-health` — did the base survive what the loop merged?
+
+```sh
+sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/step-base-health.sh --tick <id> [--root <repo-root>]
+```
+
+The base's own checks, read once per tick through `drive/scripts/attribute-base-red.sh` — which
+composes `drive/scripts/read-base-checks.sh`, the one derivation of a commit's check state. A red
+base is handed to the check-in as **one question addressed to the attributed merge's author**.
+
+**A red base reached a person through no path at all** (2026-08-27). `/implement` may not ask
+anyone anything; `stuck-prs` and `merge-conflicts` read **pull requests** and find nothing wrong
+with one that already merged; `stalled-units` reads stale claims and a red base has no claim. The
+loop merges its own work onto `main` every half hour and never learned what the base's checks then
+said, so a green base and a base nobody looked at were one reading.
+
+**Which sibling it follows, on each axis:**
+
+| Axis | Follows | Why |
+| ---- | ------- | --- |
+| whose question | `stalled-units` | the **attributed merge's author** is a real person who made the change and can act on it |
+| the running identity | `undrivable-units` | never consulted — a red base is a fact about the **repository**, so an hourly question that answered differently per container is exactly the failure that axis exists to prevent |
+| what it may read | `undrivable-units` | the ticket-2 walk and nothing else; **`plan-units.sh` is refused**, because the survey reaches the mission readers, which carry the living migrations and **stage** what they converge — the composition `closable-missions` already refused |
+
+**The key is the commit, not the tick and not the day.** `base-red:<commit>` is what makes *exactly
+once per broken commit* mechanical rather than a rule somebody remembers: twenty-four ticks may see
+one red base and exactly one question goes out. The overlap with a person already watching CI is
+deliberate and cheap for the same reason.
+
+**`unattributable` still asks, keyed on the tip.** The base is red and that is worth a person's
+attention whether or not the walk could name a culprit — but the question says plainly that the
+attribution failed and why, so nobody is sent after a merge this step did not identify. Left silent
+it would be a real finding with no path to a person, which is the shape the step exists to remove.
+
+**The addressee is an address, not a login.** The walk names the pull request's GitHub login;
+`gather/scripts/identity.sh` — the one mapping reader — converts it, and a login the mapping does
+not name leaves the question addressed to nobody rather than stamping an address nobody verified.
+That gap is `undrivable-units`' finding, not this step's to guess at.
+
+**A degraded read asks nothing** and is named (`no_walker`, `walk_unreadable`, `walk_unparseable`,
+`base_unreadable:<reader reason>`). `unanswerable` is a reading **we** could not make, not a
+finding about the repository — the rule `direction-health` already holds for `unreadable` and
+`strategy-pace` for our own degradation.
+
+**It asks and nothing else.** It never re-runs a failing check ("flake" is not a root cause and a
+re-run is an *act*), never reverts, never merges, never touches a claim, and writes nothing
+anywhere but its own tick-log line. What it reads is a **judgement**, not a proof: a re-run can
+turn a red check green (`drive/reference/claims.md`, *Proofs and judgements*), so acting on it is
+forbidden and reporting it is the whole job.
+
+**It is placed before `human-checkin`**, like every question-producing step. Note that
+`human-checkin` is exempt from `--deadline-seconds` and this step is not: a slow tick may not reach
+it, which is reported as unreached — never as green.
+
+**The summary carries no timestamp**, for the correctness reason `stalled-units`' header records.
+It names the reading and the failing checks; the commit sha it carries is normalised out of the
+root's hour-to-hour diff, so two ticks over one unchanged red reading do not read as two changes.
+
+**Only a red base supplies an `event`**, and it names the repository event rather than the tick's
+bookkeeping: *the base went red at `<commit>` — `<checks>` failing, from that merge*, with the
+commit linked (and the pull request too, when the walk named one) so the root line is followed
+rather than merely read. A green base and a degraded read supply **none**, so a healthy hour
+renders no line at all — the renderer's own rule, *a step with no event renders no line*, is the
+independent guard against a nothing-happened line reaching the root even on a tick whose diff
+calls this step changed. An `unattributable` red base supplies a line too, saying in words that
+the merge could not be attributed. **It is not a second posting gate**: the root posts when the
+tick has at least one question, and on a red tick this step has already supplied one. The base URL
+is derived from the **local** remote (`step-direction-health.sh`'s precedent) — no network call —
+and an absent remote degrades to the bare short sha rather than to a broken link.
+
 ## What `run.sh` guarantees around the steps
 
 - **Every step is invoked and every step reports.** Missing script → `degraded`/`step_missing`;
@@ -949,7 +1019,7 @@ what the root's hour-to-hour diff needs.
 
 ## The closing act — `persist-log.sh`
 
-Not an eleventh step: the ten above are the contract and the log's step keys, and this is the
+Not a step at all: the twenty above are the contract and the log's step keys, and this is the
 run's own bookkeeping. It runs **after** the last step has had its turn, so a tick that dies
 half-way still persists what it recorded on its next run, and it reports under the run's top-level
 `persist` key while logging under the step id `persist-log`.

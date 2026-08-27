@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-27T16:19:56+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on: 20260827161955-name-the-merge-that-turned-the-base-red.md
@@ -104,3 +105,46 @@ merges, never touches a claim.
   is an act; this step's whole contract is that it asks.
 - The overlap with a person already watching CI is deliberate and cheap: the asked-once
   key bounds it to one question per broken commit, ever.
+
+## Final Report
+
+Development completed as planned. `step-base-health.sh` is `/moderate`'s twentieth step,
+registered in `run.sh`'s `STEPS=` line before `human-checkin`. It reads the ticket-2 walk once
+per tick and hands a red base to the check-in as one question keyed `base-red:<commit>`,
+addressed to the attributed merge's author.
+
+The three axes are answered in the script's own header, as the ticket required: the question is
+the **attributed author's** (`stalled-units`' axis); the **running identity is never consulted**
+(`undrivable-units`' axis); and it reads the walk and nothing else — `plan-units.sh` is refused
+for the reason `closable-missions` records.
+
+Decisions taken:
+
+- **`unattributable` still asks, keyed on the tip**, and says plainly that the walk could not
+  name the merge and why. Step 6 of the ticket asked for this to be decided and stated; it is,
+  in the header and in `reference/workflow.md` §20. Left silent it would be a real finding with
+  no path to a person — the shape the mission exists to remove.
+- **The addressee is an address, not a login.** The walk names a GitHub login;
+  `gather/scripts/identity.sh` (the one mapping reader) converts it, and an unmapped login leaves
+  the question addressed to nobody rather than stamping an address nobody verified. That gap is
+  `undrivable-units`' finding, not this step's to guess at.
+- **The event stays empty in this ticket** — ticket 4 owns it, and the mission's order is what
+  keeps the question and the root line arguable separately.
+
+Documents updated in this change: `moderate/SKILL.md` (step count, the frontmatter description,
+the asking-steps paragraph) and `moderate/reference/workflow.md` (§20, and its title, which had
+been stale at "sixteen-step" for four additions).
+
+### Discovered Insights
+
+- **Insight**: `reference/workflow.md`'s section numbers are **order of addition**, not run
+  order — §12 `closable-missions` runs after §17 `undrivable-units`.
+  **Context**: the step ids are the tick log's keys and are deliberately stable, so renumbering
+  the sections to match `STEPS=` would rewrite a document whose numbers nothing reads while
+  buying nothing. A new step appends the next number and the order lives in `run.sh` alone.
+
+- **Insight**: a step's `needs_agent` payload is prose the suite greps, so a word-level ban on
+  an act ("revert", "rerun") fails on the very sentence that forbids it.
+  **Context**: the assertion has to name **call sites** (`git revert`, `/rerun`,
+  `plan-units.sh`) rather than words, or the stricter the step's own wording gets the more
+  certainly its test fails.

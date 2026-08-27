@@ -42,6 +42,7 @@ Run every command from the repository root, on a clean `main`.
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-close --json` | a throwaway repository carrying three finished units — proves all four closing outcomes (merged, session-type-refused-then-retryable, refused-and-unretryable, scan-held) with the transport stubbed, plus one row that deliberately breaks the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-retire --json` | a throwaway repository holding a `superseded` claim, a live one and a unit held by two — proves the retirement's three acts, that a judgement is refused by its own verdict word, and that the step asks nobody anything, with the transport stubbed and one row that deliberately breaks the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-delivery-retry --json` | a throwaway repository holding three units finished in the identical shape — proves the survey offers an undelivered unit in a field of its own, that only the proof reaches the merge seam, and that a scan-held or unrecorded one never does, with the transport stubbed and one row that deliberately breaks the seam |
+| — | Any time | `sh scripts/e2e/loop-drill.sh verify-base-health --json` | a throwaway repository whose base is red at a mid-walk merge — proves the reader's three states, the attribution walk's two outcomes, that one broken commit costs exactly one question, and that the reading gates nothing, with the transport stubbed and one row that deliberately breaks the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh status` | the drill's residue: issues, claim branches, tickets |
 | — | After an abort | `sh scripts/e2e/loop-drill.sh reset` | closes/deletes **drill-minted** residue only |
 
@@ -659,6 +660,45 @@ resume` refused it by name, so it was delivered by nobody until a person opened 
 **The broken-seam proof found something.** Widening the verdict gate turned `scan_held:hard`
 into the refusal that stopped the scan-held unit — so the writer's second, "redundant" gate is
 the live backstop rather than dead code, which is why its header says to keep it.
+
+## 5n. The base's health (did the base survive what the loop merged?)
+
+`verify-base-health` needs no seed, no fire, no issue number and **no network**: a local bare
+origin, and a `gh` stub on `PATH` answering per commit out of a fixture directory. The drill
+asserts the stub is what `gh` resolves to rather than assuming it — a drill that silently reached
+the network would prove nothing about the offline contract it claims to check.
+
+**A green base and a base nobody looked at were one reading.** The loop merges its own work onto
+`main` every half hour and nothing in this plugin read a check run; no `/moderate` step saw it
+either, because `stuck-prs` and `merge-conflicts` read **pull requests** and find nothing wrong
+with one that already merged.
+
+| Row | Fails when | Read |
+| --- | ---------- | ---- |
+| `base_health_offline` | `gh` resolves to anything but the drill's stub | the drill is reaching the network, so every row below it proves nothing about the offline path |
+| `base_health_reads_green` | every completed check passing does not read `green` | `read-base-checks.sh`'s success path |
+| `base_health_reads_red_with_names` | a failing check does not read `red`, or the failing check is unnamed | a red tip with no names sends a person to the Actions tab to re-derive what the reader already knew |
+| `base_health_unanswerable_by_name` | a running check, a **checkless** commit or an unknown commit does not read `unanswerable` under its own reason | the three-valued shape: each of these is a reading about **us**, and collapsing any into `green` is the defect the reader exists to close |
+| `base_health_attributes_the_merge` | the oldest red commit after the last green one is not named, with its pull request and author | `attribute-base-red.sh`'s walk, and its pull-request lookup |
+| `base_health_unattributable_tail` | a walk that exhausts its bound names a culprit anyway | **never the tip by default**: blaming the head because the walk ran out of room is what `unattributable` exists to prevent |
+| `base_health_step_asks_once_per_commit` | the step's question is not keyed `base-red:<attributed commit>` | the key is what makes *exactly once per broken commit* mechanical rather than a rule somebody remembers |
+| `base_health_asked_once` | a second tick over the same red commit is not refused | `ask-question.sh`'s ledger — the step gained no ledger of its own |
+| `base_health_degraded_asks_nothing` | a read we could not make asks somebody, or renders a line | our own blindness is not a finding about the repository (`strategy-pace`'s rule) |
+| `base_health_green_is_silent` | a green base asks or renders anything | *a step with no event renders no line* — the renderer's independent guard |
+| `base_health_survey_unmoved` | the survey differs between a red base and a green one | the terminal token is derived from the **survey**, so a survey that cannot see the reading is a token that cannot move with it |
+| `base_health_gates_nothing` | any script in the driving chain reaches either reader | there is nothing for a gate to be built out of. `main` is the continuously auto-merged development branch and the `release/*` window owns quality |
+| `base_health_can_fail` | a commit with **no checks at all** reads `green` | **the deliberately broken row, and the one to look at first on a red drill.** An empty check list looks exactly like *nothing failed*; if the reader ever agrees, a base nobody looked at becomes indistinguishable from a base that passed |
+| `base_health_writes_nothing` | the drill changed the checkout | every fixture lives outside the checkout |
+
+**Both failure modes were observed, not asserted.** Making the reader answer `green` for a
+checkless commit turned `base_health_can_fail`, `base_health_unanswerable_by_name` and
+`base_health_degraded_asks_nothing` red together; adding a reference to `read-base-checks.sh`
+inside `plan-units.sh` turned `base_health_gates_nothing` red and named the script.
+
+**Two proofs, and they are not the same one.** This drill is the **operator's**; the hermetic
+suite's `testReadBaseChecks`, `testAttributeBaseRed`, `testBaseHealthStep` and the extended
+`testProofJudgementSplit` are what **CI** enforces on every change. The drill ships to no other
+agent and CI never runs it.
 
 ## 5j. The identity hand-off (issue assignee → stamped address → survey)
 

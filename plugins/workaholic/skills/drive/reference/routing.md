@@ -333,6 +333,20 @@ moments.
   alone made those two identical at the only surface that records the run. An `auto` unit reports
   `shipped` or its demotion exactly as before; this row is the `review` route's equivalent and
   adds nothing to that one.
+- **Retry outcome per `undelivered[]` entry** (2026-08-27, mission
+  `deliver-and-retire-what-the-loop-already-proved-finished`): the unit, the **recorded refusal it
+  was retrying**, and the **new outcome** in §6's existing three words — `merged` when the retry
+  delivered it, `merge_refused: <word>` when it did not. Both words are named on a still-refused
+  unit, because *the same refusal again* means the transport has not changed and a person must
+  look at the pull request, while *a different refusal now* means the new word is where to look.
+  **No second vocabulary**: the outcome of a first attempt and of a second are the same kind of
+  fact. The script's own refusals are reported by name too (`not_undelivered:<verdict>`,
+  `scan_held:<tier>`, `no_open_pull_request`, `gh_unavailable`, `no_such_claim`, …), and a
+  `recorded: false` is named beside the outcome — it never turns a landed merge into a failure,
+  but it does mean the branch's answer is now stale. **A run that names an entry and reports no
+  outcome for it is non-conformant on its face**, the same enforcement the connector retry
+  carries and for the same reason. **No artifact gains a `retried` field**: this report is the
+  surface, and the branch story already holds the durable answer.
 - **Notification outcome per unit** (`/implement` only — an attended `/drive` posts nothing, so it
   reports nothing): for the one thread the unit posted into, the surface used and the result —
   `posted` with the thread it landed in, or the failure named (`no_surface` when the session has

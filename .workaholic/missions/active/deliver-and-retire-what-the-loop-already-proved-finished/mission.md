@@ -48,3 +48,4 @@ is asked about is only ever a reading that needed their judgement.
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-27 — ticket archived — 20260827052237-name-which-claim-verdicts-are-proofs-and-which-are-judgements.md
 - 2026-08-27 — ticket archived — 20260827052237-re-attempt-an-undelivered-unit-s-merge-in-a-later-driving-run.md
+- 2026-08-27 — ticket archived — 20260827052237-report-the-retry-s-outcome-and-move-the-token-only-when-it-delivered.md

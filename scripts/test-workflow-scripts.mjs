@@ -864,6 +864,136 @@ function testStrategyAmend() {
   } finally { cleanup(A); }
 }
 
+// ---------- moderate/step-base-health.sh (2026-08-27) ----------
+// A red base reached a person through no path at all: `/implement` may not ask, `stuck-prs` and
+// `merge-conflicts` read PULL REQUESTS and find nothing wrong with one that already merged, and
+// `stalled-units` reads claims a red base does not have.
+//
+// WHAT IS PINNED is the direction of every answer. A green base and a degraded read must ask
+// NOTHING — one because there is nothing to say, the other because a reading we could not make is
+// not a finding about the repository — while a red base must always produce exactly one question,
+// keyed on the COMMIT, with `unattributable` still asking rather than vanishing.
+function testBaseHealthStep() {
+  const STEP = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-base-health.sh");
+  const tmp = mkdtempSync(join(tmpdir(), "wh-base-health-"));
+  const bin = join(tmp, "bin");
+  const stubs = join(tmp, "stubs");
+  const dir = join(tmp, "repo");
+  mkdirSync(bin, { recursive: true });
+  mkdirSync(stubs, { recursive: true });
+  mkdirSync(dir, { recursive: true });
+  execSync("git init -q -b main . && git remote add origin git@github.com:acme-org/source-repo.git",
+    { cwd: dir });
+  for (let i = 1; i <= 3; i++) execSync(`git commit -q --allow-empty -m c${i}`, { cwd: dir });
+  execSync("git update-ref refs/remotes/origin/main HEAD", { cwd: dir });
+  const [tip, c2, c1] =
+    execSync("git rev-list origin/main", { cwd: dir, encoding: "utf8" }).trim().split("\n");
+
+  writeFileSync(join(bin, "gh"), [
+    "#!/bin/sh",
+    'p="$2"',
+    'case "$p" in',
+    '  */check-runs*) sha=$(echo "$p" | sed "s|.*/commits/||; s|/check-runs.*||")',
+    `     if [ -f "${stubs}/$sha.json" ]; then cat "${stubs}/$sha.json"; else echo '{"total_count":0,"check_runs":[]}'; fi ;;`,
+    `  */pulls*) echo '[{"number":7,"merged_at":"2026-08-27T00:00:00Z","html_url":"https://x/7","user":{"login":"someone-else"}}]' ;;`,
+    '  *) exit 1 ;;',
+    "esac",
+  ].join("\n"));
+  chmodSync(join(bin, "gh"), 0o755);
+  const env = { ...process.env, PATH: `${bin}:${process.env.PATH}` };
+
+  const GREEN = '{"total_count":1,"check_runs":[{"name":"CI","status":"completed","conclusion":"success"}]}';
+  const RED = '{"total_count":1,"check_runs":[{"name":"Validate Plugins","status":"completed","conclusion":"failure"}]}';
+  const set = (states) => {
+    rmSync(stubs, { recursive: true, force: true });
+    mkdirSync(stubs, { recursive: true });
+    for (const [sha, b] of Object.entries(states)) writeFileSync(join(stubs, `${sha}.json`), b);
+  };
+  const step = (tick = "20260827-170000") =>
+    JSON.parse(run(dir, `${POSIX_SH} ${STEP} --tick ${tick} --root ${dir}`, { env }).stdout);
+
+  try {
+    // ---- A RED BASE IS ONE QUESTION, KEYED ON THE COMMIT AND ADDRESSED TO ITS AUTHOR ----
+    mkdirSync(join(dir, ".claude"), { recursive: true });
+    writeFileSync(join(dir, ".claude/git-identities"), "someone-else=someone@example.com\n");
+    set({ [tip]: RED, [c2]: GREEN, [c1]: GREEN });
+    let j = step();
+    assertEq("a red base reports ok and hands back exactly one question",
+      [j.step, j.status, j.reason, j.needs_agent.length], ["base-health", "ok", "", 1]);
+    const base = j.needs_agent[0].base;
+    assertEq("keyed on the attributed commit, not on the tick and not on the day",
+      base.key, `base-red:${tip}`);
+    assertEq("naming the merge, its pull request, its author and the failing checks",
+      [base.attribution, base.commit, base.pull_request, base.owner, base.failing],
+      ["attributed", tip, "https://x/7", "someone@example.com", "Validate Plugins"]);
+
+    // ---- THE ADDRESSEE IS AN ADDRESS, AND AN UNMAPPED LOGIN IS NEVER GUESSED AT ----
+    writeFileSync(join(dir, ".claude/git-identities"), "someone-who-is-not-them=x@example.com\n");
+    assertEq("a login the mapping does not name leaves the question addressed to nobody",
+      step().needs_agent[0].base.owner, "unknown");
+    writeFileSync(join(dir, ".claude/git-identities"), "someone-else=someone@example.com\n");
+
+    // ---- `unattributable` STILL ASKS, KEYED ON THE TIP ----
+    set({ [tip]: RED, [c2]: RED, [c1]: RED });
+    j = step();
+    assertEq("a walk that could not attribute still asks, keyed on the tip",
+      [j.status, j.needs_agent.length, j.needs_agent[0].base.key],
+      ["ok", 1, `base-red:${tip}`]);
+    assertTrue("and says so rather than naming a merge it did not identify",
+      /^unattributable: /.test(j.needs_agent[0].base.attribution), j.needs_agent[0].base.attribution);
+
+    // ---- A GREEN BASE IS SILENCE ----
+    set({ [tip]: GREEN });
+    j = step();
+    assertEq("a green base asks nothing at all", [j.status, j.needs_agent], ["ok", []]);
+
+    // ---- AND A DEGRADED READ IS NAMED, AND ASKS NOTHING ----
+    // The two must never render alike: a reading we could not make is not a finding about the
+    // repository, and asking about our own blindness is what `strategy-pace` already refuses.
+    set({});
+    j = step();
+    assertEq("a base it could not read is degraded by name, asking nothing",
+      [j.status, j.reason, j.needs_agent], ["degraded", "base_unreadable:tip_no_checks", []]);
+
+    const broken = join(tmp, "broken");
+    mkdirSync(join(broken, "moderate/scripts"), { recursive: true });
+    copyFileSync(STEP, join(broken, "moderate/scripts/step-base-health.sh"));
+    j = JSON.parse(run(dir,
+      `${POSIX_SH} ${join(broken, "moderate/scripts/step-base-health.sh")} --tick 20260827-170000 --root ${dir}`,
+      { env }).stdout);
+    assertEq("a walk it cannot reach is degraded by name too",
+      [j.status, j.reason, j.needs_agent], ["degraded", "no_walker", []]);
+
+    // ---- IT ASKS AND NOTHING ELSE, AND WRITES NOTHING ----
+    set({ [tip]: RED, [c2]: GREEN, [c1]: GREEN });
+    execSync("git add -A && git commit -q -m seed", { cwd: dir });
+    step("20260827-180000");
+    assertEq("the step leaves the tree byte-identical",
+      execSync("git status --porcelain", { cwd: dir, encoding: "utf8" }).trim(), "");
+    const body = readFileSync(STEP, "utf8").split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+    // Call sites, not prose: the step's own `bound` string says in words that it never reverts
+    // or re-runs, so a word-level ban would fail on the very sentence that states the rule.
+    for (const forbidden of ["plan-units.sh", "AskUserQuestion", "close.sh", "retire-claim.sh",
+                             "release-claim.sh", "actions/runs", "/rerun", "git revert"]) {
+      assertTrue(`the step never reaches ${forbidden}`, !body.includes(forbidden), forbidden);
+    }
+    assertTrue("and makes no gh call of its own — the walk is its only reach",
+      !/\bgh\b/.test(body), body.slice(0, 200));
+    assertTrue("check state has one derivation, and it is not here",
+      !/check.runs|conclusion/.test(body), body.slice(0, 300));
+
+    // ---- IT IS REGISTERED, AND `human-checkin` IS STILL LAST ----
+    const steps = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/run.sh"), "utf8")
+      .match(/^STEPS='([^']+)'/m)[1].split(" ");
+    assertTrue("the step is in run.sh's list", steps.includes("base-health"), steps.join(" "));
+    assertTrue("before the check-in, which stays last",
+      steps.indexOf("base-health") < steps.indexOf("human-checkin")
+        && steps[steps.length - 1] === "human-checkin", steps.join(" "));
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
 // ---------- moderate/step-unanswered-asks.sh (2026-08-26) ----------
 // The tick could only ask about what its OWN steps found, so a question written on the channel
 // reached a person only if one of those readers happened to produce a row about it. Measured:
@@ -16719,6 +16849,7 @@ const tests = [
   ["moderate/step-direction-health.sh: the three refusals hold", testDirectionHealthRefusals],
   ["strategy/amend.sh: the third writer, bounded", testStrategyAmend],
   ["moderate/step-unanswered-asks.sh: what is waiting, asked exactly once", testUnansweredAsksStep],
+  ["moderate/step-base-health.sh: a red base, asked exactly once per commit", testBaseHealthStep],
   ["moderate: the tick log survives the container that wrote it", testModeratePersist],
   ["moderate: the lines written after the persist reach the base too", testModeratePersistCarriesLateLines],
   ["moderate: the unattended contract is in the files, not in intent", testModerateUnattendedContract],
@@ -21112,6 +21243,12 @@ function testModerateRun() {
     // other way. Since 2026-08-24 (the developer's ruling) the agent CLOSES what the step
     // proves, through close.sh in a publish tree — the single writer never multiplied.
     "closable-missions",
+    // `base-health` (2026-08-27): the base's own checks. The loop merges onto `main` every
+    // half hour and nothing read a check run, so a green base and a base nobody looked at were
+    // one reading — and no other step could see it, because `stuck-prs` and `merge-conflicts`
+    // read PULL REQUESTS and find nothing wrong with one that already merged. Same placement
+    // and same reason as its asking neighbours: it reads, the check-in asks.
+    "base-health",
     // `strategy-digest` is step 13's neighbour (2026-08-24): the integrated standup. Once
     // per JST day, on the first tick at or after 09:00, it hands the per-strategy digest to
     // the agent to render at the top of the Moderation root — and that digest is the root's

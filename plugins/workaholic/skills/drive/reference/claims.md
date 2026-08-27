@@ -159,6 +159,31 @@ on another machine coordinates through exactly the same artifact.
     (write the story, open the pull request); this one has already done both. `claim.sh resume`
     refuses it under its own name rather than `queue_drained`'s wording, which would send the
     reader to wait for a human who is not coming.
+  - **And a *reported* unit with work left is two states as well** (2026-08-27, mission
+    `stop-re-resuming-a-declared-handoff-unit`). `parked_with_pr`'s own contract says *the
+    follow-up tickets on its branch are why it still has work. Taking it over is legitimate* —
+    and that sentence is **false by declaration** for a unit whose remaining queued work carries
+    `verification_handoff:`. §6 routed it to the **handoff** route precisely because nothing
+    unattended can finish it, leaving the pull request open and the claim standing on purpose;
+    the oracle then offered the takeover anyway, on every tick. Measured on PR #647: routed at
+    02:14 UTC, taken over again at 06:43 for nothing. The new verdict is
+    **`awaiting_verification`**, excluded `claimed_awaiting_verification`, `resumable: false`,
+    and it does **not** forbid `ok`.
+    **A sibling word, not a narrowed `parked_with_pr`**, on the `report_undelivered` precedent:
+    the two states call for different next actions — take it over versus satisfy the declared
+    verification — and one word answering both is what made this invisible. `claim.sh resume`
+    refuses it under its own name; refusing under `queue_drained` would send the reader to wait
+    for a merge that is not what is owed.
+    **Nothing new is derived, and no artifact gained a field.** `verification-handoff.sh` already
+    reads the declaration and stays its only reader: `claims_declared_handoff` materialises the
+    tip-side blobs of the unit's still-queued work — plus the mission's own `mission.md`, since
+    any member declaring it carries the whole unit — and hands them to that script. The set comes
+    from `claims_remaining_tickets`, the walk `claims_has_work` already made, lifted out so the
+    two readings cannot answer from two different ticket sets.
+    **It releases itself.** The declaration is read from the work still *queued*, never the
+    archived work, so driving that ticket makes the same reader answer `false` and the unit reads
+    `parked_with_pr` or `queue_drained` again — no stored state, no cursor to reset. `superseded`
+    keeps its precedence over it: a claim proved empty is still superseded, whatever it declares.
   - **A drained queue is two states, split on the same story signal.** "Finished" covers a unit
     that **reported** — story committed at the tip, pull request open, waiting on a human — and a
     run that died **after** archiving its last ticket and **before** opening anything, whose work
@@ -207,8 +232,11 @@ Pure read. Emits `{fetched, shallow, stale_hours, heartbeat_stale_minutes, base,
 merged_lookup_unanswered, claims: [{unit,
 branch, artifacts, last_commit_at, stale, author, resumable, resume_reason, reported}]}`, where
 `resume_reason` is one of `heartbeat_lapsed` / `report_incomplete` / `parked_with_pr` (resumable)
-or `claim_active` / `superseded` / `queue_drained` / `foreign_identity` /
-`identity_unresolved` / `shallow_history`.
+or `claim_active` / `superseded` / `awaiting_verification` / `queue_drained` /
+`report_undelivered` / `foreign_identity` / `identity_unresolved` / `shallow_history`. Each row
+also carries `declared_handoff`, whether the work this claim still has **queued** was declared
+unverifiable here — read through the one script that owns `verification_handoff:`, from the
+branch tip, with no network call.
 
 `merged_lookup_unanswered` is `[{branch, reason}]` — every claim the **merged-pull-request
 lookup** could not answer for (2026-08-26). That lookup, `claim-merged.sh`, is the claim
@@ -246,7 +274,8 @@ same fact, which is exactly what this exists to prevent.
 | `report_undelivered` | **proof** | The run that drove this unit recorded `merge_refused: <word>` into its own branch story (`record-merge-outcome.sh`). The unit is finished, pushed, at an open pull request, and the **transport** — not a person — is what stopped it. A consumer may **act**: re-attempt the merge through the seam that refused it. |
 | `heartbeat_lapsed` | judgement | The tip has not moved inside the heartbeat window. It says a run *probably* died; it does not prove one did. Offered as a takeover, which the runner decides — never acted on by anything else. |
 | `report_incomplete` | judgement | The queue is drained with no story at the tip: the run *probably* died between §4 and §5. Same standing as `heartbeat_lapsed` — a mandatory **takeover offer**, not a licence to close, delete or merge anything. |
-| `parked_with_pr` | judgement | Reported and pushed, with work still on the branch. A human is the next step; a takeover is legitimate but never forced. |
+| `parked_with_pr` | judgement | Reported and pushed, with work still on the branch **that nothing declared unverifiable here**. A human is the next step; a takeover is legitimate but never forced. |
+| `awaiting_verification` | judgement | Reported and pushed, with work still on the branch that was **declared** unverifiable in an unattended environment at creation (`verification_handoff:`). Classifying it a *proof* is the tempting error — the declaration is read straight off the tree, which looks like the property `superseded` has. It is not: a proof is a reading that **cannot** become false by looking again, and this one is designed to, because driving the declared ticket releases it. So a consumer may only **report** it, and decline to offer the takeover; nothing closes, deletes, merges or retires on it. |
 | `queue_drained` | judgement | Reported, pushed, at an open pull request, with **no** recorded merge refusal. It means *waiting on a person*, and an absent merge-outcome section keeps it — the reading is claimed only on positive evidence, so a consumer must not read it as "delivered" or as "refused". Report it; a person merges. |
 | `claim_active` | judgement | The tip moved inside the heartbeat window: another run is *probably* still driving. Wait — never take over, never retire. |
 | `stale` | judgement | Not a `resume_reason` but a boolean beside it (`WORKAHOLIC_CLAIM_STALE_HOURS`, default 24). It has been **reported, never acted on** since the protocol shipped and stays that way: a tip older than the threshold says *look at this*, not *take it*. `/moderate`'s `stalled-units` step asks a person about it, which is the only thing a judgement licenses. |

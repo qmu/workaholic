@@ -15,7 +15,14 @@
 #          "heartbeat_stale_minutes": N, "base": "<ref>", "claims": [
 #            {"unit": "...", "branch": "work-...", "artifacts": ["..."],
 #             "last_commit_at": "2026-...", "stale": false, "author": "...",
-#             "resumable": false, "resume_reason": "claim_active"}, ...]}
+#             "resumable": false, "resume_reason": "claim_active",
+#             "reported": false, "declared_handoff": false}, ...]}
+#
+# `declared_handoff: true` means the work this claim still has QUEUED was declared
+# unverifiable in an unattended environment at creation (`verification_handoff:`, read through
+# the one reader that owns that field). It is reported on every row rather than only where a
+# verdict forks, so a consumer never has to derive it a second time -- and it is read from the
+# REMAINING work, so it answers `false` again on its own once that ticket is driven.
 # `resume_reason` is never empty: `heartbeat_lapsed`, `parked_with_pr` or
 # `report_incomplete` (all resumable), `claim_active`, `foreign_identity`,
 # `identity_unresolved`, `shallow_history`, or `queue_drained`.
@@ -107,7 +114,7 @@ rows=$(claims_scan "$base")
 if [ -n "$rows" ]; then
     # Read the TSV the shared scan produced. `read -r` with a tab IFS keeps the
     # artifact list intact in the last field.
-    while IFS='	' read -r unit branch last_at stale author resumable resume_reason reported artifacts; do
+    while IFS='	' read -r unit branch last_at stale author resumable resume_reason reported declared_handoff artifacts; do
         [ -n "$unit" ] || continue
         arts=""
         asep=""
@@ -127,7 +134,7 @@ if [ -n "$rows" ]; then
         # reading it per row here costs no network call and adds no second derivation. Empty for
         # every claim that recorded nothing, which is every claim but an undelivered one.
         merge_outcome=$(claims_merge_outcome "origin/${branch}" "$branch")
-        claims="${claims}${sep}{\"unit\": \"${unit}\", \"branch\": \"${branch}\", \"artifacts\": [${arts}], \"last_commit_at\": \"${last_at}\", \"stale\": ${stale}, \"author\": \"${author}\", \"resumable\": ${resumable}, \"resume_reason\": \"${resume_reason}\", \"reported\": ${reported}, \"merge_outcome\": \"${merge_outcome}\"}"
+        claims="${claims}${sep}{\"unit\": \"${unit}\", \"branch\": \"${branch}\", \"artifacts\": [${arts}], \"last_commit_at\": \"${last_at}\", \"stale\": ${stale}, \"author\": \"${author}\", \"resumable\": ${resumable}, \"resume_reason\": \"${resume_reason}\", \"reported\": ${reported}, \"declared_handoff\": ${declared_handoff}, \"merge_outcome\": \"${merge_outcome}\"}"
         sep=", "
     done <<EOF
 $rows

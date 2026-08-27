@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260827-054123
 ---
 
 # Deliver and retire what the loop already proved finished

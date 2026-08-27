@@ -54,3 +54,4 @@ gate lifted, no handoff declared or withdrawn by any run.
 - 2026-08-27 — ticket archived — 20260827202118-add-the-moderate-step-handoff-units.md
 - 2026-08-27 — ticket archived — 20260827202118-render-the-standing-handoff-as-a-moderation-event.md
 - 2026-08-27 — ticket archived — 20260827202118-stop-stalled-units-asking-about-a-declared-handoff.md
+- 2026-08-27 — ticket archived — 20260827202119-name-claimed-awaiting-verification-in-the-run-report.md

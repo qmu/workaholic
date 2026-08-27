@@ -51,3 +51,4 @@ dry is still dormant, and nothing closes a direction on its own reading.
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-27 — ticket archived — 20260827142444-add-the-quiescent-reading-to-the-strategy-survey.md
+- 2026-08-27 — ticket archived — 20260827142444-project-quiescent-as-the-arrived-lifecycle-state.md

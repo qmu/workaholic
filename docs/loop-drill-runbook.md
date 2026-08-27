@@ -42,6 +42,7 @@ Run every command from the repository root, on a clean `main`.
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-close --json` | a throwaway repository carrying three finished units — proves all four closing outcomes (merged, session-type-refused-then-retryable, refused-and-unretryable, scan-held) with the transport stubbed, plus one row that deliberately breaks the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-retire --json` | a throwaway repository holding a `superseded` claim, a live one and a unit held by two — proves the retirement's three acts, that a judgement is refused by its own verdict word, and that the step asks nobody anything, with the transport stubbed and one row that deliberately breaks the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-delivery-retry --json` | a throwaway repository holding three units finished in the identical shape — proves the survey offers an undelivered unit in a field of its own, that only the proof reaches the merge seam, and that a scan-held or unrecorded one never does, with the transport stubbed and one row that deliberately breaks the seam |
+| — | Any time | `sh scripts/e2e/loop-drill.sh verify-handoff-question --json` | a throwaway repository holding a reported claim whose still-queued work declares `verification_handoff:` — proves the declared reason reaches its holder verbatim exactly once, that `stalled-units` asks nothing about the same unit, and that nothing is cleared, with the transport stubbed and one row that deliberately breaks the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-base-health --json` | a throwaway repository whose base is red at a mid-walk merge — proves the reader's three states, the attribution walk's two outcomes, that one broken commit costs exactly one question, and that the reading gates nothing, with the transport stubbed and one row that deliberately breaks the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh status` | the drill's residue: issues, claim branches, tickets |
 | — | After an abort | `sh scripts/e2e/loop-drill.sh reset` | closes/deletes **drill-minted** residue only |
@@ -732,4 +733,43 @@ it *stamps*, and a loose ticket for the address the survey *acts on*.
 **Two proofs, and they are not the same one** — the same split as §5i. This drill is the
 **operator's**; the hermetic suite's `testIdentityReader`, `testOwnsResolvesAliases` and
 `testSpecificateStampsResolvableAddresses` are what **CI** enforces on every change. The drill
+ships to no other agent and CI never runs it.
+
+## 5p. The declared handoff's question (does the one act reach the person?)
+
+`verify-handoff-question` needs no seed, no fire, no issue number and **no network**: a local
+bare origin and a `gh` stub on `PATH`. The drill asserts the stub is what `gh` resolves to
+rather than assuming it, and its result is unchanged with networking unavailable.
+
+**Nothing read the verdict.** `awaiting_verification` appeared nowhere outside `drive/` until
+2026-08-27. `workaholic:drive` §6 leaves such a unit's pull request open and its claim standing
+on purpose, and then no surface addressed anybody again — while `stalled-units`, once the tip
+went stale, asked *a claimed unit has not moved for a day or more*, which sends a person to look
+at a claim instead of telling them the one act it waits on.
+
+**The fixture reaches the verdict through the real derivation.** Reported (a branch story at the
+tip), work still queued, and the declaration on that **queued** work. A drill over a forced
+verdict proves the renderer and nothing about the oracle, so `handoff_question_fixture` is
+load-bearing and stops the drill: a failure below it is then attributable to the step rather
+than to a mis-built fixture.
+
+| Row | Fails when | Read |
+| --- | ---------- | ---- |
+| `handoff_question_no_network` | `gh` resolves to anything but the drill's stub | the drill is reaching the network, so every row below it proves nothing about the offline contract |
+| `handoff_question_fixture` | the oracle does not read `awaiting_verification`, or no ordinary parked claim sits beside it | the fixture is not the shape under test; every later row would pass while proving nothing |
+| `handoff_question_asked` | the question is missing, misaddressed, or does not carry the declared reason **verbatim** | a boolean says a unit is waiting; only the string says what for, and the addressee is the claim **holder**, never the running identity |
+| `handoff_question_releases_on_drive` | a unit whose declaring ticket has been driven is still asked about | **the deliberately broken row, and the one to look at first on a red drill.** The declaration is read from the work still **queued**, which is what makes the reading self-releasing with nothing stored anywhere; a reading that consulted the archived work would ask forever |
+| `handoff_question_asked_once` | a second tick over the same unit is not refused | `ask-question.sh`'s ledger — the step gained no ledger of its own |
+| `handoff_question_stalled_silent` | `stalled-units` asks about the same unit, stops counting it, or stops asking about the ordinary parked claim beside it | one step asks and the other filters, and either half alone is a defect: with the filter gone one unit draws two differently-worded questions, and with the asking step gone the filter turns the finding into silence |
+| `handoff_question_clears_nothing` | the claim's verdict moved, a branch vanished, or the fixture checkout was written to | `awaiting_verification` is a **judgement**: nothing here clears a handoff, retries a verification, merges or closes the pull request, or touches the claim |
+| `handoff_question_writes_nothing` | the drill changed the checkout | every fixture lives outside the checkout |
+
+**The broken-seam row was observed to fail, not asserted able to.** Changing
+`claims_declared_reading` to read the claim's **artifacts** (whose tip path is the archived one)
+instead of `claims_remaining_tickets`' still-queued set turned `handoff_question_releases_on_drive`
+red and the drill's verdict to `fail`, with every other row still passing — which is exactly how
+a drill without that row would convert an unproven claim into a believed one.
+
+**Two proofs, and they are not the same one.** This drill is the **operator's**; the hermetic
+suite's extended `testProofJudgementSplit` is what **CI** enforces on every change. The drill
 ships to no other agent and CI never runs it.

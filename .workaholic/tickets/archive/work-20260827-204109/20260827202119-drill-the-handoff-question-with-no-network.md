@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-27T20:21:19+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -83,3 +84,43 @@ one row that deliberately breaks the seam, so the drill can be seen to fail.
   forced verdict proves the renderer and nothing about the oracle.
 - The drill is operator tooling outside the plugin and may assume the server's full `gh` and
   `qfs`; it must still make no network call, exactly as its two neighbours do.
+
+## Final Report
+
+`verify-handoff-question` added to `scripts/e2e/loop-drill.sh`, on `verify-retire`'s and
+`verify-delivery-retry`'s shape: a local bare origin, a `gh` stub on `PATH`, and no network call
+of any kind.
+
+**The fixture reaches the verdict through the real derivation**, never by forcing it — reported
+(a branch story at the tip), work still queued, and the declaration on that **queued** work.
+`handoff_question_fixture` asserts the oracle reads `awaiting_verification` before anything else
+runs and stops the drill if it does not, so a failure below it is attributable to the step.
+
+Eight rows, all passing:
+
+| Row | Proves |
+| --- | ------ |
+| `handoff_question_no_network` | `gh` resolves to the stub — asserted, not assumed |
+| `handoff_question_fixture` | the oracle reads `awaiting_verification`, with an ordinary parked claim beside it |
+| `handoff_question_asked` | one entry keyed `handoff-unit:<unit>`, addressed to the claim holder, carrying the declared reason **verbatim** (the whole string, deliberately unlike any title in the fixture) |
+| `handoff_question_releases_on_drive` | **the intentional-failure row** — a unit whose declaring ticket has been driven is not asked about |
+| `handoff_question_asked_once` | a second tick is refused `already_asked` through `ask-question.sh` |
+| `handoff_question_stalled_silent` | `stalled-units` asks nothing about the same unit, counts it, and still asks about the parked claim beside it |
+| `handoff_question_clears_nothing` | the claim's verdict is unmoved, all three branches survive, the fixture checkout is unwritten |
+| `handoff_question_writes_nothing` | this repository's checkout is byte-identical |
+
+**The intentional-failure row was observed to fail.** Changing `claims_declared_reading` to read
+the claim's artifacts (whose tip path is the archived one) instead of the still-queued set turned
+`handoff_question_releases_on_drive` red and the verdict to `fail`, with the other seven still
+passing. Reverted after observation.
+
+**Offline confirmed rather than claimed**: re-run with every proxy variable pointed at a dead
+address, the result is `verdict: pass`, `load_bearing: {passed: 8}` — unchanged.
+
+One fixture bug worth recording: git prunes the empty `.workaholic/stories/` directory on
+checkout away from a branch that carried a story, so `_story` `mkdir -p`s first — without it the
+second claim's whole `&&` chain fell silently through to `|| true` and the fixture row caught it.
+
+Registered in the dispatch, in `USAGE`, in `CLAUDE.md`'s drill list, and in
+`docs/loop-drill-runbook.md` (summary table row + §5p, with the per-row failure-reason table).
+`node scripts/test-workflow-scripts.mjs` — 4138 passed, 0 failed.

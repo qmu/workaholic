@@ -3237,7 +3237,232 @@ cmd_verify_delivery_retry() {
     emit_verdict "delivery-retry" 0 "pass" 0
 }
 
-USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-specificate <issue>|verify-implement <issue>|verify-plan [--json]|verify-status [--json]|verify-cadence [--json]|verify-planner [--json]|verify-standup [--json]|verify-moderate [--json]|verify-propose [--json]|verify-direction-health [--json]|verify-arrival [--json]|verify-revision [--json]|verify-merged-claim [--json]|verify-identity-handoff [--json]|verify-close [--json]|verify-retire [--json]|verify-delivery-retry [--json]|verify-base-health [--json]"}'
+# ------------------------------------------------------- verify-handoff-question
+# Does the one act a DECLARED handoff is waiting on reach the person who can perform it?
+# `awaiting_verification` appeared nowhere outside `drive/` until 2026-08-27: §6 left such a
+# unit's pull request open and its claim standing on purpose, and then nothing addressed anybody
+# again — while `stalled-units`, once the tip went stale, asked the WRONG question about it.
+#
+# NO NETWORK: a local bare origin and a `gh` stub on PATH. The drill ASSERTS the stub is what
+# `gh` resolves to rather than assuming it.
+#
+# THE FIXTURE REACHES THE VERDICT THROUGH THE REAL DERIVATION, never by forcing it: reported
+# (a branch story at the tip), work still queued, and the declaration on the QUEUED work. A drill
+# over a forced verdict proves the renderer and nothing about the oracle, so the oracle is
+# asserted first — a failure downstream is then attributable to the step rather than to a
+# mis-built fixture.
+#
+# WHAT IT PROVES:
+#   1. the oracle                 `list-claims.sh` reads `awaiting_verification` for the unit
+#   2. asked once, in the right   one `needs_agent` entry keyed `handoff-unit:<unit>`, addressed
+#      words                      to the claim HOLDER, carrying the declared reason VERBATIM
+#   3. a second tick is silent    the asked-once ledger, spent through `ask-question.sh`
+#   4. `stalled-units` is silent  no `stalled-unit:<unit>` for the same unit in the same tick,
+#                                 counted in its summary instead — and a genuinely stale claim
+#                                 beside it is still asked about exactly as before
+#   5. nothing is cleared         the claim stands, the branch is untouched, and neither the
+#                                 fixture checkout nor this repository is written to
+#
+# AND ONE ROW THAT DELIBERATELY BREAKS THE SEAM: a unit whose declaring ticket has been DRIVEN
+# (archived out of todo at the tip) while other work stays queued. The declaration is read from
+# the queued work, so the verdict must fall back and no question may be asked. That row is the
+# INTENTIONAL one — it is the self-releasing property, and if the reading ever consulted the
+# archived work instead, every other row here would still pass.
+cmd_verify_handoff_question() {
+    _lister="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/list-claims.sh"
+    _detail="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/declared-handoff-detail.sh"
+    _step="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/step-handoff-units.sh"
+    _stalled="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/step-stalled-units.sh"
+    _ask="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/ask-question.sh"
+    for _f in "$_lister" "$_detail" "$_step" "$_stalled" "$_ask"; do
+        [ -f "$_f" ] || emit_err "handoff_seam_unreadable" 4 "${_f} is not present in this checkout"
+    done
+
+    _before=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+
+    # The declared reason, deliberately unlike any title in the fixture, so a row that matched a
+    # title instead of the field would fail rather than pass by coincidence.
+    _reason="an API token and account id must be added as repository secrets"
+
+    _tmp=$(mktemp -d)
+    _origin="${_tmp}/origin"; _work="${_tmp}/work"; _read="${_tmp}/read"; _bin="${_tmp}/bin"
+    mkdir -p "$_origin" "$_bin"
+    _me=$(cd "$REPO_ROOT" && git config user.email 2>/dev/null || echo drill@example.com)
+    _git() { git -c user.email="$_me" -c user.name=Drill -c commit.gpgsign=false "$@"; }
+
+    ( cd "$_origin" && git -c init.defaultBranch=main init -q --bare ) || true
+    ( cd "$_tmp" && git clone -q "$_origin" work ) || true
+    mkdir -p "${_work}/.workaholic/tickets/todo" "${_work}/.workaholic/stories"
+    # $1 = basename, $2 = the declared reason ("" for none)
+    _ticket() {
+        printf -- '---\ncreated_at: 2026-01-01T00:00:00+09:00\nauthor: %s\nverification_handoff: %s\n---\n\n# Wire the deploy target\n' \
+            "$_me" "$2" > "${_work}/.workaholic/tickets/todo/$1"
+    }
+    _ticket 20260101000001-declared.md "$_reason"
+    _ticket 20260101000002-plain.md ""
+    _ticket 20260101000003-released.md "$_reason"
+    _ticket 20260101000004-still-queued.md ""
+    ( cd "$_work" && _git add -A && _git commit -qm seed && git push -q origin main ) || true
+
+    # The claim commit must TOUCH the stamped file: the artifact list is "files this commit
+    # touched that still carry the stamp at the tip".
+    _stamp() { # $1 = branch, $2 = ticket basename, $3 = declared reason
+        printf -- '---\ncreated_at: 2026-01-01T00:00:00+09:00\nauthor: %s\nclaim: %s\nverification_handoff: %s\n---\n\n# Wire the deploy target\n\nclaimed\n' \
+            "$_me" "$1" "$3" > "${_work}/.workaholic/tickets/todo/$2"
+    }
+    # $1 = branch -- what `/story` commits when it opens the pull request. The `mkdir` is
+    # load-bearing: git prunes the empty `stories/` directory on every checkout away from a
+    # branch that carried one, so a later branch's story would fail to write and its whole
+    # `&&` chain would fall silently through to `|| true`.
+    _story() {
+        mkdir -p "${_work}/.workaholic/stories"
+        printf -- '---\ntype: Story\ntitle: %s\n---\n\n# %s\n' "$1" "$1" \
+            > "${_work}/.workaholic/stories/$1.md"
+    }
+
+    # THE UNIT UNDER TEST: reported, work still queued, and the declaration on that queued work.
+    ( cd "$_work" && git checkout -q -b work-20260101-000000 main \
+      && _stamp work-20260101-000000 20260101000001-declared.md "$_reason" \
+      && _story work-20260101-000000 \
+      && _git add -A && _git commit -qm "Claim a PR-unit" -m "Unit: batch-handoff" \
+      && git push -q origin work-20260101-000000 ) >/dev/null 2>&1 || true
+
+    # A CONTROL BESIDE IT: reported, work queued, nothing declared. It reads `parked_with_pr`,
+    # so `stalled-units` must still ask about it once its tip goes stale.
+    ( cd "$_work" && git checkout -q -b work-20260101-000001 main \
+      && _stamp work-20260101-000001 20260101000002-plain.md "" \
+      && _story work-20260101-000001 \
+      && _git add -A && _git commit -qm "Claim a PR-unit" -m "Unit: batch-plain" \
+      && git push -q origin work-20260101-000001 ) >/dev/null 2>&1 || true
+
+    # THE DELIBERATELY BROKEN SEAM: the declaring ticket has been DRIVEN -- archived out of todo
+    # at the tip -- while other work stays queued. The declaration lives on the queued work, so
+    # the verdict must fall back and no question may be asked.
+    ( cd "$_work" && git checkout -q -b work-20260101-000002 main \
+      && _stamp work-20260101-000002 20260101000003-released.md "$_reason" \
+      && _stamp work-20260101-000002 20260101000004-still-queued.md "" \
+      && _story work-20260101-000002 \
+      && _git add -A && _git commit -qm "Claim a PR-unit" -m "Unit: batch-released" \
+      && mkdir -p "${_work}/.workaholic/tickets/archive/work-20260101-000002" \
+      && _git mv .workaholic/tickets/todo/20260101000003-released.md \
+                .workaholic/tickets/archive/work-20260101-000002/ \
+      && _git commit -qm "Archive the declared ticket" \
+      && git push -q origin work-20260101-000002 ) >/dev/null 2>&1 || true
+
+    ( cd "$_tmp" && git clone -q "$_origin" read ) >/dev/null 2>&1 || true
+    ( cd "$_read" && git config user.email "$_me" && git config user.name Drill ) || true
+
+    # The stub answers `gh api user` (so `available` reads true) and every pulls query with an
+    # empty list -- a fixture whose unit has no pull request, which the reading reports as
+    # coordinates left unstated rather than as a dropped candidate.
+    printf '#!/bin/sh\necho "[]"\n' > "${_bin}/gh"; chmod +x "${_bin}/gh"
+    if [ "$(PATH="${_bin}:$PATH" command -v gh)" = "${_bin}/gh" ]; then
+        add_row "handoff_question_no_network" true "the stub is what gh resolves to, so no row below reaches the network" load
+    else
+        add_row "handoff_question_no_network" false "gh does not resolve to the stub; this drill would reach the network" load
+        rm -rf "$_tmp"
+        emit_verdict "handoff-question" 0 "fail" 1
+    fi
+
+    _in() { ( cd "$_read" && PATH="${_bin}:$PATH" \
+        WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES=0 WORKAHOLIC_CLAIM_STALE_HOURS=0 "$@" ) 2>&1 || true; }
+
+    # 1. THE ORACLE FIRST. If the fixture does not reach the verdict through the real derivation,
+    # every row below proves nothing -- so this one is load-bearing and stops the drill.
+    _claims=$(_in sh "$_lister")
+    _verdict() { printf '%s' "$_claims" | tr '{' '\n' | grep "\"unit\": \"$1\"" \
+        | sed -n 's/.*"resume_reason": *"\([a-z_]*\)".*/\1/p' | head -1; }
+    _plain_verdict=$(_verdict batch-plain)
+    if [ "$(_verdict batch-handoff)" = "awaiting_verification" ] && [ -n "$_plain_verdict" ] \
+        && [ "$_plain_verdict" != "awaiting_verification" ]; then
+        add_row "handoff_question_fixture" true "the oracle reads awaiting_verification, with an ordinary parked claim beside it -- the shape under test" load
+    else
+        add_row "handoff_question_fixture" false "the fixture is wrong (handoff='$(_verdict batch-handoff)' plain='${_plain_verdict}'): $(one_line "$_claims")" load
+        rm -rf "$_tmp"
+        emit_verdict "handoff-question" 0 "fail" 1
+    fi
+
+    # 2. ONE QUESTION, ADDRESSED TO THE HOLDER, IN THE DECLARED WORDS. The reason is asserted as
+    # the WHOLE string the ticket wrote, not a substring of any title in the fixture.
+    _out=$(_in sh "$_step" --tick 20260101-000000 --root "$_read")
+    if printf '%s' "$_out" | grep -q '"key":"handoff-unit:batch-handoff"' \
+        && printf '%s' "$_out" | grep -q "\"declared_reason\":\"${_reason}\"" \
+        && printf '%s' "$_out" | grep -q "\"owner\":\"${_me}\""; then
+        add_row "handoff_question_asked" true "one question, keyed handoff-unit:batch-handoff, addressed to the claim holder, quoting the declared reason verbatim" load
+    else
+        add_row "handoff_question_asked" false "the question is missing, misaddressed, or does not carry the declared reason: $(one_line "$_out")" load
+    fi
+
+    # ...and only the unit that declared one. The released unit must not appear.
+    if printf '%s' "$_out" | grep -q 'handoff-unit:batch-released'; then
+        add_row "handoff_question_releases_on_drive" false "a unit whose declaring ticket was driven is still asked about -- the reading consulted the ARCHIVED work" load
+    else
+        add_row "handoff_question_releases_on_drive" true "a unit whose declaring ticket was driven is not asked about -- the reading is self-releasing (this drill can fail)" load
+    fi
+
+    # 3. ASKED ONCE. The gate is the check-in's, not this step's, so the drill exercises the gate
+    # with this step's key: the first ask is allowed, the second is refused by name.
+    _qroot=$(mktemp -d); mkdir -p "${_qroot}/.workaholic/moderations"
+    _a1=$(cd "$REPO_ROOT" && sh "$_ask" --tick 20260101-000000 --key "handoff-unit:batch-handoff" \
+        --root "$_qroot" --to "$_me" --hour 10 --weekday 1 2>&1) || true
+    _logstep=$(printf '%s' "$_a1" | sed -n 's/.*"log_step": *"\([^"]*\)".*/\1/p')
+    if printf '%s' "$_a1" | grep -q '"ask": true'; then
+        sh "${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/log-append.sh" --root "$_qroot" \
+           --tick 20260101-000000 --step "$_logstep" --status ok --summary "asked" >/dev/null 2>&1 || true
+        _a2=$(cd "$REPO_ROOT" && sh "$_ask" --tick 20260101-010000 --key "handoff-unit:batch-handoff" \
+            --root "$_qroot" --to "$_me" --hour 10 --weekday 1 2>&1) || true
+        if printf '%s' "$_a2" | grep -q '"ask": false'; then
+            add_row "handoff_question_asked_once" true "the same key is refused on a later tick: $(printf '%s' "$_a2" | sed -n 's/.*"reason": *"\([a-z_]*\)".*/\1/p')" load
+        else
+            add_row "handoff_question_asked_once" false "the asked-once gate did not hold: $(one_line "$_a2")" load
+        fi
+    else
+        add_row "handoff_question_asked_once" false "the first ask was refused: $(one_line "$_a1")" load
+    fi
+    rm -rf "$_qroot"
+
+    # 4. `stalled-units` IS SILENT ON THE SAME UNIT, IN THE SAME TICK -- and still asks about the
+    # ordinary parked claim beside it. One step asks and the other filters; either half alone is
+    # a defect, and a unit drawing two differently-worded questions is the cost being prevented.
+    _sout=$(_in sh "$_stalled" --tick 20260101-000000 --root "$_read")
+    if ! printf '%s' "$_sout" | grep -q 'stalled-unit:batch-handoff'; then
+        if printf '%s' "$_sout" | grep -q 'stalled-unit:batch-plain' \
+            && printf '%s' "$_sout" | grep -q 'awaiting a declared verification'; then
+            add_row "handoff_question_stalled_silent" true "stalled-units asks nothing about the declared handoff, counts it as a finding, and still asks about the parked claim beside it" load
+        else
+            add_row "handoff_question_stalled_silent" false "the filter dropped more than the declared handoff, or stopped counting it: $(one_line "$_sout")" load
+        fi
+    else
+        add_row "handoff_question_stalled_silent" false "stalled-units still asks the wrong question about the declared handoff: $(one_line "$_sout")" load
+    fi
+
+    # 5. NOTHING WAS CLEARED. The claim stands with the same verdict, the branch is untouched,
+    # and the fixture checkout carries no write at all -- the step's whole licence is to report.
+    _after_claims=$(_in sh "$_lister")
+    _fixture_dirty=$( ( cd "$_read" && git status --porcelain 2>/dev/null ) | head -1 )
+    _branches=$( ( cd "$_origin" && git for-each-ref --format='%(refname:short)' refs/heads ) | sort | tr '\n' ' ')
+    if [ "$_claims" = "$_after_claims" ] && [ -z "$_fixture_dirty" ] \
+        && [ "$_branches" = "main work-20260101-000000 work-20260101-000001 work-20260101-000002 " ]; then
+        add_row "handoff_question_clears_nothing" true "the claim stands with the same verdict, every branch survives, and the fixture checkout is unwritten" load
+    else
+        add_row "handoff_question_clears_nothing" false "the drill's step changed state (dirty='${_fixture_dirty}' branches='${_branches}')" load
+    fi
+
+    _after=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+    if [ "$_before" = "$_after" ]; then
+        add_row "handoff_question_writes_nothing" true "the checkout is byte-identical after the drill" load
+    else
+        add_row "handoff_question_writes_nothing" false "the drill changed the working tree" load
+    fi
+
+    rm -rf "$_tmp"
+    if [ "$LOAD_FAILED" -gt 0 ]; then
+        emit_verdict "handoff-question" 0 "fail" 1
+    fi
+    emit_verdict "handoff-question" 0 "pass" 0
+}
+
+USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-specificate <issue>|verify-implement <issue>|verify-plan [--json]|verify-status [--json]|verify-cadence [--json]|verify-planner [--json]|verify-standup [--json]|verify-moderate [--json]|verify-propose [--json]|verify-direction-health [--json]|verify-arrival [--json]|verify-revision [--json]|verify-merged-claim [--json]|verify-identity-handoff [--json]|verify-close [--json]|verify-retire [--json]|verify-delivery-retry [--json]|verify-handoff-question [--json]|verify-base-health [--json]"}'
 
 CMD="${1:-}"
 [ -n "$CMD" ] || {
@@ -3281,6 +3506,7 @@ case "$CMD" in
     verify-close) cmd_verify_close "$@" ;;
     verify-retire) cmd_verify_retire "$@" ;;
     verify-delivery-retry) cmd_verify_delivery_retry "$@" ;;
+    verify-handoff-question) cmd_verify_handoff_question "$@" ;;
     verify-base-health) cmd_verify_base_health "$@" ;;
     *)
         echo "$USAGE" >&2

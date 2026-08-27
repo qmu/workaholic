@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260827-114104
 ---
 
 # Let the operator revise a live direction through the loop

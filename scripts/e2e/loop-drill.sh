@@ -2155,7 +2155,402 @@ cmd_verify_close() {
     emit_verdict "close" 0 "pass" 0
 }
 
-USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-specificate <issue>|verify-implement <issue>|verify-plan [--json]|verify-status [--json]|verify-cadence [--json]|verify-planner [--json]|verify-standup [--json]|verify-moderate [--json]|verify-propose [--json]|verify-direction-health [--json]|verify-merged-claim [--json]|verify-identity-handoff [--json]|verify-close [--json]"}'
+# --------------------------------------------------------------- verify-retire
+# Does a claim the oracle PROVES empty actually leave the table? The retirement is destructive
+# and outward-facing — a pull request closed, a branch deleted, a worktree reaped — so it is the
+# last act that should be proved by waiting for a tick to perform one.
+#
+# NO NETWORK. The fixture is a local bare origin and `gh` is stubbed on PATH, so every act is
+# real against the fixture and none of them leaves the machine. A `superseded` batch claim is
+# reachable offline by construction (its tickets are archived on the base), which is what makes
+# the whole drill local. The branch names are literal, as in every other drill here: they are
+# the canonical pattern the guard enforces.
+#
+# WHAT IT PROVES:
+#   1. the proof is acted on           a superseded claim's pull request, branch and worktree
+#   2. a judgement is refused BY NAME  `not_superseded:<verdict>` carries the verdict's own word
+#   3. two live claims are refused     `ambiguous_claim`, never picked between
+#   4. it is idempotent                a second run reports success and changes nothing
+#   5. the step asks nobody anything   `needs_agent` is empty; a retirement is not a question
+#
+# AND ONE ROW THAT DELIBERATELY BREAKS THE SEAM: a LIVE claim handed to the writer. If the gate
+# were widened to any claim, that row would be retired and this drill would pass while the loop
+# tore down work another run was driving. Proving the refusal is what proves the drill can fail.
+cmd_verify_retire() {
+    _lister="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/list-claims.sh"
+    _retirer="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/retire-claim.sh"
+    _step="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/step-retire-claims.sh"
+    for _f in "$_lister" "$_retirer" "$_step"; do
+        [ -f "$_f" ] || emit_err "retire_seam_unreadable" 4 "${_f} is not present in this checkout"
+    done
+
+    _before=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+
+    _tmp=$(mktemp -d)
+    _origin="${_tmp}/origin"; _work="${_tmp}/work"; _read="${_tmp}/read"; _bin="${_tmp}/bin"
+    mkdir -p "$_origin" "$_bin"
+    _me=$(cd "$REPO_ROOT" && git config user.email 2>/dev/null || echo drill@example.com)
+    _git() { git -c user.email="$_me" -c user.name=Drill -c commit.gpgsign=false "$@"; }
+
+    ( cd "$_origin" && git -c init.defaultBranch=main init -q --bare ) || true
+    ( cd "$_tmp" && git clone -q "$_origin" work ) || true
+    mkdir -p "${_work}/.workaholic/tickets/todo"
+    for _n in 1 2 3 4 5 6; do
+        printf -- '---\ncreated_at: 2026-01-01T00:00:0%s+09:00\nauthor: %s\n---\n\n# T%s\n' \
+            "$_n" "$_me" "$_n" > "${_work}/.workaholic/tickets/todo/2026010100000${_n}-t.md"
+    done
+    ( cd "$_work" && _git add -A && _git commit -qm seed && git push -q origin main ) || true
+
+    # The claim commit must TOUCH the stamped file: the artifact list is "files this commit
+    # touched that still carry the stamp at the tip".
+    _stamp() { # $1 = branch, $2 = ticket basename
+        printf -- '---\ncreated_at: 2026-01-01T00:00:00+09:00\nauthor: %s\nclaim: %s\n---\n\n# T\n\nclaimed\n' \
+            "$_me" "$1" > "${_work}/.workaholic/tickets/todo/$2"
+    }
+
+    # THE PROOF: a claim whose ticket is archived on the BASE. Its content reached the base by
+    # another route, so the branch can never land -- which is exactly `superseded`. Two of them,
+    # because a retirement REMOVES its claim: the second row below cannot be proved on a unit
+    # the first row already retired.
+    ( cd "$_work" && git checkout -q -b work-20260101-000000 main \
+      && _stamp work-20260101-000000 20260101000001-t.md \
+      && _git commit -qam "Claim a PR-unit" -m "Unit: batch-superseded" \
+      && git push -q origin work-20260101-000000 ) >/dev/null 2>&1 || true
+    ( cd "$_work" && git checkout -q -b work-20260101-000004 main \
+      && _stamp work-20260101-000004 20260101000005-t.md \
+      && _git commit -qam "Claim a PR-unit" -m "Unit: batch-superseded-two" \
+      && git push -q origin work-20260101-000004 ) >/dev/null 2>&1 || true
+    # A THIRD, reserved for the STEP. The step retires every superseded row it finds, so the
+    # rows that drive the writer directly must not be the same claims -- and the event assertion
+    # needs one superseded claim still standing when the step runs.
+    ( cd "$_work" && git checkout -q -b work-20260101-000005 main \
+      && _stamp work-20260101-000005 20260101000006-t.md \
+      && _git commit -qam "Claim a PR-unit" -m "Unit: batch-superseded-three" \
+      && git push -q origin work-20260101-000005 ) >/dev/null 2>&1 || true
+    ( cd "$_work" && git checkout -q main \
+      && mkdir -p .workaholic/tickets/archive/work-20260101-000000 \
+      && git mv .workaholic/tickets/todo/20260101000001-t.md .workaholic/tickets/archive/work-20260101-000000/ \
+      && git mv .workaholic/tickets/todo/20260101000005-t.md .workaholic/tickets/archive/work-20260101-000000/ \
+      && git mv .workaholic/tickets/todo/20260101000006-t.md .workaholic/tickets/archive/work-20260101-000000/ \
+      && _git commit -qm "Archive the tickets elsewhere" && git push -q origin main ) >/dev/null 2>&1 || true
+
+    # A JUDGEMENT beside it: a live claim whose ticket is still queued.
+    ( cd "$_work" && git checkout -q -b work-20260101-000001 main \
+      && _stamp work-20260101-000001 20260101000002-t.md \
+      && _git commit -qam "Claim a PR-unit" -m "Unit: batch-live" \
+      && git push -q origin work-20260101-000001 ) >/dev/null 2>&1 || true
+
+    # TWO LIVE CLAIMS on one unit -- the state the protocol cannot produce and must refuse.
+    ( cd "$_work" && git checkout -q -b work-20260101-000002 main \
+      && _stamp work-20260101-000002 20260101000003-t.md \
+      && _git commit -qam "Claim a PR-unit" -m "Unit: batch-ambiguous" \
+      && git push -q origin work-20260101-000002 ) >/dev/null 2>&1 || true
+    ( cd "$_work" && git checkout -q -b work-20260101-000003 main \
+      && _stamp work-20260101-000003 20260101000004-t.md \
+      && _git commit -qam "Claim a PR-unit" -m "Unit: batch-ambiguous" \
+      && git push -q origin work-20260101-000003 ) >/dev/null 2>&1 || true
+
+    ( cd "$_tmp" && git clone -q "$_origin" read ) >/dev/null 2>&1 || true
+    ( cd "$_read" && git config user.email "$_me" && git config user.name Drill ) || true
+    # The stub answers `gh api user` (so `available` reads true) and every pulls query with
+    # whatever this drill wants that unit's pull request to be. An empty list is a fixture whose
+    # unit has no pull request, which the writer reports as the SUCCESS `none`.
+    _stub() { printf '#!/bin/sh\n%s\n' "$1" > "${_bin}/gh"; chmod +x "${_bin}/gh"; }
+    _stub "echo '[]'"
+
+    _retire() { ( cd "$_read" && PATH="${_bin}:$PATH" \
+        WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES=0 sh "$_retirer" "$1" ) 2>&1 || true; }
+    _field() { printf '%s' "$1" | sed -n 's/.*"'"$2"'": *"\([^"]*\)".*/\1/p' | head -1; }
+
+    _claims=$( ( cd "$_read" && PATH="${_bin}:$PATH" \
+        WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES=0 sh "$_lister" ) 2>&1 || true )
+    _verdict() { printf '%s' "$_claims" | tr '{' '\n' | grep "\"unit\": \"$1\"" \
+        | sed -n 's/.*"resume_reason": *"\([a-z_]*\)".*/\1/p' | head -1; }
+    _live_verdict=$(_verdict batch-live)
+
+    # The fixture has to BE the shape under test, or every row below proves nothing.
+    if [ "$(_verdict batch-superseded)" = "superseded" ] && [ -n "$_live_verdict" ] \
+        && [ "$_live_verdict" != "superseded" ]; then
+        add_row "retire_fixture" true "one claim reads superseded and a live one sits beside it -- the shape under test" load
+    else
+        add_row "retire_fixture" false "the fixture is wrong (superseded='$(_verdict batch-superseded)' live='${_live_verdict}'): $(one_line "$_claims")" load
+        rm -rf "$_tmp"
+        emit_verdict "retire" 0 "fail" 1
+    fi
+
+    # 1. THE PROOF IS ACTED ON. All three acts run and each reports its own word: no pull
+    # request to close (`none`), the remote branch deleted, no worktree here (`absent`).
+    _out=$(_retire batch-superseded)
+    if printf '%s' "$_out" | grep -q '"retired": true' \
+        && [ "$(_field "$_out" remote_branch_deleted)" = "deleted" ] \
+        && [ "$(_field "$_out" pull_request_closed)" = "none" ]; then
+        add_row "retire_acts_on_the_proof" true "the superseded claim's branch is deleted and its three acts are each named" load
+    else
+        add_row "retire_acts_on_the_proof" false "the retirement did not complete: $(one_line "$_out")" load
+    fi
+
+    # 4a. NOTHING IS RETIRED TWICE. A completed retirement DELETES the branch, and the claim
+    # oracle is the set of unmerged remote branches -- so the row is simply gone and a second
+    # run has nothing to act on. `no_such_claim` with all three acts `not_attempted` is the
+    # honest answer, and it is the property that matters: re-running is safe and changes
+    # nothing. (The drill asserted `already_gone` here first and the fixture disproved it --
+    # that word is reachable only on a PARTIAL retirement, which 4b covers.)
+    _again=$(_retire batch-superseded)
+    if [ "$(_field "$_again" reason)" = "no_such_claim" ] \
+        && [ "$(_field "$_again" remote_branch_deleted)" = "not_attempted" ]; then
+        add_row "retire_not_twice" true "a completed retirement leaves no claim, so a second run attempts nothing -- re-running is safe" load
+    else
+        add_row "retire_not_twice" false "the second run did not leave the claim retired-and-gone: $(one_line "$_again")" load
+    fi
+
+    # 4b. AN ALREADY-CLOSED PULL REQUEST IS A SUCCESS, not a degradation. This is the
+    # idempotence that has to hold in practice: a partial retirement (measured 2026-08-05, a
+    # cloud container may PUSH but not DELETE a branch) leaves the claim standing, and the next
+    # tick must finish the job rather than trip over the act that already succeeded.
+    _stub "echo '[{\"number\":7,\"state\":\"closed\"}]'"
+    _closed=$(_retire batch-superseded-two)
+    if printf '%s' "$_closed" | grep -q '"retired": true' \
+        && [ "$(_field "$_closed" pull_request_closed)" = "already_closed" ]; then
+        add_row "retire_already_closed_is_success" true "an already-closed pull request reports already_closed and the retirement still succeeds" load
+    else
+        add_row "retire_already_closed_is_success" false "an already-closed pull request was not treated as a success: $(one_line "$_closed")" load
+    fi
+    _stub "echo '[]'"
+
+    # 3. TWO LIVE CLAIMS ARE REFUSED, never picked between: the protocol settles a race by the
+    # push, so this state cannot arise from the sanctioned path, and choosing silently is how a
+    # runner tears down work another run is still driving.
+    _amb=$(_retire batch-ambiguous)
+    if [ "$(_field "$_amb" reason)" = "ambiguous_claim" ] \
+        && [ "$(_field "$_amb" remote_branch_deleted)" = "not_attempted" ]; then
+        add_row "retire_ambiguous_refused" true "a unit held by two live claims is refused ambiguous_claim with nothing attempted" load
+    else
+        add_row "retire_ambiguous_refused" false "expected ambiguous_claim with nothing attempted, got: $(one_line "$_amb")" load
+    fi
+
+    # 5. THE STEP ASKS NOBODY ANYTHING. A retirement is proved, so there is no judgement for a
+    # person to make -- the sharpest contrast with the three steps beside it.
+    _stepout=$( ( cd "$_read" && PATH="${_bin}:$PATH" WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES=0 \
+        sh "$_step" --tick 20260101-000000 --root "$_read" ) 2>&1 || true )
+    if printf '%s' "$_stepout" | grep -q '"needs_agent": \[\]'; then
+        add_row "retire_step_asks_nothing" true "the step carries an empty needs_agent -- it acts and reports, it never asks" load
+    else
+        add_row "retire_step_asks_nothing" false "the step produced a question: $(one_line "$_stepout")" load
+    fi
+
+    # 6. A RETIREMENT IS A REPOSITORY EVENT, so the root gets a line naming what was retired.
+    # The run above still had `batch-superseded-three` standing, which is why the third
+    # superseded claim exists.
+    if printf '%s' "$_stepout" | grep -q '"event": "[^"]' \
+        && printf '%s' "$_stepout" | grep -q 'retired'; then
+        add_row "retire_step_renders_an_event" true "a tick that retired a claim supplies an event naming what it retired" load
+    else
+        add_row "retire_step_renders_an_event" false "a tick that retired a claim supplied no event: $(one_line "$_stepout")" load
+    fi
+
+    # 7. AND A TICK THAT RETIRED NOTHING SUPPLIES NO EVENT AT ALL, so the renderer emits no
+    # line. This is the half that is easy to leave unasserted and is exactly the failure the
+    # 2026-08-23 rule exists against: `no new documentation drift` announced that NOTHING
+    # HAPPENED while the diff rendered it as a change. Every superseded claim is retired by
+    # now, so this run is the nothing-happened case.
+    _idle=$( ( cd "$_read" && PATH="${_bin}:$PATH" WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES=0 \
+        sh "$_step" --tick 20260101-000001 --root "$_read" ) 2>&1 || true )
+    if printf '%s' "$_idle" | grep -q '"event": ""' \
+        && printf '%s' "$_idle" | grep -q '"status": "ok"'; then
+        add_row "retire_idle_renders_no_line" true "a tick that retired nothing supplies no event, so the root renders no line" load
+    else
+        add_row "retire_idle_renders_no_line" false "a tick that retired nothing still supplied an event: $(one_line "$_idle")" load
+    fi
+
+    # THE DELIBERATELY BROKEN ROW. A LIVE claim handed straight to the writer. If the gate were
+    # widened to any claim -- or read a judgement as a proof -- this row would retire a branch
+    # another run is driving, and the drill would pass while the loop destroyed work. The
+    # refusal must carry the verdict's OWN word, so a reader is told which judgement it was.
+    _live_out=$(_retire batch-live)
+    if [ "$(_field "$_live_out" reason)" = "not_superseded:${_live_verdict}" ] \
+        && [ "$(_field "$_live_out" remote_branch_deleted)" = "not_attempted" ]; then
+        add_row "retire_refuses_a_judgement" true "a live claim is refused by its own verdict word with nothing attempted -- this drill can fail" load
+    else
+        add_row "retire_refuses_a_judgement" false "a live claim was not refused by name: $(one_line "$_live_out")" load
+    fi
+
+    _after=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+    if [ "$_before" = "$_after" ]; then
+        add_row "retire_writes_nothing" true "the checkout is byte-identical after the drill" load
+    else
+        add_row "retire_writes_nothing" false "the drill changed the working tree" load
+    fi
+
+    rm -rf "$_tmp"
+    if [ "$LOAD_FAILED" -gt 0 ]; then
+        emit_verdict "retire" 0 "fail" 1
+    fi
+    emit_verdict "retire" 0 "pass" 0
+}
+
+# ------------------------------------------------------- verify-delivery-retry
+# Does a unit an EARLIER run could not deliver get its merge re-attempted? Naming
+# `report_undelivered` was half the repair; nothing offered the unit its one remaining action,
+# so it was delivered by nobody until a person opened the pull request.
+#
+# NO NETWORK: the same local bare origin and the same PATH stub as `verify-retire`.
+#
+# WHAT IT PROVES:
+#   1. the survey offers it              in `undelivered[]`, never as backlog
+#   2. the proof reaches the transport   only a `report_undelivered` unit gets past both gates
+#   3. a scan-held unit is never tried   the gate working is not the loop stopping
+#
+# AND ONE ROW THAT DELIBERATELY BREAKS THE SEAM: a unit finished in the identical shape with
+# NOTHING recorded. Its verdict falls back to `queue_drained`, so the retry must refuse it -- a
+# retry that acted there would be merging on an assumption rather than on a recorded refusal,
+# and this drill would pass while it did.
+cmd_verify_delivery_retry() {
+    _lister="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/list-claims.sh"
+    _retry="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/retry-undelivered.sh"
+    _planner="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/plan-units.sh"
+    _recorder="${REPO_ROOT}/plugins/workaholic/skills/story/scripts/record-merge-outcome.sh"
+    for _f in "$_lister" "$_retry" "$_planner" "$_recorder"; do
+        [ -f "$_f" ] || emit_err "retry_seam_unreadable" 4 "${_f} is not present in this checkout"
+    done
+
+    _before=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+
+    _tmp=$(mktemp -d)
+    _origin="${_tmp}/origin"; _work="${_tmp}/work"; _read="${_tmp}/read"; _bin="${_tmp}/bin"
+    mkdir -p "$_origin" "$_bin"
+    _me=$(cd "$REPO_ROOT" && git config user.email 2>/dev/null || echo drill@example.com)
+    _git() { git -c user.email="$_me" -c user.name=Drill -c commit.gpgsign=false "$@"; }
+
+    ( cd "$_origin" && git -c init.defaultBranch=main init -q --bare ) || true
+    ( cd "$_tmp" && git clone -q "$_origin" work ) || true
+    mkdir -p "${_work}/.workaholic/tickets/todo" "${_work}/.workaholic/stories"
+    for _n in 1 2 3; do
+        printf -- '---\ncreated_at: 2026-01-01T00:00:0%s+09:00\nauthor: %s\n---\n\n# T%s\n' \
+            "$_n" "$_me" "$_n" > "${_work}/.workaholic/tickets/todo/2026010100000${_n}-t.md"
+    done
+    ( cd "$_work" && _git add -A && _git commit -qm seed && git push -q origin main ) || true
+
+    _stamp() { # $1 = branch, $2 = ticket basename
+        printf -- '---\ncreated_at: 2026-01-01T00:00:00+09:00\nauthor: %s\nclaim: %s\n---\n\n# T\n\nclaimed\n' \
+            "$_me" "$1" > "${_work}/.workaholic/tickets/todo/$2"
+    }
+    # Three units driven to the IDENTICAL finished shape -- drained queue, story at the tip,
+    # pull request open. That identity is why the recorded outcome is the only thing that tells
+    # them apart, and why the third is the seam worth breaking. `.workaholic/stories/` is
+    # recreated on every call: git tracks no empty directory, so checking out `main` for the
+    # next branch removes the one the previous branch created.
+    _report() { # $1 = branch, $2 = ticket basename, $3 = outcome ("" records nothing)
+        ( cd "$_work" \
+          && mkdir -p ".workaholic/tickets/archive/$1" ".workaholic/stories" \
+          && git mv ".workaholic/tickets/todo/$2" ".workaholic/tickets/archive/$1/" \
+          && printf -- '---\ntype: Story\nbranch: %s\n---\n\n## 1. Overview\n\ndone\n' "$1" \
+            > ".workaholic/stories/$1.md" \
+          && { [ -z "$3" ] || sh "$_recorder" ".workaholic/stories/$1.md" "$3" >/dev/null; } \
+          && _git add -A && _git commit -qm "Report the unit" \
+          && git push -q origin "$1" ) >/dev/null 2>&1 || true
+    }
+
+    # A unit whose merge the TRANSPORT refused -- the one the retry exists for.
+    ( cd "$_work" && git checkout -q -b work-20260101-000000 main \
+      && _stamp work-20260101-000000 20260101000001-t.md \
+      && _git commit -qam "Claim a PR-unit" -m "Unit: batch-refused" ) >/dev/null 2>&1 || true
+    _report work-20260101-000000 20260101000001-t.md "merge_refused: session_type_cannot_merge"
+
+    # A unit a SCAN FINDING held -- the same shape, the opposite next action.
+    ( cd "$_work" && git checkout -q -b work-20260101-000001 main \
+      && _stamp work-20260101-000001 20260101000002-t.md \
+      && _git commit -qam "Claim a PR-unit" -m "Unit: batch-held" ) >/dev/null 2>&1 || true
+    _report work-20260101-000001 20260101000002-t.md "merge_not_attempted: hard"
+
+    # THE DELIBERATELY BROKEN SEAM: the same finished shape with NOTHING recorded.
+    ( cd "$_work" && git checkout -q -b work-20260101-000002 main \
+      && _stamp work-20260101-000002 20260101000003-t.md \
+      && _git commit -qam "Claim a PR-unit" -m "Unit: batch-silent" ) >/dev/null 2>&1 || true
+    _report work-20260101-000002 20260101000003-t.md ""
+
+    ( cd "$_tmp" && git clone -q "$_origin" read ) >/dev/null 2>&1 || true
+    ( cd "$_read" && git config user.email "$_me" && git config user.name Drill ) || true
+    printf '#!/bin/sh\necho "[]"\n' > "${_bin}/gh"; chmod +x "${_bin}/gh"
+
+    _run() { ( cd "$_read" && PATH="${_bin}:$PATH" \
+        WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES=0 sh "$_retry" "$1" ) 2>&1 || true; }
+    _field() { printf '%s' "$1" | sed -n 's/.*"'"$2"'": *"\([^"]*\)".*/\1/p' | head -1; }
+
+    _claims=$( ( cd "$_read" && PATH="${_bin}:$PATH" \
+        WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES=0 sh "$_lister" ) 2>&1 || true )
+    _verdict() { printf '%s' "$_claims" | tr '{' '\n' | grep "\"unit\": \"$1\"" \
+        | sed -n 's/.*"resume_reason": *"\([a-z_]*\)".*/\1/p' | head -1; }
+
+    if [ "$(_verdict batch-refused)" = "report_undelivered" ] \
+        && [ "$(_verdict batch-held)" = "queue_drained" ]; then
+        add_row "retry_fixture" true "one unit reads report_undelivered and a scan-held one reads queue_drained -- the shape under test" load
+    else
+        add_row "retry_fixture" false "the fixture is wrong (refused='$(_verdict batch-refused)' held='$(_verdict batch-held)'): $(one_line "$_claims")" load
+        rm -rf "$_tmp"
+        emit_verdict "delivery-retry" 0 "fail" 1
+    fi
+
+    # 1. THE SURVEY OFFERS IT IN A FIELD OF ITS OWN, and still excludes it. Loosening the
+    # exclusion would put the unit's ARCHIVED tickets back into `backlog[]`, where a run would
+    # claim them fresh and re-drive work already written, pushed and sitting at an open pull
+    # request -- so both halves are asserted, not just the offer.
+    _plan=$( ( cd "$_read" && PATH="${_bin}:$PATH" \
+        WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES=0 sh "$_planner" ) 2>&1 || true )
+    if printf '%s' "$_plan" | grep -q '"undelivered": \[{"unit": "batch-refused"' \
+        && printf '%s' "$_plan" | grep -q 'claimed_undelivered'; then
+        add_row "retry_offered_in_its_own_field" true "the survey offers the undelivered unit in undelivered[] while still excluding it claimed_undelivered" load
+    else
+        add_row "retry_offered_in_its_own_field" false "the survey did not offer the unit in a field of its own: $(one_line "$_plan")" load
+    fi
+
+    # 2. THE PROOF REACHES THE TRANSPORT, once. With no pull request in the stub's answer the
+    # attempt stops at `no_open_pull_request` -- which is precisely the proof that both gates
+    # passed and the merge seam was reached, with no network call made.
+    _out=$(_run batch-refused)
+    if [ "$(_field "$_out" reason)" = "no_open_pull_request" ]; then
+        add_row "retry_reaches_the_transport" true "the undelivered unit passes both gates and reaches the merge seam" load
+    else
+        add_row "retry_reaches_the_transport" false "the undelivered unit did not reach the merge seam: $(one_line "$_out")" load
+    fi
+
+    # 3. A SCAN-HELD PULL REQUEST IS NEVER TRIED. It waits on a person BY DESIGN -- the gate
+    # working is not the loop stopping -- and the verdict chain keeps it out of the retry
+    # entirely, which is what this row proves rather than assumes.
+    _held=$(_run batch-held)
+    if [ "$(_field "$_held" reason)" = "not_undelivered:queue_drained" ] \
+        && printf '%s' "$_held" | grep -q '"attempted": false'; then
+        add_row "retry_scan_held_never_tried" true "a scan-held unit never reaches the retry and is refused by name" load
+    else
+        add_row "retry_scan_held_never_tried" false "a scan-held unit was not refused by name: $(one_line "$_held")" load
+    fi
+
+    # THE DELIBERATELY BROKEN ROW. The same finished shape with NOTHING recorded: the verdict
+    # falls back to `queue_drained`, so the retry must refuse it. A retry that acted here would
+    # be merging on an assumption rather than on the recorded refusal, and this drill would pass
+    # while it did.
+    _silent=$(_run batch-silent)
+    if printf '%s' "$_silent" | grep -q '"attempted": false' \
+        && [ "$(_field "$_silent" reason)" = "not_undelivered:queue_drained" ]; then
+        add_row "retry_unrecorded_never_tried" true "an unrecorded outcome is never retried, so no merge rests on an assumption -- this drill can fail" load
+    else
+        add_row "retry_unrecorded_never_tried" false "an unrecorded outcome reached the merge seam: $(one_line "$_silent")" load
+    fi
+
+    _after=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+    if [ "$_before" = "$_after" ]; then
+        add_row "retry_writes_nothing" true "the checkout is byte-identical after the drill" load
+    else
+        add_row "retry_writes_nothing" false "the drill changed the working tree" load
+    fi
+
+    rm -rf "$_tmp"
+    if [ "$LOAD_FAILED" -gt 0 ]; then
+        emit_verdict "delivery-retry" 0 "fail" 1
+    fi
+    emit_verdict "delivery-retry" 0 "pass" 0
+}
+
+USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-specificate <issue>|verify-implement <issue>|verify-plan [--json]|verify-status [--json]|verify-cadence [--json]|verify-planner [--json]|verify-standup [--json]|verify-moderate [--json]|verify-propose [--json]|verify-direction-health [--json]|verify-merged-claim [--json]|verify-identity-handoff [--json]|verify-close [--json]|verify-retire [--json]|verify-delivery-retry [--json]"}'
 
 CMD="${1:-}"
 [ -n "$CMD" ] || {
@@ -2195,6 +2590,8 @@ case "$CMD" in
     verify-merged-claim) cmd_verify_merged_claim "$@" ;;
     verify-identity-handoff) cmd_verify_identity_handoff "$@" ;;
     verify-close) cmd_verify_close "$@" ;;
+    verify-retire) cmd_verify_retire "$@" ;;
+    verify-delivery-retry) cmd_verify_delivery_retry "$@" ;;
     *)
         echo "$USAGE" >&2
         exit 2

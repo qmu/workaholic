@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-27T05:22:37+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -94,3 +95,54 @@ is a pull request waiting on a person by design, not a refused delivery, and is 
   refusal that stopped it is recorded on the branch — not inferred.
 - Do not widen the retry to `queue_drained`: that verdict means *waiting on a person*, and it
   is a judgement, not a proof.
+
+## Final Report
+
+Development completed as planned.
+
+Step 2's choice — where the unit surfaces — was made as the ticket recommended and is stated in
+`plan-units.sh`'s header rather than left to be inferred: a named `undelivered[]` field beside
+`resurveyed[]`, never a loosened `claimed_undelivered`. The reason is concrete. The exclusion
+covers the unit's **archived** tickets, so loosening it would return them to `backlog[]` and a
+run would claim them fresh and re-drive work already written, pushed and sitting in an open pull
+request — which is precisely what the ticket's fourth acceptance criterion forbids. The field
+says exactly what it offers: a merge attempt on an existing branch. `claimed_undelivered` and
+its count in `backlog_all_excluded` are byte-identical to before.
+
+`retry-undelivered.sh` is the act. It reads the verdict through `lib/claims.sh`'s shared scan
+(`claims_unit_resolution` / `claims_unit_row`), never through a second parse of
+`list-claims.sh`'s JSON, so the survey that offers a unit and the gate that acts on it cannot
+disagree. Two gates, both refusing by name: the verdict must be `report_undelivered`
+(`not_undelivered:<verdict>` otherwise) and the recorded outcome must be a refusal
+(`scan_held:<tier>` otherwise). One `PUT`, then it returns — the bound is structural rather than
+a counter.
+
+### Discovered Insights
+
+- **Insight**: The scan-held gate is redundant by construction and was kept anyway.
+  **Context**: `claims_merge_outcome` matches `merge_refused*` to produce `report_undelivered`,
+  so a `merge_not_attempted: hard` row falls through to `queue_drained` and can never reach the
+  retry. The second check costs a string compare; its absence would cost an unattended merge
+  past a secret finding if the verdict chain were ever reordered. The header states the trade
+  rather than leaving a later reader to delete it as dead code.
+
+- **Insight**: Recording the new outcome needs no worktree, and could not have used one.
+  **Context**: The unit is finished, so its worktree was torn down or never existed in this
+  container — `heartbeat.sh`'s pattern (commit from the unit's own worktree) is unavailable by
+  construction here. The story blob is fetched with `git cat-file`, handed to
+  `record-merge-outcome.sh` so that script stays the one writer of the section's format, and
+  committed back with `hash-object` / `read-tree` / `update-index` / `write-tree` /
+  `commit-tree` against a `GIT_INDEX_FILE` scratch index. Nothing is checked out and the
+  caller's index and working tree are untouched.
+
+- **Insight**: The retry cannot make the connector attempt itself, and that is the same
+  constraint that created §6's numbered step.
+  **Context**: No script may call an MCP tool, so `session_type_cannot_merge` is reported as a
+  word and the second attempt stays with the calling agent, on `rules/shell.md`'s unchanged
+  bounds. A retry script that tried to own that step would be the gap with more moving parts —
+  the same reasoning the original in-session retry recorded.
+
+- **Insight**: A merged unit records nothing, and that asymmetry is load-bearing.
+  **Context**: The merge releases the claim, so the oracle never sees the branch again and a
+  success record would be written where nothing reads it. Only a still-refused unit needs a
+  current answer to *why is this pull request still open*.

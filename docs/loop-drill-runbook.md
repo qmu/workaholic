@@ -38,6 +38,8 @@ Run every command from the repository root, on a clean `main`.
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-merged-claim --json` | a throwaway repository carrying a **squash-merged** mission claim and batch claim — proves all four merged-claim readings (merged batch, merged mission, live, unanswerable) with the transport stubbed, so no `gh` call is made |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-identity-handoff --json` | a throwaway repository with a two-address mapping — walks issue assignee → the address the writer stamps → the survey that offers the unit, for a canonical address, a mapped alias and an unmapped login, with no network and no credential |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-close --json` | a throwaway repository carrying three finished units — proves all four closing outcomes (merged, session-type-refused-then-retryable, refused-and-unretryable, scan-held) with the transport stubbed, plus one row that deliberately breaks the seam |
+| — | Any time | `sh scripts/e2e/loop-drill.sh verify-retire --json` | a throwaway repository holding a `superseded` claim, a live one and a unit held by two — proves the retirement's three acts, that a judgement is refused by its own verdict word, and that the step asks nobody anything, with the transport stubbed and one row that deliberately breaks the seam |
+| — | Any time | `sh scripts/e2e/loop-drill.sh verify-delivery-retry --json` | a throwaway repository holding three units finished in the identical shape — proves the survey offers an undelivered unit in a field of its own, that only the proof reaches the merge seam, and that a scan-held or unrecorded one never does, with the transport stubbed and one row that deliberately breaks the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh status` | the drill's residue: issues, claim branches, tickets |
 | — | After an abort | `sh scripts/e2e/loop-drill.sh reset` | closes/deletes **drill-minted** residue only |
 
@@ -535,6 +537,55 @@ walks the happy path would have passed throughout the days those four pull reque
 and would have converted an unproven claim into a believed one. Breaking any seam this mission
 touched turns `close_refused_is_undelivered` and `close_asks_about_the_refused_one` red together
 — verified by removing the `merge_refused*` branch from `lib/claims.sh` and watching both fail.
+
+## 5l. The retirement (does a claim proved empty leave the table?)
+
+`verify-retire` needs no seed, no fire, no issue number and **no network**: a local bare origin
+and a `gh` stubbed on `PATH`, so every act is real against the fixture and none of them leaves
+the machine. A `superseded` batch claim is reachable offline by construction — its tickets are
+archived on the base — which is what makes the whole drill local.
+
+**It drills a destructive, outward-facing act**: a pull request closed, a branch deleted, a
+worktree reaped. That is the last thing that should be proved by waiting for a tick to perform
+one. What makes it safe is the **proof** — `superseded` means the unit's content already reached
+the base, so the branch can never land and holds no work — and the drill's job is to show that
+nothing but the proof gets through.
+
+| Row | Fails when | Read |
+| --- | ---------- | ---- |
+| `retire_fixture` | the fixture does not hold one `superseded` claim beside a live one | the fixture is not the shape under test; every row below it would prove nothing |
+| `retire_acts_on_the_proof` | the three acts do not run, or one is not named | `retire-claim.sh` — each act reports its own word, so a partial retirement is never a bare `false` |
+| `retire_not_twice` | a second run over a retired unit attempts anything | a completed retirement **deletes the branch**, and the oracle is the set of unmerged remote branches — so the row is simply gone and `no_such_claim` is the honest answer |
+| `retire_already_closed_is_success` | an already-closed pull request is treated as a degradation | the idempotence that matters in practice: a cloud container may PUSH but not DELETE a branch (measured 2026-08-05), so a partial retirement must be finishable by the next tick |
+| `retire_ambiguous_refused` | a unit held by two live claims is picked between | `claims_unit_resolution` — the protocol settles a race by the push, so this state cannot arise from the sanctioned path and choosing silently tears down work another run is driving |
+| `retire_step_asks_nothing` | the step carries a question | `step-retire-claims.sh` — a retirement is *proved*, so there is nothing for a person to rule on; it acts and reports |
+| `retire_step_renders_an_event` | a tick that retired a claim supplies no `event` | a retirement **is** a repository event — a pull request closed, a branch deleted — and the step supplies the phrase because it knows what its finding means and the renderer does not |
+| `retire_idle_renders_no_line` | a tick that retired **nothing** still supplies an `event` | the half that is easy to leave unasserted, and exactly the 2026-08-23 failure: `no new documentation drift` announced that nothing happened while the diff rendered it as a change |
+| `retire_refuses_a_judgement` | a **live** claim is not refused by its own verdict word | **the deliberately broken seam.** Widen the gate to any claim and this row goes red while every other row stays green — verified by replacing `retire-claim.sh`'s verdict test with `if false`, which retired `batch-live`'s branch and failed exactly this row |
+| `retire_writes_nothing` | the drill changed the checkout | every fixture lives outside the checkout |
+
+## 5m. The delivery retry (does an undelivered unit get its merge re-attempted?)
+
+`verify-delivery-retry` needs no seed, no fire, no issue number and **no network** — the same
+local bare origin and the same `PATH` stub as §5l.
+
+**Naming the state was only half the repair.** `report_undelivered` (2026-08-27) made a unit the
+loop finished and could not merge *visible*, and nothing then offered it its one remaining
+action: `plan-units.sh` excluded it `claimed_undelivered` at every later survey and `claim.sh
+resume` refused it by name, so it was delivered by nobody until a person opened the pull request.
+
+| Row | Fails when | Read |
+| --- | ---------- | ---- |
+| `retry_fixture` | the fixture does not hold a `report_undelivered` unit beside a scan-held one | the fixture is not the shape under test |
+| `retry_offered_in_its_own_field` | the survey does not offer the unit in `undelivered[]`, or stops excluding it | **both halves are asserted**: loosening `claimed_undelivered` would return the unit's *archived* tickets to `backlog[]`, where a run would re-drive work already written and pushed |
+| `retry_reaches_the_transport` | the undelivered unit does not get past both gates to the merge seam | with an empty stub answer the attempt stops at `no_open_pull_request`, which is precisely the proof that the gates passed and no network call was made |
+| `retry_scan_held_never_tried` | a scan-held unit reaches the retry | the gate *working* is not the loop stopping; the verdict chain keeps it out entirely, and the writer's own second gate is the backstop |
+| `retry_unrecorded_never_tried` | an **unrecorded** outcome reaches the merge seam | **the deliberately broken seam.** With nothing recorded the verdict falls back to `queue_drained`, so the retry must refuse — a retry that acted there would be merging on an assumption. Verified by removing the verdict test, which turned this row **and** `retry_scan_held_never_tried` red together |
+| `retry_writes_nothing` | the drill changed the checkout | every fixture lives outside the checkout |
+
+**The broken-seam proof found something.** Widening the verdict gate turned `scan_held:hard`
+into the refusal that stopped the scan-held unit — so the writer's second, "redundant" gate is
+the live backstop rather than dead code, which is why its header says to keep it.
 
 ## 5j. The identity hand-off (issue assignee → stamped address → survey)
 

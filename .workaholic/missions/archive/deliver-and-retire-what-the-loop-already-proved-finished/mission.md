@@ -2,7 +2,7 @@
 type: Mission
 title: Deliver and retire what the loop already proved finished
 slug: deliver-and-retire-what-the-loop-already-proved-finished
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-27T05:22:01+00:00
 author: a@qmu.jp
@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260827-054123
 ---
 
 # Deliver and retire what the loop already proved finished
@@ -38,10 +39,20 @@ is asked about is only ever a reading that needed their judgement.
 
 ## Acceptance
 
-- [ ] Proofs and judgements are named once and read by every consumer (#20260827052237-name-which-claim-verdicts-are-proofs-and-which-are-judgements.md)
-- [ ] A later run re-attempts an undelivered unit's merge and reports the outcome (#20260827052237-re-attempt-an-undelivered-unit-s-merge-in-a-later-driving-run.md)
-- [ ] A claim proved `superseded` is retired by one writer after re-proof (#20260827052237-write-retire-claim-sh-the-one-retirement-writer.md)
+- [x] Proofs and judgements are named once and read by every consumer (#20260827052237-name-which-claim-verdicts-are-proofs-and-which-are-judgements.md)
+- [x] A later run re-attempts an undelivered unit's merge and reports the outcome (#20260827052237-re-attempt-an-undelivered-unit-s-merge-in-a-later-driving-run.md)
+- [x] A claim proved `superseded` is retired by one writer after re-proof (#20260827052237-write-retire-claim-sh-the-one-retirement-writer.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-27 — ticket archived — 20260827052237-name-which-claim-verdicts-are-proofs-and-which-are-judgements.md
+- 2026-08-27 — ticket archived — 20260827052237-re-attempt-an-undelivered-unit-s-merge-in-a-later-driving-run.md
+- 2026-08-27 — ticket archived — 20260827052237-report-the-retry-s-outcome-and-move-the-token-only-when-it-delivered.md
+- 2026-08-27 — ticket archived — 20260827052237-write-retire-claim-sh-the-one-retirement-writer.md
+- 2026-08-27 — ticket archived — 20260827052241-add-the-moderate-step-that-retires-a-proved-claim.md
+- 2026-08-27 — ticket archived — 20260827052241-drill-both-acts-with-no-network.md
+- 2026-08-27 — ticket archived — 20260827052241-pin-the-proof-judgement-split-with-a-hermetic-test.md
+- 2026-08-27 — ticket archived — 20260827052241-render-the-retirement-as-a-moderation-event.md
+- 2026-08-27 — mission achieved — mission.md
+- 2026-08-27 — story reported — work-20260827-054123.md

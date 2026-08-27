@@ -160,6 +160,49 @@ not write a second story generator.
      successful connector merge would name a failure that did not happen; reporting only the REST
      one after a failed retry hides that the retry was made.
 
+  **A LATER run re-attempts a unit an earlier one could not deliver** (2026-08-27, mission
+  `deliver-and-retire-what-the-loop-already-proved-finished`). Everything above covers the run
+  that made the attempt. Nothing covered the hour after: `plan-units.sh` excluded the unit
+  `claimed_undelivered` at every later survey and `claim.sh resume` refused it by its own name,
+  so the unit was delivered by nobody until a human opened the pull request. Naming the state
+  (2026-08-27) made it visible and left it unreachable — measured 2026-08-26, four green pull
+  requests still open a day later.
+
+  For each entry the survey put in **`undelivered[]`**, once per run:
+
+  ```bash
+  bash ../drive/scripts/retry-undelivered.sh <unit-id>
+  ```
+
+  It **drives nothing**: the unit's queue is drained and every ticket is archived and pushed, so
+  there is no work to do and no ticket to re-claim, and a takeover would push an empty `Resume`
+  commit onto a branch whose pull request is open (the 2026-08-01 gate). No branch, no worktree,
+  no claim; one `PUT .../merge` on a pull request the loop itself opened, through the same REST
+  seam that refused it.
+
+  **Two gates, and both refuse by name.** The verdict must be `report_undelivered` — one of the
+  two the claim protocol classifies as a **proof** ([claims.md](claims.md), *Proofs and
+  judgements*), where the refusal is recorded on the branch rather than inferred — so every other
+  verdict returns `not_undelivered:<verdict>` and `queue_drained` is never widened into it. And
+  the recorded outcome must be a refusal: `merge_not_attempted: <tier>` returns
+  `scan_held:<tier>` and is never attempted. The second gate is redundant by construction (a
+  scan-held unit's recorded outcome routes the chain to `queue_drained`, so it never reaches the
+  verdict) and is kept anyway — the cost of the check is a string compare, the cost of its
+  absence is an unattended merge past a secret finding.
+
+  **The new outcome replaces the old one on the branch.** A still-refused unit keeps a *current*
+  answer to "why is this pull request still open", because that word feeds the next survey's
+  report and `/moderate`'s question and a stale one sends a reader after the wrong transport.
+  There is no worktree to commit from, so the story blob is fetched, handed to
+  `record-merge-outcome.sh` (still the one writer of that section's format) and committed back
+  with plumbing against a scratch index — nothing is checked out and the caller's index and
+  working tree are untouched. An unchanged outcome writes nothing; a **merged** unit records
+  nothing, because the merge releases the claim. Recording is never load-bearing: a failed record
+  is reported and never turns a landed merge into a failure.
+
+  **A `session_type_cannot_merge` from the retry takes the same numbered connector step**, on the
+  same bounds — the script reports the word and stops, because no script may call an MCP tool.
+
   **A run that reports `session_type_cannot_merge` and no retry outcome is non-conformant on its
   face.** That is the whole enforcement, and it is deliberate: the rule that a script cannot call
   an MCP tool is what created this step, so a wrapper shelling out to one would be the same gap
@@ -290,6 +333,20 @@ moments.
   alone made those two identical at the only surface that records the run. An `auto` unit reports
   `shipped` or its demotion exactly as before; this row is the `review` route's equivalent and
   adds nothing to that one.
+- **Retry outcome per `undelivered[]` entry** (2026-08-27, mission
+  `deliver-and-retire-what-the-loop-already-proved-finished`): the unit, the **recorded refusal it
+  was retrying**, and the **new outcome** in §6's existing three words — `merged` when the retry
+  delivered it, `merge_refused: <word>` when it did not. Both words are named on a still-refused
+  unit, because *the same refusal again* means the transport has not changed and a person must
+  look at the pull request, while *a different refusal now* means the new word is where to look.
+  **No second vocabulary**: the outcome of a first attempt and of a second are the same kind of
+  fact. The script's own refusals are reported by name too (`not_undelivered:<verdict>`,
+  `scan_held:<tier>`, `no_open_pull_request`, `gh_unavailable`, `no_such_claim`, …), and a
+  `recorded: false` is named beside the outcome — it never turns a landed merge into a failure,
+  but it does mean the branch's answer is now stale. **A run that names an entry and reports no
+  outcome for it is non-conformant on its face**, the same enforcement the connector retry
+  carries and for the same reason. **No artifact gains a `retried` field**: this report is the
+  surface, and the branch story already holds the durable answer.
 - **Notification outcome per unit** (`/implement` only — an attended `/drive` posts nothing, so it
   reports nothing): for the one thread the unit posted into, the surface used and the result —
   `posted` with the thread it landed in, or the failure named (`no_surface` when the session has

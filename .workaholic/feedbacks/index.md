@@ -564,4 +564,5 @@
 * [Drive the work the loop wrote: one resolution of who a person is](20260826152017-drive-the-work-the-loop-wrote-one-resolution-of-who-a-person-is.md)
 * [The moderation check-in can no longer ask, and its morning root cannot open](20260827005850-the-moderation-check-in-can-no-longer-ask-and-its-morning-root-cannot-open.md)
 * [Close the units the loop already finished](20260827011638-close-the-units-the-loop-already-finished.md)
+* [Deliver and retire what the loop already proved finished](20260827052027-deliver-and-retire-what-the-loop-already-proved-finished.md)
 <!-- okf:generated:end -->

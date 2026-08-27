@@ -3,7 +3,6 @@
 ## active
 
 * [deploy-the-docs-site-on-merge-to-main](active/deploy-the-docs-site-on-merge-to-main/mission.md) - Deploy the docs site on merge to main
-* [let-the-operator-revise-a-live-direction-through-the-loop](active/let-the-operator-revise-a-live-direction-through-the-loop/mission.md) - Let the operator revise a live direction through the loop
 * [make-the-routine-create-body-documented-and-buildable](active/make-the-routine-create-body-documented-and-buildable/mission.md) - Make the routine create body documented and buildable
 * [make-workaholify-converge-the-account-s-routines](active/make-workaholify-converge-the-account-s-routines/mission.md) - Make /workaholify converge the account's routines
 * [refuse-ok-under-a-placeholder-identity](active/refuse-ok-under-a-placeholder-identity/mission.md) - Refuse ok under a placeholder identity
@@ -31,6 +30,7 @@
 * [give-propose-a-strategy-artifact-form](archive/give-propose-a-strategy-artifact-form/mission.md) - Give /propose a Strategy artifact form
 * [give-propose-and-ticket-a-diagnosis-first-discovery-pass](archive/give-propose-and-ticket-a-diagnosis-first-discovery-pass/mission.md) - Give /propose and /ticket a diagnosis-first discovery pass
 * [give-the-tick-a-route-for-the-records-it-writes](archive/give-the-tick-a-route-for-the-records-it-writes/mission.md) - Give the tick a route for the records it writes
+* [let-the-operator-revise-a-live-direction-through-the-loop](archive/let-the-operator-revise-a-live-direction-through-the-loop/mission.md) - Let the operator revise a live direction through the loop
 * [loop-engineering-foundation](archive/loop-engineering-foundation/mission.md) - Loop engineering foundation
 * [loop-engineering-proposal-loop](archive/loop-engineering-proposal-loop/mission.md) - Loop engineering proposal loop
 * [loop-engineering-unified-drive](archive/loop-engineering-unified-drive/mission.md) - Loop engineering unified drive

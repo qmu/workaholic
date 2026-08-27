@@ -2,7 +2,7 @@
 type: Mission
 title: Let the operator revise a live direction through the loop
 slug: let-the-operator-revise-a-live-direction-through-the-loop
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-27T11:23:01+00:00
 author: a@qmu.jp
@@ -56,3 +56,5 @@ with nothing written, and the ask still lands as a record.
 - 2026-08-27 — ticket archived — 20260827112528-route-the-changed-announcement-to-amend-sh.md
 - 2026-08-27 — ticket archived — 20260827112528-name-the-revision-act-in-the-direction-health-questions.md
 - 2026-08-27 — ticket archived — 20260827112528-write-the-third-writer-reversal-into-the-documents.md
+- 2026-08-27 — ticket archived — 20260827112528-drill-the-strategy-revision-end-to-end-with-no-network.md
+- 2026-08-27 — mission achieved — mission.md

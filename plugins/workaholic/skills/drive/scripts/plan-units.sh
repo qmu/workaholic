@@ -16,7 +16,9 @@
 #                   "resume_reason", "artifacts"}],
 #    "missions": [{"slug", "title", "merge_policy", "checked", "total", "next", "path"}],
 #    "backlog":  [{"path", "title", "merge_policy", "depends_on", "mission_closed"}],
-#    "excluded": [{"kind": "mission"|"ticket", "id": "...", "reason": "..."}]}
+#    "excluded": [{"kind": "mission"|"ticket", "id": "...", "reason": "..."}],
+#    "backlog_all_excluded": {"excluded": true|false, "backlog_size": N,
+#                             "reasons": [{"reason": "...", "count": N}, ...]}}
 #
 # IT STATES ITS OWN FRESHNESS, AND STILL DOES NOT FIX IT (decision J3). Claims come
 # from git refs, but the ARTIFACTS come from the working tree this runs in -- so a
@@ -129,6 +131,32 @@
 #   `backlog_size`      how many tickets the queue holds, before any filtering. This
 #                       is what makes "nothing for me" and "nothing at all"
 #                       distinguishable from outside.
+#   `backlog_all_excluded`
+#                       a DERIVED reading over the two above and `excluded[]`: the queue
+#                       holds tickets (`backlog_size > 0`), the survey offers NONE of
+#                       them (`backlog[]` empty), and something was excluded. It carries
+#                       a count PER EXCLUSION REASON, because `owned_by_other` is one
+#                       reason among several (`claimed_active`, `claimed_reported`,
+#                       `claimed_superseded`, `mission_member`, `owner_unresolved`, ...)
+#                       and the answers differ: a queue emptied by claims is the protocol
+#                       working, a queue emptied by ownership is work nothing can drive.
+#                       Measured 2026-08-26 on this repository, `backlog_size: 10` with
+#                       `backlog: []` and `owned_by_other` x7 — a shape that rendered in
+#                       the run report exactly like a repository with an empty queue, and
+#                       reported `ok` every hour for five days while ten units sat
+#                       undrivable.
+#
+#                       It is a TOP-LEVEL key, not an `excluded[]` entry, for the reason
+#                       `resurveyed[]` is: `excluded[]` names what the survey saw and
+#                       DROPPED, and this reading drops nothing of its own — it reads
+#                       what the other fields already say. It costs no new scan, no
+#                       stored state and no field on any artifact.
+#
+#                       IT MOVES NO TOKEN. Whether this reading forbids `ok` belongs to
+#                       the mission that owns §7's token table
+#                       (`refuse-ok-under-a-placeholder-identity`); two missions editing
+#                       one table is how a table stops meaning one thing. Reporting the
+#                       fact is useful on its own and is what lands here.
 #   `owner_unresolved`  the queue WAS read, and this runner has no identity to judge
 #                       ownership against. Unowned tickets are still offered (they
 #                       are claimable by anyone); every owned one is excluded as
@@ -560,7 +588,31 @@ for t in $TODO_LIST; do
     b_sep=", "
 done
 
-printf '{"fetched": %s, "shallow": %s, "base": "%s", "surveyed_sha": "%s", "base_sha": "%s", "current": %s, "user_slug": "%s", "backlog_error": "%s", "backlog_size": %d, "owner_unresolved": %s, "claimed": [%s], "resumable": [%s], "resurveyed": [%s], "missions": [%s], "backlog": [%s], "excluded": [%s]}\n' \
+# --- the derived reading: a queue that holds work and offers none of it ----------
+# Derived from what the survey already computed -- no new scan, no stored state, no field
+# on any artifact -- and reported so "the queue is empty" and "the queue is full and I can
+# offer none of it" never render alike again. The per-reason counts are what make the
+# reading actionable: a queue emptied by claims is the protocol working; one emptied by
+# ownership is work nothing can drive. It moves no token (see the header).
+ALL_EXCLUDED=false
+EXCLUDED_REASONS=""
+if [ "$BACKLOG_SIZE" -gt 0 ] && [ -z "$BACKLOG" ] && [ -n "$EXCLUDED" ]; then
+    ALL_EXCLUDED=true
+    er_sep=""
+    # `printf '%s\n'` matters: the last comma-split fragment carries no trailing newline,
+    # and `wc -l` counts newlines rather than lines — which undercounted every reason by
+    # one. `grep -c` counts matching lines either way.
+    reason_lines=$(printf '%s\n' "$EXCLUDED" | tr ',' '\n' | sed -n 's/.*"reason": "\([^"]*\)".*/\1/p')
+    for reason in $(printf '%s\n' "$reason_lines" | sort -u); do
+        n=$(printf '%s\n' "$reason_lines" | grep -c "^${reason}\$" || true)
+        [ -n "$n" ] || n=0
+        EXCLUDED_REASONS="${EXCLUDED_REASONS}${er_sep}{\"reason\": \"${reason}\", \"count\": ${n}}"
+        er_sep=", "
+    done
+fi
+ALL_EXCLUDED_JSON="{\"excluded\": ${ALL_EXCLUDED}, \"backlog_size\": ${BACKLOG_SIZE}, \"reasons\": [${EXCLUDED_REASONS}]}"
+
+printf '{"fetched": %s, "shallow": %s, "base": "%s", "surveyed_sha": "%s", "base_sha": "%s", "current": %s, "user_slug": "%s", "backlog_error": "%s", "backlog_size": %d, "owner_unresolved": %s, "claimed": [%s], "resumable": [%s], "resurveyed": [%s], "missions": [%s], "backlog": [%s], "excluded": [%s], "backlog_all_excluded": %s}\n' \
     "$FETCHED" "$SHALLOW" "$BASE" "$SURVEYED_SHA" "$BASE_SHA" "$CURRENT" "$(json_escape "$USER_SLUG")" "$BACKLOG_ERROR" \
     "$BACKLOG_SIZE" "$OWNER_UNRESOLVED" \
-    "$CLAIMED_JSON" "$RESUMABLE" "$RESURVEYED" "$MISSIONS" "$BACKLOG" "$EXCLUDED"
+    "$CLAIMED_JSON" "$RESUMABLE" "$RESURVEYED" "$MISSIONS" "$BACKLOG" "$EXCLUDED" "$ALL_EXCLUDED_JSON"

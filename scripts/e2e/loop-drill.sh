@@ -13,6 +13,7 @@
 #   loop-drill.sh verify-status [--json]      # is the [Prepare Release] read sound and silent?
 #   loop-drill.sh verify-cadence [--json]     # is the daily note generation idempotent and clock-free?
 #   loop-drill.sh verify-planner [--json]     # is the release-plan chain gated, honest and write-free?
+#   loop-drill.sh verify-identity-handoff [--json]  # does the loop stamp an address it can drive?
 #   loop-drill.sh verify-moderate [--json]  # is the /moderate tick (the [Moderate]
 #                                             routine since 2026-08-19) sound and
 #                                             write-free? The stage names the COMMAND,
@@ -1820,7 +1821,136 @@ cmd_verify_merged_claim() {
     emit_verdict "merged-claim" 0 "pass" 0
 }
 
-USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-specificate <issue>|verify-implement <issue>|verify-plan [--json]|verify-status [--json]|verify-cadence [--json]|verify-planner [--json]|verify-standup [--json]|verify-moderate [--json]|verify-propose [--json]|verify-direction-health [--json]|verify-merged-claim [--json]"}'
+# ------------------------------------------------------ verify-identity-handoff
+# Does the loop still stamp an address it can drive? The link this drills runs across three
+# components — the issue's assignee, the address `/specificate` stamps, and the survey that
+# offers the unit — and it broke IN THE SEAM, not inside any one of them. Each component was
+# internally consistent, nothing tested the walk, and the break was invisible for five days
+# while every hourly tick reported a clean survey.
+#
+# THREE INPUTS, NO NETWORK AND NO CREDENTIAL. A canonical address, a mapped alias, and a
+# login no entry names. The first two must reach the survey as the same person's work; the
+# third must be team-owned, claimable by anyone, and stamped with no invented address.
+#
+# THE FAILURE DIRECTION IS DRILLED TOO. A test that only proves the happy path would have
+# passed throughout the five stranded days, so the last row deliberately stamps an unmapped
+# address and requires the survey to exclude it — proving the drill can fail.
+cmd_verify_identity_handoff() {
+    _identity="${REPO_ROOT}/plugins/workaholic/skills/gather/scripts/identity.sh"
+    _draft="${REPO_ROOT}/plugins/workaholic/skills/specificate/scripts/scaffold-draft.sh"
+    _ticket="${REPO_ROOT}/plugins/workaholic/skills/specificate/scripts/scaffold-proposed-ticket.sh"
+    _plan="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/plan-units.sh"
+    for _f in "$_identity" "$_draft" "$_ticket" "$_plan"; do
+        [ -f "$_f" ] || emit_err "identity_handoff_unreadable" 4 "$(basename "$_f") is not present in this checkout"
+    done
+
+    _before=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+
+    _tmp=$(mktemp -d)
+    _repo="${_tmp}/repo"
+    mkdir -p "${_repo}/.claude" "${_repo}/.workaholic/feedbacks"
+    _git() { git -c user.email=a@qmu.jp -c user.name=Drill -c commit.gpgsign=false "$@"; }
+    ( cd "$_repo" && git -c init.defaultBranch=main init -q && git config user.email a@qmu.jp \
+      && git config user.name Drill && git config commit.gpgsign false ) >/dev/null 2>&1 || true
+    printf 'tamurayoshiya=a@qmu.jp,tamura.yoshiya@gmail.com\n' > "${_repo}/.claude/git-identities"
+    printf -- '---\ntype: Feedback\nkind: instruction\nsource: slack\n---\n\n# Ask\n' \
+        > "${_repo}/.workaholic/feedbacks/20260826000000-ask.md"
+    ( cd "$_repo" && _git add -A && _git commit -qm seed ) >/dev/null 2>&1 || true
+
+    # The run's own step: resolve the assignee, then pass ONLY what resolved.
+    _stamp_for() {
+        _ans=$( ( cd "$_repo" && sh "$_identity" "$1" ) 2>/dev/null || true )
+        case "$_ans" in
+            *'"resolved": true'*)
+                printf -- '--assignee %s' "$(printf '%s' "$_ans" | sed -n 's/.*"canonical": "\([^"]*\)".*/\1/p')" ;;
+            *) printf '' ;;
+        esac
+    }
+    # A LOOSE ticket is what the survey offers as ordinary backlog. A mission needs an
+    # acceptance plan before it is drivable (`no_plan`), and the plan is a human's
+    # interrogation rather than anything this seam writes — so the mission half is drilled
+    # for the address it STAMPS and the loose half for the address the survey ACTS on.
+    _emit_mission() { # title, assignee-input -> mission.md path
+        _flag=$(_stamp_for "$2")
+        _m=$( ( cd "$_repo" && sh "$_draft" "$1" $_flag 20260826000000-ask.md ) 2>/dev/null || true )
+        printf '%s' "$_m" | sed -n 's/.*"path": "\([^"]*\)".*/\1/p'
+    }
+    _emit() { # title, assignee-input -> ticket path
+        _flag=$(_stamp_for "$2")
+        _t=$( ( cd "$_repo" && sh "$_ticket" "$1 step" --loose --feedback 20260826000000-ask.md $_flag ) 2>/dev/null || true )
+        printf '%s' "$_t" | sed -n 's/.*"path": "\([^"]*\)".*/\1/p'
+    }
+    _offered() { ( cd "$_repo" && sh "$_plan" ) 2>/dev/null | tr '{' '\n' | grep -c "\"path\": \"$1\"" || true; }
+    _assignees() { sed -n 's/^assignees:[[:space:]]*//p' "${_repo}/$1" | head -1; }
+
+    # 1. A CANONICAL address, and 2. A MAPPED ALIAS: both stamp the canonical address, and
+    # both reach the survey as work this identity can drive.
+    for _pair in 'canonical:a@qmu.jp' 'alias:tamura.yoshiya@gmail.com'; do
+        _label=${_pair%%:*}; _input=${_pair#*:}
+        _mpath=$(_emit_mission "Drill mission ${_label}" "$_input")
+        if [ -n "$_mpath" ] && [ "$(_assignees "$_mpath")" = "[a@qmu.jp]" ]; then
+            add_row "identity_handoff_${_label}_mission" true "the mission it emits carries the canonical address too" load
+        else
+            add_row "identity_handoff_${_label}_mission" false "the mission stamped '$(_assignees "$_mpath")'" load
+        fi
+        _path=$(_emit "Drill ${_label}" "$_input")
+        if [ -n "$_path" ] && [ "$(_assignees "$_path")" = "[a@qmu.jp]" ]; then
+            add_row "identity_handoff_${_label}_stamped" true "an issue assigned to the ${_label} stamps the canonical address" load
+        else
+            add_row "identity_handoff_${_label}_stamped" false "expected [a@qmu.jp], got '$(_assignees "$_path")'" load
+        fi
+        ( cd "$_repo" && _git add -A && _git commit -qm "emit ${_label}" ) >/dev/null 2>&1 || true
+        if [ "$(_offered "$_path")" -gt 0 ]; then
+            add_row "identity_handoff_${_label}_offered" true "and the survey offers it to that identity" load
+        else
+            add_row "identity_handoff_${_label}_offered" false "the survey did not offer the ${_label} unit; the link is broken in the seam" load
+        fi
+    done
+
+    # 3. AN UNMAPPED login: team-owned, no invented address, and offered as claimable rather
+    # than excluded — which is the whole reason the writer refuses to guess.
+    _path=$(_emit "Drill unmapped" "stranger")
+    ( cd "$_repo" && _git add -A && _git commit -qm "emit unmapped" ) >/dev/null 2>&1 || true
+    case "$(_assignees "$_path")" in
+        ''|'[]')
+            add_row "identity_handoff_unmapped_team_owned" true "an unmapped login produces team-owned work, never a guessed address" load ;;
+        *)
+            add_row "identity_handoff_unmapped_team_owned" false "an unmapped login stamped '$(_assignees "$_path")'" load ;;
+    esac
+    if [ "$(_offered "$_path")" -gt 0 ]; then
+        add_row "identity_handoff_unmapped_offered" true "and team-owned work is offered as claimable, not excluded" load
+    else
+        add_row "identity_handoff_unmapped_offered" false "team-owned work was not offered; it is stranded exactly as a wrong address would be" load
+    fi
+
+    # 4. THE FAILURE DIRECTION. Dropping the resolution — stamping the address straight off
+    # the issue — must make the walk fail, or this drill is documentation.
+    printf 'tamurayoshiya=a@qmu.jp\n' > "${_repo}/.claude/git-identities"
+    _bad=$( ( cd "$_repo" && sh "$_ticket" "Drill unresolved" --loose --feedback 20260826000000-ask.md \
+        --assignee tamura.yoshiya@gmail.com ) 2>/dev/null || true )
+    _badpath=$(printf '%s' "$_bad" | sed -n 's/.*"path": "\([^"]*\)".*/\1/p')
+    ( cd "$_repo" && _git add -A && _git commit -qm "emit unresolved" ) >/dev/null 2>&1 || true
+    if [ "$(_offered "$_badpath")" -eq 0 ]; then
+        add_row "identity_handoff_fails_when_dropped" true "an address the mapping does not name is excluded, so the drill can fail" load
+    else
+        add_row "identity_handoff_fails_when_dropped" false "an unmapped address was still offered; this drill cannot fail and proves nothing" load
+    fi
+
+    _after=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+    if [ "$_before" = "$_after" ]; then
+        add_row "identity_handoff_writes_nothing" true "the checkout is byte-identical after the drill" load
+    else
+        add_row "identity_handoff_writes_nothing" false "the drill changed the working tree" load
+    fi
+
+    rm -rf "$_tmp"
+    if [ "$LOAD_FAILED" -gt 0 ]; then
+        emit_verdict "identity-handoff" 0 "fail" 1
+    fi
+    emit_verdict "identity-handoff" 0 "pass" 0
+}
+
+USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-specificate <issue>|verify-implement <issue>|verify-plan [--json]|verify-status [--json]|verify-cadence [--json]|verify-planner [--json]|verify-standup [--json]|verify-moderate [--json]|verify-propose [--json]|verify-direction-health [--json]|verify-merged-claim [--json]|verify-identity-handoff [--json]"}'
 
 CMD="${1:-}"
 [ -n "$CMD" ] || {
@@ -1858,6 +1988,7 @@ case "$CMD" in
     verify-propose) cmd_verify_propose "$@" ;;
     verify-direction-health) cmd_verify_direction_health "$@" ;;
     verify-merged-claim) cmd_verify_merged_claim "$@" ;;
+    verify-identity-handoff) cmd_verify_identity_handoff "$@" ;;
     *)
         echo "$USAGE" >&2
         exit 2

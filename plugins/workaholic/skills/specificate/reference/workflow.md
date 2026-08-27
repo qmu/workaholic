@@ -174,10 +174,17 @@ and every abort reports a machine-readable reason.
    `## Experience` and acceptance sketch come from the ask rather than from a fresh reading
    of it — the run fills the scaffold with the plan it was handed, and reports
    `precedence:mission` naming the ask as its source:
-   - `bash ${CLAUDE_PLUGIN_ROOT}/skills/specificate/scripts/scaffold-draft.sh "<title>" --assignee <the triggering issue's assignee> <feedback-filename>...`
+   - **Resolve the assignee through the mapping first, and pass only what resolved**:
+     `bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/identity.sh <the triggering issue's assignee>`
+     — `resolved: true` means pass its `canonical` address to `--assignee`; `resolved: false`
+     means pass **no** `--assignee` at all and report `assignee_unmapped: <the login>`
+     (SKILL.md, *Act only on an ask that is yours*). Resolve once, here, and reuse the same
+     answer for every scaffold call in step 9.
+   - `bash ${CLAUDE_PLUGIN_ROOT}/skills/specificate/scripts/scaffold-draft.sh "<title>" --assignee <the resolved canonical address> <feedback-filename>...`
      — the filename from step 3, **followed by any refs step 3b carried forward**. Omit
-     `--assignee` when no person was assigned (the mission is then team-owned); never
-     substitute the running identity.
+     `--assignee` when no person was assigned (the mission is then team-owned) **and when
+     the assignee did not resolve**; never substitute the running identity and never stamp
+     an address the mapping does not name.
    - Fill `## Goal` / `## Scope` / `## Experience` and a **proposed** `## Acceptance`
      sketch from the ask (Edit on the scaffold; clearly provisional — the PR's reviewer
      interrogates it to drive-ready via `/mission <instruction>`). Never touch `status`
@@ -194,8 +201,9 @@ and every abort reports a machine-readable reason.
    the work. **Report which of the two you judged**, either way.
 
    For a **mission** proposal, emit its whole set — two or more, always:
-   - `bash ${CLAUDE_PLUGIN_ROOT}/skills/specificate/scripts/scaffold-proposed-ticket.sh "<title>" <mission-slug> [type] [layer] --assignee <the same assignee>`,
-     once per ticket, in the order they would be driven.
+   - `bash ${CLAUDE_PLUGIN_ROOT}/skills/specificate/scripts/scaffold-proposed-ticket.sh "<title>" <mission-slug> [type] [layer] --assignee <the same resolved address>`,
+     once per ticket, in the order they would be driven — the address step 8 resolved, or
+     no `--assignee` at all when it did not resolve.
    - Stamp the links: `bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/link-acceptance.sh <slug> <item-selector> <ticket-filename>`
      once per acceptance item the set satisfies — the pairing decided in step 7, never
      inferred.
@@ -204,7 +212,8 @@ and every abort reports a machine-readable reason.
      ticket or record-only, and report the script's `alternative`.
 
    For an **atomic** direction, emit exactly one loose ticket — no mission, no wrapper:
-   - `bash ${CLAUDE_PLUGIN_ROOT}/skills/specificate/scripts/scaffold-proposed-ticket.sh "<title>" --loose [type] [layer] --feedback <record>... --assignee <the same assignee>`
+   - `bash ${CLAUDE_PLUGIN_ROOT}/skills/specificate/scripts/scaffold-proposed-ticket.sh "<title>" --loose [type] [layer] --feedback <record>... --assignee <the same resolved address>`
+     — omitted entirely when the assignee did not resolve, exactly as in step 8.
    - The `--feedback` refs are **mandatory** here (`no_feedback` otherwise), and they are
      step 3's record **plus** anything step 3b carried forward.
 
@@ -265,9 +274,12 @@ and every abort reports a machine-readable reason.
 
    The three parts come from the **ask**, never from this session: the date is one the
    ask states (no date → record-only, `no_target_date`), and the assignee is the
-   triggering issue's, never the running identity (unassigned → record-only,
-   `no_assignee`) — `create.sh` refuses an empty assignee list outright, which is the
-   floor, not a thing to work around. Any refusal it emits (`bad_target_date`,
+   triggering issue's **resolved through `gather/scripts/identity.sh`**, never the running
+   identity (unassigned → record-only, `no_assignee`; **assigned to a login the mapping
+   does not name → record-only, `assignee_unmapped` with the login**) — `create.sh` refuses
+   an empty assignee list outright, which is the floor, not a thing to work around, and it
+   is why an unmapped assignee cannot produce a team-owned strategy the way it produces a
+   team-owned mission: this is the one artifact where empty is a refusal. Any refusal it emits (`bad_target_date`,
    `no_assignees`, `empty_schedule`, `empty_aim`, `exists`) **falls back to record-only
    naming that reason**; never retry with a substituted value. The `feedback:` ref is
    the record from step 3 — the citation runs strategy → feedback only, and nothing is
@@ -294,7 +306,11 @@ and every abort reports a machine-readable reason.
    **The body names step 3b's two sets**, in `<changes>`, per emitted artifact: the refs
    **carried** onto it, and every ref **dropped** with its reason. **And the direction** —
    `direction:<slug>` with how it was decided (`line`, `slug` or `aim`), or
-   `direction:unattributed`. Keep it to what is true —
+   `direction:unattributed`. **And, when the ask's assignee did not resolve through the
+   mapping, `assignee_unmapped: <the login>` with the artifacts left team-owned** — a
+   team-owned artifact is a real outcome, but one nobody was told about reads like a
+   decision somebody made, and the repair (a line in `.claude/git-identities`) is an
+   operator's act nobody can take without being told. Keep it to what is true —
    a proposal that carried nothing because the ask named nothing says so in one clause, not
    as a warning. **A record-only outcome names the refs it *would* have carried and that
    nothing was emitted**, so a dropped link and an unproposed ask do not look alike here
@@ -364,7 +380,8 @@ and every abort reports a machine-readable reason.
     **strategy `<slug>`, PR left open for the operator** / **strategy `<slug>` closed
     `achieved|abandoned`, PR left open for the operator** / record-only, and for
     record-only reached by a failed strategy bar or an unmatched announcement, the
-    part that was missing — `no_target_date` / `no_assignee` / `strategy_not_found`
+    part that was missing — `no_target_date` / `no_assignee` / `assignee_unmapped` with
+    the login / `strategy_not_found`
     with the slug / `no_end_state` / `strategy_exists_no_update_writer`) with its
     reason, the record's filename, **the carry** —
     `carried:<artifact>:<n>` per emitted artifact and `dropped:<ref>:<reason>` per drop,

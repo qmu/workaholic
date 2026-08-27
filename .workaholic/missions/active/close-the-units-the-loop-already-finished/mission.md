@@ -52,3 +52,4 @@ business from the loop's undelivered work, and `ok` stops covering the second.
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-27 — ticket archived — 20260827012031-read-whether-a-reported-unit-ever-landed.md
 - 2026-08-27 — ticket archived — 20260827012032-give-a-unit-s-close-its-own-reported-outcome.md
+- 2026-08-27 — ticket archived — 20260827012033-make-the-connector-retry-a-step-of-the-route.md

@@ -15030,29 +15030,25 @@ function setVerificationHandoff(worktree, rel, value) {
     : src.replace(/^---\n/, `---\n${line}\n`));
 }
 
-// ---------- drive claim protocol: a DECLARED handoff unit is offered every tick ----------
-// REPRODUCTION FIRST (2026-08-27, mission `stop-re-resuming-a-declared-handoff-unit`).
+// ---------- drive claim protocol: a DECLARED handoff unit gets its own verdict ----------
+// THE REPRODUCTION, INVERTED (2026-08-27, mission `stop-re-resuming-a-declared-handoff-unit`).
+// This case shipped one ticket earlier asserting the DEFECT — a unit whose remaining ticket
+// declares `verification_handoff:` reading `parked_with_pr`, `resumable: true`, and offered for
+// takeover on every survey (measured on PR #647: routed at 02:14 UTC, taken over again at 06:43
+// for nothing). The assertions below are the same fixture with the expectations turned over,
+// which is what makes the defect a fact this change LOST rather than a claim in prose.
 //
-// `verification_handoff:` exists so a unit nothing unattended can finish costs no tick: §6 reads
-// it before merge policy, routes the unit to the HANDOFF route, opens the pull request, leaves it
-// open and leaves the claim standing. The route honours the declaration — and the claim oracle
-// never consults it again. So the moment `/story` commits the branch story the claim reads
-// `parked_with_pr`, `resumable: true`, and `plan-units.sh` offers the takeover on every survey.
-// Measured on PR #647: routed at 02:14 UTC, taken over again at 06:43 for nothing.
+// WHAT PRODUCED THE OLD VERDICT, recorded by the reproduction and unchanged by the fix:
+// `claims_has_story` answers true (the row's `reported` field is that same reading) and
+// `claims_has_work` answers true because a queued ticket still names the unit. Both are still
+// true here. What changed is that the chain now also reads the declaration, and `parked_with_pr`
+// — whose own contract says *taking it over is legitimate* — is false by declaration for it.
 //
-// THE REPORTER'S MECHANISM IS A HYPOTHESIS HERE, NOT THIS FIXTURE'S DESIGN. What the fixture
-// settles is WHICH readers produce the verdict, so the later tickets change one of them rather
-// than guessing: `claims_has_work` answers true because a queued ticket still names the unit,
-// `claims_has_story` answers true because the story is committed at the tip (the row's `reported`
-// field is that same reading), and nothing anywhere in the chain reads the declaration.
-//
-// BOTH ARMS ARE BUILT FROM THE START, which is what makes this case INVERTIBLE rather than
-// deletable. Today a unit whose remaining ticket DECLARES a handoff and one whose field is EMPTY
-// read the same word — that identity IS the defect — and the mission's fix separates them while
-// leaving the empty arm byte-identical.
+// BOTH ARMS, so the word is keyed on the DECLARATION and not on the fixture's shape: an
+// otherwise byte-identical branch with the field emptied still reads `parked_with_pr`.
 //
 // Hermetic: a bare origin and two clones, no `gh`, no network (`makeClaimFixture`).
-function testDeclaredHandoffIsOfferedEveryTick() {
+function testDeclaredHandoffGetsItsOwnVerdict() {
   const { origin, A, B } = makeClaimFixture();
   const CLAIM = `${POSIX_SH} ${SCRIPTS.claim}`;
   const LIST = `${POSIX_SH} ${SCRIPTS.listClaims}`;
@@ -15080,11 +15076,13 @@ function testDeclaredHandoffIsOfferedEveryTick() {
 
     let r = JSON.parse(run(B, LIST, { env: lapsed }).stdout);
     const row = r.claims.find((c) => c.unit === batch.unit);
-    assertEq("TODAY: a unit whose remaining ticket declares a handoff reads as merely parked",
-      { res: row.resumable, why: row.resume_reason }, { res: true, why: "parked_with_pr" });
+    assertEq("a unit whose remaining ticket declares a handoff gets its own verdict",
+      { res: row.resumable, why: row.resume_reason },
+      { res: false, why: "awaiting_verification" });
 
-    // LOCALIZE — which reader produced each half of that verdict.
-    assertEq("the story at the tip is what put it on the reported side of the fork",
+    // The two readings that produced the OLD verdict are both still true — the fix added a
+    // third input rather than changing either of them.
+    assertEq("the story at the tip still puts it on the reported side of the fork",
       row.reported, true);
     assertTrue("and a queued ticket still names the unit, which is what claims_has_work reads",
       execSync(`git ls-tree -r --name-only origin/${batch.branch} -- .workaholic/tickets/todo`,
@@ -15092,20 +15090,61 @@ function testDeclaredHandoffIsOfferedEveryTick() {
     assertTrue("while the declaration itself is on that queued ticket at the tip",
       execSync(`git show origin/${batch.branch}:${t2AtTip}`, { cwd: B, encoding: "utf8" })
         .includes("verification_handoff: the staging device"));
+    assertEq("and the row still reports the declaration it keyed on",
+      row.declared_handoff, true);
 
     let plan = JSON.parse(run(B, PLAN, { env: lapsed }).stdout);
-    assertEq("TODAY: and the survey offers the takeover, on this tick and on every later one",
-      plan.resumable.map((x) => [x.unit, x.resume_reason]), [[batch.unit, "parked_with_pr"]]);
+    assertEq("the survey offers the takeover on this tick and on no later one either",
+      plan.resumable.map((x) => [x.unit, x.resume_reason]), []);
 
-    // THE SECOND ARM. Clearing the field changes nothing today — the two states are
-    // indistinguishable to the oracle, which is exactly what the mission has to separate.
+    // THE REFUSAL IS BY ITS OWN NAME. Refusing under `parked_with_pr` would say a takeover is
+    // legitimate; refusing under `queue_drained` would send the reader to wait for a merge.
+    // Both send a person to the wrong next action, which is what the sibling word exists for.
+    const before = execSync(`git log --format=%s ${batch.branch}`, { cwd: origin, encoding: "utf8" });
+    const refused = run(A, `${CLAIM} resume ${batch.unit}`, { env: lapsed });
+    assertTrue("resuming a declared-handoff unit exits non-zero", refused.status !== 0, `status ${refused.status}`);
+    assertEq("and is refused under the new word, not another verdict's wording",
+      JSON.parse(refused.stderr.trim().split("\n").pop()).reason, "awaiting_verification");
+    assertEq("the refused resume added no commit to the open pull request's branch",
+      execSync(`git log --format=%s ${batch.branch}`, { cwd: origin, encoding: "utf8" }), before);
+
+    // THE SECOND ARM. An otherwise byte-identical branch with the field emptied is untouched:
+    // the word is keyed on the declaration, not on this fixture's shape.
     setVerificationHandoff(wt, t2AtTip, "");
     execSync(`git add -A && git commit -q -m "Clear the declaration" && git push -q origin ${batch.branch}`, { cwd: wt });
     r = JSON.parse(run(B, LIST, { env: lapsed }).stdout);
     const bare = r.claims.find((c) => c.unit === batch.unit);
-    assertEq("TODAY: an otherwise identical unit with the field EMPTY reads the same word",
+    assertEq("with the field EMPTY the same unit reads parked_with_pr, exactly as before",
       { res: bare.resumable, why: bare.resume_reason }, { res: true, why: "parked_with_pr" });
+    plan = JSON.parse(run(B, PLAN, { env: lapsed }).stdout);
+    assertEq("and is offered for takeover again",
+      plan.resumable.map((x) => [x.unit, x.resume_reason]), [[batch.unit, "parked_with_pr"]]);
+
+    // AND `superseded` KEEPS ITS PRECEDENCE: a claim proved empty is still superseded, whatever
+    // it declares. Redeclare, then put every one of the unit's tickets on the base.
+    setVerificationHandoff(wt, t2AtTip, "the staging device is not attached to a routine container");
+    execSync(`git add -A && git commit -q -m "Redeclare the handoff" && git push -q origin ${batch.branch}`, { cwd: wt });
+    assertEq("the declared unit reads its own word again",
+      rowOf(run(B, LIST, { env: lapsed }), batch.unit).resume_reason, "awaiting_verification");
+    archiveOnBase(B, [basename(t1), basename(t2)], batch.branch);
+    assertEq("but once its content is on the base, superseded wins",
+      rowOf(run(B, LIST, { env: lapsed }), batch.unit).resume_reason, "superseded");
   } finally { cleanup(origin); cleanup(A); cleanup(B); }
+}
+
+// One claim row out of a list-claims.sh run.
+function rowOf(result, unit) {
+  return JSON.parse(result.stdout).claims.find((c) => c.unit === unit);
+}
+
+// Put a unit's tickets on the BASE under some other branch's archive directory — the signal
+// `claims_superseded` reads: delivered by another route, whichever branch delivered them.
+function archiveOnBase(clone, basenames, underBranch) {
+  const dir = `.workaholic/tickets/archive/${underBranch}`;
+  execSync(`git checkout -q main && git pull -q origin main`, { cwd: clone });
+  mkdirSync(join(clone, dir), { recursive: true });
+  for (const b of basenames) writeFileSync(join(clone, dir, b), `---\nstatus: done\n---\n\n# archived elsewhere\n`);
+  execSync(`git add -A && git commit -q -m "Recover the unit by hand" && git push -q origin main`, { cwd: clone });
 }
 
 // ---------- the declaration, carried into the claim scan ----------
@@ -16115,7 +16154,7 @@ const tests = [
   ["drive claim protocol: a claim whose content reached the base is superseded", testSupersededClaimIsNotOffered],
   ["drive claim protocol: superseded leaves every other verdict alone", testSupersededLeavesEveryOtherVerdictAlone],
   ["drive claim protocol: parked-at-PR is not died-mid-drive, and same-machine resume adopts", testResumeParkedAndAdoption],
-  ["drive claim protocol: a declared handoff unit is offered every tick", testDeclaredHandoffIsOfferedEveryTick],
+  ["drive claim protocol: a declared handoff unit gets its own verdict", testDeclaredHandoffGetsItsOwnVerdict],
   ["drive claim protocol: the claim scan reads the declared handoff", testClaimScanReadsTheDeclaredHandoff],
   ["drive claim protocol: an archive git cannot prove is a rename keeps its artifact", testClaimSurvivesUndetectedRename],
   ["drive claim protocol: a mission artifact never resolves by basename", testMissionArtifactNeverResolvesByBasename],

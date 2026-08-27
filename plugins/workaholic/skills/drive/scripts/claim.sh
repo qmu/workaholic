@@ -122,7 +122,18 @@ base=$(claims_base)
 # skew between a local runner and a cloud one.
 if [ "$kind" = "resume" ]; then
     unit="$1"
-    resume_row=$(claims_scan "$base" | awk -F'\t' -v u="$unit" '$1 == u { print; exit }')
+    # THE UNIT IS RESOLVED TO ITS LIVE BRANCH, NOT TO THE FIRST ONE THE SCAN EMITS
+    # (2026-08-27). A unit held by a superseded claim AND a live one gave first-match the
+    # older, dead branch, so `resume` refused on that branch's `superseded` verdict and the
+    # live claim was resumable by nothing. The resolution is the shared one in
+    # lib/claims.sh, so this refusal and the survey's offer cannot disagree about which
+    # branch a unit is.
+    resume_rows=$(claims_scan "$base")
+    resume_resolution=$(claims_unit_resolution "$resume_rows" "$unit")
+    if [ "$resume_resolution" = "ambiguous" ]; then
+        fail "ambiguous_claim" ', "unit": "'"${unit}"'", "branches": "'"$(claims_unit_live_branches "$resume_rows" "$unit")"'", "detail": "two or more LIVE claims hold this unit; the protocol settles a race by the push, so this cannot arise from the sanctioned path. Nothing is resumed rather than one branch being picked silently -- a human decides which branch is the unit"'
+    fi
+    resume_row=$(claims_unit_row "$resume_rows" "$unit")
     [ -n "$resume_row" ] \
         || fail "not_claimed" ', "unit": "'"${unit}"'", "detail": "no claim in flight for that unit -- claim it fresh instead"'
 

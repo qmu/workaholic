@@ -100,6 +100,38 @@ on another machine coordinates through exactly the same artifact.
     `modify/delete` against a directory the base had deleted in a rename, and a full
     story-and-pull-request cycle spent on a pull request whose only correct outcome was to
     be closed.
+  - **Which branch *is* the unit, once two of them hold it** (2026-08-27). The verdict above
+    is what made a unit legitimately reachable by **two** claim branches — a `superseded`
+    one the survey ignores, and the live one a later run took its work on — and every
+    writer resolved a unit to *a* branch by taking the **first** row out of `claims_scan`.
+    That scan walks refs in name order, so first-match is the **oldest** branch, which for
+    this shape is precisely the dead one. Measured 2026-08-27 on
+    `make-workaholify-converge-the-account-s-routines`, held by `work-20260819-113836`
+    (`superseded`) and `work-20260827-003544` (`claim_active`): `claim.sh resume` refused on
+    the dead branch's own verdict, so the **live** claim was resumable by nothing, and
+    `release-claim.sh` tore the dead branch's worktree down and reported `half_released`
+    while the live claim stood. The rule is **the live row wins**, derived once in
+    `lib/claims.sh` (`claims_unit_resolution` / `claims_unit_row` / `claims_unit_live_branches`)
+    and read by both writers — three copies of a lookup is exactly how these disagreed. Its
+    answers are `none` / `single` / `live` / `superseded_only` / `ambiguous`; a unit with
+    **one** claim resolves byte-identically to first-match, and `superseded_only` returns
+    that superseded row, so a caller keeps refusing under `superseded` exactly as before.
+    **Two live claims are reported, never picked between** (`ambiguous_claim`, naming both
+    branches): the protocol settles a race by the push, so the state cannot arise from the
+    sanctioned path at all, and choosing silently is how a runner would resume — or discard —
+    work another run is still driving. `plan-units.sh` reads the same resolution: its
+    `claimed_superseded` **resurvey** was keyed on the first row too, so the dead branch
+    governed and the survey offered as fresh backlog a mission another run held — observed
+    live, the same mission in `missions[]`, `resumable[]` and `resurveyed[]` at once. A
+    superseded row beside a live one now governs nothing while staying reported in
+    `claimed[]`. `release-claim.sh` also sets `CLAIMS_FETCH_OK` after its own fetch, as
+    `claim.sh` does: without it the merged-pull-request lookup is skipped `offline`, so a
+    mission-grain `superseded` claim read as live there and the release refused
+    `ambiguous_claim` over a unit with exactly one live branch. Separately, `ensure-worktree.sh` **refuses** a branch
+    name that already exists on origin rather than minting a local branch at `HEAD` that
+    shadows it: its contract is to create a worktree on a *new* branch, attaching to a
+    published one is `create-mission-worktree.sh --branch`'s job, and the silent third
+    option turned the next push into a claim-clobbering force-of-fact.
   - **A drained queue is two states, split on the same story signal.** "Finished" covers a unit
     that **reported** — story committed at the tip, pull request open, waiting on a human — and a
     run that died **after** archiving its last ticket and **before** opening anything, whose work

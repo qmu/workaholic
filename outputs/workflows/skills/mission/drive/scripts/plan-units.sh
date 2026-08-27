@@ -259,6 +259,27 @@ if [ -n "$ROWS" ]; then
     r_sep=""
     while IFS='	' read -r c_unit c_branch c_at c_stale c_author c_resumable c_reason c_reported c_arts; do
         [ -n "$c_unit" ] || continue
+
+        # A DEAD BRANCH BESIDE A LIVE ONE GOVERNS NOTHING (2026-08-27). Since a fresh claim
+        # may be taken over a `superseded` one, a unit can be held by TWO branches -- and
+        # every lookup below (`claim_reason_for`, `superseded_branch_for`) takes the FIRST
+        # row it finds, which for this shape is the older, dead one. The survey then read the
+        # unit as `claimed_superseded` and RESURVEYED it, offering as fresh backlog a mission
+        # another run was driving at that moment: observed live on this repository, with the
+        # same mission in `missions[]`, in `resumable[]` and in `resurveyed[]` at once.
+        # The resolution is the shared one in lib/claims.sh, so the survey's offer and
+        # `claim.sh`'s refusal cannot disagree about which branch a unit is.
+        #
+        # THE ROW IS STILL REPORTED. `superseded` has been reported-never-acted-on since it
+        # shipped, so the claim stays visible in `claimed[]`; what it loses is its say over
+        # the exclusion and the resurvey, which belong to the live branch.
+        if [ "$c_reason" = "superseded" ] \
+            && [ "$(claims_unit_resolution "$ROWS" "$c_unit")" != "superseded_only" ]; then
+            CLAIMED_JSON="${CLAIMED_JSON}${sep}{\"unit\": \"${c_unit}\", \"branch\": \"${c_branch}\", \"stale\": ${c_stale}, \"resumable\": ${c_resumable}, \"resume_reason\": \"${c_reason}\", \"reported\": ${c_reported}}"
+            sep=", "
+            continue
+        fi
+
         CLAIMED_UNITS="${CLAIMED_UNITS}${c_unit}
 "
         # A bare `claimed` told a cron log nothing actionable. "Being driven right

@@ -4327,7 +4327,253 @@ cmd_verify_return_path() {
     emit_verdict "return-path" 0 "pass" 0
 }
 
-USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-specificate <issue>|verify-implement <issue>|verify-plan [--json]|verify-status [--json]|verify-cadence [--json]|verify-planner [--json]|verify-standup [--json]|verify-moderate [--json]|verify-propose [--json]|verify-direction-health [--json]|verify-arrival [--json]|verify-residue [--json]|verify-succession [--json]|verify-revision [--json]|verify-merged-claim [--json]|verify-identity-handoff [--json]|verify-close [--json]|verify-retire [--json]|verify-delivery-retry [--json]|verify-handoff-question [--json]|verify-base-health [--json]|verify-return-path [--json]"}'
+cmd_verify_reconcile() {
+    _reader="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/reconcile-candidates.sh"
+    _step="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/step-thread-reconcile.sh"
+    _append="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/log-append.sh"
+    _catalog="${REPO_ROOT}/plugins/workaholic/skills/notify/reference/notifications.md"
+    _template="${REPO_ROOT}/plugins/workaholic/skills/workaholify/routines/moderate.md"
+    for _f in "$_reader" "$_step" "$_append" "$_catalog" "$_template"; do
+        [ -f "$_f" ] || emit_err "reconcile_seam_unreadable" 4 "${_f} is not present in this checkout"
+    done
+
+    _before=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+
+    _tmp=$(mktemp -d)
+    _fx="${_tmp}/repo"; _bin="${_tmp}/bin"
+    mkdir -p "$_bin"
+
+    # --- The fixture: a repository whose merge commits published the units ---------------
+    mkdir -p "${_fx}/.workaholic/feedbacks" "${_fx}/.workaholic/missions/active/alpha" \
+             "${_fx}/.workaholic/missions/active/beta" "${_fx}/.workaholic/moderations"
+    ( cd "$_fx" && git init -q . \
+      && git config user.email drill@example.com && git config user.name Drill \
+      && git remote add origin git@github.com:acme-org/drill-repo.git ) >/dev/null 2>&1
+    printf -- '---\ntype: Feedback\n---\n\nan ask\n' \
+        > "${_fx}/.workaholic/feedbacks/20260828010101-an-ask.md"
+    printf -- '---\ntype: Feedback\n---\n\nanother ask\n' \
+        > "${_fx}/.workaholic/feedbacks/20260828010202-another-ask.md"
+    printf -- '---\ntype: Mission\nslug: alpha\nfeedback: [20260828010101-an-ask.md]\n---\n\n# Alpha\n' \
+        > "${_fx}/.workaholic/missions/active/alpha/mission.md"
+    printf -- '---\ntype: Mission\nslug: beta\nfeedback: [20260828010202-another-ask.md]\n---\n\n# Beta\n' \
+        > "${_fx}/.workaholic/missions/active/beta/mission.md"
+    ( cd "$_fx" && git add -A && git commit -q -m "Seed the drill tree" ) >/dev/null 2>&1
+    _base=$( cd "$_fx" && git branch --show-current )
+    _land() {
+        ( cd "$_fx" && git checkout -q -b "$1" \
+          && printf 'landed on %s\n' "$1" >> ".workaholic/missions/active/${2}/mission.md" \
+          && git add -A && git commit -q -m "Drive the unit" \
+          && git checkout -q "$_base" \
+          && git merge -q --no-ff -m "Merge PR #${3} from acme-org/${1}" "$1" ) >/dev/null 2>&1
+    }
+    _land work-20260828-010000 alpha 11
+    # #12 is CLOSED WITHOUT MERGING: no merge commit, no story on the base, nothing archived —
+    # exactly the shape only the pull request's own changed files can resolve.
+    ( cd "$_fx" && git checkout -q -b work-20260828-020000 \
+      && printf 'not landed\n' >> ".workaholic/missions/active/beta/mission.md" \
+      && git add -A && git commit -q -m "Drive the unit" \
+      && git checkout -q "$_base" ) >/dev/null 2>&1
+
+    _now=$(date -u +%s)
+    _iso() { date -u -d "@$(( _now - $1 ))" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null \
+        || date -u -r "$(( _now - $1 ))" +%Y-%m-%dT%H:%M:%SZ; }
+    _t11=$(_iso 7200); _t12=$(_iso 10800)
+
+    # The stub answers the two calls the reader makes and NOTHING else: a query this drill did
+    # not anticipate must fail loudly rather than return a plausible empty answer.
+    _write_stub() {
+        {
+            printf '#!/bin/sh\ncase "$*" in\n'
+            printf '  *"pulls?state=closed"*"page=1"*) printf "%%b\\\\n" "11\\twork-20260828-010000\\t%s\\t%s\\thttps://example.invalid/pull/11\\tAlpha\\n12\\twork-20260828-020000\\t-\\t%s\\thttps://example.invalid/pull/12\\tBeta"; exit 0 ;;\n' \
+                "$_t11" "$_t11" "$_t12"
+            printf '  *"pulls?state=closed"*) exit 0 ;;\n'
+            printf '  *pulls/11*) printf "a-person\\n"; exit 0 ;;\n'
+            printf '  *pulls/12/files*) printf ".workaholic/missions/active/beta/mission.md\\n"; exit 0 ;;\n'
+            printf '  *pulls/12*) printf "\\n"; exit 0 ;;\n'
+            printf 'esac\necho "unexpected gh call: $*" >&2; exit 1\n'
+        } > "${_bin}/gh"
+        chmod +x "${_bin}/gh"
+    }
+    _write_stub
+    if [ "$(PATH="${_bin}:$PATH" command -v gh)" = "${_bin}/gh" ]; then
+        add_row "reconcile_no_network" true "the stub is what gh resolves to, so no row below reaches the network" load
+    else
+        add_row "reconcile_no_network" false "gh does not resolve to the stub; this drill would reach the network" load
+        rm -rf "$_tmp"
+        emit_verdict "reconcile" 0 "fail" 1
+    fi
+
+    _in() { ( cd "$_fx" && PATH="${_bin}:$PATH" WORKAHOLIC_BASE_REF="$_base" "$@" ) 2>&1 || true; }
+
+    # 1. THE HAND-MERGED UNIT IS A CANDIDATE, with its stems, its pull request, and by whom and when.
+    _cands=$(_in sh "$_reader" --root "$_fx" --window-days 3)
+    if printf '%s' "$_cands" | grep -q '"number": 11' \
+        && printf '%s' "$_cands" | grep -q '"state": "merged"' \
+        && printf '%s' "$_cands" | grep -q '"merged_by": "a-person"' \
+        && printf '%s' "$_cands" | grep -q '20260828010101-an-ask'; then
+        add_row "reconcile_merged_named" true "the hand-merged unit is a candidate with its stems, its pull request and who merged it when" load
+    else
+        add_row "reconcile_merged_named" false "the merged unit is not named correctly: $(one_line "$_cands")" load
+    fi
+
+    # 2. A CLOSED-UNMERGED UNIT IS ITS OWN STATE, never collapsed into `merged`: the two ask a
+    # reader for different things, which is exactly why the catalog gives them two shapes.
+    if printf '%s' "$_cands" | grep -q '"number": 12' \
+        && printf '%s' "$_cands" | grep -q '"state": "closed"'; then
+        add_row "reconcile_closed_is_its_own_state" true "a pull request closed without merging reads closed, never merged" load
+    else
+        add_row "reconcile_closed_is_its_own_state" false "the closed-unmerged unit is missing or mislabelled: $(one_line "$_cands")" load
+    fi
+    _shapes_ok=true
+    for _lead in '. Implemented - \[#123 Title\]' '. Closed - \[#123 Title\]'; do
+        grep -q "$_lead" "$_catalog" || _shapes_ok=false
+        grep -q "$_lead" "$_template" || _shapes_ok=false
+    done
+    grep -q 'no run posted this item.s finish' "$_catalog" || _shapes_ok=false
+    if [ "$_shapes_ok" = true ]; then
+        add_row "reconcile_both_shapes_named" true "the catalog names the merged and the closed-unmerged reply, and the routine authorizes both" load
+    else
+        add_row "reconcile_both_shapes_named" false "a reply shape is missing from the catalog or from the routine template" load
+    fi
+
+    # 3. THE THREAD BAR, DRILLED AS WRITTEN. The read itself belongs to the session (Slack is a
+    # connector, not a script), so what is drillable here is the BAR the contract states: only a
+    # LATEST status of the two in-flight colours is a candidate. Four fixture threads, four verdicts.
+    _bar() {
+        [ -s "$1" ] || { printf 'no_thread'; return; }
+        _last=$(grep -v '^[[:space:]]*$' "$1" | tail -1)
+        case "$_last" in
+            "$_PROPOSED"*|"$_HANDOFF"*) printf 'post' ;;
+            '') printf 'no_thread' ;;
+            *)  printf 'already_finished' ;;
+        esac
+    }
+    _PROPOSED=$(printf '\360\237\224\265')
+    _HANDOFF=$(printf '\360\237\237\241')
+    _DONE=$(printf '\360\237\237\242')
+    printf '%s Proposed - #10\n%s Handoff - #11\n' "$_PROPOSED" "$_HANDOFF" > "${_tmp}/th-handoff"
+    printf '%s Proposed - #10\n%s Implemented - #11\n' "$_PROPOSED" "$_DONE" > "${_tmp}/th-finished"
+    printf '%s Handoff - #11\n%s Implemented - #11\n' "$_HANDOFF" "$_DONE" > "${_tmp}/th-reconciled"
+    : > "${_tmp}/th-missing"
+    if [ "$(_bar "${_tmp}/th-handoff")" = post ] \
+        && [ "$(_bar "${_tmp}/th-finished")" = already_finished ] \
+        && [ "$(_bar "${_tmp}/th-reconciled")" = already_finished ] \
+        && [ "$(_bar "${_tmp}/th-missing")" = no_thread ]; then
+        add_row "reconcile_thread_bar" true "a handoff thread is corrected; a finished thread and one this loop already reconciled are never touched; no thread means nothing to correct" load
+    else
+        add_row "reconcile_thread_bar" false "the stated bar does not classify the four fixture threads correctly" load
+    fi
+
+    # 4. THE BOUNDS ARE HANDED TO THE AGENT IN WORDS, and asserted rather than trusted.
+    _out=$(_in sh "$_step" --tick 20260828-070000 --root "$_fx")
+    if printf '%s' "$_out" | grep -q 'AT MOST TWO queries' \
+        && printf '%s' "$_out" | grep -q 'no channel history read anywhere' \
+        && ! printf '%s' "$_out" | grep -q 'window_hours'; then
+        add_row "reconcile_two_queries" true "at most two exact-string searches per candidate, and no channel history read is named anywhere" load
+    else
+        add_row "reconcile_two_queries" false "the lookup bound is not carried to the agent: $(one_line "$_out")" load
+    fi
+    if printf '%s' "$_out" | grep -q 'case 4 does NOT apply'; then
+        add_row "reconcile_case4_refused" true "a lookup that finds no thread posts nothing - the description root is refused by name" load
+    else
+        add_row "reconcile_case4_refused" false "case 4 is not refused, so a merge nobody was told about could be announced: $(one_line "$_out")" load
+    fi
+    _reasons_ok=true
+    for _r in no_thread already_finished unsure no_slack_transport thread_unreadable post_failed; do
+        printf '%s' "$_out" | grep -q "$_r" || _reasons_ok=false
+    done
+    if [ "$_reasons_ok" = true ] && printf '%s' "$_out" | grep -q 'non-conformant on its face'; then
+        add_row "reconcile_one_outcome_each" true "every candidate owes exactly one outcome, and each named not-posted reason travels with the request" load
+    else
+        add_row "reconcile_one_outcome_each" false "the outcome vocabulary is incomplete: $(one_line "$_out")" load
+    fi
+
+    # 5. THE CAP IS HONOURED AND THE REMAINDER REPORTED, never silently dropped.
+    _capped=$( cd "$_fx" && PATH="${_bin}:$PATH" WORKAHOLIC_BASE_REF="$_base" \
+        WORKAHOLIC_RECONCILE_READ_MAX=1 sh "$_step" --tick 20260828-090000 --root "$_fx" 2>&1 || true )
+    if printf '%s' "$_capped" | grep -q 'beyond the 1-read bound' \
+        && printf '%s' "$_capped" | grep -q '"beyond_bound":1'; then
+        add_row "reconcile_cap_reported" true "the candidate cap is honoured and the number beyond it is reported rather than dropped" load
+    else
+        add_row "reconcile_cap_reported" false "the cap is not reported: $(one_line "$_capped")" load
+    fi
+
+    # 6. THE SAME TICK RUN TWICE HANDS BACK NOTHING THE SECOND TIME. The real dedup is
+    # structural - the agent reads the thread before writing - and the ledger saves the lookup.
+    _in sh "$_append" --root "$_fx" --tick 20260828-060000 --step thread-reconcile-filed \
+        --status ok --summary "thread-reconcile:11 posted; thread-reconcile:12 posted" >/dev/null
+    _out2=$(_in sh "$_step" --tick 20260828-080000 --root "$_fx")
+    if printf '%s' "$_out2" | grep -q '"needs_agent": \[\]' \
+        && printf '%s' "$_out2" | grep -q '2 already reconciled'; then
+        add_row "reconcile_second_tick_silent" true "a second tick over the same items hands back nothing and counts them as already reconciled" load
+    else
+        add_row "reconcile_second_tick_silent" false "a second tick would read the same threads again: $(one_line "$_out2")" load
+    fi
+
+    # 7. A REFUSED READ IS NAMED and hands back nothing - "nothing was looked at" must never
+    # render as "nothing is stale".
+    printf '#!/bin/sh\nexit 1\n' > "${_bin}/gh"; chmod +x "${_bin}/gh"
+    _deg=$(_in sh "$_step" --tick 20260828-100000 --root "$_fx")
+    if printf '%s' "$_deg" | grep -q '"status": "degraded"' \
+        && printf '%s' "$_deg" | grep -q 'candidates_list_failed' \
+        && printf '%s' "$_deg" | grep -q '"needs_agent": \[\]'; then
+        add_row "reconcile_degrades_by_name" true "a transport that refused is reported by name with no candidate handed back" load
+    else
+        add_row "reconcile_degrades_by_name" false "a refused read is not named, or hands back candidates anyway: $(one_line "$_deg")" load
+    fi
+    _write_stub
+
+    # 8. WHAT IT NEVER DOES, asserted over the two scripts themselves.
+    _acts=$(sed -e 's/^[[:space:]]*#.*$//' "$_reader" "$_step" \
+        | grep -nE 'method (PUT|PATCH|DELETE)|git (push|branch|checkout|merge|commit)|claim\.sh|release-claim\.sh|retire-claim\.sh' \
+        || true)
+    if [ -z "$_acts" ]; then
+        add_row "reconcile_acts_on_nothing" true "neither script merges, closes, branches, commits or touches a claim" load
+    else
+        add_row "reconcile_acts_on_nothing" false "an acting call site is present: $(one_line "$_acts")" load
+    fi
+    _dirty=$( cd "$_fx" && git status --porcelain | grep -v 'workaholic/moderations/' || true )
+    if [ -z "$_dirty" ]; then
+        add_row "reconcile_writes_only_its_log" true "the fixture's tree carries nothing but the tick's own log line" load
+    else
+        add_row "reconcile_writes_only_its_log" false "the step wrote into the tree: $(one_line "$_dirty")" load
+    fi
+
+    # 9. THE BREAKER ROW, LABELLED AS THE INTENTIONAL FAILURE. A candidate reader wired at the
+    # CHANNEL instead of the repository is the design inverted back into a channel scan - the
+    # one thing `workaholic:notify`'s no-full-channel-read bound forbids outright.
+    _chan="${_tmp}/channel"
+    mkdir -p "$_chan"
+    printf '#!/bin/sh\ncase "${1:-}" in\n  slug) printf "acme-org/drill-repo\\n" ;;\n  *) printf "a person asked something\\nsomebody replied\\n" ;;\nesac\n' \
+        > "${_chan}/gh-rest.sh"
+    chmod +x "${_chan}/gh-rest.sh"
+    _broken="${_tmp}/broken-reconcile-candidates.sh"
+    sed -e "s#^GATHER=.*#GATHER=\"${_chan}\"#" "$_reader" > "$_broken"
+    chmod +x "$_broken"
+    _bout=$( cd "$_fx" && PATH="${_bin}:$PATH" WORKAHOLIC_BASE_REF="$_base" \
+        sh "$_broken" --root "$_fx" --window-days 3 2>&1 || true )
+    if printf '%s' "$_bout" | grep -q '"number": 11'; then
+        add_row "reconcile_breaker" false "the breaker row did not break the seam, so this drill cannot fail" load
+    else
+        add_row "reconcile_breaker" true "a candidate reader wired at the channel names no candidate, so row 1 fails there (this drill can fail)" load
+    fi
+
+    # 10. NOTHING WAS WRITTEN OUTSIDE THE FIXTURE.
+    _after=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+    if [ "$_before" = "$_after" ]; then
+        add_row "reconcile_writes_nothing" true "the checkout is byte-identical after the drill" load
+    else
+        add_row "reconcile_writes_nothing" false "the drill changed the working tree" load
+    fi
+
+    rm -rf "$_tmp"
+    if [ "$LOAD_FAILED" -gt 0 ]; then
+        emit_verdict "reconcile" 0 "fail" 1
+    fi
+    emit_verdict "reconcile" 0 "pass" 0
+}
+
+USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-specificate <issue>|verify-implement <issue>|verify-plan [--json]|verify-status [--json]|verify-cadence [--json]|verify-planner [--json]|verify-standup [--json]|verify-moderate [--json]|verify-propose [--json]|verify-direction-health [--json]|verify-arrival [--json]|verify-residue [--json]|verify-succession [--json]|verify-revision [--json]|verify-merged-claim [--json]|verify-identity-handoff [--json]|verify-close [--json]|verify-retire [--json]|verify-delivery-retry [--json]|verify-handoff-question [--json]|verify-base-health [--json]|verify-return-path [--json]|verify-reconcile [--json]"}'
 
 CMD="${1:-}"
 [ -n "$CMD" ] || {
@@ -4376,6 +4622,7 @@ case "$CMD" in
     verify-handoff-question) cmd_verify_handoff_question "$@" ;;
     verify-base-health) cmd_verify_base_health "$@" ;;
     verify-return-path) cmd_verify_return_path "$@" ;;
+    verify-reconcile) cmd_verify_reconcile "$@" ;;
     *)
         echo "$USAGE" >&2
         exit 2

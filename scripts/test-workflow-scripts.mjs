@@ -1227,6 +1227,117 @@ function testClosingResidueReader() {
   } finally { cleanup(A); }
 }
 
+// ---------- moderate/list-standing-rulings.sh: the standing rulings (2026-08-28) ----------
+// The two rulings the loop cannot make itself, composed into one set so a later caller can
+// draft the whole set as one diff. The properties worth pinning are the assembly's, not the
+// composed readers': every entry carries its EVIDENCE and its REPAIR, every entry reads
+// `undecided` because no script may judge either question, and a DEGRADED source contributes
+// no entries and carries NULL counts rather than zeroed ones.
+function testStandingRulingsReader() {
+  const READER = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/list-standing-rulings.sh");
+  const { A } = makeResidueFixture();
+  const W = join(A, ".workaholic");
+  const readerOf = (reader = READER) => JSON.parse(run(A, `${POSIX_SH} ${reader} --root ${W}`).stdout);
+  try {
+    // 1. THE HONEST READ. One unattributed active mission, and the addresses the tree uses
+    // that no mapping entry names — this fixture ships no `.claude/git-identities` at all, so
+    // the strategy's own assignee is uncovered and the map's absence is a finding.
+    const j = readerOf();
+    assertEq("the set is readable", [j.ok, j.readable, j.reason], [true, true, ""]);
+    assertEq("and it never claims to be complete", j.exhaustive, false);
+
+    const attribution = j.rulings.filter((r) => r.kind === "attribution");
+    assertEq("the unattributed mission is a candidate, by slug",
+      attribution.map((r) => r.subject), ["m2"]);
+    assertEq("carrying the evidence its own reader already stated",
+      [attribution[0].evidence.path, attribution[0].evidence.queued],
+      [`${W}/missions/active/m2/mission.md`, 2]);
+    assertEq("and the exact one-line repair, with the judged half a placeholder",
+      attribution[0].repair, "carry-attribution.sh <strategy> m2");
+
+    const mapping = j.rulings.filter((r) => r.kind === "identity_mapping");
+    assertEq("the uncovered address is a candidate, by address",
+      mapping.map((r) => r.subject), ["test@example.com"]);
+    assertEq("carrying its artifact count and the audit's own proposed line",
+      [mapping[0].evidence.artifacts, mapping[0].repair], [1, "<login>=test@example.com"]);
+
+    // NO SCRIPT MAY JUDGE EITHER QUESTION. Which direction a mission answers and which account
+    // an address belongs to are readings only a person or a run can make.
+    assertEq("every candidate is undecided", j.rulings.map((r) => r.decision),
+      j.rulings.map(() => "undecided"));
+    assertEq("and the count is the set's own size", j.count, j.rulings.length);
+    assertEq("both sources report themselves readable",
+      [j.sources.unattributed.readable, j.sources.unattributed.mission_count,
+       j.sources.identity.readable, j.sources.identity.map_present, j.sources.identity.uncovered_count],
+      [true, 1, true, false, 1]);
+
+    // 2. AN EMPTY READ IS NOT A DEGRADATION. Attribute `m2` and cover the address, and the set
+    // empties with honest zeros — the answer *nothing is standing*, which a consumer must be
+    // able to tell from *I could not look*.
+    const m2 = join(W, "missions/active/m2/mission.md");
+    const before = readFileSync(m2, "utf8");
+    writeFileSync(m2, before.replace("20260101000000-b.md", "20260101000000-a.md"));
+    mkdirSync(join(A, ".claude"), { recursive: true });
+    writeFileSync(join(A, ".claude/git-identities"), "someone=test@example.com\n");
+    const empty = readerOf();
+    assertEq("an empty set is readable, with honest zeros",
+      [empty.readable, empty.reason, empty.rulings, empty.count], [true, "", [], 0]);
+    assertEq("and both sources say they read a real tree",
+      [empty.sources.unattributed.mission_count, empty.sources.identity.uncovered_count], [0, 0]);
+    writeFileSync(m2, before);
+    rmSync(join(A, ".claude/git-identities"));
+
+    // 3. EACH SOURCE DEGRADED INDEPENDENTLY, over a copy of the plugin tree so exactly one
+    // reader is blinded per fixture.
+    cpSync(join(REPO_ROOT, "plugins"), join(A, "plugins"), { recursive: true });
+    const COPY = join(A, "plugins/workaholic/skills/moderate/scripts/list-standing-rulings.sh");
+
+    rmSync(join(A, "plugins/workaholic/skills/strategy/scripts/mission-strategy.sh"));
+    const blindResidue = readerOf(COPY);
+    assertEq("an unreadable residue names itself at the top level",
+      [blindResidue.readable, blindResidue.reason],
+      [false, "unattributed_unreadable:no_mission_strategy_script"]);
+    assertEq("and reports NO counts rather than zeroed ones",
+      [blindResidue.sources.unattributed.readable, blindResidue.sources.unattributed.mission_count,
+       blindResidue.sources.unattributed.ticket_count],
+      [false, null, null]);
+    assertEq("a degraded source contributes no entry of its own",
+      blindResidue.rulings.map((r) => r.kind), ["identity_mapping"]);
+    assertEq("while the source that could be read is untouched",
+      blindResidue.sources.identity.readable, true);
+
+    cpSync(join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/mission-strategy.sh"),
+      join(A, "plugins/workaholic/skills/strategy/scripts/mission-strategy.sh"));
+    rmSync(join(A, "plugins/workaholic/skills/workaholify/scripts/audit-identity-coverage.sh"));
+    const blindIdentity = readerOf(COPY);
+    assertEq("an unreadable coverage audit names itself at the top level",
+      [blindIdentity.readable, blindIdentity.reason],
+      [false, "identity_unreadable:no_identity_audit_script"]);
+    assertEq("and reports NO counts rather than zeroed ones",
+      [blindIdentity.sources.identity.readable, blindIdentity.sources.identity.addresses,
+       blindIdentity.sources.identity.uncovered_count],
+      [false, null, null]);
+    assertEq("a degraded source contributes no entry of its own",
+      blindIdentity.rulings.map((r) => r.kind), ["attribution"]);
+    assertEq("and a degraded answer is still never called exhaustive", blindIdentity.exhaustive, false);
+    rmSync(join(A, "plugins"), { recursive: true });
+
+    // 4. IT WALKS NOTHING ITSELF. The one thing it owns is the assembly, so no second walk of
+    // the two areas or of the `feedback:` relation may exist in its text.
+    const text = readFileSync(READER, "utf8")
+      .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+    assertEq("no second walk of missions/ or tickets/ exists in the reader",
+      /find\s|missions\/active|tickets\/todo|read-relation\.sh|[^n]attributed-work\.sh/.test(text), false);
+    assertTrue("and it reaches exactly the two readers it composes",
+      text.includes("unattributed-work.sh") && text.includes("audit-identity-coverage.sh"), text);
+
+    // 5. IT WRITES NOTHING AND CREATES NOTHING, in every one of those readings.
+    assertEq("the reader left no untracked or modified file of its own",
+      execSync("git status --porcelain", { cwd: A, encoding: "utf8" })
+        .split("\n").filter((l) => l && !/open\.json/.test(l)).join("\n"), "");
+  } finally { cleanup(A); }
+}
+
 // ---------- the residue on every survey row, gating nothing (2026-08-28) ----------
 // The residue rides `survey-strategies.sh`'s rows for one consumer — the arrival question —
 // and the whole admissibility of putting it there is that IT MOVES NO GATE. `overdue`,
@@ -17782,6 +17893,7 @@ const tests = [
   ["the false arrival, characterized over an unattributed residue", testFalseArrivalCharacterization],
   ["strategy/unattributed-work.sh reads what no direction claims", testUnattributedWorkReader],
   ["strategy/closing-residue.sh composes what a direction leaves", testClosingResidueReader],
+  ["moderate/list-standing-rulings.sh names the standing rulings", testStandingRulingsReader],
   ["direction-health names the leaving, and the last live direction", testDirectionHealthLeaving],
   ["the succession costs no fourth writer and no new field", testSuccessionCostsNoFourthWriter],
   ["the residue rides every survey row and moves no gate", testResidueOnSurveyRows],

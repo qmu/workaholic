@@ -39,7 +39,7 @@ read proposes nothing.
 
 ## Acceptance
 
-- [ ] The standing rulings are readable in one place, the run supplies the judgement
+- [x] The standing rulings are readable in one place, the run supplies the judgement
       per candidate, and an unjudged candidate is never written. (#20260828212022-name-the-standing-rulings-in-one-place.md)
 - [ ] A judged ruling lands as a diff through the writer that already owns it, on
       one pull request the seam itself refuses to auto-merge. (#20260828212022-draft-the-attribution-rulings-through-their-writer.md)
@@ -49,3 +49,4 @@ read proposes nothing.
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-28 — ticket archived — 20260828212022-name-the-standing-rulings-in-one-place.md

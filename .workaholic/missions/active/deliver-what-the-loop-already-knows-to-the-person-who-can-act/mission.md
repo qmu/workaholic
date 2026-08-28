@@ -53,3 +53,4 @@ today from a mechanism that has stopped.
 - 2026-08-28 — ticket archived — 20260828182002-drain-a-held-backlog-oldest-first.md
 - 2026-08-28 — ticket archived — 20260828182002-read-what-the-check-in-delivered-and-held.md
 - 2026-08-28 — ticket archived — 20260828182002-make-a-tick-that-reached-nobody-an-event.md
+- 2026-08-28 — ticket archived — 20260828182002-state-the-cap-s-contract-where-it-is-documented.md

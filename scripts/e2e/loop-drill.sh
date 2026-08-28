@@ -60,9 +60,10 @@ GH_REST="${REPO_ROOT}/plugins/workaholic/skills/gather/scripts/gh-rest.sh"
 LIST_CLAIMS="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/list-claims.sh"
 
 # The Slack surface is named ONCE so a rebind is a one-line change (measured
-# 2026-08-12: the `/slack-me` mount reaches the private `dev-workaholic` channel, the
-# team-bot mount cannot see it).
-DRILL_SLACK_MOUNT="${DRILL_SLACK_MOUNT:-/slack-me/qmu/dev-workaholic/messages}"
+# 2026-08-12: the `/slack-me` mount reaches the repository's private channel, the
+# team-bot mount cannot see it). The channel is the repository's own name since
+# 2026-08-28 — the `dev-` prefix convention is retired.
+DRILL_SLACK_MOUNT="${DRILL_SLACK_MOUNT:-/slack-me/qmu/workaholic/messages}"
 
 # The marker every drill-minted artifact carries in its BODY. `reset` refuses to touch
 # anything that does not carry it, which is what keeps the drill from eating a

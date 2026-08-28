@@ -43,7 +43,7 @@ repository whose conflicts are resolved append-only.
 **It carries the Slack connector to read the channel** (2026-08-23, the developer's
 instruction to drop the Claude Tag dependency). Before the strategy judgment the
 run sweeps the repository's designated channel (`WORKAHOLIC_INBOUND_SLACK_CHANNEL`, default
-`dev-<repo_name>`) for asks a person wrote **without mentioning any bot**, and files each as
+`<repo_name>`) for asks a person wrote **without mentioning any bot**, and files each as
 the same `[FB]` issue the Claude Tag route produced — assigned to the running identity, so the
 next `[Specificate]` ingests it (`workaholic:propose`, *The inbound sweep*). The tag route
 cost a tagged session per ask and stopped capturing at the usage limit; this reads the channel

@@ -41,7 +41,8 @@ files the same `[FB]` issue the tag produced, so the deliverable is unchanged an
 downstream (`[Specificate]`'s ingestion, the record, the proposal) is untouched.
 
 **The channel** is `WORKAHOLIC_INBOUND_SLACK_CHANNEL`, defaulting to the repository's own
-`dev-<repo_name>` — the channel `workaholic:notify` already holds standing consent to read.
+name, `<repo_name>` — the channel `workaholic:notify` already holds standing consent to read
+(the `dev-` prefix convention was retired 2026-08-28; no prefix is expected or required).
 **The window** is `WORKAHOLIC_INBOUND_SLACK_WINDOW_HOURS` (default 26): wider than the hourly
 tick by a day so a missed tick drops nothing, and the dedup below is what makes the overlap
 free. **This read is a bounded channel-history read, and it is the one place that has

@@ -772,7 +772,7 @@ back in `needs_agent`:
 
 | Half | Owner | What it is |
 | ---- | ----- | ---------- |
-| which channel, which window | the script | `WORKAHOLIC_INBOUND_SLACK_CHANNEL` (default `dev-<repo_name>`), `WORKAHOLIC_INBOUND_SLACK_WINDOW_HOURS` (default 26) |
+| which channel, which window | the script | `WORKAHOLIC_INBOUND_SLACK_CHANNEL` (default `<repo_name>`), `WORKAHOLIC_INBOUND_SLACK_WINDOW_HOURS` (default 26) |
 | which refs an earlier tick asked about | the script | its own `unanswered-asks-filed` lines, read through `log-read.sh` |
 | is this a question, a request, an opinion — and has anything answered it | the agent | the probe returned in `needs_agent` |
 

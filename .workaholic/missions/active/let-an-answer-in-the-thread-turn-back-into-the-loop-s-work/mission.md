@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260828-034109
 ---
 
 # Let an answer in the thread turn back into the loop's work

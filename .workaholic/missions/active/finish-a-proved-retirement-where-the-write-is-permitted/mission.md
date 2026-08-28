@@ -53,3 +53,4 @@ branch and what already stands.
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-28 — ticket archived — 20260828102230-derive-the-ci-retirement-candidate-set-with-no-new-store.md

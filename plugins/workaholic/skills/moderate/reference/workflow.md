@@ -979,6 +979,44 @@ already honest and nothing new had to be filtered; the other two claim-reading s
 strength of an answer, and the `superseded` proof gate and the retirement's other two acts are
 exactly what they were.
 
+**And the question narrows once more, to what CI could not take either** (2026-08-28, mission
+`finish-a-proved-retirement-where-the-write-is-permitted`). Act 2 now runs in
+`.github/workflows/claim-retirement.yml`, where the write is permitted, so a blocked unit whose
+branch a workflow is about to delete must draw **no** question: asking a person, once per unit and
+forever, for an act CI was about to perform is not merely noisy — the ask is wrong.
+
+The reading is `drive/scripts/ci-retirement-turn.sh` and it is **store-free**, which is the
+constraint that shaped it. CI *deletes* the branch when it succeeds, and unmerged remote branches
+are the only claim oracle, so a successful turn removes the claim row and the candidate with it. A
+**completed run at the base tip this tick is reading** therefore means CI saw exactly this tree and
+the branch survived it — the matching is on `head_sha`, which needs no clock, no timezone and no
+date parsing, and answers the question actually being asked rather than a proxy for it. Three
+values, each with its own consequence:
+
+| Reading | What it means | What the tick does |
+| ------- | ------------- | ------------------ |
+| `taken` | a completed run at this tip left the branch standing | ask — the unit is blocked at **both** executors |
+| `pending` | no completed run at this tip yet | ask nobody **this tick**; the asked-once ledger keys on the unit, so a branch that outlives CI's turn is still asked about later |
+| `unavailable` | the workflow is not present in this repository | ask — CI will never take the act here |
+
+A read the step could not make leaves the question exactly where it was, on the same rule: an
+over-eager question is better than a silently dropped one, and this repository has measured the
+cost of a blocked act nobody was told about.
+
+**Everything else about the question is byte-identical** — the key `retire-blocked:<unit>`, the
+asked-once gate, the addressee, the per-tick cap, the quiet hours and the working-day hold. Only
+the candidate set narrows, and the **summary carries no CI term**, deliberately: every term of it
+stays a function of the claim set and the act states, so a held block keeps rendering identically
+tick after tick and a newly blocked unit still moves it. The narrowing is not a suppression list.
+
+**And which executor took a delete is now rendered, from two states that already exist.**
+`deleted` means this tick performed the delete; `already_gone` means the ref was not on origin
+when this tick looked, and asserts nothing about who removed it — so the two render as *branch
+deleted here* and *branch removed elsewhere*. `already_gone` keeps rendering as the **success** it
+is, `failed` and `not_attempted` are untouched, and `retire-claim.sh`'s output shape and its four
+Act-2 words are byte-identical. A `deleted_by: ci|container` field is refused: the answer is
+already derivable, and a stored one eventually disagrees with the derived one.
+
 **It acts directly rather than handing off**, which is where it diverges from `closable-missions`.
 That step hands its act to the agent because `close.sh` **writes into the tree** and needs a
 publish tree to do it. `retire-claim.sh` writes nothing into the tree at all — one REST `PATCH`,

@@ -17639,6 +17639,8 @@ const tests = [
   ["drive claim protocol: a unit resolves to its live claim branch", testUnitResolvesToItsLiveClaimBranch],
   ["drive claim protocol: a reported claim is two states", testReportedClaimIsTwoStates],
   ["story/record-merge-outcome.sh: the durable home for a merge outcome", testRecordMergeOutcome],
+  ["drive claim protocol: the act the container is refused, taken in CI", testCiRetirementCandidateSetAndAct],
+  ["moderate/retire-claims: which executor took the branch delete", testRetirementExecutorRendering],
   ["claims: two verdicts are proofs, and every consumer gates on one", testProofJudgementSplit],
   ["moderate/undelivered-units: the loop's own undelivered work reaches a person", testUndeliveredUnitsStep],
   ["moderate/reconcile-candidates.sh: which announced items may still be called in flight", testReconcileCandidates],
@@ -24515,6 +24517,155 @@ function testFreshClaimOverSupersededClaim() {
   } finally { cleanup(fx.A); cleanup(fx.B); }
 }
 
+// ---------- the act the container is refused, taken where the write is permitted ----------
+//
+// (2026-08-28, mission `finish-a-proved-retirement-where-the-write-is-permitted`.) Act 2 of the
+// retirement is refused in the container the loop runs in by both available transports, so it
+// moves to `.github/workflows/claim-retirement.yml`. What has to hold across that executor
+// boundary is that the CANDIDATE SET is still the claim oracle's and the PROOF is re-taken at
+// the moment of the act — a workflow with `contents: write` and a wrong candidate list deletes
+// branches nothing proved empty.
+//
+// The end-to-end walk is `sh scripts/e2e/loop-drill.sh verify-ci-retirement`. What is pinned
+// here is what a later change is most likely to quietly loosen: the shape of the candidate set,
+// the degradation that must never render as "nothing to retire", and the bounds on the act.
+function testCiRetirementCandidateSetAndAct() {
+  const READER = join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/list-retirable-claims.sh");
+  const ACT = join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/delete-retired-claim-branch.sh");
+  const fx = makeSquashMergedClaims();
+  const bin = join(fx.B, ".stub-bin");
+  mkdirSync(bin, { recursive: true });
+  writeFileSync(join(bin, "gh"), "#!/bin/sh\necho '[]'\n");
+  chmodSync(join(bin, "gh"), 0o755);
+  const withStub = { env: { ...process.env, PATH: `${bin}:${process.env.PATH}` } };
+  const json = (r) => JSON.parse(r.stdout || r.stderr);
+  try {
+    // THE SET IS EXACTLY THE SUPERSEDED UNITS. The batch claim is superseded from the tree with
+    // no transport involved; the mission claim's lookup is unanswerable in this offline fixture,
+    // so it keeps its local verdict and must NOT appear — an unanswered reading is never
+    // promoted into a licence to delete.
+    const out = json(run(fx.B, `${POSIX_SH} ${READER}`, withStub));
+    assertEq("the reader answers ok over a fetched, complete clone", out.ok, true);
+    const units = (out.candidates || []).map((c) => c.unit).sort();
+    assertEq("the candidate set is exactly the superseded units",
+      units.join(","), fx.batch.unit);
+    assertTrue("a claim whose merged lookup was unanswerable is not a candidate",
+      !units.includes(fx.mission.unit), units.join(","));
+    assertEq("and the candidate carries the branch the delete would take",
+      out.candidates[0].branch, fx.batch.branch);
+    assertEq("...reported present on origin, which is why it needs deleting",
+      out.candidates[0].state, "present");
+
+    // A DEGRADED READ YIELDS NO CANDIDATES *AND ITS REASON*. Unmerged remote branches are the
+    // only claim oracle, so a scan that could not reach the remote has not found "nothing to
+    // retire" — it has found nothing at all. A bare empty set here is a workflow that deletes
+    // nothing today and, on the next loosening, deletes the wrong thing.
+    execSync("git remote set-url origin /nonexistent/origin.git", { cwd: fx.B });
+    const degraded = json(run(fx.B, `${POSIX_SH} ${READER}`, withStub));
+    assertEq("an unreachable origin answers ok:false with its reason and no candidates",
+      [degraded.ok, degraded.reason, (degraded.candidates || []).length],
+      [false, "origin_unreachable", 0]);
+    assertEq("and the degraded read still exits 0",
+      run(fx.B, `${POSIX_SH} ${READER}`, withStub).status, 0);
+
+    // The shallow rung cannot be reached from a local origin (the scan deepens what it can
+    // reach, and what it cannot reach refuses one rung earlier), so it is pinned in the source:
+    // across a graft boundary a superseded claim is indistinguishable from a live one, which is
+    // why the CI checkout defines its own full history.
+    const readerSrc = readFileSync(READER, "utf8");
+    assertTrue("the reader names shallow_history as its own degradation",
+      /shallow_history/.test(readerSrc), "the shallow rung is gone from the ladder");
+
+    // THE ACT RE-PROVES AND IS BOUNDED, and every one of these paths exits 0 — a refusal is an
+    // answer the workflow reports, never one it dies on.
+    const actSrc = readFileSync(ACT, "utf8");
+    const actCode = actSrc.split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+    assertTrue("the act re-runs the scan itself rather than trusting the list it was handed",
+      /claims_scan/.test(actCode), "the act reads no oracle of its own");
+    for (const bound of ["not_a_work_branch", "release_branch", "not_on_base", "pull_request_open"]) {
+      assertTrue(`the act refuses ${bound} by name`,
+        actCode.includes(bound), `${bound} is not a named refusal`);
+    }
+    assertTrue("...and it refuses an absent reading as unanswerable rather than under a verdict",
+      /unanswerable:/.test(actCode), "an unanswered lookup would be refused under a local verdict");
+    assertTrue("the act deletes through the one GitHub transport, never a second one",
+      /gh-rest\.sh/.test(actSrc) && !/gh (issue|pr|repo) /.test(actCode),
+      "the act reaches GitHub outside gather/scripts/gh-rest.sh");
+    assertEq("an unknown unit is refused, and exits 0",
+      run(fx.B, `${POSIX_SH} ${ACT} no-such-unit`, withStub).status, 0);
+  } finally { cleanup(fx.A); cleanup(fx.B); }
+}
+
+// ---------- which executor took the delete, with no field that says so ----------
+//
+// (2026-08-28, mission `finish-a-proved-retirement-where-the-write-is-permitted`.) Two things
+// can now make a claim branch disappear — this tick's own Act 2, and `claim-retirement.yml` —
+// and a reader must be able to tell them apart. The fact is already on the writer's row:
+// `deleted` means this tick performed the delete, `already_gone` means the ref was not on origin
+// when this tick looked and asserts nothing about who removed it. Only the WORDING was wrong.
+//
+// A `deleted_by: ci|container` field is refused, and this pins the refusal: the answer is
+// derivable from two states that already exist, and a stored one eventually disagrees with the
+// derived one.
+//
+// A NOTE FOR A LATER READER ON WHAT IS *NOT* DRILLED BEHAVIOURALLY. `already_gone` is very
+// nearly unreachable on purpose: the ref that produces the claim row and the ref Act 2 checks
+// are the SAME remote-tracking ref, freshly pruned by the scan, so a fixture cannot hold a row
+// whose branch is already gone. That is why the two renderings are pinned here at the source
+// rather than driven over two ticks — and why the wording matters at all, since the state it
+// names is exactly the one a reader will meet rarely and misread.
+function testRetirementExecutorRendering() {
+  const stepSrc = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/moderate/scripts/step-retire-claims.sh"), "utf8");
+  assertTrue("a delete this tick took renders as taken here",
+    stepSrc.includes('"branch deleted here"'), "the two deletes render alike again");
+  assertTrue("...and one it found already done renders as taken elsewhere",
+    stepSrc.includes('"branch removed elsewhere"'), "the two deletes render alike again");
+
+  // THE WRITER'S VOCABULARY DID NOT MOVE. This ticket adds no field and no word to Act 2 —
+  // `already_gone` is still a SUCCESS, and `not_attempted` is still distinct from `failed`.
+  const writerSrc = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/drive/scripts/retire-claim.sh"), "utf8");
+  for (const word of ["deleted", "already_gone", "failed", "not_attempted"]) {
+    assertTrue(`retire-claim.sh still emits remote_branch_deleted=${word}`,
+      new RegExp(`REMOTE_STATE="${word}"`).test(writerSrc),
+      "an Act 2 word left the writer's vocabulary");
+  }
+  const writerCode = writerSrc.split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+  const stepCode = stepSrc.split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+  assertTrue("and it grew no per-executor field",
+    !/deleted_by/.test(writerCode) && !/deleted_by/.test(stepCode),
+    "a stored answer was added beside the derived one");
+
+  // THE QUESTION IS NARROWED, AND NOTHING ELSE ABOUT IT MOVED (2026-08-28). Only the candidate
+  // set changes: the key, the addressee and the composition are read back out of the step's own
+  // source, so a change that "simplifies" one of them fails here.
+  const code = stepSrc.split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+  assertTrue("the key is still retire-blocked:<unit>",
+    code.includes('"retire-blocked:" + $r.unit'), "the question's key moved");
+  assertTrue("the addressee is still the claim row's own author",
+    /owner:/.test(code) && /\.author/.test(code), "the question stopped being the holder's");
+  assertTrue("the question still names the exact branch left on origin",
+    /branch: \$r\.branch/.test(code), "a question that does not name the branch says nothing");
+  assertTrue("the narrowing reads the CI turn and nothing else",
+    code.includes("ci-retirement-turn.sh"), "the narrowing reads some other signal");
+
+  // THE SUMMARY IS UNTOUCHED BY THE CI READING, which is what keeps a held block rendering
+  // identically tick after tick — the property `📦 Release Preparation` was retired for losing.
+  const summaryLine = code.split("\n").find((l) => l.startsWith("summary="));
+  assertTrue("the summary line exists", !!summaryLine, "the summary was restructured");
+  assertTrue("...and carries no CI term",
+    !!summaryLine && !/ci_turn|ci_readable/.test(summaryLine),
+    "the summary now moves whenever CI's run state does");
+
+  // AND THE GATE IT FEEDS IS THE CHECK-IN'S, NOT A SECOND LEDGER OF ITS OWN. The step hands
+  // `needs_agent` to the check-in and writes nothing itself — a second per-unit ledger beside
+  // `ask-question.sh`'s asked-once gate is how the two drift.
+  assertTrue("the step writes no log line of its own",
+    !code.includes("log-append.sh") && !code.includes(".workaholic/moderations"),
+    "the step grew a store beside the check-in's ledger");
+}
+
 // ---------- a unit resolves to its LIVE claim branch (2026-08-27) ----------
 //
 // The 2026-08-26 `superseded` verdict made a unit legitimately reachable by TWO claim
@@ -24940,6 +25091,11 @@ function testProofJudgementSplit() {
       /^\s*if \[ "\$verdict" != "([a-z_]+)" \]; then/m],
     ["plugins/workaholic/skills/drive/scripts/retry-undelivered.sh",
       /^\s*\[ "\$verdict" = "([a-z_]+)" \] \|\| report false/m],
+    // The CI-side act (2026-08-28). A different EXECUTOR takes Act 2, and the gate crossing that
+    // boundary is the one thing that must not travel loosened: a workflow holding
+    // `contents: write` and a widened gate deletes branches nothing proved empty.
+    ["plugins/workaholic/skills/drive/scripts/delete-retired-claim-branch.sh",
+      /^\s*if \[ "\$verdict" != "([a-z_]+)" \]; then/m],
   ]) {
     const src = readFileSync(join(REPO_ROOT, file), "utf8");
     const m = src.match(re);
@@ -25012,7 +25168,8 @@ function testProofJudgementSplit() {
   // returning `proof`/`judgement` would be the second derivation it exists to prevent. Comments
   // are stripped first, so the library's own prose about the split is not what is being banned.
   for (const f of ["lib/claims.sh", "list-claims.sh", "plan-units.sh", "claim.sh",
-    "retire-claim.sh", "retry-undelivered.sh", "declared-handoff-detail.sh"]) {
+    "retire-claim.sh", "retry-undelivered.sh", "declared-handoff-detail.sh",
+    "list-retirable-claims.sh", "delete-retired-claim-branch.sh"]) {
     const src = readFileSync(join(REPO_ROOT, `plugins/workaholic/skills/drive/scripts/${f}`), "utf8")
       .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
     assertTrue(`${f} carries no proof/judgement classifier`, !/proof|judgement/.test(src),

@@ -26,6 +26,20 @@
 # `dormant` is held to — describe the state, never the person, and never claim more than the
 # reading supports.
 #
+# AND SINCE 2026-08-28 THE `arrived` QUESTION NAMES WHAT THE READING COULD NOT SEE (mission
+# `say-what-the-direction-could-not-see-before-calling-it-arrived`): the unattributed active
+# missions, BY SLUG, with their queued-ticket counts. "Everything attributed has landed" was
+# true and partial, and the operator had no way to see which half they were being asked to
+# rule on — measured, a strategy read `quiescent: true` with 125 landed items while four
+# active missions and ten queued tickets belonged to no direction at all.
+#
+# THE RESIDUE IS THE REASON TO CHECK, NOT EVIDENCE THAT THEY SHOULD NOT. The register does not
+# move: the question still says *this looks finished, and here is what I could not see*, never
+# *this is finished*. Nothing else about the step moves either — the key
+# (`direction-arrived:<slug>`), the asked-once gate, the addressee and the per-tick cap are
+# exactly what they were, and changing a body does not re-ask a question, since the ledger keys
+# on the step id derived from `key` rather than on the text.
+#
 # THE SURFACE IS THE SAME ONE `strategy-pace` CHOSE, ON THE SAME GROUNDS. Read that step's
 # header: `/propose`'s own run report is the invisibility this exists to end, and the proposal
 # issue says nothing precisely when the direction is gated. A question through this tick,
@@ -149,9 +163,34 @@ subjects=$(printf '%s' "$out" | jq -c --arg window "14 days" '
     [ .strategies[]
       | select(.state == "overdue" or .state == "dormant" or .state == "arrived")
       | . as $s
+      # THE RESIDUE, RENDERED FOR THE ARRIVAL QUESTION (2026-08-28, mission
+      # `say-what-the-direction-could-not-see-before-calling-it-arrived`). A count alone costs
+      # the operator the same hand-read it costs them today — they learn the answer is partial
+      # and still cannot see what was missing — so each unattributed mission is named BY SLUG
+      # with its queued-ticket count.
+      #
+      # BOUNDED, AND WHAT IS CUT IS COUNTED. A tree with many unattributed missions must not
+      # produce an unreadable question; three names then "and N more", never a silent
+      # truncation -- the same shape the link list on the root already uses.
+      #
+      # CARRIED, NEVER RE-READ. `.residue` is the single read the survey made, projected
+      # through `direction-state.sh`; this step must not call `unattributed-work.sh` itself,
+      # or two readings of one fact will drift.
+      #
+      # A DEGRADED RESIDUE READ NEVER REACHES HERE: it makes `quiescent` false upstream, so
+      # there is no `arrived` reading and therefore no question. The empty branch below is the
+      # honest fallback for a row that carried no residue at all, not a second policy.
+      | ((.residue // {}) | if ((.readable // false) and (((.missions // []) | length) > 0))
+           then ((.missions | map(.slug + " (" + (((.queued // 0)) | tostring) + " queued)")) as $n
+                 | " — not attributed to any direction: "
+                   + (if (($n | length) > 3)
+                      then (($n[0:3] | join(", ")) + ", and " + ((($n | length) - 3) | tostring) + " more")
+                      else ($n | join(", ")) end))
+           else "" end) as $residue_phrase
       | {key: ("direction-" + .state + ":" + .slug),
          slug: .slug, title: .title, assignees: .assignees,
          reading: .state, days_to_target: .days_to_target,
+         residue: (.residue // {}),
          heading: (if .state == "overdue"
                    then "the direction `" + .slug + "` has run past its target date"
                         + (if (.days_to_target != null)
@@ -162,6 +201,7 @@ subjects=$(printf '%s' "$out" | jq -c --arg window "14 days" '
                            then " (" + ((.landed) | tostring) + " item(s) landed" +
                                 (if (.target_date != "") then ", dated " + .target_date else "" end) + ")"
                            else "" end)
+                        + $residue_phrase
                    else "nothing has answered the direction `" + .slug + "` in the last " + $window
                    end),
          body: (if .state == "overdue"

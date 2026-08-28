@@ -48,3 +48,4 @@ pull request instead of editing `main` by hand.
 ## Changelog
 
 
+- 2026-08-28 — ticket archived — 20260828012026-reproduce-the-false-arrival-and-pin-it.md

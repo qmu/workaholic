@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260828-014111
 ---
 
 # Say what the direction could not see before calling it arrived

@@ -48,3 +48,4 @@ today from a mechanism that has stopped.
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-28 — ticket archived — 20260828182002-pin-the-day-cap-jam-with-a-failing-test.md

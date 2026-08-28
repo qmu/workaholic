@@ -17762,6 +17762,7 @@ const tests = [
   ["propose steps 4-7: report, never repair; remind once per state", testProposeHygieneSteps],
   ["moderate: the gated strategy step is deleted, not carried", testStrategyStepIsDeleted],
   ["propose step 9: asking costs attention, so the gates are mechanical", testProposeCheckIn],
+  ["moderate/ask-question.sh: the day cap counts today, not all time", testCheckInDayCapIsToday],
   ["[Moderate]: the template, its scope, and the shapes it authorizes", testModerateRoutineTemplate],
   ["[Workaholic]: retired, and the scope retired with it", testUserScopeRetired],
   ["specificate/read-ask-feedback-refs.sh: the ask's own feedback line", testReadAskFeedbackRefs],
@@ -22991,6 +22992,96 @@ function testProposeCheckIn() {
     const executable = mentions.filter((l) => !/^[^:]+:\d+:\s*#/.test(l));
     assertEq("the check-in never reaches for AskUserQuestion", executable, []);
     assertTrue("and says so in writing", mentions.length > 0, "the contract is not stated anywhere");
+  } finally {
+    cleanup(repo);
+  }
+}
+
+// ---------- The day cap counts TODAY, not every day the log has ever held -------------
+// (2026-08-28, mission `deliver-what-the-loop-already-knows-to-the-person-who-can-act`)
+//
+// THE JAM THIS PINS. `ask-question.sh` computed `asked_today` as `count_log_prefix
+// human-checkin-ask ""` — `log-read.sh --step-prefix human-checkin-ask` with NO day bound —
+// so the reader walked every day file under `.workaholic/moderations/` and returned the
+// ALL-TIME total. The log is append-only and a machine never prunes it, so the count only
+// ever grew: once it crossed `max_per_day` every question was refused `day_cap`, forever.
+//
+// Measured against the live tree while the mission was proposed: the unbounded reader
+// answered `count: 12, days: 5` against a cap of 10, and a fresh key on a working weekday
+// at 14:00 was refused `day_cap` with `asked_today: 12` — while the same reader bounded to
+// the current `Asia/Tokyo` day answered `count: 0`. Eight consecutive ticks reported `ok`
+// and posted nothing with a red base, a 31-hour declared handoff, three undeletable
+// branches and seven undrivable units all held behind it.
+//
+// THE FIXTURE IS WRITTEN THROUGH `log-append.sh`, never by hand, so it is the shape the
+// tick actually produces; the day comes from the tick id, so this case does not pass or
+// fail by the date it is run on.
+//
+// FOUR THINGS ARE PINNED BESIDE IT, and they bound the repair: a cap genuinely spent ON THE
+// TICK'S OWN DAY must still refuse and still HOLD, `already_asked` and `answered` must still
+// refuse, and `tick_cap` must still fire within one tick. The repair is a bound passed to a
+// reader that already accepts one — not a raised cap, and not a gate removed.
+function testCheckInDayCapIsToday() {
+  const repo = makeRepo();
+  const HK = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts");
+  const ASK = `${POSIX_SH} ${join(HK, "ask-question.sh")}`;
+  const LOG = `${POSIX_SH} ${SCRIPTS.proposeLogAppend}`;
+  // A working Wednesday at 14:00, injected: the gate reads a clock and a calendar, and a
+  // case that reads the wall clock is a case whose result depends on the day it is run on.
+  const WHEN = "--hour 14 --weekday 3";
+  const ask = (tick, key, extra = "") =>
+    JSON.parse(run(repo, `${ASK} --tick ${tick} --key ${key} --root . ${WHEN} ${extra}`).stdout);
+  try {
+    mkdirSync(join(repo, ".workaholic"), { recursive: true });
+
+    // Twelve asks across five EARLIER days — the measured shape — and none on the day the
+    // tick asks about. `log-read.sh` keys its day files off the tick id, so writing these
+    // through the sanctioned writer is what puts them on other days.
+    const earlier = ["20260821", "20260822", "20260825", "20260826", "20260827"];
+    let n = 0;
+    for (const day of earlier) {
+      for (let i = 0; i < (day === "20260827" ? 4 : 2); i++) {
+        n += 1;
+        run(repo, `${LOG} --tick ${day}-1${i}0000 --step human-checkin-ask-past-${n} --status filed --summary "asked past:${n}"`);
+      }
+    }
+    assertTrue("the fixture holds more asks than the cap", n >= 10, `only ${n}`);
+
+    // THE BEHAVIOUR BEING PINNED. Nothing was asked on the tick's own day, so the day's
+    // budget is untouched and a fresh question must be asked.
+    const fresh = ask("20260828-140000", "q:fresh-today");
+    assertTrue("a fresh key is asked when nothing was asked on the tick's own day",
+      fresh.ask, JSON.stringify(fresh));
+    assertEq("and the day count is the day's, not the log's whole history",
+      fresh.asked_today, 0);
+
+    // --- What must not move, so the repair stays a bound and not a loosening -----------
+    // A day genuinely spent still refuses, and still HOLDS: the cap is kept.
+    for (let i = 1; i <= 10; i++) {
+      // `--max-per-tick` too: ten on one tick is what fills the DAY, and the per-tick
+      // ceiling is a different gate, exercised on its own below.
+      const g = ask("20260828-150000", `q:today-${i}`, "--max-per-day 50 --max-per-tick 50");
+      assertTrue(`same-day question ${i} is allowed under a raised bound`, g.ask, JSON.stringify(g));
+      run(repo, `${LOG} --tick 20260828-150000 --step ${g.log_step} --status filed --summary "asked q:today-${i}"`);
+    }
+    const spent = ask("20260828-160000", "q:over-the-day-cap");
+    assertEq("a cap spent on the tick's own day still refuses", spent.reason, "day_cap");
+    assertEq("and holds the question rather than dropping it", spent.hold, true);
+
+    // The three refusals that share the gate, unchanged.
+    const again = ask("20260828-170000", "q:today-1", "--max-per-day 50");
+    assertEq("a key already asked is still refused", again.reason, "already_asked");
+    // Through the sanctioned writer, so the id is the library's and not a copy of it.
+    run(repo, `${POSIX_SH} ${join(HK, "record-answer.sh")} --root . --tick 20260828-170000 --key q:today-2 --answer "go ahead"`);
+    const answered = ask("20260828-170000", "q:today-2", "--max-per-day 50");
+    assertEq("an answered key is still refused as answered", answered.reason, "answered");
+    for (let i = 1; i <= 5; i++) {
+      const g = ask("20260828-180000", `q:tick-${i}`, "--max-per-day 50");
+      assertTrue(`tick question ${i} of five is allowed`, g.ask, JSON.stringify(g));
+      run(repo, `${LOG} --tick 20260828-180000 --step ${g.log_step} --status filed --summary "asked q:tick-${i}"`);
+    }
+    const sixth = ask("20260828-180000", "q:tick-6", "--max-per-day 50");
+    assertEq("the sixth question in one tick is still refused", sixth.reason, "tick_cap");
   } finally {
     cleanup(repo);
   }

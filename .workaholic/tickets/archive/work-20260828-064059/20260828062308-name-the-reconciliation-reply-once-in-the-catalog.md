@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-28T06:23:08+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -92,3 +93,35 @@ this mission carries, which is the developer confirmation the ceiling rule requi
   reconciliation is marked by its sentence, not by a new colour.
 - A closed-unmerged form is genuinely new. Keep it as quiet as the others: one line, the pull
   request link, no mention token.
+
+## Final Report
+
+Development completed as planned.
+
+`notify/reference/notifications.md` names both forms once, under `/moderate`'s entry: the merged
+one **reuses `🟢 Implemented`** and is marked by its sentence rather than a fifth finish colour,
+and `⚫ Closed` is genuinely new because *closed* and *merged* ask a reader for different things.
+Both name by whom and when, both carry no mention token, and an unresolved author or time is stated
+as unresolved rather than guessed. The `[Moderate]` template's copies are byte-identical and the
+existing drift pin now covers them; the pin also asserts the exact five shapes the template
+authorizes, so a sixth cannot appear in either document alone.
+
+The section states why the shape earns a post against the bright line — it corrects a **false last
+word** in the item's own thread, addressed to whoever follows that item, exactly once, on
+`/propose`'s receipt precedent and emphatically not `🔧 Needs a decision`'s — and answers
+`[Consent]`'s retirement **by name**: that routine announced every human merge as its own event,
+while this corrects only a thread still calling the unit in flight. The narrowing is written and
+pinned: `🔵 Proposed` and `🟡 Handoff` only, and a `🟢`-ended thread is never touched however it
+merged.
+
+### Discovered Insights
+
+- **Insight**: the catalog's block-matching pin keys on a shape's first line, and the merged
+  reconciliation reply's first line is byte-identical to `/implement`'s own finish line.
+  **Context**: that is the reuse working as intended — one event, one vocabulary — but it means the
+  pin must key on the two-line block, not the emoji. It does now, and a later shape that reuses a
+  lead line has the same obligation.
+- **Insight**: the template's own "one shape" paragraph and its "the one literal format below"
+  sentence had already been false since the confirmation reply landed on 2026-08-24.
+  **Context**: both were corrected here rather than left to accumulate — an ceiling that
+  miscounts its own shapes is the ceiling rule failing quietly.

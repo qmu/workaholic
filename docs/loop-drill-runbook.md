@@ -548,6 +548,44 @@ running the same detection against a copy of `create.sh` with the succession wir
 `testClosingResidueReader`, `testDirectionHealthLeaving` and
 `testSuccessionCostsNoFourthWriter` in the hermetic suite are CI's.
 
+## 5r. The thread reconciliation (does a finished item's thread stop calling it in flight?)
+
+`verify-reconcile` needs no seed, no fire, no issue number and **no network**: a git fixture under
+the OS temp dir and a `gh` stub on `PATH`. The drill asserts the stub is what `gh` resolves to
+rather than assuming it, and the stub answers only the calls the reader makes — a query the drill
+did not anticipate fails loudly rather than returning a plausible empty answer. The Slack half is
+**fixture data on purpose**: what is under test is which items are named and what bar the reply is
+held to, not the transport.
+
+**Nobody posted the finish.** A finish line is posted by the run that *finishes* a unit, so a pull
+request a person merges or closes by hand gets its finish posted by nobody — the item's thread
+keeps `🔵 Proposed` or `🟡 Handoff` while the work is long merged. No other step could see it:
+`stuck-prs` and `merge-conflicts` read **open** pull requests, `handoff-units` a standing claim,
+`stalled-units` a stale tip.
+
+| Row | Fails when | Read |
+| --- | ---------- | ---- |
+| `reconcile_no_network` | `gh` resolves to anything but the drill's stub | the drill is reaching the network, so every row below it proves nothing about the offline contract |
+| `reconcile_merged_named` | the hand-merged unit is not a candidate, or loses its stems, its pull request or who merged it when | the reply's sentence is built from exactly those facts; a candidate that cannot name them cannot be posted without inventing one |
+| `reconcile_closed_is_its_own_state` | a pull request closed without merging reads `merged` | the two states get two shapes because they ask a reader for different things. **A tab is IFS whitespace**, so an empty `merged_at` used to collapse and shift `closed_at` into it — the jq sentinel is what keeps the distinction |
+| `reconcile_both_shapes_named` | the catalog stops naming either reply, or the template's copy diverges | the prompt is the ceiling: a shape the template does not name may not be posted, and a second wording is a drift to fix |
+| `reconcile_thread_bar` | the stated bar misclassifies one of the four fixture threads | the bar is the whole narrowing — only `🔵`/`🟡` is stale-able, a `🟢`-ended thread and one this loop already reconciled are never touched, and no thread means nothing to correct |
+| `reconcile_two_queries` | the handed-back bound stops forbidding a channel-history read, or names a window | a window is a channel read wearing the step's name, and `workaholic:notify` forbids a full-channel read at any point |
+| `reconcile_case4_refused` | case 4's description root stops being refused by name | posting a root would announce a merge nobody was ever told about — `[Consent]`'s retired job |
+| `reconcile_one_outcome_each` | a not-posted reason goes missing, or the one-outcome rule does | no mechanical check tells a real thread read from a claimed one; what the rule buys is that a report naming no outcome is visibly wrong |
+| `reconcile_cap_reported` | the cap is exceeded, or the remainder is dropped silently | a bound nobody can see is indistinguishable from a repository with nothing waiting |
+| `reconcile_second_tick_silent` | a second tick hands the same items back | the ledger saves the lookup; the **structural** dedup (read before write) is what guarantees one reply, so neither may be traded for a cursor |
+| `reconcile_degrades_by_name` | a refused read hands back candidates, or is not named | *nothing was looked at* must never render as *nothing is stale* |
+| `reconcile_acts_on_nothing` | either script gains a merge, close, branch, commit or claim call | the step reads and the agent replies; nothing here acts on a pull request or a claim |
+| `reconcile_writes_only_its_log` | the step writes into the tree beyond the tick's own log line | the tick's standing contract, unchanged by this step |
+| `reconcile_breaker` | a candidate reader wired at the **channel** still names the candidates | **the deliberately broken row, and the one to look at first on a red drill.** Deriving candidates from the channel is the design inverted — it breaks the no-full-channel-read bound outright and makes the reader's cost grow with the channel rather than with the work |
+| `reconcile_writes_nothing` | the drill changed the checkout | every fixture lives outside the checkout |
+
+**Two proofs, and they are not the same one.** This drill is the **operator's**; the hermetic
+suite's `testReconcileCandidates` and `testThreadReconcileStep`, and the catalog↔template drift pin
+inside `testModerateRoutineTemplate`, are what **CI** enforces on every change. The drill ships to
+no other agent and CI never runs it.
+
 ## 6. Abort playbook
 
 Read the outcome first, then act. Three cases are not `reset`'s business, and running it

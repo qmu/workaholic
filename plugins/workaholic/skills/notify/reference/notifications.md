@@ -206,6 +206,24 @@ It rides the **coordinate already in hand** — the `(channel, ts)` of the messa
 
 **Two audiences, and this serves one of them.** A reaction carries no link and is invisible to anyone reading the issue rather than the thread. That is accepted: the person who wrote the answer is reading the thread, and where the answer produced an issue, that issue is assigned and GitHub notifies — a reply carrying its link would be the same noise twice, which is the argument that shaped this whole catalog.
 
+**And a thread whose last word is false is corrected in that thread, once** (2026-08-28, mission `reconcile-a-stale-thread-with-the-unit-s-real-state`). A finish line is posted by the run that **finishes** a unit (SKILL, *Which thread an `/implement` unit's posts land in*), so a pull request a person merges or closes by hand gets its finish posted by nobody: the item's thread keeps `🔵 Proposed` or `🟡 Handoff` as its last word while the work is long merged. The merged form **reuses `🟢 Implemented`** and is marked by its sentence rather than by a new colour — the reader's question is *did this finish*, and a fifth finish emoji would make one event two vocabularies:
+
+```
+🟢 Implemented - [#123 Title](<repo-url>/pull/123)
+Merged outside the loop by <who> on <when> — no run posted this item's finish.
+```
+
+A pull request that was **closed without merging** has no shape at all in this catalog, and needs one: *closed* and *merged* ask a reader for different things. It is as quiet as the rest — one line, the pull request link, no mention token:
+
+```
+⚫ Closed - [#123 Title](<repo-url>/pull/123)
+Closed without merging outside the loop on <when> — no run posted this item's finish.
+```
+
+**Why this earns a post against the bright line.** It does not announce an event; it **corrects a false last word** in the item's own thread, addressed to whoever follows that item, exactly once. The precedent is `/propose`'s inbound receipt — a post addressed to the one person already reading that thread — and emphatically **not** `🔧 Needs a decision`, which was a status line addressed to nobody. `<who>` and `<when>` come from the merge itself; an unresolved one is **stated as unresolved**, never omitted silently and never guessed.
+
+**`[Consent]`'s retirement is answered by name, not worked around.** That routine was retired on 2026-08-06 and this catalog records the consequence — *"a human-merged pull request is announced by nobody"* — with the purple-circle `Merged by <@U…>` shape erased with it (qmu/workaholic#317). **This does not reverse that.** `[Consent]` announced **every** human merge as its own event, on every thread, forever; this corrects only a thread that is **still calling the unit in flight**. The narrowing is what keeps the two apart and it is checkable: **only a thread whose last status reply is `🔵 Proposed` or `🟡 Handoff` is a candidate.** A `review` unit's thread ending at `🟢 Implemented` after a later human merge is **correct and is never touched**, which is this catalog's own standing sentence unchanged.
+
 ### `[Workaholic]` — retired, and nothing replaced it
 
 **The routine is gone** (2026-08-22, issue #557), and with it the `user` scope and `/setup-user-routines`. It held no Slack connector and posted nothing, so no shape leaves this catalog; what leaves is the entry describing why it was silent.

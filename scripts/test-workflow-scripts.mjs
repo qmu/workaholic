@@ -1338,6 +1338,81 @@ function testStandingRulingsReader() {
   } finally { cleanup(A); }
 }
 
+// ---------- the judgement seam: the run answers, no script does (2026-08-28) ----------
+// The mission's whole safety rests on one premise: a machine only ever CARRIES a ruling and
+// never authors one. So the reader takes an answer per candidate in `--aim-kind`'s shape and
+// derives none — and the breaker below is written against exactly the inference a later
+// refactor would be tempted by (one active direction, so surely that one).
+function testStandingRulingsJudgement() {
+  const READER = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/list-standing-rulings.sh");
+  const { A } = makeResidueFixture();
+  const W = join(A, ".workaholic");
+  const readerOf = (args = "") =>
+    JSON.parse(run(A, `${POSIX_SH} ${READER} --root ${W} ${args}`).stdout);
+  try {
+    // 1. ABSENT THE INPUT, NOTHING MOVED. Byte-for-byte: the seam must be invisible to every
+    // caller that does not use it.
+    const bare = run(A, `${POSIX_SH} ${READER} --root ${W}`).stdout;
+    const emptyFlag = run(A, `${POSIX_SH} ${READER} --root ${W} --judgement ""`).stdout;
+    assertEq("no judgement means no judgement block at all",
+      Object.prototype.hasOwnProperty.call(JSON.parse(bare), "judgement"), false);
+    assertEq("every candidate stays undecided",
+      JSON.parse(bare).rulings.map((r) => r.decision), ["undecided", "undecided"]);
+    assertTrue("and a supplied judgement is the only thing that adds the block",
+      JSON.parse(emptyFlag).judgement.supplied === 1, emptyFlag);
+
+    // THE BREAKER. The fixture holds EXACTLY ONE active strategy and exactly one unattributed
+    // mission, which is the shape an inference would resolve without being asked. It must not.
+    assertEq("one direction and one unattributed mission still resolve to nothing",
+      JSON.parse(bare).rulings.find((r) => r.kind === "attribution").repair,
+      "carry-attribution.sh <strategy> m2");
+    assertEq("and one uncovered address still resolves to no login",
+      JSON.parse(bare).rulings.find((r) => r.kind === "identity_mapping").repair,
+      "<login>=test@example.com");
+
+    // 2. A JUDGED CANDIDATE CARRIES THE ANSWER AND ITS RESOLVED REPAIR, so no caller ever
+    // re-composes the repair string in a second format.
+    const judged = readerOf(`--judgement m2=dir1 --judgement test@example.com=someone`);
+    assertEq("the attribution takes the direction the run named",
+      judged.rulings.filter((r) => r.kind === "attribution").map((r) => [r.decision, r.repair]),
+      [["dir1", "carry-attribution.sh dir1 m2"]]);
+    assertEq("the mapping takes the login the run named",
+      judged.rulings.filter((r) => r.kind === "identity_mapping").map((r) => [r.decision, r.repair]),
+      [["someone", "someone=test@example.com"]]);
+    assertEq("with nothing refused", judged.judgement, { supplied: 2, refused: [] });
+
+    // 3. A PARTIAL JUDGEMENT LEAVES THE REST UNDECIDED — never inferred from the one that was
+    // answered, and an undecided candidate reaches no writer.
+    const partial = readerOf(`--judgement m2=dir1`);
+    assertEq("the unjudged candidate is still undecided",
+      partial.rulings.map((r) => [r.kind, r.decision]),
+      [["attribution", "dir1"], ["identity_mapping", "undecided"]]);
+
+    // 4. AN ANSWER OUTSIDE THE READER'S OWN CANDIDATE SET IS REFUSED, not accepted: the run
+    // and the tree disagree about what is standing, and the run must be able to see why
+    // nothing was drafted.
+    const stale = readerOf(`--judgement no-such-mission=dir1 --judgement m2=dir1`);
+    assertEq("a subject the reader did not surface is refused by name",
+      stale.judgement.refused, [{ subject: "no-such-mission", reason: "subject_not_surfaced" }]);
+    assertEq("and nothing is invented for it",
+      stale.rulings.map((r) => r.subject), ["m2", "test@example.com"]);
+
+    // A judgement with no answer at all is kept and named rather than silently dropped —
+    // losing one is how a run and this reader would disagree about what was decided.
+    const malformed = readerOf(`--judgement m2 --judgement m2=`);
+    assertEq("a malformed judgement is refused by its own name",
+      [malformed.judgement.supplied, malformed.judgement.refused.map((r) => r.reason)],
+      [2, ["malformed_judgement", "malformed_judgement"]]);
+    assertEq("and it decides nothing",
+      malformed.rulings.map((r) => r.decision), ["undecided", "undecided"]);
+
+    // 5. STILL A PURE READ, under every one of those inputs.
+    assertEq("the reader left no untracked or modified file of its own",
+      execSync("git status --porcelain", { cwd: A, encoding: "utf8" })
+        .split("\n").filter((l) => l && !/open\.json/.test(l)).join("\n"), "");
+  } finally { cleanup(A); }
+}
+
 // ---------- the residue on every survey row, gating nothing (2026-08-28) ----------
 // The residue rides `survey-strategies.sh`'s rows for one consumer — the arrival question —
 // and the whole admissibility of putting it there is that IT MOVES NO GATE. `overdue`,
@@ -17894,6 +17969,7 @@ const tests = [
   ["strategy/unattributed-work.sh reads what no direction claims", testUnattributedWorkReader],
   ["strategy/closing-residue.sh composes what a direction leaves", testClosingResidueReader],
   ["moderate/list-standing-rulings.sh names the standing rulings", testStandingRulingsReader],
+  ["moderate/list-standing-rulings.sh takes the run's judgement and derives none", testStandingRulingsJudgement],
   ["direction-health names the leaving, and the last live direction", testDirectionHealthLeaving],
   ["the succession costs no fourth writer and no new field", testSuccessionCostsNoFourthWriter],
   ["the residue rides every survey row and moves no gate", testResidueOnSurveyRows],

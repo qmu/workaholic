@@ -40,7 +40,7 @@ pull request instead of editing `main` by hand.
 
 - [x] The residue is readable by name through one pure reader and rides every survey row,
       eligible and refused alike, with no gate and no sort moved. (#20260828012042-read-what-no-direction-claims.md)
-- [ ] No arrival is claimed over an unreadable residue, and the arrival question and the
+- [x] No arrival is claimed over an unreadable residue, and the arrival question and the
       run report both name the residue by slug. (#20260828012044-refuse-an-arrival-over-a-tree-we-could-not-see.md)
 - [ ] An operator's attribution ruling reaches a pull request through the loop, adding no
       field and reviving no `strategy:` relation. (#20260828012047-carry-an-operator-attribution-through-the-loop.md)
@@ -51,3 +51,4 @@ pull request instead of editing `main` by hand.
 - 2026-08-28 — ticket archived — 20260828012026-reproduce-the-false-arrival-and-pin-it.md
 - 2026-08-28 — ticket archived — 20260828012042-read-what-no-direction-claims.md
 - 2026-08-28 — ticket archived — 20260828012043-carry-the-residue-onto-every-survey-row.md
+- 2026-08-28 — ticket archived — 20260828012044-refuse-an-arrival-over-a-tree-we-could-not-see.md

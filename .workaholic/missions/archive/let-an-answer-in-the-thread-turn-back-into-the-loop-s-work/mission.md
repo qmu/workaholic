@@ -2,7 +2,7 @@
 type: Mission
 title: Let an answer in the thread turn back into the loop's work
 slug: let-an-answer-in-the-thread-turn-back-into-the-loop-s-work
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-28T03:19:16+00:00
 author: a@qmu.jp
@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260828-034109
 ---
 
 # Let an answer in the thread turn back into the loop's work
@@ -37,12 +38,22 @@ line; the tick still writes nothing but its own log.
 
 ## Acceptance
 
-- [ ] The coordinate rides the line `ask-question.sh` already writes, and the next tick
+- [x] The coordinate rides the line `ask-question.sh` already writes, and the next tick
       reads that thread and records the answer through `record-answer.sh` — one read per question, no search. (#20260828032058-record-the-coordinate-a-question-was-posted-at.md)
-- [ ] An answer asking for work becomes one `[FB]` issue through `file-inbound-ask.sh`,
+- [x] An answer asking for work becomes one `[FB]` issue through `file-inbound-ask.sh`,
       filed once however many ticks read it, and carries the reaction. (#20260828032101-turn-an-answer-that-asks-for-work-into-an-issue.md)
-- [ ] The path is drilled with no network, and the documents say so. (#20260828032058-reproduce-the-dead-return-path-and-pin-it.md)
+- [x] The path is drilled with no network, and the documents say so. (#20260828032058-reproduce-the-dead-return-path-and-pin-it.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-28 — ticket archived — 20260828032058-record-the-coordinate-a-question-was-posted-at.md
+- 2026-08-28 — ticket archived — 20260828032058-read-the-answer-in-a-question-s-own-thread.md
+- 2026-08-28 — ticket archived — 20260828032058-record-the-answer-through-the-one-writer.md
+- 2026-08-28 — ticket archived — 20260828032101-turn-an-answer-that-asks-for-work-into-an-issue.md
+- 2026-08-28 — ticket archived — 20260828032101-stamp-the-answer-where-it-was-written.md
+- 2026-08-28 — ticket archived — 20260828032058-reproduce-the-dead-return-path-and-pin-it.md
+- 2026-08-28 — ticket archived — 20260828032101-drill-the-return-path-with-no-network.md
+- 2026-08-28 — ticket archived — 20260828032102-write-the-return-path-into-the-documents.md
+- 2026-08-28 — mission achieved — mission.md
+- 2026-08-28 — story reported — work-20260828-034109.md

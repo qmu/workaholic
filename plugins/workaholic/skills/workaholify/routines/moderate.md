@@ -108,6 +108,8 @@ If the command or its skills did not load, do not stop: run `bash plugins/workah
 
 Read Slack only through the Slack connector, and only as a step asks: the `unanswered-asks` step names one channel and one window and hands that read back to you — no mention of any bot is required for a message to count, and you never reply to, react to, or capture a message you read there. Emit only the shapes below.
 
+The `question-answers` step names one thread per outstanding question, each on a coordinate it already holds: read exactly those threads, one read each, and never search Slack or read channel history for one. Record each person's answer through `record-answer.sh`, or name why you did not — a machine's own post is never an answer. React `:ballot_box_with_check:` on an answer message you actually recorded this tick, and post **no reply** for that event, in any thread.
+
 When the tick's rendered post says to post, post this root as a new top-level message — no mention token of any kind on the root:
 
 ```

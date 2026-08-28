@@ -1,6 +1,6 @@
 ---
 name: moderate
-description: Use when a session runs `/moderate` — the hourly maintenance tick that keeps the space around the loop judgeable. Defines the twenty-one-step run, the hourly thread it posts, what each step may write, the tick log it leaves behind, and the rulings the ask's steps are held to.
+description: Use when a session runs `/moderate` — the hourly maintenance tick that keeps the space around the loop judgeable. Defines the twenty-two-step run, the hourly thread it posts, what each step may write, the tick log it leaves behind, and the rulings the ask's steps are held to.
 allowed-tools: Bash
 user-invocable: false
 skills:
@@ -15,7 +15,7 @@ metadata:
 
 The loop's **maintenance tick**. `[Specificate]` turns asks into work and `[Implement]` drives it; nothing keeps the space *around* them tidy — stale issues, GitHub↔`.workaholic/` drift, pull requests stuck after a failed auto-merge, documentation that no longer matches the concept. `/moderate` finds those, files them **through the existing seams**, and says what needs a human (issue #471).
 
-Relocated detail: [the twenty-one-step contract](reference/workflow.md) — each step's inputs, what it may write, its abort reasons, and the ruling it is held to.
+Relocated detail: [the twenty-two-step contract](reference/workflow.md) — each step's inputs, what it may write, its abort reasons, and the ruling it is held to.
 
 ## The tick has a voice, and it is one thread an hour
 
@@ -53,6 +53,7 @@ It was two gates, OR'd — a question **or** a changed step — and the second h
 - **It describes the state, never the person.** A direction filed an hour ago reads `dormant` correctly; "nothing has answered it yet" is a fact about the direction, and an accusation would be a fact about nobody.
 - **A reading is described, never asserted as a verdict** (2026-08-27). The `direction-arrived:<slug>` question says everything attributed to the direction has landed and nothing is waiting, names **what landed and the date**, and asks — it never says the direction is *finished*. A strategy's "Reached when" is prose no script reads, so arrival is a **candidate**; the operator's answer decides, and the tick closes nothing either way. **And since 2026-08-28 it names what the reading could not see**: the unattributed active missions by slug with their queued-ticket counts, bounded to three names with the rest counted. *Everything attributed has landed* was true and **partial**, and the operator could not see which half they were ruling on. The residue is carried from the survey row, never re-read here; a **degraded** residue read yields no `arrived` reading and therefore no question at all (`workaholic:propose`, `workaholic:strategy`).
 - **Nothing parses the answer.** `record-answer.sh` stores prose exactly as it always has; acting on it stays the next run's judgement.
+- **And an answer written in the question's own thread reaches that writer** (2026-08-28, mission `let-an-answer-in-the-thread-turn-back-into-the-loop-s-work`). It reached nothing until then: a reply in the `🔎 Moderation` thread is not a channel message, so `unanswered-asks` cannot see it, the `:40` sweep excludes answers to the tick's own questions by rule, and `record-answer.sh` was reachable only from the moderator's own session — one session per answer. The `question-answers` step names the outstanding questions and **the coordinate each was posted at**, which `ask-question.sh --record-ask` wrote onto the ask line at post time, and hands one `slack_read_thread` per candidate back to the agent — **no search, no channel history**, and no new store, no second inbox and no second writer. What it does: the person's words go to `record-answer.sh`, an answer that **asks for something** becomes one `[FB]` issue through `file-inbound-ask.sh`, and an answer this run recorded carries the catalog's reaction on its own message. What it does not: **no reply is posted for this event**, a machine's post is never an answer, an unsure read records nothing and says why, and the filing and the stamp are never load-bearing on the recording. The dedup is structural — an `answered` question is not a candidate — so one answer is read, filed and stamped once however many ticks run (`reference/workflow.md` §22).
 
 Like the `## Open Decisions` floor, this is a **prose contract, not a script gate** — no mechanical check tells a real three-part question from a padded one. What it buys is that a question missing one of the three is visibly non-conformant.
 
@@ -70,7 +71,7 @@ Like the `## Open Decisions` floor, this is a **prose contract, not a script gat
 bash ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/run.sh
 ```
 
-One invocation is one **tick**. It mints the tick id (`tick-id.sh`, UTC — every later write in the same tick is passed that id), runs the twenty-one steps **in order**, writes **one log line per step** into `.workaholic/moderations/<UTC-day>.md`, and returns the report as JSON. The step list lives in `run.sh`, not in this prose: every step is invoked and every step contributes a line, so a step that is missing, crashes, or prints nothing is reported `degraded` with its reason instead of vanishing from the report.
+One invocation is one **tick**. It mints the tick id (`tick-id.sh`, UTC — every later write in the same tick is passed that id), runs the twenty-two steps **in order**, writes **one log line per step** into `.workaholic/moderations/<UTC-day>.md`, and returns the report as JSON. The step list lives in `run.sh`, not in this prose: every step is invoked and every step contributes a line, so a step that is missing, crashes, or prints nothing is reported `degraded` with its reason instead of vanishing from the report.
 
 `--deadline-seconds <n>` bounds a tick. Steps not reached are logged `skipped` with reason `budget`, **by name** — a step that ran out of clock and a step that found nothing must never read the same.
 
@@ -107,7 +108,7 @@ Full rationale for both decisions (why it is not knowledge, why nothing prunes i
 
 ## What the ask asked for, and what this is held to
 
-The ask (issue #471) named nine steps (there are twenty-one: the release reads merged in, `stalled-units` and `closable-missions` were added 2026-08-23, `strategy-digest` — the integrated standup — on 2026-08-24, `direction-health`, `unanswered-asks` and `undrivable-units` on 2026-08-26, and `undelivered-units`, `retire-claims`, `handoff-units` and `base-health` on 2026-08-27) and, at five points, met a decision the loop had already made. None of them is resolved by this skill quietly:
+The ask (issue #471) named nine steps (there are twenty-two: the release reads merged in, `stalled-units` and `closable-missions` were added 2026-08-23, `strategy-digest` — the integrated standup — on 2026-08-24, `direction-health`, `unanswered-asks` and `undrivable-units` on 2026-08-26, `undelivered-units`, `retire-claims`, `handoff-units` and `base-health` on 2026-08-27, and `question-answers` on 2026-08-28) and, at five points, met a decision the loop had already made. None of them is resolved by this skill quietly:
 
 - **Step 8 inverts the propose bar.** `workaholic:specificate` states that missions, the queue and commits are *constraints, never triggers* — feedback is the only input that can originate a proposal, and the retired `[Propose Batch]` design was exactly a sweep of the repository's own state for something to propose. Proposing *from a strategy* is a reversal, not an addition, and it is ruled on in its own ticket.
 - **`🟡 Proposing` collides with two standing shapes** — 🟡 is the handoff finish line, and the start post was retired on 2026-08-11 by the developer's order. Reintroducing a start post and reusing 🟡 are two separate rulings.

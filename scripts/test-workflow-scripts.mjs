@@ -17349,6 +17349,7 @@ const tests = [
   ["moderate: the tick runs every step, and every step reports", testModerateRun],
   ["moderate/step-stalled-units.sh: what is claimed and how long it has not moved", testStalledUnitsStep],
   ["moderate: a question is never_asked, asked, or answered", testQuestionAnswerStates],
+  ["moderate: an answer in a question's own thread reaches the writer", testAnswerReturnPath],
   ["moderate: liveness, and the one bounded re-ask", testQuestionLivenessAndReask],
   ["moderate: the tick's records reach the base", testTickRecordsReachTheBase],
   ["commit.sh: refuses a commit that splits a rename", testCommitRefusesSplitRename],
@@ -21602,6 +21603,165 @@ function testQuestionAnswerStates() {
   } finally { cleanup(dir); }
 }
 
+// ---------- the return path: an answer in a question's own thread (2026-08-28) ----------
+// Mission `let-an-answer-in-the-thread-turn-back-into-the-loop-s-work`.
+//
+// THE MEASUREMENT, taken before anything was built, with where each fact was read:
+//   1. `record-answer.sh` is the only writer of the answered line, and NOTHING in the plugin
+//      executes it — only comments name it (grep over `plugins/`, 2026-08-28). Its own header
+//      documents the flow as the developer answering inside the moderator's own session,
+//      which costs a session per answer.
+//   2. `step-unanswered-asks.sh` reads `WORKAHOLIC_INBOUND_SLACK_CHANNEL` over a window
+//      (its header, *THE WINDOW AND THE CHANNEL*), so a reply inside the tick's own thread —
+//      not a channel message — is invisible to it by construction.
+//   3. The `:40` inbound sweep excludes answers to the tick's own questions by rule
+//      (`plugins/workaholic/skills/propose/SKILL.md`, *What is FB-worthy*).
+//   4. `question-state.sh` therefore stayed `asked` forever, and the person's words died in
+//      Slack.
+//
+// THE FLIP POINT is marked below. It was written as *the walk ends `asked`* and is now
+// *the walk ends `answered`*, once the coordinate is recorded, the step names the thread, and
+// the agent hands the words to the writer. What did NOT flip, and is pinned as still true, is
+// that no SCRIPT records an answer: the judgement of which reply is a person's answer stays
+// the agent's, which is the whole reason the read is handed back rather than taken in shell.
+function testAnswerReturnPath() {
+  const M = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts");
+  const ASK = `${POSIX_SH} ${join(M, "ask-question.sh")}`;
+  const REC = `${POSIX_SH} ${join(M, "record-answer.sh")}`;
+  const STATE = `${POSIX_SH} ${join(M, "question-state.sh")}`;
+  const STEP = `${POSIX_SH} ${join(M, "step-question-answers.sh")}`;
+  const dir = mkdtempSync(join(tmpdir(), "wh-return-"));
+  mkdirSync(join(dir, ".workaholic"), { recursive: true });
+  const K = "stalled-unit:m1";
+  const COORD = "C0123ABC:1756345678.123456";
+  const st = (key = K) => JSON.parse(execSync(`${STATE} --root ${dir} --key '${key}'`, { encoding: "utf8" }));
+  const step = (tick) => JSON.parse(execSync(`${STEP} --tick ${tick} --root ${dir}`, { encoding: "utf8" }));
+  try {
+    // ---- 1. THE COORDINATE RIDES THE ASK LINE, RECORDED WHEN THE POST SUCCEEDED ----
+    const gate = JSON.parse(execSync(
+      `${ASK} --tick 20260828-100000 --root ${dir} --key '${K}' --to a@example.com --hour 10 --weekday 1`,
+      { encoding: "utf8" }));
+    assertEq("the gate lets a fresh question through", gate.ask, true);
+    const recorded = JSON.parse(execSync(
+      `${ASK} --record-ask --tick 20260828-100000 --root ${dir} --key '${K}' --log-step ${gate.log_step} --coordinate ${COORD}`,
+      { encoding: "utf8" }));
+    assertEq("the ask is recorded under the step the gate named",
+      [recorded.recorded, recorded.log_step], [true, gate.log_step]);
+    assertEq("and the coordinate is recoverable from the log by the question's key",
+      [st().state, st().coordinate, st().coordinate_reason], ["asked", COORD, ""]);
+
+    // A question asked with NO coordinate is an ordinary state and reads a NAMED ABSENCE —
+    // never an error and never a guessed coordinate, because the alternative to naming it is
+    // a later tick searching the channel for the thread, which is the history read this
+    // design exists to avoid.
+    execSync(`${ASK} --record-ask --tick 20260828-100000 --root ${dir} --key 'stalled-unit:m2'`, { stdio: "ignore" });
+    assertEq("a question posted with no coordinate names the absence",
+      [st("stalled-unit:m2").coordinate, st("stalled-unit:m2").coordinate_reason], ["", "not_recorded"]);
+    // A malformed one is REFUSED rather than stored: recorded, it reads a tick later as a
+    // thread with nothing in it, which is indistinguishable from nobody answering.
+    assertEq("a malformed coordinate is refused, not recorded",
+      JSON.parse(execSync(`${ASK} --record-ask --tick 20260828-100000 --root ${dir} --key 'k3' --coordinate nope`,
+        { encoding: "utf8" })).reason, "bad_coordinate");
+    assertEq("so that key was never asked", st("k3").state, "never_asked");
+
+    // ---- 2. THE GATE DID NOT MOVE ----
+    // Adding a coordinate must not change WHICH questions are asked or how often.
+    assertEq("the gate still refuses an asked question",
+      JSON.parse(execSync(`${ASK} --tick 20260828-110000 --root ${dir} --key '${K}' --to a@example.com --hour 11 --weekday 1`,
+        { encoding: "utf8" })).reason, "already_asked");
+    assertEq("quiet hours still hold a fresh one",
+      JSON.parse(execSync(`${ASK} --tick 20260828-230000 --root ${dir} --key 'q:new' --to a@example.com --hour 23 --weekday 1`,
+        { encoding: "utf8" })).reason, "quiet_hours");
+    assertEq("and the working-day gate still holds one",
+      JSON.parse(execSync(`${ASK} --tick 20260828-100000 --root ${dir} --key 'q:new2' --to a@example.com --hour 10 --weekday 7`,
+        { encoding: "utf8" })).reason, "off_day");
+
+    // ---- 3. THE STEP NAMES THE THREAD TO READ, AND ONLY THAT ----
+    let s = step("20260828-120000");
+    assertEq("the step is ok and hands one request back", [s.step, s.status], ["question-answers", "ok"]);
+    const need = s.needs_agent[0];
+    assertEq("one candidate: the outstanding question with a coordinate",
+      need.candidates.map((c) => [c.key, c.coordinate]), [[K, COORD]]);
+    // A candidate with no coordinate is COUNTED AND NAMED, never searched for.
+    assertEq("the coordinate-less question is named rather than searched for",
+      need.no_coordinate.map((c) => c.key), ["stalled-unit:m2"]);
+    assertTrue("and the summary counts both", /1 thread\(s\) to read .*1 with no coordinate/.test(s.summary), s.summary);
+    // ITS EVENT IS ALWAYS EMPTY: at the moment run.sh reads this line nobody has looked at any
+    // thread, so any event would be a claim about a reading not yet made.
+    assertEq("it supplies no event, so it renders no root line", s.event, "");
+
+    // ---- 4. THE FLIP POINT (ticket `20260828032058-reproduce-the-dead-return-path-and-pin-it`
+    // wrote this expectation as `asked`; the ticket that wired the read flipped it) ----
+    // The person's reply is fixture data — what is under test is which writer sees it, not the
+    // transport. The machine's own post in the same thread is excluded BY SHAPE and must never
+    // be recorded; nothing here parses either one.
+    const thread = [
+      { user: "bot", text: "🙋 <@U123> - a claimed unit has not moved for a day or more" },
+      { user: "person", text: "Release the claim - the lab moved to packages/app." },
+    ];
+    const human = thread.filter((r) => r.user === "person");
+    assertEq("exactly one reply in the thread is a person's", human.length, 1);
+    assertEq("an answer is recorded through the one writer",
+      JSON.parse(execSync(`${REC} --root ${dir} --tick 20260828-120000 --key '${K}' --answer '${human[0].text}'`,
+        { encoding: "utf8" })).recorded, true);
+    assertEq("and the walk now ends `answered`, carrying the words",
+      [st().state, st().answer], ["answered", human[0].text]);
+    const after = JSON.parse(execSync(
+      `${ASK} --tick 20260828-130000 --root ${dir} --key '${K}' --to a@example.com --hour 13 --weekday 1`,
+      { encoding: "utf8" }));
+    assertEq("the gate refuses it by its own name and carries the words",
+      [after.ask, after.reason, after.answer], [false, "answered", human[0].text]);
+
+    // ---- 5. AN ANSWERED QUESTION LEAVES THE CANDIDATE SET, WHICH IS THE DEDUP ----
+    // One answer is read once, filed once and stamped once however many ticks run: a question
+    // in state `answered` is not a candidate at all, so no cursor and no second ledger exist.
+    s = step("20260828-130000");
+    assertEq("the answered question is no longer a thread to read",
+      (s.needs_agent[0] ? s.needs_agent[0].candidates : []).map((c) => c.key), []);
+
+    // ---- 6. NO SCRIPT RECORDS AN ANSWER; THE AGENT DOES ----
+    // This is the localization assertion, and it did NOT flip: a shell script deciding which
+    // reply is a person's answer would put a model judgement inside a gate.
+    // An INVOCATION is a path reference (`"${SCRIPT_DIR}/x.sh"`), which is how every script
+    // here reaches another; a bare name inside a JSON payload is the step telling the AGENT
+    // what to call, and that is exactly the shape under test rather than a violation of it.
+    const invokes = (body, name) => new RegExp(`/${name.replace(/\./g, "\\.")}`).test(body);
+    const scripts = readdirSync(M).filter((f) => f.endsWith(".sh"));
+    for (const f of scripts) {
+      const body = readFileSync(join(M, f), "utf8").split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+      if (f !== "record-answer.sh") {
+        assertTrue(`${f} never executes record-answer.sh`, !invokes(body, "record-answer.sh"), f);
+      }
+      if (f !== "question-state.sh" && f !== "ask-question.sh") {
+        assertTrue(`${f} never executes question-state.sh`, !invokes(body, "question-state.sh"), f);
+      }
+    }
+    const stepBody = readFileSync(join(M, "step-question-answers.sh"), "utf8")
+      .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+    assertTrue("and the read step makes no gh call of any kind", !/\bgh\b/.test(stepBody), stepBody.slice(0, 200));
+    assertTrue("nor names a channel: it reads threads on coordinates, never channel history",
+      !/INBOUND_SLACK_CHANNEL/.test(stepBody), stepBody.slice(0, 200));
+
+    // ---- 7. REGISTERED, AND THE CHECK-IN IS STILL LAST ----
+    const steps = readFileSync(join(M, "run.sh"), "utf8").match(/^STEPS='([^']+)'/m)[1].split(" ");
+    assertTrue("the step is in run.sh's list", steps.includes("question-answers"), steps.join(" "));
+    assertTrue("and runs before the check-in, which stays last",
+      steps.indexOf("question-answers") < steps.indexOf("human-checkin")
+        && steps[steps.length - 1] === "human-checkin", steps.join(" "));
+
+    // ---- 8. THE PROSE THAT KEEPS THE SWEEP OUT OF IT ----
+    // Weaker than a script assertion and labelled as such: it catches the rule being deleted,
+    // not the rule being misapplied.
+    const proposeSkill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/propose/SKILL.md"), "utf8");
+    assertTrue("the `:40` sweep still routes answers to record-answer.sh, not to a new issue",
+      /answers to the tick's own questions[\s\S]{0,200}record-answer\.sh/.test(proposeSkill),
+      "the exclusion is gone from propose/SKILL.md");
+    const workflow = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/moderate/reference/workflow.md"), "utf8");
+    assertTrue("and the judgement's bar is written down, not left to the reader",
+      /a machine's post is never an answer/.test(workflow), "the bar is missing from the workflow reference");
+  } finally { cleanup(dir); }
+}
+
 // ---------- moderate/step-stalled-units.sh (2026-08-23, issue #584) ----------
 // The step that lets the check-in learn a claimed unit has stopped. Before it, a loop
 // stalled for eleven consecutive ticks while the one surface that names a person heard
@@ -21781,6 +21941,12 @@ function testModerateRun() {
     // step whose whole output is a question, and it is placed here because it is the only one
     // whose reading the agent completes — the script names the channel, the window and the
     // already-asked refs, and hands the probe back.
+    // `question-answers` sits beside it (2026-08-28): the answer a person wrote in a
+    // question's OWN thread, on a coordinate the ask line already carries. Same split and
+    // same reason — the script names the threads, the agent reads them — and it runs before
+    // `unanswered-asks` because a question the tick just learned was answered is not a
+    // person still waiting.
+    "question-answers",
     "unanswered-asks", "human-checkin"];
   try {
     // A tick only makes sense in a repository the loop already writes to; step 1 is the
@@ -22503,6 +22669,29 @@ function testModerateRoutineTemplate() {
   // 2026-08-22.
   assertTrue("the question prints no key", !/`ask:/.test(block(catalog, "🙋 <@U…>")),
     block(catalog, "🙋 <@U…>"));
+
+  // AND ONE REACTION, WHICH IS NOT A SHAPE (2026-08-28, mission
+  // `let-an-answer-in-the-thread-turn-back-into-the-loop-s-work`). An answer the tick read is
+  // stamped where it was written — a reaction on the answer message and NO reply, because a
+  // reply into a thread the person is already reading is the restatement this catalog has
+  // retired posts for twice. The emoji is named ONCE, in the catalog, and read from there by
+  // the template, exactly as `/propose`'s receipt reaction is.
+  {
+    const named = [...catalog.matchAll(/an answer the tick read is stamped where it was written: `(:[a-z_]+:)`/g)]
+      .map((m) => m[1]);
+    assertEq("the catalog names the answer stamp exactly once", named.length, 1);
+    assertTrue("and the template's prompt authorizes that same reaction",
+      template.includes(named[0]), template);
+    // It must not be the SWEEP's reaction: capturing a channel message and reading an answer
+    // to our own question are different events, and one emoji for both is how a reader stops
+    // being able to tell them apart.
+    const receipt = [...catalog.matchAll(/reaction on the message itself: `(:[a-z_]+:)`/g)].map((m) => m[1]);
+    assertEq("the sweep's receipt reaction is still named exactly once", receipt.length, 1);
+    assertTrue("and the two events do not share one emoji", named[0] !== receipt[0],
+      `${named[0]} === ${receipt[0]}`);
+    assertTrue("the stamp posts no reply, and the template says so",
+      /post \*\*no reply\*\* for that event/.test(template), template);
+  }
 
   // Scope, cron and the write grant are the template's own claims; CLAUDE.md's routines
   // table must state the same ones, since that table is where a human reads them.

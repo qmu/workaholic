@@ -3877,7 +3877,194 @@ cmd_verify_handoff_question() {
     emit_verdict "handoff-question" 0 "pass" 0
 }
 
-USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-specificate <issue>|verify-implement <issue>|verify-plan [--json]|verify-status [--json]|verify-cadence [--json]|verify-planner [--json]|verify-standup [--json]|verify-moderate [--json]|verify-propose [--json]|verify-direction-health [--json]|verify-arrival [--json]|verify-residue [--json]|verify-revision [--json]|verify-merged-claim [--json]|verify-identity-handoff [--json]|verify-close [--json]|verify-retire [--json]|verify-delivery-retry [--json]|verify-handoff-question [--json]|verify-base-health [--json]"}'
+# ---------------------------------------------------------------- verify-return-path
+#
+# THE RETURN PATH: an answer written in a question's own thread reaches the loop's work.
+#
+# Walks the five stages in order over LOCAL fixtures with the transport stubbed and NO
+# NETWORK AT ALL -- ask -> reply -> record -> file -> stamp -- and asserts after each. The
+# negatives are half the contract and are asserted beside the happy path: a machine's own
+# reply is never an answer, a second tick over the same thread files nothing and stamps
+# nothing, a candidate with no coordinate is NAMED rather than searched for, and a failed
+# stamp changes nothing.
+#
+# THE BREAKER ROW IS THE POINT OF THE DRILL. The natural mistake is to wire the read at the
+# CHANNEL instead of the question's own thread, which silently reintroduces the channel
+# history read this design avoids and which `workaholic:notify`'s two-query bound protects.
+# The drill runs a COPY of the step with the channel wired in and asserts it FAILS the same
+# check the real step passes -- so a drill that would pass over a broken implementation is
+# caught here rather than in production.
+#
+# The Slack half is fixture data on purpose: what is under test is which writer sees a reply,
+# not the transport.
+cmd_verify_return_path() {
+    _ask="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/ask-question.sh"
+    _state="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/question-state.sh"
+    _record="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/record-answer.sh"
+    _step="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/step-question-answers.sh"
+    _filer="${REPO_ROOT}/plugins/workaholic/skills/propose/scripts/file-inbound-ask.sh"
+    for _f in "$_ask" "$_state" "$_record" "$_step" "$_filer"; do
+        [ -f "$_f" ] || emit_err "return_path_seam_unreadable" 4 "${_f} is not present in this checkout"
+    done
+
+    _before=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+
+    _tmp=$(mktemp -d)
+    _fx="${_tmp}/repo"; _bin="${_tmp}/bin"
+    mkdir -p "${_fx}/.workaholic" "$_bin"
+
+    _key="stalled-unit:drill-unit"
+    _coord="C0DRILL01:1756345678.123456"
+    _answer_ts="1756345999.000100"
+    _words="Yes - and please make the drill say which thread it read."
+
+    # The stub answers `gh api user` and one issue POST, and NOTHING else: a query this drill
+    # did not anticipate must fail loudly rather than return a plausible empty answer.
+    printf '#!/bin/sh\ncase "$*" in\n  *"api user"*) printf "drill-runner\\n"; exit 0 ;;\n  *issues*POST*|*POST*issues*) cat >/dev/null; echo %s; exit 0 ;;\nesac\necho "unexpected gh call: $*" >&2; exit 1\n' \
+        "'{\"html_url\": \"https://example.invalid/issues/1\", \"number\": 1, \"assignees\": [{\"login\": \"drill-runner\"}]}'" \
+        > "${_bin}/gh"
+    chmod +x "${_bin}/gh"
+    if [ "$(PATH="${_bin}:$PATH" command -v gh)" = "${_bin}/gh" ]; then
+        add_row "return_path_no_network" true "the stub is what gh resolves to, so no row below reaches the network" load
+    else
+        add_row "return_path_no_network" false "gh does not resolve to the stub; this drill would reach the network" load
+        rm -rf "$_tmp"
+        emit_verdict "return-path" 0 "fail" 1
+    fi
+
+    _in() { ( cd "$_fx" && PATH="${_bin}:$PATH" "$@" ) 2>&1 || true; }
+    _field() { printf '%s' "$1" | sed -n "s/.*\"$2\": *\"\\([^\"]*\\)\".*/\\1/p" | head -1; }
+
+    # 1. THE COORDINATE IS RECORDED WHERE THE QUESTION WAS POSTED.
+    _gate=$(_in sh "$_ask" --tick 20260101-100000 --root "$_fx" --key "$_key" \
+        --to drill@example.com --hour 10 --weekday 1)
+    _logstep=$(_field "$_gate" log_step)
+    _in sh "$_ask" --record-ask --tick 20260101-100000 --root "$_fx" --key "$_key" \
+        --log-step "$_logstep" --coordinate "$_coord" >/dev/null
+    # A second question, deliberately posted with NO coordinate: an ordinary state that must be
+    # named rather than searched for.
+    _in sh "$_ask" --record-ask --tick 20260101-100000 --root "$_fx" --key "direction-dormant:drill" >/dev/null
+    _st=$(_in sh "$_state" --root "$_fx" --key "$_key")
+    if [ "$(_field "$_st" coordinate)" = "$_coord" ] && [ "$(_field "$_st" state)" = "asked" ]; then
+        add_row "return_path_coordinate_recorded" true "the coordinate the question was posted at is recoverable by its key, with no search" load
+    else
+        add_row "return_path_coordinate_recorded" false "the coordinate did not round-trip: $(one_line "$_st")" load
+    fi
+
+    # 2. THE READ NAMES THE RIGHT CANDIDATES -- and only them.
+    _out=$(_in sh "$_step" --tick 20260101-110000 --root "$_fx")
+    if printf '%s' "$_out" | grep -q "\"key\":\"${_key}\",\"coordinate\":\"${_coord}\"" \
+        && printf '%s' "$_out" | grep -q '"no_coordinate":\[{"slug":"direction-dormant'; then
+        add_row "return_path_read_names_thread" true "one thread to read on the recorded coordinate; the coordinate-less question is named, not searched for" load
+    else
+        add_row "return_path_read_names_thread" false "the candidate set is wrong: $(one_line "$_out")" load
+    fi
+    # THE BOUND, ASSERTED RATHER THAN TRUSTED: no channel, no window, no search.
+    if printf '%s' "$_out" | grep -q 'NO search, NO channel history' \
+        && ! printf '%s' "$_out" | grep -q 'window_hours'; then
+        add_row "return_path_no_channel_read" true "the read is bounded to one thread per candidate on a known coordinate; no channel and no window are named" load
+    else
+        add_row "return_path_no_channel_read" false "the read is not bounded to the question's own thread: $(one_line "$_out")" load
+    fi
+
+    # 3. THE ANSWER IS RECORDED THROUGH THE ONE WRITER -- and a machine's post is not one.
+    # The thread is fixture data; the judgement is the agent's, so what the drill asserts is
+    # that the bar is stated and that the HUMAN reply is what reaches the writer.
+    _in sh "$_record" --root "$_fx" --tick 20260101-110000 --key "$_key" --answer "$_words" >/dev/null
+    _st=$(_in sh "$_state" --root "$_fx" --key "$_key")
+    if [ "$(_field "$_st" state)" = "answered" ] \
+        && printf '%s' "$_st" | grep -qF "$_words"; then
+        add_row "return_path_answer_recorded" true "the question reads answered and carries the person's words verbatim" load
+    else
+        add_row "return_path_answer_recorded" false "the answer did not reach the writer: $(one_line "$_st")" load
+    fi
+    if printf '%s' "$_out" | grep -q 'excluded BY SHAPE and is never an answer'; then
+        add_row "return_path_machine_post_excluded" true "the read hands back the bar: a machine's own post is never an answer" load
+    else
+        add_row "return_path_machine_post_excluded" false "the judgement's bar is not carried to the agent: $(one_line "$_out")" load
+    fi
+
+    # 4. AN ANSWER THAT ASKS FOR WORK FILES EXACTLY ONE ISSUE, THROUGH THE FILER THE SWEEP
+    # ALREADY USES. The dedup marker is the answer message's own coordinate, read back out of
+    # the issue ledger by `list-swept-slack-refs.sh` -- the same marker and the same reader.
+    printf '%s\n' "$_words" > "${_tmp}/body"
+    _filed=$(_in sh "$_filer" --slack-ref "C0DRILL01:${_answer_ts}" \
+        --permalink "https://example.invalid/archives/C0DRILL01/p1" \
+        --subject "person:drill" --assignee drill-runner \
+        acme/drill "Make the drill say which thread it read" "${_tmp}/body")
+    if printf '%s' "$_filed" | grep -q '"ok": true'; then
+        add_row "return_path_issue_filed" true "the answer became one [FB] issue through file-inbound-ask.sh, assigned to the running identity" load
+    else
+        add_row "return_path_issue_filed" false "the filing did not go through the one filer: $(one_line "$_filed")" load
+    fi
+
+    # 5. A SECOND TICK FILES NOTHING AND STAMPS NOTHING. The dedup is structural: an answered
+    # question is not a candidate, so no cursor and no second ledger exist.
+    _out2=$(_in sh "$_step" --tick 20260101-120000 --root "$_fx")
+    if ! printf '%s' "$_out2" | grep -q "\"key\":\"${_key}\""; then
+        add_row "return_path_filed_once" true "the answered question is no longer a thread to read, so a later tick files and stamps nothing" load
+    else
+        add_row "return_path_filed_once" false "a later tick would read and file the same answer again: $(one_line "$_out2")" load
+    fi
+
+    # 6. THE STAMP IS A REACTION AND NOTHING ELSE, NAMED ONCE IN THE CATALOG.
+    _catalog="${REPO_ROOT}/plugins/workaholic/skills/notify/reference/notifications.md"
+    _template="${REPO_ROOT}/plugins/workaholic/skills/workaholify/routines/moderate.md"
+    _emoji=$(sed -n 's/.*an answer the tick read is stamped where it was written: `\(:[a-z_]*:\)`.*/\1/p' "$_catalog" | head -1)
+    if [ -n "$_emoji" ] && grep -qF "$_emoji" "$_template" \
+        && grep -q 'post \*\*no reply\*\* for that event' "$_template"; then
+        add_row "return_path_stamp_is_a_reaction" true "the catalog names ${_emoji} once, the routine authorizes it, and no reply is posted for this event" load
+    else
+        add_row "return_path_stamp_is_a_reaction" false "the stamp is not a single-sourced reaction, or the template still allows a reply" load
+    fi
+    # A FAILED STAMP CHANGES NOTHING: the recording and the filing both happened before it was
+    # attempted, so the state after a stamp that never lands is the state asserted above.
+    _st2=$(_in sh "$_state" --root "$_fx" --key "$_key")
+    if [ "$(_field "$_st2" state)" = "answered" ]; then
+        add_row "return_path_stamp_not_load_bearing" true "with no stamp attempted at all the answer stays recorded and the question stays answered" load
+    else
+        add_row "return_path_stamp_not_load_bearing" false "the recording depends on the stamp: $(one_line "$_st2")" load
+    fi
+
+    # 7. THE BREAKER ROW, LABELLED AS THE INTENTIONAL FAILURE. A copy of the step wired at the
+    # CHANNEL instead of the question's own thread must fail the bound check above.
+    _broken="${_tmp}/broken"
+    mkdir -p "$_broken"
+    cp -R "${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/." "$_broken/"
+    # Both halves of the bound are broken, because both are what the mistake would look
+    # like: the phrase that forbids a history read, and a window the step has no business
+    # naming at all.
+    _wire_at_channel() {
+        sed -e 's/NO search, NO channel history/read the channel over the window/' \
+            -e 's/surface: "slack",/surface: "slack", window_hours: 26,/' \
+            "${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/step-question-answers.sh" \
+            > "${_broken}/step-question-answers.sh"
+        chmod +x "${_broken}/step-question-answers.sh"
+    }
+    _wire_at_channel
+    _bout=$(_in sh "${_broken}/step-question-answers.sh" --tick 20260101-130000 --root "$_fx")
+    if printf '%s' "$_bout" | grep -q 'NO search, NO channel history'; then
+        add_row "return_path_breaker" false "the breaker row did not break the seam, so this drill cannot fail" load
+    else
+        add_row "return_path_breaker" true "a step wired at the channel fails the bound check the real step passes (this drill can fail)" load
+    fi
+
+    # 8. NOTHING WAS WRITTEN OUTSIDE THE FIXTURE.
+    _after=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+    if [ "$_before" = "$_after" ]; then
+        add_row "return_path_writes_nothing" true "the checkout is byte-identical after the drill" load
+    else
+        add_row "return_path_writes_nothing" false "the drill changed the working tree" load
+    fi
+
+    rm -rf "$_tmp"
+    if [ "$LOAD_FAILED" -gt 0 ]; then
+        emit_verdict "return-path" 0 "fail" 1
+    fi
+    emit_verdict "return-path" 0 "pass" 0
+}
+
+USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-specificate <issue>|verify-implement <issue>|verify-plan [--json]|verify-status [--json]|verify-cadence [--json]|verify-planner [--json]|verify-standup [--json]|verify-moderate [--json]|verify-propose [--json]|verify-direction-health [--json]|verify-arrival [--json]|verify-residue [--json]|verify-revision [--json]|verify-merged-claim [--json]|verify-identity-handoff [--json]|verify-close [--json]|verify-retire [--json]|verify-delivery-retry [--json]|verify-handoff-question [--json]|verify-base-health [--json]|verify-return-path [--json]"}'
 
 CMD="${1:-}"
 [ -n "$CMD" ] || {
@@ -3924,6 +4111,7 @@ case "$CMD" in
     verify-delivery-retry) cmd_verify_delivery_retry "$@" ;;
     verify-handoff-question) cmd_verify_handoff_question "$@" ;;
     verify-base-health) cmd_verify_base_health "$@" ;;
+    verify-return-path) cmd_verify_return_path "$@" ;;
     *)
         echo "$USAGE" >&2
         exit 2

@@ -45,6 +45,7 @@ Run every command from the repository root, on a clean `main`.
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-delivery-retry --json` | a throwaway repository holding three units finished in the identical shape — proves the survey offers an undelivered unit in a field of its own, that only the proof reaches the merge seam, and that a scan-held or unrecorded one never does, with the transport stubbed and one row that deliberately breaks the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-handoff-question --json` | a throwaway repository holding a reported claim whose still-queued work declares `verification_handoff:` — proves the declared reason reaches its holder verbatim exactly once, that `stalled-units` asks nothing about the same unit, and that nothing is cleared, with the transport stubbed and one row that deliberately breaks the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-base-health --json` | a throwaway repository whose base is red at a mid-walk merge — proves the reader's three states, the attribution walk's two outcomes, that one broken commit costs exactly one question, and that the reading gates nothing, with the transport stubbed and one row that deliberately breaks the seam |
+| — | Any time | `sh scripts/e2e/loop-drill.sh verify-return-path --json` | a throwaway repository holding one asked question with its coordinate recorded — walks ask → reply → record → file → stamp, proves the read is bounded to the question's own thread, that a second tick files and stamps nothing, and that the stamp is never load-bearing, with the transport stubbed and one row that deliberately breaks the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh status` | the drill's residue: issues, claim branches, tickets |
 | — | After an abort | `sh scripts/e2e/loop-drill.sh reset` | closes/deletes **drill-minted** residue only |
 
@@ -840,3 +841,38 @@ a drill without that row would convert an unproven claim into a believed one.
 **Two proofs, and they are not the same one.** This drill is the **operator's**; the hermetic
 suite's extended `testProofJudgementSplit` is what **CI** enforces on every change. The drill
 ships to no other agent and CI never runs it.
+
+## 5q. The return path (does an answer in the thread reach the loop's work?)
+
+`verify-return-path` needs no seed, no fire, no issue number and **no network**: local fixtures
+under the OS temp dir and a `gh` stub on `PATH`. The drill asserts the stub is what `gh` resolves
+to rather than assuming it, and its result is unchanged with networking unavailable. The Slack
+half is **fixture data on purpose** — what is under test is which writer sees a reply, not the
+transport.
+
+**Nothing reached the writer.** `record-answer.sh` was the only writer of the answered line from
+2026-08-23 and no script executed it: the documented flow was the developer opening the session
+link and answering inside the moderator's own session, one session per answer. A reply typed into
+the `🔎 Moderation` thread — where the question is — reached nothing at all: it is not a channel
+message, so `unanswered-asks` cannot see it, and the `:40` sweep excludes answers to the tick's
+own questions by rule.
+
+| Row | Fails when | Read |
+| --- | ---------- | ---- |
+| `return_path_no_network` | `gh` resolves to anything but the drill's stub | the drill is reaching the network, so every row below it proves nothing about the offline contract |
+| `return_path_coordinate_recorded` | the coordinate does not round-trip from the ask line by the question's key | `ask-question.sh --record-ask` and `question-state.sh` disagree about the line's shape — the format has one home, `lib/question-coordinate.sh` |
+| `return_path_read_names_thread` | the candidate set is wrong, or a coordinate-less question is treated as readable | the step names what to read and what it cannot; a candidate with no coordinate is **named**, never searched for |
+| `return_path_no_channel_read` | the handed-back bound stops forbidding a search, or names a window | the read is one thread per candidate on a known coordinate; a window is a channel read wearing the step's name |
+| `return_path_answer_recorded` | the state does not become `answered`, or the words are lost | a recorded answer nobody can read is the same failure at one remove — the next run must be able to act on it |
+| `return_path_machine_post_excluded` | the judgement's bar is not carried to the agent | the exclusion is **by shape**, and it is the one thing standing between the tick and recording its own post as a person's answer |
+| `return_path_issue_filed` | the filing does not go through `file-inbound-ask.sh` | one filer, no second inbox: the work rides the existing issue ledger and `[Specificate]` ingests it like any other ask |
+| `return_path_filed_once` | a later tick would read the same answer again | the dedup is **structural** — an `answered` question is not a candidate — so no cursor and no second ledger exist |
+| `return_path_stamp_is_a_reaction` | the catalog stops naming the emoji exactly once, the template stops authorizing it, or a reply creeps back in | a reply into a thread the person is already reading is the hourly restatement this repository has retired posts for twice |
+| `return_path_stamp_not_load_bearing` | the recording depends on the stamp having landed | the answer is recorded and any issue filed **before** the stamp is attempted; `ack_failed` changes nothing else |
+| `return_path_breaker` | a step wired at the **channel** still passes the bound check | **the deliberately broken row, and the one to look at first on a red drill.** Wiring the read at the channel is the mistake that silently reintroduces the history read this design avoids; a drill that cannot catch it would convert an unproven claim into a believed one |
+| `return_path_writes_nothing` | the drill changed the checkout | every fixture lives outside the checkout |
+
+**Two proofs, and they are not the same one.** This drill is the **operator's**; the hermetic
+suite's `testAnswerReturnPath` and the catalog↔template drift pin inside
+`testModerateRoutineTemplate` are what **CI** enforces on every change. The drill ships to no
+other agent and CI never runs it.

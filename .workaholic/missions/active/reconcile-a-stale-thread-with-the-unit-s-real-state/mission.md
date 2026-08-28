@@ -38,10 +38,11 @@ carrying its finish is untouched. It merges nothing, claims nothing, posts nowhe
 
 ## Acceptance
 
-- [ ] One reader derives from the repository which announced items may still be called in flight (#20260828062308-read-which-announced-items-may-still-be-called-in-flight.md)
+- [x] One reader derives from the repository which announced items may still be called in flight (#20260828062308-read-which-announced-items-may-still-be-called-in-flight.md)
 - [ ] The tick posts the missing reply into the item's own thread once, never over a thread that carries its finish (#20260828062308-post-the-missing-finish-reply-exactly-once.md)
 - [ ] The shape is named once in the catalog and the [Moderate] template, and a drill proves the bounds (#20260828062308-drill-the-reconciliation-with-no-network.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-28 — ticket archived — 20260828062308-read-which-announced-items-may-still-be-called-in-flight.md

@@ -1118,6 +1118,72 @@ tick has at least one question, and on a red tick this step has already supplied
 is derived from the **local** remote (`step-direction-health.sh`'s precedent) — no network call —
 and an absent remote degrades to the bare short sha rather than to a broken link.
 
+## The reader behind the thread reconciliation — `reconcile-candidates.sh`
+
+```bash
+sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/reconcile-candidates.sh [--window-days <n>] [--limit <n>] [--root <repo-root>]
+```
+
+**Why it exists** (2026-08-28, mission `reconcile-a-stale-thread-with-the-unit-s-real-state`). A
+finish line is posted by the run that **finishes** a unit (`workaholic:notify`, *Which thread an
+`/implement` unit's posts land in*), so a pull request a person merges by hand gets its finish
+posted by nobody: the item's thread keeps `🔵 Proposed` or `🟡 Handoff` as its last word while the
+work is long merged. **No existing step can see it** — `stuck-prs` and `merge-conflicts` read
+**open** pull requests and find nothing wrong with one that already merged, `handoff-units` reads a
+claim that is still standing, and `stalled-units` reads a stale tip. All four are about a unit that
+has **not** finished; this is about one that has.
+
+**Measured on this repository, 2026-08-28.** Over a 3-day window: 53 closed `work-*` pull requests,
+21 resolving to a feedback stem, none of them merged by a person. Over 7 days: 90 closed, 40 with
+stems, and **19 merged by a person rather than by the loop** — the set whose threads the agent half
+must actually read. The two human merges inside the 3-day window (#646, #626) resolve to **no**
+feedback record at all: they are hand-written `/ticket` units, which the loop keys on `unit:<id>`
+and which therefore have no thread to reconcile. That distinction is why the reader reports them
+rather than dropping them.
+
+- **Reads**: GitHub's closed pull requests through `gather/scripts/gh-rest.sh` — the one transport
+  (`rules/shell.md`) — and the local tree. **Writes nothing**: no file, no commit, no branch, no
+  comment, no merge, no claim touched.
+- **The candidate set is repository-derived, never a channel scan.** `workaholic:notify` bounds
+  every thread lookup at two exact-string searches with **no full-channel read at any point**, so
+  deriving candidates from the channel would break that bound outright and make the reader's cost
+  grow with the channel rather than with the work. The drill carries a breaker row wiring it at the
+  channel for exactly this reason.
+- **It does not decide whether a thread is stale.** That needs the thread, and Slack is a connector
+  held by the session rather than by a script (`step-unanswered-asks.sh`'s split, for its reason).
+  It answers *which items to look at*, and nothing more.
+
+**A candidate carries what the lookup and the reply need**: the feedback `stems`, the pull request's
+`number` / `title` / `url`, whether it `merged` or `closed` unmerged, and the `merged_by` /
+`merged_at` the reply's sentence names. `merged_by` comes from the single-pull GET, the only
+endpoint that carries it; that read is bounded by `--limit` exactly as `pulls-state.sh` bounds its
+own. **An unresolved author or time is emitted empty and stated as unresolved — never invented.**
+
+**Three local sources resolve a branch to its artifacts, and no network is spent on any of them**:
+the branch's own **merge commit diff** (which is what resolves a `/specificate` proposal, whose
+mission and tickets carry the record's refs by the carry floor), the **branch-keyed ticket archive**,
+and the **story's `mission:` relation** read through `mission/scripts/read-relation.sh`. A ticket
+written to `todo/` by one merge and archived by another is at neither path the diff named, which is
+why the archive is consulted too. The artifacts then go to `drive/scripts/unit-feedback-stems.sh` —
+**the one translation** from a unit's artifacts to its thread key, never re-parsed here.
+
+**Both bounds are configurable and both are reported.** `--window-days`
+(`WORKAHOLIC_RECONCILE_WINDOW_DAYS`, default 3) and `--limit` (`WORKAHOLIC_RECONCILE_MAX`, default
+10, with `truncated` and `beyond_bound`); the list itself is read in
+`WORKAHOLIC_RECONCILE_PAGES` pages of 50 (default 3) and **`list_capped` says when that bound, rather
+than the repository, ended the read** — one page cannot serve the window on a repository closing
+twenty-five pull requests a day, and a single page would have answered "nothing merged" for anything
+older than yesterday.
+
+**A candidate whose artifacts resolve to no feedback stem is reported in `unresolved` under
+`stems_unresolvable`, and is never keyed on `unit:<id>` here.** This reader answers *which item*, and
+an item with no feedback record has no thread to reconcile at all.
+
+**Degradations, named one by one**: `gh_unavailable`, `list_failed`, and the per-candidate
+`stems_unresolvable`. An unreadable read is `ok: false` with its reason and **exit 0**, carrying **no
+candidate list at all** — never an empty one, which would render our own blindness as "nothing to
+reconcile".
+
 ## What `run.sh` guarantees around the steps
 
 - **Every step is invoked and every step reports.** Missing script → `degraded`/`step_missing`;

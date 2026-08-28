@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-28T06:23:08+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -94,3 +95,39 @@ later tickets are checked against.
   which only the agent half can read. It answers *which items to look at*, and nothing more.
 - A `review` unit's thread ending at `🟢 Implemented` after a later human merge is **correct and
   out of scope** (`notify/reference/notifications.md`): only `🔵 Proposed` and `🟡 Handoff` are stale-able.
+
+## Final Report
+
+Development completed as planned.
+
+`moderate/scripts/reconcile-candidates.sh` is a pure read naming the recently merged or closed
+`work-*` pull requests the loop itself opened, each resolved to its feedback stems through
+`drive/scripts/unit-feedback-stems.sh` — the one translation, never re-parsed. A branch resolves to
+its artifacts from three **local** sources: its own merge commit diff, the branch-keyed ticket
+archive, and the story's `mission:` relation through `mission/scripts/read-relation.sh`. GitHub is
+reached only through `gather/scripts/gh-rest.sh`. Both bounds are configurable and both are
+reported, and an unreadable read is `ok: false` with its reason and exit 0, carrying no candidate
+list at all.
+
+### The measured set (step 1, this repository, 2026-08-28)
+
+Over a **3-day** window: 53 closed `work-*` pull requests, **21** resolving to a feedback stem,
+**0** merged by a person. Over **7 days**: 90 closed, **40** with stems, and **19 merged by a
+person rather than by the loop** — the set whose threads the agent half must read. The two human
+merges inside the 3-day window (#646 `work-20260827-014149`, #626 `work-20260826-195732`) resolve
+to **no feedback record at all**: both are hand-written `/ticket` units, which the loop keys on
+`unit:<id>`, so they have no thread to reconcile. The reader reproduces exactly this set.
+
+### Discovered Insights
+
+- **Insight**: one page of 50 closed pull requests cannot serve a 3-day window here.
+  **Context**: this repository closes roughly twenty-five pull requests a day, so a single-page
+  read answered "nothing merged" for anything older than yesterday — silently. Paginating on the
+  *close* time is also wrong, because the list is sorted by **updated**: an old pull request touched
+  today rides page 1 and would end the read. The bound is therefore a flat page count, reported as
+  `list_capped` so the caller can tell our bound from the repository's own quiet.
+- **Insight**: a `/specificate` proposal branch has no story and no archived ticket, so the story
+  path alone left every proposal `stems_unresolvable`.
+  **Context**: the merge commit's own diff resolves it, because the mission and tickets a proposal
+  publishes carry the record's refs by the carry floor. That is why the resolver reads the merge
+  diff first and treats the archive and the story as the two paths it cannot cover.

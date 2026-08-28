@@ -46,6 +46,7 @@ const SCRIPTS = {
   auditIdentityCoverage: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/audit-identity-coverage.sh"),
   stepUndrivableUnits: join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-undrivable-units.sh"),
   stepUndeliveredUnits: join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-undelivered-units.sh"),
+  reconcileCandidates: join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/reconcile-candidates.sh"),
   listTodo: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/list-todo.sh"),
   proposeRun: join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/run.sh"),
   proposeLogAppend: join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/log-append.sh"),
@@ -17639,6 +17640,7 @@ const tests = [
   ["story/record-merge-outcome.sh: the durable home for a merge outcome", testRecordMergeOutcome],
   ["claims: two verdicts are proofs, and every consumer gates on one", testProofJudgementSplit],
   ["moderate/undelivered-units: the loop's own undelivered work reaches a person", testUndeliveredUnitsStep],
+  ["moderate/reconcile-candidates.sh: which announced items may still be called in flight", testReconcileCandidates],
   ["branching/ensure-worktree.sh never shadows a published branch", testEnsureWorktreeNeverShadowsRemote],
   ["drive survey: a mission behind a merged claim is surveyed again", testSupersededMissionIsResurveyed],
   ["drive claim protocol: a mission claim's artifact is unaffected", testMissionClaimArtifactsUnaffected],
@@ -25058,6 +25060,139 @@ function testProofJudgementSplit() {
 // what is proved is the whole chain: record the outcome → the oracle splits the verdict → the
 // step asks the holder. No network: the fixture's origin is a local directory, so the pull
 // request lookup is `unanswerable` and the step must keep the candidate anyway.
+// The candidate reader behind the thread reconciliation: which announced items may still be
+// called in flight. Repository-derived by construction — a channel scan would break
+// `workaholic:notify`'s two-query bound outright — so the fixture is a git repository with a
+// merge commit, and `gh` is stubbed. No network.
+function testReconcileCandidates() {
+  const tmp = mkdtempSync(join(tmpdir(), "wh-reconcile-cand-"));
+  const bin = join(tmp, "bin");
+  const repo = join(tmp, "repo");
+  mkdirSync(bin, { recursive: true });
+  mkdirSync(repo, { recursive: true });
+  const env = { ...process.env, PATH: `${bin}:${process.env.PATH}` };
+  const stub = (body) => {
+    writeFileSync(join(bin, "gh"), `#!/bin/sh\n${body}\n`);
+    chmodSync(join(bin, "gh"), 0o755);
+  };
+  try {
+    execSync("git init -q . && git remote add origin git@github.com:acme-org/source-repo.git",
+      { cwd: repo });
+    // A feedback record, a mission citing it, and a ticket in the mission — the shape a
+    // `/specificate` proposal lands and an `/implement` unit then drives.
+    mkdirSync(join(repo, ".workaholic/feedbacks"), { recursive: true });
+    mkdirSync(join(repo, ".workaholic/missions/active/alpha"), { recursive: true });
+    mkdirSync(join(repo, ".workaholic/tickets/todo"), { recursive: true });
+    mkdirSync(join(repo, ".workaholic/stories"), { recursive: true });
+    writeFileSync(join(repo, ".workaholic/feedbacks/20260828010101-an-ask.md"),
+      "---\ntype: Feedback\n---\n\nan ask\n");
+    writeFileSync(join(repo, ".workaholic/missions/active/alpha/mission.md"),
+      "---\ntype: Mission\nslug: alpha\nfeedback: [20260828010101-an-ask.md]\n---\n\n# Alpha\n");
+    writeFileSync(join(repo, ".workaholic/tickets/todo/20260828010102-t1.md"),
+      "---\nmission: alpha\n---\n\n# T1\n");
+    // A second unit with NO feedback record anywhere — a hand-written `/ticket` unit, which
+    // has no thread to reconcile and must be named rather than silently dropped.
+    writeFileSync(join(repo, ".workaholic/tickets/todo/20260828010103-loose.md"),
+      "---\nmission:\n---\n\n# Loose\n");
+    execSync('git add -A && git commit -q -m "Seed the tree"', { cwd: repo });
+    execSync("git branch -q main-base", { cwd: repo });
+
+    const mergeBranch = (branch, files, subject) => {
+      execSync(`git checkout -q -b ${branch}`, { cwd: repo });
+      for (const f of files) {
+        writeFileSync(join(repo, f), `${readFileSync(join(repo, f), "utf8")}\n<!-- ${branch} -->\n`);
+      }
+      execSync(`git add -A && git commit -q -m "Work on ${branch}"`, { cwd: repo });
+      execSync(`git checkout -q master 2>/dev/null || git checkout -q main`, { cwd: repo });
+      execSync(`git merge -q --no-ff -m ${JSON.stringify(subject)} ${branch}`, { cwd: repo });
+    };
+    mergeBranch("work-20260828-010000",
+      [".workaholic/missions/active/alpha/mission.md", ".workaholic/tickets/todo/20260828010102-t1.md"],
+      "Merge pull request #11 from acme-org/work-20260828-010000");
+    mergeBranch("work-20260828-020000", [".workaholic/tickets/todo/20260828010103-loose.md"],
+      "Merge pull request #12 from acme-org/work-20260828-020000");
+    const head = execSync("git rev-parse --abbrev-ref HEAD", { cwd: repo, encoding: "utf8" }).trim();
+    execSync(`git branch -f origin-main ${head} 2>/dev/null || true`, { cwd: repo });
+
+    const now = new Date();
+    const iso = (daysAgo) =>
+      new Date(now.getTime() - daysAgo * 86400000).toISOString().replace(/\.\d+Z$/, "Z");
+    const rows = [
+      ["11", "work-20260828-010000", iso(0.2), iso(0.2), "https://x/pull/11", "Alpha"],
+      ["12", "work-20260828-020000", iso(0.3), iso(0.3), "https://x/pull/12", "Loose"],
+      ["13", "work-20260801-000000", iso(40), iso(40), "https://x/pull/13", "Ancient"],
+      ["14", "publish-main", iso(0.1), iso(0.1), "https://x/pull/14", "Not a claim branch"],
+      ["15", "work-20260828-030000", "", iso(0.4), "https://x/pull/15", "Closed unmerged"],
+    ];
+    const tsv = rows.map((r) => r.join("\t")).join("\n");
+    stub([
+      'case "$*" in',
+      `  *"pulls?state=closed"*"page=1"*) printf '%b\\n' ${JSON.stringify(tsv)} ;;`,
+      '  *"pulls?state=closed"*) : ;;',
+      '  *pulls/11*|*pulls/12*) echo "a-person" ;;',
+      '  *) : ;;',
+      "esac",
+    ].join("\n"));
+
+    const read = (extra = "") => JSON.parse(run(repo,
+      `${POSIX_SH} ${SCRIPTS.reconcileCandidates} --root ${repo}${extra}`,
+      { env: { ...env, WORKAHOLIC_BASE_REF: head } }).stdout);
+
+    const r = read(" --window-days 3 --limit 10");
+    assertEq("the reader answers", r.ok, true);
+
+    // THE WINDOW AND THE BRANCH PATTERN ARE BOTH TERMS OF THE FILTER: only pull requests this
+    // loop opened, and only recent ones. `publish-main` is not a claim branch; #13 is old.
+    const numbers = r.candidates.map((c) => c.number).concat(r.unresolved.map((u) => u.number));
+    assertTrue("a non-`work-*` head is not a candidate", !numbers.includes(14), JSON.stringify(numbers));
+    assertTrue("and neither is one outside the window", !numbers.includes(13), JSON.stringify(numbers));
+
+    // A CANDIDATE CARRIES WHAT THE THREAD LOOKUP AND THE REPLY NEED.
+    const alpha = r.candidates.find((c) => c.number === 11);
+    assertTrue("the unit that published a feedback-citing artifact is a candidate", !!alpha,
+      JSON.stringify(r));
+    assertEq("its stems come from the one translation",
+      alpha.stems, ["20260828010101-an-ask"]);
+    assertEq("and it names merged-or-closed with by-whom and when",
+      [alpha.state, alpha.merged_by, alpha.merged_at.length > 0], ["merged", "a-person", true]);
+    assertEq("the unit reads as the mission the story or the merge names", alpha.unit, "alpha");
+
+    // CLOSED UNMERGED IS ITS OWN STATE — a different reply, so never collapsed into `merged`.
+    const closed = r.candidates.concat(r.unresolved).find((c) => c.number === 15);
+    assertTrue("a closed-unmerged pull request is still read", !!closed, JSON.stringify(r));
+
+    // AN ITEM WITH NO FEEDBACK RECORD HAS NO THREAD TO RECONCILE, and is NAMED rather than
+    // dropped — and never keyed on `unit:<id>` here, because this reader answers *which item*.
+    const loose = r.unresolved.find((u) => u.number === 12);
+    assertTrue("a unit with no feedback record is reported", !!loose, JSON.stringify(r.unresolved));
+    assertEq("under its own reason", loose.reason, "stems_unresolvable");
+
+    // THE BOUND IS REPORTED, NEVER SILENT.
+    const capped = read(" --window-days 3 --limit 1");
+    assertEq("the candidate cap is honoured and the remainder reported",
+      [capped.read, capped.truncated, capped.beyond_bound > 0], [1, true, true]);
+
+    // IT WRITES NOTHING. A pure read is the whole contract.
+    assertEq("git status is clean after the reader ran",
+      execSync("git status --porcelain", { cwd: repo, encoding: "utf8" }).trim(), "");
+
+    // A DEGRADED READ IS `ok: false` WITH ITS REASON AND EXIT 0 — never an empty candidate
+    // list, which would render our own blindness as "nothing to reconcile".
+    stub('exit 1');
+    const deg = JSON.parse(run(repo,
+      `${POSIX_SH} ${SCRIPTS.reconcileCandidates} --root ${repo} --window-days 3`,
+      { env }).stdout);
+    assertEq("a refused list degrades by name", [deg.ok, deg.reason], [false, "list_failed"]);
+    assertTrue("and emits no candidate list at all", deg.candidates === undefined,
+      JSON.stringify(deg));
+
+    // AND IT REACHES GITHUB ONLY THROUGH THE ONE TRANSPORT (`rules/shell.md`).
+    const src = readFileSync(SCRIPTS.reconcileCandidates, "utf8");
+    assertTrue("the reader reaches GitHub only through gh-rest.sh",
+      !/\bgh (issue|pr|repo|api)\b/.test(src.replace(/^#.*$/gm, "")), "a direct gh call");
+  } finally { rmSync(tmp, { recursive: true, force: true }); }
+}
+
 function testUndeliveredUnitsStep() {
   const fx = makeClaimFixture();
   const RECORDER = join(REPO_ROOT,

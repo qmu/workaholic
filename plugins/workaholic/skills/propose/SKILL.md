@@ -60,7 +60,11 @@ routine roots, replies and finish lines this plugin's skills emit — a machine'
 an opinion to capture); **messages a filed issue already names**, matched by the
 `slack-ref: <channel>:<ts>` marker `list-swept-slack-refs.sh` reads back out of the issue
 ledger; and **answers to the tick's own questions**, which belong to `/moderate`'s
-`record-answer.sh`, not to a new issue. When unsure whether a message is an ask, the standing
+`record-answer.sh`, not to a new issue **opened here** — since 2026-08-28 that sentence names a
+path that exists: `/moderate`'s `question-answers` step reads the question's own thread, records
+the answer through that writer, and files the ones that ask for work through this same
+`file-inbound-ask.sh`, stamping the answer message's own `slack-ref` so the ledger this sweep
+reads already names it. When unsure whether a message is an ask, the standing
 bar applies — this sweep captures, it does not originate, so *when unsure, skip and say what
 made you unsure* costs one hour, not the ask.
 

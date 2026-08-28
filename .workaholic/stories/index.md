@@ -3,6 +3,7 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [work-20260828-034109](work-20260828-034109.md) - An answer written in a `/moderate` question's own Slack thread now reaches `record-answer.sh`, becomes an `[FB]` issue when it asks for work, and is stamped where it was written.
 * [work-20260828-014111](work-20260828-014111.md) - Say what the direction could not see before calling it arrived — a residue reader, a refused blind arrival, and the operator's attribution carried through the loop
 * [work-20260827-234102](work-20260827-234102.md) - Measure why the claim retirement's branch delete is refused, give the blocked act its own word, and put the standing block in front of the person who can clear it
 * [work-20260827-204109](work-20260827-204109.md) - The declared-handoff verdict now reaches the claim holder as one question naming the act it waits on, and stalled-units stops asking the wrong one.

@@ -1207,3 +1207,108 @@ working-day hold all apply unchanged and no second ledger exists. `stalled-units
 same verdict out of its own candidates and counts it instead, so one unit never produces two
 questions in two vocabularies. A degraded read (`no_claim_reader`, `claims_unreadable`,
 `claims_unparseable`, `origin_unreachable`, `shallow_history`) is named and asks nothing.
+
+## 22. `question-answers` — the answer a person wrote in a question's own thread
+
+```bash
+sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/step-question-answers.sh --tick <id> [--root <repo-root>]
+sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/ask-question.sh --record-ask --tick <id> --key <key> [--log-step <step>] [--coordinate <channel>:<ts>]
+```
+
+- **Reads**: the tick log — which questions are outstanding, and the coordinate each was posted
+  at. Nothing else, and no network.
+- **Writes**: nothing itself. The agent writes, through `record-answer.sh` and
+  `file-inbound-ask.sh`, both of them existing single writers.
+- **Its `event` is always empty**, deliberately and for `unanswered-asks`' reason: when `run.sh`
+  reads this step's line nobody has read any thread yet, so any event would be a claim about a
+  reading not yet made. A step with no event renders no root line.
+
+**Why it exists** (2026-08-28, mission
+`let-an-answer-in-the-thread-turn-back-into-the-loop-s-work`). `record-answer.sh` had been the
+only writer of the answered line since 2026-08-23 and **nothing reached it**: its documented
+flow was the developer opening the session link and answering inside the moderator's own
+session, which costs a session per answer. A reply typed into the `🔎 Moderation` thread —
+where the question actually is — reached no writer at all. It is not a channel message, so
+`unanswered-asks` cannot see it; the `:40` inbound sweep excludes answers to the tick's own
+questions by rule; and `question-state.sh` therefore read `asked` forever while the person's
+words sat in Slack.
+
+**The coordinate is recorded when the question is posted, and never searched for later.** The
+agent knows the `(channel, ts)` at the moment it posts, so after posting it hands that back and
+`ask-question.sh --record-ask` writes the `human-checkin-ask-<slug>` line with it. That is the
+same property the inbound sweep's receipt relies on — the coordinate is an input, not a lookup.
+**No new store and no new field on any artifact**: both the coordinate and the content key ride
+that summary as fixed tokens whose format has one home (`lib/question-coordinate.sh`), written by
+`ask-question.sh` and read by `question-state.sh`. The key is recorded because the step id is a
+lossy hash of it and `record-answer.sh` takes a key — it is not a second identity, since the id
+is still derived from the key by `lib/question-id.sh` alone.
+
+**The gate did not move.** `--record-ask` returns before every gate, so which questions are
+asked, the per-tick cap, the daily bound, the quiet hours, the working-day hold, `already_asked`,
+`answered` and the one bounded re-ask are byte-identical. **A coordinate is never load-bearing**:
+a question posted without one is still asked and still gated, and reads a **named absence**
+(`coordinate_reason: not_recorded`) — which is what stops a later tick searching the channel for
+the thread. A malformed coordinate is **refused** (`bad_coordinate`) rather than stored, because
+one recorded wrong reads a tick later as a thread with nothing in it, indistinguishable from
+nobody answering.
+
+**One thread read per outstanding question, on a coordinate already in hand.** No search, no
+channel history, and `workaholic:notify`'s two-query bound is untouched because no query is made.
+The set is bounded at `WORKAHOLIC_ANSWER_READ_MAX` (default 10 — the check-in's own daily bound
+rather than a new constant), newest first, and the number beyond the bound is reported rather
+than dropped silently. A candidate with **no coordinate** and one with **no key** are counted and
+named separately; neither is searched for.
+
+**The judgement's bar**, which lives here rather than in a script: a reply is an answer when a
+**person** wrote it in that question's thread. Every post this plugin emits — the tick root, its
+questions, its `✅ 解消を確認` confirmations, any finish line — is excluded **by shape**, so
+**a machine's post is never an answer**. When unsure, **do not record** and say what made you
+unsure: the standing bar, and here it costs one hour rather than the answer. **Nothing parses the
+answer** — it is a person's prose, `record-answer.sh` stores it verbatim on one line, and acting
+on it stays the next run's judgement.
+
+**Per candidate, one outcome or the other.** Either `record-answer.sh --tick --key --answer`, or
+a named not-recorded reason. A candidate handed back with no outcome is non-conformant on its
+face — the enforcement the connector retry already carries, and for its reason: no mechanical
+check tells a real read from a claimed one, so what this buys is that a report naming no outcome
+is visibly wrong.
+
+**The recording reaches the base** on the log's own commit: it happens after `run.sh` returns, so
+`persist-log.sh`'s **second** run covers it, exactly as it covers every `<step>-filed` line. A
+line that died with the container is the defect that made the tick's feedback records evaporate.
+
+**An answer that asks for something becomes one `[FB]` issue**, through
+`propose/scripts/file-inbound-ask.sh` — the writer the `:40` sweep already uses — assigned to the
+running identity so the next `[Specificate]` ingests it like any other ask. **No second inbox**,
+and the direction it answers rides it through `feedback/scripts/ask-feedback-line.sh`, the one
+writer of that line, or no line when the answer names none. Not every answer asks for work: one
+that rules on a question, declines it, or says *yes, do that* needs no issue, and the filing bar
+is the feedback skill's own. Report `filed: <issue>` or `not_filed: <reason>` per answer.
+
+**The dedup is structural, and there is no cursor.** A question in state `answered` is not a
+candidate — the step's own set is the `asked` ones — so one answer is read once, filed once and
+stamped once however many ticks run. The marker on the issue is the answer message's own
+`slack-ref: <channel>:<ts>`, which `list-swept-slack-refs.sh` already reads back out of the issue
+ledger: the **same** marker and the **same** reader, rather than a second marker with a second
+reader for a dedup the state machine already provides. That the `:40` sweep then also treats the
+message as captured is correct — it was.
+
+**The stamp is a reaction on the answer message and nothing else** — the catalog names the emoji
+once (`workaholic:notify`, `/moderate`'s entry) and everything else reads it from there. **No
+reply is posted for this event, in any thread.** It rides the coordinate already in hand, only an
+answer **this run recorded** is stamped, and it is never load-bearing: the answer is recorded and
+any issue filed before the stamp is attempted, and a failure is reported `ack_failed: <reason>`
+and changes nothing else. Three facts, three reports: the recording's, the filing's, the stamp's.
+
+**What it never does.** It never posts a reply for this event, never re-asks or confirms anything
+(`answered` is already its own refusal at the gate, and `✅ 解消を確認` keys on `settled`, not on
+`answered` — both paths untouched), never opens an issue except through `file-inbound-ask.sh`,
+never adds an edit path for a correction (a person who answers twice appends a later line and the
+newest wins), and never reads a channel. The overlap with `unanswered-asks` is deliberate and must
+not be collapsed: that step asks about a **channel message nobody answered**; this files an
+**answer to the tick's own question**. One is a question, the other is work.
+
+**Degradations, named one by one**: `no_log_reader`, `log_unreadable` (any refusal but an absent
+log — `no_log_area` is a readable answer meaning nothing has been asked), `candidates_underivable`
+from the step; `no_slack_transport` and `thread_unreadable` from the agent's read. An unread
+thread is never reported as a thread nobody answered.

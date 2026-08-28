@@ -61,3 +61,4 @@ branch and what already stands.
 - 2026-08-28 — ticket archived — 20260828102230-drill-the-ci-retirement-with-no-network.md
 - 2026-08-28 — ticket archived — 20260828102230-document-which-act-of-the-retirement-runs-where.md
 - 2026-08-28 — mission achieved — mission.md
+- 2026-08-28 — story reported — work-20260828-104111.md

@@ -41,7 +41,7 @@ read proposes nothing.
 
 - [x] The standing rulings are readable in one place, the run supplies the judgement
       per candidate, and an unjudged candidate is never written. (#20260828212022-name-the-standing-rulings-in-one-place.md)
-- [ ] A judged ruling lands as a diff through the writer that already owns it, on
+- [x] A judged ruling lands as a diff through the writer that already owns it, on
       one pull request the seam itself refuses to auto-merge. (#20260828212022-draft-the-attribution-rulings-through-their-writer.md)
 - [ ] The tick drafts at most one ruling pull request at a time, suppresses only the
       question its own diff carries, and the whole path is drilled with no network. (#20260828212022-give-the-tick-the-standing-rulings-step.md)
@@ -52,3 +52,4 @@ read proposes nothing.
 - 2026-08-28 — ticket archived — 20260828212022-name-the-standing-rulings-in-one-place.md
 - 2026-08-28 — ticket archived — 20260828212022-let-the-run-supply-the-judgement-per-candidate.md
 - 2026-08-28 — ticket archived — 20260828212022-refuse-to-auto-merge-a-ruling-at-the-seam.md
+- 2026-08-28 — ticket archived — 20260828212022-draft-the-attribution-rulings-through-their-writer.md

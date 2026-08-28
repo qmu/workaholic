@@ -56,3 +56,4 @@ blocked, and a standing blocked retirement stops reading as a fresh hourly findi
 - 2026-08-27 — ticket archived — 20260827232222-retry-a-refused-delete-or-record-no-transport.md
 - 2026-08-27 — ticket archived — 20260827232222-report-what-stands-and-what-is-outstanding.md
 - 2026-08-27 — ticket archived — 20260827232222-ask-the-holder-for-the-branches-left-undeleted.md
+- 2026-08-28 — ticket archived — 20260827232222-stop-restating-a-standing-blocked-retirement.md

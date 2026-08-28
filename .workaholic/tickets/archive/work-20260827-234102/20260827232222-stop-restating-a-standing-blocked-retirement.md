@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-27T23:22:22+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on: 20260827232222-report-what-stands-and-what-is-outstanding.md
@@ -73,3 +74,43 @@ read by nobody by the second day.
   two drift.
 - This depends on ticket 4 rather than merely following it: ticket 4 puts the act
   states into the summary, and that is exactly the string whose stability is proved here.
+
+## Final Report
+
+Development completed as planned.
+
+**The summary is a function of the claim set and the act states, and of nothing else.** Every term
+— the claimed-unit count, the superseded count, `retired`, `refused`, and the per-row detail
+(unit, reason, three act states) — is derived from the tree and the writer's rows. No age, no tick
+counter, no timestamp, nothing that moves on its own. Two consecutive ticks over an unchanged
+blocked set therefore render the identical string.
+
+**`event` is untouched** (step 2): empty on a tick that retired nothing, so a held block renders
+no root line at all. That is the **independent** guard — it holds even if a summary term were ever
+made to vary — and the two together are why a standing block cannot become an hourly restatement.
+
+**A newly blocked unit is still a change** (step 3). Suppression is by *nothing*: the unit set
+moves when a unit appears, so the summary moves and the block is visible the hour it happens. A
+per-unit suppression list was refused — the diff already answers this question, and a second
+ledger beside `ask-question.sh`'s asked-once gate is how the two drift (step 4).
+
+**Both properties are drilled, not asserted** (the Gate): `verify-retire`'s
+`retire_blocked_summary_stable` row runs the step twice over an unchanged fixture and compares the
+summaries, and `retire_blocked_asked_once` exercises the question's own bound separately. The
+stability row was verified to fail by prefixing the summary with `$(date +%s)`, which broke that
+row and no other.
+
+### Discovered Insights
+
+- **Insight**: this step was already stable before the mission — the defect the ticket guards
+  against is one the *previous* two tickets could have introduced, since ticket 4 put a new
+  expression into exactly the string whose stability matters.
+  **Context**: the ticket is a guard on a change made two tickets earlier, not a repair of
+  something broken. Ordering it after ticket 4 rather than beside it is what made that checkable
+  — the drill row asserts the property over the string ticket 4 actually produced.
+- **Insight**: the root's own normalisation (a timestamp, a bare hex object name, a clock time)
+  quietly rescues *some* varying terms, which makes the failure mode worse rather than better: a
+  term it happens not to normalise, like an hour count, breaks the diff silently while a term it
+  does normalise looks equally wrong in the source and is harmless.
+  **Context**: do not reason about stability from what the normaliser catches. The rule that holds
+  is the stricter one — the summary is a pure function of repository state.

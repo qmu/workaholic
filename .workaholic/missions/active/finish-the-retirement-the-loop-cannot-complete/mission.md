@@ -46,7 +46,7 @@ blocked, and a standing blocked retirement stops reading as a fresh hourly findi
 
 - [x] A refused delete is reported under its own word, naming the blocked act and the acts that stand. (#20260827232222-give-a-refused-delete-its-own-reported-word.md)
 - [x] A blocked unit reaches its claim holder exactly once, naming the branches and the refusal. (#20260827232222-ask-the-holder-for-the-branches-left-undeleted.md)
-- [ ] `verify-retire` drills the blocked retirement with no network, with a row that breaks the seam. (#20260827232222-drill-the-blocked-retirement-with-no-network.md)
+- [x] `verify-retire` drills the blocked retirement with no network, with a row that breaks the seam. (#20260827232222-drill-the-blocked-retirement-with-no-network.md)
 
 ## Changelog
 
@@ -57,3 +57,4 @@ blocked, and a standing blocked retirement stops reading as a fresh hourly findi
 - 2026-08-27 — ticket archived — 20260827232222-report-what-stands-and-what-is-outstanding.md
 - 2026-08-27 — ticket archived — 20260827232222-ask-the-holder-for-the-branches-left-undeleted.md
 - 2026-08-28 — ticket archived — 20260827232222-stop-restating-a-standing-blocked-retirement.md
+- 2026-08-28 — ticket archived — 20260827232222-drill-the-blocked-retirement-with-no-network.md

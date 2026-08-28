@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260828-104111
 ---
 
 # Finish a proved retirement where the write is permitted

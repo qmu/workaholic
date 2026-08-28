@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-28T18:20:03+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -99,3 +100,48 @@ consistent and the delivery failed in the seams.
 - The breaker row is the load-bearing part. Write it against the **count**, not against the
   gate's output shape, so a future refactor that keeps the shape and loses the bound still
   fires it.
+
+## Final Report
+
+Development completed as planned. `verify-checkin-delivery` walks the whole delivery path.
+
+- **One fixture log spanning several days**, written through `log-append.sh`: ten
+  `human-checkin-ask` lines (`max_per_day` exactly) across five earlier days, holds first
+  recorded on three different days in a deliberately anti-alphabetical order, and none of
+  either on the tick's own day. No network, no `gh`, no Slack, no touch of the working tree.
+- **All five properties the mission promises are asserted by name**, plus the two the drill
+  needs to be honest: `checkin_held_lands`, `checkin_not_reasked`, `checkin_drain_order`,
+  `checkin_drain_capped`, `checkin_remainder_held`, `checkin_spent_day_holds`,
+  `checkin_failure_is_an_event`, `checkin_root_carries_it`, `checkin_quiet_hour_silent`,
+  `checkin_breaker`, `checkin_writes_nothing`.
+- **The breaker row is written against the count**, as the ticket's Consideration insists: a
+  copy of `ask-question.sh` with `asked_today` pointed back at the unbounded reader must
+  refuse the held question `day_cap`. A refactor that keeps the gate's output shape and loses
+  the bound still fires it.
+- **The tick's posting is stubbed out entirely** — every assertion is over
+  `render-tick-post.sh`'s answer, never a post — and the drill is deterministic: the day comes
+  from the tick id and `--hour 14 --weekday 3` are injected, so it does not pass or fail by
+  the date it is run on.
+- **Registered in all three places**: the dispatch row and the usage string in
+  `scripts/e2e/loop-drill.sh`, the stage table and a new §5s (procedure plus the row → file
+  blame table) in `docs/loop-drill-runbook.md`, and the drill list in `CLAUDE.md`'s Routines
+  section.
+
+Verification — `sh scripts/e2e/loop-drill.sh verify-checkin-delivery --json`: **pass, 11
+load-bearing rows, 0 failed**. It was proved to fail on a tree without the repair: pointing
+the day count at the unbounded reader is what `checkin_breaker` does on every run, and the
+same substitution against `checkin_held_lands` turns the drill red.
+`node scripts/test-workflow-scripts.mjs` is unaffected and green.
+
+### Discovered Insights
+
+- **Insight**: a tick id that fails `log-append.sh`'s own shape check writes **nothing** and
+  says so only in its JSON, which a fixture builder discards.
+  **Context**: the first draft computed tick ids arithmetically and produced one seven-digit
+  time, so the fixture landed nine asks against a cap of ten — and both the day-cap row and
+  the breaker row passed for the wrong reason, because nine is under the cap. Fixture tick
+  ids are now written out literally, and the comment says why.
+- **Insight**: recording an ask under two log lines counts it twice against `tick_cap`.
+  **Context**: the gate's `log_step` (`human-checkin-ask-<slug>-<digest>`) already
+  prefix-matches the held key, so it is the only line the agent needs; the drill's first
+  draft added a second and the drain stopped at three questions instead of five.

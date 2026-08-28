@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-28T18:20:02+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -98,3 +99,76 @@ line, naming no dedup key.
   noisy, narrowing it to the non-`cap_spent` reasons is the first thing to try.
 - Nothing here raises a cap or asks an extra question: it makes the loop's own silence
   visible, which is the contraction the mission declares.
+
+## Final Report
+
+Development completed, with **one deviation from the ticket's stated Gate, recorded here
+rather than worked around**.
+
+**The deviation.** The Gate says *"`render-tick-post.sh` and the question gate are
+unmodified"*, and the acceptance says *"A tick with candidates and zero delivered supplies an
+`event` **and the root carries it**"*. On the tree as it stood those two cannot both hold, for
+two reasons the ticket's Key Files did not name:
+
+1. `render-tick-post.sh` skipped the check-in **by name** in its diff loop
+   (`[ "$step" = "human-checkin" ] && continue`), on the sound reasoning that its own summary
+   changing is not news about the repository. An event supplied by this step could therefore
+   never reach the root at all.
+2. The post gate requires `QUESTIONS >= 1` (or the morning digest), and the failing tick has
+   zero questions by definition — that *is* the failure. So the event would render no line
+   and the root would still not post.
+
+The acceptance and the mission's Experience (*"A tick that reached nobody says so instead of
+looking quiet"*) are the load-bearing statement: a step supplying an `event` that nothing can
+ever render delivers exactly as much as before, which is nothing. So the acceptance was taken
+and `render-tick-post.sh` was changed, as narrowly as the two obstacles allow:
+
+- **The `human-checkin` skip is removed rather than narrowed**, because the guard that
+  replaces it already exists and is more general: *a step with no event renders no line*
+  (line 193, unmodified). The check-in supplies an event only on a delivery failure, so a
+  delivering check-in and a quiet one are dropped exactly where every other event-less step
+  is — before they can be counted as a change. Behaviour for every other tick is unchanged.
+- **A third gate is added beside the digest, on the digest's own precedent**: the question
+  gate's own expression (`[ "$QUESTIONS" -eq 0 ]`) is byte-identical, and a second condition
+  is OR'd next to it, exactly as `digest_ready` was on 2026-08-24. So *"the question gate
+  stays the root's gate"* holds in substance; what does not hold is the literal
+  "`render-tick-post.sh` is unmodified".
+
+**It is not the retired changed-step half of the gate** (step 4's explicit prohibition). That
+half let *any* changed step earn a question-less root. This fires only when the check-in
+itself supplied an event, and `delivery_failure` is set **inside the diff loop**, so it
+inherits the diff: an unchanged reading an hour later is suppressed by the same derivation
+that suppresses every other restatement, the line is said once, and it stops entirely once the
+channel is delivering. That is step 5's "do not let it restate", obtained by construction
+rather than by a suppression list.
+
+**The wording** names how many findings are waiting and why none reached anybody, in one
+sentence, with **no dedup key and no mention token**. It is not added to
+`workaholic:notify`'s catalog: the catalog names post *shapes*, and a root body line is not
+one — no other step's `event` is named there either. The `🔎 Moderation` root's own shape,
+which already says *"one line per changed step that has an event"*, is unchanged.
+
+`cap_spent` gets a line even though the budget worked, per step 3: a reader must be able to
+tell it from `cap_unbounded`. The honest tension the ticket records stands — on a genuinely
+spent day this is close to a status line — and the diff means it is said at most once a day;
+if it proves noisy, narrowing to the non-`cap_spent` reasons is the first thing to try.
+
+Verification — `node scripts/test-workflow-scripts.mjs`, the four gate cases added to
+`testModerateTickPost`: a tick with candidates and none delivered posts with **zero**
+questions and the root carries the line; two consecutive ticks with the same reading render
+one line, not two; a quiet hour supplies no event and posts nothing; a delivering tick
+behaves exactly as before. `sh scripts/e2e/loop-drill.sh verify-checkin-delivery` passes,
+including `checkin_root_carries_it` and `checkin_quiet_hour_silent`.
+
+### Discovered Insights
+
+- **Insight**: the two obstacles are independent guards, and only one of them was documented.
+  **Context**: the ticket's Key Files named line 193 (the no-event guard) and line 230 (the
+  `no_question` emit) as read-only, and both genuinely are. What it did not name is line 186,
+  the by-name skip that made the whole design unreachable. A ticket that names the lines it
+  expects to be enough is worth re-deriving against the file rather than trusting.
+- **Insight**: setting the gate flag *inside* the diff loop rather than beside it is what
+  makes "do not let it restate" free.
+  **Context**: a flag set from the step's raw output would post every hour for as long as the
+  cap stayed spent — the `📦 Release Preparation` failure exactly. Inside the loop it can only
+  be set for a reading that survived the diff.

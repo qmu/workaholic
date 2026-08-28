@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-28T18:20:02+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -94,3 +95,43 @@ entry), so this needs **no second ledger and no new field**.
 - The day grain is coarse: a whole day's holds sort together. That is acceptable because the
   arrears span five days; if a finer grain is ever needed, the tick id is already the
   tie-break and carries `HHMMSS`.
+
+## Final Report
+
+Development completed as planned. `step-human-checkin.sh` hands `held` back ordered by age.
+
+- **The first-held day per key** is read out of `log-read.sh`'s own per-entry `day` and
+  `tick`, parsed into `day tick key` rows and reduced with `awk` to the **earliest**
+  `(day, tick)` per key — a key held across several ticks is as old as its first hold.
+- **The `sort -u` is gone.** The rows sort ascending by day, then tick within the day, then
+  key, under `LC_ALL=C` so the order does not move with the runner's locale. That makes the
+  order total, so a re-entered tick produces a byte-identical sequence.
+- **The drop rule is untouched**: a held key carrying any `human-checkin-ask-<slug>` line
+  still drops out. The ask is still the resolution of the hold.
+- **`held` is unchanged in shape** (an array of key strings), so the agent's loop needs no
+  change, and the `needs_agent` instruction gained one sentence saying the list is ordered
+  and to take it in that order.
+- **`held_count` counts the whole held set**, not the ordered prefix, and is now emitted as
+  its own field beside `held` so a reader can see how deep the arrears are without parsing
+  the summary. **This step orders; it caps nothing and asks nothing** — the suite pins that
+  `max_per_tick` appears nowhere executable in it.
+
+Verification — `node scripts/test-workflow-scripts.mjs`, the new case
+`moderate/step-human-checkin.sh: the arrears drain oldest-held first`: a fixture with holds
+first recorded on three different days, written in a deliberately anti-alphabetical order,
+hands back `["yak", "zebra", "alpha", "bravo"]` and does so identically on a second run; a
+key re-held two days later keeps its first hold's place; an asked key drops out; and with
+more candidates than the per-tick cap the step still hands back all of them.
+
+Against the live tree the same ordering is drilled end to end by
+`sh scripts/e2e/loop-drill.sh verify-checkin-delivery` (`checkin_drain_order`,
+`checkin_drain_capped`, `checkin_remainder_held`).
+
+### Discovered Insights
+
+- **Insight**: `log-read.sh` emits its entry fields in a fixed order (`day`, `tick`, `step`,
+  `status`, `summary`), which is what lets a `sed` capture read all three ordering keys out
+  of one pass without a JSON parser.
+  **Context**: every consumer in this skill relies on that shape; a reordering of the
+  reader's `printf` would silently empty the ordering rather than fail loudly, which is why
+  the hermetic case asserts on the resulting order rather than on the intermediate rows.

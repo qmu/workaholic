@@ -52,3 +52,4 @@ three writers and no artifact gains a field.
 - 2026-08-28 — ticket archived — 20260828052133-ask-about-the-leaving-before-the-close.md
 - 2026-08-28 — ticket archived — 20260828052133-say-it-before-the-silence-to-somebody.md
 - 2026-08-28 — ticket archived — 20260828052133-let-a-direction-name-its-predecessor.md
+- 2026-08-28 — ticket archived — 20260828052133-prove-the-succession-costs-no-fourth-writer.md

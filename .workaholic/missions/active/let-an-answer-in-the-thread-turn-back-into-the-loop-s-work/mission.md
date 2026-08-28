@@ -49,3 +49,4 @@ line; the tick still writes nothing but its own log.
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-28 — ticket archived — 20260828032058-record-the-coordinate-a-question-was-posted-at.md
 - 2026-08-28 — ticket archived — 20260828032058-read-the-answer-in-a-question-s-own-thread.md
+- 2026-08-28 — ticket archived — 20260828032058-record-the-answer-through-the-one-writer.md

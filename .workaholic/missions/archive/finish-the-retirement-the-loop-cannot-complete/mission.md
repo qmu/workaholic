@@ -60,3 +60,4 @@ blocked, and a standing blocked retirement stops reading as a fresh hourly findi
 - 2026-08-28 — ticket archived — 20260827232222-drill-the-blocked-retirement-with-no-network.md
 - 2026-08-28 — ticket archived — 20260827232222-write-the-blocked-retirement-into-the-documents.md
 - 2026-08-28 — mission achieved — mission.md
+- 2026-08-28 — story reported — work-20260827-234102.md

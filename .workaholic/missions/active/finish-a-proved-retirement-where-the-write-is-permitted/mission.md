@@ -44,7 +44,7 @@ branch and what already stands.
 
 <!-- PROPOSED - a sketch for discussion. Approval replans this to drive-ready. -->
 
-- [ ] A `superseded` branch is deleted by CI, the verdict re-proved at the act and every
+- [x] A `superseded` branch is deleted by CI, the verdict re-proved at the act and every
       refusal named at exit 0 (#20260828102230-re-prove-the-verdict-inside-ci-and-bound-what-may-be-deleted.md)
 - [ ] A CI-taken delete is reported as CI's (#20260828102230-report-which-executor-took-the-branch-delete.md)
 - [ ] `retire-blocked:` fires only after CI also refused, key/gate/addressee/cap
@@ -54,3 +54,4 @@ branch and what already stands.
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-28 — ticket archived — 20260828102230-derive-the-ci-retirement-candidate-set-with-no-new-store.md
+- 2026-08-28 — ticket archived — 20260828102230-re-prove-the-verdict-inside-ci-and-bound-what-may-be-deleted.md

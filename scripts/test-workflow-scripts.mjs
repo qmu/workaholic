@@ -17897,6 +17897,7 @@ const tests = [
   ["branching publish-tree-pr: threads a native Closes #<N> keyword when an issue number is in hand", testPublishTreePrClosesIssue],
   ["branching publish-tree-pr: a strategy-touching publish never auto-merges", testPublishTreePrStrategyExemption],
   ["branching publish-tree-pr: a ruling never auto-merges", testPublishTreePrRulingExemption],
+  ["moderate/draft-standing-rulings.sh drafts a judged ruling", testDraftStandingRulings],
   ["the PR title is not the commit subject (P4's surviving half)", testPrTitleSeparateFromSubject],
   ["the reply thread is found, not carried (Q1)", testStatelessThreadLookup],
   ["one behaviour per command: no dispatch on a literal first word (P5)", testNoSubcommands],
@@ -18489,6 +18490,130 @@ function testPublishTreePrRulingExemption() {
     !/WORKAHOLIC_(SKIP|NO|ALLOW)_[A-Z_]*RULING/.test(src), src);
   assertTrue("strategy_touching keeps its own derivation and wording",
     /strategy_touching/.test(src) && /git diff --name-only "origin\/\$\{base\}" HEAD/.test(src), src);
+}
+
+// ---------- moderate/draft-standing-rulings.sh: the ruling pull request (2026-08-28) ----------
+// The act the whole mission exists for: a judged ruling becomes a DIFF the operator merges,
+// instead of an hourly question naming a repair to perform by hand on `main`. Everything worth
+// pinning is a bound: it writes only in a publish tree, only through `carry-attribution.sh`,
+// only for a candidate the run JUDGED, and the pull request it opens never merges.
+function makeRulingRepo() {
+  const origin = mkdtempSync(join(tmpdir(), "wh-ruling-origin-"));
+  execSync("git -c init.defaultBranch=main init -q --bare", { cwd: origin });
+  const A = mkdtempSync(join(tmpdir(), "wh-ruling-A-"));
+  execSync(`git clone -q ${origin} .`, { cwd: A });
+  execSync("git config user.email test@example.com && git config user.name Test && git config commit.gpgsign false",
+    { cwd: A });
+  const w = (p, body) => { mkdirSync(dirname(join(A, p)), { recursive: true }); writeFileSync(join(A, p), body); };
+  const far = new Date(Date.now() + 400 * 86400000).toISOString().slice(0, 10);
+  w(".workaholic/feedbacks/20260101000000-a.md", "---\ntype: Feedback\n---\n\ncited\n");
+  w(".workaholic/feedbacks/20260101000000-b.md", "---\ntype: Feedback\n---\n\nuncited\n");
+  w(".workaholic/strategies/dir1.md",
+    `---\ntype: Strategy\ntitle: Direction one\nslug: dir1\nstatus: active\ntarget_date: ${far}\n` +
+    "assignees: [test@example.com]\nfeedback: [20260101000000-a.md]\n---\n\n## Aim\n\na\n\n## Schedule\n\ns\n");
+  w(".workaholic/strategies/gone.md",
+    `---\ntype: Strategy\ntitle: Closed one\nslug: gone\nstatus: achieved\ntarget_date: ${far}\n` +
+    "assignees: [test@example.com]\nfeedback: [20260101000000-a.md]\n---\n\n## Aim\n\na\n\n## Schedule\n\ns\n");
+  for (const slug of ["m2", "m3"]) {
+    w(`.workaholic/missions/active/${slug}/mission.md`,
+      `---\ntype: Mission\ntitle: ${slug}\nslug: ${slug}\nstatus: active\n` +
+      "feedback: [20260101000000-b.md]\n---\n\n## Experience\n\ne\n\n## Acceptance\n\n- [ ] a\n");
+  }
+  w("README.md", "seed\n");
+  execSync("git add -A && git commit -q -m seed && git push -q origin main", { cwd: A });
+  const binDir = mkdtempSync(join(tmpdir(), "wh-gh-draft-"));
+  writeFileSync(join(binDir, "gh"), `#!/bin/sh
+case "$1 $2" in
+  "api user") printf 'tester\\n'; exit 0 ;;
+esac
+case "$*" in
+  *pulls*POST*) echo '{"html_url":"https://example.test/pr/11","number":11}'; exit 0 ;;
+  *merge*) echo '{"merged":true}'; exit 0 ;;
+esac
+echo ""
+`);
+  chmodSync(join(binDir, "gh"), 0o755);
+  return { origin, A, binDir };
+}
+
+function testDraftStandingRulings() {
+  const DRAFT = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/draft-standing-rulings.sh");
+  const { origin, A, binDir } = makeRulingRepo();
+  // WORKAHOLIC_AUTO_MERGE=1 is SET on purpose: an unset variable would let the refusal below
+  // pass with the seam's exemption deleted, which is the one failure this mission cannot take.
+  const env = { ...process.env, PATH: `${binDir}:${process.env.PATH}`, WORKAHOLIC_AUTO_MERGE: "1" };
+  const draft = (args) => JSON.parse(run(A, `${POSIX_SH} ${DRAFT} ${args}`, { env }).stdout);
+  const baseMission = (slug) =>
+    execSync(`git show origin/main:.workaholic/missions/active/${slug}/mission.md`, { cwd: A, encoding: "utf8" });
+  try {
+    // 1. A JUDGED ATTRIBUTION BECOMES A DIFF ON A PULL REQUEST THAT DOES NOT MERGE.
+    const one = draft(`--judgement m2=dir1`);
+    assertEq("the judged mission is carried through the one writer",
+      [one.ok, one.readable, one.drafted, one.rulings], [true, true, 1,
+        [{ kind: "attribution", subject: "m2", decision: "dir1", status: "carried" }]]);
+    assertEq("and the pull request is opened and left open for the operator",
+      [one.published, one.merged, one.merge_reason, one.publish_reason],
+      [true, false, "ruling_touching", "published"]);
+    assertTrue("with a URL to hand the operator", one.pr_url.length > 0, JSON.stringify(one));
+
+    // AN UNJUDGED CANDIDATE REACHES NO WRITER. `m3` is unattributed and was not judged.
+    assertEq("the unjudged candidate is not drafted",
+      one.rulings.filter((r) => r.subject === "m3"), []);
+
+    // THE CALLER'S CHECKOUT IS UNTOUCHED — every write happened in the publish tree.
+    assertEq("the caller's working tree is byte-identical",
+      execSync("git status --porcelain", { cwd: A, encoding: "utf8" }).trim(), "");
+    assertEq("and the base itself is untouched until the operator merges",
+      baseMission("m2").includes("20260101000000-a.md"), false);
+
+    // 2. A RE-RUN IS A NO-OP. The first ruling is on a branch, not on the base, so the same
+    //    judgement drafts the same diff again — what must NOT happen is a second carry onto a
+    //    mission that already has the refs, which is `carry-attribution.sh`'s `already`.
+    execSync("git fetch -q origin", { cwd: A });
+    const branch = execSync("git for-each-ref --format='%(refname:short)' 'refs/remotes/origin/work-*'",
+      { cwd: A, encoding: "utf8" }).trim().split("\n")[0].trim();
+    assertTrue("the ruling landed on a work branch", branch.length > 0, branch);
+    execSync(`git merge -q --no-edit ${branch} && git push -q origin main`, { cwd: A });
+    const again = draft(`--judgement m2=dir1`);
+    assertEq("a mission that already carries the refs drafts nothing",
+      [again.drafted, again.published, again.publish_reason, again.rulings],
+      [0, false, "nothing_to_draft", []]);
+
+    // `m2` left the candidate set once its ruling landed, so it is not even offered — which is
+    // what makes the suppression in the next ticket derived rather than stored.
+    assertEq("and the landed ruling is no longer a candidate",
+      JSON.parse(run(A, `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/list-standing-rulings.sh")} --root ${join(A, ".workaholic")}`).stdout)
+        .rulings.filter((r) => r.kind === "attribution").map((r) => r.subject), ["m3"]);
+
+    // 3. EVERY REFUSAL OF THE WRITER IS REPORTED BY NAME AND WRITES NOTHING.
+    const closed = draft(`--judgement m3=gone`);
+    assertEq("a closed direction is refused not_active",
+      [closed.drafted, closed.rulings.map((r) => r.status)], [0, ["not_active"]]);
+    const missing = draft(`--judgement m3=no-such-direction`);
+    assertEq("an absent strategy is refused strategy_not_found",
+      [missing.drafted, missing.rulings.map((r) => r.status)], [0, ["strategy_not_found"]]);
+    assertEq("and neither wrote anything into the caller's checkout",
+      execSync("git status --porcelain", { cwd: A, encoding: "utf8" }).trim(), "");
+
+    // 4. A JUDGEMENT NAMING AN UNSURFACED SUBJECT IS CARRIED THROUGH AS A REFUSAL, so a run
+    //    that judged something stale can see why nothing was drafted.
+    const stale = draft(`--judgement no-such-mission=dir1`);
+    assertEq("the reader's refusal reaches the drafter's report",
+      [stale.drafted, stale.refused], [0, [{ subject: "no-such-mission", reason: "subject_not_surfaced" }]]);
+
+    // 5. THE BREAKER: the drafter reaches the one writer and no other path to that line.
+    const src = readFileSync(DRAFT, "utf8").split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+    assertTrue("it writes attributions only through carry-attribution.sh",
+      /carry-attribution\.sh/.test(src) && !/feedback:/.test(src), src);
+    assertTrue("and it writes only inside a publish tree",
+      /open-publish-tree\.sh/.test(src) && /close-publish-tree\.sh/.test(src), src);
+    assertTrue("never setting the auto-merge variable itself",
+      !/WORKAHOLIC_AUTO_MERGE=/.test(src), src);
+  } finally {
+    rmSync(origin, { recursive: true, force: true });
+    rmSync(A, { recursive: true, force: true });
+    rmSync(binDir, { recursive: true, force: true });
+  }
 }
 
 // ---------- extract-issue-number.sh (the FB-auto-close ticket) ----------

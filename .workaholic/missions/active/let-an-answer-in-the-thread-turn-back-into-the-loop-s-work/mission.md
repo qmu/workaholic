@@ -42,7 +42,7 @@ line; the tick still writes nothing but its own log.
       reads that thread and records the answer through `record-answer.sh` — one read per question, no search. (#20260828032058-record-the-coordinate-a-question-was-posted-at.md)
 - [x] An answer asking for work becomes one `[FB]` issue through `file-inbound-ask.sh`,
       filed once however many ticks read it, and carries the reaction. (#20260828032101-turn-an-answer-that-asks-for-work-into-an-issue.md)
-- [ ] The path is drilled with no network, and the documents say so. (#20260828032058-reproduce-the-dead-return-path-and-pin-it.md)
+- [x] The path is drilled with no network, and the documents say so. (#20260828032058-reproduce-the-dead-return-path-and-pin-it.md)
 
 ## Changelog
 
@@ -52,3 +52,4 @@ line; the tick still writes nothing but its own log.
 - 2026-08-28 — ticket archived — 20260828032058-record-the-answer-through-the-one-writer.md
 - 2026-08-28 — ticket archived — 20260828032101-turn-an-answer-that-asks-for-work-into-an-issue.md
 - 2026-08-28 — ticket archived — 20260828032101-stamp-the-answer-where-it-was-written.md
+- 2026-08-28 — ticket archived — 20260828032058-reproduce-the-dead-return-path-and-pin-it.md

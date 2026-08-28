@@ -55,3 +55,4 @@ three writers and no artifact gains a field.
 - 2026-08-28 — ticket archived — 20260828052133-prove-the-succession-costs-no-fourth-writer.md
 - 2026-08-28 — ticket archived — 20260828052133-drill-the-succession-end-to-end.md
 - 2026-08-28 — mission achieved — mission.md
+- 2026-08-28 — story reported — work-20260828-054059.md

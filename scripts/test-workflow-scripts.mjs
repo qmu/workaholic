@@ -17896,6 +17896,7 @@ const tests = [
   ["propose inbound sweep: one marker writer, and the ledger read never runs blind", testInboundSweep],
   ["branching publish-tree-pr: threads a native Closes #<N> keyword when an issue number is in hand", testPublishTreePrClosesIssue],
   ["branching publish-tree-pr: a strategy-touching publish never auto-merges", testPublishTreePrStrategyExemption],
+  ["branching publish-tree-pr: a ruling never auto-merges", testPublishTreePrRulingExemption],
   ["the PR title is not the commit subject (P4's surviving half)", testPrTitleSeparateFromSubject],
   ["the reply thread is found, not carried (Q1)", testStatelessThreadLookup],
   ["one behaviour per command: no dispatch on a literal first word (P5)", testNoSubcommands],
@@ -18372,6 +18373,122 @@ function testPublishTreePrStrategyExemption() {
     /strategy_touching/.test(src) && /git diff --name-only "origin\/\$\{base\}" HEAD/.test(src), src);
   assertTrue("and reads no environment variable of its own for it",
     !/WORKAHOLIC_(SKIP|NO)_[A-Z_]*STRATEGY/.test(src), src);
+}
+
+// ---------- publish-tree-pr.sh never auto-merges a ruling (2026-08-28) ----------
+// A RULING MERGED BY A MACHINE IS NOT A RULING. The whole standing-rulings path rests on the
+// operator's merge being the ruling and their close being the refusal, so the refusal lives in
+// the seam rather than in a caller: a caller leaving `WORKAHOLIC_AUTO_MERGE` unset is the same
+// prose one layer down, and forgetting it merges an operator's ruling with nobody having ruled.
+//
+// The row that carries the ticket's own stated design risk is the THIRD one: a carried
+// attribution and a brand-new mission both live under `.workaholic/missions/`, and every
+// `/specificate` proposal writes one of the second kind. Catching those would stop the loop's
+// ordinary publications from merging at all, so the test is on the SHAPE OF THE CHANGE.
+function publishSeededArtifact({ seed = {}, write = {}, paths, title }) {
+  const { origin, A } = makePublishFixture();
+  const binDir = mkdtempSync(join(tmpdir(), "wh-gh-ruling-"));
+  try {
+    // The stub answers a SUCCESSFUL merge on purpose: a stub that refused would let every
+    // refusal below pass for the wrong reason.
+    writeFileSync(join(binDir, "gh"), `#!/bin/sh
+case "$1 $2" in
+  "api user") printf 'tester\\n'; exit 0 ;;
+esac
+case "$*" in
+  *pulls*POST*) echo '{"html_url":"https://example.test/pr/9","number":9}'; exit 0 ;;
+  *merge*) echo '{"merged":true}'; exit 0 ;;
+esac
+echo ""
+`);
+    chmodSync(join(binDir, "gh"), 0o755);
+    const env = { ...process.env, PATH: `${binDir}:${process.env.PATH}`, WORKAHOLIC_AUTO_MERGE: "1" };
+
+    // Seed the BASE first, so a modified file is genuinely a modification rather than an add.
+    for (const [p, body] of Object.entries(seed)) {
+      mkdirSync(dirname(join(A, p)), { recursive: true });
+      writeFileSync(join(A, p), body);
+    }
+    if (Object.keys(seed).length > 0) {
+      execSync("git add -A && git commit -q -m seed-ruling && git push -q origin main", { cwd: A });
+    }
+
+    run(A, `${POSIX_SH} ${SCRIPTS.openPublishTree}`);
+    for (const [p, body] of Object.entries(write)) {
+      mkdirSync(dirname(join(A, ".publish", p)), { recursive: true });
+      writeFileSync(join(A, ".publish", p), body);
+    }
+    const out = run(A,
+      `${POSIX_SH} ${SCRIPTS.publishTreePr} "${title}" "why" "None" "None" "None" "verify" ${paths.join(" ")}`,
+      { env }).stdout;
+    run(A, `${POSIX_SH} ${SCRIPTS.closePublishTree}`);
+    return JSON.parse(out || "{}");
+  } finally {
+    rmSync(origin, { recursive: true, force: true });
+    rmSync(A, { recursive: true, force: true });
+    rmSync(binDir, { recursive: true, force: true });
+  }
+}
+
+function testPublishTreePrRulingExemption() {
+  const mission = (refs) =>
+    `---\ntype: Mission\ntitle: M\nslug: m2\nstatus: active\nfeedback: [${refs}]\n---\n\n` +
+    "## Experience\n\ne\n\n## Acceptance\n\n- [ ] a\n";
+
+  // 1. A CARRIED ATTRIBUTION DOES NOT MERGE. The mission already exists on the base and its
+  //    `feedback:` line moves — exactly and only what `carry-attribution.sh` writes.
+  const carried = publishSeededArtifact({
+    seed: { ".workaholic/missions/active/m2/mission.md": mission("20260101000000-b.md") },
+    write: { ".workaholic/missions/active/m2/mission.md": mission("20260101000000-b.md, 20260101000000-a.md") },
+    paths: [".workaholic/missions/active/m2/mission.md"],
+    title: "Carry the attribution for m2",
+  });
+  assertEq("a carried attribution reports its own outcome, not a failure",
+    [carried.ok, carried.merged, carried.merge_reason], [true, false, "ruling_touching"]);
+  assertTrue("and the pull request is left open for the operator",
+    typeof carried.pr_url === "string" && carried.pr_url.length > 0, JSON.stringify(carried));
+
+  // 2. A MAPPING RULING DOES NOT MERGE EITHER. Nothing but a ruling writes that file here, so
+  //    the path alone is the test.
+  const mapped = publishSeededArtifact({
+    seed: { ".claude/git-identities": "# mapping\n" },
+    write: { ".claude/git-identities": "# mapping\nsomeone=a@example.com\n" },
+    paths: [".claude/git-identities"],
+    title: "Rule the mapping for a@example.com",
+  });
+  assertEq("a mapping ruling reports the same outcome",
+    [mapped.ok, mapped.merged, mapped.merge_reason], [true, false, "ruling_touching"]);
+
+  // 3. THE DESIGN RISK, PINNED. A brand-new mission is what every `/specificate` proposal
+  //    writes; catching it on the directory alone would stop the loop merging anything.
+  const proposal = publishSeededArtifact({
+    write: { ".workaholic/missions/active/m3/mission.md": mission("20260101000000-c.md") },
+    paths: [".workaholic/missions/active/m3/mission.md"],
+    title: "Propose mission m3",
+  });
+  assertEq("a NEW mission under the same directory still merges",
+    [proposal.ok, proposal.merged, proposal.merge_reason], [true, true, "merged"]);
+
+  // And a modification to an existing mission that leaves `feedback:` alone is not a ruling.
+  const rolled = publishSeededArtifact({
+    seed: { ".workaholic/missions/active/m2/mission.md": mission("20260101000000-b.md") },
+    write: { ".workaholic/missions/active/m2/mission.md": mission("20260101000000-b.md") + "\n## Changelog\n\n- rolled\n" },
+    paths: [".workaholic/missions/active/m2/mission.md"],
+    title: "Roll the changelog for m2",
+  });
+  assertEq("an ordinary mission edit still merges",
+    [rolled.ok, rolled.merged, rolled.merge_reason], [true, true, "merged"]);
+
+  // 4. THE BREAKER: the refusal is SEAM-DERIVED, never caller-supplied, and it is its own word
+  //    rather than a widened `strategy_touching` — the two ask for different operator acts.
+  const src = readFileSync(SCRIPTS.publishTreePr, "utf8")
+    .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+  assertTrue("the seam derives the ruling from a diff against the base",
+    /ruling_touching/.test(src) && /git diff --name-status "origin\/\$\{base\}" HEAD/.test(src), src);
+  assertTrue("and reads no environment variable of its own for it",
+    !/WORKAHOLIC_(SKIP|NO|ALLOW)_[A-Z_]*RULING/.test(src), src);
+  assertTrue("strategy_touching keeps its own derivation and wording",
+    /strategy_touching/.test(src) && /git diff --name-only "origin\/\$\{base\}" HEAD/.test(src), src);
 }
 
 // ---------- extract-issue-number.sh (the FB-auto-close ticket) ----------

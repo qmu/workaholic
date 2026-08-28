@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-27T23:22:22+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on: 20260827232222-give-a-refused-delete-its-own-reported-word.md
@@ -74,3 +75,45 @@ The retired row already does this correctly (`pr <state>, branch <state>, worktr
   a reader must be able to see that two of three acts already stand.
 - The stability requirement in step 4 is load-bearing for ticket 6, which keys on
   the diff. Adding a count of hours-blocked here would silently defeat it.
+
+## Final Report
+
+Development completed as planned.
+
+`step-retire-claims.sh`'s refused row renders all three act states beside its reason, exactly as
+the retired row already did:
+
+```
+batch-blocked refused (branch_delete_failed; pr already_closed, branch failed, worktree absent)
+```
+
+The states are already on the writer's row, so this **reads** them and derives nothing new. What
+follows from that:
+
+- `already_closed`, `already_gone`, `absent` and `none` render as the **successes** they are — a
+  row reading `pr already_closed, branch failed` is the whole point of the change.
+- `not_attempted` stays distinct from `failed` and `absent`. A gate that never ran made no finding
+  about the world, and the refusal path keeps saying so.
+- The retired row, every success word, and `event` are **byte-identical** to before: a tick that
+  retired nothing still supplies no event and renders no root line.
+
+**No age and no timestamp** (step 4, and ticket 6 depends on it): every term is a function of the
+claim set and the act states alone, so two runs over an unchanged claim set produce identical
+summaries. `verify-retire`'s `retire_blocked_summary_stable` row proves it across two consecutive
+ticks and fails when a varying term is introduced — verified by prefixing the summary with
+`$(date +%s)`, which failed exactly that row.
+
+### Discovered Insights
+
+- **Insight**: the retired row and the refused row were written at the same time and only one of
+  them kept the act states. The asymmetry is invisible in the code — the two `jq` expressions sit
+  four lines apart — and visible immediately in the log, where a refusal is the row a person is
+  actually reading.
+  **Context**: the half of a pair that renders the *unhappy* path is the half that gets less
+  attention and is read more often. Worth checking both branches of any such pair render the same
+  facts.
+- **Insight**: a stable summary is load-bearing infrastructure for the root's change diff, not a
+  cosmetic preference — and the cheapest way to break it is to add something genuinely useful, like
+  how long a block has stood.
+  **Context**: the age is not lost; it belongs in the question, which names the unit. The rule is
+  *the diff needs a stable string, the person needs the age*, and the two surfaces are different.

@@ -8,6 +8,13 @@
 #          "remote_branch_deleted": "deleted"|"already_gone"|"failed"|"not_attempted",
 #          "worktree_reaped": "reaped"|"absent"|"refused"|"not_attempted",
 #          "reason": ""}
+#         `reason` is a CLOSED VOCABULARY, empty on a complete retirement. A refusal before the
+#         acts: `not_a_repository`, `no_origin`, `origin_unreachable`, `no_claims`,
+#         `no_such_claim`, `ambiguous_claim`, `unanswerable:<why>`, `not_superseded:<verdict>`.
+#         A blocked act names ITS OWN act (2026-08-27): `gh_unavailable` / `slug_unresolved` /
+#         `pull_request_close_failed` for the close, `branch_delete_failed` for the delete,
+#         `worktree_reap_refused` for the reap. `partial_retirement` is retired — it collapsed
+#         all three into one word.
 #         Always exit 0 — a refusal is an answer, and the caller (`/moderate`'s step) reports
 #         it rather than dying on it.
 #
@@ -201,8 +208,32 @@ if ! git rev-parse --verify --quiet "refs/remotes/origin/${BRANCH}" >/dev/null 2
 elif git push --quiet origin --delete "$BRANCH" >/dev/null 2>&1; then
     REMOTE_STATE="deleted"
 else
-    # Measured 2026-08-05 on the hourly runner: a cloud container may PUSH but not DELETE a
-    # branch. Named rather than fatal — the other two acts stand on their own.
+    # MEASURED, NOT ASSUMED (2026-08-27, mission `finish-the-retirement-the-loop-cannot-complete`;
+    # the 2026-08-05 note here was a hypothesis and is now a measurement). Reproduced in a
+    # routine-fired container against a claim already proved `superseded` on this repository:
+    #
+    #   git push origin --delete   →  error: RPC failed; HTTP 403 curl 22 The requested URL
+    #                                 returned error: 403
+    #   DELETE /repos/{o}/{r}/git/refs/heads/{branch} through `gh-rest.sh`
+    #                              →  HTTP 403 {"message":"Write access to this GitHub API path
+    #                                 is not permitted through this proxy."}
+    #
+    # The two transports AGREE, and the refusal is a SESSION-TYPE one: not a protection rule
+    # (which answers 422 naming the rule) and not a missing scope (which answers a permissions
+    # message). An ordinary `git push` of this same branch succeeds in this same container, so
+    # it is the delete specifically that is refused.
+    #
+    # NO SECOND TRANSPORT CAN TAKE THIS ACT, and that is the recorded finding rather than a
+    # gap: REST is refused above, and the GitHub connector exposes `create_branch` and
+    # `list_branches` but NO branch- or ref-delete surface at all — so there is nothing for a
+    # `rules/shell.md`-style bounded retry to attempt, here or in the caller. A second REST
+    # attempt is deliberately NOT made: it is measured to answer 403, and a call that cannot
+    # succeed is noise with a cost. Full record: `../reference/claims.md`, *When an act of the
+    # retirement is refused*.
+    #
+    # Named rather than fatal — the other two acts stand on their own, the closing branch
+    # reports `branch_delete_failed` so the reader learns WHICH act is blocked, and the caller
+    # renders the acts that succeeded beside it.
     REMOTE_STATE="failed"
 fi
 
@@ -221,9 +252,35 @@ else
     WORKTREE_STATE="refused"
 fi
 
-# `retired` is the whole retirement, and a partial one says so. Each act's own word is already
-# on the row above, so the caller reports WHAT happened rather than that something did.
-if [ "$PR_STATE" = "failed" ] || [ "$REMOTE_STATE" = "failed" ] || [ "$WORKTREE_STATE" = "refused" ]; then
-    report false "${pr_note:-partial_retirement}"
+# `retired` is the whole retirement, and a partial one says WHICH ACT IS BLOCKED (2026-08-27,
+# mission `finish-the-retirement-the-loop-cannot-complete`). This branch reported
+# `partial_retirement` for all three failures until then, so a refused pull-request close, a
+# refused branch delete and a dirty worktree read alike and only the first had a `pr_note` that
+# survived — measured on this repository, three units reported `partial_retirement` for a BRANCH
+# DELETE and nothing in the tick log said so. This is the `session_type_cannot_merge` precedent
+# (2026-08-23) one act over: a refusal the transport made gets its own word, so the reader learns
+# which act is blocked rather than that something was.
+#
+# THE WORD IS DERIVED FROM THE THREE STATES ALREADY ON THE ROW — no new field, no second
+# derivation — and the acts are consulted in ACT ORDER, so the reason names the first blocked
+# act while the row's three states show every one of them (which is what the caller renders).
+#
+# ONE WORD PER ACT, NOT THREE PER CAUSE. The refusal was measured before this was written
+# (2026-08-27, in a routine-fired container): both transports answer 403 — `git push --delete`
+# gets `RPC failed; HTTP 403` and the REST endpoint answers *"Write access to this GitHub API
+# path is not permitted through this proxy."* — so the world here has ONE cause, a session-type
+# refusal, and a speculative protection-rule/missing-scope/session-type split would ship three
+# words for it. The message belongs in a diagnosis; the reason stays a closed vocabulary the
+# caller can key on.
+#
+# EVERY SUCCESS WORD IS UNTOUCHED: `already_closed`, `already_gone`, `none` and `absent` are
+# successes, not degradations, and a fully successful retirement still reports `retired: true`
+# with an empty reason.
+if [ "$PR_STATE" = "failed" ]; then
+    report false "${pr_note:-pull_request_close_failed}"
+elif [ "$REMOTE_STATE" = "failed" ]; then
+    report false branch_delete_failed
+elif [ "$WORKTREE_STATE" = "refused" ]; then
+    report false worktree_reap_refused
 fi
 report true ""

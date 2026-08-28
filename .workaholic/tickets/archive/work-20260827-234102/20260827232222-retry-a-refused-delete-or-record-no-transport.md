@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-27T23:22:22+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on: 20260827232222-give-a-refused-delete-its-own-reported-word.md
@@ -86,3 +87,51 @@ refusal that covers every surface makes this a recording ticket by construction.
 - The 2026-08-05 comment predicted this refusal and called it "not fatal". It is
   fatal to the mechanism's purpose — unmerged remote branches are the only claim
   oracle — and that is the reasoning this mission acts on, not the comment.
+
+## Final Report
+
+Development completed as planned — on the **recording** branch, which this ticket names as a
+complete outcome rather than a half-done one.
+
+**Step 1 sent this to step 5.** Ticket 1's measurement classified the refusal as **session-type**,
+not a protection rule and not a missing scope. Step 1's shortcut therefore does not apply
+literally — but the enumeration step 3 asks for reaches the same place:
+
+| Surface | Answer |
+| ------- | ------ |
+| REST `DELETE /repos/{owner}/{repo}/git/refs/heads/{branch}` via `gh-rest.sh` | `403 {"message":"Write access to this GitHub API path is not permitted through this proxy."}` |
+| the GitHub connector | **no branch- or ref-delete surface exists** — `create_branch` and `list_branches` are the only ref tools it carries |
+
+**So no transport can take this act, and that is the finding.** No retry is added:
+
+- A **second REST attempt** is inadmissible because it is measured to answer 403. A call that
+  cannot succeed is noise with a cost, and adding one would describe a retry that was never
+  admitted.
+- A **connector step in the caller** has nothing to call. `rules/shell.md`'s qualification exists
+  for *the one act a script cannot perform at all* — it presumes a tool that can perform it, and
+  here there is none.
+- The precondition was **not widened**. No other reason word, no other verdict, and no retry on a
+  claim that is not `superseded`; the proof gate is untouched.
+
+**Recorded where a later reader looks for it** (step 5): `rules/shell.md`, as a table beside the
+merge qualification it would otherwise be read as extending, and
+`drive/reference/claims.md`, *When an act of the retirement is refused*. Both state the reopening
+condition explicitly — if the connector ever gains a ref-delete surface, the question returns on
+the same bounds (one tool, one named precondition, one act, both outcomes reported).
+
+The mission therefore lands on tickets 2 and 4–8, which is why they were written independent of
+this one.
+
+### Discovered Insights
+
+- **Insight**: `rules/shell.md`'s merge qualification is the nearest precedent and the most
+  dangerous one to reason from, because its shape ("a refusal a second transport may retry") reads
+  as a template. The thing that made it admissible was a **connector tool that performs the act**;
+  without one the shape has nothing to hold.
+  **Context**: recorded in `shell.md` itself so the next session reaching for the template stops at
+  the enumeration rather than at the rule — the absence of a surface is the load-bearing fact, and
+  it is invisible unless somebody writes down which tools were checked.
+- **Insight**: "no transport can do this" is only durable if it names *what was checked and when*.
+  Both records carry the verbatim messages and the tool names.
+  **Context**: a bare "not possible" ages into folklore and gets re-litigated; a table of surfaces
+  and answers can be re-run against and falsified the day the environment changes.

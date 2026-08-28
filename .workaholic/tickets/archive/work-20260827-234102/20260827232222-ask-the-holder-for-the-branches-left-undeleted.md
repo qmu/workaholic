@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-27T23:22:22+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on: 20260827232222-give-a-refused-delete-its-own-reported-word.md
@@ -85,3 +86,51 @@ refusal, addressed to the **claim holder**.
   was already refused for `handoff-units`, and is refused here for the same reason:
   four verdicts call for four acts by four people, and a report addressed to nobody
   is what two keyed roots were retired for.
+
+## Final Report
+
+Development completed as planned.
+
+`step-retire-claims.sh` hands every unit whose retirement was **blocked on the delete** to the
+check-in as one question, keyed **`retire-blocked:<unit>`** so `ask-question.sh`'s asked-once
+ledger holds it to exactly one ask. The question names the unit, the **exact branch** left on
+origin, the recorded refusal, and the acts that already stand.
+
+**Whose question it is**: the **claim holder**'s, following `stalled-units` and
+`undelivered-units` — a real person who drove the unit and can delete its branch. The address is
+the claim row's own `author`; the **running identity is never consulted**, following
+`undrivable-units`, because a branch left on origin is a fact about the repository and an hourly
+question that depended on which container asked it would answer differently per account.
+
+**Narrowed to the delete, deliberately.** A refused *reap* is local to this runner and tells its
+holder nothing they can do remotely; a refused *close* is a different act with a different repair.
+
+**No unit draws two questions** (step 5): every candidate here reads `superseded`, which
+`step-stalled-units.sh` already filters out of its own candidates and counts as a finding instead
+— so the pair was already honest and nothing new had to be filtered. The other two claim-reading
+steps key on `report_undelivered` and `awaiting_verification`, which no `superseded` row can also
+be.
+
+**It asks and nothing else** (step 4): no claim released, no pull request reopened, no delete
+re-run on the strength of an answer, no `superseded` verdict touched. The retirement's other two
+acts happen exactly as they did.
+
+The step's *`needs_agent` is empty* rule is **narrowed, not reversed** — a retirement that
+succeeded still asks nothing at all, because there is still no judgement for a person to make.
+That is what the drill's breaker row guards.
+
+### Discovered Insights
+
+- **Insight**: the empty-`needs_agent` rule was not wrong when written — it was **true of a world
+  in which every retirement either succeeded or was refused on a judgement**. It became wrong the
+  moment a *proof* the loop acted on could leave one act undone, which is a state the writer
+  created and the caller never re-read.
+  **Context**: a "this step asks nobody anything" contract is safe only while every outcome of its
+  act is either complete or somebody else's business. Adding a new partial-failure outcome to a
+  writer silently invalidates its caller's silence rule, and nothing mechanical catches that.
+- **Insight**: the sibling filter needed **no** new code, because `stalled-units` already drops
+  `superseded` for its own reason (a merged claim is a fact, not a question) — a rule written for
+  a different purpose that happens to make the pair exclusive.
+  **Context**: it is exclusive by coincidence rather than by construction, so the drill asserts it
+  rather than the code enforcing it. If `stalled-units` ever stops filtering `superseded`, the two
+  steps start asking about the same unit in different vocabularies.

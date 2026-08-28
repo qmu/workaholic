@@ -9,12 +9,24 @@
 # 2026-08-21. `retire-claim.sh` is the writer; this is its ONLY caller, deliberately, because one
 # caller is what keeps the retirement's bounds checkable.
 #
-# IT ASKS NOBODY ANYTHING, and `needs_agent` is empty for that reason. A retirement is not a
-# person's business: the claim is proved empty, so there is no judgement to make and nothing for
-# a human to weigh. This is the sharpest contrast with `stalled-units`, `undrivable-units` and
-# `undelivered-units` beside it — each of those hands a person a reading it cannot act on, while
-# this one acts and reports. Spending a question on a fact nobody needs to rule on is exactly
-# what `strategy-pace` refuses to do with our own degradations.
+# IT ASKS NOBODY ANYTHING ABOUT A RETIREMENT THAT SUCCEEDED, and `needs_agent` is empty for that
+# reason. A completed retirement is not a person's business: the claim is proved empty, so there
+# is no judgement to make and nothing for a human to weigh. This is the sharpest contrast with
+# `stalled-units`, `undrivable-units` and `undelivered-units` beside it — each of those hands a
+# person a reading it cannot act on, while this one acts and reports. Spending a question on a
+# fact nobody needs to rule on is exactly what `strategy-pace` refuses to do with our own
+# degradations.
+#
+# THE RULE IS NARROWED, NOT REVERSED (2026-08-27, mission
+# `finish-the-retirement-the-loop-cannot-complete`). It was written when every retirement either
+# succeeded or was refused on a JUDGEMENT, and it is wrong the moment a PROOF the loop acted on
+# leaves one act UNDONE. Act 2 — the remote branch delete — is refused in the container the loop
+# runs in (measured; `../../drive/scripts/retire-claim.sh`, Act 2), so the branch stays on
+# origin, the claim never leaves the table, and this step reported `0 retired` hour after hour
+# with nobody told. That unit is then exactly the shape `undelivered-units` and `handoff-units`
+# exist for: a reading the machine cannot act on, addressed to one person. One question per
+# blocked unit, keyed `retire-blocked:<unit>`, addressed to the claim holder, naming the branch —
+# and still nothing at all for a retirement that worked.
 #
 # IT ACTS DIRECTLY RATHER THAN HANDING OFF, which is where it diverges from `closable-missions`
 # and for a stated reason. That step hands its act to the agent because `close.sh` WRITES INTO
@@ -52,6 +64,19 @@
 # hour ago, and only a timestamp, a bare hex object name and a clock time are normalised out. A
 # count of what was retired this tick is stable when nothing happens, which is what the diff
 # needs.
+#
+# AND A STANDING BLOCKED RETIREMENT MUST NOT READ AS AN HOURLY CHANGE (2026-08-27, mission
+# `finish-the-retirement-the-loop-cannot-complete`). `0 retired` over a unit already asked about
+# is a HELD condition, not a new one, and this repository has measured the same shape three
+# times: a status restated hourly is read by nobody by the second day (`📦 Release Preparation`,
+# one step over). Every term below is therefore a function of the CLAIM SET AND THE ACT STATES
+# and of nothing else — the same units, the same acts standing and the same refusal render the
+# same string, tick after tick — so a held block produces an identical summary and, with `event`
+# empty on a tick that retired nothing, no root line at all. That is TWO independent guards, and
+# neither is a suppression list: a NEWLY blocked unit moves the unit set, so the summary moves
+# and the block is visible the hour it happens. Suppress by nothing; let the diff work. The
+# question's own repetition is bounded by `ask-question.sh`'s asked-once ledger, which is a
+# separate concern deliberately — a second per-unit ledger beside it is how the two drift.
 #
 # Usage: step-retire-claims.sh --tick <tick-id> [--root <repo-root>]
 # Output: one JSON line — {step, status, reason, summary, needs_agent, event}
@@ -118,19 +143,53 @@ fi
 # reason, so `retired` and `refused` are never a bare count somebody has to go digging behind.
 retired=0
 refused=0
+blocked=0
 detail=""
+rows=""
+rsep=""
 for unit in $units; do
     [ -n "$unit" ] || continue
     res=$( ( cd "$ROOT" && sh "$retirer" "$unit" ) 2>/dev/null || true )
     if [ -z "$res" ] || ! printf '%s' "$res" | jq -e . >/dev/null 2>&1; then
-        res=$(printf '{"retired": false, "unit": "%s", "pull_request_closed": "not_attempted", "remote_branch_deleted": "not_attempted", "worktree_reaped": "not_attempted", "reason": "writer_unreadable"}' "$unit")
+        res=$(printf '{"retired": false, "unit": "%s", "branch": "", "pull_request_closed": "not_attempted", "remote_branch_deleted": "not_attempted", "worktree_reaped": "not_attempted", "reason": "writer_unreadable"}' "$unit")
     fi
     if printf '%s' "$res" | jq -e '.retired == true' >/dev/null 2>&1; then
         retired=$((retired + 1))
         line=$(printf '%s' "$res" | jq -r '"\(.unit) retired (pr \(.pull_request_closed), branch \(.remote_branch_deleted), worktree \(.worktree_reaped))"' 2>/dev/null || printf '')
     else
         refused=$((refused + 1))
-        line=$(printf '%s' "$res" | jq -r '"\(.unit) refused (\(if (.reason // "") == "" then "unstated" else .reason end))"' 2>/dev/null || printf '')
+        # A REFUSED ROW NAMES THE ACTS THAT STAND, exactly as the retired row does (2026-08-27,
+        # mission `finish-the-retirement-the-loop-cannot-complete`). It rendered `<unit> refused
+        # (<reason>)` until then, dropping the acts that SUCCEEDED — so a re-run read as a re-run
+        # of three acts when it is a re-run of one, and three units whose pull requests had been
+        # closed days earlier still read as bare refusals on every tick. The three states are
+        # already on the writer's row; this reads them and derives nothing. `already_closed`,
+        # `already_gone`, `absent` and `none` therefore render as the SUCCESSES they are, and
+        # `not_attempted` stays distinct from `failed` — a gate that never ran made no finding
+        # about the world, so the refusal path must keep saying so.
+        line=$(printf '%s' "$res" | jq -r '"\(.unit) refused (\(if (.reason // "") == "" then "unstated" else .reason end); pr \(.pull_request_closed), branch \(.remote_branch_deleted), worktree \(.worktree_reaped))"' 2>/dev/null || printf '')
+        # A RETIREMENT BLOCKED ON THE DELETE IS THE ONE REFUSAL A PERSON CAN ACT ON, and it is
+        # the candidate set for the question below. Narrowed to the delete deliberately: a
+        # refused reap is local to this runner and tells its holder nothing they can do
+        # remotely, and a refused close is a different act with a different repair. The branch
+        # is read off the writer's own row, so the question names the branch the writer actually
+        # tried to delete rather than one this step resolved a second time.
+        if printf '%s' "$res" | jq -e '.remote_branch_deleted == "failed"' >/dev/null 2>&1; then
+            blocked=$((blocked + 1))
+            branch=$(printf '%s' "$res" | jq -r '.branch // ""')
+            row=$(printf '%s' "$out" | jq -c --arg b "$branch" --argjson r "$res" '
+                ([.claims[]? | select(.branch == $b) | .author] | first) as $a
+                | {unit: $r.unit, branch: $r.branch,
+                   owner: (if ($a // "") == "" then "unknown" else $a end),
+                   refusal: $r.reason,
+                   acts_that_stand: ("pull request " + $r.pull_request_closed
+                                     + ", worktree " + $r.worktree_reaped),
+                   key: ("retire-blocked:" + $r.unit)}' 2>/dev/null || printf '')
+            if [ -n "$row" ]; then
+                rows="${rows}${rsep}${row}"
+                rsep=","
+            fi
+        fi
     fi
     [ -n "$line" ] || continue
     # The summary is one JSON string on one line; a quote or a control character from a unit id
@@ -138,6 +197,7 @@ for unit in $units; do
     line=$(printf '%s' "$line" | sed -e 's/\\/\\\\/g' -e 's/"/'"'"'/g' -e 's/[[:cntrl:]]/ /g')
     detail="${detail:+${detail}; }${line}"
 done
+rows="[${rows}]"
 
 summary="${total} claimed unit(s); ${n} proved superseded, ${retired} retired, ${refused} refused${detail:+ — ${detail}}"
 
@@ -153,6 +213,36 @@ elif [ "$retired" -gt 1 ]; then
     event="${retired} claims proved finished were retired — their pull requests closed and their branches deleted"
 fi
 
-# `needs_agent` IS EMPTY BY DESIGN. The act is already done; there is nothing for the agent to
-# carry out and nothing for the check-in to ask. The rows below are the report, not a request.
-emit ok "" "$summary" "" "$event"
+# `needs_agent` IS EMPTY FOR A RETIREMENT THAT SUCCEEDED, and carries one question per
+# retirement BLOCKED ON THE DELETE (2026-08-27, mission
+# `finish-the-retirement-the-loop-cannot-complete`). The original rule — *this step asks nobody
+# anything* — was correct while every retirement either succeeded or was refused on a JUDGEMENT,
+# and wrong the moment a PROOF the loop acted on left one act undone: the branch stays on origin,
+# the claim never leaves the table, and nothing addressed anybody. It is NARROWED, NOT REVERSED —
+# a successful retirement still asks nothing, because there is still no judgement for a person to
+# make, which is what separates this step from the three beside it.
+#
+# WHOSE QUESTION IT IS: the CLAIM HOLDER's, following `stalled-units` and `undelivered-units` —
+# a real person who drove the unit and can delete its branch. The running identity is never
+# consulted, following `undrivable-units`: a branch left on origin is a fact about the
+# repository, so an hourly question that depended on which container asked it would answer
+# differently per account. The address is the claim row's own `author`.
+#
+# ONE UNIT NEVER DRAWS TWO QUESTIONS. Every candidate here reads `superseded`, and
+# `step-stalled-units.sh` filters exactly that verdict out of its own candidates and counts it
+# as a finding instead — so the pair is already honest and nothing new had to be filtered. The
+# other two claim-reading steps key on `report_undelivered` and `awaiting_verification`, which
+# no `superseded` row can also be.
+#
+# IT ASKS AND NOTHING ELSE. No claim is released, no pull request reopened, no verdict changed,
+# no delete re-run on the strength of an answer — the proof gate and the retirement's other two
+# acts are exactly what they were.
+needs=""
+if [ "$blocked" -gt 0 ]; then
+    needs=$(printf '%s' "$rows" | jq -c '{action: "ask_the_claim_holder_to_delete_the_branch_this_retirement_could_not",
+        bound: "one question per unit, addressed to the claim holder, keyed on `key` so it is asked once; the tick asks and never releases a claim, reopens a pull request, or re-runs the delete",
+        compose: "name the unit, the exact branch left on origin, the refusal that blocked the delete, and the acts that already stand -- a question that does not name the branch does not say what to delete",
+        blocked_retirements: .}' 2>/dev/null || echo '')
+fi
+
+emit ok "" "$summary" "$needs" "$event"

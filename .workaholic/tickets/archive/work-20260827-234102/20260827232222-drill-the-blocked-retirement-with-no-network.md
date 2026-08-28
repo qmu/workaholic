@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-27T23:22:22+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on: 20260827232222-ask-the-holder-for-the-branches-left-undeleted.md
@@ -74,3 +75,58 @@ so the drill is proved able to fail.
   `gh` and `qfs`; the new rows must keep that assumption and add no other.
 - Ticket 3 may land as a recording-only finding. The drill must not assume a retry
   exists — it drills the blocked path, which is true either way.
+
+## Final Report
+
+Development completed as planned.
+
+`verify-retire` gains a blocked-delete phase over the **existing** fixture — the same local bare
+origin and `PATH` stub, no second fixture and no network. The refusal is reproduced by the bare
+repository's own **`update` hook**, scoped to one ref: git runs receive-pack locally over the file
+transport, so this is the same server-side path a remote refusal takes, and scoping it to one ref
+lets a retirable claim be retired in the *same tick*.
+
+Three superseded claims are held back from the earlier rows (their tickets stay queued until the
+blocked phase) so each reaches a **different** outcome in one tick:
+
+| Unit | Outcome |
+| ---- | ------- |
+| `batch-blocked` | refused **on the delete** |
+| `batch-retirable` | retired |
+| `batch-closefail` | refused on an act that is **not** the delete |
+
+Nine rows were added (steps 1–7 and a no-network guard):
+
+- `retire_blocked_fixture` — load-bearing; stops the drill if the shape is not under test.
+- `retire_blocked_names_the_act` — the **named word** `branch_delete_failed`, not a generic refusal.
+- `retire_blocked_undoes_nothing` — a re-run leaves the pull request closed, re-attempts only the
+  delete, and the branch and its `superseded` verdict both stand.
+- `retire_blocked_reports_what_stands` — the caller's summary names the acts that stand.
+- `retire_blocked_asks_the_holder` — the question, its key, its addressee and the branch.
+- `retire_blocked_asked_once` — `ask-question.sh` over two consecutive ticks.
+- `retire_blocked_summary_stable` — an identical summary and no event across two ticks.
+- `retire_blocked_only_the_blocked` — **the deliberately broken row**.
+- `retire_no_network` — `gh` resolves to the stub.
+
+**Each seam was verified to fail**, not asserted: collapsing the reason back to one word failed 4
+rows; widening the candidate set to every refusal failed the breaker row and nothing else;
+prefixing the summary with `$(date +%s)` failed the stability row and nothing else.
+
+The drill keeps its existing assumptions (the server's full `gh` and `qfs`, operator tooling
+outside the plugin) and adds none. Ticket 3 landed as a recording-only finding, and nothing here
+assumes a retry exists — the blocked path is true either way.
+
+### Discovered Insights
+
+- **Insight**: the first version of the breaker row carried only `batch-retirable` — a unit that
+  was *retired* — and **passed against a seam deliberately broken to "any refusal"**, because in
+  that tick the only refused unit *was* the blocked one. `batch-closefail` exists solely to close
+  that hole.
+  **Context**: a breaker row proves only what its fixture can distinguish. A candidate set has as
+  many ways to be widened as it has terms, and each needs a fixture row that differs on exactly
+  that term — checking the row goes red is the only way to know which ones it covers.
+- **Insight**: a bare repository's `update` hook is a precise, hermetic way to make one specific
+  git operation fail server-side. It reproduces a remote refusal on the real code path with no
+  network, no proxy and no credentials, and it can be scoped to a single ref.
+  **Context**: reusable for any drill that needs a *partial* transport failure rather than an
+  offline one — non-fast-forward refusals, protected-branch pushes, refused force-updates.

@@ -645,6 +645,22 @@ script reads, so the reading is a **candidate**: the body says everything attrib
 and nothing is waiting, names **what landed and the date**, and asks. The operator answers by
 announcing that it ended, or by saying it still stands; **the tick closes nothing** either way.
 
+**And since 2026-08-28 it names what the reading could not see** (mission
+`say-what-the-direction-could-not-see-before-calling-it-arrived`): the **unattributed active
+missions**, by slug, each with its queued-ticket count — three names then `and N more`, so a long
+residue is bounded and what is cut is **counted** rather than silently truncated. *Everything
+attributed has landed* was true and partial, and the operator had no way to see which half they
+were being asked to rule on; measured, a strategy read `quiescent: true` with 125 landed items
+while four active missions and ten queued tickets belonged to no direction at all. The residue is
+**carried** from the survey row through `direction-state.sh` — the step never calls
+`unattributed-work.sh` itself, because two readings of one fact drift. **A degraded residue read
+produces no `arrived` reading at all** and therefore no question (`workaholic:propose`), so this
+body is only ever rendered over a residue the loop actually read. The register does not move: the
+question says *this looks finished, and here is what I could not see*, and the residue is the
+reason to check rather than evidence not to. The key, the asked-once gate, the addressee and the
+per-tick cap are unchanged — changing a body does not re-ask a question, since the ledger keys on
+the step id derived from `key`.
+
 **The coupling is a reader, not a handoff** — the same shape as `strategy-pace` and
 `stalled-units`. `/propose` writes nothing into the tree and could not leave a finding here; this
 step calls the reader itself. Two readers of one script is not two sources of truth.

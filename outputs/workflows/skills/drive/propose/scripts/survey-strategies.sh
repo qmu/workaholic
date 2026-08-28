@@ -13,12 +13,18 @@
 #   {ok, identity, window, cap, active_count,
 #    eligible: [{slug, title, target_date, days_to_target, assignees, feedback_refs[],
 #                empty_reason, count, active_count, waiting_count, pace, overdue, dormant,
-#                quiescent,
+#                quiescent, residue,
 #                landed: [{kind, title, state, attribution, last_change}],
 #                path}],
-#    refused: [{slug, reason, pace, overdue, dormant, quiescent, title, assignees,
+#    refused: [{slug, reason, pace, overdue, dormant, quiescent, residue, title, assignees,
 #               days_to_target, target_date, landed_count}],
 #    errors: [], selected: [<slug>...]}
+#
+#   residue  {readable, reason, missions: [{slug, queued}], mission_count, ticket_count} —
+#            WHAT NO DIRECTION CLAIMS, read once per survey from
+#            `strategy/scripts/unattributed-work.sh` and put unchanged on EVERY row. A
+#            degraded read carries `readable: false` with its reason and NULL counts, never a
+#            zeroed residue. It gates nothing except `quiescent` (see that block).
 #   or {ok: false, reason, detail} when a gate could not be read at all.
 #
 # ═══ THE GATES ARE THE BRAKE, AND THE BRAKE IS THE WHOLE DESIGN ═══════════════════════
@@ -239,9 +245,32 @@ done
 
 TODAY="$(date -u +%Y-%m-%d)"
 
+# THE RESIDUE — WHAT NO DIRECTION CLAIMS (2026-08-28, mission
+# `say-what-the-direction-could-not-see-before-calling-it-arrived`). Read ONCE PER SURVEY, not
+# once per row: it is a fact about the REPOSITORY, not about a direction, and reading it per
+# row would spend N walks of the active area to produce N copies of one answer.
+#
+# It is a LOCAL read. The survey makes exactly one network call (the open-proposal gate) and
+# this adds none, which is what keeps `--open-proposals`' held-read contract intact.
+#
+# A REFUSAL IS CARRIED, NEVER SWALLOWED. `unattributed-work.sh` always exits 0 and reports
+# `readable: false` with its own reason; a missing script or a garbled answer becomes the same
+# shape here rather than an empty residue, because `quiescent` reads exactly that flag and an
+# unreadable residue must never be mistaken for an empty one.
+RESIDUE="$(sh "${STRATEGY_SCRIPTS}/unattributed-work.sh" --root "$ROOT" 2>/dev/null || true)"
+if [ -z "$RESIDUE" ] || ! printf '%s' "$RESIDUE" | jq -e . >/dev/null 2>&1; then
+  RESIDUE='{"readable": false, "reason": "residue_unreadable", "missions": [], "mission_count": null, "ticket_count": null}'
+fi
+RESIDUE="$(printf '%s' "$RESIDUE" | jq -c '{readable: (.readable // false),
+                                            reason: (.reason // ""),
+                                            missions: ((.missions // []) | map({slug, queued})),
+                                            mission_count: .mission_count,
+                                            ticket_count: .ticket_count}')"
+
 jq -sc \
   --argjson list "$(printf '%s' "$LIST")" \
   --argjson open "$(printf '%s' "$OPEN")" \
+  --argjson residue "$(printf '%s' "$RESIDUE")" \
   --arg today "$TODAY" \
   --arg window "$WINDOW" \
   --arg identity "$IDENTITY" \
@@ -283,6 +312,16 @@ jq -sc \
                   | map({kind, title, state, attribution, last_change})),
          queued: (($w.artifacts // []) | map(select(.kind == "ticket" and .state == "queued"))
                   | map({title})),
+         # THE RESIDUE, ON EVERY ROW (2026-08-28). The same object on every one of them —
+         # eligible AND refused — because a direction refused `past_target_date` is exactly
+         # the one whose residue the operator must still see: that is the direction they are
+         # about to be asked to re-date or close.
+         #
+         # IT IS ITS OWN FIELD, never folded into `pace` or any existing one. One field
+         # answering two questions is how the two drift -- the reasoning `overdue` records
+         # for itself -- and this answers a question about the REPOSITORY while every field
+         # beside it answers one about the direction.
+         residue: $residue,
          unreadable: ($w.unreadable // false)}
       | . + {pace:
           # PACE -- WILL THIS DIRECTION ARRIVE? (2026-08-22.) Every other gate here is a
@@ -376,7 +415,28 @@ jq -sc \
           # keeps proposing against it; the gate that eventually holds is `not_active`, after
           # A PERSON closes the direction. A reading of arrival made by a machine is not a
           # decision that the direction is done.
+          #
+          # AND SINCE 2026-08-28 IT REFUSES AN ARRIVAL OVER A TREE WE COULD NOT SEE (mission
+          # `say-what-the-direction-could-not-see-before-calling-it-arrived`). A DEGRADED
+          # residue read makes `quiescent` false: this is the `unreadable`-is-never-`dormant`
+          # precedent, and the rule `no_feedback_refs` records -- a gate that cannot be read
+          # is not a gate -- applied to the one reading that speaks in the vocabulary of
+          # COMPLETENESS.
+          #
+          # THE ASYMMETRY WITH `dormant` IS THE WHOLE JUSTIFICATION, and `dormant` is
+          # deliberately left alone. Claiming a direction has ARRIVED on a blind read sends
+          # the operator to CLOSE it; every other reading only asks them to LOOK. Only the
+          # reading whose next act is destructive is refused when the tree could not be read.
+          #
+          # A NON-EMPTY RESIDUE DOES NOT REFUSE THE ARRIVAL, and that restraint is
+          # load-bearing. An unattributed mission is not work belonging to this direction --
+          # saying it were would be exactly the inference this mission refuses -- and
+          # refusing on it would let any unrelated mission in the tree suppress every
+          # arrival forever, which is a different defect with the same shape. Only the
+          # UNREADABLE case refuses; what a non-empty residue earns is being NAMED, wherever
+          # the arrival is reported or asked about.
           (if (.unreadable or (.status != "active") or (.owns != "mine")) then false
+           elif ((.residue.readable // false) | not) then false
            elif ((.feedback_refs | length) == 0) then false
            elif ((.landed | length) == 0) then false
            elif (((.waiting_missions // 0) + (.waiting_count // 0)) > 0) then false
@@ -426,7 +486,13 @@ jq -sc \
      # and a refused row is not being proposed against.
      refused: ((map(select(.refusal != ""))
                 | map({slug, reason: .refusal, pace, overdue, dormant, quiescent, title, assignees,
-                       days_to_target, target_date, landed_count: ((.landed // []) | length)}))
+                       days_to_target, target_date, landed_count: ((.landed // []) | length),
+                       # `residue` rides the refused rows for the same reason `landed_count`
+                       # and `target_date` do (2026-08-27): an ARRIVED direction past its date
+                       # is refused `past_target_date`, so a consumer that had to say what was
+                       # unattributed would have nothing to say for exactly the row that
+                       # matters most.
+                       residue}))
                + $spill),
      selected: ($take | map(.slug)),
      errors: []}

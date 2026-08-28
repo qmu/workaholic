@@ -2,7 +2,7 @@
 type: Mission
 title: Say what the direction could not see before calling it arrived
 slug: say-what-the-direction-could-not-see-before-calling-it-arrived
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-28T01:19:38+00:00
 author: a@qmu.jp
@@ -55,3 +55,5 @@ pull request instead of editing `main` by hand.
 - 2026-08-28 — ticket archived — 20260828012045-name-the-residue-in-the-arrival-question.md
 - 2026-08-28 — ticket archived — 20260828012046-name-the-residue-as-evidence-in-the-run-report.md
 - 2026-08-28 — ticket archived — 20260828012047-carry-an-operator-attribution-through-the-loop.md
+- 2026-08-28 — ticket archived — 20260828012048-drill-the-residue-and-write-it-into-the-documents.md
+- 2026-08-28 — mission achieved — mission.md

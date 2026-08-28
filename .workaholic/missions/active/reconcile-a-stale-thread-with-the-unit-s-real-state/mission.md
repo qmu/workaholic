@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260828-064059
 ---
 
 # Reconcile a stale thread with the unit's real state

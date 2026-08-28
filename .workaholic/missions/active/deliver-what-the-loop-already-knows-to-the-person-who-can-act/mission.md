@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260828-184133
 ---
 
 # Deliver what the loop already knows to the person who can act

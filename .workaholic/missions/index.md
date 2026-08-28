@@ -6,7 +6,6 @@
 * [make-the-routine-create-body-documented-and-buildable](active/make-the-routine-create-body-documented-and-buildable/mission.md) - Make the routine create body documented and buildable
 * [make-workaholify-converge-the-account-s-routines](active/make-workaholify-converge-the-account-s-routines/mission.md) - Make /workaholify converge the account's routines
 * [refuse-ok-under-a-placeholder-identity](active/refuse-ok-under-a-placeholder-identity/mission.md) - Refuse ok under a placeholder identity
-* [say-what-the-direction-could-not-see-before-calling-it-arrived](active/say-what-the-direction-could-not-see-before-calling-it-arrived/mission.md) - Say what the direction could not see before calling it arrived
 
 ## archive
 
@@ -69,6 +68,7 @@
 * [revive-strategy-and-reshape-the-workaholic-artifact-set](archive/revive-strategy-and-reshape-the-workaholic-artifact-set/mission.md) - Revive Strategy and reshape the .workaholic artifact set
 * [right-size-report-to-single-ticket-per-pr-granularity](archive/right-size-report-to-single-ticket-per-pr-granularity/mission.md) - Right-size /report to single-ticket-per-PR granularity
 * [route-a-stalled-unit-to-a-person-who-is-asked-by-name](archive/route-a-stalled-unit-to-a-person-who-is-asked-by-name/mission.md) - Route a stalled unit to a person who is asked by name
+* [say-what-the-direction-could-not-see-before-calling-it-arrived](archive/say-what-the-direction-could-not-see-before-calling-it-arrived/mission.md) - Say what the direction could not see before calling it arrived
 * [say-when-a-direction-has-arrived](archive/say-when-a-direction-has-arrived/mission.md) - Say when a direction has arrived
 * [say-when-the-loop-has-run-out-of-direction](archive/say-when-the-loop-has-run-out-of-direction/mission.md) - Say when the loop has run out of direction
 * [slim-commands-skills-and-docs-for-ai-agent-use](archive/slim-commands-skills-and-docs-for-ai-agent-use/mission.md) - Slim commands, skills, and docs for AI-agent use

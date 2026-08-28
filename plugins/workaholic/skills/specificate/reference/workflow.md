@@ -149,7 +149,9 @@ and every abort reports a machine-readable reason.
    collapse into `unattributed` here.
 
    **First, is it a lifecycle announcement?** An ask that names an explicit strategy
-   slug and announces that it was created, changed or ended takes step 9b, 9c or 9d
+   slug and announces that it was created, changed or ended — or that names a strategy slug
+   **and** a mission slug and rules that the mission *answers* that direction (step 9e,
+   2026-08-28) — takes step 9b, 9c, 9d or 9e
    instead of the four forms (SKILL.md, *Strategy lifecycle announcements*): a slug absent
    from step 5b's set is record-only with `strategy_not_found` and the slug named; an
    *ended* announcement that does not say achieved or abandoned is record-only with
@@ -332,6 +334,40 @@ and every abort reports a machine-readable reason.
    and on nothing else — never on this run's own reading that a direction looks stale,
    mis-dated or unanswered. Reading a direction's state is `/moderate`'s `direction-health`
    step, which asks a person and writes nothing.
+
+9e. **Carry an attribution the operator ruled** (an *answers* announcement only — the ask
+   names a strategy slug **and** a mission slug and says that mission answers that
+   direction), in the publish tree — instead of steps 8, 9, 9b, 9c and 9d, never alongside
+   them:
+
+   ```sh
+   bash ${CLAUDE_PLUGIN_ROOT}/skills/strategy/scripts/carry-attribution.sh <strategy> <mission>
+   ```
+
+   Both slugs are the ones the ask named; the strategy is confirmed against step 5b's set and
+   the mission must be in the active area. It appends that strategy's **own existing**
+   `feedback:` refs to that mission and writes nothing else — no new ref is authored, none is
+   removed, the strategy file is never touched, and nothing is written back onto a feedback
+   record. This is the **only** thing the run writes for such an announcement.
+
+   Record-only, by name, on every refusal: `strategy_not_found`, `mission_not_found`,
+   `not_active` (a closed direction acquires no new work), `no_revision` (the named strategy
+   cites nothing to carry) and `immutable_field`. A re-run leaves the mission byte-identical
+   and reports `already`, which is a success and not a refusal.
+
+   **A run never carries an attribution on its own reading.** The route fires on an explicit
+   announcement naming both slugs and on nothing else — never on this run's own judgement
+   that an unattributed mission looks like it belongs to a direction. That reading is
+   `strategy/scripts/unattributed-work.sh`, which reports and decides nothing, and reaches a
+   person through `/moderate`'s `direction-arrived:<slug>` question.
+
+   **Leave `WORKAHOLIC_AUTO_MERGE` unset for this form.** It carries an operator's ruling, so
+   the operator's merge is the authorship — the strategy exemption's reason. But the seam
+   **cannot** enforce it here: `publish-tree-pr.sh` derives `strategy_touching` from a path
+   under `.workaholic/strategies/`, and this route writes `.workaholic/missions/`, which is
+   byte-indistinguishable from any other mission write. So this one is the caller's rule,
+   stated here and pinned by a test over this step's own text — a weaker guarantee than
+   step 9b/9c/9d's, and recorded as such rather than implied to be the same.
 
 10. **Publish it all as one pull request, merged immediately.**
    `WORKAHOLIC_AUTO_MERGE=1 WORKAHOLIC_PR_TITLE="[Proposal] <title>" WORKAHOLIC_CLOSES_ISSUE="<issue number from step 1>" bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/publish-tree-pr.sh "<title>" "<why>" "<changes>" "<concerns>" "<insights>" "<verify>"`

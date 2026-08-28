@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-28T01:20:45+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -71,3 +72,26 @@ residue read yields no `arrived` reading at all, so it yields no question either
 - The question's register matters. It says *this looks finished, and here is what I could
   not see* — never *this is finished*. The residue is the reason the operator should check,
   not evidence that they should not.
+## Final Report
+
+Development completed as planned.
+
+`/moderate`'s `direction-arrived:<slug>` question now names each unattributed mission **by
+slug** with its queued-ticket count, appended to the heading beside what landed and the date.
+The render is bounded to three names followed by `and N more`, so nothing is silently
+truncated. The residue is carried from the survey row through `direction-state.sh` — the
+step makes no second read, because two readings of one fact drift.
+
+Nothing else about the step moved: the key, the asked-once gate, the addressee and the
+per-tick cap are unchanged, and the body's register is unchanged — it describes the reading
+and never asserts the direction is finished. A degraded residue read produces no `arrived`
+reading upstream and therefore no question at all, which is asserted rather than assumed.
+
+### Discovered Insights
+
+- **Insight**: the residue belongs in the **heading** rather than the body. The body is
+  bounded to one sentence naming the operator's act inside `workaholic:notify`'s 25-word
+  limit, while the heading already carries parenthetical facts (`12 item(s) landed, dated
+  …`); putting slugs there costs the body nothing.
+  **Context**: it also keeps the act — *announce that it ended, or say it still stands* —
+  the last thing the operator reads.

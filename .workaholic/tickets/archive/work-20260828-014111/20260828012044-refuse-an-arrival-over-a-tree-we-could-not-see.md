@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-28T01:20:44+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -70,3 +71,32 @@ vocabulary of completeness.
 - The tempting over-reach is making a non-empty residue refuse the arrival. That would let
   any unrelated mission in the tree suppress every direction's arrival forever, which is a
   different defect with the same shape. Only the **unreadable** case refuses.
+## Final Report
+
+Development completed as planned.
+
+`quiescent` gains exactly one term: a **degraded** residue read makes it `false`. A non-empty
+but successfully read residue leaves it exactly as it was, and `dormant` is untouched. The
+asymmetry is written into the block's own comment: claiming a direction has *arrived* on a
+blind read sends the operator to **close** it, while every other reading only asks them to
+**look** — so only the reading whose next act is destructive is refused when the tree could
+not be read.
+
+`direction-state.sh` needed no change to its projection: `arrived` is projected from
+`quiescent`, so a refused arrival simply never reaches it. It gained only the pass-through of
+the residue itself, and its precedence (`unreadable` > `arrived` > `overdue` > `dormant` >
+`live`) is pinned unchanged.
+
+### Discovered Insights
+
+- **Insight**: the fixture has to degrade the residue read **without** degrading the
+  strategy, or the assertion passes on `unreadable` and never exercises the new term at all.
+  `all_strategies_unreadable` cannot do it — every active strategy being unreadable makes
+  *this* strategy unreadable too — so the test copies the plugin tree and removes
+  `mission-strategy.sh`, leaving `dir1` perfectly legible and only the residue blind.
+  **Context**: the near-miss is silent: the wrong fixture goes green and pins nothing.
+- **Insight**: a non-empty residue refusing the arrival is the tempting over-reach and would
+  let any unrelated mission in the tree suppress every direction's arrival forever — a
+  different defect with the same shape.
+  **Context**: recorded in the code's own comment beside the term, because the next reader's
+  instinct will be to widen it.

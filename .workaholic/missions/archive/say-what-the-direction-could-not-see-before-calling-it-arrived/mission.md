@@ -2,7 +2,7 @@
 type: Mission
 title: Say what the direction could not see before calling it arrived
 slug: say-what-the-direction-could-not-see-before-calling-it-arrived
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-28T01:19:38+00:00
 author: a@qmu.jp
@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260828-014111
 ---
 
 # Say what the direction could not see before calling it arrived
@@ -37,13 +38,23 @@ pull request instead of editing `main` by hand.
 
 ## Acceptance
 
-- [ ] The residue is readable by name through one pure reader and rides every survey row,
+- [x] The residue is readable by name through one pure reader and rides every survey row,
       eligible and refused alike, with no gate and no sort moved. (#20260828012042-read-what-no-direction-claims.md)
-- [ ] No arrival is claimed over an unreadable residue, and the arrival question and the
+- [x] No arrival is claimed over an unreadable residue, and the arrival question and the
       run report both name the residue by slug. (#20260828012044-refuse-an-arrival-over-a-tree-we-could-not-see.md)
-- [ ] An operator's attribution ruling reaches a pull request through the loop, adding no
+- [x] An operator's attribution ruling reaches a pull request through the loop, adding no
       field and reviving no `strategy:` relation. (#20260828012047-carry-an-operator-attribution-through-the-loop.md)
 
 ## Changelog
 
 
+- 2026-08-28 — ticket archived — 20260828012026-reproduce-the-false-arrival-and-pin-it.md
+- 2026-08-28 — ticket archived — 20260828012042-read-what-no-direction-claims.md
+- 2026-08-28 — ticket archived — 20260828012043-carry-the-residue-onto-every-survey-row.md
+- 2026-08-28 — ticket archived — 20260828012044-refuse-an-arrival-over-a-tree-we-could-not-see.md
+- 2026-08-28 — ticket archived — 20260828012045-name-the-residue-in-the-arrival-question.md
+- 2026-08-28 — ticket archived — 20260828012046-name-the-residue-as-evidence-in-the-run-report.md
+- 2026-08-28 — ticket archived — 20260828012047-carry-an-operator-attribution-through-the-loop.md
+- 2026-08-28 — ticket archived — 20260828012048-drill-the-residue-and-write-it-into-the-documents.md
+- 2026-08-28 — mission achieved — mission.md
+- 2026-08-28 — story reported — work-20260828-014111

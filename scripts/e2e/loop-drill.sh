@@ -2113,6 +2113,231 @@ EOF
     emit_verdict "arrival" 0 "pass" 0
 }
 
+# --------------------------------------------------------------- verify-residue
+# Does the loop say what it could NOT see before calling a direction arrived? `quiescent`
+# renders as *this direction has arrived* — a reading that invites the operator to CLOSE the
+# direction — and it was true of everything the citation walk could see and blind to everything
+# it could not. Measured on this repository at 2026-08-28 00:41 UTC: the strategy
+# `an-autonomous-improvement-loop-run-by-the-routines` read `quiescent: true` with 125 landed
+# items while FOUR active missions and TEN queued tickets read `attributed: false`.
+#
+# NO NETWORK AND NO CREDENTIAL. The survey's one remote read is the open-proposal gate, and it
+# is SUPPLIED through `--open-proposals` exactly as `verify-arrival` supplies it, so the drilled
+# path is the real one. The fixture is git-backed for the same reason `verify-arrival`'s is:
+# `landed[]` is a `git log --since` read, and a bare file tree would make every arrival row
+# below vacuously true.
+#
+# THE BREAKER ROW IS `residue_reads_the_active_area`. It wires the reader at the ARCHIVED
+# missions instead of the active ones, which is the one edit that would make this drill pass
+# forever while reporting a residue nobody could act on — an archived mission is finished, so a
+# residue drawn from it is never empty and never actionable.
+cmd_verify_residue() {
+    _reader="${REPO_ROOT}/plugins/workaholic/skills/strategy/scripts/unattributed-work.sh"
+    _survey="${REPO_ROOT}/plugins/workaholic/skills/propose/scripts/survey-strategies.sh"
+    _state="${REPO_ROOT}/plugins/workaholic/skills/strategy/scripts/direction-state.sh"
+    _step="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/step-direction-health.sh"
+    _ask="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/ask-question.sh"
+    _carry="${REPO_ROOT}/plugins/workaholic/skills/strategy/scripts/carry-attribution.sh"
+    for _f in "$_reader" "$_survey" "$_state" "$_step" "$_ask" "$_carry"; do
+        [ -f "$_f" ] || emit_err "residue_seam_unreadable" 4 "${_f} is not present in this checkout"
+    done
+
+    _before=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+
+    _root=$(mktemp -d)
+    _me=$(cd "$REPO_ROOT" && git config user.email 2>/dev/null || echo drill@example.com)
+    _far=$(date -u -d "+300 days" +%Y-%m-%d 2>/dev/null || echo 2099-01-01)
+    _W="${_root}/.workaholic"
+    mkdir -p "${_W}/strategies" "${_W}/feedbacks" "${_W}/missions/active" \
+             "${_W}/missions/archive" "${_W}/tickets/todo" "${_W}/tickets/archive/work-x"
+    printf -- '---\ntype: Feedback\n---\n\ncited by the direction\n' > "${_W}/feedbacks/20260101000000-a.md"
+    printf -- '---\ntype: Feedback\n---\n\ncited by nobody\n'        > "${_W}/feedbacks/20260101000000-b.md"
+    cat > "${_W}/strategies/dir1.md" <<EOF
+---
+type: Strategy
+title: T dir1
+slug: dir1
+status: active
+target_date: ${_far}
+assignees: [${_me}]
+feedback: [20260101000000-a.md]
+---
+
+# dir1
+
+## Aim
+
+a
+
+## Schedule
+
+s
+EOF
+    mkdir -p "${_W}/missions/archive/landed" "${_W}/missions/active/orphan"
+    printf -- '---\ntype: Mission\ntitle: Landed\nslug: landed\nstatus: achieved\nfeedback: [20260101000000-a.md]\n---\n\n# Landed\n' \
+        > "${_W}/missions/archive/landed/mission.md"
+    printf -- '---\nmission: landed\nstatus: done\n---\n\n# T1\n' > "${_W}/tickets/archive/work-x/20260101000001-t1.md"
+    printf -- '---\ntype: Mission\ntitle: Orphan\nslug: orphan\nstatus: active\nfeedback: [20260101000000-b.md]\n---\n\n# Orphan\n' \
+        > "${_W}/missions/active/orphan/mission.md"
+    # The breaker row's bait: an ARCHIVED mission nothing attributes. It is finished, so it must
+    # never reach a residue an operator is asked to act on -- and it is the only fixture entry
+    # that would appear if the reader were ever wired at the archive area.
+    mkdir -p "${_W}/missions/archive/retired"
+    printf -- '---\ntype: Mission\ntitle: Retired\nslug: retired\nstatus: abandoned\nfeedback: [20260101000000-b.md]\n---\n\n# Retired\n' \
+        > "${_W}/missions/archive/retired/mission.md"
+    printf -- '---\nmission: orphan\n---\n\n# T2\n' > "${_W}/tickets/todo/20260102000000-t2.md"
+    printf -- '---\nmission: orphan\n---\n\n# T3\n' > "${_W}/tickets/todo/20260103000000-t3.md"
+    _open="${_root}/open.json"
+    printf '{"ok": true, "identity": "drill", "slug": "o/n", "proposals": []}\n' > "$_open"
+    ( cd "$_root" && git -c init.defaultBranch=main init -q . \
+        && git config user.email "$_me" && git config user.name Drill \
+        && git -c commit.gpgsign=false add -A \
+        && git -c commit.gpgsign=false commit -qm seed ) >/dev/null 2>&1 || true
+
+    # THE HONEST READ. The residue names the active mission nothing attributes, with its queued
+    # count, and the loose queue rides that mission's row rather than being listed twice.
+    _res=$(cd "$_root" && sh "$_reader" --root "$_W" 2>&1) || true
+    if printf '%s' "$_res" | grep -q '"readable": *true' \
+        && printf '%s' "$_res" | grep -q '"slug": *"orphan"' \
+        && printf '%s' "$_res" | grep -q '"queued": *2' \
+        && printf '%s' "$_res" | grep -q '"mission_count": *1'; then
+        add_row "residue_honest_read" true "the residue names orphan with its two queued tickets" load
+    else
+        add_row "residue_honest_read" false "the residue did not name what no direction claims: $(one_line "$_res")" load
+    fi
+
+    # THE BREAKER ROW. Reading the ARCHIVED area instead of the active one is the edit that
+    # would keep every other row here green while the residue named finished work nobody can act
+    # on. `retired` is archived AND unattributed -- the exact entry that appears if the reader is
+    # ever wired at the archive, and the only one in this fixture that would.
+    if printf '%s' "$_res" | grep -q '"slug": *"retired"'; then
+        add_row "residue_reads_the_active_area" false "an ARCHIVED mission reached the residue, so the reader is not reading the active area -- this drill can fail" load
+    else
+        add_row "residue_reads_the_active_area" true "only active missions reach the residue; the archived, unattributed one does not" load
+    fi
+
+    # THE DEGRADED READ, AND IT IS NOT AN EMPTY RESIDUE. The reader it composes is removed from
+    # a COPY of the plugin tree, so the strategy itself stays perfectly legible and only the
+    # residue is blind -- which is the only fixture that exercises the term rather than passing
+    # on `unreadable`.
+    _blindtree=$(mktemp -d)
+    cp -r "${REPO_ROOT}/plugins" "${_blindtree}/plugins"
+    rm -f "${_blindtree}/plugins/workaholic/skills/strategy/scripts/mission-strategy.sh"
+    _bsurvey="${_blindtree}/plugins/workaholic/skills/propose/scripts/survey-strategies.sh"
+    _bstate="${_blindtree}/plugins/workaholic/skills/strategy/scripts/direction-state.sh"
+    _bres=$(cd "$_root" && sh "${_blindtree}/plugins/workaholic/skills/strategy/scripts/unattributed-work.sh" --root "$_W" 2>&1) || true
+    if printf '%s' "$_bres" | grep -q '"readable": *false' \
+        && printf '%s' "$_bres" | grep -q '"reason": *"no_mission_strategy_script"' \
+        && printf '%s' "$_bres" | grep -q '"mission_count": *null'; then
+        add_row "residue_degraded_is_named" true "a residue we could not read is named with its reason and NULL counts, never zeroed ones" load
+    else
+        add_row "residue_degraded_is_named" false "a degraded residue read was not named: $(one_line "$_bres")" load
+    fi
+
+    # THE ARRIVAL, AND ITS REFUSAL. The same tree, read twice: with the residue readable the
+    # direction reads `arrived`; with it blind, no arrival is claimed at all.
+    _ok=$(cd "$_root" && sh "$_state" --open-proposals "$_open" "14 days ago" "$_W" 2>&1) || true
+    _bad=$(cd "$_root" && sh "$_bstate" --open-proposals "$_open" "14 days ago" "$_W" 2>&1) || true
+    if printf '%s' "$_ok" | grep -q '"state": *"arrived"'; then
+        add_row "residue_nonempty_leaves_the_arrival" true "a residue read and found non-empty leaves the arrival standing -- only an UNREADABLE one refuses it" load
+    else
+        add_row "residue_nonempty_leaves_the_arrival" false "the arrival did not survive a non-empty residue: $(one_line "$_ok")" load
+    fi
+    if printf '%s' "$_bad" | grep -q '"state": *"arrived"'; then
+        add_row "residue_blind_refuses_the_arrival" false "an arrival was claimed over a tree the loop could not see: $(one_line "$_bad")" load
+    else
+        add_row "residue_blind_refuses_the_arrival" true "no arrival is claimed over a residue we could not read" load
+    fi
+
+    # THE QUESTION NAMES THE RESIDUE BY SLUG. A count alone costs the operator the same
+    # hand-read the defect costs them.
+    _out=$(cd "$_root" && sh "$_step" --tick 20260101-000000 --root "$_root" --open-proposals "$_open" 2>&1) || true
+    if printf '%s' "$_out" | grep -q 'not attributed to any direction: orphan (2 queued)' \
+        && printf '%s' "$_out" | grep -q '"key": *"direction-arrived:dir1"'; then
+        add_row "residue_named_in_the_question" true "the arrival question names orphan and its queued count" load
+    else
+        add_row "residue_named_in_the_question" false "the arrival question did not name the residue: $(one_line "$_out")" load
+    fi
+
+    # ASKED ONCE, over this reading's own key. The gate is the check-in's; the drill exercises
+    # it with the key this step supplies.
+    _qroot=$(mktemp -d); mkdir -p "${_qroot}/.workaholic/moderations"
+    _a1=$(cd "$REPO_ROOT" && sh "$_ask" --tick 20260101-000000 --key "direction-arrived:dir1" --root "$_qroot" --to "$_me" --hour 10 --weekday 1 2>&1) || true
+    _logstep=$(printf '%s' "$_a1" | sed -n 's/.*"log_step": *"\([^"]*\)".*/\1/p')
+    if printf '%s' "$_a1" | grep -q '"ask": true'; then
+        sh "${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/log-append.sh" --root "$_qroot" \
+           --tick 20260101-000000 --step "$_logstep" --status ok --summary "asked" >/dev/null 2>&1 || true
+        _a2=$(cd "$REPO_ROOT" && sh "$_ask" --tick 20260101-010000 --key "direction-arrived:dir1" --root "$_qroot" --to "$_me" --hour 10 --weekday 1 2>&1) || true
+        if printf '%s' "$_a2" | grep -q '"ask": false'; then
+            add_row "residue_asked_once" true "the arrival question is asked once, whatever its body says" load
+        else
+            add_row "residue_asked_once" false "the asked-once gate did not hold: $(one_line "$_a2")" load
+        fi
+    else
+        add_row "residue_asked_once" false "the first ask was refused: $(one_line "$_a1")" load
+    fi
+
+    # THE RESIDUE MOVES NO GATE. The survey is read with the residue present and with the
+    # unattributed mission REMOVED (never attributed -- attributing it would put this
+    # direction's own work in flight and move `work_waiting` for an unrelated reason).
+    _gates() { printf '%s' "$1" | sed -n 's/.*"selected": *\(\[[^]]*\]\).*/\1/p'; }
+    _s1=$(cd "$_root" && sh "$_survey" --open-proposals "$_open" "14 days ago" "$_W" 2>&1) || true
+    _empty=$(mktemp -d); cp -r "${_W}" "${_empty}/.workaholic"
+    rm -rf "${_empty}/.workaholic/missions/active/orphan" \
+           "${_empty}/.workaholic/tickets/todo/20260102000000-t2.md" \
+           "${_empty}/.workaholic/tickets/todo/20260103000000-t3.md"
+    ( cd "$_empty" && git -c init.defaultBranch=main init -q . \
+        && git config user.email "$_me" && git config user.name Drill \
+        && git -c commit.gpgsign=false add -A && git -c commit.gpgsign=false commit -qm seed ) >/dev/null 2>&1 || true
+    _s2=$(cd "$_empty" && sh "$_survey" --open-proposals "$_open" "14 days ago" "${_empty}/.workaholic" 2>&1) || true
+    if [ -n "$(_gates "$_s1")" ] && [ "$(_gates "$_s1")" = "$(_gates "$_s2")" ]; then
+        add_row "residue_moves_no_gate" true "emptying the residue leaves selected byte-identical: $(_gates "$_s1")" load
+    else
+        add_row "residue_moves_no_gate" false "the residue moved the selection: '$(_gates "$_s1")' vs '$(_gates "$_s2")'" load
+    fi
+
+    # THE ATTRIBUTION CARRY LANDS, IS IDEMPOTENT, AND REFUSES A CLOSED DIRECTION LEAVING THE
+    # MISSION BYTE-IDENTICAL. This is the operator's ruling reaching the tree through the loop.
+    _mfile="${_W}/missions/active/orphan/mission.md"
+    _c1=$(cd "$_root" && sh "$_carry" dir1 orphan "$_W" 2>&1) || true
+    if printf '%s' "$_c1" | grep -q '"carried": *true' \
+        && grep -q '^feedback: \[20260101000000-b.md, 20260101000000-a.md\]$' "$_mfile"; then
+        add_row "residue_carry_lands" true "the operator's ruling appends the direction's own refs and keeps the mission's" load
+    else
+        add_row "residue_carry_lands" false "the carry did not land: $(one_line "$_c1")" load
+    fi
+    _snap=$(cat "$_mfile")
+    _c2=$(cd "$_root" && sh "$_carry" dir1 orphan "$_W" 2>&1) || true
+    if printf '%s' "$_c2" | grep -q '"reason": *"already"' && [ "$_snap" = "$(cat "$_mfile")" ]; then
+        add_row "residue_carry_is_idempotent" true "a re-run adds nothing and leaves the mission byte-identical" load
+    else
+        add_row "residue_carry_is_idempotent" false "the re-run was not a no-op: $(one_line "$_c2")" load
+    fi
+    printf -- 's/^status: active$/status: achieved/\n' > /dev/null
+    sed 's/^status: active$/status: achieved/' "${_W}/strategies/dir1.md" > "${_root}/closed.md" \
+        && mv "${_root}/closed.md" "${_W}/strategies/dir1.md"
+    _c3=$(cd "$_root" && sh "$_carry" dir1 orphan "$_W" 2>&1) || true
+    if printf '%s' "$_c3" | grep -q '"reason": *"not_active"' && [ "$_snap" = "$(cat "$_mfile")" ]; then
+        add_row "residue_carry_refuses_a_closed_direction" true "a closed direction acquires no new work, and the refusal wrote nothing" load
+    else
+        add_row "residue_carry_refuses_a_closed_direction" false "the refusal was wrong or it wrote: $(one_line "$_c3")" load
+    fi
+
+    # IT WROTE NOTHING IN THE CHECKOUT. Every fixture is outside it.
+    _after=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+    if [ "$_before" = "$_after" ]; then
+        add_row "residue_writes_nothing" true "the checkout is byte-identical after the drill" load
+    else
+        add_row "residue_writes_nothing" false "the drill changed the working tree" load
+    fi
+
+    rm -rf "$_root" "$_blindtree" "$_qroot" "$_empty"
+    if [ "$LOAD_FAILED" -gt 0 ]; then
+        emit_verdict "residue" 0 "fail" 1
+    fi
+    emit_verdict "residue" 0 "pass" 0
+}
+
 # --------------------------------------------------------- verify-merged-claim
 # Can the oracle tell a MERGED claim from a live one, at both grains? A squash merge leaves
 # the content on the base and no commit on it, so `base..ref` stays positive forever and a
@@ -3652,7 +3877,7 @@ cmd_verify_handoff_question() {
     emit_verdict "handoff-question" 0 "pass" 0
 }
 
-USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-specificate <issue>|verify-implement <issue>|verify-plan [--json]|verify-status [--json]|verify-cadence [--json]|verify-planner [--json]|verify-standup [--json]|verify-moderate [--json]|verify-propose [--json]|verify-direction-health [--json]|verify-arrival [--json]|verify-revision [--json]|verify-merged-claim [--json]|verify-identity-handoff [--json]|verify-close [--json]|verify-retire [--json]|verify-delivery-retry [--json]|verify-handoff-question [--json]|verify-base-health [--json]"}'
+USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-specificate <issue>|verify-implement <issue>|verify-plan [--json]|verify-status [--json]|verify-cadence [--json]|verify-planner [--json]|verify-standup [--json]|verify-moderate [--json]|verify-propose [--json]|verify-direction-health [--json]|verify-arrival [--json]|verify-residue [--json]|verify-revision [--json]|verify-merged-claim [--json]|verify-identity-handoff [--json]|verify-close [--json]|verify-retire [--json]|verify-delivery-retry [--json]|verify-handoff-question [--json]|verify-base-health [--json]"}'
 
 CMD="${1:-}"
 [ -n "$CMD" ] || {
@@ -3690,6 +3915,7 @@ case "$CMD" in
     verify-propose) cmd_verify_propose "$@" ;;
     verify-direction-health) cmd_verify_direction_health "$@" ;;
     verify-arrival) cmd_verify_arrival "$@" ;;
+    verify-residue) cmd_verify_residue "$@" ;;
     verify-revision) cmd_verify_revision "$@" ;;
     verify-merged-claim) cmd_verify_merged_claim "$@" ;;
     verify-identity-handoff) cmd_verify_identity_handoff "$@" ;;

@@ -10,12 +10,17 @@
 #
 # Output (one JSON object):
 #   {ok, readable, reason, window, repository, active_count,
-#    strategies: [{slug, state, reason, title, assignees, days_to_target, target_date, landed}],
+#    strategies: [{slug, state, reason, title, assignees, days_to_target, target_date, landed,
+#                  residue}],
 #    counts: {live, arrived, overdue, dormant, unreadable}}
 #
 #   state       "live" | "arrived" | "overdue" | "dormant" | "unreadable", one per active
 #               strategy
 #   repository  "ok" | "none" (no `active` strategy exists at all) | "unreadable"
+#   residue     the survey's own {readable, reason, missions: [{slug, queued}], mission_count,
+#               ticket_count} — WHAT NO DIRECTION CLAIMS, carried through unchanged. It is a
+#               fact about the repository, so it is identical on every row; a consumer names
+#               it beside an `arrived` reading and never re-reads it.
 #
 # ═══ WHY THIS SCRIPT EXISTS AT ALL ════════════════════════════════════════════════════
 #
@@ -152,6 +157,12 @@ printf '%s' "$OUT" | jq -c '
           # WHAT LANDED and BY WHEN reads these; nothing here counts anything itself.
           target_date: (.target_date // ""),
           landed: (.landed_count // ((.landed // []) | length)),
+          # THE RESIDUE RIDES THROUGH (2026-08-28), projected exactly like everything else
+          # here: the survey read it once and this carries that answer. A consumer must NOT
+          # call `unattributed-work.sh` itself — two readings of one fact is how they drift,
+          # which is the rule this whole script exists to hold.
+          residue: (.residue // {readable: false, reason: "absent",
+                                 missions: [], mission_count: null, ticket_count: null}),
           state: (if ((.reason // "") == "attribution_unreadable") then "unreadable"
                   elif (.quiescent == true) then "arrived"
                   elif (.overdue == true) then "overdue"

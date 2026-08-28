@@ -51,3 +51,4 @@ today from a mechanism that has stopped.
 - 2026-08-28 — ticket archived — 20260828182002-pin-the-day-cap-jam-with-a-failing-test.md
 - 2026-08-28 — ticket archived — 20260828182002-bound-the-day-count-to-the-quiet-hours-day.md
 - 2026-08-28 — ticket archived — 20260828182002-drain-a-held-backlog-oldest-first.md
+- 2026-08-28 — ticket archived — 20260828182002-read-what-the-check-in-delivered-and-held.md

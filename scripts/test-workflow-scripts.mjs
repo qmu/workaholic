@@ -1910,16 +1910,16 @@ function testUnansweredAsksStep() {
     assertEq("with an empty already-asked set", j.needs_agent[0].already_asked, []);
 
     // ---- the channel and the window are the INBOUND SWEEP's own, not new names ----
-    assertEq("the channel defaults to the repository's own dev- channel",
-      j.needs_agent[0].channel, "dev-source-repo");
+    assertEq("the channel defaults to the repository's own name, with no prefix",
+      j.needs_agent[0].channel, "source-repo");
     assertEq("and the window is the sweep's default", j.needs_agent[0].window_hours, 26);
     const overridden = JSON.parse(run(dir, `${STEP} --tick 20260826-120000 --root ${dir}`, {
-      env: { ...process.env, WORKAHOLIC_INBOUND_SLACK_CHANNEL: "dev-elsewhere",
+      env: { ...process.env, WORKAHOLIC_INBOUND_SLACK_CHANNEL: "elsewhere",
              WORKAHOLIC_INBOUND_SLACK_WINDOW_HOURS: "48" },
     }).stdout);
     assertEq("both are the inbound sweep's variables, read here unchanged",
       [overridden.needs_agent[0].channel, overridden.needs_agent[0].window_hours],
-      ["dev-elsewhere", 48]);
+      ["elsewhere", 48]);
 
     // ---- THE KEY SHAPE IS WHAT MAKES `asked exactly once` MECHANICAL ----
     assertEq("the key shape is stable and carries the message's own coordinate",
@@ -12846,7 +12846,7 @@ function testRenderSetupSheet() {
     /Have the Slack channel/.test(proposeSheet) && /\*\*Notifications\*\*: set them to `push`/.test(proposeSheet),
     proposeSheet.slice(0, 900));
   assertTrue("a connector-carrying routine's sheet still names its channel",
-    /Have the Slack channel `dev-workaholic` ready/.test(sheet("implement")), "implement sheet lost its channel step");
+    /Have the Slack channel `workaholic` ready/.test(sheet("implement")), "implement sheet lost its channel step");
   const repoSheet = scopedSheet("repository");
   assertTrue("the repository sheet covers only the repository routine",
     repoSheet.includes("## [Moderate] workaholic") && !repoSheet.includes("## [Standup] workaholic") &&
@@ -21243,7 +21243,7 @@ function testLoopDrillSeed() {
     assertTrue("the Slack root carries the issue URL VERBATIM (both finish lines thread under it)",
       slack.includes(j.issue_url), slack);
     assertTrue("and it is written through the one named mount",
-      slack.includes("/slack-me/qmu/dev-workaholic/messages"), slack);
+      slack.includes("/slack-me/qmu/workaholic/messages"), slack);
 
     // (4) RE-RUNNABILITY IS FRESH MINTING, never residue deletion. A pass is CLEAN only
     // once its issue is closed — the merged proposal's `Closes #N` does that — and until

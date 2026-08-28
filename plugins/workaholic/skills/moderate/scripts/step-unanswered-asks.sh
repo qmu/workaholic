@@ -31,7 +31,7 @@
 # question is already a reply inside that root.
 #
 # THE WINDOW AND THE CHANNEL ARE THE INBOUND SWEEP'S OWN, ON PURPOSE.
-# `WORKAHOLIC_INBOUND_SLACK_CHANNEL` (default `dev-<repo_name>`) and
+# `WORKAHOLIC_INBOUND_SLACK_CHANNEL` (default `<repo_name>`) and
 # `WORKAHOLIC_INBOUND_SLACK_WINDOW_HOURS` (default 26) are read here unchanged rather than
 # duplicated under new names: one channel and one window mean the two readings cannot disagree
 # about which messages the loop had a chance to see, and a second pair of variables is how they
@@ -108,7 +108,10 @@ if [ -z "$CHANNEL" ]; then
     fi
     [ -n "$repo_name" ] || emit degraded no_channel \
         "no channel could be derived: this tree names no remote and no repository root"
-    CHANNEL="dev-${repo_name}"
+    # The repository's own name, with no prefix (2026-08-28, the operator's ruling — the
+    # `dev-` convention is retired; a repository whose channel still carries a prefix sets
+    # WORKAHOLIC_INBOUND_SLACK_CHANNEL instead).
+    CHANNEL="${repo_name}"
 fi
 
 # --- The window --------------------------------------------------------------

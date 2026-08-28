@@ -37,7 +37,7 @@ today from a mechanism that has stopped.
 
 ## Acceptance
 
-- [ ] A question is refused `day_cap` only for that many asked on the current
+- [x] A question is refused `day_cap` only for that many asked on the current
       `WORKAHOLIC_QUIET_TZ` day; every other gate is byte-identical. (#20260828182002-bound-the-day-count-to-the-quiet-hours-day.md)
 - [ ] A multi-day backlog drains oldest-held first under `max_per_tick`, and the drill
       proves it end to end with no network. (#20260828182002-drain-a-held-backlog-oldest-first.md)
@@ -49,3 +49,4 @@ today from a mechanism that has stopped.
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-28 — ticket archived — 20260828182002-pin-the-day-cap-jam-with-a-failing-test.md
+- 2026-08-28 — ticket archived — 20260828182002-bound-the-day-count-to-the-quiet-hours-day.md

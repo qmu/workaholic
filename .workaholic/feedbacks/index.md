@@ -577,4 +577,5 @@
 * [Say what the direction could not see before calling it arrived](20260828011727-say-what-the-direction-could-not-see-before-calling-it-arrived.md)
 * [Let an answer in the thread turn back into the loop's work](20260828031631-let-an-answer-in-the-thread-turn-back-into-the-loop-s-work.md)
 * [A handoff-declared open PR is invisible to every moderate escalation step](20260828041718-a-handoff-declared-open-pr-is-invisible-to-every-moderate-escalation-step.md)
+* [Make a direction's end a turn of the loop, not its stop](20260828051826-make-a-direction-s-end-a-turn-of-the-loop-not-its-stop.md)
 <!-- okf:generated:end -->

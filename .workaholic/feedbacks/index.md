@@ -579,4 +579,6 @@
 * [A handoff-declared open PR is invisible to every moderate escalation step](20260828041718-a-handoff-declared-open-pr-is-invisible-to-every-moderate-escalation-step.md)
 * [Make a direction's end a turn of the loop, not its stop](20260828051826-make-a-direction-s-end-a-turn-of-the-loop-not-its-stop.md)
 * [Let the moderation tick reconcile a thread's last status with the unit's real state](20260828061724-let-the-moderation-tick-reconcile-a-thread-s-last-status-with-the-unit-s-real-state.md)
+* [The inbound channel default and the channel the loop posts to have diverged](20260828100201-the-inbound-channel-default-and-the-channel-the-loop-posts-to-have-diverged.md)
+* [Finish a proved retirement where the write is permitted](20260828101734-finish-a-proved-retirement-where-the-write-is-permitted.md)
 <!-- okf:generated:end -->

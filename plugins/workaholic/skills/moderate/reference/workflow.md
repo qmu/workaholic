@@ -538,6 +538,30 @@ sentence (`first_asked` rides the gate's answer). The root's wording does not mo
 - **Five gates, each its own refusal**: `off_day` (the working-week gate, `WORKAHOLIC_WORK_DAYS`, default `1-5`), `quiet_hours`, `already_asked`, `tick_cap` (5), `day_cap`
   (10 — the bound the per-tick cap must not aggregate past; five an hour is 120 a day at the
   ceiling, and the cap alone protects nobody's attention).
+- **`day_cap` counts *today*, and a spent day holds** (2026-08-28, mission
+  `deliver-what-the-loop-already-knows-to-the-person-who-can-act`). It counts the
+  `human-checkin-ask` lines on the current **`WORKAHOLIC_QUIET_TZ` day** — derived once in
+  `ask-question.sh`, from the tick id where there is one, and passed to `log-read.sh`'s
+  existing `--since`, so the loop has one notion of a day and there is no second reader and
+  no cursor. A spent cap **holds** rather than drops, and a held question is **re-offered on
+  the next eligible tick, oldest-held first**.
+
+  It counted every day the log had ever held: `asked_today` was the unbounded prefix count,
+  the log is append-only and never pruned, so once the all-time total crossed `max_per_day`
+  every question was refused `day_cap` forever. Measured — `count: 12, days: 5` against a cap
+  of 10, a fresh key at 14:00 on a working weekday refused with `asked_today: 12`, the same
+  reader bounded to the current day answering `count: 0`, and eight consecutive ticks
+  reporting `ok` while posting nothing. **The repair was a bound passed to a reader that
+  already accepted one** — not a raised cap, not a second reader, not a stored cursor, not a
+  second notion of a day. The `outstanding` re-ask branch printed that same unbounded number
+  into **both** `asked_this_tick` and `asked_today`; they are now the tick count and the
+  day-bounded count.
+
+  **The day boundary moves in `WORKAHOLIC_QUIET_TZ` while the log's *files* are keyed by UTC
+  day**, so near the boundary the bound can include a UTC file whose later entries belong to
+  the local next day. That **over-counts rather than under-counts** — it holds a question
+  rather than asking a duplicate — which is the safe direction. Stated rather than repaired
+  with per-entry timestamp filtering, so a later reader does not fix it the other way.
 - **Quiet hours: one gate per tick, in the workspace's timezone** (resolved 2026-08-17), default
   `Asia/Tokyo` 22:00–08:00, both overridable (`WORKAHOLIC_QUIET_TZ`, `WORKAHOLIC_QUIET_HOURS`).
   The per-recipient alternative — each addressee's Slack profile timezone — is more precise and
@@ -546,6 +570,83 @@ sentence (`first_asked` rides the gate's answer). The root's wording does not mo
   dropped**. The gate is one function reading one zone, so it stays swappable.
 - **Held is not dropped**: a suppressed question is recorded as `human-checkin-held-<slug>` and
   handed back by this step on the next eligible tick; it drops out once it has been asked.
+- **And the arrears come back oldest-held first** (2026-08-28, the same mission). The held set
+  was collected with `sort -u` — alphabetical, an arbitrary order over a set whose only
+  meaningful axis is age — which had never mattered while the day cap was jammed and nothing
+  drained. `held` is ordered by the day each key was **first** held (a key held across several
+  ticks is as old as its first hold), tie-broken on the tick id within the day and then on the
+  key, so the order is total and a re-entered tick produces a byte-identical sequence. The day
+  is already in the log this tick keeps, so this adds **no second ledger, no cursor and no
+  field on any artifact**.
+
+  **The step orders; it neither caps nor asks.** `max_per_tick` is enforced per candidate by
+  `ask-question.sh`, `held_count` counts the **whole** held set rather than the ordered prefix
+  (the count is what tells a reader how deep the arrears are), and the order is a **proposal**
+  to the agent: the Recommended-label test still applies per candidate, so an older question
+  that is no longer worth asking is dropped by judgement rather than asked because it sorted
+  first. **Age, not urgency** — a severity ranking across the step vocabularies is a judgement
+  no script can make, and the verdicts call for different acts by different people, which is
+  why one unified "what the loop is blocked on" report was refused. The day grain is coarse
+  (a whole day's holds sort together); the tick id is already the tie-break and carries
+  `HHMMSS` if a finer grain is ever wanted.
+- **It reports what it delivered, not what it was permitted to** (2026-08-28, the same
+  mission). The summary read `up to 5 questions may be asked this tick; 22 held from an
+  earlier tick` with `status: ok` — a **permission**, equally true of a tick that asked five
+  and a tick that asked none, so eight consecutive delivering-nothing ticks were
+  indistinguishable from eight healthy ones in the only record that survives the container.
+  The step now reports `delivered`, `held_count` and `candidates`, and names why a tick
+  delivered nothing:
+
+  | `delivery` | Means |
+  | ---------- | ----- |
+  | `cap_spent` | `max_per_day` questions were asked **on this day**. The mechanism worked; the budget is spent and the rest are held |
+  | `cap_unbounded` | the day count could not be bounded. **Our own degradation** — never rendered as `cap_spent`, which is the whole point of the split: one says the budget worked, the other says the loop has stopped |
+  | `all_held` | every candidate is refused by `quiet_hours`, `off_day` or `tick_cap` |
+  | `all_asked_before` | every key that was ever held has since been asked |
+  | `no_candidates` | the genuinely quiet hour |
+
+  **Whether the tick could deliver is asked of the gate, not re-derived here**: one
+  `ask-question.sh` probe with a key unique to the tick, recorded nowhere, so the day's
+  arithmetic keeps one home and this step cannot disagree with the gate the agent is about to
+  run. **`ask-question.sh` is not modified by the reading.**
+
+  **What `delivered` honestly is.** The agent asks and records under `human-checkin-ask-<slug>`
+  *after* `run.sh` returns, and **there is no post-agent seam in `run.sh`** to move the reading
+  to — the agent's turn happens after the run and only `persist-log.sh` is re-invoked. So the
+  reading is *candidates and holds now, delivery from the log*: on the step's own pass
+  `delivered` is zero by construction, and the reason words are the ones the step can
+  **observe** — the caps and the holds — never a prediction of the agent's judgement. It is
+  read from the log rather than assumed precisely so a second, read-only invocation after the
+  agent's turn reports the real number.
+
+  **A degraded read is named, never rendered as a delivery**: an unreadable log is
+  `status: degraded` with the reader's own reason and **no `delivered` claim**. An *absent* log
+  area is a readable answer — nothing has ever been held — the split `unanswered-asks` draws.
+- **And a tick that reached nobody supplies an `event`** (2026-08-28, the same mission). This
+  step supplied **no `event` field at all**, so a tick with 22 candidates and zero delivered
+  posted nothing and total silence was byte-identical to a quiet hour — eight consecutive
+  ticks, with a red base, a 31-hour declared handoff, three undeletable branches and seven
+  undrivable units all held behind it. A delivery failure **is** the event the root exists to
+  carry.
+
+  It is supplied **only** for `cap_spent` and `cap_unbounded` — the two states where the tick
+  was eligible to ask and structurally could not. Every other case supplies none and therefore
+  renders no line: a quiet hour, an off day and the quiet window are the *designed* hold and
+  are already named in the log, and a tick that delivered questions needs no event because the
+  questions are the delivery. `cap_spent` is worth a line even though the budget worked,
+  because a reader has to be able to tell it from `cap_unbounded`. The line names **no dedup
+  key and no mention token**.
+
+  **It is the root's third gate**, added beside the morning digest on that gate's own
+  precedent: the question gate's expression is untouched and a second condition is OR'd next
+  to it (`render-tick-post.sh`). It is **not** the retired changed-step half, which let *any*
+  changed step earn a question-less root — this fires only when the check-in itself supplied
+  an event, and `delivery_failure` is set **inside the diff loop**, so an unchanged reading an
+  hour later is suppressed by the same derivation that suppresses every other restatement. It
+  stops entirely once the channel is delivering. The renderer's own skip of `human-checkin`
+  was **removed rather than narrowed**, because the guard that replaces it already exists — *a
+  step with no event renders no line* — and the check-in supplies one only on a delivery
+  failure, so every other tick behaves exactly as it did.
 - **Silence is not consent, and it is not a reason to ask again** (resolved 2026-08-17). An
   unanswered question is never re-posted. The red-alert `↳ still failing` precedent covers a
   machine-observable state that persists; a question is a demand on a person's attention, and
@@ -573,7 +674,11 @@ questions under it.
    person's `<@U…>` and `` `ask:<key>` `` — and no session URL, which the root already carries.
 
 **A change is a diff against the previous tick**, read from the log; no step declares its own
-novelty and no cursor is stored. **The gates are `questions >= 1` or `changes >= 1`.**
+novelty and no cursor is stored. **The gate is `questions >= 1`** — the changed-step half was
+retired on 2026-08-22 (issue #569), because with `0 question(s)` the root is a status line
+addressed to nobody. Two narrow conditions sit beside it, each OR'd next to that untouched
+expression: the **morning digest** (2026-08-24) and a **check-in that reached nobody**
+(2026-08-28, above).
 
 **This step is exempt from `--deadline-seconds`.** The deadline cuts steps in order and this one is
 last, so a slow tick used to read nine things and say nothing — the one step whose absence nobody

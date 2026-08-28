@@ -95,3 +95,50 @@ repository's own rule that outdated documentation is a defect.
   together, fold this into the same commit rather than deferring it.
 - Resist restating the whole incident in `CLAUDE.md` — that file states current behaviour, and
   the narrative belongs in the skill and the feedback record.
+
+## Final Report
+
+Development completed as planned. Documentation only — no behaviour changed in this ticket.
+
+**Four documents, all in this branch's change**, each in its own voice and audience:
+
+- **`plugins/workaholic/skills/moderate/SKILL.md`** — the cap's four properties (which day it
+  counts, whose zone, that a spent cap holds, that a held question is re-offered oldest-first
+  and that the bound rides `log-read.sh`'s existing `--since`), the measured failure and its
+  numbers, the repair and the four rejected alternatives (a raised cap, a second reader, a
+  stored cursor, a second notion of a day), the UTC-file/local-day boundary and its safe
+  direction, the ordering rule, the delivery reading with its five reason words, and the
+  root's third gate.
+- **`plugins/workaholic/skills/moderate/reference/workflow.md`** §13 — the same contract at
+  the depth this reference carries, including the `delivery` reason table, what `delivered`
+  honestly is and why (there is no post-agent seam in `run.sh`), and the event's bounds.
+- **`plugins/workaholic/skills/notify/reference/notifications.md`** — the `/moderate` root's
+  gate paragraph.
+- **`CLAUDE.md`** — the `/moderate` row, current behaviour only, with the narrative left to
+  the skill.
+
+**Two live documentation defects were found and fixed in passing**, both predating this
+mission and both stating a gate that was retired on 2026-08-22: the workflow reference's
+*"The gates are `questions >= 1` or `changes >= 1`"* and the notify catalog's *"Two gates …
+at least one question **or** at least one changed step"*. Both now state the one gate and the
+two narrow conditions beside it (the morning digest, and a check-in that reached nobody).
+
+Verification — `node scripts/build-plugins/build.mjs && node scripts/build-plugins/verify.mjs`
+(the policy index is in sync, all built skills self-contained, the OKF bundle fresh; the
+moderate skill is script-bearing and internal, so `outputs/` is unchanged by construction);
+`node scripts/build-plugins/validate-metadata.mjs`; `node scripts/test-workflow-scripts.mjs`
+(the catalog↔template drift pins pass); and a read of the diff confirming no document still
+describes the all-time count.
+
+### Discovered Insights
+
+- **Insight**: the gate's own header documented four gates in detail and gave `day_cap` a
+  single clause about what it is *for*, saying nothing about how it is counted.
+  **Context**: that is the shape of gap the defect lived in for eleven days. A gate whose
+  arithmetic is undocumented is a gate nobody re-derives when they touch the reader beneath
+  it.
+- **Insight**: two documents were describing a gate retired six days earlier.
+  **Context**: this repository's rule is that outdated documentation is a defect, and both
+  survived because the 2026-08-22 change updated the SKILL and the script header but not the
+  reference or the catalog. A change that touches a gate should grep the gate's *wording*,
+  not only its file.

@@ -6127,9 +6127,46 @@ function testModerateTickPost() {
       [r.post, r.change_count], [true, 1]);
 
     // The asking step's own summary is not news ABOUT THE REPOSITORY, and its questions
-    // are already the thread's replies — counting it would make every tick "changed".
-    r = render(rows([["human-checkin", "asked 2"], ["doc-drift", "no drift"]]), "--tick 20260821-100000");
+    // are already the thread's replies — counting it would make every tick "changed". Since
+    // 2026-08-28 that is enforced by the step supplying NO EVENT rather than by the renderer
+    // skipping it by name, so the guard is the same one every other step already passes.
+    r = render(rows([["human-checkin", "asked 2", ""], ["doc-drift", "no drift"]]), "--tick 20260821-100000");
     assertEq("the check-in's own line never counts as a change", [r.post, r.reason], [false, "idle"]);
+
+    // ---- A TICK THAT REACHED NOBODY IS AN EVENT (2026-08-28, mission
+    // `deliver-what-the-loop-already-knows-to-the-person-who-can-act`) ----
+    // With 22 candidates and zero delivered the tick posted NOTHING, and total silence was
+    // byte-identical to a quiet hour — for eight consecutive ticks, with a red base, a
+    // 31-hour handoff, three undeletable branches and seven undrivable units held behind it.
+    // A delivery failure is the one state the root must carry with zero questions.
+    const failed = "12 finding(s) waiting and none asked — the day's question budget is spent";
+    r = render(rows([["human-checkin", "12 candidate(s): 0 delivered, 12 held (cap_spent)", failed],
+                     ["doc-drift", "no drift"]]), "--tick 20260821-100000");
+    assertEq("a tick with candidates and none delivered posts, with no question at all",
+      [r.post, r.reason, r.questions], [true, "ready", 0]);
+    assertTrue("and the root carries the delivery failure", r.root_text.includes(failed), r.root_text);
+
+    // ...and it cannot restate. The gate is set INSIDE the diff loop, so an unchanged
+    // reading an hour later is suppressed by the same derivation that suppresses every
+    // other restatement — which is what `📦 Release Preparation` was retired for.
+    run(dir, `${LOG} --tick 20260821-090000 --step human-checkin --status ok --summary "12 candidate(s): 0 delivered, 12 held (cap_spent)" --root .`);
+    r = render(rows([["human-checkin", "12 candidate(s): 0 delivered, 12 held (cap_spent)", failed],
+                     ["doc-drift", "no drift"]]), "--tick 20260821-100000");
+    assertEq("two consecutive ticks with the same reading render one line, not two",
+      [r.post, r.reason], [false, "idle"]);
+
+    // A genuinely quiet hour supplies no event and is still silent — the independent guard,
+    // unchanged: a step with no event renders no line whatever the diff says.
+    r = render(rows([["human-checkin", "0 candidate(s): 0 delivered, 0 held (no_candidates)", ""],
+                     ["doc-drift", "no drift"]]), "--tick 20260821-100000");
+    assertEq("a quiet hour still posts nothing", [r.post, r.reason], [false, "idle"]);
+
+    // A delivering tick behaves exactly as before: its questions are the delivery, so it
+    // needs no event, and the question gate alone earns the root.
+    r = render(rows([["human-checkin", "5 candidate(s): 5 delivered, 7 held ()", ""],
+                     ["doc-drift", "no drift"]]), "--tick 20260821-100000 --questions 5");
+    assertEq("a delivering tick posts on its questions, as it always did",
+      [r.post, r.questions, r.change_count], [true, 5, 0]);
 
     // A mechanism that could not read must never announce quiet.
     const bare = makeRepo("main");
@@ -17763,6 +17800,8 @@ const tests = [
   ["moderate: the gated strategy step is deleted, not carried", testStrategyStepIsDeleted],
   ["propose step 9: asking costs attention, so the gates are mechanical", testProposeCheckIn],
   ["moderate/ask-question.sh: the day cap counts today, not all time", testCheckInDayCapIsToday],
+  ["moderate/step-human-checkin.sh: the arrears drain oldest-held first", testCheckInHeldOrder],
+  ["moderate/step-human-checkin.sh: what it delivered, and why it delivered none", testCheckInDeliveryReading],
   ["[Moderate]: the template, its scope, and the shapes it authorizes", testModerateRoutineTemplate],
   ["[Workaholic]: retired, and the scope retired with it", testUserScopeRetired],
   ["specificate/read-ask-feedback-refs.sh: the ask's own feedback line", testReadAskFeedbackRefs],
@@ -23082,6 +23121,179 @@ function testCheckInDayCapIsToday() {
     }
     const sixth = ask("20260828-180000", "q:tick-6", "--max-per-day 50");
     assertEq("the sixth question in one tick is still refused", sixth.reason, "tick_cap");
+  } finally {
+    cleanup(repo);
+  }
+}
+
+// ---------- The arrears arrive in the order they went stale -----------------------------
+// (2026-08-28, mission `deliver-what-the-loop-already-knows-to-the-person-who-can-act`)
+//
+// The held set was collected with `sort -u` — ALPHABETICAL, an arbitrary order over a set
+// whose only meaningful axis is age. It had never mattered because the day cap was jammed
+// and nothing ever drained; it matters the moment the cap is repaired, and 22 questions
+// spanning five days were held when the mission was proposed.
+//
+// WHAT IS PINNED: earliest-held day first, a key held across several ticks is as old as its
+// FIRST hold, the tie-break is total (day, then tick, then key) so a re-entered tick produces
+// a byte-identical sequence, an asked key still drops out, and the step still caps nothing.
+function testCheckInHeldOrder() {
+  const repo = makeRepo();
+  const HK = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts");
+  const STEP = `${POSIX_SH} ${join(HK, "step-human-checkin.sh")}`;
+  const LOG = `${POSIX_SH} ${SCRIPTS.proposeLogAppend}`;
+  const held = (tick) =>
+    JSON.parse(run(repo, `${STEP} --root . --tick ${tick} --hour 14 --weekday 3`).stdout).held;
+  try {
+    mkdirSync(join(repo, ".workaholic"), { recursive: true });
+    // Holds on three different days, written out of order and with the alphabet pointing
+    // the other way, so a passing run cannot be an accident of insertion or of `sort -u`.
+    const hold = (tick, key) =>
+      run(repo, `${LOG} --tick ${tick} --step human-checkin-held-${key} --status skipped --summary "held ${key}"`);
+    hold("20260826-100000", "zebra");
+    hold("20260826-110000", "alpha");
+    hold("20260825-090000", "yak");
+    hold("20260827-090000", "bravo");
+    // `zebra` is held again two days later: it is as old as its FIRST hold, not its last.
+    hold("20260828-090000", "zebra");
+
+    assertEq("the arrears are handed back oldest-held first",
+      held("20260828-140000"), ["yak", "zebra", "alpha", "bravo"]);
+    assertEq("and a repeated run over one fixture is byte-identical",
+      held("20260828-140000"), ["yak", "zebra", "alpha", "bravo"]);
+
+    // The ask is still the resolution of the hold.
+    run(repo, `${LOG} --tick 20260828-120000 --step human-checkin-ask-yak --status filed --summary "asked yak"`);
+    assertEq("a held key that has since been asked still drops out",
+      held("20260828-140000"), ["zebra", "alpha", "bravo"]);
+
+    // THE STEP ORDERS; IT DOES NOT CAP. `max_per_tick` is enforced per candidate by
+    // `ask-question.sh`, and `held_count` counts the whole held set rather than a prefix —
+    // the count is what tells a reader how deep the arrears are.
+    for (let i = 0; i < 8; i++) hold("20260828-093000", `bulk-${i}`);
+    const j = JSON.parse(run(repo, `${STEP} --root . --tick 20260828-140000 --hour 14 --weekday 3`).stdout);
+    assertEq("held_count counts the whole held set, never the ordered prefix",
+      j.held_count, j.held.length);
+    assertTrue("and the step truncates nothing to a per-tick cap", j.held.length > 5, `${j.held.length}`);
+    // The comment is the contract, so a prose mention is allowed while any executable one
+    // is a failure — the shape the AskUserQuestion pin beside it already uses.
+    const capMentions = run(REPO_ROOT,
+      `grep -n 'max_per_tick' ${join(HK, "step-human-checkin.sh")} || true`).stdout
+      .trim().split("\n").filter(Boolean);
+    assertEq("the per-tick cap is not re-implemented here",
+      capMentions.filter((l) => !/^\d+:\s*#/.test(l)), []);
+    assertTrue("and the step says so in writing", capMentions.length > 0, "the contract is not stated anywhere");
+  } finally {
+    cleanup(repo);
+  }
+}
+
+// ---------- What the check-in DELIVERED, not what it was permitted to -------------------
+// (2026-08-28, mission `deliver-what-the-loop-already-knows-to-the-person-who-can-act`)
+//
+// The step reported `up to 5 questions may be asked this tick; 22 held from an earlier tick`
+// with `status: ok` — a PERMISSION, true on a tick that asked five and on a tick that asked
+// none. Eight consecutive ticks that delivered nothing were therefore indistinguishable from
+// eight healthy ones in the only record that survives the container.
+//
+// WHAT IS PINNED: the three numbers, one case per reason word, that `cap_spent` is never
+// reported for a count that could not be bounded, that an unreadable log is `degraded` with
+// NO `delivered` claim, and that the event is supplied only on a delivery failure.
+function testCheckInDeliveryReading() {
+  const repo = makeRepo();
+  const HK = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts");
+  const STEP = `${POSIX_SH} ${join(HK, "step-human-checkin.sh")}`;
+  const ASK = `${POSIX_SH} ${join(HK, "ask-question.sh")}`;
+  const LOG = `${POSIX_SH} ${SCRIPTS.proposeLogAppend}`;
+  const step = (tick, when = "--hour 14 --weekday 3") =>
+    JSON.parse(run(repo, `${STEP} --root . --tick ${tick} ${when}`).stdout);
+  try {
+    mkdirSync(join(repo, ".workaholic"), { recursive: true });
+
+    // `no_candidates` — the genuinely quiet hour. Nothing is waiting and nothing is said.
+    let j = step("20260828-140000");
+    assertEq("a tick with nothing waiting names the quiet hour",
+      [j.delivered, j.held_count, j.candidates, j.delivery], [0, 0, 0, "no_candidates"]);
+    assertEq("and supplies no event, so the root renders no line", j.event, "");
+
+    run(repo, `${LOG} --tick 20260826-100000 --step human-checkin-held-a --status skipped --summary "held a"`);
+    run(repo, `${LOG} --tick 20260826-100000 --step human-checkin-held-b --status skipped --summary "held b"`);
+
+    // A tick that CAN deliver names no failure at all: it has not failed, it has not run yet.
+    j = step("20260828-140000");
+    assertEq("a tick that can still deliver names no failure",
+      [j.candidates, j.delivery, j.event], [2, "", ""]);
+
+    // `all_held` — the designed hold. The quiet window and the off day are named, and
+    // neither supplies an event: they are not a delivery failure, they are the gate working.
+    j = step("20260828-020000", "--hour 2 --weekday 3");
+    assertEq("the quiet window names the hold", [j.delivery, j.event], ["all_held", ""]);
+    j = step("20260829-140000", "--hour 14 --weekday 6");
+    assertEq("so does the off day", [j.delivery, j.event], ["all_held", ""]);
+
+    // `cap_spent` — the budget worked, and it is still worth one line, because a reader has
+    // to be able to tell it from `cap_unbounded`.
+    for (let i = 1; i <= 10; i++) {
+      const g = JSON.parse(run(repo,
+        `${ASK} --root . --tick 20260828-130000 --key q:fill-${i} --hour 14 --weekday 3 --max-per-day 50 --max-per-tick 50`).stdout);
+      run(repo, `${LOG} --tick 20260828-130000 --step ${g.log_step} --status filed --summary "asked q:fill-${i}"`);
+    }
+    j = step("20260828-140000");
+    assertEq("a spent day is named as spent", j.delivery, "cap_spent");
+    assertTrue("and supplies the event the root exists to carry",
+      /none asked/.test(j.event) && /budget is spent/.test(j.event), j.event);
+    assertTrue("which names no dedup key and no mention token",
+      !/tick:|ask:|fb:|<@/.test(j.event), j.event);
+
+    // `all_asked_before` — everything that was ever held has since been asked. Distinct from
+    // `no_candidates`, which is a tick that never held anything.
+    const other = makeRepo();
+    try {
+      mkdirSync(join(other, ".workaholic"), { recursive: true });
+      run(other, `${LOG} --tick 20260826-100000 --step human-checkin-held-only --status skipped --summary "held"`);
+      run(other, `${LOG} --tick 20260827-100000 --step human-checkin-ask-only --status filed --summary "asked"`);
+      const o = JSON.parse(run(other, `${STEP} --root . --tick 20260828-140000 --hour 14 --weekday 3`).stdout);
+      assertEq("a held set that has all been asked is named for what it is",
+        [o.delivery, o.event], ["all_asked_before", ""]);
+    } finally { cleanup(other); }
+
+    // `cap_unbounded` — OUR OWN DEGRADATION, and it must never render as `cap_spent`. It
+    // should be unreachable now that the count is bounded; it is pinned anyway, because a
+    // reason that exists only while a bug does is the reason that gets silently dropped.
+    const noGate = mkdtempSync(join(tmpdir(), "wf-nogate-"));
+    const noReader = mkdtempSync(join(tmpdir(), "wf-noreader-"));
+    try {
+      run(REPO_ROOT, `cp -r ${HK} ${join(noGate, "s")} && rm -f ${join(noGate, "s", "ask-question.sh")}`);
+      const u = JSON.parse(run(repo,
+        `${POSIX_SH} ${join(noGate, "s", "step-human-checkin.sh")} --root . --tick 20260828-140000 --hour 14 --weekday 3`).stdout);
+      assertEq("a day count that could not be bounded is named, never called spent",
+        u.delivery, "cap_unbounded");
+      assertTrue("and it says so in the event, in the reader's own terms",
+        /could not be bounded/.test(u.event), u.event);
+
+      // A DEGRADED READ IS NAMED, NEVER RENDERED AS A DELIVERY: no `delivered` claim at all.
+      run(REPO_ROOT, `cp -r ${HK} ${join(noReader, "s")} && rm -f ${join(noReader, "s", "log-read.sh")}`);
+      const d = JSON.parse(run(repo,
+        `${POSIX_SH} ${join(noReader, "s", "step-human-checkin.sh")} --root . --tick 20260828-140000 --hour 14 --weekday 3`).stdout);
+      assertEq("an unreadable log is degraded with the reader's own reason",
+        [d.status, d.reason, d.delivery], ["degraded", "no_reader", "unreadable"]);
+      assertEq("it asks nothing and supplies no event", [d.needs_agent.length, d.event], [0, ""]);
+      assertEq("and it claims no delivery", d.delivered, undefined);
+    } finally {
+      rmSync(noGate, { recursive: true, force: true });
+      rmSync(noReader, { recursive: true, force: true });
+    }
+
+    // THE GATE ITSELF IS NOT MODIFIED BY THIS READING. The step probes it; it never
+    // re-implements the day's arithmetic, which is what keeps the two from disagreeing.
+    const dayMentions = run(REPO_ROOT,
+      `grep -n 'max_per_day' ${join(HK, "step-human-checkin.sh")} || true`).stdout
+      .trim().split("\n").filter(Boolean);
+    assertEq("the day bound is asked of the gate, never recomputed here",
+      dayMentions.filter((l) => !/^\d+:\s*#/.test(l)), []);
+    assertTrue("and the step composes the gate rather than forking it",
+      /ask-question\.sh/.test(readFileSync(join(HK, "step-human-checkin.sh"), "utf8")),
+      "the step does not reach the gate at all");
   } finally {
     cleanup(repo);
   }

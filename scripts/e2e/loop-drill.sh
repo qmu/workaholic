@@ -4917,7 +4917,214 @@ cmd_verify_reconcile() {
     emit_verdict "reconcile" 0 "pass" 0
 }
 
-USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-specificate <issue>|verify-implement <issue>|verify-plan [--json]|verify-status [--json]|verify-cadence [--json]|verify-planner [--json]|verify-standup [--json]|verify-moderate [--json]|verify-propose [--json]|verify-direction-health [--json]|verify-arrival [--json]|verify-residue [--json]|verify-succession [--json]|verify-revision [--json]|verify-merged-claim [--json]|verify-identity-handoff [--json]|verify-close [--json]|verify-retire [--json]|verify-ci-retirement [--json]|verify-delivery-retry [--json]|verify-handoff-question [--json]|verify-base-health [--json]|verify-return-path [--json]|verify-reconcile [--json]"}'
+# ------------------------------------------------------- verify-checkin-delivery
+# Does the loop's one path from a machine finding to a person actually deliver?
+#
+# WHY A DRILL AND NOT ONLY UNIT TESTS. The suite pins `ask-question.sh` in isolation, and it
+# passed throughout the eleven days the channel was jammed: every part was internally
+# consistent and the delivery failed IN THE SEAMS — an unbounded day count in the gate, an
+# alphabetical order in the step, and a root with no event to carry the failure. This walks
+# the whole path — gate, ordering, step, event, root — over one fixture log spanning several
+# days, with **no network, no `gh`, no Slack post and no touch of the working tree**.
+#
+# IT IS DETERMINISTIC. The day comes from the tick id and `--hour`/`--weekday` are injected,
+# so the drill does not pass or fail by the date it is run on — the reason both are
+# injectable in the first place (the working-week gate's very first suite run was on a
+# Saturday and reported `off_day` for everything).
+cmd_verify_checkin_delivery() {
+    _ask="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/ask-question.sh"
+    _step="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/step-human-checkin.sh"
+    _render="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/render-tick-post.sh"
+    _log="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/log-append.sh"
+    for _f in "$_ask" "$_step" "$_render" "$_log"; do
+        [ -f "$_f" ] || emit_err "checkin_unreadable" 4 "$_f is not present in this checkout"
+    done
+
+    _before=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+
+    _tmp=$(mktemp -d)
+    _fx="${_tmp}/fx"
+    mkdir -p "${_fx}/.workaholic"
+    # A working Wednesday at 14:00, injected everywhere.
+    _when="--hour 14 --weekday 3"
+    _append() { sh "$_log" --root "$_fx" --tick "$1" --step "$2" --status "$3" --summary "$4" >/dev/null 2>&1 || true; }
+    _reason() { printf '%s' "$1" | sed -n 's/.*"reason": *"\([a-z_]*\)".*/\1/p' | head -1; }
+    _held() { printf '%s' "$1" | sed -n 's/.*"held": \[\([^]]*\)\].*/\1/p' | tr -d '" ' ; }
+
+    # 1. THE FIXTURE: `max_per_day` asks on EARLIER days, holds first recorded on three
+    #    different days, and nothing of either on the tick's own day.
+    # Ten of them — `max_per_day` exactly — across five earlier days, two per day. The tick
+    # ids are written out rather than computed, because an id that fails `log-append.sh`'s
+    # own shape check writes nothing and would silently leave the fixture one short of the
+    # cap, which is the difference between drilling the bound and drilling nothing.
+    for _d in 21 22 23 24 25; do
+        _append "202608${_d}-090000" "human-checkin-ask-past-${_d}a" filed "asked past ${_d}a"
+        _append "202608${_d}-100000" "human-checkin-ask-past-${_d}b" filed "asked past ${_d}b"
+    done
+    # Held oldest-first is yak, zebra, alpha, bravo, charlie, delta, echo — deliberately not
+    # alphabetical, so a `sort -u` regression cannot pass this by accident.
+    _append 20260825-090000 human-checkin-held-yak     skipped "held yak"
+    _append 20260826-100000 human-checkin-held-zebra   skipped "held zebra"
+    _append 20260826-110000 human-checkin-held-alpha   skipped "held alpha"
+    _append 20260827-090000 human-checkin-held-bravo   skipped "held bravo"
+    _append 20260827-100000 human-checkin-held-charlie skipped "held charlie"
+    _append 20260827-110000 human-checkin-held-delta   skipped "held delta"
+    _append 20260827-120000 human-checkin-held-echo    skipped "held echo"
+
+    # 2. THE HELD QUESTION LANDS. On a tree whose day count is unbounded this is refused
+    #    `day_cap`; bounded to the tick's own day it is asked.
+    _g=$(sh "$_ask" --root "$_fx" --tick 20260828-140000 --key "q:yak" $_when 2>&1 || true)
+    case "$_g" in
+        *'"ask": true'*)
+            add_row "checkin_held_lands" true "a question held on an earlier day is asked on a working weekday inside the window" load ;;
+        *)
+            add_row "checkin_held_lands" false "the held question was refused $(_reason "$_g"): $(one_line "$_g")" load ;;
+    esac
+
+    # 3. THE SECOND TICK DOES NOT RE-ASK IT. Asked once, not once an hour — unchanged.
+    _slug=$(printf '%s' "$_g" | sed -n 's/.*"log_step": *"\([a-z0-9-]*\)".*/\1/p' | head -1)
+    [ -n "$_slug" ] || _slug=human-checkin-ask-q-yak
+    _append 20260828-140000 "$_slug" filed "asked q:yak"
+    _g2=$(sh "$_ask" --root "$_fx" --tick 20260828-150000 --key "q:yak" $_when 2>&1 || true)
+    if [ "$(_reason "$_g2")" = "already_asked" ]; then
+        add_row "checkin_not_reasked" true "the same question is refused already_asked on the next tick" load
+    else
+        add_row "checkin_not_reasked" false "expected already_asked, got: $(one_line "$_g2")" load
+    fi
+
+    # 4. THE DRAIN HONOURS `max_per_tick`, OLDEST-HELD FIRST, AND THE REMAINDER STAYS HELD.
+    #    This is the agent's loop, run mechanically: walk the ordered list, gate each one,
+    #    record the ask when the gate allows it, and stop when it stops allowing.
+    _s=$(sh "$_step" --root "$_fx" --tick 20260828-160000 $_when 2>&1 || true)
+    _order=$(_held "$_s")
+    case "$_order" in
+        yak,*|zebra,*)
+            add_row "checkin_drain_order" true "the arrears are handed back oldest-held first: ${_order}" load ;;
+        *)
+            add_row "checkin_drain_order" false "expected the oldest hold first, got: ${_order}" load ;;
+    esac
+    _asked=''
+    _n=0
+    for _k in $(printf '%s' "$_order" | tr ',' ' '); do
+        _r=$(sh "$_ask" --root "$_fx" --tick 20260828-160000 --key "$_k" $_when --max-per-day 50 2>&1 || true)
+        case "$_r" in
+            *'"ask": true'*)
+                _n=$((_n + 1))
+                _asked="${_asked:+${_asked} }${_k}"
+                # ONE line per ask, under the id the gate returned. It already begins with
+                # `human-checkin-ask-<key>`, so it is what drops the key out of the held set
+                # as well — recording a second line would count the same ask twice against
+                # `tick_cap` and the drain would stop three questions early.
+                _st=$(printf '%s' "$_r" | sed -n 's/.*"log_step": *"\([a-z0-9-]*\)".*/\1/p' | head -1)
+                _append 20260828-160000 "$_st" filed "asked ${_k}" ;;
+            *) ;;
+        esac
+    done
+    if [ "$_n" -eq 5 ]; then
+        add_row "checkin_drain_capped" true "the tick asks exactly max_per_tick (5) and holds the rest: ${_asked}" load
+    else
+        add_row "checkin_drain_capped" false "expected 5 asked in one tick, got ${_n} (${_asked})" load
+    fi
+    _s2=$(sh "$_step" --root "$_fx" --tick 20260828-170000 $_when 2>&1 || true)
+    _left=$(_held "$_s2")
+    if [ -n "$_left" ] && ! printf '%s' "$_left" | grep -q "$(printf '%s' "$_asked" | cut -d' ' -f1)"; then
+        add_row "checkin_remainder_held" true "the ones that did not fit are still held: ${_left}" load
+    else
+        add_row "checkin_remainder_held" false "the remainder was lost or the asked ones came back: ${_left}" load
+    fi
+
+    # 5. A GENUINELY SPENT DAY STILL HOLDS. The cap was kept, not removed — `max_per_day`
+    #    lines ON THE TICK'S OWN DAY still refuse, and still hold.
+    _spent="${_tmp}/spent"
+    mkdir -p "${_spent}/.workaholic"
+    _i=1
+    while [ "$_i" -le 10 ]; do
+        sh "$_log" --root "$_spent" --tick 20260828-130000 --step "human-checkin-ask-today-${_i}" \
+            --status filed --summary "asked today ${_i}" >/dev/null 2>&1 || true
+        _i=$((_i + 1))
+    done
+    _sp=$(sh "$_ask" --root "$_spent" --tick 20260828-140000 --key "q:one-more" $_when 2>&1 || true)
+    case "$_sp" in
+        *'"reason": "day_cap"'*'"hold": true'*)
+            add_row "checkin_spent_day_holds" true "a day genuinely spent still refuses day_cap, and still holds the question" load ;;
+        *)
+            add_row "checkin_spent_day_holds" false "the cap was not kept: $(one_line "$_sp")" load ;;
+    esac
+
+    # 6. A TICK THAT DELIVERED NOTHING SUPPLIES ITS EVENT, AND THE ROOT CARRIES IT.
+    sh "$_log" --root "$_spent" --tick 20260826-100000 --step human-checkin-held-stuck \
+        --status skipped --summary "held stuck" >/dev/null 2>&1 || true
+    _fail=$(sh "$_step" --root "$_spent" --tick 20260828-140000 $_when 2>&1 || true)
+    _event=$(printf '%s' "$_fail" | sed -n 's/.*"event": *"\([^"]*\)".*/\1/p' | head -1)
+    _delivery=$(printf '%s' "$_fail" | sed -n 's/.*"delivery": *"\([a-z_]*\)".*/\1/p' | head -1)
+    if [ "$_delivery" = "cap_spent" ] && [ -n "$_event" ]; then
+        add_row "checkin_failure_is_an_event" true "a tick with candidates and none delivered names cap_spent and supplies an event" load
+    else
+        add_row "checkin_failure_is_an_event" false "expected cap_spent with an event, got delivery='${_delivery}' event='${_event}'" load
+    fi
+    # The root carries it with ZERO questions, which is the whole point: with none it says
+    # nothing at all and its silence is indistinguishable from a quiet hour.
+    sh "$_log" --root "$_spent" --tick 20260828-120000 --step doc-drift --status ok --summary "no drift" >/dev/null 2>&1 || true
+    _rows="{\"rows\": [{\"step\": \"doc-drift\", \"status\": \"ok\", \"summary\": \"no drift\", \"event\": \"\"}, {\"step\": \"human-checkin\", \"status\": \"ok\", \"summary\": \"held and undelivered\", \"event\": \"$(json_escape "$_event")\"}]}"
+    _post=$(printf '%s' "$_rows" | sh "$_render" --tick 20260828-140000 --root "$_spent" 2>&1 || true)
+    case "$_post" in
+        *'"post": true'*)
+            add_row "checkin_root_carries_it" true "the root posts on the delivery failure with zero questions" load ;;
+        *)
+            add_row "checkin_root_carries_it" false "the root stayed silent about a tick that reached nobody: $(one_line "$_post")" load ;;
+    esac
+    # ...and a quiet hour supplies none and posts nothing, unchanged.
+    _quiet="{\"rows\": [{\"step\": \"doc-drift\", \"status\": \"ok\", \"summary\": \"no drift\", \"event\": \"\"}, {\"step\": \"human-checkin\", \"status\": \"ok\", \"summary\": \"nothing waiting\", \"event\": \"\"}]}"
+    _qpost=$(printf '%s' "$_quiet" | sh "$_render" --tick 20260828-140000 --root "$_spent" 2>&1 || true)
+    case "$_qpost" in
+        *'"post": false'*)
+            add_row "checkin_quiet_hour_silent" true "a tick with no event still posts nothing, so the gate did not become a status line" load ;;
+        *)
+            add_row "checkin_quiet_hour_silent" false "a quiet hour posted: $(one_line "$_qpost")" load ;;
+    esac
+
+    # 7. THE BREAKER ROW, LABELLED AS THE INTENTIONAL FAILURE. Written against the COUNT and
+    #    not against the gate's output shape, so a future refactor that keeps the shape and
+    #    loses the bound still fires it: point `asked_today` back at the unbounded reader and
+    #    row 2 must fail. A drill that cannot fail proves nothing, and this is the exact
+    #    regression the mission exists to prevent.
+    _broken="${_tmp}/broken"
+    mkdir -p "$_broken"
+    cp -R "${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/." "$_broken/"
+    sed 's/^asked_today=.*/asked_today=$(count_log_prefix human-checkin-ask "" "")/' \
+        "$_ask" > "${_broken}/ask-question.sh"
+    chmod +x "${_broken}/ask-question.sh"
+    _bfx="${_tmp}/bfx"
+    mkdir -p "${_bfx}/.workaholic"
+    for _d in 21 22 23 24 25; do
+        sh "$_log" --root "$_bfx" --tick "202608${_d}-090000" \
+            --step "human-checkin-ask-past-${_d}a" --status filed --summary "asked past" >/dev/null 2>&1 || true
+        sh "$_log" --root "$_bfx" --tick "202608${_d}-100000" \
+            --step "human-checkin-ask-past-${_d}b" --status filed --summary "asked past" >/dev/null 2>&1 || true
+    done
+    _b=$(sh "${_broken}/ask-question.sh" --root "$_bfx" --tick 20260828-140000 --key "q:yak" $_when 2>&1 || true)
+    if [ "$(_reason "$_b")" = "day_cap" ]; then
+        add_row "checkin_breaker" true "with the day count unbounded again the held question is refused day_cap (this drill can fail)" load
+    else
+        add_row "checkin_breaker" false "the breaker did not break: an unbounded count still asked the question, so row 2 proves nothing ($(one_line "$_b"))" load
+    fi
+
+    # 8. NOTHING WAS WRITTEN OUTSIDE THE FIXTURE, AND NOTHING WAS POSTED.
+    _after=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+    if [ "$_before" = "$_after" ]; then
+        add_row "checkin_writes_nothing" true "the checkout is byte-identical after the drill" load
+    else
+        add_row "checkin_writes_nothing" false "the drill changed the working tree" load
+    fi
+
+    rm -rf "$_tmp"
+    if [ "$LOAD_FAILED" -gt 0 ]; then
+        emit_verdict "checkin-delivery" 0 "fail" 1
+    fi
+    emit_verdict "checkin-delivery" 0 "pass" 0
+}
+
+USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-specificate <issue>|verify-implement <issue>|verify-plan [--json]|verify-status [--json]|verify-cadence [--json]|verify-planner [--json]|verify-standup [--json]|verify-moderate [--json]|verify-propose [--json]|verify-direction-health [--json]|verify-arrival [--json]|verify-residue [--json]|verify-succession [--json]|verify-revision [--json]|verify-merged-claim [--json]|verify-identity-handoff [--json]|verify-close [--json]|verify-retire [--json]|verify-ci-retirement [--json]|verify-delivery-retry [--json]|verify-handoff-question [--json]|verify-base-health [--json]|verify-return-path [--json]|verify-reconcile [--json]|verify-checkin-delivery [--json]"}'
 
 CMD="${1:-}"
 [ -n "$CMD" ] || {
@@ -4968,6 +5175,7 @@ case "$CMD" in
     verify-base-health) cmd_verify_base_health "$@" ;;
     verify-return-path) cmd_verify_return_path "$@" ;;
     verify-reconcile) cmd_verify_reconcile "$@" ;;
+    verify-checkin-delivery) cmd_verify_checkin_delivery "$@" ;;
     *)
         echo "$USAGE" >&2
         exit 2

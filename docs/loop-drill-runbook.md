@@ -48,6 +48,7 @@ Run every command from the repository root, on a clean `main`.
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-handoff-question --json` | a throwaway repository holding a reported claim whose still-queued work declares `verification_handoff:` — proves the declared reason reaches its holder verbatim exactly once, that `stalled-units` asks nothing about the same unit, and that nothing is cleared, with the transport stubbed and one row that deliberately breaks the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-base-health --json` | a throwaway repository whose base is red at a mid-walk merge — proves the reader's three states, the attribution walk's two outcomes, that one broken commit costs exactly one question, and that the reading gates nothing, with the transport stubbed and one row that deliberately breaks the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-return-path --json` | a throwaway repository holding one asked question with its coordinate recorded — walks ask → reply → record → file → stamp, proves the read is bounded to the question's own thread, that a second tick files and stamps nothing, and that the stamp is never load-bearing, with the transport stubbed and one row that deliberately breaks the seam |
+| — | Any time | `sh scripts/e2e/loop-drill.sh verify-checkin-delivery --json` | a throwaway tick log spanning several days, with the day's asks all on **earlier** days — walks the whole path from a machine finding to a person (gate → ordering → step → event → root), proving a held question lands, that it is not re-asked, that the drain honours `max_per_tick` oldest-held first, that a genuinely spent day still holds, and that a tick which reached nobody supplies its event while a quiet hour stays silent, with no network and one row that deliberately breaks the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh status` | the drill's residue: issues, claim branches, tickets |
 | — | After an abort | `sh scripts/e2e/loop-drill.sh reset` | closes/deletes **drill-minted** residue only |
 
@@ -586,6 +587,39 @@ keeps `🔵 Proposed` or `🟡 Handoff` while the work is long merged. No other 
 suite's `testReconcileCandidates` and `testThreadReconcileStep`, and the catalog↔template drift pin
 inside `testModerateRoutineTemplate`, are what **CI** enforces on every change. The drill ships to
 no other agent and CI never runs it.
+
+## 5s. The check-in's delivery (does a machine finding actually reach a person?)
+
+`verify-checkin-delivery` needs no seed, no fire, no issue number and **no network** — no `gh`, no
+Slack post, no touch of the working tree. Everything is a tick-log fixture under the OS temp dir,
+written through `log-append.sh` so it is the shape the tick actually produces, and the day comes
+from the **tick id** with `--hour`/`--weekday` injected, so the drill does not pass or fail by the
+date it is run on.
+
+**Why the path and not the parts.** The hermetic suite pins `ask-question.sh` in isolation and it
+passed throughout the eleven days the channel was jammed: each part was internally consistent and
+the delivery failed **in the seams** — an unbounded day count in the gate, an alphabetical order in
+the step, and a root with no event to carry the failure. This walks gate → ordering → step → event
+→ root over one fixture.
+
+| Row | Fails when | Read |
+| --- | ---------- | ---- |
+| `checkin_held_lands` | a question held on an earlier day is still refused | `moderate/scripts/ask-question.sh` — the day bound (`--since "$TODAY"`) is gone, so `asked_today` is the log's whole history again |
+| `checkin_not_reasked` | the same key is asked twice | the `already_asked` gate: asked once, not once an hour. Silence is not a reason to re-ask |
+| `checkin_drain_order` | the arrears do not come back oldest-held first | `moderate/scripts/step-human-checkin.sh` — the earliest `(day, tick)` per key, or the `LC_ALL=C` sort, has been lost |
+| `checkin_drain_capped` | the tick asks more or fewer than `max_per_tick` | `ask-question.sh`'s `tick_cap`. **The step must not enforce it**: if this fails at *fewer*, look for a second `human-checkin-ask*` line per ask — two lines count one ask twice |
+| `checkin_remainder_held` | what did not fit is lost, or the asked ones come back | held is not dropped; the ask is the resolution of the hold |
+| `checkin_spent_day_holds` | a day genuinely spent stops refusing | **the cap was kept, not removed.** A repair that raised the cap fails here, which is the point of the row |
+| `checkin_failure_is_an_event` | a tick with candidates and none delivered names no reason, or supplies no event | `step-human-checkin.sh`'s delivery reading; `cap_spent` and `cap_unbounded` are the two states that earn an event |
+| `checkin_root_carries_it` | the root stays silent about a tick that reached nobody | `moderate/scripts/render-tick-post.sh` — the third gate beside the question gate and the digest, or the removed `human-checkin` skip |
+| `checkin_quiet_hour_silent` | a tick with no event posts anyway | the guard that keeps the gate from becoming a status line: *a step with no event renders no line* |
+| `checkin_breaker` | an unbounded day count still asks the held question | **the deliberately broken row, and the one to look at first on a red drill.** It is written against the **count**, not the gate's output shape, so a refactor that keeps the shape and loses the bound still fires it |
+| `checkin_writes_nothing` | the drill changed the checkout | every fixture lives outside it, and the drill posts nothing anywhere |
+
+**Two proofs, and they are not the same one.** This drill is the **operator's**; the hermetic
+suite's `testCheckInDayCapIsToday`, `testCheckInHeldOrder` and `testCheckInDeliveryReading`, plus
+the root-gate cases inside `testModerateTickPost`, are what **CI** enforces on every change. The
+drill ships to no other agent and CI never runs it.
 
 ## 6. Abort playbook
 

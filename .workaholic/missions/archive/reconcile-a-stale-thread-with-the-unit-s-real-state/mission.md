@@ -51,3 +51,4 @@ carrying its finish is untouched. It merges nothing, claims nothing, posts nowhe
 - 2026-08-28 — ticket archived — 20260828062308-post-the-missing-finish-reply-exactly-once.md
 - 2026-08-28 — ticket archived — 20260828062308-drill-the-reconciliation-with-no-network.md
 - 2026-08-28 — mission achieved — mission.md
+- 2026-08-28 — story reported — work-20260828-064059

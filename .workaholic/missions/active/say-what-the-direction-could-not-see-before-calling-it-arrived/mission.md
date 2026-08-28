@@ -50,3 +50,4 @@ pull request instead of editing `main` by hand.
 
 - 2026-08-28 — ticket archived — 20260828012026-reproduce-the-false-arrival-and-pin-it.md
 - 2026-08-28 — ticket archived — 20260828012042-read-what-no-direction-claims.md
+- 2026-08-28 — ticket archived — 20260828012043-carry-the-residue-onto-every-survey-row.md

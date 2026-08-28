@@ -1064,6 +1064,33 @@ function testResidueGatesNothing() {
   // 3. `quiescent` IS THE ONE READING THAT DOES, and it is a reading rather than a gate.
   const qStart = src.indexOf("| . + {quiescent:");
   assertTrue("quiescent reads the residue", /\.residue\.readable/.test(src.slice(qStart, gateStart)), "");
+
+  // 4. THE DRILL EXISTS, is dispatched by its verb, and is documented — the same three pins
+  // every other verify target carries, so a drill that is written and never wired reads exactly
+  // like one that runs. Its deliberately-broken row is named in both places, because a drill
+  // that cannot fail proves nothing and the runbook is where an operator learns which row that is.
+  const drill = readFileSync(join(REPO_ROOT, "scripts/e2e/loop-drill.sh"), "utf8");
+  assertTrue("verify-residue is in loop-drill.sh", /cmd_verify_residue\(\)/.test(drill), "not present");
+  assertTrue("and is dispatched by its verb", /verify-residue\) cmd_verify_residue/.test(drill), "not wired");
+  assertTrue("and its usage line names it", /verify-residue \[--json\]/.test(drill), "not in the usage line");
+  const runbook = readFileSync(join(REPO_ROOT, "docs/loop-drill-runbook.md"), "utf8");
+  assertTrue("and the runbook documents it alongside the others", /verify-residue/.test(runbook), "undocumented");
+  assertTrue("with the deliberately-broken row named as the proof it is",
+    /residue_reads_the_active_area/.test(runbook) && /residue_reads_the_active_area/.test(drill),
+    "the failing row is missing from the drill or the runbook");
+
+  // 5. THE DOCUMENTS STATE THE SHIPPED BEHAVIOUR. Outdated documentation is a defect by this
+  // repository's own rule, and the reporting obligation is prose that nothing else can hold.
+  for (const [file, needle] of [
+    ["plugins/workaholic/skills/propose/SKILL.md", /reports that strategy.s residue beside it|names that strategy's residue beside it/],
+    ["plugins/workaholic/skills/propose/reference/loop.md", /Name that strategy.s residue beside the `arrived`/],
+    ["plugins/workaholic/skills/strategy/SKILL.md", /unattributed-work\.sh/],
+    ["plugins/workaholic/skills/moderate/SKILL.md", /names what the reading could not see/],
+    ["CLAUDE.md", /unattributed-work\.sh/],
+  ]) {
+    assertTrue(`${file} states the shipped behaviour`,
+      needle.test(readFileSync(join(REPO_ROOT, file), "utf8")), `${file} does not`);
+  }
 }
 
 // ---------- strategy/carry-attribution.sh: the operator's ruling, carried (2026-08-28) ----------

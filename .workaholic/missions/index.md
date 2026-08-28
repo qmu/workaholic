@@ -2,7 +2,6 @@
 
 ## active
 
-* [deliver-what-the-loop-already-knows-to-the-person-who-can-act](active/deliver-what-the-loop-already-knows-to-the-person-who-can-act/mission.md) - Deliver what the loop already knows to the person who can act
 * [deploy-the-docs-site-on-merge-to-main](active/deploy-the-docs-site-on-merge-to-main/mission.md) - Deploy the docs site on merge to main
 * [make-the-routine-create-body-documented-and-buildable](active/make-the-routine-create-body-documented-and-buildable/mission.md) - Make the routine create body documented and buildable
 * [make-workaholify-converge-the-account-s-routines](active/make-workaholify-converge-the-account-s-routines/mission.md) - Make /workaholify converge the account's routines
@@ -25,6 +24,7 @@
 * [correct-the-release-note-automation-to-its-intended-design](archive/correct-the-release-note-automation-to-its-intended-design/mission.md) - Correct the release note automation to its intended design
 * [cross-the-repo-boundary-as-an-issue](archive/cross-the-repo-boundary-as-an-issue/mission.md) - Cross the repo boundary as an issue
 * [deliver-and-retire-what-the-loop-already-proved-finished](archive/deliver-and-retire-what-the-loop-already-proved-finished/mission.md) - Deliver and retire what the loop already proved finished
+* [deliver-what-the-loop-already-knows-to-the-person-who-can-act](archive/deliver-what-the-loop-already-knows-to-the-person-who-can-act/mission.md) - Deliver what the loop already knows to the person who can act
 * [draft-deployment-plans-in-the-release-note-before-deploying](archive/draft-deployment-plans-in-the-release-note-before-deploying/mission.md) - Draft deployment plans in the Release Note before deploying
 * [drive-on-a-merged-proposal-and-report-it-in-that-proposal-s-thread](archive/drive-on-a-merged-proposal-and-report-it-in-that-proposal-s-thread/mission.md) - Drive on a merged proposal, and report it in that proposal's thread
 * [drive-the-work-the-loop-wrote-one-resolution-of-who-a-person-is](archive/drive-the-work-the-loop-wrote-one-resolution-of-who-a-person-is/mission.md) - Drive the work the loop wrote: one resolution of who a person is

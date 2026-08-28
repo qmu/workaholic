@@ -2,7 +2,7 @@
 type: Mission
 title: Deliver what the loop already knows to the person who can act
 slug: deliver-what-the-loop-already-knows-to-the-person-who-can-act
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-28T18:19:13+00:00
 author: a@qmu.jp
@@ -54,3 +54,5 @@ today from a mechanism that has stopped.
 - 2026-08-28 — ticket archived — 20260828182002-read-what-the-check-in-delivered-and-held.md
 - 2026-08-28 — ticket archived — 20260828182002-make-a-tick-that-reached-nobody-an-event.md
 - 2026-08-28 — ticket archived — 20260828182002-state-the-cap-s-contract-where-it-is-documented.md
+- 2026-08-28 — ticket archived — 20260828182003-drill-the-delivery-path-with-no-network.md
+- 2026-08-28 — mission achieved — mission.md

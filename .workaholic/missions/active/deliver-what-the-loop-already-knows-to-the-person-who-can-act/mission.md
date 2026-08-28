@@ -41,7 +41,7 @@ today from a mechanism that has stopped.
       `WORKAHOLIC_QUIET_TZ` day; every other gate is byte-identical. (#20260828182002-bound-the-day-count-to-the-quiet-hours-day.md)
 - [x] A multi-day backlog drains oldest-held first under `max_per_tick`, and the drill
       proves it end to end with no network. (#20260828182002-drain-a-held-backlog-oldest-first.md)
-- [ ] A check-in with candidates and zero delivered supplies its own `event` and names what
+- [x] A check-in with candidates and zero delivered supplies its own `event` and names what
       it held and why, with a spent cap distinguished by name from a count it could not
       bound. (#20260828182002-make-a-tick-that-reached-nobody-an-event.md)
 
@@ -52,3 +52,4 @@ today from a mechanism that has stopped.
 - 2026-08-28 — ticket archived — 20260828182002-bound-the-day-count-to-the-quiet-hours-day.md
 - 2026-08-28 — ticket archived — 20260828182002-drain-a-held-backlog-oldest-first.md
 - 2026-08-28 — ticket archived — 20260828182002-read-what-the-check-in-delivered-and-held.md
+- 2026-08-28 — ticket archived — 20260828182002-make-a-tick-that-reached-nobody-an-event.md

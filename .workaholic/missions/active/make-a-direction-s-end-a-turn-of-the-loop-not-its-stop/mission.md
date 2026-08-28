@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260828-054059
 ---
 
 # Make a direction's end a turn of the loop, not its stop

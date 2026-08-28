@@ -46,3 +46,4 @@ carrying its finish is untouched. It merges nothing, claims nothing, posts nowhe
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-28 — ticket archived — 20260828062308-read-which-announced-items-may-still-be-called-in-flight.md
+- 2026-08-28 — ticket archived — 20260828062308-name-the-reconciliation-reply-once-in-the-catalog.md

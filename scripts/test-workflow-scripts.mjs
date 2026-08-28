@@ -23033,11 +23033,40 @@ function testModerateRoutineTemplate() {
       block(template, "✅ 解消を確認"), conf);
     assertTrue("and it carries no mention token", !/<@U/.test(conf), conf);
   }
-  assertEq("and they are the only three shapes the template authorizes",
+  // FIVE SHAPES SINCE 2026-08-28 (mission `reconcile-a-stale-thread-with-the-unit-s-real-state`):
+  // the two reconciliation replies. The merged one REUSES `🟢 Implemented` deliberately — the
+  // reader's question is *did this finish*, and a fifth finish colour would make one event two
+  // vocabularies — so it is marked by its sentence; `⚫ Closed` is genuinely new, because
+  // *closed* and *merged* ask a reader for different things.
+  {
+    for (const lead of ["🟢 Implemented - \\[#123 Title\\]\\(<repo-url>/pull/123\\)\\nMerged outside",
+                        "⚫ Closed - \\[#123 Title\\]"]) {
+      const c = block(catalog, lead);
+      assertTrue(`the catalog carries the reconciliation reply ${lead}`, c !== "",
+        "missing from notifications.md");
+      assertEq(`${lead} reads byte-identically in the template and the catalog`,
+        block(template, lead), c);
+      assertTrue("and it carries no mention token", !/<@U/.test(c), c);
+      assertTrue("and says the finish was posted by no run",
+        /no run posted this item's finish\./.test(c), c);
+    }
+    // THE NARROWING IS WRITTEN, and it is what keeps this from being `[Consent]` again: only a
+    // thread still CALLING the unit in flight is a candidate.
+    assertTrue("the catalog names the two stale-able last words",
+      /only a thread whose last status reply is `🔵 Proposed` or `🟡 Handoff` is a candidate/
+        .test(catalog), "the narrowing is unwritten");
+    assertTrue("and answers `[Consent]`'s retirement by name",
+      /`\[Consent\]`'s retirement is answered by name/.test(catalog), "the precedent is unanswered");
+    assertTrue("the template requires the thread to be read before anything is posted",
+      /\*\*read it first\*\*/.test(template), template);
+  }
+  assertEq("and they are the only five shapes the template authorizes",
     [...template.matchAll(/```\n([^\n]*)/gu)].map((m) => m[1]).filter((l) => /^[^\s`]/.test(l)),
     ["🔎 Moderation - <N> change(s), <M> question(s)",
      "🙋 <@U…> - <what this tick could not decide>",
-     "✅ 解消を確認 - <the question's subject, one line>"]);
+     "✅ 解消を確認 - <the question's subject, one line>",
+     "🟢 Implemented - [#123 Title](<repo-url>/pull/123)",
+     "⚫ Closed - [#123 Title](<repo-url>/pull/123)"]);
   for (const retired of ["🔧 Needs a decision", "📦 Release Preparation"]) {
     assertEq(`no session may post ${retired} any more — the template`, block(template, retired), "");
     assertEq(`no session may post ${retired} any more — the catalog`, block(catalog, retired), "");

@@ -1258,6 +1258,14 @@ written to `todo/` by one merge and archived by another is at neither path the d
 why the archive is consulted too. The artifacts then go to `drive/scripts/unit-feedback-stems.sh` —
 **the one translation** from a unit's artifacts to its thread key, never re-parsed here.
 
+**One case the local sources cannot cover, and one extra call for it.** A pull request **closed
+without merging** has no merge commit, its story never reached the base and it archived nothing, so
+every local path is silent about it — and `⚫ Closed` would be a shape nothing could ever reach.
+Only for a candidate the tree could not answer, the reader asks GitHub for that pull request's own
+changed files and resolves those paths against the base: a mission published by an earlier merge is
+there, and the unit resolves. It is one call, bounded by `--limit` like every other per-pull read,
+and it is **never** spent on a candidate the tree already answered.
+
 **Both bounds are configurable and both are reported.** `--window-days`
 (`WORKAHOLIC_RECONCILE_WINDOW_DAYS`, default 3) and `--limit` (`WORKAHOLIC_RECONCILE_MAX`, default
 10, with `truncated` and `beyond_bound`); the list itself is read in

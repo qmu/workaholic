@@ -111,7 +111,7 @@ page=1
 while [ "$page" -le "$PAGES" ]; do
     chunk=$(sh "${GATHER}/gh-rest.sh" api \
         "repos/${slug}/pulls?state=closed&sort=updated&direction=desc&per_page=50&page=${page}" \
-        --jq '.[] | [(.number|tostring), (.head.ref // ""), (.merged_at // ""), (.closed_at // ""), (.html_url // ""), (.title // "")] | @tsv' \
+        --jq '.[] | [(.number|tostring), (.head.ref // "-"), (.merged_at // "-"), (.closed_at // "-"), (.html_url // "-"), (.title // "")] | @tsv' \
         2>&1) || emit_err list_failed "$chunk"
     [ -n "$chunk" ] || break
     rows="${rows}${rows:+
@@ -210,6 +210,15 @@ for row in $rows; do
     set -- $row
     IFS=$OLDIFS
     number="${1:-}"; branch="${2:-}"; merged_at="${3:-}"; closed_at="${4:-}"; url="${5:-}"; title="${6:-}"
+    # A TAB IS IFS *WHITESPACE*, so adjacent empty fields COLLAPSE and every later field shifts
+    # left by one. An unmerged pull request has an empty `merged_at`, so without a sentinel its
+    # `closed_at` landed in `merged_at` and the row read `merged` — the one distinction the two
+    # reply shapes exist to draw. The jq above emits `-` for an absent value; it is mapped back
+    # here, and only for the two fields whose emptiness is meaningful.
+    if [ "$merged_at" = "-" ]; then merged_at=""; fi
+    if [ "$closed_at" = "-" ]; then closed_at=""; fi
+    if [ "$branch" = "-" ]; then branch=""; fi
+    if [ "$url" = "-" ]; then url=""; fi
     case "$branch" in work-*) ;; *) continue ;; esac
     when="${merged_at:-$closed_at}"
     [ -n "$when" ] || continue
@@ -230,6 +239,28 @@ for row in $rows; do
     fi
 
     arts=$(resolve_artifacts "$branch" | tr '\n' ' ')
+    if [ -z "${arts# }" ]; then
+        # THE ONE CASE THE LOCAL SOURCES CANNOT COVER: a pull request CLOSED WITHOUT MERGING
+        # has no merge commit, its story never reached the base, and it archived nothing — so
+        # every local path is silent about it, and `⚫ Closed` would be a shape nothing could
+        # ever reach. The pull request's own changed files name the artifacts; a path that
+        # landed by some earlier merge (a mission published by its proposal) is on the base and
+        # resolves. One extra call, only for a candidate the tree could not answer, bounded by
+        # `--limit` like every other per-pull read.
+        arts=$(sh "${GATHER}/gh-rest.sh" api "repos/${slug}/pulls/${number}/files?per_page=100" \
+            --jq '.[] | .filename' 2>/dev/null \
+            | while IFS= read -r p; do
+                  case "$p" in
+                      .workaholic/missions/*/mission.md|.workaholic/tickets/*.md) ;;
+                      *) continue ;;
+                  esac
+                  if [ -f "${ROOT}/${p}" ]; then
+                      printf '%s\n' "${ROOT}/${p}"
+                  else
+                      find "${ROOT}/.workaholic/tickets" -name "$(basename "$p")" -type f 2>/dev/null || true
+                  fi
+              done | sort -u | tr '\n' ' ')
+    fi
     stems_json='[]'
     if [ -n "${arts# }" ] && [ -f "$STEMS" ]; then
         # shellcheck disable=SC2086

@@ -25160,13 +25160,15 @@ function testReconcileCandidates() {
       ["12", "work-20260828-020000", iso(0.3), iso(0.3), "https://x/pull/12", "Loose"],
       ["13", "work-20260801-000000", iso(40), iso(40), "https://x/pull/13", "Ancient"],
       ["14", "publish-main", iso(0.1), iso(0.1), "https://x/pull/14", "Not a claim branch"],
-      ["15", "work-20260828-030000", "", iso(0.4), "https://x/pull/15", "Closed unmerged"],
+      ["15", "work-20260828-030000", "-", iso(0.4), "https://x/pull/15", "Closed unmerged"],
     ];
     const tsv = rows.map((r) => r.join("\t")).join("\n");
     stub([
       'case "$*" in',
       `  *"pulls?state=closed"*"page=1"*) printf '%b\\n' ${JSON.stringify(tsv)} ;;`,
       '  *"pulls?state=closed"*) : ;;',
+      '  *pulls/15/files*) echo ".workaholic/missions/active/alpha/mission.md" ;;',
+      '  *pulls/15/files*) echo ".workaholic/missions/active/alpha/mission.md" ;;',
       '  *pulls/11*|*pulls/12*) echo "a-person" ;;',
       '  *) : ;;',
       "esac",
@@ -25196,8 +25198,12 @@ function testReconcileCandidates() {
     assertEq("the unit reads as the mission the story or the merge names", alpha.unit, "alpha");
 
     // CLOSED UNMERGED IS ITS OWN STATE — a different reply, so never collapsed into `merged`.
-    const closed = r.candidates.concat(r.unresolved).find((c) => c.number === 15);
+    // A tab is IFS *whitespace*, so an empty `merged_at` used to collapse and shift `closed_at`
+    // into it, and the row read `merged`: the one distinction the two shapes exist to draw.
+    const closed = r.candidates.find((c) => c.number === 15);
     assertTrue("a closed-unmerged pull request is still read", !!closed, JSON.stringify(r));
+    assertEq("and reads closed, never merged, with no author invented",
+      [closed.state, closed.merged_by], ["closed", ""]);
 
     // AN ITEM WITH NO FEEDBACK RECORD HAS NO THREAD TO RECONCILE, and is NAMED rather than
     // dropped — and never keyed on `unit:<id>` here, because this reader answers *which item*.
@@ -25377,6 +25383,23 @@ function testThreadReconcileStep() {
     const src = readFileSync(SCRIPTS.stepThreadReconcile, "utf8").replace(/^#.*$/gm, "");
     assertTrue("the step never reaches plan-units.sh", !/plan-units\.sh/.test(src),
       "the step reaches the survey");
+
+    // AND THE DRILL EXISTS, is dispatched by its verb, and is documented — the same three pins
+    // every other verify target carries, so a drill that is written and never wired reads
+    // exactly like one that runs.
+    const drill = readFileSync(join(REPO_ROOT, "scripts/e2e/loop-drill.sh"), "utf8");
+    assertTrue("verify-reconcile is in loop-drill.sh", /cmd_verify_reconcile\(\)/.test(drill),
+      "verify-reconcile is not in loop-drill.sh");
+    assertTrue("and is dispatched by its verb", /verify-reconcile\)/.test(drill),
+      "the drill's verb is not wired");
+    assertTrue("and its usage line names it", /verify-reconcile \[--json\]/.test(drill),
+      "the drill is not in the usage line");
+    const runbook = readFileSync(join(REPO_ROOT, "docs/loop-drill-runbook.md"), "utf8");
+    assertTrue("and the runbook documents it alongside the others",
+      /verify-reconcile/.test(runbook), "the drill is undocumented");
+    assertTrue("with the deliberately-broken row named as the proof it is",
+      /reconcile_breaker/.test(runbook) && /reconcile_breaker/.test(drill),
+      "the failing row is missing from the drill or the runbook");
   } finally { rmSync(tmp, { recursive: true, force: true }); }
 }
 

@@ -2,7 +2,7 @@
 type: Mission
 title: Finish the retirement the loop cannot complete
 slug: finish-the-retirement-the-loop-cannot-complete
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-27T23:21:32+00:00
 author: a@qmu.jp
@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260827-234102
 ---
 
 # Finish the retirement the loop cannot complete
@@ -43,10 +44,20 @@ blocked, and a standing blocked retirement stops reading as a fresh hourly findi
 
 ## Acceptance
 
-- [ ] A refused delete is reported under its own word, naming the blocked act and the acts that stand. (#20260827232222-give-a-refused-delete-its-own-reported-word.md)
-- [ ] A blocked unit reaches its claim holder exactly once, naming the branches and the refusal. (#20260827232222-ask-the-holder-for-the-branches-left-undeleted.md)
-- [ ] `verify-retire` drills the blocked retirement with no network, with a row that breaks the seam. (#20260827232222-drill-the-blocked-retirement-with-no-network.md)
+- [x] A refused delete is reported under its own word, naming the blocked act and the acts that stand. (#20260827232222-give-a-refused-delete-its-own-reported-word.md)
+- [x] A blocked unit reaches its claim holder exactly once, naming the branches and the refusal. (#20260827232222-ask-the-holder-for-the-branches-left-undeleted.md)
+- [x] `verify-retire` drills the blocked retirement with no network, with a row that breaks the seam. (#20260827232222-drill-the-blocked-retirement-with-no-network.md)
 
 ## Changelog
 
 - 2026-08-27: proposed from issue #667 (`depth`).
+- 2026-08-27 — ticket archived — 20260827232222-reproduce-the-refused-branch-delete-and-name-it.md
+- 2026-08-27 — ticket archived — 20260827232222-give-a-refused-delete-its-own-reported-word.md
+- 2026-08-27 — ticket archived — 20260827232222-retry-a-refused-delete-or-record-no-transport.md
+- 2026-08-27 — ticket archived — 20260827232222-report-what-stands-and-what-is-outstanding.md
+- 2026-08-27 — ticket archived — 20260827232222-ask-the-holder-for-the-branches-left-undeleted.md
+- 2026-08-28 — ticket archived — 20260827232222-stop-restating-a-standing-blocked-retirement.md
+- 2026-08-28 — ticket archived — 20260827232222-drill-the-blocked-retirement-with-no-network.md
+- 2026-08-28 — ticket archived — 20260827232222-write-the-blocked-retirement-into-the-documents.md
+- 2026-08-28 — mission achieved — mission.md
+- 2026-08-28 — story reported — work-20260827-234102.md

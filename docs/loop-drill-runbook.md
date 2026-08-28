@@ -611,7 +611,29 @@ nothing but the proof gets through.
 | `retire_step_renders_an_event` | a tick that retired a claim supplies no `event` | a retirement **is** a repository event — a pull request closed, a branch deleted — and the step supplies the phrase because it knows what its finding means and the renderer does not |
 | `retire_idle_renders_no_line` | a tick that retired **nothing** still supplies an `event` | the half that is easy to leave unasserted, and exactly the 2026-08-23 failure: `no new documentation drift` announced that nothing happened while the diff rendered it as a change |
 | `retire_refuses_a_judgement` | a **live** claim is not refused by its own verdict word | **the deliberately broken seam.** Widen the gate to any claim and this row goes red while every other row stays green — verified by replacing `retire-claim.sh`'s verdict test with `if false`, which retired `batch-live`'s branch and failed exactly this row |
+| `retire_no_network` | `gh` does not resolve to the stub | the drill would reach the network; every row below it would be measuring GitHub rather than the seam |
 | `retire_writes_nothing` | the drill changed the checkout | every fixture lives outside the checkout |
+
+**And the blocked delete — the case that is true in production on every tick** (2026-08-27,
+mission `finish-the-retirement-the-loop-cannot-complete`). Act 2 is refused in the container the
+loop runs in, and the drill covered only the happy path; a behaviour nothing drills is a behaviour
+the next change can lose. The refusal is reproduced by the **bare origin's own `update` hook**,
+scoped to one ref — the same receive-side path a remote refusal takes, still with no network — so
+a retirable claim can be retired in the same tick and the narrowing below is provable rather than
+asserted. The blocked phase runs three superseded claims to three different outcomes:
+`batch-blocked` refused **on the delete**, `batch-retirable` **retired**, and `batch-closefail`
+refused on an act that is **not** the delete.
+
+| Row | Fails when | Read |
+| --- | ---------- | ---- |
+| `retire_blocked_fixture` | the three held-back claims do not all read `superseded` | the blocked fixture is not the shape under test; every row below it would prove nothing |
+| `retire_blocked_names_the_act` | a refused delete does not report `branch_delete_failed`, or the acts that stand are wrong | `retire-claim.sh`'s closing branch — `partial_retirement` collapsed a refused close, a refused delete and a dirty worktree into one word, so the reader could not learn which act was blocked |
+| `retire_blocked_undoes_nothing` | a re-run re-opens the pull request, loses the branch, or loses the `superseded` verdict | the retirement is resumable: a re-run takes only the one remaining act, and nothing already done is undone |
+| `retire_blocked_reports_what_stands` | the refused row drops the acts that succeeded | `step-retire-claims.sh` — a re-run of one act read as a re-run of three, and three units whose pull requests had closed days earlier read as bare refusals on every tick |
+| `retire_blocked_asks_the_holder` | the blocked unit reaches nobody, or the question omits the branch | `step-retire-claims.sh` — a question that does not name the branch does not say what to delete; the addressee is the claim holder, never the running identity |
+| `retire_blocked_only_the_blocked` | a unit that was **retired**, or one refused on the **close**, also draws a question | **the deliberately broken seam.** The rule is narrowed, not reversed: widen the candidate set to every superseded row and the first fires; widen it to every refusal and the second does — verified by replacing the `remote_branch_deleted == "failed"` test with `if true`, which failed exactly this row and nothing else |
+| `retire_blocked_summary_stable` | two ticks over an unchanged blocked set render different summaries, or a held block supplies an `event` | the root calls a step changed when its summary moves, so a term that varies on its own makes a standing block an hourly restatement — verified by prefixing the summary with `$(date +%s)`, which failed exactly this row |
+| `retire_blocked_asked_once` | the same key is asked on a later tick | `ask-question.sh`'s asked-once ledger, exercised with this step's `retire-blocked:<unit>` key over two consecutive ticks — the bound on the question's repetition, and deliberately the only one (a second per-unit ledger is how the two drift) |
 
 ## 5l-bis. The revision (can the operator revise a live direction through the loop?)
 

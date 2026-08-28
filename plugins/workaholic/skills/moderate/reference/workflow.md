@@ -883,12 +883,46 @@ itself** and the claim table only ever grew. Measured 2026-08-27 on this reposit
 of them `superseded`**, two naming missions archived days ago, the oldest branch last touched
 2026-08-21. The verdict's standing did not move; one act now follows from it.
 
-**It asks nobody anything, and `needs_agent` is empty for that reason.** A retirement is not a
-person's business: the claim is *proved* empty, so there is no judgement to make and nothing for a
-human to weigh. That is the sharpest contrast with `stalled-units`, `undrivable-units` and
-`undelivered-units` beside it — each of those hands a person a reading it cannot act on, while
-this one acts and reports. Spending a question on a fact nobody needs to rule on is what
-`strategy-pace` already refuses to do.
+**It asks nobody anything about a retirement that *succeeded*, and `needs_agent` is empty for that
+reason.** A completed retirement is not a person's business: the claim is *proved* empty, so there
+is no judgement to make and nothing for a human to weigh. That is the sharpest contrast with
+`stalled-units`, `undrivable-units` and `undelivered-units` beside it — each of those hands a
+person a reading it cannot act on, while this one acts and reports. Spending a question on a fact
+nobody needs to rule on is what `strategy-pace` already refuses to do.
+
+**And it asks the claim holder about a retirement blocked on the delete** (2026-08-27, mission
+`finish-the-retirement-the-loop-cannot-complete`) — **narrowed, not reversed**. The rule above was
+written when every retirement either succeeded or was refused on a **judgement**, and it is wrong
+the moment a **proof** the loop acted on leaves one act undone. Act 2 is refused in the container
+the loop runs in — both `git push --delete` and the REST ref-delete answer 403, and the connector
+has no ref-delete surface at all (`drive/reference/claims.md`, *When an act of the retirement is
+refused*) — so the branch stays on origin, the claim never leaves the table, and this step
+reported `0 retired` hour after hour with nobody told. The unit is then exactly the shape
+`undelivered-units` and `handoff-units` exist for: a reading the machine cannot act on, addressed
+to one person.
+
+One question per blocked unit, keyed **`retire-blocked:<unit>`** so `ask-question.sh`'s
+asked-once ledger holds it to exactly one ask, naming the unit, the **exact branch** left on
+origin, the refusal, and the acts that already stand — a question that does not name the branch
+does not say what to delete. Which half moved and which did not: a retirement that **worked**
+still asks nothing at all.
+
+**Whose question it is**: the **claim holder**'s, following `stalled-units` and
+`undelivered-units` — a real person who drove the unit and can delete its branch. The **running
+identity is never consulted**, following `undrivable-units`: a branch left on origin is a fact
+about the repository, so an hourly question that depended on which container asked it would answer
+differently per account.
+
+**Narrowed to the delete, and one unit never draws two questions.** A refused *reap* is local to
+this runner and tells its holder nothing they can do remotely; a refused *close* is a different
+act with a different repair. And every candidate here reads `superseded`, which `stalled-units`
+already filters out of its own candidates and counts as a finding instead — so the pair was
+already honest and nothing new had to be filtered; the other two claim-reading steps key on
+`report_undelivered` and `awaiting_verification`, which no `superseded` row can also be.
+
+**It asks and nothing else**: no claim released, no pull request reopened, no delete re-run on the
+strength of an answer, and the `superseded` proof gate and the retirement's other two acts are
+exactly what they were.
 
 **It acts directly rather than handing off**, which is where it diverges from `closable-missions`.
 That step hands its act to the agent because `close.sh` **writes into the tree** and needs a
@@ -910,9 +944,16 @@ contract is *writes nothing into the tree* may not reach it through something th
 
 **The per-row detail lives in `summary`**, the log-facing field, because the tick log is the audit
 trail and these outcomes are what somebody diagnosing a retirement needs. A retired row names all
-three acts (`pr closed, branch deleted, worktree reaped`) and a refused row names its reason, so
-neither count is a bare number to go digging behind. `needs_agent` is not the home for it: that
-field is a request to the agent, and a payload with no action would be read as one.
+three acts (`pr closed, branch deleted, worktree reaped`) and a **refused row now names them too**,
+beside its reason (2026-08-27) — it rendered `<unit> refused (<reason>)` until then, dropping the
+acts that **succeeded**, so a re-run of one act read as a re-run of three and three units whose
+pull requests had been closed days earlier still read as bare refusals on every tick. The states
+are already on the writer's row, so this reads them and derives nothing: `already_closed`,
+`already_gone`, `absent` and `none` render as the **successes** they are, and `not_attempted`
+stays distinct from `failed` — a gate that never ran made no finding about the world. Neither
+count is a bare number to go digging behind. `needs_agent` is still not the home for that detail:
+it carries the blocked units and only them, because that field is a **request** and a payload with
+no action would be read as one.
 
 **A degraded read retires nothing.** Unmerged remote branches are the only claim oracle, so a scan
 that could not reach the remote has not found *nothing to retire* — it has found nothing at all,
@@ -932,6 +973,25 @@ retired for.
 **The summary carries no age and no timestamp**, for the correctness reason `stalled-units`'
 header records. A count of what was retired this tick is stable when nothing happens, which is
 what the root's hour-to-hour diff needs.
+
+**And a standing blocked retirement must not read as an hourly change** (2026-08-27). `0 retired`
+over a unit already asked about is a **held** condition, not a new one, and this repository has
+measured the same shape three times: a status restated hourly is read by nobody by the second day.
+Every term of the summary is a function of the **claim set and the act states** and of nothing
+else, so the same units with the same acts standing and the same refusal render the same string
+tick after tick — and with `event` empty on a tick that retired nothing, no root line at all.
+Those are **two independent guards**, and neither is a suppression list: a **newly** blocked unit
+moves the unit set, so the summary moves and the block is visible the hour it happens. Suppress by
+nothing; let the diff work. A per-unit suppression list was refused — the diff already answers the
+question, and a second ledger beside `ask-question.sh`'s asked-once gate is how the two drift.
+
+**Drilled, not asserted.** `sh scripts/e2e/loop-drill.sh verify-retire` builds the blocked-delete
+shape over a local bare origin whose own `update` hook refuses one ref's deletion — the same
+receive-side path a remote refusal takes, with no network — and covers the named word, the acts
+that stand, the question and its key, the asked-once gate over two ticks, that nothing already
+done is undone, and that the summary is stable across two ticks. Its breaker row carries a unit
+that was **retired** and one **refused on another act** in the same tick, so a candidate set
+widened either way fails the drill.
 
 ## 20. `base-health` — did the base survive what the loop merged?
 

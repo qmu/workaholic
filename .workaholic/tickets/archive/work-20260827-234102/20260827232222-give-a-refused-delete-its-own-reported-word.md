@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-27T23:22:22+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on: 20260827232222-reproduce-the-refused-branch-delete-and-name-it.md
@@ -79,3 +80,43 @@ learns *which act is blocked* rather than that something was.
 - The temptation is to make the reason a free-text passthrough of the transport's
   message. Resist it for the machine-read field — the message belongs in the
   summary; the reason stays a closed vocabulary the caller can key on.
+
+## Final Report
+
+Development completed as planned.
+
+`retire-claim.sh`'s closing branch is split so each blocked act reports its own reason word,
+derived in **act order** from the three states already on the row — no new field, no second
+derivation, no artifact touched:
+
+| Blocked act | Word |
+| ----------- | ---- |
+| close the pull request | `gh_unavailable` / `slug_unresolved` / `pull_request_close_failed` (unchanged) |
+| delete the remote branch | **`branch_delete_failed`** |
+| reap the worktree | **`worktree_reap_refused`** |
+
+`partial_retirement` is retired. Every success word is untouched — `already_closed`,
+`already_gone`, `none` and `absent` are successes rather than degradations, `retired` still means
+the whole retirement, and the always-exit-0 contract is unchanged. `step-retire-claims.sh` needed
+no mapping: it already prints `.reason`, so the new word flows through.
+
+**Ticket 1's measurement decided the granularity, and decided it downward.** The diagnosis found
+**one** cause — a session-type refusal, agreed on by both transports — so one word for the delete
+is correct and the speculative session-type / protection-rule / missing-scope split is *not*
+added. Shipping three words for a world that has one is the same defect one layer down.
+
+The transport's message stays out of the machine-read field: `reason` is a closed vocabulary the
+caller keys on, and the verbatim message lives in ticket 1's diagnosis and in
+`drive/reference/claims.md`.
+
+### Discovered Insights
+
+- **Insight**: `pr_note` was already carrying the close's own word, and the old branch reached it
+  through `${pr_note:-partial_retirement}` — so a refused *close* was the one failure that ever
+  named itself, and only by accident of a default expansion.
+  **Context**: the fix is smaller than it looks because two of the three words already existed in
+  spirit. What was missing was a branch per act; the states were on the row the whole time.
+- **Insight**: nothing in the plugin keys on `partial_retirement` — a repository-wide search finds
+  it only in generated `outputs/`, in feedback records quoting a tick, and in the tick log.
+  **Context**: retiring a reason word is cheap exactly when no consumer branches on it, and
+  expensive otherwise. Checking that first is what made this a rename rather than a migration.

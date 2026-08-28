@@ -2631,11 +2631,22 @@ cmd_verify_retire() {
     ( cd "$_origin" && git -c init.defaultBranch=main init -q --bare ) || true
     ( cd "$_tmp" && git clone -q "$_origin" work ) || true
     mkdir -p "${_work}/.workaholic/tickets/todo"
-    for _n in 1 2 3 4 5 6; do
+    for _n in 1 2 3 4 5 6 7 8 9; do
         printf -- '---\ncreated_at: 2026-01-01T00:00:0%s+09:00\nauthor: %s\n---\n\n# T%s\n' \
             "$_n" "$_me" "$_n" > "${_work}/.workaholic/tickets/todo/2026010100000${_n}-t.md"
     done
     ( cd "$_work" && _git add -A && _git commit -qm seed && git push -q origin main ) || true
+
+    # THE BLOCKED-DELETE SEAM. Act 2 is refused on every tick in the container the loop actually
+    # runs in (measured 2026-08-27: both `git push --delete` and the REST ref-delete answer 403),
+    # and until now the drill covered only the happy path -- a behaviour nothing drills is a
+    # behaviour the next change can lose. A bare repository's own `update` hook reproduces the
+    # refusal exactly where the real one happens, server side, with no network: git runs
+    # receive-pack locally over the file transport, so this is the same code path a remote
+    # refusal takes. It is scoped to ONE ref on purpose, so a retirable claim can be retired in
+    # the same tick and the narrowing below is provable rather than asserted.
+    printf '#!/bin/sh\nif [ "$1" = "refs/heads/work-20260101-000006" ] && [ "$3" = "0000000000000000000000000000000000000000" ]; then\n  echo "deleting this branch is not permitted" >&2\n  exit 1\nfi\nexit 0\n' > "${_origin}/hooks/update"
+    chmod +x "${_origin}/hooks/update"
 
     # The claim commit must TOUCH the stamped file: the artifact list is "files this commit
     # touched that still carry the stamp at the tip".
@@ -2686,6 +2697,34 @@ cmd_verify_retire() {
       && _git commit -qam "Claim a PR-unit" -m "Unit: batch-ambiguous" \
       && git push -q origin work-20260101-000003 ) >/dev/null 2>&1 || true
 
+    # THE BLOCKED-DELETE TRIO, pushed now and made superseded LATER (their tickets stay queued
+    # until the blocked phase below). Held back deliberately: the step retires every superseded
+    # row it finds, so a claim that reads superseded during the rows above would be retired by
+    # them and there would be nothing left to block. All three are superseded in the same tick,
+    # and each ends in a DIFFERENT outcome, which is what makes the narrowing provable:
+    #
+    #   -000006  batch-blocked    the `update` hook refuses its delete   → refused ON THE DELETE
+    #   -000007  batch-retirable  everything succeeds                    → retired
+    #   -000008  batch-closefail  the stub refuses its pull-request close → refused, NOT on the
+    #                                                                       delete
+    #
+    # The third exists only so the breaker row has something to catch: `batch-retirable` alone
+    # would prove the candidate set is not *every superseded row*, and `batch-closefail` proves
+    # it is not *every refusal* either. Without it a widening to any refusal passes unnoticed
+    # (measured while writing this drill — the row passed against a deliberately broken seam).
+    ( cd "$_work" && git checkout -q -b work-20260101-000006 main \
+      && _stamp work-20260101-000006 20260101000007-t.md \
+      && _git commit -qam "Claim a PR-unit" -m "Unit: batch-blocked" \
+      && git push -q origin work-20260101-000006 ) >/dev/null 2>&1 || true
+    ( cd "$_work" && git checkout -q -b work-20260101-000007 main \
+      && _stamp work-20260101-000007 20260101000008-t.md \
+      && _git commit -qam "Claim a PR-unit" -m "Unit: batch-retirable" \
+      && git push -q origin work-20260101-000007 ) >/dev/null 2>&1 || true
+    ( cd "$_work" && git checkout -q -b work-20260101-000008 main \
+      && _stamp work-20260101-000008 20260101000009-t.md \
+      && _git commit -qam "Claim a PR-unit" -m "Unit: batch-closefail" \
+      && git push -q origin work-20260101-000008 ) >/dev/null 2>&1 || true
+
     ( cd "$_tmp" && git clone -q "$_origin" read ) >/dev/null 2>&1 || true
     ( cd "$_read" && git config user.email "$_me" && git config user.name Drill ) || true
     # The stub answers `gh api user` (so `available` reads true) and every pulls query with
@@ -2693,6 +2732,13 @@ cmd_verify_retire() {
     # unit has no pull request, which the writer reports as the SUCCESS `none`.
     _stub() { printf '#!/bin/sh\n%s\n' "$1" > "${_bin}/gh"; chmod +x "${_bin}/gh"; }
     _stub "echo '[]'"
+    if [ "$(PATH="${_bin}:$PATH" command -v gh)" = "${_bin}/gh" ]; then
+        add_row "retire_no_network" true "the stub is what gh resolves to, and the origin is a local bare repository -- no row below reaches the network" load
+    else
+        add_row "retire_no_network" false "gh does not resolve to the stub; this drill would reach the network" load
+        rm -rf "$_tmp"
+        emit_verdict "retire" 0 "fail" 1
+    fi
 
     _retire() { ( cd "$_read" && PATH="${_bin}:$PATH" \
         WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES=0 sh "$_retirer" "$1" ) 2>&1 || true; }
@@ -2764,8 +2810,10 @@ cmd_verify_retire() {
         add_row "retire_ambiguous_refused" false "expected ambiguous_claim with nothing attempted, got: $(one_line "$_amb")" load
     fi
 
-    # 5. THE STEP ASKS NOBODY ANYTHING. A retirement is proved, so there is no judgement for a
-    # person to make -- the sharpest contrast with the three steps beside it.
+    # 5. THE STEP ASKS NOBODY ANYTHING ABOUT A RETIREMENT THAT SUCCEEDED. The claim is proved
+    # empty and the acts all ran, so there is no judgement for a person to make -- the sharpest
+    # contrast with the three steps beside it. The rule is narrowed rather than reversed by the
+    # blocked rows below, and row 12 is the guard on that narrowing.
     _stepout=$( ( cd "$_read" && PATH="${_bin}:$PATH" WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES=0 \
         sh "$_step" --tick 20260101-000000 --root "$_read" ) 2>&1 || true )
     if printf '%s' "$_stepout" | grep -q '"needs_agent": \[\]'; then
@@ -2809,6 +2857,148 @@ cmd_verify_retire() {
     else
         add_row "retire_refuses_a_judgement" false "a live claim was not refused by name: $(one_line "$_live_out")" load
     fi
+
+    # ------------------------------------------------------------------------------------
+    # THE BLOCKED RETIREMENT — the case that has been true in production on every tick since
+    # the mechanism landed: the delete refused, the other two acts standing. Everything below
+    # runs over the same fixture with no network; the refusal comes from the origin's own
+    # `update` hook installed at the top of this drill.
+    # ------------------------------------------------------------------------------------
+    # The two held-back claims become superseded now: their tickets are archived on the base,
+    # which is what `superseded` means.
+    ( cd "$_work" && git checkout -q main \
+      && git mv .workaholic/tickets/todo/20260101000007-t.md .workaholic/tickets/archive/work-20260101-000000/ \
+      && git mv .workaholic/tickets/todo/20260101000008-t.md .workaholic/tickets/archive/work-20260101-000000/ \
+      && git mv .workaholic/tickets/todo/20260101000009-t.md .workaholic/tickets/archive/work-20260101-000000/ \
+      && _git commit -qm "Archive the blocked trio elsewhere" && git push -q origin main ) >/dev/null 2>&1 || true
+
+    # An OPEN pull request on each, so Act 1 has something to close and "the acts that stand" is
+    # a real fact rather than a vacuous one -- except on `batch-closefail`, whose PATCH the stub
+    # refuses, giving a superseded unit refused on an act that is NOT the delete.
+    _blocked_stub() { # $1 = the state the default pull request is in
+        _stub "case \"\$*\" in
+  *pulls/11*) exit 1 ;;
+  *work-20260101-000008*) echo '[{\"number\":11,\"state\":\"open\"}]' ;;
+  *) echo '[{\"number\":9,\"state\":\"$1\"}]' ;;
+esac"
+    }
+    _blocked_stub open
+
+    _bclaims=$( ( cd "$_read" && PATH="${_bin}:$PATH" \
+        WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES=0 sh "$_lister" ) 2>&1 || true )
+    _bverdict() { printf '%s' "$_bclaims" | tr '{' '\n' | grep "\"unit\": \"$1\"" \
+        | sed -n 's/.*"resume_reason": *"\([a-z_]*\)".*/\1/p' | head -1; }
+    if [ "$(_bverdict batch-blocked)" = "superseded" ] \
+        && [ "$(_bverdict batch-retirable)" = "superseded" ] \
+        && [ "$(_bverdict batch-closefail)" = "superseded" ]; then
+        add_row "retire_blocked_fixture" true "all three held-back claims now read superseded, and the origin refuses to delete one of the three branches -- the production shape" load
+    else
+        add_row "retire_blocked_fixture" false "the blocked fixture is wrong (blocked='$(_bverdict batch-blocked)' retirable='$(_bverdict batch-retirable)' closefail='$(_bverdict batch-closefail)'): $(one_line "$_bclaims")" load
+        rm -rf "$_tmp"
+        emit_verdict "retire" 0 "fail" 1
+    fi
+
+    # 8. THE NAMED WORD, NOT A GENERIC REFUSAL. `partial_retirement` collapsed a refused close,
+    # a refused delete and a dirty worktree into one string; the reader must learn WHICH act is
+    # blocked. The two acts that stand are on the same row.
+    _blk=$(_retire batch-blocked)
+    if [ "$(_field "$_blk" reason)" = "branch_delete_failed" ] \
+        && [ "$(_field "$_blk" remote_branch_deleted)" = "failed" ] \
+        && [ "$(_field "$_blk" pull_request_closed)" = "closed" ] \
+        && [ "$(_field "$_blk" worktree_reaped)" = "absent" ]; then
+        add_row "retire_blocked_names_the_act" true "a refused delete reports branch_delete_failed with the pull-request close and the worktree standing beside it" load
+    else
+        add_row "retire_blocked_names_the_act" false "the refused delete did not name its own act: $(one_line "$_blk")" load
+    fi
+
+    # 9. NOTHING ALREADY DONE IS UNDONE, and a re-run takes only the one remaining act. The
+    # stub now answers `closed`, which is the world after the first run's Act 1.
+    _blocked_stub closed
+    _blk2=$(_retire batch-blocked)
+    _still=$( ( cd "$_origin" && git for-each-ref --format='%(refname:short)' refs/heads ) \
+        | grep -c '^work-20260101-000006$' || true )
+    if [ "$(_field "$_blk2" pull_request_closed)" = "already_closed" ] \
+        && [ "$(_field "$_blk2" reason)" = "branch_delete_failed" ] \
+        && [ "$_still" = "1" ] && [ "$(_bverdict batch-blocked)" = "superseded" ]; then
+        add_row "retire_blocked_undoes_nothing" true "a re-run leaves the pull request closed, re-attempts only the delete, and the branch and its superseded verdict both stand" load
+    else
+        add_row "retire_blocked_undoes_nothing" false "the re-run did not resume from what already stood (branch_present='${_still}'): $(one_line "$_blk2")" load
+    fi
+
+    # 10. THE CALLER REPORTS WHAT STANDS AND WHAT IS BLOCKED. A refused row rendered only its
+    # reason until now, so a re-run of one act read as a re-run of three. This tick also retires
+    # `batch-retirable`, which is what makes row 12 a real test rather than a vacuous one.
+    _bstep=$( ( cd "$_read" && PATH="${_bin}:$PATH" WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES=0 \
+        sh "$_step" --tick 20260101-000002 --root "$_read" ) 2>&1 || true )
+    if printf '%s' "$_bstep" | grep -q 'batch-blocked refused (branch_delete_failed; pr already_closed, branch failed, worktree absent)'; then
+        add_row "retire_blocked_reports_what_stands" true "the refused row names the acts that stand beside the act that is blocked" load
+    else
+        add_row "retire_blocked_reports_what_stands" false "the refused row dropped the acts that stand: $(one_line "$_bstep")" load
+    fi
+
+    # 11. THE BLOCKED UNIT REACHES ITS CLAIM HOLDER, keyed once and naming the exact branch --
+    # a question that does not name the branch does not say what to delete.
+    if printf '%s' "$_bstep" | grep -q '"key":"retire-blocked:batch-blocked"' \
+        && printf '%s' "$_bstep" | grep -q '"branch":"work-20260101-000006"' \
+        && printf '%s' "$_bstep" | grep -q "\"owner\":\"${_me}\"" \
+        && printf '%s' "$_bstep" | grep -q '"refusal":"branch_delete_failed"'; then
+        add_row "retire_blocked_asks_the_holder" true "one question, keyed retire-blocked:batch-blocked, addressed to the claim holder, naming the branch and the refusal" load
+    else
+        add_row "retire_blocked_asks_the_holder" false "the blocked unit reached nobody: $(one_line "$_bstep")" load
+    fi
+
+    # 12. THE DELIBERATELY BROKEN ROW, and it catches BOTH widenings. In this one tick,
+    # `batch-retirable` was retired and `batch-closefail` was refused on an act that is not the
+    # delete. If `needs_agent` were widened to every superseded row, the first would draw a
+    # question; if it were widened to every refusal, the second would. Either way this row
+    # fails, which is what proves the drill can. It is the guard on the rule being NARROWED
+    # rather than reversed, and the two-outcome fixture is deliberate: an earlier version of
+    # this row carried only `batch-retirable` and passed against a seam broken to *any refusal*.
+    if printf '%s' "$_bstep" | grep -q 'retire-blocked:batch-retirable'; then
+        add_row "retire_blocked_only_the_blocked" false "a unit whose retirement SUCCEEDED still drew a question -- the candidate set was widened to every superseded row" load
+    elif printf '%s' "$_bstep" | grep -q 'retire-blocked:batch-closefail'; then
+        add_row "retire_blocked_only_the_blocked" false "a unit refused on the pull-request CLOSE still drew a question -- the candidate set was widened to every refusal" load
+    else
+        add_row "retire_blocked_only_the_blocked" true "neither a retirement that succeeded nor one refused on another act asks anybody anything; only the blocked delete does (this drill can fail)" load
+    fi
+
+    # 13. A STANDING BLOCK IS NOT AN HOURLY CHANGE. Two consecutive ticks over an unchanged
+    # blocked set must render an identical summary -- the root calls a step changed when its
+    # summary moves, and a status restated hourly is read by nobody by the second day. Both
+    # ticks run after `batch-retirable` is gone, so the set really is unchanged.
+    _t3=$( ( cd "$_read" && PATH="${_bin}:$PATH" WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES=0 \
+        sh "$_step" --tick 20260101-000003 --root "$_read" ) 2>&1 || true )
+    _t4=$( ( cd "$_read" && PATH="${_bin}:$PATH" WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES=0 \
+        sh "$_step" --tick 20260101-000004 --root "$_read" ) 2>&1 || true )
+    _s3=$(printf '%s' "$_t3" | sed -n 's/.*"summary": *"\([^"]*\)".*/\1/p')
+    _s4=$(printf '%s' "$_t4" | sed -n 's/.*"summary": *"\([^"]*\)".*/\1/p')
+    if [ -n "$_s3" ] && [ "$_s3" = "$_s4" ] && printf '%s' "$_t4" | grep -q '"event": ""'; then
+        add_row "retire_blocked_summary_stable" true "two ticks over an unchanged blocked set render an identical summary and no root line" load
+    else
+        add_row "retire_blocked_summary_stable" false "a held block moved the summary or produced an event (t3='${_s3}' t4='${_s4}')" load
+    fi
+
+    # 14. ASKED ONCE. The gate is the check-in's, not this step's, so the drill exercises the
+    # gate with this step's key: the first ask is allowed, the second is refused by name.
+    _qroot=$(mktemp -d); mkdir -p "${_qroot}/.workaholic/moderations"
+    _askscript="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/ask-question.sh"
+    _b1=$(cd "$REPO_ROOT" && sh "$_askscript" --tick 20260101-000002 --key "retire-blocked:batch-blocked" \
+        --root "$_qroot" --to "$_me" --hour 10 --weekday 1 2>&1) || true
+    _blogstep=$(printf '%s' "$_b1" | sed -n 's/.*"log_step": *"\([^"]*\)".*/\1/p')
+    if printf '%s' "$_b1" | grep -q '"ask": true'; then
+        sh "${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/log-append.sh" --root "$_qroot" \
+           --tick 20260101-000002 --step "$_blogstep" --status ok --summary "asked" >/dev/null 2>&1 || true
+        _b2=$(cd "$REPO_ROOT" && sh "$_askscript" --tick 20260101-000003 --key "retire-blocked:batch-blocked" \
+            --root "$_qroot" --to "$_me" --hour 10 --weekday 1 2>&1) || true
+        if printf '%s' "$_b2" | grep -q '"ask": false'; then
+            add_row "retire_blocked_asked_once" true "the same key is refused on a later tick: $(printf '%s' "$_b2" | sed -n 's/.*"reason": *"\([a-z_]*\)".*/\1/p')" load
+        else
+            add_row "retire_blocked_asked_once" false "the asked-once gate did not hold: $(one_line "$_b2")" load
+        fi
+    else
+        add_row "retire_blocked_asked_once" false "the first ask was refused: $(one_line "$_b1")" load
+    fi
+    rm -rf "$_qroot"
 
     _after=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
     if [ "$_before" = "$_after" ]; then

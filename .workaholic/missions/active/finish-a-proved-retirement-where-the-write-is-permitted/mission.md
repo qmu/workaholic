@@ -58,3 +58,4 @@ branch and what already stands.
 - 2026-08-28 — ticket archived — 20260828102230-add-the-workflow-that-takes-the-refused-branch-delete.md
 - 2026-08-28 — ticket archived — 20260828102230-narrow-the-blocked-question-to-what-ci-could-not-take.md
 - 2026-08-28 — ticket archived — 20260828102230-report-which-executor-took-the-branch-delete.md
+- 2026-08-28 — ticket archived — 20260828102230-drill-the-ci-retirement-with-no-network.md

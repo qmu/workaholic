@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-28T10:22:30+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -95,3 +96,37 @@ this is the one destructive act in the loop.
 - A bare origin's `update` hook cannot distinguish a "CI" pusher from a container one on
   identity alone; drive the two sides by the ref or by an env the fixture controls, and say
   in the header that the distinction is the fixture's rather than GitHub's.
+
+## Final Report
+
+Development completed as planned.
+
+`sh scripts/e2e/loop-drill.sh verify-ci-retirement` runs over a local bare origin with `gh`
+stubbed on `PATH` — asserted to be what `gh` resolves to rather than assumed — and reaches no
+network at any point. Thirteen load-bearing rows: the container refused with the branch surviving,
+the candidate set, CI taking the act, idempotence, a judgement refused by its own verdict word,
+all four bounds refusing by name with every branch surviving, every path at exit 0, the `pending`
+suppression, the `taken` ask naming the branch while a CI-deleted unit is asked about by nobody,
+the asked-once gate over two ticks, the breaker, and a byte-identical checkout. Registered in the
+usage string, the dispatch, `docs/loop-drill-runbook.md` (index row and a §5l-ter table) and
+`CLAUDE.md`'s drill enumeration. `verify-retire` stays green, untouched.
+
+The two executors are told apart by **transport** — the container's `git push --delete` refused by
+the bare origin's own `update` hook, CI's REST `DELETE` performed for real by the stub against the
+same bare repository — and the header says in so many words that this distinction is the
+fixture's rather than GitHub's, since a bare origin cannot tell the two pushers apart on identity.
+
+### Discovered Insights
+
+- **Insight**: the breaker row had to remove **both** halves of the re-proof before the damage
+  happened. Written against the verdict gate alone it did not break, because `not_on_base` caught
+  the live claim on its own.
+  **Context**: that is a finding about the code, not just about the drill — the two guards are
+  independent rather than one rule written twice, and the drill now records it. A breaker written
+  the obvious way would have passed against a genuinely broken seam.
+- **Insight**: every `claims_scan` consults the merged-pull-request lookup once per mission-grain
+  claim, so a stub that flips its answer by call count is consumed by *every* invocation in the
+  fixture, not only the one under test.
+  **Context**: any drill driving a flip-stub must reset its counter immediately before the single
+  invocation whose two reads it is meant to drive; otherwise the fixture silently stops being the
+  shape under test and the row passes or fails for the wrong reason.

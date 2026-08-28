@@ -57,3 +57,4 @@ pull request instead of editing `main` by hand.
 - 2026-08-28 — ticket archived — 20260828012047-carry-an-operator-attribution-through-the-loop.md
 - 2026-08-28 — ticket archived — 20260828012048-drill-the-residue-and-write-it-into-the-documents.md
 - 2026-08-28 — mission achieved — mission.md
+- 2026-08-28 — story reported — work-20260828-014111

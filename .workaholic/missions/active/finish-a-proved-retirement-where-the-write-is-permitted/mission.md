@@ -47,7 +47,7 @@ branch and what already stands.
 - [x] A `superseded` branch is deleted by CI, the verdict re-proved at the act and every
       refusal named at exit 0 (#20260828102230-re-prove-the-verdict-inside-ci-and-bound-what-may-be-deleted.md)
 - [ ] A CI-taken delete is reported as CI's (#20260828102230-report-which-executor-took-the-branch-delete.md)
-- [ ] `retire-blocked:` fires only after CI also refused, key/gate/addressee/cap
+- [x] `retire-blocked:` fires only after CI also refused, key/gate/addressee/cap
       unmoved (#20260828102230-narrow-the-blocked-question-to-what-ci-could-not-take.md)
 
 ## Changelog
@@ -56,3 +56,4 @@ branch and what already stands.
 - 2026-08-28 — ticket archived — 20260828102230-derive-the-ci-retirement-candidate-set-with-no-new-store.md
 - 2026-08-28 — ticket archived — 20260828102230-re-prove-the-verdict-inside-ci-and-bound-what-may-be-deleted.md
 - 2026-08-28 — ticket archived — 20260828102230-add-the-workflow-that-takes-the-refused-branch-delete.md
+- 2026-08-28 — ticket archived — 20260828102230-narrow-the-blocked-question-to-what-ci-could-not-take.md

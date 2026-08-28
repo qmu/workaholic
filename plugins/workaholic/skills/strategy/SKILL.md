@@ -143,6 +143,53 @@ whose own read failed is named in `unreadable` rather than contributing silence.
 belong to more than one strategy and is not de-duplicated across them — attribution is not a
 partition.
 
+**And what NO direction claims is readable too** (2026-08-28, mission
+`say-what-the-direction-could-not-see-before-calling-it-arrived`).
+`unattributed-work.sh` names the active missions and the queued tickets `mission-strategy.sh`
+cannot attribute to any `active` strategy — composing that reader, adding no walker, no relation
+and no field, one layer further up the same stack. A mission's queued tickets ride its row
+(through `mission/scripts/read-relation.sh`, the relation's single reader) and a queued ticket
+naming no active mission is its own entry.
+
+It exists because `quiescent` renders as *this direction has arrived* — a reading that invites the
+operator to **close** the direction — while being blind to everything the walk cannot see:
+measured 2026-08-28, a strategy read `quiescent: true` with 125 landed items while four active
+missions and ten queued tickets belonged to no direction at all. So a **degraded** residue read
+makes `quiescent` false (`workaholic:propose`), and a **readable** but non-empty one is **named**
+in `/moderate`'s `direction-arrived:<slug>` question and in `/propose`'s run report rather than
+refusing anything. `readable: false` carries its own reason and **null** counts, never a zeroed
+residue: an empty residue and a residue we could not read are the two states the whole reading
+exists to keep apart. `exhaustive` is `false` by construction, and a loose queued ticket is
+residue by construction too — this reader answers at the mission grain, so it over-reports rather
+than under-reports and says so.
+
+### Carrying an attribution the operator ruled
+
+Some of that residue answers a direction and was published with the carry-forward link dropped.
+`carry-attribution.sh <strategy> <mission>` appends the named `active` strategy's **own existing**
+`feedback:` refs to the named active mission — the refs the walk above already reads — so the
+repair reaches a pull request instead of a hand edit of `main`, which is exactly what `amend.sh`
+was admitted to remove for the strategy artifact.
+
+It copies `amend.sh`'s premise literally and that premise is its whole justification: a machine
+only ever **carries** a ruling the operator **announced**, by explicit slug, onto a pull request
+only they can merge. `/specificate`'s announcement route (step 9e) is the one caller; a run never
+reaches it on its own reading that a mission looks like it belongs somewhere — that reading is
+`unattributed-work.sh`, which decides nothing.
+
+The bound is the safety property: it appends refs that already exist, authors none, removes none,
+touches the `feedback:` line and nothing else (asserted over the candidate before writing), and
+**never touches a strategy file** — that artifact keeps its three writers and this is none of
+them. It refuses `strategy_not_found`, `mission_not_found`, `not_active` (a closed direction
+acquires no new work), `no_revision` and `immutable_field`, and **writes nothing on any refusal**;
+a re-run leaves the mission byte-identical and reports `already`.
+
+**Its pull request does not auto-merge, and that is the caller's rule rather than the seam's.**
+`publish-tree-pr.sh` derives `strategy_touching` from a path under `.workaholic/strategies/` and
+this route writes `.workaholic/missions/`, so the seam cannot see it. `/specificate` leaves
+`WORKAHOLIC_AUTO_MERGE` unset at step 9e and a hermetic test pins that step's text — a weaker
+guarantee than the strategy exemption's, recorded as such rather than implied to be the same.
+
 ## Scripts
 
 ```bash
@@ -172,6 +219,13 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/strategy/scripts/attributed-work.sh <slug> [wi
 
 # Direction state — the ONE reader of "what is the lifecycle state of this direction".
 bash ${CLAUDE_PLUGIN_ROOT}/skills/strategy/scripts/direction-state.sh [--open-proposals <file>] [window] [workaholic-root]
+
+# Unattributed work — the ONE reader of "what does no direction claim". Pure read.
+bash ${CLAUDE_PLUGIN_ROOT}/skills/strategy/scripts/unattributed-work.sh [--root <dir>]
+
+# Carry attribution — appends a named strategy's OWN refs to a named mission. Writes
+# one frontmatter line on one mission and nothing else; never touches a strategy.
+bash ${CLAUDE_PLUGIN_ROOT}/skills/strategy/scripts/carry-attribution.sh <strategy-slug> <mission-slug> [workaholic-root]
 ```
 
 Every script is POSIX `#!/bin/sh -eu`, takes an optional trailing `.workaholic` root so it can be

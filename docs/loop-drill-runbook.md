@@ -36,6 +36,7 @@ Run every command from the repository root, on a clean `main`.
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-propose --json` | a throwaway strategy tree and a synthetic open-proposal list — proves every gate of `/propose`'s brake refuses by name, and that it writes nothing |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-direction-health --json` | a throwaway strategy tree, one overdue direction and one dormant one — proves the four lifecycle readings, the three question keys, the asked-once gate, and that nothing was written |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-arrival --json` | a throwaway **git** strategy tree carrying landed work — proves `arrived`, that it outranks `overdue`, that `dormant`, `overdue` and `live` are unchanged, the `direction-arrived:<slug>` key and its asked-once gate, and that no reading closes a direction, with no network and one row that deliberately breaks the seam |
+| — | Any time | `sh scripts/e2e/loop-drill.sh verify-residue --json` | a throwaway **git** strategy tree whose attributed work has all landed beside an **unattributed** active mission — proves the honest and the degraded residue read, that only an unreadable residue refuses the arrival, that the question names the residue by slug, the asked-once gate, that no gate moved, and the attribution carry landing and refusing, with no network and one row that deliberately breaks the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-revision --json` | a throwaway strategy tree and a local bare origin — proves the three revisions land, that every refusal leaves the artifact byte-identical, and that a strategy-touching publish never auto-merges, with the transport stubbed and one row that deliberately breaks the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-merged-claim --json` | a throwaway repository carrying a **squash-merged** mission claim and batch claim — proves all four merged-claim readings (merged batch, merged mission, live, unanswerable) with the transport stubbed, so no `gh` call is made |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-identity-handoff --json` | a throwaway repository with a two-address mapping — walks issue assignee → the address the writer stamps → the survey that offers the unit, for a canonical address, a mapped alias and an unmapped login, with no network and no credential |
@@ -462,6 +463,50 @@ above holds here unchanged. `arrival_closes_nothing` is the drill's half of the 
 hermetic suite's `testDirectionHealthRefusals` is CI's, and since 2026-08-27 it also pins
 that `strategy/scripts/close.sh` is reached from exactly one place in the plugin —
 `/specificate`'s *ended* route.
+
+## 5j. What the direction could not see (`verify-residue`)
+
+`verify-residue` needs no seed, no fire, no issue number and **no network**: it builds a
+throwaway **git** strategy tree — git-backed for `verify-arrival`'s reason, since `landed[]`
+is a `git log --since` read — carrying one `active` direction whose attributed work has all
+landed, beside an **unattributed** active mission holding two queued tickets.
+
+The failure it exists for is the loop calling a direction **arrived** over a tree it could
+not see. Measured on this repository at 2026-08-28 00:41 UTC: the strategy
+`an-autonomous-improvement-loop-run-by-the-routines` read `quiescent: true` with 125 landed
+items while four active missions and ten queued tickets read `attributed: false` — an
+arrival is the one reading whose next act is to **close** a direction, so a blind one is the
+one that costs something.
+
+The **deliberately broken seam** is `residue_reads_the_active_area`. The fixture carries an
+archived, unattributed mission (`retired`) that must never reach the residue: wiring the
+reader at the archive area instead of the active one is the single edit that would leave
+every other row here green while the residue named finished work nobody can act on. Break it
+by pointing `mission-strategy.sh` at `missions/archive` and this row fails.
+
+The degraded read is exercised over a **copy of the plugin tree with `mission-strategy.sh`
+removed**, deliberately: `all_strategies_unreadable` would make the strategy itself
+unreadable too, and the assertion would then pass on `unreadable` without ever exercising the
+term under test.
+
+| Row | Fails when | Read |
+| --- | ---------- | ---- |
+| `residue_honest_read` | the residue does not name the unattributed active mission with its queued count | `unattributed-work.sh`; check `mission-strategy.sh`'s `attributed` first, then the `read-relation.sh` walk of `tickets/todo` |
+| `residue_reads_the_active_area` | an **archived** mission reaches the residue | **the broken seam** — the reader is walking the wrong area, and every other row would still pass |
+| `residue_degraded_is_named` | a read that could not be made is not named, or reports zeroed counts | `unattributed-work.sh`'s `emit_unreadable` — `mission_count: null`, never `0` |
+| `residue_nonempty_leaves_the_arrival` | a non-empty but **readable** residue refuses the arrival | the `quiescent` block — only an unreadable residue refuses, and widening that is the tempting over-reach |
+| `residue_blind_refuses_the_arrival` | an arrival is claimed over a residue that could not be read | the same block's `.residue.readable` term |
+| `residue_named_in_the_question` | the `direction-arrived:<slug>` question does not name the residue by slug and count | `step-direction-health.sh`'s `$residue_phrase`; the residue is carried, never re-read |
+| `residue_asked_once` | the same key is asked again on a later tick | `ask-question.sh`'s ledger — changing a body must never re-ask a question |
+| `residue_moves_no_gate` | emptying the residue changes `selected` | the residue is emitted **before** `refusal` and read by no gate; check the gate chain has not gained a term |
+| `residue_carry_lands` | the operator's ruling does not append the direction's refs, or drops the mission's own | `carry-attribution.sh` — it appends, it never authors or removes |
+| `residue_carry_is_idempotent` | a re-run is not a byte-identical no-op | the `already` return, before any write |
+| `residue_carry_refuses_a_closed_direction` | a closed direction acquires new work, or a refusal wrote | `not_active`, and the candidate-under-a-temp-directory discipline `amend.sh` sets |
+| `residue_writes_nothing` | the drill changed the checkout | every reader here is pure and every fixture lives outside the checkout |
+
+**Two proofs, and they are not the same one**, as everywhere else here: this drill is the
+operator's half; `testResidueGatesNothing`, `testResidueOnSurveyRows` and
+`testCarryAttribution` in the hermetic suite are CI's.
 
 ## 6. Abort playbook
 

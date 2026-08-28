@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-28T01:20:26+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -77,3 +78,27 @@ while four active missions and ten queued tickets read `attributed: false` throu
 - `landed` is derived from git history, so the fixture must be a real repository with
   commits inside the survey window; a bare file tree will read `landed: []` and the case
   would then assert `dormant`'s shape instead.
+## Final Report
+
+Development completed as planned.
+
+`makeResidueFixture()` builds the git-backed tree the whole mission is read over: an
+`active` strategy whose attributed work has all landed (a finished mission plus its
+archived ticket, both citing the record the strategy cites) beside a **second** active
+mission citing a record no strategy cites, holding two queued tickets.
+`testFalseArrivalCharacterization` proves through `mission-strategy.sh` that the second
+mission really is unattributed, then records what `survey-strategies.sh` answers over that
+tree: `quiescent: true` with `waiting_missions: 0` and `waiting_count: 0`.
+
+### Discovered Insights
+
+- **Insight**: the fixture's residue mission must cite a *different* feedback record, not
+  simply omit the relation — a mission citing nothing is unattributed for a reason that
+  looks identical from the reader and would still be residue if the walk were fixed.
+  **Context**: it keeps the fixture about the walk's LOSSINESS rather than about a
+  malformed artifact, which is what the mission is answering.
+- **Insight**: emptying the residue by *attributing* the second mission is not a neutral
+  edit — it makes that mission this direction's work in flight, so `work_waiting` fires and
+  the gate outcomes move for a reason that has nothing to do with the residue.
+  **Context**: any later byte-identity assertion over this fixture must empty the residue by
+  REMOVING the mission, not by attributing it.

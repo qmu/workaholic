@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-28T01:20:42+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -76,3 +77,36 @@ read are the two states this whole mission exists to keep apart.
   (2026-07-28, 2026-08-17, 2026-08-26). This reader must add no field and revive no relation.
 - It inherits the walk's lossiness. `attributed: false` means *no strategy could be
   attributed*, never *this belongs to no direction* — the residue is a reading, not a verdict.
+## Final Report
+
+Development completed as planned.
+
+`strategy/scripts/unattributed-work.sh` answers *what does no direction claim* by composing
+`mission-strategy.sh` — no second walker, no relation of its own, no field on any artifact.
+The queue rides the same composition through `mission/scripts/read-relation.sh`, the single
+reader of the `mission:` relation: a queued ticket naming an attributed active mission is
+absent, one naming an unattributed active mission rides that mission's row, and one naming
+no active mission is its own entry. `readable: false` carries its own reason and **null**
+counts rather than zeroed ones, and `exhaustive` is `false` on every answer.
+
+Run against this repository it names the four missions the ask measured, with nine queued
+tickets on their rows and one loose queued ticket beside them.
+
+### Discovered Insights
+
+- **Insight**: a degraded read must report `mission_count: null`, not `0`. A consumer
+  skimming the counts beside `readable: false` reads an empty residue where there was no
+  reading at all — which is the exact confusion this reader exists to prevent, reproduced
+  one field lower.
+  **Context**: the same discipline `direction-state.sh` applies to `active_count` on its own
+  unreadable path.
+- **Insight**: `all_strategies_unreadable` is only claimable when at least one strategy was
+  *tried*. Zero active strategies is a readable answer — nothing claims anything — and
+  folding the two together would make an empty repository look degraded forever.
+  **Context**: `strategies_read` is what tells them apart, and it already rode
+  `mission-strategy.sh`'s output.
+- **Insight**: a loose queued ticket is residue **by construction** here, because the reader
+  this composes answers only at the mission grain and cannot see a ticket's own `feedback:`
+  refs. The reading over-reports rather than under-reports.
+  **Context**: stated in the script's header so a consumer rendering it as *what I could not
+  see* is saying the true thing rather than implying a verdict.

@@ -95,7 +95,12 @@
    beside it** — as *evidence*, in the same voice `pace` uses, never as a refusal: the
    direction was still eligible, the proposal was still made, and the report says so
    because a reader otherwise cannot tell a direction whose work is all in from one that
-   is mid-flight. Post nothing.
+   is mid-flight. **Name that strategy's residue beside the `arrived`** (2026-08-28) — the
+   unattributed mission slugs from its `residue` field and the two counts, slugs and counts
+   and nothing more, because an `arrived` printed without its residue is the same partial
+   claim `/moderate`'s arrival question no longer makes. A **degraded** residue read is
+   reported as degraded, never as an empty one. Nothing is proposed, withheld or ordered on
+   it. Post nothing.
 
 ## Where it lands in the hour, and why the loop closes across hours
 

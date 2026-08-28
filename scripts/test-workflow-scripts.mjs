@@ -706,6 +706,495 @@ function testDirectionHealthRefusals() {
   } finally { cleanup(A); }
 }
 
+// ---------- the residue: a fixture one arrival is read over (2026-08-28) ----------
+// `say-what-the-direction-could-not-see-before-calling-it-arrived` builds every one of its
+// assertions over the same tree, so the tree is built once here: a strategy whose attributed
+// work has ALL LANDED (`quiescent`'s own precondition) sitting beside an **unattributed**
+// active mission that still holds two queued tickets.
+//
+// `landed` is a `git log --since` read, so the fixture must be a REAL repository with commits
+// inside the window. A bare file tree reads `landed: []`, which is `dormant`'s shape and not
+// this one — the fixture would then characterize the wrong defect.
+function makeResidueFixture() {
+  const A = makeRepo("main");
+  const w = (p, body) => {
+    mkdirSync(dirname(join(A, p)), { recursive: true });
+    writeFileSync(join(A, p), body);
+  };
+  const far = new Date(Date.now() + 400 * 86400000).toISOString().slice(0, 10);
+  w(".workaholic/feedbacks/20260101000000-a.md", "---\ntype: Feedback\n---\n\ncited by the direction\n");
+  w(".workaholic/feedbacks/20260101000000-b.md", "---\ntype: Feedback\n---\n\ncited by nobody's direction\n");
+  w(".workaholic/strategies/dir1.md",
+    `---\ntype: Strategy\ntitle: Direction one\nslug: dir1\nstatus: active\ntarget_date: ${far}\n` +
+    `assignees: [test@example.com]\nfeedback: [20260101000000-a.md]\n---\n\n## Aim\n\na\n\n## Schedule\n\ns\n`);
+  // The direction's own work: a finished mission and its archived ticket. Both cite the
+  // record the strategy cites, so both are attributed and both land in the window.
+  w(".workaholic/missions/archive/m1/mission.md",
+    "---\ntype: Mission\ntitle: Landed\nslug: m1\nstatus: achieved\n" +
+    "feedback: [20260101000000-a.md]\n---\n\n## Experience\n\ne\n\n## Acceptance\n\n- [x] done\n");
+  w(".workaholic/tickets/archive/work-20260101-000000/20260101000001-t1.md",
+    "---\nmission: m1\nstatus: done\n---\n\n# T1\n");
+  // The residue: an ACTIVE mission citing a record no strategy cites, holding two queued
+  // tickets. Nothing attributes it, and nothing said so.
+  w(".workaholic/missions/active/m2/mission.md",
+    "---\ntype: Mission\ntitle: Unclaimed\nslug: m2\nstatus: active\n" +
+    "feedback: [20260101000000-b.md]\n---\n\n## Experience\n\ne\n\n## Acceptance\n\n- [ ] a\n");
+  w(".workaholic/tickets/todo/20260102000000-t2.md", "---\nmission: m2\n---\n\n# T2\n");
+  w(".workaholic/tickets/todo/20260103000000-t3.md", "---\nmission: m2\n---\n\n# T3\n");
+  execSync("git add -A && git commit -q -m seed", { cwd: A });
+  const open = join(A, "open.json");
+  writeFileSync(open, '{"ok": true, "identity": "test", "proposals": []}\n');
+  return { A, open };
+}
+
+// ---------- the false arrival, characterized (2026-08-28) ----------
+// THIS RECORDS A DEFECT, NOT THE BEHAVIOUR WE WANT. `quiescent` means *everything I could
+// attribute has landed* and is projected as *this direction has arrived* — a reading that
+// invites the operator to CLOSE the direction. Measured on this repository at 2026-08-28
+// 00:41 UTC, the strategy `an-autonomous-improvement-loop-run-by-the-routines` read
+// `quiescent: true` with 125 landed items while four active missions and ten queued tickets
+// read `attributed: false`: the arrival was true of everything the walk could see and blind
+// to everything it could not.
+//
+// The assertion below is the CHARACTERIZATION: it pins what the survey answers over such a
+// tree today, so the tickets that follow have something that moves when they change it.
+// `refuse-an-arrival-over-a-tree-we-could-not-see` is what adds the inverted case beside it —
+// a residue we could not READ refuses the arrival, while a residue we read and found
+// non-empty deliberately does not.
+function testFalseArrivalCharacterization() {
+  const SURVEY = join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/survey-strategies.sh");
+  const MISSION_STRATEGY = join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/mission-strategy.sh");
+  const { A, open } = makeResidueFixture();
+  try {
+    // 1. THE FIXTURE IS ONLY THIS MISSION'S FIXTURE IF THE RESIDUE IS REAL. Asserted through
+    // the reader that owns the question, in the same run, so a later edit that accidentally
+    // attributes `m2` fails here rather than silently emptying the residue everything below
+    // is read over.
+    const ms = JSON.parse(run(A, `${POSIX_SH} ${MISSION_STRATEGY} --root ${join(A, ".workaholic")}`).stdout);
+    assertEq("the active mission set is exactly the unattributed one",
+      ms.missions.map((m) => m.slug), ["m2"]);
+    assertEq("and no strategy claims it", ms.missions[0].attributed, false);
+
+    // 2. THE CHARACTERIZATION. Everything the walk can see has landed and nothing it can see
+    // is waiting, so the direction reads as arrived — over a tree holding an active mission
+    // and two queued tickets nothing attributed.
+    const j = JSON.parse(run(A, `${POSIX_SH} ${SURVEY} --open-proposals ${open} "14 days ago" ${join(A, ".workaholic")}`).stdout);
+    const row = j.eligible.concat(j.refused).find((r) => r.slug === "dir1");
+    assertTrue("the strategy is surveyed", !!row, JSON.stringify(j));
+    assertEq("it reads as arrived over an unattributed active mission",
+      [row.quiescent, row.waiting_missions ?? 0, row.waiting_count ?? 0], [true, 0, 0]);
+    assertTrue("and its own work did land", (row.landed || []).length > 0, JSON.stringify(row.landed));
+  } finally { cleanup(A); }
+}
+
+// ---------- strategy/unattributed-work.sh: the residue reader (2026-08-28) ----------
+// Three readings and they must never look alike: an HONEST residue (this is what no direction
+// claims), an EMPTY one (every active mission is claimed) and a DEGRADED one (we could not
+// read it at all). The third is the reason the script exists in this shape — an unreadable
+// residue rendered as `mission_count: 0` is the zeroed residue that would let an arrival be
+// claimed over a tree nobody looked at.
+function testUnattributedWorkReader() {
+  const READER = join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/unattributed-work.sh");
+  const { A } = makeResidueFixture();
+  const W = join(A, ".workaholic");
+  const readerOf = (root) => JSON.parse(run(A, `${POSIX_SH} ${READER} --root ${root}`).stdout);
+  try {
+    // 1. THE HONEST RESIDUE. `m2` is active and nothing attributes it; its two queued tickets
+    // ride its own row rather than being listed loose, because a mission's queue is that
+    // mission's.
+    const j = readerOf(W);
+    assertEq("the residue is readable", [j.ok, j.readable, j.reason], [true, true, ""]);
+    assertEq("and names the unattributed mission by slug, path and queued count",
+      j.missions, [{ slug: "m2", path: `${W}/missions/active/m2/mission.md`, queued: 2 }]);
+    assertEq("with no loose queued ticket beside it", [j.tickets, j.mission_count, j.ticket_count],
+      [[], 1, 0]);
+    assertEq("and it never claims to be complete", j.exhaustive, false);
+
+    // A QUEUED TICKET BELONGING TO NO MISSION IS ITS OWN ENTRY.
+    writeFileSync(join(W, "tickets/todo/20260104000000-loose.md"), "---\nmission:\n---\n\n# Loose\n");
+    const withLoose = readerOf(W);
+    assertEq("a loose queued ticket is named by path", withLoose.tickets.map((t) => t.path),
+      [`${W}/tickets/todo/20260104000000-loose.md`]);
+    assertEq("and the mission row is untouched by it", withLoose.missions[0].queued, 2);
+    rmSync(join(W, "tickets/todo/20260104000000-loose.md"));
+
+    // 2. THE EMPTY RESIDUE. Point `m2` at the record the strategy cites and it is claimed; the
+    // residue empties, and its tickets go with it because they ride the mission's row.
+    const m2 = join(W, "missions/active/m2/mission.md");
+    writeFileSync(m2, readFileSync(m2, "utf8").replace("20260101000000-b.md", "20260101000000-a.md"));
+    const empty = readerOf(W);
+    assertEq("an attributed mission leaves an empty, readable residue",
+      [empty.readable, empty.mission_count, empty.ticket_count, empty.missions, empty.tickets],
+      [true, 0, 0, [], []]);
+
+    // 3. THE DEGRADED READ. A strategy whose `slug:` does not match its filename is listed by
+    // `list.sh` under a slug `attributed-work.sh` cannot resolve, so the walk reports it
+    // `unreadable` — every active strategy unreadable is a read we did not make, not an empty
+    // residue.
+    const s = join(W, "strategies/dir1.md");
+    writeFileSync(s, readFileSync(s, "utf8").replace("slug: dir1", "slug: elsewhere"));
+    const bad = readerOf(W);
+    assertEq("a residue we could not read says so, by name",
+      [bad.ok, bad.readable, bad.reason], [true, false, "all_strategies_unreadable"]);
+    assertEq("and reports NO counts rather than zeroed ones",
+      [bad.mission_count, bad.ticket_count, bad.missions, bad.tickets], [null, null, [], []]);
+
+    // 4. IT WRITES NOTHING AND CREATES NOTHING, in every one of those readings.
+    assertEq("the reader left no untracked or modified file of its own",
+      execSync("git status --porcelain", { cwd: A, encoding: "utf8" })
+        .split("\n").filter((l) => l && !/dir1\.md|m2\/mission\.md|open\.json/.test(l)).join("\n"), "");
+  } finally { cleanup(A); }
+}
+
+// ---------- the residue on every survey row, gating nothing (2026-08-28) ----------
+// The residue rides `survey-strategies.sh`'s rows for one consumer — the arrival question —
+// and the whole admissibility of putting it there is that IT MOVES NO GATE. `overdue`,
+// `dormant` and `quiescent` each shipped under that discipline; this pins it rather than
+// restating it, by diffing the gate-bearing fields with the residue present and absent.
+//
+// THE REFUSED ROW IS THE POINT. A direction refused `past_target_date` is exactly the one
+// whose residue the operator must still see, because it is the one they are about to be asked
+// to re-date or close — a reader taking only `eligible` would see none of them.
+function testResidueOnSurveyRows() {
+  const SURVEY = join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/survey-strategies.sh");
+  const { A, open } = makeResidueFixture();
+  const W = join(A, ".workaholic");
+  const surveyOf = () => JSON.parse(run(A, `${POSIX_SH} ${SURVEY} --open-proposals ${open} "14 days ago" ${W}`).stdout);
+  // A second, EXPIRED direction, so a refused row exists to assert over.
+  const past = new Date(Date.now() - 400 * 86400000).toISOString().slice(0, 10);
+  writeFileSync(join(W, "strategies/dir2.md"),
+    `---\ntype: Strategy\ntitle: Direction two\nslug: dir2\nstatus: active\ntarget_date: ${past}\n` +
+    `assignees: [test@example.com]\nfeedback: [20260101000000-a.md]\n---\n\n## Aim\n\na\n\n## Schedule\n\ns\n`);
+  execSync("git add -A && git commit -q -m dir2", { cwd: A });
+  try {
+    const j = surveyOf();
+    const rows = j.eligible.concat(j.refused);
+    assertEq("both directions are surveyed", rows.map((r) => r.slug).sort(), ["dir1", "dir2"]);
+
+    // 1. EVERY ROW CARRIES THE RESIDUE, eligible and refused alike, and it is the SAME object
+    // on each: it is a fact about the repository, read once per survey and not once per row.
+    for (const r of rows) {
+      assertEq(`the row ${r.slug} carries the residue`,
+        [r.residue.readable, r.residue.mission_count, r.residue.ticket_count], [true, 1, 0]);
+      assertEq(`and names the unattributed mission with its queued count on ${r.slug}`,
+        r.residue.missions, [{ slug: "m2", queued: 2 }]);
+    }
+    assertTrue("the refused row is the expired direction",
+      j.refused.some((r) => r.slug === "dir2" && r.reason === "past_target_date"),
+      JSON.stringify(j.refused));
+
+    // 2. NO GATE, NO SORT AND NO SELECTION MOVED. The residue is emptied at the source (every
+    // active mission attributed) and the gate-bearing fields must be byte-identical.
+    const gates = (s) => ({
+      selected: s.selected,
+      order: s.eligible.map((r) => r.slug),
+      refusals: s.refused.map((r) => `${r.slug}:${r.reason}`),
+      pace: rowsBy(s, "pace"),
+      overdue: rowsBy(s, "overdue"),
+      dormant: rowsBy(s, "dormant"),
+    });
+    function rowsBy(s, field) {
+      return s.eligible.concat(s.refused).sort((a, b) => a.slug.localeCompare(b.slug))
+        .map((r) => `${r.slug}:${r[field]}`);
+    }
+    const withResidue = gates(j);
+    // The residue is emptied by REMOVING the unattributed mission, not by attributing it:
+    // attributing it would make it this direction's work in flight and move `work_waiting`
+    // for a reason that has nothing to do with the residue field.
+    rmSync(join(W, "missions/active/m2"), { recursive: true });
+    rmSync(join(W, "tickets/todo/20260102000000-t2.md"));
+    rmSync(join(W, "tickets/todo/20260103000000-t3.md"));
+    const emptied = surveyOf();
+    assertEq("emptying the residue moves no gate, no order and no selection",
+      gates(emptied), withResidue);
+    assertEq("and the residue itself is what changed",
+      emptied.eligible.concat(emptied.refused)[0].residue.mission_count, 0);
+  } finally { cleanup(A); }
+}
+
+// ---------- an arrival is refused over a tree we could not see (2026-08-28) ----------
+// This is the inversion the characterization test above was written to have. A DEGRADED
+// residue read makes `quiescent` false; a residue read successfully and found NON-EMPTY leaves
+// it exactly as it was. The asymmetry is deliberate and both halves are pinned, because the
+// tempting over-reach — letting a non-empty residue refuse the arrival — would let any
+// unrelated mission in the tree suppress every direction's arrival forever.
+function testArrivalRefusedOverUnreadableResidue() {
+  const SURVEY = join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/survey-strategies.sh");
+  const STATE = join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/direction-state.sh");
+  const { A, open } = makeResidueFixture();
+  const W = join(A, ".workaholic");
+  const rowOf = () => {
+    const j = JSON.parse(run(A, `${POSIX_SH} ${SURVEY} --open-proposals ${open} "14 days ago" ${W}`).stdout);
+    return j.eligible.concat(j.refused).find((r) => r.slug === "dir1");
+  };
+  const stateOf = () => JSON.parse(run(A, `${POSIX_SH} ${STATE} --open-proposals ${open} "14 days ago" ${W}`).stdout);
+  try {
+    // 1. A NON-EMPTY BUT READ RESIDUE LEAVES THE ARRIVAL STANDING. The characterization
+    // assertion, unchanged in force: an unattributed mission is not this direction's work.
+    const honest = rowOf();
+    assertEq("a residue read and found non-empty leaves quiescent true",
+      [honest.quiescent, honest.residue.readable, honest.residue.mission_count], [true, true, 1]);
+    assertEq("and the lifecycle reader projects it as arrived",
+      stateOf().strategies.find((s) => s.slug === "dir1").state, "arrived");
+
+    // 2. A DEGRADED RESIDUE READ REFUSES IT — and the fixture has to degrade the RESIDUE
+    // READ WITHOUT degrading the strategy, or the assertion passes on `unreadable` and never
+    // exercises the term at all. So the plugin tree is copied and the residue reader loses
+    // the reader it composes: `dir1` stays perfectly legible, and only the residue is blind.
+    cpSync(join(REPO_ROOT, "plugins"), join(A, "plugins"), { recursive: true });
+    rmSync(join(A, "plugins/workaholic/skills/strategy/scripts/mission-strategy.sh"));
+    const blindSurvey = join(A, "plugins/workaholic/skills/propose/scripts/survey-strategies.sh");
+    const blindState = join(A, "plugins/workaholic/skills/strategy/scripts/direction-state.sh");
+    const blindJ = JSON.parse(run(A, `${POSIX_SH} ${blindSurvey} --open-proposals ${open} "14 days ago" ${W}`).stdout);
+    const blind = blindJ.eligible.concat(blindJ.refused).find((r) => r.slug === "dir1");
+    assertEq("a residue we could not read refuses the arrival",
+      [blind.residue.readable, blind.residue.reason, blind.quiescent],
+      [false, "no_mission_strategy_script", false]);
+    const blindStates = JSON.parse(run(A, `${POSIX_SH} ${blindState} --open-proposals ${open} "14 days ago" ${W}`).stdout);
+    assertTrue("and no arrival reaches the lifecycle reader",
+      !blindStates.strategies.some((x) => x.state === "arrived"),
+      JSON.stringify(blindStates.strategies));
+    assertEq("while the strategy itself was perfectly legible",
+      blindStates.strategies.find((x) => x.slug === "dir1").state, "live");
+    rmSync(join(A, "plugins"), { recursive: true });
+
+    // 3. `dormant` IS UNTOUCHED BY THE TERM. Its own reading is what invites a LOOK, not a
+    // close, so a blind residue must not silence it — that is the asymmetry stated in the
+    // block's own comment.
+    const dormantTree = join(W, "strategies/quiet.md");
+    const far = new Date(Date.now() + 400 * 86400000).toISOString().slice(0, 10);
+    writeFileSync(dormantTree,
+      `---\ntype: Strategy\ntitle: Quiet\nslug: quiet\nstatus: active\ntarget_date: ${far}\n` +
+      `assignees: [test@example.com]\nfeedback: [20260101000000-z.md]\n---\n\n## Aim\n\na\n\n## Schedule\n\ns\n`);
+    writeFileSync(join(W, "feedbacks/20260101000000-z.md"), "---\ntype: Feedback\n---\n\nz\n");
+    execSync("git add -A && git commit -q -m quiet", { cwd: A });
+    const quiet = stateOf().strategies.find((x) => x.slug === "quiet");
+    assertEq("a direction nothing answers still reads dormant", quiet.state, "dormant");
+
+    // 4. THE PRECEDENCE IS UNCHANGED: `unreadable` > `arrived` > `overdue` > `dormant` > `live`,
+    // and `arrived` still outranks `overdue` — a direction that finished late has finished.
+    const src = readFileSync(STATE, "utf8");
+    const order = ["attribution_unreadable", "quiescent", "overdue", "dormant"]
+      .map((t) => src.indexOf(t, src.indexOf("state: (if")));
+    assertEq("the projection tests unreadable, then arrived, then overdue, then dormant",
+      order.slice().sort((a, b) => a - b), order);
+  } finally { cleanup(A); }
+}
+
+// ---------- the arrival question names its residue (2026-08-28) ----------
+// A count alone costs the operator the same hand-read the defect costs them: they learn the
+// answer is partial and still cannot see what was missing. The question names each unattributed
+// mission BY SLUG with its queued count — and nothing else about the step moves.
+function testArrivalQuestionNamesResidue() {
+  const STEP = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-direction-health.sh");
+  const { A, open } = makeResidueFixture();
+  const W = join(A, ".workaholic");
+  const stepOf = (tick) => JSON.parse(run(A, `${POSIX_SH} ${STEP} --tick ${tick} --root ${A} --open-proposals ${open}`).stdout);
+  try {
+    const j = stepOf("20260828-000000");
+    assertEq("the step reports", [j.step, j.status], ["direction-health", "ok"]);
+    const arrived = j.needs_agent[0].directions.find((d) => d.key === "direction-arrived:dir1");
+    assertTrue("the arrival question exists", !!arrived, JSON.stringify(j.needs_agent));
+    assertTrue("and names the unattributed mission by slug with its queued count",
+      /not attributed to any direction: m2 \(2 queued\)/.test(arrived.heading), arrived.heading);
+    assertTrue("while still describing the reading rather than asserting the direction is done",
+      /has its work in/.test(arrived.heading) && !/is finished/.test(arrived.body), arrived.heading + " | " + arrived.body);
+
+    // THE KEY, THE ADDRESSEE AND THE ASKED-ONCE GATE DO NOT MOVE. Changing a body does not
+    // re-ask a question: the ledger keys on the step id derived from `key`.
+    assertEq("the key is unchanged", arrived.key, "direction-arrived:dir1");
+    assertEq("and it is addressed to the direction's assignee", arrived.assignees, "test@example.com");
+    const again = stepOf("20260828-010000");
+    assertEq("the same question is produced under the same key on a later tick",
+      again.needs_agent[0].directions.map((d) => d.key).sort(),
+      j.needs_agent[0].directions.map((d) => d.key).sort());
+
+    // WHAT IS CUT IS COUNTED, NEVER SILENTLY TRUNCATED.
+    for (const n of ["m3", "m4", "m5", "m6"]) {
+      mkdirSync(join(W, `missions/active/${n}`), { recursive: true });
+      writeFileSync(join(W, `missions/active/${n}/mission.md`),
+        `---\ntype: Mission\ntitle: ${n}\nslug: ${n}\nstatus: active\nfeedback: [20260101000000-b.md]\n---\n\n## Experience\n\ne\n\n## Acceptance\n\n- [ ] a\n`);
+    }
+    execSync("git add -A && git commit -q -m more", { cwd: A });
+    const many = stepOf("20260828-020000").needs_agent[0].directions.find((d) => d.key === "direction-arrived:dir1");
+    assertTrue("a long residue renders three names and counts the rest",
+      /, and 2 more/.test(many.heading), many.heading);
+
+    // A DEGRADED RESIDUE READ PRODUCES NO ARRIVAL QUESTION AT ALL — it is `quiescent: false`
+    // upstream, so there is no `arrived` reading to ask about.
+    const s = join(W, "strategies/dir1.md");
+    writeFileSync(s, readFileSync(s, "utf8").replace("slug: dir1", "slug: elsewhere"));
+    const blind = stepOf("20260828-030000");
+    assertTrue("no arrival question survives a residue we could not read",
+      !JSON.stringify(blind.needs_agent).includes("direction-arrived"), JSON.stringify(blind));
+
+    // IT ASKS AND NOTHING ELSE.
+    writeFileSync(s, readFileSync(s, "utf8").replace("slug: elsewhere", "slug: dir1"));
+    assertEq("the step wrote nothing", execSync("git status --porcelain", { cwd: A, encoding: "utf8" }).trim(), "");
+  } finally { cleanup(A); }
+}
+
+// ---------- the residue reaches no /propose gate (2026-08-28) ----------
+// The residue is REPORTED, never gated on: no refusal reads it, nothing is proposed or withheld
+// on it, and the one exception is stated rather than implied — `quiescent`, which is itself a
+// reading that lifts and closes no gate.
+function testResidueGatesNothing() {
+  const PROPOSE_SCRIPTS = join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts");
+  const SURVEY = join(PROPOSE_SCRIPTS, "survey-strategies.sh");
+  const src = readFileSync(SURVEY, "utf8");
+
+  // 1. NO OTHER `/propose` SCRIPT MENTIONS IT. The survey is where it is read and emitted; a
+  // second script reading it would be the second derivation this repository refuses.
+  const others = readdirSync(PROPOSE_SCRIPTS).filter((f) => f.endsWith(".sh") && f !== "survey-strategies.sh")
+    .filter((f) => /\bresidue\b/.test(readFileSync(join(PROPOSE_SCRIPTS, f), "utf8")));
+  assertEq("no other /propose script reads the residue", others, []);
+
+  // 2. THE REFUSAL EXPRESSION, THE SORT AND THE SELECTION DO NOT NAME IT. Sliced from the
+  // survey's own text between the markers that bound the gate chain, so a future edit that
+  // moves the residue INTO a gate fails here rather than in a fixture that happened not to
+  // exercise it.
+  const gateStart = src.indexOf("| . + {refusal:");
+  const gateEnd = src.indexOf("{ok: true, identity: $identity");
+  assertTrue("the gate chain is locatable", gateStart > 0 && gateEnd > gateStart, `${gateStart}/${gateEnd}`);
+  const gateChain = src.slice(gateStart, gateEnd);
+  assertTrue("the refusal, sort and selection never read the residue",
+    !/\bresidue\b/.test(gateChain),
+    gateChain.split("\n").filter((l) => /residue/.test(l)).join("\n"));
+
+  // 3. `quiescent` IS THE ONE READING THAT DOES, and it is a reading rather than a gate.
+  const qStart = src.indexOf("| . + {quiescent:");
+  assertTrue("quiescent reads the residue", /\.residue\.readable/.test(src.slice(qStart, gateStart)), "");
+
+  // 4. THE DRILL EXISTS, is dispatched by its verb, and is documented — the same three pins
+  // every other verify target carries, so a drill that is written and never wired reads exactly
+  // like one that runs. Its deliberately-broken row is named in both places, because a drill
+  // that cannot fail proves nothing and the runbook is where an operator learns which row that is.
+  const drill = readFileSync(join(REPO_ROOT, "scripts/e2e/loop-drill.sh"), "utf8");
+  assertTrue("verify-residue is in loop-drill.sh", /cmd_verify_residue\(\)/.test(drill), "not present");
+  assertTrue("and is dispatched by its verb", /verify-residue\) cmd_verify_residue/.test(drill), "not wired");
+  assertTrue("and its usage line names it", /verify-residue \[--json\]/.test(drill), "not in the usage line");
+  const runbook = readFileSync(join(REPO_ROOT, "docs/loop-drill-runbook.md"), "utf8");
+  assertTrue("and the runbook documents it alongside the others", /verify-residue/.test(runbook), "undocumented");
+  assertTrue("with the deliberately-broken row named as the proof it is",
+    /residue_reads_the_active_area/.test(runbook) && /residue_reads_the_active_area/.test(drill),
+    "the failing row is missing from the drill or the runbook");
+
+  // 5. THE DOCUMENTS STATE THE SHIPPED BEHAVIOUR. Outdated documentation is a defect by this
+  // repository's own rule, and the reporting obligation is prose that nothing else can hold.
+  for (const [file, needle] of [
+    ["plugins/workaholic/skills/propose/SKILL.md", /reports that strategy.s residue beside it|names that strategy's residue beside it/],
+    ["plugins/workaholic/skills/propose/reference/loop.md", /Name that strategy.s residue beside the `arrived`/],
+    ["plugins/workaholic/skills/strategy/SKILL.md", /unattributed-work\.sh/],
+    ["plugins/workaholic/skills/moderate/SKILL.md", /names what the reading could not see/],
+    ["CLAUDE.md", /unattributed-work\.sh/],
+  ]) {
+    assertTrue(`${file} states the shipped behaviour`,
+      needle.test(readFileSync(join(REPO_ROOT, file), "utf8")), `${file} does not`);
+  }
+}
+
+// ---------- strategy/carry-attribution.sh: the operator's ruling, carried (2026-08-28) ----------
+// The residue names missions no direction claims; some of them answer one and were published
+// with the carry-forward link dropped, and the repair was a HAND EDIT OF `main`. This carries
+// the operator's ruling instead — and its whole admissibility is a set of refusals, so those are
+// what is pinned. The byte-identity assertions are the point, not decoration: the tempting shape
+// is to write first and revert on a breach, and a revert is a SECOND WRITE.
+function testCarryAttribution() {
+  const CARRY = join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/carry-attribution.sh");
+  const A = makeRepo("main");
+  const W = join(A, ".workaholic");
+  const w = (p, body) => { mkdirSync(dirname(join(W, p)), { recursive: true }); writeFileSync(join(W, p), body); };
+  const missionAt = (slug) => join(W, `missions/active/${slug}/mission.md`);
+  const carry = (s, m) => run(A, `${POSIX_SH} ${CARRY} ${s} ${m} ${W}`);
+  try {
+    w("strategies/d1.md",
+      "---\ntype: Strategy\ntitle: D\nslug: d1\nstatus: active\ntarget_date: 2027-01-01\n" +
+      "assignees: [t@e.com]\nfeedback: [20260101000000-a.md, 20260101000000-b.md]\n---\n\n## Aim\n\na\n\n## Schedule\n\ns\n");
+    w("strategies/closed.md",
+      "---\ntype: Strategy\ntitle: C\nslug: closed\nstatus: achieved\ntarget_date: 2027-01-01\n" +
+      "assignees: [t@e.com]\nfeedback: [20260101000000-a.md]\n---\n\n## Aim\n\na\n\n## Schedule\n\ns\n");
+    w("strategies/bare.md",
+      "---\ntype: Strategy\ntitle: B\nslug: bare\nstatus: active\ntarget_date: 2027-01-01\n" +
+      "assignees: [t@e.com]\nfeedback: []\n---\n\n## Aim\n\na\n\n## Schedule\n\ns\n");
+    w("missions/active/m1/mission.md",
+      "---\ntype: Mission\ntitle: M1\nslug: m1\nstatus: active\nassignees: [t@e.com]\n" +
+      "feedback: [20260101000000-c.md]\n---\n\n## Experience\n\ne\n\n## Acceptance\n\n- [ ] a\n");
+    execSync("git add -A && git commit -q -m seed", { cwd: A });
+
+    // 1. THE APPEND LANDS, and it is an APPEND: the mission's own ref is kept and first.
+    const before = readFileSync(missionAt("m1"), "utf8");
+    const r1 = JSON.parse(carry("d1", "m1").stdout);
+    assertEq("the carry reports what it added",
+      [r1.carried, r1.added], [true, ["20260101000000-a.md", "20260101000000-b.md"]]);
+    const after = readFileSync(missionAt("m1"), "utf8");
+    assertTrue("the mission cites the direction's records beside its own",
+      /^feedback: \[20260101000000-c\.md, 20260101000000-a\.md, 20260101000000-b\.md\]$/m.test(after), after);
+    assertEq("and NOTHING else about the mission moved",
+      before.split("\n").filter((l) => !l.startsWith("feedback:")),
+      after.split("\n").filter((l) => !l.startsWith("feedback:")));
+    assertEq("the write is staged and not committed",
+      execSync("git status --porcelain", { cwd: A, encoding: "utf8" }).trim(),
+      "M  .workaholic/missions/active/m1/mission.md");
+
+    // 2. IDEMPOTENT: a second run leaves the mission byte-identical and says so.
+    const r2 = JSON.parse(carry("d1", "m1").stdout);
+    assertEq("a re-run adds nothing and reports already", [r2.carried, r2.added, r2.reason], [true, [], "already"]);
+    assertEq("and the mission is byte-identical", readFileSync(missionAt("m1"), "utf8"), after);
+
+    // 3. EVERY REFUSAL WRITES NOTHING. Checked against the file's own bytes, not against the
+    // interface: a refusal that wrote and reverted would pass an interface check.
+    w("missions/active/m2/mission.md",
+      "---\ntype: Mission\ntitle: M2\nslug: m2\nstatus: active\nassignees: [t@e.com]\nfeedback: []\n---\n\n## Experience\n\ne\n\n## Acceptance\n\n- [ ] a\n");
+    execSync("git add -A && git commit -q -m m2", { cwd: A });
+    const m2Before = readFileSync(missionAt("m2"), "utf8");
+    for (const [args, reason] of [
+      [["nope", "m2"], "strategy_not_found"],
+      [["d1", "nope"], "mission_not_found"],
+      [["closed", "m2"], "not_active"],
+      [["bare", "m2"], "no_revision"],
+      [["", ""], "no_slug"],
+    ]) {
+      const r = carry(args[0] || '""', args[1] || '""');
+      assertEq(`the refusal is named: ${reason}`, JSON.parse(r.stdout).reason, reason);
+      assertEq(`and ${reason} left the mission byte-identical`, readFileSync(missionAt("m2"), "utf8"), m2Before);
+    }
+    assertEq("no refusal touched the index",
+      execSync("git status --porcelain", { cwd: A, encoding: "utf8" }).trim(), "");
+
+    // A MISSION WITH NO `feedback:` LINE AT ALL still carries — the line is inserted rather
+    // than requiring one to already exist.
+    JSON.parse(carry("d1", "m2").stdout);
+    assertTrue("a mission with an empty relation gains the refs",
+      /^feedback: \[20260101000000-a\.md, 20260101000000-b\.md\]$/m.test(readFileSync(missionAt("m2"), "utf8")),
+      readFileSync(missionAt("m2"), "utf8"));
+
+    // 4. IT NEVER TOUCHES A STRATEGY, AND THE ARTIFACT STILL HAS EXACTLY THREE WRITERS. The
+    // temptation this route creates is a fourth — a script that "keeps the strategy in step" —
+    // and the pin in testDirectionHealthRefusals is what catches it; asserted here too, at the
+    // change that tempts it.
+    assertEq("every strategy file is untouched",
+      execSync("git status --porcelain -- .workaholic/strategies", { cwd: A, encoding: "utf8" }).trim(), "");
+    const body = readFileSync(CARRY, "utf8").split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+    assertTrue("and the writer never redirects into or moves onto the strategy path",
+      !/(>\s*"?\$\{?STRATEGY_FILE\b)|(\bmv\s+[^\n]*"?\$\{?STRATEGY_FILE\b)/.test(body),
+      body.split("\n").filter((l) => /STRATEGY_FILE/.test(l)).join("\n"));
+
+    // 5. MATCHING IS BY EXPLICIT SLUG ONLY — a title never resolves to an artifact.
+    assertEq("a title is not a slug", JSON.parse(carry('"D"', "m1").stdout).reason, "strategy_not_found");
+
+    // 6. THE ROUTE THAT CALLS IT LEAVES AUTO-MERGE UNSET, and that rule is the CALLER's here:
+    // the seam derives `strategy_touching` from a path under `.workaholic/strategies/` and this
+    // route writes `.workaholic/missions/`, so it cannot see it. Weaker than the strategy
+    // exemption, pinned rather than trusted.
+    const wf = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/specificate/reference/workflow.md"), "utf8");
+    const step = wf.slice(wf.indexOf("9e."), wf.indexOf("10. **Publish it all"));
+    assertTrue("step 9e names the writer", /carry-attribution\.sh <strategy> <mission>/.test(step), step.slice(0, 200));
+    assertTrue("and states that WORKAHOLIC_AUTO_MERGE is left unset",
+      /Leave `WORKAHOLIC_AUTO_MERGE` unset/.test(step), step);
+    assertTrue("and says the seam cannot enforce it", /cannot\*\* enforce it here/.test(step), step);
+  } finally { cleanup(A); }
+}
+
 // ---------- strategy/amend.sh: the third writer, bounded (2026-08-27) ----------
 // The strategy artifact had two writers and no third, so an announced *change* was
 // record-only and the operator applied it BY HAND on `main` — the one act in this
@@ -16865,6 +17354,13 @@ const tests = [
   ["drive/archive.sh: closes a mission it can prove is finished", testArchiveClosesAProvenMission],
   ["moderate/step-closable-missions.sh: finished, and still open", testClosableMissionsStep],
   ["moderate/step-direction-health.sh: the three refusals hold", testDirectionHealthRefusals],
+  ["the false arrival, characterized over an unattributed residue", testFalseArrivalCharacterization],
+  ["strategy/unattributed-work.sh reads what no direction claims", testUnattributedWorkReader],
+  ["the residue rides every survey row and moves no gate", testResidueOnSurveyRows],
+  ["an arrival is refused over a residue we could not read", testArrivalRefusedOverUnreadableResidue],
+  ["the arrival question names the residue by slug", testArrivalQuestionNamesResidue],
+  ["the residue reaches no /propose gate", testResidueGatesNothing],
+  ["strategy/carry-attribution.sh carries a ruling and refuses the rest", testCarryAttribution],
   ["strategy/amend.sh: the third writer, bounded", testStrategyAmend],
   ["moderate/step-unanswered-asks.sh: what is waiting, asked exactly once", testUnansweredAsksStep],
   ["moderate/step-base-health.sh: a red base, asked exactly once per commit", testBaseHealthStep],

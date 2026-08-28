@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260828-214118
 ---
 
 # Put the loop's standing rulings on one pull request

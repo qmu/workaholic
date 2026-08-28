@@ -2,7 +2,7 @@
 type: Mission
 title: Finish the retirement the loop cannot complete
 slug: finish-the-retirement-the-loop-cannot-complete
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-27T23:21:32+00:00
 author: a@qmu.jp
@@ -58,3 +58,5 @@ blocked, and a standing blocked retirement stops reading as a fresh hourly findi
 - 2026-08-27 — ticket archived — 20260827232222-ask-the-holder-for-the-branches-left-undeleted.md
 - 2026-08-28 — ticket archived — 20260827232222-stop-restating-a-standing-blocked-retirement.md
 - 2026-08-28 — ticket archived — 20260827232222-drill-the-blocked-retirement-with-no-network.md
+- 2026-08-28 — ticket archived — 20260827232222-write-the-blocked-retirement-into-the-documents.md
+- 2026-08-28 — mission achieved — mission.md

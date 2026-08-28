@@ -50,3 +50,4 @@ read proposes nothing.
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-28 — ticket archived — 20260828212022-name-the-standing-rulings-in-one-place.md
+- 2026-08-28 — ticket archived — 20260828212022-let-the-run-supply-the-judgement-per-candidate.md

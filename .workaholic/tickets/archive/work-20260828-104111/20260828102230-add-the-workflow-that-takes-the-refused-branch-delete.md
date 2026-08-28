@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-28T10:22:30+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -102,3 +103,35 @@ trigger must not depend on one.
   the pull-request close is Act 1 and already succeeds in the container.
 - A `schedule:` trigger is optional; if added, keep the minute non-zero, as every other
   cadence in this repository does.
+
+## Final Report
+
+Development completed as planned.
+
+`.github/workflows/claim-retirement.yml` declares `permissions: contents: write` and nothing
+wider, triggers on `push: branches: [main]` plus `workflow_dispatch` (no `schedule:`), carries a
+`concurrency` group so two runs never race the same branch, and defines its own checkout —
+`fetch-depth: 0` plus an explicit `+refs/heads/*:refs/remotes/origin/*` refspec and fetch,
+because unmerged remote branches are the only claim oracle and `actions/checkout` leaves the
+remote configured for the ref it checked out. It owns no proof logic: it calls the candidate
+reader, then the bounded act per candidate, and a degraded read exits 0 having deleted nothing.
+The header states which act is refused where, why CI holds the capability, and that the
+container's measured 403 finding remains accurate about the container.
+
+**One acceptance item could not be verified here, and is not claimed as verified.** "One
+`workflow_dispatch` run on a branch with no superseded claim, showing a clean no-op" needs the
+workflow present on the default branch and a dispatch the loop's container is refused (writes go
+through the same proxy) — so it is verifiable only after this pull request merges, by a person or
+by the first `push: main` run. Everything else in the gate is checked: the file parses as YAML,
+the permission block is exactly `contents: write`, the trigger depends on no act by the container,
+the job is a no-op over an empty candidate set (drilled), and the workflow contains no proof logic
+of its own. `actionlint` is not installed in this container, so it was not run.
+
+### Discovered Insights
+
+- **Insight**: `actions/checkout` with `fetch-depth: 0` does not by itself give you every remote
+  head under `refs/remotes/origin/*` — it leaves the remote's fetch refspec scoped to the ref it
+  checked out.
+  **Context**: any future workflow that reads the claim oracle must widen the refspec and fetch
+  explicitly, as this one does. A job that skipped it would silently see one branch and report
+  "nothing to retire", which is the exact shape the reader's degradation ladder exists to prevent.

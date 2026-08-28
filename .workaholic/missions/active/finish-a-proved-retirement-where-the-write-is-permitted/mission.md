@@ -55,3 +55,4 @@ branch and what already stands.
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-28 — ticket archived — 20260828102230-derive-the-ci-retirement-candidate-set-with-no-new-store.md
 - 2026-08-28 — ticket archived — 20260828102230-re-prove-the-verdict-inside-ci-and-bound-what-may-be-deleted.md
+- 2026-08-28 — ticket archived — 20260828102230-add-the-workflow-that-takes-the-refused-branch-delete.md

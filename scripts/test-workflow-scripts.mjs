@@ -1373,6 +1373,7 @@ function testBaseHealthStep() {
   mkdirSync(dir, { recursive: true });
   execSync("git init -q -b main . && git remote add origin git@github.com:acme-org/source-repo.git",
     { cwd: dir });
+  execSync(`git config user.email test@example.com && git config user.name Test && git config commit.gpgsign false`, { cwd: dir });
   for (let i = 1; i <= 3; i++) execSync(`git commit -q --allow-empty -m c${i}`, { cwd: dir });
   execSync("git update-ref refs/remotes/origin/main HEAD", { cwd: dir });
   const [tip, c2, c1] =
@@ -14772,6 +14773,7 @@ function testAttributeBaseRed() {
   mkdirSync(repo, { recursive: true });
   execSync("git init -q -b main . && git remote add origin git@github.com:acme-org/source-repo.git",
     { cwd: repo });
+  execSync(`git config user.email test@example.com && git config user.name Test && git config commit.gpgsign false`, { cwd: repo });
   for (let i = 1; i <= 5; i++) execSync(`git commit -q --allow-empty -m c${i}`, { cwd: repo });
   execSync("git update-ref refs/remotes/origin/main HEAD", { cwd: repo });
   // Newest first, exactly the order the walk visits them in.

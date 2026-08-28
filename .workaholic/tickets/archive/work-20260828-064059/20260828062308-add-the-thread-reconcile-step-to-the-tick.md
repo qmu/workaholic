@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-28T06:23:08+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -87,3 +88,35 @@ reconciliation it has not performed.
   is never touched. Say so in the section, so a later reader does not add a cursor.
 - Placing it beside `handoff-units` and `undelivered-units` is deliberate: all three read a unit
   the loop finished, and the three next actions differ. Keep the vocabularies separate.
+
+## Final Report
+
+Development completed as planned.
+
+`step-thread-reconcile.sh` runs `reconcile-candidates.sh`, subtracts the candidates an earlier tick
+already settled from its own `thread-reconcile-filed` lines through `log-read.sh`, bounds the
+remainder at `WORKAHOLIC_RECONCILE_READ_MAX` (default 10, newest first, the rest reported as
+`beyond_bound`), and hands the thread reads back in `needs_agent`. It is registered in `run.sh`
+between `handoff-units` and `retire-claims` — all three read a unit the loop **finished**, and the
+three next actions differ, so the vocabularies stay separate.
+
+`event` is always the empty string, following `unanswered-asks` and `question-answers` for their
+reason: at the moment `run.sh` reads this line nobody has read a thread, so any event would be a
+claim about a reading not made — and a step with no event renders no root line. An **absent** log
+(`no_log_area`) is a readable answer yielding an empty already-done set; any other refusal, a
+missing reader, or a refused candidate read is `degraded` by name and hands back nothing. The step
+never reaches `plan-units.sh`, which stages what its living migrations converge.
+
+### Discovered Insights
+
+- **Insight**: the `<step>-filed` ledger is genuinely an optimisation here, not the gate — unlike
+  the two steps beside it.
+  **Context**: `undelivered-units` and `handoff-units` rely on `ask-question.sh`'s asked-once
+  ledger, which is mechanical. This step's real dedup is **structural**: the agent reads the thread
+  before it writes, so a thread already carrying its finish is never touched however many ticks run.
+  The section says so explicitly, so a later reader adds no cursor on the strength of the line.
+- **Insight**: `run.sh`'s step list is pinned in three separate assertions in the suite (the
+  ordered list, the per-tick line count, the re-entry and deadline counts).
+  **Context**: adding a step is a four-place change, and the count assertions fail with a bare
+  number that does not name the step. That is the pin doing its job — it caught the registration in
+  the same run — but it is worth knowing before adding the twenty-fourth.

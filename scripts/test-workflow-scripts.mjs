@@ -46,6 +46,8 @@ const SCRIPTS = {
   auditIdentityCoverage: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/audit-identity-coverage.sh"),
   stepUndrivableUnits: join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-undrivable-units.sh"),
   stepUndeliveredUnits: join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-undelivered-units.sh"),
+  reconcileCandidates: join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/reconcile-candidates.sh"),
+  stepThreadReconcile: join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-thread-reconcile.sh"),
   listTodo: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/list-todo.sh"),
   proposeRun: join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/run.sh"),
   proposeLogAppend: join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/log-append.sh"),
@@ -17639,6 +17641,8 @@ const tests = [
   ["story/record-merge-outcome.sh: the durable home for a merge outcome", testRecordMergeOutcome],
   ["claims: two verdicts are proofs, and every consumer gates on one", testProofJudgementSplit],
   ["moderate/undelivered-units: the loop's own undelivered work reaches a person", testUndeliveredUnitsStep],
+  ["moderate/reconcile-candidates.sh: which announced items may still be called in flight", testReconcileCandidates],
+  ["moderate/thread-reconcile: the finished item whose thread still calls it in flight", testThreadReconcileStep],
   ["branching/ensure-worktree.sh never shadows a published branch", testEnsureWorktreeNeverShadowsRemote],
   ["drive survey: a mission behind a merged claim is surveyed again", testSupersededMissionIsResurveyed],
   ["drive claim protocol: a mission claim's artifact is unaffected", testMissionClaimArtifactsUnaffected],
@@ -22294,6 +22298,13 @@ function testModerateRun() {
     // again, so the one surface that names a person never learned there was anything to say.
     // Same placement and same reason as its neighbours: it reads, the check-in asks.
     "handoff-units",
+    // `thread-reconcile` (2026-08-28): an announced item whose thread may still be CALLING it
+    // in flight. A finish line is posted by the run that finishes a unit, so a pull request a
+    // person merges or closes by hand gets its finish posted by nobody — and no other step
+    // could see that either: `stuck-prs` and `merge-conflicts` read OPEN pull requests,
+    // `handoff-units` a standing claim, `stalled-units` a stale tip. Same placement and same
+    // reason as its neighbours: it reads, and the agent posts into the item's own thread.
+    "thread-reconcile",
     // `retire-claims` (2026-08-27): the one step beside these that ACTS instead of asking. A
     // claim the oracle reads `superseded` is PROVED to hold nothing, so there is no judgement
     // for a person to make — and `superseded` had been reported-never-acted-on since it
@@ -23031,11 +23042,40 @@ function testModerateRoutineTemplate() {
       block(template, "✅ 解消を確認"), conf);
     assertTrue("and it carries no mention token", !/<@U/.test(conf), conf);
   }
-  assertEq("and they are the only three shapes the template authorizes",
+  // FIVE SHAPES SINCE 2026-08-28 (mission `reconcile-a-stale-thread-with-the-unit-s-real-state`):
+  // the two reconciliation replies. The merged one REUSES `🟢 Implemented` deliberately — the
+  // reader's question is *did this finish*, and a fifth finish colour would make one event two
+  // vocabularies — so it is marked by its sentence; `⚫ Closed` is genuinely new, because
+  // *closed* and *merged* ask a reader for different things.
+  {
+    for (const lead of ["🟢 Implemented - \\[#123 Title\\]\\(<repo-url>/pull/123\\)\\nMerged outside",
+                        "⚫ Closed - \\[#123 Title\\]"]) {
+      const c = block(catalog, lead);
+      assertTrue(`the catalog carries the reconciliation reply ${lead}`, c !== "",
+        "missing from notifications.md");
+      assertEq(`${lead} reads byte-identically in the template and the catalog`,
+        block(template, lead), c);
+      assertTrue("and it carries no mention token", !/<@U/.test(c), c);
+      assertTrue("and says the finish was posted by no run",
+        /no run posted this item's finish\./.test(c), c);
+    }
+    // THE NARROWING IS WRITTEN, and it is what keeps this from being `[Consent]` again: only a
+    // thread still CALLING the unit in flight is a candidate.
+    assertTrue("the catalog names the two stale-able last words",
+      /only a thread whose last status reply is `🔵 Proposed` or `🟡 Handoff` is a candidate/
+        .test(catalog), "the narrowing is unwritten");
+    assertTrue("and answers `[Consent]`'s retirement by name",
+      /`\[Consent\]`'s retirement is answered by name/.test(catalog), "the precedent is unanswered");
+    assertTrue("the template requires the thread to be read before anything is posted",
+      /\*\*read it first\*\*/.test(template), template);
+  }
+  assertEq("and they are the only five shapes the template authorizes",
     [...template.matchAll(/```\n([^\n]*)/gu)].map((m) => m[1]).filter((l) => /^[^\s`]/.test(l)),
     ["🔎 Moderation - <N> change(s), <M> question(s)",
      "🙋 <@U…> - <what this tick could not decide>",
-     "✅ 解消を確認 - <the question's subject, one line>"]);
+     "✅ 解消を確認 - <the question's subject, one line>",
+     "🟢 Implemented - [#123 Title](<repo-url>/pull/123)",
+     "⚫ Closed - [#123 Title](<repo-url>/pull/123)"]);
   for (const retired of ["🔧 Needs a decision", "📦 Release Preparation"]) {
     assertEq(`no session may post ${retired} any more — the template`, block(template, retired), "");
     assertEq(`no session may post ${retired} any more — the catalog`, block(catalog, retired), "");
@@ -25058,6 +25098,311 @@ function testProofJudgementSplit() {
 // what is proved is the whole chain: record the outcome → the oracle splits the verdict → the
 // step asks the holder. No network: the fixture's origin is a local directory, so the pull
 // request lookup is `unanswerable` and the step must keep the candidate anyway.
+// The candidate reader behind the thread reconciliation: which announced items may still be
+// called in flight. Repository-derived by construction — a channel scan would break
+// `workaholic:notify`'s two-query bound outright — so the fixture is a git repository with a
+// merge commit, and `gh` is stubbed. No network.
+function testReconcileCandidates() {
+  const tmp = mkdtempSync(join(tmpdir(), "wh-reconcile-cand-"));
+  const bin = join(tmp, "bin");
+  const repo = join(tmp, "repo");
+  mkdirSync(bin, { recursive: true });
+  mkdirSync(repo, { recursive: true });
+  const env = { ...process.env, PATH: `${bin}:${process.env.PATH}` };
+  const stub = (body) => {
+    writeFileSync(join(bin, "gh"), `#!/bin/sh\n${body}\n`);
+    chmodSync(join(bin, "gh"), 0o755);
+  };
+  try {
+    execSync("git init -q . && git remote add origin git@github.com:acme-org/source-repo.git",
+      { cwd: repo });
+    // A feedback record, a mission citing it, and a ticket in the mission — the shape a
+    // `/specificate` proposal lands and an `/implement` unit then drives.
+    mkdirSync(join(repo, ".workaholic/feedbacks"), { recursive: true });
+    mkdirSync(join(repo, ".workaholic/missions/active/alpha"), { recursive: true });
+    mkdirSync(join(repo, ".workaholic/tickets/todo"), { recursive: true });
+    mkdirSync(join(repo, ".workaholic/stories"), { recursive: true });
+    writeFileSync(join(repo, ".workaholic/feedbacks/20260828010101-an-ask.md"),
+      "---\ntype: Feedback\n---\n\nan ask\n");
+    writeFileSync(join(repo, ".workaholic/missions/active/alpha/mission.md"),
+      "---\ntype: Mission\nslug: alpha\nfeedback: [20260828010101-an-ask.md]\n---\n\n# Alpha\n");
+    writeFileSync(join(repo, ".workaholic/tickets/todo/20260828010102-t1.md"),
+      "---\nmission: alpha\n---\n\n# T1\n");
+    // A second unit with NO feedback record anywhere — a hand-written `/ticket` unit, which
+    // has no thread to reconcile and must be named rather than silently dropped.
+    writeFileSync(join(repo, ".workaholic/tickets/todo/20260828010103-loose.md"),
+      "---\nmission:\n---\n\n# Loose\n");
+    execSync('git add -A && git commit -q -m "Seed the tree"', { cwd: repo });
+    execSync("git branch -q main-base", { cwd: repo });
+
+    const mergeBranch = (branch, files, subject) => {
+      execSync(`git checkout -q -b ${branch}`, { cwd: repo });
+      for (const f of files) {
+        writeFileSync(join(repo, f), `${readFileSync(join(repo, f), "utf8")}\n<!-- ${branch} -->\n`);
+      }
+      execSync(`git add -A && git commit -q -m "Work on ${branch}"`, { cwd: repo });
+      execSync(`git checkout -q master 2>/dev/null || git checkout -q main`, { cwd: repo });
+      execSync(`git merge -q --no-ff -m ${JSON.stringify(subject)} ${branch}`, { cwd: repo });
+    };
+    mergeBranch("work-20260828-010000",
+      [".workaholic/missions/active/alpha/mission.md", ".workaholic/tickets/todo/20260828010102-t1.md"],
+      "Merge pull request #11 from acme-org/work-20260828-010000");
+    mergeBranch("work-20260828-020000", [".workaholic/tickets/todo/20260828010103-loose.md"],
+      "Merge pull request #12 from acme-org/work-20260828-020000");
+    const head = execSync("git rev-parse --abbrev-ref HEAD", { cwd: repo, encoding: "utf8" }).trim();
+    execSync(`git branch -f origin-main ${head} 2>/dev/null || true`, { cwd: repo });
+
+    const now = new Date();
+    const iso = (daysAgo) =>
+      new Date(now.getTime() - daysAgo * 86400000).toISOString().replace(/\.\d+Z$/, "Z");
+    const rows = [
+      ["11", "work-20260828-010000", iso(0.2), iso(0.2), "https://x/pull/11", "Alpha"],
+      ["12", "work-20260828-020000", iso(0.3), iso(0.3), "https://x/pull/12", "Loose"],
+      ["13", "work-20260801-000000", iso(40), iso(40), "https://x/pull/13", "Ancient"],
+      ["14", "publish-main", iso(0.1), iso(0.1), "https://x/pull/14", "Not a claim branch"],
+      ["15", "work-20260828-030000", "-", iso(0.4), "https://x/pull/15", "Closed unmerged"],
+    ];
+    const tsv = rows.map((r) => r.join("\t")).join("\n");
+    stub([
+      'case "$*" in',
+      `  *"pulls?state=closed"*"page=1"*) printf '%b\\n' ${JSON.stringify(tsv)} ;;`,
+      '  *"pulls?state=closed"*) : ;;',
+      '  *pulls/15/files*) echo ".workaholic/missions/active/alpha/mission.md" ;;',
+      '  *pulls/15/files*) echo ".workaholic/missions/active/alpha/mission.md" ;;',
+      '  *pulls/11*|*pulls/12*) echo "a-person" ;;',
+      '  *) : ;;',
+      "esac",
+    ].join("\n"));
+
+    const read = (extra = "") => JSON.parse(run(repo,
+      `${POSIX_SH} ${SCRIPTS.reconcileCandidates} --root ${repo}${extra}`,
+      { env: { ...env, WORKAHOLIC_BASE_REF: head } }).stdout);
+
+    const r = read(" --window-days 3 --limit 10");
+    assertEq("the reader answers", r.ok, true);
+
+    // THE WINDOW AND THE BRANCH PATTERN ARE BOTH TERMS OF THE FILTER: only pull requests this
+    // loop opened, and only recent ones. `publish-main` is not a claim branch; #13 is old.
+    const numbers = r.candidates.map((c) => c.number).concat(r.unresolved.map((u) => u.number));
+    assertTrue("a non-`work-*` head is not a candidate", !numbers.includes(14), JSON.stringify(numbers));
+    assertTrue("and neither is one outside the window", !numbers.includes(13), JSON.stringify(numbers));
+
+    // A CANDIDATE CARRIES WHAT THE THREAD LOOKUP AND THE REPLY NEED.
+    const alpha = r.candidates.find((c) => c.number === 11);
+    assertTrue("the unit that published a feedback-citing artifact is a candidate", !!alpha,
+      JSON.stringify(r));
+    assertEq("its stems come from the one translation",
+      alpha.stems, ["20260828010101-an-ask"]);
+    assertEq("and it names merged-or-closed with by-whom and when",
+      [alpha.state, alpha.merged_by, alpha.merged_at.length > 0], ["merged", "a-person", true]);
+    assertEq("the unit reads as the mission the story or the merge names", alpha.unit, "alpha");
+
+    // CLOSED UNMERGED IS ITS OWN STATE — a different reply, so never collapsed into `merged`.
+    // A tab is IFS *whitespace*, so an empty `merged_at` used to collapse and shift `closed_at`
+    // into it, and the row read `merged`: the one distinction the two shapes exist to draw.
+    const closed = r.candidates.find((c) => c.number === 15);
+    assertTrue("a closed-unmerged pull request is still read", !!closed, JSON.stringify(r));
+    assertEq("and reads closed, never merged, with no author invented",
+      [closed.state, closed.merged_by], ["closed", ""]);
+
+    // AN ITEM WITH NO FEEDBACK RECORD HAS NO THREAD TO RECONCILE, and is NAMED rather than
+    // dropped — and never keyed on `unit:<id>` here, because this reader answers *which item*.
+    const loose = r.unresolved.find((u) => u.number === 12);
+    assertTrue("a unit with no feedback record is reported", !!loose, JSON.stringify(r.unresolved));
+    assertEq("under its own reason", loose.reason, "stems_unresolvable");
+
+    // THE BOUND IS REPORTED, NEVER SILENT.
+    const capped = read(" --window-days 3 --limit 1");
+    assertEq("the candidate cap is honoured and the remainder reported",
+      [capped.read, capped.truncated, capped.beyond_bound > 0], [1, true, true]);
+
+    // IT WRITES NOTHING. A pure read is the whole contract.
+    assertEq("git status is clean after the reader ran",
+      execSync("git status --porcelain", { cwd: repo, encoding: "utf8" }).trim(), "");
+
+    // A DEGRADED READ IS `ok: false` WITH ITS REASON AND EXIT 0 — never an empty candidate
+    // list, which would render our own blindness as "nothing to reconcile".
+    stub('exit 1');
+    const deg = JSON.parse(run(repo,
+      `${POSIX_SH} ${SCRIPTS.reconcileCandidates} --root ${repo} --window-days 3`,
+      { env }).stdout);
+    assertEq("a refused list degrades by name", [deg.ok, deg.reason], [false, "list_failed"]);
+    assertTrue("and emits no candidate list at all", deg.candidates === undefined,
+      JSON.stringify(deg));
+
+    // AND IT REACHES GITHUB ONLY THROUGH THE ONE TRANSPORT (`rules/shell.md`).
+    const src = readFileSync(SCRIPTS.reconcileCandidates, "utf8");
+    assertTrue("the reader reaches GitHub only through gh-rest.sh",
+      !/\bgh (issue|pr|repo|api)\b/.test(src.replace(/^#.*$/gm, "")), "a direct gh call");
+  } finally { rmSync(tmp, { recursive: true, force: true }); }
+}
+
+// The step that hands the thread reads back to the agent. Its whole mechanical contract:
+// which candidates, which bounds, what an earlier tick already settled — and an `event` that is
+// always empty, so a tick that reconciles nothing renders no root line.
+function testThreadReconcileStep() {
+  const MERGE_SUBJECT = "Merge PR #11 from acme-org/work-20260828-010000";
+  const tmp = mkdtempSync(join(tmpdir(), "wh-thread-reconcile-"));
+  const bin = join(tmp, "bin");
+  const repo = join(tmp, "repo");
+  mkdirSync(bin, { recursive: true });
+  mkdirSync(repo, { recursive: true });
+  const env = { ...process.env, PATH: `${bin}:${process.env.PATH}` };
+  try {
+    execSync("git init -q . && git remote add origin git@github.com:acme-org/source-repo.git",
+      { cwd: repo });
+    mkdirSync(join(repo, ".workaholic/feedbacks"), { recursive: true });
+    mkdirSync(join(repo, ".workaholic/missions/active/alpha"), { recursive: true });
+    mkdirSync(join(repo, ".workaholic/moderations"), { recursive: true });
+    writeFileSync(join(repo, ".workaholic/feedbacks/20260828010101-an-ask.md"),
+      "---\ntype: Feedback\n---\n\nan ask\n");
+    const mission = join(repo, ".workaholic/missions/active/alpha/mission.md");
+    writeFileSync(mission,
+      "---\ntype: Mission\nslug: alpha\nfeedback: [20260828010101-an-ask.md]\n---\n\n# Alpha\n");
+    execSync('git add -A && git commit -q -m "Seed the tree"', { cwd: repo });
+    const base = execSync("git branch --show-current", { cwd: repo, encoding: "utf8" }).trim();
+    execSync("git checkout -q -b work-20260828-010000", { cwd: repo });
+    writeFileSync(mission, `${readFileSync(mission, "utf8")}\ndone\n`);
+    execSync('git add -A && git commit -q -m "Work"', { cwd: repo });
+    execSync(`git checkout -q ${base} && git merge -q --no-ff `
+      + `-m ${JSON.stringify(MERGE_SUBJECT)} work-20260828-010000`, { cwd: repo });
+
+    const iso = (h) => new Date(Date.now() - h * 3600000).toISOString().replace(/\.\d+Z$/, "Z");
+    writeFileSync(join(bin, "gh"), [
+      "#!/bin/sh",
+      'case "$*" in',
+      `  *"pulls?state=closed"*"page=1"*) printf '%b\\n' `
+        + JSON.stringify(["11", "work-20260828-010000", iso(3), iso(3),
+          "https://x/pull/11", "Alpha"].join("\t")) + " ;;",
+      '  *pulls/11*) echo "a-person" ;;',
+      '  *) : ;;',
+      "esac",
+    ].join("\n"));
+    chmodSync(join(bin, "gh"), 0o755);
+
+    const step = (root = repo) => JSON.parse(run(root,
+      `${POSIX_SH} ${SCRIPTS.stepThreadReconcile} --tick 20260828-070000 --root ${root}`,
+      { env: { ...env, WORKAHOLIC_BASE_REF: base } }).stdout);
+
+    const r = step();
+    assertEq("the step runs ok", [r.step, r.status], ["thread-reconcile", "ok"]);
+    const need = r.needs_agent[0] || {};
+    assertEq("the finished item is handed to the agent", (need.candidates || []).length, 1);
+    assertEq("keyed once per pull request", need.candidates[0].key, "thread-reconcile:11");
+
+    // THE `event` IS ALWAYS EMPTY, so a tick that reconciles nothing renders no root line — the
+    // `unanswered-asks` precedent: at this moment nobody has read a thread.
+    assertEq("the event is always empty", r.event, "");
+
+    // THE BOUNDS THE AGENT MUST NOT EXCEED ARE HANDED TO IT IN WORDS, because no script can
+    // enforce them: two queries, no channel history, read before writing, case 4 refused.
+    assertTrue("the two-query bound rides the request", /AT MOST TWO queries/.test(need.bound), need.bound);
+    assertTrue("and the channel-history prohibition", /no channel history read/.test(need.bound), need.bound);
+    assertTrue("and case 4 is refused by name", /case 4 does NOT apply/i.test(need.bound), need.bound);
+    assertTrue("the thread is read before anything is written",
+      /read that thread BEFORE writing/i.test(need.read_first), JSON.stringify(need.read_first));
+    assertTrue("and only 🔵/🟡 is a candidate",
+      /🔵 Proposed or 🟡 Handoff/.test(need.read_first), JSON.stringify(need.read_first));
+    assertTrue("with one outcome required per candidate",
+      /non-conformant on its face/.test(need.outcomes), JSON.stringify(need.outcomes));
+
+    // AN EARLIER TICK'S `<step>-filed` LINE SUBTRACTS THE CANDIDATE — an optimisation, never the
+    // gate: the real dedup is the agent reading the thread before it writes.
+    run(repo, `${POSIX_SH} ${SCRIPTS.proposeLogAppend} --root ${repo} --tick 20260828-060000 `
+      + `--step thread-reconcile-filed --status ok --summary "thread-reconcile:11 posted"`);
+    const after = step();
+    assertEq("a candidate an earlier tick settled is not handed back again",
+      after.needs_agent.length, 0);
+    assertTrue("and the summary counts it as already reconciled",
+      /1 already reconciled/.test(after.summary), after.summary);
+
+    // THE STEP WRITES NOTHING OF ITS OWN.
+    execSync('git add -A && git commit -q -m "Record the log"', { cwd: repo });
+    step();
+    assertEq("git status is clean after the step ran",
+      execSync("git status --porcelain", { cwd: repo, encoding: "utf8" }).trim(), "");
+
+    // A REFUSED CANDIDATE READ IS `degraded` BY NAME AND HANDS BACK NOTHING — "nothing was
+    // looked at" is never rendered as "nothing is stale".
+    writeFileSync(join(bin, "gh"), "#!/bin/sh\nexit 1\n");
+    chmodSync(join(bin, "gh"), 0o755);
+    const deg = step();
+    assertEq("a refused candidate read degrades by name",
+      [deg.status, deg.needs_agent.length], ["degraded", 0]);
+    assertTrue("carrying the reader's own reason", /candidates_list_failed/.test(deg.reason), deg.reason);
+
+    // AN ABSENT LOG IS A READABLE ANSWER, NOT A DEGRADATION.
+    const plain = mkdtempSync(join(tmpdir(), "wh-thread-reconcile-nolog-"));
+    execSync("git init -q . && git remote add origin git@github.com:acme-org/source-repo.git",
+      { cwd: plain });
+    writeFileSync(join(bin, "gh"), '#!/bin/sh\ncase "$*" in *) : ;; esac\n');
+    chmodSync(join(bin, "gh"), 0o755);
+    const nolog = step(plain);
+    assertEq("a tree with no tick log is ok with nothing to reconcile",
+      [nolog.status, nolog.needs_agent.length], ["ok", 0]);
+    rmSync(plain, { recursive: true, force: true });
+
+    // THE AGENT'S CONTRACT IS PROSE, SO WHAT IS MECHANICAL ABOUT IT IS PINNED. No check tells a
+    // real thread read from a claimed one — the `## Open Decisions` floor's own shape — so what
+    // this buys is that a section missing one of these bounds is visibly wrong.
+    const contract = readFileSync(
+      join(REPO_ROOT, "plugins/workaholic/skills/moderate/reference/workflow.md"), "utf8");
+    const section = contract.slice(contract.indexOf("## 23. `thread-reconcile`"),
+      contract.indexOf("## The reader behind the thread reconciliation"));
+    assertTrue("the section exists", section.length > 0, "no thread-reconcile section");
+    // Collapsed, because the source is wrapped prose and a line break is not a missing rule.
+    const flat = section.replace(/\s+/gu, " ");
+    for (const [what, re] of [
+      ["the two-query bound", /\*\*two queries at most\*\*/],
+      ["the fuzzy-matching prohibition", /fuzzy matching prohibited by name/],
+      ["case 4 refused, with its reason", /\*\*Case 4 does not apply here\*\*/],
+      ["the read-before-write bar", /\*\*Read that thread before writing anything\*\*/],
+      ["the conservative candidate bar", /Only a \*\*latest\*\* status reply of `🔵 Proposed` or `🟡 Handoff`/],
+      ["when unsure, post nothing", /\*\*When unsure, post nothing and say what made you unsure\*\*/],
+      ["never invent an author or a time", /\*\*Never invent an author or a time\*\*/],
+      ["the second persist", /the \*\*second\*\* persist/],
+      ["one outcome per candidate", /non-conformant on its face/],
+      ["no mention token", /\*\*The post carries no mention token\.\*\*/],
+      ["the structural idempotence", /\*\*The idempotence is structural/],
+      ["and the never-list", /never posts into any thread but the item's own/],
+    ]) {
+      assertTrue(`the contract states ${what}`, re.test(flat), `${what} is unwritten`);
+    }
+    for (const reason of ["no_thread", "already_finished", "unsure", "no_slack_transport",
+      "thread_unreadable", "post_failed"]) {
+      assertTrue(`and names the not-posted reason ${reason}`, section.includes(reason),
+        `${reason} is unnamed`);
+    }
+
+    // AND IT IS REGISTERED, IN ORDER, beside the two steps that read the same kind of fact.
+    const runSh = readFileSync(
+      join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/run.sh"), "utf8");
+    assertTrue("run.sh invokes the step beside handoff-units",
+      /handoff-units thread-reconcile/.test(runSh), "not registered in order");
+    // AND IT NEVER REACHES THE SURVEY, which stages what its living migrations converge.
+    const src = readFileSync(SCRIPTS.stepThreadReconcile, "utf8").replace(/^#.*$/gm, "");
+    assertTrue("the step never reaches plan-units.sh", !/plan-units\.sh/.test(src),
+      "the step reaches the survey");
+
+    // AND THE DRILL EXISTS, is dispatched by its verb, and is documented — the same three pins
+    // every other verify target carries, so a drill that is written and never wired reads
+    // exactly like one that runs.
+    const drill = readFileSync(join(REPO_ROOT, "scripts/e2e/loop-drill.sh"), "utf8");
+    assertTrue("verify-reconcile is in loop-drill.sh", /cmd_verify_reconcile\(\)/.test(drill),
+      "verify-reconcile is not in loop-drill.sh");
+    assertTrue("and is dispatched by its verb", /verify-reconcile\)/.test(drill),
+      "the drill's verb is not wired");
+    assertTrue("and its usage line names it", /verify-reconcile \[--json\]/.test(drill),
+      "the drill is not in the usage line");
+    const runbook = readFileSync(join(REPO_ROOT, "docs/loop-drill-runbook.md"), "utf8");
+    assertTrue("and the runbook documents it alongside the others",
+      /verify-reconcile/.test(runbook), "the drill is undocumented");
+    assertTrue("with the deliberately-broken row named as the proof it is",
+      /reconcile_breaker/.test(runbook) && /reconcile_breaker/.test(drill),
+      "the failing row is missing from the drill or the runbook");
+  } finally { rmSync(tmp, { recursive: true, force: true }); }
+}
+
 function testUndeliveredUnitsStep() {
   const fx = makeClaimFixture();
   const RECORDER = join(REPO_ROOT,

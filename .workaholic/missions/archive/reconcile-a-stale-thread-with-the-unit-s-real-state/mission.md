@@ -2,7 +2,7 @@
 type: Mission
 title: Reconcile a stale thread with the unit's real state
 slug: reconcile-a-stale-thread-with-the-unit-s-real-state
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-28T06:22:21+00:00
 author: a@qmu.jp
@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260828-064059
 ---
 
 # Reconcile a stale thread with the unit's real state
@@ -37,10 +38,17 @@ carrying its finish is untouched. It merges nothing, claims nothing, posts nowhe
 
 ## Acceptance
 
-- [ ] One reader derives from the repository which announced items may still be called in flight (#20260828062308-read-which-announced-items-may-still-be-called-in-flight.md)
-- [ ] The tick posts the missing reply into the item's own thread once, never over a thread that carries its finish (#20260828062308-post-the-missing-finish-reply-exactly-once.md)
-- [ ] The shape is named once in the catalog and the [Moderate] template, and a drill proves the bounds (#20260828062308-drill-the-reconciliation-with-no-network.md)
+- [x] One reader derives from the repository which announced items may still be called in flight (#20260828062308-read-which-announced-items-may-still-be-called-in-flight.md)
+- [x] The tick posts the missing reply into the item's own thread once, never over a thread that carries its finish (#20260828062308-post-the-missing-finish-reply-exactly-once.md)
+- [x] The shape is named once in the catalog and the [Moderate] template, and a drill proves the bounds (#20260828062308-drill-the-reconciliation-with-no-network.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-28 — ticket archived — 20260828062308-read-which-announced-items-may-still-be-called-in-flight.md
+- 2026-08-28 — ticket archived — 20260828062308-name-the-reconciliation-reply-once-in-the-catalog.md
+- 2026-08-28 — ticket archived — 20260828062308-add-the-thread-reconcile-step-to-the-tick.md
+- 2026-08-28 — ticket archived — 20260828062308-post-the-missing-finish-reply-exactly-once.md
+- 2026-08-28 — ticket archived — 20260828062308-drill-the-reconciliation-with-no-network.md
+- 2026-08-28 — mission achieved — mission.md
+- 2026-08-28 — story reported — work-20260828-064059

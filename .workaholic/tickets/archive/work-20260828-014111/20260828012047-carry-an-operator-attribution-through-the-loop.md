@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-28T01:20:47+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -84,3 +85,40 @@ repository still leaves to a hand-edit of `main`. It adds no field and revives n
 - The bound is the whole safety property. It appends refs that already exist on a strategy
   the operator named; it must never author refs, never remove any, and never touch the
   strategy file.
+## Final Report
+
+Development completed as planned.
+
+`strategy/scripts/carry-attribution.sh <strategy> <mission>` appends a named `active`
+strategy's **own existing** `feedback:` refs to a named active mission and writes nothing
+else. It copies `amend.sh`'s discipline literally — bounded to one act, asserts the immutable
+half over its own candidate (both the rest of the frontmatter and the whole body), and writes
+**nothing** on any refusal: `strategy_not_found`, `mission_not_found`, `not_active`,
+`no_revision`, `no_slug`, `immutable_field`. A re-run leaves the mission byte-identical and
+reports `already`. Matching is by explicit slug only. It adds no field and revives no
+`strategy:` relation: the refs it appends are the ones the citation walk already reads.
+
+It joins `/specificate`'s announcement route as **step 9e** (SKILL.md's table, the recognition
+rule and the workflow's steps), recognised from an announcement naming **both** slugs, and
+record-only with its reason otherwise. A run never carries an attribution on its own reading.
+
+**The auto-merge decision, settled in the skill:** its pull request **does not auto-merge** —
+it carries an operator's ruling, so the operator's merge is the authorship. But this one is
+the **caller's** rule rather than the seam's, and that difference is stated rather than
+blurred: `publish-tree-pr.sh` derives `strategy_touching` from a path under
+`.workaholic/strategies/`, and this route writes `.workaholic/missions/`, so the seam cannot
+see it. Step 9e leaves `WORKAHOLIC_AUTO_MERGE` unset and a hermetic assertion pins that
+step's own text.
+
+### Discovered Insights
+
+- **Insight**: `testDirectionHealthRefusals`' writer detector resolves path variables one hop
+  and then asks what is done with them, so a script merely *holding* a `strategies/` path in a
+  variable is safe while one that assigns anything derived from it and later redirects into
+  that name would register as a fourth writer.
+  **Context**: it is why this script redirects the strategy read to a file under its temp
+  directory rather than capturing it into a variable — a habit worth keeping in any future
+  script that reads a strategy.
+- **Insight**: the byte-identity check has to cover the **body** as well as the frontmatter.
+  A frontmatter-only assertion passes over a candidate whose awk pass silently dropped a body
+  line, which is the failure mode of every line-rewriting filter.

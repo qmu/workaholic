@@ -42,7 +42,7 @@ pull request instead of editing `main` by hand.
       eligible and refused alike, with no gate and no sort moved. (#20260828012042-read-what-no-direction-claims.md)
 - [x] No arrival is claimed over an unreadable residue, and the arrival question and the
       run report both name the residue by slug. (#20260828012044-refuse-an-arrival-over-a-tree-we-could-not-see.md)
-- [ ] An operator's attribution ruling reaches a pull request through the loop, adding no
+- [x] An operator's attribution ruling reaches a pull request through the loop, adding no
       field and reviving no `strategy:` relation. (#20260828012047-carry-an-operator-attribution-through-the-loop.md)
 
 ## Changelog
@@ -54,3 +54,4 @@ pull request instead of editing `main` by hand.
 - 2026-08-28 — ticket archived — 20260828012044-refuse-an-arrival-over-a-tree-we-could-not-see.md
 - 2026-08-28 — ticket archived — 20260828012045-name-the-residue-in-the-arrival-question.md
 - 2026-08-28 — ticket archived — 20260828012046-name-the-residue-as-evidence-in-the-run-report.md
+- 2026-08-28 — ticket archived — 20260828012047-carry-an-operator-attribution-through-the-loop.md

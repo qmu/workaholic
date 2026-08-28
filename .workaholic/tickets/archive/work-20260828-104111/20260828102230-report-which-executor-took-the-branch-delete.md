@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-28T10:22:30+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -88,3 +89,28 @@ existing states carry and the rendering currently blurs.
   disagree with the first.
 - `already_gone` is a **success**, not a degradation, and must keep rendering as one — the
   same rule `already_closed` and `absent` already carry.
+
+## Final Report
+
+Development completed as planned.
+
+`retire-claim.sh` is byte-identical: its JSON shape is unchanged and its four Act-2 words
+(`deleted`, `already_gone`, `failed`, `not_attempted`) still come from exactly where they came
+from — `already_gone` is still emitted purely from `git rev-parse --verify
+refs/remotes/origin/<branch>` and asserts nothing about who removed the ref. Only
+`step-retire-claims.sh`'s wording moved: a delete this tick took renders as *branch deleted here*
+and one it found already done as *branch removed elsewhere*, derived through one jq definition
+shared by the retired and refused lines. `already_gone` keeps rendering as the success it is;
+`failed` and `not_attempted` render exactly as before, which is why `verify-retire`'s existing
+string assertions stayed green untouched. No per-executor field anywhere, and the event rule is
+unchanged — a tick that retired nothing supplies no event.
+
+### Discovered Insights
+
+- **Insight**: `already_gone` is very nearly unreachable in a fixture, because the ref that
+  produces the claim row and the ref Act 2 checks are the *same* freshly-pruned remote-tracking
+  ref — so no two-tick fixture can hold a row whose branch is already gone.
+  **Context**: that is why the two renderings are pinned at the source rather than driven
+  behaviourally, and it is also why the wording matters: the state a reader meets rarely is
+  exactly the one they will misread. The reasoning is recorded in the suite beside the assertion
+  so a later reader does not spend an afternoon trying to build the fixture.

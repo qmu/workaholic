@@ -6,12 +6,13 @@
 # Usage: direction-state.sh [window] [workaholic-root]
 #   --open-proposals <file>  passed straight through to the survey (see COST below)
 #   --aim-kind <kind>        passed straight through to the survey
+#   --with-leaving           attach `leaving` to every row (see THE LEAVING below)
 #   window: any `git log --since` expression; the survey's own default applies when omitted.
 #
 # Output (one JSON object):
 #   {ok, readable, reason, window, repository, active_count,
 #    strategies: [{slug, state, reason, title, assignees, days_to_target, target_date, landed,
-#                  residue}],
+#                  waiting, residue, leaving?}],
 #    counts: {live, arrived, overdue, dormant, unreadable}}
 #
 #   state       "live" | "arrived" | "overdue" | "dormant" | "unreadable", one per active
@@ -21,6 +22,23 @@
 #               ticket_count} — WHAT NO DIRECTION CLAIMS, carried through unchanged. It is a
 #               fact about the repository, so it is identical on every row; a consumer names
 #               it beside an `arrived` reading and never re-reads it.
+#   waiting     the survey's own waiting grains — WHAT THIS DIRECTION NEVER REACHED, projected
+#               exactly like `landed`: {count, missions, mission_slugs, describing, advancing}.
+#   leaving     ONLY under `--with-leaving`: `closing-residue.sh`'s composition of the three,
+#               for this row. See below.
+#
+# ═══ THE LEAVING (2026-08-28) ════════════════════════════════════════════════════════
+#
+# What a direction leaves when it ends — what it never reached, what no direction claimed, and
+# its own last lifecycle reading — is exactly the evidence a person needs BEFORE deciding to
+# close it, and `closing-residue.sh` is the one place that composition lives. A consumer that
+# assembled it here would be a SECOND ASSEMBLY of one reading, which is the same defect this
+# whole script exists to prevent one level down.
+#
+# So the row is handed BACK to that script (`--state-row`), which carries the lifecycle, the
+# residue and the waiting grains off the row rather than re-reading any of them: no recursion,
+# no second assembly, and NOT ONE EXTRA READ of the tree or the network. `--with-leaving` is
+# opt-in so a caller that does not need it pays nothing and its output shape does not move.
 #
 # ═══ WHY THIS SCRIPT EXISTS AT ALL ════════════════════════════════════════════════════
 #
@@ -100,10 +118,12 @@ SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 SURVEY="${SCRIPT_DIR}/../../propose/scripts//survey-strategies.sh"
 
 PASS_THROUGH=''
+WITH_LEAVING=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --open-proposals) PASS_THROUGH="${PASS_THROUGH} --open-proposals ${2:-}"; shift 2 ;;
     --aim-kind)       PASS_THROUGH="${PASS_THROUGH} --aim-kind ${2:-}"; shift 2 ;;
+    --with-leaving)   WITH_LEAVING=1; shift ;;
     --)               shift; break ;;
     -*)               printf '{"ok": false, "reason": "usage", "detail": "unknown flag"}\n'; exit 0 ;;
     *)                break ;;
@@ -138,7 +158,7 @@ if [ "$(printf '%s' "$OUT" | jq -r '.ok // false')" != "true" ]; then
   emit_unreadable "$(printf '%s' "$OUT" | jq -r '.reason // "survey_refused"')"
 fi
 
-printf '%s' "$OUT" | jq -c '
+RESULT="$(printf '%s' "$OUT" | jq -c '
   # Every surveyed row, eligible and refused both. The refused list is where an OVERDUE
   # direction lives — `past_target_date` refuses it — so a reader taking only `eligible`
   # would see none of the states this script exists to report.
@@ -163,6 +183,16 @@ printf '%s' "$OUT" | jq -c '
           # which is the rule this whole script exists to hold.
           residue: (.residue // {readable: false, reason: "absent",
                                  missions: [], mission_count: null, ticket_count: null}),
+          # THE WAITING GRAINS RIDE THROUGH TOO (2026-08-28), projected exactly like
+          # `landed`: WHAT THIS DIRECTION NEVER REACHED is the other half of what it leaves,
+          # and the survey already read it once per row. A consumer must not call
+          # `attributed-work.sh` itself for the same reason it must not call
+          # `unattributed-work.sh`: two readings of one fact drift.
+          waiting: {count:         (.waiting_count // 0),
+                    missions:      (.waiting_missions // 0),
+                    mission_slugs: (.waiting_mission_slugs // []),
+                    describing:    (.waiting_describing // 0),
+                    advancing:     (.waiting_advancing // .waiting_count // 0)},
           state: (if ((.reason // "") == "attribution_unreadable") then "unreadable"
                   elif (.quiescent == true) then "arrived"
                   elif (.overdue == true) then "overdue"
@@ -186,4 +216,40 @@ printf '%s' "$OUT" | jq -c '
               overdue:    ([$rows[] | select(.state == "overdue")]    | length),
               dormant:    ([$rows[] | select(.state == "dormant")]    | length),
               unreadable: ([$rows[] | select(.state == "unreadable")] | length)}}
-'
+')"
+
+if [ "$WITH_LEAVING" != "1" ]; then
+  printf '%s\n' "$RESULT"
+  exit 0
+fi
+
+# ═══ THE LEAVING, ATTACHED PER ROW ══════════════════════════════════════════════════
+# The row goes BACK to `closing-residue.sh`, which is where that composition lives and the
+# only place it lives. It carries the lifecycle, the residue and the waiting grains straight
+# off the row handed to it, so this attaches the reading WITHOUT one extra read of the tree,
+# one extra network call, or a second assembly that could drift from the first.
+#
+# A ROW WHOSE LEAVING COULD NOT BE COMPOSED IS NAMED, NEVER DROPPED and never silently
+# emptied: the row keeps every field it already had and its `leaving` says `readable: false`
+# with its own reason, which is the rule every block of that output already follows.
+COMPOSER="${SCRIPT_DIR}/closing-residue.sh"
+n=$(printf '%s' "$RESULT" | jq -r '.strategies | length')
+i=0
+LEAVINGS='[]'
+while [ "$i" -lt "$n" ]; do
+  row=$(printf '%s' "$RESULT" | jq -c --argjson i "$i" '.strategies[$i]')
+  if [ -f "$COMPOSER" ]; then
+    slug=$(printf '%s' "$row" | jq -r '.slug')
+    leaving=$(printf '%s' "$row" | sh "$COMPOSER" --state-row - "$slug" "$WINDOW" "${ROOT:-.workaholic}" 2>/dev/null || true)
+  else
+    leaving=''
+  fi
+  if [ -z "$leaving" ] || ! printf '%s' "$leaving" | jq -e . >/dev/null 2>&1; then
+    leaving='{"ok": true, "readable": false, "reason": "leaving_uncomposable", "exhaustive": false}'
+  fi
+  LEAVINGS=$(printf '%s' "$LEAVINGS" | jq -c --argjson l "$leaving" '. + [$l]')
+  i=$((i + 1))
+done
+
+printf '%s' "$RESULT" | jq -c --argjson leavings "$LEAVINGS" '
+  .strategies = [ .strategies | to_entries[] | .value + {leaving: $leavings[.key]} ]'

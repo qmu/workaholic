@@ -3,7 +3,6 @@
 ## active
 
 * [deploy-the-docs-site-on-merge-to-main](active/deploy-the-docs-site-on-merge-to-main/mission.md) - Deploy the docs site on merge to main
-* [make-a-direction-s-end-a-turn-of-the-loop-not-its-stop](active/make-a-direction-s-end-a-turn-of-the-loop-not-its-stop/mission.md) - Make a direction's end a turn of the loop, not its stop
 * [make-the-routine-create-body-documented-and-buildable](active/make-the-routine-create-body-documented-and-buildable/mission.md) - Make the routine create body documented and buildable
 * [make-workaholify-converge-the-account-s-routines](active/make-workaholify-converge-the-account-s-routines/mission.md) - Make /workaholify converge the account's routines
 * [refuse-ok-under-a-placeholder-identity](active/refuse-ok-under-a-placeholder-identity/mission.md) - Refuse ok under a placeholder identity
@@ -38,6 +37,7 @@
 * [loop-engineering-foundation](archive/loop-engineering-foundation/mission.md) - Loop engineering foundation
 * [loop-engineering-proposal-loop](archive/loop-engineering-proposal-loop/mission.md) - Loop engineering proposal loop
 * [loop-engineering-unified-drive](archive/loop-engineering-unified-drive/mission.md) - Loop engineering unified drive
+* [make-a-direction-s-end-a-turn-of-the-loop-not-its-stop](archive/make-a-direction-s-end-a-turn-of-the-loop-not-its-stop/mission.md) - Make a direction's end a turn of the loop, not its stop
 * [make-a-mission-impossible-to-create-without-its-ticket-set](archive/make-a-mission-impossible-to-create-without-its-ticket-set/mission.md) - Make a mission impossible to create without its ticket set
 * [make-a-rename-a-registry-entry-not-a-sweep](archive/make-a-rename-a-registry-entry-not-a-sweep/mission.md) - Make a rename a registry entry, not a sweep
 * [make-acceptance-ticking-measure-satisfaction-not-marker-shape](archive/make-acceptance-ticking-measure-satisfaction-not-marker-shape/mission.md) - Make acceptance ticking measure satisfaction, not marker shape

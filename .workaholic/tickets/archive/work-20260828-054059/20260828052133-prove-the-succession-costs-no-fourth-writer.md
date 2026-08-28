@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-28T05:21:33+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -66,3 +67,21 @@ writer of the strategy artifact appears.
 ## Considerations
 
 - A pin that cannot fail is not a pin; each assertion needs its own deliberately broken fixture.
+
+## Final Report
+
+Development completed as planned.
+
+`testSuccessionCostsNoFourthWriter` asserts the attribution reads through the succession (the
+successor returns the predecessor's landed work), that a fresh successor is not `dormant`,
+that the strategy artifact still has exactly three writers, that no artifact gained a
+`predecessor:`/`successor:`/`strategy:` field, and that `create.sh` learns nothing about
+succession. Each pin is proved able to fail: a fourth writer is planted in a copy of the
+scripts directory and must be caught, and a `create.sh` copy with the carry wired into it must
+be caught by the same detection.
+
+### Discovered Insights
+
+- **Insight**: a pin that only ever passes is indistinguishable from a pin that cannot fail.
+  **Context**: both new detections are exercised against deliberately broken copies in the
+  same test run, so the assertion proves the *detector* as well as the tree.

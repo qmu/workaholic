@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 2.4
 feedback: [20260828061724-let-the-moderation-tick-reconcile-a-thread-s-last-status-with-the-unit-s-real-state.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
@@ -52,3 +52,4 @@ carrying its finish is untouched. It merges nothing, claims nothing, posts nowhe
 - 2026-08-28 — ticket archived — 20260828062308-drill-the-reconciliation-with-no-network.md
 - 2026-08-28 — mission achieved — mission.md
 - 2026-08-28 — story reported — work-20260828-064059
+- 2026-08-28 — run recorded (+2.4h) — session_01R1bEeXNE17o2keLC5qXbso

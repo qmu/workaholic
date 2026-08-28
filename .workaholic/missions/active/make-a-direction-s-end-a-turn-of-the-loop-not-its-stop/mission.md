@@ -40,10 +40,11 @@ three writers and no artifact gains a field.
 
 ## Acceptance
 
-- [ ] One reader composes what a direction leaves, and the close and the question state it (#20260828052133-read-what-a-direction-leaves-behind.md)
+- [x] One reader composes what a direction leaves, and the close and the question state it (#20260828052133-read-what-a-direction-leaves-behind.md)
 - [ ] An announced successor carries its predecessor's own refs, by explicit slug only (#20260828052133-let-a-direction-name-its-predecessor.md)
 - [ ] The last live direction is named to its assignee before it is closed (#20260828052133-say-it-before-the-silence-to-somebody.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-28 — ticket archived — 20260828052133-read-what-a-direction-leaves-behind.md

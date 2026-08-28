@@ -163,6 +163,45 @@ exists to keep apart. `exhaustive` is `false` by construction, and a loose queue
 residue by construction too — this reader answers at the mission grain, so it over-reports rather
 than under-reports and says so.
 
+### What a direction leaves behind — the three readings, composed at the moment of the decision
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/strategy/scripts/closing-residue.sh [--state-row <file|->] <slug> [window] [workaholic-root]
+```
+
+Every reading above is bounded to `status: active`, so a direction stops being legible the instant
+it is closed — and the operator was asked to close it with none of this in front of them. The
+three facts a person needs are already in the tree and already readable; nothing composed them, so
+nothing could **state them before the decision**. After the close it is a post-mortem; before it,
+it is evidence.
+
+| Block | Fact | Its own single reader |
+| ----- | ---- | --------------------- |
+| `waiting` | what it never reached | `attributed-work.sh`'s waiting grains |
+| `residue` | what no direction claimed | `unattributed-work.sh` |
+| `lifecycle` | its last lifecycle reading | `direction-state.sh` |
+
+**It composes; it derives nothing.** No second walker, no relation of its own, no field on any
+artifact — the only thing it owns is the **assembly**, and it owns that exactly once so no
+consumer assembles it a second time and drifts. `--state-row` is how the assembly stays single
+without recursing: `direction-state.sh` attaches this reading to its own rows by handing back the
+row it already computed, so the lifecycle and the residue are **carried, never re-read**.
+
+**A reading we could not make is never an empty one.** Each block carries its own `readable` and
+its own reason, a degraded block reports **null** counts rather than zeroed ones, and a degraded
+block makes the top-level `readable` false naming the source (`waiting_unreadable:<reason>`) —
+this output is rendered beside a decision, and half of it rendered as silence is worse than none
+of it. A non-degraded empty is **not** a degradation: `no_citing_artifacts`,
+`no_activity_in_window` and an empty residue are real answers about a real tree and keep honest
+zeros. A **closed** direction is readable too, reported `state: not_active` — the lifecycle reader
+is bounded to the `active` set by design, and calling that a failure would leave the one caller
+that reads this *after* a close unable to state anything at all.
+
+`exhaustive` is `false`, always and by construction, inherited from all three: it says what is
+visibly outstanding, never that nothing else is. It is **evidence for a decision, never an
+assertion that closing is correct** — it closes nothing, proposes nothing, amends nothing and
+lifts no gate, and the artifact keeps its three writers.
+
 ### Carrying an attribution the operator ruled
 
 Some of that residue answers a direction and was published with the carry-forward link dropped.
@@ -226,6 +265,10 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/strategy/scripts/unattributed-work.sh [--root 
 # Carry attribution — appends a named strategy's OWN refs to a named mission. Writes
 # one frontmatter line on one mission and nothing else; never touches a strategy.
 bash ${CLAUDE_PLUGIN_ROOT}/skills/strategy/scripts/carry-attribution.sh <strategy-slug> <mission-slug> [workaholic-root]
+
+# Closing residue — WHAT A DIRECTION LEAVES BEHIND, composed from the three readers above.
+# Pure read; `--state-row` carries a direction-state row already in hand instead of re-reading.
+bash ${CLAUDE_PLUGIN_ROOT}/skills/strategy/scripts/closing-residue.sh [--state-row <file|->] <slug> [window] [workaholic-root]
 ```
 
 Every script is POSIX `#!/bin/sh -eu`, takes an optional trailing `.workaholic` root so it can be

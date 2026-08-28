@@ -622,6 +622,7 @@ check-in as a question addressed to that direction's assignee:
 | `overdue` | `direction-overdue:<slug>` | the strategy's `assignees` |
 | `dormant` | `direction-dormant:<slug>` | the strategy's `assignees` |
 | `none` (repository-level) | `direction-none` | nobody — there is no direction to own |
+| **the last live direction** (repository-level, 2026-08-28) | `direction-last:<slug>` | the strategy's `assignees` |
 | `unreadable` | — | **never asked about** |
 
 **Why the step exists** (2026-08-26, mission `say-when-the-loop-has-run-out-of-direction`): three
@@ -660,6 +661,44 @@ question says *this looks finished, and here is what I could not see*, and the r
 reason to check rather than evidence not to. The key, the asked-once gate, the addressee and the
 per-tick cap are unchanged — changing a body does not re-ask a question, since the ledger keys on
 the step id derived from `key`.
+
+**And since 2026-08-28 both the `arrived` and the `overdue` question name the whole leaving**
+(mission `make-a-direction-s-end-a-turn-of-the-loop-not-its-stop`): **what it never reached**
+beside **what no direction claimed**. The residue was half of it, and the half that is about the
+**repository** rather than about this direction — a person asked to close a direction also needs
+to see the work of its **own** that never landed, and `overdue` had neither half. Asking before
+the decision is the whole point: after the close it is a post-mortem, here it is evidence in the
+one place a person is being asked to rule.
+
+**Carried, never composed in the step.** `direction-state.sh --with-leaving` attaches
+`strategy/scripts/closing-residue.sh`'s composition to each row, and the step reads that field —
+it calls none of the three readers itself, which the suite pins. It costs **no extra read and no
+extra network call**: the composer takes the lifecycle, the residue and the waiting grains off
+the row the survey already produced.
+
+**The named detail is in the heading; only the size is in the body.** `workaholic:notify` bounds
+the body to one sentence of 25 words and reserves it for the operator's act, so the slugs and
+counts ride the heading — where the residue already rode — and the body gains one short clause
+saying how much is at stake. Bounded the same way: three names, then `and N more`.
+
+**A leaving we could not compose renders nothing and suppresses nothing.** The question that
+would have been asked is asked, without its evidence, and the degradation is counted in the
+log-facing summary. Our own blindness never silences a question somebody needs, and is never
+dressed up as an empty leaving.
+
+**And `direction-last:<slug>` is the reading one step earlier** (2026-08-28, the same mission).
+`direction-none` fires only once **every** direction is already closed, and it is addressed to
+**nobody** — the loop announcing its own silence after the fact, to no one. So the **last live**
+direction is named to the person who owns it, while they can still act, with the same leaving
+beside it and a body saying what closing it means: the loop originates nothing after it, and a
+successor announced at the close carries this direction's own refs forward
+(`workaholic:specificate`). It is derived from `active_count`, which the reader already emits —
+no new counter, no field on any artifact. It is **silent with more than one live direction** (a
+general "how many directions" report is the status line addressed to nobody this repository has
+twice retired) and **silent for a direction that already has a non-`live` question this tick**,
+because one direction drawing two questions is the doubling `handoff-units` and `stalled-units`
+were split to avoid. `direction-none` is byte-identical, and this asks and nothing else: nothing
+closed, nothing proposed, no gate lifted.
 
 **The coupling is a reader, not a handoff** — the same shape as `strategy-pace` and
 `stalled-units`. `/propose` writes nothing into the tree and could not leave a finding here; this

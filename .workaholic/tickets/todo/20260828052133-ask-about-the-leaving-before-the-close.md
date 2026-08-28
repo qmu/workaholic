@@ -72,3 +72,25 @@ questions, carried from the survey row rather than re-read in the step.
 
 - A longer question body must not become a status report; the leaving is the evidence for one
   decision, bounded and linked.
+
+## Final Report
+
+Development completed as planned.
+
+`step-direction-health.sh` asks `direction-state.sh --with-leaving`, which attaches
+`closing-residue.sh`'s composition to every row, and renders the leaving in both the
+`direction-arrived:<slug>` and the `direction-overdue:<slug>` question — the named detail in
+the heading (bounded to three names then `and N more`) and the size alone in the body, which
+`workaholic:notify` reserves for the operator's act. A degraded leaving renders nothing,
+suppresses nothing, and is counted in the log-facing summary. The keys, the asked-once gate,
+the addressee and the per-tick cap are unchanged. The suite pins that the step reaches no
+writer and reads none of the three composed readers itself.
+
+### Discovered Insights
+
+- **Insight**: the survey's *refused* rows did not carry the waiting grains, and `overdue` is
+  a refused row by definition (`past_target_date`).
+  **Context**: the one row for which "what this direction never reached" matters most was the
+  one that could not say it. The grains now ride the refused rows for exactly the reason
+  `landed_count`, `target_date` and `residue` already do — a projection of fields the
+  eligible row already carried, read by no gate.

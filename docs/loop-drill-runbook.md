@@ -37,6 +37,7 @@ Run every command from the repository root, on a clean `main`.
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-direction-health --json` | a throwaway strategy tree, one overdue direction and one dormant one — proves the four lifecycle readings, the three question keys, the asked-once gate, and that nothing was written |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-arrival --json` | a throwaway **git** strategy tree carrying landed work — proves `arrived`, that it outranks `overdue`, that `dormant`, `overdue` and `live` are unchanged, the `direction-arrived:<slug>` key and its asked-once gate, and that no reading closes a direction, with no network and one row that deliberately breaks the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-residue --json` | a throwaway **git** strategy tree whose attributed work has all landed beside an **unattributed** active mission — proves the honest and the degraded residue read, that only an unreadable residue refuses the arrival, that the question names the residue by slug, the asked-once gate, that no gate moved, and the attribution carry landing and refusing, with no network and one row that deliberately breaks the seam |
+| — | Any time | `sh scripts/e2e/loop-drill.sh verify-succession --json` | a throwaway **git** tree carrying one dated direction, its landed work and an unattributed mission — walks close → read the leaving → announce a successor by explicit slug → the carried refs land → `attributed-work.sh` attributes the predecessor's work to it → `/propose` proposes against it, and proves nothing closed, authored or auto-merged a direction, with no network and one row that deliberately breaks the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-revision --json` | a throwaway strategy tree and a local bare origin — proves the three revisions land, that every refusal leaves the artifact byte-identical, and that a strategy-touching publish never auto-merges, with the transport stubbed and one row that deliberately breaks the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-merged-claim --json` | a throwaway repository carrying a **squash-merged** mission claim and batch claim — proves all four merged-claim readings (merged batch, merged mission, live, unanswerable) with the transport stubbed, so no `gh` call is made |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-identity-handoff --json` | a throwaway repository with a two-address mapping — walks issue assignee → the address the writer stamps → the survey that offers the unit, for a canonical address, a mapped alias and an unmapped login, with no network and no credential |
@@ -508,6 +509,44 @@ term under test.
 **Two proofs, and they are not the same one**, as everywhere else here: this drill is the
 operator's half; `testResidueGatesNothing`, `testResidueOnSurveyRows` and
 `testCarryAttribution` in the hermetic suite are CI's.
+
+## 5k. A direction's end as a turn of the loop (`verify-succession`)
+
+`verify-succession` needs no seed, no fire, no issue number and **no network**: it builds a
+throwaway **git** tree — git-backed for `verify-arrival`'s reason, since `landed[]` is a
+`git log --since` read — carrying one dated direction, the work that landed under it, and an
+active mission no direction claims.
+
+The failure it exists for is a direction's end being the loop's **stop**. Every reading in
+the direction layer is bounded to `status: active`, so closing the last live direction leaves
+`/propose` refusing `not_active`, the inbox empty, and `direction-none` — addressed to
+nobody — as the only signal. The walk crosses six seams no single unit test crosses: close a
+direction → read what it leaves → announce a successor by **explicit slug** → the
+predecessor's own refs land on the successor → `attributed-work.sh` attributes the
+predecessor's work to it → `/propose` proposes against it on the next tick.
+
+The **deliberately broken seam** is `succession_carry_is_wired_at_the_ask_line`. Wiring the
+carry inside `create.sh` is the single edit that would leave every other row green while
+giving the strategy artifact's writer a second job — and the row proves it can fire, by
+running the same detection against a copy of `create.sh` with the succession wired into it.
+
+| Row | Fails when | Read |
+| --- | ---------- | ---- |
+| `succession_leaving_before_the_close` | the leaving is not composed, or claims to be exhaustive | `closing-residue.sh` — three blocks, each from that fact's own single reader |
+| `succession_leaving_after_the_close` | a closed direction reads as a degradation rather than `not_active` | the lifecycle block's absent-row branch; the reader is bounded to the `active` set **by design** |
+| `succession_carries_the_predecessor_refs` | the successor does not cite the announcement's record **and** the predecessor's own | `ask-feedback-line.sh --refs-only`, then `create.sh`'s fifth argument |
+| `succession_adds_no_field` | any artifact gains a `predecessor:`, `successor:` or `strategy:` key | the carry is a **citation**, and the retired relation stays retired |
+| `succession_attribution_reads_through` | the predecessor's landed work is not the successor's | `attributed-work.sh` — the citation that already existed, no second walker |
+| `succession_successor_is_not_dormant` | a fresh successor reads `dormant` | the whole point of the carry: a direction born citing records is not one nothing is answering |
+| `succession_propose_resumes` | the next tick does not propose against the successor | `survey-strategies.sh`'s gate chain — `no_feedback_refs` first, then `work_waiting` |
+| `succession_carry_is_wired_at_the_ask_line` | the carry reached `create.sh`, or step 9b stopped composing it | **the broken seam** — every other row would still pass |
+| `succession_readers_reach_no_writer` | `closing-residue.sh` or `direction-state.sh` reaches a writer of the artifact | a reading that closes a direction is the failure the whole pin was built against |
+| `succession_publish_never_merges` | a strategy-touching publish merges under `WORKAHOLIC_AUTO_MERGE=1` | `publish-tree-pr.sh`'s `strategy_touching` — the seam's rule, not the caller's |
+| `succession_writes_nothing` | the drill changed the checkout | every reader here is pure and every fixture lives outside the checkout |
+
+**Two proofs, and they are not the same one**: this drill is the operator's half;
+`testClosingResidueReader`, `testDirectionHealthLeaving` and
+`testSuccessionCostsNoFourthWriter` in the hermetic suite are CI's.
 
 ## 6. Abort playbook
 

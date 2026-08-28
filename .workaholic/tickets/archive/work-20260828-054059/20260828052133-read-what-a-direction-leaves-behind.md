@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-28T05:21:33+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -77,3 +78,31 @@ operator decides. This adds the one reader that composes what already exists.
 
 - The residue reader over-reports at the mission grain by construction; this composition inherits
   that and must state it rather than smooth it over.
+
+## Final Report
+
+Development completed as planned.
+
+`closing-residue.sh <slug>` composes the three readings that already existed — the waiting
+grains from `attributed-work.sh`, the residue from `unattributed-work.sh`, and the lifecycle
+state from `direction-state.sh` — into one JSON object. No second walker, no relation of its
+own, no field on any artifact; the only thing it owns is the assembly. Each block carries its
+own `readable` and reason, a degraded block reports null counts, and the top-level `readable`
+names the source that failed. `exhaustive` is `false` in every output. Verified with
+`node scripts/test-workflow-scripts.mjs` (`testClosingResidueReader`, 19 assertions) and
+against this repository's own live direction.
+
+### Discovered Insights
+
+- **Insight**: `direction-state.sh` is bounded to the `active` set by design, so a direction
+  that has just been closed has no row there at all.
+  **Context**: the one caller that reads this *after* a close is `/specificate`'s *ended*
+  route, so treating an absent row as a degradation would have left that route unable to
+  state anything. The absent row is reported `state: not_active`, `readable: true` — a real
+  answer about a real tree, which is the same line `no_citing_artifacts` already draws
+  between an empty reading and one that could not be made.
+- **Insight**: composing a reader that a consumer also composes creates a recursion risk the
+  moment the consumer wants to carry the composition onto its own rows.
+  **Context**: `--state-row` is the escape: `direction-state.sh` hands back the row it
+  already computed, so the assembly stays in exactly one place, nothing recurses, and the
+  attachment costs no extra read of the tree and no extra network call.

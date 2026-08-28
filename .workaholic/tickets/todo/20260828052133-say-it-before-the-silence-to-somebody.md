@@ -73,3 +73,25 @@ closing it would leave and that the loop will originate nothing after it.
 
 - With more than one live direction this must stay silent; a general "how many directions" report
   is the status line addressed to nobody this repository has twice retired.
+
+## Final Report
+
+Development completed as planned.
+
+`direction-last:<slug>` is raised when exactly one live direction remains, addressed to that
+direction's assignee, naming what closing it would leave and that the loop originates nothing
+after it. It is derived from `active_count`, which the lifecycle reader already emits: no new
+counter and no field on any artifact. It is silent with more than one live direction, and
+silent for a direction that already has a non-`live` question this tick. `direction-none` is
+byte-identical — it still fires when every direction is closed, still addressed to nobody.
+Verified by `testDirectionHealthLeaving` (two ticks, one question) and by the existing
+refusals pin.
+
+### Discovered Insights
+
+- **Insight**: the last-live reading and the `arrived`/`overdue` readings can fire on the same
+  slug in the same tick.
+  **Context**: one direction drawing two questions in two vocabularies is exactly the
+  doubling `handoff-units` and `stalled-units` were split to avoid. The non-`live` reading
+  wins, because it already puts the same direction, the same leaving and a sharper act in
+  front of the same person.

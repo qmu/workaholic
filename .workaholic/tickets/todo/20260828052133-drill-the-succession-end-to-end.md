@@ -69,3 +69,23 @@ network, as every other loop property in this repository is drilled.
 
 - The drill is operator tooling outside the plugin and assumes the server's full `gh` and `qfs`,
   as every other verb does.
+
+## Final Report
+
+Development completed as planned.
+
+`sh scripts/e2e/loop-drill.sh verify-succession` walks all six seams over a git-backed fixture
+with no network: close a direction, read what it leaves, announce a successor by explicit
+slug, land the carried refs, attribute the predecessor's work to the successor, and see
+`/propose` propose against it. It also asserts the negatives — the readers reach no writer of
+the strategy artifact, and a strategy-touching publish is left open under
+`WORKAHOLIC_AUTO_MERGE=1`. The breaker row
+`succession_carry_is_wired_at_the_ask_line` proves the drill can fail, by running the same
+detection against a copy of `create.sh` with the succession wired into it. The verb is in the
+usage string, the dispatch table and the runbook's blame table.
+
+### Discovered Insights
+
+- **Insight**: the drill's fixture must be a real git repository, not a bare file tree.
+  **Context**: `landed[]` is a `git log --since` read, so a file tree makes every attribution
+  row vacuously true — the same reason `verify-arrival` and `verify-residue` are git-backed.

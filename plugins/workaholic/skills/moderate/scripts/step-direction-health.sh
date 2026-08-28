@@ -33,6 +33,30 @@
 # rule on — measured, a strategy read `quiescent: true` with 125 landed items while four
 # active missions and ten queued tickets belonged to no direction at all.
 #
+# AND SINCE 2026-08-28 THE `arrived` AND `overdue` QUESTIONS BOTH NAME THE WHOLE LEAVING
+# (mission `make-a-direction-s-end-a-turn-of-the-loop-not-its-stop`): what it never reached
+# beside what no direction claimed. The residue was half of it, and the half that is about the
+# REPOSITORY rather than about this direction — a person asked to close a direction also needs
+# to see the work of ITS OWN that never landed, and `overdue` had neither half.
+#
+# ASKING BEFORE THE DECISION IS THE WHOLE POINT. After the close it is a post-mortem; here it
+# is evidence, in the one place a person is being asked to rule.
+#
+# CARRIED, NEVER COMPOSED HERE. `direction-state.sh --with-leaving` attaches
+# `closing-residue.sh`'s composition to the row; this step reads that field and calls none of
+# the three readers itself. It costs no extra read of the tree and no extra network call,
+# because the composer takes all three facts off the row the survey already produced.
+#
+# THE DETAIL IS IN THE HEADING AND ONLY THE SIZE IS IN THE BODY. `workaholic:notify` bounds the
+# body to one sentence of 25 words and reserves it for THE OPERATOR'S ACT, so the named slugs
+# and counts ride the heading — where the residue already rode — and the body gains one short
+# clause saying how much is at stake. Bounded the same way: three names, then "and N more",
+# never a silent truncation.
+#
+# A DEGRADED LEAVING RENDERS NOTHING AND SUPPRESSES NOTHING. The question is asked without the
+# evidence and the degradation is counted in the log-facing summary — our own blindness never
+# silences a person's question, and is never dressed up as an empty leaving.
+#
 # THE RESIDUE IS THE REASON TO CHECK, NOT EVIDENCE THAT THEY SHOULD NOT. The register does not
 # move: the question still says *this looks finished, and here is what I could not see*, never
 # *this is finished*. Nothing else about the step moves either — the key
@@ -85,6 +109,17 @@
 # `direction-none` HAS NO ASSIGNEE TO ADDRESS. It is a repository-level reading, so it is asked
 # without a mention token rather than aimed at whoever happens to run the tick.
 #
+# AND `direction-last:<slug>` IS THE READING ONE STEP EARLIER (2026-08-28, mission
+# `make-a-direction-s-end-a-turn-of-the-loop-not-its-stop`). `direction-none` fires only once
+# every direction is ALREADY closed and is addressed to NOBODY — the loop announcing its own
+# silence after the fact, to no one. The last LIVE direction is named to the person who owns
+# it, while they can still act, and the body says what closing it means: the loop originates
+# nothing after it. Derived from `active_count`, which the reader already emits — no new
+# counter and no field on any artifact. Silent with more than one live direction, and silent
+# for a direction that already has a non-`live` question this tick, because one direction
+# drawing two questions is the doubling `handoff-units` and `stalled-units` were split to
+# avoid. `direction-none` is byte-identical.
+#
 # Usage: step-direction-health.sh --tick <id> [--root <repo-root>] [--open-proposals <file>]
 # Output: one JSON line
 #   {"step","status","reason","summary","needs_agent":[...],"event"}
@@ -117,10 +152,15 @@ reader="${STRATEGY_SCRIPTS}/direction-state.sh"
 [ -f "$reader" ] || emit degraded no_reader_script "direction-state.sh is not present beside this skill"
 
 WROOT="${ROOT%/}/.workaholic"
+# `--with-leaving` asks the ONE lifecycle reader to attach `closing-residue.sh`'s composition
+# to every row. THE STEP NEVER READS THAT COMPOSER ITSELF, and never reads
+# `attributed-work.sh` or `unattributed-work.sh` either: two readings of one fact drift, which
+# is the rule the residue already established here. It costs no extra read — the composer
+# carries all three facts off the row the survey already produced.
 if [ -n "$OPEN" ]; then
-    out=$(sh "$reader" --open-proposals "$OPEN" "14 days ago" "$WROOT" 2>/dev/null || true)
+    out=$(sh "$reader" --with-leaving --open-proposals "$OPEN" "14 days ago" "$WROOT" 2>/dev/null || true)
 else
-    out=$(sh "$reader" "14 days ago" "$WROOT" 2>/dev/null || true)
+    out=$(sh "$reader" --with-leaving "14 days ago" "$WROOT" 2>/dev/null || true)
 fi
 [ -n "$out" ] || emit degraded reader_unreadable "direction-state.sh produced no output"
 
@@ -187,30 +227,100 @@ subjects=$(printf '%s' "$out" | jq -c --arg window "14 days" '
                       then (($n[0:3] | join(", ")) + ", and " + ((($n | length) - 3) | tostring) + " more")
                       else ($n | join(", ")) end))
            else "" end) as $residue_phrase
+      # WHAT IT NEVER REACHED, the other half of the leaving (2026-08-28, mission
+      # `make-a-direction-s-end-a-turn-of-the-loop-not-its-stop`). Carried off `.leaving`,
+      # which `direction-state.sh` attached from `closing-residue.sh` — this step composes
+      # nothing and reads none of the three readers itself.
+      #
+      # A DEGRADED LEAVING RENDERS NOTHING AND SUPPRESSES NOTHING. The question that would
+      # have been asked is asked, without the evidence, and the degradation is named in the
+      # log-facing summary: our own blindness must never silence a question somebody needs, and
+      # must never be dressed up as an empty leaving either.
+      | ((.leaving // {}) | if ((.readable // false) and (((.waiting.count // 0) + (.waiting.missions // 0)) > 0))
+           then " — never reached: " + ((.waiting.missions // 0) | tostring) + " mission(s), "
+                + ((.waiting.count // 0) | tostring) + " ticket(s) still queued"
+           else "" end) as $waiting_phrase
+      # THE BODY CARRIES COUNTS ONLY. `workaholic:notify` bounds the body to one
+      # sentence of 25 words and reserves it for THE ACT THE OPERATOR MUST TAKE, so the named detail
+      # stays in the heading above and the body carries only the size of what is at stake.
+      | ((.leaving // {}) | if ((.readable // false)
+                                and (((.waiting.count // 0) + (.waiting.missions // 0)
+                                      + (.residue.mission_count // 0)) > 0))
+           then "It would leave " + (((.waiting.count // 0) + (.waiting.missions // 0)) | tostring)
+                + " unreached and " + ((.residue.mission_count // 0) | tostring) + " unclaimed. "
+           else "" end) as $leaving_clause
       | {key: ("direction-" + .state + ":" + .slug),
          slug: .slug, title: .title, assignees: .assignees,
          reading: .state, days_to_target: .days_to_target,
          residue: (.residue // {}),
+         leaving: (.leaving // {}),
          heading: (if .state == "overdue"
                    then "the direction `" + .slug + "` has run past its target date"
                         + (if (.days_to_target != null)
                            then " (" + ((-.days_to_target) | tostring) + " day(s) ago)" else "" end)
+                        + $waiting_phrase + $residue_phrase
                    elif .state == "arrived"
                    then "the direction `" + .slug + "` has its work in"
                         + (if ((.landed // 0) > 0)
                            then " (" + ((.landed) | tostring) + " item(s) landed" +
                                 (if (.target_date != "") then ", dated " + .target_date else "" end) + ")"
                            else "" end)
-                        + $residue_phrase
+                        + $waiting_phrase + $residue_phrase
                    else "nothing has answered the direction `" + .slug + "` in the last " + $window
                    end),
          body: (if .state == "overdue"
-                then "Re-date it, announce that it ended, or say it still stands — the loop carries what you announce and never decides either for you."
+                then $leaving_clause + "Re-date it, announce that it ended, or say it still stands — the loop carries what you announce and never decides either for you."
                 elif .state == "arrived"
-                then "Everything attributed to it has landed and nothing is waiting. Announce that it ended, or say it still stands — the loop closes nothing."
+                then $leaving_clause + "Everything attributed to it has landed. Announce that it ended, or say it still stands — the loop closes nothing."
                 else "File its next move, or say it still stands — the loop will not close or change it either way."
                 end)} ]' 2>/dev/null || echo '[]')
 n_subjects=$(printf '%s' "$subjects" | jq 'length' 2>/dev/null || echo 0)
+
+# ═══ THE LAST LIVE DIRECTION, SAID BEFORE THE SILENCE (2026-08-28, mission
+# `make-a-direction-s-end-a-turn-of-the-loop-not-its-stop`) ═════════════════════════════
+#
+# `direction-none` fires only once EVERY direction is already closed, and it is addressed to
+# NOBODY: the loop announces its own silence after the fact, to no one. The reading that
+# matters is one step earlier — the LAST live direction, named to the person who owns it,
+# while they can still act on it.
+#
+# DERIVED, NOT COUNTED. `active_count` is already on the lifecycle reader's output; there is
+# no new counter here and no field on any artifact.
+#
+# WITH MORE THAN ONE LIVE DIRECTION IT IS SILENT. A general "how many directions" report is
+# the status line addressed to nobody this repository has twice retired.
+#
+# ONE DIRECTION NEVER DRAWS TWO QUESTIONS. When that single direction already has a
+# non-`live` reading, the question for THAT reading is asked and this one is not: `arrived`,
+# `overdue` and `dormant` already put the same direction, the same leaving and a sharper act
+# in front of the same person, and a second question beside it is the doubling
+# `handoff-units` and `stalled-units` were split to avoid.
+#
+# IT ASKS AND NOTHING ELSE. Nothing is closed, proposed or lifted, and `direction-none` is
+# exactly what it was — it still fires when every direction is closed, still addressed to
+# nobody.
+active_count=$(printf '%s' "$out" | jq -r '.active_count // 0' 2>/dev/null || echo 0)
+if [ "$repository" != "none" ] && [ "$active_count" -eq 1 ]; then
+    subjects=$(printf '%s' "$out" | jq -c --argjson subjects "$subjects" '
+        (.strategies | first) as $s
+        | if ($s == null) or ([$subjects[] | select(.slug == $s.slug)] | length > 0)
+          then $subjects
+          else $subjects + [
+            ($s | ((.leaving // {}) | if ((.readable // false)
+                                         and (((.waiting.count // 0) + (.waiting.missions // 0)
+                                               + (.residue.mission_count // 0)) > 0))
+                     then " — it would leave " + (((.waiting.count // 0) + (.waiting.missions // 0)) | tostring)
+                          + " unreached and " + ((.residue.mission_count // 0) | tostring) + " unclaimed"
+                     else "" end) as $leaving_phrase
+               | {key: ("direction-last:" + .slug),
+                  slug: .slug, title: .title, assignees: .assignees,
+                  reading: "last_live", days_to_target: .days_to_target,
+                  residue: (.residue // {}), leaving: (.leaving // {}),
+                  heading: ("`" + .slug + "` is the only live direction left" + $leaving_phrase),
+                  body: "Once no live direction remains the loop originates nothing. Announce a successor when you end it, or say it still stands."}) ]
+          end' 2>/dev/null || printf '%s' "$subjects")
+    n_subjects=$(printf '%s' "$subjects" | jq 'length' 2>/dev/null || echo 0)
+fi
 
 if [ "$repository" = "none" ]; then
     # THE REPOSITORY-LEVEL READING. There is no strategy to name and nobody to address: the
@@ -220,7 +330,15 @@ if [ "$repository" = "none" ]; then
     n_subjects=1
 fi
 
-summary="${n_live} live, ${n_arrived} arrived, ${n_overdue} overdue, ${n_dormant} dormant, ${n_unreadable} unreadable; repository ${repository}; ${n_subjects} to ask"
+# A LEAVING WE COULD NOT COMPOSE IS NAMED IN THE LOG, and nowhere else. It asks nothing extra
+# and silences nothing: the question stands, without its evidence, and the count says so to
+# whoever diagnoses the tick. Our own degradation never becomes a person's question — the rule
+# `unreadable` already holds here.
+n_leaving_degraded=$(printf '%s' "$subjects" | jq '[.[] | select(has("leaving")) | select((.leaving.readable // false) | not)] | length' 2>/dev/null || echo 0)
+
+n_last_live=$(printf '%s' "$subjects" | jq '[.[] | select(.reading == "last_live")] | length' 2>/dev/null || echo 0)
+
+summary="${n_live} live, ${n_arrived} arrived, ${n_overdue} overdue, ${n_dormant} dormant, ${n_unreadable} unreadable; repository ${repository}; ${n_last_live} last-live; ${n_subjects} to ask; ${n_leaving_degraded} leaving unreadable"
 
 if [ "$n_subjects" -eq 0 ]; then
     emit ok "" "$summary"
@@ -262,6 +380,12 @@ if [ "$n_dormant" -gt 0 ]; then
     if [ "$n_dormant" -eq 1 ]; then dphrase="a direction has nothing answering it"
     else dphrase="${n_dormant} directions have nothing answering them"; fi
     phrase="${phrase:+${phrase}; }${dphrase}"
+fi
+# THE LAST LIVE DIRECTION IS A REPOSITORY EVENT in the fullest sense — the loop is one close
+# away from originating nothing — so it earns its own line, and it must not be silent just
+# because none of the three trouble readings fired.
+if [ "$n_last_live" -gt 0 ]; then
+    phrase="${phrase:+${phrase}; }only one live direction is left"
 fi
 
 # EVERY ROOT LINE LINKS ITS ITEM, so a person following the direction reaches the artifact

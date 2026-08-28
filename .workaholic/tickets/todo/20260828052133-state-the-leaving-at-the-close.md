@@ -70,3 +70,24 @@ the same pull request that ends it.
 ## Considerations
 
 - The reading is evidence for the operator, never an assertion that closing is correct.
+
+## Final Report
+
+Development completed as planned.
+
+`/specificate`'s *ended* route (step 9c) now reads `closing-residue.sh <slug>` after
+`close.sh` returns and names that reading in the pull-request body composed at step 10 and in
+step 13's one-line run report: what it never reached, what no direction claimed, and its last
+lifecycle reading. A degraded read is named as degraded by its own reason, never rendered as
+an empty leaving. The route is otherwise untouched — `close.sh` stays the only writer of an
+end state, every refusal still falls back to record-only naming it, and the pull request still
+does not auto-merge. The step's own text is pinned by `testSuccessionCostsNoFourthWriter`, and
+the whole close-to-successor walk by `sh scripts/e2e/loop-drill.sh verify-succession`.
+
+### Discovered Insights
+
+- **Insight**: the *ended* route's report line is the only durable surface for this reading —
+  the run report dies with the container and the pull request is what a person opens.
+  **Context**: naming the leaving in both is not redundancy: the report is what a maintainer
+  diagnosing the tick reads, and the pull-request body is what the operator reads when they
+  decide whether the close was right.

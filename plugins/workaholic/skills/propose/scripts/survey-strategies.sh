@@ -492,7 +492,15 @@ jq -sc \
                        # is refused `past_target_date`, so a consumer that had to say what was
                        # unattributed would have nothing to say for exactly the row that
                        # matters most.
-                       residue}))
+                       residue,
+                       # And the WAITING GRAINS ride them for the same reason again
+                       # (2026-08-28): what a direction NEVER REACHED is half of what it
+                       # leaves, and the one row a consumer must be able to say it for is
+                       # the OVERDUE one — which is refused `past_target_date` by
+                       # definition. Projections of fields already on the eligible row; no
+                       # gate, no sort and no selection reads them here.
+                       waiting_count, waiting_missions, waiting_mission_slugs,
+                       waiting_describing, waiting_advancing}))
                + $spill),
      selected: ($take | map(.slug)),
      errors: []}

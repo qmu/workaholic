@@ -151,7 +151,8 @@ and every abort reports a machine-readable reason.
    **First, is it a lifecycle announcement?** An ask that names an explicit strategy
    slug and announces that it was created, changed or ended — or that names a strategy slug
    **and** a mission slug and rules that the mission *answers* that direction (step 9e,
-   2026-08-28) — takes step 9b, 9c, 9d or 9e
+   2026-08-28) — or that announces a new direction as the **successor of a named
+   predecessor slug** (step 9b's carry, 2026-08-28) — takes step 9b, 9c, 9d or 9e
    instead of the four forms (SKILL.md, *Strategy lifecycle announcements*): a slug absent
    from step 5b's set is record-only with `strategy_not_found` and the slug named; an
    *ended* announcement that does not say achieved or abandoned is record-only with
@@ -290,6 +291,38 @@ and every abort reports a machine-readable reason.
    the record from step 3 — the citation runs strategy → feedback only, and nothing is
    ever written back onto the record.
 
+   **A successor carries its predecessor's own refs, by explicit slug only** (2026-08-28,
+   mission `make-a-direction-s-end-a-turn-of-the-loop-not-its-stop`). When the ask
+   announces the new direction as the **successor of a named predecessor**:
+
+   1. Recognise it only on an **explicit predecessor slug**. A title or a paraphrase
+      never matches — the same rule every lifecycle announcement already holds. Nothing
+      explicit named → the ordinary strategy form, reported `no_predecessor`.
+   2. Confirm the named predecessor against **step 5b's set** (`strategy/scripts/list.sh`,
+      never a remembered one). Absent → record-only, `strategy_not_found` with the slug.
+      Still `active` → record-only, **`predecessor_active`**: a live direction is not a
+      predecessor, and carrying its refs onto a second live direction would attribute one
+      body of work to two.
+   3. Read the predecessor's own refs through the reader that already reads them —
+      `strategy/scripts/read.sh <predecessor-slug>` → `feedback_refs` — and compose the
+      successor's set through the one writer of that set:
+
+      ```sh
+      bash ${CLAUDE_PLUGIN_ROOT}/skills/feedback/scripts/ask-feedback-line.sh --refs-only \
+        "<the step-3 record's filename>" "<the predecessor's feedback_refs>"
+      ```
+
+      Hand that to `create.sh` as its fifth argument. **`create.sh` is unchanged and learns
+      nothing about succession** — the carry is wired at the ask line, and the suite fails
+      if it ever moves inside the writer.
+   4. Report the succession in the run report and the pull-request body: **which
+      predecessor, and how many refs were carried.**
+
+   Every other rule stands: the three-part bar, the assignee resolution, and the
+   never-auto-merge rule for a strategy-touching publish. The successor's **Aim, Schedule
+   and Assignee stay the operator's own words** — only the citation is carried, no artifact
+   gains a field, and the retired `strategy:` relation stays retired.
+
 9c. **End the announced strategy** (an *ended* announcement only), in the publish
    tree — instead of steps 8, 9 and 9b, never alongside them:
 
@@ -304,6 +337,34 @@ and every abort reports a machine-readable reason.
    either direction; the pull request is what connects the close to its ask). Any
    refusal (`not_found`, `already_ended`, `bad_status`) **falls back to record-only
    naming it**.
+
+   **Then read what the direction is leaving, and say it where the close is read**
+   (2026-08-28, mission `make-a-direction-s-end-a-turn-of-the-loop-not-its-stop`).
+   After `close.sh` returns:
+
+   ```sh
+   bash ${CLAUDE_PLUGIN_ROOT}/skills/strategy/scripts/closing-residue.sh <slug>
+   ```
+
+   Name that reading in the pull-request body composed at step 10 and in step 13's
+   one-line run report: **what it never reached** (`waiting` — its own missions and
+   queued tickets), **what no direction claimed** (`residue` — each unattributed
+   mission by slug with its queued count, bounded to three names then `and N more`,
+   plus the loose-ticket count) and **its last lifecycle reading** (`lifecycle.state`).
+   A closed direction reads `not_active` there, which is the true answer and not a
+   degradation.
+
+   **A degraded read is named as degraded, by its own reason, never as an empty
+   leaving** — `readable: false` carries the source it failed on
+   (`waiting_unreadable:<reason>` and so on) and null counts, and a block that could
+   not be read is reported as unread rather than rendered as nothing outstanding.
+
+   The route is otherwise untouched: `close.sh` stays the only writer of an end
+   state, the reading writes nothing anywhere, every refusal above still falls back
+   to record-only naming it, and the pull request still **does not auto-merge**
+   (`publish-tree-pr.sh` derives `strategy_touching` from the path this route wrote).
+   The reading is **evidence for the operator, never an assertion that closing was
+   correct**.
 
 9d. **Revise the announced strategy** (a *changed* announcement only), in the publish
    tree — instead of steps 8, 9, 9b and 9c, never alongside them:
@@ -450,8 +511,14 @@ and every abort reports a machine-readable reason.
     `precedence:record_only` is a claim a reader can argue with; one that says nothing is
     indistinguishable from a run that never reached the rule. Then the form chosen
     (mission with N tickets / loose ticket /
-    **strategy `<slug>`, PR left open for the operator** / **strategy `<slug>` closed
-    `achieved|abandoned`, PR left open for the operator** / **strategy `<slug>` revised
+    **strategy `<slug>`, PR left open for the operator** — with
+    `successor_of:<predecessor>:<n refs carried>` when the ask announced one, or the
+    refusal that stopped it (`strategy_not_found` / `predecessor_active` /
+    `no_predecessor`) (2026-08-28) — / **strategy `<slug>` closed
+    `achieved|abandoned`, PR left open for the operator, leaving `<w>` unreached and
+    `<r>` unclaimed, last read `<state>`** — step 9c's `closing-residue.sh` reading,
+    or `leaving:unreadable:<reason>` when it could not be made, never an empty
+    leaving (2026-08-28) — / **strategy `<slug>` revised
     (`<parts>`), PR left open for the operator** / record-only, and for
     record-only reached by a failed strategy bar or an unmatched announcement, the
     part that was missing — `no_target_date` / `no_assignee` / `assignee_unmapped` with

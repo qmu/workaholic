@@ -1772,7 +1772,14 @@ EOF
     _state=$(cd "$REPO_ROOT" && sh "$_reader" --open-proposals "$_open" "14 days ago" "${_root}/.workaholic" 2>&1) || true
     # The readers emit two formattings — jq's compact one and the shell printf's spaced
     # one — so every match below tolerates the optional space rather than assuming a producer.
-    _stateof() { printf '%s' "$_state" | sed -n "s/.*\"slug\": *\"$1\", *[^}]*\"state\": *\"\([a-z]*\)\".*/\1/p" | head -1; }
+    #
+    # IT PARSES THE ROW, NOT THE LINE. The earlier extractor required no `}` between `"slug"`
+    # and `"state"`, which silently stopped matching the moment a NESTED OBJECT joined the row
+    # (`residue` on 2026-08-28, `waiting` beside it) — every row below then read `nothing` and
+    # failed for a reason that had nothing to do with what it was testing. `jq` is what the
+    # readers themselves require, so asking it is neither a new dependency nor a guess.
+    _stateof() { printf '%s' "$_state" | jq -r --arg s "$1" \
+        '(.strategies // []) | map(select(.slug == $s)) | (first // {}) | .state // ""' 2>/dev/null | head -1; }
 
     for _pair in "gone:overdue" "quiet:dormant"; do
         _slug=${_pair%%:*}; _want=${_pair#*:}
@@ -1816,7 +1823,11 @@ EOF
     # THEIR vocabulary (*re-date it*, never *run amend.sh*), inside notify's 25-word bound, and
     # with the closing clause restated rather than dropped. The `dormant` body deliberately does
     # NOT move: a direction nothing is answering is not thereby mis-dated.
-    _obody=$(sed -n 's/.*then "\(Re-date it[^"]*\)".*/\1/p' "$_step" | head -1)
+    # The body is a QUOTED STRING in the step's source and since 2026-08-28 it is preceded by
+    # the leaving clause (`$leaving_clause + "Re-date it, ..."`), so the extraction keys on the
+    # sentence itself rather than on what sits before it. What is bounded is the operator's
+    # act; the clause in front of it names the size of what is at stake.
+    _obody=$(sed -n 's/.*"\(Re-date it[^"]*\)".*/\1/p' "$_step" | head -1)
     _owords=$(printf '%s' "$_obody" | wc -w | tr -d ' ')
     if printf '%s' "$_out" | grep -q 'Re-date it, announce that it ended, or say it still stands' \
         && printf '%s' "$_out" | grep -q 'the loop carries what you announce' \
@@ -1970,7 +1981,11 @@ EOF
     _state=$(cd "$_root" && sh "$_reader" --open-proposals "$_open" "14 days ago" "${_root}/.workaholic" 2>&1) || true
     # The readers emit two formattings — jq's compact one and the shell printf's spaced one —
     # so every match tolerates the optional space rather than assuming a producer.
-    _stateof() { printf '%s' "$_state" | sed -n "s/.*\"slug\": *\"$1\", *[^}]*\"state\": *\"\([a-z]*\)\".*/\1/p" | head -1; }
+    # PARSES THE ROW, NOT THE LINE — `verify-direction-health`'s extractor and its reason: a
+    # nested object on the row (`residue`, `waiting`) silently defeated the old pattern, so
+    # every reading below failed for a reason unrelated to what it tested.
+    _stateof() { printf '%s' "$_state" | jq -r --arg s "$1" \
+        '(.strategies // []) | map(select(.slug == $s)) | (first // {}) | .state // ""' 2>/dev/null | head -1; }
     _landedof() { printf '%s' "$_state" | sed -n "s/.*\"slug\": *\"$1\", *[^}]*\"landed\": *\([0-9][0-9]*\).*/\1/p" | head -1; }
 
     # THE FIXTURE HAS TO BE THE SHAPE UNDER TEST. `landed[]` is a `git log --since` reading, so
@@ -2051,6 +2066,14 @@ EOF
              "${_live}/.workaholic/missions/active" "${_live}/.workaholic/tickets/todo"
     cp "${_root}/.workaholic/feedbacks/2026010100000d-d.md" "${_live}/.workaholic/feedbacks/"
     cp "${_root}/.workaholic/strategies/busy.md" "${_live}/.workaholic/strategies/"
+    # TWO live directions, deliberately (2026-08-28, mission
+    # `make-a-direction-s-end-a-turn-of-the-loop-not-its-stop`). The invariant this row holds is
+    # *a tick where nothing happened renders no line*, and it is NARROWED rather than broken by
+    # `direction-last:<slug>`: a repository down to its LAST live direction does have something
+    # to say, once, to the person who owns it. So the all-live fixture carries two, and the
+    # single-live case is asserted on its own below rather than silently folded in here.
+    sed 's/^slug: busy$/slug: busy2/' "${_root}/.workaholic/strategies/busy.md" \
+        > "${_live}/.workaholic/strategies/busy2.md"
     cp -r "${_root}/.workaholic/missions/active/running" "${_live}/.workaholic/missions/active/"
     cp "${_root}/.workaholic/tickets/todo/20260101000001-q.md" "${_live}/.workaholic/tickets/todo/"
     ( cd "$_live" && git -c init.defaultBranch=main init -q . \
@@ -2061,6 +2084,22 @@ EOF
         add_row "arrival_all_live_renders_no_line" true "a tick with nothing but live directions supplies an empty event" load
     else
         add_row "arrival_all_live_renders_no_line" false "an all-live tick produced an event: $(one_line "$_lout")" load
+    fi
+
+    # AND THE ONE EXCEPTION, NAMED RATHER THAN FOLDED IN. With exactly ONE live direction the
+    # loop is one close away from originating nothing, and that is said to the person who owns
+    # it -- once, keyed on its slug, with the leaving beside it. `direction-none` fires only
+    # after every direction is already closed and is addressed to nobody, which is the gap this
+    # reading exists to fill.
+    rm -f "${_live}/.workaholic/strategies/busy2.md"
+    ( cd "$_live" && git -c commit.gpgsign=false add -A \
+        && git -c commit.gpgsign=false commit -qm one ) >/dev/null 2>&1 || true
+    _1out=$(cd "$_live" && sh "$_step" --tick 20260101-000000 --root "$_live" --open-proposals "$_open" 2>&1) || true
+    if printf '%s' "$_1out" | grep -q '"key": *"direction-last:busy"' \
+        && printf '%s' "$_1out" | grep -q 'only one live direction is left'; then
+        add_row "arrival_last_live_is_named" true "the last live direction is named to its owner, before the silence" load
+    else
+        add_row "arrival_last_live_is_named" false "the last live direction reached nobody: $(one_line "$_1out")" load
     fi
 
     # ASKED ONCE. The gate is the check-in's, not this step's, so the drill exercises the gate
@@ -2336,6 +2375,230 @@ EOF
         emit_verdict "residue" 0 "fail" 1
     fi
     emit_verdict "residue" 0 "pass" 0
+}
+
+# ------------------------------------------------------------ verify-succession
+# Can a direction's END be a turn of the loop rather than its stop? Every reading in the
+# direction layer is bounded to `status: active`, so closing the last live direction leaves
+# the loop originating nothing: `/propose` refuses `not_active`, the inbox empties, and the
+# only signal is `direction-none`, addressed to nobody.
+#
+# THE WALK IS SIX SEAMS AND NO SINGLE UNIT TEST CROSSES THEM: close a direction -> read what
+# it leaves -> announce a successor by explicit slug -> the predecessor's own refs land on the
+# successor -> `attributed-work.sh` attributes the predecessor's work to it -> `/propose`
+# proposes against it on the next tick.
+#
+# NO NETWORK AND NO CREDENTIAL. The survey's one remote read is the open-proposal gate and it
+# is SUPPLIED through `--open-proposals`, exactly as `verify-arrival` and `verify-residue`
+# supply it; the publish row stubs `gh` against a bare local origin. The fixture is git-backed
+# for the same reason theirs are: `landed[]` is a `git log --since` read, and a bare file tree
+# would make the attribution rows vacuously true.
+#
+# THE BREAKER ROW IS `succession_carry_is_wired_at_the_ask_line`. Wiring the carry INSIDE
+# `create.sh` is the one edit that would keep every other row here green while giving the
+# strategy artifact's writer a second job — and it is proved able to fire, against a copy of
+# `create.sh` with the succession wired into it.
+cmd_verify_succession() {
+    _create="${REPO_ROOT}/plugins/workaholic/skills/strategy/scripts/create.sh"
+    _close="${REPO_ROOT}/plugins/workaholic/skills/strategy/scripts/close.sh"
+    _line="${REPO_ROOT}/plugins/workaholic/skills/feedback/scripts/ask-feedback-line.sh"
+    _leaving="${REPO_ROOT}/plugins/workaholic/skills/strategy/scripts/closing-residue.sh"
+    _attr="${REPO_ROOT}/plugins/workaholic/skills/strategy/scripts/attributed-work.sh"
+    _state="${REPO_ROOT}/plugins/workaholic/skills/strategy/scripts/direction-state.sh"
+    _survey="${REPO_ROOT}/plugins/workaholic/skills/propose/scripts/survey-strategies.sh"
+    _pub="${REPO_ROOT}/plugins/workaholic/skills/branching/scripts"
+    _flow="${REPO_ROOT}/plugins/workaholic/skills/specificate/reference/workflow.md"
+    for _f in "$_create" "$_close" "$_line" "$_leaving" "$_attr" "$_state" "$_survey" "$_flow"; do
+        [ -f "$_f" ] || emit_err "succession_seam_unreadable" 4 "${_f} is not present in this checkout"
+    done
+
+    _before=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+
+    _tmp=$(mktemp -d)
+    _root="${_tmp}/repo"
+    _bin="${_tmp}/bin"; mkdir -p "$_bin"
+    _me=$(cd "$REPO_ROOT" && git config user.email 2>/dev/null || echo drill@example.com)
+    _past=$(date -u -d "-10 days" +%Y-%m-%d 2>/dev/null || echo 2026-01-01)
+    _far=$(date -u -d "+300 days" +%Y-%m-%d 2>/dev/null || echo 2099-01-01)
+    _W="${_root}/.workaholic"
+    mkdir -p "${_W}/strategies" "${_W}/feedbacks" "${_W}/missions/active/orphan" \
+             "${_W}/missions/archive/landed" "${_W}/tickets/todo" "${_W}/tickets/archive/work-x"
+    printf -- '---\ntype: Feedback\n---\n\nthe direction grew from this\n' > "${_W}/feedbacks/20260101000000-a.md"
+    printf -- '---\ntype: Feedback\n---\n\nnobody claims this\n'          > "${_W}/feedbacks/20260101000000-b.md"
+    printf -- '---\ntype: Feedback\n---\n\nthe successor was announced by this\n' > "${_W}/feedbacks/20260201000000-c.md"
+    cat > "${_W}/strategies/old.md" <<EOF
+---
+type: Strategy
+title: T old
+slug: old
+status: active
+target_date: ${_past}
+assignees: [${_me}]
+feedback: [20260101000000-a.md]
+---
+
+# old
+
+## Aim
+
+a
+
+## Schedule
+
+s
+EOF
+    printf -- '---\ntype: Mission\ntitle: Landed\nslug: landed\nstatus: achieved\nfeedback: [20260101000000-a.md]\n---\n\n# Landed\n' \
+        > "${_W}/missions/archive/landed/mission.md"
+    printf -- '---\nmission: landed\nstatus: done\n---\n\n# T1\n' > "${_W}/tickets/archive/work-x/20260101000001-t1.md"
+    printf -- '---\ntype: Mission\ntitle: Orphan\nslug: orphan\nstatus: active\nfeedback: [20260101000000-b.md]\n---\n\n# Orphan\n' \
+        > "${_W}/missions/active/orphan/mission.md"
+    printf -- '---\nmission: orphan\n---\n\n# T2\n' > "${_W}/tickets/todo/20260102000000-t2.md"
+    _open="${_tmp}/open.json"
+    printf '{"ok": true, "identity": "drill", "slug": "o/n", "proposals": []}\n' > "$_open"
+    ( cd "$_root" && git -c init.defaultBranch=main init -q . \
+        && git config user.email "$_me" && git config user.name Drill \
+        && git -c commit.gpgsign=false add -A \
+        && git -c commit.gpgsign=false commit -qm seed ) >/dev/null 2>&1 || true
+
+    # 1. THE LEAVING IS READABLE BEFORE THE DECISION. Three blocks, each from that fact's own
+    # single reader, composed at the moment somebody is deciding whether to end the direction.
+    _lv=$(cd "$_root" && sh "$_leaving" --open-proposals "$_open" old "14 days ago" "$_W" 2>&1) || true
+    if printf '%s' "$_lv" | grep -q '"readable": *true' \
+        && printf '%s' "$_lv" | grep -q '"slug": *"orphan"' \
+        && printf '%s' "$_lv" | grep -q '"exhaustive": *false'; then
+        add_row "succession_leaving_before_the_close" true "the leaving names what it never reached, what no direction claimed, and its lifecycle reading" load
+    else
+        add_row "succession_leaving_before_the_close" false "the leaving was not composed: $(one_line "$_lv")" load
+    fi
+
+    # 2. THE CLOSE, AND THE LEAVING STILL READABLE AFTER IT. `direction-state.sh` is bounded to
+    # the active set by design, so a closed direction reads `not_active` -- a real answer, not a
+    # degradation, which is what lets `/specificate`'s *ended* route state anything at all.
+    _cl=$(cd "$_root" && sh "$_close" old achieved "$_W" 2>&1) || true
+    _lv2=$(cd "$_root" && sh "$_leaving" --open-proposals "$_open" old "14 days ago" "$_W" 2>&1) || true
+    if printf '%s' "$_lv2" | grep -q '"state": *"not_active"' \
+        && printf '%s' "$_lv2" | grep -q '"readable": *true'; then
+        add_row "succession_leaving_after_the_close" true "a closed direction reads not_active, readable -- never a degradation" load
+    else
+        add_row "succession_leaving_after_the_close" false "the leaving broke at the close: $(one_line "$_lv2") / $(one_line "$_cl")" load
+    fi
+
+    # 3. THE CARRY IS COMPOSED AT THE ASK LINE, by the one writer of that ref set, and handed to
+    # `create.sh` as the argument it has always taken. Matching is by EXPLICIT SLUG: the
+    # predecessor named here is `old`, and no title or paraphrase reaches this seam.
+    _refs=$(sh "$_line" --refs-only 20260201000000-c.md 20260101000000-a.md 2>/dev/null || true)
+    ( cd "$_root" && printf 'aim\n' | sh "$_create" "New" "$_far" "$_me" "sched" "$_refs" "$_W" ) >/dev/null 2>&1 || true
+    if [ -f "${_W}/strategies/new.md" ] \
+        && grep -q '^feedback: \[20260201000000-c.md, 20260101000000-a.md\]$' "${_W}/strategies/new.md"; then
+        add_row "succession_carries_the_predecessor_refs" true "the successor cites the announcement and the predecessor's own records" load
+    else
+        add_row "succession_carries_the_predecessor_refs" false "the carry did not reach the successor: $(one_line "$_refs")" load
+    fi
+
+    # 4. NO FIELD, NO RELATION. The successor carries no `predecessor:`/`successor:` key and the
+    # retired `strategy:` relation stays retired.
+    if [ -f "${_W}/strategies/new.md" ] \
+        && ! grep -qE '^(predecessor|successor|strategy):' "${_W}/strategies/new.md"; then
+        add_row "succession_adds_no_field" true "the successor gained no field and revived no relation" load
+    else
+        add_row "succession_adds_no_field" false "an artifact gained a field for the succession" load
+    fi
+
+    # 5. THE ATTRIBUTION READS THROUGH THE SUCCESSION. The predecessor's landed work is the
+    # successor's from its first hour, through the citation that already existed.
+    ( cd "$_root" && git -c commit.gpgsign=false add -A \
+        && git -c commit.gpgsign=false commit -qm successor ) >/dev/null 2>&1 || true
+    _an=$(cd "$_root" && sh "$_attr" new "14 days ago" "$_W" 2>&1) || true
+    if printf '%s' "$_an" | grep -q '"slug": *"new"' \
+        && printf '%s' "$_an" | grep -q 'missions/archive/landed/mission.md'; then
+        add_row "succession_attribution_reads_through" true "the successor reads the predecessor's landed work as its own" load
+    else
+        add_row "succession_attribution_reads_through" false "the predecessor's work did not reach the successor: $(one_line "$_an")" load
+    fi
+
+    # 6. A FRESH SUCCESSOR IS NOT `dormant`. That is the reading the carry exists to prevent: a
+    # direction born citing its predecessor's records is not one nothing is answering.
+    _st=$(cd "$_root" && sh "$_state" --open-proposals "$_open" "14 days ago" "$_W" 2>&1) || true
+    if printf '%s' "$_st" | grep -q '"slug": *"new"' \
+        && ! printf '%s' "$_st" | grep -q '"state": *"dormant"'; then
+        add_row "succession_successor_is_not_dormant" true "a direction born carrying its predecessor's refs is not one nothing is answering" load
+    else
+        add_row "succession_successor_is_not_dormant" false "the fresh successor read dormant: $(one_line "$_st")" load
+    fi
+
+    # 7. `/propose` RESUMES AGAINST IT ON THE NEXT TICK. The whole point of the carry: the loop
+    # keeps originating work across the boundary instead of going quiet at it.
+    _sv=$(cd "$_root" && sh "$_survey" --open-proposals "$_open" "14 days ago" "$_W" 2>&1) || true
+    if printf '%s' "$_sv" | grep -q '"selected": *\["new"\]'; then
+        add_row "succession_propose_resumes" true "the next tick proposes against the successor -- the loop did not go quiet at the boundary" load
+    else
+        add_row "succession_propose_resumes" false "the successor was not proposed against: $(one_line "$_sv")" load
+    fi
+
+    # 8. THE BREAKER ROW. The carry lives at the ask line and NOT inside `create.sh` -- the one
+    # edit that would keep every other row green while giving the artifact's writer a second
+    # job. Proved able to fire: the same detection is run against a copy of `create.sh` with the
+    # succession wired into it, and it must go red there.
+    _wired="${_tmp}/create-wired.sh"
+    cp "$_create" "$_wired"
+    printf 'PREDECESSOR="${7:-}" # carry the predecessor refs\n' >> "$_wired"
+    if ! grep -qiE 'predecessor|successor' "$_create" \
+        && grep -q 'ask-feedback-line.sh' "$_flow" \
+        && grep -qiE 'predecessor' "$_wired"; then
+        add_row "succession_carry_is_wired_at_the_ask_line" true "the carry is composed at the ask line, create.sh knows nothing of it, and the detection fires on a wired copy" load
+    else
+        add_row "succession_carry_is_wired_at_the_ask_line" false "the carry reached create.sh, or the ask line no longer composes it" load
+    fi
+
+    # 9. NOTHING CLOSED A DIRECTION ON ITS OWN READING, AND NOTHING AUTHORED ONE. The readers in
+    # this walk reach no writer of the strategy artifact; `close.sh` is reached by the
+    # operator's announcement and by nothing here.
+    _closure=$(cat "$_leaving" "$_state" 2>/dev/null | grep -v '^[[:space:]]*#' || true)
+    if ! printf '%s' "$_closure" | grep -qE 'close\.sh|amend\.sh|create\.sh'; then
+        add_row "succession_readers_reach_no_writer" true "the leaving and the lifecycle readers reach no writer of the artifact" load
+    else
+        add_row "succession_readers_reach_no_writer" false "a reader in this walk reaches a writer of the strategy artifact" load
+    fi
+
+    # 10. THE STRATEGY-TOUCHING PUBLISH DOES NOT AUTO-MERGE. The operator's merge is what
+    # authors the artifact, and since 2026-08-27 that is the seam's refusal rather than the
+    # caller's judgement -- a successor is a create, so it is covered by the same rule.
+    _origin="${_tmp}/origin"; _pubtree="${_tmp}/pub"
+    git -c init.defaultBranch=main init -q --bare "$_origin" >/dev/null 2>&1 || true
+    git clone -q "$_origin" "$_pubtree" >/dev/null 2>&1 || true
+    ( cd "$_pubtree" && git config user.email drill@example.com && git config user.name Drill \
+      && git config commit.gpgsign false && echo seed > README.md \
+      && git add -A && git commit -qm seed && git push -q origin main ) >/dev/null 2>&1 || true
+    printf '#!/bin/sh\ncase "$1 $2" in\n  "api user") printf "tester\\n"; exit 0 ;;\nesac\ncase "$*" in\n  *pulls*POST*) echo %s; exit 0 ;;\n  *merge*) echo %s; exit 0 ;;\nesac\necho ""\n' \
+        "'{\"html_url\":\"https://drill.invalid/pr/1\",\"number\":1}'" "'{\"merged\":true}'" > "${_bin}/gh"
+    chmod +x "${_bin}/gh"
+    _pubout=$( ( cd "$_pubtree" && sh "${_pub}/open-publish-tree.sh" >/dev/null 2>&1
+        mkdir -p .publish/.workaholic/strategies
+        cp "${_W}/strategies/new.md" .publish/.workaholic/strategies/new.md
+        PATH="${_bin}:$PATH" WORKAHOLIC_AUTO_MERGE=1 sh "${_pub}/publish-tree-pr.sh" \
+            "Propose strategy new" why None None None verify \
+            .workaholic/strategies/new.md 2>/dev/null
+        sh "${_pub}/close-publish-tree.sh" >/dev/null 2>&1 ) | grep '"merge_reason"' | tail -1 )
+    if printf '%s' "$_pubout" | grep -q '"merge_reason": *"strategy_touching"' \
+        && printf '%s' "$_pubout" | grep -q '"merged": *false'; then
+        add_row "succession_publish_never_merges" true "a strategy-touching publish is left open even with WORKAHOLIC_AUTO_MERGE=1" load
+    else
+        add_row "succession_publish_never_merges" false "a strategy-touching publish was not held open: $(one_line "$_pubout")" load
+    fi
+
+    # 11. IT WROTE NOTHING IN THE CHECKOUT. Every fixture is outside it.
+    _after=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+    if [ "$_before" = "$_after" ]; then
+        add_row "succession_writes_nothing" true "the checkout is byte-identical after the drill" load
+    else
+        add_row "succession_writes_nothing" false "the drill changed the working tree" load
+    fi
+
+    rm -rf "$_tmp"
+    if [ "$LOAD_FAILED" -gt 0 ]; then
+        emit_verdict "succession" 0 "fail" 1
+    fi
+    emit_verdict "succession" 0 "pass" 0
 }
 
 # --------------------------------------------------------- verify-merged-claim
@@ -4064,7 +4327,7 @@ cmd_verify_return_path() {
     emit_verdict "return-path" 0 "pass" 0
 }
 
-USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-specificate <issue>|verify-implement <issue>|verify-plan [--json]|verify-status [--json]|verify-cadence [--json]|verify-planner [--json]|verify-standup [--json]|verify-moderate [--json]|verify-propose [--json]|verify-direction-health [--json]|verify-arrival [--json]|verify-residue [--json]|verify-revision [--json]|verify-merged-claim [--json]|verify-identity-handoff [--json]|verify-close [--json]|verify-retire [--json]|verify-delivery-retry [--json]|verify-handoff-question [--json]|verify-base-health [--json]|verify-return-path [--json]"}'
+USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-specificate <issue>|verify-implement <issue>|verify-plan [--json]|verify-status [--json]|verify-cadence [--json]|verify-planner [--json]|verify-standup [--json]|verify-moderate [--json]|verify-propose [--json]|verify-direction-health [--json]|verify-arrival [--json]|verify-residue [--json]|verify-succession [--json]|verify-revision [--json]|verify-merged-claim [--json]|verify-identity-handoff [--json]|verify-close [--json]|verify-retire [--json]|verify-delivery-retry [--json]|verify-handoff-question [--json]|verify-base-health [--json]|verify-return-path [--json]"}'
 
 CMD="${1:-}"
 [ -n "$CMD" ] || {
@@ -4103,6 +4366,7 @@ case "$CMD" in
     verify-direction-health) cmd_verify_direction_health "$@" ;;
     verify-arrival) cmd_verify_arrival "$@" ;;
     verify-residue) cmd_verify_residue "$@" ;;
+    verify-succession) cmd_verify_succession "$@" ;;
     verify-revision) cmd_verify_revision "$@" ;;
     verify-merged-claim) cmd_verify_merged_claim "$@" ;;
     verify-identity-handoff) cmd_verify_identity_handoff "$@" ;;

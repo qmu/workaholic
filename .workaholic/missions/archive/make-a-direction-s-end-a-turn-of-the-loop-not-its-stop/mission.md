@@ -2,7 +2,7 @@
 type: Mission
 title: Make a direction's end a turn of the loop, not its stop
 slug: make-a-direction-s-end-a-turn-of-the-loop-not-its-stop
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-28T05:20:44+00:00
 author: a@qmu.jp
@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260828-054059
 ---
 
 # Make a direction's end a turn of the loop, not its stop
@@ -39,10 +40,19 @@ three writers and no artifact gains a field.
 
 ## Acceptance
 
-- [ ] One reader composes what a direction leaves, and the close and the question state it (#20260828052133-read-what-a-direction-leaves-behind.md)
-- [ ] An announced successor carries its predecessor's own refs, by explicit slug only (#20260828052133-let-a-direction-name-its-predecessor.md)
-- [ ] The last live direction is named to its assignee before it is closed (#20260828052133-say-it-before-the-silence-to-somebody.md)
+- [x] One reader composes what a direction leaves, and the close and the question state it (#20260828052133-read-what-a-direction-leaves-behind.md)
+- [x] An announced successor carries its predecessor's own refs, by explicit slug only (#20260828052133-let-a-direction-name-its-predecessor.md)
+- [x] The last live direction is named to its assignee before it is closed (#20260828052133-say-it-before-the-silence-to-somebody.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-28 — ticket archived — 20260828052133-read-what-a-direction-leaves-behind.md
+- 2026-08-28 — ticket archived — 20260828052133-state-the-leaving-at-the-close.md
+- 2026-08-28 — ticket archived — 20260828052133-ask-about-the-leaving-before-the-close.md
+- 2026-08-28 — ticket archived — 20260828052133-say-it-before-the-silence-to-somebody.md
+- 2026-08-28 — ticket archived — 20260828052133-let-a-direction-name-its-predecessor.md
+- 2026-08-28 — ticket archived — 20260828052133-prove-the-succession-costs-no-fourth-writer.md
+- 2026-08-28 — ticket archived — 20260828052133-drill-the-succession-end-to-end.md
+- 2026-08-28 — mission achieved — mission.md
+- 2026-08-28 — story reported — work-20260828-054059.md

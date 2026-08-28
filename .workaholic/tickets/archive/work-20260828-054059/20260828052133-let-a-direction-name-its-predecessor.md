@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-28T05:21:33+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -76,3 +77,29 @@ what the operator announced by explicit slug; it never authors a direction.
 ## Considerations
 
 - The successor's Aim, Schedule and Assignee stay the operator's words; only the citation is carried.
+
+## Final Report
+
+Development completed as planned.
+
+A *created* announcement that names an explicit predecessor slug takes the strategy form
+unchanged in every part, plus that predecessor's own `feedback:` refs — read through
+`strategy/scripts/read.sh`, composed through `feedback/scripts/ask-feedback-line.sh`
+(`--refs-only`, the one writer of that ref set), and handed to `create.sh` as the fifth
+argument it has always taken. `create.sh` is byte-identical and learns nothing about
+succession. Refusals: `strategy_not_found`, `predecessor_active`, `no_predecessor`. The
+succession is reported as `successor_of:<predecessor>:<n>` in the run report and the
+pull-request body; the publish still does not auto-merge.
+
+### Discovered Insights
+
+- **Insight**: a successor announced beside the record that announced it will often cite the
+  same ref twice.
+  **Context**: `ask-feedback-line.sh` collapses a repeated ref, order preserved. A doubled ref
+  is noise in every reader of the relation, and collapsing it at the one writer is cheaper
+  than teaching each reader to tolerate it.
+- **Insight**: a fresh successor carrying a closed predecessor's refs reads `arrived` when the
+  inherited work is all in, and `live` when something is still in flight.
+  **Context**: neither is `dormant`, which is the reading the carry exists to prevent. Pinning
+  a single expected state would have been wrong; what is pinned is the absence of `dormant`
+  plus both honest readings.

@@ -25273,6 +25273,7 @@ function testReconcileCandidates() {
   try {
     execSync("git init -q . && git remote add origin git@github.com:acme-org/source-repo.git",
       { cwd: repo });
+    execSync(`git config user.email test@example.com && git config user.name Test && git config commit.gpgsign false`, { cwd: repo });
     // A feedback record, a mission citing it, and a ticket in the mission — the shape a
     // `/specificate` proposal lands and an `/implement` unit then drives.
     mkdirSync(join(repo, ".workaholic/feedbacks"), { recursive: true });
@@ -25408,6 +25409,7 @@ function testThreadReconcileStep() {
   try {
     execSync("git init -q . && git remote add origin git@github.com:acme-org/source-repo.git",
       { cwd: repo });
+    execSync(`git config user.email test@example.com && git config user.name Test && git config commit.gpgsign false`, { cwd: repo });
     mkdirSync(join(repo, ".workaholic/feedbacks"), { recursive: true });
     mkdirSync(join(repo, ".workaholic/missions/active/alpha"), { recursive: true });
     mkdirSync(join(repo, ".workaholic/moderations"), { recursive: true });

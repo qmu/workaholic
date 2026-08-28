@@ -25336,6 +25336,38 @@ function testThreadReconcileStep() {
       [nolog.status, nolog.needs_agent.length], ["ok", 0]);
     rmSync(plain, { recursive: true, force: true });
 
+    // THE AGENT'S CONTRACT IS PROSE, SO WHAT IS MECHANICAL ABOUT IT IS PINNED. No check tells a
+    // real thread read from a claimed one — the `## Open Decisions` floor's own shape — so what
+    // this buys is that a section missing one of these bounds is visibly wrong.
+    const contract = readFileSync(
+      join(REPO_ROOT, "plugins/workaholic/skills/moderate/reference/workflow.md"), "utf8");
+    const section = contract.slice(contract.indexOf("## 23. `thread-reconcile`"),
+      contract.indexOf("## The reader behind the thread reconciliation"));
+    assertTrue("the section exists", section.length > 0, "no thread-reconcile section");
+    // Collapsed, because the source is wrapped prose and a line break is not a missing rule.
+    const flat = section.replace(/\s+/gu, " ");
+    for (const [what, re] of [
+      ["the two-query bound", /\*\*two queries at most\*\*/],
+      ["the fuzzy-matching prohibition", /fuzzy matching prohibited by name/],
+      ["case 4 refused, with its reason", /\*\*Case 4 does not apply here\*\*/],
+      ["the read-before-write bar", /\*\*Read that thread before writing anything\*\*/],
+      ["the conservative candidate bar", /Only a \*\*latest\*\* status reply of `🔵 Proposed` or `🟡 Handoff`/],
+      ["when unsure, post nothing", /\*\*When unsure, post nothing and say what made you unsure\*\*/],
+      ["never invent an author or a time", /\*\*Never invent an author or a time\*\*/],
+      ["the second persist", /the \*\*second\*\* persist/],
+      ["one outcome per candidate", /non-conformant on its face/],
+      ["no mention token", /\*\*The post carries no mention token\.\*\*/],
+      ["the structural idempotence", /\*\*The idempotence is structural/],
+      ["and the never-list", /never posts into any thread but the item's own/],
+    ]) {
+      assertTrue(`the contract states ${what}`, re.test(flat), `${what} is unwritten`);
+    }
+    for (const reason of ["no_thread", "already_finished", "unsure", "no_slack_transport",
+      "thread_unreadable", "post_failed"]) {
+      assertTrue(`and names the not-posted reason ${reason}`, section.includes(reason),
+        `${reason} is unnamed`);
+    }
+
     // AND IT IS REGISTERED, IN ORDER, beside the two steps that read the same kind of fact.
     const runSh = readFileSync(
       join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/run.sh"), "utf8");

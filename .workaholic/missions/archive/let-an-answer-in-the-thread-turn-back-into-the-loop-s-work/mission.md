@@ -2,7 +2,7 @@
 type: Mission
 title: Let an answer in the thread turn back into the loop's work
 slug: let-an-answer-in-the-thread-turn-back-into-the-loop-s-work
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-28T03:19:16+00:00
 author: a@qmu.jp
@@ -54,3 +54,5 @@ line; the tick still writes nothing but its own log.
 - 2026-08-28 — ticket archived — 20260828032101-stamp-the-answer-where-it-was-written.md
 - 2026-08-28 — ticket archived — 20260828032058-reproduce-the-dead-return-path-and-pin-it.md
 - 2026-08-28 — ticket archived — 20260828032101-drill-the-return-path-with-no-network.md
+- 2026-08-28 — ticket archived — 20260828032102-write-the-return-path-into-the-documents.md
+- 2026-08-28 — mission achieved — mission.md

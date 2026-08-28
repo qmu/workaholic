@@ -43,6 +43,7 @@ Run every command from the repository root, on a clean `main`.
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-identity-handoff --json` | a throwaway repository with a two-address mapping — walks issue assignee → the address the writer stamps → the survey that offers the unit, for a canonical address, a mapped alias and an unmapped login, with no network and no credential |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-close --json` | a throwaway repository carrying three finished units — proves all four closing outcomes (merged, session-type-refused-then-retryable, refused-and-unretryable, scan-held) with the transport stubbed, plus one row that deliberately breaks the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-retire --json` | a throwaway repository holding a `superseded` claim, a live one and a unit held by two — proves the retirement's three acts, that a judgement is refused by its own verdict word, and that the step asks nobody anything, with the transport stubbed and one row that deliberately breaks the seam |
+| — | Any time | `sh scripts/e2e/loop-drill.sh verify-ci-retirement --json` | a throwaway repository whose bare origin refuses the container's branch delete and permits CI's — proves the act the container is refused is taken where the write is permitted, re-proved at the moment of it, bounded four ways, and asked about only once CI has also refused, with the transport stubbed and one row that deliberately breaks the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-delivery-retry --json` | a throwaway repository holding three units finished in the identical shape — proves the survey offers an undelivered unit in a field of its own, that only the proof reaches the merge seam, and that a scan-held or unrecorded one never does, with the transport stubbed and one row that deliberately breaks the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-handoff-question --json` | a throwaway repository holding a reported claim whose still-queued work declares `verification_handoff:` — proves the declared reason reaches its holder verbatim exactly once, that `stalled-units` asks nothing about the same unit, and that nothing is cleared, with the transport stubbed and one row that deliberately breaks the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-base-health --json` | a throwaway repository whose base is red at a mid-walk merge — proves the reader's three states, the attribution walk's two outcomes, that one broken commit costs exactly one question, and that the reading gates nothing, with the transport stubbed and one row that deliberately breaks the seam |
@@ -757,6 +758,38 @@ refused on an act that is **not** the delete.
 | `retire_blocked_only_the_blocked` | a unit that was **retired**, or one refused on the **close**, also draws a question | **the deliberately broken seam.** The rule is narrowed, not reversed: widen the candidate set to every superseded row and the first fires; widen it to every refusal and the second does — verified by replacing the `remote_branch_deleted == "failed"` test with `if true`, which failed exactly this row and nothing else |
 | `retire_blocked_summary_stable` | two ticks over an unchanged blocked set render different summaries, or a held block supplies an `event` | the root calls a step changed when its summary moves, so a term that varies on its own makes a standing block an hourly restatement — verified by prefixing the summary with `$(date +%s)`, which failed exactly this row |
 | `retire_blocked_asked_once` | the same key is asked on a later tick | `ask-question.sh`'s asked-once ledger, exercised with this step's `retire-blocked:<unit>` key over two consecutive ticks — the bound on the question's repetition, and deliberately the only one (a second per-unit ledger is how the two drift) |
+
+## 5l-ter. The CI retirement (does the act the container is refused actually get taken?)
+
+`verify-ci-retirement` needs no seed, no fire, no issue number and **no network**: a local bare
+origin and a `gh` stubbed on `PATH`. Act 2 of the retirement — the remote branch delete — is
+refused in the container the loop runs in by both available transports (measured 2026-08-27), so
+it moves to a different **executor**, `.github/workflows/claim-retirement.yml`, on
+`release-note-draft.yml`'s precedent. That split spans two processes and one destructive act,
+which is the last thing that should be proved by waiting for a workflow run.
+
+**The two executors are told apart by transport, and that distinction is the fixture's rather
+than GitHub's.** The container's Act 2 is a `git push origin --delete`, refused server side by
+the bare origin's own `update` hook — the same receive-side path a remote refusal takes. The CI
+act is a REST `DELETE` through `gh-rest.sh`, which the stub performs for real against the same
+bare repository. A bare origin cannot tell a "CI" pusher from a container one on identity alone,
+and pretending otherwise would drill a fiction.
+
+| Row | Fails when | Read |
+| --- | ---------- | ---- |
+| `ci_retirement_no_network` | `gh` does not resolve to the stub | the drill would reach the network; every row below it would be measuring GitHub rather than the seam |
+| `ci_retirement_container_refused` | the container's delete is not refused, or the branch does not survive it | the production condition on every tick, and the whole reason the act moved executor — if this row goes green on its own the refusal is gone and the split has no premise |
+| `ci_retirement_candidates` | the candidate set is not exactly the `superseded` units, or names a live one | `list-retirable-claims.sh` — the derivation stays the claim oracle's; a workflow that matched `work-*` itself would delete branches nothing proved empty |
+| `ci_retirement_ci_takes_the_act` | CI does not delete the branch the container was refused | the mission's whole point: the act happens where the write is permitted |
+| `ci_retirement_idempotent` | a second CI turn over the same unit is not a no-op | a completed delete removes the claim row, and `already_gone` is a **success** — a re-run over a set already taken must be clean, not a run full of errors |
+| `ci_retirement_refuses_a_judgement` | a live claim's branch is not refused `not_superseded:<verdict>`, or does not survive | acting on `claim_active` is how a workflow tears down work a run is still driving; the refusal carries the verdict's **own** word so the reader learns which judgement it was |
+| `ci_retirement_bounds` | `release_branch`, `not_a_work_branch`, `pull_request_open` or `not_on_base` fails to refuse by name | on top of the proof. `claims_scan` walks **every** remote head, so a claim commit on a `release/*` or a hand-named branch really is a claim row — which is why the shape bounds are not decoration |
+| `ci_retirement_always_exits_zero` | any refusal, degradation or reader exits non-zero | a refusal is an answer the workflow reports, never one it dies on |
+| `ci_retirement_pending_suppresses` | a `pending` CI turn still produces a question | `ci-retirement-turn.sh` — asking a person for an act a workflow is about to perform is not merely noisy, the ask is wrong. The blocked set is non-empty here, so the row isolates the reading rather than an empty candidate list |
+| `ci_retirement_taken_asks_the_holder` | the unit CI also refused reaches nobody, or a CI-deleted unit draws a question | the narrowing in both directions: CI saw this tree and one branch survived it, while the other is no longer a claim at all |
+| `ci_retirement_asked_once` | the same key is asked on a later tick | `ask-question.sh`'s asked-once ledger, exercised with `retire-blocked:<unit>` — unchanged by the narrowing, which touches only the candidate set |
+| `ci_retirement_breaker` | removing the re-proof changes nothing | **the deliberately broken seam.** The act with **both** halves of its re-proof removed must delete a live claim's branch. Written against the verdict gate alone this row did **not** break — `not_on_base` caught the live claim on its own — so the two guards are independent rather than one written twice, and the drill says so by needing both removed |
+| `ci_retirement_writes_nothing` | the drill changed the checkout | every fixture lives outside the checkout |
 
 ## 5l-bis. The revision (can the operator revise a live direction through the loop?)
 

@@ -103,11 +103,19 @@ branch succeeds in the same container, so it is the delete specifically that is 
 therefore nothing to retry: a second REST attempt is measured to answer 403, and a call that
 cannot succeed is noise with a cost. **This is the finding, not a gap left open** — a later
 session looking for the retry should stop here rather than re-derive it. The blocked act is
-reported by its own word (`branch_delete_failed`) and reaches its claim holder as one question,
-which is the whole repair available; full record in
+reported by its own word (`branch_delete_failed`); full record in
 `skills/drive/reference/claims.md`, *When an act of the retirement is refused*. If the connector
 ever gains a ref-delete surface, the question reopens on exactly the bounds above: one tool, one
 named precondition, one act, both outcomes reported.
+
+**And the repair was a different executor, not a second transport** (2026-08-28, mission
+`finish-a-proved-retirement-where-the-write-is-permitted`). Nothing above moved: the table is what
+it measured, the container still has no second transport, and no bounded retry was added. What
+changed is that Act 2 no longer has to happen in the container — `.github/workflows/claim-retirement.yml`
+runs the **same** `gh-rest.sh` seam under `contents: write`, on the precedent
+`release-note-draft.yml` set for the release-note write. So this rule is untouched by it: CI
+reaches GitHub through the one transport like everything else, and a blocked unit reaches its
+claim holder as one question only once CI has been refused too.
 
 `gh release …` is **not** covered — it is REST-backed, and `ship/scripts/publish-release.sh`
 uses it correctly.

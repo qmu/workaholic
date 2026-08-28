@@ -56,3 +56,4 @@ line; the tick still writes nothing but its own log.
 - 2026-08-28 — ticket archived — 20260828032101-drill-the-return-path-with-no-network.md
 - 2026-08-28 — ticket archived — 20260828032102-write-the-return-path-into-the-documents.md
 - 2026-08-28 — mission achieved — mission.md
+- 2026-08-28 — story reported — work-20260828-034109.md

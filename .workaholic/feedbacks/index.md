@@ -581,4 +581,5 @@
 * [Let the moderation tick reconcile a thread's last status with the unit's real state](20260828061724-let-the-moderation-tick-reconcile-a-thread-s-last-status-with-the-unit-s-real-state.md)
 * [The inbound channel default and the channel the loop posts to have diverged](20260828100201-the-inbound-channel-default-and-the-channel-the-loop-posts-to-have-diverged.md)
 * [Finish a proved retirement where the write is permitted](20260828101734-finish-a-proved-retirement-where-the-write-is-permitted.md)
+* [Deliver what the loop already knows to the person who can act](20260828181639-deliver-what-the-loop-already-knows-to-the-person-who-can-act.md)
 <!-- okf:generated:end -->

@@ -56,3 +56,4 @@ today from a mechanism that has stopped.
 - 2026-08-28 — ticket archived — 20260828182002-state-the-cap-s-contract-where-it-is-documented.md
 - 2026-08-28 — ticket archived — 20260828182003-drill-the-delivery-path-with-no-network.md
 - 2026-08-28 — mission achieved — mission.md
+- 2026-08-28 — story reported — work-20260828-184133

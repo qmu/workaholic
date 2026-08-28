@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 1.05
 feedback: [20260828181639-deliver-what-the-loop-already-knows-to-the-person-who-can-act.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
@@ -57,3 +57,4 @@ today from a mechanism that has stopped.
 - 2026-08-28 — ticket archived — 20260828182003-drill-the-delivery-path-with-no-network.md
 - 2026-08-28 — mission achieved — mission.md
 - 2026-08-28 — story reported — work-20260828-184133
+- 2026-08-28 — run recorded (+1.05h) — implement-20260828-184133

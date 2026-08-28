@@ -47,6 +47,7 @@ const SCRIPTS = {
   stepUndrivableUnits: join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-undrivable-units.sh"),
   stepUndeliveredUnits: join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-undelivered-units.sh"),
   reconcileCandidates: join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/reconcile-candidates.sh"),
+  stepThreadReconcile: join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-thread-reconcile.sh"),
   listTodo: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/list-todo.sh"),
   proposeRun: join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/run.sh"),
   proposeLogAppend: join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/log-append.sh"),
@@ -17641,6 +17642,7 @@ const tests = [
   ["claims: two verdicts are proofs, and every consumer gates on one", testProofJudgementSplit],
   ["moderate/undelivered-units: the loop's own undelivered work reaches a person", testUndeliveredUnitsStep],
   ["moderate/reconcile-candidates.sh: which announced items may still be called in flight", testReconcileCandidates],
+  ["moderate/thread-reconcile: the finished item whose thread still calls it in flight", testThreadReconcileStep],
   ["branching/ensure-worktree.sh never shadows a published branch", testEnsureWorktreeNeverShadowsRemote],
   ["drive survey: a mission behind a merged claim is surveyed again", testSupersededMissionIsResurveyed],
   ["drive claim protocol: a mission claim's artifact is unaffected", testMissionClaimArtifactsUnaffected],
@@ -22296,6 +22298,13 @@ function testModerateRun() {
     // again, so the one surface that names a person never learned there was anything to say.
     // Same placement and same reason as its neighbours: it reads, the check-in asks.
     "handoff-units",
+    // `thread-reconcile` (2026-08-28): an announced item whose thread may still be CALLING it
+    // in flight. A finish line is posted by the run that finishes a unit, so a pull request a
+    // person merges or closes by hand gets its finish posted by nobody — and no other step
+    // could see that either: `stuck-prs` and `merge-conflicts` read OPEN pull requests,
+    // `handoff-units` a standing claim, `stalled-units` a stale tip. Same placement and same
+    // reason as its neighbours: it reads, and the agent posts into the item's own thread.
+    "thread-reconcile",
     // `retire-claims` (2026-08-27): the one step beside these that ACTS instead of asking. A
     // claim the oracle reads `superseded` is PROVED to hold nothing, so there is no judgement
     // for a person to make — and `superseded` had been reported-never-acted-on since it
@@ -25219,6 +25228,123 @@ function testReconcileCandidates() {
     const src = readFileSync(SCRIPTS.reconcileCandidates, "utf8");
     assertTrue("the reader reaches GitHub only through gh-rest.sh",
       !/\bgh (issue|pr|repo|api)\b/.test(src.replace(/^#.*$/gm, "")), "a direct gh call");
+  } finally { rmSync(tmp, { recursive: true, force: true }); }
+}
+
+// The step that hands the thread reads back to the agent. Its whole mechanical contract:
+// which candidates, which bounds, what an earlier tick already settled — and an `event` that is
+// always empty, so a tick that reconciles nothing renders no root line.
+function testThreadReconcileStep() {
+  const MERGE_SUBJECT = "Merge PR #11 from acme-org/work-20260828-010000";
+  const tmp = mkdtempSync(join(tmpdir(), "wh-thread-reconcile-"));
+  const bin = join(tmp, "bin");
+  const repo = join(tmp, "repo");
+  mkdirSync(bin, { recursive: true });
+  mkdirSync(repo, { recursive: true });
+  const env = { ...process.env, PATH: `${bin}:${process.env.PATH}` };
+  try {
+    execSync("git init -q . && git remote add origin git@github.com:acme-org/source-repo.git",
+      { cwd: repo });
+    mkdirSync(join(repo, ".workaholic/feedbacks"), { recursive: true });
+    mkdirSync(join(repo, ".workaholic/missions/active/alpha"), { recursive: true });
+    mkdirSync(join(repo, ".workaholic/moderations"), { recursive: true });
+    writeFileSync(join(repo, ".workaholic/feedbacks/20260828010101-an-ask.md"),
+      "---\ntype: Feedback\n---\n\nan ask\n");
+    const mission = join(repo, ".workaholic/missions/active/alpha/mission.md");
+    writeFileSync(mission,
+      "---\ntype: Mission\nslug: alpha\nfeedback: [20260828010101-an-ask.md]\n---\n\n# Alpha\n");
+    execSync('git add -A && git commit -q -m "Seed the tree"', { cwd: repo });
+    const base = execSync("git branch --show-current", { cwd: repo, encoding: "utf8" }).trim();
+    execSync("git checkout -q -b work-20260828-010000", { cwd: repo });
+    writeFileSync(mission, `${readFileSync(mission, "utf8")}\ndone\n`);
+    execSync('git add -A && git commit -q -m "Work"', { cwd: repo });
+    execSync(`git checkout -q ${base} && git merge -q --no-ff `
+      + `-m ${JSON.stringify(MERGE_SUBJECT)} work-20260828-010000`, { cwd: repo });
+
+    const iso = (h) => new Date(Date.now() - h * 3600000).toISOString().replace(/\.\d+Z$/, "Z");
+    writeFileSync(join(bin, "gh"), [
+      "#!/bin/sh",
+      'case "$*" in',
+      `  *"pulls?state=closed"*"page=1"*) printf '%b\\n' `
+        + JSON.stringify(["11", "work-20260828-010000", iso(3), iso(3),
+          "https://x/pull/11", "Alpha"].join("\t")) + " ;;",
+      '  *pulls/11*) echo "a-person" ;;',
+      '  *) : ;;',
+      "esac",
+    ].join("\n"));
+    chmodSync(join(bin, "gh"), 0o755);
+
+    const step = (root = repo) => JSON.parse(run(root,
+      `${POSIX_SH} ${SCRIPTS.stepThreadReconcile} --tick 20260828-070000 --root ${root}`,
+      { env: { ...env, WORKAHOLIC_BASE_REF: base } }).stdout);
+
+    const r = step();
+    assertEq("the step runs ok", [r.step, r.status], ["thread-reconcile", "ok"]);
+    const need = r.needs_agent[0] || {};
+    assertEq("the finished item is handed to the agent", (need.candidates || []).length, 1);
+    assertEq("keyed once per pull request", need.candidates[0].key, "thread-reconcile:11");
+
+    // THE `event` IS ALWAYS EMPTY, so a tick that reconciles nothing renders no root line — the
+    // `unanswered-asks` precedent: at this moment nobody has read a thread.
+    assertEq("the event is always empty", r.event, "");
+
+    // THE BOUNDS THE AGENT MUST NOT EXCEED ARE HANDED TO IT IN WORDS, because no script can
+    // enforce them: two queries, no channel history, read before writing, case 4 refused.
+    assertTrue("the two-query bound rides the request", /AT MOST TWO queries/.test(need.bound), need.bound);
+    assertTrue("and the channel-history prohibition", /no channel history read/.test(need.bound), need.bound);
+    assertTrue("and case 4 is refused by name", /case 4 does NOT apply/i.test(need.bound), need.bound);
+    assertTrue("the thread is read before anything is written",
+      /read that thread BEFORE writing/i.test(need.read_first), JSON.stringify(need.read_first));
+    assertTrue("and only 🔵/🟡 is a candidate",
+      /🔵 Proposed or 🟡 Handoff/.test(need.read_first), JSON.stringify(need.read_first));
+    assertTrue("with one outcome required per candidate",
+      /non-conformant on its face/.test(need.outcomes), JSON.stringify(need.outcomes));
+
+    // AN EARLIER TICK'S `<step>-filed` LINE SUBTRACTS THE CANDIDATE — an optimisation, never the
+    // gate: the real dedup is the agent reading the thread before it writes.
+    run(repo, `${POSIX_SH} ${SCRIPTS.proposeLogAppend} --root ${repo} --tick 20260828-060000 `
+      + `--step thread-reconcile-filed --status ok --summary "thread-reconcile:11 posted"`);
+    const after = step();
+    assertEq("a candidate an earlier tick settled is not handed back again",
+      after.needs_agent.length, 0);
+    assertTrue("and the summary counts it as already reconciled",
+      /1 already reconciled/.test(after.summary), after.summary);
+
+    // THE STEP WRITES NOTHING OF ITS OWN.
+    execSync('git add -A && git commit -q -m "Record the log"', { cwd: repo });
+    step();
+    assertEq("git status is clean after the step ran",
+      execSync("git status --porcelain", { cwd: repo, encoding: "utf8" }).trim(), "");
+
+    // A REFUSED CANDIDATE READ IS `degraded` BY NAME AND HANDS BACK NOTHING — "nothing was
+    // looked at" is never rendered as "nothing is stale".
+    writeFileSync(join(bin, "gh"), "#!/bin/sh\nexit 1\n");
+    chmodSync(join(bin, "gh"), 0o755);
+    const deg = step();
+    assertEq("a refused candidate read degrades by name",
+      [deg.status, deg.needs_agent.length], ["degraded", 0]);
+    assertTrue("carrying the reader's own reason", /candidates_list_failed/.test(deg.reason), deg.reason);
+
+    // AN ABSENT LOG IS A READABLE ANSWER, NOT A DEGRADATION.
+    const plain = mkdtempSync(join(tmpdir(), "wh-thread-reconcile-nolog-"));
+    execSync("git init -q . && git remote add origin git@github.com:acme-org/source-repo.git",
+      { cwd: plain });
+    writeFileSync(join(bin, "gh"), '#!/bin/sh\ncase "$*" in *) : ;; esac\n');
+    chmodSync(join(bin, "gh"), 0o755);
+    const nolog = step(plain);
+    assertEq("a tree with no tick log is ok with nothing to reconcile",
+      [nolog.status, nolog.needs_agent.length], ["ok", 0]);
+    rmSync(plain, { recursive: true, force: true });
+
+    // AND IT IS REGISTERED, IN ORDER, beside the two steps that read the same kind of fact.
+    const runSh = readFileSync(
+      join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/run.sh"), "utf8");
+    assertTrue("run.sh invokes the step beside handoff-units",
+      /handoff-units thread-reconcile/.test(runSh), "not registered in order");
+    // AND IT NEVER REACHES THE SURVEY, which stages what its living migrations converge.
+    const src = readFileSync(SCRIPTS.stepThreadReconcile, "utf8").replace(/^#.*$/gm, "");
+    assertTrue("the step never reaches plan-units.sh", !/plan-units\.sh/.test(src),
+      "the step reaches the survey");
   } finally { rmSync(tmp, { recursive: true, force: true }); }
 }
 

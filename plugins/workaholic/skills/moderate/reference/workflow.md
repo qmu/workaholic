@@ -1118,6 +1118,83 @@ tick has at least one question, and on a red tick this step has already supplied
 is derived from the **local** remote (`step-direction-health.sh`'s precedent) — no network call —
 and an absent remote degrades to the bare short sha rather than to a broken link.
 
+## 23. `thread-reconcile` — a finished item whose thread still calls it in flight
+
+```bash
+sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/step-thread-reconcile.sh --tick <id> [--root <repo-root>]
+```
+
+- **Reads**: `reconcile-candidates.sh` (the section below) and the tick log. Nothing else.
+- **Writes**: nothing itself — no post, no merge, no branch, no artifact. The agent writes, and
+  its only write into the tree is this step's own `thread-reconcile-filed` log line.
+- **Its `event` is always empty**, deliberately and for `unanswered-asks`' and `question-answers`'
+  reason: when `run.sh` reads this step's line nobody has read a thread yet, so any event would be
+  a claim about a reading not made. **A step with no event renders no root line**, which is the
+  independent guard against a tick that reconciled nothing announcing itself.
+
+| Half | Owner | Why |
+| ---- | ----- | --- |
+| Which candidates, which bounds, what an earlier tick settled | the **script** | mechanical, offline, and the same answer from every session |
+| The thread lookup, the thread read, the reply | the **agent** | Slack is a connector held by the session, not by a script |
+
+**It is registered beside `handoff-units` and `undelivered-units` deliberately**: all three read a
+unit the loop *finished*, and the three next actions differ — satisfy a declared verification,
+retry a refused merge, correct a false last word. Keep the three vocabularies separate; a single
+"what the loop is blocked on" report addressed to nobody is what two roots were retired for.
+
+**The set is bounded and the remainder is reported**: `WORKAHOLIC_RECONCILE_READ_MAX` (default 10,
+in line with `WORKAHOLIC_ANSWER_READ_MAX` rather than a new constant), **newest first** — the
+thread a person is plausibly still reading — with `beyond_bound` carrying the rest.
+
+**The `<step>-filed` line is an optimisation the agent is handed, not the gate.** The real dedup is
+**structural**: the agent reads the thread *before* writing, so a thread already carrying its finish
+is never touched however many ticks run. The ledger only saves a lookup on a candidate an earlier
+tick already settled. **Do not add a cursor or a second ledger on the strength of it.**
+
+**An absent log and an unreadable one are different answers.** `no_log_area` is a **readable**
+answer — nothing has ever been reconciled — and yields an empty already-done set. Any other refusal,
+or a missing reader, is `degraded` by name and hands back **nothing**: filing against a ledger that
+could not be read is how one thread gets a second reply.
+
+**It must not read `plan-units.sh`.** The survey runs the living migrations and **stages** what they
+change — the composition `closable-missions` and `undrivable-units` both refused for a step whose
+contract is *writes nothing*.
+
+### The agent's half, per candidate
+
+1. **Find the thread** through `workaholic:notify`'s stateless lookup: exact-string searches only,
+   **at most two queries**, cases 2 and 3 only, **no channel-history read anywhere**, fuzzy matching
+   prohibited by name. **Case 4 does not apply here** — a lookup that finds no thread means the loop
+   never announced this item at all, so there is nothing stale to correct. Posting a description
+   root would announce a merge nobody was ever told about, which is `[Consent]`'s retired job.
+2. **Read that thread before writing anything**, and make the bar conservative. Only a **latest**
+   status reply of `🔵 Proposed` or `🟡 Handoff` is a candidate; a latest status of `🟢`, `🚀`,
+   `🔴`, or a reconciliation this loop already posted, is **not**. **When unsure, post nothing and
+   say what made you unsure** — the standing bar, and here it costs one tick rather than a duplicate
+   announcement in a person's thread.
+3. **Post the catalog's shape** for the state the reader gave: `🟢 Implemented` with the sentence
+   naming that it merged outside the loop, **by whom and when**, for a merge; `⚫ Closed` for a pull
+   request closed without merging. **Never invent an author or a time** — an unresolved one is
+   *stated* as unresolved, never omitted silently and never guessed.
+4. **Record one `thread-reconcile-filed` line per candidate** through `log-append.sh`, naming the
+   key and the outcome, then persist again through `persist-log.sh --tick` — the **second** persist,
+   without which the line dies with the container.
+5. **One outcome per candidate, or the other**: `posted`, or a named not-posted reason —
+   `no_thread`, `already_finished`, `unsure`, `no_slack_transport`, `thread_unreadable`,
+   `post_failed`. **A candidate handed back with no outcome is non-conformant on its face**: this is
+   a prose contract, not a script gate — no mechanical check tells a real thread read from a claimed
+   one — and what it buys is that a report naming no outcome is visibly wrong.
+
+**The post carries no mention token.** It is addressed to whoever follows the item, not to a person,
+and the standing rule forbids mentioning the identity it is posted as.
+
+**What it never does**: never merges, closes or reopens anything, never touches a claim, never posts
+a root, never posts into any thread but the item's own, and never posts twice.
+
+**Degradations, named one by one**: `no_log_reader`, `ledger_unreadable`, `no_candidate_reader`,
+`candidates_unreadable`, `candidates_underivable`, and `candidates_<the reader's own reason>` when
+the candidate read itself refused — *nothing was looked at* is never rendered as *nothing is stale*.
+
 ## The reader behind the thread reconciliation — `reconcile-candidates.sh`
 
 ```bash

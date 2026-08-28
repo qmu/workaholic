@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-28T01:20:43+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -71,3 +72,27 @@ be asked to re-date or close.
 - The survey already makes one network call (`list-open-proposals.sh`). The residue read is
   local, so this adds none — keep it that way, and keep `--open-proposals` passing a held
   read through.
+## Final Report
+
+Development completed as planned.
+
+`survey-strategies.sh` reads `unattributed-work.sh` **once per survey run** — the residue is
+a fact about the repository, not about a direction — and puts the same object on every row,
+eligible and refused alike. It is its own field (`readable`, `reason`,
+`missions: [{slug, queued}]`, `mission_count`, `ticket_count`), never folded into `pace` or
+any existing one, and it is computed before `refusal` so that expression stays
+byte-identical. The read is local, so the survey still makes exactly one network call and
+`--open-proposals` still passes a held read straight through.
+
+A hermetic case diffs `selected`, the eligible order, every refusal, `pace`, `overdue` and
+`dormant` with the residue present and emptied, and asserts they are unchanged; a second
+asserts a **refused** row carries it.
+
+### Discovered Insights
+
+- **Insight**: `refused` maps an explicit field list, so a new row field reaches the eligible
+  rows for free and the refused rows only if it is named there. The refused row is the one
+  that matters here — an arrived direction past its date is refused `past_target_date` — so
+  omitting it would have silently dropped the field on exactly the case it exists for.
+  **Context**: the same trap `landed_count` and `target_date` fell into on 2026-08-27 and were
+  added to that map for.

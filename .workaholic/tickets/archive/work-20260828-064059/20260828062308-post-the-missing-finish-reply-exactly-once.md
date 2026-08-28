@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-28T06:23:08+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -91,3 +92,38 @@ job.
   person, and the standing rule forbids mentioning the identity it is posted as.
 - The idempotence is structural (read before write), so resist adding a cursor or a second ledger;
   the `<step>-filed` line stays an optimisation the agent is handed.
+
+## Final Report
+
+Development completed as planned.
+
+The agent's contract lives in the step's section in `moderate/reference/workflow.md` — five numbered
+acts per candidate: find the thread through `workaholic:notify`'s **stateless** lookup (cases 2 and
+3 only, private-inclusive with `include_bots: true`, **two queries at most**, fuzzy matching
+prohibited by name, no channel-history read anywhere); **read that thread before writing anything**,
+with the conservative bar that only a **latest** status reply of `🔵 Proposed` or `🟡 Handoff` is a
+candidate and *when unsure, post nothing and say what made you unsure*; post the catalog's shape,
+never inventing an author or a time; record one `thread-reconcile-filed` line through
+`log-append.sh` and persist again through `persist-log.sh --tick`; and report exactly one outcome
+per candidate — `posted`, or `no_thread` / `already_finished` / `unsure` / `no_slack_transport` /
+`thread_unreadable` / `post_failed`.
+
+**Case 4 is explicitly not taken**, and the section says why: a lookup that finds no thread means the
+loop never announced this item, so there is nothing stale to correct, and posting a description root
+would announce a merge nobody was ever told about — `[Consent]`'s retired job. The post carries no
+mention token, and the never-list is written out.
+
+It is a prose contract, so what is mechanical about it is pinned: the suite reads the section and
+fails when any of the twelve bounds or any of the six not-posted reasons goes missing.
+
+### Discovered Insights
+
+- **Insight**: the idempotence needs no ledger at all, and saying so is load-bearing.
+  **Context**: the read-before-write bar makes a second tick a no-op by construction — the thread it
+  reads now ends in `🟢` or `⚫`. The `thread-reconcile-filed` line only saves a lookup. Both the
+  script header and the section say this in as many words, because the obvious "improvement" here is
+  a cursor, and a cursor would make a lost container into a duplicate reply in a person's thread.
+- **Insight**: pinning wrapped prose needs the whitespace collapsed first.
+  **Context**: three of the twelve bounds failed their first pin purely on a line break. The pin now
+  normalizes before matching, so a rule that is present but rewrapped is not read as a rule that was
+  deleted.

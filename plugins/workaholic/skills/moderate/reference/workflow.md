@@ -1185,11 +1185,25 @@ contract is *writes nothing*.
    a prose contract, not a script gate — no mechanical check tells a real thread read from a claimed
    one — and what it buys is that a report naming no outcome is visibly wrong.
 
+**The lookup is `workaholic:notify`'s, unchanged, and no coordinate is in hand.** Unlike
+`question-answers`, nothing recorded where the `🔵`/`🟡` line was posted — another container posted
+it, in another run — so the thread is found the way everything else finds it: the **stateless**
+lookup, private-inclusive (`slack_search_public_and_private`, `include_bots: true`, so the routine's
+own prior posts are visible to it), **two queries at most**, and **fuzzy matching prohibited by
+name**. Cases 2 and 3 only. **The inbound sweep's case 1 does not apply either** — that post has its
+coordinate as its own input; this one has none.
+
 **The post carries no mention token.** It is addressed to whoever follows the item, not to a person,
 and the standing rule forbids mentioning the identity it is posted as.
 
+**The idempotence is structural, and that is the ask's own promise made mechanical**: *the step reads
+the thread before writing, so never re-announcing a merge the channel already carries is satisfied by
+construction*. Two ticks over the same item produce one reply, because the second reads a thread that
+now ends in `🟢` or `⚫` and stops at step 2. Resist adding a cursor or a second ledger.
+
 **What it never does**: never merges, closes or reopens anything, never touches a claim, never posts
-a root, never posts into any thread but the item's own, and never posts twice.
+a root, never posts into any thread but the item's own, never posts a description root, and never
+posts twice.
 
 **Degradations, named one by one**: `no_log_reader`, `ledger_unreadable`, `no_candidate_reader`,
 `candidates_unreadable`, `candidates_underivable`, and `candidates_<the reader's own reason>` when

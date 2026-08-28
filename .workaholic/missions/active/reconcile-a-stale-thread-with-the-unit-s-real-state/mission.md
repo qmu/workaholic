@@ -39,7 +39,7 @@ carrying its finish is untouched. It merges nothing, claims nothing, posts nowhe
 ## Acceptance
 
 - [x] One reader derives from the repository which announced items may still be called in flight (#20260828062308-read-which-announced-items-may-still-be-called-in-flight.md)
-- [ ] The tick posts the missing reply into the item's own thread once, never over a thread that carries its finish (#20260828062308-post-the-missing-finish-reply-exactly-once.md)
+- [x] The tick posts the missing reply into the item's own thread once, never over a thread that carries its finish (#20260828062308-post-the-missing-finish-reply-exactly-once.md)
 - [ ] The shape is named once in the catalog and the [Moderate] template, and a drill proves the bounds (#20260828062308-drill-the-reconciliation-with-no-network.md)
 
 ## Changelog
@@ -48,3 +48,4 @@ carrying its finish is untouched. It merges nothing, claims nothing, posts nowhe
 - 2026-08-28 — ticket archived — 20260828062308-read-which-announced-items-may-still-be-called-in-flight.md
 - 2026-08-28 — ticket archived — 20260828062308-name-the-reconciliation-reply-once-in-the-catalog.md
 - 2026-08-28 — ticket archived — 20260828062308-add-the-thread-reconcile-step-to-the-tick.md
+- 2026-08-28 — ticket archived — 20260828062308-post-the-missing-finish-reply-exactly-once.md

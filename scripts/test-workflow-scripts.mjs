@@ -1066,6 +1066,108 @@ function testResidueGatesNothing() {
   assertTrue("quiescent reads the residue", /\.residue\.readable/.test(src.slice(qStart, gateStart)), "");
 }
 
+// ---------- strategy/carry-attribution.sh: the operator's ruling, carried (2026-08-28) ----------
+// The residue names missions no direction claims; some of them answer one and were published
+// with the carry-forward link dropped, and the repair was a HAND EDIT OF `main`. This carries
+// the operator's ruling instead — and its whole admissibility is a set of refusals, so those are
+// what is pinned. The byte-identity assertions are the point, not decoration: the tempting shape
+// is to write first and revert on a breach, and a revert is a SECOND WRITE.
+function testCarryAttribution() {
+  const CARRY = join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/carry-attribution.sh");
+  const A = makeRepo("main");
+  const W = join(A, ".workaholic");
+  const w = (p, body) => { mkdirSync(dirname(join(W, p)), { recursive: true }); writeFileSync(join(W, p), body); };
+  const missionAt = (slug) => join(W, `missions/active/${slug}/mission.md`);
+  const carry = (s, m) => run(A, `${POSIX_SH} ${CARRY} ${s} ${m} ${W}`);
+  try {
+    w("strategies/d1.md",
+      "---\ntype: Strategy\ntitle: D\nslug: d1\nstatus: active\ntarget_date: 2027-01-01\n" +
+      "assignees: [t@e.com]\nfeedback: [20260101000000-a.md, 20260101000000-b.md]\n---\n\n## Aim\n\na\n\n## Schedule\n\ns\n");
+    w("strategies/closed.md",
+      "---\ntype: Strategy\ntitle: C\nslug: closed\nstatus: achieved\ntarget_date: 2027-01-01\n" +
+      "assignees: [t@e.com]\nfeedback: [20260101000000-a.md]\n---\n\n## Aim\n\na\n\n## Schedule\n\ns\n");
+    w("strategies/bare.md",
+      "---\ntype: Strategy\ntitle: B\nslug: bare\nstatus: active\ntarget_date: 2027-01-01\n" +
+      "assignees: [t@e.com]\nfeedback: []\n---\n\n## Aim\n\na\n\n## Schedule\n\ns\n");
+    w("missions/active/m1/mission.md",
+      "---\ntype: Mission\ntitle: M1\nslug: m1\nstatus: active\nassignees: [t@e.com]\n" +
+      "feedback: [20260101000000-c.md]\n---\n\n## Experience\n\ne\n\n## Acceptance\n\n- [ ] a\n");
+    execSync("git add -A && git commit -q -m seed", { cwd: A });
+
+    // 1. THE APPEND LANDS, and it is an APPEND: the mission's own ref is kept and first.
+    const before = readFileSync(missionAt("m1"), "utf8");
+    const r1 = JSON.parse(carry("d1", "m1").stdout);
+    assertEq("the carry reports what it added",
+      [r1.carried, r1.added], [true, ["20260101000000-a.md", "20260101000000-b.md"]]);
+    const after = readFileSync(missionAt("m1"), "utf8");
+    assertTrue("the mission cites the direction's records beside its own",
+      /^feedback: \[20260101000000-c\.md, 20260101000000-a\.md, 20260101000000-b\.md\]$/m.test(after), after);
+    assertEq("and NOTHING else about the mission moved",
+      before.split("\n").filter((l) => !l.startsWith("feedback:")),
+      after.split("\n").filter((l) => !l.startsWith("feedback:")));
+    assertEq("the write is staged and not committed",
+      execSync("git status --porcelain", { cwd: A, encoding: "utf8" }).trim(),
+      "M  .workaholic/missions/active/m1/mission.md");
+
+    // 2. IDEMPOTENT: a second run leaves the mission byte-identical and says so.
+    const r2 = JSON.parse(carry("d1", "m1").stdout);
+    assertEq("a re-run adds nothing and reports already", [r2.carried, r2.added, r2.reason], [true, [], "already"]);
+    assertEq("and the mission is byte-identical", readFileSync(missionAt("m1"), "utf8"), after);
+
+    // 3. EVERY REFUSAL WRITES NOTHING. Checked against the file's own bytes, not against the
+    // interface: a refusal that wrote and reverted would pass an interface check.
+    w("missions/active/m2/mission.md",
+      "---\ntype: Mission\ntitle: M2\nslug: m2\nstatus: active\nassignees: [t@e.com]\nfeedback: []\n---\n\n## Experience\n\ne\n\n## Acceptance\n\n- [ ] a\n");
+    execSync("git add -A && git commit -q -m m2", { cwd: A });
+    const m2Before = readFileSync(missionAt("m2"), "utf8");
+    for (const [args, reason] of [
+      [["nope", "m2"], "strategy_not_found"],
+      [["d1", "nope"], "mission_not_found"],
+      [["closed", "m2"], "not_active"],
+      [["bare", "m2"], "no_revision"],
+      [["", ""], "no_slug"],
+    ]) {
+      const r = carry(args[0] || '""', args[1] || '""');
+      assertEq(`the refusal is named: ${reason}`, JSON.parse(r.stdout).reason, reason);
+      assertEq(`and ${reason} left the mission byte-identical`, readFileSync(missionAt("m2"), "utf8"), m2Before);
+    }
+    assertEq("no refusal touched the index",
+      execSync("git status --porcelain", { cwd: A, encoding: "utf8" }).trim(), "");
+
+    // A MISSION WITH NO `feedback:` LINE AT ALL still carries — the line is inserted rather
+    // than requiring one to already exist.
+    JSON.parse(carry("d1", "m2").stdout);
+    assertTrue("a mission with an empty relation gains the refs",
+      /^feedback: \[20260101000000-a\.md, 20260101000000-b\.md\]$/m.test(readFileSync(missionAt("m2"), "utf8")),
+      readFileSync(missionAt("m2"), "utf8"));
+
+    // 4. IT NEVER TOUCHES A STRATEGY, AND THE ARTIFACT STILL HAS EXACTLY THREE WRITERS. The
+    // temptation this route creates is a fourth — a script that "keeps the strategy in step" —
+    // and the pin in testDirectionHealthRefusals is what catches it; asserted here too, at the
+    // change that tempts it.
+    assertEq("every strategy file is untouched",
+      execSync("git status --porcelain -- .workaholic/strategies", { cwd: A, encoding: "utf8" }).trim(), "");
+    const body = readFileSync(CARRY, "utf8").split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+    assertTrue("and the writer never redirects into or moves onto the strategy path",
+      !/(>\s*"?\$\{?STRATEGY_FILE\b)|(\bmv\s+[^\n]*"?\$\{?STRATEGY_FILE\b)/.test(body),
+      body.split("\n").filter((l) => /STRATEGY_FILE/.test(l)).join("\n"));
+
+    // 5. MATCHING IS BY EXPLICIT SLUG ONLY — a title never resolves to an artifact.
+    assertEq("a title is not a slug", JSON.parse(carry('"D"', "m1").stdout).reason, "strategy_not_found");
+
+    // 6. THE ROUTE THAT CALLS IT LEAVES AUTO-MERGE UNSET, and that rule is the CALLER's here:
+    // the seam derives `strategy_touching` from a path under `.workaholic/strategies/` and this
+    // route writes `.workaholic/missions/`, so it cannot see it. Weaker than the strategy
+    // exemption, pinned rather than trusted.
+    const wf = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/specificate/reference/workflow.md"), "utf8");
+    const step = wf.slice(wf.indexOf("9e."), wf.indexOf("10. **Publish it all"));
+    assertTrue("step 9e names the writer", /carry-attribution\.sh <strategy> <mission>/.test(step), step.slice(0, 200));
+    assertTrue("and states that WORKAHOLIC_AUTO_MERGE is left unset",
+      /Leave `WORKAHOLIC_AUTO_MERGE` unset/.test(step), step);
+    assertTrue("and says the seam cannot enforce it", /cannot\*\* enforce it here/.test(step), step);
+  } finally { cleanup(A); }
+}
+
 // ---------- strategy/amend.sh: the third writer, bounded (2026-08-27) ----------
 // The strategy artifact had two writers and no third, so an announced *change* was
 // record-only and the operator applied it BY HAND on `main` — the one act in this
@@ -17231,6 +17333,7 @@ const tests = [
   ["an arrival is refused over a residue we could not read", testArrivalRefusedOverUnreadableResidue],
   ["the arrival question names the residue by slug", testArrivalQuestionNamesResidue],
   ["the residue reaches no /propose gate", testResidueGatesNothing],
+  ["strategy/carry-attribution.sh carries a ruling and refuses the rest", testCarryAttribution],
   ["strategy/amend.sh: the third writer, bounded", testStrategyAmend],
   ["moderate/step-unanswered-asks.sh: what is waiting, asked exactly once", testUnansweredAsksStep],
   ["moderate/step-base-health.sh: a red base, asked exactly once per commit", testBaseHealthStep],

@@ -38,7 +38,7 @@ line; the tick still writes nothing but its own log.
 
 ## Acceptance
 
-- [ ] The coordinate rides the line `ask-question.sh` already writes, and the next tick
+- [x] The coordinate rides the line `ask-question.sh` already writes, and the next tick
       reads that thread and records the answer through `record-answer.sh` — one read per question, no search. (#20260828032058-record-the-coordinate-a-question-was-posted-at.md)
 - [ ] An answer asking for work becomes one `[FB]` issue through `file-inbound-ask.sh`,
       filed once however many ticks read it, and carries the reaction. (#20260828032101-turn-an-answer-that-asks-for-work-into-an-issue.md)
@@ -47,3 +47,4 @@ line; the tick still writes nothing but its own log.
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-28 — ticket archived — 20260828032058-record-the-coordinate-a-question-was-posted-at.md

@@ -35,11 +35,30 @@
 # already look — the tick log and the run report — and the post itself is still
 # sitting in its thread.
 #
+# THE SCRIPT IS THE GATE **AND THE LEDGER** (2026-08-28, mission
+# `let-an-answer-in-the-thread-turn-back-into-the-loop-s-work`). `--record-ask` is the second
+# mode: after the agent has posted, it hands back the `(channel, ts)` it posted at and this
+# writes the `human-checkin-ask-<slug>` line — the line the gate reads — through
+# `log-append.sh`. Recording the ask was already the caller's job; what moves here is the
+# LINE'S SHAPE, so the coordinate and the content key have one writer and one reader
+# (`lib/question-coordinate.sh`, `question-state.sh`) instead of a free-text summary a later
+# tick would have to guess at.
+#
+# THE GATE IS UNTOUCHED BY IT. `--record-ask` returns before any gate runs and writes only a
+# log line; the questions asked, the caps, the holds and every refusal are byte-identical, and
+# a caller that logs the ask itself as before still works — such a line reads a NAMED ABSENCE
+# of a coordinate rather than an error. A coordinate is never load-bearing: a question posted
+# without one recorded is still asked and still gated; only the return path is unavailable
+# for it, which is a state the reader names.
+#
 # Usage:
 #   ask-question.sh --tick <id> --key <content-key> [--root <repo-root>]
 #                   [--to <email>] [--hour <0-23>] [--weekday <1-7>]
 #                   [--max-per-tick 5] [--max-per-day 10]
 #                   [--run <run-report.json>] [--asked-step <owning-step-id>]
+#   ask-question.sh --record-ask --tick <id> --key <content-key>
+#                   [--log-step <the step the gate returned>]
+#                   [--coordinate <channel>:<ts>] [--summary "<prose>"] [--root <repo-root>]
 #
 # Output: one JSON line
 #   {"ask": true, "key": "...", "log_step": "human-checkin-ask-<slug>",
@@ -49,6 +68,9 @@
 #    "mention_email": "...", "asked_this_tick": n, "asked_today": n}
 #   {"ask": false, "reason": "answered|off_day|quiet_hours|already_asked|tick_cap|day_cap|no_key",
 #    "hold": true|false, "window": "22-08 Asia/Tokyo", ...}
+#   --record-ask:
+#   {"recorded": true, "key": "...", "log_step": "...", "coordinate": "<channel>:<ts>|"}
+#   {"recorded": false, "reason": "no_key|no_writer|bad_coordinate|log_refused"}
 #
 # `mention_email` is what the CALLER resolves to a `<@U…>` mention: a bare `@name`
 # pings nobody, and a Claude mention token on a routine's own post re-triggers the
@@ -59,8 +81,10 @@ set -eu
 SCRIPT_DIR=$(cd -- "$(dirname -- "$0")" && pwd)
 LOG_READ="${SCRIPT_DIR}/log-read.sh"
 . "${SCRIPT_DIR}/lib/question-id.sh"
+. "${SCRIPT_DIR}/lib/question-coordinate.sh"
 QUESTION_STATE="${SCRIPT_DIR}/question-state.sh"
 LIVENESS="${SCRIPT_DIR}/question-liveness.sh"
+LOG_APPEND="${SCRIPT_DIR}/log-append.sh"
 
 TICK=''
 KEY=''
@@ -72,6 +96,10 @@ RUN_REPORT=''
 ASKED_STEP=''
 MAX_TICK=5
 MAX_DAY=10
+RECORD_ASK=0
+COORDINATE=''
+LOG_STEP_IN=''
+SUMMARY_IN=''
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -79,6 +107,10 @@ while [ $# -gt 0 ]; do
         --key)          KEY="${2:-}"; shift 2 ;;
         --root)         ROOT="${2:-}"; shift 2 ;;
         --to)           TO="${2:-}"; shift 2 ;;
+        --record-ask)   RECORD_ASK=1; shift ;;
+        --coordinate)   COORDINATE="${2:-}"; shift 2 ;;
+        --log-step)     LOG_STEP_IN="${2:-}"; shift 2 ;;
+        --summary)      SUMMARY_IN="${2:-}"; shift 2 ;;
         --run)  RUN_REPORT="${2:-}"; shift 2 ;;
         --asked-step) ASKED_STEP="${2:-}"; shift 2 ;;
         --hour)         HOUR="${2:-}"; shift 2 ;;
@@ -88,6 +120,34 @@ while [ $# -gt 0 ]; do
         *) shift ;;
     esac
 done
+
+if [ "$RECORD_ASK" -eq 1 ]; then
+    # --- The ledger half: record the ask, and where it was posted -------------
+    # It returns BEFORE every gate below, so nothing about which questions are asked, how
+    # often, or under what holds can be reached from here.
+    record_refuse() { printf '{"recorded": false, "reason": "%s"}\n' "$1"; exit 0; }
+    [ -n "$KEY" ] || record_refuse no_key
+    [ -f "$LOG_APPEND" ] || record_refuse no_writer
+    # A COORDINATE IS ACCEPTED OR NAMED, NEVER GUESSED. Absent is an ordinary state (the
+    # post succeeded, nothing handed one back); malformed is a refusal, because a bad
+    # coordinate recorded here reads a tick later as a thread with nothing in it, which is
+    # indistinguishable from a question nobody answered.
+    if [ -n "$COORDINATE" ] && ! qc_valid "$COORDINATE"; then
+        record_refuse bad_coordinate
+    fi
+    RECORD_STEP="$LOG_STEP_IN"
+    [ -n "$RECORD_STEP" ] || RECORD_STEP="human-checkin-ask-$(question_slug "$KEY")"
+    RECORD_SUMMARY=$(qc_line "$SUMMARY_IN" "$COORDINATE" "$KEY")
+    out=$(sh "$LOG_APPEND" --root "$ROOT" --tick "$TICK" --step "$RECORD_STEP" \
+            --status filed --summary "$RECORD_SUMMARY" 2>/dev/null || true)
+    case "$out" in
+        *'"logged": true'*|*'"duplicate": true'*) ;;
+        *) record_refuse log_refused ;;
+    esac
+    printf '{"recorded": true, "key": "%s", "log_step": "%s", "coordinate": "%s"}\n' \
+        "$KEY" "$RECORD_STEP" "$COORDINATE"
+    exit 0
+fi
 
 [ -n "$KEY" ] || { echo '{"ask": false, "reason": "no_key", "hold": false}'; exit 1; }
 

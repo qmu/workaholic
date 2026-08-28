@@ -41,7 +41,7 @@ three writers and no artifact gains a field.
 ## Acceptance
 
 - [x] One reader composes what a direction leaves, and the close and the question state it (#20260828052133-read-what-a-direction-leaves-behind.md)
-- [ ] An announced successor carries its predecessor's own refs, by explicit slug only (#20260828052133-let-a-direction-name-its-predecessor.md)
+- [x] An announced successor carries its predecessor's own refs, by explicit slug only (#20260828052133-let-a-direction-name-its-predecessor.md)
 - [x] The last live direction is named to its assignee before it is closed (#20260828052133-say-it-before-the-silence-to-somebody.md)
 
 ## Changelog
@@ -51,3 +51,4 @@ three writers and no artifact gains a field.
 - 2026-08-28 — ticket archived — 20260828052133-state-the-leaving-at-the-close.md
 - 2026-08-28 — ticket archived — 20260828052133-ask-about-the-leaving-before-the-close.md
 - 2026-08-28 — ticket archived — 20260828052133-say-it-before-the-silence-to-somebody.md
+- 2026-08-28 — ticket archived — 20260828052133-let-a-direction-name-its-predecessor.md

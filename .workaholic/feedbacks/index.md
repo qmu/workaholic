@@ -575,4 +575,5 @@
 * [The check-in's day cap counts every question ever asked](20260828005757-the-check-in-s-day-cap-counts-every-question-ever-asked.md)
 * [The morning digest gate can never fire](20260828005819-the-morning-digest-gate-can-never-fire.md)
 * [Say what the direction could not see before calling it arrived](20260828011727-say-what-the-direction-could-not-see-before-calling-it-arrived.md)
+* [Let an answer in the thread turn back into the loop's work](20260828031631-let-an-answer-in-the-thread-turn-back-into-the-loop-s-work.md)
 <!-- okf:generated:end -->

@@ -51,3 +51,4 @@ line; the tick still writes nothing but its own log.
 - 2026-08-28 — ticket archived — 20260828032058-read-the-answer-in-a-question-s-own-thread.md
 - 2026-08-28 — ticket archived — 20260828032058-record-the-answer-through-the-one-writer.md
 - 2026-08-28 — ticket archived — 20260828032101-turn-an-answer-that-asks-for-work-into-an-issue.md
+- 2026-08-28 — ticket archived — 20260828032101-stamp-the-answer-where-it-was-written.md

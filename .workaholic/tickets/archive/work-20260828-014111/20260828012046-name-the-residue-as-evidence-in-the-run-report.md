@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-28T01:20:46+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -67,3 +68,28 @@ closes no gate today and does not begin to here.
 - The reporting surface is a run report an hourly routine writes, read by nobody on the day
   it matters — which is exactly why the **question** in the previous ticket is the primary
   delivery and this is evidence beside a decision already made.
+## Final Report
+
+Development completed as planned.
+
+`propose/SKILL.md`, `propose/reference/loop.md` (step 5), `commands/propose.md` and
+`CLAUDE.md`'s `/propose` row now state that a run reporting `arrived` for a strategy also
+reports that strategy's residue beside it — the unattributed mission slugs and the counts,
+kept short — and that a **degraded** residue read is reported as degraded, never as an empty
+one. The same documents state that the residue reaches no gate: `not_active`, `not_mine`,
+`past_target_date`, `no_feedback_refs`, `work_waiting`, `open_proposal` and
+`attribution_unreadable` are untouched, and no sort, `selected` or token reads it.
+
+`testResidueGatesNothing` asserts it mechanically: no `/propose` script other than the survey
+mentions the field, and the survey's own gate chain — sliced from `{refusal:` to the final
+object, so it covers the refusal expression, the sort and the `$ok`/`$take`/`$spill`
+selection — never names it. `quiescent` is asserted to be the one reading that does.
+
+### Discovered Insights
+
+- **Insight**: "no script in `/propose`'s gate chain references the residue" cannot be a
+  whole-file grep — the survey *emits* the field and the `refused` map *carries* it, both
+  legitimately. The assertion has to be a **slice** of the survey bounded by the gate chain's
+  own markers.
+  **Context**: a whole-file test would have to be disabled the first time it ran, which is how
+  a pin stops being one.

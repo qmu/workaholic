@@ -477,6 +477,19 @@ still finished — and that independence is why the projected lifecycle state ra
 `overdue` (`workaholic:strategy`). Folding a date term in here would make that projection
 unreachable for the one case it exists to serve.
 
+**And since 2026-08-28 one more term: the residue must have been *readable*.** `quiescent` is
+`false` when the survey's `residue` read was degraded (mission
+`say-what-the-direction-could-not-see-before-calling-it-arrived`). *Everything I could attribute
+has landed* was true and partial, and nothing said which half — measured on this repository, a
+strategy read `quiescent: true` with 125 landed items while **four active missions and ten queued
+tickets** belonged to no direction at all. Claiming an arrival on a blind read sends the operator
+to **close** a direction, while every other reading only asks them to **look**, so this is the one
+reading refused when the tree could not be read (`workaholic:strategy`,
+`strategy/scripts/unattributed-work.sh`). **A non-empty but successfully read residue leaves
+`quiescent` exactly as it was** — an unattributed mission is not this direction's work, and
+refusing on it would let any unrelated mission suppress every arrival forever. What a non-empty
+residue earns is being **named**, in the question and in the run report.
+
 #### Quiescent changes no gate — and the reason is recorded so it is not changed by reflex
 
 `quiescent` **lifts and closes no gate.** An arrived direction stays **eligible**; `refusal`,
@@ -484,6 +497,16 @@ unreachable for the one case it exists to serve.
 proposing against it. What changes is only that the run report **says** it is doing so:
 a tick that proposes against a `quiescent: true` strategy names `arrived` beside that proposal,
 as evidence, in the same voice `pace` uses (`reference/loop.md`, step 5).
+
+**And it names that strategy's residue beside it** (2026-08-28) — the unattributed mission slugs
+and the counts, kept short. An `arrived` reading printed without its residue is the same partial
+claim this mission removed from the question, so the evidence and its limit are read together. A
+**degraded** residue read is reported as degraded and never as an empty one; a run that proposed
+against no `quiescent` strategy reports no residue at all, because the residue is evidence beside
+a reading and not a standing status line. Nothing is proposed, withheld, ordered or gated on it:
+no gate expression, no sort, no `selected` and no token reads the residue, and `not_active`,
+`not_mine`, `past_target_date`, `no_feedback_refs`, `work_waiting`, `open_proposal` and
+`attribution_unreadable` are untouched.
 
 **The gate that eventually holds is `not_active`, after a *person* closes the direction.** That is
 the operator's act, not a reading's — and the whole point of the reading is to *reach* that

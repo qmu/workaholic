@@ -38,7 +38,7 @@ pull request instead of editing `main` by hand.
 
 ## Acceptance
 
-- [ ] The residue is readable by name through one pure reader and rides every survey row,
+- [x] The residue is readable by name through one pure reader and rides every survey row,
       eligible and refused alike, with no gate and no sort moved. (#20260828012042-read-what-no-direction-claims.md)
 - [ ] No arrival is claimed over an unreadable residue, and the arrival question and the
       run report both name the residue by slug. (#20260828012044-refuse-an-arrival-over-a-tree-we-could-not-see.md)
@@ -49,3 +49,4 @@ pull request instead of editing `main` by hand.
 
 
 - 2026-08-28 — ticket archived — 20260828012026-reproduce-the-false-arrival-and-pin-it.md
+- 2026-08-28 — ticket archived — 20260828012042-read-what-no-direction-claims.md

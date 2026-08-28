@@ -48,3 +48,4 @@ three writers and no artifact gains a field.
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-28 — ticket archived — 20260828052133-read-what-a-direction-leaves-behind.md
+- 2026-08-28 — ticket archived — 20260828052133-state-the-leaving-at-the-close.md

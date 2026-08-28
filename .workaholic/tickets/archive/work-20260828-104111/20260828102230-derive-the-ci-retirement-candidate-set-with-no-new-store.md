@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-28T10:22:30+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -99,3 +100,28 @@ and reachable remote refs, so a shallow scan yields nothing to act on and must s
 - `plan-units.sh` looks like the natural composition and is refused for the reason
   `step-retire-claims.sh`'s header records: the survey runs the living migrations and
   **stages** what they change.
+
+## Final Report
+
+Development completed as planned.
+
+`drive/scripts/list-retirable-claims.sh` composes `list-claims.sh` — one walk of the refs, never
+a second oracle — and answers the `superseded` units with their branches as JSON, always exit 0.
+The degradation ladder is `step-retire-claims.sh`'s own vocabulary verbatim (`no_claim_reader`,
+`claims_unreadable`, `claims_unparseable`, `origin_unreachable`, `shallow_history`), so the CI
+side invents no second words for the same questions. No queue, no cursor, no stored state, no
+field on any artifact.
+
+### Discovered Insights
+
+- **Insight**: the library's live-row rule can be reused without a second refs walk by handing
+  `claims_unit_resolution` a TSV *projection* of the reader's own JSON rows (unit, branch,
+  verdict in fields 1, 2 and 7 — the only columns the resolver reads).
+  **Context**: this is what let the candidate set obey the live-row rule while still composing
+  `list-claims.sh` rather than re-scanning. Only `superseded_only` units are candidates; a unit
+  with a live claim beside a dead one governs itself, and the dead branch governs nothing.
+- **Insight**: `already_gone` is a near-unreachable state for the *reader*, because the ref that
+  produces a claim row and the ref the state describes are the same freshly-pruned
+  remote-tracking ref.
+  **Context**: it is reported anyway (`state: present|already_gone`) so a caller never has to
+  guess, but a fixture cannot construct it — worth knowing before someone tries to drill it.

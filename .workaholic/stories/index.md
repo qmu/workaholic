@@ -3,6 +3,7 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [work-20260828-104111](work-20260828-104111.md) - Act 2 of the claim retirement moves to CI, where the write is permitted — re-proved at the act, bounded four ways, and asked about only once CI has also refused
 * [work-20260828-064059](work-20260828-064059.md) - A thread whose last word is `🔵 Proposed` or `🟡 Handoff` after the pull request it names has merged or closed is corrected in that thread, once.
 * [work-20260828-054059](work-20260828-054059.md) - A direction's end becomes a turn of the loop — what it leaves is readable before the decision, and an announced successor inherits its citation.
 * [work-20260828-034109](work-20260828-034109.md) - An answer written in a `/moderate` question's own Slack thread now reaches `record-answer.sh`, becomes an `[FB]` issue when it asks for work, and is stamped where it was written.

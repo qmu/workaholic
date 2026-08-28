@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-28T10:22:30+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -94,3 +95,37 @@ the working-day hold. Only the **candidate set** narrows.
   and leave the question exactly as it is — an over-eager question is better than a
   silently dropped one, and this repository has measured the cost of a blocked act nobody
   was told about.
+
+## Final Report
+
+Development completed as planned.
+
+A store-free reading exists, and it is `drive/scripts/ci-retirement-turn.sh`: CI *deletes* the
+branch when it succeeds and unmerged remote branches are the only claim oracle, so a successful
+turn removes the claim row and the candidate with it. A **completed run at the base tip the tick
+is reading** therefore means CI saw exactly this tree and the branch survived it. Three values —
+`taken` asks, `pending` suppresses the ask for that tick only, `unavailable` (no such workflow
+here) asks — and both an unreadable read and a repository without the workflow leave the question
+exactly where it was, on the ticket's own rule that an over-eager question beats a silently
+dropped one.
+
+Only the candidate set narrowed. The key `retire-blocked:<unit>`, the asked-once gate, the
+addressee (the claim row's own `author`), the per-tick cap, the quiet hours, the working-day hold
+and the question's composition are byte-identical, asserted in the suite rather than by
+inspection. The summary deliberately carries **no** CI term, so a held block still renders
+identically tick after tick and a newly blocked unit still moves it.
+
+### Discovered Insights
+
+- **Insight**: matching the workflow run's `head_sha` against the base tip is a strictly better
+  reading than "a run newer than the branch's last commit". A claim becomes superseded when the
+  **base** moves, which can happen long after the branch tip stopped moving — so a timestamp
+  comparison answers a proxy question, and it needs a clock, a timezone and date parsing that
+  `head_sha` does not.
+  **Context**: worth keeping if this reading is ever extended; the time-based form looks
+  equivalent and is not.
+- **Insight**: putting the CI reading into the step's `summary` would have been the obvious way
+  to make a suppression visible, and it silently breaks the held-block stability rule — `ci_turn`
+  flips as `main` moves, so a standing block would read as an hourly change.
+  **Context**: the reading therefore moves in and out of `needs_agent` and nowhere else, which is
+  what the ticket's own step 6 asked for and why the suppression is invisible in the log by design.

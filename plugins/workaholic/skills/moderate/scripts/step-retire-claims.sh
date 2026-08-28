@@ -28,6 +28,28 @@
 # blocked unit, keyed `retire-blocked:<unit>`, addressed to the claim holder, naming the branch —
 # and still nothing at all for a retirement that worked.
 #
+# AND NARROWED ONCE MORE, TO WHAT CI COULD NOT TAKE EITHER (2026-08-28, mission
+# `finish-a-proved-retirement-where-the-write-is-permitted`). Act 2 now runs in
+# `.github/workflows/claim-retirement.yml`, where the write is permitted, so a blocked unit whose
+# branch a workflow is about to delete must draw NO question: asking a person, once per unit and
+# forever, for an act CI was about to perform is not merely noise — the ask is wrong. The reading
+# is `../../drive/scripts/ci-retirement-turn.sh` and it is STORE-FREE, which is the constraint
+# that shaped it: CI DELETES the branch on success and unmerged remote branches are the only
+# claim oracle, so a successful turn removes the claim row and the candidate with it. A completed
+# run at the base tip this tick is reading therefore means CI saw exactly this tree and the
+# branch survived it. `pending` (no completed run at this tip yet) SUPPRESSES the question for
+# this tick only — the asked-once ledger keys on the unit, so a branch that outlives CI's turn is
+# still asked about later. A read this step could not make, and a repository with no such
+# workflow, both leave the question exactly where it was: an over-eager question is better than a
+# silently dropped one, and this repository has measured the cost of a blocked act nobody was
+# told about.
+#
+# EVERYTHING ELSE ABOUT THE QUESTION IS BYTE-IDENTICAL: the key `retire-blocked:<unit>`, the
+# asked-once gate, the addressee, the per-tick cap, the quiet hours and the working-day hold.
+# Only the candidate set narrows — and the SUMMARY is deliberately untouched by the reading, so
+# that a held block keeps rendering identically (see the stability rule below); the CI reading
+# moves in and out of `needs_agent` and nowhere else.
+#
 # IT ACTS DIRECTLY RATHER THAN HANDING OFF, which is where it diverges from `closable-missions`
 # and for a stated reason. That step hands its act to the agent because `close.sh` WRITES INTO
 # THE TREE and needs a publish tree to do it. `retire-claim.sh` writes nothing into the tree at
@@ -141,6 +163,22 @@ fi
 # `needs_agent` is NOT the home for it: that field is a request to the agent, and a payload with
 # no action would be read as one. A retired row names all three acts and a refused row names its
 # reason, so `retired` and `refused` are never a bare count somebody has to go digging behind.
+# WHICH EXECUTOR TOOK THE DELETE, WITHOUT A FIELD THAT SAYS SO (2026-08-28, mission
+# `finish-a-proved-retirement-where-the-write-is-permitted`). Two things can now make a branch
+# disappear — this tick's own Act 2, and `claim-retirement.yml` — and a reader must be able to
+# tell them apart. The fact is ALREADY on the writer's row and needs no new field: `deleted`
+# means this tick performed the delete, and `already_gone` means the ref was not on origin when
+# this tick looked, which asserts nothing about who removed it. Only the WORDING was wrong,
+# rendering both as bare state names, so a delete CI had taken read as one this container took.
+# A `deleted_by: ci|container` field is refused for the reason every second derivation is: the
+# answer is already derivable, and a stored one eventually disagrees with the derived one.
+# `already_gone` keeps rendering as the SUCCESS it is — the rule `already_closed` and `absent`
+# already carry — and `failed` / `not_attempted` are byte-identical to what they were.
+BRANCH_PHRASE='def branch_phrase:
+    if .remote_branch_deleted == "deleted" then "branch deleted here"
+    elif .remote_branch_deleted == "already_gone" then "branch removed elsewhere"
+    else "branch " + .remote_branch_deleted end;'
+
 retired=0
 refused=0
 blocked=0
@@ -155,7 +193,7 @@ for unit in $units; do
     fi
     if printf '%s' "$res" | jq -e '.retired == true' >/dev/null 2>&1; then
         retired=$((retired + 1))
-        line=$(printf '%s' "$res" | jq -r '"\(.unit) retired (pr \(.pull_request_closed), branch \(.remote_branch_deleted), worktree \(.worktree_reaped))"' 2>/dev/null || printf '')
+        line=$(printf '%s' "$res" | jq -r "${BRANCH_PHRASE}"'"\(.unit) retired (pr \(.pull_request_closed), \(branch_phrase), worktree \(.worktree_reaped))"' 2>/dev/null || printf '')
     else
         refused=$((refused + 1))
         # A REFUSED ROW NAMES THE ACTS THAT STAND, exactly as the retired row does (2026-08-27,
@@ -167,7 +205,7 @@ for unit in $units; do
         # `already_gone`, `absent` and `none` therefore render as the SUCCESSES they are, and
         # `not_attempted` stays distinct from `failed` — a gate that never ran made no finding
         # about the world, so the refusal path must keep saying so.
-        line=$(printf '%s' "$res" | jq -r '"\(.unit) refused (\(if (.reason // "") == "" then "unstated" else .reason end); pr \(.pull_request_closed), branch \(.remote_branch_deleted), worktree \(.worktree_reaped))"' 2>/dev/null || printf '')
+        line=$(printf '%s' "$res" | jq -r "${BRANCH_PHRASE}"'"\(.unit) refused (\(if (.reason // "") == "" then "unstated" else .reason end); pr \(.pull_request_closed), \(branch_phrase), worktree \(.worktree_reaped))"' 2>/dev/null || printf '')
         # A RETIREMENT BLOCKED ON THE DELETE IS THE ONE REFUSAL A PERSON CAN ACT ON, and it is
         # the candidate set for the question below. Narrowed to the delete deliberately: a
         # refused reap is local to this runner and tells its holder nothing they can do
@@ -237,11 +275,36 @@ fi
 # IT ASKS AND NOTHING ELSE. No claim is released, no pull request reopened, no verdict changed,
 # no delete re-run on the strength of an answer — the proof gate and the retirement's other two
 # acts are exactly what they were.
+#
+# AND THE CANDIDATE SET IS NARROWED TO WHAT CI COULD NOT TAKE EITHER (2026-08-28, mission
+# `finish-a-proved-retirement-where-the-write-is-permitted`). See the header: the reading is
+# store-free and three-valued, `pending` suppresses this tick's question only, and both a
+# degraded read and a repository without the workflow leave the question exactly where it was.
+# The narrowing is NOT A SUPPRESSION LIST — every term is still a function of the claim set, the
+# act states and one live reading, so a newly blocked unit is visible the hour it appears.
+ci_turn="unavailable"
+ci_readable="false"
+if [ "$blocked" -gt 0 ]; then
+    turner="${DRIVE_SCRIPTS}/ci-retirement-turn.sh"
+    if [ -f "$turner" ]; then
+        turn_out=$( ( cd "$ROOT" && sh "$turner" ) 2>/dev/null || true )
+        if printf '%s' "$turn_out" | jq -e . >/dev/null 2>&1; then
+            ci_readable=$(printf '%s' "$turn_out" | jq -r '.readable // false')
+            ci_turn=$(printf '%s' "$turn_out" | jq -r '.ci_turn // "unavailable"')
+        fi
+    fi
+    if [ "$ci_readable" = "true" ] && [ "$ci_turn" = "pending" ]; then
+        blocked=0
+        rows="[]"
+    fi
+fi
+
 needs=""
 if [ "$blocked" -gt 0 ]; then
-    needs=$(printf '%s' "$rows" | jq -c '{action: "ask_the_claim_holder_to_delete_the_branch_this_retirement_could_not",
+    needs=$(printf '%s' "$rows" | jq -c --arg turn "$ci_turn" '{action: "ask_the_claim_holder_to_delete_the_branch_neither_the_container_nor_ci_could",
         bound: "one question per unit, addressed to the claim holder, keyed on `key` so it is asked once; the tick asks and never releases a claim, reopens a pull request, or re-runs the delete",
         compose: "name the unit, the exact branch left on origin, the refusal that blocked the delete, and the acts that already stand -- a question that does not name the branch does not say what to delete",
+        ci_turn: $turn,
         blocked_retirements: .}' 2>/dev/null || echo '')
 fi
 

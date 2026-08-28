@@ -223,17 +223,28 @@ else
     # message). An ordinary `git push` of this same branch succeeds in this same container, so
     # it is the delete specifically that is refused.
     #
-    # NO SECOND TRANSPORT CAN TAKE THIS ACT, and that is the recorded finding rather than a
-    # gap: REST is refused above, and the GitHub connector exposes `create_branch` and
-    # `list_branches` but NO branch- or ref-delete surface at all — so there is nothing for a
+    # NO SECOND TRANSPORT IN THIS CONTAINER CAN TAKE THIS ACT, and that is the recorded finding
+    # rather than a gap: REST is refused above, and the GitHub connector exposes `create_branch`
+    # and `list_branches` but NO branch- or ref-delete surface at all — so there is nothing for a
     # `rules/shell.md`-style bounded retry to attempt, here or in the caller. A second REST
     # attempt is deliberately NOT made: it is measured to answer 403, and a call that cannot
-    # succeed is noise with a cost. Full record: `../reference/claims.md`, *When an act of the
-    # retirement is refused*.
+    # succeed is noise with a cost.
+    #
+    # A DIFFERENT EXECUTOR TAKES IT INSTEAD (2026-08-28, mission
+    # `finish-a-proved-retirement-where-the-write-is-permitted`). The finding above is about the
+    # CONTAINER and stays exactly as measured; what changed is that the act no longer has to
+    # happen here. `.github/workflows/claim-retirement.yml` holds `contents: write` and runs
+    # `delete-retired-claim-branch.sh`, which re-proves the verdict at the moment of the act and
+    # bounds it — the same shape `release-note-draft.yml` already gave the release-note write.
+    # THIS SCRIPT IS UNCHANGED BY THAT: it still attempts its own delete (the container is where
+    # a retirement starts, and a repository that has not adopted the workflow must keep getting
+    # the honest refusal), and `branch_delete_failed` still means what it always did. Full
+    # record: `../reference/claims.md`, *When an act of the retirement is refused*.
     #
     # Named rather than fatal — the other two acts stand on their own, the closing branch
     # reports `branch_delete_failed` so the reader learns WHICH act is blocked, and the caller
-    # renders the acts that succeeded beside it.
+    # renders the acts that succeeded beside it. What follows the refusal is CI's turn, and only
+    # if the branch survives that too does a person get asked.
     REMOTE_STATE="failed"
 fi
 

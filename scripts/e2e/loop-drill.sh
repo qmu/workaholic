@@ -3503,6 +3503,349 @@ esac"
     emit_verdict "retire" 0 "pass" 0
 }
 
+# ---------------------------------------------------- verify-ci-retirement
+# Does the act the container is refused actually get taken, and does it stay bounded when it is?
+# Act 2 of the retirement — the remote branch delete — is refused in the container the loop runs
+# in by both available transports (measured 2026-08-27), so it moves to a different EXECUTOR,
+# `.github/workflows/claim-retirement.yml`, on `release-note-draft.yml`'s precedent. That split
+# spans two processes and one destructive act, which is the last thing that should be proved by
+# waiting for a workflow run.
+#
+# NO NETWORK. A local bare origin and a `gh` stub on PATH, asserted to be what `gh` resolves to
+# rather than assumed. THE TWO EXECUTORS ARE TOLD APART BY TRANSPORT, WHICH IS THE FIXTURE'S
+# DISTINCTION AND NOT GITHUB'S: the container's Act 2 is a `git push origin --delete`, which the
+# bare origin's own `update` hook refuses server side (the same receive-side path a remote
+# refusal takes), while the CI act is a REST `DELETE` through `gh-rest.sh`, which the stub
+# performs for real against the same bare repository. A bare origin cannot tell a "CI" pusher
+# from a container one on identity alone, and pretending otherwise would drill a fiction.
+#
+# WHAT IT PROVES:
+#   1. the container is refused        `branch_delete_failed`, and the branch survives
+#   2. CI takes the act                the candidate reader names it, the act re-proves and
+#                                      deletes it, and the branch is gone from the origin
+#   3. a judgement is refused BY NAME  a live claim's branch is refused `not_superseded:<verdict>`
+#                                      and survives
+#   4. every bound refuses by name     `release_branch`, `not_a_work_branch`, `not_on_base`,
+#                                      `pull_request_open` -- and every path exits 0
+#   5. the question narrows            a CI-deletable unit is never asked about; a unit CI also
+#                                      refused is asked exactly once, and a `pending` CI turn
+#                                      suppresses the ask for that tick only
+#
+# AND ONE ROW THAT DELIBERATELY BREAKS THE SEAM: the CI act with its re-proof removed, run over
+# the raw candidate list against a LIVE claim. If the re-proof were dropped the workflow would
+# delete a branch another run is driving, so the breaker must show that copy deleting what the
+# real script refused. Proving the deletion is what proves the drill can fail.
+#
+# THE RE-PROOF IS TWO GUARDS, AND THE BREAKER HAS TO REMOVE BOTH -- which is itself the finding.
+# Written against the verdict gate alone, this row did NOT break: `not_on_base`, the tree-side
+# re-derivation, caught the live claim on its own. The two are therefore independent rather than
+# one guard written twice, and the drill says so by needing both removed before the damage
+# happens.
+cmd_verify_ci_retirement() {
+    _reader="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/list-retirable-claims.sh"
+    _act="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/delete-retired-claim-branch.sh"
+    _turn="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/ci-retirement-turn.sh"
+    _retirer="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/retire-claim.sh"
+    _step="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/step-retire-claims.sh"
+    _flow="${REPO_ROOT}/.github/workflows/claim-retirement.yml"
+    for _f in "$_reader" "$_act" "$_turn" "$_retirer" "$_step" "$_flow"; do
+        [ -f "$_f" ] || emit_err "ci_retirement_seam_unreadable" 4 "${_f} is not present in this checkout"
+    done
+
+    _before=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+
+    _tmp=$(mktemp -d)
+    _origin="${_tmp}/origin"; _work="${_tmp}/work"; _read="${_tmp}/read"
+    _bin="${_tmp}/bin"; _ctl="${_tmp}/ctl"
+    mkdir -p "$_origin" "$_bin" "$_ctl"
+    _me=$(cd "$REPO_ROOT" && git config user.email 2>/dev/null || echo drill@example.com)
+    _git() { git -c user.email="$_me" -c user.name=Drill -c commit.gpgsign=false "$@"; }
+
+    ( cd "$_origin" && git -c init.defaultBranch=main init -q --bare ) || true
+    ( cd "$_tmp" && git clone -q "$_origin" work ) || true
+    mkdir -p "${_work}/.workaholic/tickets/todo" \
+             "${_work}/.workaholic/missions/active/mission-ci-flip"
+    for _n in 1 2 3 4 5 6; do
+        printf -- '---\ncreated_at: 2026-02-01T00:00:0%s+09:00\nauthor: %s\n---\n\n# T%s\n' \
+            "$_n" "$_me" "$_n" > "${_work}/.workaholic/tickets/todo/2026020100000${_n}-t.md"
+    done
+    printf -- '---\ntype: Mission\nslug: mission-ci-flip\nstatus: active\nauthor: %s\n---\n\n# M\n' \
+        "$_me" > "${_work}/.workaholic/missions/active/mission-ci-flip/mission.md"
+    ( cd "$_work" && _git add -A && _git commit -qm seed && git push -q origin main ) || true
+
+    # THE CONTAINER'S REFUSAL, reproduced where the real one happens: server side, on every
+    # branch deletion the file transport carries. `git push --delete` is the container's only
+    # local transport for this act, so refusing every one of them IS the measured condition.
+    printf '#!/bin/sh\nif [ "$3" = "0000000000000000000000000000000000000000" ]; then\n  echo "deleting a branch is not permitted for this session type" >&2\n  exit 1\nfi\nexit 0\n' > "${_origin}/hooks/update"
+    chmod +x "${_origin}/hooks/update"
+
+    _stampfile() { # $1 = branch, $2 = path under the work tree
+        printf -- '---\ncreated_at: 2026-02-01T00:00:00+09:00\nauthor: %s\nclaim: %s\n---\n\n# T\n\nclaimed\n' \
+            "$_me" "$1" > "${_work}/$2"
+    }
+    _claim() { # $1 = branch, $2 = unit, $3 = path to stamp
+        ( cd "$_work" && git checkout -q -b "$1" main \
+          && _stampfile "$1" "$3" \
+          && _git commit -qam "Claim a PR-unit" -m "Unit: $2" \
+          && git push -q origin "$1" ) >/dev/null 2>&1 || true
+    }
+
+    _claim work-20260201-000001 batch-ci-retirable .workaholic/tickets/todo/20260201000001-t.md
+    _claim work-20260201-000002 batch-ci-live      .workaholic/tickets/todo/20260201000002-t.md
+    _claim work-20260201-000003 batch-ci-blocked   .workaholic/tickets/todo/20260201000003-t.md
+    _claim work-20260201-000004 batch-ci-openpr    .workaholic/tickets/todo/20260201000004-t.md
+    _claim work-20260201-000005 mission-ci-flip    .workaholic/missions/active/mission-ci-flip/mission.md
+    # The two branch-shape bounds. `claims_scan` walks every remote head, not only `work-*`, so a
+    # claim commit on either of these IS a claim row -- which is exactly why the act must refuse
+    # them by name rather than trusting that they cannot occur.
+    _claim release/20260201-000000 batch-ci-release .workaholic/tickets/todo/20260201000005-t.md
+    _claim sidework                batch-ci-sideway .workaholic/tickets/todo/20260201000006-t.md
+
+    # THE PROOF: every claimed ticket archived on the base by another route. Its content reached
+    # the base, so the branch can never land -- which is `superseded`. `batch-ci-live`'s ticket
+    # stays queued, which is what keeps it a judgement.
+    ( cd "$_work" && git checkout -q main \
+      && mkdir -p .workaholic/tickets/archive/work-20260201-000000 \
+      && for _f in 1 3 4 5 6; do \
+             git mv ".workaholic/tickets/todo/2026020100000${_f}-t.md" \
+                    .workaholic/tickets/archive/work-20260201-000000/ ; \
+         done \
+      && _git commit -qm "Archive the tickets elsewhere" && git push -q origin main ) >/dev/null 2>&1 || true
+
+    ( cd "$_tmp" && git clone -q "$_origin" read ) >/dev/null 2>&1 || true
+    ( cd "$_read" && git config user.email "$_me" && git config user.name Drill \
+      && git config remote.origin.fetch '+refs/heads/*:refs/remotes/origin/*' \
+      && git fetch -q --prune origin ) >/dev/null 2>&1 || true
+    printf '%s' "$(cd "$_read" && git rev-parse origin/main)" > "${_ctl}/base_sha"
+
+    # THE STUB. It answers `gh api user` (so `available` reads true), the workflow-run query the
+    # narrowing reads, the two pull-request queries (`state=all` for the merged lookup,
+    # `state=open` for the bound), and it PERFORMS the CI ref delete for real against the bare
+    # origin -- `update-ref` runs no hook, which is what makes CI's transport succeed where the
+    # container's push is refused. `-000003`'s delete is refused so one unit is blocked at BOTH
+    # executors, and `-000005`'s merged lookup FLIPS between its first and later answers, which
+    # is the only reading in this chain that can change between the proof and the act.
+    cat > "${_bin}/gh" <<STUB
+#!/bin/sh
+ARGS="\$*"
+CTL="${_ctl}"
+ORIGIN="${_origin}"
+case "\$ARGS" in
+  user*) echo drill; exit 0 ;;
+  *actions/workflows/claim-retirement.yml/runs*)
+      if [ -f "\$CTL/ci_pending" ]; then
+          echo '{"workflow_runs":[]}'
+      else
+          printf '{"workflow_runs":[{"head_sha":"%s"}]}\n' "\$(cat "\$CTL/base_sha")"
+      fi
+      exit 0 ;;
+  *state=all*work-20260201-000005*)
+      n=\$(cat "\$CTL/flip" 2>/dev/null || echo 0); n=\$((n + 1)); echo "\$n" > "\$CTL/flip"
+      if [ "\$n" -le 1 ]; then
+          echo '[{"number":21,"state":"closed","merged_at":"2026-01-01T00:00:00Z"}]'
+      else
+          echo '[{"number":21,"state":"closed","merged_at":null}]'
+      fi
+      exit 0 ;;
+  *work-20260201-000004*state=open*) echo '[{"number":22,"state":"open"}]'; exit 0 ;;
+  *git/refs/heads/work-20260201-000003*) exit 1 ;;
+  *git/refs/heads/*)
+      b=\$(printf '%s' "\$ARGS" | sed -n 's#.*git/refs/heads/\([^ ]*\).*#\1#p')
+      git --git-dir="\$ORIGIN" update-ref -d "refs/heads/\$b" >/dev/null 2>&1 && exit 0
+      exit 1 ;;
+esac
+echo '[]'
+STUB
+    chmod +x "${_bin}/gh"
+    if [ "$(PATH="${_bin}:$PATH" command -v gh)" = "${_bin}/gh" ]; then
+        add_row "ci_retirement_no_network" true "the stub is what gh resolves to, and the origin is a local bare repository -- no row below reaches the network" load
+    else
+        add_row "ci_retirement_no_network" false "gh does not resolve to the stub; this drill would reach the network" load
+        rm -rf "$_tmp"
+        emit_verdict "ci-retirement" 0 "fail" 1
+    fi
+
+    _run() { ( cd "$_read" && PATH="${_bin}:$PATH" \
+        WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES=0 sh "$@" ) 2>&1 || true; }
+    _field() { printf '%s' "$1" | sed -n 's/.*"'"$2"'": *"\([^"]*\)".*/\1/p' | head -1; }
+    _on_origin() { ( cd "$_origin" && git for-each-ref --format='%(refname:short)' refs/heads ) \
+        | grep -c "^$1\$" || true; }
+
+    # 1. THE CONTAINER IS REFUSED, and the branch survives. This is the production condition on
+    # every tick, and the whole reason the act moved executor.
+    _c=$(_run "$_retirer" batch-ci-retirable)
+    if [ "$(_field "$_c" reason)" = "branch_delete_failed" ] \
+        && [ "$(_field "$_c" remote_branch_deleted)" = "failed" ] \
+        && [ "$(_on_origin work-20260201-000001)" = "1" ]; then
+        add_row "ci_retirement_container_refused" true "the container's Act 2 is refused branch_delete_failed and the branch is still on origin" load
+    else
+        add_row "ci_retirement_container_refused" false "the container's delete was not refused as measured: $(one_line "$_c")" load
+    fi
+
+    # 2a. THE CANDIDATE READER NAMES IT, out of the claim oracle and nothing else.
+    _cands=$(_run "$_reader")
+    if printf '%s' "$_cands" | grep -q '"ok": true' \
+        && printf '%s' "$_cands" | grep -q '"unit": "batch-ci-retirable"' \
+        && ! printf '%s' "$_cands" | grep -q '"unit": "batch-ci-live"'; then
+        add_row "ci_retirement_candidates" true "the reader names the superseded units and never a live one" load
+    else
+        add_row "ci_retirement_candidates" false "the candidate set is wrong: $(one_line "$_cands")" load
+    fi
+
+    # 2b. CI TAKES THE ACT the container could not, re-proving the verdict at the moment of it.
+    _d=$(_run "$_act" batch-ci-retirable)
+    if printf '%s' "$_d" | grep -q '"deleted": true' \
+        && [ "$(_field "$_d" state)" = "deleted" ] \
+        && [ "$(_on_origin work-20260201-000001)" = "0" ]; then
+        add_row "ci_retirement_ci_takes_the_act" true "the CI-side act deletes the branch the container was refused" load
+    else
+        add_row "ci_retirement_ci_takes_the_act" false "the CI-side act did not take the delete (branch_present=$(_on_origin work-20260201-000001)): $(one_line "$_d")" load
+    fi
+
+    # 2c. AND IT IS IDEMPOTENT: a branch already gone is a SUCCESS, not an error, so a re-run
+    # over a set already taken is a clean no-op rather than a run full of failures.
+    _again=$(_run "$_act" batch-ci-retirable)
+    if printf '%s' "$_again" | grep -q '"reason": "no_such_claim"' \
+        || [ "$(_field "$_again" state)" = "already_gone" ]; then
+        add_row "ci_retirement_idempotent" true "a second CI turn over the same unit attempts nothing and reports it plainly" load
+    else
+        add_row "ci_retirement_idempotent" false "a second CI turn was not a no-op: $(one_line "$_again")" load
+    fi
+
+    # 3. A JUDGEMENT IS REFUSED BY ITS OWN VERDICT WORD, and the live branch survives. Acting on
+    # `claim_active` is how a workflow tears down work a run is still driving.
+    _live=$(_run "$_act" batch-ci-live)
+    if printf '%s' "$_live" | grep -q '"reason": "not_superseded:' \
+        && [ "$(_field "$_live" state)" = "not_attempted" ] \
+        && [ "$(_on_origin work-20260201-000002)" = "1" ]; then
+        add_row "ci_retirement_refuses_a_judgement" true "a live claim is refused by its own verdict word with nothing attempted, and its branch stands" load
+    else
+        add_row "ci_retirement_refuses_a_judgement" false "a live claim was not refused by name: $(one_line "$_live")" load
+    fi
+
+    # 4. EACH BOUND REFUSES BY NAME, on top of the proof. A wrong refusal delays a cleanup; a
+    # wrong delete tears down a branch. Where a reading is absent or a shape is unexpected,
+    # refuse -- and every one of these paths still exits 0.
+    _rel=$(_run "$_act" batch-ci-release)
+    _side=$(_run "$_act" batch-ci-sideway)
+    _pr=$(_run "$_act" batch-ci-openpr)
+    # EVERY scan consults the merged lookup for the mission claim, so the counter is reset
+    # immediately before the one invocation whose two reads it is meant to drive: the scan's
+    # proof answers `merged`, and the bound's re-read -- the only reading in this chain that can
+    # change between the proof and the act -- answers `not_merged`.
+    rm -f "${_ctl}/flip"
+    _flip=$(_run "$_act" mission-ci-flip)
+    _bounds_ok=true
+    [ "$(_field "$_rel" reason)" = "release_branch" ] || _bounds_ok=false
+    [ "$(_field "$_side" reason)" = "not_a_work_branch" ] || _bounds_ok=false
+    [ "$(_field "$_pr" reason)" = "pull_request_open" ] || _bounds_ok=false
+    [ "$(_field "$_flip" reason)" = "not_on_base" ] || _bounds_ok=false
+    [ "$(_on_origin 'release/20260201-000000')" = "1" ] || _bounds_ok=false
+    [ "$(_on_origin sidework)" = "1" ] || _bounds_ok=false
+    [ "$(_on_origin work-20260201-000004)" = "1" ] || _bounds_ok=false
+    [ "$(_on_origin work-20260201-000005)" = "1" ] || _bounds_ok=false
+    if [ "$_bounds_ok" = "true" ]; then
+        add_row "ci_retirement_bounds" true "release_branch, not_a_work_branch, pull_request_open and not_on_base each refuse by name and every branch survives" load
+    else
+        add_row "ci_retirement_bounds" false "a bound did not refuse by name (release='$(_field "$_rel" reason)' side='$(_field "$_side" reason)' pr='$(_field "$_pr" reason)' flip='$(_field "$_flip" reason)')" load
+    fi
+
+    # 4b. EVERY PATH EXITS 0. A refusal is an answer; a workflow must report it, never die on it.
+    _exits_ok=true
+    for _u in batch-ci-release batch-ci-sideway batch-ci-openpr batch-ci-live nosuchunit; do
+        ( cd "$_read" && PATH="${_bin}:$PATH" WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES=0 \
+            sh "$_act" "$_u" >/dev/null 2>&1 ) || _exits_ok=false
+    done
+    ( cd "$_read" && PATH="${_bin}:$PATH" sh "$_reader" >/dev/null 2>&1 ) || _exits_ok=false
+    ( cd "$_read" && PATH="${_bin}:$PATH" sh "$_turn" >/dev/null 2>&1 ) || _exits_ok=false
+    if [ "$_exits_ok" = "true" ]; then
+        add_row "ci_retirement_always_exits_zero" true "every refusal, every degradation and every reader exits 0" load
+    else
+        add_row "ci_retirement_always_exits_zero" false "a refusal exited non-zero, which would fail the workflow run" load
+    fi
+
+    # 5a. A `pending` CI TURN SUPPRESSES THE ASK FOR THAT TICK. The blocked set is non-empty --
+    # the container is refused every delete in this fixture -- so this row isolates the reading
+    # rather than an empty candidate list.
+    : > "${_ctl}/ci_pending"
+    _tp=$(_run "$_turn")
+    _stp=$( ( cd "$_read" && PATH="${_bin}:$PATH" WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES=0 \
+        sh "$_step" --tick 20260201-000000 --root "$_read" ) 2>&1 || true )
+    if printf '%s' "$_tp" | grep -q '"ci_turn": "pending"' \
+        && printf '%s' "$_stp" | grep -q '"needs_agent": \[\]'; then
+        add_row "ci_retirement_pending_suppresses" true "with no completed run at this tip the tick asks nobody -- CI may still take the act" load
+    else
+        add_row "ci_retirement_pending_suppresses" false "a pending CI turn still produced a question (turn=$(one_line "$_tp")): $(one_line "$_stp")" load
+    fi
+    rm -f "${_ctl}/ci_pending"
+
+    # 5b. AND A `taken` TURN ASKS, naming the unit and the exact branch. CI saw this tree and the
+    # branch survived it, so the unit is blocked at both executors and its holder is the person
+    # who can act. `batch-ci-retirable` is already gone from the oracle, which is what makes the
+    # narrowing visible: a CI-deletable unit is never asked about because it is no longer a claim.
+    _stt=$( ( cd "$_read" && PATH="${_bin}:$PATH" WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES=0 \
+        sh "$_step" --tick 20260201-000001 --root "$_read" ) 2>&1 || true )
+    if printf '%s' "$_stt" | grep -q '"key":"retire-blocked:batch-ci-blocked"' \
+        && printf '%s' "$_stt" | grep -q '"branch":"work-20260201-000003"' \
+        && ! printf '%s' "$_stt" | grep -q 'retire-blocked:batch-ci-retirable'; then
+        add_row "ci_retirement_taken_asks_the_holder" true "a unit CI also refused reaches its claim holder naming the branch; a CI-deleted one is asked about by nobody" load
+    else
+        add_row "ci_retirement_taken_asks_the_holder" false "the narrowed question is wrong: $(one_line "$_stt")" load
+    fi
+
+    # 5c. ASKED ONCE, over two ticks. The gate is the check-in's, exercised with this step's key.
+    _qroot=$(mktemp -d); mkdir -p "${_qroot}/.workaholic/moderations"
+    _askscript="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/ask-question.sh"
+    _a1=$(cd "$REPO_ROOT" && sh "$_askscript" --tick 20260201-000001 --key "retire-blocked:batch-ci-blocked" \
+        --root "$_qroot" --to "$_me" --hour 10 --weekday 1 2>&1) || true
+    _logstep=$(printf '%s' "$_a1" | sed -n 's/.*"log_step": *"\([^"]*\)".*/\1/p')
+    if printf '%s' "$_a1" | grep -q '"ask": true'; then
+        sh "${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/log-append.sh" --root "$_qroot" \
+           --tick 20260201-000001 --step "$_logstep" --status ok --summary "asked" >/dev/null 2>&1 || true
+        _a2=$(cd "$REPO_ROOT" && sh "$_askscript" --tick 20260201-000002 --key "retire-blocked:batch-ci-blocked" \
+            --root "$_qroot" --to "$_me" --hour 10 --weekday 1 2>&1) || true
+        if printf '%s' "$_a2" | grep -q '"ask": false'; then
+            add_row "ci_retirement_asked_once" true "the same key is refused on a later tick: $(printf '%s' "$_a2" | sed -n 's/.*"reason": *"\([a-z_]*\)".*/\1/p')" load
+        else
+            add_row "ci_retirement_asked_once" false "the asked-once gate did not hold: $(one_line "$_a2")" load
+        fi
+    else
+        add_row "ci_retirement_asked_once" false "the first ask was refused: $(one_line "$_a1")" load
+    fi
+    rm -rf "$_qroot"
+
+    # THE DELIBERATELY BROKEN ROW. The CI act with its proof gate removed, run over the raw
+    # candidate list against the LIVE claim the real script refused above. If the re-proof were
+    # dropped -- or the workflow trusted the list it was handed -- this is precisely what would
+    # happen: a branch another run is driving, deleted by a workflow. The row FAILS unless the
+    # broken copy does the damage, because a breaker that cannot break proves nothing.
+    cp -R "${REPO_ROOT}/plugins/workaholic/skills" "${_tmp}/skills"
+    _broken="${_tmp}/skills/drive/scripts/delete-retired-claim-branch.sh"
+    sed -e 's/^    refuse "not_superseded:${verdict}"$/    :/' \
+        -e 's/^    refuse not_on_base$/    :/' "$_act" > "$_broken"
+    _bout=$( ( cd "$_read" && PATH="${_bin}:$PATH" WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES=0 \
+        sh "$_broken" batch-ci-live ) 2>&1 || true )
+    if printf '%s' "$_bout" | grep -q '"deleted": true' \
+        && [ "$(_on_origin work-20260201-000002)" = "0" ]; then
+        add_row "ci_retirement_breaker" true "with BOTH halves of the re-proof removed the act deletes a live claim's branch -- either guard alone stops it, and this drill can fail" load
+    else
+        add_row "ci_retirement_breaker" false "the breaker did not break: removing the proof gate changed nothing, so the gate assertion proves nothing ($(one_line "$_bout"))" load
+    fi
+
+    _after=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+    if [ "$_before" = "$_after" ]; then
+        add_row "ci_retirement_writes_nothing" true "the checkout is byte-identical after the drill" load
+    else
+        add_row "ci_retirement_writes_nothing" false "the drill changed the working tree" load
+    fi
+
+    rm -rf "$_tmp"
+    if [ "$LOAD_FAILED" -gt 0 ]; then
+        emit_verdict "ci-retirement" 0 "fail" 1
+    fi
+    emit_verdict "ci-retirement" 0 "pass" 0
+}
+
 # --------------------------------------------------------- verify-base-health
 # Did the base survive what the loop merged -- and does that reading stay a READING? The loop
 # merges its own work onto `main` every half hour and nothing read a check run, so a green base
@@ -4574,7 +4917,7 @@ cmd_verify_reconcile() {
     emit_verdict "reconcile" 0 "pass" 0
 }
 
-USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-specificate <issue>|verify-implement <issue>|verify-plan [--json]|verify-status [--json]|verify-cadence [--json]|verify-planner [--json]|verify-standup [--json]|verify-moderate [--json]|verify-propose [--json]|verify-direction-health [--json]|verify-arrival [--json]|verify-residue [--json]|verify-succession [--json]|verify-revision [--json]|verify-merged-claim [--json]|verify-identity-handoff [--json]|verify-close [--json]|verify-retire [--json]|verify-delivery-retry [--json]|verify-handoff-question [--json]|verify-base-health [--json]|verify-return-path [--json]|verify-reconcile [--json]"}'
+USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-specificate <issue>|verify-implement <issue>|verify-plan [--json]|verify-status [--json]|verify-cadence [--json]|verify-planner [--json]|verify-standup [--json]|verify-moderate [--json]|verify-propose [--json]|verify-direction-health [--json]|verify-arrival [--json]|verify-residue [--json]|verify-succession [--json]|verify-revision [--json]|verify-merged-claim [--json]|verify-identity-handoff [--json]|verify-close [--json]|verify-retire [--json]|verify-ci-retirement [--json]|verify-delivery-retry [--json]|verify-handoff-question [--json]|verify-base-health [--json]|verify-return-path [--json]|verify-reconcile [--json]"}'
 
 CMD="${1:-}"
 [ -n "$CMD" ] || {
@@ -4619,6 +4962,7 @@ case "$CMD" in
     verify-identity-handoff) cmd_verify_identity_handoff "$@" ;;
     verify-close) cmd_verify_close "$@" ;;
     verify-retire) cmd_verify_retire "$@" ;;
+    verify-ci-retirement) cmd_verify_ci_retirement "$@" ;;
     verify-delivery-retry) cmd_verify_delivery_retry "$@" ;;
     verify-handoff-question) cmd_verify_handoff_question "$@" ;;
     verify-base-health) cmd_verify_base_health "$@" ;;

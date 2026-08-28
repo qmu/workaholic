@@ -1,0 +1,81 @@
+name: Claim Retirement
+
+# Deletes the remote branch of every claim the oracle PROVES holds nothing, and does
+# nothing else. It closes no pull request, reaps no worktree, merges nothing and writes
+# no file: the other two acts of the retirement already succeed where the loop runs.
+#
+# WHY CI AND NOT THE HOURLY TICK. Act 2 of `drive/scripts/retire-claim.sh` is refused in
+# the Claude Code Web container the loop runs in, by both available transports — measured
+# 2026-08-27 against a claim already proved `superseded` here:
+#
+#   git push origin --delete <branch>                    error: RPC failed; HTTP 403
+#   DELETE /repos/{owner}/{repo}/git/refs/heads/{branch}  403 "Write access to this GitHub
+#                                                         API path is not permitted through
+#                                                         this proxy."
+#
+# It is a SESSION-TYPE refusal (not a protection rule, which answers 422 naming the rule,
+# and not a missing scope) — an ordinary `git push` of the same branch succeeds in the same
+# container. That finding is about the CONTAINER and remains correct there: no second
+# transport exists inside it, and none is attempted. THIS IS A DIFFERENT EXECUTOR, not a
+# second transport. The repository already makes CI its release writer (release.yml) and
+# its release-note writer (release-note-draft.yml), so the capability is used where it
+# exists. Full record: plugins/workaholic/skills/drive/reference/claims.md, *When an act of
+# the retirement is refused*.
+#
+# WHY THE TRIGGER IS A PUSH. The container cannot dispatch a workflow either (writes are
+# refused through the same proxy), so the trigger must not depend on one. The loop merges
+# onto `main` continuously, which gives frequent runs with no scheduler to reason about;
+# `workflow_dispatch` keeps the act runnable on demand.
+#
+# WHY THE CHECKOUT IS DEFINED RATHER THAN INHERITED. Unmerged remote branches are the ONLY
+# claim oracle, and across a graft boundary a superseded claim is indistinguishable from a
+# live one — which the scan refuses to guess through, so a shallow clone yields no
+# candidates at all. Full history plus every remote head is the input this job needs, and
+# CI can define its own input where a container cannot define itself from the inside.
+#
+# THE JOB OWNS NO PROOF LOGIC. It calls the candidate reader and, per candidate, the
+# bounded act; both re-derive everything they act on. An empty candidate set is a clean
+# no-op, and a refusal is reported without failing the run.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: claim-retirement
+  cancel-in-progress: false
+
+jobs:
+  retire:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # actions/checkout leaves the remote configured for the ref it checked out. The claim
+      # oracle IS the set of unmerged remote branches, so the refspec is widened and the
+      # heads fetched explicitly rather than assumed.
+      - name: Fetch every remote head
+        run: |
+          git config remote.origin.fetch '+refs/heads/*:refs/remotes/origin/*'
+          git fetch --prune origin
+
+      - name: Delete the branches of claims proved empty
+        run: |
+          bash plugins/workaholic/skills/drive/scripts/list-retirable-claims.sh > candidates.json
+          cat candidates.json
+          if [ "$(jq -r '.ok' candidates.json)" != "true" ]; then
+            echo "the claim scan was degraded ($(jq -r '.reason' candidates.json)); nothing was proved and nothing deleted"
+            exit 0
+          fi
+          jq -r '.candidates[]? | .unit' candidates.json | while read -r unit; do
+            [ -n "$unit" ] || continue
+            bash plugins/workaholic/skills/drive/scripts/delete-retired-claim-branch.sh "$unit"
+          done
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

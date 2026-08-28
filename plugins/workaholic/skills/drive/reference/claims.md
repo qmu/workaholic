@@ -507,20 +507,77 @@ delete specifically that is refused. The 2026-08-05 note in `retire-claim.sh` pr
 called it "not fatal"; it is fatal to the mechanism's purpose, since unmerged remote branches are
 the only claim oracle.
 
-**No second transport exists, and that is the recorded finding rather than an open gap.** REST is
-refused above, and the GitHub connector exposes `create_branch` and `list_branches` but **no
-branch- or ref-delete surface at all** — so there is nothing for a `rules/shell.md`-style bounded
-retry to attempt, in the script or in its caller. A second REST attempt is deliberately **not**
-made: it is measured to answer 403, and a call that cannot succeed is noise with a cost. A later
-session looking for a retry should find this paragraph rather than re-derive it; if the connector
-ever gains a ref-delete surface, that is when the question reopens.
+**No second transport exists *in the container*, and that is the recorded finding rather than an
+open gap.** REST is refused above, and the GitHub connector exposes `create_branch` and
+`list_branches` but **no branch- or ref-delete surface at all** — so there is nothing for a
+`rules/shell.md`-style bounded retry to attempt, in the script or in its caller. A second REST
+attempt is deliberately **not** made: it is measured to answer 403, and a call that cannot
+succeed is noise with a cost. That finding is about the container and remains accurate there.
 
-**So the blocked retirement is reported and asked about, and nothing more.** The caller renders
-the acts that stand beside the act that is blocked, and `/moderate`'s `retire-claims` step asks
-the **claim holder** once — keyed `retire-blocked:<unit>`, naming the exact branch left on origin
-— which is the whole licence a blocked act carries. Nothing releases the claim, reopens the pull
+### Which act runs where
+
+**A different executor takes Act 2** (2026-08-28, mission
+`finish-a-proved-retirement-where-the-write-is-permitted`). The paragraph above closed the
+question *inside the box*; this moves the act outside it, on the precedent
+`release-note-draft.yml` set when the release-note write met the same refusal. A workflow is
+**not a second transport** — it is the same REST seam (`gather/scripts/gh-rest.sh`) run by a
+process that holds `contents: write`, which is exactly the capability the container lacks.
+
+| Act | Executor | Why |
+| --- | -------- | --- |
+| 1 — close the pull request | the container, `retire-claim.sh` | already succeeds there |
+| 2 — delete the remote branch | **CI**, `.github/workflows/claim-retirement.yml` | refused in the container by both transports; permitted to `GITHUB_TOKEN` |
+| 3 — reap the worktree | the container, `retire-claim.sh` | local to the runner; CI has no worktree to reap |
+
+`retire-claim.sh` is **unchanged**: it still attempts its own delete and still reports
+`branch_delete_failed` when refused. A repository that has not adopted the workflow keeps
+exactly the behaviour it had, and the container is still where a retirement starts.
+
+Two scripts carry the CI side, and each re-derives everything it acts on:
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/list-retirable-claims.sh
+bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/delete-retired-claim-branch.sh <unit-id>
+```
+
+The reader composes `list-claims.sh` — one walk of the refs, never a second oracle — resolves
+each unit through the live-row rule, and answers only `superseded_only` units. A degraded scan
+yields **no candidates and its reason**, never a bare empty set: a proof that could not be read
+is not a proof. The act re-runs the scan and re-derives the verdict **at the moment of the
+delete** rather than trusting the list it was handed — the writer's existing discipline applied
+across an executor boundary, where the gap between the two reads is a queue and a checkout — and
+refuses every other verdict by its own word, with `ambiguous_claim` and `unanswerable:<reason>`
+their own refusals as above. On top of the proof it is bounded, each refused by name:
+`not_a_work_branch`, `release_branch`, `not_on_base` (re-derived from the tree, and at the
+mission grain from the merged-pull-request lookup — the one reading here that can answer
+differently the second time it is asked), and `pull_request_open`. Every path exits 0.
+
+**`superseded` stays a proof, and no verdict word was added.** `lib/claims.sh` emits nothing new,
+the *Proofs and judgements* tables above are unchanged, and nothing keys a takeover or a survey
+on any of this. Which executor takes an act is a different axis from what a claim reads — exactly
+as `branch_delete_failed` already is.
+
+**And which executor took a delete is derived, never stored.** `deleted` means the tick that
+reported it performed the delete; `already_gone` means the ref was not on origin when it looked,
+and asserts nothing about who removed it. `/moderate` renders those as different sentences. A
+`deleted_by:` field is refused: the answer is already on the row, and a stored one eventually
+disagrees with the derived one.
+
+**So the blocked retirement is reported and asked about only once CI has also been refused.** The
+caller renders the acts that stand beside the act that is blocked, and `/moderate`'s
+`retire-claims` step asks the **claim holder** once — keyed `retire-blocked:<unit>`, naming the
+exact branch left on origin — which is the whole licence a blocked act carries. The candidate set
+is narrowed by `ci-retirement-turn.sh`, a **store-free** reading: CI *deletes* the branch when it
+succeeds and unmerged remote branches are the only claim oracle, so a successful turn removes the
+claim row and the candidate with it; a completed run at the base tip the tick is reading
+therefore means CI saw exactly this tree and the branch survived it. A turn still `pending`
+suppresses the question for that tick only — the asked-once ledger keys on the unit, so a branch
+that outlives CI's turn is still asked about later — and both a read the tick could not make and
+a repository with no such workflow leave the question exactly where it was, because an over-eager
+question is better than a silently dropped one. Nothing releases the claim, reopens the pull
 request, re-runs the delete on the strength of an answer, or touches the `superseded` verdict.
-Drilled with no network by `sh scripts/e2e/loop-drill.sh verify-retire`.
+Drilled with no network by `sh scripts/e2e/loop-drill.sh verify-retire` (the container's half)
+and `verify-ci-retirement` (the split, both executors, every bound and the narrowing).
 
 ## Heartbeat mechanics
 

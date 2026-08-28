@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-28T10:22:30+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -98,3 +99,34 @@ named and the job still exits 0 — a refusal is an answer.
   redundancy is the point: the two reads are separated by a queue and a checkout.
 - Do not add a verdict word for "CI may delete this" — that is a second derivation of
   `superseded` and exactly what the proofs table exists to prevent.
+
+## Final Report
+
+Development completed as planned.
+
+`drive/scripts/delete-retired-claim-branch.sh` re-runs the claim scan and re-derives the row's
+verdict immediately before the delete, refusing anything that is not `superseded` by its own
+verdict word (`not_superseded:<verdict>`), with `ambiguous_claim` and `unanswerable:<reason>`
+as their own refusals. The unit resolves through the library's live-row rule. On top of the
+proof it is bounded four ways, each refused by name — `release_branch`, `not_a_work_branch`,
+`not_on_base`, `pull_request_open` — and every path exits 0. `superseded` gained no new meaning,
+`lib/claims.sh` emits nothing new, and the *Proofs and judgements* tables are untouched.
+
+The suite pins the gate as a third acting consumer beside `retire-claim.sh` and
+`retry-undelivered.sh`, read out of the script's own source, so widening it fails there rather
+than in production.
+
+### Discovered Insights
+
+- **Insight**: `not_on_base` is genuinely redundant with the re-proved verdict at the **batch**
+  grain and genuinely *not* redundant at the **mission** grain — there the proof is the
+  merged-pull-request lookup, a network read, and it is the one reading in this chain that can
+  answer differently the second time it is asked.
+  **Context**: that asymmetry is what makes "the proof is re-taken where the act happens" true of
+  both grains rather than only the cheap one, and it is what the drill exercises with a stub that
+  flips its answer between the scan and the bound.
+- **Insight**: the two halves of the re-proof are independent guards, not one rule written twice.
+  The drill's breaker row was written against the verdict gate alone and **did not break** —
+  `not_on_base` caught the live claim on its own.
+  **Context**: a later change that "simplifies" one of them away still leaves the act guarded,
+  which is why the breaker now has to remove both before the damage happens.

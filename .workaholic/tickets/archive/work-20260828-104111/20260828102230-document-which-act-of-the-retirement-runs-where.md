@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-28T10:22:30+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -90,3 +91,40 @@ box; this mission moves the act outside it.
   explicit rather than narrowed by omission.
 - Do not add a row to the *Proofs and judgements* tables. The executor of an act is a
   different axis from what a claim reads, exactly as `branch_delete_failed` already is.
+
+## Final Report
+
+Development completed as planned.
+
+Four documents and two script headers now say which act runs where, and the container's measured
+refusal is preserved rather than deleted:
+
+- `drive/reference/claims.md` — the 403 transport table is verbatim, the finding is restated as
+  *no second transport **in the container*** (it is accurate there), and a new *Which act runs
+  where* section carries the per-act executor table, both CI scripts, and the explicit statement
+  that `superseded` stays a **proof**, that no verdict word was added, and that the *Proofs and
+  judgements* tables are unchanged. The licence sentence is narrowed: the blocked question fires
+  only once CI has also been refused.
+- `CLAUDE.md` — the claim-protocol bullet gains the Act-2 paragraph, the `/moderate` row gains the
+  narrowing and the two rendered sentences, and the drill enumeration names `verify-ci-retirement`.
+- `moderate/reference/workflow.md` §19 — the narrowing, its three-valued table, and the executor
+  rendering.
+- `rules/shell.md` — **one correction was needed**, against the ticket's prediction that none
+  would be. The REST-only rule is untouched and no bounded retry was added, but the sentence
+  *"reaches its claim holder as one question, which is the whole repair available"* had become
+  false: the repair is a different executor. The measured table and the no-second-transport
+  finding are unchanged; a paragraph records that the repair was an executor, not a transport.
+
+Script headers: `retire-claim.sh`'s Act 2 no longer reads as *and nothing can be done* (it states
+that CI takes the act, and that this script is unchanged by that), and `step-retire-claims.sh`'s
+header carries the narrowing. No row was added to the *Proofs and judgements* tables.
+
+### Discovered Insights
+
+- **Insight**: "confirm document X needs no change" is worth treating as a prediction to test
+  rather than a step to tick. `rules/shell.md` needed a narrow correction precisely because it had
+  written down the *consequence* of the refusal ("the whole repair available") beside the
+  measurement, and only the consequence moved.
+  **Context**: the same shape will recur — a measurement stays true while the sentence drawn from
+  it goes stale. Preserving the measurement and correcting the inference is the pattern; deleting
+  either would lose the evidence for the whole mission.

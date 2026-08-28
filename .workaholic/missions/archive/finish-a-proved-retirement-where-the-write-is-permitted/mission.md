@@ -2,7 +2,7 @@
 type: Mission
 title: Finish a proved retirement where the write is permitted
 slug: finish-a-proved-retirement-where-the-write-is-permitted
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-28T10:21:05+00:00
 author: a@qmu.jp
@@ -59,3 +59,5 @@ branch and what already stands.
 - 2026-08-28 — ticket archived — 20260828102230-narrow-the-blocked-question-to-what-ci-could-not-take.md
 - 2026-08-28 — ticket archived — 20260828102230-report-which-executor-took-the-branch-delete.md
 - 2026-08-28 — ticket archived — 20260828102230-drill-the-ci-retirement-with-no-network.md
+- 2026-08-28 — ticket archived — 20260828102230-document-which-act-of-the-retirement-runs-where.md
+- 2026-08-28 — mission achieved — mission.md

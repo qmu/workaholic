@@ -53,3 +53,4 @@ pull request instead of editing `main` by hand.
 - 2026-08-28 — ticket archived — 20260828012043-carry-the-residue-onto-every-survey-row.md
 - 2026-08-28 — ticket archived — 20260828012044-refuse-an-arrival-over-a-tree-we-could-not-see.md
 - 2026-08-28 — ticket archived — 20260828012045-name-the-residue-in-the-arrival-question.md
+- 2026-08-28 — ticket archived — 20260828012046-name-the-residue-as-evidence-in-the-run-report.md

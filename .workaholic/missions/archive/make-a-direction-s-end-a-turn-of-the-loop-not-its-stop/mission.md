@@ -2,7 +2,7 @@
 type: Mission
 title: Make a direction's end a turn of the loop, not its stop
 slug: make-a-direction-s-end-a-turn-of-the-loop-not-its-stop
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-28T05:20:44+00:00
 author: a@qmu.jp
@@ -53,3 +53,5 @@ three writers and no artifact gains a field.
 - 2026-08-28 — ticket archived — 20260828052133-say-it-before-the-silence-to-somebody.md
 - 2026-08-28 — ticket archived — 20260828052133-let-a-direction-name-its-predecessor.md
 - 2026-08-28 — ticket archived — 20260828052133-prove-the-succession-costs-no-fourth-writer.md
+- 2026-08-28 — ticket archived — 20260828052133-drill-the-succession-end-to-end.md
+- 2026-08-28 — mission achieved — mission.md

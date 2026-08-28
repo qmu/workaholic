@@ -2,7 +2,7 @@
 type: Mission
 title: Deliver what the loop already knows to the person who can act
 slug: deliver-what-the-loop-already-knows-to-the-person-who-can-act
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-28T18:19:13+00:00
 author: a@qmu.jp
@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260828-184133
 ---
 
 # Deliver what the loop already knows to the person who can act
@@ -36,14 +37,23 @@ today from a mechanism that has stopped.
 
 ## Acceptance
 
-- [ ] A question is refused `day_cap` only for that many asked on the current
+- [x] A question is refused `day_cap` only for that many asked on the current
       `WORKAHOLIC_QUIET_TZ` day; every other gate is byte-identical. (#20260828182002-bound-the-day-count-to-the-quiet-hours-day.md)
-- [ ] A multi-day backlog drains oldest-held first under `max_per_tick`, and the drill
+- [x] A multi-day backlog drains oldest-held first under `max_per_tick`, and the drill
       proves it end to end with no network. (#20260828182002-drain-a-held-backlog-oldest-first.md)
-- [ ] A check-in with candidates and zero delivered supplies its own `event` and names what
+- [x] A check-in with candidates and zero delivered supplies its own `event` and names what
       it held and why, with a spent cap distinguished by name from a count it could not
       bound. (#20260828182002-make-a-tick-that-reached-nobody-an-event.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-28 — ticket archived — 20260828182002-pin-the-day-cap-jam-with-a-failing-test.md
+- 2026-08-28 — ticket archived — 20260828182002-bound-the-day-count-to-the-quiet-hours-day.md
+- 2026-08-28 — ticket archived — 20260828182002-drain-a-held-backlog-oldest-first.md
+- 2026-08-28 — ticket archived — 20260828182002-read-what-the-check-in-delivered-and-held.md
+- 2026-08-28 — ticket archived — 20260828182002-make-a-tick-that-reached-nobody-an-event.md
+- 2026-08-28 — ticket archived — 20260828182002-state-the-cap-s-contract-where-it-is-documented.md
+- 2026-08-28 — ticket archived — 20260828182003-drill-the-delivery-path-with-no-network.md
+- 2026-08-28 — mission achieved — mission.md
+- 2026-08-28 — story reported — work-20260828-184133

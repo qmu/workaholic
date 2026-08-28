@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-28T18:20:02+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -100,3 +101,55 @@ notion of a day, no stored cursor, no field on any artifact.
   direction; state it in the header rather than adding per-entry timestamp filtering.
 - Reading the day from the tick id keeps the drill deterministic, which the next-but-one
   ticket depends on.
+
+## Final Report
+
+Development completed as planned. `asked_today` now means today.
+
+- **The day is derived once**, beside the gates that already derive the hour and the weekday
+  (`ask-question.sh`, after the `off_day` computation): `TODAY` is the tick id's `YYYYMMDD`
+  rendered as `log-read.sh`'s own `YYYY-MM-DD`, falling back to `TZ="$ZONE" date +%Y-%m-%d`
+  when the caller passed no tick. The tick supplies it for the reason the `outstanding`
+  branch already reads its day from the tick: both sides are then ids minted by the same
+  script on the same axis, a re-entered tick answers the same way twice, and the arithmetic
+  is testable at all.
+- **The bound is a parameter of `count_log_prefix`**, not a global, so the two call sites
+  stay explicit about which of them is asking about a day and which about all time. It is
+  passed to `log-read.sh --since`, which already accepted it; **`log-read.sh` is unmodified**.
+- **`count_log_tick` was lifted out** of the inline `asked_tick` block so the `outstanding`
+  branch can report the tick count without re-deriving it. That branch printed the *same*
+  unbounded number into both `asked_this_tick` and `asked_today` — the defect twice in one
+  `printf`; it now prints the tick count and the day-bounded count.
+- **Nothing else moved.** `already_asked`, `answered`, `tick_cap`, `quiet_hours`, `off_day`,
+  `hold: true`, the `--record-ask` ledger half, the question-id derivation and every
+  refusal's JSON shape are byte-identical, and the cap itself was not raised.
+
+Verification — `node scripts/test-workflow-scripts.mjs`: the previous ticket's case is green
+and its four pinned cases still pass. Against a fixture built through `log-append.sh`:
+
+```
+--- unbounded history:  {"read": true, "count": 9, "days": 5
+--- fresh key on the tick's own day:
+{"ask": true, "key": "q:fresh", ... "asked_this_tick": 0, "asked_today": 0, ...}
+--- ten asks on the tick's own day, then the eleventh:
+{"ask": false, "reason": "day_cap", "hold": true, "key": "q:over", "asked_today": 10, "max_per_day": 10}
+```
+
+The header now states the cap's contract: which day it counts, whose zone, that a spent cap
+holds rather than drops, that a held question is re-offered oldest-first, the measured
+failure, the repair, and the rejected alternatives (a raised cap, a second reader, a stored
+cursor, a second notion of a day).
+
+### Discovered Insights
+
+- **Insight**: the day boundary moves in `WORKAHOLIC_QUIET_TZ` while the log's **files** are
+  keyed by UTC day, so near the boundary a `--since` of the local day can include a UTC file
+  whose later entries belong to the local next day.
+  **Context**: this over-counts rather than under-counts — it holds a question rather than
+  asking a duplicate — which is the safe direction. It is stated in the script header rather
+  than repaired with per-entry timestamp filtering, precisely so a later reader does not
+  "fix" it the other way.
+- **Insight**: `log-read.sh` compares `--since` **lexically** against file names because
+  `date -d` is GNU-only and `date -v` BSD-only.
+  **Context**: that is why the derivation has to normalise to `YYYY-MM-DD` and why the tick
+  id (which is `YYYYMMDD-HHMMSS`) cannot be handed over unchanged.

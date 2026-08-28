@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-28T18:20:02+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -91,3 +92,46 @@ fail on the current tree first.
   The next ticket owns the repair; note it here so it is not missed.
 - `log-read.sh` compares dates lexically against file names by deliberate design (`date -d`
   is GNU-only, `date -v` BSD-only). The fixture must use `YYYY-MM-DD.md` names accordingly.
+
+## Final Report
+
+Development completed as planned. The case `moderate/ask-question.sh: the day cap counts
+today, not all time` was added to `scripts/test-workflow-scripts.mjs` beside the existing
+`ask-question.sh` cases, and was **proved to fail on the unrepaired tree before anything
+was changed**:
+
+```
+FAIL  a fresh key is asked when nothing was asked on the tick's own day
+      {"ask":false,"reason":"day_cap","hold":true,"key":"q:fresh-today","asked_today":12,"max_per_day":10}
+FAIL  and the day count is the day's, not the log's whole history
+      expected 0, got 12
+```
+
+That is the measured shape the proposal recorded, reproduced hermetically: twelve
+`human-checkin-ask` lines across five *earlier* day files, none on the tick's own day, a
+cap of 10, and a fresh key on a working Wednesday at 14:00 refused `day_cap` with
+`asked_today: 12`. The whole suite was green apart from this case.
+
+The fixture is built through `log-append.sh` with explicit tick ids, never by hand, so it
+is the shape the tick actually produces; the day comes from the tick id and the hour and
+weekday are injected, so the case does not pass or fail by the date it is run on.
+
+Four pinned cases bound the repair beside it: a cap genuinely spent **on the tick's own
+day** still answers `day_cap` with `hold: true`; `already_asked` still refuses; an
+`answered` key (written through `record-answer.sh`, the sanctioned writer, so the id is the
+library's rather than a copy of it) still answers `answered`; and `tick_cap` still fires at
+`max_per_tick` within one tick.
+
+### Discovered Insights
+
+- **Insight**: the per-tick and per-day ceilings are independent gates, and a fixture that
+  fills a *day* through one tick trips the *tick* ceiling first.
+  **Context**: `ask-question.sh` checks `tick_cap` before `day_cap`, so any case that wants
+  to exercise the day bound must raise `--max-per-tick` as well as `--max-per-day`, or
+  spread its fixture over several tick ids. The first draft of this case did neither and
+  five of its own assertions failed on the per-tick gate rather than on the subject.
+- **Insight**: the same unbounded expression appears a second time, in the `outstanding`
+  re-ask branch (`ask-question.sh:309-310`), where it fills **both** `asked_this_tick` and
+  `asked_today` — the same defect twice in one `printf`.
+  **Context**: the repair ticket owns it; a reader looking only at the `asked_today`
+  assignment would fix half the bug.

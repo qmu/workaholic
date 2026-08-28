@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-28T18:20:02+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -99,3 +100,59 @@ stopped. This ticket produces the reading; the next one makes it visible in the 
 - Do not let this become a status report addressed to nobody — this repository has retired
   two of those. The reading's audience is the tick log and the next ticket's single event
   line, not a standing channel post.
+
+## Final Report
+
+Development completed as planned. The step reports a delivery, not a permission.
+
+**Which seam was found, as the ticket's Consideration asked the driving run to record: there
+is no post-agent seam in `run.sh`.** The run invokes each step once and then runs
+`persist-log.sh`; the agent acts on `needs_agent` only after `run.sh` returns, and the only
+thing re-invoked afterwards is the persist. So the honest reading was taken — *candidates and
+holds now, delivery from the log* — and it is stated in the script header rather than dressed
+up as an observation the step could not make. `delivered` is read from the log (the
+`human-checkin-ask` lines carrying this tick's id) rather than assumed, which is precisely
+what makes a second, read-only invocation after the agent's turn report the real number.
+
+- **Three numbers**: `delivered`, `held_count` and `candidates` (`delivered + held_count`),
+  on every branch. The existing `held` array is unchanged in shape.
+- **Five reason words**, each named rather than folded together: `cap_spent`,
+  `cap_unbounded`, `all_held`, `all_asked_before`, `no_candidates`. `cap_spent` and
+  `cap_unbounded` are deliberately separate — one says the budget worked, the other says the
+  loop has stopped, and rendering the second as the first is the whole failure being
+  repaired.
+- **Whether the tick could deliver is asked of the gate**, not re-derived: one
+  `ask-question.sh` probe with a key unique to the tick, recorded nowhere (recording is
+  `--record-ask`'s separate mode), so the day's arithmetic keeps one home and the step cannot
+  disagree with the gate the agent is about to run. A gate that cannot be read leaves the
+  count unbounded as far as the step can tell, which is `cap_unbounded` and never
+  `cap_spent`. **`ask-question.sh` is not modified by this ticket.**
+- **A degraded read is named**: an unreadable tick log is `status: degraded` with the
+  reader's own reason and **no `delivered` field at all**. An *absent* log area is a
+  **readable** answer — nothing has ever been held — the split `step-unanswered-asks.sh`
+  already draws.
+- **The summary carries the numbers and nothing that moves on its own.** The old
+  `HH:00 local` prefix is gone: the root's hour-to-hour diff normalises `14:00` but not
+  `9:00`, so an hour in the summary would have made the step "changed" by construction on
+  half the day's ticks — which matters because the next ticket makes this summary the thing
+  the root's diff reads.
+
+Verification — `node scripts/test-workflow-scripts.mjs`, the new case
+`moderate/step-human-checkin.sh: what it delivered, and why it delivered none`: one case per
+reason word including `cap_unbounded` (run against a copy of the scripts directory with the
+gate removed) and the degraded read (a copy with `log-read.sh` removed, asserting
+`status: degraded`, `reason: no_reader` and no `delivered` claim), plus pins that the day
+bound is never recomputed in the step and that the step composes the gate.
+
+### Discovered Insights
+
+- **Insight**: `all_asked_before` is only reachable because the step counts held keys
+  *before* the asked-drop as well as after it.
+  **Context**: the drop rule empties `held` for a key that has since been asked, so without
+  the pre-drop count the state would be indistinguishable from `no_candidates` — a tick that
+  never held anything. The two answer different questions and a reader needs both.
+- **Insight**: the probe cannot collide with a real question, because its key carries the
+  tick id and is never recorded.
+  **Context**: `ask-question.sh` reads the log for a key's own step id, so a probe key that
+  repeated across ticks would eventually answer `already_asked` and be misread as a
+  degradation.

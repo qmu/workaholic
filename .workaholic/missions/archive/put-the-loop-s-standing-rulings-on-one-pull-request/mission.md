@@ -2,7 +2,7 @@
 type: Mission
 title: Put the loop's standing rulings on one pull request
 slug: put-the-loop-s-standing-rulings-on-one-pull-request
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-28T21:19:39+00:00
 author: a@qmu.jp
@@ -56,3 +56,5 @@ read proposes nothing.
 - 2026-08-29 — ticket archived — 20260828212022-draft-the-mapping-ruling-beside-them.md
 - 2026-08-29 — ticket archived — 20260828212022-give-the-tick-the-standing-rulings-step.md
 - 2026-08-29 — ticket archived — 20260828212022-suppress-the-question-the-ruling-diff-carries.md
+- 2026-08-29 — ticket archived — 20260828212022-drill-the-ruling-path-with-no-network.md
+- 2026-08-29 — mission achieved — mission.md

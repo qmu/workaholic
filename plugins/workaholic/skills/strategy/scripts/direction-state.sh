@@ -40,6 +40,13 @@
 # no second assembly, and NOT ONE EXTRA READ of the tree or the network. `--with-leaving` is
 # opt-in so a caller that does not need it pays nothing and its output shape does not move.
 #
+# IT IS ATTACHED PER ROW, WHATEVER THE READING (2026-08-29). `arrived` and `overdue` are the two
+# that consume it today and `expiring` is the third, on the same grounds: a person asked to
+# re-date a direction before its date needs the same evidence as one asked to close it after.
+# Nothing about the attachment is keyed on the state, which is what keeps a new rung from
+# costing a second code path — and a row whose leaving could not be composed is NAMED at every
+# reading alike, never emptied.
+#
 # ═══ WHY THIS SCRIPT EXISTS AT ALL ════════════════════════════════════════════════════
 #
 # `survey-strategies.sh` emits four readings — `overdue`, `expiring`, `dormant` and `quiescent` —

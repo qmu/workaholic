@@ -13,7 +13,7 @@
 // state, and cleans up. No network, no real remotes, no GitHub token, no
 // mutation of the developer's working tree. Run with `node scripts/test-workflow-scripts.mjs`.
 
-import { cpSync, copyFileSync, mkdtempSync, rmSync, writeFileSync, appendFileSync, readFileSync, mkdirSync, existsSync, statSync, chmodSync, readdirSync, realpathSync, symlinkSync } from "node:fs";
+import { cpSync, copyFileSync, mkdtempSync, rmSync, writeFileSync, appendFileSync, readFileSync, mkdirSync, existsSync, statSync, chmodSync, readdirSync, realpathSync, renameSync, symlinkSync } from "node:fs";
 import { execSync } from "node:child_process";
 import { join, resolve, dirname, basename } from "node:path";
 import { tmpdir } from "node:os";
@@ -1838,6 +1838,98 @@ function testExpiringPrecedence() {
     for (const writer of ["create.sh", "amend.sh", "close.sh"]) {
       assertTrue(`and reaches no strategy writer (${writer})`, !body.includes(writer), body);
     }
+  } finally { cleanup(A); }
+}
+
+// ---------- the leaving rides an expiring row, at no extra read (2026-08-29) ----------
+// `--with-leaving` attaches `closing-residue.sh`'s composition — what the direction never
+// reached, what no direction claimed, and its own last lifecycle reading — and an `expiring`
+// reading needs it for the same reason `arrived` and `overdue` do: the person being asked to
+// re-date a direction BEFORE its date needs the same evidence as one asked to close it after.
+//
+// THE PROPERTY THAT MATTERS IS THE COST. It is CARRIED, never re-read: the row goes back to the
+// composer through `--state-row`, so attaching the reading costs not one extra read of the tree.
+// That is a property a later edit can lose silently, so it is measured here by counting the
+// invocations of both walkers with the flag off and on rather than by reading the source.
+function testExpiringCarriesTheLeaving() {
+  const A = makeRepo("main");
+  const W = join(A, ".workaholic");
+  const w = (p, body) => { mkdirSync(dirname(join(A, p)), { recursive: true }); writeFileSync(join(A, p), body); };
+  const day = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+  const strategy = (slug, target, ref) =>
+    `---\ntype: Strategy\ntitle: T ${slug}\nslug: ${slug}\nstatus: active\ntarget_date: ${target}\n` +
+    `assignees: [test@example.com]\nfeedback: [${ref}]\n---\n\n## Aim\n\na\n\n## Schedule\n\ns\n`;
+  try {
+    for (const r of ["a", "b", "c"]) w(`.workaholic/feedbacks/2026010100000${r}-${r}.md`, "---\ntype: Feedback\n---\n\nx\n");
+    w(".workaholic/strategies/soon.md", strategy("soon", day(2), "2026010100000a-a.md"));
+    w(".workaholic/strategies/gone.md", strategy("gone", day(-2), "2026010100000b-b.md"));
+    w(".workaholic/missions/active/inflight/mission.md",
+      "---\ntype: Mission\ntitle: In flight\nslug: inflight\nstatus: active\n" +
+      "feedback: [2026010100000a-a.md]\n---\n\n## Experience\n\ne\n\n## Acceptance\n\n- [ ] a\n");
+    w(".workaholic/tickets/todo/20260102000000-q.md", "---\nmission: inflight\n---\n\n# Q\n");
+    // A mission no direction claims, so the residue half of the leaving is non-empty too.
+    w(".workaholic/missions/active/orphan/mission.md",
+      "---\ntype: Mission\ntitle: Orphan\nslug: orphan\nstatus: active\n" +
+      "feedback: [2026010100000c-c.md]\n---\n\n## Experience\n\ne\n\n## Acceptance\n\n- [ ] a\n");
+    const open = join(A, "open.json");
+    writeFileSync(open, '{"ok": true, "identity": "test", "proposals": []}\n');
+    execSync("git add -A && git commit -q -m seed", { cwd: A });
+
+    // The plugin tree is copied so the two walkers can be wrapped in counters. The wrapper
+    // execs the original, so every reading below is the real one.
+    cpSync(join(REPO_ROOT, "plugins"), join(A, "plugins"), { recursive: true });
+    const SS = join(A, "plugins/workaholic/skills/strategy/scripts");
+    const counter = join(A, "reads.txt");
+    for (const name of ["attributed-work.sh", "unattributed-work.sh"]) {
+      renameSync(join(SS, name), join(SS, `real-${name}`));
+      writeFileSync(join(SS, name),
+        `#!/bin/sh\nprintf '%s\\n' "${name}" >> "${counter}"\nexec sh "$(dirname "$0")/real-${name}" "$@"\n`);
+    }
+    const STATE = join(SS, "direction-state.sh");
+    const readOf = (flag) => {
+      writeFileSync(counter, "");
+      const j = JSON.parse(run(A, `${POSIX_SH} ${STATE} ${flag} --open-proposals ${open} "14 days ago" ${W}`).stdout);
+      return { j, reads: readFileSync(counter, "utf8").split("\n").filter(Boolean).length };
+    };
+    const plain = readOf("");
+    const withLeaving = readOf("--with-leaving");
+
+    // 1. THE READING IS THERE, in the shape the other two carry.
+    const row = (j, slug) => j.strategies.find((s) => s.slug === slug);
+    assertEq("the expiring row carries the leaving",
+      [row(withLeaving.j, "soon").state,
+       row(withLeaving.j, "soon").leaving.readable,
+       row(withLeaving.j, "soon").leaving.waiting.count,
+       row(withLeaving.j, "soon").leaving.residue.mission_count,
+       row(withLeaving.j, "soon").leaving.lifecycle.state],
+      ["expiring", true, 1, 1, "expiring"]);
+    assertEq("in the same shape the overdue row carries",
+      Object.keys(row(withLeaving.j, "soon").leaving).sort(),
+      Object.keys(row(withLeaving.j, "gone").leaving).sort());
+
+    // 2. NOT ONE EXTRA READ. The composer takes all three facts off the row the survey already
+    // produced, so the flag costs nothing.
+    assertEq("attaching the leaving reads the tree no more times than not attaching it",
+      withLeaving.reads, plain.reads);
+    assertTrue("and the fixture really exercises those readers", plain.reads > 0, String(plain.reads));
+
+    // 3. WITHOUT THE FLAG THE ROW IS BYTE-IDENTICAL. `--with-leaving` is opt-in and moves no
+    // other field.
+    assertEq("the expiring row is unchanged without the flag",
+      JSON.stringify(row(plain.j, "soon")),
+      JSON.stringify((({ leaving, ...rest }) => rest)(row(withLeaving.j, "soon"))));
+
+    // 4. A DEGRADED LEAVING IS NAMED, WITH NULL COUNTS — never rendered as an empty leaving.
+    // The residue reader loses the reader it composes, so `dir`'s own legibility is untouched
+    // and only the residue half is blind.
+    rmSync(join(SS, "mission-strategy.sh"));
+    const blind = row(readOf("--with-leaving").j, "soon");
+    assertEq("a degraded residue makes the leaving unreadable, by its own reason, with null counts",
+      [blind.leaving.readable,
+       /^residue_unreadable:/.test(blind.leaving.reason),
+       blind.leaving.residue.mission_count,
+       blind.leaving.waiting.readable],
+      [false, true, null, true]);
   } finally { cleanup(A); }
 }
 
@@ -18222,6 +18314,7 @@ const tests = [
   ["a direction is read before its date silences the loop", testExpiringDirectionIsRead],
   ["expiring: the boundary, and the window it is derived from", testExpiringBoundary],
   ["expiring, ranked in the lifecycle precedence", testExpiringPrecedence],
+  ["the leaving rides an expiring row, at no extra read", testExpiringCarriesTheLeaving],
   ["the residue reaches no /propose gate", testResidueGatesNothing],
   ["strategy/carry-attribution.sh carries a ruling and refuses the rest", testCarryAttribution],
   ["strategy/amend.sh: the third writer, bounded", testStrategyAmend],

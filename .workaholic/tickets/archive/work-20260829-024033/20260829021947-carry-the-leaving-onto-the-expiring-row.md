@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-29T02:19:47+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -88,3 +89,26 @@ that carry; it adds no reader and no call.
   two assemblies of one fact drift. Keep the carry.
 - `exhaustive` is `false` by construction on the residue, and the reading over-
   reports rather than under-reports. Do not tighten it here.
+
+## Final Report
+
+Development completed as planned. `--with-leaving` attaches `closing-residue.sh`'s composition
+per row and is keyed on nothing — no state, no reading — so the `expiring` row carried it the
+moment the rung existed. What this ticket adds is the **proof** and the statement: the header's
+`THE LEAVING` block now records that the attachment is per row whatever the reading and why
+`expiring` is the third consumer, and a hermetic case measures the cost rather than reading the
+source, by wrapping both walkers in counters and comparing the flag off against on.
+
+### Discovered Insights
+
+- **Insight**: a reading that costs a second code path is a design defect the attachment already
+  avoided, and the test is what keeps it that way.
+  **Context**: nothing in `--with-leaving` inspects `state`, so a new rung costs zero lines
+  there. The tempting "improvement" — attaching the leaving only for the readings that consume
+  it — would make every future rung a change to this block and would drift from the consumer.
+- **Insight**: "no extra read" is measurable without reading the source.
+  **Context**: copying the plugin tree and replacing `attributed-work.sh` and
+  `unattributed-work.sh` with counting shims that `exec` the originals turns the claim into a
+  number: the invocation count with the flag equals the count without it, over the same fixture.
+  A structural assertion (the composer's `--state-row` branch skips the readers) would pass on a
+  refactor that added the read somewhere else.

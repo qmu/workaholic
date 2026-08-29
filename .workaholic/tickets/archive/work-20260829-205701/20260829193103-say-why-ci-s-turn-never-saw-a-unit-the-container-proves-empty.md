@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-29T19:31:03+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -95,3 +96,37 @@ by its own name — never `taken` — and reach `/moderate`'s existing
 - The tempting shortcut is to treat `count: 0` as a degradation. It is not — the scan
   succeeded and honestly found nothing; the defect is that *what it looked for* differed
   between executors, which is a fact about the unit, not about the read.
+
+## Final Report
+
+**Already delivered by an earlier turn of the loop — verified, not assumed, and no word was
+added.** The ticket was written from a finding taken at base `6cdf99a9`; the repair shipped by
+mission `read-back-whether-the-loop-s-own-act-took-effect` landed before this ran, and it
+already answers exactly what this ticket asks for.
+
+**Step 1 — reproduced, both sides, at head `4563afa1`:**
+
+- `list-retirable-claims.sh` from the checkout names **three** units — `batch-20260819063000`,
+  `make-a-rename-a-registry-entry-not-a-sweep`,
+  `make-the-draft-release-note-an-agent-s-release-plan` — each `state: present`.
+- `ci-retirement-turn.sh` over those three answers, per unit, **`ci_turn: unreadable`** — never
+  `taken`, with the run-level word `taken` meaning only *CI had its turn and we can see what it
+  did*.
+
+**Step 2 — what the readers compose.** `read-ci-retirement-record.sh` reads a healthy candidate
+reading (`candidates_ok: true`) that names none of the three, and `ci-retirement-turn.sh`'s
+`unnamed` branch resolves that to `unreadable` rather than `refused:<reason>` — the correct
+distinction, since nothing went wrong that we can name.
+
+**Steps 3–4 — the implementer's call, exercised rather than deferred.** `unreadable` **carries
+it**: `drive/reference/claims.md` already documents that word as *the record … names this unit
+nothing while the candidate reading itself was fine*, which is precisely this case, and
+`step-retire-claims.sh` holds only `taken` and `pending`, so the question is **not** held. Live
+proof: the step reports all three in `needs_agent` with the event *3 claims proved finished are
+still standing*. **No fifth word is added**, which is also the mission's own third acceptance
+item.
+
+**Steps 5–6.** The classification pin and `CLAUDE.md`'s claim-protocol bullet already carry it;
+what this branch adds to both is the **second cause** the finding missed, which is ticket 2's.
+
+**Gate:** `node scripts/test-workflow-scripts.mjs` (5168/0) and the live readings above.

@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-29T21:20:56+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -91,3 +92,39 @@ characters.
   turn a silent morning into a spoken one. The silence rules are untouched.
 - The `/mission` roadmap is read by a person scanning many rows, so the stage goes where
   the strategy already is rather than as a new column.
+
+## Final Report
+
+Development completed as planned.
+
+Three surfaces name the stage now: the morning digest (one word beside the title, off the row
+it already reads), the bare `/mission` roadmap (beside the strategy it already prints), and
+every `direction-*` question heading — including `direction-last`, which composes its heading
+separately. No question key, cap or hold moved, and the digest's silence rules are untouched.
+
+**One ticket was minted mid-run** and the current one continued:
+`20260829231500-stop-a-swallowed-jq-error-reading-as-a-quiet-tick.md`.
+
+### Discovered Insights
+
+- **Insight**: `step-direction-health.sh` ends its subject composition with
+  `jq -c '…' 2>/dev/null || echo '[]'`, so a jq **compile** error is discarded and the step
+  reports `status: ok`, `"1 overdue, 1 dormant … 0 to ask"`, `needs_agent: []`. A tick that
+  found two directions needing a person, could not compile the expression naming them, and
+  called itself healthy. `sh -n` passes — the shell is fine, the embedded jq is not.
+  **Context**: this is the exact collapse the step's own header forbids elsewhere, and it is
+  the shape rather than the file, so it is minted as its own ticket rather than patched here.
+  While developing against one of these scripts, temporarily removing the `2>/dev/null` is the
+  fastest way to see what is actually wrong.
+
+- **Insight**: `heading: (if … end) + $var` does not parse in jq inside an object; the value
+  needs its own parentheses — `heading: ((if … end) + $var)`. Combined with the swallowed
+  error above, the symptom was an empty question list rather than any error at all.
+  **Context**: the live repository hid it for a further reason worth knowing — a single live
+  direction takes the `direction-last` branch, which composes its heading separately, so the
+  main chain was never exercised by a smoke check against this tree. A fixture with **two**
+  directions is what runs it.
+
+- **Insight**: two scripts in this mission were broken by an apostrophe inside a comment in a
+  single-quoted jq program. `every shipped shell script parses` was added to the suite as a
+  permanent guard and was proved able to fail by re-introducing the defect.

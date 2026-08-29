@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-29T21:20:56+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -95,3 +96,28 @@ blast radius of this change and is why it is admissible as a sort rather than a 
   is a separate ask against a working ordering rather than a guess made now.
 - With `over_cap` retired the sort is nearly cosmetic on a healthy tick. That is stated
   rather than hidden — it is what makes the change cheap and reversible.
+
+## Final Report
+
+Development completed as planned.
+
+The stage is the first component of the existing `sort_by` key, with late-first and
+nearest-date unchanged beneath it, and the whole ordering is stated in the script header in one
+place. Nothing else moved: every gate, `refused[]`, and the membership of `eligible[]` and
+`selected[]` are byte-identical.
+
+### Discovered Insights
+
+- **Insight**: the "nothing else moved" claim is only checkable if the fixture can actually
+  distinguish the stage from the tie-breaker underneath it. The two equal-dated directions here
+  are named `alpha` (進行中) and `zeta` (改良中) deliberately, so a key that ignored the stage
+  would order them `alpha, zeta` by slug and the assertion fails — where two arbitrary names
+  might have passed for the wrong reason.
+  **Context**: the same shape makes the uniform-stage case meaningful: with every direction at
+  one stage (or none) the key cannot distinguish them, so the order must fall back exactly to
+  the date order, which is the pre-change behaviour spelled out rather than assumed.
+
+- **Insight**: the sort runs over the **whole** row list before `refused[]` is split out, so a
+  new leading key reorders the refused rows too. Membership is what the ticket's gate protects
+  and membership is unchanged; the order of `refused[]` is not part of any consumer's contract,
+  and stating that here is cheaper than adding a second sort to preserve an order nobody reads.

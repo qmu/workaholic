@@ -371,12 +371,14 @@ and every abort reports a machine-readable reason.
 
    ```sh
    bash ${CLAUDE_PLUGIN_ROOT}/skills/strategy/scripts/amend.sh <slug> \
-     [--target-date <YYYY-MM-DD>] [--schedule "<prose>"] [--assignees "<a>[,<b>...]"] [--aim -]
+     [--target-date <YYYY-MM-DD>] [--schedule "<prose>"] [--assignees "<a>[,<b>...]"] [--aim -] \\
+     [--stage <進行中|改良中|観察中>]
    ```
 
    The slug is the one the ask named and step 5b confirmed; the revised values are the ones
-   the ask states, never this session's reading. Only the three revisable parts are
-   reachable — `## Aim`, the Schedule (`target_date:` and its prose) and `assignees:` — and
+   the ask states, never this session's reading. Only the four revisable parts are
+   reachable — `## Aim`, the Schedule (`target_date:` and its prose), `assignees:` and the
+   declared **stage** (2026-08-29, mission `make-a-direction-s-lifecycle-a-declared-stage`) — and
    `amend.sh` asserts the immutable half over its own candidate, so `slug`, `type`,
    `status`, `created_at`, `author` and `feedback:` cannot move here. This is the **only**
    thing the run writes for an announcement — no mission, no ticket, no second artifact, and
@@ -388,8 +390,14 @@ and every abort reports a machine-readable reason.
    `close.sh` stays the only writer of an end state), and `no_revision` when the ask names
    the slug but nothing revisable — an announcement that says only "this is going well" is
    not a revision. Every other `amend.sh` refusal (`bad_target_date`, `no_assignees`,
-   `empty_schedule`, `empty_aim`, `immutable_field`, `not_found`) **falls back to record-only
-   naming that reason**; never retry with a substituted value, exactly as 9b and 9c require.
+   `empty_schedule`, `empty_aim`, `bad_stage`, `immutable_field`, `not_found`) **falls back to
+   record-only naming that reason**; never retry with a substituted value, exactly as 9b and 9c
+   require.
+
+   **A stage the ask names is carried verbatim and judged by nobody here.** The value is the
+   operator's own word out of the closed set; a run **never** moves a stage on its own reading
+   of how a direction is going, which is the same bound the rest of this route already carries
+   and the reason the stage was admissible as a revisable part at all.
 
    **A run never amends on its own judgement.** The route fires on an explicit announcement
    and on nothing else — never on this run's own reading that a direction looks stale,

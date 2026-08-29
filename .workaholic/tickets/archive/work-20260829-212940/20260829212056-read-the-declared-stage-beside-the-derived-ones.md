@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-29T21:20:56+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -89,3 +90,31 @@ the change. This ticket makes the stage **readable**; it gates nothing.
 - A direction whose file could not be read at all reports the stage as unreadable by its
   own reason rather than defaulting to 進行中, because a default that hides a failed read
   is what `readable: false` exists to prevent.
+
+## Final Report
+
+Development completed as planned.
+
+`stage` rides on every `survey-strategies.sh` row (eligible and refused) off `list.sh`, and is
+projected onto every `direction-state.sh` row beside `target_date` and `landed`. `state`, its
+precedence, the refusals, the sort and `selected` are unchanged; the new test asserts that
+byte-identity across all three stages rather than describing it.
+
+### Discovered Insights
+
+- **Insight**: the jq programs in these scripts are single-quoted shell strings, so an
+  **apostrophe inside a jq comment terminates the string**. A header comment reading "THE
+  OPERATOR'S DECLARED STAGE" turned the whole survey into a shell syntax error at a line
+  number 200 lines away from the edit.
+  **Context**: it fails loudly and instantly, but the error (`Syntax error: "(" unexpected`)
+  points at the first parenthesis after the break rather than at the apostrophe, so the cause
+  is not where the message says. Every comment written inside one of these jq blocks has to
+  avoid `'` entirely — the surrounding files do, which is why it is easy to miss that the
+  constraint exists at all.
+
+- **Insight**: proving "this reading gates nothing" is only worth anything if the projection
+  compared is *everything the survey decides*. The assertion here compares `selected`, and
+  per row `reason`, `pace`, `overdue`, `expiring`, `dormant` and `quiescent`, across all three
+  stages over one fixture — deliberately including the **refused** rows, because the gate the
+  next ticket adds acts on a refused row and a test that looked only at `eligible` would not
+  notice it arriving early.

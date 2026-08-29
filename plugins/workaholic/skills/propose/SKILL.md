@@ -618,6 +618,75 @@ where the refusal vocabulary lives, above. The report is read by nobody on the d
 which is precisely why the brake is not here; and no question is added here either, because
 reaching a person is `/moderate`'s job and belongs in its own ask if it is wanted.
 
+### The declared stage rides on every row and gates nothing here
+
+(2026-08-29, mission `make-a-direction-s-lifecycle-a-declared-stage`.) `survey-strategies.sh`
+carries the direction's **declared** `stage` on every surveyed row, eligible and refused alike —
+the refused case being the point, since a settled direction is normally refused. It comes off
+`list.sh`, which resolves the absent-means-進行中 default through `read.sh`, the one place that
+default lives; a **degraded** row still carries it, because the degradation belongs to the
+attribution walk and the stage is read off the artifact.
+
+**Carrying it decides nothing**: `refusal`, `pace`, `overdue`, `expiring`, `dormant`,
+`quiescent`, the sort and `selected` are byte-identical under 進行中, 改良中 and an unstaged
+direction, which the hermetic suite pins rather than asserts. **観察中 is the one value that
+decides anything**, and it decides exactly one thing:
+
+### 改良中 competes for attention — the stage joins the sort and nothing else
+
+(2026-08-29, the same mission.) The ask's 改良中 carries one behaviour the other two do not:
+its priority rises and falls **relative to the other active directions**, because the operator
+runs several that reference each other and improve as a blend. The survey has exactly one seam
+for that and no other — the **eligible order**, admitted on the ground that it is a proposal
+about attention and never a gate, which is how `pace` was admitted — so the stage joins the
+sort key and stops there.
+
+**The whole ordering is stated in one place**, `survey-strategies.sh`'s own header, so no
+consumer re-derives it: **改良中 first**, then **late first**, then **nearest date**. The
+existing components keep their order beneath the new one.
+
+**Why 改良中 rather than 進行中**, with the counter-argument recorded rather than dismissed:
+work that cannot be cut over yet is the riskiest and might deserve attention first — it lost
+because 改良中 is the stage the operator declared to mean *can absorb a proposal*, and a
+blend's proposing energy belongs where it converts to shipped behaviour, while a direction
+still building is advanced by the work already queued against it.
+
+**It is a sort and not a gate**, which is what makes it cheap and reversible: `refused[]`, every
+gate, the membership of `eligible[]` and `selected[]` and every reading are byte-identical, and
+a repository whose directions all carry one stage — or none — produces the pre-change order
+exactly. **No weight, no score, no tunable constant and no cross-direction arithmetic**: the key
+is lexicographic over fields already on the row. Since `over_cap` was retired a tick proposes
+against **every** eligible direction, so the order decides only which one a tick that dies
+partway has advanced — which is precisely what bounds this change's blast radius. An explicit
+operator-set numeric rank is refused: a rank is a second thing to keep current, and if it is
+ever wanted it is a separate ask against a working ordering rather than a guess made now.
+
+### `observing` — the first DECLARED gate, and why that is what makes it safe
+
+(2026-08-29, the same mission.) A direction the operator declared **観察中** is settled: the
+loop stays **reactive only** and no longer originates proposals for it. That is the refusal
+`observing`, one more entry on the gate list, reported by name like every other.
+
+**It is the first gate on that list that is declared rather than derived, and that is precisely
+the argument for it.** A derived silence was refused here by name — `pace` changes order and
+never eligibility, because a machine's guess must not silence the one routine that originates
+work. The operator's own word is not a guess, it is read off the artifact, and no running
+session can make it differently.
+
+**Its placement is argued against both neighbours.** It sits **after** `not_active` and
+`not_mine`, because a closed or foreign direction is not this repository's question at all and
+answering `observing` for one would name the wrong fact; and **before** `past_target_date`,
+because an observing direction that is also overdue should read as observing — that is the fact
+a person acts on, and lateness on a settled direction is not a failure.
+
+**It stops origination and nothing else.** The refused row still carries `pace`, `overdue`,
+`expiring`, `dormant`, `quiescent` and its residue, so a settled direction stays visible; and
+**reactive work still reaches it** — an inbound ask, whether swept off the channel, filed as an
+issue or reported as an error, still becomes an `[FB]` issue, still reaches `/specificate`, and
+still lands as a mission or a ticket carrying that direction's refs. That asymmetry is the
+whole point of the stage. `no_evolutionary_move` stays what it is — an honest empty answer for
+a direction the run had nothing to propose against — and is never rendered as `observing`.
+
 ### The run report names what is waiting on the operator
 
 (2026-08-29, mission `follow-the-pull-requests-the-loop-opens-for-a-person`.) A tick names each

@@ -90,6 +90,7 @@ const SCRIPTS = {
   strategyRead: join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/read.sh"),
   strategyClose: join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/close.sh"),
   strategyAmend: join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/amend.sh"),
+  directionState: join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/direction-state.sh"),
   strategyAttributedWork: join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/attributed-work.sh"),
   missionStrategy: join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/mission-strategy.sh"),
   standupDigest: join(REPO_ROOT, "plugins/workaholic/skills/standup/scripts/digest.sh"),
@@ -2467,7 +2468,39 @@ function testStrategyAmend() {
       .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
     const flags = [...src.matchAll(/^\s*(--[a-z-]+)\)/gm)].map((m) => m[1]).sort();
     assertEq("the interface offers exactly the revisable parts", flags,
-      ["--aim", "--assignees", "--schedule", "--target-date"]);
+      ["--aim", "--assignees", "--schedule", "--stage", "--target-date"]);
+
+    // 9. THE STAGE IS THE FOURTH REVISABLE PART (2026-08-29, mission
+    //    `make-a-direction-s-lifecycle-a-declared-stage`) — and nothing else moved with it:
+    //    no fourth writer, no new route, no new refusal vocabulary. It is the one revisable
+    //    field that may be ABSENT, so a move onto an unstaged direction must INSERT the line
+    //    where `create.sh` puts it rather than leave the file without one.
+    run(A, `printf 'Build the staged thing.\\n' | ${POSIX_SH} ${SCRIPTS.strategyCreate} ` +
+      `'Staged' 2026-09-30 'a@example.com' 'Start now.' '20260101000000-x.md' .workaholic`);
+    const staged = amend("staged --stage 改良中");
+    assertEq("a stage revision reports the part it moved", staged.revised, ["stage"]);
+    const stagedBody = readFileSync(join(A, ".workaholic/strategies/staged.md"), "utf8");
+    assertTrue("the line is inserted directly after status:, where create.sh puts it",
+      /^status: active\nstage: 改良中$/m.test(stagedBody), stagedBody);
+    assertTrue("and the dated Schedule line names the MOVE, not the destination",
+      /^Revised \d{4}-\d{2}-\d{2}: stage 進行中 → 改良中\.$/m.test(stagedBody), stagedBody);
+    // Reading the previous value through `read.sh` is what makes `進行中 →` correct on a file
+    // that carries no stage line at all: the absent default keeps ONE derivation.
+    assertTrue("the previous value comes from the one reader, not a second default here",
+      /read\.sh/.test(src), "amend.sh resolves the absent-means-進行中 default itself");
+
+    const moved = amend("staged --stage 観察中");
+    assertEq("the stage is revisable in both directions — nothing treats it as a ratchet",
+      moved.revised, ["stage"]);
+    assertEq("a re-run of the same revision is a byte-identical no-op",
+      amend("staged --stage 観察中").reason, "already");
+
+    const beforeBad = readFileSync(join(A, ".workaholic/strategies/staged.md"), "utf8");
+    assertEq("a value outside the closed set refuses with create.sh's own name",
+      amend("staged --stage improving").reason, "bad_stage");
+    assertEq("...leaving the artifact byte-identical",
+      readFileSync(join(A, ".workaholic/strategies/staged.md"), "utf8"), beforeBad);
+    assertEq("a call naming nothing revisable is still no_revision", amend("staged").reason, "no_revision");
   } finally { cleanup(A); }
 }
 
@@ -6504,6 +6537,281 @@ function testAreaFreshness() {
   } finally { cleanup(dir); }
 }
 
+
+// ---------- the two stage-transition questions (2026-08-29) ----------
+// `make-a-direction-s-lifecycle-a-declared-stage`, ticket *Ask a person when the evidence
+// suggests a transition*. They REFINE an existing question rather than adding one, which is
+// forced rather than chosen: `direction-state.sh` projects `quiescent` to `arrived` and
+// `dormant` to `dormant` in a fixed precedence, so a question added BESIDE those would either
+// double-ask one direction or never fire. The stage decides which question the same evidence
+// draws, and every other combination stays byte-identical.
+function testDirectionTransitionQuestions() {
+  const dir = makeRepo("main");
+  const WH = join(dir, ".workaholic");
+  const OPEN = join(dir, "open.json");
+  const STEP = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-direction-health.sh");
+  const day = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+  const mk = (slug, stage, target) => {
+    mkdirSync(join(WH, "strategies"), { recursive: true });
+    writeFileSync(join(WH, "strategies", `${slug}.md`), [
+      "---", "type: Strategy", `title: T ${slug}`, `slug: ${slug}`, "status: active",
+      ...(stage ? [`stage: ${stage}`] : []),
+      `target_date: ${target}`, "assignees: [test@example.com]",
+      "feedback: [20260101000000-a.md]",
+      "---", "", "## Aim", "", "a", "", "## Schedule", "", "s", "",
+    ].join("\n"));
+  };
+  const keys = () => {
+    const j = JSON.parse(run(dir,
+      `${POSIX_SH} ${STEP} --tick 20260826-000000 --root ${dir} --open-proposals ${OPEN}`).stdout);
+    return ((j.needs_agent[0] || {}).directions || []).map((d) => `${d.key}`).sort();
+  };
+
+  try {
+    run(dir, `git config user.email test@example.com`);
+    mkdirSync(join(WH, "feedbacks"), { recursive: true });
+    writeFileSync(join(WH, "feedbacks", "20260101000000-a.md"), "---\ntype: Feedback\n---\n\nx\n");
+    writeFileSync(OPEN, '{"ok": true, "identity": "test", "proposals": []}\n');
+
+    // A quiet 改良中 direction reads `dormant` and draws `direction-settled` INSTEAD of
+    // `direction-dormant`; a quiet 進行中 one is untouched. Two directions in one fixture, so
+    // the refinement and the unchanged case are proved against each other.
+    mk("improving", "改良中", day(400));
+    mk("running", "進行中", day(400));
+    execSync("git add -A && git commit -q -m seed", { cwd: dir });
+    assertEq("a quiet 改良中 direction is asked about settling, and a 進行中 one is not",
+      keys(), ["direction-dormant:running", "direction-settled:improving"]);
+
+    // ONE DIRECTION, ONE QUESTION — the refinement replaces, it never adds.
+    const rows = JSON.parse(run(dir,
+      `${POSIX_SH} ${STEP} --tick 20260826-000000 --root ${dir} --open-proposals ${OPEN}`).stdout)
+      .needs_agent[0].directions;
+    assertEq("no direction draws two questions",
+      rows.map((d) => d.slug).sort().join(","), "improving,running");
+    const settled = rows.find((d) => d.slug === "improving");
+    assertTrue("the settled question names the stage it is asking to leave",
+      /改良中/.test(settled.heading), settled.heading);
+    assertTrue("...and its body asks for the operator's own act, never asserting one",
+      /Move it to 観察中|say it still stands/.test(settled.body), settled.body);
+    assertEq("...addressed to the direction's assignee", settled.assignees, "test@example.com");
+
+    // AN UNSTAGED DIRECTION IS UNCHANGED, and this is the bound worth stating: `absent means
+    // 進行中` is the right READING everywhere and the wrong thing to QUOTE BACK, so a
+    // repository that has not adopted the vocabulary keeps every question it had. Only a
+    // DECLARED stage refines one.
+    mk("improving", "", day(400));
+    assertEq("an unstaged quiet direction still reads dormant",
+      keys(), ["direction-dormant:improving", "direction-dormant:running"]);
+    const unstaged = JSON.parse(run(dir,
+      `${POSIX_SH} ${STEP} --tick 20260826-000000 --root ${dir} --open-proposals ${OPEN}`).stdout)
+      .needs_agent[0].directions.find((d) => d.slug === "improving");
+    assertTrue("...and its heading says no stage was declared rather than quoting the default",
+      /no stage declared/.test(unstaged.heading), unstaged.heading);
+
+    // AND THE OTHER READINGS ARE UNTOUCHED BY THE STAGE: an overdue 改良中 direction is still
+    // asked about being overdue, because the transition readings are built only from terms
+    // that describe WORK LANDING and never from a date or from stuckness.
+    mk("improving", "改良中", day(-400));
+    assertEq("an overdue 改良中 direction still reads overdue",
+      keys().includes("direction-overdue:improving"), true);
+
+    // THE STEP STILL WRITES NOTHING AND MOVES NO STAGE. The fixture's own edits are committed
+    // first, so what is measured is the step and not this test.
+    execSync("git add -A && git commit -q -m refixture", { cwd: dir });
+    keys();
+    assertEq("the step wrote nothing anywhere",
+      execSync("git status --porcelain -- .workaholic/strategies", { cwd: dir, encoding: "utf8" }).trim(), "");
+    const src = readFileSync(STEP, "utf8").split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+    for (const writer of ["amend.sh", "create.sh", "close.sh"]) {
+      assertTrue(`the step reaches no strategy writer (${writer})`, !src.includes(writer),
+        "the step that asks about a stage gained the ability to move one");
+    }
+  } finally { cleanup(dir); }
+}
+
+// ---------- the stage is shown where directions are read (2026-08-29) ----------
+// `make-a-direction-s-lifecycle-a-declared-stage`, ticket *Show a direction's stage where
+// directions are read*. Three surfaces read directions and none of them said the phase: the
+// morning digest, the bare `/mission` roadmap, and the `direction-*` questions — which name a
+// READING (`arrived`, `overdue`, `expiring`) and never the phase the operator declared. All
+// three render from readers that already carry `stage`, so this is render work with NO new read.
+function testStageShownWhereDirectionsAreRead() {
+  const dir = makeRepo("main");
+  const WH = join(dir, ".workaholic");
+  try {
+    run(dir, `git config user.email me@example.com`);
+    mkdirSync(join(WH, "strategies"), { recursive: true });
+    mkdirSync(join(WH, "feedbacks"), { recursive: true });
+    writeFileSync(join(WH, "feedbacks", "20260101000000-a.md"), "---\ntype: Feedback\n---\n\nb\n");
+    const future = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
+    writeFileSync(join(WH, "strategies", "d.md"), [
+      "---", "type: Strategy", "title: D", "slug: d", "status: active", "stage: 改良中",
+      `target_date: ${future}`, "assignees: [me@example.com]", "feedback: [20260101000000-a.md]",
+      "---", "", "# D", "", "## Aim", "", "aim", "", "## Schedule", "", "s", "",
+    ].join("\n"));
+
+    // 1. THE MORNING DIGEST carries it per strategy, off the row it already reads.
+    const digest = JSON.parse(run(dir,
+      `${POSIX_SH} ${SCRIPTS.standupDigest} "1 day ago" ${WH}`, { allowFail: true }).stdout || "{}");
+    const row = (digest.strategies || []).find((x) => x.slug === "d");
+    assertTrue("the digest carries a stage per strategy", row && row.stage === "改良中",
+      JSON.stringify(row));
+    // Comments are stripped before the check: the header explains WHY the stage comes off
+    // `list.sh` and therefore names `read.sh` in prose, which a raw grep reads as a call.
+    assertTrue("and it reads it off list.sh rather than opening the artifact again",
+      !/read\.sh/.test(readFileSync(SCRIPTS.standupDigest, "utf8")
+        .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n")),
+      "the digest gained a second read of the strategy artifact");
+
+    // 2. THE QUESTION HEADING names it — where the residue and the leaving already ride,
+    //    never the body, which `workaholic:notify` bounds to one sentence reserved for the act.
+    const step = readFileSync(
+      join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-direction-health.sh"), "utf8");
+    assertTrue("the direction question names the declared stage in its heading",
+      /declared " \+ \.stage/.test(step), "no heading names the stage");
+    assertTrue("...and an unresolved stage renders as unreadable, never as 進行中",
+      /stage unreadable/.test(step), "an unreadable stage would render as the default");
+    assertTrue("the body is untouched by the stage",
+      !/body:[^}]*\.stage/.test(step), "the stage reached the one-sentence body");
+
+    // 3. NO KEY MOVED, so no question is re-asked by a changed heading: the ledger matches the
+    //    step id, and this ticket is render work.
+    // The key is composed from the reading and the slug, and the reading is `.state` except
+    // for the two stage-transition refinements a later ticket in this mission adds — so THIS
+    // ticket, which is render work, moved no key at all.
+    assertTrue("the question keys are composed from the reading and the slug",
+      /"direction-" \+ \$reading \+ ":" \+ \.slug/.test(step) && /"direction-last:" \+ \.slug/.test(step),
+      "a question key stopped being composed from the reading and the slug");
+
+    // 4. THE ROADMAP names it beside the strategy it already prints, rather than as a column.
+    const flows = readFileSync(join(REPO_ROOT,
+      "plugins/workaholic/skills/mission/reference/command-flows.md"), "utf8");
+    assertTrue("the /mission roadmap names the stage beside the strategy",
+      /— <strategy title> \(<stage>\)/.test(flows), "the roadmap does not name the stage");
+    assertTrue("...and renders an unreadable stage as unreadable",
+      /stage unreadable/.test(flows), "the roadmap would default a failed read to 進行中");
+
+    // 5. THE SILENCE RULES ARE UNTOUCHED: the stage is never a reason to post.
+    const standup = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/standup/SKILL.md"), "utf8");
+    // Whitespace-normalized: the sentence wraps in the source, so a literal match would test
+    // the line width rather than the rule.
+    assertTrue("the digest still posts nothing on its three no-ops",
+      /never a reason to post/.test(standup.replace(/\s+/g, " ")),
+      "the stage was allowed to make a silent morning speak");
+  } finally { cleanup(dir); }
+}
+
+// ---------- every shipped shell script parses (2026-08-29) ----------
+// A cheap, permanent guard added while shipping
+// `make-a-direction-s-lifecycle-a-declared-stage`, after the same defect broke two scripts in
+// one mission: several of these scripts carry a jq program inside a SINGLE-QUOTED shell
+// string, so one apostrophe in a comment inside that program — "the operator's stage" —
+// terminates the string and the whole file stops parsing. The failure is total (the script
+// cannot run at all) and yet invisible to every other test here, because a test that never
+// invokes that particular script still passes; and `sh`'s error names the first parenthesis
+// after the break rather than the apostrophe, pointing hundreds of lines away from the cause.
+//
+// `sh -n` is the whole check. It costs one parse per file and it is exactly the check a person
+// runs by hand after editing one of these; making it a suite row means it runs for every file
+// on every change rather than for the file somebody remembered.
+function testEveryShellScriptParses() {
+  const roots = ["plugins/workaholic", "scripts", "hooks"];
+  const found = [];
+  const walk = (rel) => {
+    const abs = join(REPO_ROOT, rel);
+    if (!existsSync(abs)) return;
+    for (const e of readdirSync(abs, { withFileTypes: true })) {
+      if (e.name === "node_modules" || e.name.startsWith(".")) continue;
+      const next = `${rel}/${e.name}`;
+      if (e.isDirectory()) walk(next);
+      else if (e.name.endsWith(".sh")) found.push(next);
+    }
+  };
+  roots.forEach(walk);
+  assertTrue("the walk finds the shipped shell scripts", found.length > 50, `${found.length} found`);
+  const broken = [];
+  for (const rel of found) {
+    const r = run(REPO_ROOT, `${POSIX_SH} -n ${JSON.stringify(join(REPO_ROOT, rel))}`, { allowFail: true });
+    if (r.status !== 0) broken.push(`${rel}: ${(r.stderr || "").trim().split("\n")[0]}`);
+  }
+  assertEq("every shipped shell script parses", broken.join(" | "), "");
+}
+
+// ---------- the declared stage (2026-08-29) ----------
+// `make-a-direction-s-lifecycle-a-declared-stage`. The stage is the operator's DECLARED phase,
+// so what is proved here is that it round-trips verbatim from a closed set, that an ABSENT
+// field is byte-identical to today's artifact and reads 進行中, and that the absent default has
+// exactly ONE derivation — `read.sh` — which `list.sh` composes rather than re-parsing.
+//
+// Its own repository, deliberately: the strategy-skill test asserts counts over the whole
+// area, so creating four more strategies inside it would break assertions that are about
+// something else entirely.
+function testStrategyDeclaredStage() {
+  const dir = makeRepo("main");
+  try {
+    const create = (args, aim = "Reach the good place.") =>
+      run(dir, `printf '%s\\n' ${JSON.stringify(aim)} | ${POSIX_SH} ${SCRIPTS.strategyCreate} ${args}`);
+    const read = (slug) =>
+      JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.strategyRead} ${slug}`).stdout);
+
+    const plain = JSON.parse(create(`"Ship the thing" 2026-09-01 "a@qmu.jp" "Q3"`).stdout);
+    assertTrue("a strategy created without --stage carries no stage line at all",
+      !/^stage:/m.test(readFileSync(join(dir, plain.path), "utf8")),
+      "an unstaged strategy is not byte-identical to today's, so this is a migration after all");
+    assertEq("...and reads back as 進行中, the absent default", read("ship-the-thing").stage, "進行中");
+
+    const VALUES = ["進行中", "改良中", "観察中"];
+    VALUES.forEach((value, i) => {
+      const m = JSON.parse(create(`--stage ${value} "Staged ${i}" 2026-09-01 "a@qmu.jp" "Q3"`).stdout);
+      assertTrue(`create accepts --stage ${value}`, m.created, JSON.stringify(m));
+      assertTrue(`...writing it verbatim, in the operator's own characters`,
+        new RegExp(`^stage: ${value}$`, "m").test(readFileSync(join(dir, m.path), "utf8")), value);
+      assertEq(`...and ${value} round-trips through the one reader`, read(`staged-${i}`).stage, value);
+    });
+
+    // A REFUSAL WRITES NOTHING — `create.sh`'s existing discipline, extended to the new field.
+    const before = readdirSync(join(dir, ".workaholic/strategies")).sort().join(",");
+    assertEq("a value outside the closed set refuses bad_stage",
+      JSON.parse(create(`--stage improving "Bad stage" 2026-09-01 "a@qmu.jp" "Q3"`).stdout).reason, "bad_stage");
+    assertEq("...with nothing written", readdirSync(join(dir, ".workaholic/strategies")).sort().join(","), before);
+
+    const listed = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.strategyList}`).stdout);
+    assertEq("list carries the stage on every row, resolving absent through read.sh",
+      listed.strategies.find((x) => x.slug === "ship-the-thing").stage, "進行中");
+    assertEq("...and a declared one verbatim",
+      listed.strategies.find((x) => x.slug === "staged-2").stage, "観察中");
+    assertTrue("list.sh does not parse the stage itself",
+      !/fm "\\$f" stage/.test(readFileSync(SCRIPTS.strategyList, "utf8")),
+      "a second parse of the field puts the absent default in two places");
+
+    // THE WRITE FLOOR: presence is never required, because absence is a valid, meaningful state.
+    //
+    // The candidates are written UNTRACKED and by hand. `create.sh` stages what it writes, and
+    // the hook grandfathers every git-tracked file by design — so validating a created strategy
+    // proves nothing about the check at all, which is exactly how this assertion first passed
+    // over a deliberately broken value.
+    const hook = join(REPO_ROOT, "plugins/workaholic/hooks/validate-strategy.sh");
+    const frontmatter = (stageLine) =>
+      `---\ntype: Strategy\ntitle: Floor\nslug: floor\nstatus: active\n${stageLine}`
+      + `target_date: 2026-09-01\nassignees: [a@qmu.jp]\n---\n\n# Floor\n\n## Aim\n\nx\n\n## Schedule\n\nTarget: 2026-09-01\n`;
+    const validate = (stageLine) => {
+      const rel = ".workaholic/strategies/floor.md";
+      writeFileSync(join(dir, rel), frontmatter(stageLine));
+      const r = run(dir,
+        `printf '{"tool_input":{"file_path":"%s"}}' ${JSON.stringify(join(dir, rel))} | ${POSIX_SH} ${hook}`,
+        { allowFail: true });
+      rmSync(join(dir, rel));
+      return r.status;
+    };
+    assertEq("the floor passes a strategy with no stage at all", validate(""), 0);
+    assertEq("the floor passes each declared value",
+      VALUES.map((v) => validate(`stage: ${v}\n`)).join(","), "0,0,0");
+    assertTrue("...and refuses a value outside the closed set",
+      validate("stage: improving\n") !== 0,
+      "the write floor accepted a stage the closed set does not name");
+  } finally { cleanup(dir); }
+}
+
 // ---------- strategy skill (the artifact revived 2026-08-13) ----------
 // The strategy layer was retired 2026-07-28 and re-introduced with a bounded,
 // dated, owned shape. Two things are proved here: the scripts hold that floor,
@@ -7458,6 +7766,232 @@ function testModerateAskSurvivesDeadline() {
 // mechanical gates, and a gate that silently stops gating is indistinguishable from a
 // routine working normally -- right up to the hour it opens an issue per strategy per tick.
 // Every gate below is therefore exercised against a real strategy tree.
+// ---------- the declared stage rides beside the derived readings (2026-08-29) ----------
+// `make-a-direction-s-lifecycle-a-declared-stage`, ticket *Read the declared stage beside the
+// derived ones*. What is proved here is a NEGATIVE and it is the whole ticket: carrying the
+// stage onto every row changes NOTHING about what the survey decides. `refusal`, `pace`,
+// `overdue`, `expiring`, `dormant`, `quiescent`, the sort and `selected` must be byte-identical
+// across all three stages over an otherwise-identical fixture — because the gate that acts on
+// 観察中 is the NEXT ticket, and a reading that quietly started gating here would be
+// indistinguishable from that one having shipped early.
+function testStrategyStageRidesBeside() {
+  const dir = makeRepo("main");
+  const WH = join(dir, ".workaholic");
+  const OPEN = join(dir, "open.json");
+  const mkStrategy = (slug, stageLine, target) => {
+    mkdirSync(join(WH, "strategies"), { recursive: true });
+    writeFileSync(join(WH, "strategies", `${slug}.md`), [
+      "---", "type: Strategy", `title: ${slug}`, `slug: ${slug}`, "status: active",
+      ...(stageLine ? [`stage: ${stageLine}`] : []),
+      `target_date: ${target}`, "assignees: [me@example.com]",
+      "feedback: [20260101000000-a.md]",
+      "---", "", `# ${slug}`, "", "## Aim", "", "aim", "", "## Schedule", "", "s", "",
+    ].join("\n"));
+  };
+  const survey = () => JSON.parse(run(dir,
+    `${POSIX_SH} ${SCRIPTS.proposeSurvey} --open-proposals ${OPEN} "30 days ago" ${WH}`).stdout);
+  // Everything the survey DECIDES, and nothing it merely reports. If this projection is equal
+  // across the three stages, the stage gated nothing.
+  const decisions = (r) => JSON.stringify({
+    selected: r.selected,
+    eligible: (r.eligible || []).map((x) => ({
+      slug: x.slug, pace: x.pace, overdue: x.overdue, expiring: x.expiring,
+      dormant: x.dormant, quiescent: x.quiescent })),
+    refused: (r.refused || []).map((x) => ({
+      slug: x.slug, reason: x.reason, pace: x.pace, overdue: x.overdue,
+      expiring: x.expiring, dormant: x.dormant, quiescent: x.quiescent })),
+  });
+
+  try {
+    run(dir, `git config user.email me@example.com`);
+    writeFileSync(OPEN, JSON.stringify({ ok: true, identity: "me", slug: "o/n", proposals: [] }));
+    mkdirSync(join(WH, "feedbacks"), { recursive: true });
+    writeFileSync(join(WH, "feedbacks", "20260101000000-a.md"), "---\ntype: Feedback\n---\n\nb\n");
+    const future = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
+
+    mkStrategy("d", "", future);
+    const baseline = decisions(survey());
+    assertEq("an unstaged direction reads 進行中 on its survey row",
+      survey().eligible.find((x) => x.slug === "d").stage, "進行中");
+
+    // Every value is CARRIED; the byte-identity holds for the two that gate nothing.
+    // 観察中 is the ONE deliberate exception — `observing`, added by the next ticket in this
+    // mission — and it is asserted by `testProposeObservingGate` rather than exempted
+    // silently here, so "the stage gates nothing" keeps a precise meaning: it gates nothing
+    // EXCEPT the one value the operator declares to mean *stop originating*.
+    for (const value of ["進行中", "改良中", "観察中"]) {
+      mkStrategy("d", value, future);
+      const r = survey();
+      assertEq(`the row carries the declared stage ${value}`,
+        (r.eligible.concat(r.refused)).find((x) => x.slug === "d").stage, value);
+      if (value === "観察中") continue;
+      assertEq(`...and every gate, reading and the sort are byte-identical under ${value}`,
+        decisions(r), baseline);
+    }
+    mkStrategy("d", "観察中", future);
+    assertEq("観察中 is the single value that decides anything, and it decides exactly one thing",
+      (survey().refused.find((x) => x.slug === "d") || {}).reason, "observing");
+
+    // AND THE LIFECYCLE READER CARRIES IT WITHOUT ENTERING ITS PRECEDENCE. `state` is derived,
+    // the stage is declared, and a sixth `state` value was refused by name.
+    const stateOf = () => JSON.parse(run(dir,
+      `${POSIX_SH} ${SCRIPTS.directionState} --window "30 days ago" --root ${WH} --open-proposals ${OPEN}`,
+      { allowFail: true }).stdout || "{}");
+    const first = stateOf();
+    const firstRow = (first.strategies || []).find((x) => x.slug === "d");
+    if (firstRow) {
+      for (const value of ["進行中", "改良中", "観察中"]) {
+        mkStrategy("d", value, future);
+        const row = (stateOf().strategies || []).find((x) => x.slug === "d");
+        assertEq(`direction-state carries the stage ${value}`, row.stage, value);
+        assertEq(`...with state byte-identical under ${value}`, row.state, firstRow.state);
+      }
+    }
+    // A DEGRADED ROW STILL CARRIES ITS STAGE: the degradation belongs to the attribution walk
+    // and the stage is read off the artifact, so one says nothing about the other.
+    assertTrue("the survey never nulls the stage on a degraded row",
+      !/stage: \(if \$blind/.test(readFileSync(SCRIPTS.proposeSurvey, "utf8")),
+      "an attribution_unreadable row was made stage-unreadable, which it is not");
+  } finally { cleanup(dir); }
+}
+
+// ---------- 改良中 sorts before 進行中, and that is all it does (2026-08-29) ----------
+// `make-a-direction-s-lifecycle-a-declared-stage`, ticket *Order an improving direction against
+// its rivals*. The ask's 改良中 carries one behaviour the other stages do not: its priority
+// rises and falls RELATIVE to the other active directions, because the operator runs several
+// that improve as a blend. The survey already has the seam for exactly that and no other — the
+// eligible ORDER, admitted on the ground that it is a proposal about attention and never a gate
+// (which is how `pace` was admitted) — so the stage joins the sort key and nothing else.
+function testProposeStageOrdering() {
+  const dir = makeRepo("main");
+  const WH = join(dir, ".workaholic");
+  const OPEN = join(dir, "open.json");
+  const mkStrategy = (slug, stageLine, target) => {
+    mkdirSync(join(WH, "strategies"), { recursive: true });
+    writeFileSync(join(WH, "strategies", `${slug}.md`), [
+      "---", "type: Strategy", `title: ${slug}`, `slug: ${slug}`, "status: active",
+      ...(stageLine ? [`stage: ${stageLine}`] : []),
+      `target_date: ${target}`, "assignees: [me@example.com]",
+      "feedback: [20260101000000-a.md]",
+      "---", "", `# ${slug}`, "", "## Aim", "", "aim", "", "## Schedule", "", "s", "",
+    ].join("\n"));
+  };
+  const survey = () => JSON.parse(run(dir,
+    `${POSIX_SH} ${SCRIPTS.proposeSurvey} --open-proposals ${OPEN} "30 days ago" ${WH}`).stdout);
+
+  try {
+    run(dir, `git config user.email me@example.com`);
+    writeFileSync(OPEN, JSON.stringify({ ok: true, identity: "me", slug: "o/n", proposals: [] }));
+    mkdirSync(join(WH, "feedbacks"), { recursive: true });
+    writeFileSync(join(WH, "feedbacks", "20260101000000-a.md"), "---\ntype: Feedback\n---\n\nb\n");
+    const future = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
+
+    // EQUAL DATE TERMS, so the stage is the only thing that can separate them. `zeta` is named
+    // to sort AFTER `alpha` by slug, so an ordering that ignored the stage would put the
+    // 進行中 one first and this assertion would catch it.
+    mkStrategy("alpha", "進行中", future);
+    mkStrategy("zeta", "改良中", future);
+    let r = survey();
+    assertEq("改良中 sorts before 進行中 when the date terms are equal",
+      r.selected, ["zeta", "alpha"]);
+    assertEq("...with the membership of selected unchanged",
+      r.selected.slice().sort().join(","), "alpha,zeta");
+    assertEq("...and nothing refused", r.refused.map((x) => x.reason), []);
+
+    // THE EXISTING TERMS KEEP THEIR ORDER BENEATH IT: the stage is the FIRST component, so a
+    // 改良中 direction leads even a `late` 進行中 one — and among directions of the SAME stage
+    // the date term decides exactly as before.
+    const soon = new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 10);
+    mkStrategy("beta", "改良中", soon);
+    assertEq("among 改良中 directions the nearer date still leads",
+      survey().selected.slice(0, 2), ["beta", "zeta"]);
+
+    // A REPOSITORY WHOSE DIRECTIONS ALL CARRY ONE STAGE — OR NONE — IS BYTE-IDENTICAL to the
+    // pre-change survey, which is what makes this cheap: the key cannot reorder a set it
+    // cannot distinguish.
+    for (const uniform of ["", "進行中", "改良中"]) {
+      mkStrategy("alpha", uniform, future);
+      mkStrategy("zeta", uniform, future);
+      mkStrategy("beta", uniform, soon);
+      assertEq(`with every direction at ${uniform || "no stage"} the order is the date order`,
+        survey().selected, ["beta", "alpha", "zeta"]);
+    }
+  } finally { cleanup(dir); }
+}
+
+// ---------- 観察中 stops ORIGINATION and nothing else (2026-08-29) ----------
+// `make-a-direction-s-lifecycle-a-declared-stage`, ticket *Stop originating proposals for an
+// observing direction*. `observing` is the FIRST DECLARED gate on a ladder of derived ones,
+// and that is what makes it admissible where a derived silence was refused: `pace` gates
+// nothing, because a machine's guess must not silence the one routine that originates work —
+// and the operator's own word is not a guess.
+function testProposeObservingGate() {
+  const dir = makeRepo("main");
+  const WH = join(dir, ".workaholic");
+  const OPEN = join(dir, "open.json");
+  const mkStrategy = (slug, stageLine, target) => {
+    mkdirSync(join(WH, "strategies"), { recursive: true });
+    writeFileSync(join(WH, "strategies", `${slug}.md`), [
+      "---", "type: Strategy", `title: ${slug}`, `slug: ${slug}`, "status: active",
+      ...(stageLine ? [`stage: ${stageLine}`] : []),
+      `target_date: ${target}`, "assignees: [me@example.com]",
+      "feedback: [20260101000000-a.md]",
+      "---", "", `# ${slug}`, "", "## Aim", "", "aim", "", "## Schedule", "", "s", "",
+    ].join("\n"));
+  };
+  const survey = () => JSON.parse(run(dir,
+    `${POSIX_SH} ${SCRIPTS.proposeSurvey} --open-proposals ${OPEN} "30 days ago" ${WH}`).stdout);
+
+  try {
+    run(dir, `git config user.email me@example.com`);
+    writeFileSync(OPEN, JSON.stringify({ ok: true, identity: "me", slug: "o/n", proposals: [] }));
+    mkdirSync(join(WH, "feedbacks"), { recursive: true });
+    writeFileSync(join(WH, "feedbacks", "20260101000000-a.md"), "---\ntype: Feedback\n---\n\nb\n");
+    const future = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
+    const past = new Date(Date.now() - 2 * 86400000).toISOString().slice(0, 10);
+
+    mkStrategy("running", "進行中", future);
+    mkStrategy("improving", "改良中", future);
+    mkStrategy("settled", "観察中", future);
+    mkStrategy("unstaged", "", future);
+    const r = survey();
+    assertEq("a direction declared 観察中 is refused observing",
+      (r.refused.find((x) => x.slug === "settled") || {}).reason, "observing");
+    assertEq("...and no proposal is opened for it",
+      r.selected.includes("settled"), false);
+    assertEq("進行中, 改良中 and an unstaged direction stay eligible",
+      r.selected.slice().sort().join(","), "improving,running,unstaged");
+
+    // THE REFUSED ROW STILL CARRIES EVERY READING. That is what lets a settled direction
+    // still be SEEN — the gate stops origination, it does not blind the loop.
+    const settled = r.refused.find((x) => x.slug === "settled");
+    for (const key of ["pace", "overdue", "expiring", "dormant", "quiescent"]) {
+      assertTrue(`the refused observing row still carries ${key}`,
+        Object.prototype.hasOwnProperty.call(settled, key), JSON.stringify(settled));
+    }
+
+    // THE LADDER'S PLACEMENT, both neighbours proved rather than described.
+    // BEFORE `past_target_date`: an observing direction that is ALSO overdue reads observing,
+    // because that is the fact a person acts on and lateness on a settled direction is not a
+    // failure.
+    mkStrategy("settled", "観察中", past);
+    assertEq("an observing direction that is also overdue reads observing, not past_target_date",
+      (survey().refused.find((x) => x.slug === "settled") || {}).reason, "observing");
+    // AFTER `not_active` and `not_mine`: a closed or foreign direction is not this
+    // repository's question at all, so answering `observing` there would name the wrong fact.
+    writeFileSync(join(WH, "strategies", "settled.md"),
+      readFileSync(join(WH, "strategies", "settled.md"), "utf8").replace("status: active", "status: achieved"));
+    assertEq("a CLOSED observing direction still reads not_active",
+      (survey().refused.find((x) => x.slug === "settled") || {}).reason, "not_active");
+    writeFileSync(join(WH, "strategies", "settled.md"),
+      readFileSync(join(WH, "strategies", "settled.md"), "utf8")
+        .replace("status: achieved", "status: active")
+        .replace("assignees: [me@example.com]", "assignees: [you@example.com]"));
+    assertEq("a FOREIGN observing direction still reads not_mine",
+      (survey().refused.find((x) => x.slug === "settled") || {}).reason, "not_mine");
+  } finally { cleanup(dir); }
+}
+
 function testProposeGates() {
   const dir = makeRepo("main");
   const WH = join(dir, ".workaholic");
@@ -18876,6 +19410,13 @@ const tests = [
   ["the living-migration registry contract", testMigrationRegistryContract],
   ["report/area-freshness.sh (the two hand-maintained areas' upkeep seam)", testAreaFreshness],
   ["strategy skill (the artifact revived 2026-08-13)", testStrategySkill],
+  ["every shipped shell script parses", testEveryShellScriptParses],
+  ["the stage is shown where directions are read", testStageShownWhereDirectionsAreRead],
+  ["the two stage-transition questions", testDirectionTransitionQuestions],
+  ["strategy: the operator's declared stage", testStrategyDeclaredStage],
+  ["strategy: the declared stage rides beside the derived readings", testStrategyStageRidesBeside],
+  ["propose: 改良中 sorts before 進行中, and that is all it does", testProposeStageOrdering],
+  ["propose: 観察中 stops origination and nothing else", testProposeObservingGate],
   ["strategy/attributed-work.sh (the ONE attribution reader)", testStrategyAttributedWork],
   ["strategy/attributed-work.sh past the xargs batching boundary", testStrategyAttributedWorkPastBatchBoundary],
   ["strategy/attributed-work.sh tells found nothing from could not look", testAttributedWorkWalkOutcome],

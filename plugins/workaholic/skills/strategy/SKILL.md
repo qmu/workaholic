@@ -41,8 +41,16 @@ only writer of an end state and re-opening is offered nowhere. `/drive` still ne
 strategy. Matching is still by explicit slug only. The citation still runs strategy → feedback one
 way, and the retired `strategy:` relation stays retired.
 
-**The third writer is bounded, and the bounds are the reason it is admissible.** Only the three
-parts this model calls revisable are reachable from its interface; `slug`, `type`, `status`,
+**The third writer is bounded, and the bounds are the reason it is admissible.** Only the four
+parts this model calls revisable are reachable from its interface — the **stage** joined them on
+2026-08-29 (mission `make-a-direction-s-lifecycle-a-declared-stage`) and nothing else moved: no
+fourth writer, no new route, and no new refusal vocabulary, since `--stage` reuses `create.sh`'s
+`bad_stage` verbatim. A move onto a direction carrying no `stage:` line **inserts** it where
+`create.sh` puts it, and the dated `## Schedule` line names the **move** (`進行中 → 改良中`)
+rather than the destination, reading the previous value through `read.sh` so the
+absent-means-進行中 default still has exactly one derivation. The stage is revisable in **both**
+directions: nothing treats the three as a ratchet, because a direction that reopens is the
+operator's call to state. `slug`, `type`, `status`, `slug`, `type`, `status`,
 `created_at`, `author` and `feedback:` are asserted immutable over its own candidate before it
 writes. A closed direction is refused `not_active`. Every floor breach is refused with **nothing
 written** — no partial write, no staged half, no write-then-revert. And each revision appends one
@@ -55,6 +63,40 @@ dated line to `## Schedule` saying what moved, so the artifact carries its own h
 | **Aim** | `## Aim` body section | The direction's substance, in the operator's words. What is being pursued and what "pursued" means here. |
 | **Schedule** | `target_date:` frontmatter + `## Schedule` body section | The dated bound. `target_date` is a single `YYYY-MM-DD` — the date by which the aim is meant to hold. `## Schedule` carries the shape around it (a start, milestones, a cadence) in prose. |
 | **Assignee** | `assignees:` frontmatter | Who carries it. Plural like every other artifact, resolved through the one ownership oracle (`gather/scripts/owners.sh`), but — unlike everywhere else — **it may not be empty**: an unowned direction is not a strategy. |
+| **Stage** | `stage:` frontmatter | The operator's **declared** phase, from the closed set `進行中 | 改良中 | 観察中` — not yet cut over / cut over and still improving / settled, the loop reactive only. Their own vocabulary, kept verbatim. **Absent means 進行中.** |
+
+**改良中 reads as *competing*.** It is the one stage that says a direction can absorb a
+proposal now, so among eligible directions it **sorts first** in `/propose`'s survey — an order,
+never a gate, with the existing late-first and nearest-date terms unchanged beneath it.
+
+**The stage's other consequence is 観察中's**: `/propose` is refused
+`observing` and originates nothing for that direction (`workaholic:propose`). It stops
+**origination only** — inbound work still reaches a settled direction through `/specificate`
+unchanged — and it is the **first declared gate** on a list of derived ones, which is what makes
+it admissible where a derived silence was refused: a machine's guess must not silence the one
+routine that originates work, and the operator's own word is not a guess.
+
+**The stage is DECLARED; the lifecycle state is DERIVED, and neither becomes the other**
+(2026-08-29, mission `make-a-direction-s-lifecycle-a-declared-stage`). Every other reading in
+this layer — `pace`, `overdue`, `expiring`, `dormant`, `quiescent`, and the one answer
+`direction-state.sh` composes from them — is evidence the loop computed. This one is a word the
+operator wrote down, and **no reading anywhere may compute it, move it, or infer it**: a
+reading may *suggest* a transition and the person's announcement is what performs one. A
+**sixth `direction-state.sh` value** was refused for the reason `overdue` was kept out of `pace`
+and `expiring` out of both — one field answering two questions is how the two drift — so the
+stage rides **beside** that answer and never enters its precedence.
+
+**Absent means 進行中, and that is what makes this a field addition with no migration**: the
+convention `merge_policy` (absent means review), a ticket's `status:` (absent means queued) and
+`attributed-work.sh`'s `readable` (absent means the walk completed) already use. Every strategy
+already on `main` stays valid and byte-identical, and the default is resolved in **exactly one
+place** — `read.sh` — so `list.sh` composes that reader rather than parsing the field a second
+time. An ASCII alias set was refused: it would give one field two spellings, which is the drift
+the closed set exists to prevent.
+
+**Stuckness is orthogonal to the stage.** A handoff, a blocked run, a stale claim or a queue
+that will not drain occurs in **any** phase, so none of them may ever be read as a stage or as
+evidence for a transition.
 
 `status:` is a single axis, `active | achieved | abandoned`. `close.sh` is the only writer of an
 end state; nothing else edits the field. There is no separate `archive/` area — a closed strategy
@@ -324,6 +366,22 @@ assignee list, a non-`YYYY-MM-DD` target date, and an existing slug — the same
 `validate-strategy.sh` enforces at the write seam, so a refusal is never a surprise later.
 
 ## The lifecycle state of a direction — one reader, composed, never re-derived
+
+**The declared stage rides beside this reading and never enters it** (2026-08-29, mission
+`make-a-direction-s-lifecycle-a-declared-stage`). Two questions that look alike and are not:
+*what phase has the operator declared* (`stage:`, their word) and *what is the evidence saying*
+(`state`, this reader's answer). A **sixth `state` value** was refused for the reason `overdue`
+was kept out of `pace` and `expiring` out of both — one field answering two questions is how
+the two drift — so `stage` is **projected** onto every row exactly as `target_date` and
+`landed` are, the precedence is byte-identical across the change, and no gate, sort, refusal or
+`selected` value anywhere reads it.
+
+A reading may **suggest** a transition and may never perform one: the artifact keeps its three
+writers, and only an announcement the operator makes by explicit slug moves the field. **A
+degraded row still carries its stage** — the degradation belongs to the attribution walk and
+the stage is read off the artifact, so `attribution_unreadable` says nothing about whether a
+phase was declared.
+
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/strategy/scripts/direction-state.sh [--open-proposals <file>] [window] [workaholic-root]

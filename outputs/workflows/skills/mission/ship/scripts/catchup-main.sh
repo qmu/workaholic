@@ -54,10 +54,12 @@
 # into the branch was a no-op. It deliberately does NOT say "main is current" — an
 # earlier `already_current` field did, and read as a currency it never verified.
 #
-# Usage: bash catchup-main.sh [base-branch]   (default base: main)
+# Usage: bash catchup-main.sh [base-branch] [--resolve-mechanical]   (default base: main)
 # Output: JSON
 #   {"caught_up": true,  "base": "main", "branch_up_to_date": true|false,
-#    "resolved_append_only": ["..."]}
+#    "resolved_append_only": ["..."], "resolved_mechanical": ["..."]}
+#     -- `resolved_mechanical` is non-empty only under `--resolve-mechanical`, and it is what
+#        tells the caller which generated paths its regeneration still owes.
 #   {"caught_up": false, "base": "main", "conflict": true,
 #    "conflict_class": "mechanical"|"content", "conflicted_files": ["..."],
 #    "append_only_files": ["..."]}
@@ -69,7 +71,35 @@
 
 set -eu
 
-base="${1:-main}"
+# THE CLASSIFICATION RULE LIVES IN ONE PLACE (2026-08-29). The scope test, the append-only
+# shape proof and the mechanical allowlist below are shared verbatim with
+# `drive/scripts/claim-mergeability.sh`, which predicts this script's outcome from
+# `git merge-tree` without touching a worktree. Two copies of the rule is how a reader starts
+# calling `content` what this writer would have resolved; see the library's own header.
+CATCHUP_SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+. "${CATCHUP_SCRIPT_DIR}/lib/conflict-class.sh"
+
+# `--resolve-mechanical` IS OPT-IN, AND ITS CONTRACT BINDS THE CALLER (2026-08-29, mission
+# `land-the-loop-s-own-work-when-the-base-moves-under-it`). Without it this script classifies
+# a mechanical remainder and aborts, because "the agent performs it itself" was written for a
+# caller with an agent in it. `drive/scripts/catch-up-claim.sh` has no agent and no human, so
+# it passes the flag and takes on the two obligations the resolution rests on:
+#   * a GENERATED path (`outputs/*`) is resolved by taking either side — which side is
+#     immaterial, because its content is derived — and THE CALLER MUST REGENERATE before it
+#     pushes. `catch-up-claim.sh` runs `build.mjs` immediately afterwards and the repository's
+#     own `Outputs Freshness` CI is the backstop.
+#   * a VERSION MANIFEST is resolved by raising BOTH sides to the higher semver and merging
+#     normally, so a side that also added a plugin keeps that addition. Taking one side
+#     wholesale is the tempting shortcut and it silently drops the other side's edits.
+# Anything the pre-pass does not make merge cleanly falls through to `content`, unresolved.
+base="main"
+resolve_mechanical=false
+for arg in "$@"; do
+  case "$arg" in
+    --resolve-mechanical) resolve_mechanical=true ;;
+    *) base="$arg" ;;
+  esac
+done
 
 git fetch origin "$base" --quiet 2>/dev/null || git fetch origin --quiet
 
@@ -87,10 +117,7 @@ resolve_append_only() {
   p="$1"
   d="$2"
 
-  case "$p" in
-    .workaholic/*) ;;
-    *) return 1 ;;
-  esac
+  conflict_class_append_scope "$p" || return 1
 
   # All three stages must exist: a missing merge base is an add/add (two independent
   # files, not an append), and a missing side is a delete/modify.
@@ -98,15 +125,12 @@ resolve_append_only() {
   git show ":2:$p" > "$d/ours" 2>/dev/null || return 1
   git show ":3:$p" > "$d/theirs" 2>/dev/null || return 1
 
+  # THE PROOF, from the shared rule: the merge base is an exact line-prefix of both sides,
+  # and an empty merge base is refused (every line would be an "append", concatenating two
+  # independently written files). The reader applies this same call to the same three blobs.
+  conflict_class_append_only "$p" "$d/anc" "$d/ours" "$d/theirs" || return 1
+
   n=$(wc -l < "$d/anc" | tr -d ' ')
-  # An empty merge base makes every line an "append" and would concatenate two
-  # independently written files. Not proof of anything; refuse it.
-  [ "$n" -gt 0 ] || return 1
-
-  # The proof: the merge base is an exact line-prefix of both sides.
-  head -n "$n" "$d/ours"   | cmp -s - "$d/anc" || return 1
-  head -n "$n" "$d/theirs" | cmp -s - "$d/anc" || return 1
-
   tail -n +"$((n + 1))" "$d/ours"   > "$d/ours_tail"
   tail -n +"$((n + 1))" "$d/theirs" > "$d/theirs_tail"
   # Drop any line both sides appended verbatim — for these files the line is the event id.
@@ -136,12 +160,72 @@ resolve_append_only() {
   return 0
 }
 
+# Materialise a conflicted path's three index stages, so a shared predicate can be handed the
+# same blobs the reader hands it. All three must exist: a missing one is an add/add or a
+# delete/modify, which every proof in the shared library refuses by construction.
+stage_files() {
+  git show ":1:$1" > "$2/manc" 2>/dev/null || return 1
+  git show ":2:$1" > "$2/mours" 2>/dev/null || return 1
+  git show ":3:$1" > "$2/mtheirs" 2>/dev/null || return 1
+  return 0
+}
+
+# Resolve one conflicted path whose correct content needs no judgement. Only ever reached
+# under `--resolve-mechanical`; returns non-zero (resolving nothing) for everything it cannot
+# make merge cleanly, so an unresolvable path still falls through to the classifier.
+resolve_mechanical_path() {
+  p="$1"
+  d="$2"
+
+  # A flat area's index is generated INSIDE its markers only, so it is admitted by proof rather
+  # than by path: both sides must have left everything outside the region alone. Proved here,
+  # then resolved exactly as any other generated path — take a side, let the caller re-derive.
+  if stage_files "$p" "$d" && conflict_class_generated_region "$p" "$d/manc" "$d/mours" "$d/mtheirs"; then
+    git show ":2:$p" > "${root}/${p}" 2>/dev/null || return 1
+    git add -- "$p" >/dev/null 2>&1 || return 1
+    return 0
+  fi
+
+  if conflict_class_generated_path "$p"; then
+    # Derived content: whichever side is taken, the caller's regeneration overwrites it.
+    git show ":2:$p" > "${root}/${p}" 2>/dev/null \
+      || git show ":3:$p" > "${root}/${p}" 2>/dev/null \
+      || return 1
+    git add -- "$p" >/dev/null 2>&1 || return 1
+    return 0
+  fi
+
+  conflict_class_version_manifest "$p" || return 1
+  stage_files "$p" "$d" || return 1
+
+  # The higher of the two semvers, by version sort. Both files carry the same value on every
+  # `"version"` key by the repository's own rule, so raising both sides to it removes the
+  # collision and leaves every other difference to merge normally.
+  vers=$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([0-9][0-9.]*\)".*/\1/p' \
+           "$d/mours" "$d/mtheirs" | sort -V -u)
+  [ -n "$vers" ] || return 1
+  top=$(printf '%s\n' "$vers" | tail -n 1)
+
+  for side in mours mtheirs; do
+    sed -e 's/\("version"[[:space:]]*:[[:space:]]*\)"[0-9][0-9.]*"/\1"'"${top}"'"/g' \
+      "$d/${side}" > "$d/${side}.norm" || return 1
+  done
+  sed -e 's/\("version"[[:space:]]*:[[:space:]]*\)"[0-9][0-9.]*"/\1"'"${top}"'"/g' \
+    "$d/manc" > "$d/manc.norm" || return 1
+
+  git merge-file -p "$d/mours.norm" "$d/manc.norm" "$d/mtheirs.norm" > "$d/mmerged" 2>/dev/null \
+    || return 1
+  cp "$d/mmerged" "${root}/${p}" || return 1
+  git add -- "$p" >/dev/null 2>&1 || return 1
+  return 0
+}
+
 if git merge --no-edit "origin/${base}" >/dev/null 2>&1; then
   after=$(git rev-parse HEAD)
   if [ "$before" = "$after" ]; then
-    printf '{"caught_up": true, "base": "%s", "branch_up_to_date": true, "resolved_append_only": []}\n' "$base"
+    printf '{"caught_up": true, "base": "%s", "branch_up_to_date": true, "resolved_append_only": [], "resolved_mechanical": []}\n' "$base"
   else
-    printf '{"caught_up": true, "base": "%s", "branch_up_to_date": false, "resolved_append_only": []}\n' "$base"
+    printf '{"caught_up": true, "base": "%s", "branch_up_to_date": false, "resolved_append_only": [], "resolved_mechanical": []}\n' "$base"
   fi
 else
   # Capture the unmerged paths BEFORE aborting the merge.
@@ -173,26 +257,43 @@ else
     fi
   done < "$d/all"
 
+  # THE MECHANICAL PASS, only under the flag. It runs AFTER the append-only pass and only over
+  # what that pass left, so a repository whose caller does not opt in behaves byte-for-byte as
+  # it always has -- and the append-only resolution is never reached through this path.
+  : > "$d/mech"
+  if [ "$resolve_mechanical" = true ] && [ -s "$d/remaining" ]; then
+    mv "$d/remaining" "$d/remaining_in"
+    : > "$d/remaining"
+    while IFS= read -r f; do
+      [ -n "$f" ] || continue
+      if resolve_mechanical_path "$f" "$d"; then
+        printf '%s\n' "$f" >> "$d/mech"
+      else
+        printf '%s\n' "$f" >> "$d/remaining"
+      fi
+    done < "$d/remaining_in"
+  fi
+
   if [ ! -s "$d/remaining" ] && git commit --no-edit >/dev/null 2>&1; then
-    # Every conflict was a provable append — the catch-up completed.
-    printf '{"caught_up": true, "base": "%s", "branch_up_to_date": false, "resolved_append_only": [%s]}\n' \
-      "$base" "$(json_list "$d/resolved")"
+    # Every conflict was resolvable without a judgement -- the catch-up completed.
+    printf '{"caught_up": true, "base": "%s", "branch_up_to_date": false, "resolved_append_only": [%s], "resolved_mechanical": [%s]}\n' \
+      "$base" "$(json_list "$d/resolved")" "$(json_list "$d/mech")"
     exit 0
   fi
 
   # Classify what this script could not resolve: mechanical iff every remaining path is
   # one of the version/lockstep manifests or lives under outputs/ (a strict allowlist —
   # anything else is content).
+  # The index stages are still present here -- the merge is aborted below, not above -- so the
+  # classifier is handed the same three blobs the reader's is, through the same predicate.
   class="mechanical"
   while IFS= read -r f; do
     [ -n "$f" ] || continue
-    case "$f" in
-      .claude-plugin/marketplace.json) ;;
-      plugins/workaholic/.claude-plugin/plugin.json) ;;
-      plugins/workaholic/.codex-plugin/plugin.json) ;;
-      outputs/*) ;;
-      *) class="content" ;;
-    esac
+    if stage_files "$f" "$d"; then
+      conflict_class_mechanical "$f" "$d/manc" "$d/mours" "$d/mtheirs" || class="content"
+    else
+      conflict_class_mechanical_path "$f" || class="content"
+    fi
   done < "$d/remaining"
 
   files_json=$(json_list "$d/all")

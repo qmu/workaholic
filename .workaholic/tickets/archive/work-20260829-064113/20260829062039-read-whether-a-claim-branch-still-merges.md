@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-29T06:20:39+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -85,3 +86,46 @@ shape is the thing to check: `catchup-main.sh` *resolves* those files rather tha
 classifying them, so the reader must apply the same shape test or it will call `content`
 what the writer would have resolved. Getting that wrong makes the whole mission a no-op
 on exactly the concurrent pairs it exists for.
+
+## Final Report
+
+Development completed as planned. `drive/scripts/claim-mergeability.sh` answers
+`clean | mechanical | content | unanswerable` per branch from `git merge-tree --write-tree`,
+which computes the merge into the object store and touches no worktree, index or ref.
+`list-claims.sh` renders it per claim as `mergeability` / `mergeability_reason`, and
+`drive/reference/claims.md` classifies all four as judgements.
+
+**The classification rule was lifted into one place rather than restated**:
+`ship/scripts/lib/conflict-class.sh`, sourced by both `catchup-main.sh` (the writer) and the
+new reader. The reader carries no allowlist of its own, which the suite asserts.
+
+The ticket's Considerations named the one thing to check, and checking it changed the rule.
+The append-only shape test does **not** cover the OKF indexes and correctly refuses them:
+`refresh-index.sh` emits a *sorted* list derived from the tree, so archiving a mission MOVES
+a line from `## active` to `## archive` — nothing about that is an append. Measured live on
+this repository the same day: all seven claim branches read `content`, and on the four that
+were otherwise mechanical the only content paths were `.workaholic/missions/index.md` and
+`.workaholic/stories/index.md`. A rule that stopped at the append-only test would have left
+the mission a no-op on exactly the concurrent pairs it exists for — the ticket's own warning,
+realised. So the shared rule gained two more members, each with its own justification: three
+**wholly generated** index paths (a copy of `refresh-index.sh`'s own unconditional writes),
+and a **proof** for a flat area's half-generated index — it is only mechanical when neither
+side changed anything outside the `okf:generated` markers, so nothing a person wrote can be
+lost. After that the same four branches read `mechanical`, `clean`, `content`, `content`.
+
+Reader/writer agreement is **proved rather than asserted**, twice: hermetically, by running
+the real `catchup-main.sh` in each fixture branch's own worktree and comparing; and live, on
+the real stranded branch `work-20260826-134108`, where the reader said `mechanical` and the
+writer resolved all six conflicts.
+
+### Discovered Insights
+
+- **Insight**: `.workaholic/*/index.md` is generated, not appended — and it is the file that
+  conflicts on essentially every concurrent pair of units in this repository.
+  **Context**: The append-only resolution was written for `## Changelog` tails and reads as
+  though it covers the whole `.workaholic/` log. It does not cover the OKF indexes at all, and
+  those are what actually collide, because every landed unit rewrites the same sorted list.
+- **Insight**: `git merge-tree --write-tree` (git ≥ 2.38) reports each conflicted path's three
+  stage object ids, so a predictive classifier can read the same three blobs the writer reads
+  without checking anything out.
+  **Context**: That is what makes one shared rule possible rather than two approximations.

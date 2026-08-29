@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-29T21:20:56+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -98,3 +99,33 @@ and a refusal writes nothing.
   that step asks and never amends.
 - The stage is revisable in both directions; nothing here treats the three as a ratchet,
   because a direction that reopens is the operator's call to state.
+
+## Final Report
+
+Development completed as planned.
+
+`--stage` joins `--target-date`, `--schedule`, `--assignees` and `--aim` on `amend.sh`, reusing
+`create.sh`'s `bad_stage` refusal verbatim so one artifact never acquires two names for one
+refusal. `/specificate` step 9d carries the value the ask names and judges none of it. The
+writer set is still exactly three, pinned as before.
+
+### Discovered Insights
+
+- **Insight**: the stage is the only revisable part that may be **absent**, and that changes
+  what "revise" means for it — the frontmatter rewrite has to *insert* a line rather than
+  replace one, and it must insert it exactly where `create.sh` puts it (after `status:`) or an
+  amended artifact and a created one end up with two shapes.
+  **Context**: every other revisable field is written by `create.sh` unconditionally, so the
+  existing `awk` only ever needed a replace branch. Any future optional field on this artifact
+  inherits the same requirement, and the cheapest way to satisfy it is to read the presence in
+  shell (`fm_block | grep -q`) and hand `awk` a flag, rather than trying to detect end-of-
+  frontmatter inside the rewrite.
+
+- **Insight**: the immutable-field assertion compares the frontmatter before and after with
+  the movable keys filtered out, and the existing two filters are **unconditional**. Filtering
+  `^stage:` the same way would let a stage move slip past the assertion on a call that never
+  asked for one — which is precisely the field whose whole point is that only an operator's
+  announcement moves it. The filter here is conditional on `--stage` having been passed.
+  **Context**: the unconditional form is safe for `target_date` and `assignees` only because
+  the rewrite cannot touch them without the flag either; the conditional form is strictly
+  stronger and costs one variable.

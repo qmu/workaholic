@@ -11,13 +11,44 @@
 # empty on a strategy — unlike every other artifact, where empty means team-owned —
 # because an unowned direction is not a strategy (strategy/SKILL.md, The model).
 #
-# Usage: printf '%s\n' "<aim>" | create.sh "<title>" <YYYY-MM-DD> "<assignees>" "<schedule>" ["<feedback-refs>"] [workaholic-root]
+# THE DECLARED STAGE (2026-08-29, mission `make-a-direction-s-lifecycle-a-declared-stage`).
+# `--stage` records the operator's own phase word — 進行中 (not yet cut over), 改良中 (cut
+# over, still improving), 観察中 (settled; the loop stays reactive). It is DECLARED, never
+# derived: no reading anywhere in the lifecycle layer becomes the stage by itself, and this
+# script writes it only when the operator's announcement named one.
+#
+# THE LINE IS OMITTED ENTIRELY WHEN NO STAGE WAS NAMED, and `read.sh` resolves an absent
+# field to 進行中 in ONE place. That is what makes this a field addition with NO migration:
+# every strategy already on `main` stays valid and byte-identical, exactly as `merge_policy`
+# (absent means review) and a ticket's `status:` (absent means queued) already work.
+#
+# Usage: printf '%s\n' "<aim>" | create.sh [--stage <value>] "<title>" <YYYY-MM-DD> "<assignees>" "<schedule>" ["<feedback-refs>"] [workaholic-root]
+#   --stage:       進行中 | 改良中 | 観察中; omitted means 進行中, and omits the line
 #   assignees:     comma-separated emails, at least one
 #   schedule:      the dated shape in prose (## Schedule); required, non-empty
 #   feedback-refs: comma-separated feedback filenames this strategy was formed by
 # Output: JSON {created, path[, reason]}
 
 set -eu
+
+# The option is parsed BEFORE the positionals so the positional contract does not move: a
+# caller that passes no `--stage` invokes this script exactly as it always did.
+STAGE=""
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --stage) STAGE="${2:-}"; shift 2 ;;
+        *) break ;;
+    esac
+done
+
+# The closed set, in the operator's own characters and kept verbatim. An ASCII alias set
+# would give one field two spellings, which is the drift this avoids.
+if [ -n "$STAGE" ]; then
+    case "$STAGE" in
+        進行中|改良中|観察中) : ;;
+        *) echo '{"created": false, "reason": "bad_stage"}'; exit 1 ;;
+    esac
+fi
 
 TITLE="${1:-}"
 TARGET_DATE="${2:-}"
@@ -79,6 +110,7 @@ mkdir -p "$DIR"
     printf 'title: %s\n' "$TITLE"
     printf 'slug: %s\n' "$SLUG"
     printf 'status: active\n'
+    [ -z "$STAGE" ] || printf 'stage: %s\n' "$STAGE"
     printf 'target_date: %s\n' "$TARGET_DATE"
     printf 'assignees: [%s]\n' "$ASSIGNEE_LIST"
     printf 'feedback: [%s]\n' "$FEEDBACK_LIST"

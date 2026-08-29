@@ -196,6 +196,15 @@ RESULT="$(printf '%s' "$OUT" | jq -c '
    | map({slug,
           title: (.title // .slug),
           assignees: (.assignees // ""),
+          # THE DECLARED STAGE RIDES BESIDE THE READING AND NEVER ENTERS IT (2026-08-29,
+          # mission `make-a-direction-s-lifecycle-a-declared-stage`). `state` below is DERIVED
+          # — what the evidence says — and this is DECLARED, what the operator wrote down.
+          # A sixth `state` value was refused for the reason `overdue` was kept out of `pace`
+          # and `expiring` out of both: one field answering two questions is how the two
+          # drift. So it is projected off the survey row, exactly as `target_date` and
+          # `landed` are, and the precedence below is byte-identical across this change.
+          stage: (.stage // ""),
+          stage_declared: (.stage_declared // false),
           days_to_target: .days_to_target,
           # Projected, never derived: `target_date` comes straight off the survey row, and
           # `landed` is the length of the list it emitted (`landed_count` on a refused row,

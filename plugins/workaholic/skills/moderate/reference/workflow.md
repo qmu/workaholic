@@ -750,12 +750,38 @@ check-in as a question addressed to that direction's assignee:
 | Reading | Question key | Addressed to |
 | ------- | ------------ | ------------ |
 | `arrived` | `direction-arrived:<slug>` | the strategy's `assignees` |
+| `arrived` **declared 進行中** (2026-08-29) | `direction-cutover:<slug>` | the strategy's `assignees` |
 | `overdue` | `direction-overdue:<slug>` | the strategy's `assignees` |
 | `expiring` (2026-08-29) | `direction-expiring:<slug>` | the strategy's `assignees` |
 | `dormant` | `direction-dormant:<slug>` | the strategy's `assignees` |
+| `dormant` **declared 改良中** (2026-08-29) | `direction-settled:<slug>` | the strategy's `assignees` |
 | `none` (repository-level) | `direction-none` | nobody — there is no direction to own |
 | **the last live direction** (repository-level, 2026-08-28) | `direction-last:<slug>` | the strategy's `assignees` |
 | `unreadable` | — | **never asked about** |
+
+**The two transition questions REFINE an existing one rather than adding one** (2026-08-29,
+mission `make-a-direction-s-lifecycle-a-declared-stage`). The ask is that stage transitions —
+*this direction can now cut over*, *this direction has settled into observation* — are worth
+telling a person about rather than only the backwards alarms. They cannot be added **beside**
+the existing readings: `direction-state.sh` projects `quiescent` to `arrived` and `dormant` to
+`dormant` in a fixed precedence, so a 進行中 direction whose work is all in **always** reads
+`arrived` and a quiet 改良中 one **always** reads `dormant` — a question added beside those
+would double-ask one direction (the doubling `handoff-units` and `stalled-units` were split to
+avoid) or never fire at all. So the **stage decides which question the same evidence draws**,
+every other combination is byte-identical, and `direction-state.sh`'s precedence is untouched:
+this is the step choosing its wording, not a sixth lifecycle value.
+
+**The cost is stated**: the key changes for those two combinations, so a direction already
+asked `direction-arrived` may be asked `direction-cutover` once. One extra question, ever, and
+it is the better-aimed one.
+
+**Neither is ever inferred from stuckness.** Both candidate sets are built only from readings
+that describe **work landing** (`quiescent`, `dormant` — attribution terms), never from a
+handoff, a block, a stale claim, an undelivered unit or a queue that will not drain: those
+occur in **any** phase, so none of them is evidence about a stage. And both are **candidates,
+never verdicts** — whether a toggle can be flipped is a fact no script can see, so the question
+describes the evidence and asks; the tick moves no stage, and the artifact keeps its three
+writers.
 
 **Why the step exists** (2026-08-26, mission `say-when-the-loop-has-run-out-of-direction`): three
 states of the direction layer were silent and each was byte-identical to a healthy idle hour — a
@@ -1765,7 +1791,7 @@ decide something before any change is the right one*.
 | `release-status` | `needs_ruling` | A target's confirmation method is a human declaration; deploying is a human instruction. |
 | `note-cadence` | **`repairable`** | A draft note that stopped refreshing is a defect in the workflow that writes it. |
 | `strategy-pace` | `needs_ruling` | Whether a direction is still the right one is the operator's. |
-| `direction-health` | `needs_ruling` | Re-dating, closing or declaring a direction arrived is the operator's, by that step's own contract. |
+| `direction-health` | `needs_ruling` | Re-dating, closing or declaring a direction arrived is the operator's, by that step's own contract — and since 2026-08-29 so is **moving its declared stage**, which is precisely what a machine may not decide: `direction-cutover:<slug>` and `direction-settled:<slug>` are asked, never filed as repairable work. |
 | `stalled-units` | `needs_ruling` | Whether a stalled claim is taken over or abandoned is the holder's. |
 | `undrivable-units` | `needs_ruling` | Which account an address belongs to is a human's ruling, by that step's own contract. |
 | `standing-rulings` | `needs_ruling` | It exists **because** the loop cannot make those rulings itself. |

@@ -3,6 +3,7 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [Make a direction's lifecycle a declared stage](work-20260829-212940.md)
 * [Carry the ruling's subject markers into its pull request body](work-20260829-212718.md)
 * [Make the two executors agree about a proved-empty claim](work-20260829-205701.md)
 * [Follow the pull requests the loop opens for a person](work-20260829-194055.md)

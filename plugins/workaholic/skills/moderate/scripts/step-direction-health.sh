@@ -305,12 +305,84 @@ subjects=$(printf '%s' "$out" | jq -c --arg window "14 days" \
              and (((.residue.missions // []) | length) > 0))
          then " — a ruling pull request is open for some of these; the rest the loop could not judge"
          else "" end) as $ruling_phrase
-      | {key: ("direction-" + .state + ":" + .slug),
+      # THE DECLARED STAGE, NAMED IN THE HEADING (2026-08-29, mission
+      # `make-a-direction-s-lifecycle-a-declared-stage`). Every one of these questions names a
+      # READING (`arrived`, `overdue`, `expiring`, `dormant`) and none of them named the phase
+      # the operator declared, so the person was asked about a direction without being told
+      # which phase they had put it in. It rides the HEADING and not the body, where the
+      # residue and the leaving already ride, because `workaholic:notify` bounds the body to
+      # one sentence of 25 words reserved for the act the operator must take.
+      #
+      # An UNREADABLE stage renders as unreadable rather than as 進行中 — the rule the
+      # explicit `no strategy` rendering already holds one surface over: a default that hides
+      # a failed read is worse than saying nothing. It changes NO key, so no question is
+      # re-asked by this: the ledger matches the step id, never the body or the heading.
+      # The generic phrase is suppressed for the two transition readings below, whose own
+      # sentences already name the stage: saying it twice in one heading is noise on a line a
+      # person scans.
+      | (if ((.stage // "") == "") then " — stage unreadable"
+         elif (.stage_declared != true) then " — no stage declared"
+         elif (.state == "arrived" and .stage == "進行中") then ""
+         elif (.state == "dormant" and .stage == "改良中") then ""
+         else " — declared " + .stage end) as $stage_phrase
+      # THE TWO TRANSITION READINGS (2026-08-29, mission
+      # `make-a-direction-s-lifecycle-a-declared-stage`). The ask: stage transitions are the
+      # moments worth telling a person about — THIS DIRECTION CAN NOW CUT OVER (1 to 2) and
+      # THIS DIRECTION HAS SETTLED INTO OBSERVATION (2 to 3) — rather than only the backwards
+      # alarms.
+      #
+      # THEY REFINE AN EXISTING QUESTION RATHER THAN ADDING ONE, and that is forced rather
+      # than chosen. `direction-state.sh` projects `quiescent` to `arrived` and `dormant` to
+      # `dormant` in a fixed precedence, so a 進行中 direction whose work is all in ALWAYS
+      # reads `arrived` and a quiet 改良中 one ALWAYS reads `dormant`. A transition question
+      # added beside those would either double-ask one direction — the doubling `handoff-units`
+      # and `stalled-units` were split to avoid — or never fire at all. So the STAGE decides
+      # WHICH question the same evidence draws:
+      #
+      #   arrived + 進行中  ->  cutover   your work is in; can this be cut over now?
+      #   dormant + 改良中  ->  settled   improving has gone quiet; is this observation now?
+      #
+      # Every other combination is byte-identical, and the precedence in `direction-state.sh`
+      # is untouched — this is the STEP choosing its wording, not a sixth lifecycle value.
+      #
+      # THE COST IS STATED: the key changes for those two combinations, so a direction already
+      # asked `direction-arrived` may be asked `direction-cutover` once. That is one extra
+      # question ever, and it is the better-aimed one — which is the whole ask.
+      #
+      # THE STAGE IS NEVER INFERRED FROM STUCKNESS. Both candidate sets are built only from
+      # readings that describe WORK LANDING (`quiescent`, `dormant` — attribution terms), and
+      # never from a handoff, a block, a stale claim, an undelivered unit or a queue that will
+      # not drain: those occur in ANY phase, so none of them is evidence about a stage.
+      #
+      # AND IT IS A CANDIDATE, NEVER A VERDICT — `arrived`s own standing rule. Whether a
+      # toggle can be flipped is a fact no script can see, so the question describes the
+      # evidence and asks; the operator announcement is what moves the field, and this tick
+      # moves nothing.
+      # ONLY A DECLARED STAGE REFINES A QUESTION. `absent means 進行中` is the right reading
+      # everywhere, and the wrong thing to QUOTE BACK: a heading saying "still declared 進行中"
+      # of a direction nobody staged asserts a declaration that does not exist, which is the
+      # same class of error as rendering an unreadable stage as the default. So a repository
+      # that has not adopted the vocabulary keeps every question it had, byte for byte, and the
+      # refinement arrives only once an operator has actually declared a phase.
+      | (if (.stage_declared != true) then .state
+         elif (.state == "arrived" and .stage == "進行中") then "cutover"
+         elif (.state == "dormant" and .stage == "改良中") then "settled"
+         else .state end) as $reading
+      | {key: ("direction-" + $reading + ":" + .slug),
          slug: .slug, title: .title, assignees: .assignees,
-         reading: .state, days_to_target: .days_to_target,
+         reading: $reading, days_to_target: .days_to_target,
          residue: (.residue // {}),
          leaving: (.leaving // {}),
-         heading: (if .state == "overdue"
+         heading: ((if $reading == "cutover"
+                   then "the direction `" + .slug + "` has its work in and is still declared 進行中"
+                        + (if ((.landed // 0) > 0)
+                           then " (" + ((.landed) | tostring) + " item(s) landed)" else "" end)
+                        + $waiting_phrase + $residue_phrase
+                   elif $reading == "settled"
+                   then "the direction `" + .slug + "` has been quiet for " + $window
+                        + " while declared 改良中"
+                        + $waiting_phrase + $residue_phrase
+                   elif .state == "overdue"
                    then "the direction `" + .slug + "` has run past its target date"
                         + (if (.days_to_target != null)
                            then " (" + ((-.days_to_target) | tostring) + " day(s) ago)" else "" end)
@@ -335,8 +407,12 @@ subjects=$(printf '%s' "$out" | jq -c --arg window "14 days" \
                            else "" end)
                         + $waiting_phrase + $residue_phrase + $ruling_phrase
                    else "nothing has answered the direction `" + .slug + "` in the last " + $window
-                   end),
-         body: (if .state == "overdue"
+                   end) + $stage_phrase),
+         body: (if $reading == "cutover"
+                then $leaving_clause + "The evidence cannot see whether it can be cut over — only you can. Move it to 改良中, or say it still stands."
+                elif $reading == "settled"
+                then $leaving_clause + "Improving looks finished. Move it to 観察中 and the loop stops originating for it, or say it still stands."
+                elif .state == "overdue"
                 then $leaving_clause + "Re-date it, announce that it ended, or say it still stands — the loop carries what you announce and never decides either for you."
                 # The act is the same one `overdue` names, offered while it can still be taken —
                 # and the successor is named because ending the LAST direction leaves the loop
@@ -389,7 +465,13 @@ if [ "$repository" != "none" ] && [ "$active_count" -eq 1 ]; then
                   slug: .slug, title: .title, assignees: .assignees,
                   reading: "last_live", days_to_target: .days_to_target,
                   residue: (.residue // {}), leaving: (.leaving // {}),
-                  heading: ("`" + .slug + "` is the only live direction left" + $leaving_phrase),
+                  # The declared stage rides this heading too (2026-08-29) — it names a
+                  # direction, so it names the phase the operator put that direction in, on
+                  # the same terms as every other heading in this step.
+                  heading: ("`" + .slug + "` is the only live direction left" + $leaving_phrase
+                            + (if ((.stage // "") == "") then " — stage unreadable"
+                               elif (.stage_declared != true) then " — no stage declared"
+                               else " — declared " + .stage end)),
                   body: "Once no live direction remains the loop originates nothing. Announce a successor when you end it, or say it still stands."}) ]
           end' 2>/dev/null || printf '%s' "$subjects")
     n_subjects=$(printf '%s' "$subjects" | jq 'length' 2>/dev/null || echo 0)

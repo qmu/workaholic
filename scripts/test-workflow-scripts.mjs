@@ -27200,7 +27200,73 @@ function testProofJudgementSplit() {
   assertTrue("the mergeability reading's sub-table is in the one home too", mergeAt > 0,
     "claims.md no longer carries the mergeability classification");
   const baseTable = baseTail.slice(0, mergeAt);
-  const mergeTable = baseTail.slice(mergeAt);
+  const mergeTail = baseTail.slice(mergeAt);
+
+  // A FOURTH VOCABULARY IN THE SAME HOME (2026-08-29, mission
+  // `read-back-whether-the-loop-s-own-act-took-effect`). `ci-retirement-turn.sh` is keyed on
+  // whether an ACT THIS LOOP PERFORMED actually happened — a different question again from whose
+  // business a claim is, from what the base's checks said, and from whether the base still
+  // accepts a branch. Parsed apart for the reason the other three are: three of these
+  // vocabularies now share `unanswerable`/`unreadable`-shaped words, and folding them would
+  // report one rule as several copies of itself.
+  const EFFECT_HEADING = "### Whether an act the loop took had its effect";
+  const effectAt = mergeTail.indexOf(EFFECT_HEADING);
+  assertTrue("the act-effect reading's sub-table is in the one home too", effectAt > 0,
+    "claims.md no longer carries the act-effect classification");
+  const mergeTable = mergeTail.slice(0, effectAt);
+  const effectTable = mergeTail.slice(effectAt);
+
+  // ITS FIVE WORDS, from the reader's own `emit` calls plus the per-unit `word=` assignments,
+  // rather than from a list this test carries — a carried list would prove only that it matches
+  // itself. None may be a proof: a workflow run is re-runnable and a branch can be deleted or
+  // restored between two reads, which is the one property a proof must not have.
+  const turnSrc = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/drive/scripts/ci-retirement-turn.sh"), "utf8")
+    .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+  const effectEmitted = new Set();
+  for (const m of turnSrc.matchAll(/\bemit \w+ [\w:"$]*\s*(taken|pending|unavailable|unreadable)\b/g)) {
+    effectEmitted.add(m[1]);
+  }
+  for (const m of turnSrc.matchAll(/\bword="(taken|refused)/g)) effectEmitted.add(m[1]);
+  assertEq("the act-effect vocabulary parses out of the reader",
+    [...effectEmitted].sort().join(","), "pending,refused,taken,unavailable,unreadable");
+
+  const effectClassified = new Map();
+  for (const m of effectTable.matchAll(/^\|\s*`([a-z_]+)`\s*\|\s*(?:\*\*)?(proof|judgement)(?:\*\*)?\s*\|/gm)) {
+    assertTrue(`the act-effect sub-table classifies ${m[1]} exactly once`, !effectClassified.has(m[1]),
+      "a second row for the same word is two rules for one fact");
+    effectClassified.set(m[1], m[2]);
+  }
+  assertEq("every word the act-effect reading emits is classified exactly once",
+    [...effectEmitted].filter((w) => !effectClassified.has(w)).sort().join(","), "");
+  assertEq("and the sub-table classifies no word the act-effect reading never emits",
+    [...effectClassified.keys()].filter((w) => !effectEmitted.has(w)).sort().join(","), "");
+  assertEq("no act-effect reading is a proof — every one of them is a judgement",
+    [...effectClassified.entries()].filter(([, k]) => k === "proof").map(([w]) => w).sort().join(","), "");
+
+  // ITS ONE ENUMERATED CONSUMER HOLDS A QUESTION AND DOES NOTHING ELSE. Call sites, never words:
+  // the step's own prose says in English that it never re-runs or re-attempts anything, so a
+  // word-level ban would fail on the sentence that states the rule.
+  const EFFECT_ACTS = ["/rerun", "rerun-failed-jobs", "actions_run_trigger", "workflow_dispatch",
+    "delete-retired-claim-branch.sh", "release-claim.sh", "claim.sh resume", "git push",
+    "--method DELETE", "--method PUT", "publish-tree-commit.sh", "publish-tree-pr.sh"];
+  const retireStepSrc = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/moderate/scripts/step-retire-claims.sh"), "utf8")
+    .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+  assertTrue("step-retire-claims.sh is the enumerated consumer of the act-effect reading",
+    retireStepSrc.includes("ci-retirement-turn.sh"),
+    "the enumerated consumer no longer reads the reading it is registered for");
+  for (const act of EFFECT_ACTS) {
+    assertTrue(`step-retire-claims.sh holds a question — it never reaches ${act}`,
+      !retireStepSrc.includes(act),
+      `the act-effect reading licenses holding a question, never ${act}`);
+  }
+  // AND IT HOLDS ON EXACTLY TWO WORDS. `refused:<word>` and `unreadable` must reach a person:
+  // the first is what the mission exists to surface, the second is our own degradation and an
+  // over-eager question beats a silently dropped one.
+  assertTrue("...and it holds only on taken and pending",
+    /ci_turn == "taken" or \.ci_turn == "pending"/.test(retireStepSrc),
+    "the suppression no longer names exactly the two words that may hold a question");
 
   // ITS FOUR WORDS, from the reader's own emissions, and none of them may be a proof: a base
   // that moves is exactly a reading that becomes false by looking again.

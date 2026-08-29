@@ -287,15 +287,34 @@ ci_readable="false"
 if [ "$blocked" -gt 0 ]; then
     turner="${DRIVE_SCRIPTS}/ci-retirement-turn.sh"
     if [ -f "$turner" ]; then
-        turn_out=$( ( cd "$ROOT" && sh "$turner" ) 2>/dev/null || true )
+        # THE READING IS PER UNIT, AND SO IS THE SUPPRESSION (2026-08-29, mission
+        # `read-back-whether-the-loop-s-own-act-took-effect`). It was one run-level word applied
+        # to every blocked unit at once, on the retired premise that a completed run at the base
+        # tip meant CI had reached its act. It had not: the turn now RECORDS what each act
+        # answered, and a unit is held only on its own answer.
+        blocked_units=$(printf '%s' "$rows" | jq -r '.[]? | .unit' 2>/dev/null || true)
+        # shellcheck disable=SC2086
+        turn_out=$( ( cd "$ROOT" && sh "$turner" $blocked_units ) 2>/dev/null || true )
         if printf '%s' "$turn_out" | jq -e . >/dev/null 2>&1; then
             ci_readable=$(printf '%s' "$turn_out" | jq -r '.readable // false')
             ci_turn=$(printf '%s' "$turn_out" | jq -r '.ci_turn // "unavailable"')
         fi
     fi
-    if [ "$ci_readable" = "true" ] && [ "$ci_turn" = "pending" ]; then
-        blocked=0
-        rows="[]"
+    # ONLY `taken` AND `pending` HOLD. `taken` means the act SUCCEEDED for this unit, so its
+    # branch is gone and nothing is owed; `pending` means CI may still take it, which delays the
+    # question for this tick only — the asked-once ledger keys on the unit, so a branch that
+    # outlives CI's turn is asked about later. `refused:<word>` is precisely the case a person
+    # must hear about, and `unreadable` holds nothing either: an over-eager question is better
+    # than a silently dropped one. A unit the reading never answered keeps its question BY
+    # CONSTRUCTION, because only units it named `taken` or `pending` are removed.
+    if [ "$ci_readable" = "true" ]; then
+        ci_held=$(printf '%s' "$turn_out" | jq -r \
+            '[.units[]? | select(.ci_turn == "taken" or .ci_turn == "pending") | .unit] | .[]' \
+            2>/dev/null || true)
+        for ci_u in $ci_held; do
+            rows=$(printf '%s' "$rows" | jq -c --arg u "$ci_u" '[.[]? | select(.unit != $u)]' 2>/dev/null || printf '%s' "$rows")
+        done
+        blocked=$(printf '%s' "$rows" | jq 'length' 2>/dev/null || printf '%s' "$blocked")
     fi
 fi
 

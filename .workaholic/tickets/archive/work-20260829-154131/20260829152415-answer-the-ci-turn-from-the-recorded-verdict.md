@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-29T15:24:15+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -96,3 +97,50 @@ vocabulary widens by one value: `taken` / `refused:<word>` / `pending` /
   the same word `delete-retired-claim-branch.sh` and `retire-claim.sh` already print.
 - A repository that has not adopted the recording surface reads `unreadable` and keeps exactly the
   question behaviour it has today — no consuming repository is made worse by this.
+
+## Final Report
+
+Development completed as planned.
+
+**The reading is per unit now, and so is the suppression.** `ci-retirement-turn.sh` takes
+`[<unit> ...]` and returns a `units[]` entry per unit alongside the run-level word. The retired
+inference — *a completed run at the base tip means CI saw this tree and the branch survived it,
+therefore `taken`* — is gone, replaced by the turn's own recorded answer, read through
+`read-ci-retirement-record.sh`. `taken` is claimed **only** on the act's own success word, never
+on a run's existence and never on its exit status, which is green by design because a refusal
+must not fail the job.
+
+The header's store-free argument is **narrowed in place rather than deleted**, with the retired
+sentence quoted and the measurement that retired it stated beneath it, per step 2.
+
+**One distinction the ticket did not name but the shape demanded**: a tip with *no matching
+completed run* is `pending`, while a matching run whose id we cannot read is `unreadable`. Only
+`pending` holds a question, so collapsing the two would suppress the ask on our own degradation
+— the exact shape this reading exists to remove.
+
+`step-retire-claims.sh` drops a unit from its question set only when that unit's own word is
+`taken` or `pending`. A unit the reading never answered keeps its question **by construction**,
+because only named units are removed — so `refused:<word>`, `unavailable` and `unreadable` all
+suppress nothing without needing a rule of their own.
+
+Every value is classified in `claims.md` as a **judgement**, in a fourth keyed sub-table beside
+the three that were there, and the suite pin parses the vocabulary out of the reader's own source
+in both directions (a word emitted and unclassified fails; a row naming a word nothing emits
+fails; a row called a `proof` fails), plus the consumer's call sites and the exact two words it
+may hold on.
+
+### Discovered Insights
+
+- **Insight**: a run-level word and a per-unit word answering the same question is what let one
+  degraded reading silence every unit at once.
+  **Context**: the old suppression was `blocked=0; rows="[]"` on a single word. Any later reading
+  of this shape should answer per subject, so a fact about one unit cannot speak for the rest.
+- **Insight**: `taken` did not need replacing, only correcting. At the run level it now means
+  *CI had its turn and we can see what it did* — which is what the word should always have meant
+  — and the claim that an act succeeded moved to where it belongs, the per-unit answer.
+  **Context**: keeping the word avoided a sixth term and kept `verify-ci-retirement`'s existing
+  rows meaningful across the change.
+- **Insight**: the `claims.md` pin slices its sub-tables by successive `###` headings, so adding
+  a fourth vocabulary requires re-slicing the third — otherwise the new rows are read as the
+  previous table's and fail its "classifies no word the reader never emits" check.
+  **Context**: worth knowing before adding a fifth.

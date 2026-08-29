@@ -371,6 +371,47 @@ looked and only you can decide*. One unit never draws both: `merge-conflicts` co
 `catchup-blocked` asks about, in the same shape `stalled-units` counts what `handoff-units`
 asks about.
 
+### Whether an act the loop took had its effect (`ci-retirement-turn.sh`)
+
+A **fourth vocabulary in the same home** (2026-08-29, mission
+`read-back-whether-the-loop-s-own-act-took-effect`). The three tables above are keyed on what is
+true of a *claim* — whose business it is, what the base's checks said, whether the base still
+accepts its branch. This one is keyed on a different question again: **did an act this loop
+performed actually happen?** One column cannot classify four questions, and a second document
+would be the second home the split exists to prevent.
+
+**Why the question needed a vocabulary at all.** Every reading in this repository answered *what
+did I find*; none answered *did what I did happen*. Measured 2026-08-29: `claim-retirement.yml`
+was green on every run while three proved-`superseded` claims stood on origin, and the tick log
+recorded, hour after hour, *"ci_turn: taken so CI could not take the delete either"* — an
+assertion about a second executor that **nothing established**. `ci-retirement-turn.sh` answered
+`taken` from a completed run's *existence*, which is a proxy for the act and not the act. The
+turn now records what it attempted (`record-ci-retirement-turn.sh`) and this reading answers from
+that record.
+
+**There is no proof in this vocabulary either, and the reason is stronger here than anywhere
+else.** A workflow run is re-runnable, a branch can be deleted or restored between two reads, and
+the record is a projection of a run somebody can re-trigger — so every reading here can become
+false by looking again, which is the one property a proof must not have. **No consumer may
+revert, re-run, block, gate, hold or merge on it.** The one licence it carries is narrower than
+*report and ask*: it may **hold a question**, and only on `taken` or `pending`.
+
+| Word | Class | What established it, and what a consumer may do |
+| ---- | ----- | ----------------------------------------------- |
+| `taken` | judgement | Per unit: the act's own **success** word (`deleted`, or `already_gone` — the branch was not there when CI looked, the same outcome). At the run level it means only *CI had its turn and we can see what it did*, never that any act succeeded. A consumer may **hold** this unit's question, because nothing is owed. |
+| `refused` | judgement | Rendered `refused:<word>`, carrying `delete-retired-claim-branch.sh`'s own refusal verbatim — or, where the turn's candidate reading was itself degraded, that reading's reason. Never a third vocabulary: a reader must be sent to a word some script actually printed. It **holds nothing**: this is precisely the case a person must hear about. |
+| `pending` | judgement | No completed run at this tip yet — the push is in flight, or the run is still going. CI may still take the act, so the question is **delayed for this tick only**. The asked-once ledger keys on the unit, so a branch that outlives CI's turn is asked about later. |
+| `unavailable` | judgement | The workflow is not present in this repository at all, so CI will never take the act. The unit is blocked exactly as it was before this reading existed, and the question **stands**. |
+| `unreadable` | judgement | A run completed and we cannot say what it did — the record is absent, unparseable, past its truncation bound, or names this unit nothing while the candidate reading itself was fine. The **absence** of a reading, and it **holds nothing**: an over-eager question is better than a silently dropped one, and this repository has measured the cost of a blocked act nobody was told about. |
+
+**Its one enumerated consumer is `/moderate`'s `step-retire-claims.sh`**, which removes a unit
+from its own question set on `taken` or `pending` and does nothing else with any word. It never
+re-runs a workflow, never re-attempts a delete on the strength of a reading, never releases a
+claim and never reopens a pull request. `scripts/test-workflow-scripts.mjs` pins this table the
+way it pins the three above: it fails when a word the reader emits is unclassified, when the
+table classifies a word the reader never emits, when any row is called a `proof`, or when the
+consumer reaches an acting call site.
+
 ## Claim a unit
 
 ```bash

@@ -2,7 +2,7 @@
 type: Mission
 title: Follow the pull requests the loop opens for a person
 slug: follow-the-pull-requests-the-loop-opens-for-a-person
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-29T19:20:15+00:00
 author: a@qmu.jp
@@ -57,3 +57,5 @@ one says so by name and asks nobody.
 - 2026-08-29 — ticket archived — 20260829192137-report-the-pull-request-reading-in-the-run-reports-as-evidence.md
 - 2026-08-29 — ticket archived — 20260829192137-drill-the-operator-facing-pull-request-reading-offline.md
 - 2026-08-29 — story reported — work-20260829-194055.md
+- 2026-08-29 — ticket archived — 20260829200500-carry-the-ruling-s-subject-markers-into-its-pull-request-body.md
+- 2026-08-29 — mission achieved — mission.md

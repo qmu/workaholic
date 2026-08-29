@@ -299,6 +299,32 @@ if [ "$blocked" -gt 0 ]; then
     fi
 fi
 
+# AND THE QUESTION IS HELD ONCE THIS FINDING HAS BECOME WORK (2026-08-29, mission
+# `let-the-tick-s-own-findings-become-the-loop-s-work`). While an open finding issue carries
+# this step's finding, the loop is already driving the repair, and asking a person about it is
+# asking them — the same person, in the same hour — about the thing that is in flight.
+#
+# KEYED ON THE SUBJECT, never on the existence of a filing: a filing about a DIFFERENT step's
+# finding must not silence this one. An UNREADABLE read holds nothing (`ci-retirement-turn.sh`'s
+# discipline), and the suppression is DERIVED — merging or closing the issue makes the question
+# reachable again with no state anywhere. `ask-question.sh`, the key, the addressee, the caps and
+# the holds are untouched. It holds the QUESTION only: the retirement's three acts above have
+# already run, and holding an act rather than a question is the opposite of what this is for.
+finding_held=false
+suppression="${SCRIPT_DIR}/finding-suppression.sh"
+if [ "$blocked" -gt 0 ] && [ -f "$suppression" ]; then
+    fsupp=$( ( cd "$ROOT" && sh "$suppression" ) 2>/dev/null || true )
+    if [ -n "$fsupp" ] && printf '%s' "$fsupp" | jq -e '.readable // false' >/dev/null 2>&1; then
+        if printf '%s' "$fsupp" | jq -e '.held.steps | index("retire-claims")' >/dev/null 2>&1; then
+            finding_held=true
+        fi
+    fi
+fi
+if [ "$finding_held" = "true" ]; then
+    blocked=0
+    rows="[]"
+fi
+
 needs=""
 if [ "$blocked" -gt 0 ]; then
     needs=$(printf '%s' "$rows" | jq -c --arg turn "$ci_turn" '{action: "ask_the_claim_holder_to_delete_the_branch_neither_the_container_nor_ci_could",

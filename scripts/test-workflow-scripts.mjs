@@ -26567,7 +26567,45 @@ function testProofJudgementSplit() {
     "claims.md no longer carries the base reading's classification");
   const table = wholeTable.slice(0, baseAt);
   const baseEnd = wholeTable.indexOf("\n## ", baseAt);
-  const baseTable = wholeTable.slice(baseAt, baseEnd > 0 ? baseEnd : undefined);
+  const baseTail = wholeTable.slice(baseAt, baseEnd > 0 ? baseEnd : undefined);
+
+  // A THIRD VOCABULARY IN THE SAME HOME (2026-08-29). `claim-mergeability.sh` is keyed on what
+  // the BASE says about a branch, which is a different question again from whose business the
+  // claim is and from what the base's checks said. Parsed apart for the same reason the base
+  // sub-table is: three of these vocabularies share the word `unanswerable`, and folding them
+  // would report one rule as three copies of itself.
+  const MERGE_HEADING = "### Whether the base still accepts a claim branch";
+  const mergeAt = baseTail.indexOf(MERGE_HEADING);
+  assertTrue("the mergeability reading's sub-table is in the one home too", mergeAt > 0,
+    "claims.md no longer carries the mergeability classification");
+  const baseTable = baseTail.slice(0, mergeAt);
+  const mergeTable = baseTail.slice(mergeAt);
+
+  // ITS FOUR WORDS, from the reader's own emissions, and none of them may be a proof: a base
+  // that moves is exactly a reading that becomes false by looking again.
+  const reader = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/drive/scripts/claim-mergeability.sh"), "utf8");
+  const mergeWords = new Set(["clean", "mechanical", "content", "unanswerable"]);
+  for (const w of mergeWords) {
+    assertTrue(`the reader emits ${w}`, reader.includes(w), `${w} is not in the reader`);
+    assertTrue(`the mergeability table classifies ${w} as a judgement`,
+      new RegExp(`^\\|\\s*\`${w}\`\\s*\\|\\s*judgement\\s*\\|`, "m").test(mergeTable),
+      `${w} is unclassified, or classified as a proof`);
+  }
+  const mergeRows = [...mergeTable.matchAll(/^\|\s*`([a-z_]+)`\s*\|\s*(?:\*\*)?(proof|judgement)(?:\*\*)?\s*\|/gm)];
+  assertEq("and classifies no word the reader never emits",
+    mergeRows.map((m) => m[1]).filter((w) => !mergeWords.has(w)).join(","), "");
+  assertEq("with no proof among them", mergeRows.filter((m) => m[2] === "proof").length, 0);
+
+  // ITS ONE ACTING CONSUMER RE-DERIVES THE READING AT THE MOMENT OF THE ACT rather than
+  // trusting a list it was handed — the discipline the CI-side act already carries, and the one
+  // thing that keeps a judgement from being acted on out of a stale snapshot.
+  const catchUp = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/drive/scripts/catch-up-claim.sh"), "utf8");
+  assertTrue("the catch-up reads the mergeability itself",
+    /claim-mergeability\.sh/.test(catchUp), "the catch-up trusts a handed-in reading");
+  assertTrue("and refuses a content conflict by its own word",
+    /refuse content_conflict/.test(catchUp), catchUp.slice(0, 200));
 
   // The word set, from the library's own emissions. `_cs_reason=` is the resumability verdict;
   // the two `printf '<word>\n'` families are the unit resolution and the merged lookup.

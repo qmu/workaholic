@@ -45,6 +45,7 @@ set -eu
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 TABLE="${SCRIPT_DIR}/../reference/workflow.md"
+LEDGER="${SCRIPT_DIR}/list-finding-issues.sh"
 . "${SCRIPT_DIR}/lib/question-id.sh"
 
 TICK=""
@@ -134,14 +135,63 @@ ids_json=$(printf '%s' "$ids" | tr ' ' '\n' | sed '/^$/d' | jq -R . | jq -sc .)
 candidates=$(printf '%s' "$found" | jq -c --argjson ids "$ids_json" \
     '[ range(0; length) as $i | .[$i] + {finding_id: $ids[$i], subject: ("finding:" + .[$i].step)} ]')
 
+# --- 4. The ledger: the brake, then the dedup -----------------------------------------
+# One read of one ledger answers both — `any_open` for the brake, `filed_ids` for the dedup —
+# because two readers of one ledger drift. An unreadable ledger files NOTHING and is named
+# distinctly from a held one: *one is already in flight* and *I could not look* are different
+# facts about the loop, and collapsing them is how a broken gate reads as a working one.
+[ -f "$LEDGER" ] || emit degraded no_ledger_reader \
+    "list-finding-issues.sh is not present beside this step"
+ledger=$( ( cd "$ROOT" && sh "$LEDGER" ) 2>/dev/null || true )
+if [ -z "$ledger" ] || ! printf '%s' "$ledger" | jq -e . >/dev/null 2>&1; then
+    emit degraded brake_unreadable \
+        "the finding issues could not be read, so nothing is filed (${n} repairable, ${left} left to a person)"
+fi
+if [ "$(printf '%s' "$ledger" | jq -r '.ok // false')" != "true" ]; then
+    emit degraded "brake_$(printf '%s' "$ledger" | jq -r '.reason // "unreadable"' | tr -d '"')" \
+        "the finding issues could not be read, so nothing is filed (${n} repairable, ${left} left to a person)"
+fi
+
+# THE BRAKE: at most one open finding issue in flight. No cursor and no stored state — the two
+# states hand off with no window, because a merged repair closes its own issue and the finding
+# leaves the candidate set with it. A per-day cap is refused by name: the ask is for an HOURLY
+# loop, and a daily bound on the only path from the tick's debt to the work queue would cap
+# that path at one turn a day. One in flight is deliberately strict; if it measurably starves
+# the queue that is a finding for a later ask, not a number to raise here.
+if [ "$(printf '%s' "$ledger" | jq -r '.any_open // false')" = "true" ]; then
+    held=$(printf '%s' "$ledger" | jq -r '[.open[].number | tostring] | join(", #")')
+    emit ok brake_held \
+        "a finding issue is already open (#${held}); ${n} repairable finding(s) held, ${left} left to a person"
+fi
+
+# THE DEDUP, structural and keyed on the same step id the already-asked gate uses: a candidate
+# whose id is already on an issue is dropped and COUNTED, never silently. Nothing is stored —
+# the issues themselves are the memory, so a tick log that died with its container changes
+# nothing here (`filed-records.sh`'s rule: a `-filed` line is never itself the proof).
+filed_ids=$(printf '%s' "$ledger" | jq -c '.filed_ids // []')
+remaining=$(printf '%s' "$candidates" | jq -c --argjson filed "$filed_ids" \
+    '[ .[] | select(.finding_id as $id | $filed | index($id) | not) ]')
+kept=$(printf '%s' "$remaining" | jq -r 'length')
+case "$kept" in ''|*[!0-9]*) kept=0 ;; esac
+already=$((n - kept))
+
+if [ "$kept" -eq 0 ]; then
+    emit ok all_already_filed \
+        "all ${n} repairable finding(s) are already filed; ${left} left to a person"
+fi
+candidates="$remaining"
+
 needs=$(jq -nc --argjson candidates "$candidates" --arg tick "$TICK" '
     {action: "file_each_repairable_finding_as_one_fb_issue",
      surface: "github",
      tick: $tick,
      bound: "one issue per candidate through propose/scripts/file-inbound-ask.sh, which stays the ONE filer and the ONE writer of the marker; assign it to the running identity so the next [Specificate] ingests it, and carry the direction through feedback/scripts/ask-feedback-line.sh, still the one writer of that line. Nothing else opens an issue.",
+     marker: "pass --finding <step>:<finding_id> exactly as this candidate carries them. That visible line is what the next tick reads back as the dedup, so an issue filed without it will be filed again every hour.",
      body: "write the issue for the person and for the [Specificate] run that will read it: what the tick found, which step found it, and the repair the finding names. A step summary is written for a maintainer diagnosing the tick and reads badly as an issue body — compose, never paste.",
      direction: "judge it as the inbound sweep judges it: an explicit strategy slug wins, else the active set, else no line at all. unattributed is an ordinary answer and is never forced.",
      report: "per candidate, either the issue number it was filed as, or a named not-filed reason — a candidate handed back with no outcome is non-conformant on its face",
      candidates: $candidates}' 2>/dev/null || printf '{}')
 
-emit ok "" "${n} repairable finding(s) to file; ${left} left to a person" "$needs"
+emit ok "" \
+  "${kept} repairable finding(s) to file, ${already} already filed; ${left} left to a person" \
+  "$needs"

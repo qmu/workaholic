@@ -1476,10 +1476,12 @@ reconcile".
 
 ```bash
 sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/step-file-findings.sh --tick <id> [--root <repo-root>]
+sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/list-finding-issues.sh
 ```
 
-- **Reads**: the classification table below (its one home), and the run's own step reports,
-  named by `run.sh` in `WORKAHOLIC_TICK_REPORTS`. **Never `plan-units.sh`** —
+- **Reads**: the classification table below (its one home), the run's own step reports,
+  named by `run.sh` in `WORKAHOLIC_TICK_REPORTS`, and `list-finding-issues.sh` (the ledger,
+  one REST call). **Never `plan-units.sh`** —
   `undrivable-units`' rule, first recorded by `closable-missions`: the survey runs the living
   migrations and **stages** what they converge, and a step whose contract is *writes nothing*
   may not reach it through something that writes.
@@ -1508,6 +1510,42 @@ addressed to nobody this repository has twice retired posts for.
 diagnosing the tick and reads badly as an issue body; the agent writes it for the person and for
 the `[Specificate]` run that will read it — what the tick found, which step found it, and the
 repair the finding names.
+
+**The brake: at most one open finding issue in flight.** An hourly step that filed whatever it
+found would put the tick's whole debt into the inbox in a day. The bound is read off the
+open-issue ledger with **no cursor and no stored state**, in the exact shape `open_proposal`
+already uses: the two states hand off with no window, because a merged repair closes its own
+issue and the finding leaves the candidate set with it. **A per-day cap is refused by name** —
+the ask is for an *hourly* loop, and a daily bound on the only path from the tick's debt to the
+work queue would cap that path at one turn a day. One in flight is deliberately strict; if it
+measurably starves the queue that is a finding for a later ask, not a number to raise here.
+
+**An unreadable ledger files nothing, and says so distinctly.** A brake that cannot be read is
+not a brake. `brake_held` (one is in flight, named by number) and `brake_<reason>` (we could not
+look) are **different facts about the loop**, and collapsing them is how a broken gate reads as
+a working one.
+
+**The dedup is structural and keyed on the step id.** The key comes from `lib/question-id.sh` —
+the one derivation of a question's identity — so the filing and the asking cannot disagree about
+what "the same finding" is, which is what lets the suppression hold exactly the question a
+filing answers. It is keyed on the **step id** and nothing else: a finding's summary moves as
+the world moves, and keying on it would re-file the same finding whenever its wording changed.
+A candidate whose id is already on an issue is dropped and **counted**, never silently.
+
+**The marker rides the issue, visibly.** `file-inbound-ask.sh` — still the one writer of a
+marker — takes `--finding <step id>:<finding id>` beside its `--slack-ref` and writes one
+`finding: <step id> / id: <finding id>` line into the body, with `source: moderate`. Exactly one
+of the two markers is allowed: an issue claiming to be both a channel message and a tick finding
+would be matched by two dedups. It is in the **body**, not the title, so it survives a person
+retitling the issue.
+
+**No store, anywhere.** The issues are the memory, so a tick log that died with its container
+changes nothing — `filed-records.sh`'s rule, that a `<step>-filed` line is never itself the proof
+of a filing, holds here by construction because nothing reads such a line. The ledger's window is
+the most recent `WORKAHOLIC_FINDING_ISSUE_LIMIT` issues (default 100, `state=all`, newest first)
+rather than a date: `date -d` is GNU-only and `date -v` BSD-only, and a reader that answers
+differently on a laptop and in a container is worse than one bounded by a number both can read.
+`list_capped` reports when the page bound rather than the repository ended the read.
 
 ---
 

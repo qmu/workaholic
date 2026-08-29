@@ -18400,6 +18400,7 @@ const tests = [
   ["moderate: the gap between a tick finding and the work queue", testFindingToWorkGap],
   ["moderate: repairable or needing a ruling, pinned against STEPS", testFindingClassification],
   ["moderate/file-findings: a repairable finding, filed as work", testFileFindingsStep],
+  ["moderate/file-findings: the brake, and the dedup that needs no store", testFindingBrakeAndDedup],
   ["moderate/undelivered-units: the loop's own undelivered work reaches a person", testUndeliveredUnitsStep],
   ["moderate/reconcile-candidates.sh: which announced items may still be called in flight", testReconcileCandidates],
   ["moderate/thread-reconcile: the finished item whose thread still calls it in flight", testThreadReconcileStep],
@@ -26987,9 +26988,29 @@ function testFileFindingsStep() {
           needs_agent: 2, logged: true, event: "2 queued artifacts nobody can drive" },
       ],
     }) + "\n");
-    const env = { ...process.env, WORKAHOLIC_TICK_REPORTS: reports };
+    // The ledger is stubbed EMPTY here on purpose: the brake and the dedup are the next test's
+    // subject, and a step that could not read them would degrade before reaching the split this
+    // test exists to prove.
+    const bin = join(tmp, "bin");
+    mkdirSync(bin, { recursive: true });
+    writeFileSync(join(bin, "gh"), [
+      "#!/bin/sh",
+      'filter=""; prev=""',
+      'for a in "$@"; do if [ "$prev" = "--jq" ]; then filter="$a"; fi; prev="$a"; done',
+      'case "$*" in *"issues?state=all"*) body=\'[]\' ;; *) exit 1 ;; esac',
+      'if [ -n "$filter" ]; then printf \'%s\' "$body" | jq -r "$filter"; else printf \'%s\' "$body"; fi',
+    ].join("\n"));
+    chmodSync(join(bin, "gh"), 0o755);
+    // The ledger resolves its slug from the checkout's own remote, so every invocation runs
+    // inside a git repository that has one.
+    const repo = join(tmp, "repo");
+    mkdirSync(join(repo, ".workaholic"), { recursive: true });
+    execSync("git init -q . && git remote add origin git@github.com:acme-org/source-repo.git",
+      { cwd: repo });
+    const env = { ...process.env, PATH: `${bin}:${process.env.PATH}`,
+                  WORKAHOLIC_TICK_REPORTS: reports };
     const out = JSON.parse(
-      run(tmp, `${POSIX_SH} ${STEP} --tick 20260829-050000 --root ${tmp}`, { env }).stdout.trim());
+      run(repo, `${POSIX_SH} ${STEP} --tick 20260829-050000 --root ${repo}`, { env }).stdout.trim());
 
     assertEq("the step reports ok", out.status, "ok");
     const cands = out.needs_agent[0].candidates;
@@ -27006,7 +27027,7 @@ function testFileFindingsStep() {
     // THE DEDUP KEY COMES FROM `lib/question-id.sh` AND FROM NOWHERE ELSE, so the filing and
     // the asking cannot disagree about what "the same finding" is. Checked by deriving it the
     // same way the library does rather than by hard-coding a digest.
-    const qid = run(tmp,
+    const qid = run(repo,
       `${POSIX_SH} -c '. ${join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/lib/question-id.sh")}; question_slug "finding:retire-claims"'`)
       .stdout.trim();
     assertEq("the finding id is the shared derivation over the step id",
@@ -27022,26 +27043,153 @@ function testFileFindingsStep() {
       out.event, "");
 
     // ---- DEGRADATIONS, EACH BY ITS OWN NAME ----
-    const bare = JSON.parse(run(tmp, `${POSIX_SH} ${STEP} --tick 20260829-050000 --root ${tmp}`,
-      { env: { ...process.env, WORKAHOLIC_TICK_REPORTS: "" } }).stdout.trim());
+    const bare = JSON.parse(run(repo, `${POSIX_SH} ${STEP} --tick 20260829-050000 --root ${repo}`,
+      { env: { ...env, WORKAHOLIC_TICK_REPORTS: "" } }).stdout.trim());
     assertEq("a run that named no reports degrades by name", bare.reason, "reports_unavailable");
     writeFileSync(join(tmp, "junk.json"), "not json\n");
-    const junk = JSON.parse(run(tmp, `${POSIX_SH} ${STEP} --tick 20260829-050000 --root ${tmp}`,
-      { env: { ...process.env, WORKAHOLIC_TICK_REPORTS: join(tmp, "junk.json") } }).stdout.trim());
+    const junk = JSON.parse(run(repo, `${POSIX_SH} ${STEP} --tick 20260829-050000 --root ${repo}`,
+      { env: { ...env, WORKAHOLIC_TICK_REPORTS: join(tmp, "junk.json") } }).stdout.trim());
     assertEq("and an unparseable one is a different reason", junk.reason, "reports_unreadable");
 
     // ---- THROUGH `run.sh`: THE WIRING, AND THE TICK'S WRITE CONTRACT ----
-    const repo = join(tmp, "repo");
-    mkdirSync(join(repo, ".workaholic"), { recursive: true });
-    execSync("git init -q .", { cwd: repo });
     const before = readdirSync(join(repo, ".workaholic")).join(",");
     const wired = JSON.parse(
-      run(repo, `${POSIX_SH} ${RUN} --tick 20260829-051500 --root ${repo} --only file-findings --no-log`).stdout.trim());
+      run(repo, `${POSIX_SH} ${RUN} --tick 20260829-051500 --root ${repo} --only file-findings --no-log`,
+        { env }).stdout.trim());
     assertEq("run.sh dispatches the step", wired.steps[0].step, "file-findings");
     assertEq("an empty report set is an ordinary answer, not a degradation",
       wired.steps[0].reason, "no_candidates");
     assertEq("and the step itself writes nothing into the tree",
       readdirSync(join(repo, ".workaholic")).join(","), before);
+  } finally { rmSync(tmp, { recursive: true, force: true }); }
+}
+
+// ---------- the finding brake and its structural dedup (2026-08-29) ----------
+//
+// Two questions about ONE ledger — *is one already in flight?* and *which findings are already
+// filed?* — answered by one reader, because two readers of one ledger drift (`lib/claims.sh`'s
+// live-row rule records that failure). What has to hold:
+//
+//   * with a finding issue OPEN, nothing is filed and the step says WHICH issue held it;
+//   * with the ledger UNREADABLE, nothing is filed and that reason is NAMED DISTINCTLY — a
+//     brake that cannot be read is not a brake, and *one is in flight* versus *I could not
+//     look* are different facts about the loop;
+//   * with the issue CLOSED, its finding is still deduped (a merged repair auto-closes its
+//     issue, and re-filing it the same day is the thing the dedup exists to stop) while every
+//     other finding is still offered — so nothing is stored anywhere and the issues are the
+//     whole memory.
+//
+// `gh` IS STUBBED and there is no network: the stub serves the issues listing and applies the
+// `--jq` filter with real jq, so what is exercised is the reader's own parse rather than a
+// hand-written answer.
+function testFindingBrakeAndDedup() {
+  const tmp = mkdtempSync(join(tmpdir(), "wh-finding-brake-"));
+  const bin = join(tmp, "bin");
+  const repo = join(tmp, "repo");
+  mkdirSync(bin, { recursive: true });
+  mkdirSync(repo, { recursive: true });
+  const SCRIPTS = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts");
+  const STEP = join(SCRIPTS, "step-file-findings.sh");
+  const LEDGER = join(SCRIPTS, "list-finding-issues.sh");
+  try {
+    execSync("git init -q . && git remote add origin git@github.com:acme-org/source-repo.git",
+      { cwd: repo });
+    const fid = run(tmp,
+      `${POSIX_SH} -c '. ${join(SCRIPTS, "lib/question-id.sh")}; question_slug "finding:retire-claims"'`)
+      .stdout.trim();
+    assertTrue("the finding id derives out of the shared library", fid.length > 0, fid);
+
+    const marker = `finding: retire-claims / id: ${fid}`;
+    const issue = (state) => JSON.stringify([{
+      number: 9, html_url: "https://example.invalid/9", state,
+      body: `kind: feedback / source: moderate / subject: observer_ai:x\n${marker}\n`,
+    }]);
+    writeFileSync(join(bin, "gh"), [
+      "#!/bin/sh",
+      'filter=""; prev=""',
+      'for a in "$@"; do if [ "$prev" = "--jq" ]; then filter="$a"; fi; prev="$a"; done',
+      'case "$*" in',
+      '  *"issues?state=all"*)',
+      '    case "${WH_LEDGER:-empty}" in',
+      "      empty)  body='[]' ;;",
+      `      open)   body='${issue("open")}' ;;`,
+      `      closed) body='${issue("closed")}' ;;`,
+      "      broken) exit 1 ;;",
+      "    esac ;;",
+      "  *) exit 1 ;;",
+      "esac",
+      'if [ -n "$filter" ]; then printf \'%s\' "$body" | jq -r "$filter"; else printf \'%s\' "$body"; fi',
+    ].join("\n"));
+    chmodSync(join(bin, "gh"), 0o755);
+
+    const reports = join(tmp, "reports.json");
+    writeFileSync(reports, JSON.stringify({
+      steps: [
+        { step: "retire-claims", status: "ok", reason: "", summary: "1 blocked",
+          needs_agent: 0, logged: true, event: "a claim branch CI could not delete" },
+        { step: "inbound-sweep", status: "degraded", reason: "channel_unreadable",
+          summary: "the channel could not be read", needs_agent: 0, logged: true, event: "" },
+      ],
+    }) + "\n");
+    const step = (ledger) => JSON.parse(run(repo,
+      `${POSIX_SH} ${STEP} --tick 20260829-060000 --root ${repo}`,
+      { env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, WH_LEDGER: ledger,
+               WORKAHOLIC_TICK_REPORTS: reports } },
+    ).stdout.trim());
+
+    // ---- the reader itself ----
+    const openLedger = JSON.parse(run(repo, `${POSIX_SH} ${LEDGER}`,
+      { env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, WH_LEDGER: "open" } }).stdout.trim());
+    assertEq("the ledger reads the open finding issue", openLedger.any_open, true);
+    assertEq("...naming it by number", openLedger.open.map((o) => o.number).join(","), "9");
+    assertEq("...and its finding id, out of the visible body marker",
+      openLedger.filed_ids.join(","), fid);
+    const closedLedger = JSON.parse(run(repo, `${POSIX_SH} ${LEDGER}`,
+      { env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, WH_LEDGER: "closed" } }).stdout.trim());
+    assertEq("a closed finding issue stops holding the brake", closedLedger.any_open, false);
+    assertEq("...but is still remembered by the dedup",
+      closedLedger.filed_ids.join(","), fid);
+
+    // ---- the brake ----
+    const held = step("open");
+    assertEq("with one open, the brake holds", held.reason, "brake_held");
+    assertTrue("and the step says which issue held it", /#9/.test(held.summary), held.summary);
+    assertEq("nothing is handed to the filing act", held.needs_agent.length, 0);
+
+    // ---- the dedup ----
+    const free = step("empty");
+    assertEq("with an empty ledger both findings are offered",
+      free.needs_agent[0].candidates.map((c) => c.step).sort().join(","),
+      "inbound-sweep,retire-claims");
+    const deduped = step("closed");
+    assertEq("a finding already filed is dropped",
+      deduped.needs_agent[0].candidates.map((c) => c.step).join(","), "inbound-sweep");
+    assertTrue("and counted rather than dropped silently",
+      /1 already filed/.test(deduped.summary), deduped.summary);
+
+    // ---- the unreadable ledger, named distinctly from a held one ----
+    const blind = step("broken");
+    assertEq("an unreadable ledger degrades", blind.status, "degraded");
+    assertTrue("...under its own reason, never brake_held",
+      blind.reason.startsWith("brake_") && blind.reason !== "brake_held", blind.reason);
+    assertEq("and files nothing", blind.needs_agent.length, 0);
+
+    // ---- the marker's one writer takes the finding form ----
+    // `file-inbound-ask.sh` stays the ONE writer of a marker, so the finding marker is written
+    // there and nowhere else. Exactly one marker per issue: two dedups matching one issue is
+    // the state that must not exist.
+    const filer = readFileSync(join(REPO_ROOT,
+      "plugins/workaholic/skills/propose/scripts/file-inbound-ask.sh"), "utf8");
+    assertTrue("the one filer writes the finding marker",
+      /printf 'finding: %s \/ id: %s\\n'/.test(filer), "the marker is written somewhere else");
+    assertTrue("...and refuses an issue carrying both markers",
+      /two_markers/.test(filer), "an issue could claim to be a message and a finding at once");
+    for (const f of readdirSync(SCRIPTS).filter((n) => n.endsWith(".sh"))) {
+      const src = readFileSync(join(SCRIPTS, f), "utf8")
+        .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+      assertTrue(`${f} does not write the marker itself`,
+        !/printf 'finding: /.test(src), "a second writer of the marker is a dedup that stops matching");
+    }
   } finally { rmSync(tmp, { recursive: true, force: true }); }
 }
 

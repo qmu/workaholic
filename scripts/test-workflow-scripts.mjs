@@ -6771,8 +6771,9 @@ function testAttributedWorkWalkOutcome() {
       [noneJson.count, noneJson.empty, noneJson.empty_reason], [0, true, "no_citing_artifacts"]);
 
     // ---- outcome 3: the walk could not read the corpus ----
-    // Captured BEFORE the degraded entry exists so the next ticket, which starts emitting
-    // the reading, has a real before-image to diff against rather than a remembered one.
+    // Captured BEFORE the degraded entry exists: the same fixture, the same strategy, one
+    // unconsumable path apart. It is what makes the null counts below provably a refusal to
+    // answer rather than an honest absence of work.
     const beforeDegrading = run(dir, `${READ} alpha "1 day ago"`).stdout;
     wf(".workaholic/tickets/todo/has space.md",
       "---\ncreated_at: 2026-08-12T00:00:00+00:00\n---\n\n# A path the walk cannot hand to grep\n");
@@ -6780,13 +6781,41 @@ function testAttributedWorkWalkOutcome() {
     const degraded = run(dir, `${READ} alpha "1 day ago"`);
     assertEq("a walk that could not read still exits 0 — a caller that cannot read is told, not failed",
       degraded.status, 0);
-    assertTrue("and still emits one parseable object",
-      (() => { try { JSON.parse(degraded.stdout); return true; } catch { return false; } })(),
-      degraded.stdout.slice(0, 200));
-    assertEq("nothing is emitted from the reading yet — every existing consumer sees byte-identical output",
-      JSON.parse(degraded.stdout), JSON.parse(beforeDegrading));
-    assertTrue("and what the readable batches did find is kept, never discarded",
-      JSON.parse(degraded.stdout).count === 2, degraded.stdout.slice(0, 200));
+    const d = JSON.parse(degraded.stdout);
+    assertEq("it reports readable: false with a reason naming what failed",
+      [d.readable, d.reason], [false, "corpus_unreadable"]);
+    assertEq("every count the walk would have produced is null, never zero",
+      [d.count, d.active_count, d.waiting_count, d.waiting_missions,
+       d.waiting_describing, d.waiting_advancing,
+       d.waiting_missions_describing, d.waiting_missions_advancing],
+      [null, null, null, null, null, null, null, null]);
+    assertEq("and no empty_reason at all — never no_citing_artifacts, which means the opposite",
+      [d.empty, d.empty_reason], [null, null]);
+    assertEq("the partial finding is kept inside the walk and not emitted as a list", d.artifacts, []);
+    assertTrue("the same walk WOULD have found citations, so the null is a refusal to answer rather than an absence of work",
+      JSON.parse(beforeDegrading).count === 2, beforeDegrading.slice(0, 200));
+
+    // `readable` IS ABSENT ON A COMPLETED WALK, and that is the contract: absent means the
+    // walk completed, exactly as an absent `merge_policy` means review. It is what keeps a
+    // completed reading byte-identical to what it was before the field existed, so a
+    // consumer not yet taught the term behaves exactly as it did.
+    assertEq("a completed walk carries no readable field at all",
+      [Object.prototype.hasOwnProperty.call(matched, "readable"),
+       Object.prototype.hasOwnProperty.call(noneJson, "readable")], [false, false]);
+    // Pinned as a whole object, not field by field: what has to hold is that NOTHING
+    // appeared and nothing left. The byte-diff against the pre-change script was run by
+    // hand over this same fixture and is recorded in the ticket's Final Report; this is its
+    // durable form, and it fails the moment a later change adds a field here.
+    assertEq("and a completed-empty walk is the same object it has always been",
+      noneJson,
+      { slug: "uncited", found: true, window: "1 day ago",
+        feedback_refs: ["20260801009999-none.md"],
+        count: 0, active_count: 0, waiting_count: 0,
+        waiting_kind: "unknown", waiting_describing: 0, waiting_advancing: 0,
+        waiting_missions: 0, waiting_missions_describing: 0, waiting_missions_advancing: 0,
+        waiting_mission_slugs: [], artifacts: [],
+        empty: true, empty_reason: "no_citing_artifacts" });
+    assertEq("every case still exits 0", [none.status, degraded.status], [0, 0]);
 
     // THE OUTCOME IS DERIVED IN EXACTLY ONE PLACE. Two derivations of one fact eventually
     // disagree, and this one is read by four consumers across the direction layer.

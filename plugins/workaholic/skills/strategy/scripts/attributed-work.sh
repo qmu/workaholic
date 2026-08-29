@@ -63,6 +63,16 @@
 # one grep over the corpus for the literal stems/slugs, then confirm each candidate through
 # the relation's own reader. The grep decides only "worth reading"; the reader decides
 # attribution.
+#
+# AND THE PREFILTER MUST NOT DISCARD WHAT IT ALREADY FOUND (2026-08-29, mission
+# `keep-the-closing-link-readable-as-the-corpus-grows`). `xargs` splits the corpus at its
+# own command buffer (131072 bytes on GNU, unrelated to `ARG_MAX`), and a batch matching
+# nothing makes `grep -l` exit 1 and `xargs` exit 123. The shape this replaced —
+# `xargs grep -lFf … > cand || : > cand` — then TRUNCATED the candidates the earlier
+# batches had already written, so the whole walk went silent the moment the corpus outgrew
+# one batch. Measured here 2026-08-29: 1411 corpus paths / 132292 bytes against that
+# buffer, 0 candidates where an appending walk found 26, and `no_citing_artifacts` for a
+# direction with 26 citing artifacts.
 
 set -eu
 
@@ -78,6 +88,26 @@ US=$(printf '\037')
 
 json_escape() {
     printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' -e 's/	/\\t/g'
+}
+
+# prefilter <patterns-file> <corpus-file> <out-file>
+#
+# ONE SHAPE FOR BOTH HOPS, so a repair cannot land on one and miss the other — hop 2 carries
+# every ticket's `via_mission:` attribution, so its loss is the larger one.
+#
+# Two properties, and they are the whole point:
+#   * it APPENDS across batches, so a later batch never discards an earlier batch's finding;
+#   * a batch that matched NOTHING is a SUCCESS (`grep` exit 1), while `grep` exiting 2 or
+#     more stays a failure and is NOT folded into the same answer.
+# Dropping the tolerance entirely is the tempting one-liner and is the opposite failure:
+# under `set -eu` a no-match batch would abort the whole reader.
+#
+# It stays a prefilter. It answers only "worth reading"; `read-feedback-relation.sh` and
+# `read-relation.sh` still decide attribution, and neither gains a second parser here.
+prefilter() {
+    : > "$3"
+    xargs sh -c 'p=$1; shift; grep -lFf "$p" "$@"; s=$?; [ "$s" -le 1 ]' \
+        sh "$1" < "$2" >> "$3" 2>/dev/null || :
 }
 
 emit_empty() {
@@ -132,7 +162,7 @@ sort -u "${TMP}/corpus" -o "${TMP}/corpus"
 # below has one shape to read rather than two.
 : > "${TMP}/hits"
 : > "${TMP}/direct"
-xargs grep -lFf "${TMP}/patterns" < "${TMP}/corpus" 2>/dev/null > "${TMP}/cand1" || : > "${TMP}/cand1"
+prefilter "${TMP}/patterns" "${TMP}/corpus" "${TMP}/cand1"
 while IFS= read -r f; do
     [ -n "$f" ] || continue
     if sh "$READ_FEEDBACK" "$f" 2>/dev/null | sed -e 's/\.md$//' | grep -qxFf "${TMP}/stems"; then
@@ -151,7 +181,7 @@ done < "${TMP}/direct"
 sort -u "${TMP}/mission-slugs" -o "${TMP}/mission-slugs"
 
 if [ -s "${TMP}/mission-slugs" ]; then
-    xargs grep -lFf "${TMP}/mission-slugs" < "${TMP}/corpus" 2>/dev/null > "${TMP}/cand2" || : > "${TMP}/cand2"
+    prefilter "${TMP}/mission-slugs" "${TMP}/corpus" "${TMP}/cand2"
     while IFS= read -r f; do
         [ -n "$f" ] || continue
         grep -qxF "$f" "${TMP}/direct" && continue

@@ -2378,6 +2378,234 @@ EOF
     emit_verdict "residue" 0 "pass" 0
 }
 
+# --------------------------------------------------------------- verify-expiry
+# Does the loop warn a direction BEFORE its own date silences it? Every reading in the direction
+# layer answers backwards — `late`, `overdue`, `dormant`, `arrived` — so a live, in-date,
+# `on_course` direction one day from its `target_date` produced no reading and no question
+# anywhere, and the day after, `past_target_date` refused the proposal with the only signal being
+# `direction-overdue`, asked in arrears. These rows answer it on demand rather than by waiting
+# for a date to arrive.
+#
+# NO NETWORK AND NO CREDENTIAL. The survey's one remote read is the open-proposal gate, and it is
+# SUPPLIED through `--open-proposals` exactly as `verify-arrival` supplies it, so the drilled path
+# is the real one. The fixture is git-backed for the same reason: `landed[]` is a `git log
+# --since` read, and a bare file tree would make every direction here read `dormant`.
+#
+# THE DATES COME FROM THE RUN CLOCK, never hard-coded. A drill whose fixture dates are literals
+# rots the moment those dates pass, and this is the one drill whose whole subject is a date.
+#
+# THE BREAKER ROW IS `expiry_window_is_the_surveys_own`. It reads the same fixture through a
+# NARROWER window and requires the reading to narrow with it. Wire the window to a fresh constant
+# — the one shortcut the design exists to refuse, because a new number is one nobody can defend —
+# and that row fires while every other row here stays green.
+cmd_verify_expiry() {
+    _survey="${REPO_ROOT}/plugins/workaholic/skills/propose/scripts/survey-strategies.sh"
+    _reader="${REPO_ROOT}/plugins/workaholic/skills/strategy/scripts/direction-state.sh"
+    _step="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/step-direction-health.sh"
+    _ask="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/ask-question.sh"
+    for _f in "$_survey" "$_reader" "$_step" "$_ask"; do
+        [ -f "$_f" ] || emit_err "expiry_seam_unreadable" 4 "${_f} is not present in this checkout"
+    done
+
+    _before=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+
+    _root=$(mktemp -d)
+    _me=$(cd "$REPO_ROOT" && git config user.email 2>/dev/null || echo drill@example.com)
+    _soon=$(date -u -d "+2 days" +%Y-%m-%d 2>/dev/null || echo 2099-01-01)
+    _week=$(date -u -d "+7 days" +%Y-%m-%d 2>/dev/null || echo 2099-01-01)
+    _far=$(date -u -d "+300 days" +%Y-%m-%d 2>/dev/null || echo 2099-01-01)
+    _past=$(date -u -d "-30 days" +%Y-%m-%d 2>/dev/null || echo 2000-01-01)
+    _W="${_root}/.workaholic"
+    mkdir -p "${_W}/strategies" "${_W}/feedbacks" "${_W}/missions/active" \
+             "${_W}/missions/archive" "${_W}/tickets/todo"
+    for _r in a b c d e; do
+        printf -- '---\ntype: Feedback\n---\n\nx\n' > "${_W}/feedbacks/2026010100000${_r}-${_r}.md"
+    done
+    _mkst() { # slug target feedback-ref
+        cat > "${_W}/strategies/$1.md" <<EOF
+---
+type: Strategy
+title: T $1
+slug: $1
+status: active
+target_date: $2
+assignees: [${_me}]
+feedback: [$3]
+---
+
+# $1
+
+## Aim
+
+a
+
+## Schedule
+
+s
+EOF
+    }
+    _mkmission() { # slug status area feedback-ref
+        mkdir -p "${_W}/missions/$3/$1"
+        printf -- '---\ntype: Mission\ntitle: M %s\nslug: %s\nstatus: %s\nfeedback: [%s]\n---\n\n# M %s\n' \
+            "$1" "$1" "$2" "$4" "$1" > "${_W}/missions/$3/$1/mission.md"
+    }
+    # `soon` is the reading under test: inside the window, running, with work in flight -- the
+    # ordinary shape of a direction about to run out of date.
+    _mkst soon     "$_soon" 2026010100000a-a.md
+    _mkmission landed-a  achieved archive 2026010100000a-a.md
+    _mkmission inflight-a active  active  2026010100000a-a.md
+    printf -- '---\nmission: inflight-a\n---\n\n# Q\n' > "${_W}/tickets/todo/20260101000001-qa.md"
+    # `later` has runway left and must read exactly as it did before this reading existed.
+    _mkst later    "$_far"  2026010100000b-b.md
+    _mkmission landed-b   achieved archive 2026010100000b-b.md
+    _mkmission inflight-b active   active  2026010100000b-b.md
+    printf -- '---\nmission: inflight-b\n---\n\n# Q\n' > "${_W}/tickets/todo/20260101000002-qb.md"
+    # `gone` is past its date: the arrears signal, unchanged.
+    _mkst gone     "$_past" 2026010100000c-c.md
+    # `finished` is inside the window AND quiescent: `arrived` outranks `expiring`, because the
+    # two ask a person for different acts.
+    _mkst finished "$_soon" 2026010100000d-d.md
+    _mkmission landed-d achieved archive 2026010100000d-d.md
+    # `boundary` is the breaker row's subject: a week out, inside a 14-day window and outside a
+    # 3-day one.
+    _mkst boundary "$_week" 2026010100000e-e.md
+    _open="${_root}/open.json"
+    printf '{"ok": true, "identity": "drill", "slug": "o/n", "proposals": []}\n' > "$_open"
+    ( cd "$_root" && git -c init.defaultBranch=main init -q . \
+        && git config user.email "$_me" && git config user.name Drill \
+        && git -c commit.gpgsign=false add -A \
+        && git -c commit.gpgsign=false commit -qm seed ) >/dev/null 2>&1 || true
+
+    _state=$(cd "$_root" && sh "$_reader" --open-proposals "$_open" "14 days ago" "$_W" 2>&1) || true
+    # PARSES THE ROW, NOT THE LINE -- `verify-arrival`'s extractor and its reason: a nested
+    # object on the row silently defeats a line pattern.
+    _stateof() { printf '%s' "$_state" | jq -r --arg s "$1" \
+        '(.strategies // []) | map(select(.slug == $s)) | (first // {}) | .state // ""' 2>/dev/null | head -1; }
+    _landedof() { printf '%s' "$_state" | jq -r --arg s "$1" \
+        '(.strategies // []) | map(select(.slug == $s)) | (first // {}) | .landed // 0' 2>/dev/null | head -1; }
+
+    # THE FIXTURE HAS TO BE THE SHAPE UNDER TEST. Without landed work every direction here reads
+    # `dormant` and every row below would pass for the wrong reason.
+    if [ "$(_landedof soon)" != "0" ] && [ -n "$(_landedof soon)" ]; then
+        add_row "expiry_fixture" true "the fixture really produces attributed work inside the window ($(_landedof soon) item(s))" load
+    else
+        add_row "expiry_fixture" false "no attributed work landed in the fixture, so no reading below would prove anything: $(one_line "$_state")" load
+        rm -rf "$_root"
+        emit_verdict "expiry" 0 "fail" 1
+    fi
+
+    # THE THREE READINGS, plus the precedence pair a severity ordering would get wrong.
+    for _pair in "soon:expiring" "later:live" "gone:overdue" "finished:arrived"; do
+        _slug=${_pair%%:*}; _want=${_pair#*:}
+        _got=$(_stateof "$_slug")
+        if [ "$_got" = "$_want" ]; then
+            add_row "expiry_state_${_slug}" true "${_slug} reads ${_want}" load
+        else
+            add_row "expiry_state_${_slug}" false "expected ${_want} for ${_slug}, got '${_got:-nothing}': $(one_line "$_state")" load
+        fi
+    done
+
+    # THE BREAKER ROW. The window is the survey-s own `$window_days`, so a narrower window must
+    # narrow the reading with it. A fresh constant here would keep `boundary` expiring at every
+    # window and every other row in this drill would still pass.
+    _narrow=$(cd "$_root" && sh "$_reader" --open-proposals "$_open" "3 days ago" "$_W" 2>&1) || true
+    _nb=$(printf '%s' "$_narrow" | jq -r '(.strategies // []) | map(select(.slug == "boundary")) | (first // {}) | .state // ""' 2>/dev/null | head -1)
+    _wb=$(_stateof boundary)
+    if [ "$_wb" = "expiring" ] && [ "$_nb" != "expiring" ]; then
+        add_row "expiry_window_is_the_surveys_own" true "a direction a week out is expiring at 14 days and '${_nb}' at 3 -- the window is the survey-s own, not a constant, and this drill can fail" load
+    else
+        add_row "expiry_window_is_the_surveys_own" false "the window did not move the reading: 14 days gave '${_wb}', 3 days gave '${_nb}'" load
+    fi
+
+    # THE QUESTION. Its key is what the asked-once ledger keys on, so a key that drifts is a
+    # question asked twice or never; and a direction with runway must draw none.
+    _out=$(cd "$_root" && sh "$_step" --tick 20260101-000000 --root "$_root" --open-proposals "$_open" 2>&1) || true
+    _keys=$(printf '%s' "$_out" | tr ',' '\n' | sed -n 's/.*"key": *"\([^"]*\)".*/\1/p' | sort | tr '\n' ' ')
+    if [ "$_keys" = "direction-arrived:finished direction-expiring:boundary direction-expiring:soon direction-overdue:gone " ]; then
+        add_row "expiry_question_keys" true "the step asks direction-expiring for both directions inside the window and nothing about the live one" load
+    else
+        add_row "expiry_question_keys" false "unexpected question keys: '${_keys}'" load
+    fi
+
+    # A WARNING THAT DOES NOT SAY HOW LONG SOMEBODY HAS IS NOT A WARNING. The heading names the
+    # days left and the date; the body names the act, inside notify-s 25-word bound.
+    _ebody=$(printf '%s' "$_out" | sed -n 's/.*"body": *"\(Re-date it, announce a successor[^"]*\)".*/\1/p' | head -1)
+    _ewords=$(printf '%s' "$_ebody" | wc -w | tr -d ' ')
+    if printf '%s' "$_out" | grep -q "reaches its target date in 2 day(s) (${_soon})" \
+        && [ -n "$_ebody" ] && [ "$_ewords" -le 25 ] \
+        && printf '%s' "$_ebody" | grep -q 'decides nothing'; then
+        add_row "expiry_question_names_the_date" true "the question names the days left and the date, and the act fits in ${_ewords} words" load
+    else
+        add_row "expiry_question_names_the_date" false "the expiry question is wrong (${_ewords} words): $(one_line "$_out")" load
+    fi
+
+    # THE LEAVING RIDES IT, exactly as it rides `arrived` and `overdue`: a person asked to
+    # re-date a direction before its date needs the same evidence as one asked to close it after.
+    if printf '%s' "$_out" | grep -q 'never reached: 1 mission(s), 1 ticket(s) still queued'; then
+        add_row "expiry_names_the_leaving" true "the question names what the direction never reached" load
+    else
+        add_row "expiry_names_the_leaving" false "the leaving did not reach the question: $(one_line "$_out")" load
+    fi
+
+    # THE ROOT LINE NAMES A REPOSITORY EVENT and links the directions it names. The link list is
+    # bounded at three with the rest counted, so the row asserts that a link is there rather than
+    # naming one that the bound may have cut.
+    if printf '%s' "$_out" | grep -q 'about to reach' \
+        && printf '%s' "$_out" | grep -q 'strategies/boundary.md'; then
+        add_row "expiry_event" true "the tick reports the approaching date as a repository event and links the direction" load
+    else
+        add_row "expiry_event" false "the reading did not reach the root: $(one_line "$_out")" load
+    fi
+
+    # ASKED ONCE. The gate is the check-in-s, not this step-s, so the drill exercises the gate
+    # with this step-s new key: the first ask is allowed, the second refused by name.
+    _qroot=$(mktemp -d); mkdir -p "${_qroot}/.workaholic/moderations"
+    _a1=$(cd "$REPO_ROOT" && sh "$_ask" --tick 20260101-000000 --key "direction-expiring:soon" --root "$_qroot" --to "$_me" --hour 10 --weekday 1 2>&1) || true
+    _logstep=$(printf '%s' "$_a1" | sed -n 's/.*"log_step": *"\([^"]*\)".*/\1/p')
+    if printf '%s' "$_a1" | grep -q '"ask": true'; then
+        sh "${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/log-append.sh" --root "$_qroot" \
+           --tick 20260101-000000 --step "$_logstep" --status ok --summary "asked" >/dev/null 2>&1 || true
+        _a2=$(cd "$REPO_ROOT" && sh "$_ask" --tick 20260101-010000 --key "direction-expiring:soon" --root "$_qroot" --to "$_me" --hour 10 --weekday 1 2>&1) || true
+        if printf '%s' "$_a2" | grep -q '"ask": false'; then
+            add_row "expiry_asked_once" true "the same key is refused on a later tick: $(printf '%s' "$_a2" | sed -n 's/.*"reason": *"\([a-z_]*\)".*/\1/p')" load
+        else
+            add_row "expiry_asked_once" false "the asked-once gate did not hold: $(one_line "$_a2")" load
+        fi
+    else
+        add_row "expiry_asked_once" false "the first ask was refused: $(one_line "$_a1")" load
+    fi
+
+    # NO READING RE-DATES, CLOSES OR AMENDS A DIRECTION, and the writer set is still three. A
+    # reading that a direction is about to expire is one small step from a routine that re-dates
+    # it, which is exactly what this row refuses.
+    _closure=$(sed 's/^[[:space:]]*#.*$//' "$_step" "$_reader")
+    if printf '%s' "$_closure" | grep -q 'close\.sh\|amend\.sh\|create\.sh'; then
+        add_row "expiry_writes_no_direction" false "the closure reaches a strategy writer" load
+    else
+        add_row "expiry_writes_no_direction" true "neither the step nor the reader can reach create.sh, amend.sh or close.sh" load
+    fi
+    _seeded=$(cd "$_root" && git status --porcelain -- .workaholic/strategies | tr -d '\n')
+    if [ -z "$_seeded" ]; then
+        add_row "expiry_fixtures_intact" true "the seeded strategies area is untouched by the reader and the step" load
+    else
+        add_row "expiry_fixtures_intact" false "the fixture strategies area changed: '${_seeded}'" load
+    fi
+
+    # IT WROTE NOTHING IN THE CHECKOUT. Every fixture is outside it.
+    _after=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+    if [ "$_before" = "$_after" ]; then
+        add_row "expiry_writes_nothing" true "the checkout is byte-identical after the drill" load
+    else
+        add_row "expiry_writes_nothing" false "the drill changed the working tree" load
+    fi
+
+    rm -rf "$_root" "$_qroot"
+    if [ "$LOAD_FAILED" -gt 0 ]; then
+        emit_verdict "expiry" 0 "fail" 1
+    fi
+    emit_verdict "expiry" 0 "pass" 0
+}
+
 # --------------------------------------------------------------- verify-rulings
 # Does a standing ruling reach the operator as a DIFF THEY MERGE rather than as an hourly
 # question naming a repair to perform by hand on `main`? Two rulings stand that the loop cannot
@@ -5363,7 +5591,7 @@ cmd_verify_checkin_delivery() {
     emit_verdict "checkin-delivery" 0 "pass" 0
 }
 
-USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-specificate <issue>|verify-implement <issue>|verify-plan [--json]|verify-status [--json]|verify-cadence [--json]|verify-planner [--json]|verify-standup [--json]|verify-moderate [--json]|verify-propose [--json]|verify-direction-health [--json]|verify-arrival [--json]|verify-residue [--json]|verify-rulings [--json]|verify-succession [--json]|verify-revision [--json]|verify-merged-claim [--json]|verify-identity-handoff [--json]|verify-close [--json]|verify-retire [--json]|verify-ci-retirement [--json]|verify-delivery-retry [--json]|verify-handoff-question [--json]|verify-base-health [--json]|verify-return-path [--json]|verify-reconcile [--json]|verify-checkin-delivery [--json]"}'
+USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-specificate <issue>|verify-implement <issue>|verify-plan [--json]|verify-status [--json]|verify-cadence [--json]|verify-planner [--json]|verify-standup [--json]|verify-moderate [--json]|verify-propose [--json]|verify-direction-health [--json]|verify-arrival [--json]|verify-residue [--json]|verify-expiry [--json]|verify-rulings [--json]|verify-succession [--json]|verify-revision [--json]|verify-merged-claim [--json]|verify-identity-handoff [--json]|verify-close [--json]|verify-retire [--json]|verify-ci-retirement [--json]|verify-delivery-retry [--json]|verify-handoff-question [--json]|verify-base-health [--json]|verify-return-path [--json]|verify-reconcile [--json]|verify-checkin-delivery [--json]"}'
 
 CMD="${1:-}"
 [ -n "$CMD" ] || {
@@ -5402,6 +5630,7 @@ case "$CMD" in
     verify-direction-health) cmd_verify_direction_health "$@" ;;
     verify-arrival) cmd_verify_arrival "$@" ;;
     verify-residue) cmd_verify_residue "$@" ;;
+    verify-expiry) cmd_verify_expiry "$@" ;;
     verify-rulings) cmd_verify_rulings "$@" ;;
     verify-succession) cmd_verify_succession "$@" ;;
     verify-revision) cmd_verify_revision "$@" ;;

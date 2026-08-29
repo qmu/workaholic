@@ -2110,6 +2110,21 @@ function testExpiringGatesNothing() {
       /direction-expiring:<slug>/.test(cmd) && /direction-expiring:<slug>/.test(loop), "");
     assertTrue("the run report contract names the term beside the proposal",
       /`expiring: true`/.test(loop), "");
+
+    // 4. THE DRILL EXISTS, is dispatched by its verb, and is documented — the same three pins
+    // every other verify target carries, so a drill that is written and never wired reads
+    // exactly like one that runs. Its deliberately-broken row is named in both places, because
+    // a drill that cannot fail proves nothing and the runbook is where an operator learns which
+    // row that is.
+    const drill = readFileSync(join(REPO_ROOT, "scripts/e2e/loop-drill.sh"), "utf8");
+    assertTrue("verify-expiry is in loop-drill.sh", /cmd_verify_expiry\(\)/.test(drill), "not present");
+    assertTrue("and is dispatched by its verb", /verify-expiry\) cmd_verify_expiry/.test(drill), "not wired");
+    assertTrue("and its usage line names it", /verify-expiry \[--json\]/.test(drill), "not in the usage line");
+    const runbook = readFileSync(join(REPO_ROOT, "docs/loop-drill-runbook.md"), "utf8");
+    assertTrue("and the runbook documents it alongside the others", /verify-expiry/.test(runbook), "undocumented");
+    assertTrue("with the deliberately-broken row named as the proof it is",
+      /expiry_window_is_the_surveys_own/.test(runbook) && /expiry_window_is_the_surveys_own/.test(drill),
+      "the failing row is missing from the drill or the runbook");
   } finally { cleanup(A); }
 }
 

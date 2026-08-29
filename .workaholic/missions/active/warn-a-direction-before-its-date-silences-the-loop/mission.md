@@ -56,3 +56,4 @@ machine re-dates, closes or amends a direction.
 - 2026-08-29 — ticket archived — 20260829021947-carry-the-leaving-onto-the-expiring-row.md
 - 2026-08-29 — ticket archived — 20260829021947-ask-the-assignee-once-before-the-date.md
 - 2026-08-29 — ticket archived — 20260829021947-name-expiring-in-the-run-report-as-evidence.md
+- 2026-08-29 — ticket archived — 20260829021947-drill-the-expiry-warning-with-no-network.md

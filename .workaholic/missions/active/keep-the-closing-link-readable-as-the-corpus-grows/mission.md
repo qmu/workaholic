@@ -48,3 +48,4 @@ zero.
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-29 — ticket archived — 20260829072044-pin-the-batching-failure-before-repairing-it.md

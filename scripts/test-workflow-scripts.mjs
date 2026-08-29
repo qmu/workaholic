@@ -6632,6 +6632,93 @@ function testStrategyAttributedWork() {
   } finally { cleanup(dir); }
 }
 
+// ---------- strategy/attributed-work.sh past the xargs batching boundary ----------
+// (2026-08-29, mission `keep-the-closing-link-readable-as-the-corpus-grows`)
+//
+// WHY THE FIXTURE ABOVE PROVES NOTHING ABOUT THIS. The failure is a SIZE property. A dozen
+// artifacts fit in one `xargs` batch, so every case in `testStrategyAttributedWork` walks a
+// single invocation of `grep` and the bug cannot appear at all. What has to be large is the
+// PATH LIST — that is what `xargs` measures against its command buffer — never the file
+// bodies, so this fixture uses long filenames and three-line contents.
+//
+// THE MECHANISM, confirmed rather than assumed: both hops prefilter with the shape
+// `xargs grep -lFf "$TMP/patterns" < "$TMP/corpus" > "$TMP/cand" || : > "$TMP/cand"`.
+// `xargs` splits the corpus at its command buffer (~128 KiB on GNU, regardless of ARG_MAX);
+// a batch matching nothing makes `grep` exit 1, which makes `xargs` exit 123, and the `||`
+// branch then TRUNCATES the candidate file the earlier batches already wrote. Every citation
+// found in batch 1 is discarded by batch 2.
+//
+// MEASURED on this repository 2026-08-29 07:41 UTC: 1411 corpus paths / 132292 bytes against
+// a 131072-byte buffer, split into two batches. The prefilter returned 0 candidates where an
+// appending walk returned 26, and `attributed-work.sh` answered
+// `empty_reason: no_citing_artifacts` for a direction with 25 citing artifacts.
+//
+// THE BOUNDARY IS DERIVED FROM THE RUNNING SYSTEM, never hard-coded: the buffer is a property
+// of the machine, so a fixture pinned at "1400 files" would quietly stop exercising the split
+// on a machine with a different limit and pass while proving nothing. The probe counts how
+// many times `xargs` invokes its command over exactly the corpus the script builds.
+function testStrategyAttributedWorkPastBatchBoundary() {
+  const dir = makeRepo("main");
+  const READ = `${POSIX_SH} ${SCRIPTS.strategyAttributedWork}`;
+  const wf = (rel, body) => {
+    const abs = join(dir, rel);
+    mkdirSync(dirname(abs), { recursive: true });
+    writeFileSync(abs, body);
+  };
+  // Exactly the corpus `attributed-work.sh` builds, handed to `xargs` with a command that
+  // prints once per invocation: the line count IS the batch count.
+  const CORPUS_PROBE =
+    "{ find .workaholic/missions/active .workaholic/missions/archive -mindepth 2 -maxdepth 2 " +
+    "-name mission.md -type f 2>/dev/null; " +
+    "find .workaholic/tickets/todo .workaholic/tickets/archive -name '*.md' -type f 2>/dev/null; } " +
+    `| sort -u | xargs ${POSIX_SH} -c 'echo b' sh | wc -l`;
+  const batches = () => Number(run(dir, CORPUS_PROBE).stdout.trim());
+  try {
+    wf(".workaholic/strategies/alpha.md",
+      "---\ntype: Strategy\ntitle: alpha\nslug: alpha\nstatus: active\n" +
+      "target_date: 2026-12-31\nassignees: [a@qmu.jp]\nfeedback: [20260801000001-one.md]\n---\n\n" +
+      "# alpha\n\n## Aim\n\nx\n\n## Schedule\n\ny\n");
+    // Hop 1's citation and hop 2's carrier. Both sort BEFORE the filler, so they land in an
+    // early batch and the last batch matches nothing — the exact shape that truncates today.
+    wf(".workaholic/missions/active/m-one/mission.md",
+      "---\ntype: Mission\ntitle: M One\nslug: m-one\nstatus: active\nfeedback: [20260801000001-one.md]\n---\n\n# M One\n");
+    wf(".workaholic/tickets/todo/20260810000001-queued.md",
+      "---\ncreated_at: 2026-08-10T00:00:00+00:00\nmission: m-one\n---\n\n# Queued work\n");
+
+    // Grow the filler until the corpus genuinely spans more than one batch. The names carry
+    // the bytes; the bodies stay three lines.
+    const pad = "z".repeat(180);
+    let n = 0;
+    while (batches() < 2 && n < 20000) {
+      for (let i = 0; i < 200; i++, n++) {
+        wf(`.workaholic/tickets/todo/zz-filler-${String(n).padStart(6, "0")}-${pad}.md`,
+          "---\ncreated_at: 2026-08-01T00:00:00+00:00\n---\n\n# filler\n");
+      }
+    }
+    assertTrue("the fixture's corpus really does span more than one xargs batch",
+      batches() >= 2, `batch count was ${batches()} after ${n} filler files`);
+
+    execSync("git add -A && git commit -q -m seed", {
+      cwd: dir,
+      env: { ...process.env, GIT_COMMITTER_DATE: "2026-01-01T00:00:00+00:00", GIT_AUTHOR_DATE: "2026-01-01T00:00:00+00:00" },
+    });
+
+    const alpha = JSON.parse(run(dir, `${READ} alpha "1 day ago"`).stdout);
+    assertEq("a citation in an early batch survives a later batch that matches nothing",
+      alpha.artifacts.map((a) => a.path).sort(),
+      [".workaholic/missions/active/m-one/mission.md",
+       ".workaholic/tickets/todo/20260810000001-queued.md"]);
+    assertEq("hop 2's via_mission attribution crosses the boundary with it",
+      alpha.artifacts.map((a) => a.attribution).sort(),
+      ["direct", "via_mission:m-one"]);
+    assertEq("a direction with citing work is never reported as uncited past the boundary",
+      [alpha.empty, alpha.empty_reason, alpha.count], [false, "no_activity_in_window", 2]);
+    assertTrue("no filler artifact is attributed — the prefilter still only decides worth reading",
+      !alpha.artifacts.some((a) => a.path.includes("zz-filler")), JSON.stringify(alpha.artifacts.map((a) => a.path)));
+    assertEq("the reader leaves the tree clean", run(dir, "git status --porcelain").stdout.trim(), "");
+  } finally { cleanup(dir); }
+}
+
 // ---------- standup/digest.sh + the /standup command are a READER ----------
 // The daily per-strategy digest (ticket `20260817115232`, 2026-08-17). Three properties are
 // worth a fixture, because none of them can be observed in this repository — it holds zero
@@ -18268,6 +18355,7 @@ const tests = [
   ["report/area-freshness.sh (the two hand-maintained areas' upkeep seam)", testAreaFreshness],
   ["strategy skill (the artifact revived 2026-08-13)", testStrategySkill],
   ["strategy/attributed-work.sh (the ONE attribution reader)", testStrategyAttributedWork],
+  ["strategy/attributed-work.sh past the xargs batching boundary", testStrategyAttributedWorkPastBatchBoundary],
   ["standup/digest.sh (the daily per-strategy digest)", testStandupDigest],
   ["moderate: the tick's own root, and the diff that keeps it silent", testModerateTickPost],
   ["moderate: the working-week gate holds the weekend without losing the question", testModerateWorkingDays],

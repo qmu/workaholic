@@ -62,3 +62,4 @@ No new store, no field, no second oracle.
 - 2026-08-29 — run recorded (+2.25h) — cse_01ES6osP3KSBKfSFnBJSVEmn
 - 2026-08-29 — ticket archived — 20260829160500-let-ci-s-act-reach-the-transport-it-holds-permission-for.md
 - 2026-08-29 — mission achieved — mission.md
+- 2026-08-29 — story reported — work-20260829-175818.md

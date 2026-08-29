@@ -7,6 +7,7 @@ depends_on:
 mission:
 merge_policy:
 verification_handoff:
+claim: work-20260829-113435
 ---
 
 # Carry the minting unit's relation onto a minted ticket

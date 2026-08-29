@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-29T06:28:27+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -79,3 +80,50 @@ The tempting shape is a loud alert on every tick that cannot read the channel. T
 `📦 Release Preparation` failure this repository retired: an unchanged answer restated
 hourly. Whatever route is chosen has to be silent while the reading is unchanged, which is
 the property the tick's diff-against-the-previous-tick already provides.
+
+## Final Report
+
+Development completed as planned.
+
+`check-slack-channel.sh`'s header was read first, as step 1 requires, and its rule is the
+one this change is built around: Slack answers *not found* for a channel the calling token
+cannot **see**, so absent and invisible are one response. Nothing here claims a channel is
+absent — the fact surfaced is the honest one, *the channel could not be read*.
+
+The agent's read now has **three** outcomes named apart in the step's own contract:
+`asks_found`, `window_empty` (the channel **was** read and held nothing — an ordinary quiet
+hour) and `channel_unreadable` (the read did not happen).
+
+**The route is the one the tick already has.** On `channel_unreadable` only, one question
+goes through `ask-question.sh` keyed `inbound-channel-unreadable:<channel>` — so the
+asked-once gate is what makes it quiet while the reading is unchanged, rather than a
+suppression list, and the per-tick cap, the quiet hours and the working-day hold apply
+untouched. A new surface was refused: an hourly restatement of an unchanged reading is the
+`📦 Release Preparation` failure this repository retired. The cost is stated rather than
+hidden — a channel that breaks, is fixed and breaks again is not re-asked, the same
+property `base-red:<commit>` and `stalled-unit:<unit>` already carry; a **different**
+channel is a different key, which is the change that actually matters.
+`no_slack_transport` asks nothing: it is this session holding no connector, not a fact
+about the channel.
+
+The **resolved channel name** rides the summary and is asked for in the report, on both
+readers — the tick step and the `:40` sweep — so a divergence between the channel the loop
+posts to and the one it reads is legible without anyone re-deriving the default. That is
+exactly what let one run for a day.
+
+Contracts updated in the same change: `moderate/reference/workflow.md` §16 (the three
+outcomes as a table, the never-claim-absence rule, the quietness argument and its cost) and
+its findings-classification row, plus `propose/SKILL.md`'s degradation vocabulary. The
+classification stays `needs_ruling`: a channel the tick could not read needs a connector, a
+token or a name, and only a person supplies one.
+
+### Discovered Insights
+
+- **Insight**: `.claude/settings.json`'s `env` block **does** reach every Bash invocation in
+  a session started in this repository — measured directly this run:
+  `printenv CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` returns `1`, from that block.
+  **Context**: it is read at **session start**, so a value added mid-session is not visible
+  to that session — which is why the sibling ticket's setting reads as absent here and will
+  take effect from the next container. That makes the settings `env` block a verified home
+  for a repository-scoped `WORKAHOLIC_*` value, and the verification is a one-line
+  `printenv` rather than an argument.

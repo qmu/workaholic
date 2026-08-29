@@ -2692,6 +2692,56 @@ function testUnansweredAsksStep() {
       assertEq("the step never supplies a root event", JSON.parse(run(dir, line).stdout).event, "");
     }
 
+    // ---- COULD NOT LOOK IS NOT A QUIET HOUR (2026-08-29, mission
+    // `point-the-inbound-readers-at-the-channel-that-exists`) ----
+    // The read is the agent's, so what the script can own is the CONTRACT it hands over: three
+    // outcomes named apart, an escalation route for the unreadable one, and the refusal to
+    // claim absence. From outside the tick a dark inbound path and a calm hour were
+    // indistinguishable, which is why one ran for a day before a tick happened to name it.
+    j = JSON.parse(run(dir, `${STEP} --tick 20260826-120000 --root ${dir}`).stdout);
+    const probe = j.needs_agent[0];
+    for (const outcome of ["asks_found", "window_empty", "channel_unreadable"]) {
+      assertTrue(`the contract names ${outcome} as its own outcome`,
+        probe.outcomes.includes(outcome), probe.outcomes);
+    }
+    assertTrue("a channel that was read and held nothing is an honest quiet hour",
+      /window_empty[^)]*was read/i.test(probe.outcomes), probe.outcomes);
+    // ABSENT AND INVISIBLE ARE ONE RESPONSE from Slack, so neither this step nor its agent may
+    // report a channel as missing — reintroducing `check-slack-channel.sh`'s own 2026-08-01 bug
+    // at a different seam is the failure this clause exists to prevent.
+    assertTrue("and it never claims a channel is absent",
+      /never a claim that the channel is ABSENT/.test(probe.outcomes)
+      && /never that it does not exist/.test(probe.escalation),
+      probe.outcomes + " || " + probe.escalation);
+    // THE ROUTE IS THE ONE THE TICK ALREADY HAS, keyed on the CHANNEL: the asked-once gate is
+    // what makes it quiet while the reading is unchanged, rather than a suppression list.
+    assertTrue("the unreadable case routes through the existing keyed question",
+      /ask-question\.sh/.test(probe.escalation)
+      && probe.escalation.includes("inbound-channel-unreadable:source-repo"),
+      probe.escalation);
+    assertTrue("no_slack_transport is this session, not the channel, and asks nothing",
+      /no_slack_transport is this session holding no connector/.test(probe.escalation),
+      probe.escalation);
+    // THE RESOLVED CHANNEL IS IN THE REPORT. A divergence between the channel the loop posts to
+    // and the one it reads is otherwise invisible without re-deriving the default.
+    assertTrue("the resolved channel name rides the summary",
+      j.summary.includes("channel #source-repo"), j.summary);
+    assertTrue("and the contract asks for it in the report too",
+      probe.report.includes("#source-repo"), probe.report);
+
+    // A SECOND TICK OVER AN UNCHANGED READING IS SILENT — proved on the gate itself, over this
+    // step's own escalation key, since that is what the route delegates the quietness to.
+    const ASK = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/ask-question.sh")}`;
+    const qroot = mkdtempSync(join(tmpdir(), "workaholic-chan-"));
+    mkdirSync(join(qroot, ".workaholic/moderations"), { recursive: true });
+    const key = "inbound-channel-unreadable:source-repo";
+    const a1 = JSON.parse(run(dir, `${ASK} --tick 20260826-120000 --key "${key}" --root ${qroot} --to a@qmu.jp --hour 10 --weekday 1`).stdout);
+    assertEq("the first tick that cannot read the channel asks once", a1.ask, true);
+    run(dir, `${POSIX_SH} ${SCRIPTS.proposeLogAppend} --root ${qroot} --tick 20260826-120000 --step ${a1.log_step} --status ok --summary asked`);
+    const a2 = JSON.parse(run(dir, `${ASK} --tick 20260826-130000 --key "${key}" --root ${qroot} --to a@qmu.jp --hour 10 --weekday 1`).stdout);
+    assertEq("and an unchanged reading an hour later says nothing", a2.ask, false);
+    cleanup(qroot);
+
     // ---- IT WRITES NOTHING AND FILES NOTHING ----
     execSync("git add -A && git commit -q -m seed", { cwd: dir });
     run(dir, `${STEP} --tick 20260826-130000 --root ${dir}`);

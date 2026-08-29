@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-29T02:19:46+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -91,3 +92,23 @@ drift.
 - `expiring` and `dormant` can both be true (a silent direction near its date).
   That is fine here; the precedence between them is ticket 3's question, not
   this one's.
+
+## Final Report
+
+Development completed as planned. `survey-strategies.sh` emits `expiring` on every surveyed
+row, eligible and refused alike, computed immediately after `overdue` and before `refusal`,
+`true` exactly when `days_to_target != null and 0 <= days_to_target <= $window_days`. It rides
+the `refused[]` projection beside `overdue`, `dormant` and `quiescent`, and the output contract
+in the header names it on both lists.
+
+### Discovered Insights
+
+- **Insight**: the refused case is not a nicety here, it is the majority case.
+  **Context**: the fixture's expiring direction is refused `work_waiting` — a direction with a
+  date approaching normally has work in flight, which is exactly the refusal. A reading emitted
+  only on `eligible[]` would have been invisible for the shape it exists to catch.
+- **Insight**: a comment in this file may not contain an apostrophe.
+  **Context**: the whole derivation is one `jq` program inside a single-quoted shell string, so
+  prose in a comment block is subject to shell quoting. The existing blocks avoid the character
+  or escape it as `'"'"'`; a plain `strategy's` breaks the program with a `jq` syntax error
+  pointing at a line of prose.

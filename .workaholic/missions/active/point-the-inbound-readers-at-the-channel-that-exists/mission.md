@@ -16,7 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
-claim: work-20260829-084119
+claim: work-20260829-104123
 ---
 
 # Point the inbound readers at the channel that exists

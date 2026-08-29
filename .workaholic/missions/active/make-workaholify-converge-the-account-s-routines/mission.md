@@ -10,7 +10,7 @@ assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
 actual_hours: 0.8
-feedback: [20260819103531-workaholify-should-converge-the-account-s-routines-not-just-render-setup-sheets.md]
+feedback: [20260819103531-workaholify-should-converge-the-account-s-routines-not-just-render-setup-sheets.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
 gate_type:

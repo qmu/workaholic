@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-29T21:20:56+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -97,3 +98,31 @@ read → gate → order → render → ask.
   its assertions are written against work that does not exist yet.
 - A drill with no breaker row counts as `unproved` in `verify-all`'s tally, which is a
   gap in coverage rather than a broken mechanism — this one must not land that way.
+
+## Final Report
+
+Development completed as planned. `verify-stage` walks the whole mission end to end with no
+network, 16 load-bearing rows and a breaker proved able to fail, registered `hermetic` in §9 so
+`verify-all` and `Loop Drills` pick it up as their own named leg.
+
+### Discovered Insights
+
+- **Insight**: the breaker's own condition needed inverting before it proved anything. Wiring
+  the `observing` gate at `dormant` silences **every** direction in this fixture rather than
+  the declared one, so the damage shows up as an **empty** `selected` — not as the declared
+  direction escaping. A breaker written against the shape it expected the damage to take
+  passed while the seam was demonstrably broken.
+  **Context**: this is the second-order version of "write the breaker against the behaviour".
+  It is not enough for the injected change to be behavioural; the assertion about it has to be
+  written against what the damage actually looks like over *this* fixture, which is worth
+  checking by running the breaker and reading its output rather than reasoning about it.
+
+- **Insight**: `direction-state.sh` takes its window and root **positionally** (`[window]
+  [workaholic-root]`) with only the three pass-through flags as options; calling it with
+  `--window`/`--root` returns `reason: usage` and an empty `strategies` array, which a `jq`
+  iteration over `.strategies[]` then turns into a hard error that kills the drill before any
+  verdict is emitted.
+  **Context**: an empty-but-valid reading and a usage refusal look alike to a careless jq
+  filter. Every reader call in a drill wants `[]?` and a `|| printf ''` fallback, so a
+  misinvocation shows up as a failing row naming the reader rather than as a drill that
+  produces no output at all.

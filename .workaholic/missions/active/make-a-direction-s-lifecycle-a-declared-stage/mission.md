@@ -56,3 +56,4 @@ and stuckness never reads as 観察中.
 - 2026-08-29 — ticket archived — 20260829212056-order-an-improving-direction-against-its-rivals.md
 - 2026-08-29 — ticket archived — 20260829212056-show-a-direction-s-stage-where-directions-are-read.md
 - 2026-08-29 — ticket archived — 20260829212056-ask-a-person-when-the-evidence-suggests-a-transition.md
+- 2026-08-29 — ticket archived — 20260829212056-drill-the-staged-lifecycle-offline.md

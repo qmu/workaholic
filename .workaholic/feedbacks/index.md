@@ -584,4 +584,5 @@
 * [Deliver what the loop already knows to the person who can act](20260828181639-deliver-what-the-loop-already-knows-to-the-person-who-can-act.md)
 * [Issue #687 was proposed twice and both copies were emitted](20260828185838-issue-687-was-proposed-twice-and-both-copies-were-emitted.md)
 * [Put the loop's standing rulings on one pull request](20260828211740-put-the-loop-s-standing-rulings-on-one-pull-request.md)
+* [Warn a direction before its date silences the loop](20260829021712-warn-a-direction-before-its-date-silences-the-loop.md)
 <!-- okf:generated:end -->

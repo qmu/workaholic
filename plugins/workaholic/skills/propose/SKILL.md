@@ -250,6 +250,24 @@ refusal is the run's own **judgement**, stated in words and arguable by a reader
 is named here rather than folded into the mechanical list. It is a refusal on the same standing as
 housekeeping's, and like it, it is reported by name so a tick refused for it never reads as idle.
 
+**`attribution_unreadable` now covers a walk that did not complete** (2026-08-29, mission
+`keep-the-closing-link-readable-as-the-corpus-grows`). It used to mean only *the attribution reader
+produced no output at all*. Since that reader learned to tell *found nothing* from *could not look*
+(`workaholic:strategy`), a walk it could not complete reaches the same refusal — **the word this
+condition already had, never a second one** — and every reading composed on the walk is emitted as
+**unmade** rather than as false: `pace: unknown`, `dormant: false`, `quiescent: false`, and **null**
+`count` / `active_count` / `waiting_*` instead of zeroes. `direction-state.sh` answers `unreadable`
+for such a row through its existing precedence and carries the nulls rather than re-zeroing them.
+
+**`work_waiting` cannot stand open on it**, which is the whole point: a degraded walk cannot prove
+the brake is clear, and a gate that cannot be read is not a gate — the rule `no_feedback_refs` and
+`inbox_unreadable` already hold themselves to. Measured against the pre-change survey: a corpus one
+unreadable path wide put **both** directions in `eligible` with `dormant: true`, `waiting_count: 0`
+and both `selected`, on a walk that had read nothing. **The date terms do not move** — `overdue`,
+`expiring` and `days_to_target` come from the strategy's own `target_date`, never from the walk.
+The cost is accepted for the reason `inbox_unreadable` already records: proposing against a reading
+nobody can trust is worse than not proposing, and the degradation is now visible rather than silent.
+
 Three of them carry the design:
 
 - **`work_waiting` + `open_proposal` are one gate in two halves, and they hand off with no

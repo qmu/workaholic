@@ -152,8 +152,16 @@ opposite. A walk that did not complete now reports:
 *absent means the walk completed*, the convention `merge_policy` (absent means review) and a ticket's
 `status:` (absent means queued) already use here. A completed reading is therefore byte-identical to
 what it was before the field existed, and a consumer not yet taught the term behaves exactly as it
-did. **Read it as `readable // true`**, never as a bare truth test. It is derived in exactly one
-place inside the script, for both hops; the reader still exits 0, degraded included.
+did. **Test it as `readable == false`**, never as `readable // true`: in jq `//` treats `false`
+itself as empty, so `false // true` is `true` and that spelling reads every degraded walk as a
+healthy one. It is derived in exactly one place inside the script, for both hops; the reader still
+exits 0, degraded included.
+
+**Two sibling terms sit beside each other and must not be folded together.** `quiescent` reads
+`false` when the **residue** read was degraded (2026-08-28, `workaholic:propose`); a survey row is
+refused `attribution_unreadable` when the **attribution** read was degraded (2026-08-29, the
+paragraph above). Different reads, different consequences: the first withholds one reading, the
+second refuses the whole row and every reading composed on it.
 
 **`no_citing_artifacts` is bounded, and the bound is stated rather than implied** (2026-08-26). After `/specificate`'s carry floor it means *nothing has answered this direction yet* — for work the loop emitted from an ask filed by `/propose`, by the inbound Slack sweep, or by `/fb`'s in-repo path, whose refs resolved. It says nothing about work a run never emitted, an ask judged to answer no direction, a ref that did not resolve, or an artifact written by hand outside `/specificate`. A hermetic test walks ask → reader → scaffold → floor for each writer's header shape and fails when the ref is dropped, so the reading is a fact a change can lose rather than a claim.
 

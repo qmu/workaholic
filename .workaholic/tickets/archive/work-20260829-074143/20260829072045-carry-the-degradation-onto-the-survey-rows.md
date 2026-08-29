@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-29T07:20:45+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -84,3 +85,55 @@ cannot be read is not a gate, which is the rule this layer already holds itself 
 - Refusing a direction silences `/propose` for it, which is a real cost. It is accepted for the
   reason `inbox_unreadable` already records: proposing against a reading nobody can trust is
   worse than not proposing, and the degradation is now visible rather than silent.
+
+## Final Report
+
+Development completed as planned.
+
+A survey row whose attribution walk did not complete joins the term the condition already
+had — `unreadable` — rather than getting one of its own, which is what makes every
+derivation below it correct with no further change: `pace: unknown`, `dormant: false`,
+`quiescent: false`, and `refusal: attribution_unreadable` answered **before**
+`work_waiting` is ever evaluated. No new refusal word was introduced.
+
+The `waiting_*` grains, `count` and `active_count` are **null** on such a row rather than
+zero, and `direction-state.sh` carries those nulls through instead of putting the zeroed
+reading back one layer up. Nothing arithmetic reaches them: every derivation tests
+`.unreadable` first.
+
+`direction-state.sh` needed no change to its precedence — it has always mapped
+`attribution_unreadable` to `state: unreadable` — so the lifecycle answer is a projection
+of the survey's refusal, with no second derivation and no new date arithmetic.
+
+**Measured** against the pre-change survey over the same fixture, one unreadable corpus
+path apart:
+
+```
+old: eligible [alpha, uncited]  dormant: true  waiting_count: 0  selected: [alpha, uncited]
+new: refused  [alpha, uncited]  reason: attribution_unreadable
+     pace: unknown  dormant: false  quiescent: false  waiting_count: null  selected: []
+```
+
+The healthy survey is **byte-identical** old against new over the same fixture (diffed
+directly, with the previous script placed at the same path so its sibling resolution is
+unchanged). The date-derived terms are untouched: `overdue`, `expiring` and
+`days_to_target` come from the strategy's own `target_date` and never from the walk, and
+the hermetic case asserts they equal the healthy row's.
+
+Two incidental notes. The row construction carried a **duplicated**
+`waiting_kind`/`waiting_describing`/`waiting_advancing` triple (a jq object literal keeps
+the last of a duplicate key, so it was harmless but silently redundant); since the change
+had to rewrite exactly those lines, they are now written once. And `landed` stays an
+empty list on a degraded row rather than null — it is a term this ticket did not move, and
+it is never rendered, because such a row reads `state: unreadable` and so produces no
+`arrived` or `overdue` question.
+
+### Discovered Insights
+
+- **Insight**: `.readable // true` is the wrong test in jq. `//` treats `false` **itself**
+  as empty, so `false // true` is `true` — the spelling reads every degraded walk as a
+  healthy one.
+  **Context**: it was written that way first and the survey silently kept selecting the
+  blind rows; the fixture caught it. The test is `readable == false`, and the script
+  header, `workaholic:strategy` and the survey's own comment all say so now, because the
+  natural-looking spelling reproduces exactly the failure class the mission exists to end.

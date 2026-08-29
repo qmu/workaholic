@@ -27,6 +27,14 @@
 #            zeroed residue. It gates nothing except `quiescent` (see that block).
 #   or {ok: false, reason, detail} when a gate could not be read at all.
 #
+# A ROW WHOSE ATTRIBUTION WALK DID NOT COMPLETE (2026-08-29): refused
+# `attribution_unreadable` — the word this condition has always had, never a second one — with
+# `pace: unknown`, `dormant: false`, `quiescent: false` and NULL `count` / `active_count` /
+# `waiting_*`. `work_waiting` cannot stand open on it, because the refusal ladder answers
+# first: a degraded walk cannot prove the brake is clear, and a gate that cannot be read is
+# not a gate. The DATE terms are untouched — `days_to_target`, `overdue` and `expiring` come
+# from the strategy's own `target_date` and never from the walk.
+#
 # ═══ THE GATES ARE THE BRAKE, AND THE BRAKE IS THE WHOLE DESIGN ═══════════════════════
 #
 # `/propose` is the first unattended routine in this repository to drop the standing
@@ -284,30 +292,50 @@ jq -sc \
   | [ .[]
       | . as $w
       | (($list.strategies[] | select(.slug == $w.slug)) // {}) as $s
+      # A WALK THAT DID NOT COMPLETE IS A ROW WE COULD NOT READ (2026-08-29, mission
+      # `keep-the-closing-link-readable-as-the-corpus-grows`). `attributed-work.sh` produced
+      # NO OUTPUT AT ALL was already `unreadable`; since that reader learned to say so,
+      # `readable: false` is the same fact reported properly instead of by silence, and it
+      # joins the same term rather than getting one of its own. That is what makes every
+      # derivation below correct with NO further change: `pace` reads `unknown`, `dormant`
+      # and `quiescent` read `false`, and `refusal` answers `attribution_unreadable` — the
+      # word this condition has always had — before `work_waiting` is ever evaluated.
+      #
+      # `work_waiting` MUST NOT STAND OPEN on such a row, and the ladder is what guarantees
+      # it: a degraded walk cannot prove the brake is clear, and A GATE THAT CANNOT BE READ
+      # IS NOT A GATE — the rule `no_feedback_refs` and `inbox_unreadable` already hold
+      # themselves to. This is the failure the ask measured: a tick selecting a direction on
+      # `waiting_count: 0` while two active missions and ten queued tickets cited it.
+      #
+      # `readable` is ABSENT on a completed walk, by the contract that reader states, so the
+      # test is `== false` and NOT `(.readable // true) | not`: in jq `//` treats `false`
+      # itself as empty, so `false // true` is `true` and that spelling would read every
+      # degraded walk as a healthy one — silently, which is the whole failure class again.
+      | (($w.unreadable // false) or ($w.readable == false)) as $blind
       | {slug: $w.slug, title: ($s.title // $w.slug), status: ($s.status // ""),
          target_date: ($s.target_date // ""), days_to_target: days($s.target_date // ""),
          assignees: ($s.assignees // ""), owns: $w.owns, path: $w.path,
          feedback_refs: ($w.feedback_refs // []),
          empty_reason: ($w.empty_reason // ""),
-         count: ($w.count // 0), active_count: ($w.active_count // 0),
-         waiting_count: ($w.waiting_count // 0),
-         # WHICH KIND OF WORK THE GATE SAW, on every row, gated or not: a strategy
-         # suppressed — or not suppressed — says why.
-         waiting_kind: ($w.waiting_kind // "unknown"),
-         waiting_describing: ($w.waiting_describing // 0),
-         waiting_advancing: ($w.waiting_advancing // $w.waiting_count // 0),
+         # NULL, NEVER ZERO, ON A ROW WE COULD NOT READ. A zero here is the whole defect one
+         # layer up: a consumer skimming the counts reads *nothing is waiting* out of a walk
+         # that never looked. Nothing arithmetic reaches these — every derivation below tests
+         # `.unreadable` first — so the null is read by consumers and by nothing else.
+         count: (if $blind then null else ($w.count // 0) end),
+         active_count: (if $blind then null else ($w.active_count // 0) end),
+         waiting_count: (if $blind then null else ($w.waiting_count // 0) end),
          # WHICH KIND OF WORK THE GATE SAW (2026-08-23), on every row, gated or not: a
          # strategy suppressed — or not suppressed — says why.
-         waiting_kind: ($w.waiting_kind // "unknown"),
-         waiting_describing: ($w.waiting_describing // 0),
-         waiting_advancing: ($w.waiting_advancing // $w.waiting_count // 0),
+         waiting_kind: (if $blind then null else ($w.waiting_kind // "unknown") end),
+         waiting_describing: (if $blind then null else ($w.waiting_describing // 0) end),
+         waiting_advancing: (if $blind then null else ($w.waiting_advancing // $w.waiting_count // 0) end),
          # THE MISSION GRAIN (2026-08-26), reported on every row for the same reason: the
          # brake now asks whether a mission is in flight, so a reader must be able to see
          # which one held it. Named, never a bare count.
-         waiting_missions: ($w.waiting_missions // 0),
-         waiting_missions_describing: ($w.waiting_missions_describing // 0),
-         waiting_missions_advancing: ($w.waiting_missions_advancing // $w.waiting_missions // 0),
-         waiting_mission_slugs: ($w.waiting_mission_slugs // []),
+         waiting_missions: (if $blind then null else ($w.waiting_missions // 0) end),
+         waiting_missions_describing: (if $blind then null else ($w.waiting_missions_describing // 0) end),
+         waiting_missions_advancing: (if $blind then null else ($w.waiting_missions_advancing // $w.waiting_missions // 0) end),
+         waiting_mission_slugs: (if $blind then null else ($w.waiting_mission_slugs // []) end),
          landed: (($w.artifacts // []) | map(select(.changed_in_window))
                   | map({kind, title, state, attribution, last_change})),
          queued: (($w.artifacts // []) | map(select(.kind == "ticket" and .state == "queued"))
@@ -322,7 +350,7 @@ jq -sc \
          # for itself -- and this answers a question about the REPOSITORY while every field
          # beside it answers one about the direction.
          residue: $residue,
-         unreadable: ($w.unreadable // false)}
+         unreadable: $blind}
       | . + {pace:
           # PACE -- WILL THIS DIRECTION ARRIVE? (2026-08-22.) Every other gate here is a
           # brake. None of them asked this, so a strategy could be perfectly gated (every

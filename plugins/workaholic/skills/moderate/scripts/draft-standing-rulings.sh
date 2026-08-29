@@ -239,13 +239,29 @@ MERGE_REASON=""
 PUBLISH_REASON="nothing_to_draft"
 
 if [ "$DRAFTED" -gt 0 ]; then
-  BODY_WHY="An operator ruling the loop cannot make itself, drafted as a diff so merging is the ruling and closing is the refusal."
+  # THE MARKERS RIDE `why`, WHICH IS THE ONE ARGUMENT THE PULL-REQUEST BODY RENDERS
+  # (2026-08-29, mission `follow-the-pull-requests-the-loop-opens-for-a-person`). They were
+  # composed into `changes` — argument 3 — which `publish-tree-pr.sh` forwards to `commit.sh`
+  # and never writes into the body: that body is `## Overview` (from `why`) plus the seam's own
+  # generated `## Artifacts` and `## Notes`. So every marker this script has ever written landed
+  # in the COMMIT MESSAGE, `list-open-rulings.sh` read the body and found none, and
+  # `ruling-suppression.sh` answered `held: {}` for every open ruling — measured verbatim on
+  # #694, whose commit message carries all four lines and whose body carries none.
+  #
+  # The seam gains NO body-fragment parameter: its positionals are `commit.sh`'s and end in an
+  # open-ended `[files...]`, so a new one could not be told from a filename, and a second
+  # body-composition path would exist for every publication rather than for this one caller.
+  # The markers stay VISIBLE text under `## Overview`, each on its own line, which is what
+  # `list-open-rulings.sh`'s `^ruling: ` match reads and what a person reading the pull request
+  # can follow.
+  BODY_WHY="An operator ruling the loop cannot make itself, drafted as a diff so merging is the ruling and closing is the refusal.
+
+$(awk -F'\t' '$4 == "carried" || $4 == "mapped" || $4 == "alias_appended" { printf "ruling: %s / subject: %s\n", $1, $2 }' "${TMP}/results")"
   BODY_CHANGES="$(awk -F'\t' '
     $4 == "carried" { printf "- attribution: carry the refs of `%s` onto mission `%s`\n", $3, $2 }
     $4 == "mapped" { printf "- identity mapping: name `%s` as login `%s` (new entry)\n", $2, $3 }
     $4 == "alias_appended" { printf "- identity mapping: name `%s` as another address of login `%s`\n", $2, $3 }
-  ' "${TMP}/results")
-$(awk -F'\t' '$4 == "carried" || $4 == "mapped" || $4 == "alias_appended" { printf "ruling: %s / subject: %s\n", $1, $2 }' "${TMP}/results")"
+  ' "${TMP}/results")"
   BODY_EVIDENCE="$(printf '%s' "$RULINGS" | jq -r '.rulings[]? | select(.decision != "undecided")
       | "- `" + .subject + "` -> `" + .decision + "` (" + (.evidence | tostring) + ")"'
     cat "${TMP}/evidence")"

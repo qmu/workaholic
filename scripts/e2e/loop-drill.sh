@@ -2934,7 +2934,12 @@ case "\$1 \$2" in
   "api user") printf 'tester\n'; exit 0 ;;
 esac
 case "\$*" in
-  *pulls*POST*) echo '{"html_url":"https://drill.invalid/pr/1","number":1}'; exit 0 ;;
+  *pulls*POST*)
+      # The payload arrives on stdin (`--input -`). Captured rather than discarded so the
+      # drafter -> BODY -> reader chain can be closed below; without it the markers were only
+      # ever asserted from a hand-written fixture.
+      cat > "${_ctl}/pr_post.json" 2>/dev/null || true
+      echo '{"html_url":"https://drill.invalid/pr/1","number":1}'; exit 0 ;;
   *merge*) echo '{"merged":true}'; exit 0 ;;
   *pulls?state=open*) cat "${_ctl}/open.tsv" 2>/dev/null; exit 0 ;;
 esac
@@ -3023,11 +3028,32 @@ EOF
         add_row "rulings_both_kinds_drafted" false "the two kinds did not land together: $(one_line "$_d")" load
     fi
 
+    # 2b. THE MARKERS REACH THE PULL-REQUEST BODY, AND THE READER FINDS THEM THERE
+    #     (2026-08-29, mission `follow-the-pull-requests-the-loop-opens-for-a-person`). They were
+    #     composed into `changes` — argument 3 — which `publish-tree-pr.sh` forwards to the
+    #     COMMIT MESSAGE and never writes into the body, so `list-open-rulings.sh` read the body
+    #     and found none and every open ruling held nothing. Measured verbatim on #694. The rows
+    #     below drove `open.tsv` from a hand-written fixture, which is exactly why they passed
+    #     with the defect in place; the marker field is now derived from the captured body.
+    _pr_body=$(jq -r '.body // ""' "${_ctl}/pr_post.json" 2>/dev/null || printf '')
+    _pr_markers=$(printf '%s\n' "$_pr_body" | grep '^ruling: ' || true)
+    _pr_marker_field=$(printf '%s' "$_pr_markers" | tr '\n' ';' | sed 's/;$//')
+    if printf '%s' "$_pr_markers" | grep -q 'subject: orphan' \
+        && printf '%s' "$_pr_markers" | grep -q 'subject: stranger@example.com'; then
+        add_row "rulings_markers_reach_the_body" true \
+            "the pull-request body carries one visible ruling: line per judged subject, so the reader can find them" load
+    else
+        add_row "rulings_markers_reach_the_body" false \
+            "the body carries no markers -- they are in the commit message, so every open ruling holds nothing: $(one_line "$_pr_body")" load
+    fi
+
     # 3. A SECOND TICK IS A NO-OP WHILE THE RULING IS OPEN. The brake is the open pull request
     # itself — no cursor anywhere — and the base is untouched until the operator merges.
     _base_map=$(cd "$_work" && git show origin/main:.claude/git-identities 2>/dev/null || true)
-    printf '1\thttps://drill.invalid/pr/1\t[Ruling] Standing rulings for the operator\truling: attribution / subject: orphan;ruling: identity_mapping / subject: stranger@example.com\n' \
-        > "${_ctl}/open.tsv"
+    # Derived from the captured body, never hand-written: that is what makes the rows below a
+    # test of the chain rather than of this fixture.
+    printf '1\thttps://drill.invalid/pr/1\t[Ruling] Standing rulings for the operator\t%s\n' \
+        "$_pr_marker_field" > "${_ctl}/open.tsv"
     _s=$( ( cd "$_work" && PATH="${_bin}:$PATH" sh "$_stepr" --tick 20260101-000000 --root "$_work" ) 2>&1 || true )
     _base_map2=$(cd "$_work" && git show origin/main:.claude/git-identities 2>/dev/null || true)
     if printf '%s' "$_s" | grep -q '"needs_agent": \[\]' \

@@ -3,6 +3,7 @@
 ## active
 
 * [deploy-the-docs-site-on-merge-to-main](active/deploy-the-docs-site-on-merge-to-main/mission.md) - Deploy the docs site on merge to main
+* [keep-the-closing-link-readable-as-the-corpus-grows](active/keep-the-closing-link-readable-as-the-corpus-grows/mission.md) - Keep the closing link readable as the corpus grows
 * [make-the-routine-create-body-documented-and-buildable](active/make-the-routine-create-body-documented-and-buildable/mission.md) - Make the routine create body documented and buildable
 * [make-workaholify-converge-the-account-s-routines](active/make-workaholify-converge-the-account-s-routines/mission.md) - Make /workaholify converge the account's routines
 * [point-the-inbound-readers-at-the-channel-that-exists](active/point-the-inbound-readers-at-the-channel-that-exists/mission.md) - Point the inbound readers at the channel that exists

@@ -2,7 +2,7 @@
 type: Mission
 title: Run the loop's own proofs on every turn
 slug: run-the-loop-s-own-proofs-on-every-turn
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-29T12:19:26+00:00
 author: a@qmu.jp
@@ -43,7 +43,7 @@ name. A person is told only when something fails.
       only on a real failure, and CI runs it. (#20260829122104-give-the-drill-an-aggregate-verb-with-a-machine-verdict.md)
 - [x] A drill whose breaker no longer breaks is a failure of its own; one needing the
       server is named skipped, never counted green. (#20260829122104-exercise-the-breaker-rows-and-report-a-drill-that-cannot-fail.md)
-- [ ] A failing drill names its shipping mission, `/moderate` asks once and is silent on
+- [x] A failing drill names its shipping mission, `/moderate` asks once and is silent on
       green, and a hermetic test fails when an unreachable drill lands. (#20260829122105-pin-the-drill-verdict-path-offline.md)
 
 ## Changelog
@@ -56,3 +56,5 @@ name. A person is told only when something fails.
 - 2026-08-29 — ticket archived — 20260829122104-run-the-hermetic-drill-set-in-ci-on-push.md
 - 2026-08-29 — ticket archived — 20260829122104-report-the-drill-state-in-the-moderation-tick.md
 - 2026-08-29 — ticket archived — 20260829122104-name-the-drill-verdict-beside-a-mission-close.md
+- 2026-08-29 — ticket archived — 20260829122105-pin-the-drill-verdict-path-offline.md
+- 2026-08-29 — mission achieved — mission.md

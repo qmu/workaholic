@@ -31,7 +31,8 @@
 # question is already a reply inside that root.
 #
 # THE WINDOW AND THE CHANNEL ARE THE INBOUND SWEEP'S OWN, ON PURPOSE.
-# `WORKAHOLIC_INBOUND_SLACK_CHANNEL` (default `<repo_name>`) and
+# `WORKAHOLIC_INBOUND_SLACK_CHANNEL` (default `<repo_name>`; this repository sets it to
+# `dev-workaholic` in `.claude/settings.json`, since no `#workaholic` exists here) and
 # `WORKAHOLIC_INBOUND_SLACK_WINDOW_HOURS` (default 26) are read here unchanged rather than
 # duplicated under new names: one channel and one window mean the two readings cannot disagree
 # about which messages the loop had a chance to see, and a second pair of variables is how they

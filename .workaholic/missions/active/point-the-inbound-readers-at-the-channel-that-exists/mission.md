@@ -39,7 +39,8 @@ reported by its own name — never as a quiet hour with nothing waiting.
 
 ## Acceptance
 
-- [ ] The `:40` sweep and `unanswered-asks` read `#dev-workaholic`, the channel the loop posts to. (#20260829062827-name-the-channel-the-routines-actually-post-to.md)
+- [x] The `:40` sweep and `unanswered-asks` read `#dev-workaholic`, the channel the loop posts to. (#20260829062827-name-the-channel-the-routines-actually-post-to.md)
 - [ ] A channel that resolves to nothing is named as that, distinctly from an empty window. (#20260829062827-tell-an-unresolvable-channel-from-an-empty-one.md)
 
 ## Changelog
+- 2026-08-29 — ticket archived — 20260829062827-name-the-channel-the-routines-actually-post-to.md

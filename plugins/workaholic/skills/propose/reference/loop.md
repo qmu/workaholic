@@ -4,7 +4,8 @@
 
 0. **Sweep the channel** (2026-08-23, the developer's instruction to drop the Claude Tag
    dependency; the full rules are the skill's *The inbound sweep* section). Read
-   `WORKAHOLIC_INBOUND_SLACK_CHANNEL` (default `<repo_name>`) through the Slack
+   `WORKAHOLIC_INBOUND_SLACK_CHANNEL` (default `<repo_name>`; this repository sets it to
+   `dev-workaholic` in `.claude/settings.json`) through the Slack
    connector over the last `WORKAHOLIC_INBOUND_SLACK_WINDOW_HOURS` (default 26) hours.
    Fetch the dedup ledger first — `list-swept-slack-refs.sh`; `ok: false` skips the sweep
    as `sweep_dedup_unreadable`, never runs it blind. For each human message that clears

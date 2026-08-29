@@ -43,6 +43,10 @@ downstream (`[Specificate]`'s ingestion, the record, the proposal) is untouched.
 **The channel** is `WORKAHOLIC_INBOUND_SLACK_CHANNEL`, defaulting to the repository's own
 name, `<repo_name>` — the channel `workaholic:notify` already holds standing consent to read
 (the `dev-` prefix convention was retired 2026-08-28; no prefix is expected or required).
+**A repository whose channel is named otherwise sets the variable**, which is the escape
+hatch that retirement documented; this one sets it to `dev-workaholic` in its own
+`.claude/settings.json` `env` block, because no `#workaholic` exists in the workspace. The
+default derivation does not move and no routine prompt gains a repository name (P7).
 **The window** is `WORKAHOLIC_INBOUND_SLACK_WINDOW_HOURS` (default 26): wider than the hourly
 tick by a day so a missed tick drops nothing, and the dedup below is what makes the overlap
 free. **This read is a bounded channel-history read, and it is the one place that has

@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 0.82
 feedback: [20260829041743-let-the-tick-s-own-findings-become-the-loop-s-work.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
@@ -58,3 +58,4 @@ their ruling, and the run report naming what was filed, held and left.
 - 2026-08-29 — ticket archived — 20260829042145-drill-the-findings-to-work-path-offline.md
 - 2026-08-29 — mission achieved — mission.md
 - 2026-08-29 — story reported — work-20260829-044056.md
+- 2026-08-29 — run recorded (+0.82h) — run-cse_01WWyesqNAB8UBtiRcfqSgJw

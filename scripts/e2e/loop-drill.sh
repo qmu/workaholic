@@ -4801,6 +4801,207 @@ STUB
     emit_verdict "ci-retirement" 0 "pass" 0
 }
 
+# ------------------------------------------------------------ verify-act-effect
+# Did the act the loop took actually TAKE EFFECT -- and does anything say so when it did not?
+#
+# WHY IT EXISTS (2026-08-29, mission `read-back-whether-the-loop-s-own-act-took-effect`).
+# Every reading in this repository answers *what did I find*. None answered *did what I did
+# happen*. Measured on this repository the day the mission opened: `claim-retirement.yml` was
+# green on every run while THREE proved-`superseded` claims stood on origin, and the tick log
+# recorded, hour after hour, *"ci_turn: taken so CI could not take the delete either"* --
+# an assertion about a second executor that NOTHING ESTABLISHED. `ci-retirement-turn.sh`
+# answered `taken` from a completed run's EXISTENCE at the base tip, on a premise its own
+# header stated and the world did not honour.
+#
+# THE REPORTED SYMPTOM AND THE MEASURED ONE DIFFER, AND THE DIFFERENCE IS WORTH KEEPING. The
+# report assumed the question was suppressed. It is not: the step suppresses on `pending` and
+# asks on `taken`, so all three units DID reach `needs_agent` on every tick, and what actually
+# held them was the working-day hold -- the gate working. What was wrong is the SENTENCE, in
+# the one durable audit trail the tick keeps, and a false reading is worse than a missing one:
+# it retires the question rather than raising it, and it would have suppressed the ask outright
+# had the same inference ever answered `pending`.
+#
+# WHAT IT ASSERTS IS THE READING, NEVER A CAUSE. A completed turn that took no act must never
+# read `taken`. That wording is deliberate: two different causes produce a standing candidate --
+# a candidate reading that yielded the unit no entry, and an act refused by one of its own
+# words -- and a reproduction written against either one would go quiet the moment the other
+# became live. Both are drilled, separately, because the repair of one is exactly what would
+# silently drop the other. Each row also asserts the holder is still asked, so a repair that
+# bought its honesty by going silent fails here too.
+#
+# THE LOCALIZATION THAT PRODUCED IT, recorded here because a later reader will want the
+# measurement rather than the conclusion. Under an Actions-style credential (`gh api user`
+# refused, which is what a `GITHUB_TOKEN` installation token answers for `GET /user`):
+#
+#   list-retirable-claims.sh        names all three candidates -- the two executors' readers AGREE
+#   delete-retired-claim-branch.sh  refuses `gh_unavailable` before attempting the delete
+#
+# So the refused-act cause is the live one here, and it is refused at the transport probe rather
+# than at the proof gate. The candidate-divergence cause is drilled beside it anyway: it is the
+# one the original report assumed, and a drill that covered only the live cause would pass a
+# repository where the other one is.
+#
+# NO NETWORK. A local bare origin and a `gh` stub on PATH, asserted to be what `gh` resolves to
+# rather than assumed. The origin's own `update` hook refuses every branch deletion, which is
+# the container's measured Act 2 refusal reproduced where the real one happens -- so the step
+# has a genuinely blocked retirement to read, and the reading is what is under test.
+cmd_verify_act_effect() {
+    _turn="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/ci-retirement-turn.sh"
+    _step="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/step-retire-claims.sh"
+    _flow="${REPO_ROOT}/.github/workflows/claim-retirement.yml"
+    for _f in "$_turn" "$_step" "$_flow"; do
+        [ -f "$_f" ] || emit_err "act_effect_seam_unreadable" 4 "${_f} is not present in this checkout"
+    done
+
+    _before=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+
+    _tmp=$(mktemp -d)
+    _origin="${_tmp}/origin"; _work="${_tmp}/work"; _read="${_tmp}/read"
+    _bin="${_tmp}/bin"; _ctl="${_tmp}/ctl"
+    mkdir -p "$_origin" "$_bin" "$_ctl"
+    _me=$(cd "$REPO_ROOT" && git config user.email 2>/dev/null || echo drill@example.com)
+    _git() { git -c user.email="$_me" -c user.name=Drill -c commit.gpgsign=false "$@"; }
+
+    ( cd "$_origin" && git -c init.defaultBranch=main init -q --bare ) || true
+    ( cd "$_tmp" && git clone -q "$_origin" work ) || true
+    mkdir -p "${_work}/.workaholic/tickets/todo"
+    for _n in 1 2 3; do
+        printf -- '---\ncreated_at: 2026-03-01T00:00:0%s+09:00\nauthor: %s\n---\n\n# T%s\n' \
+            "$_n" "$_me" "$_n" > "${_work}/.workaholic/tickets/todo/2026030100000${_n}-t.md"
+    done
+    ( cd "$_work" && _git add -A && _git commit -qm seed && git push -q origin main ) || true
+
+    # The container's Act 2 refusal, reproduced server side on every branch deletion the file
+    # transport carries -- the same receive-side path a remote refusal takes.
+    printf '#!/bin/sh\nif [ "$3" = "0000000000000000000000000000000000000000" ]; then\n  echo "deleting a branch is not permitted for this session type" >&2\n  exit 1\nfi\nexit 0\n' > "${_origin}/hooks/update"
+    chmod +x "${_origin}/hooks/update"
+
+    _claim() { # $1 = branch, $2 = unit, $3 = path to stamp
+        ( cd "$_work" && git checkout -q -b "$1" main \
+          && printf -- '---\ncreated_at: 2026-03-01T00:00:00+09:00\nauthor: %s\nclaim: %s\n---\n\n# T\n\nclaimed\n' "$_me" "$1" > "${_work}/$3" \
+          && _git commit -qam "Claim a PR-unit" -m "Unit: $2" \
+          && git push -q origin "$1" ) >/dev/null 2>&1 || true
+    }
+    _claim work-20260301-000001 batch-effect-unnamed .workaholic/tickets/todo/20260301000001-t.md
+    _claim work-20260301-000002 batch-effect-refused .workaholic/tickets/todo/20260301000002-t.md
+    _claim work-20260301-000003 batch-effect-silent  .workaholic/tickets/todo/20260301000003-t.md
+
+    # THE PROOF: every claimed ticket archived on the base by another route, so each branch can
+    # never land -- which is `superseded`, the one verdict the retirement acts on.
+    ( cd "$_work" && git checkout -q main \
+      && mkdir -p .workaholic/tickets/archive/work-20260301-000000 \
+      && for _f in 1 2 3; do \
+             git mv ".workaholic/tickets/todo/2026030100000${_f}-t.md" \
+                    .workaholic/tickets/archive/work-20260301-000000/ ; \
+         done \
+      && _git commit -qm "Archive the tickets elsewhere" && git push -q origin main ) >/dev/null 2>&1 || true
+
+    ( cd "$_tmp" && git clone -q "$_origin" read ) >/dev/null 2>&1 || true
+    ( cd "$_read" && git config user.email "$_me" && git config user.name Drill \
+      && git config remote.origin.fetch '+refs/heads/*:refs/remotes/origin/*' \
+      && git fetch -q --prune origin ) >/dev/null 2>&1 || true
+    printf '%s' "$(cd "$_read" && git rev-parse origin/main)" > "${_ctl}/base_sha"
+
+    # THE STUB. It answers `gh api user`, the workflow-run query, the run's jobs (which carry
+    # the check run the turn's record is attached to), and the annotations that ARE that record.
+    # The record is read out of a control file so each row below can put the turn in one state
+    # without rebuilding the fixture.
+    printf '[]' > "${_ctl}/record.json"
+    cat > "${_bin}/gh" <<STUB
+#!/bin/sh
+ARGS="\$*"
+CTL="${_ctl}"
+case "\$ARGS" in
+  "api user"*) echo drill; exit 0 ;;
+  *actions/workflows/claim-retirement.yml/runs*)
+      if [ -f "\$CTL/ci_pending" ]; then
+          echo '{"workflow_runs":[]}'
+      else
+          printf '{"workflow_runs":[{"id":900,"head_sha":"%s","conclusion":"success"}]}\n' "\$(cat "\$CTL/base_sha")"
+      fi
+      exit 0 ;;
+  *actions/runs/900/jobs*)
+      echo '{"jobs":[{"name":"retire","conclusion":"success","check_run_url":"https://api.github.com/repos/o/r/check-runs/91"}]}'
+      exit 0 ;;
+  *check-runs/91/annotations*) cat "\$CTL/record.json"; exit 0 ;;
+esac
+echo '[]'
+STUB
+    chmod +x "${_bin}/gh"
+    if [ "$(PATH="${_bin}:$PATH" command -v gh)" = "${_bin}/gh" ]; then
+        add_row "act_effect_no_network" true "the stub is what gh resolves to, and the origin is a local bare repository -- no row below reaches the network" load
+    else
+        add_row "act_effect_no_network" false "gh does not resolve to the stub; this drill would reach the network" load
+        rm -rf "$_tmp"
+        emit_verdict "act-effect" 0 "fail" 1
+    fi
+
+    # One annotation line, in the shape `claim-retirement.yml` records. `title` and the message's
+    # own leading marker are both set, so the reader does not depend on either alone surviving.
+    _note() { printf '{"annotation_level":"notice","title":"claim-retirement","message":"claim-retirement %s"}' "$1"; }
+    _record() { printf '[%s]' "$*" > "${_ctl}/record.json"; }
+
+    _turn_for() { ( cd "$_read" && PATH="${_bin}:$PATH" \
+        WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES=0 sh "$_turn" "$1" ) 2>&1 || true; }
+    _tick() { ( cd "$_read" && PATH="${_bin}:$PATH" WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES=0 \
+        sh "$_step" --tick "$1" --root "$_read" ) 2>&1 || true; }
+    _unit_turn() { printf '%s' "$1" | jq -r --arg u "$2" \
+        '[.units[]? | select(.unit == $u) | .ci_turn] | first // "ABSENT"' 2>/dev/null || printf 'ABSENT'; }
+
+    # 1. A TURN WHOSE CANDIDATE READING NAMED THIS UNIT NOTHING. The tree proves the candidate
+    # stands; the record shows the turn's own reader could not name it, and why. The reading
+    # carries that reason through rather than inventing one, and `taken` is the one answer that
+    # must never come back -- it is what the measured run answered.
+    _record "$(_note 'candidates ok=false reason=origin_unreachable count=0')"
+    _t1=$(_turn_for batch-effect-unnamed)
+    _s1=$(_tick 20260301-000001)
+    if [ "$(_unit_turn "$_t1" batch-effect-unnamed)" = "refused:origin_unreachable" ] \
+        && printf '%s' "$_s1" | grep -q 'retire-blocked:batch-effect-unnamed'; then
+        add_row "act_effect_unnamed_candidate" true "a turn that considered this unit nothing never reads taken, and its holder is asked" load
+    else
+        add_row "act_effect_unnamed_candidate" false "a completed turn that named this unit no candidate left it standing with nothing saying so (turn=$(one_line "$_t1")): $(one_line "$_s1")" load
+    fi
+
+    # 2. A TURN WHOSE ACT WAS REFUSED BY ONE OF ITS OWN WORDS. This is the cause measured live
+    # on this repository, and the word must reach the reading verbatim rather than be flattened.
+    _record "$(_note 'candidates ok=true reason= count=1')," \
+            "$(_note 'act unit=batch-effect-refused branch=work-20260301-000002 state=not_attempted reason=gh_unavailable')"
+    _t2=$(_turn_for batch-effect-refused)
+    _s2=$(_tick 20260301-000002)
+    if [ "$(_unit_turn "$_t2" batch-effect-refused)" = "refused:gh_unavailable" ] \
+        && printf '%s' "$_s2" | grep -q 'retire-blocked:batch-effect-refused'; then
+        add_row "act_effect_refused_act" true "a refused act reads refused:gh_unavailable, carrying the act's own word, and reaches its holder" load
+    else
+        add_row "act_effect_refused_act" false "a refused act was not read as refused (turn=$(one_line "$_t2")): $(one_line "$_s2")" load
+    fi
+
+    # 3. THE MEASURED FAILURE ITSELF: a completed, green run at the base tip that recorded
+    # NOTHING. Answering `taken` from its existence is the inference this mission retires, and a
+    # reading that cannot be made must never be dressed as one that was.
+    _record ""
+    _t3=$(_turn_for batch-effect-silent)
+    _s3=$(_tick 20260301-000003)
+    if [ "$(_unit_turn "$_t3" batch-effect-silent)" = "unreadable" ] \
+        && printf '%s' "$_s3" | grep -q 'retire-blocked:batch-effect-silent'; then
+        add_row "act_effect_never_taken_from_existence" true "a completed run that recorded nothing reads unreadable, never taken, and suppresses no question" load
+    else
+        add_row "act_effect_never_taken_from_existence" false "a completed run with no record still stood in for an act that did not happen (turn=$(one_line "$_t3")): $(one_line "$_s3")" load
+    fi
+
+    _after=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+    if [ "$_before" = "$_after" ]; then
+        add_row "act_effect_writes_nothing" true "the checkout is byte-identical after the drill" load
+    else
+        add_row "act_effect_writes_nothing" false "the drill changed the working tree" load
+    fi
+
+    rm -rf "$_tmp"
+    if [ "$LOAD_FAILED" -gt 0 ]; then
+        emit_verdict "act-effect" 0 "fail" 1
+    fi
+    emit_verdict "act-effect" 0 "pass" 0
+}
+
 # --------------------------------------------------------- verify-base-health
 # Did the base survive what the loop merged -- and does that reading stay a READING? The loop
 # merges its own work onto `main` every half hour and nothing read a check run, so a green base
@@ -6501,7 +6702,7 @@ cmd_verify_all() {
     exit "$_code"
 }
 
-USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-all [--only <drill>] [--list] [--timeout <s>]|verify-specificate <issue>|verify-implement <issue>|verify-plan [--json]|verify-status [--json]|verify-cadence [--json]|verify-planner [--json]|verify-standup [--json]|verify-moderate [--json]|verify-propose [--json]|verify-direction-health [--json]|verify-arrival [--json]|verify-residue [--json]|verify-expiry [--json]|verify-rulings [--json]|verify-succession [--json]|verify-revision [--json]|verify-merged-claim [--json]|verify-identity-handoff [--json]|verify-close [--json]|verify-catch-up [--json]|verify-corpus-boundary [--json]|verify-retire [--json]|verify-ci-retirement [--json]|verify-delivery-retry [--json]|verify-handoff-question [--json]|verify-base-health [--json]|verify-return-path [--json]|verify-reconcile [--json]|verify-checkin-delivery [--json]|verify-findings-to-work [--json]"}'
+USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-all [--only <drill>] [--list] [--timeout <s>]|verify-specificate <issue>|verify-implement <issue>|verify-plan [--json]|verify-status [--json]|verify-cadence [--json]|verify-planner [--json]|verify-standup [--json]|verify-moderate [--json]|verify-propose [--json]|verify-direction-health [--json]|verify-arrival [--json]|verify-residue [--json]|verify-expiry [--json]|verify-rulings [--json]|verify-succession [--json]|verify-revision [--json]|verify-merged-claim [--json]|verify-identity-handoff [--json]|verify-close [--json]|verify-catch-up [--json]|verify-corpus-boundary [--json]|verify-retire [--json]|verify-ci-retirement [--json]|verify-act-effect [--json]|verify-delivery-retry [--json]|verify-handoff-question [--json]|verify-base-health [--json]|verify-return-path [--json]|verify-reconcile [--json]|verify-checkin-delivery [--json]|verify-findings-to-work [--json]"}'
 
 CMD="${1:-}"
 [ -n "$CMD" ] || {
@@ -6552,6 +6753,7 @@ case "$CMD" in
     verify-catch-up) cmd_verify_catch_up "$@" ;;
     verify-retire) cmd_verify_retire "$@" ;;
     verify-ci-retirement) cmd_verify_ci_retirement "$@" ;;
+    verify-act-effect) cmd_verify_act_effect "$@" ;;
     verify-delivery-retry) cmd_verify_delivery_retry "$@" ;;
     verify-handoff-question) cmd_verify_handoff_question "$@" ;;
     verify-base-health) cmd_verify_base_health "$@" ;;

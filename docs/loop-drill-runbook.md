@@ -1315,6 +1315,7 @@ rather than guessed. **No artifact gained a field**: the slug lives here and now
 | `verify-reconcile` | `hermetic` | yes | `reconcile-a-stale-thread-with-the-unit-s-real-state` |
 | `verify-checkin-delivery` | `hermetic` | yes | `deliver-what-the-loop-already-knows-to-the-person-who-can-act` |
 | `verify-findings-to-work` | `hermetic` | yes | `let-the-tick-s-own-findings-become-the-loop-s-work` |
+| `verify-act-effect` | `hermetic` | no | `read-back-whether-the-loop-s-own-act-took-effect` |
 
 ### The evidence behind the classification
 

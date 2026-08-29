@@ -2467,7 +2467,39 @@ function testStrategyAmend() {
       .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
     const flags = [...src.matchAll(/^\s*(--[a-z-]+)\)/gm)].map((m) => m[1]).sort();
     assertEq("the interface offers exactly the revisable parts", flags,
-      ["--aim", "--assignees", "--schedule", "--target-date"]);
+      ["--aim", "--assignees", "--schedule", "--stage", "--target-date"]);
+
+    // 9. THE STAGE IS THE FOURTH REVISABLE PART (2026-08-29, mission
+    //    `make-a-direction-s-lifecycle-a-declared-stage`) — and nothing else moved with it:
+    //    no fourth writer, no new route, no new refusal vocabulary. It is the one revisable
+    //    field that may be ABSENT, so a move onto an unstaged direction must INSERT the line
+    //    where `create.sh` puts it rather than leave the file without one.
+    run(A, `printf 'Build the staged thing.\\n' | ${POSIX_SH} ${SCRIPTS.strategyCreate} ` +
+      `'Staged' 2026-09-30 'a@example.com' 'Start now.' '20260101000000-x.md' .workaholic`);
+    const staged = amend("staged --stage 改良中");
+    assertEq("a stage revision reports the part it moved", staged.revised, ["stage"]);
+    const stagedBody = readFileSync(join(A, ".workaholic/strategies/staged.md"), "utf8");
+    assertTrue("the line is inserted directly after status:, where create.sh puts it",
+      /^status: active\nstage: 改良中$/m.test(stagedBody), stagedBody);
+    assertTrue("and the dated Schedule line names the MOVE, not the destination",
+      /^Revised \d{4}-\d{2}-\d{2}: stage 進行中 → 改良中\.$/m.test(stagedBody), stagedBody);
+    // Reading the previous value through `read.sh` is what makes `進行中 →` correct on a file
+    // that carries no stage line at all: the absent default keeps ONE derivation.
+    assertTrue("the previous value comes from the one reader, not a second default here",
+      /read\.sh/.test(src), "amend.sh resolves the absent-means-進行中 default itself");
+
+    const moved = amend("staged --stage 観察中");
+    assertEq("the stage is revisable in both directions — nothing treats it as a ratchet",
+      moved.revised, ["stage"]);
+    assertEq("a re-run of the same revision is a byte-identical no-op",
+      amend("staged --stage 観察中").reason, "already");
+
+    const beforeBad = readFileSync(join(A, ".workaholic/strategies/staged.md"), "utf8");
+    assertEq("a value outside the closed set refuses with create.sh's own name",
+      amend("staged --stage improving").reason, "bad_stage");
+    assertEq("...leaving the artifact byte-identical",
+      readFileSync(join(A, ".workaholic/strategies/staged.md"), "utf8"), beforeBad);
+    assertEq("a call naming nothing revisable is still no_revision", amend("staged").reason, "no_revision");
   } finally { cleanup(A); }
 }
 

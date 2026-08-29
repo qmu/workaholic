@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 1
 feedback: [20260829121658-run-the-loop-s-own-proofs-on-every-turn.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
@@ -58,3 +58,4 @@ name. A person is told only when something fails.
 - 2026-08-29 — ticket archived — 20260829122104-name-the-drill-verdict-beside-a-mission-close.md
 - 2026-08-29 — ticket archived — 20260829122105-pin-the-drill-verdict-path-offline.md
 - 2026-08-29 — mission achieved — mission.md
+- 2026-08-29 — run recorded (+1.0h) — work-20260829-124120

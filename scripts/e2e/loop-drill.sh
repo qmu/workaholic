@@ -4531,7 +4531,7 @@ cmd_verify_ci_retirement() {
     ( cd "$_tmp" && git clone -q "$_origin" work ) || true
     mkdir -p "${_work}/.workaholic/tickets/todo" \
              "${_work}/.workaholic/missions/active/mission-ci-flip"
-    for _n in 1 2 3 4 5 6; do
+    for _n in 1 2 3 4 5 6 7; do
         printf -- '---\ncreated_at: 2026-02-01T00:00:0%s+09:00\nauthor: %s\n---\n\n# T%s\n' \
             "$_n" "$_me" "$_n" > "${_work}/.workaholic/tickets/todo/2026020100000${_n}-t.md"
     done
@@ -4561,6 +4561,10 @@ cmd_verify_ci_retirement() {
     _claim work-20260201-000003 batch-ci-blocked   .workaholic/tickets/todo/20260201000003-t.md
     _claim work-20260201-000004 batch-ci-openpr    .workaholic/tickets/todo/20260201000004-t.md
     _claim work-20260201-000005 mission-ci-flip    .workaholic/missions/active/mission-ci-flip/mission.md
+    # The seventh exists for one row: the CI-side act run under an ACTIONS-STYLE credential,
+    # where `gh api user` is refused. It needs its own unit because every other superseded one is
+    # already spoken for by a bound or by an earlier row.
+    _claim work-20260201-000007 batch-ci-token     .workaholic/tickets/todo/20260201000007-t.md
     # The two branch-shape bounds. `claims_scan` walks every remote head, not only `work-*`, so a
     # claim commit on either of these IS a claim row -- which is exactly why the act must refuse
     # them by name rather than trusting that they cannot occur.
@@ -4572,7 +4576,7 @@ cmd_verify_ci_retirement() {
     # stays queued, which is what keeps it a judgement.
     ( cd "$_work" && git checkout -q main \
       && mkdir -p .workaholic/tickets/archive/work-20260201-000000 \
-      && for _f in 1 3 4 5 6; do \
+      && for _f in 1 3 4 5 6 7; do \
              git mv ".workaholic/tickets/todo/2026020100000${_f}-t.md" \
                     .workaholic/tickets/archive/work-20260201-000000/ ; \
          done \
@@ -4597,6 +4601,13 @@ ARGS="\$*"
 CTL="${_ctl}"
 ORIGIN="${_origin}"
 case "\$ARGS" in
+  *"api rate_limit"*) echo 15000; exit 0 ;;
+  *"api user"*)
+      # An Actions-style credential: \`GET /user\` is not accessible to an installation token.
+      if [ -f "\$CTL/actions_token" ]; then
+          echo 'Resource not accessible by integration' >&2; exit 1
+      fi
+      echo drill; exit 0 ;;
   user*) echo drill; exit 0 ;;
   *actions/workflows/claim-retirement.yml/runs*)
       if [ -f "\$CTL/ci_pending" ]; then
@@ -4677,6 +4688,23 @@ STUB
     else
         add_row "ci_retirement_idempotent" false "a second CI turn was not a no-op: $(one_line "$_again")" load
     fi
+
+    # 2d. AND IT TAKES THE ACT UNDER THE CREDENTIAL CI ACTUALLY HAS. `GET /user` is not accessible
+    # to a GitHub App installation token, which is what `GITHUB_TOKEN` is inside a workflow, so
+    # while `gh-rest.sh available` probed `gh api user` every script guarded by it refused
+    # `gh_unavailable` in CI whatever its own operation's permissions were. Measured 2026-08-29:
+    # this workflow holds `contents: write` and had deleted NOTHING since it shipped. This is the
+    # row that would have caught it -- the probe must test the capability, not identity.
+    : > "${_ctl}/actions_token"
+    _tok=$(_run "$_act" batch-ci-token)
+    if printf '%s' "$_tok" | grep -q '"deleted": true' \
+        && [ "$(_field "$_tok" state)" = "deleted" ] \
+        && [ "$(_on_origin work-20260201-000007)" = "0" ]; then
+        add_row "ci_retirement_actions_credential" true "the CI-side act reaches its transport and deletes the branch under a credential that cannot call GET /user" load
+    else
+        add_row "ci_retirement_actions_credential" false "the act was refused under an Actions-style credential (branch_present=$(_on_origin work-20260201-000007)): $(one_line "$_tok")" load
+    fi
+    rm -f "${_ctl}/actions_token"
 
     # 3. A JUDGEMENT IS REFUSED BY ITS OWN VERDICT WORD, and the live branch survives. Acting on
     # `claim_active` is how a workflow tears down work a run is still driving.

@@ -6,7 +6,6 @@
 * [make-the-routine-create-body-documented-and-buildable](active/make-the-routine-create-body-documented-and-buildable/mission.md) - Make the routine create body documented and buildable
 * [make-workaholify-converge-the-account-s-routines](active/make-workaholify-converge-the-account-s-routines/mission.md) - Make /workaholify converge the account's routines
 * [refuse-ok-under-a-placeholder-identity](active/refuse-ok-under-a-placeholder-identity/mission.md) - Refuse ok under a placeholder identity
-* [warn-a-direction-before-its-date-silences-the-loop](active/warn-a-direction-before-its-date-silences-the-loop/mission.md) - Warn a direction before its date silences the loop
 
 ## archive
 
@@ -87,3 +86,4 @@
 * [tell-a-merged-claim-from-a-live-one-at-both-grains](archive/tell-a-merged-claim-from-a-live-one-at-both-grains/mission.md) - Tell a merged claim from a live one at both grains
 * [tell-an-unanswered-question-from-an-answered-one](archive/tell-an-unanswered-question-from-an-answered-one/mission.md) - Tell an unanswered question from an answered one
 * [turn-the-loop-at-mission-granularity](archive/turn-the-loop-at-mission-granularity/mission.md) - Turn the loop at mission granularity
+* [warn-a-direction-before-its-date-silences-the-loop](archive/warn-a-direction-before-its-date-silences-the-loop/mission.md) - Warn a direction before its date silences the loop

@@ -380,6 +380,50 @@ overdue.
 
 Who is told is `/moderate`'s business, not this routine's, for the reason `pace` records above.
 
+### Expiring: the date is about to arrive
+
+`pace`, `overdue` and `dormant` all answer **backwards**. None answers *this direction is about
+to stop originating work*, so a live, in-date, `on_course` direction one day from its
+`target_date` produced no reading and no question anywhere in the layer — and the day after,
+`past_target_date` silenced origination with the only signal being `direction-overdue`, asked in
+**arrears**. Measured on `an-autonomous-improvement-loop-run-by-the-routines` at the hour the ask
+was written: `days_to_target: 2`, `pace: on_course`, `overdue: false`, `dormant: false` — every
+reading healthy, two days from silence.
+
+`survey-strategies.sh` emits **`expiring`** on every surveyed row, eligible and refused alike,
+`true` exactly when `days_to_target != null` and `0 <= days_to_target <= $window_days`. The
+refused case is the point rather than a courtesy: a direction with a date approaching normally
+has work in flight, so it is refused `work_waiting` — the very shape the reading exists to catch.
+
+**The threshold is not a threshold.** Both terms were already on the row and already justified
+there: `$window_days` is the evidence window the judgment is made against, derived from the same
+`$WINDOW` `pace` is derived from, and the remaining days are the date the strategy itself
+declares. So the reading means *less runway remains than the window the judgment can see* — the
+point at which `pace` stops being able to tell whether the direction will arrive. **A tunable
+constant is refused by name**: a fresh number is one nobody can defend, and a narrower window
+must narrow the reading with it.
+
+**Folding it into `pace` as a fourth value is refused**, for the reason `overdue` records: one
+field answering two questions is how the two drift.
+
+**Boundaries, stated rather than tuned.** `days_to_target < 0` is the answer `overdue` gives and
+never this one, so the two are exhaustive and disjoint with no gap and no overlap; a direction
+whose date is **today** reads `0` and **is** expiring, not overdue; and a row with no resolvable
+`target_date` is never expiring — malformed is not near, exactly as it is not late.
+
+**It changes no gate.** `expiring` is computed *before* `refusal`, so every refusal, `pace`,
+`overdue`, `dormant`, `quiescent`, the sort and `selected` are byte-identical across the
+boundary. What changes is only that the run report **says** it: a tick proposing against an
+`expiring: true` strategy names `expiring` beside that proposal as evidence, in the same voice
+`pace` and `arrived` use. Proposing *more urgently* against an expiring direction, and *skipping*
+one to leave the operator room to decide, are both refused deliberately — each makes the output
+of the one routine that originates work a function of a clock, which is the coupling `pace` was
+kept out of. **A machine re-dating or closing a direction on this reading is refused too**: the
+artifact keeps its three writers, and a run never amends a direction on its own reading.
+
+Who is told is `/moderate`'s business: `direction-expiring:<slug>`, addressed to the direction's
+assignee, once, before the date.
+
 ### Dormant: a live direction nothing is answering
 
 A direction can be perfectly legible, perfectly in date, perfectly eligible — and have nothing

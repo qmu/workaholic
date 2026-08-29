@@ -725,6 +725,7 @@ check-in as a question addressed to that direction's assignee:
 | ------- | ------------ | ------------ |
 | `arrived` | `direction-arrived:<slug>` | the strategy's `assignees` |
 | `overdue` | `direction-overdue:<slug>` | the strategy's `assignees` |
+| `expiring` (2026-08-29) | `direction-expiring:<slug>` | the strategy's `assignees` |
 | `dormant` | `direction-dormant:<slug>` | the strategy's `assignees` |
 | `none` (repository-level) | `direction-none` | nobody — there is no direction to own |
 | **the last live direction** (repository-level, 2026-08-28) | `direction-last:<slug>` | the strategy's `assignees` |
@@ -774,6 +775,25 @@ beside **what no direction claimed**. The residue was half of it, and the half t
 to see the work of its **own** that never landed, and `overdue` had neither half. Asking before
 the decision is the whole point: after the close it is a post-mortem, here it is evidence in the
 one place a person is being asked to rule.
+
+**A fifth reading since 2026-08-29** (mission `warn-a-direction-before-its-date-silences-the-loop`):
+a direction whose date is **approaching**. Every reading above answers backwards — has the date
+gone, is anything answering it, has its work come in — so a live, in-date, `on_course` direction
+one day from its `target_date` produced no question at all, and the day after `past_target_date`
+silenced origination with the only signal being `direction-overdue`, asked in **arrears**. The
+precedent is `direction-last:<slug>`, which names the last live direction to its owner *while
+they can still act* rather than announcing silence afterwards to nobody; expiry is that same
+event by a different cause.
+
+**Its heading names the days left and the date**, because a warning that does not say how long
+somebody has is not a warning, and the leaving rides it exactly as it rides `arrived` and
+`overdue`. Its body names the same act `overdue` names — re-date it, announce a successor when
+you end it, or say it still stands — offered while it can still be taken, inside
+`workaholic:notify`'s one-sentence bound. Every gate applies unchanged: the asked-once ledger,
+the per-tick cap, the quiet hours, the working-day hold. **It is never held by an open ruling**,
+for `overdue`'s own reason — a ruling answers which direction a mission belongs to and answers
+nothing about a date. And the step **asks and nothing else**: nothing is re-dated, closed,
+amended or gated, and the artifact keeps its three writers.
 
 **Carried, never composed in the step.** `direction-state.sh --with-leaving` attaches
 `strategy/scripts/closing-residue.sh`'s composition to each row, and the step reads that field —

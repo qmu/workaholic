@@ -2,7 +2,7 @@
 type: Mission
 title: Warn a direction before its date silences the loop
 slug: warn-a-direction-before-its-date-silences-the-loop
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-29T02:18:51+00:00
 author: a@qmu.jp
@@ -57,3 +57,5 @@ machine re-dates, closes or amends a direction.
 - 2026-08-29 — ticket archived — 20260829021947-ask-the-assignee-once-before-the-date.md
 - 2026-08-29 — ticket archived — 20260829021947-name-expiring-in-the-run-report-as-evidence.md
 - 2026-08-29 — ticket archived — 20260829021947-drill-the-expiry-warning-with-no-network.md
+- 2026-08-29 — ticket archived — 20260829021947-state-the-expiry-reading-and-its-refusals.md
+- 2026-08-29 — mission achieved — mission.md

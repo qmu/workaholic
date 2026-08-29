@@ -6,6 +6,7 @@ depends_on:
 mission:
 merge_policy:
 verification_handoff: 
+claim: work-20260829-102134
 ---
 
 # Resolve a unit's stems through an archived mission

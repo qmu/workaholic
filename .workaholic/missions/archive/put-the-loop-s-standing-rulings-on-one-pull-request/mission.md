@@ -58,3 +58,4 @@ read proposes nothing.
 - 2026-08-29 — ticket archived — 20260828212022-suppress-the-question-the-ruling-diff-carries.md
 - 2026-08-29 — ticket archived — 20260828212022-drill-the-ruling-path-with-no-network.md
 - 2026-08-29 — mission achieved — mission.md
+- 2026-08-29 — story reported — work-20260828-214118.md

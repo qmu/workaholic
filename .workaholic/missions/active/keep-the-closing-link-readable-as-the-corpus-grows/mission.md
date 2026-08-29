@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260829-074143
 ---
 
 # Keep the closing link readable as the corpus grows

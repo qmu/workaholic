@@ -57,3 +57,4 @@ zero.
 - 2026-08-29 — ticket archived — 20260829072045-name-a-degraded-direction-reading-in-the-run-reports.md
 - 2026-08-29 — ticket archived — 20260829072045-drill-the-corpus-boundary-offline.md
 - 2026-08-29 — mission achieved — mission.md
+- 2026-08-29 — story reported — work-20260829-074143.md

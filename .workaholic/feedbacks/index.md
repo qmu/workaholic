@@ -599,4 +599,5 @@
 * [Land the loop's own work when the base moves under it](20260829061651-land-the-loop-s-own-work-when-the-base-moves-under-it.md)
 * [The inbound Slack channel default resolves to a channel that does not exist](20260829062618-the-inbound-slack-channel-default-resolves-to-a-channel-that-does-not-exist.md)
 * [Keep the closing link readable as the corpus grows](20260829071715-keep-the-closing-link-readable-as-the-corpus-grows.md)
+* [The generated OKF indexes and CLAUDE.md are the seam every stuck pull request collides on](20260829081653-the-generated-okf-indexes-and-claude-md-are-the-seam-every-stuck-pull-request-collides-on.md)
 <!-- okf:generated:end -->

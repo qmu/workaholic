@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-29T12:21:04+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -73,3 +74,45 @@ from what exists; **add no field to any artifact**.
 - One drill can legitimately cover a mechanism several missions touched. Name the mission
   that **shipped the drill**, which is a single fact, rather than trying to name every
   mission the mechanism belongs to.
+
+## Final Report
+
+Development completed as planned.
+
+**The resolution source is the runbook's register**, pinned — the ticket's preferred fork.
+Each of the thirty rows was resolved by the derived route it names (`git log -S
+'cmd_verify_<x>()' -- scripts/e2e/loop-drill.sh` → the adding commit → the tickets that
+commit's branch archived → their `mission:` relation, read through
+`mission/scripts/read-relation.sh`), and the result recorded in one place a human keeps
+current. Reading `git log -S` at question time was refused for the reason the ticket
+states: it is slow, and it is **defeated by a rename** — which happened twice here
+(`verify-propose` → `verify-specificate` and `verify-housekeep` → `verify-moderate`,
+2026-08-19), so the derivation lands on the rename commit rather than on the drill's
+origin.
+
+Every resolved slug is **validated against `.workaholic/missions/`** (active and archive)
+by `drill-register.sh`, so a renamed or deleted mission answers `mission_resolved: false`
+rather than being reported as a false attribution. `verify-all` carries `mission` and
+`mission_resolved` on every drill's verdict row, and the `/moderate` question and the
+archive gate both name the mission from the same reader.
+
+**No artifact gained a field and no second parser of `mission:` was written**: the slug
+lives in the register and nowhere else, and the relation was read at resolution time
+through the one reader that already owns it.
+
+**Two rows are unresolved on purpose**, each with its reason written down: `verify-propose`
+(added by a hand-typed commit on a branch that archived no ticket, so there is no relation
+to read — recorded as unresolved rather than attributed to whichever mission happened to be
+in flight that day) and, hand-corrected with its evidence, `verify-moderate` (the
+derivation stops at the 2026-08-19 rename, and its origin is the mission that shipped the
+maintenance tick).
+
+### Discovered Insights
+
+- **Insight**: `git log -S` on a function name resolves the commit that most recently
+  **introduced that string**, which for a renamed drill is the rename, not the origin. Two
+  of the thirty rows land there, and both were silently plausible — the rename commit is a
+  real commit with real tickets on its branch.
+  **Context**: It is the concrete form of the ticket's warning that the derived route is
+  "defeated by a rename", and the reason a register a person maintains beats a derivation
+  run at question time: a wrong attribution is worse than a named absence.

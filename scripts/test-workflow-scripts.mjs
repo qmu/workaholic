@@ -14114,6 +14114,48 @@ function testUnitFeedbackStems() {
     assertEq("an unresolvable mission slug answers zero rather than failing",
       stems(".workaholic/tickets/todo/a-qmu-jp/20260805000008-t8.md"), { count: 0, stems: [] });
 
+    // A MINTED TICKET CARRIES THE MINTING UNIT'S REFS, SO ITS OWN UNIT IS ANNOUNCEABLE
+    // (2026-08-29, ticket `20260829111000`). `/implement` mints a ticket mid-run, and until
+    // this rule it wrote one naming NOTHING — no `feedback:`, no `mission:`. The unit that
+    // later drove it therefore resolved `count: 0`, which leaves the notify lookup with no
+    // stem to search in case 2 AND no record for case 4's root to link, so the merge was
+    // announced to nobody. Measured: `batch-20260829093639` minted
+    // `20260829102500-…`, that ticket became `batch-20260829102127` (PR #716), it merged,
+    // and its finish line went unposted.
+    //
+    // THE BATCH CASE IS WHY THE CARRIED FIELD IS `feedback:` AND NOT `mission:`. The mission
+    // hop asserted above already rescues a mint made while driving a mission unit; a batch
+    // with no mission has no hop to make, and that is the shape that was measured. So the
+    // fixture mints from a MISSIONLESS batch — the case `mission:` alone cannot answer.
+    const mintedLine = run(dir,
+      `${POSIX_SH} ${SCRIPTS.askFeedbackLine} 20260805000001-ask-one.md 20260805000003-ask-three.md`)
+      .stdout.trim();
+    assertEq("the carried refs are emitted by the relation's one writer, not hand-formatted",
+      mintedLine, "feedback: 20260805000001-ask-one.md, 20260805000003-ask-three.md");
+    wk(".workaholic/tickets/todo/a-qmu-jp/20260805000010-minted.md",
+      `---\ncreated_at: 2026-08-05T00:00:10+09:00\nauthor: a@qmu.jp\n${mintedLine}\n---\n\n# Minted\n`);
+    assertEq("a minted ticket carrying its minting unit's refs resolves a non-empty stem set",
+      stems(".workaholic/tickets/todo/a-qmu-jp/20260805000010-minted.md"),
+      { count: 2, stems: ["20260805000001-ask-one", "20260805000003-ask-three"] });
+
+    // AND THE STATUS QUO IS STILL REACHABLE, deliberately: a mint the run cannot say is about
+    // the same item carries NOTHING and its line stays unposted, because a ref carried on a
+    // guess sends that line into somebody else's thread. `count: 0` must therefore remain an
+    // ANSWER for this shape too — never an error introduced to force the carry.
+    wk(".workaholic/tickets/todo/a-qmu-jp/20260805000011-unrelated-mint.md",
+      "---\ncreated_at: 2026-08-05T00:00:11+09:00\nauthor: a@qmu.jp\n---\n\n# Unrelated mint\n");
+    assertEq("a mint that could not be attributed still answers zero rather than failing",
+      stems(".workaholic/tickets/todo/a-qmu-jp/20260805000011-unrelated-mint.md"),
+      { count: 0, stems: [] });
+
+    // THE RULE IS WRITTEN DOWN WHERE THE MINT HAPPENS, so a mint that drops the relation is
+    // visibly non-conformant rather than merely quiet.
+    const mintRule = readFileSync(
+      join(REPO_ROOT, "plugins/workaholic/skills/drive/reference/failure-contract.md"), "utf8");
+    assertTrue("the failure contract states what a minted ticket carries",
+      /minting unit's own resolved `feedback:` refs/.test(mintRule)
+      && /ask-feedback-line\.sh/.test(mintRule), mintRule.slice(0, 120));
+
     // IT STAGES NOTHING. The resolve library also carries living migrations that stage what
     // they converge; only `mission_resolve` is used, because a resolver that dirtied a
     // checkout to decide where a Slack post goes would be writing to answer a read.

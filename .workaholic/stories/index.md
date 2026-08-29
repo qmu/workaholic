@@ -3,6 +3,7 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [work-20260829-113435](work-20260829-113435.md) - A ticket minted mid-run now carries the minting unit's own feedback refs, so the unit that later drives it has a thread to announce its merge in — feedback: rather than mission: alone, because the mission hop cannot rescue a mint from a missionless batch.
 * [work-20260829-111906](work-20260829-111906.md) - Verify that the channel-default assertions are hermetic — the repair landed in #717 before this ticket reached a survey, so this branch checks the gate both ways and records which of the ticket's two open judgments was taken.
 * [work-20260829-104123](work-20260829-104123.md) - Where a routine's environment variables live, established as an absence — a routine selects a cloud environment and carries none of its own — and the hermetic suite stops inheriting the home that rule endorses.
 * [work-20260829-102134](work-20260829-102134.md) - Reach a ticket's feedback refs through the mission that carries them, so a batch unit's finish line lands in the thread its own item is already living in

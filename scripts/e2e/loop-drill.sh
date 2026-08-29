@@ -4413,16 +4413,24 @@ esac"
     # blocked set must render an identical summary -- the root calls a step changed when its
     # summary moves, and a status restated hourly is read by nobody by the second day. Both
     # ticks run after `batch-retirable` is gone, so the set really is unchanged.
+    #
+    # SINCE 2026-08-29 A BLOCKED RETIREMENT SUPPLIES AN `event` (mission
+    # `read-back-whether-the-loop-s-own-act-took-effect`), so the SUMMARY is what holds a
+    # standing block quiet here -- and that is exactly why the summary carries no CI term. The
+    # empty-event guard still covers the other case, a tick whose acts all took, which
+    # `verify-act-effect` drills beside this one.
     _t3=$( ( cd "$_read" && PATH="${_bin}:$PATH" WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES=0 \
         sh "$_step" --tick 20260101-000003 --root "$_read" ) 2>&1 || true )
     _t4=$( ( cd "$_read" && PATH="${_bin}:$PATH" WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES=0 \
         sh "$_step" --tick 20260101-000004 --root "$_read" ) 2>&1 || true )
     _s3=$(printf '%s' "$_t3" | sed -n 's/.*"summary": *"\([^"]*\)".*/\1/p')
     _s4=$(printf '%s' "$_t4" | sed -n 's/.*"summary": *"\([^"]*\)".*/\1/p')
-    if [ -n "$_s3" ] && [ "$_s3" = "$_s4" ] && printf '%s' "$_t4" | grep -q '"event": ""'; then
-        add_row "retire_blocked_summary_stable" true "two ticks over an unchanged blocked set render an identical summary and no root line" load
+    _e3=$(printf '%s' "$_t3" | sed -n 's/.*"event": *"\([^"]*\)".*/\1/p')
+    _e4=$(printf '%s' "$_t4" | sed -n 's/.*"event": *"\([^"]*\)".*/\1/p')
+    if [ -n "$_s3" ] && [ "$_s3" = "$_s4" ] && [ "$_e3" = "$_e4" ]; then
+        add_row "retire_blocked_summary_stable" true "two ticks over an unchanged blocked set render an identical summary, so the root's own diff renders no line" load
     else
-        add_row "retire_blocked_summary_stable" false "a held block moved the summary or produced an event (t3='${_s3}' t4='${_s4}')" load
+        add_row "retire_blocked_summary_stable" false "a held block moved the summary or its event (t3='${_s3}' t4='${_s4}'; e3='${_e3}' e4='${_e4}')" load
     fi
 
     # 14. ASKED ONCE. The gate is the check-in's, not this step's, so the drill exercises the
@@ -5120,6 +5128,32 @@ STUB
         add_row "act_effect_changed_word_reasks" false "the narrowing did not hold (keys '${_k1}' '${_k2}' '${_k3}'; asks ${_r1} ${_r2} ${_r3})" load
     fi
     rm -rf "$_qroot"
+
+    # 11. THE FINDING REACHES THE ROOT, AND ONLY WHEN IT IS NEWS. A tick whose acts did not take
+    # supplies an `event` naming the units; a tick whose acts all TOOK supplies none, so a
+    # healthy hour renders no line at all. The unchanged-reading case is covered by the root's
+    # own diff, which reads the SUMMARY -- and the summary carries no CI term, so a standing
+    # block renders an identical string tick after tick. Both guards are asserted rather than
+    # re-implemented here.
+    _record "$(_note 'candidates ok=true reason= count=1')," \
+            "$(_note 'act unit=batch-effect-refused branch=work-20260301-000002 state=not_attempted reason=gh_unavailable')"
+    _e1=$(_tick 20260301-000020)
+    _record "$(_note 'candidates ok=true reason= count=3')," \
+            "$(_note 'act unit=batch-effect-refused branch=work-20260301-000002 state=deleted reason=')," \
+            "$(_note 'act unit=batch-effect-silent branch=work-20260301-000003 state=deleted reason=')," \
+            "$(_note 'act unit=batch-effect-unnamed branch=work-20260301-000001 state=already_gone reason=')"
+    _e2=$(_tick 20260301-000021)
+    _ev1=$(printf '%s' "$_e1" | jq -r '.event // ""' 2>/dev/null || printf '')
+    _ev2=$(printf '%s' "$_e2" | jq -r '.event // ""' 2>/dev/null || printf '')
+    _sm1=$(printf '%s' "$_e1" | jq -r '.summary // ""' 2>/dev/null || printf '')
+    _sm2=$(printf '%s' "$_e2" | jq -r '.summary // ""' 2>/dev/null || printf '')
+    if printf '%s' "$_ev1" | grep -q 'still standing' \
+        && printf '%s' "$_ev1" | grep -q 'batch-effect-refused' \
+        && [ -z "$_ev2" ] && [ "$_sm1" = "$_sm2" ]; then
+        add_row "act_effect_event_names_the_units" true "a tick whose acts did not take names the units in its event; a tick whose acts took supplies none, and the summary is identical across both so an unchanged reading renders no line" load
+    else
+        add_row "act_effect_event_names_the_units" false "the event is wrong (blocked='${_ev1}' took='${_ev2}'; summaries equal=$([ "$_sm1" = "$_sm2" ] && echo yes || echo no))" load
+    fi
 
     _after=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
     if [ "$_before" = "$_after" ]; then

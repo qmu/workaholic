@@ -152,6 +152,11 @@ asked=$(printf '%s' "$ledger" \
 asked_json=$(printf '%s' "$asked" | jq -Rsc 'split("\n") | map(select(length > 0))' 2>/dev/null || echo '[]')
 n_asked=$(printf '%s' "$asked_json" | jq 'length' 2>/dev/null || echo 0)
 
+# The resolved channel NAME rides the summary (2026-08-29, mission
+# `point-the-inbound-readers-at-the-channel-that-exists`): a reader must be able to see WHICH
+# channel this tick aimed at without re-deriving the default, because a divergence between
+# the channel the loop posts to and the one it reads is otherwise invisible from outside the
+# tick — which is exactly how one ran for a day.
 summary="channel #${CHANNEL}, window ${WINDOW}h; ${n_asked} already asked about; the channel read is the agent's"
 
 needs=$(jq -nc \
@@ -167,7 +172,10 @@ needs=$(jq -nc \
       key_shape: "unanswered-ask:<channel>:<ts>",
       compose: "one question per candidate, addressed to a named person — the message author when nobody else owns it — routed through ask-question.sh on the key above so the asked-once gate, the per-tick cap, the quiet hours and the working-day hold all apply unchanged; name what is waiting and link the message",
       already_asked: $asked,
-      degradations: "name each by itself: no_slack_transport when the session holds no connector, channel_unreadable with the reason the transport gave — never report an unread channel as a channel with nothing waiting"}' \
+      outcomes: "THREE, and they are named apart: asks_found (candidates, one question each on the key above); window_empty (the channel WAS read and held nothing in the window — an honest quiet hour, no question); channel_unreadable (the read did not happen — never a quiet hour, and never a claim that the channel is ABSENT: Slack answers not-found for a channel the calling token cannot SEE, so absent and invisible are one response, which is the distinction check-slack-channel.sh exists to preserve)",
+      escalation: "on channel_unreadable ONLY, ask ONE question through ask-question.sh keyed inbound-channel-unreadable:\($channel) — the existing route, so the asked-once gate makes it quiet while the reading is unchanged, and the per-tick cap, the quiet hours and the working-day hold all apply. Name the channel this run resolved and the reason the transport gave; say the channel could not be read, never that it does not exist. no_slack_transport is this session holding no connector rather than a fact about the channel and asks nothing.",
+      degradations: "name each by itself: no_slack_transport when the session holds no connector, channel_unreadable with the reason the transport gave — never report an unread channel as a channel with nothing waiting",
+      report: "name the channel this run resolved (#\($channel)) and which of the three outcomes it reached, so a divergence between the channel the loop posts to and the one it reads is legible without anyone re-deriving it"}' \
     2>/dev/null || echo '{}')
 
 emit ok "" "$summary" "$needs" ""

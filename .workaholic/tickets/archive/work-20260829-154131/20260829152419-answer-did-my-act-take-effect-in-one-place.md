@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-29T15:24:19+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -90,3 +91,53 @@ must come out of this ticket behaving byte-identically.
   a normalised word sends a reader to a string no script ever printed.
 - This ticket is where the mission's *no second oracle* constraint is most at risk; the reader must
   compose existing sources and be visibly unable to answer on its own.
+
+## Final Report
+
+Development completed as planned. `drive/scripts/act-effect.sh <act> <unit>` is the one reader,
+with `act` in `retirement | delivery`.
+
+**It owns the assembly and no act's vocabulary.** Each answer comes from that act's own existing
+outcome source:
+
+| Act | Source it composes | Cost |
+| --- | ------------------ | ---- |
+| `retirement` | `ci-retirement-turn.sh <unit>` — the turn's recorded verdict | the reads that reader already makes |
+| `delivery` | the claim row's `merge_outcome`, which `lib/claims.sh` reads off the branch story blob the scan already fetched | **no network call**, no second derivation |
+
+The delivery half is the shape the ticket named as the model, and generalising it did **not**
+turn it into a re-fetch: `merge_outcome` already rides the row, so composing the row costs
+nothing this reader would not otherwise make and cannot disagree with the run that made the
+attempt.
+
+**Each act's word is carried verbatim** and the two vocabularies are never merged into a third —
+the tempting error the ticket names, refused because a normalised word would send a reader to a
+string no script ever printed. What is shared is only the **shape**: `taken` / `refused:<word>` /
+`pending` / `unavailable` / `unreadable`, a frame around each act's answer rather than a
+translation of it. `source` names which script produced the word, so a reader can ask the same
+question of the same script and get the same answer — which is also what makes the reader
+visibly unable to answer on its own.
+
+**`retry-undelivered.sh` and `record-merge-outcome.sh` are byte-identical across this change**
+(`git diff` against the base is empty for both), and `verify-delivery-retry` passes 6/6 with its
+breaker, so its behaviour, its refusals and its network-call count are unchanged.
+
+Drilled by two new rows: the retirement answer read directly and through the composition are the
+same word, and the delivery answer carries a recorded `merge_refused:session_type_cannot_merge`
+through as `refused:session_type_cannot_merge` while a branch with no recorded attempt reads
+`pending`.
+
+### Discovered Insights
+
+- **Insight**: *no claim row* is the delivery act's own success signal, not an inference about
+  it — a merge releases a claim by definition, which is exactly why `retry-undelivered.sh`
+  records nothing on success.
+  **Context**: it means the composition needs no "did it merge" lookup of its own, which is what
+  keeps the delivery half network-free.
+- **Insight**: a shared *shape* and a shared *vocabulary* are different things, and only the
+  first is safe to generalise.
+  **Context**: the five-word frame lets one consumer branch on the two acts uniformly while every
+  refusal still names the script that printed it.
+- **Insight**: `merge_outcome` was already on the claim row for the 2026-08-27 split, so the
+  generalisation cost no new field and no new read.
+  **Context**: a reading that would have needed one should be suspected of being a second oracle.

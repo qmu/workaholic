@@ -177,6 +177,29 @@ n_dormant=$(printf '%s' "$out" | jq -r '.counts.dormant // 0' 2>/dev/null || ech
 n_unreadable=$(printf '%s' "$out" | jq -r '.counts.unreadable // 0' 2>/dev/null || echo 0)
 n_live=$(printf '%s' "$out" | jq -r '.counts.live // 0' 2>/dev/null || echo 0)
 
+# THE QUESTION A RULING DIFF ALREADY CARRIES IS HELD (2026-08-28, mission
+# `put-the-loop-s-standing-rulings-on-one-pull-request`). The `arrived` question exists to name
+# the residue the reading could not see; once an open ruling pull request names EVERY mission
+# in that residue, the diff already carries the whole ask and the question would send the
+# operator to do by hand what they are being asked to merge.
+#
+# ALL OF IT OR NONE OF IT, and that bound is the safety property: a ruling naming ONE mission
+# must not silence a question about a DIFFERENT one, so a partially covered residue still asks,
+# with its full residue named and the partial cover said in words. An `overdue` or `dormant`
+# reading is never held — those are about the DATE and the SILENCE, which no ruling answers.
+# An UNREADABLE read holds nothing (`ci-retirement-turn.sh`'s discipline), and the suppression
+# is DERIVED: merging or closing the ruling makes the question reachable again with no state.
+held_missions='[]'
+any_ruling_open=false
+SUPPRESSION="${SCRIPT_DIR}/ruling-suppression.sh"
+if [ -f "$SUPPRESSION" ]; then
+    supp=$( ( cd "$ROOT" && sh "$SUPPRESSION" ) 2>/dev/null || true )
+    if [ -n "$supp" ] && printf '%s' "$supp" | jq -e '.readable // false' >/dev/null 2>&1; then
+        held_missions=$(printf '%s' "$supp" | jq -c '.held.attribution // []' 2>/dev/null || printf '[]')
+        any_ruling_open=$(printf '%s' "$supp" | jq -r '.any_open // false' 2>/dev/null || printf false)
+    fi
+fi
+
 # THE SUBJECTS. One per non-`live` reading, each carrying the content key `ask-question.sh`'s
 # already-asked ledger keys on. `unreadable` rows are deliberately absent from this list.
 #
@@ -199,9 +222,15 @@ n_live=$(printf '%s' "$out" | jq -r '.counts.live // 0' 2>/dev/null || echo 0)
 #
 # NOTHING PARSES THE ANSWER. It is prose, recorded by `record-answer.sh` exactly as every other
 # answer is; acting on it stays the next run's judgement. No button, no automation.
-subjects=$(printf '%s' "$out" | jq -c --arg window "14 days" '
+subjects=$(printf '%s' "$out" | jq -c --arg window "14 days" \
+    --argjson held "$held_missions" --arg anyruling "$any_ruling_open" '
     [ .strategies[]
       | select(.state == "overdue" or .state == "dormant" or .state == "arrived")
+      # HELD: an `arrived` reading whose whole residue an open ruling already names.
+      | select((.state != "arrived")
+               or (((.residue // {}) | (.readable // false)) | not)
+               or (((.residue.missions // []) | length) == 0)
+               or (((.residue.missions // []) | map(.slug) | map(. as $m | $held | index($m)) | any(. == null))))
       | . as $s
       # THE RESIDUE, RENDERED FOR THE ARRIVAL QUESTION (2026-08-28, mission
       # `say-what-the-direction-could-not-see-before-calling-it-arrived`). A count alone costs
@@ -249,6 +278,13 @@ subjects=$(printf '%s' "$out" | jq -c --arg window "14 days" '
            then "It would leave " + (((.waiting.count // 0) + (.waiting.missions // 0)) | tostring)
                 + " unreached and " + ((.residue.mission_count // 0) | tostring) + " unclaimed. "
            else "" end) as $leaving_clause
+      # WHY THIS ONE STILL ASKS while a ruling is open: some of its residue the loop could not
+      # judge, and an unjudged subject is exactly the one that most needs a person.
+      | (if ($anyruling == "true" and .state == "arrived"
+             and (((.residue // {}) | (.readable // false)))
+             and (((.residue.missions // []) | length) > 0))
+         then " — a ruling pull request is open for some of these; the rest the loop could not judge"
+         else "" end) as $ruling_phrase
       | {key: ("direction-" + .state + ":" + .slug),
          slug: .slug, title: .title, assignees: .assignees,
          reading: .state, days_to_target: .days_to_target,
@@ -265,7 +301,7 @@ subjects=$(printf '%s' "$out" | jq -c --arg window "14 days" '
                            then " (" + ((.landed) | tostring) + " item(s) landed" +
                                 (if (.target_date != "") then ", dated " + .target_date else "" end) + ")"
                            else "" end)
-                        + $waiting_phrase + $residue_phrase
+                        + $waiting_phrase + $residue_phrase + $ruling_phrase
                    else "nothing has answered the direction `" + .slug + "` in the last " + $window
                    end),
          body: (if .state == "overdue"

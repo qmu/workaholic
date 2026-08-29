@@ -850,6 +850,20 @@ surface.
 A reader that refuses, or a missing script, is `degraded` with the reason named — never an `ok`
 step that found nothing.
 
+**And since 2026-08-28 an `arrived` question can be HELD** (mission
+`put-the-loop-s-standing-rulings-on-one-pull-request`). The `arrived` question exists to name
+the residue the reading could not see; once an open ruling pull request names **every** mission
+in that residue, the diff already carries the whole ask, and the question would send the
+operator to do by hand what they are being asked to merge. **All of it or none of it** — a
+ruling naming one mission must not silence a question about a different one, so a partially
+covered residue still asks, with its full residue named and the partial cover said in words
+(*a ruling pull request is open for some of these; the rest the loop could not judge*).
+`overdue` and `dormant` are **never** held: those are about the date and the silence, which no
+ruling answers. The read is `moderate/scripts/ruling-suppression.sh` — one reader, shared with
+`undrivable-units`, so the two steps cannot disagree — and an **unreadable** read holds nothing
+(`ci-retirement-turn.sh`'s discipline). The suppression is **derived, stored nowhere**: merging
+or closing the ruling makes the question reachable again with no state.
+
 ## 16. `unanswered-asks` — a message on the channel that nobody has answered
 
 ```bash
@@ -974,6 +988,18 @@ about, so the whole picture and the narrowing sit on one line.
 A tree with no `.workaholic/` is an ordinary `ok`; readers absent from the skill are
 `degraded` by name. A queue every owner of which the mapping names supplies **no `event`**,
 so the root renders no line: nothing happened to the repository.
+
+**And since 2026-08-28 a candidate can be HELD** (mission
+`put-the-loop-s-standing-rulings-on-one-pull-request`). While an open ruling pull request names
+an address, asking a person to complete that same mapping line by hand on `main` is asking them
+to do what they are being asked to merge, so that candidate is **held and counted** rather than
+asked about. Keyed on the **subject**: a ruling naming one address does not silence the question
+about another. A candidate that survives while a ruling is open carries `unjudged: true` and its
+question says so — *the loop could not judge which account this belongs to* — because an unjudged
+subject is exactly the one that most needs a person. The read is
+`moderate/scripts/ruling-suppression.sh`, shared with `direction-health`; an **unreadable** read
+holds nothing; and `ask-question.sh`, the key, the asked-once gate, the caps and the holds are
+byte-identical.
 
 ## 18. `undelivered-units` — a unit the loop finished and could not deliver
 

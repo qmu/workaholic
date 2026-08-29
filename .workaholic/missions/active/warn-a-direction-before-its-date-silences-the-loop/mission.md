@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260829-024033
 ---
 
 # Warn a direction before its date silences the loop

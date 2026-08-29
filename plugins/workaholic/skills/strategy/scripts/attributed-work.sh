@@ -18,6 +18,22 @@
 #                      inside the window — a QUIET strategy, which is a real answer and not
 #                      an error) | "" when work moved
 #
+# …OR, when the WALK ITSELF could not complete (2026-08-29):
+#   {slug, found: true, window, feedback_refs[], readable: false, reason,
+#    count: null, active_count: null, waiting_*: null, artifacts: [],
+#    empty: null, empty_reason: null}
+#
+#   reason           "patterns_unreadable" | "corpus_unreadable"
+#
+# `readable` IS ABSENT ON EVERY COMPLETED WALK, and that is the contract rather than an
+# omission: **absent means the walk completed** — the house convention `merge_policy`
+# (absent means review) and ticket `status:` (absent means queued) already use. So a
+# completed reading is byte-identical to what it was before this field existed, and a
+# consumer that has not been taught the term behaves exactly as it did. Read it as
+# `readable // true`, never as a bare truth test.
+#
+# Exit 0 in every case, degraded included.
+#
 # ATTRIBUTION IS TRANSITIVE THROUGH THE FEEDBACK STREAM, AND ADDS NO FIELD (the Open
 # Decision on ticket `20260817115231-resolve-strategy-to-activity-attribution`, resolved
 # 2026-08-17). A strategy already cites the records it grew from — the many-valued
@@ -164,6 +180,26 @@ emit_empty() {
         "$(json_escape "$SLUG")" "$1" "$(json_escape "$WINDOW")" "$2" "$3"
 }
 
+# emit_unreadable <refs-json> <reason>
+#
+# NULL COUNTS, NEVER ZEROED ONES — `unattributed-work.sh`'s existing shape for exactly this,
+# reused rather than a second vocabulary invented for the same idea. A zero on a read that
+# failed is the whole defect: a consumer skimming the counts reads *nothing is waiting* out
+# of a walk that never looked.
+#
+# NO `empty_reason`, AND NO PARTIAL ARTIFACT LIST. The three `empty_reason` values name why
+# a COMPLETED walk found nothing — `no_citing_artifacts` in particular means *nothing has
+# answered this direction yet* and nothing else — so both it and `empty` are null here: a
+# reading we did not make, rather than one of the three we did not reach. The batches that
+# did read are kept inside the walk so it can finish, and are NOT emitted: a half list
+# rendered as a list is the same collapse one step further on.
+#
+# EXIT 0, as every reader in this layer does. A caller that cannot read is told, not failed.
+emit_unreadable() {
+    printf '{"slug": "%s", "found": true, "window": "%s", "feedback_refs": %s, "readable": false, "reason": "%s", "count": null, "active_count": null, "waiting_count": null, "waiting_kind": null, "waiting_describing": null, "waiting_advancing": null, "waiting_missions": null, "waiting_missions_describing": null, "waiting_missions_advancing": null, "waiting_mission_slugs": null, "artifacts": [], "empty": null, "empty_reason": null}\n' \
+        "$(json_escape "$SLUG")" "$(json_escape "$WINDOW")" "$1" "$(json_escape "$2")"
+}
+
 [ -n "$SLUG" ] || { emit_empty false '[]' no_slug; exit 0; }
 
 FILE="${ROOT}/strategies/${SLUG}.md"
@@ -239,6 +275,11 @@ if [ -s "${TMP}/mission-slugs" ]; then
         printf '%s%s%s\n' "$f" "$US" "$m" >> "${TMP}/hits"
     done < "${TMP}/cand2"
 fi
+
+# --- Did the walk complete? -------------------------------------------------------
+# Asked once, after both hops and before anything is derived from what they found. A
+# degraded walk must never reach `empty_reason`, so this stands ahead of every count.
+[ "$WALK_READABLE" = true ] || { emit_unreadable "$REFS_JSON" "$WALK_REASON"; exit 0; }
 
 # --- Facts per attributed artifact ------------------------------------------------
 # `kind` from the path, `state` from the artifact's own `status:` field with the path as

@@ -40,7 +40,7 @@ zero.
 
 - [x] A corpus past the batching boundary attributes every citing artifact, pinned by a
       hermetic test that fails against today's script. (#20260829072045-stop-the-prefilter-discarding-what-it-found.md)
-- [ ] A walk that could not read the corpus reports its own reason and null counts, and
+- [x] A walk that could not read the corpus reports its own reason and null counts, and
       `no_citing_artifacts` is emitted only when the walk completed. (#20260829072045-say-no-citing-artifacts-only-when-the-walk-completed.md)
 - [ ] Every reading composed on the walk — survey rows, residue, digest, run reports —
       carries the degradation instead of deriving a verdict from it. (#20260829072045-name-a-degraded-direction-reading-in-the-run-reports.md)
@@ -51,3 +51,4 @@ zero.
 - 2026-08-29 — ticket archived — 20260829072044-pin-the-batching-failure-before-repairing-it.md
 - 2026-08-29 — ticket archived — 20260829072045-stop-the-prefilter-discarding-what-it-found.md
 - 2026-08-29 — ticket archived — 20260829072045-tell-found-nothing-from-could-not-look.md
+- 2026-08-29 — ticket archived — 20260829072045-say-no-citing-artifacts-only-when-the-walk-completed.md

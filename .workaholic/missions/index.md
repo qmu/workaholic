@@ -3,8 +3,6 @@
 ## active
 
 * [deploy-the-docs-site-on-merge-to-main](active/deploy-the-docs-site-on-merge-to-main/mission.md) - Deploy the docs site on merge to main
-* [keep-the-closing-link-readable-as-the-corpus-grows](active/keep-the-closing-link-readable-as-the-corpus-grows/mission.md) - Keep the closing link readable as the corpus grows
-* [land-the-loop-s-own-work-when-the-base-moves-under-it](active/land-the-loop-s-own-work-when-the-base-moves-under-it/mission.md) - Land the loop's own work when the base moves under it
 * [make-the-routine-create-body-documented-and-buildable](active/make-the-routine-create-body-documented-and-buildable/mission.md) - Make the routine create body documented and buildable
 * [make-workaholify-converge-the-account-s-routines](active/make-workaholify-converge-the-account-s-routines/mission.md) - Make /workaholify converge the account's routines
 * [point-the-inbound-readers-at-the-channel-that-exists](active/point-the-inbound-readers-at-the-channel-that-exists/mission.md) - Point the inbound readers at the channel that exists
@@ -37,6 +35,8 @@
 * [give-propose-a-strategy-artifact-form](archive/give-propose-a-strategy-artifact-form/mission.md) - Give /propose a Strategy artifact form
 * [give-propose-and-ticket-a-diagnosis-first-discovery-pass](archive/give-propose-and-ticket-a-diagnosis-first-discovery-pass/mission.md) - Give /propose and /ticket a diagnosis-first discovery pass
 * [give-the-tick-a-route-for-the-records-it-writes](archive/give-the-tick-a-route-for-the-records-it-writes/mission.md) - Give the tick a route for the records it writes
+* [keep-the-closing-link-readable-as-the-corpus-grows](archive/keep-the-closing-link-readable-as-the-corpus-grows/mission.md) - Keep the closing link readable as the corpus grows
+* [land-the-loop-s-own-work-when-the-base-moves-under-it](archive/land-the-loop-s-own-work-when-the-base-moves-under-it/mission.md) - Land the loop's own work when the base moves under it
 * [let-an-answer-in-the-thread-turn-back-into-the-loop-s-work](archive/let-an-answer-in-the-thread-turn-back-into-the-loop-s-work/mission.md) - Let an answer in the thread turn back into the loop's work
 * [let-the-operator-revise-a-live-direction-through-the-loop](archive/let-the-operator-revise-a-live-direction-through-the-loop/mission.md) - Let the operator revise a live direction through the loop
 * [let-the-tick-s-own-findings-become-the-loop-s-work](archive/let-the-tick-s-own-findings-become-the-loop-s-work/mission.md) - Let the tick's own findings become the loop's work

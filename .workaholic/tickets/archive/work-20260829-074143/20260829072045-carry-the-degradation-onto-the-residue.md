@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-29T07:20:45+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -88,3 +89,48 @@ currently asks the operator to rule on attributions that already exist.
 - `verify-residue` deliberately builds its degraded case by removing `mission-strategy.sh`
   from a copy of the plugin tree. If that reader's outcome shape changes here, that drill row
   needs re-checking rather than re-writing.
+
+## Final Report
+
+Development completed as planned.
+
+`mission-strategy.sh` no longer answers *no strategy* from a walk that did not complete: it
+names that direction in `unreadable` under the reason this condition already had
+(`attribution_unreadable`), keeping the distinction the reader was written to preserve —
+`attributed: false` means *no strategy could be attributed*, and a walk nobody could
+complete cannot say even that.
+
+`unattributed-work.sh` then reports `readable: false` with **null** counts and names
+nothing. The refusal was **widened**, which is the substance of this ticket:
+`all_strategies_unreadable` fired only when **every** active direction failed, and the
+partial case is the same defect — a mission attributed **only** to the direction that
+failed is named as residue in exactly the same way, and which missions those are is
+precisely what the failed walk cannot say. That case now reports **`strategy_unreadable`**;
+the all-failed case keeps its own name and its existing behaviour.
+
+`closing-residue.sh` needed no change: it already carries a degraded block's reason to its
+own top-level `readable` (`residue_unreadable:all_strategies_unreadable`), which the
+hermetic case asserts rather than assumes. Neither consumer needed one either, and both
+were checked rather than reasoned about: `quiescent` reads the residue's own flag, so a
+degraded read yields no `arrived` and therefore no `direction-arrived:<slug>` question, and
+the standing-rulings draft carries the reason through and produces no residue candidate.
+
+A non-degraded, non-empty residue is byte-identical: an unattributed mission is still an
+unattributed mission, and suppressing those would be a different defect of the same shape.
+
+Drills: `verify-residue` 12/12, `verify-rulings` 10/10.
+
+### Discovered Insights
+
+- **Insight**: a per-direction unreadable walk is reproducible without any corpus damage —
+  a strategy whose `slug:` frontmatter does not match its filename is listed by `list.sh`
+  under a slug `attributed-work.sh` answers `not_found` for.
+  **Context**: that is what makes the **partial** case testable at all. Degrading the
+  corpus degrades every direction's walk at once (they share one corpus), so it can only
+  ever produce `all_strategies_unreadable`; the slug mismatch degrades exactly one
+  direction beside a healthy one, which is the case the old rule was blind to.
+- **Insight**: `list-standing-rulings.sh` composes **two** sources, and only one of them is
+  the residue.
+  **Context**: an assertion that the whole ruling list is empty pins the identity-mapping
+  source too, which this change never touches — the first draft of the case failed on
+  exactly that. Scope such an assertion to `kind != "identity_mapping"`.

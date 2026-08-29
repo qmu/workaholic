@@ -214,11 +214,21 @@ RESULT="$(printf '%s' "$OUT" | jq -c '
           # and the survey already read it once per row. A consumer must not call
           # `attributed-work.sh` itself for the same reason it must not call
           # `unattributed-work.sh`: two readings of one fact drift.
-          waiting: {count:         (.waiting_count // 0),
-                    missions:      (.waiting_missions // 0),
-                    mission_slugs: (.waiting_mission_slugs // []),
-                    describing:    (.waiting_describing // 0),
-                    advancing:     (.waiting_advancing // .waiting_count // 0)},
+          #
+          # AND A ROW WHOSE WALK DID NOT COMPLETE CARRIES NULLS THROUGH (2026-08-29, mission
+          # `keep-the-closing-link-readable-as-the-corpus-grows`). The survey emits null
+          # rather than zero for exactly that row, so `// 0` here would put the zeroed
+          # reading back one layer up — the same defect, one consumer further on. The state
+          # is already `unreadable`, and these counts say the same thing rather than
+          # contradicting it.
+          waiting: (if ((.reason // "") == "attribution_unreadable")
+                    then {count: null, missions: null, mission_slugs: null,
+                          describing: null, advancing: null}
+                    else {count:         (.waiting_count // 0),
+                          missions:      (.waiting_missions // 0),
+                          mission_slugs: (.waiting_mission_slugs // []),
+                          describing:    (.waiting_describing // 0),
+                          advancing:     (.waiting_advancing // .waiting_count // 0)} end),
           state: (if ((.reason // "") == "attribution_unreadable") then "unreadable"
                   elif (.quiescent == true) then "arrived"
                   elif (.overdue == true) then "overdue"

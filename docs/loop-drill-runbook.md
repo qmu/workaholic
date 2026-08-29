@@ -37,6 +37,7 @@ Run every command from the repository root, on a clean `main`.
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-direction-health --json` | a throwaway strategy tree, one overdue direction and one dormant one — proves the four lifecycle readings, the three question keys, the asked-once gate, and that nothing was written |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-arrival --json` | a throwaway **git** strategy tree carrying landed work — proves `arrived`, that it outranks `overdue`, that `dormant`, `overdue` and `live` are unchanged, the `direction-arrived:<slug>` key and its asked-once gate, and that no reading closes a direction, with no network and one row that deliberately breaks the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-residue --json` | a throwaway **git** strategy tree whose attributed work has all landed beside an **unattributed** active mission — proves the honest and the degraded residue read, that only an unreadable residue refuses the arrival, that the question names the residue by slug, the asked-once gate, that no gate moved, and the attribution carry landing and refusing, with no network and one row that deliberately breaks the seam |
+| — | Any time | `sh scripts/e2e/loop-drill.sh verify-corpus-boundary --json` | a throwaway **git** strategy tree whose corpus is grown past the `xargs` batching boundary — the boundary derived by probing `xargs` rather than hard-coded — proves both hops attribute across it, that the survey brakes on a real reading, that the residue excludes the citing mission and no arrival question is asked over work the tree attributes, and, beside it, the degraded direction: a named reason, a refused row, a residue that lists nothing and no question at all, with no network and **two** rows that deliberately break the seam, one per hop |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-expiry --json` | a throwaway **git** strategy tree of five directions differing only in their dates and their work — proves `expiring` inside the window, `live` outside it, `overdue` past the date and `arrived` above both, that the window is the survey's own rather than a constant, the `direction-expiring:<slug>` question naming the date, the days left and the leaving, its asked-once gate, and that no reading re-dates, closes or amends a direction, with no network and one row that deliberately breaks the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-rulings --json` | a throwaway **git** repository holding exactly one unattributed active mission and exactly one unmapped address, with a bare local origin and `gh` stubbed — proves the set is read with its evidence and repair and **nothing judged**, that a judged set lands as one pull request the seam refuses to merge, that a second tick is a no-op while it is open, that a subject the ruling does not name still asks and says why, that every refusal writes nothing, with no network and a breaker in two halves |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-succession --json` | a throwaway **git** tree carrying one dated direction, its landed work and an unattributed mission — walks close → read the leaving → announce a successor by explicit slug → the carried refs land → `attributed-work.sh` attributes the predecessor's work to it → `/propose` proposes against it, and proves nothing closed, authored or auto-merged a direction, with no network and one row that deliberately breaks the seam |
@@ -44,6 +45,7 @@ Run every command from the repository root, on a clean `main`.
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-merged-claim --json` | a throwaway repository carrying a **squash-merged** mission claim and batch claim — proves all four merged-claim readings (merged batch, merged mission, live, unanswerable) with the transport stubbed, so no `gh` call is made |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-identity-handoff --json` | a throwaway repository with a two-address mapping — walks issue assignee → the address the writer stamps → the survey that offers the unit, for a canonical address, a mapped alias and an unmapped login, with no network and no credential |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-close --json` | a throwaway repository carrying three finished units — proves all four closing outcomes (merged, session-type-refused-then-retryable, refused-and-unretryable, scan-held) with the transport stubbed, plus one row that deliberately breaks the seam |
+| — | Any time | `sh scripts/e2e/loop-drill.sh verify-catch-up --json` | a throwaway repository holding four finished-and-undelivered units — proves a mechanical conflict is caught up, validated and pushed with the higher version winning the manifest collision, a `content` one refused with the branch byte-identical, a scan-held pull request never caught up, a second run a no-op, and the refused conflict reaching its claim holder exactly once, with the transport stubbed and one row that deliberately breaks the identity bound |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-retire --json` | a throwaway repository holding a `superseded` claim, a live one and a unit held by two — proves the retirement's three acts, that a judgement is refused by its own verdict word, and that the step asks nobody anything, with the transport stubbed and one row that deliberately breaks the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-ci-retirement --json` | a throwaway repository whose bare origin refuses the container's branch delete and permits CI's — proves the act the container is refused is taken where the write is permitted, re-proved at the moment of it, bounded four ways, and asked about only once CI has also refused, with the transport stubbed and one row that deliberately breaks the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-delivery-retry --json` | a throwaway repository holding three units finished in the identical shape — proves the survey offers an undelivered unit in a field of its own, that only the proof reaches the merge seam, and that a scan-held or unrecorded one never does, with the transport stubbed and one row that deliberately breaks the seam |
@@ -515,6 +517,64 @@ term under test.
 operator's half; `testResidueGatesNothing`, `testResidueOnSurveyRows` and
 `testCarryAttribution` in the hermetic suite are CI's.
 
+## 5j-bis. The closing link past the corpus boundary (`verify-corpus-boundary`)
+
+`verify-corpus-boundary` needs no seed, no fire, no issue number and **no network**: it builds
+a throwaway **git** strategy tree — git-backed for `verify-arrival`'s reason, since `landed[]`
+is a `git log --since` read — carrying one `active` direction, the mission that cites it and
+the ticket naming that mission, then grows filler until the corpus **path list** spans more
+than one `xargs` batch.
+
+The failure it exists for is the closing link going **silent** as the corpus grows. Both hops
+of `attributed-work.sh` prefilter with one `grep` per batch, and the shape that shipped —
+`xargs grep -lFf … > cand || : > cand` — truncated everything the earlier batches had already
+found whenever a later batch matched nothing. Measured on this repository 2026-08-29: 1411
+corpus paths / 132292 bytes against a 131072-byte buffer, 0 candidates where an appending walk
+found 26, and `no_citing_artifacts` for a direction with 26 citing artifacts.
+
+**The boundary is derived from the running system, never hard-coded.** `xargs`'s command
+buffer is a property of the machine (~128 KiB on GNU, unrelated to `ARG_MAX` — 2 MiB here), so
+a filler count pinned at "1400 files" would quietly stop exercising the split on a machine with
+a different limit and the row would pass while proving nothing. The probe counts how many times
+`xargs` invokes its command over exactly the corpus the reader builds, and the filler grows
+until that count exceeds one. What must be large is the **path list**; the file bodies stay
+three lines.
+
+The **deliberately broken seam** is in **two halves, one per hop**, and both are written
+against **behaviour** rather than a return shape: each runs a copy of the reader with the
+truncating `||` restored on one hop and requires the citation to be **lost**. A breaker keyed
+on a field would pass a refactor that keeps the output shape and reintroduces the bug, which is
+exactly the failure mode this row exists to catch. The two halves are separate because
+reverting hop 1 hides hop 2 behind it — with no attributed mission there is nothing for the
+second hop to walk — and hop 2 carries every ticket's `via_mission:` attribution, so its loss
+is the larger one.
+
+The degraded direction is built from a corpus entry the walk genuinely **cannot consume**: a
+filename containing a space, which `xargs` splits into two non-existent paths so `grep` exits
+2. A permission bit is not usable here and the ticket's own considerations said so — this drill
+routinely runs as uid 0, where `chmod 000` still reads fine (measured: `grep -lFf` over a
+000-mode file exits 1, not 2).
+
+| Row | Fails when | Read |
+| --- | ---------- | ---- |
+| `corpus_spans_more_than_one_batch` | the fixture never crossed the boundary, so every row below proves nothing | the probe, and `|| :` on each `find` in it — under `set -e` a missing area aborts the group before the second `find` runs |
+| `corpus_both_hops_attribute` | a citation in an early batch is lost to a later batch that matched nothing | `attributed-work.sh`'s `prefilter` — it appends across batches and a no-match batch is a success |
+| `corpus_batching_tolerance_holds` | restoring the truncating branch on **hop 1** does not lose the citation | **the broken seam**, half one — if this passes, the row above proves nothing |
+| `corpus_batching_tolerance_holds_on_hop_2` | restoring it on **hop 2** does not lose the `via_mission:` attribution | **the broken seam**, half two — hop 1 must survive it, which is what makes the halves independent |
+| `corpus_survey_row_is_real` | the survey row is not derived from a completed walk | `survey-strategies.sh` — a real `work_waiting` brake, never `attribution_unreadable` |
+| `corpus_residue_excludes_the_citing_mission` | the residue names a mission the tree attributes | `mission-strategy.sh`'s `attributed`, over the same walk |
+| `corpus_no_arrival_over_attributed_work` | an arrival question is asked about work the tree attributes | `step-direction-health.sh`, over `quiescent` |
+| `corpus_degraded_names_its_reason` | a walk that could not read reports `no_citing_artifacts` instead of its own reason | `note_walk_failure` and `emit_unreadable` — `readable: false`, `reason: corpus_unreadable` |
+| `corpus_degraded_refuses_the_row` | the survey derives a reading from a walk it could not complete, or selects it | the `$blind` term and the `attribution_unreadable` rung, ahead of `work_waiting` |
+| `corpus_degraded_residue_lists_nothing` | the residue is rendered off a blind walk | `unattributed-work.sh`'s `strategy_unreadable` / `all_strategies_unreadable`, with null counts |
+| `corpus_degraded_asks_no_arrival` | an arrival question is produced from a walk that did not complete | the same `quiescent` chain, one degradation earlier |
+| `corpus_writes_nothing` | the drill changed the checkout | every reader here is pure and every fixture lives outside the checkout |
+
+**Two proofs, and they are not the same one**, as everywhere else here: this drill is the
+operator's half; `testStrategyAttributedWorkPastBatchBoundary`, `testAttributedWorkWalkOutcome`,
+`testSurveyRefusesADegradedWalk`, `testResidueRefusesADegradedWalk` and
+`testRunReportsNameADegradedReading` in the hermetic suite are CI's.
+
 ## 5j-ter. The direction warned before its date (`verify-expiry`)
 
 `verify-expiry` needs no seed, no fire, no issue number and **no network**: it builds a
@@ -873,6 +933,39 @@ walks the happy path would have passed throughout the days those four pull reque
 and would have converted an unproven claim into a believed one. Breaking any seam this mission
 touched turns `close_refused_is_undelivered` and `close_asks_about_the_refused_one` red together
 — verified by removing the `merge_refused*` branch from `lib/claims.sh` and watching both fail.
+
+## 5k-bis. The catch-up (does a unit the base moved under come back?)
+
+`verify-catch-up` needs no seed, no fire, no issue number and **no network**: a local bare origin
+and a `gh` stubbed on `PATH`. It drills the act that repairs the shape measured on 2026-08-29 —
+4 of 7 open pull requests conflicting with `main`, three of them units recorded
+`report_undelivered` two days earlier, with 4 active missions and 10 queued tickets behind them.
+`retry-undelivered.sh` re-attempts the **merge**, which is the right act for a refused transport
+and no act at all for a base that has moved.
+
+**It drills a writer that pushes onto a claim branch**, which is exactly the act the claim
+protocol's standing rule refuses for a third party. What makes it safe is that the claim is
+**this identity's own**, that a live one is refused `claim_active`, and that the act is a
+**merge** rather than a history rewrite — and the drill's job is to show that nothing but those
+gets through.
+
+| Row | Fails when | Read |
+| --- | ---------- | ---- |
+| `catch_up_no_network` | `gh` does not resolve to the stub | the drill would reach the network; every row below it would be measuring GitHub rather than the seam |
+| `catch_up_fixture` | the reader does not answer `mechanical` and `content` over the two branches | the fixture is not the shape under test; every row below it would prove nothing |
+| `catch_up_mechanical_delivered` | a mechanical conflict is not merged, validated and pushed, or the manifest does not converge on the **higher** semver | `catch-up-claim.sh` over `catchup-main.sh --resolve-mechanical` — taking one side of a version collision wholesale silently drops the other side's edits, so both sides are raised to the higher version and merged normally |
+| `catch_up_content_refused` | a `content` conflict is not refused by its own word, or the branch tip moves | the contested case stays a person's; a refusal that writes anything is not a refusal |
+| `catch_up_scan_held_refused` | a `merge_not_attempted: <tier>` unit is caught up | the catch-up is **not a route around a gate**: a `hard`/`confirm` finding holding a pull request open is the gate working |
+| `catch_up_second_run_noop` | a branch that already contains the base does not report `already_current`, or a ref moves | idempotence, and the reason `already_current` is checked before liveness: reporting a no-op protects nothing |
+| `catch_up_blocked_asks_once` | the refused conflict does not reach its claim holder keyed once with the files named, or the **caught-up** unit also draws a question | `step-catchup-blocked.sh` — the split the mission rests on: *nobody has looked yet* and *the loop looked and only you can decide* tell somebody different things |
+| `catch_up_refuses_a_foreign_claim` | a colleague's claim branch tip **moves**, or the refusal is not named | **the deliberately broken seam**, written against the behaviour rather than a return shape. Verified by dropping `foreign_identity` from the verdict gate and neutering the `not_my_claim` comparison: the drill merged into `work-20260101-000004` and pushed it, failing exactly this row while the other eight stayed green — and restoring both turned it green again |
+| `catch_up_checkout_untouched` | the drill changed the checkout | every fixture lives outside the checkout |
+
+**One fixture trap is worth naming**, because it silently turns every row into a different test:
+`.workaholic/stories/` holds only the previous unit's story, so checking `main` out removes the
+file and git prunes the empty directory. Without an explicit `mkdir -p` the redirect fails
+silently, the branch carries no story, and every claim reads `report_incomplete` rather than the
+drained state the rows are about.
 
 ## 5l. The retirement (does a claim proved empty leave the table?)
 

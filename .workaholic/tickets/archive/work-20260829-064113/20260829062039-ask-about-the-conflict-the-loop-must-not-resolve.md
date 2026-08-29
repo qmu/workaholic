@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-29T06:20:39+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -75,3 +76,47 @@ never `plan-units.sh`, which stages what its living migrations converge.
 The addressee question is worth stating: the claim holder drove the unit and can judge the
 conflict, which is why it follows `undelivered-units` rather than `undrivable-units` on that
 axis even though it follows the latter on the other two.
+
+## Final Report
+
+Development completed as planned. `moderate/scripts/step-catchup-blocked.sh` is registered in
+`run.sh` between `undelivered-units` and `handoff-units`, keyed `catchup-blocked:<unit>`,
+addressed to the claim holder, naming the branch, its pull request and the files both sides
+changed. It reads `list-claims.sh` and never `plan-units.sh`, writes nothing, and reaches no
+writer at all. A degraded read asks nothing and is named. It is classified `needs_ruling` in
+the findings table — deliberately, since which side of a content conflict keeps its behaviour
+is exactly what the loop refused to decide — and documented as §26 of `reference/workflow.md`.
+
+**The split the ticket asked for is drawn on the reading, not on the pull request.** Candidates
+are claims whose `mergeability` is `content` *and* which are finished and waiting
+(`report_undelivered` or `queue_drained`). A branch nothing has attempted therefore draws no
+question here: `merge-conflicts` reports what GitHub calls conflicted (*nobody has looked yet*)
+and this asks about what the shared classification rule examined (*the loop looked and only you
+can decide*). Everything else is somebody's question already — `claim_active` and
+`heartbeat_lapsed` belong to the run driving or resuming the unit, `parked_with_pr` has work
+left, `awaiting_verification` draws `handoff-unit`, `superseded` holds nothing.
+
+**Step 4 of the plan — making `merge-conflicts` filter — was written, measured and refused.**
+The only way to know which units this step asks about is to read the claim oracle, and
+`list-claims.sh` fetches; the suite's own fixture for `merge-conflicts` carries a real
+`origin` URL, so the filter put a **network fetch** inside a hermetic test and inside a step
+whose whole cost is one bounded REST read. The requirement ("one asks and the other counts")
+holds without it, because `merge-conflicts` asks nobody anything — `needs_agent` is empty by
+construction and its finding rides step 6's reminder. Where two steps could each *ask*, the
+split **is** enforced: `undelivered-units` filters a `content` row out of its own candidates
+and counts it in its summary. The refusal and its measurement are recorded in
+`step-merge-conflicts.sh`'s own header, beside the narrowing of the standing no-rebase rule,
+so neither is re-tried from scratch.
+
+### Discovered Insights
+
+- **Insight**: "This step must not duplicate that step" has two different costs depending on
+  whether the step *asks* or merely *reports*.
+  **Context**: A reporting step already satisfies the one-question rule; making it filter buys
+  nothing and can cost a read it has no business making. The test is *who receives a question*,
+  not *whose output mentions the item*.
+- **Insight**: A `/moderate` step's cost is part of its contract, and the hermetic suite
+  enforces it by accident.
+  **Context**: `step-merge-conflicts.sh`'s fixture sets a real remote, so any script that
+  fetches fails the suite the moment it is called from there. That is a useful guard and worth
+  knowing before reaching for `list-claims.sh` in a step that does not already read it.

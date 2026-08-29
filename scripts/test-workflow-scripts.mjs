@@ -88,6 +88,12 @@ const SCRIPTS = {
   effectivePolicy: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/effective-policy.sh"),
   verificationHandoff: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/verification-handoff.sh"),
   listClaims: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/list-claims.sh"),
+  claimMergeability: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/claim-mergeability.sh"),
+  catchUpClaim: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/catch-up-claim.sh"),
+  catchupMain: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/catchup-main.sh"),
+  retryUndelivered: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/retry-undelivered.sh"),
+  stepCatchupBlocked: join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-catchup-blocked.sh"),
+  stepMergeConflicts: join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-merge-conflicts.sh"),
   releaseClaim: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/release-claim.sh"),
   landUnit: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/land-unit.sh"),
   publishRelease: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/publish-release.sh"),
@@ -6679,6 +6685,447 @@ function testStrategyAttributedWork() {
 
     // It is a READER. The digest it feeds runs daily, unattended, on `main`.
     assertEq("the reader leaves the tree clean", run(dir, "git status --porcelain").stdout.trim(), "");
+  } finally { cleanup(dir); }
+}
+
+// ---------- strategy/attributed-work.sh past the xargs batching boundary ----------
+// (2026-08-29, mission `keep-the-closing-link-readable-as-the-corpus-grows`)
+//
+// WHY THE FIXTURE ABOVE PROVES NOTHING ABOUT THIS. The failure is a SIZE property. A dozen
+// artifacts fit in one `xargs` batch, so every case in `testStrategyAttributedWork` walks a
+// single invocation of `grep` and the bug cannot appear at all. What has to be large is the
+// PATH LIST — that is what `xargs` measures against its command buffer — never the file
+// bodies, so this fixture uses long filenames and three-line contents.
+//
+// THE MECHANISM, confirmed rather than assumed: both hops prefilter with the shape
+// `xargs grep -lFf "$TMP/patterns" < "$TMP/corpus" > "$TMP/cand" || : > "$TMP/cand"`.
+// `xargs` splits the corpus at its command buffer (~128 KiB on GNU, regardless of ARG_MAX);
+// a batch matching nothing makes `grep` exit 1, which makes `xargs` exit 123, and the `||`
+// branch then TRUNCATES the candidate file the earlier batches already wrote. Every citation
+// found in batch 1 is discarded by batch 2.
+//
+// MEASURED on this repository 2026-08-29 07:41 UTC: 1411 corpus paths / 132292 bytes against
+// a 131072-byte buffer, split into two batches. The prefilter returned 0 candidates where an
+// appending walk returned 26, and `attributed-work.sh` answered
+// `empty_reason: no_citing_artifacts` for a direction with 25 citing artifacts.
+//
+// THE BOUNDARY IS DERIVED FROM THE RUNNING SYSTEM, never hard-coded: the buffer is a property
+// of the machine, so a fixture pinned at "1400 files" would quietly stop exercising the split
+// on a machine with a different limit and pass while proving nothing. The probe counts how
+// many times `xargs` invokes its command over exactly the corpus the script builds.
+function testStrategyAttributedWorkPastBatchBoundary() {
+  const dir = makeRepo("main");
+  const READ = `${POSIX_SH} ${SCRIPTS.strategyAttributedWork}`;
+  const wf = (rel, body) => {
+    const abs = join(dir, rel);
+    mkdirSync(dirname(abs), { recursive: true });
+    writeFileSync(abs, body);
+  };
+  // Exactly the corpus `attributed-work.sh` builds, handed to `xargs` with a command that
+  // prints once per invocation: the line count IS the batch count.
+  const CORPUS_PROBE =
+    "{ find .workaholic/missions/active .workaholic/missions/archive -mindepth 2 -maxdepth 2 " +
+    "-name mission.md -type f 2>/dev/null; " +
+    "find .workaholic/tickets/todo .workaholic/tickets/archive -name '*.md' -type f 2>/dev/null; } " +
+    `| sort -u | xargs ${POSIX_SH} -c 'echo b' sh | wc -l`;
+  const batches = () => Number(run(dir, CORPUS_PROBE).stdout.trim());
+  try {
+    wf(".workaholic/strategies/alpha.md",
+      "---\ntype: Strategy\ntitle: alpha\nslug: alpha\nstatus: active\n" +
+      "target_date: 2026-12-31\nassignees: [a@qmu.jp]\nfeedback: [20260801000001-one.md]\n---\n\n" +
+      "# alpha\n\n## Aim\n\nx\n\n## Schedule\n\ny\n");
+    // Hop 1's citation and hop 2's carrier. Both sort BEFORE the filler, so they land in an
+    // early batch and the last batch matches nothing — the exact shape that truncates today.
+    wf(".workaholic/missions/active/m-one/mission.md",
+      "---\ntype: Mission\ntitle: M One\nslug: m-one\nstatus: active\nfeedback: [20260801000001-one.md]\n---\n\n# M One\n");
+    wf(".workaholic/tickets/todo/20260810000001-queued.md",
+      "---\ncreated_at: 2026-08-10T00:00:00+00:00\nmission: m-one\n---\n\n# Queued work\n");
+
+    // Grow the filler until the corpus genuinely spans more than one batch. The names carry
+    // the bytes; the bodies stay three lines.
+    const pad = "z".repeat(180);
+    let n = 0;
+    while (batches() < 2 && n < 20000) {
+      for (let i = 0; i < 200; i++, n++) {
+        wf(`.workaholic/tickets/todo/zz-filler-${String(n).padStart(6, "0")}-${pad}.md`,
+          "---\ncreated_at: 2026-08-01T00:00:00+00:00\n---\n\n# filler\n");
+      }
+    }
+    assertTrue("the fixture's corpus really does span more than one xargs batch",
+      batches() >= 2, `batch count was ${batches()} after ${n} filler files`);
+
+    execSync("git add -A && git commit -q -m seed", {
+      cwd: dir,
+      env: { ...process.env, GIT_COMMITTER_DATE: "2026-01-01T00:00:00+00:00", GIT_AUTHOR_DATE: "2026-01-01T00:00:00+00:00" },
+    });
+
+    const alpha = JSON.parse(run(dir, `${READ} alpha "1 day ago"`).stdout);
+    assertEq("a citation in an early batch survives a later batch that matches nothing",
+      alpha.artifacts.map((a) => a.path).sort(),
+      [".workaholic/missions/active/m-one/mission.md",
+       ".workaholic/tickets/todo/20260810000001-queued.md"]);
+    assertEq("hop 2's via_mission attribution crosses the boundary with it",
+      alpha.artifacts.map((a) => a.attribution).sort(),
+      ["direct", "via_mission:m-one"]);
+    assertEq("a direction with citing work is never reported as uncited past the boundary",
+      [alpha.empty, alpha.empty_reason, alpha.count], [false, "no_activity_in_window", 2]);
+    assertTrue("no filler artifact is attributed — the prefilter still only decides worth reading",
+      !alpha.artifacts.some((a) => a.path.includes("zz-filler")), JSON.stringify(alpha.artifacts.map((a) => a.path)));
+    assertEq("the reader leaves the tree clean", run(dir, "git status --porcelain").stdout.trim(), "");
+  } finally { cleanup(dir); }
+}
+
+// ---------- strategy/attributed-work.sh: found nothing vs could not look ----------
+// (2026-08-29, mission `keep-the-closing-link-readable-as-the-corpus-grows`)
+//
+// `grep` exit 1 is *no match in this batch* and is honest; exit 2 or more is *could not
+// read* and is a failure. Both vanished into one swallowed status, so a corpus the reader
+// could not read and one that cited nothing produced the same answer.
+//
+// THE DEGRADED FIXTURE USES A CORPUS ENTRY THE READER GENUINELY CANNOT CONSUME, never a
+// stubbed `grep`. A permission bit is not usable here and the ticket's own considerations
+// said so: this suite routinely runs as uid 0, where `chmod 000` still reads fine (measured
+// — `grep -lFf` over a 000-mode file exits 1, not 2). What is used instead is a path the
+// walk cannot hand to `grep` at all: `xargs` splits on whitespace, so a corpus entry whose
+// filename contains a space arrives as two non-existent paths and `grep` exits 2. That is a
+// real input a real repository can hold, and the point of the reading is exactly that such
+// a walk must not be reported as one that found nothing.
+function testAttributedWorkWalkOutcome() {
+  const dir = makeRepo("main");
+  const READ = `${POSIX_SH} ${SCRIPTS.strategyAttributedWork}`;
+  const wf = (rel, body) => {
+    const abs = join(dir, rel);
+    mkdirSync(dirname(abs), { recursive: true });
+    writeFileSync(abs, body);
+  };
+  try {
+    wf(".workaholic/strategies/alpha.md",
+      "---\ntype: Strategy\ntitle: alpha\nslug: alpha\nstatus: active\n" +
+      "target_date: 2026-12-31\nassignees: [a@qmu.jp]\nfeedback: [20260801000001-one.md]\n---\n\n" +
+      "# alpha\n\n## Aim\n\nx\n\n## Schedule\n\ny\n");
+    // `uncited` cites nothing of alpha's: it is what makes the second outcome honest rather
+    // than an artefact of an empty tree.
+    wf(".workaholic/strategies/uncited.md",
+      "---\ntype: Strategy\ntitle: uncited\nslug: uncited\nstatus: active\n" +
+      "target_date: 2026-12-31\nassignees: [a@qmu.jp]\nfeedback: [20260801009999-none.md]\n---\n\n" +
+      "# uncited\n\n## Aim\n\nx\n\n## Schedule\n\ny\n");
+    wf(".workaholic/missions/active/m-one/mission.md",
+      "---\ntype: Mission\ntitle: M One\nslug: m-one\nstatus: active\nfeedback: [20260801000001-one.md]\n---\n\n# M One\n");
+    wf(".workaholic/tickets/todo/20260810000001-queued.md",
+      "---\ncreated_at: 2026-08-10T00:00:00+00:00\nmission: m-one\n---\n\n# Queued work\n");
+    execSync("git add -A && git commit -q -m seed", { cwd: dir });
+
+    // ---- outcome 1: the walk completed and found matches ----
+    const matched = JSON.parse(run(dir, `${READ} alpha "1 day ago"`).stdout);
+    assertEq("a completed walk with citations reports them and no empty reason",
+      [matched.count, matched.empty, matched.empty_reason], [2, false, ""]);
+
+    // ---- outcome 2: the walk completed and found nothing — the honest zero ----
+    const none = run(dir, `${READ} uncited "1 day ago"`);
+    const noneJson = JSON.parse(none.stdout);
+    assertEq("a completed walk that found nothing keeps its honest zero",
+      [noneJson.count, noneJson.empty, noneJson.empty_reason], [0, true, "no_citing_artifacts"]);
+
+    // ---- outcome 3: the walk could not read the corpus ----
+    // Captured BEFORE the degraded entry exists: the same fixture, the same strategy, one
+    // unconsumable path apart. It is what makes the null counts below provably a refusal to
+    // answer rather than an honest absence of work.
+    const beforeDegrading = run(dir, `${READ} alpha "1 day ago"`).stdout;
+    wf(".workaholic/tickets/todo/has space.md",
+      "---\ncreated_at: 2026-08-12T00:00:00+00:00\n---\n\n# A path the walk cannot hand to grep\n");
+    execSync("git add -A && git commit -q -m 'Add an unconsumable corpus entry'", { cwd: dir });
+    const degraded = run(dir, `${READ} alpha "1 day ago"`);
+    assertEq("a walk that could not read still exits 0 — a caller that cannot read is told, not failed",
+      degraded.status, 0);
+    const d = JSON.parse(degraded.stdout);
+    assertEq("it reports readable: false with a reason naming what failed",
+      [d.readable, d.reason], [false, "corpus_unreadable"]);
+    assertEq("every count the walk would have produced is null, never zero",
+      [d.count, d.active_count, d.waiting_count, d.waiting_missions,
+       d.waiting_describing, d.waiting_advancing,
+       d.waiting_missions_describing, d.waiting_missions_advancing],
+      [null, null, null, null, null, null, null, null]);
+    assertEq("and no empty_reason at all — never no_citing_artifacts, which means the opposite",
+      [d.empty, d.empty_reason], [null, null]);
+    assertEq("the partial finding is kept inside the walk and not emitted as a list", d.artifacts, []);
+    assertTrue("the same walk WOULD have found citations, so the null is a refusal to answer rather than an absence of work",
+      JSON.parse(beforeDegrading).count === 2, beforeDegrading.slice(0, 200));
+
+    // `readable` IS ABSENT ON A COMPLETED WALK, and that is the contract: absent means the
+    // walk completed, exactly as an absent `merge_policy` means review. It is what keeps a
+    // completed reading byte-identical to what it was before the field existed, so a
+    // consumer not yet taught the term behaves exactly as it did.
+    assertEq("a completed walk carries no readable field at all",
+      [Object.prototype.hasOwnProperty.call(matched, "readable"),
+       Object.prototype.hasOwnProperty.call(noneJson, "readable")], [false, false]);
+    // Pinned as a whole object, not field by field: what has to hold is that NOTHING
+    // appeared and nothing left. The byte-diff against the pre-change script was run by
+    // hand over this same fixture and is recorded in the ticket's Final Report; this is its
+    // durable form, and it fails the moment a later change adds a field here.
+    assertEq("and a completed-empty walk is the same object it has always been",
+      noneJson,
+      { slug: "uncited", found: true, window: "1 day ago",
+        feedback_refs: ["20260801009999-none.md"],
+        count: 0, active_count: 0, waiting_count: 0,
+        waiting_kind: "unknown", waiting_describing: 0, waiting_advancing: 0,
+        waiting_missions: 0, waiting_missions_describing: 0, waiting_missions_advancing: 0,
+        waiting_mission_slugs: [], artifacts: [],
+        empty: true, empty_reason: "no_citing_artifacts" });
+    assertEq("every case still exits 0", [none.status, degraded.status], [0, 0]);
+
+    // THE OUTCOME IS DERIVED IN EXACTLY ONE PLACE. Two derivations of one fact eventually
+    // disagree, and this one is read by four consumers across the direction layer.
+    const src = readFileSync(SCRIPTS.strategyAttributedWork, "utf8");
+    assertEq("the walk's failure is recorded at exactly one site",
+      (src.match(/^\s*WALK_READABLE=false$/gm) || []).length, 1);
+    assertEq("and that site has exactly one caller — the prefilter both hops share",
+      (src.match(/^\s+note_walk_failure /gm) || []).length, 2);
+
+    assertEq("the reader leaves the tree clean", run(dir, "git status --porcelain").stdout.trim(), "");
+  } finally { cleanup(dir); }
+}
+
+// ---------- the survey and the lifecycle refuse a row they could not read ----------
+// (2026-08-29, mission `keep-the-closing-link-readable-as-the-corpus-grows`)
+//
+// `survey-strategies.sh` derives `pace`, `dormant`, `quiescent`, the `waiting_*` grains and the
+// `work_waiting` gate FROM the attribution walk. None of them may be derived from a walk that
+// did not complete, and `work_waiting` above all must not stand OPEN on one: a gate that cannot
+// be read is not a gate, the rule `no_feedback_refs` and `inbox_unreadable` already hold
+// themselves to.
+//
+// MEASURED against the pre-change survey over this exact fixture: it put BOTH directions in
+// `eligible`, with `dormant: true`, `waiting_count: 0` and `selected: ["alpha","uncited"]` —
+// selecting a direction to propose against on a walk that read nothing, which is the failure
+// the ask names.
+function testSurveyRefusesADegradedWalk() {
+  const dir = makeRepo("main");
+  const SURVEY = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/survey-strategies.sh")}`;
+  const STATE = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/direction-state.sh")}`;
+  const wf = (rel, body) => {
+    const abs = join(dir, rel);
+    mkdirSync(dirname(abs), { recursive: true });
+    writeFileSync(abs, body);
+  };
+  try {
+    // The open-proposal gate is the survey's one network call; hand it a held read so the
+    // whole case stays offline, exactly as the neighbouring propose cases do.
+    writeFileSync(join(dir, "open.json"),
+      `{"ok": true, "identity": "tester", "proposals": []}`);
+    const open = `--open-proposals ${join(dir, "open.json")}`;
+    const strategy = (slug, refs) =>
+      `---\ntype: Strategy\ntitle: ${slug}\nslug: ${slug}\nstatus: active\n` +
+      `target_date: 2099-12-31\nassignees: [test@example.com]\nfeedback: [${refs}]\n---\n\n` +
+      `# ${slug}\n\n## Aim\n\nx\n\n## Schedule\n\ny\n`;
+    wf(".workaholic/strategies/alpha.md", strategy("alpha", "20260801000001-one.md"));
+    wf(".workaholic/missions/active/m-one/mission.md",
+      "---\ntype: Mission\ntitle: M One\nslug: m-one\nstatus: active\nfeedback: [20260801000001-one.md]\n---\n\n# M One\n");
+    wf(".workaholic/tickets/todo/20260810000001-queued.md",
+      "---\ncreated_at: 2026-08-10T00:00:00+00:00\nmission: m-one\n---\n\n# Queued work\n");
+    execSync("git add -A && git commit -q -m seed", { cwd: dir });
+
+    // ---- a row whose walk completed ----
+    const healthy = JSON.parse(run(dir, `${SURVEY} ${open} "14 days ago" .workaholic`).stdout);
+    const hRow = [...(healthy.eligible || []), ...(healthy.refused || [])].find((r) => r.slug === "alpha");
+    assertEq("a completed walk still brakes on its own work in flight",
+      hRow.reason, "work_waiting");
+    assertEq("and its readings are made, not withheld",
+      [hRow.pace, hRow.dormant, hRow.quiescent], ["on_course", false, false]);
+
+    // ---- the same row, one path the walk cannot hand to grep ----
+    wf(".workaholic/tickets/todo/has space.md",
+      "---\ncreated_at: 2026-08-12T00:00:00+00:00\n---\n\n# A path the walk cannot hand to grep\n");
+    execSync("git add -A && git commit -q -m 'Add an unconsumable corpus entry'", { cwd: dir });
+    const blind = JSON.parse(run(dir, `${SURVEY} ${open} "14 days ago" .workaholic`).stdout);
+    const bRow = (blind.refused || []).find((r) => r.slug === "alpha");
+    assertEq("a degraded walk is refused by the name this condition already had",
+      bRow && bRow.reason, "attribution_unreadable");
+    assertEq("no reading is derived from it — unmade, never false",
+      [bRow.pace, bRow.dormant, bRow.quiescent], ["unknown", false, false]);
+    assertEq("and no waiting count at all, because a zero here is the whole defect",
+      [bRow.waiting_count, bRow.waiting_missions], [null, null]);
+    assertEq("work_waiting does not stand open on a walk that could not prove it clear",
+      blind.selected, []);
+    // THE DATE TERMS ARE FACTS ABOUT THE STRATEGY, NOT ABOUT THE WALK, and must not move.
+    assertEq("the date-derived terms are untouched",
+      [bRow.overdue, bRow.expiring, bRow.target_date],
+      [hRow.overdue, hRow.expiring, hRow.target_date]);
+
+    // ---- the lifecycle answers through its EXISTING precedence, deriving nothing new ----
+    const state = JSON.parse(run(dir, `${STATE} ${open} "14 days ago" .workaholic`).stdout);
+    const sRow = state.strategies.find((r) => r.slug === "alpha");
+    assertEq("direction-state.sh reads unreadable off the refusal it already keyed on",
+      [state.readable, sRow.state, sRow.reason], [true, "unreadable", "attribution_unreadable"]);
+    assertEq("and carries the nulls through rather than putting the zeroed reading back",
+      [sRow.waiting.count, sRow.waiting.missions], [null, null]);
+    assertEq("the reader leaves the tree clean", run(dir, "git status --porcelain").stdout.trim(), "");
+  } finally { cleanup(dir); }
+}
+
+// ---------- the residue refuses a walk it could not complete ----------
+// (2026-08-29, mission `keep-the-closing-link-readable-as-the-corpus-grows`)
+//
+// `mission-strategy.sh` answers *which direction does this mission belong to* by composing the
+// attribution walk, and `unattributed-work.sh` composes that into the residue. On a walk that
+// did not complete, a CITING mission is indistinguishable from an unattributed one — so the
+// residue names work the tree already attributes, and that residue is what
+// `/moderate`'s `direction-arrived:<slug>` question and the standing-rulings draft both read.
+// A blind walk asks the operator to rule on attributions that already exist.
+//
+// The partial case is the one the old rule missed: `all_strategies_unreadable` fired only when
+// EVERY active direction failed, and a mission attributed only to the ONE that failed is named
+// as residue exactly the same way.
+function testResidueRefusesADegradedWalk() {
+  const dir = makeRepo("main");
+  const S = "plugins/workaholic/skills/strategy/scripts";
+  const MSTRAT = `${POSIX_SH} ${join(REPO_ROOT, S, "mission-strategy.sh")}`;
+  const RESIDUE = `${POSIX_SH} ${join(REPO_ROOT, S, "unattributed-work.sh")}`;
+  const LEAVING = `${POSIX_SH} ${join(REPO_ROOT, S, "closing-residue.sh")}`;
+  const RULINGS = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/list-standing-rulings.sh")}`;
+  const wf = (rel, body) => {
+    const abs = join(dir, rel);
+    mkdirSync(dirname(abs), { recursive: true });
+    writeFileSync(abs, body);
+  };
+  const strategy = (slug, refs) =>
+    `---\ntype: Strategy\ntitle: ${slug}\nslug: ${slug}\nstatus: active\n` +
+    `target_date: 2099-12-31\nassignees: [test@example.com]\nfeedback: [${refs}]\n---\n\n` +
+    `# ${slug}\n\n## Aim\n\nx\n\n## Schedule\n\ny\n`;
+  try {
+    wf(".workaholic/strategies/alpha.md", strategy("alpha", "20260801000001-one.md"));
+    wf(".workaholic/strategies/beta.md", strategy("beta", "20260801000002-two.md"));
+    wf(".workaholic/missions/active/m-one/mission.md",
+      "---\ntype: Mission\ntitle: M One\nslug: m-one\nstatus: active\nfeedback: [20260801000001-one.md]\n---\n\n# M One\n");
+    execSync("git add -A && git commit -q -m seed", { cwd: dir });
+
+    // ---- healthy: the mission is attributed and claims nothing in the residue ----
+    const okStrat = JSON.parse(run(dir, `${MSTRAT} --root .workaholic`).stdout);
+    assertEq("a completed walk attributes the citing mission",
+      [okStrat.missions[0].slug, okStrat.missions[0].attributed, okStrat.unreadable],
+      ["m-one", true, []]);
+    const okResidue = JSON.parse(run(dir, `${RESIDUE} --root .workaholic`).stdout);
+    assertEq("so the residue is empty and readable — an honest zero",
+      [okResidue.readable, okResidue.reason, okResidue.mission_count, okResidue.missions],
+      [true, "", 0, []]);
+
+    // ---- PARTIAL: one direction's walk fails, the other completes ----
+    // A strategy whose `slug:` does not match its filename is listed under a slug the walk
+    // cannot resolve. That is one unreadable direction beside one readable one — the case
+    // `all_strategies_unreadable` was blind to, and the one where a mission attributed ONLY
+    // to the failed direction is named as residue while the tree attributes it.
+    const beta = join(dir, ".workaholic/strategies/beta.md");
+    writeFileSync(beta, readFileSync(beta, "utf8").replace("slug: beta", "slug: elsewhere"));
+    const partial = JSON.parse(run(dir, `${RESIDUE} --root .workaholic`).stdout);
+    assertEq("one unreadable direction is enough — the residue as a whole is unsound and says so",
+      [partial.readable, partial.reason], [false, "strategy_unreadable"]);
+    assertEq("and it names nothing rather than over-reporting into an operator's question",
+      [partial.missions, partial.tickets, partial.mission_count, partial.ticket_count],
+      [[], [], null, null]);
+    writeFileSync(beta, readFileSync(beta, "utf8").replace("slug: elsewhere", "slug: beta"));
+
+    // ---- the walk itself could not complete ----
+    wf(".workaholic/tickets/todo/has space.md",
+      "---\ncreated_at: 2026-08-12T00:00:00+00:00\n---\n\n# A path the walk cannot hand to grep\n");
+    execSync("git add -A && git commit -q -m 'Add an unconsumable corpus entry'", { cwd: dir });
+
+    const blindStrat = JSON.parse(run(dir, `${MSTRAT} --root .workaholic`).stdout);
+    assertEq("the direction is named unreadable, not answered as no strategy",
+      blindStrat.unreadable.map((u) => u.reason).sort(),
+      ["attribution_unreadable", "attribution_unreadable"]);
+    const blindResidue = JSON.parse(run(dir, `${RESIDUE} --root .workaholic`).stdout);
+    assertEq("no citing mission is named as unattributed anywhere",
+      [blindResidue.readable, blindResidue.missions, blindResidue.tickets],
+      [false, [], []]);
+    assertEq("with a reason and null counts, never zeroed ones",
+      [blindResidue.reason, blindResidue.mission_count, blindResidue.ticket_count],
+      ["all_strategies_unreadable", null, null]);
+
+    // ---- the leaving names the source that failed, through its EXISTING contract ----
+    const leaving = JSON.parse(run(dir, `${LEAVING} alpha "14 days ago" .workaholic`).stdout);
+    assertTrue("closing-residue.sh names the failed source rather than rendering an empty leaving",
+      leaving.readable === false && /residue_unreadable:all_strategies_unreadable/.test(leaving.reason),
+      JSON.stringify({ readable: leaving.readable, reason: leaving.reason }));
+
+    // ---- and the standing-rulings draft reaches no writer with what it could not attribute ----
+    // Scoped to the residue source on purpose: the identity-mapping source is the OTHER half
+    // of that candidate set and is unaffected here, so asserting an empty ruling list would
+    // pin something this change never touched.
+    const rulings = JSON.parse(run(dir, `${RULINGS} --root .workaholic`).stdout);
+    assertEq("no candidate is drafted out of a residue nobody could read",
+      [rulings.rulings.filter((r) => r.kind !== "identity_mapping"),
+       rulings.sources.unattributed.readable,
+       rulings.sources.unattributed.reason], [[], false, "all_strategies_unreadable"]);
+
+    assertEq("every reader leaves the tree clean",
+      run(dir, "git status --porcelain").stdout.trim(), "");
+  } finally { cleanup(dir); }
+}
+
+// ---------- the run reports name a degraded direction reading ----------
+// (2026-08-29, mission `keep-the-closing-link-readable-as-the-corpus-grows`)
+//
+// A strategy whose attribution walk did not complete used to render in the morning digest
+// EXACTLY like a quiet one — same empty `moved`, same empty `waiting`, not counted as active,
+// and so folded into the `no_activity` silence. A quiet direction and one the reader could not
+// see into must not render alike; the digest already holds itself to that rule for the
+// unattributed count, and this extends it to the strategy itself.
+//
+// NO GATE MOVES HERE. The brake is the survey's (pinned by its own case above); this ticket
+// names what is already true, and the healthy digest is unchanged.
+function testRunReportsNameADegradedReading() {
+  const dir = makeRepo("main");
+  const DIGEST = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/standup/scripts/digest.sh")}`;
+  const wf = (rel, body) => {
+    const abs = join(dir, rel);
+    mkdirSync(dirname(abs), { recursive: true });
+    writeFileSync(abs, body);
+  };
+  const strategy = (slug, refs) =>
+    `---\ntype: Strategy\ntitle: ${slug} title\nslug: ${slug}\nstatus: active\n` +
+    `target_date: 2099-12-31\nassignees: [test@example.com]\nfeedback: [${refs}]\n---\n\n` +
+    `# ${slug}\n\n## Aim\n\nx\n\n## Schedule\n\ny\n`;
+  try {
+    wf(".workaholic/strategies/moving.md", strategy("moving", "20260801000001-one.md"));
+    wf(".workaholic/missions/active/m-one/mission.md",
+      "---\ntype: Mission\ntitle: M One\nslug: m-one\nstatus: active\nfeedback: [20260801000001-one.md]\n---\n\n# M One\n");
+    wf(".workaholic/tickets/todo/20260810000001-queued.md",
+      "---\ncreated_at: 2026-08-10T00:00:00+00:00\nmission: m-one\n---\n\n# Queued work\n");
+    execSync("git add -A && git commit -q -m seed", { cwd: dir });
+
+    const ok = JSON.parse(run(dir, `${DIGEST} "1 day ago" .workaholic`).stdout);
+    assertEq("a strategy whose walk completed is readable, with no degradation reported",
+      [ok.strategies[0].readable, ok.strategies[0].reason, ok.degraded_count, ok.errors],
+      [true, "", 0, []]);
+    assertEq("and the morning is news because something moved under it",
+      [ok.noop, ok.noop_reason], [false, ""]);
+
+    wf(".workaholic/tickets/todo/has space.md",
+      "---\ncreated_at: 2026-08-12T00:00:00+00:00\n---\n\n# A path the walk cannot hand to grep\n");
+    execSync("git add -A && git commit -q -m 'Add an unconsumable corpus entry'", { cwd: dir });
+    const bad = JSON.parse(run(dir, `${DIGEST} "1 day ago" .workaholic`).stdout);
+    assertEq("a degraded strategy is named by the reader's own reason, not rendered as quiet",
+      [bad.strategies[0].readable, bad.strategies[0].reason], [false, "corpus_unreadable"]);
+    assertEq("its counts are null rather than the zeroes a quiet strategy carries",
+      [bad.strategies[0].count, bad.strategies[0].active_count, bad.strategies[0].waiting_count],
+      [null, null, null]);
+    assertEq("and the degradation is counted and named in errors",
+      [bad.degraded_count, bad.errors], [1, ["attribution_unreadable:moving"]]);
+    // EVERY strategy degraded is its own no-op, never `no_activity` — which would assert a
+    // quiet morning nobody actually read.
+    assertEq("every strategy degraded is its own named no-op",
+      [bad.noop, bad.noop_reason], [true, "all_attribution_unreadable"]);
+    // The honesty line is derived by SUBTRACTING what the strategies attributed, so a failed
+    // walk pushes its own work into it. Null, never an inflated number.
+    assertEq("and the honesty line goes null rather than over-reporting",
+      bad.unattributed, { moved: null, waiting: null });
+
+    // The other surface is prose: `/propose`'s run report step names the refusal the survey
+    // already emits, and no second word.
+    const loop = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/propose/reference/loop.md"), "utf8");
+    assertTrue("the propose run report names the survey's own refusal for a degraded row",
+      /attribution_unreadable/.test(loop), loop.slice(0, 120));
+
+    assertEq("the digest leaves the tree clean", run(dir, "git status --porcelain").stdout.trim(), "");
   } finally { cleanup(dir); }
 }
 
@@ -18318,6 +18765,11 @@ const tests = [
   ["report/area-freshness.sh (the two hand-maintained areas' upkeep seam)", testAreaFreshness],
   ["strategy skill (the artifact revived 2026-08-13)", testStrategySkill],
   ["strategy/attributed-work.sh (the ONE attribution reader)", testStrategyAttributedWork],
+  ["strategy/attributed-work.sh past the xargs batching boundary", testStrategyAttributedWorkPastBatchBoundary],
+  ["strategy/attributed-work.sh tells found nothing from could not look", testAttributedWorkWalkOutcome],
+  ["the survey and the lifecycle refuse a row they could not read", testSurveyRefusesADegradedWalk],
+  ["the residue refuses a walk it could not complete", testResidueRefusesADegradedWalk],
+  ["the run reports name a degraded direction reading", testRunReportsNameADegradedReading],
   ["standup/digest.sh (the daily per-strategy digest)", testStandupDigest],
   ["moderate: the tick's own root, and the diff that keeps it silent", testModerateTickPost],
   ["moderate: the working-week gate holds the weekend without losing the question", testModerateWorkingDays],
@@ -18443,6 +18895,10 @@ const tests = [
   ["drive claim protocol: a fresh claim takes a superseded claim's work", testFreshClaimOverSupersededClaim],
   ["drive claim protocol: a unit resolves to its live claim branch", testUnitResolvesToItsLiveClaimBranch],
   ["drive claim protocol: a reported claim is two states", testReportedClaimIsTwoStates],
+  ["drive: the base moves under a finished unit and nothing catches it up", testStrandedUnitReproduction],
+  ["drive/claim-mergeability.sh: the reader and the writer answer with one rule", testClaimMergeabilityReader],
+  ["drive/catch-up-claim.sh: one act, its refusals, and the delivery that follows", testCatchUpClaimWriter],
+  ["moderate/catchup-blocked: the conflict the loop must not resolve reaches a person", testCatchupBlockedStep],
   ["story/record-merge-outcome.sh: the durable home for a merge outcome", testRecordMergeOutcome],
   ["drive claim protocol: the act the container is refused, taken in CI", testCiRetirementCandidateSetAndAct],
   ["moderate/retire-claims: which executor took the branch delete", testRetirementExecutorRendering],
@@ -23600,6 +24056,11 @@ function testModerateRun() {
     // right up to the moment it finished. Same placement and same reason: it reads, the
     // check-in asks.
     "undelivered-units",
+    // `catchup-blocked` (2026-08-29): a finished unit the BASE no longer accepts. The loop
+    // caught it up as far as it may and stopped at a conflict only a person can judge — which
+    // `merge-conflicts` cannot say, because it reports a pull request nothing has attempted.
+    // Same placement and same reason as its neighbours: it reads, the check-in asks.
+    "catchup-blocked",
     // `handoff-units` (2026-08-27): a unit whose still-queued work was DECLARED unverifiable in
     // an unattended environment at creation. §6 routes it to the handoff route — pull request
     // open on purpose, claim standing on purpose — and until this step nothing read the verdict
@@ -26608,7 +27069,45 @@ function testProofJudgementSplit() {
     "claims.md no longer carries the base reading's classification");
   const table = wholeTable.slice(0, baseAt);
   const baseEnd = wholeTable.indexOf("\n## ", baseAt);
-  const baseTable = wholeTable.slice(baseAt, baseEnd > 0 ? baseEnd : undefined);
+  const baseTail = wholeTable.slice(baseAt, baseEnd > 0 ? baseEnd : undefined);
+
+  // A THIRD VOCABULARY IN THE SAME HOME (2026-08-29). `claim-mergeability.sh` is keyed on what
+  // the BASE says about a branch, which is a different question again from whose business the
+  // claim is and from what the base's checks said. Parsed apart for the same reason the base
+  // sub-table is: three of these vocabularies share the word `unanswerable`, and folding them
+  // would report one rule as three copies of itself.
+  const MERGE_HEADING = "### Whether the base still accepts a claim branch";
+  const mergeAt = baseTail.indexOf(MERGE_HEADING);
+  assertTrue("the mergeability reading's sub-table is in the one home too", mergeAt > 0,
+    "claims.md no longer carries the mergeability classification");
+  const baseTable = baseTail.slice(0, mergeAt);
+  const mergeTable = baseTail.slice(mergeAt);
+
+  // ITS FOUR WORDS, from the reader's own emissions, and none of them may be a proof: a base
+  // that moves is exactly a reading that becomes false by looking again.
+  const reader = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/drive/scripts/claim-mergeability.sh"), "utf8");
+  const mergeWords = new Set(["clean", "mechanical", "content", "unanswerable"]);
+  for (const w of mergeWords) {
+    assertTrue(`the reader emits ${w}`, reader.includes(w), `${w} is not in the reader`);
+    assertTrue(`the mergeability table classifies ${w} as a judgement`,
+      new RegExp(`^\\|\\s*\`${w}\`\\s*\\|\\s*judgement\\s*\\|`, "m").test(mergeTable),
+      `${w} is unclassified, or classified as a proof`);
+  }
+  const mergeRows = [...mergeTable.matchAll(/^\|\s*`([a-z_]+)`\s*\|\s*(?:\*\*)?(proof|judgement)(?:\*\*)?\s*\|/gm)];
+  assertEq("and classifies no word the reader never emits",
+    mergeRows.map((m) => m[1]).filter((w) => !mergeWords.has(w)).join(","), "");
+  assertEq("with no proof among them", mergeRows.filter((m) => m[2] === "proof").length, 0);
+
+  // ITS ONE ACTING CONSUMER RE-DERIVES THE READING AT THE MOMENT OF THE ACT rather than
+  // trusting a list it was handed — the discipline the CI-side act already carries, and the one
+  // thing that keeps a judgement from being acted on out of a stale snapshot.
+  const catchUp = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/drive/scripts/catch-up-claim.sh"), "utf8");
+  assertTrue("the catch-up reads the mergeability itself",
+    /claim-mergeability\.sh/.test(catchUp), "the catch-up trusts a handed-in reading");
+  assertTrue("and refuses a content conflict by its own word",
+    /refuse content_conflict/.test(catchUp), catchUp.slice(0, 200));
 
   // The word set, from the library's own emissions. `_cs_reason=` is the resumability verdict;
   // the two `printf '<word>\n'` families are the unit resolution and the merged lookup.
@@ -27799,4 +28298,486 @@ function testUndeliveredUnitsStep() {
       /close_unrecorded_stays_silent/.test(runbook) && /close_unrecorded_stays_silent/.test(drill),
       "the failing row is missing from the drill or the runbook");
   } finally { cleanup(fx.A); cleanup(fx.B); cleanup(fx.origin); }
+}
+
+// ---------- the base moves under a finished unit, and nothing catches it up ----------
+//
+// THE FAILING TEST THE REST OF THE MISSION TURNS GREEN (2026-08-29, mission
+// `land-the-loop-s-own-work-when-the-base-moves-under-it`). Nothing in the loop looked at a
+// claim branch's mergeability after its pull request opened, so a unit finished and refused its
+// merge is stranded the moment the base moves: `retry-undelivered.sh` re-attempts the MERGE,
+// which GitHub refuses again every hour, and `/moderate`'s `merge-conflicts` step reports the
+// pull request and says in its own header that it never rebases. Measured 2026-08-29 on this
+// repository: pull requests #622, #625, #633 and #688 conflicting with `main`, three of them
+// units recorded `report_undelivered` two days earlier, with 4 active missions and 10 queued
+// tickets behind them.
+//
+// THE FIXTURE KEYS ON THE MECHANISM, NOT THE SYMPTOM. Asserting "a conflicted pull request"
+// would pass against a stubbed transport that says anything; what the later tickets change is
+// the VERDICT CHAIN and the ABSENT CATCH-UP, so the fixture drives the real oracle to
+// `report_undelivered` and walks the driving chain for a caller of `catchup-main.sh`.
+function makeDriftFixture() {
+  const origin = mkdtempSync(join(tmpdir(), "wh-drift-origin-"));
+  const seed = mkdtempSync(join(tmpdir(), "wh-drift-seed-"));
+  execSync("git -c init.defaultBranch=main init -q --bare", { cwd: origin });
+  execSync(`git clone -q ${origin} .`, { cwd: seed });
+  execSync("git config user.email test@example.com && git config user.name Test"
+    + " && git config commit.gpgsign false", { cwd: seed });
+
+  const todo = join(seed, `.workaholic/tickets/todo/${TEST_SLUG}`);
+  mkdirSync(todo, { recursive: true });
+  for (const n of [1, 2, 3, 4]) {
+    writeFileSync(join(todo, `2026072900000${n}-t${n}.md`),
+      `---\ncreated_at: 2026-07-29T00:00:0${n}+09:00\nauthor: test@example.com\n`
+      + "type: enhancement\nlayer: [Domain]\n---\n\n# T" + n + "\n");
+  }
+  // A version manifest and an ordinary source file: the two conflict classes, each reachable
+  // on its own so `mechanical` and `content` are exercised apart rather than together.
+  mkdirSync(join(seed, ".claude-plugin"), { recursive: true });
+  writeFileSync(join(seed, ".claude-plugin/marketplace.json"),
+    '{\n  "name": "wh",\n  "version": "1.0.0",\n  "plugins": []\n}\n');
+  mkdirSync(join(seed, "src"), { recursive: true });
+  writeFileSync(join(seed, "src/app.txt"), "alpha\nbeta\ngamma\n");
+  execSync("git add -A && git commit -q -m seed && git push -q origin main", { cwd: seed });
+  rmSync(seed, { recursive: true, force: true });
+
+  const A = mkdtempSync(join(tmpdir(), "wh-drift-A-"));
+  execSync(`git clone -q ${origin} .`, { cwd: A });
+  execSync("git config user.email test@example.com && git config user.name Test"
+    + " && git config commit.gpgsign false", { cwd: A });
+  const binDir = mkdtempSync(join(tmpdir(), "wh-drift-bin-"));
+  return { origin, A, binDir };
+}
+
+// Drive one ticket to the shape a stranded unit has: queue drained, story at the tip, a merge
+// refusal recorded on the branch, and the tip aged past the heartbeat window. `edit` makes the
+// branch side of whatever conflict this unit is for.
+function strandUnit(A, ticket, edit, outcome = "merge_refused: session_type_cannot_merge") {
+  const RECORDER = join(REPO_ROOT,
+    "plugins/workaholic/skills/story/scripts/record-merge-outcome.sh");
+  const c = JSON.parse(run(A, `${POSIX_SH} ${SCRIPTS.claim} batch ${ticket}`).stdout);
+  const wt = c.worktree_path;
+  const arch = `.workaholic/tickets/archive/${c.branch}`;
+  execSync(`mkdir -p ${arch} && git mv ${ticket} ${arch}/`, { cwd: wt });
+  mkdirSync(join(wt, ".workaholic/stories"), { recursive: true });
+  writeFileSync(join(wt, `.workaholic/stories/${c.branch}.md`),
+    `---\ntype: Story\nbranch: ${c.branch}\n---\n\n## 1. Overview\n\ndone\n`);
+  if (outcome) {
+    run(wt, `${POSIX_SH} ${RECORDER} .workaholic/stories/${c.branch}.md ${JSON.stringify(outcome)}`);
+  }
+  if (edit) edit(wt);
+  execSync(`git add -A && git commit -q -m "Report the unit" && git push -q origin ${c.branch}`,
+    { cwd: wt });
+  execSync('git commit -q --allow-empty -m "Heartbeat" && git push -q origin HEAD',
+    { cwd: wt, env: { ...process.env, GIT_COMMITTER_DATE: "2026-08-01T00:00:00+00:00", GIT_AUTHOR_DATE: "2026-08-01T00:00:00+00:00" } });
+  return c;
+}
+
+// Move the base out from under every branch already pushed.
+function advanceBase(A, edit) {
+  execSync("git fetch -q origin && git checkout -q main && git merge -q --ff-only origin/main",
+    { cwd: A });
+  edit(A);
+  execSync('git add -A && git commit -q -m "Advance the base" && git push -q origin main',
+    { cwd: A });
+  execSync("git fetch -q --prune origin", { cwd: A });
+}
+
+// The transport, stubbed: no network at any point. `merge` decides what the one `PUT` answers.
+function driftGhStub(binDir, { merge = "405 Pull Request is not mergeable" } = {}) {
+  writeFileSync(join(binDir, "gh"), `#!/bin/sh
+case "$*" in
+  "api user --jq .login") printf 'tester\\n'; exit 0 ;;
+  *"/merge"*) echo ${JSON.stringify(merge)} >&2; exit 1 ;;
+  *pulls*) printf '[{"number": 7, "html_url": "https://example.test/pr/7"}]\\n'; exit 0 ;;
+esac
+printf '[]\\n'
+`);
+  chmodSync(join(binDir, "gh"), 0o755);
+}
+
+function testStrandedUnitReproduction() {
+  const fx = makeDriftFixture();
+  const withGh = { ...process.env, PATH: `${fx.binDir}:${process.env.PATH}` };
+  try {
+    driftGhStub(fx.binDir);
+    const t = `.workaholic/tickets/todo/${TEST_SLUG}/20260729000001-t1.md`;
+    const unit = strandUnit(fx.A, t, (wt) =>
+      writeFileSync(join(wt, "src/app.txt"), "alpha\nbeta-branch\ngamma\n"));
+    advanceBase(fx.A, (root) =>
+      writeFileSync(join(root, "src/app.txt"), "alpha\nbeta-base\ngamma\n"));
+
+    // 1. LOCALIZE: the fixture drives the REAL verdict chain, not a shape that resembles it.
+    //    `report_undelivered` is the proof `retry-undelivered.sh` acts on, so a fixture that
+    //    reached the merge by any other route would be testing nothing.
+    const row = JSON.parse(run(fx.A, `${POSIX_SH} ${SCRIPTS.listClaims}`).stdout)
+      .claims.find((c) => c.unit === unit.unit);
+    assertEq("the oracle reads report_undelivered on the stranded branch",
+      [row.resume_reason, row.resumable], ["report_undelivered", false]);
+
+    // 2. PIN THE FAILURE: the retry attempts the merge, is refused, and its refusal is about
+    //    THE MERGE rather than about the branch being behind. `merge-reason.sh` has no word
+    //    for "behind" at all — which is the distinction the whole mission rests on.
+    // `--own-tip` collapses only the liveness term: the retry RECORDS its refusal onto the
+    //    branch, which moves the tip, so a second run would otherwise read `claim_active` and
+    //    say nothing about the merge at all.
+    const retry = () => JSON.parse(run(fx.A,
+      `${POSIX_SH} ${SCRIPTS.retryUndelivered} ${unit.unit} --own-tip`, { env: withGh }).stdout);
+    const first = retry();
+    assertEq("the retry attempts the merge and is refused",
+      [first.attempted, first.outcome], [true, "merge_refused: merge_not_allowed"]);
+    const again = retry();
+    assertEq("and is refused again, every time it is run, for the same reason",
+      again.outcome, first.outcome);
+    assertTrue("the refusal names the merge, never the branch being behind",
+      !/behind|stale|catch/i.test(first.merge_reason), first.merge_reason);
+
+    // 3. NAME THE MECHANISM: what the retry cannot see is that the branch no longer merges.
+    //    Proved with the reader rather than asserted, so the fixture states the stranding
+    //    rather than a missing function.
+    const mb = JSON.parse(run(fx.A,
+      `${POSIX_SH} ${SCRIPTS.claimMergeability} ${unit.branch} origin/main`).stdout);
+    assertEq("the branch no longer merges, and only a person can resolve it",
+      mb.class, "content");
+    assertEq("naming the file both sides changed", mb.content_files, ["src/app.txt"]);
+
+    // 4. PIN THE ABSENCE, as a CLOSED SET rather than as "nothing reaches it" — a set
+    //    assertion stays meaningful once the catch-up exists and still fails the moment some
+    //    other path grows one of its own.
+    const callers = [];
+    const skills = join(REPO_ROOT, "plugins/workaholic/skills");
+    const walk = (dir) => {
+      for (const e of readdirSync(dir, { withFileTypes: true })) {
+        const p = join(dir, e.name);
+        if (e.isDirectory()) { walk(p); continue; }
+        if (!/\.sh$/.test(e.name)) continue;
+        const src = readFileSync(p, "utf8").split("\n")
+          .filter((l) => !/^\s*#/.test(l)).join("\n");
+        if (/catchup-main\.sh/.test(src)) callers.push(e.name);
+      }
+    };
+    walk(skills);
+    assertEq("exactly two scripts reach the catch-up, and each is a deliberate composition",
+      callers.sort().join(","), "catch-up-claim.sh,land-unit.sh");
+
+    // AND THE UNATTENDED ONE IS REACHABLE. `land-unit.sh` refuses `headless_context` FIRST and
+    // unoverridably, which is the whole reason the loop had no caller at all.
+    const landed = JSON.parse(run(fx.A,
+      `${POSIX_SH} ${SCRIPTS.landUnit} ${unit.unit} --developer-present`,
+      { env: { ...withGh, WORKAHOLIC_HEADLESS: "1" } }).stdout);
+    assertEq("land-unit.sh is refused headless, as designed", landed.reason, "headless_context");
+  } finally { cleanup(fx.A); cleanup(fx.origin); cleanup(fx.binDir); }
+}
+
+// ---------- the reader and the writer answer with one rule (2026-08-29) ----------
+//
+// `claim-mergeability.sh` predicts what `catchup-main.sh` will do, from `git merge-tree`,
+// without touching a worktree. The one real risk is a SECOND CLASSIFIER that can disagree with
+// the writer's, so every row here is about agreement or about the fourth value:
+// `unanswerable` must never collapse into `content`, because a wrong `clean` pushes a merge
+// nobody proved while a wrong `content` only delays a unit.
+function testClaimMergeabilityReader() {
+  const fx = makeDriftFixture();
+  try {
+    const t = (n) => `.workaholic/tickets/todo/${TEST_SLUG}/2026072900000${n}-t${n}.md`;
+    // Three branches, one per class, all against one base advance.
+    const content = strandUnit(fx.A, t(1), (wt) =>
+      writeFileSync(join(wt, "src/app.txt"), "alpha\nbeta-branch\ngamma\n"));
+    tickSecond();
+    const mech = strandUnit(fx.A, t(2), (wt) =>
+      writeFileSync(join(wt, ".claude-plugin/marketplace.json"),
+        '{\n  "name": "wh",\n  "version": "1.0.1",\n  "plugins": []\n}\n'));
+    tickSecond();
+    const clean = strandUnit(fx.A, t(3), (wt) =>
+      writeFileSync(join(wt, "src/untouched.txt"), "only here\n"));
+    advanceBase(fx.A, (root) => {
+      writeFileSync(join(root, "src/app.txt"), "alpha\nbeta-base\ngamma\n");
+      writeFileSync(join(root, ".claude-plugin/marketplace.json"),
+        '{\n  "name": "wh",\n  "version": "1.0.2",\n  "plugins": []\n}\n');
+    });
+
+    const read = (branch) => JSON.parse(run(fx.A,
+      `${POSIX_SH} ${SCRIPTS.claimMergeability} ${branch} origin/main`).stdout);
+    assertEq("a source-file collision reads content", read(content.branch).class, "content");
+    assertEq("a version-manifest collision reads mechanical", read(mech.branch).class, "mechanical");
+    assertEq("a branch that touches neither reads clean", read(clean.branch).class, "clean");
+
+    // THE READER AND THE WRITER AGREE, PROVED RATHER THAN ASSERTED. The writer is run for real
+    // in each branch's own worktree; what it does must match what the reader predicted.
+    const writerSays = (c) => {
+      const out = run(c.worktree_path,
+        `${POSIX_SH} ${SCRIPTS.catchupMain} main --resolve-mechanical`).stdout;
+      if (/"caught_up": true/.test(out)) return "caught_up";
+      return (out.match(/"conflict_class": "([^"]*)"/) || [, "none"])[1];
+    };
+    assertEq("what the reader calls mechanical, the writer resolves",
+      writerSays(mech), "caught_up");
+    assertEq("what the reader calls content, the writer refuses as content",
+      writerSays(content), "content");
+    assertEq("what the reader calls clean, the writer merges", writerSays(clean), "caught_up");
+
+    // THE FOURTH VALUE IS ITS OWN. A ref this clone cannot read is `unanswerable`, never
+    // `content`: the reading was not made, and dressing that as a judgement about the branch
+    // is exactly the collapse the merged-lookup contract exists to prevent.
+    const gone = read("work-20260829-999999");
+    assertEq("an unreadable ref is unanswerable with its own reason",
+      [gone.readable, gone.class, gone.reason], [false, "unanswerable", "unreadable_ref"]);
+
+    // AND IT WRITES NOTHING, ANYWHERE. `git merge-tree` computes into the object store: no
+    // worktree, no index, no ref — the property that lets the claim reader stay a pure read.
+    assertEq("the reader left the checkout as it found it",
+      execSync("git status --porcelain", { cwd: fx.A, encoding: "utf8" }).trim(), "");
+
+    // ONE RULE, NOT TWO COPIES. Both scripts read the shared library and neither restates it.
+    for (const s of [SCRIPTS.claimMergeability, SCRIPTS.catchupMain]) {
+      assertTrue(`${basename(s)} reads the shared classification rule`,
+        readFileSync(s, "utf8").includes("lib/conflict-class.sh"), s);
+    }
+    const readerSrc = readFileSync(SCRIPTS.claimMergeability, "utf8")
+      .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+    assertTrue("and the reader carries no allowlist of its own",
+      !/marketplace\.json|codex-plugin|outputs\/\*/.test(readerSrc), readerSrc);
+  } finally { cleanup(fx.A); cleanup(fx.origin); cleanup(fx.binDir); }
+}
+
+// ---------- the catch-up: one act, six refusals, nothing written on any of them ----------
+function testCatchUpClaimWriter() {
+  const fx = makeDriftFixture();
+  const withGh = { ...process.env, PATH: `${fx.binDir}:${process.env.PATH}` };
+  try {
+    driftGhStub(fx.binDir);
+    const t = (n) => `.workaholic/tickets/todo/${TEST_SLUG}/2026072900000${n}-t${n}.md`;
+    const mech = strandUnit(fx.A, t(1), (wt) =>
+      writeFileSync(join(wt, ".claude-plugin/marketplace.json"),
+        '{\n  "name": "wh",\n  "version": "1.0.1",\n  "plugins": []\n}\n'));
+    tickSecond();
+    const content = strandUnit(fx.A, t(2), (wt) =>
+      writeFileSync(join(wt, "src/app.txt"), "alpha\nbeta-branch\ngamma\n"));
+    tickSecond();
+    const held = strandUnit(fx.A, t(3), (wt) =>
+      writeFileSync(join(wt, ".claude-plugin/marketplace.json"),
+        '{\n  "name": "wh",\n  "version": "1.0.5",\n  "plugins": []\n}\n'),
+      "merge_not_attempted: hard");
+    advanceBase(fx.A, (root) => {
+      writeFileSync(join(root, "src/app.txt"), "alpha\nbeta-base\ngamma\n");
+      writeFileSync(join(root, ".claude-plugin/marketplace.json"),
+        '{\n  "name": "wh",\n  "version": "1.0.2",\n  "plugins": []\n}\n');
+    });
+
+    const tipOf = (b) => execSync(`git rev-parse origin/${b}`,
+      { cwd: fx.A, encoding: "utf8" }).trim();
+    const catchUp = (unit, env = withGh) => JSON.parse(run(fx.A,
+      `${POSIX_SH} ${SCRIPTS.catchUpClaim} ${unit}`, { env }).stdout);
+
+    // 1. A `content` CONFLICT IS REFUSED AND THE BRANCH IS BYTE-IDENTICAL AFTER IT.
+    const beforeContent = tipOf(content.branch);
+    const refusedContent = catchUp(content.unit);
+    assertEq("a content conflict is refused by its own word",
+      [refusedContent.outcome, refusedContent.reason],
+      ["catch_up_refused", "content_conflict"]);
+    assertEq("and the branch is byte-identical after it", tipOf(content.branch), beforeContent);
+    assertEq("nothing was pushed or merged",
+      [refusedContent.merged, refusedContent.pushed], [false, false]);
+
+    // 2. A SCAN-HELD PULL REQUEST IS NEVER CAUGHT UP. The catch-up is not a route around a
+    //    gate: `merge_not_attempted: hard` is the gate WORKING.
+    const beforeHeld = tipOf(held.branch);
+    const refusedHeld = catchUp(held.unit);
+    assertEq("a scan-held unit is refused, naming the tier",
+      refusedHeld.reason, "scan_held:hard");
+    assertEq("and its branch is untouched", tipOf(held.branch), beforeHeld);
+
+    // 3. THE MECHANICAL CASE IS CAUGHT UP, VALIDATED AND PUSHED IN ONE TURN.
+    const done = catchUp(mech.unit);
+    assertEq("a mechanical conflict is caught up and pushed",
+      [done.outcome, done.merged, done.pushed], ["caught_up", true, true]);
+    assertTrue("the branch tip moved", tipOf(mech.branch) !== null);
+    assertEq("and the base is now an ancestor of it",
+      run(fx.A, `git merge-base --is-ancestor origin/main origin/${mech.branch}`).status, 0);
+    // The version collision was resolved by taking the HIGHER semver, never one side wholesale.
+    assertTrue("the higher version won the manifest collision",
+      execSync(`git show origin/${mech.branch}:.claude-plugin/marketplace.json`,
+        { cwd: fx.A, encoding: "utf8" }).includes('"1.0.2"'),
+      "the manifest did not converge on the higher version");
+
+    // 4. IDEMPOTENT: a second run reports `already_current` and touches no ref.
+    execSync("git fetch -q --prune origin", { cwd: fx.A });
+    const beforeSecond = tipOf(mech.branch);
+    const second = catchUp(mech.unit);
+    assertEq("a second run is a no-op that says so", second.outcome, "already_current");
+    assertEq("and pushed nothing", [second.merged, second.pushed], [false, false]);
+    assertEq("the tip did not move", tipOf(mech.branch), beforeSecond);
+
+    // 5. A COLLEAGUE'S CLAIM IS UNTOUCHABLE AT ANY AGE — the standing rule this narrows, not
+    //    reverses. The identity is what makes the act legitimate, so removing it must refuse.
+    const foreign = { ...withGh, GIT_AUTHOR_EMAIL: "other@example.com" };
+    execSync("git config user.email other@example.com", { cwd: fx.A });
+    const notMine = catchUp(content.unit, foreign);
+    assertTrue("a claim this identity does not hold is refused by name",
+      /foreign_identity|not_my_claim/.test(notMine.reason), notMine.reason);
+    assertEq("and nothing was merged for it", notMine.merged, false);
+    execSync("git config user.email test@example.com", { cwd: fx.A });
+
+    // 6. NEVER A REBASE, AN AMEND OR A FORCE-PUSH, ON ANY PATH.
+    const src = readFileSync(SCRIPTS.catchUpClaim, "utf8")
+      .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+    assertTrue("the writer rebases nothing", !/git .*rebase/.test(src), src);
+    assertTrue("amends nothing", !/--amend/.test(src), src);
+    assertTrue("and force-pushes nothing", !/--force|\+refs\//.test(src), src);
+    assertTrue("it composes the catch-up rather than merging by hand",
+      /catchup-main\.sh/.test(src) && !/git -C .* merge /.test(src), src);
+    assertTrue("and attaches the worktree through the sanctioned resume mode",
+      /create-mission-worktree\.sh/.test(src) && !/ensure-worktree\.sh/.test(src), src);
+
+    // 7. THE MERGE THE CATCH-UP UNBLOCKED IS RE-ATTEMPTED IN THE SAME TURN — one delivery per
+    //    caught-up unit, reported in §6's EXISTING vocabulary, never a second set of words.
+    //    Without `--own-tip` the catch-up's own push would read as a live claim and the
+    //    delivery it exists to unblock would be refused by the act that unblocked it.
+    const blocked = JSON.parse(run(fx.A,
+      `${POSIX_SH} ${SCRIPTS.retryUndelivered} ${mech.unit}`, { env: withGh }).stdout);
+    assertEq("without the flag the catch-up's own push reads as a live claim",
+      blocked.reason, "not_undelivered:claim_active");
+    const delivery = JSON.parse(run(fx.A,
+      `${POSIX_SH} ${SCRIPTS.retryUndelivered} ${mech.unit} --own-tip`, { env: withGh }).stdout);
+    assertTrue("with it the delivery is attempted and speaks §6's vocabulary and no other",
+      /^(merged|merge_refused: )/.test(delivery.outcome), JSON.stringify(delivery));
+
+    // AND THE DRILL EXISTS, is dispatched by its verb, and is documented — the same four pins
+    // every other verify target carries, so a drill that is written and never wired reads
+    // exactly like one that runs.
+    const drill = readFileSync(join(REPO_ROOT, "scripts/e2e/loop-drill.sh"), "utf8");
+    assertTrue("verify-catch-up is in loop-drill.sh", /cmd_verify_catch_up\(\)/.test(drill),
+      "verify-catch-up is not in loop-drill.sh");
+    assertTrue("and is dispatched by its verb", /verify-catch-up\) cmd_verify_catch_up/.test(drill),
+      "the drill's verb is not wired");
+    assertTrue("and its usage line names it", /verify-catch-up \[--json\]/.test(drill),
+      "the drill is not in the usage line");
+    const runbook = readFileSync(join(REPO_ROOT, "docs/loop-drill-runbook.md"), "utf8");
+    assertTrue("and the runbook documents it alongside the others",
+      /verify-catch-up/.test(runbook), "the drill is undocumented");
+    assertTrue("with the deliberately-broken row named as the proof it is",
+      /catch_up_refuses_a_foreign_claim/.test(runbook)
+        && /catch_up_refuses_a_foreign_claim/.test(drill),
+      "the failing row is missing from the drill or the runbook");
+
+    // AND THE FLAG RELAXES NOTHING ELSE — least of all a gate. A scan-held pull request is
+    // still refused by name: the flag collapses the liveness term and no other, so the one
+    // check whose absence would mean an unattended merge past a secret finding is untouched.
+    const stillHeld = JSON.parse(run(fx.A,
+      `${POSIX_SH} ${SCRIPTS.retryUndelivered} ${held.unit} --own-tip`, { env: withGh }).stdout);
+    assertEq("a scan-held unit is refused with the flag exactly as without it",
+      [stillHeld.attempted, stillHeld.reason], [false, "not_undelivered:queue_drained"]);
+  } finally { cleanup(fx.A); cleanup(fx.origin); cleanup(fx.binDir); }
+}
+
+// ---------- the conflict the loop must not resolve reaches a person (2026-08-29) ----------
+//
+// `catch-up-claim.sh` refuses `content_conflict` and that refusal reached nobody. The step that
+// carries it must draw the split the mission rests on: *nobody has looked yet* (a conflicted
+// pull request, `merge-conflicts`) and *the loop looked and only you can decide* (a branch the
+// shared rule classified) tell somebody different things. So every row here is about the bound
+// — who is asked, exactly once, and that no unit draws two questions in two vocabularies.
+function testCatchupBlockedStep() {
+  const fx = makeDriftFixture();
+  const withGh = { ...process.env, PATH: `${fx.binDir}:${process.env.PATH}` };
+  try {
+    driftGhStub(fx.binDir);
+    const t = (n) => `.workaholic/tickets/todo/${TEST_SLUG}/2026072900000${n}-t${n}.md`;
+    // One unit the base no longer accepts, one it does — both finished, both undelivered.
+    const blocked = strandUnit(fx.A, t(1), (wt) =>
+      writeFileSync(join(wt, "src/app.txt"), "alpha\nbeta-branch\ngamma\n"));
+    tickSecond();
+    const mergeable = strandUnit(fx.A, t(2), (wt) =>
+      writeFileSync(join(wt, "src/untouched.txt"), "only here\n"));
+    advanceBase(fx.A, (root) =>
+      writeFileSync(join(root, "src/app.txt"), "alpha\nbeta-base\ngamma\n"));
+
+    const step = (s) => JSON.parse(run(fx.A,
+      `${POSIX_SH} ${s} --tick 20260829-070000 --root ${fx.A}`, { env: withGh }).stdout);
+
+    const r = step(SCRIPTS.stepCatchupBlocked);
+    assertEq("the step runs ok", [r.step, r.status], ["catchup-blocked", "ok"]);
+    const rows = (r.needs_agent[0] || {}).blocked || [];
+    assertEq("exactly one unit is handed to the check-in", rows.length, 1);
+    assertEq("and it is the one the base no longer accepts", rows[0].unit, blocked.unit);
+    assertTrue("the mergeable unit is not a candidate",
+      !rows.some((x) => x.unit === mergeable.unit), JSON.stringify(rows));
+
+    // ADDRESSED TO THE CLAIM HOLDER, NAMING WHAT COLLIDED. A question that cannot name the
+    // files does not say what to look at.
+    assertEq("the question is addressed to the claim holder", rows[0].owner, "test@example.com");
+    assertEq("and names the files both sides changed", rows[0].conflicted_files, ["src/app.txt"]);
+    assertEq("and the branch", rows[0].branch, blocked.branch);
+    assertEq("keyed once per unit", rows[0].key, `catchup-blocked:${blocked.unit}`);
+
+    // ASKED EXACTLY ONCE: the key is stable across ticks, which is what lets the ledger refuse.
+    assertEq("the key is stable across ticks",
+      ((step(SCRIPTS.stepCatchupBlocked).needs_agent[0] || {}).blocked || [])[0].key,
+      rows[0].key);
+
+    // ONE UNIT NEVER DRAWS TWO QUESTIONS. `undelivered-units` filters this unit out of its own
+    // candidates and COUNTS it — *retry your merge* is the wrong instruction for a branch that
+    // no longer merges — while still asking about the mergeable one beside it.
+    const und = step(SCRIPTS.stepUndeliveredUnits);
+    const undRows = (und.needs_agent[0] || {}).undelivered || [];
+    assertEq("undelivered-units asks about the mergeable unit only",
+      undRows.map((x) => x.unit), [mergeable.unit]);
+    assertTrue("and counts the blocked one rather than dropping it",
+      /no longer merging \(asked by catchup-blocked\)/.test(und.summary), und.summary);
+
+    // `merge-conflicts` KEEPS reporting every conflicted pull request, and that is a refusal
+    // rather than an omission: the only way to know which units this step asks about is to read
+    // the claim oracle, which fetches — a network read inside a step whose whole cost is one
+    // bounded REST call, and inside a hermetic suite whose fixture for it carries a real origin
+    // URL. It asks nobody anything (`needs_agent` is empty by construction), so the ticket's
+    // "one asks and the other counts" holds without it, and the refusal is recorded in its
+    // header rather than left to be re-tried.
+    const mcSrc = readFileSync(SCRIPTS.stepMergeConflicts, "utf8");
+    assertTrue("merge-conflicts still reaches no claim oracle",
+      !/list-claims\.sh/.test(mcSrc.split("\n").filter((l) => !/^\s*#/.test(l)).join("\n")),
+      "a network fetch was put inside a bounded REST-read step");
+    assertTrue("and its header records the narrowing and the refusal",
+      /narrowed, not reversed/i.test(mcSrc) && /catch-up-claim\.sh/.test(mcSrc), mcSrc.slice(0, 200));
+
+    // THE SUMMARY CARRIES NO AGE AND NO TIMESTAMP — an incrementing summary makes the step
+    // "changed" hourly by construction and the root restates the same units all day.
+    assertTrue("the summary carries no hour count", !/\d+\s*h\b/.test(r.summary), r.summary);
+    assertTrue("and no timestamp", !/\d{4}-\d{2}-\d{2}|\d{2}:\d{2}/.test(r.summary), r.summary);
+    assertTrue("the event names the repository event",
+      /no longer merge/.test(r.event), r.event);
+
+    // A DEGRADED READ ASKS NOTHING AND IS NAMED. A scan that could not reach the remote has not
+    // found "nothing blocked" — the mergeability is derived against the base it could not read.
+    const plain = mkdtempSync(join(tmpdir(), "wh-catchup-plain-"));
+    execSync("git init -q .", { cwd: plain });
+    const deg = JSON.parse(run(plain,
+      `${POSIX_SH} ${SCRIPTS.stepCatchupBlocked} --tick 20260829-070000 --root ${plain}`).stdout);
+    assertEq("a repository with no origin degrades by name",
+      [deg.status, deg.needs_agent.length], ["degraded", 0]);
+    assertTrue("and the reason is named", deg.reason.length > 0, JSON.stringify(deg));
+    rmSync(plain, { recursive: true, force: true });
+
+    // IT WRITES NOTHING, and reaches no writer of its own.
+    assertEq("git status is clean after the step ran",
+      execSync("git status --porcelain", { cwd: fx.A, encoding: "utf8" }).trim(), "");
+    const src = readFileSync(SCRIPTS.stepCatchupBlocked, "utf8")
+      .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+    assertEq("the step never reaches plan-units.sh", /plan-units\.sh/.test(src), false);
+    assertTrue("and calls no writer at all",
+      !/catch-up-claim\.sh|retry-undelivered\.sh|retire-claim\.sh|git (push|merge|rebase)/.test(src),
+      src);
+
+    // REGISTERED, IN ORDER, BESIDE THE SIBLING IT FOLLOWS — and classified deliberately, since
+    // an unclassified step id reads `needs_ruling` by default rather than by decision.
+    const runSh = readFileSync(
+      join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/run.sh"), "utf8");
+    assertTrue("run.sh invokes the step in order",
+      /undelivered-units catchup-blocked handoff-units/.test(runSh), "not registered in order");
+    const wf = readFileSync(
+      join(REPO_ROOT, "plugins/workaholic/skills/moderate/reference/workflow.md"), "utf8");
+    assertTrue("and the findings table classifies it",
+      /^\| `catchup-blocked` \| `needs_ruling` \|/m.test(wf), "the step id is unclassified");
+    assertTrue("and the reference documents it",
+      /## \d+\. `catchup-blocked`/.test(wf), "the step has no section");
+  } finally { cleanup(fx.A); cleanup(fx.origin); cleanup(fx.binDir); }
 }

@@ -1492,7 +1492,7 @@ and it is **never** spent on a candidate the tree already answered.
 10, with `truncated` and `beyond_bound`); the list itself is read in
 `WORKAHOLIC_RECONCILE_PAGES` pages of 50 (default 3) and **`list_capped` says when that bound, rather
 than the repository, ended the read** — one page cannot serve the window on a repository closing
-twenty-five pull requests a day, and a single page would have answered "nothing merged" for anything
+twenty-six pull requests a day, and a single page would have answered "nothing merged" for anything
 older than yesterday.
 
 **A candidate whose artifacts resolve to no feedback stem is reported in `unresolved` under
@@ -1678,6 +1678,7 @@ decide something before any change is the right one*.
 | `undrivable-units` | `needs_ruling` | Which account an address belongs to is a human's ruling, by that step's own contract. |
 | `standing-rulings` | `needs_ruling` | It exists **because** the loop cannot make those rulings itself. |
 | `undelivered-units` | **`repairable`** | A merge the transport refused names the transport seam, which is code. |
+| `catchup-blocked` | `needs_ruling` | Which side of a content conflict keeps its behaviour is the claim holder's, by that step's own contract — the loop refused it precisely because it must not decide. |
 | `handoff-units` | `needs_ruling` | The declared verification is the one act nothing unattended can take. |
 | `thread-reconcile` | `needs_ruling` | Its repair is the tick's own reply, already taken; it owes the queue nothing. |
 | `retire-claims` | **`repairable`** | A branch CI could not delete names an executor or a bound that a change can fix. |
@@ -1690,11 +1691,16 @@ decide something before any change is the right one*.
 | `human-checkin` | `needs_ruling` | The asking step itself. |
 
 **`merge-conflicts` is the row worth arguing about**, and it is `repairable` deliberately.
-`workaholic:drive` says resolving a conflict on a claimed branch is nobody's job here, and that
-rule is untouched: what the filing produces is an issue, then a plan, then a `review`-policy
-unit on a **fresh** claim — never an unattended push onto somebody else's branch. Were the
-reading ever to be that the repair is not mechanical, the row moves to `needs_ruling` and the
-default is already on that side.
+`workaholic:drive` said resolving a conflict on a claimed branch is nobody's job here, and
+**that rule was narrowed on 2026-08-29** (mission
+`land-the-loop-s-own-work-when-the-base-moves-under-it`) rather than dropped: a run may now
+merge the base into **its own** claim branch when the conflict is one the shared classification
+rule settles without a judgement, and a **`content`** conflict is still nobody's job here —
+refused, the branch left byte-identical, the claim holder asked by `catchup-blocked` (§26).
+What is untouched is exactly what this row rests on: the filing produces an issue, then a plan,
+then a `review`-policy unit on a **fresh** claim — never an unattended push onto somebody
+else's branch. Were the reading ever to be that the repair is not mechanical, the row moves to
+`needs_ruling` and the default is already on that side.
 
 ---
 
@@ -2011,3 +2017,61 @@ request can see.
 **Degradations, named one by one**: `jq_unavailable`, `no_rulings_reader`, `no_brake_reader`,
 `brake_unreadable`, `brake_<reason>` from the brake, and the candidate reader's own
 `unattributed_unreadable:<reason>` / `identity_unreadable:<reason>`. Each drafts nothing.
+
+## 26. `catchup-blocked` — the conflict the loop looked at and must not resolve
+
+```bash
+sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/step-catchup-blocked.sh --tick <id> [--root <repo-root>]
+```
+
+Added 2026-08-29 (mission `land-the-loop-s-own-work-when-the-base-moves-under-it`), beside
+`undelivered-units`. `catch-up-claim.sh` brings a finished unit back onto a base that moved
+under it and refuses `content_conflict` when the collision is one only a person can judge.
+That refusal reached nobody: `/implement` may not ask, and no step of this tick saw the shape.
+
+**A branch nothing has attempted is not this question, and that is the whole point of the
+split.** `merge-conflicts` (step 4) reports a pull request GitHub calls conflicted — *nobody
+has looked yet*. This asks about a branch the shared classification rule
+(`ship/scripts/lib/conflict-class.sh`) examined and declared a person's — *the loop looked and
+only you can decide*. Those tell somebody different things, and one word for both is how four
+conflicted pull requests went unread for three days (measured 2026-08-29). So the candidate set
+is the **reading** (`mergeability: content` on the claim row), never the pull request's own
+`mergeable: false`.
+
+**Which sibling it follows, on each axis.** Whose question: `undelivered-units`' — the claim
+**holder** drove this unit and knows which side of the conflict keeps its behaviour, which is
+the same reason `step-merge-conflicts.sh` gives for reporting to the holder rather than
+rebasing. The running identity: `undrivable-units`' — never consulted, because a branch the
+base no longer accepts is a fact about the repository and an hourly question that depended on
+which container asked it would answer differently per account. What it may read:
+`undrivable-units`' — `list-claims.sh`, never `plan-units.sh`, which stages what its living
+migrations converge.
+
+**One unit never draws two questions.** The candidates are bounded to a unit that is **finished
+and waiting** — `report_undelivered` or `queue_drained` — the set nothing else will move: its
+queue is drained, its pull request is open, and a merge retry cannot help a branch the base no
+longer accepts. Everything else is somebody's question already — `claim_active` and
+`heartbeat_lapsed` belong to the run driving or resuming the unit, `parked_with_pr` has work
+left whose own drive meets the conflict, `awaiting_verification` draws `handoff-unit`, and
+`superseded` holds nothing. Beside it, **two steps count what this one asks about**:
+`undelivered-units` filters a `content` row out of its own candidates, and `merge-conflicts`
+drops a pull request whose head branch is asked about here. One step asks and the others count,
+exactly as `handoff-units` and `stalled-units` divide — either half alone is a defect, because
+*retry your merge* is the wrong instruction for a branch that no longer merges.
+
+**The conflicted files ride the claim row.** A question that cannot name what collided does not
+say what to look at, and reading the mergeability a second time here would be a second
+derivation of one fact — so `list-claims.sh` renders `mergeability_content_files` and this
+reads it.
+
+**Degradation is toward over-reporting, in both directions.** A scan that could not reach the
+remote is `degraded` by name and asks nothing (a reading we could not make is not a finding);
+and in `merge-conflicts`, a claim read this step could not make leaves **every** conflicted
+pull request in the reported set, exactly as before the split existed. Silently dropping a row
+on a read we could not make is the one direction that loses a finding.
+
+**The summary carries no age and no timestamp**, for the correctness reason `stalled-units`'
+header records: an incrementing summary makes the step "changed" hourly by construction.
+
+**It asks and nothing else**: no merge, no rebase, no close, no claim touched, no gate lifted,
+and nothing written anywhere but its own tick-log line.

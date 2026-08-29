@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260829-044056
 ---
 
 # Let the tick's own findings become the loop's work

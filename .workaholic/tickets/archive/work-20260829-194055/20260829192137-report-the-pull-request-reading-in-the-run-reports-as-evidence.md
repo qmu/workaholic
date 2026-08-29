@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-29T19:21:37+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -75,3 +76,32 @@ byte-identical everywhere else.
   blocks the queue. It does — and `/implement` may not ask, so a withheld token would
   report a failure hour after hour to a report nobody opens, while the person who can act
   is reached by ticket 3's question. Reporting is the whole licence.
+
+## Final Report
+
+**Implemented.** Both run reports name the reading, in the voice `pace`, `overdue` and
+`expiring` already use: **evidence, never a verdict**.
+
+- **`/implement`** (`drive/SKILL.md`): read **once per run, not once per unit** — one fact about
+  the repository, `base-health`'s own rule — in §1, and named in §7 beside the base's health.
+  Each un-acted operator-facing pull request is named with its number, its age and the
+  **refusal word** that made it the operator's. A `merged`/`closed` reading is settled and not
+  named; an **`unreadable`** one is named *as unreadable, by its reason*, never as *nothing
+  waiting*; a degraded membership read carries no pull list at all and is reported the same way.
+- **`/propose`** (`propose/SKILL.md`): the same reading in the same voice, beside `arrived` /
+  `expiring`, as a `/propose`-level fact riding no survey row.
+- **It moves no token**, stated in the contract with its reason, and added to §7's token table
+  as its own row: a pull request waiting on a person is not a fact about the unit this run
+  drove. The ticket's Consideration is answered explicitly — a withheld `ok` would report a
+  failure hour after hour into a report nobody opens, while the person who can act is reached by
+  `/moderate`'s `operator-pull:<number>` question.
+- **It gates nothing**: no refusal, no route, no demotion, no claim, no merge, no sort, no
+  `selected` and no eligibility reads it.
+- **Byte-identity pinned (step 5):** `survey-strategies.sh` is **unmodified** (`git diff` empty),
+  so `refusal` / `pace` / `overdue` / `dormant` / `quiescent` / the sort / `selected` are
+  byte-identical by construction rather than by assertion; and the suite pins that no script in
+  the driving chain reaches the reader, that both documents name the reading, and that both state
+  it gates nothing.
+
+**Gate:** `node scripts/test-workflow-scripts.mjs` passes and
+`sh scripts/e2e/loop-drill.sh verify-propose` is unchanged in verdict (`pass`).

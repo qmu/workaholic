@@ -3,6 +3,7 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [Follow the pull requests the loop opens for a person](work-20260829-194055.md)
 * [work-20260829-175818](work-20260829-175818.md) - Make the shared GitHub transport probe whether REST answers rather than who is calling, so a workflow's own token stops reading as no transport at all
 * [work-20260829-154131](work-20260829-154131.md) - Make the loop read back whether its own acts took effect, so a green CI run stops standing in for a delete that never happened
 * [work-20260829-124120](work-20260829-124120.md) - The loop's thirty drills become one aggregate verb with a machine verdict, run by CI on every push, with a failing drill naming the mission that shipped it and reaching that person through the tick.

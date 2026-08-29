@@ -1772,6 +1772,7 @@ decide something before any change is the right one*.
 | `undelivered-units` | **`repairable`** | A merge the transport refused names the transport seam, which is code. |
 | `catchup-blocked` | `needs_ruling` | Which side of a content conflict keeps its behaviour is the claim holder's, by that step's own contract — the loop refused it precisely because it must not decide. |
 | `handoff-units` | `needs_ruling` | The declared verification is the one act nothing unattended can take. |
+| `operator-pulls` | `needs_ruling` | The publication exists **because** merging it is the operator's ruling and closing it is their refusal; the seam refused to auto-merge it for exactly that reason. Filing it as work would be the loop asking itself to settle what it opened a diff to have settled. Every reading it carries is besides that a **judgement** (`drive/reference/claims.md`, *Whether an operator-facing pull request was acted on*). |
 | `thread-reconcile` | `needs_ruling` | Its repair is the tick's own reply, already taken; it owes the queue nothing. |
 | `retire-claims` | **`repairable`** | A branch CI could not delete names an executor or a bound that a change can fix. |
 | `closable-missions` | `needs_ruling` | The tick closes what it proved; a rejected re-proof is a person's to read. |
@@ -2210,3 +2211,69 @@ pending run is not a verdict.
 *act*), nothing is reverted, merged, held or gated, no claim is touched, and it writes nothing
 anywhere but its own tick-log line. Every value it composes is a **judgement**
 (`drive/reference/claims.md`, *Proofs and judgements*): a re-run can turn a red check green.
+
+---
+
+## 28. `operator-pulls` — a pull request the loop opened for a person, still unanswered
+
+**What it does.** Names every open pull request that is **the operator's** — the ones
+`publish-tree-pr.sh` refused to auto-merge — reads whether each has been acted on, and hands
+every un-acted one to the check-in as a question addressed to the operator, keyed
+`operator-pull:<number>` so one pull request costs exactly one question however many ticks see
+it. It **asks and nothing else**.
+
+**Why it exists** (2026-08-29, mission `follow-the-pull-requests-the-loop-opens-for-a-person`).
+The seam refuses to merge a ruling or a strategy publication precisely because *merging is the
+ruling and closing is the refusal*. Having opened the diff, the loop then stopped following it.
+Measured: #694 sat 18 hours unanswered.
+
+**No other step could see it.** `stuck-prs` and `merge-conflicts` read the open pull requests
+and find this one perfectly healthy — it is not stuck, it is **waiting**, which is what it was
+opened to do. Every claim-side verdict (`undelivered-units`, `handoff-units`, `catchup-blocked`,
+`stalled-units`) is bounded to a **claim**, and a publication carries none: `publish-tree-pr.sh`
+pushes `publish-main` to a `work-*` name with no `Claim` commit in it, which is exactly what
+keeps a publication invisible to the claim protocol.
+
+**Membership is the seam's refusal word, never a title.** `list-operator-facing-pulls.sh`
+derives it through the same `branching/scripts/lib/publication-refusal.sh` the seam itself
+reads, from the **shape of the change**: a path under `.workaholic/strategies/`
+(`strategy_touching`), a touch of `.claude/git-identities`, or a mission that already existed on
+the base whose `feedback:` line the diff moves (`ruling_touching`). A pull request the operator
+retitled or opened by hand is still theirs; an ordinary `[Proposal]` that auto-merged never
+appears, whatever its title says.
+
+**`list-open-rulings.sh` is untouched and is a different question.** That one is a **brake** —
+*at most one open ruling at a time* — and its header records why the **title** decides its
+membership: for a brake, over-inclusion is the safe direction. Two consumers, two questions, one
+derivation each.
+
+**Which sibling it follows, on each axis:**
+
+| Axis | Follows | Why |
+| ---- | ------- | --- |
+| whose question | `direction-health` | the **operator**, resolved from the active directions' assignees — the one place this repository records a person as owning a direction (`validate-strategy.sh` floors `assignees` non-empty for exactly that reason). An unresolved address leaves the question addressed to **nobody** rather than stamping one nobody verified (`base-health`'s rule) |
+| the running identity | `undrivable-units` | never consulted — an unanswered publication is a fact about the **repository**, so an hourly question that depended on which container asked it would answer differently per account |
+| what it may read | `undrivable-units` | the two readers and `ruling-suppression.sh`; **`plan-units.sh` is refused** — that survey reaches the mission readers, which carry the living migrations and **stage** what they converge, and a step whose contract is *writes nothing* may not reach it through something that writes |
+
+**What merging it would unblock comes from the hold's own reader.** `ruling-suppression.sh` is
+the one script that knows which subjects an open ruling holds, and this step **composes** it
+rather than re-deriving the subject list — the rule that reader's header already states for its
+own two consumers. **This question is what breaks the silence**: the hold stays exactly as it
+is, and the person who can end it is now told, once, that a pull request waits on them and what
+it holds. Releasing the hold *as well* would ask one person twice, in two vocabularies, about
+one pull request — the doubling `handoff-units` and `stalled-units` were split to avoid.
+
+**`merged` and `closed` are settled and draw nothing.** An **`unreadable`** reading draws **no
+question** and is counted in the summary — `strategy-pace`'s rule that a person's attention is
+not spent on our own degradation. A tick with no candidate supplies **no `event`** and renders
+no root line.
+
+**The summary carries no age and no timestamp**, for the correctness reason
+`undelivered-units`' header records: `open 18h` increments every tick, so it would make this
+step changed **hourly** by construction and the root would restate the same pull request all
+day. The age still reaches the person, in the question that names it.
+
+**It asks and nothing else.** No merge, no close, no comment, no gate, no hold of work, no
+lifted gate, and nothing written anywhere but its own tick-log line (`run.sh` writes that).
+Every reading it carries is a **judgement** (`drive/reference/claims.md`, *Whether an
+operator-facing pull request was acted on*).

@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260829-194055
 ---
 
 # Follow the pull requests the loop opens for a person
@@ -33,10 +34,10 @@ ruling-hold repair, the run reports, the classification, the drill.
 
 ## Acceptance
 
-- [ ] An un-acted operator-facing pull request reaches the person who must act, once. (#20260829192137-ask-the-person-who-must-act-on-an-unanswered-pull-request.md)
-- [ ] The reading is `merged` / `closed` / `open:<age>` / `unreadable`, keyed off the
+- [x] An un-acted operator-facing pull request reaches the person who must act, once. (#20260829192137-ask-the-person-who-must-act-on-an-unanswered-pull-request.md)
+- [x] The reading is `merged` / `closed` / `open:<age>` / `unreadable`, keyed off the
       seam's refusal word, classified a judgement, and gates nothing. (#20260829192136-read-back-whether-an-operator-facing-pull-request-was-acted-on.md)
-- [ ] The loop is never silent about a ruling and what it holds at once. (#20260829192137-release-a-ruling-hold-the-ruling-s-own-silence-has-outlived.md)
+- [x] The loop is never silent about a ruling and what it holds at once. (#20260829192137-release-a-ruling-hold-the-ruling-s-own-silence-has-outlived.md)
 
 ## Experience
 
@@ -48,3 +49,11 @@ one says so by name and asks nobody.
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-29 — ticket archived — 20260829192136-derive-the-operator-facing-pull-requests-from-the-seam-s-refusal-word.md
+- 2026-08-29 — ticket archived — 20260829192136-read-back-whether-an-operator-facing-pull-request-was-acted-on.md
+- 2026-08-29 — ticket archived — 20260829192137-ask-the-person-who-must-act-on-an-unanswered-pull-request.md
+- 2026-08-29 — ticket archived — 20260829192137-classify-every-pull-request-reading-as-a-judgement-in-the-one-home.md
+- 2026-08-29 — ticket archived — 20260829192137-release-a-ruling-hold-the-ruling-s-own-silence-has-outlived.md
+- 2026-08-29 — ticket archived — 20260829192137-report-the-pull-request-reading-in-the-run-reports-as-evidence.md
+- 2026-08-29 — ticket archived — 20260829192137-drill-the-operator-facing-pull-request-reading-offline.md
+- 2026-08-29 — story reported — work-20260829-194055.md

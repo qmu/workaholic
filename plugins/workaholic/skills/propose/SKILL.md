@@ -618,6 +618,28 @@ where the refusal vocabulary lives, above. The report is read by nobody on the d
 which is precisely why the brake is not here; and no question is added here either, because
 reaching a person is `/moderate`'s job and belongs in its own ask if it is wanted.
 
+### The run report names what is waiting on the operator
+
+(2026-08-29, mission `follow-the-pull-requests-the-loop-opens-for-a-person`.) A tick names each
+**un-acted operator-facing pull request** — the publications `publish-tree-pr.sh` refused to
+auto-merge, where merging **is** the operator's ruling and closing **is** their refusal — with
+its number, its age and the **refusal word** that made it the operator's (`ruling_touching` /
+`strategy_touching`), read once through
+`branching/scripts/list-operator-facing-pulls.sh` and `branching/scripts/publication-effect.sh`.
+It is named in the same voice as `pace`, `overdue`, `expiring` and `arrived`: **evidence, never
+a verdict**. A `merged` or `closed` reading is settled and is not named; an **`unreadable`** one
+is named as unreadable by its reason, and never as *nothing waiting*.
+
+**It gates nothing, and every gate is byte-identical across the change.** No `refusal`, no
+`pace`, no `overdue`, no `dormant`, no `quiescent`, no sort and no `selected` reads it —
+`survey-strategies.sh` is untouched — so `/propose` keeps proposing against a direction whose
+ruling is unanswered, exactly as it did before this reading existed. It is a `/propose`-level
+fact rather than a per-strategy one and rides no survey row. The person who must act is reached
+by `/moderate`'s `operator-pull:<number>` question, for the reason the degraded-reading section
+above records: this report is read by nobody on the day it matters, which is why nothing here is
+ever a brake. Every value is a **judgement**
+(`drive/reference/claims.md`, *Whether an operator-facing pull request was acted on*).
+
 ## How the loop closes — and it closes with no new field
 
 `open-proposal.sh` writes the issue's first three lines itself, and the third is the

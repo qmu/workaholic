@@ -20,6 +20,27 @@ import { tmpdir } from "node:os";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const REPO_ROOT = resolve(fileURLToPath(import.meta.url), "../..");
+
+// THE SUITE IS HERMETIC, AND A `WORKAHOLIC_*` VARIABLE IN THE AMBIENT ENVIRONMENT BREAKS THAT
+// (2026-08-29, ticket `20260829093500`). Every test spreads `process.env`, so a variable set for
+// the session leaks into the throwaway repositories and silently overrides the very default the
+// test is asserting. This is not hypothetical and not this repository's peculiarity: a routine
+// carries no environment variables of its own, so a repository's own `.claude/settings.json`
+// `env` block is the sanctioned home for a per-repository value
+// (`skills/workaholify/SKILL.md`, *Where a routine's environment variables live*) — which means
+// any repository that uses that home contaminates its own suite run. Measured here: this
+// repository sets `WORKAHOLIC_INBOUND_SLACK_CHANNEL=dev-workaholic`, and four assertions in
+// `step-unanswered-asks.sh` that pin the default derivation failed with `dev-workaholic` where
+// the throwaway repository's own remote says `source-repo`.
+//
+// Stripping them at startup is the fix rather than unsetting them per call site: a per-test
+// exclusion is one more thing every future test must remember, and the failure it prevents is
+// invisible until someone happens to set the variable. A test that NEEDS a value sets it
+// explicitly on its own `run`, which is what the override assertions already do.
+for (const k of Object.keys(process.env)) {
+  if (k.startsWith("WORKAHOLIC_")) delete process.env[k];
+}
+
 const SCRIPTS = {
   branchCheck: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/check.sh"),
   branchCreate: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/create.sh"),

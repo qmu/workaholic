@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-29T15:24:20+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -84,3 +85,52 @@ loosening either surface's rules.
   which is why the tick's question — not this line — is what reaches somebody in time.
 - Naming this on a **third** surface was considered and is refused: a report addressed to nobody is
   what `🔧 Needs a decision` and `📦 Release Preparation` were retired for.
+
+## Final Report
+
+Development completed as planned, on both existing surfaces and no third one.
+`notify/reference/notifications.md` is untouched and no post shape was introduced.
+
+**The tick.** `step-retire-claims.sh` supplies an `event` naming the units whose acts did not
+take — *"N claims proved finished are still standing — neither the container nor CI could delete
+their branches (…)"*. It names the repository fact and the units, never a count of steps that
+ran. A tick whose acts all took supplies none.
+
+**Which guard holds which case moved, and that is the one thing the ticket did not anticipate.**
+There were two independent guards against an hourly restatement — an unchanged summary **and** an
+empty `event` — and a blocked retirement now supplies an event, so a standing block has exactly
+one:
+
+| Case | What holds the root line |
+| ---- | ------------------------ |
+| acts all took | **no event** — *a step with no event renders no line* |
+| a **standing** blocked unit | **the summary diff** — identical string, so the step is not "changed" |
+| a **newly** blocked unit | neither: the unit set moves, the summary moves, the line renders |
+
+That is now the load-bearing reason the summary carries no CI term, and it is written into both
+`step-retire-claims.sh`'s header and `moderate/reference/workflow.md` rather than left implicit.
+Re-implementing the renderer's diff inside the step to suppress a repeated event was **refused**:
+the renderer already owns that comparison and a second copy is how the two would disagree —
+which is step 1's own instruction to rely on the existing guards rather than re-implement them.
+`verify-retire`'s stability row was updated to assert what actually holds it now (the summary,
+plus an unchanged event) instead of an empty event.
+
+**The run report.** `workaholic:drive` §6 gains a numbered third step for each `undelivered[]`
+entry — `act-effect.sh delivery <unit-id>` — and §7 names its outcome per entry in the reader's
+four words (`taken` / `refused: <word>` / `pending` / `unreadable`), beside the retry's own
+vocabulary rather than inside it. A run that names an entry and reports no effect outcome is
+**non-conformant on its face**, the enforcement the connector retry and the catch-up already
+carry. **No token moves**, stated explicitly with its reason: what withholds `ok` is the unit's
+*delivery* outcome, which this reading only describes.
+
+### Discovered Insights
+
+- **Insight**: adding an `event` to a step that previously had none on a path costs that path one
+  of its two suppression guards, and the remaining guard's invariant becomes load-bearing.
+  **Context**: here it makes "the summary carries no CI term" a correctness requirement rather
+  than a stylistic one. Worth checking before adding an event to any other step.
+- **Insight**: the step cannot suppress its own repetition without re-deriving the renderer's
+  previous-tick diff, which it has no reader for.
+  **Context**: that asymmetry — the renderer owns the diff, the step owns the meaning — is why
+  "supply the event and let the diff work" is the only shape that does not duplicate a
+  comparison.

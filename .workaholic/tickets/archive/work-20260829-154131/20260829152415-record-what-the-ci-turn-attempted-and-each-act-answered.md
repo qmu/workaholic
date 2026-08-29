@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-29T15:24:15+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -96,3 +97,56 @@ the tick is already reading.
   colour to move.
 - The bound in step 6 matters because the candidate set is unbounded in principle; a truncated
   record must say it truncated rather than read as a short one.
+
+## Final Report
+
+Development completed as planned.
+
+**The surface is a check-run annotation**, and the choice was measured before anything was built
+on it. `GET /repos/{o}/{r}/check-runs/{id}/annotations` answers in full through
+`gather/scripts/gh-rest.sh` — no blob redirect, no credential beyond the read the tick already
+holds — verified against this repository's own run 33260493563 on 2026-08-29. Beside it, the job
+log endpoint returned a signed `productionresultssa19.blob.core.windows.net` URL whose fetch
+failed, reproducing the ticket's measurement exactly.
+
+The three alternatives are refused by name in the workflow's header and in the recorder's:
+
+| Candidate | Why not |
+| --------- | ------- |
+| the job log | a signed blob redirect the container cannot follow — what exists today, and the defect |
+| `$GITHUB_STEP_SUMMARY` | renders in the UI, exposed by **no** REST endpoint, so no later tick can read it |
+| a check run of our own | `POST .../check-runs` needs `checks: write`, **wider** than this job's `contents: write` |
+| a commit to `main` | the hourly-`main`-writer class `workaholic:ship` §7 has refused twice |
+
+A `::notice::` annotation needs **no permission at all** — it is a workflow command rather than
+an API call — so the job's grant is unchanged at `contents: write`.
+
+**Recording is a third call.** `drive/scripts/record-ci-retirement-turn.sh` is handed the two
+documents the job already produced (`list-retirable-claims.sh`'s reading, and one
+`delete-retired-claim-branch.sh` line per candidate) and copies their words. It derives nothing
+and owns no vocabulary, so the workflow's *owns no proof logic* header sentence stays true.
+
+Two behaviours changed in the workflow beyond the new step. The degraded-reading branch used to
+`exit 0` **before anything was recorded** — which is precisely the turn whose silence the report
+measured — so it is now an `else` and the record is reached on every path; and the recording step
+carries `if: always()`, so a turn that dies mid-loop still says what it attempted.
+
+**A refused act still leaves the run green**, unchanged. What changed is that the refusal is
+legible.
+
+### Discovered Insights
+
+- **Insight**: a `::notice::` annotation is the only run-attached surface that is both writable
+  with no added permission and readable through plain REST with no redirect.
+  **Context**: step summaries have no REST endpoint and check runs need `checks: write`. Any
+  later "record something about a CI run for the loop to read" lands here for the same reasons.
+- **Insight**: the truncation bound fails **safe** by construction — a unit past
+  `WORKAHOLIC_CI_RECORD_MAX` (default 20) has no entry, so the consumer reads it `unreadable`,
+  and `unreadable` suppresses no question.
+  **Context**: that is why a bound was acceptable at all; a bound that silently answered `taken`
+  past its limit would reintroduce the very defect.
+- **Insight**: values written into an annotation line are sanitized rather than escaped
+  (`[^A-Za-z0-9._:/@+-]` → `_`), because the whole vocabulary is unit ids, branch names and
+  closed-set refusal words.
+  **Context**: the consumer parses the line back on spaces and `=`, so a stray quote or newline
+  would split a record rather than corrupt one field.

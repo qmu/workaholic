@@ -1165,11 +1165,34 @@ reported `0 retired` hour after hour with nobody told. The unit is then exactly 
 `undelivered-units` and `handoff-units` exist for: a reading the machine cannot act on, addressed
 to one person.
 
-One question per blocked unit, keyed **`retire-blocked:<unit>`** so `ask-question.sh`'s
-asked-once ledger holds it to exactly one ask, naming the unit, the **exact branch** left on
-origin, the refusal, and the acts that already stand — a question that does not name the branch
-does not say what to delete. Which half moved and which did not: a retirement that **worked**
-still asks nothing at all.
+One question per blocked unit, keyed **`retire-blocked:<unit>:<refusal word>`** so
+`ask-question.sh`'s asked-once ledger holds it to exactly one ask **per (unit, refusal word)**,
+naming the unit, the **exact branch** left on origin, the refusal that is blocking the delete
+now, and the acts that already stand — a question that does not name the branch does not say what
+to delete. Which half moved and which did not: a retirement that **worked** still asks nothing at
+all.
+
+**Asked once per (unit, refusal word), never per unit** (2026-08-29, mission
+`read-back-whether-the-loop-s-own-act-took-effect`). Asked-once-per-unit is right for an
+unchanging block — an hourly restatement of the same refusal is the noise two keyed roots were
+retired for — and wrong the moment the **word** changes: a unit first blocked on
+`branch_delete_failed` and later on `pull_request_open` is a different fact needing a different
+act, and the second reached nobody. **An unchanged word is held forever**, which is the
+discipline this preserves rather than drops.
+
+**The gate itself did not change, and that is the property the shape was chosen for.** The
+narrowing lives in what the **key is made of**, so `ask-question.sh` stays one mechanism that
+cannot drift from itself, and every existing hold — quiet hours, working days, the per-tick cap
+and the day cap — applies to a re-ask unchanged, because a re-ask is simply one more question.
+Re-asking on a **timer** was refused by name: it reintroduces exactly the hourly restatement the
+asked-once gate exists to prevent, and a word that has not changed carries no new information for
+the person.
+
+**The word is the one a person must act on**: CI's refusal where the effect reading
+(`drive/scripts/ci-retirement-turn.sh`) names one, because that is the executor that was going to
+take the delete, and the container's own refusal otherwise. One word, and it is the same word the
+question names. A word that **oscillates** between two values would re-ask on each flip; whether
+that needs its own bound is worth measuring before one is added, and none is added on speculation.
 
 **Whose question it is**: the **claim holder**'s, following `stalled-units` and
 `undelivered-units` — a real person who drove the unit and can delete its branch. The **running
@@ -1194,29 +1217,72 @@ exactly what they were.
 branch a workflow is about to delete must draw **no** question: asking a person, once per unit and
 forever, for an act CI was about to perform is not merely noisy — the ask is wrong.
 
-The reading is `drive/scripts/ci-retirement-turn.sh` and it is **store-free**, which is the
-constraint that shaped it. CI *deletes* the branch when it succeeds, and unmerged remote branches
-are the only claim oracle, so a successful turn removes the claim row and the candidate with it. A
-**completed run at the base tip this tick is reading** therefore means CI saw exactly this tree and
-the branch survived it — the matching is on `head_sha`, which needs no clock, no timezone and no
-date parsing, and answers the question actually being asked rather than a proxy for it. Three
-values, each with its own consequence:
+The reading is `drive/scripts/ci-retirement-turn.sh`. **It answered from a completed run's
+EXISTENCE until 2026-08-29, and that premise was the design rather than the behaviour** (mission
+`read-back-whether-the-loop-s-own-act-took-effect`). It read: *CI deletes the branch when it
+succeeds, so a successful turn removes the claim row and the candidate with it; a completed run
+at the base tip therefore means CI saw exactly this tree and the branch survived it.* The
+inference holds only if every completed turn actually reached its act — and measured the same
+day, `claim-retirement.yml` was green on every run while three proved candidates stood, because
+the CI-side act refuses `gh_unavailable` before its proof gate. The sentence is corrected in
+place in `drive/reference/claims.md`, *When an act of the retirement is refused*, with the
+measurement that retired it.
+
+**What replaced it**: the turn **records** what it attempted and what each act answered, and the
+reading answers **per unit** from that record — `taken` only on the act's own success word. It
+remains **store-free** (no cursor, no queue, no ledger, no field on any artifact); only which
+part of the run is consulted moved. Matching is still on `head_sha`, which needs no clock, no
+timezone and no date parsing. Five values, each with its own consequence:
 
 | Reading | What it means | What the tick does |
 | ------- | ------------- | ------------------ |
-| `taken` | a completed run at this tip left the branch standing | ask — the unit is blocked at **both** executors |
-| `pending` | no completed run at this tip yet | ask nobody **this tick**; the asked-once ledger keys on the unit, so a branch that outlives CI's turn is still asked about later |
+| `taken` | the act **succeeded** for this unit (`deleted`, or `already_gone`) | ask nobody — nothing is owed |
+| `refused:<word>` | the act was refused, carrying its own word — or the turn's candidate reading was degraded and named its reason | ask — this is precisely what a person must hear about |
+| `pending` | no completed run at this tip yet | ask nobody **this tick**; the asked-once ledger keys on the unit and its word, so a branch that outlives CI's turn is still asked about later |
 | `unavailable` | the workflow is not present in this repository | ask — CI will never take the act here |
+| `unreadable` | a run completed and we cannot say what it did | ask — a reading we could not make must never suppress a question |
 
 A read the step could not make leaves the question exactly where it was, on the same rule: an
 over-eager question is better than a silently dropped one, and this repository has measured the
 cost of a blocked act nobody was told about.
 
-**Everything else about the question is byte-identical** — the key `retire-blocked:<unit>`, the
-asked-once gate, the addressee, the per-tick cap, the quiet hours and the working-day hold. Only
-the candidate set narrows, and the **summary carries no CI term**, deliberately: every term of it
-stays a function of the claim set and the act states, so a held block keeps rendering identically
-tick after tick and a newly blocked unit still moves it. The narrowing is not a suppression list.
+**Everything else about the question is byte-identical** — the asked-once gate, the addressee,
+the per-tick cap, the quiet hours and the working-day hold (the key gained the refusal word in
+2026-08-29's narrowing above, and nothing else about it moved). Only the candidate set narrows,
+and the **summary carries no CI term**, deliberately: every term of it stays a function of the
+claim set and the act states, so a held block keeps rendering identically tick after tick and a
+newly blocked unit still moves it. The narrowing is not a suppression list.
+
+**The effect reading is deliberately kept out of the summary**, and the reason is measured rather
+than stylistic: CI runs on every merge to `main`, so between a merge and its run completing the
+reading genuinely oscillates `pending` → `refused:<word>` hour to hour. In the summary that would
+move the diff most hours and render a root line for a block that had not changed — exactly what
+the stability rule exists to prevent. The **key** is safe from the same oscillation by
+construction, because a `pending` unit is suppressed before any key is composed.
+
+**The suppression is per unit, not per turn** (2026-08-29). It was one run-level word applied to
+every blocked unit at once; a unit is now held only on **its own** answer, and only on `taken`
+(the act succeeded, so nothing is owed) or `pending` (CI may still take it, this tick only).
+`refused:<word>`, `unavailable` and `unreadable` all hold nothing — and a unit the reading never
+answered keeps its question **by construction**, because only named units are removed.
+
+**A blocked retirement supplies an `event`, and which guard holds which case moved with it**
+(2026-08-29, mission `read-back-whether-the-loop-s-own-act-took-effect`). An act the loop
+believed it took and did not is a repository fact a person should see the hour it appears, so the
+step's `event` now names those units — where before only a *successful* retirement supplied one.
+There were two independent guards against an hourly restatement, an unchanged summary **and** an
+empty event; a standing block now has one:
+
+| Case | What holds the root line |
+| ---- | ------------------------ |
+| a tick whose acts all took | **no event** — the *a step with no event renders no line* guard |
+| a **standing** blocked unit | **the summary diff** — identical string, so the step is not "changed" |
+| a **newly** blocked unit | neither: the unit set moves, so the summary moves and the line renders |
+
+That is the whole reason the summary must carry no CI term: on the standing-block path it is the
+only guard left. Re-implementing the renderer's diff inside the step to suppress a repeated event
+was refused — the renderer already owns that comparison, and a second copy is how the two would
+disagree.
 
 **And which executor took a delete is now rendered, from two states that already exist.**
 `deleted` means this tick performed the delete; `already_gone` means the ref was not on origin

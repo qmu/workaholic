@@ -36,6 +36,35 @@ name: Claim Retirement
 # THE JOB OWNS NO PROOF LOGIC. It calls the candidate reader and, per candidate, the
 # bounded act; both re-derive everything they act on. An empty candidate set is a clean
 # no-op, and a refusal is reported without failing the run.
+#
+# AND IT RECORDS WHAT IT ATTEMPTED, ON A SURFACE A LATER TICK CAN READ (2026-08-29,
+# mission `read-back-whether-the-loop-s-own-act-took-effect`). Until then this job put
+# its whole answer in the JOB LOG, which the loop's container can reach through nothing:
+# the REST logs endpoint answers with a redirect to signed blob storage and the fetch
+# fails (measured 2026-08-29 against this repository's own run). So `ci-retirement-turn.sh`
+# was left inferring `taken` from a completed run's EXISTENCE, and the tick log asserted
+# hourly that CI could not take a delete CI had never attempted.
+#
+# The record is a set of `::notice::` ANNOTATIONS, chosen against three alternatives:
+#
+#   `$GITHUB_STEP_SUMMARY`   renders in the UI and is exposed by no REST endpoint at all,
+#                            so a later tick cannot read it
+#   a check run of our own   `POST .../check-runs` needs `checks: write`, WIDER than the
+#                            `contents: write` below. Refused — a recording surface must
+#                            not enlarge a destructive job's grant
+#   a commit to `main`       the hourly-`main`-writer class refused twice already
+#                            (`workaholic:ship` §7)
+#
+# An annotation needs NO permission (it is a workflow command, not an API call), lands on
+# the check run Actions already creates for this job, and is read back in full by
+# `GET /repos/{o}/{r}/check-runs/{id}/annotations` — no redirect, no credential beyond the
+# read the tick already holds. Verified against this repository before it was built on.
+#
+# RECORDING IS A THIRD CALL, never a re-derivation: `record-ci-retirement-turn.sh` is
+# handed the two documents this job already produced and copies their words. The
+# candidate reading is recorded EVEN WHEN IT NAMED NOTHING — a turn that found nothing
+# and a turn that found three and was refused are different facts. A REFUSAL STILL DOES
+# NOT FAIL THE RUN; what changes is that it is now legible.
 
 on:
   push:
@@ -69,13 +98,27 @@ jobs:
         run: |
           bash plugins/workaholic/skills/drive/scripts/list-retirable-claims.sh > candidates.json
           cat candidates.json
+          : > acts.jsonl
           if [ "$(jq -r '.ok' candidates.json)" != "true" ]; then
+            # A DEGRADED READING IS AN OUTCOME, NOT AN EARLY EXIT. The turn still reaches the
+            # recording step below, because "the scan could not be made" is precisely the fact
+            # a later tick must be able to tell apart from "there was nothing to retire".
             echo "the claim scan was degraded ($(jq -r '.reason' candidates.json)); nothing was proved and nothing deleted"
-            exit 0
+          else
+            jq -r '.candidates[]? | .unit' candidates.json | while read -r unit; do
+              [ -n "$unit" ] || continue
+              bash plugins/workaholic/skills/drive/scripts/delete-retired-claim-branch.sh "$unit" \
+                | tee -a acts.jsonl
+            done
           fi
-          jq -r '.candidates[]? | .unit' candidates.json | while read -r unit; do
-            [ -n "$unit" ] || continue
-            bash plugins/workaholic/skills/drive/scripts/delete-retired-claim-branch.sh "$unit"
-          done
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # THE RECORD. Handed the two documents the step above produced, copying their words and
+      # deriving none of its own. `if: always()` so a turn that died mid-loop still says what it
+      # attempted — a record that only survives the happy path answers the easy question.
+      - name: Record what this turn attempted and what each act answered
+        if: always()
+        run: |
+          bash plugins/workaholic/skills/drive/scripts/record-ci-retirement-turn.sh \
+            --candidates candidates.json --acts acts.jsonl

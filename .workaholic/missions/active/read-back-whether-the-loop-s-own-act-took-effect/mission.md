@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 2.25
 feedback: [20260829151654-read-back-whether-the-loop-s-own-act-took-effect.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
@@ -59,3 +59,4 @@ No new store, no field, no second oracle.
 - 2026-08-29 — ticket archived — 20260829152420-drill-the-silent-act-offline-and-register-the-drill.md
 - 2026-08-29 — ticket archived — 20260829152420-state-an-act-s-effect-where-the-vocabulary-lives.md
 - 2026-08-29 — story reported — work-20260829-154131.md
+- 2026-08-29 — run recorded (+2.25h) — cse_01ES6osP3KSBKfSFnBJSVEmn

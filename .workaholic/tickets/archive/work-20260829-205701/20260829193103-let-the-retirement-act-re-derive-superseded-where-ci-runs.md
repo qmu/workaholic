@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-29T19:31:03+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -110,3 +111,59 @@ This is **not** the failure PR #728 answered. That repair (`gh-rest.sh available
   token — all reachable from the same reproduction.
 - Doing nothing is not neutral: every later tick re-derives the same refusal and asks the
   same person the same held question, while the claim table only grows.
+
+## Final Report
+
+**Implemented. The localization was confirmed exactly before anything was changed, and the
+repair is none of the ticket's three candidates — a fourth the ticket's own step 3 invites.**
+
+**Step 1 — the hypothesis is correct.** Over this repository, unsetting `user.email` alone
+(`GIT_CONFIG_PARAMETERS`, so nothing else moves): `list-retirable-claims.sh` goes **3 → 0**
+candidates, and `list-claims.sh` reports **every** claim `identity_unresolved`. `superseded` is
+never reached, and `ok: true` with `count: 0` is byte-identical to a healthy, empty turn.
+
+**Step 2 — the act refuses for the same reason.** `delete-retired-claim-branch.sh
+batch-20260819063000` under that state: `not_superseded:identity_unresolved`.
+
+**Step 3 — the repair, argued.** All three candidates were weighed and each fails a bound:
+
+- *Configure `user.email` in the workflow* — whatever value is chosen, CI reads every claim as
+  its own, and no single address is correct for a repository with several runners.
+- *Reorder so `superseded` precedes the identity gate* — it would make a **foreign** superseded
+  claim retirable, which is exactly what step 4 forbids, and it moves a safety-critical
+  precedence for every consumer.
+- *Resolve identity per claim inside the act* — the same collapse (every claim becomes its own),
+  and the **candidate reader** would still yield nothing, so the act would never be called.
+
+The fourth: **`lib/runner-identity.sh`**, one place deciding who this executor may scan as.
+`lib/claims.sh` gains exactly one line — `WORKAHOLIC_CLAIM_IDENTITY` as an **override, not a
+default** — so with it unset every container and checkout is byte-for-byte what it was. The two
+CI-side scripts are its only callers and re-derive as the **claim's own author**, bounded three
+ways, each load-bearing:
+
+1. reachable **only** when no identity is configured;
+2. only as an author the committed `.claude/git-identities` mapping names through
+   `gather/scripts/identity.sh` — an unmapped address is never impersonated, which is what
+   refuses *CI owns every claim* by construction;
+3. only that author's **own** row is taken from the re-scan, so a unit held by two branches is
+   never read as somebody else's.
+
+**Step 4 — the bound holds.** `claim_active` still outranks `superseded` in the untouched
+precedence, so a live claim reads live under every identity; measured, a live and an
+`awaiting_verification` claim are both still refused by their own verdict word.
+
+**Step 5 — nothing widened.** No verdict word added, the proof gate is still `superseded`
+re-derived at the moment of the act, and `retire-claim.sh` is untouched.
+
+**Measured after the change**, on this repository: with an identity **3** candidates, without one
+**3** — the two executors agree — and the act under the no-identity state now reaches its proof
+gate and attempts the delete (`branch_delete_failed`, the container's own documented 403; in CI,
+where `contents: write` holds, that is the delete taking).
+
+**Step 6 is the one part this branch cannot finish here** and it is stated rather than implied:
+the three named branches are still on origin, because the container's transport is refused by
+design. They go when `claim-retirement.yml` next runs on `main` with this change merged.
+
+**Gate:** `verify-ci-retirement` (17 rows, 0 failed, 2 breakers), `verify-retire`,
+`verify-all --kind hermetic` (32 drills, 0 failed), `node scripts/test-workflow-scripts.mjs`
+(5168/0), `verify.mjs` clean.

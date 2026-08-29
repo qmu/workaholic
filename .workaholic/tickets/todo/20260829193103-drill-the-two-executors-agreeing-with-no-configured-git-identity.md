@@ -86,3 +86,41 @@ This adds the row that would have caught it, and a breaker written against the
   `unproved` marking would not have flagged it, because the drill *had* a breaker.
 - The drill proves the mechanism; only the live origin proves the three branches are gone,
   which is ticket 2's step 6 and stays there.
+
+## Final Report
+
+**Implemented.** `verify-ci-retirement` now **17 load-bearing rows, 0 failed, 2 breakers** — and
+it is the row that would have caught the eight-day silence.
+
+**Why it did not.** The drill's own fixture ran `git config user.email` on its clone, so the one
+term that decides in CI was never varied: it passed on every push while three proved-`superseded`
+branches stood.
+
+- **Step 1** — `_run_noid` is `_run` with that single term removed (same directory, same stub,
+  same lapsed-heartbeat window), and the new row asserts the two readings **name the same units**:
+  six each, identical sets.
+- **Step 2** — the safety bound, in the same fixture: a **live** claim and a claim authored by
+  somebody the mapping does **not** name are refused under **both** identity states and are never
+  candidates. The fixture gained an eighth claim committed by `stranger@example.invalid` and a
+  committed `.claude/git-identities` naming only the runner, so the bound is a real refusal
+  rather than an accident of an absent file. A repair that made CI see every claim as its own
+  passes step 1 and **fails here**.
+- **Step 3** — the per-unit legibility is covered by the existing `ci_retirement_taken_asks_the_holder`
+  and `ci_retirement_pending_suppresses` rows, which this branch leaves unchanged; ticket 1's
+  Final Report records that the reading already answers `unreadable` and holds nothing.
+- **Step 4** — the **breaker is written against the behaviour**: the re-derivation removed from
+  the candidate reader (`if runner_identity_absent` → `if false`), and the row demands the
+  no-identity reading fall to **0** against the 6 it otherwise finds. That is the production
+  silence itself, so a refactor keeping the return shape and losing the bound still fires it.
+- **Step 5** — hermetic throughout: a bare local origin, `gh` stubbed, no network, no credential.
+  The drill is already registered `hermetic` in `docs/loop-drill-runbook.md` §9, so `verify-all`
+  and `.github/workflows/loop-drills.yml` pick the new rows up on its existing matrix leg with no
+  registry change.
+
+**One fixture defect fixed on the way**, worth recording because it hid the new rows twice: the
+candidate extractor was a greedy `sed` capture over a single JSON line, which reports only the
+**last** unit. It is a `grep -o` now.
+
+**Gate:** `sh scripts/e2e/loop-drill.sh verify-ci-retirement` (pass, both breakers proved),
+`verify-all --kind hermetic` (32 drills, 21 proved, 0 failed), `node scripts/test-workflow-scripts.mjs`
+(5168/0).

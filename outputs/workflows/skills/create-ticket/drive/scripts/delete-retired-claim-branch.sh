@@ -61,6 +61,7 @@ set -eu
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 CLAIMS_LIB_DIR="${SCRIPT_DIR}/lib"
 . "${SCRIPT_DIR}/lib/claims.sh"
+. "${SCRIPT_DIR}/lib/runner-identity.sh"
 
 GH_REST="${SCRIPT_DIR}/../../gather/scripts//gh-rest.sh"
 
@@ -120,6 +121,38 @@ row=$(claims_unit_row "$ROWS" "$unit")
 BRANCH=$(printf '%s' "$row" | awk -F'\t' '{print $2}')
 verdict=$(printf '%s' "$row" | awk -F'\t' '{print $7}')
 artifacts=$(printf '%s' "$row" | awk -F'\t' '{print $10}')
+# WHERE THIS EXECUTOR HAS NO IDENTITY OF ITS OWN, RE-DERIVE AS THE CLAIM'S OWN AUTHOR — but
+# only when the committed mapping names them (2026-08-29, mission
+# `make-the-two-executors-agree-about-a-proved-empty-claim`). `actions/checkout@v4` configures
+# no `user.email`, so the identity gate answered `identity_unresolved` for every claim before
+# `superseded` was ever consulted, and this act refused `not_superseded:identity_unresolved` on
+# a unit the container proves empty — while `Claim Retirement` stayed green on every run.
+#
+# Bounded exactly as the candidate reader's re-derivation is, and each bound is load-bearing:
+# reachable ONLY with no configured identity (a container is byte-identical), only as an author
+# `gather/scripts/identity.sh` resolves (an unmapped address is never impersonated), and only
+# that author's OWN row is taken, so a unit held by two branches is never read as somebody
+# else's. It moves NO gate: `claim_active` still outranks `superseded` in the shared
+# precedence, so a live claim reads live under every identity, and the proof gate below is
+# untouched — this only lets the scan reach it.
+if [ "$verdict" = "identity_unresolved" ] && runner_identity_absent; then
+    _author=$(printf '%s' "$row" | awk -F'\t' '{print $5}')
+    _scan_as=$(runner_identity_for_author "$_author")
+    if [ -n "$_scan_as" ]; then
+        _rows_as=$(WORKAHOLIC_CLAIM_IDENTITY="$_scan_as" claims_scan "$BASE" 2>/dev/null || true)
+        if [ -n "$_rows_as" ]; then
+            _row_as=$(claims_unit_row "$_rows_as" "$unit")
+            if [ -n "$_row_as" ] \
+                && [ "$(printf '%s' "$_row_as" | awk -F'\t' '{print $5}')" = "$_author" ]; then
+                ROWS="$_rows_as"
+                row="$_row_as"
+                BRANCH=$(printf '%s' "$row" | awk -F'\t' '{print $2}')
+                verdict=$(printf '%s' "$row" | awk -F'\t' '{print $7}')
+                artifacts=$(printf '%s' "$row" | awk -F'\t' '{print $10}')
+            fi
+        fi
+    fi
+fi
 
 # --- The proof gate, re-derived at the moment of the act ----------------------------------
 if [ "$verdict" != "superseded" ]; then

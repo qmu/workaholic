@@ -845,7 +845,17 @@ claims_scan() {
 
     # Resolved once: whose runner this is. Empty means unresolvable, and every claim
     # is then somebody else's.
-    _cs_me=$(git config user.email 2>/dev/null || true)
+    #
+    # WORKAHOLIC_CLAIM_IDENTITY IS AN OVERRIDE, NOT A DEFAULT (2026-08-29, mission
+    # `make-the-two-executors-agree-about-a-proved-empty-claim`). Unset — every container and
+    # every developer's checkout — this is byte-for-byte the line it has always been, and no
+    # gate, order or verdict moves. It exists for the OTHER executor: `actions/checkout@v4`
+    # configures no `user.email`, so CI read `identity_unresolved` for every claim and
+    # `superseded` was never reached, leaving `Claim Retirement` green while three proved-empty
+    # branches stood (measured 2026-08-29; reproduced offline, candidates 3 → 0 on this term
+    # alone). Who may set it, and the bound that stops it becoming *CI owns every claim*, is
+    # `lib/runner-identity.sh` — the value must be an address the committed mapping names.
+    _cs_me=${WORKAHOLIC_CLAIM_IDENTITY:-$(git config user.email 2>/dev/null || true)}
 
     for _cs_ref in $(git for-each-ref --format='%(refname:short)' refs/remotes/origin 2>/dev/null | sort); do
         [ "$_cs_ref" = "origin/HEAD" ] && continue

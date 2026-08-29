@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260829-064113
 ---
 
 # Land the loop's own work when the base moves under it

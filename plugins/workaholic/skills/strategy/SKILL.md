@@ -55,6 +55,29 @@ dated line to `## Schedule` saying what moved, so the artifact carries its own h
 | **Aim** | `## Aim` body section | The direction's substance, in the operator's words. What is being pursued and what "pursued" means here. |
 | **Schedule** | `target_date:` frontmatter + `## Schedule` body section | The dated bound. `target_date` is a single `YYYY-MM-DD` — the date by which the aim is meant to hold. `## Schedule` carries the shape around it (a start, milestones, a cadence) in prose. |
 | **Assignee** | `assignees:` frontmatter | Who carries it. Plural like every other artifact, resolved through the one ownership oracle (`gather/scripts/owners.sh`), but — unlike everywhere else — **it may not be empty**: an unowned direction is not a strategy. |
+| **Stage** | `stage:` frontmatter | The operator's **declared** phase, from the closed set `進行中 | 改良中 | 観察中` — not yet cut over / cut over and still improving / settled, the loop reactive only. Their own vocabulary, kept verbatim. **Absent means 進行中.** |
+
+**The stage is DECLARED; the lifecycle state is DERIVED, and neither becomes the other**
+(2026-08-29, mission `make-a-direction-s-lifecycle-a-declared-stage`). Every other reading in
+this layer — `pace`, `overdue`, `expiring`, `dormant`, `quiescent`, and the one answer
+`direction-state.sh` composes from them — is evidence the loop computed. This one is a word the
+operator wrote down, and **no reading anywhere may compute it, move it, or infer it**: a
+reading may *suggest* a transition and the person's announcement is what performs one. A
+**sixth `direction-state.sh` value** was refused for the reason `overdue` was kept out of `pace`
+and `expiring` out of both — one field answering two questions is how the two drift — so the
+stage rides **beside** that answer and never enters its precedence.
+
+**Absent means 進行中, and that is what makes this a field addition with no migration**: the
+convention `merge_policy` (absent means review), a ticket's `status:` (absent means queued) and
+`attributed-work.sh`'s `readable` (absent means the walk completed) already use. Every strategy
+already on `main` stays valid and byte-identical, and the default is resolved in **exactly one
+place** — `read.sh` — so `list.sh` composes that reader rather than parsing the field a second
+time. An ASCII alias set was refused: it would give one field two spellings, which is the drift
+the closed set exists to prevent.
+
+**Stuckness is orthogonal to the stage.** A handoff, a blocked run, a stale claim or a queue
+that will not drain occurs in **any** phase, so none of them may ever be read as a stage or as
+evidence for a transition.
 
 `status:` is a single axis, `active | achieved | abandoned`. `close.sh` is the only writer of an
 end state; nothing else edits the field. There is no separate `archive/` area — a closed strategy

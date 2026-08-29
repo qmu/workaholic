@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-29T21:20:56+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -98,3 +99,31 @@ grandfathers git-tracked files as its siblings do.
   alias set would give one field two spellings and is the drift this avoids.
 - Whether `amend.sh` may move the field is the **next** ticket's subject, deliberately:
   recording the field and moving it are two acts with two writers.
+
+## Final Report
+
+Development completed as planned.
+
+The field, its one writer, its one reader and the write floor. `create.sh` takes `--stage`
+before its positionals so the positional contract does not move; `read.sh` resolves an absent
+field to 進行中 in one place; `list.sh` composes that reader rather than parsing the field a
+second time; `validate-strategy.sh` checks only the closed set, never presence.
+
+### Discovered Insights
+
+- **Insight**: `validate-strategy.sh` grandfathers every **git-tracked** file, and
+  `create.sh` runs `git add` on what it writes — so validating a strategy the test just
+  created proves nothing about the floor at all. The first version of this ticket's floor
+  assertion passed over a deliberately broken value for exactly that reason.
+  **Context**: every write-floor hook in this plugin shares the grandfathering rule, so any
+  test of any of them must write its candidate **untracked and by hand**. A test that creates
+  its fixture through the artifact's own writer is testing the writer twice and the hook
+  never. The block here does that and states why in place.
+
+- **Insight**: `mission/scripts/slug.sh` drops non-ASCII, so three strategies titled with the
+  three stage words all slugify to the same stem and the second and third `create.sh` calls
+  refuse `exists`.
+  **Context**: it surfaced while round-tripping the closed set by hand — a fixture that looked
+  like it exercised three values exercised one. Any fixture distinguishing artifacts by a
+  Japanese title needs an ASCII-distinct title; the values themselves are unaffected, since
+  they live in the frontmatter rather than in the slug.

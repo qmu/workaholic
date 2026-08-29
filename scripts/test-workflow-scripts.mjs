@@ -6504,6 +6504,82 @@ function testAreaFreshness() {
   } finally { cleanup(dir); }
 }
 
+
+// ---------- the declared stage (2026-08-29) ----------
+// `make-a-direction-s-lifecycle-a-declared-stage`. The stage is the operator's DECLARED phase,
+// so what is proved here is that it round-trips verbatim from a closed set, that an ABSENT
+// field is byte-identical to today's artifact and reads 進行中, and that the absent default has
+// exactly ONE derivation — `read.sh` — which `list.sh` composes rather than re-parsing.
+//
+// Its own repository, deliberately: the strategy-skill test asserts counts over the whole
+// area, so creating four more strategies inside it would break assertions that are about
+// something else entirely.
+function testStrategyDeclaredStage() {
+  const dir = makeRepo("main");
+  try {
+    const create = (args, aim = "Reach the good place.") =>
+      run(dir, `printf '%s\\n' ${JSON.stringify(aim)} | ${POSIX_SH} ${SCRIPTS.strategyCreate} ${args}`);
+    const read = (slug) =>
+      JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.strategyRead} ${slug}`).stdout);
+
+    const plain = JSON.parse(create(`"Ship the thing" 2026-09-01 "a@qmu.jp" "Q3"`).stdout);
+    assertTrue("a strategy created without --stage carries no stage line at all",
+      !/^stage:/m.test(readFileSync(join(dir, plain.path), "utf8")),
+      "an unstaged strategy is not byte-identical to today's, so this is a migration after all");
+    assertEq("...and reads back as 進行中, the absent default", read("ship-the-thing").stage, "進行中");
+
+    const VALUES = ["進行中", "改良中", "観察中"];
+    VALUES.forEach((value, i) => {
+      const m = JSON.parse(create(`--stage ${value} "Staged ${i}" 2026-09-01 "a@qmu.jp" "Q3"`).stdout);
+      assertTrue(`create accepts --stage ${value}`, m.created, JSON.stringify(m));
+      assertTrue(`...writing it verbatim, in the operator's own characters`,
+        new RegExp(`^stage: ${value}$`, "m").test(readFileSync(join(dir, m.path), "utf8")), value);
+      assertEq(`...and ${value} round-trips through the one reader`, read(`staged-${i}`).stage, value);
+    });
+
+    // A REFUSAL WRITES NOTHING — `create.sh`'s existing discipline, extended to the new field.
+    const before = readdirSync(join(dir, ".workaholic/strategies")).sort().join(",");
+    assertEq("a value outside the closed set refuses bad_stage",
+      JSON.parse(create(`--stage improving "Bad stage" 2026-09-01 "a@qmu.jp" "Q3"`).stdout).reason, "bad_stage");
+    assertEq("...with nothing written", readdirSync(join(dir, ".workaholic/strategies")).sort().join(","), before);
+
+    const listed = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.strategyList}`).stdout);
+    assertEq("list carries the stage on every row, resolving absent through read.sh",
+      listed.strategies.find((x) => x.slug === "ship-the-thing").stage, "進行中");
+    assertEq("...and a declared one verbatim",
+      listed.strategies.find((x) => x.slug === "staged-2").stage, "観察中");
+    assertTrue("list.sh does not parse the stage itself",
+      !/fm "\\$f" stage/.test(readFileSync(SCRIPTS.strategyList, "utf8")),
+      "a second parse of the field puts the absent default in two places");
+
+    // THE WRITE FLOOR: presence is never required, because absence is a valid, meaningful state.
+    //
+    // The candidates are written UNTRACKED and by hand. `create.sh` stages what it writes, and
+    // the hook grandfathers every git-tracked file by design — so validating a created strategy
+    // proves nothing about the check at all, which is exactly how this assertion first passed
+    // over a deliberately broken value.
+    const hook = join(REPO_ROOT, "plugins/workaholic/hooks/validate-strategy.sh");
+    const frontmatter = (stageLine) =>
+      `---\ntype: Strategy\ntitle: Floor\nslug: floor\nstatus: active\n${stageLine}`
+      + `target_date: 2026-09-01\nassignees: [a@qmu.jp]\n---\n\n# Floor\n\n## Aim\n\nx\n\n## Schedule\n\nTarget: 2026-09-01\n`;
+    const validate = (stageLine) => {
+      const rel = ".workaholic/strategies/floor.md";
+      writeFileSync(join(dir, rel), frontmatter(stageLine));
+      const r = run(dir,
+        `printf '{"tool_input":{"file_path":"%s"}}' ${JSON.stringify(join(dir, rel))} | ${POSIX_SH} ${hook}`,
+        { allowFail: true });
+      rmSync(join(dir, rel));
+      return r.status;
+    };
+    assertEq("the floor passes a strategy with no stage at all", validate(""), 0);
+    assertEq("the floor passes each declared value",
+      VALUES.map((v) => validate(`stage: ${v}\n`)).join(","), "0,0,0");
+    assertTrue("...and refuses a value outside the closed set",
+      validate("stage: improving\n") !== 0,
+      "the write floor accepted a stage the closed set does not name");
+  } finally { cleanup(dir); }
+}
+
 // ---------- strategy skill (the artifact revived 2026-08-13) ----------
 // The strategy layer was retired 2026-07-28 and re-introduced with a bounded,
 // dated, owned shape. Two things are proved here: the scripts hold that floor,
@@ -18876,6 +18952,7 @@ const tests = [
   ["the living-migration registry contract", testMigrationRegistryContract],
   ["report/area-freshness.sh (the two hand-maintained areas' upkeep seam)", testAreaFreshness],
   ["strategy skill (the artifact revived 2026-08-13)", testStrategySkill],
+  ["strategy: the operator's declared stage", testStrategyDeclaredStage],
   ["strategy/attributed-work.sh (the ONE attribution reader)", testStrategyAttributedWork],
   ["strategy/attributed-work.sh past the xargs batching boundary", testStrategyAttributedWorkPastBatchBoundary],
   ["strategy/attributed-work.sh tells found nothing from could not look", testAttributedWorkWalkOutcome],

@@ -2,8 +2,19 @@
 # Read one strategy: its fields plus the path to the file, so a caller can print
 # the prose itself rather than have this script re-encode it. Pure read.
 #
+# THE ONE PLACE THE ABSENT STAGE IS RESOLVED (2026-08-29, mission
+# `make-a-direction-s-lifecycle-a-declared-stage`). `stage:` is the operator's DECLARED phase
+# — 進行中 | 改良中 | 観察中 — and an absent field means 進行中, the convention `merge_policy`
+# (absent means review) and a ticket's `status:` (absent means queued) already use. The
+# default is resolved HERE and nowhere else, so no consumer re-derives it and a strategy
+# written before the field existed reads exactly as it always did.
+#
+# IT IS DECLARED, NEVER DERIVED. Nothing in the lifecycle layer may compute a stage: the
+# readings (`pace`, `overdue`, `expiring`, `dormant`, `quiescent`) describe the evidence and
+# may SUGGEST a transition, while only the operator's own announcement moves this field.
+#
 # Usage: read.sh <slug> [workaholic-root]
-# Output: JSON {found, path, slug, title, status, target_date, assignees, feedback}
+# Output: JSON {found, path, slug, title, status, stage, target_date, assignees, feedback}
 
 set -eu
 
@@ -29,11 +40,15 @@ json_escape() {
     printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g'
 }
 
-printf '{"found": true, "path": "%s", "slug": "%s", "title": "%s", "status": "%s", "target_date": "%s", "assignees": "%s", "feedback": "%s"}\n' \
+STAGE=$(fm stage)
+[ -n "$STAGE" ] || STAGE="進行中"
+
+printf '{"found": true, "path": "%s", "slug": "%s", "title": "%s", "status": "%s", "stage": "%s", "target_date": "%s", "assignees": "%s", "feedback": "%s"}\n' \
     "$FILE" \
     "$(json_escape "$SLUG")" \
     "$(json_escape "$(fm title)")" \
     "$(json_escape "$(fm status)")" \
+    "$(json_escape "$STAGE")" \
     "$(json_escape "$(fm target_date)")" \
     "$(json_escape "$(fm assignees | sed -e 's/^\[//' -e 's/\]$//')")" \
     "$(json_escape "$(fm feedback | sed -e 's/^\[//' -e 's/\]$//')")"

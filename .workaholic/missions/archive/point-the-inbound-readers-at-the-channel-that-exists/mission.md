@@ -48,3 +48,4 @@ reported by its own name — never as a quiet hour with nothing waiting.
 - 2026-08-29 — story reported — work-20260829-084119.md
 - 2026-08-29 — ticket archived — 20260829093500-say-where-a-routines-environment-lives.md
 - 2026-08-29 — mission achieved — mission.md
+- 2026-08-29 — story reported — work-20260829-104123.md

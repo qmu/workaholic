@@ -54,3 +54,4 @@ and stuckness never reads as 観察中.
 - 2026-08-29 — ticket archived — 20260829212056-read-the-declared-stage-beside-the-derived-ones.md
 - 2026-08-29 — ticket archived — 20260829212056-stop-originating-proposals-for-an-observing-direction.md
 - 2026-08-29 — ticket archived — 20260829212056-order-an-improving-direction-against-its-rivals.md
+- 2026-08-29 — ticket archived — 20260829212056-show-a-direction-s-stage-where-directions-are-read.md

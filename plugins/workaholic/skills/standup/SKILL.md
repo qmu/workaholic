@@ -26,6 +26,16 @@ Attribution is **not** this skill's question. `workaholic:strategy`, *Which work
 5. **A degraded strategy renders by name, distinctly from a quiet one** (2026-08-29, mission `keep-the-closing-link-readable-as-the-corpus-grows`). When the attribution walk itself could not complete, that strategy's record carries `readable: false` with the reader's own `reason` (`corpus_unreadable` / `patterns_unreadable`) and **null** counts; `degraded_count` sits beside the other counts and `attribution_unreadable:<slug>` rides `errors[]`. Render it as *the reader could not see into this direction*, **never** as an "no activity" line and never as one of the three `empty_reason` answers — those name why a **completed** walk found nothing. Until this existed such a strategy rendered exactly like a quiet one: same empty `moved`, same empty `waiting`, and it fell into the `no_activity` silence.
 6. **The honesty line goes null when any walk was degraded.** `unattributed` is derived by subtracting what the strategies attributed, so a direction whose walk failed pushes its own work into that figure — an over-report for a reason that has nothing to do with attribution. `{"moved": null, "waiting": null}` is the answer, and the render omits the line rather than printing a number nobody should trust.
 
+7. **Every strategy names its declared stage** (2026-08-29, mission
+   `make-a-direction-s-lifecycle-a-declared-stage`). `stage` rides on each strategy record off
+   `list.sh` — no new read — and the render names it as **one word beside the bold title**,
+   in the operator's own characters. A stage the reader could not resolve (an empty `stage`)
+   renders as **unreadable by its reason**, never as 進行中: a default that hides a failed read
+   is exactly what rule 5 exists to prevent, one field over. **The stage is never a reason to
+   post**: the silence rules are untouched, so `no_strategies`, `no_activity` and
+   `strategy_list_unreadable` still post nothing at all, and a daily post is a standing claim
+   on attention that one more word must not turn from silent into spoken.
+
 **Bounded by construction, and never silently.** `STANDUP_MAX_STRATEGIES` (8) and `STANDUP_MAX_ITEMS` (3) cap what renders; every cut is counted in `strategies_omitted` / `moved_omitted` / `waiting_omitted` and stated. The digest's value is in **omission** — a standup that lists everything is a changelog — so prefer "what moved and what is waiting" over completeness.
 
 ## The silence rule — when a morning is not news

@@ -204,6 +204,13 @@ STRATEGIES=$(jq -sc \
         | {slug: $w.slug, title: ($s.title // $w.slug), status: $s.status,
            target_date: $s.target_date, days_to_target: days($s.target_date),
            assignees: $s.assignees,
+           # THE DECLARED STAGE, so the digest names the phase beside the title (2026-08-29,
+           # mission `make-a-direction-s-lifecycle-a-declared-stage`). It rides off `list.sh`,
+           # which resolves the absent-means-進行中 default through `read.sh` — no new read and
+           # no second derivation. A row the list could not match carries "" and the render
+           # says the stage is unreadable rather than printing 進行中, because a default that
+           # hides a failed read is what `readable` exists to prevent.
+           stage: ($s.stage // ""),
            # A QUIET STRATEGY AND ONE THE READER COULD NOT SEE INTO MUST NOT RENDER ALIKE
            # (2026-08-29) — the digest already holds itself to exactly that for the
            # unattributed count. `readable` is ABSENT on a completed walk, by the contract

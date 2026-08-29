@@ -305,12 +305,26 @@ subjects=$(printf '%s' "$out" | jq -c --arg window "14 days" \
              and (((.residue.missions // []) | length) > 0))
          then " — a ruling pull request is open for some of these; the rest the loop could not judge"
          else "" end) as $ruling_phrase
+      # THE DECLARED STAGE, NAMED IN THE HEADING (2026-08-29, mission
+      # `make-a-direction-s-lifecycle-a-declared-stage`). Every one of these questions names a
+      # READING (`arrived`, `overdue`, `expiring`, `dormant`) and none of them named the phase
+      # the operator declared, so the person was asked about a direction without being told
+      # which phase they had put it in. It rides the HEADING and not the body, where the
+      # residue and the leaving already ride, because `workaholic:notify` bounds the body to
+      # one sentence of 25 words reserved for the act the operator must take.
+      #
+      # An UNREADABLE stage renders as unreadable rather than as 進行中 — the rule the
+      # explicit `no strategy` rendering already holds one surface over: a default that hides
+      # a failed read is worse than saying nothing. It changes NO key, so no question is
+      # re-asked by this: the ledger matches the step id, never the body or the heading.
+      | (if ((.stage // "") == "") then " — stage unreadable"
+         else " — declared " + .stage end) as $stage_phrase
       | {key: ("direction-" + .state + ":" + .slug),
          slug: .slug, title: .title, assignees: .assignees,
          reading: .state, days_to_target: .days_to_target,
          residue: (.residue // {}),
          leaving: (.leaving // {}),
-         heading: (if .state == "overdue"
+         heading: ((if .state == "overdue"
                    then "the direction `" + .slug + "` has run past its target date"
                         + (if (.days_to_target != null)
                            then " (" + ((-.days_to_target) | tostring) + " day(s) ago)" else "" end)
@@ -335,7 +349,7 @@ subjects=$(printf '%s' "$out" | jq -c --arg window "14 days" \
                            else "" end)
                         + $waiting_phrase + $residue_phrase + $ruling_phrase
                    else "nothing has answered the direction `" + .slug + "` in the last " + $window
-                   end),
+                   end) + $stage_phrase),
          body: (if .state == "overdue"
                 then $leaving_clause + "Re-date it, announce that it ended, or say it still stands — the loop carries what you announce and never decides either for you."
                 # The act is the same one `overdue` names, offered while it can still be taken —
@@ -389,7 +403,12 @@ if [ "$repository" != "none" ] && [ "$active_count" -eq 1 ]; then
                   slug: .slug, title: .title, assignees: .assignees,
                   reading: "last_live", days_to_target: .days_to_target,
                   residue: (.residue // {}), leaving: (.leaving // {}),
-                  heading: ("`" + .slug + "` is the only live direction left" + $leaving_phrase),
+                  # The declared stage rides this heading too (2026-08-29) — it names a
+                  # direction, so it names the phase the operator put that direction in, on
+                  # the same terms as every other heading in this step.
+                  heading: ("`" + .slug + "` is the only live direction left" + $leaving_phrase
+                            + (if ((.stage // "") == "") then " — stage unreadable"
+                               else " — declared " + .stage end)),
                   body: "Once no live direction remains the loop originates nothing. Announce a successor when you end it, or say it still stands."}) ]
           end' 2>/dev/null || printf '%s' "$subjects")
     n_subjects=$(printf '%s' "$subjects" | jq 'length' 2>/dev/null || echo 0)

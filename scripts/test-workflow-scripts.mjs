@@ -6538,6 +6538,111 @@ function testAreaFreshness() {
 }
 
 
+// ---------- the stage is shown where directions are read (2026-08-29) ----------
+// `make-a-direction-s-lifecycle-a-declared-stage`, ticket *Show a direction's stage where
+// directions are read*. Three surfaces read directions and none of them said the phase: the
+// morning digest, the bare `/mission` roadmap, and the `direction-*` questions — which name a
+// READING (`arrived`, `overdue`, `expiring`) and never the phase the operator declared. All
+// three render from readers that already carry `stage`, so this is render work with NO new read.
+function testStageShownWhereDirectionsAreRead() {
+  const dir = makeRepo("main");
+  const WH = join(dir, ".workaholic");
+  try {
+    run(dir, `git config user.email me@example.com`);
+    mkdirSync(join(WH, "strategies"), { recursive: true });
+    mkdirSync(join(WH, "feedbacks"), { recursive: true });
+    writeFileSync(join(WH, "feedbacks", "20260101000000-a.md"), "---\ntype: Feedback\n---\n\nb\n");
+    const future = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
+    writeFileSync(join(WH, "strategies", "d.md"), [
+      "---", "type: Strategy", "title: D", "slug: d", "status: active", "stage: 改良中",
+      `target_date: ${future}`, "assignees: [me@example.com]", "feedback: [20260101000000-a.md]",
+      "---", "", "# D", "", "## Aim", "", "aim", "", "## Schedule", "", "s", "",
+    ].join("\n"));
+
+    // 1. THE MORNING DIGEST carries it per strategy, off the row it already reads.
+    const digest = JSON.parse(run(dir,
+      `${POSIX_SH} ${SCRIPTS.standupDigest} "1 day ago" ${WH}`, { allowFail: true }).stdout || "{}");
+    const row = (digest.strategies || []).find((x) => x.slug === "d");
+    assertTrue("the digest carries a stage per strategy", row && row.stage === "改良中",
+      JSON.stringify(row));
+    // Comments are stripped before the check: the header explains WHY the stage comes off
+    // `list.sh` and therefore names `read.sh` in prose, which a raw grep reads as a call.
+    assertTrue("and it reads it off list.sh rather than opening the artifact again",
+      !/read\.sh/.test(readFileSync(SCRIPTS.standupDigest, "utf8")
+        .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n")),
+      "the digest gained a second read of the strategy artifact");
+
+    // 2. THE QUESTION HEADING names it — where the residue and the leaving already ride,
+    //    never the body, which `workaholic:notify` bounds to one sentence reserved for the act.
+    const step = readFileSync(
+      join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-direction-health.sh"), "utf8");
+    assertTrue("the direction question names the declared stage in its heading",
+      /declared " \+ \.stage/.test(step), "no heading names the stage");
+    assertTrue("...and an unresolved stage renders as unreadable, never as 進行中",
+      /stage unreadable/.test(step), "an unreadable stage would render as the default");
+    assertTrue("the body is untouched by the stage",
+      !/body:[^}]*\.stage/.test(step), "the stage reached the one-sentence body");
+
+    // 3. NO KEY MOVED, so no question is re-asked by a changed heading: the ledger matches the
+    //    step id, and this ticket is render work.
+    assertTrue("the question keys are unchanged",
+      /"direction-" \+ \.state \+ ":" \+ \.slug/.test(step) && /"direction-last:" \+ \.slug/.test(step),
+      "a question key changed, which would re-ask every direction question once");
+
+    // 4. THE ROADMAP names it beside the strategy it already prints, rather than as a column.
+    const flows = readFileSync(join(REPO_ROOT,
+      "plugins/workaholic/skills/mission/reference/command-flows.md"), "utf8");
+    assertTrue("the /mission roadmap names the stage beside the strategy",
+      /— <strategy title> \(<stage>\)/.test(flows), "the roadmap does not name the stage");
+    assertTrue("...and renders an unreadable stage as unreadable",
+      /stage unreadable/.test(flows), "the roadmap would default a failed read to 進行中");
+
+    // 5. THE SILENCE RULES ARE UNTOUCHED: the stage is never a reason to post.
+    const standup = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/standup/SKILL.md"), "utf8");
+    // Whitespace-normalized: the sentence wraps in the source, so a literal match would test
+    // the line width rather than the rule.
+    assertTrue("the digest still posts nothing on its three no-ops",
+      /never a reason to post/.test(standup.replace(/\s+/g, " ")),
+      "the stage was allowed to make a silent morning speak");
+  } finally { cleanup(dir); }
+}
+
+// ---------- every shipped shell script parses (2026-08-29) ----------
+// A cheap, permanent guard added while shipping
+// `make-a-direction-s-lifecycle-a-declared-stage`, after the same defect broke two scripts in
+// one mission: several of these scripts carry a jq program inside a SINGLE-QUOTED shell
+// string, so one apostrophe in a comment inside that program — "the operator's stage" —
+// terminates the string and the whole file stops parsing. The failure is total (the script
+// cannot run at all) and yet invisible to every other test here, because a test that never
+// invokes that particular script still passes; and `sh`'s error names the first parenthesis
+// after the break rather than the apostrophe, pointing hundreds of lines away from the cause.
+//
+// `sh -n` is the whole check. It costs one parse per file and it is exactly the check a person
+// runs by hand after editing one of these; making it a suite row means it runs for every file
+// on every change rather than for the file somebody remembered.
+function testEveryShellScriptParses() {
+  const roots = ["plugins/workaholic", "scripts", "hooks"];
+  const found = [];
+  const walk = (rel) => {
+    const abs = join(REPO_ROOT, rel);
+    if (!existsSync(abs)) return;
+    for (const e of readdirSync(abs, { withFileTypes: true })) {
+      if (e.name === "node_modules" || e.name.startsWith(".")) continue;
+      const next = `${rel}/${e.name}`;
+      if (e.isDirectory()) walk(next);
+      else if (e.name.endsWith(".sh")) found.push(next);
+    }
+  };
+  roots.forEach(walk);
+  assertTrue("the walk finds the shipped shell scripts", found.length > 50, `${found.length} found`);
+  const broken = [];
+  for (const rel of found) {
+    const r = run(REPO_ROOT, `${POSIX_SH} -n ${JSON.stringify(join(REPO_ROOT, rel))}`, { allowFail: true });
+    if (r.status !== 0) broken.push(`${rel}: ${(r.stderr || "").trim().split("\n")[0]}`);
+  }
+  assertEq("every shipped shell script parses", broken.join(" | "), "");
+}
+
 // ---------- the declared stage (2026-08-29) ----------
 // `make-a-direction-s-lifecycle-a-declared-stage`. The stage is the operator's DECLARED phase,
 // so what is proved here is that it round-trips verbatim from a closed set, that an ABSENT
@@ -19211,6 +19316,8 @@ const tests = [
   ["the living-migration registry contract", testMigrationRegistryContract],
   ["report/area-freshness.sh (the two hand-maintained areas' upkeep seam)", testAreaFreshness],
   ["strategy skill (the artifact revived 2026-08-13)", testStrategySkill],
+  ["every shipped shell script parses", testEveryShellScriptParses],
+  ["the stage is shown where directions are read", testStageShownWhereDirectionsAreRead],
   ["strategy: the operator's declared stage", testStrategyDeclaredStage],
   ["strategy: the declared stage rides beside the derived readings", testStrategyStageRidesBeside],
   ["propose: 改良中 sorts before 進行中, and that is all it does", testProposeStageOrdering],

@@ -19138,6 +19138,7 @@ const tests = [
   ["an arrival is refused over a residue we could not read", testArrivalRefusedOverUnreadableResidue],
   ["the arrival question names the residue by slug", testArrivalQuestionNamesResidue],
   ["a direction is read before its date silences the loop", testExpiringDirectionIsRead],
+  ["the operator's own pull requests are derived, read and asked about", testOperatorFacingPulls],
   ["expiring: the boundary, and the window it is derived from", testExpiringBoundary],
   ["expiring, ranked in the lifecycle precedence", testExpiringPrecedence],
   ["the leaving rides an expiring row, at no extra read", testExpiringCarriesTheLeaving],
@@ -19536,8 +19537,18 @@ function testPublishTreePrStrategyExemption() {
   //    the same prose one layer down, which is the thing this change replaces.
   const src = readFileSync(SCRIPTS.publishTreePr, "utf8")
     .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+  // The rule itself moved into `lib/publication-refusal.sh` on 2026-08-29 so the reader that
+  // asks the same question of an ALREADY-OPEN pull request composes it rather than copying it
+  // (mission `follow-the-pull-requests-the-loop-opens-for-a-person`). What this row pins is
+  // unchanged: the seam's answer comes off the TREE IT IS PUBLISHING, never a caller flag.
   assertTrue("the seam derives it from a diff against the base",
-    /strategy_touching/.test(src) && /git diff --name-only "origin\/\$\{base\}" HEAD/.test(src), src);
+    /git diff --name-status "origin\/\$\{base\}" HEAD/.test(src)
+    && /publication-refusal\.sh/.test(src) && /publication_refusal_word/.test(src), src);
+  assertTrue("and the strategy rule is in that one shared home",
+    /^\s*if \(path ~ \/\^\\\.workaholic\\\/strategies\\\//m.test(
+      readFileSync(join(REPO_ROOT,
+        "plugins/workaholic/skills/branching/scripts/lib/publication-refusal.sh"), "utf8")),
+    "the strategy test is no longer in the shared rule");
   assertTrue("and reads no environment variable of its own for it",
     !/WORKAHOLIC_(SKIP|NO)_[A-Z_]*STRATEGY/.test(src), src);
 }
@@ -19650,12 +19661,22 @@ function testPublishTreePrRulingExemption() {
   //    rather than a widened `strategy_touching` — the two ask for different operator acts.
   const src = readFileSync(SCRIPTS.publishTreePr, "utf8")
     .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+  // Since 2026-08-29 the test lives in `lib/publication-refusal.sh`, shared with the reader that
+  // asks the same question of an already-open pull request; the seam owns the ADAPTER and the
+  // act. Both halves are pinned: the seam still reads its own diff, and the rule still
+  // distinguishes an existing mission whose `feedback:` line moves from a brand-new one.
+  const refusalRule = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/branching/scripts/lib/publication-refusal.sh"), "utf8");
   assertTrue("the seam derives the ruling from a diff against the base",
-    /ruling_touching/.test(src) && /git diff --name-status "origin\/\$\{base\}" HEAD/.test(src), src);
+    /git diff --name-status "origin\/\$\{base\}" HEAD/.test(src)
+    && /publication_refusal_word/.test(src), src);
   assertTrue("and reads no environment variable of its own for it",
     !/WORKAHOLIC_(SKIP|NO|ALLOW)_[A-Z_]*RULING/.test(src), src);
-  assertTrue("strategy_touching keeps its own derivation and wording",
-    /strategy_touching/.test(src) && /git diff --name-only "origin\/\$\{base\}" HEAD/.test(src), src);
+  assertTrue("the shape test still keys on an EXISTING mission whose feedback line moves",
+    /status == "M".*missions.*moved == "1"/.test(refusalRule), refusalRule);
+  assertTrue("strategy_touching keeps its own word, never widened into the ruling's",
+    /print "strategy_touching"/.test(refusalRule) && /print "ruling_touching"/.test(refusalRule),
+    refusalRule);
 }
 
 // ---------- moderate/draft-standing-rulings.sh: the ruling pull request (2026-08-28) ----------
@@ -24189,6 +24210,13 @@ function testModerateRun() {
     // `handoff-units` a standing claim, `stalled-units` a stale tip. Same placement and same
     // reason as its neighbours: it reads, and the agent posts into the item's own thread.
     "thread-reconcile",
+    // `operator-pulls` (2026-08-29): a pull request the loop opened FOR A PERSON — one the
+    // publish seam refused to auto-merge, where merging IS the ruling and closing IS the
+    // refusal — that nobody has acted on. No other step could see it: `stuck-prs` and
+    // `merge-conflicts` find it perfectly healthy (it is not stuck, it is WAITING), and every
+    // claim-side verdict is bounded to a claim, which a publication carries none of. Same
+    // placement and same reason as its neighbours: it reads, the check-in asks.
+    "operator-pulls",
     // `retire-claims` (2026-08-27): the one step beside these that ACTS instead of asking. A
     // claim the oracle reads `superseded` is PROVED to hold nothing, so there is no judgement
     // for a person to make — and `superseded` had been reported-never-acted-on since it
@@ -27231,7 +27259,111 @@ function testProofJudgementSplit() {
   assertTrue("the act-effect reading's sub-table is in the one home too", effectAt > 0,
     "claims.md no longer carries the act-effect classification");
   const mergeTable = mergeTail.slice(0, effectAt);
-  const effectTable = mergeTail.slice(effectAt);
+  const effectTail = mergeTail.slice(effectAt);
+
+  // A FIFTH VOCABULARY IN THE SAME HOME (2026-08-29, mission
+  // `follow-the-pull-requests-the-loop-opens-for-a-person`). `publication-effect.sh` is keyed on
+  // whether the act the loop takes ON THE OPERATOR'S BEHALF was answered — a different question
+  // again from whose business a claim is, from what the base's checks said, from whether the base
+  // still accepts a branch, and from whether an act THIS loop performed happened. Parsed apart for
+  // the reason the other four are: four of these vocabularies now share an `unreadable`-shaped
+  // word, and folding them would report one rule as several copies of itself.
+  const PUB_HEADING = "### Whether an operator-facing pull request was acted on";
+  const pubAt = effectTail.indexOf(PUB_HEADING);
+  assertTrue("the publication reading's sub-table is in the one home too", pubAt > 0,
+    "claims.md no longer carries the operator-facing pull request classification");
+  const effectTable = effectTail.slice(0, pubAt);
+  const pubTable = effectTail.slice(pubAt);
+
+  // ITS FOUR WORDS, from the reader's own `emit` calls rather than from a list this test carries.
+  // `open:<age>` is normalised to its table form because the script interpolates the age; the
+  // rest are literal. None may be a proof: a pull request is DESIGNED to change state, so every
+  // reading here can become false by looking again.
+  const pubSrc = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/branching/scripts/publication-effect.sh"), "utf8")
+    .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+  const pubEmitted = new Set();
+  for (const m of pubSrc.matchAll(/\bemit\s+(?:true|false)\s+"?([a-z_]+(?::[^"\s]*)?)"?/g)) {
+    pubEmitted.add(m[1].startsWith("open:") ? "open:<age>" : m[1]);
+  }
+  assertEq("the publication vocabulary parses out of the reader",
+    [...pubEmitted].sort().join(","), "closed,merged,open:<age>,unreadable");
+
+  const pubClassified = new Map();
+  for (const m of pubTable.matchAll(/^\|\s*`([a-z_]+(?::<age>)?)`\s*\|\s*(?:\*\*)?(proof|judgement)(?:\*\*)?\s*\|/gm)) {
+    assertTrue(`the publication sub-table classifies ${m[1]} exactly once`, !pubClassified.has(m[1]),
+      "a second row for the same word is two rules for one fact");
+    pubClassified.set(m[1], m[2]);
+  }
+  assertEq("every word the publication reading emits is classified exactly once",
+    [...pubEmitted].filter((w) => !pubClassified.has(w)).sort().join(","), "");
+  assertEq("and the sub-table classifies no word the publication reading never emits",
+    [...pubClassified.keys()].filter((w) => !pubEmitted.has(w)).sort().join(","), "");
+  assertEq("no publication reading is a proof — every one of them is a judgement",
+    [...pubClassified.entries()].filter(([, k]) => k === "proof").map(([w]) => w).sort().join(","), "");
+
+  // ITS ENUMERATED CONSUMER ASKS AND DOES NOTHING ELSE. Call sites, never words: the step's own
+  // prose says in English that it merges and closes nothing, so a word-level ban would fail on
+  // the sentence that states the rule.
+  const PUB_ACTS = ["--method PUT", "--method PATCH", "--method DELETE", "/merge",
+    "publish-tree-commit.sh", "publish-tree-pr.sh", "release-claim.sh", "retire-claim.sh",
+    "git push", "plan-units.sh"];
+  const pubStepSrc = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/moderate/scripts/step-operator-pulls.sh"), "utf8")
+    .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+  assertTrue("step-operator-pulls.sh is the enumerated consumer of the publication reading",
+    pubStepSrc.includes("publication-effect.sh") && pubStepSrc.includes("list-operator-facing-pulls.sh"),
+    "the enumerated consumer no longer reads the readers it is registered for");
+  for (const act of PUB_ACTS) {
+    assertTrue(`step-operator-pulls.sh asks — it never reaches ${act}`,
+      !pubStepSrc.includes(act),
+      `the publication reading licenses reporting and asking, never ${act}`);
+  }
+  // AND ONLY AN UN-ACTED READING DRAWS A QUESTION. `merged` and `closed` are settled;
+  // `unreadable` is our own degradation and must not spend a person's attention.
+  assertTrue("...and only an open reading becomes a candidate",
+    /merged\|closed\)\s*settled_n=/.test(pubStepSrc) && /unreadable\)\s*unreadable_n=/.test(pubStepSrc),
+    "the step no longer settles merged/closed and counts unreadable without asking");
+
+  // THE OTHER TWO CONSUMERS ONLY REPORT, and the contract says the reading moves no token.
+  for (const [name, path] of [
+    ["/implement", "plugins/workaholic/skills/drive/SKILL.md"],
+    ["/propose", "plugins/workaholic/skills/propose/SKILL.md"],
+  ]) {
+    const doc = readFileSync(join(REPO_ROOT, path), "utf8");
+    assertTrue(`${name}'s run report names the operator-facing reading`,
+      /operator-facing pull request/.test(doc), `${path} no longer names the reading`);
+    assertTrue(`...and states that it moves no token`,
+      /operator-pull:<number>/.test(doc) && /gates nothing/.test(doc),
+      `${path} no longer states the reading gates nothing and reaches a person elsewhere`);
+  }
+
+  // MEMBERSHIP IS THE SEAM'S OWN RULE, SHARED RATHER THAN COPIED. The derivation and the seam
+  // must read one script: a second copy is how a reader starts calling ordinary what the seam
+  // refused. And `list-open-rulings.sh` must NOT be the derivation — it is a brake keyed on the
+  // title on purpose, and repurposing it would put a brake and a reading on one rule.
+  const refusalLib = "plugins/workaholic/skills/branching/scripts/lib/publication-refusal.sh";
+  assertTrue("the publication refusal rule has one home", existsSync(join(REPO_ROOT, refusalLib)),
+    "publication-refusal.sh is gone, so the seam and the reader have two rules");
+  for (const consumer of [
+    "plugins/workaholic/skills/branching/scripts/publish-tree-pr.sh",
+    "plugins/workaholic/skills/branching/scripts/list-operator-facing-pulls.sh",
+  ]) {
+    assertTrue(`${consumer} reads the shared refusal rule`,
+      readFileSync(join(REPO_ROOT, consumer), "utf8").includes("publication-refusal.sh"),
+      `${consumer} derives the refusal word itself instead of composing the one rule`);
+  }
+  // Code only: both scripts NAME each other in their headers on purpose, and the rule being
+  // pinned is about what the derivation executes.
+  const derivation = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/branching/scripts/list-operator-facing-pulls.sh"), "utf8")
+    .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+  assertTrue("the derivation never keys on the [Ruling] title prefix",
+    !/\[Ruling\]/.test(derivation),
+    "membership is being decided by a title again, which loses a retitled pull request");
+  assertTrue("and it is not list-open-rulings.sh wearing a second hat",
+    !derivation.includes("list-open-rulings.sh"),
+    "the brake and the reading now share one derivation with different bounds");
 
   // ITS FIVE WORDS, from the reader's own `emit` calls plus the per-unit `word=` assignments,
   // rather than from a list this test carries — a carried list would prove only that it matches
@@ -29399,5 +29531,208 @@ function testDrillVerdictPath() {
       /\| `drill-health` \| `needs_ruling` \|/.test(table), "the step is unclassified");
   } finally {
     cleanup(tmp);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// THE OPERATOR-FACING PULL REQUESTS (2026-08-29, mission
+// `follow-the-pull-requests-the-loop-opens-for-a-person`).
+//
+// The loop opens pull requests FOR A PERSON — the ones `publish-tree-pr.sh` refuses to
+// auto-merge — and then stopped following them. Three things are pinned here, each because it
+// is the thing a later change would quietly lose:
+//
+//   1. MEMBERSHIP IS THE SHAPE, NOT THE TITLE. The measured trap is a pull request the operator
+//      RETITLED or opened by hand: keying on `[Ruling] ` loses exactly the one that is theirs.
+//      So the fixture carries a ruling whose title says nothing of the sort, and an ordinary
+//      `[Proposal]` that must NOT appear however proposal-shaped its title is.
+//   2. THE FOUR EFFECT WORDS, with the NULL age on `unreadable` — a zero would read as *just
+//      opened*, the most urgent thing the vocabulary can say, for a read we could not make.
+//   3. ONLY AN UN-ACTED READING ASKS. `merged` and `closed` are settled; `unreadable` is our own
+//      degradation and is counted, never asked about.
+//
+// Offline throughout: `gh` is stubbed on PATH and the slug comes from a local git remote.
+function testOperatorFacingPulls() {
+  const MOD = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts");
+  // The two readers live beside the SEAM that produces the refusal word, not beside the step
+  // that asks about it: `/implement`'s and `/propose`'s run reports read them too, and a
+  // `drive/SKILL.md` reference into `moderate/` drags that whole skill's closure into the public
+  // `workflows` bundle (measured — `build.mjs` reported drive's closure gaining moderate,
+  // standup and workaholify, and `verify.mjs` then failed on 12 unresolved references).
+  const BRA = join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts");
+  const LIB = join(BRA, "lib/publication-refusal.sh");
+  const tmp = mkdtempSync(join(tmpdir(), "wh-operator-pulls-"));
+  const bin = join(tmp, "bin");
+  const repo = join(tmp, "repo");
+  mkdirSync(bin, { recursive: true });
+  mkdirSync(repo, { recursive: true });
+  execSync("git init -q . && git remote add origin git@github.com:acme-org/source-repo.git", { cwd: repo });
+  const env = { ...process.env, PATH: `${bin}:${process.env.PATH}` };
+
+  const NOW = Math.floor(Date.now() / 1000);
+  const iso = (hoursAgo) => new Date((NOW - hoursAgo * 3600) * 1000).toISOString();
+
+  // THE FIXTURE. Four open pull requests with different PROVENANCE, which is the point: a stub
+  // answering the same shape for every one of them would let a title-keyed derivation pass.
+  //   701 a ruling, and its title says nothing about rulings  -> ruling_touching (the trap)
+  //   702 a strategy amendment                                -> strategy_touching
+  //   703 an ordinary proposal that auto-merged               -> never a member
+  //   704 a ruling by the identity-mapping half               -> ruling_touching
+  const FILES = {
+    701: [
+      { status: "modified", filename: ".workaholic/missions/active/m1/mission.md",
+        patch: "@@\n-feedback: [a.md]\n+feedback: [a.md, b.md]\n" },
+    ],
+    702: [
+      { status: "modified", filename: ".workaholic/strategies/dir1.md",
+        patch: "@@\n+## Schedule\n" },
+    ],
+    703: [
+      { status: "added", filename: ".workaholic/missions/active/m9/mission.md",
+        patch: "@@\n+feedback: [z.md]\n" },
+      { status: "added", filename: ".workaholic/tickets/todo/2026-t.md", patch: "@@\n+x\n" },
+    ],
+    704: [
+      { status: "modified", filename: ".claude/git-identities", patch: "@@\n+someone=a@b.c\n" },
+    ],
+  };
+  const LIST = [
+    ["701", "https://x/701", "Hand the routine-rename decision to a person", iso(18), "claude[bot]"],
+    ["702", "https://x/702", "[Ruling] Revise the direction", iso(3), "claude[bot]"],
+    ["703", "https://x/703", "[Proposal] Say when the loop has run out of direction", iso(40), "claude[bot]"],
+    ["704", "https://x/704", "Standing rulings for the operator", iso(2), "claude[bot]"],
+  ];
+  // `state` drives the effect reader; the derivation never looks at it.
+  const STATE = {
+    701: { state: "open", merged_at: null },
+    702: { state: "open", merged_at: null },
+    703: { state: "open", merged_at: null },
+    704: { state: "closed", merged_at: iso(1) },
+  };
+
+  const writeStub = (extra = "") => {
+    const rows = LIST.map((r) => r.join("\\t")).join("\\n");
+    const filesCases = Object.entries(FILES)
+      .map(([n, f]) => `    *"pulls/${n}/files"*) printf '%s' '${JSON.stringify(f)}' ;;`).join("\n");
+    const stateCases = Object.entries(STATE)
+      .map(([n, s]) => `    *"pulls/${n}"*) printf '%s' '${JSON.stringify({
+        number: Number(n), html_url: `https://x/${n}`, created_at: iso(n === "701" ? 18 : 3), ...s,
+      })}' ;;`).join("\n");
+    writeFileSync(join(bin, "gh"), `#!/bin/sh
+${extra}
+case "$2" in
+  rate_limit) echo 5000 ;;
+  *"pulls?state=open"*) printf '${rows}\\n' ;;
+${filesCases}
+${stateCases}
+  *) echo '{"message":"Not Found"}' ;;
+esac
+`);
+    chmodSync(join(bin, "gh"), 0o755);
+  };
+  writeStub();
+
+  const sh = (cmd) => run(repo, cmd, { env });
+
+  try {
+    // --- 1. THE RULE ITSELF, over the normalised stream both callers adapt into ---------------
+    const classify = (lines) => execSync(
+      `. ${LIB}; printf '%s' "$STREAM" | publication_refusal_word`,
+      { shell: "/bin/sh", env: { ...process.env, STREAM: lines }, encoding: "utf8" }).trim();
+    assertEq("a strategy path is the operator's",
+      classify("M\t.workaholic/strategies/d.md\t0\n"), "strategy_touching");
+    assertEq("the identity mapping is the operator's",
+      classify("M\t.claude/git-identities\t0\n"), "ruling_touching");
+    assertEq("an EXISTING mission whose feedback line moves is the operator's",
+      classify("M\t.workaholic/missions/active/m/mission.md\t1\n"), "ruling_touching");
+    assertEq("a BRAND-NEW mission is an ordinary proposal — the shape test's whole point",
+      classify("A\t.workaholic/missions/active/m/mission.md\t1\n"), "");
+    assertEq("and an existing mission whose feedback line does not move is ordinary too",
+      classify("M\t.workaholic/missions/active/m/mission.md\t0\n"), "");
+    assertEq("a strategy outranks a ruling, exactly as the seam orders them",
+      classify("M\t.claude/git-identities\t0\nM\t.workaholic/strategies/d.md\t0\n"), "strategy_touching");
+    assertEq("an unclassifiable line makes nothing the operator's", classify("\n\t\t\n"), "");
+
+    // --- 2. THE DERIVATION, over the live-shaped fixture --------------------------------------
+    const listed = JSON.parse(sh(`${POSIX_SH} ${BRA}/list-operator-facing-pulls.sh`).stdout);
+    assertEq("the derivation names exactly the operator's pull requests",
+      listed.pulls.map((p) => `${p.number}:${p.refusal_word}`).sort().join(","),
+      "701:ruling_touching,702:strategy_touching,704:ruling_touching");
+    assertTrue("a ruling whose title says nothing about rulings is still named",
+      listed.pulls.some((p) => p.number === 701 && !/Ruling/.test(p.title)), listed.pulls[0].title);
+    assertTrue("and an auto-merged [Proposal] never appears, whatever its title",
+      !listed.pulls.some((p) => p.number === 703), JSON.stringify(listed.pulls));
+    assertEq("the open set is read whole and the cap reported",
+      [listed.total_open, listed.read, listed.truncated], [4, 4, false]);
+
+    // THE CAP IS REPORTED RATHER THAN SILENTLY HALF-READING.
+    const capped = JSON.parse(sh(`${POSIX_SH} ${BRA}/list-operator-facing-pulls.sh --limit 2`).stdout);
+    assertEq("a bounded read says so", [capped.total_open, capped.read, capped.truncated], [4, 2, true]);
+
+    // --- 3. THE FOUR EFFECT WORDS -------------------------------------------------------------
+    const effect = (n) => {
+      const r = sh(`${POSIX_SH} ${BRA}/publication-effect.sh ${n}`);
+      return { ...JSON.parse(r.stdout), status: r.status };
+    };
+    const open701 = effect(701);
+    assertTrue("an open pull request reads open:<age> in whole hours",
+      /^open:\d+$/.test(open701.effect) && open701.age_hours >= 17 && open701.age_hours <= 19,
+      JSON.stringify(open701));
+    assertEq("a merged one reads merged, with a null age",
+      [effect(704).effect, effect(704).age_hours], ["merged", null]);
+
+    STATE[703] = { state: "closed", merged_at: null };
+    writeStub();
+    assertEq("a closed-unmerged one reads closed — a refusal, never a merge",
+      [effect(703).effect, effect(703).age_hours], ["closed", null]);
+
+    assertEq("a pull request that is not there is unreadable, named, with a NULL age",
+      [effect(999).effect, effect(999).age_hours, effect(999).reason, effect(999).status],
+      ["unreadable", null, "not_found", 0]);
+
+    writeStub(`if [ "$1" = "api" ] && [ "$2" != "rate_limit" ]; then echo boom >&2; exit 1; fi`);
+    const broken = effect(701);
+    assertEq("an unreachable transport is unreadable with a null age, and still exits 0",
+      [broken.effect, broken.age_hours, broken.ok, broken.status],
+      ["unreadable", null, false, 0]);
+    assertEq("and the membership read then carries NO pull list at all, rather than an empty one",
+      Object.prototype.hasOwnProperty.call(
+        JSON.parse(sh(`${POSIX_SH} ${BRA}/list-operator-facing-pulls.sh`).stdout), "pulls"), false);
+    writeStub();
+
+    // --- 4. THE STEP: only an un-acted reading asks -------------------------------------------
+    const step = () => JSON.parse(
+      sh(`${POSIX_SH} ${MOD}/step-operator-pulls.sh --tick 20260829-000000 --root .`).stdout);
+    const s1 = step();
+    const asked = (s1.needs_agent[0]?.pulls ?? []).map((p) => p.key).sort();
+    assertEq("one question per un-acted pull request, keyed on its number",
+      asked.join(","), "operator-pull:701,operator-pull:702");
+    assertTrue("the merged one is settled and asks nobody",
+      !asked.includes("operator-pull:704"), asked.join(","));
+    assertTrue("the summary says how many are un-acted", /2 un-acted/.test(s1.summary), s1.summary);
+    assertTrue("and a candidate supplies an event", s1.event.length > 0, s1.event);
+
+    // EVERY READING SETTLED -> no question, and NO EVENT, so the root renders no line.
+    for (const n of [701, 702]) STATE[n] = { state: "closed", merged_at: iso(1) };
+    writeStub();
+    const s2 = step();
+    assertEq("with nothing un-acted the step asks nobody and renders no root line",
+      [s2.needs_agent.length, s2.event, s2.status], [0, "", "ok"]);
+
+    // AN UNREADABLE READING IS COUNTED, NEVER ASKED ABOUT — a person's attention is not spent
+    // on our own degradation.
+    // Only the per-pull EFFECT read fails; membership still resolves, so the step has
+    // candidates whose readings are all `unreadable`. (The `/files` arm is matched first
+    // because the paths carry a query string, so a suffix test on `/files` would miss.)
+    writeStub(`case "$2" in
+  *"/files"*) : ;;
+  *"pulls/"*) echo boom >&2; exit 1 ;;
+esac`);
+    const s3 = step();
+    assertEq("an unreadable reading asks nobody and is named in the summary",
+      [s3.needs_agent.length, s3.event], [0, ""]);
+    assertTrue("...by count", /unreadable \(asked about by nobody\)/.test(s3.summary), s3.summary);
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
   }
 }

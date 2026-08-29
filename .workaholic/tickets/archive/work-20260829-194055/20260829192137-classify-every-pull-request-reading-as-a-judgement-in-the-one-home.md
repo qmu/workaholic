@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-29T19:21:37+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -80,3 +81,33 @@ between two reads, which is the one property a proof must not have.
   original table records: it would be a second derivation of the same fact, which is what
   the table exists to prevent.
 - No field is added to any artifact and no script emits a classification word.
+
+## Final Report
+
+**Implemented.** One sub-table **beside** the existing ones, in
+`drive/reference/claims.md`'s *Proofs and judgements* section — *Whether an operator-facing pull
+request was acted on* — never a second document.
+
+- All four words (`merged`, `closed`, `open:<age>`, `unreadable`) are classified, **every one a
+  judgement**, with the reason stated: a pull request is *designed* to change state, so every
+  reading here can become false by looking again — the one property a proof must not have — and
+  `unreadable` is besides that the absence of a reading.
+- **The licence is explicit**: report and ask, and nothing else — no merge, no close, no revert,
+  no re-run, no gate, no hold of work, no lifted gate.
+- **Enumerated consumers named**: `/moderate`'s `step-operator-pulls.sh` (asks) and
+  `/implement`'s and `/propose`'s run reports (report).
+- **The existing pin was extended, not duplicated** (`testProofJudgementSplit`): the fifth
+  sub-table is parsed apart from the other four — four of these vocabularies now share an
+  `unreadable`-shaped word — and the suite fails when a word the reader emits is unclassified,
+  when the table classifies a word it never emits, when any row is called a `proof`, or when an
+  enumerated consumer reaches an acting call site.
+- `CLAUDE.md`'s claim-protocol bullet states the same classification.
+
+**No classifier function, no field on any artifact, and no script emits a classification word** —
+the table is the one derivation, exactly as the original's reasoning requires.
+
+**Gate:** the suite passes on the unmodified tree. The deliberate-edit check was exercised by
+construction while building it: the vocabulary is parsed out of `publication-effect.sh`'s own
+`emit` calls rather than from a list the test carries, so a fifth unclassified word fails the
+`every word the publication reading emits is classified exactly once` row, and an extra table row
+fails its converse.

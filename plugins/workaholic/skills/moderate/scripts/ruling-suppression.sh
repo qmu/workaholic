@@ -31,6 +31,25 @@
 # dropped one, so a read that failed leaves every question exactly where it was. `held` is
 # then empty and `readable` is false with the reason named.
 #
+# ═══ THE HOLD IS CORRECT ONLY WHILE SOMEBODY IS TOLD ABOUT THE RULING ════════════════
+# (2026-08-29, mission `follow-the-pull-requests-the-loop-opens-for-a-person`.) Holding a
+# subject's hourly question is right while the ruling is moving and WRONG once the ruling
+# itself has gone unanswered: the loop is then silent about the ruling AND about what that
+# ruling holds, at the same time. Measured 2026-08-29: #694 open 18 hours, with
+# `plan-units.sh` offering nothing over a backlog of 10.
+#
+# THE REPAIR IS THE RULING'S OWN QUESTION, NOT A RELEASE OF THE HOLD. `step-operator-pulls.sh`
+# asks the operator, once, about the un-acted pull request and names what merging it would
+# unblock — read from THIS script, so the two readings share one derivation and cannot diverge
+# about which subjects a ruling holds. Releasing the hold as well would ask one person twice,
+# in two vocabularies, about one pull request: the doubling `handoff-units` and `stalled-units`
+# were split to avoid. **Nothing in this script moved for it** — the hold stays keyed on the
+# subject, an unreadable read still suppresses nothing, `overdue` and `dormant` are never held,
+# and `ask-question.sh` gained nothing.
+#
+# RELEASING ON A TIMER IS REFUSED BY NAME: it would introduce a threshold this layer has
+# refused elsewhere, and the un-acted reading is already available without one.
+#
 # ═══ THE SUPPRESSION IS DERIVED, NEVER STORED ════════════════════════════════════════
 # The moment the operator merges or closes the ruling, the pull request is no longer open, the
 # subject stops being named here, and the question is reachable again — with no state anywhere.

@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 3
 feedback: [20260829061651-land-the-loop-s-own-work-when-the-base-moves-under-it.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
@@ -55,3 +55,4 @@ question: nobody looked, or the loop looked and only you decide.
 - 2026-08-29 — ticket archived — 20260829062039-drill-the-catch-up-with-no-network.md
 - 2026-08-29 — ticket archived — 20260829062039-state-the-catch-up-and-its-refusals.md
 - 2026-08-29 — mission achieved — mission.md
+- 2026-08-29 — run recorded (+3.0h) — run-20260829-064113

@@ -29,6 +29,9 @@
 # the environment id is an account-level fact this repository has no business hardcoding
 # (there are two, and the right one is a question for the developer), and the `RemoteTrigger`
 # body shape belongs to the tool's own contract, not to a shell script that cannot call it.
+# A routine carries no environment variables either — it selects an environment and the
+# variables live on that record, so no field for them is emitted or expected here. The rule
+# and the measurement behind it: SKILL.md, *Where a routine's environment variables live*.
 
 set -eu
 

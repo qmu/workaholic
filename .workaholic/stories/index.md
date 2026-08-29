@@ -3,6 +3,7 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [work-20260829-104123](work-20260829-104123.md) - Where a routine's environment variables live, established as an absence — a routine selects a cloud environment and carries none of its own — and the hermetic suite stops inheriting the home that rule endorses.
 * [work-20260829-102134](work-20260829-102134.md) - Reach a ticket's feedback refs through the mission that carries them, so a batch unit's finish line lands in the thread its own item is already living in
 * [work-20260829-093646](work-20260829-093646.md) - The tick reads its open pull requests once instead of twice, so two steps cannot disagree about one, and a mergeability GitHub has not computed is named rather than reported as none conflicted.
 * [work-20260829-084119](work-20260829-084119.md) - Aim both inbound readers at the channel this workspace actually has, and give a channel that could not be read its own named outcome and a route to a person

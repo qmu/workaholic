@@ -6,6 +6,7 @@ depends_on:
 mission: land-the-loop-s-own-work-when-the-base-moves-under-it
 merge_policy:
 verification_handoff: 
+claim: work-20260829-093646
 ---
 
 # Tell an uncomputed mergeability from none conflicted

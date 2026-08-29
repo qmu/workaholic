@@ -18392,6 +18392,8 @@ const tests = [
   ["drive claim protocol: the act the container is refused, taken in CI", testCiRetirementCandidateSetAndAct],
   ["moderate/retire-claims: which executor took the branch delete", testRetirementExecutorRendering],
   ["claims: two verdicts are proofs, and every consumer gates on one", testProofJudgementSplit],
+  ["moderate: the gap between a tick finding and the work queue", testFindingToWorkGap],
+  ["moderate: repairable or needing a ruling, pinned against STEPS", testFindingClassification],
   ["moderate/undelivered-units: the loop's own undelivered work reaches a person", testUndeliveredUnitsStep],
   ["moderate/reconcile-candidates.sh: which announced items may still be called in flight", testReconcileCandidates],
   ["moderate/thread-reconcile: the finished item whose thread still calls it in flight", testThreadReconcileStep],
@@ -26750,6 +26752,190 @@ function testProofJudgementSplit() {
   assertTrue("workaholic:moderate states that its step asks and acts on nothing",
     /base-health[\s\S]{0,1200}?asks and nothing else/.test(moderateSkill),
     "the asks-and-nothing-else statement is gone from moderate/SKILL.md");
+}
+
+// ---------- the gap between a tick finding and the work queue (2026-08-29) ----------
+//
+// `/moderate` has two destinations for a finding — a question to a person, or a feedback
+// record — and NEITHER becomes work, because `[Specificate]`'s unattended entrance reads
+// GitHub ISSUES. This pins that gap as two facts a change can lose, so the mission that
+// closes it is measured against a test rather than against a claim in prose.
+//
+// TWO HALVES, EACH READ FROM ITS OWN SEAM:
+//
+//   1. THE CALLER SET. `file-inbound-ask.sh` — the one filer — is reached from inside
+//      `/moderate`'s scripts by exactly the steps an explicit allowlist names. It is a
+//      LEDGER OF INTENT, not a freeze: today the list is `step-question-answers.sh` (which
+//      acts on a PERSON'S answer, never on a finding of its own), and the filing step adds
+//      itself to the same list when it lands. An unlisted caller fails here — which is the
+//      point: a step that starts filing must say so where the intent is recorded.
+//
+//   2. THE DISCOVERY. `list-inbound-issues.sh` derives its candidates from the issues
+//      endpoint and reads `.workaholic/feedbacks/` only to compute `already_captured`.
+//      THE DISTINCTION IS ASSERTED, NOT THE ABSENCE — the script does read records, and a
+//      pin claiming otherwise would be wrong the day it was written. It is proved
+//      BEHAVIOURALLY over a stubbed `gh` with no network: with no records at all both
+//      issues are still discovered (so records are not the candidate source), and a record
+//      naming one issue excludes exactly that one (so records are the exclusion source).
+//
+// PROVED ABLE TO FAIL, not asserted able to. A scratch edit adding a second `/moderate`
+// script that calls `file-inbound-ask.sh` without listing it turns the first half red; a
+// scratch edit making the discovery grep the feedbacks directory for candidates turns the
+// `records are not the candidate source` row red.
+function testFindingToWorkGap() {
+  // ---- 1. the caller set, from the scripts' own sources ----
+  const MODERATE_SCRIPTS = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts");
+  // Named, never globbed: a discovered list would grow silently, which is the opposite of a
+  // ledger. Ticket 3 of this mission adds `step-file-findings.sh` here in the same commit
+  // that makes it a caller.
+  const ALLOWED_CALLERS = ["step-question-answers.sh"];
+  const callers = readdirSync(MODERATE_SCRIPTS)
+    .filter((f) => f.endsWith(".sh"))
+    .filter((f) => readFileSync(join(MODERATE_SCRIPTS, f), "utf8")
+      .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n")
+      .includes("file-inbound-ask.sh"))
+    .sort();
+  assertEq("every /moderate script that reaches the one filer is on the allowlist",
+    callers.filter((f) => !ALLOWED_CALLERS.includes(f)).join(","), "");
+  assertEq("...and every allowlisted caller still reaches it",
+    ALLOWED_CALLERS.filter((f) => !callers.includes(f)).join(","), "");
+
+  // The ONE caller today acts on a PERSON'S answer, never on a finding of its own. That is
+  // the gap in one sentence, and it is read out of the step's own handoff rather than
+  // restated here.
+  const answersSrc = readFileSync(join(MODERATE_SCRIPTS, "step-question-answers.sh"), "utf8");
+  assertTrue("the one caller files a person's answer, not a finding of its own",
+    /an answer that ASKS FOR SOMETHING becomes one \[FB\] issue/.test(answersSrc),
+    "the only in-tick filer no longer describes itself as filing a person's answer");
+
+  // ---- 2. the discovery: issues are the candidate source, records only exclude ----
+  const tmp = mkdtempSync(join(tmpdir(), "wh-finding-gap-"));
+  const bin = join(tmp, "bin");
+  const repo = join(tmp, "repo");
+  mkdirSync(bin, { recursive: true });
+  mkdirSync(repo, { recursive: true });
+  const env = { ...process.env, PATH: `${bin}:${process.env.PATH}` };
+  try {
+    execSync("git init -q . && git remote add origin git@github.com:acme-org/source-repo.git",
+      { cwd: repo });
+    // No network: `gh` answers the identity call and the issues query and nothing else, so a
+    // candidate set that came from anywhere but the endpoint would come back empty.
+    writeFileSync(join(bin, "gh"), [
+      "#!/bin/sh",
+      'case "$*" in',
+      '  *"api user"*) echo "octo" ;;',
+      '  *issues\\?*) printf \'7\\thttps://github.com/acme-org/source-repo/issues/7\\t2026-08-29T00:00:00Z\\tAn ask\\n8\\thttps://github.com/acme-org/source-repo/issues/8\\t2026-08-29T00:10:00Z\\tAnother ask\\n\' ;;',
+      "  *) exit 1 ;;",
+      "esac",
+    ].join("\n"));
+    chmodSync(join(bin, "gh"), 0o755);
+
+    const LIST = join(REPO_ROOT,
+      "plugins/workaholic/skills/specificate/scripts/list-inbound-issues.sh");
+    const feedbacks = join(repo, ".workaholic/feedbacks");
+
+    // (a) NO RECORDS AT ALL. Both issues are still discovered, so the candidate set cannot be
+    // coming from `.workaholic/feedbacks/` — which is exactly why a finding captured as a
+    // record is never discovered by this entrance.
+    const bare = JSON.parse(
+      run(repo, `${POSIX_SH} ${LIST} ${feedbacks}`, { env }).stdout.trim());
+    assertEq("the discovery reads the issues endpoint", bare.ok, true);
+    assertEq("records are not the candidate source — both issues arrive with no records at all",
+      bare.issues.map((i) => i.number).join(","), "7,8");
+    assertEq("...and nothing is excluded", bare.excluded.length, 0);
+
+    // (b) ONE RECORD, NAMING ONE ISSUE. Exactly that issue is excluded `already_captured` and
+    // the other is still offered: records are the EXCLUSION source and nothing else.
+    mkdirSync(feedbacks, { recursive: true });
+    writeFileSync(join(feedbacks, "20260829000000-an-ask.md"),
+      "---\ntype: Feedback\n---\n\nCaptured from https://github.com/acme-org/source-repo/issues/8\n");
+    const withRecord = JSON.parse(
+      run(repo, `${POSIX_SH} ${LIST} ${feedbacks}`, { env }).stdout.trim());
+    assertEq("a record excludes the issue it names",
+      withRecord.excluded.map((e) => `${e.number}:${e.reason}`).join(","), "8:already_captured");
+    assertEq("...and leaves every other issue discoverable",
+      withRecord.issues.map((i) => i.number).join(","), "7");
+  } finally { rmSync(tmp, { recursive: true, force: true }); }
+}
+
+// ---------- the finding classification, pinned against STEPS (2026-08-29) ----------
+//
+// A finding may become work with NO PERSON ASKED only when it is `repairable`; a finding needing
+// a human ruling must keep asking. That is the mission's whole safety property, and it lives as
+// prose — one table in `moderate/reference/workflow.md`, keyed on the step id, in the shape
+// `drive/reference/claims.md`'s *Proofs and judgements* already uses. Prose cannot enforce
+// itself, so this makes the table a fact a change can lose.
+//
+// BOTH DIRECTIONS, for the reason the proof/judgement pin records: a `STEPS` entry missing from
+// the table leaves the filing step with no rule for it, and a table row `STEPS` does not name is
+// a rule about nothing — which is how a table starts lying about the code it describes. The step
+// vocabulary is read out of `run.sh`'s own `STEPS` assignment, never restated here; a test
+// carrying its own list would prove only that the list matches itself.
+//
+// NO CLASSIFIER ANYWHERE. The table is the one home. A `classify.sh` — or a function in any
+// moderate script returning `repairable`/`needs_ruling` — would be the second derivation the
+// table exists to prevent, so the scripts are read with comments stripped and the words banned.
+//
+// Proved able to fail, each break turning exactly one row red:
+//
+//   a scratch id added to STEPS and not to the table -> `every step id ... is classified`
+//   a table row for a step STEPS does not name       -> `the table classifies no step id ...`
+//   the default sentence deleted from the header     -> `the table states its own default`
+//   a `classify()` added to a moderate script        -> `... carries no finding classifier`
+function testFindingClassification() {
+  const runSrc = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/moderate/scripts/run.sh"), "utf8");
+  const stepsLine = runSrc.match(/^STEPS='([^']+)'$/m);
+  assertTrue("run.sh's STEPS list parses", !!stepsLine,
+    "the closed step vocabulary could not be read out of run.sh");
+  const steps = stepsLine[1].trim().split(/\s+/);
+
+  const doc = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/moderate/reference/workflow.md"), "utf8");
+  const HEADING = "## Repairable, or needing a ruling";
+  const at = doc.indexOf(HEADING);
+  assertTrue("the classification has one home, beside the step contracts", at > 0,
+    "workflow.md no longer carries the finding classification");
+  const end = doc.indexOf("\n## ", at + 1);
+  const section = doc.slice(at, end > 0 ? end : undefined);
+
+  const classified = new Map();
+  for (const m of section.matchAll(/^\|\s*`([a-z-]+)`\s*\|\s*(?:\*\*)?`(repairable|needs_ruling)`(?:\*\*)?\s*\|/gm)) {
+    assertTrue(`the table classifies ${m[1]} exactly once`, !classified.has(m[1]),
+      "a second row for the same step is two rules for one fact");
+    classified.set(m[1], m[2]);
+  }
+  assertTrue("the classification table parses", classified.size > 0,
+    "no classified rows were found in workflow.md");
+
+  assertEq("every step id run.sh can run is classified exactly once",
+    steps.filter((s) => !classified.has(s)).join(","), "");
+  assertEq("and the table classifies no step id run.sh does not name",
+    [...classified.keys()].filter((s) => !steps.includes(s)).join(","), "");
+
+  // THE DEFAULT IS THE SAFE SIDE, AND IT IS STATED WHERE THE TABLE IS READ. A reader who has to
+  // infer the default from the rows will infer whichever is more common.
+  assertTrue("the table states its own default — an unclassified step is needs_ruling",
+    /An unclassified step id is `needs_ruling`/.test(section),
+    "the default sentence is gone, so a new step's silence is no longer explained");
+
+  // NO SECOND DERIVATION, AND NO SECOND COPY. The table is the one home: the filing step READS
+  // it (ticket 3 wires that), and no script anywhere restates which steps are repairable.
+  // Comments are stripped first, so a script's own prose about the classification is not what
+  // is being banned — what is banned is a step id sitting on a line beside a classification
+  // word, which is what a hand-maintained copy of this table looks like.
+  const MODERATE_SCRIPTS = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts");
+  assertTrue("there is no classify.sh", !existsSync(join(MODERATE_SCRIPTS, "classify.sh")),
+    "the classification lives in workflow.md and nowhere else");
+  for (const f of readdirSync(MODERATE_SCRIPTS).filter((n) => n.endsWith(".sh"))) {
+    for (const line of readFileSync(join(MODERATE_SCRIPTS, f), "utf8").split("\n")) {
+      if (/^\s*#/.test(line)) continue;
+      if (!/\b(repairable|needs_ruling)\b/.test(line)) continue;
+      assertTrue(`${f} carries no hand-copied classification row`,
+        !steps.some((s) => line.includes(s)),
+        `a step id classified inside a script is the second copy workflow.md exists to prevent: ${line.trim()}`);
+    }
+  }
 }
 
 // ---------- moderate/undelivered-units: the loop's own undelivered work (2026-08-27) ----------

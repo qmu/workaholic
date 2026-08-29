@@ -48,3 +48,4 @@ their ruling, and the run report naming what was filed, held and left.
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-29 — ticket archived — 20260829042144-pin-the-gap-between-a-tick-finding-and-the-work-queue.md

@@ -1472,6 +1472,68 @@ an item with no feedback record has no thread to reconcile at all.
 candidate list at all** — never an empty one, which would render our own blindness as "nothing to
 reconcile".
 
+## Repairable, or needing a ruling — which findings may become work
+
+A finding has three destinations, and until 2026-08-29 it had only two: a **question** to a
+person, or a **feedback record**. Neither becomes work, because `[Specificate]`'s unattended
+entrance reads GitHub **issues** — so the tick's own debt accumulated where nothing could drive
+it. The third destination is an `[FB]` issue, filed by `file-findings` (§25), and this table is
+the gate on it: **only a `repairable` finding may become work with no person asked.**
+
+**Keyed on the step id, because that is the closed vocabulary the tick already has.** `run.sh`'s
+`STEPS` is the whole domain; the table is read from there rather than restating it, and the pin
+in `scripts/test-workflow-scripts.mjs` fails in **both** directions — a `STEPS` entry missing
+from the table, and a table row `STEPS` does not name — so the two cannot drift. No artifact
+gains a field, no second vocabulary is created, and no store is added. **There is no
+`classify.sh`**: a function returning the answer would be the second derivation of one fact this
+table exists to prevent, exactly as `drive/reference/claims.md`'s *Proofs and judgements* is
+prose plus a pin and not a classifier.
+
+**An unclassified step id is `needs_ruling`.** Mislabelling a ruling as mechanical is the
+failure the classification exists to prevent, so the default is the safe side and a new step is
+**silent** until somebody classifies it deliberately.
+
+**The question is who must act, never how severe the finding is.** A severe mechanical repair is
+still mechanical, and a trivial ruling is still a ruling. `repairable` means *a change to this
+repository fixes it, and no human owes a decision first*; `needs_ruling` means *a person must
+decide something before any change is the right one*.
+
+| Step id | Classification | Why |
+| ------- | -------------- | --- |
+| `open-log` | `needs_ruling` | Bookkeeping; it produces no finding to file. |
+| `inbound-sweep` | **`repairable`** | A diverged channel default or a broken transport config is a change to this repository. |
+| `workload-logs` | `needs_ruling` | An unreachable environment is somebody's credentials, not our code. |
+| `merge-conflicts` | **`repairable`** | A pull request conflicting with the base names a seam that keeps colliding; the filing yields a **plan**, never a push onto a claimed branch. |
+| `stuck-prs` | **`repairable`** | What failed to auto-merge names a gate or a transport that a change can fix. |
+| `issue-triage` | `needs_ruling` | Whether a stale issue is still wanted is the filer's call. |
+| `doc-drift` | **`repairable`** | Documentation that no longer matches the code it describes is this repository's own debt. |
+| `release-status` | `needs_ruling` | A target's confirmation method is a human declaration; deploying is a human instruction. |
+| `note-cadence` | **`repairable`** | A draft note that stopped refreshing is a defect in the workflow that writes it. |
+| `strategy-pace` | `needs_ruling` | Whether a direction is still the right one is the operator's. |
+| `direction-health` | `needs_ruling` | Re-dating, closing or declaring a direction arrived is the operator's, by that step's own contract. |
+| `stalled-units` | `needs_ruling` | Whether a stalled claim is taken over or abandoned is the holder's. |
+| `undrivable-units` | `needs_ruling` | Which account an address belongs to is a human's ruling, by that step's own contract. |
+| `standing-rulings` | `needs_ruling` | It exists **because** the loop cannot make those rulings itself. |
+| `undelivered-units` | **`repairable`** | A merge the transport refused names the transport seam, which is code. |
+| `handoff-units` | `needs_ruling` | The declared verification is the one act nothing unattended can take. |
+| `thread-reconcile` | `needs_ruling` | Its repair is the tick's own reply, already taken; it owes the queue nothing. |
+| `retire-claims` | **`repairable`** | A branch CI could not delete names an executor or a bound that a change can fix. |
+| `closable-missions` | `needs_ruling` | The tick closes what it proved; a rejected re-proof is a person's to read. |
+| `base-health` | `needs_ruling` | Its four readings are **judgements** a consumer may only report or ask about (`drive/reference/claims.md`), so turning one into work would be a consumer acting on a judgement. |
+| `strategy-digest` | `needs_ruling` | A render; it produces no finding to file. |
+| `question-answers` | `needs_ruling` | A person's own words, already filed by that step through the one filer. |
+| `unanswered-asks` | `needs_ruling` | A person is waiting; that is the finding, and only a person clears it. |
+| `human-checkin` | `needs_ruling` | The asking step itself. |
+
+**`merge-conflicts` is the row worth arguing about**, and it is `repairable` deliberately.
+`workaholic:drive` says resolving a conflict on a claimed branch is nobody's job here, and that
+rule is untouched: what the filing produces is an issue, then a plan, then a `review`-policy
+unit on a **fresh** claim — never an unattended push onto somebody else's branch. Were the
+reading ever to be that the repair is not mechanical, the row moves to `needs_ruling` and the
+default is already on that side.
+
+---
+
 ## What `run.sh` guarantees around the steps
 
 - **Every step is invoked and every step reports.** Missing script → `degraded`/`step_missing`;

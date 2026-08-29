@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-29T06:28:27+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -94,3 +95,57 @@ is refused here because the channel does not exist under that name, the rename i
 outside this repository, and it would break every permalink already posted into the
 existing thread — including the roots the stateless lookup searches. If the operator would
 rather rename, this ticket is the one to close rather than to edit.
+
+## Final Report
+
+Development completed as planned, with one acceptance clause deliberately not met as
+written and the reason recorded here rather than deferred.
+
+`WORKAHOLIC_INBOUND_SLACK_CHANNEL` is set to `dev-workaholic` in this repository's own
+`.claude/settings.json` `env` block — the file whose `SessionStart` hook every routine
+container already depends on, so it reaches both readers. The default derivation is
+untouched, the `dev-` retirement is neither completed nor reversed (this **uses** the
+escape hatch its own header documents), no Slack channel is renamed and no permalink
+breaks.
+
+Every place stating the default now agrees: `check-slack-channel.sh`'s header,
+`workaholify/SKILL.md`, `propose/SKILL.md`, `propose/reference/loop.md`,
+`notify/SKILL.md`, `moderate/reference/workflow.md`,
+`moderate/scripts/step-unanswered-asks.sh` and `CLAUDE.md` — each states the unchanged
+default *and* this repository's own setting, so the two are readable together and do not
+contradict.
+
+**The unmet clause, and why.** Acceptance criterion 1 reads "Both templates name
+`#dev-workaholic`". Its second half — *neither reader falls back to `<repo_name>` here* —
+is met. Its first half is not, and could not be met without breaking something the ticket
+did not weigh:
+
+- A template's **prompt** may not carry it: prompts are byte-identical across repositories
+  (P7, `workaholic:workaholify`) — no substitution, no repository name.
+- A template's **frontmatter** may not carry it on this evidence: step 1 says to add it
+  "in the shape the routine API stores rather than inventing a new field", and that shape
+  is **not established anywhere in this repository**. §5 records that the routines API
+  *silently drops unknown fields*, so only a write-and-read-back proves a shape took, and
+  no `RemoteTrigger`-family tool is exposed to a clock-fired container. Writing a
+  speculative `env:` field would produce a template that reads as configured over a routine
+  that is not — this repository's own "most expensive kind of broken".
+
+So the run implemented the criterion's stated **intent**, recorded the deviation, and
+minted `20260829093500-say-where-a-routines-environment-lives.md` for the half it could not
+establish. That ticket is not a duplicate of
+`20260821150359-state-the-environment-rule-and-its-named-refusal`, which is about
+`job_config.ccr.environment_id` — the runtime environment record, not environment
+variables.
+
+`outputs/` is unchanged and correctly so: neither `check-slack-channel.sh` nor
+`step-unanswered-asks.sh` is in the generated bundle's closure.
+
+### Discovered Insights
+
+- **Insight**: the routine templates have **no environment mechanism at all** — not in
+  frontmatter, not in the prompt — and P7 forbids the prompt from ever growing one that
+  carries a value.
+  **Context**: a repository whose channel is not its own name therefore has exactly one
+  place to say so today, its own `.claude/settings.json`. Any future ticket asking for a
+  per-routine setting will meet the same wall, and the measurement that would open it needs
+  an interactive session.

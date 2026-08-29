@@ -9,6 +9,14 @@
 # own name, and nothing here expects or requires a prefix any more; a repository whose
 # channel still carries one passes it as the second argument or sets the variable.
 #
+# THIS REPOSITORY IS ONE OF THOSE (2026-08-29, mission
+# `point-the-inbound-readers-at-the-channel-that-exists`). Its channel is `dev-workaholic`,
+# and no `#workaholic` exists — a private-inclusive search returns exactly one channel — so
+# it sets `WORKAHOLIC_INBOUND_SLACK_CHANNEL` in its own `.claude/settings.json` `env` block.
+# That USES the escape hatch this header already names rather than completing or reversing
+# the retirement: the default derivation below is untouched, and no prompt gains a
+# repository name.
+#
 # Output (one JSON line):
 #   {"channel": "<repo>", "checked": true,  "exists": true}
 #   {"channel": "<repo>", "checked": false, "reason": "no_qfs"|"slack_locked"

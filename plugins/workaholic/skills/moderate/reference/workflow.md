@@ -937,7 +937,7 @@ back in `needs_agent`:
 
 | Half | Owner | What it is |
 | ---- | ----- | ---------- |
-| which channel, which window | the script | `WORKAHOLIC_INBOUND_SLACK_CHANNEL` (default `<repo_name>`), `WORKAHOLIC_INBOUND_SLACK_WINDOW_HOURS` (default 26) |
+| which channel, which window | the script | `WORKAHOLIC_INBOUND_SLACK_CHANNEL` (default `<repo_name>`; set to `dev-workaholic` here), `WORKAHOLIC_INBOUND_SLACK_WINDOW_HOURS` (default 26) |
 | which refs an earlier tick asked about | the script | its own `unanswered-asks-filed` lines, read through `log-read.sh` |
 | is this a question, a request, an opinion — and has anything answered it | the agent | the probe returned in `needs_agent` |
 
@@ -946,6 +946,36 @@ mean the two readings cannot disagree about which messages the loop had a chance
 pair of variables is exactly how they would. The cost is stated rather than hidden: a message
 already older than the window when this step first runs is never asked about, and nothing
 backfills it. Every message arriving afterwards is asked about exactly once.
+
+**A channel it could not read is its own outcome, and it reaches a person** (2026-08-29, mission
+`point-the-inbound-readers-at-the-channel-that-exists`). The agent's read has **three** outcomes
+and they are named apart:
+
+| Outcome | What it means | What follows |
+| ------- | ------------- | ------------ |
+| `asks_found` | candidates nobody has answered | one question each, keyed `unanswered-ask:<channel>:<ts>` |
+| `window_empty` | the channel **was read** and held nothing in the window | an honest quiet hour; no question |
+| `channel_unreadable` | the read **did not happen** | one question, keyed `inbound-channel-unreadable:<channel>` |
+
+**It never claims a channel is absent.** Slack answers *not found* for a channel the calling
+token cannot **see**, so absent and invisible are one response — the distinction
+`check-slack-channel.sh` was written to preserve, and reintroducing it at this seam would send a
+person to create a channel that already exists. The question says *the channel could not be
+read*, names the channel this run resolved and the reason the transport gave, and stops there.
+
+**Quiet while the reading is unchanged, by the route rather than by a suppression list.** The
+escalation goes through `ask-question.sh` on a key naming the **channel**, so the asked-once gate
+answers it: one question per channel, ever, with the per-tick cap, the quiet hours and the
+working-day hold applying unchanged. An hourly restatement of an unchanged reading is what this
+repository retired two roots for, and this cannot produce one by construction. The cost is stated:
+a channel that breaks, is fixed and breaks again is not re-asked — the same property
+`base-red:<commit>` and `stalled-unit:<unit>` already carry; a **different** channel is a
+different key, which is the change that actually matters. `no_slack_transport` asks nothing: it is
+this session holding no connector, not a fact about the channel.
+
+**The resolved channel name rides the summary**, so a divergence between the channel the loop
+posts to and the one it reads is legible from the tick log without anyone re-deriving the default.
+That divergence ran for a day precisely because it was not.
 
 **The ledger is the tick log and there is no second one.** The already-asked refs are an
 optimisation handed to the agent so it does not re-derive them; the **gate** is
@@ -958,7 +988,9 @@ there is definitively nothing recorded — and yields an empty set. Any other re
 reader, a missing reader, or unparseable output is `degraded` with the reason named and **asks
 nothing**: filing against a ledger that could not be read is how one person is asked the same
 question every hour. The Slack-side degradations belong to the agent and are named by it —
-`no_slack_transport`, `channel_unreadable` — never rendered as a channel with nothing waiting.
+`no_slack_transport`, `channel_unreadable` — never rendered as a channel with nothing waiting,
+and since 2026-08-29 `channel_unreadable` has the keyed question above rather than only a line in
+the log.
 
 **It asks; it never answers, files or captures.** Turning a channel message into an `[FB]` issue
 is the `:40` sweep's job (`workaholic:propose`) and stays there. The two overlap by design — the
@@ -1680,7 +1712,7 @@ decide something before any change is the right one*.
 | `base-health` | `needs_ruling` | Its four readings are **judgements** a consumer may only report or ask about (`drive/reference/claims.md`), so turning one into work would be a consumer acting on a judgement. |
 | `strategy-digest` | `needs_ruling` | A render; it produces no finding to file. |
 | `question-answers` | `needs_ruling` | A person's own words, already filed by that step through the one filer. |
-| `unanswered-asks` | `needs_ruling` | A person is waiting; that is the finding, and only a person clears it. |
+| `unanswered-asks` | `needs_ruling` | A person is waiting; that is the finding, and only a person clears it. A channel the tick could not read is the same kind of finding — a connector, a token or a name only a person can fix — and it reaches that person as the keyed `inbound-channel-unreadable:<channel>` question rather than as a filed issue. |
 | `file-findings` | `needs_ruling` | Filing its own findings as work is the loop asking itself for work. |
 | `human-checkin` | `needs_ruling` | The asking step itself. |
 

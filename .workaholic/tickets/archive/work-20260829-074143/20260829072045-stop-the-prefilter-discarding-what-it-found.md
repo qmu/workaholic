@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-29T07:20:45+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -81,3 +82,46 @@ decided.
   keep a no-match batch a **success**.
 - `grep` exiting 2 or more is a real failure and must not be swallowed by this repair either;
   naming that case is the next ticket's subject, and this one must not foreclose it.
+
+## Final Report
+
+Development completed as planned.
+
+Re-ran the previous ticket's case first and confirmed it still failed, so the repair
+was measured against a live failure.
+
+Both hops now go through one `prefilter <patterns> <corpus> <out>` helper rather than
+two copies of the truncating shape. It appends across batches and makes a no-match
+batch a success without swallowing a real `grep` error:
+
+```sh
+prefilter() {
+    : > "$3"
+    xargs sh -c 'p=$1; shift; grep -lFf "$p" "$@"; s=$?; [ "$s" -le 1 ]' \
+        sh "$1" < "$2" >> "$3" 2>/dev/null || :
+}
+```
+
+One shape for both hops was chosen over two edits so a later repair cannot land on
+one and miss the other — hop 2 carries every ticket's `via_mission:` attribution, so
+its loss is the larger one.
+
+On this checkout, `attributed-work.sh an-autonomous-improvement-loop-run-by-the-routines
+"30 days ago"` went from `count: 0, empty_reason: no_citing_artifacts` to
+`count: 230, active_count: 230, waiting_count: 17, waiting_missions: 3, empty_reason: ""`.
+
+The prefilter's job did not widen: it still answers only *worth reading*, and
+`read-feedback-relation.sh` / `read-relation.sh` still decide attribution. The
+honest-zero paths are untouched — an empty corpus still reaches the existing
+`emit_empty` with `no_citing_artifacts`.
+
+### Discovered Insights
+
+- **Insight**: dropping the `|| :` outright — the obvious minimal fix — turns a
+  no-match batch into a fatal error under `set -eu`, and keeping the plain `|| :`
+  makes `xargs`'s 123 mean either *some batch matched nothing* or *some batch
+  errored*, indistinguishably.
+  **Context**: the `sh -c '…; [ "$s" -le 1 ]'` wrapper is what buys the third state:
+  after it, an `xargs` exit of 123 means a **real** `grep` failure and nothing else,
+  which is the signal the next ticket names as a degraded walk. A repair that only
+  stopped the truncation would have foreclosed it.

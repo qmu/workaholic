@@ -6632,6 +6632,447 @@ function testStrategyAttributedWork() {
   } finally { cleanup(dir); }
 }
 
+// ---------- strategy/attributed-work.sh past the xargs batching boundary ----------
+// (2026-08-29, mission `keep-the-closing-link-readable-as-the-corpus-grows`)
+//
+// WHY THE FIXTURE ABOVE PROVES NOTHING ABOUT THIS. The failure is a SIZE property. A dozen
+// artifacts fit in one `xargs` batch, so every case in `testStrategyAttributedWork` walks a
+// single invocation of `grep` and the bug cannot appear at all. What has to be large is the
+// PATH LIST — that is what `xargs` measures against its command buffer — never the file
+// bodies, so this fixture uses long filenames and three-line contents.
+//
+// THE MECHANISM, confirmed rather than assumed: both hops prefilter with the shape
+// `xargs grep -lFf "$TMP/patterns" < "$TMP/corpus" > "$TMP/cand" || : > "$TMP/cand"`.
+// `xargs` splits the corpus at its command buffer (~128 KiB on GNU, regardless of ARG_MAX);
+// a batch matching nothing makes `grep` exit 1, which makes `xargs` exit 123, and the `||`
+// branch then TRUNCATES the candidate file the earlier batches already wrote. Every citation
+// found in batch 1 is discarded by batch 2.
+//
+// MEASURED on this repository 2026-08-29 07:41 UTC: 1411 corpus paths / 132292 bytes against
+// a 131072-byte buffer, split into two batches. The prefilter returned 0 candidates where an
+// appending walk returned 26, and `attributed-work.sh` answered
+// `empty_reason: no_citing_artifacts` for a direction with 25 citing artifacts.
+//
+// THE BOUNDARY IS DERIVED FROM THE RUNNING SYSTEM, never hard-coded: the buffer is a property
+// of the machine, so a fixture pinned at "1400 files" would quietly stop exercising the split
+// on a machine with a different limit and pass while proving nothing. The probe counts how
+// many times `xargs` invokes its command over exactly the corpus the script builds.
+function testStrategyAttributedWorkPastBatchBoundary() {
+  const dir = makeRepo("main");
+  const READ = `${POSIX_SH} ${SCRIPTS.strategyAttributedWork}`;
+  const wf = (rel, body) => {
+    const abs = join(dir, rel);
+    mkdirSync(dirname(abs), { recursive: true });
+    writeFileSync(abs, body);
+  };
+  // Exactly the corpus `attributed-work.sh` builds, handed to `xargs` with a command that
+  // prints once per invocation: the line count IS the batch count.
+  const CORPUS_PROBE =
+    "{ find .workaholic/missions/active .workaholic/missions/archive -mindepth 2 -maxdepth 2 " +
+    "-name mission.md -type f 2>/dev/null; " +
+    "find .workaholic/tickets/todo .workaholic/tickets/archive -name '*.md' -type f 2>/dev/null; } " +
+    `| sort -u | xargs ${POSIX_SH} -c 'echo b' sh | wc -l`;
+  const batches = () => Number(run(dir, CORPUS_PROBE).stdout.trim());
+  try {
+    wf(".workaholic/strategies/alpha.md",
+      "---\ntype: Strategy\ntitle: alpha\nslug: alpha\nstatus: active\n" +
+      "target_date: 2026-12-31\nassignees: [a@qmu.jp]\nfeedback: [20260801000001-one.md]\n---\n\n" +
+      "# alpha\n\n## Aim\n\nx\n\n## Schedule\n\ny\n");
+    // Hop 1's citation and hop 2's carrier. Both sort BEFORE the filler, so they land in an
+    // early batch and the last batch matches nothing — the exact shape that truncates today.
+    wf(".workaholic/missions/active/m-one/mission.md",
+      "---\ntype: Mission\ntitle: M One\nslug: m-one\nstatus: active\nfeedback: [20260801000001-one.md]\n---\n\n# M One\n");
+    wf(".workaholic/tickets/todo/20260810000001-queued.md",
+      "---\ncreated_at: 2026-08-10T00:00:00+00:00\nmission: m-one\n---\n\n# Queued work\n");
+
+    // Grow the filler until the corpus genuinely spans more than one batch. The names carry
+    // the bytes; the bodies stay three lines.
+    const pad = "z".repeat(180);
+    let n = 0;
+    while (batches() < 2 && n < 20000) {
+      for (let i = 0; i < 200; i++, n++) {
+        wf(`.workaholic/tickets/todo/zz-filler-${String(n).padStart(6, "0")}-${pad}.md`,
+          "---\ncreated_at: 2026-08-01T00:00:00+00:00\n---\n\n# filler\n");
+      }
+    }
+    assertTrue("the fixture's corpus really does span more than one xargs batch",
+      batches() >= 2, `batch count was ${batches()} after ${n} filler files`);
+
+    execSync("git add -A && git commit -q -m seed", {
+      cwd: dir,
+      env: { ...process.env, GIT_COMMITTER_DATE: "2026-01-01T00:00:00+00:00", GIT_AUTHOR_DATE: "2026-01-01T00:00:00+00:00" },
+    });
+
+    const alpha = JSON.parse(run(dir, `${READ} alpha "1 day ago"`).stdout);
+    assertEq("a citation in an early batch survives a later batch that matches nothing",
+      alpha.artifacts.map((a) => a.path).sort(),
+      [".workaholic/missions/active/m-one/mission.md",
+       ".workaholic/tickets/todo/20260810000001-queued.md"]);
+    assertEq("hop 2's via_mission attribution crosses the boundary with it",
+      alpha.artifacts.map((a) => a.attribution).sort(),
+      ["direct", "via_mission:m-one"]);
+    assertEq("a direction with citing work is never reported as uncited past the boundary",
+      [alpha.empty, alpha.empty_reason, alpha.count], [false, "no_activity_in_window", 2]);
+    assertTrue("no filler artifact is attributed — the prefilter still only decides worth reading",
+      !alpha.artifacts.some((a) => a.path.includes("zz-filler")), JSON.stringify(alpha.artifacts.map((a) => a.path)));
+    assertEq("the reader leaves the tree clean", run(dir, "git status --porcelain").stdout.trim(), "");
+  } finally { cleanup(dir); }
+}
+
+// ---------- strategy/attributed-work.sh: found nothing vs could not look ----------
+// (2026-08-29, mission `keep-the-closing-link-readable-as-the-corpus-grows`)
+//
+// `grep` exit 1 is *no match in this batch* and is honest; exit 2 or more is *could not
+// read* and is a failure. Both vanished into one swallowed status, so a corpus the reader
+// could not read and one that cited nothing produced the same answer.
+//
+// THE DEGRADED FIXTURE USES A CORPUS ENTRY THE READER GENUINELY CANNOT CONSUME, never a
+// stubbed `grep`. A permission bit is not usable here and the ticket's own considerations
+// said so: this suite routinely runs as uid 0, where `chmod 000` still reads fine (measured
+// — `grep -lFf` over a 000-mode file exits 1, not 2). What is used instead is a path the
+// walk cannot hand to `grep` at all: `xargs` splits on whitespace, so a corpus entry whose
+// filename contains a space arrives as two non-existent paths and `grep` exits 2. That is a
+// real input a real repository can hold, and the point of the reading is exactly that such
+// a walk must not be reported as one that found nothing.
+function testAttributedWorkWalkOutcome() {
+  const dir = makeRepo("main");
+  const READ = `${POSIX_SH} ${SCRIPTS.strategyAttributedWork}`;
+  const wf = (rel, body) => {
+    const abs = join(dir, rel);
+    mkdirSync(dirname(abs), { recursive: true });
+    writeFileSync(abs, body);
+  };
+  try {
+    wf(".workaholic/strategies/alpha.md",
+      "---\ntype: Strategy\ntitle: alpha\nslug: alpha\nstatus: active\n" +
+      "target_date: 2026-12-31\nassignees: [a@qmu.jp]\nfeedback: [20260801000001-one.md]\n---\n\n" +
+      "# alpha\n\n## Aim\n\nx\n\n## Schedule\n\ny\n");
+    // `uncited` cites nothing of alpha's: it is what makes the second outcome honest rather
+    // than an artefact of an empty tree.
+    wf(".workaholic/strategies/uncited.md",
+      "---\ntype: Strategy\ntitle: uncited\nslug: uncited\nstatus: active\n" +
+      "target_date: 2026-12-31\nassignees: [a@qmu.jp]\nfeedback: [20260801009999-none.md]\n---\n\n" +
+      "# uncited\n\n## Aim\n\nx\n\n## Schedule\n\ny\n");
+    wf(".workaholic/missions/active/m-one/mission.md",
+      "---\ntype: Mission\ntitle: M One\nslug: m-one\nstatus: active\nfeedback: [20260801000001-one.md]\n---\n\n# M One\n");
+    wf(".workaholic/tickets/todo/20260810000001-queued.md",
+      "---\ncreated_at: 2026-08-10T00:00:00+00:00\nmission: m-one\n---\n\n# Queued work\n");
+    execSync("git add -A && git commit -q -m seed", { cwd: dir });
+
+    // ---- outcome 1: the walk completed and found matches ----
+    const matched = JSON.parse(run(dir, `${READ} alpha "1 day ago"`).stdout);
+    assertEq("a completed walk with citations reports them and no empty reason",
+      [matched.count, matched.empty, matched.empty_reason], [2, false, ""]);
+
+    // ---- outcome 2: the walk completed and found nothing — the honest zero ----
+    const none = run(dir, `${READ} uncited "1 day ago"`);
+    const noneJson = JSON.parse(none.stdout);
+    assertEq("a completed walk that found nothing keeps its honest zero",
+      [noneJson.count, noneJson.empty, noneJson.empty_reason], [0, true, "no_citing_artifacts"]);
+
+    // ---- outcome 3: the walk could not read the corpus ----
+    // Captured BEFORE the degraded entry exists: the same fixture, the same strategy, one
+    // unconsumable path apart. It is what makes the null counts below provably a refusal to
+    // answer rather than an honest absence of work.
+    const beforeDegrading = run(dir, `${READ} alpha "1 day ago"`).stdout;
+    wf(".workaholic/tickets/todo/has space.md",
+      "---\ncreated_at: 2026-08-12T00:00:00+00:00\n---\n\n# A path the walk cannot hand to grep\n");
+    execSync("git add -A && git commit -q -m 'Add an unconsumable corpus entry'", { cwd: dir });
+    const degraded = run(dir, `${READ} alpha "1 day ago"`);
+    assertEq("a walk that could not read still exits 0 — a caller that cannot read is told, not failed",
+      degraded.status, 0);
+    const d = JSON.parse(degraded.stdout);
+    assertEq("it reports readable: false with a reason naming what failed",
+      [d.readable, d.reason], [false, "corpus_unreadable"]);
+    assertEq("every count the walk would have produced is null, never zero",
+      [d.count, d.active_count, d.waiting_count, d.waiting_missions,
+       d.waiting_describing, d.waiting_advancing,
+       d.waiting_missions_describing, d.waiting_missions_advancing],
+      [null, null, null, null, null, null, null, null]);
+    assertEq("and no empty_reason at all — never no_citing_artifacts, which means the opposite",
+      [d.empty, d.empty_reason], [null, null]);
+    assertEq("the partial finding is kept inside the walk and not emitted as a list", d.artifacts, []);
+    assertTrue("the same walk WOULD have found citations, so the null is a refusal to answer rather than an absence of work",
+      JSON.parse(beforeDegrading).count === 2, beforeDegrading.slice(0, 200));
+
+    // `readable` IS ABSENT ON A COMPLETED WALK, and that is the contract: absent means the
+    // walk completed, exactly as an absent `merge_policy` means review. It is what keeps a
+    // completed reading byte-identical to what it was before the field existed, so a
+    // consumer not yet taught the term behaves exactly as it did.
+    assertEq("a completed walk carries no readable field at all",
+      [Object.prototype.hasOwnProperty.call(matched, "readable"),
+       Object.prototype.hasOwnProperty.call(noneJson, "readable")], [false, false]);
+    // Pinned as a whole object, not field by field: what has to hold is that NOTHING
+    // appeared and nothing left. The byte-diff against the pre-change script was run by
+    // hand over this same fixture and is recorded in the ticket's Final Report; this is its
+    // durable form, and it fails the moment a later change adds a field here.
+    assertEq("and a completed-empty walk is the same object it has always been",
+      noneJson,
+      { slug: "uncited", found: true, window: "1 day ago",
+        feedback_refs: ["20260801009999-none.md"],
+        count: 0, active_count: 0, waiting_count: 0,
+        waiting_kind: "unknown", waiting_describing: 0, waiting_advancing: 0,
+        waiting_missions: 0, waiting_missions_describing: 0, waiting_missions_advancing: 0,
+        waiting_mission_slugs: [], artifacts: [],
+        empty: true, empty_reason: "no_citing_artifacts" });
+    assertEq("every case still exits 0", [none.status, degraded.status], [0, 0]);
+
+    // THE OUTCOME IS DERIVED IN EXACTLY ONE PLACE. Two derivations of one fact eventually
+    // disagree, and this one is read by four consumers across the direction layer.
+    const src = readFileSync(SCRIPTS.strategyAttributedWork, "utf8");
+    assertEq("the walk's failure is recorded at exactly one site",
+      (src.match(/^\s*WALK_READABLE=false$/gm) || []).length, 1);
+    assertEq("and that site has exactly one caller — the prefilter both hops share",
+      (src.match(/^\s+note_walk_failure /gm) || []).length, 2);
+
+    assertEq("the reader leaves the tree clean", run(dir, "git status --porcelain").stdout.trim(), "");
+  } finally { cleanup(dir); }
+}
+
+// ---------- the survey and the lifecycle refuse a row they could not read ----------
+// (2026-08-29, mission `keep-the-closing-link-readable-as-the-corpus-grows`)
+//
+// `survey-strategies.sh` derives `pace`, `dormant`, `quiescent`, the `waiting_*` grains and the
+// `work_waiting` gate FROM the attribution walk. None of them may be derived from a walk that
+// did not complete, and `work_waiting` above all must not stand OPEN on one: a gate that cannot
+// be read is not a gate, the rule `no_feedback_refs` and `inbox_unreadable` already hold
+// themselves to.
+//
+// MEASURED against the pre-change survey over this exact fixture: it put BOTH directions in
+// `eligible`, with `dormant: true`, `waiting_count: 0` and `selected: ["alpha","uncited"]` —
+// selecting a direction to propose against on a walk that read nothing, which is the failure
+// the ask names.
+function testSurveyRefusesADegradedWalk() {
+  const dir = makeRepo("main");
+  const SURVEY = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/survey-strategies.sh")}`;
+  const STATE = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/direction-state.sh")}`;
+  const wf = (rel, body) => {
+    const abs = join(dir, rel);
+    mkdirSync(dirname(abs), { recursive: true });
+    writeFileSync(abs, body);
+  };
+  try {
+    // The open-proposal gate is the survey's one network call; hand it a held read so the
+    // whole case stays offline, exactly as the neighbouring propose cases do.
+    writeFileSync(join(dir, "open.json"),
+      `{"ok": true, "identity": "tester", "proposals": []}`);
+    const open = `--open-proposals ${join(dir, "open.json")}`;
+    const strategy = (slug, refs) =>
+      `---\ntype: Strategy\ntitle: ${slug}\nslug: ${slug}\nstatus: active\n` +
+      `target_date: 2099-12-31\nassignees: [test@example.com]\nfeedback: [${refs}]\n---\n\n` +
+      `# ${slug}\n\n## Aim\n\nx\n\n## Schedule\n\ny\n`;
+    wf(".workaholic/strategies/alpha.md", strategy("alpha", "20260801000001-one.md"));
+    wf(".workaholic/missions/active/m-one/mission.md",
+      "---\ntype: Mission\ntitle: M One\nslug: m-one\nstatus: active\nfeedback: [20260801000001-one.md]\n---\n\n# M One\n");
+    wf(".workaholic/tickets/todo/20260810000001-queued.md",
+      "---\ncreated_at: 2026-08-10T00:00:00+00:00\nmission: m-one\n---\n\n# Queued work\n");
+    execSync("git add -A && git commit -q -m seed", { cwd: dir });
+
+    // ---- a row whose walk completed ----
+    const healthy = JSON.parse(run(dir, `${SURVEY} ${open} "14 days ago" .workaholic`).stdout);
+    const hRow = [...(healthy.eligible || []), ...(healthy.refused || [])].find((r) => r.slug === "alpha");
+    assertEq("a completed walk still brakes on its own work in flight",
+      hRow.reason, "work_waiting");
+    assertEq("and its readings are made, not withheld",
+      [hRow.pace, hRow.dormant, hRow.quiescent], ["on_course", false, false]);
+
+    // ---- the same row, one path the walk cannot hand to grep ----
+    wf(".workaholic/tickets/todo/has space.md",
+      "---\ncreated_at: 2026-08-12T00:00:00+00:00\n---\n\n# A path the walk cannot hand to grep\n");
+    execSync("git add -A && git commit -q -m 'Add an unconsumable corpus entry'", { cwd: dir });
+    const blind = JSON.parse(run(dir, `${SURVEY} ${open} "14 days ago" .workaholic`).stdout);
+    const bRow = (blind.refused || []).find((r) => r.slug === "alpha");
+    assertEq("a degraded walk is refused by the name this condition already had",
+      bRow && bRow.reason, "attribution_unreadable");
+    assertEq("no reading is derived from it — unmade, never false",
+      [bRow.pace, bRow.dormant, bRow.quiescent], ["unknown", false, false]);
+    assertEq("and no waiting count at all, because a zero here is the whole defect",
+      [bRow.waiting_count, bRow.waiting_missions], [null, null]);
+    assertEq("work_waiting does not stand open on a walk that could not prove it clear",
+      blind.selected, []);
+    // THE DATE TERMS ARE FACTS ABOUT THE STRATEGY, NOT ABOUT THE WALK, and must not move.
+    assertEq("the date-derived terms are untouched",
+      [bRow.overdue, bRow.expiring, bRow.target_date],
+      [hRow.overdue, hRow.expiring, hRow.target_date]);
+
+    // ---- the lifecycle answers through its EXISTING precedence, deriving nothing new ----
+    const state = JSON.parse(run(dir, `${STATE} ${open} "14 days ago" .workaholic`).stdout);
+    const sRow = state.strategies.find((r) => r.slug === "alpha");
+    assertEq("direction-state.sh reads unreadable off the refusal it already keyed on",
+      [state.readable, sRow.state, sRow.reason], [true, "unreadable", "attribution_unreadable"]);
+    assertEq("and carries the nulls through rather than putting the zeroed reading back",
+      [sRow.waiting.count, sRow.waiting.missions], [null, null]);
+    assertEq("the reader leaves the tree clean", run(dir, "git status --porcelain").stdout.trim(), "");
+  } finally { cleanup(dir); }
+}
+
+// ---------- the residue refuses a walk it could not complete ----------
+// (2026-08-29, mission `keep-the-closing-link-readable-as-the-corpus-grows`)
+//
+// `mission-strategy.sh` answers *which direction does this mission belong to* by composing the
+// attribution walk, and `unattributed-work.sh` composes that into the residue. On a walk that
+// did not complete, a CITING mission is indistinguishable from an unattributed one — so the
+// residue names work the tree already attributes, and that residue is what
+// `/moderate`'s `direction-arrived:<slug>` question and the standing-rulings draft both read.
+// A blind walk asks the operator to rule on attributions that already exist.
+//
+// The partial case is the one the old rule missed: `all_strategies_unreadable` fired only when
+// EVERY active direction failed, and a mission attributed only to the ONE that failed is named
+// as residue exactly the same way.
+function testResidueRefusesADegradedWalk() {
+  const dir = makeRepo("main");
+  const S = "plugins/workaholic/skills/strategy/scripts";
+  const MSTRAT = `${POSIX_SH} ${join(REPO_ROOT, S, "mission-strategy.sh")}`;
+  const RESIDUE = `${POSIX_SH} ${join(REPO_ROOT, S, "unattributed-work.sh")}`;
+  const LEAVING = `${POSIX_SH} ${join(REPO_ROOT, S, "closing-residue.sh")}`;
+  const RULINGS = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/list-standing-rulings.sh")}`;
+  const wf = (rel, body) => {
+    const abs = join(dir, rel);
+    mkdirSync(dirname(abs), { recursive: true });
+    writeFileSync(abs, body);
+  };
+  const strategy = (slug, refs) =>
+    `---\ntype: Strategy\ntitle: ${slug}\nslug: ${slug}\nstatus: active\n` +
+    `target_date: 2099-12-31\nassignees: [test@example.com]\nfeedback: [${refs}]\n---\n\n` +
+    `# ${slug}\n\n## Aim\n\nx\n\n## Schedule\n\ny\n`;
+  try {
+    wf(".workaholic/strategies/alpha.md", strategy("alpha", "20260801000001-one.md"));
+    wf(".workaholic/strategies/beta.md", strategy("beta", "20260801000002-two.md"));
+    wf(".workaholic/missions/active/m-one/mission.md",
+      "---\ntype: Mission\ntitle: M One\nslug: m-one\nstatus: active\nfeedback: [20260801000001-one.md]\n---\n\n# M One\n");
+    execSync("git add -A && git commit -q -m seed", { cwd: dir });
+
+    // ---- healthy: the mission is attributed and claims nothing in the residue ----
+    const okStrat = JSON.parse(run(dir, `${MSTRAT} --root .workaholic`).stdout);
+    assertEq("a completed walk attributes the citing mission",
+      [okStrat.missions[0].slug, okStrat.missions[0].attributed, okStrat.unreadable],
+      ["m-one", true, []]);
+    const okResidue = JSON.parse(run(dir, `${RESIDUE} --root .workaholic`).stdout);
+    assertEq("so the residue is empty and readable — an honest zero",
+      [okResidue.readable, okResidue.reason, okResidue.mission_count, okResidue.missions],
+      [true, "", 0, []]);
+
+    // ---- PARTIAL: one direction's walk fails, the other completes ----
+    // A strategy whose `slug:` does not match its filename is listed under a slug the walk
+    // cannot resolve. That is one unreadable direction beside one readable one — the case
+    // `all_strategies_unreadable` was blind to, and the one where a mission attributed ONLY
+    // to the failed direction is named as residue while the tree attributes it.
+    const beta = join(dir, ".workaholic/strategies/beta.md");
+    writeFileSync(beta, readFileSync(beta, "utf8").replace("slug: beta", "slug: elsewhere"));
+    const partial = JSON.parse(run(dir, `${RESIDUE} --root .workaholic`).stdout);
+    assertEq("one unreadable direction is enough — the residue as a whole is unsound and says so",
+      [partial.readable, partial.reason], [false, "strategy_unreadable"]);
+    assertEq("and it names nothing rather than over-reporting into an operator's question",
+      [partial.missions, partial.tickets, partial.mission_count, partial.ticket_count],
+      [[], [], null, null]);
+    writeFileSync(beta, readFileSync(beta, "utf8").replace("slug: elsewhere", "slug: beta"));
+
+    // ---- the walk itself could not complete ----
+    wf(".workaholic/tickets/todo/has space.md",
+      "---\ncreated_at: 2026-08-12T00:00:00+00:00\n---\n\n# A path the walk cannot hand to grep\n");
+    execSync("git add -A && git commit -q -m 'Add an unconsumable corpus entry'", { cwd: dir });
+
+    const blindStrat = JSON.parse(run(dir, `${MSTRAT} --root .workaholic`).stdout);
+    assertEq("the direction is named unreadable, not answered as no strategy",
+      blindStrat.unreadable.map((u) => u.reason).sort(),
+      ["attribution_unreadable", "attribution_unreadable"]);
+    const blindResidue = JSON.parse(run(dir, `${RESIDUE} --root .workaholic`).stdout);
+    assertEq("no citing mission is named as unattributed anywhere",
+      [blindResidue.readable, blindResidue.missions, blindResidue.tickets],
+      [false, [], []]);
+    assertEq("with a reason and null counts, never zeroed ones",
+      [blindResidue.reason, blindResidue.mission_count, blindResidue.ticket_count],
+      ["all_strategies_unreadable", null, null]);
+
+    // ---- the leaving names the source that failed, through its EXISTING contract ----
+    const leaving = JSON.parse(run(dir, `${LEAVING} alpha "14 days ago" .workaholic`).stdout);
+    assertTrue("closing-residue.sh names the failed source rather than rendering an empty leaving",
+      leaving.readable === false && /residue_unreadable:all_strategies_unreadable/.test(leaving.reason),
+      JSON.stringify({ readable: leaving.readable, reason: leaving.reason }));
+
+    // ---- and the standing-rulings draft reaches no writer with what it could not attribute ----
+    // Scoped to the residue source on purpose: the identity-mapping source is the OTHER half
+    // of that candidate set and is unaffected here, so asserting an empty ruling list would
+    // pin something this change never touched.
+    const rulings = JSON.parse(run(dir, `${RULINGS} --root .workaholic`).stdout);
+    assertEq("no candidate is drafted out of a residue nobody could read",
+      [rulings.rulings.filter((r) => r.kind !== "identity_mapping"),
+       rulings.sources.unattributed.readable,
+       rulings.sources.unattributed.reason], [[], false, "all_strategies_unreadable"]);
+
+    assertEq("every reader leaves the tree clean",
+      run(dir, "git status --porcelain").stdout.trim(), "");
+  } finally { cleanup(dir); }
+}
+
+// ---------- the run reports name a degraded direction reading ----------
+// (2026-08-29, mission `keep-the-closing-link-readable-as-the-corpus-grows`)
+//
+// A strategy whose attribution walk did not complete used to render in the morning digest
+// EXACTLY like a quiet one — same empty `moved`, same empty `waiting`, not counted as active,
+// and so folded into the `no_activity` silence. A quiet direction and one the reader could not
+// see into must not render alike; the digest already holds itself to that rule for the
+// unattributed count, and this extends it to the strategy itself.
+//
+// NO GATE MOVES HERE. The brake is the survey's (pinned by its own case above); this ticket
+// names what is already true, and the healthy digest is unchanged.
+function testRunReportsNameADegradedReading() {
+  const dir = makeRepo("main");
+  const DIGEST = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/standup/scripts/digest.sh")}`;
+  const wf = (rel, body) => {
+    const abs = join(dir, rel);
+    mkdirSync(dirname(abs), { recursive: true });
+    writeFileSync(abs, body);
+  };
+  const strategy = (slug, refs) =>
+    `---\ntype: Strategy\ntitle: ${slug} title\nslug: ${slug}\nstatus: active\n` +
+    `target_date: 2099-12-31\nassignees: [test@example.com]\nfeedback: [${refs}]\n---\n\n` +
+    `# ${slug}\n\n## Aim\n\nx\n\n## Schedule\n\ny\n`;
+  try {
+    wf(".workaholic/strategies/moving.md", strategy("moving", "20260801000001-one.md"));
+    wf(".workaholic/missions/active/m-one/mission.md",
+      "---\ntype: Mission\ntitle: M One\nslug: m-one\nstatus: active\nfeedback: [20260801000001-one.md]\n---\n\n# M One\n");
+    wf(".workaholic/tickets/todo/20260810000001-queued.md",
+      "---\ncreated_at: 2026-08-10T00:00:00+00:00\nmission: m-one\n---\n\n# Queued work\n");
+    execSync("git add -A && git commit -q -m seed", { cwd: dir });
+
+    const ok = JSON.parse(run(dir, `${DIGEST} "1 day ago" .workaholic`).stdout);
+    assertEq("a strategy whose walk completed is readable, with no degradation reported",
+      [ok.strategies[0].readable, ok.strategies[0].reason, ok.degraded_count, ok.errors],
+      [true, "", 0, []]);
+    assertEq("and the morning is news because something moved under it",
+      [ok.noop, ok.noop_reason], [false, ""]);
+
+    wf(".workaholic/tickets/todo/has space.md",
+      "---\ncreated_at: 2026-08-12T00:00:00+00:00\n---\n\n# A path the walk cannot hand to grep\n");
+    execSync("git add -A && git commit -q -m 'Add an unconsumable corpus entry'", { cwd: dir });
+    const bad = JSON.parse(run(dir, `${DIGEST} "1 day ago" .workaholic`).stdout);
+    assertEq("a degraded strategy is named by the reader's own reason, not rendered as quiet",
+      [bad.strategies[0].readable, bad.strategies[0].reason], [false, "corpus_unreadable"]);
+    assertEq("its counts are null rather than the zeroes a quiet strategy carries",
+      [bad.strategies[0].count, bad.strategies[0].active_count, bad.strategies[0].waiting_count],
+      [null, null, null]);
+    assertEq("and the degradation is counted and named in errors",
+      [bad.degraded_count, bad.errors], [1, ["attribution_unreadable:moving"]]);
+    // EVERY strategy degraded is its own no-op, never `no_activity` — which would assert a
+    // quiet morning nobody actually read.
+    assertEq("every strategy degraded is its own named no-op",
+      [bad.noop, bad.noop_reason], [true, "all_attribution_unreadable"]);
+    // The honesty line is derived by SUBTRACTING what the strategies attributed, so a failed
+    // walk pushes its own work into it. Null, never an inflated number.
+    assertEq("and the honesty line goes null rather than over-reporting",
+      bad.unattributed, { moved: null, waiting: null });
+
+    // The other surface is prose: `/propose`'s run report step names the refusal the survey
+    // already emits, and no second word.
+    const loop = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/propose/reference/loop.md"), "utf8");
+    assertTrue("the propose run report names the survey's own refusal for a degraded row",
+      /attribution_unreadable/.test(loop), loop.slice(0, 120));
+
+    assertEq("the digest leaves the tree clean", run(dir, "git status --porcelain").stdout.trim(), "");
+  } finally { cleanup(dir); }
+}
+
 // ---------- standup/digest.sh + the /standup command are a READER ----------
 // The daily per-strategy digest (ticket `20260817115232`, 2026-08-17). Three properties are
 // worth a fixture, because none of them can be observed in this repository — it holds zero
@@ -18268,6 +18709,11 @@ const tests = [
   ["report/area-freshness.sh (the two hand-maintained areas' upkeep seam)", testAreaFreshness],
   ["strategy skill (the artifact revived 2026-08-13)", testStrategySkill],
   ["strategy/attributed-work.sh (the ONE attribution reader)", testStrategyAttributedWork],
+  ["strategy/attributed-work.sh past the xargs batching boundary", testStrategyAttributedWorkPastBatchBoundary],
+  ["strategy/attributed-work.sh tells found nothing from could not look", testAttributedWorkWalkOutcome],
+  ["the survey and the lifecycle refuse a row they could not read", testSurveyRefusesADegradedWalk],
+  ["the residue refuses a walk it could not complete", testResidueRefusesADegradedWalk],
+  ["the run reports name a degraded direction reading", testRunReportsNameADegradedReading],
   ["standup/digest.sh (the daily per-strategy digest)", testStandupDigest],
   ["moderate: the tick's own root, and the diff that keeps it silent", testModerateTickPost],
   ["moderate: the working-week gate holds the weekend without losing the question", testModerateWorkingDays],

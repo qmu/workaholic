@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-29T07:20:45+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -85,3 +86,56 @@ reading. A degraded walk reports its reason and **null** counts — the shape
 - The documentation update is not optional here: `no_citing_artifacts` is cited by name in
   `workaholic:propose` and `CLAUDE.md` as *explicitly not a refusal*, and that claim's
   precondition is exactly what this ticket establishes.
+
+## Final Report
+
+Development completed as planned.
+
+A degraded walk now emits `readable: false` with its reason, **null** counts for every
+count it would have produced, an empty artifact list, and `empty` / `empty_reason` both
+null — never `no_citing_artifacts`, which after mission `prove-the-loop-s-closing-link`
+means *nothing has answered this direction yet* and would be the exact opposite of what
+happened. The check stands ahead of every derived count, so a degraded walk cannot reach
+`empty_reason` at all.
+
+The partial finding is kept **inside** the walk so it can finish, and deliberately not
+emitted: a half list rendered as a list is the same collapse one step on.
+
+**`readable` is absent on a completed walk, and that is the contract rather than an
+omission** — *absent means the walk completed*, the convention this repository already
+uses for `merge_policy` (absent means review) and a ticket's `status:` (absent means
+queued). It is what makes the completed readings byte-identical, which the acceptance
+criteria require, and it is exactly what the gate asks for: a consumer not yet taught the
+term behaves precisely as it did. The skill states the read as `readable // true`, never
+as a bare truth test.
+
+The byte-diff the verification method asks for was run against the pre-change script
+(`git show HEAD:…/attributed-work.sh`, placed at the same path so its sibling reader
+resolution is unchanged) over the same fixture:
+
+```
+--- slug=[alpha]     byte-identical
+--- slug=[uncited]   byte-identical      # the completed-empty case
+--- slug=[nope]      byte-identical
+```
+
+and, on the degraded fixture, `count: 2, empty: false, empty_reason: ""` before against
+`readable: false, reason: corpus_unreadable`, all counts null, `empty_reason: null`,
+exit 0 after.
+
+The hermetic case pins the completed-empty reading as a **whole object** rather than
+field by field, so it fails the moment a later change adds a field there.
+
+No consumer was changed. The next two tickets teach the survey and the residue the term;
+until they land, a consumer reading these counts arithmetically sees a completed walk's
+numbers exactly as before and never reaches the nulls, because every current caller runs
+against a corpus it can read.
+
+### Discovered Insights
+
+- **Insight**: `no_citing_artifacts` is emitted from **two** places that look alike — the
+  early `emit_empty` when the corpus is empty, and the final `jq` when the walk found no
+  artifacts — and only the second is reachable on a repository with any artifacts at all.
+  **Context**: a change that guards only `emit_empty` would leave the real path untouched
+  and appear to work on an empty fixture. The guard belongs after both hops and before the
+  facts section, which is where it now stands.

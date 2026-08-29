@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260829-124120
 ---
 
 # Run the loop's own proofs on every turn

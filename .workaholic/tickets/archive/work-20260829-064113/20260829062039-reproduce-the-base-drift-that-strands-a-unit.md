@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-29T06:20:39+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -79,3 +80,34 @@ a hypothesis this fixture confirms or refutes, not a design to build from.
 The tempting shortcut is to assert the symptom (a conflicted pull request) rather than
 the mechanism. The mechanism is what the later tickets change, so the fixture must key on
 the verdict and the absent catch-up.
+
+## Final Report
+
+Development completed as planned. `scripts/test-workflow-scripts.mjs` gained
+`makeDriftFixture` / `strandUnit` / `advanceBase` / `driftGhStub` and the test
+`drive: the base moves under a finished unit and nothing catches it up`. The fixture is a
+bare local origin plus one clone, with the transport stubbed and no network.
+
+The hypothesis the ask carried is **confirmed**: `retry-undelivered.sh` attempts the merge,
+is refused `merge_not_allowed`, and is refused identically every time it is run.
+`merge-reason.sh` has no word for *the branch is behind* at all, which is the distinction the
+rest of the mission rests on.
+
+The absence is pinned as a **closed set** rather than as "nothing reaches it": exactly two
+scripts under `skills/` reach `ship/scripts/catchup-main.sh`. It read `land-unit.sh` alone
+against the tree this mission started from, and `land-unit.sh` refuses `headless_context`
+first and unoverridably — asserted here too, so the reason the loop had no caller is stated
+rather than implied. The set assertion stays meaningful now that `catch-up-claim.sh` exists
+and still fails the moment a third path grows one.
+
+### Discovered Insights
+
+- **Insight**: A set assertion outlives the red-to-green transition where a bare absence
+  assertion cannot.
+  **Context**: "No script reaches X" has to be deleted the moment X gains a caller, which
+  loses the guard. "Exactly these scripts reach X" survives the change and keeps catching the
+  thing that actually matters — an unreviewed third caller of a merge seam.
+- **Insight**: The retry's own recording moves the branch tip, so a second run reads
+  `claim_active` and says nothing about the merge.
+  **Context**: This is why the fixture needed `--own-tip` to assert repeatability, and it is
+  the same collision that later blocked the delivery after a catch-up.

@@ -88,6 +88,12 @@ const SCRIPTS = {
   effectivePolicy: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/effective-policy.sh"),
   verificationHandoff: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/verification-handoff.sh"),
   listClaims: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/list-claims.sh"),
+  claimMergeability: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/claim-mergeability.sh"),
+  catchUpClaim: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/catch-up-claim.sh"),
+  catchupMain: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/catchup-main.sh"),
+  retryUndelivered: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/retry-undelivered.sh"),
+  stepCatchupBlocked: join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-catchup-blocked.sh"),
+  stepMergeConflicts: join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-merge-conflicts.sh"),
   releaseClaim: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/release-claim.sh"),
   landUnit: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/land-unit.sh"),
   publishRelease: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/publish-release.sh"),
@@ -18393,6 +18399,9 @@ const tests = [
   ["drive claim protocol: a fresh claim takes a superseded claim's work", testFreshClaimOverSupersededClaim],
   ["drive claim protocol: a unit resolves to its live claim branch", testUnitResolvesToItsLiveClaimBranch],
   ["drive claim protocol: a reported claim is two states", testReportedClaimIsTwoStates],
+  ["drive: the base moves under a finished unit and nothing catches it up", testStrandedUnitReproduction],
+  ["drive/claim-mergeability.sh: the reader and the writer answer with one rule", testClaimMergeabilityReader],
+  ["drive/catch-up-claim.sh: one act, its refusals, and the delivery that follows", testCatchUpClaimWriter],
   ["story/record-merge-outcome.sh: the durable home for a merge outcome", testRecordMergeOutcome],
   ["drive claim protocol: the act the container is refused, taken in CI", testCiRetirementCandidateSetAndAct],
   ["moderate/retire-claims: which executor took the branch delete", testRetirementExecutorRendering],
@@ -27749,4 +27758,356 @@ function testUndeliveredUnitsStep() {
       /close_unrecorded_stays_silent/.test(runbook) && /close_unrecorded_stays_silent/.test(drill),
       "the failing row is missing from the drill or the runbook");
   } finally { cleanup(fx.A); cleanup(fx.B); cleanup(fx.origin); }
+}
+
+// ---------- the base moves under a finished unit, and nothing catches it up ----------
+//
+// THE FAILING TEST THE REST OF THE MISSION TURNS GREEN (2026-08-29, mission
+// `land-the-loop-s-own-work-when-the-base-moves-under-it`). Nothing in the loop looked at a
+// claim branch's mergeability after its pull request opened, so a unit finished and refused its
+// merge is stranded the moment the base moves: `retry-undelivered.sh` re-attempts the MERGE,
+// which GitHub refuses again every hour, and `/moderate`'s `merge-conflicts` step reports the
+// pull request and says in its own header that it never rebases. Measured 2026-08-29 on this
+// repository: pull requests #622, #625, #633 and #688 conflicting with `main`, three of them
+// units recorded `report_undelivered` two days earlier, with 4 active missions and 10 queued
+// tickets behind them.
+//
+// THE FIXTURE KEYS ON THE MECHANISM, NOT THE SYMPTOM. Asserting "a conflicted pull request"
+// would pass against a stubbed transport that says anything; what the later tickets change is
+// the VERDICT CHAIN and the ABSENT CATCH-UP, so the fixture drives the real oracle to
+// `report_undelivered` and walks the driving chain for a caller of `catchup-main.sh`.
+function makeDriftFixture() {
+  const origin = mkdtempSync(join(tmpdir(), "wh-drift-origin-"));
+  const seed = mkdtempSync(join(tmpdir(), "wh-drift-seed-"));
+  execSync("git -c init.defaultBranch=main init -q --bare", { cwd: origin });
+  execSync(`git clone -q ${origin} .`, { cwd: seed });
+  execSync("git config user.email test@example.com && git config user.name Test"
+    + " && git config commit.gpgsign false", { cwd: seed });
+
+  const todo = join(seed, `.workaholic/tickets/todo/${TEST_SLUG}`);
+  mkdirSync(todo, { recursive: true });
+  for (const n of [1, 2, 3, 4]) {
+    writeFileSync(join(todo, `2026072900000${n}-t${n}.md`),
+      `---\ncreated_at: 2026-07-29T00:00:0${n}+09:00\nauthor: test@example.com\n`
+      + "type: enhancement\nlayer: [Domain]\n---\n\n# T" + n + "\n");
+  }
+  // A version manifest and an ordinary source file: the two conflict classes, each reachable
+  // on its own so `mechanical` and `content` are exercised apart rather than together.
+  mkdirSync(join(seed, ".claude-plugin"), { recursive: true });
+  writeFileSync(join(seed, ".claude-plugin/marketplace.json"),
+    '{\n  "name": "wh",\n  "version": "1.0.0",\n  "plugins": []\n}\n');
+  mkdirSync(join(seed, "src"), { recursive: true });
+  writeFileSync(join(seed, "src/app.txt"), "alpha\nbeta\ngamma\n");
+  execSync("git add -A && git commit -q -m seed && git push -q origin main", { cwd: seed });
+  rmSync(seed, { recursive: true, force: true });
+
+  const A = mkdtempSync(join(tmpdir(), "wh-drift-A-"));
+  execSync(`git clone -q ${origin} .`, { cwd: A });
+  execSync("git config user.email test@example.com && git config user.name Test"
+    + " && git config commit.gpgsign false", { cwd: A });
+  const binDir = mkdtempSync(join(tmpdir(), "wh-drift-bin-"));
+  return { origin, A, binDir };
+}
+
+// Drive one ticket to the shape a stranded unit has: queue drained, story at the tip, a merge
+// refusal recorded on the branch, and the tip aged past the heartbeat window. `edit` makes the
+// branch side of whatever conflict this unit is for.
+function strandUnit(A, ticket, edit, outcome = "merge_refused: session_type_cannot_merge") {
+  const RECORDER = join(REPO_ROOT,
+    "plugins/workaholic/skills/story/scripts/record-merge-outcome.sh");
+  const c = JSON.parse(run(A, `${POSIX_SH} ${SCRIPTS.claim} batch ${ticket}`).stdout);
+  const wt = c.worktree_path;
+  const arch = `.workaholic/tickets/archive/${c.branch}`;
+  execSync(`mkdir -p ${arch} && git mv ${ticket} ${arch}/`, { cwd: wt });
+  mkdirSync(join(wt, ".workaholic/stories"), { recursive: true });
+  writeFileSync(join(wt, `.workaholic/stories/${c.branch}.md`),
+    `---\ntype: Story\nbranch: ${c.branch}\n---\n\n## 1. Overview\n\ndone\n`);
+  if (outcome) {
+    run(wt, `${POSIX_SH} ${RECORDER} .workaholic/stories/${c.branch}.md ${JSON.stringify(outcome)}`);
+  }
+  if (edit) edit(wt);
+  execSync(`git add -A && git commit -q -m "Report the unit" && git push -q origin ${c.branch}`,
+    { cwd: wt });
+  execSync('git commit -q --allow-empty -m "Heartbeat" && git push -q origin HEAD',
+    { cwd: wt, env: { ...process.env, GIT_COMMITTER_DATE: "2026-08-01T00:00:00+00:00", GIT_AUTHOR_DATE: "2026-08-01T00:00:00+00:00" } });
+  return c;
+}
+
+// Move the base out from under every branch already pushed.
+function advanceBase(A, edit) {
+  execSync("git fetch -q origin && git checkout -q main && git merge -q --ff-only origin/main",
+    { cwd: A });
+  edit(A);
+  execSync('git add -A && git commit -q -m "Advance the base" && git push -q origin main',
+    { cwd: A });
+  execSync("git fetch -q --prune origin", { cwd: A });
+}
+
+// The transport, stubbed: no network at any point. `merge` decides what the one `PUT` answers.
+function driftGhStub(binDir, { merge = "405 Pull Request is not mergeable" } = {}) {
+  writeFileSync(join(binDir, "gh"), `#!/bin/sh
+case "$*" in
+  "api user --jq .login") printf 'tester\\n'; exit 0 ;;
+  *"/merge"*) echo ${JSON.stringify(merge)} >&2; exit 1 ;;
+  *pulls*) printf '[{"number": 7, "html_url": "https://example.test/pr/7"}]\\n'; exit 0 ;;
+esac
+printf '[]\\n'
+`);
+  chmodSync(join(binDir, "gh"), 0o755);
+}
+
+function testStrandedUnitReproduction() {
+  const fx = makeDriftFixture();
+  const withGh = { ...process.env, PATH: `${fx.binDir}:${process.env.PATH}` };
+  try {
+    driftGhStub(fx.binDir);
+    const t = `.workaholic/tickets/todo/${TEST_SLUG}/20260729000001-t1.md`;
+    const unit = strandUnit(fx.A, t, (wt) =>
+      writeFileSync(join(wt, "src/app.txt"), "alpha\nbeta-branch\ngamma\n"));
+    advanceBase(fx.A, (root) =>
+      writeFileSync(join(root, "src/app.txt"), "alpha\nbeta-base\ngamma\n"));
+
+    // 1. LOCALIZE: the fixture drives the REAL verdict chain, not a shape that resembles it.
+    //    `report_undelivered` is the proof `retry-undelivered.sh` acts on, so a fixture that
+    //    reached the merge by any other route would be testing nothing.
+    const row = JSON.parse(run(fx.A, `${POSIX_SH} ${SCRIPTS.listClaims}`).stdout)
+      .claims.find((c) => c.unit === unit.unit);
+    assertEq("the oracle reads report_undelivered on the stranded branch",
+      [row.resume_reason, row.resumable], ["report_undelivered", false]);
+
+    // 2. PIN THE FAILURE: the retry attempts the merge, is refused, and its refusal is about
+    //    THE MERGE rather than about the branch being behind. `merge-reason.sh` has no word
+    //    for "behind" at all — which is the distinction the whole mission rests on.
+    // `--own-tip` collapses only the liveness term: the retry RECORDS its refusal onto the
+    //    branch, which moves the tip, so a second run would otherwise read `claim_active` and
+    //    say nothing about the merge at all.
+    const retry = () => JSON.parse(run(fx.A,
+      `${POSIX_SH} ${SCRIPTS.retryUndelivered} ${unit.unit} --own-tip`, { env: withGh }).stdout);
+    const first = retry();
+    assertEq("the retry attempts the merge and is refused",
+      [first.attempted, first.outcome], [true, "merge_refused: merge_not_allowed"]);
+    const again = retry();
+    assertEq("and is refused again, every time it is run, for the same reason",
+      again.outcome, first.outcome);
+    assertTrue("the refusal names the merge, never the branch being behind",
+      !/behind|stale|catch/i.test(first.merge_reason), first.merge_reason);
+
+    // 3. NAME THE MECHANISM: what the retry cannot see is that the branch no longer merges.
+    //    Proved with the reader rather than asserted, so the fixture states the stranding
+    //    rather than a missing function.
+    const mb = JSON.parse(run(fx.A,
+      `${POSIX_SH} ${SCRIPTS.claimMergeability} ${unit.branch} origin/main`).stdout);
+    assertEq("the branch no longer merges, and only a person can resolve it",
+      mb.class, "content");
+    assertEq("naming the file both sides changed", mb.content_files, ["src/app.txt"]);
+
+    // 4. PIN THE ABSENCE, as a CLOSED SET rather than as "nothing reaches it" — a set
+    //    assertion stays meaningful once the catch-up exists and still fails the moment some
+    //    other path grows one of its own.
+    const callers = [];
+    const skills = join(REPO_ROOT, "plugins/workaholic/skills");
+    const walk = (dir) => {
+      for (const e of readdirSync(dir, { withFileTypes: true })) {
+        const p = join(dir, e.name);
+        if (e.isDirectory()) { walk(p); continue; }
+        if (!/\.sh$/.test(e.name)) continue;
+        const src = readFileSync(p, "utf8").split("\n")
+          .filter((l) => !/^\s*#/.test(l)).join("\n");
+        if (/catchup-main\.sh/.test(src)) callers.push(e.name);
+      }
+    };
+    walk(skills);
+    assertEq("exactly two scripts reach the catch-up, and each is a deliberate composition",
+      callers.sort().join(","), "catch-up-claim.sh,land-unit.sh");
+
+    // AND THE UNATTENDED ONE IS REACHABLE. `land-unit.sh` refuses `headless_context` FIRST and
+    // unoverridably, which is the whole reason the loop had no caller at all.
+    const landed = JSON.parse(run(fx.A,
+      `${POSIX_SH} ${SCRIPTS.landUnit} ${unit.unit} --developer-present`,
+      { env: { ...withGh, WORKAHOLIC_HEADLESS: "1" } }).stdout);
+    assertEq("land-unit.sh is refused headless, as designed", landed.reason, "headless_context");
+  } finally { cleanup(fx.A); cleanup(fx.origin); cleanup(fx.binDir); }
+}
+
+// ---------- the reader and the writer answer with one rule (2026-08-29) ----------
+//
+// `claim-mergeability.sh` predicts what `catchup-main.sh` will do, from `git merge-tree`,
+// without touching a worktree. The one real risk is a SECOND CLASSIFIER that can disagree with
+// the writer's, so every row here is about agreement or about the fourth value:
+// `unanswerable` must never collapse into `content`, because a wrong `clean` pushes a merge
+// nobody proved while a wrong `content` only delays a unit.
+function testClaimMergeabilityReader() {
+  const fx = makeDriftFixture();
+  try {
+    const t = (n) => `.workaholic/tickets/todo/${TEST_SLUG}/2026072900000${n}-t${n}.md`;
+    // Three branches, one per class, all against one base advance.
+    const content = strandUnit(fx.A, t(1), (wt) =>
+      writeFileSync(join(wt, "src/app.txt"), "alpha\nbeta-branch\ngamma\n"));
+    tickSecond();
+    const mech = strandUnit(fx.A, t(2), (wt) =>
+      writeFileSync(join(wt, ".claude-plugin/marketplace.json"),
+        '{\n  "name": "wh",\n  "version": "1.0.1",\n  "plugins": []\n}\n'));
+    tickSecond();
+    const clean = strandUnit(fx.A, t(3), (wt) =>
+      writeFileSync(join(wt, "src/untouched.txt"), "only here\n"));
+    advanceBase(fx.A, (root) => {
+      writeFileSync(join(root, "src/app.txt"), "alpha\nbeta-base\ngamma\n");
+      writeFileSync(join(root, ".claude-plugin/marketplace.json"),
+        '{\n  "name": "wh",\n  "version": "1.0.2",\n  "plugins": []\n}\n');
+    });
+
+    const read = (branch) => JSON.parse(run(fx.A,
+      `${POSIX_SH} ${SCRIPTS.claimMergeability} ${branch} origin/main`).stdout);
+    assertEq("a source-file collision reads content", read(content.branch).class, "content");
+    assertEq("a version-manifest collision reads mechanical", read(mech.branch).class, "mechanical");
+    assertEq("a branch that touches neither reads clean", read(clean.branch).class, "clean");
+
+    // THE READER AND THE WRITER AGREE, PROVED RATHER THAN ASSERTED. The writer is run for real
+    // in each branch's own worktree; what it does must match what the reader predicted.
+    const writerSays = (c) => {
+      const out = run(c.worktree_path,
+        `${POSIX_SH} ${SCRIPTS.catchupMain} main --resolve-mechanical`).stdout;
+      if (/"caught_up": true/.test(out)) return "caught_up";
+      return (out.match(/"conflict_class": "([^"]*)"/) || [, "none"])[1];
+    };
+    assertEq("what the reader calls mechanical, the writer resolves",
+      writerSays(mech), "caught_up");
+    assertEq("what the reader calls content, the writer refuses as content",
+      writerSays(content), "content");
+    assertEq("what the reader calls clean, the writer merges", writerSays(clean), "caught_up");
+
+    // THE FOURTH VALUE IS ITS OWN. A ref this clone cannot read is `unanswerable`, never
+    // `content`: the reading was not made, and dressing that as a judgement about the branch
+    // is exactly the collapse the merged-lookup contract exists to prevent.
+    const gone = read("work-20260829-999999");
+    assertEq("an unreadable ref is unanswerable with its own reason",
+      [gone.readable, gone.class, gone.reason], [false, "unanswerable", "unreadable_ref"]);
+
+    // AND IT WRITES NOTHING, ANYWHERE. `git merge-tree` computes into the object store: no
+    // worktree, no index, no ref — the property that lets the claim reader stay a pure read.
+    assertEq("the reader left the checkout as it found it",
+      execSync("git status --porcelain", { cwd: fx.A, encoding: "utf8" }).trim(), "");
+
+    // ONE RULE, NOT TWO COPIES. Both scripts read the shared library and neither restates it.
+    for (const s of [SCRIPTS.claimMergeability, SCRIPTS.catchupMain]) {
+      assertTrue(`${basename(s)} reads the shared classification rule`,
+        readFileSync(s, "utf8").includes("lib/conflict-class.sh"), s);
+    }
+    const readerSrc = readFileSync(SCRIPTS.claimMergeability, "utf8")
+      .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+    assertTrue("and the reader carries no allowlist of its own",
+      !/marketplace\.json|codex-plugin|outputs\/\*/.test(readerSrc), readerSrc);
+  } finally { cleanup(fx.A); cleanup(fx.origin); cleanup(fx.binDir); }
+}
+
+// ---------- the catch-up: one act, six refusals, nothing written on any of them ----------
+function testCatchUpClaimWriter() {
+  const fx = makeDriftFixture();
+  const withGh = { ...process.env, PATH: `${fx.binDir}:${process.env.PATH}` };
+  try {
+    driftGhStub(fx.binDir);
+    const t = (n) => `.workaholic/tickets/todo/${TEST_SLUG}/2026072900000${n}-t${n}.md`;
+    const mech = strandUnit(fx.A, t(1), (wt) =>
+      writeFileSync(join(wt, ".claude-plugin/marketplace.json"),
+        '{\n  "name": "wh",\n  "version": "1.0.1",\n  "plugins": []\n}\n'));
+    tickSecond();
+    const content = strandUnit(fx.A, t(2), (wt) =>
+      writeFileSync(join(wt, "src/app.txt"), "alpha\nbeta-branch\ngamma\n"));
+    tickSecond();
+    const held = strandUnit(fx.A, t(3), (wt) =>
+      writeFileSync(join(wt, ".claude-plugin/marketplace.json"),
+        '{\n  "name": "wh",\n  "version": "1.0.5",\n  "plugins": []\n}\n'),
+      "merge_not_attempted: hard");
+    advanceBase(fx.A, (root) => {
+      writeFileSync(join(root, "src/app.txt"), "alpha\nbeta-base\ngamma\n");
+      writeFileSync(join(root, ".claude-plugin/marketplace.json"),
+        '{\n  "name": "wh",\n  "version": "1.0.2",\n  "plugins": []\n}\n');
+    });
+
+    const tipOf = (b) => execSync(`git rev-parse origin/${b}`,
+      { cwd: fx.A, encoding: "utf8" }).trim();
+    const catchUp = (unit, env = withGh) => JSON.parse(run(fx.A,
+      `${POSIX_SH} ${SCRIPTS.catchUpClaim} ${unit}`, { env }).stdout);
+
+    // 1. A `content` CONFLICT IS REFUSED AND THE BRANCH IS BYTE-IDENTICAL AFTER IT.
+    const beforeContent = tipOf(content.branch);
+    const refusedContent = catchUp(content.unit);
+    assertEq("a content conflict is refused by its own word",
+      [refusedContent.outcome, refusedContent.reason],
+      ["catch_up_refused", "content_conflict"]);
+    assertEq("and the branch is byte-identical after it", tipOf(content.branch), beforeContent);
+    assertEq("nothing was pushed or merged",
+      [refusedContent.merged, refusedContent.pushed], [false, false]);
+
+    // 2. A SCAN-HELD PULL REQUEST IS NEVER CAUGHT UP. The catch-up is not a route around a
+    //    gate: `merge_not_attempted: hard` is the gate WORKING.
+    const beforeHeld = tipOf(held.branch);
+    const refusedHeld = catchUp(held.unit);
+    assertEq("a scan-held unit is refused, naming the tier",
+      refusedHeld.reason, "scan_held:hard");
+    assertEq("and its branch is untouched", tipOf(held.branch), beforeHeld);
+
+    // 3. THE MECHANICAL CASE IS CAUGHT UP, VALIDATED AND PUSHED IN ONE TURN.
+    const done = catchUp(mech.unit);
+    assertEq("a mechanical conflict is caught up and pushed",
+      [done.outcome, done.merged, done.pushed], ["caught_up", true, true]);
+    assertTrue("the branch tip moved", tipOf(mech.branch) !== null);
+    assertEq("and the base is now an ancestor of it",
+      run(fx.A, `git merge-base --is-ancestor origin/main origin/${mech.branch}`).status, 0);
+    // The version collision was resolved by taking the HIGHER semver, never one side wholesale.
+    assertTrue("the higher version won the manifest collision",
+      execSync(`git show origin/${mech.branch}:.claude-plugin/marketplace.json`,
+        { cwd: fx.A, encoding: "utf8" }).includes('"1.0.2"'),
+      "the manifest did not converge on the higher version");
+
+    // 4. IDEMPOTENT: a second run reports `already_current` and touches no ref.
+    execSync("git fetch -q --prune origin", { cwd: fx.A });
+    const beforeSecond = tipOf(mech.branch);
+    const second = catchUp(mech.unit);
+    assertEq("a second run is a no-op that says so", second.outcome, "already_current");
+    assertEq("and pushed nothing", [second.merged, second.pushed], [false, false]);
+    assertEq("the tip did not move", tipOf(mech.branch), beforeSecond);
+
+    // 5. A COLLEAGUE'S CLAIM IS UNTOUCHABLE AT ANY AGE — the standing rule this narrows, not
+    //    reverses. The identity is what makes the act legitimate, so removing it must refuse.
+    const foreign = { ...withGh, GIT_AUTHOR_EMAIL: "other@example.com" };
+    execSync("git config user.email other@example.com", { cwd: fx.A });
+    const notMine = catchUp(content.unit, foreign);
+    assertTrue("a claim this identity does not hold is refused by name",
+      /foreign_identity|not_my_claim/.test(notMine.reason), notMine.reason);
+    assertEq("and nothing was merged for it", notMine.merged, false);
+    execSync("git config user.email test@example.com", { cwd: fx.A });
+
+    // 6. NEVER A REBASE, AN AMEND OR A FORCE-PUSH, ON ANY PATH.
+    const src = readFileSync(SCRIPTS.catchUpClaim, "utf8")
+      .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+    assertTrue("the writer rebases nothing", !/git .*rebase/.test(src), src);
+    assertTrue("amends nothing", !/--amend/.test(src), src);
+    assertTrue("and force-pushes nothing", !/--force|\+refs\//.test(src), src);
+    assertTrue("it composes the catch-up rather than merging by hand",
+      /catchup-main\.sh/.test(src) && !/git -C .* merge /.test(src), src);
+    assertTrue("and attaches the worktree through the sanctioned resume mode",
+      /create-mission-worktree\.sh/.test(src) && !/ensure-worktree\.sh/.test(src), src);
+
+    // 7. THE MERGE THE CATCH-UP UNBLOCKED IS RE-ATTEMPTED IN THE SAME TURN — one delivery per
+    //    caught-up unit, reported in §6's EXISTING vocabulary, never a second set of words.
+    //    Without `--own-tip` the catch-up's own push would read as a live claim and the
+    //    delivery it exists to unblock would be refused by the act that unblocked it.
+    const blocked = JSON.parse(run(fx.A,
+      `${POSIX_SH} ${SCRIPTS.retryUndelivered} ${mech.unit}`, { env: withGh }).stdout);
+    assertEq("without the flag the catch-up's own push reads as a live claim",
+      blocked.reason, "not_undelivered:claim_active");
+    const delivery = JSON.parse(run(fx.A,
+      `${POSIX_SH} ${SCRIPTS.retryUndelivered} ${mech.unit} --own-tip`, { env: withGh }).stdout);
+    assertTrue("with it the delivery is attempted and speaks §6's vocabulary and no other",
+      /^(merged|merge_refused: )/.test(delivery.outcome), JSON.stringify(delivery));
+
+    // AND THE FLAG RELAXES NOTHING ELSE — least of all a gate. A scan-held pull request is
+    // still refused by name: the flag collapses the liveness term and no other, so the one
+    // check whose absence would mean an unattended merge past a secret finding is untouched.
+    const stillHeld = JSON.parse(run(fx.A,
+      `${POSIX_SH} ${SCRIPTS.retryUndelivered} ${held.unit} --own-tip`, { env: withGh }).stdout);
+    assertEq("a scan-held unit is refused with the flag exactly as without it",
+      [stillHeld.attempted, stillHeld.reason], [false, "not_undelivered:queue_drained"]);
+  } finally { cleanup(fx.A); cleanup(fx.origin); cleanup(fx.binDir); }
 }

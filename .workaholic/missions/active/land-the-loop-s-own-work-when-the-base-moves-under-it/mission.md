@@ -46,3 +46,4 @@ question: nobody looked, or the loop looked and only you decide.
 - [ ] A refused `content` conflict reaches its holder as its own question, apart from one untried. (#20260829062039-ask-about-the-conflict-the-loop-must-not-resolve.md)
 
 ## Changelog
+- 2026-08-29 — ticket archived — 20260829062039-reproduce-the-base-drift-that-strands-a-unit.md

@@ -7,6 +7,7 @@ depends_on:
 mission:
 merge_policy:
 verification_handoff:
+claim: work-20260829-113435
 ---
 
 # Carry the minting unit's relation onto a minted ticket
@@ -102,3 +103,77 @@ relation to carry is already in hand at the moment the ticket is written.
 - `unit-feedback-stems.sh` still answers `count: 0` — exit 0, not an error — for an artifact
   that genuinely names nothing.
 - `drive/SKILL.md` §3 states the rule.
+
+## Final Report
+
+Development completed as planned. Both of the ticket's open judgments are decided and argued
+below rather than left implicit.
+
+**Step 1 — reproduced before anything changed.** `unit-feedback-stems.sh` over this very ticket
+(which carries neither `feedback:` nor `mission:`) answers `{"count": 0, "stems": []}`. One
+command, and it is the whole defect. A second live instance was produced by this same run an hour
+later: the unit driving `20260829110500-make-the-channel-default-assertions-hermetic` — itself a
+ticket minted with no relation — merged as PR #718 with `count: 0`, so its finish line had no
+thread to land in and no record to compose a root from, and went unposted.
+
+**Step 2 — the carried relation is `feedback:`, and the argument is the batch case.** The
+`mission:` hop PR #716 built already rescues a mint made while driving a *mission* unit; a
+**batch** with no mission has no hop to make, and that is exactly what was measured, twice. So
+`mission:` alone is insufficient by construction, while `feedback:` is correct for both unit kinds
+and is the field `/specificate` already writes for this purpose. The existing `mission:`
+inheritance is untouched, so a mint that has both carries both. The refs cost no new lookup: the
+minting unit resolved its own stems in order to post its own finish line, so the relation is in
+hand at the moment the ticket is written.
+
+**The Consideration's fork is answered explicitly: carry only when the run can say the mint is
+about the same item.** A mint that is genuinely unrelated carries nothing and its finish line
+stays unposted — a ref carried on a guess routes that line into somebody else's thread, and a
+wrong thread is worse than none (`workaholic:notify`, *Fuzzy matching is prohibited by name*).
+The test pins that this side was taken: an unattributable mint still answers `count: 0` as an
+answer rather than an error.
+
+**The rejected alternative is named, as the ticket asked.** Teaching case 4 a record-less root
+shape is worse and was not done: the routine prompt is the ceiling on what shapes may be posted,
+and a root that links nothing is the "status emoji, pull-request number, bare machine key" post
+the developer ruled unusable on 2026-08-22.
+
+**Step 3 — written through the existing single writer.** `feedback/scripts/ask-feedback-line.sh`
+emits the line; no second emitter was added and no frontmatter line is hand-formatted. The test
+asserts the emitted line's exact text, so a future hand-rolled `printf` diverging from the writer
+fails rather than drifting.
+
+**Steps 4 and 5.** The rule is stated where the mint is governed — the mint bullet in
+`drive/SKILL.md`'s failure contract and the *An unqueued problem becomes a ticket* section of
+`drive/reference/failure-contract.md` — with the measurement, the `feedback:`-over-`mission:`
+argument and the attribution bound. Four assertions were added beside the
+`unit-feedback-stems.sh` slice, which already had the fixtures.
+
+**Quality Gate**
+
+- A minted ticket carries the chosen relation, emitted by that relation's one writer — asserted
+  on the writer's exact output.
+- Driven as its own unit it resolves a **non-empty** stem set (`count: 2`) — asserted, from a
+  **missionless** fixture, so the assertion cannot pass through the `mission:` hop instead.
+- `unit-feedback-stems.sh` still answers `count: 0`, exit 0, for an artifact that genuinely names
+  nothing — asserted for the unattributable-mint shape as well as the pre-existing ones. The
+  script is unchanged.
+- `drive/SKILL.md` states the rule; the test also pins that the contract text names the field and
+  its writer, so deleting the prose fails the suite.
+- `node scripts/test-workflow-scripts.mjs`: **5040 passed, 0 failed** (was 5036); `build.mjs`
+  regenerated `outputs/`, `verify.mjs` reports all built skills self-contained.
+
+### Discovered Insights
+
+- **Insight**: This is a prose contract with no script seam, so the enforcement had to be built
+  out of what *is* checkable.
+  **Context**: The mint is performed by the agent, not by a `mint-ticket.sh`, so nothing can
+  mechanically force the carry. What the change buys instead is three checkable things: the rule
+  is written where the mint is governed, the test pins that the contract text still names the
+  field and its writer, and the resolver behaviour a correct mint depends on is asserted from a
+  missionless fixture. A mint that drops the relation is then visibly non-conformant rather than
+  merely quiet — the same standard the `## Open Decisions` read requirement settled for.
+
+- **Insight**: The fixture had to be missionless or it would have proved nothing.
+  **Context**: The slice already asserts that a ticket resolves through its mission, so a minted
+  fixture carrying a `mission:` would have passed via the hop built in PR #716 and the new
+  assertion would have been vacuous on exactly the case this ticket exists for.

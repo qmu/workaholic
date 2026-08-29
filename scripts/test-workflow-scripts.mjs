@@ -2040,6 +2040,79 @@ function testExpiringQuestion() {
   } finally { cleanup(A); }
 }
 
+// ---------- expiring is evidence in the report, and gates nothing (2026-08-29) ----------
+// `pace` "changes order, never eligibility"; `arrived` "lifts and closes no gate"; and this is
+// the same. A reading that a direction is about to expire must not silence, reorder, hold or
+// accelerate the one routine that originates work — making its output a function of a clock is
+// exactly the coupling `pace` was kept out of, and the person who must act is reached by
+// `/moderate`'s question rather than by a report line nobody opens on the day it matters.
+//
+// SO THE TEST IS A DIFF OVER FIXTURES THAT DIFFER IN EXACTLY `days_to_target`: one inside the
+// window, one outside it, everything else byte-identical. A passing diff cannot then be
+// explained by anything but the term itself.
+function testExpiringGatesNothing() {
+  const SURVEY = join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/survey-strategies.sh");
+  const A = makeRepo("main");
+  const W = join(A, ".workaholic");
+  const w = (p, body) => { mkdirSync(dirname(join(A, p)), { recursive: true }); writeFileSync(join(A, p), body); };
+  const day = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+  const strategy = (slug, target, ref) =>
+    `---\ntype: Strategy\ntitle: T ${slug}\nslug: ${slug}\nstatus: active\ntarget_date: ${target}\n` +
+    `assignees: [test@example.com]\nfeedback: [${ref}]\n---\n\n## Aim\n\na\n\n## Schedule\n\ns\n`;
+  try {
+    for (const r of ["a", "b"]) w(`.workaholic/feedbacks/2026010100000${r}-${r}.md`, "---\ntype: Feedback\n---\n\nx\n");
+    // Landed work, so `pace` reads `on_course` on both sides of the boundary and cannot be
+    // what explains a difference.
+    w(".workaholic/missions/archive/landed/mission.md",
+      "---\ntype: Mission\ntitle: Landed\nslug: landed\nstatus: achieved\n" +
+      "feedback: [2026010100000a-a.md]\n---\n\n## Experience\n\ne\n\n## Acceptance\n\n- [x] d\n");
+    // A second direction, so `selected` and the sort are not trivially one-element.
+    w(".workaholic/strategies/other.md", strategy("other", day(100), "2026010100000b-b.md"));
+    const open = join(A, "open.json");
+    writeFileSync(open, '{"ok": true, "identity": "test", "proposals": []}\n');
+    const surveyAt = (n) => {
+      w(".workaholic/strategies/dir.md", strategy("dir", day(n), "2026010100000a-a.md"));
+      execSync("git add -A && git commit -q -m date --allow-empty", { cwd: A });
+      return JSON.parse(run(A, `${POSIX_SH} ${SURVEY} --open-proposals ${open} "14 days ago" ${W}`).stdout);
+    };
+    const inside = surveyAt(5);
+    const outside = surveyAt(60);
+
+    // THE FIXTURE REALLY CROSSES THE BOUNDARY.
+    const rowOf = (s) => s.eligible.concat(s.refused).find((r) => r.slug === "dir");
+    assertEq("the two fixtures differ in the reading", [rowOf(inside).expiring, rowOf(outside).expiring],
+      [true, false]);
+
+    // 1. NO GATE, NO SORT, NO SELECTION. Every gate-bearing field is compared as a whole.
+    const gates = (s) => ({
+      selected: s.selected,
+      order: s.eligible.map((r) => r.slug),
+      refusals: s.eligible.concat(s.refused).sort((a, b) => a.slug.localeCompare(b.slug))
+        .map((r) => `${r.slug}:${r.reason || ""}`),
+      readings: s.eligible.concat(s.refused).sort((a, b) => a.slug.localeCompare(b.slug))
+        .map((r) => `${r.slug}:${r.pace}:${r.overdue}:${r.dormant}:${r.quiescent}`),
+    });
+    assertEq("crossing the boundary moves no gate, no order and no selection",
+      gates(inside), gates(outside));
+
+    // 2. AND `expiring` IS THE ONLY FIELD THAT MOVED, beside the date terms it is derived from.
+    const moved = Object.keys(rowOf(inside))
+      .filter((k) => JSON.stringify(rowOf(inside)[k]) !== JSON.stringify(rowOf(outside)[k])).sort();
+    assertEq("the only field that moved is the reading itself", moved,
+      ["days_to_target", "expiring", "target_date"]);
+
+    // 3. THE REPORT NAMES IT AS EVIDENCE, and says it gates nothing. Prose is the only place
+    // this can live — the report is written by the run, not by a script.
+    const cmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/propose.md"), "utf8");
+    const loop = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/propose/reference/loop.md"), "utf8");
+    assertTrue("the command states the report line", /expiring/.test(cmd) && /gates nothing either/.test(cmd), "");
+    assertTrue("and names the question that does reach a person",
+      /direction-expiring:<slug>/.test(cmd) && /direction-expiring:<slug>/.test(loop), "");
+    assertTrue("the run report contract names the term beside the proposal",
+      /`expiring: true`/.test(loop), "");
+  } finally { cleanup(A); }
+}
+
 // ---------- the residue reaches no /propose gate (2026-08-28) ----------
 // The residue is REPORTED, never gated on: no refusal reads it, nothing is proposed or withheld
 // on it, and the one exception is stated rather than implied — `quiescent`, which is itself a
@@ -18423,6 +18496,7 @@ const tests = [
   ["expiring, ranked in the lifecycle precedence", testExpiringPrecedence],
   ["the leaving rides an expiring row, at no extra read", testExpiringCarriesTheLeaving],
   ["the assignee is asked once, before the date", testExpiringQuestion],
+  ["expiring is evidence in the report, and gates nothing", testExpiringGatesNothing],
   ["the residue reaches no /propose gate", testResidueGatesNothing],
   ["strategy/carry-attribution.sh carries a ruling and refuses the rest", testCarryAttribution],
   ["strategy/amend.sh: the third writer, bounded", testStrategyAmend],

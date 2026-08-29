@@ -52,3 +52,4 @@ name. A person is told only when something fails.
 - 2026-08-29 — ticket archived — 20260829122104-measure-which-drills-are-hermetic-per-drill.md
 - 2026-08-29 — ticket archived — 20260829122104-give-the-drill-an-aggregate-verb-with-a-machine-verdict.md
 - 2026-08-29 — ticket archived — 20260829122104-exercise-the-breaker-rows-and-report-a-drill-that-cannot-fail.md
+- 2026-08-29 — ticket archived — 20260829122104-name-the-mission-a-failing-drill-belongs-to.md

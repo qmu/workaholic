@@ -256,11 +256,24 @@ fi
 # A push that turns CI red costs a cycle and the reviewers' trust, and this push lands on a
 # branch behind an open pull request. Each check is named in its own refusal so a reader is
 # sent to the one that went red rather than to "validation".
+#
+# THE CHECKS RUN IN A CLEAN ENVIRONMENT, and that is not tidiness. A caller reaches this
+# script through the claim protocol's own tunables — `WORKAHOLIC_CLAIM_STALE_HOURS`,
+# `WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES`, `WORKAHOLIC_CLAIM_MERGED_LOOKUP` — and a
+# repository's test suite may legitimately assert on their DEFAULTS. Measured on this
+# script's own first live run: a caller collapsing the heartbeat window (the same relaxation
+# `retry-undelivered.sh --own-tip` performs) turned 16 claim-protocol assertions red, so the
+# push was refused `validation_failed:test-workflow-scripts.mjs` over a branch whose suite
+# passed. Unsetting them is the narrow fix: the tunables belong to the claim reading, which
+# is already done by this point, and never to the repository's own verification.
 if command -v node >/dev/null 2>&1; then
     for check in build-plugins/verify.mjs build-plugins/validate-metadata.mjs \
                  test-workflow-scripts.mjs; do
         [ -f "${WORKTREE}/scripts/${check}" ] || continue
-        ( cd "$WORKTREE" && node "scripts/${check}" ) >/dev/null 2>&1 \
+        ( cd "$WORKTREE" \
+          && unset WORKAHOLIC_CLAIM_STALE_HOURS WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES \
+                   WORKAHOLIC_CLAIM_MERGED_LOOKUP \
+          && node "scripts/${check}" ) >/dev/null 2>&1 \
             || refuse "validation_failed:${check##*/}"
     done
 fi

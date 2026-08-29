@@ -90,15 +90,53 @@ json_escape() {
     printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' -e 's/	/\\t/g'
 }
 
+# ─── THE WALK'S OWN OUTCOME ────────────────────────────────────────────────────────
+# (2026-08-29, mission `keep-the-closing-link-readable-as-the-corpus-grows`)
+#
+# FOUND NOTHING AND COULD NOT LOOK ARE DIFFERENT ANSWERS. `grep` exiting 1 means *no match
+# in this batch* and is honest; exiting 2 or more means *could not read* and is a failure.
+# Both vanished into one swallowed status, so a corpus the reader could not read was
+# indistinguishable from one that cited nothing — and `empty_reason: no_citing_artifacts`
+# was emitted for both.
+#
+# `WALK_READABLE` / `WALK_REASON` ARE THAT READING, and they are derived in exactly ONE
+# place for both hops: `note_walk_failure`, whose only caller is `prefilter` below. Two
+# derivations of one fact eventually disagree, so no hop keeps its own answer and no
+# consumer re-decides it.
+#
+# The vocabulary is deliberately small enough to enumerate in `workaholic:strategy`, and
+# each reason says WHAT failed rather than that something did:
+#
+#   patterns_unreadable   the pattern set itself could not be read
+#   corpus_unreadable     one or more corpus entries could not be read
+#
+# THE FIRST FAILURE WINS. A second hop failing for the same underlying cause must not
+# overwrite the more specific answer the first hop already gave.
+#
+# It is deliberately NOT folded into `empty_reason`: those three reasons name why a
+# COMPLETED walk found nothing, and reusing one for a walk that did not complete is exactly
+# the conflation this exists to remove.
+WALK_READABLE=true
+WALK_REASON=""
+
+note_walk_failure() {
+    [ "$WALK_READABLE" = true ] || return 0
+    WALK_READABLE=false
+    WALK_REASON="$1"
+}
+
 # prefilter <patterns-file> <corpus-file> <out-file>
 #
 # ONE SHAPE FOR BOTH HOPS, so a repair cannot land on one and miss the other — hop 2 carries
 # every ticket's `via_mission:` attribution, so its loss is the larger one.
 #
-# Two properties, and they are the whole point:
+# Three properties, and they are the whole point:
 #   * it APPENDS across batches, so a later batch never discards an earlier batch's finding;
-#   * a batch that matched NOTHING is a SUCCESS (`grep` exit 1), while `grep` exiting 2 or
-#     more stays a failure and is NOT folded into the same answer.
+#   * a batch that matched NOTHING is a SUCCESS (`grep` exit 1), so a walk that completes
+#     over a corpus citing nothing stays `readable: true`;
+#   * a batch that could not be READ (`grep` exit 2 or more, surfacing as `xargs` 123) marks
+#     the walk degraded by name, and what the other batches did find is still kept — a
+#     partial read is reported as partial, never discarded and never dressed as complete.
 # Dropping the tolerance entirely is the tempting one-liner and is the opposite failure:
 # under `set -eu` a no-match batch would abort the whole reader.
 #
@@ -106,8 +144,19 @@ json_escape() {
 # `read-relation.sh` still decide attribution, and neither gains a second parser here.
 prefilter() {
     : > "$3"
-    xargs sh -c 'p=$1; shift; grep -lFf "$p" "$@"; s=$?; [ "$s" -le 1 ]' \
-        sh "$1" < "$2" >> "$3" 2>/dev/null || :
+    # Checked before the walk rather than inferred from `grep`'s status afterwards: an
+    # unreadable pattern file and an unreadable corpus entry both exit 2, and a reason that
+    # cannot tell them apart sends the reader to the wrong place.
+    if [ ! -r "$1" ]; then
+        note_walk_failure patterns_unreadable
+        return 0
+    fi
+    if xargs sh -c 'p=$1; shift; grep -lFf "$p" "$@"; s=$?; [ "$s" -le 1 ]' \
+        sh "$1" < "$2" >> "$3" 2>/dev/null
+    then
+        return 0
+    fi
+    note_walk_failure corpus_unreadable
 }
 
 emit_empty() {

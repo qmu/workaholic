@@ -6719,6 +6719,87 @@ function testStrategyAttributedWorkPastBatchBoundary() {
   } finally { cleanup(dir); }
 }
 
+// ---------- strategy/attributed-work.sh: found nothing vs could not look ----------
+// (2026-08-29, mission `keep-the-closing-link-readable-as-the-corpus-grows`)
+//
+// `grep` exit 1 is *no match in this batch* and is honest; exit 2 or more is *could not
+// read* and is a failure. Both vanished into one swallowed status, so a corpus the reader
+// could not read and one that cited nothing produced the same answer.
+//
+// THE DEGRADED FIXTURE USES A CORPUS ENTRY THE READER GENUINELY CANNOT CONSUME, never a
+// stubbed `grep`. A permission bit is not usable here and the ticket's own considerations
+// said so: this suite routinely runs as uid 0, where `chmod 000` still reads fine (measured
+// — `grep -lFf` over a 000-mode file exits 1, not 2). What is used instead is a path the
+// walk cannot hand to `grep` at all: `xargs` splits on whitespace, so a corpus entry whose
+// filename contains a space arrives as two non-existent paths and `grep` exits 2. That is a
+// real input a real repository can hold, and the point of the reading is exactly that such
+// a walk must not be reported as one that found nothing.
+function testAttributedWorkWalkOutcome() {
+  const dir = makeRepo("main");
+  const READ = `${POSIX_SH} ${SCRIPTS.strategyAttributedWork}`;
+  const wf = (rel, body) => {
+    const abs = join(dir, rel);
+    mkdirSync(dirname(abs), { recursive: true });
+    writeFileSync(abs, body);
+  };
+  try {
+    wf(".workaholic/strategies/alpha.md",
+      "---\ntype: Strategy\ntitle: alpha\nslug: alpha\nstatus: active\n" +
+      "target_date: 2026-12-31\nassignees: [a@qmu.jp]\nfeedback: [20260801000001-one.md]\n---\n\n" +
+      "# alpha\n\n## Aim\n\nx\n\n## Schedule\n\ny\n");
+    // `uncited` cites nothing of alpha's: it is what makes the second outcome honest rather
+    // than an artefact of an empty tree.
+    wf(".workaholic/strategies/uncited.md",
+      "---\ntype: Strategy\ntitle: uncited\nslug: uncited\nstatus: active\n" +
+      "target_date: 2026-12-31\nassignees: [a@qmu.jp]\nfeedback: [20260801009999-none.md]\n---\n\n" +
+      "# uncited\n\n## Aim\n\nx\n\n## Schedule\n\ny\n");
+    wf(".workaholic/missions/active/m-one/mission.md",
+      "---\ntype: Mission\ntitle: M One\nslug: m-one\nstatus: active\nfeedback: [20260801000001-one.md]\n---\n\n# M One\n");
+    wf(".workaholic/tickets/todo/20260810000001-queued.md",
+      "---\ncreated_at: 2026-08-10T00:00:00+00:00\nmission: m-one\n---\n\n# Queued work\n");
+    execSync("git add -A && git commit -q -m seed", { cwd: dir });
+
+    // ---- outcome 1: the walk completed and found matches ----
+    const matched = JSON.parse(run(dir, `${READ} alpha "1 day ago"`).stdout);
+    assertEq("a completed walk with citations reports them and no empty reason",
+      [matched.count, matched.empty, matched.empty_reason], [2, false, ""]);
+
+    // ---- outcome 2: the walk completed and found nothing — the honest zero ----
+    const none = run(dir, `${READ} uncited "1 day ago"`);
+    const noneJson = JSON.parse(none.stdout);
+    assertEq("a completed walk that found nothing keeps its honest zero",
+      [noneJson.count, noneJson.empty, noneJson.empty_reason], [0, true, "no_citing_artifacts"]);
+
+    // ---- outcome 3: the walk could not read the corpus ----
+    // Captured BEFORE the degraded entry exists so the next ticket, which starts emitting
+    // the reading, has a real before-image to diff against rather than a remembered one.
+    const beforeDegrading = run(dir, `${READ} alpha "1 day ago"`).stdout;
+    wf(".workaholic/tickets/todo/has space.md",
+      "---\ncreated_at: 2026-08-12T00:00:00+00:00\n---\n\n# A path the walk cannot hand to grep\n");
+    execSync("git add -A && git commit -q -m 'Add an unconsumable corpus entry'", { cwd: dir });
+    const degraded = run(dir, `${READ} alpha "1 day ago"`);
+    assertEq("a walk that could not read still exits 0 — a caller that cannot read is told, not failed",
+      degraded.status, 0);
+    assertTrue("and still emits one parseable object",
+      (() => { try { JSON.parse(degraded.stdout); return true; } catch { return false; } })(),
+      degraded.stdout.slice(0, 200));
+    assertEq("nothing is emitted from the reading yet — every existing consumer sees byte-identical output",
+      JSON.parse(degraded.stdout), JSON.parse(beforeDegrading));
+    assertTrue("and what the readable batches did find is kept, never discarded",
+      JSON.parse(degraded.stdout).count === 2, degraded.stdout.slice(0, 200));
+
+    // THE OUTCOME IS DERIVED IN EXACTLY ONE PLACE. Two derivations of one fact eventually
+    // disagree, and this one is read by four consumers across the direction layer.
+    const src = readFileSync(SCRIPTS.strategyAttributedWork, "utf8");
+    assertEq("the walk's failure is recorded at exactly one site",
+      (src.match(/^\s*WALK_READABLE=false$/gm) || []).length, 1);
+    assertEq("and that site has exactly one caller — the prefilter both hops share",
+      (src.match(/^\s+note_walk_failure /gm) || []).length, 2);
+
+    assertEq("the reader leaves the tree clean", run(dir, "git status --porcelain").stdout.trim(), "");
+  } finally { cleanup(dir); }
+}
+
 // ---------- standup/digest.sh + the /standup command are a READER ----------
 // The daily per-strategy digest (ticket `20260817115232`, 2026-08-17). Three properties are
 // worth a fixture, because none of them can be observed in this repository — it holds zero
@@ -18356,6 +18437,7 @@ const tests = [
   ["strategy skill (the artifact revived 2026-08-13)", testStrategySkill],
   ["strategy/attributed-work.sh (the ONE attribution reader)", testStrategyAttributedWork],
   ["strategy/attributed-work.sh past the xargs batching boundary", testStrategyAttributedWorkPastBatchBoundary],
+  ["strategy/attributed-work.sh tells found nothing from could not look", testAttributedWorkWalkOutcome],
   ["standup/digest.sh (the daily per-strategy digest)", testStandupDigest],
   ["moderate: the tick's own root, and the diff that keeps it silent", testModerateTickPost],
   ["moderate: the working-week gate holds the weekend without losing the question", testModerateWorkingDays],

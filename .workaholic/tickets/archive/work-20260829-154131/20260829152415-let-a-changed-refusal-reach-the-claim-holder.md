@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-29T15:24:15+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -92,3 +93,47 @@ uses.
   mechanism cannot drift from itself.
 - A word that oscillates between two values would re-ask on each flip. Whether that needs its own
   bound is worth measuring before adding one; do not add a threshold on speculation.
+
+## Final Report
+
+Development completed as planned. The key is now
+`retire-blocked:<unit>:<refusal word>`, and **`ask-question.sh` needed no change at all** — the
+property step 1 asked to aim for. The narrowing lives entirely in what the key is made of, so the
+gate stays one mechanism that cannot drift from itself, and the quiet hours, working days,
+per-tick cap and day cap all apply to a re-ask unchanged, because a re-ask is one more question.
+
+**The word is the one a person must act on**: CI's refusal where the effect reading names one,
+because that is the executor that was going to take the delete, and the container's own refusal
+otherwise. One word, and it is the same word the question names (`blocking_refusal` rides the
+row).
+
+**One decision the ticket did not settle, taken here with its measurement.** Step 4 asks that a
+*newly worded* block move the summary. It does not, and deliberately: CI runs on every merge to
+`main`, so between a merge and its run completing the effect reading genuinely oscillates
+`pending` → `refused:<word>` hour to hour. In the summary that would move the diff most hours and
+render a root line for a block that had not changed — precisely what the stability rule exists to
+prevent, and the shape `📦 Release Preparation` was retired for. So the summary stays a function
+of the claim set and the **container's** act states alone, and a changed word is delivered by the
+**new question** instead, which is the surface the ticket actually cares about. The **key** is
+safe from the same oscillation by construction: a `pending` unit is suppressed before any key is
+composed, so no key is ever built from a transient word.
+
+Drilled over three ticks against the real gate (`act_effect_changed_word_reasks`): `gh_unavailable`
+asks, the same word on the next tick is refused `already_asked`, and `pull_request_open` asks
+exactly once more. `verify-retire`'s held-block row still passes, so an unchanged block still
+renders an identical summary and no root line.
+
+### Discovered Insights
+
+- **Insight**: putting a value in a **key** and putting it in a **summary** have opposite
+  stability requirements — a key wants the value to change exactly when the fact does, a summary
+  wants it to hold still while nothing has changed.
+  **Context**: the same CI word is right for one and wrong for the other, which is why it went
+  into one and not the other.
+- **Insight**: the suppression is what makes the key safe. Because `pending` units never reach
+  key composition, a transient reading cannot mint a key, and no bound on oscillation is needed
+  for the states the loop actually produces.
+  **Context**: this is why no threshold was added on speculation, as the Considerations ask.
+- **Insight**: two drills asserted the key's literal shape (`verify-retire`,
+  `verify-ci-retirement`), so a key change is a three-file edit.
+  **Context**: both are updated with a comment pointing at the drill that owns the narrowing.

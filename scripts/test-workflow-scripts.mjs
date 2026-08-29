@@ -26797,8 +26797,25 @@ function testRetirementExecutorRendering() {
   // set changes: the key, the addressee and the composition are read back out of the step's own
   // source, so a change that "simplifies" one of them fails here.
   const code = stepSrc.split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
-  assertTrue("the key is still retire-blocked:<unit>",
-    code.includes('"retire-blocked:" + $r.unit'), "the question's key moved");
+  // THE KEY CARRIES THE REFUSAL WORD SINCE 2026-08-29 (mission
+  // `read-back-whether-the-loop-s-own-act-took-effect`), so it is asked once per (unit, refusal
+  // word) rather than once per unit ever: a unit first blocked on `branch_delete_failed` and
+  // later on `pull_request_open` is a different fact needing a different act. Both halves are
+  // pinned — the unit AND the word — because a key carrying only one of them is either the
+  // hourly restatement the gate exists to prevent or the silence it was narrowed to end.
+  assertTrue("the key is retire-blocked:<unit>:<refusal word>",
+    code.includes('"retire-blocked:" + .unit + ":" + .blocking_refusal'),
+    "the question's key moved");
+  assertTrue("...and the word is CI's refusal where there is one, else the container's own",
+    /startswith\("refused:"\)/.test(code) && /\$r\.refusal/.test(code),
+    "the blocking word is no longer derived from the two acts' own refusals");
+  // THE GATE ITSELF IS UNTOUCHED, which is the property the shape was chosen for: the narrowing
+  // lives in what the key is MADE OF, so one mechanism cannot drift from itself.
+  const askSrc = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/moderate/scripts/ask-question.sh"), "utf8");
+  assertTrue("ask-question.sh learned nothing about retirements",
+    !/retire-blocked|blocking_refusal/.test(askSrc),
+    "the gate grew a second mode instead of the key carrying the word");
   assertTrue("the addressee is still the claim row's own author",
     /owner:/.test(code) && /\.author/.test(code), "the question stopped being the holder's");
   assertTrue("the question still names the exact branch left on origin",

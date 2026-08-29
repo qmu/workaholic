@@ -54,3 +54,4 @@ No new store, no field, no second oracle.
 - 2026-08-29 — ticket archived — 20260829152415-record-what-the-ci-turn-attempted-and-each-act-answered.md
 - 2026-08-29 — ticket archived — 20260829152415-answer-the-ci-turn-from-the-recorded-verdict.md
 - 2026-08-29 — ticket archived — 20260829152419-answer-did-my-act-take-effect-in-one-place.md
+- 2026-08-29 — ticket archived — 20260829152415-let-a-changed-refusal-reach-the-claim-holder.md

@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-29T12:21:04+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -81,3 +82,46 @@ failing — it is unproved, and it must not read as green in ticket 2's verdict.
 - `unproved` is deliberately not `fail` — a drill nobody wrote a breaker for is a gap in
   coverage, not a broken mechanism, and conflating them makes the failure signal noisy on
   the day it matters.
+
+## Final Report
+
+Development completed as planned.
+
+The claim in the Overview was confirmed by reading the drill file: 19 of the 30 drills
+carry a row asserting that a deliberately broken copy of the seam fails, and 11 do not.
+Five of those rows were named `*_breaker`; the other fourteen were named after what they
+assert (`retire_refuses_a_judgement`, `base_health_can_fail`,
+`residue_reads_the_active_area`, `catch_up_refuses_a_foreign_claim`, …), so nothing could
+answer *which drills have a breaker* and *which have none*.
+
+**The marker is the `bearing` field the rows already carry** — a third value beside
+`load`/`advisory` — applied to all 45 `add_row` call sites of those 19 drills, both
+branches of each row. `add_row` treats `breaker` as load-bearing exactly as `load`, so
+every drill's `pass`/`fail` outcome over an unmodified tree is unchanged; the only
+addition to a drill's own output is the `breakers` count in `emit_verdict`. The
+alternative — renaming ~17 rows to a `*_breaker` convention — was refused because it
+changes every affected drill's output keys, which the runbook's pasted verdicts and this
+repository's own regression suite read, to say something a field says for free.
+
+`verify-all` reads the marker: a drill whose breaker row is `false` was already `fail` and
+stays so, and a drill carrying **no** breaker row is reported `breaker: "absent"` and
+counted as **`unproved`** — outside the passing total, never inside it. `unproved` is
+deliberately not `fail`: a drill nobody wrote a breaker for is a gap in coverage, not a
+broken mechanism, and conflating them makes the failure signal noisy on the day it matters.
+
+The per-drill breaker state is recorded for a person in the register's `Breaker` column;
+**no code reads that column** — the machine derives it from the rows themselves, so the
+column cannot drift into a hand-kept list.
+
+Measured on the unmodified tree: 19 proved, 9 unproved (11 without a breaker minus the two
+`needs_server` rows, which are never invoked), 0 failed.
+
+### Discovered Insights
+
+- **Insight**: The breaker rows were already load-bearing and already worked — when a
+  breaker stops breaking, its own row goes `false` and the drill exits 1. What was missing
+  was never enforcement, only **discoverability**.
+  **Context**: The tempting design was a separate harness re-running each drill against a
+  broken copy; it is refused because the drills already do this inside themselves and a
+  second mechanism would be a second place the two could disagree. The cheap fix was a
+  field on a row that already existed.

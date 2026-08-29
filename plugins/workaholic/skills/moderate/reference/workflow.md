@@ -1710,6 +1710,7 @@ decide something before any change is the right one*.
 | `retire-claims` | **`repairable`** | A branch CI could not delete names an executor or a bound that a change can fix. |
 | `closable-missions` | `needs_ruling` | The tick closes what it proved; a rejected re-proof is a person's to read. |
 | `base-health` | `needs_ruling` | Its four readings are **judgements** a consumer may only report or ask about (`drive/reference/claims.md`), so turning one into work would be a consumer acting on a judgement. |
+| `drill-health` | `needs_ruling` | `base-health`'s row, for `base-health`'s reason: it composes the same check-run reader, so every value it carries is a judgement a re-run can turn green. The finding reaches the person who shipped the mechanism as that step's own keyed question, which is the delivery the mission asked for. |
 | `strategy-digest` | `needs_ruling` | A render; it produces no finding to file. |
 | `question-answers` | `needs_ruling` | A person's own words, already filed by that step through the one filer. |
 | `unanswered-asks` | `needs_ruling` | A person is waiting; that is the finding, and only a person clears it. A channel the tick could not read is the same kind of finding — a connector, a token or a name only a person can fix — and it reaches that person as the keyed `inbound-channel-unreadable:<channel>` question rather than as a filed issue. |
@@ -2101,3 +2102,45 @@ header records: an incrementing summary makes the step "changed" hourly by const
 
 **It asks and nothing else**: no merge, no rebase, no close, no claim touched, no gate lifted,
 and nothing written anywhere but its own tick-log line.
+
+## 27. `drill-health` — a proof the loop already made that stopped holding
+
+```sh
+sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/step-drill-health.sh --tick <id> [--root <repo-root>]
+```
+
+The base's own **drill run**, read once per tick through `drive/scripts/read-drill-verdicts.sh`
+— which composes `drive/scripts/read-base-checks.sh`, still the one derivation of a commit's
+check state, and the drill register in `docs/loop-drill-runbook.md` §9. Every failing drill is
+handed to the check-in as **one question addressed to the mission that shipped it**.
+
+**Why it exists** (2026-08-29, mission `run-the-loop-s-own-proofs-on-every-turn`). Thirty
+`verify-*` drills, one per mechanism an earlier turn of the loop built, and until that mission
+none of them ran anywhere: CI executed two of them indirectly and related to eight more by a
+regex proving a drill *exists*, never that it *passes*. Once `Loop Drills` runs them on every
+push, a broken proof is a red check — and a red check reaches whoever happens to look at the
+merge. This tick is the one surface that reaches a **named person**.
+
+**Which sibling it follows, on each axis:**
+
+| Axis | Follows | Why |
+| ---- | ------- | --- |
+| whose question | its own | the **shipping mission's assignee** built the mechanism and knows what it was for. It is a judgement, and stated as one: a drill can outlive its author's involvement, so the question **names the mission** and whoever reads it can redirect |
+| the running identity | `undrivable-units` | never consulted — a failing drill is a fact about the **repository** |
+| what it may read | `base-health` | the verdict reader and nothing else; **`plan-units.sh` is refused** for the reason `closable-missions` records |
+
+**The key is the drill, not the commit.** `drill-failing:<drill>` asks once per broken proof
+however many ticks see it; keying on the commit would re-ask on every merge that followed the
+break, which is the hourly restatement two roots were retired for.
+
+**A green run produces no question, no event and no root line** — the standing rule, held by
+the same mechanism `base-health` uses: a step with no `event` renders no line. A **degraded**
+read asks nothing and is named (`drill_run_unreadable:<reason>`), and a repository shipping no
+`Loop Drills` workflow reads `unavailable` and asks nothing at all. It reads the **last
+completed** run: a pending one lands as `checks_pending`, a named degradation, because a
+pending run is not a verdict.
+
+**It asks and nothing else.** No leg is re-run ("flake" is not a root cause and a re-run is an
+*act*), nothing is reverted, merged, held or gated, no claim is touched, and it writes nothing
+anywhere but its own tick-log line. Every value it composes is a **judgement**
+(`drive/reference/claims.md`, *Proofs and judgements*): a re-run can turn a red check green.

@@ -300,6 +300,57 @@ elif [ -n "$MISSION_SLUGS" ]; then
                 # no-op rather than an error.
                 echo "    ~ mission ${MISSION_SLUG}: already ended; close changed nothing"
             fi
+
+            # NAME THE MISSION'S OWN DRILL VERDICT BESIDE THE CLOSE — AND GATE NOTHING
+            # (2026-08-29, mission `run-the-loop-s-own-proofs-on-every-turn`). The gate
+            # above closes a mission on ARITHMETIC — every ticket archived, the acceptance
+            # fully checked, the queue empty — and says nothing about whether the mechanism
+            # that mission shipped still works. This reads that mechanism's drill and says
+            # so, as evidence.
+            #
+            # THE CLOSE IS BYTE-IDENTICAL EITHER WAY. It runs AFTER the close (or its
+            # refusal) is decided, and a failing drill neither blocks nor delays it. The
+            # temptation is to hold a close whose drill is red; it is refused by name,
+            # because this gate's proof is *is the acceptance complete*, not *is the work
+            # good*, and a second condition would make an unattended close depend on a
+            # reading designed to become false when re-run (`drive/reference/claims.md`,
+            # *Proofs and judgements*: every value here is a judgement).
+            #
+            # THE READ IS BEST-EFFORT AND ITS DEGRADATION IS REPORTED, exactly as the base
+            # health read already is: it costs one REST call, and a call that fails must
+            # never turn a landed archive into a failure. `no_drill` (the mission ships
+            # none) and `drill_unreadable:<reason>` are each named by their own word rather
+            # than reading as green.
+            DRILL_REG="${SCRIPT_DIR}/drill-register.sh"
+            DRILL_READ="${SCRIPT_DIR}/read-drill-verdicts.sh"
+            if [ -f "$DRILL_REG" ] && [ -f "$DRILL_READ" ]; then
+                DR_OUT=$(sh "$DRILL_REG" mission "$MISSION_SLUG" 2>/dev/null || true)
+                DR_NAMES=$(printf '%s' "$DR_OUT" | tr '{' '\n' | sed -n 's/.*"drill": "\([a-z0-9-]*\)".*/\1/p')
+                if [ -z "$DR_NAMES" ]; then
+                    echo "    mission ${MISSION_SLUG}: drill verdict — no_drill (this mission shipped none)"
+                else
+                    DR_TIP=$(git rev-parse --verify "${WORKAHOLIC_BASE_REF:-origin/main}^{commit}" 2>/dev/null || true)
+                    if [ -z "$DR_TIP" ]; then
+                        echo "    mission ${MISSION_SLUG}: drill verdict — drill_unreadable:no_base_ref"
+                    else
+                        for DR_NAME in $DR_NAMES; do
+                            DR_V=$(sh "$DRILL_READ" "$DR_TIP" --drill "$DR_NAME" 2>/dev/null || true)
+                            DR_VERDICT=$(printf '%s' "$DR_V" | sed -n 's/.*"verdict": "\([a-z_]*\)".*/\1/p')
+                            DR_WHY=$(printf '%s' "$DR_V" | sed -n 's/.*"reason": "\([a-z_:]*\)".*/\1/p')
+                            case "$DR_VERDICT" in
+                                failing)
+                                    echo "    ! mission ${MISSION_SLUG}: drill ${DR_NAME} is FAILING on the base at ${DR_TIP}; the close is unchanged" ;;
+                                no_failing_drill)
+                                    echo "    mission ${MISSION_SLUG}: drill ${DR_NAME} — not failing on the base at ${DR_TIP}" ;;
+                                no_drill)
+                                    echo "    mission ${MISSION_SLUG}: drill verdict — no_drill (${DR_NAME} is not in the register)" ;;
+                                *)
+                                    echo "    mission ${MISSION_SLUG}: drill ${DR_NAME} — drill_unreadable:${DR_WHY:-unreadable}" ;;
+                            esac
+                        done
+                    fi
+                fi
+            fi
         fi
     done <<EOF
 $MISSION_SLUGS

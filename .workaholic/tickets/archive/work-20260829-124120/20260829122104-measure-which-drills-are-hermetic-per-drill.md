@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-29T12:21:04+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -83,3 +84,43 @@ read it.
   what keeps a newly added drill from being silently unmeasured.
 - A drill that needs a stub it does not carry is not a defect of this mission to fix —
   record it and let ticket 2 report it as `skipped:<reason>`.
+
+## Final Report
+
+Development completed as planned.
+
+Every `verify-*` command the dispatcher names was run twice on 2026-08-29 over
+`bb9196c6`, with no `gh` on `PATH`, no `qfs`, no `ANTHROPIC_API_KEY` and no proxy
+variables (so no outbound HTTPS), and classified from its **exit code and reason word**
+rather than from its own header. No row was unstable across the two runs. The result is
+recorded as a three-column register in `docs/loop-drill-runbook.md` §9 together with the
+evidence behind each non-obvious row, and it is read by exactly one script,
+`drive/scripts/drill-register.sh`.
+
+The measured shape: **2 `needs_server`** (`verify-specificate`, `verify-implement` — each
+takes an issue number only `seed` can mint against the real remote), **6
+`reads_checkout`** (`verify-plan`, `verify-status`, `verify-cadence`, `verify-planner`,
+`verify-standup`, `verify-moderate` — no network, but their verdict is a fact about the
+tree they ran in), and **22 `hermetic`**. The drill file's header claimed the whole of it
+assumed the server's full `gh` and `qfs`; that is true of two rows out of thirty, and the
+header was corrected in the same change.
+
+### Discovered Insights
+
+- **Insight**: `verify-planner` had been exiting `1` on the unmodified tree ever since the
+  row shipped. Its stub planner was written by a `printf` of an escaped one-liner that put
+  the awk program inside double quotes, so awk answered `runaway string constant` on every
+  run and no plan was ever authored — `planner_authors` and `planner_arranges` were `false`
+  on every run nobody made.
+  **Context**: This is the mission's own premise measured on its first day: a drill nothing
+  runs is a drill nothing believes. The fix is one quoted heredoc, which cannot regress the
+  same way; the finding matters more than the fix, because it is the only evidence that the
+  gate this mission builds was needed.
+
+- **Insight**: A drill's `*_writes_nothing` row compares `git status --porcelain` before
+  and after itself, so a **concurrent edit to the working tree** turns an unrelated drill
+  red. Three separate full runs during this mission's own implementation failed on three
+  different drills for exactly that reason, and every one of them passed when re-run alone.
+  **Context**: It is the reason the drill set must be judged over a quiet tree, and the
+  reason CI — which checks out a fixed tree nobody is editing — is a better place to run it
+  than an operator's own checkout.

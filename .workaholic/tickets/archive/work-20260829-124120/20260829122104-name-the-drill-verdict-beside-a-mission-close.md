@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-29T12:21:04+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -80,3 +81,39 @@ is failing still closes.
 - If the verdict read costs a network call, it must not turn a landed archive into a
   failure — the read is best-effort and its degradation is reported, exactly as the base
   health read already is.
+
+## Final Report
+
+Development completed as planned.
+
+`drive/scripts/archive.sh` reads the closing mission's drill verdict **after** the close (or
+its refusal) is decided, and names it in the archive output. The mapping is ticket 5's,
+inverted — `drill-register.sh mission <slug>` — and the verdict comes from ticket 6's
+reader, `read-drill-verdicts.sh --drill <name>`, composed rather than re-derived and never
+by running the drill inline.
+
+Four words, none of which reads as green when it is not: **`not failing on the base at
+<tip>`**, **`is FAILING on the base at <tip>; the close is unchanged`**, **`no_drill`** (the
+mission shipped none, or the name is not in the register — a fact, not a degradation), and
+**`drill_unreadable:<reason>`**.
+
+**It gates nothing.** The reading sits after the close and changes no branch of it: the same
+missions close, with the same proof, in the same order, whatever the verdict says. Holding a
+close whose drill is red is refused by name — this gate's proof is *is the acceptance
+complete*, not *is the work good*, and a second condition would make an unattended close
+depend on a reading designed to become false when re-run. `close.sh` remains the only writer
+of an end state and is untouched.
+
+The read is **best-effort**: it costs one REST call and every failure path degrades to a
+named word, so a call that fails can never turn a landed archive into a failure — the
+discipline the base-health read already carries.
+
+### Discovered Insights
+
+- **Insight**: The register is a repository-level document, so a plugin script reading it
+  must treat its absence as ordinary rather than exceptional. `archive.sh` ships to
+  repositories with no drill set at all, where the correct answer is `no_drill` and the
+  correct behaviour is to say so once and carry on.
+  **Context**: The general shape for a plugin script that composes a repository's own
+  convention: the absence of the convention is a named answer, never an error, and never a
+  reason to change what the script was already doing.

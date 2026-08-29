@@ -969,7 +969,6 @@ function testSuccessionCostsNoFourthWriter() {
     // that runs. Its deliberately-broken row is named in both places, because a drill that
     // cannot fail proves nothing and the runbook is where an operator learns which row that is.
     const drill = readFileSync(join(REPO_ROOT, "scripts/e2e/loop-drill.sh"), "utf8");
-    assertTrue("verify-succession is in loop-drill.sh", /cmd_verify_succession\(\)/.test(drill), "not present");
     assertTrue("and is dispatched by its verb", /verify-succession\) cmd_verify_succession/.test(drill), "not wired");
     assertTrue("and its usage line names it", /verify-succession \[--json\]/.test(drill), "not in the usage line");
     const runbook = readFileSync(join(REPO_ROOT, "docs/loop-drill-runbook.md"), "utf8");
@@ -2144,7 +2143,6 @@ function testExpiringGatesNothing() {
     // a drill that cannot fail proves nothing and the runbook is where an operator learns which
     // row that is.
     const drill = readFileSync(join(REPO_ROOT, "scripts/e2e/loop-drill.sh"), "utf8");
-    assertTrue("verify-expiry is in loop-drill.sh", /cmd_verify_expiry\(\)/.test(drill), "not present");
     assertTrue("and is dispatched by its verb", /verify-expiry\) cmd_verify_expiry/.test(drill), "not wired");
     assertTrue("and its usage line names it", /verify-expiry \[--json\]/.test(drill), "not in the usage line");
     const runbook = readFileSync(join(REPO_ROOT, "docs/loop-drill-runbook.md"), "utf8");
@@ -2191,7 +2189,6 @@ function testResidueGatesNothing() {
   // like one that runs. Its deliberately-broken row is named in both places, because a drill
   // that cannot fail proves nothing and the runbook is where an operator learns which row that is.
   const drill = readFileSync(join(REPO_ROOT, "scripts/e2e/loop-drill.sh"), "utf8");
-  assertTrue("verify-residue is in loop-drill.sh", /cmd_verify_residue\(\)/.test(drill), "not present");
   assertTrue("and is dispatched by its verb", /verify-residue\) cmd_verify_residue/.test(drill), "not wired");
   assertTrue("and its usage line names it", /verify-residue \[--json\]/.test(drill), "not in the usage line");
   const runbook = readFileSync(join(REPO_ROOT, "docs/loop-drill-runbook.md"), "utf8");
@@ -19111,6 +19108,7 @@ const tests = [
   ["branching/cut-release-branch.sh (the release/* staging tier)", testCutReleaseBranch],
   ["ship: a release branch's durable record answers what shipped, and when", testReleaseRecord],
   ["drive claim protocol: truncated history never invents a claim", testClaimScanShallowClone],
+  ["e2e/loop-drill.sh: every drill is reached, verdicted, wired into CI and read by the tick", testDrillVerdictPath],
   ["e2e/loop-drill.sh: seed refuses a polluted base and mints a fresh pair", testLoopDrillSeed],
   ["e2e/loop-drill.sh: reset recovers only what the drill minted", testLoopDrillReset],
   ["e2e/loop-drill.sh: verify-specificate reads artifacts, and pending is not fail", testLoopDrillVerifySpecificate],
@@ -24210,6 +24208,12 @@ function testModerateRun() {
     // read PULL REQUESTS and find nothing wrong with one that already merged. Same placement
     // and same reason as its asking neighbours: it reads, the check-in asks.
     "base-health",
+    // `drill-health` sits beside it (2026-08-29): the base's own DRILL run, one matrix leg per
+    // hermetic drill, so the check run that goes red is named after the drill. Same reader
+    // (`read-base-checks.sh`, still the one derivation of a commit's check state), same
+    // placement and same reason as `base-health` — it reads, the check-in asks — and it names
+    // the mission that shipped the drill so whoever is asked can redirect.
+    "drill-health",
     // `strategy-digest` is step 13's neighbour (2026-08-24): the integrated standup. Once
     // per JST day, on the first tick at or after 09:00, it hands the per-strategy digest to
     // the agent to render at the top of the Moderation root — and that digest is the root's
@@ -26585,8 +26589,6 @@ function testIdentityHandOffEndToEnd() {
 
     // The operator's drill covers the same walk in a checkout; CI enforces this one.
     const drill = readFileSync(join(REPO_ROOT, "scripts/e2e/loop-drill.sh"), "utf8");
-    assertTrue("the offline drill exists", /cmd_verify_identity_handoff\(\)/.test(drill),
-      "verify-identity-handoff is not in loop-drill.sh");
     assertTrue("and is dispatched by its verb", /verify-identity-handoff\)/.test(drill),
       "the drill's verb is not wired");
     const runbook = readFileSync(join(REPO_ROOT, "docs/loop-drill-runbook.md"), "utf8");
@@ -27733,8 +27735,6 @@ function testFileFindingsStep() {
     // The same three pins every other verify target carries, so a drill that is written and
     // never wired reads exactly like one that runs.
     const drill = readFileSync(join(REPO_ROOT, "scripts/e2e/loop-drill.sh"), "utf8");
-    assertTrue("verify-findings-to-work is in loop-drill.sh",
-      /cmd_verify_findings_to_work\(\)/.test(drill), "the drill is not in loop-drill.sh");
     assertTrue("and is dispatched by its verb", /verify-findings-to-work\)/.test(drill),
       "the drill's verb is not wired");
     assertTrue("and its usage line names it", /verify-findings-to-work \[--json\]/.test(drill),
@@ -28295,8 +28295,6 @@ function testThreadReconcileStep() {
     // every other verify target carries, so a drill that is written and never wired reads
     // exactly like one that runs.
     const drill = readFileSync(join(REPO_ROOT, "scripts/e2e/loop-drill.sh"), "utf8");
-    assertTrue("verify-reconcile is in loop-drill.sh", /cmd_verify_reconcile\(\)/.test(drill),
-      "verify-reconcile is not in loop-drill.sh");
     assertTrue("and is dispatched by its verb", /verify-reconcile\)/.test(drill),
       "the drill's verb is not wired");
     assertTrue("and its usage line names it", /verify-reconcile \[--json\]/.test(drill),
@@ -28402,8 +28400,6 @@ function testUndeliveredUnitsStep() {
     // every other verify target carries, so a drill that is written and never wired reads
     // exactly like one that runs.
     const drill = readFileSync(join(REPO_ROOT, "scripts/e2e/loop-drill.sh"), "utf8");
-    assertTrue("verify-close is in loop-drill.sh", /cmd_verify_close\(\)/.test(drill),
-      "verify-close is not in loop-drill.sh");
     assertTrue("and is dispatched by its verb", /verify-close\)/.test(drill),
       "the drill's verb is not wired");
     assertTrue("and its usage line names it", /verify-close \[--json\]/.test(drill),
@@ -28763,8 +28759,6 @@ function testCatchUpClaimWriter() {
     // every other verify target carries, so a drill that is written and never wired reads
     // exactly like one that runs.
     const drill = readFileSync(join(REPO_ROOT, "scripts/e2e/loop-drill.sh"), "utf8");
-    assertTrue("verify-catch-up is in loop-drill.sh", /cmd_verify_catch_up\(\)/.test(drill),
-      "verify-catch-up is not in loop-drill.sh");
     assertTrue("and is dispatched by its verb", /verify-catch-up\) cmd_verify_catch_up/.test(drill),
       "the drill's verb is not wired");
     assertTrue("and its usage line names it", /verify-catch-up \[--json\]/.test(drill),
@@ -29075,4 +29069,252 @@ function testUncomputedMergeabilityIsNamed() {
     assertTrue("blocked_by is still derived only in the one reader",
       /blocked=unknown/.test(reader) && !/blocked_by=/.test(src), "a second derivation appeared");
   } finally { cleanup(fx.dir); cleanup(fx.bin); }
+}
+
+// ---------- the drill verdict path (2026-08-29, mission `run-the-loop-s-own-proofs-on-every-turn`) ----------
+//
+// WHAT THIS REPLACES. Eight presence assertions — each a regex asserting that some
+// `cmd_verify_<x>()` was present in the drill file — were deleted in the same change (the
+// phrase they were all named after now appears nowhere in this suite, which is asserted
+// below). A regex proves a drill EXISTS and never that it PASSES, and
+// leaving both would be two mechanisms claiming one job — the reachability pin below strictly
+// subsumes them: a drill the aggregate verb cannot reach AND the register does not classify
+// fails the suite, which is a stronger statement about every one of those eight than its own
+// assertion made.
+//
+// WHAT IS PINNED, in the order the path runs:
+//   1. reachability — the dispatcher's enumeration against the register, over the REAL tree
+//   2. the verdict vocabulary and the exit-status rule, over a fixture whose drills are known
+//   3. the CI wiring — the verb is invoked, no secret is declared, the checkout is not shallow
+//   4. the tick's reading — green is silence, one failing drill is one keyed question, a
+//      degraded read is named and asks nothing
+//
+// HERMETIC: throwaway directories under the OS temp dir, no `gh`, no network, and the working
+// tree is never touched — the suite's standing contract.
+function testDrillVerdictPath() {
+  const DRILL = join(REPO_ROOT, "scripts/e2e/loop-drill.sh");
+  const REGISTER = join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/drill-register.sh");
+  const VERDICTS = join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/read-drill-verdicts.sh");
+  const STEP = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-drill-health.sh");
+  const drillSrc = readFileSync(DRILL, "utf8");
+
+  // ---- 1. REACHABILITY. Read the DISPATCHER, never a list in this test — a list here would
+  // be the ninth presence assertion under another name.
+  const arms = [...drillSrc.matchAll(/^ {4}(verify-[a-z-]+)\) cmd_/gm)]
+    .map((m) => m[1]).filter((d) => d !== "verify-all");
+  assertTrue("the dispatcher still names a set of verify-* drills", arms.length >= 25,
+    `found ${arms.length}`);
+  const registered = JSON.parse(run(REPO_ROOT, `${POSIX_SH} ${REGISTER} list`).stdout);
+  assertEq("the register reads", registered.ok, true);
+  const known = new Set(registered.drills.map((d) => d.drill));
+  const unreached = arms.filter((d) => !known.has(d));
+  assertEq("every drill the dispatcher names is classified in the register — a new one is run or deliberately classified, never silently unreached",
+    unreached, []);
+  const orphans = [...known].filter((d) => !arms.includes(d));
+  assertEq("and the register names no drill the dispatcher does not", orphans, []);
+  assertTrue("every classification is one of the three measured kinds",
+    registered.drills.every((d) => ["hermetic", "reads_checkout", "needs_server"].includes(d.kind)),
+    JSON.stringify(registered.drills.map((d) => d.kind)));
+
+  // The eight presence assertions are gone, and stay gone.
+  const suiteSrc = readFileSync(join(REPO_ROOT, "scripts/test-workflow-scripts.mjs"), "utf8");
+  assertEq("the presence assertions the reachability pin subsumes are deleted",
+    (suiteSrc.match(/is in loop-drill\.sh/g) || []).length, 0);
+
+  // ---- 2. THE VERDICT VOCABULARY AND THE EXIT-STATUS RULE, over a fixture whose drills are
+  // known: one that passes with a breaker, one that fails, one that passes with NO breaker,
+  // one whose environment cannot answer, and one classified `needs_server` that must never be
+  // invoked at all (it exits 1 if it ever is).
+  const tmp = mkdtempSync(join(tmpdir(), "wh-drill-verdict-"));
+  const fx = join(tmp, "fixture");
+  mkdirSync(join(fx, "scripts/e2e"), { recursive: true });
+  mkdirSync(join(fx, "plugins/workaholic/skills/drive/scripts"), { recursive: true });
+  mkdirSync(join(fx, "docs"), { recursive: true });
+  copyFileSync(REGISTER, join(fx, "plugins/workaholic/skills/drive/scripts/drill-register.sh"));
+
+  const fakes = [
+    'cmd_verify_alpha() { add_row "alpha_holds" true "fine" breaker; emit_verdict "alpha" 0 "pass" 0; }',
+    'cmd_verify_beta() { add_row "beta_broke" false "the seam went false" breaker; emit_verdict "beta" 0 "fail" 1; }',
+    'cmd_verify_gamma() { add_row "gamma_holds" true "fine" load; emit_verdict "gamma" 0 "pass" 0; }',
+    'cmd_verify_delta() { emit_err "gh_unavailable" 4 "no gh here"; }',
+    'cmd_verify_epsilon() { emit_err "should_never_run" 1 "a needs_server drill was invoked"; }',
+    "",
+  ].join("\n");
+  const extraArms = [
+    '    seed) cmd_seed "$@" ;;',
+    '    verify-alpha) cmd_verify_alpha "$@" ;;',
+    '    verify-beta) cmd_verify_beta "$@" ;;',
+    '    verify-gamma) cmd_verify_gamma "$@" ;;',
+    '    verify-delta) cmd_verify_delta "$@" ;;',
+    '    verify-epsilon) cmd_verify_epsilon "$@" ;;',
+  ].join("\n");
+  writeFileSync(join(fx, "scripts/e2e/loop-drill.sh"),
+    drillSrc.replace("\nUSAGE=", `\n${fakes}\nUSAGE=`)
+            .replace('    seed) cmd_seed "$@" ;;', extraArms));
+  chmodSync(join(fx, "scripts/e2e/loop-drill.sh"), 0o755);
+  writeFileSync(join(fx, "docs/loop-drill-runbook.md"), [
+    "| Drill | Kind | Breaker | Mission |",
+    "| ----- | ---- | ------- | ------- |",
+    "| `verify-alpha` | `hermetic` | yes | — |",
+    "| `verify-beta` | `hermetic` | yes | — |",
+    "| `verify-gamma` | `hermetic` | no | — |",
+    "| `verify-delta` | `hermetic` | no | — |",
+    "| `verify-epsilon` | `needs_server` | no | — |",
+    "",
+  ].join("\n"));
+
+  const FX_DRILL = `${POSIX_SH} ${join(fx, "scripts/e2e/loop-drill.sh")}`;
+  try {
+    const all = run(fx, `${FX_DRILL} verify-all`);
+    const j = JSON.parse(all.stdout);
+    const by = Object.fromEntries(j.drills.map((d) => [d.drill, d]));
+    assertEq("a drill that passes and can fail is `pass`, its breaker present",
+      [by["verify-alpha"].verdict, by["verify-alpha"].breaker], ["pass", "present"]);
+    assertEq("a drill whose load-bearing row went false is `fail`",
+      [by["verify-beta"].verdict, by["verify-beta"].reason],
+      ["fail", "load_bearing_row_failed"]);
+    assertTrue("and it carries the row that went false, not just the fact that one did",
+      /beta_broke/.test(by["verify-beta"].detail), by["verify-beta"].detail);
+    assertEq("a drill that passes with NO breaker keeps the verdict `pass` and is reported unproved",
+      [by["verify-gamma"].verdict, by["verify-gamma"].breaker], ["pass", "absent"]);
+    assertEq("an environment that could not answer is a NAMED skip, never a silent pass",
+      [by["verify-delta"].verdict, by["verify-delta"].reason], ["skipped", "gh_unavailable"]);
+    assertEq("a `needs_server` drill is skipped by name and never invoked",
+      [by["verify-epsilon"].verdict, by["verify-epsilon"].reason], ["skipped", "needs_server"]);
+    assertTrue("a drill the register does not classify is skipped by name, never silently absent",
+      j.drills.filter((d) => d.reason === "unclassified").length >= 20,
+      JSON.stringify(j.drills.filter((d) => d.verdict !== "skipped").map((d) => d.drill)));
+    assertTrue("every drill carries exactly one verdict from the closed set",
+      j.drills.every((d) => ["pass", "fail", "skipped"].includes(d.verdict)), "a verdict escaped the set");
+    assertEq("an unproved drill is never counted inside the passing total",
+      [j.totals.proved, j.totals.unproved, j.totals.failed], [1, 1, 1]);
+    assertEq("exit status is non-zero when at least one verdict is `fail`", all.status, 1);
+
+    const green = run(fx, `${FX_DRILL} verify-all --only verify-alpha`);
+    assertEq("...and zero when nothing failed", green.status, 0);
+    const unproved = run(fx, `${FX_DRILL} verify-all --only verify-gamma`);
+    assertEq("an unproved run is not a failure — a gap in coverage is not a broken mechanism",
+      unproved.status, 0);
+    const skipped = run(fx, `${FX_DRILL} verify-all --only verify-delta`);
+    assertEq("a wholly skipped run is neither a pass nor a failure", skipped.status, 0);
+
+    const listed = JSON.parse(run(fx, `${FX_DRILL} verify-all --list --kind hermetic`).stdout);
+    assertEq("--list answers the set it would run and invokes none of it",
+      listed, ["verify-alpha", "verify-beta", "verify-gamma", "verify-delta"]);
+
+    // ---- 3. THE CI WIRING.
+    const wf = readFileSync(join(REPO_ROOT, ".github/workflows/loop-drills.yml"), "utf8");
+    assertTrue("CI invokes the aggregate verb rather than a list of its own",
+      /loop-drill\.sh verify-all/.test(wf), "the verb is not invoked");
+    assertTrue("...deriving the matrix from the dispatcher and the register",
+      /verify-all --list --kind hermetic/.test(wf), "the set is not derived");
+    assertTrue("...on push and pull_request to main",
+      /push:\s*\n\s*branches: \[main\]/.test(wf) && /pull_request:\s*\n\s*branches: \[main\]/.test(wf),
+      "the triggers are not both present");
+    assertEq("...declaring no secret", (wf.match(/secrets\./g) || []).length, 0);
+    assertTrue("...and no permission beyond the default read",
+      /permissions:\s*\n\s*contents: read/.test(wf) && !/write/.test(wf), "a wider permission appeared");
+    assertTrue("...over a checkout that is not shallow", /fetch-depth: 0/.test(wf), "the checkout is shallow");
+
+    // ---- 4. THE TICK'S READING.
+    const repo = join(tmp, "repo");
+    const bin = join(tmp, "bin");
+    mkdirSync(repo, { recursive: true });
+    mkdirSync(bin, { recursive: true });
+    execSync("git init -q -b main . && git remote add origin git@github.com:acme-org/source-repo.git", { cwd: repo });
+    execSync("git config user.email test@example.com && git config user.name Test && git config commit.gpgsign false", { cwd: repo });
+    mkdirSync(join(repo, ".github/workflows"), { recursive: true });
+    writeFileSync(join(repo, ".github/workflows/loop-drills.yml"), "name: Loop Drills\n");
+    mkdirSync(join(repo, "docs"), { recursive: true });
+    writeFileSync(join(repo, "docs/loop-drill-runbook.md"), [
+      "| Drill | Kind | Breaker | Mission |",
+      "| ----- | ---- | ------- | ------- |",
+      "| `verify-alpha` | `hermetic` | yes | `a-shipping-mission` |",
+      "",
+    ].join("\n"));
+    mkdirSync(join(repo, ".workaholic/missions/archive/a-shipping-mission"), { recursive: true });
+    writeFileSync(join(repo, ".workaholic/missions/archive/a-shipping-mission/mission.md"),
+      "---\ntype: Mission\nslug: a-shipping-mission\nassignees: [builder@example.com]\n---\n");
+    mkdirSync(join(repo, ".claude"), { recursive: true });
+    writeFileSync(join(repo, ".claude/git-identities"), "builder=builder@example.com\n");
+    execSync("git add -A && git commit -q -m seed", { cwd: repo });
+    execSync("git update-ref refs/remotes/origin/main HEAD", { cwd: repo });
+    const tip = execSync("git rev-parse origin/main", { cwd: repo, encoding: "utf8" }).trim();
+
+    const setChecks = (body) => {
+      writeFileSync(join(bin, "gh"), [
+        "#!/bin/sh",
+        'case "$*" in',
+        `  *check-runs*) printf '%s\\n' '${body}' ;;`,
+        "  *) exit 1 ;;",
+        "esac",
+      ].join("\n"));
+      chmodSync(join(bin, "gh"), 0o755);
+    };
+    const env = { ...process.env, PATH: `${bin}:${process.env.PATH}` };
+    const step = () => JSON.parse(run(repo,
+      `${POSIX_SH} ${STEP} --tick 20260829-130000 --root ${repo}`, { env }).stdout);
+
+    setChecks('{"total_count":1,"check_runs":[{"name":"verify-alpha","status":"completed","conclusion":"success"}]}');
+    let s = step();
+    assertEq("a green drill run asks nothing at all", [s.status, s.reason, s.needs_agent], ["ok", "", []]);
+    assertEq("and contributes no root event, so a healthy hour renders no line", s.event, "");
+
+    setChecks('{"total_count":1,"check_runs":[{"name":"verify-alpha","status":"completed","conclusion":"failure"}]}');
+    s = step();
+    assertEq("a failing drill is exactly one question", [s.status, s.needs_agent.length], ["ok", 1]);
+    const q = s.needs_agent[0].drills[0];
+    assertEq("keyed on the drill, so one broken proof costs one question however many ticks see it",
+      q.key, "drill-failing:verify-alpha");
+    assertEq("naming the mission that shipped it, and addressed to that mission's assignee",
+      [q.mission, q.mission_resolved, q.owner], ["a-shipping-mission", true, "builder@example.com"]);
+    assertTrue("and it contributes a root line", /stopped holding/.test(s.event), s.event);
+
+    setChecks('{"total_count":1,"check_runs":[{"name":"Validate Plugins","status":"completed","conclusion":"failure"}]}');
+    s = step();
+    assertEq("a failing check that is not a drill belongs to base-health's question, not this one",
+      [s.status, s.needs_agent, s.event], ["ok", [], ""]);
+
+    setChecks('{"total_count":0,"check_runs":[]}');
+    s = step();
+    assertEq("a read it could not make is degraded BY NAME and asks nothing",
+      [s.status, s.reason, s.needs_agent], ["degraded", "drill_run_unreadable:no_checks", []]);
+    assertEq("and never renders as a green hour", s.event, "");
+
+    rmSync(join(repo, ".github/workflows/loop-drills.yml"));
+    execSync("git add -A && git commit -q -m drop", { cwd: repo });
+    execSync("git update-ref refs/remotes/origin/main HEAD", { cwd: repo });
+    s = step();
+    assertEq("a repository that runs no drill workflow reads unavailable and asks nothing",
+      [s.status, s.reason, s.needs_agent], ["ok", "no_workflow", []]);
+
+    // THE STEP WRITES NOTHING BUT ITS OWN LOG LINE, and reaches no writing survey.
+    const before = execSync("git status --porcelain", { cwd: repo, encoding: "utf8" });
+    step();
+    assertEq("the step leaves the tree byte-identical",
+      execSync("git status --porcelain", { cwd: repo, encoding: "utf8" }), before);
+    // Read the CODE, never the prose: the header names `plan-units.sh` to record why it is
+    // refused, and an assertion that could not tell a refusal from a call would have to be
+    // weakened the first time somebody explained themselves in a comment.
+    const stepCode = readFileSync(STEP, "utf8").split("\n")
+      .filter((l) => !/^\s*#/.test(l)).join("\n");
+    assertTrue("and never reaches plan-units.sh, which stages what its migrations converge",
+      !/plan-units\.sh/.test(stepCode), "the step reaches the survey");
+    for (const act of ["merge_pull_request", "git push", "close.sh", "release-claim.sh", "retire-claim.sh"]) {
+      assertTrue(`step-drill-health.sh acts on nothing — it never reaches ${act}`,
+        !stepCode.includes(act), `${act} appeared in the step`);
+    }
+
+    // THE STEP IS REGISTERED — an unregistered step is a silent step, and an unclassified one
+    // reads `needs_ruling` by design, so leaving it out of the table is the same silence.
+    const runSrc = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/run.sh"), "utf8");
+    assertTrue("drill-health is in the tick's STEPS", /STEPS='[^']*\bdrill-health\b/.test(runSrc),
+      "the step is not registered");
+    const table = readFileSync(
+      join(REPO_ROOT, "plugins/workaholic/skills/moderate/reference/workflow.md"), "utf8");
+    assertTrue("and classified in the file-findings table",
+      /\| `drill-health` \| `needs_ruling` \|/.test(table), "the step is unclassified");
+  } finally {
+    cleanup(tmp);
+  }
 }

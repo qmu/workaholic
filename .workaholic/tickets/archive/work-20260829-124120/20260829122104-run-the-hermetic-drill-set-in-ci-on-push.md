@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-29T12:21:04+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -80,3 +81,45 @@ less: no key, no network, no wider permission than the default read.
 - The drill file's header says it lives outside the plugin because it assumes the server's
   full `gh` and `qfs`. Ticket 1 establishes for which rows that is still true; this ticket
   must update that header rather than leave it contradicting the workflow beside it.
+
+## Final Report
+
+Development completed as planned.
+
+**The host is a workflow of its own**, `.github/workflows/loop-drills.yml`, and the reason
+is **not** wall clock — the whole set measured ~2m20s sequentially, which `Validate
+Plugins` could have absorbed. It is that **a check run is named after its job**, so a
+matrix leg per drill makes the drill's own name the thing that goes red. That is what lets
+ticket 6's `/moderate` step name the failing drill and the mission that shipped it from
+`read-base-checks.sh` alone — no extra call, no log parsing, and no permission beyond the
+default read. A single step inside another job would go red as "Validate Plugins", which
+names neither. The parallelism the matrix gives is the answer to the wall-clock risk the
+ticket named, not the reason for the split.
+
+The matrix is **derived**: an `enumerate` job runs `verify-all --list --kind hermetic` and
+the `drill` job fans out over `fromJSON` of it, with `name: ${{ matrix.drill }}` so the
+check run is exactly the drill name. A list in the YAML would be the second hand-kept
+enumeration this mission exists to remove, and ticket 8's pin fails when a drill the verb
+cannot reach is added.
+
+`fetch-depth: 0` on both jobs, because several drills build git-backed fixtures and
+`verify-corpus-boundary` grows a corpus past the `xargs` batching boundary. No secret is
+declared and `permissions: contents: read` is the whole grant. `fail-fast: false`, so one
+red drill does not hide the others. The job fails on the verb's non-zero exit and on
+nothing else, so a `skipped` row can never fail the merge.
+
+Only the **hermetic** set runs: `reads_checkout` drills answer a question about the tree
+they ran in and `needs_server` drills take an issue number only `seed` can mint, and both
+are named skips in the verb's own output rather than quiet omissions.
+
+The drill file's header — which claimed the whole file assumes the server's full `gh` and
+`qfs` — was corrected in the same change, as the ticket required.
+
+### Discovered Insights
+
+- **Insight**: The decision that looks like a wall-clock trade is really a **naming** one.
+  The only mechanism that surfaces a per-drill name to a REST reader with no extra
+  permission is one check run per drill, and the only way to get one check run per drill in
+  GitHub Actions without a token is one **job** per drill.
+  **Context**: Ticket 6's whole design rests on it: without the matrix its question could
+  only say "something in the drill set failed", which is the finding it exists to replace.

@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-29T12:21:04+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -89,3 +90,50 @@ were already retired.
 - Reading the **last completed** run rather than the current one is deliberate: a pending
   run is not a verdict, and asking about one is the over-eager question CI retirement's own
   reading already refuses.
+
+## Final Report
+
+Development completed as planned.
+
+`moderate/scripts/step-drill-health.sh` is step 21, registered in `run.sh`'s `STEPS` beside
+`base-health` and classified `needs_ruling` in `moderate/reference/workflow.md`'s
+`file-findings` table — `base-health`'s row for `base-health`'s reason: it composes the same
+check-run reader, so every value it carries is a judgement a re-run can turn green.
+
+It reads the **last completed** run at the base tip the tick is reading, through
+`drive/scripts/read-drill-verdicts.sh` — a new composition of `read-base-checks.sh` (still
+the one derivation of a commit's check state anywhere in this plugin) and the drill
+register. Because CI names each matrix leg after its drill, the failing check's **name is
+the drill's name**: no second call, no log parsing, no clock and no date arithmetic.
+
+Every failing drill becomes one question keyed `drill-failing:<drill>`, so twenty-four
+ticks see one broken proof and exactly one question goes out; keying on the commit would
+re-ask on every merge that followed the break. It is addressed to the **shipping mission's
+assignee**, resolved through `gather/scripts/identity.sh` — an unmapped address leaves the
+question addressed to nobody rather than stamping one nobody verified — and the question
+names the mission so whoever reads it can redirect when the drill has outlived its author.
+
+A green run supplies no `event` and therefore renders no root line; a degraded read is
+`degraded` by name (`drill_run_unreadable:<reason>`) and asks nothing; a repository shipping
+no `Loop Drills` workflow reads `unavailable` and asks nothing at all. A failing check that
+is **not** a drill is `base-health`'s question, not this one.
+
+It asks and nothing else: it never re-runs a leg, reverts, merges, holds, or touches a
+claim; it never reaches `plan-units.sh` (that survey stages what its living migrations
+converge); and it writes nothing but its own tick-log line.
+
+### Discovered Insights
+
+- **Insight**: `read-drill-verdicts.sh` answers `no_failing_drill` rather than `green`, and
+  the distinction is load-bearing. `read-base-checks.sh` returns `red` as soon as one check
+  has failed, which masks a sibling leg still pending — so "no drill is reported failing at
+  this commit" is what was observed, and "every drill passed" is not.
+  **Context**: The same discipline `read-base-checks.sh` applies to `unanswerable`: a word
+  that says what was read beats one a reader will over-interpret.
+
+- **Insight**: `read-base-checks.sh` builds its `failing` array with `jq -c`, which emits
+  `"name":"x"` with no space after the colon, while its own printf-built fields carry one.
+  A reader matching only the spaced form silently found nothing and reported "no drill
+  failing" over a red drill run.
+  **Context**: Composing a script whose output is half printf and half `jq -c` means
+  tolerating both shapes rather than assuming the half you happen to be reading.

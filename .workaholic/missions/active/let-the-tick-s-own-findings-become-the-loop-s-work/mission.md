@@ -41,7 +41,7 @@ their ruling, and the run report naming what was filed, held and left.
 
 - [ ] A repairable finding becomes an issue and its question is suppressed; a
       `needs_ruling` finding still asks, unchanged. (#20260829042145-suppress-the-question-a-filing-answers.md)
-- [ ] The brake holds at one open finding issue, the dedup is structural on the
+- [x] The brake holds at one open finding issue, the dedup is structural on the
       step id, and an unreadable read files nothing. (#20260829042145-dedup-the-filing-structurally-on-the-step-id.md)
 - [ ] `verify-findings-to-work` drills it offline, with a breaker row. (#20260829042145-drill-the-findings-to-work-path-offline.md)
 
@@ -52,3 +52,4 @@ their ruling, and the run report naming what was filed, held and left.
 - 2026-08-29 — ticket archived — 20260829042144-classify-a-finding-as-repairable-or-needing-a-ruling.md
 - 2026-08-29 — ticket archived — 20260829042144-write-the-finding-filing-step.md
 - 2026-08-29 — ticket archived — 20260829042144-brake-the-filing-to-one-open-finding-issue.md
+- 2026-08-29 — ticket archived — 20260829042145-dedup-the-filing-structurally-on-the-step-id.md

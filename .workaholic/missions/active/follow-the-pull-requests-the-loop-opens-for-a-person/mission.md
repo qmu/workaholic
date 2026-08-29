@@ -54,3 +54,4 @@ one says so by name and asks nobody.
 - 2026-08-29 — ticket archived — 20260829192137-ask-the-person-who-must-act-on-an-unanswered-pull-request.md
 - 2026-08-29 — ticket archived — 20260829192137-classify-every-pull-request-reading-as-a-judgement-in-the-one-home.md
 - 2026-08-29 — ticket archived — 20260829192137-release-a-ruling-hold-the-ruling-s-own-silence-has-outlived.md
+- 2026-08-29 — ticket archived — 20260829192137-report-the-pull-request-reading-in-the-run-reports-as-evidence.md

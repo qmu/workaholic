@@ -39,7 +39,8 @@
 #
 # Usage: step-file-findings.sh --tick <id> [--root <repo-root>]
 # Output: one JSON line
-#   {"step","status","reason","summary","needs_agent":[...],"event"}
+#   {"step","status","reason","summary","needs_agent":[...],
+#    "held":[...], "already_filed":[...], "left": N, "event": ""}
 
 set -eu
 
@@ -63,10 +64,22 @@ json_escape() {
     printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' -e 's/	/\\t/g'
 }
 
+# FILED, HELD AND LEFT MUST NEVER RENDER ALIKE (2026-08-29). Each is a different fact about the
+# loop and asks the reader for a different thing: `filed` is work the loop took on, `held` is
+# the brake doing its job, `left` is what only a person can settle. Collapsing them is exactly
+# what made the tick's debt invisible — `0 retired` hour after hour with nobody told. So the
+# step carries `held` and `already_filed` as their own arrays beside `needs_agent`, and `left`
+# as a COUNT, never a list: those findings reach a person through their own questions, and
+# re-listing them here is the report addressed to nobody this repository has twice retired
+# posts for.
+#
+# THE SUMMARY IS STABLE: every term is a function of the candidate set and the ledger state
+# alone. No timestamp, no clock, no moving count — `inbound-sweep`'s embedded timestamp is the
+# measured failure here, which made its line "changed" on every tick by construction.
 emit() {
-    # $1 status  $2 reason  $3 summary  $4 needs_agent body
-    printf '{"step": "file-findings", "status": "%s", "reason": "%s", "summary": "%s", "needs_agent": [%s], "event": ""}\n' \
-        "$1" "$2" "$(json_escape "$3")" "${4:-}"
+    # $1 status  $2 reason  $3 summary  $4 needs_agent body  $5 held body  $6 already_filed body
+    printf '{"step": "file-findings", "status": "%s", "reason": "%s", "summary": "%s", "needs_agent": [%s], "held": [%s], "already_filed": [%s], "left": %s, "event": ""}\n' \
+        "$1" "$2" "$(json_escape "$3")" "${4:-}" "${5:-}" "${6:-}" "${left:-0}"
     exit 0
 }
 
@@ -142,14 +155,17 @@ candidates=$(printf '%s' "$found" | jq -c --argjson ids "$ids_json" \
 # facts about the loop, and collapsing them is how a broken gate reads as a working one.
 [ -f "$LEDGER" ] || emit degraded no_ledger_reader \
     "list-finding-issues.sh is not present beside this step"
+# The reason word is CLOSED — `brake_unreadable` — and the ledger's own reason rides the
+# summary. Four reasons for four facts, so a reader keying on the word never has to enumerate
+# whatever a transport happened to say this hour.
 ledger=$( ( cd "$ROOT" && sh "$LEDGER" ) 2>/dev/null || true )
 if [ -z "$ledger" ] || ! printf '%s' "$ledger" | jq -e . >/dev/null 2>&1; then
     emit degraded brake_unreadable \
-        "the finding issues could not be read, so nothing is filed (${n} repairable, ${left} left to a person)"
+        "the finding issues could not be read (unparseable), so nothing is filed: ${n} repairable, ${left} left to a person"
 fi
 if [ "$(printf '%s' "$ledger" | jq -r '.ok // false')" != "true" ]; then
-    emit degraded "brake_$(printf '%s' "$ledger" | jq -r '.reason // "unreadable"' | tr -d '"')" \
-        "the finding issues could not be read, so nothing is filed (${n} repairable, ${left} left to a person)"
+    emit degraded brake_unreadable \
+        "the finding issues could not be read ($(printf '%s' "$ledger" | jq -r '.reason // "unreadable"' | tr -d '"')), so nothing is filed: ${n} repairable, ${left} left to a person"
 fi
 
 # THE BRAKE: at most one open finding issue in flight. No cursor and no stored state — the two
@@ -159,9 +175,15 @@ fi
 # that path at one turn a day. One in flight is deliberately strict; if it measurably starves
 # the queue that is a finding for a later ask, not a number to raise here.
 if [ "$(printf '%s' "$ledger" | jq -r '.any_open // false')" = "true" ]; then
-    held=$(printf '%s' "$ledger" | jq -r '[.open[].number | tostring] | join(", #")')
+    held_numbers=$(printf '%s' "$ledger" | jq -r '[.open[].number | tostring] | join(", #")')
+    # WHICH open issue held each candidate, named per candidate rather than as one number: the
+    # reader's question is *why is my finding not work yet*, and a bare count does not answer it.
+    held_rows=$(printf '%s' "$candidates" | jq -c --argjson open "$(printf '%s' "$ledger" | jq -c '.open // []')" \
+        '[ .[] | {step, finding_id, held_by: ($open | map(.number) | first)} ]' 2>/dev/null || printf '[]')
+    held_rows=$(printf '%s' "$held_rows" | sed 's/^\[//; s/\]$//')
     emit ok brake_held \
-        "a finding issue is already open (#${held}); ${n} repairable finding(s) held, ${left} left to a person"
+        "a finding issue is already open (#${held_numbers}); ${n} repairable finding(s) held, ${left} left to a person" \
+        "" "$held_rows"
 fi
 
 # THE DEDUP, structural and keyed on the same step id the already-asked gate uses: a candidate
@@ -169,15 +191,24 @@ fi
 # the issues themselves are the memory, so a tick log that died with its container changes
 # nothing here (`filed-records.sh`'s rule: a `-filed` line is never itself the proof).
 filed_ids=$(printf '%s' "$ledger" | jq -c '.filed_ids // []')
+filed_rows_all=$(printf '%s' "$ledger" | jq -c '.filed // []')
 remaining=$(printf '%s' "$candidates" | jq -c --argjson filed "$filed_ids" \
     '[ .[] | select(.finding_id as $id | $filed | index($id) | not) ]')
+# Each dropped candidate names the issue that already carries it, so "already filed" is a
+# statement a reader can follow rather than a number they have to trust.
+dropped=$(printf '%s' "$candidates" | jq -c --argjson rows "$filed_rows_all" \
+    '[ .[] as $c | $rows[] | select(.finding_id == $c.finding_id)
+       | {step: $c.step, finding_id: $c.finding_id, issue: .number, url: .url, state: .state} ]' \
+    2>/dev/null || printf '[]')
 kept=$(printf '%s' "$remaining" | jq -r 'length')
 case "$kept" in ''|*[!0-9]*) kept=0 ;; esac
 already=$((n - kept))
+dropped_rows=$(printf '%s' "$dropped" | sed 's/^\[//; s/\]$//')
 
 if [ "$kept" -eq 0 ]; then
     emit ok all_already_filed \
-        "all ${n} repairable finding(s) are already filed; ${left} left to a person"
+        "all ${n} repairable finding(s) are already filed; ${left} left to a person" \
+        "" "" "$dropped_rows"
 fi
 candidates="$remaining"
 
@@ -194,4 +225,4 @@ needs=$(jq -nc --argjson candidates "$candidates" --arg tick "$TICK" '
 
 emit ok "" \
   "${kept} repairable finding(s) to file, ${already} already filed; ${left} left to a person" \
-  "$needs"
+  "$needs" "" "$dropped_rows"

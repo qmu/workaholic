@@ -14054,10 +14054,62 @@ function testUnitFeedbackStems() {
             ".workaholic/tickets/todo/a-qmu-jp/20260805000003-t3.md"),
       { count: 1, stems: ["20260805000003-ask-three"] });
 
-    // The relation has exactly ONE reader; a second parser would eventually disagree.
+    // A TICKET'S REFS ARE REACHED THROUGH ITS MISSION (2026-08-29, ticket `20260829102500`).
+    // `/specificate` puts the carried-forward refs on the MISSION and its tickets carry
+    // `mission:` — the hop `attributed-work.sh` has always needed — and this resolver made
+    // none, so a mission unit resolved its stems while a batch of that same mission's tickets
+    // resolved NOTHING. Measured 2026-08-29 on `batch-20260829093639`.
+    wk(".workaholic/tickets/todo/a-qmu-jp/20260805000005-t5.md",
+      "---\ncreated_at: 2026-08-05T00:00:05+09:00\nauthor: a@qmu.jp\nmission: alpha\n---\n\n# T5\n");
+    assertEq("a ticket with no refs of its own resolves through its mission",
+      stems(".workaholic/tickets/todo/a-qmu-jp/20260805000005-t5.md"),
+      { count: 2, stems: ["20260805000001-ask-one", "20260805000002-ask-two"] });
+
+    // AND THROUGH AN ARCHIVED ONE — which is the shape that found this, because the archive
+    // gate closes a mission the moment its last ticket is archived, so a follow-up driven
+    // after that resolves through `archive/` by construction. `mission_resolve` already tries
+    // active/ then archive/, so archive-awareness is inherited rather than added.
+    wk(".workaholic/missions/archive/omega/mission.md",
+      "---\ntype: Mission\nslug: omega\nstatus: achieved\nfeedback: [20260805000009-ask-nine.md]\n---\n\n# Omega\n");
+    wk(".workaholic/tickets/todo/a-qmu-jp/20260805000006-t6.md",
+      "---\ncreated_at: 2026-08-05T00:00:06+09:00\nauthor: a@qmu.jp\nmission: omega\n---\n\n# T6\n");
+    assertEq("and through a mission that has already been archived",
+      stems(".workaholic/tickets/todo/a-qmu-jp/20260805000006-t6.md"),
+      { count: 1, stems: ["20260805000009-ask-nine"] });
+
+    // DIRECT REFS COME FIRST and the mission's are appended, so a stem set that used to be
+    // non-empty is a PREFIX of the new one and the first-sorting-stem rule sees what it saw.
+    wk(".workaholic/tickets/todo/a-qmu-jp/20260805000007-t7.md",
+      "---\ncreated_at: 2026-08-05T00:00:07+09:00\nauthor: a@qmu.jp\nmission: alpha\n"
+      + "feedback: [20260805000003-ask-three.md]\n---\n\n# T7\n");
+    assertEq("a ticket carrying both keeps its own refs first",
+      stems(".workaholic/tickets/todo/a-qmu-jp/20260805000007-t7.md").stems[0],
+      "20260805000003-ask-three");
+
+    // A SLUG THAT RESOLVES TO NO MISSION IS NOT AN ERROR: the artifact may name a mission
+    // this checkout has never had, and an empty answer is still an answer.
+    wk(".workaholic/tickets/todo/a-qmu-jp/20260805000008-t8.md",
+      "---\ncreated_at: 2026-08-05T00:00:08+09:00\nauthor: a@qmu.jp\nmission: nowhere\n---\n\n# T8\n");
+    assertEq("an unresolvable mission slug answers zero rather than failing",
+      stems(".workaholic/tickets/todo/a-qmu-jp/20260805000008-t8.md"), { count: 0, stems: [] });
+
+    // IT STAGES NOTHING. The resolve library also carries living migrations that stage what
+    // they converge; only `mission_resolve` is used, because a resolver that dirtied a
+    // checkout to decide where a Slack post goes would be writing to answer a read.
+    assertEq("resolving stems stages nothing",
+      execSync("git diff --cached --name-only", { cwd: dir, encoding: "utf8" }).trim(), "");
+    assertEq("and changes no tracked file",
+      execSync("git diff --name-only", { cwd: dir, encoding: "utf8" }).trim(), "");
+
+    // EACH RELATION KEEPS ONE READER; a second parser would eventually disagree.
     const src = readFileSync(SCRIPTS.unitFeedbackStems, "utf8");
     assertTrue("the relation is read through read-feedback-relation.sh, never re-parsed",
       /read-feedback-relation\.sh/.test(src) && !/^\s*(awk|sed|grep).*feedback:/m.test(src), src.slice(0, 200));
+    assertTrue("and the mission relation through its own one reader",
+      /mission\/scripts\/read-relation\.sh/.test(src) && !/^\s*(awk|sed|grep).*mission:/m.test(src),
+      src.slice(0, 200));
+    assertTrue("only the resolver is used from the mission library, never a migration",
+      !/missions_migrate_/.test(src.split("\n").filter((l) => !/^\s*#/.test(l)).join("\n")), src);
   } finally { cleanup(dir); }
 }
 

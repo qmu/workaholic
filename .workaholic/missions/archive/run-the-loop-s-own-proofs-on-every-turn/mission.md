@@ -59,3 +59,4 @@ name. A person is told only when something fails.
 - 2026-08-29 — ticket archived — 20260829122105-pin-the-drill-verdict-path-offline.md
 - 2026-08-29 — mission achieved — mission.md
 - 2026-08-29 — run recorded (+1.0h) — work-20260829-124120
+- 2026-08-29 — story reported — work-20260829-124120.md

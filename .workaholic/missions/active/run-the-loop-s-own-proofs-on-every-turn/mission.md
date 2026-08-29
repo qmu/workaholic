@@ -41,7 +41,7 @@ name. A person is told only when something fails.
 - [x] One aggregate verb runs the measured hermetic set with no key, network, `gh` or
       `qfs`, emitting `pass`/`fail`/`skipped:<reason>` per drill and exiting non-zero
       only on a real failure, and CI runs it. (#20260829122104-give-the-drill-an-aggregate-verb-with-a-machine-verdict.md)
-- [ ] A drill whose breaker no longer breaks is a failure of its own; one needing the
+- [x] A drill whose breaker no longer breaks is a failure of its own; one needing the
       server is named skipped, never counted green. (#20260829122104-exercise-the-breaker-rows-and-report-a-drill-that-cannot-fail.md)
 - [ ] A failing drill names its shipping mission, `/moderate` asks once and is silent on
       green, and a hermetic test fails when an unreachable drill lands. (#20260829122105-pin-the-drill-verdict-path-offline.md)
@@ -51,3 +51,4 @@ name. A person is told only when something fails.
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-29 — ticket archived — 20260829122104-measure-which-drills-are-hermetic-per-drill.md
 - 2026-08-29 — ticket archived — 20260829122104-give-the-drill-an-aggregate-verb-with-a-machine-verdict.md
+- 2026-08-29 — ticket archived — 20260829122104-exercise-the-breaker-rows-and-report-a-drill-that-cannot-fail.md

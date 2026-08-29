@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-29T06:20:39+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -66,3 +67,41 @@ carries the reading; a field would be a third store of a fact two places already
 
 The pull toward a fourth word for *caught up and then delivered* should be resisted: that is
 two facts, already reported by two existing vocabularies.
+
+## Final Report
+
+Development completed as planned. The three words — `caught_up`, `already_current`,
+`catch_up_refused: <word>` — are stated in `drive/SKILL.md` §7, in
+`drive/reference/routing.md`'s per-unit report rows, and in `CLAUDE.md`'s `/implement` row, in
+the same change. They sit **beside** the merge vocabulary rather than inside it, with the reason
+written down: a catch-up moves the branch and a merge moves the pull request, and collapsing
+them would leave a reader unable to tell a unit the loop could not reconcile from one the
+transport would not merge.
+
+The pull the ticket warned about is resisted explicitly and in writing: a **fourth** word for
+*caught up and then delivered* is refused in all three places, because that is two facts and two
+vocabularies already report them.
+
+The non-conformance rule is stated with its reason — no mechanical check tells a real attempt
+from a claimed one, so what the rule buys is that a report naming an entry and no catch-up
+outcome is visibly wrong, exactly as the connector retry's is.
+
+**The token decision is stated with its reasoning, and it is: no.**
+`catch_up_refused: content_conflict` moves no token, on `claimed_awaiting_verification`'s own
+precedent — a unit waiting on a person's *judgement* is the gate working, and making it
+`pending` would put `ok` out of reach for as long as that person takes, on precisely the runs
+where the machinery did its job. Every other catch-up refusal moves no token by itself either,
+for the survey rows' reason: what withholds `ok` is the unit's *delivery* outcome, which a
+refused catch-up leaves exactly where it was. The person is reached by `/moderate`'s
+`catchup-blocked:<unit>` question, not by the token.
+
+No artifact gained a field: `layout-doctor.sh` is conforming, and the only frontmatter keys the
+branch adds are the claim protocol's own `claim:` and `status: done` stamps.
+
+### Discovered Insights
+
+- **Insight**: Writing the token decision down is what stops it being re-derived, and the
+  precedent to cite is the one whose *shape* matches rather than whose subject does.
+  **Context**: `claimed_awaiting_verification` is about a declared handoff and this is about a
+  merge conflict, but both are "a person's judgement is the next step", which is the property
+  the token rule keys on.

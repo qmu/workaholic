@@ -1217,19 +1217,30 @@ exactly what they were.
 branch a workflow is about to delete must draw **no** question: asking a person, once per unit and
 forever, for an act CI was about to perform is not merely noisy — the ask is wrong.
 
-The reading is `drive/scripts/ci-retirement-turn.sh` and it is **store-free**, which is the
-constraint that shaped it. CI *deletes* the branch when it succeeds, and unmerged remote branches
-are the only claim oracle, so a successful turn removes the claim row and the candidate with it. A
-**completed run at the base tip this tick is reading** therefore means CI saw exactly this tree and
-the branch survived it — the matching is on `head_sha`, which needs no clock, no timezone and no
-date parsing, and answers the question actually being asked rather than a proxy for it. Three
-values, each with its own consequence:
+The reading is `drive/scripts/ci-retirement-turn.sh`. **It answered from a completed run's
+EXISTENCE until 2026-08-29, and that premise was the design rather than the behaviour** (mission
+`read-back-whether-the-loop-s-own-act-took-effect`). It read: *CI deletes the branch when it
+succeeds, so a successful turn removes the claim row and the candidate with it; a completed run
+at the base tip therefore means CI saw exactly this tree and the branch survived it.* The
+inference holds only if every completed turn actually reached its act — and measured the same
+day, `claim-retirement.yml` was green on every run while three proved candidates stood, because
+the CI-side act refuses `gh_unavailable` before its proof gate. The sentence is corrected in
+place in `drive/reference/claims.md`, *When an act of the retirement is refused*, with the
+measurement that retired it.
+
+**What replaced it**: the turn **records** what it attempted and what each act answered, and the
+reading answers **per unit** from that record — `taken` only on the act's own success word. It
+remains **store-free** (no cursor, no queue, no ledger, no field on any artifact); only which
+part of the run is consulted moved. Matching is still on `head_sha`, which needs no clock, no
+timezone and no date parsing. Five values, each with its own consequence:
 
 | Reading | What it means | What the tick does |
 | ------- | ------------- | ------------------ |
-| `taken` | a completed run at this tip left the branch standing | ask — the unit is blocked at **both** executors |
-| `pending` | no completed run at this tip yet | ask nobody **this tick**; the asked-once ledger keys on the unit, so a branch that outlives CI's turn is still asked about later |
+| `taken` | the act **succeeded** for this unit (`deleted`, or `already_gone`) | ask nobody — nothing is owed |
+| `refused:<word>` | the act was refused, carrying its own word — or the turn's candidate reading was degraded and named its reason | ask — this is precisely what a person must hear about |
+| `pending` | no completed run at this tip yet | ask nobody **this tick**; the asked-once ledger keys on the unit and its word, so a branch that outlives CI's turn is still asked about later |
 | `unavailable` | the workflow is not present in this repository | ask — CI will never take the act here |
+| `unreadable` | a run completed and we cannot say what it did | ask — a reading we could not make must never suppress a question |
 
 A read the step could not make leaves the question exactly where it was, on the same rule: an
 over-eager question is better than a silently dropped one, and this repository has measured the

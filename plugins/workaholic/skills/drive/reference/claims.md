@@ -636,19 +636,46 @@ disagrees with the derived one.
 
 **So the blocked retirement is reported and asked about only once CI has also been refused.** The
 caller renders the acts that stand beside the act that is blocked, and `/moderate`'s
-`retire-claims` step asks the **claim holder** once — keyed `retire-blocked:<unit>`, naming the
-exact branch left on origin — which is the whole licence a blocked act carries. The candidate set
-is narrowed by `ci-retirement-turn.sh`, a **store-free** reading: CI *deletes* the branch when it
-succeeds and unmerged remote branches are the only claim oracle, so a successful turn removes the
-claim row and the candidate with it; a completed run at the base tip the tick is reading
-therefore means CI saw exactly this tree and the branch survived it. A turn still `pending`
-suppresses the question for that tick only — the asked-once ledger keys on the unit, so a branch
-that outlives CI's turn is still asked about later — and both a read the tick could not make and
-a repository with no such workflow leave the question exactly where it was, because an over-eager
-question is better than a silently dropped one. Nothing releases the claim, reopens the pull
-request, re-runs the delete on the strength of an answer, or touches the `superseded` verdict.
-Drilled with no network by `sh scripts/e2e/loop-drill.sh verify-retire` (the container's half)
-and `verify-ci-retirement` (the split, both executors, every bound and the narrowing).
+`retire-claims` step asks the **claim holder** once — keyed
+`retire-blocked:<unit>:<refusal word>`, naming the exact branch left on origin — which is the
+whole licence a blocked act carries. The candidate set is narrowed by `ci-retirement-turn.sh`.
+
+**That reading rested on a premise which was the design and not the behaviour, and the sentence
+is corrected here rather than deleted** (2026-08-29, mission
+`read-back-whether-the-loop-s-own-act-took-effect`). It read:
+
+> CI *deletes* the branch when it succeeds and unmerged remote branches are the only claim
+> oracle, so a successful turn removes the claim row and the candidate with it; a completed run
+> at the base tip the tick is reading therefore means CI saw exactly this tree and the branch
+> survived it.
+
+The inference holds only if every completed turn actually **reached its act**. Measured
+2026-08-29: `claim-retirement.yml` was green on every run while three proved-`superseded` claims
+stood on origin, and the tick log recorded, hour after hour, *"ci_turn: taken so CI could not
+take the delete either"* — an assertion about a second executor that nothing established. (The
+live cause, localized the same day: the CI-side act refuses `gh_unavailable` before its proof
+gate, because `gh-rest.sh available` probes `gh api user`, which a `GITHUB_TOKEN` installation
+token cannot call. The two executors' candidate readers were found to **agree**, so the
+candidate-divergence hypothesis was not the live one.)
+
+**What replaced it**: the turn now **records** what it attempted and what each act answered
+(`record-ci-retirement-turn.sh`, read back by `read-ci-retirement-record.sh` off the check run's
+annotations), and the reading answers **per unit** from that record — `taken` only on the act's
+own success word, never on a run's existence and never on its exit status, which is green by
+design because a refusal must not fail the job. The vocabulary and its classification are
+*Whether an act the loop took had its effect* above. **The store-free property is narrowed, not
+abandoned**: nothing is stored anywhere — no cursor, no queue, no ledger, no field on any
+artifact — and only *which part* of the run is consulted changed.
+
+A unit whose reading is `pending` has its question suppressed for that tick only — the asked-once
+ledger keys on the unit and its refusal word, so a branch that outlives CI's turn is still asked
+about later — while `refused:<word>`, `unavailable` and `unreadable` all suppress nothing,
+because an over-eager question is better than a silently dropped one. Nothing releases the claim,
+reopens the pull request, re-runs the delete on the strength of an answer, or touches the
+`superseded` verdict. Drilled with no network by `sh scripts/e2e/loop-drill.sh verify-retire`
+(the container's half), `verify-ci-retirement` (the split, both executors, every bound and the
+narrowing) and `verify-act-effect` (the effect reading, both causes, and the changed-word
+re-ask).
 
 ## Catch a claim up with a base that moved
 

@@ -7,6 +7,7 @@ depends_on:
 mission:
 merge_policy:
 verification_handoff:
+claim: work-20260829-111906
 ---
 
 # Make the channel-default assertions hermetic

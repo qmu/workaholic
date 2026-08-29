@@ -1048,6 +1048,48 @@ and pretending otherwise would drill a fiction.
 | `ci_retirement_breaker` | removing the re-proof changes nothing | **the deliberately broken seam.** The act with **both** halves of its re-proof removed must delete a live claim's branch. Written against the verdict gate alone this row did **not** break — `not_on_base` caught the live claim on its own — so the two guards are independent rather than one written twice, and the drill says so by needing both removed |
 | `ci_retirement_writes_nothing` | the drill changed the checkout | every fixture lives outside the checkout |
 
+## 5l-quater. The act's effect (did what the loop did actually happen?)
+
+`verify-act-effect` needs no seed, no fire, no issue number and **no network**: a local bare
+origin, a `gh` stubbed on `PATH`, and a record served out of a control file so each row can put
+the turn in one state without rebuilding the fixture.
+
+**Every reading in this repository answered *what did I find*; none answered *did what I did
+happen*.** Measured 2026-08-29: `claim-retirement.yml` was green on every run while three
+proved-`superseded` claims stood on origin, and the tick log recorded, hour after hour,
+*"ci_turn: taken so CI could not take the delete either"* — an assertion about a second executor
+that nothing established. The turn now **records** what it attempted and each act's answer, and
+the reading answers from that record instead of from a run's existence.
+
+**The reported symptom and the measured one differ, and the drill is written against the
+reading.** The report assumed the question was suppressed; it was not — the step suppressed on
+`pending` and asked on `taken`, and what held the three units was the working-day hold, the gate
+working. What was wrong was the **sentence**, in the one durable audit trail the tick keeps.
+
+**The live cause was localized rather than assumed.** Under an Actions-style credential (`gh api
+user` refused, which is what a `GITHUB_TOKEN` installation token answers for `GET /user`), the
+two executors' candidate readers **agree** — both name all three units — while
+`delete-retired-claim-branch.sh` refuses `gh_unavailable` before its proof gate. The
+candidate-divergence cause is drilled beside it anyway: it is the one the report assumed, and a
+drill covering only the live cause would pass a repository where the other one is.
+
+| Row | Fails when | Read |
+| --- | ---------- | ---- |
+| `act_effect_no_network` | `gh` does not resolve to the stub | the drill would reach the network; every row below it would be measuring GitHub rather than the seam |
+| `act_effect_unnamed_candidate` | a turn whose candidate reading named this unit nothing reads `taken` | the cause the report assumed. The reading carries the candidate reader's **own** reason through rather than inventing one |
+| `act_effect_refused_act` | a refused act does not read `refused:<its own word>` | the cause measured live here. `gh_unavailable` must reach the reading verbatim — a reader sent to a translated word is sent to a string no script printed |
+| `act_effect_never_taken_from_existence` | a completed run that recorded **nothing** reads `taken` | the measured failure itself: a reading that cannot be made must never be dressed as one that was |
+| `act_effect_record_names_the_reading` | the turn's candidate reading is not recorded, degraded one included | a turn that found nothing and a turn that found three and was refused are different facts; the first is the one the report assumed |
+| `act_effect_record_names_each_act` | a candidate's entry drops its unit, branch, `state` or `reason` | `record-ci-retirement-turn.sh` copies the act's words and owns no vocabulary |
+| `act_effect_record_bounded` | a truncated record does not say it truncated | the candidate set is unbounded in principle and GitHub caps annotations; a truncated record must never read as a short one |
+| `act_effect_workflow_records` | the workflow does not reach the recorder on every path | the degraded branch used to `exit 0` **before** recording — precisely the turn whose silence was measured |
+| `act_effect_one_reader_retirement` | the composition and the act's own source disagree | `act-effect.sh` owns the assembly and no act's vocabulary; it must be visibly unable to answer on its own |
+| `act_effect_one_reader_delivery` | the retry's recorded word is not carried verbatim, or an unattempted branch does not read `pending` | the delivery half is read off the branch story blob the claim scan already fetched — no network call, no second derivation |
+| `act_effect_changed_word_reasks` | an unchanged word re-asks, or a changed word does not | asked once per **(unit, refusal word)**. The gate is untouched: the narrowing lives in what the key is made of, so one mechanism cannot drift from itself |
+| `act_effect_event_names_the_units` | a blocked tick names no units, a tick whose acts took supplies an `event`, or the summary moves | the root's two guards, split: the empty event holds the healthy hour, the summary diff holds a standing block — which is why the summary carries no CI term |
+| `act_effect_breaker` | restoring the run-existence inference changes nothing | **the deliberately broken seam.** Answering `taken` from a completed run's existence must drop the question for a unit CI refused `gh_unavailable`. Written against the return shape this would pass a refactor that keeps the JSON and loses the reading, so it asserts the **damage** instead |
+| `act_effect_writes_nothing` | the drill changed the checkout | every fixture lives outside the checkout |
+
 ## 5l-bis. The revision (can the operator revise a live direction through the loop?)
 
 `verify-revision` needs no seed, no fire, no issue number and **no network**: the strategy half
@@ -1315,7 +1357,7 @@ rather than guessed. **No artifact gained a field**: the slug lives here and now
 | `verify-reconcile` | `hermetic` | yes | `reconcile-a-stale-thread-with-the-unit-s-real-state` |
 | `verify-checkin-delivery` | `hermetic` | yes | `deliver-what-the-loop-already-knows-to-the-person-who-can-act` |
 | `verify-findings-to-work` | `hermetic` | yes | `let-the-tick-s-own-findings-become-the-loop-s-work` |
-| `verify-act-effect` | `hermetic` | no | `read-back-whether-the-loop-s-own-act-took-effect` |
+| `verify-act-effect` | `hermetic` | yes | `read-back-whether-the-loop-s-own-act-took-effect` |
 
 ### The evidence behind the classification
 

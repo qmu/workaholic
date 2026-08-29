@@ -5155,6 +5155,34 @@ STUB
         add_row "act_effect_event_names_the_units" false "the event is wrong (blocked='${_ev1}' took='${_ev2}'; summaries equal=$([ "$_sm1" = "$_sm2" ] && echo yes || echo no))" load
     fi
 
+    # THE DELIBERATELY BROKEN ROW, WRITTEN AGAINST THE BEHAVIOUR. The retired inference is
+    # restored on the REAL script's own source -- after a completed run is found at the base tip,
+    # answer `taken` for every unit without ever consulting what the turn recorded -- and the
+    # copied step is run against it. A breaker written against the return SHAPE would pass a
+    # refactor that keeps the JSON and loses the effect reading, which is the failure the
+    # register exists to catch, so this asserts the DAMAGE: the unit whose act was refused
+    # `gh_unavailable` is suppressed and its holder is told nothing.
+    #
+    # It is worse now than the defect that was measured, and deliberately so: in production the
+    # inference produced a false SENTENCE while the question still went out, because suppression
+    # was keyed on a run-level `pending`. With the reading per unit, restoring the inference
+    # drops the question outright.
+    cp -R "${REPO_ROOT}/plugins/workaholic/skills" "${_tmp}/skills"
+    _bturn="${_tmp}/skills/drive/scripts/ci-retirement-turn.sh"
+    _bstep2="${_tmp}/skills/moderate/scripts/step-retire-claims.sh"
+    sed -e 's|^record=""$|emit true "" taken "$(units_all taken $UNITS)"\nrecord=""|' \
+        "$_turn" > "$_bturn"
+    chmod +x "$_bturn"
+    _record "$(_note 'candidates ok=true reason= count=1')," \
+            "$(_note 'act unit=batch-effect-refused branch=work-20260301-000002 state=not_attempted reason=gh_unavailable')"
+    _bout=$( ( cd "$_read" && PATH="${_bin}:$PATH" WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES=0 \
+        sh "$_bstep2" --tick 20260301-000030 --root "$_read" ) 2>&1 || true )
+    if ! printf '%s' "$_bout" | grep -q 'retire-blocked:batch-effect-refused'; then
+        add_row "act_effect_breaker" true "with the run-existence inference restored, a unit CI refused gh_unavailable reaches nobody -- this drill can fail" breaker
+    else
+        add_row "act_effect_breaker" false "the breaker did not break: restoring the inference changed nothing, so the reading assertions above prove nothing ($(one_line "$_bout"))" breaker
+    fi
+
     _after=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
     if [ "$_before" = "$_after" ]; then
         add_row "act_effect_writes_nothing" true "the checkout is byte-identical after the drill" load

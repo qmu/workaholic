@@ -39,7 +39,7 @@ their ruling, and the run report naming what was filed, held and left.
 
 ## Acceptance
 
-- [ ] A repairable finding becomes an issue and its question is suppressed; a
+- [x] A repairable finding becomes an issue and its question is suppressed; a
       `needs_ruling` finding still asks, unchanged. (#20260829042145-suppress-the-question-a-filing-answers.md)
 - [x] The brake holds at one open finding issue, the dedup is structural on the
       step id, and an unreadable read files nothing. (#20260829042145-dedup-the-filing-structurally-on-the-step-id.md)
@@ -53,3 +53,4 @@ their ruling, and the run report naming what was filed, held and left.
 - 2026-08-29 — ticket archived — 20260829042144-write-the-finding-filing-step.md
 - 2026-08-29 — ticket archived — 20260829042144-brake-the-filing-to-one-open-finding-issue.md
 - 2026-08-29 — ticket archived — 20260829042145-dedup-the-filing-structurally-on-the-step-id.md
+- 2026-08-29 — ticket archived — 20260829042145-suppress-the-question-a-filing-answers.md

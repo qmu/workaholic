@@ -1539,6 +1539,37 @@ of the two markers is allowed: an issue claiming to be both a channel message an
 would be matched by two dedups. It is in the **body**, not the title, so it survives a person
 retitling the issue.
 
+**And the question a filing answers is held.** A finding that has become work must not also ask
+a person — the same person, in the same hour, about the thing the loop is already driving.
+`finding-suppression.sh` is the one reader: a **sibling** of `ruling-suppression.sh`, in the
+same shape and under all four of its rules, but not an extension of it, because the sources
+differ (a ruling is an open **pull request**, a finding an open **issue**) and folding them
+would put two unrelated network reads behind one call. Every consulting step reads it and none
+reads `list-finding-issues.sh` itself: two readings of one fact drift.
+
+- **Keyed on the subject, never on the existence of a filing.** A filing naming one step's
+  finding must not silence a different step's question — suppressing on `any_open` would
+  silence the whole question queue behind one filing, the bug `ruling-suppression.sh` names in
+  its own header.
+- **An unreadable read holds nothing** (`ci-retirement-turn.sh`'s discipline).
+- **A `needs_ruling` finding still asks, byte-identically** — no filing can ever name it,
+  because it is never a candidate. `ask-question.sh` is **untouched**: the gate, the day cap,
+  the per-tick cap, the quiet hours, the working-day hold and the one bounded re-ask do not move,
+  and the gate never learns what a finding is.
+- **It holds the question, never an act.** `retire-claims` still retires what it proved; only
+  its `retire-blocked` question is withheld. The consulting steps are the ones that put a
+  **question to a person** and are in the repairable set: `retire-claims`, `stuck-prs`,
+  `undelivered-units`. `merge-conflicts`, `inbound-sweep`, `doc-drift` and `note-cadence` hand
+  the agent an **act** rather than a question, so there is nothing there to suppress and wiring
+  them would hold work instead — the opposite of the intent.
+- **The suppression is derived and stored nowhere**: merging the repair (which auto-closes its
+  issue) or closing it by hand makes the question reachable again. `held` is projected from the
+  **open** issues only; the dedup uses the closed ones too, because *has this been filed*
+  outlives *is it in flight*.
+- **It bites from the next tick.** `file-findings` runs after the steps whose reports are its
+  candidates, and the agent files after `run.sh` returns. Reordering the run to close that
+  window would put the filing before its own inputs.
+
 **No store, anywhere.** The issues are the memory, so a tick log that died with its container
 changes nothing — `filed-records.sh`'s rule, that a `<step>-filed` line is never itself the proof
 of a filing, holds here by construction because nothing reads such a line. The ledger's window is

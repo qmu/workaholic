@@ -18401,6 +18401,7 @@ const tests = [
   ["moderate: repairable or needing a ruling, pinned against STEPS", testFindingClassification],
   ["moderate/file-findings: a repairable finding, filed as work", testFileFindingsStep],
   ["moderate/file-findings: the brake, and the dedup that needs no store", testFindingBrakeAndDedup],
+  ["moderate/file-findings: the question a filing answers, held", testFindingSuppression],
   ["moderate/undelivered-units: the loop's own undelivered work reaches a person", testUndeliveredUnitsStep],
   ["moderate/reconcile-candidates.sh: which announced items may still be called in flight", testReconcileCandidates],
   ["moderate/thread-reconcile: the finished item whose thread still calls it in flight", testThreadReconcileStep],
@@ -27190,6 +27191,98 @@ function testFindingBrakeAndDedup() {
       assertTrue(`${f} does not write the marker itself`,
         !/printf 'finding: /.test(src), "a second writer of the marker is a dedup that stops matching");
     }
+  } finally { rmSync(tmp, { recursive: true, force: true }); }
+}
+
+// ---------- the question a filing answers, held (2026-08-29) ----------
+//
+// A finding that has become work must not ALSO ask a person — the same person, in the same
+// hour, about the thing the loop is already driving. Three bounds, all inherited rather than
+// invented, and each is asserted here as a behaviour:
+//
+//   * KEYED ON THE SUBJECT, never on the existence of a filing. A filing naming one step's
+//     finding must not silence a different step's question. This is the safety property: the
+//     dangerous simplification is suppressing on *any* open finding issue, which would silence
+//     the whole question queue behind one filing.
+//   * AN UNREADABLE READ HOLDS NOTHING (`ci-retirement-turn.sh`'s discipline): an over-eager
+//     question is better than a silently dropped one.
+//   * A `needs_ruling` FINDING STILL ASKS, byte-identically — no filing can ever name it,
+//     because it is never a candidate.
+//
+// AND `ask-question.sh` IS UNTOUCHED: the gate, the day cap, the per-tick cap, the quiet hours,
+// the working-day hold and the one bounded re-ask do not move, which is read out of the file
+// rather than asserted in prose.
+function testFindingSuppression() {
+  const tmp = mkdtempSync(join(tmpdir(), "wh-finding-supp-"));
+  const bin = join(tmp, "bin");
+  const repo = join(tmp, "repo");
+  mkdirSync(bin, { recursive: true });
+  mkdirSync(repo, { recursive: true });
+  const SCRIPTS = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts");
+  const SUPP = join(SCRIPTS, "finding-suppression.sh");
+  try {
+    execSync("git init -q . && git remote add origin git@github.com:acme-org/source-repo.git",
+      { cwd: repo });
+    const issue = (step) => JSON.stringify([{
+      number: 9, html_url: "https://example.invalid/9", state: "open",
+      body: `finding: ${step} / id: some-id-1\n`,
+    }]);
+    writeFileSync(join(bin, "gh"), [
+      "#!/bin/sh",
+      'filter=""; prev=""',
+      'for a in "$@"; do if [ "$prev" = "--jq" ]; then filter="$a"; fi; prev="$a"; done',
+      'case "$*" in',
+      '  *"issues?state=all"*)',
+      '    case "${WH_LEDGER:-empty}" in',
+      "      empty)  body='[]' ;;",
+      `      stuck)  body='${issue("stuck-prs")}' ;;`,
+      `      other)  body='${issue("retire-claims")}' ;;`,
+      "      broken) exit 1 ;;",
+      "    esac ;;",
+      "  *) exit 1 ;;",
+      "esac",
+      'if [ -n "$filter" ]; then printf \'%s\' "$body" | jq -r "$filter"; else printf \'%s\' "$body"; fi',
+    ].join("\n"));
+    chmodSync(join(bin, "gh"), 0o755);
+    const read = (ledger) => JSON.parse(run(repo, `${POSIX_SH} ${SUPP}`,
+      { env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, WH_LEDGER: ledger } })
+      .stdout.trim());
+
+    const none = read("empty");
+    assertEq("with no open finding issue nothing is held", none.held.steps.length, 0);
+    assertEq("...and the read is readable", none.readable, true);
+
+    const stuck = read("stuck");
+    assertEq("an open filing holds exactly the step it names",
+      stuck.held.steps.join(","), "stuck-prs");
+    // THE SAFETY PROPERTY. Suppressing on `any_open` would silence every question behind one
+    // filing, which is the bug `ruling-suppression.sh` names in its own header.
+    assertEq("a filing about another step holds only that other step",
+      read("other").held.steps.join(","), "retire-claims");
+
+    const blind = read("broken");
+    assertEq("an unreadable read holds nothing", blind.held.steps.length, 0);
+    assertEq("...and says so rather than reading as clear", blind.readable, false);
+    assertTrue("...naming its own reason", blind.reason.length > 0, JSON.stringify(blind));
+
+    // ---- THE CONSULTING STEPS READ THE SHARED READER, AND NONE READS THE LEDGER ITSELF ----
+    // Two readings of one fact drift, which is the rule `ruling-suppression.sh`'s header states.
+    for (const f of ["step-stuck-prs.sh", "step-retire-claims.sh", "step-undelivered-units.sh"]) {
+      const src = readFileSync(join(SCRIPTS, f), "utf8")
+        .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+      assertTrue(`${f} consults the shared suppression reader`,
+        src.includes("finding-suppression.sh"), "the step does not consult the shared reader");
+      assertTrue(`${f} does not read the finding ledger itself`,
+        !src.includes("list-finding-issues.sh"),
+        "a second reading of one fact is how the two drift");
+    }
+
+    // ---- THE GATE DID NOT MOVE ----
+    // `ask-question.sh` is untouched: it never learns what a finding is.
+    const gate = readFileSync(join(SCRIPTS, "ask-question.sh"), "utf8");
+    assertTrue("ask-question.sh knows nothing about findings",
+      !/finding-suppression|list-finding-issues|finding:/.test(gate),
+      "the gate was taught about findings instead of the steps holding their own questions");
   } finally { rmSync(tmp, { recursive: true, force: true }); }
 }
 

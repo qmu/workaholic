@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-29T09:20:46+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -115,3 +116,39 @@ never dressed as one we did.
 - The `truncated` and `read cap` clauses already in the sentence stay: they name a different
   limit — how much of the open set was read at all — and losing them would trade one silent
   boundary for another.
+
+## Final Report
+
+Development completed as planned, and the collapse was reproduced first: over a stubbed
+transport answering `mergeable: null` for every open pull request, step 4 reported `ok`,
+`none conflicted`, an empty `conflicted[]` and no `event` — the sentence the fix had to make
+impossible.
+
+Step 4 now counts `unknown` rows beside `conflict` rows and names them: a tick with uncomputed
+rows says how many it could not read and **never** says `none conflicted` about them, while a
+tick with neither keeps the earlier wording byte-identically. The gate's assertion is on the
+**absence of the words**, as the ticket required, so a wording that kept the claim and appended
+a number would still fail.
+
+The status choice is recorded rather than left to be inferred: `unknown` is GitHub not having
+finished, so it is **`ok`/`mergeability_uncomputed`** — not `degraded`, which names a transport
+this step could not read and the transport answered fine; and not `blocked`, which asserts a
+conflict nobody proved and would send a claim holder after one, the wrong direction on the
+merged-lookup precedent. The fourth outcome is stated in `reference/workflow.md` beside the
+existing three.
+
+`pulls-state.sh` is unmodified: `blocked_by` still has exactly one derivation, and the suite
+asserts no second one appeared. The posting behaviour is untouched — step 4 still supplies no
+`event` on any path, so one pull request still draws one Slack line per tick.
+
+### Discovered Insights
+
+- **Insight**: This ticket and its sibling are genuinely independent, and landing the sibling
+  first proved it live.
+  **Context**: With one resolution per tick both steps read the same `unknown` — and without
+  this ticket they would have said `none conflicted` together, in one voice instead of two. The
+  sibling removes the disagreement; only this makes the shared reading honest.
+- **Insight**: The `read cap` and `truncated` clauses had to stay in the sentence.
+  **Context**: They name a different limit — how much of the open set was read at all — so
+  dropping them while adding the uncomputed count would have traded one silent boundary for
+  another.

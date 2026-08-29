@@ -4988,6 +4988,56 @@ STUB
         add_row "act_effect_never_taken_from_existence" false "a completed run with no record still stood in for an act that did not happen (turn=$(one_line "$_t3")): $(one_line "$_s3")" load
     fi
 
+    # 4. THE TURN RECORDS WHAT IT ATTEMPTED. Run for real against the two documents the CI job
+    # produces, so the record's shape is proved rather than asserted about a YAML file. The
+    # DEGRADED reading is recorded too -- a turn that found nothing and a turn that found three
+    # and was refused are different facts, and the first is the one the report assumed.
+    _rec="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/record-ci-retirement-turn.sh"
+    printf '{"ok": false, "reason": "origin_unreachable", "candidates": []}\n' > "${_ctl}/c-degraded.json"
+    printf '{"ok": true, "reason": "", "candidates": [{"unit":"u1"},{"unit":"u2"}]}\n' > "${_ctl}/c-ok.json"
+    printf '%s\n%s\n' \
+        '{"deleted": false, "unit": "u1", "branch": "work-20260301-000001", "state": "not_attempted", "reason": "gh_unavailable"}' \
+        '{"deleted": true, "unit": "u2", "branch": "work-20260301-000002", "state": "deleted", "reason": ""}' \
+        > "${_ctl}/acts.jsonl"
+    _rd=$(sh "$_rec" --candidates "${_ctl}/c-degraded.json" --acts "${_ctl}/none" 2>&1 || true)
+    _ro=$(sh "$_rec" --candidates "${_ctl}/c-ok.json" --acts "${_ctl}/acts.jsonl" 2>&1 || true)
+    if printf '%s' "$_rd" | grep -q 'candidates ok=false reason=origin_unreachable count=0' \
+        && printf '%s' "$_ro" | grep -q 'candidates ok=true reason= count=2'; then
+        add_row "act_effect_record_names_the_reading" true "the candidate reading is recorded with its ok, its reason and its count -- including the degraded one that named nothing" load
+    else
+        add_row "act_effect_record_names_the_reading" false "the candidate reading was not recorded (degraded=$(one_line "$_rd") ok=$(one_line "$_ro"))" load
+    fi
+
+    # 5. AND ONE ENTRY PER CANDIDATE, CARRYING THE ACT'S OWN WORDS VERBATIM. A translation here
+    # would put a second vocabulary between the script that printed a word and the person a
+    # reader must send to it.
+    if printf '%s' "$_ro" | grep -q 'act unit=u1 branch=work-20260301-000001 state=not_attempted reason=gh_unavailable' \
+        && printf '%s' "$_ro" | grep -q 'act unit=u2 branch=work-20260301-000002 state=deleted reason='; then
+        add_row "act_effect_record_names_each_act" true "each candidate is recorded with its unit, branch and the act's own state and reason, unchanged" load
+    else
+        add_row "act_effect_record_names_each_act" false "the per-candidate record is wrong: $(one_line "$_ro")" load
+    fi
+
+    # 6. IT IS BOUNDED, AND A TRUNCATED RECORD SAYS SO rather than reading as a short one.
+    _rt=$(WORKAHOLIC_CI_RECORD_MAX=1 sh "$_rec" --candidates "${_ctl}/c-ok.json" --acts "${_ctl}/acts.jsonl" 2>&1 || true)
+    if printf '%s' "$_rt" | grep -q 'truncated recorded=1 of=2' \
+        && [ "$(printf '%s' "$_rt" | grep -c 'act unit=')" = "1" ]; then
+        add_row "act_effect_record_bounded" true "past the bound the record names how many it recorded of how many there were" load
+    else
+        add_row "act_effect_record_bounded" false "a truncated record did not say it truncated: $(one_line "$_rt")" load
+    fi
+
+    # 7. AND THE WORKFLOW CALLS IT ON EVERY PATH. The degraded reading used to `exit 0` before
+    # anything was recorded, which is exactly the turn whose silence was measured.
+    _wf=$(cat "$_flow" 2>/dev/null || true)
+    if printf '%s' "$_wf" | grep -q 'record-ci-retirement-turn.sh' \
+        && printf '%s' "$_wf" | grep -q 'if: always()' \
+        && ! printf '%s' "$_wf" | grep -q '^ *exit 0 *$'; then
+        add_row "act_effect_workflow_records" true "the turn records on every path, including the degraded reading it used to exit on" load
+    else
+        add_row "act_effect_workflow_records" false "the workflow does not reach the recorder on every path" load
+    fi
+
     _after=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
     if [ "$_before" = "$_after" ]; then
         add_row "act_effect_writes_nothing" true "the checkout is byte-identical after the drill" load

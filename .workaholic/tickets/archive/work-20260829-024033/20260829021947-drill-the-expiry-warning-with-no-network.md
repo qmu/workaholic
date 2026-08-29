@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-29T02:19:47+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -95,3 +96,32 @@ to refuse.
 - Time-dependent fixtures are the hazard here: derive the fixture dates from the
   run's own clock rather than hard-coding them, or the drill rots the moment the
   dates pass.
+
+## Final Report
+
+Development completed as planned. `sh scripts/e2e/loop-drill.sh verify-expiry` builds a
+git-backed fixture of five directions whose only differences are their dates and their work,
+and drills the whole chain offline: `expiring` inside the window, `live` outside it, `overdue`
+past the date and `arrived` above both; the `direction-expiring:<slug>` question naming the
+days left, the date and the leaving; its asked-once gate over two ticks through the real
+`ask-question.sh`; and that neither the step nor the reader can reach a strategy writer. Every
+fixture date is derived from the run clock. The case is registered in the usage string, the
+dispatch and the runbook's blame table (§5j-ter).
+
+**The breaker row was proved able to fail**: replacing `$window_days` with `14` in the
+`expiring` block turned the drill red on `expiry_window_is_the_surveys_own` alone (13 passed,
+1 failed) with every other row still green, and the drill went back to 14/0 when the edit was
+reverted.
+
+### Discovered Insights
+
+- **Insight**: the breaker had to be a **second run over the same fixture**, not a second
+  fixture.
+  **Context**: the shortcut the design refuses is a fresh constant in place of the survey's own
+  window, and no arrangement of dates can catch that — a constant of 14 and a window of 14
+  agree on every fixture. Reading the *same* tree through a narrower window is what separates
+  them, and it is why the row is a comparison rather than an assertion.
+- **Insight**: a root-line assertion must not name a linked artifact that the link bound may cut.
+  **Context**: the event links at most three strategies and counts the rest, so with four
+  subjects the last one is absent by design. The row asserts the phrase plus a link that is
+  inside the bound; naming the cut one would have failed for a reason unrelated to the reading.

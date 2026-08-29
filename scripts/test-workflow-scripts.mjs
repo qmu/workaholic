@@ -13,7 +13,7 @@
 // state, and cleans up. No network, no real remotes, no GitHub token, no
 // mutation of the developer's working tree. Run with `node scripts/test-workflow-scripts.mjs`.
 
-import { cpSync, copyFileSync, mkdtempSync, rmSync, writeFileSync, appendFileSync, readFileSync, mkdirSync, existsSync, statSync, chmodSync, readdirSync, realpathSync, symlinkSync } from "node:fs";
+import { cpSync, copyFileSync, mkdtempSync, rmSync, writeFileSync, appendFileSync, readFileSync, mkdirSync, existsSync, statSync, chmodSync, readdirSync, realpathSync, renameSync, symlinkSync } from "node:fs";
 import { execSync } from "node:child_process";
 import { join, resolve, dirname, basename } from "node:path";
 import { tmpdir } from "node:os";
@@ -1598,6 +1598,533 @@ function testArrivalQuestionNamesResidue() {
     // IT ASKS AND NOTHING ELSE.
     writeFileSync(s, readFileSync(s, "utf8").replace("slug: elsewhere", "slug: dir1"));
     assertEq("the step wrote nothing", execSync("git status --porcelain", { cwd: A, encoding: "utf8" }).trim(), "");
+  } finally { cleanup(A); }
+}
+
+// ---------- a direction is read BEFORE its date silences the loop (2026-08-29) ----------
+// THE DEFECT THIS REPRODUCES. Every reading in the direction layer answers backwards — `late`,
+// `overdue`, `dormant`, `arrived` — and none of them answers *this direction is about to stop
+// originating work*. So a live, in-date, `on_course` direction one day from its `target_date`
+// produced NO READING AND NO QUESTION anywhere in the layer: the survey emitted
+// `pace: on_course`, `overdue: false`, `dormant: false`; `direction-state.sh` answered `live`;
+// and `step-direction-health.sh` had no non-`live` reading to ask about. The day after,
+// `past_target_date` refuses the proposal and the only signal is `direction-overdue`, asked in
+// arrears — after the silence has already begun.
+//
+// Measured on `an-autonomous-improvement-loop-run-by-the-routines` at the hour the ask was
+// written: `days_to_target: 2`, `pace: on_course`, `overdue: false`, `dormant: false` — every
+// reading healthy, two days from silence.
+//
+// THE FIXTURE IS GIT-BACKED, and it must be: `landed[]` is a `git log --since` read, so a bare
+// file tree would make the direction read `dormant` and pass the first assertion for entirely
+// the wrong reason.
+//
+// AND IT CARRIES WORK IN FLIGHT, deliberately. A direction with landed work and NOTHING waiting
+// is `quiescent`, which projects to `arrived` — a reading, and therefore not the silence under
+// test. The state this reproduces is the ordinary one: a direction that is running fine and is
+// about to run out of date.
+function testExpiringDirectionIsRead() {
+  const SURVEY = join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/survey-strategies.sh");
+  const STATE = join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/direction-state.sh");
+  const STEP = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-direction-health.sh");
+  const A = makeRepo("main");
+  const W = join(A, ".workaholic");
+  const w = (p, body) => { mkdirSync(dirname(join(A, p)), { recursive: true }); writeFileSync(join(A, p), body); };
+  const day = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+  const strategy = (slug, target, ref) =>
+    `---\ntype: Strategy\ntitle: T ${slug}\nslug: ${slug}\nstatus: active\ntarget_date: ${target}\n` +
+    `assignees: [test@example.com]\nfeedback: [${ref}]\n---\n\n## Aim\n\na\n\n## Schedule\n\ns\n`;
+  try {
+    for (const r of ["a", "b", "c"]) w(`.workaholic/feedbacks/2026010100000${r}-${r}.md`, "---\ntype: Feedback\n---\n\nx\n");
+    // `soon` is the direction under test: one day out, running, with work in flight.
+    w(".workaholic/strategies/soon.md", strategy("soon", day(1), "2026010100000a-a.md"));
+    w(".workaholic/missions/archive/landed/mission.md",
+      "---\ntype: Mission\ntitle: Landed\nslug: landed\nstatus: achieved\n" +
+      "feedback: [2026010100000a-a.md]\n---\n\n## Experience\n\ne\n\n## Acceptance\n\n- [x] d\n");
+    w(".workaholic/missions/active/inflight/mission.md",
+      "---\ntype: Mission\ntitle: In flight\nslug: inflight\nstatus: active\n" +
+      "feedback: [2026010100000a-a.md]\n---\n\n## Experience\n\ne\n\n## Acceptance\n\n- [ ] a\n");
+    w(".workaholic/tickets/todo/20260102000000-q.md", "---\nmission: inflight\n---\n\n# Q\n");
+    // `gone` is the arrears half: one day PAST its date, which is the only signal today.
+    w(".workaholic/strategies/gone.md", strategy("gone", day(-1), "2026010100000b-b.md"));
+    // `later` is outside the window: a direction with runway left must read exactly as today.
+    w(".workaholic/strategies/later.md", strategy("later", day(30), "2026010100000c-c.md"));
+    const open = join(A, "open.json");
+    writeFileSync(open, '{"ok": true, "identity": "test", "proposals": []}\n');
+    execSync("git add -A && git commit -q -m seed", { cwd: A });
+
+    const survey = JSON.parse(run(A, `${POSIX_SH} ${SURVEY} --open-proposals ${open} "14 days ago" ${W}`).stdout);
+    const row = (slug) => survey.eligible.concat(survey.refused).find((r) => r.slug === slug);
+
+    // THE FIXTURE IS REALLY THE SHAPE UNDER TEST. Without this, every assertion below could
+    // pass for a reason that has nothing to do with the approaching date.
+    assertEq("the direction is one day out, running, with work in flight",
+      [row("soon").days_to_target, row("soon").pace, row("soon").overdue,
+       row("soon").dormant, row("soon").quiescent],
+      [1, "on_course", false, false, false]);
+
+    // 1. THE MISSING READING — the assertion this test exists for. Nothing in the layer named
+    // the approaching date, so this failed before `expiring` was emitted.
+    assertEq("the survey row names the approaching date", row("soon").expiring, true);
+    assertEq("and the lifecycle reader projects it",
+      JSON.parse(run(A, `${POSIX_SH} ${STATE} --open-proposals ${open} "14 days ago" ${W}`).stdout)
+        .strategies.find((s) => s.slug === "soon").state,
+      "expiring");
+    const step = JSON.parse(run(A, `${POSIX_SH} ${STEP} --tick 20260829-000000 --root ${A} --open-proposals ${open}`).stdout);
+    assertTrue("and the step asks its assignee about it, before the date",
+      (step.needs_agent[0] || {}).directions.some((d) => d.key === "direction-expiring:soon"),
+      JSON.stringify((step.needs_agent[0] || {}).directions || []));
+
+    // 2. THE ARREARS HALF, unchanged: past the date the reading is `overdue` and the proposal
+    // is refused `past_target_date`. This half passed before the reading existed and must go on
+    // passing — the signal in arrears is not removed, it is merely no longer the only one.
+    assertEq("a direction past its date is refused past_target_date",
+      survey.refused.find((r) => r.slug === "gone").reason, "past_target_date");
+    assertEq("and reads overdue, never expiring",
+      [row("gone").overdue, row("gone").expiring], [true, false]);
+
+    // 3. A DIRECTION WITH RUNWAY LEFT IS UNTOUCHED. The reading is about the last window, not
+    // about every dated direction.
+    assertEq("a direction outside the window reads exactly as it did", row("later").expiring, false);
+  } finally { cleanup(A); }
+}
+
+// ---------- expiring: the boundary, and the window it is derived from (2026-08-29) ----------
+// The reading is admissible because it introduces NO NEW THRESHOLD: both of its terms were
+// already on the row and already justified there. So what has to be pinned is exactly that —
+// the boundary sits where the two existing terms put it, and the window is the survey's own
+// `$window_days` rather than a constant somebody would later have to defend.
+//
+// `overdue` AND `expiring` ARE EXHAUSTIVE AND DISJOINT over a resolvable date: `< 0` is
+// overdue, `0 <= d <= window` is expiring, and beyond the window is neither. A direction whose
+// date is TODAY is expiring, not overdue — the boundary the survey states rather than tunes.
+function testExpiringBoundary() {
+  const SURVEY = join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/survey-strategies.sh");
+  const A = makeRepo("main");
+  const W = join(A, ".workaholic");
+  const w = (p, body) => { mkdirSync(dirname(join(A, p)), { recursive: true }); writeFileSync(join(A, p), body); };
+  const day = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+  try {
+    w(".workaholic/feedbacks/20260101000000-a.md", "---\ntype: Feedback\n---\n\nx\n");
+    // One direction per boundary case, all otherwise identical.
+    const at = { yesterday: -1, today: 0, edge: 14, beyond: 15 };
+    for (const [slug, n] of Object.entries(at)) {
+      w(`.workaholic/strategies/${slug}.md`,
+        `---\ntype: Strategy\ntitle: T ${slug}\nslug: ${slug}\nstatus: active\ntarget_date: ${day(n)}\n` +
+        `assignees: [test@example.com]\nfeedback: [20260101000000-a.md]\n---\n\n## Aim\n\na\n\n## Schedule\n\ns\n`);
+    }
+    // And one with no resolvable date at all: malformed is not near, exactly as it is not late.
+    w(".workaholic/strategies/undated.md",
+      "---\ntype: Strategy\ntitle: T undated\nslug: undated\nstatus: active\ntarget_date: \n" +
+      "assignees: [test@example.com]\nfeedback: [20260101000000-a.md]\n---\n\n## Aim\n\na\n\n## Schedule\n\ns\n");
+    const open = join(A, "open.json");
+    writeFileSync(open, '{"ok": true, "identity": "test", "proposals": []}\n');
+    execSync("git add -A && git commit -q -m seed", { cwd: A });
+
+    const j = JSON.parse(run(A, `${POSIX_SH} ${SURVEY} --open-proposals ${open} "14 days ago" ${W}`).stdout);
+    const rows = j.eligible.concat(j.refused);
+    const by = (slug) => rows.find((r) => r.slug === slug);
+
+    // 1. EVERY ROW CARRIES IT, eligible and refused alike. The refused case is the point: a
+    // direction refused for any other reason still has a date coming.
+    assertEq("every surveyed row carries the reading",
+      rows.filter((r) => typeof r.expiring === "boolean").length, rows.length);
+
+    // 2. THE BOUNDARY, at each of its four corners plus the malformed case.
+    assertEq("a date that has gone is overdue and never expiring",
+      [by("yesterday").overdue, by("yesterday").expiring], [true, false]);
+    assertEq("a date that is today is expiring and not yet overdue",
+      [by("today").days_to_target, by("today").overdue, by("today").expiring], [0, false, true]);
+    assertEq("the last day of the window is inside it",
+      [by("edge").days_to_target, by("edge").expiring], [14, true]);
+    assertEq("and the day beyond it is outside",
+      [by("beyond").days_to_target, by("beyond").expiring], [15, false]);
+    assertEq("a direction with no resolvable date is never expiring",
+      [by("undated").days_to_target, by("undated").expiring, by("undated").overdue],
+      [null, false, false]);
+
+    // 3. THE WINDOW IS THE SURVEY'S OWN, not a constant. A narrower window moves the boundary
+    // with it, which is the property that makes the reading defensible: it means *less runway
+    // remains than the window the judgment can see*, and nothing else.
+    const narrow = JSON.parse(run(A, `${POSIX_SH} ${SURVEY} --open-proposals ${open} "7 days ago" ${W}`).stdout);
+    const nby = (slug) => narrow.eligible.concat(narrow.refused).find((r) => r.slug === slug);
+    assertEq("a narrower window narrows the reading with it",
+      [nby("today").expiring, nby("edge").expiring], [true, false]);
+
+    // 4. NO NEW CONSTANT AND NO FOURTH `pace` VALUE. The expression reads `$window_days` and
+    // the `pace` field keeps exactly its three answers.
+    const src = readFileSync(SURVEY, "utf8");
+    const block = src.slice(src.indexOf("| . + {expiring:"), src.indexOf("| . + {dormant:"));
+    const expr = block.split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+    // The only numeric literal the expression may carry is the `0` that separates it from
+    // `overdue` — a stated boundary, not a tunable. Any other number would be the constant the
+    // design refuses.
+    assertEq("the window term is the survey's own $window_days, with no constant beside it",
+      [/\$window_days/.test(expr),
+       (expr.match(/\d+/g) || []).filter((n) => n !== "0")],
+      [true, []]);
+    assertEq("pace still answers exactly three ways",
+      [...new Set(rows.map((r) => r.pace))].sort().every((p) => ["late", "on_course", "unknown"].includes(p)),
+      true);
+  } finally { cleanup(A); }
+}
+
+// ---------- expiring, ranked in the lifecycle precedence (2026-08-29) ----------
+// `direction-state.sh` owns exactly one thing — the precedence — so what a test can hold is the
+// order, pair by pair:
+//
+//   unreadable  >  arrived  >  overdue  >  expiring  >  dormant  >  live
+//
+// `arrived` above `expiring` because the two ask for DIFFERENT acts; `overdue` above it because
+// a date that has gone is a stronger fact than one approaching and the act is the same one;
+// `dormant` below it because a silent direction near its date is about to be silenced by the
+// date first, and the date is the fact with a deadline on it.
+function testExpiringPrecedence() {
+  const STATE = join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/direction-state.sh");
+  const A = makeRepo("main");
+  const W = join(A, ".workaholic");
+  const w = (p, body) => { mkdirSync(dirname(join(A, p)), { recursive: true }); writeFileSync(join(A, p), body); };
+  const day = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+  const strategy = (slug, target, ref) =>
+    `---\ntype: Strategy\ntitle: T ${slug}\nslug: ${slug}\nstatus: active\ntarget_date: ${target}\n` +
+    `assignees: [test@example.com]\nfeedback: [${ref}]\n---\n\n## Aim\n\na\n\n## Schedule\n\ns\n`;
+  const mission = (slug, status, area, ref) =>
+    w(`.workaholic/missions/${area}/${slug}/mission.md`,
+      `---\ntype: Mission\ntitle: M ${slug}\nslug: ${slug}\nstatus: ${status}\nfeedback: [${ref}]\n---\n\n` +
+      `## Experience\n\ne\n\n## Acceptance\n\n- [ ] a\n`);
+  try {
+    for (const r of ["a", "b", "c", "d", "e"]) w(`.workaholic/feedbacks/2026010100000${r}-${r}.md`, "---\ntype: Feedback\n---\n\nx\n");
+    // Inside the window, running, work in flight — the reading under test.
+    w(".workaholic/strategies/soon.md", strategy("soon", day(2), "2026010100000a-a.md"));
+    mission("landed-a", "achieved", "archive", "2026010100000a-a.md");
+    mission("inflight-a", "active", "active", "2026010100000a-a.md");
+    w(".workaholic/tickets/todo/20260102000000-qa.md", "---\nmission: inflight-a\n---\n\n# Q\n");
+    // Past its date: `overdue` outranks `expiring`, and `expiring` is false there anyway.
+    w(".workaholic/strategies/gone.md", strategy("gone", day(-2), "2026010100000b-b.md"));
+    // Inside the window AND quiescent: `arrived` outranks `expiring`, because the two ask for
+    // different acts. This is the pair a severity-only ordering would get wrong.
+    w(".workaholic/strategies/finished.md", strategy("finished", day(2), "2026010100000c-c.md"));
+    mission("landed-c", "achieved", "archive", "2026010100000c-c.md");
+    // Inside the window AND dormant: `expiring` wins — the date is the fact with a deadline.
+    w(".workaholic/strategies/silent.md", strategy("silent", day(2), "2026010100000d-d.md"));
+    // Far out and dormant: unchanged by any of this.
+    w(".workaholic/strategies/later.md", strategy("later", day(300), "2026010100000e-e.md"));
+    const open = join(A, "open.json");
+    writeFileSync(open, '{"ok": true, "identity": "test", "proposals": []}\n');
+    execSync("git add -A && git commit -q -m seed", { cwd: A });
+
+    const j = JSON.parse(run(A, `${POSIX_SH} ${STATE} --open-proposals ${open} "14 days ago" ${W}`).stdout);
+    const state = (slug) => (j.strategies.find((s) => s.slug === slug) || {}).state;
+
+    assertEq("a healthy direction inside the window reads expiring", state("soon"), "expiring");
+    assertEq("a direction past its date still reads overdue", state("gone"), "overdue");
+    assertEq("a quiescent direction inside the window reads arrived", state("finished"), "arrived");
+    assertEq("a silent direction inside the window reads expiring", state("silent"), "expiring");
+    assertEq("a silent direction outside it still reads dormant", state("later"), "dormant");
+    assertEq("its reason names the approaching date",
+      j.strategies.find((s) => s.slug === "soon").reason, "the target_date is approaching");
+
+    // THE COUNTS CARRY THE NEW RUNG AND NOTHING ELSE MOVED. Adding a rung changes the shape of
+    // `counts`, so every key is asserted rather than only the new one.
+    assertEq("counts carry expiring beside the others", j.counts,
+      { live: 0, arrived: 1, overdue: 1, expiring: 2, dormant: 1, unreadable: 0 });
+
+    // THE READER DERIVES NOTHING. Every state is a projection of a field the survey emitted;
+    // a date computation here would be the second derivation the whole script exists to prevent.
+    const body = readFileSync(STATE, "utf8").split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+    for (const arith of ["fromdateiso8601", "86400", "strftime", "mktime"]) {
+      assertTrue(`the reader performs no date arithmetic (${arith})`, !body.includes(arith), body);
+    }
+    for (const writer of ["create.sh", "amend.sh", "close.sh"]) {
+      assertTrue(`and reaches no strategy writer (${writer})`, !body.includes(writer), body);
+    }
+  } finally { cleanup(A); }
+}
+
+// ---------- the leaving rides an expiring row, at no extra read (2026-08-29) ----------
+// `--with-leaving` attaches `closing-residue.sh`'s composition — what the direction never
+// reached, what no direction claimed, and its own last lifecycle reading — and an `expiring`
+// reading needs it for the same reason `arrived` and `overdue` do: the person being asked to
+// re-date a direction BEFORE its date needs the same evidence as one asked to close it after.
+//
+// THE PROPERTY THAT MATTERS IS THE COST. It is CARRIED, never re-read: the row goes back to the
+// composer through `--state-row`, so attaching the reading costs not one extra read of the tree.
+// That is a property a later edit can lose silently, so it is measured here by counting the
+// invocations of both walkers with the flag off and on rather than by reading the source.
+function testExpiringCarriesTheLeaving() {
+  const A = makeRepo("main");
+  const W = join(A, ".workaholic");
+  const w = (p, body) => { mkdirSync(dirname(join(A, p)), { recursive: true }); writeFileSync(join(A, p), body); };
+  const day = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+  const strategy = (slug, target, ref) =>
+    `---\ntype: Strategy\ntitle: T ${slug}\nslug: ${slug}\nstatus: active\ntarget_date: ${target}\n` +
+    `assignees: [test@example.com]\nfeedback: [${ref}]\n---\n\n## Aim\n\na\n\n## Schedule\n\ns\n`;
+  try {
+    for (const r of ["a", "b", "c"]) w(`.workaholic/feedbacks/2026010100000${r}-${r}.md`, "---\ntype: Feedback\n---\n\nx\n");
+    w(".workaholic/strategies/soon.md", strategy("soon", day(2), "2026010100000a-a.md"));
+    w(".workaholic/strategies/gone.md", strategy("gone", day(-2), "2026010100000b-b.md"));
+    w(".workaholic/missions/active/inflight/mission.md",
+      "---\ntype: Mission\ntitle: In flight\nslug: inflight\nstatus: active\n" +
+      "feedback: [2026010100000a-a.md]\n---\n\n## Experience\n\ne\n\n## Acceptance\n\n- [ ] a\n");
+    w(".workaholic/tickets/todo/20260102000000-q.md", "---\nmission: inflight\n---\n\n# Q\n");
+    // A mission no direction claims, so the residue half of the leaving is non-empty too.
+    w(".workaholic/missions/active/orphan/mission.md",
+      "---\ntype: Mission\ntitle: Orphan\nslug: orphan\nstatus: active\n" +
+      "feedback: [2026010100000c-c.md]\n---\n\n## Experience\n\ne\n\n## Acceptance\n\n- [ ] a\n");
+    const open = join(A, "open.json");
+    writeFileSync(open, '{"ok": true, "identity": "test", "proposals": []}\n');
+    execSync("git add -A && git commit -q -m seed", { cwd: A });
+
+    // The plugin tree is copied so the two walkers can be wrapped in counters. The wrapper
+    // execs the original, so every reading below is the real one.
+    cpSync(join(REPO_ROOT, "plugins"), join(A, "plugins"), { recursive: true });
+    const SS = join(A, "plugins/workaholic/skills/strategy/scripts");
+    const counter = join(A, "reads.txt");
+    for (const name of ["attributed-work.sh", "unattributed-work.sh"]) {
+      renameSync(join(SS, name), join(SS, `real-${name}`));
+      writeFileSync(join(SS, name),
+        `#!/bin/sh\nprintf '%s\\n' "${name}" >> "${counter}"\nexec sh "$(dirname "$0")/real-${name}" "$@"\n`);
+    }
+    const STATE = join(SS, "direction-state.sh");
+    const readOf = (flag) => {
+      writeFileSync(counter, "");
+      const j = JSON.parse(run(A, `${POSIX_SH} ${STATE} ${flag} --open-proposals ${open} "14 days ago" ${W}`).stdout);
+      return { j, reads: readFileSync(counter, "utf8").split("\n").filter(Boolean).length };
+    };
+    const plain = readOf("");
+    const withLeaving = readOf("--with-leaving");
+
+    // 1. THE READING IS THERE, in the shape the other two carry.
+    const row = (j, slug) => j.strategies.find((s) => s.slug === slug);
+    assertEq("the expiring row carries the leaving",
+      [row(withLeaving.j, "soon").state,
+       row(withLeaving.j, "soon").leaving.readable,
+       row(withLeaving.j, "soon").leaving.waiting.count,
+       row(withLeaving.j, "soon").leaving.residue.mission_count,
+       row(withLeaving.j, "soon").leaving.lifecycle.state],
+      ["expiring", true, 1, 1, "expiring"]);
+    assertEq("in the same shape the overdue row carries",
+      Object.keys(row(withLeaving.j, "soon").leaving).sort(),
+      Object.keys(row(withLeaving.j, "gone").leaving).sort());
+
+    // 2. NOT ONE EXTRA READ. The composer takes all three facts off the row the survey already
+    // produced, so the flag costs nothing.
+    assertEq("attaching the leaving reads the tree no more times than not attaching it",
+      withLeaving.reads, plain.reads);
+    assertTrue("and the fixture really exercises those readers", plain.reads > 0, String(plain.reads));
+
+    // 3. WITHOUT THE FLAG THE ROW IS BYTE-IDENTICAL. `--with-leaving` is opt-in and moves no
+    // other field.
+    assertEq("the expiring row is unchanged without the flag",
+      JSON.stringify(row(plain.j, "soon")),
+      JSON.stringify((({ leaving, ...rest }) => rest)(row(withLeaving.j, "soon"))));
+
+    // 4. A DEGRADED LEAVING IS NAMED, WITH NULL COUNTS — never rendered as an empty leaving.
+    // The residue reader loses the reader it composes, so `dir`'s own legibility is untouched
+    // and only the residue half is blind.
+    rmSync(join(SS, "mission-strategy.sh"));
+    const blind = row(readOf("--with-leaving").j, "soon");
+    assertEq("a degraded residue makes the leaving unreadable, by its own reason, with null counts",
+      [blind.leaving.readable,
+       /^residue_unreadable:/.test(blind.leaving.reason),
+       blind.leaving.residue.mission_count,
+       blind.leaving.waiting.readable],
+      [false, true, null, true]);
+  } finally { cleanup(A); }
+}
+
+// ---------- the assignee is asked once, before the date (2026-08-29) ----------
+// The reading's whole point: `past_target_date` silences origination, and until this question
+// the only signal was `direction-overdue`, asked once, after the fact. The precedent is
+// `direction-last:<slug>`, which names the last live direction to its owner WHILE THEY CAN
+// STILL ACT rather than announcing silence afterwards to nobody.
+//
+// EVERY EXISTING GATE APPLIES UNCHANGED, so what is pinned here is the key, the addressee, the
+// wording, the mutual exclusion with the other readings, and that the step still asks and does
+// nothing else.
+function testExpiringQuestion() {
+  const STEP = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-direction-health.sh");
+  const ASK = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/ask-question.sh");
+  const A = makeRepo("main");
+  const W = join(A, ".workaholic");
+  const w = (p, body) => { mkdirSync(dirname(join(A, p)), { recursive: true }); writeFileSync(join(A, p), body); };
+  const day = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+  const strategy = (slug, target, ref) =>
+    `---\ntype: Strategy\ntitle: T ${slug}\nslug: ${slug}\nstatus: active\ntarget_date: ${target}\n` +
+    `assignees: [test@example.com]\nfeedback: [${ref}]\n---\n\n## Aim\n\na\n\n## Schedule\n\ns\n`;
+  const subjectsOf = (j) => (j.needs_agent[0] || {}).directions || [];
+  try {
+    for (const r of ["a", "b", "c"]) w(`.workaholic/feedbacks/2026010100000${r}-${r}.md`, "---\ntype: Feedback\n---\n\nx\n");
+    w(".workaholic/strategies/soon.md", strategy("soon", day(3), "2026010100000a-a.md"));
+    w(".workaholic/strategies/gone.md", strategy("gone", day(-3), "2026010100000b-b.md"));
+    w(".workaholic/missions/active/inflight/mission.md",
+      "---\ntype: Mission\ntitle: In flight\nslug: inflight\nstatus: active\n" +
+      "feedback: [2026010100000a-a.md]\n---\n\n## Experience\n\ne\n\n## Acceptance\n\n- [ ] a\n");
+    w(".workaholic/tickets/todo/20260102000000-q.md", "---\nmission: inflight\n---\n\n# Q\n");
+    w(".workaholic/missions/active/orphan/mission.md",
+      "---\ntype: Mission\ntitle: Orphan\nslug: orphan\nstatus: active\n" +
+      "feedback: [2026010100000c-c.md]\n---\n\n## Experience\n\ne\n\n## Acceptance\n\n- [ ] a\n");
+    const open = join(A, "open.json");
+    writeFileSync(open, '{"ok": true, "identity": "test", "proposals": []}\n');
+    execSync("git add -A && git commit -q -m seed", { cwd: A });
+
+    const stepOf = (tick, step = STEP) =>
+      JSON.parse(run(A, `${POSIX_SH} ${step} --tick ${tick} --root ${A} --open-proposals ${open}`).stdout);
+    const j = stepOf("20260829-000000");
+    const soon = subjectsOf(j).find((d) => d.key === "direction-expiring:soon");
+
+    // 1. THE QUESTION, ITS KEY AND ITS ADDRESSEE.
+    assertTrue("the expiring direction is asked about", !!soon, JSON.stringify(subjectsOf(j)));
+    assertEq("addressed to the direction's assignee", soon.assignees, "test@example.com");
+
+    // 2. IT NAMES THE DATE, THE DAYS LEFT AND THE LEAVING. A warning that does not say how long
+    // somebody has is not a warning.
+    assertTrue("the heading names the days left and the date",
+      /reaches its target date in 3 day\(s\) \(\d{4}-\d{2}-\d{2}\)/.test(soon.heading), soon.heading);
+    assertTrue("and what it never reached, beside what no direction claimed",
+      /never reached: 1 mission\(s\), 1 ticket\(s\) still queued/.test(soon.heading)
+      && /not attributed to any direction: orphan \(0 queued\)/.test(soon.heading), soon.heading);
+    assertTrue("its body carries the size and one sentence naming the operator's act",
+      /^It would leave 2 unreached and 1 unclaimed\. Re-date it, announce a successor when you end it, or say it still stands/.test(soon.body),
+      soon.body);
+    // The act sentence is what `workaholic:notify` bounds; the leaving clause is a prefix the
+    // other readings carry the same way.
+    const act = soon.body.split(". ").slice(1).join(". ");
+    assertTrue(`the act is one sentence inside the 25-word bound (${act.split(/\s+/).length})`,
+      act.split(/\s+/).length <= 25, act);
+
+    // 3. ONE DIRECTION, ONE QUESTION. A direction that already drew another reading draws no
+    // expiring question, and the expiring one draws no other.
+    assertEq("each direction draws exactly one question",
+      subjectsOf(j).map((d) => d.key).sort(),
+      ["direction-expiring:soon", "direction-overdue:gone"]);
+
+    // 4. ASKED ONCE. The step produces the same key on a later tick; the gate that refuses the
+    // second ask is `ask-question.sh`'s, exercised here with this key rather than assumed.
+    assertEq("the same key is produced on a later tick",
+      subjectsOf(stepOf("20260829-010000")).map((d) => d.key).sort(),
+      subjectsOf(j).map((d) => d.key).sort());
+    const qroot = mkdtempSync(join(tmpdir(), "wh-expiring-ask-"));
+    mkdirSync(join(qroot, ".workaholic/moderations"), { recursive: true });
+    const ask = (tick) => JSON.parse(run(REPO_ROOT,
+      `${POSIX_SH} ${ASK} --tick ${tick} --key "direction-expiring:soon" --root ${qroot} --to test@example.com --hour 10 --weekday 1`).stdout);
+    const first = ask("20260829-000000");
+    assertEq("the first ask is allowed", first.ask, true);
+    run(REPO_ROOT, `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/log-append.sh")} --root ${qroot} --tick 20260829-000000 --step ${first.log_step} --status ok --summary asked`);
+    assertEq("and the second is refused", ask("20260829-010000").ask, false);
+    rmSync(qroot, { recursive: true, force: true });
+
+    // 5. A DEGRADED LEAVING RENDERS NOTHING AND SUPPRESSES NOTHING. Our own blindness never
+    // silences a person's question, and is never dressed up as an empty leaving.
+    cpSync(join(REPO_ROOT, "plugins"), join(A, "plugins"), { recursive: true });
+    rmSync(join(A, "plugins/workaholic/skills/strategy/scripts/mission-strategy.sh"));
+    const blind = stepOf("20260829-020000", join(A, "plugins/workaholic/skills/moderate/scripts/step-direction-health.sh"));
+    const bsoon = subjectsOf(blind).find((d) => d.key === "direction-expiring:soon");
+    assertTrue("the question is still asked over a leaving we could not compose", !!bsoon,
+      JSON.stringify(subjectsOf(blind)));
+    assertTrue("with no leaving detail invented",
+      !/never reached|not attributed|It would leave/.test(bsoon.heading + bsoon.body),
+      bsoon.heading + " | " + bsoon.body);
+    assertTrue("and the degradation counted in the log-facing summary",
+      /2 leaving unreadable/.test(blind.summary), blind.summary);
+    rmSync(join(A, "plugins"), { recursive: true });
+
+    // 6. IT ASKS AND NOTHING ELSE, and never reaches the survey that stages what it converges.
+    assertEq("the step wrote nothing",
+      execSync("git status --porcelain", { cwd: A, encoding: "utf8" })
+        .split("\n").filter((l) => l && !/open\.json/.test(l)).join("\n"), "");
+    const body = readFileSync(STEP, "utf8").split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+    for (const forbidden of ["plan-units.sh", "close.sh", "amend.sh", "create.sh"]) {
+      assertTrue(`the step never reaches ${forbidden}`, !body.includes(forbidden), body);
+    }
+  } finally { cleanup(A); }
+}
+
+// ---------- expiring is evidence in the report, and gates nothing (2026-08-29) ----------
+// `pace` "changes order, never eligibility"; `arrived` "lifts and closes no gate"; and this is
+// the same. A reading that a direction is about to expire must not silence, reorder, hold or
+// accelerate the one routine that originates work — making its output a function of a clock is
+// exactly the coupling `pace` was kept out of, and the person who must act is reached by
+// `/moderate`'s question rather than by a report line nobody opens on the day it matters.
+//
+// SO THE TEST IS A DIFF OVER FIXTURES THAT DIFFER IN EXACTLY `days_to_target`: one inside the
+// window, one outside it, everything else byte-identical. A passing diff cannot then be
+// explained by anything but the term itself.
+function testExpiringGatesNothing() {
+  const SURVEY = join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/survey-strategies.sh");
+  const A = makeRepo("main");
+  const W = join(A, ".workaholic");
+  const w = (p, body) => { mkdirSync(dirname(join(A, p)), { recursive: true }); writeFileSync(join(A, p), body); };
+  const day = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+  const strategy = (slug, target, ref) =>
+    `---\ntype: Strategy\ntitle: T ${slug}\nslug: ${slug}\nstatus: active\ntarget_date: ${target}\n` +
+    `assignees: [test@example.com]\nfeedback: [${ref}]\n---\n\n## Aim\n\na\n\n## Schedule\n\ns\n`;
+  try {
+    for (const r of ["a", "b"]) w(`.workaholic/feedbacks/2026010100000${r}-${r}.md`, "---\ntype: Feedback\n---\n\nx\n");
+    // Landed work, so `pace` reads `on_course` on both sides of the boundary and cannot be
+    // what explains a difference.
+    w(".workaholic/missions/archive/landed/mission.md",
+      "---\ntype: Mission\ntitle: Landed\nslug: landed\nstatus: achieved\n" +
+      "feedback: [2026010100000a-a.md]\n---\n\n## Experience\n\ne\n\n## Acceptance\n\n- [x] d\n");
+    // A second direction, so `selected` and the sort are not trivially one-element.
+    w(".workaholic/strategies/other.md", strategy("other", day(100), "2026010100000b-b.md"));
+    const open = join(A, "open.json");
+    writeFileSync(open, '{"ok": true, "identity": "test", "proposals": []}\n');
+    const surveyAt = (n) => {
+      w(".workaholic/strategies/dir.md", strategy("dir", day(n), "2026010100000a-a.md"));
+      execSync("git add -A && git commit -q -m date --allow-empty", { cwd: A });
+      return JSON.parse(run(A, `${POSIX_SH} ${SURVEY} --open-proposals ${open} "14 days ago" ${W}`).stdout);
+    };
+    const inside = surveyAt(5);
+    const outside = surveyAt(60);
+
+    // THE FIXTURE REALLY CROSSES THE BOUNDARY.
+    const rowOf = (s) => s.eligible.concat(s.refused).find((r) => r.slug === "dir");
+    assertEq("the two fixtures differ in the reading", [rowOf(inside).expiring, rowOf(outside).expiring],
+      [true, false]);
+
+    // 1. NO GATE, NO SORT, NO SELECTION. Every gate-bearing field is compared as a whole.
+    const gates = (s) => ({
+      selected: s.selected,
+      order: s.eligible.map((r) => r.slug),
+      refusals: s.eligible.concat(s.refused).sort((a, b) => a.slug.localeCompare(b.slug))
+        .map((r) => `${r.slug}:${r.reason || ""}`),
+      readings: s.eligible.concat(s.refused).sort((a, b) => a.slug.localeCompare(b.slug))
+        .map((r) => `${r.slug}:${r.pace}:${r.overdue}:${r.dormant}:${r.quiescent}`),
+    });
+    assertEq("crossing the boundary moves no gate, no order and no selection",
+      gates(inside), gates(outside));
+
+    // 2. AND `expiring` IS THE ONLY FIELD THAT MOVED, beside the date terms it is derived from.
+    const moved = Object.keys(rowOf(inside))
+      .filter((k) => JSON.stringify(rowOf(inside)[k]) !== JSON.stringify(rowOf(outside)[k])).sort();
+    assertEq("the only field that moved is the reading itself", moved,
+      ["days_to_target", "expiring", "target_date"]);
+
+    // 3. THE REPORT NAMES IT AS EVIDENCE, and says it gates nothing. Prose is the only place
+    // this can live — the report is written by the run, not by a script.
+    const cmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/propose.md"), "utf8");
+    const loop = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/propose/reference/loop.md"), "utf8");
+    assertTrue("the command states the report line", /expiring/.test(cmd) && /gates nothing either/.test(cmd), "");
+    assertTrue("and names the question that does reach a person",
+      /direction-expiring:<slug>/.test(cmd) && /direction-expiring:<slug>/.test(loop), "");
+    assertTrue("the run report contract names the term beside the proposal",
+      /`expiring: true`/.test(loop), "");
+
+    // 4. THE DRILL EXISTS, is dispatched by its verb, and is documented — the same three pins
+    // every other verify target carries, so a drill that is written and never wired reads
+    // exactly like one that runs. Its deliberately-broken row is named in both places, because
+    // a drill that cannot fail proves nothing and the runbook is where an operator learns which
+    // row that is.
+    const drill = readFileSync(join(REPO_ROOT, "scripts/e2e/loop-drill.sh"), "utf8");
+    assertTrue("verify-expiry is in loop-drill.sh", /cmd_verify_expiry\(\)/.test(drill), "not present");
+    assertTrue("and is dispatched by its verb", /verify-expiry\) cmd_verify_expiry/.test(drill), "not wired");
+    assertTrue("and its usage line names it", /verify-expiry \[--json\]/.test(drill), "not in the usage line");
+    const runbook = readFileSync(join(REPO_ROOT, "docs/loop-drill-runbook.md"), "utf8");
+    assertTrue("and the runbook documents it alongside the others", /verify-expiry/.test(runbook), "undocumented");
+    assertTrue("with the deliberately-broken row named as the proof it is",
+      /expiry_window_is_the_surveys_own/.test(runbook) && /expiry_window_is_the_surveys_own/.test(drill),
+      "the failing row is missing from the drill or the runbook");
   } finally { cleanup(A); }
 }
 
@@ -17979,6 +18506,12 @@ const tests = [
   ["the residue rides every survey row and moves no gate", testResidueOnSurveyRows],
   ["an arrival is refused over a residue we could not read", testArrivalRefusedOverUnreadableResidue],
   ["the arrival question names the residue by slug", testArrivalQuestionNamesResidue],
+  ["a direction is read before its date silences the loop", testExpiringDirectionIsRead],
+  ["expiring: the boundary, and the window it is derived from", testExpiringBoundary],
+  ["expiring, ranked in the lifecycle precedence", testExpiringPrecedence],
+  ["the leaving rides an expiring row, at no extra read", testExpiringCarriesTheLeaving],
+  ["the assignee is asked once, before the date", testExpiringQuestion],
+  ["expiring is evidence in the report, and gates nothing", testExpiringGatesNothing],
   ["the residue reaches no /propose gate", testResidueGatesNothing],
   ["strategy/carry-attribution.sh carries a ruling and refuses the rest", testCarryAttribution],
   ["strategy/amend.sh: the third writer, bounded", testStrategyAmend],

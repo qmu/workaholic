@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-29T02:19:46+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -92,3 +93,30 @@ silence.
   `unknown` and pass the assertion for the wrong reason.
 - Resist asserting the *future* field name here. This ticket pins the **absence**
   of any warning; ticket 2 chooses the name.
+
+## Final Report
+
+Development completed as planned. `testExpiringDirectionIsRead` in
+`scripts/test-workflow-scripts.mjs` builds a git-backed fixture — one `active` strategy
+assigned to the running identity, cited by a feedback record with landed work, one day from
+its `target_date` — and walks the whole chain: the survey row, `direction-state.sh`, and
+`step-direction-health.sh`. It fails today on exactly one assertion, *the survey row names
+the approaching date*, and passes on the arrears half (`gone` reads `overdue` and is refused
+`past_target_date`). The measured shape is reproduced: `days_to_target: 1`,
+`pace: on_course`, `overdue: false`, `dormant: false`, `quiescent: false` — every reading
+healthy, one day from silence.
+
+### Discovered Insights
+
+- **Insight**: the fixture must carry **work in flight**, not merely landed work.
+  **Context**: a direction with landed work and nothing waiting is `quiescent`, which
+  projects to `arrived` — a reading, and therefore not the silence under test. The state the
+  mission is about is the ordinary one: a direction running fine that is about to run out of
+  date. In the fixture that direction is refused `work_waiting`, which is also why the
+  reading has to ride the **refused** rows and not only the eligible ones.
+- **Insight**: the ticket's own instruction to "resist asserting the future field name" could
+  not be followed literally, and the mission's own text is why.
+  **Context**: an assertion that the row carries *no* term naming the date passes today and
+  fails after the reading ships — the inverse of the red-green order the ticket asks for.
+  The name `expiring` is fixed by the mission's acceptance and by ticket 2's own overview, so
+  the test asserts the reading by that name and fails today for the one stated reason.

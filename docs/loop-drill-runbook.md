@@ -37,6 +37,7 @@ Run every command from the repository root, on a clean `main`.
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-direction-health --json` | a throwaway strategy tree, one overdue direction and one dormant one — proves the four lifecycle readings, the three question keys, the asked-once gate, and that nothing was written |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-arrival --json` | a throwaway **git** strategy tree carrying landed work — proves `arrived`, that it outranks `overdue`, that `dormant`, `overdue` and `live` are unchanged, the `direction-arrived:<slug>` key and its asked-once gate, and that no reading closes a direction, with no network and one row that deliberately breaks the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-residue --json` | a throwaway **git** strategy tree whose attributed work has all landed beside an **unattributed** active mission — proves the honest and the degraded residue read, that only an unreadable residue refuses the arrival, that the question names the residue by slug, the asked-once gate, that no gate moved, and the attribution carry landing and refusing, with no network and one row that deliberately breaks the seam |
+| — | Any time | `sh scripts/e2e/loop-drill.sh verify-expiry --json` | a throwaway **git** strategy tree of five directions differing only in their dates and their work — proves `expiring` inside the window, `live` outside it, `overdue` past the date and `arrived` above both, that the window is the survey's own rather than a constant, the `direction-expiring:<slug>` question naming the date, the days left and the leaving, its asked-once gate, and that no reading re-dates, closes or amends a direction, with no network and one row that deliberately breaks the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-rulings --json` | a throwaway **git** repository holding exactly one unattributed active mission and exactly one unmapped address, with a bare local origin and `gh` stubbed — proves the set is read with its evidence and repair and **nothing judged**, that a judged set lands as one pull request the seam refuses to merge, that a second tick is a no-op while it is open, that a subject the ruling does not name still asks and says why, that every refusal writes nothing, with no network and a breaker in two halves |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-succession --json` | a throwaway **git** tree carrying one dated direction, its landed work and an unattributed mission — walks close → read the leaving → announce a successor by explicit slug → the carried refs land → `attributed-work.sh` attributes the predecessor's work to it → `/propose` proposes against it, and proves nothing closed, authored or auto-merged a direction, with no network and one row that deliberately breaks the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-revision --json` | a throwaway strategy tree and a local bare origin — proves the three revisions land, that every refusal leaves the artifact byte-identical, and that a strategy-touching publish never auto-merges, with the transport stubbed and one row that deliberately breaks the seam |
@@ -512,6 +513,54 @@ term under test.
 **Two proofs, and they are not the same one**, as everywhere else here: this drill is the
 operator's half; `testResidueGatesNothing`, `testResidueOnSurveyRows` and
 `testCarryAttribution` in the hermetic suite are CI's.
+
+## 5j-ter. The direction warned before its date (`verify-expiry`)
+
+`verify-expiry` needs no seed, no fire, no issue number and **no network**: it builds a
+throwaway **git** strategy tree — git-backed for `verify-arrival`'s reason, since `landed[]`
+is a `git log --since` read — carrying five directions whose only differences are their dates
+and their work: one inside the window with work in flight, one with runway left, one past its
+date, one inside the window whose work is all in, and one a week out for the breaker row.
+
+**Its dates come from the run clock, never from literals.** This is the one drill whose whole
+subject is a date, so a fixture with hard-coded dates would rot the moment they passed.
+
+The failure it exists for is a direction silenced by its **own date, unwarned**. Every reading
+in the layer answers backwards — `late`, `overdue`, `dormant`, `arrived` — so a live, in-date,
+`on_course` direction one day from its `target_date` produced no reading and no question
+anywhere; the day after, `past_target_date` refused the proposal and the only signal was
+`direction-overdue`, asked in arrears. Measured on
+`an-autonomous-improvement-loop-run-by-the-routines` at the hour the ask was written:
+`days_to_target: 2`, `pace: on_course`, `overdue: false`, `dormant: false`.
+
+The **deliberately broken seam** is `expiry_window_is_the_surveys_own`. It reads the same
+fixture through a **narrower** window and requires the reading to narrow with it. Wire the
+window to a fresh constant — the one shortcut the design exists to refuse, because a new number
+is one nobody can defend — and that row fails while every other row here stays green. Break it
+by replacing `$window_days` with `14` in the `expiring` block and this row reports
+*the window did not move the reading*.
+
+| Row | Fails when | Read |
+| --- | ---------- | ---- |
+| `expiry_fixture` | no attributed work landed in the window | without it every direction reads `dormant` and every row below passes for the wrong reason |
+| `expiry_state_soon` | a direction inside the window does not read `expiring` | `survey-strategies.sh`'s `expiring` block, then `direction-state.sh`'s precedence |
+| `expiry_state_later` | a direction with runway left stopped reading `live` | the boundary is `0 <= days <= window`, not *has a date* |
+| `expiry_state_gone` | a direction past its date stopped reading `overdue` | `overdue` outranks `expiring`, and `expiring` is `false` past the date anyway |
+| `expiry_state_finished` | a quiescent direction inside the window does not read `arrived` | the precedence pair a severity ordering would invert — the two ask for **different acts** |
+| `expiry_window_is_the_surveys_own` | a narrower window does not narrow the reading | **the broken seam** — the window has become a constant |
+| `expiry_question_keys` | the step asks the wrong set of keys | `step-direction-health.sh`'s subject `select`; a key that drifts is a question asked twice or never |
+| `expiry_question_names_the_date` | the heading omits the days left or the date, or the act exceeds 25 words | a warning that does not say how long somebody has is not a warning (`workaholic:notify`'s body bound) |
+| `expiry_names_the_leaving` | the question does not name what the direction never reached | `direction-state.sh --with-leaving`; the step carries it and composes nothing |
+| `expiry_event` | the reading does not reach the root, or links no direction | the step's `event` phrase, which follows the reader's own precedence |
+| `expiry_asked_once` | the same key is asked again on a later tick | `ask-question.sh`'s ledger — every existing gate applies unchanged |
+| `expiry_writes_no_direction` | the step or the reader can reach a strategy writer | the artifact keeps its three writers; a reading that a direction is about to expire is one step from a routine that re-dates it |
+| `expiry_fixtures_intact` | the seeded strategies area changed | both are pure reads |
+| `expiry_writes_nothing` | the drill changed the checkout | every fixture lives outside it |
+
+**Two proofs, and they are not the same one**, as everywhere else here: this drill is the
+operator's half; `testExpiringDirectionIsRead`, `testExpiringBoundary`,
+`testExpiringPrecedence`, `testExpiringCarriesTheLeaving`, `testExpiringQuestion` and
+`testExpiringGatesNothing` in the hermetic suite are CI's.
 
 ## 5j-bis. The standing rulings, drafted rather than asked (`verify-rulings`)
 

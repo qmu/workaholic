@@ -282,8 +282,8 @@ assignee list, a non-`YYYY-MM-DD` target date, and an existing slug — the same
 bash ${CLAUDE_PLUGIN_ROOT}/skills/strategy/scripts/direction-state.sh [--open-proposals <file>] [window] [workaholic-root]
 ```
 
-`propose/scripts/survey-strategies.sh` emits three readings — `overdue`, `dormant` and
-`quiescent` — beside
+`propose/scripts/survey-strategies.sh` emits four readings — `overdue`, `expiring`, `dormant`
+and `quiescent` — beside
 `pace` and the refusal list. A consumer assembling a lifecycle answer out of them would be a
 **second derivation** of a state this repository insists has one reader, exactly as
 `attributed-work.sh` is the only walker of the attribution. So `direction-state.sh` **composes**
@@ -295,12 +295,13 @@ projection of a field the survey emitted.
 | `live` | active, in date, and something is happening against it |
 | `arrived` | live, legible — and **its work has landed** with nothing waiting (`survey-strategies.sh`'s `quiescent`) |
 | `overdue` | the `target_date` has passed (`survey-strategies.sh`'s `overdue`) |
+| `expiring` | the `target_date` is **approaching** — inside the survey's own window (`survey-strategies.sh`'s `expiring`) |
 | `dormant` | live, in date, legible — and nothing landed, nothing waiting, no proposal open |
 | `unreadable` | the attribution could not be read; **never** folded into any other answer |
 | `none` | **repository-level**: no `status: active` strategy exists at all |
 
 **The precedence is the only thing this script owns**, and it is fixed: `unreadable` > `arrived` >
-`overdue` >
+`overdue` > `expiring` >
 `dormant` > `live`. `unreadable` first because a reading we could not make must never be dressed
 as one we did; `overdue` before `dormant` because a direction past its date is the operator's to
 re-date or close whatever else is true of it, and one direction reported twice under two names
@@ -315,6 +316,19 @@ as lateness is naming a success as a failure — the defect the reading was adde
 Ranking `overdue` first would make `arrived` unreachable for the one case it exists to serve,
 since a finished direction is very often a late one.
 
+**`expiring` sits between `overdue` and `dormant`, and both neighbours are argued** (2026-08-29,
+mission `warn-a-direction-before-its-date-silences-the-loop`). Against `overdue`, below it: a
+date that has **gone** is a stronger fact than one approaching, and the two ask for the *same*
+act with different urgency, so where one word must be chosen the fact that has already happened
+wins. Against `dormant`, above it: a direction near its date and silent is about to be silenced
+**by the date** first, and the date is the fact with a deadline on it — `dormant` stays true
+tomorrow, while `expiring` stops being actionable the moment the date passes, at which point the
+reading becomes `overdue` and the warning was never given. (`arrived` outranks both for the
+reason above: it asks for a *different* act, which is why a rung is not a severity ordering.)
+The leaving rides an `expiring` row exactly as it rides `arrived` and `overdue`, at no extra
+read — a person asked to re-date a direction **before** its date needs the same evidence as one
+asked to close it after.
+
 **`arrived` is a candidate, never a verdict.** A strategy's "Reached when" is prose no script
 reads, so nothing can know the aim was met — only that everything attributed to the direction has
 landed and nothing is queued. The reading says *this looks finished*; the operator's answer
@@ -328,10 +342,11 @@ the direction layer doing* must not have to call twice to learn that it is empty
 and writes nothing — reading a direction's state and writing one are different acts, and
 `amend.sh` is reached only from `/specificate`'s announcement route. It is not a second `pace`: `pace` answers
 *will this arrive*, `overdue` answers *has the date passed*, `dormant` answers *is anything
-answering this at all*, and `arrived` answers *has its work all come in*. It inherits the survey's
+answering this at all*, `expiring` answers *is the date about to arrive*, and `arrived` answers
+*has its work all come in*. It inherits the survey's
 lossiness and reports it: `dormant` **and `quiescent`** require
-`owns == "mine"` upstream, so **another identity's direction can only ever read `live` or
-`overdue` here** — that limit is stated in the script's header rather than left to be discovered.
+`owns == "mine"` upstream, so **another identity's direction can only ever read `live`,
+`overdue` or `expiring` here** — that limit is stated in the script's header rather than left to be discovered.
 
 **It makes no second network call.** The survey's one call is the open-proposal gate; a caller
 already holding that read passes `--open-proposals` through. A survey that refuses yields

@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-29T02:19:47+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -88,3 +89,38 @@ why**:
   what a machine may not do with the reading.
 - Keep the `CLAUDE.md` addition proportionate: it is one reading in an existing
   layer, not a new subsystem.
+
+## Final Report
+
+Development completed as planned. `workaholic:propose` gains *Expiring: the date is about to
+arrive* beside `pace` / `overdue` / `dormant` / `quiescent`; `workaholic:strategy` carries the
+new rung, the answer table and the argument for its position against **both** neighbours;
+`workaholic:moderate` and its `reference/workflow.md` carry the fourth question key, its
+addressee and its holds; `CLAUDE.md` carries the reading in the direction-layer paragraph, the
+key in the `/moderate` row and the drill in the drill list; and `docs/loop-drill-runbook.md`
+already agreed (§5j-ter, written with the drill).
+
+Each document names the three refusals with its reason rather than the decision alone: a
+machine **re-dating or closing** a direction on the reading (the artifact keeps its three
+writers, and a run never amends on its own reading), folding `expiring` into `pace` as a
+**fourth value** (one field answering two questions is how the two drift), and a **tunable
+threshold** in place of the window already justified on the row (a fresh number is one nobody
+can defend, where `$window_days` is the window the judgment is already made against).
+
+`outputs/` regenerated; `build.mjs`, `verify.mjs`, `validate-metadata.mjs` and
+`layout-doctor.sh` all clean, and the hermetic suite is 4702 passed / 0 failed.
+
+### Discovered Insights
+
+- **Insight**: the reading touched two generated copies of two scripts across six bundled
+  skills, and nothing warns you at commit time.
+  **Context**: `survey-strategies.sh` and `direction-state.sh` ride the closure of `catch`,
+  `create-ticket`, `drive`, `mission`, `ship` and `story`, so a change to either leaves twelve
+  files in `outputs/` stale until `build.mjs` runs. The `Outputs Freshness` CI workflow is the
+  only thing that catches it — which is why the regeneration belongs in this ticket rather than
+  in the ticket that edited the script.
+- **Insight**: the documentation set for this layer is closed, and it is worth knowing that.
+  **Context**: a grep for the lifecycle answer set across `docs/`, `README.md` and
+  `.workaholic/README.md` finds only the drill runbook. The four documents this ticket names
+  really are all of them, so the risk in a change here is a statement left describing the
+  pre-change layer inside those four, not one hiding somewhere else.

@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-29T02:19:47+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -86,3 +87,28 @@ moved.
   deliberately kept out of.
 - Equally refused: skipping a proposal against an expiring direction to "leave
   the operator room to decide". That silences origination on a guess.
+
+## Final Report
+
+Development completed as planned. `/propose` names `expiring` beside a proposal made against
+that strategy, in the voice `pace` and `arrived` already use — a term beside the strategy, never
+a warning and never advice. `commands/propose.md` and `propose/reference/loop.md` both state
+that it gates nothing and name the refusal it rests on: making the one routine that originates
+work a function of a clock is what `pace` is deliberately kept out of, and the person who must
+act is reached by `/moderate`'s `direction-expiring:<slug>` question.
+
+The hermetic diff is over two fixtures differing in exactly `days_to_target` — one inside the
+window, one outside — and asserts that `selected`, the order, every refusal and every one of
+`pace` / `overdue` / `dormant` / `quiescent` are byte-identical across the boundary.
+
+### Discovered Insights
+
+- **Insight**: the diff can be stated more strongly than "no gate moved", and should be.
+  **Context**: asserting that **the only fields that differ between the two rows** are
+  `expiring`, `days_to_target` and `target_date` catches a future field that starts reading the
+  term, which a fixed list of gate names would not. A field nobody thought to enumerate is
+  exactly how a reading turns into a gate by accident.
+- **Insight**: the fixture needs a second direction or the sort assertion is vacuous.
+  **Context**: the survey sorts by `[pace late, days_to_target]`, so with one strategy the order
+  is trivially identical whatever the date. The second direction is dated beyond both test
+  values so the order is stable for a real reason rather than for want of anything to order.

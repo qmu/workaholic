@@ -2,7 +2,7 @@
 type: Mission
 title: Let the tick's own findings become the loop's work
 slug: let-the-tick-s-own-findings-become-the-loop-s-work
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-29T04:20:37+00:00
 author: a@qmu.jp
@@ -43,7 +43,7 @@ their ruling, and the run report naming what was filed, held and left.
       `needs_ruling` finding still asks, unchanged. (#20260829042145-suppress-the-question-a-filing-answers.md)
 - [x] The brake holds at one open finding issue, the dedup is structural on the
       step id, and an unreadable read files nothing. (#20260829042145-dedup-the-filing-structurally-on-the-step-id.md)
-- [ ] `verify-findings-to-work` drills it offline, with a breaker row. (#20260829042145-drill-the-findings-to-work-path-offline.md)
+- [x] `verify-findings-to-work` drills it offline, with a breaker row. (#20260829042145-drill-the-findings-to-work-path-offline.md)
 
 ## Changelog
 
@@ -55,3 +55,5 @@ their ruling, and the run report naming what was filed, held and left.
 - 2026-08-29 — ticket archived — 20260829042145-dedup-the-filing-structurally-on-the-step-id.md
 - 2026-08-29 — ticket archived — 20260829042145-suppress-the-question-a-filing-answers.md
 - 2026-08-29 — ticket archived — 20260829042145-report-what-was-filed-held-and-left.md
+- 2026-08-29 — ticket archived — 20260829042145-drill-the-findings-to-work-path-offline.md
+- 2026-08-29 — mission achieved — mission.md

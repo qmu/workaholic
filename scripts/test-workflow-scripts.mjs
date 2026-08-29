@@ -27062,6 +27062,23 @@ function testFileFindingsStep() {
       wired.steps[0].reason, "no_candidates");
     assertEq("and the step itself writes nothing into the tree",
       readdirSync(join(repo, ".workaholic")).join(","), before);
+
+    // ---- THE DRILL EXISTS, IS DISPATCHED BY ITS VERB, AND IS DOCUMENTED ----
+    // The same three pins every other verify target carries, so a drill that is written and
+    // never wired reads exactly like one that runs.
+    const drill = readFileSync(join(REPO_ROOT, "scripts/e2e/loop-drill.sh"), "utf8");
+    assertTrue("verify-findings-to-work is in loop-drill.sh",
+      /cmd_verify_findings_to_work\(\)/.test(drill), "the drill is not in loop-drill.sh");
+    assertTrue("and is dispatched by its verb", /verify-findings-to-work\)/.test(drill),
+      "the drill's verb is not wired");
+    assertTrue("and its usage line names it", /verify-findings-to-work \[--json\]/.test(drill),
+      "the drill is not in the usage line");
+    const runbook = readFileSync(join(REPO_ROOT, "docs/loop-drill-runbook.md"), "utf8");
+    assertTrue("and the runbook documents it alongside the others",
+      /verify-findings-to-work/.test(runbook), "the drill is undocumented");
+    assertTrue("with the deliberately-broken row named as the proof it is",
+      /findings_breaker/.test(runbook) && /findings_breaker/.test(drill),
+      "the failing row is missing from the drill or the runbook");
   } finally { rmSync(tmp, { recursive: true, force: true }); }
 }
 

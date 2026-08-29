@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-29T04:21:45+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -86,3 +87,44 @@ refactor that keeps the shape and loses the bound.
   is hermetic and script-only.
 - If a row cannot be asserted offline, say which and why in the runbook rather than
   quietly dropping it or reaching for the network.
+
+## Final Report
+
+Development completed as planned. `sh scripts/e2e/loop-drill.sh verify-findings-to-work` walks
+the whole path in one offline run — classification → brake → filing → dedup → suppression — over
+a throwaway git repository with `gh` stubbed. The stub serves the issues listing, applies `--jq`
+with real jq so the reader's own parse is what is exercised, records the one POST the filing
+makes, and **exits non-zero on any other call**, so a drill that silently reached the network
+would fail rather than pass quietly.
+
+Fifteen rows, all green: the classification names each finding (and a `needs_ruling` one never
+reaches the filer), the brake holds a second candidate while one issue is open and releases when
+it closes, an unreadable brake files nothing under its own reason, the filing carries the marker
+and the direction line through the one filer and the one line-writer, a second tick files
+nothing, the filed step's question is held while no other step's is, an unreadable suppression
+read holds nothing, filed/held/left render as three readings, the `event` stays empty, and the
+negative space holds — the checkout is byte-identical and no branch, worktree or publish tree
+appears.
+
+**The breaker row was proved able to fail before landing.** It is written against the
+**behaviour** — a `needs_ruling` finding reaching the filer — rather than against a return
+shape, on `verify-checkin-delivery`'s own lesson. Its first form copied only the moderate scripts
+directory and reported `false` for the wrong reason (the copied step could not reach
+`gather/scripts/gh-rest.sh` two directories up, so it degraded before classifying anything); the
+whole plugin tree is copied now, `verify-residue`'s shape, and the row passes by observing the
+widened classification actually admitting `undrivable-units`.
+
+`docs/loop-drill-runbook.md` gains the summary row and a `5t` section with the per-row blame
+table; `CLAUDE.md`'s drill enumeration names the target. The suite pins that the drill exists, is
+dispatched by its verb and is documented — the same three pins every other verify target carries.
+
+### Discovered Insights
+
+- **Insight**: a breaker that fails for the wrong reason is worse than no breaker.
+  **Context**: the first form reported red, which looks like a working breaker, while proving
+  nothing about the classification at all. What distinguishes them is only visible by reading
+  the broken run's own output — which is why the runbook row names the closure explicitly.
+- **Insight**: making the `gh` stub exit non-zero on any unrecognised call is what makes "no
+  network" checkable rather than asserted.
+  **Context**: a permissive stub would let a future change add a call that silently succeeds
+  against the real API on an operator's machine, and the drill would still be green.

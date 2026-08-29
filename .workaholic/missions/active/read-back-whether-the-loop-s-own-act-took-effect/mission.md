@@ -51,3 +51,4 @@ No new store, no field, no second oracle.
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-29 — ticket archived — 20260829152415-pin-the-silent-act-with-a-failing-offline-reproduction.md
+- 2026-08-29 — ticket archived — 20260829152415-record-what-the-ci-turn-attempted-and-each-act-answered.md

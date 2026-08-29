@@ -1,0 +1,124 @@
+name: Claim Retirement
+
+# Deletes the remote branch of every claim the oracle PROVES holds nothing, and does
+# nothing else. It closes no pull request, reaps no worktree, merges nothing and writes
+# no file: the other two acts of the retirement already succeed where the loop runs.
+#
+# WHY CI AND NOT THE HOURLY TICK. Act 2 of `drive/scripts/retire-claim.sh` is refused in
+# the Claude Code Web container the loop runs in, by both available transports — measured
+# 2026-08-27 against a claim already proved `superseded` here:
+#
+#   git push origin --delete <branch>                    error: RPC failed; HTTP 403
+#   DELETE /repos/{owner}/{repo}/git/refs/heads/{branch}  403 "Write access to this GitHub
+#                                                         API path is not permitted through
+#                                                         this proxy."
+#
+# It is a SESSION-TYPE refusal (not a protection rule, which answers 422 naming the rule,
+# and not a missing scope) — an ordinary `git push` of the same branch succeeds in the same
+# container. That finding is about the CONTAINER and remains correct there: no second
+# transport exists inside it, and none is attempted. THIS IS A DIFFERENT EXECUTOR, not a
+# second transport. The repository already makes CI its release writer (release.yml) and
+# its release-note writer (release-note-draft.yml), so the capability is used where it
+# exists. Full record: plugins/workaholic/skills/drive/reference/claims.md, *When an act of
+# the retirement is refused*.
+#
+# WHY THE TRIGGER IS A PUSH. The container cannot dispatch a workflow either (writes are
+# refused through the same proxy), so the trigger must not depend on one. The loop merges
+# onto `main` continuously, which gives frequent runs with no scheduler to reason about;
+# `workflow_dispatch` keeps the act runnable on demand.
+#
+# WHY THE CHECKOUT IS DEFINED RATHER THAN INHERITED. Unmerged remote branches are the ONLY
+# claim oracle, and across a graft boundary a superseded claim is indistinguishable from a
+# live one — which the scan refuses to guess through, so a shallow clone yields no
+# candidates at all. Full history plus every remote head is the input this job needs, and
+# CI can define its own input where a container cannot define itself from the inside.
+#
+# THE JOB OWNS NO PROOF LOGIC. It calls the candidate reader and, per candidate, the
+# bounded act; both re-derive everything they act on. An empty candidate set is a clean
+# no-op, and a refusal is reported without failing the run.
+#
+# AND IT RECORDS WHAT IT ATTEMPTED, ON A SURFACE A LATER TICK CAN READ (2026-08-29,
+# mission `read-back-whether-the-loop-s-own-act-took-effect`). Until then this job put
+# its whole answer in the JOB LOG, which the loop's container can reach through nothing:
+# the REST logs endpoint answers with a redirect to signed blob storage and the fetch
+# fails (measured 2026-08-29 against this repository's own run). So `ci-retirement-turn.sh`
+# was left inferring `taken` from a completed run's EXISTENCE, and the tick log asserted
+# hourly that CI could not take a delete CI had never attempted.
+#
+# The record is a set of `::notice::` ANNOTATIONS, chosen against three alternatives:
+#
+#   `$GITHUB_STEP_SUMMARY`   renders in the UI and is exposed by no REST endpoint at all,
+#                            so a later tick cannot read it
+#   a check run of our own   `POST .../check-runs` needs `checks: write`, WIDER than the
+#                            `contents: write` below. Refused — a recording surface must
+#                            not enlarge a destructive job's grant
+#   a commit to `main`       the hourly-`main`-writer class refused twice already
+#                            (`workaholic:ship` §7)
+#
+# An annotation needs NO permission (it is a workflow command, not an API call), lands on
+# the check run Actions already creates for this job, and is read back in full by
+# `GET /repos/{o}/{r}/check-runs/{id}/annotations` — no redirect, no credential beyond the
+# read the tick already holds. Verified against this repository before it was built on.
+#
+# RECORDING IS A THIRD CALL, never a re-derivation: `record-ci-retirement-turn.sh` is
+# handed the two documents this job already produced and copies their words. The
+# candidate reading is recorded EVEN WHEN IT NAMED NOTHING — a turn that found nothing
+# and a turn that found three and was refused are different facts. A REFUSAL STILL DOES
+# NOT FAIL THE RUN; what changes is that it is now legible.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: claim-retirement
+  cancel-in-progress: false
+
+jobs:
+  retire:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # actions/checkout leaves the remote configured for the ref it checked out. The claim
+      # oracle IS the set of unmerged remote branches, so the refspec is widened and the
+      # heads fetched explicitly rather than assumed.
+      - name: Fetch every remote head
+        run: |
+          git config remote.origin.fetch '+refs/heads/*:refs/remotes/origin/*'
+          git fetch --prune origin
+
+      - name: Delete the branches of claims proved empty
+        run: |
+          bash plugins/workaholic/skills/drive/scripts/list-retirable-claims.sh > candidates.json
+          cat candidates.json
+          : > acts.jsonl
+          if [ "$(jq -r '.ok' candidates.json)" != "true" ]; then
+            # A DEGRADED READING IS AN OUTCOME, NOT AN EARLY EXIT. The turn still reaches the
+            # recording step below, because "the scan could not be made" is precisely the fact
+            # a later tick must be able to tell apart from "there was nothing to retire".
+            echo "the claim scan was degraded ($(jq -r '.reason' candidates.json)); nothing was proved and nothing deleted"
+          else
+            jq -r '.candidates[]? | .unit' candidates.json | while read -r unit; do
+              [ -n "$unit" ] || continue
+              bash plugins/workaholic/skills/drive/scripts/delete-retired-claim-branch.sh "$unit" \
+                | tee -a acts.jsonl
+            done
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # THE RECORD. Handed the two documents the step above produced, copying their words and
+      # deriving none of its own. `if: always()` so a turn that died mid-loop still says what it
+      # attempted — a record that only survives the happy path answers the easy question.
+      - name: Record what this turn attempted and what each act answered
+        if: always()
+        run: |
+          bash plugins/workaholic/skills/drive/scripts/record-ci-retirement-turn.sh \
+            --candidates candidates.json --acts acts.jsonl

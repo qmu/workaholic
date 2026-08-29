@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 0.6
 feedback: [20260829062618-the-inbound-slack-channel-default-resolves-to-a-channel-that-does-not-exist.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
@@ -49,3 +49,4 @@ reported by its own name — never as a quiet hour with nothing waiting.
 - 2026-08-29 — ticket archived — 20260829093500-say-where-a-routines-environment-lives.md
 - 2026-08-29 — mission achieved — mission.md
 - 2026-08-29 — story reported — work-20260829-104123.md
+- 2026-08-29 — run recorded (+0.6h) — run-20260829-104123

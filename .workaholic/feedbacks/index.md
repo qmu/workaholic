@@ -604,4 +604,5 @@
 * [Run the loop's own proofs on every turn](20260829121658-run-the-loop-s-own-proofs-on-every-turn.md)
 * [Read back whether the loop's own act took effect](20260829151654-read-back-whether-the-loop-s-own-act-took-effect.md)
 * [Follow the pull requests the loop opens for a person](20260829191722-follow-the-pull-requests-the-loop-opens-for-a-person.md)
+* [Three proved-superseded claim branches still stand after CI's retirement turn](20260829192941-three-proved-superseded-claim-branches-still-stand-after-ci-s-retirement-turn.md)
 <!-- okf:generated:end -->

@@ -204,6 +204,7 @@ RESULT="$(printf '%s' "$OUT" | jq -c '
           # drift. So it is projected off the survey row, exactly as `target_date` and
           # `landed` are, and the precedence below is byte-identical across this change.
           stage: (.stage // ""),
+          stage_declared: (.stage_declared // false),
           days_to_target: .days_to_target,
           # Projected, never derived: `target_date` comes straight off the survey row, and
           # `landed` is the length of the list it emitted (`landed_count` on a refused row,

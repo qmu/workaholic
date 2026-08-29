@@ -6538,6 +6538,97 @@ function testAreaFreshness() {
 }
 
 
+// ---------- the two stage-transition questions (2026-08-29) ----------
+// `make-a-direction-s-lifecycle-a-declared-stage`, ticket *Ask a person when the evidence
+// suggests a transition*. They REFINE an existing question rather than adding one, which is
+// forced rather than chosen: `direction-state.sh` projects `quiescent` to `arrived` and
+// `dormant` to `dormant` in a fixed precedence, so a question added BESIDE those would either
+// double-ask one direction or never fire. The stage decides which question the same evidence
+// draws, and every other combination stays byte-identical.
+function testDirectionTransitionQuestions() {
+  const dir = makeRepo("main");
+  const WH = join(dir, ".workaholic");
+  const OPEN = join(dir, "open.json");
+  const STEP = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-direction-health.sh");
+  const day = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+  const mk = (slug, stage, target) => {
+    mkdirSync(join(WH, "strategies"), { recursive: true });
+    writeFileSync(join(WH, "strategies", `${slug}.md`), [
+      "---", "type: Strategy", `title: T ${slug}`, `slug: ${slug}`, "status: active",
+      ...(stage ? [`stage: ${stage}`] : []),
+      `target_date: ${target}`, "assignees: [test@example.com]",
+      "feedback: [20260101000000-a.md]",
+      "---", "", "## Aim", "", "a", "", "## Schedule", "", "s", "",
+    ].join("\n"));
+  };
+  const keys = () => {
+    const j = JSON.parse(run(dir,
+      `${POSIX_SH} ${STEP} --tick 20260826-000000 --root ${dir} --open-proposals ${OPEN}`).stdout);
+    return ((j.needs_agent[0] || {}).directions || []).map((d) => `${d.key}`).sort();
+  };
+
+  try {
+    run(dir, `git config user.email test@example.com`);
+    mkdirSync(join(WH, "feedbacks"), { recursive: true });
+    writeFileSync(join(WH, "feedbacks", "20260101000000-a.md"), "---\ntype: Feedback\n---\n\nx\n");
+    writeFileSync(OPEN, '{"ok": true, "identity": "test", "proposals": []}\n');
+
+    // A quiet 改良中 direction reads `dormant` and draws `direction-settled` INSTEAD of
+    // `direction-dormant`; a quiet 進行中 one is untouched. Two directions in one fixture, so
+    // the refinement and the unchanged case are proved against each other.
+    mk("improving", "改良中", day(400));
+    mk("running", "進行中", day(400));
+    execSync("git add -A && git commit -q -m seed", { cwd: dir });
+    assertEq("a quiet 改良中 direction is asked about settling, and a 進行中 one is not",
+      keys(), ["direction-dormant:running", "direction-settled:improving"]);
+
+    // ONE DIRECTION, ONE QUESTION — the refinement replaces, it never adds.
+    const rows = JSON.parse(run(dir,
+      `${POSIX_SH} ${STEP} --tick 20260826-000000 --root ${dir} --open-proposals ${OPEN}`).stdout)
+      .needs_agent[0].directions;
+    assertEq("no direction draws two questions",
+      rows.map((d) => d.slug).sort().join(","), "improving,running");
+    const settled = rows.find((d) => d.slug === "improving");
+    assertTrue("the settled question names the stage it is asking to leave",
+      /改良中/.test(settled.heading), settled.heading);
+    assertTrue("...and its body asks for the operator's own act, never asserting one",
+      /Move it to 観察中|say it still stands/.test(settled.body), settled.body);
+    assertEq("...addressed to the direction's assignee", settled.assignees, "test@example.com");
+
+    // AN UNSTAGED DIRECTION IS UNCHANGED, and this is the bound worth stating: `absent means
+    // 進行中` is the right READING everywhere and the wrong thing to QUOTE BACK, so a
+    // repository that has not adopted the vocabulary keeps every question it had. Only a
+    // DECLARED stage refines one.
+    mk("improving", "", day(400));
+    assertEq("an unstaged quiet direction still reads dormant",
+      keys(), ["direction-dormant:improving", "direction-dormant:running"]);
+    const unstaged = JSON.parse(run(dir,
+      `${POSIX_SH} ${STEP} --tick 20260826-000000 --root ${dir} --open-proposals ${OPEN}`).stdout)
+      .needs_agent[0].directions.find((d) => d.slug === "improving");
+    assertTrue("...and its heading says no stage was declared rather than quoting the default",
+      /no stage declared/.test(unstaged.heading), unstaged.heading);
+
+    // AND THE OTHER READINGS ARE UNTOUCHED BY THE STAGE: an overdue 改良中 direction is still
+    // asked about being overdue, because the transition readings are built only from terms
+    // that describe WORK LANDING and never from a date or from stuckness.
+    mk("improving", "改良中", day(-400));
+    assertEq("an overdue 改良中 direction still reads overdue",
+      keys().includes("direction-overdue:improving"), true);
+
+    // THE STEP STILL WRITES NOTHING AND MOVES NO STAGE. The fixture's own edits are committed
+    // first, so what is measured is the step and not this test.
+    execSync("git add -A && git commit -q -m refixture", { cwd: dir });
+    keys();
+    assertEq("the step wrote nothing anywhere",
+      execSync("git status --porcelain -- .workaholic/strategies", { cwd: dir, encoding: "utf8" }).trim(), "");
+    const src = readFileSync(STEP, "utf8").split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+    for (const writer of ["amend.sh", "create.sh", "close.sh"]) {
+      assertTrue(`the step reaches no strategy writer (${writer})`, !src.includes(writer),
+        "the step that asks about a stage gained the ability to move one");
+    }
+  } finally { cleanup(dir); }
+}
+
 // ---------- the stage is shown where directions are read (2026-08-29) ----------
 // `make-a-direction-s-lifecycle-a-declared-stage`, ticket *Show a direction's stage where
 // directions are read*. Three surfaces read directions and none of them said the phase: the
@@ -6585,9 +6676,12 @@ function testStageShownWhereDirectionsAreRead() {
 
     // 3. NO KEY MOVED, so no question is re-asked by a changed heading: the ledger matches the
     //    step id, and this ticket is render work.
-    assertTrue("the question keys are unchanged",
-      /"direction-" \+ \.state \+ ":" \+ \.slug/.test(step) && /"direction-last:" \+ \.slug/.test(step),
-      "a question key changed, which would re-ask every direction question once");
+    // The key is composed from the reading and the slug, and the reading is `.state` except
+    // for the two stage-transition refinements a later ticket in this mission adds — so THIS
+    // ticket, which is render work, moved no key at all.
+    assertTrue("the question keys are composed from the reading and the slug",
+      /"direction-" \+ \$reading \+ ":" \+ \.slug/.test(step) && /"direction-last:" \+ \.slug/.test(step),
+      "a question key stopped being composed from the reading and the slug");
 
     // 4. THE ROADMAP names it beside the strategy it already prints, rather than as a column.
     const flows = readFileSync(join(REPO_ROOT,
@@ -19318,6 +19412,7 @@ const tests = [
   ["strategy skill (the artifact revived 2026-08-13)", testStrategySkill],
   ["every shipped shell script parses", testEveryShellScriptParses],
   ["the stage is shown where directions are read", testStageShownWhereDirectionsAreRead],
+  ["the two stage-transition questions", testDirectionTransitionQuestions],
   ["strategy: the operator's declared stage", testStrategyDeclaredStage],
   ["strategy: the declared stage rides beside the derived readings", testStrategyStageRidesBeside],
   ["propose: 改良中 sorts before 進行中, and that is all it does", testProposeStageOrdering],

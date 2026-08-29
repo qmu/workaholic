@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-29T21:20:56+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -113,3 +114,40 @@ candidate set is built only from the readings that describe *work landing*.
   That is the same bound every other `direction-*` key already accepts, and the loud
   alternative — re-asking whenever the reading recurs — is the hourly restatement this
   repository has retired posts for twice.
+
+## Final Report
+
+Development completed as planned, with one design fork resolved from the ticket's own Overview
+and the mission's Experience and recorded here rather than decided silently.
+
+**The ticket's steps 2/3 and step 6 are mutually unsatisfiable as literally written.**
+`direction-state.sh` projects `quiescent` to `arrived` and `dormant` to `dormant` in a fixed
+precedence, so a 進行中 direction whose work is all in **always** reads `arrived` and a quiet
+改良中 one **always** reads `dormant`. Step 6 says a direction that already drew one of those
+draws no transition question — which makes both new keys unreachable. Step 3's own terms are
+contradictory too: it asks for a direction that is `quiescent` **and** has had nothing landing
+in the window, and `quiescent` requires `landed[]` non-empty.
+
+The Overview and the mission Experience state the intent plainly — the transitions are the
+moments worth telling a person about *rather than only* the backwards alarms — so the two
+questions **refine** the existing one rather than adding beside it: the stage decides which
+question the same evidence draws. `arrived` + 進行中 → `cutover`; `dormant` + 改良中 →
+`settled`. Every other combination is byte-identical, `direction-state.sh`'s precedence is
+untouched, and one direction still draws exactly one question.
+
+### Discovered Insights
+
+- **Insight**: keying the refinement on the *resolved* stage would have made the loop assert a
+  declaration nobody made — the heading reads "still declared 進行中", which is false for a
+  direction with no `stage:` line. It also silently rewrote the question for every direction in
+  every existing repository, which the pre-existing `testArrivalQuestionNamesResidue` caught
+  immediately.
+  **Context**: `absent means 進行中` is the right answer for every **reading** and the wrong
+  thing to **quote back**. `read.sh` now says which of the two a caller is holding
+  (`stage_declared`) — a reader field, not an artifact field, so the default keeps exactly one
+  derivation — and only a declared stage refines a question. A repository that has not adopted
+  the vocabulary keeps every question it had, byte for byte.
+
+- **Insight**: an existing test failing is the cheapest possible evidence about blast radius.
+  `direction-arrived:dir1` turning into `direction-cutover:dir1` in a fixture that never
+  mentioned a stage was the whole argument for the bound above, delivered in one line.

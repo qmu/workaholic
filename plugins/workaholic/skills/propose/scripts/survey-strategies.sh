@@ -342,6 +342,10 @@ jq -sc \
          # nothing about whether the operator declared a phase — nulling it here would be the
          # collapse the null counts beside it exist to prevent, in reverse.
          stage: ($s.stage // ""),
+         # Whether that value was DECLARED or defaulted. Carried for the one consumer that
+         # speaks in the operator voice and must not quote a declaration nobody made; no gate,
+         # sort or refusal here reads it.
+         stage_declared: ($s.stage_declared // false),
          target_date: ($s.target_date // ""), days_to_target: days($s.target_date // ""),
          assignees: ($s.assignees // ""), owns: $w.owns, path: $w.path,
          feedback_refs: ($w.feedback_refs // []),
@@ -605,7 +609,7 @@ jq -sc \
      # rather than the list, because the list is the evidence a proposal is judged against
      # and a refused row is not being proposed against.
      refused: ((map(select(.refusal != ""))
-                | map({slug, reason: .refusal, pace, overdue, expiring, dormant, quiescent, title, assignees, stage,
+                | map({slug, reason: .refusal, pace, overdue, expiring, dormant, quiescent, title, assignees, stage, stage_declared,
                        days_to_target, target_date, landed_count: ((.landed // []) | length),
                        # `residue` rides the refused rows for the same reason `landed_count`
                        # and `target_date` do (2026-08-27): an ARRIVED direction past its date

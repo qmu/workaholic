@@ -23,6 +23,7 @@ Run every command from the repository root, on a clean `main`.
 
 | # | Stage | Command | Reads |
 | - | ----- | ------- | ----- |
+| — | Any time | `sh scripts/e2e/loop-drill.sh verify-all --json` | **the whole classified set at once** (§9), one verdict per drill — `pass` / `fail` / `skipped:<reason>` — plus totals, exiting non-zero only when something actually failed. `--only <drill>` narrows it, `--kind hermetic` is what CI runs, `--list` answers the set without invoking any of it |
 | 1 | Seed | `sh scripts/e2e/loop-drill.sh seed` | preflight (inbox + claims), then mints the issue and the `dev-workaholic` Slack root |
 | 2 | Fire `[Specificate]` | run the `[Specificate]` routine by its trigger id | — |
 | 3 | Verify propose | `sh scripts/e2e/loop-drill.sh verify-specificate <issue> --json` | `origin/main`, REST issue + pull requests |
@@ -1242,3 +1243,111 @@ own questions by rule.
 suite's `testAnswerReturnPath` and the catalog↔template drift pin inside
 `testModerateRoutineTemplate` are what **CI** enforces on every change. The drill ships to no
 other agent and CI never runs it.
+
+## 9. The drill register
+
+**One table, three columns, one reader** (2026-08-29, mission
+`run-the-loop-s-own-proofs-on-every-turn`). Every question the drill set is asked about
+itself is answered here: *can this drill run with no server?* (`Kind`), *can this drill
+fail?* (`Breaker`), *which earlier turn does a failure belong to?* (`Mission`). It is read
+by exactly one script —
+`plugins/workaholic/skills/drive/scripts/drill-register.sh` — which `verify-all`, the
+`/moderate` tick's `drill-health` step and the archive gate all compose rather than
+re-parse. A second parser is how two readings of one fact start to disagree.
+
+**`Kind` was measured, not read off a header.** Every `verify-*` command the dispatcher
+names was run on 2026-08-29 with **no `gh` on `PATH`, no `qfs`, no `ANTHROPIC_API_KEY` and
+no proxy** (so no outbound HTTPS), twice, and classified from its **exit code and reason
+word** rather than from what its own comment claims. The drill file's header said the whole
+of it *assumes the server's full `gh` and `qfs`*; that turned out to be true of two rows out
+of thirty. The three kinds are distinguished by name and **`reads_checkout` is never
+recorded as `hermetic`**:
+
+| Kind | What it means | What `verify-all` does with it |
+| ---- | ------------- | ------------------------------ |
+| `hermetic` | builds its own throwaway fixture and exits 0 with no network, no `gh` and no credential | runs it |
+| `reads_checkout` | needs no network either, but its verdict depends on **this working tree** (its deployment targets, its strategies, its commit range) rather than on a fixture it built | runs it |
+| `needs_server` | reads the real issue and the real remote, and takes an issue number no fixture can mint | **`skipped:needs_server`**, never invoked |
+
+**`Breaker` is recorded here for a person and derived by the machine.** A breaker row
+asserts that a *deliberately broken copy* of the seam fails; the machine finds them by the
+`bearing: "breaker"` field the rows themselves carry, never by this column. A drill with no
+breaker is **`unproved`** — a gap in coverage rather than a broken mechanism — and
+`verify-all` counts it separately, outside the passing total.
+
+**`Mission` is resolved, never invented.** Each row was resolved by `git log -S
+'cmd_verify_<x>()' -- scripts/e2e/loop-drill.sh` → the adding commit → the tickets that
+commit's branch archived → their `mission:` relation, read through
+`mission/scripts/read-relation.sh`. Two rows are hand-corrected with their evidence because
+a **rename** defeats that derivation (`verify-propose` → `verify-specificate` and
+`verify-housekeep` → `verify-moderate`, 2026-08-19), and one is left unresolved on purpose
+rather than guessed. **No artifact gained a field**: the slug lives here and nowhere else.
+
+| Drill | Kind | Breaker | Mission |
+| ----- | ---- | ------- | ------- |
+| `verify-specificate` | `needs_server` | no | `make-the-propose-implement-loop-drillable-on-demand` |
+| `verify-implement` | `needs_server` | no | `make-the-propose-implement-loop-drillable-on-demand` |
+| `verify-plan` | `reads_checkout` | no | `draft-deployment-plans-in-the-release-note-before-deploying` |
+| `verify-status` | `reads_checkout` | no | `split-routine-setup-into-developer-and-repository-scopes` |
+| `verify-cadence` | `reads_checkout` | no | `correct-the-release-note-automation-to-its-intended-design` |
+| `verify-planner` | `reads_checkout` | no | `make-the-draft-release-note-an-agent-s-release-plan` |
+| `verify-standup` | `reads_checkout` | no | `add-the-standup-daily-per-strategy-summary` |
+| `verify-moderate` | `reads_checkout` | no | `add-the-housekeep-hourly-operations-routine` |
+| `verify-propose` | `hermetic` | no | — |
+| `verify-direction-health` | `hermetic` | no | `say-when-the-loop-has-run-out-of-direction` |
+| `verify-arrival` | `hermetic` | yes | `say-when-a-direction-has-arrived` |
+| `verify-residue` | `hermetic` | yes | `say-what-the-direction-could-not-see-before-calling-it-arrived` |
+| `verify-corpus-boundary` | `hermetic` | yes | `keep-the-closing-link-readable-as-the-corpus-grows` |
+| `verify-expiry` | `hermetic` | yes | `warn-a-direction-before-its-date-silences-the-loop` |
+| `verify-rulings` | `hermetic` | yes | `put-the-loop-s-standing-rulings-on-one-pull-request` |
+| `verify-succession` | `hermetic` | yes | `make-a-direction-s-end-a-turn-of-the-loop-not-its-stop` |
+| `verify-revision` | `hermetic` | yes | `let-the-operator-revise-a-live-direction-through-the-loop` |
+| `verify-merged-claim` | `hermetic` | no | `tell-a-merged-claim-from-a-live-one-at-both-grains` |
+| `verify-identity-handoff` | `hermetic` | yes | `drive-the-work-the-loop-wrote-one-resolution-of-who-a-person-is` |
+| `verify-close` | `hermetic` | yes | `close-the-units-the-loop-already-finished` |
+| `verify-catch-up` | `hermetic` | yes | `land-the-loop-s-own-work-when-the-base-moves-under-it` |
+| `verify-retire` | `hermetic` | yes | `deliver-and-retire-what-the-loop-already-proved-finished` |
+| `verify-ci-retirement` | `hermetic` | yes | `finish-a-proved-retirement-where-the-write-is-permitted` |
+| `verify-delivery-retry` | `hermetic` | yes | `deliver-and-retire-what-the-loop-already-proved-finished` |
+| `verify-handoff-question` | `hermetic` | yes | `ask-for-the-one-act-a-declared-handoff-is-waiting-on` |
+| `verify-base-health` | `hermetic` | yes | `read-whether-the-base-survived-what-the-loop-merged` |
+| `verify-return-path` | `hermetic` | yes | `let-an-answer-in-the-thread-turn-back-into-the-loop-s-work` |
+| `verify-reconcile` | `hermetic` | yes | `reconcile-a-stale-thread-with-the-unit-s-real-state` |
+| `verify-checkin-delivery` | `hermetic` | yes | `deliver-what-the-loop-already-knows-to-the-person-who-can-act` |
+| `verify-findings-to-work` | `hermetic` | yes | `let-the-tick-s-own-findings-become-the-loop-s-work` |
+
+### The evidence behind the classification
+
+Measured 2026-08-29 over `bb9196c6`, twice, with the environment named above. **No row was
+unstable across the two runs.** Every row not named below exited `0` against its own
+throwaway fixture and is `hermetic`.
+
+- `verify-specificate` / `verify-implement` — exit `2` (`usage`): each takes an issue number
+  that only `seed` can mint against the real remote. **`needs_server`**, and the only two
+  rows for which the drill file's original header claim still holds.
+- `verify-plan`, `verify-status`, `verify-cadence`, `verify-planner`, `verify-standup`,
+  `verify-moderate` — exit `0` with no network, but each reads **this checkout**: its
+  declared deployment targets, its strategies, its commit range against `origin/main`. They
+  pass offline and their verdict is a fact about the tree they were run in, so they are
+  `reads_checkout` rather than `hermetic`. `verify-status` reports `refs: stale` offline and
+  passes; `verify-cadence` reports `gh_unavailable` and passes, which is the row asserting
+  that an unreachable transport is a named refusal rather than a silent write.
+- `verify-planner` — exited **`1`** on the first measurement, on the unmodified tree, and
+  had done so since the row shipped: the drill's own stub planner was written by a `printf`
+  of an escaped one-liner that put the awk program inside double quotes, so awk answered
+  `runaway string constant` and no plan was ever authored. `planner_authors` and
+  `planner_arranges` were `false` on every run nobody made. The stub is now a quoted
+  heredoc, which cannot regress the same way, and the row passes. **This is the mission's
+  own premise measured on its first day**: a drill nothing runs is a drill nothing believes.
+
+### Two rows are unresolved, and both say why
+
+- `verify-propose` — added by `0aa4cd79` (*Drill the brake and record the thirteenth
+  round*, 2026-08-21), a hand-typed commit on a branch that archived no ticket, so there is
+  no `mission:` relation to read. Recorded as unresolved rather than attributed to the
+  mission that happened to be in flight that day; `drill-register.sh` answers
+  `mission_unresolved` for it and every consumer names that word.
+- `verify-moderate` — the same commit renamed `verify-housekeep`, whose own origin is the
+  mission that shipped the maintenance tick. Hand-corrected to
+  `add-the-housekeep-hourly-operations-routine` with that evidence, because the derivation
+  stops at the rename.

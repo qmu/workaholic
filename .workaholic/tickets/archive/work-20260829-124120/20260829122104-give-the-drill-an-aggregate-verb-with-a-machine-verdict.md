@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-29T12:21:04+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -78,3 +79,45 @@ silent pass**: a drill that could not run must be visibly absent from the green 
   what keeps that bounded.
 - Verdict naming is deliberately the drill's **existing** exit vocabulary rather than a
   new one — a second vocabulary for the same fact is how the two drift.
+
+## Final Report
+
+Development completed as planned.
+
+`loop-drill.sh verify-all` runs the set the register classifies as runnable here and emits
+one JSON document: per drill a verdict, its reason where skipped, its breaker state, its
+kind, the mission that shipped it and its duration, plus totals. It exits non-zero **only**
+when at least one verdict is `fail`.
+
+The set is derived from the dispatcher's own `case` arms plus the register — never a second
+list — and the verdict vocabulary is the drill's **existing** exit vocabulary rather than a
+new one: `0` → `pass`, `1` → `fail`, `3`/`4` → `skipped:<the drill's own reason word>`, `5`
+→ `skipped:not_run_yet`, a timeout → `fail` with reason `timeout`, anything else → `fail`
+with `unexpected_exit_<n>`. A `needs_server` row is `skipped:needs_server` and is never
+invoked at all. A drill the register does not classify is `skipped:unclassified`, which is
+what makes ticket 8's reachability pin meaningful: a new drill is either run or
+deliberately classified, never silently absent.
+
+Two flags beyond `--json`: `--only <drill>` narrows the run (CI uses it per matrix leg),
+`--kind <k>[,<k>]` selects by classification (CI passes `hermetic`), and `--list` answers
+the set the verb would run **without invoking any of it**, so CI builds its matrix in one
+cheap call. `--timeout` bounds each drill; without `timeout` on `PATH` the run reports
+`bounded: false` rather than pretending.
+
+Measured over this checkout with no `gh`, no network and no key: 30 drills, **19 proved,
+9 unproved, 0 failed, 2 skipped**, exit 0, ~2m20s sequential.
+
+### Discovered Insights
+
+- **Insight**: A failing verdict carries the **rows that went false**, not the whole
+  document and not just the fact that one did. `one_line` truncates at 400 characters, so a
+  whole-document detail routinely cut off before reaching the failing row — the one thing a
+  reader needs.
+  **Context**: This is what makes a red CI leg diagnosable without reproducing the fixture
+  locally, which is the friction the verb exists to remove.
+
+- **Insight**: `needs_server` must be named **before** the `--kind` filter, or a drill
+  skipped for the strongest possible reason reports `kind_needs_server` — the reason of
+  whichever set that run happened to ask for.
+  **Context**: The general shape: when a row can be excluded by two rules, the one that is
+  a property of the row must win over the one that is a property of the caller.

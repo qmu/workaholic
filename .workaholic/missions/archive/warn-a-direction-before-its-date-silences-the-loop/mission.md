@@ -59,3 +59,4 @@ machine re-dates, closes or amends a direction.
 - 2026-08-29 — ticket archived — 20260829021947-drill-the-expiry-warning-with-no-network.md
 - 2026-08-29 — ticket archived — 20260829021947-state-the-expiry-reading-and-its-refusals.md
 - 2026-08-29 — mission achieved — mission.md
+- 2026-08-29 — story reported — work-20260829-024033.md

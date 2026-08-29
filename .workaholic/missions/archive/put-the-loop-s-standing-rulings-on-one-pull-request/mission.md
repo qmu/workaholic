@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 2.2
 feedback: [20260828211740-put-the-loop-s-standing-rulings-on-one-pull-request.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
@@ -59,3 +59,4 @@ read proposes nothing.
 - 2026-08-29 — ticket archived — 20260828212022-drill-the-ruling-path-with-no-network.md
 - 2026-08-29 — mission achieved — mission.md
 - 2026-08-29 — story reported — work-20260828-214118.md
+- 2026-08-29 — run recorded (+2.2h) — implement-20260829-0050

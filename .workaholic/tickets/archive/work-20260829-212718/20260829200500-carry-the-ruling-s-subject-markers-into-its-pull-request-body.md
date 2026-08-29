@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-29T20:05:00+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -112,3 +113,53 @@ that `why` argument or through a seam that does not yet exist. Confirm before bu
   (`branching/scripts/lib/publication-refusal.sh`) to compensate: that rule answers *which pull
   requests are the operator's* and carries no subjects at all, and merging the two would put a
   brake and a reading on one derivation whose bounds differ.
+
+## Final Report
+
+**Implemented.** The markers reach the pull-request body, and the drill now proves it.
+
+**Step 1 — reproduced and localized, verbatim.** `GET /repos/qmu/workaholic/pulls/694` returns a
+body of `## Overview` / `## Artifacts` / `## Notes` and nothing else, while
+`GET .../pulls/694/commits` returns a commit message carrying **all four** lines:
+
+```
+ruling: attribution / subject: make-the-routine-create-body-documented-and-buildable
+ruling: attribution / subject: make-workaholify-converge-the-account-s-routines
+ruling: attribution / subject: refuse-ok-under-a-placeholder-identity
+ruling: identity_mapping / subject: tamura.yoshiya@gmail.com
+```
+
+The ticket's hypothesis is confirmed **and sharpened**: the drafter *does* compose the markers —
+into `BODY_CHANGES`, the **third** positional of `publish-tree-pr.sh`, which that seam forwards
+to `commit.sh` as part of the commit message. The body is built from `$WHY` (argument 2) plus the
+seam's own generated `## Artifacts` and `## Notes`, so argument 3 never reaches it.
+`list-open-rulings.sh` reads the body, finds none, and `ruling-suppression.sh` answers
+`held: {"attribution": [], "identity_mapping": []}` for every open ruling.
+
+**Step 2 — the seam.** Exactly the preferred option: the markers move onto **`why`**, the one
+argument the body template already renders. `publish-tree-pr.sh` is **byte-identical** — it gains
+no body-fragment parameter, which its own header rules out anyway (the positionals are
+`commit.sh`'s and end in an open-ended `[files...]`, so a new one could not be told from a
+filename, and a second body-composition path would exist for every publication rather than for
+this one caller). The change is one caller, one variable.
+
+**Step 3 — preserved, provably.** The markers stay **visible text**, never an HTML comment, each
+on its own line under `## Overview`; `list-open-rulings.sh` is byte-identical and still decides
+**membership** by the `[Ruling] ` title; `BODY_CHANGES` keeps its human-readable bullet list in
+the commit message.
+
+**Step 4 — hermetic coverage, and it is the point.** `verify-rulings`'s stub now captures the
+pull-request payload (it arrives on stdin via `--input -`), a new row asserts the **body** carries
+one `ruling:` line per judged subject, and the suppression rows' `open.tsv` marker field is
+**derived from that captured body** instead of hand-written — which is precisely why those rows
+passed with the defect in place. The chain drafter → body → reader is closed.
+
+**Proved able to fail**: with the pre-repair composition restored, `verify-rulings` reports
+`verdict: fail` on exactly `rulings_markers_reach_the_body` and nothing else; restored, 11
+load-bearing rows, 0 failed, 2 breakers.
+
+**Step 5 does not apply** — the parse is not retired, because the markers now arrive.
+
+**Gate:** `node scripts/test-workflow-scripts.mjs` (5168/0),
+`sh scripts/e2e/loop-drill.sh verify-rulings` (pass), `verify-operator-pulls` (pass),
+`node scripts/build-plugins/verify.mjs` clean, `layout-doctor` conforming.

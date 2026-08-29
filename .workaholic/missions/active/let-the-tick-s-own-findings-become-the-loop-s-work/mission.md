@@ -54,3 +54,4 @@ their ruling, and the run report naming what was filed, held and left.
 - 2026-08-29 — ticket archived — 20260829042144-brake-the-filing-to-one-open-finding-issue.md
 - 2026-08-29 — ticket archived — 20260829042145-dedup-the-filing-structurally-on-the-step-id.md
 - 2026-08-29 — ticket archived — 20260829042145-suppress-the-question-a-filing-answers.md
+- 2026-08-29 — ticket archived — 20260829042145-report-what-was-filed-held-and-left.md

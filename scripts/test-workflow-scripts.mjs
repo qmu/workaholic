@@ -27175,6 +27175,28 @@ function testFindingBrakeAndDedup() {
       blind.reason.startsWith("brake_") && blind.reason !== "brake_held", blind.reason);
     assertEq("and files nothing", blind.needs_agent.length, 0);
 
+    // ---- FILED, HELD AND LEFT ARE THREE DISTINCT STATEMENTS (2026-08-29) ----
+    // Each asks the reader for a different thing, and a tick that filed nothing names WHICH of
+    // the four reasons applied — never one word for all of them.
+    assertEq("the four reasons are distinct words",
+      [step("empty").reason, held.reason, deduped.reason, blind.reason].join("|"),
+      "|brake_held||brake_unreadable");
+    assertTrue("a held candidate names the issue that held it",
+      held.held.length === 2 && held.held.every((h) => h.held_by === 9),
+      JSON.stringify(held.held));
+    assertTrue("a deduped candidate names the issue that already carries it",
+      deduped.already_filed.some((a) => a.step === "retire-claims" && a.issue === 9),
+      JSON.stringify(deduped.already_filed));
+    assertEq("what is left to a person is a count, never a list", typeof free.left, "number");
+    assertTrue("...and there is no `left` array anywhere in the output",
+      !Array.isArray(free.left), JSON.stringify(free.left));
+
+    // THE SUMMARY IS STABLE, which is what lets the tick's own diff suppress an unchanged hour.
+    assertEq("two consecutive reads of one state render an identical summary",
+      step("open").summary, held.summary);
+    assertTrue("and it carries no timestamp or clock",
+      !/\d{4}-\d{2}-\d{2}|\d{2}:\d{2}/.test(held.summary), held.summary);
+
     // ---- the marker's one writer takes the finding form ----
     // `file-inbound-ask.sh` stays the ONE writer of a marker, so the finding marker is written
     // there and nowhere else. Exactly one marker per issue: two dedups matching one issue is

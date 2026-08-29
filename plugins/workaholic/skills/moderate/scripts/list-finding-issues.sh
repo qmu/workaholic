@@ -5,6 +5,7 @@
 # Usage: list-finding-issues.sh
 # Output: {"ok": true, "slug": "<owner/name>", "any_open": true|false,
 #          "open": [{"number": N, "url": "...", "step": "...", "finding_id": "..."}],
+#          "filed": [{"number": N, "url": "...", "step": "...", "finding_id": "...", "state": "..."}],
 #          "filed_ids": ["<finding id>", ...],
 #          "scanned": N, "limit": N, "list_capped": true|false}
 #      or {"ok": false, "reason": "...", "detail": "..."} — exit 0 either way.
@@ -96,6 +97,7 @@ json_escape() {
 
 TAB="$(printf '\t')"
 open_rows=""
+filed_rows=""
 ids=""
 while IFS="$TAB" read -r number state url marker; do
   [ -n "$number" ] || continue
@@ -104,8 +106,13 @@ while IFS="$TAB" read -r number state url marker; do
   [ -n "$fid" ] || continue
   ids="${ids}${fid}
 "
+  row="{\"number\": ${number}, \"url\": \"$(json_escape "$url")\", \"step\": \"$(json_escape "$step")\", \"finding_id\": \"$(json_escape "$fid")\""
+  # `filed` carries every finding issue with its state; `open` is the subset the brake and the
+  # suppression read. Both come out of one walk, because *has this been filed* and *is it in
+  # flight* are two questions about one ledger and two walks would drift.
+  filed_rows="${filed_rows:+${filed_rows}, }${row}, \"state\": \"$(json_escape "$state")\"}"
   if [ "$state" = "open" ]; then
-    open_rows="${open_rows:+${open_rows}, }{\"number\": ${number}, \"url\": \"$(json_escape "$url")\", \"step\": \"$(json_escape "$step")\", \"finding_id\": \"$(json_escape "$fid")\"}"
+    open_rows="${open_rows:+${open_rows}, }${row}}"
   fi
 done <<EOF
 $rows
@@ -118,5 +125,5 @@ json_ids="$(printf '%s' "$ids" | sed '/^$/d' | sort -u \
 any_open=false
 [ -n "$open_rows" ] && any_open=true
 
-printf '{"ok": true, "slug": "%s", "any_open": %s, "open": [%s], "filed_ids": [%s], "scanned": %s, "limit": %s, "list_capped": %s}\n' \
-  "$(json_escape "$slug")" "$any_open" "$open_rows" "$json_ids" "$scanned" "$LIMIT" "$capped"
+printf '{"ok": true, "slug": "%s", "any_open": %s, "open": [%s], "filed": [%s], "filed_ids": [%s], "scanned": %s, "limit": %s, "list_capped": %s}\n' \
+  "$(json_escape "$slug")" "$any_open" "$open_rows" "$filed_rows" "$json_ids" "$scanned" "$LIMIT" "$capped"

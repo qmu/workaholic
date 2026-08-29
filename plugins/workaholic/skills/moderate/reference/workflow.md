@@ -1539,6 +1539,29 @@ of the two markers is allowed: an issue claiming to be both a channel message an
 would be matched by two dedups. It is in the **body**, not the title, so it survives a person
 retitling the issue.
 
+**Filed, held and left never render alike.** Each is a different fact about the loop and asks
+the reader for a different thing — work the loop took on, the brake doing its job, and what only
+a person can settle — and collapsing them is exactly what made the tick's debt invisible
+(`0 retired` hour after hour with nobody told). The step carries `needs_agent` (to file),
+**`held`** (each candidate with the open issue that held it), **`already_filed`** (each dropped
+candidate with the issue that already carries it) and **`left`** as a **count, never a list**:
+those findings reach a person through their own questions, and re-listing them here is the
+report addressed to nobody this repository has twice retired posts for.
+
+**A tick that filed nothing names why, from a closed set of four**: `no_candidates`,
+`brake_held`, `all_already_filed`, `brake_unreadable` — never one word for all four. The
+ledger's own reason rides the summary rather than the reason word, so a reader keying on the
+word never has to enumerate whatever a transport happened to say this hour.
+
+**The summary is stable**: every term is a function of the candidate set and the ledger state
+alone — no timestamp, no clock, no count that moves for a reason the reader cannot see. That is
+what lets the tick's own diff suppress an unchanged hour; `inbound-sweep`'s embedded timestamp
+is the measured failure here, which made its line "changed" on every tick by construction.
+
+**A run that names a candidate and reports no outcome for it is non-conformant on its face** —
+the connector retry's enforcement, for the same reason: no mechanical check tells a real filing
+from a claimed one, and what this buys is that a report naming no outcome is visibly wrong.
+
 **And the question a filing answers is held.** A finding that has become work must not also ask
 a person — the same person, in the same hour, about the thing the loop is already driving.
 `finding-suppression.sh` is the one reader: a **sibling** of `ruling-suppression.sh`, in the

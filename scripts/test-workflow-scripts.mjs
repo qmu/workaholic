@@ -7656,6 +7656,70 @@ function testStrategyStageRidesBeside() {
   } finally { cleanup(dir); }
 }
 
+// ---------- 改良中 sorts before 進行中, and that is all it does (2026-08-29) ----------
+// `make-a-direction-s-lifecycle-a-declared-stage`, ticket *Order an improving direction against
+// its rivals*. The ask's 改良中 carries one behaviour the other stages do not: its priority
+// rises and falls RELATIVE to the other active directions, because the operator runs several
+// that improve as a blend. The survey already has the seam for exactly that and no other — the
+// eligible ORDER, admitted on the ground that it is a proposal about attention and never a gate
+// (which is how `pace` was admitted) — so the stage joins the sort key and nothing else.
+function testProposeStageOrdering() {
+  const dir = makeRepo("main");
+  const WH = join(dir, ".workaholic");
+  const OPEN = join(dir, "open.json");
+  const mkStrategy = (slug, stageLine, target) => {
+    mkdirSync(join(WH, "strategies"), { recursive: true });
+    writeFileSync(join(WH, "strategies", `${slug}.md`), [
+      "---", "type: Strategy", `title: ${slug}`, `slug: ${slug}`, "status: active",
+      ...(stageLine ? [`stage: ${stageLine}`] : []),
+      `target_date: ${target}`, "assignees: [me@example.com]",
+      "feedback: [20260101000000-a.md]",
+      "---", "", `# ${slug}`, "", "## Aim", "", "aim", "", "## Schedule", "", "s", "",
+    ].join("\n"));
+  };
+  const survey = () => JSON.parse(run(dir,
+    `${POSIX_SH} ${SCRIPTS.proposeSurvey} --open-proposals ${OPEN} "30 days ago" ${WH}`).stdout);
+
+  try {
+    run(dir, `git config user.email me@example.com`);
+    writeFileSync(OPEN, JSON.stringify({ ok: true, identity: "me", slug: "o/n", proposals: [] }));
+    mkdirSync(join(WH, "feedbacks"), { recursive: true });
+    writeFileSync(join(WH, "feedbacks", "20260101000000-a.md"), "---\ntype: Feedback\n---\n\nb\n");
+    const future = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
+
+    // EQUAL DATE TERMS, so the stage is the only thing that can separate them. `zeta` is named
+    // to sort AFTER `alpha` by slug, so an ordering that ignored the stage would put the
+    // 進行中 one first and this assertion would catch it.
+    mkStrategy("alpha", "進行中", future);
+    mkStrategy("zeta", "改良中", future);
+    let r = survey();
+    assertEq("改良中 sorts before 進行中 when the date terms are equal",
+      r.selected, ["zeta", "alpha"]);
+    assertEq("...with the membership of selected unchanged",
+      r.selected.slice().sort().join(","), "alpha,zeta");
+    assertEq("...and nothing refused", r.refused.map((x) => x.reason), []);
+
+    // THE EXISTING TERMS KEEP THEIR ORDER BENEATH IT: the stage is the FIRST component, so a
+    // 改良中 direction leads even a `late` 進行中 one — and among directions of the SAME stage
+    // the date term decides exactly as before.
+    const soon = new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 10);
+    mkStrategy("beta", "改良中", soon);
+    assertEq("among 改良中 directions the nearer date still leads",
+      survey().selected.slice(0, 2), ["beta", "zeta"]);
+
+    // A REPOSITORY WHOSE DIRECTIONS ALL CARRY ONE STAGE — OR NONE — IS BYTE-IDENTICAL to the
+    // pre-change survey, which is what makes this cheap: the key cannot reorder a set it
+    // cannot distinguish.
+    for (const uniform of ["", "進行中", "改良中"]) {
+      mkStrategy("alpha", uniform, future);
+      mkStrategy("zeta", uniform, future);
+      mkStrategy("beta", uniform, soon);
+      assertEq(`with every direction at ${uniform || "no stage"} the order is the date order`,
+        survey().selected, ["beta", "alpha", "zeta"]);
+    }
+  } finally { cleanup(dir); }
+}
+
 // ---------- 観察中 stops ORIGINATION and nothing else (2026-08-29) ----------
 // `make-a-direction-s-lifecycle-a-declared-stage`, ticket *Stop originating proposals for an
 // observing direction*. `observing` is the FIRST DECLARED gate on a ladder of derived ones,
@@ -19149,6 +19213,7 @@ const tests = [
   ["strategy skill (the artifact revived 2026-08-13)", testStrategySkill],
   ["strategy: the operator's declared stage", testStrategyDeclaredStage],
   ["strategy: the declared stage rides beside the derived readings", testStrategyStageRidesBeside],
+  ["propose: 改良中 sorts before 進行中, and that is all it does", testProposeStageOrdering],
   ["propose: 観察中 stops origination and nothing else", testProposeObservingGate],
   ["strategy/attributed-work.sh (the ONE attribution reader)", testStrategyAttributedWork],
   ["strategy/attributed-work.sh past the xargs batching boundary", testStrategyAttributedWorkPastBatchBoundary],

@@ -65,7 +65,11 @@ dated line to `## Schedule` saying what moved, so the artifact carries its own h
 | **Assignee** | `assignees:` frontmatter | Who carries it. Plural like every other artifact, resolved through the one ownership oracle (`gather/scripts/owners.sh`), but — unlike everywhere else — **it may not be empty**: an unowned direction is not a strategy. |
 | **Stage** | `stage:` frontmatter | The operator's **declared** phase, from the closed set `進行中 | 改良中 | 観察中` — not yet cut over / cut over and still improving / settled, the loop reactive only. Their own vocabulary, kept verbatim. **Absent means 進行中.** |
 
-**The stage has exactly one behavioural consequence, and it is 観察中's**: `/propose` is refused
+**改良中 reads as *competing*.** It is the one stage that says a direction can absorb a
+proposal now, so among eligible directions it **sorts first** in `/propose`'s survey — an order,
+never a gate, with the existing late-first and nearest-date terms unchanged beneath it.
+
+**The stage's other consequence is 観察中's**: `/propose` is refused
 `observing` and originates nothing for that direction (`workaholic:propose`). It stops
 **origination only** — inbound work still reaches a settled direction through `/specificate`
 unchanged — and it is the **first declared gate** on a list of derived ones, which is what makes

@@ -556,11 +556,36 @@ jq -sc \
                   else (.waiting_missions // 0) + (.waiting_count // 0) end) > 0) then "work_waiting"
            elif ($held | index($w.slug)) then "open_proposal"
            else "" end)} ]
-  # LATE FIRST, then nearest date. A tick that dies partway must have advanced the
-  # direction least likely to arrive, not merely the one with the nearest deadline.
-  # `unknown` orders exactly where it ordered before this existed: a pace that could not
-  # be read must neither promote nor demote a direction on a guess.
-  | sort_by([(if .pace == "late" then 0 else 1 end),
+  # THE WHOLE ORDERING, STATED HERE AND NOWHERE ELSE, so no consumer re-derives it:
+  #
+  #   1. 改良中 FIRST, then every other stage (2026-08-29, mission
+  #      `make-a-direction-s-lifecycle-a-declared-stage`).
+  #   2. LATE FIRST, then
+  #   3. NEAREST DATE.
+  #
+  # A tick that dies partway must have advanced the direction least likely to arrive, not
+  # merely the one with the nearest deadline. `unknown` orders exactly where it ordered
+  # before that existed: a pace that could not be read must neither promote nor demote a
+  # direction on a guess.
+  #
+  # WHY THE STAGE LEADS, AND WHY 改良中 RATHER THAN 進行中. The operator runs several
+  # directions that reference each other and improve as a blend, and 改良中 is the stage
+  # they declared to mean CUT OVER AND STILL IMPROVING — the one that can absorb a proposal
+  # and convert it into shipped behaviour. The counter-argument is recorded rather than
+  # dismissed: work that cannot be cut over yet is the riskiest, so 進行中 might deserve
+  # attention first. It lost because a blend has to put its PROPOSING energy where proposals
+  # land, and a direction still building is advanced by the work already queued against it.
+  # 観察中 never reaches this sort at all — it is refused `observing` one step above.
+  #
+  # IT IS A SORT AND NOT A GATE, which is what makes it cheap and reversible. `refused[]`,
+  # every gate, the membership of `eligible[]` and `selected[]` and every reading are
+  # untouched; only the ORDER moves, and only between directions of different stages. Since
+  # `over_cap` was retired a tick proposes against EVERY eligible direction, so the order
+  # decides only which one a tick that dies partway has advanced — which bounds the blast
+  # radius of this whole change. NO weight, NO score, NO tunable constant and NO
+  # cross-direction arithmetic: the key is lexicographic over fields already on the row.
+  | sort_by([(if .stage == "改良中" then 0 else 1 end),
+             (if .pace == "late" then 0 else 1 end),
              (if .days_to_target == null then 99999 else .days_to_target end)])
   | (map(select(.refusal == "")) ) as $ok
   | (if $cap < 0 then $ok else $ok[0:$cap] end) as $take

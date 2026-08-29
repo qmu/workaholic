@@ -632,6 +632,35 @@ attribution walk and the stage is read off the artifact.
 direction, which the hermetic suite pins rather than asserts. **観察中 is the one value that
 decides anything**, and it decides exactly one thing:
 
+### 改良中 competes for attention — the stage joins the sort and nothing else
+
+(2026-08-29, the same mission.) The ask's 改良中 carries one behaviour the other two do not:
+its priority rises and falls **relative to the other active directions**, because the operator
+runs several that reference each other and improve as a blend. The survey has exactly one seam
+for that and no other — the **eligible order**, admitted on the ground that it is a proposal
+about attention and never a gate, which is how `pace` was admitted — so the stage joins the
+sort key and stops there.
+
+**The whole ordering is stated in one place**, `survey-strategies.sh`'s own header, so no
+consumer re-derives it: **改良中 first**, then **late first**, then **nearest date**. The
+existing components keep their order beneath the new one.
+
+**Why 改良中 rather than 進行中**, with the counter-argument recorded rather than dismissed:
+work that cannot be cut over yet is the riskiest and might deserve attention first — it lost
+because 改良中 is the stage the operator declared to mean *can absorb a proposal*, and a
+blend's proposing energy belongs where it converts to shipped behaviour, while a direction
+still building is advanced by the work already queued against it.
+
+**It is a sort and not a gate**, which is what makes it cheap and reversible: `refused[]`, every
+gate, the membership of `eligible[]` and `selected[]` and every reading are byte-identical, and
+a repository whose directions all carry one stage — or none — produces the pre-change order
+exactly. **No weight, no score, no tunable constant and no cross-direction arithmetic**: the key
+is lexicographic over fields already on the row. Since `over_cap` was retired a tick proposes
+against **every** eligible direction, so the order decides only which one a tick that dies
+partway has advanced — which is precisely what bounds this change's blast radius. An explicit
+operator-set numeric rank is refused: a rank is a second thing to keep current, and if it is
+ever wanted it is a separate ask against a working ordering rather than a guess made now.
+
 ### `observing` — the first DECLARED gate, and why that is what makes it safe
 
 (2026-08-29, the same mission.) A direction the operator declared **観察中** is settled: the

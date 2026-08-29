@@ -37,6 +37,7 @@ Run every command from the repository root, on a clean `main`.
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-direction-health --json` | a throwaway strategy tree, one overdue direction and one dormant one — proves the four lifecycle readings, the three question keys, the asked-once gate, and that nothing was written |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-arrival --json` | a throwaway **git** strategy tree carrying landed work — proves `arrived`, that it outranks `overdue`, that `dormant`, `overdue` and `live` are unchanged, the `direction-arrived:<slug>` key and its asked-once gate, and that no reading closes a direction, with no network and one row that deliberately breaks the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-residue --json` | a throwaway **git** strategy tree whose attributed work has all landed beside an **unattributed** active mission — proves the honest and the degraded residue read, that only an unreadable residue refuses the arrival, that the question names the residue by slug, the asked-once gate, that no gate moved, and the attribution carry landing and refusing, with no network and one row that deliberately breaks the seam |
+| — | Any time | `sh scripts/e2e/loop-drill.sh verify-corpus-boundary --json` | a throwaway **git** strategy tree whose corpus is grown past the `xargs` batching boundary — the boundary derived by probing `xargs` rather than hard-coded — proves both hops attribute across it, that the survey brakes on a real reading, that the residue excludes the citing mission and no arrival question is asked over work the tree attributes, and, beside it, the degraded direction: a named reason, a refused row, a residue that lists nothing and no question at all, with no network and **two** rows that deliberately break the seam, one per hop |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-expiry --json` | a throwaway **git** strategy tree of five directions differing only in their dates and their work — proves `expiring` inside the window, `live` outside it, `overdue` past the date and `arrived` above both, that the window is the survey's own rather than a constant, the `direction-expiring:<slug>` question naming the date, the days left and the leaving, its asked-once gate, and that no reading re-dates, closes or amends a direction, with no network and one row that deliberately breaks the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-rulings --json` | a throwaway **git** repository holding exactly one unattributed active mission and exactly one unmapped address, with a bare local origin and `gh` stubbed — proves the set is read with its evidence and repair and **nothing judged**, that a judged set lands as one pull request the seam refuses to merge, that a second tick is a no-op while it is open, that a subject the ruling does not name still asks and says why, that every refusal writes nothing, with no network and a breaker in two halves |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-succession --json` | a throwaway **git** tree carrying one dated direction, its landed work and an unattributed mission — walks close → read the leaving → announce a successor by explicit slug → the carried refs land → `attributed-work.sh` attributes the predecessor's work to it → `/propose` proposes against it, and proves nothing closed, authored or auto-merged a direction, with no network and one row that deliberately breaks the seam |
@@ -514,6 +515,64 @@ term under test.
 **Two proofs, and they are not the same one**, as everywhere else here: this drill is the
 operator's half; `testResidueGatesNothing`, `testResidueOnSurveyRows` and
 `testCarryAttribution` in the hermetic suite are CI's.
+
+## 5j-bis. The closing link past the corpus boundary (`verify-corpus-boundary`)
+
+`verify-corpus-boundary` needs no seed, no fire, no issue number and **no network**: it builds
+a throwaway **git** strategy tree — git-backed for `verify-arrival`'s reason, since `landed[]`
+is a `git log --since` read — carrying one `active` direction, the mission that cites it and
+the ticket naming that mission, then grows filler until the corpus **path list** spans more
+than one `xargs` batch.
+
+The failure it exists for is the closing link going **silent** as the corpus grows. Both hops
+of `attributed-work.sh` prefilter with one `grep` per batch, and the shape that shipped —
+`xargs grep -lFf … > cand || : > cand` — truncated everything the earlier batches had already
+found whenever a later batch matched nothing. Measured on this repository 2026-08-29: 1411
+corpus paths / 132292 bytes against a 131072-byte buffer, 0 candidates where an appending walk
+found 26, and `no_citing_artifacts` for a direction with 26 citing artifacts.
+
+**The boundary is derived from the running system, never hard-coded.** `xargs`'s command
+buffer is a property of the machine (~128 KiB on GNU, unrelated to `ARG_MAX` — 2 MiB here), so
+a filler count pinned at "1400 files" would quietly stop exercising the split on a machine with
+a different limit and the row would pass while proving nothing. The probe counts how many times
+`xargs` invokes its command over exactly the corpus the reader builds, and the filler grows
+until that count exceeds one. What must be large is the **path list**; the file bodies stay
+three lines.
+
+The **deliberately broken seam** is in **two halves, one per hop**, and both are written
+against **behaviour** rather than a return shape: each runs a copy of the reader with the
+truncating `||` restored on one hop and requires the citation to be **lost**. A breaker keyed
+on a field would pass a refactor that keeps the output shape and reintroduces the bug, which is
+exactly the failure mode this row exists to catch. The two halves are separate because
+reverting hop 1 hides hop 2 behind it — with no attributed mission there is nothing for the
+second hop to walk — and hop 2 carries every ticket's `via_mission:` attribution, so its loss
+is the larger one.
+
+The degraded direction is built from a corpus entry the walk genuinely **cannot consume**: a
+filename containing a space, which `xargs` splits into two non-existent paths so `grep` exits
+2. A permission bit is not usable here and the ticket's own considerations said so — this drill
+routinely runs as uid 0, where `chmod 000` still reads fine (measured: `grep -lFf` over a
+000-mode file exits 1, not 2).
+
+| Row | Fails when | Read |
+| --- | ---------- | ---- |
+| `corpus_spans_more_than_one_batch` | the fixture never crossed the boundary, so every row below proves nothing | the probe, and `|| :` on each `find` in it — under `set -e` a missing area aborts the group before the second `find` runs |
+| `corpus_both_hops_attribute` | a citation in an early batch is lost to a later batch that matched nothing | `attributed-work.sh`'s `prefilter` — it appends across batches and a no-match batch is a success |
+| `corpus_batching_tolerance_holds` | restoring the truncating branch on **hop 1** does not lose the citation | **the broken seam**, half one — if this passes, the row above proves nothing |
+| `corpus_batching_tolerance_holds_on_hop_2` | restoring it on **hop 2** does not lose the `via_mission:` attribution | **the broken seam**, half two — hop 1 must survive it, which is what makes the halves independent |
+| `corpus_survey_row_is_real` | the survey row is not derived from a completed walk | `survey-strategies.sh` — a real `work_waiting` brake, never `attribution_unreadable` |
+| `corpus_residue_excludes_the_citing_mission` | the residue names a mission the tree attributes | `mission-strategy.sh`'s `attributed`, over the same walk |
+| `corpus_no_arrival_over_attributed_work` | an arrival question is asked about work the tree attributes | `step-direction-health.sh`, over `quiescent` |
+| `corpus_degraded_names_its_reason` | a walk that could not read reports `no_citing_artifacts` instead of its own reason | `note_walk_failure` and `emit_unreadable` — `readable: false`, `reason: corpus_unreadable` |
+| `corpus_degraded_refuses_the_row` | the survey derives a reading from a walk it could not complete, or selects it | the `$blind` term and the `attribution_unreadable` rung, ahead of `work_waiting` |
+| `corpus_degraded_residue_lists_nothing` | the residue is rendered off a blind walk | `unattributed-work.sh`'s `strategy_unreadable` / `all_strategies_unreadable`, with null counts |
+| `corpus_degraded_asks_no_arrival` | an arrival question is produced from a walk that did not complete | the same `quiescent` chain, one degradation earlier |
+| `corpus_writes_nothing` | the drill changed the checkout | every reader here is pure and every fixture lives outside the checkout |
+
+**Two proofs, and they are not the same one**, as everywhere else here: this drill is the
+operator's half; `testStrategyAttributedWorkPastBatchBoundary`, `testAttributedWorkWalkOutcome`,
+`testSurveyRefusesADegradedWalk`, `testResidueRefusesADegradedWalk` and
+`testRunReportsNameADegradedReading` in the hermetic suite are CI's.
 
 ## 5j-ter. The direction warned before its date (`verify-expiry`)
 

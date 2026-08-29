@@ -1,0 +1,170 @@
+# The failure contract — reference
+
+Companion to [`../SKILL.md`](../SKILL.md)'s **The failure contract** section. This is what an
+unattended unit may and may not do when a ticket goes wrong — the contract the overnight run
+always had, applied to every run because every run is that shape.
+
+## Attempt every ticket
+
+Size, complexity, "all-or-nothing" scope, and "this looks like it needs a human" are **not** skip
+reasons. Neither is a run being long, heavy, or wanting exclusive use of a local service — a
+thirty-minute verification that loads the machine hard or wants a port to itself is **preferred**
+unattended work, not work to avoid. Resource contention bounds how many units run at once — the
+run's dial, never a unit's licence to skip its own work. A skip is legitimate only after a real
+attempt, and only as one of the four outcomes.
+
+Exactly two buckets may be deferred **without** an attempt:
+
+- **Safety floor** — genuinely irreversible outward actions an unattended run must never take:
+  production sends to third parties, force-push, destructive data operations.
+- **A genuinely external blocker** — a credential or approval a third party must issue, or a
+  decision requiring a named human's professional judgement. State concretely what is missing and
+  who must provide it.
+
+  **A named authority is necessary and not sufficient** (2026-08-23). Naming who must decide is
+  free — a session can do it without ever having looked — so what qualifies a unit for this bucket
+  is the **evidence of the read**: the sources consulted and what they said. Where the blocker is
+  a written `## Open Decisions` item, those sources are the ones the item names, plus the whole of
+  any page it cites (`reference/ticket-workflow.md` §1). **A block that cannot name a source it
+  read is not a block** — it is the declining-to-decide this contract already refuses, one level
+  further up. Measured: an item was honoured whose answer sat fifty lines below on the very page
+  the ticket named, and on a consuming repository that shape ran eleven consecutive ticks for zero
+  lines of implementation while the operator's own answer sat unread in the same tree.
+
+## The four outcomes
+
+Every ticket handed to a unit ends as exactly one, and the totals reconcile to the unit's queue.
+There is no "declined" category:
+
+- **implemented** — verified against its `## Quality Gate`, archived, commit hash recorded.
+- **failed** — implemented, but its checks went red. `git stash` the partial work so it cannot
+  contaminate the next commit, leave the ticket in `todo`, record the reason and the stash.
+- **blocked** — a **named** hard external blocker, with the command that was attempted and its
+  raw output recorded.
+- **`deferred`** — an unqueued problem was met and became a ticket; the run continued.
+
+**"Blocked" is a finding, not a forecast.** Before recording it, run the thing and record what
+came back. An abstract verdict reached without executing anything ("this needs a human", "the
+credentials probably aren't here") is an unattempted ticket, and the report must say so. The
+morning review can act on `deploy.sh → exit 127: gh: command not found`; it can do nothing with
+"deployment seemed human-only."
+
+**"Missing credentials" is a checked claim, not an observation.** Env loaders fail silently on a
+missing file, so "the variables are unset" is equally consistent with "no credentials exist" and
+"this worktree never carried the file that holds them". The worktree creator reports
+`env_files_carried` (`workaholic:branching`; projects declare their layout in a repo-root
+`.worktree-env`), and an empty carry is the tell. Confirm the files are present *and still hold no
+usable credential*, and name the file you checked.
+
+**If you background a job, you own reporting its outcome — either way.** The report must fire on
+failure exactly as on success; before reporting yourself finished, read every background job's
+declared output artifact and exit state. Give a detached job an explicit, self-contained
+environment (it does not inherit an interactive shell's PATH — a command that works when typed
+can exit instantly when detached) and treat that early exit as a real `failed` with the captured
+error.
+
+**Safety floor on any failure — never negotiable:**
+
+- Stash the failed ticket's partial work before continuing; note the stash in the report.
+- Leave the ticket in `todo`. A red check means failed → recorded, never force-committed.
+- **NEVER** auto-move a ticket to icebox, auto-abandon it, or run destructive git
+  (`git restore .` / `git clean` / `git reset --hard` / `git stash drop`). Those need a human.
+
+## An unqueued problem becomes a ticket
+
+When the run meets a problem the queue does not cover — a defect found while implementing, a
+missing prerequisite, an assumption that proves false — write a **ticket** for it and continue
+(`deferred`). **An observation is not an obligation. Only a ticket is**: a run that notices a
+problem and writes prose about it has, in practice, discarded it (a defect recorded verbatim in a
+story once resurfaced two days later because no ticket carried it).
+
+The boundary decides everything, so hold it exactly:
+
+- **Inside the current ticket's scope** → **implement it.** Not new, not a defer, and never a way
+  to avoid work.
+- **Outside it** → **write a ticket, continue.** Do **not** fix it opportunistically: an unqueued
+  fix rides into a commit whose message describes something else — the "unverified inferences
+  pile up in the code" that `workaholic:development` / `overnight-ai` names as the limit on a
+  blank cheque.
+- **Blocks the current ticket** → write the ticket, then record the current one **`blocked`**,
+  naming the minted ticket as what would unblock it.
+
+**Mint only for an observed problem — never a passing thought.** A ticket per speculative
+improvement turns the queue into a diary and buries the real ones. The threshold: the run
+actually hit it. A refactor idea, a "we might also want", a thing noticed but not run into — not
+a ticket.
+
+The minted ticket goes through the sanctioned path: the `create-ticket` structure, written to
+`todo/`, with its mandatory `## Policies` and `## Quality Gate` (`validate-ticket.sh` rejects it
+otherwise), and it inherits the provoking ticket's `mission:` relation (read via
+`mission/scripts/read-relation.sh`, never re-parsed). Report every minted ticket as its own line.
+
+**It also carries the minting unit's own resolved `feedback:` refs** (2026-08-29, ticket
+`20260829111000`), emitted by `feedback/scripts/ask-feedback-line.sh` — that relation's one
+writer — never by hand-formatting a frontmatter line. Without them the mint names nothing at all:
+`drive/scripts/unit-feedback-stems.sh` answers `count: 0`, so the unit that later drives it has no
+stem for the notify lookup's case 2 and no record for case 4's root to link, and its merge is
+announced to nobody. Measured 2026-08-29: unit `batch-20260829093639` minted
+`20260829102500-resolve-a-units-stems-through-an-archived-mission.md`; that ticket became unit
+`batch-20260829102127` (PR #716), merged, and its finish line went unposted.
+
+**Why `feedback:` rather than `mission:` alone.** The `mission:` hop resolves a mint made while
+driving a *mission* unit, and resolves nothing for a **batch** with no mission — which is exactly
+the measured case. `feedback:` is correct for both unit kinds and is the field `/specificate`
+already writes for this purpose. Carrying both when both are in hand is right; carrying neither is
+the defect. The refs cost no lookup: the minting unit resolved its own stems in order to post its
+own finish line, so the relation is in hand at the moment the ticket is written.
+
+**Carry them only when the run can say the mint is about the same item.** The measured mint was;
+one that is genuinely unrelated must carry nothing, and its finish line stays unposted — a ref
+carried on a guess sends that line into somebody else's thread, and a wrong thread is worse than
+none (`workaholic:notify`, *Fuzzy matching is prohibited by name*). An empty stem set stays a
+designed answer, never an error: such a unit is keyed on `unit:<unit-id>`.
+
+**Do not append an acceptance item to the mission for a minted ticket.** `## Acceptance` is the
+plan the developer agreed to, and its `checked ÷ total` is the mission's progress; auto-appending
+moves the goalposts so a mission recedes as it works. Promoting a minted ticket into the
+definition of done is the developer's call. Accepted consequence: a mission's ticket set can
+drift from its `## Acceptance` — the queue reflects reality, the acceptance list the agreement.
+
+## Where the per-ticket approval prompt went — the full account
+
+`/drive` used to stop and ask "Approve this implementation?" after every ticket. The prompt is
+retired and approval relocated (`docs/loop-engineering-workflow.md` G2/G5):
+
+- **A mission unit** was authorized when a human **merged the mission's pull request** (K1) — a
+  mission reaches `main` no other way, and the write-time floor (`validate-mission.sh`: a real
+  `## Experience`, ≥1 `## Acceptance` item) means what merged was never a blank plan.
+- **A batch unit** was authorized when each ticket was created: `/ticket` records the ticket's
+  own `merge_policy`, and writing a ticket is the instruction to implement it.
+
+What is removed is the completeness check inside the drive loop — nothing else. The qualitative
+looking-through that `workaholic:development` / `qa-engineering` makes non-delegable relocates to
+the PR (`workaholic:development` / `review`): the story is still written, and a `review` unit
+still stops there for a human.
+
+**The per-ticket authorization floor moved up to the unit.** `mission/scripts/drive-authorized.sh`
+answers, per ticket, "is this ticket's queue pre-authorized?" — being in flight plus a non-empty
+`## Acceptance`. The survey applies that floor to the mission before offering it, plus a second
+floor the acceptance count cannot express: at least one ticket must actually name the mission
+(`/specificate` writes a provisional acceptance *sketch*, so an item count is satisfied with zero
+tickets). With both, every ticket in a claimed mission unit passes the floor by construction. The
+resolver stays authoritative for any caller needing a per-ticket answer; the unified run never
+assembles a queue whose authorization it has not already established.
+
+**And the run does not relay decisions upward either.** A unit that turns an evidence-resolvable
+choice — which fixable failure to retry, finalize now or push one step further, how to recover a
+stale environment — into a developer question has moved the offloading one level up. Decide it
+from the evidence and the stated intent, record the decision in one line, and proceed. A genuine
+developer-only ruling surfacing mid-run (authorization for an irreversible outward action, a
+security-boundary value, an unfabricatable secret, a true evidence-free fork) is deferred and
+recorded in the final report — once — never asked. If you cannot name which of those you are
+missing, you are not blocked on the developer; you are declining to decide
+(`rules/interaction.md`). **A written Open Decision does not lift that**: it is a question to
+answer, not a ruling that the question is unanswerable, and an item an earlier automated seam
+declared unresolvable is a claim to check rather than evidence to cite.
+
+**This governs execution-time choices only — never planning-time requirements.** Drawing out the
+developer's requirements before a plan is committed is mandatory and the opposite of offloading:
+the developer holds the *what*, the agent cannot derive it (`workaholic:mission`'s *Elicit the
+requirements first* gate). Decide the *how*; never assume the *what*.

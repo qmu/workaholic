@@ -4,6 +4,7 @@
 
 * [deploy-the-docs-site-on-merge-to-main](active/deploy-the-docs-site-on-merge-to-main/mission.md) - Deploy the docs site on merge to main
 * [follow-the-pull-requests-the-loop-opens-for-a-person](active/follow-the-pull-requests-the-loop-opens-for-a-person/mission.md) - Follow the pull requests the loop opens for a person
+* [make-a-direction-s-lifecycle-a-declared-stage](active/make-a-direction-s-lifecycle-a-declared-stage/mission.md) - Make a direction's lifecycle a declared stage
 * [make-the-routine-create-body-documented-and-buildable](active/make-the-routine-create-body-documented-and-buildable/mission.md) - Make the routine create body documented and buildable
 * [make-the-two-executors-agree-about-a-proved-empty-claim](active/make-the-two-executors-agree-about-a-proved-empty-claim/mission.md) - Make the two executors agree about a proved-empty claim
 * [make-workaholify-converge-the-account-s-routines](active/make-workaholify-converge-the-account-s-routines/mission.md) - Make /workaholify converge the account's routines

@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-29T02:19:46+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -91,3 +92,25 @@ exactly as it projects `arrived` off `quiescent`.
   the header's limits list, where the same limit is already recorded.
 - Adding a rung changes the shape of `counts`. Check every consumer of `counts`
   before assuming it is additive.
+
+## Final Report
+
+Development completed as planned. `direction-state.sh` places `expiring` between `overdue` and
+`dormant`, projected off the survey row exactly as `arrived` is projected off `quiescent` — no
+new term, no date arithmetic. Its `reason:` names the approaching date, `counts` carries the
+new rung, and the header argues the rung against **both** neighbours: `overdue` above it
+because a date that has gone is the stronger fact and the two ask for the same act, `dormant`
+below it because a silent direction near its date is silenced by the date first.
+
+### Discovered Insights
+
+- **Insight**: `counts` has exactly one consumer outside the tests, and it reads named keys.
+  **Context**: `step-direction-health.sh` reads `.counts.<name>` one key at a time, so adding a
+  rung is additive there rather than shape-breaking. The `emit_unreadable` fallback prints its
+  counts object as a literal, though, so a new rung has to be added in **two** places in this
+  one file or a refused survey emits a differently shaped object from a successful one.
+- **Insight**: the precedence pair that a severity ordering would get wrong is `arrived` over
+  `expiring`.
+  **Context**: `expiring` sounds more urgent than *its work is in*, and ranking by urgency would
+  invert them. The rule is the act, not the severity: `arrived` asks *is this done?* and
+  `expiring` asks *re-date or end it* — a finished direction near its date must ask the first.

@@ -1769,6 +1769,78 @@ function testExpiringBoundary() {
   } finally { cleanup(A); }
 }
 
+// ---------- expiring, ranked in the lifecycle precedence (2026-08-29) ----------
+// `direction-state.sh` owns exactly one thing — the precedence — so what a test can hold is the
+// order, pair by pair:
+//
+//   unreadable  >  arrived  >  overdue  >  expiring  >  dormant  >  live
+//
+// `arrived` above `expiring` because the two ask for DIFFERENT acts; `overdue` above it because
+// a date that has gone is a stronger fact than one approaching and the act is the same one;
+// `dormant` below it because a silent direction near its date is about to be silenced by the
+// date first, and the date is the fact with a deadline on it.
+function testExpiringPrecedence() {
+  const STATE = join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/direction-state.sh");
+  const A = makeRepo("main");
+  const W = join(A, ".workaholic");
+  const w = (p, body) => { mkdirSync(dirname(join(A, p)), { recursive: true }); writeFileSync(join(A, p), body); };
+  const day = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+  const strategy = (slug, target, ref) =>
+    `---\ntype: Strategy\ntitle: T ${slug}\nslug: ${slug}\nstatus: active\ntarget_date: ${target}\n` +
+    `assignees: [test@example.com]\nfeedback: [${ref}]\n---\n\n## Aim\n\na\n\n## Schedule\n\ns\n`;
+  const mission = (slug, status, area, ref) =>
+    w(`.workaholic/missions/${area}/${slug}/mission.md`,
+      `---\ntype: Mission\ntitle: M ${slug}\nslug: ${slug}\nstatus: ${status}\nfeedback: [${ref}]\n---\n\n` +
+      `## Experience\n\ne\n\n## Acceptance\n\n- [ ] a\n`);
+  try {
+    for (const r of ["a", "b", "c", "d", "e"]) w(`.workaholic/feedbacks/2026010100000${r}-${r}.md`, "---\ntype: Feedback\n---\n\nx\n");
+    // Inside the window, running, work in flight — the reading under test.
+    w(".workaholic/strategies/soon.md", strategy("soon", day(2), "2026010100000a-a.md"));
+    mission("landed-a", "achieved", "archive", "2026010100000a-a.md");
+    mission("inflight-a", "active", "active", "2026010100000a-a.md");
+    w(".workaholic/tickets/todo/20260102000000-qa.md", "---\nmission: inflight-a\n---\n\n# Q\n");
+    // Past its date: `overdue` outranks `expiring`, and `expiring` is false there anyway.
+    w(".workaholic/strategies/gone.md", strategy("gone", day(-2), "2026010100000b-b.md"));
+    // Inside the window AND quiescent: `arrived` outranks `expiring`, because the two ask for
+    // different acts. This is the pair a severity-only ordering would get wrong.
+    w(".workaholic/strategies/finished.md", strategy("finished", day(2), "2026010100000c-c.md"));
+    mission("landed-c", "achieved", "archive", "2026010100000c-c.md");
+    // Inside the window AND dormant: `expiring` wins — the date is the fact with a deadline.
+    w(".workaholic/strategies/silent.md", strategy("silent", day(2), "2026010100000d-d.md"));
+    // Far out and dormant: unchanged by any of this.
+    w(".workaholic/strategies/later.md", strategy("later", day(300), "2026010100000e-e.md"));
+    const open = join(A, "open.json");
+    writeFileSync(open, '{"ok": true, "identity": "test", "proposals": []}\n');
+    execSync("git add -A && git commit -q -m seed", { cwd: A });
+
+    const j = JSON.parse(run(A, `${POSIX_SH} ${STATE} --open-proposals ${open} "14 days ago" ${W}`).stdout);
+    const state = (slug) => (j.strategies.find((s) => s.slug === slug) || {}).state;
+
+    assertEq("a healthy direction inside the window reads expiring", state("soon"), "expiring");
+    assertEq("a direction past its date still reads overdue", state("gone"), "overdue");
+    assertEq("a quiescent direction inside the window reads arrived", state("finished"), "arrived");
+    assertEq("a silent direction inside the window reads expiring", state("silent"), "expiring");
+    assertEq("a silent direction outside it still reads dormant", state("later"), "dormant");
+    assertEq("its reason names the approaching date",
+      j.strategies.find((s) => s.slug === "soon").reason, "the target_date is approaching");
+
+    // THE COUNTS CARRY THE NEW RUNG AND NOTHING ELSE MOVED. Adding a rung changes the shape of
+    // `counts`, so every key is asserted rather than only the new one.
+    assertEq("counts carry expiring beside the others", j.counts,
+      { live: 0, arrived: 1, overdue: 1, expiring: 2, dormant: 1, unreadable: 0 });
+
+    // THE READER DERIVES NOTHING. Every state is a projection of a field the survey emitted;
+    // a date computation here would be the second derivation the whole script exists to prevent.
+    const body = readFileSync(STATE, "utf8").split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+    for (const arith of ["fromdateiso8601", "86400", "strftime", "mktime"]) {
+      assertTrue(`the reader performs no date arithmetic (${arith})`, !body.includes(arith), body);
+    }
+    for (const writer of ["create.sh", "amend.sh", "close.sh"]) {
+      assertTrue(`and reaches no strategy writer (${writer})`, !body.includes(writer), body);
+    }
+  } finally { cleanup(A); }
+}
+
 // ---------- the residue reaches no /propose gate (2026-08-28) ----------
 // The residue is REPORTED, never gated on: no refusal reads it, nothing is proposed or withheld
 // on it, and the one exception is stated rather than implied — `quiescent`, which is itself a
@@ -18149,6 +18221,7 @@ const tests = [
   ["the arrival question names the residue by slug", testArrivalQuestionNamesResidue],
   ["a direction is read before its date silences the loop", testExpiringDirectionIsRead],
   ["expiring: the boundary, and the window it is derived from", testExpiringBoundary],
+  ["expiring, ranked in the lifecycle precedence", testExpiringPrecedence],
   ["the residue reaches no /propose gate", testResidueGatesNothing],
   ["strategy/carry-attribution.sh carries a ruling and refuses the rest", testCarryAttribution],
   ["strategy/amend.sh: the third writer, bounded", testStrategyAmend],

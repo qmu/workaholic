@@ -588,6 +588,22 @@ guess would stop the direction producing work while the operator was never asked
 job is to raise the question with a name on it — `/moderate`'s `direction-arrived:<slug>` — and
 nothing else.
 
+### The run report names a degraded direction reading
+
+(2026-08-29, mission `keep-the-closing-link-readable-as-the-corpus-grows`.) A tick that
+surveyed a strategy whose attribution walk did not complete names that strategy and the
+refusal the survey already emitted — **`attribution_unreadable`, never a second word** — in the
+run report, in the same voice `pace` and `arrived` are named in (`reference/loop.md`, step 5).
+Nothing else about the report moves: it never states a `pace`, a `dormant` or a `quiescent`
+verdict for such a strategy, because the survey emits none, and no line may imply the tick
+judged something it could not read.
+
+**This ticket names; the survey brakes.** The actual gate is
+`survey-strategies.sh`'s — a degraded row is refused and cannot be selected — and it is stated
+where the refusal vocabulary lives, above. The report is read by nobody on the day it matters,
+which is precisely why the brake is not here; and no question is added here either, because
+reaching a person is `/moderate`'s job and belongs in its own ask if it is wanted.
+
 ## How the loop closes — and it closes with no new field
 
 `open-proposal.sh` writes the issue's first three lines itself, and the third is the

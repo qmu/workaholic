@@ -601,4 +601,5 @@
 * [Keep the closing link readable as the corpus grows](20260829071715-keep-the-closing-link-readable-as-the-corpus-grows.md)
 * [The generated OKF indexes and CLAUDE.md are the seam every stuck pull request collides on](20260829081653-the-generated-okf-indexes-and-claude-md-are-the-seam-every-stuck-pull-request-collides-on.md)
 * [Land the four pull requests that have been conflicting with main since 2026-08-26](20260829091657-land-the-four-pull-requests-that-have-been-conflicting-with-main-since-2026-08-26.md)
+* [Run the loop's own proofs on every turn](20260829121658-run-the-loop-s-own-proofs-on-every-turn.md)
 <!-- okf:generated:end -->

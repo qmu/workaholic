@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260829-154131
 ---
 
 # Read back whether the loop's own act took effect

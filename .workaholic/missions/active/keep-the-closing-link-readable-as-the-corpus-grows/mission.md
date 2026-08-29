@@ -53,3 +53,4 @@ zero.
 - 2026-08-29 — ticket archived — 20260829072045-tell-found-nothing-from-could-not-look.md
 - 2026-08-29 — ticket archived — 20260829072045-say-no-citing-artifacts-only-when-the-walk-completed.md
 - 2026-08-29 — ticket archived — 20260829072045-carry-the-degradation-onto-the-survey-rows.md
+- 2026-08-29 — ticket archived — 20260829072045-carry-the-degradation-onto-the-residue.md

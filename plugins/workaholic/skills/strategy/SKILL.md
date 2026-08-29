@@ -163,6 +163,21 @@ refused `attribution_unreadable` when the **attribution** read was degraded (202
 paragraph above). Different reads, different consequences: the first withholds one reading, the
 second refuses the whole row and every reading composed on it.
 
+**And the residue refuses it too** (2026-08-29, the same mission). `mission-strategy.sh` names a
+direction whose walk did not complete in `unreadable` rather than answering *no strategy* from a
+blind read — `attributed: false` means *no strategy could be attributed*, and a walk nobody could
+complete cannot say even that. `unattributed-work.sh` then reports `readable: false` with **null**
+counts and names nothing, under **`strategy_unreadable`** when at least one active direction failed
+and the pre-existing `all_strategies_unreadable` when every one did. The partial case is the point:
+a mission attributed *only* to the direction that failed is named as residue in exactly the same
+way, and which missions those are is precisely what the failed walk cannot say. `closing-residue.sh`
+carries that block's reason to its own top-level `readable` through its existing contract, and both
+consumers already behave — `quiescent` reads the residue's flag, so a degraded read yields no
+`arrived` and therefore no `direction-arrived:<slug>` question, and the standing-rulings draft
+reaches no writer with a candidate it could not attribute. **A non-degraded, non-empty residue is
+untouched**: an unattributed mission is still an unattributed mission, and suppressing those would
+be a different defect of the same shape.
+
 **`no_citing_artifacts` is bounded, and the bound is stated rather than implied** (2026-08-26). After `/specificate`'s carry floor it means *nothing has answered this direction yet* — for work the loop emitted from an ask filed by `/propose`, by the inbound Slack sweep, or by `/fb`'s in-repo path, whose refs resolved. It says nothing about work a run never emitted, an ask judged to answer no direction, a ref that did not resolve, or an artifact written by hand outside `/specificate`. A hermetic test walks ask → reader → scaffold → floor for each writer's header shape and fails when the ref is dropped, so the reading is a fact a change can lose rather than a claim.
 
 **And the inverse is readable, so the link is visible where missions are read** (2026-08-26).

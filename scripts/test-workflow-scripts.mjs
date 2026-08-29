@@ -6906,6 +6906,105 @@ function testSurveyRefusesADegradedWalk() {
   } finally { cleanup(dir); }
 }
 
+// ---------- the residue refuses a walk it could not complete ----------
+// (2026-08-29, mission `keep-the-closing-link-readable-as-the-corpus-grows`)
+//
+// `mission-strategy.sh` answers *which direction does this mission belong to* by composing the
+// attribution walk, and `unattributed-work.sh` composes that into the residue. On a walk that
+// did not complete, a CITING mission is indistinguishable from an unattributed one — so the
+// residue names work the tree already attributes, and that residue is what
+// `/moderate`'s `direction-arrived:<slug>` question and the standing-rulings draft both read.
+// A blind walk asks the operator to rule on attributions that already exist.
+//
+// The partial case is the one the old rule missed: `all_strategies_unreadable` fired only when
+// EVERY active direction failed, and a mission attributed only to the ONE that failed is named
+// as residue exactly the same way.
+function testResidueRefusesADegradedWalk() {
+  const dir = makeRepo("main");
+  const S = "plugins/workaholic/skills/strategy/scripts";
+  const MSTRAT = `${POSIX_SH} ${join(REPO_ROOT, S, "mission-strategy.sh")}`;
+  const RESIDUE = `${POSIX_SH} ${join(REPO_ROOT, S, "unattributed-work.sh")}`;
+  const LEAVING = `${POSIX_SH} ${join(REPO_ROOT, S, "closing-residue.sh")}`;
+  const RULINGS = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/list-standing-rulings.sh")}`;
+  const wf = (rel, body) => {
+    const abs = join(dir, rel);
+    mkdirSync(dirname(abs), { recursive: true });
+    writeFileSync(abs, body);
+  };
+  const strategy = (slug, refs) =>
+    `---\ntype: Strategy\ntitle: ${slug}\nslug: ${slug}\nstatus: active\n` +
+    `target_date: 2099-12-31\nassignees: [test@example.com]\nfeedback: [${refs}]\n---\n\n` +
+    `# ${slug}\n\n## Aim\n\nx\n\n## Schedule\n\ny\n`;
+  try {
+    wf(".workaholic/strategies/alpha.md", strategy("alpha", "20260801000001-one.md"));
+    wf(".workaholic/strategies/beta.md", strategy("beta", "20260801000002-two.md"));
+    wf(".workaholic/missions/active/m-one/mission.md",
+      "---\ntype: Mission\ntitle: M One\nslug: m-one\nstatus: active\nfeedback: [20260801000001-one.md]\n---\n\n# M One\n");
+    execSync("git add -A && git commit -q -m seed", { cwd: dir });
+
+    // ---- healthy: the mission is attributed and claims nothing in the residue ----
+    const okStrat = JSON.parse(run(dir, `${MSTRAT} --root .workaholic`).stdout);
+    assertEq("a completed walk attributes the citing mission",
+      [okStrat.missions[0].slug, okStrat.missions[0].attributed, okStrat.unreadable],
+      ["m-one", true, []]);
+    const okResidue = JSON.parse(run(dir, `${RESIDUE} --root .workaholic`).stdout);
+    assertEq("so the residue is empty and readable — an honest zero",
+      [okResidue.readable, okResidue.reason, okResidue.mission_count, okResidue.missions],
+      [true, "", 0, []]);
+
+    // ---- PARTIAL: one direction's walk fails, the other completes ----
+    // A strategy whose `slug:` does not match its filename is listed under a slug the walk
+    // cannot resolve. That is one unreadable direction beside one readable one — the case
+    // `all_strategies_unreadable` was blind to, and the one where a mission attributed ONLY
+    // to the failed direction is named as residue while the tree attributes it.
+    const beta = join(dir, ".workaholic/strategies/beta.md");
+    writeFileSync(beta, readFileSync(beta, "utf8").replace("slug: beta", "slug: elsewhere"));
+    const partial = JSON.parse(run(dir, `${RESIDUE} --root .workaholic`).stdout);
+    assertEq("one unreadable direction is enough — the residue as a whole is unsound and says so",
+      [partial.readable, partial.reason], [false, "strategy_unreadable"]);
+    assertEq("and it names nothing rather than over-reporting into an operator's question",
+      [partial.missions, partial.tickets, partial.mission_count, partial.ticket_count],
+      [[], [], null, null]);
+    writeFileSync(beta, readFileSync(beta, "utf8").replace("slug: elsewhere", "slug: beta"));
+
+    // ---- the walk itself could not complete ----
+    wf(".workaholic/tickets/todo/has space.md",
+      "---\ncreated_at: 2026-08-12T00:00:00+00:00\n---\n\n# A path the walk cannot hand to grep\n");
+    execSync("git add -A && git commit -q -m 'Add an unconsumable corpus entry'", { cwd: dir });
+
+    const blindStrat = JSON.parse(run(dir, `${MSTRAT} --root .workaholic`).stdout);
+    assertEq("the direction is named unreadable, not answered as no strategy",
+      blindStrat.unreadable.map((u) => u.reason).sort(),
+      ["attribution_unreadable", "attribution_unreadable"]);
+    const blindResidue = JSON.parse(run(dir, `${RESIDUE} --root .workaholic`).stdout);
+    assertEq("no citing mission is named as unattributed anywhere",
+      [blindResidue.readable, blindResidue.missions, blindResidue.tickets],
+      [false, [], []]);
+    assertEq("with a reason and null counts, never zeroed ones",
+      [blindResidue.reason, blindResidue.mission_count, blindResidue.ticket_count],
+      ["all_strategies_unreadable", null, null]);
+
+    // ---- the leaving names the source that failed, through its EXISTING contract ----
+    const leaving = JSON.parse(run(dir, `${LEAVING} alpha "14 days ago" .workaholic`).stdout);
+    assertTrue("closing-residue.sh names the failed source rather than rendering an empty leaving",
+      leaving.readable === false && /residue_unreadable:all_strategies_unreadable/.test(leaving.reason),
+      JSON.stringify({ readable: leaving.readable, reason: leaving.reason }));
+
+    // ---- and the standing-rulings draft reaches no writer with what it could not attribute ----
+    // Scoped to the residue source on purpose: the identity-mapping source is the OTHER half
+    // of that candidate set and is unaffected here, so asserting an empty ruling list would
+    // pin something this change never touched.
+    const rulings = JSON.parse(run(dir, `${RULINGS} --root .workaholic`).stdout);
+    assertEq("no candidate is drafted out of a residue nobody could read",
+      [rulings.rulings.filter((r) => r.kind !== "identity_mapping"),
+       rulings.sources.unattributed.readable,
+       rulings.sources.unattributed.reason], [[], false, "all_strategies_unreadable"]);
+
+    assertEq("every reader leaves the tree clean",
+      run(dir, "git status --porcelain").stdout.trim(), "");
+  } finally { cleanup(dir); }
+}
+
 // ---------- standup/digest.sh + the /standup command are a READER ----------
 // The daily per-strategy digest (ticket `20260817115232`, 2026-08-17). Three properties are
 // worth a fixture, because none of them can be observed in this repository — it holds zero
@@ -18545,6 +18644,7 @@ const tests = [
   ["strategy/attributed-work.sh past the xargs batching boundary", testStrategyAttributedWorkPastBatchBoundary],
   ["strategy/attributed-work.sh tells found nothing from could not look", testAttributedWorkWalkOutcome],
   ["the survey and the lifecycle refuse a row they could not read", testSurveyRefusesADegradedWalk],
+  ["the residue refuses a walk it could not complete", testResidueRefusesADegradedWalk],
   ["standup/digest.sh (the daily per-strategy digest)", testStandupDigest],
   ["moderate: the tick's own root, and the diff that keeps it silent", testModerateTickPost],
   ["moderate: the working-week gate holds the weekend without losing the question", testModerateWorkingDays],

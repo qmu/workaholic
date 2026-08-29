@@ -80,7 +80,7 @@ close_tree() { sh "${BRANCHING}/close-publish-tree.sh" >/dev/null 2>&1 || true; 
 # --- 2. Read the candidate set inside that tree, with the run's judgements -----------
 # `--root` is the tree's own bundle: the rulings must be derived from the base this pull
 # request will be opened against.
-RULINGS="$(eval "sh \"\$LIST\" --root \"\${PUB}/.workaholic\"${JUDGE_ARGS}" 2>/dev/null || true)"
+RULINGS="$(eval "sh \"\$LIST\" --root \"\${PUB}/\${ROOT}\"${JUDGE_ARGS}" 2>/dev/null || true)"
 if [ -z "$RULINGS" ] || ! printf '%s' "$RULINGS" | jq -e . >/dev/null 2>&1; then
   close_tree
   emit_stop "rulings_unreadable"
@@ -107,7 +107,7 @@ printf '%s' "$RULINGS" \
 
 while IFS='	' read -r mission strategy; do
   [ -n "$mission" ] || continue
-  out="$( cd "$PUB" && sh "$CARRY" "$strategy" "$mission" .workaholic 2>/dev/null || true )"
+  out="$( cd "$PUB" && sh "$CARRY" "$strategy" "$mission" "$ROOT" 2>/dev/null || true )"
   if [ -z "$out" ] || ! printf '%s' "$out" | jq -e . >/dev/null 2>&1; then
     printf '%s\t%s\t%s\t%s\n' attribution "$mission" "$strategy" "writer_unreadable" >> "${TMP}/results"
     continue
@@ -117,13 +117,108 @@ while IFS='	' read -r mission strategy; do
       printf '%s\t%s\t%s\t%s\n' attribution "$mission" "$strategy" "already" >> "${TMP}/results"
     else
       printf '%s\t%s\t%s\t%s\n' attribution "$mission" "$strategy" "carried" >> "${TMP}/results"
-      printf '.workaholic/missions/active/%s/mission.md\n' "$mission" >> "${TMP}/files"
+      printf '%s/missions/active/%s/mission.md\n' "$ROOT" "$mission" >> "${TMP}/files"
     fi
   else
     printf '%s\t%s\t%s\t%s\n' attribution "$mission" "$strategy" \
       "$(printf '%s' "$out" | jq -r '.reason // "refused"')" >> "${TMP}/results"
   fi
 done < "${TMP}/todo"
+
+# --- 3b. Carry each judged mapping ruling, as a LIVE line ---------------------------
+# `apply-bootstrap.sh` writes the proposed line as a COMMENT, because which account an
+# address belongs to is a human's ruling and that repair proposes without deciding. Here the
+# ruling HAS been made — by the run, as a judgement it hands in — so the line goes in live and
+# the operator's MERGE is what makes it true. An unjudged address is untouched and keeps both
+# its comment and its `undrivable-unit` question; nothing about `apply-bootstrap.sh` or
+# `audit-identity-coverage.sh` moves.
+: > "${TMP}/evidence"
+MAP_REL=".claude/git-identities"
+MAP="${PUB}/${MAP_REL}"
+
+map_pairs() {
+  # `<login>\t<address>` for every address the file names, through the format `identity.sh`
+  # reads. Used only to ASSERT that a write added exactly one pair and dropped none.
+  awk -F= '
+    /^[[:space:]]*#/ { next }
+    /^[[:space:]]*$/ { next }
+    NF < 2 { next }
+    { login = $1; sub(/^[[:space:]]+/, "", login); sub(/[[:space:]]+$/, "", login)
+      value = $0; sub(/^[^=]*=/, "", value)
+      sub(/^[[:space:]]+/, "", value); sub(/[[:space:]]+$/, "", value)
+      if (login == "" || value == "") next
+      n = split(value, parts, ",")
+      for (i = 1; i <= n; i++) { a = parts[i]; gsub(/^[[:space:]]+|[[:space:]]+$/, "", a)
+                                 if (a != "") printf "%s\t%s\n", login, a } }
+  ' "${1:-/dev/null}" 2>/dev/null | sort
+}
+
+printf '%s' "$RULINGS" \
+  | jq -r '.rulings[]? | select(.kind == "identity_mapping" and .decision != "undecided")
+           | .subject + "\t" + .decision' > "${TMP}/todo-map"
+
+while IFS='	' read -r address login; do
+  [ -n "$address" ] || continue
+  # THE FILE'S ABSENCE IS A BOOTSTRAP REPAIR, NOT A RULING. `apply-bootstrap.sh` owns the
+  # header it scaffolds; writing a second copy here is how two owners of one format drift.
+  if [ ! -f "$MAP" ]; then
+    printf '%s\t%s\t%s\t%s\n' identity_mapping "$address" "$login" "no_mapping_file" >> "${TMP}/results"
+    continue
+  fi
+  ans="$(sh "${SCRIPT_DIR}/../../gather/scripts/identity.sh" "$address" "$MAP" 2>/dev/null || true)"
+  if [ -n "$ans" ] && [ "$(printf '%s' "$ans" | jq -r '.resolved // false' 2>/dev/null || printf false)" = "true" ]; then
+    # Already named live. Never a duplicate line and never a rewrite.
+    printf '%s\t%s\t%s\t%s\n' identity_mapping "$address" "$login" "already" >> "${TMP}/results"
+    continue
+  fi
+  matches=$(grep -c "^[[:space:]]*${login}=" "$MAP" 2>/dev/null || true)
+  [ -n "$matches" ] || matches=0
+  map_pairs "$MAP" > "${TMP}/pairs-before"
+  case "$matches" in
+    0)
+      # A login the mapping does not name yet: one new live line, appended.
+      printf '%s=%s\n' "$login" "$address" >> "$MAP"
+      status=mapped ;;
+    1)
+      # The login already has a line, so a SECOND line would be dead weight: `identity.sh`
+      # takes the first row a login matches, and a second row would resolve this address to
+      # ITSELF as canonical — leaving `owns.sh` answering `other` exactly as it does today.
+      # The format's own second field is what makes one person's addresses one person, so the
+      # address is appended there. Nothing is replaced, dropped or reordered, which is what
+      # the assertion below proves rather than trusts.
+      awk -v login="$login" -v addr="$address" '
+        $0 ~ "^[[:space:]]*" login "=" && !done { printf "%s,%s\n", $0, addr; done = 1; next }
+        { print }
+      ' "$MAP" > "${TMP}/map-cand"
+      cp "${TMP}/map-cand" "$MAP"
+      status=alias_appended ;;
+    *)
+      printf '%s\t%s\t%s\t%s\n' identity_mapping "$address" "$login" "login_ambiguous" >> "${TMP}/results"
+      continue ;;
+  esac
+  # APPEND-ONLY, ASSERTED. Every address the file named before must still be named, and
+  # exactly one may be new. A write that fails this is reverted from the pre-image rather
+  # than shipped, because a wrong mapping line makes work drivable by the wrong person.
+  map_pairs "$MAP" > "${TMP}/pairs-after"
+  lost=$(comm -23 "${TMP}/pairs-before" "${TMP}/pairs-after" | grep -c . || true)
+  gained=$(comm -13 "${TMP}/pairs-before" "${TMP}/pairs-after" | grep -c . || true)
+  if [ "${lost:-0}" -ne 0 ] || [ "${gained:-0}" -ne 1 ]; then
+    ( cd "$PUB" && git checkout -- "$MAP_REL" 2>/dev/null ) || true
+    printf '%s\t%s\t%s\t%s\n' identity_mapping "$address" "$login" "not_append_only" >> "${TMP}/results"
+    continue
+  fi
+  ( cd "$PUB" && git add "$MAP_REL" 2>/dev/null ) || true
+  printf '%s\t%s\t%s\t%s\n' identity_mapping "$address" "$login" "$status" >> "${TMP}/results"
+  grep -qxF "$MAP_REL" "${TMP}/files" 2>/dev/null || printf '%s\n' "$MAP_REL" >> "${TMP}/files"
+  # THE GIT HISTORY THAT SUPPORTS THE JUDGEMENT, so the operator rules on evidence rather
+  # than on the machine's assertion: how many commits that address authored, and under which
+  # author names — the closest thing git holds to the login being claimed.
+  n_commits=$( cd "$PUB" && git log --all --format='%ae' 2>/dev/null | grep -cxF "$address" || true )
+  names=$( cd "$PUB" && git log --all --format='%ae	%an' 2>/dev/null \
+           | awk -F'	' -v a="$address" '$1 == a { print $2 }' | sort -u | paste -sd', ' - || true )
+  printf -- '- `%s` -> login `%s`: %s commit(s) in this history, authored as: %s\n' \
+    "$address" "$login" "${n_commits:-0}" "${names:-none recorded}" >> "${TMP}/evidence"
+done < "${TMP}/todo-map"
 
 DRAFTED=$(grep -c . "${TMP}/files" 2>/dev/null || true)
 [ -n "$DRAFTED" ] || DRAFTED=0
@@ -137,9 +232,14 @@ PUBLISH_REASON="nothing_to_draft"
 
 if [ "$DRAFTED" -gt 0 ]; then
   BODY_WHY="An operator ruling the loop cannot make itself, drafted as a diff so merging is the ruling and closing is the refusal."
-  BODY_CHANGES="$(awk -F'\t' '$4 == "carried" { printf "- %s: carry the refs of `%s` onto mission `%s`\n", $1, $3, $2 }' "${TMP}/results")"
+  BODY_CHANGES="$(awk -F'\t' '
+    $4 == "carried" { printf "- attribution: carry the refs of `%s` onto mission `%s`\n", $3, $2 }
+    $4 == "mapped" { printf "- identity mapping: name `%s` as login `%s` (new entry)\n", $2, $3 }
+    $4 == "alias_appended" { printf "- identity mapping: name `%s` as another address of login `%s`\n", $2, $3 }
+  ' "${TMP}/results")"
   BODY_EVIDENCE="$(printf '%s' "$RULINGS" | jq -r '.rulings[]? | select(.decision != "undecided")
-      | "- `" + .subject + "` -> `" + .decision + "` (" + (.evidence | tostring) + ")"')"
+      | "- `" + .subject + "` -> `" + .decision + "` (" + (.evidence | tostring) + ")"'
+    cat "${TMP}/evidence")"
   FILES="$(paste -sd' ' - < "${TMP}/files")"
   # Run from the CALLER'S checkout, not from inside the publish tree: `publish-tree-pr.sh`
   # resolves `.publish/` from the repository root, and inside that tree the root is the tree.

@@ -53,3 +53,4 @@ read proposes nothing.
 - 2026-08-28 — ticket archived — 20260828212022-let-the-run-supply-the-judgement-per-candidate.md
 - 2026-08-28 — ticket archived — 20260828212022-refuse-to-auto-merge-a-ruling-at-the-seam.md
 - 2026-08-28 — ticket archived — 20260828212022-draft-the-attribution-rulings-through-their-writer.md
+- 2026-08-29 — ticket archived — 20260828212022-draft-the-mapping-ruling-beside-them.md

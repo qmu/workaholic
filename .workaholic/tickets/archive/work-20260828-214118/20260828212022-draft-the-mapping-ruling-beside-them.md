@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-28T21:20:22+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -77,3 +78,39 @@ supports it — so the operator rules by merging rather than by editing the base
 - Writing a live line rather than a comment is the whole point and also the risk: a wrong
   line makes work drivable by the wrong person. It is bounded by the fact that only the
   operator's **merge** lands it, which the next ticket makes the seam's rule.
+
+## Final Report
+
+Development completed as planned, with one bound read narrowly and stated below.
+
+`draft-standing-rulings.sh` gained the mapping half: for an address **this run judged**, the
+completed line is appended to `.claude/git-identities` inside the same publish tree, live
+rather than as the comment `apply-bootstrap.sh` writes. The pull-request body states the git
+history that supports each judgement — how many commits that address authored in this
+history and under which author names — so the operator rules on evidence. An unjudged
+address leaves the file byte-identical, an address the mapping already names live is a
+no-op, and `apply-bootstrap.sh`, `audit-identity-coverage.sh` and `identity.sh` are all
+unmodified.
+
+**One acceptance criterion is read narrowly, and the reading is stated rather than
+assumed.** "No existing entry is rewritten or removed" is honoured as *no existing address
+is replaced, dropped or reordered*, asserted mechanically over the file before and after
+(every `login=address` pair the file named must still be named, and exactly one may be new;
+a write failing that is reverted from the pre-image rather than shipped). It is read that
+way because a **second line** for a login the mapping already names is not merely untidy but
+**wrong**: `identity.sh` takes the first row a login matches, so the new row would resolve
+the address to *itself* as canonical and `owns.sh` would go on answering `other` — the exact
+defect the ruling exists to repair. Such an address is therefore appended to the existing
+entry's second field, which is what that field is for. `login_ambiguous` (two lines for one
+login) and `no_mapping_file` refuse by name and write nothing.
+
+### Discovered Insights
+
+- **Insight**: the file's absence is a **bootstrap** repair, not a ruling. `apply-bootstrap.sh`
+  owns the header it scaffolds, so this refuses `no_mapping_file` rather than writing a
+  second copy of that header — two owners of one format is how the two drift.
+  **Context**: `audit-identity-coverage.sh` already reports `identity_map_missing` separately.
+- **Insight**: the two drafts in the suite share one origin, so they collide on
+  `work-$(date +%Y%m%d-%H%M%S)`. That is the one case where `tickSecond()` is the honest fix
+  rather than a race being slept around — independent origins never share the namespace.
+  **Context**: the collision surfaced as a *wrong branch read*, not as a failed publish.

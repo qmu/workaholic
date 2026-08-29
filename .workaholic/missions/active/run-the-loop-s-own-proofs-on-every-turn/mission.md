@@ -38,7 +38,7 @@ name. A person is told only when something fails.
 
 ## Acceptance
 
-- [ ] One aggregate verb runs the measured hermetic set with no key, network, `gh` or
+- [x] One aggregate verb runs the measured hermetic set with no key, network, `gh` or
       `qfs`, emitting `pass`/`fail`/`skipped:<reason>` per drill and exiting non-zero
       only on a real failure, and CI runs it. (#20260829122104-give-the-drill-an-aggregate-verb-with-a-machine-verdict.md)
 - [ ] A drill whose breaker no longer breaks is a failure of its own; one needing the
@@ -50,3 +50,4 @@ name. A person is told only when something fails.
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-29 — ticket archived — 20260829122104-measure-which-drills-are-hermetic-per-drill.md
+- 2026-08-29 — ticket archived — 20260829122104-give-the-drill-an-aggregate-verb-with-a-machine-verdict.md

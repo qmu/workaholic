@@ -52,3 +52,4 @@ one says so by name and asks nobody.
 - 2026-08-29 — ticket archived — 20260829192136-derive-the-operator-facing-pull-requests-from-the-seam-s-refusal-word.md
 - 2026-08-29 — ticket archived — 20260829192136-read-back-whether-an-operator-facing-pull-request-was-acted-on.md
 - 2026-08-29 — ticket archived — 20260829192137-ask-the-person-who-must-act-on-an-unanswered-pull-request.md
+- 2026-08-29 — ticket archived — 20260829192137-classify-every-pull-request-reading-as-a-judgement-in-the-one-home.md

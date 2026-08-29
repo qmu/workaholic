@@ -61,6 +61,7 @@
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 GATHER_SCRIPTS="${SCRIPT_DIR}/../../gather/scripts"
+SUPPRESSION="${SCRIPT_DIR}/ruling-suppression.sh"
 
 TICK=""
 ROOT="."
@@ -85,6 +86,26 @@ emit() {
 WORKAHOLIC="${ROOT}/.workaholic"
 [ -d "$WORKAHOLIC" ] || emit ok "" "this repository holds no .workaholic tree; nothing is queued"
 
+# THE QUESTION A RULING DIFF ALREADY CARRIES IS HELD (2026-08-28, mission
+# `put-the-loop-s-standing-rulings-on-one-pull-request`). While an open ruling pull request
+# NAMES an address, asking a person to complete that same mapping line by hand on `main` is
+# asking them to do what they are being asked to merge.
+#
+# KEYED ON THE SUBJECT, never on the existence of a ruling: a ruling naming one address must
+# not silence the question about a different one. An UNREADABLE read holds nothing — an
+# over-eager question is better than a silently dropped one (`ci-retirement-turn.sh`) — and the
+# suppression is DERIVED, so a merged or closed ruling makes the question reachable again with
+# no state anywhere. `ask-question.sh`, the keys, the caps and the holds are untouched.
+held_addresses=""
+any_ruling_open=false
+if [ -f "$SUPPRESSION" ]; then
+    supp=$( ( cd "$ROOT" && sh "$SUPPRESSION" ) 2>/dev/null || true )
+    if [ -n "$supp" ] && printf '%s' "$supp" | jq -e '.readable // false' >/dev/null 2>&1; then
+        held_addresses=$(printf '%s' "$supp" | jq -r '.held.identity_mapping[]?' 2>/dev/null || true)
+        any_ruling_open=$(printf '%s' "$supp" | jq -r '.any_open // false' 2>/dev/null || printf false)
+    fi
+fi
+
 # The two areas that hold work a run could take: the queue, and the active missions that
 # plan it. Enumerated directly rather than through the survey — see the header.
 artifacts=$(
@@ -95,6 +116,7 @@ artifacts=$(
 
 n_owned=0
 n_unmapped=0
+n_held=0
 candidates=""
 c_sep=""
 
@@ -110,17 +132,22 @@ for file in $artifacts; do
         [ "$resolved" = "true" ] && continue
 
         n_unmapped=$((n_unmapped + 1))
+        if [ -n "$held_addresses" ] && printf '%s\n' "$held_addresses" | grep -qxF "$owner"; then
+            n_held=$((n_held + 1))
+            break
+        fi
         rel=$(printf '%s' "$file" | sed "s|^${ROOT}/||")
-        candidates="${candidates}${c_sep}{\"artifact\": \"${rel}\", \"owner\": \"${owner}\", \"key\": \"undrivable-unit:${rel}\"}"
+        candidates="${candidates}${c_sep}{\"artifact\": \"${rel}\", \"owner\": \"${owner}\", \"key\": \"undrivable-unit:${rel}\", \"unjudged\": ${any_ruling_open}}"
         c_sep=", "
         # One question per unit, whatever the size of its owner list.
         break
     done
 done
 
-summary="${n_owned} queued artifact(s) name an owner; ${n_unmapped} name an address the identity mapping does not"
+n_asked=$((n_unmapped - n_held))
+summary="${n_owned} queued artifact(s) name an owner; ${n_unmapped} name an address the identity mapping does not; ${n_held} held by an open ruling"
 
-if [ "$n_unmapped" -eq 0 ]; then
+if [ "$n_asked" -le 0 ]; then
     # A queue every owner of which the mapping names is the healthy state: nothing happened
     # TO the repository, and a step with no event renders no root line at all.
     emit ok "" "$summary"
@@ -128,13 +155,13 @@ fi
 
 needs=$(printf '%s' "[${candidates}]" | jq -c '{action: "ask_about_work_no_run_can_drive",
     bound: "one question per artifact, addressed to the direction'"'"'s assignee, keyed on `key` so it is asked once; the step asks and never reassigns, writes, or lifts a gate",
-    compose: "name the artifact and the address no mapping entry names, and say the repair is one line in .claude/git-identities — /workaholify'"'"'s coverage audit proposes it with the address already filled in",
+    compose: "name the artifact and the address no mapping entry names, and say the repair is one line in .claude/git-identities — /workaholify'"'"'s coverage audit proposes it with the address already filled in. When `unjudged` is true, say ALSO that a ruling pull request is open and does not name this address: the loop could not judge which account it belongs to, which is exactly why this one still needs a person.",
     undrivable: .}' 2>/dev/null || echo '{}')
 
-if [ "$n_unmapped" -eq 1 ]; then
+if [ "$n_asked" -eq 1 ]; then
     event="a queued unit is owned by an address the identity mapping does not name"
 else
-    event="${n_unmapped} queued units are owned by addresses the identity mapping does not name"
+    event="${n_asked} queued units are owned by addresses the identity mapping does not name"
 fi
 
 emit ok "" "$summary" "$needs" "$event"

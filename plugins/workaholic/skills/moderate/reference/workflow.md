@@ -850,6 +850,20 @@ surface.
 A reader that refuses, or a missing script, is `degraded` with the reason named — never an `ok`
 step that found nothing.
 
+**And since 2026-08-28 an `arrived` question can be HELD** (mission
+`put-the-loop-s-standing-rulings-on-one-pull-request`). The `arrived` question exists to name
+the residue the reading could not see; once an open ruling pull request names **every** mission
+in that residue, the diff already carries the whole ask, and the question would send the
+operator to do by hand what they are being asked to merge. **All of it or none of it** — a
+ruling naming one mission must not silence a question about a different one, so a partially
+covered residue still asks, with its full residue named and the partial cover said in words
+(*a ruling pull request is open for some of these; the rest the loop could not judge*).
+`overdue` and `dormant` are **never** held: those are about the date and the silence, which no
+ruling answers. The read is `moderate/scripts/ruling-suppression.sh` — one reader, shared with
+`undrivable-units`, so the two steps cannot disagree — and an **unreadable** read holds nothing
+(`ci-retirement-turn.sh`'s discipline). The suppression is **derived, stored nowhere**: merging
+or closing the ruling makes the question reachable again with no state.
+
 ## 16. `unanswered-asks` — a message on the channel that nobody has answered
 
 ```bash
@@ -974,6 +988,18 @@ about, so the whole picture and the narrowing sit on one line.
 A tree with no `.workaholic/` is an ordinary `ok`; readers absent from the skill are
 `degraded` by name. A queue every owner of which the mapping names supplies **no `event`**,
 so the root renders no line: nothing happened to the repository.
+
+**And since 2026-08-28 a candidate can be HELD** (mission
+`put-the-loop-s-standing-rulings-on-one-pull-request`). While an open ruling pull request names
+an address, asking a person to complete that same mapping line by hand on `main` is asking them
+to do what they are being asked to merge, so that candidate is **held and counted** rather than
+asked about. Keyed on the **subject**: a ruling naming one address does not silence the question
+about another. A candidate that survives while a ruling is open carries `unjudged: true` and its
+question says so — *the loop could not judge which account this belongs to* — because an unjudged
+subject is exactly the one that most needs a person. The read is
+`moderate/scripts/ruling-suppression.sh`, shared with `direction-health`; an **unreadable** read
+holds nothing; and `ask-question.sh`, the key, the asked-once gate, the caps and the holds are
+byte-identical.
 
 ## 18. `undelivered-units` — a unit the loop finished and could not deliver
 
@@ -1659,3 +1685,83 @@ not be collapsed: that step asks about a **channel message nobody answered**; th
 log — `no_log_area` is a readable answer meaning nothing has been asked), `candidates_underivable`
 from the step; `no_slack_transport` and `thread_unreadable` from the agent's read. An unread
 thread is never reported as a thread nobody answered.
+
+## 24. `standing-rulings` — the rulings the loop cannot make, drafted instead of asked
+
+```bash
+sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/step-standing-rulings.sh --tick <id> [--root <repo-root>]
+sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/list-standing-rulings.sh [--root <.workaholic>] [--judgement <subject>=<answer>]...
+sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/list-open-rulings.sh
+sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/draft-standing-rulings.sh [--judgement <subject>=<answer>]...
+```
+
+- **Reads**: `list-open-rulings.sh` (the brake, one REST call) and `list-standing-rulings.sh`
+  (the candidate set, a pure local read composing `strategy/scripts/unattributed-work.sh` and
+  `workaholify/scripts/audit-identity-coverage.sh`). **Never `plan-units.sh`** —
+  `undrivable-units`' rule, first recorded by `closable-missions`: the survey reaches the
+  mission readers, which carry the living migrations and **stage** what they converge.
+- **Writes**: nothing. The act is the agent's, through `draft-standing-rulings.sh`, and every
+  artifact write there happens in a publish tree.
+- **Its `event` is always empty**, deliberately and for `unanswered-asks`' reason: when
+  `run.sh` reads this step's line nothing has been drafted, because the agent acts only after
+  `run.sh` returns. A tick that drafted nothing therefore renders no root line — which is what
+  the requirement asks for — and the drafted pull request reaches the operator as a pull
+  request, the surface it is addressed to.
+
+**Why it exists** (2026-08-28, mission `put-the-loop-s-standing-rulings-on-one-pull-request`).
+Two rulings stand that the loop cannot make itself, and both were surfaced as an hourly
+**question**: `direction-arrived:<slug>` names an unattributed mission, `undrivable-unit:<path>`
+names an address no mapping entry covers. Each question names a repair the operator must
+perform **by hand on `main`** — editing a mission's `feedback:` line, completing a line in
+`.claude/git-identities` — which is the one act this repository still left to a person editing
+the base directly, and exactly what `amend.sh` was admitted to remove for the strategy
+artifact. Drafted as a diff instead, **merging is the ruling and closing is the refusal**.
+
+**The judgement is the run's, and no script derives one.** Which direction a mission answers
+and which account an address belongs to are readings only a person or a run can make — a script
+that guessed either would be **authoring** the operator's ruling, which `carry-attribution.sh`'s
+header forbids and on which this whole path rests. `list-standing-rulings.sh` therefore takes
+one `--judgement <subject>=<answer>` per candidate in `survey-strategies.sh --aim-kind`'s shape,
+stores the answer it was handed, and **derives none**; an unjudged candidate reads `undecided`
+and reaches no writer, keeping its own hourly question. A judgement naming a subject the reader
+did not surface is refused `subject_not_surfaced` — the reader's own candidate set is the
+domain, and an answer outside it means the run and the tree disagree about what is standing.
+
+**One open ruling at a time, with no cursor.** The brake is the open pull request itself, in
+`list-open-proposals.sh`'s shape: from the moment a ruling opens until the operator rules on it
+the gate holds, and the moment they merge it the subject leaves the candidate set by itself,
+because it is no longer unattributed or uncovered. So the bound is enforced continuously with
+nothing stored anywhere — a cursor is a second source of truth about what is in flight, and
+this repository has refused one at every equivalent seam. **An unreadable brake drafts nothing**:
+a brake that cannot be read is not a brake, and handing the operator two competing diffs about
+the same subjects is the failure it exists to prevent.
+
+**What the act may write.** `draft-standing-rulings.sh` opens a publish tree, reads the
+candidate set **inside** it (so the rulings are derived from the base the pull request will be
+opened against), and then:
+
+- runs `carry-attribution.sh <strategy> <mission>` per judged mission — **unmodified**, still
+  the one writer of that line, still appending only refs the named strategy already cites,
+  still touching no strategy file. Its refusals (`strategy_not_found`, `mission_not_found`,
+  `not_active`, `no_revision`, `immutable_field`) are reported by name and write nothing;
+  `already` is a success, not a refusal;
+- appends the completed `<login>=<address>` line to `.claude/git-identities` as a **live** line
+  — `apply-bootstrap.sh` writes a comment because it proposes without deciding, and here the
+  ruling has been made — stating in the body the **git history that supports it**. An address a
+  login already names live is a no-op; a login the mapping already names gains the address as
+  another of its own, because `identity.sh` takes the first row a login matches and a second
+  row would resolve the address to *itself* as canonical. Every write is asserted **append-only**
+  (every address named before is still named, exactly one is new) and reverted from the
+  pre-image otherwise. `login_ambiguous` and `no_mapping_file` refuse by name — the file's
+  absence is a **bootstrap** repair, and `apply-bootstrap.sh` owns the header it scaffolds;
+- lands it through `publish-tree-pr.sh`, which **refuses to auto-merge it** (`ruling_touching`,
+  derived from the tree rather than from the caller) whatever `WORKAHOLIC_AUTO_MERGE` says.
+
+**The pull request names what it rules on, visibly**: one `ruling: <kind> / subject: <subject>`
+line per drafted subject in the body, in the shape `/propose` puts `strategy: … / move: …` on an
+issue. A hidden marker would be a fact the loop depends on that no human reading the pull
+request can see.
+
+**Degradations, named one by one**: `jq_unavailable`, `no_rulings_reader`, `no_brake_reader`,
+`brake_unreadable`, `brake_<reason>` from the brake, and the candidate reader's own
+`unattributed_unreadable:<reason>` / `identity_unreadable:<reason>`. Each drafts nothing.

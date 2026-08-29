@@ -37,6 +37,7 @@ Run every command from the repository root, on a clean `main`.
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-direction-health --json` | a throwaway strategy tree, one overdue direction and one dormant one — proves the four lifecycle readings, the three question keys, the asked-once gate, and that nothing was written |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-arrival --json` | a throwaway **git** strategy tree carrying landed work — proves `arrived`, that it outranks `overdue`, that `dormant`, `overdue` and `live` are unchanged, the `direction-arrived:<slug>` key and its asked-once gate, and that no reading closes a direction, with no network and one row that deliberately breaks the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-residue --json` | a throwaway **git** strategy tree whose attributed work has all landed beside an **unattributed** active mission — proves the honest and the degraded residue read, that only an unreadable residue refuses the arrival, that the question names the residue by slug, the asked-once gate, that no gate moved, and the attribution carry landing and refusing, with no network and one row that deliberately breaks the seam |
+| — | Any time | `sh scripts/e2e/loop-drill.sh verify-rulings --json` | a throwaway **git** repository holding exactly one unattributed active mission and exactly one unmapped address, with a bare local origin and `gh` stubbed — proves the set is read with its evidence and repair and **nothing judged**, that a judged set lands as one pull request the seam refuses to merge, that a second tick is a no-op while it is open, that a subject the ruling does not name still asks and says why, that every refusal writes nothing, with no network and a breaker in two halves |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-succession --json` | a throwaway **git** tree carrying one dated direction, its landed work and an unattributed mission — walks close → read the leaving → announce a successor by explicit slug → the carried refs land → `attributed-work.sh` attributes the predecessor's work to it → `/propose` proposes against it, and proves nothing closed, authored or auto-merged a direction, with no network and one row that deliberately breaks the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-revision --json` | a throwaway strategy tree and a local bare origin — proves the three revisions land, that every refusal leaves the artifact byte-identical, and that a strategy-touching publish never auto-merges, with the transport stubbed and one row that deliberately breaks the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-merged-claim --json` | a throwaway repository carrying a **squash-merged** mission claim and batch claim — proves all four merged-claim readings (merged batch, merged mission, live, unanswerable) with the transport stubbed, so no `gh` call is made |
@@ -511,6 +512,47 @@ term under test.
 **Two proofs, and they are not the same one**, as everywhere else here: this drill is the
 operator's half; `testResidueGatesNothing`, `testResidueOnSurveyRows` and
 `testCarryAttribution` in the hermetic suite are CI's.
+
+## 5j-bis. The standing rulings, drafted rather than asked (`verify-rulings`)
+
+`verify-rulings` needs no seed, no fire, no issue number and **no network**: it builds a
+throwaway repository against a **bare local origin** with `gh` stubbed, holding exactly one
+unattributed active mission and exactly one queued ticket owned by an address no mapping entry
+names.
+
+The failure it exists for is a ruling the loop cannot make reaching the operator as an **hourly
+question naming a repair to perform by hand on `main`** — editing a mission's `feedback:` line,
+completing a line in `.claude/git-identities` — which is the one act this repository still left
+to a person editing the base directly. Drafted instead, **merging is the ruling and closing is
+the refusal**.
+
+The **deliberately broken seam is in two halves**, and the mission's safety rests on both:
+
+- `rulings_no_script_judges` — the fixture holds **exactly one** active direction beside
+  **exactly one** unattributed mission, which is the shape an inference would resolve without
+  being asked. Wire any inference into `list-standing-rulings.sh` and this row fires. Proved
+  able to fail: a copy that resolves the single strategy turns the row red.
+- `rulings_seam_never_merges` — `WORKAHOLIC_AUTO_MERGE=1` is **set**, deliberately. Delete the
+  `ruling_touching` derivation from `publish-tree-pr.sh` and a machine merges the operator's
+  ruling; an unset variable would let that pass unnoticed. Proved able to fail the same way.
+
+| Row | Fails when | Read |
+| --- | ---------- | ---- |
+| `rulings_read_names_both_kinds` | the composed set does not name both an attribution and a mapping candidate | `list-standing-rulings.sh`; check `unattributed-work.sh` and `audit-identity-coverage.sh` in turn — a degraded source contributes no entries |
+| `rulings_no_script_judges` | a candidate carries a decision nobody handed in | **the first broken seam** — the reader stores an answer and derives none, and the `repair` keeps its `<strategy>` / `<login>` placeholder |
+| `rulings_seam_never_merges` | a ruling merges under `WORKAHOLIC_AUTO_MERGE=1` | **the second broken seam** — `publish-tree-pr.sh`'s `ruling_touching`, derived from the tree rather than from the caller |
+| `rulings_both_kinds_drafted` | the attribution and the mapping do not ride one diff | `draft-standing-rulings.sh` §3 and §3b; a per-kind pull request would be two asks about one decision |
+| `rulings_second_tick_is_a_no_op` | a second tick drafts while a ruling is open, or the base's mapping gains a line | `list-open-rulings.sh` — the brake is the open pull request itself, with no cursor anywhere |
+| `rulings_undecided_still_asks` | a subject the ruling does not name goes silent, or says nothing about why | `step-undrivable-units.sh`'s `unjudged` flag; an unjudged subject is the one that most needs a person |
+| `rulings_named_subject_is_held` | a subject the diff already carries still draws its question | `ruling-suppression.sh` — keyed on the subject, never on the existence of a ruling |
+| `rulings_refusals_write_nothing` | one of `carry-attribution.sh`'s five refusals is misnamed, or any of them wrote | that script's candidate-under-a-temp-directory discipline, `amend.sh`'s verbatim |
+| `rulings_absent_mapping_refuses` | an absent `.claude/git-identities` is written rather than refused | `draft-standing-rulings.sh` §3b — the file's absence is a **bootstrap** repair and `apply-bootstrap.sh` owns the header it scaffolds |
+| `rulings_writes_nothing` | the drill changed the checkout | every fixture lives outside it; the act writes only in a publish tree |
+
+**Two proofs, and they are not the same one**: this drill is the operator's half;
+`testStandingRulingsReader`, `testStandingRulingsJudgement`, `testDraftStandingRulings`,
+`testStepStandingRulings`, `testRulingQuestionSuppression` and
+`testPublishTreePrRulingExemption` in the hermetic suite are CI's.
 
 ## 5k. A direction's end as a turn of the loop (`verify-succession`)
 

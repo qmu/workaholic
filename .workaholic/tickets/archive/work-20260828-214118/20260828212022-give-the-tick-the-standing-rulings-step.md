@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-28T21:20:22+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -81,3 +82,31 @@ the same subjects, and silent on a tick that drafted nothing.
 - The brake is deliberately read off GitHub rather than stored: a cursor is a second source
   of truth about what is in flight, and this repository has refused one at every equivalent
   seam.
+
+## Final Report
+
+Development completed as planned.
+
+`step-standing-rulings.sh` is registered in `run.sh`'s `STEPS` beside `undrivable-units` and
+`direction-health` — the two steps whose findings it settles — and contributes a report line
+on every tick. It reads the brake first (`list-open-rulings.sh`, new: the open `[Ruling] `
+pull requests, in `list-open-proposals.sh`'s shape, no cursor and no stored state) and drafts
+nothing when one is open; it reads the candidate set second and hands it back in
+`needs_agent`, because the judgement is the run's and no script may derive one. It writes
+nothing anywhere, never reaches `plan-units.sh`, and a degraded read of either half is named
+and drafts nothing. `moderate/SKILL.md`, its `reference/workflow.md` and `CLAUDE.md` moved in
+the same commit.
+
+### Discovered Insights
+
+- **Insight**: the `event` cannot be honest here and is therefore **always empty**, which is
+  `step-unanswered-asks.sh`'s stated divergence for the same architectural reason: the agent
+  acts on `needs_agent` only after `run.sh` returns, so at the moment the step's line is read
+  nothing has been drafted. The ticket's "supply an `event` only when the tick actually
+  drafted something" is satisfied trivially and honestly rather than by guessing.
+  **Context**: any future step whose act is the agent's meets the same wall.
+- **Insight**: the brake needs the drafted pull request to name its subjects, so
+  `draft-standing-rulings.sh` writes one `ruling: <kind> / subject: <subject>` line into the
+  body — visible text, in `/propose`'s marker shape, never an HTML comment. The next ticket's
+  question suppression reads the same line, so the suppression is derived rather than stored.
+  **Context**: one marker serves the brake and the suppression; a second would drift.

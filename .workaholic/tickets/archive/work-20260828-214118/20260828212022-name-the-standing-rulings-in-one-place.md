@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-28T21:20:22+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -87,3 +88,29 @@ into one set so a later ticket can draft the whole set as one diff.
 - The temptation is a third reading that "improves" the attribution guess. Refused: this
   assembles what the two readers already say and adds no judgement of its own — the
   judgement is the next ticket's, and it is the run's, never a script's.
+
+## Final Report
+
+Development completed as planned.
+
+`moderate/scripts/list-standing-rulings.sh` composes `unattributed-work.sh` and
+`audit-identity-coverage.sh` into one candidate set, each entry carrying its kind,
+subject, evidence and the exact one-line repair, every entry `decision: "undecided"`.
+Per-source `readable`/`reason` with null counts on a degraded source, top-level
+`readable` naming which source failed, `exhaustive: false` unconditionally, exit 0 on
+every path. Hermetic coverage added to `scripts/test-workflow-scripts.mjs`.
+
+### Discovered Insights
+
+- **Insight**: `audit-identity-coverage.sh` is addressed at the **repository** root while
+  every `strategy/` reader takes a `--root <.workaholic>`; the assembly derives the first
+  from the second (`dirname`) so the caller keeps one path rather than two it must hold in
+  step.
+  **Context**: any later composer of those two readers meets the same mismatch.
+- **Insight**: `unattributed-work.sh`'s loose-ticket residue is deliberately **not** a
+  ruling candidate. It answers at the mission grain and says so, so a loose queued ticket
+  may well cite a live direction through its own refs — drafting an attribution for one
+  would rule on a reading its own source refuses to make. The count is carried; the entries
+  are not.
+  **Context**: explains why `sources.unattributed.ticket_count` can be non-zero while no
+  `attribution` entry corresponds to it.

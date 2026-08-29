@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-28T21:20:22+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -76,3 +77,35 @@ ruling — the two bounds this mission's safety rests on.
 - A drill that only asserts the happy path would pass over a seam that merged the ruling,
   which is the one failure this mission cannot tolerate. The breaker is therefore the point
   of the ticket, not an addition to it.
+
+## Final Report
+
+Development completed as planned.
+
+`sh scripts/e2e/loop-drill.sh verify-rulings` walks the whole path over a bare local origin
+with `gh` stubbed and **no network at any point**: the set read with its evidence and repair
+and nothing judged, a judged set landing as one pull request the seam refuses to merge with
+`WORKAHOLIC_AUTO_MERGE=1` deliberately set, a second tick that is a no-op while that ruling is
+open (and the base's mapping gaining no second line), a subject the ruling does not name still
+asking and saying **why**, a subject it does name held and counted, all five of
+`carry-attribution.sh`'s refusals leaving the tree byte-identical, and an absent mapping
+refused as a bootstrap repair. Ten load-bearing rows, exit 0, checkout byte-identical after.
+The runbook and `CLAUDE.md` name the verb in the same commit.
+
+**Both halves of the breaker were run deliberately broken and both fired**:
+`rulings_seam_never_merges` turns red when `publish-tree-pr.sh`'s `ruling_touching` gate is
+removed (the ruling merges, `merged: true`), and `rulings_no_script_judges` turns red when the
+reader is made to resolve the single active strategy on its own.
+
+### Discovered Insights
+
+- **Insight**: the breaker had to be written against the **behaviour**, not the output shape.
+  The fixture carries exactly one active direction beside exactly one unattributed mission
+  precisely because that is the shape an inference resolves without being asked; a text-based
+  pin would pass over any refactor that spelled the inference differently.
+  **Context**: the second half needs the variable *set*, for the mirror-image reason — an
+  unset `WORKAHOLIC_AUTO_MERGE` would let the seam's refusal be deleted unnoticed.
+- **Insight**: `immutable_field` is the one `carry-attribution.sh` refusal with no natural
+  fixture; a mission file with **no frontmatter at all** reaches it, because the candidate awk
+  exits non-zero on a first line that is not `---`.
+  **Context**: any later drill of that writer meets the same gap.

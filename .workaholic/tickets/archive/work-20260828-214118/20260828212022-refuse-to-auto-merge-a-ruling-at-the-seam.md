@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-28T21:20:22+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -85,3 +86,30 @@ rather than in the caller, so no future caller can merge one by forgetting.
   change** (a `feedback:` line appended to an existing mission) rather than on the
   directory alone — this is the ticket's one real design risk and it is where the drill
   should bite.
+
+## Final Report
+
+Development completed as planned.
+
+`publish-tree-pr.sh` derives `ruling_touching` from the tree being published, beside the
+existing `strategy_touching` derivation, and leaves the pull request open whatever
+`WORKAHOLIC_AUTO_MERGE` says. The test is on the **shape of the change**: a mission that
+already existed on the base (`M`) whose diff moves its `feedback:` line — exactly and only
+what `carry-attribution.sh` writes — or any touch of `.claude/git-identities`.
+`strategy_touching`'s derivation and wording are untouched; a new mission, an ordinary
+mission edit and a publication touching neither all merge exactly as before.
+`CLAUDE.md`, `rules/workaholic.md` and `specificate/SKILL.md` moved in the same commit.
+
+### Discovered Insights
+
+- **Insight**: `specificate/SKILL.md` asserted that "an attribution carry is
+  byte-indistinguishable from any other mission write, so the seam **cannot** see it" —
+  which is false, and was the whole reason step 9e's guarantee was recorded as weaker than
+  the strategy exemption's. An ordinary proposal **adds** a mission; a carry **modifies**
+  one that is already on the base. That single bit is what makes the seam-level refusal
+  possible at all, and the paragraph is superseded in place rather than left standing.
+  **Context**: the ticket's stated design risk and its resolution are the same fact.
+- **Insight**: `jq`-free shell needs care here — a `while read` loop that `break`s inside a
+  pipeline runs in a subshell, so the hit is emitted on stdout and captured by the
+  enclosing command substitution rather than assigned to a variable.
+  **Context**: the same shape appears in every per-path scan in this script.

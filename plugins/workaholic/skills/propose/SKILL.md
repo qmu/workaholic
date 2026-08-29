@@ -154,6 +154,16 @@ an unreadable dedup is how the same ask arrives twice an hour. The run report na
 message filed (issue URL **and** whether its receipt landed), every one excluded (reason), and
 every degradation. The sweep happening or not never changes what the strategy half proposes.
 
+**`channel_unreadable` never claims the channel is absent, and it names the channel it resolved**
+(2026-08-29, mission `point-the-inbound-readers-at-the-channel-that-exists`). Slack answers *not
+found* for a channel the calling token cannot **see**, so absent and invisible are one response —
+the distinction `check-slack-channel.sh` exists to preserve. It is also distinct from *the channel
+was read and held nothing*, which is an ordinary quiet window and is reported as one. Naming the
+resolved channel in the report is what makes a divergence between the channel the loop posts to
+and the one it reads legible without anyone re-deriving the default; the person who must act on a
+persistent one is reached by `/moderate`'s `inbound-channel-unreadable:<channel>` question, asked
+once, never by an hourly line here.
+
 **It is not the `/propose` this repository retired.** That name belonged to what is now
 `/specificate` (renamed 2026-08-19), and `[Propose]` belonged to what is now `[Moderate]`.
 Both were vacated in the same change and neither is claimed by any live template

@@ -225,7 +225,7 @@ verifies through it.
 ## Read the claims in flight
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/list-claims.sh
+bash ../drive/scripts/list-claims.sh
 ```
 
 Pure read. Emits `{fetched, shallow, stale_hours, heartbeat_stale_minutes, base,
@@ -330,7 +330,7 @@ vocabulary, and the answer is the same: read-straight-off is not the test.
 **Its consumers report and ask, and nothing else.** `/moderate`'s `base-health` step hands a red
 base to the check-in as one question and writes nothing but its own tick-log line; the driving
 run names the reading at the top of its report and **gates nothing** — no stop, no skip, no hold,
-and the terminal token is byte-identical on a red base and a green one (`workaholic:drive` §1 and
+and the terminal token is byte-identical on a red base and a green one (`drive` §1 and
 §7). `scripts/test-workflow-scripts.mjs` pins this table the way it pins the one above: it fails
 when a word either script emits is unclassified, when the table classifies a word neither emits,
 when any row is called a `proof`, or when a consumer reaches an acting call site.
@@ -374,8 +374,8 @@ asks about.
 ## Claim a unit
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/claim.sh mission <slug>
-bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/claim.sh batch <ticket-file>...
+bash ../drive/scripts/claim.sh mission <slug>
+bash ../drive/scripts/claim.sh batch <ticket-file>...
 ```
 
 Never prompts. Verifies the unit is unclaimed through the reader's own scan, then creates the
@@ -394,7 +394,7 @@ successful claim announces.
 ## Resume a dropped unit
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/claim.sh resume <unit-id>
+bash ../drive/scripts/claim.sh resume <unit-id>
 ```
 
 Takes over a claim the survey reported in `resumable[]`. It **adopts** this machine's existing
@@ -421,7 +421,7 @@ unit that never reported is `report_incomplete` and is accepted), `foreign_ident
 ## Release a claim deliberately
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/release-claim.sh <unit-id>
+bash ../drive/scripts/release-claim.sh <unit-id>
 ```
 
 For a unit that will **not** be finished. Tears the worktree down first (the cleaner refuses a
@@ -445,7 +445,7 @@ recorded in the script's header — read it before re-proposing either.
 ## Retire a claim proved empty
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/retire-claim.sh <unit-id>
+bash ../drive/scripts/retire-claim.sh <unit-id>
 ```
 
 The **one** writer of a claim's retirement, and the second consumer of the proof/judgement table
@@ -566,8 +566,8 @@ exactly the behaviour it had, and the container is still where a retirement star
 Two scripts carry the CI side, and each re-derives everything it acts on:
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/list-retirable-claims.sh
-bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/delete-retired-claim-branch.sh <unit-id>
+bash ../drive/scripts/list-retirable-claims.sh
+bash ../drive/scripts/delete-retired-claim-branch.sh <unit-id>
 ```
 
 The reader composes `list-claims.sh` — one walk of the refs, never a second oracle — resolves
@@ -612,7 +612,7 @@ and `verify-ci-retirement` (the split, both executors, every bound and the narro
 ## Catch a claim up with a base that moved
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/catch-up-claim.sh <unit-id> [base-branch]
+bash ../drive/scripts/catch-up-claim.sh <unit-id> [base-branch]
 ```
 
 Added 2026-08-29 (mission `land-the-loop-s-own-work-when-the-base-moves-under-it`). A unit the
@@ -718,7 +718,7 @@ release that cleans up the claim cleans it up too.
 
 The claim is the only creator of a worktree and of a branch a runner may drive (J1, amended by
 J4). Artifact writers publish through a publish tree onto `work-*` branches behind pull requests
-(`workaholic:branching`), but a publication branch carries no `Claim <unit-id>` commit and the
+(`branching`), but a publication branch carries no `Claim <unit-id>` commit and the
 scan keys on that subject, never the branch name — so it is never mistaken for a claim. The
 `release/*` tier is invisible to the scan for the same reason: a release branch carries no commit
 at all. The optional `claim:` key on a ticket is tolerated and never validated by

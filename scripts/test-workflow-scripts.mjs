@@ -28146,6 +28146,24 @@ function testCatchUpClaimWriter() {
     assertTrue("with it the delivery is attempted and speaks §6's vocabulary and no other",
       /^(merged|merge_refused: )/.test(delivery.outcome), JSON.stringify(delivery));
 
+    // AND THE DRILL EXISTS, is dispatched by its verb, and is documented — the same four pins
+    // every other verify target carries, so a drill that is written and never wired reads
+    // exactly like one that runs.
+    const drill = readFileSync(join(REPO_ROOT, "scripts/e2e/loop-drill.sh"), "utf8");
+    assertTrue("verify-catch-up is in loop-drill.sh", /cmd_verify_catch_up\(\)/.test(drill),
+      "verify-catch-up is not in loop-drill.sh");
+    assertTrue("and is dispatched by its verb", /verify-catch-up\) cmd_verify_catch_up/.test(drill),
+      "the drill's verb is not wired");
+    assertTrue("and its usage line names it", /verify-catch-up \[--json\]/.test(drill),
+      "the drill is not in the usage line");
+    const runbook = readFileSync(join(REPO_ROOT, "docs/loop-drill-runbook.md"), "utf8");
+    assertTrue("and the runbook documents it alongside the others",
+      /verify-catch-up/.test(runbook), "the drill is undocumented");
+    assertTrue("with the deliberately-broken row named as the proof it is",
+      /catch_up_refuses_a_foreign_claim/.test(runbook)
+        && /catch_up_refuses_a_foreign_claim/.test(drill),
+      "the failing row is missing from the drill or the runbook");
+
     // AND THE FLAG RELAXES NOTHING ELSE — least of all a gate. A scan-held pull request is
     // still refused by name: the flag collapses the liveness term and no other, so the one
     // check whose absence would mean an unattended merge past a secret finding is untouched.

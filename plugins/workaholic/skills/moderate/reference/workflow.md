@@ -1659,11 +1659,16 @@ decide something before any change is the right one*.
 | `human-checkin` | `needs_ruling` | The asking step itself. |
 
 **`merge-conflicts` is the row worth arguing about**, and it is `repairable` deliberately.
-`workaholic:drive` says resolving a conflict on a claimed branch is nobody's job here, and that
-rule is untouched: what the filing produces is an issue, then a plan, then a `review`-policy
-unit on a **fresh** claim — never an unattended push onto somebody else's branch. Were the
-reading ever to be that the repair is not mechanical, the row moves to `needs_ruling` and the
-default is already on that side.
+`workaholic:drive` said resolving a conflict on a claimed branch is nobody's job here, and
+**that rule was narrowed on 2026-08-29** (mission
+`land-the-loop-s-own-work-when-the-base-moves-under-it`) rather than dropped: a run may now
+merge the base into **its own** claim branch when the conflict is one the shared classification
+rule settles without a judgement, and a **`content`** conflict is still nobody's job here —
+refused, the branch left byte-identical, the claim holder asked by `catchup-blocked` (§26).
+What is untouched is exactly what this row rests on: the filing produces an issue, then a plan,
+then a `review`-policy unit on a **fresh** claim — never an unattended push onto somebody
+else's branch. Were the reading ever to be that the repair is not mechanical, the row moves to
+`needs_ruling` and the default is already on that side.
 
 ---
 

@@ -56,3 +56,4 @@ one says so by name and asks nobody.
 - 2026-08-29 — ticket archived — 20260829192137-release-a-ruling-hold-the-ruling-s-own-silence-has-outlived.md
 - 2026-08-29 — ticket archived — 20260829192137-report-the-pull-request-reading-in-the-run-reports-as-evidence.md
 - 2026-08-29 — ticket archived — 20260829192137-drill-the-operator-facing-pull-request-reading-offline.md
+- 2026-08-29 — story reported — work-20260829-194055.md

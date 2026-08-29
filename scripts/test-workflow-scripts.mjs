@@ -1601,6 +1601,94 @@ function testArrivalQuestionNamesResidue() {
   } finally { cleanup(A); }
 }
 
+// ---------- a direction is read BEFORE its date silences the loop (2026-08-29) ----------
+// THE DEFECT THIS REPRODUCES. Every reading in the direction layer answers backwards — `late`,
+// `overdue`, `dormant`, `arrived` — and none of them answers *this direction is about to stop
+// originating work*. So a live, in-date, `on_course` direction one day from its `target_date`
+// produced NO READING AND NO QUESTION anywhere in the layer: the survey emitted
+// `pace: on_course`, `overdue: false`, `dormant: false`; `direction-state.sh` answered `live`;
+// and `step-direction-health.sh` had no non-`live` reading to ask about. The day after,
+// `past_target_date` refuses the proposal and the only signal is `direction-overdue`, asked in
+// arrears — after the silence has already begun.
+//
+// Measured on `an-autonomous-improvement-loop-run-by-the-routines` at the hour the ask was
+// written: `days_to_target: 2`, `pace: on_course`, `overdue: false`, `dormant: false` — every
+// reading healthy, two days from silence.
+//
+// THE FIXTURE IS GIT-BACKED, and it must be: `landed[]` is a `git log --since` read, so a bare
+// file tree would make the direction read `dormant` and pass the first assertion for entirely
+// the wrong reason.
+//
+// AND IT CARRIES WORK IN FLIGHT, deliberately. A direction with landed work and NOTHING waiting
+// is `quiescent`, which projects to `arrived` — a reading, and therefore not the silence under
+// test. The state this reproduces is the ordinary one: a direction that is running fine and is
+// about to run out of date.
+function testExpiringDirectionIsRead() {
+  const SURVEY = join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/survey-strategies.sh");
+  const STATE = join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/direction-state.sh");
+  const STEP = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-direction-health.sh");
+  const A = makeRepo("main");
+  const W = join(A, ".workaholic");
+  const w = (p, body) => { mkdirSync(dirname(join(A, p)), { recursive: true }); writeFileSync(join(A, p), body); };
+  const day = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+  const strategy = (slug, target, ref) =>
+    `---\ntype: Strategy\ntitle: T ${slug}\nslug: ${slug}\nstatus: active\ntarget_date: ${target}\n` +
+    `assignees: [test@example.com]\nfeedback: [${ref}]\n---\n\n## Aim\n\na\n\n## Schedule\n\ns\n`;
+  try {
+    for (const r of ["a", "b", "c"]) w(`.workaholic/feedbacks/2026010100000${r}-${r}.md`, "---\ntype: Feedback\n---\n\nx\n");
+    // `soon` is the direction under test: one day out, running, with work in flight.
+    w(".workaholic/strategies/soon.md", strategy("soon", day(1), "2026010100000a-a.md"));
+    w(".workaholic/missions/archive/landed/mission.md",
+      "---\ntype: Mission\ntitle: Landed\nslug: landed\nstatus: achieved\n" +
+      "feedback: [2026010100000a-a.md]\n---\n\n## Experience\n\ne\n\n## Acceptance\n\n- [x] d\n");
+    w(".workaholic/missions/active/inflight/mission.md",
+      "---\ntype: Mission\ntitle: In flight\nslug: inflight\nstatus: active\n" +
+      "feedback: [2026010100000a-a.md]\n---\n\n## Experience\n\ne\n\n## Acceptance\n\n- [ ] a\n");
+    w(".workaholic/tickets/todo/20260102000000-q.md", "---\nmission: inflight\n---\n\n# Q\n");
+    // `gone` is the arrears half: one day PAST its date, which is the only signal today.
+    w(".workaholic/strategies/gone.md", strategy("gone", day(-1), "2026010100000b-b.md"));
+    // `later` is outside the window: a direction with runway left must read exactly as today.
+    w(".workaholic/strategies/later.md", strategy("later", day(30), "2026010100000c-c.md"));
+    const open = join(A, "open.json");
+    writeFileSync(open, '{"ok": true, "identity": "test", "proposals": []}\n');
+    execSync("git add -A && git commit -q -m seed", { cwd: A });
+
+    const survey = JSON.parse(run(A, `${POSIX_SH} ${SURVEY} --open-proposals ${open} "14 days ago" ${W}`).stdout);
+    const row = (slug) => survey.eligible.concat(survey.refused).find((r) => r.slug === slug);
+
+    // THE FIXTURE IS REALLY THE SHAPE UNDER TEST. Without this, every assertion below could
+    // pass for a reason that has nothing to do with the approaching date.
+    assertEq("the direction is one day out, running, with work in flight",
+      [row("soon").days_to_target, row("soon").pace, row("soon").overdue,
+       row("soon").dormant, row("soon").quiescent],
+      [1, "on_course", false, false, false]);
+
+    // 1. THE MISSING READING — the assertion this test exists for. Nothing in the layer named
+    // the approaching date, so this failed before `expiring` was emitted.
+    assertEq("the survey row names the approaching date", row("soon").expiring, true);
+    assertEq("and the lifecycle reader projects it",
+      JSON.parse(run(A, `${POSIX_SH} ${STATE} --open-proposals ${open} "14 days ago" ${W}`).stdout)
+        .strategies.find((s) => s.slug === "soon").state,
+      "expiring");
+    const step = JSON.parse(run(A, `${POSIX_SH} ${STEP} --tick 20260829-000000 --root ${A} --open-proposals ${open}`).stdout);
+    assertTrue("and the step asks its assignee about it, before the date",
+      (step.needs_agent[0] || {}).directions.some((d) => d.key === "direction-expiring:soon"),
+      JSON.stringify((step.needs_agent[0] || {}).directions || []));
+
+    // 2. THE ARREARS HALF, unchanged: past the date the reading is `overdue` and the proposal
+    // is refused `past_target_date`. This half passed before the reading existed and must go on
+    // passing — the signal in arrears is not removed, it is merely no longer the only one.
+    assertEq("a direction past its date is refused past_target_date",
+      survey.refused.find((r) => r.slug === "gone").reason, "past_target_date");
+    assertEq("and reads overdue, never expiring",
+      [row("gone").overdue, row("gone").expiring], [true, false]);
+
+    // 3. A DIRECTION WITH RUNWAY LEFT IS UNTOUCHED. The reading is about the last window, not
+    // about every dated direction.
+    assertEq("a direction outside the window reads exactly as it did", row("later").expiring, false);
+  } finally { cleanup(A); }
+}
+
 // ---------- the residue reaches no /propose gate (2026-08-28) ----------
 // The residue is REPORTED, never gated on: no refusal reads it, nothing is proposed or withheld
 // on it, and the one exception is stated rather than implied — `quiescent`, which is itself a
@@ -17979,6 +18067,7 @@ const tests = [
   ["the residue rides every survey row and moves no gate", testResidueOnSurveyRows],
   ["an arrival is refused over a residue we could not read", testArrivalRefusedOverUnreadableResidue],
   ["the arrival question names the residue by slug", testArrivalQuestionNamesResidue],
+  ["a direction is read before its date silences the loop", testExpiringDirectionIsRead],
   ["the residue reaches no /propose gate", testResidueGatesNothing],
   ["strategy/carry-attribution.sh carries a ruling and refuses the rest", testCarryAttribution],
   ["strategy/amend.sh: the third writer, bounded", testStrategyAmend],

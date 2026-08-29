@@ -17899,6 +17899,7 @@ const tests = [
   ["branching publish-tree-pr: a ruling never auto-merges", testPublishTreePrRulingExemption],
   ["moderate/draft-standing-rulings.sh drafts a judged ruling", testDraftStandingRulings],
   ["moderate/step-standing-rulings.sh gives the tick the ruling step", testStepStandingRulings],
+  ["moderate: a ruling holds exactly the question its diff carries", testRulingQuestionSuppression],
   ["the PR title is not the commit subject (P4's surviving half)", testPrTitleSeparateFromSubject],
   ["the reply thread is found, not carried (Q1)", testStatelessThreadLookup],
   ["one behaviour per command: no dispatch on a literal first word (P5)", testNoSubcommands],
@@ -18759,6 +18760,90 @@ function testStepStandingRulings() {
     const runSrc = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/run.sh"), "utf8");
     assertTrue("the step is in the run's STEPS list",
       /^STEPS='.*\bstanding-rulings\b.*'$/m.test(runSrc), "not registered");
+  } finally {
+    rmSync(origin, { recursive: true, force: true });
+    rmSync(A, { recursive: true, force: true });
+    rmSync(binDir, { recursive: true, force: true });
+  }
+}
+
+// ---------- the question a ruling diff already carries is held (2026-08-28) ----------
+// Once a ruling names a subject, the hourly question about THAT subject sends the operator to
+// perform by hand what they are being asked to merge. Hold exactly that one. The risk is
+// over-suppression, so every row here is about the BOUND: keyed on the subject, all-or-nothing
+// on a residue, unreadable holds nothing, and `ask-question.sh` is not touched at all.
+function testRulingQuestionSuppression() {
+  const SUPP = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/ruling-suppression.sh");
+  const UNDRIVABLE = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-undrivable-units.sh");
+  const { origin, A, binDir } = makeRulingRepo();
+  const withGh = { ...process.env, PATH: `${binDir}:${process.env.PATH}` };
+  const undrivable = () => JSON.parse(run(A,
+    `${POSIX_SH} ${UNDRIVABLE} --tick 20260828-120000 --root ${A}`, { env: withGh }).stdout);
+  const suppression = () => JSON.parse(run(A, `${POSIX_SH} ${SUPP}`, { env: withGh }).stdout);
+  try {
+    // The fixture's strategy is assigned to an address no mapping entry names, so the queued
+    // work under it is undrivable and draws the question this suppression is about.
+    mkdirSync(join(A, ".workaholic/tickets/todo"), { recursive: true });
+    writeFileSync(join(A, ".workaholic/tickets/todo/20260105000000-owned.md"),
+      "---\nassignees: [test@example.com]\nmission: m2\n---\n\n# Owned\n");
+    writeFileSync(join(A, ".workaholic/tickets/todo/20260105000001-other.md"),
+      "---\nassignees: [nobody@example.com]\nmission: m2\n---\n\n# Other\n");
+
+    // 1. NO RULING OPEN: the questions are exactly what they were.
+    stepRulingStub(binDir, "");
+    const supp0 = suppression();
+    assertEq("with nothing open, nothing is held",
+      [supp0.readable, supp0.any_open, supp0.held.attribution, supp0.held.identity_mapping],
+      [true, false, [], []]);
+    const before = undrivable();
+    assertEq("both undrivable addresses draw a question",
+      before.needs_agent[0].undrivable.map((u) => u.owner).sort(),
+      ["nobody@example.com", "test@example.com"]);
+    assertEq("and none is marked unjudged while no ruling is open",
+      before.needs_agent[0].undrivable.every((u) => u.unjudged === false), true);
+
+    // 2. A RULING NAMING ONE ADDRESS HOLDS THAT ONE AND ONLY THAT ONE.
+    stepRulingStub(binDir,
+      "44\thttps://example.test/pr/44\t[Ruling] Standing rulings for the operator\truling: identity_mapping / subject: test@example.com\n");
+    const supp1 = suppression();
+    assertEq("the named subject is held", supp1.held.identity_mapping, ["test@example.com"]);
+    const after = undrivable();
+    assertEq("its question is held and the other is untouched",
+      after.needs_agent[0].undrivable.map((u) => u.owner), ["nobody@example.com"]);
+    assertTrue("the held one is counted rather than dropped silently",
+      /1 held by an open ruling/.test(after.summary), after.summary);
+    // AND THE ONE STILL ASKED SAYS WHY: the loop could not judge it, which is exactly the
+    // subject that most needs a person.
+    assertEq("the surviving question is marked unjudged",
+      after.needs_agent[0].undrivable[0].unjudged, true);
+    assertTrue("and the composition tells the agent to say so",
+      /could not judge/.test(after.needs_agent[0].compose), after.needs_agent[0].compose);
+
+    // 3. AN UNREADABLE READ SUPPRESSES NOTHING. An over-eager question is better than a
+    //    silently dropped one.
+    stepRulingStub(binDir, "", { fail: true });
+    const blind = suppression();
+    assertEq("a failed read holds nothing and names itself",
+      [blind.readable, blind.held.identity_mapping, blind.reason],
+      [false, [], "list_failed"]);
+    assertEq("so every question is asked exactly as before",
+      undrivable().needs_agent[0].undrivable.map((u) => u.owner).sort(),
+      ["nobody@example.com", "test@example.com"]);
+
+    // 4. A RULING NAMING A DIFFERENT SUBJECT HOLDS NOTHING HERE — the bound that keeps one
+    //    ruling from silencing an unrelated question.
+    stepRulingStub(binDir,
+      "45\thttps://example.test/pr/45\t[Ruling] Standing rulings for the operator\truling: attribution / subject: m2\n");
+    assertEq("an attribution ruling holds no mapping question",
+      undrivable().needs_agent[0].undrivable.map((u) => u.owner).sort(),
+      ["nobody@example.com", "test@example.com"]);
+
+    // 5. `ask-question.sh` IS UNMODIFIED IN THIS PATH: the gate, the keys, the caps and the
+    //    holds are byte-identical, and the suppression is stored nowhere.
+    const suppSrc = readFileSync(SUPP, "utf8").split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+    assertTrue("the suppression reader never touches the gate",
+      !/ask-question\.sh|log-append\.sh/.test(suppSrc), suppSrc);
+    assertTrue("and stores nothing", !/>>|mktemp|log-read/.test(suppSrc), suppSrc);
   } finally {
     rmSync(origin, { recursive: true, force: true });
     rmSync(A, { recursive: true, force: true });

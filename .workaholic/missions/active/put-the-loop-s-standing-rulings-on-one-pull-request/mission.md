@@ -55,3 +55,4 @@ read proposes nothing.
 - 2026-08-28 — ticket archived — 20260828212022-draft-the-attribution-rulings-through-their-writer.md
 - 2026-08-29 — ticket archived — 20260828212022-draft-the-mapping-ruling-beside-them.md
 - 2026-08-29 — ticket archived — 20260828212022-give-the-tick-the-standing-rulings-step.md
+- 2026-08-29 — ticket archived — 20260828212022-suppress-the-question-the-ruling-diff-carries.md

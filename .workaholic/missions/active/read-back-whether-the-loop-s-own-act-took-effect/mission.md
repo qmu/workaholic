@@ -39,7 +39,7 @@ No new store, no field, no second oracle.
 
 ## Acceptance
 
-- [ ] A CI turn records per candidate what each act answered, and
+- [x] A CI turn records per candidate what each act answered, and
       `ci-retirement-turn.sh` answers from it, never from a run's exit
       status. (#20260829152415-answer-the-ci-turn-from-the-recorded-verdict.md)
 - [ ] A changed refusal reaches the claim holder, an unchanged one stays held, and
@@ -52,3 +52,4 @@ No new store, no field, no second oracle.
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-29 — ticket archived — 20260829152415-pin-the-silent-act-with-a-failing-offline-reproduction.md
 - 2026-08-29 — ticket archived — 20260829152415-record-what-the-ci-turn-attempted-and-each-act-answered.md
+- 2026-08-29 — ticket archived — 20260829152415-answer-the-ci-turn-from-the-recorded-verdict.md

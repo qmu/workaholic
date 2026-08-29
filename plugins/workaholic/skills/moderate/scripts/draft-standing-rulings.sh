@@ -32,6 +32,14 @@
 # reading only a person or a run can make (`list-standing-rulings.sh`), so a candidate the run
 # did not judge reaches no writer at all and keeps its own hourly question.
 #
+# ═══ THE PULL REQUEST NAMES WHAT IT RULES ON, VISIBLY ════════════════════════════════
+# One `ruling: <kind> / subject: <subject>` line per drafted subject goes into the body, in
+# the same shape `/propose` puts `strategy: … / move: …` on an issue. `list-open-rulings.sh`
+# reads it back — as a brake, and as the set of subjects whose hourly question is held while
+# the diff already carries the ask. It is VISIBLE text and never an HTML comment: a fact the
+# loop depends on that no human reading the pull request can see is a machine conversation a
+# person cannot follow.
+#
 # ═══ AND THE OPERATOR'S MERGE IS THE RULING ══════════════════════════════════════════
 # `WORKAHOLIC_AUTO_MERGE` is never set here, and it would not matter if a caller set it:
 # `publish-tree-pr.sh` derives `ruling_touching` from the tree being published and leaves the
@@ -236,7 +244,8 @@ if [ "$DRAFTED" -gt 0 ]; then
     $4 == "carried" { printf "- attribution: carry the refs of `%s` onto mission `%s`\n", $3, $2 }
     $4 == "mapped" { printf "- identity mapping: name `%s` as login `%s` (new entry)\n", $2, $3 }
     $4 == "alias_appended" { printf "- identity mapping: name `%s` as another address of login `%s`\n", $2, $3 }
-  ' "${TMP}/results")"
+  ' "${TMP}/results")
+$(awk -F'\t' '$4 == "carried" || $4 == "mapped" || $4 == "alias_appended" { printf "ruling: %s / subject: %s\n", $1, $2 }' "${TMP}/results")"
   BODY_EVIDENCE="$(printf '%s' "$RULINGS" | jq -r '.rulings[]? | select(.decision != "undecided")
       | "- `" + .subject + "` -> `" + .decision + "` (" + (.evidence | tostring) + ")"'
     cat "${TMP}/evidence")"

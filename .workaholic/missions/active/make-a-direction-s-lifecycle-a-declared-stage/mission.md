@@ -51,3 +51,4 @@ and stuckness never reads as 観察中.
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-29 — ticket archived — 20260829212056-record-a-direction-s-declared-stage-on-the-artifact.md
 - 2026-08-29 — ticket archived — 20260829212056-let-the-operator-move-a-stage-through-the-loop.md
+- 2026-08-29 — ticket archived — 20260829212056-read-the-declared-stage-beside-the-derived-ones.md

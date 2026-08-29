@@ -356,6 +356,22 @@ assignee list, a non-`YYYY-MM-DD` target date, and an existing slug — the same
 
 ## The lifecycle state of a direction — one reader, composed, never re-derived
 
+**The declared stage rides beside this reading and never enters it** (2026-08-29, mission
+`make-a-direction-s-lifecycle-a-declared-stage`). Two questions that look alike and are not:
+*what phase has the operator declared* (`stage:`, their word) and *what is the evidence saying*
+(`state`, this reader's answer). A **sixth `state` value** was refused for the reason `overdue`
+was kept out of `pace` and `expiring` out of both — one field answering two questions is how
+the two drift — so `stage` is **projected** onto every row exactly as `target_date` and
+`landed` are, the precedence is byte-identical across the change, and no gate, sort, refusal or
+`selected` value anywhere reads it.
+
+A reading may **suggest** a transition and may never perform one: the artifact keeps its three
+writers, and only an announcement the operator makes by explicit slug moves the field. **A
+degraded row still carries its stage** — the degradation belongs to the attribution walk and
+the stage is read off the artifact, so `attribution_unreadable` says nothing about whether a
+phase was declared.
+
+
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/strategy/scripts/direction-state.sh [--open-proposals <file>] [window] [workaholic-root]
 ```

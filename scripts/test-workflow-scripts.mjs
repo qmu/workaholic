@@ -90,6 +90,7 @@ const SCRIPTS = {
   strategyRead: join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/read.sh"),
   strategyClose: join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/close.sh"),
   strategyAmend: join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/amend.sh"),
+  directionState: join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/direction-state.sh"),
   strategyAttributedWork: join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/attributed-work.sh"),
   missionStrategy: join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/mission-strategy.sh"),
   standupDigest: join(REPO_ROOT, "plugins/workaholic/skills/standup/scripts/digest.sh"),
@@ -7566,6 +7567,86 @@ function testModerateAskSurvivesDeadline() {
 // mechanical gates, and a gate that silently stops gating is indistinguishable from a
 // routine working normally -- right up to the hour it opens an issue per strategy per tick.
 // Every gate below is therefore exercised against a real strategy tree.
+// ---------- the declared stage rides beside the derived readings (2026-08-29) ----------
+// `make-a-direction-s-lifecycle-a-declared-stage`, ticket *Read the declared stage beside the
+// derived ones*. What is proved here is a NEGATIVE and it is the whole ticket: carrying the
+// stage onto every row changes NOTHING about what the survey decides. `refusal`, `pace`,
+// `overdue`, `expiring`, `dormant`, `quiescent`, the sort and `selected` must be byte-identical
+// across all three stages over an otherwise-identical fixture — because the gate that acts on
+// 観察中 is the NEXT ticket, and a reading that quietly started gating here would be
+// indistinguishable from that one having shipped early.
+function testStrategyStageRidesBeside() {
+  const dir = makeRepo("main");
+  const WH = join(dir, ".workaholic");
+  const OPEN = join(dir, "open.json");
+  const mkStrategy = (slug, stageLine, target) => {
+    mkdirSync(join(WH, "strategies"), { recursive: true });
+    writeFileSync(join(WH, "strategies", `${slug}.md`), [
+      "---", "type: Strategy", `title: ${slug}`, `slug: ${slug}`, "status: active",
+      ...(stageLine ? [`stage: ${stageLine}`] : []),
+      `target_date: ${target}`, "assignees: [me@example.com]",
+      "feedback: [20260101000000-a.md]",
+      "---", "", `# ${slug}`, "", "## Aim", "", "aim", "", "## Schedule", "", "s", "",
+    ].join("\n"));
+  };
+  const survey = () => JSON.parse(run(dir,
+    `${POSIX_SH} ${SCRIPTS.proposeSurvey} --open-proposals ${OPEN} "30 days ago" ${WH}`).stdout);
+  // Everything the survey DECIDES, and nothing it merely reports. If this projection is equal
+  // across the three stages, the stage gated nothing.
+  const decisions = (r) => JSON.stringify({
+    selected: r.selected,
+    eligible: (r.eligible || []).map((x) => ({
+      slug: x.slug, pace: x.pace, overdue: x.overdue, expiring: x.expiring,
+      dormant: x.dormant, quiescent: x.quiescent })),
+    refused: (r.refused || []).map((x) => ({
+      slug: x.slug, reason: x.reason, pace: x.pace, overdue: x.overdue,
+      expiring: x.expiring, dormant: x.dormant, quiescent: x.quiescent })),
+  });
+
+  try {
+    run(dir, `git config user.email me@example.com`);
+    writeFileSync(OPEN, JSON.stringify({ ok: true, identity: "me", slug: "o/n", proposals: [] }));
+    mkdirSync(join(WH, "feedbacks"), { recursive: true });
+    writeFileSync(join(WH, "feedbacks", "20260101000000-a.md"), "---\ntype: Feedback\n---\n\nb\n");
+    const future = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
+
+    mkStrategy("d", "", future);
+    const baseline = decisions(survey());
+    assertEq("an unstaged direction reads 進行中 on its survey row",
+      survey().eligible.find((x) => x.slug === "d").stage, "進行中");
+
+    for (const value of ["進行中", "改良中", "観察中"]) {
+      mkStrategy("d", value, future);
+      const r = survey();
+      assertEq(`the row carries the declared stage ${value}`,
+        (r.eligible.concat(r.refused)).find((x) => x.slug === "d").stage, value);
+      assertEq(`...and every gate, reading and the sort are byte-identical under ${value}`,
+        decisions(r), baseline);
+    }
+
+    // AND THE LIFECYCLE READER CARRIES IT WITHOUT ENTERING ITS PRECEDENCE. `state` is derived,
+    // the stage is declared, and a sixth `state` value was refused by name.
+    const stateOf = () => JSON.parse(run(dir,
+      `${POSIX_SH} ${SCRIPTS.directionState} --window "30 days ago" --root ${WH} --open-proposals ${OPEN}`,
+      { allowFail: true }).stdout || "{}");
+    const first = stateOf();
+    const firstRow = (first.strategies || []).find((x) => x.slug === "d");
+    if (firstRow) {
+      for (const value of ["進行中", "改良中", "観察中"]) {
+        mkStrategy("d", value, future);
+        const row = (stateOf().strategies || []).find((x) => x.slug === "d");
+        assertEq(`direction-state carries the stage ${value}`, row.stage, value);
+        assertEq(`...with state byte-identical under ${value}`, row.state, firstRow.state);
+      }
+    }
+    // A DEGRADED ROW STILL CARRIES ITS STAGE: the degradation belongs to the attribution walk
+    // and the stage is read off the artifact, so one says nothing about the other.
+    assertTrue("the survey never nulls the stage on a degraded row",
+      !/stage: \(if \$blind/.test(readFileSync(SCRIPTS.proposeSurvey, "utf8")),
+      "an attribution_unreadable row was made stage-unreadable, which it is not");
+  } finally { cleanup(dir); }
+}
+
 function testProposeGates() {
   const dir = makeRepo("main");
   const WH = join(dir, ".workaholic");
@@ -18985,6 +19066,7 @@ const tests = [
   ["report/area-freshness.sh (the two hand-maintained areas' upkeep seam)", testAreaFreshness],
   ["strategy skill (the artifact revived 2026-08-13)", testStrategySkill],
   ["strategy: the operator's declared stage", testStrategyDeclaredStage],
+  ["strategy: the declared stage rides beside the derived readings", testStrategyStageRidesBeside],
   ["strategy/attributed-work.sh (the ONE attribution reader)", testStrategyAttributedWork],
   ["strategy/attributed-work.sh past the xargs batching boundary", testStrategyAttributedWorkPastBatchBoundary],
   ["strategy/attributed-work.sh tells found nothing from could not look", testAttributedWorkWalkOutcome],

@@ -84,6 +84,30 @@ jobs:
           # shallow clone changes what they are able to read.
           fetch-depth: 0
 
+      - name: Give the job a git identity
+        run: |
+          set -eu
+          # A FIXED RUNNER HAS NO `user.email`, AND THREE DRILLS NEED ONE (measured
+          # 2026-08-29, on this workflow's own first run against `main`).
+          #
+          # `verify-direction-health`, `verify-propose` and `verify-merged-claim` stamp their
+          # fixture's owner with `git config user.email 2>/dev/null || echo drill@example.com`
+          # and then run a reader that resolves the ambient identity WITHOUT that fallback.
+          # With an identity the two agree; with none the fixture reads `drill@example.com`
+          # while the reader can resolve nobody, so `owns.sh` answers `other` and the rows
+          # that need `mine` go false — `expected dormant for quiet, got 'live'`,
+          # `expected past_target_date, got 'not_mine'`. Reproduced exactly by unsetting
+          # `user.email` in a working checkout.
+          #
+          # An identity is ambient DEVELOPER state, not a credential: every contributor's
+          # machine has one, the classification in `docs/loop-drill-runbook.md` §9 was
+          # measured on a machine that had one, and setting it here makes CI the environment
+          # that classification describes. It grants the job nothing — no token, no scope, no
+          # permission — and the value is deliberately the drills' own fallback, so a fixture
+          # built with an identity and one built without name the same person.
+          git config --global user.email "drill@example.com"
+          git config --global user.name "Loop Drill"
+
       - name: Run the drill
         run: |
           set -eu

@@ -108,7 +108,7 @@ Otherwise derive the route with `bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts
 | `size`/`leak` finding (overridable interactively) | **Demote to the PR path.** The override is a human ruling an unattended caller does not have. |
 | No confirmation method (ship §1-4) | **Demote to the PR path.** The accepted-risk bypass is a developer's conscious choice, and a plan whose verification reads "none declared" is the aspirational plan the gate exists to prevent. |
 | A degraded plan read (ship §5 step 3) | **Report and skip the plan**, route the unit on the remaining gates. A half-written plan is worse than none. |
-| A `content` conflict catching up with `main` (a `mechanical` one is routine) / a dirty claim worktree | **Demote to the PR path**, reported. |
+| A `content` conflict catching up with `main` (a `mechanical` one is routine) / a dirty claim worktree | **Demote to the PR path**, reported. Unchanged by the 2026-08-29 catch-up: this row is a unit on its way to shipping, and there the demotion *is* the repair. `catch-up-claim.sh` reads the same two words for a unit that has already reported and cannot be demoted anywhere — its pull request is open — so it refuses `content_conflict` and the question goes to a person ([reference/claims.md](reference/claims.md)). |
 
 A demotion is reported as a demotion, with the gate that caused it. **The third route** — `bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/land-unit.sh <unit-id> --developer-present [--override-scan]` — lands a `review` unit on a **present developer's instruction** so the next survey offers its leftover tickets. Neither entry point ever calls it; it refuses `headless_context` first and unoverridably, and the gates apply unchanged ([reference/routing.md](reference/routing.md)).
 

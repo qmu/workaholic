@@ -44,6 +44,7 @@ Run every command from the repository root, on a clean `main`.
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-merged-claim --json` | a throwaway repository carrying a **squash-merged** mission claim and batch claim — proves all four merged-claim readings (merged batch, merged mission, live, unanswerable) with the transport stubbed, so no `gh` call is made |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-identity-handoff --json` | a throwaway repository with a two-address mapping — walks issue assignee → the address the writer stamps → the survey that offers the unit, for a canonical address, a mapped alias and an unmapped login, with no network and no credential |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-close --json` | a throwaway repository carrying three finished units — proves all four closing outcomes (merged, session-type-refused-then-retryable, refused-and-unretryable, scan-held) with the transport stubbed, plus one row that deliberately breaks the seam |
+| — | Any time | `sh scripts/e2e/loop-drill.sh verify-catch-up --json` | a throwaway repository holding four finished-and-undelivered units — proves a mechanical conflict is caught up, validated and pushed with the higher version winning the manifest collision, a `content` one refused with the branch byte-identical, a scan-held pull request never caught up, a second run a no-op, and the refused conflict reaching its claim holder exactly once, with the transport stubbed and one row that deliberately breaks the identity bound |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-retire --json` | a throwaway repository holding a `superseded` claim, a live one and a unit held by two — proves the retirement's three acts, that a judgement is refused by its own verdict word, and that the step asks nobody anything, with the transport stubbed and one row that deliberately breaks the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-ci-retirement --json` | a throwaway repository whose bare origin refuses the container's branch delete and permits CI's — proves the act the container is refused is taken where the write is permitted, re-proved at the moment of it, bounded four ways, and asked about only once CI has also refused, with the transport stubbed and one row that deliberately breaks the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-delivery-retry --json` | a throwaway repository holding three units finished in the identical shape — proves the survey offers an undelivered unit in a field of its own, that only the proof reaches the merge seam, and that a scan-held or unrecorded one never does, with the transport stubbed and one row that deliberately breaks the seam |
@@ -873,6 +874,39 @@ walks the happy path would have passed throughout the days those four pull reque
 and would have converted an unproven claim into a believed one. Breaking any seam this mission
 touched turns `close_refused_is_undelivered` and `close_asks_about_the_refused_one` red together
 — verified by removing the `merge_refused*` branch from `lib/claims.sh` and watching both fail.
+
+## 5k-bis. The catch-up (does a unit the base moved under come back?)
+
+`verify-catch-up` needs no seed, no fire, no issue number and **no network**: a local bare origin
+and a `gh` stubbed on `PATH`. It drills the act that repairs the shape measured on 2026-08-29 —
+4 of 7 open pull requests conflicting with `main`, three of them units recorded
+`report_undelivered` two days earlier, with 4 active missions and 10 queued tickets behind them.
+`retry-undelivered.sh` re-attempts the **merge**, which is the right act for a refused transport
+and no act at all for a base that has moved.
+
+**It drills a writer that pushes onto a claim branch**, which is exactly the act the claim
+protocol's standing rule refuses for a third party. What makes it safe is that the claim is
+**this identity's own**, that a live one is refused `claim_active`, and that the act is a
+**merge** rather than a history rewrite — and the drill's job is to show that nothing but those
+gets through.
+
+| Row | Fails when | Read |
+| --- | ---------- | ---- |
+| `catch_up_no_network` | `gh` does not resolve to the stub | the drill would reach the network; every row below it would be measuring GitHub rather than the seam |
+| `catch_up_fixture` | the reader does not answer `mechanical` and `content` over the two branches | the fixture is not the shape under test; every row below it would prove nothing |
+| `catch_up_mechanical_delivered` | a mechanical conflict is not merged, validated and pushed, or the manifest does not converge on the **higher** semver | `catch-up-claim.sh` over `catchup-main.sh --resolve-mechanical` — taking one side of a version collision wholesale silently drops the other side's edits, so both sides are raised to the higher version and merged normally |
+| `catch_up_content_refused` | a `content` conflict is not refused by its own word, or the branch tip moves | the contested case stays a person's; a refusal that writes anything is not a refusal |
+| `catch_up_scan_held_refused` | a `merge_not_attempted: <tier>` unit is caught up | the catch-up is **not a route around a gate**: a `hard`/`confirm` finding holding a pull request open is the gate working |
+| `catch_up_second_run_noop` | a branch that already contains the base does not report `already_current`, or a ref moves | idempotence, and the reason `already_current` is checked before liveness: reporting a no-op protects nothing |
+| `catch_up_blocked_asks_once` | the refused conflict does not reach its claim holder keyed once with the files named, or the **caught-up** unit also draws a question | `step-catchup-blocked.sh` — the split the mission rests on: *nobody has looked yet* and *the loop looked and only you can decide* tell somebody different things |
+| `catch_up_refuses_a_foreign_claim` | a colleague's claim branch tip **moves**, or the refusal is not named | **the deliberately broken seam**, written against the behaviour rather than a return shape. Verified by dropping `foreign_identity` from the verdict gate and neutering the `not_my_claim` comparison: the drill merged into `work-20260101-000004` and pushed it, failing exactly this row while the other eight stayed green — and restoring both turned it green again |
+| `catch_up_checkout_untouched` | the drill changed the checkout | every fixture lives outside the checkout |
+
+**One fixture trap is worth naming**, because it silently turns every row into a different test:
+`.workaholic/stories/` holds only the previous unit's story, so checking `main` out removes the
+file and git prunes the empty directory. Without an explicit `mkdir -p` the redirect fails
+silently, the branch carries no story, and every claim reads `report_incomplete` rather than the
+drained state the rows are about.
 
 ## 5l. The retirement (does a claim proved empty leave the table?)
 

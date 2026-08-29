@@ -52,3 +52,4 @@ question: nobody looked, or the loop looked and only you decide.
 - 2026-08-29 — ticket archived — 20260829062039-retry-the-delivery-of-a-caught-up-unit.md
 - 2026-08-29 — ticket archived — 20260829062039-ask-about-the-conflict-the-loop-must-not-resolve.md
 - 2026-08-29 — ticket archived — 20260829062039-name-the-catch-up-outcome-in-the-run-report.md
+- 2026-08-29 — ticket archived — 20260829062039-drill-the-catch-up-with-no-network.md

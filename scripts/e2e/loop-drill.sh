@@ -3568,6 +3568,227 @@ cmd_verify_close() {
 # AND ONE ROW THAT DELIBERATELY BREAKS THE SEAM: a LIVE claim handed to the writer. If the gate
 # were widened to any claim, that row would be retired and this drill would pass while the loop
 # tore down work another run was driving. Proving the refusal is what proves the drill can fail.
+# ---------------------------------------------------------------------------------------
+# verify-catch-up — the base moves under a finished unit, and the loop brings it back
+# (2026-08-29, mission `land-the-loop-s-own-work-when-the-base-moves-under-it`).
+#
+# Everything here runs over a bare LOCAL origin with `gh` stubbed: no network at any point.
+# The rows are the mission's bounds rather than its happy path -- a mechanical conflict caught
+# up and delivered, a content conflict refused with the branch byte-identical, a foreign claim
+# untouched, a scan-held pull request never caught up, and a second run a no-op.
+#
+# THE BREAKER ROW IS WRITTEN AGAINST THE BEHAVIOUR, NOT A RETURN SHAPE. It hands the writer a
+# claim THIS IDENTITY DOES NOT HOLD. If the identity bound were ever widened -- or reordered
+# behind the act -- that row would merge into a colleague's branch and push it, and the drill
+# would pass while the loop trampled somebody's work. Asserting a return shape would survive
+# exactly that refactor, which is why the assertion is on the BRANCH TIP.
+# ---------------------------------------------------------------------------------------
+cmd_verify_catch_up() {
+    _reader="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/claim-mergeability.sh"
+    _writer="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/catch-up-claim.sh"
+    _step="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/step-catchup-blocked.sh"
+    _recorder="${REPO_ROOT}/plugins/workaholic/skills/story/scripts/record-merge-outcome.sh"
+    for _f in "$_reader" "$_writer" "$_step" "$_recorder"; do
+        [ -f "$_f" ] || emit_err "catch_up_seam_unreadable" 4 "${_f} is not present in this checkout"
+    done
+
+    _before=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+
+    _tmp=$(mktemp -d)
+    _origin="${_tmp}/origin"; _work="${_tmp}/work"; _read="${_tmp}/read"; _bin="${_tmp}/bin"
+    mkdir -p "$_origin" "$_bin"
+    _me=$(cd "$REPO_ROOT" && git config user.email 2>/dev/null || echo drill@example.com)
+    _git() { git -c user.email="$_me" -c user.name=Drill -c commit.gpgsign=false "$@"; }
+    _other() { git -c user.email=colleague@example.com -c user.name=Other -c commit.gpgsign=false "$@"; }
+    _stub() { printf '#!/bin/sh\n%s\n' "$1" > "${_bin}/gh"; chmod +x "${_bin}/gh"; }
+    _stub "echo '[]'"
+
+    if [ "$(PATH="${_bin}:$PATH" command -v gh)" = "${_bin}/gh" ]; then
+        add_row "catch_up_no_network" true "the stub is what gh resolves to, and the origin is a local bare repository -- no row below reaches the network" load
+    else
+        add_row "catch_up_no_network" false "gh does not resolve to the stub; this drill would reach the network" load
+        rm -rf "$_tmp"
+        emit_verdict "catch-up" 0 "fail" 1
+    fi
+
+    ( cd "$_origin" && git -c init.defaultBranch=main init -q --bare ) || true
+    ( cd "$_tmp" && git clone -q "$_origin" work ) || true
+    mkdir -p "${_work}/.workaholic/tickets/todo" "${_work}/.workaholic/stories" \
+             "${_work}/.claude-plugin" "${_work}/src"
+    for _n in 1 2 3 4; do
+        printf -- '---\ncreated_at: 2026-01-01T00:00:0%s+09:00\nauthor: %s\n---\n\n# T%s\n' \
+            "$_n" "$_me" "$_n" > "${_work}/.workaholic/tickets/todo/2026010100000${_n}-t.md"
+    done
+    printf '{\n  "name": "wh",\n  "version": "1.0.0",\n  "plugins": []\n}\n' \
+        > "${_work}/.claude-plugin/marketplace.json"
+    printf 'alpha\nbeta\ngamma\n' > "${_work}/src/app.txt"
+    ( cd "$_work" && _git add -A && _git commit -qm seed && git push -q origin main ) >/dev/null 2>&1 || true
+
+    # Drive one ticket into the shape a stranded unit has: queue drained, a story at the tip, a
+    # recorded merge refusal, and the branch-side half of its conflict.
+    # $1 = branch, $2 = unit, $3 = ticket basename, $4 = recorded outcome,
+    # $5 = "other" for a colleague's claim.
+    _strand() {
+        _sb="$1"; _su="$2"; _st="$3"; _so="$4"
+        _sw=_git; _sa="$_me"
+        if [ "${5:-}" = "other" ]; then _sw=_other; _sa=colleague@example.com; fi
+        ( cd "$_work" && git checkout -q main && git checkout -q -B "$_sb" \
+          && printf -- '---\ncreated_at: 2026-01-01T00:00:00+09:00\nauthor: %s\nclaim: %s\n---\n\n# T\n\nclaimed\n' \
+               "$_sa" "$_sb" > ".workaholic/tickets/todo/${_st}" \
+          && $_sw commit -qam "Claim a PR-unit" -m "Unit: ${_su}" \
+          && mkdir -p ".workaholic/tickets/archive/${_sb}" ".workaholic/stories" \
+          && git mv ".workaholic/tickets/todo/${_st}" ".workaholic/tickets/archive/${_sb}/" \
+          && printf -- '---\ntype: Story\nbranch: %s\n---\n\n## 1. Overview\n\ndone\n' \
+               "$_sb" > ".workaholic/stories/${_sb}.md" ) >/dev/null 2>&1 || true
+        # The mkdir above is load-bearing and was learned the hard way: `.workaholic/stories/`
+        # holds only the PREVIOUS unit's story, so checking main out removes the file and git
+        # prunes the empty directory -- after which the redirect fails silently, the branch
+        # carries no story, and every claim reads `report_incomplete` instead of the drained
+        # state every row below is about.
+        [ -z "$_so" ] || ( cd "$_work" && sh "$_recorder" ".workaholic/stories/${_sb}.md" "$_so" ) >/dev/null 2>&1 || true
+    }
+
+    # 1. MECHANICAL -- both sides bump the version manifest. Resolvable without a judgement.
+    _strand work-20260101-000001 batch-mechanical 20260101000001-t.md "merge_refused: session_type_cannot_merge"
+    printf '{\n  "name": "wh",\n  "version": "1.0.1",\n  "plugins": []\n}\n' \
+        > "${_work}/.claude-plugin/marketplace.json"
+    ( cd "$_work" && _git add -A && _git commit -qm "Report the unit" \
+      && git push -q origin work-20260101-000001 ) >/dev/null 2>&1 || true
+
+    # 2. CONTENT -- both sides change the same source line. Only a person can judge it.
+    _strand work-20260101-000002 batch-content 20260101000002-t.md "merge_refused: session_type_cannot_merge"
+    printf 'alpha\nbeta-branch\ngamma\n' > "${_work}/src/app.txt"
+    ( cd "$_work" && _git add -A && _git commit -qm "Report the unit" \
+      && git push -q origin work-20260101-000002 ) >/dev/null 2>&1 || true
+
+    # 3. SCAN-HELD -- a `hard` finding holds its pull request open. The gate WORKING.
+    _strand work-20260101-000003 batch-scanheld 20260101000003-t.md "merge_not_attempted: hard"
+    printf '{\n  "name": "wh",\n  "version": "1.0.4",\n  "plugins": []\n}\n' \
+        > "${_work}/.claude-plugin/marketplace.json"
+    ( cd "$_work" && _git add -A && _git commit -qm "Report the unit" \
+      && git push -q origin work-20260101-000003 ) >/dev/null 2>&1 || true
+
+    # 4. FOREIGN -- a colleague's claim, untouchable at any age. The breaker row's subject.
+    _strand work-20260101-000004 batch-foreign 20260101000004-t.md "merge_refused: session_type_cannot_merge" other
+    printf '{\n  "name": "wh",\n  "version": "1.0.7",\n  "plugins": []\n}\n' \
+        > "${_work}/.claude-plugin/marketplace.json"
+    ( cd "$_work" && _other commit -qam "Report the unit" \
+      && git push -q origin work-20260101-000004 ) >/dev/null 2>&1 || true
+
+    # THE BASE MOVES under all four.
+    ( cd "$_work" && git checkout -q main \
+      && printf 'alpha\nbeta-base\ngamma\n' > src/app.txt \
+      && printf '{\n  "name": "wh",\n  "version": "1.0.2",\n  "plugins": []\n}\n' > .claude-plugin/marketplace.json \
+      && _git commit -qam "Advance the base" && git push -q origin main ) >/dev/null 2>&1 || true
+
+    ( cd "$_tmp" && git clone -q "$_origin" read ) >/dev/null 2>&1 || true
+    ( cd "$_read" && git config user.email "$_me" && git config user.name Drill \
+      && git config commit.gpgsign false ) >/dev/null 2>&1 || true
+
+    _run() { ( cd "$_read" && PATH="${_bin}:$PATH" \
+        WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES=0 sh "$_writer" "$1" ) 2>&1 || true; }
+    _field() { printf '%s' "$1" | sed -n 's/.*"'"$2"'": *"\([^"]*\)".*/\1/p' | head -1; }
+    _tip() { git --git-dir="$_origin" rev-parse "refs/heads/$1" 2>/dev/null || printf 'gone'; }
+    _class() { ( cd "$_read" && sh "$_reader" "$1" origin/main ) 2>/dev/null \
+        | sed -n 's/.*"class": "\([^"]*\)".*/\1/p' | head -1; }
+
+    if [ "$(_class work-20260101-000001)" = "mechanical" ] \
+        && [ "$(_class work-20260101-000002)" = "content" ]; then
+        add_row "catch_up_fixture" true "the reader answers mechanical and content over the two branches -- the shape under test" load
+    else
+        add_row "catch_up_fixture" false "the fixture is wrong (mechanical='$(_class work-20260101-000001)' content='$(_class work-20260101-000002)')" load
+        rm -rf "$_tmp"
+        emit_verdict "catch-up" 0 "fail" 1
+    fi
+
+    # ROW 1: THE MECHANICAL CASE IS CAUGHT UP AND PUSHED IN ONE TURN, and the version collision
+    # converges on the HIGHER semver rather than on one side wholesale.
+    _m_before=$(_tip work-20260101-000001)
+    _m=$(_run batch-mechanical)
+    _m_ver=$(git --git-dir="$_origin" show "refs/heads/work-20260101-000001:.claude-plugin/marketplace.json" 2>/dev/null \
+        | sed -n 's/.*"version": "\([0-9.]*\)".*/\1/p' | head -1)
+    if [ "$(_field "$_m" outcome)" = "caught_up" ] \
+        && [ "$(_tip work-20260101-000001)" != "$_m_before" ] \
+        && [ "$_m_ver" = "1.0.2" ]; then
+        add_row "catch_up_mechanical_delivered" true "a mechanical conflict is merged, validated and pushed, and the higher version wins the manifest collision" load
+    else
+        add_row "catch_up_mechanical_delivered" false "the mechanical case did not complete (version='${_m_ver}'): $(one_line "$_m")" load
+    fi
+
+    # ROW 2: A CONTENT CONFLICT IS REFUSED AND THE BRANCH IS BYTE-IDENTICAL AFTER IT.
+    _c_before=$(_tip work-20260101-000002)
+    _c=$(_run batch-content)
+    if [ "$(_field "$_c" reason)" = "content_conflict" ] \
+        && [ "$(_tip work-20260101-000002)" = "$_c_before" ]; then
+        add_row "catch_up_content_refused" true "a content conflict is refused by its own word and the branch is byte-identical after it" load
+    else
+        add_row "catch_up_content_refused" false "a content conflict was not refused cleanly: $(one_line "$_c")" load
+    fi
+
+    # ROW 3: A SCAN-HELD PULL REQUEST IS NEVER CAUGHT UP. The catch-up is not a route around a
+    # gate: a `hard` finding holding a pull request open is the gate working.
+    _h_before=$(_tip work-20260101-000003)
+    _h=$(_run batch-scanheld)
+    if [ "$(_field "$_h" reason)" = "scan_held:hard" ] \
+        && [ "$(_tip work-20260101-000003)" = "$_h_before" ]; then
+        add_row "catch_up_scan_held_refused" true "a scan-held pull request is refused by tier and its branch is untouched -- no gate is overridden" load
+    else
+        add_row "catch_up_scan_held_refused" false "a scan-held unit was not refused by name: $(one_line "$_h")" load
+    fi
+
+    # ROW 4: A SECOND RUN IS A NO-OP THAT SAYS SO, and pushes nothing.
+    _s_before=$(_tip work-20260101-000001)
+    _s=$(_run batch-mechanical)
+    if [ "$(_field "$_s" outcome)" = "already_current" ] \
+        && [ "$(_tip work-20260101-000001)" = "$_s_before" ]; then
+        add_row "catch_up_second_run_noop" true "a branch that already contains the base reports already_current and touches no ref" load
+    else
+        add_row "catch_up_second_run_noop" false "the second run was not a reported no-op: $(one_line "$_s")" load
+    fi
+
+    # ROW 5: THE REFUSED CONFLICT REACHES ITS CLAIM HOLDER, keyed once, naming the branch and
+    # the files both sides changed -- and the unit the loop CAUGHT UP draws no question, which
+    # is the split the whole mission rests on.
+    _stepout=$( ( cd "$_read" && PATH="${_bin}:$PATH" WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES=0 \
+        sh "$_step" --tick 20260101-000000 --root "$_read" ) 2>&1 || true )
+    if printf '%s' "$_stepout" | grep -q 'catchup-blocked:batch-content' \
+        && printf '%s' "$_stepout" | grep -q 'src/app.txt' \
+        && ! printf '%s' "$_stepout" | grep -q 'catchup-blocked:batch-mechanical'; then
+        add_row "catch_up_blocked_asks_once" true "the refused conflict reaches its claim holder keyed once, naming the files, and the caught-up unit draws no question" load
+    else
+        add_row "catch_up_blocked_asks_once" false "the question was not asked as specified: $(one_line "$_stepout")" load
+    fi
+
+    # THE DELIBERATELY BROKEN ROW -- written against the BEHAVIOUR. A claim this identity does
+    # not hold, handed straight to the writer. If the identity bound were widened, or moved
+    # behind the act, this row would merge into a colleague's branch and push it. The assertion
+    # is on the BRANCH TIP, so a refactor that keeps the JSON shape and loses the bound still
+    # fires it.
+    _f_before=$(_tip work-20260101-000004)
+    _fo=$(_run batch-foreign)
+    if [ "$(_tip work-20260101-000004)" = "$_f_before" ] \
+        && printf '%s' "$_fo" | grep -qE '"reason": "(foreign_identity|not_my_claim)"'; then
+        add_row "catch_up_refuses_a_foreign_claim" true "a colleague's claim is refused by name and its branch never moves -- this drill can fail" load
+    else
+        add_row "catch_up_refuses_a_foreign_claim" false "a colleague's branch was touched, or the refusal was not named: $(one_line "$_fo")" load
+    fi
+
+    # NOTHING OUTSIDE THE FIXTURE IS WRITTEN. Operator tooling that dirties the operator's own
+    # checkout is worse than no tooling.
+    _after=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+    if [ "$_before" = "$_after" ]; then
+        add_row "catch_up_checkout_untouched" true "the drill left this checkout exactly as it found it" load
+    else
+        add_row "catch_up_checkout_untouched" false "the drill changed this checkout" load
+    fi
+
+    rm -rf "$_tmp"
+    if [ "$LOAD_FAILED" -eq 0 ]; then
+        emit_verdict "catch-up" 0 "pass" 0
+    fi
+    emit_verdict "catch-up" 0 "fail" 1
+}
+
 cmd_verify_retire() {
     _lister="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/list-claims.sh"
     _retirer="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/retire-claim.sh"
@@ -5808,7 +6029,7 @@ EOF
     emit_verdict "findings-to-work" 0 "pass" 0
 }
 
-USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-specificate <issue>|verify-implement <issue>|verify-plan [--json]|verify-status [--json]|verify-cadence [--json]|verify-planner [--json]|verify-standup [--json]|verify-moderate [--json]|verify-propose [--json]|verify-direction-health [--json]|verify-arrival [--json]|verify-residue [--json]|verify-expiry [--json]|verify-rulings [--json]|verify-succession [--json]|verify-revision [--json]|verify-merged-claim [--json]|verify-identity-handoff [--json]|verify-close [--json]|verify-retire [--json]|verify-ci-retirement [--json]|verify-delivery-retry [--json]|verify-handoff-question [--json]|verify-base-health [--json]|verify-return-path [--json]|verify-reconcile [--json]|verify-checkin-delivery [--json]|verify-findings-to-work [--json]"}'
+USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-specificate <issue>|verify-implement <issue>|verify-plan [--json]|verify-status [--json]|verify-cadence [--json]|verify-planner [--json]|verify-standup [--json]|verify-moderate [--json]|verify-propose [--json]|verify-direction-health [--json]|verify-arrival [--json]|verify-residue [--json]|verify-expiry [--json]|verify-rulings [--json]|verify-succession [--json]|verify-revision [--json]|verify-merged-claim [--json]|verify-identity-handoff [--json]|verify-close [--json]|verify-catch-up [--json]|verify-retire [--json]|verify-ci-retirement [--json]|verify-delivery-retry [--json]|verify-handoff-question [--json]|verify-base-health [--json]|verify-return-path [--json]|verify-reconcile [--json]|verify-checkin-delivery [--json]|verify-findings-to-work [--json]"}'
 
 CMD="${1:-}"
 [ -n "$CMD" ] || {
@@ -5854,6 +6075,7 @@ case "$CMD" in
     verify-merged-claim) cmd_verify_merged_claim "$@" ;;
     verify-identity-handoff) cmd_verify_identity_handoff "$@" ;;
     verify-close) cmd_verify_close "$@" ;;
+    verify-catch-up) cmd_verify_catch_up "$@" ;;
     verify-retire) cmd_verify_retire "$@" ;;
     verify-ci-retirement) cmd_verify_ci_retirement "$@" ;;
     verify-delivery-retry) cmd_verify_delivery_retry "$@" ;;

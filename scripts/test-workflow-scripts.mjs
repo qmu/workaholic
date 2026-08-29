@@ -18601,10 +18601,60 @@ function testDraftStandingRulings() {
     assertEq("the reader's refusal reaches the drafter's report",
       [stale.drafted, stale.refused], [0, [{ subject: "no-such-mission", reason: "subject_not_surfaced" }]]);
 
-    // 5. THE BREAKER: the drafter reaches the one writer and no other path to that line.
+    // 5. THE MAPPING RULING LANDS BESIDE THEM, AS A LIVE LINE. `apply-bootstrap.sh` writes a
+    //    COMMENT because it proposes without deciding; here the ruling has been made, so the
+    //    line goes in live and the operator's merge is what makes it true.
+    mkdirSync(join(A, ".claude"), { recursive: true });
+    writeFileSync(join(A, ".claude/git-identities"),
+      "# <github-login>=<canonical-email>[,<alias-email>...]\nknown=known@example.com\n");
+    execSync("git add -A && git commit -q -m mapping && git push -q origin main", { cwd: A });
+    tickSecond();
+    const mapped = draft(`--judgement test@example.com=someone`);
+    assertEq("a judged address is named live, as a new entry",
+      [mapped.drafted, mapped.rulings.map((r) => [r.kind, r.status])],
+      [1, [["identity_mapping", "mapped"]]]);
+    assertEq("and its pull request does not merge either",
+      [mapped.published, mapped.merged, mapped.merge_reason], [true, false, "ruling_touching"]);
+
+    // AN EXISTING LOGIN GAINS AN ALIAS RATHER THAN A SECOND LINE. `identity.sh` takes the
+    // first row a login matches, so a second row would resolve the address to ITSELF as
+    // canonical and `owns.sh` would go on answering `other` — the very defect being repaired.
+    // The work branch name is `work-$(date +%Y%m%d-%H%M%S)`, so two publishes in the same
+    // wall-clock second against the SAME origin collide; the drafts here deliberately share
+    // an origin, which is the one case where waiting out the second is the honest fix.
+    tickSecond();
+    const alias = draft(`--judgement test@example.com=known`);
+    assertEq("a login the mapping already names gains the address as another of its own",
+      [alias.rulings.map((r) => r.status), alias.published, alias.publish_reason],
+      [["alias_appended"], true, "published"]);
+
+    // Nothing is replaced, dropped or reordered — asserted over the published tree.
+    execSync("git fetch -q origin", { cwd: A });
+    const aliasBranch = execSync("git for-each-ref --sort=-refname --format='%(refname:short)' 'refs/remotes/origin/work-*'",
+      { cwd: A, encoding: "utf8" }).trim().split("\n")[0].trim();
+    const line = execSync(`git show ${aliasBranch}:.claude/git-identities`, { cwd: A, encoding: "utf8" });
+    assertTrue("the existing entry keeps every address it already named",
+      /^known=known@example\.com,test@example\.com$/m.test(line), line);
+
+    // AN ADDRESS THE MAPPING ALREADY NAMES LIVE IS A NO-OP, never a duplicate line.
+    execSync(`git merge -q --no-edit ${aliasBranch} && git push -q origin main`, { cwd: A });
+    const noop = draft(`--judgement test@example.com=known`);
+    assertEq("an address already named live drafts nothing",
+      [noop.drafted, noop.published, noop.publish_reason], [0, false, "nothing_to_draft"]);
+
+    // AN UNJUDGED ADDRESS LEAVES THE FILE BYTE-IDENTICAL.
+    const before = execSync("git show origin/main:.claude/git-identities", { cwd: A, encoding: "utf8" });
+    draft("");
+    execSync("git fetch -q origin", { cwd: A });
+    assertEq("an unjudged address leaves the mapping untouched",
+      execSync("git show origin/main:.claude/git-identities", { cwd: A, encoding: "utf8" }), before);
+
+    // 6. THE BREAKER: the drafter reaches the one writer and no other path to that line.
     const src = readFileSync(DRAFT, "utf8").split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
     assertTrue("it writes attributions only through carry-attribution.sh",
       /carry-attribution\.sh/.test(src) && !/feedback:/.test(src), src);
+    assertTrue("and it reads the mapping only through its one reader",
+      /gather\/scripts\/identity\.sh/.test(src), src);
     assertTrue("and it writes only inside a publish tree",
       /open-publish-tree\.sh/.test(src) && /close-publish-tree\.sh/.test(src), src);
     assertTrue("never setting the auto-merge variable itself",

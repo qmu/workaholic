@@ -53,3 +53,4 @@ machine re-dates, closes or amends a direction.
 - 2026-08-29 — ticket archived — 20260829021946-reproduce-the-silent-expiry-and-pin-it.md
 - 2026-08-29 — ticket archived — 20260829021946-emit-expiring-on-every-surveyed-row.md
 - 2026-08-29 — ticket archived — 20260829021946-rank-expiring-in-the-lifecycle-reading.md
+- 2026-08-29 — ticket archived — 20260829021947-carry-the-leaving-onto-the-expiring-row.md

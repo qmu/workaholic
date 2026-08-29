@@ -596,4 +596,5 @@
 * [Resolved: The pathological mission is still approved, and only the survey now declines it](20260829031832-resolved-the-pathological-mission-is-still-approved.md)
 * [Resolved: The runner image still has no `gh`](20260829031832-resolved-the-runner-image-still-has-no.md)
 * [Let the tick's own findings become the loop's work](20260829041743-let-the-tick-s-own-findings-become-the-loop-s-work.md)
+* [Land the loop's own work when the base moves under it](20260829061651-land-the-loop-s-own-work-when-the-base-moves-under-it.md)
 <!-- okf:generated:end -->

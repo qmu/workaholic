@@ -232,6 +232,13 @@ A second class of strategy-shaped ask does not propose a *new* direction: it **a
 | **ended**, but the ask does not say achieved or abandoned | Record-only, `no_end_state`. The two are not interchangeable and this session may not pick between them. |
 | **created** — announcing a direction not in the set | The strategy form above, on its own three-part bar. An announcement is not an exemption from it. |
 | **created as the successor of a named predecessor** — the ask names an explicit predecessor slug | The strategy form, unchanged in every part, **plus the predecessor's own `feedback:` refs carried onto the successor** (2026-08-28). Record-only under `strategy_not_found` (the named predecessor is in no set), `predecessor_active` (a live direction is not a predecessor) and `no_predecessor` (nothing explicit is named). |
+**A 観察中 direction still receives inbound work** (2026-08-29, mission
+`make-a-direction-s-lifecycle-a-declared-stage`). The declared stage gates **origination
+only**: `/propose` is refused `observing` and opens no issue of its own for such a direction,
+while an ask that arrives from outside — a swept channel message, an issue somebody filed, an
+error reported — is judged, attributed and emitted here exactly as before. Nothing about this
+route narrows for a settled direction, and that asymmetry is what the stage means.
+
 | **changed** — the named slug is already in the set | `strategy/scripts/amend.sh <slug>` inside the publish tree, carrying exactly the revision the ask states (2026-08-27) — the **only** thing this run writes for it. Since 2026-08-29 a revision may name the declared **stage** (`--stage`, from the closed set), carried verbatim and judged by nobody here; a bad value is record-only `bad_stage`. Record-only under two reasons of its own: `not_active` when the named direction is closed, and `no_revision` when the ask names the slug but nothing revisable. |
 | **answers** — the ask names a strategy slug **and** a mission slug, ruling that the mission answers that direction | `strategy/scripts/carry-attribution.sh <strategy> <mission>` inside the publish tree (2026-08-28) — appends that strategy's **own existing** `feedback:` refs to that mission and writes nothing else. Record-only under `strategy_not_found`, `mission_not_found`, `not_active` (a closed direction acquires no new work) and `no_revision` (the strategy cites nothing to carry); a re-run leaves the mission byte-identical and reports `already`. |
 

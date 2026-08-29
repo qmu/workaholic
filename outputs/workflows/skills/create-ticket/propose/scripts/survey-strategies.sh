@@ -50,6 +50,22 @@
 #                     OWN assigned strategies"; a strategy is the one artifact where empty
 #                     `assignees` is a refusal rather than team ownership, so `unowned`
 #                     cannot occur and `other`/`unresolved` are both refusals here.
+#   observing         the operator DECLARED this direction 観察中 — settled, the loop
+#                     reactive only. It is the FIRST DECLARED gate on this list, and that is
+#                     exactly what makes it safe: every other gate is derived, and a derived
+#                     silence was refused by name (`pace` gates nothing, because a machine's
+#                     guess must not silence the one routine that originates work). The
+#                     operator's own word is not a guess.
+#                     PLACED AFTER `not_active` AND `not_mine`: a closed or foreign direction
+#                     is not this repository's question at all, and answering `observing` for
+#                     one would send a reader to the wrong fact. PLACED BEFORE
+#                     `past_target_date`: an observing direction that is also overdue should
+#                     read as observing, because that is the fact a person acts on, and
+#                     lateness on a settled direction is not a failure.
+#                     IT STOPS ORIGINATION AND NOTHING ELSE. An inbound ask — a swept channel
+#                     message, an issue somebody files, an error reported — still becomes an
+#                     `[FB]` issue, still reaches `/specificate`, and still lands as work
+#                     carrying this direction's refs. That asymmetry is the whole stage.
 #   past_target_date  the date has passed. A dated direction that ran out of date is the
 #                     operator's to re-date or close; proposing into it forever is the
 #                     runaway this gate exists to stop.
@@ -524,6 +540,7 @@ jq -sc \
           (if .unreadable then "attribution_unreadable"
            elif .status != "active" then "not_active"
            elif .owns != "mine" then "not_mine"
+           elif (.stage == "観察中") then "observing"
            elif ((.days_to_target != null) and (.days_to_target < 0)) then "past_target_date"
            elif ((.feedback_refs | length) == 0) then "no_feedback_refs"
            # WORK_WAITING AT THE MISSION GRAIN (2026-08-26). A proposal is a whole mission,

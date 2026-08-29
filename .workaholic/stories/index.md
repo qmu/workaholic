@@ -3,6 +3,7 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [work-20260828-214118](work-20260828-214118.md) - The two rulings the loop cannot make itself reach the operator as one pull request they merge, instead of an hourly question naming a repair to perform by hand on main.
 * [work-20260828-184133](work-20260828-184133.md) - The check-in's day cap counts today rather than all time, the held arrears drain oldest-first, and a tick that reached nobody says so on the root.
 * [work-20260828-104111](work-20260828-104111.md) - Act 2 of the claim retirement moves to CI, where the write is permitted — re-proved at the act, bounded four ways, and asked about only once CI has also refused
 * [work-20260828-064059](work-20260828-064059.md) - A thread whose last word is `🔵 Proposed` or `🟡 Handoff` after the pull request it names has merged or closed is corrected in that thread, once.

@@ -221,8 +221,7 @@ for unit in $units; do
                    owner: (if ($a // "") == "" then "unknown" else $a end),
                    refusal: $r.reason,
                    acts_that_stand: ("pull request " + $r.pull_request_closed
-                                     + ", worktree " + $r.worktree_reaped),
-                   key: ("retire-blocked:" + $r.unit)}' 2>/dev/null || printf '')
+                                     + ", worktree " + $r.worktree_reaped)}' 2>/dev/null || printf '')
             if [ -n "$row" ]; then
                 rows="${rows}${rsep}${row}"
                 rsep=","
@@ -318,6 +317,41 @@ if [ "$blocked" -gt 0 ]; then
     fi
 fi
 
+# THE KEY CARRIES THE REFUSAL WORD (2026-08-29, mission
+# `read-back-whether-the-loop-s-own-act-took-effect`). `retire-blocked:<unit>` was asked exactly
+# once per unit, EVER. That gate is right for an unchanging block — an hourly restatement of the
+# same refusal is the noise two keyed roots were retired for — and wrong the moment the WORD
+# changes: a unit first blocked on `branch_delete_failed` and later on `pull_request_open` is a
+# different fact needing a different act, and the second one reached nobody.
+#
+# THE ASKED-ONCE GATE NEEDED NO CHANGE AT ALL, which is the property this was shaped for. The
+# narrowing lives in what the key is MADE OF, so `ask-question.sh` stays one mechanism that
+# cannot drift from itself, and every existing hold — quiet hours, working days, the per-tick cap
+# and the day cap — applies to a re-ask unchanged, because a re-ask is just one more question.
+#
+# THE WORD IS THE ONE A PERSON MUST ACT ON: CI's refusal where the effect reading names one,
+# because that is the executor that was actually going to take the delete, and the container's
+# own refusal otherwise. One word, not two, and it is the same word the question names.
+#
+# THE SUMMARY IS DELIBERATELY LEFT OUT OF THIS. CI runs on every merge to `main`, so between a
+# merge and its run completing the effect reading genuinely oscillates `pending` -> `refused:…`
+# hour to hour; putting that word in the summary would move the diff most hours and render a root
+# line for a block that had not changed, which is precisely what the stability rule above exists
+# to prevent. The key is safe from the same oscillation by construction: a `pending` unit is
+# suppressed above and never reaches `ask-question.sh`, so no key is ever composed with it.
+if [ "$blocked" -gt 0 ]; then
+    ci_units=$(printf '%s' "$turn_out" | jq -c '[.units[]?]' 2>/dev/null || printf '[]')
+    rows=$(printf '%s' "$rows" | jq -c --argjson t "$ci_units" '
+        [ .[]? | . as $r
+          | ([$t[]? | select(.unit == $r.unit) | .ci_turn] | first // "") as $w
+          | (if ($w | startswith("refused:")) then ($w | sub("^refused:"; "")) else "" end) as $ci
+          | ($r.refusal // "unstated") as $own
+          | $r + {ci_turn: $w,
+                  blocking_refusal: (if $ci != "" then $ci else $own end)}
+          | . + {key: ("retire-blocked:" + .unit + ":" + .blocking_refusal)} ]' \
+        2>/dev/null || printf '%s' "$rows")
+fi
+
 # AND THE QUESTION IS HELD ONCE THIS FINDING HAS BECOME WORK (2026-08-29, mission
 # `let-the-tick-s-own-findings-become-the-loop-s-work`). While an open finding issue carries
 # this step's finding, the loop is already driving the repair, and asking a person about it is
@@ -347,8 +381,8 @@ fi
 needs=""
 if [ "$blocked" -gt 0 ]; then
     needs=$(printf '%s' "$rows" | jq -c --arg turn "$ci_turn" '{action: "ask_the_claim_holder_to_delete_the_branch_neither_the_container_nor_ci_could",
-        bound: "one question per unit, addressed to the claim holder, keyed on `key` so it is asked once; the tick asks and never releases a claim, reopens a pull request, or re-runs the delete",
-        compose: "name the unit, the exact branch left on origin, the refusal that blocked the delete, and the acts that already stand -- a question that does not name the branch does not say what to delete",
+        bound: "one question per (unit, refusal word), addressed to the claim holder, keyed on `key` so an unchanged block is asked once and a CHANGED refusal word is asked once more; the tick asks and never releases a claim, reopens a pull request, or re-runs the delete",
+        compose: "name the unit, the exact branch left on origin, the refusal in `blocking_refusal` that is blocking the delete now, and the acts that already stand -- a question that does not name the branch does not say what to delete",
         ci_turn: $turn,
         blocked_retirements: .}' 2>/dev/null || echo '')
 fi

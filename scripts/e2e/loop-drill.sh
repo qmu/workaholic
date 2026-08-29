@@ -4382,11 +4382,14 @@ esac"
 
     # 11. THE BLOCKED UNIT REACHES ITS CLAIM HOLDER, keyed once and naming the exact branch --
     # a question that does not name the branch does not say what to delete.
-    if printf '%s' "$_bstep" | grep -q '"key":"retire-blocked:batch-blocked"' \
+    # The key carries the refusal word since 2026-08-29, so it is asked once per (unit, refusal
+    # word) rather than once per unit ever -- a unit whose block changes word is a different fact
+    # needing a different act. `verify-act-effect` drills the narrowing itself over three ticks.
+    if printf '%s' "$_bstep" | grep -q '"key":"retire-blocked:batch-blocked:branch_delete_failed"' \
         && printf '%s' "$_bstep" | grep -q '"branch":"work-20260101-000006"' \
         && printf '%s' "$_bstep" | grep -q "\"owner\":\"${_me}\"" \
         && printf '%s' "$_bstep" | grep -q '"refusal":"branch_delete_failed"'; then
-        add_row "retire_blocked_asks_the_holder" true "one question, keyed retire-blocked:batch-blocked, addressed to the claim holder, naming the branch and the refusal" load
+        add_row "retire_blocked_asks_the_holder" true "one question, keyed retire-blocked:batch-blocked:branch_delete_failed, addressed to the claim holder, naming the branch and the refusal" load
     else
         add_row "retire_blocked_asks_the_holder" false "the blocked unit reached nobody: $(one_line "$_bstep")" load
     fi
@@ -4740,7 +4743,9 @@ STUB
     # narrowing visible: a CI-deletable unit is never asked about because it is no longer a claim.
     _stt=$( ( cd "$_read" && PATH="${_bin}:$PATH" WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES=0 \
         sh "$_step" --tick 20260201-000001 --root "$_read" ) 2>&1 || true )
-    if printf '%s' "$_stt" | grep -q '"key":"retire-blocked:batch-ci-blocked"' \
+    # The key carries the refusal word since 2026-08-29, so an unchanged block is asked once and
+    # a CHANGED word is asked once more (`verify-act-effect` drills that narrowing over ticks).
+    if printf '%s' "$_stt" | grep -q '"key":"retire-blocked:batch-ci-blocked:' \
         && printf '%s' "$_stt" | grep -q '"branch":"work-20260201-000003"' \
         && ! printf '%s' "$_stt" | grep -q 'retire-blocked:batch-ci-retirable'; then
         add_row "ci_retirement_taken_asks_the_holder" true "a unit CI also refused reaches its claim holder naming the branch; a CI-deleted one is asked about by nobody" load
@@ -5076,6 +5081,45 @@ STUB
     else
         add_row "act_effect_one_reader_delivery" false "the delivery reading is wrong (recorded=$(one_line "$_dl") none=$(one_line "$_dn"))" load
     fi
+
+    # 10. THE CHANGED-REFUSAL NARROWING, over three ticks against the real asked-once gate:
+    # one word asks, the SAME word on a later tick does not, and a DIFFERENT word asks once more.
+    # The gate itself is untouched -- the narrowing lives in what the key is made of, which is
+    # why one mechanism cannot drift from itself.
+    _askscript="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/ask-question.sh"
+    _logappend="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/log-append.sh"
+    _qroot=$(mktemp -d); mkdir -p "${_qroot}/.workaholic/moderations"
+    _keyof() { printf '%s' "$1" | jq -r '[.needs_agent[]?.blocked_retirements[]? | select(.unit == "batch-effect-refused") | .key] | first // ""' 2>/dev/null || printf ''; }
+    _ask() { # $1 = tick, $2 = key -> "true"/"false"
+        _a=$(cd "$REPO_ROOT" && sh "$_askscript" --tick "$1" --key "$2" --root "$_qroot" \
+            --to "$_me" --hour 10 --weekday 1 2>&1) || true
+        _ls=$(printf '%s' "$_a" | sed -n 's/.*"log_step": *"\([^"]*\)".*/\1/p')
+        if printf '%s' "$_a" | grep -q '"ask": true'; then
+            sh "$_logappend" --root "$_qroot" --tick "$1" --step "$_ls" --status ok \
+                --summary asked >/dev/null 2>&1 || true
+            printf 'true'
+        else
+            printf 'false'
+        fi
+    }
+    _record "$(_note 'candidates ok=true reason= count=1')," \
+            "$(_note 'act unit=batch-effect-refused branch=work-20260301-000002 state=not_attempted reason=gh_unavailable')"
+    _k1=$(_keyof "$(_tick 20260301-000010)")
+    _k2=$(_keyof "$(_tick 20260301-000011)")
+    _record "$(_note 'candidates ok=true reason= count=1')," \
+            "$(_note 'act unit=batch-effect-refused branch=work-20260301-000002 state=not_attempted reason=pull_request_open')"
+    _k3=$(_keyof "$(_tick 20260301-000012)")
+    _r1=$(_ask 20260301-000010 "$_k1")
+    _r2=$(_ask 20260301-000011 "$_k2")
+    _r3=$(_ask 20260301-000012 "$_k3")
+    if [ "$_k1" = "retire-blocked:batch-effect-refused:gh_unavailable" ] \
+        && [ "$_k1" = "$_k2" ] && [ "$_k3" = "retire-blocked:batch-effect-refused:pull_request_open" ] \
+        && [ "$_r1" = "true" ] && [ "$_r2" = "false" ] && [ "$_r3" = "true" ]; then
+        add_row "act_effect_changed_word_reasks" true "one word asks, the unchanged word is held, and a changed word asks exactly once more" load
+    else
+        add_row "act_effect_changed_word_reasks" false "the narrowing did not hold (keys '${_k1}' '${_k2}' '${_k3}'; asks ${_r1} ${_r2} ${_r3})" load
+    fi
+    rm -rf "$_qroot"
 
     _after=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
     if [ "$_before" = "$_after" ]; then

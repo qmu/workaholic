@@ -41,8 +41,16 @@ only writer of an end state and re-opening is offered nowhere. `/drive` still ne
 strategy. Matching is still by explicit slug only. The citation still runs strategy → feedback one
 way, and the retired `strategy:` relation stays retired.
 
-**The third writer is bounded, and the bounds are the reason it is admissible.** Only the three
-parts this model calls revisable are reachable from its interface; `slug`, `type`, `status`,
+**The third writer is bounded, and the bounds are the reason it is admissible.** Only the four
+parts this model calls revisable are reachable from its interface — the **stage** joined them on
+2026-08-29 (mission `make-a-direction-s-lifecycle-a-declared-stage`) and nothing else moved: no
+fourth writer, no new route, and no new refusal vocabulary, since `--stage` reuses `create.sh`'s
+`bad_stage` verbatim. A move onto a direction carrying no `stage:` line **inserts** it where
+`create.sh` puts it, and the dated `## Schedule` line names the **move** (`進行中 → 改良中`)
+rather than the destination, reading the previous value through `read.sh` so the
+absent-means-進行中 default still has exactly one derivation. The stage is revisable in **both**
+directions: nothing treats the three as a ratchet, because a direction that reopens is the
+operator's call to state. `slug`, `type`, `status`, `slug`, `type`, `status`,
 `created_at`, `author` and `feedback:` are asserted immutable over its own candidate before it
 writes. A closed direction is refused `not_active`. Every floor breach is refused with **nothing
 written** — no partial write, no staged half, no write-then-revert. And each revision appends one

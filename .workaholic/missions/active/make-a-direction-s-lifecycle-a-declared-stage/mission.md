@@ -39,7 +39,7 @@ and stuckness never reads as 観察中.
 
 ## Acceptance
 
-- [ ] A direction carries a declared stage in the operator's own vocabulary,
+- [x] A direction carries a declared stage in the operator's own vocabulary,
       written only by an act the operator announced. (#20260829212056-let-the-operator-move-a-stage-through-the-loop.md)
 - [ ] The stage drives `/propose`: 観察中 originates nothing, 進行中 and 改良中
       keep proposing, and 改良中 competes for priority across directions. (#20260829212056-order-an-improving-direction-against-its-rivals.md)
@@ -50,3 +50,4 @@ and stuckness never reads as 観察中.
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-29 — ticket archived — 20260829212056-record-a-direction-s-declared-stage-on-the-artifact.md
+- 2026-08-29 — ticket archived — 20260829212056-let-the-operator-move-a-stage-through-the-loop.md

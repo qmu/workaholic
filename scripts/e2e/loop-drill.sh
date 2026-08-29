@@ -5038,6 +5038,45 @@ STUB
         add_row "act_effect_workflow_records" false "the workflow does not reach the recorder on every path" load
     fi
 
+    # 8. ONE READER ANSWERS THE QUESTION FOR BOTH ACTS, and for the retirement it answers the
+    # SAME WORD as the act's own source read directly. A composition that could answer on its
+    # own would be the second oracle this mission's constraint forbids.
+    _eff="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/act-effect.sh"
+    _record "$(_note 'candidates ok=true reason= count=1')," \
+            "$(_note 'act unit=batch-effect-refused branch=work-20260301-000002 state=not_attempted reason=gh_unavailable')"
+    _direct=$(_unit_turn "$(_turn_for batch-effect-refused)" batch-effect-refused)
+    _via=$( ( cd "$_read" && PATH="${_bin}:$PATH" WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES=0 \
+        sh "$_eff" retirement batch-effect-refused ) 2>&1 || true )
+    _via_word=$(printf '%s' "$_via" | jq -r '.effect // ""' 2>/dev/null || printf '')
+    if [ -n "$_direct" ] && [ "$_direct" = "$_via_word" ] \
+        && printf '%s' "$_via" | grep -q '"source": "ci-retirement-turn.sh"'; then
+        add_row "act_effect_one_reader_retirement" true "the composition returns the act's own word (${_direct}) and names the source it composed" load
+    else
+        add_row "act_effect_one_reader_retirement" false "direct='${_direct}' via composition='${_via_word}': $(one_line "$_via")" load
+    fi
+
+    # 9. AND THE DELIVERY ACT IS ANSWERED FROM ITS OWN SOURCE -- the branch story the run that
+    # attempted the merge already committed, read off the claim row the scan already fetched.
+    # The word is carried VERBATIM: the two acts' refusal vocabularies are never merged into a
+    # third, which would send a reader to a string no script ever printed.
+    ( cd "$_work" && git checkout -q work-20260301-000002 \
+      && mkdir -p .workaholic/stories \
+      && printf -- '---\ntype: Story\n---\n\n# S\n\n## Merge Outcome\n\nmerge_refused:session_type_cannot_merge\n' \
+             > .workaholic/stories/work-20260301-000002.md \
+      && _git add -A && _git commit -qm "Report the branch story" \
+      && git push -q origin work-20260301-000002 ) >/dev/null 2>&1 || true
+    ( cd "$_read" && git fetch -q --prune origin ) >/dev/null 2>&1 || true
+    _dl=$( ( cd "$_read" && PATH="${_bin}:$PATH" WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES=0 \
+        sh "$_eff" delivery batch-effect-refused ) 2>&1 || true )
+    _dn=$( ( cd "$_read" && PATH="${_bin}:$PATH" WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES=0 \
+        sh "$_eff" delivery batch-effect-silent ) 2>&1 || true )
+    if printf '%s' "$_dl" | grep -q '"effect": "refused:session_type_cannot_merge"' \
+        && printf '%s' "$_dn" | grep -q '"effect": "pending"'; then
+        add_row "act_effect_one_reader_delivery" true "the delivery act's own recorded word is carried verbatim, and a branch with no recorded attempt reads pending" load
+    else
+        add_row "act_effect_one_reader_delivery" false "the delivery reading is wrong (recorded=$(one_line "$_dl") none=$(one_line "$_dn"))" load
+    fi
+
     _after=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
     if [ "$_before" = "$_after" ]; then
         add_row "act_effect_writes_nothing" true "the checkout is byte-identical after the drill" load

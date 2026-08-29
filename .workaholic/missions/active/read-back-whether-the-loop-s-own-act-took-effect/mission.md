@@ -42,7 +42,7 @@ No new store, no field, no second oracle.
 - [x] A CI turn records per candidate what each act answered, and
       `ci-retirement-turn.sh` answers from it, never from a run's exit
       status. (#20260829152415-answer-the-ci-turn-from-the-recorded-verdict.md)
-- [ ] A changed refusal reaches the claim holder, an unchanged one stays held, and
+- [x] A changed refusal reaches the claim holder, an unchanged one stays held, and
       the effect is read once for Act 2 and the retry. (#20260829152419-answer-did-my-act-take-effect-in-one-place.md)
 - [ ] An offline drill fails when a green run stands in for an act not taken, and
       is registered so `verify-all` and CI run it. (#20260829152420-drill-the-silent-act-offline-and-register-the-drill.md)
@@ -53,3 +53,4 @@ No new store, no field, no second oracle.
 - 2026-08-29 — ticket archived — 20260829152415-pin-the-silent-act-with-a-failing-offline-reproduction.md
 - 2026-08-29 — ticket archived — 20260829152415-record-what-the-ci-turn-attempted-and-each-act-answered.md
 - 2026-08-29 — ticket archived — 20260829152415-answer-the-ci-turn-from-the-recorded-verdict.md
+- 2026-08-29 — ticket archived — 20260829152419-answer-did-my-act-take-effect-in-one-place.md

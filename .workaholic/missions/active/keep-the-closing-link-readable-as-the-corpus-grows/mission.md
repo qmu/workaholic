@@ -50,3 +50,4 @@ zero.
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-29 — ticket archived — 20260829072044-pin-the-batching-failure-before-repairing-it.md
 - 2026-08-29 — ticket archived — 20260829072045-stop-the-prefilter-discarding-what-it-found.md
+- 2026-08-29 — ticket archived — 20260829072045-tell-found-nothing-from-could-not-look.md

@@ -17898,6 +17898,7 @@ const tests = [
   ["branching publish-tree-pr: a strategy-touching publish never auto-merges", testPublishTreePrStrategyExemption],
   ["branching publish-tree-pr: a ruling never auto-merges", testPublishTreePrRulingExemption],
   ["moderate/draft-standing-rulings.sh drafts a judged ruling", testDraftStandingRulings],
+  ["moderate/step-standing-rulings.sh gives the tick the ruling step", testStepStandingRulings],
   ["the PR title is not the commit subject (P4's surviving half)", testPrTitleSeparateFromSubject],
   ["the reply thread is found, not carried (Q1)", testStatelessThreadLookup],
   ["one behaviour per command: no dispatch on a literal first word (P5)", testNoSubcommands],
@@ -18655,10 +18656,109 @@ function testDraftStandingRulings() {
       /carry-attribution\.sh/.test(src) && !/feedback:/.test(src), src);
     assertTrue("and it reads the mapping only through its one reader",
       /gather\/scripts\/identity\.sh/.test(src), src);
+    assertTrue("and every drafted subject is named visibly in the body",
+      /ruling: %s \/ subject: %s/.test(readFileSync(DRAFT, "utf8")), "marker missing");
     assertTrue("and it writes only inside a publish tree",
       /open-publish-tree\.sh/.test(src) && /close-publish-tree\.sh/.test(src), src);
     assertTrue("never setting the auto-merge variable itself",
       !/WORKAHOLIC_AUTO_MERGE=/.test(src), src);
+  } finally {
+    rmSync(origin, { recursive: true, force: true });
+    rmSync(A, { recursive: true, force: true });
+    rmSync(binDir, { recursive: true, force: true });
+  }
+}
+
+// ---------- moderate/step-standing-rulings.sh: the tick's ruling step (2026-08-28) ----------
+// The step that puts the two standing rulings on a pull request instead of asking about them
+// hourly. Everything worth pinning is a bound: at most ONE open ruling at a time, derived off
+// GitHub with no cursor; a DEGRADED read drafts nothing and is named; the act is handed to the
+// agent, so the step writes nothing and its `event` is always empty; and it never reaches
+// `plan-units.sh`, which stages what its living migrations converge.
+function stepRulingStub(binDir, openRows, { fail = false } = {}) {
+  // The stub answers the REST call already reduced by `--jq`, which is what `gh api --jq`
+  // hands back: one TAB-separated row per open ruling pull request.
+  writeFileSync(join(binDir, "gh"), `#!/bin/sh
+case "$1 $2" in
+  "api user") printf 'tester\\n'; exit 0 ;;
+esac
+case "$*" in
+  *pulls*)
+${fail ? "    echo 'HTTP 403: not permitted for this session type' >&2; exit 1 ;;"
+       : `    printf '%s' "${openRows}"; exit 0 ;;`}
+esac
+echo ""
+`);
+  chmodSync(join(binDir, "gh"), 0o755);
+}
+
+function testStepStandingRulings() {
+  const STEP = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-standing-rulings.sh");
+  const { origin, A, binDir } = makeRulingRepo();
+  const stepOf = (env) => JSON.parse(run(A, `${POSIX_SH} ${STEP} --tick 20260828-120000 --root ${A}`, { env }).stdout);
+  const withGh = { ...process.env, PATH: `${binDir}:${process.env.PATH}` };
+  try {
+    // 1. NOTHING IN FLIGHT: the candidates go back to the agent, because the judgement is the
+    //    run's and no script may make it.
+    stepRulingStub(binDir, "");
+    const open = stepOf(withGh);
+    assertEq("the step reports the standing rulings it found",
+      [open.step, open.status, open.reason], ["standing-rulings", "ok", ""]);
+    assertTrue("naming how many there are to judge", /standing ruling\(s\) to judge/.test(open.summary), open.summary);
+    assertEq("and hands them to the agent rather than judging them itself",
+      [open.needs_agent.length, open.needs_agent[0].candidates.every((c) => c.decision === "undecided")],
+      [1, true]);
+    // THE EVENT IS ALWAYS EMPTY: at this moment nothing has been drafted, because the agent
+    // acts only after `run.sh` returns. A tick that drafted nothing renders no root line.
+    assertEq("its event is empty, so a tick that drafted nothing renders no root line", open.event, "");
+
+    // 2. A RULING ALREADY OPEN MEANS THIS TICK DRAFTS NOTHING. No cursor: the brake is the
+    //    open pull request itself.
+    stepRulingStub(binDir,
+      "31\thttps://example.test/pr/31\t[Ruling] Standing rulings for the operator\truling: attribution / subject: m2\n");
+    const held = stepOf(withGh);
+    assertEq("an open ruling holds the whole act",
+      [held.status, held.needs_agent, held.event], ["ok", [], ""]);
+    assertTrue("naming the pull request that holds it", /#31/.test(held.summary), held.summary);
+
+    // 3. A DEGRADED BRAKE DRAFTS NOTHING AND IS NAMED. A brake that cannot be read is not a
+    //    brake, so this may never fall through to drafting.
+    stepRulingStub(binDir, "", { fail: true });
+    const blind = stepOf(withGh);
+    assertEq("an unreadable brake is degraded, by name, and drafts nothing",
+      [blind.status, blind.reason, blind.needs_agent], ["degraded", "brake_list_failed", []]);
+
+    // 4. AN EMPTY CANDIDATE SET IS AN ANSWER, NOT A DEGRADATION.
+    stepRulingStub(binDir, "");
+    for (const slug of ["m2", "m3"]) {
+      const f = join(A, `.workaholic/missions/active/${slug}/mission.md`);
+      writeFileSync(f, readFileSync(f, "utf8").replace("20260101000000-b.md", "20260101000000-a.md"));
+    }
+    mkdirSync(join(A, ".claude"), { recursive: true });
+    writeFileSync(join(A, ".claude/git-identities"), "tester=test@example.com\n");
+    const quiet = stepOf(withGh);
+    assertEq("nothing standing is an ok line with no request",
+      [quiet.status, quiet.reason, quiet.needs_agent, quiet.event], ["ok", "", [], ""]);
+    assertTrue("saying so in words", /no standing ruling/.test(quiet.summary), quiet.summary);
+
+    // 5. IT WRITES NOTHING. The one thing a `/moderate` step may write is its own log line,
+    //    and this step is not even the writer of that.
+    assertEq("the step left the checkout as it found it",
+      execSync("git status --porcelain", { cwd: A, encoding: "utf8" })
+        .split("\n").filter((l) => l && !/mission\.md|\.claude\//.test(l)).join("\n"), "");
+
+    // 6. THE BREAKER: it must never reach the survey, which stages what its migrations converge.
+    const src = readFileSync(STEP, "utf8").split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+    assertEq("the step never reaches plan-units.sh", /plan-units\.sh/.test(src), false);
+    assertTrue("it reads only the two readers it composes",
+      /list-standing-rulings\.sh/.test(src) && /list-open-rulings\.sh/.test(src), src);
+    assertTrue("and it calls no writer of its own",
+      !/carry-attribution\.sh|publish-tree|close\.sh/.test(src), src);
+
+    // 7. IT IS REGISTERED, so `run.sh` invokes it and it contributes a line on every tick.
+    const runSrc = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/run.sh"), "utf8");
+    assertTrue("the step is in the run's STEPS list",
+      /^STEPS='.*\bstanding-rulings\b.*'$/m.test(runSrc), "not registered");
   } finally {
     rmSync(origin, { recursive: true, force: true });
     rmSync(A, { recursive: true, force: true });
@@ -22808,6 +22908,14 @@ function testModerateRun() {
     // no path from *the loop cannot drive its own output* to *a person is told*. Same
     // placement and same reason as its neighbours: it reads, the check-in asks.
     "undrivable-units",
+    // `standing-rulings` (2026-08-28): the two rulings the loop CANNOT make itself — which
+    // direction an unattributed mission answers, which account an unmapped address belongs to.
+    // Both were surfaced as an hourly question naming a repair the operator must perform BY
+    // HAND on `main`; drafted as a diff instead, merging is the ruling and closing is the
+    // refusal. It sits beside the two steps whose findings it settles, and — like them — it
+    // reads and hands its act to the agent, because the judgement is the run's and no script
+    // may derive one.
+    "standing-rulings",
     // `undelivered-units` (2026-08-27): a unit the loop drove to a green pull request whose
     // MERGE the transport refused. No other step saw it — `stuck-prs` finds an open, green
     // pull request and `stalled-units` reads STALE rows, and this claim's heartbeat advanced
@@ -26431,7 +26539,7 @@ function testUndeliveredUnitsStep() {
     const runSh = readFileSync(
       join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/run.sh"), "utf8");
     assertTrue("run.sh invokes the step",
-      /undrivable-units undelivered-units/.test(runSh), "not registered in order");
+      /undrivable-units standing-rulings undelivered-units/.test(runSh), "not registered in order");
 
     // AND THE DRILL EXISTS, is dispatched by its verb, and is documented — the same three pins
     // every other verify target carries, so a drill that is written and never wired reads

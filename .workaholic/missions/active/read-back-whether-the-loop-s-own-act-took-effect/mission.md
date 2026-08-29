@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260829-154131
 ---
 
 # Read back whether the loop's own act took effect
@@ -38,14 +39,23 @@ No new store, no field, no second oracle.
 
 ## Acceptance
 
-- [ ] A CI turn records per candidate what each act answered, and
+- [x] A CI turn records per candidate what each act answered, and
       `ci-retirement-turn.sh` answers from it, never from a run's exit
       status. (#20260829152415-answer-the-ci-turn-from-the-recorded-verdict.md)
-- [ ] A changed refusal reaches the claim holder, an unchanged one stays held, and
+- [x] A changed refusal reaches the claim holder, an unchanged one stays held, and
       the effect is read once for Act 2 and the retry. (#20260829152419-answer-did-my-act-take-effect-in-one-place.md)
-- [ ] An offline drill fails when a green run stands in for an act not taken, and
+- [x] An offline drill fails when a green run stands in for an act not taken, and
       is registered so `verify-all` and CI run it. (#20260829152420-drill-the-silent-act-offline-and-register-the-drill.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-29 — ticket archived — 20260829152415-pin-the-silent-act-with-a-failing-offline-reproduction.md
+- 2026-08-29 — ticket archived — 20260829152415-record-what-the-ci-turn-attempted-and-each-act-answered.md
+- 2026-08-29 — ticket archived — 20260829152415-answer-the-ci-turn-from-the-recorded-verdict.md
+- 2026-08-29 — ticket archived — 20260829152419-answer-did-my-act-take-effect-in-one-place.md
+- 2026-08-29 — ticket archived — 20260829152415-let-a-changed-refusal-reach-the-claim-holder.md
+- 2026-08-29 — ticket archived — 20260829152420-name-the-effect-reading-where-the-tick-and-the-run-speak.md
+- 2026-08-29 — ticket archived — 20260829152420-drill-the-silent-act-offline-and-register-the-drill.md
+- 2026-08-29 — ticket archived — 20260829152420-state-an-act-s-effect-where-the-vocabulary-lives.md
+- 2026-08-29 — story reported — work-20260829-154131.md

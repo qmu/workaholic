@@ -33,21 +33,36 @@
 # `.github/workflows/claim-retirement.yml`, where the write is permitted, so a blocked unit whose
 # branch a workflow is about to delete must draw NO question: asking a person, once per unit and
 # forever, for an act CI was about to perform is not merely noise — the ask is wrong. The reading
-# is `../../drive/scripts/ci-retirement-turn.sh` and it is STORE-FREE, which is the constraint
-# that shaped it: CI DELETES the branch on success and unmerged remote branches are the only
-# claim oracle, so a successful turn removes the claim row and the candidate with it. A completed
-# run at the base tip this tick is reading therefore means CI saw exactly this tree and the
-# branch survived it. `pending` (no completed run at this tip yet) SUPPRESSES the question for
-# this tick only — the asked-once ledger keys on the unit, so a branch that outlives CI's turn is
-# still asked about later. A read this step could not make, and a repository with no such
-# workflow, both leave the question exactly where it was: an over-eager question is better than a
-# silently dropped one, and this repository has measured the cost of a blocked act nobody was
-# told about.
+# is `../../drive/scripts/ci-retirement-turn.sh`.
 #
-# EVERYTHING ELSE ABOUT THE QUESTION IS BYTE-IDENTICAL: the key `retire-blocked:<unit>`, the
-# asked-once gate, the addressee, the per-tick cap, the quiet hours and the working-day hold.
-# Only the candidate set narrows — and the SUMMARY is deliberately untouched by the reading, so
-# that a held block keeps rendering identically (see the stability rule below); the CI reading
+# THAT READING RESTED ON A PREMISE WHICH WAS THE DESIGN AND NOT THE BEHAVIOUR, and the sentence
+# is corrected here rather than deleted (2026-08-29, mission
+# `read-back-whether-the-loop-s-own-act-took-effect`). It read: *CI DELETES the branch on success
+# and unmerged remote branches are the only claim oracle, so a successful turn removes the claim
+# row and the candidate with it; a completed run at the base tip this tick is reading therefore
+# means CI saw exactly this tree and the branch survived it.* That holds only if every completed
+# turn actually REACHED ITS ACT. Measured 2026-08-29: `claim-retirement.yml` was green on every
+# run while three proved-`superseded` claims stood on origin, and this step's own log line said,
+# hour after hour, *"ci_turn: taken so CI could not take the delete either"* — an assertion about
+# a second executor that nothing established. (The live cause: the CI-side act refuses
+# `gh_unavailable` before its proof gate.)
+#
+# WHAT REPLACED IT: the turn RECORDS what it attempted and what each act answered, and the
+# reading answers PER UNIT from that record. It is still STORE-FREE — nothing is stored anywhere,
+# and only which part of the run is consulted moved. `taken` (the act succeeded here) and
+# `pending` (no completed run at this tip yet) suppress this unit's question, `pending` for this
+# tick only — the asked-once ledger keys on the unit and its refusal word, so a branch that
+# outlives CI's turn is still asked about later. `refused:<word>`, `unavailable`, a read this
+# step could not make and a repository with no such workflow all leave the question exactly where
+# it was: an over-eager question is better than a silently dropped one, and this repository has
+# measured the cost of a blocked act nobody was told about.
+#
+# EVERYTHING ELSE ABOUT THE QUESTION IS BYTE-IDENTICAL: the asked-once gate, the addressee, the
+# per-tick cap, the quiet hours and the working-day hold. (The KEY gained the refusal word in the
+# same 2026-08-29 change, so it is asked once per (unit, refusal word) rather than once per unit
+# ever — see the key rule further down.) Only the candidate set narrows — and the SUMMARY is
+# deliberately untouched by the reading, so that a held block keeps rendering identically (see
+# the stability rule below); the CI reading
 # moves in and out of `needs_agent` and nowhere else.
 #
 # IT ACTS DIRECTLY RATHER THAN HANDING OFF, which is where it diverges from `closable-missions`
@@ -93,12 +108,21 @@
 # times: a status restated hourly is read by nobody by the second day (`📦 Release Preparation`,
 # one step over). Every term below is therefore a function of the CLAIM SET AND THE ACT STATES
 # and of nothing else — the same units, the same acts standing and the same refusal render the
-# same string, tick after tick — so a held block produces an identical summary and, with `event`
-# empty on a tick that retired nothing, no root line at all. That is TWO independent guards, and
-# neither is a suppression list: a NEWLY blocked unit moves the unit set, so the summary moves
-# and the block is visible the hour it happens. Suppress by nothing; let the diff work. The
-# question's own repetition is bounded by `ask-question.sh`'s asked-once ledger, which is a
-# separate concern deliberately — a second per-unit ledger beside it is how the two drift.
+# same string, tick after tick — so a held block produces an identical summary and therefore no
+# root line at all. It is not a suppression list: a NEWLY blocked unit moves the unit set, so the
+# summary moves and the block is visible the hour it happens. Suppress by nothing; let the diff
+# work. The question's own repetition is bounded by `ask-question.sh`'s asked-once ledger, which
+# is a separate concern deliberately — a second per-unit ledger beside it is how the two drift.
+#
+# WHICH GUARD HOLDS WHICH CASE, since 2026-08-29 (mission
+# `read-back-whether-the-loop-s-own-act-took-effect`). There were two — an unchanged summary AND
+# an empty `event` — and a blocked retirement now supplies an event, because an act the loop
+# believed it took and did not is a repository fact a person should see the hour it appears. So:
+# a tick whose acts all TOOK is held by the empty event, and a STANDING block is held by the
+# summary diff alone. That is exactly why the summary must carry no CI term — the one guard left
+# on that path is the one the CI reading would break. Re-implementing the diff inside this step
+# to suppress a repeated event was refused: the renderer already owns that comparison, and a
+# second copy of it here is how the two would disagree.
 #
 # Usage: step-retire-claims.sh --tick <tick-id> [--root <repo-root>]
 # Output: one JSON line — {step, status, reason, summary, needs_agent, event}
@@ -221,8 +245,7 @@ for unit in $units; do
                    owner: (if ($a // "") == "" then "unknown" else $a end),
                    refusal: $r.reason,
                    acts_that_stand: ("pull request " + $r.pull_request_closed
-                                     + ", worktree " + $r.worktree_reaped),
-                   key: ("retire-blocked:" + $r.unit)}' 2>/dev/null || printf '')
+                                     + ", worktree " + $r.worktree_reaped)}' 2>/dev/null || printf '')
             if [ -n "$row" ]; then
                 rows="${rows}${rsep}${row}"
                 rsep=","
@@ -287,16 +310,70 @@ ci_readable="false"
 if [ "$blocked" -gt 0 ]; then
     turner="${DRIVE_SCRIPTS}/ci-retirement-turn.sh"
     if [ -f "$turner" ]; then
-        turn_out=$( ( cd "$ROOT" && sh "$turner" ) 2>/dev/null || true )
+        # THE READING IS PER UNIT, AND SO IS THE SUPPRESSION (2026-08-29, mission
+        # `read-back-whether-the-loop-s-own-act-took-effect`). It was one run-level word applied
+        # to every blocked unit at once, on the retired premise that a completed run at the base
+        # tip meant CI had reached its act. It had not: the turn now RECORDS what each act
+        # answered, and a unit is held only on its own answer.
+        blocked_units=$(printf '%s' "$rows" | jq -r '.[]? | .unit' 2>/dev/null || true)
+        # shellcheck disable=SC2086
+        turn_out=$( ( cd "$ROOT" && sh "$turner" $blocked_units ) 2>/dev/null || true )
         if printf '%s' "$turn_out" | jq -e . >/dev/null 2>&1; then
             ci_readable=$(printf '%s' "$turn_out" | jq -r '.readable // false')
             ci_turn=$(printf '%s' "$turn_out" | jq -r '.ci_turn // "unavailable"')
         fi
     fi
-    if [ "$ci_readable" = "true" ] && [ "$ci_turn" = "pending" ]; then
-        blocked=0
-        rows="[]"
+    # ONLY `taken` AND `pending` HOLD. `taken` means the act SUCCEEDED for this unit, so its
+    # branch is gone and nothing is owed; `pending` means CI may still take it, which delays the
+    # question for this tick only — the asked-once ledger keys on the unit, so a branch that
+    # outlives CI's turn is asked about later. `refused:<word>` is precisely the case a person
+    # must hear about, and `unreadable` holds nothing either: an over-eager question is better
+    # than a silently dropped one. A unit the reading never answered keeps its question BY
+    # CONSTRUCTION, because only units it named `taken` or `pending` are removed.
+    if [ "$ci_readable" = "true" ]; then
+        ci_held=$(printf '%s' "$turn_out" | jq -r \
+            '[.units[]? | select(.ci_turn == "taken" or .ci_turn == "pending") | .unit] | .[]' \
+            2>/dev/null || true)
+        for ci_u in $ci_held; do
+            rows=$(printf '%s' "$rows" | jq -c --arg u "$ci_u" '[.[]? | select(.unit != $u)]' 2>/dev/null || printf '%s' "$rows")
+        done
+        blocked=$(printf '%s' "$rows" | jq 'length' 2>/dev/null || printf '%s' "$blocked")
     fi
+fi
+
+# THE KEY CARRIES THE REFUSAL WORD (2026-08-29, mission
+# `read-back-whether-the-loop-s-own-act-took-effect`). `retire-blocked:<unit>` was asked exactly
+# once per unit, EVER. That gate is right for an unchanging block — an hourly restatement of the
+# same refusal is the noise two keyed roots were retired for — and wrong the moment the WORD
+# changes: a unit first blocked on `branch_delete_failed` and later on `pull_request_open` is a
+# different fact needing a different act, and the second one reached nobody.
+#
+# THE ASKED-ONCE GATE NEEDED NO CHANGE AT ALL, which is the property this was shaped for. The
+# narrowing lives in what the key is MADE OF, so `ask-question.sh` stays one mechanism that
+# cannot drift from itself, and every existing hold — quiet hours, working days, the per-tick cap
+# and the day cap — applies to a re-ask unchanged, because a re-ask is just one more question.
+#
+# THE WORD IS THE ONE A PERSON MUST ACT ON: CI's refusal where the effect reading names one,
+# because that is the executor that was actually going to take the delete, and the container's
+# own refusal otherwise. One word, not two, and it is the same word the question names.
+#
+# THE SUMMARY IS DELIBERATELY LEFT OUT OF THIS. CI runs on every merge to `main`, so between a
+# merge and its run completing the effect reading genuinely oscillates `pending` -> `refused:…`
+# hour to hour; putting that word in the summary would move the diff most hours and render a root
+# line for a block that had not changed, which is precisely what the stability rule above exists
+# to prevent. The key is safe from the same oscillation by construction: a `pending` unit is
+# suppressed above and never reaches `ask-question.sh`, so no key is ever composed with it.
+if [ "$blocked" -gt 0 ]; then
+    ci_units=$(printf '%s' "$turn_out" | jq -c '[.units[]?]' 2>/dev/null || printf '[]')
+    rows=$(printf '%s' "$rows" | jq -c --argjson t "$ci_units" '
+        [ .[]? | . as $r
+          | ([$t[]? | select(.unit == $r.unit) | .ci_turn] | first // "") as $w
+          | (if ($w | startswith("refused:")) then ($w | sub("^refused:"; "")) else "" end) as $ci
+          | ($r.refusal // "unstated") as $own
+          | $r + {ci_turn: $w,
+                  blocking_refusal: (if $ci != "" then $ci else $own end)}
+          | . + {key: ("retire-blocked:" + .unit + ":" + .blocking_refusal)} ]' \
+        2>/dev/null || printf '%s' "$rows")
 fi
 
 # AND THE QUESTION IS HELD ONCE THIS FINDING HAS BECOME WORK (2026-08-29, mission
@@ -325,11 +402,36 @@ if [ "$finding_held" = "true" ]; then
     rows="[]"
 fi
 
+# AN ACT THE LOOP BELIEVED IT TOOK AND DID NOT IS A REPOSITORY EVENT (2026-08-29, mission
+# `read-back-whether-the-loop-s-own-act-took-effect`). A retirement that WORKED still supplies
+# the event above; this adds the other outcome, which until now was visible only in the log.
+#
+# IT NAMES THE UNITS, NOT A COUNT OF STEPS THAT RAN — the 2026-08-23 rule that a root line is a
+# repository fact rather than the tick's bookkeeping.
+#
+# THE TWO EXISTING GUARDS ARE RELIED ON RATHER THAN RE-IMPLEMENTED, which is what keeps this
+# from becoming the hourly status line addressed to nobody that two keyed roots were retired for:
+# the root renders a step's line only when its SUMMARY differs from the same step's an hour ago,
+# and the summary is a function of the claim set and the container's act states alone — so a
+# standing block renders an identical summary and NO line, while a newly blocked unit moves the
+# unit set and is visible the hour it appears. A tick whose acts all took supplies no event here
+# at all, and *a step with no event renders no line* covers the rest.
+#
+# It is computed AFTER both suppressions on purpose: a unit CI is about to delete, and one whose
+# finding is already in flight as work, are not things to announce.
+if [ "$blocked" -eq 1 ]; then
+    ev_units=$(printf '%s' "$rows" | jq -r '[.[]? | .unit] | join(", ")' 2>/dev/null || printf '')
+    event="a claim proved finished is still standing — neither the container nor CI could delete its branch (${ev_units})"
+elif [ "$blocked" -gt 1 ]; then
+    ev_units=$(printf '%s' "$rows" | jq -r '[.[]? | .unit] | join(", ")' 2>/dev/null || printf '')
+    event="${blocked} claims proved finished are still standing — neither the container nor CI could delete their branches (${ev_units})"
+fi
+
 needs=""
 if [ "$blocked" -gt 0 ]; then
     needs=$(printf '%s' "$rows" | jq -c --arg turn "$ci_turn" '{action: "ask_the_claim_holder_to_delete_the_branch_neither_the_container_nor_ci_could",
-        bound: "one question per unit, addressed to the claim holder, keyed on `key` so it is asked once; the tick asks and never releases a claim, reopens a pull request, or re-runs the delete",
-        compose: "name the unit, the exact branch left on origin, the refusal that blocked the delete, and the acts that already stand -- a question that does not name the branch does not say what to delete",
+        bound: "one question per (unit, refusal word), addressed to the claim holder, keyed on `key` so an unchanged block is asked once and a CHANGED refusal word is asked once more; the tick asks and never releases a claim, reopens a pull request, or re-runs the delete",
+        compose: "name the unit, the exact branch left on origin, the refusal in `blocking_refusal` that is blocking the delete now, and the acts that already stand -- a question that does not name the branch does not say what to delete",
         ci_turn: $turn,
         blocked_retirements: .}' 2>/dev/null || echo '')
 fi

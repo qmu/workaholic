@@ -4382,11 +4382,14 @@ esac"
 
     # 11. THE BLOCKED UNIT REACHES ITS CLAIM HOLDER, keyed once and naming the exact branch --
     # a question that does not name the branch does not say what to delete.
-    if printf '%s' "$_bstep" | grep -q '"key":"retire-blocked:batch-blocked"' \
+    # The key carries the refusal word since 2026-08-29, so it is asked once per (unit, refusal
+    # word) rather than once per unit ever -- a unit whose block changes word is a different fact
+    # needing a different act. `verify-act-effect` drills the narrowing itself over three ticks.
+    if printf '%s' "$_bstep" | grep -q '"key":"retire-blocked:batch-blocked:branch_delete_failed"' \
         && printf '%s' "$_bstep" | grep -q '"branch":"work-20260101-000006"' \
         && printf '%s' "$_bstep" | grep -q "\"owner\":\"${_me}\"" \
         && printf '%s' "$_bstep" | grep -q '"refusal":"branch_delete_failed"'; then
-        add_row "retire_blocked_asks_the_holder" true "one question, keyed retire-blocked:batch-blocked, addressed to the claim holder, naming the branch and the refusal" load
+        add_row "retire_blocked_asks_the_holder" true "one question, keyed retire-blocked:batch-blocked:branch_delete_failed, addressed to the claim holder, naming the branch and the refusal" load
     else
         add_row "retire_blocked_asks_the_holder" false "the blocked unit reached nobody: $(one_line "$_bstep")" load
     fi
@@ -4410,16 +4413,24 @@ esac"
     # blocked set must render an identical summary -- the root calls a step changed when its
     # summary moves, and a status restated hourly is read by nobody by the second day. Both
     # ticks run after `batch-retirable` is gone, so the set really is unchanged.
+    #
+    # SINCE 2026-08-29 A BLOCKED RETIREMENT SUPPLIES AN `event` (mission
+    # `read-back-whether-the-loop-s-own-act-took-effect`), so the SUMMARY is what holds a
+    # standing block quiet here -- and that is exactly why the summary carries no CI term. The
+    # empty-event guard still covers the other case, a tick whose acts all took, which
+    # `verify-act-effect` drills beside this one.
     _t3=$( ( cd "$_read" && PATH="${_bin}:$PATH" WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES=0 \
         sh "$_step" --tick 20260101-000003 --root "$_read" ) 2>&1 || true )
     _t4=$( ( cd "$_read" && PATH="${_bin}:$PATH" WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES=0 \
         sh "$_step" --tick 20260101-000004 --root "$_read" ) 2>&1 || true )
     _s3=$(printf '%s' "$_t3" | sed -n 's/.*"summary": *"\([^"]*\)".*/\1/p')
     _s4=$(printf '%s' "$_t4" | sed -n 's/.*"summary": *"\([^"]*\)".*/\1/p')
-    if [ -n "$_s3" ] && [ "$_s3" = "$_s4" ] && printf '%s' "$_t4" | grep -q '"event": ""'; then
-        add_row "retire_blocked_summary_stable" true "two ticks over an unchanged blocked set render an identical summary and no root line" load
+    _e3=$(printf '%s' "$_t3" | sed -n 's/.*"event": *"\([^"]*\)".*/\1/p')
+    _e4=$(printf '%s' "$_t4" | sed -n 's/.*"event": *"\([^"]*\)".*/\1/p')
+    if [ -n "$_s3" ] && [ "$_s3" = "$_s4" ] && [ "$_e3" = "$_e4" ]; then
+        add_row "retire_blocked_summary_stable" true "two ticks over an unchanged blocked set render an identical summary, so the root's own diff renders no line" load
     else
-        add_row "retire_blocked_summary_stable" false "a held block moved the summary or produced an event (t3='${_s3}' t4='${_s4}')" load
+        add_row "retire_blocked_summary_stable" false "a held block moved the summary or its event (t3='${_s3}' t4='${_s4}'; e3='${_e3}' e4='${_e4}')" load
     fi
 
     # 14. ASKED ONCE. The gate is the check-in's, not this step's, so the drill exercises the
@@ -4740,7 +4751,9 @@ STUB
     # narrowing visible: a CI-deletable unit is never asked about because it is no longer a claim.
     _stt=$( ( cd "$_read" && PATH="${_bin}:$PATH" WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES=0 \
         sh "$_step" --tick 20260201-000001 --root "$_read" ) 2>&1 || true )
-    if printf '%s' "$_stt" | grep -q '"key":"retire-blocked:batch-ci-blocked"' \
+    # The key carries the refusal word since 2026-08-29, so an unchanged block is asked once and
+    # a CHANGED word is asked once more (`verify-act-effect` drills that narrowing over ticks).
+    if printf '%s' "$_stt" | grep -q '"key":"retire-blocked:batch-ci-blocked:' \
         && printf '%s' "$_stt" | grep -q '"branch":"work-20260201-000003"' \
         && ! printf '%s' "$_stt" | grep -q 'retire-blocked:batch-ci-retirable'; then
         add_row "ci_retirement_taken_asks_the_holder" true "a unit CI also refused reaches its claim holder naming the branch; a CI-deleted one is asked about by nobody" load
@@ -4799,6 +4812,389 @@ STUB
         emit_verdict "ci-retirement" 0 "fail" 1
     fi
     emit_verdict "ci-retirement" 0 "pass" 0
+}
+
+# ------------------------------------------------------------ verify-act-effect
+# Did the act the loop took actually TAKE EFFECT -- and does anything say so when it did not?
+#
+# WHY IT EXISTS (2026-08-29, mission `read-back-whether-the-loop-s-own-act-took-effect`).
+# Every reading in this repository answers *what did I find*. None answered *did what I did
+# happen*. Measured on this repository the day the mission opened: `claim-retirement.yml` was
+# green on every run while THREE proved-`superseded` claims stood on origin, and the tick log
+# recorded, hour after hour, *"ci_turn: taken so CI could not take the delete either"* --
+# an assertion about a second executor that NOTHING ESTABLISHED. `ci-retirement-turn.sh`
+# answered `taken` from a completed run's EXISTENCE at the base tip, on a premise its own
+# header stated and the world did not honour.
+#
+# THE REPORTED SYMPTOM AND THE MEASURED ONE DIFFER, AND THE DIFFERENCE IS WORTH KEEPING. The
+# report assumed the question was suppressed. It is not: the step suppresses on `pending` and
+# asks on `taken`, so all three units DID reach `needs_agent` on every tick, and what actually
+# held them was the working-day hold -- the gate working. What was wrong is the SENTENCE, in
+# the one durable audit trail the tick keeps, and a false reading is worse than a missing one:
+# it retires the question rather than raising it, and it would have suppressed the ask outright
+# had the same inference ever answered `pending`.
+#
+# WHAT IT ASSERTS IS THE READING, NEVER A CAUSE. A completed turn that took no act must never
+# read `taken`. That wording is deliberate: two different causes produce a standing candidate --
+# a candidate reading that yielded the unit no entry, and an act refused by one of its own
+# words -- and a reproduction written against either one would go quiet the moment the other
+# became live. Both are drilled, separately, because the repair of one is exactly what would
+# silently drop the other. Each row also asserts the holder is still asked, so a repair that
+# bought its honesty by going silent fails here too.
+#
+# THE LOCALIZATION THAT PRODUCED IT, recorded here because a later reader will want the
+# measurement rather than the conclusion. Under an Actions-style credential (`gh api user`
+# refused, which is what a `GITHUB_TOKEN` installation token answers for `GET /user`):
+#
+#   list-retirable-claims.sh        names all three candidates -- the two executors' readers AGREE
+#   delete-retired-claim-branch.sh  refuses `gh_unavailable` before attempting the delete
+#
+# So the refused-act cause is the live one here, and it is refused at the transport probe rather
+# than at the proof gate. The candidate-divergence cause is drilled beside it anyway: it is the
+# one the original report assumed, and a drill that covered only the live cause would pass a
+# repository where the other one is.
+#
+# NO NETWORK. A local bare origin and a `gh` stub on PATH, asserted to be what `gh` resolves to
+# rather than assumed. The origin's own `update` hook refuses every branch deletion, which is
+# the container's measured Act 2 refusal reproduced where the real one happens -- so the step
+# has a genuinely blocked retirement to read, and the reading is what is under test.
+cmd_verify_act_effect() {
+    _turn="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/ci-retirement-turn.sh"
+    _step="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/step-retire-claims.sh"
+    _flow="${REPO_ROOT}/.github/workflows/claim-retirement.yml"
+    for _f in "$_turn" "$_step" "$_flow"; do
+        [ -f "$_f" ] || emit_err "act_effect_seam_unreadable" 4 "${_f} is not present in this checkout"
+    done
+
+    _before=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+
+    _tmp=$(mktemp -d)
+    _origin="${_tmp}/origin"; _work="${_tmp}/work"; _read="${_tmp}/read"
+    _bin="${_tmp}/bin"; _ctl="${_tmp}/ctl"
+    mkdir -p "$_origin" "$_bin" "$_ctl"
+    _me=$(cd "$REPO_ROOT" && git config user.email 2>/dev/null || echo drill@example.com)
+    _git() { git -c user.email="$_me" -c user.name=Drill -c commit.gpgsign=false "$@"; }
+
+    ( cd "$_origin" && git -c init.defaultBranch=main init -q --bare ) || true
+    ( cd "$_tmp" && git clone -q "$_origin" work ) || true
+    mkdir -p "${_work}/.workaholic/tickets/todo"
+    for _n in 1 2 3; do
+        printf -- '---\ncreated_at: 2026-03-01T00:00:0%s+09:00\nauthor: %s\n---\n\n# T%s\n' \
+            "$_n" "$_me" "$_n" > "${_work}/.workaholic/tickets/todo/2026030100000${_n}-t.md"
+    done
+    ( cd "$_work" && _git add -A && _git commit -qm seed && git push -q origin main ) || true
+
+    # The container's Act 2 refusal, reproduced server side on every branch deletion the file
+    # transport carries -- the same receive-side path a remote refusal takes.
+    printf '#!/bin/sh\nif [ "$3" = "0000000000000000000000000000000000000000" ]; then\n  echo "deleting a branch is not permitted for this session type" >&2\n  exit 1\nfi\nexit 0\n' > "${_origin}/hooks/update"
+    chmod +x "${_origin}/hooks/update"
+
+    _claim() { # $1 = branch, $2 = unit, $3 = path to stamp
+        ( cd "$_work" && git checkout -q -b "$1" main \
+          && printf -- '---\ncreated_at: 2026-03-01T00:00:00+09:00\nauthor: %s\nclaim: %s\n---\n\n# T\n\nclaimed\n' "$_me" "$1" > "${_work}/$3" \
+          && _git commit -qam "Claim a PR-unit" -m "Unit: $2" \
+          && git push -q origin "$1" ) >/dev/null 2>&1 || true
+    }
+    _claim work-20260301-000001 batch-effect-unnamed .workaholic/tickets/todo/20260301000001-t.md
+    _claim work-20260301-000002 batch-effect-refused .workaholic/tickets/todo/20260301000002-t.md
+    _claim work-20260301-000003 batch-effect-silent  .workaholic/tickets/todo/20260301000003-t.md
+
+    # THE PROOF: every claimed ticket archived on the base by another route, so each branch can
+    # never land -- which is `superseded`, the one verdict the retirement acts on.
+    ( cd "$_work" && git checkout -q main \
+      && mkdir -p .workaholic/tickets/archive/work-20260301-000000 \
+      && for _f in 1 2 3; do \
+             git mv ".workaholic/tickets/todo/2026030100000${_f}-t.md" \
+                    .workaholic/tickets/archive/work-20260301-000000/ ; \
+         done \
+      && _git commit -qm "Archive the tickets elsewhere" && git push -q origin main ) >/dev/null 2>&1 || true
+
+    ( cd "$_tmp" && git clone -q "$_origin" read ) >/dev/null 2>&1 || true
+    ( cd "$_read" && git config user.email "$_me" && git config user.name Drill \
+      && git config remote.origin.fetch '+refs/heads/*:refs/remotes/origin/*' \
+      && git fetch -q --prune origin ) >/dev/null 2>&1 || true
+    printf '%s' "$(cd "$_read" && git rev-parse origin/main)" > "${_ctl}/base_sha"
+
+    # THE STUB. It answers `gh api user`, the workflow-run query, the run's jobs (which carry
+    # the check run the turn's record is attached to), and the annotations that ARE that record.
+    # The record is read out of a control file so each row below can put the turn in one state
+    # without rebuilding the fixture.
+    printf '[]' > "${_ctl}/record.json"
+    cat > "${_bin}/gh" <<STUB
+#!/bin/sh
+ARGS="\$*"
+CTL="${_ctl}"
+case "\$ARGS" in
+  "api user"*) echo drill; exit 0 ;;
+  *actions/workflows/claim-retirement.yml/runs*)
+      if [ -f "\$CTL/ci_pending" ]; then
+          echo '{"workflow_runs":[]}'
+      else
+          printf '{"workflow_runs":[{"id":900,"head_sha":"%s","conclusion":"success"}]}\n' "\$(cat "\$CTL/base_sha")"
+      fi
+      exit 0 ;;
+  *actions/runs/900/jobs*)
+      echo '{"jobs":[{"name":"retire","conclusion":"success","check_run_url":"https://api.github.com/repos/o/r/check-runs/91"}]}'
+      exit 0 ;;
+  *check-runs/91/annotations*) cat "\$CTL/record.json"; exit 0 ;;
+esac
+echo '[]'
+STUB
+    chmod +x "${_bin}/gh"
+    if [ "$(PATH="${_bin}:$PATH" command -v gh)" = "${_bin}/gh" ]; then
+        add_row "act_effect_no_network" true "the stub is what gh resolves to, and the origin is a local bare repository -- no row below reaches the network" load
+    else
+        add_row "act_effect_no_network" false "gh does not resolve to the stub; this drill would reach the network" load
+        rm -rf "$_tmp"
+        emit_verdict "act-effect" 0 "fail" 1
+    fi
+
+    # One annotation line, in the shape `claim-retirement.yml` records. `title` and the message's
+    # own leading marker are both set, so the reader does not depend on either alone surviving.
+    _note() { printf '{"annotation_level":"notice","title":"claim-retirement","message":"claim-retirement %s"}' "$1"; }
+    _record() { printf '[%s]' "$*" > "${_ctl}/record.json"; }
+
+    _turn_for() { ( cd "$_read" && PATH="${_bin}:$PATH" \
+        WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES=0 sh "$_turn" "$1" ) 2>&1 || true; }
+    _tick() { ( cd "$_read" && PATH="${_bin}:$PATH" WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES=0 \
+        sh "$_step" --tick "$1" --root "$_read" ) 2>&1 || true; }
+    _unit_turn() { printf '%s' "$1" | jq -r --arg u "$2" \
+        '[.units[]? | select(.unit == $u) | .ci_turn] | first // "ABSENT"' 2>/dev/null || printf 'ABSENT'; }
+
+    # 1. A TURN WHOSE CANDIDATE READING NAMED THIS UNIT NOTHING. The tree proves the candidate
+    # stands; the record shows the turn's own reader could not name it, and why. The reading
+    # carries that reason through rather than inventing one, and `taken` is the one answer that
+    # must never come back -- it is what the measured run answered.
+    _record "$(_note 'candidates ok=false reason=origin_unreachable count=0')"
+    _t1=$(_turn_for batch-effect-unnamed)
+    _s1=$(_tick 20260301-000001)
+    if [ "$(_unit_turn "$_t1" batch-effect-unnamed)" = "refused:origin_unreachable" ] \
+        && printf '%s' "$_s1" | grep -q 'retire-blocked:batch-effect-unnamed'; then
+        add_row "act_effect_unnamed_candidate" true "a turn that considered this unit nothing never reads taken, and its holder is asked" load
+    else
+        add_row "act_effect_unnamed_candidate" false "a completed turn that named this unit no candidate left it standing with nothing saying so (turn=$(one_line "$_t1")): $(one_line "$_s1")" load
+    fi
+
+    # 2. A TURN WHOSE ACT WAS REFUSED BY ONE OF ITS OWN WORDS. This is the cause measured live
+    # on this repository, and the word must reach the reading verbatim rather than be flattened.
+    _record "$(_note 'candidates ok=true reason= count=1')," \
+            "$(_note 'act unit=batch-effect-refused branch=work-20260301-000002 state=not_attempted reason=gh_unavailable')"
+    _t2=$(_turn_for batch-effect-refused)
+    _s2=$(_tick 20260301-000002)
+    if [ "$(_unit_turn "$_t2" batch-effect-refused)" = "refused:gh_unavailable" ] \
+        && printf '%s' "$_s2" | grep -q 'retire-blocked:batch-effect-refused'; then
+        add_row "act_effect_refused_act" true "a refused act reads refused:gh_unavailable, carrying the act's own word, and reaches its holder" load
+    else
+        add_row "act_effect_refused_act" false "a refused act was not read as refused (turn=$(one_line "$_t2")): $(one_line "$_s2")" load
+    fi
+
+    # 3. THE MEASURED FAILURE ITSELF: a completed, green run at the base tip that recorded
+    # NOTHING. Answering `taken` from its existence is the inference this mission retires, and a
+    # reading that cannot be made must never be dressed as one that was.
+    _record ""
+    _t3=$(_turn_for batch-effect-silent)
+    _s3=$(_tick 20260301-000003)
+    if [ "$(_unit_turn "$_t3" batch-effect-silent)" = "unreadable" ] \
+        && printf '%s' "$_s3" | grep -q 'retire-blocked:batch-effect-silent'; then
+        add_row "act_effect_never_taken_from_existence" true "a completed run that recorded nothing reads unreadable, never taken, and suppresses no question" load
+    else
+        add_row "act_effect_never_taken_from_existence" false "a completed run with no record still stood in for an act that did not happen (turn=$(one_line "$_t3")): $(one_line "$_s3")" load
+    fi
+
+    # 4. THE TURN RECORDS WHAT IT ATTEMPTED. Run for real against the two documents the CI job
+    # produces, so the record's shape is proved rather than asserted about a YAML file. The
+    # DEGRADED reading is recorded too -- a turn that found nothing and a turn that found three
+    # and was refused are different facts, and the first is the one the report assumed.
+    _rec="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/record-ci-retirement-turn.sh"
+    printf '{"ok": false, "reason": "origin_unreachable", "candidates": []}\n' > "${_ctl}/c-degraded.json"
+    printf '{"ok": true, "reason": "", "candidates": [{"unit":"u1"},{"unit":"u2"}]}\n' > "${_ctl}/c-ok.json"
+    printf '%s\n%s\n' \
+        '{"deleted": false, "unit": "u1", "branch": "work-20260301-000001", "state": "not_attempted", "reason": "gh_unavailable"}' \
+        '{"deleted": true, "unit": "u2", "branch": "work-20260301-000002", "state": "deleted", "reason": ""}' \
+        > "${_ctl}/acts.jsonl"
+    _rd=$(sh "$_rec" --candidates "${_ctl}/c-degraded.json" --acts "${_ctl}/none" 2>&1 || true)
+    _ro=$(sh "$_rec" --candidates "${_ctl}/c-ok.json" --acts "${_ctl}/acts.jsonl" 2>&1 || true)
+    if printf '%s' "$_rd" | grep -q 'candidates ok=false reason=origin_unreachable count=0' \
+        && printf '%s' "$_ro" | grep -q 'candidates ok=true reason= count=2'; then
+        add_row "act_effect_record_names_the_reading" true "the candidate reading is recorded with its ok, its reason and its count -- including the degraded one that named nothing" load
+    else
+        add_row "act_effect_record_names_the_reading" false "the candidate reading was not recorded (degraded=$(one_line "$_rd") ok=$(one_line "$_ro"))" load
+    fi
+
+    # 5. AND ONE ENTRY PER CANDIDATE, CARRYING THE ACT'S OWN WORDS VERBATIM. A translation here
+    # would put a second vocabulary between the script that printed a word and the person a
+    # reader must send to it.
+    if printf '%s' "$_ro" | grep -q 'act unit=u1 branch=work-20260301-000001 state=not_attempted reason=gh_unavailable' \
+        && printf '%s' "$_ro" | grep -q 'act unit=u2 branch=work-20260301-000002 state=deleted reason='; then
+        add_row "act_effect_record_names_each_act" true "each candidate is recorded with its unit, branch and the act's own state and reason, unchanged" load
+    else
+        add_row "act_effect_record_names_each_act" false "the per-candidate record is wrong: $(one_line "$_ro")" load
+    fi
+
+    # 6. IT IS BOUNDED, AND A TRUNCATED RECORD SAYS SO rather than reading as a short one.
+    _rt=$(WORKAHOLIC_CI_RECORD_MAX=1 sh "$_rec" --candidates "${_ctl}/c-ok.json" --acts "${_ctl}/acts.jsonl" 2>&1 || true)
+    if printf '%s' "$_rt" | grep -q 'truncated recorded=1 of=2' \
+        && [ "$(printf '%s' "$_rt" | grep -c 'act unit=')" = "1" ]; then
+        add_row "act_effect_record_bounded" true "past the bound the record names how many it recorded of how many there were" load
+    else
+        add_row "act_effect_record_bounded" false "a truncated record did not say it truncated: $(one_line "$_rt")" load
+    fi
+
+    # 7. AND THE WORKFLOW CALLS IT ON EVERY PATH. The degraded reading used to `exit 0` before
+    # anything was recorded, which is exactly the turn whose silence was measured.
+    _wf=$(cat "$_flow" 2>/dev/null || true)
+    if printf '%s' "$_wf" | grep -q 'record-ci-retirement-turn.sh' \
+        && printf '%s' "$_wf" | grep -q 'if: always()' \
+        && ! printf '%s' "$_wf" | grep -q '^ *exit 0 *$'; then
+        add_row "act_effect_workflow_records" true "the turn records on every path, including the degraded reading it used to exit on" load
+    else
+        add_row "act_effect_workflow_records" false "the workflow does not reach the recorder on every path" load
+    fi
+
+    # 8. ONE READER ANSWERS THE QUESTION FOR BOTH ACTS, and for the retirement it answers the
+    # SAME WORD as the act's own source read directly. A composition that could answer on its
+    # own would be the second oracle this mission's constraint forbids.
+    _eff="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/act-effect.sh"
+    _record "$(_note 'candidates ok=true reason= count=1')," \
+            "$(_note 'act unit=batch-effect-refused branch=work-20260301-000002 state=not_attempted reason=gh_unavailable')"
+    _direct=$(_unit_turn "$(_turn_for batch-effect-refused)" batch-effect-refused)
+    _via=$( ( cd "$_read" && PATH="${_bin}:$PATH" WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES=0 \
+        sh "$_eff" retirement batch-effect-refused ) 2>&1 || true )
+    _via_word=$(printf '%s' "$_via" | jq -r '.effect // ""' 2>/dev/null || printf '')
+    if [ -n "$_direct" ] && [ "$_direct" = "$_via_word" ] \
+        && printf '%s' "$_via" | grep -q '"source": "ci-retirement-turn.sh"'; then
+        add_row "act_effect_one_reader_retirement" true "the composition returns the act's own word (${_direct}) and names the source it composed" load
+    else
+        add_row "act_effect_one_reader_retirement" false "direct='${_direct}' via composition='${_via_word}': $(one_line "$_via")" load
+    fi
+
+    # 9. AND THE DELIVERY ACT IS ANSWERED FROM ITS OWN SOURCE -- the branch story the run that
+    # attempted the merge already committed, read off the claim row the scan already fetched.
+    # The word is carried VERBATIM: the two acts' refusal vocabularies are never merged into a
+    # third, which would send a reader to a string no script ever printed.
+    ( cd "$_work" && git checkout -q work-20260301-000002 \
+      && mkdir -p .workaholic/stories \
+      && printf -- '---\ntype: Story\n---\n\n# S\n\n## Merge Outcome\n\nmerge_refused:session_type_cannot_merge\n' \
+             > .workaholic/stories/work-20260301-000002.md \
+      && _git add -A && _git commit -qm "Report the branch story" \
+      && git push -q origin work-20260301-000002 ) >/dev/null 2>&1 || true
+    ( cd "$_read" && git fetch -q --prune origin ) >/dev/null 2>&1 || true
+    _dl=$( ( cd "$_read" && PATH="${_bin}:$PATH" WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES=0 \
+        sh "$_eff" delivery batch-effect-refused ) 2>&1 || true )
+    _dn=$( ( cd "$_read" && PATH="${_bin}:$PATH" WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES=0 \
+        sh "$_eff" delivery batch-effect-silent ) 2>&1 || true )
+    if printf '%s' "$_dl" | grep -q '"effect": "refused:session_type_cannot_merge"' \
+        && printf '%s' "$_dn" | grep -q '"effect": "pending"'; then
+        add_row "act_effect_one_reader_delivery" true "the delivery act's own recorded word is carried verbatim, and a branch with no recorded attempt reads pending" load
+    else
+        add_row "act_effect_one_reader_delivery" false "the delivery reading is wrong (recorded=$(one_line "$_dl") none=$(one_line "$_dn"))" load
+    fi
+
+    # 10. THE CHANGED-REFUSAL NARROWING, over three ticks against the real asked-once gate:
+    # one word asks, the SAME word on a later tick does not, and a DIFFERENT word asks once more.
+    # The gate itself is untouched -- the narrowing lives in what the key is made of, which is
+    # why one mechanism cannot drift from itself.
+    _askscript="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/ask-question.sh"
+    _logappend="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/log-append.sh"
+    _qroot=$(mktemp -d); mkdir -p "${_qroot}/.workaholic/moderations"
+    _keyof() { printf '%s' "$1" | jq -r '[.needs_agent[]?.blocked_retirements[]? | select(.unit == "batch-effect-refused") | .key] | first // ""' 2>/dev/null || printf ''; }
+    _ask() { # $1 = tick, $2 = key -> "true"/"false"
+        _a=$(cd "$REPO_ROOT" && sh "$_askscript" --tick "$1" --key "$2" --root "$_qroot" \
+            --to "$_me" --hour 10 --weekday 1 2>&1) || true
+        _ls=$(printf '%s' "$_a" | sed -n 's/.*"log_step": *"\([^"]*\)".*/\1/p')
+        if printf '%s' "$_a" | grep -q '"ask": true'; then
+            sh "$_logappend" --root "$_qroot" --tick "$1" --step "$_ls" --status ok \
+                --summary asked >/dev/null 2>&1 || true
+            printf 'true'
+        else
+            printf 'false'
+        fi
+    }
+    _record "$(_note 'candidates ok=true reason= count=1')," \
+            "$(_note 'act unit=batch-effect-refused branch=work-20260301-000002 state=not_attempted reason=gh_unavailable')"
+    _k1=$(_keyof "$(_tick 20260301-000010)")
+    _k2=$(_keyof "$(_tick 20260301-000011)")
+    _record "$(_note 'candidates ok=true reason= count=1')," \
+            "$(_note 'act unit=batch-effect-refused branch=work-20260301-000002 state=not_attempted reason=pull_request_open')"
+    _k3=$(_keyof "$(_tick 20260301-000012)")
+    _r1=$(_ask 20260301-000010 "$_k1")
+    _r2=$(_ask 20260301-000011 "$_k2")
+    _r3=$(_ask 20260301-000012 "$_k3")
+    if [ "$_k1" = "retire-blocked:batch-effect-refused:gh_unavailable" ] \
+        && [ "$_k1" = "$_k2" ] && [ "$_k3" = "retire-blocked:batch-effect-refused:pull_request_open" ] \
+        && [ "$_r1" = "true" ] && [ "$_r2" = "false" ] && [ "$_r3" = "true" ]; then
+        add_row "act_effect_changed_word_reasks" true "one word asks, the unchanged word is held, and a changed word asks exactly once more" load
+    else
+        add_row "act_effect_changed_word_reasks" false "the narrowing did not hold (keys '${_k1}' '${_k2}' '${_k3}'; asks ${_r1} ${_r2} ${_r3})" load
+    fi
+    rm -rf "$_qroot"
+
+    # 11. THE FINDING REACHES THE ROOT, AND ONLY WHEN IT IS NEWS. A tick whose acts did not take
+    # supplies an `event` naming the units; a tick whose acts all TOOK supplies none, so a
+    # healthy hour renders no line at all. The unchanged-reading case is covered by the root's
+    # own diff, which reads the SUMMARY -- and the summary carries no CI term, so a standing
+    # block renders an identical string tick after tick. Both guards are asserted rather than
+    # re-implemented here.
+    _record "$(_note 'candidates ok=true reason= count=1')," \
+            "$(_note 'act unit=batch-effect-refused branch=work-20260301-000002 state=not_attempted reason=gh_unavailable')"
+    _e1=$(_tick 20260301-000020)
+    _record "$(_note 'candidates ok=true reason= count=3')," \
+            "$(_note 'act unit=batch-effect-refused branch=work-20260301-000002 state=deleted reason=')," \
+            "$(_note 'act unit=batch-effect-silent branch=work-20260301-000003 state=deleted reason=')," \
+            "$(_note 'act unit=batch-effect-unnamed branch=work-20260301-000001 state=already_gone reason=')"
+    _e2=$(_tick 20260301-000021)
+    _ev1=$(printf '%s' "$_e1" | jq -r '.event // ""' 2>/dev/null || printf '')
+    _ev2=$(printf '%s' "$_e2" | jq -r '.event // ""' 2>/dev/null || printf '')
+    _sm1=$(printf '%s' "$_e1" | jq -r '.summary // ""' 2>/dev/null || printf '')
+    _sm2=$(printf '%s' "$_e2" | jq -r '.summary // ""' 2>/dev/null || printf '')
+    if printf '%s' "$_ev1" | grep -q 'still standing' \
+        && printf '%s' "$_ev1" | grep -q 'batch-effect-refused' \
+        && [ -z "$_ev2" ] && [ "$_sm1" = "$_sm2" ]; then
+        add_row "act_effect_event_names_the_units" true "a tick whose acts did not take names the units in its event; a tick whose acts took supplies none, and the summary is identical across both so an unchanged reading renders no line" load
+    else
+        add_row "act_effect_event_names_the_units" false "the event is wrong (blocked='${_ev1}' took='${_ev2}'; summaries equal=$([ "$_sm1" = "$_sm2" ] && echo yes || echo no))" load
+    fi
+
+    # THE DELIBERATELY BROKEN ROW, WRITTEN AGAINST THE BEHAVIOUR. The retired inference is
+    # restored on the REAL script's own source -- after a completed run is found at the base tip,
+    # answer `taken` for every unit without ever consulting what the turn recorded -- and the
+    # copied step is run against it. A breaker written against the return SHAPE would pass a
+    # refactor that keeps the JSON and loses the effect reading, which is the failure the
+    # register exists to catch, so this asserts the DAMAGE: the unit whose act was refused
+    # `gh_unavailable` is suppressed and its holder is told nothing.
+    #
+    # It is worse now than the defect that was measured, and deliberately so: in production the
+    # inference produced a false SENTENCE while the question still went out, because suppression
+    # was keyed on a run-level `pending`. With the reading per unit, restoring the inference
+    # drops the question outright.
+    cp -R "${REPO_ROOT}/plugins/workaholic/skills" "${_tmp}/skills"
+    _bturn="${_tmp}/skills/drive/scripts/ci-retirement-turn.sh"
+    _bstep2="${_tmp}/skills/moderate/scripts/step-retire-claims.sh"
+    sed -e 's|^record=""$|emit true "" taken "$(units_all taken $UNITS)"\nrecord=""|' \
+        "$_turn" > "$_bturn"
+    chmod +x "$_bturn"
+    _record "$(_note 'candidates ok=true reason= count=1')," \
+            "$(_note 'act unit=batch-effect-refused branch=work-20260301-000002 state=not_attempted reason=gh_unavailable')"
+    _bout=$( ( cd "$_read" && PATH="${_bin}:$PATH" WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES=0 \
+        sh "$_bstep2" --tick 20260301-000030 --root "$_read" ) 2>&1 || true )
+    if ! printf '%s' "$_bout" | grep -q 'retire-blocked:batch-effect-refused'; then
+        add_row "act_effect_breaker" true "with the run-existence inference restored, a unit CI refused gh_unavailable reaches nobody -- this drill can fail" breaker
+    else
+        add_row "act_effect_breaker" false "the breaker did not break: restoring the inference changed nothing, so the reading assertions above prove nothing ($(one_line "$_bout"))" breaker
+    fi
+
+    _after=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+    if [ "$_before" = "$_after" ]; then
+        add_row "act_effect_writes_nothing" true "the checkout is byte-identical after the drill" load
+    else
+        add_row "act_effect_writes_nothing" false "the drill changed the working tree" load
+    fi
+
+    rm -rf "$_tmp"
+    if [ "$LOAD_FAILED" -gt 0 ]; then
+        emit_verdict "act-effect" 0 "fail" 1
+    fi
+    emit_verdict "act-effect" 0 "pass" 0
 }
 
 # --------------------------------------------------------- verify-base-health
@@ -6501,7 +6897,7 @@ cmd_verify_all() {
     exit "$_code"
 }
 
-USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-all [--only <drill>] [--list] [--timeout <s>]|verify-specificate <issue>|verify-implement <issue>|verify-plan [--json]|verify-status [--json]|verify-cadence [--json]|verify-planner [--json]|verify-standup [--json]|verify-moderate [--json]|verify-propose [--json]|verify-direction-health [--json]|verify-arrival [--json]|verify-residue [--json]|verify-expiry [--json]|verify-rulings [--json]|verify-succession [--json]|verify-revision [--json]|verify-merged-claim [--json]|verify-identity-handoff [--json]|verify-close [--json]|verify-catch-up [--json]|verify-corpus-boundary [--json]|verify-retire [--json]|verify-ci-retirement [--json]|verify-delivery-retry [--json]|verify-handoff-question [--json]|verify-base-health [--json]|verify-return-path [--json]|verify-reconcile [--json]|verify-checkin-delivery [--json]|verify-findings-to-work [--json]"}'
+USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-all [--only <drill>] [--list] [--timeout <s>]|verify-specificate <issue>|verify-implement <issue>|verify-plan [--json]|verify-status [--json]|verify-cadence [--json]|verify-planner [--json]|verify-standup [--json]|verify-moderate [--json]|verify-propose [--json]|verify-direction-health [--json]|verify-arrival [--json]|verify-residue [--json]|verify-expiry [--json]|verify-rulings [--json]|verify-succession [--json]|verify-revision [--json]|verify-merged-claim [--json]|verify-identity-handoff [--json]|verify-close [--json]|verify-catch-up [--json]|verify-corpus-boundary [--json]|verify-retire [--json]|verify-ci-retirement [--json]|verify-act-effect [--json]|verify-delivery-retry [--json]|verify-handoff-question [--json]|verify-base-health [--json]|verify-return-path [--json]|verify-reconcile [--json]|verify-checkin-delivery [--json]|verify-findings-to-work [--json]"}'
 
 CMD="${1:-}"
 [ -n "$CMD" ] || {
@@ -6552,6 +6948,7 @@ case "$CMD" in
     verify-catch-up) cmd_verify_catch_up "$@" ;;
     verify-retire) cmd_verify_retire "$@" ;;
     verify-ci-retirement) cmd_verify_ci_retirement "$@" ;;
+    verify-act-effect) cmd_verify_act_effect "$@" ;;
     verify-delivery-retry) cmd_verify_delivery_retry "$@" ;;
     verify-handoff-question) cmd_verify_handoff_question "$@" ;;
     verify-base-health) cmd_verify_base_health "$@" ;;

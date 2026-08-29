@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-29T15:24:20+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -88,3 +89,47 @@ register calls a `bearing: "breaker"` row, and a drill without one is counted
 - The breaker must be applied to the real code path, not to a copy, or it proves the copy.
 - Two causes mean two rows; resist collapsing them into one, since the repair of one is exactly
   what would silently drop the other.
+
+## Final Report
+
+Development completed as planned. `verify-act-effect` is a standing drill of 14 load-bearing
+rows, hermetic, with a breaker — `verify-all` reports it `proved`, and `Loop Drills` derives its
+matrix leg from `verify-all --list --kind hermetic`, so the check run that goes red is named
+after the drill.
+
+**One sequencing correction to the ticket's plan**: registration could not wait for this ticket.
+`test-workflow-scripts.mjs` fails on a drill the register does not classify, so the row was added
+in the mission's **first** ticket with `Breaker: no` recorded honestly, and this ticket flips it
+to `yes` now that the breaker row exists. The register's `Breaker` column is for a person; the
+machine derives it from `bearing: "breaker"` on the rows themselves, so the two agree.
+
+**Both causes are drilled, separately.** `act_effect_unnamed_candidate` covers a candidate
+reading that named the unit nothing (the cause the report assumed), and `act_effect_refused_act`
+covers an act refused by one of its own words (the cause measured live here). Each produces a
+named reading **and** reaches the claim holder's question exactly once, so a repair that bought
+its honesty by going silent fails too. The changed-refusal narrowing is drilled over three ticks
+against the real gate.
+
+**The breaker is written against the behaviour, not the return shape.** It restores the retired
+inference on the real script's own source — after a completed run is found at the base tip,
+answer `taken` for every unit without consulting the record — and runs the copied step against
+it. The assertion is the **damage**: the unit CI refused `gh_unavailable` reaches nobody. A
+breaker asserting a JSON field would have passed a refactor that kept the shape and lost the
+reading, which is exactly what the register exists to catch.
+
+Beside it, the runbook gains §5l-quater with a per-row failure-reason → file blame table, and
+`verify-ci-retirement`'s and `verify-retire`'s own key assertions were updated for the key's new
+shape with a comment pointing at the drill that owns the narrowing.
+
+### Discovered Insights
+
+- **Insight**: the breaker is *stronger* than the defect that was measured. In production the
+  inference produced a false sentence while the question still went out (suppression was keyed on
+  a run-level `pending`); with the reading per unit, restoring it drops the question outright.
+  **Context**: a per-subject reading makes a wrong answer more dangerous, not less, which is an
+  argument for drilling it rather than against making it per-subject.
+- **Insight**: `verify-all`'s `proved`/`unproved` count is derived from the rows' `bearing`
+  field, so a drill is `unproved` the moment its breaker row is deleted — no register edit
+  required, and no way to claim coverage that is not there.
+  **Context**: the register's column is documentation for a person and is checked against nothing;
+  keeping it honest is a discipline, not a gate.

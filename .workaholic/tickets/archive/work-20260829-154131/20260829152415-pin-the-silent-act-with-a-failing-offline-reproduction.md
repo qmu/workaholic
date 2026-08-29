@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-29T15:24:15+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -101,3 +102,62 @@ did not happen*; which one is live decides what the next tickets must record.
 - `verify-ci-retirement` passing while the act does not take effect in the world is the ask's own
   argument against "more drills" as the move — this reproduction is scoped to the **effect**, not
   to the mechanism inside a fixture.
+
+## Final Report
+
+Development completed as planned. The reproduction lands as `verify-act-effect` in
+`scripts/e2e/loop-drill.sh` and **fails on the unmodified tree**, three load-bearing rows red,
+each on the reading rather than on either hypothesised cause.
+
+**The reporter's assumed symptom is not the observed one, and the correction is the ticket's
+main product.** The Overview (and the mission's Goal) say `retire-blocked:<unit>` fires for none
+of the three standing units *because* the turn reads `taken`. Measured against this repository's
+own tick log for 2026-08-29, that is false in its mechanism: `step-retire-claims.sh` suppresses
+on `pending` and **asks** on `taken`, so all three units reached `needs_agent` on every tick.
+What actually held them was the working-day hold (`off_day`, Asia/Tokyo weekday 6) — the gate
+working exactly as designed.
+
+What is wrong is narrower and worse. The tick log records, hour after hour:
+
+> `ci_turn: taken so CI could not take the delete either`
+
+That is an assertion about a second executor which **nothing established**. It is a false
+statement in the one durable audit trail the tick keeps, and a false reading is worse than a
+missing one: it retires the question instead of raising it, and the same inference answering
+`pending` would have suppressed the ask outright. So the failing assertion is written against
+the reading — *a completed turn that took no act must never read `taken`* — which is stable
+under the repair of either cause.
+
+### Which cause is live
+
+Both were tested rather than assumed, by reproducing CI's **credential** locally (`gh api user`
+refused, which is what a `GITHUB_TOKEN` installation token answers for `GET /user`):
+
+| Reading | Under the container's credential | Under an Actions-style credential |
+| ------- | -------------------------------- | --------------------------------- |
+| `list-retirable-claims.sh` | names all 3 candidates | names all 3 candidates |
+| `delete-retired-claim-branch.sh` | reaches the transport | refuses **`gh_unavailable`** |
+
+**The refused-act cause is live; the candidate-divergence cause is not.** The two executors'
+readers agree, so the report's assumption that CI's reader yielded `[]` does not hold here. The
+act is refused at the transport probe — `gh-rest.sh available` runs `gh api user`, which an
+Actions installation token cannot call — **before** the proof gate or any bound is consulted.
+Both causes are drilled anyway, separately, because the repair of one is exactly what would
+silently drop the other.
+
+### Discovered Insights
+
+- **Insight**: `gh-rest.sh available` probes `gh api user`, so every script guarded by it is
+  unusable under a `GITHUB_TOKEN`, whatever the operation's own permissions are.
+  **Context**: `GET /user` is not accessible to a GitHub App installation token. The CI-side
+  Act 2 holds `contents: write` and could delete the branch, but never gets that far. Repairing
+  the probe is a different change from reading the act back and is minted as its own ticket.
+- **Insight**: the job-log REST endpoint returns a signed blob URL the loop's container cannot
+  follow, while `GET /repos/{o}/{r}/check-runs/{id}/annotations` answers in full through
+  `gh-rest.sh` with no redirect and no permission beyond read.
+  **Context**: measured on this repository's own run 33260493563. It is why annotations are the
+  surface the next ticket records onto, and why the job log is not a candidate.
+- **Insight**: a drill the register does not classify fails `test-workflow-scripts.mjs`, so a
+  new verb must be registered in `docs/loop-drill-runbook.md` §9 in the same change that adds
+  it — not in a later ticket.
+  **Context**: the `Breaker` column is recorded honestly as `no` until the breaker row exists.

@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-29T15:24:20+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -91,3 +92,51 @@ records are the ones every consumer keys on.
   about acts, not about claims, and conflating them is the drift the one-home rule prevents.
 - Documentation is this ticket's whole deliverable, which is exactly the shape `/propose` refuses as
   a *move*; it is admissible here as the closing ticket of a building mission, not as the mission.
+
+## Final Report
+
+Development completed as planned.
+
+**The vocabulary has one home**: `drive/reference/claims.md` gains
+*Whether an act the loop took had its effect*, a **fourth keyed sub-table beside** the three that
+were there rather than a row inside any of them — one column cannot classify four questions, and
+a second document would be the second home the split exists to prevent. All five words
+(`taken`, `refused`, `pending`, `unavailable`, `unreadable`) are **judgements**, with the reason
+stated: a workflow run is re-runnable and a branch can be deleted or restored between two reads,
+which is the one property a proof must not have. Its **one enumerated consumer** is named
+(`step-retire-claims.sh`), and its licence is narrower than *report and ask* — it may hold a
+question, on `taken` or `pending` only.
+
+**The retired premise is corrected in place, in all three homes**, quoted rather than deleted so a
+later reader sees what was being answered: `claims.md` (*When an act of the retirement is
+refused*), `moderate/reference/workflow.md`, and `step-retire-claims.sh`'s own header. Each
+carries the measurement — green runs over three standing branches, and the hourly log line
+*"ci_turn: taken so CI could not take the delete either"* asserting something about a second
+executor that nothing established — and each says what replaced it. A `grep` for the retired
+sentence now returns only quoted and corrected forms.
+
+**The suite pin covers the new vocabulary both ways** and was extended, not duplicated: the word
+set is parsed out of the reader's own source rather than carried as a list (a carried list proves
+only that it matches itself), so a word emitted and unclassified fails, a row naming a word
+nothing emits fails, a row promoted to `proof` fails, and the consumer reaching an acting call
+site fails. `ask-question.sh` is separately pinned to have learned nothing about retirements.
+
+`CLAUDE.md` states current behaviour only — the claim-protocol bullet, the `/moderate` row and
+the drill list — with the history left to the reference documents and the git log.
+
+**Gates**: `build.mjs` + `verify.mjs` (all built skills self-contained, policy index in sync, OKF
+bundle fresh), `validate-metadata.mjs`, `layout-doctor.sh` → `conforming: true`,
+`test-workflow-scripts.mjs` 5107/0, and `verify-all` 31 drills — 0 failed, 2 skipped
+`needs_server`, `verify-act-effect` proved.
+
+### Discovered Insights
+
+- **Insight**: `outputs/` carries `drive/`'s script closure into **six** other skills' bundles, so
+  one new script under `drive/scripts/` appears eighteen times after a rebuild.
+  **Context**: the rebuild has to happen in the same change or `Outputs Freshness` fails the
+  merge; running it once at the end of a multi-ticket unit is enough, and it is why the mission's
+  last ticket is the one that owns the gate.
+- **Insight**: a premise stated in three places is corrected in three places, and prose is the
+  only thing that carries *why* — the tables carry only *what*.
+  **Context**: quoting the retired sentence rather than deleting it is what lets a later reader
+  tell a correction from a rewrite, and it is cheap.

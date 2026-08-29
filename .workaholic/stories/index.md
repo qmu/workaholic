@@ -4,6 +4,7 @@ Branch development narratives, one per branch, serving as the PR description and
 
 <!-- okf:generated:begin -->
 * [work-20260829-093646](work-20260829-093646.md) - The tick reads its open pull requests once instead of twice, so two steps cannot disagree about one, and a mergeability GitHub has not computed is named rather than reported as none conflicted.
+* [work-20260829-084119](work-20260829-084119.md) - Aim both inbound readers at the channel this workspace actually has, and give a channel that could not be read its own named outcome and a route to a person
 * [work-20260829-074143](work-20260829-074143.md) - Repair the attribution walk past the xargs batching boundary, and carry a walk that could not complete through every reading composed on it
 * [work-20260829-064113](work-20260829-064113.md) - A finished unit the base moved under is brought back by the loop itself and delivered in the same turn, while the conflict only a person can judge is refused and asked about.
 * [work-20260829-044056](work-20260829-044056.md) - The maintenance tick's repairable findings become GitHub issues the loop drives, while findings needing a human ruling still ask.

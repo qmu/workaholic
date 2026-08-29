@@ -55,3 +55,4 @@ act on none are never one reading.
 - 2026-08-29 — ticket archived — 20260829193103-say-why-ci-s-turn-never-saw-a-unit-the-container-proves-empty.md
 - 2026-08-29 — ticket archived — 20260829193103-drill-the-two-executors-agreeing-with-no-configured-git-identity.md
 - 2026-08-29 — mission achieved — mission.md
+- 2026-08-29 — story reported — work-20260829-205701.md

@@ -14,7 +14,7 @@
 # may SUGGEST a transition, while only the operator's own announcement moves this field.
 #
 # Usage: read.sh <slug> [workaholic-root]
-# Output: JSON {found, path, slug, title, status, stage, target_date, assignees, feedback}
+# Output: JSON {found, path, slug, title, status, stage, stage_declared, target_date, assignees, feedback}
 
 set -eu
 
@@ -40,15 +40,22 @@ json_escape() {
     printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g'
 }
 
+# WHETHER IT WAS DECLARED, beside the resolved value. The default is still resolved HERE and
+# nowhere else; this only says which of the two answers a caller is looking at. It matters
+# because a consumer that speaks IN THE OPERATOR'S VOICE — "still declared 進行中" — must not
+# say that of a direction nobody staged: absent means 進行中 for every READING, and means
+# *nothing has been declared* for anything that quotes the declaration back.
 STAGE=$(fm stage)
-[ -n "$STAGE" ] || STAGE="進行中"
+STAGE_DECLARED=true
+[ -n "$STAGE" ] || { STAGE="進行中"; STAGE_DECLARED=false; }
 
-printf '{"found": true, "path": "%s", "slug": "%s", "title": "%s", "status": "%s", "stage": "%s", "target_date": "%s", "assignees": "%s", "feedback": "%s"}\n' \
+printf '{"found": true, "path": "%s", "slug": "%s", "title": "%s", "status": "%s", "stage": "%s", "stage_declared": %s, "target_date": "%s", "assignees": "%s", "feedback": "%s"}\n' \
     "$FILE" \
     "$(json_escape "$SLUG")" \
     "$(json_escape "$(fm title)")" \
     "$(json_escape "$(fm status)")" \
     "$(json_escape "$STAGE")" \
+    "$STAGE_DECLARED" \
     "$(json_escape "$(fm target_date)")" \
     "$(json_escape "$(fm assignees | sed -e 's/^\[//' -e 's/\]$//')")" \
     "$(json_escape "$(fm feedback | sed -e 's/^\[//' -e 's/\]$//')")"

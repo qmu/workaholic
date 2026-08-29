@@ -35,7 +35,7 @@ The legibility of CI's recorded reading, the repair that lets the act re-derive
 
 ## Acceptance
 
-- [ ] A unit CI's turn never saw is named by its own reading, never `taken`, and reaches
+- [x] A unit CI's turn never saw is named by its own reading, never `taken`, and reaches
       the person who can act. (#20260829193103-say-why-ci-s-turn-never-saw-a-unit-the-container-proves-empty.md)
 - [x] The two executors' candidate readers agree over the same refs, and the branches
       of the three named units are gone from origin. (#20260829193103-let-the-retirement-act-re-derive-superseded-where-ci-runs.md)
@@ -52,3 +52,4 @@ act on none are never one reading.
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-29 — ticket archived — 20260829193103-let-the-retirement-act-re-derive-superseded-where-ci-runs.md
+- 2026-08-29 — ticket archived — 20260829193103-say-why-ci-s-turn-never-saw-a-unit-the-container-proves-empty.md

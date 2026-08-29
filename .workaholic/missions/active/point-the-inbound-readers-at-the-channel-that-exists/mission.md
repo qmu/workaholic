@@ -45,3 +45,4 @@ reported by its own name — never as a quiet hour with nothing waiting.
 ## Changelog
 - 2026-08-29 — ticket archived — 20260829062827-name-the-channel-the-routines-actually-post-to.md
 - 2026-08-29 — ticket archived — 20260829062827-tell-an-unresolvable-channel-from-an-empty-one.md
+- 2026-08-29 — story reported — work-20260829-084119.md

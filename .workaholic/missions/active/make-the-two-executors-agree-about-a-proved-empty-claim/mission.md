@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260829-205701
 ---
 
 # Make the two executors agree about a proved-empty claim

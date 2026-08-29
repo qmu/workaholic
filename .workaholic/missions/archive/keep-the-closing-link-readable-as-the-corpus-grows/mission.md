@@ -2,7 +2,7 @@
 type: Mission
 title: Keep the closing link readable as the corpus grows
 slug: keep-the-closing-link-readable-as-the-corpus-grows
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-29T07:20:00+00:00
 author: a@qmu.jp
@@ -55,3 +55,5 @@ zero.
 - 2026-08-29 — ticket archived — 20260829072045-carry-the-degradation-onto-the-survey-rows.md
 - 2026-08-29 — ticket archived — 20260829072045-carry-the-degradation-onto-the-residue.md
 - 2026-08-29 — ticket archived — 20260829072045-name-a-degraded-direction-reading-in-the-run-reports.md
+- 2026-08-29 — ticket archived — 20260829072045-drill-the-corpus-boundary-offline.md
+- 2026-08-29 — mission achieved — mission.md

@@ -6,6 +6,7 @@
 * [land-the-loop-s-own-work-when-the-base-moves-under-it](active/land-the-loop-s-own-work-when-the-base-moves-under-it/mission.md) - Land the loop's own work when the base moves under it
 * [make-the-routine-create-body-documented-and-buildable](active/make-the-routine-create-body-documented-and-buildable/mission.md) - Make the routine create body documented and buildable
 * [make-workaholify-converge-the-account-s-routines](active/make-workaholify-converge-the-account-s-routines/mission.md) - Make /workaholify converge the account's routines
+* [point-the-inbound-readers-at-the-channel-that-exists](active/point-the-inbound-readers-at-the-channel-that-exists/mission.md) - Point the inbound readers at the channel that exists
 * [refuse-ok-under-a-placeholder-identity](active/refuse-ok-under-a-placeholder-identity/mission.md) - Refuse ok under a placeholder identity
 
 ## archive

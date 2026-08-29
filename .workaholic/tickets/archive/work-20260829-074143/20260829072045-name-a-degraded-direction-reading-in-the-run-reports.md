@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-29T07:20:45+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -85,3 +86,51 @@ the morning.
 - The report is read by nobody on the day it matters, which is why the survey ticket carries the
   actual brake and this one carries only the naming. Do not compensate by adding a question here
   — reaching a person is `/moderate`'s job and belongs in its own ask if it is wanted.
+
+## Final Report
+
+Development completed as planned.
+
+`/propose`'s run report step now names every strategy the survey refused
+`attribution_unreadable` — the word the survey already emits, no second one — and states in
+the same breath that it may not print a `pace`, a `dormant` or a `quiescent` verdict for
+such a strategy, because the survey emits none and a line implying the tick judged what it
+could not read is the exact collapse the mission removes.
+
+`digest.sh` carries `readable` and the reader's own `reason` on every strategy record,
+`degraded_count` beside the other counts, and `attribution_unreadable:<slug>` in `errors[]`.
+Before this a degraded strategy rendered **exactly** like a quiet one — same empty `moved`,
+same empty `waiting`, `active_count` null so it never counted as active — and fell into the
+`no_activity` silence.
+
+Two no-op rules follow from that:
+
+- **Every** strategy degraded is its own named no-op, `all_attribution_unreadable`, sitting
+  beside `strategy_list_unreadable`. A **partial** degradation is deliberately not a no-op:
+  the strategies that were read still have a morning, and the degraded ones are named in it.
+- The **honesty line goes null** when any walk failed. `unattributed` is derived by
+  *subtracting* what the strategies attributed, so a direction whose walk failed pushes its
+  own work into that figure — an over-report for a reason that has nothing to do with
+  attribution.
+
+No gate, sort, cap or posting rule moved: the brake is the survey's and was landed by the
+previous ticket, and `/standup` stays a pure read — no write, no commit, no GitHub call was
+added. `CLAUDE.md` and `rules/workaholic.md` are updated in this commit, as the gate
+requires, together with `workaholic:propose` and `workaholic:standup`.
+
+Drills: `verify-propose` 15/15, `verify-standup` 3/3 (1 advisory, pre-existing).
+
+### Discovered Insights
+
+- **Insight**: the digest's `if ! W=$(... attributed-work.sh ...)` guard never fires for a
+  degraded walk, because that reader exits 0 by contract.
+  **Context**: the record has to be *kept and named* rather than dropped at that guard —
+  dropping it would delete the strategy from the morning altogether, which is a worse
+  version of the same defect. Any future consumer that treats a non-zero exit as its only
+  degradation signal will silently inherit this bug.
+- **Insight**: an apostrophe inside a comment in a single-quoted jq program terminates the
+  shell string, and the failure surfaces as `jq: syntax error` plus a stray word being run
+  as a command.
+  **Context**: it bit twice in this mission, in `survey-strategies.sh` and again here. The
+  existing code escapes them as `'"'"'`; the cheaper habit is to write those comments
+  without apostrophes at all.

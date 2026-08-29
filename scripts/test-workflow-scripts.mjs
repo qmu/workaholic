@@ -7005,6 +7005,74 @@ function testResidueRefusesADegradedWalk() {
   } finally { cleanup(dir); }
 }
 
+// ---------- the run reports name a degraded direction reading ----------
+// (2026-08-29, mission `keep-the-closing-link-readable-as-the-corpus-grows`)
+//
+// A strategy whose attribution walk did not complete used to render in the morning digest
+// EXACTLY like a quiet one — same empty `moved`, same empty `waiting`, not counted as active,
+// and so folded into the `no_activity` silence. A quiet direction and one the reader could not
+// see into must not render alike; the digest already holds itself to that rule for the
+// unattributed count, and this extends it to the strategy itself.
+//
+// NO GATE MOVES HERE. The brake is the survey's (pinned by its own case above); this ticket
+// names what is already true, and the healthy digest is unchanged.
+function testRunReportsNameADegradedReading() {
+  const dir = makeRepo("main");
+  const DIGEST = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/standup/scripts/digest.sh")}`;
+  const wf = (rel, body) => {
+    const abs = join(dir, rel);
+    mkdirSync(dirname(abs), { recursive: true });
+    writeFileSync(abs, body);
+  };
+  const strategy = (slug, refs) =>
+    `---\ntype: Strategy\ntitle: ${slug} title\nslug: ${slug}\nstatus: active\n` +
+    `target_date: 2099-12-31\nassignees: [test@example.com]\nfeedback: [${refs}]\n---\n\n` +
+    `# ${slug}\n\n## Aim\n\nx\n\n## Schedule\n\ny\n`;
+  try {
+    wf(".workaholic/strategies/moving.md", strategy("moving", "20260801000001-one.md"));
+    wf(".workaholic/missions/active/m-one/mission.md",
+      "---\ntype: Mission\ntitle: M One\nslug: m-one\nstatus: active\nfeedback: [20260801000001-one.md]\n---\n\n# M One\n");
+    wf(".workaholic/tickets/todo/20260810000001-queued.md",
+      "---\ncreated_at: 2026-08-10T00:00:00+00:00\nmission: m-one\n---\n\n# Queued work\n");
+    execSync("git add -A && git commit -q -m seed", { cwd: dir });
+
+    const ok = JSON.parse(run(dir, `${DIGEST} "1 day ago" .workaholic`).stdout);
+    assertEq("a strategy whose walk completed is readable, with no degradation reported",
+      [ok.strategies[0].readable, ok.strategies[0].reason, ok.degraded_count, ok.errors],
+      [true, "", 0, []]);
+    assertEq("and the morning is news because something moved under it",
+      [ok.noop, ok.noop_reason], [false, ""]);
+
+    wf(".workaholic/tickets/todo/has space.md",
+      "---\ncreated_at: 2026-08-12T00:00:00+00:00\n---\n\n# A path the walk cannot hand to grep\n");
+    execSync("git add -A && git commit -q -m 'Add an unconsumable corpus entry'", { cwd: dir });
+    const bad = JSON.parse(run(dir, `${DIGEST} "1 day ago" .workaholic`).stdout);
+    assertEq("a degraded strategy is named by the reader's own reason, not rendered as quiet",
+      [bad.strategies[0].readable, bad.strategies[0].reason], [false, "corpus_unreadable"]);
+    assertEq("its counts are null rather than the zeroes a quiet strategy carries",
+      [bad.strategies[0].count, bad.strategies[0].active_count, bad.strategies[0].waiting_count],
+      [null, null, null]);
+    assertEq("and the degradation is counted and named in errors",
+      [bad.degraded_count, bad.errors], [1, ["attribution_unreadable:moving"]]);
+    // EVERY strategy degraded is its own no-op, never `no_activity` — which would assert a
+    // quiet morning nobody actually read.
+    assertEq("every strategy degraded is its own named no-op",
+      [bad.noop, bad.noop_reason], [true, "all_attribution_unreadable"]);
+    // The honesty line is derived by SUBTRACTING what the strategies attributed, so a failed
+    // walk pushes its own work into it. Null, never an inflated number.
+    assertEq("and the honesty line goes null rather than over-reporting",
+      bad.unattributed, { moved: null, waiting: null });
+
+    // The other surface is prose: `/propose`'s run report step names the refusal the survey
+    // already emits, and no second word.
+    const loop = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/propose/reference/loop.md"), "utf8");
+    assertTrue("the propose run report names the survey's own refusal for a degraded row",
+      /attribution_unreadable/.test(loop), loop.slice(0, 120));
+
+    assertEq("the digest leaves the tree clean", run(dir, "git status --porcelain").stdout.trim(), "");
+  } finally { cleanup(dir); }
+}
+
 // ---------- standup/digest.sh + the /standup command are a READER ----------
 // The daily per-strategy digest (ticket `20260817115232`, 2026-08-17). Three properties are
 // worth a fixture, because none of them can be observed in this repository — it holds zero
@@ -18645,6 +18713,7 @@ const tests = [
   ["strategy/attributed-work.sh tells found nothing from could not look", testAttributedWorkWalkOutcome],
   ["the survey and the lifecycle refuse a row they could not read", testSurveyRefusesADegradedWalk],
   ["the residue refuses a walk it could not complete", testResidueRefusesADegradedWalk],
+  ["the run reports name a degraded direction reading", testRunReportsNameADegradedReading],
   ["standup/digest.sh (the daily per-strategy digest)", testStandupDigest],
   ["moderate: the tick's own root, and the diff that keeps it silent", testModerateTickPost],
   ["moderate: the working-week gate holds the weekend without losing the question", testModerateWorkingDays],

@@ -42,7 +42,7 @@ zero.
       hermetic test that fails against today's script. (#20260829072045-stop-the-prefilter-discarding-what-it-found.md)
 - [x] A walk that could not read the corpus reports its own reason and null counts, and
       `no_citing_artifacts` is emitted only when the walk completed. (#20260829072045-say-no-citing-artifacts-only-when-the-walk-completed.md)
-- [ ] Every reading composed on the walk — survey rows, residue, digest, run reports —
+- [x] Every reading composed on the walk — survey rows, residue, digest, run reports —
       carries the degradation instead of deriving a verdict from it. (#20260829072045-name-a-degraded-direction-reading-in-the-run-reports.md)
 
 ## Changelog
@@ -54,3 +54,4 @@ zero.
 - 2026-08-29 — ticket archived — 20260829072045-say-no-citing-artifacts-only-when-the-walk-completed.md
 - 2026-08-29 — ticket archived — 20260829072045-carry-the-degradation-onto-the-survey-rows.md
 - 2026-08-29 — ticket archived — 20260829072045-carry-the-degradation-onto-the-residue.md
+- 2026-08-29 — ticket archived — 20260829072045-name-a-degraded-direction-reading-in-the-run-reports.md

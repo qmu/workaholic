@@ -4544,12 +4544,18 @@ cmd_verify_ci_retirement() {
     ( cd "$_tmp" && git clone -q "$_origin" work ) || true
     mkdir -p "${_work}/.workaholic/tickets/todo" \
              "${_work}/.workaholic/missions/active/mission-ci-flip"
-    for _n in 1 2 3 4 5 6 7; do
+    for _n in 1 2 3 4 5 6 7 8; do
         printf -- '---\ncreated_at: 2026-02-01T00:00:0%s+09:00\nauthor: %s\n---\n\n# T%s\n' \
             "$_n" "$_me" "$_n" > "${_work}/.workaholic/tickets/todo/2026020100000${_n}-t.md"
     done
     printf -- '---\ntype: Mission\nslug: mission-ci-flip\nstatus: active\nauthor: %s\n---\n\n# M\n' \
         "$_me" > "${_work}/.workaholic/missions/active/mission-ci-flip/mission.md"
+    # THE COMMITTED MAPPING. `lib/runner-identity.sh` scans as a claim's author only when
+    # `gather/scripts/identity.sh` resolves them, so the identity bound is exercised only if the
+    # fixture has one — naming `$_me` and nobody else, which is what makes the eighth claim's
+    # unmapped author a real refusal rather than an accident of an absent file.
+    mkdir -p "${_work}/.claude"
+    printf 'drill-runner=%s\n' "$_me" > "${_work}/.claude/git-identities"
     ( cd "$_work" && _git add -A && _git commit -qm seed && git push -q origin main ) || true
 
     # THE CONTAINER'S REFUSAL, reproduced where the real one happens: server side, on every
@@ -4578,6 +4584,17 @@ cmd_verify_ci_retirement() {
     # where `gh api user` is refused. It needs its own unit because every other superseded one is
     # already spoken for by a bound or by an earlier row.
     _claim work-20260201-000007 batch-ci-token     .workaholic/tickets/todo/20260201000007-t.md
+    # The eighth exists for the identity bound (2026-08-29). Its claim commit is authored by
+    # somebody the committed mapping does NOT name, so the no-identity re-derivation must refuse
+    # to scan as them however superseded the claim is. Without this row a repair that made CI
+    # read every claim as its own would pass every other assertion here.
+    ( cd "$_work" && git checkout -q -b work-20260201-000008 main \
+      && _stampfile work-20260201-000008 .workaholic/tickets/todo/20260201000008-t.md \
+      && GIT_AUTHOR_EMAIL=stranger@example.invalid GIT_COMMITTER_EMAIL=stranger@example.invalid \
+         GIT_AUTHOR_NAME=Stranger GIT_COMMITTER_NAME=Stranger \
+         git -c user.email=stranger@example.invalid -c user.name=Stranger \
+             commit -qam "Claim a PR-unit" -m "Unit: batch-ci-foreign" \
+      && git push -q origin work-20260201-000008 ) >/dev/null 2>&1 || true
     # The two branch-shape bounds. `claims_scan` walks every remote head, not only `work-*`, so a
     # claim commit on either of these IS a claim row -- which is exactly why the act must refuse
     # them by name rather than trusting that they cannot occur.
@@ -4589,7 +4606,7 @@ cmd_verify_ci_retirement() {
     # stays queued, which is what keeps it a judgement.
     ( cd "$_work" && git checkout -q main \
       && mkdir -p .workaholic/tickets/archive/work-20260201-000000 \
-      && for _f in 1 3 4 5 6 7; do \
+      && for _f in 1 3 4 5 6 7 8; do \
              git mv ".workaholic/tickets/todo/2026020100000${_f}-t.md" \
                     .workaholic/tickets/archive/work-20260201-000000/ ; \
          done \
@@ -4680,6 +4697,81 @@ STUB
         add_row "ci_retirement_candidates" true "the reader names the superseded units and never a live one" load
     else
         add_row "ci_retirement_candidates" false "the candidate set is wrong: $(one_line "$_cands")" load
+    fi
+
+    # 2a-i. THE TERM THAT DECIDES IN CI: NO CONFIGURED GIT IDENTITY (2026-08-29, mission
+    #    `make-the-two-executors-agree-about-a-proved-empty-claim`). `actions/checkout@v4`
+    #    configures no `user.email`, and this drill never varied that term — it configured one in
+    #    its own fixture — so it passed on every push while three proved-empty branches stood.
+    #    `GIT_CONFIG_PARAMETERS` is how the state is reproduced without unpicking the clone's own
+    #    config, which every other row here depends on.
+    # `_run_noid` is `_run` with the one term CI lacks removed, and nothing else: the same
+    # working directory, the same stub on PATH and the same lapsed-heartbeat window, so the
+    # only difference between the two readings below is the configured identity.
+    _run_noid() { ( cd "$_read" && PATH="${_bin}:$PATH" \
+        WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES=0 \
+        GIT_CONFIG_PARAMETERS="'user.email='" sh "$@" ) 2>&1 || true; }
+    # `grep -o`, never a `sed` capture: the reader emits one JSON LINE carrying every candidate,
+    # and a greedy `.*` capture would report only the last unit on it.
+    _units_of() { printf '%s' "$1" | grep -o '"unit": "[a-z0-9-]*"' \
+        | sed 's/.*: "//; s/"$//' | sort | tr '\n' ' '; }
+
+    _with=$(_run "$_reader")
+    _without=$(_run_noid "$_reader")
+    _nwith=$(printf '%s' "$_with" | grep -o '"unit"' | grep -c . || true)
+    _nwithout=$(printf '%s' "$_without" | grep -o '"unit"' | grep -c . || true)
+    if [ "$_nwith" -gt 0 ] && [ "$_nwith" = "$_nwithout" ] \
+        && [ "$(_units_of "$_with")" = "$(_units_of "$_without")" ]; then
+        add_row "ci_retirement_identity_states_agree" true \
+            "the two executors' candidate readers name the same units with and without a configured identity (${_nwith} each)" load
+    else
+        add_row "ci_retirement_identity_states_agree" false \
+            "the readings disagree: with=[$(_units_of "$_with")] without=[$(_units_of "$_without")]" load
+    fi
+
+    # 2a-ii. AND THE BOUND THE REPAIR MAY NOT CROSS. A live claim and a claim authored by somebody
+    #     the mapping does not name stay undeletable under BOTH identity states. A repair that
+    #     made CI see every claim as its own would pass row 6 and must fail here.
+    _bound_ok=true
+    _bound_detail=""
+    for _u in batch-ci-live batch-ci-foreign; do
+        for _mode in with without; do
+            if [ "$_mode" = with ]; then
+                _o=$(_run "$_act" "$_u")
+            else
+                _o=$(_run_noid "$_act" "$_u")
+            fi
+            case "$_o" in
+                *'"deleted": false'*) : ;;
+                *) _bound_ok=false; _bound_detail="${_bound_detail}${_u}/${_mode}: $(one_line "$_o"); " ;;
+            esac
+        done
+        case "$(_units_of "$_without")" in
+            *"$_u"*) _bound_ok=false; _bound_detail="${_bound_detail}${_u} became a candidate; " ;;
+        esac
+    done
+    if [ "$_bound_ok" = true ]; then
+        add_row "ci_retirement_identity_bound_holds" true \
+            "a live claim and an unmapped author's claim are refused under both identity states, and neither is ever a candidate" load
+    else
+        add_row "ci_retirement_identity_bound_holds" false "$_bound_detail" load
+    fi
+
+    # 2a-iii. THE SECOND BREAKER, WRITTEN AGAINST THE BEHAVIOUR. Restore the identity-first
+    #     precedence by removing the re-derivation from the candidate reader; the count must fall
+    #     to zero in the no-identity state, which is exactly the production silence. A breaker
+    #     asserting a return shape would survive the refactor that reintroduces this.
+    cp -R "${REPO_ROOT}/plugins/workaholic/skills" "${_tmp}/skills-id" 2>/dev/null || true
+    _blist="${_tmp}/skills-id/drive/scripts/list-retirable-claims.sh"
+    sed 's/^if runner_identity_absent; then$/if false; then/' "$_reader" > "$_blist"
+    _bid=$(_run_noid "$_blist")
+    _nbid=$(printf '%s' "$_bid" | grep -o '"unit"' | grep -c . || true)
+    if [ "$_nbid" = "0" ] && [ "$_nwithout" -gt 0 ]; then
+        add_row "ci_retirement_identity_breaker" true \
+            "with the re-derivation removed the no-identity reading falls to 0 candidates against ${_nwithout} -- the production silence, and this drill can fail" breaker
+    else
+        add_row "ci_retirement_identity_breaker" false \
+            "the breaker did not break: the reading was ${_nbid} with the re-derivation removed" breaker
     fi
 
     # 2b. CI TAKES THE ACT the container could not, re-proving the verdict at the moment of it.

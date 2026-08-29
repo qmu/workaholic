@@ -605,4 +605,5 @@
 * [Read back whether the loop's own act took effect](20260829151654-read-back-whether-the-loop-s-own-act-took-effect.md)
 * [Follow the pull requests the loop opens for a person](20260829191722-follow-the-pull-requests-the-loop-opens-for-a-person.md)
 * [Three proved-superseded claim branches still stand after CI's retirement turn](20260829192941-three-proved-superseded-claim-branches-still-stand-after-ci-s-retirement-turn.md)
+* [Make the strategy lifecycle staged: 進行中 / 改良中 / 観察中](20260829211659-make-the-strategy-lifecycle-staged.md)
 <!-- okf:generated:end -->

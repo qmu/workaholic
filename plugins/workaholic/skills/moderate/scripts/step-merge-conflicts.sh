@@ -84,14 +84,47 @@ count=$(printf '%s' "$conflicted" | awk 'NF { n++ } END { print n + 0 }')
 total=$(printf '%s' "$state" | sed 's/.*"total_open": //; s/,.*//')
 truncated=$(printf '%s' "$state" | sed 's/.*"truncated": //; s/,.*//')
 
+# THE FOURTH ANSWER, WHICH THIS SENTENCE USED TO SWALLOW (2026-08-29, ticket `20260829092046`).
+# GitHub computes `mergeable` LAZILY — `null` until a background merge job finishes — and
+# `pulls-state.sh` maps that to `blocked_by: unknown` precisely so the state is nameable. This
+# step counted only `conflict` rows, so a tick that COULD NOT LOOK and a tick that looked and
+# FOUND NOTHING both reported `none conflicted`, in the voice of a completed reading. Measured
+# on tick `20260829-085055` (issue #710): this step said `none conflicted` over the same open
+# set in which step 6 named four — #622, #625, #633, #688, the oldest unmergeable since
+# 2026-08-26. It is the *found nothing* versus *could not look* collapse this repository has
+# repaired by name in `attributed-work.sh`, in the three-valued merged lookup and in
+# `ci-retirement-turn.sh`: a reading we could not make is never dressed as one we did.
+#
+# `unknown` IS NOT `degraded` AND NOT `blocked`, and the choice is deliberate. `degraded` names
+# a transport this step could not read, and the transport answered fine; `blocked` asserts a
+# conflict nobody proved, which would send a claim holder after one — the wrong direction, on
+# the merged-lookup precedent that a wrong verdict costs more in one direction than the other.
+# It is a named part of an `ok` reading.
+#
+# AND IT ADDS NO `event`. This step posts nothing of its own by design — its finding rides step
+# 6's reminder — so an `event` here would draw a second Slack line about the same pull request
+# in the same tick, which is the noise the gate exists to prevent.
+uncomputed=$(printf '%s' "$state" | awk '{ gsub(/}/, "}\n"); print }' | grep -c '"blocked_by": "unknown"' || true)
+case "$uncomputed" in ''|*[!0-9]*) uncomputed=0 ;; esac
+UNKNOWN_NOTE=""
+[ "$uncomputed" -eq 0 ] || UNKNOWN_NOTE=", ${uncomputed} not yet computed by GitHub"
+
 if [ "$count" -eq 0 ]; then
-    printf '{"step": "merge-conflicts", "status": "ok", "reason": "", "summary": "%s open pull request(s), none conflicted (read cap %s, truncated: %s)", "needs_agent": [], "conflicted": []}\n' \
-        "$total" "$LIMIT" "$truncated"
+    # A tick with neither conflicts nor uncomputed rows keeps today's wording byte-identically;
+    # one with uncomputed rows never claims `none conflicted` about them.
+    if [ "$uncomputed" -eq 0 ]; then
+        printf '{"step": "merge-conflicts", "status": "ok", "reason": "", "summary": "%s open pull request(s), none conflicted (read cap %s, truncated: %s)", "needs_agent": [], "conflicted": [], "uncomputed": 0}\n' \
+            "$total" "$LIMIT" "$truncated"
+    else
+        printf '{"step": "merge-conflicts", "status": "ok", "reason": "mergeability_uncomputed", "summary": "%s open pull request(s), none of the %s read as conflicted, %s not yet computed by GitHub (read cap %s, truncated: %s)", "needs_agent": [], "conflicted": [], "uncomputed": %s}\n' \
+            "$total" "$((total - uncomputed))" "$uncomputed" "$LIMIT" "$truncated" "$uncomputed"
+    fi
     exit 0
 fi
 
 numbers=$(printf '%s' "$conflicted" | sed 's/.*"number": //; s/,.*//' | tr '\n' ' ' | sed 's/ $//')
-printf '{"step": "merge-conflicts", "status": "blocked", "reason": "conflict", "summary": "%s of %s open pull request(s) conflicted (#%s) — reported to their claim holders, never rebased here", "needs_agent": [], "conflicted": [%s], "event": "%s of %s open pull request(s) cannot merge: conflicted (#%s)"}\n' \
-    "$count" "$total" "$(printf '%s' "$numbers" | sed 's/ /, #/g')" \
+printf '{"step": "merge-conflicts", "status": "blocked", "reason": "conflict", "summary": "%s of %s open pull request(s) conflicted (#%s)%s — reported to their claim holders, never rebased here", "needs_agent": [], "conflicted": [%s], "uncomputed": %s, "event": "%s of %s open pull request(s) cannot merge: conflicted (#%s)"}\n' \
+    "$count" "$total" "$(printf '%s' "$numbers" | sed 's/ /, #/g')" "$UNKNOWN_NOTE" \
     "$(printf '%s' "$numbers" | tr ' ' '\n' | awk 'NF { printf "%s%s", (n++ ? ", " : ""), $0 }')" \
+    "$uncomputed" \
     "$count" "$total" "$(printf '%s' "$numbers" | sed 's/ /, #/g')"

@@ -56,3 +56,5 @@ question: nobody looked, or the loop looked and only you decide.
 - 2026-08-29 — ticket archived — 20260829062039-state-the-catch-up-and-its-refusals.md
 - 2026-08-29 — mission achieved — mission.md
 - 2026-08-29 — run recorded (+3.0h) — run-20260829-064113
+- 2026-08-29 — ticket archived — 20260829092043-read-the-tick-s-conflict-state-once-per-tick.md
+- 2026-08-29 — ticket archived — 20260829092046-tell-an-uncomputed-mergeability-from-none-conflicted.md

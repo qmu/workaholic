@@ -52,6 +52,39 @@ case "$LIMIT" in
     ''|*[!0-9]*) LIMIT=10 ;;
 esac
 
+# RESOLVED ONCE PER TICK, USED TWICE — and now actually so (2026-08-29, ticket
+# `20260829092043`). `reference/workflow.md` has said that of step 6 since the reader shipped,
+# and the implementation did not hold it: steps 4 and 6 each called this script, so a tick made
+# two rounds of `GET /repos/{slug}/pulls/{n}`.
+#
+# THAT IS A CORRECTNESS DEFECT, NOT MERELY WASTE, because the field the whole reading keys on
+# is computed LAZILY: GitHub answers `mergeable: null` until a background merge job finishes,
+# and requesting the pull request is what schedules it. So the first resolution can answer
+# `unknown` for a branch the second answers `conflict`, and two steps of one tick then state
+# different things about the same pull requests with neither wrong about what it read.
+# Measured on tick `20260829-085055` (issue #710): `merge-conflicts` reported `none conflicted`
+# while `stuck-prs` named four — #622, #625, #633, #688 — over the same open set.
+#
+# THE CACHE LIVES IN THE ONE READER RATHER THAN IN ITS CALLERS. Both steps stay byte-identical,
+# which is what keeps their summaries, their `stuck:<digest>` key and step 4's silence provably
+# unchanged; and "resolved once per tick" becomes a property of the reader rather than a
+# sentence each caller must remember. `run.sh` resolves once before the step loop and names the
+# file in `WORKAHOLIC_TICK_PULLS_STATE` — the seam `WORKAHOLIC_TICK_REPORTS` already
+# established. A step run STANDALONE sees no variable and resolves for itself, exactly as before.
+#
+# THE CACHE IS KEYED ON THE LIMIT IT WAS RESOLVED AT. A caller asking for a wider read than the
+# cached one would otherwise be served a silently truncated answer, so a mismatch falls through
+# to a fresh resolution rather than being served the wrong bytes.
+if [ -n "${WORKAHOLIC_TICK_PULLS_STATE:-}" ] && [ -s "${WORKAHOLIC_TICK_PULLS_STATE}" ]; then
+    cached=$(cat "${WORKAHOLIC_TICK_PULLS_STATE}" 2>/dev/null || true)
+    case "$cached" in
+        *"\"limit\": ${LIMIT},"*)
+            printf '%s\n' "$cached"
+            exit 0
+            ;;
+    esac
+fi
+
 json_escape() {
     printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' -e 's/	/\\t/g'
 }

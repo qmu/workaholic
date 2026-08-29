@@ -179,6 +179,50 @@ if [ -n "$REPORTS_FILE" ]; then
     printf '{"steps": []}\n' > "$REPORTS_FILE"
     export WORKAHOLIC_TICK_REPORTS="$REPORTS_FILE"
 fi
+
+# THE OPEN PULL REQUESTS, RESOLVED ONCE FOR THE WHOLE TICK (2026-08-29, ticket
+# `20260829092043`). `reference/workflow.md` has said "resolved once per tick, used twice" of
+# step 6 since the reader shipped, and the implementation did not hold it: steps 4 and 6 each
+# called `pulls-state.sh`, so a tick made two rounds of per-pull reads. Because GitHub computes
+# `mergeable` LAZILY, the two rounds can disagree — measured on tick `20260829-085055` (issue
+# #710), `merge-conflicts` reported `none conflicted` while `stuck-prs` named four conflicted
+# pull requests over the same open set, with neither wrong about what it read.
+#
+# THE SAME SEAM AS THE REPORTS FILE, and for the same reason: an environment variable rather
+# than a third flag, so the step invocation stays uniform and a step that does not read it is
+# unaffected. `pulls-state.sh` — the ONE reader — is what consults it, so both steps stay
+# byte-identical and "resolved once per tick" is a property of the reader rather than a
+# sentence each caller must remember. The file lives outside the repository, so the tick still
+# writes nothing into the tree but its own log line.
+#
+# A FAILED RESOLUTION IS NOT CACHED. `pulls-state.sh` reports its own degradation (`ok: false`
+# with a reason), and serving that from a cache would make one transport hiccup the tick's
+# answer for every consumer; an unset variable simply means each step resolves for itself,
+# which is exactly the behaviour that existed before this.
+#
+# AND ONLY WHEN A CONSUMER WILL RUN. A tick narrowed with `--only` to a step that never reads
+# the open pull requests must not pay for a read nobody uses, so the resolution is gated on the
+# same `--only`/`--skip` arithmetic the loop below applies.
+PULLS_WANTED=0
+for _pw in merge-conflicts stuck-prs; do
+    if [ -n "$ONLY" ] && ! in_list "$_pw" "$ONLY"; then continue; fi
+    if [ -n "$SKIP" ] && in_list "$_pw" "$SKIP"; then continue; fi
+    PULLS_WANTED=1
+done
+
+PULLS_FILE=''
+if [ "$PULLS_WANTED" -eq 1 ]; then
+    PULLS_FILE=$(mktemp 2>/dev/null || printf '')
+fi
+if [ -n "$PULLS_FILE" ]; then
+    trap 'rm -f "$REPORTS_FILE" "$PULLS_FILE"' EXIT
+    if sh "${SCRIPT_DIR}/pulls-state.sh" > "$PULLS_FILE" 2>/dev/null \
+       && grep -q '"ok": true' "$PULLS_FILE" 2>/dev/null; then
+        export WORKAHOLIC_TICK_PULLS_STATE="$PULLS_FILE"
+    else
+        rm -f "$PULLS_FILE"
+    fi
+fi
 # Derived, not parsed back out of the writer: `log_step` runs in a command
 # substitution, so anything it assigned would be lost with its subshell.
 DAY=$(printf '%s' "$TICK" | cut -c1-4)-$(printf '%s' "$TICK" | cut -c5-6)-$(printf '%s' "$TICK" | cut -c7-8)

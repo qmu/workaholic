@@ -44,7 +44,7 @@ No new store, no field, no second oracle.
       status. (#20260829152415-answer-the-ci-turn-from-the-recorded-verdict.md)
 - [x] A changed refusal reaches the claim holder, an unchanged one stays held, and
       the effect is read once for Act 2 and the retry. (#20260829152419-answer-did-my-act-take-effect-in-one-place.md)
-- [ ] An offline drill fails when a green run stands in for an act not taken, and
+- [x] An offline drill fails when a green run stands in for an act not taken, and
       is registered so `verify-all` and CI run it. (#20260829152420-drill-the-silent-act-offline-and-register-the-drill.md)
 
 ## Changelog
@@ -56,3 +56,4 @@ No new store, no field, no second oracle.
 - 2026-08-29 — ticket archived — 20260829152419-answer-did-my-act-take-effect-in-one-place.md
 - 2026-08-29 — ticket archived — 20260829152415-let-a-changed-refusal-reach-the-claim-holder.md
 - 2026-08-29 — ticket archived — 20260829152420-name-the-effect-reading-where-the-tick-and-the-run-speak.md
+- 2026-08-29 — ticket archived — 20260829152420-drill-the-silent-act-offline-and-register-the-drill.md

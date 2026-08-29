@@ -2,7 +2,7 @@
 type: Mission
 title: Land the loop's own work when the base moves under it
 slug: land-the-loop-s-own-work-when-the-base-moves-under-it
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-29T06:19:41+00:00
 author: a@qmu.jp
@@ -53,3 +53,5 @@ question: nobody looked, or the loop looked and only you decide.
 - 2026-08-29 — ticket archived — 20260829062039-ask-about-the-conflict-the-loop-must-not-resolve.md
 - 2026-08-29 — ticket archived — 20260829062039-name-the-catch-up-outcome-in-the-run-report.md
 - 2026-08-29 — ticket archived — 20260829062039-drill-the-catch-up-with-no-network.md
+- 2026-08-29 — ticket archived — 20260829062039-state-the-catch-up-and-its-refusals.md
+- 2026-08-29 — mission achieved — mission.md

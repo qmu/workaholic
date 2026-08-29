@@ -57,3 +57,4 @@ their ruling, and the run report naming what was filed, held and left.
 - 2026-08-29 — ticket archived — 20260829042145-report-what-was-filed-held-and-left.md
 - 2026-08-29 — ticket archived — 20260829042145-drill-the-findings-to-work-path-offline.md
 - 2026-08-29 — mission achieved — mission.md
+- 2026-08-29 — story reported — work-20260829-044056.md

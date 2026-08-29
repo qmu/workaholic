@@ -55,3 +55,4 @@ name. A person is told only when something fails.
 - 2026-08-29 — ticket archived — 20260829122104-name-the-mission-a-failing-drill-belongs-to.md
 - 2026-08-29 — ticket archived — 20260829122104-run-the-hermetic-drill-set-in-ci-on-push.md
 - 2026-08-29 — ticket archived — 20260829122104-report-the-drill-state-in-the-moderation-tick.md
+- 2026-08-29 — ticket archived — 20260829122104-name-the-drill-verdict-beside-a-mission-close.md

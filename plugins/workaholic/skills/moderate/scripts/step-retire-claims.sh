@@ -93,12 +93,21 @@
 # times: a status restated hourly is read by nobody by the second day (`📦 Release Preparation`,
 # one step over). Every term below is therefore a function of the CLAIM SET AND THE ACT STATES
 # and of nothing else — the same units, the same acts standing and the same refusal render the
-# same string, tick after tick — so a held block produces an identical summary and, with `event`
-# empty on a tick that retired nothing, no root line at all. That is TWO independent guards, and
-# neither is a suppression list: a NEWLY blocked unit moves the unit set, so the summary moves
-# and the block is visible the hour it happens. Suppress by nothing; let the diff work. The
-# question's own repetition is bounded by `ask-question.sh`'s asked-once ledger, which is a
-# separate concern deliberately — a second per-unit ledger beside it is how the two drift.
+# same string, tick after tick — so a held block produces an identical summary and therefore no
+# root line at all. It is not a suppression list: a NEWLY blocked unit moves the unit set, so the
+# summary moves and the block is visible the hour it happens. Suppress by nothing; let the diff
+# work. The question's own repetition is bounded by `ask-question.sh`'s asked-once ledger, which
+# is a separate concern deliberately — a second per-unit ledger beside it is how the two drift.
+#
+# WHICH GUARD HOLDS WHICH CASE, since 2026-08-29 (mission
+# `read-back-whether-the-loop-s-own-act-took-effect`). There were two — an unchanged summary AND
+# an empty `event` — and a blocked retirement now supplies an event, because an act the loop
+# believed it took and did not is a repository fact a person should see the hour it appears. So:
+# a tick whose acts all TOOK is held by the empty event, and a STANDING block is held by the
+# summary diff alone. That is exactly why the summary must carry no CI term — the one guard left
+# on that path is the one the CI reading would break. Re-implementing the diff inside this step
+# to suppress a repeated event was refused: the renderer already owns that comparison, and a
+# second copy of it here is how the two would disagree.
 #
 # Usage: step-retire-claims.sh --tick <tick-id> [--root <repo-root>]
 # Output: one JSON line — {step, status, reason, summary, needs_agent, event}
@@ -376,6 +385,31 @@ fi
 if [ "$finding_held" = "true" ]; then
     blocked=0
     rows="[]"
+fi
+
+# AN ACT THE LOOP BELIEVED IT TOOK AND DID NOT IS A REPOSITORY EVENT (2026-08-29, mission
+# `read-back-whether-the-loop-s-own-act-took-effect`). A retirement that WORKED still supplies
+# the event above; this adds the other outcome, which until now was visible only in the log.
+#
+# IT NAMES THE UNITS, NOT A COUNT OF STEPS THAT RAN — the 2026-08-23 rule that a root line is a
+# repository fact rather than the tick's bookkeeping.
+#
+# THE TWO EXISTING GUARDS ARE RELIED ON RATHER THAN RE-IMPLEMENTED, which is what keeps this
+# from becoming the hourly status line addressed to nobody that two keyed roots were retired for:
+# the root renders a step's line only when its SUMMARY differs from the same step's an hour ago,
+# and the summary is a function of the claim set and the container's act states alone — so a
+# standing block renders an identical summary and NO line, while a newly blocked unit moves the
+# unit set and is visible the hour it appears. A tick whose acts all took supplies no event here
+# at all, and *a step with no event renders no line* covers the rest.
+#
+# It is computed AFTER both suppressions on purpose: a unit CI is about to delete, and one whose
+# finding is already in flight as work, are not things to announce.
+if [ "$blocked" -eq 1 ]; then
+    ev_units=$(printf '%s' "$rows" | jq -r '[.[]? | .unit] | join(", ")' 2>/dev/null || printf '')
+    event="a claim proved finished is still standing — neither the container nor CI could delete its branch (${ev_units})"
+elif [ "$blocked" -gt 1 ]; then
+    ev_units=$(printf '%s' "$rows" | jq -r '[.[]? | .unit] | join(", ")' 2>/dev/null || printf '')
+    event="${blocked} claims proved finished are still standing — neither the container nor CI could delete their branches (${ev_units})"
 fi
 
 needs=""

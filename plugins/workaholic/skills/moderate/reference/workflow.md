@@ -1255,6 +1255,24 @@ every blocked unit at once; a unit is now held only on **its own** answer, and o
 `refused:<word>`, `unavailable` and `unreadable` all hold nothing — and a unit the reading never
 answered keeps its question **by construction**, because only named units are removed.
 
+**A blocked retirement supplies an `event`, and which guard holds which case moved with it**
+(2026-08-29, mission `read-back-whether-the-loop-s-own-act-took-effect`). An act the loop
+believed it took and did not is a repository fact a person should see the hour it appears, so the
+step's `event` now names those units — where before only a *successful* retirement supplied one.
+There were two independent guards against an hourly restatement, an unchanged summary **and** an
+empty event; a standing block now has one:
+
+| Case | What holds the root line |
+| ---- | ------------------------ |
+| a tick whose acts all took | **no event** — the *a step with no event renders no line* guard |
+| a **standing** blocked unit | **the summary diff** — identical string, so the step is not "changed" |
+| a **newly** blocked unit | neither: the unit set moves, so the summary moves and the line renders |
+
+That is the whole reason the summary must carry no CI term: on the standing-block path it is the
+only guard left. Re-implementing the renderer's diff inside the step to suppress a repeated event
+was refused — the renderer already owns that comparison, and a second copy is how the two would
+disagree.
+
 **And which executor took a delete is now rendered, from two states that already exist.**
 `deleted` means this tick performed the delete; `already_gone` means the ref was not on origin
 when this tick looked, and asserts nothing about who removed it — so the two render as *branch

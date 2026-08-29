@@ -313,6 +313,19 @@ jq -sc \
       # degraded walk as a healthy one — silently, which is the whole failure class again.
       | (($w.unreadable // false) or ($w.readable == false)) as $blind
       | {slug: $w.slug, title: ($s.title // $w.slug), status: ($s.status // ""),
+         # THE DECLARED STAGE THE OPERATOR WROTE DOWN, on every row (2026-08-29, mission
+         # `make-a-direction-s-lifecycle-a-declared-stage`). It rides BESIDE the derived
+         # readings and enters no derivation here: this survey gains no gate, no sort term and
+         # no refusal from it in this change. It comes straight off `list.sh`, which resolves
+         # the absent-means-進行中 default through `read.sh` — the ONE place that default
+         # lives — so an empty string here means only that the listed row could not be matched,
+         # which the sanctioned path (these slugs come from that same list) cannot produce.
+         #
+         # A DEGRADED ROW STILL CARRIES ITS STAGE. The stage is read off the artifact and the
+         # degradation is a property of the ATTRIBUTION WALK, so `attribution_unreadable` says
+         # nothing about whether the operator declared a phase — nulling it here would be the
+         # collapse the null counts beside it exist to prevent, in reverse.
+         stage: ($s.stage // ""),
          target_date: ($s.target_date // ""), days_to_target: days($s.target_date // ""),
          assignees: ($s.assignees // ""), owns: $w.owns, path: $w.path,
          feedback_refs: ($w.feedback_refs // []),
@@ -550,7 +563,7 @@ jq -sc \
      # rather than the list, because the list is the evidence a proposal is judged against
      # and a refused row is not being proposed against.
      refused: ((map(select(.refusal != ""))
-                | map({slug, reason: .refusal, pace, overdue, expiring, dormant, quiescent, title, assignees,
+                | map({slug, reason: .refusal, pace, overdue, expiring, dormant, quiescent, title, assignees, stage,
                        days_to_target, target_date, landed_count: ((.landed // []) | length),
                        # `residue` rides the refused rows for the same reason `landed_count`
                        # and `target_date` do (2026-08-27): an ARRIVED direction past its date

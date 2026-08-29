@@ -618,6 +618,20 @@ where the refusal vocabulary lives, above. The report is read by nobody on the d
 which is precisely why the brake is not here; and no question is added here either, because
 reaching a person is `/moderate`'s job and belongs in its own ask if it is wanted.
 
+### The declared stage rides on every row and gates nothing here
+
+(2026-08-29, mission `make-a-direction-s-lifecycle-a-declared-stage`.) `survey-strategies.sh`
+carries the direction's **declared** `stage` on every surveyed row, eligible and refused alike —
+the refused case being the point, since a settled direction is normally refused. It comes off
+`list.sh`, which resolves the absent-means-進行中 default through `read.sh`, the one place that
+default lives; a **degraded** row still carries it, because the degradation belongs to the
+attribution walk and the stage is read off the artifact.
+
+**In this reading it decides nothing**: `refusal`, `pace`, `overdue`, `expiring`, `dormant`,
+`quiescent`, the sort and `selected` are byte-identical across all three stages over an
+otherwise-identical fixture, which the hermetic suite pins rather than asserts. What the stage
+*does* is the next section's subject.
+
 ### The run report names what is waiting on the operator
 
 (2026-08-29, mission `follow-the-pull-requests-the-loop-opens-for-a-person`.) A tick names each

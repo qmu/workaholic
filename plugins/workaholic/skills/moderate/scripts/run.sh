@@ -67,7 +67,7 @@ PERSIST_LOG="${SCRIPT_DIR}/persist-log.sh"
 # The step list IS the contract (reference/workflow.md states each one's inputs,
 # what it may write, and its abort reasons). Order is the ask's order, which is
 # also cheapest-first: the log, then the reads, then the writes, then the ask.
-STEPS='open-log inbound-sweep workload-logs merge-conflicts issue-triage stuck-prs doc-drift release-status note-cadence strategy-pace direction-health stalled-units undrivable-units standing-rulings undelivered-units handoff-units thread-reconcile retire-claims closable-missions base-health strategy-digest question-answers unanswered-asks human-checkin'
+STEPS='open-log inbound-sweep workload-logs merge-conflicts issue-triage stuck-prs doc-drift release-status note-cadence strategy-pace direction-health stalled-units undrivable-units standing-rulings undelivered-units handoff-units thread-reconcile retire-claims closable-missions base-health strategy-digest question-answers unanswered-asks file-findings human-checkin'
 
 TICK=''
 ROOT='.'
@@ -157,6 +157,28 @@ json_array_len() {
 }
 
 rows=''
+# THE RUN'S OWN STEP REPORTS, READABLE BY A LATER STEP (2026-08-29). `file-findings` turns a
+# REPAIRABLE finding into work, and its candidates are what the earlier steps of THIS tick
+# reported — including each step's `event`, which is the honest "a repository event happened
+# here" signal and is the one field the tick log does not carry (the log keeps `status` and the
+# log-facing `summary`, by design). So the accumulated rows are written to a temp file and named
+# in the environment every step inherits.
+#
+# AN ENVIRONMENT VARIABLE RATHER THAN AN ARGUMENT, deliberately: `run.sh` invokes every step
+# with the same two flags, and a third passed to one step only would make the invocation
+# non-uniform for one consumer. A step that does not read the variable is unaffected by it.
+# The file lives outside the repository (mktemp), so the tick still writes nothing into the
+# tree but its own log line.
+REPORTS_FILE=$(mktemp 2>/dev/null || printf '')
+if [ -n "$REPORTS_FILE" ]; then
+    trap 'rm -f "$REPORTS_FILE"' EXIT
+    # Seeded EMPTY rather than left zero-length: a step that runs before any row exists —
+    # `--only file-findings`, or the first step of a tick — must read "no rows yet" and not
+    # "the reports could not be parsed". A degradation reported for an ordinary state is the
+    # collapse every reader in this skill is written against.
+    printf '{"steps": []}\n' > "$REPORTS_FILE"
+    export WORKAHOLIC_TICK_REPORTS="$REPORTS_FILE"
+fi
 # Derived, not parsed back out of the writer: `log_step` runs in a command
 # substitution, so anything it assigned would be lost with its subshell.
 DAY=$(printf '%s' "$TICK" | cut -c1-4)-$(printf '%s' "$TICK" | cut -c5-6)-$(printf '%s' "$TICK" | cut -c7-8)
@@ -180,6 +202,10 @@ emit_row() {
         blocked)  blocked=$((blocked + 1)) ;;
     esac
     needs_total=$((needs_total + $5))
+    # Refreshed after every row so a later step reads exactly what the steps before it
+    # reported — never a stale snapshot, and never the rows of a step that has not run.
+    [ -n "$REPORTS_FILE" ] && printf '{"steps": [%s]}\n' "$rows" > "$REPORTS_FILE"
+    return 0
 }
 
 log_step() {

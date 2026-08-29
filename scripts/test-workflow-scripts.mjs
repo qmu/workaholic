@@ -6829,6 +6829,83 @@ function testAttributedWorkWalkOutcome() {
   } finally { cleanup(dir); }
 }
 
+// ---------- the survey and the lifecycle refuse a row they could not read ----------
+// (2026-08-29, mission `keep-the-closing-link-readable-as-the-corpus-grows`)
+//
+// `survey-strategies.sh` derives `pace`, `dormant`, `quiescent`, the `waiting_*` grains and the
+// `work_waiting` gate FROM the attribution walk. None of them may be derived from a walk that
+// did not complete, and `work_waiting` above all must not stand OPEN on one: a gate that cannot
+// be read is not a gate, the rule `no_feedback_refs` and `inbox_unreadable` already hold
+// themselves to.
+//
+// MEASURED against the pre-change survey over this exact fixture: it put BOTH directions in
+// `eligible`, with `dormant: true`, `waiting_count: 0` and `selected: ["alpha","uncited"]` —
+// selecting a direction to propose against on a walk that read nothing, which is the failure
+// the ask names.
+function testSurveyRefusesADegradedWalk() {
+  const dir = makeRepo("main");
+  const SURVEY = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/survey-strategies.sh")}`;
+  const STATE = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/direction-state.sh")}`;
+  const wf = (rel, body) => {
+    const abs = join(dir, rel);
+    mkdirSync(dirname(abs), { recursive: true });
+    writeFileSync(abs, body);
+  };
+  try {
+    // The open-proposal gate is the survey's one network call; hand it a held read so the
+    // whole case stays offline, exactly as the neighbouring propose cases do.
+    writeFileSync(join(dir, "open.json"),
+      `{"ok": true, "identity": "tester", "proposals": []}`);
+    const open = `--open-proposals ${join(dir, "open.json")}`;
+    const strategy = (slug, refs) =>
+      `---\ntype: Strategy\ntitle: ${slug}\nslug: ${slug}\nstatus: active\n` +
+      `target_date: 2099-12-31\nassignees: [test@example.com]\nfeedback: [${refs}]\n---\n\n` +
+      `# ${slug}\n\n## Aim\n\nx\n\n## Schedule\n\ny\n`;
+    wf(".workaholic/strategies/alpha.md", strategy("alpha", "20260801000001-one.md"));
+    wf(".workaholic/missions/active/m-one/mission.md",
+      "---\ntype: Mission\ntitle: M One\nslug: m-one\nstatus: active\nfeedback: [20260801000001-one.md]\n---\n\n# M One\n");
+    wf(".workaholic/tickets/todo/20260810000001-queued.md",
+      "---\ncreated_at: 2026-08-10T00:00:00+00:00\nmission: m-one\n---\n\n# Queued work\n");
+    execSync("git add -A && git commit -q -m seed", { cwd: dir });
+
+    // ---- a row whose walk completed ----
+    const healthy = JSON.parse(run(dir, `${SURVEY} ${open} "14 days ago" .workaholic`).stdout);
+    const hRow = [...(healthy.eligible || []), ...(healthy.refused || [])].find((r) => r.slug === "alpha");
+    assertEq("a completed walk still brakes on its own work in flight",
+      hRow.reason, "work_waiting");
+    assertEq("and its readings are made, not withheld",
+      [hRow.pace, hRow.dormant, hRow.quiescent], ["on_course", false, false]);
+
+    // ---- the same row, one path the walk cannot hand to grep ----
+    wf(".workaholic/tickets/todo/has space.md",
+      "---\ncreated_at: 2026-08-12T00:00:00+00:00\n---\n\n# A path the walk cannot hand to grep\n");
+    execSync("git add -A && git commit -q -m 'Add an unconsumable corpus entry'", { cwd: dir });
+    const blind = JSON.parse(run(dir, `${SURVEY} ${open} "14 days ago" .workaholic`).stdout);
+    const bRow = (blind.refused || []).find((r) => r.slug === "alpha");
+    assertEq("a degraded walk is refused by the name this condition already had",
+      bRow && bRow.reason, "attribution_unreadable");
+    assertEq("no reading is derived from it — unmade, never false",
+      [bRow.pace, bRow.dormant, bRow.quiescent], ["unknown", false, false]);
+    assertEq("and no waiting count at all, because a zero here is the whole defect",
+      [bRow.waiting_count, bRow.waiting_missions], [null, null]);
+    assertEq("work_waiting does not stand open on a walk that could not prove it clear",
+      blind.selected, []);
+    // THE DATE TERMS ARE FACTS ABOUT THE STRATEGY, NOT ABOUT THE WALK, and must not move.
+    assertEq("the date-derived terms are untouched",
+      [bRow.overdue, bRow.expiring, bRow.target_date],
+      [hRow.overdue, hRow.expiring, hRow.target_date]);
+
+    // ---- the lifecycle answers through its EXISTING precedence, deriving nothing new ----
+    const state = JSON.parse(run(dir, `${STATE} ${open} "14 days ago" .workaholic`).stdout);
+    const sRow = state.strategies.find((r) => r.slug === "alpha");
+    assertEq("direction-state.sh reads unreadable off the refusal it already keyed on",
+      [state.readable, sRow.state, sRow.reason], [true, "unreadable", "attribution_unreadable"]);
+    assertEq("and carries the nulls through rather than putting the zeroed reading back",
+      [sRow.waiting.count, sRow.waiting.missions], [null, null]);
+    assertEq("the reader leaves the tree clean", run(dir, "git status --porcelain").stdout.trim(), "");
+  } finally { cleanup(dir); }
+}
+
 // ---------- standup/digest.sh + the /standup command are a READER ----------
 // The daily per-strategy digest (ticket `20260817115232`, 2026-08-17). Three properties are
 // worth a fixture, because none of them can be observed in this repository — it holds zero
@@ -18467,6 +18544,7 @@ const tests = [
   ["strategy/attributed-work.sh (the ONE attribution reader)", testStrategyAttributedWork],
   ["strategy/attributed-work.sh past the xargs batching boundary", testStrategyAttributedWorkPastBatchBoundary],
   ["strategy/attributed-work.sh tells found nothing from could not look", testAttributedWorkWalkOutcome],
+  ["the survey and the lifecycle refuse a row they could not read", testSurveyRefusesADegradedWalk],
   ["standup/digest.sh (the daily per-strategy digest)", testStandupDigest],
   ["moderate: the tick's own root, and the diff that keeps it silent", testModerateTickPost],
   ["moderate: the working-week gate holds the weekend without losing the question", testModerateWorkingDays],

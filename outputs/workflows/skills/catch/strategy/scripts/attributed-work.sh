@@ -29,8 +29,11 @@
 # omission: **absent means the walk completed** — the house convention `merge_policy`
 # (absent means review) and ticket `status:` (absent means queued) already use. So a
 # completed reading is byte-identical to what it was before this field existed, and a
-# consumer that has not been taught the term behaves exactly as it did. Read it as
-# `readable // true`, never as a bare truth test.
+# consumer that has not been taught the term behaves exactly as it did.
+#
+# READ IT AS `readable == false`, never as `readable // true`: in jq `//` treats `false`
+# itself as empty, so `false // true` is `true` and that spelling reads every degraded walk
+# as a healthy one — silently, which is the failure class this whole reading exists to end.
 #
 # Exit 0 in every case, degraded included.
 #

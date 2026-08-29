@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-29T07:20:44+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -83,3 +84,51 @@ script — a repair whose test never failed proves nothing.
   the split.
 - Keep the fixture's file bodies small; what has to be large is the **path list**, which is
   what `xargs` measures.
+
+## Final Report
+
+Development completed as planned.
+
+Reproduced by hand first, on this checkout at 2026-08-29 07:41 UTC: the corpus is
+1411 paths / 132292 bytes against a 131072-byte `xargs` command buffer, so it splits
+into two batches. The prefilter as it stands returned **0** candidates; the same walk
+appending across batches returned **26**. `attributed-work.sh
+an-autonomous-improvement-loop-run-by-the-routines "30 days ago"` answered
+`empty_reason: no_citing_artifacts`, `count: 0`, for a direction with 26 citing
+artifacts.
+
+Localized to the two call sites and the mechanism confirmed rather than assumed: a
+batch that matches nothing makes `grep -l` exit 1, `xargs` exit 123, and the
+`|| : > "${TMP}/cand1"` branch then truncates the file the earlier batches wrote.
+
+The new hermetic case fails against the unrepaired script exactly there:
+
+```
+# strategy/attributed-work.sh past the xargs batching boundary
+  ok    the fixture's corpus really does span more than one xargs batch
+  FAIL  a citation in an early batch survives a later batch that matches nothing
+         expected [".workaholic/missions/active/m-one/mission.md",
+                   ".workaholic/tickets/todo/20260810000001-queued.md"], got []
+  FAIL  hop 2's via_mission attribution crosses the boundary with it
+         expected ["direct","via_mission:m-one"], got []
+  FAIL  a direction with citing work is never reported as uncited past the boundary
+         expected [false,"no_activity_in_window",2], got [true,"no_citing_artifacts",0]
+  ok    no filler artifact is attributed — the prefilter still only decides worth reading
+  ok    the reader leaves the tree clean
+```
+
+Whole suite: 4865 passed, 3 failed — only the new case, and for the stated reason.
+`attributed-work.sh` is left unchanged; the repair is the next ticket.
+
+### Discovered Insights
+
+- **Insight**: the batching boundary is `xargs`'s own command buffer (131072 bytes on
+  GNU) and not `ARG_MAX` (2097152 here), so a fixture sized against `getconf ARG_MAX`
+  would never split.
+  **Context**: any later test of a corpus-scale property must derive the boundary by
+  probing `xargs` itself — the fixture counts how many times `xargs` invokes its
+  command — rather than reading a system constant or hard-coding a file count.
+- **Insight**: what `xargs` measures is the **path list**, never the file contents.
+  **Context**: a fixture past the boundary costs ~600 files with 180-character names
+  and three-line bodies, not 1400 realistic artifacts — cheap enough to run in the
+  hermetic suite on every commit.

@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-29T07:20:45+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -80,3 +81,44 @@ a property of one read, reported by the reader that made it.
 - Resist folding *could not look* into the existing `empty_reason` vocabulary: those name why
   a completed walk found nothing, and reusing them is precisely the conflation this mission
   exists to remove.
+
+## Final Report
+
+Development completed as planned.
+
+The walk now carries its own `{readable, reason}`, derived in exactly one place for both
+hops: `note_walk_failure`, whose only caller is the shared `prefilter`. Two hops each
+keeping their own answer is how two derivations of one fact drift, and this one is read
+by four consumers across the direction layer.
+
+The two exits are separated where they occur. `grep` exit 1 (no match in this batch)
+leaves the walk `readable: true`; exit 2 or more — surfacing as `xargs` 123, which the
+previous ticket's wrapper made mean *a real `grep` failure and nothing else* — marks it
+degraded. What the readable batches found is still kept: a partial read is reported as
+partial, never discarded and never dressed as complete.
+
+Two reasons, each naming what failed:
+
+- `patterns_unreadable` — the pattern set itself could not be read. Checked before the
+  walk rather than inferred from `grep`'s status afterwards, because an unreadable
+  pattern file and an unreadable corpus entry both exit 2 and a reason that cannot tell
+  them apart sends the reader to the wrong place.
+- `corpus_unreadable` — one or more corpus entries could not be read.
+
+The first failure wins, so a second hop failing for the same underlying cause cannot
+overwrite the more specific answer the first gave.
+
+Nothing is emitted from it: the hermetic case asserts the degraded walk's whole JSON
+object is byte-identical to the same fixture's output before the unreadable entry
+existed. Carrying the term into the reading is the next ticket.
+
+### Discovered Insights
+
+- **Insight**: this suite routinely runs as uid 0, where `chmod 000` does not deny a
+  read — measured, `grep -lFf` over a 000-mode file exits **1**, not 2, so a
+  permission-bit fixture would have asserted nothing.
+  **Context**: the degraded case is built instead from a corpus entry whose filename
+  contains a **space**. `xargs` splits on whitespace, so the entry arrives at `grep` as
+  two non-existent paths and `grep` exits 2 — a path the walk genuinely cannot consume,
+  reachable in any real repository, and reproducible whatever the suite runs as. Any
+  later test needing an unreadable input should reach for that rather than a mode bit.

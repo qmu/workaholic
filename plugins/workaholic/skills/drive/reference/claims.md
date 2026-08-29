@@ -341,6 +341,36 @@ word. `scripts/test-workflow-scripts.mjs` fails when the table and either consum
 about a word, or when a consumer acts on one classified `judgement` — the split is a fact a
 change can lose, not a claim in prose.
 
+### Whether the base still accepts a claim branch (`claim-mergeability.sh`)
+
+A **third vocabulary in the same home** (2026-08-29, mission
+`land-the-loop-s-own-work-when-the-base-moves-under-it`), keyed on what the *base* says about a
+branch rather than on whose business the claim is. It is rendered on every claim row as
+`mergeability` / `mergeability_reason`, beside `resume_reason` and never instead of it: *is this
+claim somebody's to take* and *does the base still accept it* are different questions, and one
+column answering both is how two readings drift.
+
+**There is no proof in this vocabulary either.** A base that moves is precisely a reading that
+becomes false by looking again — the one property a proof must not have — so no consumer may
+merge, revert, gate or release on it. `catch-up-claim.sh` re-derives its own answer at the
+moment of its act rather than trusting a list it was handed, which is the discipline
+`delete-retired-claim-branch.sh` already carries across an executor boundary.
+
+| Word | Class | What established it, and what a consumer may do |
+| ---- | ----- | ----------------------------------------------- |
+| `clean` | judgement | `git merge-tree` produced no conflict at all. It says the merge *would* apply as of this read; the base moves every half hour, so it proves nothing durable. **Report it**; the catch-up re-derives it before acting. |
+| `mechanical` | judgement | Every conflicted path is one the shared rule (`ship/scripts/lib/conflict-class.sh`) can settle without a judgement: an append-only `.workaholic/` tail, a version/lockstep manifest, or generated output — including an OKF index, wholly generated or generated-inside-its-markers. A consumer may **act** only through `catch-up-claim.sh`, which re-derives this and applies its own six refusals; nothing acts on the word itself. |
+| `content` | judgement | Some other path conflicts, so a person must judge which side keeps its behaviour. The catch-up refuses it `content_conflict`, writing nothing, and `/moderate`'s `catchup-blocked:<unit>` step asks the claim holder. **Never resolved by a machine.** |
+| `unanswerable` | judgement | The **absence** of a reading — no merge base, truncated history, an unreadable ref, a git without `merge-tree --write-tree`. It must never be reported as `clean` and never collapse into `content`: a wrong `clean` pushes a merge nobody proved, a wrong `content` only delays a unit. Named with its own reason and left alone. |
+
+**A branch nothing has attempted is not the same finding as one the loop looked at.** That is
+the whole reason `content` is a reading rather than a bare *conflicted* boolean:
+`/moderate`'s `merge-conflicts` step reports a pull request GitHub calls conflicted — *nobody
+has looked yet* — while `catchup-blocked` asks about a branch this rule classified — *the loop
+looked and only you can decide*. One unit never draws both: `merge-conflicts` counts what
+`catchup-blocked` asks about, in the same shape `stalled-units` counts what `handoff-units`
+asks about.
+
 ## Claim a unit
 
 ```bash

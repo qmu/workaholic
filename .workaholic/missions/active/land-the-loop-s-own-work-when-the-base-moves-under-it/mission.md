@@ -42,9 +42,10 @@ question: nobody looked, or the loop looked and only you decide.
 ## Acceptance
 
 - [x] Mergeability reads `clean|mechanical|content|unanswerable`, and a `mechanical` branch is caught up, validated, pushed and delivered in one turn. (#20260829062039-read-whether-a-claim-branch-still-merges.md)
-- [ ] Every refusal is named and writes nothing: `content`, foreign claim, scan-held, dirty tree, non-`work-*` (#20260829062039-catch-a-claim-branch-up-with-the-base.md)
+- [x] Every refusal is named and writes nothing: `content`, foreign claim, scan-held, dirty tree, non-`work-*` (#20260829062039-catch-a-claim-branch-up-with-the-base.md)
 - [ ] A refused `content` conflict reaches its holder as its own question, apart from one untried. (#20260829062039-ask-about-the-conflict-the-loop-must-not-resolve.md)
 
 ## Changelog
 - 2026-08-29 — ticket archived — 20260829062039-reproduce-the-base-drift-that-strands-a-unit.md
 - 2026-08-29 — ticket archived — 20260829062039-read-whether-a-claim-branch-still-merges.md
+- 2026-08-29 — ticket archived — 20260829062039-catch-a-claim-branch-up-with-the-base.md

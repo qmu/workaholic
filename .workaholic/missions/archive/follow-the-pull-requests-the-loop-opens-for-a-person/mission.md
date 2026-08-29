@@ -59,3 +59,4 @@ one says so by name and asks nobody.
 - 2026-08-29 — story reported — work-20260829-194055.md
 - 2026-08-29 — ticket archived — 20260829200500-carry-the-ruling-s-subject-markers-into-its-pull-request-body.md
 - 2026-08-29 — mission achieved — mission.md
+- 2026-08-29 — story reported — work-20260829-212718.md

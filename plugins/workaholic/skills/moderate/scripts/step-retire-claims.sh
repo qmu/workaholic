@@ -33,21 +33,36 @@
 # `.github/workflows/claim-retirement.yml`, where the write is permitted, so a blocked unit whose
 # branch a workflow is about to delete must draw NO question: asking a person, once per unit and
 # forever, for an act CI was about to perform is not merely noise — the ask is wrong. The reading
-# is `../../drive/scripts/ci-retirement-turn.sh` and it is STORE-FREE, which is the constraint
-# that shaped it: CI DELETES the branch on success and unmerged remote branches are the only
-# claim oracle, so a successful turn removes the claim row and the candidate with it. A completed
-# run at the base tip this tick is reading therefore means CI saw exactly this tree and the
-# branch survived it. `pending` (no completed run at this tip yet) SUPPRESSES the question for
-# this tick only — the asked-once ledger keys on the unit, so a branch that outlives CI's turn is
-# still asked about later. A read this step could not make, and a repository with no such
-# workflow, both leave the question exactly where it was: an over-eager question is better than a
-# silently dropped one, and this repository has measured the cost of a blocked act nobody was
-# told about.
+# is `../../drive/scripts/ci-retirement-turn.sh`.
 #
-# EVERYTHING ELSE ABOUT THE QUESTION IS BYTE-IDENTICAL: the key `retire-blocked:<unit>`, the
-# asked-once gate, the addressee, the per-tick cap, the quiet hours and the working-day hold.
-# Only the candidate set narrows — and the SUMMARY is deliberately untouched by the reading, so
-# that a held block keeps rendering identically (see the stability rule below); the CI reading
+# THAT READING RESTED ON A PREMISE WHICH WAS THE DESIGN AND NOT THE BEHAVIOUR, and the sentence
+# is corrected here rather than deleted (2026-08-29, mission
+# `read-back-whether-the-loop-s-own-act-took-effect`). It read: *CI DELETES the branch on success
+# and unmerged remote branches are the only claim oracle, so a successful turn removes the claim
+# row and the candidate with it; a completed run at the base tip this tick is reading therefore
+# means CI saw exactly this tree and the branch survived it.* That holds only if every completed
+# turn actually REACHED ITS ACT. Measured 2026-08-29: `claim-retirement.yml` was green on every
+# run while three proved-`superseded` claims stood on origin, and this step's own log line said,
+# hour after hour, *"ci_turn: taken so CI could not take the delete either"* — an assertion about
+# a second executor that nothing established. (The live cause: the CI-side act refuses
+# `gh_unavailable` before its proof gate.)
+#
+# WHAT REPLACED IT: the turn RECORDS what it attempted and what each act answered, and the
+# reading answers PER UNIT from that record. It is still STORE-FREE — nothing is stored anywhere,
+# and only which part of the run is consulted moved. `taken` (the act succeeded here) and
+# `pending` (no completed run at this tip yet) suppress this unit's question, `pending` for this
+# tick only — the asked-once ledger keys on the unit and its refusal word, so a branch that
+# outlives CI's turn is still asked about later. `refused:<word>`, `unavailable`, a read this
+# step could not make and a repository with no such workflow all leave the question exactly where
+# it was: an over-eager question is better than a silently dropped one, and this repository has
+# measured the cost of a blocked act nobody was told about.
+#
+# EVERYTHING ELSE ABOUT THE QUESTION IS BYTE-IDENTICAL: the asked-once gate, the addressee, the
+# per-tick cap, the quiet hours and the working-day hold. (The KEY gained the refusal word in the
+# same 2026-08-29 change, so it is asked once per (unit, refusal word) rather than once per unit
+# ever — see the key rule further down.) Only the candidate set narrows — and the SUMMARY is
+# deliberately untouched by the reading, so that a held block keeps rendering identically (see
+# the stability rule below); the CI reading
 # moves in and out of `needs_agent` and nowhere else.
 #
 # IT ACTS DIRECTLY RATHER THAN HANDING OFF, which is where it diverges from `closable-missions`

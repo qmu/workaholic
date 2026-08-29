@@ -31,6 +31,18 @@ This convention is machine-checked, so it cannot silently regress:
 Every workflow script talks to GitHub through **one transport**,
 `gather/scripts/gh-rest.sh` (`slug` / `api` / `available`), which is `gh api` — REST.
 
+**`available` asks whether REST answers here, and nothing else** (2026-08-29, mission
+`read-back-whether-the-loop-s-own-act-took-effect`). It probes `GET /rate_limit`, which every
+token type can call — a GitHub App **installation token** included, which is what `GITHUB_TOKEN`
+is inside a workflow. It probed `GET /user` until then, measuring *identity* and calling it
+*reachability*: `GET /user` is not accessible to an installation token, so every script guarded
+by it refused `gh_unavailable` in CI whatever its own operation's permissions were — measured on
+`claim-retirement.yml`, which holds `contents: write` and had deleted nothing since it shipped.
+A caller that genuinely needs a **person** calls `gh api user` itself and answers
+`identity_unresolved` in its own vocabulary (`open-proposal.sh`, `list-open-proposals.sh`,
+`list-inbound-issues.sh`, the web bootstrap); `available`'s `login` field is vestigial, always
+empty, and kept only so the output shape does not move.
+
 **Never `gh issue …`, `gh pr …`, or `gh repo …`.** Those subcommand families are
 GraphQL-backed, and a Claude Code Web session is *not guaranteed to serve that surface*:
 measured 2026-08-12 17:19 UTC in this repository's own `[Specificate]` tick,

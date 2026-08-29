@@ -2,7 +2,7 @@
 type: Mission
 title: Read back whether the loop's own act took effect
 slug: read-back-whether-the-loop-s-own-act-took-effect
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-29T15:20:59+00:00
 author: a@qmu.jp
@@ -60,3 +60,5 @@ No new store, no field, no second oracle.
 - 2026-08-29 — ticket archived — 20260829152420-state-an-act-s-effect-where-the-vocabulary-lives.md
 - 2026-08-29 — story reported — work-20260829-154131.md
 - 2026-08-29 — run recorded (+2.25h) — cse_01ES6osP3KSBKfSFnBJSVEmn
+- 2026-08-29 — ticket archived — 20260829160500-let-ci-s-act-reach-the-transport-it-holds-permission-for.md
+- 2026-08-29 — mission achieved — mission.md

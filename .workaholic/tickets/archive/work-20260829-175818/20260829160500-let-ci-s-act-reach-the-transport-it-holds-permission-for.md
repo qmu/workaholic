@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-29T16:05:00+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -115,3 +116,63 @@ ticket is what makes the refusal stop happening.
   chooses must be checked against it, since it is the one CI writer that currently works.
 - This ticket does not touch the effect reading its mission ships. After both, a turn that is
   refused says so **and** stops being refused — and the reading remains correct if it ever is.
+
+## Final Report
+
+Development completed as planned.
+
+**Step 1 settled the design.** Every caller of `available` was read: **seven** call sites, and
+**all seven test `"ok": true` and nothing else** — not one reads the `login` field. The four
+scripts that genuinely need an identity (`open-proposal.sh`, `list-open-proposals.sh`,
+`list-inbound-issues.sh`, the web bootstrap) call `gh api user` **themselves** and answer
+`identity_unresolved` in their own vocabulary. So `available` is asked exactly one question —
+*does REST answer here* — and was measuring identity as a proxy for it.
+
+**The probe is `GET /rate_limit`**, chosen against two alternatives and recorded so it is not
+re-opened:
+
+| Candidate | Verdict |
+| --------- | ------- |
+| `GET /rate_limit` | answers for **every** token type, installation tokens included; needs no repository context; consumes no quota |
+| `GET /repos/{slug}` | proves repository read too, but needs a slug — and `available` is called **before** `slug` by several callers, so it would answer `false` in any checkout with no resolvable remote |
+| `GET /user` | what was there: measures identity and calls it reachability |
+
+`login` is kept as an always-empty field so the output shape does not move, documented as
+vestigial. **No refusal word moved**: `gh_unavailable` and `rest_unreachable` mean what they
+meant; what changed is when `rest_unreachable` is true.
+
+**Measured before and after**, by stubbing `gh api user` to answer
+`403 Resource not accessible by integration`:
+
+| | before | after |
+| --- | ------ | ----- |
+| `gh-rest.sh available` | `rest_unreachable` | `ok: true` |
+| `delete-retired-claim-branch.sh` | `gh_unavailable` (before its proof gate) | reaches its transport |
+
+In this container the act then answers `branch_delete_failed` — the known session-type refusal
+that moved Act 2 to CI in the first place — which is the correct outcome here and the proof that
+the probe is no longer what stops it. `release-note-draft.yml`, the CI writer that already works,
+calls `available` nowhere and is unaffected.
+
+**`verify-ci-retirement` gains `ci_retirement_actions_credential`** — a seventh fixture claim
+deleted under a credential that cannot call `GET /user`, asserting `deleted` rather than
+`gh_unavailable`. That is the row that would have caught this.
+
+**The Gate's last item is honestly open.** The three branches standing since 2026-08-18/19/21 are
+deleted by CI's next turn, which fires on the push that merges this unit — after this run ends.
+It is not left unverifiable: the same mission made that turn record what it attempted, so the
+next `/moderate` tick reads `taken` or `refused:<word>` per unit rather than inferring anything.
+
+### Discovered Insights
+
+- **Insight**: a capability probe that authenticates *a person* silently excludes every non-user
+  token, and the failure surfaces as the guarded operation's refusal rather than as the probe's.
+  **Context**: this cost the loop every CI branch delete since `claim-retirement.yml` shipped, and
+  nothing pointed at `gh-rest.sh` — the act reported `gh_unavailable` about itself.
+- **Insight**: `GET /rate_limit` is the cheapest universal reachability probe — no repo context,
+  no quota, and reachable by user tokens, installation tokens and fine-grained tokens alike.
+  **Context**: worth reusing for any later "is this transport usable" question.
+- **Insight**: the drill's own `gh` stub never matched `api user` (its pattern was `user*` against
+  an `ARGS` of `api user --jq .login`), so the probe change passed the fixture unnoticed.
+  **Context**: the new row had to teach the stub the two endpoints apart before it could assert
+  anything — a stub that falls through to a generic success cannot drill a credential.

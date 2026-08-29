@@ -1689,6 +1689,86 @@ function testExpiringDirectionIsRead() {
   } finally { cleanup(A); }
 }
 
+// ---------- expiring: the boundary, and the window it is derived from (2026-08-29) ----------
+// The reading is admissible because it introduces NO NEW THRESHOLD: both of its terms were
+// already on the row and already justified there. So what has to be pinned is exactly that —
+// the boundary sits where the two existing terms put it, and the window is the survey's own
+// `$window_days` rather than a constant somebody would later have to defend.
+//
+// `overdue` AND `expiring` ARE EXHAUSTIVE AND DISJOINT over a resolvable date: `< 0` is
+// overdue, `0 <= d <= window` is expiring, and beyond the window is neither. A direction whose
+// date is TODAY is expiring, not overdue — the boundary the survey states rather than tunes.
+function testExpiringBoundary() {
+  const SURVEY = join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/survey-strategies.sh");
+  const A = makeRepo("main");
+  const W = join(A, ".workaholic");
+  const w = (p, body) => { mkdirSync(dirname(join(A, p)), { recursive: true }); writeFileSync(join(A, p), body); };
+  const day = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+  try {
+    w(".workaholic/feedbacks/20260101000000-a.md", "---\ntype: Feedback\n---\n\nx\n");
+    // One direction per boundary case, all otherwise identical.
+    const at = { yesterday: -1, today: 0, edge: 14, beyond: 15 };
+    for (const [slug, n] of Object.entries(at)) {
+      w(`.workaholic/strategies/${slug}.md`,
+        `---\ntype: Strategy\ntitle: T ${slug}\nslug: ${slug}\nstatus: active\ntarget_date: ${day(n)}\n` +
+        `assignees: [test@example.com]\nfeedback: [20260101000000-a.md]\n---\n\n## Aim\n\na\n\n## Schedule\n\ns\n`);
+    }
+    // And one with no resolvable date at all: malformed is not near, exactly as it is not late.
+    w(".workaholic/strategies/undated.md",
+      "---\ntype: Strategy\ntitle: T undated\nslug: undated\nstatus: active\ntarget_date: \n" +
+      "assignees: [test@example.com]\nfeedback: [20260101000000-a.md]\n---\n\n## Aim\n\na\n\n## Schedule\n\ns\n");
+    const open = join(A, "open.json");
+    writeFileSync(open, '{"ok": true, "identity": "test", "proposals": []}\n');
+    execSync("git add -A && git commit -q -m seed", { cwd: A });
+
+    const j = JSON.parse(run(A, `${POSIX_SH} ${SURVEY} --open-proposals ${open} "14 days ago" ${W}`).stdout);
+    const rows = j.eligible.concat(j.refused);
+    const by = (slug) => rows.find((r) => r.slug === slug);
+
+    // 1. EVERY ROW CARRIES IT, eligible and refused alike. The refused case is the point: a
+    // direction refused for any other reason still has a date coming.
+    assertEq("every surveyed row carries the reading",
+      rows.filter((r) => typeof r.expiring === "boolean").length, rows.length);
+
+    // 2. THE BOUNDARY, at each of its four corners plus the malformed case.
+    assertEq("a date that has gone is overdue and never expiring",
+      [by("yesterday").overdue, by("yesterday").expiring], [true, false]);
+    assertEq("a date that is today is expiring and not yet overdue",
+      [by("today").days_to_target, by("today").overdue, by("today").expiring], [0, false, true]);
+    assertEq("the last day of the window is inside it",
+      [by("edge").days_to_target, by("edge").expiring], [14, true]);
+    assertEq("and the day beyond it is outside",
+      [by("beyond").days_to_target, by("beyond").expiring], [15, false]);
+    assertEq("a direction with no resolvable date is never expiring",
+      [by("undated").days_to_target, by("undated").expiring, by("undated").overdue],
+      [null, false, false]);
+
+    // 3. THE WINDOW IS THE SURVEY'S OWN, not a constant. A narrower window moves the boundary
+    // with it, which is the property that makes the reading defensible: it means *less runway
+    // remains than the window the judgment can see*, and nothing else.
+    const narrow = JSON.parse(run(A, `${POSIX_SH} ${SURVEY} --open-proposals ${open} "7 days ago" ${W}`).stdout);
+    const nby = (slug) => narrow.eligible.concat(narrow.refused).find((r) => r.slug === slug);
+    assertEq("a narrower window narrows the reading with it",
+      [nby("today").expiring, nby("edge").expiring], [true, false]);
+
+    // 4. NO NEW CONSTANT AND NO FOURTH `pace` VALUE. The expression reads `$window_days` and
+    // the `pace` field keeps exactly its three answers.
+    const src = readFileSync(SURVEY, "utf8");
+    const block = src.slice(src.indexOf("| . + {expiring:"), src.indexOf("| . + {dormant:"));
+    const expr = block.split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+    // The only numeric literal the expression may carry is the `0` that separates it from
+    // `overdue` — a stated boundary, not a tunable. Any other number would be the constant the
+    // design refuses.
+    assertEq("the window term is the survey's own $window_days, with no constant beside it",
+      [/\$window_days/.test(expr),
+       (expr.match(/\d+/g) || []).filter((n) => n !== "0")],
+      [true, []]);
+    assertEq("pace still answers exactly three ways",
+      [...new Set(rows.map((r) => r.pace))].sort().every((p) => ["late", "on_course", "unknown"].includes(p)),
+      true);
+  } finally { cleanup(A); }
+}
+
 // ---------- the residue reaches no /propose gate (2026-08-28) ----------
 // The residue is REPORTED, never gated on: no refusal reads it, nothing is proposed or withheld
 // on it, and the one exception is stated rather than implied — `quiescent`, which is itself a
@@ -18068,6 +18148,7 @@ const tests = [
   ["an arrival is refused over a residue we could not read", testArrivalRefusedOverUnreadableResidue],
   ["the arrival question names the residue by slug", testArrivalQuestionNamesResidue],
   ["a direction is read before its date silences the loop", testExpiringDirectionIsRead],
+  ["expiring: the boundary, and the window it is derived from", testExpiringBoundary],
   ["the residue reaches no /propose gate", testResidueGatesNothing],
   ["strategy/carry-attribution.sh carries a ruling and refuses the rest", testCarryAttribution],
   ["strategy/amend.sh: the third writer, bounded", testStrategyAmend],

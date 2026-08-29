@@ -41,7 +41,7 @@ machine re-dates, closes or amends a direction.
 
 ## Acceptance
 
-- [ ] `expiring` is emitted on every surveyed row and ranked in the lifecycle
+- [x] `expiring` is emitted on every surveyed row and ranked in the lifecycle
       precedence, with the leaving carried onto it. (#20260829021946-emit-expiring-on-every-surveyed-row.md)
 - [ ] The assignee is asked `direction-expiring:<slug>` once, before the date,
       under every existing gate and hold. (#20260829021947-ask-the-assignee-once-before-the-date.md)
@@ -51,3 +51,4 @@ machine re-dates, closes or amends a direction.
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-29 — ticket archived — 20260829021946-reproduce-the-silent-expiry-and-pin-it.md
+- 2026-08-29 — ticket archived — 20260829021946-emit-expiring-on-every-surveyed-row.md

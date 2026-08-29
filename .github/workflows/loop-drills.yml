@@ -1,0 +1,92 @@
+name: Loop Drills
+
+# Runs the hermetic drill set on every push and pull request to `main`, so a merge that
+# breaks a mechanism an earlier turn of the loop proved fails HERE rather than waiting for
+# somebody to type a command.
+#
+# WHY THIS EXISTS (2026-08-29, mission `run-the-loop-s-own-proofs-on-every-turn`).
+# `scripts/e2e/loop-drill.sh` holds thirty `verify-*` drills, one per mechanism this
+# repository built, most of them hermetic and most carrying a breaker row asserted to fail.
+# NONE of them ran: `Validate Plugins` executes two of them indirectly through
+# `scripts/test-workflow-scripts.mjs` and relates to eight more by a regex proving a drill
+# *exists*, never that it *passes* — while the loop merges hourly and the archive gate closes
+# a mission on arithmetic. Measured on the first day this job was written: `verify-planner`
+# had been exiting 1 on the unmodified tree ever since its stub planner was written as an
+# escaped one-liner, and nobody knew.
+#
+# WHY A WORKFLOW OF ITS OWN RATHER THAN A STEP IN `Validate Plugins`. One reason, and it is
+# not wall clock (the whole set measured ~2m sequentially): **a check run is named after its
+# job**, so a matrix leg per drill makes the drill's own name the thing that goes red. That is
+# what lets `/moderate`'s `drill-health` step name the failing drill and the mission that
+# shipped it from `read-base-checks.sh` alone, with no extra call, no log parsing and no
+# permission beyond the default read. A single step inside another job would go red as
+# "Validate Plugins", which names neither. The legs also run in parallel, which is the answer
+# to the wall-clock risk the ticket named rather than a reason for the split.
+#
+# THE MATRIX IS DERIVED, NEVER LISTED HERE. `verify-all --list --kind hermetic` reads the
+# dispatcher's own `case` arms and the register in `docs/loop-drill-runbook.md` §9. A list in
+# this file would be the second hand-kept enumeration the whole mission exists to remove, and
+# `scripts/test-workflow-scripts.mjs` fails when a drill the verb cannot reach is added.
+#
+# ONLY THE HERMETIC SET. `reads_checkout` drills answer a question about the tree they ran in
+# rather than about a fixture they built, and `needs_server` drills take an issue number only
+# `seed` can mint against the real remote. Both are named skips in the verb's own output, not
+# quiet omissions.
+#
+# NO CREDENTIAL, AND NO PERMISSION BEYOND THE DEFAULT READ. The set was measured with no
+# `gh`, no `qfs`, no `ANTHROPIC_API_KEY` and no proxy; anything needing one was classified
+# `needs_server` and is not here. A `skipped` verdict must never fail the job — a gate that
+# goes red on a skip is disabled within a week — so the job fails on the verb's non-zero exit
+# and on nothing else.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  enumerate:
+    name: Enumerate the hermetic drill set
+    runs-on: ubuntu-latest
+    outputs:
+      drills: ${{ steps.list.outputs.drills }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - id: list
+        name: Read the set from the dispatcher and the register
+        run: |
+          set -eu
+          drills=$(sh scripts/e2e/loop-drill.sh verify-all --list --kind hermetic)
+          echo "$drills"
+          echo "drills=$drills" >> "$GITHUB_OUTPUT"
+
+  drill:
+    # The job's name IS the drill's name, so the check run that goes red names the drill.
+    name: ${{ matrix.drill }}
+    needs: enumerate
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        drill: ${{ fromJSON(needs.enumerate.outputs.drills) }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # DEFINED, NOT INHERITED. Several drills build git-backed fixtures and one
+          # (`verify-corpus-boundary`) grows a corpus past the `xargs` batching boundary; a
+          # shallow clone changes what they are able to read.
+          fetch-depth: 0
+
+      - name: Run the drill
+        run: |
+          set -eu
+          # The per-drill verdict document is printed in full so a red run is diagnosable
+          # without re-running anything locally.
+          sh scripts/e2e/loop-drill.sh verify-all --only "${{ matrix.drill }}"

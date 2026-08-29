@@ -49,3 +49,4 @@ name. A person is told only when something fails.
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-29 — ticket archived — 20260829122104-measure-which-drills-are-hermetic-per-drill.md

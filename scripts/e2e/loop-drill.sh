@@ -1,6 +1,7 @@
 #!/bin/sh -eu
 # Exercise the propose-implement loop on demand, end to end.
 #
+#   loop-drill.sh verify-all [--json]         # run the whole classified set, one verdict each
 #   loop-drill.sh seed                        # mint a fresh drill pair (issue + Slack root)
 #   loop-drill.sh status                      # report the drill's residue
 #   loop-drill.sh reset                       # recover an ABORTED run
@@ -42,10 +43,20 @@
 # hand is a GitHub issue, a Slack post, and afterwards an audit of stray branches;
 # that friction is why nobody drills the loop before changing it.
 #
-# WHY IT LIVES IN `scripts/`, NOT IN THE PLUGIN. This is operator tooling: it assumes
-# the server's full `gh` and `qfs`, which a plugin skill must never do (a skill ships
-# to 40+ agents through `outputs/`, and half of them have neither). It is invoked by a
-# human at a terminal, ships to no other agent, and is exempt from nothing else.
+# WHY IT LIVES IN `scripts/`, NOT IN THE PLUGIN. This is operator tooling: `seed`, `status`,
+# `reset` and the two stage verbs assume the server's full `gh` and `qfs`, which a plugin skill
+# must never do (a skill ships to 40+ agents through `outputs/`, and half of them have
+# neither). It ships to no other agent and is exempt from nothing else.
+#
+# THAT CLAIM ONCE COVERED THE WHOLE FILE AND NO LONGER DOES (2026-08-29, mission
+# `run-the-loop-s-own-proofs-on-every-turn`). Measured over all thirty `verify-*` commands with
+# no `gh`, no `qfs`, no key and no proxy: TWO need the server (`verify-specificate`,
+# `verify-implement`, which take an issue number only `seed` can mint), six answer a question
+# about THIS CHECKOUT, and twenty-two are hermetic — each building its own throwaway fixture.
+# The per-drill classification is `docs/loop-drill-runbook.md` §9, `verify-all` runs the set it
+# names, and `.github/workflows/loop-drills.yml` runs the hermetic part of it on every push.
+# A header claiming otherwise while CI runs the file beside it is the documentation defect this
+# repository's own rule refuses.
 #
 # WHAT IT NEVER DOES. It writes nothing under `.workaholic/`: feedback records,
 # tickets and stories are immutable history, and a drill that edited them would be
@@ -443,20 +454,37 @@ ACTIONABLE=""
 LOAD_FAILED=0
 LOAD_PASSED=0
 ADVISORY=0
+BREAKERS=0
 SHOW_ALL_ROWS="false"
 
-# add_row <check> <pass:true|false|null> <detail> <bearing:load|advisory>
+# add_row <check> <pass:true|false|null> <detail> <bearing:load|breaker|advisory>
 #
 # Both accumulators are built here rather than filtered at print time: a row's JSON
 # carries operator-written detail, and re-parsing that back out with sed to decide what
 # to print is the kind of cleverness that breaks on the first detail containing a brace.
+#
+# `breaker` IS `load` PLUS A NAME (2026-08-29, mission `run-the-loop-s-own-proofs-on-every-turn`).
+# A breaker row asserts that a DELIBERATELY BROKEN copy of the seam fails — so when the
+# breaker stops breaking, that row goes false and the drill exits 1 exactly as it always
+# did. What the third value adds is DISCOVERABILITY: about a dozen breaker rows were named
+# after what they assert (`retire_refuses_a_judgement`, `base_health_can_fail`, …) and five
+# after the convention (`checkin_breaker`, …), so nothing could answer *which drills have a
+# breaker* and *which have none*. A drill with no breaker is not failing — it is UNPROVED,
+# and `verify-all` reports it in its own right rather than inside the passing total.
+#
+# The alternative — renaming ~17 rows to a `*_breaker` convention — was refused: it changes
+# every affected drill's output keys (which the runbook's pasted verdicts and this
+# repository's own regression suite read) to say something a field can say for free.
 add_row() {
     _row="{\"check\": \"$(json_escape "$1")\", \"pass\": $2, \"detail\": \"$(json_escape "$3")\", \"bearing\": \"$4\"}"
     ROWS="$(append_row "$ROWS" "$_row")"
     if [ "$2" != "true" ]; then
         ACTIONABLE="$(append_row "$ACTIONABLE" "$_row")"
     fi
-    if [ "$4" = "load" ]; then
+    if [ "$4" = "breaker" ]; then
+        BREAKERS=$((BREAKERS + 1))
+    fi
+    if [ "$4" = "load" ] || [ "$4" = "breaker" ]; then
         if [ "$2" = "true" ]; then
             LOAD_PASSED=$((LOAD_PASSED + 1))
         else
@@ -541,8 +569,8 @@ emit_verdict() {
     else
         _rows="$ACTIONABLE"
     fi
-    printf '{"ok": %s, "stage": "%s", "issue": %s, "verdict": "%s", "load_bearing": {"passed": %s, "failed": %s}, "advisory": %s, "rows": [%s]}\n' \
-        "$_ok" "$_stage" "$_issue" "$_verdict" "$LOAD_PASSED" "$LOAD_FAILED" "$ADVISORY" "$_rows"
+    printf '{"ok": %s, "stage": "%s", "issue": %s, "verdict": "%s", "load_bearing": {"passed": %s, "failed": %s}, "advisory": %s, "breakers": %s, "rows": [%s]}\n' \
+        "$_ok" "$_stage" "$_issue" "$_verdict" "$LOAD_PASSED" "$LOAD_FAILED" "$ADVISORY" "$BREAKERS" "$_rows"
     exit "$_code"
 }
 
@@ -1135,7 +1163,22 @@ cmd_verify_planner() {
         # (2) THE STUB. The planner command is pluggable precisely so the chain can be
         # driven with no key and no network; the stub answers with one group holding
         # every merge it was shown, in the order it was shown them.
-        printf '#!/bin/sh\nsed -n "s/^- #\\([0-9]*\\) .*/\\1/p" | awk "BEGIN{printf \"{\\"groups\\":[{\\"title\\":\\"Drill group\\",\\"items\\":[\"} {printf \"%%s{\\"pr\\":%%s}\", (n++?\",\":\"\"), \$1} END{print \"]}]}\"}"\n' > "$_work/bin/wh-drill-planner"
+        #
+        # WRITTEN AS A QUOTED HEREDOC, never as a `printf` of an escaped one-liner
+        # (2026-08-29, mission `run-the-loop-s-own-proofs-on-every-turn`). The escaped
+        # form put the awk program inside DOUBLE quotes, so its own `\"` closed the
+        # program string and awk answered `runaway string constant` on every run: the
+        # stub had never once produced a plan, `planner_authors` and `planner_arranges`
+        # were `false` on an unmodified tree, and nothing noticed because nothing ran
+        # the drill. A quoted heredoc needs no escaping at all, which is why it cannot
+        # regress the same way.
+        cat > "$_work/bin/wh-drill-planner" <<'DRILL_PLANNER'
+#!/bin/sh
+sed -n 's/^- #\([0-9]*\) .*/\1/p' \
+    | awk 'BEGIN{printf "{\"groups\":[{\"title\":\"Drill group\",\"items\":["}
+           {printf "%s{\"pr\":%s}", (n++?",":""), $1}
+           END{print "]}]}"}'
+DRILL_PLANNER
         chmod +x "$_work/bin/wh-drill-planner"
         _a=$(cd "$REPO_ROOT" && PATH="$_work/bin:$PATH" WORKAHOLIC_PLANNER_CMD=wh-drill-planner sh "$_planner" --target "$_slug" --out "$_work/out" "$BASE_BRANCH" 2>&1) || true
         if printf '%s' "$_a" | grep -q '"planned": true'; then
@@ -1654,9 +1697,9 @@ cmd_verify_revision() {
     _o=$(_amendit ship-the-platform --status achieved)
     if [ "$(_field "$_o" reason)" = "bad_option" ] && [ "$_h" = "$(_hash)" ] \
         && [ "$(_fm status)" = "status: active" ]; then
-        add_row "revision_immutable_field_unreachable" true "an immutable field is unreachable from the interface -- this drill can fail" load
+        add_row "revision_immutable_field_unreachable" true "an immutable field is unreachable from the interface -- this drill can fail" breaker
     else
-        add_row "revision_immutable_field_unreachable" false "an immutable field was reachable: $(one_line "$_o")" load
+        add_row "revision_immutable_field_unreachable" false "an immutable field was reachable: $(one_line "$_o")" breaker
     fi
 
     # 7. A CLOSED DIRECTION IS HISTORY. `close.sh` stays the only writer of an end state, and
@@ -2015,9 +2058,9 @@ EOF
     # mission. If `quiescent` ever stopped reading the waiting terms, this is the only row that
     # would notice — every other row here would still pass.
     if [ "$(_stateof busy)" = "live" ]; then
-        add_row "arrival_waiting_work_is_not_arrival" true "a direction with work still waiting reads live, never arrived -- this drill can fail" load
+        add_row "arrival_waiting_work_is_not_arrival" true "a direction with work still waiting reads live, never arrived -- this drill can fail" breaker
     else
-        add_row "arrival_waiting_work_is_not_arrival" false "a direction with waiting work read '$(_stateof busy)', so arrival is being asserted over work in flight" load
+        add_row "arrival_waiting_work_is_not_arrival" false "a direction with waiting work read '$(_stateof busy)', so arrival is being asserted over work in flight" breaker
     fi
 
     # A READING WE COULD NOT MAKE IS NAMED, never dressed as an arrival.
@@ -2251,9 +2294,9 @@ EOF
     # on. `retired` is archived AND unattributed -- the exact entry that appears if the reader is
     # ever wired at the archive, and the only one in this fixture that would.
     if printf '%s' "$_res" | grep -q '"slug": *"retired"'; then
-        add_row "residue_reads_the_active_area" false "an ARCHIVED mission reached the residue, so the reader is not reading the active area -- this drill can fail" load
+        add_row "residue_reads_the_active_area" false "an ARCHIVED mission reached the residue, so the reader is not reading the active area -- this drill can fail" breaker
     else
-        add_row "residue_reads_the_active_area" true "only active missions reach the residue; the archived, unattributed one does not" load
+        add_row "residue_reads_the_active_area" true "only active missions reach the residue; the archived, unattributed one does not" breaker
     fi
 
     # THE DEGRADED READ, AND IT IS NOT AN EMPTY RESIDUE. The reader it composes is removed from
@@ -2507,9 +2550,9 @@ EOF
         "$_bfile" > "${_broke}/b.sh" && mv "${_broke}/b.sh" "$_bfile"
     _bwork=$(cd "$_root" && sh "$_bfile" dir1 "14 days ago" "$_W" 2>&1) || true
     if printf '%s' "$_bwork" | grep -q 'no_citing_artifacts'; then
-        add_row "corpus_batching_tolerance_holds" true "restoring the truncating branch on hop 1 loses the citation -- this drill can fail" load
+        add_row "corpus_batching_tolerance_holds" true "restoring the truncating branch on hop 1 loses the citation -- this drill can fail" breaker
     else
-        add_row "corpus_batching_tolerance_holds" false "the truncating branch did not lose the citation, so this row proves nothing: $(one_line "$_bwork")" load
+        add_row "corpus_batching_tolerance_holds" false "the truncating branch did not lose the citation, so this row proves nothing: $(one_line "$_bwork")" breaker
     fi
 
     # AND THE SAME BREAKER ON HOP 2, SEPARATELY. Reverting hop 1 hides hop 2 behind it -- with
@@ -2524,9 +2567,9 @@ EOF
     _b2work=$(cd "$_root" && sh "$_b2file" dir1 "14 days ago" "$_W" 2>&1) || true
     if printf '%s' "$_b2work" | grep -q '"attribution":"direct"' \
         && ! printf '%s' "$_b2work" | grep -q 'via_mission:m-one'; then
-        add_row "corpus_batching_tolerance_holds_on_hop_2" true "restoring the truncating branch on hop 2 loses the via_mission attribution while hop 1 survives -- this drill can fail on either hop" load
+        add_row "corpus_batching_tolerance_holds_on_hop_2" true "restoring the truncating branch on hop 2 loses the via_mission attribution while hop 1 survives -- this drill can fail on either hop" breaker
     else
-        add_row "corpus_batching_tolerance_holds_on_hop_2" false "reverting hop 2 did not lose its attribution, so this row proves nothing: $(one_line "$_b2work")" load
+        add_row "corpus_batching_tolerance_holds_on_hop_2" false "reverting hop 2 did not lose its attribution, so this row proves nothing: $(one_line "$_b2work")" breaker
     fi
 
     # THE CHAIN, HEALTHY. An unrefused row with real waiting grains, a residue that does not name
@@ -2736,9 +2779,9 @@ EOF
     _nb=$(printf '%s' "$_narrow" | jq -r '(.strategies // []) | map(select(.slug == "boundary")) | (first // {}) | .state // ""' 2>/dev/null | head -1)
     _wb=$(_stateof boundary)
     if [ "$_wb" = "expiring" ] && [ "$_nb" != "expiring" ]; then
-        add_row "expiry_window_is_the_surveys_own" true "a direction a week out is expiring at 14 days and '${_nb}' at 3 -- the window is the survey-s own, not a constant, and this drill can fail" load
+        add_row "expiry_window_is_the_surveys_own" true "a direction a week out is expiring at 14 days and '${_nb}' at 3 -- the window is the survey-s own, not a constant, and this drill can fail" breaker
     else
-        add_row "expiry_window_is_the_surveys_own" false "the window did not move the reading: 14 days gave '${_wb}', 3 days gave '${_nb}'" load
+        add_row "expiry_window_is_the_surveys_own" false "the window did not move the reading: 14 days gave '${_wb}', 3 days gave '${_nb}'" breaker
     fi
 
     # THE QUESTION. Its key is what the asked-once ledger keys on, so a key that drifts is a
@@ -2945,9 +2988,9 @@ EOF
     if printf '%s' "$_r" | grep -q 'carry-attribution.sh <strategy> orphan' \
         && printf '%s' "$_r" | grep -q '"repair": *"<login>=stranger@example.com"' \
         && ! printf '%s' "$_r" | grep -q '"decision": *"dir1"'; then
-        add_row "rulings_no_script_judges" true "with one direction and one orphan the reader still answers undecided and leaves both placeholders" load
+        add_row "rulings_no_script_judges" true "with one direction and one orphan the reader still answers undecided and leaves both placeholders" breaker
     else
-        add_row "rulings_no_script_judges" false "a script judged a ruling on its own: $(one_line "$_r")" load
+        add_row "rulings_no_script_judges" false "a script judged a ruling on its own: $(one_line "$_r")" breaker
     fi
 
     # 2. A JUDGED SET LANDS AS ONE PULL REQUEST — AND THE SEAM REFUSES TO MERGE IT.
@@ -2955,9 +2998,9 @@ EOF
     if printf '%s' "$_d" | grep -q '"merge_reason": *"ruling_touching"' \
         && printf '%s' "$_d" | grep -q '"merged": *false' \
         && printf '%s' "$_d" | grep -q '"published": *true'; then
-        add_row "rulings_seam_never_merges" true "a ruling is left open even with WORKAHOLIC_AUTO_MERGE=1 set" load
+        add_row "rulings_seam_never_merges" true "a ruling is left open even with WORKAHOLIC_AUTO_MERGE=1 set" breaker
     else
-        add_row "rulings_seam_never_merges" false "a ruling was not held open: $(one_line "$_d")" load
+        add_row "rulings_seam_never_merges" false "a ruling was not held open: $(one_line "$_d")" breaker
     fi
     if printf '%s' "$_d" | grep -q '"status": *"carried"' \
         && printf '%s' "$_d" | grep -q '"status": *"mapped"' \
@@ -3237,9 +3280,9 @@ EOF
     if ! grep -qiE 'predecessor|successor' "$_create" \
         && grep -q 'ask-feedback-line.sh' "$_flow" \
         && grep -qiE 'predecessor' "$_wired"; then
-        add_row "succession_carry_is_wired_at_the_ask_line" true "the carry is composed at the ask line, create.sh knows nothing of it, and the detection fires on a wired copy" load
+        add_row "succession_carry_is_wired_at_the_ask_line" true "the carry is composed at the ask line, create.sh knows nothing of it, and the detection fires on a wired copy" breaker
     else
-        add_row "succession_carry_is_wired_at_the_ask_line" false "the carry reached create.sh, or the ask line no longer composes it" load
+        add_row "succession_carry_is_wired_at_the_ask_line" false "the carry reached create.sh, or the ask line no longer composes it" breaker
     fi
 
     # 9. NOTHING CLOSED A DIRECTION ON ITS OWN READING, AND NOTHING AUTHORED ONE. The readers in
@@ -3547,9 +3590,9 @@ cmd_verify_identity_handoff() {
     _badpath=$(printf '%s' "$_bad" | sed -n 's/.*"path": "\([^"]*\)".*/\1/p')
     ( cd "$_repo" && _git add -A && _git commit -qm "emit unresolved" ) >/dev/null 2>&1 || true
     if [ "$(_offered "$_badpath")" -eq 0 ]; then
-        add_row "identity_handoff_fails_when_dropped" true "an address the mapping does not name is excluded, so the drill can fail" load
+        add_row "identity_handoff_fails_when_dropped" true "an address the mapping does not name is excluded, so the drill can fail" breaker
     else
-        add_row "identity_handoff_fails_when_dropped" false "an unmapped address was still offered; this drill cannot fail and proves nothing" load
+        add_row "identity_handoff_fails_when_dropped" false "an unmapped address was still offered; this drill cannot fail and proves nothing" breaker
     fi
 
     _after=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
@@ -3751,9 +3794,9 @@ cmd_verify_close() {
     # the new verdict is claimed only on positive evidence. Proving that the silence returns
     # when the record is missing is what proves this drill can fail.
     if [ "$(_verdict batch-silent)" = "queue_drained" ]; then
-        add_row "close_unrecorded_stays_silent" true "an unrecorded outcome falls back to queue_drained, so the verdict is never asserted without evidence -- this drill can fail" load
+        add_row "close_unrecorded_stays_silent" true "an unrecorded outcome falls back to queue_drained, so the verdict is never asserted without evidence -- this drill can fail" breaker
     else
-        add_row "close_unrecorded_stays_silent" false "an unrecorded outcome read '$(_verdict batch-silent)', so the verdict is being asserted without evidence" load
+        add_row "close_unrecorded_stays_silent" false "an unrecorded outcome read '$(_verdict batch-silent)', so the verdict is being asserted without evidence" breaker
     fi
 
     # NO NETWORK, AND NOTHING WRITTEN INTO THE CHECKOUT.
@@ -3992,9 +4035,9 @@ cmd_verify_catch_up() {
     _fo=$(_run batch-foreign)
     if [ "$(_tip work-20260101-000004)" = "$_f_before" ] \
         && printf '%s' "$_fo" | grep -qE '"reason": "(foreign_identity|not_my_claim)"'; then
-        add_row "catch_up_refuses_a_foreign_claim" true "a colleague's claim is refused by name and its branch never moves -- this drill can fail" load
+        add_row "catch_up_refuses_a_foreign_claim" true "a colleague's claim is refused by name and its branch never moves -- this drill can fail" breaker
     else
-        add_row "catch_up_refuses_a_foreign_claim" false "a colleague's branch was touched, or the refusal was not named: $(one_line "$_fo")" load
+        add_row "catch_up_refuses_a_foreign_claim" false "a colleague's branch was touched, or the refusal was not named: $(one_line "$_fo")" breaker
     fi
 
     # NOTHING OUTSIDE THE FIXTURE IS WRITTEN. Operator tooling that dirties the operator's own
@@ -4254,9 +4297,9 @@ cmd_verify_retire() {
     _live_out=$(_retire batch-live)
     if [ "$(_field "$_live_out" reason)" = "not_superseded:${_live_verdict}" ] \
         && [ "$(_field "$_live_out" remote_branch_deleted)" = "not_attempted" ]; then
-        add_row "retire_refuses_a_judgement" true "a live claim is refused by its own verdict word with nothing attempted -- this drill can fail" load
+        add_row "retire_refuses_a_judgement" true "a live claim is refused by its own verdict word with nothing attempted -- this drill can fail" breaker
     else
-        add_row "retire_refuses_a_judgement" false "a live claim was not refused by name: $(one_line "$_live_out")" load
+        add_row "retire_refuses_a_judgement" false "a live claim was not refused by name: $(one_line "$_live_out")" breaker
     fi
 
     # ------------------------------------------------------------------------------------
@@ -4356,11 +4399,11 @@ esac"
     # rather than reversed, and the two-outcome fixture is deliberate: an earlier version of
     # this row carried only `batch-retirable` and passed against a seam broken to *any refusal*.
     if printf '%s' "$_bstep" | grep -q 'retire-blocked:batch-retirable'; then
-        add_row "retire_blocked_only_the_blocked" false "a unit whose retirement SUCCEEDED still drew a question -- the candidate set was widened to every superseded row" load
+        add_row "retire_blocked_only_the_blocked" false "a unit whose retirement SUCCEEDED still drew a question -- the candidate set was widened to every superseded row" breaker
     elif printf '%s' "$_bstep" | grep -q 'retire-blocked:batch-closefail'; then
-        add_row "retire_blocked_only_the_blocked" false "a unit refused on the pull-request CLOSE still drew a question -- the candidate set was widened to every refusal" load
+        add_row "retire_blocked_only_the_blocked" false "a unit refused on the pull-request CLOSE still drew a question -- the candidate set was widened to every refusal" breaker
     else
-        add_row "retire_blocked_only_the_blocked" true "neither a retirement that succeeded nor one refused on another act asks anybody anything; only the blocked delete does (this drill can fail)" load
+        add_row "retire_blocked_only_the_blocked" true "neither a retirement that succeeded nor one refused on another act asks anybody anything; only the blocked delete does (this drill can fail)" breaker
     fi
 
     # 13. A STANDING BLOCK IS NOT AN HOURLY CHANGE. Two consecutive ticks over an unchanged
@@ -4739,9 +4782,9 @@ STUB
         sh "$_broken" batch-ci-live ) 2>&1 || true )
     if printf '%s' "$_bout" | grep -q '"deleted": true' \
         && [ "$(_on_origin work-20260201-000002)" = "0" ]; then
-        add_row "ci_retirement_breaker" true "with BOTH halves of the re-proof removed the act deletes a live claim's branch -- either guard alone stops it, and this drill can fail" load
+        add_row "ci_retirement_breaker" true "with BOTH halves of the re-proof removed the act deletes a live claim's branch -- either guard alone stops it, and this drill can fail" breaker
     else
-        add_row "ci_retirement_breaker" false "the breaker did not break: removing the proof gate changed nothing, so the gate assertion proves nothing ($(one_line "$_bout"))" load
+        add_row "ci_retirement_breaker" false "the breaker did not break: removing the proof gate changed nothing, so the gate assertion proves nothing ($(one_line "$_bout"))" breaker
     fi
 
     _after=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
@@ -4990,9 +5033,9 @@ cmd_verify_base_health() {
     _clear "$_c4"
     _broken=$(_read_at "$_c4")
     if [ "$(_field "$_broken" state)" = "unanswerable" ] && [ "$(_field "$_broken" ok)" != "true" ]; then
-        add_row "base_health_can_fail" true "INTENTIONAL CASE: a commit with no checks is unanswerable, never green -- this drill can fail" load
+        add_row "base_health_can_fail" true "INTENTIONAL CASE: a commit with no checks is unanswerable, never green -- this drill can fail" breaker
     else
-        add_row "base_health_can_fail" false "INTENTIONAL CASE: a commit with no checks did not read unanswerable: $(one_line "$_broken")" load
+        add_row "base_health_can_fail" false "INTENTIONAL CASE: a commit with no checks did not read unanswerable: $(one_line "$_broken")" breaker
     fi
 
     _after=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
@@ -5152,9 +5195,9 @@ cmd_verify_delivery_retry() {
     _silent=$(_run batch-silent)
     if printf '%s' "$_silent" | grep -q '"attempted": false' \
         && [ "$(_field "$_silent" reason)" = "not_undelivered:queue_drained" ]; then
-        add_row "retry_unrecorded_never_tried" true "an unrecorded outcome is never retried, so no merge rests on an assumption -- this drill can fail" load
+        add_row "retry_unrecorded_never_tried" true "an unrecorded outcome is never retried, so no merge rests on an assumption -- this drill can fail" breaker
     else
-        add_row "retry_unrecorded_never_tried" false "an unrecorded outcome reached the merge seam: $(one_line "$_silent")" load
+        add_row "retry_unrecorded_never_tried" false "an unrecorded outcome reached the merge seam: $(one_line "$_silent")" breaker
     fi
 
     _after=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
@@ -5329,9 +5372,9 @@ cmd_verify_handoff_question() {
 
     # ...and only the unit that declared one. The released unit must not appear.
     if printf '%s' "$_out" | grep -q 'handoff-unit:batch-released'; then
-        add_row "handoff_question_releases_on_drive" false "a unit whose declaring ticket was driven is still asked about -- the reading consulted the ARCHIVED work" load
+        add_row "handoff_question_releases_on_drive" false "a unit whose declaring ticket was driven is still asked about -- the reading consulted the ARCHIVED work" breaker
     else
-        add_row "handoff_question_releases_on_drive" true "a unit whose declaring ticket was driven is not asked about -- the reading is self-releasing (this drill can fail)" load
+        add_row "handoff_question_releases_on_drive" true "a unit whose declaring ticket was driven is not asked about -- the reading is self-releasing (this drill can fail)" breaker
     fi
 
     # 3. ASKED ONCE. The gate is the check-in's, not this step's, so the drill exercises the gate
@@ -5563,9 +5606,9 @@ cmd_verify_return_path() {
     _wire_at_channel
     _bout=$(_in sh "${_broken}/step-question-answers.sh" --tick 20260101-130000 --root "$_fx")
     if printf '%s' "$_bout" | grep -q 'NO search, NO channel history'; then
-        add_row "return_path_breaker" false "the breaker row did not break the seam, so this drill cannot fail" load
+        add_row "return_path_breaker" false "the breaker row did not break the seam, so this drill cannot fail" breaker
     else
-        add_row "return_path_breaker" true "a step wired at the channel fails the bound check the real step passes (this drill can fail)" load
+        add_row "return_path_breaker" true "a step wired at the channel fails the bound check the real step passes (this drill can fail)" breaker
     fi
 
     # 8. NOTHING WAS WRITTEN OUTSIDE THE FIXTURE.
@@ -5809,9 +5852,9 @@ cmd_verify_reconcile() {
     _bout=$( cd "$_fx" && PATH="${_bin}:$PATH" WORKAHOLIC_BASE_REF="$_base" \
         sh "$_broken" --root "$_fx" --window-days 3 2>&1 || true )
     if printf '%s' "$_bout" | grep -q '"number": 11'; then
-        add_row "reconcile_breaker" false "the breaker row did not break the seam, so this drill cannot fail" load
+        add_row "reconcile_breaker" false "the breaker row did not break the seam, so this drill cannot fail" breaker
     else
-        add_row "reconcile_breaker" true "a candidate reader wired at the channel names no candidate, so row 1 fails there (this drill can fail)" load
+        add_row "reconcile_breaker" true "a candidate reader wired at the channel names no candidate, so row 1 fails there (this drill can fail)" breaker
     fi
 
     # 10. NOTHING WAS WRITTEN OUTSIDE THE FIXTURE.
@@ -6016,9 +6059,9 @@ cmd_verify_checkin_delivery() {
     done
     _b=$(sh "${_broken}/ask-question.sh" --root "$_bfx" --tick 20260828-140000 --key "q:yak" $_when 2>&1 || true)
     if [ "$(_reason "$_b")" = "day_cap" ]; then
-        add_row "checkin_breaker" true "with the day count unbounded again the held question is refused day_cap (this drill can fail)" load
+        add_row "checkin_breaker" true "with the day count unbounded again the held question is refused day_cap (this drill can fail)" breaker
     else
-        add_row "checkin_breaker" false "the breaker did not break: an unbounded count still asked the question, so row 2 proves nothing ($(one_line "$_b"))" load
+        add_row "checkin_breaker" false "the breaker did not break: an unbounded count still asked the question, so row 2 proves nothing ($(one_line "$_b"))" breaker
     fi
 
     # 8. NOTHING WAS WRITTEN OUTSIDE THE FIXTURE, AND NOTHING WAS POSTED.
@@ -6225,9 +6268,9 @@ EOF
     _bout=$(_run_step empty "${_broken}/skills/moderate/scripts/step-file-findings.sh")
     case "$(_cands "$_bout")" in
         *undrivable-units*)
-            add_row "findings_breaker" true "with the classification widened to every finding, a needs_ruling finding reaches the filer (this drill can fail)" load ;;
+            add_row "findings_breaker" true "with the classification widened to every finding, a needs_ruling finding reaches the filer (this drill can fail)" breaker ;;
         *)
-            add_row "findings_breaker" false "the breaker did not break: widening the classification changed nothing, so row 1 proves nothing ('$(_cands "$_bout")')" load ;;
+            add_row "findings_breaker" false "the breaker did not break: widening the classification changed nothing, so row 1 proves nothing ('$(_cands "$_bout")')" breaker ;;
     esac
 
     # 9. THE NEGATIVE SPACE: nothing outside the fixture was written, and no branch, pull
@@ -6253,7 +6296,212 @@ EOF
     emit_verdict "findings-to-work" 0 "pass" 0
 }
 
-USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-specificate <issue>|verify-implement <issue>|verify-plan [--json]|verify-status [--json]|verify-cadence [--json]|verify-planner [--json]|verify-standup [--json]|verify-moderate [--json]|verify-propose [--json]|verify-direction-health [--json]|verify-arrival [--json]|verify-residue [--json]|verify-expiry [--json]|verify-rulings [--json]|verify-succession [--json]|verify-revision [--json]|verify-merged-claim [--json]|verify-identity-handoff [--json]|verify-close [--json]|verify-catch-up [--json]|verify-corpus-boundary [--json]|verify-retire [--json]|verify-ci-retirement [--json]|verify-delivery-retry [--json]|verify-handoff-question [--json]|verify-base-health [--json]|verify-return-path [--json]|verify-reconcile [--json]|verify-checkin-delivery [--json]|verify-findings-to-work [--json]"}'
+# ------------------------------------------------------------------ verify-all
+#
+# THE AGGREGATE VERB (2026-08-29, mission `run-the-loop-s-own-proofs-on-every-turn`).
+# Thirty drills, one per mechanism an earlier turn of the loop built — and until this verb
+# each was invoked by hand, one at a time, its result a JSON line a person read. Nothing
+# composed them, so there was no artifact a CI step or a `/moderate` step could read, and
+# the loop merged hourly with no idea whether what it had already proved still held.
+#
+# THE SET COMES FROM THE DISPATCHER PLUS THE REGISTER, NEVER FROM A LIST HERE. The
+# dispatcher's `case` arms are the enumeration; `docs/loop-drill-runbook.md` §9's register,
+# read through the plugin's one reader, says of each what kind it is. A drill in the
+# dispatcher that the register does not classify is `skipped:unclassified` and is NEVER
+# silently absent — which is exactly the state `scripts/test-workflow-scripts.mjs` fails on,
+# so a new drill is either run or deliberately classified.
+#
+# THE VERDICT VOCABULARY IS THE DRILL'S OWN EXIT VOCABULARY, NOT A SECOND ONE:
+#
+#   exit 0 -> pass                 the drill ran and every load-bearing row held
+#   exit 1 -> fail                 the drill ran and a load-bearing row went false
+#   exit 3 -> skipped:<reason>     a dirty precondition, named by the drill itself
+#   exit 4 -> skipped:<reason>     the environment could not answer (`gh_unavailable`, …)
+#   exit 5 -> skipped:not_run_yet  a stage nobody has fired
+#   other  -> fail                 including the per-drill timeout, named `timeout`
+#
+# A SKIP IS A NAMED FACT, NEVER A SILENT PASS, and a skipped drill is never counted toward
+# the passing total. Exit status is non-zero if and only if at least one verdict is `fail`:
+# a wholly skipped run is neither a pass nor a failure and says so, because a gate that goes
+# red on a skip is disabled within a week.
+#
+# `unproved` IS NOT `fail`. A drill whose rows include no `bearing: "breaker"` row has never
+# been shown able to fail; that is a gap in coverage rather than a broken mechanism, so it
+# keeps the verdict `pass`, is reported `breaker: "absent"`, and is counted OUTSIDE the
+# `proved` total. Conflating the two makes the failure signal noisy on the day it matters.
+cmd_verify_all() {
+    _only=""
+    _list="false"
+    _kinds="hermetic,reads_checkout"
+    _timeout="${DRILL_TIMEOUT_SECONDS:-300}"
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --list) _list="true" ;;
+            --only) shift; _only="${1:-}" ;;
+            --kind) shift; _kinds="${1:-}" ;;
+            --timeout) shift; _timeout="${1:-300}" ;;
+            *) emit_err "usage" 2 "verify-all takes --list, --only <drill>, --kind <k>[,<k>] and --timeout <seconds>" ;;
+        esac
+        shift || true
+    done
+
+    _reg="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/drill-register.sh"
+    _register_state="ok"
+    _rows_reg=""
+    if [ -f "$_reg" ]; then
+        _rows_reg=$(cd "$REPO_ROOT" && sh "$_reg" list 2>/dev/null || true)
+    fi
+    case "$_rows_reg" in
+        *'"ok": true'*) ;;
+        *) _register_state="no_register"; _rows_reg="" ;;
+    esac
+
+    # The enumeration: the dispatcher's own `case` arms, minus this verb.
+    _cmds=$(sed -n 's/^    \(verify-[a-z-]*\)) cmd_.*/\1/p' "$0" | grep -v '^verify-all$' || true)
+    [ -n "$_cmds" ] || emit_err "no_drills" 4 "the dispatcher names no verify-* command"
+
+    _bounded="true"
+    command -v timeout >/dev/null 2>&1 || _bounded="false"
+
+    _out=""
+    _proved=0
+    _unproved=0
+    _failed=0
+    _skipped=0
+    _total=0
+
+    for _c in $_cmds; do
+        if [ -n "$_only" ] && [ "$_c" != "$_only" ]; then continue; fi
+        _total=$((_total + 1))
+
+        _kind=""
+        _mission=""
+        _mres="false"
+        if [ -n "$_rows_reg" ]; then
+            _line=$(printf '%s' "$_rows_reg" | tr '{' '\n' | grep "\"drill\": \"${_c}\"," || true)
+            _kind=$(printf '%s' "$_line" | sed -n 's/.*"kind": "\([a-z_]*\)".*/\1/p')
+            _mission=$(printf '%s' "$_line" | sed -n 's/.*"mission": "\([a-z0-9-]*\)".*/\1/p')
+            case "$_line" in *'"mission_resolved": true'*) _mres="true" ;; esac
+        fi
+
+        _verdict=""
+        _reason=""
+        _breaker="unknown"
+        _detail=""
+        _dur=0
+
+        if [ "$_register_state" = "no_register" ] || [ -z "$_kind" ]; then
+            _verdict="skipped"
+            _reason="unclassified"
+        elif [ "$_kind" = "needs_server" ]; then
+            # Never invoked: it takes an issue number only `seed` can mint against the real
+            # remote, so running it would spend a round trip to learn what the register says.
+            # Named BEFORE the kind filter, so the reason is the drill's own rather than
+            # whichever set this run happened to ask for.
+            _verdict="skipped"
+            _reason="needs_server"
+        elif [ -z "$_only" ] && ! printf ',%s,' "$_kinds" | grep -q ",${_kind}," ; then
+            # A kind this run was not asked for. CI asks for `hermetic` alone — a
+            # `reads_checkout` drill's verdict is a fact about the tree it ran in and
+            # `needs_server` is never invoked at all — so the skip is named by the kind
+            # rather than folded into either of the others.
+            _verdict="skipped"
+            _reason="kind_${_kind}"
+        elif [ "$_kind" = "needs_server" ]; then
+            # Never invoked: it takes an issue number only `seed` can mint against the real
+            # remote, so running it would spend a round trip to learn what the register says.
+            _verdict="skipped"
+            _reason="needs_server"
+        elif [ "$_list" = "true" ]; then
+            # `--list` answers WHICH drills this verb would run and invokes none of them:
+            # CI asks it once to build its matrix, and a listing that ran the set would cost
+            # the whole run twice.
+            _verdict="listed"
+        else
+            _t0=$(date +%s)
+            if [ "$_bounded" = "true" ]; then
+                _body=$(timeout "$_timeout" sh "$0" "$_c" --json 2>&1) && _rc=0 || _rc=$?
+            else
+                _body=$(sh "$0" "$_c" --json 2>&1) && _rc=0 || _rc=$?
+            fi
+            _t1=$(date +%s)
+            _dur=$((_t1 - _t0))
+            _n=$(printf '%s' "$_body" | sed -n 's/.*"breakers": \([0-9]*\).*/\1/p' | head -n 1)
+            case "$_n" in
+                ''|*[!0-9]*) _breaker="unknown" ;;
+                0) _breaker="absent" ;;
+                *) _breaker="present" ;;
+            esac
+            _why=$(printf '%s' "$_body" | sed -n 's/.*"reason": "\([a-z_]*\)".*/\1/p' | head -n 1)
+            case "$_rc" in
+                0) _verdict="pass" ;;
+                1) _verdict="fail"; _reason="load_bearing_row_failed" ;;
+                3|4) _verdict="skipped"; _reason="${_why:-environment_unanswerable}" ;;
+                5) _verdict="skipped"; _reason="not_run_yet" ;;
+                124|137) _verdict="fail"; _reason="timeout" ;;
+                *) _verdict="fail"; _reason="unexpected_exit_${_rc}" ;;
+            esac
+            # A FAILURE CARRIES THE DRILL'S OWN ROWS. Without them a red CI leg says only
+            # that something in the drill went false, and the person reading it has to
+            # reproduce the whole fixture locally to learn which row and why.
+            if [ "$_verdict" = "fail" ]; then
+                # THE ROWS THAT WENT FALSE, not the whole document: a verdict line naming
+                # only "something failed" sends the reader back to reproduce the fixture
+                # locally, which is the friction this verb exists to remove.
+                _detail=$(printf '%s' "$_body" | tr '{' '\n' \
+                    | grep '"pass": false' | head -n 3 | tr '\n' ' ')
+                [ -n "$_detail" ] || _detail=$(one_line "$_body")
+                _detail=$(one_line "$_detail")
+            fi
+        fi
+
+        case "$_verdict" in
+            pass)
+                if [ "$_breaker" = "present" ]; then
+                    _proved=$((_proved + 1))
+                else
+                    _unproved=$((_unproved + 1))
+                fi
+                ;;
+            fail) _failed=$((_failed + 1)) ;;
+            *) _skipped=$((_skipped + 1)) ;;
+        esac
+
+        _r="{\"drill\": \"${_c}\", \"verdict\": \"${_verdict}\", \"reason\": \"${_reason}\", \"breaker\": \"${_breaker}\", \"kind\": \"${_kind}\", \"mission\": \"${_mission}\", \"mission_resolved\": ${_mres}, \"duration_s\": ${_dur}, \"detail\": \"$(json_escape "$_detail")\"}"
+        _out="$(append_row "$_out" "$_r")"
+    done
+
+    if [ "$_list" = "true" ]; then
+        # The set a caller (CI's matrix) would run, and only that: everything the register
+        # classifies as runnable here. Emitted as a bare JSON array so `fromJSON` can take it.
+        _names=""
+        for _c in $_cmds; do
+            case "$_out" in
+                *"\"drill\": \"${_c}\", \"verdict\": \"skipped\","*) continue ;;
+            esac
+            case "$_out" in
+                *"\"drill\": \"${_c}\","*)
+                    if [ -z "$_names" ]; then _names="\"${_c}\""; else _names="${_names}, \"${_c}\""; fi
+                    ;;
+            esac
+        done
+        printf '[%s]\n' "$_names"
+        exit 0
+    fi
+
+    _ok="true"
+    _code=0
+    if [ "$_failed" -gt 0 ]; then
+        _ok="false"
+        _code=1
+    fi
+    printf '{"ok": %s, "stage": "all", "register": "%s", "bounded": %s, "timeout_s": %s, "totals": {"total": %s, "proved": %s, "unproved": %s, "failed": %s, "skipped": %s}, "drills": [%s]}\n' \
+        "$_ok" "$_register_state" "$_bounded" "$_timeout" \
+        "$_total" "$_proved" "$_unproved" "$_failed" "$_skipped" "$_out"
+    exit "$_code"
+}
+
+USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-all [--only <drill>] [--list] [--timeout <s>]|verify-specificate <issue>|verify-implement <issue>|verify-plan [--json]|verify-status [--json]|verify-cadence [--json]|verify-planner [--json]|verify-standup [--json]|verify-moderate [--json]|verify-propose [--json]|verify-direction-health [--json]|verify-arrival [--json]|verify-residue [--json]|verify-expiry [--json]|verify-rulings [--json]|verify-succession [--json]|verify-revision [--json]|verify-merged-claim [--json]|verify-identity-handoff [--json]|verify-close [--json]|verify-catch-up [--json]|verify-corpus-boundary [--json]|verify-retire [--json]|verify-ci-retirement [--json]|verify-delivery-retry [--json]|verify-handoff-question [--json]|verify-base-health [--json]|verify-return-path [--json]|verify-reconcile [--json]|verify-checkin-delivery [--json]|verify-findings-to-work [--json]"}'
 
 CMD="${1:-}"
 [ -n "$CMD" ] || {
@@ -6278,6 +6526,7 @@ set -- $ARGS
 
 case "$CMD" in
     seed) cmd_seed "$@" ;;
+    verify-all) cmd_verify_all "$@" ;;
     status) cmd_status "$@" ;;
     reset) cmd_reset "$@" ;;
     verify-specificate) cmd_verify_specificate "$@" ;;

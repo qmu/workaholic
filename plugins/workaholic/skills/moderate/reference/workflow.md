@@ -1472,6 +1472,200 @@ an item with no feedback record has no thread to reconcile at all.
 candidate list at all** — never an empty one, which would render our own blindness as "nothing to
 reconcile".
 
+## 25. `file-findings` — a repairable finding, filed as work
+
+```bash
+sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/step-file-findings.sh --tick <id> [--root <repo-root>]
+sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/list-finding-issues.sh
+```
+
+- **Reads**: the classification table below (its one home), the run's own step reports,
+  named by `run.sh` in `WORKAHOLIC_TICK_REPORTS`, and `list-finding-issues.sh` (the ledger,
+  one REST call). **Never `plan-units.sh`** —
+  `undrivable-units`' rule, first recorded by `closable-missions`: the survey runs the living
+  migrations and **stages** what they converge, and a step whose contract is *writes nothing*
+  may not reach it through something that writes.
+- **Writes**: nothing, not even its own tick-log line (`run.sh` writes that). The act is the
+  agent's, through `propose/scripts/file-inbound-ask.sh` — still the **one** filer — assigned to
+  the running identity so the next `[Specificate]` at `:15` ingests it, carrying the direction
+  through `feedback/scripts/ask-feedback-line.sh`, still the one writer of that line.
+- **Its `event` is always empty**, `standing-rulings`' rule for `standing-rulings`' reason: at
+  the moment `run.sh` reads this step's line nothing has been filed, because the agent acts only
+  after `run.sh` returns. An event here would announce an act the step has not taken.
+
+**Why it exists** (2026-08-29, mission `let-the-tick-s-own-findings-become-the-loop-s-work`).
+The tick had two destinations for a finding — a **question** to a person, or a **feedback
+record** — and neither becomes work, because `[Specificate]`'s unattended entrance reads GitHub
+**issues**. So the loop's own debt accumulated where nothing could drive it, while the only
+in-tick caller of the filer acted on a *person's* answer and never on a finding of its own.
+
+**What counts as a finding.** A step in the `repairable` set that supplied an **`event`** — its
+own statement that a repository event happened — or that reported **`degraded`** or
+**`blocked`**, because our own machinery failing is the loop's debt as surely as a stuck pull
+request is. Everything else the tick found is **`left`**, a count and never a list: those
+findings reach a person through their own questions, and re-listing them here is the report
+addressed to nobody this repository has twice retired posts for.
+
+**The issue is composed, never pasted.** A step's `summary` is written for a maintainer
+diagnosing the tick and reads badly as an issue body; the agent writes it for the person and for
+the `[Specificate]` run that will read it — what the tick found, which step found it, and the
+repair the finding names.
+
+**The brake: at most one open finding issue in flight.** An hourly step that filed whatever it
+found would put the tick's whole debt into the inbox in a day. The bound is read off the
+open-issue ledger with **no cursor and no stored state**, in the exact shape `open_proposal`
+already uses: the two states hand off with no window, because a merged repair closes its own
+issue and the finding leaves the candidate set with it. **A per-day cap is refused by name** —
+the ask is for an *hourly* loop, and a daily bound on the only path from the tick's debt to the
+work queue would cap that path at one turn a day. One in flight is deliberately strict; if it
+measurably starves the queue that is a finding for a later ask, not a number to raise here.
+
+**An unreadable ledger files nothing, and says so distinctly.** A brake that cannot be read is
+not a brake. `brake_held` (one is in flight, named by number) and `brake_<reason>` (we could not
+look) are **different facts about the loop**, and collapsing them is how a broken gate reads as
+a working one.
+
+**The dedup is structural and keyed on the step id.** The key comes from `lib/question-id.sh` —
+the one derivation of a question's identity — so the filing and the asking cannot disagree about
+what "the same finding" is, which is what lets the suppression hold exactly the question a
+filing answers. It is keyed on the **step id** and nothing else: a finding's summary moves as
+the world moves, and keying on it would re-file the same finding whenever its wording changed.
+A candidate whose id is already on an issue is dropped and **counted**, never silently.
+
+**The marker rides the issue, visibly.** `file-inbound-ask.sh` — still the one writer of a
+marker — takes `--finding <step id>:<finding id>` beside its `--slack-ref` and writes one
+`finding: <step id> / id: <finding id>` line into the body, with `source: moderate`. Exactly one
+of the two markers is allowed: an issue claiming to be both a channel message and a tick finding
+would be matched by two dedups. It is in the **body**, not the title, so it survives a person
+retitling the issue.
+
+**Filed, held and left never render alike.** Each is a different fact about the loop and asks
+the reader for a different thing — work the loop took on, the brake doing its job, and what only
+a person can settle — and collapsing them is exactly what made the tick's debt invisible
+(`0 retired` hour after hour with nobody told). The step carries `needs_agent` (to file),
+**`held`** (each candidate with the open issue that held it), **`already_filed`** (each dropped
+candidate with the issue that already carries it) and **`left`** as a **count, never a list**:
+those findings reach a person through their own questions, and re-listing them here is the
+report addressed to nobody this repository has twice retired posts for.
+
+**A tick that filed nothing names why, from a closed set of four**: `no_candidates`,
+`brake_held`, `all_already_filed`, `brake_unreadable` — never one word for all four. The
+ledger's own reason rides the summary rather than the reason word, so a reader keying on the
+word never has to enumerate whatever a transport happened to say this hour.
+
+**The summary is stable**: every term is a function of the candidate set and the ledger state
+alone — no timestamp, no clock, no count that moves for a reason the reader cannot see. That is
+what lets the tick's own diff suppress an unchanged hour; `inbound-sweep`'s embedded timestamp
+is the measured failure here, which made its line "changed" on every tick by construction.
+
+**A run that names a candidate and reports no outcome for it is non-conformant on its face** —
+the connector retry's enforcement, for the same reason: no mechanical check tells a real filing
+from a claimed one, and what this buys is that a report naming no outcome is visibly wrong.
+
+**And the question a filing answers is held.** A finding that has become work must not also ask
+a person — the same person, in the same hour, about the thing the loop is already driving.
+`finding-suppression.sh` is the one reader: a **sibling** of `ruling-suppression.sh`, in the
+same shape and under all four of its rules, but not an extension of it, because the sources
+differ (a ruling is an open **pull request**, a finding an open **issue**) and folding them
+would put two unrelated network reads behind one call. Every consulting step reads it and none
+reads `list-finding-issues.sh` itself: two readings of one fact drift.
+
+- **Keyed on the subject, never on the existence of a filing.** A filing naming one step's
+  finding must not silence a different step's question — suppressing on `any_open` would
+  silence the whole question queue behind one filing, the bug `ruling-suppression.sh` names in
+  its own header.
+- **An unreadable read holds nothing** (`ci-retirement-turn.sh`'s discipline).
+- **A `needs_ruling` finding still asks, byte-identically** — no filing can ever name it,
+  because it is never a candidate. `ask-question.sh` is **untouched**: the gate, the day cap,
+  the per-tick cap, the quiet hours, the working-day hold and the one bounded re-ask do not move,
+  and the gate never learns what a finding is.
+- **It holds the question, never an act.** `retire-claims` still retires what it proved; only
+  its `retire-blocked` question is withheld. The consulting steps are the ones that put a
+  **question to a person** and are in the repairable set: `retire-claims`, `stuck-prs`,
+  `undelivered-units`. `merge-conflicts`, `inbound-sweep`, `doc-drift` and `note-cadence` hand
+  the agent an **act** rather than a question, so there is nothing there to suppress and wiring
+  them would hold work instead — the opposite of the intent.
+- **The suppression is derived and stored nowhere**: merging the repair (which auto-closes its
+  issue) or closing it by hand makes the question reachable again. `held` is projected from the
+  **open** issues only; the dedup uses the closed ones too, because *has this been filed*
+  outlives *is it in flight*.
+- **It bites from the next tick.** `file-findings` runs after the steps whose reports are its
+  candidates, and the agent files after `run.sh` returns. Reordering the run to close that
+  window would put the filing before its own inputs.
+
+**No store, anywhere.** The issues are the memory, so a tick log that died with its container
+changes nothing — `filed-records.sh`'s rule, that a `<step>-filed` line is never itself the proof
+of a filing, holds here by construction because nothing reads such a line. The ledger's window is
+the most recent `WORKAHOLIC_FINDING_ISSUE_LIMIT` issues (default 100, `state=all`, newest first)
+rather than a date: `date -d` is GNU-only and `date -v` BSD-only, and a reader that answers
+differently on a laptop and in a container is worse than one bounded by a number both can read.
+`list_capped` reports when the page bound rather than the repository ended the read.
+
+---
+
+## Repairable, or needing a ruling — which findings may become work
+
+A finding has three destinations, and until 2026-08-29 it had only two: a **question** to a
+person, or a **feedback record**. Neither becomes work, because `[Specificate]`'s unattended
+entrance reads GitHub **issues** — so the tick's own debt accumulated where nothing could drive
+it. The third destination is an `[FB]` issue, filed by `file-findings` (§25), and this table is
+the gate on it: **only a `repairable` finding may become work with no person asked.**
+
+**Keyed on the step id, because that is the closed vocabulary the tick already has.** `run.sh`'s
+`STEPS` is the whole domain; the table is read from there rather than restating it, and the pin
+in `scripts/test-workflow-scripts.mjs` fails in **both** directions — a `STEPS` entry missing
+from the table, and a table row `STEPS` does not name — so the two cannot drift. No artifact
+gains a field, no second vocabulary is created, and no store is added. **There is no
+`classify.sh`**: a function returning the answer would be the second derivation of one fact this
+table exists to prevent, exactly as `drive/reference/claims.md`'s *Proofs and judgements* is
+prose plus a pin and not a classifier.
+
+**An unclassified step id is `needs_ruling`.** Mislabelling a ruling as mechanical is the
+failure the classification exists to prevent, so the default is the safe side and a new step is
+**silent** until somebody classifies it deliberately.
+
+**The question is who must act, never how severe the finding is.** A severe mechanical repair is
+still mechanical, and a trivial ruling is still a ruling. `repairable` means *a change to this
+repository fixes it, and no human owes a decision first*; `needs_ruling` means *a person must
+decide something before any change is the right one*.
+
+| Step id | Classification | Why |
+| ------- | -------------- | --- |
+| `open-log` | `needs_ruling` | Bookkeeping; it produces no finding to file. |
+| `inbound-sweep` | **`repairable`** | A diverged channel default or a broken transport config is a change to this repository. |
+| `workload-logs` | `needs_ruling` | An unreachable environment is somebody's credentials, not our code. |
+| `merge-conflicts` | **`repairable`** | A pull request conflicting with the base names a seam that keeps colliding; the filing yields a **plan**, never a push onto a claimed branch. |
+| `stuck-prs` | **`repairable`** | What failed to auto-merge names a gate or a transport that a change can fix. |
+| `issue-triage` | `needs_ruling` | Whether a stale issue is still wanted is the filer's call. |
+| `doc-drift` | **`repairable`** | Documentation that no longer matches the code it describes is this repository's own debt. |
+| `release-status` | `needs_ruling` | A target's confirmation method is a human declaration; deploying is a human instruction. |
+| `note-cadence` | **`repairable`** | A draft note that stopped refreshing is a defect in the workflow that writes it. |
+| `strategy-pace` | `needs_ruling` | Whether a direction is still the right one is the operator's. |
+| `direction-health` | `needs_ruling` | Re-dating, closing or declaring a direction arrived is the operator's, by that step's own contract. |
+| `stalled-units` | `needs_ruling` | Whether a stalled claim is taken over or abandoned is the holder's. |
+| `undrivable-units` | `needs_ruling` | Which account an address belongs to is a human's ruling, by that step's own contract. |
+| `standing-rulings` | `needs_ruling` | It exists **because** the loop cannot make those rulings itself. |
+| `undelivered-units` | **`repairable`** | A merge the transport refused names the transport seam, which is code. |
+| `handoff-units` | `needs_ruling` | The declared verification is the one act nothing unattended can take. |
+| `thread-reconcile` | `needs_ruling` | Its repair is the tick's own reply, already taken; it owes the queue nothing. |
+| `retire-claims` | **`repairable`** | A branch CI could not delete names an executor or a bound that a change can fix. |
+| `closable-missions` | `needs_ruling` | The tick closes what it proved; a rejected re-proof is a person's to read. |
+| `base-health` | `needs_ruling` | Its four readings are **judgements** a consumer may only report or ask about (`drive/reference/claims.md`), so turning one into work would be a consumer acting on a judgement. |
+| `strategy-digest` | `needs_ruling` | A render; it produces no finding to file. |
+| `question-answers` | `needs_ruling` | A person's own words, already filed by that step through the one filer. |
+| `unanswered-asks` | `needs_ruling` | A person is waiting; that is the finding, and only a person clears it. |
+| `file-findings` | `needs_ruling` | Filing its own findings as work is the loop asking itself for work. |
+| `human-checkin` | `needs_ruling` | The asking step itself. |
+
+**`merge-conflicts` is the row worth arguing about**, and it is `repairable` deliberately.
+`workaholic:drive` says resolving a conflict on a claimed branch is nobody's job here, and that
+rule is untouched: what the filing produces is an issue, then a plan, then a `review`-policy
+unit on a **fresh** claim — never an unattended push onto somebody else's branch. Were the
+reading ever to be that the repair is not mechanical, the row moves to `needs_ruling` and the
+default is already on that side.
+
+---
+
 ## What `run.sh` guarantees around the steps
 
 - **Every step is invoked and every step reports.** Missing script → `degraded`/`step_missing`;

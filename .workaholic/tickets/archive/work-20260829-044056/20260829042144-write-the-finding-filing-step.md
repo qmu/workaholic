@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-29T04:21:44+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -95,3 +96,37 @@ GitHub, outside the tree — the ground `/propose`'s inbound sweep already stand
 - A finding's `summary` is written for a maintainer diagnosing the tick. Composing an
   issue body straight from it will read badly; write the body for the person and the
   `[Specificate]` run that will read it.
+
+## Final Report
+
+Development completed as planned. `step-file-findings.sh` reads the classification table out of
+`reference/workflow.md` — its one home — filters this tick's own step reports to the
+`repairable` set, derives each candidate's id through `lib/question-id.sh`, and hands the set
+back in `needs_agent` for the agent to file through `file-inbound-ask.sh`. It writes nothing,
+its `event` is always empty, and it never reaches `plan-units.sh`.
+
+`run.sh` gained the seam its candidates come from: the accumulated rows are written to a temp
+file outside the repository and named in `WORKAHOLIC_TICK_REPORTS`, refreshed after every row.
+The step is registered in `STEPS` immediately before `human-checkin`.
+
+Verified: `node scripts/test-workflow-scripts.mjs` (the new `testFileFindingsStep` plus ticket
+1's caller pin, now listing this step), and `run.sh --only file-findings --no-log` over a
+fixture leaves the tree byte-identical.
+
+### Discovered Insights
+
+- **Insight**: `event` — not `status` — is the honest "this step found something" signal, and
+  the tick log does not carry it.
+  **Context**: every finding-producing step emits `status: ok` whether it found something or
+  not; what distinguishes them is the post-facing `event` the step supplies. The log
+  deliberately keeps only `status` and the log-facing `summary`, so a candidate set read from
+  the log would have had to guess from free text. That is why `run.sh` had to expose its own
+  accumulated rows rather than the step reading `log-read.sh`.
+- **Insight**: the reports file must be seeded `{"steps": []}`, not left zero-length.
+  **Context**: with `--only file-findings` no row exists yet, and an empty file made the step
+  report `reports_unreadable` — a degradation announced for an entirely ordinary state, which
+  is the exact collapse every reader in this skill is written against.
+- **Insight**: `needs_ruling` needed no code path.
+  **Context**: the step filters *to* the repairable set, so a step the table does not name is
+  simply never a candidate. The safe default falls out of the data structure rather than
+  being a branch somebody must remember to keep.

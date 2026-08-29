@@ -58,3 +58,4 @@ No new store, no field, no second oracle.
 - 2026-08-29 — ticket archived — 20260829152420-name-the-effect-reading-where-the-tick-and-the-run-speak.md
 - 2026-08-29 — ticket archived — 20260829152420-drill-the-silent-act-offline-and-register-the-drill.md
 - 2026-08-29 — ticket archived — 20260829152420-state-an-act-s-effect-where-the-vocabulary-lives.md
+- 2026-08-29 — story reported — work-20260829-154131.md

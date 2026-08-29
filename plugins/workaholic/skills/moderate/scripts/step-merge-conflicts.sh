@@ -22,6 +22,28 @@
 # lines about the same pull request in the same tick is the noise a gated post
 # exists to prevent. This step's output is the log line and the report row.
 #
+# THE STANDING RULE ABOVE IS NARROWED, NOT REVERSED (2026-08-29, mission
+# `land-the-loop-s-own-work-when-the-base-moves-under-it`). `drive/scripts/catch-up-claim.sh`
+# does now bring a claim branch back onto the base — but both halves of the reasoning above are
+# answered rather than dropped: it is not a THIRD PARTY (the claim is that identity's own, and a
+# live one is refused `claim_active`, so the race this header is about cannot arise), and it is
+# not a REBASE (a merge commit keeps the holder's checkout valid, which is precisely what a
+# history rewrite destroys). What stays untouched is the contested case: a `content` conflict is
+# refused, the branch is left byte-identical, and the person who knows which side keeps its
+# behaviour is asked — which is what this header has always said the repair is.
+#
+# AND THIS STEP STILL REPORTS EVERY CONFLICTED PULL REQUEST, including one `catchup-blocked`
+# asks about. Filtering them here was written and then REFUSED, on a measurement rather than on
+# taste: the only way to know which units that step asks about is to read the claim oracle, and
+# `list-claims.sh` fetches — so a filter here would put a network fetch inside a step whose
+# whole cost is one bounded REST read, and inside a hermetic suite whose fixture for this step
+# carries a real `origin` URL. The ticket's requirement ("one asks and the other counts") is met
+# without it, because this step ASKS NOBODY ANYTHING: `needs_agent` is empty by construction,
+# its finding rides step 6's reminder, and the only question a person receives about such a unit
+# is `catchup-blocked`'s. Where two steps could each ASK, the split is enforced —
+# `undelivered-units` filters a `mergeability: content` row out of its own candidates and counts
+# it instead.
+#
 # Usage: step-merge-conflicts.sh --tick <id> --root <repo-root> [--limit <n>]
 # Output: one JSON line {"step","status","reason","summary","needs_agent":[],"conflicted":[...]}
 

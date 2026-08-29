@@ -18402,6 +18402,7 @@ const tests = [
   ["drive: the base moves under a finished unit and nothing catches it up", testStrandedUnitReproduction],
   ["drive/claim-mergeability.sh: the reader and the writer answer with one rule", testClaimMergeabilityReader],
   ["drive/catch-up-claim.sh: one act, its refusals, and the delivery that follows", testCatchUpClaimWriter],
+  ["moderate/catchup-blocked: the conflict the loop must not resolve reaches a person", testCatchupBlockedStep],
   ["story/record-merge-outcome.sh: the durable home for a merge outcome", testRecordMergeOutcome],
   ["drive claim protocol: the act the container is refused, taken in CI", testCiRetirementCandidateSetAndAct],
   ["moderate/retire-claims: which executor took the branch delete", testRetirementExecutorRendering],
@@ -23559,6 +23560,11 @@ function testModerateRun() {
     // right up to the moment it finished. Same placement and same reason: it reads, the
     // check-in asks.
     "undelivered-units",
+    // `catchup-blocked` (2026-08-29): a finished unit the BASE no longer accepts. The loop
+    // caught it up as far as it may and stopped at a conflict only a person can judge — which
+    // `merge-conflicts` cannot say, because it reports a pull request nothing has attempted.
+    // Same placement and same reason as its neighbours: it reads, the check-in asks.
+    "catchup-blocked",
     // `handoff-units` (2026-08-27): a unit whose still-queued work was DECLARED unverifiable in
     // an unattended environment at creation. §6 routes it to the handoff route — pull request
     // open on purpose, claim standing on purpose — and until this step nothing read the verdict
@@ -28147,5 +28153,117 @@ function testCatchUpClaimWriter() {
       `${POSIX_SH} ${SCRIPTS.retryUndelivered} ${held.unit} --own-tip`, { env: withGh }).stdout);
     assertEq("a scan-held unit is refused with the flag exactly as without it",
       [stillHeld.attempted, stillHeld.reason], [false, "not_undelivered:queue_drained"]);
+  } finally { cleanup(fx.A); cleanup(fx.origin); cleanup(fx.binDir); }
+}
+
+// ---------- the conflict the loop must not resolve reaches a person (2026-08-29) ----------
+//
+// `catch-up-claim.sh` refuses `content_conflict` and that refusal reached nobody. The step that
+// carries it must draw the split the mission rests on: *nobody has looked yet* (a conflicted
+// pull request, `merge-conflicts`) and *the loop looked and only you can decide* (a branch the
+// shared rule classified) tell somebody different things. So every row here is about the bound
+// — who is asked, exactly once, and that no unit draws two questions in two vocabularies.
+function testCatchupBlockedStep() {
+  const fx = makeDriftFixture();
+  const withGh = { ...process.env, PATH: `${fx.binDir}:${process.env.PATH}` };
+  try {
+    driftGhStub(fx.binDir);
+    const t = (n) => `.workaholic/tickets/todo/${TEST_SLUG}/2026072900000${n}-t${n}.md`;
+    // One unit the base no longer accepts, one it does — both finished, both undelivered.
+    const blocked = strandUnit(fx.A, t(1), (wt) =>
+      writeFileSync(join(wt, "src/app.txt"), "alpha\nbeta-branch\ngamma\n"));
+    tickSecond();
+    const mergeable = strandUnit(fx.A, t(2), (wt) =>
+      writeFileSync(join(wt, "src/untouched.txt"), "only here\n"));
+    advanceBase(fx.A, (root) =>
+      writeFileSync(join(root, "src/app.txt"), "alpha\nbeta-base\ngamma\n"));
+
+    const step = (s) => JSON.parse(run(fx.A,
+      `${POSIX_SH} ${s} --tick 20260829-070000 --root ${fx.A}`, { env: withGh }).stdout);
+
+    const r = step(SCRIPTS.stepCatchupBlocked);
+    assertEq("the step runs ok", [r.step, r.status], ["catchup-blocked", "ok"]);
+    const rows = (r.needs_agent[0] || {}).blocked || [];
+    assertEq("exactly one unit is handed to the check-in", rows.length, 1);
+    assertEq("and it is the one the base no longer accepts", rows[0].unit, blocked.unit);
+    assertTrue("the mergeable unit is not a candidate",
+      !rows.some((x) => x.unit === mergeable.unit), JSON.stringify(rows));
+
+    // ADDRESSED TO THE CLAIM HOLDER, NAMING WHAT COLLIDED. A question that cannot name the
+    // files does not say what to look at.
+    assertEq("the question is addressed to the claim holder", rows[0].owner, "test@example.com");
+    assertEq("and names the files both sides changed", rows[0].conflicted_files, ["src/app.txt"]);
+    assertEq("and the branch", rows[0].branch, blocked.branch);
+    assertEq("keyed once per unit", rows[0].key, `catchup-blocked:${blocked.unit}`);
+
+    // ASKED EXACTLY ONCE: the key is stable across ticks, which is what lets the ledger refuse.
+    assertEq("the key is stable across ticks",
+      ((step(SCRIPTS.stepCatchupBlocked).needs_agent[0] || {}).blocked || [])[0].key,
+      rows[0].key);
+
+    // ONE UNIT NEVER DRAWS TWO QUESTIONS. `undelivered-units` filters this unit out of its own
+    // candidates and COUNTS it — *retry your merge* is the wrong instruction for a branch that
+    // no longer merges — while still asking about the mergeable one beside it.
+    const und = step(SCRIPTS.stepUndeliveredUnits);
+    const undRows = (und.needs_agent[0] || {}).undelivered || [];
+    assertEq("undelivered-units asks about the mergeable unit only",
+      undRows.map((x) => x.unit), [mergeable.unit]);
+    assertTrue("and counts the blocked one rather than dropping it",
+      /no longer merging \(asked by catchup-blocked\)/.test(und.summary), und.summary);
+
+    // `merge-conflicts` KEEPS reporting every conflicted pull request, and that is a refusal
+    // rather than an omission: the only way to know which units this step asks about is to read
+    // the claim oracle, which fetches — a network read inside a step whose whole cost is one
+    // bounded REST call, and inside a hermetic suite whose fixture for it carries a real origin
+    // URL. It asks nobody anything (`needs_agent` is empty by construction), so the ticket's
+    // "one asks and the other counts" holds without it, and the refusal is recorded in its
+    // header rather than left to be re-tried.
+    const mcSrc = readFileSync(SCRIPTS.stepMergeConflicts, "utf8");
+    assertTrue("merge-conflicts still reaches no claim oracle",
+      !/list-claims\.sh/.test(mcSrc.split("\n").filter((l) => !/^\s*#/.test(l)).join("\n")),
+      "a network fetch was put inside a bounded REST-read step");
+    assertTrue("and its header records the narrowing and the refusal",
+      /narrowed, not reversed/i.test(mcSrc) && /catch-up-claim\.sh/.test(mcSrc), mcSrc.slice(0, 200));
+
+    // THE SUMMARY CARRIES NO AGE AND NO TIMESTAMP — an incrementing summary makes the step
+    // "changed" hourly by construction and the root restates the same units all day.
+    assertTrue("the summary carries no hour count", !/\d+\s*h\b/.test(r.summary), r.summary);
+    assertTrue("and no timestamp", !/\d{4}-\d{2}-\d{2}|\d{2}:\d{2}/.test(r.summary), r.summary);
+    assertTrue("the event names the repository event",
+      /no longer merge/.test(r.event), r.event);
+
+    // A DEGRADED READ ASKS NOTHING AND IS NAMED. A scan that could not reach the remote has not
+    // found "nothing blocked" — the mergeability is derived against the base it could not read.
+    const plain = mkdtempSync(join(tmpdir(), "wh-catchup-plain-"));
+    execSync("git init -q .", { cwd: plain });
+    const deg = JSON.parse(run(plain,
+      `${POSIX_SH} ${SCRIPTS.stepCatchupBlocked} --tick 20260829-070000 --root ${plain}`).stdout);
+    assertEq("a repository with no origin degrades by name",
+      [deg.status, deg.needs_agent.length], ["degraded", 0]);
+    assertTrue("and the reason is named", deg.reason.length > 0, JSON.stringify(deg));
+    rmSync(plain, { recursive: true, force: true });
+
+    // IT WRITES NOTHING, and reaches no writer of its own.
+    assertEq("git status is clean after the step ran",
+      execSync("git status --porcelain", { cwd: fx.A, encoding: "utf8" }).trim(), "");
+    const src = readFileSync(SCRIPTS.stepCatchupBlocked, "utf8")
+      .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+    assertEq("the step never reaches plan-units.sh", /plan-units\.sh/.test(src), false);
+    assertTrue("and calls no writer at all",
+      !/catch-up-claim\.sh|retry-undelivered\.sh|retire-claim\.sh|git (push|merge|rebase)/.test(src),
+      src);
+
+    // REGISTERED, IN ORDER, BESIDE THE SIBLING IT FOLLOWS — and classified deliberately, since
+    // an unclassified step id reads `needs_ruling` by default rather than by decision.
+    const runSh = readFileSync(
+      join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/run.sh"), "utf8");
+    assertTrue("run.sh invokes the step in order",
+      /undelivered-units catchup-blocked handoff-units/.test(runSh), "not registered in order");
+    const wf = readFileSync(
+      join(REPO_ROOT, "plugins/workaholic/skills/moderate/reference/workflow.md"), "utf8");
+    assertTrue("and the findings table classifies it",
+      /^\| `catchup-blocked` \| `needs_ruling` \|/m.test(wf), "the step id is unclassified");
+    assertTrue("and the reference documents it",
+      /## \d+\. `catchup-blocked`/.test(wf), "the step has no section");
   } finally { cleanup(fx.A); cleanup(fx.origin); cleanup(fx.binDir); }
 }

@@ -152,19 +152,25 @@ if [ -n "$rows" ]; then
         # waiting. It is offline (`git merge-tree`, no worktree, no ref, no network call the
         # scan has not already made), and it is REPORTED here, never acted on: all four values
         # are judgements, and `catch-up-claim.sh` re-derives its own at the moment of its act.
+        # The conflicted paths ride the row for the same reason `merge_outcome` does: the one
+        # consumer that must NAME them (`/moderate`'s `catchup-blocked` question) would
+        # otherwise call the reader a second time, and two reads of one fact drift.
         mergeability=unanswerable
         mergeability_reason=no_reader_script
+        mergeability_content_files="[]"
         if [ -f "${SCRIPT_DIR}/claim-mergeability.sh" ]; then
             _lc_mb=$(sh "${SCRIPT_DIR}/claim-mergeability.sh" "$branch" "$base" 2>/dev/null || true)
             _lc_c=$(printf '%s' "$_lc_mb" | sed -n 's/.*"class": "\([^"]*\)".*/\1/p')
             if [ -n "$_lc_c" ]; then
                 mergeability="$_lc_c"
                 mergeability_reason=$(printf '%s' "$_lc_mb" | sed -n 's/.*"reason": "\([^"]*\)".*/\1/p')
+                _lc_f=$(printf '%s' "$_lc_mb" | sed -n 's/.*"content_files": \(\[[^]]*\]\).*/\1/p')
+                [ -z "$_lc_f" ] || mergeability_content_files="$_lc_f"
             else
                 mergeability_reason=unreadable
             fi
         fi
-        claims="${claims}${sep}{\"unit\": \"${unit}\", \"branch\": \"${branch}\", \"artifacts\": [${arts}], \"last_commit_at\": \"${last_at}\", \"stale\": ${stale}, \"author\": \"${author}\", \"resumable\": ${resumable}, \"resume_reason\": \"${resume_reason}\", \"reported\": ${reported}, \"declared_handoff\": ${declared_handoff}, \"merge_outcome\": \"${merge_outcome}\", \"mergeability\": \"${mergeability}\", \"mergeability_reason\": \"${mergeability_reason}\"}"
+        claims="${claims}${sep}{\"unit\": \"${unit}\", \"branch\": \"${branch}\", \"artifacts\": [${arts}], \"last_commit_at\": \"${last_at}\", \"stale\": ${stale}, \"author\": \"${author}\", \"resumable\": ${resumable}, \"resume_reason\": \"${resume_reason}\", \"reported\": ${reported}, \"declared_handoff\": ${declared_handoff}, \"merge_outcome\": \"${merge_outcome}\", \"mergeability\": \"${mergeability}\", \"mergeability_reason\": \"${mergeability_reason}\", \"mergeability_content_files\": ${mergeability_content_files}}"
         sep=", "
     done <<EOF
 $rows

@@ -119,7 +119,9 @@ invisible to hop 1 and hop 2 alike. Every artifact therefore carries the `attrib
 it, and a consumer states what it could not attribute rather than implying the digest is exhaustive.
 A quiet strategy is a real answer, not an error: `empty_reason` is `no_feedback_refs` (it cites
 nothing), `no_citing_artifacts` (nothing cites it back) or `no_activity_in_window` (attributable work
-exists, none of it moved) — never an empty result with no reason, and never a guess.
+exists, none of it moved) — never an empty result with no reason, and never a guess. All three name
+why a **completed** walk found nothing; a walk that did not complete answers below instead, and is
+never folded into this vocabulary.
 
 **It reports the mission grain beside the ticket grain** (2026-08-26). `waiting_missions`,
 `waiting_missions_advancing`, `waiting_missions_describing` and `waiting_mission_slugs` sit
@@ -130,6 +132,51 @@ at a pull request with the queue drained is not finished. A mission is classifie
 queued tickets, and one with none is `unknown` — which counts toward advancing, the same rule an
 unknown ticket follows. This adds no relation and no artifact field: the mission set is the
 attributed artifacts already walked, filtered on the lifecycle field `close.sh` writes.
+
+**And it says when it could not look at all** (2026-08-29, mission
+`keep-the-closing-link-readable-as-the-corpus-grows`). Both hops prefilter the corpus with one
+`grep` per `xargs` batch. A batch matching nothing is honest and leaves the walk complete; a batch
+the reader **could not read** is a failure, and until now both vanished into one swallowed status —
+so a corpus nobody could read was emitted as `no_citing_artifacts`, the reading that means the exact
+opposite. A walk that did not complete now reports:
+
+| Field | On a degraded walk |
+| ----- | ------------------ |
+| `readable` | `false` |
+| `reason` | `patterns_unreadable` (the pattern set) or `corpus_unreadable` (one or more corpus entries) |
+| `count`, `active_count`, every `waiting_*` | **`null`**, never `0` — `unattributed-work.sh`'s existing shape, because a zero on a read that failed is the whole defect |
+| `artifacts` | `[]` — the batches that *did* read are kept inside the walk so it can finish, and are deliberately not emitted: a half list rendered as a list is the same collapse one step on |
+| `empty`, `empty_reason` | **`null`** — a reading we did not make, never one of the three we did not reach |
+
+**`readable` is absent on every completed walk, and that is the contract rather than an omission**:
+*absent means the walk completed*, the convention `merge_policy` (absent means review) and a ticket's
+`status:` (absent means queued) already use here. A completed reading is therefore byte-identical to
+what it was before the field existed, and a consumer not yet taught the term behaves exactly as it
+did. **Test it as `readable == false`**, never as `readable // true`: in jq `//` treats `false`
+itself as empty, so `false // true` is `true` and that spelling reads every degraded walk as a
+healthy one. It is derived in exactly one place inside the script, for both hops; the reader still
+exits 0, degraded included.
+
+**Two sibling terms sit beside each other and must not be folded together.** `quiescent` reads
+`false` when the **residue** read was degraded (2026-08-28, `workaholic:propose`); a survey row is
+refused `attribution_unreadable` when the **attribution** read was degraded (2026-08-29, the
+paragraph above). Different reads, different consequences: the first withholds one reading, the
+second refuses the whole row and every reading composed on it.
+
+**And the residue refuses it too** (2026-08-29, the same mission). `mission-strategy.sh` names a
+direction whose walk did not complete in `unreadable` rather than answering *no strategy* from a
+blind read — `attributed: false` means *no strategy could be attributed*, and a walk nobody could
+complete cannot say even that. `unattributed-work.sh` then reports `readable: false` with **null**
+counts and names nothing, under **`strategy_unreadable`** when at least one active direction failed
+and the pre-existing `all_strategies_unreadable` when every one did. The partial case is the point:
+a mission attributed *only* to the direction that failed is named as residue in exactly the same
+way, and which missions those are is precisely what the failed walk cannot say. `closing-residue.sh`
+carries that block's reason to its own top-level `readable` through its existing contract, and both
+consumers already behave — `quiescent` reads the residue's flag, so a degraded read yields no
+`arrived` and therefore no `direction-arrived:<slug>` question, and the standing-rulings draft
+reaches no writer with a candidate it could not attribute. **A non-degraded, non-empty residue is
+untouched**: an unattributed mission is still an unattributed mission, and suppressing those would
+be a different defect of the same shape.
 
 **`no_citing_artifacts` is bounded, and the bound is stated rather than implied** (2026-08-26). After `/specificate`'s carry floor it means *nothing has answered this direction yet* — for work the loop emitted from an ask filed by `/propose`, by the inbound Slack sweep, or by `/fb`'s in-repo path, whose refs resolved. It says nothing about work a run never emitted, an ask judged to answer no direction, a ref that did not resolve, or an artifact written by hand outside `/specificate`. A hermetic test walks ask → reader → scaffold → floor for each writer's header shape and fails when the ref is dropped, so the reading is a fact a change can lose rather than a claim.
 

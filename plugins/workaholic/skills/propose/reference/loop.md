@@ -110,6 +110,12 @@
    silencing, reordering or accelerating the one routine that originates work on a machine's
    reading of a clock is exactly what `pace` already refuses. The person who must act is
    reached by `/moderate`'s `direction-expiring:<slug>` question, not by this line.
+   **And name every strategy the survey refused `attribution_unreadable`** (2026-08-29) —
+   the slug and that refusal, which the survey already emitted; no second word, and no line
+   that states a `pace`, a `dormant` or a `quiescent` verdict for it, because the survey
+   emits none and a report implying the tick judged what it could not read is the exact
+   collapse this reading exists to end. It changes nothing here: the brake is the survey's,
+   which refuses such a row and cannot select it.
    Post nothing.
 
 ## Where it lands in the hour, and why the loop closes across hours

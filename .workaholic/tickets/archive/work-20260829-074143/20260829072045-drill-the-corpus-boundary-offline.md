@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-29T07:20:45+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -81,3 +82,47 @@ unit; the drill pins the chain the operator actually depends on.
 - Building a corpus past the boundary costs wall-clock in fixture setup. Keep the file bodies
   minimal — what must be large is the path list — and state the boundary derivation in a comment
   so a later reader does not "optimise" the row into proving nothing.
+
+## Final Report
+
+Development completed as planned.
+
+`sh scripts/e2e/loop-drill.sh verify-corpus-boundary` walks the chain the operator actually
+depends on — survey → residue → question — over a corpus past the `xargs` batching
+boundary, and the degraded direction beside it. Twelve load-bearing rows, no network, no
+`gh`, no credential; the survey's one remote read is supplied through `--open-proposals`,
+exactly as `verify-residue` supplies it, so the drilled path is the real one.
+
+**The boundary is derived from the running system**: the probe counts how many times `xargs`
+invokes its command over exactly the corpus the reader builds, and the filler grows until
+that count exceeds one. What is large is the path list — the file bodies stay three lines —
+and a comment in the row says why a hard-coded count would prove nothing.
+
+**The breaker is in two halves, one per hop, and both are written against behaviour.** Each
+runs a copy of the reader with the truncating `||` restored on one hop and requires the
+citation to be *lost*: hop 1's half loses it entirely, hop 2's loses the `via_mission:`
+attribution while hop 1 survives. They are separate because reverting hop 1 hides hop 2
+behind it — with no attributed mission there is nothing for the second hop to walk — and hop
+2 carries every ticket's attribution, so its loss is the larger one. Both were proved able
+to fail before being trusted.
+
+The row is registered in `docs/loop-drill-runbook.md` (index row plus a §5j-bis section with
+the per-row blame table) and in `CLAUDE.md`'s enumeration, in this commit.
+
+Result: `{"stage": "corpus-boundary", "verdict": "pass", "load_bearing": {"passed": 12,
+"failed": 0}}`. Every neighbouring row still passes — `verify-residue` 12/12,
+`verify-arrival` 16/16, `verify-propose` 15/15, `verify-expiry` 14/14,
+`verify-direction-health` 11/11, `verify-rulings` 10/10, `verify-standup` 3/3 — and
+`git status --porcelain` after the run is clean, which the drill asserts for itself.
+
+### Discovered Insights
+
+- **Insight**: the first version of the boundary probe reported **one batch over any corpus
+  at all**, and the reason is `set -e`. `{ find A B; find C D; } | …` — a `find` given an
+  area that does not exist yet exits non-zero, and under `set -e` that aborts the group
+  **before the second `find` runs**, so the probe measured only the mission list.
+  **Context**: `attributed-work.sh`'s own corpus build carries `|| :` on every `find` for
+  exactly this reason; the probe now does too. It cost a ten-minute run that created 20000
+  filler files and still reported one batch — and, worse, the breaker row passed while the
+  probe row failed, which is what made the diagnosis obvious. Any later probe of this shape
+  needs the same guard.

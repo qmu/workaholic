@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-29T02:19:47+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -107,3 +108,27 @@ tick**, so one direction never draws two — the doubling `handoff-units` and
   first time, because a later improvement reaches nobody who was already asked.
 - `unreadable` is counted and never asked about, exactly as it is today. Do not
   spend a person's attention on our own degradation.
+
+## Final Report
+
+Development completed as planned. `step-direction-health.sh` gains the
+`direction-expiring:<slug>` subject beside `overdue` and `dormant`, addressed to the
+direction's assignee. Its heading names the days left and the date and carries the leaving
+exactly as `arrived` and `overdue` carry it; its body carries the size and one 24-word sentence
+naming the operator's act — re-date it, announce a successor when you end it, or say it still
+stands. The count rides the log-facing summary and the root's event phrase follows the reader's
+own precedence, after `overdue`. Ticket 1's reproduction is green end to end.
+
+### Discovered Insights
+
+- **Insight**: the one-direction-one-question guard needed no change at all.
+  **Context**: it is written as *a direction that already has a subject draws no `direction-last`
+  question*, over whatever subjects the step produced — not as a list of readings. So a fifth
+  reading inherits the guard, and the mutual exclusion between readings is upstream anyway:
+  `direction-state.sh` gives each direction exactly one state.
+- **Insight**: the ruling suppression is keyed on `arrived` alone and correctly ignores this.
+  **Context**: `ruling-suppression.sh` holds a question whose whole ask a ruling pull request
+  already carries, and a ruling answers *which direction does this mission belong to*. It
+  answers nothing about a date, which is why `overdue` and `dormant` are never held and why
+  `expiring` must not be either — the `select` that applies the hold tests `.state != "arrived"`
+  and therefore let the new reading through unchanged.

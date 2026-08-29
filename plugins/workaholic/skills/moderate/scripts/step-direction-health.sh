@@ -42,6 +42,25 @@
 # ASKING BEFORE THE DECISION IS THE WHOLE POINT. After the close it is a post-mortem; here it
 # is evidence, in the one place a person is being asked to rule.
 #
+# A FIFTH READING SINCE 2026-08-29 (mission `warn-a-direction-before-its-date-silences-the-loop`):
+# a direction whose date is APPROACHING, keyed `direction-expiring:<slug>`. Every reading above
+# answers backwards — has the date gone, is anything answering it, has its work come in — so a
+# live, in-date, `on_course` direction one day from its `target_date` produced NO question at
+# all, and the day after, `past_target_date` silenced origination with the only signal being
+# `direction-overdue`, asked in ARREARS. The precedent is `direction-last:<slug>`, which names
+# the last live direction to its owner WHILE THEY CAN STILL ACT rather than announcing silence
+# afterwards to nobody; expiry is that same event by a different cause.
+#
+# ITS HEADING NAMES THE DATE AND THE DAYS LEFT, because a warning that does not say how long
+# somebody has is not a warning, and the leaving rides it exactly as it rides `arrived` and
+# `overdue`. Its body names the same act `overdue` names, offered while it can still be taken,
+# and names the successor besides — ending the LAST direction leaves the loop originating
+# nothing.
+#
+# EVERY GATE APPLIES UNCHANGED: the asked-once ledger, the per-tick cap, the quiet hours, the
+# working-day hold. It is NOT suppressed by an open ruling either, for `overdue`'s own reason —
+# a ruling answers which direction a mission belongs to, and answers nothing about a date.
+#
 # CARRIED, NEVER COMPOSED HERE. `direction-state.sh --with-leaving` attaches
 # `closing-residue.sh`'s composition to the row; this step reads that field and calls none of
 # the three readers itself. It costs no extra read of the tree and no extra network call,
@@ -173,6 +192,7 @@ fi
 repository=$(printf '%s' "$out" | jq -r '.repository // ""' 2>/dev/null || echo "")
 n_arrived=$(printf '%s' "$out" | jq -r '.counts.arrived // 0' 2>/dev/null || echo 0)
 n_overdue=$(printf '%s' "$out" | jq -r '.counts.overdue // 0' 2>/dev/null || echo 0)
+n_expiring=$(printf '%s' "$out" | jq -r '.counts.expiring // 0' 2>/dev/null || echo 0)
 n_dormant=$(printf '%s' "$out" | jq -r '.counts.dormant // 0' 2>/dev/null || echo 0)
 n_unreadable=$(printf '%s' "$out" | jq -r '.counts.unreadable // 0' 2>/dev/null || echo 0)
 n_live=$(printf '%s' "$out" | jq -r '.counts.live // 0' 2>/dev/null || echo 0)
@@ -225,7 +245,7 @@ fi
 subjects=$(printf '%s' "$out" | jq -c --arg window "14 days" \
     --argjson held "$held_missions" --arg anyruling "$any_ruling_open" '
     [ .strategies[]
-      | select(.state == "overdue" or .state == "dormant" or .state == "arrived")
+      | select(.state == "overdue" or .state == "expiring" or .state == "dormant" or .state == "arrived")
       # HELD: an `arrived` reading whose whole residue an open ruling already names.
       | select((.state != "arrived")
                or (((.residue // {}) | (.readable // false)) | not)
@@ -295,6 +315,18 @@ subjects=$(printf '%s' "$out" | jq -c --arg window "14 days" \
                         + (if (.days_to_target != null)
                            then " (" + ((-.days_to_target) | tostring) + " day(s) ago)" else "" end)
                         + $waiting_phrase + $residue_phrase
+                   # EXPIRING (2026-08-29). The heading names the DATE and the DAYS LEFT, because
+                   # the whole point of asking early is that the person can still act, and a
+                   # warning that does not say how long they have is not a warning. The leaving
+                   # rides it exactly as it rides the other two.
+                   elif .state == "expiring"
+                   then "the direction `" + .slug + "` reaches its target date"
+                        + (if (.days_to_target != null)
+                           then (if (.days_to_target == 0) then " today"
+                                 else " in " + ((.days_to_target) | tostring) + " day(s)" end)
+                           else "" end)
+                        + (if (.target_date != "") then " (" + .target_date + ")" else "" end)
+                        + $waiting_phrase + $residue_phrase
                    elif .state == "arrived"
                    then "the direction `" + .slug + "` has its work in"
                         + (if ((.landed // 0) > 0)
@@ -306,6 +338,11 @@ subjects=$(printf '%s' "$out" | jq -c --arg window "14 days" \
                    end),
          body: (if .state == "overdue"
                 then $leaving_clause + "Re-date it, announce that it ended, or say it still stands — the loop carries what you announce and never decides either for you."
+                # The act is the same one `overdue` names, offered while it can still be taken —
+                # and the successor is named because ending the LAST direction leaves the loop
+                # originating nothing, which is what `direction-last` says one reading earlier.
+                elif .state == "expiring"
+                then $leaving_clause + "Re-date it, announce a successor when you end it, or say it still stands — the loop carries what you announce and decides nothing."
                 elif .state == "arrived"
                 then $leaving_clause + "Everything attributed to it has landed. Announce that it ended, or say it still stands — the loop closes nothing."
                 else "File its next move, or say it still stands — the loop will not close or change it either way."
@@ -374,7 +411,7 @@ n_leaving_degraded=$(printf '%s' "$subjects" | jq '[.[] | select(has("leaving"))
 
 n_last_live=$(printf '%s' "$subjects" | jq '[.[] | select(.reading == "last_live")] | length' 2>/dev/null || echo 0)
 
-summary="${n_live} live, ${n_arrived} arrived, ${n_overdue} overdue, ${n_dormant} dormant, ${n_unreadable} unreadable; repository ${repository}; ${n_last_live} last-live; ${n_subjects} to ask; ${n_leaving_degraded} leaving unreadable"
+summary="${n_live} live, ${n_arrived} arrived, ${n_overdue} overdue, ${n_expiring} expiring, ${n_dormant} dormant, ${n_unreadable} unreadable; repository ${repository}; ${n_last_live} last-live; ${n_subjects} to ask; ${n_leaving_degraded} leaving unreadable"
 
 if [ "$n_subjects" -eq 0 ]; then
     emit ok "" "$summary"
@@ -411,6 +448,14 @@ if [ "$n_overdue" -gt 0 ]; then
     if [ "$n_overdue" -eq 1 ]; then ophrase="a direction has run past its date"
     else ophrase="${n_overdue} directions have run past their date"; fi
     phrase="${phrase:+${phrase}; }${ophrase}"
+fi
+# EXPIRING FOLLOWS `overdue` IN THE PHRASE, in the reader's own precedence order: a date that
+# has gone is read before one that is coming, so a reader meets the two facts in the order the
+# lifecycle ranks them.
+if [ "$n_expiring" -gt 0 ]; then
+    if [ "$n_expiring" -eq 1 ]; then ephrase="a direction is about to reach its date"
+    else ephrase="${n_expiring} directions are about to reach their dates"; fi
+    phrase="${phrase:+${phrase}; }${ephrase}"
 fi
 if [ "$n_dormant" -gt 0 ]; then
     if [ "$n_dormant" -eq 1 ]; then dphrase="a direction has nothing answering it"

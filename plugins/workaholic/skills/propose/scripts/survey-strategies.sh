@@ -12,12 +12,12 @@
 # Output (one JSON object):
 #   {ok, identity, window, cap, active_count,
 #    eligible: [{slug, title, target_date, days_to_target, assignees, feedback_refs[],
-#                empty_reason, count, active_count, waiting_count, pace, overdue, dormant,
-#                quiescent, residue,
+#                empty_reason, count, active_count, waiting_count, pace, overdue, expiring,
+#                dormant, quiescent, residue,
 #                landed: [{kind, title, state, attribution, last_change}],
 #                path}],
-#    refused: [{slug, reason, pace, overdue, dormant, quiescent, residue, title, assignees,
-#               days_to_target, target_date, landed_count}],
+#    refused: [{slug, reason, pace, overdue, expiring, dormant, quiescent, residue, title,
+#               assignees, days_to_target, target_date, landed_count}],
 #    errors: [], selected: [<slug>...]}
 #
 #   residue  {readable, reason, missions: [{slug, queued}], mission_count, ticket_count} —
@@ -353,6 +353,43 @@ jq -sc \
           # is computed against a UTC `$today`, so a direction expiring TODAY reads `0`
           # and is not yet overdue. That is the correct boundary, stated rather than tuned.
           ((.days_to_target != null) and (.days_to_target < 0))}
+      | . + {expiring:
+          # EXPIRING -- IS THE DATE ABOUT TO ARRIVE? (2026-08-29.) Every reading beside this one
+          # answers BACKWARDS: `late` asks whether nothing has landed, `overdue` whether the date
+          # has GONE, `dormant` whether anything is answering it, `quiescent` whether its work is
+          # all in. None answers *this direction is about to stop originating work*, so a live,
+          # in-date, `on_course` direction one day from its date produced NO READING AND NO
+          # QUESTION anywhere in the layer -- and the day after, `past_target_date` silenced
+          # `/propose` with the only signal being `direction-overdue`, asked in ARREARS.
+          #
+          # Measured on `an-autonomous-improvement-loop-run-by-the-routines` at the hour the ask
+          # was written: `days_to_target: 2`, `pace: on_course`, `overdue: false`,
+          # `dormant: false` -- every reading healthy, two days from silence.
+          #
+          # IT INTRODUCES NO NEW THRESHOLD, which is what makes it defensible rather than tuned.
+          # Both terms are already on the row and already justified there: `$window_days` is the
+          # evidence window the judgment is made against (the same term `pace` is derived
+          # against, out of the same `$WINDOW`), and the remaining days are the date the strategy
+          # itself declares. So the reading means *less runway remains than the window the
+          # judgment can see* -- precisely the point at which `pace` stops being able to tell
+          # whether the direction will arrive. A fresh constant here would be a number nobody
+          # could defend.
+          #
+          # IT IS ITS OWN FIELD, NEVER A FOURTH `pace` VALUE, for the reason `overdue` records
+          # for itself one block up: one field answering two questions is how the two drift.
+          #
+          # THE BOUNDARIES ARE EXHAUSTIVE AND DISJOINT WITH `overdue`, and stated rather than
+          # tuned. `days_to_target < 0` is the answer `overdue` gives and never this one; a
+          # direction whose date is TODAY reads `0` and IS expiring, not overdue; and a row with
+          # no resolvable `target_date` has a `null` `days_to_target` and is never expiring --
+          # malformed is not near, exactly as malformed is not late.
+          #
+          # It is emitted on EVERY row, eligible and refused alike, and computed BEFORE
+          # `refusal` so that expression, `pace`, `overdue`, `dormant`, `quiescent`, the sort and
+          # `selected` stay byte-identical. The refused case is the point: a direction refused
+          # `work_waiting` still has a date coming, and it is the one whose warning matters.
+          ((.days_to_target != null) and (.days_to_target >= 0)
+           and (.days_to_target <= $window_days))}
       | . + {dormant:
           # DORMANT -- A LIVE DIRECTION NOTHING IS ANSWERING (2026-08-26). `/propose` reports
           # `no_evolutionary_move` when it cannot name a move against an eligible direction --
@@ -485,7 +522,7 @@ jq -sc \
      # rather than the list, because the list is the evidence a proposal is judged against
      # and a refused row is not being proposed against.
      refused: ((map(select(.refusal != ""))
-                | map({slug, reason: .refusal, pace, overdue, dormant, quiescent, title, assignees,
+                | map({slug, reason: .refusal, pace, overdue, expiring, dormant, quiescent, title, assignees,
                        days_to_target, target_date, landed_count: ((.landed // []) | length),
                        # `residue` rides the refused rows for the same reason `landed_count`
                        # and `target_date` do (2026-08-27): an ARRIVED direction past its date

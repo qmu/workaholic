@@ -2,7 +2,7 @@
 type: Mission
 title: Warn a direction before its date silences the loop
 slug: warn-a-direction-before-its-date-silences-the-loop
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-29T02:18:51+00:00
 author: a@qmu.jp
@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260829-024033
 ---
 
 # Warn a direction before its date silences the loop
@@ -40,12 +41,22 @@ machine re-dates, closes or amends a direction.
 
 ## Acceptance
 
-- [ ] `expiring` is emitted on every surveyed row and ranked in the lifecycle
+- [x] `expiring` is emitted on every surveyed row and ranked in the lifecycle
       precedence, with the leaving carried onto it. (#20260829021946-emit-expiring-on-every-surveyed-row.md)
-- [ ] The assignee is asked `direction-expiring:<slug>` once, before the date,
+- [x] The assignee is asked `direction-expiring:<slug>` once, before the date,
       under every existing gate and hold. (#20260829021947-ask-the-assignee-once-before-the-date.md)
-- [ ] A hermetic diff pins that no gate, sort, refusal or token moved. (#20260829021947-name-expiring-in-the-run-report-as-evidence.md)
+- [x] A hermetic diff pins that no gate, sort, refusal or token moved. (#20260829021947-name-expiring-in-the-run-report-as-evidence.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-29 — ticket archived — 20260829021946-reproduce-the-silent-expiry-and-pin-it.md
+- 2026-08-29 — ticket archived — 20260829021946-emit-expiring-on-every-surveyed-row.md
+- 2026-08-29 — ticket archived — 20260829021946-rank-expiring-in-the-lifecycle-reading.md
+- 2026-08-29 — ticket archived — 20260829021947-carry-the-leaving-onto-the-expiring-row.md
+- 2026-08-29 — ticket archived — 20260829021947-ask-the-assignee-once-before-the-date.md
+- 2026-08-29 — ticket archived — 20260829021947-name-expiring-in-the-run-report-as-evidence.md
+- 2026-08-29 — ticket archived — 20260829021947-drill-the-expiry-warning-with-no-network.md
+- 2026-08-29 — ticket archived — 20260829021947-state-the-expiry-reading-and-its-refusals.md
+- 2026-08-29 — mission achieved — mission.md
+- 2026-08-29 — story reported — work-20260829-024033.md

@@ -100,7 +100,17 @@
    and nothing more, because an `arrived` printed without its residue is the same partial
    claim `/moderate`'s arrival question no longer makes. A **degraded** residue read is
    reported as degraded, never as an empty one. Nothing is proposed, withheld or ordered on
-   it. Post nothing.
+   it. **And when that strategy reads `expiring: true`, name `expiring` beside it too**
+   (2026-08-29) — a term beside the strategy, in the same voice, never a warning and never a
+   sentence of advice. A reader otherwise cannot tell a proposal made into a direction with
+   runway from one made into a direction days from being silenced by its own date. A
+   **refused** strategy carries the term on its own row and needs no second surface here: the
+   report names what the tick proposed against. It changes nothing — the direction was
+   eligible, the proposal was made, and no gate, sort, `selected` or token reads it, because
+   silencing, reordering or accelerating the one routine that originates work on a machine's
+   reading of a clock is exactly what `pace` already refuses. The person who must act is
+   reached by `/moderate`'s `direction-expiring:<slug>` question, not by this line.
+   Post nothing.
 
 ## Where it lands in the hour, and why the loop closes across hours
 

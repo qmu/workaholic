@@ -2702,8 +2702,13 @@ function testUnansweredAsksStep() {
     const steps = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/run.sh"), "utf8")
       .match(/^STEPS='([^']+)'/m)[1].split(" ");
     assertTrue("the step is in run.sh's list", steps.includes("unanswered-asks"), steps.join(" "));
-    assertEq("immediately before the check-in, which stays last",
-      steps.slice(-2), ["unanswered-asks", "human-checkin"]);
+    // `file-findings` was inserted between them on 2026-08-29: its candidates are the earlier
+    // steps' own reports, so it must run after every reading step, and it must precede the
+    // check-in because a filing holds the question it answers. What this row has always been
+    // about is preserved and stated as two facts: the check-in is still LAST, and
+    // `unanswered-asks` is still one of the last reading steps.
+    assertEq("still among the last reading steps, with the check-in last of all",
+      steps.slice(-3), ["unanswered-asks", "file-findings", "human-checkin"]);
   } finally { cleanup(dir); }
 }
 
@@ -18394,6 +18399,7 @@ const tests = [
   ["claims: two verdicts are proofs, and every consumer gates on one", testProofJudgementSplit],
   ["moderate: the gap between a tick finding and the work queue", testFindingToWorkGap],
   ["moderate: repairable or needing a ruling, pinned against STEPS", testFindingClassification],
+  ["moderate/file-findings: a repairable finding, filed as work", testFileFindingsStep],
   ["moderate/undelivered-units: the loop's own undelivered work reaches a person", testUndeliveredUnitsStep],
   ["moderate/reconcile-candidates.sh: which announced items may still be called in flight", testReconcileCandidates],
   ["moderate/thread-reconcile: the finished item whose thread still calls it in flight", testThreadReconcileStep],
@@ -23590,7 +23596,14 @@ function testModerateRun() {
     // `unanswered-asks` because a question the tick just learned was answered is not a
     // person still waiting.
     "question-answers",
-    "unanswered-asks", "human-checkin"];
+    "unanswered-asks",
+    // `file-findings` runs immediately before the check-in (2026-08-29): a REPAIRABLE finding
+    // of this tick, handed back to be filed as one [FB] issue the loop can drive. It is last
+    // of the reading steps because its candidates ARE the earlier steps' reports, and it must
+    // precede `human-checkin` because ticket 6's suppression holds the question a filing
+    // answers.
+    "file-findings",
+    "human-checkin"];
   try {
     // A tick only makes sense in a repository the loop already writes to; step 1 is the
     // probe that says so, and it never creates the tree behind the layout gate's back.
@@ -26788,7 +26801,7 @@ function testFindingToWorkGap() {
   // Named, never globbed: a discovered list would grow silently, which is the opposite of a
   // ledger. Ticket 3 of this mission adds `step-file-findings.sh` here in the same commit
   // that makes it a caller.
-  const ALLOWED_CALLERS = ["step-question-answers.sh"];
+  const ALLOWED_CALLERS = ["step-file-findings.sh", "step-question-answers.sh"];
   const callers = readdirSync(MODERATE_SCRIPTS)
     .filter((f) => f.endsWith(".sh"))
     .filter((f) => readFileSync(join(MODERATE_SCRIPTS, f), "utf8")
@@ -26936,6 +26949,100 @@ function testFindingClassification() {
         `a step id classified inside a script is the second copy workflow.md exists to prevent: ${line.trim()}`);
     }
   }
+}
+
+// ---------- moderate/file-findings: a repairable finding, filed as work (2026-08-29) ----------
+//
+// The step that closes the gap `testFindingToWorkGap` pins. What has to hold, and what the
+// mission's whole safety property rests on: a `repairable` finding reaches `needs_agent` with
+// everything the filing needs, and a `needs_ruling` one NEVER does. Everything else is
+// reporting.
+//
+// IT IS DRIVEN THROUGH `run.sh`, not called directly, because the candidates come from the
+// run's own accumulated step reports — a seam that only exists when `run.sh` is the caller. The
+// fixture stubs the earlier steps by writing the reports file the same way `run.sh` does, and
+// the direct invocation proves the reader; the `run.sh` invocation proves the wiring.
+//
+// NO NETWORK, NO `gh`: the step opens no issue — the agent does, after `run.sh` returns — so
+// there is nothing to stub.
+function testFileFindingsStep() {
+  const tmp = mkdtempSync(join(tmpdir(), "wh-file-findings-"));
+  const STEP = join(REPO_ROOT,
+    "plugins/workaholic/skills/moderate/scripts/step-file-findings.sh");
+  const RUN = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/run.sh");
+  try {
+    const reports = join(tmp, "reports.json");
+    // One repairable step reporting an event, one repairable step DEGRADED (our own machinery
+    // failing is the loop's debt too), one repairable step that found nothing, and one
+    // `needs_ruling` step shouting as loudly as it can.
+    writeFileSync(reports, JSON.stringify({
+      steps: [
+        { step: "retire-claims", status: "ok", reason: "", summary: "1 blocked",
+          needs_agent: 0, logged: true, event: "a claim branch CI could not delete" },
+        { step: "inbound-sweep", status: "degraded", reason: "channel_unreadable",
+          summary: "the channel could not be read", needs_agent: 0, logged: true, event: "" },
+        { step: "doc-drift", status: "ok", reason: "", summary: "no new drift",
+          needs_agent: 0, logged: true, event: "" },
+        { step: "undrivable-units", status: "blocked", reason: "", summary: "2 undrivable",
+          needs_agent: 2, logged: true, event: "2 queued artifacts nobody can drive" },
+      ],
+    }) + "\n");
+    const env = { ...process.env, WORKAHOLIC_TICK_REPORTS: reports };
+    const out = JSON.parse(
+      run(tmp, `${POSIX_SH} ${STEP} --tick 20260829-050000 --root ${tmp}`, { env }).stdout.trim());
+
+    assertEq("the step reports ok", out.status, "ok");
+    const cands = out.needs_agent[0].candidates;
+    assertEq("both repairable findings are handed back, and only those",
+      cands.map((c) => c.step).sort().join(","), "inbound-sweep,retire-claims");
+    // THE SAFETY PROPERTY, asserted as a behaviour rather than as a shape: a `needs_ruling`
+    // finding must never reach the filer, however loudly it reported.
+    assertTrue("a needs_ruling finding never reaches the filer",
+      !JSON.stringify(out.needs_agent).includes("undrivable-units"),
+      "a needs_ruling step's finding was handed to the filing act");
+    assertTrue("a repairable step that found nothing is not a candidate",
+      !cands.some((c) => c.step === "doc-drift"), JSON.stringify(cands));
+
+    // THE DEDUP KEY COMES FROM `lib/question-id.sh` AND FROM NOWHERE ELSE, so the filing and
+    // the asking cannot disagree about what "the same finding" is. Checked by deriving it the
+    // same way the library does rather than by hard-coding a digest.
+    const qid = run(tmp,
+      `${POSIX_SH} -c '. ${join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/lib/question-id.sh")}; question_slug "finding:retire-claims"'`)
+      .stdout.trim();
+    assertEq("the finding id is the shared derivation over the step id",
+      cands.find((c) => c.step === "retire-claims").finding_id, qid);
+    assertTrue("and the subject is keyed on the step, not on the summary",
+      cands.every((c) => c.subject === `finding:${c.step}`), JSON.stringify(cands));
+
+    // `left` is a COUNT, never a list: those findings reach a person through their own
+    // questions, and re-listing them is the report addressed to nobody.
+    assertTrue("what is left to a person is counted, not listed",
+      /1 left to a person/.test(out.summary), out.summary);
+    assertEq("the event is empty — nothing has been filed when run.sh reads this line",
+      out.event, "");
+
+    // ---- DEGRADATIONS, EACH BY ITS OWN NAME ----
+    const bare = JSON.parse(run(tmp, `${POSIX_SH} ${STEP} --tick 20260829-050000 --root ${tmp}`,
+      { env: { ...process.env, WORKAHOLIC_TICK_REPORTS: "" } }).stdout.trim());
+    assertEq("a run that named no reports degrades by name", bare.reason, "reports_unavailable");
+    writeFileSync(join(tmp, "junk.json"), "not json\n");
+    const junk = JSON.parse(run(tmp, `${POSIX_SH} ${STEP} --tick 20260829-050000 --root ${tmp}`,
+      { env: { ...process.env, WORKAHOLIC_TICK_REPORTS: join(tmp, "junk.json") } }).stdout.trim());
+    assertEq("and an unparseable one is a different reason", junk.reason, "reports_unreadable");
+
+    // ---- THROUGH `run.sh`: THE WIRING, AND THE TICK'S WRITE CONTRACT ----
+    const repo = join(tmp, "repo");
+    mkdirSync(join(repo, ".workaholic"), { recursive: true });
+    execSync("git init -q .", { cwd: repo });
+    const before = readdirSync(join(repo, ".workaholic")).join(",");
+    const wired = JSON.parse(
+      run(repo, `${POSIX_SH} ${RUN} --tick 20260829-051500 --root ${repo} --only file-findings --no-log`).stdout.trim());
+    assertEq("run.sh dispatches the step", wired.steps[0].step, "file-findings");
+    assertEq("an empty report set is an ordinary answer, not a degradation",
+      wired.steps[0].reason, "no_candidates");
+    assertEq("and the step itself writes nothing into the tree",
+      readdirSync(join(repo, ".workaholic")).join(","), before);
+  } finally { rmSync(tmp, { recursive: true, force: true }); }
 }
 
 // ---------- moderate/undelivered-units: the loop's own undelivered work (2026-08-27) ----------

@@ -1472,6 +1472,45 @@ an item with no feedback record has no thread to reconcile at all.
 candidate list at all** — never an empty one, which would render our own blindness as "nothing to
 reconcile".
 
+## 25. `file-findings` — a repairable finding, filed as work
+
+```bash
+sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/step-file-findings.sh --tick <id> [--root <repo-root>]
+```
+
+- **Reads**: the classification table below (its one home), and the run's own step reports,
+  named by `run.sh` in `WORKAHOLIC_TICK_REPORTS`. **Never `plan-units.sh`** —
+  `undrivable-units`' rule, first recorded by `closable-missions`: the survey runs the living
+  migrations and **stages** what they converge, and a step whose contract is *writes nothing*
+  may not reach it through something that writes.
+- **Writes**: nothing, not even its own tick-log line (`run.sh` writes that). The act is the
+  agent's, through `propose/scripts/file-inbound-ask.sh` — still the **one** filer — assigned to
+  the running identity so the next `[Specificate]` at `:15` ingests it, carrying the direction
+  through `feedback/scripts/ask-feedback-line.sh`, still the one writer of that line.
+- **Its `event` is always empty**, `standing-rulings`' rule for `standing-rulings`' reason: at
+  the moment `run.sh` reads this step's line nothing has been filed, because the agent acts only
+  after `run.sh` returns. An event here would announce an act the step has not taken.
+
+**Why it exists** (2026-08-29, mission `let-the-tick-s-own-findings-become-the-loop-s-work`).
+The tick had two destinations for a finding — a **question** to a person, or a **feedback
+record** — and neither becomes work, because `[Specificate]`'s unattended entrance reads GitHub
+**issues**. So the loop's own debt accumulated where nothing could drive it, while the only
+in-tick caller of the filer acted on a *person's* answer and never on a finding of its own.
+
+**What counts as a finding.** A step in the `repairable` set that supplied an **`event`** — its
+own statement that a repository event happened — or that reported **`degraded`** or
+**`blocked`**, because our own machinery failing is the loop's debt as surely as a stuck pull
+request is. Everything else the tick found is **`left`**, a count and never a list: those
+findings reach a person through their own questions, and re-listing them here is the report
+addressed to nobody this repository has twice retired posts for.
+
+**The issue is composed, never pasted.** A step's `summary` is written for a maintainer
+diagnosing the tick and reads badly as an issue body; the agent writes it for the person and for
+the `[Specificate]` run that will read it — what the tick found, which step found it, and the
+repair the finding names.
+
+---
+
 ## Repairable, or needing a ruling — which findings may become work
 
 A finding has three destinations, and until 2026-08-29 it had only two: a **question** to a
@@ -1523,6 +1562,7 @@ decide something before any change is the right one*.
 | `strategy-digest` | `needs_ruling` | A render; it produces no finding to file. |
 | `question-answers` | `needs_ruling` | A person's own words, already filed by that step through the one filer. |
 | `unanswered-asks` | `needs_ruling` | A person is waiting; that is the finding, and only a person clears it. |
+| `file-findings` | `needs_ruling` | Filing its own findings as work is the loop asking itself for work. |
 | `human-checkin` | `needs_ruling` | The asking step itself. |
 
 **`merge-conflicts` is the row worth arguing about**, and it is `repairable` deliberately.

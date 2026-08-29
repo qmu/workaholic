@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260829-194055
 ---
 
 # Follow the pull requests the loop opens for a person

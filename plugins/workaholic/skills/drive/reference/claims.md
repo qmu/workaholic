@@ -412,6 +412,51 @@ way it pins the three above: it fails when a word the reader emits is unclassifi
 table classifies a word the reader never emits, when any row is called a `proof`, or when the
 consumer reaches an acting call site.
 
+### Whether an operator-facing pull request was acted on (`publication-effect.sh`)
+
+A **fifth vocabulary in the same home** (2026-08-29, mission
+`follow-the-pull-requests-the-loop-opens-for-a-person`). The four tables above are keyed on what
+is true of a *claim*, of the *base*, or of an act *this loop* took. This one is keyed on the act
+the loop takes **on the operator's behalf**: `publish-tree-pr.sh` refuses to auto-merge a ruling
+or a strategy publication — because *merging is the ruling and closing is the refusal* — and
+then somebody has to rule. One column cannot classify five questions, and a second document
+would be the second home the split exists to prevent.
+
+**Why the question needed a vocabulary at all.** Having opened the diff, the loop stopped
+following it. No claim-side verdict could see it: a publication carries **no claim** at all
+(`publish-tree-pr.sh` pushes `publish-main` to a `work-*` name with no `Claim` commit), and
+`stuck-prs` and `merge-conflicts` find the pull request perfectly healthy — it is not stuck, it
+is **waiting**, which is what it was opened to do. Measured 2026-08-29: #694 sat 18 hours
+unanswered.
+
+**There is no proof in this vocabulary either, and the reason is the plainest of the five.** A
+pull request is *designed* to change state — anybody can merge it, close it, or reopen it
+between two reads — so every reading here can become false by looking again, which is the one
+property a proof must not have. **No consumer may merge, close, revert, re-run, block, gate,
+hold work or lift a gate on it.** The licence is to **report and to ask**, and nothing else.
+
+| Word | Class | What established it, and what a consumer may do |
+| ---- | ----- | ----------------------------------------------- |
+| `merged` | judgement | `merged_at` is set: the operator ruled, and the ruling landed. **Settled** — it draws no question. A consumer may only report it. |
+| `closed` | judgement | The pull request is closed and was never merged: the operator **refused**, which is a real answer and not an omission. Settled, and never rendered as *merged* — the two ask a reader for opposite things. |
+| `open:<age>` | judgement | Rendered with the age in hours from `created_at`, or `open:unknown` when only the clock arithmetic failed (the state is still honestly open). **This is the one word that draws a question**, addressed to the operator, keyed `operator-pull:<number>` so one pull request costs exactly one question however many ticks see it. |
+| `unreadable` | judgement | The transport, the slug or the pull request could not be read (`gh_unavailable` / `read_failed` / `not_found` / `jq_unavailable` / `no_pull_number`), carrying a named reason and a **null** age — never a zero, which reads as *just opened* and would make a read we could not make the loudest answer in the set. The **absence** of a reading: it draws **no question** and is counted in the summary, `strategy-pace`'s rule that a person's attention is not spent on our own degradation. |
+
+**Its enumerated consumers are two.** `/moderate`'s `step-operator-pulls.sh` **asks** — one
+question per `open:<age>` reading and nothing else: it merges nothing, closes nothing, comments
+on nothing, holds no work and lifts no gate. `/implement`'s and `/propose`'s run reports
+**report** — once per run, as evidence, in the voice `pace`, `overdue` and `expiring` already
+use; the reading **moves no token** and gates nothing. `scripts/test-workflow-scripts.mjs` pins
+this table the way it pins the four above: it fails when a word the reader emits is
+unclassified, when the table classifies a word the reader never emits, when any row is called a
+`proof`, or when an enumerated consumer reaches an acting call site.
+
+**Membership is not in this vocabulary.** *Which* pull requests are the operator's is a separate
+question with a separate script (`branching/scripts/list-operator-facing-pulls.sh`) and a separate rule
+(`branching/scripts/lib/publication-refusal.sh`, shared with the seam that refuses the merge).
+This one answers only *what happened to this pull request* — one script, one question, because
+one script answering both is how two readings of one fact start to disagree.
+
 ## Claim a unit
 
 ```bash

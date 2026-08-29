@@ -49,3 +49,4 @@ one says so by name and asks nobody.
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-29 — ticket archived — 20260829192136-derive-the-operator-facing-pull-requests-from-the-seam-s-refusal-word.md

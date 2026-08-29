@@ -87,3 +87,35 @@ excluded `owned_by_other` on the one address #694 would map.
 - The brake (*at most one open ruling at a time*) is deliberately untouched here: a second
   ruling drafted over an unanswered one hands the operator two competing diffs, which is
   the failure that brake exists to prevent.
+
+## Final Report
+
+**Implemented — as the ticket's own recommended option, which required no behaviour change to
+the hold.**
+
+- **Reproduced first (step 1).** Live: #694 open **18 hours**, `ruling-suppression.sh` reporting
+  `any_open: true`, and no question about the ruling reaching anybody from any step.
+- **A second measurement changed the picture and is recorded rather than smoothed over.** #694
+  holds **nothing**: its body carries no `ruling: <kind> / subject: <subject>` markers at all
+  (`publish-tree-pr.sh` composes the body itself from a fixed template), so
+  `ruling-suppression.sh` answers `held: {"attribution": [], "identity_mapping": []}`. The ask's
+  measured claim that #694 was *holding the `undrivable-unit:` questions for the very addresses
+  it names* is therefore **not reproducible today** — the questions were being asked. What **is**
+  real, and what this mission fixes, is the other half: nothing told anybody about the ruling
+  itself. That marker loss is a separate defect and is minted as ticket
+  `20260829200500-carry-the-ruling-s-subject-markers-into-its-pull-request-body`.
+- **The repair (step 2): keep the hold; ticket 3's question is what breaks the silence.**
+  Releasing the hold *as well* would ask one person twice, in two vocabularies, about one pull
+  request — the doubling `handoff-units` and `stalled-units` were split to avoid. Releasing on a
+  **timer** is refused by name as a threshold this layer has refused elsewhere.
+- **One derivation (step 3):** `step-operator-pulls.sh` **composes `ruling-suppression.sh`** for
+  what a ruling holds rather than re-deriving the subject list, so the hold's reading and the
+  question's cannot diverge. Pinned by the drill and by the suite.
+- **Preserved, provably (step 4):** `ruling-suppression.sh` is behaviourally **byte-identical**
+  (header prose only) — the hold stays keyed on the **subject**, an unreadable read suppresses
+  nothing, `overdue` and `dormant` are never held; `ask-question.sh` gained **nothing**; both
+  consumers are untouched.
+
+**Gate:** the suite passes and `ask-question.sh` is byte-identical (`git diff` shows no change
+to it). Ticket 7's drill asserts the shared reading and the subject-keying over consecutive
+ticks.

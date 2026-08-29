@@ -85,3 +85,35 @@ reopened between two reads, which is the one property a proof must not have.
 - Ticket 2's derivation and this reader are deliberately two scripts: *which pull requests
   are the operator's* and *what happened to one* are different questions, and one script
   answering both is how two readings of one fact start to disagree.
+
+## Final Report
+
+**Implemented.** `branching/scripts/publication-effect.sh <number>` answers
+`{ok, number, url, effect, age_hours, reason}`, exit 0 on every path.
+
+- **`effect`** is `merged` (`merged_at` set) / `closed` (state closed, not merged) /
+  `open:<age>` (hours from `created_at`) / `unreadable` with the transport's own reason
+  (`gh_unavailable`, `read_failed`, `not_found`, `jq_unavailable`, `no_pull_number`).
+- **`unreadable` carries a NULL age**, never a zero — a zero reads as *just opened*, the most
+  urgent thing this vocabulary can say, for a read we could not make. A degraded **age** alone
+  (the clock arithmetic failing on a readable open pull request) reports `open:unknown` with a
+  null age and `age_unreadable`, so the state stays honest.
+- **The single-pull endpoint**, per the ticket's Consideration: the list endpoint does not carry
+  `merged_at` reliably for a closed-unmerged pull request, which is exactly the distinction that
+  makes `closed` a different answer from `merged`.
+- **Membership is not answered here** — that is the derivation's question, and the candidate set
+  is passed in.
+
+**All four values verified against live GitHub**, not only against the stub: #694 → `open:18`
+(the mission's own measured 18 hours), #732/#700 → `merged`, #612 → `closed`, #999999 →
+`unreadable`/`not_found`, `abc` → `unreadable`/`no_pull_number`.
+
+**Bound (ticket step 4):** `--limit`, default 10, matching `pulls-state.sh`, with the cap
+reported on the derivation's side so a busy repository is never silently half-read.
+
+**Home:** `branching/scripts/`, not `moderate/scripts/` — see the derivation ticket's Final
+Report for the measured closure reason.
+
+**Gate:** `node scripts/test-workflow-scripts.mjs` and `node scripts/build-plugins/verify.mjs`
+pass. Every GitHub read goes through `gather/scripts/gh-rest.sh`; no `gh pr|issue|repo` call
+exists in either new script.

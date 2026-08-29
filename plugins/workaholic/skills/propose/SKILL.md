@@ -627,10 +627,36 @@ the refused case being the point, since a settled direction is normally refused.
 default lives; a **degraded** row still carries it, because the degradation belongs to the
 attribution walk and the stage is read off the artifact.
 
-**In this reading it decides nothing**: `refusal`, `pace`, `overdue`, `expiring`, `dormant`,
-`quiescent`, the sort and `selected` are byte-identical across all three stages over an
-otherwise-identical fixture, which the hermetic suite pins rather than asserts. What the stage
-*does* is the next section's subject.
+**Carrying it decides nothing**: `refusal`, `pace`, `overdue`, `expiring`, `dormant`,
+`quiescent`, the sort and `selected` are byte-identical under 進行中, 改良中 and an unstaged
+direction, which the hermetic suite pins rather than asserts. **観察中 is the one value that
+decides anything**, and it decides exactly one thing:
+
+### `observing` — the first DECLARED gate, and why that is what makes it safe
+
+(2026-08-29, the same mission.) A direction the operator declared **観察中** is settled: the
+loop stays **reactive only** and no longer originates proposals for it. That is the refusal
+`observing`, one more entry on the gate list, reported by name like every other.
+
+**It is the first gate on that list that is declared rather than derived, and that is precisely
+the argument for it.** A derived silence was refused here by name — `pace` changes order and
+never eligibility, because a machine's guess must not silence the one routine that originates
+work. The operator's own word is not a guess, it is read off the artifact, and no running
+session can make it differently.
+
+**Its placement is argued against both neighbours.** It sits **after** `not_active` and
+`not_mine`, because a closed or foreign direction is not this repository's question at all and
+answering `observing` for one would name the wrong fact; and **before** `past_target_date`,
+because an observing direction that is also overdue should read as observing — that is the fact
+a person acts on, and lateness on a settled direction is not a failure.
+
+**It stops origination and nothing else.** The refused row still carries `pace`, `overdue`,
+`expiring`, `dormant`, `quiescent` and its residue, so a settled direction stays visible; and
+**reactive work still reaches it** — an inbound ask, whether swept off the channel, filed as an
+issue or reported as an error, still becomes an `[FB]` issue, still reaches `/specificate`, and
+still lands as a mission or a ticket carrying that direction's refs. That asymmetry is the
+whole point of the stage. `no_evolutionary_move` stays what it is — an honest empty answer for
+a direction the run had nothing to propose against — and is never rendered as `observing`.
 
 ### The run report names what is waiting on the operator
 

@@ -7615,14 +7615,23 @@ function testStrategyStageRidesBeside() {
     assertEq("an unstaged direction reads 進行中 on its survey row",
       survey().eligible.find((x) => x.slug === "d").stage, "進行中");
 
+    // Every value is CARRIED; the byte-identity holds for the two that gate nothing.
+    // 観察中 is the ONE deliberate exception — `observing`, added by the next ticket in this
+    // mission — and it is asserted by `testProposeObservingGate` rather than exempted
+    // silently here, so "the stage gates nothing" keeps a precise meaning: it gates nothing
+    // EXCEPT the one value the operator declares to mean *stop originating*.
     for (const value of ["進行中", "改良中", "観察中"]) {
       mkStrategy("d", value, future);
       const r = survey();
       assertEq(`the row carries the declared stage ${value}`,
         (r.eligible.concat(r.refused)).find((x) => x.slug === "d").stage, value);
+      if (value === "観察中") continue;
       assertEq(`...and every gate, reading and the sort are byte-identical under ${value}`,
         decisions(r), baseline);
     }
+    mkStrategy("d", "観察中", future);
+    assertEq("観察中 is the single value that decides anything, and it decides exactly one thing",
+      (survey().refused.find((x) => x.slug === "d") || {}).reason, "observing");
 
     // AND THE LIFECYCLE READER CARRIES IT WITHOUT ENTERING ITS PRECEDENCE. `state` is derived,
     // the stage is declared, and a sixth `state` value was refused by name.
@@ -7644,6 +7653,79 @@ function testStrategyStageRidesBeside() {
     assertTrue("the survey never nulls the stage on a degraded row",
       !/stage: \(if \$blind/.test(readFileSync(SCRIPTS.proposeSurvey, "utf8")),
       "an attribution_unreadable row was made stage-unreadable, which it is not");
+  } finally { cleanup(dir); }
+}
+
+// ---------- 観察中 stops ORIGINATION and nothing else (2026-08-29) ----------
+// `make-a-direction-s-lifecycle-a-declared-stage`, ticket *Stop originating proposals for an
+// observing direction*. `observing` is the FIRST DECLARED gate on a ladder of derived ones,
+// and that is what makes it admissible where a derived silence was refused: `pace` gates
+// nothing, because a machine's guess must not silence the one routine that originates work —
+// and the operator's own word is not a guess.
+function testProposeObservingGate() {
+  const dir = makeRepo("main");
+  const WH = join(dir, ".workaholic");
+  const OPEN = join(dir, "open.json");
+  const mkStrategy = (slug, stageLine, target) => {
+    mkdirSync(join(WH, "strategies"), { recursive: true });
+    writeFileSync(join(WH, "strategies", `${slug}.md`), [
+      "---", "type: Strategy", `title: ${slug}`, `slug: ${slug}`, "status: active",
+      ...(stageLine ? [`stage: ${stageLine}`] : []),
+      `target_date: ${target}`, "assignees: [me@example.com]",
+      "feedback: [20260101000000-a.md]",
+      "---", "", `# ${slug}`, "", "## Aim", "", "aim", "", "## Schedule", "", "s", "",
+    ].join("\n"));
+  };
+  const survey = () => JSON.parse(run(dir,
+    `${POSIX_SH} ${SCRIPTS.proposeSurvey} --open-proposals ${OPEN} "30 days ago" ${WH}`).stdout);
+
+  try {
+    run(dir, `git config user.email me@example.com`);
+    writeFileSync(OPEN, JSON.stringify({ ok: true, identity: "me", slug: "o/n", proposals: [] }));
+    mkdirSync(join(WH, "feedbacks"), { recursive: true });
+    writeFileSync(join(WH, "feedbacks", "20260101000000-a.md"), "---\ntype: Feedback\n---\n\nb\n");
+    const future = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
+    const past = new Date(Date.now() - 2 * 86400000).toISOString().slice(0, 10);
+
+    mkStrategy("running", "進行中", future);
+    mkStrategy("improving", "改良中", future);
+    mkStrategy("settled", "観察中", future);
+    mkStrategy("unstaged", "", future);
+    const r = survey();
+    assertEq("a direction declared 観察中 is refused observing",
+      (r.refused.find((x) => x.slug === "settled") || {}).reason, "observing");
+    assertEq("...and no proposal is opened for it",
+      r.selected.includes("settled"), false);
+    assertEq("進行中, 改良中 and an unstaged direction stay eligible",
+      r.selected.slice().sort().join(","), "improving,running,unstaged");
+
+    // THE REFUSED ROW STILL CARRIES EVERY READING. That is what lets a settled direction
+    // still be SEEN — the gate stops origination, it does not blind the loop.
+    const settled = r.refused.find((x) => x.slug === "settled");
+    for (const key of ["pace", "overdue", "expiring", "dormant", "quiescent"]) {
+      assertTrue(`the refused observing row still carries ${key}`,
+        Object.prototype.hasOwnProperty.call(settled, key), JSON.stringify(settled));
+    }
+
+    // THE LADDER'S PLACEMENT, both neighbours proved rather than described.
+    // BEFORE `past_target_date`: an observing direction that is ALSO overdue reads observing,
+    // because that is the fact a person acts on and lateness on a settled direction is not a
+    // failure.
+    mkStrategy("settled", "観察中", past);
+    assertEq("an observing direction that is also overdue reads observing, not past_target_date",
+      (survey().refused.find((x) => x.slug === "settled") || {}).reason, "observing");
+    // AFTER `not_active` and `not_mine`: a closed or foreign direction is not this
+    // repository's question at all, so answering `observing` there would name the wrong fact.
+    writeFileSync(join(WH, "strategies", "settled.md"),
+      readFileSync(join(WH, "strategies", "settled.md"), "utf8").replace("status: active", "status: achieved"));
+    assertEq("a CLOSED observing direction still reads not_active",
+      (survey().refused.find((x) => x.slug === "settled") || {}).reason, "not_active");
+    writeFileSync(join(WH, "strategies", "settled.md"),
+      readFileSync(join(WH, "strategies", "settled.md"), "utf8")
+        .replace("status: achieved", "status: active")
+        .replace("assignees: [me@example.com]", "assignees: [you@example.com]"));
+    assertEq("a FOREIGN observing direction still reads not_mine",
+      (survey().refused.find((x) => x.slug === "settled") || {}).reason, "not_mine");
   } finally { cleanup(dir); }
 }
 
@@ -19067,6 +19149,7 @@ const tests = [
   ["strategy skill (the artifact revived 2026-08-13)", testStrategySkill],
   ["strategy: the operator's declared stage", testStrategyDeclaredStage],
   ["strategy: the declared stage rides beside the derived readings", testStrategyStageRidesBeside],
+  ["propose: 観察中 stops origination and nothing else", testProposeObservingGate],
   ["strategy/attributed-work.sh (the ONE attribution reader)", testStrategyAttributedWork],
   ["strategy/attributed-work.sh past the xargs batching boundary", testStrategyAttributedWorkPastBatchBoundary],
   ["strategy/attributed-work.sh tells found nothing from could not look", testAttributedWorkWalkOutcome],

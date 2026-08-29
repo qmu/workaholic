@@ -65,6 +65,13 @@ dated line to `## Schedule` saying what moved, so the artifact carries its own h
 | **Assignee** | `assignees:` frontmatter | Who carries it. Plural like every other artifact, resolved through the one ownership oracle (`gather/scripts/owners.sh`), but — unlike everywhere else — **it may not be empty**: an unowned direction is not a strategy. |
 | **Stage** | `stage:` frontmatter | The operator's **declared** phase, from the closed set `進行中 | 改良中 | 観察中` — not yet cut over / cut over and still improving / settled, the loop reactive only. Their own vocabulary, kept verbatim. **Absent means 進行中.** |
 
+**The stage has exactly one behavioural consequence, and it is 観察中's**: `/propose` is refused
+`observing` and originates nothing for that direction (`workaholic:propose`). It stops
+**origination only** — inbound work still reaches a settled direction through `/specificate`
+unchanged — and it is the **first declared gate** on a list of derived ones, which is what makes
+it admissible where a derived silence was refused: a machine's guess must not silence the one
+routine that originates work, and the operator's own word is not a guess.
+
 **The stage is DECLARED; the lifecycle state is DERIVED, and neither becomes the other**
 (2026-08-29, mission `make-a-direction-s-lifecycle-a-declared-stage`). Every other reading in
 this layer — `pace`, `overdue`, `expiring`, `dormant`, `quiescent`, and the one answer

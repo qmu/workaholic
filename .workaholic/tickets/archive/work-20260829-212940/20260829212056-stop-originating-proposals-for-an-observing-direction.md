@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-29T21:20:56+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -101,3 +102,30 @@ that direction's refs. That asymmetry is the whole point of the stage.
   direction the operator settled, which is the silent reclassification the ask forbids.
 - `no_evolutionary_move` stays what it is — an honest empty answer for a direction the
   run had nothing to propose against — and is never rendered as `observing`.
+
+## Final Report
+
+Development completed as planned.
+
+`observing` joins the refusal ladder after `not_active` and `not_mine` and before
+`past_target_date`, keyed on the stage the previous ticket carries onto the row. Both
+placements are argued in the script header against their neighbours. `pace`, `overdue`,
+`expiring`, `dormant`, `quiescent`, `residue` and the sort are untouched, and the refused row
+carries all of them so a settled direction stays visible.
+
+### Discovered Insights
+
+- **Insight**: the previous ticket's "the stage gates nothing" test failed the moment this
+  gate landed — correctly, and that is the useful signal rather than an inconvenience. The
+  assertion was narrowed to the two values that still gate nothing, with 観察中 named in place
+  as the one deliberate exception and its behaviour asserted by this ticket's own test.
+  **Context**: a byte-identity pin written across a whole value set becomes a liability the
+  moment one member of that set is meant to differ. Narrowing it and naming the exception
+  keeps the guarantee precise — *the stage gates nothing except the one value the operator
+  declares to mean stop* — where exempting the value silently would have left a pin that no
+  longer says anything.
+
+- **Insight**: the ladder's ordering is testable rather than merely arguable. A direction that
+  is 観察中 **and** overdue, one that is 観察中 **and** closed, and one that is 観察中 **and**
+  foreign each pin one adjacency, so the placement argument in the header is checked by three
+  assertions instead of being prose a later change can quietly invalidate.

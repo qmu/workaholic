@@ -7,6 +7,7 @@ depends_on:
 mission:
 merge_policy:
 verification_handoff:
+claim: work-20260829-111906
 ---
 
 # Make the channel-default assertions hermetic
@@ -96,3 +97,49 @@ judgment call this one had to make.
   variable unset in the environment — the two runs agree.
 - `step-unanswered-asks.sh` is unchanged, or the change to it is argued in the commit body.
 - No assertion was deleted, skipped or loosened to reach green.
+
+## Final Report
+
+The repair landed before this ticket reached a survey, and this run verified it rather than
+re-implementing it. The same defect was met independently an hour earlier by the `/implement`
+run driving `point-the-inbound-readers-at-the-channel-that-exists`: that unit's own Quality Gate
+named `node scripts/test-workflow-scripts.mjs`, the suite came back `5024 passed, 4 failed`, and
+the four failures were these four. It was fixed inside that unit and merged as
+[#717](https://github.com/qmu/workaholic/pull/717), which is why this ticket's queue arrived
+already satisfied. Recorded plainly so the archive does not read as work this branch performed.
+
+**Step 5 is the one this ticket asked to be decided rather than assumed, and it was decided the
+broad way.** The fix strips the whole `WORKAHOLIC_*` family once at suite startup rather than
+naming `WORKAHOLIC_INBOUND_SLACK_CHANNEL` at the one call site. The judgment is written into the
+code beside the strip: a per-call-site exclusion is one more thing every future test must
+remember, and the failure it prevents is invisible until somebody happens to set the variable —
+so the narrow form fixes this occasion while leaving the class open. A test that needs a value
+sets it on its own `run`, which is exactly what the override assertions beside these four already
+do, so the broad strip costs nothing and closes the class.
+
+**The Consideration about the sweep's slice is answered by construction.** The ticket asked that
+if `/propose`'s inbound-sweep slice inherited the same variable and passed by luck, it be fixed in
+the same change. A family-wide strip at startup covers every slice at once, so no second site
+needed finding — which is a second, independent reason the broad form was the right one.
+
+**Quality Gate, verified in this claim's own worktree at the merged base:**
+
+- `node scripts/test-workflow-scripts.mjs` → `5036 passed, 0 failed`, from a checkout whose
+  `.claude/settings.json` declares `WORKAHOLIC_INBOUND_SLACK_CHANNEL` and whose session carries it.
+- `env -u WORKAHOLIC_INBOUND_SLACK_CHANNEL node scripts/test-workflow-scripts.mjs` →
+  `5036 passed, 0 failed`. The two runs agree, which is the gate's own wording.
+- `step-unanswered-asks.sh` is unchanged — confirmed, and it was never touched.
+- No assertion was deleted, skipped or loosened: the count rose (5024 → 5036, the four repaired
+  plus tests arriving from other merges) and none was removed.
+
+Step 1's prescribed reproduction (`env -u …` against a red `main`) was not run in this order,
+because the red base it names no longer exists — #717 is merged. The equivalent comparison the
+gate actually asks for, both environments agreeing at 0 failed, is in hand above.
+
+### Discovered Insights
+
+- **Insight**: Two independent `/implement` runs met this defect within the hour and answered it
+  differently — one fixed it inside the unit whose gate it blocked, the other queued it.
+  **Context**: Both were correct under the failure contract, and the duplication cost only this
+  verification pass. It is a mild argument that a defect blocking a unit's *own* named Quality
+  Gate is in that unit's scope by construction, which is the reading #717 took.

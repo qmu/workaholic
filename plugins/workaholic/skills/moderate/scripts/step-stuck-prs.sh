@@ -107,6 +107,33 @@ else
 fi
 HEADLINE="${count} ${plural} ${what}"
 
+# THE QUESTION IS HELD ONCE THIS FINDING HAS BECOME WORK (2026-08-29, mission
+# `let-the-tick-s-own-findings-become-the-loop-s-work`). While an open finding issue carries this
+# step's finding, the loop is already driving the repair, so asking a person about it asks them —
+# the same person, in the same hour — about the thing in flight. Keyed on the SUBJECT, so a
+# filing about another step's finding silences nothing here; an unreadable read holds nothing;
+# and the suppression is derived, so merging or closing the issue makes the question reachable
+# again with no state anywhere. The headline, the summary and the `ask_key` are untouched — only
+# the questions are withheld.
+#
+# READ WITHOUT `jq`, deliberately: this step has never required it, and adding the dependency
+# for one boolean would make an existing step degrade on a container where it is missing.
+# `held.steps` is the only array of step ids in the reader's output.
+finding_held=false
+suppression="${SCRIPT_DIR}/finding-suppression.sh"
+if [ -f "$suppression" ]; then
+    fsupp=$(sh "$suppression" 2>/dev/null || true)
+    case "$fsupp" in
+        *'"readable": true'*)
+            held_steps=$(printf '%s' "$fsupp" | sed -n 's/.*"steps": \[\([^]]*\)\].*/\1/p')
+            case "$held_steps" in
+                *'"stuck-prs"'*) finding_held=true ;;
+            esac
+            ;;
+    esac
+fi
+if [ "$finding_held" = "true" ]; then rows=''; fi
+
 needs=$(printf '%s' "$rows" | awk -v key="$ASK_KEY" '
     NF {
         n = $0; sub(/.*"number": /, "", n); sub(/,.*/, "", n)

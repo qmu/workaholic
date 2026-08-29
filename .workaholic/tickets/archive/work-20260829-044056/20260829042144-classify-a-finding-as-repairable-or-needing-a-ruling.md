@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-29T04:21:44+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -87,3 +88,40 @@ safe side and a new step is silent until somebody classifies it.
   claimed branch is nobody's job here (`workaholic:drive`). If the reading is that the
   repair is *not* mechanical, classify it `needs_ruling` and say so; the default is on
   that side for exactly this reason.
+
+## Final Report
+
+Development completed as planned. The table lives in
+`plugins/workaholic/skills/moderate/reference/workflow.md` ("Repairable, or needing a
+ruling"), keyed on `run.sh`'s own `STEPS` vocabulary, with the default stated in its
+header and the who-must-act rule stated above the rows. No `classify.sh` was added and no
+artifact gained a field. `testFindingClassification` pins both drift directions plus the
+default sentence, and bans a hand-copied classification row in any moderate script.
+
+**`merge-conflicts` and `stuck-prs` are `repairable`**, following the ticket's own
+Implementation Step 2 and the mission's Experience, which names a conflicting pull request
+as one of the three findings that must become work. The Consideration was weighed rather
+than skipped: `workaholic:drive`'s rule that resolving a conflict on a claimed branch is
+nobody's job here is untouched, because what a filing produces is an issue, then a plan,
+then a `review` unit on a **fresh** claim — never an unattended push onto somebody else's
+branch. The table says so in a paragraph beneath it so a later reader can argue with the
+call rather than guess at it.
+
+Both deliberate breaks were run: a scratch id added to `STEPS` turned only `every step id
+run.sh can run is classified exactly once` red; a table row naming a step `STEPS` does not
+carry turned only `and the table classifies no step id run.sh does not name` red. The tree
+was restored after each.
+
+### Discovered Insights
+
+- **Insight**: `base-health` is `needs_ruling` for a structural reason, not a cautious one.
+  **Context**: its four readings are classified **judgements** in
+  `drive/reference/claims.md`, and that table says a consumer may only report or ask about
+  a judgement. Turning one into queued work would be a consumer acting on it, so the two
+  tables have to agree — which is why the row carries the cross-reference rather than a
+  vague "a red base might need a human".
+- **Insight**: classifying every `STEPS` entry, including steps that can never produce a
+  finding, is what makes the drift pin possible.
+  **Context**: a table covering only the filing steps could not fail on a new step, which
+  is exactly the silence the default exists to guarantee. `open-log` and `strategy-digest`
+  carry rows saying they produce no finding.

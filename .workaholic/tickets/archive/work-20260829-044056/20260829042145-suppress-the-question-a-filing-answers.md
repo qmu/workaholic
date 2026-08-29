@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-29T04:21:45+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -85,3 +86,45 @@ discipline — an over-eager question beats a silently dropped one); and a
 - A filing and a question about the same subject in the **same** tick is the ordering
   case to think about: the agent files after `run.sh` returns, so the suppression bites
   from the next tick. Say so in the contract rather than reordering the run.
+
+## Final Report
+
+Development completed as planned. **The decision step 1 asks for**: a **sibling reader**,
+`finding-suppression.sh`, not an extension of `ruling-suppression.sh`'s `held` map. What the two
+share is the *shape* and all four of its rules; what they do not share is the **source** — a
+ruling is an open pull request, a finding an open issue. Extending the ruling reader would put
+two unrelated network reads behind one call, so a step consulting it about rulings would pay for
+a finding read it never wanted, and its own one-reader-per-fact rule would then need a second
+reader inside it. Same shape, one reader per fact, neither reading the other's ledger.
+
+The three consulting steps are those that put a **question to a person** and are in the
+repairable set: `retire-claims`, `stuck-prs`, `undelivered-units`. `merge-conflicts` and
+`inbound-sweep` — named in Key Files — hand the agent an **act** rather than a question, so
+there is nothing there to suppress and wiring them would hold *work*, which is the opposite of
+the intent; that is recorded in the contract rather than done quietly.
+
+The bounds hold as written: keyed on the subject (a filing about one step holds only that step),
+an unreadable read holds nothing and names its reason, a `needs_ruling` finding still asks
+byte-identically because no filing can ever name it, and `ask-question.sh` is untouched — the
+suite asserts the gate never learns what a finding is.
+
+Verified: `node scripts/test-workflow-scripts.mjs` — `testFindingSuppression` observes a held
+step beside an unheld one in one read, and pins that no consulting step reads the ledger itself.
+
+### Discovered Insights
+
+- **Insight**: `held` must project from the **open** issues while the dedup uses open **and**
+  closed.
+  **Context**: they answer different questions — *is this in flight* versus *has this been
+  filed* — and one projection serving both would either re-file a merged repair or silence its
+  question forever. One ledger read, two projections.
+- **Insight**: `step-stuck-prs.sh` has never required `jq`, so the gate there reads the shared
+  reader's output with `sed` and `case`.
+  **Context**: adding a jq dependency for one boolean would make an existing step degrade on a
+  container where jq is missing — a new failure mode introduced by a suppression that is
+  supposed to be invisible when it does not fire.
+- **Insight**: the suppression bites from the *next* tick, and that is a property of the run
+  order rather than a defect.
+  **Context**: `file-findings`' candidates are the earlier steps' own reports, so it must run
+  after them; the agent then files after `run.sh` returns. Reordering to close the window would
+  put the filing before its own inputs.

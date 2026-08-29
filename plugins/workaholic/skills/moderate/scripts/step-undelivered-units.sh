@@ -133,6 +133,30 @@ for branch in $(printf '%s' "$candidates" | jq -r '.[].branch'); do
 done
 rows="[${rows}]"
 
+# THE QUESTION IS HELD ONCE THIS FINDING HAS BECOME WORK (2026-08-29, mission
+# `let-the-tick-s-own-findings-become-the-loop-s-work`). While an open finding issue carries
+# this step's finding, the loop is already driving the repair, so asking a person about it asks
+# them — the same person, in the same hour — about the thing in flight. Keyed on the SUBJECT,
+# so a filing about another step's finding silences nothing here; an unreadable read holds
+# nothing (`ci-retirement-turn.sh`'s discipline); and the suppression is derived, so merging or
+# closing the issue makes the question reachable again with no state anywhere. `ask-question.sh`,
+# the key, the addressee, the caps and the holds are untouched — only the questions are withheld,
+# and the summary still counts what the step found.
+finding_held=false
+suppression="${SCRIPT_DIR}/finding-suppression.sh"
+if [ -f "$suppression" ]; then
+    fsupp=$( ( cd "$ROOT" && sh "$suppression" ) 2>/dev/null || true )
+    if [ -n "$fsupp" ] && printf '%s' "$fsupp" | jq -e '.readable // false' >/dev/null 2>&1; then
+        if printf '%s' "$fsupp" | jq -e '.held.steps | index("undelivered-units")' >/dev/null 2>&1; then
+            finding_held=true
+        fi
+    fi
+fi
+if [ "$finding_held" = "true" ]; then
+    emit ok finding_filed \
+        "${summary} — held: an open finding issue already carries this" "" ""
+fi
+
 needs=$(printf '%s' "$rows" | jq -c '{action: "ask_the_claim_holder_to_retry_the_merge_on_this_finished_unit",
     bound: "one question per unit, addressed to the claim holder, keyed on `key` so it is asked once; the tick asks and never merges, drives or retries anything itself",
     compose: "name the unit, its pull request and the refusal that stopped the merge, and say the unit is finished and green -- what is needed is the merge, not a review",

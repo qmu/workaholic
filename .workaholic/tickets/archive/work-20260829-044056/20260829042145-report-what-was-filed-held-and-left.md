@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-29T04:21:45+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -88,3 +89,42 @@ root even when the diff calls it changed.
 - `left` is a count, not a list. Those findings reach a person through their own
   questions, and re-listing them here is the report addressed to nobody this repository
   has twice retired posts for.
+
+## Final Report
+
+Development completed as planned. The step now carries three distinct statements: `needs_agent`
+(to file), **`held`** — each candidate with the open issue that held it — and
+**`already_filed`** — each dropped candidate with the issue that already carries it — beside
+**`left`** as a **count, never a list**, because those findings reach a person through their own
+questions.
+
+A tick that filed nothing names **which** of four reasons applied: `no_candidates`,
+`brake_held`, `all_already_filed`, `brake_unreadable`. The reason word is closed and the
+ledger's own reason rides the summary, so a reader keying on the word never has to enumerate
+whatever the transport happened to say this hour.
+
+The summary is **stable** — every term is a function of the candidate set and the ledger state
+alone, with no timestamp and no clock, which is what lets the tick's own diff suppress an
+unchanged hour. The `event` stays **empty**, as ticket 3 states: the agent files after `run.sh`
+returns, so an event here would announce an act the step has not taken, and a tick that filed
+nothing therefore renders no root line.
+
+`list-finding-issues.sh` gained `filed[]` beside `filed_ids[]` — additive, out of the same walk
+— so a dropped candidate can name the issue rather than only be counted.
+
+Verified: `node scripts/test-workflow-scripts.mjs` — all four reasons observed as distinct
+words, `held` and `already_filed` naming their issues, `left` a number, and two consecutive
+reads of one state rendering an identical summary.
+
+### Discovered Insights
+
+- **Insight**: the closed reason set and the ledger's own reason had to live in different
+  fields.
+  **Context**: `brake_list_failed`, `brake_gh_unavailable` and `brake_slug_unresolved` are all
+  *we could not look*; making them separate reason words forces every reader to enumerate a
+  transport's vocabulary. The word is `brake_unreadable` and the detail is in the summary,
+  which keeps the summary honest without making the reason set open-ended.
+- **Insight**: `event` being permanently empty is what makes the root-line guard free.
+  **Context**: `render-tick-post.sh` renders no line for a step with no event, so the "a tick
+  that filed nothing renders no root line" requirement needed no gate of its own — it follows
+  from the split that puts the filing after `run.sh` returns.

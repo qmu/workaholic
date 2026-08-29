@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-29T04:21:44+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -80,3 +81,29 @@ against it rather than against a claim in prose. It is the same discipline the
   it. An allowlist that later tickets extend is the point.
 - Nothing here changes behaviour. If the pin turns out to be green only because it
   asserts something trivially true, say so in the branch story rather than widening it.
+
+## Final Report
+
+Development completed as planned. `testFindingToWorkGap` in
+`scripts/test-workflow-scripts.mjs` pins both halves of the gap: the allowlist of
+`skills/moderate/` scripts that reach `file-inbound-ask.sh` (today
+`step-question-answers.sh` alone, which acts on a person's answer), and the behavioural
+proof that `[Specificate]`'s discovery derives its candidates from the issues endpoint
+while reading `.workaholic/feedbacks/` only to compute `already_captured`.
+
+The deliberate break was run: a scratch `step-scratch-break.sh` calling the filer without
+being listed turned exactly one row red (`every /moderate script that reaches the one filer
+is on the allowlist`) and nothing else; removing it restored green.
+
+### Discovered Insights
+
+- **Insight**: the discovery half had to be pinned behaviourally, not by regex.
+  **Context**: `list-inbound-issues.sh` genuinely reads the feedbacks directory, so a pin
+  asserting "no `.workaholic/` read" would have been false the day it was written. Running
+  the script twice over a stubbed `gh` — once with no records, once with a record naming one
+  issue — proves the *distinction* (candidates from the endpoint, exclusions from records)
+  rather than an absence that does not hold.
+- **Insight**: the allowlist is a ledger of intent and must not assert emptiness.
+  **Context**: ticket 3 of this mission adds `step-file-findings.sh` as a second caller. A
+  pin asserting *no* caller would have had to be deleted rather than extended, which is how
+  a guard stops being a guard.

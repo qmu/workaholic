@@ -51,6 +51,7 @@ Run every command from the repository root, on a clean `main`.
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-base-health --json` | a throwaway repository whose base is red at a mid-walk merge — proves the reader's three states, the attribution walk's two outcomes, that one broken commit costs exactly one question, and that the reading gates nothing, with the transport stubbed and one row that deliberately breaks the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-return-path --json` | a throwaway repository holding one asked question with its coordinate recorded — walks ask → reply → record → file → stamp, proves the read is bounded to the question's own thread, that a second tick files and stamps nothing, and that the stamp is never load-bearing, with the transport stubbed and one row that deliberately breaks the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-checkin-delivery --json` | a throwaway tick log spanning several days, with the day's asks all on **earlier** days — walks the whole path from a machine finding to a person (gate → ordering → step → event → root), proving a held question lands, that it is not re-asked, that the drain honours `max_per_tick` oldest-held first, that a genuinely spent day still holds, and that a tick which reached nobody supplies its event while a quiet hour stays silent, with no network and one row that deliberately breaks the seam |
+| — | Any time | `sh scripts/e2e/loop-drill.sh verify-findings-to-work --json` | a throwaway git repository and a stubbed `gh` — walks the whole path from a tick finding to the work queue (classification → brake → filing → dedup → suppression), proving a `needs_ruling` finding never reaches the filer, that one open finding issue holds the rest, that a second tick files nothing, and that the filed step's question is held while every other step's still asks, with no network and one row that deliberately breaks the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh status` | the drill's residue: issues, claim branches, tickets |
 | — | After an abort | `sh scripts/e2e/loop-drill.sh reset` | closes/deletes **drill-minted** residue only |
 
@@ -711,6 +712,43 @@ the step, and a root with no event to carry the failure. This walks gate → ord
 suite's `testCheckInDayCapIsToday`, `testCheckInHeldOrder` and `testCheckInDeliveryReading`, plus
 the root-gate cases inside `testModerateTickPost`, are what **CI** enforces on every change. The
 drill ships to no other agent and CI never runs it.
+
+## 5t. The tick's findings, turned into work (does the loop drive its own debt?)
+
+`verify-findings-to-work` needs no seed, no fire, no issue number and **no network**. Everything
+is a throwaway git repository under the OS temp dir with `gh` stubbed: the stub serves the issues
+listing, applies `--jq` with real jq so the reader's own parse is what is exercised, records the
+one POST the filing makes, and **exits non-zero on any other call** — a drill that silently
+reached the network would prove nothing about an offline container.
+
+**Why the path and not the parts.** The gap this closes lived entirely in the seams: every part
+was internally consistent while a finding had two destinations and neither became work. The drill
+walks classification → brake → filing → dedup → suppression over one fixture, with one repairable
+finding carrying an `event`, one repairable finding that **degraded**, one repairable step that
+found nothing, and one `needs_ruling` step shouting as loudly as it can.
+
+| Row | Fails when | Read |
+| --- | ---------- | ---- |
+| `findings_classified` | a repairable finding is not a candidate, or a step that found nothing is | `moderate/reference/workflow.md`'s classification table, and `step-file-findings.sh`'s read of it |
+| `findings_ruling_never_filed` | a `needs_ruling` finding reaches the filing act | **the mission's whole safety property.** The table's default is `needs_ruling`, so this fails only if a row moved or the filter inverted |
+| `findings_brake_holds` | a second finding is filed while one issue is open | `moderate/scripts/list-finding-issues.sh` (`any_open`) and the step's brake |
+| `findings_brake_releases` | closing the issue does not release the brake, or the dedup forgets the finding it carried | `held` projects from the **open** issues, `filed_ids` from open **and** closed — two questions, one walk |
+| `findings_brake_unreadable` | an unreadable ledger files anyway, or reports `brake_held` | a brake that cannot be read is not a brake, and *in flight* versus *could not look* are different facts |
+| `findings_marker_written` | the filed body carries no `finding:` line | `propose/scripts/file-inbound-ask.sh` — still the one writer of a marker. Without it the next tick re-files every hour |
+| `findings_direction_carried` | the body carries no `feedback:` line or the wrong `source:` | `feedback/scripts/ask-feedback-line.sh` stays the one writer of that line; `source: moderate` is what the finding route means |
+| `findings_second_tick_files_nothing` | the same finding is offered again | the dedup is **structural**: the issues are the memory and no cursor exists to forget |
+| `findings_question_held` | a filing silences a step it does not name, or silences nothing | `moderate/scripts/finding-suppression.sh` — keyed on the **subject**. Suppressing on `any_open` silences the whole question queue behind one filing |
+| `findings_unreadable_holds_nothing` | an unreadable suppression read suppresses something | an over-eager question is better than a silently dropped one |
+| `findings_reported_three_ways` | filed, held and left collapse into one reading | `step-file-findings.sh`'s `held`, `already_filed` and `left` |
+| `findings_event_empty` | the step supplies an event | the agent files **after** `run.sh` returns, so an event here announces an act not taken |
+| `findings_breaker` | widening the classification to every finding changes nothing | **the deliberately broken row, and the one to look at first on a red drill.** It is written against the **behaviour** — a `needs_ruling` finding reaching the filer — not against a return shape, so a refactor that keeps the shape and loses the bound still fires it. The whole plugin tree is copied, because the step reaches its ledger which reaches `gather/scripts/gh-rest.sh` |
+| `findings_writes_nothing` | the drill changed the checkout | every fixture lives outside it |
+| `findings_touches_no_claim` | a branch, worktree or publish tree appeared | the tick creates none of them; its only outward act is one issue |
+
+**Two proofs, and they are not the same one.** This drill is the **operator's**; the hermetic
+suite's `testFindingToWorkGap`, `testFindingClassification`, `testFileFindingsStep`,
+`testFindingBrakeAndDedup` and `testFindingSuppression` are what **CI** enforces on every change.
+The drill ships to no other agent and CI never runs it.
 
 ## 6. Abort playbook
 

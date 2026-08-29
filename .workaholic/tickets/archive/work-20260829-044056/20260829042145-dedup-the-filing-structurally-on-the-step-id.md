@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-29T04:21:45+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -83,3 +84,45 @@ field on any artifact, and no reliance on the tick log surviving a container —
   bound, state it, make it configurable, and report when it truncated.
 - The marker must survive a person editing the issue title. Key it in the **body**, as
   `slack-ref` already is.
+
+## Final Report
+
+Development completed as planned. The dedup key is `question_slug("finding:<step id>")` from
+`lib/question-id.sh` — the one derivation, so the filing and the asking cannot disagree about
+what "the same finding" is. It is keyed on the **step id** and nothing else: a summary moves as
+the world moves, and keying on it would re-file the same finding whenever its wording changed.
+
+The marker is written by `file-inbound-ask.sh`, already the one writer of a marker, extended as
+a caller legitimately would: `--finding <step>:<id>` beside `--slack-ref`, writing one visible
+`finding: <step id> / id: <finding id>` line with `source: moderate`. **Exactly one marker per
+issue** — `two_markers` refuses an issue claiming to be both a channel message and a tick
+finding, which two dedups would otherwise both match. It rides the body, so it survives a person
+retitling the issue.
+
+`list-finding-issues.sh` reads it back over **open and closed** finding issues, so a finding
+whose repair merged (auto-closing its issue) is not re-filed. **The bound is the listing, not a
+date** — the most recent `WORKAHOLIC_FINDING_ISSUE_LIMIT` issues (default 100, newest first),
+which is `list-swept-slack-refs.sh`'s own bound and its own reason: `date -d` is GNU-only and
+`date -v` BSD-only, and a reader that answers differently on a laptop and in a container is
+worse than one bounded by a number both can read. `list_capped` reports when the page bound
+rather than the repository ended the read. A candidate already filed is dropped and **counted**.
+
+No store was added. The issues are the memory, so `filed-records.sh`'s rule — that a
+`<step>-filed` line is never itself the proof — holds here by construction, because nothing
+reads such a line.
+
+Verified: `node scripts/test-workflow-scripts.mjs` — the id is checked against the library's own
+derivation rather than a hard-coded digest, a closed issue still dedups while every other
+finding is still offered, and a pin asserts no other moderate script writes the marker.
+
+### Discovered Insights
+
+- **Insight**: keying the dedup on the step id makes the brake and the dedup complementary
+  rather than redundant.
+  **Context**: one issue per step id can exist at a time, and the brake caps the total at one in
+  flight. Without the id the brake alone would still bound volume, but a finding whose issue had
+  merged an hour ago would come straight back.
+- **Insight**: the marker had to be mutually exclusive with `slack-ref`, not merely additional.
+  **Context**: `list-swept-slack-refs.sh` and `list-finding-issues.sh` are two dedups reading
+  two markers out of one issue store. An issue carrying both would be claimed by both, and the
+  sweep would treat a tick finding as an already-captured channel message.

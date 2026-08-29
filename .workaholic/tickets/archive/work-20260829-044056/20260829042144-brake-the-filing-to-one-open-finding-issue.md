@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-29T04:21:44+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -83,3 +84,37 @@ its own candidate — the two states hand off with no window between them.
   unrelated flows.
 - One in flight is deliberately strict. If it measurably starves the queue, that is a
   finding for a later ask — not a number to raise inside this ticket.
+
+## Final Report
+
+Development completed as planned. **The decision step 1 asks for**: a **new script**,
+`list-finding-issues.sh`, not a mode of `list-open-proposals.sh`. What is shared with that
+brake and with `list-open-rulings.sh` is the *shape* — a visible marker, read off GitHub, no
+cursor, `ok: false` refusing the whole act. What is not shared is the *marker*: the proposal
+brake is keyed on `strategy: … / move: …`, and a finding issue is not a proposal, so sharing
+the marker would make one brake hold two unrelated flows.
+
+It lives in `skills/moderate/scripts/` beside its consumer, reads through `gh-rest.sh`, writes
+nothing, and answers `{ok, any_open, open[], filed_ids[], scanned, limit, list_capped}`.
+`any_open` is the brake; `filed_ids` is ticket 5's dedup, out of the same read, because two
+readers of one ledger drift.
+
+`step-file-findings.sh` consults it **before** the candidate set is handed back: `any_open`
+yields zero candidates with `brake_held` naming the issue by number, and `ok: false` yields zero
+candidates with `brake_<its own reason>` — two different facts, never collapsed. A per-day cap
+is refused by name in the contract.
+
+Verified: `node scripts/test-workflow-scripts.mjs` — `testFindingBrakeAndDedup` observes all
+three outcomes (held, unreadable, free) over a stubbed `gh` with no network.
+
+### Discovered Insights
+
+- **Insight**: the brake and the dedup are two questions about one ledger, so they must be one
+  read.
+  **Context**: writing a second script for the dedup would have doubled the REST call and given
+  the loop two answers to *what have I already filed?*. `filed_ids` costs nothing beside
+  `any_open` because both fall out of the same listing.
+- **Insight**: an unreadable brake had to be a *named* reason rather than a `false`.
+  **Context**: `brake_held` and `brake_list_failed` both file nothing, so a caller keying on
+  "did anything get filed" cannot tell them apart — and one means the gate worked while the
+  other means it was never consulted.

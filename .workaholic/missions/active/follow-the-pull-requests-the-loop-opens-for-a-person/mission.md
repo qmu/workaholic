@@ -37,7 +37,7 @@ ruling-hold repair, the run reports, the classification, the drill.
 - [x] An un-acted operator-facing pull request reaches the person who must act, once. (#20260829192137-ask-the-person-who-must-act-on-an-unanswered-pull-request.md)
 - [x] The reading is `merged` / `closed` / `open:<age>` / `unreadable`, keyed off the
       seam's refusal word, classified a judgement, and gates nothing. (#20260829192136-read-back-whether-an-operator-facing-pull-request-was-acted-on.md)
-- [ ] The loop is never silent about a ruling and what it holds at once. (#20260829192137-release-a-ruling-hold-the-ruling-s-own-silence-has-outlived.md)
+- [x] The loop is never silent about a ruling and what it holds at once. (#20260829192137-release-a-ruling-hold-the-ruling-s-own-silence-has-outlived.md)
 
 ## Experience
 
@@ -53,3 +53,4 @@ one says so by name and asks nobody.
 - 2026-08-29 — ticket archived — 20260829192136-read-back-whether-an-operator-facing-pull-request-was-acted-on.md
 - 2026-08-29 — ticket archived — 20260829192137-ask-the-person-who-must-act-on-an-unanswered-pull-request.md
 - 2026-08-29 — ticket archived — 20260829192137-classify-every-pull-request-reading-as-a-judgement-in-the-one-home.md
+- 2026-08-29 — ticket archived — 20260829192137-release-a-ruling-hold-the-ruling-s-own-silence-has-outlived.md

@@ -1933,6 +1933,113 @@ function testExpiringCarriesTheLeaving() {
   } finally { cleanup(A); }
 }
 
+// ---------- the assignee is asked once, before the date (2026-08-29) ----------
+// The reading's whole point: `past_target_date` silences origination, and until this question
+// the only signal was `direction-overdue`, asked once, after the fact. The precedent is
+// `direction-last:<slug>`, which names the last live direction to its owner WHILE THEY CAN
+// STILL ACT rather than announcing silence afterwards to nobody.
+//
+// EVERY EXISTING GATE APPLIES UNCHANGED, so what is pinned here is the key, the addressee, the
+// wording, the mutual exclusion with the other readings, and that the step still asks and does
+// nothing else.
+function testExpiringQuestion() {
+  const STEP = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-direction-health.sh");
+  const ASK = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/ask-question.sh");
+  const A = makeRepo("main");
+  const W = join(A, ".workaholic");
+  const w = (p, body) => { mkdirSync(dirname(join(A, p)), { recursive: true }); writeFileSync(join(A, p), body); };
+  const day = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+  const strategy = (slug, target, ref) =>
+    `---\ntype: Strategy\ntitle: T ${slug}\nslug: ${slug}\nstatus: active\ntarget_date: ${target}\n` +
+    `assignees: [test@example.com]\nfeedback: [${ref}]\n---\n\n## Aim\n\na\n\n## Schedule\n\ns\n`;
+  const subjectsOf = (j) => (j.needs_agent[0] || {}).directions || [];
+  try {
+    for (const r of ["a", "b", "c"]) w(`.workaholic/feedbacks/2026010100000${r}-${r}.md`, "---\ntype: Feedback\n---\n\nx\n");
+    w(".workaholic/strategies/soon.md", strategy("soon", day(3), "2026010100000a-a.md"));
+    w(".workaholic/strategies/gone.md", strategy("gone", day(-3), "2026010100000b-b.md"));
+    w(".workaholic/missions/active/inflight/mission.md",
+      "---\ntype: Mission\ntitle: In flight\nslug: inflight\nstatus: active\n" +
+      "feedback: [2026010100000a-a.md]\n---\n\n## Experience\n\ne\n\n## Acceptance\n\n- [ ] a\n");
+    w(".workaholic/tickets/todo/20260102000000-q.md", "---\nmission: inflight\n---\n\n# Q\n");
+    w(".workaholic/missions/active/orphan/mission.md",
+      "---\ntype: Mission\ntitle: Orphan\nslug: orphan\nstatus: active\n" +
+      "feedback: [2026010100000c-c.md]\n---\n\n## Experience\n\ne\n\n## Acceptance\n\n- [ ] a\n");
+    const open = join(A, "open.json");
+    writeFileSync(open, '{"ok": true, "identity": "test", "proposals": []}\n');
+    execSync("git add -A && git commit -q -m seed", { cwd: A });
+
+    const stepOf = (tick, step = STEP) =>
+      JSON.parse(run(A, `${POSIX_SH} ${step} --tick ${tick} --root ${A} --open-proposals ${open}`).stdout);
+    const j = stepOf("20260829-000000");
+    const soon = subjectsOf(j).find((d) => d.key === "direction-expiring:soon");
+
+    // 1. THE QUESTION, ITS KEY AND ITS ADDRESSEE.
+    assertTrue("the expiring direction is asked about", !!soon, JSON.stringify(subjectsOf(j)));
+    assertEq("addressed to the direction's assignee", soon.assignees, "test@example.com");
+
+    // 2. IT NAMES THE DATE, THE DAYS LEFT AND THE LEAVING. A warning that does not say how long
+    // somebody has is not a warning.
+    assertTrue("the heading names the days left and the date",
+      /reaches its target date in 3 day\(s\) \(\d{4}-\d{2}-\d{2}\)/.test(soon.heading), soon.heading);
+    assertTrue("and what it never reached, beside what no direction claimed",
+      /never reached: 1 mission\(s\), 1 ticket\(s\) still queued/.test(soon.heading)
+      && /not attributed to any direction: orphan \(0 queued\)/.test(soon.heading), soon.heading);
+    assertTrue("its body carries the size and one sentence naming the operator's act",
+      /^It would leave 2 unreached and 1 unclaimed\. Re-date it, announce a successor when you end it, or say it still stands/.test(soon.body),
+      soon.body);
+    // The act sentence is what `workaholic:notify` bounds; the leaving clause is a prefix the
+    // other readings carry the same way.
+    const act = soon.body.split(". ").slice(1).join(". ");
+    assertTrue(`the act is one sentence inside the 25-word bound (${act.split(/\s+/).length})`,
+      act.split(/\s+/).length <= 25, act);
+
+    // 3. ONE DIRECTION, ONE QUESTION. A direction that already drew another reading draws no
+    // expiring question, and the expiring one draws no other.
+    assertEq("each direction draws exactly one question",
+      subjectsOf(j).map((d) => d.key).sort(),
+      ["direction-expiring:soon", "direction-overdue:gone"]);
+
+    // 4. ASKED ONCE. The step produces the same key on a later tick; the gate that refuses the
+    // second ask is `ask-question.sh`'s, exercised here with this key rather than assumed.
+    assertEq("the same key is produced on a later tick",
+      subjectsOf(stepOf("20260829-010000")).map((d) => d.key).sort(),
+      subjectsOf(j).map((d) => d.key).sort());
+    const qroot = mkdtempSync(join(tmpdir(), "wh-expiring-ask-"));
+    mkdirSync(join(qroot, ".workaholic/moderations"), { recursive: true });
+    const ask = (tick) => JSON.parse(run(REPO_ROOT,
+      `${POSIX_SH} ${ASK} --tick ${tick} --key "direction-expiring:soon" --root ${qroot} --to test@example.com --hour 10 --weekday 1`).stdout);
+    const first = ask("20260829-000000");
+    assertEq("the first ask is allowed", first.ask, true);
+    run(REPO_ROOT, `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/log-append.sh")} --root ${qroot} --tick 20260829-000000 --step ${first.log_step} --status ok --summary asked`);
+    assertEq("and the second is refused", ask("20260829-010000").ask, false);
+    rmSync(qroot, { recursive: true, force: true });
+
+    // 5. A DEGRADED LEAVING RENDERS NOTHING AND SUPPRESSES NOTHING. Our own blindness never
+    // silences a person's question, and is never dressed up as an empty leaving.
+    cpSync(join(REPO_ROOT, "plugins"), join(A, "plugins"), { recursive: true });
+    rmSync(join(A, "plugins/workaholic/skills/strategy/scripts/mission-strategy.sh"));
+    const blind = stepOf("20260829-020000", join(A, "plugins/workaholic/skills/moderate/scripts/step-direction-health.sh"));
+    const bsoon = subjectsOf(blind).find((d) => d.key === "direction-expiring:soon");
+    assertTrue("the question is still asked over a leaving we could not compose", !!bsoon,
+      JSON.stringify(subjectsOf(blind)));
+    assertTrue("with no leaving detail invented",
+      !/never reached|not attributed|It would leave/.test(bsoon.heading + bsoon.body),
+      bsoon.heading + " | " + bsoon.body);
+    assertTrue("and the degradation counted in the log-facing summary",
+      /2 leaving unreadable/.test(blind.summary), blind.summary);
+    rmSync(join(A, "plugins"), { recursive: true });
+
+    // 6. IT ASKS AND NOTHING ELSE, and never reaches the survey that stages what it converges.
+    assertEq("the step wrote nothing",
+      execSync("git status --porcelain", { cwd: A, encoding: "utf8" })
+        .split("\n").filter((l) => l && !/open\.json/.test(l)).join("\n"), "");
+    const body = readFileSync(STEP, "utf8").split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+    for (const forbidden of ["plan-units.sh", "close.sh", "amend.sh", "create.sh"]) {
+      assertTrue(`the step never reaches ${forbidden}`, !body.includes(forbidden), body);
+    }
+  } finally { cleanup(A); }
+}
+
 // ---------- the residue reaches no /propose gate (2026-08-28) ----------
 // The residue is REPORTED, never gated on: no refusal reads it, nothing is proposed or withheld
 // on it, and the one exception is stated rather than implied — `quiescent`, which is itself a
@@ -18315,6 +18422,7 @@ const tests = [
   ["expiring: the boundary, and the window it is derived from", testExpiringBoundary],
   ["expiring, ranked in the lifecycle precedence", testExpiringPrecedence],
   ["the leaving rides an expiring row, at no extra read", testExpiringCarriesTheLeaving],
+  ["the assignee is asked once, before the date", testExpiringQuestion],
   ["the residue reaches no /propose gate", testResidueGatesNothing],
   ["strategy/carry-attribution.sh carries a ruling and refuses the rest", testCarryAttribution],
   ["strategy/amend.sh: the third writer, bounded", testStrategyAmend],

@@ -43,7 +43,7 @@ machine re-dates, closes or amends a direction.
 
 - [x] `expiring` is emitted on every surveyed row and ranked in the lifecycle
       precedence, with the leaving carried onto it. (#20260829021946-emit-expiring-on-every-surveyed-row.md)
-- [ ] The assignee is asked `direction-expiring:<slug>` once, before the date,
+- [x] The assignee is asked `direction-expiring:<slug>` once, before the date,
       under every existing gate and hold. (#20260829021947-ask-the-assignee-once-before-the-date.md)
 - [ ] A hermetic diff pins that no gate, sort, refusal or token moved. (#20260829021947-name-expiring-in-the-run-report-as-evidence.md)
 
@@ -54,3 +54,4 @@ machine re-dates, closes or amends a direction.
 - 2026-08-29 — ticket archived — 20260829021946-emit-expiring-on-every-surveyed-row.md
 - 2026-08-29 — ticket archived — 20260829021946-rank-expiring-in-the-lifecycle-reading.md
 - 2026-08-29 — ticket archived — 20260829021947-carry-the-leaving-onto-the-expiring-row.md
+- 2026-08-29 — ticket archived — 20260829021947-ask-the-assignee-once-before-the-date.md

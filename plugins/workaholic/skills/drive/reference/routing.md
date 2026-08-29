@@ -168,7 +168,51 @@ not write a second story generator.
   (2026-08-27) made it visible and left it unreachable — measured 2026-08-26, four green pull
   requests still open a day later.
 
-  For each entry the survey put in **`undelivered[]`**, once per run:
+  **AND THE BASE MAY HAVE MOVED UNDER IT** (2026-08-29, mission
+  `land-the-loop-s-own-work-when-the-base-moves-under-it`). The retry re-attempts the *merge*,
+  which is the right act for a refused transport and no act at all for a base that has moved:
+  GitHub refuses the same merge every hour, forever, and no other reader looked either —
+  `/moderate`'s `merge-conflicts` step reports the pull request and says in its own header that
+  it never rebases. Measured 2026-08-29: 4 of 7 open pull requests conflicting with `main`,
+  three of them units recorded `report_undelivered` two days earlier, with 4 active missions and
+  10 queued tickets behind them.
+
+  So each entry gets a catch-up **first**, once, never a loop:
+
+  ```bash
+  bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/catch-up-claim.sh <unit-id>
+  ```
+
+  It merges the base into the claim branch **in the unit's own worktree** — never a rebase, an
+  amend or a force-push, because a merge commit keeps the claim holder's checkout valid — then
+  regenerates the derived files with the repository's own tooling, runs its fast checks and
+  pushes. Three outcomes: `caught_up`, `already_current` (the branch already contains the base;
+  no worktree, no merge, no ref touched) and `catch_up_refused: <word>`. Every refusal writes
+  nothing and leaves the branch byte-identical, and each has its own word — `content_conflict`,
+  `not_my_claim`, `foreign_identity`, `identity_unresolved`, `claim_active`, `dirty_worktree`,
+  `scan_held:<tier>`, `not_a_work_branch`, `ambiguous_claim`,
+  `mergeability_unanswerable:<reason>`, `validation_failed:<check>`, `push_failed`.
+
+  **It overrides no gate and resolves no judgement.** A `content` conflict is a person's, and
+  reaches its claim holder through `/moderate`'s `catchup-blocked:<unit>` question; a scan-held
+  pull request is refused by name; a colleague's claim is untouchable at any age; a branch a run
+  is still committing to is left alone. This **narrows** the standing rule that resolving a
+  conflict on a claimed branch is nobody's job here — to the mechanical case, on this identity's
+  own claim, with the contested case still a person's ([claims.md](claims.md)).
+
+  Then, and **only on `caught_up`**, the delivery — a refused catch-up produces no retry, because
+  the refusal is the outcome:
+
+  ```bash
+  bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/retry-undelivered.sh <unit-id> --own-tip
+  ```
+
+  `--own-tip` is passed **only** immediately after this run's own `caught_up`. The catch-up's
+  push makes the tip fresh, so the next verdict reads `claim_active` and the delivery the
+  catch-up exists to unblock would be refused by the act that unblocked it. The flag relaxes
+  that **one term**, by re-asking the same oracle with `WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES=0`
+  — every other term stays the oracle's own answer, computed in one place, and the scan-held
+  refusal is untouched. Without the flag the script is byte-identical to what it always was:
 
   ```bash
   bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/retry-undelivered.sh <unit-id>
@@ -341,6 +385,22 @@ moments.
   alone made those two identical at the only surface that records the run. An `auto` unit reports
   `shipped` or its demotion exactly as before; this row is the `review` route's equivalent and
   adds nothing to that one.
+- **Catch-up outcome per `undelivered[]` entry** (2026-08-29, mission
+  `land-the-loop-s-own-work-when-the-base-moves-under-it`): one of three words — `caught_up`,
+  `already_current`, `catch_up_refused: <word>` — **beside** the delivery outcome below rather
+  than inside it. A catch-up and a merge are different acts: one moves the branch, the other
+  moves the pull request, and collapsing them would leave a reader unable to tell a unit the
+  loop could not reconcile from one the transport would not merge. A **fourth** word for
+  *caught up and then delivered* is refused for the opposite reason — that is two facts, and
+  two vocabularies already report them. **A run that names an entry and reports no catch-up
+  outcome for it is non-conformant on its face**, the retry row's enforcement for its reason.
+  **No artifact gains a `caught_up` field**: the branch carries the merge commit and this report
+  carries the reading, so a field would be a third store of a fact two places already hold.
+  **`catch_up_refused: content_conflict` moves no token** — the `claimed_awaiting_verification`
+  precedent, written down here so it is not re-derived: a unit waiting on a person's judgement
+  is the gate working, and making it `pending` would put `ok` out of reach on exactly the runs
+  where the machinery did its job. Every other refusal moves no token by itself either; what
+  withholds `ok` is the unit's *delivery* outcome, which a refused catch-up leaves unchanged.
 - **Retry outcome per `undelivered[]` entry** (2026-08-27, mission
   `deliver-and-retire-what-the-loop-already-proved-finished`): the unit, the **recorded refusal it
   was retrying**, and the **new outcome** in §6's existing three words — `merged` when the retry

@@ -4,6 +4,7 @@ Branch development narratives, one per branch, serving as the PR description and
 
 <!-- okf:generated:begin -->
 * [work-20260829-074143](work-20260829-074143.md) - Repair the attribution walk past the xargs batching boundary, and carry a walk that could not complete through every reading composed on it
+* [work-20260829-064113](work-20260829-064113.md) - A finished unit the base moved under is brought back by the loop itself and delivered in the same turn, while the conflict only a person can judge is refused and asked about.
 * [work-20260829-044056](work-20260829-044056.md) - The maintenance tick's repairable findings become GitHub issues the loop drives, while findings needing a human ruling still ask.
 * [work-20260829-024033](work-20260829-024033.md) - A direction is read and its owner asked before its own target_date silences the loop, through a new `expiring` reading that gates nothing.
 * [work-20260828-214118](work-20260828-214118.md) - The two rulings the loop cannot make itself reach the operator as one pull request they merge, instead of an hourly question naming a repair to perform by hand on main.

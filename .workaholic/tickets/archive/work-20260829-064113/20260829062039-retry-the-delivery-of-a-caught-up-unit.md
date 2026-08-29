@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-29T06:20:39+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -68,3 +69,34 @@ The seam needs no new gate: `retry-undelivered.sh` already refuses every verdict
 
 The failure to avoid is a retry loop: catch up, refused, catch up again. One catch-up and
 one delivery per unit per run, bounded by construction rather than by a counter.
+
+## Final Report
+
+Development completed as planned. `drive/SKILL.md` §6 and `reference/routing.md` now number the
+composition: for each `undelivered[]` entry, one `catch-up-claim.sh`, then — **only on
+`caught_up`** — one `retry-undelivered.sh <unit> --own-tip`. A refused catch-up produces no
+retry, because the refusal is the outcome. `already_current` means nothing moved, so the retry
+runs on its ordinary terms without the flag. Bounded by construction rather than by a counter:
+one catch-up and one delivery per unit per run, each a single script invocation.
+
+The outcome is reported in §6's **existing** merge vocabulary (`merged` / `merge_refused:
+<word>`). No word was invented for *delivered after a catch-up* — that is two facts, and the
+catch-up's own three words report the other one.
+
+**`retry-undelivered.sh` did have to change, and the ticket asked for that to be said.** The
+fixture proved it: the catch-up's own push makes the tip fresh, so the very next verdict reads
+`claim_active` and the delivery the catch-up exists to unblock is refused by the act that
+unblocked it. The change is one flag, `--own-tip`, whose whole effect is to re-ask
+`claims_scan` with `WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES=0`. Nothing is re-derived: identity,
+ancestry, supersession, the drained fork and the recorded refusal all remain the oracle's own
+answers, computed in one place. No verdict is widened and no gate moved — the suite asserts a
+`merge_not_attempted: hard` unit is refused with the flag exactly as without it, and that
+without the flag the behaviour is what it always was.
+
+### Discovered Insights
+
+- **Insight**: The bound "one attempt per unit per run" is cheapest to hold by making each act a
+  single script call in a numbered step, rather than by a counter.
+  **Context**: The failure to avoid was a retry loop — catch up, refused, catch up again. There
+  is nothing to loop: the catch-up refuses idempotently and the delivery is gated behind its one
+  success word.

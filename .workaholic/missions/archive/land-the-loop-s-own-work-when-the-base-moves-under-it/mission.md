@@ -2,7 +2,7 @@
 type: Mission
 title: Land the loop's own work when the base moves under it
 slug: land-the-loop-s-own-work-when-the-base-moves-under-it
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-29T06:19:41+00:00
 author: a@qmu.jp
@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260829-064113
 ---
 
 # Land the loop's own work when the base moves under it
@@ -40,8 +41,17 @@ question: nobody looked, or the loop looked and only you decide.
 
 ## Acceptance
 
-- [ ] Mergeability reads `clean|mechanical|content|unanswerable`, and a `mechanical` branch is caught up, validated, pushed and delivered in one turn. (#20260829062039-read-whether-a-claim-branch-still-merges.md)
-- [ ] Every refusal is named and writes nothing: `content`, foreign claim, scan-held, dirty tree, non-`work-*` (#20260829062039-catch-a-claim-branch-up-with-the-base.md)
-- [ ] A refused `content` conflict reaches its holder as its own question, apart from one untried. (#20260829062039-ask-about-the-conflict-the-loop-must-not-resolve.md)
+- [x] Mergeability reads `clean|mechanical|content|unanswerable`, and a `mechanical` branch is caught up, validated, pushed and delivered in one turn. (#20260829062039-read-whether-a-claim-branch-still-merges.md)
+- [x] Every refusal is named and writes nothing: `content`, foreign claim, scan-held, dirty tree, non-`work-*` (#20260829062039-catch-a-claim-branch-up-with-the-base.md)
+- [x] A refused `content` conflict reaches its holder as its own question, apart from one untried. (#20260829062039-ask-about-the-conflict-the-loop-must-not-resolve.md)
 
 ## Changelog
+- 2026-08-29 — ticket archived — 20260829062039-reproduce-the-base-drift-that-strands-a-unit.md
+- 2026-08-29 — ticket archived — 20260829062039-read-whether-a-claim-branch-still-merges.md
+- 2026-08-29 — ticket archived — 20260829062039-catch-a-claim-branch-up-with-the-base.md
+- 2026-08-29 — ticket archived — 20260829062039-retry-the-delivery-of-a-caught-up-unit.md
+- 2026-08-29 — ticket archived — 20260829062039-ask-about-the-conflict-the-loop-must-not-resolve.md
+- 2026-08-29 — ticket archived — 20260829062039-name-the-catch-up-outcome-in-the-run-report.md
+- 2026-08-29 — ticket archived — 20260829062039-drill-the-catch-up-with-no-network.md
+- 2026-08-29 — ticket archived — 20260829062039-state-the-catch-up-and-its-refusals.md
+- 2026-08-29 — mission achieved — mission.md

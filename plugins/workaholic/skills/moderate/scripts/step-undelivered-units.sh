@@ -94,11 +94,24 @@ shallow=$(printf '%s' "$out" | jq -r '.shallow // false')
     "the claim scan ran over truncated history; an undelivered unit is indistinguishable from a merged one"
 
 total=$(printf '%s' "$out" | jq '[.claims[]?] | length')
+# ONE UNIT NEVER DRAWS TWO QUESTIONS (2026-08-29, mission
+# `land-the-loop-s-own-work-when-the-base-moves-under-it`). A unit whose branch the base no
+# longer accepts reads `mergeability: content`, and `catchup-blocked` asks its holder to
+# resolve that conflict. *Retry your merge* is the wrong instruction for such a branch — the
+# transport is not what stopped it — so this step FILTERS the reading out of its own candidates
+# and COUNTS it instead. One step asks and the other counts, exactly as `stalled-units` and
+# `handoff-units` divide; either half alone is a defect, and the count keeps the finding
+# visible in the log rather than dropping it.
 candidates=$(printf '%s' "$out" \
-    | jq -c '[.claims[]? | select(.resume_reason == "report_undelivered")]')
+    | jq -c '[.claims[]? | select(.resume_reason == "report_undelivered")
+                        | select(.mergeability != "content")]')
+blocked=$(printf '%s' "$out" \
+    | jq '[.claims[]? | select(.resume_reason == "report_undelivered")
+                     | select(.mergeability == "content")] | length')
 n=$(printf '%s' "$candidates" | jq 'length')
 
 summary="${total} claimed unit(s); ${n} finished and undelivered"
+[ "$blocked" -eq 0 ] || summary="${summary}; ${blocked} no longer merging (asked by catchup-blocked)"
 
 if [ "$n" -eq 0 ]; then
     emit ok "" "$summary"

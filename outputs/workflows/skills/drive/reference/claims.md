@@ -341,6 +341,36 @@ word. `scripts/test-workflow-scripts.mjs` fails when the table and either consum
 about a word, or when a consumer acts on one classified `judgement` — the split is a fact a
 change can lose, not a claim in prose.
 
+### Whether the base still accepts a claim branch (`claim-mergeability.sh`)
+
+A **third vocabulary in the same home** (2026-08-29, mission
+`land-the-loop-s-own-work-when-the-base-moves-under-it`), keyed on what the *base* says about a
+branch rather than on whose business the claim is. It is rendered on every claim row as
+`mergeability` / `mergeability_reason`, beside `resume_reason` and never instead of it: *is this
+claim somebody's to take* and *does the base still accept it* are different questions, and one
+column answering both is how two readings drift.
+
+**There is no proof in this vocabulary either.** A base that moves is precisely a reading that
+becomes false by looking again — the one property a proof must not have — so no consumer may
+merge, revert, gate or release on it. `catch-up-claim.sh` re-derives its own answer at the
+moment of its act rather than trusting a list it was handed, which is the discipline
+`delete-retired-claim-branch.sh` already carries across an executor boundary.
+
+| Word | Class | What established it, and what a consumer may do |
+| ---- | ----- | ----------------------------------------------- |
+| `clean` | judgement | `git merge-tree` produced no conflict at all. It says the merge *would* apply as of this read; the base moves every half hour, so it proves nothing durable. **Report it**; the catch-up re-derives it before acting. |
+| `mechanical` | judgement | Every conflicted path is one the shared rule (`ship/scripts/lib/conflict-class.sh`) can settle without a judgement: an append-only `.workaholic/` tail, a version/lockstep manifest, or generated output — including an OKF index, wholly generated or generated-inside-its-markers. A consumer may **act** only through `catch-up-claim.sh`, which re-derives this and applies its own six refusals; nothing acts on the word itself. |
+| `content` | judgement | Some other path conflicts, so a person must judge which side keeps its behaviour. The catch-up refuses it `content_conflict`, writing nothing, and `/moderate`'s `catchup-blocked:<unit>` step asks the claim holder. **Never resolved by a machine.** |
+| `unanswerable` | judgement | The **absence** of a reading — no merge base, truncated history, an unreadable ref, a git without `merge-tree --write-tree`. It must never be reported as `clean` and never collapse into `content`: a wrong `clean` pushes a merge nobody proved, a wrong `content` only delays a unit. Named with its own reason and left alone. |
+
+**A branch nothing has attempted is not the same finding as one the loop looked at.** That is
+the whole reason `content` is a reading rather than a bare *conflicted* boolean:
+`/moderate`'s `merge-conflicts` step reports a pull request GitHub calls conflicted — *nobody
+has looked yet* — while `catchup-blocked` asks about a branch this rule classified — *the loop
+looked and only you can decide*. One unit never draws both: `merge-conflicts` counts what
+`catchup-blocked` asks about, in the same shape `stalled-units` counts what `handoff-units`
+asks about.
+
 ## Claim a unit
 
 ```bash
@@ -578,6 +608,99 @@ question is better than a silently dropped one. Nothing releases the claim, reop
 request, re-runs the delete on the strength of an answer, or touches the `superseded` verdict.
 Drilled with no network by `sh scripts/e2e/loop-drill.sh verify-retire` (the container's half)
 and `verify-ci-retirement` (the split, both executors, every bound and the narrowing).
+
+## Catch a claim up with a base that moved
+
+```bash
+bash ../drive/scripts/catch-up-claim.sh <unit-id> [base-branch]
+```
+
+Added 2026-08-29 (mission `land-the-loop-s-own-work-when-the-base-moves-under-it`). A unit the
+loop finished and could not deliver is stranded the moment the base moves under it:
+`retry-undelivered.sh` re-attempts the **merge**, which GitHub refuses again every hour, and
+`/moderate`'s `merge-conflicts` step reports the pull request and says in its own header that it
+never rebases. Measured 2026-08-29 on this repository: 4 of 7 open pull requests conflicting
+with `main`, three of them recorded `report_undelivered` two days earlier, with 4 active
+missions and 10 queued tickets behind them.
+
+**It is a composition, not a merge engine.** `ship/scripts/catchup-main.sh` already performs the
+merge, resolves what it can prove needs no judgement and classifies the rest; `land-unit.sh`
+already composes it in this order. What was missing was a caller an unattended run can reach —
+`land-unit.sh` refuses `headless_context` first and unoverridably, by design, because it *lands*
+a `review` unit on a present developer's ruling. This lands nothing: it merges the base **into**
+the claim branch and pushes that branch, which needs no authorization the unit does not already
+have.
+
+**THE STANDING RULE IS NARROWED, NOT REVERSED.** `step-merge-conflicts.sh`'s header carries the
+fullest statement: a third party rebasing a claim branch races the holder's own pushes and can
+strand or duplicate a unit. Both halves are **answered**, and neither may be quietly widened:
+
+- **Not a third party.** The claim is this identity's own — `foreign_identity` /
+  `not_my_claim` refuse anything else, and a colleague's claim is untouchable at any age.
+- **Not a rebase.** It is a **merge**. Never a rebase, an amend or a force-push, on any path: a
+  merge commit keeps the claim holder's own checkout valid, which is precisely what a history
+  rewrite destroys.
+- **And not a race.** `claim_active` refuses a branch a run is still committing to, so the
+  thing the standing rule is really about cannot arise.
+
+What stays a person's is the **contested** case: a `content` conflict is refused, and its claim
+holder is asked by `/moderate`'s `catchup-blocked:<unit>` step.
+
+**The order of its acts, and why.** Resolve the unit through the **live-row rule** (never
+first-match — a unit held by a superseded branch and a live one is what a fresh claim over a
+superseded one creates, and catching up whichever sorted first is the dangerous direction);
+**re-derive the verdict at the moment of the act** rather than trusting a list handed in, the
+discipline `delete-retired-claim-branch.sh` carries across an executor boundary; check the
+bounds; read the mergeability; report `already_current` if there is nothing to do; **then**
+check liveness and act. `already_current` sits before the liveness check on purpose — reporting
+a no-op protects nothing, and refusing it would make an hourly re-run of a finished catch-up
+look like a failure.
+
+**Every refusal writes nothing and exits 0**, each by its own word: `content_conflict`,
+`not_my_claim`, `foreign_identity`, `identity_unresolved`, `claim_active`, `dirty_worktree`,
+`scan_held:<tier>`, `not_a_work_branch`, `ambiguous_claim`,
+`mergeability_unanswerable:<reason>`, plus the composition's own (`no_such_claim`, `no_origin`,
+`origin_unreachable`, `catchup_<class>`, `validation_failed:<check>`, `push_failed`). The one
+state that is not byte-identical after a refusal is `validation_failed`: by then the merge is
+committed **in the unit's own worktree**. The **branch** — the claim, the thing every other
+runner reads — is untouched, because nothing was pushed; the local merge is reported as
+`merged: true, pushed: false` rather than hidden, and it is not undone, because `git reset
+--hard` is what the failure contract's safety floor forbids outright. A re-run merges nothing
+new and re-runs the checks.
+
+**It overrides no gate.** A `hard` (`secret`) or `confirm` (`leak`) finding holding a pull
+request open is the gate *working*, so a scan-held unit is refused `scan_held:<tier>` — read off
+the branch story, offline, exactly as `retry-undelivered.sh` reads it. The catch-up is not a
+route around a gate.
+
+**Idempotent**: a branch that already contains the base reports `already_current` and touches no
+ref at all — no worktree, no merge, no push.
+
+**What it composes, and what it may never re-derive.** The merge and the conflict
+classification are `catchup-main.sh`'s; the classification *rule* is
+`ship/scripts/lib/conflict-class.sh`'s, shared with the reader so the two cannot disagree; the
+worktree is `create-mission-worktree.sh --branch`'s resume mode (`ensure-worktree.sh` refuses a
+name already on origin, which is correct and is not worked around); the regeneration is the
+repository's own tooling (`okf/scripts/refresh-index.sh`, `scripts/build-plugins/build.mjs`),
+never a hand edit; the delivery that follows is `retry-undelivered.sh`'s.
+
+**`--resolve-mechanical` is the one flag it passes, and the flag binds the caller.**
+`catchup-main.sh` classifies a mechanical remainder and aborts by default, because "routine
+reconciliation the agent performs itself" was written for a caller with an agent in it. Under
+the flag it resolves a **generated** path by taking a side (which side is immaterial — the
+content is derived) and a **version manifest** by raising both sides to the higher semver and
+merging normally, so a side that also added a plugin keeps that addition. Taking one side
+wholesale is the tempting shortcut and it silently drops the other side's edits. The obligation
+the flag creates is the caller's: regenerate before pushing. Without the flag `catchup-main.sh`
+is byte-for-byte what it was, which is what `land-unit.sh` still gets.
+
+**`--own-tip` on the delivery that follows.** The catch-up's own push makes the tip fresh, so
+the very next verdict reads `claim_active` and the delivery the catch-up exists to unblock would
+be refused by the act that unblocked it. `retry-undelivered.sh --own-tip` relaxes that **one**
+term, by re-asking `claims_scan` with `WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES=0`: identity,
+ancestry, supersession, the drained fork and the recorded refusal all stay the oracle's own
+answers, computed in one place. Nothing is re-derived, no verdict is widened, and the scan-held
+refusal is untouched. It is passed **only** immediately after this run's own `caught_up`.
 
 ## Heartbeat mechanics
 

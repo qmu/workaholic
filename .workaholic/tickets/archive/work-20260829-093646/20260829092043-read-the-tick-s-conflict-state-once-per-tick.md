@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-29T09:20:43+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -115,3 +116,44 @@ Reported, never acted on: nothing here rebases, merges or touches a claim.
   reading still reports "none conflicted" in one voice instead of two.
 - `reconcile-candidates.sh` bounds its own reads separately and is deliberately out of
   scope: it answers a different question over merged and closed pull requests.
+
+## Final Report
+
+Development completed as planned, and the disagreement was reproduced before anything was
+repaired. The hermetic case serves the same pull request as `mergeable: null` on the first
+round of per-pull reads and `mergeable: false` on every round after; against two independent
+resolutions the two steps contradict each other, and a per-round counter proves the tick now
+makes **one** round rather than two.
+
+**The cache lives in the one reader, not in its callers**, and that is the decision worth
+recording. `run.sh` resolves once before the step loop and names the file in
+`WORKAHOLIC_TICK_PULLS_STATE` — the seam `WORKAHOLIC_TICK_REPORTS` already established, an
+environment variable rather than a third flag so the step invocation stays uniform — and
+`pulls-state.sh` is what consults it. So **both steps are byte-identical**: their summaries,
+the `stuck:<digest>` key, the `headline` derivation and step 4's silence could not have moved,
+which is stronger than asserting they did not. "Resolved once per tick" becomes a property of
+the reader rather than a sentence each caller must remember.
+
+Three bounds ride with it. The cache is keyed on the `--limit` it was resolved at, so a caller
+asking for a wider read resolves afresh rather than being served a silently truncated answer. A
+**failed** resolution is never cached — `pulls-state.sh` reports its own degradation, and
+serving that from a cache would make one transport hiccup the tick's answer for every consumer.
+And the resolution is gated on the same `--only`/`--skip` arithmetic the loop applies, so a tick
+narrowed to a step that never reads pull requests pays for no read.
+
+The test asserts **agreement**, not a particular verdict: which round the tick sees is the
+transport's business, and that the two steps see the same one is the contract. With this ticket
+alone both now read the shared `unknown` and both name it — exactly what the sibling ticket's
+Considerations predicted, and why neither subsumes the other.
+
+### Discovered Insights
+
+- **Insight**: `mergeable` is computed lazily and *requesting* the pull request is what
+  schedules the job, so an extra read is not merely wasteful — it changes the answer.
+  **Context**: Any future consumer of `pulls-state.sh` inherits this. A second resolution in a
+  third step would reintroduce exactly the drift measured on tick `20260829-085055`, which is
+  why the cache is in the reader rather than in the two callers that happen to need it today.
+- **Insight**: Putting the cache in the reader is what makes "both steps are unchanged" provable
+  rather than asserted.
+  **Context**: The alternative — teaching each step to accept shared state — would have needed a
+  byte-for-byte output diff per step to establish the same property.

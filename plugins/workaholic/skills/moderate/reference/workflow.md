@@ -130,6 +130,30 @@ is only what a line is allowed to prove.
   Mergeability lives only on the single-pull endpoint, so the per-pull reads are bounded by
   `--limit` (default 10) and the cap is **reported** — a busy repository is never silently
   half-read. GitHub's lazily-computed `mergeable: null` is `unknown`, never `clean`.
+- **Resolved once per tick, used twice — and since 2026-08-29 actually so** (ticket
+  `20260829092043`). That sentence stood under step 6 while both steps called the reader
+  themselves, so a tick made two rounds of per-pull reads. Because `mergeable` is computed
+  lazily and *requesting* the pull request is what schedules the job, the two rounds can
+  disagree: measured on tick `20260829-085055` (issue #710), this step reported `none
+  conflicted` while step 6 named four — #622, #625, #633, #688 — over the same open set, with
+  neither wrong about what it read. `run.sh` now resolves once before the step loop and names
+  the file in `WORKAHOLIC_TICK_PULLS_STATE`, and **`pulls-state.sh` is what consults it**, so
+  both steps stay byte-identical and the property belongs to the one reader rather than to each
+  caller's memory. A step run standalone sees no variable and resolves for itself; the cache is
+  keyed on the `--limit` it was resolved at, so a wider read is never served a truncated answer;
+  and a failed resolution is never cached, because one transport hiccup must not become the
+  tick's answer for every consumer.
+- **A FOURTH outcome, named rather than folded into the zero** (2026-08-29, ticket
+  `20260829092046`): `uncomputed`. This step counted only `conflict` rows, so a tick that could
+  not look and a tick that looked and found nothing both reported `none conflicted`, in the
+  voice of a completed reading — the *found nothing* versus *could not look* collapse repaired
+  by name in `attributed-work.sh`, in the three-valued merged lookup and in
+  `ci-retirement-turn.sh`. A tick with uncomputed rows now names how many, and never says
+  `none conflicted` about them; a tick with neither conflicts nor uncomputed rows keeps the
+  earlier wording byte-identically. It is **`ok`/`mergeability_uncomputed`**, deliberately
+  neither `degraded` (which names a transport this step could not read, and the transport
+  answered) nor `blocked` (which asserts a conflict nobody proved, and would send a claim holder
+  after one). It adds **no `event`**, so the posting behaviour below is unchanged.
 - **Writes**: **nothing to any branch, and no post of its own.** The finding rides step 6's
   reminder; two Slack lines about one pull request in one tick is the noise a gated post exists
   to prevent.
@@ -161,7 +185,9 @@ is only what a line is allowed to prove.
 
 ## 6. `stuck-prs` — what failed to auto-merge, and what it needs
 
-- **Reads**: `pulls-state.sh`, as step 4 does — resolved once per tick, used twice.
+- **Reads**: `pulls-state.sh`, as step 4 does — resolved once per tick, used twice, and since
+  2026-08-29 held by the reader rather than by each caller (step 4's entry carries the
+  measurement and the seam).
 - **Every row names the decision, not the colour**: `conflict` → the claim holder must resolve it
   and nobody else may push to that branch; `review` → a required review or gate is unsatisfied;
   `checks` → the author must fix a failing check or say it is expected; `draft` → mark it ready or

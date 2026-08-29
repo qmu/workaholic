@@ -18952,6 +18952,8 @@ const tests = [
   ["e2e/loop-drill.sh: verify-implement reads the archive move, story, PR and claim", testLoopDrillVerifyImplement],
   ["moderate: the tick log is registered, append-only and idempotent", testModerateLog],
   ["moderate: the tick runs every step, and every step reports", testModerateRun],
+  ["moderate: one tick, one reading of the open pull requests", testOneReadingOfTheOpenPullRequests],
+  ["moderate/merge-conflicts: an uncomputed mergeability is not \"none conflicted\"", testUncomputedMergeabilityIsNamed],
   ["moderate/step-stalled-units.sh: what is claimed and how long it has not moved", testStalledUnitsStep],
   ["moderate: a question is never_asked, asked, or answered", testQuestionAnswerStates],
   ["moderate: an answer in a question's own thread reaches the writer", testAnswerReturnPath],
@@ -28730,4 +28732,182 @@ function testCatchupBlockedStep() {
     assertTrue("and the reference documents it",
       /## \d+\. `catchup-blocked`/.test(wf), "the step has no section");
   } finally { cleanup(fx.A); cleanup(fx.origin); cleanup(fx.binDir); }
+}
+
+// ---------- one tick, one reading of the open pull requests (2026-08-29) ----------
+//
+// `reference/workflow.md` has said "resolved once per tick, used twice" of step 6 since the
+// reader shipped, and the implementation did not hold it: steps 4 and 6 each called
+// `pulls-state.sh`. That is a CORRECTNESS defect rather than waste, because GitHub computes
+// `mergeable` lazily — `null` until a background merge job finishes, and requesting the pull
+// request is what schedules it — so the first round can answer `unknown` where the second
+// answers `conflict`. Measured on tick `20260829-085055` (issue #710): `merge-conflicts`
+// reported `none conflicted` while `stuck-prs` named four, over the same open set.
+//
+// THE FIXTURE IS WRITTEN AGAINST THE DISAGREEMENT, not against a return shape: the stub serves
+// `mergeable: null` on its first round of per-pull reads and `mergeable: false` on every round
+// after, so a tree that resolves twice makes the two steps contradict each other and a tree
+// that resolves once cannot.
+function makePullsDriftFixture({ alwaysUnknown = false } = {}) {
+  const dir = mkdtempSync(join(tmpdir(), "wh-pulls-drift-"));
+  const bin = mkdtempSync(join(tmpdir(), "wh-pulls-bin-"));
+  execSync("git init -q .", { cwd: dir });
+  execSync("git config user.email test@example.com && git config user.name Test"
+    + " && git config commit.gpgsign false", { cwd: dir });
+  execSync("git remote add origin https://github.com/qmu/workaholic.git", { cwd: dir });
+  mkdirSync(join(dir, ".workaholic"), { recursive: true });
+
+  // The round counter lives in a file so it survives across `gh` invocations — which is what
+  // makes "the first resolution" and "the second resolution" distinguishable at all.
+  const counter = join(bin, "rounds");
+  writeFileSync(counter, "0");
+  writeFileSync(join(bin, "gh"), `#!/bin/sh
+case "$*" in
+  *"pulls?state=open"*) printf '12\\n'; exit 0 ;;
+  *"repos/"*"/pulls/12"*)
+    n=$(cat ${JSON.stringify(counter)} 2>/dev/null || echo 0)
+    echo $((n + 1)) > ${JSON.stringify(counter)}
+    if [ "$n" -eq 0 ]${alwaysUnknown ? " || true" : ""}; then
+      printf '12\\thttps://example.test/pr/12\\twork-20260101-000001\\tfalse\\tnull\\t\\tT\\n'
+    else
+      printf '12\\thttps://example.test/pr/12\\twork-20260101-000001\\tfalse\\tfalse\\tdirty\\tT\\n'
+    fi
+    exit 0 ;;
+esac
+printf '[]\\n'
+`);
+  chmodSync(join(bin, "gh"), 0o755);
+  return { dir, bin, counter };
+}
+
+function testOneReadingOfTheOpenPullRequests() {
+  const fx = makePullsDriftFixture();
+  const HK = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts");
+  const env = { ...process.env, PATH: `${fx.bin}:${process.env.PATH}` };
+  try {
+    // 1. THE DISAGREEMENT, REPRODUCED AT THE SEAM. Two independent resolutions in `run.sh`'s
+    //    own order give step 4 the `unknown` round and step 6 the `conflict` round.
+    writeFileSync(fx.counter, "0");
+    const four = JSON.parse(run(fx.dir,
+      `${POSIX_SH} ${join(HK, "step-merge-conflicts.sh")} --tick 20260829-085055 --root .`,
+      { env }).stdout);
+    const six = JSON.parse(run(fx.dir,
+      `${POSIX_SH} ${join(HK, "step-stuck-prs.sh")} --tick 20260829-085055 --root .`,
+      { env }).stdout);
+    assertEq("resolved twice, the two steps disagree about the same pull request",
+      [four.conflicted.length, /conflict/.test(six.summary)], [0, true]);
+
+    // 2. ONE TICK, ONE RESOLUTION. `run.sh` resolves before the loop and both steps read the
+    //    same bytes, so the disagreement is impossible by construction rather than by timing.
+    writeFileSync(fx.counter, "0");
+    const tick = JSON.parse(run(fx.dir,
+      `${POSIX_SH} ${join(HK, "run.sh")} --tick 20260829-090000 --root .`
+      + " --only merge-conflicts,stuck-prs", { env }).stdout);
+    const byStep = Object.fromEntries(tick.steps.map((s) => [s.step, s]));
+    // THE ASSERTION IS AGREEMENT, NOT A PARTICULAR VERDICT. Which round the tick happens to
+    //    see is the transport's business; that the two steps see the SAME one is the contract.
+    //    Here both read the shared `unknown` and both name it — one voice, which is exactly
+    //    what ticket `20260829092046`'s Considerations predicted this fix alone would give.
+    assertTrue("step 4 and step 6 now say the same thing about the same pull request",
+      /not yet computed/.test(byStep["merge-conflicts"].summary)
+        && /not yet computed/.test(byStep["stuck-prs"].summary),
+      JSON.stringify([byStep["merge-conflicts"].summary, byStep["stuck-prs"].summary]));
+    assertTrue("and neither claims a conflict the other did not see",
+      !/\(#12\)/.test(byStep["merge-conflicts"].summary)
+        && !/conflicted/.test(byStep["stuck-prs"].summary),
+      JSON.stringify([byStep["merge-conflicts"].summary, byStep["stuck-prs"].summary]));
+
+    // 3. THE TRANSPORT IS READ ONCE. The count is the proof the fix is a resolution rather
+    //    than a coincidence of ordering: one round of per-pull reads, not two.
+    assertEq("the tick made exactly one round of per-pull reads",
+      readFileSync(fx.counter, "utf8").trim(), "1");
+
+    // 4. EACH STEP STILL RUNS STANDALONE. A step invoked with no shared state resolves for
+    //    itself, so no harness has to learn a new entry point.
+    writeFileSync(fx.counter, "5");
+    const alone = JSON.parse(run(fx.dir,
+      `${POSIX_SH} ${join(HK, "step-merge-conflicts.sh")} --tick 20260829-090000 --root .`,
+      { env }).stdout);
+    assertEq("a step run on its own still resolves and still concludes",
+      [alone.status, alone.conflicted], ["blocked", [12]]);
+
+    // 5. THE CACHE IS KEYED ON THE LIMIT IT WAS RESOLVED AT, so a wider read is never served a
+    //    silently truncated answer.
+    const cache = join(fx.bin, "state.json");
+    writeFileSync(cache, '{"ok": true, "slug": "a/b", "limit": 10, "total_open": 0, "read": 0, "truncated": false, "pulls": []}\n');
+    const wider = JSON.parse(run(fx.dir,
+      `${POSIX_SH} ${join(HK, "pulls-state.sh")} --limit 50`,
+      { env: { ...env, WORKAHOLIC_TICK_PULLS_STATE: cache } }).stdout);
+    assertEq("a caller asking for a wider read resolves afresh", wider.limit, 50);
+    const same = JSON.parse(run(fx.dir,
+      `${POSIX_SH} ${join(HK, "pulls-state.sh")} --limit 10`,
+      { env: { ...env, WORKAHOLIC_TICK_PULLS_STATE: cache } }).stdout);
+    assertEq("and one asking for the cached limit is served the cached bytes",
+      [same.limit, same.total_open], [10, 0]);
+
+    // 6. THE CONTRACT IS STATED WHERE IT IS HELD, and the cache lives in the ONE reader — a
+    //    second derivation in either step is what the sentence has always been written against.
+    const wf = readFileSync(
+      join(REPO_ROOT, "plugins/workaholic/skills/moderate/reference/workflow.md"), "utf8");
+    assertTrue("the reference states the shared resolution",
+      /resolved once per tick/.test(wf), "the contract is not stated");
+    assertTrue("the reader is what consults the shared state",
+      readFileSync(join(HK, "pulls-state.sh"), "utf8").includes("WORKAHOLIC_TICK_PULLS_STATE"),
+      "the cache is not in the one reader");
+  } finally { cleanup(fx.dir); cleanup(fx.bin); }
+}
+
+// ---------- an uncomputed mergeability is not "none conflicted" (2026-08-29) ----------
+//
+// `pulls-state.sh` has a fourth answer step 4 did not carry: `mergeable` is `null` until
+// GitHub finishes a background merge job, mapped to `blocked_by: unknown` precisely so the
+// state is nameable. Step 4 folded it into its zero and spoke with the voice of a completed
+// reading. The assertion is on the ABSENCE OF THE WORDS, not on the presence of a count: a
+// wording that keeps the claim and appends a number must still fail.
+function testUncomputedMergeabilityIsNamed() {
+  const fx = makePullsDriftFixture({ alwaysUnknown: true });
+  const HK = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts");
+  const env = { ...process.env, PATH: `${fx.bin}:${process.env.PATH}` };
+  try {
+    const r = JSON.parse(run(fx.dir,
+      `${POSIX_SH} ${join(HK, "step-merge-conflicts.sh")} --tick 20260829-085055 --root .`,
+      { env }).stdout);
+    assertTrue("a tick that could not read mergeability never says none conflicted",
+      !/none conflicted/.test(r.summary), r.summary);
+    assertTrue("it names how many it could not read", /not yet computed/.test(r.summary), r.summary);
+    assertEq("and counts them", r.uncomputed, 1);
+
+    // IT IS AN `ok` READING, NOT `degraded` AND NOT `blocked`. The transport answered fine, so
+    // this is not our own failure; and no conflict was proved, so it must not send a claim
+    // holder after one.
+    assertEq("uncomputed is a named part of an ok reading",
+      [r.status, r.reason], ["ok", "mergeability_uncomputed"]);
+    assertEq("and it draws no conflicted row", r.conflicted, []);
+
+    // STILL NO `event`. Step 4 posts nothing of its own — its finding rides step 6's reminder —
+    // so an event here would draw a second Slack line about one pull request in one tick.
+    assertTrue("step 4 supplies no event on any path",
+      r.event === undefined || r.event === "", JSON.stringify(r));
+    const src = readFileSync(join(HK, "step-merge-conflicts.sh"), "utf8");
+    assertEq("and the uncomputed branch emits no event key",
+      /"uncomputed": %s\}/.test(src.split("\n").filter((l) => /uncomputed": 0\}|uncomputed": %s\}/.test(l)).join("\n")),
+      true);
+
+    // A CLEAN TICK KEEPS TODAY'S WORDING BYTE-IDENTICALLY — the repair must not cost the
+    // sentence a reader already knows.
+    writeFileSync(join(fx.bin, "gh"), "#!/bin/sh\ncase \"$*\" in *\"pulls?state=open\"*) exit 0 ;; esac\nprintf '[]\\n'\n");
+    chmodSync(join(fx.bin, "gh"), 0o755);
+    const quiet = JSON.parse(run(fx.dir,
+      `${POSIX_SH} ${join(HK, "step-merge-conflicts.sh")} --tick 20260829-085055 --root .`,
+      { env }).stdout);
+    assertEq("a tick with neither conflicts nor uncomputed rows is unchanged",
+      [quiet.status, quiet.reason, quiet.uncomputed], ["ok", "", 0]);
+    assertTrue("and still says none conflicted", /none conflicted/.test(quiet.summary), quiet.summary);
+
+    // `pulls-state.sh` IS UNMODIFIED IN ITS CLASSIFICATION: `blocked_by` has exactly one
+    // derivation, and this ticket adds no second one.
+    const reader = readFileSync(join(HK, "pulls-state.sh"), "utf8");
+    assertTrue("blocked_by is still derived only in the one reader",
+      /blocked=unknown/.test(reader) && !/blocked_by=/.test(src), "a second derivation appeared");
+  } finally { cleanup(fx.dir); cleanup(fx.bin); }
 }

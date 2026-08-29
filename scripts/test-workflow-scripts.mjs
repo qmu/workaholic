@@ -1227,6 +1227,192 @@ function testClosingResidueReader() {
   } finally { cleanup(A); }
 }
 
+// ---------- moderate/list-standing-rulings.sh: the standing rulings (2026-08-28) ----------
+// The two rulings the loop cannot make itself, composed into one set so a later caller can
+// draft the whole set as one diff. The properties worth pinning are the assembly's, not the
+// composed readers': every entry carries its EVIDENCE and its REPAIR, every entry reads
+// `undecided` because no script may judge either question, and a DEGRADED source contributes
+// no entries and carries NULL counts rather than zeroed ones.
+function testStandingRulingsReader() {
+  const READER = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/list-standing-rulings.sh");
+  const { A } = makeResidueFixture();
+  const W = join(A, ".workaholic");
+  const readerOf = (reader = READER) => JSON.parse(run(A, `${POSIX_SH} ${reader} --root ${W}`).stdout);
+  try {
+    // 1. THE HONEST READ. One unattributed active mission, and the addresses the tree uses
+    // that no mapping entry names — this fixture ships no `.claude/git-identities` at all, so
+    // the strategy's own assignee is uncovered and the map's absence is a finding.
+    const j = readerOf();
+    assertEq("the set is readable", [j.ok, j.readable, j.reason], [true, true, ""]);
+    assertEq("and it never claims to be complete", j.exhaustive, false);
+
+    const attribution = j.rulings.filter((r) => r.kind === "attribution");
+    assertEq("the unattributed mission is a candidate, by slug",
+      attribution.map((r) => r.subject), ["m2"]);
+    assertEq("carrying the evidence its own reader already stated",
+      [attribution[0].evidence.path, attribution[0].evidence.queued],
+      [`${W}/missions/active/m2/mission.md`, 2]);
+    assertEq("and the exact one-line repair, with the judged half a placeholder",
+      attribution[0].repair, "carry-attribution.sh <strategy> m2");
+
+    const mapping = j.rulings.filter((r) => r.kind === "identity_mapping");
+    assertEq("the uncovered address is a candidate, by address",
+      mapping.map((r) => r.subject), ["test@example.com"]);
+    assertEq("carrying its artifact count and the audit's own proposed line",
+      [mapping[0].evidence.artifacts, mapping[0].repair], [1, "<login>=test@example.com"]);
+
+    // NO SCRIPT MAY JUDGE EITHER QUESTION. Which direction a mission answers and which account
+    // an address belongs to are readings only a person or a run can make.
+    assertEq("every candidate is undecided", j.rulings.map((r) => r.decision),
+      j.rulings.map(() => "undecided"));
+    assertEq("and the count is the set's own size", j.count, j.rulings.length);
+    assertEq("both sources report themselves readable",
+      [j.sources.unattributed.readable, j.sources.unattributed.mission_count,
+       j.sources.identity.readable, j.sources.identity.map_present, j.sources.identity.uncovered_count],
+      [true, 1, true, false, 1]);
+
+    // 2. AN EMPTY READ IS NOT A DEGRADATION. Attribute `m2` and cover the address, and the set
+    // empties with honest zeros — the answer *nothing is standing*, which a consumer must be
+    // able to tell from *I could not look*.
+    const m2 = join(W, "missions/active/m2/mission.md");
+    const before = readFileSync(m2, "utf8");
+    writeFileSync(m2, before.replace("20260101000000-b.md", "20260101000000-a.md"));
+    mkdirSync(join(A, ".claude"), { recursive: true });
+    writeFileSync(join(A, ".claude/git-identities"), "someone=test@example.com\n");
+    const empty = readerOf();
+    assertEq("an empty set is readable, with honest zeros",
+      [empty.readable, empty.reason, empty.rulings, empty.count], [true, "", [], 0]);
+    assertEq("and both sources say they read a real tree",
+      [empty.sources.unattributed.mission_count, empty.sources.identity.uncovered_count], [0, 0]);
+    writeFileSync(m2, before);
+    rmSync(join(A, ".claude/git-identities"));
+
+    // 3. EACH SOURCE DEGRADED INDEPENDENTLY, over a copy of the plugin tree so exactly one
+    // reader is blinded per fixture.
+    cpSync(join(REPO_ROOT, "plugins"), join(A, "plugins"), { recursive: true });
+    const COPY = join(A, "plugins/workaholic/skills/moderate/scripts/list-standing-rulings.sh");
+
+    rmSync(join(A, "plugins/workaholic/skills/strategy/scripts/mission-strategy.sh"));
+    const blindResidue = readerOf(COPY);
+    assertEq("an unreadable residue names itself at the top level",
+      [blindResidue.readable, blindResidue.reason],
+      [false, "unattributed_unreadable:no_mission_strategy_script"]);
+    assertEq("and reports NO counts rather than zeroed ones",
+      [blindResidue.sources.unattributed.readable, blindResidue.sources.unattributed.mission_count,
+       blindResidue.sources.unattributed.ticket_count],
+      [false, null, null]);
+    assertEq("a degraded source contributes no entry of its own",
+      blindResidue.rulings.map((r) => r.kind), ["identity_mapping"]);
+    assertEq("while the source that could be read is untouched",
+      blindResidue.sources.identity.readable, true);
+
+    cpSync(join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/mission-strategy.sh"),
+      join(A, "plugins/workaholic/skills/strategy/scripts/mission-strategy.sh"));
+    rmSync(join(A, "plugins/workaholic/skills/workaholify/scripts/audit-identity-coverage.sh"));
+    const blindIdentity = readerOf(COPY);
+    assertEq("an unreadable coverage audit names itself at the top level",
+      [blindIdentity.readable, blindIdentity.reason],
+      [false, "identity_unreadable:no_identity_audit_script"]);
+    assertEq("and reports NO counts rather than zeroed ones",
+      [blindIdentity.sources.identity.readable, blindIdentity.sources.identity.addresses,
+       blindIdentity.sources.identity.uncovered_count],
+      [false, null, null]);
+    assertEq("a degraded source contributes no entry of its own",
+      blindIdentity.rulings.map((r) => r.kind), ["attribution"]);
+    assertEq("and a degraded answer is still never called exhaustive", blindIdentity.exhaustive, false);
+    rmSync(join(A, "plugins"), { recursive: true });
+
+    // 4. IT WALKS NOTHING ITSELF. The one thing it owns is the assembly, so no second walk of
+    // the two areas or of the `feedback:` relation may exist in its text.
+    const text = readFileSync(READER, "utf8")
+      .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+    assertEq("no second walk of missions/ or tickets/ exists in the reader",
+      /find\s|missions\/active|tickets\/todo|read-relation\.sh|[^n]attributed-work\.sh/.test(text), false);
+    assertTrue("and it reaches exactly the two readers it composes",
+      text.includes("unattributed-work.sh") && text.includes("audit-identity-coverage.sh"), text);
+
+    // 5. IT WRITES NOTHING AND CREATES NOTHING, in every one of those readings.
+    assertEq("the reader left no untracked or modified file of its own",
+      execSync("git status --porcelain", { cwd: A, encoding: "utf8" })
+        .split("\n").filter((l) => l && !/open\.json/.test(l)).join("\n"), "");
+  } finally { cleanup(A); }
+}
+
+// ---------- the judgement seam: the run answers, no script does (2026-08-28) ----------
+// The mission's whole safety rests on one premise: a machine only ever CARRIES a ruling and
+// never authors one. So the reader takes an answer per candidate in `--aim-kind`'s shape and
+// derives none — and the breaker below is written against exactly the inference a later
+// refactor would be tempted by (one active direction, so surely that one).
+function testStandingRulingsJudgement() {
+  const READER = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/list-standing-rulings.sh");
+  const { A } = makeResidueFixture();
+  const W = join(A, ".workaholic");
+  const readerOf = (args = "") =>
+    JSON.parse(run(A, `${POSIX_SH} ${READER} --root ${W} ${args}`).stdout);
+  try {
+    // 1. ABSENT THE INPUT, NOTHING MOVED. Byte-for-byte: the seam must be invisible to every
+    // caller that does not use it.
+    const bare = run(A, `${POSIX_SH} ${READER} --root ${W}`).stdout;
+    const emptyFlag = run(A, `${POSIX_SH} ${READER} --root ${W} --judgement ""`).stdout;
+    assertEq("no judgement means no judgement block at all",
+      Object.prototype.hasOwnProperty.call(JSON.parse(bare), "judgement"), false);
+    assertEq("every candidate stays undecided",
+      JSON.parse(bare).rulings.map((r) => r.decision), ["undecided", "undecided"]);
+    assertTrue("and a supplied judgement is the only thing that adds the block",
+      JSON.parse(emptyFlag).judgement.supplied === 1, emptyFlag);
+
+    // THE BREAKER. The fixture holds EXACTLY ONE active strategy and exactly one unattributed
+    // mission, which is the shape an inference would resolve without being asked. It must not.
+    assertEq("one direction and one unattributed mission still resolve to nothing",
+      JSON.parse(bare).rulings.find((r) => r.kind === "attribution").repair,
+      "carry-attribution.sh <strategy> m2");
+    assertEq("and one uncovered address still resolves to no login",
+      JSON.parse(bare).rulings.find((r) => r.kind === "identity_mapping").repair,
+      "<login>=test@example.com");
+
+    // 2. A JUDGED CANDIDATE CARRIES THE ANSWER AND ITS RESOLVED REPAIR, so no caller ever
+    // re-composes the repair string in a second format.
+    const judged = readerOf(`--judgement m2=dir1 --judgement test@example.com=someone`);
+    assertEq("the attribution takes the direction the run named",
+      judged.rulings.filter((r) => r.kind === "attribution").map((r) => [r.decision, r.repair]),
+      [["dir1", "carry-attribution.sh dir1 m2"]]);
+    assertEq("the mapping takes the login the run named",
+      judged.rulings.filter((r) => r.kind === "identity_mapping").map((r) => [r.decision, r.repair]),
+      [["someone", "someone=test@example.com"]]);
+    assertEq("with nothing refused", judged.judgement, { supplied: 2, refused: [] });
+
+    // 3. A PARTIAL JUDGEMENT LEAVES THE REST UNDECIDED — never inferred from the one that was
+    // answered, and an undecided candidate reaches no writer.
+    const partial = readerOf(`--judgement m2=dir1`);
+    assertEq("the unjudged candidate is still undecided",
+      partial.rulings.map((r) => [r.kind, r.decision]),
+      [["attribution", "dir1"], ["identity_mapping", "undecided"]]);
+
+    // 4. AN ANSWER OUTSIDE THE READER'S OWN CANDIDATE SET IS REFUSED, not accepted: the run
+    // and the tree disagree about what is standing, and the run must be able to see why
+    // nothing was drafted.
+    const stale = readerOf(`--judgement no-such-mission=dir1 --judgement m2=dir1`);
+    assertEq("a subject the reader did not surface is refused by name",
+      stale.judgement.refused, [{ subject: "no-such-mission", reason: "subject_not_surfaced" }]);
+    assertEq("and nothing is invented for it",
+      stale.rulings.map((r) => r.subject), ["m2", "test@example.com"]);
+
+    // A judgement with no answer at all is kept and named rather than silently dropped —
+    // losing one is how a run and this reader would disagree about what was decided.
+    const malformed = readerOf(`--judgement m2 --judgement m2=`);
+    assertEq("a malformed judgement is refused by its own name",
+      [malformed.judgement.supplied, malformed.judgement.refused.map((r) => r.reason)],
+      [2, ["malformed_judgement", "malformed_judgement"]]);
+    assertEq("and it decides nothing",
+      malformed.rulings.map((r) => r.decision), ["undecided", "undecided"]);
+
+    // 5. STILL A PURE READ, under every one of those inputs.
+    assertEq("the reader left no untracked or modified file of its own",
+      execSync("git status --porcelain", { cwd: A, encoding: "utf8" })
+        .split("\n").filter((l) => l && !/open\.json/.test(l)).join("\n"), "");
+  } finally { cleanup(A); }
+}
+
 // ---------- the residue on every survey row, gating nothing (2026-08-28) ----------
 // The residue rides `survey-strategies.sh`'s rows for one consumer — the arrival question —
 // and the whole admissibility of putting it there is that IT MOVES NO GATE. `overdue`,
@@ -17710,6 +17896,10 @@ const tests = [
   ["propose inbound sweep: one marker writer, and the ledger read never runs blind", testInboundSweep],
   ["branching publish-tree-pr: threads a native Closes #<N> keyword when an issue number is in hand", testPublishTreePrClosesIssue],
   ["branching publish-tree-pr: a strategy-touching publish never auto-merges", testPublishTreePrStrategyExemption],
+  ["branching publish-tree-pr: a ruling never auto-merges", testPublishTreePrRulingExemption],
+  ["moderate/draft-standing-rulings.sh drafts a judged ruling", testDraftStandingRulings],
+  ["moderate/step-standing-rulings.sh gives the tick the ruling step", testStepStandingRulings],
+  ["moderate: a ruling holds exactly the question its diff carries", testRulingQuestionSuppression],
   ["the PR title is not the commit subject (P4's surviving half)", testPrTitleSeparateFromSubject],
   ["the reply thread is found, not carried (Q1)", testStatelessThreadLookup],
   ["one behaviour per command: no dispatch on a literal first word (P5)", testNoSubcommands],
@@ -17782,6 +17972,8 @@ const tests = [
   ["the false arrival, characterized over an unattributed residue", testFalseArrivalCharacterization],
   ["strategy/unattributed-work.sh reads what no direction claims", testUnattributedWorkReader],
   ["strategy/closing-residue.sh composes what a direction leaves", testClosingResidueReader],
+  ["moderate/list-standing-rulings.sh names the standing rulings", testStandingRulingsReader],
+  ["moderate/list-standing-rulings.sh takes the run's judgement and derives none", testStandingRulingsJudgement],
   ["direction-health names the leaving, and the last live direction", testDirectionHealthLeaving],
   ["the succession costs no fourth writer and no new field", testSuccessionCostsNoFourthWriter],
   ["the residue rides every survey row and moves no gate", testResidueOnSurveyRows],
@@ -18184,6 +18376,479 @@ function testPublishTreePrStrategyExemption() {
     /strategy_touching/.test(src) && /git diff --name-only "origin\/\$\{base\}" HEAD/.test(src), src);
   assertTrue("and reads no environment variable of its own for it",
     !/WORKAHOLIC_(SKIP|NO)_[A-Z_]*STRATEGY/.test(src), src);
+}
+
+// ---------- publish-tree-pr.sh never auto-merges a ruling (2026-08-28) ----------
+// A RULING MERGED BY A MACHINE IS NOT A RULING. The whole standing-rulings path rests on the
+// operator's merge being the ruling and their close being the refusal, so the refusal lives in
+// the seam rather than in a caller: a caller leaving `WORKAHOLIC_AUTO_MERGE` unset is the same
+// prose one layer down, and forgetting it merges an operator's ruling with nobody having ruled.
+//
+// The row that carries the ticket's own stated design risk is the THIRD one: a carried
+// attribution and a brand-new mission both live under `.workaholic/missions/`, and every
+// `/specificate` proposal writes one of the second kind. Catching those would stop the loop's
+// ordinary publications from merging at all, so the test is on the SHAPE OF THE CHANGE.
+function publishSeededArtifact({ seed = {}, write = {}, paths, title }) {
+  const { origin, A } = makePublishFixture();
+  const binDir = mkdtempSync(join(tmpdir(), "wh-gh-ruling-"));
+  try {
+    // The stub answers a SUCCESSFUL merge on purpose: a stub that refused would let every
+    // refusal below pass for the wrong reason.
+    writeFileSync(join(binDir, "gh"), `#!/bin/sh
+case "$1 $2" in
+  "api user") printf 'tester\\n'; exit 0 ;;
+esac
+case "$*" in
+  *pulls*POST*) echo '{"html_url":"https://example.test/pr/9","number":9}'; exit 0 ;;
+  *merge*) echo '{"merged":true}'; exit 0 ;;
+esac
+echo ""
+`);
+    chmodSync(join(binDir, "gh"), 0o755);
+    const env = { ...process.env, PATH: `${binDir}:${process.env.PATH}`, WORKAHOLIC_AUTO_MERGE: "1" };
+
+    // Seed the BASE first, so a modified file is genuinely a modification rather than an add.
+    for (const [p, body] of Object.entries(seed)) {
+      mkdirSync(dirname(join(A, p)), { recursive: true });
+      writeFileSync(join(A, p), body);
+    }
+    if (Object.keys(seed).length > 0) {
+      execSync("git add -A && git commit -q -m seed-ruling && git push -q origin main", { cwd: A });
+    }
+
+    run(A, `${POSIX_SH} ${SCRIPTS.openPublishTree}`);
+    for (const [p, body] of Object.entries(write)) {
+      mkdirSync(dirname(join(A, ".publish", p)), { recursive: true });
+      writeFileSync(join(A, ".publish", p), body);
+    }
+    const out = run(A,
+      `${POSIX_SH} ${SCRIPTS.publishTreePr} "${title}" "why" "None" "None" "None" "verify" ${paths.join(" ")}`,
+      { env }).stdout;
+    run(A, `${POSIX_SH} ${SCRIPTS.closePublishTree}`);
+    return JSON.parse(out || "{}");
+  } finally {
+    rmSync(origin, { recursive: true, force: true });
+    rmSync(A, { recursive: true, force: true });
+    rmSync(binDir, { recursive: true, force: true });
+  }
+}
+
+function testPublishTreePrRulingExemption() {
+  const mission = (refs) =>
+    `---\ntype: Mission\ntitle: M\nslug: m2\nstatus: active\nfeedback: [${refs}]\n---\n\n` +
+    "## Experience\n\ne\n\n## Acceptance\n\n- [ ] a\n";
+
+  // 1. A CARRIED ATTRIBUTION DOES NOT MERGE. The mission already exists on the base and its
+  //    `feedback:` line moves — exactly and only what `carry-attribution.sh` writes.
+  const carried = publishSeededArtifact({
+    seed: { ".workaholic/missions/active/m2/mission.md": mission("20260101000000-b.md") },
+    write: { ".workaholic/missions/active/m2/mission.md": mission("20260101000000-b.md, 20260101000000-a.md") },
+    paths: [".workaholic/missions/active/m2/mission.md"],
+    title: "Carry the attribution for m2",
+  });
+  assertEq("a carried attribution reports its own outcome, not a failure",
+    [carried.ok, carried.merged, carried.merge_reason], [true, false, "ruling_touching"]);
+  assertTrue("and the pull request is left open for the operator",
+    typeof carried.pr_url === "string" && carried.pr_url.length > 0, JSON.stringify(carried));
+
+  // 2. A MAPPING RULING DOES NOT MERGE EITHER. Nothing but a ruling writes that file here, so
+  //    the path alone is the test.
+  const mapped = publishSeededArtifact({
+    seed: { ".claude/git-identities": "# mapping\n" },
+    write: { ".claude/git-identities": "# mapping\nsomeone=a@example.com\n" },
+    paths: [".claude/git-identities"],
+    title: "Rule the mapping for a@example.com",
+  });
+  assertEq("a mapping ruling reports the same outcome",
+    [mapped.ok, mapped.merged, mapped.merge_reason], [true, false, "ruling_touching"]);
+
+  // 3. THE DESIGN RISK, PINNED. A brand-new mission is what every `/specificate` proposal
+  //    writes; catching it on the directory alone would stop the loop merging anything.
+  const proposal = publishSeededArtifact({
+    write: { ".workaholic/missions/active/m3/mission.md": mission("20260101000000-c.md") },
+    paths: [".workaholic/missions/active/m3/mission.md"],
+    title: "Propose mission m3",
+  });
+  assertEq("a NEW mission under the same directory still merges",
+    [proposal.ok, proposal.merged, proposal.merge_reason], [true, true, "merged"]);
+
+  // And a modification to an existing mission that leaves `feedback:` alone is not a ruling.
+  const rolled = publishSeededArtifact({
+    seed: { ".workaholic/missions/active/m2/mission.md": mission("20260101000000-b.md") },
+    write: { ".workaholic/missions/active/m2/mission.md": mission("20260101000000-b.md") + "\n## Changelog\n\n- rolled\n" },
+    paths: [".workaholic/missions/active/m2/mission.md"],
+    title: "Roll the changelog for m2",
+  });
+  assertEq("an ordinary mission edit still merges",
+    [rolled.ok, rolled.merged, rolled.merge_reason], [true, true, "merged"]);
+
+  // 4. THE BREAKER: the refusal is SEAM-DERIVED, never caller-supplied, and it is its own word
+  //    rather than a widened `strategy_touching` — the two ask for different operator acts.
+  const src = readFileSync(SCRIPTS.publishTreePr, "utf8")
+    .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+  assertTrue("the seam derives the ruling from a diff against the base",
+    /ruling_touching/.test(src) && /git diff --name-status "origin\/\$\{base\}" HEAD/.test(src), src);
+  assertTrue("and reads no environment variable of its own for it",
+    !/WORKAHOLIC_(SKIP|NO|ALLOW)_[A-Z_]*RULING/.test(src), src);
+  assertTrue("strategy_touching keeps its own derivation and wording",
+    /strategy_touching/.test(src) && /git diff --name-only "origin\/\$\{base\}" HEAD/.test(src), src);
+}
+
+// ---------- moderate/draft-standing-rulings.sh: the ruling pull request (2026-08-28) ----------
+// The act the whole mission exists for: a judged ruling becomes a DIFF the operator merges,
+// instead of an hourly question naming a repair to perform by hand on `main`. Everything worth
+// pinning is a bound: it writes only in a publish tree, only through `carry-attribution.sh`,
+// only for a candidate the run JUDGED, and the pull request it opens never merges.
+function makeRulingRepo() {
+  const origin = mkdtempSync(join(tmpdir(), "wh-ruling-origin-"));
+  execSync("git -c init.defaultBranch=main init -q --bare", { cwd: origin });
+  const A = mkdtempSync(join(tmpdir(), "wh-ruling-A-"));
+  execSync(`git clone -q ${origin} .`, { cwd: A });
+  execSync("git config user.email test@example.com && git config user.name Test && git config commit.gpgsign false",
+    { cwd: A });
+  const w = (p, body) => { mkdirSync(dirname(join(A, p)), { recursive: true }); writeFileSync(join(A, p), body); };
+  const far = new Date(Date.now() + 400 * 86400000).toISOString().slice(0, 10);
+  w(".workaholic/feedbacks/20260101000000-a.md", "---\ntype: Feedback\n---\n\ncited\n");
+  w(".workaholic/feedbacks/20260101000000-b.md", "---\ntype: Feedback\n---\n\nuncited\n");
+  w(".workaholic/strategies/dir1.md",
+    `---\ntype: Strategy\ntitle: Direction one\nslug: dir1\nstatus: active\ntarget_date: ${far}\n` +
+    "assignees: [test@example.com]\nfeedback: [20260101000000-a.md]\n---\n\n## Aim\n\na\n\n## Schedule\n\ns\n");
+  w(".workaholic/strategies/gone.md",
+    `---\ntype: Strategy\ntitle: Closed one\nslug: gone\nstatus: achieved\ntarget_date: ${far}\n` +
+    "assignees: [test@example.com]\nfeedback: [20260101000000-a.md]\n---\n\n## Aim\n\na\n\n## Schedule\n\ns\n");
+  for (const slug of ["m2", "m3"]) {
+    w(`.workaholic/missions/active/${slug}/mission.md`,
+      `---\ntype: Mission\ntitle: ${slug}\nslug: ${slug}\nstatus: active\n` +
+      "feedback: [20260101000000-b.md]\n---\n\n## Experience\n\ne\n\n## Acceptance\n\n- [ ] a\n");
+  }
+  w("README.md", "seed\n");
+  execSync("git add -A && git commit -q -m seed && git push -q origin main", { cwd: A });
+  const binDir = mkdtempSync(join(tmpdir(), "wh-gh-draft-"));
+  writeFileSync(join(binDir, "gh"), `#!/bin/sh
+case "$1 $2" in
+  "api user") printf 'tester\\n'; exit 0 ;;
+esac
+case "$*" in
+  *pulls*POST*) echo '{"html_url":"https://example.test/pr/11","number":11}'; exit 0 ;;
+  *merge*) echo '{"merged":true}'; exit 0 ;;
+esac
+echo ""
+`);
+  chmodSync(join(binDir, "gh"), 0o755);
+  return { origin, A, binDir };
+}
+
+function testDraftStandingRulings() {
+  const DRAFT = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/draft-standing-rulings.sh");
+  const { origin, A, binDir } = makeRulingRepo();
+  // WORKAHOLIC_AUTO_MERGE=1 is SET on purpose: an unset variable would let the refusal below
+  // pass with the seam's exemption deleted, which is the one failure this mission cannot take.
+  const env = { ...process.env, PATH: `${binDir}:${process.env.PATH}`, WORKAHOLIC_AUTO_MERGE: "1" };
+  const draft = (args) => JSON.parse(run(A, `${POSIX_SH} ${DRAFT} ${args}`, { env }).stdout);
+  const baseMission = (slug) =>
+    execSync(`git show origin/main:.workaholic/missions/active/${slug}/mission.md`, { cwd: A, encoding: "utf8" });
+  try {
+    // 1. A JUDGED ATTRIBUTION BECOMES A DIFF ON A PULL REQUEST THAT DOES NOT MERGE.
+    const one = draft(`--judgement m2=dir1`);
+    assertEq("the judged mission is carried through the one writer",
+      [one.ok, one.readable, one.drafted, one.rulings], [true, true, 1,
+        [{ kind: "attribution", subject: "m2", decision: "dir1", status: "carried" }]]);
+    assertEq("and the pull request is opened and left open for the operator",
+      [one.published, one.merged, one.merge_reason, one.publish_reason],
+      [true, false, "ruling_touching", "published"]);
+    assertTrue("with a URL to hand the operator", one.pr_url.length > 0, JSON.stringify(one));
+
+    // AN UNJUDGED CANDIDATE REACHES NO WRITER. `m3` is unattributed and was not judged.
+    assertEq("the unjudged candidate is not drafted",
+      one.rulings.filter((r) => r.subject === "m3"), []);
+
+    // THE CALLER'S CHECKOUT IS UNTOUCHED — every write happened in the publish tree.
+    assertEq("the caller's working tree is byte-identical",
+      execSync("git status --porcelain", { cwd: A, encoding: "utf8" }).trim(), "");
+    assertEq("and the base itself is untouched until the operator merges",
+      baseMission("m2").includes("20260101000000-a.md"), false);
+
+    // 2. A RE-RUN IS A NO-OP. The first ruling is on a branch, not on the base, so the same
+    //    judgement drafts the same diff again — what must NOT happen is a second carry onto a
+    //    mission that already has the refs, which is `carry-attribution.sh`'s `already`.
+    execSync("git fetch -q origin", { cwd: A });
+    const branch = execSync("git for-each-ref --format='%(refname:short)' 'refs/remotes/origin/work-*'",
+      { cwd: A, encoding: "utf8" }).trim().split("\n")[0].trim();
+    assertTrue("the ruling landed on a work branch", branch.length > 0, branch);
+    execSync(`git merge -q --no-edit ${branch} && git push -q origin main`, { cwd: A });
+    const again = draft(`--judgement m2=dir1`);
+    assertEq("a mission that already carries the refs drafts nothing",
+      [again.drafted, again.published, again.publish_reason, again.rulings],
+      [0, false, "nothing_to_draft", []]);
+
+    // `m2` left the candidate set once its ruling landed, so it is not even offered — which is
+    // what makes the suppression in the next ticket derived rather than stored.
+    assertEq("and the landed ruling is no longer a candidate",
+      JSON.parse(run(A, `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/list-standing-rulings.sh")} --root ${join(A, ".workaholic")}`).stdout)
+        .rulings.filter((r) => r.kind === "attribution").map((r) => r.subject), ["m3"]);
+
+    // 3. EVERY REFUSAL OF THE WRITER IS REPORTED BY NAME AND WRITES NOTHING.
+    const closed = draft(`--judgement m3=gone`);
+    assertEq("a closed direction is refused not_active",
+      [closed.drafted, closed.rulings.map((r) => r.status)], [0, ["not_active"]]);
+    const missing = draft(`--judgement m3=no-such-direction`);
+    assertEq("an absent strategy is refused strategy_not_found",
+      [missing.drafted, missing.rulings.map((r) => r.status)], [0, ["strategy_not_found"]]);
+    assertEq("and neither wrote anything into the caller's checkout",
+      execSync("git status --porcelain", { cwd: A, encoding: "utf8" }).trim(), "");
+
+    // 4. A JUDGEMENT NAMING AN UNSURFACED SUBJECT IS CARRIED THROUGH AS A REFUSAL, so a run
+    //    that judged something stale can see why nothing was drafted.
+    const stale = draft(`--judgement no-such-mission=dir1`);
+    assertEq("the reader's refusal reaches the drafter's report",
+      [stale.drafted, stale.refused], [0, [{ subject: "no-such-mission", reason: "subject_not_surfaced" }]]);
+
+    // 5. THE MAPPING RULING LANDS BESIDE THEM, AS A LIVE LINE. `apply-bootstrap.sh` writes a
+    //    COMMENT because it proposes without deciding; here the ruling has been made, so the
+    //    line goes in live and the operator's merge is what makes it true.
+    mkdirSync(join(A, ".claude"), { recursive: true });
+    writeFileSync(join(A, ".claude/git-identities"),
+      "# <github-login>=<canonical-email>[,<alias-email>...]\nknown=known@example.com\n");
+    execSync("git add -A && git commit -q -m mapping && git push -q origin main", { cwd: A });
+    tickSecond();
+    const mapped = draft(`--judgement test@example.com=someone`);
+    assertEq("a judged address is named live, as a new entry",
+      [mapped.drafted, mapped.rulings.map((r) => [r.kind, r.status])],
+      [1, [["identity_mapping", "mapped"]]]);
+    assertEq("and its pull request does not merge either",
+      [mapped.published, mapped.merged, mapped.merge_reason], [true, false, "ruling_touching"]);
+
+    // AN EXISTING LOGIN GAINS AN ALIAS RATHER THAN A SECOND LINE. `identity.sh` takes the
+    // first row a login matches, so a second row would resolve the address to ITSELF as
+    // canonical and `owns.sh` would go on answering `other` — the very defect being repaired.
+    // The work branch name is `work-$(date +%Y%m%d-%H%M%S)`, so two publishes in the same
+    // wall-clock second against the SAME origin collide; the drafts here deliberately share
+    // an origin, which is the one case where waiting out the second is the honest fix.
+    tickSecond();
+    const alias = draft(`--judgement test@example.com=known`);
+    assertEq("a login the mapping already names gains the address as another of its own",
+      [alias.rulings.map((r) => r.status), alias.published, alias.publish_reason],
+      [["alias_appended"], true, "published"]);
+
+    // Nothing is replaced, dropped or reordered — asserted over the published tree.
+    execSync("git fetch -q origin", { cwd: A });
+    const aliasBranch = execSync("git for-each-ref --sort=-refname --format='%(refname:short)' 'refs/remotes/origin/work-*'",
+      { cwd: A, encoding: "utf8" }).trim().split("\n")[0].trim();
+    const line = execSync(`git show ${aliasBranch}:.claude/git-identities`, { cwd: A, encoding: "utf8" });
+    assertTrue("the existing entry keeps every address it already named",
+      /^known=known@example\.com,test@example\.com$/m.test(line), line);
+
+    // AN ADDRESS THE MAPPING ALREADY NAMES LIVE IS A NO-OP, never a duplicate line.
+    execSync(`git merge -q --no-edit ${aliasBranch} && git push -q origin main`, { cwd: A });
+    const noop = draft(`--judgement test@example.com=known`);
+    assertEq("an address already named live drafts nothing",
+      [noop.drafted, noop.published, noop.publish_reason], [0, false, "nothing_to_draft"]);
+
+    // AN UNJUDGED ADDRESS LEAVES THE FILE BYTE-IDENTICAL.
+    const before = execSync("git show origin/main:.claude/git-identities", { cwd: A, encoding: "utf8" });
+    draft("");
+    execSync("git fetch -q origin", { cwd: A });
+    assertEq("an unjudged address leaves the mapping untouched",
+      execSync("git show origin/main:.claude/git-identities", { cwd: A, encoding: "utf8" }), before);
+
+    // 6. THE BREAKER: the drafter reaches the one writer and no other path to that line.
+    const src = readFileSync(DRAFT, "utf8").split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+    assertTrue("it writes attributions only through carry-attribution.sh",
+      /carry-attribution\.sh/.test(src) && !/feedback:/.test(src), src);
+    assertTrue("and it reads the mapping only through its one reader",
+      /gather\/scripts\/identity\.sh/.test(src), src);
+    assertTrue("and every drafted subject is named visibly in the body",
+      /ruling: %s \/ subject: %s/.test(readFileSync(DRAFT, "utf8")), "marker missing");
+    assertTrue("and it writes only inside a publish tree",
+      /open-publish-tree\.sh/.test(src) && /close-publish-tree\.sh/.test(src), src);
+    assertTrue("never setting the auto-merge variable itself",
+      !/WORKAHOLIC_AUTO_MERGE=/.test(src), src);
+  } finally {
+    rmSync(origin, { recursive: true, force: true });
+    rmSync(A, { recursive: true, force: true });
+    rmSync(binDir, { recursive: true, force: true });
+  }
+}
+
+// ---------- moderate/step-standing-rulings.sh: the tick's ruling step (2026-08-28) ----------
+// The step that puts the two standing rulings on a pull request instead of asking about them
+// hourly. Everything worth pinning is a bound: at most ONE open ruling at a time, derived off
+// GitHub with no cursor; a DEGRADED read drafts nothing and is named; the act is handed to the
+// agent, so the step writes nothing and its `event` is always empty; and it never reaches
+// `plan-units.sh`, which stages what its living migrations converge.
+function stepRulingStub(binDir, openRows, { fail = false } = {}) {
+  // The stub answers the REST call already reduced by `--jq`, which is what `gh api --jq`
+  // hands back: one TAB-separated row per open ruling pull request.
+  writeFileSync(join(binDir, "gh"), `#!/bin/sh
+case "$1 $2" in
+  "api user") printf 'tester\\n'; exit 0 ;;
+esac
+case "$*" in
+  *pulls*)
+${fail ? "    echo 'HTTP 403: not permitted for this session type' >&2; exit 1 ;;"
+       : `    printf '%s' "${openRows}"; exit 0 ;;`}
+esac
+echo ""
+`);
+  chmodSync(join(binDir, "gh"), 0o755);
+}
+
+function testStepStandingRulings() {
+  const STEP = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-standing-rulings.sh");
+  const { origin, A, binDir } = makeRulingRepo();
+  const stepOf = (env) => JSON.parse(run(A, `${POSIX_SH} ${STEP} --tick 20260828-120000 --root ${A}`, { env }).stdout);
+  const withGh = { ...process.env, PATH: `${binDir}:${process.env.PATH}` };
+  try {
+    // 1. NOTHING IN FLIGHT: the candidates go back to the agent, because the judgement is the
+    //    run's and no script may make it.
+    stepRulingStub(binDir, "");
+    const open = stepOf(withGh);
+    assertEq("the step reports the standing rulings it found",
+      [open.step, open.status, open.reason], ["standing-rulings", "ok", ""]);
+    assertTrue("naming how many there are to judge", /standing ruling\(s\) to judge/.test(open.summary), open.summary);
+    assertEq("and hands them to the agent rather than judging them itself",
+      [open.needs_agent.length, open.needs_agent[0].candidates.every((c) => c.decision === "undecided")],
+      [1, true]);
+    // THE EVENT IS ALWAYS EMPTY: at this moment nothing has been drafted, because the agent
+    // acts only after `run.sh` returns. A tick that drafted nothing renders no root line.
+    assertEq("its event is empty, so a tick that drafted nothing renders no root line", open.event, "");
+
+    // 2. A RULING ALREADY OPEN MEANS THIS TICK DRAFTS NOTHING. No cursor: the brake is the
+    //    open pull request itself.
+    stepRulingStub(binDir,
+      "31\thttps://example.test/pr/31\t[Ruling] Standing rulings for the operator\truling: attribution / subject: m2\n");
+    const held = stepOf(withGh);
+    assertEq("an open ruling holds the whole act",
+      [held.status, held.needs_agent, held.event], ["ok", [], ""]);
+    assertTrue("naming the pull request that holds it", /#31/.test(held.summary), held.summary);
+
+    // 3. A DEGRADED BRAKE DRAFTS NOTHING AND IS NAMED. A brake that cannot be read is not a
+    //    brake, so this may never fall through to drafting.
+    stepRulingStub(binDir, "", { fail: true });
+    const blind = stepOf(withGh);
+    assertEq("an unreadable brake is degraded, by name, and drafts nothing",
+      [blind.status, blind.reason, blind.needs_agent], ["degraded", "brake_list_failed", []]);
+
+    // 4. AN EMPTY CANDIDATE SET IS AN ANSWER, NOT A DEGRADATION.
+    stepRulingStub(binDir, "");
+    for (const slug of ["m2", "m3"]) {
+      const f = join(A, `.workaholic/missions/active/${slug}/mission.md`);
+      writeFileSync(f, readFileSync(f, "utf8").replace("20260101000000-b.md", "20260101000000-a.md"));
+    }
+    mkdirSync(join(A, ".claude"), { recursive: true });
+    writeFileSync(join(A, ".claude/git-identities"), "tester=test@example.com\n");
+    const quiet = stepOf(withGh);
+    assertEq("nothing standing is an ok line with no request",
+      [quiet.status, quiet.reason, quiet.needs_agent, quiet.event], ["ok", "", [], ""]);
+    assertTrue("saying so in words", /no standing ruling/.test(quiet.summary), quiet.summary);
+
+    // 5. IT WRITES NOTHING. The one thing a `/moderate` step may write is its own log line,
+    //    and this step is not even the writer of that.
+    assertEq("the step left the checkout as it found it",
+      execSync("git status --porcelain", { cwd: A, encoding: "utf8" })
+        .split("\n").filter((l) => l && !/mission\.md|\.claude\//.test(l)).join("\n"), "");
+
+    // 6. THE BREAKER: it must never reach the survey, which stages what its migrations converge.
+    const src = readFileSync(STEP, "utf8").split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+    assertEq("the step never reaches plan-units.sh", /plan-units\.sh/.test(src), false);
+    assertTrue("it reads only the two readers it composes",
+      /list-standing-rulings\.sh/.test(src) && /list-open-rulings\.sh/.test(src), src);
+    assertTrue("and it calls no writer of its own",
+      !/carry-attribution\.sh|publish-tree|close\.sh/.test(src), src);
+
+    // 7. IT IS REGISTERED, so `run.sh` invokes it and it contributes a line on every tick.
+    const runSrc = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/run.sh"), "utf8");
+    assertTrue("the step is in the run's STEPS list",
+      /^STEPS='.*\bstanding-rulings\b.*'$/m.test(runSrc), "not registered");
+  } finally {
+    rmSync(origin, { recursive: true, force: true });
+    rmSync(A, { recursive: true, force: true });
+    rmSync(binDir, { recursive: true, force: true });
+  }
+}
+
+// ---------- the question a ruling diff already carries is held (2026-08-28) ----------
+// Once a ruling names a subject, the hourly question about THAT subject sends the operator to
+// perform by hand what they are being asked to merge. Hold exactly that one. The risk is
+// over-suppression, so every row here is about the BOUND: keyed on the subject, all-or-nothing
+// on a residue, unreadable holds nothing, and `ask-question.sh` is not touched at all.
+function testRulingQuestionSuppression() {
+  const SUPP = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/ruling-suppression.sh");
+  const UNDRIVABLE = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-undrivable-units.sh");
+  const { origin, A, binDir } = makeRulingRepo();
+  const withGh = { ...process.env, PATH: `${binDir}:${process.env.PATH}` };
+  const undrivable = () => JSON.parse(run(A,
+    `${POSIX_SH} ${UNDRIVABLE} --tick 20260828-120000 --root ${A}`, { env: withGh }).stdout);
+  const suppression = () => JSON.parse(run(A, `${POSIX_SH} ${SUPP}`, { env: withGh }).stdout);
+  try {
+    // The fixture's strategy is assigned to an address no mapping entry names, so the queued
+    // work under it is undrivable and draws the question this suppression is about.
+    mkdirSync(join(A, ".workaholic/tickets/todo"), { recursive: true });
+    writeFileSync(join(A, ".workaholic/tickets/todo/20260105000000-owned.md"),
+      "---\nassignees: [test@example.com]\nmission: m2\n---\n\n# Owned\n");
+    writeFileSync(join(A, ".workaholic/tickets/todo/20260105000001-other.md"),
+      "---\nassignees: [nobody@example.com]\nmission: m2\n---\n\n# Other\n");
+
+    // 1. NO RULING OPEN: the questions are exactly what they were.
+    stepRulingStub(binDir, "");
+    const supp0 = suppression();
+    assertEq("with nothing open, nothing is held",
+      [supp0.readable, supp0.any_open, supp0.held.attribution, supp0.held.identity_mapping],
+      [true, false, [], []]);
+    const before = undrivable();
+    assertEq("both undrivable addresses draw a question",
+      before.needs_agent[0].undrivable.map((u) => u.owner).sort(),
+      ["nobody@example.com", "test@example.com"]);
+    assertEq("and none is marked unjudged while no ruling is open",
+      before.needs_agent[0].undrivable.every((u) => u.unjudged === false), true);
+
+    // 2. A RULING NAMING ONE ADDRESS HOLDS THAT ONE AND ONLY THAT ONE.
+    stepRulingStub(binDir,
+      "44\thttps://example.test/pr/44\t[Ruling] Standing rulings for the operator\truling: identity_mapping / subject: test@example.com\n");
+    const supp1 = suppression();
+    assertEq("the named subject is held", supp1.held.identity_mapping, ["test@example.com"]);
+    const after = undrivable();
+    assertEq("its question is held and the other is untouched",
+      after.needs_agent[0].undrivable.map((u) => u.owner), ["nobody@example.com"]);
+    assertTrue("the held one is counted rather than dropped silently",
+      /1 held by an open ruling/.test(after.summary), after.summary);
+    // AND THE ONE STILL ASKED SAYS WHY: the loop could not judge it, which is exactly the
+    // subject that most needs a person.
+    assertEq("the surviving question is marked unjudged",
+      after.needs_agent[0].undrivable[0].unjudged, true);
+    assertTrue("and the composition tells the agent to say so",
+      /could not judge/.test(after.needs_agent[0].compose), after.needs_agent[0].compose);
+
+    // 3. AN UNREADABLE READ SUPPRESSES NOTHING. An over-eager question is better than a
+    //    silently dropped one.
+    stepRulingStub(binDir, "", { fail: true });
+    const blind = suppression();
+    assertEq("a failed read holds nothing and names itself",
+      [blind.readable, blind.held.identity_mapping, blind.reason],
+      [false, [], "list_failed"]);
+    assertEq("so every question is asked exactly as before",
+      undrivable().needs_agent[0].undrivable.map((u) => u.owner).sort(),
+      ["nobody@example.com", "test@example.com"]);
+
+    // 4. A RULING NAMING A DIFFERENT SUBJECT HOLDS NOTHING HERE — the bound that keeps one
+    //    ruling from silencing an unrelated question.
+    stepRulingStub(binDir,
+      "45\thttps://example.test/pr/45\t[Ruling] Standing rulings for the operator\truling: attribution / subject: m2\n");
+    assertEq("an attribution ruling holds no mapping question",
+      undrivable().needs_agent[0].undrivable.map((u) => u.owner).sort(),
+      ["nobody@example.com", "test@example.com"]);
+
+    // 5. `ask-question.sh` IS UNMODIFIED IN THIS PATH: the gate, the keys, the caps and the
+    //    holds are byte-identical, and the suppression is stored nowhere.
+    const suppSrc = readFileSync(SUPP, "utf8").split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+    assertTrue("the suppression reader never touches the gate",
+      !/ask-question\.sh|log-append\.sh/.test(suppSrc), suppSrc);
+    assertTrue("and stores nothing", !/>>|mktemp|log-read/.test(suppSrc), suppSrc);
+  } finally {
+    rmSync(origin, { recursive: true, force: true });
+    rmSync(A, { recursive: true, force: true });
+    rmSync(binDir, { recursive: true, force: true });
+  }
 }
 
 // ---------- extract-issue-number.sh (the FB-auto-close ticket) ----------
@@ -22328,6 +22993,14 @@ function testModerateRun() {
     // no path from *the loop cannot drive its own output* to *a person is told*. Same
     // placement and same reason as its neighbours: it reads, the check-in asks.
     "undrivable-units",
+    // `standing-rulings` (2026-08-28): the two rulings the loop CANNOT make itself — which
+    // direction an unattributed mission answers, which account an unmapped address belongs to.
+    // Both were surfaced as an hourly question naming a repair the operator must perform BY
+    // HAND on `main`; drafted as a diff instead, merging is the ruling and closing is the
+    // refusal. It sits beside the two steps whose findings it settles, and — like them — it
+    // reads and hands its act to the agent, because the judgement is the run's and no script
+    // may derive one.
+    "standing-rulings",
     // `undelivered-units` (2026-08-27): a unit the loop drove to a green pull request whose
     // MERGE the transport refused. No other step saw it — `stuck-prs` finds an open, green
     // pull request and `stalled-units` reads STALE rows, and this claim's heartbeat advanced
@@ -25951,7 +26624,7 @@ function testUndeliveredUnitsStep() {
     const runSh = readFileSync(
       join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/run.sh"), "utf8");
     assertTrue("run.sh invokes the step",
-      /undrivable-units undelivered-units/.test(runSh), "not registered in order");
+      /undrivable-units standing-rulings undelivered-units/.test(runSh), "not registered in order");
 
     // AND THE DRILL EXISTS, is dispatched by its verb, and is documented — the same three pins
     // every other verify target carries, so a drill that is written and never wired reads

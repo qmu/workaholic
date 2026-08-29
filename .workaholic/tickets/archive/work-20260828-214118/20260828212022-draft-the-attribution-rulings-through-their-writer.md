@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-28T21:20:22+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -77,3 +78,30 @@ and it is still the operator's merge that makes the ruling.
 - The drafting caller runs in a publish tree rather than the checkout, exactly as every
   other artifact writer in this repository does: the claim protocol owns `work-*` branches
   and nothing here may push into one.
+
+## Final Report
+
+Development completed as planned.
+
+`moderate/scripts/draft-standing-rulings.sh` opens a publish tree, reads the candidate set
+**inside** it (so the rulings are derived from the base the pull request will be opened
+against), runs `carry-attribution.sh <strategy> <mission>` once per **judged** mission, and
+lands the result through `publish-tree-pr.sh`. `carry-attribution.sh` is unmodified — still
+the one writer of that line, still appending only refs the named strategy already cites,
+still touching no strategy file. Every one of its refusals is reported by name and writes
+nothing; `already` is reported as a success; an `undecided` candidate reaches no writer.
+The pull request opens and does not merge — the seam's `ruling_touching`, proved with
+`WORKAHOLIC_AUTO_MERGE=1` deliberately set in the fixture.
+
+### Discovered Insights
+
+- **Insight**: `publish-tree-pr.sh` must be invoked from the **caller's** checkout, not from
+  inside the publish tree: it resolves `.publish/` from the repository root, and inside that
+  tree the root *is* the tree, so it answers `no_publish_tree`. `carry-attribution.sh` is the
+  opposite — it `git add`s the mission file, so it must run with the publish tree as cwd.
+  **Context**: the two halves of one act have opposite working-directory requirements.
+- **Insight**: `carry-attribution.sh`'s header asserted that the seam could not see an
+  attribution carry. That is now false and is superseded in place: the seam derives
+  `ruling_touching` from the shape of the change, and step 9e's caller-side rule survives as
+  a second guard rather than the only one.
+  **Context**: three documents carried that same claim; all three moved.

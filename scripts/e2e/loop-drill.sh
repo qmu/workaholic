@@ -2378,6 +2378,245 @@ EOF
     emit_verdict "residue" 0 "pass" 0
 }
 
+# --------------------------------------------------------------- verify-rulings
+# Does a standing ruling reach the operator as a DIFF THEY MERGE rather than as an hourly
+# question naming a repair to perform by hand on `main`? Two rulings stand that the loop cannot
+# make itself — which direction an unattributed mission answers, and which account an unmapped
+# address belongs to — and both were surfaced as a question whose repair was a hand edit of the
+# base, the one act this repository still left to a person editing `main` directly.
+#
+# NO NETWORK AND NO CREDENTIAL. The whole path runs against a BARE LOCAL ORIGIN with `gh`
+# stubbed, and the stub answers a SUCCESSFUL merge on purpose — a stub that refused would let
+# the seam's refusal below pass for the wrong reason. The fixture is git-backed because the
+# publish seam clones the base and pushes a branch to it.
+#
+# THE BREAKER ROW IS IN TWO HALVES, and the mission's safety rests on both:
+#
+#   `rulings_no_script_judges`  — the fixture holds EXACTLY ONE active direction beside EXACTLY
+#                                 ONE unattributed mission, which is the shape an inference
+#                                 would resolve without being asked. Wire any inference into
+#                                 the reader and this row fires.
+#   `rulings_seam_never_merges` — `WORKAHOLIC_AUTO_MERGE=1` is SET. Delete the seam's refusal
+#                                 and a machine merges the operator's ruling; an unset variable
+#                                 would let that pass unnoticed.
+cmd_verify_rulings() {
+    _list="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/list-standing-rulings.sh"
+    _draft="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/draft-standing-rulings.sh"
+    _stepr="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/step-standing-rulings.sh"
+    _stepu="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/step-undrivable-units.sh"
+    _carry="${REPO_ROOT}/plugins/workaholic/skills/strategy/scripts/carry-attribution.sh"
+    for _f in "$_list" "$_draft" "$_stepr" "$_stepu" "$_carry"; do
+        [ -f "$_f" ] || emit_err "rulings_seam_unreadable" 4 "${_f} is not present in this checkout"
+    done
+
+    _before=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+
+    _tmp=$(mktemp -d)
+    _origin="${_tmp}/origin"; _work="${_tmp}/work"; _bin="${_tmp}/bin"; _ctl="${_tmp}/ctl"
+    mkdir -p "$_bin" "$_ctl"
+    : > "${_ctl}/open.tsv"
+    _me=$(cd "$REPO_ROOT" && git config user.email 2>/dev/null || echo drill@example.com)
+    _far=$(date -u -d "+300 days" +%Y-%m-%d 2>/dev/null || echo 2099-01-01)
+
+    # The stub: `gh api user`, the pull-request POST, a SUCCESSFUL merge, and the open-pull
+    # listing the brake reads — the last driven by a file this drill flips between rows.
+    cat > "${_bin}/gh" <<STUB
+#!/bin/sh
+case "\$1 \$2" in
+  "api user") printf 'tester\n'; exit 0 ;;
+esac
+case "\$*" in
+  *pulls*POST*) echo '{"html_url":"https://drill.invalid/pr/1","number":1}'; exit 0 ;;
+  *merge*) echo '{"merged":true}'; exit 0 ;;
+  *pulls?state=open*) cat "${_ctl}/open.tsv" 2>/dev/null; exit 0 ;;
+esac
+echo ""
+STUB
+    chmod +x "${_bin}/gh"
+
+    git -c init.defaultBranch=main init -q --bare "$_origin" >/dev/null 2>&1 || true
+    git clone -q "$_origin" "$_work" >/dev/null 2>&1 || true
+    ( cd "$_work" && git config user.email "$_me" && git config user.name Drill \
+      && git config commit.gpgsign false ) >/dev/null 2>&1 || true
+    _W="${_work}/.workaholic"
+    mkdir -p "${_W}/strategies" "${_W}/feedbacks" "${_W}/missions/active/orphan" \
+             "${_W}/missions/archive/landed" "${_W}/tickets/todo" \
+             "${_W}/tickets/archive/work-x" "${_work}/.claude"
+    printf -- '---\ntype: Feedback\n---\n\nthe direction grew from this\n' > "${_W}/feedbacks/20260101000000-a.md"
+    printf -- '---\ntype: Feedback\n---\n\nnobody claims this\n'           > "${_W}/feedbacks/20260101000000-b.md"
+    cat > "${_W}/strategies/dir1.md" <<EOF
+---
+type: Strategy
+title: T dir1
+slug: dir1
+status: active
+target_date: ${_far}
+assignees: [${_me}]
+feedback: [20260101000000-a.md]
+---
+
+# dir1
+
+## Aim
+
+a
+
+## Schedule
+
+s
+EOF
+    printf -- '---\ntype: Mission\ntitle: Landed\nslug: landed\nstatus: achieved\nfeedback: [20260101000000-a.md]\n---\n\n# Landed\n' \
+        > "${_W}/missions/archive/landed/mission.md"
+    printf -- '---\nmission: landed\nstatus: done\n---\n\n# T1\n' > "${_W}/tickets/archive/work-x/20260101000001-t1.md"
+    # EXACTLY ONE unattributed active mission and EXACTLY ONE unmapped address: the shape an
+    # inference would resolve unasked, which is what makes the breaker row below real.
+    printf -- '---\ntype: Mission\ntitle: Orphan\nslug: orphan\nstatus: active\nfeedback: [20260101000000-b.md]\n---\n\n# Orphan\n' \
+        > "${_W}/missions/active/orphan/mission.md"
+    printf -- '---\nmission: orphan\nassignees: [stranger@example.com]\n---\n\n# T2\n' > "${_W}/tickets/todo/20260102000000-t2.md"
+    printf -- '# <github-login>=<canonical-email>[,<alias-email>...]\nknown=%s\n' "$_me" > "${_work}/.claude/git-identities"
+    printf 'seed\n' > "${_work}/README.md"
+    ( cd "$_work" && git add -A && git commit -qm seed && git push -q origin main ) >/dev/null 2>&1 || true
+
+    _draft_run() { ( cd "$_work" && PATH="${_bin}:$PATH" WORKAHOLIC_AUTO_MERGE=1 sh "$_draft" "$@" ) 2>/dev/null || true; }
+
+    # 1. THE SET IS READ, WITH ITS EVIDENCE AND ITS REPAIR, AND NOTHING IS JUDGED.
+    _r=$(cd "$_work" && sh "$_list" --root "$_W" 2>&1) || true
+    if printf '%s' "$_r" | grep -q '"subject": *"orphan"' \
+        && printf '%s' "$_r" | grep -q '"subject": *"stranger@example.com"' \
+        && printf '%s' "$_r" | grep -q '"readable": *true'; then
+        add_row "rulings_read_names_both_kinds" true "one attribution and one mapping candidate, each with its evidence and repair" load
+    else
+        add_row "rulings_read_names_both_kinds" false "the standing rulings were not both named: $(one_line "$_r")" load
+    fi
+
+    # THE BREAKER, HALF ONE. One direction, one unattributed mission — and still `undecided`.
+    if printf '%s' "$_r" | grep -q 'carry-attribution.sh <strategy> orphan' \
+        && printf '%s' "$_r" | grep -q '"repair": *"<login>=stranger@example.com"' \
+        && ! printf '%s' "$_r" | grep -q '"decision": *"dir1"'; then
+        add_row "rulings_no_script_judges" true "with one direction and one orphan the reader still answers undecided and leaves both placeholders" load
+    else
+        add_row "rulings_no_script_judges" false "a script judged a ruling on its own: $(one_line "$_r")" load
+    fi
+
+    # 2. A JUDGED SET LANDS AS ONE PULL REQUEST — AND THE SEAM REFUSES TO MERGE IT.
+    _d=$(_draft_run --judgement orphan=dir1 --judgement "stranger@example.com=stranger")
+    if printf '%s' "$_d" | grep -q '"merge_reason": *"ruling_touching"' \
+        && printf '%s' "$_d" | grep -q '"merged": *false' \
+        && printf '%s' "$_d" | grep -q '"published": *true'; then
+        add_row "rulings_seam_never_merges" true "a ruling is left open even with WORKAHOLIC_AUTO_MERGE=1 set" load
+    else
+        add_row "rulings_seam_never_merges" false "a ruling was not held open: $(one_line "$_d")" load
+    fi
+    if printf '%s' "$_d" | grep -q '"status": *"carried"' \
+        && printf '%s' "$_d" | grep -q '"status": *"mapped"' \
+        && printf '%s' "$_d" | grep -q '"drafted": *2'; then
+        add_row "rulings_both_kinds_drafted" true "the attribution and the mapping ride one diff" load
+    else
+        add_row "rulings_both_kinds_drafted" false "the two kinds did not land together: $(one_line "$_d")" load
+    fi
+
+    # 3. A SECOND TICK IS A NO-OP WHILE THE RULING IS OPEN. The brake is the open pull request
+    # itself — no cursor anywhere — and the base is untouched until the operator merges.
+    _base_map=$(cd "$_work" && git show origin/main:.claude/git-identities 2>/dev/null || true)
+    printf '1\thttps://drill.invalid/pr/1\t[Ruling] Standing rulings for the operator\truling: attribution / subject: orphan;ruling: identity_mapping / subject: stranger@example.com\n' \
+        > "${_ctl}/open.tsv"
+    _s=$( ( cd "$_work" && PATH="${_bin}:$PATH" sh "$_stepr" --tick 20260101-000000 --root "$_work" ) 2>&1 || true )
+    _base_map2=$(cd "$_work" && git show origin/main:.claude/git-identities 2>/dev/null || true)
+    if printf '%s' "$_s" | grep -q '"needs_agent": \[\]' \
+        && printf '%s' "$_s" | grep -q 'already open' \
+        && [ "$_base_map" = "$_base_map2" ]; then
+        add_row "rulings_second_tick_is_a_no_op" true "an open ruling drafts nothing and the mapping on the base gains no second line" load
+    else
+        add_row "rulings_second_tick_is_a_no_op" false "a second tick was not a no-op: $(one_line "$_s")" load
+    fi
+
+    # 4. THE SUBJECT THE RULING DOES NOT NAME STILL ASKS, AND SAYS WHY. An undecidable subject
+    # going silent is the one failure a suppression must not cause.
+    printf '1\thttps://drill.invalid/pr/1\t[Ruling] Standing rulings for the operator\truling: attribution / subject: orphan\n' \
+        > "${_ctl}/open.tsv"
+    _u=$( ( cd "$_work" && PATH="${_bin}:$PATH" sh "$_stepu" --tick 20260101-000000 --root "$_work" ) 2>&1 || true )
+    if printf '%s' "$_u" | grep -q '"owner": *"stranger@example.com"' \
+        && printf '%s' "$_u" | grep -q '"unjudged": *true' \
+        && printf '%s' "$_u" | grep -q 'could not judge'; then
+        add_row "rulings_undecided_still_asks" true "a subject the ruling does not name still draws its question and names why" load
+    else
+        add_row "rulings_undecided_still_asks" false "an unjudged subject went silent or said nothing: $(one_line "$_u")" load
+    fi
+    printf '1\thttps://drill.invalid/pr/1\t[Ruling] Standing rulings for the operator\truling: identity_mapping / subject: stranger@example.com\n' \
+        > "${_ctl}/open.tsv"
+    _u2=$( ( cd "$_work" && PATH="${_bin}:$PATH" sh "$_stepu" --tick 20260101-000000 --root "$_work" ) 2>&1 || true )
+    if printf '%s' "$_u2" | grep -q '1 held by an open ruling' \
+        && ! printf '%s' "$_u2" | grep -q '"owner": *"stranger@example.com"'; then
+        add_row "rulings_named_subject_is_held" true "the question the diff already carries is held, and counted rather than dropped silently" load
+    else
+        add_row "rulings_named_subject_is_held" false "a named subject still drew its question: $(one_line "$_u2")" load
+    fi
+    : > "${_ctl}/open.tsv"
+
+    # 5. EVERY REFUSAL OF THE ONE WRITER LEAVES THE TREE UNTOUCHED. Read over a plain fixture,
+    # because what is asserted is that the file did not move.
+    _F=$(mktemp -d)
+    mkdir -p "${_F}/strategies" "${_F}/missions/active/orphan" "${_F}/missions/active/broken"
+    cp "${_W}/strategies/dir1.md" "${_F}/strategies/dir1.md"
+    printf -- '---\ntype: Strategy\ntitle: Bare\nslug: bare\nstatus: active\ntarget_date: %s\nassignees: [%s]\n---\n\n## Aim\n\na\n\n## Schedule\n\ns\n' \
+        "$_far" "$_me" > "${_F}/strategies/bare.md"
+    printf -- '---\ntype: Strategy\ntitle: Gone\nslug: gone\nstatus: achieved\ntarget_date: %s\nassignees: [%s]\nfeedback: [20260101000000-a.md]\n---\n\n## Aim\n\na\n\n## Schedule\n\ns\n' \
+        "$_far" "$_me" > "${_F}/strategies/gone.md"
+    printf -- '---\ntype: Mission\ntitle: Orphan\nslug: orphan\nstatus: active\nfeedback: [20260101000000-b.md]\n---\n\n# Orphan\n' \
+        > "${_F}/missions/active/orphan/mission.md"
+    printf -- '# Broken\n\nno frontmatter at all\n' > "${_F}/missions/active/broken/mission.md"
+    _snap=$(find "$_F" -type f -exec cksum {} \; | sort)
+    _refusals_ok=true
+    _names=""
+    for _pair in "nope orphan strategy_not_found" "dir1 nope mission_not_found" \
+                 "gone orphan not_active" "bare orphan no_revision" "dir1 broken immutable_field"; do
+        _st=$(printf '%s' "$_pair" | cut -d' ' -f1)
+        _mi=$(printf '%s' "$_pair" | cut -d' ' -f2)
+        _rs=$(printf '%s' "$_pair" | cut -d' ' -f3)
+        _o=$(cd "$_F" && sh "$_carry" "$_st" "$_mi" "$_F" 2>&1) || true
+        printf '%s' "$_o" | grep -q "\"reason\": *\"${_rs}\"" || { _refusals_ok=false; _names="${_names} ${_rs}"; }
+    done
+    _snap2=$(find "$_F" -type f -exec cksum {} \; | sort)
+    if [ "$_refusals_ok" = true ] && [ "$_snap" = "$_snap2" ]; then
+        add_row "rulings_refusals_write_nothing" true "all five refusals are named and none of them wrote" load
+    else
+        add_row "rulings_refusals_write_nothing" false "a refusal was misnamed or wrote:${_names:-" the tree moved"}" load
+    fi
+
+    # 6. AN ABSENT MAPPING IS A BOOTSTRAP REPAIR, NOT A RULING — refused by name, writing nothing.
+    _o2="${_tmp}/origin2"; _w2="${_tmp}/work2"
+    git -c init.defaultBranch=main init -q --bare "$_o2" >/dev/null 2>&1 || true
+    git clone -q "$_o2" "$_w2" >/dev/null 2>&1 || true
+    ( cd "$_w2" && git config user.email "$_me" && git config user.name Drill \
+      && git config commit.gpgsign false ) >/dev/null 2>&1 || true
+    mkdir -p "${_w2}/.workaholic"
+    cp -r "${_W}/." "${_w2}/.workaholic/"
+    printf 'seed\n' > "${_w2}/README.md"
+    ( cd "$_w2" && git add -A && git commit -qm seed && git push -q origin main ) >/dev/null 2>&1 || true
+    _d2=$( ( cd "$_w2" && PATH="${_bin}:$PATH" WORKAHOLIC_AUTO_MERGE=1 \
+        sh "$_draft" --judgement "stranger@example.com=stranger" ) 2>/dev/null || true )
+    if printf '%s' "$_d2" | grep -q '"status": *"no_mapping_file"' \
+        && printf '%s' "$_d2" | grep -q '"drafted": *0'; then
+        add_row "rulings_absent_mapping_refuses" true "an absent mapping is a bootstrap repair and drafts nothing" load
+    else
+        add_row "rulings_absent_mapping_refuses" false "an absent mapping was not refused by name: $(one_line "$_d2")" load
+    fi
+
+    # 7. IT WROTE NOTHING IN THE CHECKOUT. Every fixture is outside it.
+    _after=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+    if [ "$_before" = "$_after" ]; then
+        add_row "rulings_writes_nothing" true "the checkout is byte-identical after the drill" load
+    else
+        add_row "rulings_writes_nothing" false "the drill changed the working tree" load
+    fi
+
+    rm -rf "$_tmp" "$_F"
+    if [ "$LOAD_FAILED" -gt 0 ]; then
+        emit_verdict "rulings" 0 "fail" 1
+    fi
+    emit_verdict "rulings" 0 "pass" 0
+}
+
 # ------------------------------------------------------------ verify-succession
 # Can a direction's END be a turn of the loop rather than its stop? Every reading in the
 # direction layer is bounded to `status: active`, so closing the last live direction leaves
@@ -5124,7 +5363,7 @@ cmd_verify_checkin_delivery() {
     emit_verdict "checkin-delivery" 0 "pass" 0
 }
 
-USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-specificate <issue>|verify-implement <issue>|verify-plan [--json]|verify-status [--json]|verify-cadence [--json]|verify-planner [--json]|verify-standup [--json]|verify-moderate [--json]|verify-propose [--json]|verify-direction-health [--json]|verify-arrival [--json]|verify-residue [--json]|verify-succession [--json]|verify-revision [--json]|verify-merged-claim [--json]|verify-identity-handoff [--json]|verify-close [--json]|verify-retire [--json]|verify-ci-retirement [--json]|verify-delivery-retry [--json]|verify-handoff-question [--json]|verify-base-health [--json]|verify-return-path [--json]|verify-reconcile [--json]|verify-checkin-delivery [--json]"}'
+USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-specificate <issue>|verify-implement <issue>|verify-plan [--json]|verify-status [--json]|verify-cadence [--json]|verify-planner [--json]|verify-standup [--json]|verify-moderate [--json]|verify-propose [--json]|verify-direction-health [--json]|verify-arrival [--json]|verify-residue [--json]|verify-rulings [--json]|verify-succession [--json]|verify-revision [--json]|verify-merged-claim [--json]|verify-identity-handoff [--json]|verify-close [--json]|verify-retire [--json]|verify-ci-retirement [--json]|verify-delivery-retry [--json]|verify-handoff-question [--json]|verify-base-health [--json]|verify-return-path [--json]|verify-reconcile [--json]|verify-checkin-delivery [--json]"}'
 
 CMD="${1:-}"
 [ -n "$CMD" ] || {
@@ -5163,6 +5402,7 @@ case "$CMD" in
     verify-direction-health) cmd_verify_direction_health "$@" ;;
     verify-arrival) cmd_verify_arrival "$@" ;;
     verify-residue) cmd_verify_residue "$@" ;;
+    verify-rulings) cmd_verify_rulings "$@" ;;
     verify-succession) cmd_verify_succession "$@" ;;
     verify-revision) cmd_verify_revision "$@" ;;
     verify-merged-claim) cmd_verify_merged_claim "$@" ;;

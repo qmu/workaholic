@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-28T21:20:22+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -77,3 +78,30 @@ per candidate — and refuse, mechanically, to let any script invent one.
 - Refused alternative: letting the script guess an attribution from title similarity. That
   is exactly what `carry-attribution.sh`'s header forbids — a machine only ever *carries* a
   ruling, never authors one — and the whole mission rests on that premise.
+
+## Final Report
+
+Development completed as planned.
+
+`list-standing-rulings.sh` gained `--judgement <subject>=<answer>` (repeatable), the
+`--aim-kind` seam one value per candidate. Absent the flag the output is byte-identical
+to what the previous ticket shipped — verified by diffing the two revisions' output over
+this repository's own tree — which is why the `judgement` block is emitted only when at
+least one was passed: with nothing in hand there is nothing to refuse and no count to
+state. A judged entry carries the answer in `decision` and its **resolved** repair; an
+unjudged one stays `undecided`; a subject the reader did not surface is refused
+`subject_not_surfaced`; an argument with no answer is kept and refused
+`malformed_judgement` rather than silently dropped.
+
+### Discovered Insights
+
+- **Insight**: the breaker that matters is behavioural, not textual. The residue fixture
+  holds **exactly one** active strategy beside **exactly one** unattributed mission — the
+  shape an inference would resolve without being asked — so the pin asserts that repair
+  still reads `carry-attribution.sh <strategy> m2`. A text-based pin would pass over any
+  refactor that spelled the inference differently.
+  **Context**: the mission's whole safety rests on a machine never authoring a ruling.
+- **Insight**: `jq`'s `index(f)` evaluates `f` against `index`'s own **input**, not against
+  the enclosing `.`; `$domain | index(.subject)` therefore indexes an array with a string
+  and errors. Bind the row first (`. as $x | ... index($x.subject)`).
+  **Context**: the same shape appears wherever a candidate set is used as a domain check.

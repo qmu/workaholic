@@ -2,7 +2,7 @@
 type: Mission
 title: Put the loop's standing rulings on one pull request
 slug: put-the-loop-s-standing-rulings-on-one-pull-request
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-28T21:19:39+00:00
 author: a@qmu.jp
@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260828-214118
 ---
 
 # Put the loop's standing rulings on one pull request
@@ -38,13 +39,23 @@ read proposes nothing.
 
 ## Acceptance
 
-- [ ] The standing rulings are readable in one place, the run supplies the judgement
+- [x] The standing rulings are readable in one place, the run supplies the judgement
       per candidate, and an unjudged candidate is never written. (#20260828212022-name-the-standing-rulings-in-one-place.md)
-- [ ] A judged ruling lands as a diff through the writer that already owns it, on
+- [x] A judged ruling lands as a diff through the writer that already owns it, on
       one pull request the seam itself refuses to auto-merge. (#20260828212022-draft-the-attribution-rulings-through-their-writer.md)
-- [ ] The tick drafts at most one ruling pull request at a time, suppresses only the
+- [x] The tick drafts at most one ruling pull request at a time, suppresses only the
       question its own diff carries, and the whole path is drilled with no network. (#20260828212022-give-the-tick-the-standing-rulings-step.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-28 — ticket archived — 20260828212022-name-the-standing-rulings-in-one-place.md
+- 2026-08-28 — ticket archived — 20260828212022-let-the-run-supply-the-judgement-per-candidate.md
+- 2026-08-28 — ticket archived — 20260828212022-refuse-to-auto-merge-a-ruling-at-the-seam.md
+- 2026-08-28 — ticket archived — 20260828212022-draft-the-attribution-rulings-through-their-writer.md
+- 2026-08-29 — ticket archived — 20260828212022-draft-the-mapping-ruling-beside-them.md
+- 2026-08-29 — ticket archived — 20260828212022-give-the-tick-the-standing-rulings-step.md
+- 2026-08-29 — ticket archived — 20260828212022-suppress-the-question-the-ruling-diff-carries.md
+- 2026-08-29 — ticket archived — 20260828212022-drill-the-ruling-path-with-no-network.md
+- 2026-08-29 — mission achieved — mission.md
+- 2026-08-29 — story reported — work-20260828-214118.md

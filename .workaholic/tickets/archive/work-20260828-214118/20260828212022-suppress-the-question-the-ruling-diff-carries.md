@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-28T21:20:22+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -82,3 +83,29 @@ that question and nothing else — an undecidable subject still asks, and says w
 - The risk is over-suppression: a ruling naming one mission must not silence the question
   about a different one. Keying the hold on the **subject** rather than on the existence of
   an open ruling is what bounds it, and the drill should prove exactly that.
+
+## Final Report
+
+Development completed as planned.
+
+`moderate/scripts/ruling-suppression.sh` composes `list-open-rulings.sh` into one answer both
+steps read — one reader, so `undrivable-units` and `direction-health` cannot disagree about
+which subjects a diff already asks for. `undrivable-units` holds and **counts** a candidate
+whose owner address an open ruling names; `direction-health` holds an `arrived` reading only
+when an open ruling names **every** mission in that direction's residue. `ask-question.sh` is
+unmodified in the diff; every other question, key, cap and hold is byte-identical. An
+unreadable read suppresses nothing, and the suppression is stored nowhere.
+
+### Discovered Insights
+
+- **Insight**: the two questions are keyed on different things from what a ruling names — the
+  mapping question on an artifact **path** (its owner is the address), the arrival question on
+  a **strategy** slug (its residue holds the missions). So the hold is by *subject membership*
+  in each case rather than by key equality, and for the arrival it must be **all-or-nothing**
+  over the residue: holding on partial cover would drop the missions the ruling omits, which
+  is the over-suppression the ticket names as the risk.
+  **Context**: this is why one shared reader answers *which subjects*, not *which keys*.
+- **Insight**: `overdue` and `dormant` are never held, and that is not an omission — they are
+  about the **date** and the **silence**, which no attribution ruling answers. Only `arrived`
+  exists to name the residue, so only `arrived` can be made redundant by a ruling.
+  **Context**: a later reader might otherwise "complete" the suppression across all readings.

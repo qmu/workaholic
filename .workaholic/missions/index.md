@@ -5,7 +5,6 @@
 * [deploy-the-docs-site-on-merge-to-main](active/deploy-the-docs-site-on-merge-to-main/mission.md) - Deploy the docs site on merge to main
 * [make-the-routine-create-body-documented-and-buildable](active/make-the-routine-create-body-documented-and-buildable/mission.md) - Make the routine create body documented and buildable
 * [make-workaholify-converge-the-account-s-routines](active/make-workaholify-converge-the-account-s-routines/mission.md) - Make /workaholify converge the account's routines
-* [put-the-loop-s-standing-rulings-on-one-pull-request](active/put-the-loop-s-standing-rulings-on-one-pull-request/mission.md) - Put the loop's standing rulings on one pull request
 * [refuse-ok-under-a-placeholder-identity](active/refuse-ok-under-a-placeholder-identity/mission.md) - Refuse ok under a placeholder identity
 
 ## archive
@@ -60,6 +59,7 @@
 * [name-the-session-type-that-cannot-merge](archive/name-the-session-type-that-cannot-merge/mission.md) - Name the session type that cannot merge
 * [propose-at-the-capture-seam](archive/propose-at-the-capture-seam/mission.md) - Propose at the capture seam
 * [prove-the-loop-s-closing-link](archive/prove-the-loop-s-closing-link/mission.md) - Prove the loop's closing link
+* [put-the-loop-s-standing-rulings-on-one-pull-request](archive/put-the-loop-s-standing-rulings-on-one-pull-request/mission.md) - Put the loop's standing rulings on one pull request
 * [read-a-strategy-s-pace-against-its-date](archive/read-a-strategy-s-pace-against-its-date/mission.md) - Read a strategy's pace against its date
 * [read-whether-the-base-survived-what-the-loop-merged](archive/read-whether-the-base-survived-what-the-loop-merged/mission.md) - Read whether the base survived what the loop merged
 * [reconcile-a-stale-thread-with-the-unit-s-real-state](archive/reconcile-a-stale-thread-with-the-unit-s-real-state/mission.md) - Reconcile a stale thread with the unit's real state

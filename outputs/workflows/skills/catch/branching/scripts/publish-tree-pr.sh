@@ -316,6 +316,54 @@ if [ "${WORKAHOLIC_AUTO_MERGE:-}" = "1" ]; then
       exit 0
       ;;
   esac
+
+  # A RULING-TOUCHING PUBLICATION NEVER MERGES EITHER, AND FOR THE SAME REASON
+  # (2026-08-28, mission `put-the-loop-s-standing-rulings-on-one-pull-request`).
+  # A ruling merged by a machine is not a ruling: which direction an unattributed
+  # mission answers, and which account an unmapped address belongs to, are the
+  # operator's to settle, and the whole point of drafting them is that MERGING is
+  # the ruling and CLOSING is the refusal. The exemption lives in the seam for the
+  # reason `strategy_touching` moved here on 2026-08-27: a caller leaving a variable
+  # unset is a judgement a future caller can forget, and forgetting merges an
+  # operator's ruling with nobody having ruled.
+  #
+  # IT IS ITS OWN WORD, NOT A WIDENED `strategy_touching`. The two name different
+  # trees and ask for different operator acts — authoring a direction versus ruling
+  # on an attribution — and one word answering two questions is how the two drift.
+  #
+  # THE TEST IS ON THE SHAPE OF THE CHANGE, NOT THE DIRECTORY. A carried attribution
+  # and a brand-new mission both live under `.workaholic/missions/`, and every
+  # `/specificate` proposal writes one of the second kind — catching those would stop
+  # the loop's ordinary publications from merging at all. So a mission counts only
+  # when it ALREADY EXISTED on the base (`M`) and the diff moves its `feedback:`
+  # line, which is exactly and only what `carry-attribution.sh` writes. The mapping
+  # has no such ambiguity: nothing but a ruling writes `.claude/git-identities` here.
+  ruling_touching=0
+  changed_status=$( cd "$publish_path" && \
+    { git diff --name-status "origin/${base}" HEAD 2>/dev/null \
+      || git show --name-status --format='' HEAD 2>/dev/null; } )
+  case "$changed_status" in
+    *".claude/git-identities"*) ruling_touching=1 ;;
+  esac
+  if [ "$ruling_touching" -eq 0 ]; then
+    hit=$( cd "$publish_path" && \
+      printf '%s\n' "$changed_status" \
+      | awk '$1 == "M" && $2 ~ /^\.workaholic\/missions\// { print $2 }' \
+      | while IFS= read -r p; do
+          [ -n "$p" ] || continue
+          if git diff "origin/${base}" HEAD -- "$p" 2>/dev/null | grep -q '^[+-]feedback:'; then
+            printf '1'
+            break
+          fi
+        done )
+    [ -z "$hit" ] || ruling_touching=1
+  fi
+  if [ "$ruling_touching" -eq 1 ]; then
+    printf '{"ok": true, "sha": "%s", "branch": "%s", "pr_url": "%s", "base": "%s", "merged": false, "merge_reason": "ruling_touching"}\n' \
+      "$after_sha" "$work_branch" "$pr_url" "$base"
+    exit 0
+  fi
+
   scan_json=$( cd "$publish_path" && sh "${SCRIPT_DIR}/../../release-scan/scripts//scan-branch-safety.sh" "origin/${base}" 2>/dev/null || true )
   case "$scan_json" in
     *'"verdict": "pass"'*)

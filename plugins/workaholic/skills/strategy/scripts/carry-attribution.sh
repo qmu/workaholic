@@ -45,15 +45,18 @@
 # IDEMPOTENT: a mission that already carries every ref is left BYTE-IDENTICAL and reports
 # `already`, the shape `amend.sh` and `close.sh` both use on a re-run.
 #
-# ═══ ITS PULL REQUEST DOES NOT AUTO-MERGE, AND THE SEAM CANNOT ENFORCE THAT ══════════
+# ═══ ITS PULL REQUEST DOES NOT AUTO-MERGE, AND THE SEAM ENFORCES THAT ════════════════
 # The publication carries an operator's ruling, so the operator's merge is the authorship —
-# the same reason a strategy-touching proposal never auto-merges. But `publish-tree-pr.sh`
-# derives `strategy_touching` FROM THE TREE, by looking for a path under
-# `.workaholic/strategies/`, and this route writes `.workaholic/missions/`: an attribution
-# carry is byte-indistinguishable from any other mission write. **So the seam cannot see it,
-# and the rule is the caller's**, stated at `/specificate`'s step 9e and pinned by a hermetic
-# assertion over that route's own text rather than by the seam. That is a weaker guarantee than
-# the strategy exemption's and is recorded as such rather than implied to be the same.
+# the same reason a strategy-touching proposal never auto-merges.
+#
+# This header read *the seam cannot enforce that* until 2026-08-28, on the ground that an
+# attribution carry is byte-indistinguishable from any other mission write. It is NOT
+# indistinguishable: an ordinary proposal ADDS a mission, while this MODIFIES one already on
+# the base and moves its `feedback:` line — which is exactly and only what this script writes.
+# `publish-tree-pr.sh` derives **`ruling_touching`** from that shape and leaves the pull
+# request open whatever `WORKAHOLIC_AUTO_MERGE` says. `/specificate`'s step 9e still leaves the
+# variable unset and that assertion still stands, now as a second guard rather than the only
+# one — a caller leaving a variable unset is a judgement a future caller can forget.
 #
 # IT STAGES THE ONE PATH AND NEVER COMMITS, exactly as `amend.sh` and `create.sh` do. It does
 # not refresh the OKF indexes: `feedback:` is not an index-visible field, so a refresh could

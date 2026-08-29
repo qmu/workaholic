@@ -49,3 +49,4 @@ question: nobody looked, or the loop looked and only you decide.
 - 2026-08-29 — ticket archived — 20260829062039-reproduce-the-base-drift-that-strands-a-unit.md
 - 2026-08-29 — ticket archived — 20260829062039-read-whether-a-claim-branch-still-merges.md
 - 2026-08-29 — ticket archived — 20260829062039-catch-a-claim-branch-up-with-the-base.md
+- 2026-08-29 — ticket archived — 20260829062039-retry-the-delivery-of-a-caught-up-unit.md

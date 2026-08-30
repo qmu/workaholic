@@ -1081,6 +1081,177 @@ function testFalseArrivalCharacterization() {
 // read it at all). The third is the reason the script exists in this shape — an unreadable
 // residue rendered as `mission_count: 0` is the zeroed residue that would let an arrival be
 // claimed over a tree nobody looked at.
+// ---------- a dateless ask takes the operator's one-week default (2026-08-30) ----------
+//
+// Mission `draft-a-dateless-direction-with-the-operator-s-one-week-default`. `/specificate`'s
+// strategy form needed three parts FROM THE ASK — a date, an owner, an aim — so an ask carrying
+// two of them was record-only, `no_target_date`. Measured 2026-08-30: three announced directions
+// all died there, their refusal traced only by a parenthetical addressed to nobody. The operator
+// ruled the default: one week from the ask.
+//
+// EVERYTHING THIS CHANGES IS PROSE PLUS ONE SMALL SCRIPT — the bar in `SKILL.md`, the
+// composition in `workflow.md`, the wording on three surfaces — and prose regresses silently.
+// The measured failure this answers was ITSELF a correct rule producing a silent outcome, so the
+// chain gets the treatment every other load-bearing prose contract here has.
+//
+// A SUITE ROW RATHER THAN A DRILL, decided from what the assertion needs to touch: the whole
+// chain is one script plus three documents, with no fixture repository anywhere in it. The suite
+// runs on every push already, and a new drill would cost a register row and a CI matrix leg for
+// a walk that touches no git state.
+//
+// THE DATE IS CLOCK-DEPENDENT, so every arithmetic assertion is made against a SUPPLIED basis.
+// A test computing "a week from now" on both sides proves nothing about the arithmetic; only the
+// no-argument case is checked against today, and only for its `basis`, not its value.
+//
+// PROVED ABLE TO FAIL, not asserted able to. Two breakers were introduced on the unmodified
+// tree and each turned exactly its own rows red before being reverted:
+//
+//   the script ignoring its argument and always counting
+//     from today                                       -> "counts from the ask's own date"
+//   the step-9b guard reworded so the default is taken
+//     unconditionally (the ticket's own breaker)        -> "the default is consulted only when
+//                                                          the ask states no date"
+function testDatelessAskDefault() {
+  const DEFAULTER = join(REPO_ROOT,
+    "plugins/workaholic/skills/strategy/scripts/default-target-date.sh");
+  assertTrue("the one derivation exists", existsSync(DEFAULTER),
+    "default-target-date.sh is not in the tree, so the default has no single home");
+  const call = (arg) => JSON.parse(execSync(`${POSIX_SH} ${DEFAULTER} ${arg}`,
+    { encoding: "utf8" }));
+
+  // 1. THE ARITHMETIC, against a supplied basis. Seven days, the basis reported back, and the
+  //    month and leap boundaries that a naive `+7` on the day field would get wrong.
+  assertEq("seven days from a supplied basis, with the basis reported",
+    [call("2026-08-30").target_date, call("2026-08-30").basis, call("2026-08-30").days],
+    ["2026-09-06", "2026-08-30", 7]);
+  assertEq("across a year boundary", call("2026-12-28").target_date, "2027-01-04");
+  assertEq("and across a leap day", call("2028-02-25").target_date, "2028-03-03");
+
+  // 2. IT COUNTS FROM THE ASK, NOT FROM THIS CLOCK. A tick that ingests a week-old issue must
+  //    not date the direction from the hour it happened to run — which is the whole reason the
+  //    caller passes the triggering issue's own date.
+  const today = execSync("date -u +%Y-%m-%d", { encoding: "utf8" }).trim();
+  assertTrue("counts from the ask's own date rather than today",
+    call("2020-01-01").basis === "2020-01-01" && call("2020-01-01").target_date === "2020-01-08",
+    "the supplied basis was ignored, so an old issue would be dated from this tick's clock");
+  assertEq("and falls back to today only with no argument given", call("").basis, today);
+
+  // 3. A MALFORMED ASK DATE IS REFUSED WITH NO DATE EMITTED. A plausible answer hiding a
+  //    malformed input is the shape that makes a defect invisible, and `create.sh` would accept
+  //    the fallback without complaint.
+  const bad = call("not-a-date");
+  assertEq("a malformed ask date is refused by name",
+    [bad.ok, bad.reason, bad.target_date], [false, "bad_ask_date", undefined]);
+  assertEq("and every path exits 0",
+    run(REPO_ROOT, `${POSIX_SH} ${DEFAULTER} not-a-date`).status, 0);
+
+  // 4. SEVEN LIVES IN ONE PLACE. A "week" computed at two call sites is two clocks, and the
+  //    second is wrong the first time somebody edits it.
+  const STRATEGY_SCRIPTS = join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts");
+  const others = readdirSync(STRATEGY_SCRIPTS)
+    .filter((f) => f.endsWith(".sh") && f !== "default-target-date.sh")
+    .filter((f) => /\b7\s*\*\s*86400|86400\s*\*\s*7|DAYS=7|days=7/.test(
+      codeLines(join(STRATEGY_SCRIPTS, f))));
+  assertEq("the seven-day constant appears in no other strategy script", others.join(","), "");
+
+  // 5. THE BAR, from `SKILL.md`'s own words. The owner and the aim are still required FROM THE
+  //    ASK and are never defaulted — the owner is what still brakes the one artifact with no
+  //    floor and no ceiling — while the date is stated-or-defaulted.
+  const skill = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/specificate/SKILL.md"), "utf8");
+  assertTrue("the bar takes the date from the ask or from the default",
+    /an \*\*owner\*\*[\s\S]{0,400}one-week default/.test(skill),
+    "SKILL.md's strategy bar no longer states the stated-or-defaulted date rule");
+  assertTrue("...while the owner and the aim are still never inferred",
+    /both from the ask itself and \*\*never\*\* inferred/.test(skill),
+    "the owner/aim half of the bar was loosened along with the date");
+  assertTrue("and the owner is named as what still brakes the artifact",
+    /owner\*\* requirement is what still (brakes|holds)/.test(skill),
+    "SKILL.md no longer says what holds the bar now that the date does not");
+
+  // 6. `no_target_date` IS NARROWED, NOT DELETED. Defaulting over a date the operator DID state
+  //    is the failure this must not introduce while removing the other one, so the reason
+  //    survives for exactly one case.
+  assertTrue("no_target_date now answers only an unresolvable STATED date",
+    /`no_target_date` is narrowed, not deleted/.test(skill)
+      && /the ask stated a date this run could not resolve/.test(skill),
+    "the narrowed meaning of no_target_date is not stated");
+
+  // 7. THE DEFAULT IS CONSULTED ONLY WHEN THE ASK STATES NO DATE — the ticket's own breaker
+  //    target, and the one rule whose loss would silently overwrite the operator's words.
+  const wf = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/specificate/reference/workflow.md"), "utf8");
+  // Anchored on the line start: "9c." also appears in the lifecycle table far above, and
+  // slicing on the bare string would hand every assertion below an empty string that passes
+  // nothing and fails everything.
+  const step9b = wf.slice(wf.indexOf("9b. **Emit the strategy**"),
+    wf.indexOf("\n9c. **End the announced strategy**"));
+  assertTrue("the default is consulted only when the ask states no date",
+    /states a\s+date resolvable[\s\S]{0,200}nothing below is called/.test(step9b)
+      && /states \*\*none at all\*\*/.test(step9b),
+    "step 9b no longer guards the default behind the ask stating no date");
+  assertTrue("...and step 9b reaches the one derivation",
+    step9b.includes("default-target-date.sh"),
+    "step 9b does not call the one derivation");
+
+  // 8. THE VISIBILITY, on all three surfaces. The exemption rests on the operator's merge being
+  //    the authorship, and a merge is only an authorship if the person merging can see what
+  //    they are being asked to author.
+  assertTrue("the Schedule prose names the date as the default and how to change it",
+    /one-week default[\s\S]{0,200}Edit the date before merging/.test(step9b),
+    "the composed ## Schedule no longer names the default");
+  assertTrue("...and a stated date carries none of that wording",
+    /ask stated\*\* carries none of that wording/.test(step9b),
+    "nothing says a stated-date strategy's prose is unchanged");
+  assertTrue("the pull-request body names it once",
+    /whether the `target_date` was\s*\n?\s*stated or defaulted/.test(wf),
+    "step 10's body clause does not name the default");
+  assertTrue("and the run report tells the two apart",
+    /`target_date:default`/.test(wf) && /`target_date:stated`/.test(wf),
+    "step 13 does not report which of the two the date was");
+
+  // 9. WHAT MUST NOT MOVE. `create.sh` takes a `YYYY-MM-DD` and learns nothing about where it
+  //    came from; no reader gains the call; and no frontmatter key is added — a field saying
+  //    "default" would be a lie nothing clears once the operator edits the date.
+  const created = codeLines(join(STRATEGY_SCRIPTS, "create.sh"));
+  assertTrue("create.sh never reaches the default",
+    !created.includes("default-target-date.sh"),
+    "the writer now derives the date itself, so the caller's judgement moved into it");
+  for (const reader of ["read.sh", "list.sh", "amend.sh"]) {
+    assertTrue(`${reader} never reaches the default either`,
+      !codeLines(join(STRATEGY_SCRIPTS, reader)).includes("default-target-date.sh"),
+      "a reader now consults the default, so the artifact has two answers for one date");
+  }
+  assertTrue("survey-strategies.sh never reaches it",
+    !codeLines(join(REPO_ROOT,
+      "plugins/workaholic/skills/propose/scripts/survey-strategies.sh"))
+      .includes("default-target-date.sh"),
+    "the survey now derives a date the artifact does not carry");
+  assertTrue("and no frontmatter key records that the date was defaulted",
+    !/default/i.test(created.split("\n").filter((l) => /^\s*(printf|cat|echo).*:/.test(l))
+      .join("\n")),
+    "create.sh writes a key naming the default, which nothing clears when the date is edited");
+
+  // 10. THE NEVER-AUTO-MERGE RULE IS UNTOUCHED. A defaulted strategy is left open by the SAME
+  //     mechanism as a stated one — the seam deriving `strategy_touching` from the path — and
+  //     the exemption is not re-implemented for this case.
+  // The rule itself lives in the shared `publication-refusal.sh` (2026-08-29), which the seam
+  // composes rather than owning inline — so the path test is asserted where it actually is.
+  const refusal = codeLines(join(REPO_ROOT,
+    "plugins/workaholic/skills/branching/scripts/lib/publication-refusal.sh"));
+  assertTrue("the shared rule still refuses a strategy-touching publication by path",
+    /workaholic\\?\/strategies/.test(refusal) && /strategy_touching/.test(refusal),
+    "the never-auto-merge exemption no longer derives from the path");
+  assertTrue("...and the seam still composes that one rule",
+    codeLines(join(REPO_ROOT,
+      "plugins/workaholic/skills/branching/scripts/publish-tree-pr.sh"))
+      .includes("publication-refusal.sh"),
+    "the seam derives the refusal itself again, so the reader and the seam have two rules");
+  assertTrue("and the default did not re-implement it",
+    !readFileSync(DEFAULTER, "utf8").includes("AUTO_MERGE"),
+    "the derivation now knows about merging, which is not its question");
+}
+
 function testUnattributedWorkReader() {
   const READER = join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/unattributed-work.sh");
   const { A } = makeResidueFixture();
@@ -20120,6 +20291,7 @@ const tests = [
   ["moderate/step-direction-health.sh: the three refusals hold", testDirectionHealthRefusals],
   ["the false arrival, characterized over an unattributed residue", testFalseArrivalCharacterization],
   ["strategy/unattributed-work.sh reads what no direction claims", testUnattributedWorkReader],
+  ["strategy: a dateless ask takes the operator's one-week default", testDatelessAskDefault],
   ["strategy/closing-residue.sh composes what a direction leaves", testClosingResidueReader],
   ["moderate/list-standing-rulings.sh names the standing rulings", testStandingRulingsReader],
   ["moderate/list-standing-rulings.sh takes the run's judgement and derives none", testStandingRulingsJudgement],

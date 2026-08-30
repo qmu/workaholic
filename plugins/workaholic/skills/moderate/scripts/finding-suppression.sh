@@ -51,6 +51,7 @@
 set -eu
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+. "${SCRIPT_DIR}/lib/jq-guard.sh"
 LEDGER="${SCRIPT_DIR}/list-finding-issues.sh"
 
 emit_blind() {

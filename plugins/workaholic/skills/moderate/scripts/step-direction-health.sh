@@ -144,6 +144,7 @@
 #   {"step","status","reason","summary","needs_agent":[...],"event"}
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+. "${SCRIPT_DIR}/lib/jq-guard.sh"
 STRATEGY_SCRIPTS="${SCRIPT_DIR}/../../strategy/scripts"
 
 TICK=""

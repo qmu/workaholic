@@ -42,6 +42,7 @@
 #   {"step","status","reason","summary","needs_agent":[...],"event"}
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+. "${SCRIPT_DIR}/lib/jq-guard.sh"
 LOG_READ="${SCRIPT_DIR}/log-read.sh"
 CANDIDATES="${SCRIPT_DIR}/reconcile-candidates.sh"
 

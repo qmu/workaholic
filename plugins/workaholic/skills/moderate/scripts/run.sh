@@ -56,7 +56,17 @@
 #
 # `status` is the tick log's closed vocabulary: ok | filed | skipped | degraded | blocked.
 # `reason` is free-form but stable per cause (`not_implemented`, `budget`,
-# `step_missing`, `step_error`, `no_output`, `bad_output`, ...).
+# `step_missing`, `step_error`, `no_output`, `bad_output`, `jq_compile_error`, ...).
+#
+# A STEP THAT COULD NOT COMPILE ITS OWN READING IS `degraded` HERE, IN ONE PLACE
+# (2026-08-29, mission `make-a-direction-s-lifecycle-a-declared-stage`). Every reader in
+# this skill carries `… | jq -c '…' 2>/dev/null || echo '[]'`, a fallback that is right for
+# a data problem and catastrophic for our own: a jq program that does not COMPILE discards
+# identically, so the step emits an empty finding and reports `ok`. `lib/jq-guard.sh`
+# records the fact (jq's own exit status 3) and decides nothing; this loop is the one place
+# that reads the record and reclassifies, beside the `step_missing` / `step_error` /
+# `no_output` / `bad_output` it already owns — the same single derivation of "this step
+# could not read".
 
 set -eu
 
@@ -157,6 +167,21 @@ json_array_len() {
 }
 
 rows=''
+# WHERE A STEP'S jq COMPILE ERRORS LAND (2026-08-29, mission
+# `make-a-direction-s-lifecycle-a-declared-stage`). `lib/jq-guard.sh`, sourced by every
+# script here that embeds a jq program, appends one line per compile error; this loop
+# truncates the file before each step and reads it after, so what it holds is always
+# exactly the step that just ran. The same seam as the two files below — an environment
+# variable rather than a fourth flag, so the step invocation stays uniform, and a mktemp
+# path outside the repository, so the tick still writes nothing into the tree but its own
+# log line. Unset (mktemp refused) means the guard is inert and the tick behaves exactly as
+# it did before this existed.
+JQERR_FILE=$(mktemp 2>/dev/null || printf '')
+if [ -n "$JQERR_FILE" ]; then
+    trap 'rm -f "$JQERR_FILE"' EXIT
+    export WORKAHOLIC_JQ_COMPILE_ERRORS="$JQERR_FILE"
+fi
+
 # THE RUN'S OWN STEP REPORTS, READABLE BY A LATER STEP (2026-08-29). `file-findings` turns a
 # REPAIRABLE finding into work, and its candidates are what the earlier steps of THIS tick
 # reported — including each step's `event`, which is the honest "a repository event happened
@@ -171,7 +196,7 @@ rows=''
 # tree but its own log line.
 REPORTS_FILE=$(mktemp 2>/dev/null || printf '')
 if [ -n "$REPORTS_FILE" ]; then
-    trap 'rm -f "$REPORTS_FILE"' EXIT
+    trap 'rm -f "$JQERR_FILE" "$REPORTS_FILE"' EXIT
     # Seeded EMPTY rather than left zero-length: a step that runs before any row exists —
     # `--only file-findings`, or the first step of a tick — must read "no rows yet" and not
     # "the reports could not be parsed". A degradation reported for an ordinary state is the
@@ -215,7 +240,7 @@ if [ "$PULLS_WANTED" -eq 1 ]; then
     PULLS_FILE=$(mktemp 2>/dev/null || printf '')
 fi
 if [ -n "$PULLS_FILE" ]; then
-    trap 'rm -f "$REPORTS_FILE" "$PULLS_FILE"' EXIT
+    trap 'rm -f "$JQERR_FILE" "$REPORTS_FILE" "$PULLS_FILE"' EXIT
     if sh "${SCRIPT_DIR}/pulls-state.sh" > "$PULLS_FILE" 2>/dev/null \
        && grep -q '"ok": true' "$PULLS_FILE" 2>/dev/null; then
         export WORKAHOLIC_TICK_PULLS_STATE="$PULLS_FILE"
@@ -296,6 +321,9 @@ for step in $STEPS; do
         continue
     fi
 
+    # Emptied before the step, read after it, so the record names this step and no other.
+    if [ -n "$JQERR_FILE" ]; then : > "$JQERR_FILE"; fi
+
     if ! out=$(sh "$script" --tick "$TICK" --root "$ROOT" 2>/dev/null); then
         summary="the step exited non-zero"
         logged=$(log_step "$step" degraded "$summary")
@@ -327,6 +355,21 @@ for step in $STEPS; do
             ;;
     esac
     [ -n "$summary" ] || summary="(the step reported no summary)"
+
+    # A COMPILE ERROR OUTRANKS WHATEVER THE STEP SAID ABOUT ITSELF. The step cannot know:
+    # its fallback already turned the failure into an empty answer, which is precisely why
+    # it reported `ok`. `needs_agent` is deliberately LEFT ALONE rather than zeroed like
+    # `bad_output` does — a step's other readings may have compiled fine, and dropping a
+    # question a person is owed to punish a defect elsewhere in the same script trades one
+    # silence for another. What the reclassification buys is that the tick log, the report
+    # and `file-findings` all name the step as degraded instead of counting it `ok`.
+    if [ -n "$JQERR_FILE" ] && [ -s "$JQERR_FILE" ]; then
+        n_jqerr=$(grep -c '' "$JQERR_FILE" 2>/dev/null || printf 0)
+        jqerr_in=$(sed -n '1p' "$JQERR_FILE" 2>/dev/null || printf '')
+        status=degraded
+        reason=jq_compile_error
+        summary="${n_jqerr} embedded jq program(s) did not compile (first in ${jqerr_in:-the step}); this step's reading is not a reading"
+    fi
 
     logged=$(log_step "$step" "$status" "$summary")
     emit_row "$step" "$status" "$reason" "$summary" "$needs" "$logged" "$event"

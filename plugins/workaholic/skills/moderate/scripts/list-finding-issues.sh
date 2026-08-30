@@ -54,6 +54,7 @@
 set -eu
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+. "${SCRIPT_DIR}/lib/jq-guard.sh"
 GH_REST="${SCRIPT_DIR}/../../gather/scripts/gh-rest.sh"
 
 LIMIT="${WORKAHOLIC_FINDING_ISSUE_LIMIT:-100}"

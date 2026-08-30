@@ -70,6 +70,7 @@
 set -eu
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+. "${SCRIPT_DIR}/lib/jq-guard.sh"
 GATHER_SCRIPTS="${SCRIPT_DIR}/../../gather/scripts"
 STRATEGY_SCRIPTS="${SCRIPT_DIR}/../../strategy/scripts"
 BRANCHING_SCRIPTS="${SCRIPT_DIR}/../../branching/scripts"

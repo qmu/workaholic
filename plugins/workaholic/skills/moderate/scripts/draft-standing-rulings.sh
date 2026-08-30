@@ -48,6 +48,7 @@
 set -eu
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+. "${SCRIPT_DIR}/lib/jq-guard.sh"
 BRANCHING="${SCRIPT_DIR}/../../branching/scripts"
 CARRY="${SCRIPT_DIR}/../../strategy/scripts/carry-attribution.sh"
 LIST="${SCRIPT_DIR}/list-standing-rulings.sh"

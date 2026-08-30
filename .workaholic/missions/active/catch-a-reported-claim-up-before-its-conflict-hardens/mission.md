@@ -40,7 +40,7 @@ holder once. A reviewed pull request is left alone, by name.
 
 ## Acceptance
 
-- [ ] A `queue_drained` claim of this identity still `mechanical` is caught up
+- [x] A `queue_drained` claim of this identity still `mechanical` is caught up
       and pushed, once per unit (#20260830042803-take-the-act-on-every-catchable-claim-in-the-run.md)
 - [x] A reviewed pull request is refused by its own word, branch byte-identical;
       every existing refusal unchanged (#20260830042803-refuse-a-pull-request-a-person-has-already-reviewed.md)
@@ -53,3 +53,4 @@ holder once. A reviewed pull request is left alone, by name.
 - 2026-08-30 — ticket archived — 20260830042803-state-when-a-bounded-act-may-read-a-judgement.md
 - 2026-08-30 — ticket archived — 20260830042803-read-which-reported-claims-are-catchable.md
 - 2026-08-30 — ticket archived — 20260830042803-refuse-a-pull-request-a-person-has-already-reviewed.md
+- 2026-08-30 — ticket archived — 20260830042803-take-the-act-on-every-catchable-claim-in-the-run.md

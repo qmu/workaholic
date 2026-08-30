@@ -12,6 +12,35 @@ paths:
 - Use `set -eu` explicitly as fallback
   - Some environments may strip shebang flags
 
+## An embedded jq program's fallback covers the data, never our own defect
+
+The shape is everywhere in these scripts and it is correct as far as it goes:
+
+```sh
+subjects=$(printf '%s' "$STATE" | jq -c '…' 2>/dev/null || echo '[]')
+```
+
+`|| echo '[]'` is right for a **data** problem — an absent key, an empty array, a reader that
+answered nothing. It is catastrophic for **ours**: a jq program that does not *compile* — a
+missing parenthesis, an apostrophe inside a jq comment, a renamed `--arg` — discards through the
+same fallback, so the caller reads an empty answer and reports success. `sh -n` cannot see it
+(the shell parses fine; it is the embedded jq that does not), which is what made the measured
+case invisible until it was hunted down by hand.
+
+- **Keep the fallback and keep the `2>/dev/null`.** The stderr of a legitimately degraded read is
+  noise on an hourly unattended run; the fix is to classify, not to shout.
+- **jq's own exit status is the classifier**: **3** is a compile error (our defect — the program
+  cannot run at all), 5 is a runtime or input error, 1 is `-e` with a null/false result.
+- **A caller that reports a status must not report success on a 3.** Inside `workaholic:moderate`
+  that is already automatic: `skills/moderate/scripts/lib/jq-guard.sh` records the fact and
+  `run.sh` reclassifies the step `degraded`/`jq_compile_error`, in one place. Elsewhere, a script
+  that answers a caller's question owes the same distinction by hand.
+- **Every extractable embedded program is compiled by the suite** (`every embedded jq program
+  compiles`), so a compile error fails the commit that introduced it rather than a tick at 03:00.
+  A program built by string interpolation cannot be extracted without evaluating the shell; those
+  are counted and named, never silently skipped — so a program assembled from variables is worth
+  avoiding where a `--arg` would do.
+
 ## Enforcement
 
 This convention is machine-checked, so it cannot silently regress:
@@ -30,6 +59,18 @@ This convention is machine-checked, so it cannot silently regress:
 
 Every workflow script talks to GitHub through **one transport**,
 `gather/scripts/gh-rest.sh` (`slug` / `api` / `available`), which is `gh api` — REST.
+
+**`available` asks whether REST answers here, and nothing else** (2026-08-29, mission
+`read-back-whether-the-loop-s-own-act-took-effect`). It probes `GET /rate_limit`, which every
+token type can call — a GitHub App **installation token** included, which is what `GITHUB_TOKEN`
+is inside a workflow. It probed `GET /user` until then, measuring *identity* and calling it
+*reachability*: `GET /user` is not accessible to an installation token, so every script guarded
+by it refused `gh_unavailable` in CI whatever its own operation's permissions were — measured on
+`claim-retirement.yml`, which holds `contents: write` and had deleted nothing since it shipped.
+A caller that genuinely needs a **person** calls `gh api user` itself and answers
+`identity_unresolved` in its own vocabulary (`open-proposal.sh`, `list-open-proposals.sh`,
+`list-inbound-issues.sh`, the web bootstrap); `available`'s `login` field is vestigial, always
+empty, and kept only so the output shape does not move.
 
 **Never `gh issue …`, `gh pr …`, or `gh repo …`.** Those subcommand families are
 GraphQL-backed, and a Claude Code Web session is *not guaranteed to serve that surface*:
@@ -85,6 +126,37 @@ the unit was finished, green, and waiting on a human who was never told.
 This is a **conversion, not a fallback**. A REST-after-GraphQL ladder would keep two
 behaviours to reason about and still fail whenever the 403 arrived in a shape the ladder
 did not expect. One always-available transport cannot drift.
+
+**The qualification was not extended to a branch delete, and the reason is measured** (2026-08-27,
+mission `finish-the-retirement-the-loop-cannot-complete`). `retire-claim.sh`'s Act 2 is refused on
+every tick in the container the loop runs in, so it is the obvious next candidate for a bounded
+second attempt. It gets none, because **no second transport can take the act**:
+
+| Transport | Answer, measured in a routine-fired container |
+| --------- | -------------------------------------------- |
+| `git push origin --delete <branch>` | `error: RPC failed; HTTP 403 curl 22 The requested URL returned error: 403` |
+| `DELETE /repos/{owner}/{repo}/git/refs/heads/{branch}` via `gh-rest.sh` | `403 {"message":"Write access to this GitHub API path is not permitted through this proxy."}` |
+| the GitHub connector | **no branch- or ref-delete surface exists** — it exposes `create_branch` and `list_branches` and nothing that removes a ref |
+
+The refusal is a **session-type** one on both transports — not a protection rule (`422`, naming
+the rule) and not a missing scope (a permissions message) — and an ordinary `git push` of the same
+branch succeeds in the same container, so it is the delete specifically that is refused. There is
+therefore nothing to retry: a second REST attempt is measured to answer 403, and a call that
+cannot succeed is noise with a cost. **This is the finding, not a gap left open** — a later
+session looking for the retry should stop here rather than re-derive it. The blocked act is
+reported by its own word (`branch_delete_failed`); full record in
+`skills/drive/reference/claims.md`, *When an act of the retirement is refused*. If the connector
+ever gains a ref-delete surface, the question reopens on exactly the bounds above: one tool, one
+named precondition, one act, both outcomes reported.
+
+**And the repair was a different executor, not a second transport** (2026-08-28, mission
+`finish-a-proved-retirement-where-the-write-is-permitted`). Nothing above moved: the table is what
+it measured, the container still has no second transport, and no bounded retry was added. What
+changed is that Act 2 no longer has to happen in the container — `.github/workflows/claim-retirement.yml`
+runs the **same** `gh-rest.sh` seam under `contents: write`, on the precedent
+`release-note-draft.yml` set for the release-note write. So this rule is untouched by it: CI
+reaches GitHub through the one transport like everything else, and a blocked unit reaches its
+claim holder as one question only once CI has been refused too.
 
 `gh release …` is **not** covered — it is REST-backed, and `ship/scripts/publish-release.sh`
 uses it correctly.

@@ -3,10 +3,22 @@
 #
 #   ask-feedback-line.sh <ref>...
 #   ask-feedback-line.sh "<ref>, <ref>"      # a comma-separated string is one argument
+#   ask-feedback-line.sh --refs-only <ref>...
 #
 # Output: exactly one line, `feedback: <ref>, <ref>` — or NOTHING AT ALL for an empty ref
 #   set. Exit 0 in every case. Pure formatter: it reads no file, resolves no path and
 #   writes nothing anywhere.
+#
+# `--refs-only` emits the same normalised set WITHOUT the `feedback: ` prefix, for the one
+# caller that needs the refs as an ARGUMENT rather than as a body line: `/specificate`'s
+# strategy form hands them to `create.sh`, which takes a comma-separated list. It is the same
+# normalisation, deliberately — a successor's carried refs and an ask's carried refs are the
+# same set formatted for two seams, and formatting one of them somewhere else is exactly how
+# two writers of one relation begin. The prefixed output is unchanged for every existing
+# caller, with one normalisation added for both modes: a REPEATED ref is collapsed, order
+# preserved. A successor carrying its predecessor's refs beside the record that announced it
+# names the same ref twice whenever the announcement cited one of them, and a doubled ref is
+# noise in every reader of this relation.
 #
 # ═══ WHY THIS IS A SCRIPT AND NOT THREE printf CALLS ═════════════════════════════════
 # The line has exactly one reader — `specificate/scripts/read-ask-feedback-refs.sh` — and,
@@ -40,6 +52,12 @@
 
 set -eu
 
+REFS_ONLY=0
+if [ "${1:-}" = "--refs-only" ]; then
+  REFS_ONLY=1
+  shift
+fi
+
 [ "$#" -gt 0 ] || exit 0
 
 REFS="$(printf '%s\n' "$@" \
@@ -50,4 +68,13 @@ REFS="$(printf '%s\n' "$@" \
 
 [ -n "$REFS" ] || exit 0
 
-printf 'feedback: %s\n' "$(printf '%s\n' "$REFS" | paste -sd, - | sed 's/,/, /g')"
+# Duplicates are collapsed, order preserved: a successor carrying its predecessor's refs
+# beside the record that announced it will name the same ref twice whenever the announcement
+# itself cited one of them, and a doubled ref is noise in every one of this line's readers.
+JOINED="$(printf '%s\n' "$REFS" | awk '!seen[$0]++' | paste -sd, - | sed 's/,/, /g')"
+
+if [ "$REFS_ONLY" = "1" ]; then
+  printf '%s\n' "$JOINED"
+else
+  printf 'feedback: %s\n' "$JOINED"
+fi

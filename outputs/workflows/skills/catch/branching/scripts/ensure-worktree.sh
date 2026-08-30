@@ -41,6 +41,22 @@ if git show-ref --verify --quiet "refs/heads/${branch_name}"; then
   exit 1
 fi
 
+# A REMOTE BRANCH OF THE SAME NAME IS A REFUSAL, NOT A BASE TO DIVERGE FROM (2026-08-27).
+# This script CREATES a branch (`git worktree add -b … HEAD`), so on a name that already
+# exists on origin it minted a LOCAL branch at HEAD that shadowed the remote one -- measured
+# on `work-20260827-003544`, where HEAD sat at the base tip while origin/<branch> carried a
+# live claim's work. The next push from that worktree would have clobbered the claim.
+#
+# It REFUSES rather than checking the remote out, because its contract is to create an
+# isolated worktree on a NEW branch: adopting somebody's published branch is a different
+# act with different safety requirements (pin the observed tip, fetch it first, resolve the
+# race), and `create-mission-worktree.sh --branch` is the script that already does it. What
+# must never happen is the silent third option, which is what this was doing.
+if git show-ref --verify --quiet "refs/remotes/origin/${branch_name}"; then
+  echo '{"error": "branch already exists on origin -- refusing to create a local branch that would shadow it (use create-mission-worktree.sh --branch to attach to a published branch)", "branch": "'"${branch_name}"'"}' >&2
+  exit 1
+fi
+
 mkdir -p "${repo_root}/.worktrees"
 
 # Exclude .worktrees/ and .env via the shared .git/info/exclude BEFORE creating

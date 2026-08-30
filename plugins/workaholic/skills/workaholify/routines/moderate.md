@@ -88,11 +88,12 @@ never calls `AskUserQuestion` — step 9 asks humans **in Slack**. Every one of 
 in `workaholic:moderate` and its `reference/workflow.md`, which is why this prompt does not
 restate them.
 
-**The prompt is the ceiling** (P3, Q2, P10): the one literal format below is the only shape a
+**The prompt is the ceiling** (P3, Q2, P10): the literal formats below are the only shapes a
 session running this routine may emit, and `workaholic:notify`'s `reference/notifications.md`
-mirrors it verbatim. A future edit to either copy is a drift to fix, never a second wording.
+mirrors each of them verbatim. A future edit to either copy is a drift to fix, never a second
+wording.
 
-**One shape, because a status line addressed to nobody is noise** (2026-08-19, the developer's
+**Every shape here is addressed to somebody, because a status line addressed to nobody is noise** (2026-08-19, the developer's
 instruction). This routine used to emit a second, `🔧 Needs a decision`, and the merged-in
 release tick a third, `📦 Release Preparation`; both were top-level roots carrying no mention
 token. Measured on `#dev-workaholic` the same day: ten `📦` lines in ten consecutive hours for
@@ -107,6 +108,8 @@ Run `/moderate`.
 If the command or its skills did not load, do not stop: run `bash plugins/workaholic/skills/check-deps/scripts/plugin-src.sh` from the checkout, take its `src`, then read `<src>/commands/moderate.md` and follow it with every script path under `<src>`.
 
 Read Slack only through the Slack connector, and only as a step asks: the `unanswered-asks` step names one channel and one window and hands that read back to you — no mention of any bot is required for a message to count, and you never reply to, react to, or capture a message you read there. Emit only the shapes below.
+
+The `question-answers` step names one thread per outstanding question, each on a coordinate it already holds: read exactly those threads, one read each, and never search Slack or read channel history for one. Record each person's answer through `record-answer.sh`, or name why you did not — a machine's own post is never an answer. React `:ballot_box_with_check:` on an answer message you actually recorded this tick, and post **no reply** for that event, in any thread.
 
 When the tick's rendered post says to post, post this root as a new top-level message — no mention token of any kind on the root:
 
@@ -129,6 +132,18 @@ For each previously asked question whose subject the check-in read as settled th
 ```
 ✅ 解消を確認 - <the question's subject, one line>
 One sentence: what the tick measured that says it settled.
+```
+
+For each candidate the `thread-reconcile` step hands back, find the item's thread through the stateless lookup, **read it first**, and post one reply only when its last status reply is `🔵 Proposed` or `🟡 Handoff` and the pull request it names has merged or closed. A thread already carrying its finish is never touched, and no thread found means nothing to correct — post nothing and report it:
+
+```
+🟢 Implemented - [#123 Title](<repo-url>/pull/123)
+Merged outside the loop by <who> on <when> — no run posted this item's finish.
+```
+
+```
+⚫ Closed - [#123 Title](<repo-url>/pull/123)
+Closed without merging outside the loop on <when> — no run posted this item's finish.
 ```
 
 If the rendered post says not to post, post nothing at all — no root, no question, ever. An hour with nothing changed and nothing to ask is silent.

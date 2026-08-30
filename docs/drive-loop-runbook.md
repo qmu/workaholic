@@ -56,7 +56,10 @@ Two things the loop never does, and both are deliberate:
   earlier: a unit whose mission or ticket declared `verification_handoff:` at creation
   — the verification needs a credential the runner does not have — is routed to
   `handoff` before the merge-policy table is consulted at all, so it never merges and
-  never announces `🟢 Implemented`.
+  never announces `🟢 Implemented`. Since 2026-08-27 the **claim** behind such a unit is
+  no longer re-offered either: it reads `awaiting_verification`, `resumable: false`,
+  excluded `claimed_awaiting_verification`, so the standing claim costs no tick and a
+  later run reports `ok` over it while the run that handed it off still ends `pending`.
 
 ## 2. Wire the environment (per runner)
 
@@ -203,7 +206,10 @@ not of surveying: a runner without one still reads the whole queue, reports
   that refused it: `claim_active` / `foreign_identity` / `identity_unresolved` /
   `shallow_history` / `superseded` (its work is already on the base by another route,
   so the claim holds nothing) / `queue_drained` (drained **and reported**, so a human
-  is what it waits for). Both resumable verdicts are mandatory takeovers and forbid `ok`;
+  is what it waits for) / `awaiting_verification` (reported, with work left that was
+  **declared** unverifiable here, so a person running that verification — not a
+  takeover — is what moves it) / `report_undelivered` (reported, and the transport
+  refused the merge). Both resumable verdicts are mandatory takeovers and forbid `ok`;
   `plan-units.sh`'s `resumable[]` adds the third, softer tier, `parked_with_pr` —
   reportable rather than mandatory, and it does not forbid `ok`. The top-level `shallow` says whether
   this clone's history was complete enough to answer at all. `Claim <unit-id>`

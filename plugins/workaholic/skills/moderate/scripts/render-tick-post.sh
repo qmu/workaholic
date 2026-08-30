@@ -69,6 +69,7 @@
 set -eu
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+. "${SCRIPT_DIR}/lib/jq-guard.sh"
 LOG_READ="${SCRIPT_DIR}/log-read.sh"
 
 TICK=''; ROOT='.'; QUESTIONS=0
@@ -178,12 +179,23 @@ stabilize() {
 changes=''
 count=0
 lines=''
+# A DELIVERY FAILURE IS THE ONE THING THE CHECK-IN HAS TO SAY (2026-08-28, mission
+# `deliver-what-the-loop-already-knows-to-the-person-who-can-act`). The check-in used to be
+# skipped outright here, on the sound reasoning that its own summary changing is not news
+# about the repository and its questions are already the thread's replies. That holds for a
+# tick that DELIVERS. It is false for a tick that reached nobody: with 22 candidates and zero
+# delivered, the tick posted nothing at all and total silence was byte-identical to a quiet
+# hour, for eight consecutive ticks.
+#
+# The skip is removed rather than narrowed, because the guard that replaces it already
+# exists: **a step with no event renders no line**, and the check-in supplies an event ONLY
+# when it was eligible to ask and structurally could not. So every other tick behaves exactly
+# as it did — a delivering check-in and a quiet one both supply no event and are dropped
+# below, before they can be counted as a change.
+delivery_failure=0
 TAB=$(printf '\t')
 while IFS="$TAB" read -r step summary || [ -n "$step" ]; do
     [ -n "$step" ] || continue
-    # The check-in is the tick's asking step; its own summary changing is not news about
-    # the repository, and its questions are already the thread's replies.
-    [ "$step" = "human-checkin" ] && continue
     [ "$step" = "open-log" ] && continue
     was=$(awk -F"$TAB" -v s="$step" '$1 == s { print $2; exit }' "${TMP}/prev")
     [ "$(stabilize "$was")" = "$(stabilize "$summary")" ] && continue
@@ -195,6 +207,12 @@ while IFS="$TAB" read -r step summary || [ -n "$step" ]; do
     lines="${lines}${event}
 "
     count=$((count + 1))
+    # Set INSIDE the loop, so the third gate below inherits the diff: a check-in whose
+    # reading has not changed since the previous tick never reaches here, and the failure is
+    # therefore said once rather than restated every hour. That is the same property the
+    # `📦 Release Preparation` retirement demanded, obtained by construction rather than by
+    # a suppression list.
+    if [ "$step" = "human-checkin" ]; then delivery_failure=1; fi
 done < "${TMP}/now"
 
 # A QUESTION IS THE ROOT'S PRECONDITION (2026-08-22, issue #569 -- the ticket's Open
@@ -223,7 +241,19 @@ grep -q '"step": *"strategy-digest".*"reason": *""' "${TMP}/now" 2>/dev/null || 
 case "$INPUT" in
     *'"step": "strategy-digest"'*'render_the_morning_digest_at_the_top_of_the_root'*) digest_ready=1 ;;
 esac
-if [ "$QUESTIONS" -eq 0 ] && [ "$digest_ready" -eq 0 ]; then
+# A TICK THAT REACHED NOBODY IS THE THIRD GATE (2026-08-28, mission
+# `deliver-what-the-loop-already-knows-to-the-person-who-can-act`), added beside the digest on
+# exactly its precedent: the question gate's own expression is untouched and a second
+# condition is OR'd next to it. A delivery FAILURE is the one state the root must carry with
+# zero questions, because with none it says nothing at all and its silence is
+# indistinguishable from a quiet hour — which is the whole defect.
+#
+# It is NOT the retired changed-step half of the gate. That half let ANY changed step earn a
+# question-less root; this fires only when the check-in itself supplied an event, which it
+# does only on a delivery failure, and only when that reading CHANGED since the previous tick
+# (`delivery_failure` is set inside the diff loop). It stops entirely once the channel is
+# delivering, which is what a status line addressed to nobody never did.
+if [ "$QUESTIONS" -eq 0 ] && [ "$digest_ready" -eq 0 ] && [ "$delivery_failure" -eq 0 ]; then
     if [ "$count" -eq 0 ]; then
         emit false idle "" 0 "$PREV" ""
     fi

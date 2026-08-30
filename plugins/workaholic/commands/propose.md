@@ -44,6 +44,20 @@ issue through `file-inbound-ask.sh --feedback`, and the run report carries `dire
 `direction:unattributed` per filed issue. An unreadable strategy set is named, never read as "no
 direction".
 
+**An `arrived` reading is reported with what it could not see.** When the strategy a proposal
+was made against reads `quiescent: true`, the run report names `arrived` beside that proposal as
+evidence — and beside it the **residue**: the active missions and queued tickets no direction
+claims, by slug and count. A degraded residue read is reported as degraded, never as an empty
+one. It changes nothing: no gate, no sort, no `selected` and no token reads the residue, and an
+arrived direction stays eligible.
+
+**An `expiring` reading is reported the same way, and gates nothing either.** When the strategy a
+proposal was made against reads `expiring: true` — its date inside the survey's own window — the
+run report names `expiring` beside that proposal as evidence. It does not silence, reorder, hold
+or accelerate the proposal: making the one routine that originates work a function of a clock is
+what `pace` already refuses. The person who must decide to re-date the direction or end it is
+reached by `/moderate`'s `direction-expiring:<slug>` question, not by this line.
+
 Every refusal is reported by name and every gate is mechanical: a strategy that is closed, not
 yours, past its date, citing no feedback record, already carrying queued work, already carrying
 an open proposal, or under-planned is skipped with that reason stated. A tick that

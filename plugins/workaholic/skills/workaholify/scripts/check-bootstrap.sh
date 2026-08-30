@@ -6,7 +6,11 @@
 # Output (one JSON line):
 #   {"hook":{"present","path","matches_canonical"},
 #    "settings":{"registered","matcher","timeout","enabled_plugin","marketplace"},
-#    "ok": true|false, "problems": [...]}
+#    "identity_map":{"present","path","addresses","covered","uncovered":[{address,artifacts,line}]},
+#    "ok": true|false, "problems": [...], "advisories": [...]}
+#
+# `advisories` carries the identity mapping's two named problems. They do not gate `ok` —
+# see the note beside where they are read.
 #
 # WHY THIS IS PART OF WIRING A REPOSITORY TO THE STANDARDS. A Claude Code Web routine runs
 # in a fresh, ephemeral container. `enabledPlugins` in `.claude/settings.json` is not
@@ -25,6 +29,14 @@
 # carrying the qmu/workaholic#126 defects (a swallowed errexit that logs OK on total
 # failure, `marketplace add --scope user`, no idempotence) is reported as drift rather than
 # passing because a file happens to exist at the path.
+#
+# THE MAPPING IS PART OF THE BOOTSTRAP, AND IT IS ONE CHECK, NOT TWO (2026-08-26). The
+# hook's step 0b reads `.claude/git-identities`; a repository with the hook and without the
+# mapping therefore looks configured while that step is a permanent no-op. Two questions
+# about one file — does it EXIST, and does it COVER the addresses this tree uses — are
+# emitted as one named-problem set by `audit-identity-coverage.sh` and carried through here:
+# `identity_map_missing` and `identity_map_uncovered`. An operator told twice about one
+# file, in two vocabularies, fixes one and assumes the other followed.
 #
 # EVERY PROBLEM IS NAMED SEPARATELY. "Not bootstrapped" could mean the hook file is
 # missing, the settings entry is missing, the matcher is wrong (SessionStart also fires on
@@ -55,13 +67,18 @@ if [ -f "$HOOK" ]; then
   fi
 fi
 
+# The mapping's own audit is a separate reader (it walks the tree's `assignees:` values
+# through the field's one parser); its problems are carried through verbatim so the two
+# checks speak one vocabulary.
+IDENTITY_AUDIT=$(sh "${SCRIPT_DIR}/audit-identity-coverage.sh" "$ROOT" 2>/dev/null || printf '{"problems": []}')
+
 # The settings side is JSON, so it is read with python3 rather than grepped: a SessionStart
 # entry can be nested several ways and a grep would report a commented-out or unrelated
 # match as configured.
-python3 - "$SETTINGS" "$hook_present" "$matches" "$HOOK_REL" <<'PY'
+python3 - "$SETTINGS" "$hook_present" "$matches" "$HOOK_REL" "$IDENTITY_AUDIT" <<'PY'
 import json, sys, os
 
-settings_path, hook_present, matches, hook_rel = sys.argv[1:5]
+settings_path, hook_present, matches, hook_rel, identity_audit = sys.argv[1:6]
 hook_present = hook_present == "true"
 matches = matches == "true"
 
@@ -109,13 +126,37 @@ if not enabled_plugin:
 if not marketplace:
     problems.append("marketplace (workaholic is not in extraKnownMarketplaces)")
 
+# The mapping's problems, carried through verbatim — one vocabulary for one file — but as
+# ADVISORIES rather than in `problems`, so `ok` is byte-identical to what it was.
+#
+# WHY THEY DO NOT GATE `ok` (2026-08-26). `identity_map_uncovered` can only be settled by a
+# human: which GitHub account an address belongs to is a fact this plugin does not have, so
+# gating a completion signal on it makes `ok` unreachable by any machine, and
+# `/workaholify`'s report-only outcome is a named refusal's recovery path rather than the
+# ordinary one. Whether `identity_map_missing` should gate belongs to the queued ticket
+# `install-and-audit-the-identity-mapping`, which owns the existence check — deliberately
+# left to it rather than decided here, so one mission does not land another's ruling.
+try:
+    identity = json.loads(identity_audit)
+except Exception:
+    identity = {"problems": []}
+advisories = list(identity.get("problems") or [])
+
 print(json.dumps({
     "hook": {"present": hook_present, "path": hook_rel, "matches_canonical": matches},
     "settings": {
         "registered": registered, "matcher": matcher, "timeout": timeout,
         "enabled_plugin": enabled_plugin, "marketplace": marketplace,
     },
+    "identity_map": {
+        "present": (identity.get("map") or {}).get("present"),
+        "path": (identity.get("map") or {}).get("path"),
+        "addresses": identity.get("addresses"),
+        "covered": identity.get("covered"),
+        "uncovered": identity.get("uncovered") or [],
+    },
     "ok": not problems,
     "problems": problems,
+    "advisories": advisories,
 }))
 PY

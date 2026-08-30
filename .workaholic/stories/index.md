@@ -3,6 +3,7 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [Ask a person about a claim race](work-20260830-094214.md)
 * [work-20260830-084240](work-20260830-084240.md) - A raced loser is now readable as superseded from the tree and cannot write a duplicate; the arbitration that would stop the race is blocked on a measured transport refusal.
 * [work-20260830-055318](work-20260830-055318.md) - An ask with an aim and an owner but no date now drafts a direction on the operator's one-week default instead of dying record-only, with every surface saying on its face that the date is the loop's proposal rather than their word.
 * [work-20260830-044152](work-20260830-044152.md) - The catch-up now reaches every reported claim still mechanical rather than only the ones a transport refused, bounded by a new reviewed-pull-request refusal and by a rule, written once, for when a bounded act may read a judgement.

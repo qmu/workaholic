@@ -59,3 +59,4 @@ happens, one person is told once, both branches named.
 - 2026-08-30 — run recorded (+0.9h) — session_01W6TxsNWDVy4A7CZSg3wKqx
 - 2026-08-30 — run recorded (+0.3h) — cse_01DzM3RauLKBVSvjwNV1W4zw
 - 2026-08-30 — ticket archived — 20260830082251-report-a-lost-race-where-a-person-reads-it.md
+- 2026-08-30 — story reported — work-20260830-094214

@@ -1288,6 +1288,52 @@ suite's `testAnswerReturnPath` and the catalog↔template drift pin inside
 `testModerateRoutineTemplate` are what **CI** enforces on every change. The drill ships to no
 other agent and CI never runs it.
 
+## 5r. The condition age (how long has this been standing?)
+
+```sh
+sh scripts/e2e/loop-drill.sh verify-condition-age [--json]
+```
+
+Walks log → reader → bound → question → report for the age of a standing blocker (2026-08-30,
+mission `say-how-long-the-loop-has-been-stuck`). It needs **no seed, no fire, no issue number
+and no network**: it builds a throwaway tick log, drives the real ledger writer over it, and
+runs the one step that is fully local.
+
+**What it proves.** A key first named days ago reads that tick with a count above one; a key
+nobody has asked about is an ordinary absence carrying **no** `readable` field; a log that
+exists and cannot be read is named with **null** counts, never zeroed ones. A walk cut by
+`WORKAHOLIC_CONDITION_AGE_MAX_DAYS` reports a **floor** with real counts and no degradation,
+while an uncut one is byte-identical to an unbounded walk. `step-undrivable-units.sh` attaches
+the age with its **summary and its candidate keys byte-identical**, so no question is re-asked
+by the changed wording and the root renders no new line. And no gate, no driving survey and no
+proposing survey reaches the reader.
+
+**Why the ledger lines are written by the real writer.** `ask-question.sh --record-ask` is
+driven rather than hand-authored, so the drill cannot pass against a line shape the writer never
+produces — `verify-ci-retirement`'s measured lesson, where a fixture that configured for itself
+the one term production lacked stayed green while production was silent.
+
+**Why only one step runs end to end.** The other three age consumers read the claim oracle,
+which fetches; standing up a bare origin per step would drill the oracle rather than the age, so
+for those the drill asserts the **composition** and `scripts/test-workflow-scripts.mjs` carries
+the acting-call-site bans.
+
+**Its breaker** is written against the **behaviour**: the walk wired at a single tick, so every
+age must collapse to `1` — not merely return a different shape. That is the exact regression
+that would make an eleven-day blocker read as one that just started.
+
+| Row | What a failure means |
+| --- | -------------------- |
+| `age_reads_the_earliest_tick` | `condition-age.sh` or `log-read.sh` — the walk is not finding the ledger line the writer produced |
+| `age_absent_is_readable` | `condition-age.sh` — an absent key is being reported as a degradation |
+| `age_unreadable_is_named` | `condition-age.sh` — a read we could not make is rendering as one we did |
+| `age_bound_is_not_a_degradation` / `age_uncut_is_byte_identical` | `condition-age.sh`'s bound |
+| `age_rides_the_question` / `age_key_did_not_move` | `step-undrivable-units.sh` |
+| `age_stays_out_of_the_summary` / `age_summary_is_stable` | a step summary gained an age, which marks it changed hourly by construction |
+| `age_reaches_every_consumer` | one of the four question steps stopped composing the reader |
+| `age_gates_nothing` | a gate or a survey now reads the age — a judgement has become a gate |
+| `age_breaker` | the drill can no longer fail, so every row above proves nothing |
+
 ## 9. The drill register
 
 **One table, three columns, one reader** (2026-08-29, mission
@@ -1362,6 +1408,7 @@ rather than guessed. **No artifact gained a field**: the slug lives here and now
 | `verify-act-effect` | `hermetic` | yes | `read-back-whether-the-loop-s-own-act-took-effect` |
 | `verify-operator-pulls` | `hermetic` | yes | `follow-the-pull-requests-the-loop-opens-for-a-person` |
 | `verify-stage` | `hermetic` | yes | `make-a-direction-s-lifecycle-a-declared-stage` |
+| `verify-condition-age` | `hermetic` | yes | `say-how-long-the-loop-has-been-stuck` |
 
 ### The evidence behind the classification
 

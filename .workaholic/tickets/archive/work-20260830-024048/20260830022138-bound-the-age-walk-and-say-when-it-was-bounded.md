@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-30T02:21:38+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -84,3 +85,25 @@ existing `--since`. No arithmetic, and `log-read.sh` is untouched.
 - The day files are keyed by **UTC** day while the loop's notion of a day elsewhere moves in
   `WORKAHOLIC_QUIET_TZ`. That skew is already stated in `ask-question.sh` and is harmless here:
   the bound is a count of files, not a calendar boundary, so at worst it walks one extra day.
+
+## Final Report
+
+Development completed as planned. `WORKAHOLIC_CONDITION_AGE_MAX_DAYS` (default 30) bounds the
+walk as the newest N day files, selected lexically and handed to `log-read.sh`'s existing
+`--since`. A cut walk reports `truncated: true` and, over a date it did have,
+`first_seen_is_floor: true`; an uncut one is byte-identical to an unbounded read.
+`log-read.sh` is untouched and gained no `--last-days`.
+
+### Discovered Insights
+
+- **Insight**: A floor is only meaningful over a date the walk actually found.
+  **Context**: A cut walk that finds no ledger line inside the bound answers `first_seen: null`,
+  and `first_seen_is_floor: true` on a null would say "at least null" — a sentence with no
+  meaning that a composer would render as prose. `truncated` alone carries the fact that the
+  walk was cut, which is the honest thing to say about that case, and the reading's error stays
+  one-sided: a bound can only make an age look YOUNGER, which asks a person to look sooner than
+  the truth would.
+- **Insight**: The bound must be applied to the per-step reads as well as the tick count.
+  **Context**: Bounding only the counting walk would take `first_seen` from outside the bound
+  and count ticks from inside it, producing a `ticks` that does not span the range `first_seen`
+  claims. Both reads take the same `--since`.

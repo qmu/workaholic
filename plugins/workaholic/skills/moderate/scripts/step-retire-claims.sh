@@ -131,6 +131,7 @@ set -eu
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 . "${SCRIPT_DIR}/lib/jq-guard.sh"
+. "${SCRIPT_DIR}/lib/read-age.sh"
 DRIVE_SCRIPTS="${SCRIPT_DIR}/../../drive/scripts"
 
 TICK=""
@@ -428,11 +429,32 @@ elif [ "$blocked" -gt 1 ]; then
     event="${blocked} claims proved finished are still standing — neither the container nor CI could delete their branches (${ev_units})"
 fi
 
+# HOW LONG THIS BLOCK HAS BEEN ASKED ABOUT (2026-08-30, mission
+# `say-how-long-the-loop-has-been-stuck`). Attached LAST, after the key is composed and after
+# both suppressions: the key carries the refusal word, so an age read under any earlier key
+# would answer about a different question.
+#
+# A CHANGED REFUSAL RESETS THE AGE, AND THAT IS CORRECT. `retire-blocked:<unit>:<word>` starts a
+# new key when the word changes, so `first_seen` reads null on the first tick of the new word.
+# It is a different question — a person is being told something new — and the composer must not
+# read the reset as the block having cleared: the unit's branch has been standing all along, and
+# only what is blocking its delete has moved.
+if [ "$blocked" -gt 0 ]; then
+    rows=$(
+        printf '%s' "$rows" | jq -c '.[]?' 2>/dev/null | while IFS= read -r row; do
+            [ -n "$row" ] || continue
+            key=$(printf '%s' "$row" | jq -r '.key // ""' 2>/dev/null || printf '')
+            age=$(read_age "$key" "$ROOT")
+            printf '%s' "$row" | jq -c --argjson a "$age" '. + {age: $a}' 2>/dev/null || printf '%s' "$row"
+        done | jq -sc '.' 2>/dev/null || printf '%s' "$rows"
+    )
+fi
+
 needs=""
 if [ "$blocked" -gt 0 ]; then
     needs=$(printf '%s' "$rows" | jq -c --arg turn "$ci_turn" '{action: "ask_the_claim_holder_to_delete_the_branch_neither_the_container_nor_ci_could",
         bound: "one question per (unit, refusal word), addressed to the claim holder, keyed on `key` so an unchanged block is asked once and a CHANGED refusal word is asked once more; the tick asks and never releases a claim, reopens a pull request, or re-runs the delete",
-        compose: "name the unit, the exact branch left on origin, the refusal in `blocking_refusal` that is blocking the delete now, and the acts that already stand -- a question that does not name the branch does not say what to delete",
+        compose: "name the unit, the exact branch left on origin, the refusal in `blocking_refusal` that is blocking the delete now, and the acts that already stand -- a question that does not name the branch does not say what to delete. When `age.first_seen` is set, say how long this block has been ASKED ABOUT (`age.ticks` ticks since `age.first_seen`, `at least` that when `age.first_seen_is_floor`); the key carries the refusal word, so a null age on a unit whose word just changed means a NEW question rather than a block that cleared -- never say the block just started. When `age.readable` is false, name it as an age we could not read, by its `age.reason`.",
         ci_turn: $turn,
         blocked_retirements: .}' 2>/dev/null || echo '')
 fi

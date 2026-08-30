@@ -457,6 +457,71 @@ question with a separate script (`branching/scripts/list-operator-facing-pulls.s
 This one answers only *what happened to this pull request* — one script, one question, because
 one script answering both is how two readings of one fact start to disagree.
 
+### How long a condition has been standing (`condition-age.sh`)
+
+A **sixth vocabulary in the same home** (2026-08-30, mission
+`say-how-long-the-loop-has-been-stuck`). The five tables above are each keyed on *what is true*
+— of a claim, of the base, of an act, of a publication. This one is keyed on *how long it has
+been true*, which is a different question about the same subjects, and one column cannot
+classify six questions. It is folded into none of them, and least of all into the act-effect
+table beside it: both concern the loop's own records, and that resemblance is exactly the
+mistake the previous five splits each record.
+
+**There is no proof in this vocabulary, and the tempting error is to think `first_seen` is
+one.** It is read straight off an append-only log that never rewrites a line, which looks like
+`superseded`'s property. It is not: the log **grows**, so `ticks` increases every hour, and a
+bounded walk's `first_seen` can move as day files pass out of the bound. A proof is a reading
+that *cannot become false by looking again*, and this one is designed to. `readable: false` is
+besides that the **absence** of a reading.
+
+**So no gate, hold, re-ask, escalation, merge, claim or sort may read the age.** The questions
+name it and the run reports report it, and that is the whole licence.
+
+| Word | Class | What established it, and what a consumer may do |
+| ---- | ----- | ----------------------------------------------- |
+| `first_seen` | judgement | The earliest tick in the question ledger (`human-checkin-ask-<slug>` / `human-checkin-reasked-<slug>`) carrying this subject's key, or **null** when the ledger has never carried it. Null is an **ordinary absence** — the first time anybody is being asked — never a degradation. A consumer may name it in a question or a report. |
+| `ticks` | judgement | The distinct ticks the log holds at or after `first_seen`, compared lexically; **0** with a null `first_seen`, **null** on a degraded read. Never a wall-clock difference. |
+| `truncated` | judgement | The walk was **cut** by `WORKAHOLIC_CONDITION_AGE_MAX_DAYS` — a day file older than the bound exists. Emitted only when true. It is **not** a degradation: the counts stay real and `readable` stays absent. |
+| `first_seen_is_floor` | judgement | Emitted with `truncated` and a non-null `first_seen`: the date is a **floor**, so a consumer renders *at least*. Never a prose prefix on `first_seen` itself — a consumer parsing English is how two readings drift. |
+| `reason` | judgement | The named cause riding a `readable: false` reading, carried verbatim by every consumer — a normalised word would send a reader to a string no script printed. |
+| `readable` | judgement | Emitted only as `false`, and only when the log **exists** and could not be read (`log_unreadable`, `no_key`, `reader_missing`, or `log-read.sh`'s own reason). Counts are **null**, never zeroed. The **absence** of a reading, and it must be named as unreadable — rendering it as *this just started* is the collapse this whole vocabulary exists to close. |
+
+**Its enumerated consumers are six**, and each may only name the age: the four question steps
+(`step-undrivable-units.sh`, `step-retire-claims.sh`, `step-undelivered-units.sh`,
+`step-stalled-units.sh`) and the two run reports (`/implement`, `/propose`). None of them
+reaches an acting or gating call site on it — no `refusal`, no `selected`, no sort key, no
+`--method PUT`/`PATCH`/`DELETE`, no `/merge`, no `retire-claim.sh`, no `release-claim.sh`, no
+`catch-up-claim.sh`, no `plan-units.sh`, no `git push` — and `ask-question.sh` is
+**byte-identical**: the age changes no key, no cap and no hold, so the gate gains nothing at
+all. `scripts/test-workflow-scripts.mjs` pins this table the way it pins the five above.
+
+### Which question reads which age
+
+Four of the tick's questions now name **how long** their condition has been standing, and two of
+them already had an age of their own from a different source (2026-08-30, mission
+`say-how-long-the-loop-has-been-stuck`). The rule this table exists for is one sentence:
+**nothing derives an age twice**, and where a question carries two ages they are named as **two
+facts with their sources**, never blended into one number.
+
+| Question key | Age source(s) | Notes |
+| ------------ | ------------- | ----- |
+| `undrivable-unit:<path>` | tick log | Only one. The artifact carries no timestamp a reader could use, so *how long we have been asking* is the whole answer available. |
+| `retire-blocked:<unit>:<word>` | tick log | Only one. The key carries the refusal word, so a **changed** word starts a new question and its age legitimately resets — a reset is never the block clearing. |
+| `undelivered-unit:<unit>` | tick log **and** the pull request | Two facts. `open_hours` is how long the pull request has been open (its own `created_at`); `age` is how long the unit has been asked about. A pull request opened an hour ago that nobody has been told about, and one open a week that a person was asked about on day one, call for different acts. |
+| `stalled-unit:<unit>` | tick log **and** the claim tip | Two facts. `stalled_hours` is how long the branch tip has not moved (`WORKAHOLIC_CLAIM_STALE_HOURS`, the protocol's own threshold); `age` is how long we have been asking. |
+| `operator-pull:<number>` | the pull request's `created_at` | **The tick log not at all.** `publication-effect.sh` stays the one reader of that age, and its **null**-on-`unreadable` rule stays. A second number on the one question whose own source is exact and external buys nothing. |
+
+**The table is prose, so it can lie**, and the pin is what makes it a fact a change can lose:
+`scripts/test-workflow-scripts.mjs` reads these rows and checks each named step **in both
+directions** — a step that composes an age this table does not attribute, and a row naming a
+step that composes none — exactly as the proofs-and-judgements pin does for the verdict words.
+
+**What the tick-log age means, stated once so no consumer over-reads it.** It is the age of the
+**question**, which is a *lower bound* on the age of the condition: a blocker that existed
+before anybody asked reads younger than it is. That is the honest direction — understating an
+age asks a person to look sooner than the truth would — so a consumer says *asked about since*
+and never asserts how long the artifact itself has been stuck.
+
 ## Claim a unit
 
 ```bash

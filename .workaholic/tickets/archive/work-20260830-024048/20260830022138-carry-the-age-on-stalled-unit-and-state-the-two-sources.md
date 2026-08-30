@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-30T02:21:38+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -83,3 +84,25 @@ derives an age twice and the two readings cannot drift into disagreeing about on
 - Whether `operator-pull` should *also* carry the log age is deliberately not taken: it would be a
   second number on the one question whose own source is exact and external, and the ask names it
   as the question that keeps `created_at`.
+
+## Final Report
+
+Development completed as planned. `stalled-unit` candidates carry `age` beside the claim tip's
+own `stalled_hours`, named in `compose` as two facts with two sources.
+`step-operator-pulls.sh` and `publication-effect.sh` are byte-identical. The source table lives
+in `drive/reference/claims.md` and the suite checks each named step both ways.
+
+### Discovered Insights
+
+- **Insight**: The pin has to read the source COLUMN, not the row.
+  **Context**: The `operator-pull` row's Notes say "the tick log **not at all**", so a
+  whole-row `/tick log/` test reads the negation as a claim and demands that step compose an
+  age. Splitting on `|` and testing the second cell is what makes the table checkable in the
+  direction that matters.
+- **Insight**: The two ages are visibly different on this repository right now, which is the
+  mission's Experience in one line.
+  **Context**: Measured on the live claim set: `batch-20260818215156` reads
+  `stalled_hours: 269` with `ticks: 102` since `20260826-015129`, while
+  `deploy-the-docs-site-on-merge-to-main` reads `stalled_hours: 85` with `first_seen: null` —
+  stuck for three and a half days and asked about by nobody, ever. One number could not have
+  said both.

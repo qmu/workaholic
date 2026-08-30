@@ -315,6 +315,23 @@ tick's check-in, the one surface here that names a person, asked only about what
 found. **No step read the state of claimed work**, so the surface that could ask never learned
 there was anything to ask about.
 
+
+**And each candidate carries how long it has been ASKED ABOUT** (2026-08-30, mission
+`say-how-long-the-loop-has-been-stuck`). `moderate/scripts/condition-age.sh --key <the key this
+step already composes>` answers `first_seen` / `ticks` / `truncated` / `first_seen_is_floor`, or
+a named `readable: false`, from the question ledger those keys already write. The reading rides
+`needs_agent` **only** and its words are carried **verbatim** — a normalised word sends a reader
+to a string no script printed. An unreadable age is named as unreadable and **never rendered as
+*this just started***, which is the collapse the reading exists to close. **No key moves**, so
+`already_asked` is byte-identical and the changed wording re-asks nothing, and **the summary does
+not move either**, for the correctness reason recorded above.
+
+**Two ages ride this question and they are TWO FACTS.** `stalled_hours` is how long the claim
+**tip** has not moved (`WORKAHOLIC_CLAIM_STALE_HOURS`, the protocol's own threshold); `age` is how
+long we have been **asking**. They are named as two with their sources and never blended into one
+number, and `step-operator-pulls.sh` deliberately keeps reading `created_at` alone —
+`drive/reference/claims.md`'s source table records every row and the pin checks it both ways.
+
 **The coupling is a reader, not a handoff** — the same shape as `strategy-pace`. A `/implement`
 run's container is discarded and it writes nothing into the tree about its own blockers, so it
 could not hand anything over; this step calls the oracle itself. Two readers of one script is not
@@ -1093,6 +1110,20 @@ A tree with no `.workaholic/` is an ordinary `ok`; readers absent from the skill
 `degraded` by name. A queue every owner of which the mapping names supplies **no `event`**,
 so the root renders no line: nothing happened to the repository.
 
+**And each candidate carries how long it has been ASKED ABOUT** (2026-08-30, mission
+`say-how-long-the-loop-has-been-stuck`). `moderate/scripts/condition-age.sh --key <the key this
+step already composes>` answers `first_seen` / `ticks` / `truncated` / `first_seen_is_floor`, or
+a named `readable: false`, from the question ledger those keys already write. The reading rides
+`needs_agent` **only** and its words are carried **verbatim** — a normalised word sends a reader
+to a string no script printed. An unreadable age is named as unreadable and **never rendered as
+*this just started***, which is the collapse the reading exists to close. **No key moves**, so
+`already_asked` is byte-identical and the changed wording re-asks nothing, and **the summary does
+not move either**, for the correctness reason recorded above.
+
+The age is the age of the **question**, not of the condition, so the composed wording says how
+long the artifact has been *asked about* rather than asserting how long it has been undrivable.
+On this candidate the two nearly coincide, and saying the weaker true thing costs nothing.
+
 **And since 2026-08-28 a candidate can be HELD** (mission
 `put-the-loop-s-standing-rulings-on-one-pull-request`). While an open ruling pull request names
 an address, asking a person to complete that same mapping line by hand on `main` is asking them
@@ -1147,6 +1178,24 @@ of a read we could not make.
 header records: the root calls a step changed when its summary differs from the same step's an
 hour ago, and an incrementing age would make this step changed hourly by construction. The age
 still reaches the person, in the question that names the unit.
+
+
+**And each candidate carries how long it has been ASKED ABOUT** (2026-08-30, mission
+`say-how-long-the-loop-has-been-stuck`). `moderate/scripts/condition-age.sh --key <the key this
+step already composes>` answers `first_seen` / `ticks` / `truncated` / `first_seen_is_floor`, or
+a named `readable: false`, from the question ledger those keys already write. The reading rides
+`needs_agent` **only** and its words are carried **verbatim** — a normalised word sends a reader
+to a string no script printed. An unreadable age is named as unreadable and **never rendered as
+*this just started***, which is the collapse the reading exists to close. **No key moves**, so
+`already_asked` is byte-identical and the changed wording re-asks nothing, and **the summary does
+not move either**, for the correctness reason recorded above.
+
+**Two ages ride this question and they are TWO FACTS.** `open_hours` is how long the pull request
+has been open, from its own coordinates; `age` is how long the unit has been asked about. This is
+the one step where both are present, and neither may silently replace the other — a pull request
+opened an hour ago that nobody has been told about, and one open a week that a person was asked
+about on day one, call for different acts. `drive/reference/claims.md`'s source table records
+which question reads which, and the rule it exists for: **nothing derives an age twice**.
 
 **It asks and nothing else.** It never merges, never retries, never drives and never resolves the
 blocker itself. Each question is keyed `undelivered-unit:<unit>` through `ask-question.sh`, so
@@ -1232,6 +1281,22 @@ act with a different repair. And every candidate here reads `superseded`, which 
 already filters out of its own candidates and counts as a finding instead — so the pair was
 already honest and nothing new had to be filtered; the other two claim-reading steps key on
 `report_undelivered` and `awaiting_verification`, which no `superseded` row can also be.
+
+**And each blocked candidate carries how long it has been ASKED ABOUT** (2026-08-30, mission
+`say-how-long-the-loop-has-been-stuck`). `moderate/scripts/condition-age.sh` is read with the key
+this step composes — `retire-blocked:<unit>:<refusal word>` — **after** the key is settled and
+after both suppressions, since an age read under any earlier key would answer about a different
+question. The reading rides `needs_agent` only, its words are carried verbatim, and the summary
+does not move, for the stability reason above.
+
+**A changed refusal word resets the age, and that is correct.** The key carries the word, so a
+unit whose block changes cause starts a new question and reads `first_seen: null` on its first
+tick. The composer must not read that reset as the block having cleared: the branch has been
+standing all along, and only what is blocking its delete has moved.
+
+**The age is attached after the act, never before it.** This step is the one age consumer that
+also *acts* — `retire-claim.sh`, on a proof — and the age is a **judgement**, so it must never
+sit in front of the proof the act reads. The suite pins the ordering.
 
 **It asks and nothing else**: no claim released, no pull request reopened, no delete re-run on the
 strength of an answer, and the `superseded` proof gate and the retirement's other two acts are

@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 0.9
 feedback: [20260830081659-stop-two-runs-from-claiming-and-driving-one-unit.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
@@ -56,3 +56,4 @@ happens, one person is told once, both branches named.
 - 2026-08-30 — ticket archived — 20260830082251-answer-superseded-at-the-mission-grain-from-the-tree.md
 - 2026-08-30 — ticket archived — 20260830082251-re-check-the-claim-before-the-first-archive-write.md
 - 2026-08-30 — ticket archived — 20260830082251-reproduce-the-claim-race-offline-in-a-drill.md
+- 2026-08-30 — run recorded (+0.9h) — session_01W6TxsNWDVy4A7CZSg3wKqx

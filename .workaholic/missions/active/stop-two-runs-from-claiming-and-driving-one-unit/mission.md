@@ -54,3 +54,4 @@ happens, one person is told once, both branches named.
 ## Changelog
 - 2026-08-30 — ticket archived — 20260830082251-correct-the-settled-by-the-push-premise.md
 - 2026-08-30 — ticket archived — 20260830082251-answer-superseded-at-the-mission-grain-from-the-tree.md
+- 2026-08-30 — ticket archived — 20260830082251-re-check-the-claim-before-the-first-archive-write.md

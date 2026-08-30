@@ -41,7 +41,7 @@ Nothing gates, holds, re-asks, escalates or merges on the age.
 
 - [x] One bounded reader answers a condition's age from the tick log, with null counts and
       a named reason on a degraded read, and a truncated walk reported as *at least*. (#20260830022138-bound-the-age-walk-and-say-when-it-was-bounded.md)
-- [ ] The four standing-blocker questions carry the term on their existing keys, with no
+- [x] The four standing-blocker questions carry the term on their existing keys, with no
       key, cap, hold or step summary moved. (#20260830022138-carry-the-age-on-stalled-unit-and-state-the-two-sources.md)
 - [ ] Every value is classified a judgement in one home with its enumerated consumers, the
       suite fails when one acts on it, and an offline drill proves the chain. (#20260830022138-drill-the-condition-age-offline.md)
@@ -53,3 +53,4 @@ Nothing gates, holds, re-asks, escalates or merges on the age.
 - 2026-08-30 — ticket archived — 20260830022138-bound-the-age-walk-and-say-when-it-was-bounded.md
 - 2026-08-30 — ticket archived — 20260830022138-carry-the-age-on-the-undrivable-unit-question.md
 - 2026-08-30 — ticket archived — 20260830022138-carry-the-age-on-retire-blocked-and-undelivered-unit.md
+- 2026-08-30 — ticket archived — 20260830022138-carry-the-age-on-stalled-unit-and-state-the-two-sources.md

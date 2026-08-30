@@ -53,3 +53,4 @@ record-only rather than being silently defaulted over.
 - 2026-08-30 — ticket archived — 20260830042044-say-on-every-surface-that-the-date-is-a-default.md
 - 2026-08-30 — ticket archived — 20260830042044-pin-the-dateless-ask-chain-hermetically.md
 - 2026-08-30 — mission achieved — mission.md
+- 2026-08-30 — story reported — work-20260830-055314.md

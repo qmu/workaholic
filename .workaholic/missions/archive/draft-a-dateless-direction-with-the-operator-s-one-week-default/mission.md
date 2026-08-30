@@ -2,7 +2,7 @@
 type: Mission
 title: Draft a dateless direction with the operator's one-week default
 slug: draft-a-dateless-direction-with-the-operator-s-one-week-default
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-30T04:19:41+00:00
 author: a@qmu.jp
@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260830-055318
 ---
 
 # Draft a dateless direction with the operator's one-week default
@@ -37,13 +38,18 @@ record-only rather than being silently defaulted over.
 
 ## Acceptance
 
-- [ ] An ask with an aim and an owner but no date emits a strategy on the
+- [x] An ask with an aim and an owner but no date emits a strategy on the
       never-auto-merge path, with `target_date` = the ask's date + 7 days (#20260830042044-draft-a-dateless-direction-on-the-default-instead-of-refusing.md)
-- [ ] The default is derived in one place, applies only where the ask stated no
+- [x] The default is derived in one place, applies only where the ask stated no
       date, and `no_target_date` narrows to what it still answers (#20260830042044-derive-the-one-week-target-date-default-in-one-place.md)
-- [ ] Every surface carrying it — `## Schedule`, the pull-request body, the run
+- [x] Every surface carrying it — `## Schedule`, the pull-request body, the run
       report — names the date as a default, and the chain is pinned (#20260830042044-say-on-every-surface-that-the-date-is-a-default.md)
 
 ## Changelog
 
 - 2026-08-30 — proposed from issue #743
+- 2026-08-30 — ticket archived — 20260830042044-derive-the-one-week-target-date-default-in-one-place.md
+- 2026-08-30 — ticket archived — 20260830042044-draft-a-dateless-direction-on-the-default-instead-of-refusing.md
+- 2026-08-30 — ticket archived — 20260830042044-say-on-every-surface-that-the-date-is-a-default.md
+- 2026-08-30 — ticket archived — 20260830042044-pin-the-dateless-ask-chain-hermetically.md
+- 2026-08-30 — mission achieved — mission.md

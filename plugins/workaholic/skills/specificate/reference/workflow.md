@@ -165,7 +165,8 @@ and every abort reports a machine-readable reason.
 
    Otherwise, in this precedence: two or more units → a mission with its ticket set
    (steps 8–9); atomic → one loose ticket (step 9's loose form, no mission); a
-   **date + an owner + an aim with no decomposable plan** → one strategy (step 9b);
+   **an owner + an aim with no decomposable plan, with a date stated or defaulted** → one
+   strategy (step 9b);
    none of those → record-only. **An ask that already names a mission —
    a title, the experience it demands and an ordered ticket set, the shape `/propose`
    writes since 2026-08-26 — takes row 1 and is emitted as *that* plan, in that order**
@@ -271,15 +272,47 @@ and every abort reports a machine-readable reason.
 9b. **Emit the strategy** (strategy form only), in the publish tree — instead of
    step 9, never alongside it:
 
+   **The date first, because it may now be derived** (2026-08-30, mission
+   `draft-a-dateless-direction-with-the-operator-s-one-week-default`). When the ask states a
+   date resolvable to a single `YYYY-MM-DD`, that is the date and nothing below is called.
+   When it states **none at all**, take the operator's one-week default:
+
+   ```sh
+   bash ${CLAUDE_PLUGIN_ROOT}/skills/strategy/scripts/default-target-date.sh \
+       <the triggering issue's created_at date, YYYY-MM-DD>
+   ```
+
+   It is counted from the **ask's own date** rather than this tick's clock, so a tick that
+   ingests a week-old issue does not date the direction from the hour it happened to run;
+   pass no argument only when the ask carries no date of its own. A `bad_ask_date` refusal
+   is record-only naming it — never a silent fall back to today. **An ask that states a date
+   this run cannot resolve is record-only, `no_target_date`**, which is now that reason's
+   only case: defaulting over the operator's own words is the failure this must not
+   introduce.
+
    ```sh
    printf '%s\n' "<aim prose, in the ask's own terms>" \
      | bash ${CLAUDE_PLUGIN_ROOT}/skills/strategy/scripts/create.sh \
-         "<title>" <YYYY-MM-DD from the ask> "<the triggering issue's assignee>" \
+         "<title>" <YYYY-MM-DD, stated or defaulted> "<the triggering issue's assignee>" \
          "<schedule prose>" "<the step-3 record's filename>"
    ```
 
-   The three parts come from the **ask**, never from this session: the date is one the
-   ask states (no date → record-only, `no_target_date`), and the assignee is the
+   **`create.sh` is unchanged and learns nothing about where the date came from** — it takes
+   a `YYYY-MM-DD` exactly as it always has, and no frontmatter key is added to the artifact.
+
+   **A defaulted date says so in the `## Schedule` prose**, in one sentence, because the
+   exemption's whole premise is that the operator's merge is the authorship and a merge is
+   only an authorship if the person merging can see what they are being asked to author.
+   Name the date as the one-week default, what it was counted from, and that editing it
+   before merging is how they set their own — for example:
+
+   > Target 2026-09-06 — the one-week default, counted from the ask of 2026-08-30 rather
+   > than stated by the operator. Edit the date before merging to set your own.
+
+   A strategy whose date the **ask stated** carries none of that wording: its `## Schedule`
+   is composed exactly as it always was.
+
+   The owner and the aim come from the **ask**, never from this session: the assignee is the
    triggering issue's **resolved through `gather/scripts/identity.sh`**, never the running
    identity (unassigned → record-only, `no_assignee`; **assigned to a login the mapping
    does not name → record-only, `assignee_unmapped` with the login**) — `create.sh` refuses
@@ -444,7 +477,15 @@ and every abort reports a machine-readable reason.
    **The body names step 3b's two sets**, in `<changes>`, per emitted artifact: the refs
    **carried** onto it, and every ref **dropped** with its reason. **And the direction** —
    `direction:<slug>` with how it was decided (`line`, `slug` or `aim`), or
-   `direction:unattributed`. **And, when the ask's assignee did not resolve through the
+   `direction:unattributed`. **And, on the strategy form, whether the `target_date` was
+   stated or defaulted** (2026-08-30, mission
+   `draft-a-dateless-direction-with-the-operator-s-one-week-default`): a defaulted date is
+   named here once, with what it was counted from and that editing it before merging is how
+   the operator sets their own. This is the surface the exemption actually rests on — the
+   merge is the authorship, so the person merging must be able to see that the date is the
+   loop's proposal rather than their own word. A **stated** date is named as stated, in the
+   same clause, so the two never read alike; neither adds a field to any artifact.
+   **And, when the ask's assignee did not resolve through the
    mapping, `assignee_unmapped: <the login>` with the artifacts left team-owned** — a
    team-owned artifact is a real outcome, but one nobody was told about reads like a
    decision somebody made, and the repair (a line in `.claude/git-identities`) is an
@@ -520,6 +561,10 @@ and every abort reports a machine-readable reason.
     indistinguishable from a run that never reached the rule. Then the form chosen
     (mission with N tickets / loose ticket /
     **strategy `<slug>`, PR left open for the operator** — with
+    **`target_date:default`** or **`target_date:stated`** (2026-08-30, mission
+    `draft-a-dateless-direction-with-the-operator-s-one-week-default`), so a date the loop
+    derived and a date the operator wrote are told apart in the report without a new field
+    anywhere, and with
     `successor_of:<predecessor>:<n refs carried>` when the ask announced one, or the
     refusal that stopped it (`strategy_not_found` / `predecessor_active` /
     `no_predecessor`) (2026-08-28) — / **strategy `<slug>` closed
@@ -529,7 +574,9 @@ and every abort reports a machine-readable reason.
     leaving (2026-08-28) — / **strategy `<slug>` revised
     (`<parts>`), PR left open for the operator** / record-only, and for
     record-only reached by a failed strategy bar or an unmatched announcement, the
-    part that was missing — `no_target_date` / `no_assignee` / `assignee_unmapped` with
+    part that was missing — `no_target_date` (since 2026-08-30 only when the ask **stated**
+    a date this run could not resolve; an ask stating none takes the default and is no
+    longer record-only) / `no_assignee` / `assignee_unmapped` with
     the login / `strategy_not_found`
     with the slug / `no_end_state` / `not_active` / `no_revision`) with its
     reason, the record's filename, **the carry** —

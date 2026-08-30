@@ -609,4 +609,5 @@
 * [Say how long the loop has been stuck](20260830021712-say-how-long-the-loop-has-been-stuck.md)
 * [A strategy ask lacking only its date dies quietly as a direction record](20260830041720-a-strategy-ask-lacking-only-its-date-dies-quietly-as-a-direction-record.md)
 * [Catch a reported claim up before its conflict hardens](20260830042547-catch-a-reported-claim-up-before-its-conflict-hardens.md)
+* [Stop two runs from claiming and driving one unit](20260830081659-stop-two-runs-from-claiming-and-driving-one-unit.md)
 <!-- okf:generated:end -->

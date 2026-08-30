@@ -51,3 +51,4 @@ holder once. A reviewed pull request is left alone, by name.
 
 - 2026-08-30 — issue #744
 - 2026-08-30 — ticket archived — 20260830042803-state-when-a-bounded-act-may-read-a-judgement.md
+- 2026-08-30 — ticket archived — 20260830042803-read-which-reported-claims-are-catchable.md

@@ -253,6 +253,45 @@ not write a second story generator.
   with more moving parts. **A merge through the connector is measured only in an interactive
   session** — a routine container is measured only for the connector's *read* tools — which is
   why step 3 reports both outcomes by name rather than assuming the retry succeeds.
+- **AND EVERY OTHER REPORTED CLAIM THIS RUN CAN STILL CATCH UP** (2026-08-30, mission
+  `catch-a-reported-claim-up-before-its-conflict-hardens`). The block above walks
+  `undelivered[]`, which is a **delivery** verdict — so the catch-up, whose whole subject is
+  whether the *base* still accepts a branch, ran only on units the *transport* had refused. A
+  `queue_drained` claim is the other half of the same shape: finished, pushed, at an open pull
+  request, waiting on a person — and its conflict hardens from `mechanical` to `content` while
+  nothing looks. `/moderate`'s `catchup-blocked` step already **asks** about both verdicts; only
+  the acting side was narrow. Measured live: one claim mechanical for four days, another content
+  for twelve.
+
+  ```bash
+  bash ../drive/scripts/list-catchable-claims.sh
+  ```
+
+  It composes `list-claims.sh` — one walk of the refs, never a second oracle — and answers this
+  identity's **reported** claims (`report_undelivered` **or** `queue_drained`) whose
+  `mergeability` is **`mechanical`**, resolved through the live-row rule. `clean` is
+  deliberately not a candidate (nothing to catch up), `content` is a person's, and
+  `unanswerable` is the absence of a reading. A **degraded** scan yields no candidates, its
+  reason and **null** counts — never a bare empty set, which is byte-identical to a healthy
+  quiet run.
+
+  Run `catch-up-claim.sh <unit-id>` **once per candidate**, never batched and never retried
+  inside the run: a refusal is reported, not worked around. **A unit in both sets is caught up
+  once** — the `undelivered[]` loop takes it, because that loop must catch up *before* its
+  retry, and the outcome is reported there; this walk skips any unit that loop already named. A
+  second run over the same unit would answer `already_current` and cost a worktree for nothing.
+
+  **Both entry points walk it.** The Unified Run shares every step below §2, the act asks
+  nothing and needs no ruling, and a `content` conflict is refused rather than put to the
+  operator — so an attended `/drive` run behaves identically here and simply reports the
+  outcomes in the session.
+
+  **The writer is untouched by this.** `catch-up-claim.sh` re-derives its own verdict at the
+  moment of the act and applies its own bounds, which is exactly why widening the *caller* is
+  safe — the rule that makes it safe is written down once in [claims.md](claims.md), *When a
+  bounded act may read a judgement*. Nothing about the survey, the claim oracle, any gate or any
+  token moves: **no route, demotion, claim, merge, survey, refusal or sort reads this set**, and
+  a run with no candidates behaves byte-identically to one before the widening existed.
 - **`auto` → ship** through `ship`'s Ship Flow with no prompts (its *Unattended
   routing* section factors each interactive seam): catch up with `main`, prove the deploy
   contract, confirm in production, record the evidence, **then** merge, then release and extract
@@ -413,6 +452,33 @@ moments.
   is the gate working, and making it `pending` would put `ok` out of reach on exactly the runs
   where the machinery did its job. Every other refusal moves no token by itself either; what
   withholds `ok` is the unit's *delivery* outcome, which a refused catch-up leaves unchanged.
+- **And the same three words per `list-catchable-claims.sh` candidate** (2026-08-30, mission
+  `catch-a-reported-claim-up-before-its-conflict-hardens`): one line each — the unit, and one of
+  `caught_up` / `already_current` / `catch_up_refused: <word>`, the word being
+  `catch-up-claim.sh`'s own, **verbatim**. A normalised word sends a reader to a string no
+  script printed. **The same three words, never a second set**: the outcome of a catch-up on a
+  `queue_drained` claim and on a `report_undelivered` one are the same kind of fact, and two
+  vocabularies for one fact is how the two drift. **A run that names a candidate and reports no
+  outcome for it is non-conformant on its face** — the retry row's enforcement, for its reason:
+  no mechanical check tells a real attempt from a claimed one, and what the rule buys is that a
+  silent report is visibly wrong. One line per candidate and no per-claim block: the steady
+  state is zero candidates and the interesting case is one or two. **It moves no token and gates
+  nothing** — the `content_conflict` reasoning above applies unchanged, and every other refusal
+  leaves the unit's *delivery* outcome exactly where it was. **No artifact gains a field.** A run
+  with no candidates reports nothing new.
+- **Each reported claim's `mergeability`, off the row the oracle already renders** (2026-08-30,
+  the same mission): one word per **reported** claim — `clean`, `mechanical`, `content`, or
+  `unanswerable` **as unanswerable, by its reason**. A claim decaying from `mechanical` to
+  `content` is the moment the loop's own work becomes a person's, and until this it was visible
+  only *after* the decay, when `/moderate`'s question fired. Naming the class makes the decay
+  visible the hour it happens. **Nothing is derived**: `list-claims.sh` renders `mergeability`
+  and `mergeability_reason` on every row and the run has already made that scan, so this costs
+  no network call and no second walk. Rendering `unanswerable` as `clean` is the one collapse
+  that must not happen — it makes a decaying claim look healthy. Bounded to **reported** claims:
+  naming the class for every claim on every tick turns the report into a claim table, and the
+  fact is actionable only where the unit is finished and waiting. **Evidence, never a verdict**
+  — no gate, sort, claim, route, demotion or token reads it, the standing this repository gives
+  `pace`, `overdue`, `expiring`, `arrived` and the base's own health.
 - **Retry outcome per `undelivered[]` entry** (2026-08-27, mission
   `deliver-and-retire-what-the-loop-already-proved-finished`): the unit, the **recorded refusal it
   was retrying**, and the **new outcome** in §6's existing three words — `merged` when the retry

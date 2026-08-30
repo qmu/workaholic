@@ -28593,6 +28593,84 @@ function testProofJudgementSplit() {
   assertTrue("and refuses a content conflict by its own word",
     /refuse content_conflict/.test(catchUp), catchUp.slice(0, 200));
 
+  // ---- WHEN A BOUNDED ACT MAY READ A JUDGEMENT (2026-08-30, mission
+  // `catch-a-reported-claim-up-before-its-conflict-hardens`) ----
+  //
+  // The two assertions above pin the ONE exception as a fact about ONE word: `catch-up-claim.sh`
+  // re-derives `mechanical` and refuses `content`. That is correct and it cannot govern a FOURTH
+  // act somebody adds next month against a different judgement — which is exactly how the
+  // classification would start drifting again. `claims.md` now carries the general rule and
+  // enumerates its consumers, and this pins that table in BOTH directions. One direction alone is
+  // half a rule: an unenumerated act has no bound at all, and an enumerated one that trusts a
+  // handed-in reading has lost the clause that makes the exception safe.
+  //
+  // Proved able to fail, each break turning exactly one row red:
+  //
+  //   the rule section deleted from claims.md            -> `the bounded-act rule has one home`
+  //   `catch-up-claim.sh` deleted from the rule's table   -> `... is enumerated in the rule`
+  //   `git push` added to `list-catchable-claims.sh`      -> `... acts on a judgement unenumerated`
+  //   `claim-mergeability.sh` replaced by a handed-in
+  //     reading inside `catch-up-claim.sh`                -> `... re-derives its judgement`
+  const RULE_HEADING = "### When a bounded act may read a judgement";
+  const ruleAt = wholeTable.indexOf(RULE_HEADING);
+  assertTrue("the bounded-act rule has one home", ruleAt > 0,
+    "claims.md no longer states when an act may read a judgement");
+  const ruleEnd = wholeTable.indexOf("\n## ", ruleAt);
+  const ruleTable = wholeTable.slice(ruleAt, ruleEnd > 0 ? ruleEnd : undefined);
+  // The four clauses are the rule. A table of consumers with no clauses left to meet is a list.
+  for (const clause of [/re-derives that judgement at the moment of the act/i,
+    /idempotent/i, /reversible/i, /refuses every bound by its own word/i]) {
+    assertTrue(`the rule still states its clause ${clause}`, clause.test(ruleTable),
+      "a clause of the bounded-act rule is gone, so the exception is wider than it was");
+  }
+  // ENUMERATED CONSUMERS, out of the rule's own table rather than a list this test carries.
+  const enumeratedActors = new Set();
+  for (const m of ruleTable.matchAll(/^\|\s*`([a-z0-9-]+\.sh)`\s*\|/gm)) enumeratedActors.add(m[1]);
+  assertTrue("the rule enumerates at least one consumer", enumeratedActors.size > 0,
+    "the bounded-act rule names nobody, so it governs nothing");
+
+  // DIRECTION ONE: every script that both READS a judgement-emitting reader and carries an
+  // ACTING call site must be enumerated. Discovered from the tree, never from a carried list —
+  // a carried list would prove only that it matches itself, and the failure this guards against
+  // is precisely a NEW act nobody registered.
+  const JUDGEMENT_READERS = ["claim-mergeability.sh"];
+  // Regexes, not substrings: `git -C "$WORKTREE" push` is the same act as `git push`, and a
+  // literal match would miss precisely the consumer this rule was written for.
+  const ACT_SITES = [/\bgit\b[^\n]*\bpush\b/, /--method PUT/, /--method PATCH/,
+    /--method DELETE/, /\bgit\b[^\n]*\bpush\b\s*--delete/];
+  const ACT_DIRS = ["plugins/workaholic/skills/drive/scripts",
+    "plugins/workaholic/skills/branching/scripts", "plugins/workaholic/skills/ship/scripts",
+    "plugins/workaholic/skills/moderate/scripts"];
+  const actingOnJudgement = new Set();
+  for (const dir of ACT_DIRS) {
+    for (const f of readdirSync(join(REPO_ROOT, dir))) {
+      if (!f.endsWith(".sh")) continue;
+      const src = codeLines(join(REPO_ROOT, dir, f));
+      if (!JUDGEMENT_READERS.some((r) => src.includes(r))) continue;
+      if (!ACT_SITES.some((a) => a.test(src))) continue;
+      actingOnJudgement.add(f);
+    }
+  }
+  assertEq("every script that acts on a judgement is enumerated in the rule",
+    [...actingOnJudgement].filter((f) => !enumeratedActors.has(f)).sort().join(","), "");
+  assertEq("and the rule enumerates no script that does not act on one",
+    [...enumeratedActors].filter((f) => !actingOnJudgement.has(f)).sort().join(","), "");
+
+  // DIRECTION TWO: each enumerated consumer must RE-DERIVE its judgement — call the reader
+  // itself — which is the clause that keeps the exception safe. An enumerated act that reads a
+  // list it was handed is acting on a stale snapshot, and the whole point of a judgement is that
+  // the snapshot can be stale.
+  for (const actor of enumeratedActors) {
+    const found = ACT_DIRS.map((d) => join(REPO_ROOT, d, actor)).find((p) => existsSync(p));
+    assertTrue(`${actor} exists to be enumerated`, !!found,
+      "the rule names a consumer that is not in the tree");
+    if (!found) continue;
+    const src = codeLines(found);
+    assertTrue(`${actor} re-derives its judgement at the moment of the act`,
+      JUDGEMENT_READERS.some((r) => src.includes(r)),
+      "an enumerated act trusts a handed-in reading, which is the clause the rule turns on");
+  }
+
   // The word set, from the library's own emissions. `_cs_reason=` is the resumability verdict;
   // the two `printf '<word>\n'` families are the unit resolution and the merged lookup.
   const emitted = new Set();
@@ -29804,7 +29882,7 @@ function makeDriftFixture() {
 
   const todo = join(seed, `.workaholic/tickets/todo/${TEST_SLUG}`);
   mkdirSync(todo, { recursive: true });
-  for (const n of [1, 2, 3, 4]) {
+  for (const n of [1, 2, 3, 4, 5, 6]) {
     writeFileSync(join(todo, `2026072900000${n}-t${n}.md`),
       `---\ncreated_at: 2026-07-29T00:00:0${n}+09:00\nauthor: test@example.com\n`
       + "type: enhancement\nlayer: [Domain]\n---\n\n# T" + n + "\n");
@@ -29862,11 +29940,20 @@ function advanceBase(A, edit) {
 }
 
 // The transport, stubbed: no network at any point. `merge` decides what the one `PUT` answers.
-function driftGhStub(binDir, { merge = "405 Pull Request is not mergeable" } = {}) {
+// `reviews` answers the reviews read `catch-up-claim.sh` makes for its `pull_request_reviewed`
+// bound (2026-08-30). It is matched BEFORE `*pulls*`, because `pulls/7/reviews` contains
+// `pulls` and would otherwise come back as the pull-request list — which the bound would read
+// as one review by a user with no login, refusing every catch-up in the suite. `[]` (nobody has
+// reviewed) is the default, so every caller that predates the bound is unaffected.
+function driftGhStub(binDir, {
+  merge = "405 Pull Request is not mergeable",
+  reviews = "[]",
+} = {}) {
   writeFileSync(join(binDir, "gh"), `#!/bin/sh
 case "$*" in
   "api user --jq .login") printf 'tester\\n'; exit 0 ;;
   *"/merge"*) echo ${JSON.stringify(merge)} >&2; exit 1 ;;
+  *reviews*) printf '%s\\n' ${JSON.stringify(reviews)}; exit 0 ;;
   *pulls*) printf '[{"number": 7, "html_url": "https://example.test/pr/7"}]\\n'; exit 0 ;;
 esac
 printf '[]\\n'
@@ -30036,6 +30123,17 @@ function testCatchUpClaimWriter() {
       writeFileSync(join(wt, ".claude-plugin/marketplace.json"),
         '{\n  "name": "wh",\n  "version": "1.0.5",\n  "plugins": []\n}\n'),
       "merge_not_attempted: hard");
+    // Two more mechanical units for the review bound (2026-08-30), stranded BEFORE the base
+    // moves like every other one: a unit branched after the advance already contains the base
+    // and answers `already_current`, which would measure the fixture rather than the bound.
+    tickSecond();
+    const reviewed = strandUnit(fx.A, t(4), (wt) =>
+      writeFileSync(join(wt, ".claude-plugin/marketplace.json"),
+        '{\n  "name": "wh",\n  "version": "1.0.9",\n  "plugins": []\n}\n'));
+    tickSecond();
+    const unreadable = strandUnit(fx.A, t(5), (wt) =>
+      writeFileSync(join(wt, ".claude-plugin/marketplace.json"),
+        '{\n  "name": "wh",\n  "version": "1.0.11",\n  "plugins": []\n}\n'));
     advanceBase(fx.A, (root) => {
       writeFileSync(join(root, "src/app.txt"), "alpha\nbeta-base\ngamma\n");
       writeFileSync(join(root, ".claude-plugin/marketplace.json"),
@@ -30095,6 +30193,48 @@ function testCatchUpClaimWriter() {
       /foreign_identity|not_my_claim/.test(notMine.reason), notMine.reason);
     assertEq("and nothing was merged for it", notMine.merged, false);
     execSync("git config user.email test@example.com", { cwd: fx.A });
+
+    // 5-bis. A PULL REQUEST A PERSON HAS ALREADY REVIEWED IS LEFT ALONE (2026-08-30, mission
+    //    `catch-a-reported-claim-up-before-its-conflict-hardens`). This is the one bound the
+    //    widened candidate set added, and it belongs to the ACT rather than the reader because
+    //    every other bound is re-derived here too. An `undelivered` unit's pull request was
+    //    refused by a TRANSPORT and nobody is looking at it; a `queue_drained` unit's may be one
+    //    a person is mid-review on, and a push resets an approval.
+    //
+    //    THE STUB VARIES ONLY THE REVIEWS READ, so what is measured is the bound and not the
+    //    fixture: its subject is a unit stranded exactly like the one caught up above, so a
+    //    refusal here cannot be confused with `already_current`.
+    const beforeReviewed = tipOf(reviewed.branch);
+    driftGhStub(fx.binDir,
+      { reviews: '[{"user": {"type": "User", "login": "a-person"}}]' });
+    const humanReviewed = catchUp(reviewed.unit);
+    assertEq("a submitted human review refuses the catch-up by its own word",
+      [humanReviewed.outcome, humanReviewed.reason],
+      ["catch_up_refused", "pull_request_reviewed"]);
+    assertEq("and the branch is byte-identical after it",
+      tipOf(reviewed.branch), beforeReviewed);
+
+    // A BOT'S REVIEW IS NOT A PERSON'S ATTENTION. A review bot comments on every pull request
+    // the loop opens, so counting it would refuse the whole widening.
+    driftGhStub(fx.binDir,
+      { reviews: '[{"user": {"type": "Bot", "login": "reviewer[bot]"}}]' });
+    const botReviewed = catchUp(reviewed.unit);
+    assertEq("a bot's review does not refuse it", botReviewed.outcome, "caught_up");
+
+    // AND AN UNREADABLE LOOKUP IS NEVER READ AS *NOBODY HAS REVIEWED*. A wrong "nobody" pushes
+    // over somebody's approval; a wrong refusal delays a unit by an hour — the three-valued
+    // discipline the merged-pull-request lookup already records.
+    const beforeUnreadable = tipOf(unreadable.branch);
+    // A `gh` that cannot answer the availability probe. `git` stays on PATH — emptying it would
+    // fail the script long before the bound and measure nothing.
+    writeFileSync(join(fx.binDir, "gh"), "#!/bin/sh\nexit 1\n");
+    chmodSync(join(fx.binDir, "gh"), 0o755);
+    const noGh = catchUp(unreadable.unit);
+    assertTrue("an unreadable review lookup refuses under its own reason",
+      /^reviews_unreadable:/.test(noGh.reason), JSON.stringify(noGh));
+    assertEq("and that branch is byte-identical too",
+      tipOf(unreadable.branch), beforeUnreadable);
+    driftGhStub(fx.binDir);
 
     // 6. NEVER A REBASE, AN AMEND OR A FORCE-PUSH, ON ANY PATH.
     const src = readFileSync(SCRIPTS.catchUpClaim, "utf8")

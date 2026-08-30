@@ -58,6 +58,9 @@
 #   dirty_worktree              uncommitted work the merge would bury
 #   scan_held:<tier>            a `hard`/`confirm` finding holds the pull request — the gate
 #                               WORKING, and a catch-up is not a route around it
+#   pull_request_reviewed       a person has submitted a review; a push would reset it
+#   reviews_unreadable:<reason> the review lookup could not be made, which is never read as
+#                               "nobody has reviewed"
 #   not_a_work_branch           the claim protocol names exactly one branch shape
 #   ambiguous_claim             two live claims: reported, never picked between
 #   mergeability_unanswerable:<reason>   the question could not be asked here
@@ -80,6 +83,7 @@ CLAIMS_LIB_DIR="${SCRIPT_DIR}/lib"
 . "${SCRIPT_DIR}/lib/claims.sh"
 
 MERGEABILITY="${SCRIPT_DIR}/claim-mergeability.sh"
+GH_REST="${SCRIPT_DIR}/../../gather/scripts/gh-rest.sh"
 CATCHUP="${SCRIPT_DIR}/../../ship/scripts/catchup-main.sh"
 MAKE_WORKTREE="${SCRIPT_DIR}/../../branching/scripts/create-mission-worktree.sh"
 
@@ -188,6 +192,53 @@ esac
 case "$mb" in
     *'"already_current": true'*) report already_current "" ;;
 esac
+
+# A PULL REQUEST A PERSON HAS ALREADY REVIEWED IS LEFT ALONE (2026-08-30, mission
+# `catch-a-reported-claim-up-before-its-conflict-hardens`). This is the one bound the widened
+# candidate set genuinely adds, and it belongs here rather than to the reader, because this is
+# where the act happens and every other bound is re-derived at the moment of the act too. An
+# `undelivered` unit's pull request was refused by a TRANSPORT — nobody is looking at it. A
+# `queue_drained` unit's may be one a person is MID-REVIEW on, and a push resets an approval.
+#
+# WHAT COUNTS AS A PERSON'S ATTENTION, decided explicitly rather than left to the seam:
+#   * The reviews endpoint returns only SUBMITTED reviews — a pending review is visible to its
+#     author alone — so presence in that list IS submission. No state filtering is needed to
+#     exclude a draft.
+#   * `APPROVED`, `CHANGES_REQUESTED`, `COMMENTED` and `DISMISSED` all count. The first two are
+#     unambiguous; a `COMMENTED` review is a person writing on the diff, and a `DISMISSED` one
+#     is attention that was spent and then set aside. Where the seam is ambiguous the safer
+#     reading wins, and the safer reading is that somebody looked.
+#   * A BOT's review is not a person's. `user.type == "Bot"` and a `…[bot]` login are both
+#     filtered, because a review bot comments on every pull request the loop opens and treating
+#     that as attention would refuse the whole widening.
+#
+# THREE-VALUED, AND THE THIRD VALUE IS THE POINT. An unreadable lookup must never read as *no
+# review*: a wrong "nobody has reviewed" pushes over somebody's approval, while a wrong refusal
+# only delays a unit by an hour. So every way of failing to ask answers
+# `reviews_unreadable:<reason>` rather than falling through — the discipline the
+# merged-pull-request lookup already records.
+#
+# It sits after every OFFLINE bound and before the first act, so a refusal short-circuits with
+# no worktree attached and no network call spent on a question already answered locally.
+[ -f "$GH_REST" ] || refuse reviews_unreadable:no_transport
+# `available` exits 0 even when it answers `ok: false`, so the FIELD is what is read.
+sh "$GH_REST" available 2>/dev/null | grep -q '"ok": true' || refuse reviews_unreadable:gh_unavailable
+REV_SLUG=$(sh "$GH_REST" slug 2>/dev/null || true)
+[ -n "$REV_SLUG" ] || refuse reviews_unreadable:slug_unresolved
+REV_OWNER=${REV_SLUG%%/*}
+rev_pr_json=$(sh "$GH_REST" api \
+    "repos/${REV_SLUG}/pulls?head=${REV_OWNER}:${BRANCH}&state=open&per_page=1" 2>/dev/null || true)
+REV_PR=$(printf '%s' "$rev_pr_json" | jq -r '.[0].number // ""' 2>/dev/null || printf '')
+[ -n "$REV_PR" ] || refuse reviews_unreadable:no_open_pull_request
+rev_json=$(sh "$GH_REST" api "repos/${REV_SLUG}/pulls/${REV_PR}/reviews?per_page=100" 2>/dev/null || true)
+[ -n "$rev_json" ] || refuse reviews_unreadable:lookup_failed
+printf '%s' "$rev_json" | jq -e 'type == "array"' >/dev/null 2>&1 \
+    || refuse reviews_unreadable:lookup_unparseable
+human_reviews=$(printf '%s' "$rev_json" | jq -r '
+    [ .[]? | select((.user.type // "") != "Bot")
+           | select(((.user.login // "") | endswith("[bot]")) | not) ] | length' 2>/dev/null || printf '')
+[ -n "$human_reviews" ] || refuse reviews_unreadable:lookup_unparseable
+[ "$human_reviews" = "0" ] || refuse pull_request_reviewed
 
 # LIVENESS IS CHECKED HERE, NOT EARLIER, AND THE ORDER IS THE DESIGN. `claim_active` guards
 # against acting on a branch a run is still committing to -- so it must sit before the first

@@ -44,9 +44,10 @@ holder once. A reviewed pull request is left alone, by name.
       and pushed, once per unit (#20260830042803-take-the-act-on-every-catchable-claim-in-the-run.md)
 - [ ] A reviewed pull request is refused by its own word, branch byte-identical;
       every existing refusal unchanged (#20260830042803-refuse-a-pull-request-a-person-has-already-reviewed.md)
-- [ ] When a bounded act may read a judgement is written once, consumers
+- [x] When a bounded act may read a judgement is written once, consumers
       enumerated, suite failing on a fourth (#20260830042803-state-when-a-bounded-act-may-read-a-judgement.md)
 
 ## Changelog
 
 - 2026-08-30 — issue #744
+- 2026-08-30 — ticket archived — 20260830042803-state-when-a-bounded-act-may-read-a-judgement.md

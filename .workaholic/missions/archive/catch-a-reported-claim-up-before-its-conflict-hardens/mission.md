@@ -2,7 +2,7 @@
 type: Mission
 title: Catch a reported claim up before its conflict hardens
 slug: catch-a-reported-claim-up-before-its-conflict-hardens
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-30T04:26:00+00:00
 author: a@qmu.jp
@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260830-044152
 ---
 
 # Catch a reported claim up before its conflict hardens
@@ -39,13 +40,22 @@ holder once. A reviewed pull request is left alone, by name.
 
 ## Acceptance
 
-- [ ] A `queue_drained` claim of this identity still `mechanical` is caught up
+- [x] A `queue_drained` claim of this identity still `mechanical` is caught up
       and pushed, once per unit (#20260830042803-take-the-act-on-every-catchable-claim-in-the-run.md)
-- [ ] A reviewed pull request is refused by its own word, branch byte-identical;
+- [x] A reviewed pull request is refused by its own word, branch byte-identical;
       every existing refusal unchanged (#20260830042803-refuse-a-pull-request-a-person-has-already-reviewed.md)
-- [ ] When a bounded act may read a judgement is written once, consumers
+- [x] When a bounded act may read a judgement is written once, consumers
       enumerated, suite failing on a fourth (#20260830042803-state-when-a-bounded-act-may-read-a-judgement.md)
 
 ## Changelog
 
 - 2026-08-30 — issue #744
+- 2026-08-30 — ticket archived — 20260830042803-state-when-a-bounded-act-may-read-a-judgement.md
+- 2026-08-30 — ticket archived — 20260830042803-read-which-reported-claims-are-catchable.md
+- 2026-08-30 — ticket archived — 20260830042803-refuse-a-pull-request-a-person-has-already-reviewed.md
+- 2026-08-30 — ticket archived — 20260830042803-take-the-act-on-every-catchable-claim-in-the-run.md
+- 2026-08-30 — ticket archived — 20260830042803-report-each-catch-up-in-the-vocabulary-that-exists.md
+- 2026-08-30 — ticket archived — 20260830042803-name-each-reported-claim-s-mergeability-in-the-report.md
+- 2026-08-30 — ticket archived — 20260830042804-keep-one-unit-to-one-question.md
+- 2026-08-30 — ticket archived — 20260830042804-drill-the-widened-catch-up-offline.md
+- 2026-08-30 — mission achieved — mission.md

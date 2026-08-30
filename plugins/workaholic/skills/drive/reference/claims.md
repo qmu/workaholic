@@ -359,7 +359,7 @@ moment of its act rather than trusting a list it was handed, which is the discip
 | Word | Class | What established it, and what a consumer may do |
 | ---- | ----- | ----------------------------------------------- |
 | `clean` | judgement | `git merge-tree` produced no conflict at all. It says the merge *would* apply as of this read; the base moves every half hour, so it proves nothing durable. **Report it**; the catch-up re-derives it before acting. |
-| `mechanical` | judgement | Every conflicted path is one the shared rule (`ship/scripts/lib/conflict-class.sh`) can settle without a judgement: an append-only `.workaholic/` tail, a version/lockstep manifest, or generated output — including an OKF index, wholly generated or generated-inside-its-markers. A consumer may **act** only through `catch-up-claim.sh`, which re-derives this and applies its own six refusals; nothing acts on the word itself. |
+| `mechanical` | judgement | Every conflicted path is one the shared rule (`ship/scripts/lib/conflict-class.sh`) can settle without a judgement: an append-only `.workaholic/` tail, a version/lockstep manifest, or generated output — including an OKF index, wholly generated or generated-inside-its-markers. A consumer may **act** on it only under *When a bounded act may read a judgement* below, which is where that exception and its enumerated consumers live; nothing acts on the word itself. |
 | `content` | judgement | Some other path conflicts, so a person must judge which side keeps its behaviour. The catch-up refuses it `content_conflict`, writing nothing, and `/moderate`'s `catchup-blocked:<unit>` step asks the claim holder. **Never resolved by a machine.** |
 | `unanswerable` | judgement | The **absence** of a reading — no merge base, truncated history, an unreadable ref, a git without `merge-tree --write-tree`. It must never be reported as `clean` and never collapse into `content`: a wrong `clean` pushes a merge nobody proved, a wrong `content` only delays a unit. Named with its own reason and left alone. |
 
@@ -521,6 +521,55 @@ step that composes none — exactly as the proofs-and-judgements pin does for th
 before anybody asked reads younger than it is. That is the honest direction — understating an
 age asks a person to look sooner than the truth would — so a consumer says *asked about since*
 and never asserts how long the artifact itself has been stuck.
+
+### When a bounded act may read a judgement
+
+The rule at the top of this section — **a consumer may act on a proof, and may only report or
+ask about a judgement** — has one exception, and it was half-written until 2026-08-30 (mission
+`catch-a-reported-claim-up-before-its-conflict-hardens`). The `mechanical` row above carried it
+inline, as a fact about *one word*: a consumer may act on that reading only through
+`catch-up-claim.sh`. That is correct and it cannot govern a **fourth** act somebody adds next
+month against a different judgement, which is exactly how the classification would start
+drifting again — the thing the tables themselves exist to prevent.
+
+**The rule, stated once.** An act may read a judgement only when **all four** hold:
+
+1. **It re-derives that judgement at the moment of the act**, from the reader itself, rather
+   than trusting a list it was handed. This is the load-bearing clause: a judgement is by
+   definition a reading that can become false by looking again, so the gap between the survey
+   that named a candidate and the write that acts on it is precisely where the reading goes
+   stale. It is the discipline `delete-retired-claim-branch.sh` already carries across an
+   executor boundary, where that gap is a queue and a checkout.
+2. **It is idempotent.** Running it twice over the same unit does the work once and reports the
+   no-op by its own word (`already_current`), so a reading that flipped between two ticks costs
+   a report line rather than a second write.
+3. **It is reversible.** Every write it makes can be undone by an ordinary act of the
+   repository — a merge commit that can be reverted, never a rebase, an amend, a force-push or
+   a deletion of something the base does not carry.
+4. **It refuses every bound by its own word**, writing nothing and exiting 0, so a refusal is
+   legible as the specific thing that stopped it rather than as a generic denial.
+
+**What it is not a licence for.** A judgement that is the **absence** of a reading —
+`unanswerable`, `identity_unresolved`, `shallow_history` — is never actable under this rule
+however bounded the act: acting on an absence is the failure the three-valued lookups exist to
+avoid, and clause 1 cannot be satisfied by a re-derivation that answers nothing either. Nor
+does the rule reach a judgement whose next step is a **person's judgement** rather than a
+mechanical settlement: `content` stays refused, `awaiting_verification` stays reported, and
+`stale` stays reported and never acted on, exactly as their own rows say.
+
+**The consumers, enumerated by name.** A glob would quietly pass an act added with no rule at
+all, which is the same reason the proof-gated consumers are enumerated rather than discovered:
+
+| Acting consumer | The judgement it reads | How each clause is met |
+| --------------- | ---------------------- | ---------------------- |
+| `catch-up-claim.sh` | `mergeability == mechanical` (`claim-mergeability.sh`) | Re-derives by calling `claim-mergeability.sh` itself after resolving the unit; `already_current` on a branch that already contains the base, touching no ref; its write is a **merge commit** on the claim branch, revertible and never a rewrite; refuses `content_conflict`, `not_my_claim`, `foreign_identity`, `claim_active`, `dirty_worktree`, `scan_held:<tier>`, `pull_request_reviewed`, … each by its own word |
+
+**The table is prose, so it can lie**, and `scripts/test-workflow-scripts.mjs` pins it **in both
+directions**: a script that both reads a judgement-emitting reader and carries an acting call
+site must appear in this table, and a consumer named here that stops re-deriving its judgement
+fails. One direction alone is half a rule — an unenumerated act has no bound at all, and an
+enumerated one that trusts a handed-in reading has lost the clause that makes the exception
+safe.
 
 ## Claim a unit
 
@@ -836,9 +885,24 @@ look like a failure.
 
 **Every refusal writes nothing and exits 0**, each by its own word: `content_conflict`,
 `not_my_claim`, `foreign_identity`, `identity_unresolved`, `claim_active`, `dirty_worktree`,
-`scan_held:<tier>`, `not_a_work_branch`, `ambiguous_claim`,
-`mergeability_unanswerable:<reason>`, plus the composition's own (`no_such_claim`, `no_origin`,
-`origin_unreachable`, `catchup_<class>`, `validation_failed:<check>`, `push_failed`). The one
+`scan_held:<tier>`, **`pull_request_reviewed`**, **`reviews_unreadable:<reason>`**,
+`not_a_work_branch`, `ambiguous_claim`, `mergeability_unanswerable:<reason>`, plus the
+composition's own (`no_such_claim`, `no_origin`, `origin_unreachable`, `catchup_<class>`,
+`validation_failed:<check>`, `push_failed`).
+
+**`pull_request_reviewed` is the one bound the 2026-08-30 widening added, and it belongs to the
+widening rather than to the act.** While the only candidates were `report_undelivered` units the
+question could not arise: such a pull request was refused by a **transport**, so nobody is
+looking at it. A `queue_drained` unit's pull request may be one a person is **mid-review** on,
+and a push resets an approval. What counts as a person's attention is decided rather than
+inherited from the seam: the reviews endpoint returns only **submitted** reviews, so presence is
+submission; `APPROVED`, `CHANGES_REQUESTED`, `COMMENTED` and `DISMISSED` all count, because the
+safer reading of an ambiguous seam is that somebody looked; and a **bot's** review is not a
+person's, since a review bot comments on every pull request the loop opens and counting that
+would refuse the whole widening. The lookup is **three-valued** for the reason the
+merged-pull-request lookup is: every way of failing to ask answers `reviews_unreadable:<reason>`
+and never falls through, because a wrong *nobody has reviewed* pushes over somebody's approval
+while a wrong refusal only delays a unit by an hour. The one
 state that is not byte-identical after a refusal is `validation_failed`: by then the merge is
 committed **in the unit's own worktree**. The **branch** — the claim, the thing every other
 runner reads — is untouched, because nothing was pushed; the local merge is reported as

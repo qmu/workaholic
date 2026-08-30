@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-30T04:28:04+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:

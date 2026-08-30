@@ -3,6 +3,7 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [work-20260830-044152](work-20260830-044152.md) - The catch-up now reaches every reported claim still mechanical rather than only the ones a transport refused, bounded by a new reviewed-pull-request refusal and by a rule, written once, for when a bounded act may read a judgement.
 * [work-20260830-024048](work-20260830-024048.md) - Four of the tick's questions now name how long their blocker has been standing, read from the question ledger the tick log already writes, and every value is classified a judgement nothing may act on.
 * [work-20260830-004104](work-20260830-004104.md) - A /moderate step whose embedded jq fails to compile now reports degraded instead of ok, and the suite compiles every embedded jq program at build time.
 * [Make a direction's lifecycle a declared stage](work-20260829-212940.md)

@@ -9,14 +9,14 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours: 0.9
+actual_hours: 1.2
 feedback: [20260830081659-stop-two-runs-from-claiming-and-driving-one-unit.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
 gate_type:
 gate_target:
 gate_assert:
-claim: work-20260830-084240
+claim: work-20260830-094214
 ---
 
 # Stop two runs from claiming and driving one unit
@@ -48,7 +48,7 @@ happens, one person is told once, both branches named.
       by its own word, and the loser holds no branch, worktree or commit. (#20260830082251-make-the-claim-contend-for-one-ref-per-unit.md)
 - [x] A unit whose content landed through a racing twin reads `superseded` at the mission
       grain from the tree, so the existing retirement path reaches it. (#20260830082251-answer-superseded-at-the-mission-grain-from-the-tree.md)
-- [ ] A lost race is named where a person reads it — the run report and one `/moderate`
+- [x] A lost race is named where a person reads it — the run report and one `/moderate`
       question naming both branches — proved by a drill with a breaker row. (#20260830082251-report-a-lost-race-where-a-person-reads-it.md)
 
 ## Changelog
@@ -57,3 +57,6 @@ happens, one person is told once, both branches named.
 - 2026-08-30 — ticket archived — 20260830082251-re-check-the-claim-before-the-first-archive-write.md
 - 2026-08-30 — ticket archived — 20260830082251-reproduce-the-claim-race-offline-in-a-drill.md
 - 2026-08-30 — run recorded (+0.9h) — session_01W6TxsNWDVy4A7CZSg3wKqx
+- 2026-08-30 — run recorded (+0.3h) — cse_01DzM3RauLKBVSvjwNV1W4zw
+- 2026-08-30 — ticket archived — 20260830082251-report-a-lost-race-where-a-person-reads-it.md
+- 2026-08-30 — story reported — work-20260830-094214

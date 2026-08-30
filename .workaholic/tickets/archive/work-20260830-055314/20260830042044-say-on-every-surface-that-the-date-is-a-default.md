@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-30T04:20:44+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -84,3 +85,50 @@ carry it, and nowhere else.
 - Keep it to one sentence: the strategy is bounded prose an operator reads whole,
   and a paragraph of machine apology at the top of it is the noise this repository
   retires posts for.
+
+## Final Report
+
+Development completed as planned.
+
+The default is named on exactly three surfaces and nowhere else:
+
+1. **The strategy's own `## Schedule` prose** (step 9b) — one sentence naming the
+   one-week default, the **basis** it was counted from (the reader's own `basis`), and
+   that editing the date before merging is how the operator sets their own.
+2. **The pull-request body** (step 10) — `target_date:default` with its basis, or
+   `target_date:stated`, in the clause the step already reserves for what the run decided
+   and why. This is the body the operator reads *before* deciding to merge, and the merge
+   is the authorship.
+3. **Step 13's one-line run report** — the same two words, so a direction the loop dated
+   and one the operator dated are told apart without a new field anywhere.
+
+A strategy whose date the ask stated carries none of that wording, on any of the three.
+`SKILL.md` and `CLAUDE.md` carry the rule and its premise in the same change.
+
+**No frontmatter key was added.** `git diff --stat` is empty over
+`skills/strategy/scripts/` and `survey-strategies.sh`, so `read.sh`, `list.sh`, `amend.sh`
+and every date reading are byte-identical and no reader changed behaviour.
+
+Verified: `node scripts/build-plugins/build.mjs`, `verify.mjs`,
+`node scripts/test-workflow-scripts.mjs` — 5364 passed, 0 failed;
+`sh scripts/e2e/loop-drill.sh verify-revision` — pass, 11 load-bearing rows;
+`verify-stage` — pass, 16 load-bearing rows.
+
+### Discovered Insights
+
+- **Insight**: the two surfaces the ticket calls "the pull-request body" and "the run
+  report" are composed in different steps (10 and 13) from the same facts, and each
+  already carries an obligation written in the same shape — `carried:`/`dropped:` and
+  `assignee_unmapped:` both appear in both places by name.
+  **Context**: `target_date:` joins an existing pattern rather than starting one, which is
+  why it needs no new plumbing and no field. A later reader adding a fourth such fact
+  should add it to both steps in one change, as all three existing ones are.
+
+- **Insight**: the reason for putting the wording in prose rather than in a field is
+  sharper than "one less field" — a `defaulted: true` becomes **false** the moment the
+  operator edits the date, and nothing in the loop would clear it, because `amend.sh` is
+  bounded to the three revisable parts and would leave it standing.
+  **Context**: the artifact would then assert, permanently, that a date the operator
+  personally chose was a machine's guess. That is why the sentence lives inside the
+  `## Schedule` prose the operator is editing anyway: correcting the date and correcting
+  the claim about it are the same act.

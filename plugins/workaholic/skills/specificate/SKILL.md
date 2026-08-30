@@ -220,6 +220,8 @@ A **strategy** (`workaholic:strategy`) is the operator's outbound, resolved dire
 
 **`no_target_date` is narrowed, not deleted.** It answers the one case a default must never cover: an ask that **states** a date this run cannot resolve to a single `YYYY-MM-DD`. An ask stating no date at all no longer reaches it.
 
+**A defaulted date says so on three surfaces and nowhere else** (2026-08-30, the same mission): the strategy's own `## Schedule` prose (one sentence — the default, the basis it was counted from, and that editing the date before merging is how the operator sets their own), the **pull-request body** beside the form's other outcomes, and step 13's **run report** (`target_date:default` with its basis, or `target_date:stated`). A date the ask stated carries none of that wording. **No frontmatter key is added**: a field would be a second thing every reader must learn and every amendment must keep current, and once the operator edits the date a `defaulted: true` would be a lie nothing clears — so every strategy reader is byte-identical and a later amendment leaves the artifact exactly as an ordinary revision does. The premise is what forces this: the operator's merge *is* the authorship, and a merge is an authorship only if the person merging can see what they are being asked to author.
+
 **There is no floor and no ceiling on strategies**, unlike a mission's two-ticket floor, so the bar above is the only brake on a run emitting them indefinitely. Hold it literally — and note that the **owner** requirement is what still holds it now that the date is defaultable: an unassigned or unmapped issue is record-only exactly as before, so a stray ask cannot mint a direction.
 
 ### Strategy lifecycle announcements

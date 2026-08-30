@@ -293,6 +293,27 @@ and every abort reports a machine-readable reason.
    date came from. An `ok: false` (`bad_ask_date`) → record-only naming it, exactly as
    every other refusal below.
 
+   **A defaulted date says so in the `## Schedule` prose, in one sentence** (2026-08-30,
+   mission `draft-a-dateless-direction-with-the-operator-s-one-week-default`). The
+   exemption's whole premise is that the operator's **merge is the authorship**, and a
+   merge is an authorship only if the person merging can see what they are being asked to
+   author. Without it a direction the loop dated reads exactly like one the operator
+   dated, and the veto — edit the date before merging — is a veto nobody knows they hold.
+   So the `<schedule prose>` argument names three things and stops: that the date is the
+   **one-week default**, the **basis** it was counted from (the reader's own `basis`), and
+   that **editing it before merging is how the operator sets their own**. Keep it to one
+   sentence: the strategy is bounded prose an operator reads whole, and a paragraph of
+   machine apology at its top is the noise this repository retires posts for.
+
+   **A date the ask stated carries none of that wording** — the schedule prose is then the
+   ask's own, exactly as before — and **no frontmatter key is added**. The wording lives in
+   the artifact's own prose rather than in a field because a field is a second thing every
+   reader must learn and every amendment must keep current, and once the operator edits
+   the date a `defaulted: true` would be a lie nothing clears. `read.sh`, `list.sh`,
+   `amend.sh`, `survey-strategies.sh` and every date reading stay byte-identical, and a
+   later amendment replacing the date leaves the artifact exactly as an ordinary revision
+   does.
+
    The aim and the owner come from the **ask**, never from this session; the date comes
    from the ask when it states one and otherwise from the default above (an ask that
    **states** a date this run cannot resolve is still record-only, `no_target_date` — a
@@ -465,7 +486,14 @@ and every abort reports a machine-readable reason.
    mapping, `assignee_unmapped: <the login>` with the artifacts left team-owned** — a
    team-owned artifact is a real outcome, but one nobody was told about reads like a
    decision somebody made, and the repair (a line in `.claude/git-identities`) is an
-   operator's act nobody can take without being told. Keep it to what is true —
+   operator's act nobody can take without being told. **And, on the strategy form, whether
+   the `target_date` was stated or defaulted** (2026-08-30, mission
+   `draft-a-dateless-direction-with-the-operator-s-one-week-default`) — `target_date:default`
+   with the basis it was counted from, or `target_date:stated`. Named **once**, here, beside
+   the form's other outcomes: this is the body the operator reads *before* deciding to merge,
+   and the merge is the authorship, so what the run decided about their date belongs in the
+   same clause as everything else it decided. A stated date says `target_date:stated` and
+   nothing more. Keep it to what is true —
    a proposal that carried nothing because the ask named nothing says so in one clause, not
    as a warning. **A record-only outcome names the refs it *would* have carried and that
    nothing was emitted**, so a dropped link and an unproposed ask do not look alike here
@@ -537,6 +565,11 @@ and every abort reports a machine-readable reason.
     indistinguishable from a run that never reached the rule. Then the form chosen
     (mission with N tickets / loose ticket /
     **strategy `<slug>`, PR left open for the operator** — with
+    **`target_date:default` (naming the basis it was counted from) or
+    `target_date:stated`** (2026-08-30, mission
+    `draft-a-dateless-direction-with-the-operator-s-one-week-default`), so a direction the
+    loop dated and one the operator dated are told apart in the report **without a new field
+    anywhere**; and with
     `successor_of:<predecessor>:<n refs carried>` when the ask announced one, or the
     refusal that stopped it (`strategy_not_found` / `predecessor_active` /
     `no_predecessor`) (2026-08-28) — / **strategy `<slug>` closed

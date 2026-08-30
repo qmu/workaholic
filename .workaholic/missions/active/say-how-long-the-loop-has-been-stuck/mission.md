@@ -51,3 +51,4 @@ Nothing gates, holds, re-asks, escalates or merges on the age.
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-30 — ticket archived — 20260830022138-read-a-condition-s-age-from-the-tick-log.md
 - 2026-08-30 — ticket archived — 20260830022138-bound-the-age-walk-and-say-when-it-was-bounded.md
+- 2026-08-30 — ticket archived — 20260830022138-carry-the-age-on-the-undrivable-unit-question.md

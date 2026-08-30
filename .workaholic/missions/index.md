@@ -2,6 +2,7 @@
 
 ## active
 
+* [catch-a-reported-claim-up-before-its-conflict-hardens](active/catch-a-reported-claim-up-before-its-conflict-hardens/mission.md) - Catch a reported claim up before its conflict hardens
 * [deploy-the-docs-site-on-merge-to-main](active/deploy-the-docs-site-on-merge-to-main/mission.md) - Deploy the docs site on merge to main
 * [draft-a-dateless-direction-with-the-operator-s-one-week-default](active/draft-a-dateless-direction-with-the-operator-s-one-week-default/mission.md) - Draft a dateless direction with the operator's one-week default
 * [make-the-routine-create-body-documented-and-buildable](active/make-the-routine-create-body-documented-and-buildable/mission.md) - Make the routine create body documented and buildable

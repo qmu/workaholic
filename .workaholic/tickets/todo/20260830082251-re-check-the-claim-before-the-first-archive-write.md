@@ -87,3 +87,47 @@ refuses by its own word, writes nothing on refusal, and is idempotent.
   stale. Prefer refusing only on positive evidence that the claim is another runner's, and treat an
   unreadable scan as *proceed* — the opposite bias from the claim act, because here a wrong refusal
   strands finished work.
+
+## Final Report
+
+Development completed as planned. `archive.sh` re-derives who holds the unit immediately before the
+ticket moves — beside the subject gate, and **ahead of the todo-layout migration**, which stages
+what it converges, so a refusal leaves the tree byte-identical in the strict sense: nothing moved,
+nothing staged, nothing committed, and the ticket still in `todo/`.
+
+The reading is `drive/scripts/claim-holder.sh`, a pure read composing `claims_scan` and
+`claims_unit_resolution` from `lib/claims.sh`. No second oracle, no new `resume_reason`, and
+nothing written anywhere. It answers `mine` / `other` / `ambiguous` / `unknown`, and `archive.sh`
+refuses on the two words that are **positive evidence** — `claim_taken_over` (a different live
+branch now holds this unit) and `ambiguous_claim` (two live claims, the race itself).
+
+The bias named in the ticket's Considerations is implemented literally and is the **opposite** of
+the claim act's: an unreadable scan, an unreachable origin, a shallow clone or a branch with no
+claim row all answer `unknown`, and `unknown` proceeds — because a wrong refusal strands finished
+work outside the archive and needs the hand-written `git mv` this seam exists to prevent. The
+merged-pull-request lookup is switched off for this reading through its existing opt-out: it
+compares branch identity and never asks whether a unit is finished, so the one verdict the lookup
+can change cannot move the answer, and a REST call per claim per ticket would buy nothing.
+
+The new consumer is enumerated in `claims.md`'s *When a bounded act may read a judgement*, and the
+rule gained the paragraph it needed to be honest: **two shapes, one rule**. Until now every
+enumerated act **licensed** itself on a judgement; this one **gates** itself on one, and the
+direction decides which way an absence falls — a licensing act must refuse on an absence, a gating
+act must proceed on one, for the same underlying reason. `scripts/test-workflow-scripts.mjs`'s
+`JUDGEMENT_READERS` gained `claim-holder.sh`, which is what makes DIRECTION ONE sweep `archive.sh`
+in.
+
+Verified: the pin passes in **both** directions and was proved able to fail — deleting the
+`archive.sh` row from the rule's table turns `every script that acts on a judgement is enumerated
+in the rule` red (5391/1), and restoring it returns 5394/0. `verify-claim-race` asserts both sides:
+the raced runner's first write refuses by its own word with `git status`, `HEAD` and the ticket's
+location unchanged, and the **sole claim holder's** archive succeeds exactly as before, which is
+the row that proves the gate strands nothing.
+
+### Discovered Insights
+
+- **Insight**: a gate placed "before the write" must be placed before the *migration*, not merely
+  before the `mv`.
+  **Context**: `archive.sh` runs `migrate-todo-owners.sh` between the subject gate and the ticket
+  move, and that migration stages what it converges. A re-check placed after it would refuse with
+  a dirty index — the half-archived state the subject gate was added in 2026-08-12 to prevent.

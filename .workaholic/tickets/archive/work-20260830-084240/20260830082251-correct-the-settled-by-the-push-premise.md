@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-30T08:22:51+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -80,3 +81,43 @@ first so the rule and the mechanism stop disagreeing while the repair is being w
   tables, so the tables' rows must be left keyed exactly as they are.
 - The temptation is to reclassify `ambiguous` while touching it. Resist: it is a judgement because
   it is the absence of a settled reading, which the repair does not change.
+
+## Final Report
+
+Development completed as planned, and the correction carries one more fact than the ticket
+anticipated. Both occurrences in `drive/reference/claims.md` are corrected in place — the
+two-live-claims paragraph in *The model* and the `ambiguous` row of *Resolving a unit to one row* —
+each now quoting the retired half explicitly and pointing at the new *What the claim contends for*
+section, and `CLAUDE.md`'s claim-protocol section carries the same correction plus the mission's
+own record. Every surviving occurrence of the phrase is inside a sentence that says it was false.
+
+*What the claim contends for* states what the measurement showed, in the document's own voice:
+the premise holds for `claim.sh resume` (one ref, non-fast-forward arbitration, `resume_race_lost`)
+and did **not** hold for a fresh claim (a clock-derived ref, no contention), with the 2026-08-30
+pair `work-20260830-055314` / `work-20260830-055318` named. It states the property the repair must
+deliver — one ref per unit, pushed create-only, so the first push wins at the remote — so ticket 3
+has a written target.
+
+Beyond the ticket: it also records the **measurement ticket 3's Considerations asked for**, because
+the answer changes what the repair can be. `refs/claims/*` is refused 403 by this container's proxy
+on create and on delete, while the same `--force-with-lease` flag against `refs/heads/<work-*>`
+succeeds — so the refusal is the namespace, not the flag, and `refs/heads/*` is the only writable
+one. That is recorded as a finding for the mission with its raw evidence, per ticket 3's own
+instruction that such a result is "a finding for the mission, not a workaround to invent here".
+
+`ambiguous_claim`'s behaviour is untouched: still reported, never picked between. Only its
+justification moved, and it moved in the direction that makes the refusal more necessary rather
+than less.
+
+Verified: `grep -o ".\{0,90\}settles a race by the push.\{0,120\}"` over both files returns only
+corrected occurrences; `node scripts/test-workflow-scripts.mjs` passes (5394/0), including the
+proofs-and-judgements pin that reads this file. No verdict word was added or removed and no
+behaviour moved in this ticket.
+
+### Discovered Insights
+
+- **Insight**: a premise stated once and then quoted verbatim in a second document is a premise
+  that gets corrected in one place and left wrong in the other.
+  **Context**: the phrase appeared three times across two files, in two different arguments
+  (`claims_unit_resolution`'s `ambiguous` and the model's two-live-claims paragraph). The grep in
+  this ticket's own Verification method is what caught the third.

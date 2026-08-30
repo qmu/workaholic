@@ -52,3 +52,4 @@ happens, one person is told once, both branches named.
       question naming both branches — proved by a drill with a breaker row. (#20260830082251-report-a-lost-race-where-a-person-reads-it.md)
 
 ## Changelog
+- 2026-08-30 — ticket archived — 20260830082251-correct-the-settled-by-the-push-premise.md

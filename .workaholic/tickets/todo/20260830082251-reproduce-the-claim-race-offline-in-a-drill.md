@@ -84,3 +84,38 @@ rather than a description.
   rather than the scheduler's.
 - Ticket 8 rewrites these assertions to their post-repair form. Write them so that inversion is a
   small diff, not a rewrite.
+
+## Final Report
+
+Development completed as planned. `verify-claim-race` is added to `scripts/e2e/loop-drill.sh`,
+dispatched by its verb, named in the usage line, and registered `hermetic` in
+`docs/loop-drill-runbook.md` §9. It stages the race with **no timing at all**: runner A runs the
+real `claim.sh` and pushes; A's ref is taken off the bare origin with `update-ref` so runner B's
+`claims_scan` legitimately sees the origin A saw; B claims and pushes; A's ref is restored. Both
+runs are the real claim act, neither is refused anything, and the ordering is the fixture's rather
+than the scheduler's — which is what step 1's own Consideration required.
+
+It asserts the defect, which is still live: two distinct `work-*` refs on origin, both carrying a
+`Claim a PR-unit` commit with the same `Unit:` trailer, and the oracle reporting one unit held by
+two branches. The repair that would stop the race (ticket 3) is blocked on a measured transport
+refusal, so those rows are asserting today's behaviour exactly as written rather than a repair.
+
+Two of this ticket's planned assertions moved to the tickets that own them, as its own header
+anticipated ("tickets 3–6 are expected to turn these assertions over"): the loser's mission-grain
+verdict is asserted in its **repaired** form (`superseded`) because ticket 6 shipped in the same
+branch, and the duplicated-archive assertion is replaced by the stronger fact ticket 5 shipped —
+the second runner's first write is **refused** with the tree byte-identical, so the duplicate
+never reaches the base at all. Asserting a duplicate the same branch now prevents would have left
+CI red by construction.
+
+Verified: `sh scripts/e2e/loop-drill.sh verify-claim-race` passes (9 load-bearing rows, 1 breaker);
+`verify-all` reports 35 drills, 0 failed, with this drill counted in the proved total;
+`node scripts/test-workflow-scripts.mjs` passes (5394/0).
+
+### Discovered Insights
+
+- **Insight**: a claim race can be staged deterministically by editing the bare origin's refs
+  between two real `claim.sh` runs, rather than by running them concurrently.
+  **Context**: the only input `claim.sh` has about competitors is its own fetched view of origin,
+  so reproducing the two views reproduces the race exactly — with no sleep deciding the outcome.
+  Any future drill over a coordination protocol here can use the same shape.

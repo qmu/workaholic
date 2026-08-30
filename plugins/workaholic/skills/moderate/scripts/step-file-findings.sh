@@ -45,6 +45,7 @@
 set -eu
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+. "${SCRIPT_DIR}/lib/jq-guard.sh"
 TABLE="${SCRIPT_DIR}/../reference/workflow.md"
 LEDGER="${SCRIPT_DIR}/list-finding-issues.sh"
 . "${SCRIPT_DIR}/lib/question-id.sh"

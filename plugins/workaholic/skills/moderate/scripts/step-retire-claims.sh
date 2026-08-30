@@ -130,6 +130,7 @@
 set -eu
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+. "${SCRIPT_DIR}/lib/jq-guard.sh"
 DRIVE_SCRIPTS="${SCRIPT_DIR}/../../drive/scripts"
 
 TICK=""

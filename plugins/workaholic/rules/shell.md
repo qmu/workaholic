@@ -12,6 +12,35 @@ paths:
 - Use `set -eu` explicitly as fallback
   - Some environments may strip shebang flags
 
+## An embedded jq program's fallback covers the data, never our own defect
+
+The shape is everywhere in these scripts and it is correct as far as it goes:
+
+```sh
+subjects=$(printf '%s' "$STATE" | jq -c '…' 2>/dev/null || echo '[]')
+```
+
+`|| echo '[]'` is right for a **data** problem — an absent key, an empty array, a reader that
+answered nothing. It is catastrophic for **ours**: a jq program that does not *compile* — a
+missing parenthesis, an apostrophe inside a jq comment, a renamed `--arg` — discards through the
+same fallback, so the caller reads an empty answer and reports success. `sh -n` cannot see it
+(the shell parses fine; it is the embedded jq that does not), which is what made the measured
+case invisible until it was hunted down by hand.
+
+- **Keep the fallback and keep the `2>/dev/null`.** The stderr of a legitimately degraded read is
+  noise on an hourly unattended run; the fix is to classify, not to shout.
+- **jq's own exit status is the classifier**: **3** is a compile error (our defect — the program
+  cannot run at all), 5 is a runtime or input error, 1 is `-e` with a null/false result.
+- **A caller that reports a status must not report success on a 3.** Inside `workaholic:moderate`
+  that is already automatic: `skills/moderate/scripts/lib/jq-guard.sh` records the fact and
+  `run.sh` reclassifies the step `degraded`/`jq_compile_error`, in one place. Elsewhere, a script
+  that answers a caller's question owes the same distinction by hand.
+- **Every extractable embedded program is compiled by the suite** (`every embedded jq program
+  compiles`), so a compile error fails the commit that introduced it rather than a tick at 03:00.
+  A program built by string interpolation cannot be extracted without evaluating the shell; those
+  are counted and named, never silently skipped — so a program assembled from variables is worth
+  avoiding where a `--arg` would do.
+
 ## Enforcement
 
 This convention is machine-checked, so it cannot silently regress:

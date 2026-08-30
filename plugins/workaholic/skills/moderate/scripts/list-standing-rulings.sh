@@ -72,6 +72,7 @@
 set -eu
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+. "${SCRIPT_DIR}/lib/jq-guard.sh"
 UNATTRIBUTED="${SCRIPT_DIR}/../../strategy/scripts/unattributed-work.sh"
 IDENTITY_AUDIT="${SCRIPT_DIR}/../../workaholify/scripts/audit-identity-coverage.sh"
 

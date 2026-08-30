@@ -47,6 +47,7 @@
 set -eu
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+. "${SCRIPT_DIR}/lib/jq-guard.sh"
 LIST="${SCRIPT_DIR}/list-standing-rulings.sh"
 OPEN="${SCRIPT_DIR}/list-open-rulings.sh"
 

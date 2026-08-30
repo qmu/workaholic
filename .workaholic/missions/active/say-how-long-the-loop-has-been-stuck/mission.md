@@ -49,3 +49,4 @@ Nothing gates, holds, re-asks, escalates or merges on the age.
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-30 — ticket archived — 20260830022138-read-a-condition-s-age-from-the-tick-log.md

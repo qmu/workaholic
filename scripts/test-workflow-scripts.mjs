@@ -19604,7 +19604,202 @@ function testCommitSizeSemantics() {
   } finally { cleanup(repo); }
 }
 
+// HOW LONG HAS THIS CONDITION BEEN STANDING (2026-08-30, mission
+// `say-how-long-the-loop-has-been-stuck`). The reader answers an age from the question
+// ledger the subject key already writes. Three states have to stay apart: a key first
+// named days ago, a key nobody has ever asked about, and a log we could not read — the
+// last of which, collapsed into the second, renders an eleven-day blocker as one that
+// just started, which is the whole defect the mission exists to close.
+//
+// THE LEDGER LINES ARE WRITTEN BY THE REAL WRITER. `ask-question.sh --record-ask` is
+// driven rather than hand-authored, so the test cannot pass against a line shape the
+// writer never produces (`verify-ci-retirement`'s measured lesson).
+function testConditionAgeReader() {
+  const AGE = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/condition-age.sh")}`;
+  const ASK = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/ask-question.sh")}`;
+  const dir = makeRepo("main");
+  try {
+    const age = (key, root = dir) => JSON.parse(run(dir, `${AGE} --key '${key}' --root ${root}`).stdout);
+    mkdirSync(join(dir, ".workaholic"), { recursive: true });
+
+    // ---- A KEY THE LEDGER HAS NEVER CARRIED IS AN ORDINARY ABSENCE ----
+    // Absent is not degraded: this is the first time anybody is being asked.
+    let a = age("undrivable-unit:.workaholic/tickets/todo/nothing.md");
+    assertEq("a key nobody has asked about reads first_seen null and ticks 0",
+      [a.first_seen, a.ticks], [null, 0]);
+    assertTrue("and carries NO readable field, so a consumer not taught the term is unaffected",
+      !Object.prototype.hasOwnProperty.call(a, "readable"), JSON.stringify(a));
+
+    // ---- A KEY FIRST NAMED ON AN EARLIER DAY READS THAT TICK, AND A COUNT ABOVE ONE ----
+    const KEY = "undrivable-unit:.workaholic/tickets/todo/20260819-stuck.md";
+    run(dir, `${ASK} --record-ask --root ${dir} --tick 20260819-105000 --key '${KEY}' --coordinate 'C0AB12CD3:1724371200.000100' --summary 'asked about an undrivable unit'`);
+    // Later ticks of the loop, on later days. They name OTHER steps: what the age counts
+    // is how many ticks have run since, not how many times this key was named.
+    const LOG = `${POSIX_SH} ${SCRIPTS.proposeLogAppend}`;
+    for (const tick of ["20260819-115000", "20260820-105000", "20260821-105000"]) {
+      run(dir, `${LOG} --root ${dir} --tick ${tick} --step base-health --status ok --summary "green"`);
+    }
+    a = age(KEY);
+    assertEq("the earliest ledger tick is the first_seen", a.first_seen, "20260819-105000");
+    assertEq("and the count is the distinct ticks at or after it", a.ticks, 4);
+    assertTrue("a completed reading carries no readable field either",
+      !Object.prototype.hasOwnProperty.call(a, "readable"), JSON.stringify(a));
+
+    // A tick EARLIER on the first_seen day is not counted: the walk is bounded to the day
+    // by `--since` and the lexical tick comparison does the rest.
+    run(dir, `${LOG} --root ${dir} --tick 20260819-095000 --step base-health --status ok --summary "green"`);
+    assertEq("a tick earlier on the same day is before the question and is not counted",
+      age(KEY).ticks, 4);
+
+    // ---- THE RE-ASK IS THE SAME QUESTION, SO THE EARLIEST OF THE TWO WINS ----
+    const RKEY = "stalled-unit:batch-20260819063000";
+    run(dir, `${LOG} --root ${dir} --tick 20260820-105000 --step human-checkin-reasked-${slugOf(RKEY)} --status filed --summary "re-asked"`);
+    run(dir, `${ASK} --record-ask --root ${dir} --tick 20260821-105000 --key '${RKEY}'`);
+    assertEq("the ask and its one bounded re-ask are one question, dated from the earlier",
+      age(RKEY).first_seen, "20260820-105000");
+
+    // ---- A LOG THAT EXISTS AND CANNOT BE READ IS DEGRADED, BY NAME, WITH NULL COUNTS ----
+    // Never zeroed ones: zero reads as "nothing has been asked", which is the opposite.
+    const broken = mkdtempSync(join(tmpdir(), "workaholic-age-"));
+    mkdirSync(join(broken, ".workaholic"), { recursive: true });
+    writeFileSync(join(broken, ".workaholic/moderations"), "not a directory\n");
+    const d = age(KEY, broken);
+    assertEq("an unreadable log is named, with null counts and never a zero",
+      [d.readable, d.reason, d.first_seen, d.ticks], [false, "log_unreadable", null, null]);
+    rmSync(broken, { recursive: true, force: true });
+
+    // A repository with no tick history at all has asked nothing — that is absence, not
+    // degradation, and the two must not render alike.
+    const fresh = mkdtempSync(join(tmpdir(), "workaholic-age-"));
+    const n = age(KEY, fresh);
+    assertEq("a repository with no tick log has asked nothing, readably",
+      [n.first_seen, n.ticks, Object.prototype.hasOwnProperty.call(n, "readable")], [null, 0, false]);
+    rmSync(fresh, { recursive: true, force: true });
+
+    // A refusal still exits 0 and still names itself.
+    const noKey = JSON.parse(run(dir, `${AGE} --root ${dir}`).stdout);
+    assertEq("a missing key is a named refusal at exit 0",
+      [noKey.readable, noKey.reason], [false, "no_key"]);
+
+    // ---- IT IS A PURE READ ----
+    const before = run(dir, "git status --porcelain").stdout;
+    age(KEY);
+    assertEq("reading an age leaves the working tree byte-identical",
+      run(dir, "git status --porcelain").stdout, before);
+    // ON CALL SITES, NEVER ON WORDS. The script's own header explains why it does no date
+    // arithmetic and names the scripts it deliberately does not reach, so a word-level ban
+    // would fail on the sentence stating the rule.
+    const code = codeLines(join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/condition-age.sh"));
+    for (const forbidden of ["gh-rest.sh", "gh api", "curl ", "git push", "plan-units.sh", "log-append.sh"]) {
+      assertTrue(`the reader reaches no ${forbidden.trim()}`, !code.includes(forbidden), forbidden);
+    }
+    assertTrue("and does no date arithmetic, on either platform's flag",
+      !/\bdate\s+-[dv]\b/.test(code), "date arithmetic");
+  } finally { cleanup(dir); }
+}
+
+// THE WALK IS BOUNDED, AND A BOUNDED WALK SAYS SO (2026-08-30, mission
+// `say-how-long-the-loop-has-been-stuck`). The tick log is append-only and never pruned by
+// a machine, so an unbounded walk gets more expensive forever. What has to stay true is
+// that a CUT walk is honest about being cut — a bound that silently understates an age is
+// worse than one that admits it — while a walk merely shorter than the bound is
+// byte-identical to an unbounded one.
+function testConditionAgeBound() {
+  const AGE = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/condition-age.sh")}`;
+  const ASK = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/ask-question.sh")}`;
+  const LOG = `${POSIX_SH} ${SCRIPTS.proposeLogAppend}`;
+  const dir = makeRepo("main");
+  try {
+    mkdirSync(join(dir, ".workaholic"), { recursive: true });
+    const KEY = "retire-blocked:batch-20260810120000:branch_delete_failed";
+    // Six days of log. The question is first asked on the OLDEST day, and asked again — a
+    // re-ask is the same question — on a day inside every bound tested below.
+    run(dir, `${ASK} --record-ask --root ${dir} --tick 20260810-105000 --key '${KEY}'`);
+    for (const tick of ["20260811-105000", "20260812-105000", "20260813-105000", "20260814-105000"]) {
+      run(dir, `${LOG} --root ${dir} --tick ${tick} --step base-health --status ok --summary "green"`);
+    }
+    run(dir, `${LOG} --root ${dir} --tick 20260815-105000 --step human-checkin-reasked-${slugOf(KEY)} --status filed --summary "re-asked"`);
+
+    const age = (maxDays) => JSON.parse(run(dir, `${AGE} --key '${KEY}' --root ${dir}`, {
+      env: maxDays === undefined ? process.env
+        : { ...process.env, WORKAHOLIC_CONDITION_AGE_MAX_DAYS: String(maxDays) },
+    }).stdout);
+
+    // ---- A LOG SHORTER THAN THE BOUND IS BYTE-IDENTICAL TO AN UNBOUNDED WALK ----
+    const whole = age();
+    assertEq("a log shorter than the bound reads the true first_seen",
+      [whole.first_seen, whole.ticks], ["20260810-105000", 6]);
+    assertTrue("and carries neither truncated nor a floor",
+      !Object.prototype.hasOwnProperty.call(whole, "truncated")
+        && !Object.prototype.hasOwnProperty.call(whole, "first_seen_is_floor"),
+      JSON.stringify(whole));
+    assertEq("a bound larger than the log is byte-identical to the default one",
+      run(dir, `${AGE} --key '${KEY}' --root ${dir}`, {
+        env: { ...process.env, WORKAHOLIC_CONDITION_AGE_MAX_DAYS: "9999" } }).stdout,
+      run(dir, `${AGE} --key '${KEY}' --root ${dir}`).stdout);
+
+    // ---- A CUT WALK REPORTS A FLOOR, NEVER A DATE IT COULD NOT ESTABLISH ----
+    const cut = age(2);
+    assertEq("with the log cut, first_seen is the oldest tick of this key inside the bound",
+      cut.first_seen, "20260815-105000");
+    assertEq("and it is marked a floor, so a consumer renders `at least`",
+      [cut.truncated, cut.first_seen_is_floor], [true, true]);
+    // THE STANDING OF THE FIELD MOVES; ITS SHAPE DOES NOT. A prose prefix on `first_seen`
+    // would make a consumer parse English, which is how two readings drift.
+    assertTrue("the field keeps its tick-id shape", /^\d{8}-\d{6}$/.test(cut.first_seen), cut.first_seen);
+
+    // ---- `truncated` IS NOT A DEGRADATION ----
+    assertTrue("a cut walk is never readable:false",
+      !Object.prototype.hasOwnProperty.call(cut, "readable"), JSON.stringify(cut));
+    assertTrue("and its counts stay real numbers, never nulled",
+      typeof cut.ticks === "number" && cut.ticks > 0, JSON.stringify(cut));
+
+    // ---- THE ERROR IS ONE-SIDED: A CUT WALK CAN ONLY MAKE AN AGE LOOK YOUNGER ----
+    assertTrue("the floor is never older than the truth", cut.first_seen > whole.first_seen,
+      `${cut.first_seen} vs ${whole.first_seen}`);
+
+    // ---- A NON-NUMERIC BOUND FALLS BACK; IT IS A COST CONTROL, NOT A GATE ----
+    for (const bad of ["", "abc", "0", "-4"]) {
+      assertEq(`a bound of ${JSON.stringify(bad)} falls back to the default rather than failing`,
+        JSON.parse(run(dir, `${AGE} --key '${KEY}' --root ${dir}`, {
+          env: { ...process.env, WORKAHOLIC_CONDITION_AGE_MAX_DAYS: bad } }).stdout).first_seen,
+        "20260810-105000");
+    }
+
+    // ---- THE BOUND IS A COUNT OF FILES, NOT A COMPUTED DATE ----
+    // `log-read.sh` refuses date arithmetic by name because `date -d` is GNU-only and
+    // `date -v` is BSD-only; the bound must not smuggle it back in.
+    const code = codeLines(join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/condition-age.sh"));
+    assertTrue("no date arithmetic anywhere in the bound", !/\bdate\s+-[dv]\b/.test(code), "date arithmetic");
+    assertEq("and log-read.sh gained no second bounding concept",
+      /--last-days/.test(readFileSync(SCRIPTS.proposeLogRead, "utf8")), false);
+  } finally { cleanup(dir); }
+}
+
+// A shell script's CODE, with its commentary removed. Every ban in this suite that means
+// "this script must not reach X" has to be written against call sites rather than words:
+// these scripts explain their own bounds in prose, so a word-level test fails on the very
+// sentence stating the rule it is checking.
+function codeLines(path) {
+  return readFileSync(path, "utf8").split("\n")
+    .filter((l) => !/^\s*#/.test(l)).join("\n");
+}
+
+// The question id's one derivation, mirrored for the test's fixtures only. It is asserted
+// against the shipped library below rather than trusted, so a change to `question_slug`
+// fails here loudly instead of silently writing ledger lines under an id nothing reads.
+function slugOf(key) {
+  const short = key.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 24);
+  return `${short || "q"}-${cksum(key)}`;
+}
+function cksum(s) {
+  return execSync(`printf '%s' ${JSON.stringify(s)} | cksum | cut -d' ' -f1`, { shell: "/bin/sh" })
+    .toString().trim();
+}
+
 const tests = [
+  ["moderate/condition-age.sh: how long a condition has been standing", testConditionAgeReader],
+  ["moderate/condition-age.sh: the walk is bounded, and says when it was cut", testConditionAgeBound],
   ["release-scan: too-large-commit counts implementation, not motion", testCommitSizeSemantics],
   ["branching/check.sh", testBranchCheck],
   ["branching worktree counters see the last block", testWorktreeCountersLastBlock],
@@ -28069,7 +28264,38 @@ function testProofJudgementSplit() {
   assertTrue("the publication reading's sub-table is in the one home too", pubAt > 0,
     "claims.md no longer carries the operator-facing pull request classification");
   const effectTable = effectTail.slice(0, pubAt);
-  const pubTable = effectTail.slice(pubAt);
+  const pubTail = effectTail.slice(pubAt);
+
+  // A SIXTH VOCABULARY IN THE SAME HOME (2026-08-30, mission
+  // `say-how-long-the-loop-has-been-stuck`). PROVED ABLE TO FAIL BEFORE IT SHIPPED — four
+  // modes introduced one at a time on the unmodified tree, each turning EXACTLY ONE row red:
+  //
+  //   1. `| `ticks` | judgement |` -> `proof`     -> "no condition-age reading is a proof"
+  //   2. the `truncated` row deleted              -> "every word ... is classified exactly once"
+  //   3. a `staleness` row the reader never emits -> "classifies no word ... never emits"
+  //   4. a `plan-units.sh` call added to
+  //      `step-undrivable-units.sh`               -> "...it never reaches plan-units.sh"
+  //
+  // A pin that has not been broken on purpose is a pin nobody knows the shape of.
+  //
+  // `condition-age.sh` is keyed on HOW LONG a condition
+  // has been true — a different question about the same subjects the five above classify, and one
+  // column cannot classify six. Parsed apart for the reason the other five are, and least of all
+  // folded into the act-effect table beside it: both concern the loop's own records, and that
+  // resemblance is exactly the mistake each previous split records.
+  const AGE_HEADING = "### How long a condition has been standing";
+  const ageAt = pubTail.indexOf(AGE_HEADING);
+  assertTrue("the condition-age sub-table is in the one home too", ageAt > 0,
+    "claims.md no longer carries the condition-age classification");
+  const pubTable = pubTail.slice(0, ageAt);
+  const ageTail = pubTail.slice(ageAt);
+  // The source table that follows is a different kind of table (which question reads which age),
+  // so the classification parse stops at its heading.
+  const srcAt = ageTail.indexOf("### Which question reads which age");
+  assertTrue("the age-source table is in the one home too", srcAt > 0,
+    "claims.md no longer carries the age-source table");
+  const ageTable = ageTail.slice(0, srcAt);
+  const sourceTable = ageTail.slice(srcAt);
 
   // ITS FOUR WORDS, from the reader's own `emit` calls rather than from a list this test carries.
   // `open:<age>` is normalised to its table form because the script interpolates the age; the
@@ -28160,6 +28386,134 @@ function testProofJudgementSplit() {
   assertTrue("and it is not list-open-rulings.sh wearing a second hat",
     !derivation.includes("list-open-rulings.sh"),
     "the brake and the reading now share one derivation with different bounds");
+
+  // ITS WORDS, FROM THE READER'S OWN EMISSIONS rather than from a list this test carries — a
+  // carried list would prove only that it matches itself. The reader is RUN over the four shapes
+  // it can answer in and the keys of its actual output are unioned; `key` and `slug` are dropped
+  // because their values ARE the caller's own argument and its derived id, which is checked here
+  // rather than assumed: a field echoing the input is not a reading.
+  const ageDir = mkdtempSync(join(tmpdir(), "workaholic-agevocab-"));
+  const ageWords = new Set();
+  try {
+    const AGE = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/condition-age.sh")}`;
+    const K = "stalled-unit:some-unit";
+    mkdirSync(join(ageDir, ".workaholic/moderations"), { recursive: true });
+    const slug = slugOf(K);
+    // Two day files, so the bound below genuinely cuts one off.
+    writeFileSync(join(ageDir, ".workaholic/moderations/2026-08-01.md"),
+      `## 20260801-100000\n\n- \`human-checkin-ask-${slug}\`: filed — asked\n`);
+    writeFileSync(join(ageDir, ".workaholic/moderations/2026-08-02.md"),
+      `## 20260802-100000\n\n- \`human-checkin-reasked-${slug}\`: filed — re-asked\n`);
+    const brokenRoot = mkdtempSync(join(tmpdir(), "workaholic-agevocab-"));
+    mkdirSync(join(brokenRoot, ".workaholic"), { recursive: true });
+    writeFileSync(join(brokenRoot, ".workaholic/moderations"), "not a directory\n");
+    const ABSENT = "stalled-unit:never-asked-about";
+    const shapes = [
+      [K, execSync(`${AGE} --key '${K}' --root ${ageDir}`, { encoding: "utf8" })],               // a real age
+      [ABSENT, execSync(`${AGE} --key '${ABSENT}' --root ${ageDir}`, { encoding: "utf8" })],     // absent
+      [K, execSync(`${AGE} --key '${K}' --root ${ageDir}`,                                       // truncated
+        { encoding: "utf8", env: { ...process.env, WORKAHOLIC_CONDITION_AGE_MAX_DAYS: "1" } })],
+      [K, execSync(`${AGE} --key '${K}' --root ${brokenRoot}`, { encoding: "utf8" })],           // degraded
+    ];
+    rmSync(brokenRoot, { recursive: true, force: true });
+    for (const [key, out] of shapes) {
+      // A field whose value IS the caller's own argument, or the id derived from it, is an echo
+      // rather than a reading. Checked per shape rather than assumed, so a field that stops
+      // echoing starts being classified.
+      const echoes = new Set([key, slugOf(key)]);
+      for (const [k, v] of Object.entries(JSON.parse(out))) {
+        if (echoes.has(v)) continue;
+        ageWords.add(k);
+      }
+    }
+    assertEq("the condition-age vocabulary parses out of the reader's own output",
+      [...ageWords].sort().join(","),
+      "first_seen,first_seen_is_floor,readable,reason,ticks,truncated");
+  } finally { rmSync(ageDir, { recursive: true, force: true }); }
+
+  const ageClassified = new Map();
+  for (const m of ageTable.matchAll(/^\|\s*`([a-z_]+)`\s*\|\s*(?:\*\*)?(proof|judgement)(?:\*\*)?\s*\|/gm)) {
+    assertTrue(`the condition-age sub-table classifies ${m[1]} exactly once`, !ageClassified.has(m[1]),
+      "a second row for the same word is two rules for one fact");
+    ageClassified.set(m[1], m[2]);
+  }
+  assertEq("every word the condition-age reading emits is classified exactly once",
+    [...ageWords].filter((w) => !ageClassified.has(w)).sort().join(","), "");
+  assertEq("and the sub-table classifies no word the condition-age reading never emits",
+    [...ageClassified.keys()].filter((w) => !ageWords.has(w)).sort().join(","), "");
+  // THE LOAD-BEARING CLAIM. The log GROWS, so `ticks` rises every hour and a bounded walk's
+  // `first_seen` moves as day files pass out of the bound — a proof is a reading that cannot
+  // become false by looking again, and this one is designed to.
+  assertEq("no condition-age reading is a proof — every one of them is a judgement",
+    [...ageClassified.entries()].filter(([, k]) => k === "proof").map(([w]) => w).sort().join(","), "");
+
+  // ITS ENUMERATED CONSUMERS NAME THE AGE AND DO NOTHING ELSE. Call sites, never words: each of
+  // these files explains its own bounds in prose, so a word-level ban would fail on the sentence
+  // stating the rule it is checking.
+  const AGE_ACTS = ["--method PUT", "--method PATCH", "--method DELETE", "/merge",
+    "retire-claim.sh", "release-claim.sh", "catch-up-claim.sh", "plan-units.sh", "git push"];
+  const AGE_CONSUMERS = [
+    "plugins/workaholic/skills/moderate/scripts/step-undrivable-units.sh",
+    "plugins/workaholic/skills/moderate/scripts/step-undelivered-units.sh",
+    "plugins/workaholic/skills/moderate/scripts/step-stalled-units.sh",
+  ];
+  for (const consumer of AGE_CONSUMERS) {
+    const src = codeLines(join(REPO_ROOT, consumer));
+    assertTrue(`${consumer} is an enumerated consumer of the age`, src.includes("read_age"),
+      "a step registered in the source table composes no age");
+    for (const act of AGE_ACTS) {
+      assertTrue(`${consumer} names the age — it never reaches ${act}`, !src.includes(act),
+        `the age licenses reporting and asking, never ${act}`);
+    }
+  }
+  // `step-retire-claims.sh` is the one enumerated consumer that DOES act — it calls
+  // `retire-claim.sh` on a proof — so its ban is narrower and specific: the age must not be what
+  // the act reads. The act runs long before the age is attached, which is asserted by position.
+  const retireSrc = codeLines(join(REPO_ROOT,
+    "plugins/workaholic/skills/moderate/scripts/step-retire-claims.sh"));
+  assertTrue("step-retire-claims.sh composes the age", retireSrc.includes("read_age"),
+    "a step registered in the source table composes no age");
+  assertTrue("...and it attaches the age only after its act has already run",
+    retireSrc.indexOf("retire-claim.sh") < retireSrc.indexOf("read_age"),
+    "the age is now read before the retirement acts, which puts a judgement in front of a proof");
+  // NO GATE, HOLD OR SORT READS IT. `ask-question.sh` gains nothing at all: the age changes no
+  // key, no cap and no hold.
+  assertTrue("ask-question.sh never reads the age",
+    !readFileSync(join(REPO_ROOT,
+      "plugins/workaholic/skills/moderate/scripts/ask-question.sh"), "utf8")
+      .includes("condition-age.sh"),
+    "the gate now reads an age, so a judgement decides whether a person is asked");
+  for (const survey of [
+    "plugins/workaholic/skills/drive/scripts/plan-units.sh",
+    "plugins/workaholic/skills/propose/scripts/survey-strategies.sh",
+  ]) {
+    assertTrue(`${survey} never reads the age`,
+      !codeLines(join(REPO_ROOT, survey)).includes("condition-age.sh"),
+      "a survey reads the age, so a judgement now gates or sorts");
+  }
+
+  // THE SOURCE TABLE IS PROSE, SO IT IS PINNED BOTH WAYS. A step composing an age the table does
+  // not attribute, and a row naming a step that composes none, are each a lie the table cannot
+  // tell on its own.
+  const SOURCE_ROWS = {
+    "undrivable-unit": "plugins/workaholic/skills/moderate/scripts/step-undrivable-units.sh",
+    "retire-blocked": "plugins/workaholic/skills/moderate/scripts/step-retire-claims.sh",
+    "undelivered-unit": "plugins/workaholic/skills/moderate/scripts/step-undelivered-units.sh",
+    "stalled-unit": "plugins/workaholic/skills/moderate/scripts/step-stalled-units.sh",
+    "operator-pull": "plugins/workaholic/skills/moderate/scripts/step-operator-pulls.sh",
+  };
+  for (const [key, path] of Object.entries(SOURCE_ROWS)) {
+    const row = sourceTable.split("\n").find((l) => l.startsWith(`| \`${key}`));
+    assertTrue(`the source table names ${key}`, !!row, "a question carries an age nothing attributes");
+    // The SOURCE column only. The Notes column may say "the tick log not at all", so a
+    // whole-row test would read a negation as a claim.
+    const readsLog = /tick log/.test(row.split("|")[2] ?? "");
+    assertEq(`${key}: the table and the step agree about the tick log`,
+      readsLog, codeLines(join(REPO_ROOT, path)).includes("read_age"));
+  }
+  assertTrue("the table states the rule it exists for",
+    /nothing derives an age twice/i.test(sourceTable),
+    "the source table no longer states why it exists");
 
   // ITS FIVE WORDS, from the reader's own `emit` calls plus the per-unit `word=` assignments,
   // rather than from a list this test carries — a carried list would prove only that it matches

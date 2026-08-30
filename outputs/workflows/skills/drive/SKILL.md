@@ -37,7 +37,30 @@ Then survey what is claimable: `bash drive/scripts/plan-units.sh` — the unclai
 
 **And read what is waiting on the operator, once** (2026-08-29, mission `follow-the-pull-requests-the-loop-opens-for-a-person`): `bash branching/scripts/list-operator-facing-pulls.sh`, and `bash branching/scripts/publication-effect.sh <number>` per pull request it names. These are the publications `publish-tree-pr.sh` refused to auto-merge — a ruling, a strategy — where merging **is** the operator's ruling and closing **is** their refusal. **Once per run, not once per unit**: it is one fact about the repository, the same ground `read-base-checks.sh` stands on. Report it in §7 as **evidence**, in the voice `pace`, `overdue` and `expiring` already use.
 
-**It gates nothing and moves no token** (§7). No route, no demotion, no claim, no merge and no survey reads it; a run whose own unit landed cleanly reports `ok` while naming an 18-hour-old ruling waiting on a person. The tempting error is to withhold `ok` on the grounds that such a pull request blocks the queue — it does, and `/implement` may not ask, so a withheld token would report a failure hour after hour into a report nobody opens while the person who can act is reached by `/moderate`'s `operator-pull:<number>` question. **Reporting is the whole licence**, and every value it carries is a **judgement** (`reference/claims.md`, *Whether an operator-facing pull request was acted on*).
+**And read how long the standing blockers have been standing** (2026-08-30, mission
+`say-how-long-the-loop-has-been-stuck`): the condition-age reader `moderate` owns —
+**named here rather than invoked, deliberately, and the path lives in
+[reference/routing.md](reference/routing.md)**. Writing the `${CLAUDE_PLUGIN_ROOT}` invocation
+form in this file resolves it into this skill's script closure, which would copy `moderate`,
+`standup` and `workaholify` wholesale into every cross-agent bundle and surface `workaholify`'s
+own `../bootstrap/` reference as unresolved; §1 has already resolved `src`, so the reference
+document's path is unambiguous. A later reader must not "fix" this into the invocation form.
+
+It is read for the subjects this run's own readings name — an undelivered unit, a stalled claim, a blocked
+retirement, a queued artifact nothing can drive. Every reading in this repository was
+instantaneous: each said **what** is stuck and none said **how long**, so a condition that
+started this hour and one that has been true for eleven days read alike. It is read **once per
+run, not once per unit**, the ground `read-base-checks.sh` and the operator-facing pull requests
+already stand on, and named in §7 as **evidence**, in the voice `pace`, `overdue` and `expiring`
+use. What it answers is the age of the **question**, a lower bound on the age of the condition,
+so the report says *asked about since* and never asserts how long the artifact itself has been
+stuck; a `readable: false` reading is reported **as unreadable, by its reason**, and never as
+*nothing standing*.
+
+**It gates nothing and moves no token** (§7). No route, no demotion, no claim, no merge, no
+survey, no refusal and no sort reads it — neither the operator-facing reading nor the age — and a
+run whose own unit landed cleanly reports `ok` while naming an 18-hour-old ruling waiting on a
+person and an eleven-day-old blocker nobody has answered. The tempting error is to withhold `ok` on the grounds that such a pull request blocks the queue — it does, and `/implement` may not ask, so a withheld token would report a failure hour after hour into a report nobody opens while the person who can act is reached by `/moderate`'s `operator-pull:<number>` question. **Reporting is the whole licence**, and every value it carries is a **judgement** (`reference/claims.md`, *Whether an operator-facing pull request was acted on*).
 
 **It gates nothing, and that is the design.** `/implement` keeps driving onto a red base, exactly as it did before this reading existed: nothing is stopped, skipped, held, reverted, re-run or merged differently. `main` is the continuously auto-merged development branch and quality is gated at the `release/*` QA window — giving an unattended runner a new way to stop is the fork the mission's own ask rejected, and what it reads is a **judgement** rather than a proof (a re-run can turn a red check green — **Claims** below, and `reference/claims.md`'s *Proofs and judgements*). Read and say; never gate. It is named in §7's report and **moves no token**.
 
@@ -121,6 +144,25 @@ Per **mission** unit, record wall-clock once via `bash mission/scripts/record-ru
 **The run report opens with the base's reading** (2026-08-27, mission `read-whether-the-base-survived-what-the-loop-merged`) — once, before the per-unit outcomes, because it is context for everything that follows rather than an outcome of any one unit. One of the three words §1 read: **`green`**; **`red`**, naming the attributed merge (its commit, its pull request and its author) and the **failing checks**, or naming `unattributable` with its reason when the walk could not reach a green commit; or **`unanswerable`** with the reader's own reason. A degraded read is reported as degraded and **never as green** — that collapse is the whole defect the reading exists to close.
 
 **And it names what is waiting on the operator, beside it** (2026-08-29, mission `follow-the-pull-requests-the-loop-opens-for-a-person`) — once per run, from §1's reading: each **un-acted** operator-facing pull request (`open:<age>`), with its number, its age and the **refusal word** that made it the operator's (`ruling_touching` / `strategy_touching`). A `merged` or `closed` reading is settled and is not named; an **`unreadable`** one is named **as unreadable, by its reason**, and never as *nothing waiting* — that collapse is the whole defect the reading exists to close, exactly as a degraded base read is never reported as green. A degraded **membership** read (`ok: false`) carries no pull list at all and is reported the same way.
+
+**And it names how long each standing blocker has been standing** (2026-08-30, mission
+`say-how-long-the-loop-has-been-stuck`) — once per run, from §1's reading: for each subject the
+report already names, the age of the **question** about it (`age.ticks` ticks since
+`age.first_seen`, *at least* that when `age.first_seen_is_floor`). A subject nobody has been
+asked about yet reads `first_seen: null` and the report says nothing about its age — an ordinary
+absence, the first time anybody is being asked. A **`readable: false`** reading is named **as
+unreadable, by its reason**, and never as *nothing standing*: that collapse would render an
+eleven-day blocker as one that just started, which is the whole defect the reading exists to
+close.
+
+**It moves no token and gates nothing, and that is stated here so a later reader does not "fix"
+the omission.** §7's token table gains **no row** for it. The tempting error is to withhold `ok`
+on the grounds that an old blocker is blocking the queue — it is, and `/implement` may not ask,
+so a withheld token would report a failure hour after hour into a report nobody opens while the
+person who can act is reached by `/moderate`'s own questions (`undrivable-unit`,
+`retire-blocked`, `undelivered-unit`, `stalled-unit`). That is the reasoning
+`backlog_all_excluded`, the base's health and the operator-facing pull requests each already
+record, applied here unchanged.
 
 **It moves no token, and that is stated here so a later reader does not "fix" the omission.** A pull request waiting on a person is not a fact about the unit *this* run drove, and the run drove it cleanly: `ok` stays reachable over an un-acted ruling. It **gates nothing** either — no refusal, no route, no demotion, no claim, no merge and no survey reads it. The person who must act is reached by `/moderate`'s `operator-pull:<number>` question, not by this token. Same ground as `backlog_all_excluded` and the base's health.
 

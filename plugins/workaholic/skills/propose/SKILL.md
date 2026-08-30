@@ -709,6 +709,33 @@ above records: this report is read by nobody on the day it matters, which is why
 ever a brake. Every value is a **judgement**
 (`drive/reference/claims.md`, *Whether an operator-facing pull request was acted on*).
 
+### The run report names how long a standing blocker has been standing
+
+(2026-08-30, mission `say-how-long-the-loop-has-been-stuck`.) Every reading in this repository
+was **instantaneous**: `late`, `overdue`, `dormant`, `arrived`, an un-acted ruling — each says
+**what** is true and none said **how long**. A tick now names the age of the question about each
+standing blocker it reports, read once through
+`moderate/scripts/condition-age.sh --key <subject-key>`: `age.ticks` ticks since
+`age.first_seen`, *at least* that when `age.first_seen_is_floor`.
+
+It is named in the same voice as `pace`, `overdue`, `expiring` and `arrived`: **evidence, never
+a verdict**. What it answers is the age of the **question**, which is a lower bound on the age
+of the condition — a blocker that existed before anybody asked reads younger than it is — so the
+report says *asked about since* and never asserts how long the subject itself has been stuck. A
+subject nobody has been asked about yet reads `first_seen: null` and nothing is said about its
+age: that is an ordinary absence, the first time anybody is being asked. A **`readable: false`**
+reading is named **as unreadable, by its reason**, and never as *nothing standing*.
+
+**It gates nothing, and every gate is byte-identical across the change.** No `refusal`, no
+`pace`, no `overdue`, no `dormant`, no `quiescent`, no sort and no `selected` reads it —
+`survey-strategies.sh` is untouched and never reaches the reader — so `/propose` proposes exactly
+as it did before this reading existed. **It moves no token.** The tempting error is to brake on
+an old blocker; the person who must act is reached by `/moderate`'s own questions
+(`undrivable-unit`, `retire-blocked`, `undelivered-unit`, `stalled-unit`), for the reason the
+degraded-reading section above records: this report is read by nobody on the day it matters,
+which is why nothing here is ever a brake. Every value is a **judgement**
+(`drive/reference/claims.md`, *How long a condition has been standing*).
+
 ## How the loop closes — and it closes with no new field
 
 `open-proposal.sh` writes the issue's first three lines itself, and the third is the

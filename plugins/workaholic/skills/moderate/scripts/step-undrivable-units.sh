@@ -42,6 +42,23 @@
 # second route into work; the repair for an uncovered address is a human's line in
 # `.claude/git-identities`, which `/workaholify`'s coverage audit proposes.
 #
+# HOW LONG IT HAS BEEN ASKED ABOUT RIDES THE QUESTION (2026-08-30, mission
+# `say-how-long-the-loop-has-been-stuck`). The eleven-day case that measured the mission is
+# exactly this step's: five queued tickets across three missions stamped with an address the
+# identity mapping does not name, undrivable since 2026-08-19, each asked about once — days
+# ago — and never again, because the asked-once gate is doing its job. `condition-age.sh`
+# answers the age from the question ledger the key already writes, keyed on the key this
+# step already composes, and the reading rides `needs_agent` and nothing else.
+#
+# THE READER'S WORDS ARE CARRIED VERBATIM, never normalised: a normalised word sends a
+# reader to a string no script printed. An UNREADABLE age is named as unreadable and NEVER
+# rendered as *this just started* — that collapse is the whole defect the age exists to
+# close, and it is the one this step could make loudest, since a first-time candidate and an
+# eleven-day one draw the same sentence without it.
+#
+# THE KEY DOES NOT MOVE, so `already_asked` is byte-identical and no question is re-asked by
+# the changed wording — the same rule the residue and the stage additions already hold.
+#
 # THE SUMMARY CARRIES NO AGE AND NO TIMESTAMP, and that is a correctness requirement rather
 # than a preference (`step-stalled-units.sh`'s header records the measurement). The
 # moderation root calls a step changed when its summary differs from the same step's an hour
@@ -63,6 +80,7 @@ SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 . "${SCRIPT_DIR}/lib/jq-guard.sh"
 GATHER_SCRIPTS="${SCRIPT_DIR}/../../gather/scripts"
 SUPPRESSION="${SCRIPT_DIR}/ruling-suppression.sh"
+. "${SCRIPT_DIR}/lib/read-age.sh"
 
 TICK=""
 ROOT="."
@@ -138,7 +156,8 @@ for file in $artifacts; do
             break
         fi
         rel=$(printf '%s' "$file" | sed "s|^${ROOT}/||")
-        candidates="${candidates}${c_sep}{\"artifact\": \"${rel}\", \"owner\": \"${owner}\", \"key\": \"undrivable-unit:${rel}\", \"unjudged\": ${any_ruling_open}}"
+        age=$(read_age "undrivable-unit:${rel}" "$ROOT")
+        candidates="${candidates}${c_sep}{\"artifact\": \"${rel}\", \"owner\": \"${owner}\", \"key\": \"undrivable-unit:${rel}\", \"unjudged\": ${any_ruling_open}, \"age\": ${age}}"
         c_sep=", "
         # One question per unit, whatever the size of its owner list.
         break
@@ -156,7 +175,7 @@ fi
 
 needs=$(printf '%s' "[${candidates}]" | jq -c '{action: "ask_about_work_no_run_can_drive",
     bound: "one question per artifact, addressed to the direction'"'"'s assignee, keyed on `key` so it is asked once; the step asks and never reassigns, writes, or lifts a gate",
-    compose: "name the artifact and the address no mapping entry names, and say the repair is one line in .claude/git-identities — /workaholify'"'"'s coverage audit proposes it with the address already filled in. When `unjudged` is true, say ALSO that a ruling pull request is open and does not name this address: the loop could not judge which account it belongs to, which is exactly why this one still needs a person.",
+    compose: "name the artifact and the address no mapping entry names, and say the repair is one line in .claude/git-identities — /workaholify'"'"'s coverage audit proposes it with the address already filled in. When `unjudged` is true, say ALSO that a ruling pull request is open and does not name this address: the loop could not judge which account it belongs to, which is exactly why this one still needs a person. When `age.first_seen` is set, say how long this has been ASKED ABOUT (`age.ticks` ticks since `age.first_seen`, and `at least` that when `age.first_seen_is_floor` is true) — the age of the question, which is a lower bound on the age of the condition, so never assert how long the artifact itself has been undrivable. Say NOTHING about age when `age.first_seen` is null and the reading is readable: that is the first time anybody is being asked. When `age.readable` is false, name it as an age we could not read, by its `age.reason`, and never as a condition that just started.",
     undrivable: .}' 2>/dev/null || echo '{}')
 
 if [ "$n_asked" -eq 1 ]; then

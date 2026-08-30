@@ -81,3 +81,24 @@ long* is the fact that makes a person act: three proved-superseded branches have
   — and it must be stated in the step, so a reader does not read the reset as the block having
   cleared.
 - Both steps read `list-claims.sh` and never `plan-units.sh`; that does not move.
+
+## Final Report
+
+Development completed as planned. Both steps attach the reader's words verbatim as `age` on
+each candidate, both summaries and every key are byte-identical, and `undelivered-unit` names
+the pull request's `open_hours` and the tick-log `age` as two distinct facts.
+
+### Discovered Insights
+
+- **Insight**: On `retire-blocked` the age must be attached AFTER the key is composed and after
+  both suppressions.
+  **Context**: The key is `retire-blocked:<unit>:<blocking_refusal>`, and the refusal word is
+  resolved from the CI turn several blocks below the candidate build. An age read under any
+  earlier key would answer about a different question. It also has to come after the act:
+  `retire-claims` is the one age consumer that acts, on a proof, and a judgement must never sit
+  in front of the proof `retire-claim.sh` reads — the suite pins that ordering by position.
+- **Insight**: A changed refusal word resets the age, and the composer has to be told so.
+  **Context**: The key carries the word, so a unit whose block changes cause starts a new
+  question and reads `first_seen: null` on its first tick. Without the instruction a composer
+  would render that reset as the block having just started, when the branch has been standing
+  all along and only what blocks its delete has moved.

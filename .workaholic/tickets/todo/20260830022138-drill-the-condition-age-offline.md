@@ -86,3 +86,28 @@ wired at the current tick only, so every age reads 1.
 - The step summaries are the fragile part: a summary that gains an age marks its step changed every
   tick and reinstates the hourly restatement two roots were retired for, so the byte-identity
   assertions in step 4 are the drill's most load-bearing rows.
+
+## Final Report
+
+Development completed as planned. `verify-condition-age` walks log → reader → bound → question
+→ report over a throwaway fixture whose ledger lines are written by `ask-question.sh
+--record-ask`, with no network, no `gh` and no Slack post: 13 load-bearing rows and one breaker,
+registered in `docs/loop-drill-runbook.md` §9 as `hermetic` with a prose section at §5r.
+`verify-all --list --kind hermetic` picks it up with no second list edited anywhere.
+
+### Discovered Insights
+
+- **Insight**: A `grep`-based "this script never reaches X" row passes silently when the path
+  is wrong, so it has to check the file exists first.
+  **Context**: The gate row was written against
+  `plugins/workaholic/skills/strategy/scripts/survey-strategies.sh` — the script actually lives
+  under `propose/scripts/` — and `grep` over a missing file matches nothing, so the row reported
+  *gates nothing* about a script nobody had read. The same typo threw in the suite (`ENOENT`
+  from `readFileSync`), which is how it was caught; the drill needed an explicit `[ ! -f ]` arm
+  to be as honest.
+- **Insight**: Only one of the four age consumers can be exercised end to end in a hermetic
+  drill, and the boundary is worth stating rather than papering over.
+  **Context**: `undrivable-units` walks `.workaholic/` through the ownership readers and needs
+  nothing else. The other three read the claim oracle, which fetches; standing up a bare origin
+  per step would drill the oracle rather than the age. Those keep a composition assertion here
+  and the acting-call-site bans in `testProofJudgementSplit`.

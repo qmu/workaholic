@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260830-055314
 ---
 
 # Draft a dateless direction with the operator's one-week default

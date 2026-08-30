@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 0.6
 feedback: [20260830021712-say-how-long-the-loop-has-been-stuck.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
@@ -58,3 +58,4 @@ Nothing gates, holds, re-asks, escalates or merges on the age.
 - 2026-08-30 — ticket archived — 20260830022138-name-the-condition-age-in-the-run-reports.md
 - 2026-08-30 — ticket archived — 20260830022138-drill-the-condition-age-offline.md
 - 2026-08-30 — mission achieved — mission.md
+- 2026-08-30 — run recorded (+0.6h) — run-20260830-024048

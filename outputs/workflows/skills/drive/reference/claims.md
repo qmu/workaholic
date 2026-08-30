@@ -117,9 +117,12 @@ on another machine coordinates through exactly the same artifact.
     **one** claim resolves byte-identically to first-match, and `superseded_only` returns
     that superseded row, so a caller keeps refusing under `superseded` exactly as before.
     **Two live claims are reported, never picked between** (`ambiguous_claim`, naming both
-    branches): the protocol settles a race by the push, so the state cannot arise from the
-    sanctioned path at all, and choosing silently is how a runner would resume — or discard —
-    work another run is still driving. `plan-units.sh` reads the same resolution: its
+    branches), and choosing silently is how a runner would resume — or discard — work another
+    run is still driving. **This paragraph used to add *the protocol settles a race by the
+    push, so the state cannot arise from the sanctioned path at all*, and that half was
+    false** (2026-08-30, mission `stop-two-runs-from-claiming-and-driving-one-unit`) — see
+    *What the claim contends for* below. The refusal does not move; only its justification
+    does, and it moves in the direction that makes it MORE necessary rather than less. `plan-units.sh` reads the same resolution: its
     `claimed_superseded` **resurvey** was keyed on the first row too, so the dead branch
     governed and the survey offered as fresh backlog a mission another run held — observed
     live, the same mission in `missions[]`, `resumable[]` and `resurveyed[]` at once. A
@@ -303,7 +306,7 @@ on the resolution word.
 | `single` | judgement | Exactly one claim, whatever its verdict — byte-identical to the first-match lookup this replaced. Act on **that row's** verdict, per the table above. |
 | `live` | judgement | One live claim beside one or more superseded ones. The live row wins; act on **its** verdict. |
 | `superseded_only` | judgement | Every claim for this unit is superseded, and the first is returned — so a caller keeps refusing under `superseded` exactly as it did before. |
-| `ambiguous` | judgement | Two or more live claims (`ambiguous_claim` where a caller reports it). **Reported, never picked between**: the protocol settles a race by the push, so this cannot arise from the sanctioned path, and choosing silently is how a runner would resume — or discard — work another run is still driving. Refuse and name both branches. |
+| `ambiguous` | judgement | Two or more live claims (`ambiguous_claim` where a caller reports it). **Reported, never picked between**: choosing silently is how a runner would resume — or discard — work another run is still driving. Refuse and name both branches. This row read *the protocol settles a race by the push, so this cannot arise from the sanctioned path* until 2026-08-30; it can, and does (*What the claim contends for*, below). |
 
 ### The base's own checks (`read-base-checks.sh`, `attribute-base-red.sh`)
 
@@ -557,12 +560,23 @@ does the rule reach a judgement whose next step is a **person's judgement** rath
 mechanical settlement: `content` stays refused, `awaiting_verification` stays reported, and
 `stale` stays reported and never acted on, exactly as their own rows say.
 
+**Two shapes, one rule** (2026-08-30, mission `stop-two-runs-from-claiming-and-driving-one-unit`).
+An act may **read** a judgement to license itself (`catch-up-claim.sh` merges *because* the
+conflict is `mechanical`) or to **gate** itself (`archive.sh` writes *unless* the claim has
+changed hands). The four clauses are the same either way, and the direction decides which way an
+**absence** falls: a licensing act must refuse on one, because acting on an absence is the
+failure the three-valued lookups exist to avoid, and a gating act must **proceed** on one, for
+exactly the same reason — refusing on a reading it could not make is acting on an absence too,
+and there the cost is finished work stranded outside the archive. Neither may treat an absence
+as the reading it wanted.
+
 **The consumers, enumerated by name.** A glob would quietly pass an act added with no rule at
 all, which is the same reason the proof-gated consumers are enumerated rather than discovered:
 
 | Acting consumer | The judgement it reads | How each clause is met |
 | --------------- | ---------------------- | ---------------------- |
 | `catch-up-claim.sh` | `mergeability == mechanical` (`claim-mergeability.sh`) | Re-derives by calling `claim-mergeability.sh` itself after resolving the unit; `already_current` on a branch that already contains the base, touching no ref; its write is a **merge commit** on the claim branch, revertible and never a rewrite; refuses `content_conflict`, `not_my_claim`, `foreign_identity`, `claim_active`, `dirty_worktree`, `scan_held:<tier>`, `pull_request_reviewed`, … each by its own word |
+| `archive.sh` | `holder == mine` (`claim-holder.sh`) | Re-derives by calling `claim-holder.sh` itself immediately before the ticket moves — ahead of the todo-layout migration, so nothing has been staged yet; the archive it gates is idempotent in the shape this seam already guarantees (a re-run of a refused call finds the tree byte-identical, and the mission mutators below it no-op on a repeat); its write is a **commit on the claim branch**, revertible and never a rewrite; refuses `claim_taken_over` and `ambiguous_claim` by their own words, moving nothing, staging nothing and committing nothing |
 
 **The table is prose, so it can lie**, and `scripts/test-workflow-scripts.mjs` pins it **in both
 directions**: a script that both reads a judgement-emitting reader and carries an acting call
@@ -590,6 +604,60 @@ push succeeds, reporting `announced`/`announce_reason` in its JSON. This bot not
 surface from the session's threaded posts (see [`routing.md`](routing.md)), is **never
 load-bearing** (a missing token or broken notifier leaves the claim intact), and only a
 successful claim announces.
+
+### What the claim contends for
+
+**The premise was true for one path and false for the other, and the false half was
+load-bearing** (2026-08-30, mission `stop-two-runs-from-claiming-and-driving-one-unit`). Two
+places in this document said *the protocol settles a race by the push, so the state cannot
+arise from the sanctioned path*, and `ambiguous_claim`'s standing as **reported, never picked
+between** rested on it. Read against the mechanism:
+
+- **`claim.sh resume` does contend, exactly as written.** A takeover pushes an empty
+  `Resume a PR-unit` commit onto a branch that **already exists**, so two takeovers of one
+  unit contend on **one ref** and the second is rejected non-fast-forward — `resume_race_lost`,
+  and the pinned-tip check above closes the same window a second time.
+- **A fresh claim contended for nothing.** `branching/scripts/create.sh` mints
+  `work-$(date +%Y%m%d-%H%M%S)` and `claim.sh` pushes it `-u`, so two runners that survey
+  before either pushes name **two different refs**: both pushes succeed, and
+  `branch_collision` fires only in the narrower same-second case. **Measured 2026-08-30**:
+  `work-20260830-055314` and `work-20260830-055318` were both claimed for
+  `draft-a-dateless-direction-with-the-operator-s-one-week-default`, four seconds apart, and
+  each drove the same four tickets for over an hour.
+
+**What the claim must contend for is one ref per unit** — a ref derived from the unit id
+rather than from the clock, pushed create-only, so that the first push wins at the **remote**,
+the only arbiter both runners share, and the second is refused before the loser has written
+anything.
+
+**That repair is not available in the container the loop runs in, and this is the measurement
+rather than a forecast.** Probed 2026-08-30 from a routine-fired container, on this
+repository's own origin:
+
+- `git push --force-with-lease='refs/claims/<x>:' origin <sha>:refs/claims/<x>` →
+  `error: RPC failed; HTTP 403`, and `ls-remote` confirms **no ref was created**.
+- Deleting the same ref (`git push origin :refs/claims/<x>`) → the identical 403, the shape
+  `retire-claim.sh`'s Act 2 already records for a branch delete.
+- The **same `--force-with-lease` flag against `refs/heads/<a work-\* branch>` succeeds**, so
+  the refusal is the **namespace**, not the lease: the proxy permits writes to `refs/heads/*`
+  and to nothing else.
+
+So the only writable namespace is the one the branch-name gate holds to two literal patterns,
+and a ref there could never be released either (the delete is the same 403), which is the
+condition the repair must not create: *a ref nothing deletes makes every unit claimable
+exactly once, forever*. Recorded here as a finding for the mission rather than worked around;
+`.github/workflows/claim-retirement.yml` is the precedent for moving a refused write to
+another **executor**, and it does not apply, because an arbitration must be decided
+synchronously, in the container, before the run drives anything.
+
+**Two things follow, and both are shipped.** `ambiguous_claim` keeps its behaviour exactly —
+reported, never picked between — and its justification becomes *this can arise from the
+sanctioned path, which is why nothing may choose between two live claims*, rather than the
+assertion that it already cannot. And the damage is bounded one layer later instead: the
+claim is re-derived at the first write the base will see (`archive.sh`, *When a bounded act
+may read a judgement*), and a unit whose content reached the base through a racing twin is
+readable as `superseded` at the mission grain from the tree, so the existing retirement path
+reaches the loser rather than leaving it as a person's conflict.
 
 ## Resume a dropped unit
 

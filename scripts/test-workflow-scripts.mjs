@@ -28805,7 +28805,13 @@ function testProofJudgementSplit() {
   // ACTING call site must be enumerated. Discovered from the tree, never from a carried list —
   // a carried list would prove only that it matches itself, and the failure this guards against
   // is precisely a NEW act nobody registered.
-  const JUDGEMENT_READERS = ["claim-mergeability.sh"];
+  // `claim-holder.sh` joined on 2026-08-30 (mission
+  // `stop-two-runs-from-claiming-and-driving-one-unit`): `archive.sh` re-derives who holds the
+  // unit immediately before the first write the base will see, which is the rule's GATING shape
+  // — the act proceeds unless the judgement is positive evidence against it. Registering the
+  // reader here is what makes DIRECTION ONE sweep `archive.sh` in, so a later edit that drops
+  // the re-derivation turns a row red instead of passing quietly.
+  const JUDGEMENT_READERS = ["claim-mergeability.sh", "claim-holder.sh"];
   // Regexes, not substrings: `git -C "$WORKTREE" push` is the same act as `git push`, and a
   // literal match would miss precisely the consumer this rule was written for.
   const ACT_SITES = [/\bgit\b[^\n]*\bpush\b/, /--method PUT/, /--method PATCH/,

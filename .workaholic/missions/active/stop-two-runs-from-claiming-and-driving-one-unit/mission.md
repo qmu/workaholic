@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260830-084240
 ---
 
 # Stop two runs from claiming and driving one unit
@@ -45,9 +46,13 @@ happens, one person is told once, both branches named.
 
 - [ ] The claim contends for one ref per unit: the first push wins, the second is refused
       by its own word, and the loser holds no branch, worktree or commit. (#20260830082251-make-the-claim-contend-for-one-ref-per-unit.md)
-- [ ] A unit whose content landed through a racing twin reads `superseded` at the mission
+- [x] A unit whose content landed through a racing twin reads `superseded` at the mission
       grain from the tree, so the existing retirement path reaches it. (#20260830082251-answer-superseded-at-the-mission-grain-from-the-tree.md)
 - [ ] A lost race is named where a person reads it — the run report and one `/moderate`
       question naming both branches — proved by a drill with a breaker row. (#20260830082251-report-a-lost-race-where-a-person-reads-it.md)
 
 ## Changelog
+- 2026-08-30 — ticket archived — 20260830082251-correct-the-settled-by-the-push-premise.md
+- 2026-08-30 — ticket archived — 20260830082251-answer-superseded-at-the-mission-grain-from-the-tree.md
+- 2026-08-30 — ticket archived — 20260830082251-re-check-the-claim-before-the-first-archive-write.md
+- 2026-08-30 — ticket archived — 20260830082251-reproduce-the-claim-race-offline-in-a-drill.md

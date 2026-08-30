@@ -181,7 +181,7 @@ fi
 # second time it is asked. Asking it again immediately before the delete is what makes "the proof
 # is re-taken where the act happens" true of both grains rather than only of the cheap one. The
 # cost is one tree listing or one bounded call; the cost of its absence is an unattended delete.
-if [ "$(claims_superseded "$BASE" "$artifacts" "$BRANCH")" != "true" ]; then
+if [ "$(claims_superseded "$BASE" "$artifacts" "$BRANCH" "origin/${BRANCH}")" != "true" ]; then
     refuse not_on_base
 fi
 

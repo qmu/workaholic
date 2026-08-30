@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-30T08:22:51+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -96,3 +97,51 @@ is today.
   existing reader answers it; writing a new one re-opens it.
 - `verify-retire` and `verify-merged-claim` are the drills most likely to move. If either changes,
   that is a finding to state, not a fixture to adjust.
+
+## Final Report
+
+Development completed as planned. `claims_superseded`'s non-ticket branch now asks the **tree
+first** at the mission grain, through `claims_mission_landed`: the unit's ticket set is read off
+the claim's own **tip** — queued and archived alike, so which side of the rename a ticket sits on
+does not matter — and put to the **same** archived-on-the-base test the batch grain already
+applies, matched by filename under any branch directory. `every`, never `any`, is preserved
+verbatim from the batch grain.
+
+The 2026-08-26 refusal is **answered rather than ignored**. It refused this test because it "would
+need a second parser of a many-valued relation for a shape nothing has measured". The shape is now
+measured, and the relation is still walked exactly once: `claims_remaining_tickets`'s mission walk
+was **lifted out** into `claims_tickets_for_mission` and both readings compose it, so nothing reads
+`mission:` on its own. The archived-on-base test itself was likewise lifted into
+`claims_archived_on_base` / `claims_is_archived` and is shared by both grains rather than copied.
+
+The local test is **first and network-free**, and `claim-merged.sh` stays the fallback for every
+case the tree does not answer `true` — an absent tip ref, a mission with no tickets written yet, a
+mission still holding queued work. That direction is deliberate and is the safety property: this
+change can only ever **add** a `superseded`, never take one away, which is what matters when a
+proof gates a destructive act. `claim-merged.sh` is byte-identical and an `unanswerable` lookup
+still answers `false`.
+
+The tip ref is a new **optional fourth argument** to `claims_superseded`, absent-means-unchanged,
+so every caller that does not pass it behaves byte-for-byte as before. Two callers pass it:
+`claims_scan` and `delete-retired-claim-branch.sh` — the CI-side re-derivation, so the two
+executors keep agreeing about a proved-empty claim.
+
+Verified on the live case the mission was written from: `work-20260830-055314`, the raced loser for
+`draft-a-dateless-direction-with-the-operator-s-one-week-default`, read `report_undelivered` before
+and reads `superseded` after, with all four of its tickets archived on the base under the twin's
+`work-20260830-055318/`. Every other claim on the repository is unchanged. Step 6 confirmed:
+`list-retirable-claims.sh` names the unit with no change of its own, which the drill asserts.
+`sh scripts/e2e/loop-drill.sh verify-claim-race` passes and goes **red** (3 rows) when
+`claims_mission_landed` is removed; `verify-merged-claim` and `verify-retire` both still pass
+unchanged; `verify-all` reports 0 failed; `node scripts/test-workflow-scripts.mjs` passes (5394/0).
+`superseded`'s classification, its precedence after `claim_active`, and its consumer set are
+untouched.
+
+### Discovered Insights
+
+- **Insight**: the mission grain's ticket set must be read from the claim's **tip**, not from the
+  base.
+  **Context**: the tip is the branch's own statement of what its unit is. Reading the base would
+  ask the twin's question instead, and a mission whose tickets the base has archived and re-planned
+  would answer about work this branch never held. It is also why a unit with no tickets at the tip
+  answers `false` and falls through rather than proving supersession from an empty set.

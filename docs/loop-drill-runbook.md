@@ -1414,6 +1414,7 @@ rather than guessed. **No artifact gained a field**: the slug lives here and now
 | `verify-operator-pulls` | `hermetic` | yes | `follow-the-pull-requests-the-loop-opens-for-a-person` |
 | `verify-stage` | `hermetic` | yes | `make-a-direction-s-lifecycle-a-declared-stage` |
 | `verify-condition-age` | `hermetic` | yes | `say-how-long-the-loop-has-been-stuck` |
+| `verify-claim-race` | `hermetic` | yes | `stop-two-runs-from-claiming-and-driving-one-unit` |
 
 ### The evidence behind the classification
 

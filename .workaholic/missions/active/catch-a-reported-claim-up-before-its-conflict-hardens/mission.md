@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260830-044152
 ---
 
 # Catch a reported claim up before its conflict hardens

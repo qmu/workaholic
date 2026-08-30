@@ -64,3 +64,4 @@ happens, one person is told once, both branches named.
 - 2026-08-30 — run recorded (+0.3h) — session_01LZbHJ2uC4hSHFnzTZbjzgN
 - 2026-08-30 — run recorded (+0.2h) — cse_0167AkW7JAXdU8UHH5MigseZ
 - 2026-08-30 — run recorded (+0.2h) — cse_01JKUuQLvXWd8UsA4rn5jBvR
+- 2026-08-30 — story reported — work-20260830-124234

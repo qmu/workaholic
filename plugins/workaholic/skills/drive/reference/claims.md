@@ -460,6 +460,64 @@ question with a separate script (`branching/scripts/list-operator-facing-pulls.s
 This one answers only *what happened to this pull request* — one script, one question, because
 one script answering both is how two readings of one fact start to disagree.
 
+### Whether a unit is being driven twice (`list-raced-units.sh`)
+
+A **sixth vocabulary in the same home** (2026-08-30, mission
+`stop-two-runs-from-claiming-and-driving-one-unit`). The tables above are keyed on what is true
+of one *claim*, of the *base*, of an act *this loop* took, or of a publication. This one is
+keyed on a relation **between two claims of one unit**, which no per-row verdict can carry: each
+of the two rows is individually healthy, and what is wrong is that both exist.
+
+**Why it needed a vocabulary at all.** `ambiguous_claim` is refused by every writer that meets
+it and was **asked about by nobody**. Measured 2026-08-30: `work-20260830-055314` and
+`work-20260830-055318` were both claimed for one unit four seconds apart and each drove the same
+four tickets for over an hour; the run that lost reported an ordinary undelivered unit and the
+duplicated hour reached no person at all. No other step could see the shape — `stalled-units`
+finds one claim that has not moved, `undelivered-units` finds one refused merge, `catchup-blocked`
+finds one conflicted branch, and each of those is a *consequence* whose question hides the cause.
+
+**There is no proof in this vocabulary either.** A race resolves the moment one of the two
+branches merges, so every reading here can become false by looking again — the one property a
+proof must not have. **No consumer may release a claim, pick between the two branches, delete a
+branch, close a pull request, revert, re-run, merge, gate or hold work on it.** The licence is
+to **report and to ask**, and nothing else.
+
+| Word | Class | What established it, and what a consumer may do |
+| ---- | ----- | ----------------------------------------------- |
+| `ambiguous` (a unit in `raced[]`) | judgement | `claims_unit_resolution` answered `ambiguous`: two or more **live** claims hold this unit right now. **This is the one reading that draws a question**, addressed to the claim holders, keyed `raced-unit:<unit>` so one unit costs exactly one question however many ticks see it. Both branches are named and **neither is picked** — choosing silently is how a runner would discard work another run is still driving. |
+| not raced (every other resolution) | judgement | `none`, `single`, `live` or `superseded_only`. **`live` is the deliberate exclusion**: one live claim beside a `superseded` one is byte-identical to the *sanctioned* recovery in which a superseded claim's work is resurveyed and taken on a fresh claim (`plan-units.sh`'s `resurveyed[]`). Separating a race from that recovery would need a clock threshold between the two claims' creation times or a field stored on an artifact, and this repository refuses both by name — so the aftermath is left where it is already handled: the loser reads `superseded`, `retire-claims` retires it, and `stalled-units` counts it. |
+| `readable: false` | judgement | The claim scan could not be read (`no_claim_reader` / `claims_unreadable` / `claims_unparseable` / `origin_unreachable` / `shallow_history`), carrying a named reason and a **null** count — never a zero, which would render *we could not look* as *no unit is being driven twice*. The **absence** of a reading: it draws **no question**, and a filtering consumer filters **nothing** on it, because an over-eager question beats a silently dropped one. |
+
+**This reading owns the raced unit's question, and three siblings filter it and count it** — the
+`handoff-units`/`stalled-units` division, where one step asks and the others filter, and either
+half alone is a defect. The four candidate steps are settled explicitly rather than left to
+whichever runs first:
+
+| Step | What it does with a raced unit | Why |
+| ---- | ------------------------------ | --- |
+| `raced-units` | **asks** | The race is the cause; the others see consequences. |
+| `stalled-units` | filters, counts | *A claimed unit has not moved for a day or more* sends a person to look at one claim when the honest question names both. |
+| `undelivered-units` | filters, counts | A raced loser's refused merge is the race's consequence; *retry your merge* hides the cause. |
+| `catchup-blocked` | filters, counts | Catching one of two racing branches up presumes the answer to *which branch keeps going*. |
+| `retire-claims` | **needs no change** | Its candidates are `superseded` rows, and a unit resolving `ambiguous` has none **by definition** — every one of its claims is live — so the two sets are disjoint by construction. `retire-claim.sh` refuses `ambiguous_claim` on its own besides. |
+
+The filter is `moderate/scripts/lib/raced-units.sh`, one helper over the scan each step has
+already made — no second walk of the refs, and no second definition of a race, which is how two
+filtering steps would start disagreeing with the step that asks.
+
+**Its enumerated consumers are two.** `/moderate`'s `step-raced-units.sh` **asks**; `/implement`'s
+and `/drive`'s run reports **report** a race the run itself met — `archive.sh`'s re-check
+refusing `ambiguous_claim` or `claim_taken_over` at the first write the base would see. The
+reading **moves no token** and gates nothing: the run wrote nothing and the protocol worked.
+`scripts/test-workflow-scripts.mjs` pins this table as it pins the five above.
+
+**What this vocabulary does not contain, and why.** A word for *this run lost the race at its
+claim push* is deliberately absent: it would rest on an arbitration this container cannot
+perform (*What the claim contends for*, below — `refs/claims/*` is refused 403 on create and on
+delete, and `refs/heads/*`, the only writable namespace, cannot be released either). Until that
+arbitration exists, a run loses a race at `archive.sh`'s re-check rather than at its push, and
+that refusal is what the run report names.
+
 ### How long a condition has been standing (`condition-age.sh`)
 
 A **sixth vocabulary in the same home** (2026-08-30, mission

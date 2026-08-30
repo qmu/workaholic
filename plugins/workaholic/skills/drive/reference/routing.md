@@ -426,6 +426,17 @@ moments.
   `readable: false` reading is named **as unreadable, by its reason**, and never as *nothing
   standing*. **It moves no token and gates nothing** — §7's table gains no row for it, and no
   route, demotion, claim, merge, survey, refusal or sort reads it.
+- **A race this run met, with BOTH branches** (2026-08-30, mission
+  `stop-two-runs-from-claiming-and-driving-one-unit`): a run whose `archive.sh` refused
+  `claim_taken_over` or `ambiguous_claim` at the first write the base would see has lost a race,
+  and names the unit, both branches and the refusal it got — rather than reporting it as one
+  ordinary refusal among others, which is how the measured hour of duplicated implementation
+  went unrecorded. **Neither branch is picked**: that is `ambiguous_claim`'s standing everywhere
+  in the protocol. The loss is detected at the archive re-check rather than at the claim push
+  because a fresh claim's push arbitrates nothing and the arbitration that would fix it is
+  refused by this container's transport (`claims.md`, *What the claim contends for*). **It moves
+  no token and gates nothing** — the run wrote nothing and the protocol worked; the claim
+  holders are reached by `/moderate`'s `raced-unit:<unit>` question.
 - Per unit: members, effective policy, route taken, ticket outcomes reconciling to the queue it
   was handed, and the commits.
 - PR per unit — the URL, or the `pr_error` if creation failed.

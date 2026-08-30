@@ -3640,6 +3640,74 @@ cmd_verify_claim_race() {
         add_row "claim_race_one_unit_twice" false "expected the unit reported twice, got ${_held:-0}: $(one_line "$_claims")" load
     fi
 
+    # --- 1b. THE RACE REACHES A PERSON, ONCE, WITH BOTH BRANCHES NAMED ----------------
+    # Naming the state was never the whole repair: `ambiguous_claim` is refused by every
+    # writer that meets it and, until 2026-08-30, asked about by NOBODY. These rows walk the
+    # surface that now carries it -- reader, step, asked-once gate, sibling silence.
+    _raced_reader="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/list-raced-units.sh"
+    _raced_step="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/step-raced-units.sh"
+    _ask_sh="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/ask-question.sh"
+
+    _raced=$( ( cd "$_B" && sh "$_raced_reader" ) 2>/dev/null || true )
+    if printf '%s' "$_raced" | grep -q '"count": 1' \
+        && printf '%s' "$_raced" | grep -q "\"${_brA}\"" \
+        && printf '%s' "$_raced" | grep -q "\"${_brB}\""; then
+        add_row "claim_race_reader_names_both" true "list-raced-units.sh names the raced unit and BOTH branches, never one of them" load
+    else
+        add_row "claim_race_reader_names_both" false "the reader did not name the raced pair: $(one_line "$_raced")" load
+    fi
+
+    # The step hands one question back, keyed on the unit, addressed to the claim holders.
+    _raced_out=$( ( cd "$_B" && sh "$_raced_step" --tick 20260101-000000 --root "$_B" ) 2>/dev/null || true )
+    if printf '%s' "$_raced_out" | grep -q '"status": "ok"' \
+        && printf '%s' "$_raced_out" | grep -q 'raced-unit:raced' \
+        && printf '%s' "$_raced_out" | grep -q "\"${_brA}\"" \
+        && printf '%s' "$_raced_out" | grep -q "\"${_brB}\""; then
+        add_row "claim_race_question_asked" true "one question, keyed raced-unit:raced, naming both branches" load
+    else
+        add_row "claim_race_question_asked" false "the step asked nothing usable: $(one_line "$_raced_out")" load
+    fi
+
+    # ASKED ONCE. The gate is the check-in's, exercised here with this step's key.
+    _rqroot=$(mktemp -d); mkdir -p "${_rqroot}/.workaholic/moderations"
+    _r1=$(cd "$REPO_ROOT" && sh "$_ask_sh" --tick 20260101-000000 --key "raced-unit:raced" \
+        --root "$_rqroot" --to "racer@example.com" --hour 10 --weekday 1 2>&1) || true
+    _rstep=$(printf '%s' "$_r1" | sed -n 's/.*"log_step": *"\([^"]*\)".*/\1/p')
+    if printf '%s' "$_r1" | grep -q '"ask": true'; then
+        sh "${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/log-append.sh" --root "$_rqroot" \
+           --tick 20260101-000000 --step "$_rstep" --status ok --summary "asked" >/dev/null 2>&1 || true
+        _r2=$(cd "$REPO_ROOT" && sh "$_ask_sh" --tick 20260101-010000 --key "raced-unit:raced" \
+            --root "$_rqroot" --to "racer@example.com" --hour 10 --weekday 1 2>&1) || true
+        if printf '%s' "$_r2" | grep -q '"ask": false'; then
+            add_row "claim_race_question_asked_once" true "the same key is refused on a later tick, so one raced unit costs one question" load
+        else
+            add_row "claim_race_question_asked_once" false "the asked-once gate did not hold: $(one_line "$_r2")" load
+        fi
+    else
+        add_row "claim_race_question_asked_once" false "the first ask was refused: $(one_line "$_r1")" load
+    fi
+    rm -rf "$_rqroot"
+
+    # THE SIBLING IS SILENT ON THE SAME UNIT, AND THE ASSERTION IS MADE TO BITE. One step
+    # asks and the others filter and count; either half alone is a defect. `stalled-units`
+    # is the sibling probed here because its candidate set can be reached in this fixture:
+    # the raced claims are FRESH, so with the protocol's own threshold no sibling would list
+    # them at all and the row would pass vacuously. `WORKAHOLIC_CLAIM_STALE_HOURS=0` puts
+    # both rows squarely inside its candidate set, so the row fails the moment the filter is
+    # removed. (`undelivered-units` and `catchup-blocked` carry the same filter through the
+    # same shared helper; reaching their candidate sets would need a recorded merge refusal
+    # and a real content conflict, which this fixture deliberately does not stage.)
+    _sib_out=$( ( cd "$_B" && WORKAHOLIC_CLAIM_STALE_HOURS=0 \
+        sh "${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/step-stalled-units.sh" \
+        --tick 20260101-000000 --root "$_B" ) 2>/dev/null || true )
+    if printf '%s' "$_sib_out" | grep -q 'stalled-unit:raced'; then
+        add_row "claim_race_siblings_filter" false "stalled-units still asks about the raced unit -- one unit, two questions, two vocabularies: $(one_line "$_sib_out")" load
+    elif printf '%s' "$_sib_out" | grep -q 'held by two live claims'; then
+        add_row "claim_race_siblings_filter" true "stalled-units asks nothing about the raced unit and counts it instead, with its candidate set forced to include it" load
+    else
+        add_row "claim_race_siblings_filter" false "stalled-units neither asked nor counted the raced unit: $(one_line "$_sib_out")" load
+    fi
+
     # --- 2. THE FIRST WRITE IS REFUSED, WITH THE TREE BYTE-IDENTICAL -------------------
     # The window the claim protocol never closed: between a survey and the first write the
     # base will see. `archive.sh` re-derives the holder immediately before the ticket moves.

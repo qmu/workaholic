@@ -83,6 +83,11 @@ set -eu
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 . "${SCRIPT_DIR}/lib/jq-guard.sh"
 DRIVE_SCRIPTS="${SCRIPT_DIR}/../../drive/scripts"
+# The claim library, for `claims_unit_resolution` alone — the raced-unit filter below reads the
+# library's own single derivation rather than a second implementation of "two live claims".
+CLAIMS_LIB_DIR="${DRIVE_SCRIPTS}/lib"
+[ -f "${CLAIMS_LIB_DIR}/claims.sh" ] && . "${CLAIMS_LIB_DIR}/claims.sh"
+. "${SCRIPT_DIR}/lib/raced-units.sh"
 
 TICK=""
 ROOT="."
@@ -121,12 +126,30 @@ shallow=$(printf '%s' "$out" | jq -r '.shallow // false')
     "the claim scan ran over truncated history, so no merge base is visible and mergeability is unanswerable"
 
 total=$(printf '%s' "$out" | jq '[.claims[]?] | length')
-candidates=$(printf '%s' "$out" | jq -c '
+
+# A RACED UNIT IS ANOTHER STEP'S QUESTION (2026-08-30, mission
+# `stop-two-runs-from-claiming-and-driving-one-unit`). Catching one of two racing branches up
+# onto the base is not the act a person needs, because WHICH branch to keep is exactly what has
+# not been decided; asking them to resolve a conflict on one of them presumes the answer.
+# `raced-units` asks it; this step filters and COUNTS, the division this step is already one
+# half of. The set is the library's own `claims_unit_resolution` over the scan already made, and
+# an unreadable payload yields an empty set and filters nothing.
+raced_set=$(raced_units "$out" 2>/dev/null || true)
+raced_json='[]'
+[ -z "$raced_set" ] || raced_json=$(printf '%s\n' "$raced_set" | jq -Rsc 'split("\n") | map(select(length > 0))')
+
+candidates=$(printf '%s' "$out" | jq -c --argjson r "$raced_json" '
     [.claims[]? | select(.mergeability == "content")
-                | select(.resume_reason == "report_undelivered" or .resume_reason == "queue_drained")]')
+                | select(.resume_reason == "report_undelivered" or .resume_reason == "queue_drained")
+                | select(.unit as $u | ($r | index($u)) | not)]')
+raced=$(printf '%s' "$out" | jq --argjson r "$raced_json" '
+    [.claims[]? | select(.mergeability == "content")
+                | select(.resume_reason == "report_undelivered" or .resume_reason == "queue_drained")
+                | select(.unit as $u | $r | index($u))] | length')
 n=$(printf '%s' "$candidates" | jq 'length')
 
 summary="${total} claimed unit(s); ${n} finished and no longer merging"
+[ "$raced" -eq 0 ] || summary="${summary}; ${raced} held by two live claims (asked by raced-units)"
 [ "$n" -eq 0 ] && emit ok "" "$summary"
 
 # The pull request's coordinates, one lookup per candidate and no more — the question has to

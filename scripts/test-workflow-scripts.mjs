@@ -25336,6 +25336,13 @@ function testModerateRun() {
     // consecutive ticks and the one surface that names a person never heard about it.
     // Same placement, same reason — it reads, the check-in asks.
     "stalled-units",
+    // `raced-units` (2026-08-30): a unit held by two or more LIVE claims — two runs driving
+    // one unit at the same time. `ambiguous_claim` is refused by every writer that meets it
+    // and was asked about by nobody; no sibling could see the shape, because each of the two
+    // rows is individually healthy and what is wrong is that both exist. It sits beside
+    // `stalled-units` — the step whose question it takes over for such a unit — and, like its
+    // neighbours, it reads and the check-in asks.
+    "raced-units",
     // `undrivable-units` (2026-08-26): queued work whose owner is an address no entry of the
     // committed mapping names — undrivable by every runner, and until this step reachable by
     // no path from *the loop cannot drive its own output* to *a person is told*. Same
@@ -28455,12 +28462,73 @@ function testProofJudgementSplit() {
   // column cannot classify six. Parsed apart for the reason the other five are, and least of all
   // folded into the act-effect table beside it: both concern the loop's own records, and that
   // resemblance is exactly the mistake each previous split records.
+  // A SEVENTH VOCABULARY IN THE SAME HOME (2026-08-30, mission
+  // `stop-two-runs-from-claiming-and-driving-one-unit`). `list-raced-units.sh` is keyed on a
+  // RELATION BETWEEN TWO CLAIMS of one unit, which no per-row verdict can carry: each row is
+  // individually healthy and what is wrong is that both exist. Parsed apart for the reason the
+  // other six are — and it must be split BEFORE the condition-age heading, or its rows would be
+  // parsed as part of the publication table that precedes it.
+  const RACE_HEADING = "### Whether a unit is being driven twice";
+  const raceAt = pubTail.indexOf(RACE_HEADING);
+  assertTrue("the raced-unit sub-table is in the one home too", raceAt > 0,
+    "claims.md no longer carries the raced-unit classification");
+  const pubTable = pubTail.slice(0, raceAt);
+  const raceTail = pubTail.slice(raceAt);
+
   const AGE_HEADING = "### How long a condition has been standing";
-  const ageAt = pubTail.indexOf(AGE_HEADING);
+  const ageAt = raceTail.indexOf(AGE_HEADING);
   assertTrue("the condition-age sub-table is in the one home too", ageAt > 0,
     "claims.md no longer carries the condition-age classification");
-  const pubTable = pubTail.slice(0, ageAt);
-  const ageTail = pubTail.slice(ageAt);
+  const raceTable = raceTail.slice(0, ageAt);
+  const ageTail = raceTail.slice(ageAt);
+
+  // NO RACED-UNIT READING IS A PROOF. A race resolves the moment one of the two branches
+  // merges, so every reading here can become false by looking again — the one property a proof
+  // must not have. The table is prose, so this is what keeps it honest.
+  assertEq("no raced-unit reading is a proof — every one of them is a judgement",
+    (raceTable.match(/^\|[^|\n]*\|\s*(?:\*\*)?proof(?:\*\*)?\s*\|/gm) || []).length, 0,
+    "a raced-unit reading was classified a proof");
+  for (const w of ["ambiguous", "readable: false"]) {
+    assertTrue(`the raced-unit sub-table classifies ${w}`, raceTable.includes(w),
+      "a word the reader emits is unclassified");
+  }
+  // THE DELIBERATE EXCLUSION IS NAMED, not merely absent: one live claim beside a `superseded`
+  // one is the SANCTIONED recovery, and a later reader must find the reason rather than the gap.
+  assertTrue("the aftermath's exclusion is argued in the table", raceTable.includes("resurveyed"),
+    "the sanctioned-recovery exclusion is no longer stated where the reading is classified");
+
+  // ITS ENUMERATED CONSUMERS ASK AND REPORT, AND DO NOTHING ELSE. Call sites, never words: the
+  // step's own prose says in English that it merges and releases nothing.
+  const RACE_ACTS = ["--method PUT", "--method PATCH", "--method DELETE", "/merge",
+    "release-claim.sh", "retire-claim.sh", "catch-up-claim.sh", "claim.sh", "plan-units.sh"];
+  const raceStepSrc = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/moderate/scripts/step-raced-units.sh"), "utf8")
+    .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+  for (const act of RACE_ACTS) {
+    assertTrue(`step-raced-units.sh never reaches ${act}`, !raceStepSrc.includes(act),
+      "the raced-unit step acts on a judgement; it may only ask");
+  }
+  // AND ITS READER IS A PURE READ, composing the one oracle rather than being a second one.
+  const raceReaderSrc = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/drive/scripts/list-raced-units.sh"), "utf8")
+    .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+  assertTrue("list-raced-units.sh composes list-claims.sh", raceReaderSrc.includes("list-claims.sh"),
+    "the raced-unit reader stopped composing the one claim oracle");
+  assertTrue("list-raced-units.sh reads the library's own resolution",
+    raceReaderSrc.includes("claims_unit_resolution"),
+    "the raced-unit reader derives its own answer instead of reading the library's");
+  for (const act of ["git push", "git commit", "git worktree", "--method PUT", "--method DELETE"]) {
+    assertTrue(`list-raced-units.sh never reaches ${act}`, !raceReaderSrc.includes(act),
+      "the raced-unit reader is not a pure read");
+  }
+  // THE THREE SIBLINGS FILTER THROUGH THE ONE SHARED HELPER, never a copy of the test.
+  for (const sib of ["step-stalled-units", "step-undelivered-units", "step-catchup-blocked"]) {
+    const src = readFileSync(join(REPO_ROOT,
+      `plugins/workaholic/skills/moderate/scripts/${sib}.sh`), "utf8");
+    assertTrue(`${sib}.sh filters raced units through the shared helper`,
+      src.includes("lib/raced-units.sh") && src.includes("raced_units "),
+      "a sibling re-implements the raced test, which is how two of them start disagreeing");
+  }
   // The source table that follows is a different kind of table (which question reads which age),
   // so the classification parse stops at its heading.
   const srcAt = ageTail.indexOf("### Which question reads which age");

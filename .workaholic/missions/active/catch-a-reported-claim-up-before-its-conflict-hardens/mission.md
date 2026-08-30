@@ -54,3 +54,4 @@ holder once. A reviewed pull request is left alone, by name.
 - 2026-08-30 — ticket archived — 20260830042803-read-which-reported-claims-are-catchable.md
 - 2026-08-30 — ticket archived — 20260830042803-refuse-a-pull-request-a-person-has-already-reviewed.md
 - 2026-08-30 — ticket archived — 20260830042803-take-the-act-on-every-catchable-claim-in-the-run.md
+- 2026-08-30 — ticket archived — 20260830042803-report-each-catch-up-in-the-vocabulary-that-exists.md

@@ -2,7 +2,7 @@
 type: Mission
 title: Catch a reported claim up before its conflict hardens
 slug: catch-a-reported-claim-up-before-its-conflict-hardens
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-30T04:26:00+00:00
 author: a@qmu.jp
@@ -57,3 +57,5 @@ holder once. A reviewed pull request is left alone, by name.
 - 2026-08-30 — ticket archived — 20260830042803-report-each-catch-up-in-the-vocabulary-that-exists.md
 - 2026-08-30 — ticket archived — 20260830042803-name-each-reported-claim-s-mergeability-in-the-report.md
 - 2026-08-30 — ticket archived — 20260830042804-keep-one-unit-to-one-question.md
+- 2026-08-30 — ticket archived — 20260830042804-drill-the-widened-catch-up-offline.md
+- 2026-08-30 — mission achieved — mission.md

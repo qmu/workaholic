@@ -1278,12 +1278,19 @@ claims_scan() {
 #   live            one live claim beside one or more superseded ones -- the live one wins
 #   superseded_only every claim for this unit is superseded; the first is returned, so a
 #                   caller keeps refusing under `superseded` exactly as it did before
-#   ambiguous       TWO OR MORE LIVE CLAIMS. Reported, never picked. The protocol settles a
-#                   race by the push (two runners cannot both land a claim commit on one
-#                   branch), so this state cannot arise from the sanctioned path at all --
-#                   and picking one of two live branches silently is how a runner would
-#                   resume, or release, work another run is still driving. Refusing costs
-#                   nothing that ever legitimately happens and names both branches instead.
+#   ambiguous       TWO OR MORE LIVE CLAIMS. Reported, never picked. This row read *the
+#                   protocol settles a race by the push, so this state cannot arise from the
+#                   sanctioned path at all* until 2026-08-30, and that premise was FALSE for a
+#                   fresh claim: `create.sh` mints a clock-derived name, so two runners that
+#                   survey before either pushes name two different refs and both win
+#                   (`../reference/claims.md`, *What the claim contends for*). So it does
+#                   arise, and the refusal is MORE necessary rather than less -- picking one
+#                   of two live branches silently is how a runner would resume, or release,
+#                   work another run is still driving. Name both branches instead. Since
+#                   2026-08-30 this reading also reaches a person: `list-raced-units.sh`
+#                   composes it and `/moderate`'s `raced-units` step asks the claim holders
+#                   which branch keeps going. It is a JUDGEMENT -- a race resolves the moment
+#                   one branch merges -- so no consumer may act on it.
 
 # Every claim row for this unit, in scan order. $1 = rows, $2 = unit.
 claims_unit_all_rows() {

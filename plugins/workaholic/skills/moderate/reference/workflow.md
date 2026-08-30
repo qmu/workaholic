@@ -1858,6 +1858,7 @@ decide something before any change is the right one*.
 | `strategy-pace` | `needs_ruling` | Whether a direction is still the right one is the operator's. |
 | `direction-health` | `needs_ruling` | Re-dating, closing or declaring a direction arrived is the operator's, by that step's own contract — and since 2026-08-29 so is **moving its declared stage**, which is precisely what a machine may not decide: `direction-cutover:<slug>` and `direction-settled:<slug>` are asked, never filed as repairable work. |
 | `stalled-units` | `needs_ruling` | Whether a stalled claim is taken over or abandoned is the holder's. |
+| `raced-units` | `needs_ruling` | **Which of two live branches keeps driving the unit is the claim holders'**, and picking between them is the one act `ambiguous_claim` refuses everywhere in the protocol — filing it as work would be the loop deciding what it refuses to decide. Its readings are besides that **judgements** (`drive/reference/claims.md`, *Whether a unit is being driven twice*). The repair that would stop races happening at all is a **different** finding, already recorded on its own mission: it rests on an arbitration this container's transport refuses. |
 | `undrivable-units` | `needs_ruling` | Which account an address belongs to is a human's ruling, by that step's own contract. |
 | `standing-rulings` | `needs_ruling` | It exists **because** the loop cannot make those rulings itself. |
 | `undelivered-units` | **`repairable`** | A merge the transport refused names the transport seam, which is code. |
@@ -2387,3 +2388,70 @@ day. The age still reaches the person, in the question that names it.
 lifted gate, and nothing written anywhere but its own tick-log line (`run.sh` writes that).
 Every reading it carries is a **judgement** (`drive/reference/claims.md`, *Whether an
 operator-facing pull request was acted on*).
+
+## 29. `raced-units` — a unit two runs are driving at once
+
+```
+sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/step-raced-units.sh --tick <id> [--root <repo-root>]
+```
+
+**Why it exists** (2026-08-30, mission `stop-two-runs-from-claiming-and-driving-one-unit`).
+`ambiguous_claim` — two or more **live** claims for one unit — is refused by every writer that
+meets it and was **asked about by nobody**. Measured 2026-08-30: `work-20260830-055314` and
+`work-20260830-055318` were both claimed for one unit four seconds apart and each drove the same
+four tickets for over an hour; the run that lost reported an ordinary undelivered unit, and the
+duplicated hour reached no person at all. `/implement` may not ask, so without this step there
+was no path from *the loop is doing one job twice* to *a person is told*.
+
+**No other step could see the shape.** `stalled-units` finds one claim that has not moved,
+`undelivered-units` finds one refused merge, `catchup-blocked` finds one conflicted branch —
+each a *consequence* whose question hides the cause, because each of the two rows is
+individually healthy and what is wrong is that both exist.
+
+**Which sibling it follows, on each axis**
+
+| Axis | Follows | Why |
+| ---- | ------- | --- |
+| whose question | `stalled-units` | the **claim holders** drove the unit and are the people who can decide which branch keeps going; both claims' `author` values are the addressees |
+| running identity | `undrivable-units` | never consulted — a race is a fact about the unit, and an hourly question that answered differently per account would be asked once per runner rather than once per unit |
+| what it may read | `undrivable-units` | `list-claims.sh` is a pure read, composed through `drive/scripts/list-raced-units.sh`; **`plan-units.sh` is refused**, because the survey reaches the mission readers, which carry the living migrations and **stage** what they converge |
+
+**This step owns the raced unit's question; three siblings filter and count.** That is the
+`handoff-units`/`stalled-units` division — one step asks, the others filter, and either half
+alone is a defect — and all four candidates are settled explicitly rather than left to whichever
+runs first. `stalled-units`, `undelivered-units` and `catchup-blocked` filter and count;
+**`retire-claims` needs no change and gets none**, because its candidates are `superseded` rows
+and a unit resolving `ambiguous` has none by definition (every one of its claims is live), so
+the two sets are disjoint by construction. The full table, with each reason, is
+`drive/reference/claims.md`, *Whether a unit is being driven twice*.
+
+**The filter is one helper, not three copies.** `lib/raced-units.sh` reads the library's own
+`claims_unit_resolution` over the scan each step has **already** made — no second walk of the
+refs, and no second definition of a race, which is how a filtering step would start disagreeing
+with the step that asks and drop a finding entirely. A step whose claims payload is unreadable
+filters **nothing**, the safe direction: an over-eager question beats a silently dropped one.
+
+**The aftermath is deliberately not a candidate.** One live claim beside a `superseded` one is
+byte-identical to the *sanctioned* recovery in which a superseded claim's work is resurveyed and
+taken on a fresh claim (`plan-units.sh`'s `resurveyed[]`); telling them apart would need a clock
+threshold between the two claims' creation times or a field stored on an artifact, and this
+repository refuses both by name. The aftermath is already handled — the loser reads
+`superseded`, `retire-claims` retires it, `stalled-units` counts it.
+
+**The question names both branches and picks between neither**, which is `ambiguous_claim`'s
+standing everywhere in the protocol: choosing one of two live claims silently is how a runner
+would discard work another run is still driving. Keyed `raced-unit:<unit>`, so one unit costs
+exactly one question however many ticks see it; `ask-question.sh` gains nothing — no key, cap or
+hold moves.
+
+**The summary carries no age and no timestamp**, for the correctness reason
+`step-stalled-units.sh`'s header records: the root calls a step changed when its summary differs
+from the same step's an hour ago, and an age increments every tick, which would make this step
+changed hourly by construction. A degraded read is named by its reason and asks nothing — a scan
+that could not be read has not found *no unit is being driven twice*, it has found nothing.
+
+**It asks and nothing else.** No claim released, no branch deleted or picked, no pull request
+merged or closed, no worktree touched, no gate lifted, and nothing written anywhere but its own
+tick-log line (`run.sh` writes that). Every reading it carries is a **judgement**
+(`drive/reference/claims.md`, *Whether a unit is being driven twice*): a race resolves the
+moment one of the two branches merges.

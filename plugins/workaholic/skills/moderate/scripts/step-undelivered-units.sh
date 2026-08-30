@@ -66,6 +66,11 @@ SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 . "${SCRIPT_DIR}/lib/jq-guard.sh"
 . "${SCRIPT_DIR}/lib/read-age.sh"
 DRIVE_SCRIPTS="${SCRIPT_DIR}/../../drive/scripts"
+# The claim library, for `claims_unit_resolution` alone — the raced-unit filter below reads the
+# library's own single derivation rather than a second implementation of "two live claims".
+CLAIMS_LIB_DIR="${DRIVE_SCRIPTS}/lib"
+[ -f "${CLAIMS_LIB_DIR}/claims.sh" ] && . "${CLAIMS_LIB_DIR}/claims.sh"
+. "${SCRIPT_DIR}/lib/raced-units.sh"
 
 TICK=""
 ROOT="."
@@ -115,16 +120,34 @@ total=$(printf '%s' "$out" | jq '[.claims[]?] | length')
 # and COUNTS it instead. One step asks and the other counts, exactly as `stalled-units` and
 # `handoff-units` divide; either half alone is a defect, and the count keeps the finding
 # visible in the log rather than dropping it.
+# AND A RACED UNIT IS ANOTHER STEP'S QUESTION TOO (2026-08-30, mission
+# `stop-two-runs-from-claiming-and-driving-one-unit`). When a unit is held by two live claims, a
+# refused merge on one of them is the race's CONSEQUENCE, and *retry your merge* asks about the
+# consequence while hiding the cause: what has not been decided is which of the two branches
+# keeps going. `raced-units` asks that; this step filters and COUNTS, the same division the
+# `content` reading above already follows. The set is the library's own `claims_unit_resolution`
+# over the scan this step already made — no second walk, no second definition of a race — and an
+# unreadable payload yields an empty set and filters nothing.
+raced_set=$(raced_units "$out" 2>/dev/null || true)
+raced_json='[]'
+[ -z "$raced_set" ] || raced_json=$(printf '%s\n' "$raced_set" | jq -Rsc 'split("\n") | map(select(length > 0))')
+
 candidates=$(printf '%s' "$out" \
-    | jq -c '[.claims[]? | select(.resume_reason == "report_undelivered")
-                        | select(.mergeability != "content")]')
+    | jq -c --argjson r "$raced_json" '[.claims[]? | select(.resume_reason == "report_undelivered")
+                        | select(.mergeability != "content")
+                        | select(.unit as $u | ($r | index($u)) | not)]')
 blocked=$(printf '%s' "$out" \
     | jq '[.claims[]? | select(.resume_reason == "report_undelivered")
                      | select(.mergeability == "content")] | length')
+raced=$(printf '%s' "$out" \
+    | jq --argjson r "$raced_json" '[.claims[]? | select(.resume_reason == "report_undelivered")
+                     | select(.mergeability != "content")
+                     | select(.unit as $u | $r | index($u))] | length')
 n=$(printf '%s' "$candidates" | jq 'length')
 
 summary="${total} claimed unit(s); ${n} finished and undelivered"
 [ "$blocked" -eq 0 ] || summary="${summary}; ${blocked} no longer merging (asked by catchup-blocked)"
+[ "$raced" -eq 0 ] || summary="${summary}; ${raced} held by two live claims (asked by raced-units)"
 
 if [ "$n" -eq 0 ]; then
     emit ok "" "$summary"

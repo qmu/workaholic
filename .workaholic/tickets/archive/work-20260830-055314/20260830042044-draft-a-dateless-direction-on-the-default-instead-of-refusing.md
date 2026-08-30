@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-30T04:20:44+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -98,3 +99,53 @@ the other one.
   (`SKILL.md`: the three-part bar is the only brake). The owner requirement is what
   still holds it — an unassigned or unmapped issue is record-only exactly as before,
   so a stray ask cannot mint a direction.
+
+## Final Report
+
+Development completed as planned.
+
+**Reproduced first.** The pre-change contract said it in two places, both quoted here so
+the move is traceable: `SKILL.md`'s bar item 3, *"All three, from the ask itself; none
+inferred. Any one missing → record-only"*, and its owner paragraph, *"an ask with a
+direction and an owner but no date is `no_target_date`, record-only"*; and step 9b's
+*"the date is one the ask states (no date → record-only, `no_target_date`)"*.
+
+**What moved.** The bar now reads *an owner and an aim present in the ask, plus a date it
+either states or takes from the operator's default*. Step 9b derives the default through
+`default-target-date.sh` — never a week computed here, and never in two places — passing
+the triggering issue's own date, and hands the reader's `target_date` to `create.sh`.
+`no_target_date` is **narrowed** to *the ask stated a date this run could not resolve* and
+says so at both sites that name it, including step 13's record-only reason list.
+
+**Why the date is defaultable and the owner is not**, stated in `SKILL.md` rather than left
+to be re-derived: an owner has no answer to default *to* — substituting the running
+identity is exactly what *Act only on an ask that is yours* forbids — while a date has one
+and the operator stated it. The owner requirement is therefore what still brakes the one
+artifact with no floor and no ceiling.
+
+**Gate.** `create.sh` and `publish-tree-pr.sh` are byte-identical (`git diff --stat` empty
+on both). The never-auto-merge rule is untouched: the seam derives `strategy_touching` from
+the path, so a defaulted strategy is left open by the same mechanism as a stated one.
+`CLAUDE.md`'s `/specificate` row is updated in the same change.
+
+Verified: `node scripts/build-plugins/build.mjs`, `verify.mjs`,
+`node scripts/test-workflow-scripts.mjs` — 5364 passed, 0 failed.
+
+### Discovered Insights
+
+- **Insight**: `verify-specificate` is one of the two drills that need the server — it
+  refuses `{"ok": false, "reason": "usage", "detail": "verify-specificate needs an issue
+  number"}` with no argument, because it drives a real inbound issue end to end.
+  **Context**: the Quality Gate names it as a verification method, and it cannot run in a
+  routine-fired container with no issue to point at. The hermetic proof of this change is
+  therefore the suite plus the dateless-ask row this mission's own drill ticket adds — which
+  is why that ticket exists, and why its row must be written against the **behaviour**
+  rather than against the prose changed here.
+
+- **Insight**: the strategy form's three-part bar had two *different* reasons behind it that
+  the single sentence hid — "the ask must supply it" for the owner and the aim, and "this
+  session must not pick one" for the date.
+  **Context**: the second is what the default answers, because the operator picked the
+  value; the first is unanswerable by any machine. Reading the bar as one uniform rule is
+  what makes the change look like a loosening of all three. It is not, and the two reasons
+  are now written separately so a later reader cannot default the owner by analogy.

@@ -278,8 +278,25 @@ and every abort reports a machine-readable reason.
          "<schedule prose>" "<the step-3 record's filename>"
    ```
 
-   The three parts come from the **ask**, never from this session: the date is one the
-   ask states (no date → record-only, `no_target_date`), and the assignee is the
+   **The date, when the ask states none** (2026-08-30, the operator's ruling; mission
+   `draft-a-dateless-direction-with-the-operator-s-one-week-default`). Derive it — never
+   compute a week here, and never in two places:
+
+   ```sh
+   bash ${CLAUDE_PLUGIN_ROOT}/skills/strategy/scripts/default-target-date.sh <the triggering issue's created_at date>
+   ```
+
+   The argument is a **calendar date**, so pass the date part of the issue's RFC3339
+   `created_at` — the ask's own day, so a tick ingesting an issue filed days ago does not
+   date the direction from its own clock. Hand the reader's `target_date` to `create.sh`
+   as the positional above; `create.sh` is **byte-identical** and never learns where the
+   date came from. An `ok: false` (`bad_ask_date`) → record-only naming it, exactly as
+   every other refusal below.
+
+   The aim and the owner come from the **ask**, never from this session; the date comes
+   from the ask when it states one and otherwise from the default above (an ask that
+   **states** a date this run cannot resolve is still record-only, `no_target_date` — a
+   default may never be taken over the operator's own words). The assignee is the
    triggering issue's **resolved through `gather/scripts/identity.sh`**, never the running
    identity (unassigned → record-only, `no_assignee`; **assigned to a login the mapping
    does not name → record-only, `assignee_unmapped` with the login**) — `create.sh` refuses
@@ -529,7 +546,9 @@ and every abort reports a machine-readable reason.
     leaving (2026-08-28) — / **strategy `<slug>` revised
     (`<parts>`), PR left open for the operator** / record-only, and for
     record-only reached by a failed strategy bar or an unmatched announcement, the
-    part that was missing — `no_target_date` / `no_assignee` / `assignee_unmapped` with
+    part that was missing — `no_target_date` (the ask **stated** a date this run could not
+    resolve; an ask stating none takes the one-week default and is not record-only) /
+    `no_assignee` / `assignee_unmapped` with
     the login / `strategy_not_found`
     with the slug / `no_end_state` / `not_active` / `no_revision`) with its
     reason, the record's filename, **the carry** —

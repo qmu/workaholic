@@ -1,0 +1,903 @@
+# The claim protocol — reference
+
+Companion to [`../SKILL.md`](../SKILL.md)'s **Claims** section, which states the model. This file
+carries the full protocol: the scan mechanics, each script's contract, the resumption rules, and
+the release/landing tables. The scripts implement this model and never extend it silently.
+
+## The model
+
+**The repository is the coordination medium.** Before driving a unit, a runner claims it on a
+pushed branch; every runner reads the claims in flight from the unmerged remote branches. There is
+no run-lock, no lock file, and no server — nothing leaks when a runner dies mid-run, and a runner
+on another machine coordinates through exactly the same artifact.
+
+- **PR-unit.** The thing a runner takes: one approved **mission** (unit id = the slug) or one
+  **batch** of related backlog tickets (unit id = `batch-<YYYYMMDDHHMMSS>`, minted at claim time).
+  One unit ↔ one branch ↔ one worktree ↔ one PR.
+- **Claim.** A commit whose subject is `Claim <unit-id>`, on a fresh `work-*` branch cut from
+  `origin/main` by the standard creator, stamping `claim: <branch>` into the claimed artifacts'
+  frontmatter — the mission's `mission.md`, or each batched ticket file — pushed immediately. The
+  stamp rides the **worktree** checkout only, so the runner's main checkout stays clean between
+  ticks (the `/specificate` batch depends on that). **A stamp that reaches the base is history, never
+  a claim** (decision M1, 2026-08-04): a `handoff` or `blocked` unit merges its PR with tickets
+  still in `todo/`, so a base-side stamp on a live queue item is an ordinary state — the
+  unmerged-branch scan is the only claim oracle, and it already reports a merged branch's claim as
+  released. A mission absent from the claiming checkout is refused `mission_missing`: after J1,
+  absence means a wrong slug or a stale checkout.
+- **Reader.** Fetch, enumerate the `origin/*` branches carrying commits not on `origin/main`, and
+  for each read the unit from its newest `Claim …` subject and the artifacts from the branch tip's
+  stamps — **at each file's current path, not the path the claim commit stamped**. `archive.sh`
+  *renames* a driven ticket (`todo/X.md` → `archive/<branch>/X.md`), so the reader maps paths with
+  one tree-to-tree rename diff per claim; and because `--find-renames` only pairs above 50%
+  similarity (the appended Final Report can push a short ticket below it), a path the diff does
+  not map is resolved a second way: an exact **filename** lookup scoped to `.workaholic/tickets/`
+  and to a single unambiguous match (`mission.md` is shared by every mission, so ambiguity falls
+  back to the mapped path rather than guessing). What the reader reports is the **base-side**
+  path — the coordinate space both consumers compare in. A genuine stamp removal drops the
+  artifact, and a deleted artifact is not claimed — both deliberate, both pinned by tests. (An
+  empty artifact list is two failures at once, measured 2026-08-04: the survey re-offers a ticket
+  already in flight with no `excluded[]` row, and `claims_has_work`'s conservative "no artifacts
+  means unknown" branch calls a drained unit resumable.)
+- **Release = merge or branch deletion.** A merged branch's commits are on the base, so its claim
+  leaves the unmerged set by definition — the normal path needs no script. Deliberately
+  discarding an unfinished unit is `release-claim.sh` (below), which deletes the branch and is
+  therefore **not** the recovery path — resumption is.
+- **Resumable ≠ stale, and only one of them acts.** Past `WORKAHOLIC_CLAIM_STALE_HOURS` (default
+  24) a claim is marked `stale: true` and **nothing acts on it** — reclaiming a colleague's work
+  on a local verdict can silently duplicate it. Resumption is the narrower case: **your own**
+  claim whose **heartbeat** lapsed, both computed in the one shared scan and carried on every row
+  (`resumable`, `resume_reason`) — a writer free to decide independently could take over a unit
+  the reader still calls active.
+  - **Liveness is the branch tip**, refreshed by `heartbeat.sh` and by every ordinary work
+    commit. The window is `WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES` (default 30) — minutes, not
+    the 24-hour `stale`, because a routine that recovers its own dropped unit only after a day is
+    not a recovery path.
+  - **Something left to drive.** At least one of the unit's tickets must still be undriven on
+    that branch (for a mission unit: at least one tip-side todo ticket naming it). Without this
+    the verdict cannot tell a run that died from a unit that finished: a `review` unit's branch
+    correctly stays unmerged and its heartbeat lapses exactly like an abandoned one (measured:
+    the hourly runner re-took one such unit three times, adding empty `Resume` commits to a
+    branch under human review). Such a unit reports `queue_drained` and is excluded as
+    `claimed_reported`.
+  - **A claim whose content already reached the base is neither.** "In flight" is
+    `git rev-list --count base..ref`, so a branch whose *commits* never landed is claimed
+    forever even when its *content* did — a unit recovered by hand onto a fresh claim
+    branch, a change re-applied, a revert-and-redo. `claims_superseded` reports it:
+    **`superseded`**, `resumable: false`, excluded `claimed_superseded`. **Reported, never
+    acted on** — nothing here deletes the branch or closes its pull request, exactly as
+    `stale` has worked since the protocol shipped; an operator closes it out, and the
+    verdict exists so the survey stops offering it. It must **not** forbid `ok`: a claim
+    holding no work is the opposite of outstanding work. **And a fresh claim may be taken
+    over it** (2026-08-27): `claim.sh` skipped this verdict and answered `already_claimed`,
+    so the work `resurveyed[]` re-offered was reachable by no path — a fresh claim refused
+    here, and `resume` refused it as `superseded` by design. The refusal loop now skips a
+    row whose verdict is `superseded`, reading the same `lib/claims.sh` derivation the
+    survey reads, so the offer and the refusal cannot disagree again. It frees the **work,
+    not the branch**: nothing here deletes the old branch, closes its pull request or
+    releases its claim, and the new claim is an ordinary `work-*` branch beside it. Every
+    other refusal is untouched — a live claim, a colleague's, a `queue_drained` one and a
+    `report_incomplete` one all refuse exactly as before, because only a claim already
+    **proved** to hold nothing may be claimed over. The signal is *the unit's tickets
+    are archived on the base* (every one of them, under any branch directory — which
+    branch delivered them is exactly what the test must not care about), chosen over "the
+    branch's diff is contained in the base" because the measured recovery landed
+    **refined** rather than verbatim and containment would have answered `false` on the
+    very branch that provoked the rule. **It answers at both grains since 2026-08-26.**
+    A batch claim is answered from the tree, first and network-free, exactly as before.
+    A **mission** claim — which stamps only `mission.md`, a file driving never archives —
+    is answered by the merged-pull-request lookup (`claim-merged.sh`, above): *is there a
+    merged pull request whose head is this branch?* is grain-agnostic and reads no
+    artifact, so the many-valued `mission:` relation still has exactly one parser. The
+    earlier scope rule (`false` for any non-ticket artifact, "a shape nothing has
+    measured") is **replaced along with its reason**: the shape was measured on this
+    repository the same day — three of five claims headed pull requests #521, #537 and
+    #546, all merged, all mission units, one offered `resumable: true` five days after its
+    own pull request merged. An `unanswerable` lookup answers `false`, which is precisely
+    the verdict that grain had before, so a degraded run loses nothing and gains nothing.
+    Measured 2026-08-26, on the first run to hold the `report_incomplete` tier: it resumed
+    `batch-20260819063000` exactly as designed, and the unit had been recovered onto
+    `work-20260821-221006` five days earlier — ten merge conflicts, three of them
+    `modify/delete` against a directory the base had deleted in a rename, and a full
+    story-and-pull-request cycle spent on a pull request whose only correct outcome was to
+    be closed.
+  - **Which branch *is* the unit, once two of them hold it** (2026-08-27). The verdict above
+    is what made a unit legitimately reachable by **two** claim branches — a `superseded`
+    one the survey ignores, and the live one a later run took its work on — and every
+    writer resolved a unit to *a* branch by taking the **first** row out of `claims_scan`.
+    That scan walks refs in name order, so first-match is the **oldest** branch, which for
+    this shape is precisely the dead one. Measured 2026-08-27 on
+    `make-workaholify-converge-the-account-s-routines`, held by `work-20260819-113836`
+    (`superseded`) and `work-20260827-003544` (`claim_active`): `claim.sh resume` refused on
+    the dead branch's own verdict, so the **live** claim was resumable by nothing, and
+    `release-claim.sh` tore the dead branch's worktree down and reported `half_released`
+    while the live claim stood. The rule is **the live row wins**, derived once in
+    `lib/claims.sh` (`claims_unit_resolution` / `claims_unit_row` / `claims_unit_live_branches`)
+    and read by both writers — three copies of a lookup is exactly how these disagreed. Its
+    answers are `none` / `single` / `live` / `superseded_only` / `ambiguous`; a unit with
+    **one** claim resolves byte-identically to first-match, and `superseded_only` returns
+    that superseded row, so a caller keeps refusing under `superseded` exactly as before.
+    **Two live claims are reported, never picked between** (`ambiguous_claim`, naming both
+    branches): the protocol settles a race by the push, so the state cannot arise from the
+    sanctioned path at all, and choosing silently is how a runner would resume — or discard —
+    work another run is still driving. `plan-units.sh` reads the same resolution: its
+    `claimed_superseded` **resurvey** was keyed on the first row too, so the dead branch
+    governed and the survey offered as fresh backlog a mission another run held — observed
+    live, the same mission in `missions[]`, `resumable[]` and `resurveyed[]` at once. A
+    superseded row beside a live one now governs nothing while staying reported in
+    `claimed[]`. `release-claim.sh` also sets `CLAIMS_FETCH_OK` after its own fetch, as
+    `claim.sh` does: without it the merged-pull-request lookup is skipped `offline`, so a
+    mission-grain `superseded` claim read as live there and the release refused
+    `ambiguous_claim` over a unit with exactly one live branch. Separately, `ensure-worktree.sh` **refuses** a branch
+    name that already exists on origin rather than minting a local branch at `HEAD` that
+    shadows it: its contract is to create a worktree on a *new* branch, attaching to a
+    published one is `create-mission-worktree.sh --branch`'s job, and the silent third
+    option turned the next push into a claim-clobbering force-of-fact.
+  - **And a *reported* unit is two states as well** (2026-08-27, mission
+    `close-the-units-the-loop-already-finished`). `queue_drained` means *waiting on a person* and
+    was also covering the loop's **own undelivered work**: a unit whose merge the transport
+    refused, whose claim every later survey excludes `claimed_reported`, which no path offers and
+    nobody was told about. Measured 2026-08-27: four pull requests the loop opened the day before
+    were green and unmerged, with `ok` reported over all of them. This is the 2026-08-19 split's
+    shape one state later, and it rests on that split's own rule — **a reason must imply its own
+    next action**, and folding two next actions into one word is what makes the invisible half
+    invisible. The new verdict is **`report_undelivered`**, excluded `claimed_undelivered`, and
+    it **forbids `ok`**.
+    **It is read off the branch, not re-derived and not re-fetched.** The scan cannot be re-run
+    here — `scan-branch-safety.sh` diffs `<base>..HEAD` of the *current* checkout and the oracle
+    stands in the main tree — and a fresh lookup is worse than the run's own answer for the
+    reason `claim-merged.sh` is three-valued: a wrong verdict here releases work still in flight.
+    So the run that attempted the merge records its outcome into the branch story it already
+    committed (`story/scripts/record-merge-outcome.sh`, idempotent, replacing rather than
+    stacking), and `claims_merge_outcome` reads that one line out of a blob the oracle already
+    fetches. **An absent section keeps `queue_drained`** — every story written before this
+    section, and every run that died before recording, answers empty, and the new reason is
+    claimed only on positive evidence.
+    **`resumable: false`, and for a different reason than `queue_drained`'s.** The next action is
+    a **merge retry**, which is not a takeover: resuming would push an empty `Resume` commit onto
+    a branch whose pull request is open — the 2026-08-01 gate exactly. The 2026-08-19 split went
+    `resumable: true` because its unit had never reported and the takeover had real work to do
+    (write the story, open the pull request); this one has already done both. `claim.sh resume`
+    refuses it under its own name rather than `queue_drained`'s wording, which would send the
+    reader to wait for a human who is not coming.
+  - **And a *reported* unit with work left is two states as well** (2026-08-27, mission
+    `stop-re-resuming-a-declared-handoff-unit`). `parked_with_pr`'s own contract says *the
+    follow-up tickets on its branch are why it still has work. Taking it over is legitimate* —
+    and that sentence is **false by declaration** for a unit whose remaining queued work carries
+    `verification_handoff:`. §6 routed it to the **handoff** route precisely because nothing
+    unattended can finish it, leaving the pull request open and the claim standing on purpose;
+    the oracle then offered the takeover anyway, on every tick. Measured on PR #647: routed at
+    02:14 UTC, taken over again at 06:43 for nothing. The new verdict is
+    **`awaiting_verification`**, excluded `claimed_awaiting_verification`, `resumable: false`,
+    and it does **not** forbid `ok`.
+    **A sibling word, not a narrowed `parked_with_pr`**, on the `report_undelivered` precedent:
+    the two states call for different next actions — take it over versus satisfy the declared
+    verification — and one word answering both is what made this invisible. `claim.sh resume`
+    refuses it under its own name; refusing under `queue_drained` would send the reader to wait
+    for a merge that is not what is owed.
+    **Nothing new is derived, and no artifact gained a field.** `verification-handoff.sh` already
+    reads the declaration and stays its only reader: `claims_declared_handoff` materialises the
+    tip-side blobs of the unit's still-queued work — plus the mission's own `mission.md`, since
+    any member declaring it carries the whole unit — and hands them to that script. The set comes
+    from `claims_remaining_tickets`, the walk `claims_has_work` already made, lifted out so the
+    two readings cannot answer from two different ticket sets.
+    **It releases itself.** The declaration is read from the work still *queued*, never the
+    archived work, so driving that ticket makes the same reader answer `false` and the unit reads
+    `parked_with_pr` or `queue_drained` again — no stored state, no cursor to reset. `superseded`
+    keeps its precedence over it: a claim proved empty is still superseded, whatever it declares.
+  - **A drained queue is two states, split on the same story signal.** "Finished" covers a unit
+    that **reported** — story committed at the tip, pull request open, waiting on a human — and a
+    run that died **after** archiving its last ticket and **before** opening anything, whose work
+    is pushed and which nobody has been told about. Both answered `queue_drained`, so both were
+    untouchable *and* both had their tickets excluded `claimed_reported` at every later survey:
+    the second was reachable by no path at all (measured 2026-08-19, `batch-20260819063000` — two
+    tickets archived and pushed, no story, no PR, four `[Implement]` ticks that each surveyed a
+    clean checkout and drove nothing). A story at the tip now keeps `queue_drained`, unchanged;
+    its absence reports **`report_incomplete`**, `resumable: true`, offered as `claimed_resumable`
+    and taken over at §5 with nothing left to drive. This **narrows** the drained gate rather than
+    reversing it — the case it was built for is byte-identical.
+  - **Complete history, or no verdict at all.** "Unmerged" is `git rev-list --count
+    <base>..<ref>`, which cannot be reduced across a shallow graft — in a shallow clone a fully
+    merged branch still counts as ahead (measured 2026-08-04: a merged branch counted 154 ahead
+    while shallow, 0 after `--unshallow`, and passed both gates above). The reader **repairs
+    first**: `claims_fetch` deepens a shallow clone before anything reads ancestry. When origin
+    is unreachable and it cannot, it **degrades loudly**: `shallow: true` goes out to both
+    consumers and the branch reports `resumable: false`, reason `shallow_history` — an
+    unanswerable question must not render as `heartbeat_lapsed`. The claim is still *listed*
+    (over-reporting makes a runner wait; under-reporting double-picks work): the verdict is
+    suppressed, never the row.
+  - **Same identity only.** The claim commit's author must be this runner's
+    `git config user.email`. A colleague's claim is `foreign_identity`, untouchable at any age;
+    an unresolvable identity resumes nothing. Consequence: a runner configured with a
+    developer's email inherits that developer's claims — intended — so never configure a
+    *shared* identity across people.
+- **Worktree lifecycle.** A worktree is claim-born and ship-torn: `claim.sh` creates
+  `.worktrees/<unit-id>/`; it is removed when the unit ships or its claim is released.
+  `/mission-close` never tears worktrees down — a lingering worktree is an in-flight or stale
+  claim, the reader's business.
+
+**The reader degrades offline; the writer does not.** With origin unreachable, `list-claims.sh`
+reports `fetched: false` and answers from the last-known remote-tracking refs, while `claim.sh`
+refuses outright. A stale reader over-reports claims (a runner waits); a claim nobody else can see
+is not a claim, and driving on one is the double-pick the protocol exists to prevent. **One scan
+serves both**: `drive/scripts/lib/claims.sh` holds it, `list-claims.sh` renders it, `claim.sh`
+verifies through it.
+
+## Read the claims in flight
+
+```bash
+bash ../drive/scripts/list-claims.sh
+```
+
+Pure read. Emits `{fetched, shallow, stale_hours, heartbeat_stale_minutes, base,
+merged_lookup_unanswered, claims: [{unit,
+branch, artifacts, last_commit_at, stale, author, resumable, resume_reason, reported}]}`, where
+`resume_reason` is one of `heartbeat_lapsed` / `report_incomplete` / `parked_with_pr` (resumable)
+or `claim_active` / `superseded` / `awaiting_verification` / `queue_drained` /
+`report_undelivered` / `foreign_identity` / `identity_unresolved` / `shallow_history`. Each row
+also carries `declared_handoff`, whether the work this claim still has **queued** was declared
+unverifiable here — read through the one script that owns `verification_handoff:`, from the
+branch tip, with no network call.
+
+`merged_lookup_unanswered` is `[{branch, reason}]` — every claim the **merged-pull-request
+lookup** could not answer for (2026-08-26). That lookup, `claim-merged.sh`, is the claim
+protocol's one **network** read: it asks whether a merged pull request has the claim branch as
+its head, which answers *has this unit's work reached the base?* at both grains without reading
+any artifact. Its three values are `merged` / `not_merged` / `unanswerable`, and the third is
+the point — **a read we could not make leaves the row precisely the verdict it would have had
+without the lookup, and is named here instead.** The direction of failure is chosen: a wrong
+`merged` releases work still in flight, a wrong `in flight` only delays a claim. Reasons:
+`offline` (the fetch failed, so no call is spent), `disabled`
+(`WORKAHOLIC_CLAIM_MERGED_LOOKUP=0`), `gh_unavailable`, `rate_limited`, `session_refused`,
+`transport_error`, `unparseable_response`, `slug_unresolved`, `no_reader_script`. The survey
+(`plan-units.sh`) reads the same scan through the shared library rather than re-parsing this
+output. This script takes nothing over; it exists so the state is readable without a survey.
+
+## Proofs and judgements
+
+**A consumer may _act_ on a proof. A consumer may only _report_ or _ask about_ a judgement.**
+
+`lib/claims.sh` emits a word per reading, and two of those words are **proofs** — a reading the
+tree or a merged pull request established, which cannot become false by somebody looking again.
+Every other word is a **judgement**: a reading that says *look at this*, whose next step belongs
+to a person or to a takeover. Nothing wrote that distinction down until 2026-08-27, so each
+consumer that wanted to act on a verdict re-derived which words were safe — and two copies of a
+rule are how the rule drifts. The table is the one source; a consumer keys on the word
+`lib/claims.sh` already emits, and **no artifact gained a field and no script gained a
+classifier** — a function returning `proof`/`judgement` would be a second derivation of the
+same fact, which is exactly what this exists to prevent.
+
+### The resumability verdict (`resume_reason`, one per claim row)
+
+| Word | Class | What established it, and what a consumer may do |
+| ---- | ----- | ----------------------------------------------- |
+| `superseded` | **proof** | Every one of the unit's tickets is archived on the base, or a **merged** pull request has this branch as its head. The claim's content reached the base by another route, so the branch can never land and holds no work. A consumer may **act**: resurvey the work behind it (`plan-units.sh`), claim over it (`claim.sh`), retire the claim itself. |
+| `report_undelivered` | **proof** | The run that drove this unit recorded `merge_refused: <word>` into its own branch story (`record-merge-outcome.sh`). The unit is finished, pushed, at an open pull request, and the **transport** — not a person — is what stopped it. A consumer may **act**: re-attempt the merge through the seam that refused it. |
+| `heartbeat_lapsed` | judgement | The tip has not moved inside the heartbeat window. It says a run *probably* died; it does not prove one did. Offered as a takeover, which the runner decides — never acted on by anything else. |
+| `report_incomplete` | judgement | The queue is drained with no story at the tip: the run *probably* died between §4 and §5. Same standing as `heartbeat_lapsed` — a mandatory **takeover offer**, not a licence to close, delete or merge anything. |
+| `parked_with_pr` | judgement | Reported and pushed, with work still on the branch **that nothing declared unverifiable here**. A human is the next step; a takeover is legitimate but never forced. |
+| `awaiting_verification` | judgement | Reported and pushed, with work still on the branch that was **declared** unverifiable in an unattended environment at creation (`verification_handoff:`). Classifying it a *proof* is the tempting error — the declaration is read straight off the tree, which looks like the property `superseded` has. It is not: a proof is a reading that **cannot** become false by looking again, and this one is designed to, because driving the declared ticket releases it. So a consumer may only **report** it, and decline to offer the takeover; nothing closes, deletes, merges or retires on it. Its one enumerated **reporting** consumer is `/moderate`'s `step-handoff-units.sh`, which asks the claim holder to run the declared verification and does nothing else. |
+| `queue_drained` | judgement | Reported, pushed, at an open pull request, with **no** recorded merge refusal. It means *waiting on a person*, and an absent merge-outcome section keeps it — the reading is claimed only on positive evidence, so a consumer must not read it as "delivered" or as "refused". Report it; a person merges. |
+| `claim_active` | judgement | The tip moved inside the heartbeat window: another run is *probably* still driving. Wait — never take over, never retire. |
+| `stale` | judgement | Not a `resume_reason` but a boolean beside it (`WORKAHOLIC_CLAIM_STALE_HOURS`, default 24). It has been **reported, never acted on** since the protocol shipped and stays that way: a tip older than the threshold says *look at this*, not *take it*. `/moderate`'s `stalled-units` step asks a person about it, which is the only thing a judgement licenses. |
+| `foreign_identity` | judgement | The claim commit's author is not this runner. Untouchable at any age — a refusal, and the safest kind, since it rests on somebody else's live work. |
+| `identity_unresolved` | judgement | This runner has no identity to compare against. The **absence** of a reading; every consumer refuses. |
+| `shallow_history` | judgement | The scan ran over truncated history, so the branch may already be merged and simply unprovable here. Also the absence of a reading: the verdict is suppressed at the one point where the *input*, not the unit, is the problem. |
+
+### The merged-pull-request lookup (`claim-merged.sh`)
+
+| Word | Class | What established it, and what a consumer may do |
+| ---- | ----- | ----------------------------------------------- |
+| `merged` | judgement | An **input** to `superseded`, never a verdict a consumer acts on directly. Reading it straight would be the second derivation the split exists to prevent: take `superseded` off the row. |
+| `not_merged` | judgement | Same standing, the other way. It leaves the row whatever verdict the local reading gave it. |
+| `unanswerable` | judgement | **The absence of a reading, and acting on an absence is the failure the three-valued lookup exists to avoid.** It leaves the row precisely the verdict it would have had without the lookup, and is named in `merged_lookup_unanswered` instead. The direction of failure is chosen: a wrong `merged` releases work still in flight, a wrong `in flight` only delays a claim. |
+
+### Resolving a unit to one row (`claims_unit_resolution`)
+
+A different axis: these words say **which row a writer may read**, never whether a unit's work is
+finished. None is a proof, and a consumer that acts on one is acting on the *row's* verdict, not
+on the resolution word.
+
+| Word | Class | What established it, and what a consumer may do |
+| ---- | ----- | ----------------------------------------------- |
+| `none` | judgement | No claim in flight for this unit. Proceed on the unit's own state. |
+| `single` | judgement | Exactly one claim, whatever its verdict — byte-identical to the first-match lookup this replaced. Act on **that row's** verdict, per the table above. |
+| `live` | judgement | One live claim beside one or more superseded ones. The live row wins; act on **its** verdict. |
+| `superseded_only` | judgement | Every claim for this unit is superseded, and the first is returned — so a caller keeps refusing under `superseded` exactly as it did before. |
+| `ambiguous` | judgement | Two or more live claims (`ambiguous_claim` where a caller reports it). **Reported, never picked between**: the protocol settles a race by the push, so this cannot arise from the sanctioned path, and choosing silently is how a runner would resume — or discard — work another run is still driving. Refuse and name both branches. |
+
+### The base's own checks (`read-base-checks.sh`, `attribute-base-red.sh`)
+
+A **second vocabulary in the same home** (2026-08-27, mission
+`read-whether-the-base-survived-what-the-loop-merged`). The tables above are keyed on the claim
+protocol's `resume_reason`; this one is keyed on what the base's checks said about a commit. One
+section, two keyed tables — opening a second document would be the second home the whole split
+exists to prevent, and folding the two into one table would key two different questions on one
+column.
+
+**There is no proof in this vocabulary, and that is the point.** A check run is *designed* to be
+re-runnable, so every reading here can become false by somebody looking again — which is exactly
+the property a proof must not have. The tempting error is to call `red` a proof because it is read
+straight off GitHub; `awaiting_verification`'s row above records the same trap for the claim
+vocabulary, and the answer is the same: read-straight-off is not the test.
+
+| Word | Class | What established it, and what a consumer may do |
+| ---- | ----- | ----------------------------------------------- |
+| `green` | judgement | Every completed check on the commit succeeded (or was neutral/skipped) and none is pending. A re-run, a re-triggered workflow or a newly required check can turn it `red`, so it proves nothing durable. **Report it.** It licenses no merge, no release and no skipped gate — the `release/*` QA window still owns quality. |
+| `red` | judgement | A completed check on the commit concluded in failure. It says *look at this*, not *this commit is bad*: a re-run can turn it green, and the failure may be in infrastructure rather than in the change. A consumer may **report** it and **ask about** it — `/moderate`'s `base-health` step asks the attributed author. Nothing may revert, re-run, block, gate, hold or merge on it. |
+| `unattributable` | judgement | The base is red and the walk could not name the merge that broke it — its bound was exhausted, it reached the start of history, or a commit inside the walk was unreadable. **Never the tip by default**: blaming the head because the walk ran out of room is the failure this word exists to prevent. Report it, ask about it, name the reason. |
+| `unanswerable` | judgement | The **absence** of a reading — no `gh`, a refused transport, a rate limit, an unparseable response, a commit with no checks at all, checks still running. Acting on an absence is the failure the three-valued shape exists to avoid, and the direction of failure is chosen: it must never be reported as `green`, because a base nobody looked at would then be indistinguishable from a base that passed. |
+
+**Its consumers report and ask, and nothing else.** `/moderate`'s `base-health` step hands a red
+base to the check-in as one question and writes nothing but its own tick-log line; the driving
+run names the reading at the top of its report and **gates nothing** — no stop, no skip, no hold,
+and the terminal token is byte-identical on a red base and a green one (`drive` §1 and
+§7). `scripts/test-workflow-scripts.mjs` pins this table the way it pins the one above: it fails
+when a word either script emits is unclassified, when the table classifies a word neither emits,
+when any row is called a `proof`, or when a consumer reaches an acting call site.
+
+**Its two consumers read this table rather than restating it.** The delivery retry acts on
+`report_undelivered` and no other word; the retirement writer acts on `superseded` and no other
+word. `scripts/test-workflow-scripts.mjs` fails when the table and either consumer disagree
+about a word, or when a consumer acts on one classified `judgement` — the split is a fact a
+change can lose, not a claim in prose.
+
+### Whether the base still accepts a claim branch (`claim-mergeability.sh`)
+
+A **third vocabulary in the same home** (2026-08-29, mission
+`land-the-loop-s-own-work-when-the-base-moves-under-it`), keyed on what the *base* says about a
+branch rather than on whose business the claim is. It is rendered on every claim row as
+`mergeability` / `mergeability_reason`, beside `resume_reason` and never instead of it: *is this
+claim somebody's to take* and *does the base still accept it* are different questions, and one
+column answering both is how two readings drift.
+
+**There is no proof in this vocabulary either.** A base that moves is precisely a reading that
+becomes false by looking again — the one property a proof must not have — so no consumer may
+merge, revert, gate or release on it. `catch-up-claim.sh` re-derives its own answer at the
+moment of its act rather than trusting a list it was handed, which is the discipline
+`delete-retired-claim-branch.sh` already carries across an executor boundary.
+
+| Word | Class | What established it, and what a consumer may do |
+| ---- | ----- | ----------------------------------------------- |
+| `clean` | judgement | `git merge-tree` produced no conflict at all. It says the merge *would* apply as of this read; the base moves every half hour, so it proves nothing durable. **Report it**; the catch-up re-derives it before acting. |
+| `mechanical` | judgement | Every conflicted path is one the shared rule (`ship/scripts/lib/conflict-class.sh`) can settle without a judgement: an append-only `.workaholic/` tail, a version/lockstep manifest, or generated output — including an OKF index, wholly generated or generated-inside-its-markers. A consumer may **act** only through `catch-up-claim.sh`, which re-derives this and applies its own six refusals; nothing acts on the word itself. |
+| `content` | judgement | Some other path conflicts, so a person must judge which side keeps its behaviour. The catch-up refuses it `content_conflict`, writing nothing, and `/moderate`'s `catchup-blocked:<unit>` step asks the claim holder. **Never resolved by a machine.** |
+| `unanswerable` | judgement | The **absence** of a reading — no merge base, truncated history, an unreadable ref, a git without `merge-tree --write-tree`. It must never be reported as `clean` and never collapse into `content`: a wrong `clean` pushes a merge nobody proved, a wrong `content` only delays a unit. Named with its own reason and left alone. |
+
+**A branch nothing has attempted is not the same finding as one the loop looked at.** That is
+the whole reason `content` is a reading rather than a bare *conflicted* boolean:
+`/moderate`'s `merge-conflicts` step reports a pull request GitHub calls conflicted — *nobody
+has looked yet* — while `catchup-blocked` asks about a branch this rule classified — *the loop
+looked and only you can decide*. One unit never draws both: `merge-conflicts` counts what
+`catchup-blocked` asks about, in the same shape `stalled-units` counts what `handoff-units`
+asks about.
+
+### Whether an act the loop took had its effect (`ci-retirement-turn.sh`)
+
+A **fourth vocabulary in the same home** (2026-08-29, mission
+`read-back-whether-the-loop-s-own-act-took-effect`). The three tables above are keyed on what is
+true of a *claim* — whose business it is, what the base's checks said, whether the base still
+accepts its branch. This one is keyed on a different question again: **did an act this loop
+performed actually happen?** One column cannot classify four questions, and a second document
+would be the second home the split exists to prevent.
+
+**Why the question needed a vocabulary at all.** Every reading in this repository answered *what
+did I find*; none answered *did what I did happen*. Measured 2026-08-29: `claim-retirement.yml`
+was green on every run while three proved-`superseded` claims stood on origin, and the tick log
+recorded, hour after hour, *"ci_turn: taken so CI could not take the delete either"* — an
+assertion about a second executor that **nothing established**. `ci-retirement-turn.sh` answered
+`taken` from a completed run's *existence*, which is a proxy for the act and not the act. The
+turn now records what it attempted (`record-ci-retirement-turn.sh`) and this reading answers from
+that record.
+
+**There is no proof in this vocabulary either, and the reason is stronger here than anywhere
+else.** A workflow run is re-runnable, a branch can be deleted or restored between two reads, and
+the record is a projection of a run somebody can re-trigger — so every reading here can become
+false by looking again, which is the one property a proof must not have. **No consumer may
+revert, re-run, block, gate, hold or merge on it.** The one licence it carries is narrower than
+*report and ask*: it may **hold a question**, and only on `taken` or `pending`.
+
+| Word | Class | What established it, and what a consumer may do |
+| ---- | ----- | ----------------------------------------------- |
+| `taken` | judgement | Per unit: the act's own **success** word (`deleted`, or `already_gone` — the branch was not there when CI looked, the same outcome). At the run level it means only *CI had its turn and we can see what it did*, never that any act succeeded. A consumer may **hold** this unit's question, because nothing is owed. |
+| `refused` | judgement | Rendered `refused:<word>`, carrying `delete-retired-claim-branch.sh`'s own refusal verbatim — or, where the turn's candidate reading was itself degraded, that reading's reason. Never a third vocabulary: a reader must be sent to a word some script actually printed. It **holds nothing**: this is precisely the case a person must hear about. |
+| `pending` | judgement | No completed run at this tip yet — the push is in flight, or the run is still going. CI may still take the act, so the question is **delayed for this tick only**. The asked-once ledger keys on the unit, so a branch that outlives CI's turn is asked about later. |
+| `unavailable` | judgement | The workflow is not present in this repository at all, so CI will never take the act. The unit is blocked exactly as it was before this reading existed, and the question **stands**. |
+| `unreadable` | judgement | A run completed and we cannot say what it did — the record is absent, unparseable, past its truncation bound, or names this unit nothing while the candidate reading itself was fine. The **absence** of a reading, and it **holds nothing**: an over-eager question is better than a silently dropped one, and this repository has measured the cost of a blocked act nobody was told about. |
+
+**Its one enumerated consumer is `/moderate`'s `step-retire-claims.sh`**, which removes a unit
+from its own question set on `taken` or `pending` and does nothing else with any word. It never
+re-runs a workflow, never re-attempts a delete on the strength of a reading, never releases a
+claim and never reopens a pull request. `scripts/test-workflow-scripts.mjs` pins this table the
+way it pins the three above: it fails when a word the reader emits is unclassified, when the
+table classifies a word the reader never emits, when any row is called a `proof`, or when the
+consumer reaches an acting call site.
+
+### Whether an operator-facing pull request was acted on (`publication-effect.sh`)
+
+A **fifth vocabulary in the same home** (2026-08-29, mission
+`follow-the-pull-requests-the-loop-opens-for-a-person`). The four tables above are keyed on what
+is true of a *claim*, of the *base*, or of an act *this loop* took. This one is keyed on the act
+the loop takes **on the operator's behalf**: `publish-tree-pr.sh` refuses to auto-merge a ruling
+or a strategy publication — because *merging is the ruling and closing is the refusal* — and
+then somebody has to rule. One column cannot classify five questions, and a second document
+would be the second home the split exists to prevent.
+
+**Why the question needed a vocabulary at all.** Having opened the diff, the loop stopped
+following it. No claim-side verdict could see it: a publication carries **no claim** at all
+(`publish-tree-pr.sh` pushes `publish-main` to a `work-*` name with no `Claim` commit), and
+`stuck-prs` and `merge-conflicts` find the pull request perfectly healthy — it is not stuck, it
+is **waiting**, which is what it was opened to do. Measured 2026-08-29: #694 sat 18 hours
+unanswered.
+
+**There is no proof in this vocabulary either, and the reason is the plainest of the five.** A
+pull request is *designed* to change state — anybody can merge it, close it, or reopen it
+between two reads — so every reading here can become false by looking again, which is the one
+property a proof must not have. **No consumer may merge, close, revert, re-run, block, gate,
+hold work or lift a gate on it.** The licence is to **report and to ask**, and nothing else.
+
+| Word | Class | What established it, and what a consumer may do |
+| ---- | ----- | ----------------------------------------------- |
+| `merged` | judgement | `merged_at` is set: the operator ruled, and the ruling landed. **Settled** — it draws no question. A consumer may only report it. |
+| `closed` | judgement | The pull request is closed and was never merged: the operator **refused**, which is a real answer and not an omission. Settled, and never rendered as *merged* — the two ask a reader for opposite things. |
+| `open:<age>` | judgement | Rendered with the age in hours from `created_at`, or `open:unknown` when only the clock arithmetic failed (the state is still honestly open). **This is the one word that draws a question**, addressed to the operator, keyed `operator-pull:<number>` so one pull request costs exactly one question however many ticks see it. |
+| `unreadable` | judgement | The transport, the slug or the pull request could not be read (`gh_unavailable` / `read_failed` / `not_found` / `jq_unavailable` / `no_pull_number`), carrying a named reason and a **null** age — never a zero, which reads as *just opened* and would make a read we could not make the loudest answer in the set. The **absence** of a reading: it draws **no question** and is counted in the summary, `strategy-pace`'s rule that a person's attention is not spent on our own degradation. |
+
+**Its enumerated consumers are two.** `/moderate`'s `step-operator-pulls.sh` **asks** — one
+question per `open:<age>` reading and nothing else: it merges nothing, closes nothing, comments
+on nothing, holds no work and lifts no gate. `/implement`'s and `/propose`'s run reports
+**report** — once per run, as evidence, in the voice `pace`, `overdue` and `expiring` already
+use; the reading **moves no token** and gates nothing. `scripts/test-workflow-scripts.mjs` pins
+this table the way it pins the four above: it fails when a word the reader emits is
+unclassified, when the table classifies a word the reader never emits, when any row is called a
+`proof`, or when an enumerated consumer reaches an acting call site.
+
+**Membership is not in this vocabulary.** *Which* pull requests are the operator's is a separate
+question with a separate script (`branching/scripts/list-operator-facing-pulls.sh`) and a separate rule
+(`branching/scripts/lib/publication-refusal.sh`, shared with the seam that refuses the merge).
+This one answers only *what happened to this pull request* — one script, one question, because
+one script answering both is how two readings of one fact start to disagree.
+
+### How long a condition has been standing (`condition-age.sh`)
+
+A **sixth vocabulary in the same home** (2026-08-30, mission
+`say-how-long-the-loop-has-been-stuck`). The five tables above are each keyed on *what is true*
+— of a claim, of the base, of an act, of a publication. This one is keyed on *how long it has
+been true*, which is a different question about the same subjects, and one column cannot
+classify six questions. It is folded into none of them, and least of all into the act-effect
+table beside it: both concern the loop's own records, and that resemblance is exactly the
+mistake the previous five splits each record.
+
+**There is no proof in this vocabulary, and the tempting error is to think `first_seen` is
+one.** It is read straight off an append-only log that never rewrites a line, which looks like
+`superseded`'s property. It is not: the log **grows**, so `ticks` increases every hour, and a
+bounded walk's `first_seen` can move as day files pass out of the bound. A proof is a reading
+that *cannot become false by looking again*, and this one is designed to. `readable: false` is
+besides that the **absence** of a reading.
+
+**So no gate, hold, re-ask, escalation, merge, claim or sort may read the age.** The questions
+name it and the run reports report it, and that is the whole licence.
+
+| Word | Class | What established it, and what a consumer may do |
+| ---- | ----- | ----------------------------------------------- |
+| `first_seen` | judgement | The earliest tick in the question ledger (`human-checkin-ask-<slug>` / `human-checkin-reasked-<slug>`) carrying this subject's key, or **null** when the ledger has never carried it. Null is an **ordinary absence** — the first time anybody is being asked — never a degradation. A consumer may name it in a question or a report. |
+| `ticks` | judgement | The distinct ticks the log holds at or after `first_seen`, compared lexically; **0** with a null `first_seen`, **null** on a degraded read. Never a wall-clock difference. |
+| `truncated` | judgement | The walk was **cut** by `WORKAHOLIC_CONDITION_AGE_MAX_DAYS` — a day file older than the bound exists. Emitted only when true. It is **not** a degradation: the counts stay real and `readable` stays absent. |
+| `first_seen_is_floor` | judgement | Emitted with `truncated` and a non-null `first_seen`: the date is a **floor**, so a consumer renders *at least*. Never a prose prefix on `first_seen` itself — a consumer parsing English is how two readings drift. |
+| `reason` | judgement | The named cause riding a `readable: false` reading, carried verbatim by every consumer — a normalised word would send a reader to a string no script printed. |
+| `readable` | judgement | Emitted only as `false`, and only when the log **exists** and could not be read (`log_unreadable`, `no_key`, `reader_missing`, or `log-read.sh`'s own reason). Counts are **null**, never zeroed. The **absence** of a reading, and it must be named as unreadable — rendering it as *this just started* is the collapse this whole vocabulary exists to close. |
+
+**Its enumerated consumers are six**, and each may only name the age: the four question steps
+(`step-undrivable-units.sh`, `step-retire-claims.sh`, `step-undelivered-units.sh`,
+`step-stalled-units.sh`) and the two run reports (`/implement`, `/propose`). None of them
+reaches an acting or gating call site on it — no `refusal`, no `selected`, no sort key, no
+`--method PUT`/`PATCH`/`DELETE`, no `/merge`, no `retire-claim.sh`, no `release-claim.sh`, no
+`catch-up-claim.sh`, no `plan-units.sh`, no `git push` — and `ask-question.sh` is
+**byte-identical**: the age changes no key, no cap and no hold, so the gate gains nothing at
+all. `scripts/test-workflow-scripts.mjs` pins this table the way it pins the five above.
+
+### Which question reads which age
+
+Four of the tick's questions now name **how long** their condition has been standing, and two of
+them already had an age of their own from a different source (2026-08-30, mission
+`say-how-long-the-loop-has-been-stuck`). The rule this table exists for is one sentence:
+**nothing derives an age twice**, and where a question carries two ages they are named as **two
+facts with their sources**, never blended into one number.
+
+| Question key | Age source(s) | Notes |
+| ------------ | ------------- | ----- |
+| `undrivable-unit:<path>` | tick log | Only one. The artifact carries no timestamp a reader could use, so *how long we have been asking* is the whole answer available. |
+| `retire-blocked:<unit>:<word>` | tick log | Only one. The key carries the refusal word, so a **changed** word starts a new question and its age legitimately resets — a reset is never the block clearing. |
+| `undelivered-unit:<unit>` | tick log **and** the pull request | Two facts. `open_hours` is how long the pull request has been open (its own `created_at`); `age` is how long the unit has been asked about. A pull request opened an hour ago that nobody has been told about, and one open a week that a person was asked about on day one, call for different acts. |
+| `stalled-unit:<unit>` | tick log **and** the claim tip | Two facts. `stalled_hours` is how long the branch tip has not moved (`WORKAHOLIC_CLAIM_STALE_HOURS`, the protocol's own threshold); `age` is how long we have been asking. |
+| `operator-pull:<number>` | the pull request's `created_at` | **The tick log not at all.** `publication-effect.sh` stays the one reader of that age, and its **null**-on-`unreadable` rule stays. A second number on the one question whose own source is exact and external buys nothing. |
+
+**The table is prose, so it can lie**, and the pin is what makes it a fact a change can lose:
+`scripts/test-workflow-scripts.mjs` reads these rows and checks each named step **in both
+directions** — a step that composes an age this table does not attribute, and a row naming a
+step that composes none — exactly as the proofs-and-judgements pin does for the verdict words.
+
+**What the tick-log age means, stated once so no consumer over-reads it.** It is the age of the
+**question**, which is a *lower bound* on the age of the condition: a blocker that existed
+before anybody asked reads younger than it is. That is the honest direction — understating an
+age asks a person to look sooner than the truth would — so a consumer says *asked about since*
+and never asserts how long the artifact itself has been stuck.
+
+## Claim a unit
+
+```bash
+bash ../drive/scripts/claim.sh mission <slug>
+bash ../drive/scripts/claim.sh batch <ticket-file>...
+```
+
+Never prompts. Verifies the unit is unclaimed through the reader's own scan, then creates the
+worktree, stamps, commits, and pushes. Emits `{claimed, unit, branch, worktree_path, artifacts}`,
+or refuses with a `reason`: `already_claimed` (naming the holding branch and unit), `no_origin`,
+`origin_unreachable`, `branch_collision`, `push_failed`, `artifact_missing`, `no_frontmatter`,
+`mission_missing`. A refused claim leaves nothing behind — the half-made worktree and branch are
+removed, because an unpublished claim is not a claim.
+
+`claim.sh` also posts one Slack line (unit, branch, member count) through the bot token after its
+push succeeds, reporting `announced`/`announce_reason` in its JSON. This bot notice is a separate
+surface from the session's threaded posts (see [`routing.md`](routing.md)), is **never
+load-bearing** (a missing token or broken notifier leaves the claim intact), and only a
+successful claim announces.
+
+## Resume a dropped unit
+
+```bash
+bash ../drive/scripts/claim.sh resume <unit-id>
+```
+
+Takes over a claim the survey reported in `resumable[]`. It **adopts** this machine's existing
+`.worktrees/<unit-id>/` when that worktree is on the claim's branch at the very tip the
+resumability decision observed (same-machine resume is the common case, and the creator's
+`worktree already exists` refusal used to break it), and otherwise **creates** one **at the pushed
+branch tip** — never from the base — so archived tickets are not re-driven. It then publishes an
+empty `Resume a PR-unit` commit; that push **is** the race arbiter — two racing runners resolve
+non-fast-forward, never by comparing clocks. An abort never tears down an adopted worktree.
+
+**Where the unit re-enters is decided by its tier, not by the takeover.** A `heartbeat_lapsed` or
+`parked_with_pr` unit re-enters at **step 4**: its remaining tickets are whatever is still in
+`todo/` on that branch, and step 5 updates the existing PR rather than opening a second one. A
+**`report_incomplete`** unit has an empty queue by definition, so step 4 has nothing to do and it
+re-enters at **step 5** — write the story, run the scan, open the pull request the dead run never
+opened — then routes normally at step 6.
+
+Emits `{claimed, resumed, unit, branch, worktree_path, adopted_worktree, resume_reason,
+announced, announce_reason, artifacts}`, or refuses with `not_claimed`, `claim_active` (naming
+the tip time), `queue_drained` (it finished **and reported**; its PR waits on a human — a drained
+unit that never reported is `report_incomplete` and is accepted), `foreign_identity`,
+`identity_unresolved`, or `resume_race_lost` (having taken nothing).
+
+## Release a claim deliberately
+
+```bash
+bash ../drive/scripts/release-claim.sh <unit-id>
+```
+
+For a unit that will **not** be finished. Tears the worktree down first (the cleaner refuses a
+dirty worktree and never discards uncommitted work), then deletes the remote claim branch — that
+order matters: dropping the claim first would publish "this unit is free" over unpushed work. Run
+it from the main checkout; git cannot remove the worktree you are standing in. Emits `{released,
+state, unit, branch, worktree_removed, remote_branch_deleted, local_branch_deleted}`.
+
+`state` exists because the two steps can disagree (a container may push but not delete a branch —
+measured 2026-08-05), and a bare `released: false` cannot say how:
+
+| `state` | Meaning |
+| ------- | ------- |
+| `released` | both steps done — the unit is back in the pickable pool |
+| `half_released` | the worktree is gone and **the claim branch is still live**. A human must delete it; the unit stays claimed and is re-offered as `resumable` once its heartbeat lapses |
+| `untouched` | nothing changed (unreachable origin, or a refused teardown) |
+
+Two rejected alternatives (a tombstone release commit; inverting the teardown/delete order) are
+recorded in the script's header — read it before re-proposing either.
+
+## Retire a claim proved empty
+
+```bash
+bash ../drive/scripts/retire-claim.sh <unit-id>
+```
+
+The **one** writer of a claim's retirement, and the second consumer of the proof/judgement table
+above. Given a claim the oracle proved **`superseded`**, it closes the pull request, deletes the
+remote branch and reaps the worktree — three acts, each reporting its own word. Emits
+`{retired, unit, branch, pull_request, pull_request_closed, remote_branch_deleted,
+worktree_reaped, reason}` and **always exits 0**: a refusal is an answer, and its caller reports
+it rather than dying on it.
+
+`superseded` has been *reported, never acted on* since it shipped, and that left the claim table
+only ever growing — measured on this repository on 2026-08-27: 7 claims, **4 of them
+`superseded`**, two naming missions archived days ago, the oldest branch last touched 2026-08-21.
+What changed is not the verdict's standing but that one act now follows from it; nothing else
+about `superseded` moved.
+
+**It acts on the proof and refuses every judgement by its own name.** `not_superseded:<verdict>`
+carries the verdict word itself, so `stale`, `queue_drained` and `claim_active` are each visible
+as what they are rather than folded into a generic denial — acting on any of them is how a runner
+tears down work somebody is still driving. **`ambiguous_claim`** is its own refusal (two live
+claims cannot arise from the sanctioned path, and picking one silently is the failure), and
+**`unanswerable:<reason>`** is its own refusal too: a branch whose merged-pull-request lookup
+came back unanswerable kept the verdict it would have had without the lookup, and naming the
+local verdict there would send a reader to a claim that looks live instead of to the lookup that
+failed.
+
+**The unit resolves through the live-row rule, never first-match.** A unit held by a `superseded`
+branch *and* a live one is exactly what a fresh claim over a superseded one creates, and
+`claims_scan` walks refs in name order — so first-match is the oldest. Here that is the dangerous
+direction: it would retire whichever branch sorted first regardless of which is alive.
+`claims_unit_resolution` / `claims_unit_row` are the shared derivation, so the survey's offer,
+`claim.sh`'s refusal and this retirement cannot disagree about which branch a unit is.
+
+**Order: close, delete, reap** — the reverse of `release-claim.sh`'s, on purpose. That script
+tears the worktree down first because it discards *unfinished* work and must not publish "this
+unit is free" over unpushed commits. Here there is no such work by construction, and the local
+reap is the one step refusable for a reason outside this runner's control (the sanctioned cleaner
+refuses a dirty tree, and must). Putting it last leaves a refusal there with both **remote** facts
+already correct, and a re-run finishes the job.
+
+**Every step is idempotent, and each says which kind of success it had.** An already-closed pull
+request (`already_closed`), an already-deleted branch (`already_gone`) and an absent worktree
+(`absent`) are real successes, not degradations. A step that fails is named and the other two are
+attempted on their own merits — the three acts are independent, so one failure is no evidence
+about the others. A **refusal** reports `not_attempted` for all three rather than `failed` or
+`absent`: those are findings about the world, and a gate that never ran made no finding.
+
+**How reversible each act is**, stated rather than assumed: a closed pull request is reopenable
+with its review history intact; a deleted remote branch is recoverable from the base's own history
+(its content *is* on the base — that is what `superseded` means) and from any clone's reflog; the
+worktree is local and `claim.sh resume` rebuilds one at a branch tip. None of the three destroys
+work — a property of acting only on the proof, never a licence to widen the verdict set.
+
+**It merges nothing, pushes into no branch, and touches no `.workaholic/` artifact.** Its only
+writes are one REST `PATCH` closing a pull request and one branch delete: no commit anywhere, no
+mission closed, no ticket moved, no story edited. Run it from the main checkout — git cannot
+remove the worktree you are standing in.
+
+### When an act of the retirement is refused
+
+**Each blocked act reports its own word** (2026-08-27, mission
+`finish-the-retirement-the-loop-cannot-complete`). The closing branch answered
+`partial_retirement` for all three until then, so a refused pull-request close, a refused branch
+delete and a dirty worktree read alike and only the first kept a note — measured on this
+repository, three units reported `partial_retirement` for a **branch delete** and nothing in the
+tick log said so. The words are `gh_unavailable` / `slug_unresolved` /
+`pull_request_close_failed` for the close, **`branch_delete_failed`** for the delete, and
+`worktree_reap_refused` for the reap; they are derived from the three act states already on the
+row, in act order, so the reason names the first blocked act while the row's states show every
+one. `partial_retirement` is retired.
+
+**The new word belongs to the retirement's vocabulary, not the oracle's.** It is not a
+`resume_reason` and must never be added to the tables above: `lib/claims.sh` does not emit it,
+nothing keys a takeover or a survey on it, and `superseded`'s classification as a **proof** is
+untouched by it. What the word describes is the outcome of an act taken *because* of the proof —
+a different axis from what the claim reads.
+
+**Act 2 is refused in the container the loop runs in, and no transport can take it.** Measured
+2026-08-27 in a routine-fired container, against a claim already proved `superseded` here:
+
+| Transport | Answer |
+| --------- | ------ |
+| `git push origin --delete <branch>` | `error: RPC failed; HTTP 403 curl 22 The requested URL returned error: 403` |
+| `DELETE /repos/{owner}/{repo}/git/refs/heads/{branch}` via `gh-rest.sh` | `403 {"message":"Write access to this GitHub API path is not permitted through this proxy."}` |
+
+The two transports **agree**, and the refusal is a **session-type** one — not a protection rule
+(which answers `422` naming the rule) and not a missing scope (which answers a permissions
+message). An ordinary `git push` of the same branch succeeds in the same container, so it is the
+delete specifically that is refused. The 2026-08-05 note in `retire-claim.sh` predicted this and
+called it "not fatal"; it is fatal to the mechanism's purpose, since unmerged remote branches are
+the only claim oracle.
+
+**No second transport exists *in the container*, and that is the recorded finding rather than an
+open gap.** REST is refused above, and the GitHub connector exposes `create_branch` and
+`list_branches` but **no branch- or ref-delete surface at all** — so there is nothing for a
+`rules/shell.md`-style bounded retry to attempt, in the script or in its caller. A second REST
+attempt is deliberately **not** made: it is measured to answer 403, and a call that cannot
+succeed is noise with a cost. That finding is about the container and remains accurate there.
+
+### Which act runs where
+
+**A different executor takes Act 2** (2026-08-28, mission
+`finish-a-proved-retirement-where-the-write-is-permitted`). The paragraph above closed the
+question *inside the box*; this moves the act outside it, on the precedent
+`release-note-draft.yml` set when the release-note write met the same refusal. A workflow is
+**not a second transport** — it is the same REST seam (`gather/scripts/gh-rest.sh`) run by a
+process that holds `contents: write`, which is exactly the capability the container lacks.
+
+| Act | Executor | Why |
+| --- | -------- | --- |
+| 1 — close the pull request | the container, `retire-claim.sh` | already succeeds there |
+| 2 — delete the remote branch | **CI**, `.github/workflows/claim-retirement.yml` | refused in the container by both transports; permitted to `GITHUB_TOKEN` |
+| 3 — reap the worktree | the container, `retire-claim.sh` | local to the runner; CI has no worktree to reap |
+
+`retire-claim.sh` is **unchanged**: it still attempts its own delete and still reports
+`branch_delete_failed` when refused. A repository that has not adopted the workflow keeps
+exactly the behaviour it had, and the container is still where a retirement starts.
+
+Two scripts carry the CI side, and each re-derives everything it acts on:
+
+```bash
+bash ../drive/scripts/list-retirable-claims.sh
+bash ../drive/scripts/delete-retired-claim-branch.sh <unit-id>
+```
+
+The reader composes `list-claims.sh` — one walk of the refs, never a second oracle — resolves
+each unit through the live-row rule, and answers only `superseded_only` units. A degraded scan
+yields **no candidates and its reason**, never a bare empty set: a proof that could not be read
+is not a proof. The act re-runs the scan and re-derives the verdict **at the moment of the
+delete** rather than trusting the list it was handed — the writer's existing discipline applied
+across an executor boundary, where the gap between the two reads is a queue and a checkout — and
+refuses every other verdict by its own word, with `ambiguous_claim` and `unanswerable:<reason>`
+their own refusals as above. On top of the proof it is bounded, each refused by name:
+`not_a_work_branch`, `release_branch`, `not_on_base` (re-derived from the tree, and at the
+mission grain from the merged-pull-request lookup — the one reading here that can answer
+differently the second time it is asked), and `pull_request_open`. Every path exits 0.
+
+**`superseded` stays a proof, and no verdict word was added.** `lib/claims.sh` emits nothing new,
+the *Proofs and judgements* tables above are unchanged, and nothing keys a takeover or a survey
+on any of this. Which executor takes an act is a different axis from what a claim reads — exactly
+as `branch_delete_failed` already is.
+
+**And which executor took a delete is derived, never stored.** `deleted` means the tick that
+reported it performed the delete; `already_gone` means the ref was not on origin when it looked,
+and asserts nothing about who removed it. `/moderate` renders those as different sentences. A
+`deleted_by:` field is refused: the answer is already on the row, and a stored one eventually
+disagrees with the derived one.
+
+**So the blocked retirement is reported and asked about only once CI has also been refused.** The
+caller renders the acts that stand beside the act that is blocked, and `/moderate`'s
+`retire-claims` step asks the **claim holder** once — keyed
+`retire-blocked:<unit>:<refusal word>`, naming the exact branch left on origin — which is the
+whole licence a blocked act carries. The candidate set is narrowed by `ci-retirement-turn.sh`.
+
+**That reading rested on a premise which was the design and not the behaviour, and the sentence
+is corrected here rather than deleted** (2026-08-29, mission
+`read-back-whether-the-loop-s-own-act-took-effect`). It read:
+
+> CI *deletes* the branch when it succeeds and unmerged remote branches are the only claim
+> oracle, so a successful turn removes the claim row and the candidate with it; a completed run
+> at the base tip the tick is reading therefore means CI saw exactly this tree and the branch
+> survived it.
+
+The inference holds only if every completed turn actually **reached its act**. Measured
+2026-08-29: `claim-retirement.yml` was green on every run while three proved-`superseded` claims
+stood on origin, and the tick log recorded, hour after hour, *"ci_turn: taken so CI could not
+take the delete either"* — an assertion about a second executor that nothing established. (The
+live cause, localized the same day: the CI-side act refuses `gh_unavailable` before its proof
+gate, because `gh-rest.sh available` probes `gh api user`, which a `GITHUB_TOKEN` installation
+token cannot call. The two executors' candidate readers were found to **agree**, so the
+candidate-divergence hypothesis was not the live one.)
+
+**What replaced it**: the turn now **records** what it attempted and what each act answered
+(`record-ci-retirement-turn.sh`, read back by `read-ci-retirement-record.sh` off the check run's
+annotations), and the reading answers **per unit** from that record — `taken` only on the act's
+own success word, never on a run's existence and never on its exit status, which is green by
+design because a refusal must not fail the job. The vocabulary and its classification are
+*Whether an act the loop took had its effect* above. **The store-free property is narrowed, not
+abandoned**: nothing is stored anywhere — no cursor, no queue, no ledger, no field on any
+artifact — and only *which part* of the run is consulted changed.
+
+A unit whose reading is `pending` has its question suppressed for that tick only — the asked-once
+ledger keys on the unit and its refusal word, so a branch that outlives CI's turn is still asked
+about later — while `refused:<word>`, `unavailable` and `unreadable` all suppress nothing,
+because an over-eager question is better than a silently dropped one. Nothing releases the claim,
+reopens the pull request, re-runs the delete on the strength of an answer, or touches the
+`superseded` verdict. Drilled with no network by `sh scripts/e2e/loop-drill.sh verify-retire`
+(the container's half), `verify-ci-retirement` (the split, both executors, every bound and the
+narrowing) and `verify-act-effect` (the effect reading, both causes, and the changed-word
+re-ask).
+
+## Catch a claim up with a base that moved
+
+```bash
+bash ../drive/scripts/catch-up-claim.sh <unit-id> [base-branch]
+```
+
+Added 2026-08-29 (mission `land-the-loop-s-own-work-when-the-base-moves-under-it`). A unit the
+loop finished and could not deliver is stranded the moment the base moves under it:
+`retry-undelivered.sh` re-attempts the **merge**, which GitHub refuses again every hour, and
+`/moderate`'s `merge-conflicts` step reports the pull request and says in its own header that it
+never rebases. Measured 2026-08-29 on this repository: 4 of 7 open pull requests conflicting
+with `main`, three of them recorded `report_undelivered` two days earlier, with 4 active
+missions and 10 queued tickets behind them.
+
+**It is a composition, not a merge engine.** `ship/scripts/catchup-main.sh` already performs the
+merge, resolves what it can prove needs no judgement and classifies the rest; `land-unit.sh`
+already composes it in this order. What was missing was a caller an unattended run can reach —
+`land-unit.sh` refuses `headless_context` first and unoverridably, by design, because it *lands*
+a `review` unit on a present developer's ruling. This lands nothing: it merges the base **into**
+the claim branch and pushes that branch, which needs no authorization the unit does not already
+have.
+
+**THE STANDING RULE IS NARROWED, NOT REVERSED.** `step-merge-conflicts.sh`'s header carries the
+fullest statement: a third party rebasing a claim branch races the holder's own pushes and can
+strand or duplicate a unit. Both halves are **answered**, and neither may be quietly widened:
+
+- **Not a third party.** The claim is this identity's own — `foreign_identity` /
+  `not_my_claim` refuse anything else, and a colleague's claim is untouchable at any age.
+- **Not a rebase.** It is a **merge**. Never a rebase, an amend or a force-push, on any path: a
+  merge commit keeps the claim holder's own checkout valid, which is precisely what a history
+  rewrite destroys.
+- **And not a race.** `claim_active` refuses a branch a run is still committing to, so the
+  thing the standing rule is really about cannot arise.
+
+What stays a person's is the **contested** case: a `content` conflict is refused, and its claim
+holder is asked by `/moderate`'s `catchup-blocked:<unit>` step.
+
+**The order of its acts, and why.** Resolve the unit through the **live-row rule** (never
+first-match — a unit held by a superseded branch and a live one is what a fresh claim over a
+superseded one creates, and catching up whichever sorted first is the dangerous direction);
+**re-derive the verdict at the moment of the act** rather than trusting a list handed in, the
+discipline `delete-retired-claim-branch.sh` carries across an executor boundary; check the
+bounds; read the mergeability; report `already_current` if there is nothing to do; **then**
+check liveness and act. `already_current` sits before the liveness check on purpose — reporting
+a no-op protects nothing, and refusing it would make an hourly re-run of a finished catch-up
+look like a failure.
+
+**Every refusal writes nothing and exits 0**, each by its own word: `content_conflict`,
+`not_my_claim`, `foreign_identity`, `identity_unresolved`, `claim_active`, `dirty_worktree`,
+`scan_held:<tier>`, `not_a_work_branch`, `ambiguous_claim`,
+`mergeability_unanswerable:<reason>`, plus the composition's own (`no_such_claim`, `no_origin`,
+`origin_unreachable`, `catchup_<class>`, `validation_failed:<check>`, `push_failed`). The one
+state that is not byte-identical after a refusal is `validation_failed`: by then the merge is
+committed **in the unit's own worktree**. The **branch** — the claim, the thing every other
+runner reads — is untouched, because nothing was pushed; the local merge is reported as
+`merged: true, pushed: false` rather than hidden, and it is not undone, because `git reset
+--hard` is what the failure contract's safety floor forbids outright. A re-run merges nothing
+new and re-runs the checks.
+
+**It overrides no gate.** A `hard` (`secret`) or `confirm` (`leak`) finding holding a pull
+request open is the gate *working*, so a scan-held unit is refused `scan_held:<tier>` — read off
+the branch story, offline, exactly as `retry-undelivered.sh` reads it. The catch-up is not a
+route around a gate.
+
+**Idempotent**: a branch that already contains the base reports `already_current` and touches no
+ref at all — no worktree, no merge, no push.
+
+**What it composes, and what it may never re-derive.** The merge and the conflict
+classification are `catchup-main.sh`'s; the classification *rule* is
+`ship/scripts/lib/conflict-class.sh`'s, shared with the reader so the two cannot disagree; the
+worktree is `create-mission-worktree.sh --branch`'s resume mode (`ensure-worktree.sh` refuses a
+name already on origin, which is correct and is not worked around); the regeneration is the
+repository's own tooling (`okf/scripts/refresh-index.sh`, `scripts/build-plugins/build.mjs`),
+never a hand edit; the delivery that follows is `retry-undelivered.sh`'s.
+
+**`--resolve-mechanical` is the one flag it passes, and the flag binds the caller.**
+`catchup-main.sh` classifies a mechanical remainder and aborts by default, because "routine
+reconciliation the agent performs itself" was written for a caller with an agent in it. Under
+the flag it resolves a **generated** path by taking a side (which side is immaterial — the
+content is derived) and a **version manifest** by raising both sides to the higher semver and
+merging normally, so a side that also added a plugin keeps that addition. Taking one side
+wholesale is the tempting shortcut and it silently drops the other side's edits. The obligation
+the flag creates is the caller's: regenerate before pushing. Without the flag `catchup-main.sh`
+is byte-for-byte what it was, which is what `land-unit.sh` still gets.
+
+**`--own-tip` on the delivery that follows.** The catch-up's own push makes the tip fresh, so
+the very next verdict reads `claim_active` and the delivery the catch-up exists to unblock would
+be refused by the act that unblocked it. `retry-undelivered.sh --own-tip` relaxes that **one**
+term, by re-asking `claims_scan` with `WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES=0`: identity,
+ancestry, supersession, the drained fork and the recorded refusal all stay the oracle's own
+answers, computed in one place. Nothing is re-derived, no verdict is widened, and the scan-held
+refusal is untouched. It is passed **only** immediately after this run's own `caught_up`.
+
+## Heartbeat mechanics
+
+`heartbeat.sh` pushes an empty commit through `commit.sh --allow-empty`, so coordination markers
+get the subject gate and trailers. There, **`--allow-empty` means empty**: the commit is built
+against a scratch index seeded from `HEAD`, so its tree equals `HEAD`'s by construction and the
+caller's index is left byte-identical (git's own flag merely permits a changeless commit and
+otherwise commits whatever is staged — a beat fired over a staged `git rm` once swept real
+deletions into a `Refresh heartbeat` commit). Beating over a dirty index is deliberately allowed:
+mid-ticket is exactly when the index is dirty and exactly when a missed beat makes a working unit
+look abandoned. The beat changes no file, so it never reaches the PR diff, and the merge or
+release that cleans up the claim cleans it up too.
+
+## Publication branches are not claims
+
+The claim is the only creator of a worktree and of a branch a runner may drive (J1, amended by
+J4). Artifact writers publish through a publish tree onto `work-*` branches behind pull requests
+(`branching`), but a publication branch carries no `Claim <unit-id>` commit and the
+scan keys on that subject, never the branch name — so it is never mistaken for a claim. The
+`release/*` tier is invisible to the scan for the same reason: a release branch carries no commit
+at all. The optional `claim:` key on a ticket is tolerated and never validated by
+`validate-ticket.sh` — its truth lives in git, which a hook reading one file cannot answer.

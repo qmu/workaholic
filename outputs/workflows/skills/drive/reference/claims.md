@@ -700,10 +700,35 @@ repository's own origin:
   the refusal is the **namespace**, not the lease: the proxy permits writes to `refs/heads/*`
   and to nothing else.
 
+**Re-probed 2026-08-30 from a second routine-fired container, and the two clauses that were
+inferred are now measured.** *And to nothing else* rested on two namespaces; *a ref there
+could never be released either* rested on `retire-claim.sh`'s branch-delete precedent. Both
+were re-run directly, create-only rather than under a lease, against this repository's own
+origin:
+
+- `refs/claims/*` — `git push origin <sha>:refs/claims/<x>` → `error: RPC failed; HTTP 403`,
+  and `git ls-remote origin 'refs/claims/*'` returns **empty**. The REST second transport
+  agrees: `POST /repos/{o}/{r}/git/refs` → `403 "Write access to this GitHub API path is not
+  permitted through this proxy."`
+- `refs/tags/*` — the **last candidate namespace**, and it is refused in **both** directions:
+  create → 403 with `ls-remote` empty, delete → the identical 403. Probing it is what turns
+  *and to nothing else* from an inference over two namespaces into a reading.
+- `refs/heads/*` — **create succeeds** (`* [new branch]`, confirmed by `ls-remote`), and its
+  **delete is refused by both transports**: `git push origin :refs/heads/<x>` → 403, `DELETE
+  /repos/{o}/{r}/git/refs/heads/{branch}` → the same proxy refusal, with `ls-remote`
+  confirming the ref **survives** both. So the release is refused in the one namespace whose
+  create is permitted, measured here rather than carried over from the branch-delete row.
+
 So the only writable namespace is the one the branch-name gate holds to two literal patterns,
-and a ref there could never be released either (the delete is the same 403), which is the
-condition the repair must not create: *a ref nothing deletes makes every unit claimable
-exactly once, forever*. Recorded here as a finding for the mission rather than worked around;
+and a ref there could never be released either (the delete is the same 403, now measured on
+both transports), which is the condition the repair must not create: *a ref nothing deletes
+makes every unit claimable exactly once, forever*. **An asynchronous CI-side release does not
+rescue it**, which is why the executor precedent is named and refused twice over: between the
+merge that releases a claim and CI's delete there is a window in which the unit's own
+follow-up re-claim — the routine path a `parked_with_pr` mission takes every time — would be
+refused by a ref that no longer stands for anything. That is the same regression the
+condition names, narrowed to a window rather than removed. Recorded here as a finding for the
+mission rather than worked around;
 `.github/workflows/claim-retirement.yml` is the precedent for moving a refused write to
 another **executor**, and it does not apply, because an arbitration must be decided
 synchronously, in the container, before the run drives anything.

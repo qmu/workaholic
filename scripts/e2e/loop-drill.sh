@@ -14,6 +14,7 @@
 #   loop-drill.sh verify-status [--json]      # is the [Prepare Release] read sound and silent?
 #   loop-drill.sh verify-cadence [--json]     # is the daily note generation idempotent and clock-free?
 #   loop-drill.sh verify-planner [--json]     # is the release-plan chain gated, honest and write-free?
+#   loop-drill.sh verify-claim-race [--json]  # do two runs ever claim and drive one unit?
 #   loop-drill.sh verify-identity-handoff [--json]  # does the loop stamp an address it can drive?
 #   loop-drill.sh verify-moderate [--json]  # is the /moderate tick (the [Moderate]
 #                                             routine since 2026-08-19) sound and
@@ -3517,6 +3518,233 @@ cmd_verify_merged_claim() {
         emit_verdict "merged-claim" 0 "fail" 1
     fi
     emit_verdict "merged-claim" 0 "pass" 0
+}
+
+# ------------------------------------------------------------- verify-claim-race
+# TWO RUNS, ONE UNIT. Measured 2026-08-30: `work-20260830-055314` and `work-20260830-055318`
+# were both claimed for `draft-a-dateless-direction-with-the-operator-s-one-week-default`,
+# four seconds apart, and each drove the same four tickets for over an hour. Nothing in the
+# suite or the drill set reproduced that, so any repair would have been judged against prose
+# rather than against a red test.
+#
+# THE ORDERING IS THE FIXTURE'S, NEVER THE SCHEDULER'S. A race staged by wall-clock timing is
+# flaky, and a flaky drill is a drill nobody believes. What makes the race possible is that
+# each runner's `claims_scan` reads an origin that does not yet show the competitor's branch,
+# so the fixture stages exactly those two views: runner A claims and pushes; A's ref is then
+# taken OFF the bare origin with `update-ref` so runner B's scan legitimately sees nothing;
+# B claims and pushes; A's ref is put back. Both runs are the real `claim.sh`, both really
+# scanned, and neither was refused anything -- which is the race, with no sleep deciding it.
+#
+# WHAT IT ASSERTS, AND WHOSE TICKET EACH ROW IS. The race itself is still LIVE: the repair
+# that would stop it (a claim contending for one ref per unit) is blocked on a measured
+# transport refusal -- this container may write no ref outside `refs/heads/*` -- so the
+# two-branches rows assert today's defect exactly as they were written. What the same mission
+# did repair is downstream of it: the first write is refused rather than duplicated, and the
+# loser is readable as `superseded` at the mission grain from the tree.
+#
+# NO NETWORK AT ANY POINT. A bare local origin, `gh` stubbed to an empty list, and a stubbed
+# notifier, so `claim.sh`'s announcement cannot reach out either.
+cmd_verify_claim_race() {
+    _claimsh="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/claim.sh"
+    _lister="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/list-claims.sh"
+    _archive="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/archive.sh"
+    _holder="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/claim-holder.sh"
+    _retirable="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/list-retirable-claims.sh"
+    _lib="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/lib/claims.sh"
+    for _f in "$_claimsh" "$_lister" "$_archive" "$_holder" "$_retirable" "$_lib"; do
+        [ -f "$_f" ] || emit_err "claim_race_unreadable" 4 "$(basename "$_f") is not present in this checkout"
+    done
+
+    _before=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+
+    _tmp=$(mktemp -d)
+    _origin="${_tmp}/origin"; _seed="${_tmp}/seed"; _A="${_tmp}/A"; _B="${_tmp}/B"; _bin="${_tmp}/bin"
+    mkdir -p "$_origin" "$_bin"
+    _me=$(cd "$REPO_ROOT" && git config user.email 2>/dev/null || echo drill@example.com)
+    [ -n "$_me" ] || _me=drill@example.com
+
+    # The transport, stubbed to answer NOTHING: no merged pull request, so the merged-lookup
+    # fallback can never rescue a verdict the tree did not reach. That is what makes the
+    # mission-grain rows below about the LOCAL test rather than about the network one.
+    printf '#!/bin/sh\necho "[]"\n' > "${_bin}/gh"; chmod +x "${_bin}/gh"
+    printf '#!/bin/sh\necho %s\n' '"{\"notified\": false, \"reason\": \"drill\"}"' > "${_bin}/notify"
+    chmod +x "${_bin}/notify"
+    _env="PATH=${_bin}:$PATH WORKAHOLIC_NOTIFIER=${_bin}/notify"
+
+    ( cd "$_origin" && git -c init.defaultBranch=main init -q --bare ) >/dev/null 2>&1 || true
+    ( cd "$_tmp" && git clone -q "$_origin" seed ) >/dev/null 2>&1 || true
+    mkdir -p "${_seed}/.workaholic/tickets/todo" "${_seed}/.workaholic/missions/active/raced"
+    printf -- '---\ntype: Mission\ntitle: Raced\nslug: raced\nstatus: active\nassignees: [%s]\n---\n\n# Raced\n\n## Experience\n\nOne unit, two runners.\n\n## Acceptance\n\n- [ ] first\n' "$_me" \
+        > "${_seed}/.workaholic/missions/active/raced/mission.md"
+    for _n in 1 2; do
+        printf -- '---\ncreated_at: 2026-08-30T00:00:0%s+00:00\nauthor: %s\nassignees: [%s]\nmission: raced\n---\n\n# T%s\n' \
+            "$_n" "$_me" "$_me" "$_n" > "${_seed}/.workaholic/tickets/todo/2026083000000${_n}-t${_n}.md"
+    done
+    ( cd "$_seed" && git config user.email "$_me" && git config user.name Drill \
+      && git config commit.gpgsign false && git add -A && git commit -qm seed \
+      && git push -q origin main ) >/dev/null 2>&1 || true
+
+    for _c in A B; do
+        ( cd "$_tmp" && git clone -q "$_origin" "$_c" ) >/dev/null 2>&1 || true
+        ( cd "${_tmp}/${_c}" && git config user.email "$_me" && git config user.name Drill \
+          && git config commit.gpgsign false ) >/dev/null 2>&1 || true
+    done
+
+    _claim() { # checkout -> the claim JSON
+        ( cd "$1" && env $_env sh "$_claimsh" mission raced ) 2>/dev/null || true
+    }
+    _branch_of() { printf '%s' "$1" | sed -n 's/.*"branch": "\([^"]*\)".*/\1/p'; }
+    _scan() { # checkout -> list-claims.sh JSON, with liveness collapsed so the verdict chain
+              # reaches the gates this drill is about rather than stopping at `claim_active`
+        ( cd "$1" && env $_env WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES=0 sh "$_lister" ) 2>&1 || true
+    }
+    _verdict() { # scan-json, branch
+        printf '%s' "$1" | tr '{' '\n' | grep "\"branch\": \"$2\"" \
+            | sed -n 's/.*"resume_reason": *"\([a-z_]*\)".*/\1/p' | head -1
+    }
+
+    # --- 1. STAGE THE RACE ------------------------------------------------------------
+    _outA=$(_claim "$_A")
+    _brA=$(_branch_of "$_outA")
+    if [ -z "$_brA" ]; then
+        add_row "claim_race_fixture" false "runner A could not claim at all: $(one_line "$_outA")" load
+        rm -rf "$_tmp"
+        emit_verdict "claim-race" 0 "fail" 1
+    fi
+    # A's ref comes OFF the origin, so B's scan sees the origin A saw. This is the whole
+    # staging: no sleep, no concurrency, and both runs are the real claim act.
+    _shaA=$( ( cd "$_origin" && git rev-parse "refs/heads/${_brA}" ) 2>/dev/null || true )
+    ( cd "$_origin" && git update-ref -d "refs/heads/${_brA}" ) >/dev/null 2>&1 || true
+    # One second so the clock-derived branch name differs; the ORDERING is already fixed by
+    # the ref surgery above, and a same-second collision would be `branch_collision` -- the
+    # narrower case this drill is deliberately not about.
+    sleep 1
+    _outB=$(_claim "$_B")
+    _brB=$(_branch_of "$_outB")
+    ( cd "$_origin" && git update-ref "refs/heads/${_brA}" "$_shaA" ) >/dev/null 2>&1 || true
+
+    if [ -n "$_brB" ] && [ "$_brA" != "$_brB" ]; then
+        add_row "claim_race_two_branches" true "two runners surveying before either pushed both claimed one unit: ${_brA} and ${_brB}" load
+    else
+        add_row "claim_race_two_branches" false "the race did not stage (A=${_brA}, B=${_brB}): $(one_line "$_outB")" load
+        rm -rf "$_tmp"
+        emit_verdict "claim-race" 0 "fail" 1
+    fi
+
+    ( cd "$_B" && git fetch -q --prune origin ) >/dev/null 2>&1 || true
+    _claims=$(_scan "$_B")
+    _held=$(printf '%s' "$_claims" | tr '{' '\n' | grep -c '"unit": "raced"' || true)
+    if [ "${_held:-0}" -eq 2 ]; then
+        add_row "claim_race_one_unit_twice" true "the oracle reports one unit held by two branches" load
+    else
+        add_row "claim_race_one_unit_twice" false "expected the unit reported twice, got ${_held:-0}: $(one_line "$_claims")" load
+    fi
+
+    # --- 2. THE FIRST WRITE IS REFUSED, WITH THE TREE BYTE-IDENTICAL -------------------
+    # The window the claim protocol never closed: between a survey and the first write the
+    # base will see. `archive.sh` re-derives the holder immediately before the ticket moves.
+    _wtB="${_B}/.worktrees/raced"
+    _dirtyB_before=$( ( cd "$_wtB" && git status --porcelain ) 2>/dev/null | sort )
+    _headB_before=$( ( cd "$_wtB" && git rev-parse HEAD ) 2>/dev/null || true )
+    _arch_out=$( ( cd "$_wtB" && env $_env sh "$_archive" \
+        .workaholic/tickets/todo/20260830000001-t1.md "Drive the first ticket" \
+        "https://example.invalid/r" "why" "None" "None" "None" "None" ) 2>&1 ) && _arch_rc=0 || _arch_rc=$?
+    _dirtyB_after=$( ( cd "$_wtB" && git status --porcelain ) 2>/dev/null | sort )
+    _headB_after=$( ( cd "$_wtB" && git rev-parse HEAD ) 2>/dev/null || true )
+    if [ "$_arch_rc" -ne 0 ] && printf '%s' "$_arch_out" | grep -q 'ambiguous_claim'; then
+        add_row "claim_race_archive_refuses" true "the first write refuses by its own word while two live claims hold the unit" load
+    else
+        add_row "claim_race_archive_refuses" false "the archive did not refuse (exit ${_arch_rc}): $(one_line "$_arch_out")" load
+    fi
+    if [ "$_dirtyB_before" = "$_dirtyB_after" ] && [ "$_headB_before" = "$_headB_after" ] \
+       && [ -f "${_wtB}/.workaholic/tickets/todo/20260830000001-t1.md" ]; then
+        add_row "claim_race_refusal_writes_nothing" true "the refused runner moved, staged and committed nothing" load
+    else
+        add_row "claim_race_refusal_writes_nothing" false "the refusal left the tree changed (head ${_headB_before} -> ${_headB_after})" load
+    fi
+
+    # --- 3. AND AN ORDINARY ARCHIVE IS UNTOUCHED --------------------------------------
+    # The failure mode to avoid is a gate that refuses a LEGITIMATE archive: a wrong refusal
+    # strands finished work outside the archive. With B's claim gone, A is the sole holder.
+    ( cd "$_origin" && git update-ref -d "refs/heads/${_brB}" ) >/dev/null 2>&1 || true
+    _wtA="${_A}/.worktrees/raced"
+    _arch_ok=$( ( cd "$_wtA" && env $_env sh "$_archive" \
+        .workaholic/tickets/todo/20260830000001-t1.md "Drive the first ticket" \
+        "https://example.invalid/r" "why" "None" "None" "None" "None" ) 2>&1 ) && _ok_rc=0 || _ok_rc=$?
+    if [ "$_ok_rc" -eq 0 ] && [ -f "${_wtA}/.workaholic/tickets/archive/${_brA}/20260830000001-t1.md" ]; then
+        add_row "claim_race_sole_holder_archives" true "the sole claim holder archives exactly as before -- the gate strands nothing" load
+    else
+        add_row "claim_race_sole_holder_archives" false "the holder's own archive was refused (exit ${_ok_rc}): $(one_line "$_arch_ok")" load
+    fi
+    _arch2=$( ( cd "$_wtA" && env $_env sh "$_archive" \
+        .workaholic/tickets/todo/20260830000002-t2.md "Drive the second ticket" \
+        "https://example.invalid/r" "why" "None" "None" "None" "None" ) 2>&1 ) || true
+
+    # --- 4. THE TWIN'S DELIVERY MAKES THE LOSER `superseded`, FROM THE TREE -------------
+    # A's content reaches the base by a squash merge -- the shape that leaves the CONTENT on
+    # the base and the COMMITS unreachable, so the branch stays unmerged forever. B's own tip
+    # still carries both tickets, undriven; every one of them is now archived on the base
+    # under A's branch directory, which is precisely what `superseded` means.
+    ( cd "$_origin" && git update-ref "refs/heads/${_brB}" \
+        "$( ( cd "$_B" && git -C .worktrees/raced rev-parse HEAD ) 2>/dev/null )" ) >/dev/null 2>&1 || true
+    ( cd "$_seed" && git fetch -q origin && git checkout -q main && git reset -q --hard origin/main \
+      && git merge --squash -q "origin/${_brA}" && git commit -qm "Squash the winner" \
+      && git push -q origin main ) >/dev/null 2>&1 || true
+    ( cd "$_B" && git fetch -q --prune origin ) >/dev/null 2>&1 || true
+
+    _claims=$(_scan "$_B")
+    if [ "$(_verdict "$_claims" "$_brB")" = "superseded" ]; then
+        add_row "claim_race_loser_superseded" true "the raced loser reads superseded at the MISSION grain, from the tree, with no merged pull request to ask about" load
+    else
+        add_row "claim_race_loser_superseded" false "expected superseded for ${_brB}, got '$(_verdict "$_claims" "$_brB")': $(one_line "$_claims")" load
+    fi
+
+    # AND THE EXISTING RETIREMENT PATH REACHES IT, with no change of its own -- which is the
+    # point of repairing the READING rather than each of its consumers.
+    _retire=$( ( cd "$_B" && env $_env WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES=0 sh "$_retirable" ) 2>&1 || true )
+    if printf '%s' "$_retire" | grep -q '"unit": "raced"'; then
+        add_row "claim_race_retirement_reaches_it" true "list-retirable-claims.sh names the raced unit, so the claim can leave the table" load
+    else
+        add_row "claim_race_retirement_reaches_it" false "the retirement path found no candidate: $(one_line "$_retire")" load
+    fi
+
+    # --- 5. THE BREAKER: the reading, wired as it was before the repair -----------------
+    # Written against the BEHAVIOUR rather than a return shape: `claims_superseded` is called
+    # WITHOUT the claim's tip ref, which is exactly the pre-repair composition -- the mission
+    # grain then has nothing local to ask and falls to the merged lookup, which the stubbed
+    # transport answers with nothing. If that still reads `superseded`, this drill's own
+    # subject is being asserted by something other than the repair.
+    _pre=$( ( cd "$_B" && env $_env sh -c '
+        . "$1"
+        CLAIMS_FETCH_OK=true
+        printf "%s" "$(claims_superseded "$(claims_base)" ".workaholic/missions/active/raced/mission.md" "$2")"
+      ' _ "$_lib" "$_brB" ) 2>/dev/null || true )
+    _post=$( ( cd "$_B" && env $_env sh -c '
+        . "$1"
+        CLAIMS_FETCH_OK=true
+        printf "%s" "$(claims_superseded "$(claims_base)" ".workaholic/missions/active/raced/mission.md" "$2" "origin/$2")"
+      ' _ "$_lib" "$_brB" ) 2>/dev/null || true )
+    if [ "$_pre" = "false" ] && [ "$_post" = "true" ]; then
+        add_row "claim_race_reading_is_the_tip_walk" true "dropping the claim's tip ref loses the mission-grain reading -- this drill can fail" breaker
+    else
+        add_row "claim_race_reading_is_the_tip_walk" false "the pre-repair composition answered '${_pre}' and the repaired one '${_post}', so this row proves nothing" breaker
+    fi
+
+    # NOTHING REACHED A NETWORK AND NOTHING TOUCHED THE CHECKOUT.
+    _after=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+    if [ "$_before" = "$_after" ]; then
+        add_row "claim_race_writes_nothing" true "the checkout is byte-identical after the drill" load
+    else
+        add_row "claim_race_writes_nothing" false "the drill changed the working tree" load
+    fi
+
+    ( cd "$_A" && git worktree remove --force .worktrees/raced ) >/dev/null 2>&1 || true
+    ( cd "$_B" && git worktree remove --force .worktrees/raced ) >/dev/null 2>&1 || true
+    rm -rf "$_tmp"
+    if [ "$LOAD_FAILED" -gt 0 ]; then
+        emit_verdict "claim-race" 0 "fail" 1
+    fi
+    emit_verdict "claim-race" 0 "pass" 0
 }
 
 # ------------------------------------------------------ verify-identity-handoff
@@ -7890,6 +8118,7 @@ case "$CMD" in
     verify-succession) cmd_verify_succession "$@" ;;
     verify-revision) cmd_verify_revision "$@" ;;
     verify-merged-claim) cmd_verify_merged_claim "$@" ;;
+    verify-claim-race) cmd_verify_claim_race "$@" ;;
     verify-identity-handoff) cmd_verify_identity_handoff "$@" ;;
     verify-close) cmd_verify_close "$@" ;;
     verify-catch-up) cmd_verify_catch_up "$@" ;;

@@ -91,6 +91,55 @@ if ! SUBJECT_REASON=$(sh "${SCRIPT_DIR}/../../commit/scripts/check-subject.sh" "
     exit 1
 fi
 
+# CLAIM RE-CHECK BEFORE ANYTHING MOVES (2026-08-30, mission
+# `stop-two-runs-from-claiming-and-driving-one-unit`). The claim protocol closes the window
+# between two SURVEYS and not the one between a survey and the first WRITE: a runner can hold
+# a claim, begin driving, and only later meet a state its claim no longer covers -- a race, a
+# release, a retirement, or another runner's fresh claim over a branch proved superseded.
+#
+# THIS SEAM, FOR THE SUBJECT GATE'S OWN REASON. `archive.sh` is where a driving run first
+# writes something the base will see: it moves the ticket, commits, and pushes the claim
+# branch. The subject gate directly above already runs BEFORE the move precisely so a refusal
+# leaves the tree byte-identical, and this joins it there on the same reasoning and in the
+# same place -- ahead of the todo-layout migration below, which stages what it converges.
+#
+# IT IS DEFENCE IN DEPTH, NOT THE REPAIR. What stops a race is the claim contending for one
+# ref per unit; this bounds the damage when a claim changes hands for any reason at all.
+#
+# THE BIAS IS TOWARDS PROCEEDING, and it is the opposite of the claim act's on purpose: a
+# wrong refusal strands finished work outside the archive, needing the hand-written `git mv`
+# this seam exists to prevent. So it refuses only on POSITIVE evidence -- `other` (a different
+# live branch now holds this unit) or `ambiguous` (two live claims, which is the race itself)
+# -- and an unreadable scan, an unreachable origin or a branch with no claim row all answer
+# `unknown` and proceed. `claim-holder.sh` composes `lib/claims.sh` and adds no verdict word;
+# the reading is re-derived here, at the moment of the write, rather than handed in.
+HOLDER_SCRIPT="$(dirname "$0")/claim-holder.sh"
+if [ -f "$HOLDER_SCRIPT" ]; then
+    HOLDER_OUT=$(sh "$HOLDER_SCRIPT" "$BRANCH" 2>/dev/null || true)
+    HOLDER=$(printf '%s' "$HOLDER_OUT" | sed -n 's/.*"holder": "\([a-z_]*\)".*/\1/p')
+    case "$HOLDER" in
+        other)
+            HOLDER_BRANCH=$(printf '%s' "$HOLDER_OUT" | sed -n 's/.*"holder_branch": "\([^"]*\)".*/\1/p')
+            HOLDER_UNIT=$(printf '%s' "$HOLDER_OUT" | sed -n 's/.*"unit": "\([^"]*\)".*/\1/p')
+            echo "Error: claim_taken_over — this branch no longer holds unit ${HOLDER_UNIT}."
+            echo "  This branch: ${BRANCH}"
+            echo "  Holder now:  ${HOLDER_BRANCH}"
+            echo ""
+            echo "Nothing was moved, staged or committed. Survey again before driving this unit."
+            exit 1
+            ;;
+        ambiguous)
+            HOLDER_BRANCHES=$(printf '%s' "$HOLDER_OUT" | sed -n 's/.*"branches": "\([^"]*\)".*/\1/p')
+            HOLDER_UNIT=$(printf '%s' "$HOLDER_OUT" | sed -n 's/.*"unit": "\([^"]*\)".*/\1/p')
+            echo "Error: ambiguous_claim — two or more live claims hold unit ${HOLDER_UNIT}."
+            echo "  Branches: ${HOLDER_BRANCHES}"
+            echo ""
+            echo "Nothing was moved, staged or committed. A human decides which branch is the unit."
+            exit 1
+            ;;
+    esac
+fi
+
 TICKET_DIR=$(dirname "$TICKET")
 # Strip /todo, /icebox, or a legacy per-user form /todo/<user>, /icebox/<user> to
 # find the tickets root. The per-user patterns run first so a trailing user

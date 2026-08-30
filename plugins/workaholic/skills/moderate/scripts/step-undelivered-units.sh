@@ -38,6 +38,17 @@
 # real whether or not we could name its URL — it just leaves the coordinates unstated, which is
 # the honest rendering of a read we could not make.
 #
+# TWO AGES RIDE THIS QUESTION, AND THEY ARE TWO FACTS (2026-08-30, mission
+# `say-how-long-the-loop-has-been-stuck`). `open_hours` is how long the PULL REQUEST has been
+# open, from its own coordinates; `age` is how long the unit has been ASKED ABOUT, from the
+# question ledger (`condition-age.sh`). This is the one step where both are present, and
+# neither may silently replace the other: a pull request opened an hour ago that nobody has
+# ever been told about, and one open for a week that a person was asked about on day one, are
+# different situations calling for different acts. `drive/reference/claims.md`'s source table
+# records which question reads which, and the rule it exists for — NOTHING DERIVES AN AGE
+# TWICE, and where a question carries two they are named as two facts with their sources,
+# never blended into one number.
+#
 # THE SUMMARY CARRIES NO AGE AND NO TIMESTAMP, for the correctness reason
 # `step-stalled-units.sh`'s header records: the moderation root calls a step changed when its
 # summary differs from the same step's an hour ago, and `render-tick-post.sh` normalises out a
@@ -53,6 +64,7 @@ set -eu
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 . "${SCRIPT_DIR}/lib/jq-guard.sh"
+. "${SCRIPT_DIR}/lib/read-age.sh"
 DRIVE_SCRIPTS="${SCRIPT_DIR}/../../drive/scripts"
 
 TICK=""
@@ -133,13 +145,16 @@ for branch in $(printf '%s' "$candidates" | jq -r '.[].branch'); do
         open_hours=$(printf '%s' "$look" | jq -r '.open_hours // "null"' 2>/dev/null || printf 'null')
         case "$open_hours" in ''|*[!0-9]*) open_hours=null ;; esac
     fi
+    unit=$(printf '%s' "$candidates" | jq -r --arg b "$branch" '.[] | select(.branch == $b) | .unit' 2>/dev/null || printf '')
+    age=$(read_age "undelivered-unit:${unit}")
     row=$(printf '%s' "$candidates" | jq -c --arg b "$branch" --arg u "$pr_url" \
-        --argjson h "$open_hours" '
+        --argjson h "$open_hours" --argjson age "$age" '
             .[] | select(.branch == $b)
             | {unit, branch, owner: (.author // "unknown"),
                refusal: (if (.merge_outcome // "") == "" then "unrecorded" else .merge_outcome end),
                pull_request: (if $u == "" then "unknown" else $u end),
                open_hours: $h,
+               age: $age,
                key: ("undelivered-unit:" + .unit)}' 2>/dev/null || printf '')
     [ -n "$row" ] || continue
     rows="${rows}${rsep}${row}"
@@ -173,7 +188,7 @@ fi
 
 needs=$(printf '%s' "$rows" | jq -c '{action: "ask_the_claim_holder_to_retry_the_merge_on_this_finished_unit",
     bound: "one question per unit, addressed to the claim holder, keyed on `key` so it is asked once; the tick asks and never merges, drives or retries anything itself",
-    compose: "name the unit, its pull request and the refusal that stopped the merge, and say the unit is finished and green -- what is needed is the merge, not a review",
+    compose: "name the unit, its pull request and the refusal that stopped the merge, and say the unit is finished and green -- what is needed is the merge, not a review. Two ages may be present and they are TWO FACTS: `open_hours` is how long the PULL REQUEST has been open, `age` is how long the unit has been ASKED ABOUT (`age.ticks` ticks since `age.first_seen`, `at least` that when `age.first_seen_is_floor`). Never present one as the other, and omit the second when it adds nothing. Say nothing about the log age when `age.first_seen` is null and the reading is readable -- that is the first time anybody is being asked. When `age.readable` is false, name it as an age we could not read, by its `age.reason`, never as a condition that just started.",
     undelivered: .}' 2>/dev/null || echo '{}')
 
 if [ "$n" -eq 1 ]; then

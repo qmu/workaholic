@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-30T02:21:38+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -77,3 +78,24 @@ no token and gating nothing. Name the condition age in that same voice, and in t
   is the reasoning `backlog_all_excluded`, the base's health and the operator-facing pull requests
   each already record, and it applies here unchanged.
 - Documentation-only in the plugin skills, so `outputs/` must be rebuilt in the same change.
+
+## Final Report
+
+Development completed as planned. `/implement`'s §1 reading and §7 report and `/propose`'s run
+report both name the age as evidence, once per run, with the explicit moves-no-token and
+gates-nothing sentences and the degraded-reading rule. §7's token table gains no row.
+`outputs/` was regenerated and `verify.mjs` passes.
+
+### Discovered Insights
+
+- **Insight**: `drive/SKILL.md` cannot name a `moderate/` script by ANY path form, and the
+  reason is the cross-agent bundle.
+  **Context**: `build.mjs` resolves `${CLAUDE_PLUGIN_ROOT}/skills/<x>/scripts/` in a SKILL.md
+  into that skill's script CLOSURE and copies the whole referenced skill into the bundle —
+  writing it here dragged `moderate`, `standup` and `workaholify` into every bundled workflow
+  and surfaced `workaholify`'s `../bootstrap/session-start.sh` (which lives at
+  `workaholify/bootstrap/`, outside the copied `scripts/`) as twelve unresolved references. The
+  bare `<x>/scripts/<f>.sh` form fails too: `verify.mjs` checks it both as an intra-bundle
+  reference (MISS) and as a non-build-detectable cross-skill form. So the SKILL.md names the
+  reader and its owning skill, `reference/routing.md` carries the path, and the reason is
+  written in both so a later reader does not "fix" it back.

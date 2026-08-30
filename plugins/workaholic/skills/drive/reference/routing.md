@@ -375,6 +375,18 @@ moments.
   unit, and it is read **once per run**: one fact about the repository, where a per-unit read
   would spend N calls to say the same thing. A degraded read is reported as degraded and **never
   as green**. **It moves no token and gates nothing** — see §7's table row and §1.
+- **How long each standing blocker has been standing, once** (2026-08-30, mission
+  `say-how-long-the-loop-has-been-stuck`): for each subject this report already names — an
+  undelivered unit, a stalled claim, a blocked retirement, a queued artifact nothing can drive —
+  `moderate/scripts/condition-age.sh --key <subject-key>` answers `age.ticks` ticks since
+  `age.first_seen`, *at least* that when `age.first_seen_is_floor`. Read **once per run**, on the
+  ground the base's reading above stands on. What it answers is the age of the **question**, a
+  lower bound on the age of the condition, so the report says *asked about since* and never
+  asserts how long the subject itself has been stuck. A subject nobody has been asked about yet
+  reads `first_seen: null` and nothing is said about its age — an ordinary absence. A
+  `readable: false` reading is named **as unreadable, by its reason**, and never as *nothing
+  standing*. **It moves no token and gates nothing** — §7's table gains no row for it, and no
+  route, demotion, claim, merge, survey, refusal or sort reads it.
 - Per unit: members, effective policy, route taken, ticket outcomes reconciling to the queue it
   was handed, and the commits.
 - PR per unit — the URL, or the `pr_error` if creation failed.

@@ -110,6 +110,7 @@
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 . "${SCRIPT_DIR}/lib/jq-guard.sh"
+. "${SCRIPT_DIR}/lib/read-age.sh"
 DRIVE_SCRIPTS="${SCRIPT_DIR}/../../drive/scripts"
 
 TICK=""
@@ -239,9 +240,28 @@ if [ "$n_stalled" -eq 0 ]; then
     emit ok "" "$summary"
 fi
 
+# HOW LONG THIS UNIT HAS BEEN ASKED ABOUT, beside the claim tip's own staleness (2026-08-30,
+# mission `say-how-long-the-loop-has-been-stuck`). TWO AGES, TWO SOURCES, NEVER BLENDED: the tip
+# answers *how long has this not moved*, the question ledger answers *how long have we been
+# asking*, and a unit stalled for a day that nobody has been told about is a different situation
+# from one a person was asked about a week ago. `drive/reference/claims.md`'s source table records
+# which question reads which, and the rule it exists for — NOTHING DERIVES AN AGE TWICE.
+#
+# Keyed on the `stalled-unit:<unit>` key the row already carries, so no key moves and
+# `already_asked` is byte-identical. The SUMMARY is untouched, for the reason this file's own
+# header records at length.
+stalled=$(
+    printf '%s' "$stalled" | jq -c '.[]?' 2>/dev/null | while IFS= read -r row; do
+        [ -n "$row" ] || continue
+        key=$(printf '%s' "$row" | jq -r '.key // ""' 2>/dev/null || printf '')
+        age=$(read_age "$key" "$ROOT")
+        printf '%s' "$row" | jq -c --argjson a "$age" '. + {age: $a}' 2>/dev/null || printf '%s' "$row"
+    done | jq -sc '.' 2>/dev/null || printf '%s' "$stalled"
+)
+
 needs=$(printf '%s' "$stalled" | jq -c '{action: "ask_the_owner_whether_this_stalled_unit_still_needs_them",
     bound: "one question per unit, addressed to the claim holder, keyed on `key` so it is asked once; the tick asks and never claims, drives, or resolves the blocker itself",
-    compose: "name what is stuck and what the run could not decide — a signature is not a problem — and say the answer is given in this session, through the link on the question",
+    compose: "name what is stuck and what the run could not decide — a signature is not a problem — and say the answer is given in this session, through the link on the question. TWO AGES ride this candidate and they are two facts with two sources: `stalled_hours` is how long the CLAIM TIP has not moved, `age` is how long the unit has been ASKED ABOUT (`age.ticks` ticks since `age.first_seen`, `at least` that when `age.first_seen_is_floor`). Name them as two, never blended into one number, and say nothing about the log age when `age.first_seen` is null and the reading is readable — that is the first time anybody is being asked. When `age.readable` is false, name it as an age we could not read, by its `age.reason`, never as a condition that just started.",
     stalled: .}' 2>/dev/null || echo '{}')
 
 # THE EVENT NAMES THE REPOSITORY EVENT AND CARRIES NO AGE, for the reason above: the root is

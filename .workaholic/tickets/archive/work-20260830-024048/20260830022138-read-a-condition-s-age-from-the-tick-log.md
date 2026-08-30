@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-30T02:21:38+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -98,3 +99,25 @@ written exactly once per key by `ask-question.sh --record-ask`, never moved afte
   asked reads younger than it is. That is the honest direction (understating an age asks a
   person to look sooner than the truth would), and it must be said in the script's header so a
   later reader does not present it as the condition's own age.
+
+## Final Report
+
+Development completed as planned. `moderate/scripts/condition-age.sh` composes `log-read.sh`
+and `lib/question-id.sh` and owns nothing else: no store, no cursor, no field on any artifact,
+no second walker. It answers `first_seen` / `ticks`, emits `readable` only when `false`, and
+exits 0 on every path.
+
+### Discovered Insights
+
+- **Insight**: The log area's own state has to be read before the parser, and by this script.
+  **Context**: `log-read.sh` answers `no_log_area` for a path that is missing AND for one that
+  is not a readable directory, and those are opposite facts here — a repository with no tick
+  history has honestly asked nothing, while a log that exists and cannot be read is exactly the
+  degradation this reading exists to name. One `[ -e ]` / `[ -d ] && [ -r ] && [ -x ]` check
+  before the parse separates them without a second walker, and it is what makes the degraded
+  path drillable offline (make `.workaholic/moderations` a regular file).
+- **Insight**: `ticks` must be counted with `--since` bounding the FILE walk and a lexical tick
+  comparison doing the rest.
+  **Context**: `--since` takes a day, so a tick earlier on the `first_seen` day would be counted
+  by the day bound alone. The comparison `.tick >= $first_seen` on fixed-width `YYYYMMDD-HHMMSS`
+  ids is exact and needs no date arithmetic, which `log-read.sh`'s own header refuses by name.

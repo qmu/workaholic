@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-30T02:21:38+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -87,3 +88,28 @@ report it, and that is the whole licence.
 - The sub-table must not be folded into the act-effect one despite both concerning the loop's own
   records: one column cannot classify two different questions, which is the rule the previous five
   splits each record.
+
+## Final Report
+
+Development completed as planned. A sixth sub-table in `drive/reference/claims.md`'s
+*Proofs and judgements* classifies every value the reader emits, none a proof;
+`testProofJudgementSplit` parses it apart from the fifth by heading and asserts both
+directions, bans acting call sites in each enumerated consumer, and asserts `ask-question.sh`
+byte-identical. All four failure modes were introduced and each turned exactly one row red;
+they are recorded in the test's own header.
+
+### Discovered Insights
+
+- **Insight**: The vocabulary is parsed by RUNNING the reader over its four shapes, and the
+  echo fields are dropped by comparing values rather than by a carried list.
+  **Context**: `key` and `slug` are the caller's own argument and the id derived from it, not
+  readings, and a hard-coded exclusion list would be the "list that proves only that it matches
+  itself" the existing sub-table pins avoid. Computing `new Set([key, slugOf(key)])` PER SHAPE
+  is what makes it work — a single shared key drops nothing from the shape built with a
+  different one, which is how the first version failed.
+- **Insight**: The tempting error is to call `first_seen` a proof, and the reason it is not is
+  worth writing down.
+  **Context**: It is read off an append-only log that never rewrites a line, which is
+  `superseded`'s property. But the log GROWS: `ticks` rises every hour and a bounded walk's
+  `first_seen` moves as day files pass out of the bound. A proof cannot become false by looking
+  again; this is designed to.

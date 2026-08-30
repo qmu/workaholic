@@ -2,7 +2,6 @@
 
 ## active
 
-* [catch-a-reported-claim-up-before-its-conflict-hardens](active/catch-a-reported-claim-up-before-its-conflict-hardens/mission.md) - Catch a reported claim up before its conflict hardens
 * [deploy-the-docs-site-on-merge-to-main](active/deploy-the-docs-site-on-merge-to-main/mission.md) - Deploy the docs site on merge to main
 * [draft-a-dateless-direction-with-the-operator-s-one-week-default](active/draft-a-dateless-direction-with-the-operator-s-one-week-default/mission.md) - Draft a dateless direction with the operator's one-week default
 * [make-the-routine-create-body-documented-and-buildable](active/make-the-routine-create-body-documented-and-buildable/mission.md) - Make the routine create body documented and buildable
@@ -19,6 +18,7 @@
 * [ask-for-the-one-act-a-declared-handoff-is-waiting-on](archive/ask-for-the-one-act-a-declared-handoff-is-waiting-on/mission.md) - Ask for the one act a declared handoff is waiting on
 * [attribute-an-inbound-ask-to-the-direction-it-answers](archive/attribute-an-inbound-ask-to-the-direction-it-answers/mission.md) - Attribute an inbound ask to the direction it answers
 * [auto-merge-propose-and-implement-prs-under-a-dev-release-branch-split](archive/auto-merge-propose-and-implement-prs-under-a-dev-release-branch-split/mission.md) - Auto-merge propose and implement PRs under a dev/release branch split
+* [catch-a-reported-claim-up-before-its-conflict-hardens](archive/catch-a-reported-claim-up-before-its-conflict-hardens/mission.md) - Catch a reported claim up before its conflict hardens
 * [close-a-mission-the-run-can-prove-is-finished](archive/close-a-mission-the-run-can-prove-is-finished/mission.md) - Close a mission the run can prove is finished
 * [close-the-units-the-loop-already-finished](archive/close-the-units-the-loop-already-finished/mission.md) - Close the units the loop already finished
 * [color-code-the-notify-post-shapes-by-state](archive/color-code-the-notify-post-shapes-by-state/mission.md) - Color-code the notify post shapes by state

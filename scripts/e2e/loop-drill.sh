@@ -3892,9 +3892,10 @@ cmd_verify_close() {
 cmd_verify_catch_up() {
     _reader="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/claim-mergeability.sh"
     _writer="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/catch-up-claim.sh"
+    _catchable="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/list-catchable-claims.sh"
     _step="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/step-catchup-blocked.sh"
     _recorder="${REPO_ROOT}/plugins/workaholic/skills/story/scripts/record-merge-outcome.sh"
-    for _f in "$_reader" "$_writer" "$_step" "$_recorder"; do
+    for _f in "$_reader" "$_writer" "$_catchable" "$_step" "$_recorder"; do
         [ -f "$_f" ] || emit_err "catch_up_seam_unreadable" 4 "${_f} is not present in this checkout"
     done
 
@@ -3906,8 +3907,38 @@ cmd_verify_catch_up() {
     _me=$(cd "$REPO_ROOT" && git config user.email 2>/dev/null || echo drill@example.com)
     _git() { git -c user.email="$_me" -c user.name=Drill -c commit.gpgsign=false "$@"; }
     _other() { git -c user.email=colleague@example.com -c user.name=Other -c commit.gpgsign=false "$@"; }
-    _stub() { printf '#!/bin/sh\n%s\n' "$1" > "${_bin}/gh"; chmod +x "${_bin}/gh"; }
-    _stub "echo '[]'"
+    # THE STUBBED TRANSPORT, EXTENDED FOR THE REVIEW BOUND (2026-08-30, mission
+    # `catch-a-reported-claim-up-before-its-conflict-hardens`). That bound reads a pull request's
+    # reviews, and the drill must stay hermetic — a drill that needs a credential is classified
+    # out of the CI set and stops proving anything on merge. So the stub answers exactly the
+    # three reads the bound makes and `[]` for everything else:
+    #   rate_limit                     the availability probe
+    #   pulls?state=open&head=…        the unit's own open pull request (number 5 for the
+    #                                  reviewed branch, 1 for every other)
+    #   pulls/<n>/reviews              a PERSON's review on 5, a BOT's on 1, none elsewhere
+    # `state=all` is answered `[]` deliberately: that is `claim-merged.sh`'s query, and a row
+    # there would read as a merged claim and change every verdict in the fixture.
+    cat > "${_bin}/gh" <<'GH_STUB_EOF'
+#!/bin/sh
+_p=""
+for _a in "$@"; do
+    case "$_a" in
+        -*|api) ;;
+        *) [ -n "$_p" ] || _p="$_a" ;;
+    esac
+done
+case "$_p" in
+    rate_limit)                   echo 5000 ;;
+    *pulls/5/reviews*)            echo '[{"user": {"type": "User", "login": "a-person"}}]' ;;
+    *pulls/1/reviews*)            echo '[{"user": {"type": "Bot", "login": "reviewer[bot]"}}]' ;;
+    *reviews*)                    echo '[]' ;;
+    *state=all*)                  echo '[]' ;;
+    *head=*work-20260101-000005*) echo '[{"number": 5}]' ;;
+    *pulls*head=*)                echo '[{"number": 1}]' ;;
+    *)                            echo '[]' ;;
+esac
+GH_STUB_EOF
+    chmod +x "${_bin}/gh"
 
     if [ "$(PATH="${_bin}:$PATH" command -v gh)" = "${_bin}/gh" ]; then
         add_row "catch_up_no_network" true "the stub is what gh resolves to, and the origin is a local bare repository -- no row below reaches the network" load
@@ -3921,7 +3952,7 @@ cmd_verify_catch_up() {
     ( cd "$_tmp" && git clone -q "$_origin" work ) || true
     mkdir -p "${_work}/.workaholic/tickets/todo" "${_work}/.workaholic/stories" \
              "${_work}/.claude-plugin" "${_work}/src"
-    for _n in 1 2 3 4; do
+    for _n in 1 2 3 4 5 6; do
         printf -- '---\ncreated_at: 2026-01-01T00:00:0%s+09:00\nauthor: %s\n---\n\n# T%s\n' \
             "$_n" "$_me" "$_n" > "${_work}/.workaholic/tickets/todo/2026010100000${_n}-t.md"
     done
@@ -3981,7 +4012,23 @@ cmd_verify_catch_up() {
     ( cd "$_work" && _other commit -qam "Report the unit" \
       && git push -q origin work-20260101-000004 ) >/dev/null 2>&1 || true
 
-    # THE BASE MOVES under all four.
+    # 5. REVIEWED -- a `queue_drained` unit (no recorded refusal: waiting on a PERSON) whose
+    # pull request carries a submitted human review. The one bound the 2026-08-30 widening added.
+    _strand work-20260101-000005 batch-reviewed 20260101000005-t.md ""
+    printf '{\n  "name": "wh",\n  "version": "1.0.5",\n  "plugins": []\n}\n' \
+        > "${_work}/.claude-plugin/marketplace.json"
+    ( cd "$_work" && _git add -A && _git commit -qm "Report the unit" \
+      && git push -q origin work-20260101-000005 ) >/dev/null 2>&1 || true
+
+    # 6. QUEUE_DRAINED -- the widening's whole subject. Finished, pushed, waiting on a person,
+    # still mechanical, nobody has reviewed it. Before 2026-08-30 no run would touch it.
+    _strand work-20260101-000006 batch-drained 20260101000006-t.md ""
+    printf '{\n  "name": "wh",\n  "version": "1.0.6",\n  "plugins": []\n}\n' \
+        > "${_work}/.claude-plugin/marketplace.json"
+    ( cd "$_work" && _git add -A && _git commit -qm "Report the unit" \
+      && git push -q origin work-20260101-000006 ) >/dev/null 2>&1 || true
+
+    # THE BASE MOVES under all six.
     ( cd "$_work" && git checkout -q main \
       && printf 'alpha\nbeta-base\ngamma\n' > src/app.txt \
       && printf '{\n  "name": "wh",\n  "version": "1.0.2",\n  "plugins": []\n}\n' > .claude-plugin/marketplace.json \
@@ -4007,8 +4054,70 @@ cmd_verify_catch_up() {
         emit_verdict "catch-up" 0 "fail" 1
     fi
 
+    # ---- THE WIDENED TRIGGER (2026-08-30, mission
+    # `catch-a-reported-claim-up-before-its-conflict-hardens`) -------------------------------
+    # The candidate reader is what changed; the writer is untouched. These rows run BEFORE the
+    # catch-up rows below, because a caught-up branch contains the base and leaves the candidate
+    # set by itself — which is exactly the self-correction `step-catchup-blocked.sh` records.
+    _cands=$( ( cd "$_read" && PATH="${_bin}:$PATH" \
+        WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES=0 sh "$_catchable" ) 2>&1 || true )
+    _names() { printf '%s' "$_cands" | grep -q "\"unit\": \"$1\""; }
+
+    # THE BREAKER, WRITTEN AGAINST THE BEHAVIOUR. Wire the candidate reader back at the delivery
+    # verdict alone — `report_undelivered` only, the pre-2026-08-30 set — and `batch-drained`
+    # disappears from the offer while every other row here stays green. Asserting a return shape
+    # would survive exactly that narrowing, which is why the assertion is on the UNIT BEING
+    # NAMED: this is the whole widening, and a drill that cannot lose it proves nothing.
+    if _names batch-drained; then
+        add_row "catch_up_offers_a_drained_claim" true "a queue_drained claim still mechanical is offered to the act -- the widening this drill exists for" breaker
+    else
+        add_row "catch_up_offers_a_drained_claim" false "the reader did not offer the queue_drained mechanical claim: $(one_line "$_cands")" breaker
+    fi
+
+    # AND NOTHING ELSE IS OFFERED. `content` is a person's, and a colleague's claim is
+    # untouchable at any age — neither may reach an act that pushes.
+    if ! _names batch-content && ! _names batch-foreign; then
+        add_row "catch_up_offer_is_bounded" true "a content conflict and a colleague's claim are not candidates -- the reader offers only what the act may take" load
+    else
+        add_row "catch_up_offer_is_bounded" false "the reader offered a unit no act may take: $(one_line "$_cands")" load
+    fi
+
+    # A DEGRADED SCAN YIELDS NO CANDIDATES, ITS REASON AND A NULL COUNT — never a bare empty
+    # set, which is byte-identical to a healthy quiet run.
+    _deg=$( ( cd "$_tmp" && PATH="${_bin}:$PATH" sh "$_catchable" ) 2>&1 || true )
+    if printf '%s' "$_deg" | grep -q '"ok": false' \
+        && printf '%s' "$_deg" | grep -q '"count": null' \
+        && printf '%s' "$_deg" | grep -q '"candidates": \[\]'; then
+        add_row "catch_up_degraded_reads_null" true "a scan that could not be made yields no candidates, a named reason and a null count" load
+    else
+        add_row "catch_up_degraded_reads_null" false "a degraded read did not answer with null counts: $(one_line "$_deg")" load
+    fi
+
+    # THE WIDENING'S OWN SUBJECT IS ACTUALLY CAUGHT UP. A `queue_drained` unit nobody has
+    # reviewed is merged, validated and pushed exactly as an undelivered one is.
+    _d_before=$(_tip work-20260101-000006)
+    _d=$(_run batch-drained)
+    if [ "$(_field "$_d" outcome)" = "caught_up" ] \
+        && [ "$(_tip work-20260101-000006)" != "$_d_before" ]; then
+        add_row "catch_up_drained_caught_up" true "a queue_drained claim still mechanical is caught up and pushed, once" load
+    else
+        add_row "catch_up_drained_caught_up" false "the queue_drained case did not complete: $(one_line "$_d")" load
+    fi
+
+    # A PULL REQUEST A PERSON HAS ALREADY REVIEWED IS REFUSED BY ITS OWN WORD, branch
+    # byte-identical. This is the one bound the widening added: a push resets an approval.
+    _r_before=$(_tip work-20260101-000005)
+    _r=$(_run batch-reviewed)
+    if [ "$(_field "$_r" reason)" = "pull_request_reviewed" ] \
+        && [ "$(_tip work-20260101-000005)" = "$_r_before" ]; then
+        add_row "catch_up_reviewed_refused" true "a submitted human review refuses the catch-up by name and the branch is byte-identical after it" load
+    else
+        add_row "catch_up_reviewed_refused" false "a reviewed pull request was not refused cleanly: $(one_line "$_r")" load
+    fi
+
     # ROW 1: THE MECHANICAL CASE IS CAUGHT UP AND PUSHED IN ONE TURN, and the version collision
-    # converges on the HIGHER semver rather than on one side wholesale.
+    # converges on the HIGHER semver rather than on one side wholesale. Its pull request carries
+    # a BOT's review, which is not a person's attention and must not refuse it.
     _m_before=$(_tip work-20260101-000001)
     _m=$(_run batch-mechanical)
     _m_ver=$(git --git-dir="$_origin" show "refs/heads/work-20260101-000001:.claude-plugin/marketplace.json" 2>/dev/null \

@@ -42,6 +42,27 @@
 # either half alone is a defect: *retry your merge* is the wrong instruction for a branch that
 # no longer merges.
 #
+# AND A UNIT THE RUN JUST CAUGHT UP NEEDS NO FILTER — MEASURED, 2026-08-30, mission
+# `catch-a-reported-claim-up-before-its-conflict-hardens`. That mission widened `/implement`'s
+# catch-up from `report_undelivered` alone to every REPORTED claim still `mechanical`, and asked
+# whether this step must now filter out a unit the run had repaired, on the shape
+# `stalled-units` uses for `awaiting_verification`. It must not, and the reason is worth
+# recording so nobody re-opens it and adds a filter to have added one:
+#
+#   * THE TWO SETS ARE DISJOINT BY CONSTRUCTION. This step's candidates are
+#     `mergeability == "content"`. Everything the run may catch up is `mechanical` —
+#     `list-catchable-claims.sh` offers only that class, and `catch-up-claim.sh` refuses
+#     `content_conflict` outright. A unit the run caught up was therefore never a candidate
+#     here, so there is nothing to filter and nothing to count as filtered.
+#   * AND THE READING SELF-CORRECTS ANYWAY. A caught-up branch contains the base, so
+#     `claim-mergeability.sh` answers `clean` with `already_current: true` at the next read.
+#     Even if a unit could move between the classes, it would leave this set on its own.
+#
+# So this step is BYTE-IDENTICAL across that widening: the key, the asked-once gate, the
+# addressee, the per-tick cap, the holds and every other candidate are exactly what they were,
+# and `ask-question.sh` gains nothing. The honest outcome of that ticket was a recorded finding
+# and no change.
+#
 # THE CONFLICTED FILES RIDE THE CLAIM ROW. A question that cannot name what collided does not
 # say what to look at, and reading the mergeability a second time here would be a second
 # derivation of one fact — so `list-claims.sh` renders `mergeability_content_files` and this

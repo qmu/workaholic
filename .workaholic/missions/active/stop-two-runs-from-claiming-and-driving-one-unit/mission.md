@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours: 1.2
+actual_hours: 2.6
 feedback: [20260830081659-stop-two-runs-from-claiming-and-driving-one-unit.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
@@ -60,3 +60,4 @@ happens, one person is told once, both branches named.
 - 2026-08-30 — run recorded (+0.3h) — cse_01DzM3RauLKBVSvjwNV1W4zw
 - 2026-08-30 — ticket archived — 20260830082251-report-a-lost-race-where-a-person-reads-it.md
 - 2026-08-30 — story reported — work-20260830-094214
+- 2026-08-30 — run recorded (+1.4h) — session_01AHkLmCxmwvGBfkrAc24vRk

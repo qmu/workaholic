@@ -55,3 +55,4 @@ Nothing gates, holds, re-asks, escalates or merges on the age.
 - 2026-08-30 — ticket archived — 20260830022138-carry-the-age-on-retire-blocked-and-undelivered-unit.md
 - 2026-08-30 — ticket archived — 20260830022138-carry-the-age-on-stalled-unit-and-state-the-two-sources.md
 - 2026-08-30 — ticket archived — 20260830022138-classify-every-age-value-as-a-judgement-and-pin-it.md
+- 2026-08-30 — ticket archived — 20260830022138-name-the-condition-age-in-the-run-reports.md

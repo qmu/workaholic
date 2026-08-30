@@ -607,4 +607,5 @@
 * [Three proved-superseded claim branches still stand after CI's retirement turn](20260829192941-three-proved-superseded-claim-branches-still-stand-after-ci-s-retirement-turn.md)
 * [Make the strategy lifecycle staged: 進行中 / 改良中 / 観察中](20260829211659-make-the-strategy-lifecycle-staged.md)
 * [Say how long the loop has been stuck](20260830021712-say-how-long-the-loop-has-been-stuck.md)
+* [A strategy ask lacking only its date dies quietly as a direction record](20260830041720-a-strategy-ask-lacking-only-its-date-dies-quietly-as-a-direction-record.md)
 <!-- okf:generated:end -->

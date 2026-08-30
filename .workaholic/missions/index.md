@@ -3,7 +3,6 @@
 ## active
 
 * [deploy-the-docs-site-on-merge-to-main](active/deploy-the-docs-site-on-merge-to-main/mission.md) - Deploy the docs site on merge to main
-* [draft-a-dateless-direction-with-the-operator-s-one-week-default](active/draft-a-dateless-direction-with-the-operator-s-one-week-default/mission.md) - Draft a dateless direction with the operator's one-week default
 * [make-the-routine-create-body-documented-and-buildable](active/make-the-routine-create-body-documented-and-buildable/mission.md) - Make the routine create body documented and buildable
 * [make-workaholify-converge-the-account-s-routines](active/make-workaholify-converge-the-account-s-routines/mission.md) - Make /workaholify converge the account's routines
 * [refuse-ok-under-a-placeholder-identity](active/refuse-ok-under-a-placeholder-identity/mission.md) - Refuse ok under a placeholder identity
@@ -27,6 +26,7 @@
 * [cross-the-repo-boundary-as-an-issue](archive/cross-the-repo-boundary-as-an-issue/mission.md) - Cross the repo boundary as an issue
 * [deliver-and-retire-what-the-loop-already-proved-finished](archive/deliver-and-retire-what-the-loop-already-proved-finished/mission.md) - Deliver and retire what the loop already proved finished
 * [deliver-what-the-loop-already-knows-to-the-person-who-can-act](archive/deliver-what-the-loop-already-knows-to-the-person-who-can-act/mission.md) - Deliver what the loop already knows to the person who can act
+* [draft-a-dateless-direction-with-the-operator-s-one-week-default](archive/draft-a-dateless-direction-with-the-operator-s-one-week-default/mission.md) - Draft a dateless direction with the operator's one-week default
 * [draft-deployment-plans-in-the-release-note-before-deploying](archive/draft-deployment-plans-in-the-release-note-before-deploying/mission.md) - Draft deployment plans in the Release Note before deploying
 * [drive-on-a-merged-proposal-and-report-it-in-that-proposal-s-thread](archive/drive-on-a-merged-proposal-and-report-it-in-that-proposal-s-thread/mission.md) - Drive on a merged proposal, and report it in that proposal's thread
 * [drive-the-work-the-loop-wrote-one-resolution-of-who-a-person-is](archive/drive-the-work-the-loop-wrote-one-resolution-of-who-a-person-is/mission.md) - Drive the work the loop wrote: one resolution of who a person is

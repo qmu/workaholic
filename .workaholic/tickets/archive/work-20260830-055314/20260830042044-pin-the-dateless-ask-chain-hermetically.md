@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-30T04:20:44+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -79,3 +80,54 @@ breaker row written against the **behaviour** rather than a return shape.
 - The date is a **clock-dependent** value, so assert it relative to a supplied basis
   rather than to today — a test that computes "a week from now" on both sides proves
   nothing about the arithmetic.
+
+## Final Report
+
+Development completed as planned.
+
+**It landed as a suite row, not a drill, and the choice is stated because the ticket's own
+Consideration asked for it.** The whole chain is reachable with no fixture repository:
+`default-target-date.sh` is a pure read taking its basis as an argument, and the bar, the
+narrowing and the three surfaces are file contents. A drill would have cost a register row
+in `docs/loop-drill-runbook.md` §9 and a CI matrix leg to reach nothing the suite cannot,
+and the suite already runs on every push. **No register row was added** — step 6 is
+conditional on the drill route, which was not taken — and `verify-all` is therefore not the
+gate for this row; `Validate Plugins` is.
+
+The row (`the dateless ask: default -> bar -> visibility`) asserts, in order: the arithmetic
+against **supplied bases and literal answers** including a month and a year boundary; the
+one clock-dependent branch **without naming today**, by feeding the script its own reported
+basis back and requiring the identical answer; five malformed arguments each refused
+`bad_ask_date` with `target_date: null`; the round trip that catches `2026-02-30`; the
+constant 7 absent from all twelve other scripts under `skills/strategy/`; the bar and its
+condition; the narrowing at both sites; the three visibility surfaces and the
+stated-date exemption in `SKILL.md`, `workflow.md` and `CLAUDE.md`; and the four things
+that must not have moved.
+
+**The breaker was applied, shown red, and reverted.** It is written against the
+**behaviour**, not a return shape: the mis-wiring the ticket names — the default firing
+where the ask stated something — has exactly one reachable form inside this script, falling
+back to today instead of refusing. Applied, the suite reported
+`FAIL  `not-a-date` is refused with no date emitted`; reverted, `git diff --stat` on the
+script is empty and the suite is **5405 passed, 0 failed**. No network call, no `gh`, no
+Slack post, and nothing written outside the checkout (asserted by the row itself).
+
+### Discovered Insights
+
+- **Insight**: the first draft of the "what must not have moved" assertion used
+  `!/default-target-date|defaulted/` over `create.sh` and went **red on the unmodified
+  tree** — `create.sh` carries the comment *"Assignee: the strategy's owner. Never
+  defaulted"*, which asserts the exact opposite claim.
+  **Context**: a prose pin written as a bare word search will find the sentence that says
+  the rule is being *kept*. The assertion was split into the two narrow facts it actually
+  means — the script does not reach the derivation, and stamps no `defaulted:` key — and a
+  later reader adding a pin here should key on a path or a field name, never on an English
+  word the file may legitimately use about something else.
+
+- **Insight**: a clock-dependent value has a third option beside "assert against a literal"
+  and "recompute on both sides": ask the script what basis it used, then require that basis
+  fed back in produces the identical answer.
+  **Context**: recomputing a week in the test proves nothing about the arithmetic, and a
+  literal cannot cover the no-argument branch at all. The round trip is a real assertion —
+  it fails if the two branches ever disagree — and it names no wall-clock date, so the row
+  cannot rot on a date boundary.

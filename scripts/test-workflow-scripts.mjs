@@ -20157,6 +20157,7 @@ const tests = [
   ["no_citing_artifacts is a provable reading: ask -> reader -> scaffold -> floor", testCarryChainIsProvable],
   ["strategy/mission-strategy.sh: which direction a mission belongs to", testMissionStrategy],
   ["feedback/ask-feedback-line.sh: one writer for the line one reader reads", testAskFeedbackLine],
+  ["the dateless ask: default -> bar -> visibility", testDatelessAskChain],
 ];
 
 // `await` matters even though almost every test is synchronous: without it an async
@@ -31025,4 +31026,134 @@ esac`);
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }
+}
+
+// ---------- the dateless ask: default -> bar -> visibility, pinned hermetically ----------
+// (2026-08-30, mission `draft-a-dateless-direction-with-the-operator-s-one-week-default`)
+//
+// Everything that mission changes is PROSE plus one small script: the strategy form's bar in
+// `SKILL.md`, the composition in step 9b, the wording on three surfaces. Prose regresses
+// silently -- and the measured failure it answers was itself a CORRECT rule producing a silent
+// outcome (three announced directions died at `no_target_date`, the refusal traced only by a
+// parenthetical addressed to nobody). So the chain gets the treatment every other load-bearing
+// prose contract here gets: a pin, and a breaker written against the BEHAVIOUR.
+//
+// A SUITE ROW RATHER THAN A DRILL, and the choice is stated because the ticket asked for it:
+// the whole chain is reachable with no fixture repository. `default-target-date.sh` is a pure
+// read that takes its basis as an argument, and the bar, the narrowing and the three surfaces
+// are file contents. A drill would cost a register row and a CI matrix leg to reach nothing the
+// suite cannot; and this suite already runs on every push.
+//
+// THE DATE IS CLOCK-DEPENDENT AND IS NEVER ASSERTED AGAINST TODAY. Every arithmetic assertion
+// supplies its own basis and names the answer as a literal, so the test proves the arithmetic
+// rather than recomputing it on both sides. The one clock-dependent path -- no argument -- is
+// checked by RE-DERIVING from the basis the script itself reported, which is a real assertion
+// (it fails if the two branches disagree) and still names no wall-clock date.
+//
+// THE BREAKER IS THE `bad_ask_date` ROW, and it is behavioural rather than shape-shaped. The
+// mis-wiring the ticket names -- the default firing where the ask DID state a date -- has
+// exactly one reachable form inside this script: falling back to today when the argument cannot
+// be read. A tree wired that way answers a real `target_date` here, and these rows go red.
+function testDatelessAskChain() {
+  const dtd = join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/default-target-date.sh");
+  const ask = (arg) => JSON.parse(
+    execFileSync(POSIX_SH, arg === undefined ? [dtd] : [dtd, arg], { encoding: "utf8" }));
+
+  // --- the arithmetic, against supplied bases and literal answers -------------------
+  assertEq("seven days from the ask's own date",
+    ask("2026-08-30"),
+    { ok: true, reason: "", target_date: "2026-09-06", basis: "2026-08-30", basis_source: "ask", days: 7 });
+  assertEq("across a month boundary", ask("2026-02-25").target_date, "2026-03-04");
+  assertEq("across a year boundary", ask("2026-12-28").target_date, "2027-01-04");
+
+  // The one clock-dependent branch, asserted WITHOUT naming today: whatever basis the script
+  // reports for itself, feeding that basis back in must produce the identical answer.
+  const today = ask();
+  assertEq("no argument counts from today, and says so", today.basis_source, "today");
+  assertEq("and agrees with its own reported basis",
+    ask(today.basis).target_date, today.target_date);
+
+  // --- the refusal: no date at all, ever, on a malformed argument -------------------
+  // THIS IS THE BREAKER. A default that fires where the ask stated something turns each of
+  // these into a real date, and every row below goes red.
+  for (const bad of ["not-a-date", "2026-13-45", "2026-02-30", "2026-08-30T04:17:20Z", "30-08-2026"]) {
+    const r = ask(bad);
+    assertEq(`\`${bad}\` is refused with no date emitted`,
+      { ok: r.ok, reason: r.reason, target_date: r.target_date, basis: r.basis },
+      { ok: false, reason: "bad_ask_date", target_date: null, basis: null });
+  }
+
+  // `2026-02-30` is the row that needs the round trip: jq's own `fromdateiso8601` NORMALIZES an
+  // out-of-range day to 2026-03-02 rather than failing, so a shape check alone would have
+  // answered a plausible week from a day the ask never named.
+  assertTrue("the parse is round-tripped, not merely shape-checked",
+    /strftime\("%Y-%m-%d"\)\) != \$basis/.test(readFileSync(dtd, "utf8")),
+    "no round trip in default-target-date.sh");
+
+  // --- the constant lives in one place ---------------------------------------------
+  const strategyDir = join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts");
+  const seconds = /604800|7\s*\*\s*86400|86400\s*\*\s*7/;
+  for (const f of readdirSync(strategyDir).filter((n) => n.endsWith(".sh") && n !== "default-target-date.sh")) {
+    assertTrue(`${f} carries no second seven-day literal`,
+      !seconds.test(readFileSync(join(strategyDir, f), "utf8")), f);
+  }
+
+  // --- the bar, and the narrowing ---------------------------------------------------
+  const SKILL = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/specificate/SKILL.md"), "utf8");
+  const FLOW = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/specificate/reference/workflow.md"), "utf8");
+  const CLAUDE = readFileSync(join(REPO_ROOT, "CLAUDE.md"), "utf8");
+
+  assertTrue("the bar names the default", /one week from the ask/.test(SKILL), "bar");
+  assertTrue("...and conditions it on the ask stating none",
+    /taken from the ask when it states one and otherwise/.test(SKILL), "unconditioned default");
+  assertTrue("`no_target_date` is narrowed to a STATED unresolvable date",
+    /\*states\* a date this run cannot resolve/.test(SKILL), "narrowing");
+  assertTrue("...and the narrowing reaches the reason list",
+    /`no_target_date` \(the ask \*\*stated\*\* a date this run could not/.test(FLOW), "reason list");
+  assertTrue("step 9b derives the default rather than computing a week",
+    /default-target-date\.sh/.test(FLOW), "step 9b");
+  assertTrue("...only when the ask states none",
+    /\*\*The date, when the ask states none\*\*/.test(FLOW), "step 9b condition");
+
+  // The owner is NOT defaultable, and the reason is written down rather than left to analogy.
+  assertTrue("the owner stays the brake, with its reason",
+    /no answer to default \*to\*/.test(SKILL), "owner reason");
+
+  // --- the visibility, on exactly three surfaces ------------------------------------
+  assertTrue("the Schedule prose names the default, its basis and the veto",
+    /\*\*A defaulted date says so in the `## Schedule` prose, in one sentence\*\*/.test(FLOW), "schedule prose");
+  assertTrue("the pull-request body names it", /target_date:default/.test(FLOW), "pr body");
+  assertTrue("the run report tells a defaulted date from a stated one",
+    /`target_date:default`[^\n]*\n?[^\n]*`target_date:stated`/.test(FLOW)
+    || (/target_date:default/.test(FLOW) && /target_date:stated/.test(FLOW)), "run report");
+  assertTrue("a stated date carries none of that wording",
+    /A date the ask stated carries none of that wording/.test(FLOW), "stated-date wording");
+  for (const [name, body] of [["SKILL.md", SKILL], ["CLAUDE.md", CLAUDE]]) {
+    assertTrue(`${name} states the three surfaces`,
+      /three surfaces and nowhere else/.test(body), name);
+  }
+
+  // --- what must NOT have moved ------------------------------------------------------
+  const CREATE = readFileSync(join(strategyDir, "create.sh"), "utf8");
+  // Narrowly: it must not REACH the derivation, and must not stamp a key saying the date was
+  // defaulted. (`Never defaulted` appears in its own comment about the ASSIGNEE, which is the
+  // opposite claim -- a bare /defaulted/ here would match that and pin the wrong sentence.)
+  assertTrue("create.sh never reaches the derivation",
+    !/default-target-date/.test(CREATE), "create.sh reaches the default");
+  assertTrue("...and stamps no key saying where the date came from",
+    !/defaulted:/.test(CREATE), "create.sh stamps a defaulted key");
+  assertTrue("no strategy frontmatter key was added",
+    !/defaulted/.test(readFileSync(join(REPO_ROOT, "plugins/workaholic/hooks/validate-strategy.sh"), "utf8")),
+    "validate-strategy.sh checks a new key");
+  assertTrue("the never-auto-merge rule is still the seam's, derived from the path",
+    /strategy_touching/.test(readFileSync(
+      join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/publish-tree-pr.sh"), "utf8")),
+    "publish-tree-pr.sh");
+
+  // It writes nothing, anywhere: the script is a pure read, so the tree it was run against is
+  // untouched. Asserted rather than assumed, because "pure read" is the property every other
+  // caller of this script will rely on.
+  assertEq("the reader wrote nothing into the checkout",
+    execSync("git status --porcelain plugins/workaholic/skills/strategy/scripts", { cwd: REPO_ROOT, encoding: "utf8" }).trim(),
+    "");
 }

@@ -2,7 +2,7 @@
 type: Mission
 title: Draft a dateless direction with the operator's one-week default
 slug: draft-a-dateless-direction-with-the-operator-s-one-week-default
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-30T04:19:41+00:00
 author: a@qmu.jp
@@ -51,3 +51,5 @@ record-only rather than being silently defaulted over.
 - 2026-08-30 — ticket archived — 20260830042044-derive-the-one-week-target-date-default-in-one-place.md
 - 2026-08-30 — ticket archived — 20260830042044-draft-a-dateless-direction-on-the-default-instead-of-refusing.md
 - 2026-08-30 — ticket archived — 20260830042044-say-on-every-surface-that-the-date-is-a-default.md
+- 2026-08-30 — ticket archived — 20260830042044-pin-the-dateless-ask-chain-hermetically.md
+- 2026-08-30 — mission achieved — mission.md

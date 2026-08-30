@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260830-024048
 ---
 
 # Say how long the loop has been stuck

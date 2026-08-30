@@ -2,7 +2,7 @@
 type: Mission
 title: Say how long the loop has been stuck
 slug: say-how-long-the-loop-has-been-stuck
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-30T02:20:49+00:00
 author: a@qmu.jp
@@ -43,7 +43,7 @@ Nothing gates, holds, re-asks, escalates or merges on the age.
       a named reason on a degraded read, and a truncated walk reported as *at least*. (#20260830022138-bound-the-age-walk-and-say-when-it-was-bounded.md)
 - [x] The four standing-blocker questions carry the term on their existing keys, with no
       key, cap, hold or step summary moved. (#20260830022138-carry-the-age-on-stalled-unit-and-state-the-two-sources.md)
-- [ ] Every value is classified a judgement in one home with its enumerated consumers, the
+- [x] Every value is classified a judgement in one home with its enumerated consumers, the
       suite fails when one acts on it, and an offline drill proves the chain. (#20260830022138-drill-the-condition-age-offline.md)
 
 ## Changelog
@@ -56,3 +56,5 @@ Nothing gates, holds, re-asks, escalates or merges on the age.
 - 2026-08-30 — ticket archived — 20260830022138-carry-the-age-on-stalled-unit-and-state-the-two-sources.md
 - 2026-08-30 — ticket archived — 20260830022138-classify-every-age-value-as-a-judgement-and-pin-it.md
 - 2026-08-30 — ticket archived — 20260830022138-name-the-condition-age-in-the-run-reports.md
+- 2026-08-30 — ticket archived — 20260830022138-drill-the-condition-age-offline.md
+- 2026-08-30 — mission achieved — mission.md

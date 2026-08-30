@@ -16,7 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
-claim: work-20260829-212940
+claim: work-20260830-004104
 ---
 
 # Make a direction's lifecycle a declared stage

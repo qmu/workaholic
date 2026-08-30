@@ -14,7 +14,7 @@
 // mutation of the developer's working tree. Run with `node scripts/test-workflow-scripts.mjs`.
 
 import { cpSync, copyFileSync, mkdtempSync, rmSync, writeFileSync, appendFileSync, readFileSync, mkdirSync, existsSync, statSync, chmodSync, readdirSync, realpathSync, renameSync, symlinkSync } from "node:fs";
-import { execSync } from "node:child_process";
+import { execSync, execFileSync } from "node:child_process";
 import { join, resolve, dirname, basename } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -2617,6 +2617,11 @@ function testBaseHealthStep() {
     const broken = join(tmp, "broken");
     mkdirSync(join(broken, "moderate/scripts"), { recursive: true });
     copyFileSync(STEP, join(broken, "moderate/scripts/step-base-health.sh"));
+    // The step's OWN preamble travels with it — `lib/jq-guard.sh` is part of the script, the
+    // way `lib/question-id.sh` is part of `ask-question.sh`. What this fixture isolates it
+    // from is its sibling READERS, which is the whole point below.
+    cpSync(join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/lib"),
+      join(broken, "moderate/scripts/lib"), { recursive: true });
     j = JSON.parse(run(dir,
       `${POSIX_SH} ${join(broken, "moderate/scripts/step-base-health.sh")} --tick 20260827-170000 --root ${dir}`,
       { env }).stdout);
@@ -2729,6 +2734,9 @@ function testUnansweredAsksStep() {
     mkdirSync(join(broken, "moderate/scripts"), { recursive: true });
     copyFileSync(join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-unanswered-asks.sh"),
       join(broken, "moderate/scripts/step-unanswered-asks.sh"));
+    // Its own preamble travels with it; only the sibling readers are withheld.
+    cpSync(join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/lib"),
+      join(broken, "moderate/scripts/lib"), { recursive: true });
     j = JSON.parse(run(dir, `${POSIX_SH} ${join(broken, "moderate/scripts/step-unanswered-asks.sh")} --tick 20260826-120000 --root ${dir}`).stdout);
     assertEq("a ledger it cannot consult is degraded, by name",
       [j.status, j.reason], ["degraded", "no_log_reader"]);
@@ -6735,6 +6743,251 @@ function testEveryShellScriptParses() {
     if (r.status !== 0) broken.push(`${rel}: ${(r.stderr || "").trim().split("\n")[0]}`);
   }
   assertEq("every shipped shell script parses", broken.join(" | "), "");
+}
+
+// ---------- every embedded jq program compiles (2026-08-29) ----------
+// The row beside `every shipped shell script parses`, and the reason it needed a sibling:
+// that one proves the SHELL parses, and the defect it was written for has a jq-shaped twin
+// it provably cannot see. These scripts carry their readings as jq programs inside
+// single-quoted shell strings, and a program that does not COMPILE — a missing
+// parenthesis, an apostrophe in a jq comment, a renamed `--arg` — leaves the shell parsing
+// perfectly. At run time the ubiquitous `… | jq -c '…' 2>/dev/null || echo '[]'` then
+// discards the failure exactly as it discards a data problem, so the step emits an empty
+// answer and reports `ok`. Measured while shipping
+// `make-a-direction-s-lifecycle-a-declared-stage`: `step-direction-health.sh` reported
+// `1 expiring … 1 to ask` with the expiring direction's own question silently gone.
+//
+// `lib/jq-guard.sh` + `run.sh` close the run-time half (a compile error reclassifies the
+// step `degraded`, reason `jq_compile_error`). THIS closes the build-time half, which is
+// the one that matters more: a compile error should fail the suite on the commit that
+// introduced it, not an hourly tick at 03:00 that nobody reads.
+//
+// HOW A PROGRAM IS FOUND. Every `jq` in COMMAND position is an invocation (which is what
+// keeps `command -v jq` and the word "jq" inside a message string out of the walk); its
+// arguments are tokenized as the shell would, the option table finds the first positional,
+// and every `--arg`/`--argjson` NAME is redeclared so that `$name` resolves — an undefined
+// `$name` is itself a jq compile error, so skipping this would report the whole tree
+// broken. The program is then compiled with `jq -n` and closed stdin: jq answers **3** for
+// a compile error and 5 for a runtime or data error, so only 3 is a finding here. Running
+// the program against null input has no side effects — jq reads no files this way.
+//
+// THE LIMITS, NAMED RATHER THAN SKIPPED SILENTLY. A program built by string interpolation
+// (`"… $var …"`, a `$(…)` fragment, an `--arg` whose NAME is a variable) cannot be
+// extracted without evaluating the shell, so it is counted and its count rides the
+// assertion's own name — visible on every run, never a number anybody has to keep current.
+// A `-f`/`--from-file` invocation has no inline program and is not a gap.
+function testEveryEmbeddedJqProgramCompiles() {
+  const OPTS_TWO = new Set(["--arg", "--argjson", "--slurpfile", "--rawfile"]);
+  const OPTS_ONE = new Set(["--indent", "-f", "--from-file", "--arg-file"]);
+  const KEYWORDS = new Set(["if", "then", "else", "elif", "while", "until", "do", "!"]);
+
+  // One shell word, as the shell would read it. `dynamic` marks anything the shell would
+  // expand; `sawDouble` marks a double-quoted segment, whose backslash escapes this reader
+  // deliberately does not try to resolve.
+  const readToken = (text, i) => {
+    const parts = [];
+    let dynamic = false;
+    let sawDouble = false;
+    while (i < text.length) {
+      const c = text[i];
+      if (c === "\\" && text[i + 1] === "\n") { i += 2; continue; }
+      if (c === "\\") { parts.push(text[i + 1] ?? ""); i += 2; continue; }
+      if (c === " " || c === "\t") break;
+      if ("\n|;&()<>".includes(c)) break;
+      if (c === "'") {
+        const end = text.indexOf("'", i + 1);
+        if (end === -1) return null;
+        parts.push(text.slice(i + 1, end)); i = end + 1; continue;
+      }
+      if (c === '"') {
+        let j = i + 1, inner = "";
+        while (j < text.length && text[j] !== '"') {
+          if (text[j] === "\\") { inner += text.slice(j, j + 2); j += 2; continue; }
+          inner += text[j]; j += 1;
+        }
+        if (j >= text.length) return null;
+        if (/[$`]/.test(inner)) dynamic = true;
+        sawDouble = true; parts.push(inner); i = j + 1; continue;
+      }
+      if (c === "$" || c === "`") { dynamic = true; parts.push(c); i += 1; continue; }
+      parts.push(c); i += 1;
+    }
+    return { value: parts.join(""), dynamic, sawDouble, end: i };
+  };
+
+  const tokenize = (text, i) => {
+    const tokens = [];
+    for (;;) {
+      while (i < text.length && (text[i] === " " || text[i] === "\t" || (text[i] === "\\" && text[i + 1] === "\n"))) {
+        i += text[i] === "\\" ? 2 : 1;
+      }
+      if (i >= text.length || "\n|;&()<>".includes(text[i])) break;
+      const t = readToken(text, i);
+      if (!t || t.end === i) break;
+      tokens.push(t); i = t.end;
+    }
+    return tokens;
+  };
+
+  const inCommandPosition = (text, at) => {
+    let i = at - 1;
+    for (;;) {
+      while (i >= 0 && (text[i] === " " || text[i] === "\t")) i -= 1;
+      if (i >= 1 && text[i] === "\n" && text[i - 1] === "\\") { i -= 2; continue; }
+      break;
+    }
+    if (i < 0) return true;
+    if ("\n;|&(){`".includes(text[i])) return true;
+    let j = i;
+    while (j >= 0 && /[A-Za-z!]/.test(text[j])) j -= 1;
+    return KEYWORDS.has(text.slice(j + 1, i + 1));
+  };
+
+  const files = [];
+  const walk = (rel) => {
+    const abs = join(REPO_ROOT, rel);
+    if (!existsSync(abs)) return;
+    for (const e of readdirSync(abs, { withFileTypes: true })) {
+      if (e.name === "node_modules" || e.name.startsWith(".")) continue;
+      const next = `${rel}/${e.name}`;
+      if (e.isDirectory()) walk(next);
+      else if (e.name.endsWith(".sh")) files.push(next);
+    }
+  };
+  ["plugins/workaholic", "scripts", "hooks"].forEach(walk);
+
+  let compiled = 0;
+  let interpolated = 0;
+  const broken = [];
+  for (const rel of files) {
+    const text = readFileSync(join(REPO_ROOT, rel), "utf8");
+    const re = /\bjq(?=[ \t])/g;
+    let m;
+    while ((m = re.exec(text)) !== null) {
+      const lineStart = text.lastIndexOf("\n", m.index) + 1;
+      if (/^\s*#/.test(text.slice(lineStart, m.index + 1))) continue;
+      if (!inCommandPosition(text, m.index)) continue;
+      const line = text.slice(0, m.index).split("\n").length;
+      const tokens = tokenize(text, m.index + 2);
+
+      let k = 0, fromFile = false, program = null, badName = false;
+      const argDefs = [];
+      while (k < tokens.length) {
+        const t = tokens[k];
+        const w = t.dynamic ? null : t.value;
+        if (w !== null && w.startsWith("-") && w !== "-") {
+          if (OPTS_TWO.has(w)) {
+            const nameTok = tokens[k + 1];
+            if (!nameTok || nameTok.dynamic) badName = true;
+            else if (w === "--argjson") argDefs.push("--argjson", nameTok.value, "null");
+            else if (w === "--slurpfile") argDefs.push("--argjson", nameTok.value, "[]");
+            else argDefs.push("--arg", nameTok.value, "x");
+            k += 3; continue;
+          }
+          if (OPTS_ONE.has(w)) { if (w === "-f" || w === "--from-file") fromFile = true; k += 2; continue; }
+          k += 1; continue;
+        }
+        program = t; break;
+      }
+      if (fromFile) continue;
+      if (!program || program.dynamic || program.sawDouble || badName) { interpolated += 1; continue; }
+
+      let status = 0, message = "";
+      try {
+        execFileSync("jq", ["-n", ...argDefs, "--", program.value], { stdio: ["ignore", "ignore", "pipe"], input: "" });
+      } catch (e) {
+        status = e.status ?? 1;
+        message = (e.stderr?.toString() || "").trim().split("\n")[0];
+      }
+      // 3 and only 3: a runtime or data error against null input says nothing about
+      // whether the program is well-formed.
+      if (status === 3) broken.push(`${rel}:${line}: ${message}`);
+      else compiled += 1;
+    }
+  }
+
+  assertTrue(
+    `the extractor reaches the embedded jq programs (${compiled} compiled, ${interpolated} built by interpolation)`,
+    compiled > 300,
+    `only ${compiled} programs were extracted — the walk or the tokenizer has stopped seeing them`);
+  assertEq("every extractable embedded jq program compiles", broken.join(" | "), "");
+}
+
+// ---------- the jq compile guard (2026-08-29) ----------
+// The RUN-TIME half of the same defect the row above catches at build time, and the half
+// that decides what an hourly tick says about itself. `lib/jq-guard.sh` records jq's exit
+// status 3 — a compile error, our own defect — and decides nothing; `run.sh` is the one
+// place that reads the record and reclassifies the step `degraded` with reason
+// `jq_compile_error`, beside the `step_missing` / `step_error` / `no_output` /
+// `bad_output` it already owns.
+//
+// What has to hold, and what would be easy to get wrong:
+//   - a COMPILE error is `degraded`, never `ok` (the measured defect);
+//   - a RUNTIME/data error is untouched — every `2>/dev/null || echo '[]'` in this
+//     repository is CORRECT for a data problem, and a fix that swept both up would turn
+//     an honest empty answer into an hourly false alarm;
+//   - an honest empty reading still reports `ok`;
+//   - the guard is inert with nothing listening, so a step run by hand or by a drill
+//     behaves exactly as it did before the guard existed.
+//
+// A COPY OF THE REAL `run.sh` AND `lib/`, with one step script replaced: the seam under
+// test is the loop in the shipped orchestrator, so a hand-written stand-in would prove
+// something about the stand-in. `--no-log --no-persist` keeps it hermetic — no repository,
+// no network, no `gh`.
+function testJqCompileGuard() {
+  const dir = mkdtempSync(join(tmpdir(), "jq-guard-"));
+  try {
+    const scripts = join(dir, "scripts");
+    cpSync(join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts"), scripts, { recursive: true });
+
+    // The fake step stands in for `open-log` (any slug in `STEPS` would do) and reports
+    // `ok` unconditionally — exactly what a real step does when its fallback has already
+    // swallowed the failure.
+    const fakeStep = (pipeline) => {
+      writeFileSync(join(scripts, "step-open-log.sh"),
+        `#!/bin/sh -eu\nset -eu\n` +
+        `SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)\n` +
+        `. "\${SCRIPT_DIR}/lib/jq-guard.sh"\n` +
+        `while [ $# -gt 0 ]; do shift; done\n` +
+        `n=${pipeline}\n` +
+        `printf '{"step": "open-log", "status": "ok", "reason": "", "summary": "read %s", "event": "", "needs_agent": []}\\n' "$n"\n`);
+    };
+    const tick = () => {
+      const r = run(dir, `${POSIX_SH} ${JSON.stringify(join(scripts, "run.sh"))} --only open-log --root ${JSON.stringify(dir)} --tick 20260829-120000 --no-log --no-persist`);
+      return JSON.parse(r.stdout.trim().split("\n").pop()).steps[0];
+    };
+
+    // 1. A COMPILE ERROR — one missing parenthesis, the shape measured on
+    //    `step-direction-health.sh`. `sh -n` passes; the fallback hides it; the step says `ok`.
+    fakeStep(`$(printf '%s' '{"a":[1,2]}' | jq -c '[.a[] | select(. > 1' 2>/dev/null || echo '[]')`);
+    assertEq("a shipped step whose embedded jq does not compile still parses as shell",
+      run(dir, `${POSIX_SH} -n ${JSON.stringify(join(scripts, "step-open-log.sh"))}`).status, 0);
+    let row = tick();
+    assertEq("...and the tick reports it degraded, not ok", row.status, "degraded");
+    assertEq("...with its own named reason", row.reason, "jq_compile_error");
+    assertTrue("...whose summary names the script that carried the program",
+      row.summary.includes("step-open-log.sh"), row.summary);
+
+    // 2. A RUNTIME/DATA ERROR (jq exits 5) — the case the fallback exists for. Untouched.
+    fakeStep(`$(printf '%s' 'not json at all' | jq -c '.a' 2>/dev/null || echo '[]')`);
+    row = tick();
+    assertEq("a jq failure on the DATA leaves the step exactly as it was", row.status, "ok");
+    assertEq("...with no reason invented for it", row.reason, "");
+
+    // 3. AN HONEST EMPTY READING is still `ok` — the property a louder fix would have cost.
+    fakeStep(`$(printf '%s' '{"a":[]}' | jq -c '.missing // []' 2>/dev/null || echo '[]')`);
+    row = tick();
+    assertEq("an honestly empty reading still reports ok", row.status, "ok");
+
+    // 4. INERT WITH NOTHING LISTENING. A step run directly — by hand, or by a drill — is
+    //    byte-identical to what it was before the guard existed, compile error included.
+    fakeStep(`$(printf '%s' '{"a":[1,2]}' | jq -c '[.a[] | select(. > 1' 2>/dev/null || echo '[]')`);
+    const direct = run(dir, `${POSIX_SH} ${JSON.stringify(join(scripts, "step-open-log.sh"))} --tick 20260829-120000 --root ${JSON.stringify(dir)}`);
+    assertEq("run directly, with nothing listening, the guarded step is unchanged",
+      JSON.parse(direct.stdout.trim()).status, "ok");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 }
 
 // ---------- the declared stage (2026-08-29) ----------
@@ -19411,6 +19664,8 @@ const tests = [
   ["report/area-freshness.sh (the two hand-maintained areas' upkeep seam)", testAreaFreshness],
   ["strategy skill (the artifact revived 2026-08-13)", testStrategySkill],
   ["every shipped shell script parses", testEveryShellScriptParses],
+  ["every embedded jq program compiles", testEveryEmbeddedJqProgramCompiles],
+  ["the jq compile guard (a step that could not read never reports ok)", testJqCompileGuard],
   ["the stage is shown where directions are read", testStageShownWhereDirectionsAreRead],
   ["the two stage-transition questions", testDirectionTransitionQuestions],
   ["strategy: the operator's declared stage", testStrategyDeclaredStage],

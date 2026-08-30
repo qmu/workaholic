@@ -53,6 +53,7 @@
 set -eu
 
 SCRIPT_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
+. "${SCRIPT_DIR}/lib/jq-guard.sh"
 GATHER="${SCRIPT_DIR}/../../gather/scripts"
 MISSION_RELATION="${SCRIPT_DIR}/../../mission/scripts/read-relation.sh"
 STEMS="${SCRIPT_DIR}/../../drive/scripts/unit-feedback-stems.sh"

@@ -2,7 +2,7 @@
 type: Mission
 title: Make a direction's lifecycle a declared stage
 slug: make-a-direction-s-lifecycle-a-declared-stage
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-29T21:20:01+00:00
 author: a@qmu.jp
@@ -57,3 +57,5 @@ and stuckness never reads as 観察中.
 - 2026-08-29 — ticket archived — 20260829212056-show-a-direction-s-stage-where-directions-are-read.md
 - 2026-08-29 — ticket archived — 20260829212056-ask-a-person-when-the-evidence-suggests-a-transition.md
 - 2026-08-29 — ticket archived — 20260829212056-drill-the-staged-lifecycle-offline.md
+- 2026-08-30 — ticket archived — 20260829231500-stop-a-swallowed-jq-error-reading-as-a-quiet-tick.md
+- 2026-08-30 — mission achieved — mission.md

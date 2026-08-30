@@ -51,6 +51,7 @@ command -v gh >/dev/null 2>&1 || emit_err "gh_unavailable" "gh is not on PATH"
 command -v jq >/dev/null 2>&1 || emit_err "jq_unavailable" "jq is not on PATH"
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+. "${SCRIPT_DIR}/lib/jq-guard.sh"
 GATHER_SCRIPTS="${SCRIPT_DIR}/../../gather/scripts"
 
 LIMIT="${WORKAHOLIC_RULING_PR_LIMIT:-50}"

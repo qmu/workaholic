@@ -14,8 +14,8 @@ Every step returns one JSON line:
 
 `status` is the tick log's closed vocabulary. `reason` is free-form but **stable per cause**, so a
 report can be read by grep: `not_implemented`, `budget`, `requested`, `step_missing`, `step_error`,
-`no_output`, `bad_output`, `no_connector`, `no_credentials`, `no_strategies`, `unreadable_inbox`,
-`quiet_hours`, `already_filed`.
+`no_output`, `bad_output`, `jq_compile_error`, `no_connector`, `no_credentials`, `no_strategies`,
+`unreadable_inbox`, `quiet_hours`, `already_filed`.
 
 **`needs_agent` is the seam between the script and the model.** A step script is non-interactive
 and composes no prose: it probes, it decides, and where the action is mechanical it files through
@@ -1830,6 +1830,25 @@ else's branch. Were the reading ever to be that the repair is not mechanical, th
   non-zero exit → `degraded`/`step_error`; empty or unparseable output → `degraded`/`no_output` or
   `bad_output`; a status outside the log vocabulary → `degraded`/`bad_output`. A step never
   disappears from the report.
+- **A step that could not compile its own reading is `degraded`, and that is derived in one
+  place** (2026-08-29, mission `make-a-direction-s-lifecycle-a-declared-stage`). Every reader here
+  carries `… | jq -c '…' 2>/dev/null || echo '[]'` — a fallback that is right for a **data**
+  problem and catastrophic for our own, because a jq program that does not **compile** discards
+  identically: the step emits an empty finding and reports `ok`. Measured on
+  `step-direction-health.sh`, which reported `1 expiring … 1 to ask` with the expiring direction's
+  own question silently gone, one missing parenthesis inside the embedded program. The two cases
+  are told apart by **jq's own exit status** — 3 is a compile error (our defect, the step cannot
+  run at all); 5 is a runtime or data error and keeps every existing fallback exactly as it was.
+  `scripts/lib/jq-guard.sh`, sourced by every script here that embeds a jq program, **records**
+  the fact and decides nothing; this loop **reads** the record and reclassifies →
+  `degraded`/`jq_compile_error`, beside the four causes above. `needs_agent` is deliberately left
+  alone rather than zeroed: a step's other readings may have compiled fine, and dropping a
+  question a person is owed to punish a defect elsewhere in the same script trades one silence for
+  another. The `2>/dev/null` is **not** removed — the stderr of a legitimately degraded read is
+  noise on an hourly unattended run, and the fix is to classify, not to shout. The build-time half
+  is the suite's `every embedded jq program compiles` row, which names the exact program and jq's
+  own words before a tick ever runs; the scripts *outside* this skill are covered by that row
+  alone, because they report no step status for anything to reclassify.
 - **One writer.** Step scripts write no log line; `run.sh` does. Two writers would race on
   `(tick, step)` and make idempotence a property of caller discipline instead of of the code.
 - **`--only` / `--skip` are for the operator and the tests**, and a skipped step is still a

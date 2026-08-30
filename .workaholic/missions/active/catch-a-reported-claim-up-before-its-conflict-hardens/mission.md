@@ -56,3 +56,4 @@ holder once. A reviewed pull request is left alone, by name.
 - 2026-08-30 — ticket archived — 20260830042803-take-the-act-on-every-catchable-claim-in-the-run.md
 - 2026-08-30 — ticket archived — 20260830042803-report-each-catch-up-in-the-vocabulary-that-exists.md
 - 2026-08-30 — ticket archived — 20260830042803-name-each-reported-claim-s-mergeability-in-the-report.md
+- 2026-08-30 — ticket archived — 20260830042804-keep-one-unit-to-one-question.md

@@ -58,3 +58,4 @@ own. A tick whose steps all read cleanly posts exactly what it posts today.
 - 2026-08-31 — ticket archived — 20260831102424-state-the-impairment-rule-where-the-voice-is-defined.md
 - 2026-08-31 — ticket archived — 20260831102424-drill-the-impairment-reading-offline.md
 - 2026-08-31 — mission achieved — mission.md
+- 2026-08-31 — story reported — work-20260831-104307.md

@@ -1399,6 +1399,46 @@ decides the carrier). Either alone would leave the other half unproved.
 | `gate_is_transport_blind` / `gate_never_reads_the_transport` | `ask-question.sh` — which questions are asked started depending on which surface would carry them |
 | `directed_notification_breaker_transport` / `directed_notification_breaker_rule` | the drill can no longer fail, so every row above proves nothing |
 
+## 5t. The stranded publication (does the loop repair what a generator can settle?)
+
+```sh
+sh scripts/e2e/loop-drill.sh verify-stranded-publication [--json]
+```
+
+Walks reader → act → delivery → re-run → question for a **publish-tree publication** the loop
+opened and could not merge (2026-08-31, mission
+`repair-a-mechanically-resolvable-conflict-instead-of-reporting-it`). It needs **no seed, no
+issue number, no credential and no network**: the origin is a bare local repository and the
+GitHub transport is a stub on `PATH`, so the fixture is a real collision on a real generated
+index rather than a shape that resembles one.
+
+**What it proves.** A publication — a `work-*` branch with **no claim commit**, which is exactly
+what `publish-tree-pr.sh` pushes — is read at all, with its collision classified through the one
+derivation; a collision only a person can settle is refused by its own word with its branch
+**byte-identical**; a collision a generator settles is caught up, **regenerated so both sides'
+records survive**, pushed and delivered with no person; neither path leaves a worktree behind; a
+re-run of either moves no ref; and the content one reaches a person as exactly one keyed
+question.
+
+**Its breaker runs before anything is settled**, deliberately: afterwards the settleable branch
+contains the base and there is no collision left to misclassify. It strips the generated-region
+proof out of `ship/scripts/lib/conflict-class.sh` and asserts the settleable collision then
+reads `content` — reported rather than repaired, which is the measured incident reproduced on
+demand.
+
+**What this drill does not prove** is that the consuming repository's own incident is gone. That
+repository may be on a different plugin version; this exercises this checkout's scripts only.
+
+| Row | What a failure means |
+| --- | -------------------- |
+| `stranded_reader_sees_a_publication` | `list-stranded-publications.sh` — a publication is invisible again, or its class is no longer the one derivation's |
+| `stranded_content_is_refused` | `settle-stranded-publication.sh` — the act is resolving a collision only a person may, or it moved a branch it refused |
+| `stranded_mechanical_is_settled` | `settle-stranded-publication.sh` or `catchup-main.sh` — the repair stopped firing, or the regeneration stopped re-deriving the index from the merged source |
+| `stranded_leaves_no_worktree` | `settle-stranded-publication.sh` — the teardown stopped running |
+| `stranded_rerun_is_a_noop` | `settle-stranded-publication.sh` — the act is no longer idempotent |
+| `stranded_content_reaches_a_person` | `step-stranded-publications.sh` — the collision a person owns reaches nobody |
+| `stranded_breaker` | the drill can no longer fail, so every row above proves nothing |
+
 ## 9. The drill register
 
 **One table, three columns, one reader** (2026-08-29, mission
@@ -1480,6 +1520,7 @@ rather than guessed. **No artifact gained a field**: the slug lives here and now
 | `verify-impairment` | `hermetic` | yes | `name-the-steps-a-tick-could-not-read` |
 | `verify-cadence-lapse` | `hermetic` | yes | `notice-a-periodic-artifact-that-stopped-being-produced` |
 | `verify-blocked-tick` | `hermetic` | yes | `stop-an-unattended-tick-from-waiting-on-a-person` |
+| `verify-stranded-publication` | `hermetic` | yes | `repair-a-mechanically-resolvable-conflict-instead-of-reporting-it` |
 
 ### The evidence behind the classification
 

@@ -2095,6 +2095,7 @@ decide something before any change is the right one*.
 | `standing-rulings` | `needs_ruling` | It exists **because** the loop cannot make those rulings itself. |
 | `undelivered-units` | **`repairable`** | A merge the transport refused names the transport seam, which is code. |
 | `catchup-blocked` | `needs_ruling` | Which side of a content conflict keeps its behaviour is the claim holder's, by that step's own contract — the loop refused it precisely because it must not decide. |
+| `stranded-publications` | `needs_ruling` | `catchup-blocked`'s row, for `catchup-blocked`'s reason, and the decision is made here explicitly rather than left to the unclassified default: which side of a content collision keeps its meaning is the publication author's, and the loop refused it precisely because it must not decide. The half that **is** repairable — a collision a generator settles — is not a finding at all: `/implement` settles it through `settle-stranded-publication.sh`, so filing it would ask for work already in flight. |
 | `handoff-units` | `needs_ruling` | The declared verification is the one act nothing unattended can take. |
 | `operator-pulls` | `needs_ruling` | The publication exists **because** merging it is the operator's ruling and closing it is their refusal; the seam refused to auto-merge it for exactly that reason. Filing it as work would be the loop asking itself to settle what it opened a diff to have settled. Every reading it carries is besides that a **judgement** (`drive/reference/claims.md`, *Whether an operator-facing pull request was acted on*). |
 | `thread-reconcile` | `needs_ruling` | Its repair is the tick's own reply, already taken; it owes the queue nothing. |
@@ -2976,6 +2977,67 @@ the likeliest shape on record and at the session list as where the run itself is
 **It asks and nothing else.** It re-runs no tick, writes nothing anywhere but its own tick-log line
 (which `run.sh` writes), touches no claim, lifts no gate and never reaches `plan-units.sh`.
 Drilled offline by `verify-blocked-tick`.
+
+## 32. `stranded-publications` — a publication the loop opened and only a person can settle
+
+```
+sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/step-stranded-publications.sh --tick <id> [--root <repo-root>]
+```
+
+**Why it exists** (2026-08-31, mission
+`repair-a-mechanically-resolvable-conflict-instead-of-reporting-it`). A publish-tree publication
+is not a claim — `publish-tree-pr.sh` pushes onto a `work-…` name and carries no `Claim …` commit
+— so the oracle gives it no row, `catchup-blocked` (§26) cannot see it, and a proposal whose
+auto-merge was refused reached **no question at all**. Measured on a consuming repository: three
+open proposals colliding on `.workaholic/feedbacks/index.md` and nothing else, the repair
+mechanical and total, the tick reporting the blockage hourly to nobody in particular for a day.
+
+**What it reads.** `branching/scripts/list-stranded-publications.sh` — a pure read that composes
+`list-claims.sh` (a branch the oracle owns is a claim, not a publication) and
+`claim-mergeability.sh` (the one derivation of the class, carried through verbatim).
+`plan-units.sh` is **refused**, on `undrivable-units`' axis: the survey reaches the mission
+readers, which carry the living migrations and stage what they converge.
+
+**Only `content` draws a question.** `mechanical` is the loop's own work — `/implement` settles it
+through `settle-stranded-publication.sh`, and asking about it would ask a person for the act the
+machinery is about to take. `clean` needs no catch-up. `unanswerable` is the **absence** of a
+reading, never actable; it is **counted** in the summary so it stays visible rather than
+vanishing.
+
+**One publication never draws two questions, and no filter was added.** The ticket asked for the
+`retire-claims` / `stalled-units` division; it does not apply, and the reason is recorded rather
+than a counter that could only ever be zero. `catchup-blocked`'s candidates are `list-claims.sh`
+rows, which a publication can never be, and this step's own reader drops any branch the oracle
+names — so the sets are disjoint **from both sides**. `merge-conflicts` (step 4) may still report
+the same pull request and that is deliberate, on its own recorded reasoning: it **asks nobody
+anything**, so the only question a person receives about such a publication is this one.
+`scripts/test-workflow-scripts.mjs` pins the disjointness rather than leaving it to a reading of
+two headers.
+
+**Degradation is named, never rendered as quiet.** The reader answers `ok: false` with its own
+reason and a **null** count; this step repeats that word as its own `degraded` reason rather than
+inventing one, because *nothing is stranded* and *we could not look* are opposite facts.
+
+**The summary carries no age and no timestamp**, for the correctness reason `stalled-units`'
+header records: an incrementing summary makes the step "changed" hourly by construction.
+
+**It asks and nothing else**: no merge, no catch-up, no push, no close, no claim touched, no gate
+lifted, and nothing written anywhere but its own tick-log line. Drilled offline by
+`verify-stranded-publication`.
+
+**The question, under the composition contract.** Keyed `stranded-publication:<number>`, so one
+pull request costs one question however many ticks see it.
+
+- **Heading** — *an artifact the loop published is waiting because its change and the base
+  changed the same lines*, then the pull request, then the colliding files by name.
+- **Body** — the one act: *resolve it on the pull request.*
+- **Addressed to** the publication's author. An operator-facing publication
+  (`strategy_touching`, `ruling_touching`) is `operator-pulls`' subject and is excluded by the
+  reader, so it is never asked about twice.
+- **Never alone**: `content_conflict`, `mechanical`, `unanswerable`, a branch name, a number.
+- **The age** rides `lib/read-age.sh`, keyed on the key the step already composes, the reader's
+  words verbatim; an unreadable age is named as unreadable and an absent one is not mentioned.
+
 ---
 
 ## What did not move with any of this wording

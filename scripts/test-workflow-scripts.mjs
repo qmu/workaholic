@@ -112,6 +112,11 @@ const SCRIPTS = {
   verificationHandoff: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/verification-handoff.sh"),
   listClaims: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/list-claims.sh"),
   claimMergeability: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/claim-mergeability.sh"),
+  conflictClass: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/lib/conflict-class.sh"),
+  listCatchableClaims: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/list-catchable-claims.sh"),
+  listStrandedPublications: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/list-stranded-publications.sh"),
+  settleStrandedPublication: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/settle-stranded-publication.sh"),
+  stepStrandedPublications: join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-stranded-publications.sh"),
   catchUpClaim: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/catch-up-claim.sh"),
   catchupMain: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/catchup-main.sh"),
   retryUndelivered: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/retry-undelivered.sh"),
@@ -20844,6 +20849,10 @@ const tests = [
   ["drive claim protocol: a unit resolves to its live claim branch", testUnitResolvesToItsLiveClaimBranch],
   ["drive claim protocol: a reported claim is two states", testReportedClaimIsTwoStates],
   ["drive: the base moves under a finished unit and nothing catches it up", testStrandedUnitReproduction],
+  ["branching: a stranded publication, localized seam by seam", testStrandedPublicationReproduction],
+  ["branching/list-stranded-publications.sh: what the loop opened and could not merge", testStrandedPublicationReader],
+  ["branching/settle-stranded-publication.sh: settle what a generator settles", testSettleStrandedPublication],
+  ["moderate/stranded-publications: the collision only a person can settle", testStrandedPublicationsStep],
   ["drive/claim-mergeability.sh: the reader and the writer answer with one rule", testClaimMergeabilityReader],
   ["drive/catch-up-claim.sh: one act, its refusals, and the delivery that follows", testCatchUpClaimWriter],
   ["moderate/catchup-blocked: the conflict the loop must not resolve reaches a person", testCatchupBlockedStep],
@@ -26171,6 +26180,12 @@ function testModerateRun() {
     // `handoff-units` a standing claim, `stalled-units` a stale tip. Same placement and same
     // reason as its neighbours: it reads, and the agent posts into the item's own thread.
     "thread-reconcile",
+    // `stranded-publications` (2026-08-31): a publication the loop OPENED and could not merge.
+    // It is not a claim — no claim commit, so the oracle gives it no row — and `catchup-blocked`
+    // therefore could never see one, which is why three open proposals sat colliding on one
+    // generated index for a day. It sits beside the claim-side siblings it mirrors and, like
+    // them, it reads and the check-in asks.
+    "stranded-publications",
     // `operator-pulls` (2026-08-29): a pull request the loop opened FOR A PERSON — one the
     // publish seam refused to auto-merge, where merging IS the ruling and closing IS the
     // refusal — that nobody has acted on. No other step could see it: `stuck-prs` and
@@ -31233,8 +31248,8 @@ function testStrandedUnitReproduction() {
       }
     };
     walk(skills);
-    assertEq("exactly two scripts reach the catch-up, and each is a deliberate composition",
-      callers.sort().join(","), "catch-up-claim.sh,land-unit.sh");
+    assertEq("exactly three scripts reach the catch-up, and each is a deliberate composition",
+      callers.sort().join(","), "catch-up-claim.sh,land-unit.sh,settle-stranded-publication.sh");
 
     // AND THE UNATTENDED ONE IS REACHABLE. `land-unit.sh` refuses `headless_context` FIRST and
     // unoverridably, which is the whole reason the loop had no caller at all.
@@ -31242,6 +31257,467 @@ function testStrandedUnitReproduction() {
       `${POSIX_SH} ${SCRIPTS.landUnit} ${unit.unit} --developer-present`,
       { env: { ...withGh, WORKAHOLIC_HEADLESS: "1" } }).stdout);
     assertEq("land-unit.sh is refused headless, as designed", landed.reason, "headless_context");
+  } finally { cleanup(fx.A); cleanup(fx.origin); cleanup(fx.binDir); }
+}
+
+// ---------- a stranded publication, localized seam by seam (2026-08-31) ----------
+//
+// THE REPRODUCTION THE REST OF THE MISSION IS BUILT ON (mission
+// `repair-a-mechanically-resolvable-conflict-instead-of-reporting-it`). The reported shape was
+// three open proposals on a consuming repository, each colliding on
+// `.workaholic/feedbacks/index.md` and on nothing else, with the loop filing tickets and the
+// hourly tick reporting the blockage rather than running the generator.
+//
+// DIAGNOSIS FIRST, AND THE PROPOSAL'S OWN READING IS A HYPOTHESIS HERE. The ask guessed the
+// defect was the classifier; this row measures all three seams instead — the classification,
+// the mergeability reading, and the candidate set the ACT draws from — and records a verdict
+// for each, including the marker-absent case a repository on an older generator would be in.
+// Nothing is repaired here.
+//
+// A PUBLICATION IS REPRODUCED BY THE ONE PROPERTY THAT MATTERS: no claim commit.
+// `publish-tree-pr.sh` pushes `publish-main` onto a `work-YYYYMMDD-HHMMSS` name, and the claim
+// scan keys on a `Claim …` COMMIT SUBJECT rather than on the branch name — its own header says
+// so — which is exactly why a publication is invisible to every reader the loop owns.
+function makePublicationFixture() {
+  const origin = mkdtempSync(join(tmpdir(), "wh-pub-origin-"));
+  const seed = mkdtempSync(join(tmpdir(), "wh-pub-seed-"));
+  execSync("git -c init.defaultBranch=main init -q --bare", { cwd: origin });
+  execSync(`git clone -q ${origin} .`, { cwd: seed });
+  execSync("git config user.email test@example.com && git config user.name Test"
+    + " && git config commit.gpgsign false", { cwd: seed });
+  mkdirSync(join(seed, ".workaholic/feedbacks"), { recursive: true });
+  writeFileSync(join(seed, ".workaholic/feedbacks/20260101000000-a.md"),
+    "---\ntype: Feedback\n---\n\n# a\n");
+  writeFileSync(join(seed, ".workaholic/feedbacks/index.md"),
+    feedbackIndex(["20260101000000-a"]));
+  mkdirSync(join(seed, "src"), { recursive: true });
+  writeFileSync(join(seed, "src/app.txt"), "alpha\nbeta\ngamma\n");
+  execSync("git add -A && git commit -q -m seed && git push -q origin main", { cwd: seed });
+  rmSync(seed, { recursive: true, force: true });
+
+  const A = mkdtempSync(join(tmpdir(), "wh-pub-A-"));
+  execSync(`git clone -q ${origin} .`, { cwd: A });
+  execSync("git config user.email test@example.com && git config user.name Test"
+    + " && git config commit.gpgsign false", { cwd: A });
+  const binDir = mkdtempSync(join(tmpdir(), "wh-pub-bin-"));
+  return { origin, A, binDir };
+}
+
+// What `okf/scripts/refresh-index.sh` writes for a FLAT area: a sorted list between the two
+// markers, prose outside them preserved verbatim. `markers: false` is the older-generator
+// shape — a hand-maintained index the regeneration would not repair.
+function feedbackIndex(stems, { markers = true } = {}) {
+  const body = stems.map((s) => `* [${s}](${s}.md)\n`).join("");
+  return markers
+    ? `# feedbacks\n\n<!-- okf:generated:begin -->\n${body}<!-- okf:generated:end -->\n`
+    : `# feedbacks\n\n${body}`;
+}
+
+// One publication: a `work-*` branch carrying an ordinary commit and no claim commit at all.
+function publishBranch(A, branch, edit) {
+  const wt = mkdtempSync(join(tmpdir(), "wh-pub-wt-"));
+  rmSync(wt, { recursive: true, force: true });
+  execSync(`git fetch -q origin && git worktree add -q -b ${branch} ${wt} origin/main`,
+    { cwd: A });
+  edit(wt);
+  execSync(`git add -A && git commit -q -m "Publish an artifact" && git push -q origin ${branch}`,
+    { cwd: wt });
+  execSync(`git worktree remove --force ${wt} && git branch -q -D ${branch}`, { cwd: A });
+  execSync("git fetch -q --prune origin", { cwd: A });
+  return branch;
+}
+
+function testStrandedPublicationReproduction() {
+  const fx = makePublicationFixture();
+  try {
+    // Two publications off the same base: one colliding only on the generated index, one also
+    // colliding on a source file, so the two classes are exercised apart rather than together.
+    const gen = publishBranch(fx.A, "work-20260831-100000", (wt) => {
+      writeFileSync(join(wt, ".workaholic/feedbacks/20260102000000-b.md"),
+        "---\ntype: Feedback\n---\n\n# b\n");
+      writeFileSync(join(wt, ".workaholic/feedbacks/index.md"),
+        feedbackIndex(["20260101000000-a", "20260102000000-b"]));
+    });
+    const both = publishBranch(fx.A, "work-20260831-100001", (wt) => {
+      writeFileSync(join(wt, ".workaholic/feedbacks/20260102000000-d.md"),
+        "---\ntype: Feedback\n---\n\n# d\n");
+      writeFileSync(join(wt, ".workaholic/feedbacks/index.md"),
+        feedbackIndex(["20260101000000-a", "20260102000000-d"]));
+      writeFileSync(join(wt, "src/app.txt"), "alpha\nbeta-branch\ngamma\n");
+    });
+    // The base moves the same way a merged sibling proposal moves it.
+    execSync("git checkout -q main && git merge -q --ff-only origin/main", { cwd: fx.A });
+    writeFileSync(join(fx.A, ".workaholic/feedbacks/20260103000000-c.md"),
+      "---\ntype: Feedback\n---\n\n# c\n");
+    writeFileSync(join(fx.A, ".workaholic/feedbacks/index.md"),
+      feedbackIndex(["20260101000000-a", "20260103000000-c"]));
+    writeFileSync(join(fx.A, "src/app.txt"), "alpha\nbeta-base\ngamma\n");
+    execSync('git add -A && git commit -q -m "Advance the base" && git push -q origin main',
+      { cwd: fx.A });
+    execSync("git fetch -q --prune origin", { cwd: fx.A });
+
+    // ── SEAM 1: THE CLASSIFICATION. Probed as the predicate it is, with three blobs, so the
+    //    marker-absent case is reachable without a second repository.
+    const probe = join(fx.binDir, "classify.sh");
+    writeFileSync(probe, `#!/bin/sh\n. ${SCRIPTS.conflictClass}\n`
+      + 'if conflict_class_mechanical "$1" "$2" "$3" "$4"; then echo mechanical;'
+      + " else echo content; fi\n");
+    chmodSync(probe, 0o755);
+    const blob = (name, text) => {
+      const p = join(fx.binDir, name);
+      writeFileSync(p, text);
+      return p;
+    };
+    const classify = (path, anc, ours, theirs) => run(fx.binDir,
+      `${POSIX_SH} ${probe} ${path} ${anc} ${ours} ${theirs}`).stdout.trim();
+    const IDX = ".workaholic/feedbacks/index.md";
+    assertEq("a flat area's index collides mechanically when every side is generated",
+      classify(IDX,
+        blob("anc.md", feedbackIndex(["20260101000000-a"])),
+        blob("ours.md", feedbackIndex(["20260101000000-a", "20260102000000-b"])),
+        blob("theirs.md", feedbackIndex(["20260101000000-a", "20260103000000-c"]))),
+      "mechanical");
+    assertEq("and reads content the moment a side carries no generated region",
+      classify(IDX,
+        blob("anc2.md", feedbackIndex(["20260101000000-a"], { markers: false })),
+        blob("ours2.md", feedbackIndex(["20260101000000-a", "20260102000000-b"], { markers: false })),
+        blob("theirs2.md", feedbackIndex(["20260101000000-a", "20260103000000-c"], { markers: false }))),
+      "content");
+
+    // ── SEAM 2: THE READING. `claim-mergeability.sh` takes a BRANCH, not a claim, so it
+    //    answers for a publication too — and it answers correctly.
+    const read = (branch) => JSON.parse(run(fx.A,
+      `${POSIX_SH} ${SCRIPTS.claimMergeability} ${branch} origin/main`).stdout);
+    const genRead = read(gen);
+    assertEq("a publication colliding only on the generated index reads mechanical",
+      genRead.class, "mechanical");
+    assertEq("naming the index as the file it collided on", genRead.conflicted_files, [IDX]);
+    assertEq("one colliding on a source file reads content", read(both).class, "content");
+
+    // ── SEAM 3: THE ACT'S CANDIDATE SET. This is where the repair stops. A publication has no
+    //    claim commit, so the oracle gives it no row at all — and the candidate set is built
+    //    from the oracle's rows, so no verdict, no identity and no heartbeat is what excludes
+    //    it: it was never a candidate to exclude.
+    const claims = JSON.parse(run(fx.A, `${POSIX_SH} ${SCRIPTS.listClaims}`).stdout);
+    assertEq("the claim oracle reports no claim for either publication",
+      claims.claims.filter((c) => c.branch === gen || c.branch === both).length, 0);
+    const catchable = JSON.parse(run(fx.A, `${POSIX_SH} ${SCRIPTS.listCatchableClaims}`).stdout);
+    assertEq("so the catch-up's candidate set is empty over a settleable collision",
+      [catchable.ok, catchable.count], [true, 0]);
+
+    // THE FINDING, PINNED AS A CLOSED SET. The classifier and the reader both already answered
+    // `mechanical` for the measured shape — seams 1 and 2 were never broken — and what had no
+    // reader at all was the PUBLICATION itself: at the moment of measurement every consumer of
+    // the mergeability reading was a CLAIM consumer, so a publication reached none of them.
+    // A row that only asserted "nothing catches it up" would go on passing once the repair
+    // existed, so the set is asserted instead: it names the two scripts this mission added and
+    // fails the moment some other path grows one of its own.
+    const readers = [];
+    const skills = join(REPO_ROOT, "plugins/workaholic/skills");
+    const walk = (dir) => {
+      for (const e of readdirSync(dir, { withFileTypes: true })) {
+        const p = join(dir, e.name);
+        if (e.isDirectory()) { walk(p); continue; }
+        if (!/\.sh$/.test(e.name)) continue;
+        const src = readFileSync(p, "utf8").split("\n")
+          .filter((l) => !/^\s*#/.test(l)).join("\n");
+        if (/claim-mergeability\.sh/.test(src)) readers.push(e.name);
+      }
+    };
+    walk(skills);
+    assertEq("the mergeability reading's consumers are a closed set",
+      readers.sort().join(","),
+      "catch-up-claim.sh,claim-mergeability.sh,list-claims.sh,list-stranded-publications.sh");
+  } finally { cleanup(fx.A); cleanup(fx.origin); cleanup(fx.binDir); }
+}
+
+// The transport, stubbed: no network at any point, and the `--jq` shapes the reader asks for
+// are emulated rather than re-derived — `pulls?state=open` answers the TSV projection the reader
+// requests, and each pull's `files` answers the array the refusal rule reads.
+function publicationGhStub(binDir, { pulls = [], files = {}, merge = "" } = {}) {
+  const tsv = pulls.map((p) => [p.number, p.url, p.title, p.created, p.author, p.head]
+    .join("\t")).join("\n");
+  const fileArms = Object.entries(files).map(([n, body]) =>
+    `  *"pulls/${n}/files"*) cat <<'JSON'\n${body}\nJSON\n  exit 0 ;;`).join("\n");
+  writeFileSync(join(binDir, "gh"), `#!/bin/sh
+case "$*" in
+  *rate_limit*) printf '5000\\n'; exit 0 ;;
+  *"/merge"*) ${merge
+    ? `echo ${JSON.stringify(merge)} >&2; exit 1`
+    : `printf '{"merged": true}\\n'; exit 0`} ;;
+${fileArms}
+  *"pulls?state=open"*) cat <<'TSV'
+${tsv}
+TSV
+  exit 0 ;;
+esac
+printf '[]\\n'
+`);
+  chmodSync(join(binDir, "gh"), 0o755);
+}
+
+// A pull request's `files` payload for a publication that touches only `.workaholic/feedbacks/`.
+// The publish seam's refusal rule reads this shape; an ordinary artifact publication answers no
+// refusal word at all, which is what makes it this reader's business rather than the operator's.
+function pubFiles(stems) {
+  return JSON.stringify(stems.map((s) => ({ status: "added", filename: s, patch: "+x" })));
+}
+
+// ---------- the reader: which publications the loop opened and could not merge (2026-08-31) ----
+function testStrandedPublicationReader() {
+  const fx = makePublicationFixture();
+  const withGh = { ...process.env, PATH: `${fx.binDir}:${process.env.PATH}` };
+  try {
+    const pub = publishBranch(fx.A, "work-20260831-110000", (wt) => {
+      writeFileSync(join(wt, ".workaholic/feedbacks/20260102000000-b.md"),
+        "---\ntype: Feedback\n---\n\n# b\n");
+      writeFileSync(join(wt, ".workaholic/feedbacks/index.md"),
+        feedbackIndex(["20260101000000-a", "20260102000000-b"]));
+    });
+    // A CLAIM on a `work-*` branch, so the reader's second term is exercised against a real
+    // claim commit rather than against a name.
+    const t = `.workaholic/tickets/todo/${TEST_SLUG}/20260729000001-t1.md`;
+    mkdirSync(join(fx.A, `.workaholic/tickets/todo/${TEST_SLUG}`), { recursive: true });
+    writeFileSync(join(fx.A, t),
+      "---\ncreated_at: 2026-07-29T00:00:01+09:00\nauthor: test@example.com\n---\n\n# T1\n");
+    execSync(`git add -A && git commit -q -m "Queue a ticket" && git push -q origin main`,
+      { cwd: fx.A });
+    const claim = JSON.parse(run(fx.A, `${POSIX_SH} ${SCRIPTS.claim} batch ${t}`).stdout);
+
+    execSync("git checkout -q main && git merge -q --ff-only origin/main", { cwd: fx.A });
+    writeFileSync(join(fx.A, ".workaholic/feedbacks/20260103000000-c.md"),
+      "---\ntype: Feedback\n---\n\n# c\n");
+    writeFileSync(join(fx.A, ".workaholic/feedbacks/index.md"),
+      feedbackIndex(["20260101000000-a", "20260103000000-c"]));
+    execSync('git add -A && git commit -q -m "Advance the base" && git push -q origin main',
+      { cwd: fx.A });
+    execSync("git fetch -q --prune origin", { cwd: fx.A });
+
+    publicationGhStub(fx.binDir, {
+      pulls: [
+        { number: 11, url: "https://example.test/pr/11", title: "[Proposal] b",
+          created: "2026-08-31T11:00:00Z", author: "claude[bot]", head: pub },
+        { number: 12, url: "https://example.test/pr/12", title: "A claim",
+          created: "2026-08-31T11:05:00Z", author: "tester", head: claim.branch },
+        { number: 13, url: "https://example.test/pr/13", title: "[Ruling] operator's",
+          created: "2026-08-31T11:06:00Z", author: "claude[bot]", head: "work-20260831-119999" },
+        { number: 14, url: "https://example.test/pr/14", title: "not a work branch",
+          created: "2026-08-31T11:07:00Z", author: "tester", head: "feature/x" },
+      ],
+      files: {
+        11: pubFiles([".workaholic/feedbacks/20260102000000-b.md",
+                      ".workaholic/feedbacks/index.md"]),
+        12: pubFiles([".workaholic/tickets/todo/x.md"]),
+        13: pubFiles([".claude/git-identities"]),
+        14: pubFiles(["src/app.txt"]),
+      },
+    });
+
+    const out = JSON.parse(run(fx.A,
+      `${POSIX_SH} ${SCRIPTS.listStrandedPublications}`, { env: withGh }).stdout);
+    assertEq("the reader answers, and names exactly the one stranded publication",
+      [out.ok, out.count, (out.publications || []).map((p) => p.number)], [true, 1, [11]]);
+    assertEq("carrying the mergeability verbatim from the one derivation",
+      out.publications[0].mergeability, "mechanical");
+    assertEq("and the branch it belongs to", out.publications[0].branch, pub);
+
+    // A branch the claim oracle owns is never returned: it is the catch-up's business, and this
+    // reader's whole boundary is that a publication is not a claim.
+    assertTrue("a branch holding a claim commit is never returned",
+      !(out.publications || []).some((p) => p.branch === claim.branch), JSON.stringify(out));
+    // An operator-facing publication is open on purpose and belongs to `operator-pulls`.
+    assertTrue("an operator-facing publication is not called stranded",
+      !(out.publications || []).some((p) => p.number === 13), JSON.stringify(out));
+    // A non-`work-*` head is not a publication at all.
+    assertTrue("a branch outside the sanctioned shape is not a publication",
+      !(out.publications || []).some((p) => p.number === 14), JSON.stringify(out));
+
+    // A DEGRADED READ ANSWERS ITS REASON AND A NULL COUNT, never an empty list with a zero.
+    writeFileSync(join(fx.binDir, "gh"), "#!/bin/sh\nexit 1\n");
+    chmodSync(join(fx.binDir, "gh"), 0o755);
+    const degraded = JSON.parse(run(fx.A,
+      `${POSIX_SH} ${SCRIPTS.listStrandedPublications}`, { env: withGh }).stdout);
+    assertEq("an unreachable transport is named, with a null count and no list",
+      [degraded.ok, degraded.reason, degraded.count, "publications" in degraded],
+      [false, "gh_unavailable", null, false]);
+
+    // AND IT WRITES NOTHING, ANYWHERE.
+    assertEq("the reader left the checkout as it found it",
+      execSync("git status --porcelain", { cwd: fx.A, encoding: "utf8" }).trim(), "");
+  } finally { cleanup(fx.A); cleanup(fx.origin); cleanup(fx.binDir); }
+}
+
+// ---------- the act: settle what a generator settles, refuse what a person owns (2026-08-31) ----
+function testSettleStrandedPublication() {
+  const fx = makePublicationFixture();
+  const withGh = { ...process.env, PATH: `${fx.binDir}:${process.env.PATH}` };
+  try {
+    const mech = publishBranch(fx.A, "work-20260831-120000", (wt) => {
+      writeFileSync(join(wt, ".workaholic/feedbacks/20260102000000-b.md"),
+        "---\ntype: Feedback\n---\n\n# b\n");
+      writeFileSync(join(wt, ".workaholic/feedbacks/index.md"),
+        feedbackIndex(["20260101000000-a", "20260102000000-b"]));
+    });
+    const content = publishBranch(fx.A, "work-20260831-120001", (wt) => {
+      writeFileSync(join(wt, "src/app.txt"), "alpha\nbeta-branch\ngamma\n");
+    });
+    execSync("git checkout -q main && git merge -q --ff-only origin/main", { cwd: fx.A });
+    writeFileSync(join(fx.A, ".workaholic/feedbacks/20260103000000-c.md"),
+      "---\ntype: Feedback\n---\n\n# c\n");
+    writeFileSync(join(fx.A, ".workaholic/feedbacks/index.md"),
+      feedbackIndex(["20260101000000-a", "20260103000000-c"]));
+    writeFileSync(join(fx.A, "src/app.txt"), "alpha\nbeta-base\ngamma\n");
+    execSync('git add -A && git commit -q -m "Advance the base" && git push -q origin main',
+      { cwd: fx.A });
+    execSync("git fetch -q --prune origin", { cwd: fx.A });
+
+    const stub = (merge = "") => publicationGhStub(fx.binDir, {
+      merge,
+      pulls: [
+        { number: 21, url: "https://example.test/pr/21", title: "[Proposal] b",
+          created: "2026-08-31T12:00:00Z", author: "claude[bot]", head: mech },
+        { number: 22, url: "https://example.test/pr/22", title: "[Proposal] app",
+          created: "2026-08-31T12:00:01Z", author: "claude[bot]", head: content },
+      ],
+      files: {
+        21: pubFiles([".workaholic/feedbacks/20260102000000-b.md",
+                      ".workaholic/feedbacks/index.md"]),
+        22: pubFiles(["src/app.txt"]),
+      },
+    });
+    stub();
+    const settle = (n) => JSON.parse(run(fx.A,
+      `${POSIX_SH} ${SCRIPTS.settleStrandedPublication} ${n}`, { env: withGh }).stdout);
+    const tipOf = (b) => execSync(`git rev-parse origin/${b}`,
+      { cwd: fx.A, encoding: "utf8" }).trim();
+
+    // 1. A CONTENT COLLISION IS REFUSED BY ITS OWN WORD, BRANCH BYTE-IDENTICAL.
+    const before = tipOf(content);
+    const refused = settle(22);
+    assertEq("a content collision is refused by its own word",
+      [refused.outcome, refused.reason], ["settle_refused", "not_mechanical:content"]);
+    assertEq("and its branch is byte-identical after the refusal", tipOf(content), before);
+
+    // 2. THE MECHANICAL ONE IS CAUGHT UP, REGENERATED, PUSHED AND DELIVERED.
+    const settled = settle(21);
+    assertEq("a collision a generator settles is settled and delivered",
+      [settled.outcome, settled.merged, settled.pushed, settled.delivery],
+      ["settled", true, true, "merged"]);
+    assertTrue("and the branch moved", tipOf(mech) !== before, tipOf(mech));
+    // The repair is real: the branch now contains the base, and the regenerated index carries
+    // BOTH records rather than one side's stale copy.
+    assertEq("the settled branch contains the base",
+      run(fx.A, `git merge-base --is-ancestor origin/main origin/${mech} && echo yes`).stdout.trim(),
+      "yes");
+    const idx = execSync(`git show origin/${mech}:.workaholic/feedbacks/index.md`,
+      { cwd: fx.A, encoding: "utf8" });
+    assertTrue("and the regenerated index carries both sides' records",
+      /20260102000000-b/.test(idx) && /20260103000000-c/.test(idx), idx);
+    assertEq("no worktree is left behind", existsSync(join(fx.A, ".worktrees/publication-21")),
+      false);
+
+    // 3. A SECOND RUN IS A NO-OP REPORTING ITS OWN WORD. The branch now contains the base, so
+    //    the reader no longer calls it `mechanical` and the act refuses by name rather than
+    //    merging a second time.
+    const again = settle(21);
+    assertEq("a re-run over a settled publication is a no-op with its own word",
+      [again.outcome, again.merged, again.pushed], ["settle_refused", false, false]);
+    assertTrue("and it names why rather than repeating the act",
+      /^not_mechanical:/.test(again.reason), again.reason);
+
+    // 4. A PULL REQUEST THE READER DOES NOT NAME IS REFUSED, never searched for.
+    const unknown = settle(99);
+    assertEq("a pull request the reader does not name is refused by name",
+      [unknown.outcome, unknown.reason], ["settle_refused", "not_a_stranded_publication"]);
+
+    // 5. A REFUSED DELIVERY IS REPORTED IN THE MERGE VOCABULARY, never a second set — and the
+    //    settlement still stands, because the branch IS caught up and pushed.
+    const mech2 = publishBranch(fx.A, "work-20260831-120002", (wt) => {
+      writeFileSync(join(wt, ".workaholic/feedbacks/20260102000000-e.md"),
+        "---\ntype: Feedback\n---\n\n# e\n");
+      writeFileSync(join(wt, ".workaholic/feedbacks/index.md"),
+        feedbackIndex(["20260101000000-a", "20260102000000-e"]));
+    });
+    execSync("git checkout -q main && git merge -q --ff-only origin/main", { cwd: fx.A });
+    writeFileSync(join(fx.A, ".workaholic/feedbacks/20260103000000-f.md"),
+      "---\ntype: Feedback\n---\n\n# f\n");
+    writeFileSync(join(fx.A, ".workaholic/feedbacks/index.md"),
+      feedbackIndex(["20260101000000-a", "20260102000000-b", "20260103000000-c",
+                     "20260103000000-f"]));
+    execSync('git add -A && git commit -q -m "Advance again" && git push -q origin main',
+      { cwd: fx.A });
+    execSync("git fetch -q --prune origin", { cwd: fx.A });
+    publicationGhStub(fx.binDir, {
+      merge: "405 Pull Request is not mergeable",
+      pulls: [{ number: 23, url: "https://example.test/pr/23", title: "[Proposal] e",
+                created: "2026-08-31T12:10:00Z", author: "claude[bot]", head: mech2 }],
+      files: { 23: pubFiles([".workaholic/feedbacks/20260102000000-e.md",
+                             ".workaholic/feedbacks/index.md"]) },
+    });
+    const undelivered = settle(23);
+    assertEq("a refused delivery is reported in the merge vocabulary, settlement intact",
+      [undelivered.outcome, undelivered.pushed, undelivered.delivery],
+      ["settled", true, "merge_refused: merge_not_allowed"]);
+  } finally { cleanup(fx.A); cleanup(fx.origin); cleanup(fx.binDir); }
+}
+
+// ---------- the question: the collision only a person can settle (2026-08-31) ----------
+function testStrandedPublicationsStep() {
+  const fx = makePublicationFixture();
+  const withGh = { ...process.env, PATH: `${fx.binDir}:${process.env.PATH}` };
+  try {
+    const content = publishBranch(fx.A, "work-20260831-130000", (wt) => {
+      writeFileSync(join(wt, "src/app.txt"), "alpha\nbeta-branch\ngamma\n");
+    });
+    execSync("git checkout -q main && git merge -q --ff-only origin/main", { cwd: fx.A });
+    writeFileSync(join(fx.A, "src/app.txt"), "alpha\nbeta-base\ngamma\n");
+    execSync('git add -A && git commit -q -m "Advance the base" && git push -q origin main',
+      { cwd: fx.A });
+    execSync("git fetch -q --prune origin", { cwd: fx.A });
+    publicationGhStub(fx.binDir, {
+      pulls: [{ number: 31, url: "https://example.test/pr/31", title: "[Proposal] app",
+                created: "2026-08-31T13:00:00Z", author: "claude[bot]", head: content }],
+      files: { 31: pubFiles(["src/app.txt"]) },
+    });
+
+    const step = (env = withGh) => JSON.parse(run(fx.A,
+      `${POSIX_SH} ${SCRIPTS.stepStrandedPublications} --tick 20260831T1300 --root ${fx.A}`,
+      { env }).stdout);
+    const out = step();
+    assertEq("the step reports ok and asks about the one content collision",
+      [out.step, out.status], ["stranded-publications", "ok"]);
+    assertTrue("naming the pull request and the files both sides changed",
+      /"number": *31/.test(JSON.stringify(out.needs_agent))
+      && /src\/app\.txt/.test(JSON.stringify(out.needs_agent)), JSON.stringify(out.needs_agent));
+    assertTrue("keyed once per pull request",
+      /stranded-publication:31/.test(JSON.stringify(out.needs_agent)),
+      JSON.stringify(out.needs_agent));
+    assertTrue("and it supplies an event, so the root carries a line",
+      typeof out.event === "string" && out.event.length > 0, JSON.stringify(out));
+    assertTrue("the summary carries no age and no timestamp",
+      !/\d{4}-\d{2}-\d{2}|\d+ *(hour|day|tick)/.test(out.summary), out.summary);
+
+    // A DEGRADED READ IS NAMED, never rendered as a step that ran and found nothing.
+    writeFileSync(join(fx.binDir, "gh"), "#!/bin/sh\nexit 1\n");
+    chmodSync(join(fx.binDir, "gh"), 0o755);
+    const degraded = step();
+    assertEq("an unreadable read is degraded by the reader's own word",
+      [degraded.status, degraded.reason], ["degraded", "gh_unavailable"]);
+    assertEq("and it asks nobody anything", degraded.needs_agent, []);
+
+    // IT WRITES NOTHING ANYWHERE.
+    assertEq("the step left the checkout as it found it",
+      execSync("git status --porcelain", { cwd: fx.A, encoding: "utf8" }).trim(), "");
+
+    // THE TWO CANDIDATE SETS ARE DISJOINT BY CONSTRUCTION, pinned rather than left to a reading
+    // of two headers: `catchup-blocked` draws from the claim oracle, which never names a
+    // publication branch, and this step's reader drops any branch the oracle does name.
+    const claims = JSON.parse(run(fx.A, `${POSIX_SH} ${SCRIPTS.listClaims}`).stdout);
+    assertEq("the claim oracle names no publication, so catchup-blocked cannot ask about one",
+      claims.claims.filter((c) => c.branch === content).length, 0);
+    assertTrue("and the publication reader drops any branch the oracle names",
+      readFileSync(SCRIPTS.listStrandedPublications, "utf8").includes("list-claims.sh"),
+      "the reader does not compose the claim oracle");
   } finally { cleanup(fx.A); cleanup(fx.origin); cleanup(fx.binDir); }
 }
 

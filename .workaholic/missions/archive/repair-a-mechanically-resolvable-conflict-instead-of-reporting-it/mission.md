@@ -2,7 +2,7 @@
 type: Mission
 title: Repair a mechanically resolvable conflict instead of reporting it
 slug: repair-a-mechanically-resolvable-conflict-instead-of-reporting-it
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-31T20:22:00+00:00
 author: a@qmu.jp
@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260831-224412
 ---
 
 # Repair a mechanically resolvable conflict instead of reporting it
@@ -37,13 +38,22 @@ conflict that is genuinely theirs, named by the files it collided on.
 
 ## Acceptance
 
-- [ ] A publication colliding only on a generated region is caught up and delivered with no
+- [x] A publication colliding only on a generated region is caught up and delivered with no
       person, and a re-run is a no-op. (#20260831202250-settle-a-stranded-publication-a-generator-can-repair.md)
-- [ ] One colliding on content is refused by its own word, left byte-identical, and reaches
+- [x] One colliding on content is refused by its own word, left byte-identical, and reaches
       its author once. (#20260831202250-ask-about-a-publication-only-a-person-can-settle.md)
-- [ ] A drill proves both offline and fails if a settleable conflict is reported rather than
+- [x] A drill proves both offline and fails if a settleable conflict is reported rather than
       repaired. (#20260831202250-drill-the-stranded-publication-repair-offline.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-31 — Localized: seams 1 and 2 are sound — the classifier answers mechanical for a flat area's index and `claim-mergeability.sh` reads it for any branch. The seam that stops the repair is the ACT's candidate set: a publish-tree publication carries no claim commit, so the oracle gives it no row and every mergeability consumer was a claim consumer — 20260831202249-localize-where-a-stranded-publication-stops-being-repairable.md
+- 2026-08-31 — ticket archived — 20260831202249-localize-where-a-stranded-publication-stops-being-repairable.md
+- 2026-08-31 — ticket archived — 20260831202250-read-the-publications-the-loop-opened-and-could-not-merge.md
+- 2026-08-31 — ticket archived — 20260831202250-settle-a-stranded-publication-a-generator-can-repair.md
+- 2026-08-31 — ticket archived — 20260831202250-ask-about-a-publication-only-a-person-can-settle.md
+- 2026-08-31 — ticket archived — 20260831202250-report-each-stranded-publication-in-the-run-report.md
+- 2026-08-31 — ticket archived — 20260831202250-drill-the-stranded-publication-repair-offline.md
+- 2026-08-31 — mission achieved — mission.md
+- 2026-08-31 — Story written — work-20260831-224412.md

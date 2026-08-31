@@ -25173,7 +25173,13 @@ function testAnswerReturnPath() {
       if (f !== "record-answer.sh") {
         assertTrue(`${f} never executes record-answer.sh`, !invokes(body, "record-answer.sh"), f);
       }
-      if (f !== "question-state.sh" && f !== "ask-question.sh") {
+      // `answer-outcome.sh` joined the allowlist on 2026-08-31 (mission
+      // `make-the-tick-s-questions-readable-and-close-them-in-the-thread`) and it is a
+      // COMPOSITION, which is what this rule is for rather than against: it asks
+      // `question-state.sh` whether a key is `answered` instead of re-deriving that from the
+      // log, so the two cannot disagree about a question's life. What stays banned is a second
+      // DERIVATION of the state, and a script reaching `record-answer.sh` at all.
+      if (f !== "question-state.sh" && f !== "ask-question.sh" && f !== "answer-outcome.sh") {
         assertTrue(`${f} never executes question-state.sh`, !invokes(body, "question-state.sh"), f);
       }
     }
@@ -28535,7 +28541,81 @@ function testProofJudgementSplit() {
   assertTrue("the age-source table is in the one home too", srcAt > 0,
     "claims.md no longer carries the age-source table");
   const ageTable = ageTail.slice(0, srcAt);
-  const sourceTable = ageTail.slice(srcAt);
+  const sourceTail = ageTail.slice(srcAt);
+
+  // AN EIGHTH VOCABULARY IN THE SAME HOME (2026-08-31, mission
+  // `make-the-tick-s-questions-readable-and-close-them-in-the-thread`). `answer-outcome.sh` is
+  // keyed on what became of A PERSON'S OWN ANSWER — a different question again from whose
+  // business a claim is, from what the base said, from whether an act happened, from whether a
+  // publication was answered, from whether a unit is driven twice, and from how long something
+  // has been true. Parsed apart for the reason the other seven are: five of these vocabularies
+  // now share an `unreadable`-shaped word, and folding them would report one rule as several
+  // copies of itself. It is split off the SOURCE tail rather than the age table, because the
+  // age-source table (a differently-keyed table) sits between them in the document.
+  const ANSWER_HEADING = "### Whether a recorded answer has been acted on";
+  const answerAt = sourceTail.indexOf(ANSWER_HEADING);
+  assertTrue("the answer-outcome sub-table is in the one home too", answerAt > 0,
+    "claims.md no longer carries the answer-outcome classification");
+  const sourceTable = sourceTail.slice(0, answerAt);
+  const answerTable = sourceTail.slice(answerAt);
+
+  // ITS WORDS, from the reader's own `emit` calls rather than from a list this test carries.
+  // `settled:*` are literal; `unreadable:<reason>` is normalised to its table form because the
+  // script interpolates the reason. The empty `outcome` the not-answered refusal emits is not a
+  // word and is deliberately not classified — there is no answer for anything to have become of.
+  const ansSrc = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/moderate/scripts/answer-outcome.sh"), "utf8")
+    .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+  const ansEmitted = new Set();
+  for (const m of ansSrc.matchAll(/\bemit\s+(?:true|false)\s+"?((?:settled:[a-z_]+|pending|unreadable:[a-z_$}{]+))"?/g)) {
+    ansEmitted.add(m[1].startsWith("unreadable:") ? "unreadable:<reason>" : m[1]);
+  }
+  assertEq("the answer-outcome vocabulary parses out of the reader",
+    [...ansEmitted].sort().join(","),
+    "pending,settled:issue_closed,settled:nothing_filed,unreadable:<reason>");
+
+  const ansClassified = new Map();
+  for (const m of answerTable.matchAll(/^\|\s*`((?:settled:[a-z_]+|pending|unreadable:<reason>))`\s*\|\s*(?:\*\*)?(proof|judgement)(?:\*\*)?\s*\|/gm)) {
+    assertTrue(`the answer-outcome sub-table classifies ${m[1]} exactly once`,
+      !ansClassified.has(m[1]), "a second row for the same word is two rules for one fact");
+    ansClassified.set(m[1], m[2]);
+  }
+  assertEq("every word the answer-outcome reading emits is classified exactly once",
+    [...ansEmitted].filter((w) => !ansClassified.has(w)).sort().join(","), "");
+  assertEq("and the sub-table classifies no word the answer-outcome reading never emits",
+    [...ansClassified.keys()].filter((w) => !ansEmitted.has(w)).sort().join(","), "");
+  assertEq("no answer-outcome reading is a proof — every one of them is a judgement",
+    [...ansClassified.entries()].filter(([, k]) => k === "proof").map(([w]) => w).sort().join(","), "");
+  // THE REFUSAL IS NAMED RATHER THAN CLASSIFIED, and the reason is written where the words are:
+  // calling a question with no recorded answer `unreadable` is the collapse the word exists to
+  // close.
+  assertTrue("the not-answered refusal is named beside the table",
+    /not_answered:<state>/.test(answerTable), "the refusal is no longer distinguished from a degradation");
+
+  // IT COMPOSES WHAT EXISTS AND WALKS NOTHING TWICE.
+  for (const composed of ["question-state.sh", "log-read.sh", "gh-rest.sh"]) {
+    assertTrue(`answer-outcome.sh composes ${composed}`, ansSrc.includes(composed),
+      "the answer-outcome reader derives a fact a single reader already owns");
+  }
+  // AND IT WRITES NOTHING, ANYWHERE.
+  for (const act of ["log-append.sh", "record-answer.sh", "file-inbound-ask.sh", "git push",
+    "git commit", "--method PUT", "--method PATCH", "--method POST", "--method DELETE"]) {
+    assertTrue(`answer-outcome.sh never reaches ${act}`, !ansSrc.includes(act),
+      "the answer-outcome reader is not a pure read");
+  }
+
+  // ITS ENUMERATED CONSUMER REPORTS AND POSTS ONE REPLY, AND DOES NOTHING ELSE. Call sites,
+  // never words: the step's own prose says in English what it never does.
+  const ansStepSrc = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/moderate/scripts/step-question-answers.sh"), "utf8")
+    .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+  for (const act of ["--method PUT", "--method PATCH", "--method DELETE", "/merge",
+    "release-claim.sh", "retire-claim.sh", "catch-up-claim.sh", "plan-units.sh",
+    "publish-tree-pr.sh", "git push"]) {
+    assertTrue(`step-question-answers.sh reports — it never reaches ${act}`,
+      !ansStepSrc.includes(act),
+      `the answer-outcome reading licenses reporting and one reply, never ${act}`);
+  }
 
   // ITS FOUR WORDS, from the reader's own `emit` calls rather than from a list this test carries.
   // `open:<age>` is normalised to its table form because the script interpolates the age; the

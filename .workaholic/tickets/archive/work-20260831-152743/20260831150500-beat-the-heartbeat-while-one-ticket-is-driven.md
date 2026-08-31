@@ -1,11 +1,13 @@
 ---
 created_at: 2026-08-31T15:05:00+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
 mission:
 merge_policy:
 verification_handoff:
+claim: work-20260831-152743
 ---
 
 # Beat the heartbeat while one ticket is driven
@@ -121,3 +123,55 @@ the one seam that beats for free fires only at the end of the work.
   `ambiguous_claim` (two *live* claims), and a resume leaves exactly one. Whether
   a resumed-out-from-under run deserves its own reading is part of step 4's
   question, not an assumption this ticket makes.
+
+## Final Report
+
+Development completed as planned.
+
+**Step 1 — which window bit.** `WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES`, default **30**
+(`lib/claims.sh:980`), which is the gate `claim.sh resume` reads. The measured resume was 33
+minutes after the claim, so it is that window and not the 24-hour `WORKAHOLIC_CLAIM_STALE_HOURS`
+(`:969`), which is the *reported* staleness and governs no takeover. Neither default was changed.
+
+**Step 2 — where the beat belongs, and why not the other two.** It is **step 0 of the per-ticket
+workflow** (`drive/reference/ticket-workflow.md`), and `drive/SKILL.md` §4's *"roughly every ten
+minutes or once per ticket"* is replaced by that fixed point. A cadence is something an agent must
+track while its attention is on the implementation; a step is discharged where the workflow already
+stops. The two alternatives are refused with their reasons, in the document itself:
+
+- **A beat inside an existing per-ticket seam** — the only seam that runs early is
+  `gather/scripts/ticket-metadata.sh`, a **pure reader shared with other callers**, and giving a
+  reader a side effect is how a script acquires behaviour nobody expects.
+- **Making the loss visible instead** — a reading that says the claim was taken does not return the
+  work. The measured cost was a finished, validated implementation discarded; naming it afterwards
+  recovers none of it.
+
+It adds no store, no cursor and no field on any artifact — it is the empty commit `heartbeat.sh`
+already makes against a scratch index.
+
+**Step 3 — no background timer.** Refused outright and said so in the document: it would be a
+second liveness authority beside the branch tip, which is the one oracle.
+
+**Step 4 — the case this ticket could not settle.** Whether a **losing** run should be able to hand
+its work over rather than discard it is a larger question and is reported, not answered here. What
+is now true is that the losing case is much rarer; what is unchanged is that when it happens the
+work is still thrown away, and the rule that forbids force-pushing over an actively-driven branch
+is still right. That ask needs its own ticket.
+
+**The prose is pinned.** Because the repair is a step an agent runs, the suite carries a row that
+proves the *behaviour* (a claim aged past the window is resumable; after one beat it is not — the
+beat being the only thing that changed between the two reads) **and** that the per-ticket workflow
+still opens with it and the retired cadence has not survived anywhere.
+
+### Discovered Insights
+
+- **Insight**: the two windows are easy to confuse and only one governs a takeover —
+  `WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES` (30, the resume gate) versus
+  `WORKAHOLIC_CLAIM_STALE_HOURS` (24, reported and never acted on).
+  **Context**: a reader who sees "stale: false" on a claim row and concludes the claim is safe is
+  reading the wrong one. The row's `stale` is the 24-hour reading; resumability is decided an order
+  of magnitude sooner.
+- **Insight**: this ticket's own unit reproduced the failure it describes — one long ticket, and
+  the run had to beat by hand before it could work on it.
+  **Context**: the fix was applied to the run applying it, which is the strongest available
+  evidence that step 0 belongs where it was put.

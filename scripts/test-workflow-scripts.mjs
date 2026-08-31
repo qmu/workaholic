@@ -54,6 +54,7 @@ const SCRIPTS = {
   detectContext: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/detect-context.sh"),
   checkWorkspace: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/check-workspace.sh"),
   archive: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/archive.sh"),
+  heartbeat: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/heartbeat.sh"),
   userSlug: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/user-slug.sh"),
   migrateTodoOwners: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/migrate-todo-owners.sh"),
   migrateAssigneeAliases: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/migrate-assignee-aliases.sh"),
@@ -18672,6 +18673,56 @@ function testClaimResume() {
 // may land: the loser must take NOTHING and report a retryable reason. Nothing here may
 // be decided by comparing clocks -- a local runner and a cloud one have skewed ones --
 // so the arbiter is git, in two layers (the pinned-tip check, then the non-ff push).
+// THE BEAT IS WHAT KEEPS A LONG TICKET'S OWN CLAIM (2026-08-31, ticket `20260831150500`).
+// `archive.sh` refreshes the tip for free, but only at the END of a ticket, so a unit that is
+// ONE long ticket runs its whole implementation on the claim commit's own timestamp and loses
+// its claim to the 30-minute resume window by construction. Measured on
+// `batch-20260831141002`: resumed by a second tick at 33 minutes, and a complete, validated,
+// locally-committed implementation was discarded rather than force-pushed over a branch
+// another run was actively driving.
+//
+// A REALISTIC WINDOW WITH AN AGED CLAIM, for `testResumeRace`'s reason: with a zero-minute
+// window every tip is instantly lapsed and the beat could not be shown to be the thing that
+// changed the answer.
+function testHeartbeatKeepsALongTicketsClaim() {
+  const { A } = makeClaimFixture();
+  const CLAIM = `${POSIX_SH} ${SCRIPTS.claim}`;
+  const window60 = { ...process.env, WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES: "60" };
+  const aged = {
+    ...process.env,
+    GIT_COMMITTER_DATE: new Date(Date.now() - 2 * 3600 * 1000).toISOString(),
+    GIT_AUTHOR_DATE: new Date(Date.now() - 2 * 3600 * 1000).toISOString(),
+  };
+  JSON.parse(run(A, `${CLAIM} mission m1`, { env: aged }).stdout);
+
+  // The lapse this ticket is about: a claim whose tip is older than the resume window.
+  const before = JSON.parse(run(A, `${POSIX_SH} ${SCRIPTS.planUnits}`, { env: window60 }).stdout);
+  assertTrue("a claim whose tip is aged past the resume window is offered as resumable",
+    before.resumable.map((u) => u.unit).includes("m1"));
+
+  // Step 0 of the per-ticket workflow, and the ONLY thing that changes between the two reads.
+  const beat = JSON.parse(run(A, `${POSIX_SH} ${SCRIPTS.heartbeat} m1`, { env: window60 }).stdout);
+  assertEq("the beat reports itself", [beat.beat, beat.unit], [true, "m1"]);
+
+  const after = JSON.parse(run(A, `${POSIX_SH} ${SCRIPTS.planUnits}`, { env: window60 }).stdout);
+  assertTrue("and after the beat the claim is no longer resumable",
+    !after.resumable.map((u) => u.unit).includes("m1"));
+
+  // THE INSTRUCTION CANNOT BE SILENTLY DROPPED. The repair is a step an agent runs, so prose is
+  // the mechanism and this is what keeps the prose honest: the per-ticket workflow must name the
+  // beat as its FIRST step, and the retired cadence must not survive anywhere.
+  const wf = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/drive/reference/ticket-workflow.md"), "utf8");
+  const steps = wf.slice(wf.indexOf("## Per-ticket steps"));
+  assertTrue("the per-ticket workflow opens with the beat",
+    /^### 0\. Beat the heartbeat/m.test(steps) &&
+    steps.indexOf("### 0. Beat the heartbeat") < steps.indexOf("### 1. Read and understand"),
+    steps.slice(0, 200));
+  assertTrue("and it names the script that performs it", steps.includes("heartbeat.sh <unit-id>"));
+  const driveSkill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/drive/SKILL.md"), "utf8");
+  assertTrue("the retired 'roughly every ten minutes' cadence is gone from the drive skill",
+    !/roughly every ten minutes or once per ticket \(each/.test(driveSkill), "the cadence survived");
+}
+
 function testResumeRace() {
   const { origin, A, B } = makeClaimFixture();
   const CLAIM = `${POSIX_SH} ${SCRIPTS.claim}`;
@@ -20401,6 +20452,7 @@ const tests = [
   ["/drive: attended selection vs the unattended form (O1)", testDriveAttendedSelection],
   ["drive/claim.sh announces the claim, never load-bearing", testClaimAnnounces],
   ["drive claim protocol: a dropped unit is resumed, not stranded", testClaimResume],
+  ["drive claim protocol: the beat keeps a long ticket's own claim", testHeartbeatKeepsALongTicketsClaim],
   ["drive claim protocol: two runners racing to resume, one takeover", testResumeRace],
   ["drive/heartbeat.sh keeps a working unit out of the resumable offer", testHeartbeat],
   ["drive claim protocol: a finished unit is not resumed again", testResumeSkipsDrainedUnit],

@@ -52,3 +52,4 @@ unchanged.
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-31 — ticket archived — 20260831112534-read-how-deep-and-how-old-the-arrears-are.md

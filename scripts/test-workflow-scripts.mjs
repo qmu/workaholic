@@ -26327,10 +26327,22 @@ function testCheckInHeldOrder() {
     assertEq("and a repeated run over one fixture is byte-identical",
       held("20260828-140000"), ["yak", "zebra", "alpha", "bravo"]);
 
+    // HOW DEEP AND HOW OLD, off the reading the ordering already made (2026-08-31, mission
+    // `say-when-the-check-in-queue-is-stuck-and-bound-the-hold`). The first-held day per key
+    // was derived for the order and then thrown away, so the step knew how old its backlog
+    // was and said only how large it is.
+    let a = JSON.parse(run(repo, `${STEP} --root . --tick 20260828-140000 --hour 14 --weekday 3`).stdout);
+    assertEq("the arrears name their oldest day and its whole-day distance to the tick's day",
+      [a.held_oldest_day, a.held_days], ["2026-08-25", 3]);
+
     // The ask is still the resolution of the hold.
     run(repo, `${LOG} --tick 20260828-120000 --step human-checkin-ask-yak --status filed --summary "asked yak"`);
     assertEq("a held key that has since been asked still drops out",
       held("20260828-140000"), ["zebra", "alpha", "bravo"]);
+    // ...and stops ageing the arrears with it: the minimum is over what is STILL held.
+    a = JSON.parse(run(repo, `${STEP} --root . --tick 20260828-140000 --hour 14 --weekday 3`).stdout);
+    assertEq("an asked key no longer ages the arrears",
+      [a.held_oldest_day, a.held_days], ["2026-08-26", 2]);
 
     // THE STEP ORDERS; IT DOES NOT CAP. `max_per_tick` is enforced per candidate by
     // `ask-question.sh`, and `held_count` counts the whole held set rather than a prefix —
@@ -26380,6 +26392,10 @@ function testCheckInDeliveryReading() {
     assertEq("a tick with nothing waiting names the quiet hour",
       [j.delivered, j.held_count, j.candidates, j.delivery], [0, 0, 0, "no_candidates"]);
     assertEq("and supplies no event, so the root renders no line", j.event, "");
+    // NULL, NEVER `0` — a zero here reads as *this just started*, the most reassuring thing
+    // the field can say, for a reading nobody made.
+    assertEq("a tick with no holds reports the arrears as null rather than as zero",
+      [j.held_oldest_day, j.held_days], [null, null]);
 
     run(repo, `${LOG} --tick 20260826-100000 --step human-checkin-held-a --status skipped --summary "held a"`);
     run(repo, `${LOG} --tick 20260826-100000 --step human-checkin-held-b --status skipped --summary "held b"`);
@@ -26444,6 +26460,8 @@ function testCheckInDeliveryReading() {
         [d.status, d.reason, d.delivery], ["degraded", "no_reader", "unreadable"]);
       assertEq("it asks nothing and supplies no event", [d.needs_agent.length, d.event], [0, ""]);
       assertEq("and it claims no delivery", d.delivered, undefined);
+      assertEq("and reports the arrears as null, never as a backlog that just started",
+        [d.held_oldest_day, d.held_days], [null, null]);
     } finally {
       rmSync(noGate, { recursive: true, force: true });
       rmSync(noReader, { recursive: true, force: true });

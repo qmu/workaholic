@@ -38,6 +38,28 @@
 # sequence. The day is already in the log this tick keeps (`log-read.sh` emits `day` per
 # entry), so this needs NO second ledger, no cursor and no field on any artifact.
 #
+# AND THE READING THE ORDERING ALREADY MADE IS CARRIED, NOT THROWN AWAY (2026-08-31, mission
+# `say-when-the-check-in-queue-is-stuck-and-bound-the-hold`). The first-held day per key is
+# derived above for the ordering and was then discarded: only `held_count` survived, so the
+# step knew how OLD its backlog was and said only how LARGE it is. `held_oldest_day` is the
+# MINIMUM of that same derivation over the keys still held — no second walk of the log, no
+# cursor, no store — and `held_days` is the whole-day distance from it to the tick's own day.
+#
+# THE TICK SUPPLIES THE DAY, NEVER THE WALL CLOCK. `ask-question.sh` derives its day from the
+# tick id on exactly this axis and for exactly this reason: both sides are then ids minted by
+# the same script, a re-entered tick answers the same way twice, and the arithmetic is
+# testable at all. The `date` fallback covers a caller that passed no tick.
+#
+# NO DATE ARITHMETIC THROUGH `date`. `date -d` is GNU-only and `date -v` is BSD-only — the
+# refusal `condition-age.sh` already states by name — so the whole-day distance is computed
+# from the two `YYYY-MM-DD` strings by civil-day arithmetic in `awk`, portable and pure.
+#
+# A DEGRADED LOG READ REPORTS NULL FOR BOTH, NEVER `0`. A zero here reads as *this just
+# started*, the most reassuring thing the field can say, for a reading that was never made —
+# the collapse `unattributed-work.sh`'s rule forbids by name. A tick with NO holds reports
+# `held_count: 0` with both fields null and is otherwise byte-identical to what this step has
+# always printed.
+#
 # THIS STEP ORDERS; IT DOES NOT CAP AND IT DOES NOT ASK. `max_per_tick` is enforced by
 # `ask-question.sh`, per candidate, exactly as before, and `held_count` counts the WHOLE held
 # set rather than any prefix — the count is what tells a reader how deep the arrears are.
@@ -122,7 +144,8 @@
 # Usage: step-human-checkin.sh --tick <id> --root <repo-root> [--hour <0-23>] [--weekday <1-7>]
 # Output: one JSON line
 #   {"step","status","reason","summary","event","needs_agent":[...],"held":[...],
-#    "held_count":n,"delivered":n,"candidates":n,"delivery":"<reason word>","quiet":bool}
+#    "held_count":n,"held_oldest_day":"YYYY-MM-DD"|null,"held_days":n|null,
+#    "delivered":n,"candidates":n,"delivery":"<reason word>","quiet":bool}
 
 set -eu
 
@@ -164,6 +187,29 @@ if [ "$WEEKDAY" -lt "$DAY_START" ] || [ "$WEEKDAY" -gt "$DAY_END" ]; then offday
 HOUR=$(printf '%s' "$HOUR" | sed 's/^0//')
 [ -n "$HOUR" ] || HOUR=0
 
+# THE TICK'S OWN DAY, in `log-read.sh`'s `YYYY-MM-DD` form — the same derivation on the same
+# axis `ask-question.sh` uses for its day bound, so the two sides cannot disagree about which
+# day a tick belongs to. Never the wall clock where there is a tick id.
+TICK_DAY=$(printf '%s' "$TICK" | sed -n 's/^\([0-9]\{4\}\)\([0-9]\{2\}\)\([0-9]\{2\}\)-.*/\1-\2-\3/p')
+[ -n "$TICK_DAY" ] || TICK_DAY=$(TZ="$ZONE" date +%Y-%m-%d)
+
+# Whole days between two `YYYY-MM-DD` strings, by civil-day arithmetic. `date -d` is GNU-only
+# and `date -v` is BSD-only, so neither is reachable here.
+days_between() {
+    printf '%s %s\n' "$1" "$2" | awk '
+        function civil(s,   y, m, d, e, yoe, doy, doe) {
+            y = substr(s, 1, 4) + 0; m = substr(s, 6, 2) + 0; d = substr(s, 9, 2) + 0
+            if (m <= 2) y -= 1
+            e = int((y >= 0 ? y : y - 399) / 400)
+            yoe = y - e * 400
+            doy = int((153 * (m + (m > 2 ? -3 : 9)) + 2) / 5) + d - 1
+            doe = yoe * 365 + int(yoe / 4) - int(yoe / 100) + doy
+            return e * 146097 + doe - 719468
+        }
+        { n = civil($2) - civil($1); print (n < 0 ? 0 : n) }
+    '
+}
+
 quiet=false
 if [ "$START" -gt "$END" ]; then
     if [ "$HOUR" -ge "$START" ] || [ "$HOUR" -lt "$END" ]; then quiet=true; fi
@@ -196,7 +242,7 @@ fi
 if [ "$log_readable" != "true" ]; then
     heldquiet=false
     if [ "$quiet" = "true" ] || [ "$offday" = "true" ]; then heldquiet=true; fi
-    printf '{"step": "human-checkin", "status": "degraded", "reason": "%s", "summary": "the tick log could not be read (%s) — no delivery is claimed and nothing is asked", "event": "", "needs_agent": [], "held": [], "held_count": 0, "candidates": 0, "delivery": "unreadable", "quiet": %s}\n' \
+    printf '{"step": "human-checkin", "status": "degraded", "reason": "%s", "summary": "the tick log could not be read (%s) — no delivery is claimed and nothing is asked", "event": "", "needs_agent": [], "held": [], "held_count": 0, "held_oldest_day": null, "held_days": null, "candidates": 0, "delivery": "unreadable", "quiet": %s}\n' \
         "$(json_escape "$log_reason")" "$(json_escape "$log_reason")" "$heldquiet"
     exit 0
 fi
@@ -206,6 +252,7 @@ fi
 held=''
 held_count=0
 held_ever=0
+held_oldest_day=''
 if [ -n "$held_rows" ]; then
     # `day tick key` per held entry, straight out of the reader's own fields — no second
     # ledger, and no notion of age this step invents for itself.
@@ -220,8 +267,13 @@ if [ -n "$held_rows" ]; then
             if (!(k in first) || d < first[k]) first[k] = d
         }
         END { for (k in first) print first[k] " " k }
-    ' | LC_ALL=C sort | awk '{ print $3 }')
-    for k in $keys; do
+    ' | LC_ALL=C sort | awk '{ print $1 ":" $3 }')
+    # `day:key`, in the drain order the sort above already produced. The day rides along
+    # rather than being re-derived: it IS the value the ordering was computed from.
+    for entry in $keys; do
+        [ -n "$entry" ] || continue
+        day=${entry%%:*}
+        k=${entry#*:}
         [ -n "$k" ] || continue
         held_ever=$((held_ever + 1))
         asked=$(sh "$LOG_READ" --root "$ROOT" --step-prefix "human-checkin-ask-${k}" 2>/dev/null | sed 's/.*"count": //; s/,.*//')
@@ -229,7 +281,21 @@ if [ -n "$held_rows" ]; then
         [ "$asked" -eq 0 ] || continue
         held_count=$((held_count + 1))
         held="${held:+${held}, }\"$(json_escape "$k")\""
+        # The MINIMUM over the keys still held — an asked key has left the arrears and must
+        # not go on ageing them. `YYYY-MM-DD` compares correctly as a string.
+        if [ -z "$held_oldest_day" ] || [ "$day" \< "$held_oldest_day" ]; then
+            held_oldest_day="$day"
+        fi
     done
+fi
+
+# Null, never `0`, when there is nothing held or the day could not be read.
+held_oldest_json=null
+held_days_json=null
+if [ -n "$held_oldest_day" ]; then
+    held_oldest_json="\"$(json_escape "$held_oldest_day")\""
+    held_days_json=$(days_between "$held_oldest_day" "$TICK_DAY")
+    case "$held_days_json" in ''|*[!0-9]*) held_days_json=null ;; esac
 fi
 
 # --- What this tick delivered, and why it delivered nothing ---------------------------
@@ -248,17 +314,17 @@ fi
 
 if [ "$offday" = "true" ]; then
     [ "$held_count" -eq 0 ] || delivery=all_held
-    printf '{"step": "human-checkin", "status": "skipped", "reason": "off_day", "summary": "weekday %s is outside the %s working week (%s) — %s candidate(s): %s delivered, %s held (%s)", "event": "", "needs_agent": [], "held": [%s], "held_count": %s, "delivered": %s, "candidates": %s, "delivery": "%s", "quiet": true}\n' \
+    printf '{"step": "human-checkin", "status": "skipped", "reason": "off_day", "summary": "weekday %s is outside the %s working week (%s) — %s candidate(s): %s delivered, %s held (%s)", "event": "", "needs_agent": [], "held": [%s], "held_count": %s, "held_oldest_day": %s, "held_days": %s, "delivered": %s, "candidates": %s, "delivery": "%s", "quiet": true}\n' \
         "$WEEKDAY" "$ZONE" "$WORK_DAYS" "$candidates" "$delivered" "$held_count" "${delivery:-none}" \
-        "$held" "$held_count" "$delivered" "$candidates" "$delivery"
+        "$held" "$held_count" "$held_oldest_json" "$held_days_json" "$delivered" "$candidates" "$delivery"
     exit 0
 fi
 
 if [ "$quiet" = "true" ]; then
     [ "$held_count" -eq 0 ] || delivery=all_held
-    printf '{"step": "human-checkin", "status": "skipped", "reason": "quiet_hours", "summary": "inside the %s %s quiet window — %s candidate(s): %s delivered, %s held (%s)", "event": "", "needs_agent": [], "held": [%s], "held_count": %s, "delivered": %s, "candidates": %s, "delivery": "%s", "quiet": true}\n' \
+    printf '{"step": "human-checkin", "status": "skipped", "reason": "quiet_hours", "summary": "inside the %s %s quiet window — %s candidate(s): %s delivered, %s held (%s)", "event": "", "needs_agent": [], "held": [%s], "held_count": %s, "held_oldest_day": %s, "held_days": %s, "delivered": %s, "candidates": %s, "delivery": "%s", "quiet": true}\n' \
         "$WINDOW" "$ZONE" "$candidates" "$delivered" "$held_count" "${delivery:-none}" \
-        "$held" "$held_count" "$delivered" "$candidates" "$delivery"
+        "$held" "$held_count" "$held_oldest_json" "$held_days_json" "$delivered" "$candidates" "$delivery"
     exit 0
 fi
 
@@ -305,6 +371,6 @@ NEEDS="{\"action\": \"ask_if_worth_asking\", \"bound\": \"apply the Recommended-
 # THE SUMMARY IS A FUNCTION OF THE READING ALONE. No hour, no timestamp, nothing that moves
 # by construction — so the root's hour-to-hour diff suppresses an unchanged reason rather
 # than rendering it every tick, which is the property that lets the event above exist.
-printf '{"step": "human-checkin", "status": "ok", "reason": "", "summary": "outside the %s %s quiet window — %s candidate(s): %s delivered, %s held (%s)", "event": "%s", "needs_agent": [%s], "held": [%s], "held_count": %s, "delivered": %s, "candidates": %s, "delivery": "%s", "quiet": false}\n' \
+printf '{"step": "human-checkin", "status": "ok", "reason": "", "summary": "outside the %s %s quiet window — %s candidate(s): %s delivered, %s held (%s)", "event": "%s", "needs_agent": [%s], "held": [%s], "held_count": %s, "held_oldest_day": %s, "held_days": %s, "delivered": %s, "candidates": %s, "delivery": "%s", "quiet": false}\n' \
     "$WINDOW" "$ZONE" "$candidates" "$delivered" "$held_count" "${delivery:-none}" \
-    "$(json_escape "$event")" "$NEEDS" "$held" "$held_count" "$delivered" "$candidates" "$delivery"
+    "$(json_escape "$event")" "$NEEDS" "$held" "$held_count" "$held_oldest_json" "$held_days_json" "$delivered" "$candidates" "$delivery"

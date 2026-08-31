@@ -6,7 +6,6 @@
 * [make-the-routine-create-body-documented-and-buildable](active/make-the-routine-create-body-documented-and-buildable/mission.md) - Make the routine create body documented and buildable
 * [make-workaholify-converge-the-account-s-routines](active/make-workaholify-converge-the-account-s-routines/mission.md) - Make /workaholify converge the account's routines
 * [prove-a-claim-branch-is-empty-before-deleting-it](active/prove-a-claim-branch-is-empty-before-deleting-it/mission.md) - Prove a claim branch is empty before deleting it
-* [read-the-base-s-colour-past-a-bookkeeping-tip](active/read-the-base-s-colour-past-a-bookkeeping-tip/mission.md) - Read the base's colour past a bookkeeping tip
 * [refuse-ok-under-a-placeholder-identity](active/refuse-ok-under-a-placeholder-identity/mission.md) - Refuse ok under a placeholder identity
 * [repair-a-mechanically-resolvable-conflict-instead-of-reporting-it](active/repair-a-mechanically-resolvable-conflict-instead-of-reporting-it/mission.md) - Repair a mechanically resolvable conflict instead of reporting it
 * [say-when-the-check-in-queue-is-stuck-and-bound-the-hold](active/say-when-the-check-in-queue-is-stuck-and-bound-the-hold/mission.md) - Say when the check-in queue is stuck, and bound the hold
@@ -81,6 +80,7 @@
 * [put-the-loop-s-standing-rulings-on-one-pull-request](archive/put-the-loop-s-standing-rulings-on-one-pull-request/mission.md) - Put the loop's standing rulings on one pull request
 * [read-a-strategy-s-pace-against-its-date](archive/read-a-strategy-s-pace-against-its-date/mission.md) - Read a strategy's pace against its date
 * [read-back-whether-the-loop-s-own-act-took-effect](archive/read-back-whether-the-loop-s-own-act-took-effect/mission.md) - Read back whether the loop's own act took effect
+* [read-the-base-s-colour-past-a-bookkeeping-tip](archive/read-the-base-s-colour-past-a-bookkeeping-tip/mission.md) - Read the base's colour past a bookkeeping tip
 * [read-whether-the-base-survived-what-the-loop-merged](archive/read-whether-the-base-survived-what-the-loop-merged/mission.md) - Read whether the base survived what the loop merged
 * [reconcile-a-stale-thread-with-the-unit-s-real-state](archive/reconcile-a-stale-thread-with-the-unit-s-real-state/mission.md) - Reconcile a stale thread with the unit's real state
 * [reduce-the-loop-to-two-routines-and-one-behaviour-per-command](archive/reduce-the-loop-to-two-routines-and-one-behaviour-per-command/mission.md) - Reduce the loop to two routines and one behaviour per command

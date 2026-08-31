@@ -5797,18 +5797,21 @@ STUB
 # no checks for -- the single most tempting wrong answer, since an empty check list looks like
 # "nothing failed". If it ever answers `green`, `base_health_can_fail` goes red. That row is the
 # INTENTIONAL one: an operator reading a red drill should look at it first.
-cmd_verify_base_health() {
-    _reader="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/read-base-checks.sh"
-    _walk="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/attribute-base-red.sh"
-    _step="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/step-base-health.sh"
-    _ask="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/ask-question.sh"
-    _plan="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/plan-units.sh"
-    for _f in "$_reader" "$_walk" "$_step" "$_ask" "$_plan"; do
-        [ -f "$_f" ] || emit_err "base_health_seam_unreadable" 4 "${_f} is not present in this checkout"
-    done
-
-    _before=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
-
+# THE SEEDER BOTH BASE-COLOUR DRILLS SHARE. A local bare origin, five commits on `main`, a
+# clone to read from, and a `gh` stub on PATH answering per commit out of a fixture directory —
+# no network, no credential. It was inline in `verify-base-health` until 2026-08-31, when
+# `verify-bookkeeping-tip` needed exactly the same ground; a second copy would be two fixtures
+# that drift, and the shas a drill asserts on come from whichever one it happens to have built.
+#
+# It sets, for its caller: `_tmp` (the caller removes it), `_read`, `_bin`, `_st`, `_tip` and
+# `_c4`.. `_c1` newest-first in the walk's own order, the `_GREEN` / `_RED` / `_PENDING` /
+# `_BAD` fixture bodies, and the `_set` / `_clear` / `_run` / `_field` / `_numfield` helpers.
+# `_read_at` reads through whatever `$_reader` the caller set, so a caller wanting the reader
+# must set it BEFORE calling this.
+#
+# A sha with no fixture answers an EMPTY check list, which is `no_checks` — the shape a
+# bookkeeping commit has on the real base, and the deliberately broken seam's input.
+base_checks_seed() {
     _tmp=$(mktemp -d)
     _origin="${_tmp}/origin"; _work="${_tmp}/work"; _read="${_tmp}/read"
     _bin="${_tmp}/bin"; _st="${_tmp}/stubs"
@@ -5849,12 +5852,32 @@ cmd_verify_base_health() {
     _GREEN='{"total_count":1,"check_runs":[{"name":"CI","status":"completed","conclusion":"success"}]}'
     _RED='{"total_count":2,"check_runs":[{"name":"Validate Plugins","status":"completed","conclusion":"failure"},{"name":"CI","status":"completed","conclusion":"success"}]}'
     _PENDING='{"total_count":1,"check_runs":[{"name":"CI","status":"in_progress","conclusion":null}]}'
+    # A body the reader cannot parse: OUR failure, never the commit's, and the control case for
+    # everything the walk must refuse to continue past.
+    _BAD='not json at all'
     _set() { printf '%s\n' "$2" > "${_st}/$1.json"; }
     _clear() { rm -f "${_st}/$1.json"; }
 
     _run() { ( cd "$_read" && PATH="${_bin}:$PATH" "$@" ) 2>&1 || true; }
     _field() { printf '%s' "$1" | sed -n 's/.*"'"$2"'": *"\([^"]*\)".*/\1/p' | head -1; }
+    # The unquoted twin, for a field whose value is a number or `null`.
+    _numfield() { printf '%s' "$1" | sed -n 's/.*"'"$2"'": *\([a-z0-9]*\).*/\1/p' | head -1; }
     _read_at() { _run sh "$_reader" "$1"; }
+}
+
+cmd_verify_base_health() {
+    _reader="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/read-base-checks.sh"
+    _walk="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/attribute-base-red.sh"
+    _step="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/step-base-health.sh"
+    _ask="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/ask-question.sh"
+    _plan="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/plan-units.sh"
+    for _f in "$_reader" "$_walk" "$_step" "$_ask" "$_plan"; do
+        [ -f "$_f" ] || emit_err "base_health_seam_unreadable" 4 "${_f} is not present in this checkout"
+    done
+
+    _before=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+
+    base_checks_seed
 
     # 0. THE TRANSPORT IS THE STUB. Asserted rather than assumed: a drill that silently reached
     # the network would prove nothing about the offline contract it claims to check.
@@ -6022,6 +6045,175 @@ cmd_verify_base_health() {
         emit_verdict "base-health" 0 "fail" 1
     fi
     emit_verdict "base-health" 0 "pass" 0
+}
+
+# ----------------------------------------------------- verify-bookkeeping-tip
+# Does the base still get a colour when nothing ran on its tip? The loop's own bookkeeping
+# commits are excluded from every workflow's path filter -- correctly -- so an unchecked tip is
+# the ORDINARY shape of `main` here, and `attribute-base-red.sh` returned on it before its walk
+# began. Measured: `base_unreadable:tip_no_checks` every tick for a full day while the base was
+# green throughout.
+#
+# WHY A DRILL AND NOT A TEST ALONE. The failure produced NO OUTPUT to notice. A step that
+# cannot read reports `degraded` and asks nobody, which is exactly what a healthy quiet step
+# looks like from the channel; nothing goes red, nothing is missing, and the reading is simply
+# absent. A regression here would be silent again, so it is worth a check run named after the
+# behaviour -- which is what lets `/moderate`'s `drill-health` step name it.
+#
+# NO NETWORK: `base_checks_seed`, the same local bare origin and `gh` stub `verify-base-health`
+# builds. Deliberately the SAME seeder rather than a second one: two fixtures drift, and the
+# shas a drill asserts on come from whichever one it happens to have built.
+#
+# WHAT IT PROVES, and the two controls the ticket named:
+#   1. the bookkeeping tip yields a colour   green over a checked ancestor, and red with the
+#      and its distance                      same attribution a red tip would have produced
+#   2. CONTROL -- a checked tip              unchanged: the colour is the tip's and both
+#                                            coordinates are null
+#   3. CONTROL -- a tip that failed for      terminal and named (`tip_unparseable_response`,
+#      OUR reasons                           `tip_checks_pending`), never walked past
+#   4. the bound still says so               a walk that skips its way to the end answers
+#                                            `bound_exhausted`, and `unanswerable` rather than
+#                                            `unattributable`, which asserts an observed red
+#
+# AND ONE ROW THAT DELIBERATELY BREAKS THE SEAM, written against the BEHAVIOUR rather than a
+# return shape: the continuation is removed from a copy of the walk, and the bookkeeping-tip
+# case must then produce no colour at all. If it still answers `green`, the rows above are
+# proving something other than the continuation and this drill is worth nothing.
+cmd_verify_bookkeeping_tip() {
+    _reader="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/read-base-checks.sh"
+    _walk="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/attribute-base-red.sh"
+    _step="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/step-base-health.sh"
+    for _f in "$_reader" "$_walk" "$_step"; do
+        [ -f "$_f" ] || emit_err "bookkeeping_tip_seam_unreadable" 4 "${_f} is not present in this checkout"
+    done
+
+    _before=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+
+    base_checks_seed
+
+    # 0. THE TRANSPORT IS THE STUB, asserted rather than assumed.
+    _which=$( ( cd "$_read" && PATH="${_bin}:$PATH" command -v gh ) 2>/dev/null || true )
+    if [ "$_which" = "${_bin}/gh" ]; then
+        add_row "bookkeeping_tip_offline" true "gh resolves to the drill's stub, so no network call is made" load
+    else
+        add_row "bookkeeping_tip_offline" false "gh resolved to '${_which}', not the drill's stub" load
+    fi
+
+    # 1. THE BOOKKEEPING TIP YIELDS A COLOUR, AND SAYS HOW FAR BACK IT READ IT. The tip carries
+    # no fixture, which is exactly what a commit no workflow ran on looks like.
+    _clear "$_tip"; _set "$_c4" "$_GREEN"; _set "$_c3" "$_GREEN"
+    _set "$_c2" "$_GREEN"; _set "$_c1" "$_GREEN"
+    _wg=$(_run sh "$_walk")
+    if [ "$(_field "$_wg" state)" = "green" ] \
+        && [ "$(_field "$_wg" read_at)" = "$_c4" ] \
+        && [ "$(_numfield "$_wg" read_at_distance)" = "1" ]; then
+        add_row "bookkeeping_tip_yields_a_colour" true "a tip nothing ran on answers the newest checked ancestor's colour, naming it and its distance" load
+    else
+        add_row "bookkeeping_tip_yields_a_colour" false "a bookkeeping tip did not answer an ancestor's colour: $(one_line "$_wg")" load
+    fi
+
+    # AND THE SAME ATTRIBUTION A RED TIP WOULD HAVE PRODUCED. The skipped commit is never the
+    # thing blamed for breaking the base.
+    _clear "$_tip"; _set "$_c4" "$_RED"; _set "$_c3" "$_RED"
+    _set "$_c2" "$_GREEN"; _set "$_c1" "$_GREEN"
+    _wr=$(_run sh "$_walk")
+    _set "$_tip" "$_RED"
+    _wrt=$(_run sh "$_walk")
+    if [ "$(_field "$_wr" state)" = "red" ] \
+        && [ "$(_field "$_wr" commit)" = "$(_field "$_wrt" commit)" ] \
+        && [ "$(_field "$_wr" last_green)" = "$(_field "$_wrt" last_green)" ] \
+        && [ "$(_field "$_wr" read_at)" = "$_c4" ]; then
+        add_row "bookkeeping_tip_attribution_unchanged" true "a bookkeeping tip over a red ancestor attributes the commit a red tip would, and the skipped commit is not it" load
+    else
+        add_row "bookkeeping_tip_attribution_unchanged" false "the attribution moved when the tip was skipped: $(one_line "$_wr") vs $(one_line "$_wrt")" load
+    fi
+
+    # 2. CONTROL -- A CHECKED TIP IS UNCHANGED. The coordinates are stated as ABSENT rather than
+    # as zero, so a repository whose tip carries checks reads exactly what it always read.
+    _set "$_tip" "$_GREEN"
+    _wt=$(_run sh "$_walk")
+    if [ "$(_field "$_wt" state)" = "green" ] \
+        && [ "$(_numfield "$_wt" read_at)" = "null" ] \
+        && [ "$(_numfield "$_wt" read_at_distance)" = "null" ]; then
+        add_row "bookkeeping_tip_checked_tip_unchanged" true "a colour read AT the tip states no coordinates at all" load
+    else
+        add_row "bookkeeping_tip_checked_tip_unchanged" false "a checked tip did not read as it did before the coordinates existed: $(one_line "$_wt")" load
+    fi
+
+    # 3. CONTROL -- A TIP THAT FAILED FOR OUR OWN REASONS STAYS TERMINAL AND NAMED. Such a
+    # commit may itself be red, and `checks_pending` most of all means the base has not finished
+    # answering -- walking past either would report an older commit's colour as though it were
+    # current.
+    _set "$_tip" "$_BAD"
+    _wu=$(_run sh "$_walk")
+    _set "$_tip" "$_PENDING"
+    _wp=$(_run sh "$_walk")
+    if [ "$(_field "$_wu" state)" = "unanswerable" ] \
+        && [ "$(_field "$_wu" reason)" = "tip_unparseable_response" ] \
+        && [ "$(_field "$_wp" state)" = "unanswerable" ] \
+        && [ "$(_field "$_wp" reason)" = "tip_checks_pending" ]; then
+        add_row "bookkeeping_tip_own_failure_terminal" true "a tip we could not read, and one whose checks have not finished, each stay terminal under their own reason" load
+    else
+        add_row "bookkeeping_tip_own_failure_terminal" false "an own-failure tip was walked past: $(one_line "$_wu") / $(one_line "$_wp")" load
+    fi
+
+    # 4. THE BOUND STILL SAYS SO RATHER THAN GUESSING -- and with no red ever observed the
+    # answer is `unanswerable`, never `unattributable`, which would assert a red nothing saw.
+    for _sha in "$_tip" "$_c4" "$_c3" "$_c2" "$_c1"; do _clear "$_sha"; done
+    _wb=$( ( cd "$_read" && PATH="${_bin}:$PATH" WORKAHOLIC_BASE_ATTRIBUTION_MAX=2 \
+        sh "$_walk" ) 2>&1 || true )
+    _we=$(_run sh "$_walk")
+    if [ "$(_field "$_wb" reason)" = "bound_exhausted" ] \
+        && [ "$(_field "$_wb" state)" = "unanswerable" ] \
+        && [ "$(_field "$_we" reason)" = "history_start" ] \
+        && [ "$(_field "$_we" state)" = "unanswerable" ]; then
+        add_row "bookkeeping_tip_bound_says_so" true "a walk that skips its way to its bound or to the start of history says which, and claims no colour it did not read" load
+    else
+        add_row "bookkeeping_tip_bound_says_so" false "a skipped-through walk guessed rather than saying what stopped it: $(one_line "$_wb") / $(one_line "$_we")" load
+    fi
+
+    # 5. THE STEP CARRIES THE DISTANCE TO BOTH ITS AUDIENCES, and a green base read an ancestor
+    # back is still silence -- it is the healthy steady state, not a repository event.
+    _clear "$_tip"; _set "$_c4" "$_GREEN"
+    _sg=$( ( cd "$_read" && PATH="${_bin}:$PATH" sh "$_step" --tick 20260101-000000 --root "$_read" ) 2>&1 || true )
+    if printf '%s' "$_sg" | grep -q "read at ${_c4}, 1 commit behind the tip" \
+        && printf '%s' "$_sg" | grep -q '"needs_agent": \[\]' \
+        && printf '%s' "$_sg" | grep -q '"event": ""'; then
+        add_row "bookkeeping_tip_step_says_how_far_back" true "the step names the ancestor and its distance, and a green base read back is still silence" load
+    else
+        add_row "bookkeeping_tip_step_says_how_far_back" false "the step did not say how far back it read, or broke its silence: $(one_line "$_sg")" load
+    fi
+
+    # THE DELIBERATELY BROKEN ROW, WRITTEN AGAINST THE BEHAVIOUR. The continuation is removed
+    # from a copy of the walk -- both arms, exactly the collapse that was measured -- and the
+    # bookkeeping-tip case must then produce no colour at all. This is the row an operator
+    # reading a red drill should look at first: if it says the breaker did not break, everything
+    # above it is proving something other than the continuation.
+    cp -R "${REPO_ROOT}/plugins/workaholic/skills" "${_tmp}/skills"
+    _bwalk="${_tmp}/skills/drive/scripts/attribute-base-red.sh"
+    sed 's|no_checks) ;;|no_checks_never_matches) ;;|g' "$_walk" > "$_bwalk"
+    chmod +x "$_bwalk"
+    _clear "$_tip"; _set "$_c4" "$_GREEN"
+    _bout=$( ( cd "$_read" && PATH="${_bin}:$PATH" sh "$_bwalk" ) 2>&1 || true )
+    if [ "$(_field "$_bout" state)" = "unanswerable" ] \
+        && [ "$(_field "$_bout" reason)" = "tip_no_checks" ]; then
+        add_row "bookkeeping_tip_can_fail" true "INTENTIONAL CASE: with the continuation removed, a bookkeeping tip returns no colour at all -- this drill can fail" breaker
+    else
+        add_row "bookkeeping_tip_can_fail" false "INTENTIONAL CASE: the breaker did not break -- removing the continuation still produced a colour ($(one_line "$_bout"))" breaker
+    fi
+
+    _after=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+    if [ "$_before" = "$_after" ]; then
+        add_row "bookkeeping_tip_writes_nothing" true "the checkout is byte-identical after the drill" load
+    else
+        add_row "bookkeeping_tip_writes_nothing" false "the drill changed the working tree" load
+    fi
+
+    rm -rf "$_tmp"
+    if [ "$LOAD_FAILED" -gt 0 ]; then
+        emit_verdict "bookkeeping-tip" 0 "fail" 1
+    fi
+    emit_verdict "bookkeeping-tip" 0 "pass" 0
 }
 
 # ------------------------------------------------------- verify-delivery-retry
@@ -9147,7 +9339,7 @@ cmd_verify_cadence_lapse() {
     emit_verdict "cadence-lapse" 0 "pass" 0
 }
 
-USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-all [--only <drill>] [--list] [--timeout <s>]|verify-specificate <issue>|verify-implement <issue>|verify-plan [--json]|verify-status [--json]|verify-cadence [--json]|verify-planner [--json]|verify-standup [--json]|verify-moderate [--json]|verify-propose [--json]|verify-direction-health [--json]|verify-arrival [--json]|verify-residue [--json]|verify-expiry [--json]|verify-rulings [--json]|verify-succession [--json]|verify-revision [--json]|verify-merged-claim [--json]|verify-identity-handoff [--json]|verify-close [--json]|verify-catch-up [--json]|verify-corpus-boundary [--json]|verify-retire [--json]|verify-ci-retirement [--json]|verify-act-effect [--json]|verify-delivery-retry [--json]|verify-handoff-question [--json]|verify-base-health [--json]|verify-return-path [--json]|verify-reconcile [--json]|verify-checkin-delivery [--json]|verify-findings-to-work [--json]|verify-operator-pulls [--json]|verify-condition-age [--json]|verify-cadence-lapse [--json]|verify-blocked-tick [--json]"}'
+USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-all [--only <drill>] [--list] [--timeout <s>]|verify-specificate <issue>|verify-implement <issue>|verify-plan [--json]|verify-status [--json]|verify-cadence [--json]|verify-planner [--json]|verify-standup [--json]|verify-moderate [--json]|verify-propose [--json]|verify-direction-health [--json]|verify-arrival [--json]|verify-residue [--json]|verify-expiry [--json]|verify-rulings [--json]|verify-succession [--json]|verify-revision [--json]|verify-merged-claim [--json]|verify-identity-handoff [--json]|verify-close [--json]|verify-catch-up [--json]|verify-corpus-boundary [--json]|verify-retire [--json]|verify-ci-retirement [--json]|verify-act-effect [--json]|verify-delivery-retry [--json]|verify-handoff-question [--json]|verify-base-health [--json]|verify-bookkeeping-tip [--json]|verify-return-path [--json]|verify-reconcile [--json]|verify-checkin-delivery [--json]|verify-findings-to-work [--json]|verify-operator-pulls [--json]|verify-condition-age [--json]|verify-cadence-lapse [--json]|verify-blocked-tick [--json]"}'
 
 CMD="${1:-}"
 [ -n "$CMD" ] || {
@@ -9203,6 +9395,7 @@ case "$CMD" in
     verify-delivery-retry) cmd_verify_delivery_retry "$@" ;;
     verify-handoff-question) cmd_verify_handoff_question "$@" ;;
     verify-base-health) cmd_verify_base_health "$@" ;;
+    verify-bookkeeping-tip) cmd_verify_bookkeeping_tip "$@" ;;
     verify-return-path) cmd_verify_return_path "$@" ;;
     verify-reconcile) cmd_verify_reconcile "$@" ;;
     verify-log-branch) cmd_verify_log_branch "$@" ;;

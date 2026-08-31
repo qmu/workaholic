@@ -2,7 +2,7 @@
 type: Mission
 title: Read the base's colour past a bookkeeping tip
 slug: read-the-base-s-colour-past-a-bookkeeping-tip
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-31T20:29:23+00:00
 author: a@qmu.jp
@@ -43,10 +43,12 @@ reasons stays terminal, named, and never walked past.
       the newest checked ancestor's colour. (#20260831202933-continue-the-base-walk-past-a-commit-nothing-ran-on.md)
 - [x] Every other unanswerable reason stays terminal, and the distance is stated wherever the
       colour is read. (#20260831202934-say-how-far-back-the-base-s-colour-was-read.md)
-- [ ] A drill proves both offline and fails if a bookkeeping tip silences the reading again. (#20260831202934-drill-the-base-reading-past-a-bookkeeping-tip.md)
+- [x] A drill proves both offline and fails if a bookkeeping tip silences the reading again. (#20260831202934-drill-the-base-reading-past-a-bookkeeping-tip.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-31 — ticket archived — 20260831202933-continue-the-base-walk-past-a-commit-nothing-ran-on.md
 - 2026-08-31 — ticket archived — 20260831202934-say-how-far-back-the-base-s-colour-was-read.md
+- 2026-08-31 — ticket archived — 20260831202934-drill-the-base-reading-past-a-bookkeeping-tip.md
+- 2026-08-31 — mission achieved — mission.md

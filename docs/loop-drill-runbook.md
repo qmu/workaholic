@@ -52,6 +52,7 @@ Run every command from the repository root, on a clean `main`.
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-delivery-retry --json` | a throwaway repository holding three units finished in the identical shape — proves the survey offers an undelivered unit in a field of its own, that only the proof reaches the merge seam, and that a scan-held or unrecorded one never does, with the transport stubbed and one row that deliberately breaks the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-handoff-question --json` | a throwaway repository holding a reported claim whose still-queued work declares `verification_handoff:` — proves the declared reason reaches its holder verbatim exactly once, that `stalled-units` asks nothing about the same unit, and that nothing is cleared, with the transport stubbed and one row that deliberately breaks the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-base-health --json` | a throwaway repository whose base is red at a mid-walk merge — proves the reader's three states, the attribution walk's two outcomes, that one broken commit costs exactly one question, and that the reading gates nothing, with the transport stubbed and one row that deliberately breaks the seam |
+| — | Any time | `sh scripts/e2e/loop-drill.sh verify-bookkeeping-tip --json` | the same throwaway repository with **nothing run on its tip** — proves the walk continues past a commit no check ran on and says how far back it read the colour, that a tip we could not read for our own reasons stays terminal, that a checked tip is unchanged, and that a walk which skips to its bound says so rather than guessing |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-return-path --json` | a throwaway repository holding two asked questions with their coordinates recorded — walks ask → reply → record → file → stamp → **outcome reply**, proves the read is bounded to the question's own thread, that a second tick files, stamps and replies nothing, that only a settled outcome earns a reply, and that neither the stamp nor the reply is load-bearing, with the transport stubbed and **two** rows that deliberately break the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-checkin-delivery --json` | a throwaway tick log spanning several days, with the day's asks all on **earlier** days — walks the whole path from a machine finding to a person (gate → ordering → step → event → root), proving a held question lands, that it is not re-asked, that the drain honours `max_per_tick` oldest-held first, that a genuinely spent day still holds, and that a tick which reached nobody supplies its event while a quiet hour stays silent, with no network and one row that deliberately breaks the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-findings-to-work --json` | a throwaway git repository and a stubbed `gh` — walks the whole path from a tick finding to the work queue (classification → brake → filing → dedup → suppression), proving a `needs_ruling` finding never reaches the filer, that one open finding issue holds the rest, that a second tick files nothing, and that the filed step's question is held while every other step's still asks, with no network and one row that deliberately breaks the seam |
@@ -1175,6 +1176,41 @@ with one that already merged.
 | `base_health_can_fail` | a commit with **no checks at all** reads `green` | **the deliberately broken row, and the one to look at first on a red drill.** An empty check list looks exactly like *nothing failed*; if the reader ever agrees, a base nobody looked at becomes indistinguishable from a base that passed |
 | `base_health_writes_nothing` | the drill changed the checkout | every fixture lives outside the checkout |
 
+## 5n-bis. The base's colour past a bookkeeping tip
+
+`verify-bookkeeping-tip` shares `verify-base-health`'s seeder exactly — `base_checks_seed`, one
+local bare origin, one `gh` stub, no network and no credential. A second fixture would drift, and
+the shas a drill asserts on come from whichever one it happened to build.
+
+**The failure it guards produced no output to notice.** The loop's bookkeeping commits are
+excluded from every workflow's path filter, correctly, so an unchecked tip is the ordinary shape
+of `main` here — and the walk returned on any unanswerable tip before it began. A step that
+cannot read reports `degraded` and asks nobody, which is what a healthy quiet step looks like
+from the channel: nothing goes red, nothing is missing, and the reading is simply absent.
+Measured: `base_unreadable:tip_no_checks` every tick for a full day while the base was green
+throughout. A regression would be silent again, which is why this is a check run named after the
+behaviour rather than a test row alone — `/moderate`'s `drill-health` step can then name it.
+
+**What the drill proves offline, and what it does not.** It proves the **walk**: that a commit
+nothing ran on is skipped and only that one, that a reading we could not make stays terminal, and
+that the bound still says what stopped it. It proves nothing about any real repository's CI
+reporting check runs — the fixtures are stubbed — and the reader's own limit is untouched by this
+mission and stays stated where it already is: `read-base-checks.sh` reads **check runs only**,
+never the legacy combined-status endpoint, so a repository whose CI reports only legacy commit
+statuses reads `no_checks` everywhere and this walk will skip its way to `history_start`.
+
+| Row | Fails when | Read |
+| --- | ---------- | ---- |
+| `bookkeeping_tip_offline` | `gh` resolves to anything but the drill's stub | the drill is reaching the network, so every row below it proves nothing about the offline path |
+| `bookkeeping_tip_yields_a_colour` | a tip nothing ran on does not answer the newest checked ancestor's colour, with the ancestor and its distance named | `attribute-base-red.sh`'s tip `case` — the continuation, and the `read_at` / `read_at_distance` coordinates |
+| `bookkeeping_tip_attribution_unchanged` | the attributed commit or the last green moves when the tip is skipped | `oldest_red` — it may only ever hold a commit read `red`, so a skipped commit is never blamed |
+| `bookkeeping_tip_checked_tip_unchanged` | a colour read **at** the tip states coordinates rather than `null` | the pre-existing shape: a repository whose tip carries checks must read exactly what it always read |
+| `bookkeeping_tip_own_failure_terminal` | an unparseable tip, or one whose checks have not finished, is walked past | such a commit may itself be red, and `checks_pending` means the base has not finished answering — walking past either reports an older commit's colour as current |
+| `bookkeeping_tip_bound_says_so` | a walk that skips to its bound or to the start of history guesses, or claims a red it never saw | `bound_exhausted` / `history_start` is what keeps the walk honest, and `unanswerable` rather than `unattributable` is the same honesty in the other direction |
+| `bookkeeping_tip_step_says_how_far_back` | the step does not name the ancestor and its distance, or a green base read back breaks its silence | the log-facing `summary` carries the coordinates; a green base is the healthy steady state and supplies **no event** whatever the distance |
+| `bookkeeping_tip_can_fail` | removing the continuation from a copy of the walk still produces a colour | **the deliberately broken row, and the one to look at first on a red drill.** It is written against the behaviour: if the collapse can be restored without this drill noticing, every row above it is proving something other than the continuation |
+| `bookkeeping_tip_writes_nothing` | the drill changed the checkout | every fixture lives outside the checkout, and the breaker's copy of the walk lives in the drill's own temp tree |
+
 **Both failure modes were observed, not asserted.** Making the reader answer `green` for a
 checkless commit turned `base_health_can_fail`, `base_health_unanswerable_by_name` and
 `base_health_degraded_asks_nothing` red together; adding a reference to `read-base-checks.sh`
@@ -1466,6 +1502,7 @@ rather than guessed. **No artifact gained a field**: the slug lives here and now
 | `verify-delivery-retry` | `hermetic` | yes | `deliver-and-retire-what-the-loop-already-proved-finished` |
 | `verify-handoff-question` | `hermetic` | yes | `ask-for-the-one-act-a-declared-handoff-is-waiting-on` |
 | `verify-base-health` | `hermetic` | yes | `read-whether-the-base-survived-what-the-loop-merged` |
+| `verify-bookkeeping-tip` | `hermetic` | yes | `read-the-base-s-colour-past-a-bookkeeping-tip` |
 | `verify-return-path` | `hermetic` | yes | `let-an-answer-in-the-thread-turn-back-into-the-loop-s-work` |
 | `verify-reconcile` | `hermetic` | yes | `reconcile-a-stale-thread-with-the-unit-s-real-state` |
 | `verify-log-branch` | `hermetic` | yes | `take-the-moderation-tick-s-log-off-main` |

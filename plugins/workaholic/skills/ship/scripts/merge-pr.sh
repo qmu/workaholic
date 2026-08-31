@@ -72,10 +72,17 @@ fi
 
 # REST, NOT `gh pr merge` (2026-08-12, FB 20260812172522): the subcommand is
 # GraphQL-backed and a Claude Code Web session may serve only the pinned PR-review
-# operations. `merge_method: merge` reproduces `--merge` exactly, and REST never deletes
-# the head branch, which is what `--delete-branch=false` was asking for.
+# operations. REST never deletes the head branch, which is what `--delete-branch=false`
+# was asking for; the repository's `delete_branch_on_merge` setting does
+# (`workaholify/scripts/check-repo-settings.sh`).
+#
+# THE METHOD IS READ, NEVER SPELLED (2026-09-01). `gather/scripts/merge-method.sh` is the one
+# derivation -- it answers `squash`, and its header carries why and what it costs. A literal
+# here would be one of four copies of one word, and a call site merging the other way would put
+# the loop's branch-internal bookkeeping back onto `main` for one route only.
 SCRIPT_DIR=$(cd -- "$(dirname -- "$0")" && pwd)
 GATHER_SCRIPTS="${SCRIPT_DIR}/../../gather/scripts"
+MERGE_METHOD=$(sh "${GATHER_SCRIPTS}/merge-method.sh")
 
 slug=$(sh "${GATHER_SCRIPTS}/gh-rest.sh" slug 2>&1) || {
   echo '{"merged": false, "reason": "no_remote", "detail": "'"$(printf '%s' "$slug" | tr -d '"\\' | tr '\n' ' ')"'"}' >&2
@@ -83,7 +90,7 @@ slug=$(sh "${GATHER_SCRIPTS}/gh-rest.sh" slug 2>&1) || {
 }
 
 if ! merge_out=$(sh "${GATHER_SCRIPTS}/gh-rest.sh" api \
-    "repos/${slug}/pulls/${pr_number}/merge" --method PUT -f merge_method=merge 2>&1); then
+    "repos/${slug}/pulls/${pr_number}/merge" --method PUT -f "merge_method=${MERGE_METHOD}" 2>&1); then
   # The underlying message rides the error rather than being swallowed: a 405 (GitHub
   # refusing the merge) and a 403 (the transport being restricted) need different
   # actions from whoever reads this.

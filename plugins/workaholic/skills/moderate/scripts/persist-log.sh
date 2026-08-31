@@ -396,8 +396,13 @@ while [ "$attempt" -lt "$ATTEMPTS" ]; do
         report true ok already_current "every line of ${DAY} is already on ${BASE}" 0 0 "$attempt" false '' "$CLOSED" "$CLOSE_REASON"
     fi
 
+    # THE SUBJECT NAMES THE TICK THAT WROTE IT (2026-09-01). It read `Log the propose tick` for
+    # the whole of this script's life -- a name inherited from when this routine was `[Propose]`
+    # and freed on 2026-08-19 -- so `main`'s log described ~50 commits a day as the work of a
+    # routine that no longer exists and never wrote one of them. The subject is the only thing
+    # about these commits a person reads in `git log`.
     commit_out=$(cd "$repo_root" && sh "${BRANCHING}/publish-tree-commit.sh" \
-        "Log the propose tick ${TICK}" \
+        "Log the moderation tick ${TICK}" \
         "An hourly unattended tick's only audit trail is what it writes down, and the routine's container is discarded after the run." \
         "The ${DAY} moderations log on ${BASE} now carries this tick's steps, so the next tick's dedups and a human's audit read the same record." \
         "None" \

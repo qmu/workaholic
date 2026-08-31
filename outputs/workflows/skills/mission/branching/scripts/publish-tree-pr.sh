@@ -372,14 +372,15 @@ if [ "${WORKAHOLIC_AUTO_MERGE:-}" = "1" ]; then
   scan_json=$( cd "$publish_path" && sh "${SCRIPT_DIR}/../../release-scan/scripts//scan-branch-safety.sh" "origin/${base}" 2>/dev/null || true )
   case "$scan_json" in
     *'"verdict": "pass"'*)
-      # `PUT .../merge` with merge_method "merge" — the REST equivalent of the
-      # `gh pr merge --merge` this replaces, for the same GraphQL reason as the create
-      # above. merge_reason stays HONEST rather than collapsing every non-200 into
+      # `PUT .../merge` — the REST equivalent of the `gh pr merge` this replaces, for the
+      # same GraphQL reason as the create above. The METHOD is read from
+      # `gather/scripts/merge-method.sh`, the one derivation (2026-09-01), never spelled here.
+      # merge_reason stays HONEST rather than collapsing every non-200 into
       # merge_failed: 405 is GitHub refusing the merge itself (conflict, or a required
       # check not satisfied), 409 is the head moving under us, and those are different
       # next actions for whoever reads the line.
       if merge_resp=$( cd "$publish_path" && sh "${GATHER_SCRIPTS}/gh-rest.sh" api \
-          "repos/${slug}/pulls/${pr_number}/merge" --method PUT -f merge_method=merge 2>&1 ); then
+          "repos/${slug}/pulls/${pr_number}/merge" --method PUT -f "merge_method=$(sh "${GATHER_SCRIPTS}/merge-method.sh")" 2>&1 ); then
         merged=true
         merge_reason="merged"
       else

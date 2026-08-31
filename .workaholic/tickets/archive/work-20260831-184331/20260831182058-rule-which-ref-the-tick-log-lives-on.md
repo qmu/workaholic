@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-31T18:20:58+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -107,3 +108,53 @@ the new ref, or it will be misread the hour it appears:
   reader will assume it does.
 - Ticket 5 rules on the history already on `main`; this ticket rules only on
   where new log writes go. Keep them apart.
+
+## Final Report
+
+Development completed as planned. The ruling is written into `workaholic:moderate`
+(*Where the log lives, and why it is not `main`*) as the mechanism's one home, with
+`rules/workaholic.md` and `CLAUDE.md` updated in the same change so no surface still
+describes the publish-tree-to-base path for the log.
+
+The ruling, in four parts:
+
+- **The ref is `refs/heads/workaholic/moderation-log`**, an orphan history whose tree
+  carries only `.workaholic/moderations/<UTC-day>.md`. The namespace is forced by a
+  measurement taken in this container, not inherited from `claims.md`: pushing the base
+  tip into `refs/moderations/*`, `refs/claims/*` and `refs/notes/*` each answered
+  `error: RPC failed; HTTP 403`, and the response is quoted in the ruling.
+- **The first tick that needs the ref creates it**, seeding it from the checkout. The
+  `/workaholify` alternative is named with its failure mode: an attended command run
+  rarely means a repository whose operator has not run it loses every tick's log
+  silently, which is the degradation the mission exists to remove.
+- **A fresh container reaches it through one bounded fetch**, quoted as an exact command,
+  with `log_ref_unreachable` and `log_ref_absent` as its two named failures. A fetch that
+  could not reach the ref is reported, never rendered as an empty log.
+- **The two ref-walking mechanisms each get a rule**: `list-claims.sh` excludes the ref by
+  name; `guard-git-branch.sh` is left alone, deliberately, because the creation path is a
+  push and not a local branch-creation surface.
+
+### Discovered Insights
+
+- **Insight**: `guard-git-branch.sh` cannot see the log ref's creation at all. Its
+  tokenizer tracks only `checkout`/`switch`/`branch`/`worktree`; a `git push
+  <sha>:refs/heads/<name>` sets `gitseen=1`, fails to match a tracked subcommand, resets
+  and allows.
+  **Context**: The ticket anticipated widening the guard. Widening it would have added a
+  permitted name to a gate that never sees this path — cost with no benefit. The correct
+  answer was to bind the *publisher* to the push form instead, which is why the ruling
+  says the suite pins that the publisher creates no local branch.
+
+- **Insight**: `lib/claims.sh`'s claim scan already rejects a log ref, but incidentally —
+  its fast filter is `a Claim a PR-unit commit in the unmerged range`, and a log ref has
+  none.
+  **Context**: That is a backstop whose validity depends on nothing on the ref ever
+  carrying a claim subject, which nobody is watching. Recording it as a backstop and
+  making the by-name exclusion the rule keeps the property from silently becoming
+  incidental again.
+
+- **Insight**: An orphan history is not just tidiness. `git rev-list --count main..<ref>`
+  over unrelated histories returns the log ref's whole commit count, so a claim scan that
+  reached the ahead-count test would pay for it on every scan.
+  **Context**: The by-name exclusion is placed before the ahead-count test for this
+  reason, not only for correctness.

@@ -140,7 +140,47 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/log-read.sh --step issue-tria
 
 Full rationale for both decisions (why it is not knowledge, why nothing prunes it): `plugins/workaholic/rules/workaholic.md`.
 
-**The log is committed by the tick itself, as its closing act** — `run.sh` runs `persist-log.sh` after the last step, and that is the only thing in this skill that writes to the base. A routine-fired tick runs in a fresh container cloned from the base, so a log left in the checkout would take every dedup's memory with it *and* leave an hourly unattended process with no audit trail; a hand-run never sees the failure, because its checkout survives. The seam is the **publish tree, directly** (`branching/scripts/open-publish-tree.sh` → `publish-tree-commit.sh` → `close-publish-tree.sh`): the caller's checkout is left byte-identical, no `work-*` branch is created, and no `publish-main` ref reaches origin, so the claim protocol never sees it. This is **not** the unattended-`main`-writer class `workaholic:ship` §7 refused — the append is not self-referential, it touches no branch a claim owns, and it merges nothing — and the reasoning is spelled out in `persist-log.sh`'s header alongside the rejected alternative (a pull request per tick: twenty-four a day asking a human to approve a line about what a machine already did). Concurrent ticks **union by `(tick, step)`** against a freshly fetched base rather than replaying a patch, so two containers on the same day both land — whole sections the base lacks, and, within a section it already carries, the individual entries it lacks. That line-wise half is what lets the agent's second persist above carry a `<step>-filed` line into a section that has already landed; a `(tick, step)` the base already has is never rewritten, so nothing a colleague's container recorded can be clobbered. A persist that did not reach the base is reported `degraded` **by name** and the log stays in the checkout for the next tick to carry up. The *last* persist's own line is written to the checkout and not to the base — the outcome is only known after the push, and the base already answers the question it would ask: the tick's section is there iff its persist succeeded.
+**The log is published by the tick itself, as its closing act** — `run.sh` runs `persist-log.sh` after the last step, and that is the only thing in this skill that writes to a remote. A routine-fired tick runs in a fresh container cloned from the base, so a log left in the checkout would take every dedup's memory with it *and* leave an hourly unattended process with no audit trail; a hand-run never sees the failure, because its checkout survives. Concurrent ticks **union by `(tick, step)`** against a freshly fetched target rather than replaying a patch, so two containers on the same day both land — whole sections the target lacks, and, within a section it already carries, the individual entries it lacks. That line-wise half is what lets the agent's second persist above carry a `<step>-filed` line into a section that has already landed; a `(tick, step)` the target already has is never rewritten, so nothing a colleague's container recorded can be clobbered. A persist that did not arrive is reported `degraded` **by name** and the log stays in the checkout for the next tick to carry up. The *last* persist's own line is written to the checkout and not published — the outcome is only known after the push, and the target already answers the question it would ask: the tick's section is there iff its persist succeeded.
+
+### Where the log lives, and why it is not `main`
+
+**The tick log lives on a dedicated ref, not on the base** (2026-08-31, mission `take-the-moderation-tick-s-log-off-main`). Until then the closing act committed the day file straight onto `main` through the publish tree, two or three times a tick. That was correct for *durability* and wrong for *whose history it is*: measured over one day on a consuming repository, `main` took 275 commits, 138 of them `.workaholic/`-only and 5 touching the product, and the single largest author was this log. `main` is the development target's history; an hourly operational log is not a change to the development target.
+
+**The ref is `refs/heads/workaholic/moderation-log`**, and every part of that name is forced:
+
+- **`refs/heads/` is the only namespace this can live in.** A custom namespace is the design one would reach for first, and it is not implementable where this has to run. Reproduced in a routine-class container on 2026-08-31, pushing the base tip into three namespaces:
+
+  ```
+  $ git push origin <sha>:refs/moderations/probe-20260831
+  error: RPC failed; HTTP 403 curl 22 The requested URL returned error: 403
+  send-pack: unexpected disconnect while reading sideband packet
+  fatal: the remote end hung up unexpectedly
+  ```
+
+  `refs/claims/*` and `refs/notes/*` answer identically, which reproduces and extends `drive/reference/claims.md`'s own finding that `refs/claims/*` answers 403 over both transports and `refs/heads/*` is the only writable namespace here. A design needing any other namespace is unimplementable in the container that has to run it, so the choice is made on a measurement rather than on taste.
+- **The name is not a branch pattern.** `work-YYYYMMDD-HHMMSS` and `release/YYYYMMDD-HHMMSS` are the two literal patterns the loop mints, and `workaholic/moderation-log` is neither — so no reader that keys on those patterns (`retire-claim.sh`'s `not_a_work_branch`, `catch-up-claim.sh`'s, `cut-release-branch.sh`'s) can mistake it for a unit or a release.
+- **Its history is an orphan**, sharing no commit with `main`. The log is not a version of the product, and an orphan ref keeps the two disjoint: nothing on it can ever be merged, reverted, or read as work in flight.
+- **Its tree carries `.workaholic/moderations/<UTC-day>.md` and nothing else.**
+
+**The two mechanisms that already walk refs each get an explicit rule**, because a ref under `refs/heads/` is in both their fields of view:
+
+- **`list-claims.sh` excludes the log ref by name.** The claim oracle is *unmerged remote branches*, and this ref is unmerged forever by construction, so it would be a claim candidate on every scan. It is skipped beside `origin/HEAD` and the base. The oracle's existing fast filter — a `Claim a PR-unit` commit in the unmerged range — already rejects it, and that is a **backstop, not the rule**: it holds only for as long as nothing on the ref ever carries a claim subject, which is a property nobody is watching. The name exclusion is the rule and is pinned by the suite.
+- **`guard-git-branch.sh` needs no change, and that is the ruling rather than an omission.** The guard matches *local branch-creation* surfaces — `git checkout -b`, `git switch -c`, `git branch <name>`, `git worktree add -b` — and the log ref is created and updated by `git push <commit>:refs/heads/workaholic/moderation-log`, which creates no local branch and is not one of those surfaces. Widening a gate for a path that never reaches it would cost the gate and buy nothing. The suite pins that the publisher creates no local branch, so a future implementation that reached for `git branch` would fail rather than quietly widening what the guard permits.
+
+**The first tick that needs the ref creates it**, seeding it with whatever day files the checkout carries. The alternative — `/workaholify` creates it — was refused on its failure mode: `/workaholify` is an attended command an operator runs rarely, so a repository whose operator has not run it would lose every tick's log, silently, until they did. That is the exact silent degradation this mission exists to remove. The failure mode of the chosen path is stated instead: a container that cannot push reports its named reason and leaves the log in the checkout for the next tick, which is what the persist already does.
+
+**A fresh container reaches the log through one bounded fetch**, run once per tick by the `open-log` step and by nothing else:
+
+```bash
+git fetch --no-tags --quiet origin \
+  +refs/heads/workaholic/moderation-log:refs/remotes/origin/workaholic/moderation-log
+```
+
+Its named failures are `log_ref_unreachable` (origin is there and the ref could not be fetched) and `log_ref_absent` (the fetch succeeded and no such ref exists yet — the ordinary state of a repository whose first tick has not run). **A fetch that could not reach the ref is a degradation the tick reports, never a silent empty log**: a reader that answered *nothing found* would make every dedup in the tick re-fire, which is the one failure the log exists to prevent.
+
+**The claim protocol, the heartbeat and the worktree model are untouched.** The log ref is not a branch anybody drives: no claim commit is made on it, no worktree is attached to it, no heartbeat beats on it, no pull request is opened for it and nothing ever merges it. Said explicitly because a ref under `refs/heads/` invites the opposite assumption.
+
+**The history already on `main` is a separate question** and is ruled where it is acted on, below (*What became of the history on `main`*). This rule governs only where new log writes go.
 
 ## Where a cadence is declared, and what it says
 

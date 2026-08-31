@@ -51,3 +51,4 @@ puts a tick log back on `main` fails a drill.
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-31 — ticket archived — 20260831182058-rule-which-ref-the-tick-log-lives-on.md

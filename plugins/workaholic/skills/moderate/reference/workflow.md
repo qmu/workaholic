@@ -1978,6 +1978,44 @@ else's branch. Were the reading ever to be that the repair is not mechanical, th
 
 ---
 
+## A refused action is reported, never silently skipped
+
+`rules/interaction.md`, *An unattended run never waits for a person*, admits two outcomes and
+refuses a third. Its second — *refuse the single action and carry on, recording what was refused
+and why* — is only admissible if the record reaches somebody: without one a refusal is
+indistinguishable from an action that silently did nothing, which is the shape this whole tick
+exists to remove one level up.
+
+**Three facts and no more**: the action refused, the reason, and that the rest of the run
+continued. A refusal is not a stack trace, and a fourth fact is how a refusal line becomes
+something nobody reads.
+
+**It uses the surfaces and the vocabulary that already exist.** A step that refuses an action
+reports **`blocked`** — already in `run.sh`'s closed status vocabulary and already accepted by
+`log-append.sh` — with its own `reason` and a `summary` naming those three facts. That puts it in
+the tick log line and the run report a person already reads, keeps it out of `ok`, and carries it
+into the root's impairment clause beside a `degraded` read, which renders the two under one clause
+because *they differ in cause and are identical in consequence to the reader*. **No new status, no
+new store, no field on any artifact, and no new surface**: everything a refusal needs was already
+there and unsaid.
+
+**The agent's own refusals** — taken after `run.sh` returns, acting on `needs_agent` — are recorded
+the same way, through `log-append.sh` under `<step>-refused`, which is the `<step>-filed`
+convention applied to the other outcome.
+
+**It moves no token and gates nothing.** A refused action is a fact about one step, not a verdict
+on the run; no route, gate, hold, claim or sort reads it, and the person who must act is reached by
+the tick's own questions.
+
+**What it records, and what it cannot see.** This covers a refusal **this repository's own code
+decides to make**. A permission prompt denied by the harness is not observable from inside a script
+at all — a script has no notion of having been refused one — and the documented routine model says
+such prompts should not arise in the first place (`workaholic:workaholify`, *Where an unattended
+run's prompt policy is configured*, which also records that the measured behaviour diverges from
+it). Where one does arise it surfaces, if at all, as an ordinary `step_error`. **The limit is
+stated rather than glossed**: a reader must not take this contract as evidence that every refusal
+in a tick is visible.
+
 ## What `run.sh` guarantees around the steps
 
 - **Every step is invoked and every step reports.** Missing script → `degraded`/`step_missing`;

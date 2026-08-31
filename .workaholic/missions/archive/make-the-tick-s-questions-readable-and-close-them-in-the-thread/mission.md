@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: []
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 2.6
 feedback: [20260831200350-make-the-tick-s-slack-questions-self-explanatory-and-close-the-loop-in-the-thread.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
@@ -59,3 +59,4 @@ recorded and what came of it — once.
 - 2026-08-31 — ticket archived — 20260831200959-drill-the-outcome-reply-offline.md
 - 2026-08-31 — mission achieved — mission.md
 - 2026-08-31 — story reported — work-20260831-114321
+- 2026-08-31 — run recorded (+2.6h) — work-20260831-114321

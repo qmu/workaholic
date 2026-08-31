@@ -15456,6 +15456,67 @@ function testNotifySlack() {
       ["curl_failed"].includes(JSON.parse(r.stdout).reason) || JSON.parse(r.stdout).reason.startsWith("http_"), r.stdout);
     assertTrue("the token never leaks into stdout/stderr",
       !r.stdout.includes("supersecret") && !r.stderr.includes("supersecret"), r.stdout + r.stderr);
+
+    // ---- --thread-ts: the key rides the payload ONLY when the flag is given ----
+    // 2026-08-31, mission `notify-the-person-a-directed-question-addresses`. The
+    // script could post a keyed ROOT and nothing else, which is why the model
+    // called it a fallback no call site may pick -- and that kept the one
+    // transport with a non-operator identity away from the one post shape whose
+    // whole purpose is to reach a person. `thread_ts` is an ordinary argument of
+    // chat.postMessage under the same `chat:write` the script already requires.
+    // The payload is captured through a `curl` STUB on PATH rather than a
+    // listener: no socket, no port to race, and the assertion is on the bytes
+    // that would have gone out.
+    const bin = join(dir, "bin");
+    mkdirSync(bin, { recursive: true });
+    const capture = join(dir, "payload.json");
+    writeFileSync(join(bin, "curl"), `#!/bin/sh
+out=""; data=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -o) out="$2"; shift 2 ;;
+    --data) data="$2"; shift 2 ;;
+    *) shift ;;
+  esac
+done
+printf '%s' "$data" > "${capture}"
+printf '{"ok": true}' > "$out"
+printf '200'
+`, { mode: 0o755 });
+    const posted = { ...process.env, PATH: `${bin}:${process.env.PATH}`, SLACK_BOT_TOKEN: "xoxb-test", WORKAHOLIC_SLACK_CHANNEL: "C123" };
+
+    r = run(dir, `${POSIX_SH} ${SCRIPTS.proposeNotifySlack} --thread-ts 1712345678.123456 "reply text"`, { env: posted });
+    assertEq("a threaded post succeeds", JSON.parse(r.stdout), { notified: true, reason: "" });
+    assertEq("with --thread-ts the coordinate rides the payload verbatim",
+      JSON.parse(readFileSync(capture, "utf8")),
+      { channel: "C123", text: "reply text", thread_ts: "1712345678.123456" });
+
+    r = run(dir, `${POSIX_SH} ${SCRIPTS.proposeNotifySlack} "reply text"`, { env: posted });
+    assertEq("an unthreaded post succeeds", JSON.parse(r.stdout), { notified: true, reason: "" });
+    assertEq("with no flag the payload is byte-identical to the pre-change one — no thread_ts key at all",
+      readFileSync(capture, "utf8"), `{"channel": "C123", "text": "reply text"}`);
+
+    // A malformed coordinate is refused BY ITS OWN NAME rather than dropped:
+    // silently posting a root where a reply was asked for is invisible from the
+    // caller's side, which is the failure this flag exists to remove.
+    for (const bad of ["abc", "1712345678", "1712345678.", ".123456", "17.12.34"]) {
+      r = run(dir, `${POSIX_SH} ${SCRIPTS.proposeNotifySlack} --thread-ts ${bad} "text"`, { env: posted });
+      assertEq(`a malformed --thread-ts (${bad}) is refused by name`,
+        { status: r.status, reason: JSON.parse(r.stdout).reason }, { status: 1, reason: "bad_thread_ts" });
+    }
+    r = run(dir, `${POSIX_SH} ${SCRIPTS.proposeNotifySlack} --thread-ts`, { env: posted });
+    assertEq("a --thread-ts with no value is refused by name, never treated as absent",
+      { status: r.status, reason: JSON.parse(r.stdout).reason }, { status: 1, reason: "bad_thread_ts" });
+
+    // Every pre-existing refusal is unchanged UNDER THE FLAG too -- the flag adds
+    // a capability, it does not reorder the graceful no-ops.
+    r = run(dir, `${POSIX_SH} ${SCRIPTS.proposeNotifySlack} --thread-ts 1712345678.123456 "text"`,
+      { env: { ...process.env, SLACK_BOT_TOKEN: "", WORKAHOLIC_SLACK_CHANNEL: "C123" } });
+    assertEq("a threaded post with no token is the same recorded no-op, exit 0",
+      { status: r.status, ...JSON.parse(r.stdout) }, { status: 0, notified: false, reason: "no_token" });
+    r = run(dir, `${POSIX_SH} ${SCRIPTS.proposeNotifySlack} --thread-ts 1712345678.123456 ""`);
+    assertEq("missing text stays the one malformed-invocation error even with a valid coordinate",
+      { status: r.status, reason: JSON.parse(r.stdout).reason }, { status: 1, reason: "no_text" });
   } finally { cleanup(dir); }
 }
 
@@ -21636,6 +21697,15 @@ function testStatelessThreadLookup() {
   // Naming it is fine -- naming it without the word that marks it as the fallback is the
   // drift that put four runs' finish lines nowhere. Word-level, not sentence-level: the
   // check pins the relationship between the two transports, never anyone's phrasing.
+  //
+  // SINCE 2026-08-31 the script has a SECOND role (mission
+  // `notify-the-person-a-directed-question-addresses`): it carries the two DIRECTED shapes for
+  // their IDENTITY, because every post otherwise reaches Slack as the operator's own account
+  // and a self-resolving mention pages nobody. That is not the drift this row exists to catch
+  // -- it is a deliberate, enumerated selection -- and the two documents naming it that way say
+  // "fallback" in the same breath, which is what keeps this word-level row honest rather than
+  // merely satisfied. Stated so a later reader does not read a pass here as proof that the
+  // script is never selected first; the enumeration that bounds it lives in the notify SKILL.
   const scriptFirst = [];
   for (const rel of readdirSync(pluginRoot, { recursive: true })) {
     const r = String(rel);
@@ -21724,8 +21794,50 @@ function testStatelessThreadLookup() {
   // quotes the retired shape by name, and a document-wide match would read its own
   // history as the live wire format.
   const fencedShapes = [...catalog.matchAll(/```\n([\s\S]*?)```/gu)].map((m) => m[1]).join("\n");
-  assertTrue("🟡 Handoff no longer names the runner it mentioned",
-    !/🟡 Handoff <@U/u.test(fencedShapes), "the runner's self-mention survives on the handoff shape");
+  // 2026-08-31, mission `notify-the-person-a-directed-question-addresses`: this pinned
+  // "🟡 Handoff carries no token at all", which was the 2026-08-23 decision's *effect* rather
+  // than its rule. The rule is "not yourself, never nobody" — the same rule the check-in
+  // question's row below pins — and the handoff line is the other shape waiting on exactly one
+  // person's act, so it names its ASSIGNEE. What the fenced text can prove is that the token is
+  // back; WHOM it resolves to is a runtime fact no wire format can carry, so the prose pins
+  // below cover the half a shape cannot.
+  assertTrue("🟡 Handoff names the person who must act",
+    /🟡 Handoff <@U…>/u.test(fencedShapes), "the handoff shape names nobody, so it reaches nobody");
+  assertTrue("and the catalog says that name is the unit's assignee, never the runner",
+    /🟡 Handoff.*names the person who must act/su.test(catalog)
+    && /unit's `assignees`/u.test(catalog), "the addressee the handoff line names is unstated");
+  assertTrue("and that an unresolved address omits the token rather than guessing one",
+    /omitted when the address does not resolve/u.test(catalog), "an unresolvable addressee may be guessed");
+
+  // THE PROMPT IS THE CEILING, so a shape `workaholic:drive` §7 REQUIRES must be named by the
+  // template of the routine that has to emit it. Until 2026-08-31 the [Implement] prompt named
+  // only 🟢 Implemented while the run contract has said since 2026-08-14 that a handoff unit's
+  // 🟡 IS its one finish post — a documented shape no session was authorized to post. The
+  // catalog keeps 🚀/🟡/🔴 in one fence, so the stanza is taken by its blank-line boundaries
+  // rather than by the fence's first line.
+  const stanza = (text, lead) =>
+    (text.split(/\n\n+/u).find((s) => s.trimStart().startsWith(lead)) || "").trim();
+  const catalogHandoff = stanza(fencedShapes, "🟡 Handoff");
+  assertTrue("the catalog carries the handoff finish shape", catalogHandoff !== "", fencedShapes);
+  const implementShapes = [...implementTemplate.matchAll(/```\n([\s\S]*?)```/gu)].map((m) => m[1]).join("\n\n");
+  assertEq("the handoff finish line reads byte-identically in the catalog and the [Implement] template",
+    stanza(implementShapes, "🟡 Handoff"), catalogHandoff);
+  // Naming the shape is half of it: the template must also say WHO it names and WHAT carries
+  // it, or a session emits the shape with the poster's own token and reaches nobody again.
+  assertTrue("and the [Implement] template says the token is the unit's assignee, never the runner",
+    /unit's own assignee, never you/u.test(implementTemplate), "the handoff addressee is unstated in the template");
+  assertTrue("and that it rides the bot when a token is configured",
+    /SLACK_BOT_TOKEN/u.test(implementTemplate) && /--thread-ts/u.test(implementTemplate),
+    "the [Implement] template names no carrier for its directed shape");
+
+  // The same two facts for the tick's question, whose shape the [Moderate] template already
+  // carried: what was missing there was only the carrier.
+  const moderateTemplate = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines/moderate.md"), "utf8");
+  assertTrue("the [Moderate] template says its question reply rides the bot when a token is configured",
+    /SLACK_BOT_TOKEN/u.test(moderateTemplate) && /--thread-ts/u.test(moderateTemplate),
+    "the [Moderate] template names no carrier for its directed shape");
+  assertTrue("and that the root and the other replies stay on the connector",
+    /always ride the connector/u.test(moderateTemplate), "the [Moderate] template leaves its undirected shapes' carrier unstated");
   // The rule is "not yourself", never "nobody": the maintenance tick's question addresses
   // a named assignee and is the one post whose whole purpose is to reach a person.
   assertTrue("the maintenance tick's question keeps its mention",

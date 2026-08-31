@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-31T20:09:59+09:00
+status: done
 author: a@qmu.jp
 assignees: 
 depends_on:
@@ -78,3 +79,52 @@ bound still fires it.
   is the point, not the arm.
 - If `verify-return-path`'s fixture already reaches recording and filing, widen it rather
   than staging a second, near-identical repository — one fixture, two questions.
+
+## Final Report
+
+Development completed as planned.
+
+The drill was **widened rather than duplicated**, which is what this ticket's own Considerations
+called for: `verify-return-path`'s fixture already reaches recording and filing, so the outcome
+half needed one filing line and one extra question — *one fixture, two questions*. There is no
+`verify-answer-outcome` arm, and the Quality Gate's command for it is satisfied by
+`sh scripts/e2e/loop-drill.sh verify-return-path` instead.
+
+Seven load-bearing rows and a second breaker were added: an unknown outcome stays silent and is
+counted; a settled one is exactly one candidate carrying the recorded words and the coordinate;
+the handed-back bound forbids a lookup and any mention token; a second tick hands back nothing;
+the shape is single-sourced across the catalog and the template with no mention token; and the
+outcome half moves the question's state not at all. The drill now reports 19 load-bearing rows
+and 2 breakers, with no network and no Slack post.
+
+**Both breakers were proved able to fail, and so was the drill against a real regression.** The
+new breaker wires the candidate set at the answer's **existence** rather than at its outcome and
+must produce a reply where the real step stays silent. Separately, breaking the real step's
+`human-checkin-outcome-` dedup turned `return_path_outcome_once` red and left every other row
+green, and restoring it returned the drill to `pass`.
+
+### Discovered Insights
+
+- **Insight**: The drill's first two assertions were written against `"outcome_candidates":[]`
+  and failed on the unmodified tree — because when a tick has neither a thread to read nor a
+  settled outcome the step emits an **empty `needs_agent`** entirely, so no `outcome_candidates`
+  key exists at all.
+  **Context**: An assertion looking for an empty *field* silently assumes the envelope is always
+  emitted. The repair was to assert the **absence of a populated candidate**
+  (`! grep '"outcome_candidates":\[{'`) plus the summary's own count, which holds under both
+  shapes.
+
+- **Insight**: The second breaker had to be staged against a **different** question from the one
+  the happy path uses. After the outcome row is logged, the first question leaves the pool
+  entirely, so removing the outcome gate would change nothing about it and the breaker would
+  pass vacuously.
+  **Context**: A breaker written against the behaviour needs a fixture state where the real
+  implementation is *silent for a reason the break removes* — not merely one where it is silent.
+
+- **Insight**: Removing the `settled:*` case arm from a copy of the step is enough to wire it at
+  the answer's existence, because the arm below it (`pending`) then becomes unreachable under a
+  leading `*)`. A one-line `sed` therefore produces exactly the mistake the row is written
+  against, with no second copy of the step to keep in step.
+  **Context**: Breakers that patch a real script with one substitution stay correct through
+  refactors of everything else in it — which is the property that makes them worth more than a
+  hand-written broken copy.

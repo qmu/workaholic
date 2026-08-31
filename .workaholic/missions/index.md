@@ -7,7 +7,6 @@
 * [make-workaholify-converge-the-account-s-routines](active/make-workaholify-converge-the-account-s-routines/mission.md) - Make /workaholify converge the account's routines
 * [refuse-ok-under-a-placeholder-identity](active/refuse-ok-under-a-placeholder-identity/mission.md) - Refuse ok under a placeholder identity
 * [say-when-the-check-in-queue-is-stuck-and-bound-the-hold](active/say-when-the-check-in-queue-is-stuck-and-bound-the-hold/mission.md) - Say when the check-in queue is stuck, and bound the hold
-* [stop-an-unattended-tick-from-waiting-on-a-person](active/stop-an-unattended-tick-from-waiting-on-a-person/mission.md) - Stop an unattended tick from waiting on a person
 * [stop-two-runs-from-claiming-and-driving-one-unit](active/stop-two-runs-from-claiming-and-driving-one-unit/mission.md) - Stop two runs from claiming and driving one unit
 
 ## archive
@@ -99,6 +98,7 @@
 * [slim-commands-skills-and-docs-for-ai-agent-use](archive/slim-commands-skills-and-docs-for-ai-agent-use/mission.md) - Slim commands, skills, and docs for AI-agent use
 * [split-routine-setup-into-developer-and-repository-scopes](archive/split-routine-setup-into-developer-and-repository-scopes/mission.md) - Split routine setup into developer and repository scopes
 * [stop-a-routine-finish-line-from-vanishing-on-the-script-path](archive/stop-a-routine-finish-line-from-vanishing-on-the-script-path/mission.md) - Stop a routine finish line from vanishing on the script path
+* [stop-an-unattended-tick-from-waiting-on-a-person](archive/stop-an-unattended-tick-from-waiting-on-a-person/mission.md) - Stop an unattended tick from waiting on a person
 * [stop-re-resuming-a-declared-handoff-unit](archive/stop-re-resuming-a-declared-handoff-unit/mission.md) - Stop re-resuming a declared handoff unit
 * [stop-the-runner-from-taking-path-owned-legacy-tickets](archive/stop-the-runner-from-taking-path-owned-legacy-tickets/mission.md) - Stop the runner from taking path-owned legacy tickets
 * [take-the-dedup-key-out-of-the-read-post](archive/take-the-dedup-key-out-of-the-read-post/mission.md) - Take the dedup key out of the read post

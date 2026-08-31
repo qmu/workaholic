@@ -2083,6 +2083,7 @@ decide something before any change is the right one*.
 | `strategy-digest` | `needs_ruling` | A render; it produces no finding to file. |
 | `question-answers` | `needs_ruling` | A person's own words, already filed by that step through the one filer. |
 | `unanswered-asks` | `needs_ruling` | A person is waiting; that is the finding, and only a person clears it. A channel the tick could not read is the same kind of finding — a connector, a token or a name only a person can fix — and it reaches that person as the keyed `inbound-channel-unreadable:<channel>` question rather than as a filed issue. |
+| `blocked-tick` | `needs_ruling` | The reading says a tick **stopped** and cannot say why — the record that would carry the reason is the one the stop prevented — so filing it as work would have the loop repairing a cause it never established (`cadence-lapse`'s row, for `cadence-lapse`'s reason). The repair is besides that routinely a person's: answering or removing a prompt, or reading the run in the session list. |
 | `cadence-lapse` | `needs_ruling` | The reading says an artifact **stopped** and cannot say **why** — a routine switched off, a credential that expired, a producer that moved, or a declaration that is now wrong — and which of those it is decides whether any change is the right one. `note-cadence` is the row worth arguing against and it loses on exactly that: it names one workflow **this repository owns and can fix**, while a declared cadence names an artifact whose producer the declaration does not identify. Filing it as work would have the loop repairing a cause it never established. |
 | `file-findings` | `needs_ruling` | Filing its own findings as work is the loop asking itself for work. |
 | `human-checkin` | `needs_ruling` | The asking step itself. |
@@ -2100,6 +2101,44 @@ else's branch. Were the reading ever to be that the repair is not mechanical, th
 `needs_ruling` and the default is already on that side.
 
 ---
+
+## A refused action is reported, never silently skipped
+
+`rules/interaction.md`, *An unattended run never waits for a person*, admits two outcomes and
+refuses a third. Its second — *refuse the single action and carry on, recording what was refused
+and why* — is only admissible if the record reaches somebody: without one a refusal is
+indistinguishable from an action that silently did nothing, which is the shape this whole tick
+exists to remove one level up.
+
+**Three facts and no more**: the action refused, the reason, and that the rest of the run
+continued. A refusal is not a stack trace, and a fourth fact is how a refusal line becomes
+something nobody reads.
+
+**It uses the surfaces and the vocabulary that already exist.** A step that refuses an action
+reports **`blocked`** — already in `run.sh`'s closed status vocabulary and already accepted by
+`log-append.sh` — with its own `reason` and a `summary` naming those three facts. That puts it in
+the tick log line and the run report a person already reads, keeps it out of `ok`, and carries it
+into the root's impairment clause beside a `degraded` read, which renders the two under one clause
+because *they differ in cause and are identical in consequence to the reader*. **No new status, no
+new store, no field on any artifact, and no new surface**: everything a refusal needs was already
+there and unsaid.
+
+**The agent's own refusals** — taken after `run.sh` returns, acting on `needs_agent` — are recorded
+the same way, through `log-append.sh` under `<step>-refused`, which is the `<step>-filed`
+convention applied to the other outcome.
+
+**It moves no token and gates nothing.** A refused action is a fact about one step, not a verdict
+on the run; no route, gate, hold, claim or sort reads it, and the person who must act is reached by
+the tick's own questions.
+
+**What it records, and what it cannot see.** This covers a refusal **this repository's own code
+decides to make**. A permission prompt denied by the harness is not observable from inside a script
+at all — a script has no notion of having been refused one — and the documented routine model says
+such prompts should not arise in the first place (`workaholic:workaholify`, *Where an unattended
+run's prompt policy is configured*, which also records that the measured behaviour diverges from
+it). Where one does arise it surfaces, if at all, as an ordinary `step_error`. **The limit is
+stated rather than glossed**: a reader must not take this contract as evidence that every refusal
+in a tick is visible.
 
 ## What `run.sh` guarantees around the steps
 
@@ -2859,6 +2898,62 @@ appears.
 repairs or rewrites no declaration, touches no claim, lifts no gate, and writes nothing anywhere
 but its own tick-log line, which `run.sh` writes. Drilled offline by `verify-cadence-lapse`.
 
+## 31. `blocked-tick` — a tick that opened and never closed
+
+```
+sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/step-blocked-tick.sh --tick <id> [--root <repo-root>]
+```
+
+**Why it exists** (2026-08-31, mission `stop-an-unattended-tick-from-waiting-on-a-person`). An
+opening on the base with no closing is the signature of a tick that **stopped**, and nothing read
+for it. Measured: three consecutive ticks sat at `requires_action` waiting on a permission prompt
+raised by two reads of a plugin script — a routine has nobody to answer one — and the base carried
+no trace of any of them, because `persist-log.sh` was the tick's *closing* act and the record that
+would show the stop is the record the stop prevents. `run.sh`'s **opening persist** puts the
+opening there; this step reads for it. Without both halves neither is worth anything.
+
+**What it reads.** `log-read.sh`, the log's one parser, bounded to the newest **two** day files
+(enough to hold the previous two ticks across a UTC midnight rollover; the log grows forever, so an
+unbounded walk gets more expensive every day). It groups the entries by the tick id that reader
+already returns — no second parser, no cursor, no store, no field on any artifact.
+
+**What "closed" means, and why it is not the persist.** The tempting signal is the closing
+persist's own `persist-log` line, and it is **wrong**: `run.sh` writes that line *after* the push,
+so it never reaches the base on the tick that wrote it — it arrives only if the agent persists
+again, which a tick with an empty `needs_agent` has no reason to do, and a healthy tick would
+therefore read as stopped. The signal is a **`human-checkin` line**: it is the last member of
+`STEPS` and is deliberately exempt from `--deadline-seconds`, so a tick that reached the end of its
+run always logged it. The coupling is **stated** in the step's header rather than derived, because
+a step that read `run.sh`'s `STEPS` to find the last one would be inspecting a plugin script to
+find something out (`rules/shell.md`), and a second definition of *the tick's closing step* is
+exactly what would drift.
+
+**Which tick, and why not the previous one.** A tick still **running** when the next one starts
+also has an opening and no closing, and the two are distinguishable only by time. Rather than tune
+a threshold, the bound is structural: it reads **the tick before last** — the second-newest tick
+other than this one — which has had a full extra hour to finish. A merely slow run is not
+reported; one that has outlived a whole further tick is. **The cost is stated rather than hidden**:
+a stopped tick is named one hour later than the earliest possible moment, and the measured failure
+lasted hours.
+
+**What it asks.** One question per stopped tick, keyed `blocked-tick:<tick-id>` through the
+existing gate, so a stopped hour costs exactly one question however many later ticks see it;
+`ask-question.sh` is untouched. **Addressed to nobody** — a stopped tick is a fact about the
+repository, and the running identity is never consulted (`undrivable-units`' axis). The question
+names the tick, how many steps it recorded and the last one it reached, and **says plainly that the
+reason is not recoverable from the base**, so nobody is sent after a cause the step did not
+establish; it points at `rules/interaction.md`, *An unattended run never waits for a person*, as
+the likeliest shape on record and at the session list as where the run itself is readable.
+
+**Abort reasons**: `no_log_reader` (the parser is not present beside this skill), `no_log_area` /
+`no_log_area` on an empty log area (a repository that keeps no tick log is `skipped`, not
+`degraded` — a step declining to run for a stated, healthy reason did not fail to see),
+`log_unreadable`, and the reader's own `reason` when the log exists and could not be read. An
+`event` is supplied **only** when a stopped tick is found, so a healthy hour renders no root line.
+
+**It asks and nothing else.** It re-runs no tick, writes nothing anywhere but its own tick-log line
+(which `run.sh` writes), touches no claim, lifts no gate and never reaches `plan-units.sh`.
+Drilled offline by `verify-blocked-tick`.
 ---
 
 ## What did not move with any of this wording

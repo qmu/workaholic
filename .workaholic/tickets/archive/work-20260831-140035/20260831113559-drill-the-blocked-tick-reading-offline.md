@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-31T11:35:59+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -75,3 +76,36 @@ behaviour rather than the return shape.
   step boundary the early persist already creates rather than a timeout, or the drill
   passes or fails by how fast the machine is.
 
+
+## Final Report
+
+Development completed as planned. `verify-blocked-tick` drills both halves together, because
+neither is worth anything alone: eight load-bearing rows prove that a tick stopped after its first
+step leaves its opening on the base, that the tick before last is named exactly once with its own
+key, that a complete previous section is silent, that the question fires once across two ticks
+through the existing gate, that an unreadable log is `degraded` by name and asks nobody, that a
+repository with no log is `skipped` rather than degraded, and that nothing outside the fixture is
+written. It is hermetic — a **bare local origin** (a `git push` to a file path needs no network),
+the log written through `log-append.sh`, the real writer, and no `gh`, Slack or credential — so it
+joins the set CI runs on every push, and it is registered in `docs/loop-drill-runbook.md` §9 in the
+same commit.
+
+**The stopping point is the step boundary, not a timeout**, exactly as the ticket asked: a tick is
+"killed" by running it with `--only open-log`, which is precisely the state a tick that died after
+its first step leaves behind, so the drill cannot pass or fail by how fast the machine is.
+
+The breaker is written against the **behaviour**: the opening persist is disabled in a copy of
+`run.sh` and the base must then carry nothing for that tick. It fires.
+
+**One neighbouring drill needed a one-line correction**, found by running the set: `verify-moderate`
+derives its expected log-line count from `run.sh`'s `STEPS` plus one for the closing persist, and
+there are now two persists. It derives `+ 2`.
+
+### Discovered Insights
+
+- **Insight**: `log-read.sh` answers `read: false` for exactly one condition — a missing log
+  directory — which is the *healthy* `skipped` case, not a degradation.
+  **Context**: the first fixture for "an unreadable log" made `moderations` a file and got
+  `skipped`/`no_log_area`, which is correct behaviour and proved nothing. The reachable degradation
+  is a reader whose output the step cannot parse, and the drill exercises that instead. A drill
+  asserting a branch the code cannot reach is worse than no drill.

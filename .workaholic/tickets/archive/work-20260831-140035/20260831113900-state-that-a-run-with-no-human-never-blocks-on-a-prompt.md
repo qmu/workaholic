@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-31T11:39:00+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -85,3 +86,31 @@ command.
 - The sibling ticket about reading a plugin script without a Bash text pipeline stays —
   the operator's own words are that the misclassification is real and is not the defect.
 
+
+## Final Report
+
+Development completed as planned. `rules/interaction.md` gains *An unattended run never waits for
+a person*: the policy stated once, its two admitted outcomes (proceed under a declared policy;
+refuse the single action and carry on, recording what and why), and waiting named as the third
+and refused. The reason waiting is worst is given in the operator's own terms — it produces **no
+record at all**, because the step that would write one is the step the waiting prevents — with the
+measured three consecutive `requires_action` ticks and the fact that approving one produced
+another.
+
+The notification/prompt distinction is written down as its own paragraph: a notification tells
+someone what happened and they read it when they choose; a prompt stops the run until someone
+attends to it, which makes an hourly cadence depend on a person being awake. *That a notification
+can reach a person is not a licence to ask them.*
+
+The existing unattended clauses are widened by **reference rather than restatement** — the section
+says every contract naming `AskUserQuestion` is an instance of this policy and is to be read as
+*no prompt of any kind* — so the policy exists in one place and there is no second wording to
+drift.
+
+### Discovered Insights
+
+- **Insight**: `rules/interaction.md` already said "(or any blocking prompt)" in its first bullet,
+  parenthetically, and every unattended contract still named only `AskUserQuestion`.
+  **Context**: the wider rule was technically present and reached nobody, because the surfaces a
+  run actually reads named the narrow mechanism. A parenthetical in a general rule is not a
+  policy the specific contracts inherit.

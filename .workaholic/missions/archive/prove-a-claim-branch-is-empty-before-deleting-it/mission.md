@@ -56,3 +56,4 @@ told once — while a branch that really is empty retires exactly as it does tod
 - 2026-08-31 — ticket archived — 20260831203454-drill-the-stranded-branch-refusal-offline.md
 - 2026-08-31 — ticket archived — 20260831203454-make-the-retirement-s-stated-recovery-true.md
 - 2026-08-31 — mission achieved — mission.md
+- 2026-08-31 — Branch story opened: superseded now proves both halves, stranded reaches its holder, and verify-stranded-branch drills the refusal offline. — work-20260831-204424.md

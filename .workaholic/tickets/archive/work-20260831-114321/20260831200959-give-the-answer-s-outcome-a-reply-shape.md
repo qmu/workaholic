@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-31T20:09:59+09:00
+status: done
 author: a@qmu.jp
 assignees: 
 depends_on:
@@ -87,3 +88,43 @@ keeps its own job — it says *received*, which is not *acted on*.
   already stand on.
 - Two replies (one at recording, one at landing) were considered and refused: the reaction
   already says *received*, so a second post before the outcome is known carries nothing new.
+
+## Final Report
+
+Development completed as planned.
+
+The catalog's `/moderate` entry gains a sixth shape, `🧾 対応結果`, stated once and read from
+there by the `[Moderate]` template byte-identically. The narrowing is written beside the rule it
+changes — the no-reply rule was written against a **restatement**, right at the moment of
+recording and wrong once something has happened — with its three bounds spelled out: once ever
+per question, after the act never before, and carrying facts the thread does not already have.
+
+Only a `settled:` reading from `answer-outcome.sh` posts; `pending` and `unreadable:<reason>`
+post nothing and are reported by name. The `:ballot_box_with_check:` stamp keeps its own rule
+and its own job untouched — *received* is not *acted on*, and the two events carry different
+emoji so a reader can tell them apart.
+
+`reference/workflow.md` §22's *What it never does* now says what is still true rather than what
+was true: it never re-asks or confirms, never opens an issue except through
+`file-inbound-ask.sh`, never adds an edit path, never reads a channel, and posts **exactly one**
+reply after the act plus none at all for the recording event.
+
+The drift pin was extended: the sixth shape must read byte-identically in both documents, carry
+no mention token, and the template's authorized-shape list is now six in order.
+
+### Discovered Insights
+
+- **Insight**: The template's authorized-shape assertion compares an **ordered array** of every
+  fenced block's first line, so a new shape has to be placed in the template at the position the
+  test lists it — the pin is a total specification of the routine's Slack vocabulary, not a
+  membership check.
+  **Context**: That is what makes "emit only the shapes below" enforceable rather than
+  aspirational: a shape added to the catalog and forgotten in the template fails, and so does
+  one added to the template and never named in the catalog.
+
+- **Insight**: The pinned sentence `post **no reply** for that event` had to survive verbatim
+  while its meaning narrowed, which is what forced the scoping to be written into the sentence
+  itself (`— the outcome reply below is a different event`) rather than into a paragraph
+  somewhere else.
+  **Context**: A pin on a literal phrase is a useful forcing function for exactly this: it makes
+  a narrowing land where the rule is, instead of as a footnote a later reader never reaches.

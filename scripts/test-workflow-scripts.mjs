@@ -25285,12 +25285,24 @@ function testAnswerReturnPath() {
       if (f !== "record-answer.sh") {
         assertTrue(`${f} never executes record-answer.sh`, !invokes(body, "record-answer.sh"), f);
       }
-      if (f !== "question-state.sh" && f !== "ask-question.sh") {
+      // `answer-outcome.sh` joined the allowlist on 2026-08-31 (mission
+      // `make-the-tick-s-questions-readable-and-close-them-in-the-thread`) and it is a
+      // COMPOSITION, which is what this rule is for rather than against: it asks
+      // `question-state.sh` whether a key is `answered` instead of re-deriving that from the
+      // log, so the two cannot disagree about a question's life. What stays banned is a second
+      // DERIVATION of the state, and a script reaching `record-answer.sh` at all.
+      if (f !== "question-state.sh" && f !== "ask-question.sh" && f !== "answer-outcome.sh") {
         assertTrue(`${f} never executes question-state.sh`, !invokes(body, "question-state.sh"), f);
       }
     }
     const stepBody = readFileSync(join(M, "step-question-answers.sh"), "utf8")
       .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+    // The step itself still reaches GitHub through nothing. Since 2026-08-31 it composes
+    // `answer-outcome.sh`, which spends ONE bounded issue read per FILED candidate and none for
+    // the rest — the read is the reader's, off the log's own filing line, and it is bounded by
+    // the same `WORKAHOLIC_ANSWER_READ_MAX` the thread reads use. What this still pins is that
+    // no GitHub call is written HERE, which is what would let one grow unbounded beside the
+    // Slack reads.
     assertTrue("and the read step makes no gh call of any kind", !/\bgh\b/.test(stepBody), stepBody.slice(0, 200));
     assertTrue("nor names a channel: it reads threads on coordinates, never channel history",
       !/INBOUND_SLACK_CHANNEL/.test(stepBody), stepBody.slice(0, 200));
@@ -26546,11 +26558,38 @@ function testModerateRoutineTemplate() {
     assertTrue("the template requires the thread to be read before anything is posted",
       /\*\*read it first\*\*/.test(template), template);
   }
-  assertEq("and they are the only five shapes the template authorizes",
+  // SIX SHAPES SINCE 2026-08-31 (mission
+  // `make-the-tick-s-questions-readable-and-close-them-in-the-thread`): the outcome reply. It
+  // NARROWS the catalog's no-reply rule for the answer event rather than dropping it — that rule
+  // was written against a RESTATEMENT, and this is posted once, after the act, carrying facts
+  // the thread does not have. It keeps its own emoji on purpose: `:ballot_box_with_check:` says
+  // *received* at recording time and `🧾` says *acted on* afterwards, and one symbol answering
+  // both is how a reader stops being able to tell them apart.
+  {
+    const out = block(catalog, "🧾 対応結果");
+    assertTrue("the catalog carries the outcome reply", out !== "", "missing from notifications.md");
+    assertEq("the outcome reply reads byte-identically in the template and the catalog",
+      block(template, "🧾 対応結果"), out);
+    assertTrue("and it carries no mention token", !/<@U/.test(out), out);
+    // THE NARROWING IS WRITTEN WHERE THE RULE IT CHANGES IS WRITTEN, with what still holds.
+    assertTrue("the catalog states the bounds that admit the reversal",
+      /posted \*\*once, ever, per question\*\*/.test(catalog)
+        && /\*\*after the act\*\*, never before/.test(catalog),
+      "the outcome reply is stated without the bounds that make it a narrowing");
+    assertTrue("and says only a settled reading posts",
+      /only a `settled:` reading posts/.test(catalog),
+      "the catalog no longer gates the reply on the outcome being known");
+    // THE STAMP KEEPS ITS OWN JOB AND ITS OWN RULE. The no-reply sentence stays in the template,
+    // scoped to the recording event rather than deleted.
+    assertTrue("the recording event still posts no reply",
+      /post \*\*no reply\*\* for that event/.test(template), template);
+  }
+  assertEq("and they are the only six shapes the template authorizes",
     [...template.matchAll(/```\n([^\n]*)/gu)].map((m) => m[1]).filter((l) => /^[^\s`]/.test(l)),
     ["🔎 Moderation - <N> change(s), <M> question(s)<, <K> step(s) could not read — only when K > 0>",
      "🙋 <@U…> - <what this tick could not decide>",
      "✅ 解消を確認 - <the question's subject, one line>",
+     "🧾 対応結果 - <the question's subject, one line>",
      "🟢 Implemented - [#123 Title](<repo-url>/pull/123)",
      "⚫ Closed - [#123 Title](<repo-url>/pull/123)"]);
   for (const retired of ["🔧 Needs a decision", "📦 Release Preparation"]) {
@@ -28654,7 +28693,96 @@ function testProofJudgementSplit() {
   assertTrue("the age-source table is in the one home too", srcAt > 0,
     "claims.md no longer carries the age-source table");
   const ageTable = ageTail.slice(0, srcAt);
-  const sourceTable = ageTail.slice(srcAt);
+  const sourceTail = ageTail.slice(srcAt);
+
+  // AN EIGHTH VOCABULARY IN THE SAME HOME (2026-08-31, mission
+  // `make-the-tick-s-questions-readable-and-close-them-in-the-thread`). `answer-outcome.sh` is
+  // keyed on what became of A PERSON'S OWN ANSWER — a different question again from whose
+  // business a claim is, from what the base said, from whether an act happened, from whether a
+  // publication was answered, from whether a unit is driven twice, and from how long something
+  // has been true. Parsed apart for the reason the other seven are: five of these vocabularies
+  // now share an `unreadable`-shaped word, and folding them would report one rule as several
+  // copies of itself. It is split off the SOURCE tail rather than the age table, because the
+  // age-source table (a differently-keyed table) sits between them in the document.
+  const ANSWER_HEADING = "### Whether a recorded answer has been acted on";
+  const answerAt = sourceTail.indexOf(ANSWER_HEADING);
+  assertTrue("the answer-outcome sub-table is in the one home too", answerAt > 0,
+    "claims.md no longer carries the answer-outcome classification");
+  const sourceTable = sourceTail.slice(0, answerAt);
+  const answerTable = sourceTail.slice(answerAt);
+
+  // ITS WORDS, from the reader's own `emit` calls rather than from a list this test carries.
+  // `settled:*` are literal; `unreadable:<reason>` is normalised to its table form because the
+  // script interpolates the reason. The empty `outcome` the not-answered refusal emits is not a
+  // word and is deliberately not classified — there is no answer for anything to have become of.
+  const ansSrc = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/moderate/scripts/answer-outcome.sh"), "utf8")
+    .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+  const ansEmitted = new Set();
+  for (const m of ansSrc.matchAll(/\bemit\s+(?:true|false)\s+"?((?:settled:[a-z_]+|pending|unreadable:[a-z_$}{]+))"?/g)) {
+    ansEmitted.add(m[1].startsWith("unreadable:") ? "unreadable:<reason>" : m[1]);
+  }
+  assertEq("the answer-outcome vocabulary parses out of the reader",
+    [...ansEmitted].sort().join(","),
+    "pending,settled:issue_closed,settled:nothing_filed,unreadable:<reason>");
+
+  const ansClassified = new Map();
+  for (const m of answerTable.matchAll(/^\|\s*`((?:settled:[a-z_]+|pending|unreadable:<reason>))`\s*\|\s*(?:\*\*)?(proof|judgement)(?:\*\*)?\s*\|/gm)) {
+    assertTrue(`the answer-outcome sub-table classifies ${m[1]} exactly once`,
+      !ansClassified.has(m[1]), "a second row for the same word is two rules for one fact");
+    ansClassified.set(m[1], m[2]);
+  }
+  assertEq("every word the answer-outcome reading emits is classified exactly once",
+    [...ansEmitted].filter((w) => !ansClassified.has(w)).sort().join(","), "");
+  assertEq("and the sub-table classifies no word the answer-outcome reading never emits",
+    [...ansClassified.keys()].filter((w) => !ansEmitted.has(w)).sort().join(","), "");
+  assertEq("no answer-outcome reading is a proof — every one of them is a judgement",
+    [...ansClassified.entries()].filter(([, k]) => k === "proof").map(([w]) => w).sort().join(","), "");
+  // THE REFUSAL IS NAMED RATHER THAN CLASSIFIED, and the reason is written where the words are:
+  // calling a question with no recorded answer `unreadable` is the collapse the word exists to
+  // close.
+  assertTrue("the not-answered refusal is named beside the table",
+    /not_answered:<state>/.test(answerTable), "the refusal is no longer distinguished from a degradation");
+
+  // IT COMPOSES WHAT EXISTS AND WALKS NOTHING TWICE.
+  for (const composed of ["question-state.sh", "log-read.sh", "gh-rest.sh"]) {
+    assertTrue(`answer-outcome.sh composes ${composed}`, ansSrc.includes(composed),
+      "the answer-outcome reader derives a fact a single reader already owns");
+  }
+  // AND IT WRITES NOTHING, ANYWHERE.
+  for (const act of ["log-append.sh", "record-answer.sh", "file-inbound-ask.sh", "git push",
+    "git commit", "--method PUT", "--method PATCH", "--method POST", "--method DELETE"]) {
+    assertTrue(`answer-outcome.sh never reaches ${act}`, !ansSrc.includes(act),
+      "the answer-outcome reader is not a pure read");
+  }
+
+  // ITS ENUMERATED CONSUMER REPORTS AND POSTS ONE REPLY, AND DOES NOTHING ELSE. Call sites,
+  // never words: the step's own prose says in English what it never does.
+  const ansStepSrc = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/moderate/scripts/step-question-answers.sh"), "utf8")
+    .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+  assertTrue("step-question-answers.sh is the enumerated consumer of the answer-outcome reading",
+    ansStepSrc.includes("answer-outcome.sh"),
+    "the enumerated consumer no longer reads the reader it is registered for");
+  for (const act of ["--method PUT", "--method PATCH", "--method DELETE", "/merge",
+    "release-claim.sh", "retire-claim.sh", "catch-up-claim.sh", "plan-units.sh",
+    "publish-tree-pr.sh", "git push"]) {
+    assertTrue(`step-question-answers.sh reports — it never reaches ${act}`,
+      !ansStepSrc.includes(act),
+      `the answer-outcome reading licenses reporting and one reply, never ${act}`);
+  }
+  // ONLY A `settled:` READING BECOMES A REPLY. `pending` and `unreadable:<reason>` are counted
+  // and post nothing: an unread outcome rendered as a settled one would tell somebody their
+  // answer was acted on when nobody knows.
+  assertTrue("...and only a settled reading becomes an outcome candidate",
+    /settled:\*\)\s*\n?\s*settled_n=/.test(ansStepSrc)
+      && /pending\)\s*opending_n=/.test(ansStepSrc),
+    "the step no longer gates the reply on the outcome being settled");
+  // THE DEDUP IS THE LEDGER LINE, NOT A CURSOR: a slug an earlier tick replied to leaves the
+  // pool by construction, so one question gets one reply however many ticks run.
+  assertTrue("the outcome reply dedups on its own ledger line",
+    ansStepSrc.includes("human-checkin-outcome-"),
+    "the outcome reply has no ledger line, so a second tick would post it again");
 
   // ITS FOUR WORDS, from the reader's own `emit` calls rather than from a list this test carries.
   // `open:<age>` is normalised to its table form because the script interpolates the age; the

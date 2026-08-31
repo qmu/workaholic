@@ -2,7 +2,7 @@
 type: Mission
 title: Notice a periodic artifact that stopped being produced
 slug: notice-a-periodic-artifact-that-stopped-being-produced
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-31T11:30:53+00:00
 author: a@qmu.jp
@@ -55,3 +55,5 @@ reported as a lapse.
 - 2026-08-31 — ticket archived — 20260831113118-read-whether-a-declared-cadence-is-current.md
 - 2026-08-31 — ticket archived — 20260831113118-ask-once-when-a-declared-cadence-has-lapsed.md
 - 2026-08-31 — ticket archived — 20260831113119-drill-the-cadence-reading-offline.md
+- 2026-08-31 — ticket archived — 20260831113118-state-the-cadence-reading-where-the-tick-is-defined.md
+- 2026-08-31 — mission achieved — mission.md

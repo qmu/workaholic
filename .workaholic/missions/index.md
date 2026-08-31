@@ -4,13 +4,9 @@
 
 * [deploy-the-docs-site-on-merge-to-main](active/deploy-the-docs-site-on-merge-to-main/mission.md) - Deploy the docs site on merge to main
 * [make-the-routine-create-body-documented-and-buildable](active/make-the-routine-create-body-documented-and-buildable/mission.md) - Make the routine create body documented and buildable
-* [make-the-tick-s-questions-readable-and-close-them-in-the-thread](active/make-the-tick-s-questions-readable-and-close-them-in-the-thread/mission.md) - Make the tick's questions readable and close them in the thread
 * [make-workaholify-converge-the-account-s-routines](active/make-workaholify-converge-the-account-s-routines/mission.md) - Make /workaholify converge the account's routines
-* [notice-a-periodic-artifact-that-stopped-being-produced](active/notice-a-periodic-artifact-that-stopped-being-produced/mission.md) - Notice a periodic artifact that stopped being produced
-* [notify-the-person-a-directed-question-addresses](active/notify-the-person-a-directed-question-addresses/mission.md) - Notify the person a directed question addresses
 * [refuse-ok-under-a-placeholder-identity](active/refuse-ok-under-a-placeholder-identity/mission.md) - Refuse ok under a placeholder identity
 * [say-when-the-check-in-queue-is-stuck-and-bound-the-hold](active/say-when-the-check-in-queue-is-stuck-and-bound-the-hold/mission.md) - Say when the check-in queue is stuck, and bound the hold
-* [stop-an-unattended-tick-from-waiting-on-a-person](active/stop-an-unattended-tick-from-waiting-on-a-person/mission.md) - Stop an unattended tick from waiting on a person
 * [stop-two-runs-from-claiming-and-driving-one-unit](active/stop-two-runs-from-claiming-and-driving-one-unit/mission.md) - Stop two runs from claiming and driving one unit
 
 ## archive
@@ -65,6 +61,7 @@
 * [make-the-feedback-loop-actually-propose](archive/make-the-feedback-loop-actually-propose/mission.md) - Make the feedback loop actually propose
 * [make-the-per-commit-changed-lines-ceiling-a-rule-that-holds](archive/make-the-per-commit-changed-lines-ceiling-a-rule-that-holds/mission.md) - Make the per-commit changed-lines ceiling a rule that holds
 * [make-the-propose-implement-loop-drillable-on-demand](archive/make-the-propose-implement-loop-drillable-on-demand/mission.md) - Make the propose–implement loop drillable on demand
+* [make-the-tick-s-questions-readable-and-close-them-in-the-thread](archive/make-the-tick-s-questions-readable-and-close-them-in-the-thread/mission.md) - Make the tick's questions readable and close them in the thread
 * [make-the-tick-s-root-earn-its-hour](archive/make-the-tick-s-root-earn-its-hour/mission.md) - Make the tick's root earn its hour
 * [make-the-two-executors-agree-about-a-proved-empty-claim](archive/make-the-two-executors-agree-about-a-proved-empty-claim/mission.md) - Make the two executors agree about a proved-empty claim
 * [make-the-workflow-scripts-survive-a-graphql-restricted-gh](archive/make-the-workflow-scripts-survive-a-graphql-restricted-gh/mission.md) - Make the workflow scripts survive a GraphQL-restricted gh
@@ -72,6 +69,8 @@
 * [move-the-propose-and-implement-routines-to-a-fixed-interval-schedule](archive/move-the-propose-and-implement-routines-to-a-fixed-interval-schedule/mission.md) - Move the Propose and Implement routines to a fixed-interval schedule
 * [name-the-session-type-that-cannot-merge](archive/name-the-session-type-that-cannot-merge/mission.md) - Name the session type that cannot merge
 * [name-the-steps-a-tick-could-not-read](archive/name-the-steps-a-tick-could-not-read/mission.md) - Name the steps a tick could not read
+* [notice-a-periodic-artifact-that-stopped-being-produced](archive/notice-a-periodic-artifact-that-stopped-being-produced/mission.md) - Notice a periodic artifact that stopped being produced
+* [notify-the-person-a-directed-question-addresses](archive/notify-the-person-a-directed-question-addresses/mission.md) - Notify the person a directed question addresses
 * [point-the-inbound-readers-at-the-channel-that-exists](archive/point-the-inbound-readers-at-the-channel-that-exists/mission.md) - Point the inbound readers at the channel that exists
 * [propose-at-the-capture-seam](archive/propose-at-the-capture-seam/mission.md) - Propose at the capture seam
 * [prove-the-loop-s-closing-link](archive/prove-the-loop-s-closing-link/mission.md) - Prove the loop's closing link
@@ -99,6 +98,7 @@
 * [slim-commands-skills-and-docs-for-ai-agent-use](archive/slim-commands-skills-and-docs-for-ai-agent-use/mission.md) - Slim commands, skills, and docs for AI-agent use
 * [split-routine-setup-into-developer-and-repository-scopes](archive/split-routine-setup-into-developer-and-repository-scopes/mission.md) - Split routine setup into developer and repository scopes
 * [stop-a-routine-finish-line-from-vanishing-on-the-script-path](archive/stop-a-routine-finish-line-from-vanishing-on-the-script-path/mission.md) - Stop a routine finish line from vanishing on the script path
+* [stop-an-unattended-tick-from-waiting-on-a-person](archive/stop-an-unattended-tick-from-waiting-on-a-person/mission.md) - Stop an unattended tick from waiting on a person
 * [stop-re-resuming-a-declared-handoff-unit](archive/stop-re-resuming-a-declared-handoff-unit/mission.md) - Stop re-resuming a declared handoff unit
 * [stop-the-runner-from-taking-path-owned-legacy-tickets](archive/stop-the-runner-from-taking-path-owned-legacy-tickets/mission.md) - Stop the runner from taking path-owned legacy tickets
 * [take-the-dedup-key-out-of-the-read-post](archive/take-the-dedup-key-out-of-the-read-post/mission.md) - Take the dedup key out of the read post

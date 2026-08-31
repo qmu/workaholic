@@ -54,6 +54,7 @@ const SCRIPTS = {
   detectContext: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/detect-context.sh"),
   checkWorkspace: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/check-workspace.sh"),
   archive: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/archive.sh"),
+  heartbeat: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/heartbeat.sh"),
   userSlug: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/user-slug.sh"),
   migrateTodoOwners: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/migrate-todo-owners.sh"),
   migrateAssigneeAliases: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/migrate-assignee-aliases.sh"),
@@ -11724,6 +11725,77 @@ function testDocDrift() {
     const r = JSON.parse(run(nodocs, `${POSIX_SH} ${SCRIPTS.docDrift} main`).stdout);
     assertEq("doc-drift reports docs_dir_present false when no docs/", r.docs_dir_present, false);
   } finally { cleanup(nodocs); }
+
+  // ---- The base is RESOLVED, never defaulted to a local `main` (ticket 20260831064500) ----
+  // Every /story run happens inside a claim worktree, where local `main` is whatever the clone
+  // fetched when it was created and is never advanced. The old `BASE="${1:-main}"` therefore
+  // compared the branch against a tree it will not merge into. Structurally-faithful fixture:
+  // a real bare origin, a real stale local main, and somebody else's merge carrying the
+  // structural change.
+  {
+    const { origin, clone } = makeStaleBaseClone({ nBehind: 5, mergedStructural: true });
+    try {
+      // With NO argument the resolver answers origin/main, and the reading names only what
+      // THIS branch changed — which is nothing structural.
+      const r = JSON.parse(run(clone, `${POSIX_SH} ${SCRIPTS.docDrift}`).stdout);
+      assertEq("doc-drift (default base) resolves origin/main, not local main", r.base, "origin/main");
+      assertEq("doc-drift (default base) reports no structural change from another's merge",
+        r.structural_changes, []);
+      assertEq("doc-drift (default base) raises no candidate", r.candidates, []);
+      assertEq("doc-drift (default base) does not call README.md this branch's change",
+        r.meta_docs["README.md"], { present: true, changed: false });
+
+      // Forcing the stale local main reproduces the measured bug — proof the row can fail
+      // against the old default, and that the fixture bites.
+      const stale = JSON.parse(run(clone, `${POSIX_SH} ${SCRIPTS.docDrift} main`).stdout);
+      assertEq("doc-drift against stale local main over-reports another's merge (fixture is faithful)",
+        stale.structural_changes,
+        [{ kind: "skill_added", path: "plugins/workaholic/skills/ghost/SKILL.md" }]);
+      assertEq("doc-drift against stale local main mis-reports README.md as changed here",
+        stale.meta_docs["README.md"], { present: true, changed: true });
+
+      // A caller naming its own base still gets that base.
+      const explicit = JSON.parse(run(clone, `${POSIX_SH} ${SCRIPTS.docDrift} origin/main`).stdout);
+      assertEq("doc-drift honours an explicitly passed base", explicit.base, "origin/main");
+      assertEq("doc-drift explicit base reads the same as the resolved one",
+        explicit.structural_changes, []);
+    } finally { cleanup(origin); cleanup(clone); }
+  }
+
+  // An unresolvable base is NAMED, never silently replaced by a local ref: origin configured
+  // but never fetched is base-ref.sh's exit 3, and a drift reading nobody can trust is worse
+  // than none.
+  {
+    const dir = makeRepo("main");
+    try {
+      execSync(`git remote add origin https://example.invalid/nope.git`, { cwd: dir });
+      const r = run(dir, `${POSIX_SH} ${SCRIPTS.docDrift}`);
+      assertEq("doc-drift unresolvable base exits 0", r.status, 0);
+      const j = JSON.parse(r.stdout);
+      assertEq("doc-drift names an unfetched origin rather than falling back to local main",
+        j.not_applicable, "base_never_fetched");
+      assertEq("doc-drift reports no base when it could not resolve one", j.base, "");
+      assertEq("doc-drift emits no structural facts on an unresolvable base", j.structural_changes, []);
+    } finally { cleanup(dir); }
+  }
+
+  // Single source: the script re-derives no bare `${1:-main}` default of its own.
+  {
+    const src = readFileSync(SCRIPTS.docDrift, "utf8");
+    assertTrue("doc-drift carries no bare ${1:-main} default",
+      !/\$\{1:-main\}/.test(src), "found ${1:-main} in doc-drift.sh");
+    assertTrue("doc-drift resolves its base through gather/base-ref.sh",
+      /base-ref\.sh/.test(src), "doc-drift.sh does not reach the single base resolver");
+  }
+
+  // area-freshness.sh does NOT share the assumption: it resolves no base at all, reading each
+  // record's own last commit, so a stale local `main` cannot reach it. Asserted so a later
+  // change that gives it a base default is caught here (ticket step 4).
+  {
+    const src = readFileSync(SCRIPTS.areaFreshness, "utf8");
+    assertTrue("area-freshness carries no base default to go stale",
+      !/\$\{1:-main\}/.test(src) && !/BASE=/.test(src), "area-freshness.sh grew a base ref");
+  }
 }
 
 // ---------- hooks/policy-lens.sh (real policy-lens injection under a workflow command) ----------
@@ -12446,9 +12518,12 @@ function testGuardTicketStructure() {
 // (the desk pin — a worktree can't move the `main` another worktree holds), and a work
 // branch cut from the FRESH origin/main carrying exactly one real commit. If `opts.mergedSecret`
 // is set, one of the already-merged commits carries a credential-shaped line; if
-// `opts.branchSecret`, the branch's one real commit does. Returns { origin, clone }.
+// `opts.branchSecret`, the branch's one real commit does. If `opts.mergedStructural`, one of
+// the already-merged commits adds a SKILL (a structural presence change) and touches README.md
+// — the shape a stale base makes doc-drift.sh narrate as this branch's drift. Returns
+// { origin, clone }.
 function makeStaleBaseClone(opts = {}) {
-  const { nBehind = 5, mergedSecret = false, branchSecret = false } = opts;
+  const { nBehind = 5, mergedSecret = false, branchSecret = false, mergedStructural = false } = opts;
   const origin = mkdtempSync(join(tmpdir(), "wh-sborigin-"));
   const clone = mkdtempSync(join(tmpdir(), "wh-sbclone-"));
   const seed = mkdtempSync(join(tmpdir(), "wh-sbseed-"));
@@ -12456,12 +12531,26 @@ function makeStaleBaseClone(opts = {}) {
   execSync(`git clone -q ${origin} .`, { cwd: seed });
   execSync(`git config user.email test@example.com && git config user.name Test && git config commit.gpgsign false`, { cwd: seed });
   writeFileSync(join(seed, "base.txt"), "base\n");
+  if (mergedStructural) {
+    // The index docs doc-drift.sh reads must EXIST on the base for the reading to mean
+    // anything; without them every candidate is vacuously absent.
+    writeFileSync(join(seed, "CLAUDE.md"), "# claude\n");
+    writeFileSync(join(seed, "README.md"), "# readme\n");
+  }
   execSync(`git add -A && git commit -q -m "seed base" && git push -q origin main`, { cwd: seed });
   // N commits merged to origin/main — the "already merged" history a stale local base
   // would wrongly narrate/scan. One optionally carries a secret (to prove the false BLOCK).
   for (let i = 1; i <= nBehind; i++) {
-    writeFileSync(join(seed, `merged-${i}.txt`),
-      mergedSecret && i === 1 ? "aws = AKIA1234567890ABCDEF\n" : `merged work ${i}\n`);
+    if (mergedStructural && i === 1) {
+      // Somebody ELSE's merge: a skill appears and README.md moves with it. Both facts are
+      // already on origin/main, so neither belongs to the branch cut from it.
+      mkdirSync(join(seed, "plugins/workaholic/skills/ghost"), { recursive: true });
+      writeFileSync(join(seed, "plugins/workaholic/skills/ghost/SKILL.md"), "---\nname: ghost\n---\n");
+      writeFileSync(join(seed, "README.md"), "# readme\n- ghost skill\n");
+    } else {
+      writeFileSync(join(seed, `merged-${i}.txt`),
+        mergedSecret && i === 1 ? "aws = AKIA1234567890ABCDEF\n" : `merged work ${i}\n`);
+    }
     execSync(`git add -A && git commit -q -m "merged work ${i}" && git push -q origin main`, { cwd: seed });
   }
   rmSync(seed, { recursive: true, force: true });
@@ -18595,6 +18684,56 @@ function testClaimResume() {
 // may land: the loser must take NOTHING and report a retryable reason. Nothing here may
 // be decided by comparing clocks -- a local runner and a cloud one have skewed ones --
 // so the arbiter is git, in two layers (the pinned-tip check, then the non-ff push).
+// THE BEAT IS WHAT KEEPS A LONG TICKET'S OWN CLAIM (2026-08-31, ticket `20260831150500`).
+// `archive.sh` refreshes the tip for free, but only at the END of a ticket, so a unit that is
+// ONE long ticket runs its whole implementation on the claim commit's own timestamp and loses
+// its claim to the 30-minute resume window by construction. Measured on
+// `batch-20260831141002`: resumed by a second tick at 33 minutes, and a complete, validated,
+// locally-committed implementation was discarded rather than force-pushed over a branch
+// another run was actively driving.
+//
+// A REALISTIC WINDOW WITH AN AGED CLAIM, for `testResumeRace`'s reason: with a zero-minute
+// window every tip is instantly lapsed and the beat could not be shown to be the thing that
+// changed the answer.
+function testHeartbeatKeepsALongTicketsClaim() {
+  const { A } = makeClaimFixture();
+  const CLAIM = `${POSIX_SH} ${SCRIPTS.claim}`;
+  const window60 = { ...process.env, WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES: "60" };
+  const aged = {
+    ...process.env,
+    GIT_COMMITTER_DATE: new Date(Date.now() - 2 * 3600 * 1000).toISOString(),
+    GIT_AUTHOR_DATE: new Date(Date.now() - 2 * 3600 * 1000).toISOString(),
+  };
+  JSON.parse(run(A, `${CLAIM} mission m1`, { env: aged }).stdout);
+
+  // The lapse this ticket is about: a claim whose tip is older than the resume window.
+  const before = JSON.parse(run(A, `${POSIX_SH} ${SCRIPTS.planUnits}`, { env: window60 }).stdout);
+  assertTrue("a claim whose tip is aged past the resume window is offered as resumable",
+    before.resumable.map((u) => u.unit).includes("m1"));
+
+  // Step 0 of the per-ticket workflow, and the ONLY thing that changes between the two reads.
+  const beat = JSON.parse(run(A, `${POSIX_SH} ${SCRIPTS.heartbeat} m1`, { env: window60 }).stdout);
+  assertEq("the beat reports itself", [beat.beat, beat.unit], [true, "m1"]);
+
+  const after = JSON.parse(run(A, `${POSIX_SH} ${SCRIPTS.planUnits}`, { env: window60 }).stdout);
+  assertTrue("and after the beat the claim is no longer resumable",
+    !after.resumable.map((u) => u.unit).includes("m1"));
+
+  // THE INSTRUCTION CANNOT BE SILENTLY DROPPED. The repair is a step an agent runs, so prose is
+  // the mechanism and this is what keeps the prose honest: the per-ticket workflow must name the
+  // beat as its FIRST step, and the retired cadence must not survive anywhere.
+  const wf = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/drive/reference/ticket-workflow.md"), "utf8");
+  const steps = wf.slice(wf.indexOf("## Per-ticket steps"));
+  assertTrue("the per-ticket workflow opens with the beat",
+    /^### 0\. Beat the heartbeat/m.test(steps) &&
+    steps.indexOf("### 0. Beat the heartbeat") < steps.indexOf("### 1. Read and understand"),
+    steps.slice(0, 200));
+  assertTrue("and it names the script that performs it", steps.includes("heartbeat.sh <unit-id>"));
+  const driveSkill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/drive/SKILL.md"), "utf8");
+  assertTrue("the retired 'roughly every ten minutes' cadence is gone from the drive skill",
+    !/roughly every ten minutes or once per ticket \(each/.test(driveSkill), "the cadence survived");
+}
+
 function testResumeRace() {
   const { origin, A, B } = makeClaimFixture();
   const CLAIM = `${POSIX_SH} ${SCRIPTS.claim}`;
@@ -20393,6 +20532,7 @@ const tests = [
   ["/drive: attended selection vs the unattended form (O1)", testDriveAttendedSelection],
   ["drive/claim.sh announces the claim, never load-bearing", testClaimAnnounces],
   ["drive claim protocol: a dropped unit is resumed, not stranded", testClaimResume],
+  ["drive claim protocol: the beat keeps a long ticket's own claim", testHeartbeatKeepsALongTicketsClaim],
   ["drive claim protocol: two runners racing to resume, one takeover", testResumeRace],
   ["drive/heartbeat.sh keeps a working unit out of the resumable offer", testHeartbeat],
   ["drive claim protocol: a finished unit is not resumed again", testResumeSkipsDrainedUnit],
@@ -25391,12 +25531,24 @@ function testAnswerReturnPath() {
       if (f !== "record-answer.sh") {
         assertTrue(`${f} never executes record-answer.sh`, !invokes(body, "record-answer.sh"), f);
       }
-      if (f !== "question-state.sh" && f !== "ask-question.sh") {
+      // `answer-outcome.sh` joined the allowlist on 2026-08-31 (mission
+      // `make-the-tick-s-questions-readable-and-close-them-in-the-thread`) and it is a
+      // COMPOSITION, which is what this rule is for rather than against: it asks
+      // `question-state.sh` whether a key is `answered` instead of re-deriving that from the
+      // log, so the two cannot disagree about a question's life. What stays banned is a second
+      // DERIVATION of the state, and a script reaching `record-answer.sh` at all.
+      if (f !== "question-state.sh" && f !== "ask-question.sh" && f !== "answer-outcome.sh") {
         assertTrue(`${f} never executes question-state.sh`, !invokes(body, "question-state.sh"), f);
       }
     }
     const stepBody = readFileSync(join(M, "step-question-answers.sh"), "utf8")
       .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+    // The step itself still reaches GitHub through nothing. Since 2026-08-31 it composes
+    // `answer-outcome.sh`, which spends ONE bounded issue read per FILED candidate and none for
+    // the rest — the read is the reader's, off the log's own filing line, and it is bounded by
+    // the same `WORKAHOLIC_ANSWER_READ_MAX` the thread reads use. What this still pins is that
+    // no GitHub call is written HERE, which is what would let one grow unbounded beside the
+    // Slack reads.
     assertTrue("and the read step makes no gh call of any kind", !/\bgh\b/.test(stepBody), stepBody.slice(0, 200));
     assertTrue("nor names a channel: it reads threads on coordinates, never channel history",
       !/INBOUND_SLACK_CHANNEL/.test(stepBody), stepBody.slice(0, 200));
@@ -25540,7 +25692,15 @@ function testStalledUnitsStep() {
 function testModerateRun() {
   const repo = makeRepo();
   const RUN = `${POSIX_SH} ${SCRIPTS.proposeRun}`;
-  const STEPS = ["open-log", "inbound-sweep", "workload-logs", "merge-conflicts",
+  const STEPS = ["open-log",
+    // `blocked-tick` runs second (2026-08-31, mission
+    // `stop-an-unattended-tick-from-waiting-on-a-person`): a tick that OPENED and never
+    // closed, read off the log `open-log` has just opened and `run.sh`'s opening persist has
+    // just put on the base. It is placed here because it is a fact about the tick machinery
+    // rather than about the repository's work, and because the deadline cuts steps in order —
+    // the reading that says the loop stopped must not be the first to go.
+    "blocked-tick",
+    "inbound-sweep", "workload-logs", "merge-conflicts",
     "issue-triage", "stuck-prs", "doc-drift", "release-status", "note-cadence",
     // `strategy-pace` is step 10 (2026-08-22): the surface that tells a person a direction
     // will not arrive. It sits before `human-checkin` because the check-in is what asks.
@@ -25630,6 +25790,13 @@ function testModerateRun() {
     // placement and same reason as `base-health` — it reads, the check-in asks — and it names
     // the mission that shipped the drill so whoever is asked can redirect.
     "drill-health",
+    // `cadence-lapse` sits beside it (2026-08-31): a DECLARED periodic artifact whose newest
+    // one is older than its period allows. Every other step here is driven by an object that
+    // EXISTS, so a producer that dies produces nothing and no step has anything to find —
+    // measured, a daily record stopped for four days while hourly ticks ran throughout. It is
+    // placed beside `drill-health` because both name a mechanism that stopped working rather
+    // than a unit in flight, and like both its neighbours it reads and the check-in asks.
+    "cadence-lapse",
     // `strategy-digest` is step 13's neighbour (2026-08-24): the integrated standup. Once
     // per JST day, on the first tick at or after 09:00, it hands the per-strategy digest to
     // the agent to render at the top of the Moderation root — and that digest is the root's
@@ -25663,12 +25830,19 @@ function testModerateRun() {
     assertEq("the tick writes its log", j.log, "./.workaholic/moderations/2026-08-17.md");
     const log = readFileSync(join(repo, ".workaholic/moderations/2026-08-17.md"), "utf8");
     assertEq("one log section for the tick", (log.match(/^## /gm) || []).length, 1);
-    // Nine step lines plus the closing act's own line. The persist is deliberately
-    // NOT a tenth step (`steps[]` above is still exactly the nine), but its outcome
-    // is a fact this tick established, so it is logged and reported like one.
-    assertEq("and one line per step, plus the persist",
-      (log.match(/^- `/gm) || []).length, STEPS.length + 1);
+    // One line per step plus BOTH persists' own lines. Neither persist is a step
+    // (`steps[]` above is still exactly the step list), but each outcome is a fact this
+    // tick established, so each is logged and reported like one — under its own step id,
+    // because the log is idempotent per `(tick, step)` and a shared id would make the
+    // second a duplicate and lose its outcome (2026-08-31, mission
+    // `stop-an-unattended-tick-from-waiting-on-a-person`).
+    assertEq("and one line per step, plus both persists",
+      (log.match(/^- `/gm) || []).length, STEPS.length + 2);
     assertTrue("the persist reports itself by name", /^- `persist-log`: /m.test(log), log);
+    assertTrue("and the opening persist reports itself under its own id",
+      /^- `persist-log-opening`: /m.test(log), log);
+    assertEq("the opening persist is reported beside the closing one",
+      [j.opening_persist.status, j.opening_persist.reason], ["skipped", "no_origin"]);
     assertEq("a checkout with no remote skips it rather than failing",
       [j.persist.status, j.persist.reason], ["skipped", "no_origin"]);
     assertEq("step 1 is real", j.steps[0].status, "ok");
@@ -26651,11 +26825,38 @@ function testModerateRoutineTemplate() {
     assertTrue("the template requires the thread to be read before anything is posted",
       /\*\*read it first\*\*/.test(template), template);
   }
-  assertEq("and they are the only five shapes the template authorizes",
+  // SIX SHAPES SINCE 2026-08-31 (mission
+  // `make-the-tick-s-questions-readable-and-close-them-in-the-thread`): the outcome reply. It
+  // NARROWS the catalog's no-reply rule for the answer event rather than dropping it — that rule
+  // was written against a RESTATEMENT, and this is posted once, after the act, carrying facts
+  // the thread does not have. It keeps its own emoji on purpose: `:ballot_box_with_check:` says
+  // *received* at recording time and `🧾` says *acted on* afterwards, and one symbol answering
+  // both is how a reader stops being able to tell them apart.
+  {
+    const out = block(catalog, "🧾 対応結果");
+    assertTrue("the catalog carries the outcome reply", out !== "", "missing from notifications.md");
+    assertEq("the outcome reply reads byte-identically in the template and the catalog",
+      block(template, "🧾 対応結果"), out);
+    assertTrue("and it carries no mention token", !/<@U/.test(out), out);
+    // THE NARROWING IS WRITTEN WHERE THE RULE IT CHANGES IS WRITTEN, with what still holds.
+    assertTrue("the catalog states the bounds that admit the reversal",
+      /posted \*\*once, ever, per question\*\*/.test(catalog)
+        && /\*\*after the act\*\*, never before/.test(catalog),
+      "the outcome reply is stated without the bounds that make it a narrowing");
+    assertTrue("and says only a settled reading posts",
+      /only a `settled:` reading posts/.test(catalog),
+      "the catalog no longer gates the reply on the outcome being known");
+    // THE STAMP KEEPS ITS OWN JOB AND ITS OWN RULE. The no-reply sentence stays in the template,
+    // scoped to the recording event rather than deleted.
+    assertTrue("the recording event still posts no reply",
+      /post \*\*no reply\*\* for that event/.test(template), template);
+  }
+  assertEq("and they are the only six shapes the template authorizes",
     [...template.matchAll(/```\n([^\n]*)/gu)].map((m) => m[1]).filter((l) => /^[^\s`]/.test(l)),
     ["🔎 Moderation - <N> change(s), <M> question(s)<, <K> step(s) could not read — only when K > 0>",
      "🙋 <@U…> - <what this tick could not decide>",
      "✅ 解消を確認 - <the question's subject, one line>",
+     "🧾 対応結果 - <the question's subject, one line>",
      "🟢 Implemented - [#123 Title](<repo-url>/pull/123)",
      "⚫ Closed - [#123 Title](<repo-url>/pull/123)"]);
   for (const retired of ["🔧 Needs a decision", "📦 Release Preparation"]) {
@@ -28759,7 +28960,96 @@ function testProofJudgementSplit() {
   assertTrue("the age-source table is in the one home too", srcAt > 0,
     "claims.md no longer carries the age-source table");
   const ageTable = ageTail.slice(0, srcAt);
-  const sourceTable = ageTail.slice(srcAt);
+  const sourceTail = ageTail.slice(srcAt);
+
+  // AN EIGHTH VOCABULARY IN THE SAME HOME (2026-08-31, mission
+  // `make-the-tick-s-questions-readable-and-close-them-in-the-thread`). `answer-outcome.sh` is
+  // keyed on what became of A PERSON'S OWN ANSWER — a different question again from whose
+  // business a claim is, from what the base said, from whether an act happened, from whether a
+  // publication was answered, from whether a unit is driven twice, and from how long something
+  // has been true. Parsed apart for the reason the other seven are: five of these vocabularies
+  // now share an `unreadable`-shaped word, and folding them would report one rule as several
+  // copies of itself. It is split off the SOURCE tail rather than the age table, because the
+  // age-source table (a differently-keyed table) sits between them in the document.
+  const ANSWER_HEADING = "### Whether a recorded answer has been acted on";
+  const answerAt = sourceTail.indexOf(ANSWER_HEADING);
+  assertTrue("the answer-outcome sub-table is in the one home too", answerAt > 0,
+    "claims.md no longer carries the answer-outcome classification");
+  const sourceTable = sourceTail.slice(0, answerAt);
+  const answerTable = sourceTail.slice(answerAt);
+
+  // ITS WORDS, from the reader's own `emit` calls rather than from a list this test carries.
+  // `settled:*` are literal; `unreadable:<reason>` is normalised to its table form because the
+  // script interpolates the reason. The empty `outcome` the not-answered refusal emits is not a
+  // word and is deliberately not classified — there is no answer for anything to have become of.
+  const ansSrc = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/moderate/scripts/answer-outcome.sh"), "utf8")
+    .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+  const ansEmitted = new Set();
+  for (const m of ansSrc.matchAll(/\bemit\s+(?:true|false)\s+"?((?:settled:[a-z_]+|pending|unreadable:[a-z_$}{]+))"?/g)) {
+    ansEmitted.add(m[1].startsWith("unreadable:") ? "unreadable:<reason>" : m[1]);
+  }
+  assertEq("the answer-outcome vocabulary parses out of the reader",
+    [...ansEmitted].sort().join(","),
+    "pending,settled:issue_closed,settled:nothing_filed,unreadable:<reason>");
+
+  const ansClassified = new Map();
+  for (const m of answerTable.matchAll(/^\|\s*`((?:settled:[a-z_]+|pending|unreadable:<reason>))`\s*\|\s*(?:\*\*)?(proof|judgement)(?:\*\*)?\s*\|/gm)) {
+    assertTrue(`the answer-outcome sub-table classifies ${m[1]} exactly once`,
+      !ansClassified.has(m[1]), "a second row for the same word is two rules for one fact");
+    ansClassified.set(m[1], m[2]);
+  }
+  assertEq("every word the answer-outcome reading emits is classified exactly once",
+    [...ansEmitted].filter((w) => !ansClassified.has(w)).sort().join(","), "");
+  assertEq("and the sub-table classifies no word the answer-outcome reading never emits",
+    [...ansClassified.keys()].filter((w) => !ansEmitted.has(w)).sort().join(","), "");
+  assertEq("no answer-outcome reading is a proof — every one of them is a judgement",
+    [...ansClassified.entries()].filter(([, k]) => k === "proof").map(([w]) => w).sort().join(","), "");
+  // THE REFUSAL IS NAMED RATHER THAN CLASSIFIED, and the reason is written where the words are:
+  // calling a question with no recorded answer `unreadable` is the collapse the word exists to
+  // close.
+  assertTrue("the not-answered refusal is named beside the table",
+    /not_answered:<state>/.test(answerTable), "the refusal is no longer distinguished from a degradation");
+
+  // IT COMPOSES WHAT EXISTS AND WALKS NOTHING TWICE.
+  for (const composed of ["question-state.sh", "log-read.sh", "gh-rest.sh"]) {
+    assertTrue(`answer-outcome.sh composes ${composed}`, ansSrc.includes(composed),
+      "the answer-outcome reader derives a fact a single reader already owns");
+  }
+  // AND IT WRITES NOTHING, ANYWHERE.
+  for (const act of ["log-append.sh", "record-answer.sh", "file-inbound-ask.sh", "git push",
+    "git commit", "--method PUT", "--method PATCH", "--method POST", "--method DELETE"]) {
+    assertTrue(`answer-outcome.sh never reaches ${act}`, !ansSrc.includes(act),
+      "the answer-outcome reader is not a pure read");
+  }
+
+  // ITS ENUMERATED CONSUMER REPORTS AND POSTS ONE REPLY, AND DOES NOTHING ELSE. Call sites,
+  // never words: the step's own prose says in English what it never does.
+  const ansStepSrc = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/moderate/scripts/step-question-answers.sh"), "utf8")
+    .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+  assertTrue("step-question-answers.sh is the enumerated consumer of the answer-outcome reading",
+    ansStepSrc.includes("answer-outcome.sh"),
+    "the enumerated consumer no longer reads the reader it is registered for");
+  for (const act of ["--method PUT", "--method PATCH", "--method DELETE", "/merge",
+    "release-claim.sh", "retire-claim.sh", "catch-up-claim.sh", "plan-units.sh",
+    "publish-tree-pr.sh", "git push"]) {
+    assertTrue(`step-question-answers.sh reports — it never reaches ${act}`,
+      !ansStepSrc.includes(act),
+      `the answer-outcome reading licenses reporting and one reply, never ${act}`);
+  }
+  // ONLY A `settled:` READING BECOMES A REPLY. `pending` and `unreadable:<reason>` are counted
+  // and post nothing: an unread outcome rendered as a settled one would tell somebody their
+  // answer was acted on when nobody knows.
+  assertTrue("...and only a settled reading becomes an outcome candidate",
+    /settled:\*\)\s*\n?\s*settled_n=/.test(ansStepSrc)
+      && /pending\)\s*opending_n=/.test(ansStepSrc),
+    "the step no longer gates the reply on the outcome being settled");
+  // THE DEDUP IS THE LEDGER LINE, NOT A CURSOR: a slug an earlier tick replied to leaves the
+  // pool by construction, so one question gets one reply however many ticks run.
+  assertTrue("the outcome reply dedups on its own ledger line",
+    ansStepSrc.includes("human-checkin-outcome-"),
+    "the outcome reply has no ledger line, so a second tick would post it again");
 
   // ITS FOUR WORDS, from the reader's own `emit` calls rather than from a list this test carries.
   // `open:<age>` is normalised to its table form because the script interpolates the age; the

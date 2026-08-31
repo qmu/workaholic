@@ -398,6 +398,15 @@ if [ -n "$ROWS" ]; then
             c_exc=claimed_awaiting_verification
         elif [ "$c_reason" = "superseded" ]; then
             c_exc=claimed_superseded
+        elif [ "$c_reason" = "stranded" ]; then
+            # THE TICKETS LANDED AND THE BRANCH STILL HOLDS WORK (2026-09-01, issue #788). It is
+            # NOT `claimed_superseded`: that exclusion feeds `resurveyed[]`, which says the work
+            # came back and may be claimed afresh, and here the branch's own content is on no
+            # other ref — re-surveying it would offer the tickets again while the orphaned work
+            # sits where nobody is looking. It is not `claimed_active` either, which would say a
+            # run is on it. One exclusion, and its next action is a person: `/moderate`'s
+            # `retire-claims` step asks the holder.
+            c_exc=claimed_stranded
         else
             c_exc=claimed_active
         fi

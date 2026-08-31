@@ -57,7 +57,11 @@ For each candidate the `question-answers` step hands back under its settled outc
 One sentence: the answer as recorded, and what came of it.
 ```
 
-For each candidate the `thread-reconcile` step hands back, find the item's thread through the stateless lookup, **read it first**, and post one reply only when its last status reply is `🔵 Proposed` or `🟡 Handoff` and the pull request it names has merged or closed. A thread already carrying its finish is never touched, and no thread found means nothing to correct — post nothing and report it:
+For each candidate the `thread-reconcile` step hands back, find the item's thread through the stateless lookup, **read it first**, and post one reply only for these **two** pairs of (last status reply, pull-request state). A thread already carrying its finish is never touched, and no thread found means nothing to correct — post nothing and report it.
+
+**A merged `🔵 Proposed` posts nothing** (2026-09-01, issue #787): merging a proposal lands a feedback record and a ticket set, which is the moment the work becomes **queued** — the start of the item, not its finish. `🟢 Implemented` there asserts the opposite of what happened, and its second line explains away its own lateness, which makes a reader believe it rather than question it. Report the candidate as `proposal_merged_is_not_a_finish`; the thread keeps its last true status and the real `🟢 Implemented` arrives when the work is driven.
+
+**`🟡 Handoff` + merged** — the work is done and a run failed to say so:
 
 ```
 🟢 Implemented - [#123 Title](<repo-url>/pull/123)

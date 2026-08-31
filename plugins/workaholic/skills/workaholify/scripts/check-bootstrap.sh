@@ -126,6 +126,26 @@ if not enabled_plugin:
 if not marketplace:
     problems.append("marketplace (workaholic is not in extraKnownMarketplaces)")
 
+# THE GENERATED INDEXES MUST NOT BE A CONFLICT GENERATOR (2026-09-01, issue #780). Every branch
+# that adds an artifact rewrites the same sorted region of its area's index, so each new artifact
+# reaching the base conflicts with every open branch that has one of its own. Measured on a
+# consuming repository: three open proposal pull requests, every open proposal there was, each
+# carrying exactly one conflict, and the same generated file in all three.
+#
+# `merge=union` is a BUILT-IN driver, so it needs no per-clone `git config` — which is why it is
+# checkable as a repository file at all: the sessions that hit this run in fresh containers that
+# configure nothing.
+gitattributes = os.path.join(os.path.dirname(os.path.dirname(settings_path)), ".gitattributes")
+try:
+    attrs = open(gitattributes).read() if os.path.isfile(gitattributes) else ""
+except Exception:
+    attrs = ""
+if "index.md merge=union" not in attrs:
+    problems.append(
+        "index_merge_union (.gitattributes does not union-merge the generated .workaholic/ "
+        "indexes, so every open branch conflicts on them)"
+    )
+
 # The mapping's problems, carried through verbatim — one vocabulary for one file — but as
 # ADVISORIES rather than in `problems`, so `ok` is byte-identical to what it was.
 #

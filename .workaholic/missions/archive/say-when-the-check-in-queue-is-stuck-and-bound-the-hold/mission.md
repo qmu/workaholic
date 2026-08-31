@@ -2,7 +2,7 @@
 type: Mission
 title: Say when the check-in queue is stuck, and bound the hold
 slug: say-when-the-check-in-queue-is-stuck-and-bound-the-hold
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-31T11:24:17+00:00
 author: a@qmu.jp
@@ -56,3 +56,5 @@ unchanged.
 - 2026-08-31 — ticket archived — 20260831112534-say-why-each-held-question-is-held.md
 - 2026-08-31 — ticket archived — 20260831112534-let-an-outlived-hold-earn-a-root-line.md
 - 2026-08-31 — ticket archived — 20260831112535-drill-the-arrears-reading-offline.md
+- 2026-08-31 — ticket archived — 20260831112535-state-the-hold-s-bound-where-the-voice-is-defined.md
+- 2026-08-31 — mission achieved — mission.md

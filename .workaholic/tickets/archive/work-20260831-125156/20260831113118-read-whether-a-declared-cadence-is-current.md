@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-31T11:31:18+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -78,3 +79,30 @@ one way this reading can do harm.
   history is current for this purpose, which is the honest answer to *is it still being
   produced* only if the producer writes into the tree. Say so rather than assuming.
 
+
+## Final Report
+
+Development completed as planned, with one deviation recorded below. `cadence-state.sh` is the
+one reader: it composes the declaration the previous ticket settled, resolves each pattern to
+the newest artifact and answers `current`, `lapsed` (with the age and the period) or
+`unreadable` with a named reason and a **null** age. A repository declaring nothing answers an
+empty set with `empty_reason: no_cadence_declared`, exit 0. It writes nothing, stages nothing
+and makes no network call.
+
+**The deviation, and the measurement behind it.** The ticket's Considerations framed "newest
+matching artifact" as a filesystem read. That is useless in the environment this runs in: a
+routine's container is a fresh clone and git stamps every checked-out file with the checkout's
+own time. Measured 2026-08-31 inside a routine container on this repository — 1843 files
+carrying the image's bake date and 481 the freshen's, with
+`.workaholic/moderations/2026-08-26.md` showing an mtime of that morning — an mtime reading
+answers `current` for every cadence, always, which is the same silent failure this mission
+exists to fix. The age is therefore the newest **commit** that touched the pattern. The
+ticket's caveat inverts and is stated in the script's header rather than assumed.
+
+### Discovered Insights
+
+- **Insight**: file mtimes carry no information in a routine-fired container; every file in the
+  checkout shares one of two timestamps (the image bake and the freshen).
+  **Context**: any future reading tempted to use `mtime`, `find -newer` or `stat` to answer
+  *how old is this* will read as *brand new* in production and be correct only on a developer's
+  own machine. Git commit time is the only age that survives a clone.

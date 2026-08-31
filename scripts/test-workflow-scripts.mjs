@@ -21785,8 +21785,20 @@ function testStatelessThreadLookup() {
   // quotes the retired shape by name, and a document-wide match would read its own
   // history as the live wire format.
   const fencedShapes = [...catalog.matchAll(/```\n([\s\S]*?)```/gu)].map((m) => m[1]).join("\n");
-  assertTrue("🟡 Handoff no longer names the runner it mentioned",
-    !/🟡 Handoff <@U/u.test(fencedShapes), "the runner's self-mention survives on the handoff shape");
+  // 2026-08-31, mission `notify-the-person-a-directed-question-addresses`: this pinned
+  // "🟡 Handoff carries no token at all", which was the 2026-08-23 decision's *effect* rather
+  // than its rule. The rule is "not yourself, never nobody" — the same rule the check-in
+  // question's row below pins — and the handoff line is the other shape waiting on exactly one
+  // person's act, so it names its ASSIGNEE. What the fenced text can prove is that the token is
+  // back; WHOM it resolves to is a runtime fact no wire format can carry, so the prose pins
+  // below cover the half a shape cannot.
+  assertTrue("🟡 Handoff names the person who must act",
+    /🟡 Handoff <@U…>/u.test(fencedShapes), "the handoff shape names nobody, so it reaches nobody");
+  assertTrue("and the catalog says that name is the unit's assignee, never the runner",
+    /🟡 Handoff.*names the person who must act/su.test(catalog)
+    && /unit's `assignees`/u.test(catalog), "the addressee the handoff line names is unstated");
+  assertTrue("and that an unresolved address omits the token rather than guessing one",
+    /omitted when the address does not resolve/u.test(catalog), "an unresolvable addressee may be guessed");
   // The rule is "not yourself", never "nobody": the maintenance tick's question addresses
   // a named assignee and is the one post whose whole purpose is to reach a person.
   assertTrue("the maintenance tick's question keeps its mention",

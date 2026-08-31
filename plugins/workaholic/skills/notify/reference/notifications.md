@@ -62,7 +62,7 @@ by the [routine](<session URL>)
 `from-branch` → `to-branch`, one sentence, max 40 words, what the PR does only.
 <session URL>
 
-🟡 Handoff - [#123 Issue Title](<repo-url>/pull/123)
+🟡 Handoff <@U…> - [#123 Issue Title](<repo-url>/pull/123)
 The next run resumes it automatically; `git fetch && git checkout <branch>` to take it sooner. One sentence, max 25 words, what remains only.
 <session URL>
 
@@ -86,7 +86,11 @@ and the start of the next working day, composed from the check-in gate's own `WO
 `↳ still failing` reply, its exemption from rate-limiting, the first-report rule and the
 unreadable-history rule are all untouched.
 
-`🚀 Auto Merge` names no person and carries no mention token — a developer scanning the thread must be able to tell what merged without approval from what a person approved. It keeps the pre-existing merge shape's `from-branch → to-branch` body line verbatim; only the base template it extends moved from `🟢 Merge Requested` to `🟢 Implemented`'s simpler two-line form. `🟡 Handoff` and `🔴 Blocked` are unchanged from the shapes that predate this reconciliation.
+`🚀 Auto Merge` names no person and carries no mention token — a developer scanning the thread must be able to tell what merged without approval from what a person approved. It keeps the pre-existing merge shape's `from-branch → to-branch` body line verbatim; only the base template it extends moved from `🟢 Merge Requested` to `🟢 Implemented`'s simpler two-line form. `🔴 Blocked` is unchanged from the shape that predates this reconciliation.
+
+**`🟡 Handoff` names the person who must act, and 2026-08-23 was right to remove what it named before** (2026-08-31, mission `notify-the-person-a-directed-question-addresses`). The token it carried then named the **runner** — the account making the post — so it was decoration, and dropping it was correct. But the line was left naming **nobody**, which is the one thing this shape cannot afford: a handoff unit is *by definition* waiting on one person's act, and `drive/reference/routing.md`'s own route table has said `🟡 Handoff` **naming the assignee** since 2026-08-14. Measured: three units waiting on operator input since 2026-08-18, 2026-08-19 and 2026-08-26, found only when the operator asked a session directly.
+
+The token is **the unit's own addressee, never the runner** — resolved from the unit's `assignees` through `gather/scripts/identity.sh`, exactly as every other addressee in this loop is. It is **omitted when the address does not resolve**, and reported as unaddressed rather than stamped with one nobody verified: the identity reader answers `resolved: false` and echoes its input, and a guess here would page the wrong person about somebody else's blocked work. The rule above is therefore **satisfied rather than excepted** — the mention resolves to somebody other than the poster, which is what a mention is — and it takes the **bot** carrier when the addressee *is* the poster, per SKILL, *Which transport carries which shape, and why*. Everything else in the line is verbatim: the body sentence, the session URL, the `## Handoff` section's verbatim quoting of the declared reason, and the rule that this 🟡 **is** the unit's one finish post rather than a third.
 
 **A human merge is not announced by `/implement` at all** — that was `[Consent]`'s job, and `[Consent]` is retired (`workaholic:workaholify`, *Routines*): "a human-merged pull request is now announced by nobody." The `Merged by <@U…>` purple-circle shape this section once documented erased with it (2026-08-09, qmu/workaholic#317) rather than being reassigned — nothing in the current system posts a human-merge finish line, so keeping the shape on the books described a post nobody makes. The auto/human distinction the shape used to carry survives anyway, in the silence itself: `🚀 Auto Merge` is the only merge line `/implement` ever posts, so its presence in a thread means the run shipped the unit unattended; a `review` unit's thread ends at `🟢 Implemented` and stays there even after a human merges the PR later, and the merge itself is always readable on GitHub regardless. A developer telling the two apart reads the thread, not a second emoji.
 

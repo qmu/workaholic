@@ -70,3 +70,4 @@ happens, one person is told once, both branches named.
 - 2026-08-31 — run recorded (+0.4h) — cse_01PZPe1gEfrxmdvWmeBUGbER
 - 2026-08-31 — run recorded (+0.3h) — cse-implement-20260831-0244
 - 2026-08-31 — run recorded (+0.2h) — session_01LsDDBDKuDCKBXAhUDNiZaL
+- 2026-08-31 — ticket archived — 20260831024448-stop-re-resuming-a-handoff-blocked-on-a-ruling.md

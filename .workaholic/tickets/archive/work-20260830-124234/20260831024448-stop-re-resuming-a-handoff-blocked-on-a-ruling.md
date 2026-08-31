@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-31T02:44:48+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -126,3 +127,35 @@ to `parked_with_pr` and is re-offered forever.
   gate overridden), so a repair that risks stranding a genuinely drivable `parked_with_pr` unit is
   worse than the defect.
 - `superseded` keeps its precedence over any word added here.
+
+## Final Report
+
+**Step 3 fired, and it is the ticket's own authorized completion.** Steps 1 and 2 were worked in
+full: each of the three candidate signals was weighed against the two halves a sibling word needs
+— the pre-drive property (a run may never write it for its own unit) and the meaning (this work
+waits on a ruling) — and none carries both. The reasoning, the measurement and what *would* carry
+both are recorded in `plugins/workaholic/skills/drive/reference/claims.md`, beside the
+`awaiting_verification` record whose precedent step 1 named.
+
+The verdict is left alone, which is what the Gate asks for: no word added, no verdict widened, no
+field on any artifact, and `lib/claims.sh`, `claim.sh`, `plan-units.sh` and
+`verification-handoff.sh` all byte-identical. The only changed files are the finding itself and
+its generated copy.
+
+### Discovered Insights
+
+- **Insight**: `## Open Decisions` carries the pre-drive property that `## Handoff` lacks —
+  `/specificate` writes it at creation, `/ticket` never writes one, and no driving run writes one
+  — but it is not a blockage signal: the driving floor (`drive/reference/ticket-workflow.md` §1)
+  requires a run to **resolve** each item, so a ticket carrying one is ordinarily drivable.
+  **Context**: any future proposal to key a claim verdict on it must answer this, because the two
+  properties look adjacent and are not: one is about *who wrote it*, the other about *what it
+  means*, and a signal needs both before it can withhold a takeover.
+- **Insight**: the repair for this class lives at the **writing** seam, not the oracle.
+  `/specificate` already declares `verification_handoff:` for an unresolved operator-only fork
+  that survived the operator-record check (2026-08-23, issue #83), and a ticket whose completion
+  waits on an operator's ruling is exactly that case — declared at creation it reads
+  `awaiting_verification` through the reader that already exists.
+  **Context**: this is why the oracle needed no new word. It also means the measured unit's own
+  three tickets can only be taken off the takeover table by a writer, never by the run that keeps
+  meeting them.

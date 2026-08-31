@@ -187,6 +187,46 @@ on another machine coordinates through exactly the same artifact.
     archived work, so driving that ticket makes the same reader answer `false` and the unit reads
     `parked_with_pr` or `queue_drained` again — no stored state, no cursor to reset. `superseded`
     keeps its precedence over it: a claim proved empty is still superseded, whatever it declares.
+  - **A handoff blocked on an operator RULING has the same cost and no signal to read, and that
+    is a finding rather than a repair** (2026-08-31, ticket
+    `20260831024448-stop-re-resuming-a-handoff-blocked-on-a-ruling`). A unit that took the
+    **half-driven** handoff route because its remaining work waits on a ruling reads
+    `parked_with_pr`, `resumable: true`, and is offered as a takeover by every later survey. The
+    takeover can drive nothing — the ruling is the blocker and `/implement` may neither ask for
+    it nor make it — so each run pushes one empty `Resume a PR-unit` commit onto a branch whose
+    pull request is already open and reports the unit blocked again. **Measured** on
+    `work-20260830-124234` (PR #755, mission `stop-two-runs-from-claiming-and-driving-one-unit`):
+    **eight** consecutive takeovers between 2026-08-30 13:42 and 2026-08-31 15:5x UTC, zero lines
+    of implementation across all of them. It is `claimed_awaiting_verification`'s shape one state
+    over, with no declaration for the oracle to read.
+    **No existing signal carries both halves of what a sibling word would need**, and the halves
+    are the pre-drive property (`awaiting_verification` is safe because the declaration is on the
+    artifact *before* the drive, so a run can never write it for its own unit) and the meaning:
+    - The branch story's **`## Handoff`** section is present by construction on exactly this
+      route, and is written by the run *about its own unit* — the self-certifying evidence the
+      2026-08-23 Open Decisions rule refuses by name. It is also present on **every** half-driven
+      handoff, including one another session could legitimately continue, so a verdict keyed on
+      it would withhold takeovers from drivable units.
+    - A **`blocked` stamp** on the remaining queued tickets does not exist, and minting one is
+      the field on an artifact this repository refuses by name.
+    - An **`## Open Decisions`** item does carry the pre-drive property — `/specificate` writes
+      it at creation, `/ticket` never writes one, and no driving run writes one — but it does not
+      *mean* the work is blocked: the driving floor (`reference/ticket-workflow.md` §1) requires
+      a run to **resolve** each item, so a ticket carrying one is ordinarily drivable. Keying on
+      it would withhold the takeover from exactly the units a run is supposed to drive, and the
+      measured unit carries none, so the reading would not reach the case it was written for.
+    So the ticket's own step 3 fires — *record that finding and stop* — and **the verdict is left
+    alone**: no word added, no verdict widened, no field on any artifact, `claim.sh resume` and
+    `plan-units.sh` byte-identical. The cost of the status quo is bounded and visible (one empty
+    commit an hour, no work lost, no gate overridden), and a repair that stranded a genuinely
+    drivable `parked_with_pr` unit would be worse than the defect.
+    **What would carry both halves already exists, at the writing seam rather than the oracle**:
+    `verification_handoff:`, which `/specificate` declares for an **unresolved operator-only fork
+    that survived the operator-record check** (2026-08-23, issue #83). A ticket whose completion
+    waits on an operator's ruling *is* that case, and declared at creation it reads
+    `awaiting_verification` through the reader that already exists — no new word, no new signal,
+    nothing stored. The repair for this class is therefore a writer's, and a run may never make
+    it for its own unit, which is the whole reason the property is worth keeping.
   - **A drained queue is two states, split on the same story signal.** "Finished" covers a unit
     that **reported** — story committed at the tip, pull request open, waiting on a human — and a
     run that died **after** archiving its last ticket and **before** opening anything, whose work

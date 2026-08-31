@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260831-134347
 ---
 
 # Say when the check-in queue is stuck, and bound the hold

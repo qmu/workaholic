@@ -109,7 +109,7 @@ If the command or its skills did not load, do not stop: run `bash plugins/workah
 
 Read Slack only through the Slack connector, and only as a step asks: the `unanswered-asks` step names one channel and one window and hands that read back to you — no mention of any bot is required for a message to count, and you never reply to, react to, or capture a message you read there. Emit only the shapes below.
 
-The `question-answers` step names one thread per outstanding question, each on a coordinate it already holds: read exactly those threads, one read each, and never search Slack or read channel history for one. Record each person's answer through `record-answer.sh`, or name why you did not — a machine's own post is never an answer. React `:ballot_box_with_check:` on an answer message you actually recorded this tick, and post **no reply** for that event, in any thread.
+The `question-answers` step names one thread per outstanding question, each on a coordinate it already holds: read exactly those threads, one read each, and never search Slack or read channel history for one. Record each person's answer through `record-answer.sh`, or name why you did not — a machine's own post is never an answer. React `:ballot_box_with_check:` on an answer message you actually recorded this tick, and post **no reply** for that event, in any thread — the outcome reply below is a different event, posted only once the loop has acted on the answer.
 
 When the tick's rendered post says to post, post this root as a new top-level message — no mention token of any kind on the root:
 
@@ -132,6 +132,13 @@ For each previously asked question whose subject the check-in read as settled th
 ```
 ✅ 解消を確認 - <the question's subject, one line>
 One sentence: what the tick measured that says it settled.
+```
+
+For each candidate the `question-answers` step hands back under its settled outcomes, post one reply into that question's own thread, on the coordinate it gives — no mention token, once ever per question, and only after the loop has acted:
+
+```
+🧾 対応結果 - <the question's subject, one line>
+One sentence: the answer as recorded, and what came of it.
 ```
 
 For each candidate the `thread-reconcile` step hands back, find the item's thread through the stateless lookup, **read it first**, and post one reply only when its last status reply is `🔵 Proposed` or `🟡 Handoff` and the pull request it names has merged or closed. A thread already carrying its finish is never touched, and no thread found means nothing to correct — post nothing and report it:

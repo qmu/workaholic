@@ -26433,11 +26433,38 @@ function testModerateRoutineTemplate() {
     assertTrue("the template requires the thread to be read before anything is posted",
       /\*\*read it first\*\*/.test(template), template);
   }
-  assertEq("and they are the only five shapes the template authorizes",
+  // SIX SHAPES SINCE 2026-08-31 (mission
+  // `make-the-tick-s-questions-readable-and-close-them-in-the-thread`): the outcome reply. It
+  // NARROWS the catalog's no-reply rule for the answer event rather than dropping it — that rule
+  // was written against a RESTATEMENT, and this is posted once, after the act, carrying facts
+  // the thread does not have. It keeps its own emoji on purpose: `:ballot_box_with_check:` says
+  // *received* at recording time and `🧾` says *acted on* afterwards, and one symbol answering
+  // both is how a reader stops being able to tell them apart.
+  {
+    const out = block(catalog, "🧾 対応結果");
+    assertTrue("the catalog carries the outcome reply", out !== "", "missing from notifications.md");
+    assertEq("the outcome reply reads byte-identically in the template and the catalog",
+      block(template, "🧾 対応結果"), out);
+    assertTrue("and it carries no mention token", !/<@U/.test(out), out);
+    // THE NARROWING IS WRITTEN WHERE THE RULE IT CHANGES IS WRITTEN, with what still holds.
+    assertTrue("the catalog states the bounds that admit the reversal",
+      /posted \*\*once, ever, per question\*\*/.test(catalog)
+        && /\*\*after the act\*\*, never before/.test(catalog),
+      "the outcome reply is stated without the bounds that make it a narrowing");
+    assertTrue("and says only a settled reading posts",
+      /only a `settled:` reading posts/.test(catalog),
+      "the catalog no longer gates the reply on the outcome being known");
+    // THE STAMP KEEPS ITS OWN JOB AND ITS OWN RULE. The no-reply sentence stays in the template,
+    // scoped to the recording event rather than deleted.
+    assertTrue("the recording event still posts no reply",
+      /post \*\*no reply\*\* for that event/.test(template), template);
+  }
+  assertEq("and they are the only six shapes the template authorizes",
     [...template.matchAll(/```\n([^\n]*)/gu)].map((m) => m[1]).filter((l) => /^[^\s`]/.test(l)),
     ["🔎 Moderation - <N> change(s), <M> question(s)",
      "🙋 <@U…> - <what this tick could not decide>",
      "✅ 解消を確認 - <the question's subject, one line>",
+     "🧾 対応結果 - <the question's subject, one line>",
      "🟢 Implemented - [#123 Title](<repo-url>/pull/123)",
      "⚫ Closed - [#123 Title](<repo-url>/pull/123)"]);
   for (const retired of ["🔧 Needs a decision", "📦 Release Preparation"]) {

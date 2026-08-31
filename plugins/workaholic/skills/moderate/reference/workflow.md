@@ -2265,11 +2265,16 @@ answer **this run recorded** is stamped, and it is never load-bearing: the answe
 any issue filed before the stamp is attempted, and a failure is reported `ack_failed: <reason>`
 and changes nothing else. Three facts, three reports: the recording's, the filing's, the stamp's.
 
-**What it never does.** It never posts a reply for this event, never re-asks or confirms anything
-(`answered` is already its own refusal at the gate, and `✅ 解消を確認` keys on `settled`, not on
-`answered` — both paths untouched), never opens an issue except through `file-inbound-ask.sh`,
-never adds an edit path for a correction (a person who answers twice appends a later line and the
-newest wins), and never reads a channel. The overlap with `unanswered-asks` is deliberate and must
+**What it never does, as it stands after 2026-08-31** (mission
+`make-the-tick-s-questions-readable-and-close-them-in-the-thread`). It never re-asks or confirms
+anything (`answered` is already its own refusal at the gate, and `✅ 解消を確認` keys on `settled`,
+not on `answered` — both paths untouched), never opens an issue except through
+`file-inbound-ask.sh`, never adds an edit path for a correction (a person who answers twice
+appends a later line and the newest wins), and never reads a channel. **It posts exactly one
+reply, after the act** — `🧾 対応結果`, once ever per question, and only on a `settled:` reading —
+and no reply at all for the *recording* event, which is where the no-reply rule was written and
+where it still holds. That sentence used to read *never posts a reply for this event*, full stop;
+the narrowing and its bounds live in `workaholic:notify`'s catalog beside the shape. The overlap with `unanswered-asks` is deliberate and must
 not be collapsed: that step asks about a **channel message nobody answered**; this files an
 **answer to the tick's own question**. One is a question, the other is work.
 

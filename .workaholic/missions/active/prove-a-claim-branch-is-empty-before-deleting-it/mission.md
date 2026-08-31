@@ -38,7 +38,7 @@ told once — while a branch that really is empty retires exactly as it does tod
 
 ## Acceptance
 
-- [ ] `superseded` holds only when the branch's diff against the base is empty, re-derived at
+- [x] `superseded` holds only when the branch's diff against the base is empty, re-derived at
       the moment of each act. (#20260831203453-refuse-to-retire-a-branch-that-still-holds-work.md)
 - [ ] A branch whose tickets landed but whose diff is not empty is its own state and reaches
       a person once, naming the files. (#20260831203454-tell-a-person-about-a-stranded-claim-branch.md)
@@ -51,3 +51,4 @@ told once — while a branch that really is empty retires exactly as it does tod
 - 2026-08-31 — Reproduced offline: all three seeded claims read superseded, all three are offered as retirable, and with the delete allowed to run the branch holding src/stranded.txt is deleted and its content lost. delete-retired-claim-branch.sh's not_on_base bound re-derives claims_superseded, so it refuses nothing this gap lets through. Every claim branch has a non-empty merge-base..branch diff, because the claim commit stamps its own artifacts; a heartbeat is an empty commit and contributes nothing. — 20260831203453-reproduce-a-superseded-branch-that-still-holds-work.md
 - 2026-08-31 — ticket archived — 20260831203453-reproduce-a-superseded-branch-that-still-holds-work.md
 - 2026-08-31 — ticket archived — 20260831203453-read-a-claim-branch-s-own-diff-against-the-base.md
+- 2026-08-31 — ticket archived — 20260831203453-refuse-to-retire-a-branch-that-still-holds-work.md

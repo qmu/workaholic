@@ -273,7 +273,7 @@ same fact, which is exactly what this exists to prevent.
 
 | Word | Class | What established it, and what a consumer may do |
 | ---- | ----- | ----------------------------------------------- |
-| `superseded` | **proof** | Every one of the unit's tickets is archived on the base, or a **merged** pull request has this branch as its head. The claim's content reached the base by another route, so the branch can never land and holds no work. A consumer may **act**: resurvey the work behind it (`plan-units.sh`), claim over it (`claim.sh`), retire the claim itself. |
+| `superseded` | **proof** | **Two** things, and since 2026-08-31 both are proved rather than one standing in for the other: every one of the unit's tickets is archived on the base (or a **merged** pull request has this branch as its head), **and** the branch's own diff against the base is empty (`claims_branch_diff_reading`, the sub-table further down). Until then only the first was tested, and its consumers read it as the second — so a branch whose tickets landed under *another* branch's directory while it still carried files reachable from no other ref was reported finished and offered for deletion. A consumer may **act**: resurvey the work behind it (`plan-units.sh`), claim over it (`claim.sh`), retire the claim itself. |
 | `report_undelivered` | **proof** | The run that drove this unit recorded `merge_refused: <word>` into its own branch story (`record-merge-outcome.sh`). The unit is finished, pushed, at an open pull request, and the **transport** — not a person — is what stopped it. A consumer may **act**: re-attempt the merge through the seam that refused it. |
 | `heartbeat_lapsed` | judgement | The tip has not moved inside the heartbeat window. It says a run *probably* died; it does not prove one did. Offered as a takeover, which the runner decides — never acted on by anything else. |
 | `report_incomplete` | judgement | The queue is drained with no story at the tip: the run *probably* died between §4 and §5. Same standing as `heartbeat_lapsed` — a mandatory **takeover offer**, not a licence to close, delete or merge anything. |
@@ -649,15 +649,30 @@ composition is where the proof narrows.
 never an ancestor of the base, which is why the existing proof is derived from the tree in the
 first place.
 
-**Exactly one subtraction, and it is the claim's own stamped artifacts.** A claim writes
-`claim: <branch>` into the artifacts it claims, so the claim commit itself changes the tree and
-**every** claim branch has a non-empty raw diff — measured on the reproduction, including the
-one holding a claim commit and a heartbeat and nothing else. A heartbeat and a resume commit are
-*empty* commits and contribute nothing, so the stamped artifact list the scan already carries is
-the whole of it. **Its stated cost**: at the mission grain the stamped artifact is `mission.md`,
-which the archive test does not prove is on the base, so a mission claim that also edited its own
-`mission.md` and whose tickets landed elsewhere loses those edits when it retires — the
-racing-twin semantics `superseded` already carries, named here rather than hidden.
+**What is subtracted is the loop's own bookkeeping on this branch, and nothing else.** A claim
+branch always carries writes the protocol itself made, so a raw diff is never empty — measured on
+the reproduction, the branch holding a claim commit and a heartbeat and nothing else still
+differs from the base. Three kinds, each keyed so it can only reach *this* branch's records
+(the branch comes from the ref's own basename, never from an argument), and each already proved
+delivered by the test above it:
+
+1. **The claim's own stamped artifacts**, by exact path, from the list the scan already carries —
+   a claim writes `claim: <branch>` into what it claims, so the claim commit itself changes the tree.
+2. **This branch's own story**, `.workaholic/stories/<branch>.md` — it describes this branch and
+   nothing else, and the branch name is in its filename.
+3. **This branch's own ticket archive**, `.workaholic/tickets/archive/<branch>/` — reached only
+   *after* the archive test passed, and that test is filename-keyed and deliberately
+   content-blind (*a ticket archived under any branch is delivered*). Refusing on it would
+   contradict the test above it; the suite's own fixture pins the case where a recovery landed
+   **refined rather than verbatim** and is still a delivery.
+
+**Anything subtracted is content the loop is willing to delete unseen, and the costs are named.**
+At the mission grain the stamped artifact is `mission.md`, which the archive test does not prove
+is on the base, so a mission claim that also edited its own `mission.md` and whose tickets landed
+elsewhere loses those edits; and a ticket in (3) carries this run's own `## Final Report`, which a
+twin's delivery does not reproduce. Both are the racing-twin semantics `superseded` already
+carries — the alternative, refusing every retirement whose branch archived anything, would leave
+the branches this reading exists to bound standing forever.
 
 | Word | Class | What established it, and what a consumer may do |
 | ---- | ----- | ----------------------------------------------- |

@@ -731,6 +731,222 @@ claims_is_archived() {
     fi
 }
 
+# DOES THIS BRANCH STILL HOLD CONTENT THAT IS ON NO OTHER REF? $1 = base ref, $2 = the claim's
+# TIP ref, $3 = the claim's stamped artifact list (comma-separated, the scan's tenth field).
+# Echoes one JSON line and never fails:
+#   {"state": "empty"|"non_empty"|"unanswerable", "reason": "", "files": [...], "count": N}
+#
+# WHY IT EXISTS (2026-08-31, mission `prove-a-claim-branch-is-empty-before-deleting-it`).
+# `claims_superseded` proves *this unit's tickets are archived on the base* and its consumers
+# read that as *this branch can never land and holds no work*. Those are two questions and
+# neither implies the other: a ticket archived under ANOTHER branch's directory satisfies the
+# first while the claim branch still carries files that exist in no other ref. Measured on this
+# repository 2026-08-31: two branches carrying ~300 lines and a doc section reachable from
+# nothing else were reported finished and offered for deletion, and only a 403 refusing the
+# delete kept the work alive. This is the reading that asks the second question. Nothing acts on
+# it here — `claims_superseded` composes it, and the composition is where the proof narrows.
+#
+# TWO DIFFS, INTERSECTED, AND NEVER ANCESTRY. A squash-merged branch is never an ancestor of the
+# base, which is exactly why the existing proof is derived from the tree; an ancestry term here
+# would answer `non_empty` for every squash-merged branch and refuse every legitimate
+# retirement. Neither single diff answers the question either:
+#
+#   `merge-base..tip`  the branch's OWN paths — but compared against the base as it was, so a
+#                      branch whose content the base has since taken reads non-empty forever.
+#                      Measured against the suite's squash-merged fixture, which archives its
+#                      tickets on the branch: those archive paths are the branch's own changes
+#                      and are also on the base, and this diff cannot tell.
+#   `base..tip`        every path where the two trees differ — including everything the BASE
+#                      changed and this branch never touched, which is most of the repository
+#                      on any branch more than an hour old.
+#
+# The intersection is the question: **paths this branch changed, that still differ from the base
+# tip**. A path the branch introduced and the base has since taken (by a squash, by a twin) drops
+# out; a path the base moved on without the branch was never the branch's to hold.
+#
+# WHAT IS SUBTRACTED IS THE LOOP'S OWN BOOKKEEPING ON THIS BRANCH, AND NOTHING ELSE. A claim
+# branch always carries writes the protocol itself made, so a raw diff is never empty — measured
+# on the reproduction, the branch holding a claim commit and a heartbeat and nothing else still
+# differs from the base. Four kinds — three of them keyed so they can only ever reach THIS
+# branch's own records, the fourth read from the one rule that already says what is generated —
+# and each named with what already proved it holds nothing of its own:
+#
+#   1. THE CLAIM'S OWN STAMPED ARTIFACTS, from the list the scan already carries. A claim writes
+#      `claim: <branch>` into the artifacts it claims, so the claim commit itself changes the
+#      tree. Matched by exact path AND — for a path inside the queue directory — by filename,
+#      because the stamped list is written at CLAIM time while the tip may hold the same ticket
+#      at its migrated path: `gather/scripts/migrate-todo-owners.sh` flattens
+#      `todo/<user-slug>/X.md` to `todo/X.md` at the next write seam, so one artifact has two
+#      paths across that convergence. The filename arm is bounded to `.workaholic/tickets/todo/`
+#      and to the claim's OWN artifacts' filenames, which are timestamp-prefixed and unique in
+#      the queue, so it cannot reach a ticket the branch minted itself.
+#   2. THIS BRANCH'S OWN STORY, `.workaholic/stories/<branch>.md`. It exists to describe this
+#      branch and describes nothing else, and the branch name is in its filename, so the
+#      subtraction cannot reach another unit's story.
+#   3. THE GENERATED OKF INDEXES, through `ship/scripts/lib/conflict-class.sh`'s
+#      `conflict_class_generated_path` — the ONE place that says which paths are generated,
+#      read rather than restated, exactly as `claim-mergeability.sh` reads it. Every archive
+#      commit regenerates them (`okf/scripts/refresh-index.sh` writes each wholesale from what
+#      is on disk), so a branch that archived anything differs from the base there by
+#      construction. Sourced inside the command substitution, so no claims consumer gains those
+#      functions; if the file is absent nothing is subtracted, which over-strands rather than
+#      over-deletes.
+#   4. THIS BRANCH'S OWN TICKET ARCHIVE, `.workaholic/tickets/archive/<branch>/`. This is
+#      reached only AFTER the archive test passed, and that test is filename-keyed and
+#      deliberately content-blind — *a ticket archived under ANY branch is delivered, and which
+#      branch delivered it is exactly what this test must not care about* (`claims_is_archived`).
+#      So by the time the diff term runs, every file in this directory is one the proof has
+#      already established reached the base. Refusing on it would contradict the very test
+#      above it. The suite's own fixture pins the case: a recovery that landed *refined rather
+#      than verbatim* is still a delivery.
+#
+# The branch is derived from the ref's own basename rather than passed in, so the two
+# branch-keyed subtractions cannot be aimed at a branch other than the one being read.
+#
+# ANYTHING SUBTRACTED IS CONTENT THE LOOP IS WILLING TO DELETE UNSEEN, and the costs are named
+# rather than hidden. At the mission grain the stamped artifact is `mission.md`, which the
+# archive test does NOT prove is on the base — it proves the mission's TICKETS are — so a
+# mission claim that also edited its own `mission.md` (a `## Changelog` line, an acceptance
+# tick) and whose tickets landed through another branch loses those edits. And a ticket in (3)
+# carries this run's own `## Final Report`, which a twin's delivery of the same ticket does not
+# reproduce. Both are the racing-twin semantics `superseded` already has; the alternative —
+# refusing every retirement whose branch archived anything — would leave the branches this
+# reading exists to bound standing forever.
+#
+# `unanswerable` IS ITS OWN STATE AND NEVER READS AS `empty`, on `claims_merged_state`'s
+# precedent: a wrong `empty` licenses a delete, a wrong `non_empty` only leaves a branch
+# standing, so a reading we could not make is never promoted to the one that permits the act.
+#
+# IT MAKES NO NETWORK CALL AND TOUCHES NO REF, INDEX OR WORKTREE — one `merge-base` plus one
+# `diff --name-only` against refs the caller has already fetched, `claim-mergeability.sh`'s own
+# property. Measured on this repository (1156 archived ticket paths): ~8.3 ms per claim against
+# the archive listing's ~4.0 ms, so it can afford to run per row; it is composed LAST anyway, so
+# it only runs where every cheaper condition already said `true`.
+#
+# THE FILE LIST IS BOUNDED. A branch differing in a thousand files reports the first few names
+# and the full count, never a thousand names into a question a person has to read.
+CLAIMS_BRANCH_DIFF_MAX=${CLAIMS_BRANCH_DIFF_MAX:-5}
+
+claims_branch_diff_reading() {
+    _cbd_base="$1"
+    _cbd_ref="${2:-}"
+    _cbd_arts="${3:-}"
+
+    _cbd_emit() { # $1 state, $2 reason, $3 files-json, $4 count
+        printf '{"state": "%s", "reason": "%s", "files": [%s], "count": %s}' \
+            "$1" "${2:-}" "${3:-}" "${4:-0}"
+    }
+
+    [ -n "$_cbd_ref" ] && [ -n "$_cbd_base" ] || {
+        _cbd_emit unanswerable no_ref "" 0
+        return 0
+    }
+
+    _cbd_mb=$(git merge-base "$_cbd_base" "$_cbd_ref" 2>/dev/null || true)
+    if [ -z "$_cbd_mb" ]; then
+        # A truncated clone cannot see the merge base, and that is a different fact from two
+        # refs with no common ancestor. Both are `unanswerable`; the reason says which.
+        if [ "$(claims_shallow)" = "true" ]; then
+            _cbd_emit unanswerable shallow_history "" 0
+        else
+            _cbd_emit unanswerable no_merge_base "" 0
+        fi
+        return 0
+    fi
+
+    # `--diff-filter=d` EXCLUDES DELETIONS FROM BOTH SIDES, and that is a statement about what
+    # the question is: *what does this branch HOLD that is on no other ref*. A path the branch
+    # removed carries no content that deleting the branch could lose, and a path the base has
+    # that the branch does not is not the branch's to hold. Without the filter, a unit that
+    # drained its queue by moving tickets out of `todo/` would read as holding every one of
+    # them — a deletion rendered as work.
+    _cbd_own=$(git diff --name-only --diff-filter=d "$_cbd_mb" "$_cbd_ref" 2>/dev/null) || {
+        _cbd_emit unanswerable diff_failed "" 0
+        return 0
+    }
+    if [ -z "$_cbd_own" ]; then
+        _cbd_emit empty "" "" 0
+        return 0
+    fi
+    _cbd_differs=$(git diff --name-only --diff-filter=d "$_cbd_base" "$_cbd_ref" 2>/dev/null) || {
+        _cbd_emit unanswerable diff_failed "" 0
+        return 0
+    }
+
+    # The intersection, minus this branch's own bookkeeping. BOTH path lists go in through `-v`
+    # rather than one through stdin: awk applies escape processing to `-v` values, so a path git
+    # quoted would be transformed on one side only and the intersection would drop it — which is
+    # the direction that turns a held file into an `empty` reading.
+    _cbd_branch=${_cbd_ref##*/}
+    _cbd_story=".workaholic/stories/${_cbd_branch}.md"
+    _cbd_archive=".workaholic/tickets/archive/${_cbd_branch}/"
+    _cbd_candidates=$(awk -v own="$_cbd_own" -v differs="$_cbd_differs" -v arts="$_cbd_arts" \
+        -v story="$_cbd_story" -v archive="$_cbd_archive" '
+        BEGIN {
+            queue = ".workaholic/tickets/todo/"
+            n = split(own, o, "\n");  for (i = 1; i <= n; i++) if (o[i] != "") mine[o[i]] = 1
+            m = split(arts, a, ",")
+            for (i = 1; i <= m; i++) {
+                if (a[i] == "") continue
+                skip[a[i]] = 1
+                if (substr(a[i], 1, length(queue)) == queue) {
+                    base = a[i]; sub(/^.*\//, "", base); queued[base] = 1
+                }
+            }
+            k = split(differs, d, "\n")
+            for (i = 1; i <= k; i++) {
+                p = d[i]
+                if (p == "" || !(p in mine) || (p in skip)) continue
+                if (p == story) continue
+                if (substr(p, 1, length(archive)) == archive) continue
+                if (substr(p, 1, length(queue)) == queue) {
+                    b = p; sub(/^.*\//, "", b)
+                    if (b in queued) continue
+                }
+                print p
+            }
+        }')
+
+    # The generated paths come out through the ONE rule that owns them. Sourced inside this
+    # command substitution's own subshell, so no consumer of this library gains those functions;
+    # with the file absent nothing is subtracted, which over-strands rather than over-deletes.
+    _cbd_held=$(
+        _cbd_cc="${CLAIMS_LIB_DIR:-}/../../../ship/scripts/lib/conflict-class.sh"
+        # shellcheck disable=SC1090 -- resolved from the library's own directory at runtime.
+        [ -n "${CLAIMS_LIB_DIR:-}" ] && [ -f "$_cbd_cc" ] && . "$_cbd_cc" >/dev/null 2>&1
+        printf '%s\n' "$_cbd_candidates" | while IFS= read -r _cbd_p; do
+            [ -n "$_cbd_p" ] || continue
+            if command -v conflict_class_generated_path >/dev/null 2>&1 \
+                && conflict_class_generated_path "$_cbd_p"; then
+                continue
+            fi
+            printf '%s\n' "$_cbd_p"
+        done
+    )
+
+    if [ -z "$_cbd_held" ]; then
+        _cbd_emit empty "" "" 0
+        return 0
+    fi
+
+    _cbd_count=$(printf '%s\n' "$_cbd_held" | awk 'NF' | wc -l | tr -d ' ')
+    _cbd_files=$(printf '%s\n' "$_cbd_held" | awk -v max="$CLAIMS_BRANCH_DIFF_MAX" '
+        NF && shown < max {
+            gsub(/\\/, "\\\\"); gsub(/"/, "\\\"")
+            printf "%s\"%s\"", sep, $0; sep = ", "; shown++
+        }')
+    _cbd_emit non_empty "" "$_cbd_files" "$_cbd_count"
+}
+
+# The reading as the one word `claims_superseded` needs: `true` only for `empty`. Same arguments.
+# An `unanswerable` reading answers `false` — a degradation must never license a delete.
+claims_branch_diff_empty() {
+    case "$(claims_branch_diff_reading "$@")" in
+        *'"state": "empty"'*) printf 'true' ;;
+        *) printf 'false' ;;
+    esac
+}
+
 # HAS EVERY TICKET OF THIS MISSION UNIT LANDED ON THE BASE? $1 = base ref, $2 = the claim's
 # TIP ref, $3 = the `mission.md` artifact path. Echoes true|false, never fails.
 #
@@ -800,6 +1016,40 @@ claims_superseded() {
     _csp_tip="${4:-}"
     [ -n "$_csp_arts" ] || { printf 'false'; return 0; }
 
+    # THE DIFF TERM, COMPOSED LAST AT BOTH GRAINS (2026-08-31, mission
+    # `prove-a-claim-branch-is-empty-before-deleting-it`). Everything above answers *are this
+    # unit's TICKETS on the base*; this answers *does this BRANCH still hold content of its own*,
+    # which is what every consumer of this proof has always read it to mean. Neither implies the
+    # other: a ticket archived under ANOTHER branch's directory satisfies the first while the
+    # branch still carries files that exist in no other ref. Measured 2026-08-31 — two branches
+    # carrying ~300 lines and a doc section reachable from nothing else were reported finished
+    # and offered for deletion, and only a 403 refusing the delete kept the work alive.
+    #
+    # IT CAN ONLY EVER REMOVE A `superseded`, NEVER ADD ONE, and that direction is the whole
+    # safety argument: this is one of exactly two proofs in the protocol and it gates a
+    # destructive act, so anything that makes it HARDER to establish is safe and anything that
+    # makes it easier is not. The term is an extra conjunct on both existing routes and appears
+    # nowhere else. A later change must keep that asymmetry.
+    #
+    # AN `unanswerable` READING ANSWERS `false` — `claims_branch_diff_empty`'s own contract, and
+    # the direction the merged lookup already takes: a degradation must never license a delete.
+    # THAT MAKES `$4` REQUIRED FOR A `true` ANSWER at either grain. With no tip ref the reading
+    # is `unanswerable:no_ref`, so a caller that omits it now gets `false` where the batch grain
+    # used to answer from the tree alone. Every caller in the tree passes it; the one caller that
+    # deliberately does not is a drill row asserting the pre-2026-08-30 mission-grain
+    # composition, which reaches `false` before this term for its own reason.
+    #
+    # IT IS LAST BECAUSE IT IS THE MOST EXPENSIVE CONDITION THAT CAN STILL CHANGE THE VERDICT —
+    # the archive listing's ~4.0 ms per claim against this term's ~8.3 ms, measured on this
+    # repository — so it runs only where every cheaper condition already said `true`.
+    _csp_confirm_empty() {
+        if [ "$(claims_branch_diff_empty "$_csp_base" "$_csp_tip" "$_csp_arts")" = "true" ]; then
+            printf 'true'
+        else
+            printf 'false'
+        fi
+    }
+
     # One listing per claim, reused for every artifact -- the archive is the largest path
     # in the tree and this is the scan's most expensive gate, which is why it sits last
     # among the conditions that can still change the verdict.
@@ -856,11 +1106,11 @@ claims_superseded() {
             *)
                 IFS="$_csp_old_ifs"
                 if [ "$(claims_mission_landed "$_csp_base" "$_csp_tip" "$_csp_p")" = "true" ]; then
-                    printf 'true'
+                    _csp_confirm_empty
                     return 0
                 fi
                 if [ "$(claims_merged_state "$_csp_branch")" = "merged" ]; then
-                    printf 'true'
+                    _csp_confirm_empty
                 else
                     printf 'false'
                 fi
@@ -881,7 +1131,7 @@ claims_superseded() {
     # EVERY ticket, not any: a unit half of whose tickets landed elsewhere still has work,
     # and calling it superseded would hide that half.
     if [ "$_csp_total" -gt 0 ] && [ "$_csp_total" -eq "$_csp_archived" ]; then
-        printf 'true'
+        _csp_confirm_empty
     else
         printf 'false'
     fi

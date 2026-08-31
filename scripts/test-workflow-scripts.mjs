@@ -17973,10 +17973,36 @@ function makeStrandedClaims() {
 
   execSync(`git clone -q ${origin} read`, { cwd: dir });
   execSync("git config user.email test@example.com && git config user.name Test", { cwd: read });
+
+  // THE STUB'S REF DELETE ACTUALLY DELETES. `delete-retired-claim-branch.sh` deletes through
+  // `gh api .../git/refs/heads/<branch> --method DELETE`, so a stub that merely answers success
+  // would let a test assert a return word over a delete that never happened — which is exactly
+  // the substitution this mission exists to prevent. Asserting SURVIVING CONTENT needs the act
+  // to be real.
+  const bin = join(dir, "bin");
+  mkdirSync(bin, { recursive: true });
+  writeFileSync(join(bin, "gh"), [
+    "#!/bin/sh",
+    'case "$1 $2" in',
+    "  \"api user\") printf 'tester\\n'; exit 0 ;;",
+    "  \"api rate_limit\") echo '{\"rate\":{\"limit\":5000}}'; exit 0 ;;",
+    "esac",
+    'case "$*" in',
+    "  *--method\\ DELETE*)",
+    "      _ref=$(printf '%s' \"$2\" | sed -n 's#.*/git/refs/heads/\\(.*\\)$#\\1#p')",
+    `      [ -z "$_ref" ] || git -C ${origin} update-ref -d "refs/heads/\${_ref}" 2>/dev/null || exit 1`,
+    "      exit 0 ;;",
+    "esac",
+    "echo '[]'",
+    "",
+  ].join("\n"));
+  chmodSync(join(bin, "gh"), 0o755);
+
   return {
     dir,
     origin,
     read,
+    bin,
     stranded: { branch: "work-20260101-000000", unit: "batch-stranded" },
     mission: { branch: "work-20260101-000001", unit: "m1" },
     clean: { branch: "work-20260101-000002", unit: "batch-clean" },
@@ -18049,6 +18075,64 @@ function testBranchDiffReading() {
     const many = ask(`origin/${fx.stranded.branch}`, ".workaholic/tickets/todo/20260101000001-t.md");
     assertEq("a branch differing in many files reports a bounded list and the full count",
       [many.files.length, many.count], [5, 9]);
+  } finally {
+    rmSync(fx.dir, { recursive: true, force: true });
+  }
+}
+
+// The narrowing: a branch that still holds work is not `superseded`, at either grain, and
+// reaches neither destructive act — while a branch that is genuinely empty retires unchanged.
+function testStrandedBranchIsNotSuperseded() {
+  const fx = makeStrandedClaims();
+  const S = join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts");
+  const env = {
+    env: {
+      ...process.env,
+      PATH: `${fx.bin}:${process.env.PATH}`,
+      WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES: "0",
+    },
+  };
+  try {
+    const scan = JSON.parse(run(fx.read, `${POSIX_SH} ${join(S, "list-claims.sh")}`, env).stdout);
+    const by = Object.fromEntries(scan.claims.map((c) => [c.unit, c]));
+    assertTrue("the fixture reports all three claims",
+      ["batch-stranded", "m1", "batch-clean"].every((u) => by[u]),
+      JSON.stringify(scan.claims.map((c) => c.unit)));
+    assertEq("a branch whose tickets landed elsewhere but which still holds a file is not superseded",
+      by["batch-stranded"].resume_reason === "superseded", false);
+    assertEq("...and neither is the mission-grain one",
+      by["m1"].resume_reason === "superseded", false);
+    // THE OTHER DIRECTION, and it is the one that matters: the narrowing must not refuse a
+    // legitimate retirement. This branch's tickets landed elsewhere too and it holds nothing.
+    assertEq("a branch that is genuinely empty against the base is still superseded",
+      by["batch-clean"].resume_reason, "superseded");
+
+    const retirable = JSON.parse(run(fx.read,
+      `${POSIX_SH} ${join(S, "list-retirable-claims.sh")}`, env).stdout);
+    assertEq("only the empty branch is offered as retirable",
+      retirable.candidates.map((c) => c.unit), ["batch-clean"]);
+
+    // THE CI ACT INHERITS THE FIX FOR FREE, because its `not_on_base` bound re-derives the same
+    // proof rather than testing the diff itself.
+    const act = (unit) => JSON.parse(run(fx.read,
+      `${POSIX_SH} ${join(S, "delete-retired-claim-branch.sh")} ${unit}`, env).stdout);
+    for (const unit of ["batch-stranded", "m1"]) {
+      const r = act(unit);
+      assertEq(`the CI act refuses ${unit} with nothing attempted`,
+        [r.deleted, r.state], [false, "not_attempted"]);
+    }
+    const clean = act("batch-clean");
+    assertEq("and it still deletes the branch that holds nothing",
+      [clean.deleted, clean.state], [true, "deleted"]);
+
+    // THE PROPERTY, NOT THE RETURN WORD: the files that would have been lost are still there.
+    const refs = run(fx.read, `git ls-remote --heads ${fx.origin}`).stdout;
+    assertTrue("the stranded branches survive the act that deleted the empty one",
+      refs.includes(fx.stranded.branch) && refs.includes(fx.mission.branch)
+        && !refs.includes(fx.clean.branch), refs);
+    assertTrue("...so src/stranded.txt is still reachable",
+      run(fx.read, `git cat-file -e origin/${fx.stranded.branch}:src/stranded.txt`).status === 0,
+      "the file the branch held is gone");
   } finally {
     rmSync(fx.dir, { recursive: true, force: true });
   }
@@ -18155,6 +18239,18 @@ function testMergedClaimIsNeverResumable() {
       .claims.map((c) => [c.unit, c]));
     assertEq("with no merged pull request the mission claim is offered, parked at its PR",
       [by[fx.mission.unit].resume_reason, by[fx.mission.unit].resumable], ["parked_with_pr", true]);
+
+    // A MERGED PULL REQUEST PUTS THE BRANCH'S CONTENT ON THE BASE, and since 2026-08-31 the
+    // proof reads that too (`claims_branch_diff_reading`) — so the fixture lands what the branch
+    // minted rather than only telling the lookup that it merged. Without it the branch holds a
+    // queued ticket reachable from no other ref, which is precisely the state the narrowed proof
+    // refuses to call finished. What is under test here is still the LOOKUP: the mission's
+    // tickets are queued rather than archived on the base, so the tree cannot answer and the
+    // verdict comes from the merged read alone.
+    copyFileSync(join(fx.mission.worktree_path, ".workaholic/tickets/todo/20260729000099-more.md"),
+      join(fx.B, ".workaholic/tickets/todo/20260729000099-more.md"));
+    execSync('git add -A && git commit -q -m "Land what the merge carried"'
+      + " && git push -q origin main && git fetch -q --prune origin", { cwd: fx.B });
 
     stub(`echo '[{"number":1,"merged_at":"2026-08-26T00:00:00Z"}]'`);
     by = Object.fromEntries(JSON.parse(run(fx.B, `${POSIX_SH} ${SCRIPTS.listClaims}`, withStub).stdout)
@@ -20853,6 +20949,7 @@ const tests = [
   ["drive/attribute-base-red.sh: the merge that turned the base red", testAttributeBaseRed],
   ["drive claim protocol: the merged lookup degrades by name", testMergedLookupDegradesByName],
   ["drive claim protocol: does a claim branch still hold content of its own", testBranchDiffReading],
+  ["drive claim protocol: a branch that still holds work is not superseded", testStrandedBranchIsNotSuperseded],
   ["drive claim protocol: the merged-claim shape at both grains", testMergedClaimShapeAtBothGrains],
   ["drive claim protocol: a merged claim is never offered for resumption", testMergedClaimIsNeverResumable],
   ["drive claim protocol: a fresh claim takes a superseded claim's work", testFreshClaimOverSupersededClaim],

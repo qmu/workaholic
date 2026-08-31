@@ -48,3 +48,5 @@ conflict that is genuinely theirs, named by the files it collided on.
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-31 — Localized: seams 1 and 2 are sound — the classifier answers mechanical for a flat area's index and `claim-mergeability.sh` reads it for any branch. The seam that stops the repair is the ACT's candidate set: a publish-tree publication carries no claim commit, so the oracle gives it no row and every mergeability consumer was a claim consumer — 20260831202249-localize-where-a-stranded-publication-stops-being-repairable.md
+- 2026-08-31 — ticket archived — 20260831202249-localize-where-a-stranded-publication-stops-being-repairable.md

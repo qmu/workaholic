@@ -84,3 +84,63 @@ bounded act; it invents no merge engine and no second classification rule.
 - The stated cost of catching a publication up is that its pull request gains a merge commit
   from the base. That is what `catch-up-claim.sh` already does for a claim, so it is
   consistent rather than new — say so in the header rather than leaving a reader to notice.
+
+## Final Report
+
+Development completed as planned.
+`plugins/workaholic/skills/branching/scripts/settle-stranded-publication.sh` is the act. It
+invents no merge engine and no second classification rule: it composes
+`catchup-main.sh --resolve-mechanical`, regenerates with the repository's own tooling
+(`refresh-index.sh`, `build.mjs`), runs the repository's own fast checks, pushes, and delivers
+with one `PUT .../merge` through the same REST seam every other caller uses, in the merge
+vocabulary `merge-reason.sh` already owns. The method is **read** from `merge-method.sh`,
+never spelled.
+
+**The four terms of a bounded act are stated in the header and held in the code.** The verdict
+is re-derived through the reader **at the moment of the act**, never from a list handed in; a
+publication already containing the base reports `already_current` and touches no ref; the only
+writes are a merge commit and a push onto the publication's own branch — never a rebase, an
+amend, a force-push, a branch deleted or a pull request closed; and every bound refuses by its
+own word with nothing pushed.
+
+**Refusals**: `not_a_stranded_publication`, `reader_unreadable:<reason>`,
+`not_mechanical:<class>`, `content_conflict`, `has_claim_commit`, `not_a_work_branch`,
+`scan_held:<tier>`, `scan_unreadable`, `dirty_worktree`, `validation_failed:<check>`,
+`push_failed`, and the catch-up's own residue words. **No gate is overridden**: the scan runs
+before the push and the merge, `secret` and `leak` refuse by name, and an operator-facing
+publication never reaches the act because the reader excludes it. The branch-shape and
+claim-commit terms are checked **again** here even though the reader already applies them —
+one pattern match against this script pushing onto a branch the protocol never named, the
+trade `catch-up-claim.sh` already makes for its identity bound.
+
+**Decided here and recorded**: `clean` is refused `not_mechanical:clean`, per the ticket's
+"refuse on anything but `mechanical`". Such a publication needs no catch-up at all; delivering
+it is a merge retry, a different act, and out of this one's scope.
+
+**The stated cost**, said rather than left to be noticed: the publication's pull request gains
+a merge commit from the base — exactly what `catch-up-claim.sh` already does for a claim
+branch, so it is consistent rather than new. The worktree is torn down where tearing it down
+loses nothing and left standing where it holds a local merge nobody has pushed
+(`validation_failed`, `push_failed`), which is `catch-up-claim.sh`'s own contract: the merge is
+not undone, because `git reset --hard` is what the safety floor forbids outright.
+
+**Verified**: `node scripts/test-workflow-scripts.mjs` — the hermetic row
+(`branching/settle-stranded-publication.sh: settle what a generator settles`) proves the
+content case refused with its branch byte-identical, the mechanical case caught up,
+**regenerated so both sides' records survive**, pushed and merged, no worktree left behind, a
+re-run a no-op, an unknown pull request refused by name, and a refused delivery reported in the
+merge vocabulary with the settlement intact.
+
+### Discovered Insights
+
+- **Insight**: the repair is genuinely three commands, and the proof of that is that the act
+  is a composition with no merge logic of its own — `catchup-main.sh` resolves, `refresh-index.sh`
+  re-derives, `gh-rest.sh` delivers.
+  **Context**: the drill asserts the regenerated index carries **both** sides' records rather
+  than one side's copy, which is the assertion that would catch a future "resolution" that
+  took a side instead of re-deriving.
+- **Insight**: a delivery this environment cannot attempt is `not_attempted` with its reason
+  and **not** a refusal of the settlement.
+  **Context**: the branch is caught up and pushed either way, so the next tick's reading finds
+  it mergeable. Collapsing the two would report a completed repair as a failure and send a
+  person after a publication nothing is wrong with.

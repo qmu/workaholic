@@ -104,6 +104,13 @@ while [ $# -gt 0 ]; do
 done
 case "$QUESTIONS" in ''|*[!0-9]*) QUESTIONS=0 ;; esac
 
+# How many impaired steps the root NAMES before it counts the rest. Twenty-nine steps could in
+# principle all be impaired at once and a root is a Slack message, so the bound is stated here
+# rather than left to Slack to truncate — and the remainder is COUNTED, never silently cut, the
+# way every other bounded list in this repository renders.
+IMPAIRED_MAX="${WORKAHOLIC_IMPAIRED_MAX:-5}"
+case "$IMPAIRED_MAX" in ''|*[!0-9]*) IMPAIRED_MAX=5 ;; esac
+
 json_escape() {
     # Newlines become `\n`: `root_text` is a multi-line post carried inside a JSON
     # string, and a raw newline there is an invalid control character, not a formatting
@@ -185,6 +192,9 @@ while IFS="$TAB" read -r step status reason || [ -n "$step" ]; do
     esac
     IMPAIRED="${IMPAIRED:+${IMPAIRED}, }{\"step\": \"$(json_escape "$step")\", \"status\": \"$(json_escape "$status")\", \"reason\": \"$(json_escape "$reason")\"}"
     IMPAIRED_COUNT=$((IMPAIRED_COUNT + 1))
+    # The derived set, kept beside the JSON so the root's clause reads THIS and never
+    # re-tokenises the rows. One derivation, two renderings.
+    printf '%s\t%s\t%s\n' "$step" "$status" "$reason" >> "${TMP}/impaired"
 done < "${TMP}/status"
 
 [ -n "$TICK" ] || emit false no_tick "" 0 "" ""
@@ -311,6 +321,54 @@ if [ "$QUESTIONS" -eq 0 ] && [ "$digest_ready" -eq 0 ] && [ "$delivery_failure" 
     emit false no_question "$changes" "$count" "$PREV" ""
 fi
 
-HEAD="🔎 Moderation - ${count} change(s), ${QUESTIONS} question(s)"
-BODY=$(printf '%s' "$lines")
+# ═══ THE IMPAIRMENT CLAUSE, AND WHY IT RIDES OUTSIDE THE DIFF ═════════════════════
+#
+# A step degraded the same way for twenty-four consecutive ticks has an UNCHANGED SUMMARY, so
+# the diff calls it unchanged and it would be said once and then vanish — which is the defect
+# rather than the fix. The ask is explicit: report the impairment by name, EVERY tick, until
+# it clears. So this clause is composed from the derived set directly and is not gated on
+# `count`, `changes[]` or anything else the diff decided.
+#
+# IT EARNS NO POST. `🔧 Needs a decision` and `📦 Release Preparation` were retired for
+# EARNING a post with an unchanged answer; this adds a clause to a root that was already being
+# posted for a question, a digest or a delivery failure. Nothing here reaches the gate above —
+# a tick that would have been silent stays silent, and what breaks silence on its own is a
+# separate, diff-gated reading.
+#
+# THE COUNT GOES IN THE HEAD so an impaired tick is distinguishable from a quiet one at a
+# glance, and the term is OMITTED ENTIRELY at zero so a healthy tick's head is byte-identical
+# to what it has always been. No dedup key, no mention token, no session URL: the root carries
+# what it carries, and the standing instruction is to stop mixing ids into Slack.
+#
+# `blocked` RENDERS BESIDE `degraded` under one clause. They differ in cause and are identical
+# in consequence to the reader — the tick did not do the job — and two clauses would be two
+# vocabularies for one question.
+IMPAIRED_HEAD=''
+IMPAIRED_BODY=''
+if [ "$IMPAIRED_COUNT" -gt 0 ]; then
+    IMPAIRED_HEAD=", ${IMPAIRED_COUNT} step(s) could not read"
+    shown=0
+    while IFS="$TAB" read -r step status reason || [ -n "$step" ]; do
+        [ -n "$step" ] || continue
+        shown=$((shown + 1))
+        [ "$shown" -gt "$IMPAIRED_MAX" ] && break
+        # An empty reason renders as no reason rather than as a dangling colon: `run.sh`
+        # leaves it empty where the step named none, and inventing punctuation for an absent
+        # value reads as a truncated one.
+        if [ -n "$reason" ]; then
+            IMPAIRED_BODY="${IMPAIRED_BODY}⚠️ ${step} — ${status}: ${reason}
+"
+        else
+            IMPAIRED_BODY="${IMPAIRED_BODY}⚠️ ${step} — ${status}
+"
+        fi
+    done < "${TMP}/impaired"
+    if [ "$IMPAIRED_COUNT" -gt "$IMPAIRED_MAX" ]; then
+        IMPAIRED_BODY="${IMPAIRED_BODY}and $((IMPAIRED_COUNT - IMPAIRED_MAX)) more
+"
+    fi
+fi
+
+HEAD="🔎 Moderation - ${count} change(s), ${QUESTIONS} question(s)${IMPAIRED_HEAD}"
+BODY=$(printf '%s%s' "$lines" "$IMPAIRED_BODY")
 emit true ready "$changes" "$count" "$PREV" "$(printf '%s\n%s' "$HEAD" "$BODY")"

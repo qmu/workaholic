@@ -709,12 +709,42 @@ question into the thread of the item it concerns; it posts the tick's own root a
 questions under it.
 
 1. Render the root: `run.sh`'s JSON | `render-tick-post.sh --tick <id> --root <repo-root> --questions <n>`.
-   It returns `post`, a `reason`, the `changes[]` it found and the `root_text` to post verbatim.
+   It returns `post`, a `reason`, the `changes[]` it found, the `impaired[]` steps it could not
+   read, and the `root_text` to post verbatim.
 2. `post: false` ⇒ **post nothing**, whatever the reason (`idle`, `no_previous_tick`, `no_log`,
    `no_rows`). Report the reason in the run.
 3. `post: true` ⇒ post `root_text` as a top-level message carrying `` `tick:<tick-id>` `` and the
    session URL, then post each cleared question as a **reply into that root**, carrying the
    person's `<@U…>` and `` `ask:<key>` `` — and no session URL, which the root already carries.
+
+**Every root names the steps that could not read** (2026-08-31, mission
+`name-the-steps-a-tick-could-not-read`). `run.sh` classifies every step
+`ok|filed|skipped|degraded|blocked` with a reason and the renderer read neither, so a tick where
+six steps saw nothing rendered exactly like a tick where everything was read — measured, 24 of 25
+ticks in that state, found four days later by asking. `render-tick-post.sh` derives `impaired[]`
+(the `degraded` and `blocked` rows in `STEPS` order, each with its own status and reason) and
+`impaired_count` **on every exit path, including the silent ones**, and the root carries the count
+in its head and the names in its body:
+
+```
+🔎 Moderation - <N> change(s), <M> question(s), <K> step(s) could not read
+<the event lines>
+⚠️ <step> — <status>: <reason>
+```
+
+**`skipped` is not impairment** — a step declining to run for a stated, healthy reason (`budget`,
+an absent precondition) did not fail to see. **`blocked` renders beside `degraded`** under one
+clause: they differ in cause and are identical in consequence to the reader.
+
+**The clause rides OUTSIDE the diff, and that is the load-bearing decision.** A step degraded the
+same way for twenty-four ticks has an unchanged summary, so the diff would call it unchanged and
+the impairment would be said once and then vanish — the defect, not the fix. **It earns no post
+either**: it adds a clause to a root already being posted for a question, a digest or a delivery
+failure, so a tick that would have been silent stays silent and the twice-retired status root is
+not reinstated. The third head term is omitted entirely at `K == 0`, so a healthy tick's root is
+byte-identical to what it always was. The list names at most `WORKAHOLIC_IMPAIRED_MAX` (default 5)
+steps and counts the rest as `and <K> more` — never a silent truncation, and the head always
+carries the full count. No dedup key, no mention token, no session URL on the clause.
 
 **A change is a diff against the previous tick**, read from the log; no step declares its own
 novelty and no cursor is stored. **The gate is `questions >= 1`** — the changed-step half was

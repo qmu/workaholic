@@ -103,3 +103,40 @@ change as the drill.
   repository as `origin` is the standard shape here and keeps the drill hermetic.
 - Ticket 8 is the mirror image (a tick log that reaches `main` again). Keep them
   separate drills so `drill-health` can name which property broke.
+
+## Final Report
+
+Development completed as planned. `verify-log-ref` ships with its register row, its CI matrix
+leg and a breaker that was run and observed to fail the drill.
+
+Seven load-bearing rows, all passing:
+
+1. The log reaches the **ref**, written through `log-append.sh` — the real writer — so the
+   drill cannot pass against a line shape the writer never produces.
+2. The negatives in the same fixture: no base commit, no `.publish/`, no extra remote head,
+   no local branch, and a checkout whose tracked state is byte-identical.
+3. The union from a second container: a shared section keeps both containers' lines and the
+   second's own section lands.
+4. The degradation: with the ref unreachable the run says so **by its own name** and leaves
+   the log in the checkout for the next tick.
+5. And the reader answers that absence by name with a **null** count, never as an empty log.
+6. The breaker.
+7. Nothing was written outside the fixture.
+
+**`hermetic` is measured, not asserted**: run twice with `gh` shimmed to exit 127, no proxy
+and no `ANTHROPIC_API_KEY`. Identical row counts both times. The fixture's pushable remote is
+a **local bare repository**, which is what lets a push be drilled with no credential.
+
+`drill-register.sh list` resolves the row (`hermetic`, this mission, `mission_resolved: true`),
+and `verify-all --list --kind hermetic` names the drill, so CI gives it its own matrix leg.
+
+### Discovered Insights
+
+- **Insight**: pointing a copy of the publisher's push at `refs/heads/main` is **not** a
+  breaker for this drill's sibling. The log commit is an orphan, so that push is rejected as
+  a non-fast-forward and nothing reaches the base — the drill would pass for a reason
+  unrelated to what it claims.
+  **Context**: it is a valid breaker *here* (the property is "the ref receives the log", and
+  a publisher pointed elsewhere leaves it empty), and invalid for `verify-log-off-main`,
+  whose property is about the base. Recorded in the runbook so the distinction is not
+  rediscovered.

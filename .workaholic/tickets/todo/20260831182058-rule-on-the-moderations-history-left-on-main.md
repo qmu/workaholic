@@ -107,3 +107,42 @@ Four mechanisms have a stake, and none of them can be left to infer the answer:
   *left where it is* unless the moved case is made mechanically safe.
 - The allowlist is permissive: a repository **without** the directory is
   unaffected either way. It is the repositories that have one that need the rule.
+
+## Final Report
+
+Development completed as planned. **Ruling: the day files already on `main` stay on `main`,
+read-only, and the area stays registered.**
+
+One mechanical fact settled it rather than taste: `step-open-log.sh` refuses
+`area_unregistered` when `moderations` is absent from the layout allowlist, and
+`log-append.sh` still writes the checkout copy — which is the *live* half of the log, the
+lines this container wrote seconds ago. **De-listing would stop the tick logging at all.**
+
+- The two lockstep sources are therefore unchanged and still agree.
+- `layout-doctor.sh` reports `conforming: true` with nothing to classify as `retired-area`.
+- `refresh-index.sh`'s area list is unchanged and the bare `moderations/` link still
+  resolves, because the directory is still there.
+- `renames.tsv` gets no row, and the reason is recorded: this is not a rename (no
+  destination) and not even a retirement (the area survives and is still written).
+- `.workaholic/moderations/` is added to **this repository's** `.gitignore`, so a new day
+  file cannot be staged by an unrelated `git add -A`. Stated as a repository-level measure,
+  not a plugin one.
+
+**What was refused, with its cost**: moving the history onto the ref and deleting it from
+`main` makes the tree tidier and loses the audit trail from every `main` reader, has to work
+in repositories nobody is watching, and buys nothing the aim asks for — the commit count
+stops climbing either way.
+
+This ticket also **corrected two sentences tickets 1 and 3 wrote ahead of it**
+(`rules/workaholic.md` and `CLAUDE.md` had said the area was git-ignored and off the base
+outright, and that the OKF root index no longer links it). Ticket 1 said in its own
+Considerations that this ruling was ticket 5's; the wording is now the ruling's.
+
+### Discovered Insights
+
+- **Insight**: leaving the history in place is not merely the cheaper option — it is what
+  makes the cutover seamless. `log-read.sh`'s checkout source **is** that directory, so
+  `condition-age.sh`'s thirty-day window and `step-blocked-tick.sh`'s tick-before-last span
+  the cutover with no gap and no seeding step.
+  **Context**: the moved case would have needed a migration that ran exactly once, correctly,
+  in every consuming repository, to buy a tidier tree.

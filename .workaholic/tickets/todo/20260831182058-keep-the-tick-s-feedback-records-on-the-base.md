@@ -103,3 +103,36 @@ the split — a `<step>-filed` line on the log ref is not evidence of a filing.
 - Watch the OKF index refresh: a record commit still regenerates the feedback
   area's index, and that regeneration must not drag the log area's absence into
   the same diff.
+
+## Final Report
+
+Development completed as planned. The seam is split: the log goes to its ref, the tick's
+feedback records stay on the base through the publish tree.
+
+- **The record carry stays inside `persist-log.sh`** rather than moving to its own script.
+  Reason: the caller contract (`--record <path>`, one flag on the tick's closing act) is
+  what `run.sh` already passes at three call sites, and a second script would mean a second
+  call site to keep in step for no change in behaviour. The two halves are separate code
+  paths inside one script, each with its own destination, seam and reported outcome.
+- **The record contract is byte-for-byte**: named one by one, never a sweep; an
+  already-landed record left untouched; per-record `carried` / `already_on_base` /
+  `missing` / `unreadable`.
+- **The halves report independently.** A publish tree that would not open is reported with
+  its own reason and the log's outcome beside it, so a failed carry is never hidden by a
+  log persist that worked, and a failed persist is never reported as a failed filing.
+- **A tick with no records opens no publish tree and commits nothing to the base**, which
+  is what makes "no commit on the base writes the log" true of the whole script.
+- `filed-records.sh` needed no change and the reason is now written down.
+
+### Discovered Insights
+
+- **Insight**: `filed-records.sh` survives the split untouched because its oracle is *the
+  tree*, and records did not move. A routine's container is a fresh clone of the base, so a
+  record in the checkout is a record on the base — the same equivalence, still true.
+  **Context**: the ticket anticipated repair work here. What it actually needed was the
+  reason stated, so a later change that moves records cannot quietly break the reader.
+
+- **Insight**: the argument against moving records is stronger than "they are knowledge" —
+  it is that the `feedback:` relation resolves a record **by its path on the base**. On an
+  orphan ref no `.workaholic/` reader fetches, every ref the loop later wrote would dangle.
+  **Context**: written into the skill so a later reader does not "finish the job".

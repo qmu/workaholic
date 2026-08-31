@@ -1001,6 +1001,20 @@ claims_scan() {
         [ "$_cs_ref" = "origin/HEAD" ] && continue
         [ "$_cs_ref" = "$_cs_base" ] && continue
 
+        # THE TICK LOG'S REF IS NOT A CLAIM, AND IS EXCLUDED BY NAME (2026-08-31, mission
+        # `take-the-moderation-tick-s-log-off-main`). The oracle is *unmerged remote
+        # branches*, and the log ref is an ORPHAN history that is unmerged forever by
+        # construction -- so it is a claim candidate on every scan of every repository that
+        # has ever run a tick.
+        #
+        # THE CLAIM-COMMIT FAST FILTER BELOW WOULD ALSO REJECT IT, AND THAT IS A BACKSTOP
+        # RATHER THAN THE RULE. It holds only for as long as nothing on the log ref ever
+        # carries a `Claim ...` subject, which is a property nobody is watching; a rule
+        # that depends on an unwatched coincidence is not a rule. The exclusion is also
+        # placed BEFORE the ahead-count below on purpose: the histories are unrelated, so
+        # `rev-list --count base..ref` would walk the log's entire history on every scan.
+        [ "$_cs_ref" = "origin/workaholic/moderation-log" ] && continue
+
         # Unmerged? A branch whose commits all reached the base is released by
         # definition -- merging IS the release, so no separate signal is needed.
         _cs_ahead=$(git rev-list --count "${_cs_base}..${_cs_ref}" 2>/dev/null || echo 0)

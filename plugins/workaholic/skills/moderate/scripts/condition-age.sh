@@ -134,7 +134,13 @@ SLUG=$(question_slug "$KEY")
 # repository with no tick history — the key has never been asked, an ordinary absence. A
 # path that exists and is not a readable directory is our own degradation, and the two must
 # not render alike.
-LOG_DIR="$ROOT/.workaholic/moderations"
+# THE LOCATION RESOLVES THROUGH `log-read.sh`, NOT HERE (2026-08-31, mission
+# `take-the-moderation-tick-s-log-off-main`). This script walked the directory itself, which
+# after the log moved to its own ref would have read an EMPTY directory and answered "the key
+# has never been asked" -- an ordinary absence -- for a log it simply had not fetched.
+LOG_DIR=$(sh "$LOG_READ" --root "$ROOT" --log-dir 2>/dev/null \
+    | sed -n 's/.*"log_dir": "\([^"]*\)".*/\1/p')
+[ -n "$LOG_DIR" ] || emit_degraded log_unreadable
 if [ -e "$LOG_DIR" ]; then
     { [ -d "$LOG_DIR" ] && [ -r "$LOG_DIR" ] && [ -x "$LOG_DIR" ]; } || emit_degraded log_unreadable
 fi
@@ -148,10 +154,13 @@ case "$MAX_DAYS" in
 esac
 [ "$MAX_DAYS" -gt 0 ] 2>/dev/null || MAX_DAYS=30
 
+# THE DAY LISTING IS THE RESOLVER'S TOO -- the union of the ref's copy and this container's
+# own, which is the set a bound must be applied to. Walking one source would silently narrow
+# the window to whichever half this container happened to hold.
 SINCE=''
-if [ -d "$LOG_DIR" ]; then
-    day_names=$(ls -1 "$LOG_DIR" 2>/dev/null \
-        | sed -n 's/^\([0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]\)\.md$/\1/p' | sort || true)
+day_names=$(sh "$LOG_READ" --root "$ROOT" --list-days 2>/dev/null \
+    | tr ',' '\n' | sed -n 's/.*"\([0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]\)".*/\1/p' | sort || true)
+if [ -n "$day_names" ]; then
     n_days=$(printf '%s' "$day_names" | grep -c . 2>/dev/null || printf 0)
     if [ "$n_days" -gt "$MAX_DAYS" ]; then
         # Truncated exactly when a day file older than the cut exists — the walk was CUT,

@@ -34,3 +34,8 @@ docs/.vitepress/dist/
 
 # Proposal batch's runner-local processed-commit cursor (/propose; never shared state)
 .workaholic/proposal-cursor
+
+# The /moderate tick log lives on refs/heads/workaholic/moderation-log; the checkout copy
+# is scratch that persist-log.sh publishes. Ignoring it keeps a new day file from being
+# staged by an unrelated `git add -A` (2026-08-31, take-the-moderation-tick-s-log-off-main).
+.workaholic/moderations/

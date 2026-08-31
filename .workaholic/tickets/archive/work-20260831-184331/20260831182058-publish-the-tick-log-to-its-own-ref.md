@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-31T18:20:58+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -108,3 +109,43 @@ carry of **every missing section** rather than only this tick's, and the closed
 - The publish tree's value here was the fresh base and the byte-identical
   checkout, not the pull request. If the ref path keeps using it, say why; if it
   does not, say what replaces both properties.
+
+## Final Report
+
+Development completed as planned. `persist-log.sh` now publishes the day files to
+`refs/heads/workaholic/moderation-log` and makes **no commit to the base** for the log.
+
+- **The union is carried unchanged** and is the property that mattered: sections the ref
+  lacks are appended whole, and a section it already has is merged **line-wise by step**,
+  so a `(tick, step)` the ref carries wins over a differing local copy. Verified across
+  two containers: neither lost a line, and a late `<step>-filed` line appended after the
+  first persist reached a section that had already landed.
+- **The retry is unchanged in force**: a rejected push re-fetches the ref and re-unions
+  rather than replaying the patch; attempts stay bounded by `--attempts`.
+- **The closed vocabulary is kept**, with `log_ref_unreachable` added rather than folded
+  into an existing word — a ref that cannot be fetched and a ref that does not exist yet
+  are different facts, and only the first is a degradation. `no_origin` stays `skipped`.
+- **Both `--root` refusals are kept** (outside a work tree, and not the repository root).
+- `list-claims.sh` excludes the ref by name; `guard-git-branch.sh` is deliberately
+  untouched, and the suite pins that the publisher reaches for no local-branch form.
+
+### Discovered Insights
+
+- **Insight**: dropping the publish tree from the log half made the caller's byte-identical
+  checkout a **structural** property rather than a maintained one. The commit is built with
+  `GIT_INDEX_FILE` plumbing, so no working tree, HEAD or index is touched at any point, and
+  there is no `.publish/` checkout that an interrupted run can leave dirty.
+  **Context**: the publish tree was chosen in 2026-08-17 for a fresh base and an untouched
+  checkout. The ref path gets the first from `git fetch` and the second for free, so the
+  seam did not need replacing with an equivalent — it needed removing.
+
+- **Insight**: the publish tree was also materializing the whole base into `.publish/`
+  before it could append one line. Measured after the change: ~120 ms per carrying persist
+  and ~62 ms for a no-op, two remote round-trips each.
+  **Context**: the move was argued as a cost to `main`'s history. It is also cheaper.
+
+- **Insight**: carrying **every** day file rather than only the tick's own closes a
+  day-boundary hole that was in the old behaviour. A tick whose persist failed at 23:50 left
+  its section behind, and the next tick's file is a different day, so nothing carried it up.
+  **Context**: the header's "carries every missing section" claim was true within a day and
+  silently false across one. Iterating the directory made both cases one code path.

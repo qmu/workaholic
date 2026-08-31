@@ -106,3 +106,55 @@ changed enough to keep all three, and writes the answer down.
 - Do not turn a persist into a conditional on some notion of "did anything
   change" — `already_current` is that condition, derived at the seam, and a second
   copy of it in `run.sh` is how two readings of one fact start to disagree.
+
+## Final Report
+
+Development completed as planned. **All three persists are kept, each justified by name**,
+and the count and its reasons are written into `workaholic:moderate` and `commands/moderate.md`.
+
+**The measurement first** (hermetic fixture, local bare `origin`, 2026-08-31): a persist that
+carries something takes **~120 ms**, a persist with nothing to carry **~62 ms**, each costing
+two remote round-trips — one `fetch` of a single ref, one `push` of one commit. A full tick's
+three writes leave **3 commits on the log ref and 0 on `main`**, verified with
+`git log --oneline main -- .workaholic/moderations/` returning empty.
+
+**One paragraph each, and none is dropped:**
+
+1. **The opening** — a dead tick cannot write its own closing act, so without it the record
+   that would show a stop is the record the stop prevents. `step-blocked-tick.sh` reads it.
+2. **The closing** — the guarantee that a tick dying between the ninth step and the agent's
+   filing still publishes every probe line it recorded. Moving the filing earlier was
+   refused for exactly this.
+3. **The agent's** — the `<step>-filed` lines do not exist until `run.sh` has returned.
+
+**The objection is answered by the move, not by a drop.** It was never *three publishes*; it
+was three commits a tick on `main`. That is now zero. The old path was also more expensive
+per persist — it materialized a whole `.publish/` checkout before appending a line — so the
+count got cheaper at the same time as it stopped being visible in the product's history.
+
+**Both structural properties preserved**: `run.sh` keeps its closing act, and a persist with
+nothing to carry stays idempotent (`already_current`, no commit). **The one asymmetry stays**:
+the last persist's own line is written to the checkout and never published, because the fix
+does not terminate. **No persist was made conditional** on a second notion of "did anything
+change" — `already_current` is that condition, derived once at the seam.
+
+Nothing was dropped, so step 3's "prove its consumer still works" had no subject; but
+`verify-blocked-tick` was run and passes, and its breaker was repaired (below).
+
+### Discovered Insights
+
+- **Insight**: `verify-blocked-tick`'s breaker had been passing for an unrelated reason since
+  it shipped. The breaker copies the script directory to a temp path, where the old
+  publish-tree seam resolved `../../branching/scripts` to nothing, so **every** persist in
+  the breaker failed — with or without the opening one. Repointing the log at a ref removed
+  that dependency and the breaker immediately stopped breaking.
+  **Context**: this is the drill register's own premise landing on a live row. The gate asked
+  for `verify-blocked-tick` to fail against a build with the opening persist removed, and it
+  did not: it failed against a build with a broken relative path.
+
+- **Insight**: the deeper half of the same defect is that `--only open-log` stops the **steps**,
+  not the run — `run.sh` still reaches its closing persist, which carries the very section
+  row 1 looks for. So row 1 was satisfied whether or not the opening persist existed.
+  **Context**: repaired by running row 1 and its breaker against a build with the **closing
+  act** disabled, which is what a tick that died actually looks like. The two builds now
+  differ in exactly one thing: whether the opening persist is there.

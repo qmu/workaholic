@@ -68,8 +68,12 @@ jst_hour=$(date -u -d "@${jst_epoch}" +%H)
 [ "$jst_hour" -ge 9 ] || emit ok before_morning "before 09:00 JST (tick hour ${jst_hour}); the digest waits for the morning tick"
 
 # Once per JST day: the tick log is the dedup, exactly as every other step's is.
-log_dir="${ROOT}/.workaholic/moderations"
-if [ -d "$log_dir" ] && grep -rqs "strategy-digest-rendered:${jst_day}" "$log_dir" 2>/dev/null; then
+# THE DEDUP READS THROUGH THE ONE RESOLVER (2026-08-31, mission
+# `take-the-moderation-tick-s-log-off-main`). A `grep -r` over the checkout directory sees
+# only what this container appended, so after the log moved to its own ref the morning digest
+# would have re-rendered in every container -- the dedup failing open, hourly.
+if sh "${SCRIPT_DIR}/log-read.sh" --root "$ROOT" --contains "strategy-digest-rendered:${jst_day}" 2>/dev/null \
+    | jq -e '(.read == true) and (.count > 0)' >/dev/null 2>&1; then
     emit ok already_rendered "the ${jst_day} digest is already in a Moderation root"
 fi
 

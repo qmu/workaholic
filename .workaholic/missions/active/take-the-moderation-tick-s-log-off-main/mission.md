@@ -41,7 +41,7 @@ puts a tick log back on `main` fails a drill.
 
 ## Acceptance
 
-- [ ] The tick log's home is a dedicated ref this repository creates and a fresh
+- [x] The tick log's home is a dedicated ref this repository creates and a fresh
       container fetches, and `main` carries no tick-log write. (#20260831182058-publish-the-tick-log-to-its-own-ref.md)
 - [ ] Every reader reaches the log through one reader, concurrent ticks still
       union by `(tick, step)`, and the persist count per tick is justified by name. (#20260831182058-justify-or-drop-each-persist-the-tick-makes.md)
@@ -52,3 +52,4 @@ puts a tick log back on `main` fails a drill.
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-31 — ticket archived — 20260831182058-rule-which-ref-the-tick-log-lives-on.md
+- 2026-08-31 — ticket archived — 20260831182058-publish-the-tick-log-to-its-own-ref.md

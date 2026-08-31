@@ -81,11 +81,28 @@ emit() {
 
 [ -f "$LOG_READ" ] || emit degraded no_log_reader "log-read.sh is not present beside this skill"
 
-DIR="${ROOT}/.workaholic/moderations"
-[ -d "$DIR" ] || emit skipped no_log_area "this repository keeps no tick log; there is no tick to read"
+# THE DAY LISTING COMES FROM THE ONE RESOLVER (2026-08-31, mission
+# `take-the-moderation-tick-s-log-off-main`). This step walked the directory itself; with the
+# log on its own ref that walk sees only what THIS container appended, so a tick that stopped
+# in an earlier container -- the only kind this step exists to notice -- would be invisible.
+days_out=$(sh "$LOG_READ" --root "$ROOT" --list-days 2>/dev/null || true)
+# A READER THAT ANSWERS SOMETHING THIS STEP CANNOT PARSE IS A DEGRADATION, never a quiet
+# hour -- the same collapse this step exists to remove one level up. Checked on the LISTING
+# too, not only on the entries read below: the listing is now where the step first touches
+# the log, so a reader broken there would otherwise fall through to `no day file yet`.
+if [ -z "$days_out" ] || ! printf '%s' "$days_out" | jq -e . >/dev/null 2>&1; then
+    emit degraded log_unreadable "the tick log returned nothing this step could parse"
+fi
+if printf '%s' "$days_out" | jq -e '.read == false' >/dev/null 2>&1; then
+    why=$(printf '%s' "$days_out" | jq -r '.reason // "unreadable"' 2>/dev/null || printf unreadable)
+    case "$why" in
+        no_log_area) emit skipped no_log_area "this repository keeps no tick log; there is no tick to read" ;;
+        *) emit degraded "$why" "the tick log could not be read: ${why}" ;;
+    esac
+fi
 
 # The newest two day files, named lexically. `--since` takes the earlier of the two.
-since=$(ls "$DIR" 2>/dev/null | sed -n 's/^\([0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]\)\.md$/\1/p' | sort | tail -2 | head -1)
+since=$(printf '%s' "$days_out" | jq -r '.days[]?' 2>/dev/null | sort | tail -2 | head -1)
 [ -n "$since" ] || emit skipped no_log_area "the tick log holds no day file yet"
 
 out=$(sh "$LOG_READ" --root "$ROOT" --since "$since" 2>/dev/null || true)

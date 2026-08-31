@@ -42,11 +42,31 @@ if [ -f "$ALLOWLIST" ] && ! grep -q '^moderations$' "$ALLOWLIST"; then
     exit 0
 fi
 
-DIR="$ROOT/.workaholic/moderations"
+# THE LOCATION RESOLVES THROUGH `log-read.sh` (2026-08-31, mission
+# `take-the-moderation-tick-s-log-off-main`), which is the one resolver; this step composed
+# the path itself and would have gone on opening a directory nothing else read.
+LOG_READ="${SCRIPT_DIR}/log-read.sh"
+DIR=$(sh "$LOG_READ" --root "$ROOT" --log-dir 2>/dev/null \
+    | sed -n 's/.*"log_dir": "\([^"]*\)".*/\1/p')
+if [ -z "$DIR" ]; then
+    printf '{"step": "open-log", "status": "degraded", "reason": "no_log_reader", "summary": "the log location could not be resolved", "needs_agent": []}\n'
+    exit 0
+fi
 if ! mkdir -p "$DIR" 2>/dev/null || [ ! -w "$DIR" ]; then
     printf '{"step": "open-log", "status": "degraded", "reason": "unwritable", "summary": "the moderations/ log area is not writable", "needs_agent": []}\n'
     exit 0
 fi
 
+# THE ONE FETCH OF THE LOG REF, ONCE PER TICK AND HERE ONLY. Every later reader composes
+# `log-read.sh` without `--refresh`, so no dedup in the tick pays for a network call. A
+# fetch that could not reach the ref is recorded and answered by NAME at every read --
+# never as an empty log, which would make every dedup in the tick re-fire.
+refresh=$(sh "$LOG_READ" --root "$ROOT" --refresh --list-days 2>/dev/null || true)
 DAY=$(printf '%s' "$TICK" | cut -c1-4)-$(printf '%s' "$TICK" | cut -c5-6)-$(printf '%s' "$TICK" | cut -c7-8)
+case "$refresh" in
+    *'"reason": "log_ref_unreachable"'*)
+        printf '{"step": "open-log", "status": "degraded", "reason": "log_ref_unreachable", "summary": "the tick log ref could not be fetched; earlier ticks are not readable in this container", "needs_agent": []}\n'
+        exit 0
+        ;;
+esac
 printf '{"step": "open-log", "status": "ok", "reason": "", "summary": "tick log open at .workaholic/moderations/%s.md", "needs_agent": []}\n' "$DAY"

@@ -442,8 +442,15 @@ for step in $STEPS; do
     fi
 done
 
-if [ "$DO_LOG" -eq 1 ] && [ -f "$ROOT/.workaholic/moderations/$DAY.md" ]; then
-    log_file="$ROOT/.workaholic/moderations/$DAY.md"
+# THE LOG'S LOCATION RESOLVES THROUGH `log-read.sh` (2026-08-31, mission
+# `take-the-moderation-tick-s-log-off-main`) rather than being composed here -- one resolver,
+# so a move of the log cannot leave one reader pointing at a path nothing writes.
+if [ "$DO_LOG" -eq 1 ]; then
+    _log_dir=$(sh "${SCRIPT_DIR}/log-read.sh" --root "$ROOT" --log-dir 2>/dev/null \
+        | sed -n 's/.*"log_dir": "\([^"]*\)".*/\1/p')
+    if [ -n "$_log_dir" ] && [ -f "${_log_dir}/$DAY.md" ]; then
+        log_file="${_log_dir}/$DAY.md"
+    fi
 fi
 
 # --- The closing act: put the log where the next tick can read it -------------

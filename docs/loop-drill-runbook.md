@@ -1479,6 +1479,8 @@ rather than guessed. **No artifact gained a field**: the slug lives here and now
 | `verify-impairment` | `hermetic` | yes | `name-the-steps-a-tick-could-not-read` |
 | `verify-cadence-lapse` | `hermetic` | yes | `notice-a-periodic-artifact-that-stopped-being-produced` |
 | `verify-blocked-tick` | `hermetic` | yes | `stop-an-unattended-tick-from-waiting-on-a-person` |
+| `verify-log-ref` | `hermetic` | yes | `take-the-moderation-tick-s-log-off-main` |
+| `verify-log-off-main` | `hermetic` | yes | `take-the-moderation-tick-s-log-off-main` |
 
 ### The evidence behind the classification
 
@@ -1503,6 +1505,29 @@ throwaway fixture and is `hermetic`.
   `planner_arranges` were `false` on every run nobody made. The stub is now a quoted
   heredoc, which cannot regress the same way, and the row passes. **This is the mission's
   own premise measured on its first day**: a drill nothing runs is a drill nothing believes.
+
+**`verify-log-ref` and `verify-log-off-main` were measured on 2026-08-31**, twice each, with
+`gh` shimmed to exit `127`, no proxy and no `ANTHROPIC_API_KEY`: both exited `0` with the same
+row counts on both runs (`log-ref` 7 load-bearing rows, `log-off-main` 5), so `hermetic` is
+measured here rather than asserted. Each builds its own throwaway repository with a **local
+bare `origin`**, which is what lets a push be drilled with no credential.
+
+**Both breakers were run and observed to fail their drill.** `log-off-main`'s first breaker —
+a copy of the publisher whose push targets `refs/heads/main` — is recorded here because it
+did **not** break: the log commit is an orphan, so that push is rejected as a non-fast-forward
+and nothing reaches the base, which is a drill passing for a reason unrelated to what it
+claims. The breaker that ships is the regression the drill actually guards: a caller that
+composes `publish-tree-commit.sh` with a `.workaholic/moderations/` path, exactly as the
+closing act did before this mission.
+
+**And repairing `verify-blocked-tick` was part of the same change.** That drill's breaker had
+been passing for an unrelated reason since it shipped: the breaker copies the script directory
+to a temp path, where the old publish-tree seam resolved `../../branching/scripts` to nothing
+and every persist failed — so the base was empty whether or not the opening persist existed.
+Repointing the log at a ref removed that dependency and exposed it. Its row 1 now runs against
+a build with the **closing act disabled**, which is what a tick that died actually looks like;
+`--only open-log` stops the steps, not the run, so the closing persist was carrying the very
+section row 1 was looking for.
 
 ### Two rows are unresolved, and both say why
 

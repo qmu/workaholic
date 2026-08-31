@@ -8739,13 +8739,36 @@ cmd_verify_blocked_tick() {
     _seed "$_fx" || emit_err "blocked_tick_fixture" 4 "could not build the throwaway repository"
     _day=$(date -u +%Y-%m-%d)
     _tick="$(date -u +%Y%m%d)-100000"
-    _r=$(sh "$_run" --root "${_fx}/clone" --tick "$_tick" --only open-log 2>&1 || true)
-    _base=$(git -C "${_fx}/origin.git" show "main:.workaholic/moderations/${_day}.md" 2>/dev/null || true)
+    # THE OPENING REACHES THE LOG'S OWN REF, NOT `main` (2026-08-31, mission
+    # `take-the-moderation-tick-s-log-off-main`). The property being drilled is unchanged --
+    # a tick stopped after its first step leaves an opening somewhere durable -- and only
+    # the destination moved.
+    #
+    # THE CLOSING ACT IS DISABLED FOR THIS ROW, AND THAT IS THE REPAIR OF A DRILL THAT WAS
+    # PASSING BY ACCIDENT (2026-08-31, same mission). `--only open-log` stops the STEPS, not
+    # the run: `run.sh` still reaches its closing persist, which carries the very section
+    # this row is looking for. So the row was satisfied whether or not the opening persist
+    # existed, and its breaker was "breaking" for an unrelated reason -- the breaker copies
+    # the script directory to a temp path, where the old publish-tree seam resolved
+    # `../../branching/scripts` to nothing and every persist failed. Repointing the log at a
+    # ref removed that dependency and exposed it: the breaker stopped breaking.
+    #
+    # A tick that DIED is one whose closing act never ran, so that is what the fixture
+    # builds. With the closing act gone the only thing that can put an opening on the ref is
+    # the opening persist, which is the behaviour this drill exists to prove.
+    _nc="${_tmp}/no-closing"
+    mkdir -p "$_nc"
+    cp -R "${_mod}/." "$_nc/"
+    sed 's|^if \[ "$DO_LOG" -eq 1 \] && \[ "$DO_PERSIST" -eq 1 \]; then|if [ "$DO_LOG" -eq 1 ] \&\& [ "$DO_PERSIST" -eq 1 ] \&\& false; then|' \
+        "$_run" > "${_nc}/run.sh"
+    chmod +x "${_nc}/run.sh"
+    _r=$(sh "${_nc}/run.sh" --root "${_fx}/clone" --tick "$_tick" --only open-log 2>&1 || true)
+    _base=$(git -C "${_fx}/origin.git" show "refs/heads/workaholic/moderation-log:.workaholic/moderations/${_day}.md" 2>/dev/null || true)
     case "${_r}|${_base}" in
         *'"opening_persist": {"status": "filed"'*'|'*"## ${_tick}"*)
             case "$_base" in
                 *'- `open-log`'*)
-                    add_row "blocked_tick_opening_reaches_the_base" true "a tick stopped after its first step leaves its opening on the base" load ;;
+                    add_row "blocked_tick_opening_reaches_the_base" true "a tick stopped after its first step leaves its opening on the log ref" load ;;
                 *) add_row "blocked_tick_opening_reaches_the_base" false "the section landed with no open-log line: $(one_line "$_base")" load ;;
             esac ;;
         *) add_row "blocked_tick_opening_reaches_the_base" false "the opening did not reach the base: $(one_line "$_r")" load ;;
@@ -8816,10 +8839,13 @@ cmd_verify_blocked_tick() {
     # 5. THE BREAKER, LABELLED AS THE INTENTIONAL FAILURE. Disable the opening persist and the
     #    base carries nothing for a tick that stopped after its first step — so row 1's premise
     #    is gone and there is nothing for the reading to notice.
+    #    It is built on the SAME closing-act-less fixture row 1 uses, so the two differ in
+    #    exactly one thing: whether the opening persist is there.
     _broken="${_tmp}/broken"
     mkdir -p "$_broken"
     cp -R "${_mod}/." "$_broken/"
-    sed 's|if \[ "$step" = open-log \] && \[ "$DO_LOG" -eq 1 \]|if [ "$step" = never-a-step ] \&\& [ "$DO_LOG" -eq 1 ]|' \
+    sed -e 's|if \[ "$step" = open-log \] && \[ "$DO_LOG" -eq 1 \]|if [ "$step" = never-a-step ] \&\& [ "$DO_LOG" -eq 1 ]|' \
+        -e 's|^if \[ "$DO_LOG" -eq 1 \] && \[ "$DO_PERSIST" -eq 1 \]; then|if [ "$DO_LOG" -eq 1 ] \&\& [ "$DO_PERSIST" -eq 1 ] \&\& false; then|' \
         "$_run" > "${_broken}/run.sh"
     chmod +x "${_broken}/run.sh"
     _bx="${_tmp}/breaker"
@@ -8827,12 +8853,12 @@ cmd_verify_blocked_tick() {
     _seed "$_bx" || true
     _btick="$(date -u +%Y%m%d)-140000"
     sh "${_broken}/run.sh" --root "${_bx}/clone" --tick "$_btick" --only open-log >/dev/null 2>&1 || true
-    _bbase=$(git -C "${_bx}/origin.git" show "main:.workaholic/moderations/${_day}.md" 2>/dev/null || true)
+    _bbase=$(git -C "${_bx}/origin.git" show "refs/heads/workaholic/moderation-log:.workaholic/moderations/${_day}.md" 2>/dev/null || true)
     case "$_bbase" in
         *"## ${_btick}"*)
-            add_row "blocked_tick_breaker" false "the breaker did not break: the opening reached the base with the opening persist disabled ($(one_line "$_bbase")), so row 1 proves nothing" breaker ;;
+            add_row "blocked_tick_breaker" false "the breaker did not break: the opening reached the log ref with the opening persist disabled ($(one_line "$_bbase")), so row 1 proves nothing" breaker ;;
         *)
-            add_row "blocked_tick_breaker" true "with the opening persist disabled a stopped tick leaves nothing on the base (this drill can fail)" breaker ;;
+            add_row "blocked_tick_breaker" true "with the opening persist disabled a stopped tick leaves nothing on the log ref (this drill can fail)" breaker ;;
     esac
 
     # 6. NOTHING WAS WRITTEN OUTSIDE THE FIXTURE.
@@ -9043,6 +9069,321 @@ done
 # shellcheck disable=SC2086
 set -- $ARGS
 
+# --------------------------------------------------------- verify-log-ref
+# A TICK'S LOG REACHES ITS OWN REF (2026-08-31, mission
+# `take-the-moderation-tick-s-log-off-main`).
+#
+# The log's whole value is that it survives a discarded container, and after this mission it
+# survives by a path nothing else exercises: `refs/heads/workaholic/moderation-log`, written
+# with plumbing against a scratch index and pushed. This is the positive proof. Its mirror
+# image -- that a tick log never reaches `main` again -- is `verify-log-off-main`, a separate
+# drill on purpose, so `/moderate`'s `drill-health` step can name WHICH property broke.
+#
+# HERMETIC BY CONSTRUCTION: a local bare repository as `origin`. No network, no `gh`, no
+# credential, no `ANTHROPIC_API_KEY`. The fixture is built and thrown away by this function.
+#
+# THE BREAKER IS WRITTEN AGAINST THE BEHAVIOUR, not against a return shape: a copy of the
+# publisher whose push targets the BASE instead of the ref. It answers `filed` exactly as the
+# real one does -- so a drill checking the JSON would pass it -- and the ref stays empty.
+cmd_verify_log_ref() {
+    _mod="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts"
+    _persist="${_mod}/persist-log.sh"
+    _append="${_mod}/log-append.sh"
+    _read="${_mod}/log-read.sh"
+    for _f in "$_persist" "$_append" "$_read" "${_mod}/lib/log-ref.sh"; do
+        [ -f "$_f" ] || emit_err "log_ref_unreadable" 4 "$_f is not present in this checkout"
+    done
+
+    _lref="refs/heads/workaholic/moderation-log"
+    _before=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+    _tmp=$(mktemp -d)
+    _day=$(date -u +%Y-%m-%d)
+
+    _seedr() {
+        _b="${1}/origin.git"; _c="${1}/clone"
+        git init -q --bare -b main "$_b" >/dev/null 2>&1
+        git init -q -b main "$_c" >/dev/null 2>&1
+        (
+            cd "$_c" \
+                && git config user.email drill@example.invalid \
+                && git config user.name Drill \
+                && git config commit.gpgsign false \
+                && mkdir -p .workaholic/moderations \
+                && printf 'seed\n' > .workaholic/README.md \
+                && git add -A >/dev/null 2>&1 \
+                && git commit -q -m 'Seed the tree' >/dev/null 2>&1 \
+                && git remote add origin "$_b" \
+                && git push -q -u origin main >/dev/null 2>&1
+        )
+    }
+    _onref() { git -C "${1}/origin.git" show "${_lref}:.workaholic/moderations/${_day}.md" 2>/dev/null || true; }
+
+    # 1. THE LOG REACHES THE REF, written through the REAL writer so the drill cannot pass
+    #    against a line shape the writer never produces.
+    _fx="${_tmp}/live"; mkdir -p "$_fx"
+    _seedr "$_fx" || emit_err "log_ref_fixture" 4 "could not build the throwaway repository"
+    _t1="$(date -u +%Y%m%d)-100000"
+    sh "$_append" --root "${_fx}/clone" --tick "$_t1" --step open-log --status ok --summary 'opened' >/dev/null 2>&1 || true
+    sh "$_append" --root "${_fx}/clone" --tick "$_t1" --step base-health --status ok --summary 'green' >/dev/null 2>&1 || true
+    _p1=$(sh "$_persist" --tick "$_t1" --root "${_fx}/clone" 2>&1 || true)
+    _r1=$(_onref "$_fx")
+    case "${_p1}|${_r1}" in
+        *'"reason": "persisted"'*'|'*"## ${_t1}"*)
+            case "$_r1" in
+                *'- `base-health`'*)
+                    add_row "log_ref_receives_the_tick" true "a tick's log reaches its own ref with every step line" load ;;
+                *) add_row "log_ref_receives_the_tick" false "the section landed without its step lines: $(one_line "$_r1")" load ;;
+            esac ;;
+        *) add_row "log_ref_receives_the_tick" false "the log did not reach the ref: $(one_line "$_p1")" load ;;
+    esac
+
+    # 2. THE NEGATIVES, in the same fixture: nothing on the base, no branch, no worktree, no
+    #    pull request, and a caller checkout whose TRACKED state is byte-identical.
+    _mainlog=$(git -C "${_fx}/origin.git" log --oneline main -- .workaholic/moderations/ 2>/dev/null || true)
+    _heads=$(git -C "${_fx}/origin.git" for-each-ref --format='%(refname:short)' refs/heads 2>/dev/null | sort | tr '\n' ' ')
+    _localb=$(git -C "${_fx}/clone" branch --format='%(refname:short)' 2>/dev/null | sort | tr '\n' ' ')
+    _dirty=$(cd "${_fx}/clone" && git status --porcelain --untracked-files=no 2>/dev/null | sort)
+    if [ -z "$_mainlog" ] && [ ! -d "${_fx}/clone/.publish" ] && [ -z "$_dirty" ] \
+        && [ "$_heads" = "main workaholic/moderation-log " ] && [ "$_localb" = "main " ]; then
+        add_row "log_ref_writes_nothing_else" true "no base commit, no publish tree, no extra branch, and the checkout's tracked state is unchanged" load
+    else
+        add_row "log_ref_writes_nothing_else" false "the persist left something behind (base=$(one_line "$_mainlog") heads=${_heads} local=${_localb} dirty=$(one_line "$_dirty"))" load
+    fi
+
+    # 3. THE UNION, from a second container. Neither may lose the other's line -- the property
+    #    that lets two containers tick in the same minute.
+    git clone -q "${_fx}/origin.git" "${_tmp}/second" >/dev/null 2>&1 || true
+    (
+        cd "${_tmp}/second" \
+            && git config user.email other@example.invalid \
+            && git config user.name Other \
+            && git config commit.gpgsign false
+    ) >/dev/null 2>&1 || true
+    sh "$_append" --root "${_tmp}/second" --tick "$_t1" --step raced-units --status ok --summary 'none' >/dev/null 2>&1 || true
+    _t2="$(date -u +%Y%m%d)-110000"
+    sh "$_append" --root "${_tmp}/second" --tick "$_t2" --step open-log --status ok --summary 'second container' >/dev/null 2>&1 || true
+    sh "$_persist" --tick "$_t2" --root "${_tmp}/second" >/dev/null 2>&1 || true
+    _u=$(_onref "$_fx")
+    case "$_u" in
+        *'- `base-health`'*)
+            case "$_u" in
+                *'- `raced-units`'*)
+                    case "$_u" in
+                        *"## ${_t2}"*)
+                            add_row "log_ref_unions_two_containers" true "a shared section keeps both containers' lines and the second's own section lands" load ;;
+                        *) add_row "log_ref_unions_two_containers" false "the second container's own section is missing: $(one_line "$_u")" load ;;
+                    esac ;;
+                *) add_row "log_ref_unions_two_containers" false "the second container's line into a shared section was lost: $(one_line "$_u")" load ;;
+            esac ;;
+        *) add_row "log_ref_unions_two_containers" false "the first container's line was erased: $(one_line "$_u")" load ;;
+    esac
+
+    # 4. THE DEGRADATION. With the ref unreachable the run says so BY NAME and leaves the log
+    #    in the checkout for the next tick. A drill covering only the happy path leaves the
+    #    failure the log exists to prevent untested.
+    _off="${_tmp}/offline"; mkdir -p "$_off"
+    _seedr "$_off" || true
+    _t3="$(date -u +%Y%m%d)-120000"
+    sh "$_append" --root "${_off}/clone" --tick "$_t3" --step open-log --status ok --summary 'offline' >/dev/null 2>&1 || true
+    ( cd "${_off}/clone" && git remote set-url origin "${_off}/gone.git" ) >/dev/null 2>&1 || true
+    _d=$(sh "$_persist" --tick "$_t3" --root "${_off}/clone" 2>&1 || true)
+    _kept=$(cat "${_off}/clone/.workaholic/moderations/${_day}.md" 2>/dev/null || true)
+    case "$_d" in
+        *'"reason": "log_ref_unreachable"'*)
+            case "$_kept" in
+                *"## ${_t3}"*)
+                    add_row "log_ref_unreachable_is_named" true "an unreachable ref degrades by its own name and the log stays in the checkout" load ;;
+                *) add_row "log_ref_unreachable_is_named" false "the log was not left in the checkout: $(one_line "$_kept")" load ;;
+            esac ;;
+        *) add_row "log_ref_unreachable_is_named" false "an unreachable ref was not named: $(one_line "$_d")" load ;;
+    esac
+
+    #    ...and a reader must answer that by NAME with a NULL count, never as an empty log --
+    #    an unreadable log read as "nothing found" makes every dedup in the tick re-fire.
+    _rr=$(sh "$_read" --root "${_off}/clone" --refresh --step doc-drift 2>&1 || true)
+    if printf '%s' "$_rr" | jq -e '(.read == false) and (.reason == "log_ref_unreachable") and (.count == null)' >/dev/null 2>&1; then
+        add_row "log_ref_reader_names_the_absence" true "a reader that could not reach the ref answers its own reason with a null count" load
+    else
+        add_row "log_ref_reader_names_the_absence" false "the reader did not name the absence: $(one_line "$_rr")" load
+    fi
+
+    # 5. THE BREAKER, LABELLED AS THE INTENTIONAL FAILURE. A publisher that pushes to the BASE
+    #    instead of the ref: it still reports `filed`, so this is a behaviour test and not a
+    #    shape test, and the ref stays empty.
+    _broken="${_tmp}/broken"; mkdir -p "$_broken"
+    cp -R "${_mod}/." "$_broken/"
+    sed 's|push --quiet origin "${commit}:${WORKAHOLIC_LOG_REF}"|push --quiet origin "${commit}:refs/heads/main"|' \
+        "$_persist" > "${_broken}/persist-log.sh"
+    chmod +x "${_broken}/persist-log.sh"
+    _bx="${_tmp}/breaker"; mkdir -p "$_bx"
+    _seedr "$_bx" || true
+    _t4="$(date -u +%Y%m%d)-130000"
+    sh "$_append" --root "${_bx}/clone" --tick "$_t4" --step open-log --status ok --summary 'broken' >/dev/null 2>&1 || true
+    sh "${_broken}/persist-log.sh" --tick "$_t4" --root "${_bx}/clone" >/dev/null 2>&1 || true
+    _bref=$(_onref "$_bx")
+    case "$_bref" in
+        *"## ${_t4}"*)
+            add_row "log_ref_breaker" false "the breaker did not break: the log reached the ref with the publisher pointed at the base ($(one_line "$_bref")), so row 1 proves nothing" breaker ;;
+        *)
+            add_row "log_ref_breaker" true "with the publisher pointed at the base the ref stays empty (this drill can fail)" breaker ;;
+    esac
+
+    # 6. NOTHING WAS WRITTEN OUTSIDE THE FIXTURE.
+    _after=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+    if [ "$_before" = "$_after" ]; then
+        add_row "log_ref_writes_nothing_outside_the_fixture" true "the checkout is byte-identical after the drill" load
+    else
+        add_row "log_ref_writes_nothing_outside_the_fixture" false "the drill changed the working tree" load
+    fi
+
+    rm -rf "$_tmp"
+    if [ "$LOAD_FAILED" -gt 0 ]; then
+        emit_verdict "log-ref" 0 "fail" 1
+    fi
+    emit_verdict "log-ref" 0 "pass" 0
+}
+
+# ---------------------------------------------------- verify-log-off-main
+# A TICK LOG NEVER REACHES `main` AGAIN (2026-08-31, mission
+# `take-the-moderation-tick-s-log-off-main`). The regression guard for the whole mission.
+#
+# `verify-log-ref` proves the log arrives where it should; this proves it does not arrive
+# where it should not. They are DIFFERENT FAILURES -- a change could satisfy the first and
+# still write to both -- so they are different drills, which is also what lets
+# `/moderate`'s `drill-health` step name which property broke.
+#
+# THE BEHAVIOUR IS EASY TO REINTRODUCE BY ACCIDENT: any future caller that composes
+# `publish-tree-commit.sh` with a `.workaholic/moderations/` path puts the log back on `main`
+# without anybody noticing until the commit count climbs again.
+#
+# THE ASSERTION IS DERIVED FROM GIT, NOT FROM A SCRIPT'S RETURN VALUE, and it covers a WHOLE
+# TICK rather than the persist alone -- so a write from ANY step is caught. Asking git is
+# what makes it survive a refactor of the scripts it guards.
+#
+# SCOPED TO THE DRILLED RANGE. The mission left the historical day files on `main` (they are
+# read-only history and still the checkout half of the log), so an assertion over the whole
+# history would fail on a repository that kept its archive. The fixture starts from a seed
+# commit and the assertion covers only what the tick itself added.
+cmd_verify_log_off_main() {
+    _mod="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts"
+    _run="${_mod}/run.sh"
+    _persist="${_mod}/persist-log.sh"
+    _append="${_mod}/log-append.sh"
+    for _f in "$_run" "$_persist" "$_append"; do
+        [ -f "$_f" ] || emit_err "log_off_main_unreadable" 4 "$_f is not present in this checkout"
+    done
+
+    _before=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+    _tmp=$(mktemp -d)
+    _day=$(date -u +%Y-%m-%d)
+
+    _seedm() {
+        _b="${1}/origin.git"; _c="${1}/clone"
+        git init -q --bare -b main "$_b" >/dev/null 2>&1
+        git init -q -b main "$_c" >/dev/null 2>&1
+        (
+            cd "$_c" \
+                && git config user.email drill@example.invalid \
+                && git config user.name Drill \
+                && git config commit.gpgsign false \
+                && mkdir -p .workaholic/moderations .workaholic/feedbacks \
+                && printf 'seed\n' > .workaholic/README.md \
+                && git add -A >/dev/null 2>&1 \
+                && git commit -q -m 'Seed the tree' >/dev/null 2>&1 \
+                && git remote add origin "$_b" \
+                && git push -q -u origin main >/dev/null 2>&1
+        ) >/dev/null 2>&1
+        git -C "$_c" rev-parse HEAD 2>/dev/null || true
+    }
+
+    # 1. A WHOLE DRILLED TICK, then the assertion straight off git: no commit the tick added
+    #    to the base touches the log area.
+    _fx="${_tmp}/tick"; mkdir -p "$_fx"
+    _seed_sha=$(_seedm "$_fx")
+    [ -n "$_seed_sha" ] || emit_err "log_off_main_fixture" 4 "could not build the throwaway repository"
+    _t="$(date -u +%Y%m%d)-100000"
+    sh "$_run" --root "${_fx}/clone" --tick "$_t" >/dev/null 2>&1 || true
+    _added=$(git -C "${_fx}/origin.git" log --oneline "${_seed_sha}..main" -- .workaholic/moderations/ 2>/dev/null || true)
+    if [ -z "$_added" ]; then
+        add_row "log_off_main_no_base_commit_touches_the_log" true "after a whole drilled tick, no commit it added to the base touches .workaholic/moderations/" load
+    else
+        add_row "log_off_main_no_base_commit_touches_the_log" false "the tick put the log back on the base: $(one_line "$_added")" load
+    fi
+
+    #    ...and the ref did receive it, so row 1 is not passing because nothing ran at all.
+    _onref=$(git -C "${_fx}/origin.git" show "refs/heads/workaholic/moderation-log:.workaholic/moderations/${_day}.md" 2>/dev/null || true)
+    case "$_onref" in
+        *"## ${_t}"*)
+            add_row "log_off_main_the_tick_really_logged" true "the drilled tick did publish a log, so the negative above is about a real run" load ;;
+        *)
+            add_row "log_off_main_the_tick_really_logged" false "the tick logged nothing anywhere, so the negative proves nothing: $(one_line "$_onref")" load ;;
+    esac
+
+    # 2. THE ONE LEGITIMATE BASE WRITE STILL PASSES. A feedback record is KNOWLEDGE the
+    #    `feedback:` relation has to resolve, so it stays on the base -- and the drill must
+    #    tell a record commit from a log commit, or it fails the intended design.
+    _rx="${_tmp}/record"; mkdir -p "$_rx"
+    _rseed=$(_seedm "$_rx")
+    _rt="$(date -u +%Y%m%d)-110000"
+    _rec=".workaholic/feedbacks/20260831100000-drill.md"
+    printf -- '---\ntype: Feedback\n---\n\n# drill\n' > "${_rx}/clone/${_rec}"
+    sh "$_append" --root "${_rx}/clone" --tick "$_rt" --step file-findings --status filed --summary "filed ${_rec}" >/dev/null 2>&1 || true
+    sh "$_persist" --tick "$_rt" --root "${_rx}/clone" --record "$_rec" >/dev/null 2>&1 || true
+    _recadded=$(git -C "${_rx}/origin.git" log --oneline "${_rseed}..main" -- "$_rec" 2>/dev/null || true)
+    _reclog=$(git -C "${_rx}/origin.git" log --oneline "${_rseed}..main" -- .workaholic/moderations/ 2>/dev/null || true)
+    if [ -n "$_recadded" ] && [ -z "$_reclog" ]; then
+        add_row "log_off_main_a_record_still_lands" true "a tick that wrote a feedback record lands it on the base and its log still does not" load
+    else
+        add_row "log_off_main_a_record_still_lands" false "the record/log split did not hold (record=$(one_line "$_recadded") log=$(one_line "$_reclog"))" load
+    fi
+
+    # 3. THE BREAKER, LABELLED AS THE INTENTIONAL FAILURE. It is the regression this drill
+    #    names in its own header: a caller that composes `publish-tree-commit.sh` with a
+    #    `.workaholic/moderations/` path, which is exactly what the closing act did before
+    #    2026-08-31. Written against the BEHAVIOUR -- where the commit lands -- and using the
+    #    REAL publish-tree seam, so it cannot pass against a shape the seam never produces.
+    #
+    #    Pointing a copy of the publisher's push at `refs/heads/main` was tried first and is
+    #    NOT a breaker: the log commit is an orphan, so that push is rejected as a
+    #    non-fast-forward and nothing reaches the base. A breaker has to actually commit.
+    _pub="${REPO_ROOT}/plugins/workaholic/skills/branching/scripts"
+    _bx="${_tmp}/breaker"; mkdir -p "$_bx"
+    _bseed=$(_seedm "$_bx")
+    _bt="$(date -u +%Y%m%d)-120000"
+    sh "$_append" --root "${_bx}/clone" --tick "$_bt" --step open-log --status ok --summary 'broken' >/dev/null 2>&1 || true
+    _brel=".workaholic/moderations/${_day}.md"
+    (
+        cd "${_bx}/clone" \
+            && sh "${_pub}/open-publish-tree.sh" main >/dev/null 2>&1 \
+            && mkdir -p ".publish/.workaholic/moderations" \
+            && cp "$_brel" ".publish/${_brel}" \
+            && sh "${_pub}/publish-tree-commit.sh" \
+                "Log the moderation tick ${_bt}" "why" "changes" "None" "None" "verify" "$_brel" >/dev/null 2>&1
+        cd "${_bx}/clone" && sh "${_pub}/close-publish-tree.sh" main >/dev/null 2>&1
+    ) >/dev/null 2>&1 || true
+    _badded=$(git -C "${_bx}/origin.git" log --oneline "${_bseed}..main" -- .workaholic/moderations/ 2>/dev/null || true)
+    if [ -n "$_badded" ]; then
+        add_row "log_off_main_breaker" true "with the publisher pointed at the base the log reaches main (this drill can fail)" breaker
+    else
+        add_row "log_off_main_breaker" false "the breaker did not break: a publisher pointed at the base put nothing on main, so row 1 proves nothing" breaker
+    fi
+
+    # 4. NOTHING WAS WRITTEN OUTSIDE THE FIXTURE.
+    _after=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+    if [ "$_before" = "$_after" ]; then
+        add_row "log_off_main_writes_nothing_outside_the_fixture" true "the checkout is byte-identical after the drill" load
+    else
+        add_row "log_off_main_writes_nothing_outside_the_fixture" false "the drill changed the working tree" load
+    fi
+
+    rm -rf "$_tmp"
+    if [ "$LOAD_FAILED" -gt 0 ]; then
+        emit_verdict "log-off-main" 0 "fail" 1
+    fi
+    emit_verdict "log-off-main" 0 "pass" 0
+}
+
+
 case "$CMD" in
     seed) cmd_seed "$@" ;;
     verify-all) cmd_verify_all "$@" ;;
@@ -9085,6 +9426,8 @@ case "$CMD" in
     verify-condition-age) cmd_verify_condition_age "$@" ;;
     verify-cadence-lapse) cmd_verify_cadence_lapse "$@" ;;
     verify-blocked-tick) cmd_verify_blocked_tick "$@" ;;
+    verify-log-ref) cmd_verify_log_ref "$@" ;;
+    verify-log-off-main) cmd_verify_log_off_main "$@" ;;
     verify-directed-notification) cmd_verify_directed_notification "$@" ;;
     verify-impairment) cmd_verify_impairment "$@" ;;
     *)

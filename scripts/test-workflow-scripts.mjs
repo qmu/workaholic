@@ -20670,6 +20670,8 @@ const tests = [
   ["moderate: an answer in a question's own thread reaches the writer", testAnswerReturnPath],
   ["moderate: liveness, and the one bounded re-ask", testQuestionLivenessAndReask],
   ["moderate: the tick's records reach the base", testTickRecordsReachTheBase],
+  ["moderate/persist-log.sh: the log reaches its own ref, never the base", testTickLogReachesItsRef],
+  ["moderate/log-read.sh: one resolver, two sources, the checkout winning", testTickLogOneReader],
   ["commit.sh: refuses a commit that splits a rename", testCommitRefusesSplitRename],
   ["strategy/work-kind.sh: describing work does not gate a building aim", testDescribingWorkDoesNotGateABuildingAim],
   ["drive/archive.sh: closes a mission it can prove is finished", testArchiveClosesAProvenMission],
@@ -25358,9 +25360,20 @@ function testTickRecordsReachTheBase() {
     const onBase = execSync(`git -C ${origin} ls-tree -r --name-only main`, { encoding: "utf8" });
     assertTrue("the record is on the base", onBase.includes(rec), onBase);
     assertTrue("and the unrelated staged file is not", !onBase.includes("unrelated.txt"), onBase);
-    // NO BRANCH, NO CLAIM, NO PULL REQUEST — the same seam the log already travels.
-    assertEq("no branch but the base exists on origin",
-      execSync(`git -C ${origin} for-each-ref --format='%(refname:short)' refs/heads`, { encoding: "utf8" }).trim(), "main");
+    // NO BRANCH, NO CLAIM, NO PULL REQUEST. Since 2026-08-31 origin also carries the log's
+    // own ref, which is the point of the split: the record is on the base and the log is
+    // not. What must never appear is a `work-*` branch — a claim the tick did not make.
+    const heads = execSync(`git -C ${origin} for-each-ref --format='%(refname:short)' refs/heads`, { encoding: "utf8" })
+      .split("\n").map((s) => s.trim()).filter(Boolean).sort();
+    assertEq("origin carries the base and the log ref, and nothing else",
+      heads, ["main", "workaholic/moderation-log"]);
+    assertTrue("and no work-* branch was created", !heads.some((h) => h.startsWith("work-")), heads.join(","));
+
+    // THE LOG IS NOT ON THE BASE, AND THE RECORD IS. That is the whole split.
+    assertTrue("the base carries no tick log", !onBase.includes(".workaholic/moderations/"), onBase);
+    assertTrue("and the log ref carries it",
+      execSync(`git -C ${origin} ls-tree -r --name-only refs/heads/workaholic/moderation-log`, { encoding: "utf8" })
+        .includes(".workaholic/moderations/2026-08-23.md"), "the log did not reach its ref");
 
     // IMMUTABLE: a second run leaves it alone rather than rewriting it.
     const again = JSON.parse(execSync(`${PERSIST} --tick 20260823-100000 --root . --record ${rec}`, { cwd: c, encoding: "utf8" }));
@@ -25379,6 +25392,255 @@ function testTickRecordsReachTheBase() {
     assertEq("an unreadable root is named, not rendered empty",
       JSON.parse(execSync(`${FILED} --root ${join(base, "nope")} --step inbound-sweep`, { encoding: "utf8" })).readable, false);
   } finally { cleanup(base); }
+}
+
+// ---------- moderate: the tick log reaches its own ref, never the base (2026-08-31) ----------
+// `main` is the development target's history and this log was its largest author: 275 commits in
+// one measured day on a consuming repository, 138 `.workaholic/`-only and 5 touching the product.
+// The log moved to `refs/heads/workaholic/moderation-log`; what did NOT move is the union, which
+// is the property that lets two containers tick in the same minute without erasing each other.
+//
+// HERMETIC: a local bare repository as `origin`. No network, no `gh`, no credential.
+function testTickLogReachesItsRef() {
+  const M = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts");
+  const PERSIST = `${POSIX_SH} ${join(M, "persist-log.sh")}`;
+  const LOG_REF = "refs/heads/workaholic/moderation-log";
+  const DAY_REL = ".workaholic/moderations/2026-08-31.md";
+  const base = mkdtempSync(join(tmpdir(), "wh-logref-"));
+  const origin = join(base, "origin.git");
+  const a = join(base, "a");
+  const b = join(base, "b");
+  const onRef = () => {
+    try {
+      return execSync(`git -C ${origin} show ${LOG_REF}:${DAY_REL}`, { encoding: "utf8" });
+    } catch { return ""; }
+  };
+  try {
+    execSync(`git init -q --bare -b main ${origin}`);
+    execSync(`git init -q -b main ${a}`);
+    execSync("git config user.email t@example.com && git config user.name T && git config commit.gpgsign false", { cwd: a });
+    mkdirSync(join(a, ".workaholic/moderations"), { recursive: true });
+    writeFileSync(join(a, "README.md"), "# seed\n");
+    execSync(`git add -A && git commit -q -m seed && git remote add origin ${origin} && git push -q -u origin main`, { cwd: a });
+
+    // ---- the log lands on the ref, and the base never sees it ----
+    writeFileSync(join(a, DAY_REL), "# 2026-08-31\n\n## 20260831-100000\n\n- `open-log`: ok — opened\n- `base-health`: ok — green\n");
+    const first = JSON.parse(execSync(`${PERSIST} --tick 20260831-100000 --root .`, { cwd: a, encoding: "utf8" }));
+    assertEq("the first persist creates the ref and files",
+      [first.persisted, first.status, first.reason], [true, "filed", "persisted"]);
+    assertTrue("the day file is on the log ref", onRef().includes("- `base-health`: ok — green"), onRef());
+    assertEq("and the base gained no commit at all",
+      execSync(`git -C ${origin} log --oneline main -- .workaholic/moderations/`, { encoding: "utf8" }).trim(), "");
+
+    // THE HISTORY IS AN ORPHAN: no parent, so it shares no commit with the base and nothing
+    // on it can ever read as work in flight.
+    assertEq("the ref's first commit has no parent",
+      execSync(`git -C ${origin} log --format=%P ${LOG_REF}`, { encoding: "utf8" }).trim(), "");
+
+    // NO BRANCH, NO WORKTREE, NO PULL REQUEST — and specifically no local branch, which is
+    // why `guard-git-branch.sh` needs no rule about this ref.
+    assertEq("no local branch was created for the log",
+      execSync("git branch --format='%(refname:short)'", { cwd: a, encoding: "utf8" }).trim(), "main");
+    assertEq("and origin carries only the base and the log ref",
+      execSync(`git -C ${origin} for-each-ref --format='%(refname:short)' refs/heads`, { encoding: "utf8" })
+        .split("\n").map((s) => s.trim()).filter(Boolean).sort(), ["main", "workaholic/moderation-log"]);
+    assertEq("the caller's checkout carries no publish tree", existsSync(join(a, ".publish")), false);
+
+    // ---- THE UNION, ACROSS TWO CONTAINERS. This is the gate: the test must FAIL against a
+    // by-section merge, so the second container writes into a section the ref already has.
+    execSync(`git clone -q ${origin} ${b}`, { stdio: "ignore" });
+    execSync("git config user.email u@example.com && git config user.name U && git config commit.gpgsign false", { cwd: b });
+    mkdirSync(join(b, ".workaholic/moderations"), { recursive: true });
+    writeFileSync(join(b, DAY_REL),
+      "# 2026-08-31\n\n## 20260831-100000\n\n- `open-log`: ok — opened\n- `raced-units`: ok — none\n\n## 20260831-110000\n\n- `open-log`: ok — opened\n");
+    const second = JSON.parse(execSync(`${PERSIST} --tick 20260831-110000 --root .`, { cwd: b, encoding: "utf8" }));
+    assertEq("the second container files too", second.persisted, true);
+    const merged = onRef();
+    // A BY-SECTION MERGE PASSES EVERY OTHER ASSERTION AND FAILS THIS ONE: it would see
+    // `## 20260831-100000` already present and skip the whole section, losing `raced-units`.
+    assertTrue("a line the ref lacked inside a section it already had is merged in",
+      merged.includes("- `raced-units`: ok — none"), merged);
+    assertTrue("and the line the ref already had is not lost",
+      merged.includes("- `base-health`: ok — green"), merged);
+    assertTrue("and a whole section the ref lacked is appended",
+      merged.includes("## 20260831-110000"), merged);
+    assertEq("neither container's line was duplicated",
+      (merged.match(/- `open-log`/g) || []).length, 2);
+
+    // ---- A LATE `<step>-filed` LINE STILL LANDS, which is the whole reason the union is by
+    // `(tick, step)` rather than by `(tick)`: the agent appends it after `run.sh` returned.
+    appendFileSync(join(a, DAY_REL), "- `base-health-filed`: filed — filed late\n");
+    const late = JSON.parse(execSync(`${PERSIST} --tick 20260831-100000 --root .`, { cwd: a, encoding: "utf8" }));
+    assertEq("the late line is carried as a line, not a section", [late.sections, late.lines], [0, 1]);
+    assertTrue("and it reaches a section that had already landed",
+      onRef().includes("- `base-health-filed`: filed — filed late"), onRef());
+
+    // ---- IDEMPOTENCE: a persist with nothing to carry writes nothing.
+    const again = JSON.parse(execSync(`${PERSIST} --tick 20260831-100000 --root .`, { cwd: a, encoding: "utf8" }));
+    assertEq("a persist with nothing to carry is already_current",
+      [again.status, again.reason, again.changed], ["ok", "already_current", false]);
+
+    // ---- THE BASE IS STILL CLEAN AFTER ALL OF IT.
+    assertEq("no commit on the base ever touched the log",
+      execSync(`git -C ${origin} log --oneline main -- .workaholic/moderations/`, { encoding: "utf8" }).trim(), "");
+  } finally { cleanup(base); }
+
+  // ---- THE NAMED DEGRADATIONS. `no_origin` is `skipped` (a local-only checkout has nowhere
+  // to publish, so nothing went wrong); a ref that cannot be fetched is `degraded` under its
+  // OWN reason, never folded into an existing one and never read as an empty log.
+  const local = mkdtempSync(join(tmpdir(), "wh-logref-local-"));
+  try {
+    execSync(`git init -q -b main ${local}`);
+    execSync("git config user.email t@example.com && git config user.name T && git config commit.gpgsign false", { cwd: local });
+    mkdirSync(join(local, ".workaholic/moderations"), { recursive: true });
+    writeFileSync(join(local, "README.md"), "# seed\n");
+    execSync("git add -A && git commit -q -m seed", { cwd: local });
+    writeFileSync(join(local, DAY_REL), "## 20260831-100000\n\n- `open-log`: ok — opened\n");
+    const j = JSON.parse(execSync(`${PERSIST} --tick 20260831-100000 --root .`, { cwd: local, encoding: "utf8" }));
+    assertEq("a local-only checkout is skipped, not degraded",
+      [j.status, j.reason], ["skipped", "no_origin"]);
+
+    execSync(`git remote add origin ${join(local, "does-not-exist.git")}`, { cwd: local });
+    const u = JSON.parse(execSync(`${PERSIST} --tick 20260831-100000 --root .`, { cwd: local, encoding: "utf8" }));
+    assertEq("an unreachable ref is degraded under its own reason",
+      [u.status, u.reason, u.persisted], ["degraded", "log_ref_unreachable", false]);
+  } finally { cleanup(local); }
+
+  // ---- THE REF IS SPELLED ONCE. The publisher and the reader have to agree about where the
+  // log lives, and a string spelled twice is one that drifts once — silently, with the
+  // publisher writing where nothing reads.
+  const lib = readFileSync(join(M, "lib/log-ref.sh"), "utf8");
+  assertTrue("the ref lives in lib/log-ref.sh", lib.includes("refs/heads/workaholic/moderation-log"), lib.slice(0, 120));
+  for (const f of ["persist-log.sh", "log-read.sh"]) {
+    const src = readFileSync(join(M, f), "utf8");
+    const code = src.split("\n").filter((l) => !l.trimStart().startsWith("#")).join("\n");
+    assertTrue(`${f} sources the ref rather than spelling it`,
+      code.includes("lib/log-ref.sh") && !code.includes("refs/heads/workaholic/moderation-log"), f);
+  }
+  // THE PUBLISHER CREATES NO LOCAL BRANCH. This is what makes `guard-git-branch.sh` needing no
+  // rule a ruling rather than an oversight: the guard matches local branch-creation surfaces,
+  // and a reach for `git branch` here would quietly widen what it permits.
+  const pcode = readFileSync(join(M, "persist-log.sh"), "utf8")
+    .split("\n").filter((l) => !l.trimStart().startsWith("#")).join("\n");
+  for (const form of ["git branch", "checkout -b", "switch -c", "worktree add"]) {
+    assertTrue(`the publisher never reaches for \`${form}\``, !pcode.includes(form), form);
+  }
+  // AND THE CLAIM ORACLE EXCLUDES THE REF BY NAME. Its claim-commit filter would reject the
+  // ref anyway; that is a backstop whose validity nobody is watching, so the rule is the name.
+  const claims = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/lib/claims.sh"), "utf8");
+  const ccode = claims.split("\n").filter((l) => !l.trimStart().startsWith("#")).join("\n");
+  assertTrue("lib/claims.sh skips the log ref by name",
+    ccode.includes('"$_cs_ref" = "origin/workaholic/moderation-log"'), "the log ref is not excluded");
+}
+
+// ---------- moderate: one resolver of the log's location (2026-08-31) ----------
+// With the log on its own ref, "where is the log" stopped being a constant. Six scripts
+// composed `.workaholic/moderations` for themselves and would each have walked a directory
+// holding only what THIS container appended — reporting *nothing found* where the honest
+// answer is *this container has not fetched it*. Every dedup in the tick would then re-fire,
+// which is the one failure the log exists to prevent.
+//
+// Pinned: the location resolves in `log-read.sh` alone; the two sources union with the
+// CHECKOUT winning; a ref that could not be fetched is named with a NULL count; and a
+// checkout that never refreshed behaves exactly as it did before any of this existed.
+function testTickLogOneReader() {
+  const M = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts");
+  const READ = `${POSIX_SH} ${join(M, "log-read.sh")}`;
+  const APPEND = `${POSIX_SH} ${join(M, "log-append.sh")}`;
+  const PERSIST = `${POSIX_SH} ${join(M, "persist-log.sh")}`;
+  const AGE = `${POSIX_SH} ${join(M, "condition-age.sh")}`;
+  const base = mkdtempSync(join(tmpdir(), "wh-onereader-"));
+  const origin = join(base, "origin.git");
+  const a = join(base, "a");
+  const fresh = join(base, "fresh");
+  try {
+    execSync(`git init -q --bare -b main ${origin}`);
+    execSync(`git init -q -b main ${a}`);
+    execSync("git config user.email t@example.com && git config user.name T && git config commit.gpgsign false", { cwd: a });
+    mkdirSync(join(a, ".workaholic/moderations"), { recursive: true });
+    writeFileSync(join(a, ".workaholic/README.md"), "seed\n");
+    execSync(`git add -A && git commit -q -m seed && git remote add origin ${origin} && git push -q -u origin main`, { cwd: a });
+
+    // ---- A CHECKOUT THAT NEVER REFRESHED IS UNCHANGED. This is what keeps every hermetic
+    // fixture and every hand-run behaving as it did before the ref existed.
+    execSync(`${APPEND} --root . --tick 20260830-100000 --step doc-drift --status filed --summary "found #471"`, { cwd: a, stdio: "ignore" });
+    const local = JSON.parse(execSync(`${READ} --root . --step doc-drift`, { cwd: a, encoding: "utf8" }));
+    assertEq("a checkout that never consulted the ref reads its own copy", [local.read, local.count], [true, 1]);
+
+    execSync(`${PERSIST} --tick 20260830-100000 --root .`, { cwd: a, stdio: "ignore" });
+
+    // ---- A FRESH CONTAINER SEES AN EARLIER CONTAINER'S TICK, which is the whole point: the
+    // log's value is that it survives the container that wrote it.
+    execSync(`git clone -q ${origin} ${fresh}`, { stdio: "ignore" });
+    execSync("git config user.email u@example.com && git config user.name U && git config commit.gpgsign false", { cwd: fresh });
+    const cold = JSON.parse(execSync(`${READ} --root . --step doc-drift`, { cwd: fresh, encoding: "utf8" }));
+    assertEq("before a refresh it has not looked at the ref", cold.count, 0);
+    const warm = JSON.parse(execSync(`${READ} --root . --refresh --step doc-drift`, { cwd: fresh, encoding: "utf8" }));
+    assertEq("after the refresh an earlier container's tick is readable", [warm.read, warm.count], [true, 1]);
+
+    // THE CACHE IS INVISIBLE TO GIT. It lives under the git directory, so it is never staged,
+    // never in `git status`, and needs no `.gitignore` in a repository that installs this
+    // plugin — a working-tree cache would be one `git add -A` from putting the log back.
+    assertEq("the ref's copy never appears in the working tree",
+      execSync("git status --porcelain", { cwd: fresh, encoding: "utf8" })
+        .split("\n").filter((l) => l.trim() && !l.includes(".workaholic/moderations")).join("|"), "");
+
+    // ---- THE CHECKOUT WINS. A step must read a line its own tick appended before any
+    // persist ran, and must never be shown a staler published copy of the same `(tick, step)`.
+    execSync(`${APPEND} --root . --tick 20260831-100000 --step base-health --status ok --summary "green"`, { cwd: fresh, stdio: "ignore" });
+    const own = JSON.parse(execSync(`${READ} --root . --step base-health`, { cwd: fresh, encoding: "utf8" }));
+    assertEq("a line this tick just wrote is readable with no persist at all", own.count, 1);
+    const both = JSON.parse(execSync(`${READ} --root .`, { cwd: fresh, encoding: "utf8" }));
+    assertEq("and both sources are one log", both.days, 2);
+    assertEq("the day listing is the union of both sources",
+      JSON.parse(execSync(`${READ} --root . --list-days`, { cwd: fresh, encoding: "utf8" })).days,
+      ["2026-08-30", "2026-08-31"]);
+
+    // A `(tick, step)` in BOTH renders the checkout's, which is by construction the newer.
+    writeFileSync(join(fresh, ".workaholic/moderations/2026-08-30.md"),
+      "## 20260830-100000\n\n- `doc-drift`: filed — the checkout's own wording\n");
+    const collide = JSON.parse(execSync(`${READ} --root . --step doc-drift`, { cwd: fresh, encoding: "utf8" }));
+    assertEq("on a collision the checkout's line is the one rendered",
+      [collide.count, collide.entries[0].summary], [1, "the checkout's own wording"]);
+
+    // ---- `condition-age.sh` GOES THROUGH THE RESOLVER and answers the same ages it always
+    // did on the same content — the bound and the `truncated` answer intact.
+    const key = "stalled-unit:m1";
+    const age = JSON.parse(execSync(`${AGE} --key '${key}' --root .`, { cwd: fresh, encoding: "utf8" }));
+    assertEq("a key nobody has asked about reads first_seen null, an ordinary absence",
+      [age.first_seen, age.ticks], [null, 0]);
+
+    // ---- AN UNREACHABLE REF IS NAMED WITH A NULL COUNT, never `no_log_area` and never an
+    // empty entry list. This is the assertion the whole reader change exists for: a reader
+    // that answered "nothing found" would make every dedup in the tick re-fire.
+    execSync(`git remote set-url origin ${join(base, "gone.git")}`, { cwd: fresh });
+    const gone = JSON.parse(execSync(`${READ} --root . --refresh --step doc-drift`, { cwd: fresh, encoding: "utf8" }));
+    assertEq("a ref that could not be fetched is named, with a null count",
+      [gone.read, gone.reason, gone.count], [false, "log_ref_unreachable", null]);
+    assertTrue("and it is not the no-log answer", gone.reason !== "no_log_area", gone.reason);
+    // AND IT REACHES ITS CONSUMERS as a degradation rather than as an absence.
+    const degAge = JSON.parse(execSync(`${AGE} --key '${key}' --root .`, { cwd: fresh, encoding: "utf8" }));
+    assertTrue("condition-age.sh degrades rather than answering an ordinary absence",
+      degAge.readable === false || degAge.reason === "log_unreadable", JSON.stringify(degAge));
+  } finally { cleanup(base); }
+
+  // ---- ONE RESOLVER, STATICALLY. No script outside the reader, the checkout writer and the
+  // publisher may compose a `.workaholic/moderations` path of its own — that is the second
+  // walker the repository's own conventions forbid, and after this mission it would read a
+  // directory holding half the log.
+  const allowed = new Set(["log-read.sh", "log-append.sh", "persist-log.sh"]);
+  for (const f of readdirSync(M)) {
+    if (!f.endsWith(".sh") || allowed.has(f)) continue;
+    const src = readFileSync(join(M, f), "utf8");
+    const code = src.split("\n")
+      .filter((l) => !l.trimStart().startsWith("#"))
+      // The `open-log` step's human-facing summary names the path in prose; it resolves
+      // nothing, and a caller cannot use it as a location.
+      .filter((l) => !l.includes('"step": "open-log"'))
+      .join("\n");
+    assertTrue(`${f} resolves the log's location through log-read.sh, not for itself`,
+      !code.includes(".workaholic/moderations"), f);
+  }
 }
 
 // ---------- moderate: liveness, and the one bounded re-ask (2026-08-23) ----------
@@ -26010,6 +26272,8 @@ function testModeratePersist() {
   const A = join(tmp, "a");
   const B = join(tmp, "b");
   const DAY = ".workaholic/moderations/2026-08-17.md";
+  const LOG_REF = "refs/heads/workaholic/moderation-log";
+  const LOG_REMOTE = "refs/remotes/origin/workaholic/moderation-log";
   const clone = (path, email) => {
     execSync(`git clone -q ${origin} ${path}`);
     execSync(`git config user.email ${email}`, { cwd: path });
@@ -26034,8 +26298,13 @@ function testModeratePersist() {
     run(B, `${APPEND} --tick 20260817-110000 --step open-log --status ok --summary "from b"`);
 
     const a1 = JSON.parse(run(A, `${PERSIST} --tick 20260817-100000`).stdout);
-    assertEq("a tick's log reaches the base", [a1.persisted, a1.status, a1.reason],
+    assertEq("a tick's log reaches its ref", [a1.persisted, a1.status, a1.reason],
       [true, "filed", "persisted"]);
+    // SINCE 2026-08-31 the durable home is the log's OWN REF, never `main` (mission
+    // `take-the-moderation-tick-s-log-off-main`). Every property below is the one it always
+    // was; only the destination moved.
+    assertEq("and the base gains no commit for it",
+      execSync(`git -C ${origin} log --oneline main -- .workaholic/moderations/`, { encoding: "utf8" }).trim(), "");
 
     // THE CALLER'S CHECKOUT IS UNTOUCHED. The publish tree is the seam precisely so a
     // tick never creates a branch or a worktree of its own — a routine that left either
@@ -26056,8 +26325,8 @@ function testModeratePersist() {
     // base it has to read first.
     const b1 = JSON.parse(run(B, `${PERSIST} --tick 20260817-110000`).stdout);
     assertEq("a second clone's tick lands too", b1.reason, "persisted");
-    run(A, "git fetch -q origin main");
-    const landed = run(A, `git show origin/main:${DAY}`).stdout;
+    run(A, `git fetch -q origin +${LOG_REF}:${LOG_REMOTE}`);
+    const landed = run(A, `git show ${LOG_REMOTE}:${DAY}`).stdout;
     assertEq("and neither erased the other",
       (landed.match(/^## \d{8}-\d{6}$/gm) || []).sort(), ["## 20260817-100000", "## 20260817-110000"]);
 
@@ -26079,9 +26348,11 @@ exit 0
     const a3 = JSON.parse(run(A, `${PERSIST} --tick 20260817-120000`).stdout);
     assertEq("a beaten push retries rather than failing", [a3.persisted, a3.reason], [true, "persisted"]);
     assertTrue("and it took a second attempt to do it", a3.attempts >= 2, JSON.stringify(a3));
-    run(A, "git fetch -q origin main");
-    assertEq("all four sections are on the base",
-      (run(A, `git show origin/main:${DAY}`).stdout.match(/^## \d{8}-\d{6}$/gm) || []).length, 4);
+    run(A, `git fetch -q origin +${LOG_REF}:${LOG_REMOTE}`);
+    assertEq("all four sections are on the log ref",
+      (run(A, `git show ${LOG_REMOTE}:${DAY}`).stdout.match(/^## \d{8}-\d{6}$/gm) || []).length, 4);
+    assertEq("and the base still carries none of them",
+      execSync(`git -C ${origin} log --oneline main -- .workaholic/moderations/`, { encoding: "utf8" }).trim(), "");
 
     // A LOG ROOT OUTSIDE A REPOSITORY IS SKIPPED BY NAME, never published into whatever
     // repository the caller's cwd happens to be. This is what keeps the drill — which
@@ -26094,12 +26365,14 @@ exit 0
     assertEq("a root outside a repository is skipped, not published",
       [l.persisted, l.status, l.reason], [false, "skipped", "not_a_repo"]);
 
-    // An unreachable base is reported by name and changes nothing.
+    // An unreachable ref is reported by name and changes nothing. It has its OWN reason
+    // rather than being folded into an existing one: a ref that cannot be fetched and a ref
+    // that does not exist yet are different facts, and only the first is a degradation.
     run(A, `git remote set-url origin ${join(tmp, "gone.git")}`);
     run(A, `${APPEND} --tick 20260817-150000 --step open-log --status ok --summary "offline"`);
     const off = JSON.parse(run(A, `${PERSIST} --tick 20260817-150000`).stdout);
-    assertEq("an unreachable base degrades by name",
-      [off.persisted, off.status, off.reason], [false, "degraded", "origin_unreachable"]);
+    assertEq("an unreachable ref degrades by name",
+      [off.persisted, off.status, off.reason], [false, "degraded", "log_ref_unreachable"]);
     assertTrue("and the log is still in the checkout",
       readFileSync(join(A, DAY), "utf8").includes("## 20260817-150000"));
   } finally {
@@ -26124,15 +26397,21 @@ function testModeratePersistCarriesLateLines() {
   const A = join(tmp, "a");
   const B = join(tmp, "b");
   const DAY = ".workaholic/moderations/2026-08-17.md";
+  const LOG_REF = "refs/heads/workaholic/moderation-log";
+  const LOG_REMOTE = "refs/remotes/origin/workaholic/moderation-log";
   const clone = (path, email) => {
     execSync(`git clone -q ${origin} ${path}`);
     execSync(`git config user.email ${email}`, { cwd: path });
     execSync(`git config user.name ${email[0].toUpperCase()}`, { cwd: path });
     execSync("git config commit.gpgsign false", { cwd: path });
   };
+  // WHAT "LANDED" MEANS IS THE LOG'S OWN REF SINCE 2026-08-31 (mission
+  // `take-the-moderation-tick-s-log-off-main`). The assertion this helper feeds is unchanged
+  // in force — it is still about the published copy and never the checkout, which is exactly
+  // why the original defect was invisible to a hand-run.
   const based = (repo) => {
-    run(repo, "git fetch -q origin main");
-    return run(repo, `git show origin/main:${DAY}`).stdout;
+    run(repo, `git fetch -q origin +${LOG_REF}:${LOG_REMOTE}`);
+    return run(repo, `git show ${LOG_REMOTE}:${DAY}`).stdout;
   };
   try {
     execSync(`git init -q --bare --initial-branch=main ${origin}`);
@@ -26150,14 +26429,14 @@ function testModeratePersistCarriesLateLines() {
     run(A, `${APPEND} --tick 20260817-100000 --step doc-drift --status filed --summary "found #471"`);
     run(A, `${APPEND} --tick 20260817-100000 --step persist-log --status filed --summary "1 section"`);
     const first = JSON.parse(run(A, `${PERSIST} --tick 20260817-100000`).stdout);
-    assertEq("the tick's own lines reach the base", [first.persisted, first.reason], [true, "persisted"]);
+    assertEq("the tick's own lines reach the ref", [first.persisted, first.reason], [true, "persisted"]);
 
     // What the agent does next, after `run.sh` has already returned and persisted.
     run(A, `${APPEND} --tick 20260817-100000 --step doc-drift-filed --status filed --summary "ticket 20260818064158"`);
     const late = JSON.parse(run(A, `${PERSIST} --tick 20260817-100000`).stdout);
     assertEq("a persist run again after the filing carries it", [late.persisted, late.reason], [true, "persisted"]);
-    assertEq("as lines into a section the base already has", [late.sections, late.lines], [0, 1]);
-    assertTrue("and the `<step>-filed` line is on the BASE, not just the checkout",
+    assertEq("as lines into a section the ref already has", [late.sections, late.lines], [0, 1]);
+    assertTrue("and the `<step>-filed` line is PUBLISHED, not just in the checkout",
       based(A).includes("- `doc-drift-filed`: filed — ticket 20260818064158"), based(A));
     assertTrue("the earlier lines of that section are still there",
       based(A).includes("- `doc-drift`: filed — found #471") && based(A).includes("- `persist-log`: filed"), based(A));
@@ -26198,7 +26477,7 @@ function testModeratePersistCarriesLateLines() {
     ]) {
       assertTrue(`nothing was lost: ${line}`, merged.includes(line), merged);
     }
-    assertEq("both sections are on the base, each once",
+    assertEq("both sections are on the ref, each once",
       (merged.match(/^## \d{8}-\d{6}$/gm) || []).sort(), ["## 20260817-100000", "## 20260817-200000"]);
 
     // A LINE ALREADY ON THE BASE IS NEVER REWRITTEN. The log is append-only in substance:
@@ -26209,7 +26488,7 @@ function testModeratePersistCarriesLateLines() {
     const rewrite = JSON.parse(run(A, `${PERSIST} --tick 20260817-100000`).stdout);
     assertEq("a differing line is not carried as an update", [rewrite.status, rewrite.reason],
       ["ok", "already_current"]);
-    assertTrue("the base keeps what it had", based(A).includes("- `doc-drift`: filed — found #471"), based(A));
+    assertTrue("the ref keeps what it had", based(A).includes("- `doc-drift`: filed — found #471"), based(A));
     assertTrue("and it is not doubled",
       (based(A).match(/^- `doc-drift`: /gm) || []).length === 1, based(A));
   } finally {

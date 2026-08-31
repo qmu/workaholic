@@ -74,16 +74,20 @@ which publishes behind a pull request, exactly as `/specificate` does. A pull re
 opened and then left red is a stuck artifact nobody owns, so the flag is `true` for the same
 reason it is true on `[Specificate]`.
 
-**Its container is discarded, so the tick commits its own log.** A routine tick runs in a fresh
+**Its container is discarded, so the tick publishes its own log.** A routine tick runs in a fresh
 clone; a log left in that checkout would take every dedup's memory with it and leave an hourly
-unattended process with no audit trail. `persist-log.sh` is the tick's closing act and the one
-thing this routine puts on `main` — an append to its own log, through the publish tree, leaving
-the checkout byte-identical and creating no branch (`workaholic:moderate`, *The tick log*).
+unattended process with no audit trail. `persist-log.sh` is the tick's closing act and it
+publishes to the log's **own ref** — `refs/heads/workaholic/moderation-log`, never `main` —
+leaving the checkout byte-identical and creating no branch (`workaholic:moderate`, *Where the log
+lives, and why it is not `main`*). The one thing this routine still puts on `main` is a **feedback
+record** it wrote, which is knowledge the `feedback:` relation has to resolve; a tick that wrote
+none commits to the base at all.
 
 **What it never does**, and none of it is left to the prompt: it never merges a pull request,
 never pushes into a branch the claim protocol owns (step 4 reports conflict state and the claim
 holder resolves it), never edits a live strategy, never closes an issue, never rewrites a
-document on `main` — its own append-only tick log is the single exception, stated above — and
+document on `main` — a feedback record it wrote is the single exception, stated above, and its
+own tick log no longer reaches `main` at all — and
 never calls `AskUserQuestion` — step 9 asks humans **in Slack**. Every one of those rules lives
 in `workaholic:moderate` and its `reference/workflow.md`, which is why this prompt does not
 restate them.

@@ -102,3 +102,45 @@ in the same change or `test-workflow-scripts.mjs` fails it `skipped:unclassified
 - This drill is the mission's acceptance made mechanical. If it cannot be written
   hermetically, say so loudly rather than downgrading it to `needs_server`, where
   CI never runs it and it guards nothing.
+
+## Final Report
+
+Development completed as planned. `verify-log-off-main` ships with its register row, its CI
+matrix leg and a breaker that was run and observed to fail the drill.
+
+Five load-bearing rows, all passing:
+
+1. **A whole drilled tick** — `run.sh`, not just the persist — then the assertion taken
+   straight off git: no commit the tick added to the base touches `.workaholic/moderations/`.
+   Deriving it from git is what makes it survive a refactor of the scripts it guards, and
+   running the whole tick is what catches a write from **any** step.
+2. The tick really did log (to the ref), so row 1 is not passing because nothing ran.
+3. **The one legitimate base write still passes**: a tick that wrote a feedback record lands
+   it on the base while its log still does not. A drill that failed the intended design would
+   be worse than none.
+4. The breaker.
+5. Nothing was written outside the fixture.
+
+**Scoped to the drilled range.** Ticket 5 ruled the historical day files stay on `main`, so
+the assertion covers only what the tick itself added — `<seed>..main` — not the whole
+history, which would fail on any repository that kept its archive.
+
+**`hermetic` is measured, not asserted**: run twice with `gh` shimmed to exit 127, no proxy
+and no `ANTHROPIC_API_KEY`; identical row counts both times.
+
+### Discovered Insights
+
+- **Insight**: the honest breaker for this property is not a mangled publisher but **the
+  regression itself** — a caller that composes `publish-tree-commit.sh` with a
+  `.workaholic/moderations/` path, which is exactly what the closing act did before this
+  mission. It uses the real publish-tree seam, so it cannot pass against a shape the seam
+  never produces.
+  **Context**: the first attempt (a copy of the publisher pushing to `refs/heads/main`) put
+  nothing on the base, because the log commit is an orphan and the push was rejected as a
+  non-fast-forward. A breaker has to actually commit; recorded in the runbook.
+
+- **Insight**: keeping the record-commit row is what stops this drill from being a trap. The
+  mission deliberately leaves one base writer in the tick, and a drill asserting "no base
+  commit at all" would have gone red on the intended design the first time a tick filed a
+  finding.
+  **Context**: it also pins the split from ticket 3 mechanically rather than only in prose.

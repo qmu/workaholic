@@ -6551,7 +6551,71 @@ cmd_verify_return_path() {
         add_row "return_path_stamp_not_load_bearing" false "the recording depends on the stamp: $(one_line "$_st2")" load
     fi
 
-    # 7. THE BREAKER ROW, LABELLED AS THE INTENTIONAL FAILURE. A copy of the step wired at the
+    # 7. AND WHAT BECAME OF THAT ANSWER COMES BACK INTO THE SAME THREAD, ONCE.
+    # (2026-08-31, mission `make-the-tick-s-questions-readable-and-close-them-in-the-thread`.)
+    # One fixture, two questions: the answer above is already recorded and filed, so the
+    # outcome half needs only the filing line the agent writes and nothing else staged.
+    _append="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/log-append.sh"
+    _slug=${_logstep#human-checkin-ask-}
+
+    # 7a. THE UNKNOWN OUTCOME POSTS NOTHING AND IS NAMED. No filing line yet: the agent has not
+    # said what it did with the answer, so there is nothing to tell anybody.
+    _o0=$(_in sh "$_step" --tick 20260101-140000 --root "$_fx")
+    if ! printf '%s' "$_o0" | grep -q '"outcome_candidates":\[{' \
+        && printf '%s' "$_o0" | grep -q '1 not settled yet'; then
+        add_row "return_path_outcome_pending_silent" true "an answer whose outcome is not known yet yields no reply and is counted as not settled" load
+    else
+        add_row "return_path_outcome_pending_silent" false "an unknown outcome did not stay silent: $(one_line "$_o0")" load
+    fi
+
+    # 7b. A SETTLED OUTCOME BECOMES EXACTLY ONE CANDIDATE, carrying the answer AS RECORDED and
+    # the coordinate the question was posted at -- so the reply needs no lookup and no search.
+    _in sh "$_append" --tick 20260101-140000 --root "$_fx" \
+        --step "question-answers-filed-${_slug}" --status ok --summary "not_filed: no_request" >/dev/null
+    _o1=$(_in sh "$_step" --tick 20260101-150000 --root "$_fx")
+    if printf '%s' "$_o1" | grep -q "\"outcome\":\"settled:nothing_filed\"" \
+        && printf '%s' "$_o1" | grep -q "\"coordinate\":\"${_coord}\",\"answer\":\"$(printf '%s' "$_words" | sed 's/[&/\]/\\&/g')\"" \
+        && printf '%s' "$_o1" | grep -q '1 answered question(s) with a settled outcome to reply'; then
+        add_row "return_path_outcome_named" true "a settled outcome is one candidate carrying the recorded words and the coordinate, with no lookup" load
+    else
+        add_row "return_path_outcome_named" false "the settled outcome did not reach the agent intact: $(one_line "$_o1")" load
+    fi
+    # THE OUTCOME REPLY IS BOUNDED TO THE QUESTION'S OWN THREAD TOO, and says so.
+    if printf '%s' "$_o1" | grep -q 'no lookup, no search, no mention token, once ever per question'; then
+        add_row "return_path_outcome_bounded" true "the reply is bounded to the recorded coordinate and carries no mention token" load
+    else
+        add_row "return_path_outcome_bounded" false "the outcome reply is not bounded to the coordinate: $(one_line "$_o1")" load
+    fi
+
+    # 7c. A SECOND TICK POSTS NOTHING. The dedup is the ledger line plus the reading, never a
+    # cursor: once the reply is logged the slug leaves the pool by construction.
+    _in sh "$_append" --tick 20260101-150000 --root "$_fx" \
+        --step "human-checkin-outcome-${_slug}" --status ok --summary "posted" >/dev/null
+    _o2=$(_in sh "$_step" --tick 20260101-160000 --root "$_fx")
+    if printf '%s' "$_o2" | grep -q '0 answered question(s) with a settled outcome to reply' \
+        && ! printf '%s' "$_o2" | grep -q '"outcome_candidates":\[{'; then
+        add_row "return_path_outcome_once" true "a later tick hands back no outcome candidate, so one question gets one reply ever" load
+    else
+        add_row "return_path_outcome_once" false "a later tick would post the outcome reply again: $(one_line "$_o2")" load
+    fi
+
+    # 7d. THE SHAPE IS SINGLE-SOURCED AND CARRIES NO MENTION TOKEN, exactly as the stamp's
+    # emoji is -- and it is NOT the stamp: received and acted on are two events.
+    if grep -qF '🧾 対応結果' "$_catalog" && grep -qF '🧾 対応結果' "$_template" \
+        && ! sed -n '/🧾 対応結果/,/```/p' "$_catalog" | grep -q '<@U'; then
+        add_row "return_path_outcome_shape_single_sourced" true "the catalog names the outcome reply, the routine authorizes it, and it carries no mention token" load
+    else
+        add_row "return_path_outcome_shape_single_sourced" false "the outcome reply is not single-sourced, or it mentions somebody" load
+    fi
+    # AND NOTHING WAS MERGED, CLOSED, RE-ASKED OR CONFIRMED BY ANY OF IT.
+    _st3=$(_in sh "$_state" --root "$_fx" --key "$_key")
+    if [ "$(_field "$_st3" state)" = "answered" ]; then
+        add_row "return_path_outcome_changes_nothing" true "the question is still answered: the outcome half re-asks nothing and confirms nothing" load
+    else
+        add_row "return_path_outcome_changes_nothing" false "the outcome half moved the question's state: $(one_line "$_st3")" load
+    fi
+
+    # 8. THE BREAKER ROW, LABELLED AS THE INTENTIONAL FAILURE. A copy of the step wired at the
     # CHANNEL instead of the question's own thread must fail the bound check above.
     _broken="${_tmp}/broken"
     mkdir -p "$_broken"
@@ -6572,6 +6636,40 @@ cmd_verify_return_path() {
         add_row "return_path_breaker" false "the breaker row did not break the seam, so this drill cannot fail" breaker
     else
         add_row "return_path_breaker" true "a step wired at the channel fails the bound check the real step passes (this drill can fail)" breaker
+    fi
+
+    # 9. THE SECOND BREAKER, WRITTEN AGAINST THE BEHAVIOUR RATHER THAN A RETURN SHAPE
+    # (2026-08-31). The natural mistake on the outcome half is to key the candidate set on the
+    # ANSWER'S EXISTENCE rather than on its outcome -- which posts *your answer was acted on*
+    # into somebody's thread while the issue it filed is still open, or while nobody could read
+    # it at all. A second question is staged in the SAME fixture, answered and with no filing
+    # line, so the real step must be silent about it and a step with the outcome gate removed
+    # must not be.
+    _key2="undelivered-unit:drill-two"
+    _coord2="C0DRILL01:1756346000.222222"
+    _gate2=$(_in sh "$_ask" --tick 20260101-160000 --root "$_fx" --key "$_key2" \
+        --to drill@example.com --hour 10 --weekday 1)
+    _logstep2=$(_field "$_gate2" log_step)
+    _in sh "$_ask" --record-ask --tick 20260101-160000 --root "$_fx" --key "$_key2" \
+        --log-step "$_logstep2" --coordinate "$_coord2" >/dev/null
+    _in sh "$_record" --root "$_fx" --tick 20260101-160000 --key "$_key2" \
+        --answer "Please open one for this." >/dev/null
+
+    _real=$(_in sh "$_step" --tick 20260101-170000 --root "$_fx")
+    _wire_at_existence() {
+        # The outcome gate removed: every pooled candidate becomes a reply, whatever the reading.
+        sed -e 's/^            settled:\*)$/            *)/' \
+            "${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/step-question-answers.sh" \
+            > "${_broken}/step-at-existence.sh"
+        chmod +x "${_broken}/step-at-existence.sh"
+    }
+    _wire_at_existence
+    _bout2=$(_in sh "${_broken}/step-at-existence.sh" --tick 20260101-170000 --root "$_fx")
+    if ! printf '%s' "$_real" | grep -q "\"key\":\"${_key2}\"" \
+        && printf '%s' "$_bout2" | grep -q "\"key\":\"${_key2}\""; then
+        add_row "return_path_outcome_breaker" true "a step keyed on the answer's existence replies over an unknown outcome where the real step stays silent (this drill can fail)" breaker
+    else
+        add_row "return_path_outcome_breaker" false "the outcome breaker did not break the seam, so this half of the drill cannot fail" breaker
     fi
 
     # 8. NOTHING WAS WRITTEN OUTSIDE THE FIXTURE.

@@ -57,3 +57,4 @@ puts a tick log back on `main` fails a drill.
 - 2026-08-31 — ticket archived — 20260831182058-read-the-tick-log-through-one-reader.md
 - 2026-08-31 — ticket archived — 20260831182058-rule-on-the-moderations-history-left-on-main.md
 - 2026-08-31 — ticket archived — 20260831182058-justify-or-drop-each-persist-the-tick-makes.md
+- 2026-08-31 — ticket archived — 20260831182058-drill-that-a-tick-s-log-reaches-its-ref.md

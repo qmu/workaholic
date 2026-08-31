@@ -5714,12 +5714,21 @@ STUB
     _ev2=$(printf '%s' "$_e2" | jq -r '.event // ""' 2>/dev/null || printf '')
     _sm1=$(printf '%s' "$_e1" | jq -r '.summary // ""' 2>/dev/null || printf '')
     _sm2=$(printf '%s' "$_e2" | jq -r '.summary // ""' 2>/dev/null || printf '')
+    # THE EVENT NAMES NO UNIT SINCE 2026-09-01 (the developer's instruction): a root line is
+    # addressed to nobody and read at a glance, and a sixty-character slug in it is neither
+    # readable nor actionable there. *How many* is news; *which* is the QUESTION's job, and the
+    # question names the unit, its branch and its refusal word to the claim holder. The SUMMARY
+    # still names every unit -- the log is the audit trail -- and this drill's other rows already
+    # assert that. What this row keeps is the pair the mission is about: a tick whose acts did
+    # not take supplies an event, a tick whose acts took supplies none, and the summary is
+    # identical across both so an unchanged reading renders no line.
     if printf '%s' "$_ev1" | grep -q 'still standing' \
-        && printf '%s' "$_ev1" | grep -q 'batch-effect-refused' \
+        && ! printf '%s' "$_ev1" | grep -q 'batch-effect-refused' \
+        && printf '%s' "$_sm1" | grep -q 'batch-effect-refused' \
         && [ -z "$_ev2" ] && [ "$_sm1" = "$_sm2" ]; then
-        add_row "act_effect_event_names_the_units" true "a tick whose acts did not take names the units in its event; a tick whose acts took supplies none, and the summary is identical across both so an unchanged reading renders no line" load
+        add_row "act_effect_event_names_the_units" true "the event says how many are still standing and names none of them, the log's summary names every one, a tick whose acts took supplies no event, and the summary is identical across both" load
     else
-        add_row "act_effect_event_names_the_units" false "the event is wrong (blocked='${_ev1}' took='${_ev2}'; summaries equal=$([ "$_sm1" = "$_sm2" ] && echo yes || echo no))" load
+        add_row "act_effect_event_names_the_units" false "the event is wrong (blocked='${_ev1}' took='${_ev2}'; summary='${_sm1}'; summaries equal=$([ "$_sm1" = "$_sm2" ] && echo yes || echo no))" load
     fi
 
     # THE DELIBERATELY BROKEN ROW, WRITTEN AGAINST THE BEHAVIOUR. The retired inference is
@@ -7195,7 +7204,7 @@ cmd_verify_checkin_delivery() {
     # nothing at all and its silence is indistinguishable from a quiet hour.
     sh "$_log" --root "$_spent" --tick 20260828-120000 --step doc-drift --status ok --summary "no drift" >/dev/null 2>&1 || true
     _rows="{\"rows\": [{\"step\": \"doc-drift\", \"status\": \"ok\", \"summary\": \"no drift\", \"event\": \"\"}, {\"step\": \"human-checkin\", \"status\": \"ok\", \"summary\": \"held and undelivered\", \"event\": \"$(json_escape "$_event")\"}]}"
-    _post=$(printf '%s' "$_rows" | sh "$_render" --tick 20260828-140000 --root "$_spent" 2>&1 || true)
+    _post=$(printf '%s' "$_rows" | sh "$_render" --tick 20260828-140000 --root "$_spent" --hour 10 --weekday 3 2>&1 || true)
     case "$_post" in
         *'"post": true'*)
             add_row "checkin_root_carries_it" true "the root posts on the delivery failure with zero questions" load ;;
@@ -7204,7 +7213,7 @@ cmd_verify_checkin_delivery() {
     esac
     # ...and a quiet hour supplies none and posts nothing, unchanged.
     _quiet="{\"rows\": [{\"step\": \"doc-drift\", \"status\": \"ok\", \"summary\": \"no drift\", \"event\": \"\"}, {\"step\": \"human-checkin\", \"status\": \"ok\", \"summary\": \"nothing waiting\", \"event\": \"\"}]}"
-    _qpost=$(printf '%s' "$_quiet" | sh "$_render" --tick 20260828-140000 --root "$_spent" 2>&1 || true)
+    _qpost=$(printf '%s' "$_quiet" | sh "$_render" --tick 20260828-140000 --root "$_spent" --hour 10 --weekday 3 2>&1 || true)
     case "$_qpost" in
         *'"post": false'*)
             add_row "checkin_quiet_hour_silent" true "a tick with no event still posts nothing, so the gate did not become a status line" load ;;
@@ -7745,19 +7754,28 @@ cmd_verify_impairment() {
         sh "$_log" --root "$_fx" --tick "$1" --step base-health --status ok --summary "base green" >/dev/null 2>&1 || true
     }
     _render_at() { # $1 tick $2 run-json $3 questions
-        sh "$_render" --tick "$1" --root "$_fx" --questions "$3" < "$2" 2>&1 || true
+        # A WORKING HOUR IS NAMED (2026-09-01): the root is held by the same window as the
+        # questions, and a drill that read the wall clock could only pass during office hours.
+        sh "$_render" --tick "$1" --root "$_fx" --questions "$3" --hour 10 --weekday 3 < "$2" 2>&1 || true
     }
 
     _logtick 20260819-084500 ok 'swept, 0 filed' ok 'no conflicts'
     _logtick 20260819-094500 ok 'swept, 0 filed' ok 'no conflicts'
 
-    # 1. AN IMPAIRED TICK WITH A QUESTION NAMES EVERY IMPAIRED STEP AND ITS REASON, AND CARRIES
-    #    THE COUNT IN THE HEAD. This is the whole ask, on the ordinary path.
+    # 1. AN IMPAIRED TICK WITH A QUESTION SAYS, IN WORDS, WHAT IT COULD NOT READ. This is the
+    #    whole ask, on the ordinary path.
+    #
+    #    WHAT IS MATCHED IS THE STEP'S OWN SUMMARY, not its id (2026-09-01). The line read
+    #    `⚠️ inbound-sweep — degraded: no_slack_transport` -- a step id, a status word and a
+    #    reason word -- and the developer's answer was *なんのことを言っているのかわからない*.
+    #    The summary is the sentence the log has carried all along, so a person reads what could
+    #    not be read and what follows from it; asserting the id here would pin the shape the
+    #    change removed.
     _t2q=$(_render_at 20260819-104500 "${_tmp}/impaired.json" 1)
     _rt2q=$(_root_text "$_t2q")
     case "$_rt2q" in
-        *'2 step(s) could not read'*'inbound-sweep — degraded: no_slack_transport'*'merge-conflicts — degraded: gh_unavailable'*)
-            add_row "impairment_is_named" true "the root names both impaired steps with their reasons and carries the count in its head" load ;;
+        *'no Slack transport'*'could not read pull requests'*)
+            add_row "impairment_is_named" true "the root says in words what each impaired step could not read" load ;;
         *) add_row "impairment_is_named" false "the root did not name the impairment: ${_rt2q}" load ;;
     esac
 
@@ -7784,7 +7802,7 @@ cmd_verify_impairment() {
     case "$_t3q" in
         *'"change_count": 0'*)
             case "$_rt3q" in
-                *'2 step(s) could not read'*'inbound-sweep — degraded'*'merge-conflicts — degraded'*)
+                *'no Slack transport'*'could not read pull requests'*)
                     add_row "impairment_survives_the_diff" true "a second identically-impaired tick still names all of it, with change_count 0" load ;;
                 *) add_row "impairment_survives_the_diff" false "the diff swallowed the impairment on the second tick: ${_rt3q}" load ;;
             esac ;;
@@ -7861,8 +7879,8 @@ cmd_verify_impairment() {
     sed 's|> "${TMP}/status"|> "${TMP}/status.dropped"; : > "${TMP}/status"|' \
         "$_render" > "${_broken}/render-tick-post.sh"
     chmod +x "${_broken}/render-tick-post.sh"
-    _bq=$(sh "${_broken}/render-tick-post.sh" --tick 20260819-104500 --root "$_fx" --questions 1 < "${_tmp}/impaired.json" 2>&1 || true)
-    _b0=$(sh "${_broken}/render-tick-post.sh" --tick 20260819-104500 --root "$_fx" --questions 0 < "${_tmp}/impaired.json" 2>&1 || true)
+    _bq=$(sh "${_broken}/render-tick-post.sh" --tick 20260819-104500 --root "$_fx" --hour 10 --weekday 3 --questions 1 < "${_tmp}/impaired.json" 2>&1 || true)
+    _b0=$(sh "${_broken}/render-tick-post.sh" --tick 20260819-104500 --root "$_fx" --hour 10 --weekday 3 --questions 0 < "${_tmp}/impaired.json" 2>&1 || true)
     _unnamed=no; _silent=no
     case "$(_root_text "$_bq")" in *'could not read'*) ;; *) _unnamed=yes ;; esac
     case "$_b0" in *'"post": false'*) _silent=yes ;; esac

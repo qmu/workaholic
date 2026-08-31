@@ -795,7 +795,7 @@ ticks in that state, found four days later by asking. `render-tick-post.sh` deri
 in its head and the names in its body:
 
 ```
-🔎 Moderation - <N> change(s), <M> question(s), <K> step(s) could not read
+🔎 Moderation - <N> change(s), <M> question(s)
 <the event lines>
 ⚠️ <step> — <status>: <reason>
 ```

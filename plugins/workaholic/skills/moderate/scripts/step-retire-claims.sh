@@ -269,6 +269,13 @@ summary="${total} claimed unit(s); ${n} proved superseded, ${retired} retired, $
 # line at all — the independent guard against a nothing-happened line reaching the root. A tick
 # that only refused is in that same class: a refusal is this step's bookkeeping, and the row is
 # in the log for whoever diagnoses the tick.
+# THE EVENT NAMES NO IDENTIFIER (2026-09-01, the developer's instruction). It used to paste the
+# unit slugs into the root -- two of them, sixty characters each, unlinked -- and the developer's
+# answer was *まるまるいらない*. A root line is addressed to nobody and is read at a glance; a
+# slug is addressed to whoever can act on it, and that is the QUESTION's job
+# (`retire-blocked:<unit>:<word>`), which names the unit, its branch and its refusal word to the
+# claim holder. Saying it in both places puts the identifier where it cannot be acted on and
+# lengthens the one line everybody reads. The count stays: *how many* is news, *which* is a task.
 event=""
 if [ "$retired" -eq 1 ]; then
     event="a claim proved finished was retired — its pull request closed and its branch deleted"
@@ -423,10 +430,10 @@ fi
 # finding is already in flight as work, are not things to announce.
 if [ "$blocked" -eq 1 ]; then
     ev_units=$(printf '%s' "$rows" | jq -r '[.[]? | .unit] | join(", ")' 2>/dev/null || printf '')
-    event="a claim proved finished is still standing — neither the container nor CI could delete its branch (${ev_units})"
+    event="a claim proved finished is still standing — neither the container nor CI could delete its branch"
 elif [ "$blocked" -gt 1 ]; then
     ev_units=$(printf '%s' "$rows" | jq -r '[.[]? | .unit] | join(", ")' 2>/dev/null || printf '')
-    event="${blocked} claims proved finished are still standing — neither the container nor CI could delete their branches (${ev_units})"
+    event="${blocked} claims proved finished are still standing — neither the container nor CI could delete their branches"
 fi
 
 # HOW LONG THIS BLOCK HAS BEEN ASKED ABOUT (2026-08-30, mission

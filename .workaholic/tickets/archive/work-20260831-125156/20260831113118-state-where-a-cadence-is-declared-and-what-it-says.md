@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-31T11:31:18+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -98,3 +99,28 @@ This is a decision the driving session makes and records — deliberately **not*
 `## Open Decisions` item, because nothing unattended can clear one of those and the
 choice here is a design judgement rather than a ruling only the operator can give.
 
+
+## Final Report
+
+Development completed as planned. The home chosen is the repository's own configuration —
+`.claude/settings.json`'s `env` block, via `WORKAHOLIC_CADENCES` — on the 2026-08-29
+precedent for a per-repository value with no artifact and no migration. The shape is three
+fields (`<name>|<pattern>|<period>`, `;`-separated) and nothing else; absent means nothing is
+declared and is a real answer rather than a degradation. Stated once in `workaholic:moderate`,
+*Where a cadence is declared, and what it says*, with both losing candidates named and their
+costs recorded; `rules/workaholic.md` carries a pointer saying a cadence is deliberately not a
+`.workaholic/` field, and no top-level area was added, so both lockstep sources are untouched.
+
+### Discovered Insights
+
+- **Insight**: only six of the twelve `.workaholic/` areas carry a `README.md`, and
+  `moderations/` — the area whose lapse measured this mission — is one of the six that do not.
+  **Context**: this is what decides the area-README candidate against itself rather than on
+  taste. Any future convention hung on area README frontmatter reaches half the tree, and the
+  half it misses includes the machine-written areas, which are exactly the ones whose silence
+  nobody notices.
+- **Insight**: `area-freshness.sh` already reports a `stale_days` that it deliberately leaves
+  unthresholded, because the right interval differs per project.
+  **Context**: the cadence declaration is the missing half of that reading — the number
+  `area-freshness.sh` refuses to invent. A later change wanting to threshold area freshness
+  should compose this declaration rather than adding a second interval.

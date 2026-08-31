@@ -79,3 +79,30 @@ many ticks see it — the ask's own dedup requirement, and the gate already prov
 - The step count in `CLAUDE.md` and the skill moves by one; that is the next ticket's job
   and must not be forgotten.
 
+
+## Final Report
+
+Development completed as planned. `step-cadence-lapse.sh` composes `cadence-state.sh` and
+derives no reading of its own; it is registered in `run.sh`'s `STEPS` between `drill-health`
+and `strategy-digest`. Each lapsed cadence is keyed `cadence-lapsed:<name>` so the existing
+asked-once gate dedups it — no second ledger, no cursor, no field on any artifact, and
+`ask-question.sh` is byte-identical. The question is addressed to nobody, which is the
+declaration's shape rather than an oversight: it names a cadence, a pattern and a period and no
+person, and this step will not stamp an identity nothing verified. An `event` is supplied only
+when something lapsed, an `unreadable` cadence is reported `degraded` by name and asked about by
+nobody, and the running identity is never consulted.
+
+### Discovered Insights
+
+- **Insight**: an `unreadable` cadence must not suppress a question about a *different* cadence
+  that read `lapsed`.
+  **Context**: the obvious implementation returns early on any degradation, which trades one
+  silence for another — the same trade `run.sh` refuses when it declines to zero `needs_agent`
+  on a jq compile error. The step reports `degraded` and still hands the lapsed candidates over.
+- **Insight**: this step deliberately carries no `condition-age.sh` reading, unlike the four
+  question steps that do.
+  **Context**: those four have instantaneous readings and borrow the age of the *question* as a
+  lower bound. This reading already answers the condition's own age off the commit that produced
+  the artifact, which is the stronger fact; attaching the ledger age would put two numbers for
+  one question in front of a person and add a fifth consumer to a table pinned at four
+  (`drive/reference/claims.md`, *Which question reads which age*).

@@ -177,11 +177,20 @@ shallow=$(printf '%s' "$out" | jq -r '.shallow // false')
 total=$(printf '%s' "$out" | jq '[.claims[]?] | length')
 units=$(printf '%s' "$out" | jq -r '[.claims[]? | select(.resume_reason == "superseded") | .unit] | unique | .[]' 2>/dev/null || true)
 
+# A `stranded` CLAIM IS THE ONE THIS STEP MUST NOT REACH (2026-08-31, mission
+# `prove-a-claim-branch-is-empty-before-deleting-it`). Its unit's tickets are on the base, but
+# the branch still holds content nothing else has, so retiring it deletes work unseen -- which is
+# precisely what `superseded` licensed until the proof was split. It is not a candidate here by
+# construction (the oracle gives it its own word), and it is COUNTED rather than dropped, on the
+# pairing `stalled-units` and `handoff-units` already follow: one step asks and the other counts,
+# and either half alone is a defect. `stranded-branches` owns the question.
+stranded=$(printf '%s' "$out" | jq '[.claims[]? | select(.resume_reason == "stranded")] | length')
+
 n=0
 for _ in $units; do n=$((n + 1)); done
 
 if [ "$n" -eq 0 ]; then
-    emit ok "" "${total} claimed unit(s); none proved superseded"
+    emit ok "" "${total} claimed unit(s); none proved superseded, ${stranded} stranded (asked about by stranded-branches)"
 fi
 
 # THE PER-ROW DETAIL LIVES IN `summary`, WHICH IS THE LOG-FACING FIELD — the tick log is the
@@ -262,7 +271,7 @@ for unit in $units; do
 done
 rows="[${rows}]"
 
-summary="${total} claimed unit(s); ${n} proved superseded, ${retired} retired, ${refused} refused${detail:+ — ${detail}}"
+summary="${total} claimed unit(s); ${n} proved superseded, ${stranded} stranded (asked about by stranded-branches), ${retired} retired, ${refused} refused${detail:+ — ${detail}}"
 
 # A RETIREMENT IS A REPOSITORY EVENT (2026-08-23's rule): a pull request was closed, a branch
 # deleted, a worktree reaped. A tick that retired NOTHING supplies no event and so renders no

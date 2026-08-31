@@ -40,7 +40,7 @@ told once — while a branch that really is empty retires exactly as it does tod
 
 - [x] `superseded` holds only when the branch's diff against the base is empty, re-derived at
       the moment of each act. (#20260831203453-refuse-to-retire-a-branch-that-still-holds-work.md)
-- [ ] A branch whose tickets landed but whose diff is not empty is its own state and reaches
+- [x] A branch whose tickets landed but whose diff is not empty is its own state and reaches
       a person once, naming the files. (#20260831203454-tell-a-person-about-a-stranded-claim-branch.md)
 - [ ] A drill proves both offline and fails if a branch still holding work is offered for
       deletion. (#20260831203454-drill-the-stranded-branch-refusal-offline.md)
@@ -52,3 +52,4 @@ told once — while a branch that really is empty retires exactly as it does tod
 - 2026-08-31 — ticket archived — 20260831203453-reproduce-a-superseded-branch-that-still-holds-work.md
 - 2026-08-31 — ticket archived — 20260831203453-read-a-claim-branch-s-own-diff-against-the-base.md
 - 2026-08-31 — ticket archived — 20260831203453-refuse-to-retire-a-branch-that-still-holds-work.md
+- 2026-08-31 — ticket archived — 20260831203454-tell-a-person-about-a-stranded-claim-branch.md

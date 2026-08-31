@@ -231,12 +231,20 @@ with_pr=$(printf '%s' "$rows" | jq '[.[] | select(.has_pull_request)] | length')
 # nothing, which is the safe direction.
 raced_set=$(raced_units "$out" 2>/dev/null || true)
 
+# AND A `stranded` CLAIM IS A FACT WITH ANOTHER STEP'S QUESTION ON IT (2026-08-31, mission
+# `prove-a-claim-branch-is-empty-before-deleting-it`). Its unit's tickets reached the base, so
+# "a claimed unit has not moved for a day or more" is the wrong thing to tell somebody: the unit
+# is finished and what is left is a branch holding content nothing else has. `stranded-branches`
+# asks that question and names the files; this step filters and COUNTS, the same half of the
+# same rule `superseded`, `awaiting_verification` and the raced set already follow.
 finished=$(printf '%s' "$rows" | jq -c '[.[] | select(.resume_reason == "superseded")]')
 n_finished=$(printf '%s' "$finished" | jq 'length')
 declared=$(printf '%s' "$rows" | jq -c '[.[] | select(.resume_reason == "awaiting_verification")]')
 n_declared=$(printf '%s' "$declared" | jq 'length')
+n_stranded=$(printf '%s' "$rows" | jq '[.[] | select(.resume_reason == "stranded")] | length')
 stalled=$(printf '%s' "$rows" | jq -c '[.[] | select(.stale)
-    | select(.resume_reason != "superseded" and .resume_reason != "awaiting_verification")]')
+    | select(.resume_reason != "superseded" and .resume_reason != "awaiting_verification"
+             and .resume_reason != "stranded")]')
 n_raced=0
 if [ -n "$raced_set" ]; then
     raced_json=$(printf '%s\n' "$raced_set" | jq -Rsc 'split("\n") | map(select(length > 0))')
@@ -253,7 +261,7 @@ n_stalled=$(printf '%s' "$stalled" | jq 'length')
 # exactly the shape `📦 Release Preparation` was retired for. What the maintainer needs from
 # the age is in the question, which names the unit; what the diff needs is a summary that
 # moves only when the finding does.
-summary="${count} claimed unit(s); ${with_pr} at a pull request, ${unknown_age} of unknown age; ${n_finished} finished (superseded), ${n_declared} awaiting a declared verification, ${n_raced} held by two live claims, ${n_stalled} past the claim protocol's staleness threshold"
+summary="${count} claimed unit(s); ${with_pr} at a pull request, ${unknown_age} of unknown age; ${n_finished} finished (superseded), ${n_stranded} finished elsewhere but still holding work, ${n_declared} awaiting a declared verification, ${n_raced} held by two live claims, ${n_stalled} past the claim protocol's staleness threshold"
 
 if [ "$n_stalled" -eq 0 ]; then
     # A finished claim never earns a root line either, and neither does a declared handoff:

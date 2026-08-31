@@ -398,6 +398,20 @@ if [ -n "$ROWS" ]; then
             c_exc=claimed_awaiting_verification
         elif [ "$c_reason" = "superseded" ]; then
             c_exc=claimed_superseded
+        elif [ "$c_reason" = "stranded" ]; then
+            # DELIVERED, AND THE BRANCH STILL HOLDS CONTENT OF ITS OWN (2026-08-31, mission
+            # `prove-a-claim-branch-is-empty-before-deleting-it`). Its own reason, on
+            # `claimed_awaiting_verification`'s ground: `claimed_superseded` would say the
+            # branch holds nothing and hand the work back to the offer, and `claimed_active`
+            # would say a run is on it. Neither is true, and the first is the reading that
+            # offered branches carrying ~300 lines for deletion.
+            #
+            # NOTHING ELSE IS OFFERED FOR IT: not a takeover (`resumable: false`), not a merge
+            # retry (`undelivered[]` takes only `report_undelivered`), and NOT `resurveyed[]`,
+            # which takes only `superseded` — the unit's tickets are already archived on the
+            # base, so there is no queued work to hand back either way. What the branch needs
+            # is a person's ruling, and `/moderate`'s `stranded-branches` step asks for it.
+            c_exc=claimed_stranded
         else
             c_exc=claimed_active
         fi

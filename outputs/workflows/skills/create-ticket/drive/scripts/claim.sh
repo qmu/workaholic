@@ -189,6 +189,13 @@ if [ "$kind" = "resume" ]; then
             superseded)
                 fail "superseded" ', "unit": "'"${unit}"'", "branch": "'"${r_branch}"'", "detail": "this unit'"'"'s work already reached the base -- a merged pull request has this branch as its head, or every one of its tickets is archived on the base. There is nothing left to drive and nothing for a human to merge; nothing here deletes the branch or closes the pull request, so an operator closes it out"'
                 ;;
+            # A CLAIM DELIVERED WHOSE BRANCH STILL HOLDS WORK (2026-08-31). Named on its own for
+            # the reason `superseded` is: the operator reading this refusal needs to learn that
+            # the unit's tickets landed AND that the branch is carrying content nothing else
+            # has, because those two facts point at different next steps.
+            stranded)
+                fail "stranded" ', "unit": "'"${unit}"'", "branch": "'"${r_branch}"'", "detail": "this unit'"'"'s tickets already reached the base, but the branch still holds content that is on no other ref, so it is stranded rather than finished. There is nothing here to drive; nothing deletes the branch, closes the pull request or discards the work, and /moderate asks the claim holder what should become of it"'
+                ;;
             shallow_history)
                 fail "shallow_history" ', "unit": "'"${unit}"'", "branch": "'"${r_branch}"'", "detail": "this clone'"'"'s history is truncated, so whether the branch already merged is unanswerable here -- the verdict is suppressed rather than guessed. Deepen the clone (a reachable origin does it automatically) and ask again"'
                 ;;

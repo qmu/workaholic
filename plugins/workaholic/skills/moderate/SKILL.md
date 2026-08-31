@@ -1,6 +1,6 @@
 ---
 name: moderate
-description: Use when a session runs `/moderate` — the hourly maintenance tick that keeps the space around the loop judgeable. Defines the thirty-one-step run, the hourly thread it posts, what each step may write, the tick log it leaves behind, and the rulings the ask's steps are held to.
+description: Use when a session runs `/moderate` — the hourly maintenance tick that keeps the space around the loop judgeable. Defines the thirty-two-step run, the hourly thread it posts, what each step may write, the tick log it leaves behind, and the rulings the ask's steps are held to.
 allowed-tools: Bash
 user-invocable: false
 skills:
@@ -15,7 +15,7 @@ metadata:
 
 The loop's **maintenance tick**. `[Specificate]` turns asks into work and `[Implement]` drives it; nothing keeps the space *around* them tidy — stale issues, GitHub↔`.workaholic/` drift, pull requests stuck after a failed auto-merge, documentation that no longer matches the concept. `/moderate` finds those, files them **through the existing seams**, and says what needs a human (issue #471).
 
-Relocated detail: [the thirty-one-step contract](reference/workflow.md) — each step's inputs, what it may write, its abort reasons, and the ruling it is held to.
+Relocated detail: [the thirty-two-step contract](reference/workflow.md) — each step's inputs, what it may write, its abort reasons, and the ruling it is held to.
 
 ## The tick has a voice, and it is one thread an hour
 
@@ -99,7 +99,7 @@ Like the `## Open Decisions` floor, this is a **prose contract, not a script gat
 bash ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/run.sh
 ```
 
-One invocation is one **tick**. It mints the tick id (`tick-id.sh`, UTC — every later write in the same tick is passed that id), runs the thirty-one steps **in order**, writes **one log line per step** into `.workaholic/moderations/<UTC-day>.md`, and returns the report as JSON. The step list lives in `run.sh`, not in this prose: every step is invoked and every step contributes a line, so a step that is missing, crashes, or prints nothing is reported `degraded` with its reason instead of vanishing from the report.
+One invocation is one **tick**. It mints the tick id (`tick-id.sh`, UTC — every later write in the same tick is passed that id), runs the thirty-two steps **in order**, writes **one log line per step** into `.workaholic/moderations/<UTC-day>.md`, and returns the report as JSON. The step list lives in `run.sh`, not in this prose: every step is invoked and every step contributes a line, so a step that is missing, crashes, or prints nothing is reported `degraded` with its reason instead of vanishing from the report.
 
 `--deadline-seconds <n>` bounds a tick. Steps not reached are logged `skipped` with reason `budget`, **by name** — a step that ran out of clock and a step that found nothing must never read the same.
 
@@ -124,7 +124,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/persist-log.sh --tick <tick>
 2. **The closing**, `run.sh`'s last act — everything every step recorded, in one commit.
 3. **The agent's**, after you have filed what `needs_agent` asked for — the `<step>-filed` lines, which the closing act could not have carried because you had not written them yet.
 
-Each is idempotent and each unions by `(tick, step)`, so the later ones add without rewriting the earlier; each reports itself by name (`opening_persist` and `persist` in the run report, `persist-log-opening` and `persist-log` in the log) and a miss is `degraded` rather than fatal. **Not per step**: thirty-one commits an hour for a log is the noise the pull-request-per-tick design was refused for, and the stated price of the third is two commits an hour instead of one on an active repository. A tick killed **before** its first step still leaves nothing, which is outside this seam rather than papered over.
+Each is idempotent and each unions by `(tick, step)`, so the later ones add without rewriting the earlier; each reports itself by name (`opening_persist` and `persist` in the run report, `persist-log-opening` and `persist-log` in the log) and a miss is `degraded` rather than fatal. **Not per step**: thirty-two commits an hour for a log is the noise the pull-request-per-tick design was refused for, and the stated price of the third is two commits an hour instead of one on an active repository. A tick killed **before** its first step still leaves nothing, which is outside this seam rather than papered over.
 
 `run.sh` ran the persist as its closing act *before* you filed anything, because you act on `needs_agent` only after it returns — so without this second call every `<step>-filed` line dies with the container, and the dedups those lines exist to feed read an empty memory forever. It is idempotent: a tick that filed nothing gets `already_current` and writes no commit. Report its outcome in the session; it is deliberately not logged (recording it would need a third persist, and so on). If it comes back `degraded`, say so **by name** in the report — the lines are still in the checkout, and the next tick in the same container carries them up.
 
@@ -174,7 +174,7 @@ A repository may declare **what it expects to keep being produced, and how often
 
 ## What the ask asked for, and what this is held to
 
-The ask (issue #471) named nine steps (there are thirty-one: the release reads merged in, `stalled-units` and `closable-missions` were added 2026-08-23, `strategy-digest` — the integrated standup — on 2026-08-24, `direction-health`, `unanswered-asks` and `undrivable-units` on 2026-08-26, `undelivered-units`, `retire-claims`, `handoff-units` and `base-health` on 2026-08-27, `question-answers`, `thread-reconcile` and `standing-rulings` on 2026-08-28, `file-findings`, `drill-health`, `catchup-blocked` and `operator-pulls` on 2026-08-29, `raced-units` on 2026-08-30, and `cadence-lapse` and `blocked-tick` on 2026-08-31) and, at five points, met a decision the loop had already made. None of them is resolved by this skill quietly:
+The ask (issue #471) named nine steps (there are thirty-two: the release reads merged in, `stalled-units` and `closable-missions` were added 2026-08-23, `strategy-digest` — the integrated standup — on 2026-08-24, `direction-health`, `unanswered-asks` and `undrivable-units` on 2026-08-26, `undelivered-units`, `retire-claims`, `handoff-units` and `base-health` on 2026-08-27, `question-answers`, `thread-reconcile` and `standing-rulings` on 2026-08-28, `file-findings`, `drill-health`, `catchup-blocked` and `operator-pulls` on 2026-08-29, `raced-units` on 2026-08-30, `cadence-lapse` and `blocked-tick` on 2026-08-31, and `stranded-branches` the same day) and, at five points, met a decision the loop had already made. None of them is resolved by this skill quietly:
 
 - **Step 8 inverts the propose bar.** `workaholic:specificate` states that missions, the queue and commits are *constraints, never triggers* — feedback is the only input that can originate a proposal, and the retired `[Propose Batch]` design was exactly a sweep of the repository's own state for something to propose. Proposing *from a strategy* is a reversal, not an addition, and it is ruled on in its own ticket.
 - **`🟡 Proposing` collides with two standing shapes** — 🟡 is the handoff finish line, and the start post was retired on 2026-08-11 by the developer's order. Reintroducing a start post and reusing 🟡 are two separate rulings.

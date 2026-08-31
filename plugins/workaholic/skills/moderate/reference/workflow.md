@@ -2075,6 +2075,7 @@ decide something before any change is the right one*.
 | `undelivered-units` | **`repairable`** | A merge the transport refused names the transport seam, which is code. |
 | `catchup-blocked` | `needs_ruling` | Which side of a content conflict keeps its behaviour is the claim holder's, by that step's own contract — the loop refused it precisely because it must not decide. |
 | `handoff-units` | `needs_ruling` | The declared verification is the one act nothing unattended can take. |
+| `stranded-branches` | `needs_ruling` | **What becomes of work left on a branch nothing else carries is the claim holder's** — port it, open it as its own pull request, or discard it deliberately — and the step exists because the loop must not choose. Its verdict is besides that a **judgement** (`drive/reference/claims.md`, *Whether a claim branch still holds content of its own*). |
 | `operator-pulls` | `needs_ruling` | The publication exists **because** merging it is the operator's ruling and closing it is their refusal; the seam refused to auto-merge it for exactly that reason. Filing it as work would be the loop asking itself to settle what it opened a diff to have settled. Every reading it carries is besides that a **judgement** (`drive/reference/claims.md`, *Whether an operator-facing pull request was acted on*). |
 | `thread-reconcile` | `needs_ruling` | Its repair is the tick's own reply, already taken; it owes the queue nothing. |
 | `retire-claims` | **`repairable`** | A branch CI could not delete names an executor or a bound that a change can fix. |
@@ -2986,3 +2987,67 @@ more` — because the operator is being asked to *close a direction* and cannot 
 without seeing what the reading could not attribute. It rides the **heading**, where the named
 details already ride, and the body keeps its one sentence. The bound was not raised for it: the
 measured failure was a question that said the wrong things, not one that said too few.
+
+## 32. `stranded-branches` — a branch finished by another route, still holding work of its own
+
+```sh
+sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/step-stranded-branches.sh --tick <id> [--root <repo-root>]
+```
+
+Every claim the oracle reads **`stranded`**: a unit whose tickets reached the base by another
+route while its own branch still carries content that is on no other ref
+(`drive/reference/claims.md`, *Whether a claim branch still holds content of its own*).
+
+**Narrowing the proof stops the delete; it tells nobody the work is there** (2026-08-31, mission
+`prove-a-claim-branch-is-empty-before-deleting-it`). `superseded` proved the unit's *tickets*
+were on the base and every consumer read it as *the branch holds no work* — two questions, and
+neither implies the other. Measured 2026-08-31: two branches carrying ~300 lines and a doc
+section that exist in no other ref were reported finished and offered for deletion, and only a
+403 refusing the delete kept them alive. Splitting the proof takes them out of the retirement's
+reach; this step is what makes them somebody's.
+
+**Which sibling it follows, on each axis:**
+
+| axis | it follows | why |
+| ---- | ---------- | --- |
+| whose question | `handoff-units`' | the claim **holder** wrote what is on that branch and is the only person who can say what should become of it; the claim's own `author` is the addressee |
+| running identity | `undrivable-units`' | never consulted — the finding is about the branch, and a question whose addressee depended on which container noticed it would be asked differently per account |
+| what it may read | `handoff-units`' | `list-claims.sh` is a pure read; `plan-units.sh` is **refused**, because the survey reaches the mission readers, which carry the living migrations and **stage** what they converge |
+
+**The candidate set is the oracle's own verdict, not a re-derivation.** A second opinion about
+whether a branch holds work is exactly the disagreement that would let one of the two answers
+license a delete.
+
+**The question names the files.** `drive/scripts/stranded-claim-detail.sh` resolves them — the
+same reading the verdict was derived from, carried verbatim, bounded to the first few names with
+the full count beside them, read once per candidate and for nothing else. A candidate whose
+files could not be read is **reported as unresolved rather than asked about with a blank list**:
+asking somebody about content nobody could name is worse than not asking.
+
+**Composed to the catalog's contract** (`workaholic:notify`, beside the `🙋` shape): the heading
+leads with the plain fact — this branch was finished by another route and still holds files
+nothing else has — with the file names, the count and the unit after it; the body names the one
+act, which is the ruling, in words a reader outside the repository understands. The key is
+`stranded-branch:<unit>`, so one branch costs one question however many ticks see it, and its
+**age** rides the heading through `lib/read-age.sh` — the reader's words verbatim, an unreadable
+age named as unreadable, an absent one not mentioned.
+
+**It asks and nothing else.** `stranded` is a **judgement**, and the right act is genuinely
+unclear — the work may want porting onto a live branch, opening as its own pull request, or
+discarding deliberately. Nothing here merges, closes, deletes, reverts, retires, claims or
+touches the branch, and **no automatic recovery path is added**. A branch stranded for weeks
+with nobody answering **stays stranded**: the question is asked once, its age rides the heading,
+and the tick touches the branch whatever that age says — never.
+
+**Its siblings filter and count.** `stalled-units` would otherwise say *a claimed unit has not
+moved for a day or more*, which is the wrong thing to tell somebody about a unit that is
+finished; `retire-claims` cannot reach the row at all now, and counts it so the fact is not
+lost. One step asks and the others count — either half alone is a defect.
+
+**The summary carries no age and no timestamp**, for the reason `stalled-units`' does: the root
+calls a step changed when its summary differs from the same step's an hour ago, so an age would
+make this step changed hourly by construction.
+
+**Degradations are named**: `no_claim_reader`, `claims_unreadable`, `claims_unparseable`,
+`origin_unreachable` and `shallow_history` each report `degraded` with their own reason. A scan
+that could not reach the remote has not found *nothing stranded* — it has found nothing at all.

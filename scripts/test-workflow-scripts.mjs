@@ -18138,6 +18138,108 @@ function testStrandedBranchIsNotSuperseded() {
   }
 }
 
+// ---------------------------------------------------------------------------
+// THE STATE HAS A NAME, AND IT REACHES A PERSON (2026-08-31, the same mission).
+//
+// Narrowing the proof stops the delete and tells nobody the work is sitting there. `stranded`
+// is the word; `stranded-branches` is the telling. Everything here asserts that the word is a
+// JUDGEMENT — reported and asked about, never acted on.
+function testStrandedBranchReachesItsHolder() {
+  const fx = makeStrandedClaims();
+  const S = join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts");
+  const MOD = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts");
+  const env = {
+    env: {
+      ...process.env,
+      PATH: `${fx.bin}:${process.env.PATH}`,
+      WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES: "0",
+      WORKAHOLIC_CLAIM_STALE_HOURS: "0",
+    },
+  };
+  try {
+    const scan = JSON.parse(run(fx.read, `${POSIX_SH} ${join(S, "list-claims.sh")}`, env).stdout);
+    const by = Object.fromEntries(scan.claims.map((c) => [c.unit, c]));
+    assertEq("a delivered claim still holding content reads its own word, and is not resumable",
+      [by["batch-stranded"].resume_reason, by["batch-stranded"].resumable], ["stranded", false]);
+    assertEq("...at the mission grain too", by["m1"].resume_reason, "stranded");
+    assertEq("while a delivered claim holding nothing keeps `superseded`",
+      by["batch-clean"].resume_reason, "superseded");
+
+    // THE DETAIL READER NAMES THE FILES, and says so rather than guessing when it cannot look.
+    const detail = (branch, arts) => JSON.parse(run(fx.read,
+      `${POSIX_SH} ${join(S, "stranded-claim-detail.sh")} ${branch} ${arts}`, env).stdout);
+    const d = detail(fx.stranded.branch, ".workaholic/tickets/todo/20260101000001-t.md");
+    assertEq("the detail reader names what the branch holds, with the full count",
+      [d.readable, d.files, d.count], [true, ["src/stranded.txt"], 1]);
+    const dclean = detail(fx.clean.branch, ".workaholic/tickets/todo/20260101000003-b.md");
+    assertEq("a branch that holds nothing is readable and says not_stranded, never a blank list",
+      [dclean.readable, dclean.reason, dclean.count], [true, "not_stranded", 0]);
+    const dgone = detail("work-99999999-999999", "x");
+    assertEq("a ref it cannot read is readable:false with a named reason and a NULL count",
+      [dgone.readable, dgone.reason, dgone.count], [false, "no_branch_ref", null]);
+
+    // THE SURVEY EXCLUDES IT UNDER ITS OWN REASON, and offers it to nothing.
+    const plan = JSON.parse(run(fx.read, `${POSIX_SH} ${SCRIPTS.planUnits}`, env).stdout);
+    assertTrue("the survey excludes a stranded claim under its own reason",
+      plan.excluded.some((e) => e.reason === "claimed_stranded"), JSON.stringify(plan.excluded));
+    assertTrue("and offers it as neither a takeover, a retry nor resurveyed work",
+      !plan.resumable.some((r) => r.unit === "batch-stranded")
+        && !(plan.undelivered || []).some((u) => u.unit === "batch-stranded")
+        && !(plan.resurveyed || []).some((r) => r.claim === fx.stranded.branch),
+      JSON.stringify([plan.resumable, plan.undelivered, plan.resurveyed]));
+
+    // THE CLAIM WRITER REFUSES IT BY ITS OWN WORD, never under another verdict's wording.
+    const refused = run(fx.read, `${POSIX_SH} ${SCRIPTS.claim} resume batch-stranded`, env);
+    assertTrue("resuming a stranded claim exits non-zero", refused.status !== 0, `status ${refused.status}`);
+    assertEq("and is refused under its own reason",
+      JSON.parse(refused.stderr.trim().split("\n").pop()).reason, "stranded");
+
+    // THE STEP ASKS THE HOLDER, ONCE, NAMING THE FILES.
+    const step = JSON.parse(run(fx.read,
+      `${POSIX_SH} ${join(MOD, "step-stranded-branches.sh")} --tick 20260101-000000 --root .`, env).stdout);
+    assertEq("the step runs and asks about both stranded branches",
+      [step.status, (step.needs_agent[0]?.stranded ?? []).length], ["ok", 2]);
+    const asked = (step.needs_agent[0]?.stranded ?? []);
+    assertEq("one question per unit, keyed on the unit",
+      asked.map((r) => r.key).sort().join(","), "stranded-branch:batch-stranded,stranded-branch:m1");
+    assertTrue("each question carries the files and the count",
+      asked.every((r) => Array.isArray(r.files) && r.files.length > 0 && r.file_count > 0),
+      JSON.stringify(asked));
+    assertTrue("and is addressed to the claim holder",
+      asked.every((r) => r.owner === "drill@example.com" || r.owner === "test@example.com"),
+      JSON.stringify(asked.map((r) => r.owner)));
+    assertTrue("the summary counts them without carrying an age or a timestamp",
+      /still holding content of their own/.test(step.summary)
+        && !/\d{4}-\d{2}-\d{2}/.test(step.summary) && !/\bh\b/.test(step.summary), step.summary);
+    assertTrue("and it supplies an event, so the root can render a line",
+      step.event.length > 0, step.event);
+
+    // IT ACTS ON NOTHING. Call sites, never words.
+    const stepSrc = readFileSync(join(MOD, "step-stranded-branches.sh"), "utf8")
+      .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+    for (const act of ["--method PUT", "--method PATCH", "--method DELETE", "/merge",
+      "release-claim.sh", "retire-claim.sh", "catch-up-claim.sh", "claim.sh", "plan-units.sh",
+      "git push", "git commit", "publish-tree-pr.sh"]) {
+      assertTrue(`the step reports and asks — it never reaches ${act}`, !stepSrc.includes(act),
+        "a stranded reading licenses a question and nothing else");
+    }
+
+    // THE SIBLINGS FILTER AND COUNT rather than asking their own wrong question about it.
+    const stalled = JSON.parse(run(fx.read,
+      `${POSIX_SH} ${join(MOD, "step-stalled-units.sh")} --tick 20260101-000000 --root .`, env).stdout);
+    assertTrue("stalled-units asks about no stranded unit",
+      !/stalled-unit:(batch-stranded|m1)\b/.test(JSON.stringify(stalled)), stalled.summary);
+    assertTrue("...and counts them instead",
+      /2 finished elsewhere but still holding work/.test(stalled.summary), stalled.summary);
+    const retire = JSON.parse(run(fx.read,
+      `${POSIX_SH} ${join(MOD, "step-retire-claims.sh")} --tick 20260101-000000 --root .`, env).stdout);
+    assertTrue("retire-claims counts the stranded rows it can no longer reach",
+      /2 stranded \(asked about by stranded-branches\)/.test(retire.summary), retire.summary);
+  } finally {
+    rmSync(fx.dir, { recursive: true, force: true });
+  }
+}
+
 function testMergedClaimShapeAtBothGrains() {
   const fx = makeSquashMergedClaims();
   try {
@@ -20950,6 +21052,7 @@ const tests = [
   ["drive claim protocol: the merged lookup degrades by name", testMergedLookupDegradesByName],
   ["drive claim protocol: does a claim branch still hold content of its own", testBranchDiffReading],
   ["drive claim protocol: a branch that still holds work is not superseded", testStrandedBranchIsNotSuperseded],
+  ["moderate/stranded-branches: the stranded state reaches its holder", testStrandedBranchReachesItsHolder],
   ["drive claim protocol: the merged-claim shape at both grains", testMergedClaimShapeAtBothGrains],
   ["drive claim protocol: a merged claim is never offered for resumption", testMergedClaimIsNeverResumable],
   ["drive claim protocol: a fresh claim takes a superseded claim's work", testFreshClaimOverSupersededClaim],
@@ -26267,6 +26370,13 @@ function testModerateRun() {
     // again, so the one surface that names a person never learned there was anything to say.
     // Same placement and same reason as its neighbours: it reads, the check-in asks.
     "handoff-units",
+    // `stranded-branches` sits beside it (2026-08-31, mission
+    // `prove-a-claim-branch-is-empty-before-deleting-it`): a claim whose tickets reached the
+    // base by another route while its own branch still holds content that is on no other ref.
+    // It is placed with `handoff-units` because both read a claim verdict nothing unattended
+    // may act on and both address the claim HOLDER; and, like its neighbour, it exists because
+    // narrowing what the loop may do to a branch tells nobody the work is sitting there.
+    "stranded-branches",
     // `thread-reconcile` (2026-08-28): an announced item whose thread may still be CALLING it
     // in flight. A finish line is posted by the run that finishes a unit, so a pull request a
     // person merges or closes by hand gets its finish posted by nobody — and no other step
@@ -31051,7 +31161,7 @@ function testThreadReconcileStep() {
     const runSh = readFileSync(
       join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/run.sh"), "utf8");
     assertTrue("run.sh invokes the step beside handoff-units",
-      /handoff-units thread-reconcile/.test(runSh), "not registered in order");
+      /handoff-units stranded-branches thread-reconcile/.test(runSh), "not registered in order");
     // AND IT NEVER REACHES THE SURVEY, which stages what its living migrations converge.
     const src = readFileSync(SCRIPTS.stepThreadReconcile, "utf8").replace(/^#.*$/gm, "");
     assertTrue("the step never reaches plan-units.sh", !/plan-units\.sh/.test(src),

@@ -1002,7 +1002,13 @@ claims_mission_landed() {
     fi
 }
 
-claims_superseded() {
+# HAS THIS UNIT'S WORK REACHED THE BASE BY ANOTHER ROUTE? The delivery half of `superseded`,
+# with the same four arguments and the same answer it gave before 2026-08-31. Split out (mission
+# `prove-a-claim-branch-is-empty-before-deleting-it`) so the two halves of the proof can be told
+# apart: delivered-and-empty is `superseded`, delivered-and-still-holding-work is `stranded`, and
+# a claim that was never delivered is neither. Nothing outside this file calls it — consumers
+# read `claims_superseded` or the row's own verdict word.
+claims_delivered() {
     _csp_base="$1"
     _csp_arts="${2:-}"
     # $3 = the claim's SHORT branch name, for the merged-pull-request lookup a non-ticket
@@ -1015,40 +1021,6 @@ claims_superseded() {
     # it was.
     _csp_tip="${4:-}"
     [ -n "$_csp_arts" ] || { printf 'false'; return 0; }
-
-    # THE DIFF TERM, COMPOSED LAST AT BOTH GRAINS (2026-08-31, mission
-    # `prove-a-claim-branch-is-empty-before-deleting-it`). Everything above answers *are this
-    # unit's TICKETS on the base*; this answers *does this BRANCH still hold content of its own*,
-    # which is what every consumer of this proof has always read it to mean. Neither implies the
-    # other: a ticket archived under ANOTHER branch's directory satisfies the first while the
-    # branch still carries files that exist in no other ref. Measured 2026-08-31 — two branches
-    # carrying ~300 lines and a doc section reachable from nothing else were reported finished
-    # and offered for deletion, and only a 403 refusing the delete kept the work alive.
-    #
-    # IT CAN ONLY EVER REMOVE A `superseded`, NEVER ADD ONE, and that direction is the whole
-    # safety argument: this is one of exactly two proofs in the protocol and it gates a
-    # destructive act, so anything that makes it HARDER to establish is safe and anything that
-    # makes it easier is not. The term is an extra conjunct on both existing routes and appears
-    # nowhere else. A later change must keep that asymmetry.
-    #
-    # AN `unanswerable` READING ANSWERS `false` — `claims_branch_diff_empty`'s own contract, and
-    # the direction the merged lookup already takes: a degradation must never license a delete.
-    # THAT MAKES `$4` REQUIRED FOR A `true` ANSWER at either grain. With no tip ref the reading
-    # is `unanswerable:no_ref`, so a caller that omits it now gets `false` where the batch grain
-    # used to answer from the tree alone. Every caller in the tree passes it; the one caller that
-    # deliberately does not is a drill row asserting the pre-2026-08-30 mission-grain
-    # composition, which reaches `false` before this term for its own reason.
-    #
-    # IT IS LAST BECAUSE IT IS THE MOST EXPENSIVE CONDITION THAT CAN STILL CHANGE THE VERDICT —
-    # the archive listing's ~4.0 ms per claim against this term's ~8.3 ms, measured on this
-    # repository — so it runs only where every cheaper condition already said `true`.
-    _csp_confirm_empty() {
-        if [ "$(claims_branch_diff_empty "$_csp_base" "$_csp_tip" "$_csp_arts")" = "true" ]; then
-            printf 'true'
-        else
-            printf 'false'
-        fi
-    }
 
     # One listing per claim, reused for every artifact -- the archive is the largest path
     # in the tree and this is the scan's most expensive gate, which is why it sits last
@@ -1106,11 +1078,11 @@ claims_superseded() {
             *)
                 IFS="$_csp_old_ifs"
                 if [ "$(claims_mission_landed "$_csp_base" "$_csp_tip" "$_csp_p")" = "true" ]; then
-                    _csp_confirm_empty
+                    printf 'true'
                     return 0
                 fi
                 if [ "$(claims_merged_state "$_csp_branch")" = "merged" ]; then
-                    _csp_confirm_empty
+                    printf 'true'
                 else
                     printf 'false'
                 fi
@@ -1131,7 +1103,63 @@ claims_superseded() {
     # EVERY ticket, not any: a unit half of whose tickets landed elsewhere still has work,
     # and calling it superseded would hide that half.
     if [ "$_csp_total" -gt 0 ] && [ "$_csp_total" -eq "$_csp_archived" ]; then
-        _csp_confirm_empty
+        printf 'true'
+    else
+        printf 'false'
+    fi
+}
+
+# WHAT BECAME OF THIS CLAIM'S WORK — `superseded`, `stranded`, or `none`. $1 = base ref,
+# $2 = the claim's stamped artifacts (comma-separated), $3 = the SHORT branch name,
+# $4 = the claim's TIP ref. Echoes one word and never fails.
+#
+# TWO HALVES, TOLD APART (2026-08-31, mission `prove-a-claim-branch-is-empty-before-deleting-it`).
+# `claims_delivered` above answers *are this unit's TICKETS on the base*; `claims_branch_diff_*`
+# answers *does this BRANCH still hold content of its own*. Neither implies the other — a ticket
+# archived under ANOTHER branch's directory satisfies the first while the claim branch still
+# carries files that exist in no other ref — and until this split the first stood in for both.
+# Measured 2026-08-31: two branches carrying ~300 lines and a doc section reachable from nothing
+# else were reported finished and offered for deletion, and only a 403 refusing the delete kept
+# the work alive.
+#
+#   superseded  delivered, and the branch holds nothing of its own. The PROOF, unchanged in
+#               meaning from what every consumer already read it to mean.
+#   stranded    delivered, and the branch still holds content. A JUDGEMENT: the work is
+#               stranded rather than finished, and what becomes of it is a person's to decide.
+#   none        not delivered, or the diff could not be read.
+#
+# AN `unanswerable` DIFF IS `none`, NOT `stranded`. It is the absence of a reading, and the two
+# failures it must not cause are opposite: calling it `superseded` licenses a delete, and calling
+# it `stranded` sends a person after a branch nobody could read. So it falls through to the
+# ordinary verdict chain, exactly as it did before either word existed.
+#
+# IT IS THE MOST EXPENSIVE READING THAT CAN STILL CHANGE A VERDICT — the archive listing's
+# ~4.0 ms per claim against the diff term's ~8.3 ms, measured on this repository — so the scan
+# reaches it only after the identity, ancestry and liveness gates have all passed.
+claims_delivery() {
+    [ "$(claims_delivered "$@")" = "true" ] || { printf 'none'; return 0; }
+    case "$(claims_branch_diff_reading "$1" "${4:-}" "${2:-}")" in
+        *'"state": "empty"'*)     printf 'superseded' ;;
+        *'"state": "non_empty"'*) printf 'stranded' ;;
+        *)                        printf 'none' ;;
+    esac
+}
+
+# THE PROOF, as every consumer outside this file reads it. Same four arguments and same name it
+# has always had; what changed on 2026-08-31 is that it now proves BOTH halves.
+#
+# IT CAN ONLY EVER REMOVE A `superseded`, NEVER ADD ONE, and that direction is the whole safety
+# argument: this is one of exactly two proofs in the protocol and it gates a destructive act, so
+# anything that makes it HARDER to establish is safe and anything that makes it easier is not.
+#
+# THAT MAKES `$4` REQUIRED FOR A `true` ANSWER at either grain. With no tip ref the diff reading
+# is `unanswerable:no_ref`, so a caller that omits it gets `false` where the batch grain used to
+# answer from the tree alone. Every caller in the tree passes it; the one caller that
+# deliberately does not is a drill row asserting the pre-2026-08-30 mission-grain composition,
+# which reaches `false` inside `claims_delivered` for its own reason.
+claims_superseded() {
+    if [ "$(claims_delivery "$@")" = "superseded" ]; then
+        printf 'true'
     else
         printf 'false'
     fi
@@ -1397,17 +1425,38 @@ claims_scan() {
         elif [ $((_cs_now - _cs_ct)) -lt "$_cs_hb_threshold" ]; then
             _cs_resumable=false
             _cs_reason=claim_active
-        elif [ "$(claims_superseded "$_cs_base" "$_cs_artifacts" "$_cs_branch" "$_cs_ref")" = "true" ]; then
-            # The unit's work is already on the base by another route (see
-            # claims_superseded). It sits AFTER `claim_active` on purpose: liveness is what
-            # gates a takeover, so a run that is still committing keeps the reading that
-            # protects it, and only a lapsed claim is relabelled. It sits BEFORE the drained
-            # fork because both of that fork's answers would be wrong here -- `queue_drained`
-            # says a human is waiting at a pull request that need not exist, and
-            # `report_incomplete` would offer a mandatory takeover of a branch that cannot
-            # land.
+        elif _cs_delivery=$(claims_delivery "$_cs_base" "$_cs_artifacts" "$_cs_branch" "$_cs_ref")
+             [ "$_cs_delivery" != "none" ]; then
+            # The unit's work is already on the base by another route (see `claims_delivery`).
+            # It sits AFTER `claim_active` on purpose: liveness is what gates a takeover, so a
+            # run that is still committing keeps the reading that protects it, and only a lapsed
+            # claim is relabelled. It sits BEFORE the drained fork because both of that fork's
+            # answers would be wrong here -- `queue_drained` says a human is waiting at a pull
+            # request that need not exist, and `report_incomplete` would offer a mandatory
+            # takeover of a branch that cannot land.
+            #
+            # THE ASSIGNMENT RIDES THE CONDITION LIST so the reading is made ONCE. `if` takes a
+            # list and uses the last command's status, so `_cs_delivery=$(…)` followed by the
+            # test is one evaluation; writing it as two `elif`s would repeat the diff read and,
+            # at the mission grain, the merged-pull-request lookup's network call.
             _cs_resumable=false
-            _cs_reason=superseded
+            if [ "$_cs_delivery" = "stranded" ]; then
+                # DELIVERED, AND STILL HOLDING CONTENT OF ITS OWN (2026-08-31, mission
+                # `prove-a-claim-branch-is-empty-before-deleting-it`). A SIBLING WORD rather than
+                # a narrowed `superseded`, on the `awaiting_verification` precedent: the two
+                # states call for different next actions -- retire the claim versus tell a
+                # person their work is stranded -- and one word answering both is what offered
+                # branches carrying ~300 lines for deletion.
+                #
+                # `resumable: false`: a takeover would re-drive nothing (the tickets are on the
+                # base) and would push a `Resume` commit onto a branch whose content nobody has
+                # decided about. What the branch needs is a RULING -- port the work, open it as
+                # its own pull request, or discard it deliberately -- and that is a person's.
+                # `/moderate`'s `stranded-branches` step asks its holder, once.
+                _cs_reason=stranded
+            else
+                _cs_reason=superseded
+            fi
         elif [ "$(claims_has_work "$_cs_ref" "$_cs_artifacts_tip" "$_cs_remaining")" = "false" ]; then
             # A DRAINED QUEUE IS TWO DIFFERENT STATES, TOLD APART BY THE SAME STORY SIGNAL
             # the parked/dead fork below already reads (2026-08-19). With a story at the

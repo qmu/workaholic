@@ -2,7 +2,7 @@
 type: Mission
 title: Name the steps a tick could not read
 slug: name-the-steps-a-tick-could-not-read
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-31T10:23:49+00:00
 author: a@qmu.jp
@@ -46,7 +46,7 @@ own. A tick whose steps all read cleanly posts exactly what it posts today.
       diff — so a standing impairment is stated on every tick that speaks. (#20260831102424-name-the-impaired-steps-on-every-root.md)
 - [x] An impairment that appeared or cleared earns a root with no question, and an
       unchanged one never restates hourly. (#20260831102424-let-a-changed-impairment-earn-a-root.md)
-- [ ] The rule is stated where the tick's voice is defined, and proved offline by a
+- [x] The rule is stated where the tick's voice is defined, and proved offline by a
       drill with a breaker row in the drill register. (#20260831102424-drill-the-impairment-reading-offline.md)
 
 ## Changelog
@@ -56,3 +56,5 @@ own. A tick whose steps all read cleanly posts exactly what it posts today.
 - 2026-08-31 — ticket archived — 20260831102424-name-the-impaired-steps-on-every-root.md
 - 2026-08-31 — ticket archived — 20260831102424-let-a-changed-impairment-earn-a-root.md
 - 2026-08-31 — ticket archived — 20260831102424-state-the-impairment-rule-where-the-voice-is-defined.md
+- 2026-08-31 — ticket archived — 20260831102424-drill-the-impairment-reading-offline.md
+- 2026-08-31 — mission achieved — mission.md

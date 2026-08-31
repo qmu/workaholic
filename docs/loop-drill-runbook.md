@@ -1415,6 +1415,7 @@ rather than guessed. **No artifact gained a field**: the slug lives here and now
 | `verify-stage` | `hermetic` | yes | `make-a-direction-s-lifecycle-a-declared-stage` |
 | `verify-condition-age` | `hermetic` | yes | `say-how-long-the-loop-has-been-stuck` |
 | `verify-claim-race` | `hermetic` | yes | `stop-two-runs-from-claiming-and-driving-one-unit` |
+| `verify-impairment` | `hermetic` | yes | `name-the-steps-a-tick-could-not-read` |
 
 ### The evidence behind the classification
 

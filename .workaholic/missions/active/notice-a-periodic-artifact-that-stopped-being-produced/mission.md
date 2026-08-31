@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260831-125156
 ---
 
 # Notice a periodic artifact that stopped being produced

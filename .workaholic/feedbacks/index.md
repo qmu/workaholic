@@ -615,5 +615,6 @@
 * [human-checkin holds every question and delivers none](20260831111927-human-checkin-holds-every-question-and-delivers-none.md)
 * [No step notices a periodic artifact that stopped being produced](20260831113036-no-step-notices-a-periodic-artifact-that-stopped-being-produced.md)
 * [An unattended tick can be stopped forever by a permission prompt](20260831113507-an-unattended-tick-can-be-stopped-forever-by-a-permission-prompt.md)
+* [A routine must never ask a human anything](20260831113845-a-routine-must-never-ask-a-human-anything.md)
 * [Make the tick's Slack questions self-explanatory and close the loop in the thread](20260831200350-make-the-tick-s-slack-questions-self-explanatory-and-close-the-loop-in-the-thread.md)
 <!-- okf:generated:end -->

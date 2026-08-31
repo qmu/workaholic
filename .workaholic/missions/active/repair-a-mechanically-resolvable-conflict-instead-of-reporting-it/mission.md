@@ -53,3 +53,4 @@ conflict that is genuinely theirs, named by the files it collided on.
 - 2026-08-31 — ticket archived — 20260831202250-read-the-publications-the-loop-opened-and-could-not-merge.md
 - 2026-08-31 — ticket archived — 20260831202250-settle-a-stranded-publication-a-generator-can-repair.md
 - 2026-08-31 — ticket archived — 20260831202250-ask-about-a-publication-only-a-person-can-settle.md
+- 2026-08-31 — ticket archived — 20260831202250-report-each-stranded-publication-in-the-run-report.md

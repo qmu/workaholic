@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260831-204424
 ---
 
 # Prove a claim branch is empty before deleting it

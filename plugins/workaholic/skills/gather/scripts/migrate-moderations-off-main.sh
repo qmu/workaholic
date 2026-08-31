@@ -11,7 +11,7 @@
 # 138 of them touching only `.workaholic/`, 5 touching only the product. The single largest
 # author was this log -- three commits an hour, ~50 a day, none of them a change to the
 # development target. Its content is load-bearing and stays; its HOME moves
-# (`moderate/scripts/log-ref.sh`).
+# (`gather/scripts/log-ref.sh`).
 #
 # TWO HALVES, AND THE ORDER MATTERS. Seeding comes first and untracking second, because the
 # other order has a window in which the only readable copy of the log is neither on `main` nor
@@ -40,7 +40,7 @@
 set -eu
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-LOG_REF_SH="${SCRIPT_DIR}/../../moderate/scripts/log-ref.sh"
+LOG_REF_SH="${SCRIPT_DIR}/log-ref.sh"
 
 ROOT=''
 SEED=0
@@ -80,7 +80,7 @@ if [ "$SEED" -eq 1 ]; then
     if ! git -C "$repo_root" config --get remote.origin.url >/dev/null 2>&1; then
         SEED_STATE=no_origin
     else
-        ensure="${SCRIPT_DIR}/../../moderate/scripts/ensure-log-ref.sh"
+        ensure="${SCRIPT_DIR}/ensure-log-ref.sh"
         ens=$([ -f "$ensure" ] && sh "$ensure" --root "$repo_root" 2>/dev/null || printf '')
         case "$ens" in
             *'"ok": true'*)

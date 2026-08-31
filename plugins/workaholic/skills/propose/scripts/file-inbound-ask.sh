@@ -132,6 +132,28 @@ trap 'rm -f "$composed"' EXIT
   cat "$body_file"
 } > "$composed"
 
+# AN UNASSIGNED ISSUE IS AN ISSUE NOTHING WILL EVER READ, so the assignee is DERIVED here when
+# the caller did not name one, rather than left to a caller remembering a flag (2026-09-01).
+# `[Specificate]`'s discovery is `list-inbound-issues.sh`: open issues **assigned to the running
+# identity**. An `[FB]` issue with no assignee is therefore invisible to it forever -- filed,
+# reported filed, and never ingested.
+#
+# MEASURED, and it is why this defaulting exists at all: five `[FB]` issues opened by
+# `/moderate`'s `file-findings` step between 2026-08-31 15:16 and 2026-09-01 (#775, #780, #785,
+# #787, #788) were **all five unassigned**. The step's own contract says *assign it to the
+# running identity so the next `[Specificate]` ingests it* -- in prose, in the step's `bound`
+# string, with no flag spelled out -- and the agent filing them did not pass one. Prose the
+# caller has to remember is not a seam; this is.
+#
+# `gh api user` IS THE CALLER'S OWN CALL, per `rules/shell.md`: `gh-rest.sh available` reports
+# whether REST works, not who is using it, so a caller needing a PERSON asks for one. A token
+# with no user resolves nothing, and then the issue is still opened -- capturing the ask matters
+# more than routing it -- with `open-issue.sh` reporting `assigned: false`, which is the honest
+# reading and the one a run must not render as success.
+if [ -z "$assignee" ]; then
+  assignee=$(gh api user --jq .login 2>/dev/null || printf '')
+fi
+
 if [ -n "$assignee" ]; then
   sh "$OPEN_ISSUE" --assignee "$assignee" "$slug" "$title" "$composed"
 else

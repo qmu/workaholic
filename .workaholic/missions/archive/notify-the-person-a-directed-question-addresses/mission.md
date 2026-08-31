@@ -2,7 +2,7 @@
 type: Mission
 title: Notify the person a directed question addresses
 slug: notify-the-person-a-directed-question-addresses
-status: active
+status: abandoned
 merge_policy:
 created_at: 2026-08-31T04:21:25+00:00
 author: a@qmu.jp
@@ -62,3 +62,4 @@ today and says which surface carried each post.
 - 2026-08-31 — ticket archived — 20260831042312-drill-the-directed-notification-offline.md
 - 2026-08-31 — story reported — work-20260831-044223.md
 - 2026-08-31 — run recorded (+2.8h) — run-20260831-044223
+- 2026-08-31 — mission abandoned — mission.md

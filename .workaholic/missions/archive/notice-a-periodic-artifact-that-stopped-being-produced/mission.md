@@ -57,3 +57,4 @@ reported as a lapse.
 - 2026-08-31 — ticket archived — 20260831113119-drill-the-cadence-reading-offline.md
 - 2026-08-31 — ticket archived — 20260831113118-state-the-cadence-reading-where-the-tick-is-defined.md
 - 2026-08-31 — mission achieved — mission.md
+- 2026-08-31 — story reported — work-20260831-125156.md

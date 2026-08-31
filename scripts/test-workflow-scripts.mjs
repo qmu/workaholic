@@ -7998,7 +7998,10 @@ function testStandupDigest() {
 function testModerateTickPost() {
   const dir = makeRepo("main");
   const LOG = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/log-append.sh")}`;
-  const RENDER = `${POSIX_SH} ${SCRIPTS.renderTickPost}`;
+  // A WORKING HOUR IS NAMED (2026-09-01). The root is held by the same speaking window that
+  // holds the questions, and the window reads the wall clock in production — so a suite that
+  // named no hour would pass or fail by the time of day it happened to run.
+  const RENDER = `${POSIX_SH} ${SCRIPTS.renderTickPost} --hour 10 --weekday 3`;
   // A row carries BOTH lines since 2026-08-23: `summary` is what the diff reads (the log's
   // own text) and `event` is what the root renders. A pair with no third element gets an
   // event derived from its summary, because these cases are about the DIFF; the cases about
@@ -20239,6 +20242,78 @@ function testPostLanguageRuleShipsWithThePlugin() {
 }
 
 
+
+// ---------- the root is held by the same window that holds the questions (2026-09-01) --------
+// MEASURED on a consuming repository's channel: a `🔎 Moderation` root posted at **04:01 JST**
+// reading `質問 0 件` while that same tick held **seventeen** questions — six expiring directions
+// and two blocked retirements — every one refused `quiet_hours` by `ask-question.sh`. The gate
+// that asks honoured the window; the renderer did not know the window existed. So the loop woke
+// the channel to say something addressed to nobody and held back the only things addressed to
+// someone.
+//
+// What is pinned is the property, not the hour: one derivation, both halves, and HELD IS NOT
+// DROPPED — the diff's baseline is the last tick that SPOKE, so a change met in silence is still
+// news when somebody is listening.
+function testModerationRootIsHeldByTheSpeakingWindow() {
+  const dir = makeRepo("main");
+  const LOG = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/log-append.sh")}`;
+  const R = `${POSIX_SH} ${SCRIPTS.renderTickPost}`;
+  const rows = (pairs) => JSON.stringify({
+    rows: pairs.map(([step, summary]) => ({ step, status: "ok", summary, event: `${step}: ${summary}` })),
+  });
+  const render = (json, args) => {
+    writeFileSync(join(dir, "rows.json"), json);
+    return JSON.parse(run(dir, `${R} ${args} --root . < rows.json`).stdout);
+  };
+  try {
+    mkdirSync(join(dir, ".workaholic", "moderations"), { recursive: true });
+    run(dir, `${LOG} --tick 20260901-010000 --step doc-drift --status ok --summary "a" --root .`);
+    run(dir, `${LOG} --tick 20260901-020000 --step doc-drift --status ok --summary "b" --root .`);
+
+    // 1. INSIDE THE WINDOW NOTHING IS POSTED, even with a question — which is the case that was
+    //    wrong: a question inside quiet hours is HELD by `ask-question.sh`, so a root announcing
+    //    `0 question(s)` is the only thing that would arrive.
+    const night = render(rows([["doc-drift", "c"]]), "--tick 20260901-030000 --questions 1 --hour 3 --weekday 3");
+    assertEq("a tick inside the quiet window posts nothing, and says which window held it",
+      [night.post, night.reason], [false, "quiet_hours"]);
+    assertEq("and an off day is its own reason, not the same one",
+      (() => { const r = render(rows([["doc-drift", "c"]]), "--tick 20260901-030000 --questions 1 --hour 10 --weekday 7"); return [r.post, r.reason]; })(),
+      [false, "off_day"]);
+
+    // 2. THE SAME TICK OUTSIDE THE WINDOW POSTS. The hold is the window and nothing else.
+    const day = render(rows([["doc-drift", "c"]]), "--tick 20260901-100000 --questions 1 --hour 10 --weekday 3");
+    assertEq("the same reading in a working hour posts", [day.post, day.reason], [true, "ready"]);
+
+    // 3. HELD IS NOT DROPPED. A change that arrived during the silence is still a change when
+    //    somebody is listening, because the baseline is the last tick that SPOKE. Without that,
+    //    the 09:00 tick would diff against the 08:00 tick nobody read and report nothing.
+    run(dir, `${LOG} --tick 20260901-100000 --step human-checkin-post --status filed --summary "root posted" --root .`);
+    run(dir, `${LOG} --tick 20260901-110000 --step doc-drift --status ok --summary "d" --root .`);
+    const later = render(rows([["doc-drift", "d"]]), "--tick 20260901-120000 --questions 1 --hour 12 --weekday 3");
+    assertEq("the baseline is the last tick that spoke, not the last that ran",
+      later.previous_tick, "20260901-100000");
+    assertTrue("so a change met in silence is still reported when somebody is listening",
+      later.change_count >= 1, JSON.stringify(later));
+
+    // 4. THE HEAD COUNTS NO STEPS. A reader of the channel has no model of `steps`.
+    assertTrue("the head names changes and questions and nothing else",
+      /^🔎 Moderation - \d+ change\(s\), \d+ question\(s\)$/m.test(day.root_text.split("\n")[0]),
+      day.root_text);
+  } finally { cleanup(dir); }
+
+  // ONE DERIVATION, TWO CONSUMERS. Two copies of this arithmetic is how the disagreement comes
+  // back, so the lib is read by both rather than the window being recomputed in the renderer.
+  const lib = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/lib/speaking-window.sh");
+  assertTrue("the window is one sourced derivation", existsSync(lib), lib);
+  for (const rel of ["ask-question.sh", "render-tick-post.sh"]) {
+    const body = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts", rel), "utf8");
+    assertTrue(`${rel} reads the shared window`, /lib\/speaking-window\.sh/.test(body), rel);
+    const code = body.split("\n").filter((l) => !l.trimStart().startsWith("#")).join("\n");
+    assertTrue(`${rel} does not recompute the quiet hours itself`,
+      !/WORKAHOLIC_QUIET_HOURS:-/.test(code), rel);
+  }
+}
+
 // ---------- the tick log lives on its own branch, not on `main` (2026-09-01, issue #782) ------
 // MEASURED on a consuming repository's `main`, one calendar day: 275 commits, of which 138
 // touched only `.workaholic/` and FIVE touched only the product. After squash-merging removed
@@ -20777,6 +20852,7 @@ const tests = [
   ["the merge method is one derivation, and it is squash", testMergeMethodIsSingleSourced],
   ["a post is written in the language its readers use", testPostLanguageRuleShipsWithThePlugin],
   ["the tick log lives on its own branch, not on main", testTickLogLivesOffMain],
+  ["the moderation root is held by the speaking window", testModerationRootIsHeldByTheSpeakingWindow],
   ["workaholify bootstrap: without it a web routine is configured but cannot work", testWorkaholifyBootstrap],
   ["workaholify: the wiring halves apply, they do not merely audit", testWorkaholifyApplies],
   ["workaholify bootstrap: the session gets the developer's git identity", testBootstrapGitIdentity],
@@ -27124,7 +27200,7 @@ function testModerateRoutineTemplate() {
   }
   assertEq("and they are the only six shapes the template authorizes",
     [...template.matchAll(/```\n([^\n]*)/gu)].map((m) => m[1]).filter((l) => /^[^\s`]/.test(l)),
-    ["🔎 Moderation - <N> change(s), <M> question(s)<, <K> step(s) could not read — only when K > 0>",
+    ["🔎 Moderation - <N> change(s), <M> question(s)",
      "🙋 <@U…> - <what this tick could not decide>",
      "✅ 解消を確認 - <the question's subject, one line>",
      "🧾 対応結果 - <the question's subject, one line>",

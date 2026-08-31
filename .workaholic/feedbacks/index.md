@@ -614,5 +614,6 @@
 * [A tick that cannot read its inputs reports the same shape as a healthy one](20260831101847-a-tick-that-cannot-read-its-inputs-reports-the-same-shape-as-a-healthy-one.md)
 * [human-checkin holds every question and delivers none](20260831111927-human-checkin-holds-every-question-and-delivers-none.md)
 * [No step notices a periodic artifact that stopped being produced](20260831113036-no-step-notices-a-periodic-artifact-that-stopped-being-produced.md)
+* [An unattended tick can be stopped forever by a permission prompt](20260831113507-an-unattended-tick-can-be-stopped-forever-by-a-permission-prompt.md)
 * [Make the tick's Slack questions self-explanatory and close the loop in the thread](20260831200350-make-the-tick-s-slack-questions-self-explanatory-and-close-the-loop-in-the-thread.md)
 <!-- okf:generated:end -->

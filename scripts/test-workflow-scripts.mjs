@@ -207,6 +207,8 @@ const SCRIPTS = {
   checkSlackChannel: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/check-slack-channel.sh"),
   resolveRepoUrl: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/resolve-repo-url.sh"),
   checkBootstrap: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/check-bootstrap.sh"),
+  checkRepoSettings: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/check-repo-settings.sh"),
+  applyRepoSettings: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/apply-repo-settings.sh"),
   applyClaudeMdReference: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/apply-claude-md-reference.sh"),
   applyBootstrap: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/apply-bootstrap.sh"),
   bootstrapHook: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/bootstrap/session-start.sh"),
@@ -8664,20 +8666,29 @@ function testProposeRoutineTemplate() {
   assertTrue("and declares the notification that reaches its one reader instead",
     /^notifications: push$/m.test(fm), fm);
   const prompt = tpl.slice(tpl.indexOf("## Prompt"));
-  assertTrue("its prompt invokes the command and nothing else", /\/propose\b/.test(prompt), prompt);
+  assertTrue("its prompt invokes the command", /\/propose\b/.test(prompt), prompt);
+  // AND NOTHING ELSE, literally, since 2026-09-01 (the developer's instruction): a routine
+  // record is account-level, so a rule written into a prompt reached a fleet only by being
+  // re-pasted into every developer's copy in every project. The prompt now carries the command
+  // and the load fallback; every shape it used to authorize lives in the command, which ships
+  // with the plugin. Pinned as the ABSENCE of any fenced block, because a shape that comes back
+  // here is a shape that has to be re-pasted by hand again.
+  assertEq("and authorizes no post shape of its own",
+    [...prompt.matchAll(/```\n([\s\S]*?)```/gu)].map((m) => m[1]), []);
+  const cmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/propose.md"), "utf8");
   // ONE SHAPE, AND THE CATALOG IS ITS ONLY SOURCE (2026-08-26). The routine posted nothing
   // until the sweep's receipt, which is the whole fix: a filed ask and an ignored one were
   // byte-identical from the channel. A post shape lives in exactly two places — the catalog
   // and this prompt, the ceiling on what a session may emit — so a drift between them ships
   // either a documented shape nobody may post or a posted shape nothing documents.
-  const blocks = [...prompt.matchAll(/```\n([\s\S]*?)```/gu)].map((m) => m[1]);
-  assertEq("its prompt authorizes exactly one post shape", blocks.length, 1);
+  const blocks = [...cmd.matchAll(/```\n([\s\S]*?)```/gu)].map((m) => m[1]);
+  assertEq("the command authorizes exactly one post shape", blocks.length, 1);
   assertTrue("and that shape is the sweep's receipt", /^\u{1F4E5} 受理 - /u.test(blocks[0]), blocks[0]);
   const catalog = readFileSync(
     join(REPO_ROOT, "plugins/workaholic/skills/notify/reference/notifications.md"), "utf8");
   const catalogued = [...catalog.matchAll(/```\n(\u{1F4E5}[\s\S]*?)```/gu)].map((m) => m[1]);
   assertEq("the catalog carries that shape exactly once", catalogued.length, 1);
-  assertEq("byte for byte, template against catalog", blocks[0], catalogued[0]);
+  assertEq("byte for byte, command against catalog", blocks[0], catalogued[0]);
   // THE REACTION, PINNED TO THE SAME SINGLE SOURCE (2026-08-26). The reply closed half the
   // gap: it lives INSIDE a thread, so from a channel scroll a filed ask and an ignored one
   // still looked identical. The reaction is the same receipt at a glance -- and because it
@@ -8686,20 +8697,20 @@ function testProposeRoutineTemplate() {
   const reactions = [...catalog.matchAll(/reaction on the message itself: `(:[a-z_]+:)`/g)]
     .map((m) => m[1]);
   assertEq("the catalog names the reaction exactly once", reactions.length, 1);
-  assertTrue("and the template's prompt authorizes that same reaction",
-    prompt.includes(reactions[0]), prompt);
+  assertTrue("and the command authorizes that same reaction",
+    cmd.includes(reactions[0]), cmd);
   assertTrue("the reaction rides the coordinate already in hand, never a lookup",
-    /no lookup and no search/.test(prompt.slice(prompt.indexOf(reactions[0]))), prompt);
+    /no lookup and no search/.test(cmd.slice(cmd.indexOf(reactions[0]))), cmd);
   // The receipt is the ONLY thing it may say: everything the no-posting argument covered is
-  // still covered, and the prompt is where that ceiling is written.
-  assertTrue("and the prompt still forbids every other post",
-    /Post nothing else to Slack/.test(prompt), prompt);
+  // still covered, and the command is where that ceiling is written.
+  assertTrue("and the command still forbids every other post",
+    /Post nothing else to Slack/.test(cmd), cmd);
   assertTrue("and every other reaction, now that it may add one",
-    /add no other reaction/.test(prompt), prompt);
+    /add no other reaction/.test(cmd), cmd);
   assertTrue("including a receipt for a message it did not file this run",
-    /already-swept/.test(prompt), prompt);
+    /already-swept/.test(cmd), cmd);
   assertTrue("and states the receipt never blocks the capture",
-    /ack_failed/.test(prompt), prompt);
+    /ack_failed/.test(cmd), cmd);
 }
 
 // ---------- the [Standup] routine template (ticket `20260817115233`) ----------
@@ -20167,6 +20178,74 @@ function cksum(s) {
   return execSync(`printf '%s' ${JSON.stringify(s)} | cksum | cut -d' ' -f1`, { shell: "/bin/sh" })
     .toString().trim();
 }
+// ---------- workaholify: the remote setting the claim oracle reads (2026-09-01) ----------
+// The claim protocol's only oracle is "unmerged remote branches", and `git rev-list --count
+// base..ref` only reduces when the merge base is in the clone -- which in the shallow clone a
+// cloud routine gets, it is not. So a merged-but-undeleted branch reads as ahead and is offered
+// as a live claim (measured 2026-08-04, PR #109: 154 ahead shallow, 0 after --unshallow). With
+// `delete_branch_on_merge` off the repository manufactures that population without limit -- 268
+// of 302 branches here the day this shipped.
+//
+// HERMETIC BY CONSTRUCTION: every assertion below runs where the transport cannot answer, which
+// is the half that must never be guessed. What is pinned is that an unanswerable READING never
+// renders as a conforming repository, and that the apply writes nothing under it.
+function testWorkaholifyRepoSettings() {
+  const dir = makeRepo("main");
+  try {
+    // A repository with no remote cannot be asked, so the slug does not resolve. `ok` is false
+    // and `state` is `unanswerable` -- never `conforming`, which is the whole distinction: a
+    // question we could not put is not an answer of "already correct".
+    const chk = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.checkRepoSettings}`).stdout);
+    assertEq("an unaskable remote is unanswerable, never conforming",
+      [chk.ok, chk.state, chk.reason], [false, "unanswerable", "slug_unresolved"]);
+    assertEq("and it names no setting it did not read", chk.settings.delete_branch_on_merge, null);
+    assertEq("and reports no problem it cannot substantiate", chk.problems, []);
+
+    // THE APPLY COMPOSES THE CHECK rather than re-deriving conformance, so it inherits that
+    // refusal by name and sends nothing. `applied` empty and `ok` false: a refusal is never
+    // reported as a repair.
+    const ap = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.applyRepoSettings}`).stdout);
+    assertEq("the apply refuses under the check's own word",
+      [ap.changed, ap.applied, ap.refused, ap.ok],
+      [false, [], "unanswerable:slug_unresolved", false]);
+
+    // NOTHING WAS WRITTEN, ANYWHERE. The script's only mutation is a GitHub PATCH, and the
+    // working tree is the surface a caller would notice it on.
+    assertEq("and the working tree is untouched",
+      execSync("git status --porcelain", { cwd: dir, encoding: "utf8" }).trim(), "");
+
+    // THE RESIDUE READING IS EVIDENCE, NOT A VERDICT, and a clone that cannot answer
+    // "merged into the base" says so rather than answering zero -- the same asymmetry
+    // `lib/claims.sh` keeps, and the reason the count is never used as a gate.
+    assertTrue("a residue it could not read is named, never counted as none",
+      chk.residue.readable === false && typeof chk.residue.reason === "string"
+      && chk.residue.merged_undeleted === null, JSON.stringify(chk.residue));
+  } finally { cleanup(dir); }
+
+  // ONLY THE ONE SETTING A MECHANISM READS. Merge methods, description, topics and visibility
+  // are the repository's own taste; naming one here is how this becomes a house-style audit.
+  const src = readFileSync(SCRIPTS.applyRepoSettings, "utf8");
+  const code = src.split("\n").filter((l) => !l.trimStart().startsWith("#")).join("\n");
+  for (const field of ["allow_squash_merge", "allow_merge_commit", "allow_rebase_merge",
+                       "visibility", "private"]) {
+    assertTrue(`the apply touches no ${field}`, !code.includes(field), field);
+  }
+  assertTrue("and it PATCHes the one field it is for",
+    /--method PATCH[\s\S]{0,120}delete_branch_on_merge=true/.test(code), code.slice(0, 200));
+  // REST ONLY, never `gh repo view` -- GraphQL-backed, and a web session may 403 it mid-run.
+  // Read the CODE, not the header: the header names the prohibited form in order to forbid it,
+  // so a document-wide match would read the rule as its own violation.
+  const checkSrc = readFileSync(SCRIPTS.checkRepoSettings, "utf8");
+  const checkCode = checkSrc.split("\n").filter((l) => !l.trimStart().startsWith("#")).join("\n");
+  assertTrue("both scripts reach GitHub through the one transport",
+    /gather\/scripts\/gh-rest\.sh/.test(checkCode) && !/gh repo /.test(checkCode), checkCode.slice(0, 300));
+  // The apply is a step of the preparation command, not a thing a caller has to know to run.
+  const cmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/workaholify.md"), "utf8");
+  assertTrue("/workaholify runs it as a step of the preparation",
+    /check-repo-settings\.sh/.test(cmd) && /apply-repo-settings\.sh/.test(cmd), cmd.slice(0, 400));
+}
+
+
 
 const tests = [
   ["moderate/condition-age.sh: how long a condition has been standing", testConditionAgeReader],
@@ -20435,6 +20514,7 @@ const tests = [
   ["release plan: the planner, its gate, and its visible failure", testReleasePlannerChain],
   ["workaholify routines: one template set, applied per repository, drift named per field", testWorkaholifyRoutines],
   ["workaholify: the command converges routines, and a sheet is a refusal's recovery path", testWorkaholifyConvergesRoutines],
+  ["workaholify: the remote setting the claim oracle reads", testWorkaholifyRepoSettings],
   ["workaholify bootstrap: without it a web routine is configured but cannot work", testWorkaholifyBootstrap],
   ["workaholify: the wiring halves apply, they do not merely audit", testWorkaholifyApplies],
   ["workaholify bootstrap: the session gets the developer's git identity", testBootstrapGitIdentity],
@@ -21880,16 +21960,23 @@ function testStatelessThreadLookup() {
     return m ? m[1] : "";
   };
   const catalog = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/notify/reference/notifications.md"), "utf8");
-  const proposeTemplate = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines/specificate.md"), "utf8");
+  // THE CEILING MOVED FROM THE PROMPT TO THE COMMAND (2026-09-01, the developer's
+  // instruction). A routine record is account-level: no repository can edit it, so a shape
+  // written into a prompt reached a fleet only by being re-pasted into every developer's copy
+  // in every project, and a prompt that had drifted from the plugin was invisible from the
+  // repository. The shapes now live in the command's own notification section, which ships
+  // with the plugin — so THESE PINS FOLLOW THEM. What is pinned is unchanged: exactly two
+  // copies of every wire format, and a diff between them is a drift to fix.
+  const proposeTemplate = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/specificate.md"), "utf8");
   const catalogRoot = rootBlock(catalog);
   assertTrue("the shape catalog carries the description root's block", catalogRoot !== "", catalog.slice(0, 200));
-  assertEq("the description root reads byte-identically in the catalog and the [Specificate] template",
+  assertEq("the description root reads byte-identically in the catalog and the /specificate command",
     rootBlock(proposeTemplate), catalogRoot);
   // BOTH callers post it since 2026-08-22. The [Implement] case-4 root was a status
   // emoji, a PR number and a bare machine key; the developer ruled it unusable on
   // sight, so the template moved in the same change and is pinned to the same wording.
-  const implementTemplate = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines/implement.md"), "utf8");
-  assertEq("the description root reads byte-identically in the catalog and the [Implement] template",
+  const implementTemplate = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/implement.md"), "utf8");
+  assertEq("the description root reads byte-identically in the catalog and the /implement command",
     rootBlock(implementTemplate), catalogRoot);
 
   // The root carries the lookup's own key -- case 2 searches for `fb:<stem>`, so moving the
@@ -21918,13 +22005,13 @@ function testStatelessThreadLookup() {
     const m = body.match(new RegExp("```\\n(" + lead + "[\\s\\S]*?)```", "u"));
     return m ? m[1] : "";
   };
-  for (const [what, body] of [["catalog", catalog], ["[Specificate] template", proposeTemplate]]) {
+  for (const [what, body] of [["catalog", catalog], ["/specificate command", proposeTemplate]]) {
     const b = shapeBlock(body, "🔵 Proposed");
     assertTrue(`the ${what} carries the 🔵 Proposed shape`, b !== "", what);
     assertTrue(`🔵 Proposed mentions nobody in the ${what}`, !/<@U/.test(b), b);
     assertTrue(`and still carries its session URL in the ${what}`, /routine\]\(/.test(b), b);
   }
-  for (const [what, body] of [["catalog", catalog], ["[Implement] template", implementTemplate]]) {
+  for (const [what, body] of [["catalog", catalog], ["/implement command", implementTemplate]]) {
     const b = shapeBlock(body, "🟢 Implemented");
     assertTrue(`the ${what} carries the 🟢 Implemented shape`, b !== "", what);
     assertTrue(`🟢 Implemented mentions nobody in the ${what}`, !/<@U/.test(b), b);
@@ -21960,24 +22047,24 @@ function testStatelessThreadLookup() {
   const catalogHandoff = stanza(fencedShapes, "🟡 Handoff");
   assertTrue("the catalog carries the handoff finish shape", catalogHandoff !== "", fencedShapes);
   const implementShapes = [...implementTemplate.matchAll(/```\n([\s\S]*?)```/gu)].map((m) => m[1]).join("\n\n");
-  assertEq("the handoff finish line reads byte-identically in the catalog and the [Implement] template",
+  assertEq("the handoff finish line reads byte-identically in the catalog and the /implement command",
     stanza(implementShapes, "🟡 Handoff"), catalogHandoff);
   // Naming the shape is half of it: the template must also say WHO it names and WHAT carries
   // it, or a session emits the shape with the poster's own token and reaches nobody again.
-  assertTrue("and the [Implement] template says the token is the unit's assignee, never the runner",
-    /unit's own assignee, never you/u.test(implementTemplate), "the handoff addressee is unstated in the template");
+  assertTrue("and the /implement command says the token is the unit's assignee, never the runner",
+    /unit's own assignee, never you/u.test(implementTemplate), "the handoff addressee is unstated in the command");
   assertTrue("and that it rides the bot when a token is configured",
     /SLACK_BOT_TOKEN/u.test(implementTemplate) && /--thread-ts/u.test(implementTemplate),
-    "the [Implement] template names no carrier for its directed shape");
+    "the /implement command names no carrier for its directed shape");
 
   // The same two facts for the tick's question, whose shape the [Moderate] template already
   // carried: what was missing there was only the carrier.
-  const moderateTemplate = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines/moderate.md"), "utf8");
-  assertTrue("the [Moderate] template says its question reply rides the bot when a token is configured",
+  const moderateTemplate = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/moderate.md"), "utf8");
+  assertTrue("the /moderate command says its question reply rides the bot when a token is configured",
     /SLACK_BOT_TOKEN/u.test(moderateTemplate) && /--thread-ts/u.test(moderateTemplate),
-    "the [Moderate] template names no carrier for its directed shape");
+    "the /moderate command names no carrier for its directed shape");
   assertTrue("and that the root and the other replies stay on the connector",
-    /always ride the connector/u.test(moderateTemplate), "the [Moderate] template leaves its undirected shapes' carrier unstated");
+    /always ride the connector/u.test(moderateTemplate), "the /moderate command leaves its undirected shapes' carrier unstated");
   // The rule is "not yourself", never "nobody": the maintenance tick's question addresses
   // a named assignee and is the one post whose whole purpose is to reach a person.
   assertTrue("the maintenance tick's question keeps its mention",
@@ -22030,13 +22117,14 @@ function testUnitAuthorsDisclosure() {
   // [Implement] template names it; the catalog and the template must agree word for
   // word, or a session would post a shape its own routine never authorized.
   const catalog = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/notify/reference/notifications.md"), "utf8");
-  const template = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines/implement.md"), "utf8");
+  const template = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/implement.md"), "utf8");
   // The authorship line is RETIRED from the post (2026-08-21). What is pinned is its
-  // absence from the two machine-consumed surfaces: a routine prompt authorizes exactly
-  // the post shapes it lists, so a line left in either one is a line a run may emit.
+  // absence from the two machine-consumed surfaces: a command authorizes exactly the post
+  // shapes it lists, so a line left in either one is a line a run may emit. (The ceiling
+  // moved from the routine prompt to the command on 2026-09-01; the pin followed it.)
   for (const line of ["tickets authored by", "ticket authorship unresolved"]) {
-    assertTrue(`the [Implement] template authorizes no authorship line: ${line}`,
-      !template.includes(line), "the retired line is still authorized by the template");
+    assertTrue(`the /implement command authorizes no authorship line: ${line}`,
+      !template.includes(line), "the retired line is still authorized by the command");
   }
   assertTrue("the catalog authorizes no authorship line in a finish shape",
     !/```[^`]*tickets authored by/.test(catalog), "a finish shape still carries the retired line");
@@ -22050,8 +22138,8 @@ function testUnitAuthorsDisclosure() {
   // carried-forward refs made that deterministic for every unit the loop produced.
   // Pinned on the machine-consumed surface: the template is what authorizes the wire
   // shape, so a prompt still saying "per stem" is a run still allowed to duplicate.
-  assertTrue("the [Implement] template authorizes one line per unit, not per stem",
-    /never one per feedback stem/.test(template), "the template still authorizes a per-stem post");
+  assertTrue("the /implement command authorizes one line per unit, not per stem",
+    /never one per feedback stem/.test(template), "the command still authorizes a per-stem post");
 }
 
 // ---------- /fb files an issue, whatever the destination (2026-08-17) ----------
@@ -23243,8 +23331,12 @@ function testPrepareReleaseRetired() {
       .filter((f) => /^name: "\[Prepare Release\]/m.test(readFileSync(join(routines, f), "utf8"))), []);
 
   // No fenced block anywhere a session reads as authorization still opens with 📦.
+  const commands = join(REPO_ROOT, "plugins/workaholic/commands");
   const postable = [join(REPO_ROOT, "plugins/workaholic/skills/notify/reference/notifications.md")]
-    .concat(readdirSync(routines).filter((f) => f.endsWith(".md")).map((f) => join(routines, f)));
+    .concat(readdirSync(routines).filter((f) => f.endsWith(".md")).map((f) => join(routines, f)))
+    // The ceiling moved into the commands on 2026-09-01, so a 📦 block coming back would
+    // come back THERE. Scanning only the templates would leave the retirement unpinned.
+    .concat(readdirSync(commands).filter((f) => f.endsWith(".md")).map((f) => join(commands, f)));
   for (const file of postable) {
     const body = readFileSync(file, "utf8");
     const blocks = [...body.matchAll(/```\n(\u{1F4E6}[\s\S]*?)```/gu)].map((m) => m[1]);
@@ -23967,18 +24059,32 @@ function testWorkaholifyRoutines() {
       drive.name, "[Implement] workaholic");
     // P7 (2026-08-06): the prompt NAMES no repository -- the notification target comes
     // out of the triggering artifact, not out of a channel written into the prompt, so
-    // the same four lines paste into every project. `{repo}` survives because it is the
-    // developer's own placeholder in the format line, and it must still render or every
-    // post would carry an unfollowable link.
+    // the same lines paste into every project. SINCE 2026-09-01 (the developer's
+    // instruction) it carries NO SUBSTITUTION AT ALL: the post shapes that needed
+    // `{repo}` for their pull-request links moved into the command, which the session
+    // resolves for itself. That is the whole point of the move -- a prompt with nothing
+    // repository-shaped and nothing rule-shaped in it never needs a routine edit again --
+    // so the absence is pinned rather than merely permitted. `{repo_name}` survives only
+    // in the `name:` UI field, which is asserted above.
     const raw = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines/implement.md"), "utf8");
     const rawPrompt = raw.slice(raw.indexOf("## Prompt")).replace(/^## Prompt\n+/, "").trim();
-    assertTrue("the prompt's only substitution is the PR-link placeholder",
-      /\{repo\}\/pull\//.test(rawPrompt) && !/\{repo_(name|slug)\}/.test(rawPrompt), rawPrompt);
-    assertEq("everything else is byte-identical across repositories",
-      drive.prompt.trim(), rawPrompt.replaceAll("{repo}", WH));
-    assertTrue("{repo} renders the full URL in the PR link",
-      drive.prompt.includes(`${WH}/pull/`), "missing pull link");
+    assertTrue("the prompt carries no substitution at all",
+      !/\{repo(_name|_slug)?\}/.test(rawPrompt), rawPrompt);
+    assertEq("so it renders byte-identically for every repository",
+      drive.prompt.trim(), rawPrompt);
     assertTrue("no placeholder survives rendering", !/\{repo(_name|_slug)?\}/.test(drive.prompt), drive.prompt);
+    // AND IT NAMES THE COMMAND AND THE LOAD FALLBACK, AND NOTHING ELSE. Pinned as the
+    // absence of a fenced block: a post shape that comes back into a prompt is a shape
+    // every account has to be told to re-paste before it takes effect.
+    for (const id of ["implement", "specificate", "propose", "moderate"]) {
+      const t = readFileSync(join(REPO_ROOT, `plugins/workaholic/skills/workaholify/routines/${id}.md`), "utf8");
+      const pr = t.slice(t.indexOf("## Prompt"));
+      assertEq(`the [${id}] prompt authorizes no post shape of its own`,
+        [...pr.matchAll(/```\n([\s\S]*?)```/gu)].map((m) => m[1]), []);
+      assertTrue(`the [${id}] prompt names its command`, new RegExp(`Run \`/${id}\`\\.`).test(pr), pr);
+      assertTrue(`and the load fallback that reads it when the plugin did not bind`,
+        pr.includes(`<src>/commands/${id}.md`), pr);
+    }
 
     const fb = JSON.parse(run(dir, `${RENDER} specificate ${WH}`).stdout);
     // The template's trigger states the DESIGNED trigger (the record stores no such
@@ -26639,11 +26745,17 @@ function testCheckInDeliveryReading() {
 }
 
 // ---------- [Moderate]: the template, its scope, and the shapes it authorizes ----------
-// (2026-08-17, issue #471) The prompt is the ceiling: a session may emit only the shapes its
-// own routine names, so a template and the shape catalog that disagree ship either a
+// (2026-08-17, issue #471) The command is the ceiling: a session may emit only the shapes the
+// command it runs names, so that command and the shape catalog disagreeing ships either a
 // documented shape nobody may post or a posted shape nothing documents. Byte for byte.
+//
+// THE SHAPES MOVED FROM THE PROMPT TO `/moderate` on 2026-09-01 (the developer's instruction):
+// a routine record is account-level, so a shape written into a prompt reached a fleet only by
+// being re-pasted into every account's copy. The SCOPE assertions below stay on the template,
+// which is where scope genuinely lives; the SHAPE assertions follow the shapes.
 function testModerateRoutineTemplate() {
-  const template = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines/moderate.md"), "utf8");
+  const routine = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines/moderate.md"), "utf8");
+  const template = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/moderate.md"), "utf8");
   const catalog = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/notify/reference/notifications.md"), "utf8");
   const claudeMd = readFileSync(join(REPO_ROOT, "CLAUDE.md"), "utf8");
 
@@ -26773,7 +26885,7 @@ function testModerateRoutineTemplate() {
     const named = [...catalog.matchAll(/an answer the tick read is stamped where it was written: `(:[a-z_]+:)`/g)]
       .map((m) => m[1]);
     assertEq("the catalog names the answer stamp exactly once", named.length, 1);
-    assertTrue("and the template's prompt authorizes that same reaction",
+    assertTrue("and /moderate authorizes that same reaction",
       template.includes(named[0]), template);
     // It must not be the SWEEP's reaction: capturing a channel message and reading an answer
     // to our own question are different events, and one emoji for both is how a reader stops
@@ -26782,22 +26894,22 @@ function testModerateRoutineTemplate() {
     assertEq("the sweep's receipt reaction is still named exactly once", receipt.length, 1);
     assertTrue("and the two events do not share one emoji", named[0] !== receipt[0],
       `${named[0]} === ${receipt[0]}`);
-    assertTrue("the stamp posts no reply, and the template says so",
+    assertTrue("the stamp posts no reply, and /moderate says so",
       /post \*\*no reply\*\* for that event/.test(template), template);
   }
 
   // Scope, cron and the write grant are the template's own claims; CLAUDE.md's routines
   // table must state the same ones, since that table is where a human reads them.
-  assertTrue("the template is repository-scoped", /^scope: repository$/m.test(template));
-  assertTrue("firing at :50, last of the hour", /^cron_expression: 50 \* \* \* \*$/m.test(template));
+  assertTrue("the template is repository-scoped", /^scope: repository$/m.test(routine));
+  assertTrue("firing at :50, last of the hour", /^cron_expression: 50 \* \* \* \*$/m.test(routine));
   assertTrue("CLAUDE.md's routines table carries the same row",
     /\| `moderate\.md` \| `\[Moderate\]` \| `repository` \| `50 \* \* \* \*` \| `\/setup-repo-routines` \|/.test(claudeMd),
     "the routines table and the template disagree");
   // Write/Edit are granted BECAUSE it writes — the reader routine's contract is the
   // contrast, and the template has to say which it is rather than inherit a list.
   assertTrue("the write grant is justified in the template's own prose",
-    /`Write`\/`Edit` are granted rather than inherited/.test(template), "the grant is unexplained");
-  assertTrue("and the tools list carries them", /^allowed_tools: \[.*Write.*Edit.*\]$/m.test(template));
+    /`Write`\/`Edit` are granted rather than inherited/.test(routine), "the grant is unexplained");
+  assertTrue("and the tools list carries them", /^allowed_tools: \[.*Write.*Edit.*\]$/m.test(routine));
 }
 
 // ---------- [Workaholic]: the account updater's template, scope and one shape ----------

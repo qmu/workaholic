@@ -597,7 +597,8 @@ is still bounded to one.
 "post when there is at least one question" gate — an hour with nothing to ask stays silent by
 construction — and it goes out as the same `🙋 <@U…>` reply, with its age in the question's own
 sentence (`first_asked` rides the gate's answer). The root's wording does not move, so the copy in
-`notify/reference/notifications.md` and the routine template stay byte-identical.
+`notify/reference/notifications.md` and the copy in `/moderate` stay byte-identical (the shapes
+left the routine template on 2026-09-01 — `workaholic:notify`, *The command is the ceiling*).
 
 ## 13. `human-checkin` — the tick's voice: one root, up to five questions inside it
 

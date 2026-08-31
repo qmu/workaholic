@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-31T04:23:12+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -88,3 +89,56 @@ byte-identical to the catalog, and pin them against drift.
 - The `[Propose]` template is deliberately untouched — its whole Slack vocabulary
   is the inbound sweep's receipt, which is addressed to the message's own author
   and reaches them through Slack's thread-participation notice.
+
+## Final Report
+
+**Outcome:** implemented.
+
+**What the seam turned out to be.** The two templates were in different states, and only one of
+them was the state the ticket predicted. `[Moderate]` already carried the `🙋` shape
+byte-identically; what was missing was only its **carrier**. `[Implement]` was missing the
+`🟡 Handoff` shape **entirely** — `workaholic:drive` §7 has said since 2026-08-14 that a handoff
+unit's `🟡` *is* its one finish post, while the prompt named only `🟢 Implemented`, so *the
+prompt is the ceiling* meant no session running that routine was ever authorized to emit the
+shape its own run contract requires. That gap is older than this mission and is closed here
+because this is the change that gives the shape a reason to exist.
+
+**Copied, never paraphrased.** The `🟡 Handoff` block in `[Implement]` is byte-identical to the
+catalog's, and the suite proves it rather than the change asserting it — the catalog keeps
+`🚀`/`🟡`/`🔴` in **one** fence, so the pin takes the stanza by its blank-line boundaries rather
+than by the fence's first line, which is why the existing `block(body, lead)` helper could not be
+reused as-is.
+
+**Each template names its carrier and its no-token behaviour**, because a prompt that names one
+transport as *the* way to post silently selects it for sessions that do not have it — the
+measured 2026-08-12 failure, cited in place. Both say the tokened script is
+`workaholic:notify`'s **fallback** transport selected here for its **identity** rather than its
+availability, which is the accurate sentence and not a phrasing chosen to pass a check: the
+existing *no plugin markdown names notify-slack.sh as the primary finish-line transport* row is
+word-level by its own admission, and its comment now records the script's second role so a later
+reader does not read a pass there as proof the script is never selected first.
+
+**Nothing else moved, and it is checked rather than claimed.**
+`git diff --stat` over `routines/` is **additions only** (11 lines in `implement.md`, 4 in
+`moderate.md`), and a grep of the diff for `cron_expression` / `model` / `allowed_tools` / `mcp` /
+`autofix_on_pr_create` / `scope` / `name` / `type` / `id` / `trigger` returns nothing. **No
+template gained an environment block** — a routine declares no environment variables; they live
+on the cloud environment it selects. **`[Propose]` is untouched**: its whole Slack vocabulary is
+the inbound sweep's receipt, which is addressed to the message's own author and reaches them
+through Slack's thread-participation notice.
+
+**Six pins added**, three per template: the byte-identity of the handoff block, that `[Implement]`
+states the token is the unit's assignee and never the runner, that it names the bot carrier, and
+the matching carrier pins on `[Moderate]` plus one that its root and other replies stay on the
+connector. Naming a shape is half of it — a template that named the shape without saying whom it
+names and what carries it would let a session emit it with the poster's own token and reach
+nobody again, which is the defect this mission exists to close.
+
+**Convergence, not a rename.** A template edit is a **prompt change** the next
+`/setup-repo-routines` and `/setup-dev-routines` run applies and reports per routine. Routines
+are converged by rendered **name**, and no `name:` moved, so this creates no second routine and
+owes the operator no manual act — unlike a rename, which does.
+
+**Gate.** `node scripts/test-workflow-scripts.mjs` → 5442 passed, 0 failed.
+`node scripts/build-plugins/build.mjs && node scripts/build-plugins/verify.mjs` → all built
+skills self-contained, `outputs/` regenerated.

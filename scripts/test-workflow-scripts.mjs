@@ -21697,6 +21697,15 @@ function testStatelessThreadLookup() {
   // Naming it is fine -- naming it without the word that marks it as the fallback is the
   // drift that put four runs' finish lines nowhere. Word-level, not sentence-level: the
   // check pins the relationship between the two transports, never anyone's phrasing.
+  //
+  // SINCE 2026-08-31 the script has a SECOND role (mission
+  // `notify-the-person-a-directed-question-addresses`): it carries the two DIRECTED shapes for
+  // their IDENTITY, because every post otherwise reaches Slack as the operator's own account
+  // and a self-resolving mention pages nobody. That is not the drift this row exists to catch
+  // -- it is a deliberate, enumerated selection -- and the two documents naming it that way say
+  // "fallback" in the same breath, which is what keeps this word-level row honest rather than
+  // merely satisfied. Stated so a later reader does not read a pass here as proof that the
+  // script is never selected first; the enumeration that bounds it lives in the notify SKILL.
   const scriptFirst = [];
   for (const rel of readdirSync(pluginRoot, { recursive: true })) {
     const r = String(rel);
@@ -21799,6 +21808,36 @@ function testStatelessThreadLookup() {
     && /unit's `assignees`/u.test(catalog), "the addressee the handoff line names is unstated");
   assertTrue("and that an unresolved address omits the token rather than guessing one",
     /omitted when the address does not resolve/u.test(catalog), "an unresolvable addressee may be guessed");
+
+  // THE PROMPT IS THE CEILING, so a shape `workaholic:drive` §7 REQUIRES must be named by the
+  // template of the routine that has to emit it. Until 2026-08-31 the [Implement] prompt named
+  // only 🟢 Implemented while the run contract has said since 2026-08-14 that a handoff unit's
+  // 🟡 IS its one finish post — a documented shape no session was authorized to post. The
+  // catalog keeps 🚀/🟡/🔴 in one fence, so the stanza is taken by its blank-line boundaries
+  // rather than by the fence's first line.
+  const stanza = (text, lead) =>
+    (text.split(/\n\n+/u).find((s) => s.trimStart().startsWith(lead)) || "").trim();
+  const catalogHandoff = stanza(fencedShapes, "🟡 Handoff");
+  assertTrue("the catalog carries the handoff finish shape", catalogHandoff !== "", fencedShapes);
+  const implementShapes = [...implementTemplate.matchAll(/```\n([\s\S]*?)```/gu)].map((m) => m[1]).join("\n\n");
+  assertEq("the handoff finish line reads byte-identically in the catalog and the [Implement] template",
+    stanza(implementShapes, "🟡 Handoff"), catalogHandoff);
+  // Naming the shape is half of it: the template must also say WHO it names and WHAT carries
+  // it, or a session emits the shape with the poster's own token and reaches nobody again.
+  assertTrue("and the [Implement] template says the token is the unit's assignee, never the runner",
+    /unit's own assignee, never you/u.test(implementTemplate), "the handoff addressee is unstated in the template");
+  assertTrue("and that it rides the bot when a token is configured",
+    /SLACK_BOT_TOKEN/u.test(implementTemplate) && /--thread-ts/u.test(implementTemplate),
+    "the [Implement] template names no carrier for its directed shape");
+
+  // The same two facts for the tick's question, whose shape the [Moderate] template already
+  // carried: what was missing there was only the carrier.
+  const moderateTemplate = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines/moderate.md"), "utf8");
+  assertTrue("the [Moderate] template says its question reply rides the bot when a token is configured",
+    /SLACK_BOT_TOKEN/u.test(moderateTemplate) && /--thread-ts/u.test(moderateTemplate),
+    "the [Moderate] template names no carrier for its directed shape");
+  assertTrue("and that the root and the other replies stay on the connector",
+    /always ride the connector/u.test(moderateTemplate), "the [Moderate] template leaves its undirected shapes' carrier unstated");
   // The rule is "not yourself", never "nobody": the maintenance tick's question addresses
   // a named assignee and is the one post whose whole purpose is to reach a person.
   assertTrue("the maintenance tick's question keeps its mention",

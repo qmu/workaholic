@@ -47,6 +47,7 @@ a routine cannot defer its own output contract — but `workaholic:notify`'s
 `reference/notifications.md` mirrors them verbatim as the sole sanctioned shapes for
 these two events (P10, 2026-08-07), so a future edit to either copy is a drift to fix,
 never a second wording to reconcile against a third.
+**The handoff finish line joined the prompt on 2026-08-31** (mission `notify-the-person-a-directed-question-addresses`), and it had to: `workaholic:drive` §7 has said since 2026-08-14 that a handoff unit's `🟡` **is** its one finish post, while this prompt named only `🟢 Implemented` — and *the prompt is the ceiling*, so a session running this routine could not legitimately emit the shape its own run contract requires. The line names the **unit's assignee** rather than the runner, which is the whole point: a handoff waits on exactly one person's act, and every post here reaches Slack as the operator's own account, so a token naming the poster pages nobody. It therefore rides the **bot** when a token is configured, per `workaholic:notify`, *Which transport carries which shape, and why*; every other shape this routine emits stays on the connector.
 The reply thread is **found**, never carried (Q1) — the notify SKILL's exact-token lookup, not a
 target read out of a triggering event and not a channel name in the prompt — so no
 repository is named here and the same prompt pastes into every project. A schedule
@@ -69,6 +70,16 @@ Post one finish line per claimed PR-unit into its reply thread (the workaholic:n
 🟢 Implemented - [#123 Title]({repo}/pull/123)
 by the [routine](https://claude.ai/code/session_***)
 ```
+
+When a unit ends in **handoff** its finish line is this one instead — never `🟢 Implemented`, and never a second post beside it — naming the person who must run what this environment could not:
+
+```
+🟡 Handoff <@U…> - [#123 Issue Title](<repo-url>/pull/123)
+The next run resumes it automatically; `git fetch && git checkout <branch>` to take it sooner. One sentence, max 25 words, what remains only.
+<session URL>
+```
+
+The `<@U…>` names the **unit's own assignee, never you**: resolve it from the unit's `assignees` and, when it does not resolve, post the line with **no token at all** rather than a guessed one, and report it as unaddressed. Post that line through the **tokened transport** — `bash <src>/skills/specificate/scripts/notify-slack.sh --thread-ts <the thread's ts> "<the line>"` — whenever `SLACK_BOT_TOKEN` is set, so a bot speaks it and the mention notifies that person even when they are the account this session posts as. That script is `workaholic:notify`'s **fallback** transport, and it is selected here for its **identity** rather than for its availability: this one line is a directed post, which is the only case where which account speaks matters. The connector resolved the thread, so hand its `ts` straight through and never search for one. With no token, post it through the connector exactly as you post `🟢 Implemented`. Report per unit which surface carried it and whom it named. **`🟢 Implemented`, the `📝 FB` root and the precondition-stop shape always ride the connector**, unchanged.
 
 If that lookup finds no thread, post this description root first and the finish line above as a reply into it — no mention token of any kind on the root:
 

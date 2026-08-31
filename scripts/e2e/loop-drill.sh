@@ -8848,7 +8848,7 @@ cmd_verify_blocked_tick() {
     # THE OPENING LANDS ON THE LOG BRANCH, NOT ON `main` (2026-09-01, issue #782). What this
     # drill asserts is unchanged -- a tick that stopped after its first step still left a trace
     # a later tick can read -- only where that trace lives moved.
-    _logref=$(sh "${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/log-ref.sh")
+    _logref=$(sh "${REPO_ROOT}/plugins/workaholic/skills/gather/scripts/log-ref.sh")
     _base=$(git -C "${_fx}/origin.git" show "${_logref}:.workaholic/moderations/${_day}.md" 2>/dev/null || true)
     case "${_r}|${_base}" in
         *'"opening_persist": {"status": "filed"'*'|'*"## ${_tick}"*)

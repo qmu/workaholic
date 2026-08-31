@@ -53,7 +53,7 @@ while [ $# -gt 0 ]; do
 done
 case "$DAYS" in ''|*[!0-9]*) DAYS=30 ;; esac
 
-REF=$(sh "${SCRIPT_DIR}/log-ref.sh")
+REF=$(sh "${SCRIPT_DIR}/../../gather/scripts/log-ref.sh")
 FILES=0
 DAYS_JSON=''
 

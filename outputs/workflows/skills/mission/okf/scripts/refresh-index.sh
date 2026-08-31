@@ -346,7 +346,7 @@ for area in tickets moderations stories missions feedbacks strategies deployment
   case "$area" in
     tickets)       root_body="$root_body* [tickets/](tickets/) - implementation tickets (two states: todo / archive; the outcome is the status: field)
 " ;;
-    moderations)  root_body="$root_body* moderations/ - the /moderate tick log, one file per UTC day (an operational log, not knowledge: no type:, no index, and since 2026-09-01 not on this branch at all - it lives on its own branch, moderate/scripts/log-ref.sh)
+    moderations)  root_body="$root_body* moderations/ - the /moderate tick log, one file per UTC day (an operational log, not knowledge: no type:, no index, and since 2026-09-01 not on this branch at all - it lives on its own branch, gather/scripts/log-ref.sh)
 " ;;
     stories)       root_body="$root_body* [stories](stories/index.md) - branch development narratives (PR descriptions and historical record)
 " ;;

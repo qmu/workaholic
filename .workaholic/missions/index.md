@@ -7,6 +7,7 @@
 * [make-the-tick-s-questions-readable-and-close-them-in-the-thread](active/make-the-tick-s-questions-readable-and-close-them-in-the-thread/mission.md) - Make the tick's questions readable and close them in the thread
 * [make-workaholify-converge-the-account-s-routines](active/make-workaholify-converge-the-account-s-routines/mission.md) - Make /workaholify converge the account's routines
 * [name-the-steps-a-tick-could-not-read](active/name-the-steps-a-tick-could-not-read/mission.md) - Name the steps a tick could not read
+* [notice-a-periodic-artifact-that-stopped-being-produced](active/notice-a-periodic-artifact-that-stopped-being-produced/mission.md) - Notice a periodic artifact that stopped being produced
 * [notify-the-person-a-directed-question-addresses](active/notify-the-person-a-directed-question-addresses/mission.md) - Notify the person a directed question addresses
 * [refuse-ok-under-a-placeholder-identity](active/refuse-ok-under-a-placeholder-identity/mission.md) - Refuse ok under a placeholder identity
 * [say-when-the-check-in-queue-is-stuck-and-bound-the-hold](active/say-when-the-check-in-queue-is-stuck-and-bound-the-hold/mission.md) - Say when the check-in queue is stuck, and bound the hold

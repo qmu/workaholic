@@ -629,6 +629,52 @@ above: it fails when a word the reader emits is unclassified, when the table cla
 the reader never emits, when any row is called a `proof`, or when the enumerated consumer
 reaches an acting call site.
 
+### Whether a claim branch still holds content of its own (`claims_branch_diff_reading`)
+
+A ninth vocabulary in the same home (2026-08-31, mission
+`prove-a-claim-branch-is-empty-before-deleting-it`), keyed on a question none of the eight above
+asks: **does this branch still carry content that is on no other ref?** `superseded` proves the
+unit's tickets are archived on the base and its consumers read that as *the branch holds no
+work* — two questions, and neither implies the other, because a ticket archived under **another
+branch's** directory satisfies the first while the claim branch still holds files of its own.
+Measured 2026-08-31: two branches carrying ~300 lines and a doc section reachable from nothing
+else were reported finished and offered for deletion, and only a 403 refusing the delete kept
+the work alive.
+
+**It is a reading, not a verdict word.** It adds no row to the resumability table above, and
+nothing keys a `resume_reason` on it directly; `claims_superseded` composes it, and the
+composition is where the proof narrows.
+
+**The diff is the branch's own, `merge-base..tip`, never ancestry** — a squash-merged branch is
+never an ancestor of the base, which is why the existing proof is derived from the tree in the
+first place.
+
+**Exactly one subtraction, and it is the claim's own stamped artifacts.** A claim writes
+`claim: <branch>` into the artifacts it claims, so the claim commit itself changes the tree and
+**every** claim branch has a non-empty raw diff — measured on the reproduction, including the
+one holding a claim commit and a heartbeat and nothing else. A heartbeat and a resume commit are
+*empty* commits and contribute nothing, so the stamped artifact list the scan already carries is
+the whole of it. **Its stated cost**: at the mission grain the stamped artifact is `mission.md`,
+which the archive test does not prove is on the base, so a mission claim that also edited its own
+`mission.md` and whose tickets landed elsewhere loses those edits when it retires — the
+racing-twin semantics `superseded` already carries, named here rather than hidden.
+
+| Word | Class | What established it, and what a consumer may do |
+| ---- | ----- | ----------------------------------------------- |
+| `empty` | judgement | The branch's `merge-base..tip` diff, minus its own stamped artifacts, is empty: it holds nothing that is not on the base. An **input** to `superseded`, never a verdict read directly — a consumer takes `superseded` off the row, exactly as it does with the merged lookup's `merged`. |
+| `non_empty` | judgement | The branch still carries content of its own, with the first `CLAIMS_BRANCH_DIFF_MAX` (default 5) paths named and the full `count` beside them. It **removes** a `superseded`; it licenses no delete, no close, no merge and no takeover, and the person who must decide what becomes of the work is reached by `/moderate`. |
+| `unanswerable` | judgement | The question could not be asked here — `no_ref`, `no_merge_base`, `shallow_history`, `diff_failed`. **The absence of a reading**, and it answers `false` to `claims_branch_diff_empty` on `claims_merged_state`'s own direction: a wrong `empty` licenses a delete, a wrong `non_empty` only leaves a branch standing, so a reading we could not make is never promoted to the one that permits the act. |
+
+**Its consumers.** `claims_superseded` composes it at both grains (and therefore
+`retire-claim.sh` and `delete-retired-claim-branch.sh` inherit it where they re-derive the
+proof); `claims_scan` reads it once more to name the branch that stopped being `superseded`
+because of it. Nothing else may read it, and nothing may act on `non_empty`.
+
+**It makes no network call and touches no ref, index or worktree** — one `merge-base` plus one
+`diff --name-only` against refs the caller already fetched, `claim-mergeability.sh`'s property.
+Measured on this repository (1156 archived ticket paths): ~8.3 ms per claim against the archive
+listing's ~4.0 ms.
+
 ### When a bounded act may read a judgement
 
 The rule at the top of this section — **a consumer may act on a proof, and may only report or

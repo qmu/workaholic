@@ -17904,6 +17904,156 @@ function makeSquashMergedClaims() {
   return { ...fx, mission, batch, t1, t2 };
 }
 
+// ---------------------------------------------------------------------------
+// A CLAIM BRANCH THAT STILL HOLDS WORK (2026-08-31, mission
+// `prove-a-claim-branch-is-empty-before-deleting-it`).
+//
+// The fixture is the measured shape: three claims whose tickets are all archived on the base
+// UNDER ANOTHER BRANCH'S DIRECTORY, so all three satisfy the archive test, while two of them
+// still carry a file that exists in no other ref. The third holds a claim commit and a
+// heartbeat and nothing else — the branch that must keep retiring exactly as it does today,
+// and the reason a bare "is the diff empty" term is not the repair.
+//
+// Returns { dir, origin, read } plus the three branch names.
+function makeStrandedClaims() {
+  const dir = mkdtempSync(join(tmpdir(), "workaholic-stranded-"));
+  const origin = join(dir, "origin");
+  const work = join(dir, "work");
+  const read = join(dir, "read");
+  mkdirSync(origin, { recursive: true });
+  execSync("git -c init.defaultBranch=main init -q --bare", { cwd: origin });
+  execSync(`git clone -q ${origin} work`, { cwd: dir });
+  const g = (cmd, cwd = work) => execSync(cmd, { cwd, stdio: "ignore" });
+  g("git config user.email test@example.com");
+  g("git config user.name Test");
+  g("git config commit.gpgsign false");
+
+  const todo = join(work, ".workaholic/tickets/todo");
+  mkdirSync(todo, { recursive: true });
+  mkdirSync(join(work, ".workaholic/missions/active/m1"), { recursive: true });
+  const ticket = (n, extra = "") =>
+    `---\ncreated_at: 2026-01-01T00:00:0${n}+09:00\nauthor: test@example.com\n${extra}---\n\n# T${n}\n`;
+  writeFileSync(join(todo, "20260101000001-t.md"), ticket(1));
+  writeFileSync(join(todo, "20260101000002-m.md"), ticket(2, "mission: m1\n"));
+  writeFileSync(join(todo, "20260101000003-b.md"), ticket(3));
+  writeFileSync(join(work, ".workaholic/missions/active/m1/mission.md"),
+    "---\ntype: Mission\ntitle: M1\nslug: m1\nstatus: active\n---\n\n# M1\n");
+  writeFileSync(join(work, "README.md"), "seed\n");
+  g("git add -A && git commit -qm seed && git push -q origin main");
+
+  const stampTicket = (branch, file) =>
+    writeFileSync(join(todo, file),
+      `---\ncreated_at: 2026-01-01T00:00:00+09:00\nauthor: test@example.com\nclaim: ${branch}\n---\n\n# T\n`);
+
+  g("git checkout -q -b work-20260101-000000 main");
+  stampTicket("work-20260101-000000", "20260101000001-t.md");
+  g('git commit -qam "Claim a PR-unit" -m "Unit: batch-stranded"');
+  mkdirSync(join(work, "src"), { recursive: true });
+  writeFileSync(join(work, "src/stranded.txt"), "the work that exists in no other ref\n");
+  g('git add -A && git commit -qm "Add work that exists nowhere else" && git push -q origin work-20260101-000000');
+
+  g("git checkout -q -b work-20260101-000001 main");
+  writeFileSync(join(work, ".workaholic/missions/active/m1/mission.md"),
+    "---\ntype: Mission\ntitle: M1\nslug: m1\nstatus: active\nclaim: work-20260101-000001\n---\n\n# M1\n");
+  g('git commit -qam "Claim a PR-unit" -m "Unit: m1"');
+  writeFileSync(join(work, "docs-stranded.md"), "a doc section that exists in no other ref\n");
+  g('git add -A && git commit -qm "Add a doc section nowhere else" && git push -q origin work-20260101-000001');
+
+  g("git checkout -q -b work-20260101-000002 main");
+  stampTicket("work-20260101-000002", "20260101000003-b.md");
+  g('git commit -qam "Claim a PR-unit" -m "Unit: batch-clean"');
+  g('git commit -q --allow-empty -m "Refresh heartbeat" && git push -q origin work-20260101-000002');
+
+  g("git checkout -q main");
+  g("mkdir -p .workaholic/tickets/archive/work-other"
+    + " && git mv .workaholic/tickets/todo/20260101000001-t.md .workaholic/tickets/archive/work-other/"
+    + " && git mv .workaholic/tickets/todo/20260101000002-m.md .workaholic/tickets/archive/work-other/"
+    + " && git mv .workaholic/tickets/todo/20260101000003-b.md .workaholic/tickets/archive/work-other/"
+    + ' && git commit -qm "Archive the tickets elsewhere" && git push -q origin main');
+
+  execSync(`git clone -q ${origin} read`, { cwd: dir });
+  execSync("git config user.email test@example.com && git config user.name Test", { cwd: read });
+  return {
+    dir,
+    origin,
+    read,
+    stranded: { branch: "work-20260101-000000", unit: "batch-stranded" },
+    mission: { branch: "work-20260101-000001", unit: "m1" },
+    clean: { branch: "work-20260101-000002", unit: "batch-clean" },
+  };
+}
+
+// The reading alone: three answers, and the third never reads as the first.
+function testBranchDiffReading() {
+  const fx = makeStrandedClaims();
+  const lib = join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/lib/claims.sh");
+  const ask = (ref, arts) => JSON.parse(run(fx.read,
+    `${POSIX_SH} -c '. ${lib}; claims_branch_diff_reading origin/main "${ref}" "${arts}"'`).stdout);
+  try {
+    const held = ask(`origin/${fx.stranded.branch}`, ".workaholic/tickets/todo/20260101000001-t.md");
+    assertEq("a branch holding a file absent from the base answers non_empty and names it",
+      [held.state, held.files, held.count], ["non_empty", ["src/stranded.txt"], 1]);
+
+    const missionHeld = ask(`origin/${fx.mission.branch}`, ".workaholic/missions/active/m1/mission.md");
+    assertEq("and so does a mission-grain claim, whose stamped artifact is mission.md",
+      [missionHeld.state, missionHeld.files], ["non_empty", ["docs-stranded.md"]]);
+
+    // THE ROW THAT MAKES A BARE DIFF TERM IMPOSSIBLE. This branch's raw diff is NOT empty —
+    // the claim commit stamps its own ticket — so the subtraction is what lets a genuinely
+    // finished claim keep retiring.
+    const clean = ask(`origin/${fx.clean.branch}`, ".workaholic/tickets/todo/20260101000003-b.md");
+    assertEq("a branch whose content is entirely on the base answers empty",
+      [clean.state, clean.count], ["empty", 0]);
+    assertTrue("...and its raw diff was not empty, which is why the subtraction exists",
+      run(fx.read, `git diff --name-only origin/main...origin/${fx.clean.branch}`)
+        .stdout.trim().length > 0, "the fixture no longer proves the claim stamp is a tree change");
+
+    // WITHOUT the subtraction the same branch reads non_empty — the direction that would
+    // refuse every legitimate retirement.
+    assertEq("with no stamped-artifact list the same branch reads non_empty",
+      ask(`origin/${fx.clean.branch}`, "").state, "non_empty");
+
+    for (const [name, ref] of [["an absent ref", "origin/work-99999999-999999"], ["no ref at all", ""]]) {
+      const r = ask(ref, "x");
+      assertEq(`${name} answers unanswerable, never empty`,
+        [r.state, r.state === "empty"], ["unanswerable", false]);
+      assertTrue(`${name} names its own reason`, /^(no_ref|no_merge_base)$/.test(r.reason), r.reason);
+    }
+
+    // A SHALLOW CLONE IS ITS OWN REASON. `shallow_history` rather than `no_merge_base`, because
+    // a truncated history and two unrelated refs send a reader to different places.
+    const shallow = join(fx.dir, "shallow");
+    execSync(`git clone -q --depth 1 file://${fx.origin} shallow`, { cwd: fx.dir, stdio: "ignore" });
+    execSync(`git fetch -q --depth 1 origin ${fx.stranded.branch}:refs/remotes/origin/${fx.stranded.branch}`,
+      { cwd: shallow, stdio: "ignore" });
+    const sr = JSON.parse(run(shallow,
+      `${POSIX_SH} -c '. ${lib}; claims_branch_diff_reading origin/main "origin/${fx.stranded.branch}" x'`).stdout);
+    assertEq("a shallow clone answers unanswerable with shallow_history",
+      [sr.state, sr.reason], ["unanswerable", "shallow_history"]);
+
+    // THE ONE WORD THE PROOF READS. `unanswerable` answers false, never true.
+    const word = (ref, arts) => run(fx.read,
+      `${POSIX_SH} -c '. ${lib}; claims_branch_diff_empty origin/main "${ref}" "${arts}"'`).stdout.trim();
+    assertEq("claims_branch_diff_empty: empty is true, non_empty and unanswerable are false",
+      [word(`origin/${fx.clean.branch}`, ".workaholic/tickets/todo/20260101000003-b.md"),
+        word(`origin/${fx.stranded.branch}`, ".workaholic/tickets/todo/20260101000001-t.md"),
+        word("origin/work-99999999-999999", "x")],
+      ["true", "false", "false"]);
+
+    // THE FILE LIST IS BOUNDED, and the count is the full one.
+    execSync(`git checkout -q ${fx.stranded.branch}`, { cwd: join(fx.dir, "work"), stdio: "ignore" });
+    for (let i = 0; i < 8; i++) writeFileSync(join(fx.dir, "work", `extra-${i}.txt`), `${i}\n`);
+    execSync('git add -A && git commit -qm "Add many files"'
+      + ` && git push -q origin ${fx.stranded.branch}`, { cwd: join(fx.dir, "work"), stdio: "ignore" });
+    execSync("git fetch -q origin", { cwd: fx.read, stdio: "ignore" });
+    const many = ask(`origin/${fx.stranded.branch}`, ".workaholic/tickets/todo/20260101000001-t.md");
+    assertEq("a branch differing in many files reports a bounded list and the full count",
+      [many.files.length, many.count], [5, 9]);
+  } finally {
+    rmSync(fx.dir, { recursive: true, force: true });
+  }
+}
+
 function testMergedClaimShapeAtBothGrains() {
   const fx = makeSquashMergedClaims();
   try {
@@ -20702,6 +20852,7 @@ const tests = [
   ["drive/read-base-checks.sh: green, red, or unanswerable", testReadBaseChecks],
   ["drive/attribute-base-red.sh: the merge that turned the base red", testAttributeBaseRed],
   ["drive claim protocol: the merged lookup degrades by name", testMergedLookupDegradesByName],
+  ["drive claim protocol: does a claim branch still hold content of its own", testBranchDiffReading],
   ["drive claim protocol: the merged-claim shape at both grains", testMergedClaimShapeAtBothGrains],
   ["drive claim protocol: a merged claim is never offered for resumption", testMergedClaimIsNeverResumable],
   ["drive claim protocol: a fresh claim takes a superseded claim's work", testFreshClaimOverSupersededClaim],
@@ -29247,7 +29398,20 @@ function testProofJudgementSplit() {
   assertTrue("the answer-outcome sub-table is in the one home too", answerAt > 0,
     "claims.md no longer carries the answer-outcome classification");
   const sourceTable = sourceTail.slice(0, answerAt);
-  const answerTable = sourceTail.slice(answerAt);
+
+  // A NINTH VOCABULARY IN THE SAME HOME (2026-08-31, mission
+  // `prove-a-claim-branch-is-empty-before-deleting-it`). `claims_branch_diff_reading` is keyed on
+  // whether a claim branch STILL HOLDS CONTENT OF ITS OWN — a different question again from
+  // whose business a claim is, and in particular from `superseded`, which asks whether the
+  // unit's TICKETS reached the base. Neither implies the other, which is the whole finding.
+  // Parsed apart for the reason the other eight are: it shares `unanswerable` with three of
+  // them, and folding them would report one rule as several copies of itself.
+  const DIFF_HEADING = "### Whether a claim branch still holds content of its own";
+  const diffAt = sourceTail.indexOf(DIFF_HEADING);
+  assertTrue("the branch-diff sub-table is in the one home too", diffAt > answerAt,
+    "claims.md no longer carries the branch-diff classification");
+  const answerTable = sourceTail.slice(answerAt, diffAt);
+  const diffTable = sourceTail.slice(diffAt);
 
   // ITS WORDS, from the reader's own `emit` calls rather than from a list this test carries.
   // `settled:*` are literal; `unreadable:<reason>` is normalised to its table form because the
@@ -29321,6 +29485,37 @@ function testProofJudgementSplit() {
   assertTrue("the outcome reply dedups on its own ledger line",
     ansStepSrc.includes("human-checkin-outcome-"),
     "the outcome reply has no ledger line, so a second tick would post it again");
+
+  // THE BRANCH-DIFF READING'S WORDS, from the library's own `_cbd_emit` call sites rather than
+  // from a list this test carries.
+  const diffEmitted = new Set();
+  for (const m of lib.matchAll(/_cbd_emit\s+(empty|non_empty|unanswerable)\b/g)) diffEmitted.add(m[1]);
+  assertEq("the branch-diff vocabulary parses out of the library",
+    [...diffEmitted].sort().join(","), "empty,non_empty,unanswerable");
+  const diffClassified = new Map();
+  for (const m of diffTable.matchAll(/^\|\s*`(empty|non_empty|unanswerable)`\s*\|\s*(?:\*\*)?(proof|judgement)(?:\*\*)?\s*\|/gm)) {
+    assertTrue(`the branch-diff sub-table classifies ${m[1]} exactly once`,
+      !diffClassified.has(m[1]), "a second row for the same word is two rules for one fact");
+    diffClassified.set(m[1], m[2]);
+  }
+  assertEq("every word the branch-diff reading emits is classified exactly once",
+    [...diffEmitted].filter((w) => !diffClassified.has(w)).sort().join(","), "");
+  assertEq("and the sub-table classifies no word the branch-diff reading never emits",
+    [...diffClassified.keys()].filter((w) => !diffEmitted.has(w)).sort().join(","), "");
+  // NO BRANCH-DIFF READING IS A PROOF. It is an INPUT to one — a branch can gain a commit
+  // between two reads, so every reading here can become false by looking again.
+  assertEq("no branch-diff reading is a proof — every one of them is a judgement",
+    [...diffClassified.entries()].filter(([, k]) => k === "proof").map(([w]) => w).sort().join(","), "");
+  // THE SUBTRACTION IS ARGUED WHERE THE WORDS ARE, and its cost is named rather than hidden:
+  // anything subtracted is content the loop is willing to delete unseen.
+  assertTrue("the one subtraction and its stated cost live beside the table",
+    /stamped artifacts/.test(diffTable) && /mission\.md/.test(diffTable),
+    "the subtraction is no longer justified where the reading is classified");
+  // AND `unanswerable` ANSWERS `false`, never `true` — the direction that keeps a degradation
+  // from licensing a delete. Read out of the library, not out of the prose.
+  assertTrue("claims_branch_diff_empty is true only for `empty`",
+    /claims_branch_diff_empty\(\)\s*\{\s*\n\s*case[^\n]*\n\s*\*'"state": "empty"'\*\)\s*printf 'true'/.test(lib),
+    "the one word the proof reads no longer defaults away from `true`");
 
   // ITS FOUR WORDS, from the reader's own `emit` calls rather than from a list this test carries.
   // `open:<age>` is normalised to its table form because the script interpolates the age; the

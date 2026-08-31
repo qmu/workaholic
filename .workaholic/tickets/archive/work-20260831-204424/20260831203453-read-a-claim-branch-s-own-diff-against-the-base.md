@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-31T20:34:53+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -77,3 +78,56 @@ that consumers can read without acting.
   legitimate retirement.
 - Bound the file list. A branch with a thousand differing files should report a count and the
   first few names, not a thousand names into a question.
+
+## Final Report
+
+Development completed as planned. The reading is added and nothing acts on it yet.
+
+`claims_branch_diff_reading <base> <branch-ref> <stamped-artifacts-csv>` in
+`plugins/workaholic/skills/drive/scripts/lib/claims.sh` answers one JSON line —
+`{"state", "reason", "files", "count"}` — with three states: `empty`, `non_empty` (the first
+`CLAIMS_BRANCH_DIFF_MAX`, default 5, paths named beside the full count) and `unanswerable`
+with its own reason (`no_ref` / `no_merge_base` / `shallow_history` / `diff_failed`). It exits
+0 in every case, makes no network call, and touches no ref, index or worktree.
+`claims_branch_diff_empty` is the one word the proof will read: `true` only for `empty`, so a
+degradation never licenses a delete.
+
+Two decisions the ticket asked for, both taken and both written into the header:
+
+- **The comparison is two diffs intersected, not one.** `merge-base..tip` alone answers
+  `non_empty` forever for a branch whose content the base has since taken — measured against
+  the suite's own squash-merged fixture, whose archive paths are the branch's own changes and
+  are also on the base. `base..tip` alone answers `non_empty` for every path the base moved on
+  without the branch. The intersection — paths this branch changed that still differ from the
+  base tip — is the question.
+- **Exactly one subtraction: the claim's own stamped artifacts**, the list the scan already
+  carries as the row's tenth field. Measured on the reproduction, every claim branch has a
+  non-empty raw diff because the claim commit writes `claim: <branch>` into its own artifacts,
+  so without this subtraction no branch would ever retire. Its cost is stated rather than
+  hidden: at the mission grain the stamped artifact is `mission.md`, which the archive test
+  does not prove is on the base, so a mission claim that also edited its own `mission.md` and
+  whose tickets landed elsewhere loses those edits — the racing-twin semantics `superseded`
+  already carries.
+
+Recorded in `drive/reference/claims.md` as a **ninth vocabulary** — a reading with its own
+sub-table, naming its consumers, adding no row to the verdict table — and pinned in
+`scripts/test-workflow-scripts.mjs` the way the eight before it are: the emitted set is parsed
+out of the library's own `_cbd_emit` call sites, the classified set out of the table, both
+directions are asserted, and no row may be called a proof.
+
+### Discovered Insights
+
+- **Insight**: the merge base is the wrong reference point for "does this branch hold work",
+  and the suite already contained the counter-example.
+  **Context**: `makeSquashMergedClaims` archives the batch's tickets on the branch and then
+  squashes the branch onto the base. Those archive paths are the branch's own changes against
+  the merge base, so a merge-base-only diff calls a legitimately delivered branch non-empty
+  and would have refused every squash-merged retirement — the exact class of branch the
+  `delete_branch_on_merge` + squash pairing produces here. The intersection form was found by
+  reading that fixture before writing the term, not by a test failing afterwards.
+- **Insight**: both path lists must cross the same escaping boundary.
+  **Context**: `awk -v` applies escape processing to its value, and git quotes unusual paths
+  with backslashes. Passing one list through `-v` and the other through stdin would transform
+  only one side, so a held file with a quoted path would drop out of the intersection — and
+  dropping out means reading `empty`, which is the direction that licenses a delete. Both
+  lists go in through `-v`.

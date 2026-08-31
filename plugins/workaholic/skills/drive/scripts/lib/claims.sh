@@ -731,6 +731,145 @@ claims_is_archived() {
     fi
 }
 
+# DOES THIS BRANCH STILL HOLD CONTENT THAT IS ON NO OTHER REF? $1 = base ref, $2 = the claim's
+# TIP ref, $3 = the claim's stamped artifact list (comma-separated, the scan's tenth field).
+# Echoes one JSON line and never fails:
+#   {"state": "empty"|"non_empty"|"unanswerable", "reason": "", "files": [...], "count": N}
+#
+# WHY IT EXISTS (2026-08-31, mission `prove-a-claim-branch-is-empty-before-deleting-it`).
+# `claims_superseded` proves *this unit's tickets are archived on the base* and its consumers
+# read that as *this branch can never land and holds no work*. Those are two questions and
+# neither implies the other: a ticket archived under ANOTHER branch's directory satisfies the
+# first while the claim branch still carries files that exist in no other ref. Measured on this
+# repository 2026-08-31: two branches carrying ~300 lines and a doc section reachable from
+# nothing else were reported finished and offered for deletion, and only a 403 refusing the
+# delete kept the work alive. This is the reading that asks the second question. Nothing acts on
+# it here — `claims_superseded` composes it, and the composition is where the proof narrows.
+#
+# TWO DIFFS, INTERSECTED, AND NEVER ANCESTRY. A squash-merged branch is never an ancestor of the
+# base, which is exactly why the existing proof is derived from the tree; an ancestry term here
+# would answer `non_empty` for every squash-merged branch and refuse every legitimate
+# retirement. Neither single diff answers the question either:
+#
+#   `merge-base..tip`  the branch's OWN paths — but compared against the base as it was, so a
+#                      branch whose content the base has since taken reads non-empty forever.
+#                      Measured against the suite's squash-merged fixture, which archives its
+#                      tickets on the branch: those archive paths are the branch's own changes
+#                      and are also on the base, and this diff cannot tell.
+#   `base..tip`        every path where the two trees differ — including everything the BASE
+#                      changed and this branch never touched, which is most of the repository
+#                      on any branch more than an hour old.
+#
+# The intersection is the question: **paths this branch changed, that still differ from the base
+# tip**. A path the branch introduced and the base has since taken (by a squash, by a twin) drops
+# out; a path the base moved on without the branch was never the branch's to hold.
+#
+# EXACTLY ONE SUBTRACTION, AND IT IS THE CLAIM'S OWN STAMPED ARTIFACTS. A claim writes
+# `claim: <branch>` into the artifacts it claims, so the claim commit itself changes the tree
+# and EVERY claim branch has a non-empty raw diff — measured on the reproduction, including the
+# branch that holds a claim commit and a heartbeat and nothing else. A heartbeat and a resume
+# commit are EMPTY commits and contribute nothing, so the stamped artifacts are the whole of it.
+# Anything subtracted here is content the loop is willing to delete unseen, so the list is the
+# one the scan already carries rather than a pattern: it is short, explicit, and every path in
+# it is one the archive test has already proved reached the base.
+#
+# THE STATED COST OF THAT SUBTRACTION. At the mission grain the stamped artifact is
+# `mission.md`, which the archive test does NOT prove is on the base — it proves the mission's
+# TICKETS are. So a mission claim that also edited its own `mission.md` (a `## Changelog` line,
+# an acceptance tick) and whose tickets landed through another branch loses those edits when the
+# branch retires. That is the racing-twin semantics `superseded` already has, and it is named
+# here rather than hidden: the alternative — refusing every mission retirement — would leave the
+# branches this mission exists to bound standing forever.
+#
+# `unanswerable` IS ITS OWN STATE AND NEVER READS AS `empty`, on `claims_merged_state`'s
+# precedent: a wrong `empty` licenses a delete, a wrong `non_empty` only leaves a branch
+# standing, so a reading we could not make is never promoted to the one that permits the act.
+#
+# IT MAKES NO NETWORK CALL AND TOUCHES NO REF, INDEX OR WORKTREE — one `merge-base` plus one
+# `diff --name-only` against refs the caller has already fetched, `claim-mergeability.sh`'s own
+# property. Measured on this repository (1156 archived ticket paths): ~8.3 ms per claim against
+# the archive listing's ~4.0 ms, so it can afford to run per row; it is composed LAST anyway, so
+# it only runs where every cheaper condition already said `true`.
+#
+# THE FILE LIST IS BOUNDED. A branch differing in a thousand files reports the first few names
+# and the full count, never a thousand names into a question a person has to read.
+CLAIMS_BRANCH_DIFF_MAX=${CLAIMS_BRANCH_DIFF_MAX:-5}
+
+claims_branch_diff_reading() {
+    _cbd_base="$1"
+    _cbd_ref="${2:-}"
+    _cbd_arts="${3:-}"
+
+    _cbd_emit() { # $1 state, $2 reason, $3 files-json, $4 count
+        printf '{"state": "%s", "reason": "%s", "files": [%s], "count": %s}' \
+            "$1" "${2:-}" "${3:-}" "${4:-0}"
+    }
+
+    [ -n "$_cbd_ref" ] && [ -n "$_cbd_base" ] || {
+        _cbd_emit unanswerable no_ref "" 0
+        return 0
+    }
+
+    _cbd_mb=$(git merge-base "$_cbd_base" "$_cbd_ref" 2>/dev/null || true)
+    if [ -z "$_cbd_mb" ]; then
+        # A truncated clone cannot see the merge base, and that is a different fact from two
+        # refs with no common ancestor. Both are `unanswerable`; the reason says which.
+        if [ "$(claims_shallow)" = "true" ]; then
+            _cbd_emit unanswerable shallow_history "" 0
+        else
+            _cbd_emit unanswerable no_merge_base "" 0
+        fi
+        return 0
+    fi
+
+    _cbd_own=$(git diff --name-only "$_cbd_mb" "$_cbd_ref" 2>/dev/null) || {
+        _cbd_emit unanswerable diff_failed "" 0
+        return 0
+    }
+    if [ -z "$_cbd_own" ]; then
+        _cbd_emit empty "" "" 0
+        return 0
+    fi
+    _cbd_differs=$(git diff --name-only "$_cbd_base" "$_cbd_ref" 2>/dev/null) || {
+        _cbd_emit unanswerable diff_failed "" 0
+        return 0
+    }
+
+    # The intersection, minus the claim's own stamped artifacts, by exact path. BOTH lists go in
+    # through `-v` rather than one through stdin: awk applies escape processing to `-v` values,
+    # so a path git quoted would be transformed on one side only and the intersection would drop
+    # it — which is the direction that turns a held file into an `empty` reading.
+    _cbd_held=$(awk -v own="$_cbd_own" -v differs="$_cbd_differs" -v arts="$_cbd_arts" '
+        BEGIN {
+            n = split(own, o, "\n");  for (i = 1; i <= n; i++) if (o[i] != "") mine[o[i]] = 1
+            m = split(arts, a, ",");  for (i = 1; i <= m; i++) if (a[i] != "") skip[a[i]] = 1
+            k = split(differs, d, "\n")
+            for (i = 1; i <= k; i++) if (d[i] != "" && (d[i] in mine) && !(d[i] in skip)) print d[i]
+        }')
+
+    if [ -z "$_cbd_held" ]; then
+        _cbd_emit empty "" "" 0
+        return 0
+    fi
+
+    _cbd_count=$(printf '%s\n' "$_cbd_held" | awk 'NF' | wc -l | tr -d ' ')
+    _cbd_files=$(printf '%s\n' "$_cbd_held" | awk -v max="$CLAIMS_BRANCH_DIFF_MAX" '
+        NF && shown < max {
+            gsub(/\\/, "\\\\"); gsub(/"/, "\\\"")
+            printf "%s\"%s\"", sep, $0; sep = ", "; shown++
+        }')
+    _cbd_emit non_empty "" "$_cbd_files" "$_cbd_count"
+}
+
+# The reading as the one word `claims_superseded` needs: `true` only for `empty`. Same arguments.
+# An `unanswerable` reading answers `false` — a degradation must never license a delete.
+claims_branch_diff_empty() {
+    case "$(claims_branch_diff_reading "$@")" in
+        *'"state": "empty"'*) printf 'true' ;;
+        *) printf 'false' ;;
+    esac
+}
+
 # HAS EVERY TICKET OF THIS MISSION UNIT LANDED ON THE BASE? $1 = base ref, $2 = the claim's
 # TIP ref, $3 = the `mission.md` artifact path. Echoes true|false, never fails.
 #

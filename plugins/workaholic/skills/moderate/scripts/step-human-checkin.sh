@@ -95,10 +95,24 @@
 #   no_candidates    the genuinely quiet hour: nothing is waiting.
 #
 # WHETHER THE TICK COULD DELIVER IS ASKED OF THE GATE, NOT RE-DERIVED HERE. The step probes
-# `ask-question.sh` with a key unique to the tick and reads its refusal, so the day's
-# arithmetic keeps ONE home and this step cannot disagree with the gate the agent is about to
-# run. The probe writes nothing — recording an ask is `--record-ask`'s separate mode — so the
-# ledger is untouched, and `ask-question.sh` is not modified by any of this.
+# `ask-question.sh` and reads its refusal, so the day's arithmetic keeps ONE home and this
+# step cannot disagree with the gate the agent is about to run. The probe writes nothing —
+# recording an ask is `--record-ask`'s separate mode — so the ledger is untouched, and
+# `ask-question.sh` is not modified by any of this.
+#
+# AND IT IS ASKED PER HELD CANDIDATE, NOT ONCE (2026-08-31, mission
+# `say-when-the-check-in-queue-is-stuck-and-bound-the-hold`). The probe used a key unique to
+# the tick and kept only the aggregate, so `all_held` was ONE token over four different
+# refusals — `quiet_hours`, `off_day`, `tick_cap` and `day_cap` — which call for four
+# different acts: wait until morning, wait until Monday, wait an hour, the budget is spent.
+# Each entry of `held` now carries the gate's own word for THAT key, VERBATIM: a normalised
+# or re-worded refusal sends a reader to a string no script printed. `all_held` stays the
+# step's summary word — this adds the detail beneath it rather than replacing it.
+#
+# TWO OF THE FOUR WORDS ARE TICK-WIDE (`quiet_hours`, `off_day`) and will be identical on
+# every entry. That is the true answer and is reported rather than collapsed, because the cap
+# words are not tick-wide and one shape has to cover both. The cost is one local script call
+# per held key, over the set the drain already orders.
 #
 # WHAT `delivered` HONESTLY IS. The agent asks and records under `human-checkin-ask-<slug>`
 # AFTER `run.sh` returns, so on this step's own pass `delivered` counts the ask lines already
@@ -143,7 +157,8 @@
 #
 # Usage: step-human-checkin.sh --tick <id> --root <repo-root> [--hour <0-23>] [--weekday <1-7>]
 # Output: one JSON line
-#   {"step","status","reason","summary","event","needs_agent":[...],"held":[...],
+#   {"step","status","reason","summary","event","needs_agent":[...],
+#    "held":[{"key":"<slug>","reason":"<the gate's own refusal word>"},...],
 #    "held_count":n,"held_oldest_day":"YYYY-MM-DD"|null,"held_days":n|null,
 #    "delivered":n,"candidates":n,"delivery":"<reason word>","quiet":bool}
 
@@ -253,6 +268,11 @@ held=''
 held_count=0
 held_ever=0
 held_oldest_day=''
+# What the gate said, across the held set: whether anything could be asked at all, and which
+# refusal it gave. Collected here rather than probed a second time below.
+gate_can_ask=false
+gate_day_cap=false
+gate_hold=false
 if [ -n "$held_rows" ]; then
     # `day tick key` per held entry, straight out of the reader's own fields — no second
     # ledger, and no notion of age this step invents for itself.
@@ -280,7 +300,22 @@ if [ -n "$held_rows" ]; then
         case "$asked" in ''|*[!0-9]*) asked=0 ;; esac
         [ "$asked" -eq 0 ] || continue
         held_count=$((held_count + 1))
-        held="${held:+${held}, }\"$(json_escape "$k")\""
+        # WHY THIS ONE IS HELD, in the gate's own word. The probe is read-only — recording an
+        # ask is `--record-ask`'s separate mode — so nothing is written and no cap moves.
+        hold_reason=''
+        if [ -f "$GATE" ]; then
+            gout=$(sh "$GATE" --root "$ROOT" --tick "$TICK" --key "$k" \
+                     --hour "$HOUR" --weekday "$WEEKDAY" 2>/dev/null || true)
+            case "$gout" in
+                *'"ask": true'*) gate_can_ask=true ;;
+                *) hold_reason=$(printf '%s' "$gout" | sed -n 's/.*"reason": "\([a-z_]*\)".*/\1/p' | head -1) ;;
+            esac
+            case "$hold_reason" in
+                day_cap) gate_day_cap=true ;;
+                quiet_hours|off_day|tick_cap) gate_hold=true ;;
+            esac
+        fi
+        held="${held:+${held}, }{\"key\": \"$(json_escape "$k")\", \"reason\": \"$(json_escape "$hold_reason")\"}"
         # The MINIMUM over the keys still held — an asked key has left the arrears and must
         # not go on ageing them. `YYYY-MM-DD` compares correctly as a string.
         if [ -z "$held_oldest_day" ] || [ "$day" \< "$held_oldest_day" ]; then
@@ -329,30 +364,17 @@ if [ "$quiet" = "true" ]; then
 fi
 
 # --- Could this tick deliver at all? --------------------------------------------------
-# Asked of the gate rather than re-derived here, so the day's arithmetic keeps ONE home and
-# this step cannot disagree with the gate the agent is about to run. The probe key is unique
-# to the tick and is never recorded, so nothing is written; a gate that cannot be read leaves
-# the day count unbounded as far as this step can tell, which is `cap_unbounded` and never
-# `cap_spent`.
+# Read off the per-candidate probes above rather than asked a second time: one candidate the
+# gate would allow means the tick has not failed, it has not run yet. A gate that could not be
+# read leaves the day count unbounded as far as this step can tell, which is `cap_unbounded`
+# and never `cap_spent` — the split exists because one says the budget worked and the other
+# says the loop has stopped.
 if [ "$delivered" -eq 0 ] && [ "$held_count" -gt 0 ]; then
-    probe=''
-    if [ -f "$GATE" ]; then
-        pout=$(sh "$GATE" --root "$ROOT" --tick "$TICK" --key "human-checkin:delivery-probe:${TICK}" \
-                 --hour "$HOUR" --weekday "$WEEKDAY" 2>/dev/null || true)
-        case "$pout" in
-            *'"ask": true'*)             probe=can_ask ;;
-            *'"reason": "day_cap"'*)     probe=day_cap ;;
-            *'"reason": "tick_cap"'*)    probe=held ;;
-            *'"reason": "quiet_hours"'*) probe=held ;;
-            *'"reason": "off_day"'*)     probe=held ;;
-        esac
+    if   [ "$gate_can_ask" = "true" ]; then delivery=''
+    elif [ "$gate_day_cap" = "true" ]; then delivery=cap_spent
+    elif [ "$gate_hold" = "true" ];    then delivery=all_held
+    else                                    delivery=cap_unbounded
     fi
-    case "$probe" in
-        can_ask) delivery='' ;;
-        day_cap) delivery=cap_spent ;;
-        held)    delivery=all_held ;;
-        *)       delivery=cap_unbounded ;;
-    esac
 fi
 
 # THE EVENT: only a tick that was eligible to ask and structurally could not reach anybody.
@@ -366,7 +388,7 @@ esac
 
 # The instruction is deliberately a single entry: the questions themselves come from
 # the tick's own steps, which only the agent has in hand.
-NEEDS="{\"action\": \"ask_if_worth_asking\", \"bound\": \"apply the Recommended-label test first: an item you could honestly mark (Recommended) is decided and recorded, never asked\", \"gate\": \"run ask-question.sh --tick ${TICK} --key <content-key> --to <email> for each; it answers ask true/false and gives the log_step to record under\", \"post\": \"render the tick's root with render-tick-post.sh; when it says post, post that root and then one reply per question INSIDE it, each addressed with a resolved <@U…> — never a bare @name, never a Claude mention token\", \"order\": \"the held list is ordered oldest-held first; take it in that order\", \"held\": [${held}]}"
+NEEDS="{\"action\": \"ask_if_worth_asking\", \"bound\": \"apply the Recommended-label test first: an item you could honestly mark (Recommended) is decided and recorded, never asked\", \"gate\": \"run ask-question.sh --tick ${TICK} --key <content-key> --to <email> for each; it answers ask true/false and gives the log_step to record under\", \"post\": \"render the tick's root with render-tick-post.sh; when it says post, post that root and then one reply per question INSIDE it, each addressed with a resolved <@U…> — never a bare @name, never a Claude mention token\", \"order\": \"the held list is ordered oldest-held first; take it in that order, and each entry's reason is the gate's own refusal word for that key\", \"held\": [${held}]}"
 
 # THE SUMMARY IS A FUNCTION OF THE READING ALONE. No hour, no timestamp, nothing that moves
 # by construction — so the root's hour-to-hour diff suppresses an unchanged reason rather

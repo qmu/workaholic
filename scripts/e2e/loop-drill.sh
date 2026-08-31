@@ -6864,7 +6864,18 @@ cmd_verify_checkin_delivery() {
     _when="--hour 14 --weekday 3"
     _append() { sh "$_log" --root "$_fx" --tick "$1" --step "$2" --status "$3" --summary "$4" >/dev/null 2>&1 || true; }
     _reason() { printf '%s' "$1" | sed -n 's/.*"reason": *"\([a-z_]*\)".*/\1/p' | head -1; }
-    _held() { printf '%s' "$1" | sed -n 's/.*"held": \[\([^]]*\)\].*/\1/p' | tr -d '" ' ; }
+    # Each held entry is `{"key": …, "reason": …}` — the gate's own refusal word per key.
+    # The keys are what the drain order is asserted on; the words have their own rows below.
+    _held() {
+        printf '%s' "$1" | sed -n 's/.*"held": \[\([^]]*\)\].*/\1/p' |
+            tr '{' '\n' | sed -n 's/.*"key": *"\([^"]*\)".*/\1/p' |
+            tr '\n' ',' | sed 's/,$//'
+    }
+    _held_reasons() {
+        printf '%s' "$1" | sed -n 's/.*"held": \[\([^]]*\)\].*/\1/p' |
+            tr '{' '\n' | sed -n 's/.*"reason": *"\([a-z_]*\)".*/\1/p' |
+            tr '\n' ',' | sed 's/,$//'
+    }
 
     # 1. THE FIXTURE: `max_per_day` asks on EARLIER days, holds first recorded on three
     #    different days, and nothing of either on the tick's own day.

@@ -124,6 +124,7 @@ json_escape() {
 # absent. Filled once, below, and read nowhere else.
 IMPAIRED=''
 IMPAIRED_COUNT=0
+IMPAIRMENT_CHANGED=0
 TAB=$(printf '\t')
 
 emit() {
@@ -184,6 +185,7 @@ printf '%s\n' "$INPUT" \
 # `STEPS` ORDER COMES FOR FREE: `run.sh` walks `STEPS` and emits its rows in that order, so
 # preserving the input order IS that order. Re-listing the steps here would be a second copy
 # of a list this script has no business owning.
+: > "${TMP}/impaired"
 while IFS="$TAB" read -r step status reason || [ -n "$step" ]; do
     [ -n "$step" ] || continue
     case "$status" in
@@ -237,6 +239,52 @@ stabilize() {
         -e 's/\b[0-9a-f]{7,40}\b/<sha>/g' \
         -e 's/\b[0-9]{2}:[0-9]{2}(:[0-9]{2})?\b/<time>/g'
 }
+
+# ═══ DID THE IMPAIRMENT CHANGE SINCE THE PREVIOUS TICK? ═══════════════════════════
+#
+# The clause above is said on EVERY root, until it clears. This is the separate question of
+# whether the impairment may EARN a root on its own, and it is answered by a diff for exactly
+# the reason the change diff exists: a standing impairment opening a root every hour for days
+# is what `📦 Release Preparation` was retired for. Appearing and clearing break silence;
+# persisting does not.
+#
+# THE COMPARISON IS A SET, NOT A COUNT. Six steps degraded for one cause and six for another
+# are different facts and a count calls them the same. Both sides are sorted, so the answer
+# does not depend on row order.
+#
+# IT COMPARES `(step, status, stabilized summary)`, NOT `(step, status, reason)`, AND THE
+# REASON IS MECHANICAL: `reason` NEVER REACHES THE TICK LOG. `log-append.sh` writes
+# `- <step>: <status> — <summary>` and nothing else, so the previous tick's reason is not
+# recoverable from the only cross-tick memory there is — and a new store for it is exactly
+# what this must not add. The log's `summary` is the richest per-step text the previous tick
+# left, it is already what the change diff compares, and it moves when the cause moves. The
+# resulting set is strictly FINER than `(step, status)` alone, so this errs toward opening a
+# root rather than toward silence, which is the safe direction for a reading whose whole
+# purpose is that an impairment must never look like a quiet hour.
+#
+# `stabilize` is applied to both sides for its own reason: two steps embed a timestamp or a
+# sha in their summary and would otherwise differ on every tick by construction, which would
+# make this gate fire hourly and reproduce the defect it exists to avoid.
+: > "${TMP}/sig-now"
+while IFS="$TAB" read -r step status reason || [ -n "$step" ]; do
+    [ -n "$step" ] || continue
+    sum=$(awk -F"$TAB" -v s="$step" '$1 == s { print $2; exit }' "${TMP}/now")
+    printf '%s\t%s\t%s\n' "$step" "$status" "$(stabilize "$sum")"
+done < "${TMP}/impaired" | sort > "${TMP}/sig-now"
+
+printf '%s\n' "$LOG" | tr '{' '\n' \
+  | sed -n "s/.*\"tick\": *\"${PREV}\".*\"step\": *\"\([^\"]*\)\".*\"status\": *\"\([^\"]*\)\".*\"summary\": *\"\([^\"]*\)\".*/\1\t\2\t\3/p" > "${TMP}/prev-rows"
+: > "${TMP}/sig-prev"
+while IFS="$TAB" read -r step status summary || [ -n "$step" ]; do
+    [ -n "$step" ] || continue
+    case "$status" in
+        degraded|blocked) ;;
+        *) continue ;;
+    esac
+    printf '%s\t%s\t%s\n' "$step" "$status" "$(stabilize "$summary")"
+done < "${TMP}/prev-rows" | sort > "${TMP}/sig-prev"
+
+cmp -s "${TMP}/sig-now" "${TMP}/sig-prev" || IMPAIRMENT_CHANGED=1
 
 changes=''
 count=0
@@ -314,7 +362,19 @@ esac
 # does only on a delivery failure, and only when that reading CHANGED since the previous tick
 # (`delivery_failure` is set inside the diff loop). It stops entirely once the channel is
 # delivering, which is what a status line addressed to nobody never did.
-if [ "$QUESTIONS" -eq 0 ] && [ "$digest_ready" -eq 0 ] && [ "$delivery_failure" -eq 0 ]; then
+# A CHANGED IMPAIRMENT IS THE FOURTH GATE (2026-08-31, mission
+# `name-the-steps-a-tick-could-not-read`), added beside the digest and the delivery failure on
+# exactly their precedent: the question gate's own expression is untouched and a fourth
+# condition is OR'd next to it. The worst case measured is the one where NOTHING posts — with
+# no question, no digest and no delivery failure, a tick with six blind steps emitted
+# `post: false` and was byte-identical, to the operator, to a quiet hour. That is the silence
+# they found four days later by asking.
+#
+# THE LINE IS OUTSIDE THE DIFF AND THE GATE IS INSIDE IT, which is not a contradiction: the
+# impairment must be STATED on every root, and it must EARN one only when it moved. A standing
+# impairment therefore appears on every root the tick posts for any reason, and opens no root
+# of its own after the first — which is the property `📦 Release Preparation` lacked.
+if [ "$QUESTIONS" -eq 0 ] && [ "$digest_ready" -eq 0 ] && [ "$delivery_failure" -eq 0 ] && [ "$IMPAIRMENT_CHANGED" -eq 0 ]; then
     if [ "$count" -eq 0 ]; then
         emit false idle "" 0 "$PREV" ""
     fi
@@ -367,8 +427,25 @@ if [ "$IMPAIRED_COUNT" -gt 0 ]; then
         IMPAIRED_BODY="${IMPAIRED_BODY}and $((IMPAIRED_COUNT - IMPAIRED_MAX)) more
 "
     fi
+elif [ "$IMPAIRMENT_CHANGED" -eq 1 ]; then
+    # THE CLEARED STATE OF THE SAME CLAUSE, not a second wording. A root earned by an
+    # impairment that CLEARED would otherwise render nothing about why it posted — a head, no
+    # body, and exactly the content-free status line this repository has retired twice. The
+    # clause has two states and this is the other one; it rides once, because the next tick's
+    # sets match and the gate closes.
+    IMPAIRED_BODY="✅ every step read this tick
+"
+fi
+
+# A ROOT EARNED BY THE IMPAIRMENT ALONE SAYS SO IN ITS `reason`, so a machine reading this
+# JSON can tell it from one a question earned. `root_text` is unchanged either way: the clause
+# above is what carries the finding, and a second wording for the same fact is what this file
+# refuses everywhere else.
+READY_REASON=ready
+if [ "$QUESTIONS" -eq 0 ] && [ "$digest_ready" -eq 0 ] && [ "$delivery_failure" -eq 0 ]; then
+    READY_REASON=ready_impairment
 fi
 
 HEAD="🔎 Moderation - ${count} change(s), ${QUESTIONS} question(s)${IMPAIRED_HEAD}"
 BODY=$(printf '%s%s' "$lines" "$IMPAIRED_BODY")
-emit true ready "$changes" "$count" "$PREV" "$(printf '%s\n%s' "$HEAD" "$BODY")"
+emit true "$READY_REASON" "$changes" "$count" "$PREV" "$(printf '%s\n%s' "$HEAD" "$BODY")"

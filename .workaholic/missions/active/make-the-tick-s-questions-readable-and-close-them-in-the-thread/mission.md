@@ -42,7 +42,7 @@ recorded and what came of it — once.
 
 ## Acceptance
 
-- [ ] Every question leads with the plain fact and the act it asks for, inside the
+- [x] Every question leads with the plain fact and the act it asks for, inside the
       existing one-sentence bound, with no key, cap or hold moved. (#20260831200959-rewrite-each-step-s-question-to-that-contract.md)
 - [ ] Once the loop has acted on an answer, one reply in that question's thread
       carries the answer as recorded and its outcome, never load-bearing. (#20260831200959-reply-the-answer-and-its-outcome-into-the-thread.md)
@@ -52,3 +52,4 @@ recorded and what came of it — once.
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-31 — ticket archived — 20260831200916-state-what-a-tick-s-question-must-carry.md
+- 2026-08-31 — ticket archived — 20260831200959-rewrite-each-step-s-question-to-that-contract.md

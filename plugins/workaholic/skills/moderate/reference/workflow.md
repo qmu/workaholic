@@ -208,6 +208,15 @@ is only what a line is allowed to prove.
   shared key would let either dedup the other away.
 - **Aborts**: `gh_unavailable`. Already-posted state is `ok`/`already_filed`, not a second post.
 
+**The question, under the composition contract** (2026-08-31, mission
+`make-the-tick-s-questions-readable-and-close-them-in-the-thread`). This step is the one that
+already met it, and the reason is worth naming: `headline` is derived from the *reason* rather
+than from the identifier, so the post opens `conflicting with main` and not `#642`. Heading —
+the `headline` above, then the pull requests it covers. Body — the act that row's `blocked_by`
+already names (resolve the conflict / review it / fix the check / mark it ready / update it /
+re-read). `stuck:<digest>` is a **dedup key and never a heading**: the contract's clause 3 in
+its oldest form.
+
 ## 7. `doc-drift` — the documentation against the current concept
 
 - **Reads**: `story/scripts/doc-drift.sh` (structural presence changes versus the documents that
@@ -296,6 +305,15 @@ opposite reason: it says nothing precisely when the direction is gated.
 
 A survey that refuses, or a missing script, is `degraded` with the reason named — never an `ok`
 step that found nothing.
+
+**The question, under the composition contract** (2026-08-31, mission
+`make-the-tick-s-questions-readable-and-close-them-in-the-thread`; the contract is
+`workaholic:notify`'s, beside the `🙋 <@U…>` shape). Keyed `strategy-pace:<slug>`.
+
+- **Heading** — *nothing has landed on `<title>` for as long as it has left*, then the slug, the
+  declared stage and `days_to_target`. Never `strategy-pace:<slug>` or the bare word `late`:
+  `late` is this repository's derivation, and its plain fact is the sentence above.
+- **Body** — the one act: *re-plan it, re-date it, or say it is fine as it is.*
 
 ## 11. `stalled-units` — what is claimed, and how long it has not moved
 
@@ -399,6 +417,20 @@ with its reason.
 It posts nothing itself and touches no claim: the post is step 13's, through the `🙋 <@U…>` shape
 that already names a person, rides the tick's own thread, carries the session URL and is asked
 once.
+
+**The question, under the composition contract** (2026-08-31, mission
+`make-the-tick-s-questions-readable-and-close-them-in-the-thread`). Keyed
+`stalled-unit:<unit>`, unchanged.
+
+- **Heading** — *nothing has moved on the work claimed for `<unit>` in `<n>` hours*, then the
+  unit, its branch, and the two ages as **two facts with their sources** (the claim tip's
+  staleness; asked about since `<first_seen>`, `<n>` ticks). The measured pre-contract wording —
+  `a claimed unit has not moved for a day or more`, with the unit id leading — named the
+  mechanism and not the thing: a reader had to know what a claim is before the sentence meant
+  anything.
+- **Body** — the one act: *pick it up again, or release the claim so somebody else can.*
+- **Never alone**: `queue_drained`, `parked_with_pr`, `report_incomplete`. Each may ride the
+  heading beside the plain fact it stands for, and none may stand in for it.
 
 ## 12. `closable-missions` — finished, and still open
 
@@ -953,6 +985,31 @@ ruling answers. The read is `moderate/scripts/ruling-suppression.sh` — one rea
 (`ci-retirement-turn.sh`'s discipline). The suppression is **derived, stored nowhere**: merging
 or closing the ruling makes the question reachable again with no state.
 
+**The seven questions, under the composition contract** (2026-08-31, mission
+`make-the-tick-s-questions-readable-and-close-them-in-the-thread`). Every key, the asked-once
+gate, the addressee, the per-tick cap and the precedence are **byte-identical**; only what the
+sentences lead with moves. The stage, the residue, the leaving, the days left and the date keep
+riding the **heading**, exactly as they did — the body's one sentence is reserved for the act.
+
+| Key | Heading leads with | Body asks for |
+| --- | ------------------ | ------------- |
+| `direction-arrived:<slug>` | *everything the loop can attribute to `<title>` has landed* — then the slug, the declared stage, what landed and when, and the residue by mission slug | *is this direction finished — close it, or name what is still missing?* |
+| `direction-cutover:<slug>` | *`<title>`'s work is all in and it is still declared 進行中* — then the slug, what landed, the residue | *can it cut over now, or is something still holding it?* |
+| `direction-settled:<slug>` | *improving `<title>` has gone quiet* — then the slug, 改良中, the window nothing landed in | *is this observation now, or is there still work to do?* |
+| `direction-overdue:<slug>` | *`<title>` went past its date on `<target_date>`* — then the slug, the stage, the leaving | *re-date it, close it, or say it is still running.* |
+| `direction-expiring:<slug>` | *`<title>` reaches its date in `<n>` days, on `<target_date>`* — then the slug, the stage, the leaving | *is the remaining work going to land by then?* |
+| `direction-dormant:<slug>` | *nothing has answered `<title>` since it was set* — then the slug, the stage, the date | *is it still the direction, or should it be re-dated or closed?* |
+| `direction-last:<slug>` | *`<title>` is the last live direction, and the loop originates nothing after it* — then the slug, the stage, the leaving | *close it with a successor, or keep it open?* |
+| `direction-none` | *no live direction remains, so nothing is proposing work* — addressed to nobody, because no owner is left to name | *set one, or leave the loop reactive.* |
+
+**What is refused here**: leading with `arrived`, `dormant`, `quiescent`, `expiring` or
+`overdue`. Those are the loop's readings, not the operator's facts — `quiescent` in particular
+means *cited, landed, nothing waiting, no date term*, which is four conditions no reader can be
+expected to reconstruct from one word. Each may ride the heading **beside** the plain fact; none
+may replace it. A heading is also never *still declared 進行中* for a direction carrying no
+`stage:` line: absent means 進行中 for every reader in the layer and is the wrong thing to quote
+back, which is why only a **declared** stage refines a question.
+
 ## 16. `unanswered-asks` — a message on the channel that nobody has answered
 
 ```bash
@@ -1052,6 +1109,19 @@ question, and a question is already a reply inside that root.
 about it inside its root; a second status surface would be the line addressed to nobody this
 repository has retired twice.
 
+**The two questions, under the composition contract** (2026-08-31, mission
+`make-the-tick-s-questions-readable-and-close-them-in-the-thread`). Keys unchanged.
+
+- **`unanswered-ask:<channel>:<ts>`** — heading: *nobody has answered `<who>`'s message in
+  `#<channel>`*, then when it was written and its first words; the permalink carries the rest.
+  Body: *answer it in the thread, or say it needs nothing.* The channel-and-timestamp pair is a
+  coordinate, never a heading.
+- **`inbound-channel-unreadable:<channel>`** — heading: *the loop could not read `#<channel>`,
+  so nothing written there is reaching it*, then the reason the read gave. Body: *check the
+  connector, the token or the channel name.* It says plainly that the read **did not happen**,
+  never that the channel does not exist: sending somebody to create a channel that already
+  exists is the failure this wording exists to avoid.
+
 ## 17. `undrivable-units` — work the loop wrote and cannot drive
 
 ```sh
@@ -1136,6 +1206,21 @@ subject is exactly the one that most needs a person. The read is
 holds nothing; and `ask-question.sh`, the key, the asked-once gate, the caps and the holds are
 byte-identical.
 
+**The question, under the composition contract** (2026-08-31, mission
+`make-the-tick-s-questions-readable-and-close-them-in-the-thread`). Keyed
+`undrivable-unit:<artifact path>`, unchanged — and the key is exactly the identifier the
+contract forbids leading with, which is what made this step the clearest case for the rule.
+
+- **Heading** — *`<the artifact's title>` is assigned to an address the identity mapping does
+  not name, so no runner can pick it up*, then the address, the path, and *asked about since
+  `<first_seen>`, `<n>` ticks* where the age is readable.
+- **Body** — the one act: *add `<login>=<address>` to `.claude/git-identities`, or reassign the
+  work.* The repair is one line and the question says which line.
+- **An unjudged candidate says so** — *the loop could not judge which account this belongs to* —
+  because that is the fact that makes it a person's, and it is the plain-fact form of
+  `unjudged: true`.
+- **Never alone**: `owner_unresolved`, `identity_unresolved`, `undrivable`.
+
 ## 18. `undelivered-units` — a unit the loop finished and could not deliver
 
 ```sh
@@ -1203,6 +1288,19 @@ the asked-once gate, the per-tick cap, the quiet hours and the working-day hold 
 unchanged and no second ledger exists. A degraded read (`no_claim_reader`, `claims_unreadable`,
 `claims_unparseable`, `origin_unreachable`, `shallow_history`) is named and asks nothing — a scan
 that could not reach the remote has not found *nothing undelivered*, it has found nothing at all.
+
+**The question, under the composition contract** (2026-08-31, mission
+`make-the-tick-s-questions-readable-and-close-them-in-the-thread`). Keyed
+`undelivered-unit:<unit>`, unchanged.
+
+- **Heading** — *the loop finished `<unit>` and could not merge it*, then the pull request, its
+  age, and the two ages as **two facts with their sources** (the pull request's own
+  `created_at`; asked about since `<first_seen>`, `<n>` ticks).
+- **Body** — the one act: *merge it, or say what should happen to it.*
+- **Never alone**: `report_undelivered` and the recorded `merge_outcome` word
+  (`session_type_cannot_merge`, `merge_not_allowed`, `head_moved`, …). The refusal word is worth
+  carrying because it says *where to look* — but beside *the merge was refused*, never instead
+  of it, since none of those words means anything to a reader outside this repository.
 
 ## 19. `retire-claims` — a claim proved empty, taken off the table
 
@@ -1452,6 +1550,20 @@ done is undone, and that the summary is stable across two ticks. Its breaker row
 that was **retired** and one **refused on another act** in the same tick, so a candidate set
 widened either way fails the drill.
 
+**The question, under the composition contract** (2026-08-31, mission
+`make-the-tick-s-questions-readable-and-close-them-in-the-thread`). Keyed
+`retire-blocked:<unit>:<refusal word>`, unchanged — the word stays **in the key**, which is
+where it belongs, and never leads the heading.
+
+- **Heading** — *`<unit>`'s work is all on `main` and its branch could not be deleted*, then the
+  **exact branch** left on origin, the refusal, the acts that already stand, and *asked about
+  since `<first_seen>`, `<n>` ticks*. A question that does not name the branch does not say what
+  to delete, so that detail rides the heading and is not compressed away.
+- **Body** — the one act: *delete `<branch>` on origin.*
+- **Never alone**: `superseded`, `branch_delete_failed`, `gh_unavailable`. `superseded` in
+  particular reads as a problem and means the opposite — the content already landed — so its
+  plain fact leads and the word rides behind it.
+
 ## 20. `base-health` — did the base survive what the loop merged?
 
 ```sh
@@ -1521,6 +1633,18 @@ the merge could not be attributed. **It is not a second posting gate**: the root
 tick has at least one question, and on a red tick this step has already supplied one. The base URL
 is derived from the **local** remote (`step-direction-health.sh`'s precedent) — no network call —
 and an absent remote degrades to the bare short sha rather than to a broken link.
+
+**The question, under the composition contract** (2026-08-31, mission
+`make-the-tick-s-questions-readable-and-close-them-in-the-thread`). Keyed `base-red:<commit>`,
+unchanged — a commit sha is the least readable identifier the tick holds, and it leads nothing.
+
+- **Heading** — *`main` is failing its own checks*, then the failing check names, the merge the
+  walk attributed (its pull request and title) and the commit.
+- **Body** — the one act: *fix it or say it is expected.* Never *re-run it*: a re-run is an act,
+  and this step takes none.
+- **`unattributable` still asks, and says so in plain words** — *`main` is failing and the walk
+  could not name the merge that broke it*, keyed on the tip, so nobody is sent after a merge the
+  step did not identify.
 
 ## 23. `thread-reconcile` — a finished item whose thread still calls it in flight
 
@@ -2038,6 +2162,17 @@ same verdict out of its own candidates and counts it instead, so one unit never 
 questions in two vocabularies. A degraded read (`no_claim_reader`, `claims_unreadable`,
 `claims_unparseable`, `origin_unreachable`, `shallow_history`) is named and asks nothing.
 
+**The question, under the composition contract** (2026-08-31, mission
+`make-the-tick-s-questions-readable-and-close-them-in-the-thread`). Keyed `handoff-unit:<unit>`,
+unchanged.
+
+- **Heading** — *`<unit>` is finished and waiting on a check this environment cannot run*, then
+  the **declared reason verbatim** (which is the whole point of the step and is never
+  paraphrased) and the open pull request.
+- **Body** — the one act: *run that verification where the credentials are, then merge.*
+- **Never alone**: `awaiting_verification`, `verification_handoff`. Both are this repository's
+  field names; the reader's fact is that the work is done and one human check is outstanding.
+
 ## 22. `question-answers` — the answer a person wrote in a question's own thread
 
 ```bash
@@ -2281,6 +2416,18 @@ header records: an incrementing summary makes the step "changed" hourly by const
 **It asks and nothing else**: no merge, no rebase, no close, no claim touched, no gate lifted,
 and nothing written anywhere but its own tick-log line.
 
+**The question, under the composition contract** (2026-08-31, mission
+`make-the-tick-s-questions-readable-and-close-them-in-the-thread`). Keyed
+`catchup-blocked:<unit>`, unchanged.
+
+- **Heading** — *`<unit>` is finished, `main` has moved under it, and both sides changed the
+  same files*, then the branch, the pull request, and the colliding files by name.
+- **Body** — the one act: *decide which side keeps its behaviour and merge `main` in.*
+- **Never alone**: `content_conflict`, `mechanical`, `clean`. The distinction this question
+  rests on — *the loop looked and only you can decide*, against `merge-conflicts`' *nobody has
+  looked yet* — has to be in the sentence, because the two questions are otherwise about the
+  same pull request and a reader cannot tell them apart from the identifier.
+
 ## 27. `drill-health` — a proof the loop already made that stopped holding
 
 ```sh
@@ -2324,6 +2471,19 @@ anywhere but its own tick-log line. Every value it composes is a **judgement**
 (`drive/reference/claims.md`, *Proofs and judgements*): a re-run can turn a red check green.
 
 ---
+
+**The question, under the composition contract** (2026-08-31, mission
+`make-the-tick-s-questions-readable-and-close-them-in-the-thread`). Keyed
+`drill-failing:<drill>`, unchanged.
+
+- **Heading** — *the drill that proves `<what it proves>` is failing on `main`*, then the drill
+  name and the mission that shipped it, so whoever reads it can redirect.
+- **Body** — the one act: *fix the mechanism or the drill, whichever stopped being true.* Never
+  *re-run it*: this step takes no act, and a red drill is a proof that stopped holding rather
+  than a flake.
+- **Never alone**: the drill's own verb (`verify-catch-up`, `verify-retire`, …). It is how the
+  reader finds the check run — the check run is named after it — and it is not what the drill
+  is about, so the plain fact leads.
 
 ## 28. `operator-pulls` — a pull request the loop opened for a person, still unanswered
 
@@ -2388,6 +2548,19 @@ day. The age still reaches the person, in the question that names it.
 lifted gate, and nothing written anywhere but its own tick-log line (`run.sh` writes that).
 Every reading it carries is a **judgement** (`drive/reference/claims.md`, *Whether an
 operator-facing pull request was acted on*).
+
+**The question, under the composition contract** (2026-08-31, mission
+`make-the-tick-s-questions-readable-and-close-them-in-the-thread`). Keyed
+`operator-pull:<number>`, unchanged, and this is the one question whose age comes from the pull
+request's own `created_at` and the tick log not at all.
+
+- **Heading** — *a change only you can approve has been waiting `<n>` hours*, then the pull
+  request's number and title, the refusal that made it yours, and what merging it would unblock.
+- **Body** — the one act, and it genuinely has two options, so both are named: *merge it to
+  make the ruling, or close it to refuse.*
+- **Never alone**: `ruling_touching`, `strategy_touching`. Those are the publish seam's words
+  and they say *why this one is yours*, which is worth carrying beside the fact — but a reader
+  who has not read `publish-tree-pr.sh` learns nothing from either on its own.
 
 ## 29. `raced-units` — a unit two runs are driving at once
 
@@ -2455,3 +2628,42 @@ merged or closed, no worktree touched, no gate lifted, and nothing written anywh
 tick-log line (`run.sh` writes that). Every reading it carries is a **judgement**
 (`drive/reference/claims.md`, *Whether a unit is being driven twice*): a race resolves the
 moment one of the two branches merges.
+
+**The question, under the composition contract** (2026-08-31, mission
+`make-the-tick-s-questions-readable-and-close-them-in-the-thread`). Keyed `raced-unit:<unit>`,
+unchanged.
+
+- **Heading** — *two runs are implementing `<unit>` at the same time*, then **both** branches by
+  name and their claim times. Both branches ride the heading because the question is
+  unanswerable without them.
+- **Body** — the one act: *decide which branch keeps going.* It never proposes one — that is
+  `ambiguous_claim`'s standing everywhere in the protocol.
+- **Never alone**: `ambiguous_claim`. It is the only word in this vocabulary that names two
+  things at once, which is exactly why the sentence has to spell it out.
+
+---
+
+## What did not move with any of this wording
+
+Ticket `20260831200959-rewrite-each-step-s-question-to-that-contract` (2026-08-31) rewrote the
+specs above and **touched no script**. Every question key expression, the per-tick cap, the
+daily bound, the quiet-hours window, the working-day gate, each question's addressee derivation
+and each question's age reading are byte-identical, and **changing a body never re-asks**:
+`already_asked` keys on the step id `lib/question-id.sh` derives from the key, never on the text.
+That is what made a sweep of thirteen steps' wording safe to make in one change, and it is the
+reason the contract is stated in `workaholic:notify`'s catalog rather than enforced by a gate —
+nothing mechanical tells a self-explanatory question from a cryptic one. What it buys is that a
+question leading with an identifier is **visibly non-conformant**, the enforcement the connector
+retry and the Open Decisions floor already rest on.
+
+**The steps that ask nothing were not given a voice.** `merge-conflicts`, `issue-triage`,
+`doc-drift`, `release-status`, `note-cadence`, `closable-missions`, `thread-reconcile`,
+`file-findings` and `standing-rulings` reach a person through some other seam or through no
+seam at all, and the contract governs the `🙋` reply only.
+
+**One case could not be made self-contained inside the bound, and is named rather than
+stretched**: `direction-arrived` carries the residue — up to three mission slugs then `and N
+more` — because the operator is being asked to *close a direction* and cannot rule on that
+without seeing what the reading could not attribute. It rides the **heading**, where the named
+details already ride, and the body keeps its one sentence. The bound was not raised for it: the
+measured failure was a question that said the wrong things, not one that said too few.

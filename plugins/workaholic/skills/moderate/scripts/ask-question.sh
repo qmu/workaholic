@@ -187,27 +187,18 @@ fi
 # ensured it was never posted again on a day somebody was. Held is not dropped, so a
 # weekend finding waits for Monday and is asked then. `WORKAHOLIC_WORK_DAYS` is a
 # `%u` range (1 = Monday), so `1-5` is the working week and `1-7` opts the gate out.
-ZONE="${WORKAHOLIC_QUIET_TZ:-Asia/Tokyo}"
-WINDOW="${WORKAHOLIC_QUIET_HOURS:-22-08}"
-WORK_DAYS="${WORKAHOLIC_WORK_DAYS:-1-5}"
-START=$(printf '%s' "$WINDOW" | cut -d- -f1)
-END=$(printf '%s' "$WINDOW" | cut -d- -f2)
-
-if [ -z "$HOUR" ]; then
-    HOUR=$(TZ="$ZONE" date +%H)
-fi
-HOUR=$(printf '%s' "$HOUR" | sed 's/^0//')
-[ -n "$HOUR" ] || HOUR=0
-
-DAY_START=$(printf '%s' "$WORK_DAYS" | cut -d- -f1)
-DAY_END=$(printf '%s' "$WORK_DAYS" | cut -d- -f2)
-if [ -z "$WEEKDAY" ]; then
-    WEEKDAY=$(TZ="$ZONE" date +%u)
-fi
-case "$WEEKDAY" in ''|*[!0-9]*) WEEKDAY=1 ;; esac
-
-offday=false
-if [ "$WEEKDAY" -lt "$DAY_START" ] || [ "$WEEKDAY" -gt "$DAY_END" ]; then offday=true; fi
+# THE WINDOW IS ONE DERIVATION, SOURCED (2026-09-01). It was computed here and nowhere else,
+# which is exactly why `render-tick-post.sh` posted a root at 04:01 JST while this gate held
+# seventeen questions in the same tick: the two halves of one tick had no shared answer to *is
+# anyone listening*. `lib/speaking-window.sh` is now that answer and both read it.
+. "${SCRIPT_DIR}/lib/speaking-window.sh"
+speaking_window "$HOUR" "$WEEKDAY" "$TICK"
+ZONE="$SW_ZONE"
+WINDOW="$SW_WINDOW"
+WORK_DAYS="$SW_WORK_DAYS"
+HOUR="$SW_HOUR"
+WEEKDAY="$SW_WEEKDAY"
+offday="$SW_OFFDAY"
 
 # THE DAY, DERIVED ONCE, BESIDE THE GATES THAT ALREADY DERIVE THE HOUR AND THE WEEKDAY. It
 # is the bound `day_cap` counts within, in `log-read.sh`'s own `YYYY-MM-DD` form.
@@ -217,16 +208,8 @@ if [ "$WEEKDAY" -lt "$DAY_START" ] || [ "$WEEKDAY" -gt "$DAY_END" ]; then offday
 # ids minted by the same script on the same axis, a re-entered tick answers the same way
 # twice, and the arithmetic is testable at all — reading the wall clock made a tick dated
 # yesterday answer for today. The `date` fallback covers a caller that passed no tick.
-TODAY=$(printf '%s' "$TICK" | sed -n 's/^\([0-9]\{4\}\)\([0-9]\{2\}\)\([0-9]\{2\}\)-.*/\1-\2-\3/p')
-[ -n "$TODAY" ] || TODAY=$(TZ="$ZONE" date +%Y-%m-%d)
-
-quiet=false
-if [ "$START" -gt "$END" ]; then
-    # The window crosses midnight, which is the normal case for "late night".
-    if [ "$HOUR" -ge "$START" ] || [ "$HOUR" -lt "$END" ]; then quiet=true; fi
-else
-    if [ "$HOUR" -ge "$START" ] && [ "$HOUR" -lt "$END" ]; then quiet=true; fi
-fi
+TODAY="$SW_TODAY"
+quiet="$SW_QUIET"
 
 count_log_prefix() {
     # $1 step-id prefix, $2 needle ("" for all), $3 --since day ("" for no day bound)

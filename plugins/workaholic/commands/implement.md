@@ -17,6 +17,8 @@ Run the preloaded `workaholic:drive` skill's **Unified Run** section end to end.
 
 The notification surface is **this command's**, not the routine's — a routine prompt names the command and nothing else, so a shape that changes here reaches every account's routine on the next run with no routine edit (`workaholic:notify`, *The command is the ceiling*). Post shapes are byte-identical to `workaholic:notify`'s catalog; a diff between the two is a drift to fix, never a second wording.
 
+**Every free-text slot below is written in Japanese** — the shape's label, step ids, status and reason words, slugs, branch names, `<@U…>` tokens and URLs are never translated (`rules/interaction.md`, *The language of a post is the language its readers use*).
+
 Post one finish line per claimed PR-unit into its reply thread (the `workaholic:notify` lookup) — one line per unit, never one per feedback stem:
 
 ```

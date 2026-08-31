@@ -35,58 +35,24 @@ keys declare the design, not a stored field a session can read back (no
 `RemoteTrigger`-family tool is exposed to this session — verified empty by
 `ToolSearch`, ticket `20260810085351`).
 
-**The prompt is the developer's own** (P3, reshaped by Q2, trimmed again 2026-08-12 after
-the developer read dated decision notes in the live prompt: the command, the load
-fallback, and one literal finish shape carrying the session URL and the requester's
-mention — nothing else) and states no rule
-a skill already owns: `workaholic:drive` owns the run and its terminal contract,
-`workaholic:notify` owns every notification rule (the stateless thread lookup, red-alert
-dedup, mention resolution), and the always-loaded `rules/` own the standing prohibitions.
-The one literal format below stays embedded rather than deferred — Q2's reasoning holds:
-a routine cannot defer its own output contract — but `workaholic:notify`'s
-`reference/notifications.md` mirrors them verbatim as the sole sanctioned shapes for
-these two events (P10, 2026-08-07), so a future edit to either copy is a drift to fix,
-never a second wording to reconcile against a third.
-**The handoff finish line joined the prompt on 2026-08-31** (mission `notify-the-person-a-directed-question-addresses`), and it had to: `workaholic:drive` §7 has said since 2026-08-14 that a handoff unit's `🟡` **is** its one finish post, while this prompt named only `🟢 Implemented` — and *the prompt is the ceiling*, so a session running this routine could not legitimately emit the shape its own run contract requires. The line names the **unit's assignee** rather than the runner, which is the whole point: a handoff waits on exactly one person's act, and every post here reaches Slack as the operator's own account, so a token naming the poster pages nobody. It therefore rides the **bot** when a token is configured, per `workaholic:notify`, *Which transport carries which shape, and why*; every other shape this routine emits stays on the connector.
-The reply thread is **found**, never carried (Q1) — the notify SKILL's exact-token lookup, not a
-target read out of a triggering event and not a channel name in the prompt — so no
-repository is named here and the same prompt pastes into every project. A schedule
-fire carries no single PR/issue at all (unlike the retired merge-event trigger), so
-the lookup runs **per claimed unit** — `workaholic:drive`'s own §3/§6 already resolve
-each unit's feedback-item thread via `unit-feedback-stems.sh`, this prompt only fixes
-the literal finish shape. `{repo}` in the format lines is the developer's own
-placeholder for the pull request links. (Named `[Drive]` until P1, when the
-unattended executor became `/implement`.)
+**The prompt names the command and nothing else** (2026-09-01, the developer's instruction).
+Everything a session running this routine may do — the post shapes, the transports, what it may
+read, and what it must never emit — lives in `plugins/workaholic/commands/implement.md`, versioned
+with the plugin and shipped with it. A routine record is an **account-level** object no
+repository can edit, so every rule that lived in this prompt had to be re-pasted into every
+developer's copy in every project before it took effect, and a prompt that drifted from the
+plugin was invisible from the repository. A rule written in the command reaches every account's
+routine on its next run with no routine edit at all.
+
+**The command is the ceiling** (`workaholic:notify`, *The command is the ceiling*): the shapes
+that command's own notification section names are the only ones a session running this routine
+may emit, and `workaholic:notify`'s `reference/notifications.md` mirrors each of them verbatim,
+so a drift between the two is a defect to fix rather than a second wording. What stays in the
+prompt is the one instruction the command cannot carry — the load fallback that finds and reads
+the command when the plugin did not bind.
 
 ## Prompt
 
 Run `/implement`.
 
 If the command or its skills did not load, do not stop: run `bash plugins/workaholic/skills/check-deps/scripts/plugin-src.sh` from the checkout, take its `src`, then read `<src>/commands/implement.md` and follow it with every script path under `<src>`.
-
-Post one finish line per claimed PR-unit into its reply thread (the workaholic:notify lookup) — one line per unit, never one per feedback stem:
-
-```
-🟢 Implemented - [#123 Title]({repo}/pull/123)
-by the [routine](https://claude.ai/code/session_***)
-```
-
-When a unit ends in **handoff** its finish line is this one instead — never `🟢 Implemented`, and never a second post beside it — naming the person who must run what this environment could not:
-
-```
-🟡 Handoff <@U…> - [#123 Issue Title](<repo-url>/pull/123)
-The next run resumes it automatically; `git fetch && git checkout <branch>` to take it sooner. One sentence, max 25 words, what remains only.
-<session URL>
-```
-
-The `<@U…>` names the **unit's own assignee, never you**: resolve it from the unit's `assignees` and, when it does not resolve, post the line with **no token at all** rather than a guessed one, and report it as unaddressed. Post that line through the **tokened transport** — `bash <src>/skills/specificate/scripts/notify-slack.sh --thread-ts <the thread's ts> "<the line>"` — whenever `SLACK_BOT_TOKEN` is set, so a bot speaks it and the mention notifies that person even when they are the account this session posts as. That script is `workaholic:notify`'s **fallback** transport, and it is selected here for its **identity** rather than for its availability: this one line is a directed post, which is the only case where which account speaks matters. The connector resolved the thread, so hand its `ts` straight through and never search for one. With no token, post it through the connector exactly as you post `🟢 Implemented`. Report per unit which surface carried it and whom it named. **`🟢 Implemented`, the `📝 FB` root and the precondition-stop shape always ride the connector**, unchanged.
-
-If that lookup finds no thread, post this description root first and the finish line above as a reply into it — no mention token of any kind on the root:
-
-```
-📝 FB - [<feedback title>](<repo-url>/blob/main/.workaholic/feedbacks/<stem>.md)
-One sentence, max 30 words, what the feedback asks for.
-<session URL>
-```
-
-If the run stops before claiming anything, post notify's precondition-stop shape instead.

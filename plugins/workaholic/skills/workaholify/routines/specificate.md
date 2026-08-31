@@ -62,47 +62,24 @@ over one at a time — and feedback stays the only input that can originate a pr
 A tick whose discovery returns nothing still reports `nothing_in_hand` and ends —
 the honest answer, now meaning "the inbox is empty" rather than "I could not look".
 
-**The prompt is the developer's own** (P3, reshaped by Q2, trimmed again 2026-08-12 after
-the developer read dated decision notes in the live prompt: the command, the load
-fallback, and one literal finish shape carrying the session URL and the requester's
-mention — plus, since 2026-08-14, the description root the finish replies into when
-the lookup finds no thread, which the ceiling rule requires the prompt to name before
-any session may emit it) and states no rule
-a skill already owns: `workaholic:specificate` owns the judgment, the single pull request
-and the `[Proposal]` prefix; `workaholic:feedback` owns the record; `workaholic:notify`
-owns every notification rule; the always-loaded `rules/` own the standing
-prohibitions. The one literal format below stays embedded rather than deferred — Q2's
-reasoning holds: a routine cannot defer its own output contract — but
-`workaholic:notify`'s `reference/notifications.md` mirrors them verbatim as the sole
-sanctioned shapes for these two events (P10, 2026-08-07), so a future edit to either
-copy is a drift to fix, never a second wording to reconcile against a third. The root
-block is copied from that catalog **byte for byte**, placeholders included, so the two
-copies diff clean — `<repo-url>` there is the `{repo}` of the finish line above it. The reply
-thread is **found**, never carried (Q1) — the notify SKILL's exact-token lookup, not a
-target read out of a triggering event and not a channel name in the prompt — so no
-repository is named here and the same prompt pastes into every project. A schedule
-fire carries no specific Issue in its payload (unlike the retired assignment
-trigger) — the issues come from `/specificate`'s own clock-fired discovery — so the
-lookup runs once per ask `/specificate` actually took in hand. `{repo}` in the format
-lines is the developer's own placeholder for the issue and pull request links.
+**The prompt names the command and nothing else** (2026-09-01, the developer's instruction).
+Everything a session running this routine may do — the post shapes, the transports, what it may
+read, and what it must never emit — lives in `plugins/workaholic/commands/specificate.md`, versioned
+with the plugin and shipped with it. A routine record is an **account-level** object no
+repository can edit, so every rule that lived in this prompt had to be re-pasted into every
+developer's copy in every project before it took effect, and a prompt that drifted from the
+plugin was invisible from the repository. A rule written in the command reaches every account's
+routine on its next run with no routine edit at all.
+
+**The command is the ceiling** (`workaholic:notify`, *The command is the ceiling*): the shapes
+that command's own notification section names are the only ones a session running this routine
+may emit, and `workaholic:notify`'s `reference/notifications.md` mirrors each of them verbatim,
+so a drift between the two is a defect to fix rather than a second wording. What stays in the
+prompt is the one instruction the command cannot carry — the load fallback that finds and reads
+the command when the plugin did not bind.
 
 ## Prompt
 
 Run `/specificate`.
 
 If the command or its skills did not load, do not stop: run `bash plugins/workaholic/skills/check-deps/scripts/plugin-src.sh` from the checkout, take its `src`, then read `<src>/commands/specificate.md` and follow it with every script path under `<src>`.
-
-If it finds an ask in hand, post one finish line into its reply thread (the workaholic:notify lookup):
-
-```
-🔵 Proposed - [#123 [Proposal] PR Title]({repo}/pull/123)
-by the [routine](https://claude.ai/code/session_***)
-```
-
-If that lookup finds no thread, post this description root first and the finish line above as a reply into it — no mention token of any kind on the root:
-
-```
-📝 FB - [<feedback title>](<repo-url>/blob/main/.workaholic/feedbacks/<stem>.md)
-One sentence, max 30 words, what the feedback asks for.
-<session URL>
-```

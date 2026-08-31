@@ -11,6 +11,30 @@
 # `green`. The attributed commit is the OLDEST commit after that green one that reads `red` —
 # the first thing that broke, not the last thing that was pushed.
 #
+# A COMMIT NOTHING RAN ON IS WALKED PAST, AND ONLY THAT ONE (2026-08-31, mission
+# `read-the-base-s-colour-past-a-bookkeeping-tip`). The loop's own bookkeeping commits are
+# excluded from every workflow's path filter — correctly — so the tip is very often a commit
+# no check ran on, and this walk used to return on ANY unanswerable tip before it began.
+# Measured: `base_unreadable:tip_no_checks` every tick for a day while the base was green
+# throughout, which is the reading being unreachable exactly where the loop is busiest.
+#
+# `no_checks` IS A STATEMENT ABOUT THE COMMIT; every other unanswerable reason is a statement
+# about US. Nothing ran on a `no_checks` commit, so it was never observed to break anything and
+# there is a defined answer one step back — the walk continues, at the tip and inside the walk
+# alike, and such a commit is SKIPPED rather than counted green, red or unreadable. A
+# `reader_failed`, `rate_limited`, `session_refused`, `checks_pending` or `unparseable_response`
+# commit may itself be red, so each stays terminal and emits exactly what it always did.
+# `checks_pending` most of all: the base has not finished answering, and walking past it would
+# report an older commit's colour as though it were current.
+#
+# A SKIPPED COMMIT IS NEVER AN ATTRIBUTION. `oldest_red` only ever holds a commit the reader
+# answered `red` for, so a walk that skipped its way to a green ancestor with no red in between
+# answers `green` — the ancestor's colour — rather than blaming a commit nothing ran on.
+#
+# THE READER IS UNTOUCHED AND STAYS THREE-VALUED. This changes which reasons the WALK
+# continues past, never what a commit's state is; `read-base-checks.sh` remains the one
+# derivation and its `reason` vocabulary is what the continuation keys on, read from its JSON.
+#
 # `unattributable` IS A FIRST-CLASS ANSWER, NEVER THE TIP BY DEFAULT. Blaming the head
 # because the walk ran out of room is the failure this outcome exists to prevent. It is
 # reached three ways, each named in `reason`:
@@ -50,8 +74,10 @@
 #    "last_green", "walked", "bound": {"max_commits": <n>}, "reason"}
 #
 #   state       `red` means a culprit was named; `unattributable` means the base IS red and
-#               no culprit could be named; `unanswerable` means the tip itself could not be
-#               read (the reader's own reason rides in `reason`).
+#               no culprit could be named; `unanswerable` means no colour could be read at all
+#               — the tip could not be read for our own reasons (`tip_<reason>`), or the walk
+#               skipped past commits nothing ran on and ran out of room before reaching one
+#               with a reading (`bound_exhausted` / `history_start`, with no red seen).
 #   attributed  null unless `state` is `red`. A failed pull-request lookup leaves
 #               `pull_request`/`author` unstated and KEEPS the finding — the attribution is
 #               still real without a URL.
@@ -141,39 +167,66 @@ attributed_json() {
 }
 
 # THE TIP DECIDES WHETHER THERE IS ANYTHING TO ATTRIBUTE AT ALL. A green tip is silence; a
-# tip we could not read is our own degradation and never a finding about the repository.
+# tip we could not read for OUR OWN reasons is our own degradation and never a finding about
+# the repository. A tip nothing ran on is neither — it is a commit with a defined answer one
+# step back, so the walk continues past it.
 read_commit "$TIP"
 WALKED=1
 case "$RC_STATE" in
     green) LAST_GREEN="$TIP"; emit green ;;
-    unanswerable) emit unanswerable "tip_${RC_REASON}" ;;
+    unanswerable)
+        case "$RC_REASON" in
+            no_checks) ;;
+            *) emit unanswerable "tip_${RC_REASON}" ;;
+        esac
+        ;;
 esac
 
-# From here the tip is red. `oldest_red` walks backwards with the loop; when a green commit
-# turns up, whatever `oldest_red` holds is the first commit that broke the base.
-oldest_red="$TIP"
+# `oldest_red` walks backwards with the loop; when a green commit turns up, whatever it holds
+# is the first commit that broke the base. It starts EMPTY unless the tip itself read red, so a
+# skipped tip can never be attributed — an empty `oldest_red` at a green commit means the base
+# is green, read at that ancestor.
+oldest_red=""
+case "$RC_STATE" in red) oldest_red="$TIP" ;; esac
+
 for sha in $commits; do
     if [ "$sha" = "$TIP" ]; then continue; fi
-    if [ "$WALKED" -ge "$MAX" ]; then emit unattributable bound_exhausted; fi
+    if [ "$WALKED" -ge "$MAX" ]; then break; fi
     WALKED=$((WALKED + 1))
     read_commit "$sha"
     case "$RC_STATE" in
         green)
             LAST_GREEN="$sha"
-            emit red "" "$(attributed_json "$oldest_red")"
+            if [ -n "$oldest_red" ]; then
+                emit red "" "$(attributed_json "$oldest_red")"
+            fi
+            emit green
             ;;
         red)
             oldest_red="$sha"
             ;;
         *)
-            # A commit we could not read may itself be red, so the oldest red we happen to
-            # have seen is not provably the first one. Stop rather than guess.
-            emit unattributable "unanswerable_in_walk:${RC_REASON}"
+            case "$RC_REASON" in
+                # Nothing ran on it, so it was never observed to break anything: skip it and
+                # keep walking. It is not green, not red, and not a candidate for attribution.
+                no_checks) ;;
+                # A commit we could not read may itself be red, so the oldest red we happen to
+                # have seen is not provably the first one. Stop rather than guess.
+                *) emit unattributable "unanswerable_in_walk:${RC_REASON}" ;;
+            esac
             ;;
     esac
 done
 
-# The loop ran out of commits without a green one. That is the start of history only when the
-# candidate list was shorter than the bound allowed; otherwise the bound is what stopped it.
-if [ "$WALKED" -ge "$MAX" ]; then emit unattributable bound_exhausted; fi
-emit unattributable history_start
+# The walk ran out of room without reaching a commit that answered green. That is the start of
+# history only when the candidate list was shorter than the bound allowed; otherwise the bound
+# is what stopped it — and the bound is reported rather than guessed past, which is the whole
+# honesty of this walk.
+REASON=history_start
+if [ "$WALKED" -ge "$MAX" ]; then REASON=bound_exhausted; fi
+
+# WITH A RED IN HAND the base IS red and no culprit could be named; with none, no colour was
+# read at all — every commit inspected was skipped — and saying `unattributable` there would
+# assert a red nothing observed.
+if [ -n "$oldest_red" ]; then emit unattributable "$REASON"; fi
+emit unanswerable "$REASON"

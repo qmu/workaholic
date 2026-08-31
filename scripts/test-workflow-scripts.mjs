@@ -2788,10 +2788,24 @@ function testBaseHealthStep() {
     // ---- AND A DEGRADED READ IS NAMED, AND ASKS NOTHING ----
     // The two must never render alike: a reading we could not make is not a finding about the
     // repository, and asking about our own blindness is what `strategy-pace` already refuses.
-    set({});
+    set({ [tip]: "not json at all" });
     j = step();
     assertEq("a base it could not read is degraded by name, asking nothing",
-      [j.status, j.reason, j.needs_agent], ["degraded", "base_unreadable:tip_no_checks", []]);
+      [j.status, j.reason, j.needs_agent],
+      ["degraded", "base_unreadable:tip_unparseable_response", []]);
+
+    // ---- A TIP NOTHING RAN ON IS NO LONGER THAT CASE (2026-08-31) ----
+    // The walk continues past a bookkeeping commit, so this reads whatever the newest checked
+    // ancestor says. With nothing checked anywhere the walk runs out of history and says so —
+    // still degraded, still asking nothing, and never rendered as a green base.
+    set({ [c2]: GREEN });
+    j = step();
+    assertEq("a bookkeeping tip over a green ancestor is silence, not a degradation",
+      [j.status, j.reason, j.needs_agent, j.event], ["ok", "", [], ""]);
+    set({});
+    j = step();
+    assertEq("a base with no checks anywhere is degraded by the walk's own word",
+      [j.status, j.reason, j.needs_agent], ["degraded", "base_unreadable:history_start", []]);
 
     const broken = join(tmp, "broken");
     mkdirSync(join(broken, "moderate/scripts"), { recursive: true });
@@ -17670,6 +17684,11 @@ function testAttributeBaseRed() {
   const GREEN = '{"total_count":1,"check_runs":[{"name":"CI","status":"completed","conclusion":"success"}]}';
   const RED = '{"total_count":1,"check_runs":[{"name":"Validate Plugins","status":"completed","conclusion":"failure"}]}';
   const NONE = '{"total_count":0,"check_runs":[]}';
+  // Two shapes the walk must keep telling apart: a commit NOTHING RAN ON (`no_checks`, a
+  // statement about the commit) and a reading WE could not make (`unparseable_response` /
+  // `checks_pending`, statements about us or about an unfinished base).
+  const BAD = "not json at all";
+  const PENDING = '{"total_count":1,"check_runs":[{"name":"CI","status":"in_progress"}]}';
   const set = (states) => {
     for (const [sha, body] of Object.entries(states)) writeFileSync(join(stubs, `${sha}.json`), body);
   };
@@ -17723,17 +17742,72 @@ function testAttributeBaseRed() {
 
     // A COMMIT WE COULD NOT READ MAY ITSELF BE RED, so promoting the oldest red we happen to
     // have seen would be a guess wearing an attribution's clothes.
-    set({ [tip]: RED, [c4]: RED, [c3]: NONE, [c2]: GREEN, [c1]: GREEN });
+    set({ [tip]: RED, [c4]: RED, [c3]: BAD, [c2]: GREEN, [c1]: GREEN });
     const blind = walk();
     assertEq("an unreadable commit inside the walk stops it rather than blaming a guess",
       [blind.state, blind.attributed, blind.reason],
-      ["unattributable", null, "unanswerable_in_walk:no_checks"]);
+      ["unattributable", null, "unanswerable_in_walk:unparseable_response"]);
 
     // AND A TIP WE COULD NOT READ IS OUR OWN DEGRADATION, never a finding about the base.
-    set({ [tip]: NONE });
+    set({ [tip]: BAD, [c4]: GREEN, [c3]: GREEN, [c2]: GREEN, [c1]: GREEN });
     const dark = walk();
     assertEq("an unreadable tip is unanswerable, carrying the reader's own reason",
-      [dark.state, dark.ok, dark.reason], ["unanswerable", false, "tip_no_checks"]);
+      [dark.state, dark.ok, dark.reason], ["unanswerable", false, "tip_unparseable_response"]);
+
+    // A TIP NOTHING RAN ON IS WALKED PAST (2026-08-31, mission
+    // `read-the-base-s-colour-past-a-bookkeeping-tip`). The loop's own bookkeeping commits
+    // carry no checks, so this was the ordinary shape of the tip and the reading was
+    // unreachable exactly where the loop is busiest.
+    set({ [tip]: NONE, [c4]: GREEN, [c3]: GREEN, [c2]: GREEN, [c1]: GREEN });
+    const past = walk();
+    assertEq("a tip nothing ran on answers the newest checked ancestor's colour",
+      [past.state, past.ok, past.last_green, past.walked, past.reason],
+      ["green", true, c4, 2, ""]);
+
+    // ...AND THE ATTRIBUTION IS THE ONE A RED TIP WOULD HAVE PRODUCED. The bookkeeping commit
+    // is skipped, never counted as the thing that broke the base.
+    set({ [tip]: NONE, [c4]: RED, [c3]: RED, [c2]: GREEN, [c1]: GREEN });
+    const pastRed = walk();
+    set({ [tip]: RED, [c4]: RED, [c3]: RED, [c2]: GREEN, [c1]: GREEN });
+    const fromRed = walk();
+    assertEq("a tip nothing ran on over a red ancestor attributes the same commit a red tip would",
+      [pastRed.state, pastRed.attributed.commit, pastRed.last_green],
+      [fromRed.state, fromRed.attributed.commit, fromRed.last_green]);
+
+    // A SKIPPED COMMIT IS NEVER AN ATTRIBUTION, and it does not stop the walk either.
+    set({ [tip]: RED, [c4]: RED, [c3]: NONE, [c2]: RED, [c1]: GREEN });
+    const skipped = walk();
+    assertEq("a commit nothing ran on inside the walk is skipped, not blamed and not a stop",
+      [skipped.state, skipped.attributed.commit, skipped.last_green, skipped.walked],
+      ["red", c2, c1, 5]);
+
+    // AN UNFINISHED BASE IS STILL TERMINAL. `checks_pending` is deliberately not continued:
+    // walking past it would report an older commit's colour as though it were current.
+    set({ [tip]: PENDING, [c4]: GREEN, [c3]: GREEN, [c2]: GREEN, [c1]: GREEN });
+    const pending = walk();
+    assertEq("a tip whose checks have not finished stays terminal",
+      [pending.state, pending.ok, pending.reason], ["unanswerable", false, "tip_checks_pending"]);
+
+    // A WALK THAT SKIPS ITS WAY TO THE BOUND SAYS SO, and says `unanswerable` rather than
+    // `unattributable`: no red was ever observed, so asserting one would be the guess the
+    // bound exists to refuse.
+    set({ [tip]: NONE, [c4]: NONE, [c3]: NONE, [c2]: NONE, [c1]: NONE });
+    const allDark = walk({ WORKAHOLIC_BASE_ATTRIBUTION_MAX: "2" });
+    assertEq("a walk that runs out of room with no colour read is unanswerable, never a guess",
+      [allDark.state, allDark.ok, allDark.attributed, allDark.reason, allDark.bound],
+      ["unanswerable", false, null, "bound_exhausted", { max_commits: 2 }]);
+
+    // AND THE SAME WITH ROOM TO SPARE: the start of history, not the bound.
+    const allDarkEnd = walk();
+    assertEq("...and says `history_start` when it was history that stopped it",
+      [allDarkEnd.state, allDarkEnd.reason, allDarkEnd.walked],
+      ["unanswerable", "history_start", 5]);
+
+    // THE CONTINUATION KEYS ON THE READER'S OWN REASON, never on a substring of the emitted
+    // `tip_` string and never on a second derivation of the state.
+    const walkBody = readFileSync(WALK, "utf8").split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+    assertTrue("the continuation keys on the reader's own reason",
+      /RC_REASON/.test(walkBody) && !/tip_no_checks/.test(walkBody), walkBody.slice(0, 400));
 
     // CHECK STATE HAS EXACTLY ONE DERIVATION. The walk asks WHICH COMMIT, never WHAT STATE —
     // a second parser of a check run is what this constraint exists to prevent.

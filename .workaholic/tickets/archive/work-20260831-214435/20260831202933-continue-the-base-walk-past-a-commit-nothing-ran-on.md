@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-31T20:29:33+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -86,3 +87,51 @@ only that one continue.
 - `checks_pending` is deliberately not continued: the base has not finished answering, and
   walking past it would report an older commit's colour as though it were current — the
   failure the three-valued reader exists to prevent.
+
+## Final Report
+
+Development completed as planned.
+
+The reproduction was captured first, in the suite rather than in a throwaway repository:
+`testAttributeBaseRed` and `testBaseHealthStep` already build a git repo with a stubbed
+`gh`, and both asserted the old collapse verbatim — `["unanswerable", false, "tip_no_checks"]`
+and `base_unreadable:tip_no_checks`. Those two assertions failing is the reproduction, and
+they were rewritten onto genuine own-failure fixtures rather than deleted.
+
+`attribute-base-red.sh` now keys the continuation on the reader's own `reason`, read from its
+JSON (`RC_REASON`), never on a substring of the emitted `tip_` string. At the tip, `no_checks`
+falls through into the walk and every other reason emits exactly what it emitted before.
+Inside the walk, a `no_checks` commit is skipped — not green, not red, not a stop — while
+every other unanswerable reason still emits `unanswerable_in_walk:<reason>`.
+
+`oldest_red` starts **empty** and takes the tip only when the tip itself read `red`, which is
+what keeps a skipped commit from ever becoming an attribution. That made one new distinction
+necessary at the end of the walk: with a red in hand the answer is `unattributable`
+(`bound_exhausted` / `history_start`), exactly as before; with none it is `unanswerable` under
+the same two reasons, because saying `unattributable` there would assert a red nothing
+observed. No new verdict word was introduced and `read-base-checks.sh` is byte-identical.
+
+The in-loop `emit unattributable bound_exhausted` became a `break` into the existing tail so
+the two endings share one derivation of the reason; the red case's output is unchanged.
+
+**On the bound.** The Considerations asked for a measurement rather than a hunch: over the
+newest 60 commits of `origin/main`, the longest run of consecutive commits touching only
+`.workaholic/` is **7**, against a default bound of 20. The default is still right and was
+left alone. The added cost is one reader call per skipped commit, paid only on a base whose
+tip carries no checks — which is the case that returned no reading at all before.
+
+### Discovered Insights
+
+- **Insight**: The reader's `reason` vocabulary splits cleanly into statements about the
+  *commit* and statements about *us*, and only `no_checks` is in the first group.
+  **Context**: That split is what makes the continuation safe to key on, and it is why
+  `checks_pending` — which looks like a "not yet" and reads like a "nothing here" — must stay
+  terminal: the base has not finished answering, so an older commit's colour is not current.
+
+- **Insight**: The two ends of the walk answer different questions, and one word was doing
+  both jobs. `unattributable` means *the base is red and I cannot say what broke it*; it
+  requires a red actually observed. Once a walk can skip its way to the end it can also
+  finish having observed no colour at all, and that is `unanswerable`.
+  **Context**: A consumer that treats `unattributable` as "the base is red" — which
+  `step-base-health.sh` does, composing its `the base is red at …` summary from it — would
+  otherwise have announced a red base on a repository where nothing has ever been checked.

@@ -327,8 +327,24 @@ vocabulary, and the answer is the same: read-straight-off is not the test.
 | ---- | ----- | ----------------------------------------------- |
 | `green` | judgement | Every completed check on the commit succeeded (or was neutral/skipped) and none is pending. A re-run, a re-triggered workflow or a newly required check can turn it `red`, so it proves nothing durable. **Report it.** It licenses no merge, no release and no skipped gate — the `release/*` QA window still owns quality. |
 | `red` | judgement | A completed check on the commit concluded in failure. It says *look at this*, not *this commit is bad*: a re-run can turn it green, and the failure may be in infrastructure rather than in the change. A consumer may **report** it and **ask about** it — `/moderate`'s `base-health` step asks the attributed author. Nothing may revert, re-run, block, gate, hold or merge on it. |
-| `unattributable` | judgement | The base is red and the walk could not name the merge that broke it — its bound was exhausted, it reached the start of history, or a commit inside the walk was unreadable. **Never the tip by default**: blaming the head because the walk ran out of room is the failure this word exists to prevent. Report it, ask about it, name the reason. |
+| `unattributable` | judgement | The base is red — a commit the walk actually read `red` — and the walk could not name the merge that broke it: its bound was exhausted, it reached the start of history, or a commit inside the walk was unreadable. **Never the tip by default**: blaming the head because the walk ran out of room is the failure this word exists to prevent. It is never reached with no red in hand, because asserting a red nothing observed is the same guess in the other direction. Report it, ask about it, name the reason. |
 | `unanswerable` | judgement | The **absence** of a reading — no `gh`, a refused transport, a rate limit, an unparseable response, a commit with no checks at all, checks still running. Acting on an absence is the failure the three-valued shape exists to avoid, and the direction of failure is chosen: it must never be reported as `green`, because a base nobody looked at would then be indistinguishable from a base that passed. |
+
+**One reason is a statement about the COMMIT, and only the walk treats it differently**
+(2026-08-31, mission `read-the-base-s-colour-past-a-bookkeeping-tip`). `read-base-checks.sh` is
+unchanged and still answers `unanswerable` / `no_checks` about a commit nothing ran on — the
+reading was not made. `attribute-base-red.sh` **walks past** exactly that reason, at the tip and
+inside the walk alike, because nothing ran on such a commit so it was never observed to break
+anything and there is a defined answer one step back; every other reason
+(`reader_failed`, `rate_limited`, `session_refused`, `checks_pending`, `unparseable_response`, …)
+stays terminal, since such a commit may itself be red and `checks_pending` most of all means the
+base has not finished answering. A skipped commit is **never** an attribution: `oldest_red` only
+ever holds a commit read `red`. So the walk's own `unanswerable` now means *no colour could be
+read anywhere it looked* — `tip_<reason>` for our own failure at the tip, or `bound_exhausted` /
+`history_start` when it skipped its way to the end with no red in hand. Measured before it: a
+`no_checks` tip is the loop's ordinary shape (its bookkeeping commits are excluded from every
+workflow's path filter), so the reading was `base_unreadable:tip_no_checks` every tick for a day
+while the base was green throughout.
 
 **Its consumers report and ask, and nothing else.** `/moderate`'s `base-health` step hands a red
 base to the check-in as one question and writes nothing but its own tick-log line; the driving

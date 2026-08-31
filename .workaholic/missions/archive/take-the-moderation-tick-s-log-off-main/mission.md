@@ -2,7 +2,7 @@
 type: Mission
 title: Take the moderation tick's log off main
 slug: take-the-moderation-tick-s-log-off-main
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-31T18:20:03+00:00
 author: a@qmu.jp
@@ -45,7 +45,7 @@ puts a tick log back on `main` fails a drill.
       container fetches, and `main` carries no tick-log write. (#20260831182058-publish-the-tick-log-to-its-own-ref.md)
 - [x] Every reader reaches the log through one reader, concurrent ticks still
       union by `(tick, step)`, and the persist count per tick is justified by name. (#20260831182058-justify-or-drop-each-persist-the-tick-makes.md)
-- [ ] Two drills: one fails when a tick's log misses the ref, one fails when a
+- [x] Two drills: one fails when a tick's log misses the ref, one fails when a
       tick log reaches `main` again. (#20260831182058-drill-that-a-tick-log-never-reaches-main.md)
 
 ## Changelog
@@ -58,3 +58,5 @@ puts a tick log back on `main` fails a drill.
 - 2026-08-31 — ticket archived — 20260831182058-rule-on-the-moderations-history-left-on-main.md
 - 2026-08-31 — ticket archived — 20260831182058-justify-or-drop-each-persist-the-tick-makes.md
 - 2026-08-31 — ticket archived — 20260831182058-drill-that-a-tick-s-log-reaches-its-ref.md
+- 2026-08-31 — ticket archived — 20260831182058-drill-that-a-tick-log-never-reaches-main.md
+- 2026-08-31 — mission achieved — mission.md

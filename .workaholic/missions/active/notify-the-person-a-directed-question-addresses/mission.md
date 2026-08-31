@@ -56,3 +56,4 @@ today and says which surface carried each post.
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-31 — ticket archived — 20260831042312-teach-the-tokened-transport-to-reply-into-a-thread.md
 - 2026-08-31 — ticket archived — 20260831042312-state-which-transport-carries-which-shape-and-why.md
+- 2026-08-31 — ticket archived — 20260831042312-post-the-moderator-s-question-as-the-bot-identity.md

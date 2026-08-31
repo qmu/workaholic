@@ -716,6 +716,41 @@ questions under it.
    session URL, then post each cleared question as a **reply into that root**, carrying the
    person's `<@U…>` and `` `ask:<key>` `` — and no session URL, which the root already carries.
 
+**The root rides the connector; a question whose mention resolves to the poster rides the bot**
+(2026-08-31, mission `notify-the-person-a-directed-question-addresses`). This question is the
+one shape whose entire purpose is to reach a named person, and it is why the `🙋` line keeps
+its `<@U…>` unconditionally where every other shape dropped one. In the single-developer
+configuration — the normal one — that token resolves to the account the post is made as, and
+**Slack notifies nobody of their own message**: the loop's blockers reached the operator only
+when they happened to reread the channel. The carrier rule is `workaholic:notify`'s
+(*Which transport carries which shape, and why*) and is not restated here; what this step owes
+it is the mechanics:
+
+- **The root is always the connector's.** It is a top-level post, it needs no mention, and the
+  connector is the transport this tick already holds. Nothing about step 1 or 2 moves.
+- **The coordinate is already in hand and no query is added.** The connector returns the root's
+  `(channel, ts)` when it posts it — the same fact `--record-ask` has recorded per question
+  since 2026-08-28, which is what proves the timestamp is an *input* here and never a lookup.
+  Hand that `ts` to `notify-slack.sh --thread-ts <ts>` and the bot's reply lands **inside the
+  tick root's thread**, so the two speech acts stay told apart by position exactly as they are
+  now. The two-query lookup bound is untouched: no search happens on this path at all.
+- **With no bot token, post through the connector exactly as today.** `notify-slack.sh` answers
+  `no_token` and exits 0; the question is still asked, still gated, still recorded. This is a
+  fallback, never a drop.
+- **Report the carrying surface per question** in the step's own log line — `bot`, `connector`,
+  or the transport's own refusal word (`no_token`, `no_channel`, `slack_<error>`, …) — so a
+  question that reached nobody is never recorded as one that did. A refusal is reported, never
+  retried: the bot must be a member of the channel and `WORKAHOLIC_SLACK_CHANNEL` must name the
+  channel the root was posted in, and both are **provisioning** rather than code.
+- **The gate does not move, and that is checkable**: `ask-question.sh` is byte-identical, so the
+  key, `already_asked`, `answered`, the per-tick cap, the day cap, the quiet hours, the
+  working-day hold and the one bounded re-ask are exactly what they were. The question's wording
+  does not move either — only the account that speaks it.
+
+The cost is stated rather than absorbed: a person's own thread now carries one bot reply per
+question, changing the thread's author mix. That is the intended trade — a reply nobody is
+notified of is worth less than one that reaches them.
+
 **A change is a diff against the previous tick**, read from the log; no step declares its own
 novelty and no cursor is stored. **The gate is `questions >= 1`** — the changed-step half was
 retired on 2026-08-22 (issue #569), because with `0 question(s)` the root is a status line

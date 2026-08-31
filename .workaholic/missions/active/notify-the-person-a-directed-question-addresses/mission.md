@@ -59,3 +59,4 @@ today and says which surface carried each post.
 - 2026-08-31 — ticket archived — 20260831042312-post-the-moderator-s-question-as-the-bot-identity.md
 - 2026-08-31 — ticket archived — 20260831042312-address-the-handoff-ask-to-the-person-who-must-act.md
 - 2026-08-31 — ticket archived — 20260831042312-name-the-bot-carried-shapes-in-the-routine-templates.md
+- 2026-08-31 — ticket archived — 20260831042312-drill-the-directed-notification-offline.md

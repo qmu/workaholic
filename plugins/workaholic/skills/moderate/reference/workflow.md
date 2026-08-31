@@ -1709,6 +1709,20 @@ it, which is reported as unreached — never as green.
 It names the reading and the failing checks; the commit sha it carries is normalised out of the
 root's hour-to-hour diff, so two ticks over one unchanged red reading do not read as two changes.
 
+**It says where the colour was read** (2026-08-31, mission
+`read-the-base-s-colour-past-a-bookkeeping-tip`). The walk continues past a commit nothing ran on,
+which here is the ordinary shape of the tip, so the colour it reports is frequently an
+**ancestor's** — and "the base is green" read as the tip's is a stronger sentence than the walk
+made. Two renderings of one fact, for the two audiences this step already writes for: the
+log-facing `summary` names the ancestor and its distance behind the tip, the post-facing `event`
+states the **distance alone** (a root line is addressed to nobody, so *how far back* is the news
+while *which commit* is a task), and `read_at` / `read_at_distance` ride the `needs_agent` row so
+the question can put the distance on its **heading**, never in the body, which leads with what
+happened. A colour read at the tip renders exactly as it did before the coordinates existed, and a
+degraded read carries none, because no colour was read anywhere to have any. The distance is
+**stated and never thresholded** — a threshold nobody chose is how a reading becomes a verdict —
+and a commit count is not an age, so the no-timestamp rule above is untouched.
+
 **Only a red base supplies an `event`**, and it names the repository event rather than the tick's
 bookkeeping: *the base went red at `<commit>` — `<checks>` failing, from that merge*, with the
 commit linked (and the pull request too, when the walk named one) so the root line is followed

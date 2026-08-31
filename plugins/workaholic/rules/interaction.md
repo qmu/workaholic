@@ -65,7 +65,7 @@ language.
 
 **What is never translated**, because it is not prose: the shape's own label (`🔎 Moderation`,
 `🟢 Implemented` — the pinned wire format, `workaholic:notify`), step ids, status and reason words
-(`base_unreadable:tip_no_checks`), refusal words, mission and strategy slugs, branch and file
+(`base_unreadable:tip_checks_pending`), refusal words, mission and strategy slugs, branch and file
 names, `<@U…>` tokens, and every URL. Translating a machine word makes it unsearchable and
 breaks the dedup that keys on it.
 

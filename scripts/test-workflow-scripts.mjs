@@ -2802,6 +2802,49 @@ function testBaseHealthStep() {
     j = step();
     assertEq("a bookkeeping tip over a green ancestor is silence, not a degradation",
       [j.status, j.reason, j.needs_agent, j.event], ["ok", "", [], ""]);
+
+    // ---- AND THE SUMMARY SAYS WHERE THE COLOUR WAS READ (2026-08-31) ----
+    // A green base read an ancestor back is a weaker sentence than a green tip, and a reader
+    // not told the difference reads the ancestor's colour as the tip's.
+    assertTrue("...but the summary names the ancestor the colour was read at",
+      j.summary.includes(`read at ${c2},`), j.summary);
+    assertTrue("...and how far behind the tip it sits, singular where it is one",
+      j.summary.includes("1 commit behind the tip")
+      && !j.summary.includes("1 commits behind"), j.summary);
+    assertTrue("...and carries no timestamp and no age, only a commit count",
+      !/\d{4}-\d{2}-\d{2}|\d+ (second|minute|hour|day|tick)s?\b/.test(j.summary), j.summary);
+    assertEq("...and still contributes no root line: a green base read back is not an event",
+      j.event, "");
+
+    set({ [c1]: GREEN });
+    assertTrue("a colour read two commits back says two, in the plural",
+      step().summary.includes("2 commits behind the tip"), step().summary);
+
+    set({ [tip]: GREEN, [c2]: GREEN, [c1]: GREEN });
+    assertEq("a colour read AT the tip renders exactly as it did before the coordinates existed",
+      step().summary, `the base is green at ${tip}`);
+
+    // A RED BASE BEHIND A BOOKKEEPING TIP CARRIES THE DISTANCE ON BOTH SURFACES — and the
+    // post-facing one states the distance ALONE, because a root line is addressed to nobody and
+    // *how far back* is the news while *which commit* is a task.
+    set({ [c2]: RED, [c1]: GREEN });
+    j = step();
+    assertEq("a red base read an ancestor back is still one question, keyed on that commit",
+      [j.status, j.needs_agent.length, j.needs_agent[0].base.key], ["ok", 1, `base-red:${c2}`]);
+    assertTrue("...its summary names where the colour was read",
+      j.summary.includes(`read at ${c2}, 1 commit behind the tip`), j.summary);
+    assertTrue("...its event states the distance and names no second commit",
+      j.event.includes("the colour was read 1 commit behind the tip"), j.event);
+    assertEq("...and the coordinates ride the row for the question to put on its heading",
+      [j.needs_agent[0].base.read_at, j.needs_agent[0].base.read_at_distance], [c2, 1]);
+
+    set({ [tip]: RED, [c2]: GREEN, [c1]: GREEN });
+    j = step();
+    assertTrue("a red tip mentions no distance at all, on either surface",
+      !j.summary.includes("behind the tip") && !j.event.includes("behind the tip"),
+      `${j.summary} || ${j.event}`);
+    assertEq("...and states the coordinates as absent rather than as zero",
+      [j.needs_agent[0].base.read_at, j.needs_agent[0].base.read_at_distance], [null, null]);
     set({});
     j = step();
     assertEq("a base with no checks anywhere is degraded by the walk's own word",
@@ -17763,6 +17806,31 @@ function testAttributeBaseRed() {
     assertEq("a tip nothing ran on answers the newest checked ancestor's colour",
       [past.state, past.ok, past.last_green, past.walked, past.reason],
       ["green", true, c4, 2, ""]);
+
+    // ...AND SAYS WHERE IT READ IT. "green" and "green at <sha>, one commit behind the tip"
+    // are different sentences, and only the second is the one the walk made.
+    assertEq("...naming the commit the colour was read at and its distance behind the tip",
+      [past.read_at, past.read_at_distance], [c4, 1]);
+    set({ [tip]: NONE, [c4]: NONE, [c3]: GREEN, [c2]: GREEN, [c1]: GREEN });
+    assertEq("a colour read two commits back says two",
+      [walk().read_at, walk().read_at_distance], [c3, 2]);
+
+    // A COLOUR READ AT THE TIP RENDERS EXACTLY AS IT DID: both coordinates null, so a
+    // repository whose tip carries checks sees the values it always saw.
+    set({ [tip]: GREEN, [c4]: GREEN, [c3]: GREEN, [c2]: GREEN, [c1]: GREEN });
+    assertEq("a colour read at the tip states no coordinates at all",
+      [walk().read_at, walk().read_at_distance], [null, null]);
+    set({ [tip]: RED, [c4]: RED, [c3]: RED, [c2]: GREEN, [c1]: GREEN });
+    assertEq("...and so does a red tip, whatever the attribution walked past",
+      [walk().read_at, walk().read_at_distance], [null, null]);
+
+    // A DEGRADED READ CARRIES NO COORDINATES, because no colour was read anywhere to have any.
+    set({ [tip]: BAD, [c4]: GREEN, [c3]: GREEN, [c2]: GREEN, [c1]: GREEN });
+    assertEq("an unreadable tip states no coordinates",
+      [walk().state, walk().read_at, walk().read_at_distance], ["unanswerable", null, null]);
+    set({ [tip]: NONE, [c4]: NONE, [c3]: NONE, [c2]: NONE, [c1]: NONE });
+    assertEq("...and neither does a walk that read no colour at all",
+      [walk().state, walk().read_at, walk().read_at_distance], ["unanswerable", null, null]);
 
     // ...AND THE ATTRIBUTION IS THE ONE A RED TIP WOULD HAVE PRODUCED. The bookkeeping commit
     // is skipped, never counted as the thing that broke the base.

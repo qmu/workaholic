@@ -67,11 +67,22 @@
 # (`drive/reference/claims.md`, *Proofs and judgements*). Report it, ask about it; never
 # revert, re-run, gate, hold or merge on it.
 #
+# THE ANSWER SAYS WHERE IT WAS READ (2026-08-31, the same mission's second ticket). Once the
+# walk continues past a bookkeeping tip the colour is an ANCESTOR'S, and a reader who is not
+# told that reads it as the tip's — "green" and "green at <sha>, two commits behind the tip" are
+# different sentences, and the second is the true one. `read_at` names the commit whose reading
+# produced the emitted colour and `read_at_distance` how far behind the tip it sits; BOTH ARE
+# NULL when the colour was read at the tip itself, so a repository whose tip carries checks sees
+# the values it always saw. The distance is STATED, never thresholded: a green ancestor fifteen
+# commits back is a weaker statement than one directly behind, and a threshold nobody chose is
+# how a reading becomes a verdict — the operator judges.
+#
 # Usage: attribute-base-red.sh [<tip-ref>]        (default: $WORKAHOLIC_BASE_REF or origin/main)
 # Output: one JSON line
 #   {"ok": bool, "state": "green|red|unattributable|unanswerable", "tip",
 #    "attributed": {"commit", "pull_request", "pull_request_number", "author"}|null,
-#    "last_green", "walked", "bound": {"max_commits": <n>}, "reason"}
+#    "last_green", "walked", "read_at", "read_at_distance",
+#    "bound": {"max_commits": <n>}, "reason"}
 #
 #   state       `red` means a culprit was named; `unattributable` means the base IS red and
 #               no culprit could be named; `unanswerable` means no colour could be read at all
@@ -82,6 +93,12 @@
 #               `pull_request`/`author` unstated and KEEPS the finding — the attribution is
 #               still real without a URL.
 #   walked      how many commits the reader was called on.
+#   read_at     the commit whose reading produced the emitted colour — the newest commit the
+#               reader answered `green` or `red` for. `null` when that was the tip, and `null`
+#               on `unanswerable`, where no colour was read anywhere.
+#   read_at_distance
+#               how many commits behind the tip `read_at` sits. `null` exactly when `read_at`
+#               is, so the two are read together or not at all.
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 GH_REST="${SCRIPT_DIR}/../../gather/scripts/gh-rest.sh"
@@ -97,12 +114,26 @@ TIP=""
 WALKED=0
 LAST_GREEN=""
 
+# WHERE THE COLOUR WAS READ. Set exactly once, at the newest commit the reader answered `green`
+# or `red` for; a skipped commit never sets it, because nothing was read there. A distance of 0
+# is the tip, which is rendered `null` — the pre-existing shape for a repository whose tip
+# carries checks.
+READ_AT=""
+READ_DISTANCE=0
+
 # $1 state, $2 reason, $3 attributed (JSON object or `null`).
 emit() {
     _ok=true
     case "$1" in unanswerable) _ok=false ;; esac
-    printf '{"ok": %s, "state": "%s", "tip": "%s", "attributed": %s, "last_green": "%s", "walked": %s, "bound": {"max_commits": %s}, "reason": "%s"}\n' \
-        "$_ok" "$1" "$TIP" "${3:-null}" "$LAST_GREEN" "$WALKED" "$MAX" "${2:-}"
+    _read_at=null
+    _read_distance=null
+    if [ -n "$READ_AT" ] && [ "$READ_DISTANCE" -gt 0 ]; then
+        _read_at="\"${READ_AT}\""
+        _read_distance="$READ_DISTANCE"
+    fi
+    printf '{"ok": %s, "state": "%s", "tip": "%s", "attributed": %s, "last_green": "%s", "walked": %s, "read_at": %s, "read_at_distance": %s, "bound": {"max_commits": %s}, "reason": "%s"}\n' \
+        "$_ok" "$1" "$TIP" "${3:-null}" "$LAST_GREEN" "$WALKED" \
+        "$_read_at" "$_read_distance" "$MAX" "${2:-}"
     exit 0
 }
 
@@ -173,6 +204,9 @@ attributed_json() {
 read_commit "$TIP"
 WALKED=1
 case "$RC_STATE" in
+    green|red) READ_AT="$TIP"; READ_DISTANCE=0 ;;
+esac
+case "$RC_STATE" in
     green) LAST_GREEN="$TIP"; emit green ;;
     unanswerable)
         case "$RC_REASON" in
@@ -194,6 +228,14 @@ for sha in $commits; do
     if [ "$WALKED" -ge "$MAX" ]; then break; fi
     WALKED=$((WALKED + 1))
     read_commit "$sha"
+    case "$RC_STATE" in
+        green|red)
+            if [ -z "$READ_AT" ]; then
+                READ_AT="$sha"
+                READ_DISTANCE=$((WALKED - 1))
+            fi
+            ;;
+    esac
     case "$RC_STATE" in
         green)
             LAST_GREEN="$sha"

@@ -33,6 +33,15 @@
 # silent it would be the shape this mission exists to remove — a real finding with no path to
 # a person.
 #
+# THE ANSWER SAYS WHERE IT WAS READ (2026-08-31, mission
+# `read-the-base-s-colour-past-a-bookkeeping-tip`). The walk continues past a commit nothing ran
+# on, so the colour it reports is frequently an ANCESTOR'S — the loop's bookkeeping commits are
+# excluded from every workflow's path filter, which makes an unchecked tip the ordinary shape
+# here. "The base is green" read as the tip's would be a stronger sentence than the one the walk
+# made, so both surfaces carry the coordinates: the log-facing `summary` names the ancestor and
+# its distance, the post-facing `event` states the distance alone, and a colour read AT the tip
+# renders exactly as it always did. The distance is stated and never thresholded.
+#
 # A DEGRADED READ ASKS NOTHING and is reported by name. `unanswerable` is a reading WE could
 # not make, not a finding about the repository — the rule `direction-health` already holds for
 # `unreadable` and `strategy-pace` for our own degradation. Spending a person's attention on
@@ -93,9 +102,42 @@ state=$(printf '%s' "$out" | jq -r '.state // ""')
 reason=$(printf '%s' "$out" | jq -r '.reason // ""')
 tip=$(printf '%s' "$out" | jq -r '.tip // ""')
 
+# WHERE THE COLOUR WAS READ (2026-08-31, mission
+# `read-the-base-s-colour-past-a-bookkeeping-tip`). Since the walk continues past a commit
+# nothing ran on, the colour it reports is often an ANCESTOR'S, and "the base is green" read as
+# the tip's is a stronger sentence than the one the walk made. The walk answers `null` for both
+# coordinates when it read the tip itself, so this clause is empty for a repository whose tip
+# carries checks and the rendering there is byte-identical to what it always was.
+#
+# THE DISTANCE IS STATED AND NEVER THRESHOLDED. A green ancestor fifteen commits back is a
+# weaker statement than one directly behind — and a threshold nobody chose is how a reading
+# becomes a verdict, which is the one thing this vocabulary may not become. The operator judges.
+#
+# IT CARRIES NO TIMESTAMP AND NO AGE, for the reason this file's header already records: the
+# root calls a step changed when its summary differs from the same step's an hour ago, and an
+# age would mark it changed every tick by construction. A commit count is not an age.
+# TWO RENDERINGS OF ONE FACT, for the two audiences this step already writes for. The
+# log-facing `summary` names the ancestor, because the diff that calls this step changed is read
+# against it and the sha is normalised out anyway; the post-facing `event` states the distance
+# only, because a root line is addressed to nobody and *how far back* is the news while *which
+# commit* is a task. Neither is derived from the other's string.
+read_at=$(printf '%s' "$out" | jq -r '.read_at // ""')
+read_distance=$(printf '%s' "$out" | jq -r '.read_at_distance // ""')
+depth=""
+depth_event=""
+if [ -n "$read_at" ] && [ -n "$read_distance" ]; then
+    if [ "$read_distance" = "1" ]; then
+        depth="; read at ${read_at}, 1 commit behind the tip"
+        depth_event="; the colour was read 1 commit behind the tip"
+    else
+        depth="; read at ${read_at}, ${read_distance} commits behind the tip"
+        depth_event="; the colour was read ${read_distance} commits behind the tip"
+    fi
+fi
+
 case "$state" in
     green)
-        emit ok "" "the base is green at ${tip}"
+        emit ok "" "the base is green at ${tip}${depth}"
         ;;
     unanswerable)
         emit degraded "base_unreadable:${reason}" \
@@ -145,11 +187,15 @@ names=$(printf '%s' "$failing" | jq -r '[.[].name] | join(", ")' 2>/dev/null || 
 [ -n "$names" ] || names="check names unavailable"
 
 if [ "$state" = "red" ]; then
-    summary="the base is red at ${commit}; attributed to that merge; failing: ${names}"
+    summary="the base is red at ${commit}; attributed to that merge; failing: ${names}${depth}"
 else
-    summary="the base is red at ${tip}; unattributable (${reason}); failing: ${names}"
+    summary="the base is red at ${tip}; unattributable (${reason}); failing: ${names}${depth}"
 fi
 
+# THE COORDINATES RIDE THE ROW, and the question puts them on the HEADING if anywhere. That is
+# this step's explicit judgement (2026-08-31): the `🙋` contract is to lead with what happened in
+# plain words and put the identifier after it, and a commit distance is an identifier's detail,
+# not the thing that happened. Nothing about the key, the cap or the addressee moves with it.
 row=$(printf '%s' "$out" | jq -c \
     --arg commit "$commit" --arg owner "$owner" --arg names "$names" \
     --arg pr "$pull_request" --arg st "$state" \
@@ -161,6 +207,8 @@ row=$(printf '%s' "$out" | jq -c \
       attribution: (if $st == "red" then "attributed" else ("unattributable: " + (.reason // "")) end),
       last_green: (.last_green // ""),
       walked: (.walked // 0),
+      read_at: (.read_at // null),
+      read_at_distance: (.read_at_distance // null),
       key: ("base-red:" + $commit)}' 2>/dev/null || printf '')
 [ -n "$row" ] || emit degraded walk_unparseable "the base attribution could not be turned into a question"
 
@@ -193,17 +241,17 @@ fi
 
 if [ "$state" = "red" ]; then
     if [ -n "$pull_request" ]; then
-        event="the base went red at ${commit_link} — ${names} failing, from <${pull_request}|that merge>"
+        event="the base went red at ${commit_link} — ${names} failing, from <${pull_request}|that merge>${depth_event}"
     else
-        event="the base went red at ${commit_link} — ${names} failing"
+        event="the base went red at ${commit_link} — ${names} failing${depth_event}"
     fi
 else
-    event="the base is red at ${commit_link} — ${names} failing; the merge that broke it could not be attributed"
+    event="the base is red at ${commit_link} — ${names} failing; the merge that broke it could not be attributed${depth_event}"
 fi
 
 needs=$(printf '%s' "$row" | jq -c '{action: "tell_the_attributed_author_the_base_is_red",
     bound: "one question per red commit, addressed to `owner` (nobody when it is `unknown`), keyed on `key` so it is asked once however many ticks see the same red commit; the tick asks and never re-runs a check, reverts, merges or touches a claim",
-    compose: "name the commit, its pull request, the failing checks, and that a re-run may clear it -- this is a reading, not a verdict; when `attribution` is not `attributed`, say plainly that the walk could not name the merge and why, and do not send anyone after a merge this step did not identify",
+    compose: "name the commit, its pull request, the failing checks, and that a re-run may clear it -- this is a reading, not a verdict; when `attribution` is not `attributed`, say plainly that the walk could not name the merge and why, and do not send anyone after a merge this step did not identify; when `read_at_distance` is not null the colour was read that many commits behind the tip, which belongs on the HEADING beside the identifier and never in the body, which leads with what happened",
     base: .}' 2>/dev/null || echo '{}')
 
 emit ok "" "$summary" "$needs" "$event"

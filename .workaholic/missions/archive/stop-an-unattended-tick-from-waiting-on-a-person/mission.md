@@ -59,3 +59,4 @@ the next tick reads, so a blocked hour and a quiet hour are never one absence.
 - 2026-08-31 — ticket archived — 20260831113559-drill-the-blocked-tick-reading-offline.md
 - 2026-08-31 — ticket archived — 20260831113559-state-the-no-waiting-rule-where-the-shell-rules-live.md
 - 2026-08-31 — mission achieved — mission.md
+- 2026-08-31 — story reported — work-20260831-140035.md

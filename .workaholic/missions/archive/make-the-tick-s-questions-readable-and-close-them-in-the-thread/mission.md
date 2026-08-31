@@ -2,7 +2,7 @@
 type: Mission
 title: Make the tick's questions readable and close them in the thread
 slug: make-the-tick-s-questions-readable-and-close-them-in-the-thread
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-31T20:08:20+09:00
 author: a@qmu.jp
@@ -46,7 +46,7 @@ recorded and what came of it — once.
       existing one-sentence bound, with no key, cap or hold moved. (#20260831200959-rewrite-each-step-s-question-to-that-contract.md)
 - [x] Once the loop has acted on an answer, one reply in that question's thread
       carries the answer as recorded and its outcome, never load-bearing. (#20260831200959-reply-the-answer-and-its-outcome-into-the-thread.md)
-- [ ] Proved offline by a drill with a breaker row, in the drill register. (#20260831200959-drill-the-outcome-reply-offline.md)
+- [x] Proved offline by a drill with a breaker row, in the drill register. (#20260831200959-drill-the-outcome-reply-offline.md)
 
 ## Changelog
 
@@ -56,3 +56,5 @@ recorded and what came of it — once.
 - 2026-08-31 — ticket archived — 20260831200959-read-what-a-recorded-answer-became.md
 - 2026-08-31 — ticket archived — 20260831200959-give-the-answer-s-outcome-a-reply-shape.md
 - 2026-08-31 — ticket archived — 20260831200959-reply-the-answer-and-its-outcome-into-the-thread.md
+- 2026-08-31 — ticket archived — 20260831200959-drill-the-outcome-reply-offline.md
+- 2026-08-31 — mission achieved — mission.md

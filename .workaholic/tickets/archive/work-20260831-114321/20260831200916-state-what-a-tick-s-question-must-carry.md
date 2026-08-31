@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-31T20:09:16+09:00
+status: done
 author: a@qmu.jp
 assignees: 
 depends_on:
@@ -95,3 +96,37 @@ voice. Wording only: no key, cap, hold or gate moves.
   and the Open Decisions floor already rest on.
 - The ≤25-word bound is deliberately not raised. The measured failure is a question that
   says the wrong things, not one that says too few.
+
+## Final Report
+
+Development completed as planned.
+
+The composition contract is stated in exactly one place — `notify/reference/notifications.md`,
+immediately beside the `🙋 <@U…>` shape block it constrains — as five numbered clauses (lead with
+what happened; the identifier after it; a verdict word never alone; the body names the one act;
+the named details keep riding the heading), plus the ceiling-not-a-target rule and an explicit
+statement of what does not move.
+
+`workaholic:moderate`'s own paragraph, which carried a partial three-part version since
+2026-08-26, now **refers** to the catalog rather than restating it — the second copy is removed,
+not added to. The `[Moderate]` routine template needed no change: it copies the fenced shape
+block, which is byte-identical, and the contract is prose beside it rather than inside it.
+
+### Discovered Insights
+
+- **Insight**: The evidence the contract is written against is the identifier each step happens
+  to hold, not a style preference — `undrivable-unit:<path>`, `stalled-unit:<unit>`,
+  `retire-blocked:<unit>:<word>`, `base-red:<commit>`, `direction-*:<slug>`,
+  `operator-pull:<number>`, `catchup-blocked:<unit>`, `raced-unit:<unit>`,
+  `handoff-unit:<unit>`, `undelivered-unit:<unit>`. A step composes from what it has in hand, so
+  without a stated rule the key's own shape leaks into the post every time.
+  **Context**: This is why the contract's clause 2 is "the identifier after it, never before"
+  rather than "no identifier": the identifier is how the reader finds the thing, and removing it
+  would make the question unanswerable in a different way.
+
+- **Insight**: The drift pin extracts the fenced block by a leading-string regex
+  (`scripts/test-workflow-scripts.mjs`, `block(body, lead)`), and separately asserts that the
+  template authorizes exactly five shapes by listing every fence's first line.
+  **Context**: Prose added *around* a shape block is invisible to both assertions, so a
+  contract like this one can be stated beside the shape without touching the byte-identical
+  template copy. Anything added *inside* a fence would have failed the five-shape list.

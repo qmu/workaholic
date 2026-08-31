@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-31T20:09:59+09:00
+status: done
 author: a@qmu.jp
 assignees: 
 depends_on:
@@ -88,3 +89,50 @@ two reads.
   about what happened, never a gate.
 - The chain from question to issue is the log's own filed line, not a search: no cursor,
   no second marker, no second reader.
+
+## Final Report
+
+Development completed as planned.
+
+`moderate/scripts/answer-outcome.sh` answers `settled:nothing_filed` / `settled:issue_closed` /
+`pending` / `unreadable:<reason>` per answered question, composing `question-state.sh` for the
+state, `log-read.sh` for the `question-answers-filed-<slug>` line, and `gather/scripts/gh-rest.sh`
+for the one bounded issue read. It writes nothing, creates no store, adds no field to any
+artifact and makes no network call at all for an answer that filed nothing.
+
+All four outcomes were exercised against a fixture log before the vocabulary was written down:
+`not_filed:` → `settled:nothing_filed` with no call; a real closed issue → `settled:issue_closed`
+carrying `state_reason: completed`; a number GitHub does not have → `unreadable:not_found` with
+the issue number still named; and no filing line at all → `pending` with `reason:
+no_filing_line`.
+
+The vocabulary is classified in `drive/reference/claims.md` as the **eighth** in that home, all
+judgements, with its one consumer enumerated, and the suite's classification pin extended to it:
+it parses the words out of the reader's own `emit` calls, fails on an unclassified word, on a
+word the reader never emits, on any row called a `proof`, and on the consumer reaching an acting
+call site.
+
+### Discovered Insights
+
+- **Insight**: The ticket asked for a three-valued answer, and a fourth case exists that must not
+  join the vocabulary — a question with **no recorded answer**. Folding it into `unreadable`
+  would be exactly the collapse `unreadable` exists to close, so it is a refusal (`ok: false`,
+  `reason: not_answered:<state>`, empty `outcome`) rather than a word.
+  **Context**: The same shape recurs across this repository's readers — `readable: false` versus
+  an honest empty, `pending` versus `unavailable`. The rule that falls out is: a state that is
+  *not a reading of the subject at all* is refused before the vocabulary, never inside it.
+
+- **Insight**: `"closed by a merged pull request"` is not reachable from the issue endpoint; it
+  needs the issue's timeline, which is a second bounded call per candidate. `state_reason` is
+  what GitHub records instead (`completed` when a merging pull request closes it), and
+  `not_planned` is equally an outcome the person who answered is owed.
+  **Context**: The reading therefore settles on `closed` and carries `state_reason` verbatim, and
+  the narrowing is stated in the script's header and the classification table rather than left
+  for a later reader to discover as a bug.
+
+- **Insight**: `scripts/test-workflow-scripts.mjs` pins that no script but `question-state.sh`
+  and `ask-question.sh` may *execute* `question-state.sh` — a rule whose stated purpose is that
+  no script records an answer and no script re-derives a question's life.
+  **Context**: A composition is what that rule is *for* rather than against, so
+  `answer-outcome.sh` joined the allowlist with the distinction written into the pin: what stays
+  banned is a second **derivation** of the state and any reach for `record-answer.sh`.

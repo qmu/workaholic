@@ -4,7 +4,6 @@
 
 * [deploy-the-docs-site-on-merge-to-main](active/deploy-the-docs-site-on-merge-to-main/mission.md) - Deploy the docs site on merge to main
 * [make-the-routine-create-body-documented-and-buildable](active/make-the-routine-create-body-documented-and-buildable/mission.md) - Make the routine create body documented and buildable
-* [make-the-tick-s-questions-readable-and-close-them-in-the-thread](active/make-the-tick-s-questions-readable-and-close-them-in-the-thread/mission.md) - Make the tick's questions readable and close them in the thread
 * [make-workaholify-converge-the-account-s-routines](active/make-workaholify-converge-the-account-s-routines/mission.md) - Make /workaholify converge the account's routines
 * [refuse-ok-under-a-placeholder-identity](active/refuse-ok-under-a-placeholder-identity/mission.md) - Refuse ok under a placeholder identity
 * [say-when-the-check-in-queue-is-stuck-and-bound-the-hold](active/say-when-the-check-in-queue-is-stuck-and-bound-the-hold/mission.md) - Say when the check-in queue is stuck, and bound the hold
@@ -63,6 +62,7 @@
 * [make-the-feedback-loop-actually-propose](archive/make-the-feedback-loop-actually-propose/mission.md) - Make the feedback loop actually propose
 * [make-the-per-commit-changed-lines-ceiling-a-rule-that-holds](archive/make-the-per-commit-changed-lines-ceiling-a-rule-that-holds/mission.md) - Make the per-commit changed-lines ceiling a rule that holds
 * [make-the-propose-implement-loop-drillable-on-demand](archive/make-the-propose-implement-loop-drillable-on-demand/mission.md) - Make the propose–implement loop drillable on demand
+* [make-the-tick-s-questions-readable-and-close-them-in-the-thread](archive/make-the-tick-s-questions-readable-and-close-them-in-the-thread/mission.md) - Make the tick's questions readable and close them in the thread
 * [make-the-tick-s-root-earn-its-hour](archive/make-the-tick-s-root-earn-its-hour/mission.md) - Make the tick's root earn its hour
 * [make-the-two-executors-agree-about-a-proved-empty-claim](archive/make-the-two-executors-agree-about-a-proved-empty-claim/mission.md) - Make the two executors agree about a proved-empty claim
 * [make-the-workflow-scripts-survive-a-graphql-restricted-gh](archive/make-the-workflow-scripts-survive-a-graphql-restricted-gh/mission.md) - Make the workflow scripts survive a GraphQL-restricted gh

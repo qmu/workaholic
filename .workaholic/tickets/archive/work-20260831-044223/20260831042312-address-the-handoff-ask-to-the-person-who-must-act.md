@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-31T04:23:12+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -94,3 +95,56 @@ the declared verification, and carry it on the bot so the mention fires.
   same person's business by different routes. Whether one should suppress the
   other is a judgement for the operator, not this mission.
 - An attended `/drive` run still posts nothing to Slack, unchanged.
+
+## Final Report
+
+**Outcome:** implemented.
+
+**Step 1 — what the 2026-08-23 record got right, read before anything moved.** The token the
+handoff line carried then named the **runner** — the account making the post — so it was
+decoration, and dropping it was correct. What the record did not settle is that this shape is
+*by definition* waiting on one person's act, so removing the runner left it naming **nobody**,
+which is the one thing it cannot afford. `drive/reference/routing.md`'s own declared-handoff
+table has read `🟡 Handoff` **naming the assignee** since 2026-08-14, so the route and the
+catalog had disagreed for eight days. **The repair is the identity, never the removal.**
+
+**What changed.** The catalog's fenced shape is `🟡 Handoff <@U…> - [#123 …]`; the token is the
+**unit's own addressee**, resolved from its `assignees` through `gather/scripts/identity.sh`, and
+**omitted rather than guessed** when the address does not resolve — the reader answers
+`resolved: false` and echoes its input, and a guess here pages the wrong person about somebody
+else's blocked work. It rides the **bot** when that addressee is the posting identity, per the
+transport rule the previous ticket wrote; the connector otherwise, unchanged. Everything else is
+verbatim: the body sentence, the session URL, the `## Handoff` section's verbatim quoting of the
+declared reason, and the rule that this 🟡 **is** the unit's one finish post.
+
+**The rule is satisfied, not excepted.** *Never mention the identity you are posting as* holds
+exactly as written — the mention now resolves to somebody other than the author, which is what a
+mention is. `notify/SKILL.md`'s own record of that rule says so in place rather than growing a
+carve-out.
+
+**Reported, so an unaddressed line reads as one.** `drive/reference/routing.md`'s run-report
+contract gains two facts beside the existing notification outcome, deliberately unblended:
+**which account spoke** (`bot` / `connector`) and **whom it named** (the resolved address, or
+`mention_unresolved: <address>`). *Posted*, *by whom* and *at whom* are three questions, and
+three units sat waiting on operator input since 2026-08-18, 2026-08-19 and 2026-08-26 with the
+run reporting the post as sent. No artifact gains a field.
+
+**The drift pin moved with the decision, and is the part worth reading.** The suite pinned
+*🟡 Handoff carries no token at all*, which was the 2026-08-23 decision's **effect** rather than
+its rule; the rule is *not yourself, never nobody*, the same rule the check-in question's
+neighbouring row pins. It now pins that the token is back, that the catalog states the addressee
+is the unit's assignee rather than the runner, and that an unresolved address omits it. Stated in
+the comment: **whom a token resolves to is a runtime fact no wire format can carry**, so the two
+prose rows cover the half a fenced shape cannot — rather than leaving the reader to assume the
+shape proves more than it does.
+
+**Gate.** `node scripts/test-workflow-scripts.mjs` → 5436 passed, 0 failed (the three replacing
+rows green). `sh scripts/e2e/loop-drill.sh verify-handoff-question` → `verdict: pass`, 8
+load-bearing rows, 0 failed, 1 breaker — unchanged. `build.mjs && verify.mjs` → all built skills
+self-contained.
+
+**Deliberately not done.** Whether this line should suppress `/moderate`'s hourly
+`handoff-unit:<unit>` question, or the reverse, is left alone: the two are the same person's
+business by different routes — one fires from the claim oracle every hour, one is the finish the
+run itself posts — and which should yield is the operator's judgement, not this mission's. An
+attended `/drive` run still posts nothing to Slack.

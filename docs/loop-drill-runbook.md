@@ -1339,6 +1339,53 @@ that would make an eleven-day blocker read as one that just started.
 | `age_gates_nothing` | a gate or a survey now reads the age — a judgement has become a gate |
 | `age_breaker` | the drill can no longer fail, so every row above proves nothing |
 
+## 5s. The directed notification (does the question reach a person?)
+
+```sh
+sh scripts/e2e/loop-drill.sh verify-directed-notification [--json]
+```
+
+Walks transport → rule → call site → template for the two posts whose whole purpose is to
+**reach** somebody (2026-08-31, mission `notify-the-person-a-directed-question-addresses`). It
+needs **no seed, no fire, no issue number, no credential and no network**: `curl` is stubbed on
+`PATH`, so what is asserted is the **bytes that would have gone out**.
+
+**What it proves.** The tokened transport carries a coordinate verbatim, so a bot can reply
+*into* the thread the connector resolved; a post with no flag is byte-identical to the
+pre-repair builder's, compared against that builder **re-run**, never against a literal typed
+into the drill; a malformed coordinate is refused `bad_thread_ts` with **nothing posted**,
+because a root sent silently where a reply was asked for is invisible from the caller's side;
+and with no bot token the directed post is a reported `no_token` no-op at exit 0 — the
+connector fallback, never a drop. The rule **enumerates** its directed set, names both shapes
+and makes extending it a deliberate edit; both call sites and both routine templates state the
+same rule, the addressee and what an unresolved address does.
+
+**The gate's immunity is proved by execution, not by reading a diff.** The same key on the same
+fixture must answer **byte-identically** with a bot token and without one, and `ask-question.sh`
+must name no transport at all — the structural half, so a future gate cannot start branching on
+a token while still answering identically today.
+
+**What no drill can prove** is that a human's phone buzzed. That half is the mission's handoff
+ticket, deliberately separate so the mechanical proof is not held hostage to a credential.
+
+**Its breaker is in two halves, each written against the behaviour.** One restores the
+pre-repair **transport** (`--thread-ts` removed, so the bot can only ever post a root — and the
+broken copy still posts successfully, so the row catches a regression rather than a crash); one
+restores the pre-repair **rule** (the enumerated directed set removed, so availability alone
+decides the carrier). Either alone would leave the other half unproved.
+
+| Row | What a failure means |
+| --- | -------------------- |
+| `directed_reply_carries_the_thread` | `notify-slack.sh` — the bot can no longer reply into a resolved thread |
+| `undirected_post_is_unchanged` | `notify-slack.sh` — every caller that passes no flag has silently changed what it sends |
+| `malformed_coordinate_posts_nothing` | `notify-slack.sh` — a bad coordinate is being dropped into a root instead of refused |
+| `no_token_falls_back_and_is_reported` | `notify-slack.sh` — a missing token stopped being a reported no-op |
+| `rule_enumerates_the_directed_set` / `rule_keeps_every_other_shape_on_the_connector` | `notify/SKILL.md` — the carrier became a post-time judgement |
+| `call_sites_state_the_same_rule` | `moderate/reference/workflow.md` or `drive/reference/routing.md` — two consumers reading one rule differently |
+| `templates_name_shape_and_carrier` | a routine template — the prompt is the ceiling, so a shape it does not name cannot be posted |
+| `gate_is_transport_blind` / `gate_never_reads_the_transport` | `ask-question.sh` — which questions are asked started depending on which surface would carry them |
+| `directed_notification_breaker_transport` / `directed_notification_breaker_rule` | the drill can no longer fail, so every row above proves nothing |
+
 ## 9. The drill register
 
 **One table, three columns, one reader** (2026-08-29, mission
@@ -1415,6 +1462,7 @@ rather than guessed. **No artifact gained a field**: the slug lives here and now
 | `verify-stage` | `hermetic` | yes | `make-a-direction-s-lifecycle-a-declared-stage` |
 | `verify-condition-age` | `hermetic` | yes | `say-how-long-the-loop-has-been-stuck` |
 | `verify-claim-race` | `hermetic` | yes | `stop-two-runs-from-claiming-and-driving-one-unit` |
+| `verify-directed-notification` | `hermetic` | yes | `notify-the-person-a-directed-question-addresses` |
 | `verify-impairment` | `hermetic` | yes | `name-the-steps-a-tick-could-not-read` |
 
 ### The evidence behind the classification

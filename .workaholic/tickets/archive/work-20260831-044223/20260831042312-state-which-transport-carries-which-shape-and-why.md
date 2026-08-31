@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-31T04:23:12+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -95,3 +96,55 @@ connector, the only transport that can search or thread on its own.
 - A looser reading of "directed" (any post naming a person) is refused too: the
   merge, blocked and standup shapes name people as facts and page nobody, which
   is the distinction the enumeration keeps checkable.
+
+## Final Report
+
+**Outcome:** implemented.
+
+**The rule, and where it lives.** `workaholic:notify` gained *Which transport carries which
+shape, and why*, a subsection of *The transport* rather than a document of its own — the
+ranking it narrows is three lines above it, and a second home is how a carrier rule starts
+disagreeing with the availability rule it qualifies. The diagnosis is stated first because it
+is the whole justification: *the connector is primary* is a claim about **availability** that
+also read, unstated, as *every post is made as the operator*, which is harmless for a post
+that records an outcome and fatal for one whose purpose is to reach a person.
+
+**Narrowed, not reversed.** The connector stays primary for every post and stays the only
+transport that can search, so it still resolves every thread; a **directed** post takes the
+bot identity when its mention target resolves to the posting identity. What moves is *which
+account speaks*, never *which transport finds the thread* — which is exactly what the
+previous ticket's `--thread-ts` made expressible.
+
+**The directed set is a table with two rows and a third row for everything else**, so a
+reader answering "which transport carries this shape" gets a positive answer rather than an
+absence. Extending it is a deliberate edit to the skill, never a post-time judgement — the
+precondition-stop class's discipline, cited by name. Both rejected readings are recorded with
+their reasons: *any post naming a person* fails because `🟢`, `🔴` and `📣` name people as
+facts and page nobody, and *any call site may pick the bot* fails because an ordinary root
+would escape the connector and lose its threading.
+
+**The degradation is stated in the same breath as the rule**, not in a footnote: with no bot
+token a directed post falls back to today's connector post and the run reports the surface
+that carried it — never dropped, never silently downgraded, never counted as delivered on a
+surface it did not use.
+
+**What does not move is enumerated** rather than left to inference: the two-query lookup
+bound, the private-inclusive search, the fuzzy-matching prohibition, case 4's description
+root as a connector shape, and *the prompt is the ceiling*. **`never mention the identity you
+are posting as` is satisfied, not reversed** — the token now resolves to somebody other than
+the author, which is what a mention is; that is the sentence that makes this a narrowing
+rather than a carve-out.
+
+**One rule, two surfaces.** The catalog states the *consequence* for the two shapes it owns
+and points at the skill for the carrier, saying in as many words that it names post shapes
+and never re-derives the carrier — so the enumeration exists in exactly one place. `CLAUDE.md`'s
+notification summary carries the same rule in the same commit.
+
+**Gate.** `node scripts/build-plugins/build.mjs && node scripts/build-plugins/verify.mjs`
+(48 files fresh, 210 links resolve, all built skills self-contained) and
+`node scripts/test-workflow-scripts.mjs` (5434 passed, 0 failed), including the
+routine-template drift pins.
+
+**Deliberately not done.** No call site changed: this states the rule, and the two call sites
+it authorizes are the next two tickets. A routine still may emit only what its own template
+names, which is the ticket after those.

@@ -2,7 +2,7 @@
 type: Mission
 title: Repair a mechanically resolvable conflict instead of reporting it
 slug: repair-a-mechanically-resolvable-conflict-instead-of-reporting-it
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-31T20:22:00+00:00
 author: a@qmu.jp
@@ -42,7 +42,7 @@ conflict that is genuinely theirs, named by the files it collided on.
       person, and a re-run is a no-op. (#20260831202250-settle-a-stranded-publication-a-generator-can-repair.md)
 - [x] One colliding on content is refused by its own word, left byte-identical, and reaches
       its author once. (#20260831202250-ask-about-a-publication-only-a-person-can-settle.md)
-- [ ] A drill proves both offline and fails if a settleable conflict is reported rather than
+- [x] A drill proves both offline and fails if a settleable conflict is reported rather than
       repaired. (#20260831202250-drill-the-stranded-publication-repair-offline.md)
 
 ## Changelog
@@ -54,3 +54,5 @@ conflict that is genuinely theirs, named by the files it collided on.
 - 2026-08-31 — ticket archived — 20260831202250-settle-a-stranded-publication-a-generator-can-repair.md
 - 2026-08-31 — ticket archived — 20260831202250-ask-about-a-publication-only-a-person-can-settle.md
 - 2026-08-31 — ticket archived — 20260831202250-report-each-stranded-publication-in-the-run-report.md
+- 2026-08-31 — ticket archived — 20260831202250-drill-the-stranded-publication-repair-offline.md
+- 2026-08-31 — mission achieved — mission.md

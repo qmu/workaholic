@@ -733,6 +733,35 @@ mission rather than worked around;
 another **executor**, and it does not apply, because an arbitration must be decided
 synchronously, in the container, before the run drives anything.
 
+**And the named mechanism reaches one grain, not two — a second reason to re-scope rather
+than force it** (2026-08-31, the same mission). *A ref derived from the unit id* arbitrates
+only where two racers **name the same unit**, and they do so at exactly one grain:
+
+- **Mission grain — one ref.** The unit id is the mission slug, which both runners read off
+  the same artifact, so two claimants for one mission name one ref. This is the grain the
+  2026-08-30 race was measured at, and the mechanism would close it.
+- **Batch grain — two refs, and the ref arbitrates nothing.** `claim.sh` step 2 mints
+  `unit="batch-$(date +%Y%m%d%H%M%S)"` **inside the claim act itself**, so two runners
+  surveying the same unclaimed tickets mint two different unit ids and therefore push two
+  different unit-keyed refs. Both creates succeed, and the loser is refused by nothing —
+  the same both-win outcome, one grain over.
+
+The batch grain is raceable for the same reason and in the same window. Step 3 already
+carries an **artifact-overlap** check beside the unit-id check, precisely so *a batch that
+scoops up a ticket another branch already took under a different batch id* is refused — but
+it reads `claims_scan`, so it closes the **sequential** case and not the race: two runners
+that both survey before either pushes see no claim, both pass, and both publish.
+
+So arbitrating the batch grain needs a ref keyed on **each artifact** rather than on the
+unit — N create-only pushes with **no atomicity across them**, where a partial acquire must
+be released before the runner surveys again, in a container whose ref deletes are refused.
+That is a materially larger mechanism than *one ref per unit*, and it is recorded here as a
+finding rather than designed, on ticket 3's own instruction: *if the reproduction shows the
+contention must sit earlier than the push, say so and re-scope rather than forcing the named
+mechanism*. It is **independent of the transport** — it would hold in an environment where
+every namespace were writable — so an operator ruling that unblocks the transport does not
+by itself deliver the mission's first acceptance item at the batch grain.
+
 **Two things follow, and both are shipped.** `ambiguous_claim` keeps its behaviour exactly —
 reported, never picked between — and its justification becomes *this can arise from the
 sanctioned path, which is why nothing may choose between two live claims*, rather than the

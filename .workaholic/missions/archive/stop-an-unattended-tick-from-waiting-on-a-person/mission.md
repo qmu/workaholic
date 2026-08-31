@@ -2,7 +2,7 @@
 type: Mission
 title: Stop an unattended tick from waiting on a person
 slug: stop-an-unattended-tick-from-waiting-on-a-person
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-31T11:35:22+00:00
 author: a@qmu.jp
@@ -57,3 +57,5 @@ the next tick reads, so a blocked hour and a quiet hour are never one absence.
 - 2026-08-31 — ticket archived — 20260831113559-notice-a-tick-that-opened-and-never-closed.md
 - 2026-08-31 — ticket archived — 20260831113900-record-what-an-unattended-run-refused-and-why.md
 - 2026-08-31 — ticket archived — 20260831113559-drill-the-blocked-tick-reading-offline.md
+- 2026-08-31 — ticket archived — 20260831113559-state-the-no-waiting-rule-where-the-shell-rules-live.md
+- 2026-08-31 — mission achieved — mission.md

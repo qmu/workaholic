@@ -5,7 +5,6 @@
 * [deploy-the-docs-site-on-merge-to-main](active/deploy-the-docs-site-on-merge-to-main/mission.md) - Deploy the docs site on merge to main
 * [make-the-routine-create-body-documented-and-buildable](active/make-the-routine-create-body-documented-and-buildable/mission.md) - Make the routine create body documented and buildable
 * [make-workaholify-converge-the-account-s-routines](active/make-workaholify-converge-the-account-s-routines/mission.md) - Make /workaholify converge the account's routines
-* [prove-a-claim-branch-is-empty-before-deleting-it](active/prove-a-claim-branch-is-empty-before-deleting-it/mission.md) - Prove a claim branch is empty before deleting it
 * [read-the-base-s-colour-past-a-bookkeeping-tip](active/read-the-base-s-colour-past-a-bookkeeping-tip/mission.md) - Read the base's colour past a bookkeeping tip
 * [refuse-ok-under-a-placeholder-identity](active/refuse-ok-under-a-placeholder-identity/mission.md) - Refuse ok under a placeholder identity
 * [repair-a-mechanically-resolvable-conflict-instead-of-reporting-it](active/repair-a-mechanically-resolvable-conflict-instead-of-reporting-it/mission.md) - Repair a mechanically resolvable conflict instead of reporting it
@@ -77,6 +76,7 @@
 * [notify-the-person-a-directed-question-addresses](archive/notify-the-person-a-directed-question-addresses/mission.md) - Notify the person a directed question addresses
 * [point-the-inbound-readers-at-the-channel-that-exists](archive/point-the-inbound-readers-at-the-channel-that-exists/mission.md) - Point the inbound readers at the channel that exists
 * [propose-at-the-capture-seam](archive/propose-at-the-capture-seam/mission.md) - Propose at the capture seam
+* [prove-a-claim-branch-is-empty-before-deleting-it](archive/prove-a-claim-branch-is-empty-before-deleting-it/mission.md) - Prove a claim branch is empty before deleting it
 * [prove-the-loop-s-closing-link](archive/prove-the-loop-s-closing-link/mission.md) - Prove the loop's closing link
 * [put-the-loop-s-standing-rulings-on-one-pull-request](archive/put-the-loop-s-standing-rulings-on-one-pull-request/mission.md) - Put the loop's standing rulings on one pull request
 * [read-a-strategy-s-pace-against-its-date](archive/read-a-strategy-s-pace-against-its-date/mission.md) - Read a strategy's pace against its date

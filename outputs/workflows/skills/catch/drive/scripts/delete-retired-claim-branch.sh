@@ -45,7 +45,17 @@
 #   release_branch      a `release/*` ref, which is invisible to the claim protocol and must
 #                       never be reachable from here whatever else is true
 #   not_on_base         the content is not on the base, re-derived from the tree through
-#                       `claims_superseded` rather than read off the row's verdict word
+#                       `claims_superseded` rather than read off the row's verdict word. THE
+#                       NAME NOW DESCRIBES WHAT IT TESTS, AND DID NOT BEFORE (2026-08-31,
+#                       mission `prove-a-claim-branch-is-empty-before-deleting-it`): the proof
+#                       it re-derives used to establish only that the unit's TICKETS were on
+#                       the base, so a branch whose tickets landed under another branch's
+#                       directory passed this bound while still carrying files reachable from
+#                       no other ref. `claims_superseded` now proves the branch's own diff
+#                       against the base is empty as well, so the word is accurate as written
+#                       and is kept rather than renamed — renaming a refusal consumers read
+#                       (`ci-retirement-turn.sh`, the CI record, the drills) would cost every
+#                       one of them a change to say what this sentence says
 #   pull_request_open   an OPEN pull request has this head — Act 1 closes it in the container,
 #                       and a branch behind an open pull request is not one CI may delete
 #
@@ -181,6 +191,12 @@ fi
 # second time it is asked. Asking it again immediately before the delete is what makes "the proof
 # is re-taken where the act happens" true of both grains rather than only of the cheap one. The
 # cost is one tree listing or one bounded call; the cost of its absence is an unattended delete.
+#
+# THE REDUNDANCY IS REAL AGAINST A STALE READING AND WAS WORTHLESS AGAINST A WRONG ONE, which is
+# the finding this act inherited its repair from (2026-08-31). Both executors compose ONE
+# derivation, so re-running it twice can only catch a reading that MOVED — never one that was
+# never right. `claims_superseded` gaining the diff term is therefore what repaired this bound;
+# nothing here changed, and nothing here needed to.
 if [ "$(claims_superseded "$BASE" "$artifacts" "$BRANCH" "origin/${BRANCH}")" != "true" ]; then
     refuse not_on_base
 fi

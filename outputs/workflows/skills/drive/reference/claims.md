@@ -926,11 +926,25 @@ attempted on their own merits — the three acts are independent, so one failure
 about the others. A **refusal** reports `not_attempted` for all three rather than `failed` or
 `absent`: those are findings about the world, and a gate that never ran made no finding.
 
-**How reversible each act is**, stated rather than assumed: a closed pull request is reopenable
-with its review history intact; a deleted remote branch is recoverable from the base's own history
-(its content *is* on the base — that is what `superseded` means) and from any clone's reflog; the
-worktree is local and `claim.sh resume` rebuilds one at a branch tip. None of the three destroys
-work — a property of acting only on the proof, never a licence to widen the verdict set.
+**How reversible each act is**, stated rather than assumed, with each half naming what
+guarantees it: a closed pull request is reopenable with its review history intact; a deleted
+remote branch is recoverable from the base's own history **because the diff test proved the
+branch holds nothing that is not on the base**, and its tickets are there **because the archive
+test proved that separately** — and from any clone's reflog besides; the worktree is local and
+`claim.sh resume` rebuilds one at a branch tip. None of the three destroys work — a property of
+acting only on the proof, never a licence to widen the verdict set.
+
+**Before 2026-08-31 that parenthesis was false, and it was the load-bearing half.** It read *its
+content is on the base — that is what `superseded` means*, and `superseded` meant only that the
+unit's **tickets** were archived there. A branch whose tickets landed under **another** branch's
+directory satisfied that while still carrying files reachable from no other ref, so the stated
+recovery did not exist for exactly the branches that needed it. Measured that day: two branches
+holding ~300 lines and a doc section that exist nowhere else, both reported finished and both
+offered to this act. **The loss is a near miss rather than a history** only because Act 2 is
+refused in this container by a 403 (below): the delete has never actually run against them, and
+repairing that transport *without* the diff test would have turned a reported nuisance into
+silent loss on the first tick after the fix. The two tests answer different questions and neither
+implies the other, so a later reader must not remove the diff term as redundant.
 
 **It merges nothing, pushes into no branch, and touches no `.workaholic/` artifact.** Its only
 writes are one REST `PATCH` closing a pull request and one branch delete: no commit anywhere, no

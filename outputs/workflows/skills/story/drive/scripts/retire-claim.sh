@@ -28,8 +28,25 @@
 #
 # WHAT MAKES A DESTRUCTIVE ACT SAFE HERE IS THE PROOF, AND NOTHING ELSE. `superseded` is one of
 # exactly two verdicts the claim protocol classifies as a proof (`../reference/claims.md`,
-# *Proofs and judgements*): the unit's tickets are archived on the base, or a merged pull request
-# has this branch as its head. The branch can never land and holds no work. Every other verdict
+# *Proofs and judgements*), and since 2026-08-31 it proves TWO THINGS, each by its own test:
+#
+#   the unit's tickets are on the base   the archive test (or, at the mission grain, a merged
+#                                        pull request with this branch as its head)
+#   the branch holds no work of its own  the diff test, `claims_branch_diff_reading`: the paths
+#                                        this branch changed that still differ from the base tip,
+#                                        minus the loop's own bookkeeping on that branch
+#
+# UNTIL THEN ONLY THE FIRST WAS TESTED AND THE SECOND WAS ASSUMED FROM IT, and the two do not
+# imply each other: a ticket archived under ANOTHER branch's directory satisfies the archive test
+# while the claim branch still carries files that exist in no other ref. Measured on this
+# repository 2026-08-31 — two branches holding ~300 lines and a doc section reachable from
+# nothing else, both reported finished and both offered to this act. The near miss is only a near
+# miss because Act 2 is refused in this container by a 403 (see *When an act of the retirement is
+# refused*): the delete has never actually run against those branches, so repairing the transport
+# WITHOUT the diff test would have turned a reported nuisance into silent loss on the first tick
+# after the fix. A later reader must not remove the diff term as redundant with the archive test:
+# they answer different questions and neither implies the other, which is the whole finding.
+# Every other verdict
 # is a JUDGEMENT and is refused below BY ITS OWN NAME — `stale` says *look at this*,
 # `queue_drained` says *a person is merging it*, `claim_active` says *a run is on it right now*,
 # and acting on any of them is how a runner discards work somebody is still driving.
@@ -51,10 +68,13 @@
 # the one shared derivation, so the survey's offer, `claim.sh`'s refusal and this retirement
 # cannot disagree about which branch a unit is.
 #
-# HOW REVERSIBLE EACH ACT IS, stated rather than assumed: a pull request closed in error is
-# REOPENABLE on GitHub with its review history intact; a deleted remote branch is recoverable
-# from the base's own history (its content is on the base — that is what `superseded` means) and
-# from any local clone's reflog; the worktree is local and `claim.sh resume` rebuilds one at a
+# HOW REVERSIBLE EACH ACT IS, stated rather than assumed, and each half naming WHAT GUARANTEES
+# IT: a pull request closed in error is REOPENABLE on GitHub with its review history intact; a
+# deleted remote branch is recoverable from the base's own history **because the diff test proved
+# the branch holds nothing that is not on the base**, and its tickets are there **because the
+# archive test proved that separately** — two proofs, two guarantees, and before 2026-08-31 the
+# second stood in for the first, which is exactly when this sentence was false; and from any
+# local clone's reflog besides. The worktree is local and `claim.sh resume` rebuilds one at a
 # branch tip. None of the three destroys work. That is a property of acting only on the proof,
 # not a licence to widen the verdict set.
 #

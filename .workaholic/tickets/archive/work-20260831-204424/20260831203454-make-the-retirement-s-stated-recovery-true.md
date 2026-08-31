@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-31T20:34:54+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -77,3 +78,51 @@ what.
   was right — and repairing only the first leaves the next reader the same false assurance.
 - Resist widening the headers. They are already long; what is added is one sentence per proof
   and the measurement that earned it.
+
+## Final Report
+
+Development completed as planned. No document now claims a recovery the code does not provide.
+
+**The two proofs are stated separately, each naming what it establishes.** `retire-claim.sh`'s
+safety argument and `drive/reference/claims.md`'s reversibility paragraph both said *a deleted
+remote branch is recoverable from the base's own history (its content is on the base — that is
+what `superseded` means)*. That parenthesis was the load-bearing half and it was false:
+`superseded` established only that the unit's **tickets** were archived on the base, so a branch
+whose tickets landed under another branch's directory satisfied it while still carrying files
+reachable from no other ref. Both now name the guarantee per half — the branch's content is on
+the base **because the diff test proved it**, and the tickets are there **because the archive
+test proved that separately** — and both say in words that a later reader must not remove the
+diff term as redundant: the two tests answer different questions and neither implies the other.
+
+**The 403's role is recorded honestly**, in all three places: the loss is a **near miss rather
+than a history**, because Act 2 has never actually run against the measured branches, and
+repairing that transport without the diff test would have turned a reported nuisance into silent
+loss on the first tick after the fix.
+
+**`not_on_base` keeps its name, and the header now earns it.** The word describes what the bound
+tests *now* and did not before — until this mission the proof it re-derives established only the
+tickets. Renaming it was considered and refused: `ci-retirement-turn.sh`, the CI check-run
+record, `read-ci-retirement-record.sh` and the drills all read the refusal word, so a rename
+would cost every one of them a change to say what one paragraph says. The same header also
+records why its redundancy did not save it: both executors compose **one** derivation, so
+re-running it can only catch a reading that *moved*, never one that was never right — which is
+why repairing `claims_superseded` repaired this bound with no change of its own.
+
+`CLAUDE.md`'s three-acts entry now leads with what the proof proves, so the claim-protocol
+section, `claims.md` and both act headers agree.
+
+### Discovered Insights
+
+- **Insight**: a redundant check across an executor boundary defends against staleness, not
+  against wrongness.
+  **Context**: `delete-retired-claim-branch.sh` re-derives the proof immediately before the
+  delete precisely because the gap between the candidate list and the act is a queue and a
+  checkout. That is a real defence — and it is worth exactly nothing when both readings compose
+  the same derivation and that derivation is wrong. The header now says so, because the
+  redundancy reads like a second opinion and is not one.
+- **Insight**: the cheapest ticket in a mission is the one that keeps the expensive one from
+  being undone.
+  **Context**: this ticket changed no behaviour at all. Its whole content is that the measured
+  incident had two halves — a derivation that was wrong and a document that said it was right —
+  and repairing only the first leaves the next reader the same false assurance, and the same
+  reason to delete the term as redundant.

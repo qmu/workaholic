@@ -4,6 +4,8 @@ Branch development narratives, one per branch, serving as the PR description and
 
 <!-- okf:generated:begin -->
 * [work-20260831-114321](work-20260831-114321.md) - The tick's questions gain a composition contract and a voice, and an answer written in a thread now gets one reply saying what came of it.
+* [work-20260831-104307](work-20260831-104307.md) - The moderation tick's root now names the steps that could not read, and a changed impairment earns a root of its own
+* [work-20260831-044223](work-20260831-044223.md) - The two posts whose purpose is to reach a person now ride a bot identity, so their mention fires instead of resolving to the account that posted them
 * [Ask a person about a claim race](work-20260830-094214.md)
 * [work-20260830-084240](work-20260830-084240.md) - A raced loser is now readable as superseded from the tree and cannot write a duplicate; the arbitration that would stop the race is blocked on a measured transport refusal.
 * [work-20260830-055318](work-20260830-055318.md) - An ask with an aim and an owner but no date now drafts a direction on the operator's one-week default instead of dying record-only, with every surface saying on its face that the date is the loop's proposal rather than their word.

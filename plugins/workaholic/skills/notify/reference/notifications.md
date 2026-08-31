@@ -12,6 +12,8 @@ A template names its postable events and defers the line formats here. This file
 
 The rule generalises rather than enumerating three shapes: **resolve the mention target and the posting identity, and emit no `<@U…>` when they are the same.** Mentioning *someone else* is untouched and is exactly what a mention is for — which is why `🙋 <@U…>`, the maintenance tick's question, keeps its token unconditionally: it addresses a named assignee, it is the one post whose entire purpose is to reach a person, and a loop whose blockers reach nobody is the defect that produced issue #584. Nothing else in the catalog mentions anyone: the `📝 FB` description root, `🚀 Auto Merge`, `🔴 Blocked`, `⚪ Paused` and `📣 Standup` carry no token by their own prior rules, and this change does not give them one.
 
+**And a mention that resolves to the poster is repaired by changing the poster, not the mention** (2026-08-31, mission `notify-the-person-a-directed-question-addresses`). The rule above drops a self-resolving token because it notifies nobody — right for the shapes that *record* something, and no answer at all for the two whose purpose is to **reach** a person, which keep their token unconditionally and, in the single-developer configuration, page nobody with it. Those two — `🙋` and the `🟡 Handoff` ask — take the **bot identity** when the addressee resolves to the posting identity, so the same `<@U…>` becomes a real mention: a different account is speaking. Which transport carries which shape is stated **once**, in SKILL, *Which transport carries which shape, and why*, with the directed set enumerated there and nowhere else; this catalog names post **shapes** and never re-derives the carrier. Everything in the rule above is unchanged: a self-resolving token is still emitted by nothing, and no shape in this catalog gains one.
+
 The measured cost, stated rather than hidden: a reader can no longer tell from the finish line alone *which* account's routine posted it in a channel several people's routines post into. That was already only readable as the mention, which rendered as the reader's own name and read as self-addressed; the account is the message's own author, which Slack shows, and the run report names it in words.
 
 ### `/specificate` — the finish, plus a description root when no thread was found
@@ -21,7 +23,7 @@ The measured cost, stated rather than hidden: a reader can no longer tell from t
 by the [routine](<session URL>)
 ```
 
-`🔵 Proposed` retires the earlier `🟢 Proposed to <@U…> - ...` shape. Since 2026-08-14 it is a **reply** in every connector case — into the thread the stateless lookup found, or into the description root below when it found none. It is a top-level line only on the tokened fallback, which cannot thread; there it carries the **record's URL** (`<repo-url>/blob/main/.workaholic/feedbacks/<stem>.md`) rather than a bare key — the same identifier, in the one form that is also readable, so the fallback post stays attributable without printing a machine token at a person (2026-08-22). The retired `📐 Proposing` start once preceded it; nothing replaces it.
+`🔵 Proposed` retires the earlier `🟢 Proposed to <@U…> - ...` shape. Since 2026-08-14 it is a **reply** in every connector case — into the thread the stateless lookup found, or into the description root below when it found none. It is a top-level line only on the tokened fallback, which cannot search and is therefore reached with no resolved thread; there it carries the **record's URL** (`<repo-url>/blob/main/.workaholic/feedbacks/<stem>.md`) rather than a bare key — the same identifier, in the one form that is also readable, so the fallback post stays attributable without printing a machine token at a person (2026-08-22). The retired `📐 Proposing` start once preceded it; nothing replaces it.
 
 #### The description root — every case 4
 
@@ -60,7 +62,7 @@ by the [routine](<session URL>)
 `from-branch` → `to-branch`, one sentence, max 40 words, what the PR does only.
 <session URL>
 
-🟡 Handoff - [#123 Issue Title](<repo-url>/pull/123)
+🟡 Handoff <@U…> - [#123 Issue Title](<repo-url>/pull/123)
 The next run resumes it automatically; `git fetch && git checkout <branch>` to take it sooner. One sentence, max 25 words, what remains only.
 <session URL>
 
@@ -84,7 +86,11 @@ and the start of the next working day, composed from the check-in gate's own `WO
 `↳ still failing` reply, its exemption from rate-limiting, the first-report rule and the
 unreadable-history rule are all untouched.
 
-`🚀 Auto Merge` names no person and carries no mention token — a developer scanning the thread must be able to tell what merged without approval from what a person approved. It keeps the pre-existing merge shape's `from-branch → to-branch` body line verbatim; only the base template it extends moved from `🟢 Merge Requested` to `🟢 Implemented`'s simpler two-line form. `🟡 Handoff` and `🔴 Blocked` are unchanged from the shapes that predate this reconciliation.
+`🚀 Auto Merge` names no person and carries no mention token — a developer scanning the thread must be able to tell what merged without approval from what a person approved. It keeps the pre-existing merge shape's `from-branch → to-branch` body line verbatim; only the base template it extends moved from `🟢 Merge Requested` to `🟢 Implemented`'s simpler two-line form. `🔴 Blocked` is unchanged from the shape that predates this reconciliation.
+
+**`🟡 Handoff` names the person who must act, and 2026-08-23 was right to remove what it named before** (2026-08-31, mission `notify-the-person-a-directed-question-addresses`). The token it carried then named the **runner** — the account making the post — so it was decoration, and dropping it was correct. But the line was left naming **nobody**, which is the one thing this shape cannot afford: a handoff unit is *by definition* waiting on one person's act, and `drive/reference/routing.md`'s own route table has said `🟡 Handoff` **naming the assignee** since 2026-08-14. Measured: three units waiting on operator input since 2026-08-18, 2026-08-19 and 2026-08-26, found only when the operator asked a session directly.
+
+The token is **the unit's own addressee, never the runner** — resolved from the unit's `assignees` through `gather/scripts/identity.sh`, exactly as every other addressee in this loop is. It is **omitted when the address does not resolve**, and reported as unaddressed rather than stamped with one nobody verified: the identity reader answers `resolved: false` and echoes its input, and a guess here would page the wrong person about somebody else's blocked work. The rule above is therefore **satisfied rather than excepted** — the mention resolves to somebody other than the poster, which is what a mention is — and it takes the **bot** carrier when the addressee *is* the poster, per SKILL, *Which transport carries which shape, and why*. Everything else in the line is verbatim: the body sentence, the session URL, the `## Handoff` section's verbatim quoting of the declared reason, and the rule that this 🟡 **is** the unit's one finish post rather than a third.
 
 **A human merge is not announced by `/implement` at all** — that was `[Consent]`'s job, and `[Consent]` is retired (`workaholic:workaholify`, *Routines*): "a human-merged pull request is now announced by nobody." The `Merged by <@U…>` purple-circle shape this section once documented erased with it (2026-08-09, qmu/workaholic#317) rather than being reassigned — nothing in the current system posts a human-merge finish line, so keeping the shape on the books described a post nobody makes. The auto/human distinction the shape used to carry survives anyway, in the silence itself: `🚀 Auto Merge` is the only merge line `/implement` ever posts, so its presence in a thread means the run shipped the unit unattended; a `review` unit's thread ends at `🟢 Implemented` and stays there even after a human merges the PR later, and the merge itself is always readable on GitHub regardless. A developer telling the two apart reads the thread, not a second emoji.
 
@@ -154,11 +160,30 @@ in the window / queued now) instead of "item(s)".
 **One thread per tick, and two speech acts told apart by position** (2026-08-21, the developer's design). The tick posts a **root** carrying what changed in the hour, and every question it has goes out as a **mentioned reply inside that root's thread**. The root is orientation and is addressed to nobody; the replies are directed and carry a name. Two kinds of speech, one place to look, no second routine.
 
 ```
-🔎 Moderation - <N> change(s), <M> question(s)
+🔎 Moderation - <N> change(s), <M> question(s)<, <K> step(s) could not read — only when K > 0>
 <on the morning tick only, first: the per-strategy digest — numbered strategies, bold title on its own line, headline commits since yesterday, honesty line naming tickets and the window>
 <what happened to the repository, one line per changed step that has an event>
+<one line per step that could not read, after the event lines: ⚠️ <step> — <status>: <reason>, at most 5 then "and <K> more">
 <session URL>
 ```
+
+**And every root names the steps that could not read** (2026-08-31, mission
+`name-the-steps-a-tick-could-not-read`). A degraded step normally supplies no `event`, and *a step
+with no event renders no line* — so a tick where six steps saw nothing rendered identically to one
+where everything was read and everything was fine; measured, 24 of 25 ticks in that state, found
+four days later by asking. The count rides the head, the names and reasons ride the body after the
+event lines, and both are omitted entirely when nothing was impaired, so a healthy root is
+byte-identical to what it always was. `skipped` is **not** impairment (a step declining to run for
+a stated, healthy reason did not fail to see) and `blocked` renders beside `degraded` under one
+clause, because they differ in cause and are identical in consequence to the reader.
+
+**It rides outside the diff and earns no post.** A step degraded the same way for twenty-four ticks
+has an unchanged summary, so the diff would call it unchanged and the impairment would be said once
+and then vanish — the defect rather than the fix. And it adds a clause to a root that was *already*
+being posted for a question, a digest or a delivery failure, so a tick that would have been silent
+stays silent: this is not `📦 Release Preparation` returning, which earned a post with an unchanged
+answer. The list is bounded (5 by default) with the remainder counted rather than cut, and it
+carries no dedup key, no mention token and no session URL of its own.
 
 **Each line names a repository event, not the tick's bookkeeping** (2026-08-23). A line used to be
 the step's own **log** summary rendered verbatim — an audit trail written for a maintainer

@@ -4,6 +4,7 @@ Branch development narratives, one per branch, serving as the PR description and
 
 <!-- okf:generated:begin -->
 * [work-20260831-231823](work-20260831-231823.md) - Pin the merged-proposal narrowing — the step spec's fourth copy caught up with the other three, and nine rows hold all four transitions
+* [work-20260831-224412](work-20260831-224412.md) - Give a publish-tree publication a reader, an act and a question, so a collision a generator settles is repaired rather than reported hourly
 * [work-20260831-152743](work-20260831-152743.md) - The heartbeat becomes step 0 of every ticket, so a unit that is one long ticket keeps its own claim
 * [work-20260831-140035](work-20260831-140035.md) - An unattended run never waits for a person, and a tick that stops leaves a record the next tick reads
 * [work-20260831-125156](work-20260831-125156.md) - The tick learns to watch absence — a repository declares what should keep being produced, and one step asks when it stops

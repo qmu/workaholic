@@ -9182,7 +9182,228 @@ cmd_verify_cadence_lapse() {
     emit_verdict "cadence-lapse" 0 "pass" 0
 }
 
-USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-all [--only <drill>] [--list] [--timeout <s>]|verify-specificate <issue>|verify-implement <issue>|verify-plan [--json]|verify-status [--json]|verify-cadence [--json]|verify-planner [--json]|verify-standup [--json]|verify-moderate [--json]|verify-propose [--json]|verify-direction-health [--json]|verify-arrival [--json]|verify-residue [--json]|verify-expiry [--json]|verify-rulings [--json]|verify-succession [--json]|verify-revision [--json]|verify-merged-claim [--json]|verify-identity-handoff [--json]|verify-close [--json]|verify-catch-up [--json]|verify-corpus-boundary [--json]|verify-retire [--json]|verify-ci-retirement [--json]|verify-act-effect [--json]|verify-delivery-retry [--json]|verify-handoff-question [--json]|verify-base-health [--json]|verify-return-path [--json]|verify-reconcile [--json]|verify-checkin-delivery [--json]|verify-findings-to-work [--json]|verify-operator-pulls [--json]|verify-condition-age [--json]|verify-cadence-lapse [--json]|verify-blocked-tick [--json]"}'
+# ------------------------------------------------ verify-stranded-publication
+# A PUBLICATION THE LOOP OPENED AND COULD NOT MERGE (2026-08-31, mission
+# `repair-a-mechanically-resolvable-conflict-instead-of-reporting-it`).
+#
+# The measured failure ran for a full day with the loop reporting it hourly: three open
+# proposals colliding on `.workaholic/feedbacks/index.md` and on nothing else, a repair that was
+# three commands, and no reader anywhere in the loop that could see a publication at all. The
+# regression this mission must not allow is that repair quietly ceasing to fire, so the whole
+# chain is drilled here: reader -> act -> delivery -> re-run -> the question.
+#
+# HERMETIC. The origin is a BARE LOCAL REPOSITORY (`git push` to a file path needs no network)
+# and the GitHub transport is a stub on PATH inside the fixture's own temp directory. No
+# credential, no network, no Slack, and nothing outside the fixture is written.
+#
+# THE ASSERTIONS ARE ABOUT BEHAVIOUR, NOT RETURN SHAPE: the settleable collision is caught up,
+# REGENERATED SO BOTH SIDES' RECORDS SURVIVE, pushed and delivered with no person; the content
+# one is refused with its branch BYTE-IDENTICAL; a re-run of either moves no ref. A drill
+# satisfied by the JSON keys would go on passing through the regression it exists to catch.
+#
+# THE BREAKER IS WRITTEN AGAINST THE BEHAVIOUR, and it runs BEFORE anything is settled: strip
+# the generated-region proof out of the shared classification rule and the settleable collision
+# must read `content` — reported rather than repaired, which is precisely the measured incident.
+#
+# WHAT THIS DRILL DOES NOT PROVE: that the consuming repository's own incident is gone. That
+# repository may be on a different plugin version; this exercises this checkout's scripts only.
+cmd_verify_stranded_publication() {
+    _br="${REPO_ROOT}/plugins/workaholic/skills/branching/scripts"
+    _reader="${_br}/list-stranded-publications.sh"
+    _act="${_br}/settle-stranded-publication.sh"
+    _step="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/step-stranded-publications.sh"
+    for _f in "$_reader" "$_act" "$_step"; do
+        [ -f "$_f" ] || emit_err "stranded_publication_unreadable" 4 "$_f is not present in this checkout"
+    done
+
+    _before=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+    _tmp=$(mktemp -d)
+    _origin="${_tmp}/origin"
+    _wt="${_tmp}/A"
+    _bin="${_tmp}/bin"
+    mkdir -p "$_origin" "$_bin"
+
+    # What `refresh-index.sh` writes for a flat area: a sorted list between the markers.
+    _idx() {
+        printf '# feedbacks\n\n<!-- okf:generated:begin -->\n'
+        for _s in "$@"; do printf '* [%s](%s.md)\n' "$_s" "$_s"; done
+        printf '%s\n' '<!-- okf:generated:end -->'
+    }
+    _write_mech() {
+        printf -- '---\ntype: Feedback\n---\n\n# b\n' > .workaholic/feedbacks/20260102000000-b.md
+        _idx 20260101000000-a 20260102000000-b > .workaholic/feedbacks/index.md
+    }
+    _write_content() { printf 'alpha\nbeta-branch\ngamma\n' > src/app.txt; }
+
+    # One publication: an ordinary commit on a `work-*` branch and NO claim commit, which is
+    # exactly what `publish-tree-pr.sh` pushes.
+    _pub() {
+        _pb="$1"
+        _pw="$2"
+        ( cd "$_wt" && git worktree add -q -b "$_pb" "${_tmp}/${_pb}" origin/main ) >/dev/null 2>&1 || return 1
+        ( cd "${_tmp}/${_pb}" && $_pw ) >/dev/null 2>&1 || return 1
+        ( cd "${_tmp}/${_pb}" && git add -A && git commit -q -m 'Publish an artifact' \
+            && git push -q origin "$_pb" ) >/dev/null 2>&1 || return 1
+        ( cd "$_wt" && git worktree remove --force "${_tmp}/${_pb}" && git branch -q -D "$_pb" \
+            && git fetch -q --prune origin ) >/dev/null 2>&1 || return 1
+    }
+
+    ( cd "$_origin" && git -c init.defaultBranch=main init -q --bare ) >/dev/null 2>&1 \
+        || emit_err "stranded_publication_fixture" 4 "could not create the bare origin"
+    (
+        git clone -q "$_origin" "$_wt" \
+            && cd "$_wt" \
+            && git config user.email drill@example.invalid \
+            && git config user.name Drill \
+            && git config commit.gpgsign false \
+            && mkdir -p .workaholic/feedbacks src \
+            && printf -- '---\ntype: Feedback\n---\n\n# a\n' > .workaholic/feedbacks/20260101000000-a.md \
+            && printf 'alpha\nbeta\ngamma\n' > src/app.txt
+    ) >/dev/null 2>&1 || emit_err "stranded_publication_fixture" 4 "could not seed the fixture"
+    _idx 20260101000000-a > "${_wt}/.workaholic/feedbacks/index.md"
+    ( cd "$_wt" && git add -A && git commit -q -m 'Seed the base' && git push -q origin main ) \
+        >/dev/null 2>&1 || emit_err "stranded_publication_fixture" 4 "could not push the base"
+
+    _mech=work-20260831-100000
+    _content=work-20260831-100001
+    _pub "$_mech" _write_mech \
+        || emit_err "stranded_publication_fixture" 4 "could not publish the settleable branch"
+    _pub "$_content" _write_content \
+        || emit_err "stranded_publication_fixture" 4 "could not publish the content branch"
+
+    # The base moves the way a merged sibling proposal moves it: another record, the index
+    # regenerated around it, and the same source line the content branch touched.
+    _idx 20260101000000-a 20260103000000-c > "${_wt}/.workaholic/feedbacks/index.md"
+    (
+        cd "$_wt" \
+            && printf -- '---\ntype: Feedback\n---\n\n# c\n' > .workaholic/feedbacks/20260103000000-c.md \
+            && printf 'alpha\nbeta-base\ngamma\n' > src/app.txt \
+            && git add -A && git commit -q -m 'Advance the base' && git push -q origin main \
+            && git fetch -q --prune origin
+    ) >/dev/null 2>&1 || emit_err "stranded_publication_fixture" 4 "could not advance the base"
+
+    # The transport, stubbed: the list endpoint answers the TSV projection the reader asks for,
+    # each pull's `files` answers what the publication-refusal rule reads, and the one `PUT
+    # .../merge` succeeds.
+    cat > "${_bin}/gh" <<STUB
+#!/bin/sh
+case "\$*" in
+  *rate_limit*) printf '5000\n'; exit 0 ;;
+  *"/merge"*) printf '{"merged": true}\n'; exit 0 ;;
+  *"pulls/41/files"*) printf '[{"status":"added","filename":".workaholic/feedbacks/20260102000000-b.md","patch":"+x"},{"status":"modified","filename":".workaholic/feedbacks/index.md","patch":"+x"}]\n'; exit 0 ;;
+  *"pulls/42/files"*) printf '[{"status":"modified","filename":"src/app.txt","patch":"+x"}]\n'; exit 0 ;;
+  *"pulls?state=open"*)
+    printf '41\thttps://example.invalid/pr/41\t[Proposal] b\t2026-08-31T10:00:00Z\tclaude[bot]\t${_mech}\n'
+    printf '42\thttps://example.invalid/pr/42\t[Proposal] app\t2026-08-31T10:00:01Z\tclaude[bot]\t${_content}\n'
+    exit 0 ;;
+esac
+printf '[]\n'
+STUB
+    chmod +x "${_bin}/gh"
+
+    _tip() { git -C "$_wt" rev-parse "origin/$1" 2>/dev/null || printf ''; }
+
+    # 1. THE READER SEES A PUBLICATION AT ALL — the seam that had no reader before this mission.
+    _r=$(cd "$_wt" && PATH="${_bin}:$PATH" sh "$_reader" 2>&1 || true)
+    if printf '%s' "$_r" | jq -e '(.ok == true) and ([.publications[] | select(.number == 41 and .mergeability == "mechanical")] | length == 1) and ([.publications[] | select(.number == 42 and .mergeability == "content")] | length == 1)' >/dev/null 2>&1; then
+        add_row "stranded_reader_sees_a_publication" true "a publication with no claim commit is read, with its collision classified" load
+    else
+        add_row "stranded_reader_sees_a_publication" false "the reader did not classify both publications: $(one_line "$_r")" load
+    fi
+
+    # 2. THE BREAKER, LABELLED AS THE INTENTIONAL FAILURE, and run BEFORE anything is settled —
+    #    afterwards the settleable branch contains the base and there is no collision left to
+    #    misclassify. Strip the generated-region proof and the settleable collision must read
+    #    `content`, i.e. be reported rather than repaired: the measured incident on demand.
+    _broken="${_tmp}/broken"
+    mkdir -p "$_broken"
+    cp -R "${REPO_ROOT}/plugins/workaholic/skills/." "${_broken}/"
+    sed 's|^conflict_class_generated_region() {|conflict_class_generated_region() { return 1;|' \
+        "${REPO_ROOT}/plugins/workaholic/skills/ship/scripts/lib/conflict-class.sh" \
+        > "${_broken}/ship/scripts/lib/conflict-class.sh"
+    _b=$(cd "$_wt" && PATH="${_bin}:$PATH" sh "${_broken}/branching/scripts/list-stranded-publications.sh" 2>&1 || true)
+    if printf '%s' "$_b" | jq -e '[.publications[]? | select(.number == 41 and .mergeability == "content")] | length == 1' >/dev/null 2>&1; then
+        add_row "stranded_breaker" true "with the generated-region proof removed the settleable collision reads content, so it would be reported rather than repaired (this drill can fail)" breaker
+    else
+        add_row "stranded_breaker" false "the breaker did not break: the settleable collision still read mechanical without the proof ($(one_line "$_b")), so rows 1 and 4 prove nothing" breaker
+    fi
+
+    # 3. A COLLISION ONLY A PERSON CAN SETTLE IS REFUSED, BRANCH BYTE-IDENTICAL.
+    _c_before=$(_tip "$_content")
+    _refused=$(cd "$_wt" && PATH="${_bin}:$PATH" sh "$_act" 42 2>&1 || true)
+    _c_after=$(_tip "$_content")
+    if printf '%s' "$_refused" | jq -e '(.outcome == "settle_refused") and (.pushed == false)' >/dev/null 2>&1 \
+       && [ "$_c_before" = "$_c_after" ]; then
+        add_row "stranded_content_is_refused" true "a content collision is refused by its own word and its branch is byte-identical" load
+    else
+        add_row "stranded_content_is_refused" false "a content collision was not refused, or its branch moved: $(one_line "$_refused")" load
+    fi
+
+    # 4. A COLLISION A GENERATOR SETTLES IS SETTLED AND DELIVERED, WITH NO PERSON — and the
+    #    repair is real: the branch contains the base and the regenerated index carries BOTH
+    #    sides' records rather than one side's stale copy.
+    _settled=$(cd "$_wt" && PATH="${_bin}:$PATH" sh "$_act" 41 2>&1 || true)
+    _ok_settled=true
+    printf '%s' "$_settled" | jq -e '(.outcome == "settled") and (.pushed == true) and (.delivery == "merged")' >/dev/null 2>&1 || _ok_settled=false
+    ( cd "$_wt" && git fetch -q --prune origin ) >/dev/null 2>&1 || true
+    ( cd "$_wt" && git merge-base --is-ancestor origin/main "origin/${_mech}" ) >/dev/null 2>&1 || _ok_settled=false
+    _merged_idx=$(git -C "$_wt" show "origin/${_mech}:.workaholic/feedbacks/index.md" 2>/dev/null || printf '')
+    case "$_merged_idx" in
+        *20260102000000-b*)
+            case "$_merged_idx" in *20260103000000-c*) ;; *) _ok_settled=false ;; esac ;;
+        *) _ok_settled=false ;;
+    esac
+    if [ "$_ok_settled" = "true" ]; then
+        add_row "stranded_mechanical_is_settled" true "the settleable collision is caught up, regenerated with both records, pushed and delivered with no person" load
+    else
+        add_row "stranded_mechanical_is_settled" false "the settleable collision was not settled and delivered: $(one_line "$_settled")" load
+    fi
+
+    # 5. NO WORKTREE IS LEFT BEHIND by either path.
+    if [ ! -d "${_wt}/.worktrees/publication-41" ] && [ ! -d "${_wt}/.worktrees/publication-42" ]; then
+        add_row "stranded_leaves_no_worktree" true "the act left no worktree behind on either path" load
+    else
+        add_row "stranded_leaves_no_worktree" false "a worktree was left behind under .worktrees/" load
+    fi
+
+    # 6. A RE-RUN OF EITHER IS A NO-OP REPORTING ITS OWN WORD — nothing pushed, no ref moved.
+    _m_before=$(_tip "$_mech")
+    _again_m=$(cd "$_wt" && PATH="${_bin}:$PATH" sh "$_act" 41 2>&1 || true)
+    _again_c=$(cd "$_wt" && PATH="${_bin}:$PATH" sh "$_act" 42 2>&1 || true)
+    _m_after=$(_tip "$_mech")
+    if printf '%s' "$_again_m" | jq -e '.pushed == false' >/dev/null 2>&1 \
+       && printf '%s' "$_again_c" | jq -e '.pushed == false' >/dev/null 2>&1 \
+       && [ "$_m_before" = "$_m_after" ]; then
+        add_row "stranded_rerun_is_a_noop" true "a second run over either publication pushes nothing and moves no ref" load
+    else
+        add_row "stranded_rerun_is_a_noop" false "a re-run was not a no-op: $(one_line "$_again_m") / $(one_line "$_again_c")" load
+    fi
+
+    # 7. THE PERSON IS TOLD ABOUT WHAT THE LOOP MUST NOT SETTLE, exactly once and keyed.
+    _s=$(cd "$_wt" && PATH="${_bin}:$PATH" sh "$_step" --tick 20260831-130000 --root "$_wt" 2>&1 || true)
+    if printf '%s' "$_s" | jq -e '(.status == "ok") and ([.needs_agent[]?.stranded[]? | select(.key == "stranded-publication:42")] | length == 1) and (.event | length > 0)' >/dev/null 2>&1; then
+        add_row "stranded_content_reaches_a_person" true "the content collision is one candidate keyed stranded-publication:42, with an event" load
+    else
+        add_row "stranded_content_reaches_a_person" false "the content collision did not reach the check-in: $(one_line "$_s")" load
+    fi
+
+    # 8. NOTHING WAS WRITTEN OUTSIDE THE FIXTURE.
+    _after=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+    if [ "$_before" = "$_after" ]; then
+        add_row "stranded_writes_nothing_outside_the_fixture" true "the checkout is byte-identical after the drill" load
+    else
+        add_row "stranded_writes_nothing_outside_the_fixture" false "the drill changed the working tree" load
+    fi
+
+    ( cd "$_wt" && git worktree prune ) >/dev/null 2>&1 || true
+    rm -rf "$_tmp"
+    if [ "$LOAD_FAILED" -gt 0 ]; then
+        emit_verdict "stranded-publication" 0 "fail" 1
+    fi
+    emit_verdict "stranded-publication" 0 "pass" 0
+}
+
+USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-all [--only <drill>] [--list] [--timeout <s>]|verify-specificate <issue>|verify-implement <issue>|verify-plan [--json]|verify-status [--json]|verify-cadence [--json]|verify-planner [--json]|verify-standup [--json]|verify-moderate [--json]|verify-propose [--json]|verify-direction-health [--json]|verify-arrival [--json]|verify-residue [--json]|verify-expiry [--json]|verify-rulings [--json]|verify-succession [--json]|verify-revision [--json]|verify-merged-claim [--json]|verify-identity-handoff [--json]|verify-close [--json]|verify-catch-up [--json]|verify-corpus-boundary [--json]|verify-retire [--json]|verify-ci-retirement [--json]|verify-act-effect [--json]|verify-delivery-retry [--json]|verify-handoff-question [--json]|verify-base-health [--json]|verify-return-path [--json]|verify-reconcile [--json]|verify-checkin-delivery [--json]|verify-findings-to-work [--json]|verify-operator-pulls [--json]|verify-condition-age [--json]|verify-cadence-lapse [--json]|verify-blocked-tick [--json]|verify-stranded-publication [--json]"}'
 
 CMD="${1:-}"
 [ -n "$CMD" ] || {
@@ -9248,6 +9469,7 @@ case "$CMD" in
     verify-condition-age) cmd_verify_condition_age "$@" ;;
     verify-cadence-lapse) cmd_verify_cadence_lapse "$@" ;;
     verify-blocked-tick) cmd_verify_blocked_tick "$@" ;;
+    verify-stranded-publication) cmd_verify_stranded_publication "$@" ;;
     verify-directed-notification) cmd_verify_directed_notification "$@" ;;
     verify-impairment) cmd_verify_impairment "$@" ;;
     *)

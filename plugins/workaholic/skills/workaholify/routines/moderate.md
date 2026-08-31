@@ -88,12 +88,21 @@ never calls `AskUserQuestion` — step 9 asks humans **in Slack**. Every one of 
 in `workaholic:moderate` and its `reference/workflow.md`, which is why this prompt does not
 restate them.
 
-**The prompt is the ceiling** (P3, Q2, P10): the literal formats below are the only shapes a
-session running this routine may emit, and `workaholic:notify`'s `reference/notifications.md`
-mirrors each of them verbatim. A future edit to either copy is a drift to fix, never a second
-wording.
+**The prompt names the command and nothing else** (2026-09-01, the developer's instruction).
+Everything a session running this routine may do — the post shapes, the transports, what it may
+read, and what it must never emit — lives in `plugins/workaholic/commands/moderate.md`, versioned
+with the plugin and shipped with it. A routine record is an **account-level** object no
+repository can edit, so every rule that lived in this prompt had to be re-pasted into every
+developer's copy in every project before it took effect, and a prompt that drifted from the
+plugin was invisible from the repository. A rule written in the command reaches every account's
+routine on its next run with no routine edit at all.
 
-**And a shape addressed to somebody only reaches them if somebody else is speaking** (2026-08-31, mission `notify-the-person-a-directed-question-addresses`). Every post here reaches Slack as the operator's own account, and Slack notifies nobody of their own message — so in the single-developer configuration the `🙋` question's `<@U…>`, the one token this loop keeps unconditionally, resolved to the poster and paged nobody. The prompt below therefore names **which transport carries the question reply**: the tokened script when a bot token is configured, into the root's own `thread_ts`, so a different account speaks it. That is a prompt line because *the prompt is the ceiling* — the rule in `workaholic:notify` sanctions the shape and only this template lets a session running this routine emit it. The **root**, the `✅` confirmation and the `🟢`/`⚫` reconciliation replies stay on the connector: none of them mentions anyone.
+**The command is the ceiling** (`workaholic:notify`, *The command is the ceiling*): the shapes
+that command's own notification section names are the only ones a session running this routine
+may emit, and `workaholic:notify`'s `reference/notifications.md` mirrors each of them verbatim,
+so a drift between the two is a defect to fix rather than a second wording. What stays in the
+prompt is the one instruction the command cannot carry — the load fallback that finds and reads
+the command when the plugin did not bind.
 
 **Every shape here is addressed to somebody, because a status line addressed to nobody is noise** (2026-08-19, the developer's
 instruction). This routine used to emit a second, `🔧 Needs a decision`, and the merged-in
@@ -108,54 +117,3 @@ log and, where it is work, becomes a ticket.
 Run `/moderate`.
 
 If the command or its skills did not load, do not stop: run `bash plugins/workaholic/skills/check-deps/scripts/plugin-src.sh` from the checkout, take its `src`, then read `<src>/commands/moderate.md` and follow it with every script path under `<src>`.
-
-Read Slack only through the Slack connector, and only as a step asks: the `unanswered-asks` step names one channel and one window and hands that read back to you — no mention of any bot is required for a message to count, and you never reply to, react to, or capture a message you read there. Emit only the shapes below.
-
-The `question-answers` step names one thread per outstanding question, each on a coordinate it already holds: read exactly those threads, one read each, and never search Slack or read channel history for one. Record each person's answer through `record-answer.sh`, or name why you did not — a machine's own post is never an answer. React `:ballot_box_with_check:` on an answer message you actually recorded this tick, and post **no reply** for that event, in any thread — the outcome reply below is a different event, posted only once the loop has acted on the answer.
-
-When the tick's rendered post says to post, post this root as a new top-level message — no mention token of any kind on the root:
-
-```
-🔎 Moderation - <N> change(s), <M> question(s)<, <K> step(s) could not read — only when K > 0>
-<on the morning tick only, first: the per-strategy digest — numbered strategies, bold title on its own line, headline commits since yesterday, honesty line naming tickets and the window>
-<what happened to the repository, one line per changed step that has an event>
-<one line per step that could not read, after the event lines: ⚠️ <step> — <status>: <reason>, at most 5 then "and <K> more">
-<session URL>
-```
-
-Then post each question the check-in step cleared as a reply into that root, addressed to the resolved person:
-
-```
-🙋 <@U…> - <what this tick could not decide>
-One sentence, max 25 words, the question itself, with the two options when there are two.
-```
-
-Post that reply through the **tokened transport** — `bash <src>/skills/specificate/scripts/notify-slack.sh --thread-ts <the root's ts> "<the reply text>"` — whenever `SLACK_BOT_TOKEN` is set, so a bot speaks it and its `<@U…>` notifies the person even when that person is the account this session posts as. That script is `workaholic:notify`'s **fallback** transport, and it is selected here for its **identity** rather than for its availability: this one reply is a directed post, which is the only case where which account speaks matters. The connector returns the root's `ts` when it posts the root, so hand that same value straight through: never search for it. With no token, post the reply through the connector exactly as you post the root. Report per question which surface carried it — `bot`, `connector`, or the transport's own refusal word — and never retry a refusal. **The root, the `✅` confirmation and the `🟢`/`⚫` reconciliation replies always ride the connector**, unchanged.
-
-For each previously asked question whose subject the check-in read as settled this tick, post one confirmation as a reply into the thread where it was asked — no mention token, once ever per question:
-
-```
-✅ 解消を確認 - <the question's subject, one line>
-One sentence: what the tick measured that says it settled.
-```
-
-For each candidate the `question-answers` step hands back under its settled outcomes, post one reply into that question's own thread, on the coordinate it gives — no mention token, once ever per question, and only after the loop has acted:
-
-```
-🧾 対応結果 - <the question's subject, one line>
-One sentence: the answer as recorded, and what came of it.
-```
-
-For each candidate the `thread-reconcile` step hands back, find the item's thread through the stateless lookup, **read it first**, and post one reply only when its last status reply is `🔵 Proposed` or `🟡 Handoff` and the pull request it names has merged or closed. A thread already carrying its finish is never touched, and no thread found means nothing to correct — post nothing and report it:
-
-```
-🟢 Implemented - [#123 Title](<repo-url>/pull/123)
-Merged outside the loop by <who> on <when> — no run posted this item's finish.
-```
-
-```
-⚫ Closed - [#123 Title](<repo-url>/pull/123)
-Closed without merging outside the loop on <when> — no run posted this item's finish.
-```
-
-If the rendered post says not to post, post nothing at all — no root, no question, ever. An hour with nothing changed and nothing to ask is silent.

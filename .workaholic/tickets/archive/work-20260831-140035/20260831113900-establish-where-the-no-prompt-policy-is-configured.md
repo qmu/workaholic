@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-31T11:39:00+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -89,3 +90,39 @@ field does not exist, name the reachable alternative instead of leaving a gap.
   account has — the recorded reason the per-repository home is the repository's own
   configuration. If the chosen home is the environment, that cost must be stated.
 
+
+## Final Report
+
+Development completed as planned, and the answer is stronger than the ask assumed. `workaholify`'s
+*Where an unattended run's prompt policy is configured* establishes, from the product's own
+documentation, that **there is no routine-side field because the documented model has no place for
+one**: the creation form sets up "the routine's prompt, repositories, environment, connectors, and
+triggers", and the page states outright that *"Routines run autonomously as full Claude Code cloud
+sessions: there is no permission-mode picker and no approval prompts during a run"*, with connector
+tools usable "including writes, without asking for permission during a run".
+
+**That makes the measured behaviour a divergence from the documented model rather than a missing
+setting** — three ticks at `requires_action` against a page that promises no approval prompts —
+and the section says so, so a later session looking for the switch stops there rather than
+re-deriving it.
+
+Three reachable levers are named and one is chosen: the cloud **environment** is refused on the
+recorded account-level reason (and configures network, variables and setup scripts, not
+permissions); the **connector set** is real but orthogonal (it bounds which tools exist, not how a
+prompt about one is answered); the repository's own **`.claude/settings.json` `permissions`** is
+chosen, on the same three properties that made it the home for a per-repository environment
+variable.
+
+**The limit is stated and the allowlist was deliberately not widened.** The prompt was classified
+as an *edit of a sensitive file*, so an allow entry keyed on `grep`/`sed` is not established to
+satisfy the rule that fired, and widening it would trade a real permission surface for a guess.
+The exact repair is free and already taken: do not reach for the shape.
+
+### Discovered Insights
+
+- **Insight**: establishing an absence from documentation beat guessing at a field name, and the
+  documentation turned out to assert the *opposite* of the observed behaviour.
+  **Context**: the precedent this followed (*Where a routine's environment variables live*) was
+  written for a plain absence. This case shows the same method also detects a **contradiction**,
+  which is a more valuable finding than the field name would have been — and one a
+  write-and-read-back could never have produced.

@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-31T11:35:58+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -78,3 +79,33 @@ visible without changing what the closing persist does.
 - A tick killed **before** its first step still leaves nothing. That case is genuinely
   outside this seam and should be said so rather than papered over.
 
+
+## Final Report
+
+Development completed as planned. `run.sh` persists once immediately after `open-log` has logged
+its line, so a tick that dies mid-run leaves its opening on the base. It needs **no change to the
+writer's contract**: `persist-log.sh` is already idempotent and already unions by `(tick, step)`,
+so the closing persist adds every later line into the same section without rewriting the opening
+one. Every prohibition holds — no `work-*` branch, no claim, no pull request, no merge, the
+caller's checkout byte-identical.
+
+The two calls now share one `run_persist` helper, so a persist that missed the base is named the
+same way whichever made it, and the opening one is reported under its own top-level
+`opening_persist` key and its own log step id `persist-log-opening` — a distinct id because the log
+is idempotent per `(tick, step)` and a shared one would make the second a duplicate and lose its
+outcome. A miss is `degraded` by name and never fatal.
+
+It is keyed on the first step in `STEPS` rather than a loop counter, so a caller that narrowed the
+run with `--only`/`--skip` and never opened a log does not persist an opening it does not have.
+**Not per step**, deliberately: thirty commits an hour for a log is the noise the
+pull-request-per-tick design was refused for. The stated price is two commits an hour instead of
+one on an active repository. **A tick killed before its first step still leaves nothing**, and the
+script's header says so rather than papering over it.
+
+### Discovered Insights
+
+- **Insight**: the closing persist's own `persist-log` line never reaches the base on the tick that
+  wrote it — `run.sh` logs it *after* the push.
+  **Context**: this is why the sibling reading cannot use the persist as its closing signal, and it
+  is not obvious from the code. Any later reader looking for "did this tick finish" must key on the
+  last step in `STEPS`, not on the persist.

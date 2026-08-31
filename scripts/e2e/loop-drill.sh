@@ -1346,14 +1346,17 @@ cmd_verify_moderate() {
     _log="${_root}/.workaholic/moderations/${_day}.md"
     if [ -f "$_log" ]; then
         _sections=$(grep -c '^## ' "$_log" || true)
-        # One line per registered step plus the closing act's own `persist-log` line — derived
-        # from `run.sh`'s `STEPS` for the same reason the count above is (2026-08-26): a literal
-        # here goes stale on the next step and turns the drill red for a reason that has nothing
-        # to do with what it drills.
-        _want_lines=$((_want + 1))
+        # One line per registered step plus BOTH persists' own lines — the closing
+        # `persist-log` and, since 2026-08-31, the opening `persist-log-opening` that puts a
+        # dying tick's opening on the base (mission
+        # `stop-an-unattended-tick-from-waiting-on-a-person`). Derived from `run.sh`'s `STEPS`
+        # for the same reason the count above is (2026-08-26): a literal here goes stale on the
+        # next step and turns the drill red for a reason that has nothing to do with what it
+        # drills.
+        _want_lines=$((_want + 2))
         _lines=$(grep -c '^- `' "$_log" || true)
         if [ "$_sections" = "1" ] && [ "$_lines" = "$_want_lines" ]; then
-            add_row "moderate_log" true "one tick section carrying ${_want} step lines and the persist" load
+            add_row "moderate_log" true "one tick section carrying ${_want} step lines and both persists" load
         else
             add_row "moderate_log" false "expected 1 section and ${_want_lines} lines, got ${_sections} and ${_lines}" load
         fi
@@ -6552,7 +6555,71 @@ cmd_verify_return_path() {
         add_row "return_path_stamp_not_load_bearing" false "the recording depends on the stamp: $(one_line "$_st2")" load
     fi
 
-    # 7. THE BREAKER ROW, LABELLED AS THE INTENTIONAL FAILURE. A copy of the step wired at the
+    # 7. AND WHAT BECAME OF THAT ANSWER COMES BACK INTO THE SAME THREAD, ONCE.
+    # (2026-08-31, mission `make-the-tick-s-questions-readable-and-close-them-in-the-thread`.)
+    # One fixture, two questions: the answer above is already recorded and filed, so the
+    # outcome half needs only the filing line the agent writes and nothing else staged.
+    _append="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/log-append.sh"
+    _slug=${_logstep#human-checkin-ask-}
+
+    # 7a. THE UNKNOWN OUTCOME POSTS NOTHING AND IS NAMED. No filing line yet: the agent has not
+    # said what it did with the answer, so there is nothing to tell anybody.
+    _o0=$(_in sh "$_step" --tick 20260101-140000 --root "$_fx")
+    if ! printf '%s' "$_o0" | grep -q '"outcome_candidates":\[{' \
+        && printf '%s' "$_o0" | grep -q '1 not settled yet'; then
+        add_row "return_path_outcome_pending_silent" true "an answer whose outcome is not known yet yields no reply and is counted as not settled" load
+    else
+        add_row "return_path_outcome_pending_silent" false "an unknown outcome did not stay silent: $(one_line "$_o0")" load
+    fi
+
+    # 7b. A SETTLED OUTCOME BECOMES EXACTLY ONE CANDIDATE, carrying the answer AS RECORDED and
+    # the coordinate the question was posted at -- so the reply needs no lookup and no search.
+    _in sh "$_append" --tick 20260101-140000 --root "$_fx" \
+        --step "question-answers-filed-${_slug}" --status ok --summary "not_filed: no_request" >/dev/null
+    _o1=$(_in sh "$_step" --tick 20260101-150000 --root "$_fx")
+    if printf '%s' "$_o1" | grep -q "\"outcome\":\"settled:nothing_filed\"" \
+        && printf '%s' "$_o1" | grep -q "\"coordinate\":\"${_coord}\",\"answer\":\"$(printf '%s' "$_words" | sed 's/[&/\]/\\&/g')\"" \
+        && printf '%s' "$_o1" | grep -q '1 answered question(s) with a settled outcome to reply'; then
+        add_row "return_path_outcome_named" true "a settled outcome is one candidate carrying the recorded words and the coordinate, with no lookup" load
+    else
+        add_row "return_path_outcome_named" false "the settled outcome did not reach the agent intact: $(one_line "$_o1")" load
+    fi
+    # THE OUTCOME REPLY IS BOUNDED TO THE QUESTION'S OWN THREAD TOO, and says so.
+    if printf '%s' "$_o1" | grep -q 'no lookup, no search, no mention token, once ever per question'; then
+        add_row "return_path_outcome_bounded" true "the reply is bounded to the recorded coordinate and carries no mention token" load
+    else
+        add_row "return_path_outcome_bounded" false "the outcome reply is not bounded to the coordinate: $(one_line "$_o1")" load
+    fi
+
+    # 7c. A SECOND TICK POSTS NOTHING. The dedup is the ledger line plus the reading, never a
+    # cursor: once the reply is logged the slug leaves the pool by construction.
+    _in sh "$_append" --tick 20260101-150000 --root "$_fx" \
+        --step "human-checkin-outcome-${_slug}" --status ok --summary "posted" >/dev/null
+    _o2=$(_in sh "$_step" --tick 20260101-160000 --root "$_fx")
+    if printf '%s' "$_o2" | grep -q '0 answered question(s) with a settled outcome to reply' \
+        && ! printf '%s' "$_o2" | grep -q '"outcome_candidates":\[{'; then
+        add_row "return_path_outcome_once" true "a later tick hands back no outcome candidate, so one question gets one reply ever" load
+    else
+        add_row "return_path_outcome_once" false "a later tick would post the outcome reply again: $(one_line "$_o2")" load
+    fi
+
+    # 7d. THE SHAPE IS SINGLE-SOURCED AND CARRIES NO MENTION TOKEN, exactly as the stamp's
+    # emoji is -- and it is NOT the stamp: received and acted on are two events.
+    if grep -qF '🧾 対応結果' "$_catalog" && grep -qF '🧾 対応結果' "$_template" \
+        && ! sed -n '/🧾 対応結果/,/```/p' "$_catalog" | grep -q '<@U'; then
+        add_row "return_path_outcome_shape_single_sourced" true "the catalog names the outcome reply, the routine authorizes it, and it carries no mention token" load
+    else
+        add_row "return_path_outcome_shape_single_sourced" false "the outcome reply is not single-sourced, or it mentions somebody" load
+    fi
+    # AND NOTHING WAS MERGED, CLOSED, RE-ASKED OR CONFIRMED BY ANY OF IT.
+    _st3=$(_in sh "$_state" --root "$_fx" --key "$_key")
+    if [ "$(_field "$_st3" state)" = "answered" ]; then
+        add_row "return_path_outcome_changes_nothing" true "the question is still answered: the outcome half re-asks nothing and confirms nothing" load
+    else
+        add_row "return_path_outcome_changes_nothing" false "the outcome half moved the question's state: $(one_line "$_st3")" load
+    fi
+
+    # 8. THE BREAKER ROW, LABELLED AS THE INTENTIONAL FAILURE. A copy of the step wired at the
     # CHANNEL instead of the question's own thread must fail the bound check above.
     _broken="${_tmp}/broken"
     mkdir -p "$_broken"
@@ -6573,6 +6640,40 @@ cmd_verify_return_path() {
         add_row "return_path_breaker" false "the breaker row did not break the seam, so this drill cannot fail" breaker
     else
         add_row "return_path_breaker" true "a step wired at the channel fails the bound check the real step passes (this drill can fail)" breaker
+    fi
+
+    # 9. THE SECOND BREAKER, WRITTEN AGAINST THE BEHAVIOUR RATHER THAN A RETURN SHAPE
+    # (2026-08-31). The natural mistake on the outcome half is to key the candidate set on the
+    # ANSWER'S EXISTENCE rather than on its outcome -- which posts *your answer was acted on*
+    # into somebody's thread while the issue it filed is still open, or while nobody could read
+    # it at all. A second question is staged in the SAME fixture, answered and with no filing
+    # line, so the real step must be silent about it and a step with the outcome gate removed
+    # must not be.
+    _key2="undelivered-unit:drill-two"
+    _coord2="C0DRILL01:1756346000.222222"
+    _gate2=$(_in sh "$_ask" --tick 20260101-160000 --root "$_fx" --key "$_key2" \
+        --to drill@example.com --hour 10 --weekday 1)
+    _logstep2=$(_field "$_gate2" log_step)
+    _in sh "$_ask" --record-ask --tick 20260101-160000 --root "$_fx" --key "$_key2" \
+        --log-step "$_logstep2" --coordinate "$_coord2" >/dev/null
+    _in sh "$_record" --root "$_fx" --tick 20260101-160000 --key "$_key2" \
+        --answer "Please open one for this." >/dev/null
+
+    _real=$(_in sh "$_step" --tick 20260101-170000 --root "$_fx")
+    _wire_at_existence() {
+        # The outcome gate removed: every pooled candidate becomes a reply, whatever the reading.
+        sed -e 's/^            settled:\*)$/            *)/' \
+            "${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/step-question-answers.sh" \
+            > "${_broken}/step-at-existence.sh"
+        chmod +x "${_broken}/step-at-existence.sh"
+    }
+    _wire_at_existence
+    _bout2=$(_in sh "${_broken}/step-at-existence.sh" --tick 20260101-170000 --root "$_fx")
+    if ! printf '%s' "$_real" | grep -q "\"key\":\"${_key2}\"" \
+        && printf '%s' "$_bout2" | grep -q "\"key\":\"${_key2}\""; then
+        add_row "return_path_outcome_breaker" true "a step keyed on the answer's existence replies over an unknown outcome where the real step stays silent (this drill can fail)" breaker
+    else
+        add_row "return_path_outcome_breaker" false "the outcome breaker did not break the seam, so this half of the drill cannot fail" breaker
     fi
 
     # 8. NOTHING WAS WRITTEN OUTSIDE THE FIXTURE.
@@ -8575,7 +8676,351 @@ cmd_verify_all() {
     exit "$_code"
 }
 
-USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-all [--only <drill>] [--list] [--timeout <s>]|verify-specificate <issue>|verify-implement <issue>|verify-plan [--json]|verify-status [--json]|verify-cadence [--json]|verify-planner [--json]|verify-standup [--json]|verify-moderate [--json]|verify-propose [--json]|verify-direction-health [--json]|verify-arrival [--json]|verify-residue [--json]|verify-expiry [--json]|verify-rulings [--json]|verify-succession [--json]|verify-revision [--json]|verify-merged-claim [--json]|verify-identity-handoff [--json]|verify-close [--json]|verify-catch-up [--json]|verify-corpus-boundary [--json]|verify-retire [--json]|verify-ci-retirement [--json]|verify-act-effect [--json]|verify-delivery-retry [--json]|verify-handoff-question [--json]|verify-base-health [--json]|verify-return-path [--json]|verify-reconcile [--json]|verify-checkin-delivery [--json]|verify-findings-to-work [--json]|verify-operator-pulls [--json]|verify-condition-age [--json]"}'
+# --------------------------------------------------------- verify-blocked-tick
+# A TICK THAT OPENED AND NEVER CLOSED (2026-08-31, mission
+# `stop-an-unattended-tick-from-waiting-on-a-person`).
+#
+# The reading fires only when a tick DIES — the rarest path there is, and the one nobody
+# exercises by hand. Both halves are drilled together because neither is worth anything
+# alone: `run.sh`'s opening persist puts the opening on the base, and `step-blocked-tick.sh`
+# reads for it. Measured: three consecutive ticks sat at `requires_action` and the base
+# carried no trace of any of them.
+#
+# HERMETIC. The origin is a **bare local repository** — `git push` to a file path needs no
+# network — and the log is written through `log-append.sh`, THE REAL WRITER, so the drill
+# cannot pass against a line shape the writer never produces. No `gh`, no Slack, no
+# credential.
+#
+# THE STOPPING POINT IS THE STEP BOUNDARY, NOT A TIMEOUT. A tick is "killed" by running it
+# with `--only open-log`, which is exactly the state a tick that died after its first step
+# leaves behind. A timeout would make the drill pass or fail by how fast the machine is,
+# which is the failure its own ticket named.
+#
+# THE BREAKER IS WRITTEN AGAINST THE BEHAVIOUR: disable the opening persist and the base
+# must carry nothing for that tick, because there is then nothing to notice. A breaker
+# satisfied by keeping the JSON shape proves nothing.
+cmd_verify_blocked_tick() {
+    _mod="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts"
+    _run="${_mod}/run.sh"
+    _step="${_mod}/step-blocked-tick.sh"
+    _log="${_mod}/log-append.sh"
+    _ask="${_mod}/ask-question.sh"
+    for _f in "$_run" "$_step" "$_log" "$_ask"; do
+        [ -f "$_f" ] || emit_err "blocked_tick_unreadable" 4 "$_f is not present in this checkout"
+    done
+
+    _before=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+    _tmp=$(mktemp -d)
+    _field() { printf '%s' "$1" | sed -n "s/.*\"$2\": *\"\\([^\"]*\\)\".*/\\1/p" | head -1; }
+
+    # A checkout with a bare local origin, ready for the publish tree the persist opens.
+    _seed() {
+        _b="${1}/origin.git"; _c="${1}/clone"
+        git init -q --bare -b main "$_b" >/dev/null 2>&1
+        git init -q -b main "$_c" >/dev/null 2>&1
+        (
+            cd "$_c" \
+                && git config user.email drill@example.invalid \
+                && git config user.name Drill \
+                && mkdir -p .workaholic/moderations \
+                && printf 'seed\n' > .workaholic/README.md \
+                && git add -A >/dev/null 2>&1 \
+                && git commit -q -m 'Seed the tree' >/dev/null 2>&1 \
+                && git remote add origin "$_b" \
+                && git push -q -u origin main >/dev/null 2>&1
+        )
+    }
+
+    # 1. THE OPENING REACHES THE BASE. A tick stopped after its first step leaves a section
+    #    on the base carrying that step and nothing else — which is the whole premise the
+    #    reading rests on.
+    _fx="${_tmp}/live"
+    mkdir -p "$_fx"
+    _seed "$_fx" || emit_err "blocked_tick_fixture" 4 "could not build the throwaway repository"
+    _day=$(date -u +%Y-%m-%d)
+    _tick="$(date -u +%Y%m%d)-100000"
+    _r=$(sh "$_run" --root "${_fx}/clone" --tick "$_tick" --only open-log 2>&1 || true)
+    _base=$(git -C "${_fx}/origin.git" show "main:.workaholic/moderations/${_day}.md" 2>/dev/null || true)
+    case "${_r}|${_base}" in
+        *'"opening_persist": {"status": "filed"'*'|'*"## ${_tick}"*)
+            case "$_base" in
+                *'- `open-log`'*)
+                    add_row "blocked_tick_opening_reaches_the_base" true "a tick stopped after its first step leaves its opening on the base" load ;;
+                *) add_row "blocked_tick_opening_reaches_the_base" false "the section landed with no open-log line: $(one_line "$_base")" load ;;
+            esac ;;
+        *) add_row "blocked_tick_opening_reaches_the_base" false "the opening did not reach the base: $(one_line "$_r")" load ;;
+    esac
+
+    # 2. THE READING, over a log written by the real writer: the TICK BEFORE LAST opened and
+    #    never closed, so it is named — and a complete one is silent.
+    _lx="${_tmp}/logs"
+    mkdir -p "${_lx}/.workaholic"
+    _A() { sh "$_log" --root "$_lx" --tick "$1" --step "$2" --status ok --summary 'drill' >/dev/null 2>&1 || true; }
+    _A 20260831-100000 open-log
+    _A 20260831-110000 open-log
+    _A 20260831-110000 human-checkin
+    _A 20260831-120000 open-log
+    _s=$(sh "$_step" --tick 20260831-120000 --root "$_lx" 2>&1 || true)
+    if printf '%s' "$_s" | jq -e '(.needs_agent | length == 1) and (.needs_agent[0].key == "blocked-tick:20260831-100000") and (.event | length > 0)' >/dev/null 2>&1; then
+        add_row "blocked_tick_is_named" true "the tick before last opened and never closed, and is named once with its own key" load
+    else
+        add_row "blocked_tick_is_named" false "the stopped tick was not named: $(one_line "$_s")" load
+    fi
+
+    _A 20260831-100000 human-checkin
+    _h=$(sh "$_step" --tick 20260831-120000 --root "$_lx" 2>&1 || true)
+    if printf '%s' "$_h" | jq -e '(.status == "ok") and (.needs_agent | length == 0) and (.event == "")' >/dev/null 2>&1; then
+        add_row "blocked_tick_healthy_is_silent" true "a complete previous section produces no question and no event" load
+    else
+        add_row "blocked_tick_healthy_is_silent" false "a healthy tick was not silent: $(one_line "$_h")" load
+    fi
+
+    # 3. ONE QUESTION PER STOPPED HOUR, through the EXISTING gate. `ask-question.sh` gains
+    #    nothing: the key the step composes is handed to it unchanged.
+    _g1=$(sh "$_ask" --tick 20260831-120000 --key 'blocked-tick:20260831-100000' --root "$_lx" --hour 10 --weekday 3 2>&1 || true)
+    sh "$_ask" --record-ask --tick 20260831-120000 --key 'blocked-tick:20260831-100000' --root "$_lx" --summary 'asked about a stopped tick' >/dev/null 2>&1 || true
+    _g2=$(sh "$_ask" --tick 20260831-130000 --key 'blocked-tick:20260831-100000' --root "$_lx" --hour 10 --weekday 3 2>&1 || true)
+    case "${_g1}|${_g2}" in
+        *'"ask": true'*'|'*'"reason": "already_asked"'*)
+            add_row "blocked_tick_asked_once" true "the second tick is refused already_asked, so a stopped hour costs one question" load ;;
+        *) add_row "blocked_tick_asked_once" false "expected ask then already_asked, got: $(one_line "$_g1") / $(one_line "$_g2")" load ;;
+    esac
+
+    # 4. A LOG THAT EXISTS AND CANNOT BE READ IS NAMED, and asks nobody — never rendered as a
+    #    quiet hour, which is the exact collapse this whole mission removes one level up.
+    #    A reader that answers something this step cannot parse is the reachable instance:
+    #    `log-read.sh` itself answers `read: false` only for a missing area, which is the
+    #    healthy `skipped` below rather than a degradation.
+    _unread="${_tmp}/unreadable"
+    mkdir -p "$_unread"
+    cp -R "${_mod}/." "$_unread/"
+    printf '#!/bin/sh\nprintf "not json at all\\n"\n' > "${_unread}/log-read.sh"
+    chmod +x "${_unread}/log-read.sh"
+    _d=$(sh "${_unread}/step-blocked-tick.sh" --tick 20260831-120000 --root "$_lx" 2>&1 || true)
+    if printf '%s' "$_d" | jq -e '(.status == "degraded") and (.reason | length > 0) and (.needs_agent | length == 0)' >/dev/null 2>&1; then
+        add_row "blocked_tick_unreadable_is_named" true "an unreadable log is degraded by name ($(_field "$_d" reason)) and asks nobody" load
+    else
+        add_row "blocked_tick_unreadable_is_named" false "an unreadable log was not named, or asked somebody: $(one_line "$_d")" load
+    fi
+
+    #    ...and a repository that keeps NO log is `skipped` by name, not degraded. A step
+    #    declining to run for a stated, healthy reason did not fail to see, and the root's
+    #    impairment clause is deliberately built on that distinction.
+    _none=$(sh "$_step" --tick 20260831-120000 --root "${_tmp}/absent" 2>&1 || true)
+    if printf '%s' "$_none" | jq -e '(.status == "skipped") and (.reason == "no_log_area") and (.needs_agent | length == 0) and (.event == "")' >/dev/null 2>&1; then
+        add_row "blocked_tick_no_log_is_skipped" true "a repository with no tick log is skipped by name, never degraded" load
+    else
+        add_row "blocked_tick_no_log_is_skipped" false "a missing log area was not skipped by name: $(one_line "$_none")" load
+    fi
+
+    # 5. THE BREAKER, LABELLED AS THE INTENTIONAL FAILURE. Disable the opening persist and the
+    #    base carries nothing for a tick that stopped after its first step — so row 1's premise
+    #    is gone and there is nothing for the reading to notice.
+    _broken="${_tmp}/broken"
+    mkdir -p "$_broken"
+    cp -R "${_mod}/." "$_broken/"
+    sed 's|if \[ "$step" = open-log \] && \[ "$DO_LOG" -eq 1 \]|if [ "$step" = never-a-step ] \&\& [ "$DO_LOG" -eq 1 ]|' \
+        "$_run" > "${_broken}/run.sh"
+    chmod +x "${_broken}/run.sh"
+    _bx="${_tmp}/breaker"
+    mkdir -p "$_bx"
+    _seed "$_bx" || true
+    _btick="$(date -u +%Y%m%d)-140000"
+    sh "${_broken}/run.sh" --root "${_bx}/clone" --tick "$_btick" --only open-log >/dev/null 2>&1 || true
+    _bbase=$(git -C "${_bx}/origin.git" show "main:.workaholic/moderations/${_day}.md" 2>/dev/null || true)
+    case "$_bbase" in
+        *"## ${_btick}"*)
+            add_row "blocked_tick_breaker" false "the breaker did not break: the opening reached the base with the opening persist disabled ($(one_line "$_bbase")), so row 1 proves nothing" breaker ;;
+        *)
+            add_row "blocked_tick_breaker" true "with the opening persist disabled a stopped tick leaves nothing on the base (this drill can fail)" breaker ;;
+    esac
+
+    # 6. NOTHING WAS WRITTEN OUTSIDE THE FIXTURE.
+    _after=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+    if [ "$_before" = "$_after" ]; then
+        add_row "blocked_tick_writes_nothing_outside_the_fixture" true "the checkout is byte-identical after the drill" load
+    else
+        add_row "blocked_tick_writes_nothing_outside_the_fixture" false "the drill changed the working tree" load
+    fi
+
+    rm -rf "$_tmp"
+    if [ "$LOAD_FAILED" -gt 0 ]; then
+        emit_verdict "blocked-tick" 0 "fail" 1
+    fi
+    emit_verdict "blocked-tick" 0 "pass" 0
+}
+
+# ------------------------------------------------------- verify-cadence-lapse
+# A PERIODIC ARTIFACT THAT STOPPED BEING PRODUCED (2026-08-31, mission
+# `notice-a-periodic-artifact-that-stopped-being-produced`).
+#
+# Every other step of the tick is driven by an object that EXISTS, so a producer that dies
+# produces nothing and no step has anything to find — measured, a daily record stopped for
+# four days while hourly ticks ran throughout and none reported it. A reading nothing proves
+# is a reading that quietly stops working, which is that same failure one level up, so the
+# whole chain is drilled here: declaration → reader → step → question.
+#
+# HERMETIC. The fixture is a throwaway git repository this function builds; the declaration is
+# an environment variable it sets; the gate is exercised against the fixture's own tick log. No
+# network, no `gh`, no Slack, no `origin`, no credential.
+#
+# THE FIXTURE'S VERDICTS DO NOT DEPEND ON THE DAY THE DRILL RUNS. The lapsed cadence's commit
+# is dated 2001 and measured against a one-day period, and the current one is committed now and
+# measured against a thirty-day period — so both answers hold whatever the run clock says. The
+# ticket asked for controlled mtimes; the reader deliberately reads COMMIT time instead (a
+# routine's container is a fresh clone, and git stamps every checked-out file with the
+# checkout's own time), so the control is `GIT_COMMITTER_DATE` rather than `touch -t`.
+#
+# THE BREAKER IS WRITTEN AGAINST THE BEHAVIOUR, not the return shape: wire the reader so an
+# unresolvable pattern answers `lapsed` instead of `unreadable`, and the step must then hand
+# over a candidate it must never hand over. A wrong `lapsed` sends a person after a producer
+# that is working, which is the one way this reading can do harm, so that is the regression
+# worth a row that has to fail.
+cmd_verify_cadence_lapse() {
+    _mod="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts"
+    _reader="${_mod}/cadence-state.sh"
+    _step="${_mod}/step-cadence-lapse.sh"
+    _ask="${_mod}/ask-question.sh"
+    for _f in "$_reader" "$_step" "$_ask"; do
+        [ -f "$_f" ] || emit_err "cadence_lapse_unreadable" 4 "$_f is not present in this checkout"
+    done
+
+    _before=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+    _tmp=$(mktemp -d)
+    _fx="${_tmp}/fx"
+    mkdir -p "${_fx}/stale" "${_fx}/fresh" "${_fx}/.workaholic"
+    _field() { printf '%s' "$1" | sed -n "s/.*\"$2\": *\"\\([^\"]*\\)\".*/\\1/p" | head -1; }
+
+    (
+        cd "$_fx" \
+            && git init -q . >/dev/null 2>&1 \
+            && git config user.email drill@example.invalid \
+            && git config user.name Drill \
+            && printf 'the producer stopped here\n' > stale/2001-01-01.md \
+            && git add -A >/dev/null 2>&1 \
+            && GIT_AUTHOR_DATE='2001-01-01T00:00:00+0000' GIT_COMMITTER_DATE='2001-01-01T00:00:00+0000' \
+               git commit -q -m 'Add the stale artifact' >/dev/null 2>&1 \
+            && printf 'produced just now\n' > fresh/today.md \
+            && git add -A >/dev/null 2>&1 \
+            && git commit -q -m 'Add the fresh artifact' >/dev/null 2>&1
+    ) || emit_err "cadence_lapse_fixture" 4 "could not build the throwaway repository"
+
+    _all='daily|stale/*.md|1d;weekly|fresh/*.md|30d;ghost|nothing/*.md|1d'
+    _lapsed_only='daily|stale/*.md|1d'
+    _current_only='weekly|fresh/*.md|30d'
+    _ghost_only='ghost|nothing/*.md|1d'
+
+    # 1. THE THREE STATES, FROM ONE READER. `lapsed` carries the age and the period; the
+    #    unresolvable pattern carries a NAMED reason and a NULL age — never a zero, which reads
+    #    as *produced this second*, and never `lapsed`.
+    _r=$(WORKAHOLIC_CADENCES="$_all" sh "$_reader" --root "$_fx" 2>&1 || true)
+    _ok_states=true
+    printf '%s' "$_r" | jq -e '[.cadences[] | select(.name=="daily" and .state=="lapsed" and .age_hours > 0 and .period_hours == 24)] | length == 1' >/dev/null 2>&1 || _ok_states=false
+    printf '%s' "$_r" | jq -e '[.cadences[] | select(.name=="weekly" and .state=="current")] | length == 1' >/dev/null 2>&1 || _ok_states=false
+    printf '%s' "$_r" | jq -e '[.cadences[] | select(.name=="ghost" and .state=="unreadable" and .age_hours == null and (.reason | length > 0))] | length == 1' >/dev/null 2>&1 || _ok_states=false
+    if [ "$_ok_states" = "true" ]; then
+        add_row "cadence_reader_answers_three_states" true "lapsed with its age and period, current, and unreadable with a named reason and a null age" load
+    else
+        add_row "cadence_reader_answers_three_states" false "the reader did not answer all three states: $(one_line "$_r")" load
+    fi
+
+    # 2. A REPOSITORY DECLARING NOTHING IS A REAL ANSWER, not a degradation — and carries NO
+    #    `readable` field, so a consumer not taught the term is unaffected.
+    _none=$(WORKAHOLIC_CADENCES='' sh "$_reader" --root "$_fx" 2>&1; printf ' exit=%s' "$?")
+    case "$_none" in
+        *'"empty_reason": "no_cadence_declared"'*' exit=0')
+            case "$_none" in
+                *readable*) add_row "cadence_absent_is_not_degraded" false "an undeclared repository emitted a readable field: $(one_line "$_none")" load ;;
+                *) add_row "cadence_absent_is_not_degraded" true "no declaration reads an empty set with a named reason, exit 0, no readable field" load ;;
+            esac ;;
+        *) add_row "cadence_absent_is_not_degraded" false "expected empty_reason no_cadence_declared and exit 0, got: $(one_line "$_none")" load ;;
+    esac
+
+    # 3. THE STEP: a lapse becomes one keyed candidate and an event; a current cadence asks
+    #    nobody and renders no root line; an unreadable read is named and asks nobody; an
+    #    undeclared repository is `skipped`, which is deliberately not impairment.
+    _s_lapsed=$(WORKAHOLIC_CADENCES="$_lapsed_only" sh "$_step" --tick 20260831-130000 --root "$_fx" 2>&1 || true)
+    if printf '%s' "$_s_lapsed" | jq -e '(.needs_agent | length == 1) and (.needs_agent[0].lapsed | length == 1) and (.needs_agent[0].lapsed[0].key == "cadence-lapsed:daily") and (.event | length > 0)' >/dev/null 2>&1; then
+        add_row "cadence_lapse_reaches_the_checkin" true "a lapsed cadence is one candidate keyed cadence-lapsed:daily, with an event" load
+    else
+        add_row "cadence_lapse_reaches_the_checkin" false "the lapse did not reach the check-in: $(one_line "$_s_lapsed")" load
+    fi
+
+    _s_current=$(WORKAHOLIC_CADENCES="$_current_only" sh "$_step" --tick 20260831-130000 --root "$_fx" 2>&1 || true)
+    if printf '%s' "$_s_current" | jq -e '(.status == "ok") and (.needs_agent | length == 0) and (.event == "")' >/dev/null 2>&1; then
+        add_row "cadence_current_asks_nobody" true "a current cadence supplies no candidate and no event, so the root renders no line" load
+    else
+        add_row "cadence_current_asks_nobody" false "a current cadence was not silent: $(one_line "$_s_current")" load
+    fi
+
+    _s_ghost=$(WORKAHOLIC_CADENCES="$_ghost_only" sh "$_step" --tick 20260831-130000 --root "$_fx" 2>&1 || true)
+    if printf '%s' "$_s_ghost" | jq -e '(.status == "degraded") and (.reason == "cadence_unreadable") and (.needs_agent | length == 0)' >/dev/null 2>&1; then
+        add_row "cadence_unreadable_is_named" true "an unreadable read is degraded by name and asks nobody" load
+    else
+        add_row "cadence_unreadable_is_named" false "an unreadable read was not named, or asked somebody: $(one_line "$_s_ghost")" load
+    fi
+
+    _s_none=$(WORKAHOLIC_CADENCES='' sh "$_step" --tick 20260831-130000 --root "$_fx" 2>&1 || true)
+    if printf '%s' "$_s_none" | jq -e '(.status == "skipped") and (.reason == "no_cadence_declared") and (.needs_agent | length == 0) and (.event == "")' >/dev/null 2>&1; then
+        add_row "cadence_undeclared_is_byte_identical" true "a repository declaring nothing is skipped by name, asks nobody and renders no line" load
+    else
+        add_row "cadence_undeclared_is_byte_identical" false "an undeclared repository was not skipped by name: $(one_line "$_s_none")" load
+    fi
+
+    # 4. ONE LAPSE COSTS ONE QUESTION, however many ticks see it — the EXISTING gate, called
+    #    with the key the step composes. `ask-question.sh` gains nothing and is not modified.
+    _g1=$(sh "$_ask" --tick 20260831-130000 --key 'cadence-lapsed:daily' --root "$_fx" --hour 10 --weekday 3 2>&1 || true)
+    sh "$_ask" --record-ask --tick 20260831-130000 --key 'cadence-lapsed:daily' --root "$_fx" --summary 'asked about a lapsed cadence' >/dev/null 2>&1 || true
+    _g2=$(sh "$_ask" --tick 20260831-140000 --key 'cadence-lapsed:daily' --root "$_fx" --hour 10 --weekday 3 2>&1 || true)
+    case "${_g1}|${_g2}" in
+        *'"ask": true'*'|'*'"reason": "already_asked"'*)
+            add_row "cadence_asked_once" true "the second tick is refused already_asked, so one lapse costs one question" load ;;
+        *) add_row "cadence_asked_once" false "expected ask then already_asked, got: $(one_line "$_g1") / $(one_line "$_g2")" load ;;
+    esac
+
+    # 5. THE STEP WRITES NOTHING BUT ITS OWN LOG LINE, which `run.sh` writes — so a run of the
+    #    step alone must leave even the fixture's own tree untouched.
+    _fx_before=$(cd "$_fx" && git status --porcelain 2>/dev/null | grep -v '^?? .workaholic/moderations' | sort)
+    WORKAHOLIC_CADENCES="$_all" sh "$_step" --tick 20260831-150000 --root "$_fx" >/dev/null 2>&1 || true
+    _fx_after=$(cd "$_fx" && git status --porcelain 2>/dev/null | grep -v '^?? .workaholic/moderations' | sort)
+    if [ "$_fx_before" = "$_fx_after" ]; then
+        add_row "cadence_step_writes_nothing" true "the step left the fixture's tree byte-identical" load
+    else
+        add_row "cadence_step_writes_nothing" false "the step wrote into the tree it read" load
+    fi
+
+    # 6. THE BREAKER, LABELLED AS THE INTENTIONAL FAILURE. Wire the reader so an unresolvable
+    #    pattern answers `lapsed`, and the step must hand over a candidate it must never hand
+    #    over. A breaker satisfied by keeping the JSON shape proves nothing.
+    _broken="${_tmp}/broken"
+    mkdir -p "$_broken"
+    cp -R "${_mod}/." "$_broken/"
+    sed 's|unreadable null '"''"' no_matching_artifact|lapsed 9999 "2001-01-01T00:00:00+00:00" '"''"'|' \
+        "$_reader" > "${_broken}/cadence-state.sh"
+    chmod +x "${_broken}/cadence-state.sh" "${_broken}/step-cadence-lapse.sh"
+    _b=$(WORKAHOLIC_CADENCES="$_ghost_only" sh "${_broken}/step-cadence-lapse.sh" --tick 20260831-130000 --root "$_fx" 2>&1 || true)
+    if printf '%s' "$_b" | jq -e '(.needs_agent | length) > 0' >/dev/null 2>&1; then
+        add_row "cadence_breaker" true "with an unresolvable pattern wired to lapsed the step asks about a producer that may be fine (this drill can fail)" breaker
+    else
+        add_row "cadence_breaker" false "the breaker did not break: an unreadable pattern wired to lapsed still asked nobody ($(one_line "$_b")), so row 3 proves nothing" breaker
+    fi
+
+    # 7. NOTHING WAS WRITTEN OUTSIDE THE FIXTURE.
+    _after=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+    if [ "$_before" = "$_after" ]; then
+        add_row "cadence_writes_nothing_outside_the_fixture" true "the checkout is byte-identical after the drill" load
+    else
+        add_row "cadence_writes_nothing_outside_the_fixture" false "the drill changed the working tree" load
+    fi
+
+    rm -rf "$_tmp"
+    if [ "$LOAD_FAILED" -gt 0 ]; then
+        emit_verdict "cadence-lapse" 0 "fail" 1
+    fi
+    emit_verdict "cadence-lapse" 0 "pass" 0
+}
+
+USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-all [--only <drill>] [--list] [--timeout <s>]|verify-specificate <issue>|verify-implement <issue>|verify-plan [--json]|verify-status [--json]|verify-cadence [--json]|verify-planner [--json]|verify-standup [--json]|verify-moderate [--json]|verify-propose [--json]|verify-direction-health [--json]|verify-arrival [--json]|verify-residue [--json]|verify-expiry [--json]|verify-rulings [--json]|verify-succession [--json]|verify-revision [--json]|verify-merged-claim [--json]|verify-identity-handoff [--json]|verify-close [--json]|verify-catch-up [--json]|verify-corpus-boundary [--json]|verify-retire [--json]|verify-ci-retirement [--json]|verify-act-effect [--json]|verify-delivery-retry [--json]|verify-handoff-question [--json]|verify-base-health [--json]|verify-return-path [--json]|verify-reconcile [--json]|verify-checkin-delivery [--json]|verify-findings-to-work [--json]|verify-operator-pulls [--json]|verify-condition-age [--json]|verify-cadence-lapse [--json]|verify-blocked-tick [--json]"}'
 
 CMD="${1:-}"
 [ -n "$CMD" ] || {
@@ -8638,6 +9083,8 @@ case "$CMD" in
     verify-stage) cmd_verify_stage "$@" ;;
     verify-operator-pulls) cmd_verify_operator_pulls "$@" ;;
     verify-condition-age) cmd_verify_condition_age "$@" ;;
+    verify-cadence-lapse) cmd_verify_cadence_lapse "$@" ;;
+    verify-blocked-tick) cmd_verify_blocked_tick "$@" ;;
     verify-directed-notification) cmd_verify_directed_notification "$@" ;;
     verify-impairment) cmd_verify_impairment "$@" ;;
     *)

@@ -67,6 +67,45 @@ the project has decided to defer.
 
 ## Per-ticket steps
 
+### 0. Beat the heartbeat
+
+```bash
+bash ../drive/scripts/heartbeat.sh <unit-id>
+```
+
+**The first act of every ticket, before reading it** (2026-08-31, ticket `20260831150500`). The
+heartbeat is the branch tip and the resume gate is
+`WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES`, **default 30** — not the 24-hour
+`WORKAHOLIC_CLAIM_STALE_HOURS`, which is the *reported* staleness and governs nothing here.
+`archive.sh` beats for free, but only at the **end** of a ticket, so a unit of several short
+tickets never lapses and a unit that is **one long ticket** runs its whole implementation on the
+claim commit's own timestamp.
+
+**Measured on `batch-20260831141002`**: claimed at 14:10:27, implementation and its hermetic rows
+finished around 14:55, and the push was rejected non-fast-forward because a second `[Implement]`
+tick had resumed the claim at **14:43:13** — 33 minutes in, against a 30-minute window. The
+protocol worked exactly as designed; the driving run was the non-conformant part. The losing run
+stood down rather than force-pushing over an actively-driven branch, so a complete, validated,
+locally-committed implementation was thrown away and re-driven from the top.
+
+**Why a step and not a cadence.** §4 of `drive` said "roughly every ten minutes or once
+per ticket", and those coincide only for short tickets. A cadence is something an agent must track
+*while its attention is on the implementation*; a step is discharged at a moment the workflow
+already stops at. Two alternatives were considered and refused. **A beat inside an existing
+per-ticket seam**: the only one that runs early is `gather/scripts/ticket-metadata.sh`, a **pure
+reader shared with other callers**, and giving a reader a side effect is how a script acquires
+behaviour nobody expects. **Making the loss visible instead**: a reading that says the claim was
+taken does not return the work — the measured cost was a finished implementation discarded, and
+naming it afterwards recovers none of it.
+
+**Never a background timer.** Nothing in this loop runs concurrently with the agent's own work, and
+a script beating on a schedule would be a second liveness authority beside the branch tip, which is
+the one oracle (`reference/claims.md`).
+
+A failed beat is **reported, never fatal** — the branch tip is a liveness signal, not a gate — and
+the beat adds no store, no cursor and no field on any artifact: it is the empty commit
+`heartbeat.sh` already makes against a scratch index.
+
 ### 1. Read and understand the ticket
 
 - Read the ticket: requirements, Key Files, implementation steps.

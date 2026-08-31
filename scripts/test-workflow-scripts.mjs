@@ -17729,11 +17729,29 @@ function testAttributeBaseRed() {
       [blind.state, blind.attributed, blind.reason],
       ["unattributable", null, "unanswerable_in_walk:no_checks"]);
 
-    // AND A TIP WE COULD NOT READ IS OUR OWN DEGRADATION, never a finding about the base.
-    set({ [tip]: NONE });
+    // A CHECKLESS TIP IS WALKED PAST (2026-09-01, issue #785). `no_checks` is a fact about the
+    // COMMIT — nothing ran on it and nothing ever will — and it has a defined answer one step
+    // back. This loop's base is mostly bookkeeping commits every workflow's path filter
+    // deliberately skips, so the step that notices a broken base was dark exactly when it was
+    // busiest: measured over a day and a half, every tick reported `base_unreadable:tip_no_checks`
+    // while the base was green throughout.
+    set({ [tip]: NONE, [c4]: NONE, [c3]: GREEN, [c2]: GREEN, [c1]: GREEN });
     const dark = walk();
-    assertEq("an unreadable tip is unanswerable, carrying the reader's own reason",
-      [dark.state, dark.ok, dark.reason], ["unanswerable", false, "tip_no_checks"]);
+    assertEq("a checkless tip resolves to the newest checked ancestor",
+      [dark.state, dark.ok, dark.checked_at, dark.checked_behind], ["green", true, c3, 2]);
+    assertTrue("and the tip is still named, so the verdict never reads as the tip's own",
+      dark.tip === tip && dark.checked_at !== dark.tip, JSON.stringify(dark));
+
+    // AND ONLY `no_checks` IS WALKED PAST. A reader that failed, a rate limit, a refused
+    // transport are facts about US, and walking past one would report an older commit's colour
+    // as though it were the tip's — exactly what the three-valued reader exists to prevent. The
+    // walk is read for the discrimination itself, because this fixture's stub cannot produce a
+    // transport failure without becoming a second reader; `verify-base-health` drills the
+    // behaviour against an unknown commit.
+    const walkSrc = readFileSync(WALK, "utf8");
+    assertTrue("the walk continues on no_checks and on nothing else",
+      /case "\$RC_REASON" in\s*\n\s*no_checks\) ;;\s*\n\s*\*\) emit unanswerable "tip_\$\{RC_REASON\}"/.test(walkSrc),
+      "the tip's unanswerable is not split by reason");
 
     // CHECK STATE HAS EXACTLY ONE DERIVATION. The walk asks WHICH COMMIT, never WHAT STATE —
     // a second parser of a check run is what this constraint exists to prevent.
@@ -24475,8 +24493,15 @@ function testWorkaholifyBootstrap() {
         r.problems.some((p) => p.startsWith(key)), JSON.stringify(r.problems));
     }
 
+    // THE GENERATED INDEXES MUST NOT BE A CONFLICT GENERATOR (2026-09-01, issue #780). Measured
+    // on a consuming repository: three open proposal pull requests, every open proposal there
+    // was, each carrying exactly one conflict, and the same generated `index.md` in all three.
+    assertTrue("a repository whose generated indexes still conflict is not wired",
+      r.problems.some((p) => p.startsWith("index_merge_union")), JSON.stringify(r.problems));
+
     // Fully wired.
     installHook(); settings(wired);
+    writeFileSync(join(dir, ".gitattributes"), ".workaholic/*/index.md merge=union\n");
     r = JSON.parse(run(dir, `${CHECK} ${dir}`).stdout);
     assertEq("a fully wired repository is ok", [r.ok, r.problems], [true, []]);
     assertEq("and the installed hook matches the plugin's canonical copy", r.hook.matches_canonical, true);

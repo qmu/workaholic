@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-31T11:35:58+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -88,3 +89,36 @@ script — in the rules, and in every documented example that models the habit.
   is proposed rather than assumed because its false-positive surface (documentation that
   legitimately quotes a pipeline) needs looking at first.
 
+
+## Final Report
+
+Development completed as planned, with one step deliberately not taken and its reasoning
+recorded. `rules/shell.md` gains *Reading a plugin script: a read tool, never a Bash text
+pipeline*, stating the rule, the measured reason (two reads classified as an edit of a sensitive
+file, three ticks at `requires_action`, a routine with nobody to answer), and its scope: the
+**agent's own inspection reads** only, with text processing inside a workflow script explicitly
+untouched. The distinction is written as *why the text is being read*, and it is unambiguous
+because a script cannot call a read tool at all.
+
+**The sweep found nothing to change, which is reported rather than papered over.** Every
+`sed -n` / `grep -n` / `| head -` / `cat …` occurrence under `plugins/workaholic/**/*.md` is either
+this rule's own prose quoting the shape as its subject, or `story/reference/orchestration.md`'s
+`cat "$RUN_DIR/…json" | bash …apply-deferred-concern-verdicts.sh`, which pipes a run-directory
+payload **into** a script rather than inspecting a plugin script. No command, routine or skill
+markdown models the habit.
+
+**The mechanical row is refused, with its reason in the rule itself.** The `gh issue|pr|repo`
+precedent keys on a command whose every use is wrong; `grep`, `sed` and `head` are correct in most
+of their uses here and are quoted throughout the prose, so a row keyed on the command fires on
+`posix-lint.sh`'s own description, and one keyed on "a pipeline targeting `plugins/`" cannot
+separate an inspection read from a script's own processing without knowing why the text is being
+read — the judgement the rule is made of. The ticket asked for the false-positive surface to be
+looked at first; it was, and it decides against the row.
+
+### Discovered Insights
+
+- **Insight**: the underlying classification is the harness's and this change does not touch it —
+  what it removes is the repository's own exposure.
+  **Context**: a later reader finding a prompt still raised on some other read should not treat
+  this rule as broken. The rule's claim is bounded to the shape the loop reaches for, and the
+  wider policy lives in `rules/interaction.md`.

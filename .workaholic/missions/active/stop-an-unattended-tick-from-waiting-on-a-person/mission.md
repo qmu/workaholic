@@ -41,7 +41,7 @@ the next tick reads, so a blocked hour and a quiet hour are never one absence.
 
 ## Acceptance
 
-- [ ] The tick reads a plugin script with a read tool, never through a Bash text
+- [x] The tick reads a plugin script with a read tool, never through a Bash text
       pipeline, and the rule is stated where the shell rules live. (#20260831113558-read-a-plugin-script-without-a-bash-text-pipeline.md)
 - [ ] A tick that dies mid-run leaves its opening on the base, and the next tick names
       it — a tick that opened and never closed is a finding, not a silence. (#20260831113559-notice-a-tick-that-opened-and-never-closed.md)
@@ -50,3 +50,4 @@ the next tick reads, so a blocked hour and a quiet hour are never one absence.
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-31 — ticket archived — 20260831113558-read-a-plugin-script-without-a-bash-text-pipeline.md

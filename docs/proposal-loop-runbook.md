@@ -53,14 +53,57 @@ session carries (its cloud container has no env file), the only surface that can
 the thread lookup, and the only one that can reply *into* a thread — so the connector
 must be selected when the routine is created, and nothing in the plugin can verify
 that it was. `notify-slack.sh` is the **bot-token fallback** a shell or CLI invocation
-uses, configured here; it posts a **keyed root only** (its payload carries no
-`thread_ts`). Reaching for the fallback from a connector-only session is how a finish
-line disappears: with no token it records `{"notified": false, "reason": "no_token"}`
+uses, configured here. Reaching for the fallback from a connector-only session is how a
+finish line disappears: with no token it records `{"notified": false, "reason": "no_token"}`
 and exits 0 (measured 2026-08-12, issue #406 — four runs whose posts never existed).
 Neither path is load-bearing: a proposal that opened its pull request is a success
 whether or not anyone was told — but an unposted message is **reported as unposted**
 (`/specificate`'s `notified` flag, `/implement`'s per-unit notification outcome), never
 left to read as sent.
+
+### 2a. The bot token is also what makes a directed question reach anybody
+
+**Since 2026-08-31** (mission `notify-the-person-a-directed-question-addresses`) the token
+above is not only a fallback for a connector-less caller. It is the **identity** the two
+*directed* posts need: `/moderate`'s `🙋` question and `/implement`'s `🟡 Handoff` ask, the
+only two shapes whose whole purpose is to reach a named person. Every other post reaches
+Slack **as the operator's own account**, and Slack notifies nobody of their own message — so
+in the single-developer configuration, which is the normal one, those posts' `<@U…>` resolved
+to the poster and paged nobody. The loop's blockers reached the operator only when they
+happened to reread the channel.
+
+With a token set, a bot speaks those two replies (through `--thread-ts`, into the thread the
+connector already resolved) and the mention fires. **With no token nothing breaks**: both fall
+back to the connector exactly as before, and the run reports which surface carried each post —
+so *reached them* and *posted as them, notifying nobody* never read alike. The carrier rule and
+its enumerated set live in `workaholic:notify`, *Which transport carries which shape, and why*.
+
+**What the operator must do, once**, and no run may do any of it:
+
+1. Create or reuse the Slack app from §1 with **`chat:write` and nothing wider** — the
+   threading this needs is an ordinary argument of `chat.postMessage` under that same scope, so
+   no second scope is involved. (Searching for a thread *would* need `search:read`; that stays
+   the connector's job and is deliberately not provisioned here.)
+2. **Invite the bot to the repository's channel.** A bot that is not a member cannot post into
+   it; the transport reports that as a named refusal and the run reports it rather than
+   retrying.
+3. Set `SLACK_BOT_TOKEN` — and `WORKAHOLIC_SLACK_CHANNEL`, which must name **the same channel
+   the tick posts its root in** — on the **cloud environment the routines select**. That is the
+   only home a credential has here: a routine declares no environment variables of its own
+   (`workaholic:workaholify`, *Where a routine's environment variables live*), and it never goes
+   in a template, in the repository, or in a commit.
+
+**The account-level cost, stated plainly rather than discovered later**: a cloud environment is
+**account-level** and shared by every session and routine that selects it, so this token is
+readable by all of them. That is the accepted trade for a credential having exactly one home,
+and it is why the scope is held to `chat:write`.
+
+**Then confirm it, in your own words.** After the next `[Moderate]` tick that has a question,
+check that the notification arrived **without rereading the channel** and that the mention
+resolves to you. Nothing here is closed on a run's own assertion that the mechanism looks
+right: the mechanical half is proved offline by
+`sh scripts/e2e/loop-drill.sh verify-directed-notification`, and that drill can prove which
+surface a run chose and what payload it built — never that a person's phone buzzed.
 
 ## 3. Schedule the routine
 

@@ -93,6 +93,8 @@ session running this routine may emit, and `workaholic:notify`'s `reference/noti
 mirrors each of them verbatim. A future edit to either copy is a drift to fix, never a second
 wording.
 
+**And a shape addressed to somebody only reaches them if somebody else is speaking** (2026-08-31, mission `notify-the-person-a-directed-question-addresses`). Every post here reaches Slack as the operator's own account, and Slack notifies nobody of their own message — so in the single-developer configuration the `🙋` question's `<@U…>`, the one token this loop keeps unconditionally, resolved to the poster and paged nobody. The prompt below therefore names **which transport carries the question reply**: the tokened script when a bot token is configured, into the root's own `thread_ts`, so a different account speaks it. That is a prompt line because *the prompt is the ceiling* — the rule in `workaholic:notify` sanctions the shape and only this template lets a session running this routine emit it. The **root**, the `✅` confirmation and the `🟢`/`⚫` reconciliation replies stay on the connector: none of them mentions anyone.
+
 **Every shape here is addressed to somebody, because a status line addressed to nobody is noise** (2026-08-19, the developer's
 instruction). This routine used to emit a second, `🔧 Needs a decision`, and the merged-in
 release tick a third, `📦 Release Preparation`; both were top-level roots carrying no mention
@@ -127,6 +129,8 @@ Then post each question the check-in step cleared as a reply into that root, add
 🙋 <@U…> - <what this tick could not decide>
 One sentence, max 25 words, the question itself, with the two options when there are two.
 ```
+
+Post that reply through the **tokened transport** — `bash <src>/skills/specificate/scripts/notify-slack.sh --thread-ts <the root's ts> "<the reply text>"` — whenever `SLACK_BOT_TOKEN` is set, so a bot speaks it and its `<@U…>` notifies the person even when that person is the account this session posts as. That script is `workaholic:notify`'s **fallback** transport, and it is selected here for its **identity** rather than for its availability: this one reply is a directed post, which is the only case where which account speaks matters. The connector returns the root's `ts` when it posts the root, so hand that same value straight through: never search for it. With no token, post the reply through the connector exactly as you post the root. Report per question which surface carried it — `bot`, `connector`, or the transport's own refusal word — and never retry a refusal. **The root, the `✅` confirmation and the `🟢`/`⚫` reconciliation replies always ride the connector**, unchanged.
 
 For each previously asked question whose subject the check-in read as settled this tick, post one confirmation as a reply into the thread where it was asked — no mention token, once ever per question:
 

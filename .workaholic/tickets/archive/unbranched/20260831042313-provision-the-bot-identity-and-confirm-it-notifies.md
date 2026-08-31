@@ -4,6 +4,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
 mission: notify-the-person-a-directed-question-addresses
+status: abandoned
 merge_policy:
 verification_handoff: a Slack bot token with chat:write, installed in the repository's channel and set on the routines' cloud environment, plus the operator confirming they received the notification
 ---

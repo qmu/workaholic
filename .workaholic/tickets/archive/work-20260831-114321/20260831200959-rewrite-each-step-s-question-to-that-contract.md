@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-31T20:09:59+09:00
+status: done
 author: a@qmu.jp
 assignees: 
 depends_on:
@@ -81,3 +82,48 @@ than thirteen.
   every question's wording safe to do in one change.
 - A question whose subject genuinely cannot be explained in one sentence is a signal about
   that step's finding, not about the bound; name it here rather than lengthening the post.
+
+## Final Report
+
+Development completed as planned.
+
+Every question-asking step's spec in `moderate/reference/workflow.md` now carries an explicit
+**The question** block naming what its heading leads with and the one act its body asks for:
+`stuck-prs`, `strategy-pace`, `stalled-units`, `direction-health` (all seven of its keys, in one
+table), `unanswered-asks` (both keys), `undrivable-units`, `undelivered-units`, `retire-claims`,
+`base-health`, `handoff-units`, `catchup-blocked`, `drill-health`, `operator-pulls` and
+`raced-units`. Each block also names the verdict words that may ride the heading beside the
+plain fact and may never stand in for it.
+
+A closing section states what did not move — every key expression, cap, hold, addressee
+derivation and age reading, and no script at all — and names the steps that ask nothing, so a
+later reader does not go looking for a voice they were never given.
+
+`git diff --stat` is exactly the three files the ticket named: `reference/workflow.md`,
+`moderate/SKILL.md` and `CLAUDE.md`. `node scripts/test-workflow-scripts.mjs` — 5422 passed,
+0 failed.
+
+### Discovered Insights
+
+- **Insight**: The sections did not specify literal heading strings; they described in prose what
+  each question *names*, and the agent composed the sentence from `needs_agent` plus that prose.
+  So there was no string to rewrite — the work was to make each step's spec explicit about the
+  lead and the act, which is what the composition contract can actually be applied to.
+  **Context**: A later change that tries to enforce this mechanically will find nothing to
+  compare against. The enforcement is the same shape as the connector retry's and the Open
+  Decisions floor's: a report or a post that does not conform is visibly wrong, and no script
+  can tell.
+
+- **Insight**: `stuck-prs` already met the contract, and its `headline` derivation is why — it is
+  computed from the `blocked_by` set (`conflicting with main`, `waiting on review`, …) rather
+  than from the pull request number. Every step that failed the contract composed from the
+  identifier its key is made of.
+  **Context**: The general repair for a future step is to derive a headline from the *reason*
+  at the point where the step already knows what its finding means, exactly as `event` is
+  derived beside `summary`.
+
+- **Insight**: `direction-arrived` is the one question whose named detail genuinely cannot be
+  compressed into the 25-word bound, because the operator is being asked to close a direction
+  and the residue is the half of the reading they must see to rule.
+  **Context**: The catalog's clause 5 (named details ride the heading, the body keeps the act)
+  is what resolves this without raising the bound — the bound governs the body only.

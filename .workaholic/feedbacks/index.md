@@ -621,6 +621,7 @@
 * [Every open proposal conflicts on the generated feedbacks index](20260831201820-every-open-proposal-conflicts-on-the-generated-feedbacks-index.md)
 * [base-health never reads a base whose tip is a bookkeeping commit](20260831202854-base-health-never-reads-a-base-whose-tip-is-a-bookkeeping-commit.md)
 * [thread-reconcile calls a merged proposal the item's finish](20260831203218-thread-reconcile-calls-a-merged-proposal-the-item-s-finish.md)
+* [superseded proves the tickets landed, not that the branch is empty](20260831203426-superseded-proves-the-tickets-landed-not-that-the-branch-is-empty.md)
 * [The operator rejects provisioning a Slack bot identity](20260831221757-the-operator-rejects-provisioning-a-slack-bot-identity.md)
 * [An unattended run decides everything below the handoff bar](20260831221825-an-unattended-run-decides-everything-below-the-handoff-bar.md)
 <!-- okf:generated:end -->

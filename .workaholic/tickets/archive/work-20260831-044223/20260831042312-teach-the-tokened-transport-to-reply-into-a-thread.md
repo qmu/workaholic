@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-31T04:23:12+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -91,3 +92,45 @@ where it already is.
   question, kept separate so a capability cannot be read as a licence.
 - A bot must be a member of the channel to post into it. That is provisioning
   rather than code, and it belongs to this mission's handoff ticket.
+
+## Final Report
+
+**Outcome:** implemented.
+
+**Step 1 — the mechanism, confirmed before it was changed.** `notify-slack.sh` built its
+payload as `{"channel": <WORKAHOLIC_SLACK_CHANNEL>, "text": <argv[1]>}` and nothing else,
+through one `python3 -c` line, and took exactly one positional argument. Slack's
+`chat.postMessage` takes `thread_ts` as an ordinary argument of the **same method** — it is
+not a different endpoint and carries no scope of its own, so the `chat:write` the script has
+always required is the whole requirement. That is the half of the 2026-08-12 reading that
+was wrong: it concluded "teaching it to thread would require `search:read`", which is true
+of *finding* a thread and not of *posting into* one. The two halves are separable, and
+separating them is the repair.
+
+**What changed.** `--thread-ts <ts>` (and `--thread-ts=<ts>`) parsed ahead of the positional
+text; `thread_ts` in the payload only when the flag was given. A malformed or empty value is
+refused `bad_thread_ts` at exit 1 — the script's existing malformed-invocation class, beside
+`no_text` — rather than dropped, because a root posted silently where a reply was asked for
+is invisible from the caller's side. Every graceful no-op (`no_token`, `no_channel`,
+`http_<code>`, `slack_<error>`, `curl_failed`, exit 0) is untouched, and the token is still
+read at call time and never persisted or echoed.
+
+**Gate.** `node scripts/test-workflow-scripts.mjs` — 5434 passed, 0 failed, including 12 new
+rows under `propose/notify-slack.sh`. The payload is captured through a `curl` **stub on
+PATH** rather than a listener: no socket, no port to race, and the assertion is on the bytes
+that would have gone out. The no-flag payload was byte-compared against the pre-change
+builder's output and is identical (`{"channel": "C123", "text": "hello world"}`); the suite
+pins that comparison as a literal string so a later refactor cannot drift it.
+
+**Documentation corrected in the same change.** `workaholic:notify` *The transport* claimed
+"no `thread_ts` parameter and no search"; the search half stands and is now stated as the
+reason the connector is the only transport that can run the lookup, while the threading half
+is corrected with the measurement above. Four call-site sentences that gave "cannot thread"
+as the reason a fallback post is a keyed root now give the accurate one — it cannot
+**search**, and on the one path that reaches it the connector that would have run the lookup
+is exactly what is absent, so no thread was ever resolved. Behaviour statements are unchanged
+everywhere; only the reason moved.
+
+**Deliberately not done.** No call site picks this transport for its identity. This ticket
+adds a capability; which shape rides which transport is the next ticket's question, and the
+skill says so in as many words so a capability cannot be read as a licence.

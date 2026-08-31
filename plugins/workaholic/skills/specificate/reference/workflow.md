@@ -540,7 +540,9 @@ and every abort reports a machine-readable reason.
 12. **Notify** on the transport `workaholic:notify` selects (*The transport*): the
     account's Slack connector where the session has one, and
     `bash ${CLAUDE_PLUGIN_ROOT}/skills/specificate/scripts/notify-slack.sh "<message>"` as the
-    machine fallback for a caller with no connector (keyed root only — it cannot thread).
+    machine fallback for a caller with no connector (keyed root only here — it cannot
+    *search*, so on the one path that reaches it the lookup never ran and there is no
+    thread coordinate to reply into).
     The message carries the title, this repo's label
     (`bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/project-label.sh`), the **PR URL**,
     and how to pick it up once merged (`/mission <slug>` for a mission; a loose ticket

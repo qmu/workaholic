@@ -15456,6 +15456,67 @@ function testNotifySlack() {
       ["curl_failed"].includes(JSON.parse(r.stdout).reason) || JSON.parse(r.stdout).reason.startsWith("http_"), r.stdout);
     assertTrue("the token never leaks into stdout/stderr",
       !r.stdout.includes("supersecret") && !r.stderr.includes("supersecret"), r.stdout + r.stderr);
+
+    // ---- --thread-ts: the key rides the payload ONLY when the flag is given ----
+    // 2026-08-31, mission `notify-the-person-a-directed-question-addresses`. The
+    // script could post a keyed ROOT and nothing else, which is why the model
+    // called it a fallback no call site may pick -- and that kept the one
+    // transport with a non-operator identity away from the one post shape whose
+    // whole purpose is to reach a person. `thread_ts` is an ordinary argument of
+    // chat.postMessage under the same `chat:write` the script already requires.
+    // The payload is captured through a `curl` STUB on PATH rather than a
+    // listener: no socket, no port to race, and the assertion is on the bytes
+    // that would have gone out.
+    const bin = join(dir, "bin");
+    mkdirSync(bin, { recursive: true });
+    const capture = join(dir, "payload.json");
+    writeFileSync(join(bin, "curl"), `#!/bin/sh
+out=""; data=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -o) out="$2"; shift 2 ;;
+    --data) data="$2"; shift 2 ;;
+    *) shift ;;
+  esac
+done
+printf '%s' "$data" > "${capture}"
+printf '{"ok": true}' > "$out"
+printf '200'
+`, { mode: 0o755 });
+    const posted = { ...process.env, PATH: `${bin}:${process.env.PATH}`, SLACK_BOT_TOKEN: "xoxb-test", WORKAHOLIC_SLACK_CHANNEL: "C123" };
+
+    r = run(dir, `${POSIX_SH} ${SCRIPTS.proposeNotifySlack} --thread-ts 1712345678.123456 "reply text"`, { env: posted });
+    assertEq("a threaded post succeeds", JSON.parse(r.stdout), { notified: true, reason: "" });
+    assertEq("with --thread-ts the coordinate rides the payload verbatim",
+      JSON.parse(readFileSync(capture, "utf8")),
+      { channel: "C123", text: "reply text", thread_ts: "1712345678.123456" });
+
+    r = run(dir, `${POSIX_SH} ${SCRIPTS.proposeNotifySlack} "reply text"`, { env: posted });
+    assertEq("an unthreaded post succeeds", JSON.parse(r.stdout), { notified: true, reason: "" });
+    assertEq("with no flag the payload is byte-identical to the pre-change one — no thread_ts key at all",
+      readFileSync(capture, "utf8"), `{"channel": "C123", "text": "reply text"}`);
+
+    // A malformed coordinate is refused BY ITS OWN NAME rather than dropped:
+    // silently posting a root where a reply was asked for is invisible from the
+    // caller's side, which is the failure this flag exists to remove.
+    for (const bad of ["abc", "1712345678", "1712345678.", ".123456", "17.12.34"]) {
+      r = run(dir, `${POSIX_SH} ${SCRIPTS.proposeNotifySlack} --thread-ts ${bad} "text"`, { env: posted });
+      assertEq(`a malformed --thread-ts (${bad}) is refused by name`,
+        { status: r.status, reason: JSON.parse(r.stdout).reason }, { status: 1, reason: "bad_thread_ts" });
+    }
+    r = run(dir, `${POSIX_SH} ${SCRIPTS.proposeNotifySlack} --thread-ts`, { env: posted });
+    assertEq("a --thread-ts with no value is refused by name, never treated as absent",
+      { status: r.status, reason: JSON.parse(r.stdout).reason }, { status: 1, reason: "bad_thread_ts" });
+
+    // Every pre-existing refusal is unchanged UNDER THE FLAG too -- the flag adds
+    // a capability, it does not reorder the graceful no-ops.
+    r = run(dir, `${POSIX_SH} ${SCRIPTS.proposeNotifySlack} --thread-ts 1712345678.123456 "text"`,
+      { env: { ...process.env, SLACK_BOT_TOKEN: "", WORKAHOLIC_SLACK_CHANNEL: "C123" } });
+    assertEq("a threaded post with no token is the same recorded no-op, exit 0",
+      { status: r.status, ...JSON.parse(r.stdout) }, { status: 0, notified: false, reason: "no_token" });
+    r = run(dir, `${POSIX_SH} ${SCRIPTS.proposeNotifySlack} --thread-ts 1712345678.123456 ""`);
+    assertEq("missing text stays the one malformed-invocation error even with a valid coordinate",
+      { status: r.status, reason: JSON.parse(r.stdout).reason }, { status: 1, reason: "no_text" });
   } finally { cleanup(dir); }
 }
 

@@ -43,7 +43,7 @@ today and says which surface carried each post.
 
 ## Acceptance
 
-- [ ] The tokened transport replies into a thread the connector resolved, under the
+- [x] The tokened transport replies into a thread the connector resolved, under the
       same `chat:write` scope, every existing call byte-identical. (#20260831042312-teach-the-tokened-transport-to-reply-into-a-thread.md)
 - [ ] The model states which transport carries which shape and why; directed shapes
       ride the bot, everything else the connector, a missing token falls back to
@@ -54,3 +54,4 @@ today and says which surface carried each post.
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-31 — ticket archived — 20260831042312-teach-the-tokened-transport-to-reply-into-a-thread.md

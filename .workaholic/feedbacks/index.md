@@ -617,4 +617,6 @@
 * [An unattended tick can be stopped forever by a permission prompt](20260831113507-an-unattended-tick-can-be-stopped-forever-by-a-permission-prompt.md)
 * [A routine must never ask a human anything](20260831113845-a-routine-must-never-ask-a-human-anything.md)
 * [Make the tick's Slack questions self-explanatory and close the loop in the thread](20260831200350-make-the-tick-s-slack-questions-self-explanatory-and-close-the-loop-in-the-thread.md)
+* [The operator rejects provisioning a Slack bot identity](20260831221757-the-operator-rejects-provisioning-a-slack-bot-identity.md)
+* [An unattended run decides everything below the handoff bar](20260831221825-an-unattended-run-decides-everything-below-the-handoff-bar.md)
 <!-- okf:generated:end -->

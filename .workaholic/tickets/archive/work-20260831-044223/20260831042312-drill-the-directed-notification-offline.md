@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-31T04:23:12+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -91,3 +92,56 @@ Drill the whole path with no network: transport → rule → call site → templ
   it cannot prove a human's phone buzzed. That half is the mission's handoff
   ticket, and the two are deliberately separate so the mechanical proof is not
   held hostage to a credential.
+
+## Final Report
+
+**Outcome:** implemented.
+
+**`verify-directed-notification`**, 13 load-bearing rows and **two** breakers, hermetic: `curl`
+is stubbed on `PATH` for the transport rows, so the assertion is on the **bytes that would have
+gone out** — no network, no `gh`, no credential, no Slack post, and the checkout byte-identical
+afterwards (its own row). A stub rather than a listener: no socket and no port to race.
+
+**What it walks.** *Transport* — a coordinate carried verbatim into a resolved thread; an
+unflagged payload byte-identical to the pre-repair builder; a malformed coordinate refused
+`bad_thread_ts` with **nothing posted**; a missing token reported as a `no_token` no-op at exit 0.
+*Rule* — the directed set is enumerated, names both shapes, and makes extending it a deliberate
+edit. *Call site* — `moderate/reference/workflow.md` and `drive/reference/routing.md` state the
+carrier, the addressee and what an unresolved address does. *Template* — each names both its
+shape and its carrier.
+
+**Two judgements worth reading.** The unflagged payload is compared against the **pre-repair
+builder re-run inside the drill**, never against a literal: the real builder escapes non-ASCII,
+and a hand-typed expectation would assert the drill's idea of the payload rather than the bytes
+the script used to send — caught by the first run, which failed on exactly that. And the rule and
+the call sites are **read rather than run** because the carrier selection is prose an agent
+executes, not a function: what is checkable is that the transport *can* do what the rule asks and
+that every document states it the same way, and the header says so rather than implying the drill
+proves more.
+
+**The gate's immunity is proved by execution.** `ask-question.sh` is run twice over one fixture,
+with a bot token and without, and its answers must be **byte-identical** — plus the structural
+half, that it names no transport at all, so a future gate cannot start branching on a token while
+still answering identically today.
+
+**Both breakers are written against the behaviour, and both are needed.** One restores the
+pre-repair **transport** (`--thread-ts` removed): confirmed by hand that the broken copy still
+posts successfully (`notified: true`, with `--thread-ts` swallowed as the positional text — the
+pre-repair behaviour exactly), so the row catches a **regression rather than a crash**. One
+restores the pre-repair **rule** (the enumerated set deleted), so availability alone decides the
+carrier. Either alone would leave the other half unproved.
+
+**Registered and run rather than skipped.** `docs/loop-drill-runbook.md` §9 carries the row
+(`hermetic` / `yes` / this mission's slug) and §5s documents it with a per-row failure→file blame
+table; `drill-register.sh drill verify-directed-notification` resolves it with
+`mission_resolved: true`; `verify-all --list --kind hermetic` enumerates **28** drills including
+this one, so CI's matrix gains a leg named after it and `/moderate`'s `drill-health` can name it.
+
+**Gate.** `sh scripts/e2e/loop-drill.sh verify-directed-notification` → `verdict: pass`, 13
+load-bearing, 0 failed, 2 breakers. `sh scripts/e2e/loop-drill.sh verify-all --kind hermetic` →
+36 drills, **0 failed**, 25 proved. `node scripts/test-workflow-scripts.mjs` → 5442 passed, 0
+failed (the row that fails on a drill the register does not classify is green).
+
+**Stated limit.** The drill proves which surface the run *chose* and what payload it built; it
+cannot prove a human's phone buzzed. That half is this mission's handoff ticket, deliberately
+separate so the mechanical proof is not held hostage to a credential.

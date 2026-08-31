@@ -2,20 +2,21 @@
 type: Mission
 title: Notify the person a directed question addresses
 slug: notify-the-person-a-directed-question-addresses
-status: active
+status: abandoned
 merge_policy:
 created_at: 2026-08-31T04:21:25+00:00
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 2.8
 feedback: [20260831041651-give-the-asking-path-a-bot-identity-so-a-directed-question-actually-notifies-its-addressee.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260831-044223
 ---
 
 # Notify the person a directed question addresses
@@ -42,9 +43,9 @@ today and says which surface carried each post.
 
 ## Acceptance
 
-- [ ] The tokened transport replies into a thread the connector resolved, under the
+- [x] The tokened transport replies into a thread the connector resolved, under the
       same `chat:write` scope, every existing call byte-identical. (#20260831042312-teach-the-tokened-transport-to-reply-into-a-thread.md)
-- [ ] The model states which transport carries which shape and why; directed shapes
+- [x] The model states which transport carries which shape and why; directed shapes
       ride the bot, everything else the connector, a missing token falls back to
       today's behaviour reported by name. (#20260831042312-state-which-transport-carries-which-shape-and-why.md)
 - [ ] Proved offline by a drill with a breaker row, registered in the drill register,
@@ -53,3 +54,12 @@ today and says which surface carried each post.
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-31 — ticket archived — 20260831042312-teach-the-tokened-transport-to-reply-into-a-thread.md
+- 2026-08-31 — ticket archived — 20260831042312-state-which-transport-carries-which-shape-and-why.md
+- 2026-08-31 — ticket archived — 20260831042312-post-the-moderator-s-question-as-the-bot-identity.md
+- 2026-08-31 — ticket archived — 20260831042312-address-the-handoff-ask-to-the-person-who-must-act.md
+- 2026-08-31 — ticket archived — 20260831042312-name-the-bot-carried-shapes-in-the-routine-templates.md
+- 2026-08-31 — ticket archived — 20260831042312-drill-the-directed-notification-offline.md
+- 2026-08-31 — story reported — work-20260831-044223.md
+- 2026-08-31 — run recorded (+2.8h) — run-20260831-044223
+- 2026-08-31 — mission abandoned — mission.md

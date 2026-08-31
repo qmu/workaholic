@@ -16,11 +16,53 @@
 # must never fail a proposal that already pushed (see propose/SKILL.md,
 # Notifier contract). Non-zero exit is reserved for malformed invocation.
 #
-# Usage: notify-slack.sh "<text>"
+# Usage: notify-slack.sh [--thread-ts <ts>] "<text>"
 # Output: JSON {notified, reason}
 #   reason: "" | no_token | no_channel | http_<code> | slack_<error> | curl_failed
+#
+# --thread-ts posts the message as a REPLY into an existing thread instead of as
+# a new keyed root. Slack's chat.postMessage takes thread_ts as an ordinary
+# argument of the same method under the same chat:write scope this script has
+# always required -- there is no second scope and no account-level provisioning
+# change (measured 2026-08-31 against Slack's own chat.postMessage reference;
+# the search half of the thread lookup stays on the connector, which is what
+# needs search:read). The SEARCH is still not this script's: a caller passes a
+# coordinate the connector already resolved. With no flag the payload is
+# byte-identical to what this script has always sent.
 
 set -eu
+
+THREAD_TS=""
+THREAD_TS_GIVEN=0
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --thread-ts)
+            [ $# -ge 2 ] || { echo '{"notified": false, "reason": "bad_thread_ts"}'; exit 1; }
+            THREAD_TS="$2"
+            THREAD_TS_GIVEN=1
+            shift 2
+            ;;
+        --thread-ts=*)
+            THREAD_TS="${1#--thread-ts=}"
+            THREAD_TS_GIVEN=1
+            shift
+            ;;
+        *) break ;;
+    esac
+done
+
+# A malformed coordinate is refused by its own name rather than dropped: silently
+# posting a ROOT where a reply was asked for is the failure this flag exists to
+# remove, and it is invisible from the caller's side. A Slack ts is
+# <seconds>.<microseconds> -- digits, exactly one dot, neither leading nor
+# trailing. An explicitly empty value is malformed too, not "no flag".
+if [ "$THREAD_TS_GIVEN" = "1" ]; then
+    case "$THREAD_TS" in
+        "" | *[!0-9.]* | *.*.* | .* | *.) echo '{"notified": false, "reason": "bad_thread_ts"}'; exit 1 ;;
+        *.*) : ;;
+        *) echo '{"notified": false, "reason": "bad_thread_ts"}'; exit 1 ;;
+    esac
+fi
 
 TEXT="${1:-}"
 [ -n "$TEXT" ] || { echo '{"notified": false, "reason": "no_text"}'; exit 1; }
@@ -38,8 +80,14 @@ if [ -z "$CHANNEL" ]; then
     exit 0
 fi
 
-# JSON-encode the payload safely (text is arbitrary prose).
-PAYLOAD=$(printf '%s' "$TEXT" | python3 -c 'import json,sys,os; print(json.dumps({"channel": os.environ["WORKAHOLIC_SLACK_CHANNEL"], "text": sys.stdin.read()}))')
+# JSON-encode the payload safely (text is arbitrary prose). The thread_ts key
+# rides ONLY when the flag was given, so a caller that passes no flag sends the
+# byte-identical payload this script has always sent.
+PAYLOAD=$(printf '%s' "$TEXT" | python3 -c 'import json,sys,os
+p = {"channel": os.environ["WORKAHOLIC_SLACK_CHANNEL"], "text": sys.stdin.read()}
+if sys.argv[1]:
+    p["thread_ts"] = sys.argv[1]
+print(json.dumps(p))' "$THREAD_TS")
 
 # The token rides only in the Authorization header of this one call; stderr is
 # discarded so a curl verbose/error path can never echo headers.

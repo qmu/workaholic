@@ -741,19 +741,105 @@ question into the thread of the item it concerns; it posts the tick's own root a
 questions under it.
 
 1. Render the root: `run.sh`'s JSON | `render-tick-post.sh --tick <id> --root <repo-root> --questions <n>`.
-   It returns `post`, a `reason`, the `changes[]` it found and the `root_text` to post verbatim.
+   It returns `post`, a `reason`, the `changes[]` it found, the `impaired[]` steps it could not
+   read, and the `root_text` to post verbatim.
 2. `post: false` ⇒ **post nothing**, whatever the reason (`idle`, `no_previous_tick`, `no_log`,
    `no_rows`). Report the reason in the run.
 3. `post: true` ⇒ post `root_text` as a top-level message carrying `` `tick:<tick-id>` `` and the
    session URL, then post each cleared question as a **reply into that root**, carrying the
    person's `<@U…>` and `` `ask:<key>` `` — and no session URL, which the root already carries.
 
+**The root rides the connector; a question whose mention resolves to the poster rides the bot**
+(2026-08-31, mission `notify-the-person-a-directed-question-addresses`). This question is the
+one shape whose entire purpose is to reach a named person, and it is why the `🙋` line keeps
+its `<@U…>` unconditionally where every other shape dropped one. In the single-developer
+configuration — the normal one — that token resolves to the account the post is made as, and
+**Slack notifies nobody of their own message**: the loop's blockers reached the operator only
+when they happened to reread the channel. The carrier rule is `workaholic:notify`'s
+(*Which transport carries which shape, and why*) and is not restated here; what this step owes
+it is the mechanics:
+
+- **The root is always the connector's.** It is a top-level post, it needs no mention, and the
+  connector is the transport this tick already holds. Nothing about step 1 or 2 moves.
+- **The coordinate is already in hand and no query is added.** The connector returns the root's
+  `(channel, ts)` when it posts it — the same fact `--record-ask` has recorded per question
+  since 2026-08-28, which is what proves the timestamp is an *input* here and never a lookup.
+  Hand that `ts` to `notify-slack.sh --thread-ts <ts>` and the bot's reply lands **inside the
+  tick root's thread**, so the two speech acts stay told apart by position exactly as they are
+  now. The two-query lookup bound is untouched: no search happens on this path at all.
+- **With no bot token, post through the connector exactly as today.** `notify-slack.sh` answers
+  `no_token` and exits 0; the question is still asked, still gated, still recorded. This is a
+  fallback, never a drop.
+- **Report the carrying surface per question** in the step's own log line — `bot`, `connector`,
+  or the transport's own refusal word (`no_token`, `no_channel`, `slack_<error>`, …) — so a
+  question that reached nobody is never recorded as one that did. A refusal is reported, never
+  retried: the bot must be a member of the channel and `WORKAHOLIC_SLACK_CHANNEL` must name the
+  channel the root was posted in, and both are **provisioning** rather than code.
+- **The gate does not move, and that is checkable**: `ask-question.sh` is byte-identical, so the
+  key, `already_asked`, `answered`, the per-tick cap, the day cap, the quiet hours, the
+  working-day hold and the one bounded re-ask are exactly what they were. The question's wording
+  does not move either — only the account that speaks it.
+
+The cost is stated rather than absorbed: a person's own thread now carries one bot reply per
+question, changing the thread's author mix. That is the intended trade — a reply nobody is
+notified of is worth less than one that reaches them.
+
+**Every root names the steps that could not read** (2026-08-31, mission
+`name-the-steps-a-tick-could-not-read`). `run.sh` classifies every step
+`ok|filed|skipped|degraded|blocked` with a reason and the renderer read neither, so a tick where
+six steps saw nothing rendered exactly like a tick where everything was read — measured, 24 of 25
+ticks in that state, found four days later by asking. `render-tick-post.sh` derives `impaired[]`
+(the `degraded` and `blocked` rows in `STEPS` order, each with its own status and reason) and
+`impaired_count` **on every exit path, including the silent ones**, and the root carries the count
+in its head and the names in its body:
+
+```
+🔎 Moderation - <N> change(s), <M> question(s), <K> step(s) could not read
+<the event lines>
+⚠️ <step> — <status>: <reason>
+```
+
+**`skipped` is not impairment** — a step declining to run for a stated, healthy reason (`budget`,
+an absent precondition) did not fail to see. **`blocked` renders beside `degraded`** under one
+clause: they differ in cause and are identical in consequence to the reader.
+
+**The clause rides OUTSIDE the diff, and that is the load-bearing decision.** A step degraded the
+same way for twenty-four ticks has an unchanged summary, so the diff would call it unchanged and
+the impairment would be said once and then vanish — the defect, not the fix. **It earns no post
+either**: it adds a clause to a root already being posted for a question, a digest or a delivery
+failure, so a tick that would have been silent stays silent and the twice-retired status root is
+not reinstated. The third head term is omitted entirely at `K == 0`, so a healthy tick's root is
+byte-identical to what it always was. The list names at most `WORKAHOLIC_IMPAIRED_MAX` (default 5)
+steps and counts the rest as `and <K> more` — never a silent truncation, and the head always
+carries the full count. No dedup key, no mention token, no session URL on the clause.
+
 **A change is a diff against the previous tick**, read from the log; no step declares its own
 novelty and no cursor is stored. **The gate is `questions >= 1`** — the changed-step half was
 retired on 2026-08-22 (issue #569), because with `0 question(s)` the root is a status line
-addressed to nobody. Two narrow conditions sit beside it, each OR'd next to that untouched
-expression: the **morning digest** (2026-08-24) and a **check-in that reached nobody**
-(2026-08-28, above).
+addressed to nobody. Three narrow conditions sit beside it, each OR'd next to that untouched
+expression: the **morning digest** (2026-08-24), a **check-in that reached nobody**
+(2026-08-28, above), and a **changed impairment** (2026-08-31).
+
+**A changed impairment is the fourth gate**, on the third's precedent. The worst case measured is
+the one where nothing posts at all: with no question, no digest and no delivery failure, a tick
+with six blind steps emitted `post: false` and was byte-identical, to the operator, to a quiet
+hour. **The line is outside the diff and the gate is inside it** — the impairment is *stated* on
+every root and *earns* one only when it moved, so a standing impairment never opens a root of its
+own after the first, which is the property `📦 Release Preparation` lacked. Appearing and clearing
+both break silence; persisting does not. A root earned this way reports `reason: ready_impairment`
+so a machine reading the JSON can tell it from one a question earned, and `root_text` is unchanged
+either way — a clearing renders the same clause in its other state (`✅ every step read this
+tick`), because a root that posts and says nothing about why is the content-free status line this
+repository has retired twice.
+
+**The comparison is a set of `(step, status, stabilized summary)`, and the third term is
+mechanical**: `reason` never reaches the tick log — `log-append.sh` writes
+`- <step>: <status> — <summary>` and nothing more — so the previous tick's reason is not
+recoverable from the only cross-tick memory there is, and a store for it is what this must not
+add. The set is strictly finer than `(step, status)` alone, so it errs toward opening a root; both
+sides are sorted, so row order cannot decide it; and `stabilize` is applied to both, because two
+steps embed a timestamp or a sha in their summary and would otherwise differ every tick by
+construction and fire this gate hourly. It reads no age: no gate in this repository may.
 
 **This step is exempt from `--deadline-seconds`.** The deadline cuts steps in order and this one is
 last, so a slow tick used to read nine things and say nothing — the one step whose absence nobody

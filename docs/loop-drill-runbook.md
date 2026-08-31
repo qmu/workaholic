@@ -725,7 +725,7 @@ keeps `🔵 Proposed` or `🟡 Handoff` while the work is long merged. No other 
 | `reconcile_no_network` | `gh` resolves to anything but the drill's stub | the drill is reaching the network, so every row below it proves nothing about the offline contract |
 | `reconcile_merged_named` | the hand-merged unit is not a candidate, or loses its stems, its pull request or who merged it when | the reply's sentence is built from exactly those facts; a candidate that cannot name them cannot be posted without inventing one |
 | `reconcile_closed_is_its_own_state` | a pull request closed without merging reads `merged` | the two states get two shapes because they ask a reader for different things. **A tab is IFS whitespace**, so an empty `merged_at` used to collapse and shift `closed_at` into it — the jq sentinel is what keeps the distinction |
-| `reconcile_both_shapes_named` | the catalog stops naming either reply, or the template's copy diverges | the prompt is the ceiling: a shape the template does not name may not be posted, and a second wording is a drift to fix |
+| `reconcile_both_shapes_named` | the catalog stops naming either reply, or `/moderate`'s copy diverges | the command is the ceiling: a shape the command does not name may not be posted, and a second wording is a drift to fix |
 | `reconcile_thread_bar` | the stated bar misclassifies one of the four fixture threads | the bar is the whole narrowing — only `🔵`/`🟡` is stale-able, a `🟢`-ended thread and one this loop already reconciled are never touched, and no thread means nothing to correct |
 | `reconcile_two_queries` | the handed-back bound stops forbidding a channel-history read, or names a window | a window is a channel read wearing the step's name, and `workaholic:notify` forbids a full-channel read at any point |
 | `reconcile_case4_refused` | case 4's description root stops being refused by name | posting a root would announce a merge nobody was ever told about — `[Consent]`'s retired job |
@@ -1382,7 +1382,7 @@ decides the carrier). Either alone would leave the other half unproved.
 | `no_token_falls_back_and_is_reported` | `notify-slack.sh` — a missing token stopped being a reported no-op |
 | `rule_enumerates_the_directed_set` / `rule_keeps_every_other_shape_on_the_connector` | `notify/SKILL.md` — the carrier became a post-time judgement |
 | `call_sites_state_the_same_rule` | `moderate/reference/workflow.md` or `drive/reference/routing.md` — two consumers reading one rule differently |
-| `templates_name_shape_and_carrier` | a routine template — the prompt is the ceiling, so a shape it does not name cannot be posted |
+| `templates_name_shape_and_carrier` | `/moderate` or `/implement` — the command is the ceiling, so a shape it does not name cannot be posted (the shapes lived in the routine templates until 2026-09-01) |
 | `gate_is_transport_blind` / `gate_never_reads_the_transport` | `ask-question.sh` — which questions are asked started depending on which surface would carry them |
 | `directed_notification_breaker_transport` / `directed_notification_breaker_rule` | the drill can no longer fail, so every row above proves nothing |
 

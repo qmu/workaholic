@@ -6531,13 +6531,17 @@ cmd_verify_return_path() {
 
     # 6. THE STAMP IS A REACTION AND NOTHING ELSE, NAMED ONCE IN THE CATALOG.
     _catalog="${REPO_ROOT}/plugins/workaholic/skills/notify/reference/notifications.md"
-    _template="${REPO_ROOT}/plugins/workaholic/skills/workaholify/routines/moderate.md"
+    # The ceiling moved from the routine prompt to the command on 2026-09-01 (the
+    # developer's instruction): a routine record is account-level, so a shape written into a
+    # prompt reached a fleet only by hand. The shapes ship with the plugin now, so the drill
+    # reads the command that carries them.
+    _template="${REPO_ROOT}/plugins/workaholic/commands/moderate.md"
     _emoji=$(sed -n 's/.*an answer the tick read is stamped where it was written: `\(:[a-z_]*:\)`.*/\1/p' "$_catalog" | head -1)
     if [ -n "$_emoji" ] && grep -qF "$_emoji" "$_template" \
         && grep -q 'post \*\*no reply\*\* for that event' "$_template"; then
-        add_row "return_path_stamp_is_a_reaction" true "the catalog names ${_emoji} once, the routine authorizes it, and no reply is posted for this event" load
+        add_row "return_path_stamp_is_a_reaction" true "the catalog names ${_emoji} once, /moderate authorizes it, and no reply is posted for this event" load
     else
-        add_row "return_path_stamp_is_a_reaction" false "the stamp is not a single-sourced reaction, or the template still allows a reply" load
+        add_row "return_path_stamp_is_a_reaction" false "the stamp is not a single-sourced reaction, or /moderate still allows a reply" load
     fi
     # A FAILED STAMP CHANGES NOTHING: the recording and the filing both happened before it was
     # attempted, so the state after a stamp that never lands is the state asserted above.
@@ -6591,7 +6595,11 @@ cmd_verify_reconcile() {
     _step="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/step-thread-reconcile.sh"
     _append="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/log-append.sh"
     _catalog="${REPO_ROOT}/plugins/workaholic/skills/notify/reference/notifications.md"
-    _template="${REPO_ROOT}/plugins/workaholic/skills/workaholify/routines/moderate.md"
+    # The ceiling moved from the routine prompt to the command on 2026-09-01 (the
+    # developer's instruction): a routine record is account-level, so a shape written into a
+    # prompt reached a fleet only by hand. The shapes ship with the plugin now, so the drill
+    # reads the command that carries them.
+    _template="${REPO_ROOT}/plugins/workaholic/commands/moderate.md"
     for _f in "$_reader" "$_step" "$_append" "$_catalog" "$_template"; do
         [ -f "$_f" ] || emit_err "reconcile_seam_unreadable" 4 "${_f} is not present in this checkout"
     done
@@ -6690,9 +6698,9 @@ cmd_verify_reconcile() {
     done
     grep -q 'no run posted this item.s finish' "$_catalog" || _shapes_ok=false
     if [ "$_shapes_ok" = true ]; then
-        add_row "reconcile_both_shapes_named" true "the catalog names the merged and the closed-unmerged reply, and the routine authorizes both" load
+        add_row "reconcile_both_shapes_named" true "the catalog names the merged and the closed-unmerged reply, and /moderate authorizes both" load
     else
-        add_row "reconcile_both_shapes_named" false "a reply shape is missing from the catalog or from the routine template" load
+        add_row "reconcile_both_shapes_named" false "a reply shape is missing from the catalog or from /moderate" load
     fi
 
     # 3. THE THREAD BAR, DRILLED AS WRITTEN. The read itself belongs to the session (Slack is a
@@ -7279,8 +7287,8 @@ cmd_verify_directed_notification() {
     _modwf="${REPO_ROOT}/plugins/workaholic/skills/moderate/reference/workflow.md"
     _routing="${REPO_ROOT}/plugins/workaholic/skills/drive/reference/routing.md"
     _askq="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/ask-question.sh"
-    _tmod="${REPO_ROOT}/plugins/workaholic/skills/workaholify/routines/moderate.md"
-    _timp="${REPO_ROOT}/plugins/workaholic/skills/workaholify/routines/implement.md"
+    _tmod="${REPO_ROOT}/plugins/workaholic/commands/moderate.md"
+    _timp="${REPO_ROOT}/plugins/workaholic/commands/implement.md"
     for _f in "$_spec" "$_notify" "$_catalog" "$_modwf" "$_routing" "$_askq" "$_tmod" "$_timp"; do
         [ -f "$_f" ] || emit_err "directed_notification_unreadable" 4 "$_f is not present in this checkout"
     done
@@ -7394,8 +7402,9 @@ STUB
         add_row "call_sites_state_the_same_rule" false "these documents do not state it:${_sites}" load
     fi
 
-    # 7. THE TEMPLATES. *The prompt is the ceiling*: the rule sanctions the shape and only a
-    #    template lets a session running that routine emit it.
+    # 7. THE COMMANDS. *The command is the ceiling*: the rule sanctions the shape and only the
+    #    command lets a session running that routine emit it (2026-09-01 — before then this read
+    #    the routine templates, which is where the shapes used to live).
     _tm=''
     for _pair in "${_tmod}:🙋" "${_timp}:🟡 Handoff"; do
         _p="${_pair%:*}"; _shape="${_pair##*:}"
@@ -7403,9 +7412,9 @@ STUB
         grep -q "$_shape" "$_p" || _tm="${_tm} $(basename "$_p")(shape)"
     done
     if [ -z "$_tm" ]; then
-        add_row "templates_name_shape_and_carrier" true "both routine templates name the shape they authorize and the transport that carries it" load
+        add_row "templates_name_shape_and_carrier" true "both commands name the shape they authorize and the transport that carries it" load
     else
-        add_row "templates_name_shape_and_carrier" false "a template names one without the other:${_tm}" load
+        add_row "templates_name_shape_and_carrier" false "a command names one without the other:${_tm}" load
     fi
 
     # 8. THE GATE DID NOT MOVE, PROVED BY EXECUTION rather than by reading a diff. The same key

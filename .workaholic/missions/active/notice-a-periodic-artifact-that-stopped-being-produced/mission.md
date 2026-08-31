@@ -46,7 +46,7 @@ reported as a lapse.
       exactly once; a current one asks nobody. (#20260831113118-ask-once-when-a-declared-cadence-has-lapsed.md)
 - [x] A repository declaring no cadence is byte-identical to today, and an unreadable
       read is named with null counts rather than rendered as lapsed. (#20260831113118-read-whether-a-declared-cadence-is-current.md)
-- [ ] Proved offline by a drill with a breaker row, in the register. (#20260831113119-drill-the-cadence-reading-offline.md)
+- [x] Proved offline by a drill with a breaker row, in the register. (#20260831113119-drill-the-cadence-reading-offline.md)
 
 ## Changelog
 
@@ -54,3 +54,4 @@ reported as a lapse.
 - 2026-08-31 — ticket archived — 20260831113118-state-where-a-cadence-is-declared-and-what-it-says.md
 - 2026-08-31 — ticket archived — 20260831113118-read-whether-a-declared-cadence-is-current.md
 - 2026-08-31 — ticket archived — 20260831113118-ask-once-when-a-declared-cadence-has-lapsed.md
+- 2026-08-31 — ticket archived — 20260831113119-drill-the-cadence-reading-offline.md

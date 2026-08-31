@@ -54,11 +54,36 @@
 # ═══ THE POST GATE ════════════════════════════════════════════════════════════════
 #
 #   post: true   at least one question to ask AND (since 2026-08-22) nothing else
-#                required -- a changed step no longer earns a post on its own
+#                required -- a changed step no longer earns a post on its own.
+#                THREE CONDITIONS SIT BESIDE THAT UNTOUCHED EXPRESSION, each OR'd next
+#                to it: the morning digest (2026-08-24), a check-in that reached nobody
+#                (2026-08-28), and a CHANGED IMPAIRMENT (2026-08-31). A root earned by
+#                the last of those alone reports `ready_impairment` rather than `ready`.
 #   post: false  reasons: `idle` (nothing changed, nothing to ask), `no_question`
 #                (changes, but nothing to ask -- the root carries questions, and with
 #                none it is a status line addressed to nobody), `no_previous_tick`,
 #                `no_log` (the tick log could not be read — never rendered as idle)
+#
+# ═══ THE FOURTH GATE, AND THE SPLIT THAT MAKES IT ADMISSIBLE ══════════════════════
+#
+# The impairment is STATED on every root that posts and EARNS one only when it changed.
+# Those are two decisions about one fact and they sit on opposite sides of the diff:
+#
+#   the STATEMENT is OUTSIDE the diff -- a step degraded the same way for twenty-four
+#   ticks has an unchanged summary, so a diff-gated clause would say it once and let it
+#   vanish, which is the defect this mission exists to remove rather than its fix;
+#
+#   the POST is INSIDE the diff -- an unchanged answer restated hourly is exactly what
+#   `📦 Release Preparation` was retired for, and a gate on change cannot do that by
+#   construction.
+#
+# So a standing impairment appears on every root the tick posts for any reason and opens
+# no root of its own after the first. Appearing and clearing break silence; persisting
+# does not. A later reader tempted to "make the two consistent" would break one of them.
+#
+# WHERE THE BOUNDARY IS DRAWN: `degraded` and `blocked` are impairment; `skipped` is not
+# (a step declining to run for a stated, healthy reason did not fail to see), and `ok`
+# and `filed` are not.
 #
 # An idle hour says nothing at all. That is not politeness, it is the condition on which
 # a recurring post is allowed to exist here at all: the tie goes to silence, and a tick

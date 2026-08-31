@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260831-140035
 ---
 
 # Stop an unattended tick from waiting on a person

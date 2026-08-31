@@ -207,6 +207,7 @@ const SCRIPTS = {
   checkSlackChannel: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/check-slack-channel.sh"),
   resolveRepoUrl: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/resolve-repo-url.sh"),
   checkBootstrap: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/check-bootstrap.sh"),
+  mergeMethod: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/merge-method.sh"),
   checkRepoSettings: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/check-repo-settings.sh"),
   applyRepoSettings: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/apply-repo-settings.sh"),
   applyClaudeMdReference: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/apply-claude-md-reference.sh"),
@@ -20178,6 +20179,108 @@ function cksum(s) {
   return execSync(`printf '%s' ${JSON.stringify(s)} | cksum | cut -d' ' -f1`, { shell: "/bin/sh" })
     .toString().trim();
 }
+
+
+// ---------- a post is written in the language its readers use (2026-09-01) ----------
+// MEASURED: a `🔎 Moderation` root reached a consuming repository's channel English end to end.
+// The cause was not the shapes -- it was WHERE the rule lived. "Reasoning on the channel is
+// Japanese" existed in exactly one repository's `CLAUDE.md`, and a routine running in another
+// repository reads THAT repository's `CLAUDE.md`, which carries no such rule. So the session was
+// never told, and the fenced blocks it copied are written in English because they are
+// instructions.
+//
+// The repair is the same one the post shapes just had: a rule governing what the plugin's own
+// shapes emit ships WITH the plugin. What is pinned is that placement, because the rule being
+// merely true somewhere is exactly the failure.
+function testPostLanguageRuleShipsWithThePlugin() {
+  const rules = readFileSync(join(REPO_ROOT, "plugins/workaholic/rules/interaction.md"), "utf8");
+  assertTrue("the always-loaded rules carry the language rule",
+    /## The language of a post is the language its readers use/.test(rules), "the rule is not in rules/");
+  assertTrue("and name the language",
+    /\*\*Japanese\*\*/.test(rules), "the rule names no language");
+  // THE OTHER HALF, and the half a translation would break: a machine word is not prose.
+  for (const kept of ["step ids", "slugs", "URL"]) {
+    assertTrue(`the rule exempts ${kept} from translation`, rules.includes(kept), kept);
+  }
+  assertTrue("and says a repository may override it in its own CLAUDE.md",
+    /overrides this in its own `CLAUDE\.md`/.test(rules), "the override is unstated");
+
+  // THE CEILING SURFACES SAY IT TOO. A rule stated only in `rules/` is loaded but not adjacent
+  // to the shapes; each routine-fired command names it right above the blocks it authorizes,
+  // which is where a session reads what to emit.
+  for (const id of ["implement", "specificate", "propose", "moderate"]) {
+    const cmd = readFileSync(join(REPO_ROOT, `plugins/workaholic/commands/${id}.md`), "utf8");
+    assertTrue(`/${id} states the language of its free-text slots`,
+      /free-text slot below is written in Japanese/.test(cmd), id);
+    assertTrue(`/${id} cites the rule rather than restating it`,
+      /rules\/interaction\.md/.test(cmd), id);
+  }
+  // And the catalog, which is where the English placeholders themselves live -- the thing that
+  // was read as the wire text.
+  const catalog = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/notify/reference/notifications.md"), "utf8");
+  assertTrue("the catalog says its English is the instruction, not the wire text",
+    /the instruction, never the wire text/.test(catalog), "the catalog leaves its placeholders ambiguous");
+}
+
+// ---------- the merge method is one derivation, and it is `squash` (2026-09-01) ----------
+// MEASURED on a consuming repository's `main`, one calendar day: 275 commits, of which 138
+// touched only `.workaholic/`, 25 were empty (`Refresh heartbeat`, `Resume a PR-unit`), 44 were
+// merge commits and FIVE touched only the product. A commit is a change to the development
+// target; a history where 59% of commits carry no product change does not express that.
+//
+// Almost all of that noise is BRANCH-INTERNAL and correct where it lives -- the claim commit is
+// the claim, the heartbeat is the branch tip -- and a merge commit is what carries it onto
+// `main` verbatim. A squash carries the unit's tree and one subject instead.
+//
+// What is pinned here is the SINGLE DERIVATION, not the word's presence at four call sites:
+// four copies drift, and a call site merging the other way would put the noise back for one
+// route only, which is the hardest inconsistency to notice.
+function testMergeMethodIsSingleSourced() {
+  assertEq("the derivation answers squash",
+    run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.mergeMethod}`).stdout.trim(), "squash");
+
+  // NO CALL SITE SPELLS THE METHOD. Read the code, not the headers: every one of these files
+  // explains the choice in prose, and a document-wide match would read the explanation as the
+  // violation.
+  const sites = [
+    "plugins/workaholic/skills/ship/scripts/merge-pr.sh",
+    "plugins/workaholic/skills/branching/scripts/publish-tree-pr.sh",
+    "plugins/workaholic/skills/drive/scripts/retry-undelivered.sh",
+  ];
+  for (const rel of sites) {
+    const code = readFileSync(join(REPO_ROOT, rel), "utf8")
+      .split("\n").filter((l) => !l.trimStart().startsWith("#")).join("\n");
+    assertTrue(`${rel} spells no literal merge method`,
+      !/merge_method=(merge|squash|rebase)\b/.test(code), rel);
+    assertTrue(`${rel} reads the derivation instead`,
+      /merge-method\.sh/.test(code), rel);
+  }
+  // The `review` route merges from the agent, not from a script, so the SKILL is its call site.
+  const driveSkill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/drive/SKILL.md"), "utf8");
+  assertTrue("the review route reads the derivation rather than naming a method",
+    /merge-method\.sh/.test(driveSkill) && !/merge_method=merge\b/.test(driveSkill), "the review route still spells one");
+
+  // THE COUPLING, PINNED AS PROSE BECAUSE IT IS THE THING A LATER READER WILL NOT GUESS.
+  // A squash-merged branch is not an ancestor of the base, so `rev-list --count base..ref` stays
+  // positive; this is safe only because `superseded` is derived from the TREE, and only bounded
+  // because `delete_branch_on_merge` removes the branch at the merge.
+  const header = readFileSync(SCRIPTS.mergeMethod, "utf8");
+  assertTrue("the derivation states why a squash is safe for the claim protocol",
+    /asks the TREE/.test(header) && /superseded/.test(header), "the ancestry question is unanswered");
+  assertTrue("and that it is coupled to delete_branch_on_merge",
+    /delete_branch_on_merge/.test(header), "the coupling is unstated");
+  assertTrue("and what the squash costs",
+    /per-ticket commits collapse/.test(header), "the cost is hidden");
+
+  // THE TICK LOG'S SUBJECT NAMES THE TICK THAT WROTE IT. `Log the propose tick` was inherited
+  // from a routine name freed on 2026-08-19, and it described ~50 commits a day as the work of a
+  // routine that never wrote one of them.
+  const persist = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/persist-log.sh"), "utf8");
+  const persistCode = persist.split("\n").filter((l) => !l.trimStart().startsWith("#")).join("\n");
+  assertTrue("the tick log commits under the moderation tick's own name",
+    /Log the moderation tick/.test(persistCode) && !/Log the propose tick/.test(persistCode), "the subject still names a retired routine");
+}
+
 // ---------- workaholify: the remote setting the claim oracle reads (2026-09-01) ----------
 // The claim protocol's only oracle is "unmerged remote branches", and `git rev-list --count
 // base..ref` only reduces when the merge base is in the clone -- which in the shallow clone a
@@ -20515,6 +20618,8 @@ const tests = [
   ["workaholify routines: one template set, applied per repository, drift named per field", testWorkaholifyRoutines],
   ["workaholify: the command converges routines, and a sheet is a refusal's recovery path", testWorkaholifyConvergesRoutines],
   ["workaholify: the remote setting the claim oracle reads", testWorkaholifyRepoSettings],
+  ["the merge method is one derivation, and it is squash", testMergeMethodIsSingleSourced],
+  ["a post is written in the language its readers use", testPostLanguageRuleShipsWithThePlugin],
   ["workaholify bootstrap: without it a web routine is configured but cannot work", testWorkaholifyBootstrap],
   ["workaholify: the wiring halves apply, they do not merely audit", testWorkaholifyApplies],
   ["workaholify bootstrap: the session gets the developer's git identity", testBootstrapGitIdentity],

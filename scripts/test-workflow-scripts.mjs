@@ -208,6 +208,10 @@ const SCRIPTS = {
   resolveRepoUrl: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/resolve-repo-url.sh"),
   checkBootstrap: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/check-bootstrap.sh"),
   mergeMethod: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/merge-method.sh"),
+  logRef: join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/log-ref.sh"),
+  ensureLogRef: join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/ensure-log-ref.sh"),
+  hydrateLog: join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/hydrate-log.sh"),
+  migrateModerations: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/migrate-moderations-off-main.sh"),
   checkRepoSettings: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/check-repo-settings.sh"),
   applyRepoSettings: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/apply-repo-settings.sh"),
   applyClaudeMdReference: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/apply-claude-md-reference.sh"),
@@ -6539,7 +6543,7 @@ function testConvergeLayout() {
     let r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.convergeLayout} .`).stdout);
     assertEq("the mechanical migrations all run", r.changed, 3);
     assertEq("each migration is composed, not reimplemented",
-      r.applied.map((a) => a.migration), ["migrate-todo-owners", "migrate-ticket-states", "migrate-renamed-areas", "migrate-assignee-aliases"]);
+      r.applied.map((a) => a.migration), ["migrate-todo-owners", "migrate-ticket-states", "migrate-renamed-areas", "migrate-assignee-aliases", "migrate-moderations-off-main"]);
     assertTrue("the per-user queue is flattened",
       existsSync(join(dir, ".workaholic/tickets/todo/20260701000000-owned.md")));
     assertTrue("the retired ticket-state directories are folded",
@@ -20204,6 +20208,15 @@ function testPostLanguageRuleShipsWithThePlugin() {
   }
   assertTrue("and says a repository may override it in its own CLAUDE.md",
     /overrides this in its own `CLAUDE\.md`/.test(rules), "the override is unstated");
+  // THE MEASUREMENT MUST NOT BE THE COMFORTABLE ONE. The consuming repository's `CLAUDE.md`
+  // DID carry the Japanese rule; it lost to the ceiling, which names the only shapes a session
+  // may emit and writes every one of them in English. A rule that recorded "the rule was
+  // missing" would send the next reader to fix the wrong file.
+  assertTrue("the rule records that the consuming repository already carried it",
+    /did carry the\s+rule/.test(rules) && /It was not missing; it lost/.test(rules),
+    "the rule blames a missing repository rule rather than the ceiling");
+  assertTrue("and that a session's own reasoning follows the same rule",
+    /own reasoning and its run report follow the same rule/.test(rules), "the reasoning half is unstated");
 
   // THE CEILING SURFACES SAY IT TOO. A rule stated only in `rules/` is loaded but not adjacent
   // to the shapes; each routine-fired command names it right above the blocks it authorizes,
@@ -20212,6 +20225,9 @@ function testPostLanguageRuleShipsWithThePlugin() {
     const cmd = readFileSync(join(REPO_ROOT, `plugins/workaholic/commands/${id}.md`), "utf8");
     assertTrue(`/${id} states the language of its free-text slots`,
       /free-text slot below is written in Japanese/.test(cmd), id);
+    // AND of its own reasoning: a routine's result is read by the same person the channel is.
+    assertTrue(`/${id} states the language of its own report`,
+      /this run's own reasoning and report/.test(cmd), id);
     assertTrue(`/${id} cites the rule rather than restating it`,
       /rules\/interaction\.md/.test(cmd), id);
   }
@@ -20220,6 +20236,146 @@ function testPostLanguageRuleShipsWithThePlugin() {
   const catalog = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/notify/reference/notifications.md"), "utf8");
   assertTrue("the catalog says its English is the instruction, not the wire text",
     /the instruction, never the wire text/.test(catalog), "the catalog leaves its placeholders ambiguous");
+}
+
+
+// ---------- the tick log lives on its own branch, not on `main` (2026-09-01, issue #782) ------
+// MEASURED on a consuming repository's `main`, one calendar day: 275 commits, of which 138
+// touched only `.workaholic/` and FIVE touched only the product. After squash-merging removed
+// the merge commits and folded each unit's bookkeeping into its own commit, the single largest
+// remaining author was this log -- three commits an hour, ~50 a day, none of them a change to
+// the development target. Its CONTENT is load-bearing (every dedup, `question-state.sh`,
+// `condition-age.sh`, `filed-records.sh`) and is not in question; its HOME was.
+//
+// The move has two halves and shipping one is worse than shipping neither: the log goes to its
+// own branch, AND every tick hydrates that branch into the checkout before a reader runs.
+// Without the second half every dedup answers "no earlier tick ever ran" and re-fires hourly.
+function testTickLogLivesOffMain() {
+  // A bare origin, so the push paths are real rather than stubbed.
+  const origin = mkdtempSync(join(tmpdir(), "wh-logref-origin-"));
+  execSync(`git init -q --bare -b main .`, { cwd: origin });
+  const dir = makeRepo("main");
+  try {
+    execSync(`git remote add origin ${origin} && git push -q -u origin main`, { cwd: dir });
+
+    const REF = run(dir, `${POSIX_SH} ${SCRIPTS.logRef}`).stdout.trim();
+    assertEq("the log branch is named once, and it is not main", REF, "workaholic-log");
+    // The two patterns the claim scan and the branch guard key on. A log branch matching either
+    // would be read as an in-flight claim or a release window.
+    assertTrue("and matches neither claim vocabulary",
+      !/^work-/.test(REF) && !/^release\//.test(REF), REF);
+
+    // --- the branch is created as an EMPTY ORPHAN -------------------------------------------
+    const ens = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.ensureLogRef} --root ${dir}`).stdout);
+    assertEq("the first call creates the branch", [ens.ok, ens.state], [true, "created"]);
+    const tip = execSync(`git rev-parse refs/heads/${REF}`, { cwd: origin, encoding: "utf8" }).trim();
+    assertEq("it is a root commit — no shared history with main, so no accidental fast-forward",
+      execSync(`git rev-list --parents -n1 ${tip}`, { cwd: origin, encoding: "utf8" }).trim().split(/\s+/).length, 1);
+    assertEq("and it carries no files at all",
+      execSync(`git ls-tree -r --name-only ${tip}`, { cwd: origin, encoding: "utf8" }).trim(), "");
+    // IDEMPOTENT, and it never resets: a branch that exists is a fact for a person, not
+    // something an hourly tick may force-push over.
+    const again = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.ensureLogRef} --root ${dir}`).stdout);
+    assertEq("a second call finds it and changes nothing", [again.state, again.sha], ["present", tip]);
+
+    // --- the log persists to that branch, and `main` never sees it ---------------------------
+    const day = "2026-09-01";
+    mkdirSync(join(dir, ".workaholic/moderations"), { recursive: true });
+    writeFileSync(join(dir, `.workaholic/moderations/${day}.md`),
+      `# ${day}\n\n## 20260901-040000\n\n- \`open-log\`: ok — opened\n`);
+    const mainBefore = execSync(`git rev-parse origin/main`, { cwd: dir, encoding: "utf8" }).trim();
+    const p = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.proposePersist} --tick 20260901-040000 --root ${dir}`).stdout);
+    assertEq("the persist files the tick", [p.persisted, p.status], [true, "filed"]);
+    assertTrue("the day file is on the log branch",
+      execSync(`git ls-tree -r --name-only refs/heads/${REF}`, { cwd: origin, encoding: "utf8" })
+        .includes(`.workaholic/moderations/${day}.md`));
+    // THE POINT OF THE WHOLE CHANGE, pinned as the absence it is.
+    assertEq("and main did not move at all",
+      execSync(`git ls-remote origin refs/heads/main`, { cwd: dir, encoding: "utf8" }).split(/\s+/)[0], mainBefore);
+
+    // --- hydrate is the other half ------------------------------------------------------------
+    // A fresh clone of `main` has no log; without hydration every dedup reads as "nothing ever
+    // happened", which is the failure the move would otherwise introduce.
+    const fresh = mkdtempSync(join(tmpdir(), "wh-logref-fresh-"));
+    execSync(`git clone -q ${origin} .`, { cwd: fresh });
+    execSync(`git config user.email test@example.com && git config user.name Test`, { cwd: fresh });
+    assertTrue("a fresh clone of main carries no log",
+      !existsSync(join(fresh, `.workaholic/moderations/${day}.md`)));
+    const h = JSON.parse(run(fresh, `${POSIX_SH} ${SCRIPTS.hydrateLog} --root ${fresh}`).stdout);
+    assertEq("hydrating brings the branch's day files in", [h.ok, h.state, h.files], [true, "hydrated", 1]);
+    assertTrue("so the readers find the log where they always looked",
+      readFileSync(join(fresh, `.workaholic/moderations/${day}.md`), "utf8").includes("20260901-040000"));
+    rmSync(fresh, { recursive: true, force: true });
+
+    // A repository whose branch has no history yet is `absent`, never a degradation: a first
+    // tick has nothing to read and that is the correct answer.
+    const virgin = makeRepo("main");
+    execSync(`git remote add origin ${origin}`, { cwd: virgin });
+    execSync(`git update-ref -d refs/heads/${REF}`, { cwd: origin });
+    const ha = JSON.parse(run(virgin, `${POSIX_SH} ${SCRIPTS.hydrateLog} --root ${virgin}`).stdout);
+    assertEq("an absent log branch reads absent, not degraded", [ha.ok, ha.state], [true, "absent"]);
+    cleanup(virgin);
+  } finally {
+    cleanup(dir);
+    rmSync(origin, { recursive: true, force: true });
+  }
+
+  // --- the migration seeds before it untracks --------------------------------------------
+  // The order is the whole safety property: untracking first leaves a window in which the only
+  // readable copy is on neither branch.
+  const origin2 = mkdtempSync(join(tmpdir(), "wh-logmig-origin-"));
+  execSync(`git init -q --bare -b main .`, { cwd: origin2 });
+  const repo = makeRepo("main");
+  try {
+    execSync(`git remote add origin ${origin2}`, { cwd: repo });
+    mkdirSync(join(repo, ".workaholic/moderations"), { recursive: true });
+    writeFileSync(join(repo, ".workaholic/moderations/2026-08-30.md"), "# 2026-08-30\n\n## 20260830-100000\n\n- `open-log`: ok — x\n");
+    execSync(`git add -f .workaholic && git commit -q -m "Log the moderation tick"`, { cwd: repo });
+    execSync(`git push -q -u origin main`, { cwd: repo });
+
+    // WITHOUT `--seed` IT REFUSES. The caller has not proved the log survives the untracking.
+    const dry = JSON.parse(run(repo, `${POSIX_SH} ${SCRIPTS.migrateModerations} ${repo}`).stdout);
+    assertEq("it refuses to untrack without a seed", [dry.ok, dry.state, dry.reason, dry.tracked],
+      [false, "skipped", "seed_required", 1]);
+    assertTrue("and nothing is staged", execSync(`git diff --cached --name-only`, { cwd: repo, encoding: "utf8" }).trim() === "");
+
+    const mig = JSON.parse(run(repo, `${POSIX_SH} ${SCRIPTS.migrateModerations} ${repo} --seed`).stdout);
+    assertEq("with a seed it seeds then untracks",
+      [mig.ok, mig.state, mig.seed_state, mig.seeded, mig.untracked], [true, "migrated", "seeded", 1, 1]);
+    assertTrue("the day file reached the log branch",
+      execSync(`git ls-tree -r --name-only refs/heads/workaholic-log`, { cwd: origin2, encoding: "utf8" })
+        .includes(".workaholic/moderations/2026-08-30.md"));
+    // STAGED, NEVER COMMITTED, AND THE FILE STAYS ON DISK -- `converge-layout.sh`'s contract.
+    assertTrue("the removal is staged",
+      /^D\s+\.workaholic\/moderations\//m.test(execSync(`git diff --cached --name-status`, { cwd: repo, encoding: "utf8" })));
+    assertTrue("the file is still on disk", existsSync(join(repo, ".workaholic/moderations/2026-08-30.md")));
+
+    // IDEMPOTENT: nothing tracked is `converged`, and nothing is pushed.
+    execSync(`git commit -q -m "Take the tick log off main"`, { cwd: repo });
+    const conv = JSON.parse(run(repo, `${POSIX_SH} ${SCRIPTS.migrateModerations} ${repo} --seed`).stdout);
+    assertEq("a converged repository is a no-op", [conv.ok, conv.state, conv.tracked], [true, "converged", 0]);
+  } finally {
+    cleanup(repo);
+    rmSync(origin2, { recursive: true, force: true });
+  }
+
+  // --- the structural half: ignored, registered, and no longer linked ----------------------
+  // `.gitignore` is the enforcement, not a convenience: it is what stops an ordinary
+  // `git add -A` in a container that has just ticked from putting the log back on `main`.
+  const ignore = readFileSync(join(REPO_ROOT, ".gitignore"), "utf8");
+  assertTrue("the log path is git-ignored", /^\.workaholic\/moderations\/$/m.test(ignore), ignore.slice(-400));
+  const converge = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/converge-layout.sh"), "utf8");
+  assertTrue("the migration is registered at the one converge seam",
+    /migrate-moderations-off-main\.sh/.test(converge), "the living-migration registry does not carry it");
+  // The generated root index must not link a path this branch no longer has.
+  const index = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/okf/scripts/refresh-index.sh"), "utf8");
+  assertTrue("the root index no longer links moderations/ as a path on this branch",
+    !/\[moderations\/\]\(moderations\/\)/.test(index), "the index still links a directory main does not carry");
+  // And the log's destination is never a caller's choice: a `--base` that could name the log
+  // would let one call site put it back on `main`.
+  const persist = readFileSync(SCRIPTS.proposePersist, "utf8");
+  assertTrue("persist-log reads the log branch from the one derivation",
+    /log-ref\.sh/.test(persist), "the log branch is spelled at the call site");
 }
 
 // ---------- the merge method is one derivation, and it is `squash` (2026-09-01) ----------
@@ -20620,6 +20776,7 @@ const tests = [
   ["workaholify: the remote setting the claim oracle reads", testWorkaholifyRepoSettings],
   ["the merge method is one derivation, and it is squash", testMergeMethodIsSingleSourced],
   ["a post is written in the language its readers use", testPostLanguageRuleShipsWithThePlugin],
+  ["the tick log lives on its own branch, not on main", testTickLogLivesOffMain],
   ["workaholify bootstrap: without it a web routine is configured but cannot work", testWorkaholifyBootstrap],
   ["workaholify: the wiring halves apply, they do not merely audit", testWorkaholifyApplies],
   ["workaholify bootstrap: the session gets the developer's git identity", testBootstrapGitIdentity],
@@ -25358,9 +25515,15 @@ function testTickRecordsReachTheBase() {
     const onBase = execSync(`git -C ${origin} ls-tree -r --name-only main`, { encoding: "utf8" });
     assertTrue("the record is on the base", onBase.includes(rec), onBase);
     assertTrue("and the unrelated staged file is not", !onBase.includes("unrelated.txt"), onBase);
-    // NO BRANCH, NO CLAIM, NO PULL REQUEST — the same seam the log already travels.
-    assertEq("no branch but the base exists on origin",
-      execSync(`git -C ${origin} for-each-ref --format='%(refname:short)' refs/heads`, { encoding: "utf8" }).trim(), "main");
+    // NO WORK BRANCH, NO CLAIM, NO PULL REQUEST — the same seam the log already travels.
+    // The log branch itself is expected since 2026-09-01 (issue #782): the log stopped going to
+    // `main` and this seam creates its home. What must never appear is a `work-*` ref, which is
+    // the vocabulary the claim scan reads.
+    const refsOnOrigin = execSync(`git -C ${origin} for-each-ref --format='%(refname:short)' refs/heads`, { encoding: "utf8" })
+      .trim().split(/\n/).sort();
+    assertEq("the base and the log branch, and nothing else", refsOnOrigin, ["main", "workaholic-log"]);
+    assertTrue("no claim-vocabulary branch was created",
+      !refsOnOrigin.some((r) => /^work-/.test(r) || /^release\//.test(r)), refsOnOrigin.join(","));
 
     // IMMUTABLE: a second run leaves it alone rather than rewriting it.
     const again = JSON.parse(execSync(`${PERSIST} --tick 20260823-100000 --root . --record ${rec}`, { cwd: c, encoding: "utf8" }));
@@ -26056,8 +26219,9 @@ function testModeratePersist() {
     // base it has to read first.
     const b1 = JSON.parse(run(B, `${PERSIST} --tick 20260817-110000`).stdout);
     assertEq("a second clone's tick lands too", b1.reason, "persisted");
-    run(A, "git fetch -q origin main");
-    const landed = run(A, `git show origin/main:${DAY}`).stdout;
+    // THE LOG LANDS ON ITS OWN BRANCH SINCE 2026-09-01 (issue #782), not on `main`.
+    run(A, "git fetch -q origin workaholic-log");
+    const landed = run(A, `git show origin/workaholic-log:${DAY}`).stdout;
     assertEq("and neither erased the other",
       (landed.match(/^## \d{8}-\d{6}$/gm) || []).sort(), ["## 20260817-100000", "## 20260817-110000"]);
 
@@ -26079,9 +26243,9 @@ exit 0
     const a3 = JSON.parse(run(A, `${PERSIST} --tick 20260817-120000`).stdout);
     assertEq("a beaten push retries rather than failing", [a3.persisted, a3.reason], [true, "persisted"]);
     assertTrue("and it took a second attempt to do it", a3.attempts >= 2, JSON.stringify(a3));
-    run(A, "git fetch -q origin main");
-    assertEq("all four sections are on the base",
-      (run(A, `git show origin/main:${DAY}`).stdout.match(/^## \d{8}-\d{6}$/gm) || []).length, 4);
+    run(A, "git fetch -q origin workaholic-log");
+    assertEq("all four sections are on the log branch",
+      (run(A, `git show origin/workaholic-log:${DAY}`).stdout.match(/^## \d{8}-\d{6}$/gm) || []).length, 4);
 
     // A LOG ROOT OUTSIDE A REPOSITORY IS SKIPPED BY NAME, never published into whatever
     // repository the caller's cwd happens to be. This is what keeps the drill — which
@@ -26130,9 +26294,11 @@ function testModeratePersistCarriesLateLines() {
     execSync(`git config user.name ${email[0].toUpperCase()}`, { cwd: path });
     execSync("git config commit.gpgsign false", { cwd: path });
   };
+  // THE LOG'S BASE IS ITS OWN BRANCH SINCE 2026-09-01 (issue #782). `main` is where the tick's
+  // feedback RECORDS go and is deliberately not where the log goes.
   const based = (repo) => {
-    run(repo, "git fetch -q origin main");
-    return run(repo, `git show origin/main:${DAY}`).stdout;
+    run(repo, "git fetch -q origin workaholic-log");
+    return run(repo, `git show origin/workaholic-log:${DAY}`).stdout;
   };
   try {
     execSync(`git init -q --bare --initial-branch=main ${origin}`);

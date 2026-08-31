@@ -749,9 +749,30 @@ carries the full count. No dedup key, no mention token, no session URL on the cl
 **A change is a diff against the previous tick**, read from the log; no step declares its own
 novelty and no cursor is stored. **The gate is `questions >= 1`** — the changed-step half was
 retired on 2026-08-22 (issue #569), because with `0 question(s)` the root is a status line
-addressed to nobody. Two narrow conditions sit beside it, each OR'd next to that untouched
-expression: the **morning digest** (2026-08-24) and a **check-in that reached nobody**
-(2026-08-28, above).
+addressed to nobody. Three narrow conditions sit beside it, each OR'd next to that untouched
+expression: the **morning digest** (2026-08-24), a **check-in that reached nobody**
+(2026-08-28, above), and a **changed impairment** (2026-08-31).
+
+**A changed impairment is the fourth gate**, on the third's precedent. The worst case measured is
+the one where nothing posts at all: with no question, no digest and no delivery failure, a tick
+with six blind steps emitted `post: false` and was byte-identical, to the operator, to a quiet
+hour. **The line is outside the diff and the gate is inside it** — the impairment is *stated* on
+every root and *earns* one only when it moved, so a standing impairment never opens a root of its
+own after the first, which is the property `📦 Release Preparation` lacked. Appearing and clearing
+both break silence; persisting does not. A root earned this way reports `reason: ready_impairment`
+so a machine reading the JSON can tell it from one a question earned, and `root_text` is unchanged
+either way — a clearing renders the same clause in its other state (`✅ every step read this
+tick`), because a root that posts and says nothing about why is the content-free status line this
+repository has retired twice.
+
+**The comparison is a set of `(step, status, stabilized summary)`, and the third term is
+mechanical**: `reason` never reaches the tick log — `log-append.sh` writes
+`- <step>: <status> — <summary>` and nothing more — so the previous tick's reason is not
+recoverable from the only cross-tick memory there is, and a store for it is what this must not
+add. The set is strictly finer than `(step, status)` alone, so it errs toward opening a root; both
+sides are sorted, so row order cannot decide it; and `stabilize` is applied to both, because two
+steps embed a timestamp or a sha in their summary and would otherwise differ every tick by
+construction and fire this gate hourly. It reads no age: no gate in this repository may.
 
 **This step is exempt from `--deadline-seconds`.** The deadline cuts steps in order and this one is
 last, so a slow tick used to read nine things and say nothing — the one step whose absence nobody

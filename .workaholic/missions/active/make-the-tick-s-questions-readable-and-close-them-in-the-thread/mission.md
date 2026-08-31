@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260831-114321
 ---
 
 # Make the tick's questions readable and close them in the thread

@@ -4628,6 +4628,163 @@ STRANDEDSTUB
     chmod +x "${_ss_bin}/gh"
 }
 
+# ---------------------------------------------------------------------------------------
+# THE STRANDED BRANCH: does the retirement refuse a branch that still holds work?
+# (2026-08-31, mission `prove-a-claim-branch-is-empty-before-deleting-it`.)
+#
+# THIS IS THE ONE MECHANISM IN THE LOOP WHOSE REGRESSION DESTROYS WORK RATHER THAN DELAYING IT.
+# `superseded` proved the unit's TICKETS were on the base and every consumer read it as *the
+# branch holds no work*; a branch whose tickets landed under another branch's directory while it
+# still carried files reachable from no other ref was therefore offered for deletion. The delete
+# has never actually fired here — a 403 refuses it in the container the loop runs in — so the
+# branches were kept alive by accident, and the day that transport is repaired is the day a
+# regression here becomes silent loss. This drill is what makes that regression a named red
+# check run instead.
+#
+# IT ASSERTS SURVIVING CONTENT, NOT A RETURN WORD. The stub's ref DELETE really removes the ref
+# from the bare origin (`seed_stranded_claims`), so the destructive act happens for real and the
+# breaker row below asks the only question that matters: is the file that would have been lost
+# still reachable afterwards? Asserting `deleted: false` instead would pass over a delete that
+# happened anyway — which is exactly what the pre-existing `verify-retire` rows do, against a
+# stub that deletes nothing.
+#
+# IT PROVES THE REFUSAL, NOT THE TRANSPORT. It cannot show that the production 403 is gone or
+# that a real GitHub delete behaves identically; what it shows is that this repository's own
+# proof no longer licenses the act. Said here rather than implied.
+#
+# THE SEEDER IS THE REPRODUCTION'S, not a second one, and the sandbox is torn down
+# unconditionally — a drill that leaves throwaway repositories behind on failure is how a
+# container runs out of disk.
+cmd_verify_stranded_branch() {
+    _lister="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/list-claims.sh"
+    _retirable="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/list-retirable-claims.sh"
+    _deleter="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/delete-retired-claim-branch.sh"
+    _detail="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/stranded-claim-detail.sh"
+    _lib="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/lib/claims.sh"
+    _step="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/step-stranded-branches.sh"
+    _sibling="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/step-stalled-units.sh"
+    for _f in "$_lister" "$_retirable" "$_deleter" "$_detail" "$_lib" "$_step" "$_sibling"; do
+        [ -f "$_f" ] || emit_err "stranded_seam_unreadable" 4 "$(basename "$_f") is not present in this checkout"
+    done
+
+    _before=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+
+    _tmp=$(mktemp -d)
+    _me=$(cd "$REPO_ROOT" && git config user.email 2>/dev/null || echo drill@example.com)
+    [ -n "$_me" ] || _me=drill@example.com
+    seed_stranded_claims "$_tmp" "$_me"
+    _read="${_tmp}/read"; _bin="${_tmp}/bin"; _origin="${_tmp}/origin"
+
+    if [ "$(PATH="${_bin}:$PATH" command -v gh)" = "${_bin}/gh" ]; then
+        add_row "stranded_no_network" true "the stub is what gh resolves to, and the origin is a local bare repository -- no row below reaches the network" load
+    else
+        add_row "stranded_no_network" false "gh does not resolve to the stub; this drill would reach the network" load
+        rm -rf "$_tmp"
+        emit_verdict "stranded-branch" 0 "fail" 1
+    fi
+
+    _run() { ( cd "$_read" && PATH="${_bin}:$PATH" \
+        WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES=0 WORKAHOLIC_CLAIM_STALE_HOURS=0 "$@" ) 2>&1 || true; }
+    _claims=$(_run sh "$_lister")
+    _verdict() { printf '%s' "$_claims" | tr '{' '\n' | grep "\"unit\": \"$1\"" \
+        | sed -n 's/.*"resume_reason": *"\([a-z_]*\)".*/\1/p' | head -1; }
+
+    # THE FIXTURE HAS TO BE THE SHAPE UNDER TEST, at BOTH grains, or every row below proves
+    # nothing: two delivered claims still holding content, and one delivered claim holding none.
+    if [ "$(_verdict batch-stranded)" = "stranded" ] && [ "$(_verdict m1)" = "stranded" ] \
+        && [ "$(_verdict batch-clean)" = "superseded" ]; then
+        add_row "stranded_fixture" true "two delivered claims still holding content read stranded at both grains, and the one holding nothing still reads superseded" load
+    else
+        # IT DOES NOT HARD-STOP HERE, and that is the difference between this drill and its
+        # siblings. A wrong fixture is usually a reason to abandon the run; here the wrongness
+        # under test IS the regression -- a branch reading `superseded` when it still holds work
+        # -- and stopping would mean the breaker below never measures what that costs. The rows
+        # continue, the deletes run for real, and the breaker reports the loss.
+        add_row "stranded_fixture" false "the fixture is wrong (batch=$(_verdict batch-stranded) mission=$(_verdict m1) clean=$(_verdict batch-clean)): $(one_line "$_claims")" load
+    fi
+
+    # 1. ONLY THE EMPTY BRANCH IS OFFERED FOR DELETION.
+    _cands=$(_run sh "$_retirable")
+    if printf '%s' "$_cands" | grep -q '"unit": "batch-clean"' \
+        && ! printf '%s' "$_cands" | grep -q '"unit": "batch-stranded"' \
+        && ! printf '%s' "$_cands" | grep -q '"unit": "m1"'; then
+        add_row "stranded_only_the_empty_one_is_offered" true "the candidate reader offers the branch that holds nothing and neither of the two that do" load
+    else
+        add_row "stranded_only_the_empty_one_is_offered" false "the candidate set is wrong: $(one_line "$_cands")" load
+    fi
+
+    # 2. AN UNREADABLE DIFF IS REFUSED, never read as empty. Asked of the reading itself, on a
+    #    ref this clone does not have: `unanswerable` must not become `superseded`.
+    _un=$( ( cd "$_read" && PATH="${_bin}:$PATH" sh -c '
+        CLAIMS_LIB_DIR="$(dirname "$1")"
+        . "$1"
+        printf "%s|%s" \
+          "$(claims_branch_diff_reading origin/main origin/work-99999999-999999 x)" \
+          "$(claims_superseded origin/main .workaholic/tickets/todo/x.md work-99999999-999999 origin/work-99999999-999999)"
+      ' _ "$_lib" ) 2>&1 || true )
+    case "$_un" in
+        *'"state": "unanswerable"'*'|false') add_row "stranded_unreadable_is_refused" true "a diff this clone cannot read answers unanswerable and the proof answers false -- a degradation never licenses the delete" load ;;
+        *) add_row "stranded_unreadable_is_refused" false "an unreadable diff did not refuse: $(one_line "$_un")" load ;;
+    esac
+
+    # 3. THE QUESTION NAMES THE FILES, and reaches the claim holder once per unit.
+    _q=$(_run sh "$_step" --tick 20260101-000000 --root .)
+    if printf '%s' "$_q" | jq -e '
+        (.status == "ok")
+        and ((.needs_agent[0].stranded // []) | length == 2)
+        and ((.needs_agent[0].stranded // []) | all(.key | startswith("stranded-branch:")))
+        and ((.needs_agent[0].stranded // []) | all((.files | length) > 0 and .file_count > 0))
+        and ((.event // "") | length > 0)' >/dev/null 2>&1; then
+        add_row "stranded_question_names_the_files" true "one question per unit, keyed on the unit, carrying the files it holds and the count" load
+    else
+        add_row "stranded_question_names_the_files" false "the step did not ask usefully: $(one_line "$_q")" load
+    fi
+
+    # 4. THE SIBLING FILTERS AND COUNTS. One step asks and the others count; either half alone
+    #    is a defect, and the candidate set is forced to include these rows so the row bites.
+    _sib=$(_run sh "$_sibling" --tick 20260101-000000 --root .)
+    if printf '%s' "$_sib" | grep -q 'stalled-unit:batch-stranded'; then
+        add_row "stranded_sibling_filters" false "stalled-units still asks about a stranded unit -- one branch, two questions, two vocabularies: $(one_line "$_sib")" load
+    elif printf '%s' "$_sib" | grep -q 'still holding work'; then
+        add_row "stranded_sibling_filters" true "stalled-units asks nothing about a stranded unit and counts it instead" load
+    else
+        add_row "stranded_sibling_filters" false "stalled-units neither asked nor counted the stranded units: $(one_line "$_sib")" load
+    fi
+
+    # 5. THE BREAKER: the delete is allowed to actually run, and the content that would have
+    #    been lost is still there afterwards. Asserted on the FILE, never on a return word --
+    #    a stub that answers success over a delete that never happened is what made the
+    #    pre-existing retirement rows unable to catch this.
+    for _u in batch-stranded m1 batch-clean; do
+        _run sh "$_deleter" "$_u" >/dev/null
+    done
+    _held_batch=false
+    _held_mission=false
+    _empty_gone=false
+    git -C "$_origin" cat-file -e "refs/heads/work-20260101-000000:src/stranded.txt" 2>/dev/null && _held_batch=true
+    git -C "$_origin" cat-file -e "refs/heads/work-20260101-000001:docs-stranded.md" 2>/dev/null && _held_mission=true
+    git -C "$_origin" rev-parse --verify -q "refs/heads/work-20260101-000002" >/dev/null 2>&1 || _empty_gone=true
+    if [ "$_held_batch" = "true" ] && [ "$_held_mission" = "true" ] && [ "$_empty_gone" = "true" ]; then
+        add_row "stranded_content_survives_the_delete" true "with the delete allowed to run for real, both files that exist in no other ref are still reachable and the branch that held nothing was deleted" breaker
+    else
+        add_row "stranded_content_survives_the_delete" false "work was lost or the empty branch was not retired (batch_held=${_held_batch} mission_held=${_held_mission} empty_gone=${_empty_gone})" breaker
+    fi
+
+    # 6. NOTHING TOUCHED THE CHECKOUT.
+    _after=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+    if [ "$_before" = "$_after" ]; then
+        add_row "stranded_writes_nothing" true "the checkout is byte-identical after the drill" load
+    else
+        add_row "stranded_writes_nothing" false "the drill changed the working tree" load
+    fi
+
+    rm -rf "$_tmp"
+    if [ "$LOAD_FAILED" -eq 0 ]; then
+        emit_verdict "stranded-branch" 0 "pass" 0
+    fi
+    emit_verdict "stranded-branch" 0 "fail" 1
+}
+
 cmd_verify_retire() {
     _lister="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/list-claims.sh"
     _retirer="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/retire-claim.sh"
@@ -9320,6 +9477,7 @@ case "$CMD" in
     verify-condition-age) cmd_verify_condition_age "$@" ;;
     verify-cadence-lapse) cmd_verify_cadence_lapse "$@" ;;
     verify-blocked-tick) cmd_verify_blocked_tick "$@" ;;
+    verify-stranded-branch) cmd_verify_stranded_branch "$@" ;;
     verify-directed-notification) cmd_verify_directed_notification "$@" ;;
     verify-impairment) cmd_verify_impairment "$@" ;;
     *)

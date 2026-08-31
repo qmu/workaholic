@@ -813,6 +813,52 @@ suite's `testFindingToWorkGap`, `testFindingClassification`, `testFileFindingsSt
 `testFindingBrakeAndDedup` and `testFindingSuppression` are what **CI** enforces on every change.
 The drill ships to no other agent and CI never runs it.
 
+## 5l-quinquies. The stranded branch (does the retirement refuse a branch that still holds work?)
+
+```sh
+sh scripts/e2e/loop-drill.sh verify-stranded-branch
+```
+
+**Why this one is different from every other drill here.** It is the only mechanism in the loop
+whose regression **destroys work** rather than delaying it. `superseded` proved the unit's
+*tickets* were on the base and every consumer read it as *the branch holds no work*; a branch
+whose tickets landed under another branch's directory while it still carried files reachable
+from no other ref was therefore offered for deletion. Measured 2026-08-31: two branches carrying
+~300 lines and a doc section that exist nowhere else. The destructive half has **never actually
+fired** — a 403 refuses the delete in the container the loop runs in — so those branches were
+kept alive by accident, and the day that transport is repaired is the day a regression here
+becomes silent loss.
+
+**It asserts surviving content, not a return word.** The fixture's `gh` stub really removes the
+ref from its bare origin, so the delete happens for real and the breaker asks the only question
+that matters: is the file that would have been lost still reachable afterwards? Asserting
+`deleted: false` instead would pass over a delete that happened anyway — which is what the
+pre-existing `verify-retire` rows do, against a stub that deletes nothing.
+
+**The fixture row does not hard-stop**, unlike its siblings'. The wrongness a wrong fixture would
+show here *is* the regression — a branch reading `superseded` while still holding work — so
+stopping would mean the breaker never measures what that costs. The rows continue, the deletes
+run, and the breaker reports the loss.
+
+**It proves the refusal, not the transport.** It cannot show that the production 403 is gone or
+that a real GitHub delete behaves identically; what it shows is that this repository's own proof
+no longer licenses the act.
+
+**It reuses the reproduction's seeder** (`seed_stranded_claims`) rather than building a second
+one, and tears its sandbox down unconditionally — a drill that leaves throwaway repositories
+behind on failure is how a container runs out of disk.
+
+| Row | Fails when | Where to look |
+| --- | ---------- | ------------- |
+| `stranded_no_network` | `gh` does not resolve to the stub | the drill would reach the network; every row below it would be measuring GitHub rather than the seam |
+| `stranded_fixture` | the two branches holding content do not read `stranded`, or the one holding none stops reading `superseded` | `lib/claims.sh` — `claims_delivery`, and the `claims_branch_diff_reading` term under it. A `superseded` here **is** the regression, so the rows below continue rather than stopping |
+| `stranded_only_the_empty_one_is_offered` | a branch holding work is a retirement candidate | `list-retirable-claims.sh` takes only `superseded_only` units, so this row moves when the verdict does |
+| `stranded_unreadable_is_refused` | a diff this clone cannot read answers `empty`, or the proof answers `true` over it | `claims_branch_diff_reading`'s `unanswerable` arm — a degradation must never license a delete, the direction `claims_merged_state` already takes |
+| `stranded_question_names_the_files` | the step asks nothing, asks without a per-unit key, or asks without naming what the branch holds | `step-stranded-branches.sh` and `stranded-claim-detail.sh` — a question naming only the verdict sends its reader back to the repository |
+| `stranded_sibling_filters` | `stalled-units` asks its own question about a stranded unit, or stops counting it | one step asks and the others count; either half alone is a defect, and the candidate set is forced to include these rows so this bites |
+| `stranded_content_survives_the_delete` | **work was lost** — a file reachable from no other ref is gone after the act — or the branch that held nothing was not retired | **the deliberately broken seam.** Neuter `claims_branch_diff_reading` to answer `empty` and this row goes red on the loss itself, not on a return shape; restore it and the drill is green. Both halves matter: the second clause is what keeps the repair from becoming *refuse every retirement* |
+| `stranded_writes_nothing` | the drill changed the checkout | every fixture lives outside the checkout |
+
 ## 6. Abort playbook
 
 Read the outcome first, then act. Three cases are not `reset`'s business, and running it
@@ -1480,6 +1526,7 @@ rather than guessed. **No artifact gained a field**: the slug lives here and now
 | `verify-impairment` | `hermetic` | yes | `name-the-steps-a-tick-could-not-read` |
 | `verify-cadence-lapse` | `hermetic` | yes | `notice-a-periodic-artifact-that-stopped-being-produced` |
 | `verify-blocked-tick` | `hermetic` | yes | `stop-an-unattended-tick-from-waiting-on-a-person` |
+| `verify-stranded-branch` | `hermetic` | yes | `prove-a-claim-branch-is-empty-before-deleting-it` |
 
 ### The evidence behind the classification
 

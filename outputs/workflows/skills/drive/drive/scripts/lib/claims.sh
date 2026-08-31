@@ -786,6 +786,68 @@ claims_mission_landed() {
     fi
 }
 
+
+# IS THIS BRANCH EMPTY AGAINST THE BASE? $1 = base ref, $2 = the claim's tip ref.
+# Echoes `true`, `false` or `unknown`, and never fails.
+#
+# WHY IT EXISTS (2026-09-01, issue #788). `superseded` is one of the protocol's two PROOFS and
+# `retire-claim.sh` deletes a branch on exactly that strength — its own header says *what makes a
+# destructive act safe here is the proof, and nothing else*, and offers as recovery that the
+# content is on the base, *that is what `superseded` means*. It did not mean that. The proof
+# established was **the unit's tickets are archived on the base**, and the step from there to
+# **the branch holds no work** holds only when a branch carries nothing but its own unit's
+# tickets.
+#
+# MEASURED on a consuming repository, 2026-09-01. Two branches read `superseded` because their
+# tickets had landed — through DIFFERENT branches, each of which drove the same tickets and
+# merged — while still holding, on themselves and on no other ref:
+#
+#   work-20260827-163420   docs/design/platform/mcp-server.md +46 and its counterpart +50
+#   work-20260829-113447   verify-published-site.mjs (113), published-site-verdicts.mjs (104),
+#                          published-site-verdicts.test.ts (85)
+#
+# The tick asked for both to be deleted. Roughly three hundred lines of code and a documentation
+# section exist in no other ref, and the stated recovery — *its content is on the base* — was
+# false for precisely the branches it was protecting. **Only a 403 on `push --delete` had been
+# preventing the loss**, for five days, while the tick reported that refusal as the problem.
+# Repairing the delete without repairing the verdict would have turned a reported nuisance into
+# a silent loss on the first tick after the fix.
+#
+# ONE `merge-base` AND ONE `diff --quiet`, no network, no worktree, no index. It is the fact the
+# verdict was already asserting, and it was simply never read.
+#
+# `unknown` IS NOT `false` AND IS NOT `true`. A shallow clone, an absent ref or a missing merge
+# base cannot answer this, and the caller treats an unanswerable emptiness the way this protocol
+# treats every absence of a reading: it does not license the act. A reading we could not make
+# must never authorise a delete, which is the same asymmetry `claims_fetch` keeps.
+claims_branch_empty_against_base() {
+    _cbe_base="${1:-}"
+    _cbe_ref="${2:-}"
+    [ -n "$_cbe_base" ] && [ -n "$_cbe_ref" ] || { printf 'unknown'; return 0; }
+    git rev-parse --verify --quiet "${_cbe_ref}^{commit}" >/dev/null 2>&1 || { printf 'unknown'; return 0; }
+    git rev-parse --verify --quiet "${_cbe_base}^{commit}" >/dev/null 2>&1 || { printf 'unknown'; return 0; }
+    _cbe_mb=$(git merge-base "$_cbe_base" "$_cbe_ref" 2>/dev/null || printf '')
+    [ -n "$_cbe_mb" ] || { printf 'unknown'; return 0; }
+    # `.workaholic/` IS EXCLUDED, AND THAT IS THE WHOLE PRECISION OF THIS TEST. The ordinary
+    # `superseded` shape is a twin that drove the same tickets and archived them under ITS OWN
+    # branch directory, so the two branches' `.workaholic/tickets/` trees differ by construction
+    # — a bare `diff --quiet` would call every genuinely superseded claim stranded and the
+    # verdict would never fire again. What was measured as lost was outside it in both cases:
+    # `docs/design/platform/mcp-server.md` and its counterpart, and three files under `scripts/`
+    # and `test/`. So the question this asks is the one the loss poses: **does this branch carry
+    # anything but the loop's own bookkeeping that the base does not have?**
+    #
+    # THE COST, STATED: a branch whose only orphaned work is inside `.workaholic/` still reads
+    # `superseded` and can still be deleted. That is accepted rather than overlooked — the unit's
+    # tickets are proved archived on the base, `.workaholic/` is the loop's own record, and
+    # tightening this further would cost the verdict its ordinary case.
+    if git diff --quiet "$_cbe_mb" "$_cbe_ref" -- . ':(exclude).workaholic' 2>/dev/null; then
+        printf 'true'
+    else
+        printf 'false'
+    fi
+}
+
 claims_superseded() {
     _csp_base="$1"
     _csp_arts="${2:-}"
@@ -799,6 +861,23 @@ claims_superseded() {
     # it was.
     _csp_tip="${4:-}"
     [ -n "$_csp_arts" ] || { printf 'false'; return 0; }
+
+    # THE VERDICT IS THREE-VALUED SINCE 2026-09-01 (issue #788): `superseded` (the tickets
+    # landed AND the branch is empty against the base), `stranded` (the tickets landed and the
+    # branch still holds work found on no other ref), or `false`. Only the first is a proof, and
+    # only the first licenses `retire-claim.sh`'s delete. `stranded` is a real and different
+    # state — the work is not finished, it is orphaned — and it wants a person told rather than a
+    # branch deleted.
+    #
+    # AN UNANSWERABLE EMPTINESS ANSWERS `stranded`, NOT `superseded`. A shallow clone cannot
+    # prove the branch is empty, and this protocol never lets an absence of a reading authorise
+    # a destructive act.
+    _csp_landed() {
+        case "$(claims_branch_empty_against_base "$_csp_base" "$_csp_tip")" in
+            true) printf 'superseded' ;;
+            *)    printf 'stranded' ;;
+        esac
+    }
 
     # One listing per claim, reused for every artifact -- the archive is the largest path
     # in the tree and this is the scan's most expensive gate, which is why it sits last
@@ -856,11 +935,13 @@ claims_superseded() {
             *)
                 IFS="$_csp_old_ifs"
                 if [ "$(claims_mission_landed "$_csp_base" "$_csp_tip" "$_csp_p")" = "true" ]; then
-                    printf 'true'
+                    _csp_landed
                     return 0
                 fi
                 if [ "$(claims_merged_state "$_csp_branch")" = "merged" ]; then
-                    printf 'true'
+                    # A MERGED PULL REQUEST IS NOT ON ITS OWN A PROOF THAT THE BRANCH IS EMPTY:
+                    # a branch that advanced after its merge still holds work no other ref has.
+                    _csp_landed
                 else
                     printf 'false'
                 fi
@@ -881,7 +962,7 @@ claims_superseded() {
     # EVERY ticket, not any: a unit half of whose tickets landed elsewhere still has work,
     # and calling it superseded would hide that half.
     if [ "$_csp_total" -gt 0 ] && [ "$_csp_total" -eq "$_csp_archived" ]; then
-        printf 'true'
+        _csp_landed
     else
         printf 'false'
     fi
@@ -1124,6 +1205,15 @@ claims_scan() {
         # twice. The declaration is reported on EVERY row, on the precedent `_cs_reported` set
         # one change earlier: a reader that consults a signal only where one branch happens to
         # need it leaves every other consumer to derive it again.
+        # ASKED ONCE PER ROW, NOT ONCE PER BRANCH OF THE `if` (2026-09-01). The verdict became
+        # three-valued and the dispatch below tests it twice; `claims_superseded` reaches the
+        # merged-pull-request lookup at the mission grain, which is the one reading in this chain
+        # that CAN answer differently the second time it is asked. Two calls would let a row be
+        # neither `stranded` nor `superseded` because the answer moved between them — which is
+        # exactly what `verify-ci-retirement`'s flip fixture caught.
+        _cs_landed_verdict=$(claims_superseded "$_cs_base" "$_cs_artifacts" "$_cs_branch" "$_cs_ref")
+        claims_landed_verdict() { printf '%s' "$_cs_landed_verdict"; }
+
         _cs_remaining=$(claims_remaining_tickets "$_cs_ref" "$_cs_artifacts_tip")
         _cs_declared_handoff=$(claims_declared_handoff "$_cs_ref" "$_cs_artifacts_tip" "$_cs_remaining")
 
@@ -1147,7 +1237,16 @@ claims_scan() {
         elif [ $((_cs_now - _cs_ct)) -lt "$_cs_hb_threshold" ]; then
             _cs_resumable=false
             _cs_reason=claim_active
-        elif [ "$(claims_superseded "$_cs_base" "$_cs_artifacts" "$_cs_branch" "$_cs_ref")" = "true" ]; then
+        elif [ "$(claims_landed_verdict)" = "stranded" ]; then
+            # THE TICKETS LANDED AND THE BRANCH STILL HOLDS WORK (2026-09-01, issue #788). This
+            # is not `superseded` and must never be treated as one: `superseded` is a PROOF that
+            # licenses `retire-claim.sh` to delete the branch, and here the branch carries
+            # content found on no other ref. It is not resumable either — the queue this unit
+            # was claimed for is drained, so there is nothing to drive — and what it wants is a
+            # person told. `/moderate`'s `retire-claims` step asks its holder.
+            _cs_resumable=false
+            _cs_reason=stranded
+        elif [ "$(claims_landed_verdict)" = "superseded" ]; then
             # The unit's work is already on the base by another route (see
             # claims_superseded). It sits AFTER `claim_active` on purpose: liveness is what
             # gates a takeover, so a run that is still committing keeps the reading that

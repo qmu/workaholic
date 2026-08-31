@@ -92,10 +92,21 @@ printf '%s' "$out" | jq -e . >/dev/null 2>&1 \
 state=$(printf '%s' "$out" | jq -r '.state // ""')
 reason=$(printf '%s' "$out" | jq -r '.reason // ""')
 tip=$(printf '%s' "$out" | jq -r '.tip // ""')
+# WHICH COMMIT THE VERDICT ACTUALLY RESTS ON (2026-09-01, issue #785). The tip of a base this
+# loop writes to is usually a bookkeeping commit no workflow ran on, so the reading is normally
+# an ANCESTOR's. Saying `green at <tip>` when the tip carried no checks would be the guess the
+# three-valued reader exists to prevent; saying how far back it was is the honest sentence and
+# is more useful than the silence this replaced.
+checked_at=$(printf '%s' "$out" | jq -r '.checked_at // ""')
+checked_behind=$(printf '%s' "$out" | jq -r '.checked_behind // 0')
 
 case "$state" in
     green)
-        emit ok "" "the base is green at ${tip}"
+        if [ -n "$checked_at" ]; then
+            emit ok "" "the base is green at ${checked_at}, ${checked_behind} commit(s) behind the tip — the tip itself carries no checks"
+        else
+            emit ok "" "the base is green at ${tip}"
+        fi
         ;;
     unanswerable)
         emit degraded "base_unreadable:${reason}" \

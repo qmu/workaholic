@@ -53,3 +53,4 @@ the next tick reads, so a blocked hour and a quiet hour are never one absence.
 - 2026-08-31 — ticket archived — 20260831113558-read-a-plugin-script-without-a-bash-text-pipeline.md
 - 2026-08-31 — ticket archived — 20260831113900-state-that-a-run-with-no-human-never-blocks-on-a-prompt.md
 - 2026-08-31 — ticket archived — 20260831113900-establish-where-the-no-prompt-policy-is-configured.md
+- 2026-08-31 — ticket archived — 20260831113558-put-the-tick-s-opening-on-the-base-before-any-step.md

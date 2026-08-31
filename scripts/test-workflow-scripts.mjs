@@ -25434,7 +25434,15 @@ function testStalledUnitsStep() {
 function testModerateRun() {
   const repo = makeRepo();
   const RUN = `${POSIX_SH} ${SCRIPTS.proposeRun}`;
-  const STEPS = ["open-log", "inbound-sweep", "workload-logs", "merge-conflicts",
+  const STEPS = ["open-log",
+    // `blocked-tick` runs second (2026-08-31, mission
+    // `stop-an-unattended-tick-from-waiting-on-a-person`): a tick that OPENED and never
+    // closed, read off the log `open-log` has just opened and `run.sh`'s opening persist has
+    // just put on the base. It is placed here because it is a fact about the tick machinery
+    // rather than about the repository's work, and because the deadline cuts steps in order —
+    // the reading that says the loop stopped must not be the first to go.
+    "blocked-tick",
+    "inbound-sweep", "workload-logs", "merge-conflicts",
     "issue-triage", "stuck-prs", "doc-drift", "release-status", "note-cadence",
     // `strategy-pace` is step 10 (2026-08-22): the surface that tells a person a direction
     // will not arrive. It sits before `human-checkin` because the check-in is what asks.
@@ -25564,12 +25572,19 @@ function testModerateRun() {
     assertEq("the tick writes its log", j.log, "./.workaholic/moderations/2026-08-17.md");
     const log = readFileSync(join(repo, ".workaholic/moderations/2026-08-17.md"), "utf8");
     assertEq("one log section for the tick", (log.match(/^## /gm) || []).length, 1);
-    // Nine step lines plus the closing act's own line. The persist is deliberately
-    // NOT a tenth step (`steps[]` above is still exactly the nine), but its outcome
-    // is a fact this tick established, so it is logged and reported like one.
-    assertEq("and one line per step, plus the persist",
-      (log.match(/^- `/gm) || []).length, STEPS.length + 1);
+    // One line per step plus BOTH persists' own lines. Neither persist is a step
+    // (`steps[]` above is still exactly the step list), but each outcome is a fact this
+    // tick established, so each is logged and reported like one — under its own step id,
+    // because the log is idempotent per `(tick, step)` and a shared id would make the
+    // second a duplicate and lose its outcome (2026-08-31, mission
+    // `stop-an-unattended-tick-from-waiting-on-a-person`).
+    assertEq("and one line per step, plus both persists",
+      (log.match(/^- `/gm) || []).length, STEPS.length + 2);
     assertTrue("the persist reports itself by name", /^- `persist-log`: /m.test(log), log);
+    assertTrue("and the opening persist reports itself under its own id",
+      /^- `persist-log-opening`: /m.test(log), log);
+    assertEq("the opening persist is reported beside the closing one",
+      [j.opening_persist.status, j.opening_persist.reason], ["skipped", "no_origin"]);
     assertEq("a checkout with no remote skips it rather than failing",
       [j.persist.status, j.persist.reason], ["skipped", "no_origin"]);
     assertEq("step 1 is real", j.steps[0].status, "ok");

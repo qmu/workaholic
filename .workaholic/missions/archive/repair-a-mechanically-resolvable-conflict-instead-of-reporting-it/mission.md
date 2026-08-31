@@ -56,3 +56,4 @@ conflict that is genuinely theirs, named by the files it collided on.
 - 2026-08-31 — ticket archived — 20260831202250-report-each-stranded-publication-in-the-run-report.md
 - 2026-08-31 — ticket archived — 20260831202250-drill-the-stranded-publication-repair-offline.md
 - 2026-08-31 — mission achieved — mission.md
+- 2026-08-31 — Story written — work-20260831-224412.md

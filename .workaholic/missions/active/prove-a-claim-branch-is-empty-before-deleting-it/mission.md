@@ -48,3 +48,5 @@ told once — while a branch that really is empty retires exactly as it does tod
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-31 — Reproduced offline: all three seeded claims read superseded, all three are offered as retirable, and with the delete allowed to run the branch holding src/stranded.txt is deleted and its content lost. delete-retired-claim-branch.sh's not_on_base bound re-derives claims_superseded, so it refuses nothing this gap lets through. Every claim branch has a non-empty merge-base..branch diff, because the claim commit stamps its own artifacts; a heartbeat is an empty commit and contributes nothing. — 20260831203453-reproduce-a-superseded-branch-that-still-holds-work.md
+- 2026-08-31 — ticket archived — 20260831203453-reproduce-a-superseded-branch-that-still-holds-work.md

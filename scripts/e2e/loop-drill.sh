@@ -4503,6 +4503,131 @@ GH_STUB_EOF
     emit_verdict "catch-up" 0 "fail" 1
 }
 
+# THE STRANDED-CLAIM REPRODUCTION, SEEDED ONCE AND READ BY EVERYTHING THAT NEEDS IT
+# (2026-08-31, mission `prove-a-claim-branch-is-empty-before-deleting-it`).
+#
+# Usage: seed_stranded_claims <tmpdir> <identity-email>
+# Creates, under <tmpdir>: `origin` (bare), `work` (the seeding clone), `read` (the clone every
+# reading is taken from) and `bin` (a `gh` stub). Echoes nothing.
+#
+# WHAT IT REPRODUCES. `claims_superseded` proves *this unit's tickets are archived on the base*
+# and has never proved *this branch holds nothing that is not on the base*. Those are different
+# questions and neither implies the other: a ticket archived under ANOTHER branch's directory
+# satisfies the first while the claim branch still carries files that exist in no other ref.
+# Measured on this repository 2026-08-31: two branches carrying ~300 lines and a doc section
+# that exist nowhere else were reported finished and offered for deletion, and only a 403
+# refusing the delete kept the work alive.
+#
+# THREE CLAIMS, AND THE THIRD IS THE ONE THAT MAKES A NAIVE REPAIR IMPOSSIBLE:
+#   batch-stranded  work-20260101-000000  batch grain; holds `src/stranded.txt`
+#   m1              work-20260101-000001  mission grain; holds `docs-stranded.md`
+#   batch-clean     work-20260101-000002  a claim commit plus a heartbeat and NOTHING ELSE
+# All three have their tickets archived on the base under `work-other/`, so all three read
+# `superseded` today. `batch-clean` is the branch that genuinely holds no work and must keep
+# retiring exactly as it does now.
+#
+# THE CLAIM COMMIT IS NOT AN EMPTY TREE DIFF, and that measurement is why the reading cannot
+# simply be "is the diff empty". A claim STAMPS `claim: <branch>` into its own artifacts, so
+# every claim branch — `batch-clean` included — has a non-empty `merge-base..branch` diff. A
+# heartbeat and a resume commit ARE empty commits and contribute nothing, which is what makes
+# the claim's own stamped artifacts the whole of the subtraction.
+#
+# THE STUB'S DELETE ACTUALLY DELETES. `delete-retired-claim-branch.sh` deletes through
+# `gh api .../git/refs/heads/<branch> --method DELETE`, so a stub that merely answers success
+# would let a drill assert a return word over a delete that never happened — the exact
+# substitution the mission exists to prevent. This one removes the ref from the bare origin, so
+# a caller can assert that the file which would have been lost is still reachable afterwards.
+seed_stranded_claims() {
+    _ss_tmp="$1"
+    _ss_me="$2"
+    _ss_origin="${_ss_tmp}/origin"
+    _ss_work="${_ss_tmp}/work"
+    _ss_read="${_ss_tmp}/read"
+    _ss_bin="${_ss_tmp}/bin"
+    mkdir -p "$_ss_origin" "$_ss_bin"
+    _ss_git() { git -c user.email="$_ss_me" -c user.name=Drill -c commit.gpgsign=false "$@"; }
+
+    ( cd "$_ss_origin" && git -c init.defaultBranch=main init -q --bare ) >/dev/null 2>&1 || true
+    ( cd "$_ss_tmp" && git clone -q "$_ss_origin" work ) >/dev/null 2>&1 || true
+    _ss_w="${_ss_work}/.workaholic"
+    mkdir -p "${_ss_w}/tickets/todo" "${_ss_w}/missions/active/m1"
+    printf -- '---\ncreated_at: 2026-01-01T00:00:01+09:00\nauthor: %s\n---\n\n# T1\n' \
+        "$_ss_me" > "${_ss_w}/tickets/todo/20260101000001-t.md"
+    printf -- '---\ncreated_at: 2026-01-01T00:00:02+09:00\nauthor: %s\nmission: m1\n---\n\n# T2\n' \
+        "$_ss_me" > "${_ss_w}/tickets/todo/20260101000002-m.md"
+    printf -- '---\ncreated_at: 2026-01-01T00:00:03+09:00\nauthor: %s\n---\n\n# T3\n' \
+        "$_ss_me" > "${_ss_w}/tickets/todo/20260101000003-b.md"
+    printf -- '---\ntype: Mission\ntitle: M1\nslug: m1\nstatus: active\n---\n\n# M1\n' \
+        > "${_ss_w}/missions/active/m1/mission.md"
+    printf 'seed\n' > "${_ss_work}/README.md"
+    ( cd "$_ss_work" && _ss_git add -A && _ss_git commit -qm seed \
+      && git push -q origin main ) >/dev/null 2>&1 || true
+
+    # The claim commit must TOUCH the stamped file: the artifact list is "files this commit
+    # touched that still carry the stamp at the tip".
+    _ss_stamp_ticket() {
+        printf -- '---\ncreated_at: 2026-01-01T00:00:00+09:00\nauthor: %s\nclaim: %s\n---\n\n# T\n' \
+            "$_ss_me" "$1" > "${_ss_w}/tickets/todo/$2"
+    }
+    _ss_stamp_mission() {
+        printf -- '---\ntype: Mission\ntitle: M1\nslug: m1\nstatus: active\nclaim: %s\n---\n\n# M1\n' \
+            "$1" > "${_ss_w}/missions/active/m1/mission.md"
+    }
+
+    ( cd "$_ss_work" && git checkout -q -b work-20260101-000000 main \
+      && _ss_stamp_ticket work-20260101-000000 20260101000001-t.md \
+      && _ss_git commit -qam "Claim a PR-unit" -m "Unit: batch-stranded" \
+      && mkdir -p src && printf 'the work that exists in no other ref\n' > src/stranded.txt \
+      && _ss_git add -A && _ss_git commit -qm "Add work that exists nowhere else" \
+      && git push -q origin work-20260101-000000 ) >/dev/null 2>&1 || true
+
+    ( cd "$_ss_work" && git checkout -q -b work-20260101-000001 main \
+      && _ss_stamp_mission work-20260101-000001 \
+      && _ss_git commit -qam "Claim a PR-unit" -m "Unit: m1" \
+      && printf 'a doc section that exists in no other ref\n' > docs-stranded.md \
+      && _ss_git add -A && _ss_git commit -qm "Add a doc section nowhere else" \
+      && git push -q origin work-20260101-000001 ) >/dev/null 2>&1 || true
+
+    ( cd "$_ss_work" && git checkout -q -b work-20260101-000002 main \
+      && _ss_stamp_ticket work-20260101-000002 20260101000003-b.md \
+      && _ss_git commit -qam "Claim a PR-unit" -m "Unit: batch-clean" \
+      && _ss_git commit -q --allow-empty -m "Refresh heartbeat" \
+      && git push -q origin work-20260101-000002 ) >/dev/null 2>&1 || true
+
+    # The base archives all three tickets under ANOTHER branch's directory — the shape that
+    # satisfies the archive test while every branch above still holds its own content.
+    ( cd "$_ss_work" && git checkout -q main \
+      && mkdir -p .workaholic/tickets/archive/work-other \
+      && git mv .workaholic/tickets/todo/20260101000001-t.md .workaholic/tickets/archive/work-other/ \
+      && git mv .workaholic/tickets/todo/20260101000002-m.md .workaholic/tickets/archive/work-other/ \
+      && git mv .workaholic/tickets/todo/20260101000003-b.md .workaholic/tickets/archive/work-other/ \
+      && _ss_git commit -qm "Archive the tickets elsewhere" \
+      && git push -q origin main ) >/dev/null 2>&1 || true
+
+    ( cd "$_ss_tmp" && git clone -q "$_ss_origin" read ) >/dev/null 2>&1 || true
+    ( cd "$_ss_read" && git config user.email "$_ss_me" && git config user.name Drill \
+      && git config commit.gpgsign false ) >/dev/null 2>&1 || true
+
+    cat > "${_ss_bin}/gh" <<STRANDEDSTUB
+#!/bin/sh
+case "\$1 \$2" in
+  "api user") printf 'tester\n'; exit 0 ;;
+  "api rate_limit") echo '{"rate":{"limit":5000}}'; exit 0 ;;
+esac
+case "\$*" in
+  *--method\ DELETE*)
+      _ref=\$(printf '%s' "\$2" | sed -n 's#.*/git/refs/heads/\(.*\)\$#\1#p')
+      if [ -n "\$_ref" ]; then
+          git -C "${_ss_origin}" update-ref -d "refs/heads/\${_ref}" 2>/dev/null || exit 1
+      fi
+      exit 0 ;;
+  *pulls*) echo '[]'; exit 0 ;;
+esac
+echo '[]'
+STRANDEDSTUB
+    chmod +x "${_ss_bin}/gh"
+}
+
 cmd_verify_retire() {
     _lister="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/list-claims.sh"
     _retirer="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/retire-claim.sh"

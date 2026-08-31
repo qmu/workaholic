@@ -280,6 +280,49 @@ case "$GIT_EMAIL" in
   ;;
 esac
 
+# 0c) Repoint an origin naming a slug GitHub no longer serves (2026-09-01, issue #792).
+# The third provisioning defect of the same class as 0 and 0b, and the one that stops a whole
+# LOOP rather than one run. Every script in this plugin derives its API slug from
+# `remote.origin.url` (`gather/scripts/gh-rest.sh`'s `repo_slug()`), so a container cloned under
+# a name the repository has since been renamed away from makes every REST call against a name the
+# session's grant does not cover.
+#
+# **`git push` is unaffected** — GitHub redirects pushes — so a loop in that state claims and
+# pushes all day while opening no pull request, and the fault reads as a transport problem rather
+# than a naming one. Measured on a consuming repository over 2026-08-30/31: `merge-conflicts`,
+# `stuck-prs`, `standing-rulings`, `operator-pulls` and `file-findings` all reported degraded for
+# two days, across two contradicting diagnoses, before the cause was found.
+#
+# THE SERVED NAME IS ASKED FOR, NEVER WRITTEN DOWN. GitHub's own `full_name` for the slug
+# `origin` already carries is the answer, so a later rename needs no edit here. A container
+# already naming the served slug costs one API read and is left alone — this is a guard against
+# the next rename, not a standing repair.
+#
+# NON-FATAL ON EVERY BRANCH, one log line each way, idempotent across a resume/clear/compact
+# refire, and it repoints THIS SESSION'S clone only — it writes nothing to the repository.
+ORIGIN_URL=$(git config --get remote.origin.url 2>/dev/null || true)
+ORIGIN_SLUG=$(printf '%s' "$ORIGIN_URL" | sed -e 's#\.git$##' -e 's#^.*[:/]\([^/][^/]*\)/\([^/][^/]*\)$#\1/\2#')
+if [ -z "$ORIGIN_URL" ]; then
+  log "origin slug: no remote.origin.url; nothing to check"
+elif ! command -v gh >/dev/null 2>&1; then
+  log "origin slug: gh unavailable; keeping '${ORIGIN_SLUG}' unchecked"
+elif [ "$ORIGIN_SLUG" = "$ORIGIN_URL" ]; then
+  log "origin slug: could not parse a slug out of '${ORIGIN_URL}'; leaving origin alone"
+else
+  SERVED=$(gh api "repos/${ORIGIN_SLUG}" --jq .full_name 2>>"$LOG") || SERVED=""
+  case "$SERVED" in
+  "")             log "origin slug: GitHub did not answer for '${ORIGIN_SLUG}'; origin left as it is" ;;
+  "$ORIGIN_SLUG") log "origin slug: origin already names the served slug '${ORIGIN_SLUG}'; unchanged" ;;
+  */*)
+    if git remote set-url origin "https://github.com/${SERVED}.git" 2>>"$LOG"; then
+      log "origin slug: '${ORIGIN_SLUG}' is served as '${SERVED}'; origin repointed for this session only"
+    else
+      log "origin slug: '${ORIGIN_SLUG}' is served as '${SERVED}' but set-url failed; origin left as it is"
+    fi ;;
+  *)              log "origin slug: unexpected full_name '${SERVED}' for '${ORIGIN_SLUG}'; origin left as it is" ;;
+  esac
+fi
+
 # Already installed at the version this checkout wants: skip the network round-trip.
 # Presence alone never skips -- see the header on the version gate.
 WANTED=$(sed -n 's/^ *"version": *"\([^"]*\)".*/\1/p' "${CLAUDE_PROJECT_DIR:-.}/.claude-plugin/marketplace.json" 2>/dev/null | head -n 1)

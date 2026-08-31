@@ -96,8 +96,17 @@ rather than by the clock.
 **The named mechanism is not buildable in the environment the loop runs in.** Step 2 requires a
 unit-keyed ref pushed with a create-only refspec; step 5 requires that ref to be released wherever
 the claim is released. Measured here, in a routine-shaped container, over **both** sanctioned
-transports. Do not re-run these probes — each permitted one leaks a ref this container cannot
-delete (see the residue note below).
+transports.
+
+**This is the fourth independent reading, not the first, and re-reading it is the mistake to
+avoid.** The finding already lives in
+`plugins/workaholic/skills/drive/reference/claims.md` (*What the claim contends for*) with the
+`refs/claims/*`, `refs/tags/*` and `refs/heads/*` probes and the `ls-remote` confirmations, and
+the branch story for `work-20260830-124234` records two earlier re-confirmations. **Read it; do
+not re-probe it.** Every permitted probe leaks a `refs/heads/*` ref this container cannot delete —
+two now stand on origin (residue note below). This run's own probe was that mistake, and it is
+recorded here so the next reader stops at this paragraph. What is new below is only the
+`refs/notes/*` row, which no earlier reading had covered.
 
 | Ref namespace | `git push` create | REST create | delete |
 | ------------- | ----------------- | ----------- | ------ |
@@ -132,10 +141,12 @@ tree byte-identical, and a live race reaches a person through `list-raced-units.
 `/moderate`'s `raced-units` step. Mission acceptance items 2 and 3 are checked on that work;
 this item is the one the transport forbids.
 
-**Residue this measurement left.** Branch `wh-probe-20260831194543` on origin, pointing at
-`5b6427654b3c3ad955755e446a3474c81e22cfe8`. It matches neither `work-*` nor `release/*`, so no
-claim scan sees it, and it cannot be deleted from here — a human or the CI job that holds
-`contents: write` must remove it.
+**Residue the measurements have left.** Two undeletable branches on origin, neither matching
+`work-*` nor `release/*` (so no claim scan sees them), neither removable from this container —
+a human, or the CI job that holds `contents: write`, must delete both:
+
+- `wk-transport-probe-1788104778` → `304652b2` (left by the earlier reading)
+- `wh-probe-20260831194543` → `5b6427654b3c3ad955755e446a3474c81e22cfe8` (left by this one)
 
 **The ruling this needs.** Re-scope acceptance item 1 to a mechanism `refs/heads/*` can express,
 or move the arbitration to where the write is permitted (`.github/workflows/`, which holds

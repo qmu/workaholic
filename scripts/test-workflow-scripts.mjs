@@ -25185,6 +25185,12 @@ function testAnswerReturnPath() {
     }
     const stepBody = readFileSync(join(M, "step-question-answers.sh"), "utf8")
       .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+    // The step itself still reaches GitHub through nothing. Since 2026-08-31 it composes
+    // `answer-outcome.sh`, which spends ONE bounded issue read per FILED candidate and none for
+    // the rest — the read is the reader's, off the log's own filing line, and it is bounded by
+    // the same `WORKAHOLIC_ANSWER_READ_MAX` the thread reads use. What this still pins is that
+    // no GitHub call is written HERE, which is what would let one grow unbounded beside the
+    // Slack reads.
     assertTrue("and the read step makes no gh call of any kind", !/\bgh\b/.test(stepBody), stepBody.slice(0, 200));
     assertTrue("nor names a channel: it reads threads on coordinates, never channel history",
       !/INBOUND_SLACK_CHANNEL/.test(stepBody), stepBody.slice(0, 200));
@@ -28636,6 +28642,9 @@ function testProofJudgementSplit() {
   const ansStepSrc = readFileSync(join(REPO_ROOT,
     "plugins/workaholic/skills/moderate/scripts/step-question-answers.sh"), "utf8")
     .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+  assertTrue("step-question-answers.sh is the enumerated consumer of the answer-outcome reading",
+    ansStepSrc.includes("answer-outcome.sh"),
+    "the enumerated consumer no longer reads the reader it is registered for");
   for (const act of ["--method PUT", "--method PATCH", "--method DELETE", "/merge",
     "release-claim.sh", "retire-claim.sh", "catch-up-claim.sh", "plan-units.sh",
     "publish-tree-pr.sh", "git push"]) {
@@ -28643,6 +28652,18 @@ function testProofJudgementSplit() {
       !ansStepSrc.includes(act),
       `the answer-outcome reading licenses reporting and one reply, never ${act}`);
   }
+  // ONLY A `settled:` READING BECOMES A REPLY. `pending` and `unreadable:<reason>` are counted
+  // and post nothing: an unread outcome rendered as a settled one would tell somebody their
+  // answer was acted on when nobody knows.
+  assertTrue("...and only a settled reading becomes an outcome candidate",
+    /settled:\*\)\s*\n?\s*settled_n=/.test(ansStepSrc)
+      && /pending\)\s*opending_n=/.test(ansStepSrc),
+    "the step no longer gates the reply on the outcome being settled");
+  // THE DEDUP IS THE LEDGER LINE, NOT A CURSOR: a slug an earlier tick replied to leaves the
+  // pool by construction, so one question gets one reply however many ticks run.
+  assertTrue("the outcome reply dedups on its own ledger line",
+    ansStepSrc.includes("human-checkin-outcome-"),
+    "the outcome reply has no ledger line, so a second tick would post it again");
 
   // ITS FOUR WORDS, from the reader's own `emit` calls rather than from a list this test carries.
   // `open:<age>` is normalised to its table form because the script interpolates the age; the

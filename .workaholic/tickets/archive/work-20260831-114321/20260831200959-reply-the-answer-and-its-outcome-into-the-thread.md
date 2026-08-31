@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-31T20:09:59+09:00
+status: done
 author: a@qmu.jp
 assignees: 
 depends_on:
@@ -86,3 +87,48 @@ operator's answer as the loop recorded it and what came of it.
   returns, so an event here would be a claim about a post not yet made.
 - The dedup is the ledger line plus the `settled` reading, not a cursor: a question whose
   outcome is not yet known is simply a candidate again next tick.
+
+## Final Report
+
+Development completed as planned.
+
+`step-question-answers.sh` derives a second candidate set in the pass it already makes over the
+ledger: a question reading `answered`, with a recorded coordinate, whose `answer-outcome.sh`
+reading is `settled:`, and with no `human-checkin-outcome-<slug>` line already in the log. The
+person's own words ride the same pass, so the reply carries the answer as recorded rather than a
+paraphrase. Only a `settled:` reading becomes a candidate; `pending` and `unreadable:<reason>`
+are counted in the summary and post nothing.
+
+The candidates go back in `needs_agent` with the shape, the holds, the record and the
+never-load-bearing rule spelled out per candidate. The dedup is structural — the ledger line
+plus the reading — so no cursor exists anywhere, and a second tick over the same fixture hands
+back nothing at all.
+
+Exercised against a fixture tick log: an answered question with a `not_filed:` line yields one
+outcome candidate carrying the recorded words and the coordinate; adding the
+`human-checkin-outcome-` line empties the set on the next tick; removing the filing line makes
+it `1 not settled yet` with no candidate; and an absent log area stays an ordinary `ok`.
+
+### Discovered Insights
+
+- **Insight**: The answered slugs were already being derived here — to *exclude* them from the
+  thread reads — so the second set is a projection of a pass that already existed rather than a
+  new walk. That is what made a second step unnecessary and a second reader avoidable.
+  **Context**: The general shape: when a step already computes a set in order to subtract it,
+  the subtracted set is usually the candidate set some other question wants, and naming it costs
+  nothing.
+
+- **Insight**: The suite pins that this step "makes no gh call of any kind", and that stayed true
+  literally while the step gained an indirect, bounded network read through the reader. The
+  assertion was kept and its comment corrected rather than the assertion being widened.
+  **Context**: A pin whose meaning has shifted under it is worse than no pin — the honest repair
+  is to say in the comment what it now guarantees (no GitHub call written *here*, which is what
+  would let one grow unbounded beside the Slack reads) rather than to let the name carry a claim
+  it no longer makes.
+
+- **Insight**: The holds are stated in the `needs_agent` bound rather than recomputed in the
+  step, following `✅ 解消を確認` exactly. `ask-question.sh` was the wrong home for them here:
+  its gate carries the per-tick and per-day **question** caps, and spending one on a reply that
+  is not a question would silently reduce how many questions the tick can ask.
+  **Context**: The clock gate already exists in two places (`ask-question.sh` and
+  `step-human-checkin.sh`); a third copy is the drift this avoided.

@@ -2283,6 +2283,57 @@ log — `no_log_area` is a readable answer meaning nothing has been asked), `can
 from the step; `no_slack_transport` and `thread_unreadable` from the agent's read. An unread
 thread is never reported as a thread nobody answered.
 
+### The second candidate set: what became of the answers we already have
+
+(2026-08-31, mission `make-the-tick-s-questions-readable-and-close-them-in-the-thread`.) The
+reaction says *received*, which is not *acted on*, and nothing said the second thing at all: from
+the thread, an answer that became a merged mission and one that was read and dropped looked
+identical.
+
+**The candidates.** A question reading `answered`, **with a recorded coordinate**, whose
+`answer-outcome.sh` reading is `settled:`, and with **no `human-checkin-outcome-<slug>` line**
+already in the log. All four terms are load-bearing and none is a cursor.
+
+**One pass, two sets.** The answered slugs were already derived here, to *exclude* them from the
+thread reads; naming them as their own set costs **no second walk of the log and no second
+reader**, which is why this step owns both halves rather than a new step owning one. The
+person's own words ride the same pass — the newest `human-checkin-answered-<slug>` summary — so
+the reply carries **the answer as recorded** rather than a paraphrase.
+
+**Only `settled:` posts.** `pending` (the filed issue is still open, or the agent has not written
+a filing line yet) and `unreadable:<reason>` post nothing and are **counted** in the summary: an
+unread outcome rendered as a settled one would tell somebody their answer was acted on when
+nobody knows.
+
+**The bound is the step's own.** The pool is capped by the same `WORKAHOLIC_ANSWER_READ_MAX` the
+thread reads use — one constant for one step, because the two sets grow the same way and a
+second bound would be a second thing to keep current — and the remainder is reported rather than
+dropped. The reader spends **one bounded issue read per *filed* candidate and none for the
+rest**; the step itself still makes no call of its own.
+
+**The holds are `✅ 解消を確認`'s, applied the same way**: the off-day and quiet-hours holds
+apply, stated in the bound rather than recomputed here, because a third copy of the clock gate
+is how three copies start disagreeing. **Held is not dropped** — a held candidate simply
+re-derives on the next eligible tick, since the dedup is the ledger line and not a cursor.
+
+**A candidate with no recorded coordinate is named, never searched for**, exactly as on the read
+half: the alternative (find the thread by searching the channel) is what the recorded coordinate
+exists to keep out.
+
+**The reply, the record, and what is never load-bearing.** One `🧾 対応結果` per candidate into
+that question's own thread, on the coordinate already in hand — no lookup, no search, no mention
+token, once ever. Each post is logged under `human-checkin-outcome-<slug>` through
+`log-append.sh`, then `persist-log.sh --tick` runs again — **the second persist**, without which
+the line dies with the container and the reply is posted a second time next tick. A failed post
+is `outcome_post_failed: <reason>` and changes **nothing** about the recording, the filing, the
+stamp, the question's state or the reading; every one of those happened in an earlier tick.
+
+**Its `event` stays empty**, for the step's existing reason: the agent acts after `run.sh`
+returns, so an event here would be a claim about a post not yet made.
+
+**Report per candidate**: posted, held, or the named reason it was not. A candidate handed back
+with no outcome is non-conformant on its face — the enforcement the read half already carries.
+
 ## 24. `standing-rulings` — the rulings the loop cannot make, drafted instead of asked
 
 ```bash

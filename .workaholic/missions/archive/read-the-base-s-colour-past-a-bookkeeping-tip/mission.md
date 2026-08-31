@@ -52,3 +52,4 @@ reasons stays terminal, named, and never walked past.
 - 2026-08-31 — ticket archived — 20260831202934-say-how-far-back-the-base-s-colour-was-read.md
 - 2026-08-31 — ticket archived — 20260831202934-drill-the-base-reading-past-a-bookkeeping-tip.md
 - 2026-08-31 — mission achieved — mission.md
+- 2026-08-31 — story — work-20260831-214435.md

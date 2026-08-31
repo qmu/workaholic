@@ -1468,6 +1468,7 @@ rather than guessed. **No artifact gained a field**: the slug lives here and now
 | `verify-base-health` | `hermetic` | yes | `read-whether-the-base-survived-what-the-loop-merged` |
 | `verify-return-path` | `hermetic` | yes | `let-an-answer-in-the-thread-turn-back-into-the-loop-s-work` |
 | `verify-reconcile` | `hermetic` | yes | `reconcile-a-stale-thread-with-the-unit-s-real-state` |
+| `verify-log-branch` | `hermetic` | yes | `take-the-moderation-tick-s-log-off-main` |
 | `verify-checkin-delivery` | `hermetic` | yes | `deliver-what-the-loop-already-knows-to-the-person-who-can-act` |
 | `verify-findings-to-work` | `hermetic` | yes | `let-the-tick-s-own-findings-become-the-loop-s-work` |
 | `verify-act-effect` | `hermetic` | yes | `read-back-whether-the-loop-s-own-act-took-effect` |

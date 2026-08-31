@@ -17734,11 +17734,29 @@ function testAttributeBaseRed() {
       [blind.state, blind.attributed, blind.reason],
       ["unattributable", null, "unanswerable_in_walk:no_checks"]);
 
-    // AND A TIP WE COULD NOT READ IS OUR OWN DEGRADATION, never a finding about the base.
-    set({ [tip]: NONE });
+    // A CHECKLESS TIP IS WALKED PAST (2026-09-01, issue #785). `no_checks` is a fact about the
+    // COMMIT — nothing ran on it and nothing ever will — and it has a defined answer one step
+    // back. This loop's base is mostly bookkeeping commits every workflow's path filter
+    // deliberately skips, so the step that notices a broken base was dark exactly when it was
+    // busiest: measured over a day and a half, every tick reported `base_unreadable:tip_no_checks`
+    // while the base was green throughout.
+    set({ [tip]: NONE, [c4]: NONE, [c3]: GREEN, [c2]: GREEN, [c1]: GREEN });
     const dark = walk();
-    assertEq("an unreadable tip is unanswerable, carrying the reader's own reason",
-      [dark.state, dark.ok, dark.reason], ["unanswerable", false, "tip_no_checks"]);
+    assertEq("a checkless tip resolves to the newest checked ancestor",
+      [dark.state, dark.ok, dark.checked_at, dark.checked_behind], ["green", true, c3, 2]);
+    assertTrue("and the tip is still named, so the verdict never reads as the tip's own",
+      dark.tip === tip && dark.checked_at !== dark.tip, JSON.stringify(dark));
+
+    // AND ONLY `no_checks` IS WALKED PAST. A reader that failed, a rate limit, a refused
+    // transport are facts about US, and walking past one would report an older commit's colour
+    // as though it were the tip's — exactly what the three-valued reader exists to prevent. The
+    // walk is read for the discrimination itself, because this fixture's stub cannot produce a
+    // transport failure without becoming a second reader; `verify-base-health` drills the
+    // behaviour against an unknown commit.
+    const walkSrc = readFileSync(WALK, "utf8");
+    assertTrue("the walk continues on no_checks and on nothing else",
+      /case "\$RC_REASON" in\s*\n\s*no_checks\) ;;\s*\n\s*\*\) emit unanswerable "tip_\$\{RC_REASON\}"/.test(walkSrc),
+      "the tip's unanswerable is not split by reason");
 
     // CHECK STATE HAS EXACTLY ONE DERIVATION. The walk asks WHICH COMMIT, never WHAT STATE —
     // a second parser of a check run is what this constraint exists to prevent.
@@ -20248,6 +20266,49 @@ function testPostLanguageRuleShipsWithThePlugin() {
 
 
 
+
+// ---------- a ticket an unattended run cannot perform is a handoff (2026-09-01, issue #793) ----
+// MEASURED on a consuming repository: every `[Implement]` run from 13:37Z onward read
+// `requires_action` — frozen, not idle — each ending at the same line, `permission prompt Edit:
+// … /.claude/hooks/session-start.sh which is a sensitive file`. Claude Code classifies
+// `.claude/**` as sensitive and an unattended container has no human. Seven runs, five hours,
+// nothing landed, and the freeze was SILENT: the resume beats the heartbeat before the edit, so
+// `stalled-units` counted the unit healthy and `catchup-blocked` read 0.
+//
+// `verification_handoff:` already routes exactly this — the pull request opens and stays open,
+// the claim stays standing, a person is asked — so the field is reused rather than duplicated.
+function testSensitivePathIsAHandoff() {
+  const dir = mkdtempSync(join(tmpdir(), "wh-sens-"));
+  const HO = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/verification-handoff.sh")}`;
+  const write = (name, body) => { const p = join(dir, name); writeFileSync(p, body); return p; };
+  try {
+    // DERIVED, because the ticket that froze the loop was already in `todo/` and a declaration
+    // would only ever cover tickets written after the change.
+    const sensitive = write("a.md", "---\nstatus:\n---\n\n## Key Files\n\n- `.claude/hooks/session-start.sh` — the hook\n");
+    const r = JSON.parse(execSync(`${HO} tickets ${sensitive}`, { encoding: "utf8" }));
+    assertEq("a ticket whose Key Files name .claude/ is a handoff", r.handoff, true);
+    assertTrue("and the reason says why an unattended run cannot do it",
+      /sensitive/.test(r.reason) && /unattended/.test(r.reason), r.reason);
+
+    // NARROW ON PURPOSE. A ticket that MENTIONS `.claude/` while editing something else is
+    // common, and stopping it would be worse than the defect.
+    const prose = write("b.md", "---\nstatus:\n---\n\n## Key Files\n\n- `src/app.ts`\n\n## Steps\n\nMentions .claude/ in prose only.\n");
+    assertEq("prose outside Key Files is not read",
+      JSON.parse(execSync(`${HO} tickets ${prose}`, { encoding: "utf8" })).handoff, false);
+
+    // A DECLARED VALUE ALWAYS WINS: an author who named a different reason is not overridden.
+    const declared = write("c.md", "---\nstatus:\nverification_handoff: a physical device\n---\n\n## Key Files\n\n- `.claude/settings.json`\n");
+    assertEq("a declared reason is kept, never replaced by the derived one",
+      JSON.parse(execSync(`${HO} tickets ${declared}`, { encoding: "utf8" })).reason, "a physical device");
+
+    // THE READER DERIVES; IT STILL WRITES NOTHING. The handoff is a reading, and stamping it
+    // onto the ticket would make a survey an author.
+    const before = readFileSync(sensitive, "utf8");
+    execSync(`${HO} tickets ${sensitive}`, { encoding: "utf8" });
+    assertEq("the ticket is byte-identical after the reading", readFileSync(sensitive, "utf8"), before);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+}
+
 // ---------- the root is held by the same window that holds the questions (2026-09-01) --------
 // MEASURED on a consuming repository's channel: a `🔎 Moderation` root posted at **04:01 JST**
 // reading `質問 0 件` while that same tick held **seventeen** questions — six expiring directions
@@ -20862,6 +20923,7 @@ const tests = [
   ["a post is written in the language its readers use", testPostLanguageRuleShipsWithThePlugin],
   ["the tick log lives on its own branch, not on main", testTickLogLivesOffMain],
   ["the moderation root is held by the speaking window", testModerationRootIsHeldByTheSpeakingWindow],
+  ["a ticket an unattended run cannot perform is a handoff", testSensitivePathIsAHandoff],
   ["workaholify bootstrap: without it a web routine is configured but cannot work", testWorkaholifyBootstrap],
   ["workaholify: the wiring halves apply, they do not merely audit", testWorkaholifyApplies],
   ["workaholify bootstrap: the session gets the developer's git identity", testBootstrapGitIdentity],
@@ -24484,8 +24546,15 @@ function testWorkaholifyBootstrap() {
         r.problems.some((p) => p.startsWith(key)), JSON.stringify(r.problems));
     }
 
+    // THE GENERATED INDEXES MUST NOT BE A CONFLICT GENERATOR (2026-09-01, issue #780). Measured
+    // on a consuming repository: three open proposal pull requests, every open proposal there
+    // was, each carrying exactly one conflict, and the same generated `index.md` in all three.
+    assertTrue("a repository whose generated indexes still conflict is not wired",
+      r.problems.some((p) => p.startsWith("index_merge_union")), JSON.stringify(r.problems));
+
     // Fully wired.
     installHook(); settings(wired);
+    writeFileSync(join(dir, ".gitattributes"), ".workaholic/*/index.md merge=union\n");
     r = JSON.parse(run(dir, `${CHECK} ${dir}`).stdout);
     assertEq("a fully wired repository is ok", [r.ok, r.problems], [true, []]);
     assertEq("and the installed hook matches the plugin's canonical copy", r.hook.matches_canonical, true);
@@ -30777,6 +30846,41 @@ function testThreadReconcileStep() {
       /🔵 Proposed or 🟡 Handoff/.test(need.read_first), JSON.stringify(need.read_first));
     assertTrue("with one outcome required per candidate",
       /non-conformant on its face/.test(need.outcomes), JSON.stringify(need.outcomes));
+
+    // ---- THE FOUR TRANSITIONS, ONE ROW EACH (2026-09-01, issue #787) ----------------------
+    // The reply itself is the AGENT's act — no script renders it — so what is pinnable is the
+    // instruction the agent is held to, and that is exactly where the defect lived: the step told
+    // it to post `🟢 Implemented` for *a merge*, without asking which status it was merging under.
+    // A merged `🔵 Proposed` therefore announced the opposite of what happened: merging a proposal
+    // lands a record and a ticket set, which is the moment the work becomes QUEUED.
+    assertTrue("🟡 Handoff + merged still reuses 🟢 Implemented, by whom and when",
+      /🟡 Handoff \+ merged reuses 🟢 Implemented/.test(need.post)
+        && /by whom and when/.test(need.post), JSON.stringify(need.post));
+    assertTrue("🔵 Proposed + closed-unmerged still uses ⚫ Closed",
+      /🔵 Proposed \+ closed-unmerged uses ⚫ Closed/.test(need.post), JSON.stringify(need.post));
+    assertTrue("🔵 Proposed + merged POSTS NOTHING, and says why",
+      /🔵 Proposed \+ MERGED POSTS NOTHING/.test(need.post)
+        && /proposal_merged_is_not_a_finish/.test(need.post), JSON.stringify(need.post));
+    assertTrue("...and the skip is a counted outcome rather than a silent drop",
+      /proposal_merged_is_not_a_finish/.test(need.outcomes), JSON.stringify(need.outcomes));
+    // THE GATE THE TICKET SET ON ITSELF: no fifth finish emoji. The instruction names exactly the
+    // two finish shapes the catalog already has, and introduces none of its own.
+    assertEq("no fifth finish emoji is introduced",
+      [...new Set((need.post.match(/[🟢🚀🟡🔵🔴⚫⚪]/gu) || []))].sort().join(""),
+      ["🟢", "🟡", "🔵", "⚫"].sort().join(""));
+    // AND THE FOUR COPIES AGREE. The script, the catalog, the command mirror and the step's own
+    // spec are read separately: two of them carried the narrowing while the spec still told a
+    // reader that a merge means `🟢 Implemented`, which is the drift this row exists to catch.
+    for (const [file, what] of [
+      ["plugins/workaholic/skills/moderate/scripts/step-thread-reconcile.sh", "the step"],
+      ["plugins/workaholic/skills/notify/reference/notifications.md", "the catalog"],
+      ["plugins/workaholic/commands/moderate.md", "the command mirror"],
+      ["plugins/workaholic/skills/moderate/reference/workflow.md", "the step's own spec"],
+    ]) {
+      assertTrue(`${what} carries the narrowing`,
+        readFileSync(join(REPO_ROOT, file), "utf8").includes("proposal_merged_is_not_a_finish"),
+        `${file} still describes a merged proposal as a finish`);
+    }
 
     // AN EARLIER TICK'S `<step>-filed` LINE SUBTRACTS THE CANDIDATE — an optimisation, never the
     // gate: the real dedup is the agent reading the thread before it writes.

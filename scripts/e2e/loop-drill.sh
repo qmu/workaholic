@@ -3795,7 +3795,10 @@ cmd_verify_claim_race() {
         CLAIMS_FETCH_OK=true
         printf "%s" "$(claims_superseded "$(claims_base)" ".workaholic/missions/active/raced/mission.md" "$2" "origin/$2")"
       ' _ "$_lib" "$_brB" ) 2>/dev/null || true )
-    if [ "$_pre" = "false" ] && [ "$_post" = "true" ]; then
+    # THE VERDICT IS THREE-VALUED SINCE 2026-09-01 (issue #788): the repaired composition answers
+    # the WORD `superseded`, not `true`. What the breaker proves is unchanged -- dropping the
+    # claim's tip ref loses the mission-grain reading entirely.
+    if [ "$_pre" = "false" ] && [ "$_post" = "superseded" ]; then
         add_row "claim_race_reading_is_the_tip_walk" true "dropping the claim's tip ref loses the mission-grain reading -- this drill can fail" breaker
     else
         add_row "claim_race_reading_is_the_tip_walk" false "the pre-repair composition answered '${_pre}' and the repaired one '${_post}', so this row proves nothing" breaker
@@ -5895,6 +5898,38 @@ cmd_verify_base_health() {
         add_row "base_health_unanswerable_by_name" true "a running check, a checkless commit and an unknown commit are each unanswerable by their own reason" load
     else
         add_row "base_health_unanswerable_by_name" false "a degradation did not read unanswerable by name: $(one_line "$_p") / $(one_line "$_n")" load
+    fi
+
+    # 1b. A BOOKKEEPING TIP IS WALKED PAST, AND ONLY A `no_checks` ONE (2026-09-01, issue #785).
+    # This loop commits to its own base constantly and most of those commits touch only
+    # `.workaholic/`; every workflow there filters that path out, deliberately, so the tip is
+    # usually a commit no workflow ran on. Measured over a day and a half on a consuming
+    # repository: every tick reported `base_unreadable:tip_no_checks` while the base was green
+    # throughout — the step that exists to notice a broken base was dark exactly when it was
+    # busiest.
+    _clear "$_tip"; _clear "$_c4"
+    _set "$_c3" "$_GREEN"; _set "$_c2" "$_GREEN"; _set "$_c1" "$_GREEN"
+    _wg=$(_run sh "$_walk")
+    if [ "$(_field "$_wg" state)" = "green" ] \
+        && [ -n "$(_field "$_wg" checked_at)" ] \
+        && [ "$(_field "$_wg" checked_at)" = "$(_field "$_wg" last_green)" ] \
+        && [ "$(_field "$_wg" checked_at)" != "$(_field "$_wg" tip)" ] \
+        && printf '%s' "$_wg" | grep -q '"checked_behind": 2'; then
+        add_row "base_health_walks_past_a_checkless_tip" true "a tip no workflow ran on is walked past to the newest checked ancestor, and the verdict says which commit it rests on and how far back" load
+    else
+        add_row "base_health_walks_past_a_checkless_tip" false "a checkless tip did not resolve to its checked ancestor: $(one_line "$_wg")" load
+    fi
+
+    # AND ONLY `no_checks`. A reader that failed, a rate limit, a refused transport are facts
+    # about US, and walking past one would report an older commit's colour as though it were the
+    # tip's -- exactly what the three-valued reader exists to prevent. Proved by asking for a
+    # commit the stub does not know, which is a different unanswerable reason.
+    _wu=$(_run sh "$_walk" --tip 0000000000000000000000000000000000000000)
+    if [ "$(_field "$_wu" state)" = "unanswerable" ] \
+        && [ "$(_field "$_wu" checked_at)" = "" ]; then
+        add_row "base_health_only_no_checks_is_walked_past" true "an unanswerable that is a fact about us stays terminal and names no checked ancestor" load
+    else
+        add_row "base_health_only_no_checks_is_walked_past" false "a non-no_checks unanswerable was walked past: $(one_line "$_wu")" load
     fi
 
     # 2. THE WALK. Red tip, red middle, green behind -- the culprit is the OLDEST red after the

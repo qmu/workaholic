@@ -55,3 +55,4 @@ own. A tick whose steps all read cleanly posts exactly what it posts today.
 - 2026-08-31 — ticket archived — 20260831102424-read-the-impairment-off-the-tick-s-own-rows.md
 - 2026-08-31 — ticket archived — 20260831102424-name-the-impaired-steps-on-every-root.md
 - 2026-08-31 — ticket archived — 20260831102424-let-a-changed-impairment-earn-a-root.md
+- 2026-08-31 — ticket archived — 20260831102424-state-the-impairment-rule-where-the-voice-is-defined.md

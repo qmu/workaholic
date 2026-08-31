@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-31T20:32:39+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -98,3 +99,48 @@ already, and it is what tells them apart.
   worth saying in the step's spec so a later reader knows it was chosen, not overlooked.
 - `[Consent]`'s retirement is untouched: this narrows what the reconcile step corrects and
   announces no human merge that it did not already announce.
+
+## Final Report
+
+Development completed as planned, and the first thing the drive found was that most of it was
+already on the base.
+
+**The behaviour had landed under issue #787 before this unit was claimed.** The step already
+posts nothing for a merged `🔵 Proposed` and reports `proposal_merged_is_not_a_finish`; the
+catalog, the `commands/moderate.md` mirror and `CLAUDE.md` all carried the narrowing. So steps 1
+through 4 of this ticket were done, and re-doing them would have been a second implementation of
+one repair. What had **not** landed was the rest of step 5 and the whole of step 6:
+
+- **`moderate/reference/workflow.md` §23 still told a reader the old rule** — *`🟢 Implemented`
+  … for a merge; `⚫ Closed` for a pull request closed without merging* — with no mention of the
+  status the merge happened under. Three copies agreed and the fourth contradicted them, which is
+  the drift the ticket's own acceptance names. §23's step 3 now states the **pair** rule
+  explicitly (three transitions), carries the measurement, the *saying nothing is strictly better
+  than saying the opposite* reasoning, the no-fifth-emoji ruling and the stated cost, and step 5's
+  outcome list gains `proposal_merged_is_not_a_finish`.
+- **Nothing in the suite pinned any of it.** Nine hermetic rows now do, one per transition plus
+  the gate and the agreement: `🟡 Handoff` + merged reuses `🟢 Implemented` by whom and when;
+  `🔵 Proposed` + closed-unmerged uses `⚫ Closed`; `🔵 Proposed` + merged posts nothing and says
+  why; the skip is a counted outcome rather than a silent drop; **no fifth finish emoji** is
+  introduced (asserted on the emoji set the instruction actually contains); and each of the four
+  copies — the step, the catalog, the command mirror and the spec — carries the narrowing.
+
+**They are asserted against the instruction, not against a return shape**, because no script
+renders the reply: the step hands the agent `post:` and `outcomes:` and the agent posts. That is
+exactly where the defect lived — the instruction said *post `🟢 Implemented` for a merge* without
+asking which status it was merging under — so the instruction is the right thing to pin.
+
+### Discovered Insights
+
+- **Insight**: a repair can land while its own ticket is still queued, and the ticket is then a
+  map of what is missing rather than of what to build.
+  **Context**: issue #787 shipped the behaviour and three of the four documents. Driving this
+  ticket as written would have re-implemented all of it; reading the base first turned a
+  duplicate into the two halves nobody had done — the spec copy and every test row. The check
+  costs one grep per named file and is worth making before any ticket whose subject is a rule
+  the repository already states somewhere.
+- **Insight**: a prose contract needs its pins written against the prose.
+  **Context**: three of these rows assert on `need.post`, a string handed to an agent. That reads
+  like testing a comment, and it is not: the string *is* the mechanism here, and the emoji-set
+  assertion in particular turns "no fifth finish emoji" — a ruling the ticket made on itself —
+  into something that fails when a later change quietly adds one.

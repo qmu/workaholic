@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 2.8
 feedback: [20260831041651-give-the-asking-path-a-bot-identity-so-a-directed-question-actually-notifies-its-addressee.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
@@ -61,3 +61,4 @@ today and says which surface carried each post.
 - 2026-08-31 — ticket archived — 20260831042312-name-the-bot-carried-shapes-in-the-routine-templates.md
 - 2026-08-31 — ticket archived — 20260831042312-drill-the-directed-notification-offline.md
 - 2026-08-31 — story reported — work-20260831-044223.md
+- 2026-08-31 — run recorded (+2.8h) — run-20260831-044223

@@ -51,3 +51,4 @@ recorded and what came of it — once.
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-31 — ticket archived — 20260831200916-state-what-a-tick-s-question-must-carry.md

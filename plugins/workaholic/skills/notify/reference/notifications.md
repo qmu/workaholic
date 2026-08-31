@@ -177,6 +177,45 @@ still reads `summary`, because that is what tells this hour from the last one.
 One sentence, max 25 words, the question itself, with the two options when there are two.
 ```
 
+**What that sentence must contain — the composition contract** (2026-08-31, mission
+`make-the-tick-s-questions-readable-and-close-them-in-the-thread`). The shape above fixes the
+*form* and said nothing about the *content*, so each step composed its own wording from whatever
+identifier it happened to hold and a question opened with a unit id, an artifact path, a claim
+verdict or a strategy slug. The operator reads it on Slack with nothing else in front of them:
+a heading that opens with `batch-20260818215156` or
+`.workaholic/tickets/todo/20260819103855-….md` tells them neither what happened nor what they
+are being asked to do. **This is the one home for the rule; every step reads it from here.**
+
+1. **The heading leads with what happened**, in words a reader outside the repository
+   understands — a plain clause naming *what happened to what*, never an identifier, a verdict
+   word, a dedup key or a step id.
+2. **The identifier comes after it, never before.** The unit, the path, the number or the slug
+   is how the reader finds the thing once they already know what it is about; leading with it
+   makes them decode before they can read.
+3. **A verdict word, a key or a step id never appears alone.** `report_undelivered`,
+   `content_conflict`, `awaiting_verification`, `superseded` are this repository's vocabulary,
+   not the reader's: where one is worth carrying, carry it **beside** the plain fact it stands
+   for, never in place of it.
+4. **The body names the one act asked of the addressee** — the single thing they are being asked
+   to do or decide, in the second person. Where the question genuinely has two options, both are
+   named; that clause of the shape is unchanged.
+5. **The named details that already ride the heading keep riding it** — a direction's declared
+   stage and its leaving, the days left and the date, the branch a retirement could not delete,
+   the files a conflict collided on, how long the subject has been asked about. The body's one
+   sentence is reserved for the act.
+
+**The ≤25-word body is a ceiling, not a target.** A question that will not fit is a question
+aimed at the wrong reader or standing for a finding nobody can act on, and the repair is
+self-containment rather than more text: name the act, drop the mechanism. A step whose finding
+genuinely cannot be said in one sentence names that in its own section rather than lengthening
+the post.
+
+**Nothing mechanical moves with the wording.** `ask-question.sh`, every question key, the
+per-tick cap, the daily bound, the quiet-hours window, the working-day gate and each question's
+addressee are untouched by this rule, and **changing a body never re-asks a question** —
+`already_asked` keys on the step id `lib/question-id.sh` derives from the key, never on the text.
+That is what makes a sweep of every question's wording safe to make in one change.
+
 And a previously asked question whose subject settled this tick is confirmed **once**, as a reply
 into the thread that asked it — no mention token, because it closes a loop rather than demanding
 attention (2026-08-24, the developer's instruction; the rules — `asked`-not-`answered` only, the

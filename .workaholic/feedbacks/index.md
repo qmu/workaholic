@@ -619,6 +619,7 @@
 * [Take the moderation tick's log off main](20260831181658-take-the-moderation-tick-s-log-off-main.md)
 * [Make the tick's Slack questions self-explanatory and close the loop in the thread](20260831200350-make-the-tick-s-slack-questions-self-explanatory-and-close-the-loop-in-the-thread.md)
 * [Every open proposal conflicts on the generated feedbacks index](20260831201820-every-open-proposal-conflicts-on-the-generated-feedbacks-index.md)
+* [base-health never reads a base whose tip is a bookkeeping commit](20260831202854-base-health-never-reads-a-base-whose-tip-is-a-bookkeeping-commit.md)
 * [The operator rejects provisioning a Slack bot identity](20260831221757-the-operator-rejects-provisioning-a-slack-bot-identity.md)
 * [An unattended run decides everything below the handoff bar](20260831221825-an-unattended-run-decides-everything-below-the-handoff-bar.md)
 <!-- okf:generated:end -->

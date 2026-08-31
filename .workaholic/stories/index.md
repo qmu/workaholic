@@ -3,6 +3,7 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [work-20260831-152743](work-20260831-152743.md) - The heartbeat becomes step 0 of every ticket, so a unit that is one long ticket keeps its own claim
 * [work-20260831-140035](work-20260831-140035.md) - An unattended run never waits for a person, and a tick that stops leaves a record the next tick reads
 * [work-20260831-125156](work-20260831-125156.md) - The tick learns to watch absence — a repository declares what should keep being produced, and one step asks when it stops
 * [work-20260831-114321](work-20260831-114321.md) - The tick's questions gain a composition contract and a voice, and an answer written in a thread now gets one reply saying what came of it.

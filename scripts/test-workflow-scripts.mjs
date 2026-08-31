@@ -20261,6 +20261,49 @@ function testPostLanguageRuleShipsWithThePlugin() {
 
 
 
+
+// ---------- a ticket an unattended run cannot perform is a handoff (2026-09-01, issue #793) ----
+// MEASURED on a consuming repository: every `[Implement]` run from 13:37Z onward read
+// `requires_action` — frozen, not idle — each ending at the same line, `permission prompt Edit:
+// … /.claude/hooks/session-start.sh which is a sensitive file`. Claude Code classifies
+// `.claude/**` as sensitive and an unattended container has no human. Seven runs, five hours,
+// nothing landed, and the freeze was SILENT: the resume beats the heartbeat before the edit, so
+// `stalled-units` counted the unit healthy and `catchup-blocked` read 0.
+//
+// `verification_handoff:` already routes exactly this — the pull request opens and stays open,
+// the claim stays standing, a person is asked — so the field is reused rather than duplicated.
+function testSensitivePathIsAHandoff() {
+  const dir = mkdtempSync(join(tmpdir(), "wh-sens-"));
+  const HO = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/verification-handoff.sh")}`;
+  const write = (name, body) => { const p = join(dir, name); writeFileSync(p, body); return p; };
+  try {
+    // DERIVED, because the ticket that froze the loop was already in `todo/` and a declaration
+    // would only ever cover tickets written after the change.
+    const sensitive = write("a.md", "---\nstatus:\n---\n\n## Key Files\n\n- `.claude/hooks/session-start.sh` — the hook\n");
+    const r = JSON.parse(execSync(`${HO} tickets ${sensitive}`, { encoding: "utf8" }));
+    assertEq("a ticket whose Key Files name .claude/ is a handoff", r.handoff, true);
+    assertTrue("and the reason says why an unattended run cannot do it",
+      /sensitive/.test(r.reason) && /unattended/.test(r.reason), r.reason);
+
+    // NARROW ON PURPOSE. A ticket that MENTIONS `.claude/` while editing something else is
+    // common, and stopping it would be worse than the defect.
+    const prose = write("b.md", "---\nstatus:\n---\n\n## Key Files\n\n- `src/app.ts`\n\n## Steps\n\nMentions .claude/ in prose only.\n");
+    assertEq("prose outside Key Files is not read",
+      JSON.parse(execSync(`${HO} tickets ${prose}`, { encoding: "utf8" })).handoff, false);
+
+    // A DECLARED VALUE ALWAYS WINS: an author who named a different reason is not overridden.
+    const declared = write("c.md", "---\nstatus:\nverification_handoff: a physical device\n---\n\n## Key Files\n\n- `.claude/settings.json`\n");
+    assertEq("a declared reason is kept, never replaced by the derived one",
+      JSON.parse(execSync(`${HO} tickets ${declared}`, { encoding: "utf8" })).reason, "a physical device");
+
+    // THE READER DERIVES; IT STILL WRITES NOTHING. The handoff is a reading, and stamping it
+    // onto the ticket would make a survey an author.
+    const before = readFileSync(sensitive, "utf8");
+    execSync(`${HO} tickets ${sensitive}`, { encoding: "utf8" });
+    assertEq("the ticket is byte-identical after the reading", readFileSync(sensitive, "utf8"), before);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+}
+
 // ---------- the root is held by the same window that holds the questions (2026-09-01) --------
 // MEASURED on a consuming repository's channel: a `🔎 Moderation` root posted at **04:01 JST**
 // reading `質問 0 件` while that same tick held **seventeen** questions — six expiring directions
@@ -20871,6 +20914,7 @@ const tests = [
   ["a post is written in the language its readers use", testPostLanguageRuleShipsWithThePlugin],
   ["the tick log lives on its own branch, not on main", testTickLogLivesOffMain],
   ["the moderation root is held by the speaking window", testModerationRootIsHeldByTheSpeakingWindow],
+  ["a ticket an unattended run cannot perform is a handoff", testSensitivePathIsAHandoff],
   ["workaholify bootstrap: without it a web routine is configured but cannot work", testWorkaholifyBootstrap],
   ["workaholify: the wiring halves apply, they do not merely audit", testWorkaholifyApplies],
   ["workaholify bootstrap: the session gets the developer's git identity", testBootstrapGitIdentity],
